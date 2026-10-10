@@ -39,21 +39,23 @@
   const SLOT_NAME = { weapon: 'Оружие', offhand: 'Щит', helm: 'Шлем', armor: 'Доспех', gloves: 'Перчатки', boots: 'Сапоги', ring: 'Кольцо', amulet: 'Амулет' };
   const BASES = {
     sword: { slot: 'weapon', name: 'Короткий меч', icon: 'it_sword', atk: 6, spd: 0.42, arc: 120, reach: 56 },
-    longsword: { slot: 'weapon', name: 'Длинный меч', icon: 'it_longsword', atk: 9, spd: 0.55, arc: 130, reach: 66 },
-    axe: { slot: 'weapon', name: 'Боевой топор', icon: 'it_axe', atk: 12, spd: 0.7, arc: 140, reach: 61 },
-    hammer: { slot: 'weapon', name: 'Боевой молот', icon: 'it_hammer', atk: 15, spd: 0.85, arc: 150, reach: 61, kb: 2 },
-    staff: { slot: 'weapon', name: 'Посох мага', icon: 'it_staff', atk: 4, spd: 0.5, arc: 110, reach: 61, spell: 0.35 },
+    longsword: { slot: 'weapon', name: 'Длинный меч', icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
+    axe: { slot: 'weapon', name: 'Боевой топор', icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
+    hammer: { slot: 'weapon', name: 'Боевой молот', icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
+    staff: { slot: 'weapon', name: 'Посох мага', icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
     shield: { slot: 'offhand', name: 'Круглый щит', icon: 'it_shield', def: 4 },
-    leather_helm: { slot: 'helm', name: 'Кожаный шлем', icon: 'it_helm_l', def: 1 },
-    knight_helm: { slot: 'helm', name: 'Рыцарский шлем', icon: 'it_helm_k', def: 3, minF: 3 },
-    leather_armor: { slot: 'armor', name: 'Кожаная броня', icon: 'it_armor_l', def: 3 },
-    plate_armor: { slot: 'armor', name: 'Латный доспех', icon: 'it_armor_p', def: 6, minF: 3 },
+    leather_helm: { slot: 'helm', name: 'Кожаный шлем', icon: 'it_helm_l', def: 2, typed: { aspd: 0.6 } },
+    knight_helm: { slot: 'helm', name: 'Рыцарский шлем', icon: 'it_helm_k', def: 2, typed: { hp: 0.5 }, minF: 3 },
+    leather_armor: { slot: 'armor', name: 'Кожаная броня', icon: 'it_armor_l', def: 3, typed: { mspd: 0.8 } },
+    plate_armor: { slot: 'armor', name: 'Латный доспех', icon: 'it_armor_p', def: 3, typed: { hp: 1 }, minF: 3 },
     gauntlets: { slot: 'gloves', name: 'Латные перчатки', icon: 'it_gloves', def: 1 },
     boots: { slot: 'boots', name: 'Кожаные сапоги', icon: 'it_boots', def: 1 },
     ring: { slot: 'ring', name: 'Кольцо', icon: 'it_ring' },
     amulet: { slot: 'amulet', name: 'Амулет', icon: 'it_amulet' },
-    cloak: { slot: 'armor', name: 'Плащ странника', icon: 'it_cloak', def: 2 },
+    cloak: { slot: 'armor', name: 'Плащ странника', icon: 'it_cloak', def: 3, typed: { mp: 1.4 } },
   };
+  // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
+  const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {
     hp_potion: { name: 'Зелье здоровья', icon: 'it_hp', heal: 0.4, stack: 9 },
     mp_potion: { name: 'Зелье маны', icon: 'it_mp', mana: 0.5, stack: 9 },
@@ -163,7 +165,7 @@
   };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, BIOMES, FLOORS, biomeOf, floorName, ENEMIES, BAL, ELITE, SLOTS, SLOT_NAME, BASES, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, BIOMES, FLOORS, biomeOf, floorName, ENEMIES, BAL, ELITE, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, STATS, META, metaLine, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

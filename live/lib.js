@@ -445,11 +445,13 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // ---------------- QA hooks (scripts/qa.mjs reads them after each render; reset by beginBG) ----------------
   // uiBox: a HUD container (panel, slot, backdrop) — every text must sit inside one, `pad` px from its edge.
   // uiText: a drawn text's box (L.text and L.label record themselves).
+  // uiCover: an opaque layer (a tooltip, a modal) drawn over earlier HUD: texts under it are hidden, boxes under it hold nothing drawn after.
   // anchor: where the SIM emits something (anything shot, thrown or shone) vs where the scene DRAWS what emits it (the held
   //   item's tip, a hand, a barrel), in view px. qa.mjs fails when they are more than tol apart (an effect leaving from the feet).
   L.UI = []; L.ANCH = [];
   L.uiBox = (id, x, y, w, h, pad = 6) => L.UI.push({ k: 'box', id, x, y, w, h, pad });
   L.uiText = (id, s, x, y, w, h) => L.UI.push({ k: 'text', id, s, x, y, w, h });
+  L.uiCover = (id, x, y, w, h) => L.UI.push({ k: 'cover', id, x, y, w, h });
   L.anchor = (name, sim, drawn, tol = 8) => L.ANCH.push({ name, sim, drawn, tol, d: Math.hypot(sim[0] - drawn[0], sim[1] - drawn[1]) });
   L.qaReset = () => { L.UI = window.__UI = []; L.ANCH = window.__ANCHORS = []; };
 
