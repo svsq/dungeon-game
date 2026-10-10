@@ -35,6 +35,7 @@
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
+    if (R && V && S.screen === 'play') souls(S, R, V);
     if (S.screen === 'menu') menu(S, t);
     if (S.screen === 'meta') meta(S, t);
     if (S.screen === 'pause') { dim(0.55); lab('p_title', 'Пауза', W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause()) button('pb_' + b.id, b, S.hover); }
@@ -102,10 +103,15 @@
     [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].forEach(([b, ic, k], i) => { const x = 282 + i * 42, y = 90;
       panel('pot_' + b, x, y, 38, 44, { r: 5 }); icon(ic, x + 4, y + 3, 30); lab('potn_' + b, pot(b), x + 33, y + 35, { size: 15, al: 1 }); lab('potk_' + b, k, x + 7, y + 10, { size: 12, col: C.gold }); });
     // stats column (no panel, like the reference: icons and numbers straight on the frame, with an ink outline)
-    const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%'], ['it_gold', h.gold]];
+    const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
     const sw = Math.max(...rows.map(([, v], i) => lw('stv' + i, v, { size: 19 }))) + 46;
     panel('stats', 14, 128, sw, rows.length * 28 + 8, { r: 5, a: 0.55 });
     rows.forEach(([ic, v], i) => { icon(ic, 19, 133 + i * 28, 22); lab('stv' + i, v, 48, 145 + i * 28, { size: 19 }); });
+    const money = currencies(S, R);
+    for (const [id, ic, value, x, w, col] of money) {
+      panel(id + '_box', x, 146, w, 36, { r: 5, a: 0.85 });
+      icon(ic, x + 6, 152, 24); lab(id, value, x + 36, 165, { size: 19, col });
+    }
     // floor title + minimap
     minimap(S, R, t);
     // boss bar
@@ -122,6 +128,37 @@
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 24;
       panel('feedbox' + i, 18, y - 15, w, 30, { r: 5, a: 0.7 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
     if (S.screen === 'play') { const k = 'I — герой · Esc — пауза'; lab('keys', k, W - 18, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
+  }
+
+  function currencies(S, R) {
+    const gold = String(R.hero.gold), shards = String(S.meta.shards), gw = lw('gold_count', gold, { size: 19 }) + 48;
+    return [['gold_count', 'it_gold', gold, 116, gw, C.gold], ['shard_count', 'crystal', shards, 126 + gw, lw('shard_count', shards, { size: 19 }) + 48, '#9cc8ff']];
+  }
+
+  function souls(S, R, V) {
+    const tx = currencies(S, R)[1][3] + 18, ty = 164;
+    for (const e of S.ev) {
+      const a = S.t - e.t, floorReward = e.k === 'stairs' && e.n > 0;
+      if ((!floorReward && e.k !== 'shard') || a < 0 || a > 3.5 || (e.floor !== undefined && e.floor !== R.floor - (floorReward ? 1 : 0))) continue;
+      const x0 = floorReward ? W / 2 : V.sx(e.x), y0 = floorReward ? 280 : V.sy(e.y) - 20;
+      if (floorReward) {
+        const text = 'Осколки душ: +' + e.n + ' за этаж ' + e.floor, alpha = L.SS(0, 0.15, a) * (1 - L.SS(2.8, 3.5, a));
+        const w = lw('soul_reward', text, { size: 22 }) + 36;
+        panel('soul_reward_box', W / 2 - w / 2, 213, w, 42, { a: 0.8 * alpha });
+        lab('soul_reward', text, W / 2, 235, { size: 22, al: 0.5, col: '#9cc8ff', a: alpha });
+      }
+      if (a < 0.45 && !floorReward) {
+        G.blend('add'); L.glow(x0, y0, 55 + a * 100, [0.35, 0.65, 1], (1 - a / 0.45) * 0.9); G.blend();
+      }
+      const start = floorReward ? 0.55 : 0.15, q = L.SS(start, start + 0.85, a);
+      if (a < start + 0.85) {
+        const x = x0 + (tx - x0) * q, y = y0 + (ty - y0) * q + Math.sin(q * Math.PI) * (floorReward ? 60 : -80);
+        G.blend('add'); L.glow(x, y, 24, [0.35, 0.65, 1], 0.75); G.blend();
+        icon('crystal', x - 12, y - 12, 24);
+      }
+      const pulse = 1 - Math.abs((a - start - 0.85) / 0.3);
+      if (pulse > 0) { G.blend('add'); L.glow(tx, ty, 38, [0.35, 0.65, 1], pulse * 0.7); G.blend(); }
+    }
   }
 
   function minimap(S, R, t) {
@@ -157,6 +194,7 @@
     dim(0.6); panel('inv', P.x, P.y, P.w, P.h, { r: 10 });
     lab('inv_t', 'Герой', P.x + 40, P.y + 46, { size: 40, col: C.gold });
     lab('inv_g', h.gold + ' золота', P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('inv_g', h.gold + ' золота', { size: 28 }) - 46, P.y + 28, 36);
+    lab('inv_souls', 'Осколки душ: ' + S.meta.shards, P.x + 310, P.y + 46, { size: 22, col: '#9cc8ff' });
     // portrait and level
     L.sprite('portrait', P.x + 40, P.y + 90, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] }); L.uiBox('inv_por', P.x + 40, P.y + 90, 220, 186);
     lab('inv_lv', 'Уровень ' + h.lvl, P.x + 150, P.y + 300, { size: 28, al: 0.5 });
