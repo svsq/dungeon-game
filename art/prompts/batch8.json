@@ -1,0 +1,47 @@
+[
+ {
+  "name": "skeleton_parts_sheet",
+  "prompt": "art/prompts/skeleton_parts.txt",
+  "ref": [
+   "art/gen/en_skeleton.png"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "goblin_parts_sheet",
+  "prompt": "art/prompts/goblin_parts.txt",
+  "ref": [
+   "art/gen/en_goblin.png"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "brute_parts_sheet",
+  "prompt": "art/prompts/brute_parts.txt",
+  "ref": [
+   "art/gen/en_brute.png"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "cultist_parts_sheet",
+  "prompt": "art/prompts/cultist_parts.txt",
+  "ref": [
+   "art/gen/en_cultist.png"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "spider_parts_sheet",
+  "prompt": "art/prompts/spider_parts.txt",
+  "ref": [
+   "art/gen/en_spider.png"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ }
+]

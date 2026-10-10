@@ -1,0 +1,4 @@
+Use case: a seamless tileable molten lava material for a top-down dungeon game (Image 1 is the style reference only: the lava rivers at its left).
+Subject: molten lava seen from above: bright orange and yellow molten flow with darker red-brown cooling crust plates floating in it, cracks of yellow between the plates.
+Composition: the whole canvas is lava, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel drawn as an 8x8 block of one colour.
+Constraints: flat colours only, no glow halo, no smoke, no rocks shore, no objects.

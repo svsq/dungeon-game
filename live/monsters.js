@@ -1,0 +1,244 @@
+// live/monsters.js — monster rigs: cut-out parts from part sheets (partrig.py), posed from the sim's clocks (pure function of state).
+// A biped (skeleton, goblin, demon) plants its feet on paths driven by distance, solves its knees by two-bone IK, lets the hip ride
+// the legs, and swings its arms from pose curves keyed to the attack's own clock; the spider walks eight legs in two alternating sets.
+(function () {
+  const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
+  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider' };   // the ghost bends its one sprite (softbones)
+  MON.rigOf = (type) => { const n = RIG[type]; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
+  const d2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
+  const rotP = (p, c, a) => { const dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * Math.cos(a) - dy * Math.sin(a), c[1] + dx * Math.sin(a) + dy * Math.cos(a)]; };
+  const lerp = (a, b, k) => a + (b - a) * k;
+
+  // ---------------- the biped ----------------
+  // o: { id, n, x, y, face, H, dist, vx, vy, lean, crouch, arm(side, base) → [r1, r2], item, shield, wSide, U, Ufar, fallR, lift }
+  function biped(o) {
+    const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.footL[1], fallR = o.fallR || 0, lean = o.lean || 0;
+    const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), dirx = sp > 1 ? o.vx / sp * face : 0, diry = sp > 1 ? o.vy / sp : 0;
+    const legL = d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL), sl = 0.4 * legL * s, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU;
+    const fc = Math.cos(fallR), fs = Math.sin(fallR), root = [o.x, o.y];
+    const R2S = (px, py, dy = 0) => { const x = face * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
+    // legs: the stance foot slides back at body speed, the swing foot eases forward on a lift arc (phase from distance)
+    const tg = {};
+    for (const side of ['L', 'R']) {
+      const A0 = RG['ankle' + side], u = (u0 + (side === 'L' ? 0 : 0.5)) % 1, A = sl / 2 / s * run;
+      let off, lift = 0;
+      if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2; off = -A + 2 * A * SS(0.12, 0.95, w); lift = Math.pow(Math.sin(Math.PI * w), 0.6) * RG.h * (o.lift || 0.038) * (0.75 + 0.25 * Math.abs(dirx)) * run; }
+      // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch)
+      const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
+      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
+    }
+    const dbl = 0.5 + 0.5 * Math.cos(2 * ph), breath = (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0));
+    // the hip rides the stance leg: one formula for both legs (≈ step² / 2L on the average leg), so legs drawn at different
+    // lengths or angles in 3/4 can't make the gait limp; the rest crouch below leaves the reach for it
+    const Lavg = (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL) + d2(RG.hipR, RG.kneeR) + d2(RG.kneeR, RG.ankleR)) / 2;
+    const drop = Math.max(...['L', 'R'].map((sd) => tg[sd].off * tg[sd].off / (2 * Lavg)));
+    // drawn legs are nearly straight, where IK is unstable: settle the hip until both rest legs bend to 95 % of their length
+    let crouch0 = 0; for (const side of ['L', 'R']) { const H0 = RG['hip' + side], A0 = RG['ankle' + side], Lm = 0.95 * (d2(H0, RG['knee' + side]) + d2(RG['knee' + side], A0)), dx0 = A0[0] - H0[0];
+      crouch0 = Math.max(crouch0, A0[1] - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx0 * dx0))); }
+    const hipDy = Math.max((run * 2.2 * dbl + (breath + 1) * 0.8) / s, drop) + crouch0 + (o.crouch || 0);
+    const legs = {};
+    for (const side of ['L', 'R']) {
+      const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty } = tg[side], Hp = [H0[0], H0[1] + hipDy];
+      const l1 = d2(H0, K0), l2 = d2(K0, A0), dx = tx - Hp[0], dy = ty - Hp[1], d = Math.hypot(dx, dy), dm = Math.min(d, (l1 + l2) * 0.985);
+      const ka = Math.atan2(dy, dx) - Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dm * dm - l2 * l2) / (2 * l1 * dm))));
+      const K1 = [Hp[0] + Math.cos(ka) * l1, Hp[1] + Math.sin(ka) * l1], aT = Math.atan2(ty - K1[1], tx - K1[0]), T1 = [K1[0] + Math.cos(aT) * l2, K1[1] + Math.sin(aT) * l2];
+      const f = (T1[1] - Hp[1] + tg[side].dz) / (T1[1] - Hp[1]), Y = (p) => [p[0], Hp[1] + (p[1] - Hp[1]) * f], K = Y(K1), T = Y(T1);
+      legs[side] = { H0, K0, A0, Hp, K, T, r1: ang(K, Hp) - ang(K0, H0), r2: ang(T, K) - ang(A0, K0), k1: d2(Hp, K) / l1, k2: d2(K, T) / l2, lift: tg[side].lift };
+    }
+    // the upper body leans about the hip; arms ride it
+    const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0], Hc[1], hipDy * s), bc = Math.cos(lean), bs = Math.sin(lean);
+    const R2U = (px, py, dy = 0) => { const p = R2S(px, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };
+    const legSwing = Math.sin(ph) * 0.4 * run, arms = {};
+    // arms swing against the same-side leg along the travel: the sign comes from where the drawn hand sits relative to its shoulder
+    const vxn = sp > 1 ? o.vx / sp : 1, vyn = sp > 1 ? o.vy / sp : 0;
+    for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = face * (Hd0[1] - S0[1]) * vxn + (Hd0[0] - S0[0]) * vyn, sg = Jt > 0 ? 1 : -1;
+      const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + breath * 0.04 * (side === 'L' ? 1 : -1);
+      const r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
+      const E0 = RG['elbow' + side], Sp = [S0[0], S0[1] + hipDy];
+      const E = rotP([E0[0], E0[1] + hipDy], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + hipDy], Sp, r[0]), E, r[1] - r[0]);
+      arms[side] = { S0, E0, Sp, E, Hd, r1: r[0], r2: r[1] }; }
+    const part = (nm, pv, at, rot, u, k = 1, up = 0) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(face, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u });
+    const drawLeg = (side, u) => { const g = legs[side];
+      part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02, u); };
+    const drawArm = (side, u) => { const A = arms[side]; part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, lean); part('farm' + side, A.E0, R2U(A.E[0], A.E[1]), A.r2, u, 1, lean); };
+    const J = (nm, p) => L.joint(o.id, nm, p);
+    const held = (side, u) => { const A = arms[side], Hd = R2U(A.Hd[0], A.Hd[1]);
+      if (side === (o.wSide || 'R') && window.ASSETS[o.n + '_weapon']) {
+        const ba0 = A.r2 + Math.PI / 2 - 0.8, ba = o.item.ang !== undefined ? ba0 + (((o.item.ang - ba0 + Math.PI) % TAU + TAU) % TAU - Math.PI) * (o.item.angK ?? 1) : ba0, sa = (face > 0 ? ba : Math.PI - ba) + fallR + lean;
+        const tex = o.n + '_weapon', th = RG.weaponLen * s, tw = th * G.tex(tex).w / G.tex(tex).h, gr = RG.weaponGrip;
+        L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa - Math.PI / 2)), w: tw, h: th, pivot: [tw / 2, th * gr], u });
+        J('grip', Hd); J('tip', [Hd[0] + Math.cos(sa) * th * (1 - gr), Hd[1] + Math.sin(sa) * th * (1 - gr)]); }
+      if (o.shield && side !== (o.wSide || 'R') && window.ASSETS[o.n + '_shield']) {
+        const [w0, h0] = [G.tex(o.n + '_shield').w, G.tex(o.n + '_shield').h], sw = RG.shieldW * s, sh = sw * h0 / w0;
+        L.sprite(o.n + '_shield', 0, 0, { m: M.of(M.t(Hd[0] + face * 4 * s, Hd[1] - 6 * s), M.r(fallR + lean * 0.5), M.s(face * 0.8, 1)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }); } };
+    // far arm (+ its item) → far leg → near leg → body → near arm (+ its item)
+    drawArm('L', o.Ufar); held('L', o.Ufar); drawLeg('L', o.Ufar); drawLeg('R', o.U);
+    L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U });
+    drawArm('R', o.U); held('R', o.U);
+    // the far foot stands higher in 3/4: each foot has its own ground
+    J('ground', root); J('head', R2U(RG.head[0], RG.head[1], hipDy * s)); J('top', R2U(RG.top[0], RG.top[1], hipDy * s)); J('hip', hipS);
+    for (const side of ['L', 'R']) { const g = legs[side], A = arms[side], dT = [g.T[0] - g.A0[0], g.T[1] - g.A0[1]];
+      J('hip' + side, R2S(g.Hp[0], g.Hp[1])); J('knee' + side, R2S(g.K[0], g.K[1])); J('ankle' + side, R2S(g.T[0], g.T[1]));
+      J('heel' + side, R2S(RG['heel' + side][0] + dT[0], RG['heel' + side][1] + dT[1])); J('toe' + side, R2S(RG['toe' + side][0] + dT[0], RG['toe' + side][1] + dT[1]));
+      J('ground' + side, R2S(gx, RG['foot' + side][1] + tg[side].dz)); J('sh' + side, R2U(A.Sp[0], A.Sp[1])); J('elbow' + side, R2U(A.E[0], A.E[1])); J('hand' + side, R2U(A.Hd[0], A.Hd[1])); }
+    return { R2U, arms, s };
+  }
+  MON.biped = biped;
+  // one stride (two steps) in view px for a rig drawn H tall: what the sim's distance must cover per gait cycle
+  MON.stride = (type, H) => { const RG = RIGS[RIG[type]], s = H / RG.h; return type === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
+
+  // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
+  // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
+  function robed(o) {
+    const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.foot, fallR = o.fallR || 0, root = [o.x, o.y];
+    const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), ph = o.dist / (0.28 * RG.h * s) * TAU;
+    const breath = (1 - run) * Math.sin(o.t * 1.7 + (o.seed || 0)), sway = run * 0.045 * Math.sin(ph) + 0.015 * breath, bob = run * 1.6 * Math.abs(Math.sin(ph)) + 1.4 * breath;
+    const lean = (o.lean || 0) + sway, rot = fallR + lean, rc = Math.cos(rot), rs = Math.sin(rot);
+    // the robe pivots at the hem's centre: everything above leans with it
+    const R2U = (px, py) => { const x = face * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
+    const part = (nm, pv, at, r, u) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(rot), M.s(face, 1), M.r(r)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u });
+    const swing = run * 0.12 * Math.sin(ph + 1), staffR = (o.staff || 0) + swing * 0.5 + 0.04 * breath;
+    const push = o.push || 0, r1 = -swing - 0.06 * breath + lerp(0, (o.aimR ?? 0) - 0.4, push), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push);
+    const E = rotP(RG.elbowR, RG.shR, r1), Hd = rotP(rotP(RG.handR, RG.shR, r1), E, r2 - r1), HdL = rotP(RG.handL, RG.shL, staffR);
+    part('farmL', RG.shL, R2U(...RG.shL), staffR, o.Ufar);
+    L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    part('uarmR', RG.shR, R2U(...RG.shR), r1, o.U); part('farmR', RG.elbowR, R2U(...E), r2, o.U);
+    const J = (nm, p) => L.joint(o.id, nm, p);
+    J('ground', root); J('top', R2U(...RG.top)); J('head', R2U(RG.top[0], RG.top[1] + 0.12 * RG.h)); J('hip', R2U(gx, gy - 0.45 * RG.h));
+    J('shL', R2U(...RG.shL)); J('handL', R2U(...HdL)); J('shR', R2U(...RG.shR)); J('elbowR', R2U(...E)); J('handR', R2U(...Hd));
+    return { handR: R2U(...Hd) };
+  }
+
+  // ---------------- the spider: eight legs in two alternating sets, knees arched up, seen from the front ----------------
+  // the drawing faces the camera, so it never mirrors; sockets 0–3 are the left side from the rear (top) to the front (bottom)
+  const SP_FOOT = [[-330, -150], [-385, 15], [-365, 175], [-255, 300]];          // rest feet from their sockets (sheet px, left side)
+  const SP_SET = [0, 1, 0, 1, 1, 0, 1, 0];                                      // L0 L2 R1 R3 | L1 L3 R0 R2
+  function spider(o) {
+    const RG = RIGS.spider, s = 0.8 * o.H / RG.h, root = [o.x, o.y], A = RG.legA, B = RG.legB;
+    const l1 = d2(A.root, A.end) * s, l2 = d2(B.root, B.end) * s, angA = ang(A.root, A.end), angB = ang(B.root, B.end);
+    const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), dv = sp > 1 ? [o.vx / sp, o.vy / sp] : [1, 0], sl = 0.32 * o.H, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1;
+    const rear = o.rear || 0, curl = o.curl || 0, breath = (1 - run) * Math.sin(o.t * 2.4 + (o.seed || 0));
+    const lift = (0.07 + 0.16 * rear) * o.H * (1 - curl) + run * 0.6 * Math.abs(Math.sin(u0 * TAU * 2)) + 1.3 * breath;
+    const S2 = (px, py, up) => [root[0] + (px - RG.w / 2) * s, root[1] + (py - RG.h) * s - up];   // body image px → screen
+    const legs = [];
+    for (let i = 0; i < 8; i++) {
+      const side = i < 4 ? -1 : 1, j = i % 4, so = RG.sockets[i], Sk = S2(so[0], so[1], lift), S0 = S2(so[0], so[1], 0.07 * o.H);
+      const u = (u0 + (SP_SET[i] ? 0.5 : 0)) % 1, Aa = sl / 2 * run; let off, up = 0;
+      if (u < 0.5) off = Aa * (1 - 4 * u); else { const w = (u - 0.5) * 2; off = -Aa + 2 * Aa * SS(0.1, 0.9, w); up = Math.sin(Math.PI * w) * 0.1 * o.H * run; }
+      let F = [S0[0] + side * Math.abs(SP_FOOT[j][0]) * s + dv[0] * off, S0[1] + SP_FOOT[j][1] * s + dv[1] * off * 0.6 - up];
+      if (j >= 2 && rear > 0) { const k = rear * (j === 3 ? 1 : 0.45); F = [lerp(F[0], Sk[0] + side * 0.45 * (l1 + l2) * 0.5 + (o.aimX || 0) * 0.3 * o.H, k), lerp(F[1], Sk[1] - 0.35 * o.H, k)]; }
+      if (curl > 0) F = [lerp(F[0], Sk[0] + side * 0.25 * l1, curl), lerp(F[1], Sk[1] + 0.15 * l1, curl)];
+      // two-bone IK, the knee on the upper side of the socket → foot line
+      const dx = F[0] - Sk[0], dy = F[1] - Sk[1], d = Math.min(Math.hypot(dx, dy), (l1 + l2) * 0.98), base = Math.atan2(dy, dx);
+      const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
+      const K1 = [Sk[0] + Math.cos(base - a) * l1, Sk[1] + Math.sin(base - a) * l1], K2 = [Sk[0] + Math.cos(base + a) * l1, Sk[1] + Math.sin(base + a) * l1];
+      const K = K1[1] < K2[1] ? K1 : K2, T = [K[0] + Math.cos(Math.atan2(F[1] - K[1], F[0] - K[0])) * l2, K[1] + Math.sin(Math.atan2(F[1] - K[1], F[0] - K[0])) * l2];
+      legs.push({ side, j, Sk, K, T });
+    }
+    // a segment drawn root → end, mirrored for the left side (the drawing points right)
+    const seg = (tex, P, r0, a0, from, to, side, u) => { const want = Math.atan2(to[1] - from[1], to[0] - from[0]);
+      L.sprite(tex, 0, 0, { m: M.of(M.t(from[0], from[1]), M.r(side < 0 ? want - Math.PI + a0 : want - a0), M.s(side < 0 ? -1 : 1, 1)), w: P.w * s, h: P.h * s, pivot: [r0[0] * s, r0[1] * s], u }); };
+    for (const g of legs.sort((p, q) => p.Sk[1] - q.Sk[1])) { const u = g.j < 2 ? o.Ufar : o.U;
+      seg('spider__legA', A, A.root, angA, g.Sk, g.K, g.side, u); seg('spider__legB', B, B.root, angB, g.K, g.T, g.side, u); }
+    L.sprite('spider__body', 0, 0, { m: M.of(M.t(...S2(RG.w / 2, RG.h, lift)), M.r(o.lean || 0)), w: RG.w * s, h: RG.h * s, pivot: [RG.w / 2 * s, RG.h * s], u: o.U });
+    const J = (nm, p) => L.joint(o.id, nm, p); J('ground', root); J('top', S2(RG.w / 2, 0, lift)); J('head', S2(RG.w / 2, RG.h * 0.75, lift));
+    legs.forEach((g, i) => J('foot' + i, g.T));
+  }
+
+  // ---------------- the merchant: behind his counter, facing the camera; the counter hides his legs ----------------
+  // o: { id, x, y, H, t, look (−1..1, where the hero stands), near (0..1), greetT, tradeT, U }
+  // L is the screen-left arm (it works the scales on the counter's left), R strokes the beard and waves
+  MON.merchant = (o) => {
+    const RG = RIGS.merchant; if (!RG || !window.ASSETS.merchant__body) return false;
+    const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y];
+    const S2 = (px, py) => [root[0] + (px - gx) * s, root[1] + (py - gy) * s];
+    const bump = (u, a, b) => (u <= a || u >= b ? 0 : Math.pow(Math.sin(Math.PI * (u - a) / (b - a)), 2));
+    const greet = o.greetT !== undefined ? t - o.greetT : 9, trade = o.tradeT !== undefined ? t - o.tradeT : 9;
+    const wave = greet >= 0 && greet < 1.5 ? SS(0, 0.25, greet) * (1 - SS(1.2, 1.5, greet)) : 0, nod = trade >= 0 && trade < 0.7 ? bump(trade, 0, 0.7) : 0;
+    // a 6 s work loop, eased off while the hero stands close: a coin onto the scales, a look, a stroke of the beard
+    const work = 1 - 0.7 * (o.near || 0), u = (t + (o.seed || 0)) % 6;
+    const coin = bump(u, 0.2, 1.8) * work, peek = bump(u, 0.6, 1.6) * work, beard = bump(u, 2.6, 5.0) * work * (1 - wave), rub = beard * Math.sin(t * 9) * 0.12;
+    const breath = Math.sin(t * 1.8 + (o.seed || 0)), lift = breath * 4 - 10 * nod;     // rig px: shoulders and head ride the breath, sink on the nod
+    const rL = [-0.18 * coin - 0.1 * nod, -0.18 * coin - 0.75 * coin - 0.1 * nod + 0.02 * breath];
+    const rR = [lerp(0.32 * beard + 0.12 * nod, -1.9, wave), lerp(0.32 * beard + 2.45 * beard + rub + 0.12 * nod, -2.6 + 0.4 * Math.sin(greet * 13), wave)];
+    const arm = (side, r) => { const S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
+      const E = rotP([E0[0], E0[1] + lift], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + lift], Sp, r[0]), E, r[1] - r[0]); return { S0, E0, Sp, E, Hd, r }; };
+    const A = { L: arm('L', rL), R: arm('R', rR) };
+    const part = (nm, pv, at, rot) => L.sprite('merchant__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
+    L.sprite('merchant__body', 0, 0, { m: M.of(M.t(...root)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    const look = (o.look || 0) * (o.near || 0), hr = 0.09 * look - 0.07 * peek, hx = 5 * look - 4 * peek, hy = lift + 8 * peek + 6 * nod;
+    part('head', RG.neck, [RG.neck[0] + hx, RG.neck[1] + hy], hr);
+    for (const sd of ['L', 'R']) { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]); }
+    const J = (nm, p) => L.joint(o.id, nm, S2(...p));
+    L.joint(o.id, 'ground', root); J('top', [RG.top[0] + hx, RG.top[1] + hy]); J('head', [RG.neck[0] + hx, RG.neck[1] + hy]);
+    for (const sd of ['L', 'R']) { const a = A[sd]; J('sh' + sd, a.Sp); J('elbow' + sd, a.E); J('hand' + sd, a.Hd); }
+    return true;
+  };
+
+  // ---------------- attacks: arm curves keyed to the attack clock ----------------
+  // rig angles: 0 hangs straight down, positive turns clockwise when facing right (back, then up over the head, then forward)
+  const aimRig = (e, face, H) => { const a = Number.isFinite(e.tx) ? Math.atan2(e.ty - 34 - e.y + 0.75 * H, e.tx - e.x) : e.aimA; return face > 0 ? a : Math.PI - a; };   // casters keep only aimA
+  const above = (a, lo) => lo + ((a - lo) % TAU + TAU) % TAU;                   // a, turned whole turns to lie in (lo, lo + 2π]
+  // an overhead chop: cock back-up over the wind-up, accelerate over the top so the blade crosses the aim on the damage frame
+  // (the strike's first frame), follow through, then keep turning the same way down to the hanging rest: no swing back
+  function chop(e, E, GT, face, H, base, o) {
+    const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0, RAISE = o.raise, T = o.chopT, P = 1.3;
+    const imp = above(aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - 0.15, RAISE + 0.3), vEnd = P * (imp - RAISE) / T;   // blade = its angle in the drawing
+    if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T;
+      if (u < tc) { const k = SS(0, Math.max(0.05, tc), u); return { r1: lerp(base, RAISE, k), bend: lerp(o.bend0 ?? 0.18, o.bendUp ?? 0.9, k), k }; }
+      // from rest at the top to vEnd at the impact: a cubic with no jerk at its start
+      if (u < w) { const x = (u - tc) / T, q = (3 - P) * x * x + (P - 2) * x * x * x; return { r1: lerp(RAISE, imp, q), bend: lerp(o.bendUp ?? 0.9, 0.15, x), k: 1 }; }
+      return after(imp, u - w, base, o, vEnd); }
+    if (e.st === 'strike') return after(imp, u, base, o, vEnd);
+    return null;
+  }
+  // the follow-through leaves the impact at the chop's own speed and bleeds it off over `over` rad: no one-frame stop
+  function after(imp, v, base, o, vEnd) { const over = o.over || 2.2, fol = imp + over * (1 - Math.exp(-v * vEnd / over)), rest = base + TAU * Math.round((imp + over - base) / TAU), k = SS(0.12, o.recover, v);
+    return { r1: lerp(fol, rest, k), bend: lerp(0.15, o.bend0 ?? 0.18, k), k: 1 - k }; }
+  // a stab: the arm cocks back with the elbow folded, then thrusts straight along the aim, the blade in line with the forearm
+  function stab(e, E, GT, face, H, base, bend0) {
+    const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0, aim = aimRig(e, face, H), imp = aim - Math.PI / 2, BACK = 1.3, T = 0.09;
+    const impN = BACK - (((BACK - imp) % TAU) + TAU) % TAU;
+    if (e.st === 'wind') { const tc = ew - T;
+      if (u < tc) { const k = SS(0, tc, u); return { r1: lerp(base, BACK, k), bend: lerp(bend0, 1.6, k), k, crouch: k, ang: null }; }
+      const q = SS(0, T, u - tc); return { r1: lerp(BACK, impN, q), bend: lerp(1.6, 0.05, q), k: 1, crouch: 1 - q, ang: aim, angK: q }; }
+    if (e.st === 'strike') { const k = SS(0.08, 0.3, u); return { r1: lerp(impN, base, k), bend: lerp(0.05, bend0, k), k: 1 - k, crouch: 0, ang: aim, angK: 1 - k }; }
+    return null;
+  }
+
+  // ---------------- per type ----------------
+  // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
+  MON.draw = (e, E, x, y, GT, o) => {
+    const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
+    const base = { item: {}, id: o.id, seed: e.id, n, x, y, face, H, dist: e.dist, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t };
+    if (n === 'skeleton' || n === 'goblin') {
+      // cut from the approved drawing: its pose is the rest pose, the weapon and shield are part of the forearms
+      const RG = RIGS[n]; base.wSide = 'L';
+      const pose = (b) => !live ? null : n === 'skeleton' ? chop(e, E, GT, face, H, b, { raise: -0.45, bendUp: 0.35, bend0: 0, blade: RG.bladeL, chopT: 0.26, recover: 0.32 })
+        : chop(e, E, GT, face, H, b, { raise: -0.35, bendUp: 0.45, bend0: 0, blade: RG.bladeL, chopT: 0.2, recover: 0.32 });
+      const p0 = pose(0);
+      if (p0) { if (n === 'goblin') base.crouch += 22 * (e.st === 'wind' ? p0.k : e.st === 'strike' ? p0.k * (1 - SS(0, 0.15, GT - e.t0)) : 0);   // the goblin coils low, then springs
+        base.arm = (side, b) => { if (side === 'L') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } const g = -0.3 * p0.k; return [b + g, b * 0.6 + g * 0.5]; }; }
+      biped(base); return true; }
+    if (n === 'spider') {
+      const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0;
+      // it rears up through the wind-up (front legs raised at the hero), stays up through the lunge, settles after it
+      base.rear = !live ? 0 : e.st === 'wind' ? SS(0, ew, u) : e.st === 'strike' ? 1 - SS(0.24, 0.45, u) : 0;
+      base.curl = live ? 0 : SS(0, 0.4, GT - e.deadT); base.aimX = Math.cos(e.aimA) * face;
+      if (live && e.st === 'strike') { const g = SS(0.3, 0.45, u); base.vx *= g; base.vy *= g; }   // the lunge is a body thrust, legs trailing: no gait until it lands
+      spider(base); return true; }
+    if (n === 'cultist') {
+      const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0, wind = live && e.st === 'wind', str = live && e.st === 'strike';
+      // the staff tips forward through the wind-up; the free hand thrusts at the aim, fully out on the shot frame (the strike's first)
+      base.staff = wind ? -0.35 * SS(0, ew * 0.8, u) : str ? -0.35 * (1 - SS(0.1, 0.32, u)) : 0;
+      base.push = wind ? SS(ew - 0.14, ew, u) : str ? 1 - SS(0.08, 0.32, u) : 0; base.aimR = aimRig(e, face, H) - 0.1;
+      robed(base); return true; }
+    if (n === 'brute') {
+      const boss = e.type === 'boss', w = boss ? (e.hp < e.max * 0.5 ? 0.55 : 0.8) : 0;
+      const p = live ? chop(e, E, GT, face, H, 0, { raise: 2.9, chopT: 0.26, recover: 0.32, over: 0.9, bossW: w }) : null;   // the clock only; arms re-pose from their walk swing
+      if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.05, hit) * (1 - SS(0.12, 0.35, hit)) : 0);
+        base.arm = (side, b) => { const q = chop(e, E, GT, face, H, b, { raise: 2.9, chopT: 0.26, recover: 0.32, over: 0.9, bossW: w }), d = side === 'L' ? 0.12 : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+      biped(base); return true; }
+    return false;
+  };
+})();

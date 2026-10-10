@@ -1,0 +1,11 @@
+[
+ {"name": "hero_parts_sheet", "prompt": "art/prompts/hero_parts.txt", "ref": ["art/gen/hero.png"], "size": "1536x1024", "alpha": "auto"},
+ {"name": "hero_back", "prompt": "art/prompts/hero_back.txt", "ref": ["art/gen/hero.png"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "portrait", "prompt": "art/prompts/portrait.txt", "ref": ["art/gen/hero.png"], "size": "1024x1024", "alpha": "none"},
+ {"name": "abilities_sheet", "prompt": "art/prompts/abilities_sheet.txt", "size": "1536x1024", "alpha": "auto"},
+ {"name": "floor_c_tex", "prompt": "art/prompts/floor_c_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "floor_l_tex", "prompt": "art/prompts/floor_l_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "floor_a_tex", "prompt": "art/prompts/floor_a_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "lava_tex", "prompt": "art/prompts/lava_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "props2_sheet", "prompt": "art/prompts/props2_sheet.txt", "size": "1536x1024", "alpha": "auto"}
+]

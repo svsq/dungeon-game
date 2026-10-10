@@ -1,0 +1,4 @@
+Use case: a floor trap tile for a top-down 3/4 dungeon game, the RETRACTED state. Image 1 is the style reference only: match its spike traps' iron and the stone floor lighting.
+Subject: a square iron floor plate set into a dungeon floor, seen from directly above in the same top-down 3/4 view as the floor of Image 1 (NOT isometric, NOT a diamond: a plain square with horizontal and vertical edges). The plate has a 3x3 grid of round dark holes, rivets at the corners, worn dark iron with a few rust spots.
+Composition: one square plate filling about 80% of the canvas width, centred, its edges parallel to the canvas edges. The plate is 16x16 art pixels, every art pixel drawn as a block of one colour.
+Constraints: no spikes visible (they are retracted into the holes), no shadow, no floor around it, no glow.

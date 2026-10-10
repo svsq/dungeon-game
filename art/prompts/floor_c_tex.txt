@@ -1,0 +1,4 @@
+Use case: a seamless tileable floor material for a top-down 3/4 dungeon game (Image 1 is the style reference only: the green crypt area at its top right).
+Subject: old crypt flagstone floor seen straight from above: irregular grey-green stone slabs of mixed sizes, dark mortar gaps, patches of moss in some gaps, cracks, cold desaturated green-grey.
+Composition: the whole canvas is floor, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel drawn as an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no objects, no props, no walls.

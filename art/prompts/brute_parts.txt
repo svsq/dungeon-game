@@ -1,0 +1,6 @@
+Use case: a cut-out rig part sheet for an enemy of a top-down 3/4 dungeon action game. Image 1 is the style reference only. Image 2 is the approved monster: copy its design, colours, proportions and pixel density exactly.
+Subject: the SAME hulking red horned demon brute as Image 2, split into separate parts, laid out in one row with wide empty gaps (at least half a part's width) between parts, all at the same scale as Image 2, each part complete (including the areas normally hidden by other parts):
+1) massive torso with the horned head, the skull belt and the loincloth, WITHOUT arms and WITHOUT legs (clean shoulder sockets and hip line);
+2) one huge arm, straight, hanging down: spiked shoulder at the top, upper arm, elbow, forearm with the leather bracer and a big clawed fist at the bottom;
+3) one leg, straight: the thick thigh at the top, knee, shin and the clawed foot at the bottom pointing to the right.
+Constraints: exactly 3 separate parts, nothing touching, no weapon, no shadow, no floor, no labels.

@@ -1,0 +1,4 @@
+Use case: a seamless tileable material for the tops of thick dungeon walls in a top-down 3/4 game (Image 1 is the style reference only).
+Subject: the flat top surface of massive stone walls seen from directly above: large rough near-black slate blocks (about 16x16 art pixels each) with darker gaps, very dark and low contrast, like the black wall tops between rooms in Image 1.
+Composition: the whole canvas is this surface, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no objects.

@@ -1,0 +1,7 @@
+Use case: inventory item icons for a dungeon RPG (Image 1 is the style reference only: match the item icons of its INVENTORY and LOOT panels).
+Subject: 20 separate item icons in a 5x4 grid with wide empty gaps, each centred in its cell, every icon about 16x16 art pixels:
+row 1: an iron short sword; a steel longsword; a battle axe; a war hammer; a magic staff with a blue crystal;
+row 2: a leather helmet; a steel knight helmet; a leather chest armor; a steel plate chest armor; leather boots;
+row 3: a round wooden shield; a gold ring with a red gem; an amulet with a blue gem; a pair of steel gauntlets; a hooded cloak;
+row 4: a red health potion bottle; a blue mana potion bottle; a rolled parchment scroll; a pile of gold coins; an iron key.
+Constraints: icons separate and complete, nothing touching, no background panels, no frames, no glow, no text.

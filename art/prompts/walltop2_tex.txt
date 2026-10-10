@@ -1,0 +1,4 @@
+Use case: a seamless tileable material for the flat tops of thick dungeon walls in a top-down 3/4 game. Image 1 is the style reference: copy the dark blocky wall tops between its rooms.
+Subject: the top surface of massive stone walls seen from directly above: a grid of dark slate stone blocks, exactly 7 blocks per row and 7 rows, each block with a slightly lighter top-left bevel edge and a dark bottom-right edge, dark gaps between blocks, very dark cold slate grey (#252534 to #3e3234).
+Composition: the whole canvas is this surface, edge to edge, tiling seamlessly in both directions. 112x112 art pixels, every art pixel a block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no objects, no moss.

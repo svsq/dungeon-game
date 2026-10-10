@@ -1,0 +1,4 @@
+Use case: a seamless tileable wall material for a top-down 3/4 dungeon game (Image 1 is the style reference only).
+Subject: the front face of a dungeon wall seen straight-on: rows of dark grey stone bricks (each brick about 16x8 art pixels, staggered rows) with dark mortar, a few chipped and cracked bricks, cold slate grey with a hint of brown, like the wall faces in Image 1.
+Composition: the whole canvas is wall, edge to edge. It must tile seamlessly in both directions. The canvas is exactly 128x128 art pixels, every art pixel drawn as an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no torches, no doors, no windows, no moss, no objects.

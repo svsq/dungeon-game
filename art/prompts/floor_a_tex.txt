@@ -1,0 +1,4 @@
+Use case: a seamless tileable floor material for a top-down 3/4 dungeon game (Image 1 is the style reference only: the blue arcane hall at its right).
+Subject: polished dark blue-grey stone tile floor seen straight from above: regular square tiles of two sizes with thin dark seams, a few chipped edges, cold slate blue.
+Composition: the whole canvas is floor, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel drawn as an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no glow, no runes, no objects, no walls.

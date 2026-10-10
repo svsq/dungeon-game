@@ -1,0 +1,7 @@
+Use case: a prop sheet for a top-down 3/4 dungeon game (Image 1 is the style reference only: match its props).
+Subject: 12 separate dungeon props in the 3/4 view of Image 1, in a 4x3 grid with wide empty gaps between them (at least a quarter of a prop's width), each on one shared ground line per row:
+row 1: a wall torch sconce with an unlit wooden torch; a cluster of three wax candles (unlit); a wooden barrel; a wooden crate;
+row 2: a closed treasure chest (wood with iron bands); the same chest open and empty; a clay pot; a pile of bones and a skull;
+row 3: a hanging red cloth banner with a dark skull emblem; a small wooden table; a stone stairway going down into darkness seen from above (a square opening, 2x2 tiles); an iron spike floor trap plate with spikes up (1x1 tile).
+Scale: a barrel is about 14 art pixels tall, the hero would be 26.
+Constraints: every prop complete and separate, nothing touching, no flames, no glow, no shadows on the ground, no floor.

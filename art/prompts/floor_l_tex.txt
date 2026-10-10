@@ -1,0 +1,4 @@
+Use case: a seamless tileable floor material for a top-down 3/4 dungeon game (Image 1 is the style reference only: the lava cavern at its left).
+Subject: scorched volcanic flagstone floor seen straight from above: dark charcoal and rust-brown basalt slabs of mixed sizes, dark mortar gaps, a few hairline cracks with dull dark-red rock inside (not glowing), soot stains.
+Composition: the whole canvas is floor, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel drawn as an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no glow, no objects, no walls.

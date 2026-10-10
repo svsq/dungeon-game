@@ -1,0 +1,7 @@
+Use case: an enemy sheet for a top-down 3/4 dungeon action game (Image 1 is the style reference only: match its monsters).
+Subject: 6 separate monsters in the 3/4 front-right view of Image 1, in a 3x2 grid with wide empty gaps, each standing on one shared ground line per row:
+row 1: a skeleton warrior with a rusty sword and a round wooden shield; a green goblin with a dagger; a giant purple cave spider (seen from above at 3/4);
+row 2: a hooded green-robed cultist necromancer holding a staff; a pale blue floating ghost; a hulking red horned demon brute.
+Scale: skeleton 24 art pixels tall, goblin 18, spider 16 tall and 22 wide, cultist 26, ghost 22, demon brute 40.
+Pose: standing, legs apart with a gap, arms away from the body.
+Constraints: every monster complete and separate, nothing touching, no shadows on the ground, no floor, no glow, no magic effects.

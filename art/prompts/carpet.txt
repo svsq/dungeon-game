@@ -1,0 +1,4 @@
+Use case: a floor rug prop for a top-down 3/4 dungeon game. Image 1 is the style reference only: match the red carpet under the treasure chest in its upper-left treasure room (deep crimson, worn gold trim, dark outline, the same pixel size and lighting).
+Subject: a long rectangular worn crimson carpet lying flat on the floor, seen from above in the same top-down 3/4 view as the floor of Image 1 (a plain rectangle with horizontal and vertical edges, NOT isometric, NOT a diamond). A thin gold-ochre border band with a simple repeating pattern, a faint darker diamond motif in the middle, short frayed tassels on the two short ends, slight wear and a few dark stains.
+Composition: the carpet is vertical (taller than wide, about 2:3), centred, filling about 85% of the canvas height. Every art pixel drawn as a block of one colour, a dark 1-pixel outline around the whole rug.
+Constraints: no floor around it, no shadow, no objects on it, no glow, no text.

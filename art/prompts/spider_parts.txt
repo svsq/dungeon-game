@@ -1,0 +1,5 @@
+Use case: a cut-out rig part sheet for an enemy of a top-down 3/4 dungeon action game. Image 1 is the style reference only. Image 2 is the approved monster: copy its design, colours, proportions and pixel density exactly.
+Subject: the SAME giant purple cave spider as Image 2, split into separate parts, laid out in one row with wide empty gaps (at least half a part's width) between parts, all at the same scale as Image 2, each part complete (including the areas normally hidden by other parts):
+1) the body WITHOUT legs: the big striped abdomen behind and the head with the red eyes and fangs in front, seen from the same 3/4 top view as Image 2, with clean round leg sockets along the sides of the head;
+2) one leg, straightened out horizontally: the thick upper segment at the left (its socket end), the knee joint, and the thin lower segment with the pointed tip at the right.
+Constraints: exactly 2 separate parts, nothing touching, no shadow, no floor, no labels.

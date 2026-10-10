@@ -1,0 +1,1085 @@
+{
+ "image": {
+  "ref.png": {
+   "file": "/Users/svsq/projects/game-demo/ref.png",
+   "width": 1536,
+   "height": 1024,
+   "has_alpha": false,
+   "pixel_grid": {
+    "width": 1536,
+    "height": 1024,
+    "crisp_candidates": {
+     "x": {
+      "scale": 2.0021,
+      "confidence": 0.018
+     },
+     "y": {
+      "scale": 4.1189,
+      "confidence": 0.018
+     }
+    },
+    "effective_detail_px": 1.33,
+    "grid_beat": {
+     "x": {
+      "period_px": 14.21,
+      "peak_ratio": 8.7
+     },
+     "y": {
+      "period_px": 151.0,
+      "peak_ratio": 9.1
+     }
+    },
+    "kind": "none",
+    "scale": null,
+    "confidence": 0.018,
+    "verdict": "not pixel art: no pixel grid found (best grid confidence x 0.02 at 2.00 px, y 0.02 at 4.12 px; no grid beat). Finest detail ~1.3 px"
+   },
+   "analysis_units": "analysis px (x1.14 = reference px)",
+   "analysis_size": [
+    1342,
+    894
+   ],
+   "palette": {
+    "method": "k-means in CIELAB (k=32) over 379139 distinct colours",
+    "size": 32,
+    "distinct_colours": 379139,
+    "ramps": [
+     {
+      "id": 0,
+      "name": "neutral",
+      "share": 0.4845,
+      "n": 4,
+      "dark": "#060506",
+      "light": "#e3e2d7",
+      "hue_shift_dark_to_light": 0.0,
+      "dark_hue_name": "black",
+      "light_hue_name": "grey",
+      "L_range": [
+       1.4,
+       89.7
+      ]
+     },
+     {
+      "id": 1,
+      "name": "orange",
+      "share": 0.3143,
+      "n": 16,
+      "dark": "#231010",
+      "light": "#eed68a",
+      "hue_shift_dark_to_light": 45.6,
+      "dark_hue_name": "red",
+      "light_hue_name": "yellow",
+      "L_range": [
+       6.9,
+       86.1
+      ]
+     },
+     {
+      "id": 2,
+      "name": "blue",
+      "share": 0.1616,
+      "n": 8,
+      "dark": "#141420",
+      "light": "#64bdea",
+      "hue_shift_dark_to_light": -39.9,
+      "dark_hue_name": "blue",
+      "light_hue_name": "blue",
+      "L_range": [
+       6.8,
+       72.9
+      ]
+     },
+     {
+      "id": 3,
+      "name": "green",
+      "share": 0.0375,
+      "n": 3,
+      "dark": "#1a4135",
+      "light": "#52c04f",
+      "hue_shift_dark_to_light": -43.1,
+      "dark_hue_name": "cyan",
+      "light_hue_name": "green",
+      "L_range": [
+       24.5,
+       69.5
+      ]
+     },
+     {
+      "id": 4,
+      "name": "magenta",
+      "share": 0.0021,
+      "n": 1,
+      "dark": "#61186a",
+      "light": "#61186a",
+      "hue_shift_dark_to_light": 0.0,
+      "dark_hue_name": "magenta",
+      "light_hue_name": "magenta",
+      "L_range": [
+       24.4,
+       24.4
+      ]
+     }
+    ],
+    "top_colours": [
+     {
+      "hex": "#060506",
+      "share": 0.38421,
+      "ramp": 0,
+      "L": 1.4,
+      "C": 0.5,
+      "lab_hue": 324.4
+     },
+     {
+      "hex": "#141420",
+      "share": 0.05821,
+      "ramp": 2,
+      "L": 6.8,
+      "C": 9.0,
+      "lab_hue": 292.4
+     },
+     {
+      "hex": "#252534",
+      "share": 0.0544,
+      "ramp": 2,
+      "L": 15.3,
+      "C": 10.6,
+      "lab_hue": 293.0
+     },
+     {
+      "hex": "#191c1c",
+      "share": 0.05053,
+      "ramp": 0,
+      "L": 10.0,
+      "C": 1.5,
+      "lab_hue": 199.0
+     },
+     {
+      "hex": "#231010",
+      "share": 0.04936,
+      "ramp": 1,
+      "L": 6.9,
+      "C": 10.4,
+      "lab_hue": 19.9
+     },
+     {
+      "hex": "#3e3234",
+      "share": 0.04404,
+      "ramp": 0,
+      "L": 22.1,
+      "C": 5.8,
+      "lab_hue": 7.5
+     },
+     {
+      "hex": "#36120f",
+      "share": 0.03789,
+      "ramp": 1,
+      "L": 10.9,
+      "C": 20.5,
+      "lab_hue": 30.1
+     },
+     {
+      "hex": "#552f25",
+      "share": 0.03081,
+      "ramp": 1,
+      "L": 24.0,
+      "C": 21.3,
+      "lab_hue": 40.7
+     },
+     {
+      "hex": "#4f150c",
+      "share": 0.0279,
+      "ramp": 1,
+      "L": 16.6,
+      "C": 33.5,
+      "lab_hue": 37.2
+     },
+     {
+      "hex": "#733a21",
+      "share": 0.02746,
+      "ramp": 1,
+      "L": 31.3,
+      "C": 34.9,
+      "lab_hue": 49.2
+     },
+     {
+      "hex": "#6b5c56",
+      "share": 0.02185,
+      "ramp": 1,
+      "L": 40.3,
+      "C": 7.6,
+      "lab_hue": 48.8
+     },
+     {
+      "hex": "#1a4135",
+      "share": 0.02169,
+      "ramp": 3,
+      "L": 24.5,
+      "C": 17.6,
+      "lab_hue": 169.6
+     }
+    ],
+    "files": [
+     "palette.png",
+     "palette.json"
+    ]
+   },
+   "outline": {
+    "candidates": [
+     {
+      "hex": "#231010",
+      "L": 6.9,
+      "share": 0.0494,
+      "touches_lighter": 0.438,
+      "neighbour_colours": 8
+     },
+     {
+      "hex": "#060506",
+      "L": 1.4,
+      "share": 0.3842,
+      "touches_lighter": 0.12,
+      "neighbour_colours": 8
+     },
+     {
+      "hex": "#141420",
+      "L": 6.8,
+      "share": 0.0582,
+      "touches_lighter": 0.114,
+      "neighbour_colours": 6
+     }
+    ],
+    "outline_share": 0.0216,
+    "line_width_px": 1,
+    "line_width_hist_1to8": [
+     29900,
+     15118,
+     5600,
+     2112,
+     971,
+     550,
+     288,
+     208
+    ],
+    "dark_line_share": 0.0437
+   },
+   "background": {
+    "border_mode": {
+     "hex": "#060506",
+     "border_share": 0.839,
+     "image_share": 0.3842
+    },
+    "most_common": {
+     "hex": "#060506",
+     "image_share": 0.3842
+    },
+    "background": "#060506",
+    "reason": "dominant border colour"
+   },
+   "values": {
+    "L_mean": 16.33,
+    "L_percentiles_5_25_50_75_95": [
+     0.0,
+     2.0,
+     8.9,
+     24.2,
+     57.2
+    ],
+    "histogram_L_0_100_20bins": [
+     482009,
+     143529,
+     118276,
+     94111,
+     72110,
+     55776,
+     45706,
+     37374,
+     32295,
+     24343,
+     24276,
+     19311,
+     12902,
+     10023,
+     7811,
+     5768,
+     4507,
+     3618,
+     3148,
+     2855
+    ],
+    "band_shares_0_20_40_60_80_100": [
+     0.6984,
+     0.1758,
+     0.0835,
+     0.0304,
+     0.0118
+    ],
+    "key": "low-key (dark)",
+    "light_pools": [
+     {
+      "x": 1,
+      "y": 420,
+      "L_blur": 36.4,
+      "colour": "#9c2f0a",
+      "hue": "orange"
+     },
+     {
+      "x": 381,
+      "y": 207,
+      "L_blur": 31.7,
+      "colour": "#7c3613",
+      "hue": "orange"
+     },
+     {
+      "x": 788,
+      "y": 440,
+      "L_blur": 29.9,
+      "colour": "#643e2c",
+      "hue": "orange"
+     },
+     {
+      "x": 1353,
+      "y": 571,
+      "L_blur": 29.8,
+      "colour": "#304672",
+      "hue": "blue"
+     },
+     {
+      "x": 1218,
+      "y": 90,
+      "L_blur": 29.6,
+      "colour": "#25502e",
+      "hue": "green"
+     },
+     {
+      "x": 365,
+      "y": 590,
+      "L_blur": 27.4,
+      "colour": "#76240f",
+      "hue": "orange"
+     },
+     {
+      "x": 668,
+      "y": 226,
+      "L_blur": 24.1,
+      "colour": "#582f1c",
+      "hue": "orange"
+     }
+    ],
+    "light_blur_sigma_analysis_px": 56.4
+   },
+   "edges": {
+    "edge_share": 0.3377,
+    "density_cells_4x3": [
+     {
+      "x0": 0,
+      "y0": 0,
+      "x1": 383,
+      "y1": 341,
+      "edge_density": 0.3763
+     },
+     {
+      "x0": 383,
+      "y0": 0,
+      "x1": 768,
+      "y1": 341,
+      "edge_density": 0.384
+     },
+     {
+      "x0": 768,
+      "y0": 0,
+      "x1": 1151,
+      "y1": 341,
+      "edge_density": 0.3195
+     },
+     {
+      "x0": 1151,
+      "y0": 0,
+      "x1": 1536,
+      "y1": 341,
+      "edge_density": 0.34
+     },
+     {
+      "x0": 0,
+      "y0": 341,
+      "x1": 383,
+      "y1": 682,
+      "edge_density": 0.3514
+     },
+     {
+      "x0": 383,
+      "y0": 341,
+      "x1": 768,
+      "y1": 682,
+      "edge_density": 0.3465
+     },
+     {
+      "x0": 768,
+      "y0": 341,
+      "x1": 1151,
+      "y1": 682,
+      "edge_density": 0.3784
+     },
+     {
+      "x0": 1151,
+      "y0": 341,
+      "x1": 1536,
+      "y1": 682,
+      "edge_density": 0.379
+     },
+     {
+      "x0": 0,
+      "y0": 682,
+      "x1": 383,
+      "y1": 1024,
+      "edge_density": 0.31
+     },
+     {
+      "x0": 383,
+      "y0": 682,
+      "x1": 768,
+      "y1": 1024,
+      "edge_density": 0.3233
+     },
+     {
+      "x0": 768,
+      "y0": 682,
+      "x1": 1151,
+      "y1": 1024,
+      "edge_density": 0.2681
+     },
+     {
+      "x0": 1151,
+      "y0": 682,
+      "x1": 1536,
+      "y1": 1024,
+      "edge_density": 0.2752
+     }
+    ]
+   },
+   "tiles": {
+    "cols": 6,
+    "rows": 4,
+    "zoom": 3,
+    "overlap": 0.08,
+    "list": [
+     {
+      "row": 0,
+      "col": 0,
+      "x0": 0,
+      "y0": 0,
+      "x1": 276,
+      "y1": 276,
+      "path": "tiles/tile_r0_c0.png"
+     },
+     {
+      "row": 0,
+      "col": 1,
+      "x0": 236,
+      "y0": 0,
+      "x1": 532,
+      "y1": 276,
+      "path": "tiles/tile_r0_c1.png"
+     },
+     {
+      "row": 0,
+      "col": 2,
+      "x0": 492,
+      "y0": 0,
+      "x1": 788,
+      "y1": 276,
+      "path": "tiles/tile_r0_c2.png"
+     },
+     {
+      "row": 0,
+      "col": 3,
+      "x0": 748,
+      "y0": 0,
+      "x1": 1044,
+      "y1": 276,
+      "path": "tiles/tile_r0_c3.png"
+     },
+     {
+      "row": 0,
+      "col": 4,
+      "x0": 1004,
+      "y0": 0,
+      "x1": 1300,
+      "y1": 276,
+      "path": "tiles/tile_r0_c4.png"
+     },
+     {
+      "row": 0,
+      "col": 5,
+      "x0": 1260,
+      "y0": 0,
+      "x1": 1536,
+      "y1": 276,
+      "path": "tiles/tile_r0_c5.png"
+     },
+     {
+      "row": 1,
+      "col": 0,
+      "x0": 0,
+      "y0": 236,
+      "x1": 276,
+      "y1": 532,
+      "path": "tiles/tile_r1_c0.png"
+     },
+     {
+      "row": 1,
+      "col": 1,
+      "x0": 236,
+      "y0": 236,
+      "x1": 532,
+      "y1": 532,
+      "path": "tiles/tile_r1_c1.png"
+     },
+     {
+      "row": 1,
+      "col": 2,
+      "x0": 492,
+      "y0": 236,
+      "x1": 788,
+      "y1": 532,
+      "path": "tiles/tile_r1_c2.png"
+     },
+     {
+      "row": 1,
+      "col": 3,
+      "x0": 748,
+      "y0": 236,
+      "x1": 1044,
+      "y1": 532,
+      "path": "tiles/tile_r1_c3.png"
+     },
+     {
+      "row": 1,
+      "col": 4,
+      "x0": 1004,
+      "y0": 236,
+      "x1": 1300,
+      "y1": 532,
+      "path": "tiles/tile_r1_c4.png"
+     },
+     {
+      "row": 1,
+      "col": 5,
+      "x0": 1260,
+      "y0": 236,
+      "x1": 1536,
+      "y1": 532,
+      "path": "tiles/tile_r1_c5.png"
+     },
+     {
+      "row": 2,
+      "col": 0,
+      "x0": 0,
+      "y0": 492,
+      "x1": 276,
+      "y1": 788,
+      "path": "tiles/tile_r2_c0.png"
+     },
+     {
+      "row": 2,
+      "col": 1,
+      "x0": 236,
+      "y0": 492,
+      "x1": 532,
+      "y1": 788,
+      "path": "tiles/tile_r2_c1.png"
+     },
+     {
+      "row": 2,
+      "col": 2,
+      "x0": 492,
+      "y0": 492,
+      "x1": 788,
+      "y1": 788,
+      "path": "tiles/tile_r2_c2.png"
+     },
+     {
+      "row": 2,
+      "col": 3,
+      "x0": 748,
+      "y0": 492,
+      "x1": 1044,
+      "y1": 788,
+      "path": "tiles/tile_r2_c3.png"
+     },
+     {
+      "row": 2,
+      "col": 4,
+      "x0": 1004,
+      "y0": 492,
+      "x1": 1300,
+      "y1": 788,
+      "path": "tiles/tile_r2_c4.png"
+     },
+     {
+      "row": 2,
+      "col": 5,
+      "x0": 1260,
+      "y0": 492,
+      "x1": 1536,
+      "y1": 788,
+      "path": "tiles/tile_r2_c5.png"
+     },
+     {
+      "row": 3,
+      "col": 0,
+      "x0": 0,
+      "y0": 748,
+      "x1": 276,
+      "y1": 1024,
+      "path": "tiles/tile_r3_c0.png"
+     },
+     {
+      "row": 3,
+      "col": 1,
+      "x0": 236,
+      "y0": 748,
+      "x1": 532,
+      "y1": 1024,
+      "path": "tiles/tile_r3_c1.png"
+     },
+     {
+      "row": 3,
+      "col": 2,
+      "x0": 492,
+      "y0": 748,
+      "x1": 788,
+      "y1": 1024,
+      "path": "tiles/tile_r3_c2.png"
+     },
+     {
+      "row": 3,
+      "col": 3,
+      "x0": 748,
+      "y0": 748,
+      "x1": 1044,
+      "y1": 1024,
+      "path": "tiles/tile_r3_c3.png"
+     },
+     {
+      "row": 3,
+      "col": 4,
+      "x0": 1004,
+      "y0": 748,
+      "x1": 1300,
+      "y1": 1024,
+      "path": "tiles/tile_r3_c4.png"
+     },
+     {
+      "row": 3,
+      "col": 5,
+      "x0": 1260,
+      "y0": 748,
+      "x1": 1536,
+      "y1": 1024,
+      "path": "tiles/tile_r3_c5.png"
+     }
+    ],
+    "overview": "overview_grid.png"
+   },
+   "outputs": [
+    "edges.png",
+    "light.png",
+    "overview_grid.png",
+    "palette.json",
+    "palette.png",
+    "values.png"
+   ],
+   "seconds": 5.43
+  }
+ },
+ "updated": "2026-10-08 21:32:53",
+ "tiles": {
+  "ref.png@560,180,1000,560": {
+   "source": "ref.png",
+   "pixel_grid": "not pixel art: no pixel grid found (best grid confidence x 0.02 at 2.00 px, y 0.02 at 4.12 px; no grid beat). Finest detail ~1.3 px",
+   "units": "image px",
+   "region_ref": [
+    560,
+    180,
+    1000,
+    560
+   ],
+   "region_native": [
+    560,
+    180,
+    1000,
+    560
+   ],
+   "texture_period": {
+    "x": 13.5,
+    "y": 5.45,
+    "fit_x": 0.78,
+    "fit_y": 0.88,
+    "autocorr_peaks_x": [
+     26,
+     40,
+     82
+    ],
+    "autocorr_peaks_y": [
+     60,
+     76,
+     38
+    ],
+    "spectral_x": 9.18,
+    "spectral_y": 19.88,
+    "note": "repeat period of the texture (stone / brick / plank size), analysis px: largest period whose multiples explain the autocorrelation peaks",
+    "used_for_fit": []
+   },
+   "selection": "weak (lowest tiling cost, no clear repeats or periodicity)",
+   "tile_confidence": "low",
+   "tile": 16,
+   "tile_ref_px": 16.0,
+   "phase": [
+    10,
+    2
+   ],
+   "phase_note": "native px offset of the first full tile from the analysed region origin",
+   "phase_ref_px": [
+    570,
+    182
+   ],
+   "grid_cells": [
+    26,
+    23
+   ],
+   "cells": 598,
+   "flat_cells": 6,
+   "flat_share": 0.01,
+   "unique": 583,
+   "unique_exact": 592,
+   "flat_colours": 1,
+   "coverage": 0.0253,
+   "coverage_note": "share of non-flat cells whose tile (near-duplicate group) occurs at least twice",
+   "singletons": 577,
+   "families": 472,
+   "families_top10_share": 0.091,
+   "families_note": "looser clusters (structure correlation >= 0.6): how many distinct designs, ignoring small variations",
+   "top_tiles": [
+    {
+     "rank": 0,
+     "count": 4,
+     "variants": 4
+    },
+    {
+     "rank": 1,
+     "count": 3,
+     "variants": 3
+    },
+    {
+     "rank": 2,
+     "count": 2,
+     "variants": 2
+    },
+    {
+     "rank": 3,
+     "count": 2,
+     "variants": 2
+    },
+    {
+     "rank": 4,
+     "count": 2,
+     "variants": 2
+    },
+    {
+     "rank": 5,
+     "count": 2,
+     "variants": 2
+    },
+    {
+     "rank": 6,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 7,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 8,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 9,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 10,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 11,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 12,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 13,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 14,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 15,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 16,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 17,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 18,
+     "count": 1,
+     "variants": 1
+    },
+    {
+     "rank": 19,
+     "count": 1,
+     "variants": 1
+    }
+   ],
+   "wall_face_tiles": null,
+   "wall_face_evidence": {
+    "wall_like_groups": [],
+    "note": "tiles do not repeat enough to separate wall rows from floor"
+   },
+   "candidates": [
+    {
+     "tile": 16,
+     "phase": [
+      10,
+      2
+     ],
+     "cost": 7.9022,
+     "groups": 588,
+     "cells": 598,
+     "repeat_share": 0.0118,
+     "flat_share": 0.01,
+     "nx": 26,
+     "ny": 23,
+     "autocorr": 0.04,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 40,
+     "phase": [
+      10,
+      10
+     ],
+     "cost": 7.9152,
+     "groups": 89,
+     "cells": 90,
+     "repeat_share": 0.0222,
+     "flat_share": 0.0,
+     "nx": 10,
+     "ny": 9,
+     "autocorr": 0.029,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 24,
+     "phase": [
+      9,
+      18
+     ],
+     "cost": 7.9197,
+     "groups": 252,
+     "cells": 255,
+     "repeat_share": 0.0079,
+     "flat_share": 0.0118,
+     "nx": 17,
+     "ny": 15,
+     "autocorr": 0.037,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 32,
+     "phase": [
+      28,
+      8
+     ],
+     "cost": 7.9463,
+     "groups": 131,
+     "cells": 132,
+     "repeat_share": 0.0152,
+     "flat_share": 0.0,
+     "nx": 12,
+     "ny": 11,
+     "autocorr": 0.015,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 128,
+     "phase": [
+      0,
+      0
+     ],
+     "cost": 8.0002,
+     "groups": 6,
+     "cells": 6,
+     "repeat_share": 0.0,
+     "flat_share": 0.0,
+     "nx": 3,
+     "ny": 2,
+     "autocorr": 0.009,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 96,
+     "phase": [
+      60,
+      0
+     ],
+     "cost": 8.0004,
+     "groups": 9,
+     "cells": 9,
+     "repeat_share": 0.0,
+     "flat_share": 0.0,
+     "nx": 3,
+     "ny": 3,
+     "autocorr": 0.011,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 80,
+     "phase": [
+      50,
+      70
+     ],
+     "cost": 8.0006,
+     "groups": 12,
+     "cells": 12,
+     "repeat_share": 0.0,
+     "flat_share": 0.0,
+     "nx": 4,
+     "ny": 3,
+     "autocorr": 0.016,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 64,
+     "phase": [
+      0,
+      0
+     ],
+     "cost": 8.0012,
+     "groups": 30,
+     "cells": 30,
+     "repeat_share": 0.0,
+     "flat_share": 0.0,
+     "nx": 6,
+     "ny": 5,
+     "autocorr": 0.008,
+     "autocorr_peak": false,
+     "period_fit": null
+    },
+    {
+     "tile": 48,
+     "phase": [
+      12,
+      0
+     ],
+     "cost": 8.0025,
+     "groups": 56,
+     "cells": 56,
+     "repeat_share": 0.0,
+     "flat_share": 0.0,
+     "nx": 8,
+     "ny": 7,
+     "autocorr": 0.012,
+     "autocorr_peak": false,
+     "period_fit": null
+    }
+   ],
+   "grid_lines_ref_x": [
+    570,
+    586,
+    602,
+    618,
+    634,
+    650,
+    666,
+    682,
+    698,
+    714,
+    730,
+    746,
+    762,
+    778,
+    794,
+    810,
+    826,
+    842,
+    858,
+    874,
+    890,
+    906,
+    922,
+    938,
+    954,
+    970,
+    986
+   ],
+   "grid_lines_ref_y": [
+    182,
+    198,
+    214,
+    230,
+    246,
+    262,
+    278,
+    294,
+    310,
+    326,
+    342,
+    358,
+    374,
+    390,
+    406,
+    422,
+    438,
+    454,
+    470,
+    486,
+    502,
+    518,
+    534,
+    550
+   ],
+   "outputs": [
+    "tiles_grid.png",
+    "tiles_unique.png"
+   ],
+   "seconds": 0.89
+  }
+ }
+}

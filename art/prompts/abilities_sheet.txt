@@ -1,0 +1,6 @@
+Use case: three square ability icons for the HUD skill bar of a dungeon RPG (Image 1 is the style reference: copy the three skill icons next to the HP/MP bars of its HUD).
+Subject: three separate square icons in one row with wide gaps, each a full square tile with its own dark background inside the square:
+1) a steel sword with a white crescent slash swirling around it (a whirlwind sword strike);
+2) a blazing fireball bursting with orange flames on a dark red background;
+3) a glowing blue crystal kite shield (a magic barrier) on a dark blue background.
+Constraints: exactly 3 square icons, no frames around them, no text.

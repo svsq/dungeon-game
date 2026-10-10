@@ -1,0 +1,6 @@
+Use case: a cut-out rig part sheet for an enemy of a top-down 3/4 dungeon action game. Image 1 is the style reference only. Image 2 is the approved monster: copy its design, colours, proportions and pixel density exactly.
+Subject: the SAME hooded green-robed cultist as Image 2, split into separate parts, laid out in one row with wide empty gaps (at least half a part's width) between parts, all at the same scale as Image 2, each part complete (including the areas normally hidden by other parts):
+1) the hooded figure in its long robe down to the floor with the belt, skulls and the tips of the boots under the hem, WITHOUT arms (clean shoulder sockets), standing straight;
+2) one arm, straight, hanging down: the shoulder at the top, the wide green sleeve and a pale bony hand at the bottom;
+3) the wooden staff, upright, the forked top at the top.
+Constraints: exactly 3 separate parts, nothing touching, no glow, no shadow, no floor, no labels.

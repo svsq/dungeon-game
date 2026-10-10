@@ -1,0 +1,4 @@
+Use case: a seamless tileable floor material for a top-down 3/4 dungeon game. Image 1 is the style reference: copy the floor of its central torch-lit hall.
+Subject: dungeon flagstone floor seen straight from above: a regular grid of roughly square stone slabs, exactly 6 slabs per row and 6 rows, each slab slightly irregular with chipped corners and a few cracks, dark mortar lines between them, fine grime speckles, muted grey-brown stone like Image 1.
+Composition: the whole canvas is floor, edge to edge, tiling seamlessly in both directions (the mortar grid continues across the edges). The canvas is 96x96 art pixels, every art pixel drawn as a block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no objects, no blood, no walls.

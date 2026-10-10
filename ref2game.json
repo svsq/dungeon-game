@@ -1,0 +1,47 @@
+{
+ "generator": {
+  "provider": "codex",
+  "model": null,
+  "size": "1536x1024",
+  "quality": "high",
+  "opaque": [
+   "bg_sky*",
+   "*_tex"
+  ]
+ },
+ "style_bible": "art/style_bible.txt",
+ "style_ref": [
+  "ref.png"
+ ],
+ "view": [
+  1920,
+  1080
+ ],
+ "prep": {
+  "src": "art/gen",
+  "dst": "live/assets",
+  "manifest": "live/assets.js",
+  "notrim": [
+   "bg_*",
+   "*_tex",
+   "hero__*",
+   "hero",
+   "skeleton__*",
+   "goblin__*",
+   "brute__*",
+   "cultist__*",
+   "spider__*",
+   "*_w",
+   "merchant__*"
+  ],
+  "skip": [
+   "*_sheet",
+   "*_raw"
+  ],
+  "max": 2048,
+  "walk": {
+   "ground": 0.6,
+   "ledge*": 0.45
+  }
+ }
+}

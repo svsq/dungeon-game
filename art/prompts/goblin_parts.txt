@@ -1,0 +1,7 @@
+Use case: a cut-out rig part sheet for an enemy of a top-down 3/4 dungeon action game. Image 1 is the style reference only. Image 2 is the approved monster: copy its design, colours, proportions and pixel density exactly.
+Subject: the SAME green goblin as Image 2, split into separate parts, laid out in one row with wide empty gaps (at least half a part's width) between parts, all at the same scale as Image 2, each part complete (including the areas normally hidden by other parts):
+1) hunched torso with the head, both pointed ears, the belt and the torn leather loincloth, WITHOUT arms and WITHOUT legs (clean shoulder sockets and hip line);
+2) one arm, straight, hanging down: shoulder at the top, upper arm, elbow, forearm with the leather bracer and a closed fist at the bottom;
+3) one leg, straight: the thigh at the top, knee, shin and the bare green foot at the bottom pointing to the right;
+4) the dagger pointing straight down, hilt at the top.
+Constraints: exactly 4 separate parts, nothing touching, no shadow, no floor, no labels.

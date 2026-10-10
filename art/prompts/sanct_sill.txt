@@ -1,0 +1,4 @@
+Use case: a floor decal for a top-down 3/4 dungeon game: the threshold stone laid across a doorway of the safe sanctuary room. Image 1 is the style reference only: match its stone floor, worn gold trims, dark outline, pixel size and lighting.
+Subject: one long flat threshold slab inlaid flush into the floor, seen from straight above (a plain horizontal rectangle, NOT isometric): pale worn stone with a thin pale-gold metal inlay line running along its length and three small carved angular sigils inlaid in gold, evenly spaced (abstract marks, not letters); chipped ends.
+Composition: the slab is horizontal, exactly 4 times wider than tall, centred, filling 94% of the canvas width. Every art pixel drawn as a block of one colour, a dark 1-pixel outline around the slab.
+Constraints: no floor around it, no shadow, no objects, no glow, no text, no letters.

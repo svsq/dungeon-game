@@ -1,0 +1,5 @@
+[
+ {"name": "spikes_plate", "prompt": "art/prompts/spikes_plate.txt", "size": "1024x1024", "alpha": "auto"},
+ {"name": "floor_d_tex", "prompt": "art/prompts/floor_d2_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "walltop_d_tex", "prompt": "art/prompts/walltop2_tex.txt", "size": "1024x1024", "alpha": "none"}
+]

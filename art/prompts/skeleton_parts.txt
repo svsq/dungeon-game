@@ -1,0 +1,8 @@
+Use case: a cut-out rig part sheet for an enemy of a top-down 3/4 dungeon action game. Image 1 is the style reference only. Image 2 is the approved monster: copy its design, colours, proportions and pixel density exactly.
+Subject: the SAME skeleton warrior as Image 2, split into separate parts, laid out in one row with wide empty gaps (at least half a part's width) between parts, all at the same scale as Image 2, each part complete (including the areas normally hidden by other parts):
+1) rib cage with the skull, spine, pelvis and the torn red loincloth, WITHOUT arms and WITHOUT legs (clean shoulder joints and hip joints), the leather shoulder pad stays on the near shoulder;
+2) one bone arm, straight, hanging down: shoulder ball at the top, upper arm bone, elbow, forearm bones and a bony hand closed into a fist at the bottom;
+3) one bone leg, straight: hip ball at the top, thigh bone, knee, shin bones and the bony foot at the bottom pointing to the right;
+4) the rusty sword pointing straight down, hilt at the top;
+5) the round wooden shield with its iron boss, seen from the front.
+Constraints: exactly 5 separate parts, nothing touching, no shadow, no floor, no labels.

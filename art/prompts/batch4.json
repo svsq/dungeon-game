@@ -1,0 +1,4 @@
+[
+ {"name": "floor_d_tex", "prompt": "art/prompts/floor_d3_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "decals_sheet", "prompt": "art/prompts/decals_sheet.txt", "size": "1536x1536", "alpha": "auto"}
+]

@@ -1,0 +1,9 @@
+[
+ {"name": "floor_d_tex", "prompt": "art/prompts/floor_d_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "wall_d_tex", "prompt": "art/prompts/wall_d_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "walltop_d_tex", "prompt": "art/prompts/walltop_d_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "hero_anchor_raw", "prompt": "art/prompts/hero.txt", "size": "1024x1024", "alpha": "auto"},
+ {"name": "props_d_sheet", "prompt": "art/prompts/props_d_sheet.txt", "size": "1536x1024", "alpha": "auto"},
+ {"name": "enemies_sheet", "prompt": "art/prompts/enemies_sheet.txt", "size": "1536x1024", "alpha": "auto"},
+ {"name": "items_sheet", "prompt": "art/prompts/items_sheet.txt", "size": "1536x1024", "alpha": "auto"}
+]

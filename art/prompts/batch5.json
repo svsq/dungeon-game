@@ -1,0 +1,5 @@
+[
+ {"name": "floor_a_tex", "prompt": "art/prompts/floor_a4_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "floor_c_tex", "prompt": "art/prompts/floor_c4_tex.txt", "size": "1024x1024", "alpha": "none"},
+ {"name": "floor_l_tex", "prompt": "art/prompts/floor_l4_tex.txt", "size": "1024x1024", "alpha": "none"}
+]

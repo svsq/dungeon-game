@@ -1,0 +1,4 @@
+Use case: the ACTIVE state of a floor trap tile for a top-down 3/4 dungeon game. Image 1 is the style reference only. Image 2 is the approved retracted trap: an edit target.
+Subject: the SAME square iron plate as Image 2, identical size, position, colours and rivets, but now a sharp steel spike sticks up out of each of the 9 holes. Seen from above in the same top-down 3/4 view: each spike is a short pointed steel cone leaning slightly toward the top of the image, with a bright top-left highlight and a dark right side.
+Composition: identical canvas and plate placement as Image 2; change ONLY the holes (spikes now out), keep everything else identical.
+Constraints: no blood, no shadow outside the plate, no glow.

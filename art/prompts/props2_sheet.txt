@@ -1,0 +1,7 @@
+Use case: a second prop sheet for a top-down 3/4 dungeon game (Image 1 is the style reference only: match its props).
+Subject: 12 separate dungeon props in the 3/4 view of Image 1, in a 4x3 grid with wide empty gaps, each on one shared ground line per row:
+row 1: an iron fire brazier bowl on three legs filled with unlit coals; a stone sarcophagus coffin with a carved lid; a hooded stone statue of a praying monk on a pedestal; a broken stone pillar;
+row 2: a tall blue crystal on a dark stone base (unlit); a small stone altar with a skull and candles (unlit); an iron prisoner cage; a wooden weapon rack with spears;
+row 3: a bookshelf with old books and potion bottles; a gravestone with a cracked top; a pile of gold coins and gems; an iron-bound wooden dungeon door seen from the front, closed.
+Scale: a barrel would be 14 art pixels tall and the hero 26; the statue and the bookshelf are taller than the hero.
+Constraints: every prop complete and separate, nothing touching, no flames, no glow, no light, no shadows on the ground, no floor.

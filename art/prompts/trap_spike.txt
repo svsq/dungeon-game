@@ -1,0 +1,4 @@
+Use case: one steel spike of a floor spike trap for a top-down 3/4 dungeon game; the game draws several of them rising out of holes in an iron plate. Image 1 is the style reference only: match its steel and its pixel scale.
+Subject: a single tall sharp steel spike standing upright, seen from the front like the props of Image 1: a slim four-sided pyramid blade, wide flat base, needle-sharp tip, a bright cream highlight edge on the left face, dark blue-grey right face, a 1-pixel dark outline, a little dried blood near the tip.
+Composition: the spike alone, centred, vertical, filling about 85% of the canvas height; it is about 6 art pixels wide at the base and 18 art pixels tall, every art pixel drawn as a block of one colour; the base is a flat horizontal cut.
+Constraints: one spike only, no plate, no floor, no shadow, no glow, nothing else.

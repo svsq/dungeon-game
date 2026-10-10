@@ -1,0 +1,5 @@
+Use case: the back view of the player character for a top-down 3/4 dungeon action game. Image 1 is the style reference only. Image 2 is the approved hero (front view): keep his design, colours, proportions and pixel density exactly.
+Subject: the SAME hero as Image 2 seen from behind in the same 3/4 top-down camera (walking away from the camera, toward the top of the screen): messy brown hair at the back of the head, the red cape covering most of the back, steel shoulder plates, brown boots.
+Pose: the same neutral rig pose as Image 2: feet apart under the hips with a gap, arms hanging slightly away from the body, empty hands.
+Composition: one character centred, full body, the same height in the canvas as Image 2.
+Constraints: one character only, no weapon, no shadow, no floor.

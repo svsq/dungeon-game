@@ -1,0 +1,2 @@
+[{"name": "merchant", "prompt": "art/prompts/merchant.txt", "size": "1024x1024", "alpha": "auto", "ref": [{"path": "art/gen/hero.png", "label": "the game's hero: match his style, outline, pixel density and scale"}]},
+ {"name": "shop_sheet", "prompt": "art/prompts/shop_sheet.txt", "size": "1536x1024", "alpha": "auto", "ref": [{"path": "art/old/props_ref.png", "label": "existing props of this game: match their scale and pixel density"}]}]

@@ -1,0 +1,4 @@
+Use case: a seamless tileable floor material for a top-down 3/4 dungeon game. Image 1 is the style reference: copy the worn stone floor of its central torch-lit hall (not the walls).
+Subject: an old dungeon flagstone floor seen straight from above: big worn stone slabs of DIFFERENT sizes laid in an irregular pattern (some large squares, some long rectangles, some small filler stones, a few broken slabs split by cracks), chipped corners, uneven dark mortar, patches of grime and dirt in the joints, a few small pebbles; muted grey-brown stone with slight variation in tone from slab to slab, like Image 1. Not a regular grid, not bathroom tiles.
+Composition: the whole canvas is floor, edge to edge, tiling seamlessly in both directions. About 7 large slabs across the width. The canvas is 160x160 art pixels, every art pixel drawn as a block of one colour.
+Constraints: flat even lighting, no vignette, no gradient across the image, no objects, no blood, no walls.
