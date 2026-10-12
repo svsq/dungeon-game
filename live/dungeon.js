@@ -68,16 +68,23 @@
     // beside the torch-lit dungeon in one view)
     const zones = ['crypt', 'arcane', 'dungeon'].filter((z) => z !== biome);
     others.filter((r) => r.type === 'combat' || r.type === 'treasure').slice(0, 1 + (R() < 0.6 ? 1 : 0)).forEach((r, i) => (r.zone = zones[(i + Math.floor(R() * 2)) % zones.length]));
-    // ---- lava pools (lava biome / arcane boss): blobs inside rooms away from the walls, kept only if every room stays connected ----
+    // ---- lava pools (lava biome / arcane boss): blobs in a room's side bays, off the 2-wide corridor lanes through its centre
+    // and clear of every corridor mouth; a pool is kept only if every floor cell stays reachable ----
     const lava = [];
-    if (D.BIOMES[biome].lava || boss) for (const r of rooms) { if (r.type === 'start' || r.type === 'shop' || r.w < 9 || r.h < 7) continue;
-      if (R() < (boss ? 1 : 0.6)) { const pw = ri(2, Math.max(2, r.w - 6)), ph = ri(2, Math.max(2, r.h - 5)), px = ri(r.x + 2, r.x + r.w - 2 - pw), py = ri(r.y + 2, r.y + r.h - 2 - ph);
-        const saved = []; for (let y = py; y < py + ph; y++) for (let x = px; x < px + pw; x++) if (at(x, y) === 1 && !(Math.abs(x - r.cx) <= 3 && Math.abs(y - r.cy) <= 4)) { saved.push([x, y]); set(x, y, 3); }
-        if (!connected()) for (const [x, y] of saved) set(x, y, 1); else lava.push(...saved); } }
-    function connected() { const seen = new Uint8Array(W * H), st = [[start.cx, start.cy]]; seen[start.cy * W + start.cx] = 1; let n = 0;
-      while (st.length) { const [x, y] = st.pop(); n++; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
+    const lane = (r, x, y) => (x >= r.cx - 1 && x <= r.cx + 2) || (y >= r.cy - 1 && y <= r.cy + 2);
+    const pool = (r) => { for (let k = 0; k < 6; k++) { const pw = ri(2, Math.min(5, r.w - 5)), ph = ri(2, Math.min(4, r.h - 4)), px = ri(r.x + 1, r.x + r.w - 1 - pw), py = ri(r.y + 1, r.y + r.h - 1 - ph);
+        const saved = []; for (let y = py; y < py + ph; y++) for (let x = px; x < px + pw; x++) {
+          if ((x === px || x === px + pw - 1) && (y === py || y === py + ph - 1) && pw > 2 && ph > 2 && R() < 0.6) continue;
+          if (at(x, y) === 1 && !lane(r, x, y) && !isDoor(x, y) && !isDoor(x - 1, y) && !isDoor(x + 1, y) && !isDoor(x, y - 1) && !isDoor(x, y + 1)) { saved.push([x, y]); set(x, y, 3); } }
+        if (saved.length < 3 || !connected()) { for (const [x, y] of saved) set(x, y, 1); continue; }
+        lava.push(...saved); return; } };
+    // a fire floor without a single pool reads as the wrong biome: a second pass that skips the roll
+    if (D.BIOMES[biome].lava || boss) for (let pass = 0; pass < 2 && !lava.length; pass++) for (const r of rooms) {
+      if (r.type !== 'start' && r.type !== 'shop' && r.w >= 8 && r.h >= 6 && (pass || R() < (boss ? 1 : 0.75))) pool(r); }
+    function connected() { const seen = new Uint8Array(W * H), st = [[start.cx, start.cy]]; seen[start.cy * W + start.cx] = 1;
+      while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
         if (at(nx, ny) === 1 && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; st.push([nx, ny]); } } }
-      return rooms.every((r) => seen[r.cy * W + r.cx] || [...Array(r.w * r.h).keys()].some((k) => seen[(r.y + Math.floor(k / r.w)) * W + r.x + (k % r.w)])); }
+      for (let i = 0; i < W * H; i++) if (cells[i] === 1 && !seen[i]) return false; return true; }
     if (!connected()) return null;
     // ---- contents ----
     // a cell next to a corridor mouth: any neighbour outside every room that is open floor
@@ -102,29 +109,50 @@
     // closing the space behind it, the armour and weapon stands at the sides, a sign over the counter, a lantern by every way in
     let shop = null;
     for (const r of rooms) { if (r.type !== 'shop') continue; const cx = r.cx, y0 = r.y, take = (x, y) => { used.add(key(x, y)); bulk.add(key(x, y)); };
+      const inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+      const mouths = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { if (x !== r.x && x !== r.x + r.w - 1 && y !== r.y && y !== r.y + r.h - 1) continue;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ox = x + dx, oy = y + dy; if (at(ox, oy) === 1 && !inR(ox, oy)) mouths.push([x, y, dx, dy]); } }
+      const nearMouth = (x, y) => mouths.some((q) => Math.max(Math.abs(q[0] - x), Math.abs(q[1] - y)) <= 2);
       for (let y = y0; y <= y0 + 2; y++) for (let x = cx - 2; x <= cx + 2; x++) take(x, y);
-      // the stands go against the back wall clear of the wide shelves, or else wherever the room has space
-      const wall = (x, n) => { if (x > r.x && x < r.x + r.w - 1 && at(x, y0 - 1) === 0 && free(x, y0) && !doorway(x, y0)) { take(x, y0); decor.push({ x: wx(x), y: y0 * TILE + 22, n, solid: 1, r: r.id }); return; }
-        const p = spot(r, 1, 0, true); if (p && p[1] > y0 + 2) decor.push({ x: wx(p[0]), y: wy(p[1]), n, solid: 1, r: r.id }); };
+      // the customer's spot in front of the counter stays open
+      for (let y = y0 + 3; y <= y0 + 4; y++) for (let x = cx - 3; x <= cx + 3; x++) used.add(key(x, y));
+      // a prop may take a cell only if every other open cell of the room stays reachable from the counter
+      const open = (x, y) => inR(x, y) && at(x, y) === 1 && !bulk.has(key(x, y));
+      const keepsWay = (px, py) => { const seen = new Set([key(px, py)]), st = [[cx, y0 + 3]]; seen.add(key(cx, y0 + 3)); let n = 1, total = 0;
+        for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (open(x, y) && !(x === px && y === py)) total++;
+        while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = key(nx, ny);
+          if (open(nx, ny) && !seen.has(k)) { seen.add(k); st.push([nx, ny]); n++; } } }
+        return n === total; };
+      // big props go against the walls, corners first, never by a way in or out of the room
+      const edgeSpot = () => { const cand = [];
+        for (let y = y0 + 3; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+          const side = (x === r.x && at(x - 1, y) === 0) || (x === r.x + r.w - 1 && at(x + 1, y) === 0) || (y === r.y + r.h - 1 && at(x, y + 1) === 0);
+          if (side && free(x, y) && roomy(x, y) && !nearMouth(x, y)) cand.push([x, y, Math.min(x - r.x, r.x + r.w - 1 - x) + Math.min(y - r.y, r.y + r.h - 1 - y) <= 1 ? 0 : 1]); }
+        for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+        cand.sort((p, q) => p[2] - q[2]);
+        for (const [x, y] of cand) if (keepsWay(x, y)) { take(x, y); return [x, y]; } return null; };
+      const along = (n) => { const p = edgeSpot(); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n, solid: 1, r: r.id }); };
+      // the stands go against the back wall clear of the wide shelves, or else along another wall
+      const wall = (dir, n) => { for (let x = cx + dir * 4; x >= r.x && x < r.x + r.w; x += dir)
+          if (at(x, y0 - 1) === 0 && free(x, y0) && roomy(x, y0) && !nearMouth(x, y0) && keepsWay(x, y0)) { take(x, y0); decor.push({ x: wx(x), y: y0 * TILE + 22, n, solid: 1, r: r.id }); return; }
+        along(n); };
       decor.push({ x: wx(cx - 2), y: y0 * TILE + 22, n: 'shop_shelf', solid: 1, r: r.id }, { x: wx(cx + 2), y: y0 * TILE + 22, n: 'shop_shelf', solid: 1, r: r.id });
       decor.push({ x: wx(cx - 2), y: wy(y0 + 1), n: 'shop_sacks', solid: 1, r: r.id }, { x: wx(cx + 2), y: wy(y0 + 1), n: 'shop_barrel', solid: 1, r: r.id });
-      wall(cx - 4, 'shop_armor'); wall(cx + 4, 'shop_weapons');
       decor.push({ x: wx(cx), y: y0 * TILE - 34, n: 'shop_sign', wall: 1 });
       const cy = wy(y0 + 2);
       shop = { room: r.id, x: wx(cx), y: cy - 16, counter: { x: wx(cx), y: cy }, front: { x: wx(cx), y: cy + 30 },
         solid: [-1, 0, 1].map((i) => [wx(cx + i), cy]), lanterns: [] };
       // a lantern beside each corridor mouth, on the room's side of it and out of the way
-      const mouths = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { if (x !== r.x && x !== r.x + r.w - 1 && y !== r.y && y !== r.y + r.h - 1) continue;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ox = x + dx, oy = y + dy; if (at(ox, oy) === 1 && !(ox >= r.x && ox < r.x + r.w && oy >= r.y && oy < r.y + r.h)) mouths.push([x, y, dx, dy]); } }
       const lit = new Set();
       for (const [x, y, dx, dy] of mouths) { if (lit.has(key(x, y))) continue; const ax = dy ? 1 : 0, ay = dx ? 1 : 0;
         let a = 0; while (mouths.some((q) => q[0] === x + ax * (a + 1) && q[1] === y + ay * (a + 1) && q[2] === dx && q[3] === dy)) a++;
         for (let k = 0; k <= a; k++) lit.add(key(x + ax * k, y + ay * k));
-        for (const [lx, ly] of [[x + ax * (a + 1), y + ay * (a + 1)], [x - ax, y - ay]]) if (lx >= r.x && lx < r.x + r.w && ly >= r.y && ly < r.y + r.h && free(lx, ly) && roomy(lx, ly)) {
+        for (const [lx, ly] of [[x + ax * (a + 1), y + ay * (a + 1)], [x - ax, y - ay]]) if (inR(lx, ly) && free(lx, ly) && roomy(lx, ly) && keepsWay(lx, ly)) {
           take(lx, ly); shop.lanterns.push({ x: wx(lx), y: wy(ly) }); break; } }
       for (const L0 of shop.lanterns) decor.push({ x: L0.x, y: L0.y, n: 'shop_lantern', solid: 1, r: r.id });
+      wall(-1, 'shop_armor'); wall(1, 'shop_weapons');
       for (const x of [r.x + 1, r.x + r.w - 2]) if (!at(x, r.y - 1) && Math.abs(x - cx) > 3) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
-      for (const n of ['shop_gold', 'shop_crate']) { const p = spot(r, 1, 0, true); if (p && p[1] > y0 + 2) decor.push({ x: wx(p[0]), y: wy(p[1]), n, solid: 1, r: r.id }); } }
+      along('shop_gold'); along('shop_crate'); }
     if (!shop) return null;
     for (const r of rooms) { if (r.type === 'shop') continue;
       const area = r.w * r.h, zb = r.zone || biome;
