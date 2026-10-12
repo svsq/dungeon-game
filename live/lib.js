@@ -309,7 +309,7 @@ void main(){ vec2 uv = scr(v_px); vec2 d = u_dir / u_res; vec3 s = texture(u_src
   s += (texture(u_src, uv + d * 1.3846).rgb + texture(u_src, uv - d * 1.3846).rgb) * 0.3162;
   s += (texture(u_src, uv + d * 3.2308).rgb + texture(u_src, uv - d * 3.2308).rgb) * 0.0703; o = vec4(s, 1.0); }`;
   const FINAL = `
-uniform sampler2D u_src, u_bloom, u_bloom2; uniform vec2 u_bloomA; uniform float u_vig, u_warm, u_roll, u_dither;
+uniform sampler2D u_src, u_bloom, u_bloom2; uniform vec2 u_bloomA; uniform float u_vig, u_warm, u_roll, u_dither, u_desat, u_dark; uniform vec4 u_edge;
 void main(){ vec2 uv = scr(v_px); vec3 c = texture(u_src, uv).rgb;
   c += texture(u_bloom, uv).rgb * u_bloomA.x + texture(u_bloom2, uv).rgb * u_bloomA.y;
   float l = dot(c, vec3(0.299, 0.587, 0.114));
@@ -318,6 +318,9 @@ void main(){ vec2 uv = scr(v_px); vec3 c = texture(u_src, uv).rgb;
   if (mx > 0.8 && u_roll > 0.0) { float k = (0.8 + (1.0 - exp(-(mx - 0.8) * 3.0)) * 0.19) / mx; c *= u_roll < 1.0 ? mix(1.0, k, u_roll) : k; }
   vec2 q = (v_px / u_res - 0.5) * vec2(1.0, 0.85);
   c *= mix(u_vig, 1.0, smoothstep(0.85, 0.3, length(q) * 1.25));
+  c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), u_desat);
+  c = mix(c, u_edge.rgb, u_edge.a * smoothstep(0.45, 0.95, length(q) * 1.25));
+  c *= 1.0 - u_dark;
   if (u_dither > 0.5) c += (hash(v_px + fract(u_t) * 100.0) - 0.5) / 255.0;
   o = vec4(c, 1.0); }`;
   const MOTE = `
@@ -516,13 +519,14 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     G.blend(); };
   // bloom (two radii) + final grade (warm highs, cool lows, hue-keeping roll-off, vignette, dither) → screen, then HUD-ready.
   // warm scales the warm-high/cool-low tint, roll the highlight roll-off (0 = none), dither 0/1. Pixel/flat/neon styles that
-  // need exact palette colours: { bloom: [0, 0], warm: 0, roll: 0, dither: 0 }
-  L.finish = (t, { bloom = [0.22, 0.20], vignette = 0.92, warm = 1, roll = 1, dither = 1 } = {}) => {
+  // need exact palette colours: { bloom: [0, 0], warm: 0, roll: 0, dither: 0 }. edge [r, g, b, amt] tints the screen's rim
+  // (pain), desat greys the frame, dark fades it to black
+  L.finish = (t, { bloom = [0.22, 0.20], vignette = 0.92, warm = 1, roll = 1, dither = 1, edge = [0, 0, 0, 0], desat = 0, dark = 0 } = {}) => {
     G.blend('none');
     G.bind(T.b1); G.full(P.bright, { u_src: T.comp });
     G.bind(T.b2); G.full(P.blur, { u_src: T.b1, u_dir: [1.5, 0] }); G.bind(T.b1); G.full(P.blur, { u_src: T.b2, u_dir: [0, 1.5] });
     G.bind(T.c1); G.full(P.copy, { u_src: T.b1 });
     G.bind(T.c2); G.full(P.blur, { u_src: T.c1, u_dir: [2, 0] }); G.bind(T.c1); G.full(P.blur, { u_src: T.c2, u_dir: [0, 2] });
-    G.bind(null); G.full(P.final, { u_src: T.comp, u_bloom: T.b1, u_bloom2: T.c1, u_t: t, u_bloomA: bloom, u_vig: vignette, u_warm: warm, u_roll: roll, u_dither: dither });
+    G.bind(null); G.full(P.final, { u_src: T.comp, u_bloom: T.b1, u_bloom2: T.c1, u_t: t, u_bloomA: bloom, u_vig: vignette, u_warm: warm, u_roll: roll, u_dither: dither, u_edge: edge, u_desat: desat, u_dark: dark });
     G.blend(); };
 })();

@@ -112,6 +112,7 @@
       panel(id + '_box', x, 146, w, 36, { r: 5, a: 0.85 });
       icon(ic, x + 6, 152, 24); lab(id, value, x + 36, 165, { size: 19, col });
     }
+    buffs(S, R, GT);
     // floor title + minimap
     minimap(S, R, t);
     // boss bar
@@ -127,7 +128,23 @@
       const s = e.k === 'trade' ? e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) + ' зол.' : e.k === 'pickup' ? (e.worn ? 'Надето: ' : 'Подобрано: ') + e.s : e.k === 'lvl' ? 'Новый уровень ' + e.lvl + '! Нажмите I' : e.k === 'unlock' ? 'Открыта способность: ' + D.ABILITIES.find((A) => A.id === e.id).name : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 24;
       panel('feedbox' + i, 18, y - 15, w, 30, { r: 5, a: 0.7 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
-    if (S.screen === 'play') { const k = 'I — герой · Esc — пауза'; lab('keys', k, W - 18, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
+    if (S.screen === 'play') { const k = 'I — герой · M — звук · Esc — пауза'; lab('keys', k, W - 18, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
+  }
+
+  // active effects under the currencies: the shrine's blessing lasts the floor, the shield shows what it still soaks, the
+  // timed ones drain clockwise; debuffs sit on a red rim
+  function buffs(S, R, GT) {
+    const h = R.hero, list = [];
+    if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff' });
+    if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / 5 });
+    if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1 });
+    if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1 });
+    list.forEach((b, i) => { const x = 116 + i * 46, y = 190;
+      panel('bf_' + b.id, x, y, 40, 40, { r: 5, rim: b.bad ? [0.75, 0.2, 0.15] : C.rimHi, a: 0.9 });
+      if (window.ASSETS[b.ic]) icon(b.ic, x + 3, y + 3, 34);
+      if (b.left !== undefined) { const f = Math.max(0, Math.min(1, 1 - b.left)); L.solid(x + 3, y + 3, 34, 34 * f, [0, 0, 0], 0, 0, 0, 0.55);
+        if (b.left < 0.25 && Math.sin(GT * 18) > 0) L.rrect(x, y, 40, 40, 5, [1, 1, 1], [1, 1, 1], 0.12); }
+      if (b.v) lab('bfv_' + b.id, b.v, x + 20, y + 49, { size: 14, al: 0.5, col: b.col }); });
   }
 
   function currencies(S, R) {
