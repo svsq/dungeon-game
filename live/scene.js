@@ -56,8 +56,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // the safe zone is the start room plus one cell (SIM's inStart): its edge is visible only where floor crosses it
   const SANCT = { key: null, edges: [] };
   const sanctEdges = (m) => { const key = m.seed + ':' + m.floor; if (SANCT.key === key) return SANCT.edges; SANCT.key = key; const out = SANCT.edges = [];
-    const r = m.rooms[m.start], inZ = (x, y) => x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h, T = TILE;
-    for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) { if (SIM.cell(m, x, y) !== 1) continue;
+    const r = m.rooms[m.start], inZ = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, T = TILE;   // the room itself, as the sim's ward
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { if (SIM.cell(m, x, y) !== 1) continue;
       if (!inZ(x + 1, y) && SIM.cell(m, x + 1, y) === 1) out.push([(x + 1) * T - 2, y * T, 4, T]); if (!inZ(x - 1, y) && SIM.cell(m, x - 1, y) === 1) out.push([x * T - 2, y * T, 4, T]);
       if (!inZ(x, y + 1) && SIM.cell(m, x, y + 1) === 1) out.push([x * T, (y + 1) * T - 2, T, 4]); if (!inZ(x, y - 1) && SIM.cell(m, x, y - 1) === 1) out.push([x * T, y * T - 2, T, 4]); }
     // one sill per doorway: merge edge cells that continue each other
@@ -833,6 +833,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const h = R.hero; h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, r.y * TILE - VH / 2 + 40]; return S; } };
     for (const [nm, tall] of [['wallprops', 0], ['wallprops_tall', 1]]) { const S = wallS(tall); if (S) states.push([nm, S]); }
     states.push(['sanct', play((S) => { const R = S.run, r = R.map.rooms[R.map.start], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1);
+      h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1.5) * TILE; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
+    // a corridor running along the safe room's side (seed 1, floor 1): the threshold follows the room's edge, not the corridor's middle
+    states.push(['sanct_side', play((S) => { S.run = SIM.newRun(S, 'campaign', 1); const R = S.run, r = R.map.rooms[R.map.start], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1);
       h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1.5) * TILE; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
     // the shop: the room from its doorway side, the hero at the counter (the prompt), and the trade screen at its worst
     const shopS = (prep) => play((S) => { const R = S.run, sh = R.map.shop, r = R.map.rooms[sh.room], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);

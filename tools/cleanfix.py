@@ -1,4 +1,4 @@
-# post-fixes for BUGS 32; rebuilds from art/old/cleanfix/ so it can be re-run
+# post-fixes for TASKS 32; rebuilds from art/old/cleanfix/ so it can be re-run
 import numpy as np; from PIL import Image; from scipy import ndimage as nd
 SRC, DST = 'art/old/cleanfix', 'art/gen'
 load = lambda n: np.array(Image.open(f'{SRC}/{n}.png').convert('RGBA')).astype(float)

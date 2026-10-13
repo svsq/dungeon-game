@@ -8,3 +8,5 @@ python3 ~/.claude/skills/ref2game/scripts/rigcut.py goblin --elbow --face right 
 python3 tools/armsplit.py goblin L "168,102;172,126;138,160;98,162;98,138;130,112" 112,148 R "256,82;298,90;328,124;312,152;284,142;256,120" 308,138
 python3 tools/rigset.py goblin bladeL=atan2:10,140,95,188
 python3 tools/partcut.py goblin "earL:92,14;132,18;158,30;166,44;166,74;152,80;130,64;108,46;92,34|161,54" "earR:254,36;272,28;322,28;322,44;304,60;288,76;266,82;254,74|257,60"
+python3 tools/jointcap.py goblin "uarmL:shL:15" "uarmR:shR:15"
+python3 tools/jointgap.py goblin "uarmL:shL:12:-3.1,3.1" "uarmR:shR:12:-0.4,0.4"

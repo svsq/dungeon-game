@@ -1,4 +1,4 @@
-# post-fixes for hero rig parts (BUGS 24, 30); always rebuilds from art/old/herofix/ so it can be re-run
+# post-fixes for hero rig parts (TASKS 24, 30); always rebuilds from art/old/herofix/ so it can be re-run
 import numpy as np; from PIL import Image; from scipy import ndimage as nd
 SRC, DST = 'art/old/herofix', 'art/gen'
 load = lambda n: np.array(Image.open(f'{SRC}/{n}.png').convert('RGBA')).astype(float)

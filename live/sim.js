@@ -183,7 +183,9 @@
   const cell = (m, tx, ty) => (tx < 0 || ty < 0 || tx >= m.W || ty >= m.H ? 0 : m.cells[ty * m.W + tx]);
   const inRoom1 = (r, tx, ty) => tx >= r.x - 1 && tx <= r.x + r.w && ty >= r.y - 1 && ty <= r.y + r.h;
   // the sanctuary and the merchant's warded shop (plus one cell): monsters never set foot in them, their bolts die at the line
-  const inStart = (m, tx, ty) => inRoom1(m.rooms[m.start], tx, ty) || (!!m.shop && inRoom1(m.rooms[m.shop.room], tx, ty));
+  // the sanctuary is the safe room itself: a ring around it would take in half of a corridor that runs along its side
+  const inRoom0 = (r, tx, ty) => tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h;
+  const inStart = (m, tx, ty) => inRoom0(m.rooms[m.start], tx, ty) || (!!m.shop && inRoom1(m.rooms[m.shop.room], tx, ty));
   // lava (3) can be entered — it burns — by the hero and by a monster knocked into it; a monster never walks into it on its own
   const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty); return c === 3 ? !lavaOk : c !== 1 || (mon && inStart(m, tx, ty)); };
   const onLava = (m, o) => cell(m, Math.floor(o.x / TILE), Math.floor(o.y / TILE)) === 3;
@@ -937,6 +939,11 @@
         const w2 = (n) => (D.PROP_W[n] || 0) / 2;
         for (let i = 0; i < big.length; i++) for (let j = i + 1; j < big.length; j++) { const [ax, ay, an] = big[i], [bx, by, bn] = big[j]; if (an.startsWith('shop_') || bn.startsWith('shop_')) continue;
           if (Math.abs(Math.floor(ay / TILE) - Math.floor(by / TILE)) <= 1 && Math.abs(ax - bx) < w2(an) + w2(bn) + 4) out.push(`seed ${seed} f${f}: ${an} draws over ${bn} at ${Math.round(ax)},${Math.round(ay)}`); }
+        // nothing hung on a top wall (torch, sconce, banner, sign) hides behind a tall prop standing against that wall
+        const hung = m.torches.filter((t) => t.kind === 'wall' && !t.side).map((t) => [t.x, Math.round((t.y + 26) / TILE), 14, t.lever !== undefined ? 'sconce' : 'torch'])
+          .concat(m.decor.filter((d) => d.n === 'banner' || d.n === 'shop_sign').map((d) => [d.x, Math.round((d.y + (d.n === 'banner' ? 2 : 34)) / TILE), d.n === 'banner' ? 18 : 22, d.n]));
+        for (const d of m.decor) { if (!d.solid || (d.y - 22) % TILE) continue; const ry = (d.y - 22) / TILE;
+          for (const [hx, hy, hw, hn] of hung) if (hy === ry && Math.abs(hx - d.x) < hw + (D.PROP_W[d.n] || 53) / 2) out.push(`seed ${seed} f${f}: ${d.n} hides a ${hn} on the wall at ${Math.round(hx)},${hy * TILE}`); }
         for (const p of m.pots) if (p.kind === 'gold' && !(m.rooms[DG.roomAt(m, p.x, p.y)] || {}).type?.startsWith('secret')) out.push(`seed ${seed} f${f}: a heap of gold outside a secret room`);
         for (const r of m.rooms) { const n = m.chests.filter((c) => DG.roomAt(m, c.x, c.y) === r.id).length; if (n > Math.min(2, 1 + Math.floor(r.w * r.h / 30))) out.push(`seed ${seed} f${f}: ${n} chests in a ${r.w}×${r.h} room`); } }
       // a cobweb hangs only in a room's top corner, its spun corner against the two walls (mirrored on the right)

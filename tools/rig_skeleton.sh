@@ -9,3 +9,5 @@ python3 ~/.claude/skills/ref2game/scripts/rigcut.py skeleton --elbow --face righ
 python3 tools/armsplit.py skeleton L "116,60;152,66;148,100;144,134;114,142;108,95" 127,133 R "232,84;264,78;274,100;272,128;250,134;238,112" 262,124
 python3 tools/rigset.py skeleton bladeL=atan2:5,78,95,176
 python3 tools/partcut.py skeleton "skull:136,0;212,0;210,36;202,48;198,62;194,76;192,90;158,92;148,82;134,62;132,30|175,90"
+python3 tools/jointcap.py skeleton "uarmL:shL:15" "uarmR:shR:15"
+python3 tools/jointgap.py skeleton "uarmL:shL:12:-3.1,3.1" "uarmR:shR:12:-2.5,2.4"
