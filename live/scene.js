@@ -615,7 +615,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         S.run.hero.bag[23] = { id: 3001, b: 'leather_armor', lvl: 8, rar: 4, def: 24, mods: { hp: 72, mp: 38, aspd: 16, regen: 3 } };
       })],
       ['pause', play((S) => { S.screen = 'pause'; S.run.msg = { s: 'Этаж 1 — Подземелье', t: S.t - 1 }; })],
-      ['meta', mk((S) => { S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = { hp: 5, dmg: 2 }; })],
+      ['meta', mk((S) => { S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = Object.fromEntries(D.META.map((M, i) => [M.id, i % 3 ? M.max - 1 : i % 2 ? M.max : 0])); })],
+      ['meta_refuse', mk((S) => { S.screen = 'meta'; S.meta.shards = 0; S.hover = 'gear'; S.ev.push({ k: 'nope', s: 'Не хватает осколков', t: S.t - 0.2 }); })],
+      // a dungeon altar at its widest: the longest gift of each tier, one affordable, one hovered, a refusal; then the gifts in the HUD
+      ...[['altar_screen', 99999, 'gift:1'], ['altar_poor', 5, 'gift:2']].map(([id, bank, hv]) => [id, play((S) => {
+        const R = S.run, h = R.hero, long = (tier) => D.GIFTS.filter((g) => g.tier === tier).sort((a, b) => b.desc.length + b.name.length - a.desc.length - a.name.length)[0].id;
+        R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [1, 2, 3].map((tier) => ({ id: long(tier), cost: bank > 999 ? 999 : D.giftCost(tier, 8) })) }]; R.altar = 0;
+        S.meta.shards = bank; S.screen = 'altar'; S.hover = hv; if (bank < 999) S.ev.push({ k: 'nope', s: 'Не хватает осколков душ', t: S.t - 0.2 }); })]),
+      ['altar_prompt', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 50, y: h.y - 20, used: 0 }]; })],
+      ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
+        h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
       ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 0, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],

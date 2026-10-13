@@ -47,9 +47,12 @@
     const lo = o.min || 0, hi = o.max ?? 4, w = [60, 26, 10, 3.5, 0.5].map((v, i) => (i < lo || i > hi ? 0 : v * (i ? Math.pow(1 + 0.22 * floor + 0.6 * q, i * 0.9) : 1)));
     let s = w.reduce((a, b) => a + b, 0) * rnd(R), rar = lo; while (rar < hi && (s -= w[rar]) > 0) rar++;
     const keys = Object.keys(BASES).filter((k) => (!BASES[k].minF || floor >= BASES[k].minF) && (!slotOnly || BASES[k].slot === slotOnly));
-    const bk = pick(R, keys), lvl = floor, it = itemPower({ id: 0, b: bk, rar, lvl, mods: {} });
-    const pool = AFFIXES.slice(); for (let i = 0; i < RARITY[rar].affixes && pool.length; i++) { const a = pool.splice(Math.floor(rnd(R) * pool.length), 1)[0];
-      it.mods[a.k] = Math.max(1, Math.round((a.a + a.b * lvl) * (0.7 + 0.6 * rnd(R)) * (1 + 0.15 * rar))); }
+    const bk = pick(R, keys);
+    return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor, mods: {} }));
+  }
+  function rollAffixes(R, it) {
+    const pool = AFFIXES.slice(); for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { const a = pool.splice(Math.floor(rnd(R) * pool.length), 1)[0];
+      it.mods[a.k] = Math.max(1, Math.round((a.a + a.b * it.lvl) * (0.7 + 0.6 * rnd(R)) * (1 + 0.15 * it.rar))); }
     return it;
   }
   const potion = (b, n = 1) => ({ id: 0, b, n, rar: 0, lvl: 1, mods: {} });
@@ -67,7 +70,9 @@
     chest: [null, { q: 0.4, n: 1 }, { q: 1, n: 2 }, { q: 3, n: 1 }],
   };
 
-  // ---------------- hero stats (base + gear + meta) ----------------
+  // ---------------- hero stats (base + gear + meta + the altars' gifts) ----------------
+  const GIFT_V = Object.fromEntries(D.GIFTS.map((g) => [g.id, g.v]));
+  const gift = (h, id) => ((h.perks || {})[id] || 0) * GIFT_V[id];
   function stats(h, meta) {
     const s = { str: h.base.str, agi: h.base.agi, int: h.base.int, vit: h.base.vit, atk: 0, def: 0, crit: 0, hp: 0, mp: 0, aspd: 0, mspd: 0, leech: 0, fire: 0, regen: 0, onhit: 0 };
     let wpn = null;
@@ -75,13 +80,15 @@
     const up = (meta && meta.up) || {}, W = wpn ? BASES[wpn.b] : { atk: 3, spd: 0.45, arc: 110, reach: 51 };
     const out = {
       str: s.str, agi: s.agi, int: s.int, vit: s.vit,
-      maxHp: Math.round(80 + s.vit * 10 + (h.lvl - 1) * 6 + s.hp + 12 * (up.hp || 0)),
-      maxMp: Math.round(40 + s.int * 6 + (h.lvl - 1) * 2 + s.mp),
-      atk: Math.round(((wpn ? wpn.atk : 3) + s.str * 1.6 + s.atk + (W.spell ? s.int * 0.8 : 0)) * (1 + 0.06 * (up.dmg || 0))),
-      def: Math.round(s.def + s.vit * 0.3),
-      crit: Math.min(60, 5 + s.agi * 0.5 + s.crit),
-      aspd: s.agi * 1.2 + s.aspd, mspd: Math.min(40, s.agi * 0.4 + s.mspd), leech: s.leech, regen: s.regen, onhit: s.onhit,
-      spell: (1 + s.int * 0.04) * (1 + (W.spell || 0)) * (1 + s.fire / 100) * (1 + 0.06 * (up.dmg || 0)),
+      maxHp: Math.round(80 + s.vit * 10 + (h.lvl - 1) * 6 + s.hp + 12 * (up.hp || 0) + gift(h, 'vigor')),
+      maxMp: Math.round(40 + s.int * 6 + (h.lvl - 1) * 2 + s.mp + 10 * (up.mana || 0) + gift(h, 'wisdom')),
+      atk: Math.round(((wpn ? wpn.atk : 3) + s.str * 1.6 + s.atk + (W.spell ? s.int * 0.8 : 0)) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100)),
+      def: Math.round(s.def + s.vit * 0.3 + gift(h, 'ward')),
+      crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')),
+      aspd: s.agi * 1.2 + s.aspd + gift(h, 'haste'), mspd: Math.min(40, s.agi * 0.4 + s.mspd + gift(h, 'swift')), leech: s.leech + gift(h, 'leech'),
+      regen: s.regen + 0.5 * (up.regen || 0) + gift(h, 'life'), onhit: s.onhit,
+      spell: (1 + s.int * 0.04) * (1 + (W.spell || 0)) * (1 + s.fire / 100) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100) * (1 + gift(h, 'arcane') / 100),
+      resist: 1 - 0.15 * (up.resist || 0), gold: 1 + gift(h, 'greed') / 100,
       wcd: W.spd, arc: W.arc, reach: W.reach, kb: W.kb || 1, wtype: wpn ? wpn.b : 'fist',
     };
     return out;
@@ -90,7 +97,7 @@
   // ---------------- run & floor ----------------
   function newHero(meta) {
     const up = meta.up || {};
-    const h = { x: 0, y: 0, vx: 0, vy: 0, face: 1, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: 0,
+    const h = { x: 0, y: 0, vx: 0, vy: 0, face: 1, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
       base: { str: 5, agi: 4, int: 3, vit: 5 }, gold: 0, eq: {}, bag: new Array(24).fill(null), ab: { whirl: 1, fireball: 0, shield: 0 },
       cd: { whirl: 0, fireball: 0, shield: 0, dash: 0, atk: 0 }, atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
       hurtT: -9, ifr: 0, shield: 0, shieldT: -9, shieldUntil: 0, poison: 0, burn: 0, burnT: -9, spikeT: -9, dist: 0, gp: 0, deadT: -1, regen: 0, bless: 0 };
@@ -104,6 +111,7 @@
     const give = (it) => { it.id = R.nextId++; return it; };
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: 'sword', rar: 0, mods: {}, atk: BASES.sword.atk }));
     h.eq.armor = give({ b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: BASES.leather_armor.def });
+    const gr = (S.meta.up || {}).gear || 0; if (gr) for (const it of [h.eq.weapon, h.eq.armor]) { it.rar = gr; rollAffixes(R, itemPower(it)); }
     h.bag[0] = give(potion('hp_potion', 2 + ((S.meta.up || {}).potion || 0))); h.bag[1] = give(potion('mp_potion', 1));
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
     enterFloor(S, R, 1);
@@ -427,9 +435,9 @@
     if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
     h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT);
-    if (h.poison > t) { h.hp -= 2.5 * DT; if (h.hp <= 1) h.hp = 1; }
+    if (h.poison > t) { h.hp -= 2.5 * st.resist * DT; if (h.hp <= 1) h.hp = 1; }
     // a fire hex sets the hero alight: a tick every 0.5 s for 3 s, past the invulnerability window like poison, never the killing blow
-    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.round(2 + 0.4 * R.floor); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n }); }
+    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((2 + 0.4 * R.floor) * st.resist)); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n }); }
     if (h.shield > 0 && t > h.shieldUntil) h.shield = 0;
     // spikes: up for 0.7 s of every 2.4 s; a plate is 2×2 cells, feet a little inside its edge count
     const onPlate = (a, tr) => Math.abs(a.x - tr.x) < TILE - 4 && Math.abs(a.y - tr.y) < TILE - 6;
@@ -440,7 +448,7 @@
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (R.floor - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
     // lava burns whoever stands in it, every half second
     const lavaDmg = 8 * (1 + 0.2 * (R.floor - 1));
-    if (onLava(m, h) && t - (h.lavaT ?? -9) >= 0.5) { h.lavaT = t; hurtHero(S, R, lavaDmg, h.x, h.y); ev(S, { k: 'scorch', x: h.x, y: h.y }); }
+    if (onLava(m, h) && t - (h.lavaT ?? -9) >= 0.5) { h.lavaT = t; hurtHero(S, R, lavaDmg * st.resist, h.x, h.y); ev(S, { k: 'scorch', x: h.x, y: h.y }); }
     for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onLava(m, e) && t - (e.lavaT ?? -9) >= 0.5) {
       e.lavaT = t; hitEnemy(S, R, e, Math.round(lavaDmg * 1.25), false, e.x, e.y, 0, 'fire'); ev(S, { k: 'scorch', x: e.x, y: e.y }); }
     stepProjectiles(S, R);
@@ -461,10 +469,25 @@
     const c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < 56); if (c) { openChest(S, R, c); return; }
     if (atCounter(R)) { openShop(S, R); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
-    if (sh) { sh.used = 1; const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp; h.bless = 1; ev(S, { k: 'bless', x: sh.x, y: sh.y }); R.msg = { s: 'Благословение: +20% урона до конца этажа', t: S.t }; return; }
+    if (sh) { openAltar(S, R, sh); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (R.floor === D.FLOORS && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте Повелителя Демонов' }); return; }
       R.shards += R.floor; S.meta.shards += R.floor; ev(S, { k: 'stairs', x: h.x, y: h.y, n: R.floor, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
+  }
+  // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
+  // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
+  function openAltar(S, R, sh) {
+    if (!sh.gifts) sh.gifts = [1, 2, 3].map((tier) => ({ id: pick(R, D.GIFTS.filter((g) => g.tier === tier)).id, cost: D.giftCost(tier, R.floor) }));
+    R.altar = R.shrines.indexOf(sh); S.screen = 'altar'; S.hover = ''; ev(S, { k: 'altar', x: sh.x, y: sh.y });
+  }
+  function takeGift(S, R, sh, i, x, y) {
+    const o = sh.gifts[i], G = D.GIFTS.find((q) => q.id === o.id), h = R.hero;
+    if (S.meta.shards < o.cost) { ev(S, { k: 'nope', x, y, s: 'Не хватает осколков душ' }); return; }
+    S.meta.shards -= o.cost; sh.used = 1; sh.took = o.id;
+    if (o.id === 'bless') h.bless = 1; else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
+    const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp;
+    ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? ' до конца этажа' : ' до конца забега'), t: S.t };
+    S.screen = 'play'; S.saveN++;
   }
   // ---------------- the merchant ----------------
   // his shelf for this floor: the gear first (the showpiece at least SHOP.best rarity), then potions and scrolls in stacks
@@ -637,7 +660,7 @@
       if (p.tossed) { if (d > 70) p.tossed = 0; continue; }
       if (p.kind !== 'item' && d < 90) { p.x += (h.x - p.x) * Math.min(1, 8 * DT); p.y += (h.y - p.y) * Math.min(1, 8 * DT); }
       if (d < 26) {
-        if (p.kind === 'gold') { h.gold += p.n; R.goldTot += p.n; p.got = 1; ev(S, { k: 'gold', x: p.x, y: p.y, n: p.n }); }
+        if (p.kind === 'gold') { const n = Math.round(p.n * heroSt(S).gold); h.gold += n; R.goldTot += n; p.got = 1; ev(S, { k: 'gold', x: p.x, y: p.y, n }); }
         else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
         else if (wearIfFree(S, R, p.item)) { p.got = 1; if (p.loot) fstat(R).loot++; ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }
         else if (bagAdd(R, p.item)) { p.got = 1; if (p.loot) fstat(R).loot++; ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }); }
@@ -688,6 +711,12 @@
     if (S.screen === 'dead' || S.screen === 'win') {
       const b = D.hitUI(UI.end(), x, y); S.hover = b ? b.id : '';
       if (click && b) { if (b.id === 'menu') S.screen = 'menu'; else startCampaign(S); }
+      return;
+    }
+    if (S.screen === 'altar') {
+      const R = S.run, sh = R.shrines[R.altar], U = UI.altar(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+      if (!sh || sh.used || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }
+      if (click && b && b.id.startsWith('gift:')) takeGift(S, R, sh, b.i, x, y);
       return;
     }
     if (S.screen === 'shop') {
@@ -1056,11 +1085,31 @@
       if (W2.cap !== REWARD.perFloor * 2 || W2.bonus !== Math.round(W2.C.pct * W2.cap)) out.push('completion: bonus not explained by its formula');
       const L2 = spawn(0, {}); L2.saved = JSON.parse(JSON.stringify(R)); delete L2.saved.stats; L2.run = L2.saved; L2.screen = 'play'; step(L2, { keys: [] });
       if (!L2.run.stats || L2.run.stats[2].foes !== L2.run.en.filter((o) => !o.summ).length) out.push('completion: an old save gets no stats for its floor'); }
+    // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
+    // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
+      for (let f = 1; !R.shrines.length && f < D.FLOORS; ) enterFloor(S, R, ++f);
+      if (!R.shrines.length) out.push('altar: no altar on any floor of seed 777');
+      else { const sh = R.shrines[0], tier = (o) => D.GIFTS.find((q) => q.id === o.id).tier; R.en = []; h.x = sh.x; h.y = sh.y + 40; step(S, { keys: ['KeyE'] });
+        if (S.screen !== 'altar' || !sh.gifts || sh.gifts.map(tier).join() !== '1,2,3' || !(sh.gifts[0].cost < sh.gifts[1].cost && sh.gifts[1].cost < sh.gifts[2].cost)) out.push('altar: E does not offer one gift per tier at rising prices');
+        const U = UI.altar(), at = (i) => ({ px: U.r[i].x + 5, py: U.r[i].y + 5, click: 1, keys: [] }), o = sh.gifts[2];
+        o.id = 'fury'; S.meta.shards = o.cost - 1; const a0 = heroSt(S).atk; step(S, at(2));
+        if (S.meta.shards !== o.cost - 1 || sh.used || S.screen !== 'altar') out.push('altar: a gift went through without enough shards');
+        S.meta.shards = o.cost + 3; h.hp = 1; step(S, at(2));
+        if (S.meta.shards !== 3 || !sh.used || S.screen !== 'play' || heroSt(S).atk <= a0 || h.hp !== heroSt(S).maxHp) out.push('altar: a gift did not take its price, apply, heal or close');
+        step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen === 'altar') out.push('altar: a used altar opens again');
+        const T = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); if (stats(T.saved.hero, T.meta).atk !== heroSt(S).atk) out.push('altar: a gift is lost on save/load');
+        const old = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); delete old.saved.hero.perks; if (!(stats(old.saved.hero, old.meta).atk > 0)) out.push('altar: a save without gifts breaks the stats'); } }
+    // the new meta perks reach a new hero: heirloom gear a rarity up with its affixes, skill points, mana, regeneration, resistance
+    { const up = { gear: 2, skill: 2, mana: 3, regen: 2, resist: 3 }, S = spawn(0, { meta: { shards: 0, up } }), R = newRun(S, 'campaign', 777), h = R.hero, st = stats(h, S.meta);
+      const R0 = newRun(spawn(0, {}), 'campaign', 777), st0 = stats(h, { up: {} });
+      if (h.eq.weapon.rar !== 2 || h.eq.armor.rar !== 2 || h.eq.weapon.atk <= R0.hero.eq.weapon.atk || Object.keys(h.eq.armor.mods).length !== RARITY[2].affixes) out.push('meta: heirloom gear is not a rarity up');
+      if (h.sp !== 2 || st.maxMp !== st0.maxMp + 30 || st.regen !== st0.regen + 1 || Math.abs(st.resist - 0.55) > 1e-9) out.push('meta: skill, mana, regen or resist perk does not apply'); }
     return out;
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, itemName, hitSecret, secretMask, hidden, fstat, completion, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter };
+    stepLen, stats, gift, itemName, hitSecret, secretMask, hidden, fstat, completion, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

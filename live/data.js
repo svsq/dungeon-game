@@ -100,7 +100,7 @@
     { k: 'vit', name: 'ЖИВ', full: 'Живучесть: здоровье' },
   ];
   const plural = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many);
-  const metaLine = (M, r) => { const f = (k) => '+' + M.v(k) + (M.pct ? '%' : ''), n = r && r < M.max ? r + 1 : Math.max(1, r);
+  const metaLine = (M, r) => { const f = (k) => (M.neg ? '−' : '+') + M.v(k) + (M.pct ? '%' : ''), n = r && r < M.max ? r + 1 : Math.max(1, r);
     return (r && r < M.max ? f(r) + '  →  ' : '') + f(n) + ' ' + M.unit(M.v(n)); };
   const META = [
     // v(r): the total bonus at rank r, so the altar shows what is owned and what the next rank brings; unit(n) agrees with n
@@ -109,7 +109,31 @@
     { id: 'potion', name: 'Запас зелий', v: (r) => r, unit: (n) => plural(n, 'зелье', 'зелья', 'зелий') + ' здоровья на старте', max: 3, cost: (r) => 15 + r * 20 },
     { id: 'gold', name: 'Жадность', v: (r) => 15 * r, pct: 1, unit: () => 'золота', max: 3, cost: (r) => 10 + r * 15 },
     { id: 'stat', name: 'Наследие', v: (r) => 2 * r, unit: (n) => plural(n, 'очко', 'очка', 'очков') + ' характеристик на старте', max: 3, cost: (r) => 25 + r * 25 },
+    { id: 'mana', name: 'Глубокий колодец', v: (r) => 10 * r, unit: () => 'к мане', max: 3, cost: (r) => 15 + r * 15 },
+    { id: 'regen', name: 'Второе дыхание', v: (r) => 0.5 * r, unit: () => 'здоровья в секунду', max: 3, cost: (r) => 20 + r * 20 },
+    { id: 'gear', name: 'Фамильное снаряжение', v: (r) => r, unit: () => 'к редкости стартового меча и брони', max: 2, cost: (r) => 40 + r * 40 },
+    { id: 'skill', name: 'Наставник', v: (r) => r, unit: (n) => plural(n, 'очко', 'очка', 'очков') + ' навыков на старте', max: 2, cost: (r) => 30 + r * 30 },
+    { id: 'resist', name: 'Закалка', v: (r) => 15 * r, pct: 1, neg: 1, unit: () => 'урона от яда, огня и лавы', max: 3, cost: (r) => 20 + r * 20 },
   ];
+
+  // a dungeon altar's gifts: it offers one of each tier, takes shards from the meta bank and gives one gift for the rest of the
+  // run (the blessing only for the floor), then goes dark. v is the bonus per gift taken
+  const GIFTS = [
+    { id: 'bless', tier: 1, name: 'Благословение', icon: 'bf_bless', v: 20, desc: '+20% урона' },
+    { id: 'vigor', tier: 1, name: 'Крепкая плоть', icon: 'it_hp', v: 20, desc: '+20 к здоровью' },
+    { id: 'wisdom', tier: 1, name: 'Ясный разум', icon: 'it_mp', v: 20, desc: '+20 к мане' },
+    { id: 'greed', tier: 1, name: 'Звон монет', icon: 'it_gold', v: 25, desc: '+25% золота' },
+    { id: 'swift', tier: 2, name: 'Лёгкие ноги', icon: 'it_boots', v: 10, desc: '+10% скорости бега' },
+    { id: 'haste', tier: 2, name: 'Быстрая рука', icon: 'it_gloves', v: 12, desc: '+12% скорости атаки' },
+    { id: 'ward', tier: 2, name: 'Каменная кожа', icon: 'it_shield', v: 6, desc: '+6 к защите' },
+    { id: 'crit', tier: 2, name: 'Глаз хищника', icon: 'it_ring', v: 8, desc: '+8% крит. шанса' },
+    { id: 'fury', tier: 3, name: 'Ярость крови', icon: 'it_sword', v: 15, desc: '+15% урона' },
+    { id: 'leech', tier: 3, name: 'Жажда', icon: 'it_amulet', v: 4, desc: '+4% вампиризма' },
+    { id: 'arcane', tier: 3, name: 'Пламя души', icon: 'ab_fire', v: 25, desc: '+25% силы заклинаний' },
+    { id: 'life', tier: 3, name: 'Живая кровь', icon: 'crystal', v: 1.5, desc: '+1.5 здоровья в секунду' },
+  ];
+  // a floor's takings in shards are about the floor's number: a cheap gift is most of a floor, the dear one three
+  const giftCost = (tier, f) => Math.round([0, 4, 9, 16][tier] * (1 + 0.15 * (f - 1)));
 
   const xpNeed = (lvl) => Math.round(24 * Math.pow(lvl, 1.55));
 
@@ -140,7 +164,11 @@
     pause: () => [['resume', 'Продолжить'], ['save', 'Сохранить и выйти в меню'], ['abandon', 'Сдаться (конец забега)']]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 430 + i * 92, w: 480, h: 72 })),
     end: () => [['menu', 'В главное меню'], ['again', 'Новый забег']].map(([id, label], i) => ({ id, label, on: true, x: 600 + i * 380, y: 920, w: 340, h: 72 })),
-    meta: () => META.map((m, i) => ({ id: m.id, x: 560, y: 300 + i * 104, w: 800, h: 88 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 860, w: 300, h: 70 }]),
+    meta: () => META.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / 5) * 800, y: 270 + (i % 5) * 112, w: 760, h: 96 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 870, w: 300, h: 70 }]),
+    // a dungeon altar: its three gifts side by side, cheapest first
+    altar: () => { const P = { x: 360, y: 190, w: 1200, h: 700 };
+      return { P, r: [0, 1, 2].map((i) => ({ id: 'gift:' + i, i, x: P.x + 40 + i * 380, y: P.y + 150, w: 340, h: 390 }))
+        .concat([{ id: 'leave', label: 'Уйти', on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 100, w: 300, h: 70 }]) }; },
     // hero screen: equipment column, bag grid, stats and abilities
     inv: () => {
       const P = { x: 250, y: 120, w: 1420, h: 820 }, r = [];
@@ -166,6 +194,6 @@
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
   root.DATA = { TILE, BIOMES, FLOORS, biomeOf, floorName, ENEMIES, BAL, ELITE, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
-    ABILITIES, AB_MAX, abRank, STATS, META, metaLine, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI };
+    ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

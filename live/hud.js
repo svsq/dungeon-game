@@ -41,6 +41,7 @@
     if (S.screen === 'pause') { dim(0.55); lab('p_title', 'Пауза', W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause()) button('pb_' + b.id, b, S.hover); }
     if (S.screen === 'inv' && R) inv(S, R, t);
     if (S.screen === 'shop' && R) shop(S, R, t);
+    if (S.screen === 'altar' && R) altar(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
 
@@ -73,7 +74,7 @@
     // interaction prompt
     let pr = null;
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 50, 'E или удар — открыть сундук'];
-    const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60); if (sh) pr = [sh.x, sh.y - 70, 'E — помолиться у алтаря'];
+    const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60); if (sh) pr = [sh.x, sh.y - 70, 'E — дары алтаря'];
     if (SIM.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, 'E — торговать'];
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 60, m.floor === D.FLOORS ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : 'E — спуститься на этаж ' + (m.floor + 1)];
     if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28, x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20; panel('prompt_box', x, y, w, 40, { r: 6 }); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); }
@@ -136,10 +137,12 @@
   function buffs(S, R, GT) {
     const h = R.hero, list = [];
     if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff' });
+    // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
+    for (const G of D.GIFTS) { const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff' }); }
     if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / 5 });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1 });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1 });
-    list.forEach((b, i) => { const x = 116 + i * 46, y = 190;
+    list.forEach((b, i) => { const x = 116 + (i % 8) * 46, y = 190 + Math.floor(i / 8) * 64;
       panel('bf_' + b.id, x, y, 40, 40, { r: 5, rim: b.bad ? [0.75, 0.2, 0.15] : C.rimHi, a: 0.9 });
       if (window.ASSETS[b.ic]) icon(b.ic, x + 3, y + 3, 34);
       if (b.left !== undefined) { const f = Math.max(0, Math.min(1, 1 - b.left)); L.solid(x + 3, y + 3, 34, 34 * f, [0, 0, 0], 0, 0, 0, 0.55);
@@ -337,9 +340,39 @@
       if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
       panel('mt_' + b.id, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
-      lab('mt_n' + b.id, M.name, b.x + 24, b.y + 30, { size: 28 }); lab('mt_d' + b.id, D.metaLine(M, r), b.x + 24, b.y + 62, { size: 20, col: r ? '#9cc8ff' : C.dim });
-      for (let i = 0; i < M.max; i++) L.rrect(b.x + 470 + i * 30, b.y + 32, 22, 22, 4, i < r ? [0.45, 0.7, 1] : [0.15, 0.15, 0.2], i < r ? [0.25, 0.45, 0.9] : [0.08, 0.08, 0.1]);
+      lab('mt_n' + b.id, M.name, b.x + 24, b.y + 32, { size: 28 }); lab('mt_d' + b.id, D.metaLine(M, r), b.x + 24, b.y + 70, { size: 20, col: r ? '#9cc8ff' : C.dim });
+      const px = b.x + 36 + lw('mt_n' + b.id, M.name, { size: 28 });
+      for (let i = 0; i < M.max; i++) L.rrect(px + i * 26, b.y + 22, 18, 18, 4, i < r ? [0.45, 0.7, 1] : [0.15, 0.15, 0.2], i < r ? [0.25, 0.45, 0.9] : [0.08, 0.08, 0.1]);
       lab('mt_c' + b.id, max ? 'Максимум' : 'Цена: ' + c, b.x + b.w - 24, b.y + b.h / 2, { size: 24, al: 1, col: max ? C.gold : can ? '#9cc8ff' : '#7a6e64' }); }
+    refusal(S, W / 2, 836);
+  }
+  // the latest refusal on a full-screen menu, where the in-game feed is hidden
+  function refusal(S, x, y) {
+    const e = S.ev.filter((q) => q.k === 'nope' && S.t - q.t < 2).at(-1); if (!e) return;
+    lab('nope_m', e.s, x, y, { size: 24, al: 0.5, col: '#ffb0a0', a: 1 - L.SS(1.5, 2, S.t - e.t) });
+  }
+  // ---------------- a dungeon altar: three gifts for shards ----------------
+  function altar(S, R, t) {
+    const sh = R.shrines[R.altar]; if (!sh || !sh.gifts) return;
+    const U = D.UI.altar(), P = U.P, bank = S.meta.shards;
+    dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 420, [0.3, 0.5, 1], 0.18 + 0.04 * Math.sin(t * 2)); G.blend();
+    panel('altar', P.x, P.y, P.w, P.h, { r: 10, rim: [0.32, 0.42, 0.62] });
+    lab('al_t', 'Алтарь душ', P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
+    const bs = String(bank); lab('al_b', bs, P.x + P.w - 40, P.y + 50, { size: 30, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 40 - lw('al_b', bs, { size: 30 }) - 44, P.y + 32, 36);
+    lab('al_s', 'Пожертвуйте осколки душ за один дар на весь забег. После этого алтарь угаснет.', P.x + 40, P.y + 104, { size: 22, col: C.dim });
+    sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = bank >= o.cost, hv = S.hover === b.id;
+      panel('al_g' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv && can ? C.rimHi : can ? [0.32, 0.42, 0.62] : C.rim, c0: hv && can ? [0.14, 0.14, 0.2] : C.panel0 });
+      if (can) { G.blend('add'); L.glow(b.x + b.w / 2, b.y + 110, 90, [0.35, 0.6, 1], hv ? 0.35 : 0.15); G.blend(); }
+      icon(Gf.icon, b.x + b.w / 2 - 56, b.y + 52, 112, can ? undefined : { alpha: 0.45 });
+      lab('al_n' + i, Gf.name, b.x + b.w / 2, b.y + 214, { size: 28, al: 0.5, col: can ? C.text : C.dim });
+      const ds = Gf.desc, dz = Math.min(22, Math.floor(22 * (b.w - 32) / lw('al_dm' + i, ds, { size: 22 })));
+      lab('al_d' + i, ds, b.x + b.w / 2, b.y + 256, { size: dz, al: 0.5, col: '#9cc8ff' });
+      lab('al_w' + i, o.id === 'bless' ? 'до конца этажа' : 'до конца забега', b.x + b.w / 2, b.y + 290, { size: 18, al: 0.5, col: C.dim });
+      const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, cx = b.x + b.w / 2 - cw / 2;
+      icon('crystal', cx, b.y + b.h - 62, 30); lab('al_c' + i, cs, cx + 40, b.y + b.h - 46, { size: 28, col: can ? '#9cc8ff' : '#8a6a5a' }); });
+    button('al_leave', U.r[3], S.hover);
+    refusal(S, W / 2, P.y + P.h - 124);
+    lab('al_help', 'ЛКМ — принять дар · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win';
