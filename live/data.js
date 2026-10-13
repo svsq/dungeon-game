@@ -191,9 +191,14 @@
       return { P, r };
     },
   };
+  // what a blow on a big prop sounds and looks like: wood rocks and sheds splinters, stone shudders and chips, metal rings and
+  // sparks, crystal chimes and flashes, sacks slump
+  const PROP_MAT = { table: 'wood', rack: 'wood', bookshelf: 'wood', coffin: 'wood', shop_shelf: 'wood', shop_barrel: 'wood', shop_crate: 'wood',
+    statue: 'stone', pillar: 'stone', grave: 'stone', cage: 'metal', brazier: 'metal', shop_lantern: 'metal', shop_armor: 'metal', shop_weapons: 'metal',
+    crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
   root.DATA = { TILE, BIOMES, FLOORS, biomeOf, floorName, ENEMIES, BAL, ELITE, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
-    ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI };
+    ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

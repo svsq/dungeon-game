@@ -118,7 +118,7 @@
     return R;
   }
   function enterFloor(S, R, f) {
-    R.floor = f; const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, { endless: R.mode === 'endless' });
+    R.floor = f; R.propHit = {}; const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, { endless: R.mode === 'endless' });
     R.map = m; R.en = []; R.proj = []; R.drops = [];
     const sc = BAL.hp * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * (1 + 0.3 * (f - 1));
     for (const e of m.enemies) { const E = ENEMIES[e.type], el = e.elite ? (e.type === 'boss' ? 1 : e.type === 'brute' ? ELITE.bruteHp : ELITE.hp) : 1;
@@ -341,7 +341,7 @@
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; const dmgK = AR.k;
       for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < 92 + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
-      breakPots(S, R, h.x, h.y, 92); hitChests(S, R, h.x, h.y, 92); hitSecrets(S, R, h.x, h.y, 92); ev(S, { k: 'whirl', x: h.x, y: h.y }); }
+      breakPots(S, R, h.x, h.y, 92); hitProps(S, R, h.x, h.y, 92); hitChests(S, R, h.x, h.y, 92); hitSecrets(S, R, h.x, h.y, 92); ev(S, { k: 'whirl', x: h.x, y: h.y }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = Math.round((14 + st.int * 2.6) * AR.k * st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
     if (id === 'shield') { h.shield = Math.round((30 + st.int * 4) * AR.k); h.shieldUntil = S.t + 5; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
@@ -352,6 +352,17 @@
       p.hp = 0; p.brokeT = S.t; ev(S, { k: 'break', x: p.x, y: p.y, kind: p.kind });
       if (p.kind === 'gold') { for (let k = 0; k < 3; k++) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 8) + R.floor * 2 }); }
       else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + R.floor }); else if (rnd(R) < 0.2) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
+  }
+  // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
+  function hitProps(S, R, x, y, rad, ax, arc) {
+    const m = R.map, hit = R.propHit || (R.propHit = {});
+    const knock = (id, p, n) => { const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
+      if (d > rad + 18) return; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return; if (!losClear(m, x, y, p.x, p.y)) return;
+      if (S.t - (hit[id] ?? -9) < 0.2) return; hit[id] = S.t; const mat = D.PROP_MAT[n] || 'stone';
+      if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
+      ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, s: dx >= 0 ? 1 : -1 }); };
+    m.decor.forEach((d, i) => { if (d.solid && !d.wall) knock('d' + i, d, d.n); });
+    m.torches.forEach((t2, i) => { if (t2.kind === 'brazier') knock('t' + i, t2, 'brazier'); });
   }
   function hitChests(S, R, x, y, rad, ax, arc) {
     for (const c of R.chests) { if (c.open) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
@@ -421,7 +432,7 @@
       for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
         if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
         const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
-      breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc);
+      breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc);
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) castAbility(S, R, ABILITIES[inp.slot - 1].id, inp);
@@ -533,7 +544,7 @@
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
           for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) hitEnemy(S, R, e, p.dmg, false, p.x, p.y, 1.2, 'fire');
-          breakPots(S, R, bx, by, 50); ev(S, { k: 'boom', x: p.x, y: p.y }); R.trauma = Math.min(1, R.trauma + 0.2); }
+          breakPots(S, R, bx, by, 50); hitProps(S, R, bx, by, 50); ev(S, { k: 'boom', x: p.x, y: p.y }); R.trauma = Math.min(1, R.trauma + 0.2); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
     R.proj = R.proj.filter((p) => !p.dead);
   }
@@ -1026,7 +1037,28 @@
       h.x = m.shop.front.x; h.y = m.shop.front.y + 20; aggroRoom(R, e); let inside = 0;
       for (let i = 0; i < 120 * 6; i++) { h.x = m.shop.front.x; h.y = m.shop.front.y + 20; step(S, { keys: [] }); if (DG.roomAt(m, e.x, e.y) === r.id) inside = 1; }
       if (inside) out.push('a monster walked into the warded shop'); }
-    return out.concat(secretCheck());
+    return out.concat(secretCheck(), propCheck());
+  }
+  // a table stops the hero walking into it; a blow on it (or on a brazier) knocks once per swing and carries its material
+  function propCheck() {
+    const out = []; let S = null, d = null, di = -1;
+    for (let sd = 1; sd < 80 && !d; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', 7000 + sd); const m = S.run.map;
+      di = m.decor.findIndex((o) => { const x = Math.floor(o.x / TILE), y = Math.floor(o.y / TILE); return o.n === 'table' && [1, 2].every((k) => cell(m, x - k, y) === 1 && !m.block.includes(y * m.W + x - k)); }); d = m.decor[di]; }
+    if (!d) return ['prop check: no table with open floor on its left in 80 seeds'];
+    S.screen = 'play'; const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9;
+    if (!d.solid) out.push('prop check: a table is not solid');
+    const A = () => ({ px: d.x - R.cam[0], py: d.y - 30 - R.cam[1] });
+    h.x = d.x - 50; h.y = d.y; let close = 99;
+    for (let k = 0; k < 120; k++) { step(S, Object.assign({ right: 1, keys: [] }, A())); close = Math.min(close, d.x - h.x); }
+    if (close < 18) out.push(`prop check: the hero walks ${(18 - close).toFixed(0)} px into a table`);
+    const swing = () => { h.x = d.x - 40; h.y = d.y; h.cd.atk = 0; step(S, Object.assign({ press: 1, keys: [] }, A())); for (let k = 0; k < 40; k++) { h.x = d.x - 40; h.y = d.y; step(S, Object.assign({ keys: [] }, A())); } };
+    S.ev = []; swing(); const hits = S.ev.filter((e) => e.k === 'prop' && e.i === 'd' + di);
+    if (hits.length !== 1) out.push(`prop check: a swing at a table knocks it ${hits.length} times`);
+    else if (hits[0].mat !== 'wood' || hits[0].s !== 1) out.push(`prop check: a table knocked from the left reads ${hits[0].mat} / ${hits[0].s}`);
+    const m = R.map, bi = m.torches.findIndex((t2) => t2.kind === 'brazier');
+    if (bi >= 0) { const b = m.torches[bi]; S.ev = []; hitProps(S, R, b.x + 30, b.y, 40);
+      if (!S.ev.some((e) => e.k === 'prop' && e.i === 't' + bi && e.mat === 'metal' && e.s === -1)) out.push('prop check: a blow from the right does not knock the brazier'); }
+    return out;
   }
   // a run snapshot for localStorage (the whole run is plain JSON)
   // secrets, loot tables and completion stats, played through the sim
@@ -1110,6 +1142,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, secretMask, hidden, fstat, completion, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

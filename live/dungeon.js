@@ -216,7 +216,7 @@
       if (r.type !== 'secret') for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
       if (r.type !== 'start' && r.type !== 'secret' && R() < 0.5) { const p = spot(r, 1, 0, true); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
       // decor
-      for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table'); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: n2 }); }
+      for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table'); if (p) decor.push(n2 === 'table' ? { x: wx(p[0]), y: wy(p[1]), n: n2, solid: 1, r: r.id } : { x: wx(p[0]), y: wy(p[1]), n: n2 }); }
       for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
       // big biome props standing against the top wall (solid)
       for (let x = r.x + 1 + ri(0, 2); x < r.x + r.w - 1; x += ri(2, 5)) { if (R() < 0.3 || !free(x, r.y) || !free(x, r.y + 1) || !roomy(x, r.y) || !roomy(x, r.y + 1) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; used.add(key(x, r.y)); used.add(key(x, r.y + 1)); bulk.add(key(x, r.y)); bulk.add(key(x, r.y + 1));
