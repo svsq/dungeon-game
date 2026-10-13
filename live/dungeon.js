@@ -5,6 +5,8 @@
 (function (root) {
   const D = root.DATA || require('./data.js');
   const { TILE, ENEMIES } = D;
+  // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
+  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, crystal: 6.5, shrine: 6 };
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken)
   const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
@@ -137,6 +139,31 @@
     const roster = D.BIOMES[biome].roster, lvl = floor;
     const addEnemy = (type, x, y, room, elite = 0) => enemies.push({ type, x: wx(x), y: wy(y), room, elite });
     for (const r of rooms) if (r.type === 'shrine') { used.add(key(r.cx, r.cy)); bulk.add(key(r.cx, r.cy)); }   // the altar's cell first: props are placed around it
+    // no corner of a room is left in the dark: while some floor cell lies outside every light's reach, light the cell
+    // nearest to it, preferring a sconce on the top wall, then on a side wall, then a brazier, then candles
+    const lightRoom = (r, extra, wallOnly) => {
+      const inR = (o) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= (r.y - 1) * TILE && o.y < (r.y + r.h) * TILE;
+      const lights = torches.filter((t) => t.r === r.id).map((t) => [t.x, t.y, LIGHT_R[t.kind]])
+        .concat(decor.filter((d) => LIGHT_R[d.n] && inR(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.filter(inR).map((s) => [s.x, s.y, LIGHT_R.shrine]), extra);
+      if (r.id === start.id) lights.push([wx(start.cx), wy(start.cy), LIGHT_R.fire]);
+      const reach = (x, y) => Math.min(...lights.map(([lx, ly, lr]) => Math.hypot(lx - wx(x), (ly - wy(y)) / 0.8) / (lr * TILE)));
+      for (let k = 0; k < 12; k++) { let dark = null;
+        for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) { const v = lights.length ? reach(x, y) : 9; if (v > 1 && (!dark || v > dark[2])) dark = [x, y, v]; }
+        if (!dark) break;
+        const cand = [];
+        for (let x = r.x; x < r.x + r.w; x++) if (!at(x, r.y - 1) && at(x, r.y) === 1 && !doorway(x, r.y) && !torches.some((t) => t.kind === 'wall' && Math.abs(t.x - wx(x)) < 2 * TILE && Math.abs(t.y - r.y * TILE) < TILE))
+          cand.push([x, r.y, 0, { x: wx(x), y: r.y * TILE - 26, kind: 'wall', r: r.id }]);
+        for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of [[r.x, -1], [r.x + r.w - 1, 1]]) if (!at(x + s, y) && free(x, y) && !doorway(x, y))
+          cand.push([x, y, 0.5, { x: s < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: s, r: r.id, cell: [x, y] }]);
+        for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (!wallOnly && free(x, y) && !doorway(x, y)) {
+          if (r.type !== 'start' && roomy(x, y)) cand.push([x, y, 1.5, { x: wx(x), y: wy(y), kind: 'brazier', r: r.id, cell: [x, y], big: 1 }]);
+          cand.push([x, y, 3, { x: wx(x), y: wy(y), n: 'candles', cell: [x, y] }]); }
+        if (!cand.length) break;
+        const best = cand.reduce((a, b) => (Math.hypot(b[0] - dark[0], b[1] - dark[1]) + b[2] < Math.hypot(a[0] - dark[0], a[1] - dark[1]) + a[2] ? b : a))[3];
+        if (best.cell) { used.add(key(...best.cell)); if (best.big) bulk.add(key(...best.cell)); }
+        delete best.cell; delete best.big;
+        if (best.n) decor.push(best); else torches.push(best);
+        lights.push([best.x, best.y, LIGHT_R[best.n || best.kind]]); } };
     // the shop: shelves on the back wall, the merchant behind a three-cell counter with the scales on it, sacks and a barrel
     // closing the space behind it, the armour and weapon stands at the sides, a sign over the counter, a lantern by every way in
     let shop = null;
@@ -184,7 +211,7 @@
       for (const L0 of shop.lanterns) decor.push({ x: L0.x, y: L0.y, n: 'shop_lantern', solid: 1, r: r.id });
       wall(-1, 'shop_armor'); wall(1, 'shop_weapons');
       for (const x of [r.x + 1, r.x + r.w - 2]) if (!at(x, r.y - 1) && Math.abs(x - cx) > 3) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
-      along('shop_gold'); along('shop_crate'); }
+      along('shop_gold'); along('shop_crate'); lightRoom(r, shop.lanterns.map((q) => [q.x, q.y, LIGHT_R.wall]).concat([[shop.x, shop.y, LIGHT_R.fire]]), true); }
     if (!shop) return null;
     for (const r of rooms) { if (r.type === 'shop') continue;
       const area = r.w * r.h, zb = r.zone || biome;
@@ -213,7 +240,7 @@
       // heaps of gold: the treasure room's hoard, now and then one left in a fought-over room
       for (let i = 0, n = r.type === 'treasure' ? ri(2, 4) : r.type === 'secret' ? ri(1, 2) : r.type === 'exit' || (r.type === 'combat' && R() < 0.3) ? 1 : 0; i < n; i++) { const p = spot(r, 1); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'gold', hp: 1 }); }
       // torches on the top wall face (cells above the room's first row that are rock), every 4–5 tiles
-      if (r.type !== 'secret') for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
+      for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
       if (r.type !== 'start' && r.type !== 'secret' && R() < 0.5) { const p = spot(r, 1, 0, true); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
       // decor
       for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table'); if (p) decor.push(n2 === 'table' ? { x: wx(p[0]), y: wy(p[1]), n: n2, solid: 1, r: r.id } : { x: wx(p[0]), y: wy(p[1]), n: n2 }); }
@@ -225,6 +252,7 @@
       if (r.zone === 'arcane') for (let i = 0; i < 2; i++) { const p = spot(r, 2, 0, true); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: 'crystal', solid: 1, r: r.id }); }
       if (r.zone === 'crypt') for (let i = 0; i < 2; i++) { const p = spot(r, 2, 0, true); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: R() < 0.5 ? 'coffin' : 'grave', solid: 1, r: r.id }); }
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });
+      lightRoom(r, []);
     }
     // spike plates (2×2 cells) in trap rooms, laid out in one of a few patterns; a plate never touches a doorway and is
     // dropped if it would wall off any open cell, so there is always a way round
@@ -280,6 +308,7 @@
     const secAt = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
       return secrets.findIndex((sc) => { const r = rooms[sc.room]; return (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h) || sc.hide.includes(ty * W + tx); }); };
     for (const list of [chests, pots, torches, decor, decals]) for (const o of list) { const i = secAt(o.x, o.y + (o.wall ? TILE : 0)); if (i >= 0) o.sec = i; }
+    for (const t of torches) { const i = secrets.findIndex((sc) => sc.room === t.r); if (i >= 0) t.sec = i; }
     // cells taken by solid props: the flow fields route around them
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); for (const [x, y] of shop.solid) bl(x, y);
@@ -291,6 +320,6 @@
   const roomAt = (map, x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
     for (const r of map.rooms) if (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h) return r.id; return -1; };
 
-  root.DUNGEON = { genFloor, roomAt, mul32 };
+  root.DUNGEON = { genFloor, roomAt, mul32, LIGHT_R };
   if (typeof module !== 'undefined') module.exports = root.DUNGEON;
 })(typeof window !== 'undefined' ? window : globalThis);

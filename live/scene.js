@@ -82,10 +82,17 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const dark = (x, y, w, h, a) => L.solid(x, y, w, h, [0.01, 0.01, 0.015], 0, 0, 0, a);
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
       const v = c(x, y);
-      if (v === 1) { const Z = D.BIOMES[zoneAt(m, x, y)]; tile(Z.floor, x, y, { grade: [1, 0.96, 0, 1], tint: [Z.tint[0], Z.tint[1], Z.tint[2], 1] }); }
+      // an accent zone keeps its own stone but not its colour: the colour is light (zoneFill), which fades out past the doorway
+      if (v === 1) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.35, 0.96, 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }); }
       else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
       else if (v === 0 && near(x, y, 7)) tile(B.top, x, y, { grade: [0.9, 1.0, 0, 1.1], tint: [B.tint[0] * 0.95, B.tint[1] * 0.97, B.tint[2], 1] }, 160);
     }
+    // an accent zone's stone thins out over the cells past its doorway in 8 px steps, so the threshold has no hard line
+    for (const r of m.rooms) if (r.zone) { const Z = D.BIOMES[r.zone], q = TILE / 4;
+      for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (c(x, y) !== 1 || zoneAt(m, x, y) !== m.biome) continue;
+        for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const px = x + (i + 0.5) / 4, py = y + (j + 0.5) / 4, d = Math.hypot(Math.max(r.x - px, 0, px - r.x - r.w), Math.max(r.y - py, 0, py - r.y - r.h)), a = 1 - SS(0, 2.6, d);
+          if (a < 0.03) continue; const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
+          L.sprite(Z.floor, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [0.35, 0.96, 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1], alpha: a } }); } } }
     // contact darkening, rims, edges
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
       const v = c(x, y), X = x * TILE, Y = y * TILE;
@@ -358,7 +365,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // ---------------- props ----------------
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure' };
   function drawProp(n, x, y, o = {}) { const [w, h] = SZ(n), k = o.k || 1, j = o.j;
-    if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, u: o.u }); return; }
+    if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: o.u }); return; }
     const W = w * k, H = h * k * j.sy, u = j.fl > 0 ? Object.assign({}, o.u, { tint: [2.2, 2, 1.8, j.fl] }) : o.u;
     L.sprite(n, 0, 0, { m: M.of(M.t(x + j.dx, y + (o.dy || 0)), M.r(j.rot)), w: W, h: H, pivot: [W / 2, H], u }); }
   // a knocked prop's recoil about its foot, away from the blow (s): wood rocks, metal rattles, stone shudders, crystal rings, sacks slump
@@ -425,7 +432,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 }); }]); }
     const flameB = (x, y, w, hh, col, seed) => { G.blend('add'); G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1.6, u_col: col }, G.xf(x - w / 2, y - hh, w, hh)); G.blend(); };
     m.torches.forEach((tc, i) => { if (!vis(tc.x, tc.y) || hid(tc)) return; const col = torchCol(m, tc), lit = known(tc.x, tc.y);
-      if (tc.kind === 'wall') Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16); if (lit) flameB(sx(tc.x) + 3, sy(tc.y) - 4, 22, 36, col, i); }]);
+      if (tc.kind === 'wall' && tc.side) Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16, { flip: tc.side > 0 }); if (lit) flameB(sx(tc.x) - tc.side * 9, sy(tc.y) - 6, 22, 36, col, i); }]);
+      else if (tc.kind === 'wall') Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16); if (lit) flameB(sx(tc.x) + 3, sy(tc.y) - 4, 22, 36, col, i); }]);
       else { const big = tc.kind === 'fire', j = jig('t' + i), up = big ? 44 : 32, fl = j ? 1 + 0.5 * Math.exp(-4 * (GT - knocked['t' + i].t)) : 1;
         Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp('brazier', sx(tc.x), sy(tc.y), { k: big ? 1.35 : 1, dy: 4, j });
           if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(tc.y) - up, (big ? 56 : 34) * fl, (big ? 80 : 50) * fl, col, i); }]); } });
@@ -458,7 +466,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + W + r || y < cy - r || y > cy + H + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
     lt(h.x, h.y - 30, 170, [0.8, 0.72, 0.6], 0.18);
-    m.torches.forEach((tc, i) => { if (hid(tc)) return; const f = flick(i), big = tc.kind === 'fire', col = torchCol(m, tc); lt(tc.x, tc.y - (tc.kind === 'wall' ? -10 : 20), big ? 280 : 220, col, (big ? 1.0 : 0.75) * f, 2.6); lt(tc.x, tc.y - 10, 110, col.map((v) => 0.5 + 0.5 * v), 0.5 * f, 3); });
+    m.torches.forEach((tc, i) => { if (hid(tc)) return; const f = flick(i), big = tc.kind === 'fire', col = torchCol(m, tc); lt(tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), big ? 280 : 220, col, (big ? 1.0 : 0.75) * f, 2.6); lt(tc.x, tc.y - 10, 110, col.map((v) => 0.5 + 0.5 * v), 0.5 * f, 3); });
+    for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 4)), ny = Math.max(1, Math.round((r.h - 2) / 4));
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) lt((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 240, col, 0.32, 1.8); }
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) lt(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
     for (const d of m.decor) if (d.n === 'candles' && !hid(d)) lt(d.x, d.y - 10, 120, [1, 0.7, 0.35], 0.6 * flick(d.y));
     // the shop is lit warm and bright: lanterns by its ways in, a lamp over the counter
@@ -639,6 +649,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       ['play', play()],
       ['play_worst', play((S) => { worst(S); S.run.msg = { s: 'Повелитель Демонов повержен! Портал наружу открыт — путь на поверхность свободен, герой', t: S.t - 1 }; })],
       ['inv', play((S) => { worst(S); S.screen = 'inv'; })],
+      ['inv_empty', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'eq:offhand'; S.run.seen = S.run.seen.map(() => 1); })],
       ['item_balance', play((S) => {
         worst(S); S.screen = 'inv'; S.hover = 'bag:23';
         S.run.hero.eq.armor = { id: 3000, b: 'plate_armor', lvl: 6, rar: 3, def: 15, mods: {} };
@@ -649,7 +660,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       ['meta_refuse', mk((S) => { S.screen = 'meta'; S.meta.shards = 0; S.hover = 'gear'; S.ev.push({ k: 'nope', s: 'Не хватает осколков', t: S.t - 0.2 }); })],
       // a dungeon altar at its widest: the longest gift of each tier, one affordable, one hovered, a refusal; then the gifts in the HUD
       ...[['altar_screen', 99999, 'gift:1'], ['altar_poor', 5, 'gift:2']].map(([id, bank, hv]) => [id, play((S) => {
-      ['inv_empty', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'eq:offhand'; S.run.seen = S.run.seen.map(() => 1); })],
         const R = S.run, h = R.hero, long = (tier) => D.GIFTS.filter((g) => g.tier === tier).sort((a, b) => b.desc.length + b.name.length - a.desc.length - a.name.length)[0].id;
         R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [1, 2, 3].map((tier) => ({ id: long(tier), cost: bank > 999 ? 999 : D.giftCost(tier, 8) })) }]; R.altar = 0;
         S.meta.shards = bank; S.screen = 'altar'; S.hover = hv; if (bank < 999) S.ev.push({ k: 'nope', s: 'Не хватает осколков душ', t: S.t - 0.2 }); })]),
@@ -687,6 +697,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const treasureS = (() => { for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, r = R.map.rooms.find((q) => q.type === 'treasure' && R.map.rugs.length);
       if (!r) continue; const h = R.hero; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - W / 2, (r.y + r.h / 2) * TILE - H / 2]; return S; } })();
     if (treasureS) states.push(['treasure', treasureS]);
+    // an accent zone's doorway: its coloured light must fade out into the corridor, not stop at the room's cells
+    for (const zone of ['arcane', 'crypt']) { const S = (() => { for (let sd = 1; sd < 60; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map;
+      for (const r of m.rooms.filter((q) => q.zone === zone)) for (let x = r.x; x < r.x + r.w; x++) for (const [y, dy] of [[r.y + r.h - 1, 1], [r.y, -1]]) {
+        if (SIM.cell(m, x, y + dy) !== 1 || DUNGEON.roomAt(m, x * TILE, (y + dy) * TILE) >= 0) continue;
+        const h = R.hero; h.x = (x + 0.5) * TILE; h.y = (y + dy * 4) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [h.x - W / 2, (y + 0.5) * TILE - H / 2]; return S; } } })();
+      if (S) states.push(['zone_door_' + zone, S]); }
+    // sconces on a left and a right side wall: plate against the wall, the torch leaning into the room
+    for (const side of [-1, 1]) states.push(['side_torch_' + (side < 0 ? 'l' : 'r'), play((S) => { const R = S.run, tc = R.map.torches.find((t) => t.side === side && !SIM.hidden(R.map, t)), h = R.hero;
+      if (!tc) return; h.x = tc.x - side * 120; h.y = tc.y + 60; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [tc.x - W / 2, tc.y - H / 2]; })]);
+    // the floor's worst-lit room: the one whose farthest cell is farthest from any light
+    states.push(['dark_room', play((S) => { const R = S.run, m = R.map, LR = DUNGEON.LIGHT_R, ls = m.torches.map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n]).map((d) => [d.x, d.y, LR[d.n]]));
+      const worst = (r) => { let v = 0; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) v = Math.max(v, Math.min(...ls.map(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE) / 0.8) / (lr * TILE)))); return v; };
+      const r = m.rooms.filter((q) => q.type !== 'shop' && q.id !== m.start).reduce((a, b) => (worst(b) > worst(a) ? b : a)), h = R.hero;
+      h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [(r.x + r.w / 2) * TILE - W / 2, (r.y + r.h / 2) * TILE - H / 2]; })]);
     // one prop of each material in a row, each knocked from its own side: mid-recoil with chips and sparks in the air, then settling
     const propS = (age) => play((S) => { const R = S.run, m = R.map, h = R.hero, rm = m.rooms.filter((r) => r.type === 'combat').sort((p, q) => q.w * q.h - p.w * p.h)[0], inR = (o) => DUNGEON.roomAt(m, o.x, o.y) === rm.id;
       m.decor = m.decor.filter((d) => !inR(d)); m.torches = m.torches.filter((t2) => t2.kind === 'wall' || !inR(t2)); R.chests = R.chests.filter((c) => !inR(c)); R.pots = R.pots.filter((p) => !inR(p));
