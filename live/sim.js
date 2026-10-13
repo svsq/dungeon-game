@@ -284,7 +284,7 @@
     ev(S, { k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 });
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
     const st = heroSt(S); if (kind !== 'burn') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
-    if (e.hp <= 0) killEnemy(S, R, e);
+    if (e.hp <= 0) { e.dieA = Math.atan2(dy, dx); killEnemy(S, R, e); }   // the killing blow's direction: bones fly that way
   }
   function aggroRoom(R, e) { for (const o of R.en) if (o.deadT < 0 && (o === e || o.st === 'idle') && (o.room === e.room || Math.hypot(o.x - e.x, o.y - e.y) < 220)) { o.st = 'chase'; o.t0 = o.seenT = R.t; }
     if (e.st === 'home') { e.st = 'chase'; e.t0 = e.seenT = R.t; } }

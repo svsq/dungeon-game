@@ -27,7 +27,7 @@
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
       tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
     }
-    const dbl = 0.5 + 0.5 * Math.cos(2 * ph), breath = (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0));
+    const cr = o.crumble ? o.crumble.t : -1, dbl = 0.5 + 0.5 * Math.cos(2 * ph), breath = (1 - run) * (cr >= 0 ? 1 - SS(0, 0.2, cr) : 1) * Math.sin(o.t * 2.1 + (o.seed || 0));
     // the hip rides the stance leg: one formula for both legs (≈ step² / 2L on the average leg), so legs drawn at different
     // lengths or angles in 3/4 can't make the gait limp; the rest crouch below leaves the reach for it
     const Lavg = (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL) + d2(RG.hipR, RG.kneeR) + d2(RG.kneeR, RG.ankleR)) / 2;
@@ -57,30 +57,63 @@
       const E0 = RG['elbow' + side], Sp = [S0[0], S0[1] + hipDy];
       const E = rotP([E0[0], E0[1] + hipDy], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + hipDy], Sp, r[0]), E, r[1] - r[0]);
       arms[side] = { S0, E0, Sp, E, Hd, r1: r[0], r2: r[1] }; }
-    const part = (nm, pv, at, rot, u, k = 1, up = 0) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(face, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u });
+    // a crumbling body lets every piece go (o.crumble: { t: seconds since death, kind, dir: the killing blow's screen angle }):
+    //   pile   — each piece drops on its own under gravity from where it was, slowed just before the floor, bounces once and lies
+    //            scattered; the skull lands and rolls away
+    //   burst  — the pieces fly off away from the blow on arcs, land softly and skid to a stop, spinning
+    //   topple — the scene's fall (fallR) first; on landing the pieces come apart where they lie and the skull rolls on
+    // Identity at its start: no pop on death
+    const CR = {}, hsh = (key, k) => { let h = Math.imul((o.seed || 0) + 7919 * k, 2654435761); for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 2246822519); return ((h >>> 0) % 10007) / 10007; };
+    const CK = o.crumble || null, TOP = 0.32;
+    const crOf = (key, at, c = at) => { if (cr < 0) return null; if (CR[key]) return CR[key];   // c: the point it spins about
+      const H = o.H, g = 8 * H, kind = CK.kind || 'pile', skull = key === 'skull', ribs = key === 'body';
+      if (kind === 'burst') {
+        const tt = cr, h0 = root[1] - at[1], hR = 0.03 * H, k = 0.025 * H, wt = ribs ? 0.45 : skull ? 1.3 : 1;
+        const a = (CK.dir ?? (face > 0 ? Math.PI : 0)) + (hsh(key, 0) - 0.5) * 1.4, sp = H * (0.4 + 0.5 * hsh(key, 1)) * wt, vup = H * (1 + hsh(key, 2)) * (ribs ? 0.5 : 1);   // they land within about a tile: the render can't see walls to stop them
+        const tl = (vup + Math.sqrt(vup * vup + 2 * g * Math.max(0, h0 - hR))) / g, tau = tt < tl ? tt : tl + 0.12 * (1 - Math.exp(-(tt - tl) / 0.12));
+        const upRaw = h0 + vup * tt - 0.5 * g * tt * tt, up = hR + k * Math.log1p(Math.exp((upRaw - hR) / k)) - k * Math.log1p(Math.exp(-(h0 - hR) / k)) * Math.exp(-tt / 0.1);
+        const dx = Math.cos(a) * sp * tau, dy = Math.sin(a) * sp * tau * 0.6 + h0 - up, spin = (hsh(key, 3) - 0.5) * (skull ? 14 : 16) * tau;
+        return (CR[key] = M.of(M.t(c[0] + dx, c[1] + dy), M.r(spin), M.t(-c[0], -c[1]))); }
+      const top = kind === 'topple', sc = top ? 0.5 : 1, tt = Math.max(0, cr - (top ? TOP : 0) - 0.06 * hsh(key, 0));
+      const restY = root[1] - 0.03 * H + (hsh(key, 1) - 0.5) * 0.14 * H * sc, dyM = Math.max(0, restY - at[1]);
+      const tl = 1.15 * Math.sqrt(2 * Math.max(1, dyM) / g), q = Math.min(1, tt / tl), v = tt - tl;
+      const hop = v > 0 && v < 0.16 ? 0.05 * H * (0.5 + hsh(key, 2)) * Math.max(top ? 0.4 : 0, Math.min(1, dyM / (0.4 * H))) * Math.sin(Math.PI * v / 0.16) : 0;
+      const rollD = skull ? (top ? face : hsh(key, 5) < 0.5 ? -1 : 1) * (0.35 + 0.25 * hsh(key, 6)) * H : 0, roll = v > 0 ? rollD * (1 - Math.exp(-v / 0.28)) * SS(0, 0.12, v) : 0;
+      const dx = (hsh(key, 3) - 0.5) * 0.6 * H * sc * SS(0, tl + 0.1, tt) + roll, dy = dyM * (2.6 * q * q - 1.6 * q * q * q) - hop;   // gravity, slowed just before the floor
+      const spin = (ribs ? (hsh(key, 4) - 0.5) * (top ? 0.5 : 1) : (hsh(key, 4) - 0.5) * 3 * sc) * SS(0, tl + 0.12, tt) + roll / (0.1 * H);
+      return (CR[key] = M.of(M.t(c[0] + dx, c[1] + dy), M.r(spin), M.t(-c[0], -c[1]))); };
+    const piece = (key, at, f, c) => { const m = crOf(key, at, c), pre = L.pre; if (m) L.pre = pre ? M.mul(pre, m) : m; try { f(); } finally { L.pre = pre; } };
+    const part = (nm, pv, at, rot, u, k = 1, up = 0) => piece(nm, at, () => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(face, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u }));
     const drawLeg = (side, u) => { const g = legs[side];
       part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02, u); };
     const drawArm = (side, u) => { const A = arms[side]; part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, lean); part('farm' + side, A.E0, R2U(A.E[0], A.E[1]), A.r2, u, 1, lean); };
-    const J = (nm, p) => L.joint(o.id, nm, p);
-    const held = (side, u) => { const A = arms[side], Hd = R2U(A.Hd[0], A.Hd[1]);
+    const J = (nm, p, key) => { const m = key && CR[key]; L.joint(o.id, nm, m ? [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]] : p); };
+    const held = (side, u) => { const A = arms[side], Hd = R2U(A.Hd[0], A.Hd[1]); piece('item' + side, Hd, () => {
       if (side === (o.wSide || 'R') && window.ASSETS[o.n + '_weapon']) {
         const ba0 = A.r2 + Math.PI / 2 - 0.8, ba = o.item.ang !== undefined ? ba0 + (((o.item.ang - ba0 + Math.PI) % TAU + TAU) % TAU - Math.PI) * (o.item.angK ?? 1) : ba0, sa = (face > 0 ? ba : Math.PI - ba) + fallR + lean;
         const tex = o.n + '_weapon', th = RG.weaponLen * s, tw = th * G.tex(tex).w / G.tex(tex).h, gr = RG.weaponGrip;
         L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa - Math.PI / 2)), w: tw, h: th, pivot: [tw / 2, th * gr], u });
-        J('grip', Hd); J('tip', [Hd[0] + Math.cos(sa) * th * (1 - gr), Hd[1] + Math.sin(sa) * th * (1 - gr)]); }
+        J('grip', Hd, 'item' + side); J('tip', [Hd[0] + Math.cos(sa) * th * (1 - gr), Hd[1] + Math.sin(sa) * th * (1 - gr)], 'item' + side); }
       if (o.shield && side !== (o.wSide || 'R') && window.ASSETS[o.n + '_shield']) {
         const [w0, h0] = [G.tex(o.n + '_shield').w, G.tex(o.n + '_shield').h], sw = RG.shieldW * s, sh = sw * h0 / w0;
-        L.sprite(o.n + '_shield', 0, 0, { m: M.of(M.t(Hd[0] + face * 4 * s, Hd[1] - 6 * s), M.r(fallR + lean * 0.5), M.s(face * 0.8, 1)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }); } };
+        L.sprite(o.n + '_shield', 0, 0, { m: M.of(M.t(Hd[0] + face * 4 * s, Hd[1] - 6 * s), M.r(fallR + lean * 0.5), M.s(face * 0.8, 1)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }); } }); };
     // far arm (+ its item) → far leg → near leg → body → near arm (+ its item)
     drawArm('L', o.Ufar); held('L', o.Ufar); drawLeg('L', o.Ufar); drawLeg('R', o.U);
-    L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U });
+    piece('body', hipS, () => L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U }));
+    if (RG.skull) { const at = R2U(RG.skull[0], RG.skull[1] + hipDy);   // a loose skull turns about its own middle, not the neck
+      piece('skull', at, () => L.sprite(o.n + '__skull', 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [RG.skull[0] * s, RG.skull[1] * s], u: o.U }), R2U(RG.skull[0], (RG.skull[1] + RG.top[1]) / 2 + hipDy)); }
+    // ears hang on a spring from their roots: they lag the head's bob twice a stride, plus whatever the caller kicks (o.ear, tips down)
+    if (RG.earL) { const flop = 0.11 * run * Math.sin(2 * ph - 1.1) + 0.03 * breath + (o.ear || 0);
+      for (const [sd, sg] of [['L', -1], ['R', 1]]) { const P = RG['ear' + sd], r = sg * flop * (sd === 'L' ? 1 : 0.85), Pd = [P[0], P[1] + hipDy];
+        part('ear' + sd, P, R2U(...Pd), r, o.U, 1, lean); L.joint(o.id, 'ear' + sd, R2U(...rotP([RG['ear' + sd + 'Tip'][0], RG['ear' + sd + 'Tip'][1] + hipDy], Pd, r))); } }
     drawArm('R', o.U); held('R', o.U);
     // the far foot stands higher in 3/4: each foot has its own ground
-    J('ground', root); J('head', R2U(RG.head[0], RG.head[1], hipDy * s)); J('top', R2U(RG.top[0], RG.top[1], hipDy * s)); J('hip', hipS);
+    J('ground', root); J('head', R2U(RG.head[0], RG.head[1], hipDy * s), RG.skull ? 'skull' : 'body'); J('top', R2U(RG.top[0], RG.top[1], hipDy * s), RG.skull ? 'skull' : 'body'); J('hip', hipS, 'body');
+    if (cr >= 0) J('mid', R2U(Hc[0], (Hc[1] + RG.top[1]) / 2, hipDy * s), 'body');
     for (const side of ['L', 'R']) { const g = legs[side], A = arms[side], dT = [g.T[0] - g.A0[0], g.T[1] - g.A0[1]];
-      J('hip' + side, R2S(g.Hp[0], g.Hp[1])); J('knee' + side, R2S(g.K[0], g.K[1])); J('ankle' + side, R2S(g.T[0], g.T[1]));
-      J('heel' + side, R2S(RG['heel' + side][0] + dT[0], RG['heel' + side][1] + dT[1])); J('toe' + side, R2S(RG['toe' + side][0] + dT[0], RG['toe' + side][1] + dT[1]));
-      J('ground' + side, R2S(gx, RG['foot' + side][1] + tg[side].dz)); J('sh' + side, R2U(A.Sp[0], A.Sp[1])); J('elbow' + side, R2U(A.E[0], A.E[1])); J('hand' + side, R2U(A.Hd[0], A.Hd[1])); }
+      J('hip' + side, R2S(g.Hp[0], g.Hp[1]), 'thigh' + side); J('knee' + side, R2S(g.K[0], g.K[1]), 'shin' + side); J('ankle' + side, R2S(g.T[0], g.T[1]), 'foot' + side);
+      J('heel' + side, R2S(RG['heel' + side][0] + dT[0], RG['heel' + side][1] + dT[1]), 'foot' + side); J('toe' + side, R2S(RG['toe' + side][0] + dT[0], RG['toe' + side][1] + dT[1]), 'foot' + side);
+      J('ground' + side, R2S(gx, RG['foot' + side][1] + tg[side].dz)); J('sh' + side, R2U(A.Sp[0], A.Sp[1]), 'uarm' + side); J('elbow' + side, R2U(A.E[0], A.E[1]), 'farm' + side); J('hand' + side, R2U(A.Hd[0], A.Hd[1]), 'farm' + side); }
     return { R2U, arms, s };
   }
   MON.biped = biped;
@@ -119,7 +152,11 @@
     const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), dv = sp > 1 ? [o.vx / sp, o.vy / sp] : [1, 0], sl = 0.32 * o.H, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1;
     const rear = o.rear || 0, curl = o.curl || 0, breath = (1 - run) * Math.sin(o.t * 2.4 + (o.seed || 0));
     const lift = (0.07 + 0.16 * rear) * o.H * (1 - curl) + run * 0.6 * Math.abs(Math.sin(u0 * TAU * 2)) + 1.3 * breath;
-    const S2 = (px, py, up) => [root[0] + (px - RG.w / 2) * s, root[1] + (py - RG.h) * s - up];   // body image px → screen
+    // dying, it flips onto its back (o.flip 0..1): the body turns about its middle with a hop, the underside darker, the legs fold up
+    // out to the sides with their knees up, hooked like a dead beetle's, and twitch out (o.dead: seconds since death); on its back it shows a shallow belly
+    const flip = o.flip || 0, fk = Math.cos(Math.PI * flip) * (1 - 0.4 * flip), hop = Math.sin(Math.PI * flip) * 0.3 * o.H;
+    const S2f = (px, py, up) => [root[0] + (px - RG.w / 2) * s, root[1] + (py - RG.h) * s - up], Cy = S2f(RG.w / 2, RG.h / 2, lift)[1] - hop;
+    const S2 = (px, py, up) => { const p = S2f(px, py, up); return [p[0], Cy + (p[1] - hop - Cy) * fk]; };   // body image px → screen
     const legs = [];
     for (let i = 0; i < 8; i++) {
       const side = i < 4 ? -1 : 1, j = i % 4, so = RG.sockets[i], Sk = S2(so[0], so[1], lift), S0 = S2(so[0], so[1], 0.07 * o.H);
@@ -127,20 +164,24 @@
       if (u < 0.5) off = Aa * (1 - 4 * u); else { const w = (u - 0.5) * 2; off = -Aa + 2 * Aa * SS(0.1, 0.9, w); up = Math.sin(Math.PI * w) * 0.1 * o.H * run; }
       let F = [S0[0] + side * Math.abs(SP_FOOT[j][0]) * s + dv[0] * off, S0[1] + SP_FOOT[j][1] * s + dv[1] * off * 0.6 - up];
       if (j >= 2 && rear > 0) { const k = rear * (j === 3 ? 1 : 0.45); F = [lerp(F[0], Sk[0] + side * 0.45 * (l1 + l2) * 0.5 + (o.aimX || 0) * 0.3 * o.H, k), lerp(F[1], Sk[1] - 0.35 * o.H, k)]; }
-      if (curl > 0) F = [lerp(F[0], Sk[0] + side * 0.25 * l1, curl), lerp(F[1], Sk[1] + 0.15 * l1, curl)];
-      // two-bone IK, the knee on the upper side of the socket → foot line
+      if (curl > 0) F = [lerp(F[0], Sk[0] + side * 0.25 * l1, curl), lerp(F[1], Sk[1] + 0.15 * l1 * fk, curl)];   // folded under the body, turning over with it
+      if (flip > 0) { const dd = o.dead || 0, tw = SS(0.4, 0.6, dd) * Math.exp(-Math.max(0, dd - 0.6) / 0.7) * Math.sin(dd * 23 + i * 1.9) * 0.08 * (l1 + l2);
+        F = [lerp(F[0], Sk[0] + side * (0.3 + 0.04 * j) * (l1 + l2), flip), lerp(F[1], Sk[1] + (0.12 - 0.05 * j) * (l1 + l2) + tw, flip)]; }
+      // two-bone IK, the knee bent the same way for each side (up while the feet stand out to the side), so it never flips sides mid-move
       const dx = F[0] - Sk[0], dy = F[1] - Sk[1], d = Math.min(Math.hypot(dx, dy), (l1 + l2) * 0.98), base = Math.atan2(dy, dx);
       const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))));
-      const K1 = [Sk[0] + Math.cos(base - a) * l1, Sk[1] + Math.sin(base - a) * l1], K2 = [Sk[0] + Math.cos(base + a) * l1, Sk[1] + Math.sin(base + a) * l1];
-      const K = K1[1] < K2[1] ? K1 : K2, T = [K[0] + Math.cos(Math.atan2(F[1] - K[1], F[0] - K[0])) * l2, K[1] + Math.sin(Math.atan2(F[1] - K[1], F[0] - K[0])) * l2];
+      const ka = base - a * side;
+      const K = [Sk[0] + Math.cos(ka) * l1, Sk[1] + Math.sin(ka) * l1], T = [K[0] + Math.cos(Math.atan2(F[1] - K[1], F[0] - K[0])) * l2, K[1] + Math.sin(Math.atan2(F[1] - K[1], F[0] - K[0])) * l2];
       legs.push({ side, j, Sk, K, T });
     }
     // a segment drawn root → end, mirrored for the left side (the drawing points right)
     const seg = (tex, P, r0, a0, from, to, side, u) => { const want = Math.atan2(to[1] - from[1], to[0] - from[0]);
       L.sprite(tex, 0, 0, { m: M.of(M.t(from[0], from[1]), M.r(side < 0 ? want - Math.PI + a0 : want - a0), M.s(side < 0 ? -1 : 1, 1)), w: P.w * s, h: P.h * s, pivot: [r0[0] * s, r0[1] * s], u }); };
-    for (const g of legs.sort((p, q) => p.Sk[1] - q.Sk[1])) { const u = g.j < 2 ? o.Ufar : o.U;
-      seg('spider__legA', A, A.root, angA, g.Sk, g.K, g.side, u); seg('spider__legB', B, B.root, angB, g.K, g.T, g.side, u); }
-    L.sprite('spider__body', 0, 0, { m: M.of(M.t(...S2(RG.w / 2, RG.h, lift)), M.r(o.lean || 0)), w: RG.w * s, h: RG.h * s, pivot: [RG.w / 2 * s, RG.h * s], u: o.U });
+    const drawLegs = () => { for (const g of [...legs].sort((p, q) => p.Sk[1] - q.Sk[1])) { const u = g.j < 2 ? o.Ufar : o.U;
+      seg('spider__legA', A, A.root, angA, g.Sk, g.K, g.side, u); seg('spider__legB', B, B.root, angB, g.K, g.T, g.side, u); } };
+    drawLegs();
+    const Ub = flip > 0 && o.U.grade ? Object.assign({}, o.U, { grade: [o.U.grade[0] * (1 - 0.35 * SS(0.5, 1, flip)), ...o.U.grade.slice(1)] }) : o.U;
+    L.sprite('spider__body', 0, 0, { m: M.of(M.t(...S2(RG.w / 2, RG.h, lift)), M.r(o.lean || 0), M.s(1, fk)), w: RG.w * s, h: RG.h * s, pivot: [RG.w / 2 * s, RG.h * s], u: Ub });
     const J = (nm, p) => L.joint(o.id, nm, p); J('ground', root); J('top', S2(RG.w / 2, 0, lift)); J('head', S2(RG.w / 2, RG.h * 0.75, lift));
     legs.forEach((g, i) => J('foot' + i, g.T));
   }
@@ -206,6 +247,17 @@
     return null;
   }
 
+  // a spring's answer to a kick at time t0: the render can't integrate, so each event the sim timestamps adds its impulse response
+  const ring = (t, t0, A, hz = 4.2, tau = 0.22) => { const u = t - t0; return u >= 0 && u < 6 * tau ? A * SS(0, 0.06, u) * Math.exp(-u / tau) * Math.sin(TAU * hz * u) : 0; };   // eased in: a kick, not a teleport
+  // the goblin's ears (tips down > 0): pinned up while it coils, flung on the spring, a flinch on a hit and a turn,
+  // a twitch now and then at rest, and they droop once it dies
+  function earKick(e, GT, p0, live) {
+    if (!live) return 0.45 * SS(0, 0.3, GT - e.deadT) + ring(GT, e.deadT + 0.3, 0.3, 3) + ring(GT, e.hitT, 0.42);
+    const tw = 3.1 + 1.3 * ((e.id * 0.618) % 1), tu = GT % tw;
+    return (e.st === 'wind' && p0 ? -0.22 * p0.k : 0) + (e.st === 'strike' ? -0.22 * (1 - SS(0, 0.08, GT - e.t0)) + ring(GT, e.t0, 0.38) : 0)
+      + ring(GT, e.hitT, 0.42) + ring(GT, e.ft ?? -9, 0.24, 3.4) + ring(tu, 0, -0.12, 6, 0.12);
+  }
+
   // ---------------- per type ----------------
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
   MON.draw = (e, E, x, y, GT, o) => {
@@ -219,12 +271,18 @@
       const p0 = pose(0);
       if (p0) { if (n === 'goblin') base.crouch += 22 * (e.st === 'wind' ? p0.k : e.st === 'strike' ? p0.k * (1 - SS(0, 0.15, GT - e.t0)) : 0);   // the goblin coils low, then springs
         base.arm = (side, b) => { if (side === 'L') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } const g = -0.3 * p0.k; return [b + g, b * 0.6 + g * 0.5]; }; }
+      if (n === 'goblin') base.ear = earKick(e, GT, p0, live);
+      // a skeleton dies one of three ways, picked by its id: a heap, bones flung off by the blow, or a fall that breaks apart
+      if (n === 'skeleton' && !live) { const kind = ['pile', 'burst', 'topple'][e.id % 3]; base.crumble = { t: GT - e.deadT, kind, dir: e.dieA }; if (kind !== 'topple') base.fallR = 0; }
       biped(base); return true; }
     if (n === 'spider') {
       const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0;
       // it rears up through the wind-up (front legs raised at the hero), stays up through the lunge, settles after it
       base.rear = !live ? 0 : e.st === 'wind' ? SS(0, ew, u) : e.st === 'strike' ? 1 - SS(0.24, 0.45, u) : 0;
-      base.curl = live ? 0 : SS(0, 0.4, GT - e.deadT); base.aimX = Math.cos(e.aimA) * face;
+      // it dies one of two ways, picked by its id: the legs draw in under it where it stands, or they fold and it turns onto its back
+      const back = e.id % 2 === 0, dd = GT - e.deadT;
+      base.curl = live ? 0 : SS(0, back ? 0.15 : 0.4, dd); base.aimX = Math.cos(e.aimA) * face;
+      if (!live && back) { base.dead = dd; base.flip = SS(0.1, 0.5, dd); }   // the legs fold in first, then it turns over with them
       if (live && e.st === 'strike') { const g = SS(0.3, 0.45, u); base.vx *= g; base.vy *= g; }   // the lunge is a body thrust, legs trailing: no gait until it lands
       spider(base); return true; }
     if (n === 'cultist') {

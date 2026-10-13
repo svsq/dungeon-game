@@ -8,3 +8,4 @@ python3 ~/.claude/skills/ref2game/scripts/rigcut.py skeleton --elbow --face righ
  --arm "R=236,86;262,80;270,96;258,102;346,98;346,242;254,242;254,132;240,112" --sh R=244,92 --hand R=298,160
 python3 tools/armsplit.py skeleton L "116,60;152,66;148,100;144,134;114,142;108,95" 127,133 R "232,84;264,78;274,100;272,128;250,134;238,112" 262,124
 python3 tools/rigset.py skeleton bladeL=atan2:5,78,95,176
+python3 tools/partcut.py skeleton "skull:136,0;212,0;210,36;202,48;198,62;194,76;192,90;158,92;148,82;134,62;132,30|175,90"

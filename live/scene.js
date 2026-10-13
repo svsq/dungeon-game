@@ -185,18 +185,22 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       blade = bf + d * q; k = 1 - q; bend = 0.3; fs = 1 - 0.5 * Math.sin(Math.PI * q); }   // the blade turns flat toward the camera on the way back: no second swing
     return { blade, k, bend, fs, start, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
   }
-  SC.swingPose = swingPose; SC.SWING = SWING;
+  const DEPTH_K = 0.65;   // the 3/4 camera's squeeze of floor depth
+  SC.swingPose = swingPose; SC.SWING = SWING; SC.hide = {};   // hide: QA-only switches (weapon) for render-twice checks
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const P = heroPose(h, GT, st), { RG, s, run } = P, face = h.face, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, casting = GT - h.castT < 0.3 && h.castK !== 'whirl', whirlU = (GT - h.whirlT) / 0.32;
     const hurt = GT - h.hurtT < 0.12, alpha = o.alpha === undefined ? 1 : o.alpha;
     // body: hip rides the stance leg (low at double support), slow breath at rest
     const dbl = 0.5 + 0.5 * Math.cos(4 * Math.PI * P.u0), breath = (1 - run) * Math.sin(GT * 2.1) * 0.9;
-    const bodyDy = run * (2.6 - 0.9 * Math.abs(P.dirx)) * dbl + breath * 0.5;
+    const bodyDy = run * (2.6 - 0.9 * Math.abs(P.dirx)) * dbl + breath * 1.4;
     // dash and hurt lean the upper body about the hip (the feet stay planted): eased in and out, never a one-frame switch
     const dA = GT - h.dashT, dashE = SS(0, 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
     const hA = GT - h.hurtT, hurtE = h.deadT >= 0 ? 0 : SS(0, 0.07, hA) * (1 - SS(0.12, 0.3, hA));
-    const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0);
+    // standing, the upper body sways slowly about the hip (two slow waves, so it never reads as a metronome)
+    const swE = atkT >= 0 ? SS(0, 0.06, atkT) * (1 - SS(SWING.end - 0.1, SWING.end, atkT)) : 0;
+    const idle = (1 - run) * (1 - dashE) * (1 - hurtE) * (1 - swE) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1), sway = idle * (0.022 * Math.sin(GT * 0.83) + 0.01 * Math.sin(GT * 1.37 + 1));
+    const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face;
     // death keeps the rig: the knees buckle (the hip drops, IK folds them), the arms fling, then the whole body falls back about the feet,
     // accelerating but slowed just before the floor so it lands with a small bounce instead of a board's slap
     const du = h.deadT >= 0 ? GT - h.deadT : -1, buckle = du >= 0 ? SS(0, 0.15, du) : 0, fq = Math.min(1, Math.max(0, (du - 0.12) / 0.35));
@@ -260,7 +264,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       return { S0, E0, Hd0, Sp, r1, r2 };
     };
     const legSwing = Math.sin(P.p) * 0.42 * run;
-    const arms = { L: armPose('L', -legSwing * 0.8 + breath * 0.02), R: armPose('R', legSwing * 0.8 - breath * 0.02) };
+    const arms = { L: armPose('L', -legSwing * 0.8 + breath * 0.06 - sway * 1.5), R: armPose('R', legSwing * 0.8 - breath * 0.05 - sway * 1.5) };
     if (swingK > 0) {
       armR = arms.R; const w = wrapPi(armA - Math.PI / 2), r1 = w - 0.15 * Math.sin(w);   // ≈0.85·w near rest, yet periodic: no spin at ±π
       armR.r2 = armR.r2 + wrapPi(r1 + bend - armR.r2) * swingK; armR.r1 = armR.r1 + wrapPi(r1 - armR.r1) * swingK;
@@ -282,15 +286,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02, u); };
     const drawArm = (side, u) => { const A = arms[side], J = side === 'L' ? jL : jR;
       part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR); part('farm' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
-    const weapon = () => { if (!W) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), ba = bladeA !== null ? bladeA : -0.95 + arms.R.r1 * 0.5;
+    const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), ba = bladeA !== null ? bladeA : -0.95 + arms.R.r1 * 0.5;
       const sa = (face > 0 ? ba : Math.PI - ba) + fallR + bodyR;                       // screen angle of the blade
+      // a slash sweeps flat around the body: on the floor plane the camera squeezes depth to DEPTH_K, so a blade pointing up or down
+      // the screen points away from or at the camera and projects shorter (by the screen angle of a flat blade)
+      const fsD = bladeFs * (1 + (DEPTH_K / Math.hypot(DEPTH_K * Math.cos(sa), Math.sin(sa)) - 1) * swingK);
       const tw = len, th = len * G.tex(tex).h / G.tex(tex).w;
-      L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(bladeFs, 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: [tw * 0.22, th * 0.78], u: U });
-      const tip = [Hd[0] + Math.cos(sa) * len * 0.78 * bladeFs, Hd[1] + Math.sin(sa) * len * 0.78 * bladeFs];
+      L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: [tw * 0.22, th * 0.78], u: U });
+      const tip = [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
       L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); };
     // from behind the resting blade points away from the camera, so it sits behind the body unless it swings down
     const backK = h.back ? SS(0, 0.08, GT - (h.backT ?? -9)) : 1 - SS(0, 0.08, GT - (h.backT ?? -9));
     const behind = bladeA !== null ? Math.sin(face > 0 ? bladeA : Math.PI - bladeA) < -0.35 : backK > 0.5;
+    L.joint(id + '_view', 'back', [backK, 0]);
     const all = () => {
       drawArm('L', Ufar); drawLeg('L', Ufar); drawLeg('R', U);
       if (behind) { weapon(); drawArm('R', U); }
@@ -346,7 +354,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.sp = { dx: Math.cos(an) * r, dy: Math.sin(an) * r * 1.2 - 2 - 2 * pu, a: a0 * (0.75 + 0.25 * pu), lod: 0.8, ink: ELITE_HALO }; draw(); }
       L.sp = null; }
     function drawLive() {
-    if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.05, hA) * (1 - SS(0.1, 0.3, hA)) : 0;   // a hit flinches the upper body away from the hero
+    if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.08, hA) * (1 - SS(0.12, 0.32, hA)) : 0;   // a hit flinches the upper body away from the hero
       const Ur = { alpha, grade }, Uf = { alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] };
       const rig = () => MONSTERS.draw(e, E, x, y, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t });
       halo(rig); L.inked(rig, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); return; }
@@ -356,7 +364,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     let bones = {};
     if (E.ghost && window.ASSETS.en_ghost_w) { const sp = Math.hypot(e.vx, e.vy), [tw, th] = [G.tex('en_ghost_w').w, G.tex('en_ghost_w').h];
       const tail = 0.12 * Math.sin(t * 2.2 + e.id) + 0.05 * Math.sin(t * 3.7 + e.id * 2) + 0.3 * SS(0, 60, sp), reach = -0.7 * wind + 0.06 * Math.sin(t * 1.9 + e.id);
-      bones = { wtex: G.tex('en_ghost_w'), wsz: [tw, th], bone0: [190 / 361, 198 / 409, tail, 1], bone1: [266 / 361, 148 / 409, reach, 1] }; }
+      bones = { wtex: G.tex('en_ghost_w'), wsz: [tw, th], bone0: [190 / 361, 198 / 409, tail, 1], bone1: [266 / 361, 148 / 409, reach, 1] };
+      // the bent tips for the trace: texture px turned about their roots as the shader turns them, then placed like the sprite
+      const tp = (q, c, a) => { const dx = q[0] - c[0], dy = q[1] - c[1], u = c[0] + dx * Math.cos(a) - dy * Math.sin(a), v = c[1] + dx * Math.sin(a) + dy * Math.cos(a);
+        const X = (u / 361 - 0.5) * w * sx * e.face, Y = (v / 409 - 1) * h * sy; return [x + X * Math.cos(lean) - Y * Math.sin(lean), y - flt + X * Math.sin(lean) + Y * Math.cos(lean)]; };
+      L.joint('en' + e.id, 'tail', tp([205, 395], [190, 198], tail)); L.joint('en' + e.id, 'claw', tp([330, 250], [266, 148], reach)); }
     const body = () => L.sprite(tex, 0, 0, { m: M.of(M.t(x, y - flt), M.r(lean), M.s(sx * e.face, sy)), w, h, pivot: [w / 2, h], u: Object.assign({ alpha, grade }, bones) });
     halo(body); if (E.ghost) body(); else L.inked(body, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
     }
@@ -558,7 +570,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue; const ex = sx(e.x), ey = sy(e.y);
       if (e.k === 'swing' && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, scr = (b) => (f > 0 ? b : Math.PI - b);
         const pose = (T) => swingPose(T, f > 0 ? e.a : Math.PI - e.a, st.arc * Math.PI / 180, -0.95), sw = pose(a), lead = pose(Math.min(a, sw.Tf - 1e-4)), q = SS(sw.Ts, sw.Tf + 0.05, a);
-        const Rr = st.reach + 30; if (q < 1) G.draw(L.P.arc, { u_arc: [scr(sw.start), scr(lead.blade), 0.34, 0.78], u_col: [1, 0.85, 0.6], u_amt: 1.6 * (1 - q * q) }, G.xf(ex - Rr, ey - 40 - Rr, 2 * Rr, 2 * Rr)); }
+        const Rr = st.reach + 30, lb = scr(lead.blade); L.joint('hero_fx', 'trailC', [ex, ey - 40]); L.joint('hero_fx', 'trail', [ex + Math.cos(lb) * Rr * 0.56, ey - 40 + Math.sin(lb) * Rr * 0.56]);
+        if (q < 1) G.draw(L.P.arc, { u_arc: [scr(sw.start), scr(lead.blade), 0.34, 0.78], u_col: [1, 0.85, 0.6], u_amt: 1.6 * (1 - q * q) }, G.xf(ex - Rr, ey - 40 - Rr, 2 * Rr, 2 * Rr)); }
       if (e.k === 'whirl' && a < 0.4) { const q = a / 0.4; G.draw(L.P.arc, { u_arc: [0, 6.2831 * Math.min(1, a / 0.32), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q) }, G.xf(ex - 118, ey - 34 - 118, 236, 236)); }
       if (e.k === 'eswing' && a < 0.2) G.draw(L.P.arc, { u_arc: [e.a - 0.9, e.a + 0.9 * Math.min(1, a / 0.12), 0.2, 0.75], u_col: [1, 0.5, 0.4], u_amt: 1 - a / 0.2 }, G.xf(ex - 50, ey - 26 - 50, 100, 100));
       if (e.k === 'hit' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
@@ -843,7 +856,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
     const base = play((S) => { S.run.msg = null; S.run.en = []; }), clone = () => structuredClone(base);
     const swingAt = (a, T, tgt) => { const S = clone(), h = S.run.hero; h.aim = h.atkA = a; h.face = Math.cos(a) >= 0 ? 1 : -1; h.back = Math.sin(a) < -0.5 ? 1 : 0; h.atkT = S.t - T; h.vx = h.vy = 0;
+      S.ev.push({ k: 'swing', t: h.atkT, x: h.x, y: h.y, a, n: 0, f: h.face });
       if (tgt) { const r = SIM.stats(h, S.meta).reach * 0.8; h.qaTgt = [h.x + Math.cos(a) * r, h.y + Math.sin(a) * r]; } return S; };
+    // the impact frame with a real body on the target (a skeleton facing the hero), for the blade-over-target check
+    const impactAt = (a) => { const S = swingAt(a, SIM.K.HIT, 1), h = S.run.hero, [x, y] = h.qaTgt;
+      S.run.en = [{ id: 990, type: 'skeleton', x, y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: x < h.x ? 1 : -1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; return S; };
+    const impacts = Object.fromEntries([...Array(16).keys()].map((i) => { const a = -Math.PI + i * Math.PI / 8; return ['a' + Math.round(a * 180 / Math.PI), impactAt(a)]; }));
     const attacks = { hero_swing: { subject: 'hero', states: [...Array(16).keys()].map((i) => swingAt(-Math.PI + i * Math.PI / 8, SIM.K.HIT, 1)) } };
     const swings = {};
     for (const deg of [-135, -90, -45, 0, 45, 90, 135, 180]) swings['hero_swing_' + (deg < 0 ? 'm' + -deg : deg)] = [...Array(30).keys()].map((i) => swingAt(deg * Math.PI / 180, -0.03 + i / 60, 1));
@@ -870,11 +888,18 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     transitions.hero_dash = eventT(clear, (S) => { const h = S.run.hero; h.dashT = S.t; h.dashX = 1; h.dashY = 0; });
     transitions.hero_dash_up = eventT(clear, (S) => { const h = S.run.hero; h.dashT = S.t; h.dashX = 0; h.dashY = -1; });
     transitions.hero_hurt = eventT(clear, (S) => { const h = S.run.hero; h.hurtT = S.t; h.hurtX = 1; });
-    transitions.skeleton_death = eventT((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = [{ id: 990, type: 'skeleton', x: h.x + 60, y: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0,
-      face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; }, (S) => { const e = S.run.en[0]; e.hp = 0; e.deadT = S.t; });
+    // a lone monster beside the hero, then an event on it: a skeleton crumbles, a spider flips onto its back, a goblin's ears ring on a hit
+    const lone = (ty, id = 990) => (S) => { const R = S.run, h = R.hero; R.msg = null; R.en = [{ id, type: ty, x: h.x + 60, y: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0,
+      face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; };
+    const kill = (S) => { const e = S.run.en[0]; e.hp = 0; e.deadT = S.t; e.hitT = S.t; e.dieA = 0; };   // struck from the hero's side
+    // every way each dies (the variant is the id's: skeleton id % 3 — heap, burst, topple; spider id % 2 — on its back, curled)
+    transitions.skeleton_death = eventT(lone('skeleton'), kill); transitions.skeleton_death_burst = eventT(lone('skeleton', 991), kill); transitions.skeleton_death_topple = eventT(lone('skeleton', 992), kill);
+    transitions.spider_death = eventT(lone('spider'), kill); transitions.spider_death_curl = eventT(lone('spider', 991), kill);
+    transitions.goblin_hit = eventT((S) => { lone('goblin')(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
     // a monster at its post, 2 s at 1/60 s: breathing, a turn and a shift about the spot
     const loops = {};
-    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
+    { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
+    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; });
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }
@@ -906,8 +931,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (Array.isArray(o.ev) && 'screen' in o && !o.keepFloor) o.ev = o.ev.filter((e) => e.k !== 'floor'); for (const v of Object.values(o)) calm(v, seen); };
     const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1) }, enCycles),
       sprites: { hero_right: ['hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR'] },
-      subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero' }, Object.fromEntries(Object.keys(transitions).map((k) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en990'])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_')[0]; return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1]) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
-      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }) }, actors: ['hero', ...Object.keys(enCycles).map((k) => k.split('_')[0])], loops, attacks, swings, transitions, box };
+      subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_')[0]; return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1]) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
+      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_')[0])), 'ghost', 'boss'], loops, attacks, swings, impacts, transitions, box };
     calm(out); return out;
   };
 })();
