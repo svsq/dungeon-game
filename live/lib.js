@@ -475,7 +475,11 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, r.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); r.rec.w = w; r.rec.h = h; }
     Object.assign(r, { key, pad, tw }); return r; };
-  L.labelW = (slot, str, o = {}) => lblTex(slot, str, o).tw;
+  // measuring never touches the slot's texture: label() and labelW() on one slot with different styles would re-render and
+  // re-upload it twice a frame
+  let MEASURE = null;
+  L.labelW = (slot, str, { size = 30, font = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif', weight = 'bold' } = {}) => {
+    const g = MEASURE || (MEASURE = document.createElement('canvas').getContext('2d')); g.font = `${weight} ${size}px ${font}`; return g.measureText(String(str)).width; };
   L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), size = o.size || 30, a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
     L.sprite('lbl_' + slot, x0 - r.pad, Math.round(y - r.rec.h / 2), { w: r.rec.w, h: r.rec.h, u: { alpha: a } });
     if (a > 0.05) L.uiText(slot, str, x0, y - size * 0.62, r.tw, size * 1.24); return r.tw; };

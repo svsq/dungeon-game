@@ -70,13 +70,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
 
   // ---------------- the floor map, baked once per floor into a world-size texture ----------------
   function bake(m) {
-    const key = m.seed + ':' + m.floor; if (BAKE.key === key) return; BAKE.key = key;
+    const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : q.hp)).join(''); if (BAKE.key === key) return; BAKE.key = key;
     const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome];
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
       BAKE.tg = G.target(MW, MH, false);
       const cv = document.createElement('canvas'); cv.width = cv.height = 1; const rec = G.canvasTex('map', cv); rec.t = BAKE.tg.t; rec.w = MW; rec.h = MH; }
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
-    const c = (x, y) => SIM.cell(m, x, y), TS = 288, TSW = 224;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
+    const hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : v; }, TS = 288, TSW = 224;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
     const dark = (x, y, w, h, a) => L.solid(x, y, w, h, [0.01, 0.01, 0.015], 0, 0, 0, a);
@@ -116,13 +116,24 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) if (c(x, y) === 0 && near(x, y, 7) && !near(x, y, 1)) L.puff(x * TILE + 16, y * TILE + 16, 36, [0, 0, 0], near(x, y, 2) ? 0.12 : near(x, y, 3) ? 0.28 : near(x, y, 4) ? 0.42 : near(x, y, 5) ? 0.55 : 0.68, x * 3 + y);
     for (const g of m.rugs || []) if (window.ASSETS.carpet) { const w = g.h * ASSETS.carpet.w / ASSETS.carpet.h; L.puff(g.cx, g.y + g.h / 2 + 4, g.h * 0.55, [0, 0, 0], 0.3, 1); L.sprite('carpet', g.cx - w / 2, g.y, { w, h: g.h }); }
     // painted floor decals: cracks, grime, moss, blood, coins, bones, webs…
-    for (const d of m.decals || []) { const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0); L.sprite(d.n, d.x - w0 * k / 2, d.y - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: d.n === 'dc_web' ? 0.7 : 0.92 } }); }
+    for (const d of m.decals || []) { if (SIM.hidden(m, d)) continue; const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0); L.sprite(d.n, d.x - w0 * k / 2, d.y - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: d.n === 'dc_web' ? 0.7 : 0.92 } }); }
     // stains and scorch marks scattered on the floor
     for (let i = 0; i < m.W * m.H / 40; i++) { const x = Math.floor(rnd(i, m.seed % 97) * m.W), y = Math.floor(rnd(i + 0.5, m.seed % 89) * m.H);
       if (c(x, y) !== 1) continue; const r = 8 + 14 * rnd(i, 3);
       L.puff(x * TILE + 16, y * TILE + 16, r, rnd(i, 4) < 0.35 ? [0.22, 0.03, 0.02] : [0.04, 0.03, 0.03], 0.35 + 0.25 * rnd(i, 5), i); }
+    // secret rooms' fake walls: a crack from the opening's edge into the wall (up the face of a top wall, across the rock of the
+    // other sides) that branches wider after a blow
+    (m.secrets || []).forEach((q, i) => { if (q.open) return; const hurt = q.hp < 2, a0 = Math.atan2(q.dy, q.dx), ux = Math.cos(a0), uy = Math.sin(a0);
+      const crack = (x0, y0, a1, len, w, seed, depth) => { let x = x0, y = y0, a = a1;
+        for (let k = 0; k < len; k++) { const l = 6 + 4 * rnd(seed, k); a += (rnd(seed, k + 9) - 0.5) * 0.9; const nx = x + Math.cos(a) * l, ny = y + Math.sin(a) * l;
+          L.solid(x, y, l + 1, w, [0.02, 0.015, 0.02], a, 0, w / 2, 0.92); L.solid(x, y + w / 2 + 1, l, 2, [0.7, 0.64, 0.6], a, 0, 0, q.dy < 0 ? 0.35 : 0.6);
+          if (depth && rnd(seed, k + 30) < (hurt ? 0.55 : 0.3)) crack(nx, ny, a + (rnd(seed, k + 40) < 0.5 ? -0.9 : 0.9), 2 + Math.floor(rnd(seed, k + 50) * 2), Math.max(1, w - 1), seed * 7 + k, depth - 1);
+          x = nx; y = ny; } };
+      const bx = q.x + ux * 3 - 4 * uy, by = q.y + uy * 3;
+      crack(bx, by, a0 - 0.15, 5, hurt ? 5 : 4, 11 + i, hurt ? 2 : 1);
+      if (hurt) { const hx = bx + ux * 24, hy = by + uy * 24; crack(hx, hy, a0 - 1.4, 3, 3, 21 + i, 1); crack(hx, hy, a0 + 1.4, 3, 3, 31 + i, 1); L.solid(hx - 7, hy - 5, 14, 10, [0.03, 0.02, 0.03], a0, 7, 5, 0.9); } });
     // wall decor: banners hang on the wall faces
-    for (const d of m.decor) if (d.wall) { const n = d.n || 'banner', [w, h] = SZ(n); L.sprite(n, d.x - w / 2, d.y - h + 8, { w, h }); }
+    for (const d of m.decor) if (d.wall && !SIM.hidden(m, d)) { const n = d.n || 'banner', [w, h] = SZ(n); L.sprite(n, d.x - w / 2, d.y - h + 8, { w, h }); }
     G.bind(null);
   }
   function seenTex(R) {
@@ -359,6 +370,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const vis = (x, y, pad = 120) => x > cx - pad && x < cx + W + pad && y > cy - pad && y < cy + H + pad * 1.5;
     const MW = m.W * TILE, MH = m.H * TILE;
     const known = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)] || R.seen[Math.floor((y + 40) / TILE) * m.W + Math.floor(x / TILE)];
+    const hid = (o) => SIM.hidden(m, o);
 
     // ===== ground: the baked map, then decals =====
     L.beginBG([0, 0, 0, 1]);
@@ -381,25 +393,30 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // spike traps: a 2×2-cell plate on the ground; its spikes stand in the Y-sorted band (they have height)
     for (const tp of m.traps) if (vis(tp.x, tp.y)) L.sprite('trap_plate', sx(tp.x - TILE), sy(tp.y - TILE), { w: 2 * TILE, h: 2 * TILE });
     // flat decor (bones) and blood / scorch decals from events
-    for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
+    for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y) && !hid(d)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       if (e.k === 'kill' && a < 12) L.puff(sx(e.x), sy(e.y) + 2, 18 + 8 * SS(0, 0.3, a), [0.25, 0.02, 0.02], 0.6 * (1 - SS(6, 12, a)), e.id);
       if (e.k === 'slam' && a < 4.6) L.cracks(sx(e.x), sy(e.y), e.big ? 130 : 70, a, e.id || 1, 0);
       if (e.k === 'boom' && a < 6) L.puff(sx(e.x), sy(e.y) + 24, 30, [0.03, 0.02, 0.02], 0.5 * (1 - SS(3, 6, a)), e.t * 7);
       if (e.k === 'die') L.puff(sx(e.x) + 6, sy(e.y) + 4, 12 + 30 * SS(0.1, 1.4, a), [0.28, 0.02, 0.02], 0.75, 41); }
 
+    // the draught at each fake wall (its crack is baked into the map): pale motes blown out of the opening into the room
+    (m.secrets || []).forEach((q, i) => { if (q.open || !vis(q.x, q.y)) return; const X = sx(q.x), Yf = sy(q.y), ux = q.dx, uy = q.dy;
+      for (let j = 0; j < 9; j++) { const ph = (t * 0.3 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * 36 * (0.4 + ph) + Math.sin(t * 1.6 + j * 2) * 5;
+        L.solid(X - ux * (ph * 46 - 4) - uy * sp, Yf - uy * (ph * 46 - 4) + ux * sp + (q.dy ? 0 : ph * ph * 14), 3, 3, [0.82, 0.86, 0.95], 0, 0, 0, 0.8 * Math.sin(ph * Math.PI)); } });
+
     // ===== Y-sorted band =====
     const Y = [];
-    for (const d of m.decor) if (!d.wall && d.n !== 'bones' && vis(d.x, d.y)) Y.push([d.y, () => drawProp(d.n, sx(d.x), sy(d.y), { dy: 4 })]);
-    for (const c of R.chests) if (vis(c.x, c.y)) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, 22, 6, 0.5);
-      drawProp(op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier === 2 ? 1.15 : 1, u: { grade: c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
-    for (const p of R.pots) { if (!vis(p.x, p.y)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 }); }]); }
+    for (const d of m.decor) if (!d.wall && d.n !== 'bones' && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(d.n, sx(d.x), sy(d.y), { dy: 4 })]);
+    for (const c of R.chests) if (vis(c.x, c.y) && !hid(c)) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, 22, 6, 0.5);
+      drawProp(op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier >= 2 ? 1.15 : 1, u: { grade: c.tier === 3 ? [1.2, 1.12, 0, 1.1] : c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
+    for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 }); }]); }
     const flameB = (x, y, w, hh, col, seed) => { G.blend('add'); G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1.6, u_col: col }, G.xf(x - w / 2, y - hh, w, hh)); G.blend(); };
-    m.torches.forEach((tc, i) => { if (!vis(tc.x, tc.y)) return; const col = torchCol(m, tc), lit = known(tc.x, tc.y);
+    m.torches.forEach((tc, i) => { if (!vis(tc.x, tc.y) || hid(tc)) return; const col = torchCol(m, tc), lit = known(tc.x, tc.y);
       if (tc.kind === 'wall') Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16); if (lit) flameB(sx(tc.x) + 3, sy(tc.y) - 4, 22, 36, col, i); }]);
       else { const big = tc.kind === 'fire'; Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp('brazier', sx(tc.x), sy(tc.y), { k: big ? 1.35 : 1, dy: 4 });
         if (lit) flameB(sx(tc.x), sy(tc.y) - (big ? 44 : 32), big ? 56 : 34, big ? 80 : 50, col, i); }]); } });
-    for (const d of m.decor) if (d.n === 'candles' && vis(d.x, d.y) && known(d.x, d.y)) Y.push([d.y + 1, () => { for (let k = 0; k < 3; k++) flameB(sx(d.x) + [-8, 0, 9][k], sy(d.y) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k); }]);
+    for (const d of m.decor) if (d.n === 'candles' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => { for (let k = 0; k < 3; k++) flameB(sx(d.x) + [-8, 0, 9][k], sy(d.y) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k); }]);
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
@@ -428,16 +445,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + W + r || y < cy - r || y > cy + H + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
     lt(h.x, h.y - 30, 170, [0.8, 0.72, 0.6], 0.18);
-    m.torches.forEach((tc, i) => { const f = flick(i), big = tc.kind === 'fire', col = torchCol(m, tc); lt(tc.x, tc.y - (tc.kind === 'wall' ? -10 : 20), big ? 280 : 220, col, (big ? 1.0 : 0.75) * f, 2.6); lt(tc.x, tc.y - 10, 110, col.map((v) => 0.5 + 0.5 * v), 0.5 * f, 3); });
-    for (const d of m.decor) if (d.n === 'crystal') lt(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
-    for (const d of m.decor) if (d.n === 'candles') lt(d.x, d.y - 10, 120, [1, 0.7, 0.35], 0.6 * flick(d.y));
+    m.torches.forEach((tc, i) => { if (hid(tc)) return; const f = flick(i), big = tc.kind === 'fire', col = torchCol(m, tc); lt(tc.x, tc.y - (tc.kind === 'wall' ? -10 : 20), big ? 280 : 220, col, (big ? 1.0 : 0.75) * f, 2.6); lt(tc.x, tc.y - 10, 110, col.map((v) => 0.5 + 0.5 * v), 0.5 * f, 3); });
+    for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) lt(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
+    for (const d of m.decor) if (d.n === 'candles' && !hid(d)) lt(d.x, d.y - 10, 120, [1, 0.7, 0.35], 0.6 * flick(d.y));
     // the shop is lit warm and bright: lanterns by its ways in, a lamp over the counter
     if (m.shop) { for (const q of m.shop.lanterns) lt(q.x, q.y - 40, 190, [1, 0.78, 0.45], 0.85 * flick(q.x)); lt(m.shop.x, m.shop.y - 50, 260, [1, 0.82, 0.55], 0.75); }
     for (const [x, y] of lavaCells) { if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, 140, [1.0, 0.42, 0.12], 0.55 * flick(x * 3 + y)); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2, 1.6); }
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, [0.4, 0.7, 1.0], 0.9);
     if (m.floor === D.FLOORS && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
     for (const p of R.proj) lt(p.x, p.y + 20, p.own === 'hero' ? 240 : 150, p.k === 'hex' ? [0.4, 1.0, 0.4] : [1.0, 0.55, 0.2], 1.2);
-    for (const p of R.pots) if (p.kind === 'gold' && p.hp > 0) lt(p.x, p.y - 10, 110, [1, 0.78, 0.4], 0.35);
+    for (const p of R.pots) if (p.kind === 'gold' && p.hp > 0 && !hid(p)) lt(p.x, p.y - 10, 110, [1, 0.78, 0.4], 0.35);
     for (const p of R.drops) if (p.kind === 'item' && p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5);
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       if (e.k === 'boom' && a < 0.5) lt(e.x, e.y, 360, [1.0, 0.6, 0.25], 2.2 * (1 - a / 0.5));
@@ -451,6 +468,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'die' && a < 1.6) lt(e.x, e.y - 40 - 60 * SS(0.3, 1.6, a), 200, [0.5, 0.7, 1], 0.9 * SS(0.2, 0.5, a) * (1 - SS(1.2, 1.6, a)));
       if (e.k === 'spike' && a < 0.2) lt(e.x, e.y, 110, [1, 0.9, 0.75], 0.5 * (1 - a / 0.2)); }
     if (h.shield > 0 && GT < h.shieldUntil) lt(h.x, h.y - 30, 160, [0.4, 0.7, 1], 0.7);
+    // a fake wall breathes a cold draught through its crack: a faint blue flicker at its foot, irregular so it reads as alive
+    (m.secrets || []).forEach((q, i) => { if (q.open) return; const f = Math.max(0, Math.sin(t * 1.7 + i * 2.1) * 0.6 + Math.sin(t * 6.3 + i) * 0.25 + Math.sin(t * 13.1) * 0.15);
+      lt(q.x + q.dx * 6, q.y + (q.dy < 0 ? -26 : q.dy > 0 ? 6 : -8), 90, [0.55, 0.72, 1], 0.18 + 0.32 * f, 2.6); });
+    for (const c of R.chests) if (c.tier === 3 && !c.open && !hid(c)) lt(c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4));
+    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], 1.4 * (1 - a / 1.2)); }
     for (const e of R.en) if (e.elite && e.type !== 'boss' && e.deadT < 0) lt(e.x, e.y + 4, 110, ELITE, 0.3 + 0.1 * Math.sin(t * 3 + e.id));
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
@@ -528,6 +550,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.puff(ex + Math.cos(an) * d, ey + Math.sin(an) * d + 50 * q * q, 3 + 2 * rnd(e.t, j), [0.45, 0.04, 0.04], 0.9 * (1 - q), j); }
       if (e.k === 'break' && a < 0.7) for (let j = 0; j < 7; j++) { const q = a / 0.7, an = rnd(e.t, j) * 6.28, v = 40 + 60 * rnd(e.t, j + 7);
         L.solid(ex + Math.cos(an) * v * a, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 300 * a * a, 5, 4, e.kind === 'pot' ? [0.5, 0.24, 0.14] : e.kind === 'gold' ? [1, 0.78, 0.25] : [0.4, 0.26, 0.14], an, 2, 2, 1 - SS(0.5, 0.7, a)); }
+      // a blow on a fake wall knocks out chips and a breath of dust; the break blows the stretch of wall into the room
+      if ((e.k === 'wallhit' || e.k === 'secret') && a < 1.4) { const big = e.k === 'secret', n = big ? 22 : 8, life = big ? 1.1 : 0.7;
+        for (let j = 0; j < n; j++) { if (a > life) break; const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * (big ? 3 : 2), v = (big ? 90 : 50) + (big ? 160 : 70) * rnd(e.t, j + 7), g = 520;
+          const px = ex + (rnd(e.t, j + 3) - 0.5) * (big ? 60 : 24) + Math.cos(an) * v * a * 0.6, py = ey + Math.min(30 + 20 * rnd(e.t, j + 11), -Math.abs(Math.sin(an)) * v * a + g * a * a);
+          const sz = (big ? 4 : 3) + 4 * rnd(e.t, j + 13); L.solid(px, py, sz, sz * 0.8, [0.34, 0.3, 0.29], an + a * 6, sz / 2, sz / 2, 1 - SS(life * 0.75, life, a)); }
+        for (let j = 0; j < (big ? 10 : 4); j++) { const q = Math.min(1, a / (big ? 1.4 : 0.8)); L.puff(ex + (j - (big ? 4.5 : 1.5)) * (big ? 12 : 10), ey + 10 + 26 * q, (big ? 16 : 10) + 22 * q, [0.4, 0.36, 0.34], (big ? 0.55 : 0.4) * (1 - q), e.t * 11 + j); } }
       if (e.k === 'scorch' && a < 0.8) for (let j = 0; j < 3; j++) { const q = a / 0.8; L.puff(ex + (j - 1) * 7, ey - 8 - 26 * q, 6 + 8 * q, [0.12, 0.1, 0.1], 0.45 * (1 - q), e.t * 13 + j); }
       if (e.k === 'kill' && a < 0.6) for (let j = 0; j < 6; j++) { const q = a / 0.6; L.puff(ex + (j - 2.5) * 8, ey - 10 - 20 * q, 8 + 10 * q, e.type === 'ghost' ? [0.5, 0.7, 0.9] : [0.3, 0.27, 0.25], 0.5 * (1 - q), e.t + j); }
       if ((e.k === 'hurt' || e.k === 'die') && a < 0.45) for (let j = 0; j < (e.k === 'die' ? 9 : 5); j++) { const q = a / 0.45, an = rnd(e.t, j + 30) * 6.28, d = 6 + 30 * q, oy = e.k === 'die' ? -40 : 0;
@@ -588,8 +616,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       })],
       ['pause', play((S) => { S.screen = 'pause'; S.run.msg = { s: 'Этаж 1 — Подземелье', t: S.t - 1 }; })],
       ['meta', mk((S) => { S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = { hp: 5, dmg: 2 }; })],
-      ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 9999, bonus: 999, time: 35999 }; })],
-      ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 9999, bonus: 999, time: 35999 }; })],
+      ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 0, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
+      ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
+      ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
     ];
     for (const [name, age] of [['shard_flash', 0.1], ['shard_flight', 0.55], ['shard_arrival', 1.05]]) {
       states.push([name, play((S) => { worst(S); S.run.msg = null; const h = S.run.hero; S.ev = [{ k: 'shard', x: h.x, y: h.y, n: 3, floor: S.run.floor, t: S.t - age }]; })]);
@@ -618,6 +647,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const treasureS = (() => { for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, r = R.map.rooms.find((q) => q.type === 'treasure' && R.map.rugs.length);
       if (!r) continue; const h = R.hero; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - W / 2, (r.y + r.h / 2) * TILE - H / 2]; return S; } })();
     if (treasureS) states.push(['treasure', treasureS]);
+    // a secret room's fake wall: whole (crack + draught), cracked by a blow, breaking, and the room found behind it
+    const secretS = (stage, dir = 'u') => { for (let sd = 1; sd < 80; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find((o) => o.dir === dir); if (!q) continue;
+      const h = R.hero; h.x = q.x - q.dx * 70 + (q.dy ? 50 : 0); h.y = q.y - q.dy * 80; h.aim = Math.atan2(q.dy, q.dx); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [q.x - W / 2, q.y - H / 2 - 40];
+      if (stage >= 1) { SIM.hitSecret(S, R, q); S.ev = S.ev.filter((e) => e.k === 'wallhit'); S.ev[0].t = S.t - 0.1; }
+      if (stage >= 2) { q.hitT = -9; SIM.hitSecret(S, R, q); S.ev = S.ev.filter((e) => e.k === 'secret'); S.ev[0].t = S.t - (stage === 2 ? 0.25 : 3); R.msg = null; R.trauma = 0; }
+      if (stage === 3) { const r = m.rooms[q.room]; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE + 10; R.cam = [h.x - W / 2, (r.y + r.h / 2) * TILE - H / 2]; }
+      return S; } };
+    ['secret_wall', 'secret_cracked', 'secret_break', 'secret_room'].forEach((n, i) => { const S = secretS(i); if (S) states.push([n, S]); });
+    for (const d of ['d', 'l', 'r']) for (const [n, i] of [['secret_wall_' + d, 0], ['secret_cracked_' + d, 1]]) { const S = secretS(i, d); if (S) states.push([n, S]); }
     // every monster type in a row, idle, facing right: the rigs at rest against their approved sprites
     const lineup = (S) => { const R = S.run, r = R.map.rooms.filter((q) => q.id !== R.map.start).reduce((a, b) => (b.w > a.w ? b : a)), h = R.hero, y0 = (r.y + r.h / 2) * TILE + 16;
       R.msg = null; R.seen = R.seen.map(() => 1); h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20;

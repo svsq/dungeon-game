@@ -5,11 +5,12 @@
 (function (root) {
   const D = root.DATA || require('./data.js');
   const { TILE, ENEMIES } = D;
-  // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles)
+  // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken)
   const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
   function genFloor(seed, floor, opts = {}) {
-    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts); if (m) return m; }
+    // a floor without a secret room is rerolled a few times before one is accepted, unless it meant to have none
+    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) return m; }
     throw new Error('dungeon generation failed');
   }
 
@@ -83,9 +84,39 @@
       if (r.type !== 'start' && r.type !== 'shop' && r.w >= 8 && r.h >= 6 && (pass || R() < (boss ? 1 : 0.75))) pool(r); }
     function connected() { const seen = new Uint8Array(W * H), st = [[start.cx, start.cy]]; seen[start.cy * W + start.cx] = 1;
       while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
-        if (at(nx, ny) === 1 && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; st.push([nx, ny]); } } }
+        if ((at(nx, ny) === 1 || at(nx, ny) === 4) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; st.push([nx, ny]); } } }
       for (let i = 0; i < W * H; i++) if (cells[i] === 1 && !seen[i]) return false; return true; }
     if (!connected()) return null;
+    // ---- secret rooms: anywhere off a straight stretch of wall (a room's or a corridor's, any side but the shop's), a small room
+    // behind a two-cell-thick fake wall (cell 4: solid, drawn as rock, breaks under blows) and a short passage. How many is
+    // left to chance (1–10, fewer when the rock has no room for them; none at all only on the boss's floor, and rarely), so the
+    // player never knows when a floor is cleaned out ----
+    const secrets = [];
+    const secretsWanted = boss && R() < 0.06 ? 0 : 1 + Math.floor(Math.pow(R(), 1.8) * 10);
+    { const want = secretsWanted, DIRS = [[0, -1, 'u'], [0, 1, 'd'], [-1, 0, 'l'], [1, 0, 'r']];
+      const shopRoom = rooms.find((q) => q.type === 'shop');
+      const inShop = (x, y) => x >= shopRoom.x - 1 && x <= shopRoom.x + shopRoom.w && y >= shopRoom.y - 1 && y <= shopRoom.y + shopRoom.h;
+      const rockAt = (x, y) => x >= 2 && y >= 3 && x <= W - 3 && y <= H - 3 && at(x, y) === 0;
+      for (let k = 0; k < 8000 && secrets.length < want; k++) {
+        const hx = ri(2, W - 3), hy = ri(3, H - 3), [dx, dy, dir] = DIRS[Math.floor(R() * 4)], px = dy ? 1 : 0, py = dx ? 1 : 0;
+        // (depth, lateral) → cell: depth runs from the host floor (0) into the rock, lateral 0–1 is the two-cell-wide opening
+        const C = (d, l) => [hx + dx * d + px * l, hy + dy * d + py * l];
+        const all = (d0, d1, l0, l1, f) => { for (let d = d0; d <= d1; d++) for (let l = l0; l <= l1; l++) if (!f(...C(d, l))) return false; return true; };
+        // a straight stretch of wall with open floor in front of it, clear of the shop
+        if (!all(-1, 0, -1, 2, (x, y) => at(x, y) === 1 && !inShop(x, y)) || !all(1, 2, -1, 2, rockAt)) continue;
+        const plen = ri(0, 2), D = ri(3, 5), S = ri(3, 6), l0 = -ri(0, S - 2), d0 = 3 + plen, d1 = d0 + D - 1;
+        if (plen && !all(3, 2 + plen, -2, 3, rockAt)) continue;
+        const [ax, ay] = C(d0, l0), [bx, by] = C(d1, l0 + S - 1), rx = Math.min(ax, bx), ry = Math.min(ay, by), rw = Math.abs(bx - ax) + 1, rh = Math.abs(by - ay) + 1;
+        let ok = true; for (let y = ry - 3; y <= ry + rh + 1 && ok; y++) for (let x = rx - 2; x <= rx + rw + 1; x++) if (!rockAt(x, y)) { ok = false; break; }
+        if (!ok) continue;
+        const sr = { x: rx, y: ry, w: rw, h: rh, cx: rx + (rw >> 1), cy: ry + (rh >> 1), type: 'secret', id: rooms.length };
+        rooms.push(sr); for (let y = ry; y < ry + rh; y++) for (let x = rx; x < rx + rw; x++) set(x, y, 1);
+        const wall = [], hide = [], front = [];
+        for (let d = 1; d <= 2 + plen; d++) for (let l = 0; l <= 1; l++) { const [x, y] = C(d, l); set(x, y, d <= 2 ? 4 : 1); if (d <= 2) wall.push([x, y]); hide.push(y * W + x); }
+        for (let d = -1; d <= 0; d++) for (let l = -1; l <= 2; l++) front.push(C(d, l));
+        // the contact point: the middle of the opening's edge on the host side, where blows land and the draught comes out
+        const ex = dy ? (hx + 1) * TILE : (dx < 0 ? hx : hx + 1) * TILE, ey = dx ? (hy + 1) * TILE : (dy < 0 ? hy : hy + 1) * TILE;
+        secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0 }); } }
     // ---- contents ----
     // a cell next to a corridor mouth: any neighbour outside every room that is open floor
     const inRoom = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
@@ -96,6 +127,7 @@
     const bulk = new Set(), roomy = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (bulk.has(key(x + i, y + j))) return false; return true; };
     const spot = (r, inset = 1, pad = 0, big = false) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + inset, r.x + r.w - 1 - inset), y = ri(r.y + inset, r.y + r.h - 1 - inset);
       if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y))) { used.add(key(x, y)); if (big) bulk.add(key(x, y)); return [x, y]; } } return null; };
+    for (const sc of secrets) for (const [x, y] of sc.front) used.add(key(x, y));
     const wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2 + 6;
     const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [], shrines = [], rugs = [];
     // stairs / boss altar
@@ -167,22 +199,22 @@
       }
       if (r.type === 'boss') { addEnemy('boss', r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < Math.round(4 * D.BAL.pop); i++) { const p = spot(r, 2); if (p) addEnemy(pick(roster.filter((t) => t !== 'brute')), p[0], p[1], r.id); } }
       // chests
-      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.type === 'treasure' ? ri(2, 3) : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.3 ? 1 : 0);
+      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.type === 'treasure' ? ri(2, 3) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.3 ? 1 : 0);
       // the hoard's centrepiece, as in the reference: a rug running from the top wall with the best chest on it
       let first = null;
       if (r.type === 'treasure' && r.w >= 7 && r.h >= 6) { const y0 = r.y + 1; rugs.push({ cx: wx(r.cx), y: y0 * TILE - 6, h: Math.min(r.h - 2, 4.4) * TILE });
         if (free(r.cx, y0 + 1) && roomy(r.cx, y0 + 1)) { used.add(key(r.cx, y0 + 1)); bulk.add(key(r.cx, y0 + 1)); first = [r.cx, y0 + 1]; } }
-      for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'treasure' ? 2 : 1, open: 0 }); }
+      for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' ? 3 : r.type === 'treasure' ? 2 : 1, open: 0 }); }
       // breakables along the walls
       for (let i = 0, n = ri(1, 4); i < n; i++) { const side = ri(0, 3), x = side === 0 ? r.x : side === 1 ? r.x + r.w - 1 : ri(r.x, r.x + r.w - 1),
         y = side === 2 ? r.y : side === 3 ? r.y + r.h - 1 : ri(r.y, r.y + r.h - 1);
         const out = side === 0 ? at(x - 1, y) : side === 1 ? at(x + 1, y) : side === 2 ? at(x, y - 1) : at(x, y + 1);
         if (free(x, y) && out === 0 && !doorway(x, y)) { used.add(key(x, y)); pots.push({ x: wx(x), y: wy(y), kind: R() < 0.5 ? 'pot' : R() < 0.5 ? 'barrel' : 'crate', hp: 1 }); } }
       // heaps of gold: the treasure room's hoard, now and then one left in a fought-over room
-      for (let i = 0, n = r.type === 'treasure' ? ri(2, 4) : r.type === 'exit' || (r.type === 'combat' && R() < 0.3) ? 1 : 0; i < n; i++) { const p = spot(r, 1); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'gold', hp: 1 }); }
+      for (let i = 0, n = r.type === 'treasure' ? ri(2, 4) : r.type === 'secret' ? ri(1, 2) : r.type === 'exit' || (r.type === 'combat' && R() < 0.3) ? 1 : 0; i < n; i++) { const p = spot(r, 1); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'gold', hp: 1 }); }
       // torches on the top wall face (cells above the room's first row that are rock), every 4–5 tiles
-      for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
-      if (r.type !== 'start' && R() < 0.5) { const p = spot(r, 1, 0, true); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
+      if (r.type !== 'secret') for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
+      if (r.type !== 'start' && r.type !== 'secret' && R() < 0.5) { const p = spot(r, 1, 0, true); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
       // decor
       for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table'); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: n2 }); }
       for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
@@ -241,15 +273,18 @@
     for (const r of rooms) { const zb = r.zone || biome, n = Math.round(r.w * r.h / 6);
       for (let i = 0; i < n; i++) { const x = r.x + R() * r.w, y = r.y + 0.5 + R() * (r.h - 0.5); if (at(Math.floor(x), Math.floor(y)) !== 1) continue;
         const fight = r.type === 'combat' || r.type === 'exit' || r.type === 'boss';
-        const pool = (fight || r.type === 'treasure') && R() < 0.35 ? ['dc_blood', 'dc_blood2', 'dc_coins', 'dc_bones', 'dc_sword'] : DEC[zb];
+        const pool = (fight || r.type === 'treasure' || r.type === 'secret') && R() < 0.35 ? ['dc_blood', 'dc_blood2', 'dc_coins', 'dc_bones', 'dc_sword'] : DEC[zb];
         decals.push({ x: x * TILE, y: y * TILE, n: pool[Math.floor(R() * pool.length)], f: R() < 0.5 ? 1 : 0, s: 0.8 + 0.5 * R() }); } }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h) && R() < 0.06)
       decals.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, n: DEC[biome][Math.floor(R() * DEC[biome].length)], f: R() < 0.5 ? 1 : 0, s: 0.7 + 0.3 * R() });
+    const secAt = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+      return secrets.findIndex((sc) => { const r = rooms[sc.room]; return (tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h) || sc.hide.includes(ty * W + tx); }); };
+    for (const list of [chests, pots, torches, decor, decals]) for (const o of list) { const i = secAt(o.x, o.y + (o.wall ? TILE : 0)); if (i >= 0) o.sec = i; }
     // cells taken by solid props: the flow fields route around them
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); for (const [x, y] of shop.solid) bl(x, y);
     return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, lava: lava.length };
+      enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length };
   }
 
   // room index of a world point (or -1 in a corridor)

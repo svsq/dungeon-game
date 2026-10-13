@@ -139,7 +139,7 @@
     },
     pause: () => [['resume', 'Продолжить'], ['save', 'Сохранить и выйти в меню'], ['abandon', 'Сдаться (конец забега)']]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 430 + i * 92, w: 480, h: 72 })),
-    end: () => [['menu', 'В главное меню'], ['again', 'Новый забег']].map(([id, label], i) => ({ id, label, on: true, x: 600 + i * 380, y: 760, w: 340, h: 72 })),
+    end: () => [['menu', 'В главное меню'], ['again', 'Новый забег']].map(([id, label], i) => ({ id, label, on: true, x: 600 + i * 380, y: 920, w: 340, h: 72 })),
     meta: () => META.map((m, i) => ({ id: m.id, x: 560, y: 300 + i * 104, w: 800, h: 88 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 860, w: 300, h: 70 }]),
     // hero screen: equipment column, bag grid, stats and abilities
     inv: () => {

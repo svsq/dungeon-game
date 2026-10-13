@@ -180,11 +180,13 @@
 
   function minimap(S, R, t) {
     const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 46, n = R.seen.reduce((a, b) => a + b, 0);
-    const key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('');
+    const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = document.createElement('canvas')); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
-      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = m.cells[y * m.W + x];
+      // an unfound secret room is rock on the map, its fake wall a wall
+      const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.cell(m, x, y));
+      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y);
         if (c === 1) { g.fillStyle = '#6b625c'; g.fillRect(x * k, y * k, k, k); } else if (c === 3) { g.fillStyle = '#c4441a'; g.fillRect(x * k, y * k, k, k); }
-        else if (SIM.cell(m, x, y + 1) === 1 || SIM.cell(m, x, y - 1) === 1 || SIM.cell(m, x + 1, y) === 1 || SIM.cell(m, x - 1, y) === 1) { g.fillStyle = '#2a2427'; g.fillRect(x * k, y * k, k, k); } }
+        else if (at(x, y + 1) === 1 || at(x, y - 1) === 1 || at(x + 1, y) === 1 || at(x - 1, y) === 1) { g.fillStyle = '#2a2427'; g.fillRect(x * k, y * k, k, k); } }
       if (MAP.rec) { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, MAP.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); MAP.rec.w = mw; MAP.rec.h = mh; }
       else MAP.rec = G.canvasTex('minimap', cv); }
     const title = ('Этаж ' + m.floor + ' — ' + D.floorName(m.floor)).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
@@ -192,16 +194,30 @@
     // the legend's right column decides the width on small maps with short floor names
     const lgw = 2 * (Math.max(...legend.filter((_, i) => i % 2).map(([, s], j) => lw('mm_l' + (2 * j + 1), s, { size: 14 }))) + 23);
     const pw = Math.max(mw + 20, tw + 20, lgw), px = W - 14 - pw / 2 - mw / 2;
-    panel('minimap', W - pw - 14, 12, pw, mh + 44 + 22 * Math.ceil(legend.length / 2) + 8, { r: 5, a: 0.82 });
+    const lgh = 22 * Math.ceil(legend.length / 2), prog = progress(R);
+    panel('minimap', W - pw - 14, 12, pw, mh + 44 + lgh + 8 + 30, { r: 5, a: 0.82 });
     lab('mm_t', title, W - pw / 2 - 14, 29, { size: 17, al: 0.5 });
     L.sprite('minimap', px, py, { w: mw, h: mh });
     const dot = (x, y, col, r) => L.rrect(px + x / TILE * k - r * 0.75, py + y / TILE * k - r * 0.75, 1.5 * r, 1.5 * r, r * 0.75, col, col);
-    for (const c of R.chests) if (!c.open && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) dot(c.x, c.y, [1, 0.82, 0.25], 4);
+    for (const c of R.chests) if (!c.open && !SIM.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) dot(c.x, c.y, [1, 0.82, 0.25], 4);
     for (const e of R.en) if (e.type === 'boss' && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) dot(e.x, e.y, [1, 0.25, 0.25], 6);
     if (R.seen[m.exit.ty * m.W + m.exit.tx]) { dot(m.exit.x, m.exit.y, [0.92, 0.88, 0.8], 5); }
     if (m.shop && R.rseen[m.shop.room]) dot(m.shop.x, m.shop.y, [0.37, 0.88, 0.54], 5);
     dot(R.hero.x, R.hero.y, [0.3, 0.65, 1], 5 + Math.sin(t * 6));
     legend.forEach(([col, s], i) => { const x = W - pw - 4 + (i % 2) * (pw / 2 - 6), y = py + mh + 16 + Math.floor(i / 2) * 22; L.rrect(x, y - 5, 10, 10, 5, hexc(col), hexc(col)); lab('mm_l' + i, s, x + 15, y, { size: 14, col: C.dim }); });
+    // this floor's completion: monsters, loot, secrets (the last only where the floor has any)
+    const y = py + mh + lgh + 22; L.solid(W - pw - 4, y - 14, pw - 20, 1, C.rim, 0, 0, 0, 0.5);
+    prog.forEach(([id, ic, s, done], i) => { const x = W - pw - 4 + i * (pw - 20) / prog.length; icon(ic, x, y - 4, 18, done ? undefined : { alpha: 0.75 });
+      lab('mm_p' + id, s, x + 22, y + 6, { size: 15, col: done ? C.gold : C.text }); });
+  }
+  // floor completion cells for the minimap: [id, icon, text, complete]
+  function progress(R) {
+    const f = SIM.fstat(R), pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%', out = [];
+    if (f.foes) out.push(['foes', 'it_sword', pc(f.kills, f.foes), f.kills >= f.foes]);
+    if (f.lootN) out.push(['loot', 'chest', pc(f.loot, f.lootN), f.loot >= f.lootN]);
+    // secrets as a share only, and always shown: neither how many the floor hides nor whether it hides any is given away
+    out.push(['sec', 'it_key', f.secN ? pc(f.sec, f.secN) : '0%', f.secN > 0 && f.sec >= f.secN]);
+    return out;
   }
   const hexc = (s) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
 
@@ -328,11 +344,27 @@
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win';
     L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.92);
-    lab('e_t', win ? 'ПОБЕДА' : 'ВЫ ПОГИБЛИ', W / 2, 220, { size: 110, al: 0.5, col: win ? C.gold : '#d8402a', out: '#1a0505' });
-    lab('e_s', win ? 'Повелитель Демонов повержен, вы выбрались на поверхность' : 'Подземелье забрало ещё одного героя. Но души помнят…', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    const rows = [['Этаж', r.floor], ['Уровень', r.lvl], ['Убито монстров', r.kills], ['Собрано золота', r.gold], ['Время', fmtT(r.time || 0)], ['Осколков душ', '+' + r.shards]];
-    panel('e_box', W / 2 - 300, 380, 600, rows.length * 50 + 30, { r: 10 });
-    rows.forEach(([n, v], i) => { lab('e_n' + i, n, W / 2 - 270, 420 + i * 50, { size: 28, col: C.dim }); lab('e_v' + i, v, W / 2 + 270, 420 + i * 50, { size: 28, al: 1, col: i === 5 ? '#9cc8ff' : C.text }); });
+    lab('e_t', win ? 'ПОБЕДА' : 'ВЫ ПОГИБЛИ', W / 2, 150, { size: 100, al: 0.5, col: win ? C.gold : '#d8402a', out: '#1a0505' });
+    lab('e_s', win ? 'Повелитель Демонов повержен, вы выбрались на поверхность' : 'Подземелье забрало ещё одного героя. Но души помнят…', W / 2, 228, { size: 28, al: 0.5, col: C.dim });
+    const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
+    const runRows = [['Этаж', r.floor], ['Уровень', r.lvl], ['Время', fmtT(r.time || 0)], ['Собрано золота', r.gold], ['Убито монстров', r.kills]];
+    const doneRows = [['Монстры', C2.foes ? C2.kills + ' из ' + C2.foes + ' · ' + pc(C2.kills, C2.foes) : '—'], ['Подобранные предметы', C2.lootN ? C2.loot + ' из ' + C2.lootN + ' · ' + pc(C2.loot, C2.lootN) : '—'],
+      ['Тайные комнаты', C2.secN ? pc(C2.sec, C2.secN) : '—'], ['Этажей пройдено', C2.floors], ['Полнота', Math.round(100 * C2.pct) + '%']];
+    const bx = W / 2 - 620, by = 280, colW = 600;
+    panel('e_box', bx, by, 1240, 590, { r: 10 });
+    lab('e_h1', 'Забег', bx + 30, by + 34, { size: 26, col: C.gold }); lab('e_h2', 'Полнота прохождения', bx + 650, by + 34, { size: 26, col: C.gold });
+    runRows.forEach(([n, v], i) => { lab('e_n' + i, n, bx + 30, by + 80 + i * 40, { size: 24, col: C.dim }); lab('e_v' + i, v, bx + colW - 20, by + 80 + i * 40, { size: 24, al: 1 }); });
+    doneRows.forEach(([n, v], i) => { const last = i === doneRows.length - 1; lab('e_cn' + i, n, bx + 650, by + 80 + i * 40, { size: 24, col: last ? C.text : C.dim });
+      lab('e_cv' + i, v, bx + 1210, by + 80 + i * 40, { size: 24, al: 1, col: last ? C.gold : C.text }); });
+    // the reward, line by line: what was found, the base payout, the thoroughness bonus with its formula, the total
+    L.solid(bx + 30, by + 290, 1180, 1, C.rim, 0, 0, 0, 0.6);
+    const base = r.base ?? r.bonus ?? 0, sb = r.statBonus || 0;
+    const rew = [['Осколки, найденные в забеге', '+' + (r.found ?? (r.shards - base - sb))],
+      ['Награда за забег: золото ÷ 80' + (r.win ? ' + ' + r.win + ' за победу' : ''), '+' + base],
+      ['Бонус за полноту: ' + Math.round(100 * C2.pct) + '% от ' + (r.cap || 0) + ' (по 5 за каждый этаж)', '+' + sb]];
+    rew.forEach(([n, v], i) => { lab('e_rn' + i, n, bx + 30, by + 330 + i * 44, { size: 24, col: C.dim }); lab('e_rv' + i, v, bx + 1210, by + 330 + i * 44, { size: 24, al: 1, col: '#9cc8ff' }); });
+    L.solid(bx + 30, by + 488, 1180, 1, C.rim, 0, 0, 0, 0.6);
+    lab('e_tn', 'Итого осколков душ', bx + 30, by + 530, { size: 30, col: C.text }); lab('e_tv', '+' + r.shards, bx + 1210, by + 530, { size: 30, al: 1, col: '#9cc8ff' });
     for (const b of D.UI.end()) button('eb_' + b.id, b, S.hover);
   }
 })();

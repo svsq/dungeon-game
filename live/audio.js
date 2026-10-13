@@ -67,6 +67,11 @@
     chest: (o) => { tone(o, { type: 'sawtooth', f0: 85, f1: 120, a: 0.05, d: 0.3, v: 0.05 }); noise(o, { d: 0.12, v: 0.25, type: 'lowpass', f0: 600 }); SFX.gold(o); },
     break: (o, e) => { if (e.kind === 'pot') { noise(o, { d: 0.25, v: 0.35, f0: 2200, q: 1.5 }); for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.05 + i * 0.04, d: 0.03, v: 0.12, f0: rr(2500, 4500), q: 5 }); }
       else if (e.kind === 'gold') SFX.gold(o); else { noise(o, { d: 0.2, v: 0.35, type: 'lowpass', f0: 900, f1: 250 }); tone(o, { f0: 140, f1: 70, d: 0.12, v: 0.3 }); } },
+    // a fake wall sounds hollow: a knock with a resonant body behind it; breaking it is a rumble, falling stones and a chime
+    wallhit: (o) => { tone(o, { f0: 120, f1: 80, d: 0.18, v: 0.45 }); noise(o, { d: 0.35, v: 0.3, f0: 320, q: 8 }); noise(o, { d: 0.08, v: 0.2, type: 'highpass', f0: 2000 }); },
+    secret: (o) => { noise(o, { a: 0.01, d: 1.1, v: 0.6, type: 'lowpass', f0: 1200, f1: 80 }); tone(o, { f0: 70, f1: 32, d: 0.9, v: 0.6 });
+      for (let i = 0; i < 8; i++) noise(o, { t: now() + 0.1 + i * rr(0.05, 0.1), d: 0.05, v: 0.18, type: 'lowpass', f0: rr(600, 1400) });
+      [659, 880, 1319].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.45 + i * 0.12, d: 1.1, v: 0.08 })); },
     lvl: (o) => [523, 659, 784, 1047].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.09, d: 0.6, v: 0.12 })),
     unlock: (o) => [784, 1175].forEach((f, i) => tone(o, { f0: f, t: now() + i * 0.12, d: 0.8, v: 0.12 })),
     drink: (o) => { for (let i = 0; i < 3; i++) tone(o, { f0: rr(260, 340), f1: rr(450, 560), t: now() + i * 0.11, d: 0.08, v: 0.14 }); },
