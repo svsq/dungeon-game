@@ -7,6 +7,7 @@
     bookshelf: 107, grave: 51, treasure: 52, door: 64, portrait: 140,
     merchant: 78, shop_counter: 42, shop_scales: 40, shop_shelf: 104, shop_weapons: 58, shop_armor: 80, shop_sacks: 44, shop_gold: 32,
     shop_barrel: 66, shop_sign: 38, shop_lantern: 64, shop_crate: 34, shop_gems: 24,
+    vase_a: 60, vase_b: 48, vase_c: 60,
   };
   const S = (window.SIZES = window.SIZES || {}), A = window.ASSETS || {};
   for (const n in HEIGHT) if (A[n]) S[n] = [Math.round(HEIGHT[n] * A[n].w / A[n].h), HEIGHT[n]];

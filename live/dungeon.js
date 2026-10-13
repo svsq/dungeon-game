@@ -128,10 +128,14 @@
     const doorway = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (at(x + i, y + j) === 1 && !inRoom(x + i, y + j)) return true; return false; };
     const used = new Set(), key = (x, y) => x + ',' + y;
     const free = (x, y, pad = 0) => { for (let j = -pad; j <= pad; j++) for (let i = -pad; i <= pad; i++) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j))) return false; return true; };
-    // bulky props draw wider than their cell: no two of them may share an edge or a corner
-    const bulk = new Set(), roomy = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (bulk.has(key(x + i, y + j))) return false; return true; };
+    // bulky props draw wider than their cell: in the shop (one built piece) no two share an edge or a corner; everywhere else
+    // each keeps its drawn width (PROP_W) clear of every other one in its own row and the rows in front and behind
+    const bulk = new Set(), roomyCell = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (bulk.has(key(x + i, y + j))) return false; return true; };
+    const wide = [], half = (n) => (D.PROP_W[n] || D.PROP_W.chest) / 2;
+    const roomy = (x, y, n = 'chest', px = wx(x)) => roomyCell(x, y) && !wide.some(([ex, ey, eh]) => Math.abs(ey - y) <= 1 && Math.abs(ex - px) < eh + half(n) + 4);
+    const claim = (x, y, n = 'chest', px = wx(x)) => { used.add(key(x, y)); bulk.add(key(x, y)); wide.push([px, y, half(n)]); };
     const spot = (r, inset = 1, pad = 0, big = false) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + inset, r.x + r.w - 1 - inset), y = ri(r.y + inset, r.y + r.h - 1 - inset);
-      if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y))) { used.add(key(x, y)); if (big) bulk.add(key(x, y)); return [x, y]; } } return null; };
+      if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y, big === true ? 'chest' : big))) { used.add(key(x, y)); if (big) claim(x, y, big === true ? 'chest' : big); return [x, y]; } } return null; };
     for (const sc of secrets) for (const [x, y] of sc.front) used.add(key(x, y));
     const wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2 + 6;
     const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [], shrines = [], rugs = [];
@@ -141,7 +145,7 @@
     for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // the bonfire and the spawn tiles
     const roster = D.BIOMES[biome].roster, lvl = floor;
     const addEnemy = (type, x, y, room, elite = 0) => enemies.push({ type, x: wx(x), y: wy(y), room, elite });
-    for (const r of rooms) if (r.type === 'shrine') { used.add(key(r.cx, r.cy)); bulk.add(key(r.cx, r.cy)); }   // the altar's cell first: props are placed around it
+    for (const r of rooms) if (r.type === 'shrine') claim(r.cx, r.cy, 'altar');   // the altar's cell first: props are placed around it
     // no corner of a room is left in the dark: while some floor cell lies outside every light's reach, light the cell
     // nearest to it, preferring a sconce on the top wall, then on a side wall, then a brazier, then candles
     const lightRoom = (r, extra, wallOnly) => {
@@ -159,11 +163,11 @@
         for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of [[r.x, -1], [r.x + r.w - 1, 1]]) if (!at(x + s, y) && free(x, y) && !doorway(x, y))
           cand.push([x, y, 0.5, { x: s < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: s, r: r.id, cell: [x, y] }]);
         for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (!wallOnly && free(x, y) && !doorway(x, y)) {
-          if (r.type !== 'start' && roomy(x, y)) cand.push([x, y, 1.5, { x: wx(x), y: wy(y), kind: 'brazier', r: r.id, cell: [x, y], big: 1 }]);
+          if (r.type !== 'start' && roomy(x, y, 'brazier')) cand.push([x, y, 1.5, { x: wx(x), y: wy(y), kind: 'brazier', r: r.id, cell: [x, y], big: 1 }]);
           cand.push([x, y, 3, { x: wx(x), y: wy(y), n: 'candles', cell: [x, y] }]); }
         if (!cand.length) break;
         const best = cand.reduce((a, b) => (Math.hypot(b[0] - dark[0], b[1] - dark[1]) + b[2] < Math.hypot(a[0] - dark[0], a[1] - dark[1]) + a[2] ? b : a))[3];
-        if (best.cell) { used.add(key(...best.cell)); if (best.big) bulk.add(key(...best.cell)); }
+        if (best.cell) { used.add(key(...best.cell)); if (best.big) claim(...best.cell, 'brazier'); }
         delete best.cell; delete best.big;
         if (best.n) decor.push(best); else torches.push(best);
         lights.push([best.x, best.y, LIGHT_R[best.n || best.kind]]); } };
@@ -189,14 +193,14 @@
       const edgeSpot = () => { const cand = [];
         for (let y = y0 + 3; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
           const side = (x === r.x && at(x - 1, y) === 0) || (x === r.x + r.w - 1 && at(x + 1, y) === 0) || (y === r.y + r.h - 1 && at(x, y + 1) === 0);
-          if (side && free(x, y) && roomy(x, y) && !nearMouth(x, y)) cand.push([x, y, Math.min(x - r.x, r.x + r.w - 1 - x) + Math.min(y - r.y, r.y + r.h - 1 - y) <= 1 ? 0 : 1]); }
+          if (side && free(x, y) && roomyCell(x, y) && !nearMouth(x, y)) cand.push([x, y, Math.min(x - r.x, r.x + r.w - 1 - x) + Math.min(y - r.y, r.y + r.h - 1 - y) <= 1 ? 0 : 1]); }
         for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
         cand.sort((p, q) => p[2] - q[2]);
         for (const [x, y] of cand) if (keepsWay(x, y)) { take(x, y); return [x, y]; } return null; };
       const along = (n) => { const p = edgeSpot(); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n, solid: 1, r: r.id }); };
       // the stands go against the back wall clear of the wide shelves, or else along another wall
       const wall = (dir, n) => { for (let x = cx + dir * 4; x >= r.x && x < r.x + r.w; x += dir)
-          if (at(x, y0 - 1) === 0 && free(x, y0) && roomy(x, y0) && !nearMouth(x, y0) && keepsWay(x, y0)) { take(x, y0); decor.push({ x: wx(x), y: y0 * TILE + 22, n, solid: 1, r: r.id }); return; }
+          if (at(x, y0 - 1) === 0 && free(x, y0) && roomyCell(x, y0) && !nearMouth(x, y0) && keepsWay(x, y0)) { take(x, y0); decor.push({ x: wx(x), y: y0 * TILE + 22, n, solid: 1, r: r.id }); return; }
         along(n); };
       decor.push({ x: wx(cx - 2), y: y0 * TILE + 22, n: 'shop_shelf', solid: 1, r: r.id }, { x: wx(cx + 2), y: y0 * TILE + 22, n: 'shop_shelf', solid: 1, r: r.id });
       decor.push({ x: wx(cx - 2), y: wy(y0 + 1), n: 'shop_sacks', solid: 1, r: r.id }, { x: wx(cx + 2), y: wy(y0 + 1), n: 'shop_barrel', solid: 1, r: r.id });
@@ -209,7 +213,7 @@
       for (const [x, y, dx, dy] of mouths) { if (lit.has(key(x, y))) continue; const ax = dy ? 1 : 0, ay = dx ? 1 : 0;
         let a = 0; while (mouths.some((q) => q[0] === x + ax * (a + 1) && q[1] === y + ay * (a + 1) && q[2] === dx && q[3] === dy)) a++;
         for (let k = 0; k <= a; k++) lit.add(key(x + ax * k, y + ay * k));
-        for (const [lx, ly] of [[x + ax * (a + 1), y + ay * (a + 1)], [x - ax, y - ay]]) if (inR(lx, ly) && free(lx, ly) && roomy(lx, ly) && keepsWay(lx, ly)) {
+        for (const [lx, ly] of [[x + ax * (a + 1), y + ay * (a + 1)], [x - ax, y - ay]]) if (inR(lx, ly) && free(lx, ly) && roomyCell(lx, ly) && keepsWay(lx, ly)) {
           take(lx, ly); shop.lanterns.push({ x: wx(lx), y: wy(ly) }); break; } }
       for (const L0 of shop.lanterns) decor.push({ x: L0.x, y: L0.y, n: 'shop_lantern', solid: 1, r: r.id });
       wall(-1, 'shop_armor'); wall(1, 'shop_weapons');
@@ -229,31 +233,39 @@
       }
       if (r.type === 'boss') { addEnemy('boss', r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < Math.round(4 * D.BAL.pop); i++) { const p = spot(r, 2); if (p) addEnemy(pick(roster.filter((t) => t !== 'brute')), p[0], p[1], r.id); } }
       // chests
-      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.type === 'treasure' ? ri(2, 3) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.3 ? 1 : 0);
+      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.2 ? 1 : 0);
       // the hoard's centrepiece, as in the reference: a rug running from the top wall with the best chest on it
       let first = null;
       if (r.type === 'treasure' && r.w >= 7 && r.h >= 6) { const y0 = r.y + 1; rugs.push({ cx: wx(r.cx), y: y0 * TILE - 6, h: Math.min(r.h - 2, 4.4) * TILE });
-        if (free(r.cx, y0 + 1) && roomy(r.cx, y0 + 1)) { used.add(key(r.cx, y0 + 1)); bulk.add(key(r.cx, y0 + 1)); first = [r.cx, y0 + 1]; } }
+        if (free(r.cx, y0 + 1) && roomy(r.cx, y0 + 1)) { claim(r.cx, y0 + 1); first = [r.cx, y0 + 1]; } }
       for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' ? 3 : r.type === 'treasure' ? 2 : 1, open: 0 }); }
+      // the hoard's dressing: a statue each side of the rug against the back wall, vases about the room, now and then a small
+      // pile of gold
+      if (r.type === 'treasure') {
+        for (const side of [-1, 1]) for (const d of [3, 4, 2]) { const x = r.cx + side * d; if (x <= r.x || x >= r.x + r.w - 1 || at(x, r.y - 1) !== 0 || !free(x, r.y) || !free(x, r.y + 1) || !roomy(x, r.y, 'statue') || doorway(x, r.y)) continue;
+          claim(x, r.y, 'statue'); used.add(key(x, r.y + 1)); decor.push({ x: wx(x), y: r.y * TILE + 22, n: 'statue', solid: 1, r: r.id }); break; }
+        for (let i = 0, n = ri(2, 4); i < n; i++) { const kind = pick(['vase_a', 'vase_b', 'vase_c']), p = spot(r, 1, 0, kind); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind, hp: 1 }); }
+        if (R() < 0.25) { const p = spot(r, 1, 0, 'goldpile'); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); } }
       // breakables along the walls
       for (let i = 0, n = ri(1, 4); i < n; i++) { const side = ri(0, 3), x = side === 0 ? r.x : side === 1 ? r.x + r.w - 1 : ri(r.x, r.x + r.w - 1),
         y = side === 2 ? r.y : side === 3 ? r.y + r.h - 1 : ri(r.y, r.y + r.h - 1);
         const out = side === 0 ? at(x - 1, y) : side === 1 ? at(x + 1, y) : side === 2 ? at(x, y - 1) : at(x, y + 1);
-        if (free(x, y) && out === 0 && !doorway(x, y)) { used.add(key(x, y)); pots.push({ x: wx(x), y: wy(y), kind: R() < 0.5 ? 'pot' : R() < 0.5 ? 'barrel' : 'crate', hp: 1 }); } }
-      // heaps of gold: the treasure room's hoard, now and then one left in a fought-over room
-      for (let i = 0, n = r.type === 'treasure' ? ri(2, 4) : r.type === 'secret' ? ri(1, 2) : r.type === 'exit' || (r.type === 'combat' && R() < 0.3) ? 1 : 0; i < n; i++) { const p = spot(r, 1); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'gold', hp: 1 }); }
+        const kind = R() < 0.5 ? 'pot' : R() < 0.5 ? 'barrel' : 'crate'; if (free(x, y) && out === 0 && !doorway(x, y) && roomy(x, y, kind)) { claim(x, y, kind); pots.push({ x: wx(x), y: wy(y), kind, hp: 1 }); } }
+      // a heap of gold is a secret room's reward only (a rich one), never left lying in the open
+      if (r.type === 'secret') { const p = spot(r, 1, 0, 'gold'); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'gold', hp: 1, rich: 1 }); }
       // torches on the top wall face (cells above the room's first row that are rock), every 4–5 tiles
       for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
-      if (r.type !== 'start' && r.type !== 'secret' && R() < 0.5) { const p = spot(r, 1, 0, true); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
+      if (r.type !== 'start' && r.type !== 'secret' && R() < 0.5) { const p = spot(r, 1, 0, 'brazier'); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
       // decor
-      for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table'); if (p) decor.push(n2 === 'table' ? { x: wx(p[0]), y: wy(p[1]), n: n2, solid: 1, r: r.id } : { x: wx(p[0]), y: wy(p[1]), n: n2 }); }
+      for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table' && 'table'); if (p) decor.push(n2 === 'table' ? { x: wx(p[0]), y: wy(p[1]), n: n2, solid: 1, r: r.id } : { x: wx(p[0]), y: wy(p[1]), n: n2 }); }
       for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5 && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < 1.5 * TILE && Math.abs(t.y - r.y * TILE) < TILE)) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
       // big biome props standing against the top wall (solid)
-      for (let x = r.x + 1 + ri(0, 2); x < r.x + r.w - 1; x += ri(2, 5)) { if (R() < 0.3 || !free(x, r.y) || !free(x, r.y + 1) || !roomy(x, r.y) || !roomy(x, r.y + 1) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; used.add(key(x, r.y)); used.add(key(x, r.y + 1)); bulk.add(key(x, r.y)); bulk.add(key(x, r.y + 1));
-        decor.push({ x: wx(x), y: r.y * TILE + 22, n: pick(D.BIOMES[zb].props), solid: 1, r: r.id }); }
+      for (let x = r.x + 1 + ri(0, 2); x < r.x + r.w - 1; x += ri(2, 5)) { const n = pick(D.BIOMES[zb].props);
+        if (R() < 0.3 || !free(x, r.y) || !free(x, r.y + 1) || !roomy(x, r.y, n) || !roomyCell(x, r.y + 1) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; claim(x, r.y, n); used.add(key(x, r.y + 1)); bulk.add(key(x, r.y + 1));
+        decor.push({ x: wx(x), y: r.y * TILE + 22, n, solid: 1, r: r.id }); }
       for (let i = 0, n = ri(1, 3); i < n; i++) { const x = ri(r.x + 1, r.x + r.w - 2); if (!free(x, r.y) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; used.add(key(x, r.y)); decor.push({ x: wx(x) + ri(-6, 6), y: r.y * TILE + 20, n: 'candles' }); }
-      if (r.zone === 'arcane') for (let i = 0; i < 2; i++) { const p = spot(r, 2, 0, true); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: 'crystal', solid: 1, r: r.id }); }
-      if (r.zone === 'crypt') for (let i = 0; i < 2; i++) { const p = spot(r, 2, 0, true); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: R() < 0.5 ? 'coffin' : 'grave', solid: 1, r: r.id }); }
+      if (r.zone === 'arcane') for (let i = 0; i < 2; i++) { const p = spot(r, 2, 0, 'crystal'); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: 'crystal', solid: 1, r: r.id }); }
+      if (r.zone === 'crypt') for (let i = 0; i < 2; i++) { const n = R() < 0.5 ? 'coffin' : 'grave', p = spot(r, 2, 0, n); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n, solid: 1, r: r.id }); }
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });
       lightRoom(r, []);
     }
@@ -263,9 +275,10 @@
     const secCells = new Set(); for (const sc of secrets) { const r = rooms[sc.room]; for (const k of sc.hide) secCells.add(k); for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) secCells.add(y * W + x); }
     secrets.forEach((q, i) => { const [fx, fy] = q.front[5], sh = rooms.find((o) => o.type === 'shop'), inR = (o, x, y) => x >= o.x - 1 && x <= o.x + o.w && y >= o.y - 1 && y <= o.y + o.h;
       if (q.kind === 'banner' && torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - q.x) < 2 * TILE && Math.abs(t.y - fy * TILE) < TILE)) q.kind = 'shelf';
+      if (q.kind === 'shelf' && !roomy(fx, fy, 'bookshelf', q.x)) q.kind = torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - q.x) < 2 * TILE && Math.abs(t.y - fy * TILE) < TILE) ? 'crack' : 'banner';
       if (q.kind === 'banner') { for (let k = decor.length - 1; k >= 0; k--) if (decor[k].n === 'banner' && Math.abs(decor[k].x - q.x) < 3 * TILE && Math.abs(decor[k].y - (fy * TILE - 2)) < TILE) decor.splice(k, 1);
         decor.push({ x: q.x, y: fy * TILE - 2, n: 'banner', wall: 1, secret: i }); }
-      if (q.kind === 'shelf') decor.push({ x: q.x, y: fy * TILE + 22, n: 'bookshelf', solid: 1, secret: i });
+      if (q.kind === 'shelf') { claim(fx, fy, 'bookshelf', q.x); decor.push({ x: q.x, y: fy * TILE + 22, n: 'bookshelf', solid: 1, secret: i }); }
       if (q.kind !== 'lever') return;
       const near = torches.map((t, k) => [t, k]).filter(([t]) => t.kind === 'wall' && !t.side && t.lever === undefined && !secrets.some((sc) => sc.room === t.r) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - t.x) < 2 * TILE && Math.abs(d.y - t.y) < 2 * TILE) && Math.hypot(t.x - q.x, t.y - q.y) < 8 * TILE && Math.hypot(t.x - q.x, t.y - q.y) > TILE);
       const seen = new Map([[key(fx, fy), 0]]), st = secCells.has(fy * W + fx) ? [] : [[fx, fy]], plates = [];
@@ -315,14 +328,20 @@
     const spawn = { x: start.cx * TILE + TILE / 2, y: (start.cy + 2) * TILE + TILE / 2 };
     if (at(start.cx, start.cy + 2) !== 1) spawn.y = (start.cy + 1) * TILE + TILE / 2;
     // flat floor decals (baked into the floor map): wear everywhere, a biome flavour per room, gore and coins where fights happen
-    const DEC = { dungeon: ['dc_crack', 'dc_grime', 'dc_rubble', 'dc_slab', 'dc_straw', 'dc_shards', 'dc_leaves'], crypt: ['dc_moss', 'dc_web', 'dc_bones', 'dc_crack', 'dc_grime', 'dc_puddle'],
-      lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_web', 'dc_crack', 'dc_grime', 'dc_slab'] };
+    const DEC = { dungeon: ['dc_crack', 'dc_grime', 'dc_rubble', 'dc_slab', 'dc_straw', 'dc_shards', 'dc_leaves'], crypt: ['dc_moss', 'dc_bones', 'dc_crack', 'dc_grime', 'dc_puddle'],
+      lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'] };
     const decals = [];
     for (const r of rooms) { const zb = r.zone || biome, n = Math.round(r.w * r.h / 6);
       for (let i = 0; i < n; i++) { const x = r.x + R() * r.w, y = r.y + 0.5 + R() * (r.h - 0.5); if (at(Math.floor(x), Math.floor(y)) !== 1) continue;
         const fight = r.type === 'combat' || r.type === 'exit' || r.type === 'boss';
         const pool = (fight || r.type === 'treasure' || r.type === 'secret') && R() < 0.35 ? ['dc_blood', 'dc_blood2', 'dc_coins', 'dc_bones', 'dc_sword'] : DEC[zb];
         decals.push({ x: x * TILE, y: y * TILE, n: pool[Math.floor(R() * pool.length)], f: R() < 0.5 ? 1 : 0, s: 0.8 + 0.5 * R() }); } }
+    // cobwebs: the sprite is spun across a top-left corner, so a web only ever hangs in a room's top corner where the back wall
+    // meets a side wall (mirrored for the right one), more of them in the crypt and the halls than in the fire depths
+    const WEB = { crypt: 0.6, arcane: 0.6, dungeon: 0.35, lava: 0.15 };
+    for (const r of rooms) { const p = WEB[r.zone || biome] || 0.3;
+      for (const [x, s, f] of [[r.x, -1, 0], [r.x + r.w - 1, 1, 1]]) { if (at(x, r.y) !== 1 || at(x + s, r.y) !== 0 || at(x, r.y - 1) !== 0 || R() > p) continue;
+        const k = 0.95 + 0.35 * R(), w = 40 * k; decals.push({ x: f ? (x + 1) * TILE - w / 2 : x * TILE + w / 2, y: r.y * TILE + w / 2, n: 'dc_web', f, s: k }); } }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h) && R() < 0.06)
       decals.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, n: DEC[biome][Math.floor(R() * DEC[biome].length)], f: R() < 0.5 ? 1 : 0, s: 0.7 + 0.3 * R() });
     const secAt = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);

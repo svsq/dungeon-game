@@ -6,7 +6,8 @@
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
   const { TILE, ENEMIES, BAL, ELITE, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
   const DT = 1 / 120, L = 26.0;
-  const VIEW = { W: 1920, H: 1080 };
+  // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
+  const ZOOM = D.ZOOM || 1, VIEW = { W: 1920, H: 1080 }, WIN = { W: VIEW.W / ZOOM, H: VIEW.H / ZOOM }, toPx = (R, x, y) => ({ px: (x - R.cam[0]) * ZOOM, py: (y - R.cam[1]) * ZOOM });
   const HINT = 'WASD — движение · ЛКМ — атака · 1 2 3 — способности · Пробел — рывок · Q/R — зелья · E — действие · I — герой · Esc — пауза';
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, R: 12, IFR: 0.5, STEP: 20 };
   const DEMO_SEED = 4243;
@@ -136,7 +137,7 @@
     R.seen = new Array(m.W * m.H).fill(0); R.rseen = m.rooms.map(() => 0);
     R.stats = R.stats || {}; R.stats[f] = floorStat(R);
     const h = R.hero; h.x = m.spawn.x; h.y = m.spawn.y; h.vx = h.vy = 0; h.bless = 0;
-    R.cam = [h.x - VIEW.W / 2, h.y - VIEW.H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
+    R.cam = [h.x - WIN.W / 2, h.y - WIN.H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
     reveal(R); ev(S, { k: 'floor', x: h.x, y: h.y, f });
     R.msg = { s: 'Этаж ' + f + ' — ' + D.floorName(f), t: S.t };
     S.saveN++;
@@ -243,7 +244,7 @@
     return ri2;
   }
   // the camera may leave the map by more than the HUD's width, so a room at the edge never sits under the minimap or the bars
-  function clampCam(R, c) { const m = R.map; c[0] = clamp(c[0], -620, m.W * TILE - VIEW.W + 620); c[1] = clamp(c[1], -380, m.H * TILE - VIEW.H + 300); }
+  function clampCam(R, c) { const m = R.map; c[0] = clamp(c[0], -620, m.W * TILE - WIN.W + 620); c[1] = clamp(c[1], -380, m.H * TILE - WIN.H + 300); }
 
   // ---------------- hero helpers ----------------
   const heroSt = (S) => stats(S.run.hero, S.meta);
@@ -350,7 +351,8 @@
     for (const p of R.pots) { if (p.hp <= 0) continue; const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 10) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, p.x, p.y)) continue;
       p.hp = 0; p.brokeT = S.t; ev(S, { k: 'break', x: p.x, y: p.y, kind: p.kind });
-      if (p.kind === 'gold') { for (let k = 0; k < 3; k++) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 8) + R.floor * 2 }); }
+      if (p.kind === 'gold' || p.kind === 'goldpile') { for (let k = 0; k < (p.rich ? 6 : p.kind === 'goldpile' ? 2 : 3); k++) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 8) + R.floor * 2 }); }
+      else if (p.kind.startsWith('vase')) { drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 9) + R.floor * 2 }); if (rnd(R) < 0.25) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
       else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + R.floor }); else if (rnd(R) < 0.2) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
   }
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
@@ -381,15 +383,38 @@
     if (q.hp > 0) { if (kindOf(q) === 'crack') ev(S, { k: 'wallhit', x: q.x, y: q.y - 20, i: R.map.secrets.indexOf(q) }); return; }
     openSecret(S, R, q);
   }
-  function openSecret(S, R, q) {
+  function openSecret(S, R, q, quiet) {
     const m = R.map, i = m.secrets.indexOf(q), kind = kindOf(q); q.open = 1; q.openT = S.t; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1;
+    if (quiet) { if (kind === 'shelf') shelfOf(m, i, false); return; }
     if (kind === 'crack') { for (let k = 0; k < 4; k++) m.decals.push({ x: q.x - 22 + k * 15, y: q.y - 6 - (k % 2) * 22, n: 'dc_rubble', f: k & 1, s: 0.8 + 0.1 * k }); R.trauma = Math.min(1, R.trauma + 0.45); R.freeze = Math.max(R.freeze, 0.06); }
-    if (kind === 'shelf') { const d = m.decor.find((o) => o.secret === i); if (d) { d.solid = 0; d.broken = 1; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); m.block = m.block.filter((b) => b !== k); }
+    if (kind === 'shelf') { shelfOf(m, i, false);
       for (let k = 0; k < 3; k++) m.decals.push({ x: q.x - 30 + k * 30, y: q.y + 24 + (k % 2) * 8, n: k === 1 ? 'dc_straw' : 'dc_rubble', f: k & 1, s: 0.9 }); R.trauma = Math.min(1, R.trauma + 0.35); }
     if (kind === 'lever') R.trauma = Math.min(1, R.trauma + 0.3);
     fstat(R).sec++;
     ev(S, { k: 'secret', x: q.x, y: q.y - 20, i, kind }); R.msg = { s: 'Тайная комната!', t: S.t };
   }
+  // a secret's bookshelf standing (it blocks its cell) or broken (it does not)
+  function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
+    d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
+  // debug: open every secret of the floor without counting it; again, seal the ones it opened (a hero inside is put back in front)
+  function debugSecrets(S, R) { const m = R.map, h = R.hero;
+    if (!R.dbgOpen) { R.dbgOpen = []; m.secrets.forEach((q, i) => { if (!q.open) { openSecret(S, R, q, true); R.dbgOpen.push(i); } }); return; }
+    const htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE);
+    for (const i of R.dbgOpen) { const q = m.secrets[i], r = m.rooms[q.room]; q.open = 0; q.hp = 2; q.hitT = -9; delete q.openT; if (q.trig) delete q.trig.downT;
+      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (kindOf(q) === 'shelf') shelfOf(m, i, true);
+      if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (kindOf(q) === 'shelf' ? 40 : 0); h.vx = h.vy = 0; } }
+    R.dbgOpen = null; }
+  // debug: every item of loot this floor still holds, where it is and whether the hero can get to it, and the books: what the
+  // floor counted must equal what was picked up plus what still lies about plus what the closed chests hold
+  function lootAudit(R) { const m = R.map, f = fstat(R), hid = secretMask(m), blk = new Set(m.block), h = R.hero;
+    const seen = new Uint8Array(m.W * m.H), st = [Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE)]; seen[st[0]] = 1;
+    while (st.length) { const k = st.pop(); for (const d of [1, -1, m.W, -m.W]) { const n = k + d, c = m.cells[n]; if (!seen[n] && (c === 1 || c === 4) && !blk.has(n)) { seen[n] = 1; st.push(n); } } }
+    const near = (x, y) => { const k = Math.floor(y / TILE) * m.W + Math.floor(x / TILE); return [k, k + 1, k - 1, k + m.W, k - m.W].some((n) => seen[n]); };
+    const B = propBoxes(R), where = (x, y, item) => { const k = Math.floor(y / TILE) * m.W + Math.floor(x / TILE); return !near(x, y) || (item && behindProp(B, x, y)) ? 'stuck' : hid.has(k) || m.cells[k] === 4 ? 'secret' : 'open'; };
+    const items = R.drops.filter((d) => d.loot && !d.got && d.kind === 'item').map((d) => ({ x: d.x, y: d.y, n: 1, at: where(d.x, d.y, d.rest === DROP_REST && !(d.fly > 0)), chest: 0 }));
+    const chests = R.chests.filter((c) => !c.open && c.loot && c.loot.length).map((c) => ({ x: c.x, y: c.y, n: c.loot.length, at: where(c.x, c.y), chest: 1 }));
+    const lying = items.length, boxed = chests.reduce((n, c) => n + c.n, 0);
+    return { total: f.lootN, got: f.loot, lying, boxed, list: items.concat(chests), stuck: items.concat(chests).filter((o) => o.at === 'stuck').length, off: f.lootN - f.loot - lying - boxed }; }
   // the secret a press of E works from where the hero stands: a banner to tear down, a sconce to pull
   function secretUnder(R) { const h = R.hero, m = R.map;
     return (m.secrets || []).find((q) => { if (q.open) return false;
@@ -412,7 +437,7 @@
     const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t;
     const st = heroSt(S);
     // mouse → world aim
-    const mx = R.cam[0] + inp.px, my = R.cam[1] + inp.py;
+    const mx = R.cam[0] + inp.px / ZOOM, my = R.cam[1] + inp.py / ZOOM;
     if (h.deadT >= 0) { if (t - h.deadT > 1.6) return endRun(S, 'dead'); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
     // reactions keep running during hit-stop; the hero and camera hold
     if (R.freeze > 0) { R.freeze -= DT; stepDrops(S, R, true); return; }
@@ -482,22 +507,22 @@
     stepMonsters(S, R, 1);
     stepDrops(S, R, true);
     // ---- camera: follow + look toward the cursor, spring, clamped to the map ----
-    camera(R, h, (inp.px - VIEW.W / 2) * 0.12, (inp.py - VIEW.H / 2) * 0.12);
+    camera(R, h, (inp.px / ZOOM - WIN.W / 2) * 0.12, (inp.py / ZOOM - WIN.H / 2) * 0.12);
     R.trauma = Math.max(0, R.trauma - 1.6 * DT);
     if (t - R.saveT > 30) { R.saveT = t; S.saveN++; }
   }
-  function camera(R, h, lx, ly) { const tg = [h.x - VIEW.W / 2 + lx, h.y - 30 - VIEW.H / 2 + ly]; clampCam(R, tg);
+  function camera(R, h, lx, ly) { const tg = [h.x - WIN.W / 2 + lx, h.y - 30 - WIN.H / 2 + ly]; clampCam(R, tg);
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 }); return out; };
   function interact(S, R) {
     const h = R.hero, m = R.map;
-    const c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < 56); if (c) { openChest(S, R, c); return; }
+    const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56)); if (c) { openChest(S, R, c); return; }
     if (atCounter(R)) { openShop(S, R); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (sh) { openAltar(S, R, sh); return; }
-    const sq = secretUnder(R); if (sq) { if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
+    const sq = sq0; if (sq) { if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (R.floor === D.FLOORS && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте Повелителя Демонов' }); return; }
       R.shards += R.floor; S.meta.shards += R.floor; ev(S, { k: 'stairs', x: h.x, y: h.y, n: R.floor, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
@@ -678,11 +703,34 @@
           ev(S, { k: 'summon', x, y }); } } }
       if (u > w + (e.mv === 'charge' ? 0.7 : 0.4)) { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (rage ? 0.9 : 1.5); } }
   }
+  // the sprite boxes of the solid props (half width, height, standing on the prop's foot): an item that lies behind one (above its
+  // foot, so the prop draws after it) inside its box cannot be seen, so it hops to the nearest open spot instead
+  function propBoxes(R) { const m = R.map, out = [], add = (x, y, n, k = 1) => { if (D.PROP_W[n]) out.push([x, y, D.PROP_W[n] * k / 2, D.PROP_H[n] * k]); };
+    for (const c of R.chests) add(c.x, c.y, 'chest', c.tier >= 2 ? 1.15 : 1); for (const p of R.pots) if (p.hp > 0) add(p.x, p.y, p.kind);
+    for (const d of m.decor) if (d.solid && !d.wall) add(d.x, d.y, d.n); for (const t of m.torches) if (t.kind !== 'wall') add(t.x, t.y, 'brazier', t.kind === 'fire' ? 1.35 : 1);
+    for (const s of R.shrines) add(s.x, s.y, 'altar'); return out; }
+  const behindProp = (B, x, y) => B.some(([px, py, hw, h]) => Math.abs(x - px) < hw + 10 && y < py + 2 && y > py - h + 6);
+  const DROP_REST = 2;   // bump when the resting rule changes: items saved under an older rule are checked again
+  function settleDrop(R, p) { const m = R.map, k0 = Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE); p.rest = DROP_REST;
+    const B = propBoxes(R), blk = new Set(m.block), spot = (k) => [(k % m.W) * TILE + TILE / 2, Math.floor(k / m.W) * TILE + 20];
+    // an item lying on another one hides it too: items keep their icons apart
+    const items = p.kind === 'item' ? R.drops.filter((o) => o !== p && !o.got && o.kind === 'item' && o.rest === DROP_REST) : [];
+    const onItem = (x, y) => items.some((o) => Math.abs((o.fly > 0 ? o.tx : o.x) - x) < 22 && Math.abs((o.fly > 0 ? o.ty : o.y) - y) < 26);
+    const seen0 = (k) => m.cells[k] === 1 && !blk.has(k) && !behindProp(B, ...spot(k)), ok = (k) => seen0(k) && !onItem(...spot(k));
+    if (m.cells[k0] === 1 && !blk.has(k0) && !behindProp(B, p.x, p.y) && !onItem(p.x, p.y)) return;
+    const taken = new Set(R.drops.filter((o) => o !== p && !o.got).map((o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE))), seen = new Set([k0]), q = [k0];
+    // a clear cell of its own if there is one; in a cramped room, a visible cell next to another item beats a hidden one
+    let shared = null;
+    while (q.length) { const k = q.shift(); if (ok(k) && !taken.has(k)) { shared = k; break; } if (shared === null && seen0(k)) shared = k;
+      for (const d of [1, -1, m.W, -m.W]) { const n = k + d; if (!seen.has(n) && (m.cells[n] === 1 || n === k0) && seen.size < 400) { seen.add(n); q.push(n); } } }
+    if (shared === null) return; const [tx, ty] = spot(shared), j = taken.has(shared) ? 9 : 0;
+    p.tx = tx + j * (rnd(R) - 0.5); p.ty = ty + j * 0.5 * (rnd(R) - 0.5); p.vx = (p.tx - p.x) / 0.3; p.vy = (p.ty - p.y) / 0.3; p.vz = 150; p.fly = 0.3; }
   function stepDrops(S, R, live) {
     const h = R.hero;
     for (const p of R.drops) { if (p.got) continue;
       if (p.fly > 0) { p.fly -= DT; p.x += p.vx * DT; p.y += p.vy * DT; p.z = Math.max(0, p.z + p.vz * DT); p.vz -= 900 * DT; if (p.fly <= 0) { p.vx = p.vy = p.vz = 0; p.z = 0; } continue; }
       if (p.vz || p.z > 0) { p.vz -= 900 * DT; p.z = Math.max(0, p.z + p.vz * DT); p.x += p.vx * DT; p.y += p.vy * DT; if (p.z === 0) { p.vz = 0; p.vx *= 0.5; p.vy *= 0.5; if (Math.abs(p.vx) < 5) p.vx = p.vy = 0; } move(R.map, p, 0, 0, 4); }
+      if (p.rest !== DROP_REST && !p.vz && !(p.z > 0) && !(p.fly > 0)) settleDrop(R, p);
       if (!live || h.deadT >= 0 || R.t - p.t0 < 0.45) continue;
       const d = Math.hypot(h.x - p.x, h.y - p.y);
       if (p.tossed) { if (d > 70) p.tossed = 0; continue; }
@@ -790,6 +838,9 @@
     const t = S.t + DT; S.t = t;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     if (S.screen === 'play' && S.run) {
+      if (keys.Backquote && !S.demo) S.debug = !S.debug;
+      const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
+      if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
       if (keys.Escape && !S.demo) { S.screen = 'pause'; }
       else if ((keys.KeyI || keys.KeyC || keys.Tab) && !S.demo) { S.screen = 'inv'; }
       else { stepPlay(S, inp, keys); if (S.run) stepBossMove(S, S.run); }
@@ -800,11 +851,11 @@
 
   // ---------------- attract bot: walk to the nearest monster through the flow field, swing, throw fire ----------------
   function scriptInput(t, S) {
-    const inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, rclick: 0, px: VIEW.W / 2, py: VIEW.H / 2, keys: [], slot: 0 };
+    const inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, rclick: 0, px: 960, py: 540, keys: [], slot: 0 };
     const R = S.run; if (!R) return inp; const h = R.hero, m = R.map;
     let tg = null, td = 1e9; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, e.y - h.y); if (d < td) { td = d; tg = e; } }
     if (!tg) return inp;
-    inp.px = tg.x - R.cam[0]; inp.py = tg.y - 30 - R.cam[1];
+    Object.assign(inp, toPx(R, tg.x, tg.y - 30));
     const reach = 46 + ENEMIES[tg.type].r;
     if (td > reach - 6) {
       const F = flow(m, Math.floor(tg.x / TILE), Math.floor(tg.y / TILE), 1), tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE);
@@ -879,11 +930,18 @@
       for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the sanctuary`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
       // bulky props (chests, tables, coffins, statues…) read wider than their cell: two of them never share a cell edge or corner
-      { const big = m.chests.map((c) => [c.x, c.y, 'chest']).concat(m.decor.filter((d) => (d.solid || d.n === 'table') && !d.wall).map((d) => [d.x, d.y, d.n]), m.torches.filter((t) => t.kind === 'brazier').map((t) => [t.x, t.y, 'brazier']), m.shrines.map((t) => [t.x, t.y, 'altar']));
-        // the shop is one built piece: its shelves, sacks and barrel close the space behind the counter on purpose
-        for (let i = 0; i < big.length; i++) for (let j = i + 1; j < big.length; j++) { const [ax, ay, an] = big[i], [bx, by, bn] = big[j]; if (an.startsWith('shop_') && bn.startsWith('shop_')) continue;
-          if (Math.abs(Math.floor(ax / TILE) - Math.floor(bx / TILE)) <= 1 && Math.abs(Math.floor(ay / TILE) - Math.floor(by / TILE)) <= 1) out.push(`seed ${seed} f${f}: ${an} crowds ${bn}`); }
-        for (const r of m.rooms) { const n = m.chests.filter((c) => DG.roomAt(m, c.x, c.y) === r.id).length; if (n > 1 + Math.floor(r.w * r.h / 30)) out.push(`seed ${seed} f${f}: ${n} chests in a ${r.w}×${r.h} room`); } }
+      { const big = m.chests.map((c) => [c.x, c.y, 'chest']).concat(m.decor.filter((d) => (d.solid || d.n === 'table') && !d.wall).map((d) => [d.x, d.y, d.n]), m.torches.filter((t) => t.kind === 'brazier').map((t) => [t.x, t.y, 'brazier']), m.shrines.map((t) => [t.x, t.y, 'altar']),
+          m.pots.map((p) => [p.x, p.y, p.kind]));
+        // the shop is one built piece: its shelves, sacks and barrel close the space behind the counter on purpose. Elsewhere no two
+        // props draw over each other: in the same row or the next one, their drawn widths (PROP_W) never meet
+        const w2 = (n) => (D.PROP_W[n] || 0) / 2;
+        for (let i = 0; i < big.length; i++) for (let j = i + 1; j < big.length; j++) { const [ax, ay, an] = big[i], [bx, by, bn] = big[j]; if (an.startsWith('shop_') || bn.startsWith('shop_')) continue;
+          if (Math.abs(Math.floor(ay / TILE) - Math.floor(by / TILE)) <= 1 && Math.abs(ax - bx) < w2(an) + w2(bn) + 4) out.push(`seed ${seed} f${f}: ${an} draws over ${bn} at ${Math.round(ax)},${Math.round(ay)}`); }
+        for (const p of m.pots) if (p.kind === 'gold' && !(m.rooms[DG.roomAt(m, p.x, p.y)] || {}).type?.startsWith('secret')) out.push(`seed ${seed} f${f}: a heap of gold outside a secret room`);
+        for (const r of m.rooms) { const n = m.chests.filter((c) => DG.roomAt(m, c.x, c.y) === r.id).length; if (n > Math.min(2, 1 + Math.floor(r.w * r.h / 30))) out.push(`seed ${seed} f${f}: ${n} chests in a ${r.w}×${r.h} room`); } }
+      // a cobweb hangs only in a room's top corner, its spun corner against the two walls (mirrored on the right)
+      for (const d of m.decals) if (d.n === 'dc_web') { const w = 40 * d.s, cx = d.f ? d.x + w / 2 : d.x - w / 2, cy = d.y - w / 2, tx = Math.round(cx / TILE) - (d.f ? 1 : 0), ty = Math.round(cy / TILE);
+        if (cell(m, tx, ty) !== 1 || cell(m, tx + (d.f ? 1 : -1), ty) !== 0 || cell(m, tx, ty - 1) !== 0 || Math.abs(cx - Math.round(cx / TILE) * TILE) > 1 || Math.abs(cy - ty * TILE) > 1) out.push(`seed ${seed} f${f}: a cobweb away from a corner at ${Math.round(d.x)},${Math.round(d.y)}`); }
       // decor never wears an interactive object's sprite: a dead altar or chest reads as one already used
       for (const d of m.decor) if (['altar', 'chest', 'chest_open', 'pot', 'stairs', 'treasure'].includes(d.n)) out.push(`seed ${seed} f${f}: decor uses the ${d.n} sprite`);
       // spike plates (2×2 cells) keep clear of corridor mouths and never wall off floor: walking around every plate reaches
@@ -1028,7 +1086,7 @@
         const trial = (how, open) => { dig(open); R.proj = []; R.pots = []; R.chests = []; R.drops = [];
           const e = { id: R.nextId++, type, x: (spot.tx + 0.5) * TILE, y: spot.below * TILE + 6, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S.t, kbx: 0, kby: 0 };
           R.en = [e]; h.x = (spot.tx + 0.5) * TILE; h.y = (spot.ty + 1) * TILE - 6; h.vx = h.vy = 0; h.mp = 999; h.ab.fireball = 1; h.ifr = 1e9;
-          for (const k in h.cd) h.cd[k] = 0; h.atkT = -9; const aim = () => ({ keys: [], px: e.x - R.cam[0], py: e.y - 30 - R.cam[1] });
+          for (const k in h.cd) h.cd[k] = 0; h.atkT = -9; const aim = () => ({ keys: [], ...toPx(R, e.x, e.y - 30) });
           step(S, aim()); if (how === 'whirl') castAbility(S, R, 'whirl', {}); if (how === 'fire') step(S, Object.assign(aim(), { rclick: 1 }));
           for (let i = 0; i < 120; i++) { e.x = (spot.tx + 0.5) * TILE; e.y = spot.below * TILE + 6; e.st = 'idle'; h.x = (spot.tx + 0.5) * TILE; h.y = (spot.ty + 1) * TILE - 6; step(S, Object.assign(aim(), { press: how === 'swing' && i < 30 ? 1 : 0 })); }
           dig(false); return e.hp < e.max; };
@@ -1081,7 +1139,7 @@
     if (!d) return ['prop check: no table with open floor on its left in 80 seeds'];
     S.screen = 'play'; const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9;
     if (!d.solid) out.push('prop check: a table is not solid');
-    const A = () => ({ px: d.x - R.cam[0], py: d.y - 30 - R.cam[1] });
+    const A = () => ({ ...toPx(R, d.x, d.y - 30) });
     h.x = d.x - 50; h.y = d.y; let close = 99;
     for (let k = 0; k < 120; k++) { step(S, Object.assign({ right: 1, keys: [] }, A())); close = Math.min(close, d.x - h.x); }
     if (close < 18) out.push(`prop check: the hero walks ${(18 - close).toFixed(0)} px into a table`);
@@ -1107,7 +1165,7 @@
       const [S, q] = find(f); if (!q) { out.push(`secret check: no ${name} secret in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9;
       const stand = () => { h.x = q.x; h.y = q.y + (name === 'shelf' ? 70 : 34); h.vx = h.vy = 0; };
-      const swing = () => { stand(); h.cd.atk = 0; const A = { px: q.x - R.cam[0], py: q.y - 30 - R.cam[1] }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) { stand(); step(S, Object.assign({ keys: [] }, A)); } };
+      const swing = () => { stand(); h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) { stand(); step(S, Object.assign({ keys: [] }, A)); } };
       const press = () => { step(S, { keys: ['KeyE'] }); for (let k = 0; k < 10; k++) step(S, { keys: [] }); };
       if (name === 'banner') { stand(); press(); if (!q.open) out.push('secret check banner: E under it does not tear it'); }
       if (name === 'shelf') { stand(); press(); if (q.open) out.push('secret check shelf: E opens a bookshelf'); swing(); if (q.open) out.push('secret check shelf: one blow breaks it');
@@ -1118,12 +1176,45 @@
       if (q.wall.some(([x, y]) => cell(m, x, y) !== 1)) out.push(`secret check ${name}: the opened wall is still solid`);
       if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted`);
       press(); swing(); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
+    // every secret of a few whole campaigns, one by one: the hero is put where its tell is (in front of a wall, under a banner
+    // or a sconce, below a shelf, on a flagstone), the collisions settle, and the action meant for it opens it
+    for (const sd of [11, 222]) for (let f = 1; f <= D.FLOORS; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
+      const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9; const cells0 = m.cells.slice();
+      m.secrets.forEach((q, i) => { const base = m.secrets.map((o) => o.open);
+        if (secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) { m.secrets.forEach((o) => { if (o !== q && !o.open) openSecret(S, R, o, true); }); }
+        const settle = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; for (let k = 0; k < 20; k++) step(S, { keys: [], px: 960, py: 540 }); };
+        const swing = (tx, ty) => { const A = { ...toPx(R, tx, ty - 30) }; h.cd.atk = 0; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) step(S, Object.assign({ keys: [] }, A)); };
+        const P = q.trig, tc = P && P.k === 'sconce' ? m.torches[P.t] : null;
+        if (q.kind === 'crack') { settle(q.x - q.dx * 40, q.y - q.dy * 40); swing(q.x, q.y); swing(q.x, q.y); }
+        if (q.kind === 'shelf') { settle(q.x, q.y + 70); swing(q.x, q.y + 22); swing(q.x, q.y + 22); }
+        if (q.kind === 'banner') { settle(q.x, q.y + 34); step(S, { keys: ['KeyE'] }); }
+        if (tc) { settle(tc.x, tc.y + 50); step(S, { keys: ['KeyE'] }); }
+        if (P && P.k === 'plate') settle(P.x, P.y);
+        if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${P ? ' ' + P.k : ''}, ${q.dir}) does not open from its tell`);
+        m.secrets.forEach((o, j) => { if (o.open && !base[j]) { o.open = 0; o.hp = 2; o.hitT = -9; if (kindOf(o) === 'shelf') shelfOf(m, j, true); } });
+        for (let k = 0; k < cells0.length; k++) m.cells[k] = cells0[k];
+        for (const c of R.chests) c.open = 0; }); }
+    // loot: open every chest of a few floors (secret ones too), let the items fall and pick up half of them; the floor's books
+    // balance at every stage and no item comes to rest where the hero cannot get to it
+    for (const sd of [11, 222]) for (const f of [1, 4, 8]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
+      const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; const check = (when) => { const A = lootAudit(R); if (A.off) out.push(`seed ${sd} f${f}: loot books off by ${A.off} ${when}`); if (A.stuck) out.push(`seed ${sd} f${f}: ${A.stuck} loot out of reach ${when}`); };
+      check('on arrival'); for (const c of R.chests) openChest(S, R, c); h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
+      const pick = R.drops.filter((o) => o.loot && !o.got).slice(0, 6); for (const d of pick) for (let k = 0; k < 3; k++) { h.x = d.x; h.y = d.y; step(S, { keys: [] }); }
+      if (pick.some((d) => !d.got)) out.push(`seed ${sd} f${f}: loot could not be picked up`); check('after picking some up'); }
+    // debug: the button opens every secret without counting it, and the second press seals exactly those again
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5001); S.screen = 'play'; const R = S.run, m = R.map, cells0 = m.cells.join(''), block0 = m.block.slice().sort().join(); R.stats[1] = floorStat(R);
+      const b = UI.debug(R)[0], click = () => step(S, { keys: [], click: 1, press: 1, px: b.x + 10, py: b.y + 10 });
+      step(S, { keys: ['Backquote'] }); if (!S.debug) out.push('debug: ` does not turn debug mode on');
+      click(); if (m.secrets.some((q) => !q.open) || m.cells.includes(4)) out.push('debug: not every secret opened'); if (R.stats[1].sec) out.push('debug: secrets opened by the button count as found');
+      if (S.ev.some((e) => e.k === 'swing')) out.push('debug: clicking the button swings the sword');
+      click(); if (m.secrets.some((q) => q.open) || m.cells.join('') !== cells0 || m.block.slice().sort().join() !== block0) out.push('debug: the second press does not seal the secrets as they were');
+      step(S, { keys: ['Backquote'] }); if (S.debug) out.push('debug: ` does not turn debug mode off'); }
     for (const dir of ['u', 'd', 'l', 'r']) { const [S, q] = find((o) => o.dir === dir && o.kind === 'crack');
       if (!q) { out.push(`secret check: no breakable secret on the ${dir} side in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, qi = m.secrets.indexOf(q), hp = q.hp; R.en = []; R.stats[1] = floorStat(R);
-      const at0 = () => { h.x = q.x - q.dx * 40; h.y = q.y - q.dy * 40 + (q.dx ? 0 : 0); h.vx = h.vy = 0; }, aim = { px: q.x + q.dx * 30 - R.cam[0], py: q.y + q.dy * 30 - 30 - R.cam[1] };
-      h.ifr = 1e9; const swing = () => { at0(); h.cd.atk = 0; const A = { px: q.x + q.dx * 30 - R.cam[0], py: q.y + q.dy * 30 - 30 - R.cam[1] };
-        step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) { at0(); step(S, Object.assign({ keys: [] }, { px: q.x + q.dx * 30 - R.cam[0], py: q.y + q.dy * 30 - 30 - R.cam[1] })); } };
+      const at0 = () => { h.x = q.x - q.dx * 40; h.y = q.y - q.dy * 40 + (q.dx ? 0 : 0); h.vx = h.vy = 0; }, aim = { ...toPx(R, q.x + q.dx * 30, q.y + q.dy * 30 - 30) };
+      h.ifr = 1e9; const swing = () => { at0(); h.cd.atk = 0; const A = { ...toPx(R, q.x + q.dx * 30, q.y + q.dy * 30 - 30) };
+        step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) { at0(); step(S, Object.assign({ keys: [] }, { ...toPx(R, q.x + q.dx * 30, q.y + q.dy * 30 - 30) })); } };
       void aim; swing(); if (q.hp !== hp - 1 || q.open) out.push(`secret check ${dir}: a swing at the fake wall does not crack it`);
       if (!S.ev.some((e) => e.k === 'wallhit')) out.push(`secret check ${dir}: no wallhit event`);
       swing(); if (!q.open) out.push(`secret check ${dir}: two swings do not open the secret`);
@@ -1192,7 +1283,7 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { openSecret, DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+  root.SIM = { openSecret, debugSecrets, lootAudit, openChest, DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
     stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

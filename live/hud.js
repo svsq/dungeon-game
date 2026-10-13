@@ -38,6 +38,7 @@
     if (R && V && S.screen === 'play') souls(S, R, V);
     if (S.screen === 'menu') menu(S, t);
     if (S.screen === 'meta') meta(S, t);
+    if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', 'Отладка · `', W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
     if (S.screen === 'pause') { dim(0.55); lab('p_title', 'Пауза', W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause()) button('pb_' + b.id, b, S.hover); }
     if (S.screen === 'inv' && R) inv(S, R, t);
     if (S.screen === 'shop' && R) shop(S, R, t);
@@ -58,7 +59,7 @@
   function world(S, R, t, V) {
     const GT = S.t, h = R.hero, m = R.map;
     let bi = 0;
-    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss') continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1)) - 16;
+    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss') continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       if (e.st !== 'idle' || e.hp < e.max || e.elite) { const w = e.elite ? 64 : 48; L.rrect(x - w / 2 - 2, y - 2, w + 4, 10, 3, [0.02, 0.02, 0.02], [0.02, 0.02, 0.02], 0.85);
         L.rrect(x - w / 2, y, w * Math.max(0, e.hp / e.max), 6, 2, e.elite ? [1, 0.6, 0.15] : [0.85, 0.12, 0.1], e.elite ? [0.7, 0.3, 0.05] : [0.5, 0.05, 0.05]); }
@@ -181,6 +182,24 @@
     }
   }
 
+  // debug: every item of loot still on the floor (a diamond) and every closed chest holding some (a square, one pip per item),
+  // green where the hero can walk to it, violet behind an unfound secret, red where nothing can reach it; off screen, an arrow
+  // at the edge points to it
+  const LOOT_COL = { open: [0.35, 1, 0.45], secret: [0.8, 0.5, 1], stuck: [1, 0.22, 0.2] };
+  function lootMarks(R, t, V) { const A = SIM.lootAudit(R), pulse = 0.75 + 0.25 * Math.sin(t * 5);
+    for (const o of A.list) { const col = LOOT_COL[o.at], x = V.sx(o.x), y = V.sy(o.y) - 12;
+      if ((x > W - 240 && y < 290) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420)) continue;   // under a HUD panel: the minimap shows it
+      if (x > 30 && x < W - 30 && y > 30 && y < H - 30) {
+        if (o.chest) { L.rrect(x - 17, y - 17, 34, 34, 4, col, col, 0.25 * pulse); L.ring(x, y, 22, 22, col, pulse, 0.12); for (let k = 0; k < o.n; k++) L.rrect(x - (o.n - 1) * 5 + k * 10 - 3, y - 34, 6, 6, 3, col, col); }
+        else { L.solid(x, y, 16, 16, col, Math.PI / 4, 8, 8, 0.85 * pulse); L.ring(x, y, 18, 18, col, pulse, 0.14); }
+        continue; }
+      const cx = W / 2, cy = H / 2, dx = x - cx, dy = y - cy, k = Math.min((W / 2 - 40) / Math.abs(dx || 1e-6), (H / 2 - 40) / Math.abs(dy || 1e-6)), ex = cx + dx * k, ey = cy + dy * k, a = Math.atan2(dy, dx);
+      L.solid(ex, ey, 26, 12, col, a, 13, 6, 0.9); L.solid(ex + Math.cos(a) * 10, ey + Math.sin(a) * 10, 12, 12, col, a + Math.PI / 4, 6, 6, 0.9); } }
+  // debug: the floor's loot books under the debug buttons
+  function lootBooks(R) { const A = SIM.lootAudit(R), sec = A.list.filter((o) => o.at === 'secret').reduce((n, o) => n + o.n, 0);
+    const line = `Лут: подобрано ${A.got} из ${A.total} · на полу ${A.lying} · в сундуках ${A.boxed} · в тайниках ${sec} · недоступно ${A.stuck} · расхождение ${A.off}`;
+    const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
+    lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   function minimap(S, R, t) {
     const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 46, n = R.seen.reduce((a, b) => a + b, 0);
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('');
@@ -206,6 +225,7 @@
     for (const e of R.en) if (e.type === 'boss' && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) dot(e.x, e.y, [1, 0.25, 0.25], 6);
     if (R.seen[m.exit.ty * m.W + m.exit.tx]) { dot(m.exit.x, m.exit.y, [0.92, 0.88, 0.8], 5); }
     if (m.shop && R.rseen[m.shop.room]) dot(m.shop.x, m.shop.y, [0.37, 0.88, 0.54], 5);
+    if (S.debug && S.dbgLoot) for (const o of SIM.lootAudit(R).list) dot(o.x, o.y, LOOT_COL[o.at], o.chest ? 4 : 3);
     dot(R.hero.x, R.hero.y, [0.3, 0.65, 1], 5 + Math.sin(t * 6));
     legend.forEach(([col, s], i) => { const x = W - pw - 4 + (i % 2) * (pw / 2 - 6), y = py + mh + 16 + Math.floor(i / 2) * 22; L.rrect(x, y - 5, 10, 10, 5, hexc(col), hexc(col)); lab('mm_l' + i, s, x + 15, y, { size: 14, col: C.dim }); });
     // this floor's completion: monsters, loot, secrets (the last only where the floor has any)
