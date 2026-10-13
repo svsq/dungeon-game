@@ -227,7 +227,7 @@
   // ---------------- hero screen ----------------
   function inv(S, R, t) {
     const h = R.hero, st = SIM.stats(h, S.meta), U = D.UI.inv(), P = U.P;
-    dim(0.6); panel('inv', P.x, P.y, P.w, P.h, { r: 10 });
+    dim(0.35); panel('inv', P.x, P.y, P.w, P.h, { r: 10, a: 0.72 });
     lab('inv_t', 'Герой', P.x + 40, P.y + 46, { size: 40, col: C.gold });
     lab('inv_g', h.gold + ' золота', P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('inv_g', h.gold + ' золота', { size: 28 }) - 46, P.y + 28, 36);
     lab('inv_souls', 'Осколки душ: ' + S.meta.shards, P.x + 310, P.y + 46, { size: 22, col: '#9cc8ff' });
@@ -241,12 +241,16 @@
     D.STATS.forEach((s, i) => { const b = U.r.find((q) => q.id === 'stat:' + s.k), y = b.y + 20;
       lab('st_n' + i, s.name, P.x + 40, y, { size: 26, col: C.dim }); lab('st_v' + i, h.base[s.k] + (st[s.k] - h.base[s.k] ? ' (+' + (st[s.k] - h.base[s.k]) + ')' : ''), P.x + 110, y, { size: 26 });
       if (h.pts > 0) { panel('st_b' + i, b.x, b.y, b.w, b.h, { r: 6, c0: S.hover === b.id ? [0.35, 0.25, 0.1] : [0.2, 0.15, 0.08] }); lab('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); } });
-    const derived = [['Атака', st.atk], ['Защита', st.def], ['Крит', Math.round(st.crit) + '%'], ['Ск. атаки', '+' + Math.round(st.aspd) + '%'], ['Здоровье', st.maxHp], ['Мана', st.maxMp]];
-    derived.forEach(([n, v], i) => { const x = P.x + 40 + (i % 2) * 150, y = P.y + 680 + Math.floor(i / 2) * 36; lab('dv_n' + i, n, x, y, { size: 20, col: C.dim }); lab('dv_v' + i, v, x + 140, y, { size: 22, al: 1 }); });
-    L.uiBox('inv_der', P.x + 30, P.y + 656, 320, 118);
-    // equipment
+    // equipment, and under it what it all adds up to
     lab('inv_eq', 'Снаряжение', P.x + 310, P.y + 90, { size: 24, col: C.dim });
-    for (const b of U.r) if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], D.SLOT_NAME[b.slot]);
+    for (const b of U.r) if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot);
+    const he = U.r.find((q) => q.id === S.hover && q.slot && !h.eq[q.slot]);
+    const pct = (v) => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%', num = (v) => Math.round(v * 10) / 10;
+    const derived = [['Атака', st.atk], ['Защита', st.def], ['Здоровье', st.maxHp], ['Мана', st.maxMp], ['Крит', Math.round(st.crit) + '%'], ['Ск. атаки', pct(st.aspd)],
+      ['Ск. бега', pct(st.mspd)], ['Вампиризм', st.leech ? num(st.leech) + '%' : '—'], ['Здоровье/с', st.regen ? '+' + num(st.regen) : '—'], ['За удар', st.onhit ? '+' + num(st.onhit) : '—']];
+    const dy0 = P.y + 446; L.rrect(P.x + 304, dy0 - 18, 286, derived.length * 24 + 18, 6, [0.07, 0.06, 0.07], [0.04, 0.035, 0.045], 0.8);
+    derived.forEach(([n, v], i) => { const y = dy0 + 6 + i * 24; lab('dv_n' + i, n, P.x + 318, y, { size: 19, col: C.dim }); lab('dv_v' + i, v, P.x + 576, y, { size: 20, al: 1 }); });
+    L.uiBox('inv_der', P.x + 304, dy0 - 18, 286, derived.length * 24 + 18);
     lab('inv_bag', 'Сумка', P.x + 640, P.y + 90, { size: 24, col: C.dim });
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]);
     // skills
@@ -263,6 +267,8 @@
     lab('inv_help', 'ЛКМ — надеть / использовать · ПКМ — выбросить · I или Esc — закрыть', P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     // close
     const cb = U.r.find((q) => q.id === 'close'); panel('inv_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('inv_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 24; panel('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 34, { r: 5, rim: C.rimHi });
+      lab('sle', s, he.x + he.w / 2, he.y + he.h + 24, { size: 20, al: 0.5 }); }
     // tooltip
     const hb = U.r.find((q) => q.id === S.hover); if (hb) { const it = hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('eq:') ? h.eq[hb.slot] : null; if (it) tooltip(S, it, hb, h); }
   }
@@ -291,12 +297,14 @@
     // the details sit in a fixed pane in the corner: a floating tip would cover the next slots' prices
     if (it) tooltip(S, it, hb, h, g ? ['Купить за ' + g.price + ' золота', h.gold >= g.price ? C.gold : C.red] : ['Продать за ' + D.sellPrice(it, f) + ' золота', C.gold], [P.x + 1090, P.y + 556]);
   }
+  // an empty gear slot shows the outline of what goes in it, its name on hover
+  const SLOT_SIL = { weapon: 'it_sword', offhand: 'it_shield', helm: 'it_helm_k', armor: 'it_armor_p', gloves: 'it_gloves', boots: 'it_boots', ring: 'it_ring', amulet: 'it_amulet' };
   function slot(S, b, it, empty) {
     const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null;
     panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: it && it.rar ? col : hv ? C.rimHi : [0.3, 0.25, 0.21], c0: hv ? [0.16, 0.12, 0.1] : [0.07, 0.06, 0.07], c1: [0.04, 0.035, 0.045] });
     if (it) { if (it.rar >= 2) L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, col, [0, 0, 0], 0.18); icon(SIM.itemIcon(it), b.x + 8, b.y + 8, b.w - 16);
       if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 }); }
-    else if (empty) lab('sle_' + b.id, empty, b.x + b.w / 2, b.y + b.h / 2, { size: 15, al: 0.5, col: '#5d5249' });
+    else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
   }
   function tooltip(S, it, b, h, deal, at) {
     const lines = [], cons = SIM.isCons(it), B = cons ? null : D.BASES[it.b];
