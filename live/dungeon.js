@@ -118,7 +118,10 @@
         for (let d = -1; d <= 0; d++) for (let l = -1; l <= 2; l++) front.push(C(d, l));
         // the contact point: the middle of the opening's edge on the host side, where blows land and the draught comes out
         const ex = dy ? (hx + 1) * TILE : (dx < 0 ? hx : hx + 1) * TILE, ey = dx ? (hy + 1) * TILE : (dy < 0 ? hy : hy + 1) * TILE;
-        secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0 }); } }
+        // how it is hidden: a plain stretch of wall that breaks, a banner or a bookshelf in front of it (top walls only, the
+        // ones the camera faces), or a mechanism somewhere near (a loose flagstone, a sconce that pulls down) that sinks it
+        const kind = pick(dir === 'u' ? ['crack', 'banner', 'banner', 'shelf', 'shelf', 'lever', 'lever'] : ['crack', 'crack', 'lever', 'lever', 'lever']);
+        secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0, kind }); } }
     // ---- contents ----
     // a cell next to a corridor mouth: any neighbour outside every room that is open floor
     const inRoom = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
@@ -151,7 +154,7 @@
         for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) { const v = lights.length ? reach(x, y) : 9; if (v > 1 && (!dark || v > dark[2])) dark = [x, y, v]; }
         if (!dark) break;
         const cand = [];
-        for (let x = r.x; x < r.x + r.w; x++) if (!at(x, r.y - 1) && at(x, r.y) === 1 && !doorway(x, r.y) && !torches.some((t) => t.kind === 'wall' && Math.abs(t.x - wx(x)) < 2 * TILE && Math.abs(t.y - r.y * TILE) < TILE))
+        for (let x = r.x; x < r.x + r.w; x++) if (!at(x, r.y - 1) && at(x, r.y) === 1 && !doorway(x, r.y) && !torches.some((t) => t.kind === 'wall' && Math.abs(t.x - wx(x)) < 2 * TILE && Math.abs(t.y - r.y * TILE) < TILE) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - wx(x)) < 1.5 * TILE && Math.abs(d.y - r.y * TILE) < TILE))
           cand.push([x, r.y, 0, { x: wx(x), y: r.y * TILE - 26, kind: 'wall', r: r.id }]);
         for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of [[r.x, -1], [r.x + r.w - 1, 1]]) if (!at(x + s, y) && free(x, y) && !doorway(x, y))
           cand.push([x, y, 0.5, { x: s < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: s, r: r.id, cell: [x, y] }]);
@@ -244,7 +247,7 @@
       if (r.type !== 'start' && r.type !== 'secret' && R() < 0.5) { const p = spot(r, 1, 0, true); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
       // decor
       for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table'); if (p) decor.push(n2 === 'table' ? { x: wx(p[0]), y: wy(p[1]), n: n2, solid: 1, r: r.id } : { x: wx(p[0]), y: wy(p[1]), n: n2 }); }
-      for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
+      for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5 && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < 1.5 * TILE && Math.abs(t.y - r.y * TILE) < TILE)) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
       // big biome props standing against the top wall (solid)
       for (let x = r.x + 1 + ri(0, 2); x < r.x + r.w - 1; x += ri(2, 5)) { if (R() < 0.3 || !free(x, r.y) || !free(x, r.y + 1) || !roomy(x, r.y) || !roomy(x, r.y + 1) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; used.add(key(x, r.y)); used.add(key(x, r.y + 1)); bulk.add(key(x, r.y)); bulk.add(key(x, r.y + 1));
         decor.push({ x: wx(x), y: r.y * TILE + 22, n: pick(D.BIOMES[zb].props), solid: 1, r: r.id }); }
@@ -254,6 +257,23 @@
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });
       lightRoom(r, []);
     }
+    // each secret's cover or mechanism, once the rooms are furnished. A cover is one of many like it (banners and shelves hang
+    // and stand everywhere); a mechanism is a flagstone a few steps from the wall or a sconce near it. With no place for its
+    // mechanism, a secret falls back to a plain breakable wall
+    const secCells = new Set(); for (const sc of secrets) { const r = rooms[sc.room]; for (const k of sc.hide) secCells.add(k); for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) secCells.add(y * W + x); }
+    secrets.forEach((q, i) => { const [fx, fy] = q.front[5], sh = rooms.find((o) => o.type === 'shop'), inR = (o, x, y) => x >= o.x - 1 && x <= o.x + o.w && y >= o.y - 1 && y <= o.y + o.h;
+      if (q.kind === 'banner' && torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - q.x) < 2 * TILE && Math.abs(t.y - fy * TILE) < TILE)) q.kind = 'shelf';
+      if (q.kind === 'banner') { for (let k = decor.length - 1; k >= 0; k--) if (decor[k].n === 'banner' && Math.abs(decor[k].x - q.x) < 3 * TILE && Math.abs(decor[k].y - (fy * TILE - 2)) < TILE) decor.splice(k, 1);
+        decor.push({ x: q.x, y: fy * TILE - 2, n: 'banner', wall: 1, secret: i }); }
+      if (q.kind === 'shelf') decor.push({ x: q.x, y: fy * TILE + 22, n: 'bookshelf', solid: 1, secret: i });
+      if (q.kind !== 'lever') return;
+      const near = torches.map((t, k) => [t, k]).filter(([t]) => t.kind === 'wall' && !t.side && t.lever === undefined && !secrets.some((sc) => sc.room === t.r) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - t.x) < 2 * TILE && Math.abs(d.y - t.y) < 2 * TILE) && Math.hypot(t.x - q.x, t.y - q.y) < 8 * TILE && Math.hypot(t.x - q.x, t.y - q.y) > TILE);
+      const seen = new Map([[key(fx, fy), 0]]), st = secCells.has(fy * W + fx) ? [] : [[fx, fy]], plates = [];
+      while (st.length) { const [x, y] = st.shift(), d0 = seen.get(key(x, y)); if (d0 >= 3 && free(x, y) && !doorway(x, y) && !inR(start, x, y) && !inR(sh, x, y)) plates.push([x, y]); if (d0 >= 8) continue;
+        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay; if (at(nx, ny) === 1 && !secCells.has(ny * W + nx) && !seen.has(key(nx, ny))) { seen.set(key(nx, ny), d0 + 1); st.push([nx, ny]); } } }
+      if (near.length && (!plates.length || R() < 0.5)) { const [t, k] = pick(near); t.lever = i; q.trig = { k: 'sconce', t: k }; }
+      else if (plates.length) { const [x, y] = pick(plates); used.add(key(x, y)); q.trig = { k: 'plate', x: wx(x), y: y * TILE + TILE / 2, cx: x, cy: y }; }
+      else q.kind = 'crack'; });
     // spike plates (2×2 cells) in trap rooms, laid out in one of a few patterns; a plate never touches a doorway and is
     // dropped if it would wall off any open cell, so there is always a way round
     const solid = new Set(); const sol = (x, y) => solid.add(key(Math.floor(x / TILE), Math.floor(y / TILE)));

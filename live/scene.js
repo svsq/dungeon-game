@@ -128,9 +128,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (let i = 0; i < m.W * m.H / 40; i++) { const x = Math.floor(rnd(i, m.seed % 97) * m.W), y = Math.floor(rnd(i + 0.5, m.seed % 89) * m.H);
       if (c(x, y) !== 1) continue; const r = 8 + 14 * rnd(i, 3);
       L.puff(x * TILE + 16, y * TILE + 16, r, rnd(i, 4) < 0.35 ? [0.22, 0.03, 0.02] : [0.04, 0.03, 0.03], 0.35 + 0.25 * rnd(i, 5), i); }
-    // secret rooms' fake walls: a crack from the opening's edge into the wall (up the face of a top wall, across the rock of the
-    // other sides) that branches wider after a blow
-    (m.secrets || []).forEach((q, i) => { if (q.open) return; const hurt = q.hp < 2, a0 = Math.atan2(q.dy, q.dx), ux = Math.cos(a0), uy = Math.sin(a0);
+    // a breakable fake wall looks like any other stretch of the (already cracked) masonry until it is struck: then a crack runs
+    // from the opening's edge into the wall (up the face of a top wall, across the rock of the other sides) and branches
+    (m.secrets || []).forEach((q, i) => { if (q.open || (q.kind || 'crack') !== 'crack' || q.hp >= 2) return; const hurt = true, a0 = Math.atan2(q.dy, q.dx), ux = Math.cos(a0), uy = Math.sin(a0);
       const crack = (x0, y0, a1, len, w, seed, depth) => { let x = x0, y = y0, a = a1;
         for (let k = 0; k < len; k++) { const l = 6 + 4 * rnd(seed, k); a += (rnd(seed, k + 9) - 0.5) * 0.9; const nx = x + Math.cos(a) * l, ny = y + Math.sin(a) * l;
           L.solid(x, y, l + 1, w, [0.02, 0.015, 0.02], a, 0, w / 2, 0.92); L.solid(x, y + w / 2 + 1, l, 2, [0.7, 0.64, 0.6], a, 0, 0, q.dy < 0 ? 0.35 : 0.6);
@@ -140,7 +140,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       crack(bx, by, a0 - 0.15, 5, hurt ? 5 : 4, 11 + i, hurt ? 2 : 1);
       if (hurt) { const hx = bx + ux * 24, hy = by + uy * 24; crack(hx, hy, a0 - 1.4, 3, 3, 21 + i, 1); crack(hx, hy, a0 + 1.4, 3, 3, 31 + i, 1); L.solid(hx - 7, hy - 5, 14, 10, [0.03, 0.02, 0.03], a0, 7, 5, 0.9); } });
     // wall decor: banners hang on the wall faces
-    for (const d of m.decor) if (d.wall && !SIM.hidden(m, d)) { const n = d.n || 'banner', [w, h] = SZ(n); L.sprite(n, d.x - w / 2, d.y - h + 8, { w, h }); }
+    for (const d of m.decor) if (d.wall && d.secret === undefined && !SIM.hidden(m, d)) { const n = d.n || 'banner', [w, h] = SZ(n); L.sprite(n, d.x - w / 2, d.y - h + 8, { w, h }); }
     G.bind(null);
   }
   function seenTex(R) {
@@ -418,21 +418,50 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'boom' && a < 6) L.puff(sx(e.x), sy(e.y) + 24, 30, [0.03, 0.02, 0.02], 0.5 * (1 - SS(3, 6, a)), e.t * 7);
       if (e.k === 'die') L.puff(sx(e.x) + 6, sy(e.y) + 4, 12 + 30 * SS(0.1, 1.4, a), [0.28, 0.02, 0.02], 0.75, 41); }
 
-    // the draught at each fake wall (its crack is baked into the map): pale motes blown out of the opening into the room
-    (m.secrets || []).forEach((q, i) => { if (q.open || !vis(q.x, q.y)) return; const X = sx(q.x), Yf = sy(q.y), ux = q.dx, uy = q.dy;
-      for (let j = 0; j < 9; j++) { const ph = (t * 0.3 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * 36 * (0.4 + ph) + Math.sin(t * 1.6 + j * 2) * 5;
-        L.solid(X - ux * (ph * 46 - 4) - uy * sp, Yf - uy * (ph * 46 - 4) + ux * sp + (q.dy ? 0 : ph * ph * 14), 3, 3, [0.82, 0.86, 0.95], 0, 0, 0, 0.8 * Math.sin(ph * Math.PI)); } });
+    // the only tell of a hidden opening: a faint draught, a few pale motes at its foot that only show from a step or two away
+    // (a banner sways in it instead)
+    const inSecret = (q) => SIM.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0]);
+    (m.secrets || []).forEach((q, i) => { if (q.open || q.kind === 'banner' || !vis(q.x, q.y) || inSecret(q)) return; const near = 1 - SS(70, 150, Math.hypot(h.x - q.x, h.y - q.y)); if (near <= 0) return;
+      const X = sx(q.x), Yf = sy(q.y) + (q.kind === 'shelf' ? 24 : 0), ux = q.dx, uy = q.dy;
+      for (let j = 0; j < 4; j++) { const ph = (t * 0.22 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * (q.kind === 'shelf' ? 110 : 40) * (0.5 + ph) + Math.sin(t * 1.6 + j * 2) * 4;
+        L.solid(X - ux * (ph * 30 - 4) - uy * sp, Yf - uy * (ph * 30 - 4) + ux * sp + (q.dy ? 0 : ph * ph * 10), 2, 2, [0.8, 0.84, 0.92], 0, 0, 0, 0.35 * near * Math.sin(ph * Math.PI)); } });
+    // a secret's loose flagstone: the floor's own stone standing a hair proud of its neighbours; it sinks when stepped on
+    for (const q of m.secrets || []) { const P = q.trig; if (!P || P.k !== 'plate' || !vis(P.x, P.y)) continue; const z = zoneAt(m, P.cx, P.cy), Z = D.BIOMES[z], TS = 288;
+      const down = q.open ? SS(0, 0.12, GT - (P.downT ?? q.openT ?? -9)) : 0, X = P.cx * TILE, Yw = P.cy * TILE, u0 = (X % TS) / TS, v0 = (Yw % TS) / TS, lift = 1.5 * (1 - down) - down;
+      const ink = [0.02, 0.015, 0.02], X0 = sx(X) + 2, Y0 = sy(Yw) + 2, S0 = TILE - 4;
+      L.solid(X0, Y0 + S0 - 1, S0, 3, ink, 0, 0, 0, 0.45 + 0.3 * down);
+      L.sprite(Z.floor, X0, Y0 - lift, { w: S0, h: S0, src: [u0 + 2 / TS, v0 + 2 / TS, u0 + (TILE - 2) / TS, v0 + (TILE - 2) / TS], u: { grade: [z === m.biome ? 1 : 0.35, 0.96 * (1.05 - 0.22 * down), 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } });
+      for (const [x, y, w, hh] of [[X0, Y0 - lift, S0, 2], [X0, Y0 - lift, 2, S0], [X0 + S0 - 2, Y0 - lift, 2, S0]]) L.solid(x, y, w, hh, ink, 0, 0, 0, 0.4 + 0.35 * down);
+      if (down < 0.5) L.solid(X0 + 2, Y0 - lift + 2, S0 - 4, 1, [0.9, 0.8, 0.65], 0, 0, 0, 0.12); }
 
     // ===== Y-sorted band =====
     const Y = [], knocked = {}; for (const e of ST.ev) if (e.k === 'prop') knocked[e.i] = e;
     const jig = (id) => knocked[id] && knockOf(knocked[id], GT);
-    m.decor.forEach((d, i) => { if (!d.wall && d.n !== 'bones' && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(d.n, sx(d.x), sy(d.y), { dy: 4, j: jig('d' + i) })]); });
+    m.decor.forEach((d, i) => { if (!d.wall && d.secret === undefined && d.n !== 'bones' && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(d.n, sx(d.x), sy(d.y), { dy: 4, j: jig('d' + i) })]); });
     for (const c of R.chests) if (vis(c.x, c.y) && !hid(c)) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, 22, 6, 0.5);
       drawProp(op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier >= 2 ? 1.15 : 1, u: { grade: c.tier === 3 ? [1.2, 1.12, 0, 1.1] : c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 }); }]); }
     const flameB = (x, y, w, hh, col, seed) => { G.blend('add'); G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1.6, u_col: col }, G.xf(x - w / 2, y - hh, w, hh)); G.blend(); };
+    // the secrets' covers: a banner that sways in the draught and falls when torn, a bookshelf that breaks; a wall worked by a
+    // mechanism sinks into the floor (a top wall's face slides down, other sides' rock settles away)
+    (m.secrets || []).forEach((q, i) => { if (!vis(q.x, q.y) || inSecret(q)) return; const kind = q.kind || 'crack', a = q.open ? GT - (q.openT ?? -9) : -1;
+      if (kind === 'banner') { const [w, hh] = SZ('banner'), top = q.y + 6 - hh;
+        if (!q.open) { const near = 1 - SS(50, 170, Math.hypot(h.x - q.x, h.y - q.y)), rot = (0.006 + 0.035 * near) * Math.sin(t * 2.1 + i) + 0.01 * near * Math.sin(t * 5.3);
+          Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x), sy(top)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); }
+        else if (a < 0.5) { const p = a / 0.5; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x) + 10 * p, sy(top) + 30 * p * p), M.r(0.5 * p * p)), w, h: hh * (1 - 0.5 * p * p), pivot: [w / 2, 0] })]); }
+        else Y.push([q.y - 60, () => L.sprite('banner', sx(q.x) - w * 0.55 + 10, sy(q.y) + 4, { w: w * 1.1, h: hh * 0.32, u: { grade: [0.8, 0.75, 0, 1] } })]); }
+      if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d || d.broken) return;
+        Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]); }
+      if (kind === 'lever' && q.open && a < 1.8) { const p = SS(0.15, 1.6, a), xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), jit = Math.sin(GT * 70) * 1.5 * (1 - p);
+        const x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y0 = Math.min(...ys) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
+        if (q.dir === 'u') { const TSW = 224, Hf = (y1 - y0) * (1 - p), u0 = (x0 % TSW) / TSW, v0 = (y0 % TSW) / TSW;
+          if (Hf > 0.5) Y.push([q.y - 1, () => { L.sprite(B.wall, sx(x0) + jit, sy(y0) + (y1 - y0) * p, { w: x1 - x0, h: Hf, src: [u0, v0, u0 + (x1 - x0) / TSW, v0 + Hf / TSW], u: { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } });
+            L.solid(sx(x0) + jit, sy(y0) + (y1 - y0) * p, x1 - x0, 3, [0.02, 0.015, 0.02], 0, 0, 0, 0.75); }]); }
+        else Y.push([q.y - 1, () => { const u0 = (x0 % 160) / 160, v0 = (y0 % 160) / 160; L.sprite(B.top, sx(x0) + jit, sy(y0) + 6 * p, { w: x1 - x0, h: y1 - y0, src: [u0, v0, u0 + (x1 - x0) / 160, v0 + (y1 - y0) / 160], u: { grade: [0.9, 1.0 - 0.4 * p, 0, 1.1], alpha: 1 - p } }); }]); } });
     m.torches.forEach((tc, i) => { if (!vis(tc.x, tc.y) || hid(tc)) return; const col = torchCol(m, tc), lit = known(tc.x, tc.y);
       if (tc.kind === 'wall' && tc.side) Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16, { flip: tc.side > 0 }); if (lit) flameB(sx(tc.x) - tc.side * 9, sy(tc.y) - 6, 22, 36, col, i); }]);
+      else if (tc.kind === 'wall' && tc.lever !== undefined) { const q = m.secrets[tc.lever], pull = q && q.open ? SS(0, 0.22, GT - q.openT) : 0, rot = 0.07 + 0.6 * pull, c = Math.cos(rot), s = Math.sin(rot);
+        Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16, { j: { rot, dx: 0, sy: 1 } }); if (lit) flameB(sx(tc.x) + 3 * c + 41 * s + 7 * pull, sy(tc.y) + 37 + 3 * s - 41 * c - 6 * pull, 22, 36, col, i); }]); }
       else if (tc.kind === 'wall') Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16); if (lit) flameB(sx(tc.x) + 3, sy(tc.y) - 4, 22, 36, col, i); }]);
       else { const big = tc.kind === 'fire', j = jig('t' + i), up = big ? 44 : 32, fl = j ? 1 + 0.5 * Math.exp(-4 * (GT - knocked['t' + i].t)) : 1;
         Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp('brazier', sx(tc.x), sy(tc.y), { k: big ? 1.35 : 1, dy: 4, j });
@@ -493,11 +522,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'die' && a < 1.6) lt(e.x, e.y - 40 - 60 * SS(0.3, 1.6, a), 200, [0.5, 0.7, 1], 0.9 * SS(0.2, 0.5, a) * (1 - SS(1.2, 1.6, a)));
       if (e.k === 'spike' && a < 0.2) lt(e.x, e.y, 110, [1, 0.9, 0.75], 0.5 * (1 - a / 0.2)); }
     if (h.shield > 0 && GT < h.shieldUntil) lt(h.x, h.y - 30, 160, [0.4, 0.7, 1], 0.7);
-    // a fake wall breathes a cold draught through its crack: a faint blue flicker at its foot, irregular so it reads as alive
-    (m.secrets || []).forEach((q, i) => { if (q.open) return; const f = Math.max(0, Math.sin(t * 1.7 + i * 2.1) * 0.6 + Math.sin(t * 6.3 + i) * 0.25 + Math.sin(t * 13.1) * 0.15);
-      lt(q.x + q.dx * 6, q.y + (q.dy < 0 ? -26 : q.dy > 0 ? 6 : -8), 90, [0.55, 0.72, 1], 0.18 + 0.32 * f, 2.6); });
     for (const c of R.chests) if (c.tier === 3 && !c.open && !hid(c)) lt(c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4));
-    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], 1.4 * (1 - a / 1.2)); }
+    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], ((e.kind || 'crack') === 'crack' ? 1.4 : 0.7) * (1 - a / 1.2)); }
     for (const e of R.en) if (e.elite && e.type !== 'boss' && e.deadT < 0) lt(e.x, e.y + 4, 110, ELITE, 0.3 + 0.1 * Math.sin(t * 3 + e.id));
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
@@ -584,7 +610,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'break' && a < 0.7) for (let j = 0; j < 7; j++) { const q = a / 0.7, an = rnd(e.t, j) * 6.28, v = 40 + 60 * rnd(e.t, j + 7);
         L.solid(ex + Math.cos(an) * v * a, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 300 * a * a, 5, 4, e.kind === 'pot' ? [0.5, 0.24, 0.14] : e.kind === 'gold' ? [1, 0.78, 0.25] : [0.4, 0.26, 0.14], an, 2, 2, 1 - SS(0.5, 0.7, a)); }
       // a blow on a fake wall knocks out chips and a breath of dust; the break blows the stretch of wall into the room
-      if ((e.k === 'wallhit' || e.k === 'secret') && a < 1.4) { const big = e.k === 'secret', n = big ? 22 : 8, life = big ? 1.1 : 0.7;
+      if (e.k === 'secret' && e.kind === 'shelf' && a < 1.2) { for (let j = 0; j < 18; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 80 + 140 * rnd(e.t, j + 7), px = ex + (rnd(e.t, j + 3) - 0.5) * 90 + Math.cos(an) * v * a * 0.6;
+          const py = ey + 30 + Math.min(20 + 16 * rnd(e.t, j + 11), -Math.abs(Math.sin(an)) * v * a + 520 * a * a) - 30, book = j % 3 === 0, col = book ? [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12]][j % 9 / 3 | 0] : [0.4, 0.26, 0.14];
+          L.solid(px, py, book ? 7 : 12, book ? 5 : 3, col, an + a * (book ? 4 : 7), 4, 2, 1 - SS(0.85, 1.2, a)); }
+        for (let j = 0; j < 6; j++) { const q2 = Math.min(1, a / 1.2); L.puff(ex + (j - 2.5) * 16, ey + 40 + 14 * q2, 14 + 18 * q2, [0.36, 0.3, 0.26], 0.45 * (1 - q2), e.t * 11 + j); } }
+      if (e.k === 'secret' && (e.kind === 'lever' || e.kind === 'banner') && a < 1.8) { const q2 = Math.min(1, a / 1.8), n = e.kind === 'lever' ? 8 : 3;
+        for (let j = 0; j < n; j++) L.puff(ex + (j - (n - 1) / 2) * 12, ey + 22 - 10 * q2, 12 + 20 * q2, [0.4, 0.36, 0.34], (e.kind === 'lever' ? 0.5 : 0.3) * Math.sin(Math.PI * q2), e.t * 11 + j); }
+      if ((e.k === 'wallhit' || (e.k === 'secret' && (e.kind || 'crack') === 'crack')) && a < 1.4) { const big = e.k === 'secret', n = big ? 22 : 8, life = big ? 1.1 : 0.7;
         for (let j = 0; j < n; j++) { if (a > life) break; const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * (big ? 3 : 2), v = (big ? 90 : 50) + (big ? 160 : 70) * rnd(e.t, j + 7), g = 520;
           const px = ex + (rnd(e.t, j + 3) - 0.5) * (big ? 60 : 24) + Math.cos(an) * v * a * 0.6, py = ey + Math.min(30 + 20 * rnd(e.t, j + 11), -Math.abs(Math.sin(an)) * v * a + g * a * a);
           const sz = (big ? 4 : 3) + 4 * rnd(e.t, j + 13); L.solid(px, py, sz, sz * 0.8, [0.34, 0.3, 0.29], an + a * 6, sz / 2, sz / 2, 1 - SS(life * 0.75, life, a)); }
@@ -720,15 +752,25 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         m.decor.push({ x, y, n, solid: 1, r: rm.id }); S.ev.push({ k: 'prop', t: S.t - age, x, y, i: 'd' + (m.decor.length - 1), n, mat: D.PROP_MAT[n], s }); });
       h.x = cx; h.y = cy + 150; R.cam = [cx - W / 2, cy - H / 2]; });
     states.push(['props_knock', propS(0.07)], ['props_settle', propS(0.4)]);
-    // a secret room's fake wall: whole (crack + draught), cracked by a blow, breaking, and the room found behind it
-    const secretS = (stage, dir = 'u') => { for (let sd = 1; sd < 80; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find((o) => o.dir === dir); if (!q) continue;
-      const h = R.hero; h.x = q.x - q.dx * 70 + (q.dy ? 50 : 0); h.y = q.y - q.dy * 80; h.aim = Math.atan2(q.dy, q.dx); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [q.x - W / 2, q.y - H / 2 - 40];
-      if (stage >= 1) { SIM.hitSecret(S, R, q); S.ev = S.ev.filter((e) => e.k === 'wallhit'); S.ev[0].t = S.t - 0.1; }
-      if (stage >= 2) { q.hitT = -9; SIM.hitSecret(S, R, q); S.ev = S.ev.filter((e) => e.k === 'secret'); S.ev[0].t = S.t - (stage === 2 ? 0.25 : 3); R.msg = null; R.trauma = 0; }
-      if (stage === 3) { const r = m.rooms[q.room]; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE + 10; R.cam = [h.x - W / 2, (r.y + r.h / 2) * TILE - H / 2]; }
+    // each way a secret hides: whole (from a step away, where the draught or a banner's sway is the only tell), worked (a blow
+    // on a wall or a shelf, a banner torn, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
+    const secretS = (f, stage, age = 0) => { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find(f); if (!q) continue;
+      if (SIM.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) continue;
+      const h = R.hero, P = q.trig; h.x = q.x - q.dx * 70 + (q.dy ? 50 : 0); h.y = q.y - q.dy * 80 + (q.kind === 'shelf' ? 40 : 0); h.aim = Math.atan2(q.dy, q.dx); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [q.x - W / 2, q.y - H / 2 - 40];
+      if (P && P.k === 'plate') { h.x = P.x + 40; h.y = P.y + 10; R.cam = [(q.x + P.x) / 2 - W / 2, (q.y + P.y) / 2 - H / 2 - 20]; }
+      if (P && P.k === 'sconce') { const t2 = m.torches[P.t]; h.x = t2.x + 80; h.y = t2.y + 70; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 120); R.cam = [(q.x + t2.x) / 2 - W / 2, (q.y + t2.y) / 2 - H / 2]; }
+      if (stage === 1) { SIM.hitSecret(S, R, q); S.ev = S.ev.filter((e) => e.k === 'wallhit'); if (S.ev[0]) S.ev[0].t = S.t - 0.1; }
+      if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret'); S.ev[0].t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
+      if (stage === 3 && q.kind === 'crack') { const r = m.rooms[q.room]; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE + 10; R.cam = [h.x - W / 2, (r.y + r.h / 2) * TILE - H / 2]; }
       return S; } };
-    ['secret_wall', 'secret_cracked', 'secret_break', 'secret_room'].forEach((n, i) => { const S = secretS(i); if (S) states.push([n, S]); });
-    for (const d of ['d', 'l', 'r']) for (const [n, i] of [['secret_wall_' + d, 0], ['secret_cracked_' + d, 1]]) { const S = secretS(i, d); if (S) states.push([n, S]); }
+    const crack = (d) => (o) => o.kind === 'crack' && o.dir === d, sconce = (o) => o.trig && o.trig.k === 'sconce', plate = (o) => o.trig && o.trig.k === 'plate';
+    for (const [n, f, stage, age] of [['secret_crack', crack('u'), 0], ['secret_crack_hit', crack('u'), 1], ['secret_crack_break', crack('u'), 2, 0.25], ['secret_room', crack('u'), 3],
+      ['secret_crack_d', crack('d'), 0], ['secret_crack_hit_d', crack('d'), 1], ['secret_crack_l', crack('l'), 0], ['secret_crack_hit_l', crack('l'), 1], ['secret_crack_r', crack('r'), 0], ['secret_crack_hit_r', crack('r'), 1],
+      ['secret_banner', (o) => o.kind === 'banner', 0], ['secret_banner_fall', (o) => o.kind === 'banner', 2, 0.25], ['secret_banner_down', (o) => o.kind === 'banner', 3],
+      ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_break', (o) => o.kind === 'shelf', 2, 0.2], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
+      ['secret_sconce', sconce, 0], ['secret_sconce_sink', sconce, 2, 0.8], ['secret_sconce_open', sconce, 3],
+      ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
     // every monster type in a row, idle, facing right: the rigs at rest against their approved sprites
     const lineup = (S) => { const R = S.run, r = R.map.rooms.filter((q) => q.id !== R.map.start).reduce((a, b) => (b.w > a.w ? b : a)), h = R.hero, y0 = (r.y + r.h / 2) * TILE + 16;
       R.msg = null; R.seen = R.seen.map(() => 1); h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20;

@@ -76,6 +76,8 @@
       else noise(o, { d: 0.18, v: 0.35, type: 'lowpass', f0: 500, f1: 150 });
       if (e.n === 'brazier') noise(o, { t: now() + 0.03, a: 0.02, d: 0.4, v: 0.15, type: 'highpass', f0: 2400 });
       if (e.n === 'shop_gold') SFX.gold(o); },
+    // a mechanism catches: a click, then the grind of stone starting to move
+    click: (o) => { tone(o, { f0: 700, f1: 420, d: 0.06, v: 0.3 }); noise(o, { d: 0.05, v: 0.25, type: 'highpass', f0: 1800 }); tone(o, { f0: 90, f1: 60, a: 0.12, d: 0.5, v: 0.25 }); },
     // a fake wall sounds hollow: a knock with a resonant body behind it; breaking it is a rumble, falling stones and a chime
     wallhit: (o) => { tone(o, { f0: 120, f1: 80, d: 0.18, v: 0.45 }); noise(o, { d: 0.35, v: 0.3, f0: 320, q: 8 }); noise(o, { d: 0.08, v: 0.2, type: 'highpass', f0: 2000 }); },
     secret: (o) => { noise(o, { a: 0.01, d: 1.1, v: 0.6, type: 'lowpass', f0: 1200, f1: 80 }); tone(o, { f0: 70, f1: 32, d: 0.9, v: 0.6 });
