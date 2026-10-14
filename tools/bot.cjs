@@ -2,7 +2,7 @@
 // skill. A profile sets what a player of that skill gets wrong: how late they see a wind-up or a bolt, how often they dash out
 // of it, how far their aim drifts, how low they let HP go before a potion, how they spend mana. Between runs it buys meta ranks.
 const SIM = require('../live/sim.js'), D = require('../live/data.js');
-const ZOOM = D.ZOOM || 1, T = 32, STUCK = 400, CHASE = 10, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'hurt'];
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'hurt'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
@@ -28,7 +28,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   const S = SIM.spawn(0, {}); S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
   const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
-  let cur = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
+  let cur = null, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
   const fresh = () => ({ floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
@@ -37,7 +37,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), tx = Math.floor(h.x / T), ty = Math.floor(h.y / T);
     let gx = x - h.x, gy = y - h.y;
     if (round || Math.hypot(gx, gy) > 40) { let best = null;
-      for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!best || v < best[0])) best = [v, ax, ay]; }
+      // standing in a prop's own cell (a chest against the wall), the way on may run straight through the prop: step out of the
+      // cell away from it first
+      let B = BLK.get(m); if (!B) BLK.set(m, B = new Set(m.block)); const inProp = B.has(ty * m.W + tx), ox = tx * T + 16 - h.x, oy = ty * T + 16 - h.y;
+      for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!inProp || ax * ox + ay * oy <= 0) && (!best || v < best[0])) best = [v, ax, ay]; }
       if (best) { gx = (tx + best[1]) * T + 16 - h.x; gy = (ty + best[2]) * T + 18 - h.y; } }
     if (Math.abs(gx) > 4) inp[gx > 0 ? 'right' : 'left'] = 1; if (Math.abs(gy) > 4) inp[gy > 0 ? 'down' : 'up'] = 1;
   }
@@ -66,7 +69,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
   function fight(S, R, inp, live, st) {
     const h = R.hero, dist = (e) => Math.hypot(e.x - h.x, e.y - h.y);
     let tg = live.reduce((a, e) => (!a || dist(e) < dist(a) ? e : a), null);
-    if (P.focus) { const c = live.filter((e) => D.ENEMIES[e.type].kind === 'caster' && dist(e) < 320).sort((a, b) => dist(a) - dist(b))[0]; if (c) tg = c; }
+    // a caster once picked stays the target while it is within 400 px: a fixed 320 px line flips the target every step for one
+    // standing on it, and the bot walks back and forth between two paths for good
+    if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && dist(focus) < 400)) focus = live.filter((e) => D.ENEMIES[e.type].kind === 'caster' && dist(e) < 320).sort((a, b) => dist(a) - dist(b))[0] || null;
+      if (focus) tg = focus; }
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
     const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, a = Math.atan2(tg.y - 30 - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - 30 - oy, tg.x - ox);
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));

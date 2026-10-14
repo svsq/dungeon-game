@@ -6,14 +6,16 @@
   // (one art pixel = 2 world px = 3 screen px); the HUD stays in screen px
   const ZOOM = 1.5;
 
+  // rock, vein: the rock past the dungeon and under the fog of war (scene.js LIT) and the faint veins glowing in it [r, g, b, strength];
+  // water: the colour of its shallow pools (scene.js WATER)
   const BIOMES = {
-    dungeon: { name: 'Подземелье', amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    dungeon: { name: 'Подземелье', rock: [0.118, 0.082, 0.07], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0.08], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
-    crypt: { name: 'Крипты', amb: [0.07, 0.11, 0.09], torch: [0.45, 1.0, 0.45], floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    crypt: { name: 'Крипты', rock: [0.08, 0.1, 0.085], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0.07], amb: [0.07, 0.11, 0.09], torch: [0.45, 1.0, 0.45], floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.86, 0.98, 0.9], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
-    lava: { name: 'Огненные глубины', amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    lava: { name: 'Огненные глубины', rock: [0.13, 0.07, 0.05], vein: [1.0, 0.38, 0.08, 0.14], amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
-    arcane: { name: 'Чертоги', amb: [0.07, 0.08, 0.14], torch: [0.4, 0.7, 1.0], floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    arcane: { name: 'Чертоги', rock: [0.075, 0.08, 0.11], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0.1], amb: [0.07, 0.08, 0.14], torch: [0.4, 0.7, 1.0], floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.86, 0.9, 1.04], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
   };
   const FLOORS = 8;
@@ -218,6 +220,20 @@
   // sparks, crystal chimes and flashes, sacks slump
   // how wide each floor prop draws, in view px (its display height in sizes.js times its sprite's aspect); the generator keeps
   // these apart so no two overlap on screen. A gold heap draws as the `treasure` sprite, a small pile as `shop_gold`
+  // how a room is furnished (dungeon.js: furnish): tall props in a row or in mirrored pairs against the back wall, coffins or
+  // crystals in mirrored rows on the floor with an aisle between, stacks of barrels and crates in corners, a table with candles by
+  // a side wall, pots in a line along one, bones by the walls; the middle and the ways in stay open. `need`: the plan suits a room
+  // whose biome (or zone) has any of these props; `w`: its weight among the plans that suit
+  const ROOM_PLANS = {
+    armory: { need: ['rack'], w: 3, back: { n: ['rack'], mode: 'row', max: 3 }, stacks: 1, table: 0.4, bones: 1 },
+    library: { need: ['bookshelf'], w: 2, back: { n: ['bookshelf'], mode: 'pairs', max: 1 }, table: 0.9 },
+    prison: { need: ['cage'], w: 2, back: { n: ['cage'], mode: 'row', max: 3 }, bones: 3 },
+    hall: { need: ['pillar'], w: 2, back: { n: ['pillar'], mode: 'pairs', max: 2, center: 'statue' }, bones: 1 },
+    gallery: { need: ['statue'], w: 2, back: { n: ['statue'], mode: 'pairs', max: 2 }, stacks: 1, bones: 1 },
+    crypt: { need: ['coffin', 'grave'], w: 3, back: { n: ['statue', 'pillar'], mode: 'pairs', max: 1 }, floor: { n: ['coffin', 'grave'], mode: 'rows' }, bones: 2 },
+    sanctum: { need: ['crystal'], w: 3, back: { n: ['bookshelf', 'statue'], mode: 'pairs', max: 1 }, floor: { n: ['crystal'], mode: 'pair' } },
+    store: { need: [], w: 2, stacks: 2, table: 0.3, bones: 1, side: 'pot' },
+  };
   const PROP_W = { chest: 53, coffin: 81, grave: 50, statue: 61, pillar: 81, crystal: 49, cage: 51, rack: 69, bookshelf: 103, table: 59, brazier: 57,
     altar: 67, gold: 96, goldpile: 46, barrel: 45, crate: 48, pot: 32, vase_a: 30, vase_b: 43, vase_c: 30 };
   // and how tall (sizes.js heights): with the width, the sprite's box an item lying behind the prop disappears in
@@ -229,6 +245,6 @@
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
   root.DATA = { TILE, ZOOM, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
-    ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H };
+    ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -34,23 +34,76 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y /= u_arc.w; float r = length(q), a =
   float a2 = band * pow(u, 1.4) * head * u_amt, sh = (1.0 - smoothstep(th, th * 2.4 + 0.03, d)) * pow(u, 1.1) * head * u_dark;
   vec3 c = mix(u_col, vec3(1.0), smoothstep(0.6, 1.0, u) * band);
   o = vec4(c * a2, clamp(max(a2 * 0.5, sh), 0.0, 1.0)); }`;
+  // lava over a soft mask of its cells (4 texels a cell, blurred): the shoreline is the mask's 0.5 contour broken by noise, so it
+  // never follows the grid; scorched rock outside it, a glowing lip, a band of cooling crust with live cracks, then the open flow
+  // with drifting plates. All noise is in world px: no tile seams. u_mode 0 draws the ground, 1 the glow for the emissive pass
+  const LAVA = `
+uniform sampler2D u_mask; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode;
+void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
+  float mk = texture(u_mask, w / u_map).r, e = mk + (fbm(w / 20.0) - 0.5) * 0.3;
+  if (e < 0.2) discard;
+  float d = (e - 0.5) / max(length(vec2(dFdx(mk), dFdy(mk))), 0.002);   // px inside the shore (negative outside): bands keep their width in any pool
+  vec2 q = w / 52.0 + vec2(u_t * 0.045, u_t * 0.03), wq = vec2(fbm(q + 3.1), fbm(q + 8.7));
+  float f = fbm(q * 1.3 + wq * 1.7 - vec2(0.0, u_t * 0.035));
+  vec3 hot = mix(vec3(0.5, 0.05, 0.01), vec3(1.0, 0.4, 0.06), smoothstep(0.32, 0.62, f));
+  hot = mix(hot, vec3(1.0, 0.86, 0.48), smoothstep(0.64, 0.8, f));
+  float c = fbm(w / 34.0 + vec2(u_t * 0.025, u_t * 0.018) + wq * 0.8), plate = smoothstep(0.6, 0.66, c), seam = 1.0 - smoothstep(0.0, 0.04, abs(c - 0.63));
+  float inside = smoothstep(-0.8, 0.8, d), lip = smoothstep(-1.2, 0.4, d) * (1.0 - smoothstep(1.0, 3.0, d)), cool = 1.0 - smoothstep(2.0, 6.5, d);
+  float crack = 1.0 - smoothstep(0.0, 0.07, abs(fbm(w / 10.0 + u_t * 0.01) - 0.5));
+  vec3 crust = vec3(0.1, 0.055, 0.045), shore = mix(crust, hot, crack * 0.85);
+  vec3 col = mix(hot, crust * 1.4, plate * 0.8 * (1.0 - cool));
+  col = mix(col, vec3(1.0, 0.55, 0.14), seam * plate * 0.5 * (1.0 - cool));
+  col = mix(col, shore, cool);
+  col = mix(col, vec3(1.0, 0.58, 0.14), lip * 0.85);
+  if (u_mode < 0.5) { float scorch = smoothstep(-10.0, -1.0, d) * (1.0 - inside);
+    o = vec4(col * inside * 0.7 + vec3(0.035, 0.02, 0.015) * scorch, max(inside, scorch * 0.7)); }   // its own lights brighten it
+  else { vec3 em = hot * (1.0 - cool) * (1.0 - plate * 0.75) * 0.55 + vec3(1.0, 0.5, 0.12) * lip * 0.55 + hot * crack * cool * 0.3;
+    o = vec4(em * inside * 0.6, 0.0); } }`;
+  // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
+  // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
+  // gives nothing of the layout away. On the world's 2 px grid
+  // shallow water over the same kind of soft mask: a wet dark rim on the floor around it, a pale lip, then translucent water in the
+  // biome's colour with slow ripples; u_mode 1 adds, for the emissive pass, the light falling on it broken into glints by the ripples
+  const WATER = `
+uniform sampler2D u_mask, u_light; uniform vec4 u_box; uniform vec2 u_map; uniform vec3 u_col; uniform float u_mode;
+void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
+  float mk = texture(u_mask, w / u_map).r, e = mk + (fbm(w / 18.0) - 0.5) * 0.22;
+  if (e < 0.2) discard;
+  float d = (e - 0.5) / max(length(vec2(dFdx(mk), dFdy(mk))), 0.002), inside = smoothstep(-0.8, 0.8, d);
+  float lip = smoothstep(-0.6, 0.6, d) * (1.0 - smoothstep(0.8, 2.6, d)), deep = smoothstep(1.0, 12.0, d);
+  float r1 = fbm(w / 14.0 + vec2(u_t * 0.18, u_t * 0.11)), r2 = fbm(w / 9.0 - vec2(u_t * 0.13, -u_t * 0.16));
+  float rip = smoothstep(0.62, 0.72, r1 * 0.6 + r2 * 0.6);
+  if (u_mode < 0.5) { float wet = smoothstep(-9.0, -0.5, d) * (1.0 - inside);
+    vec3 c = u_col * (0.85 + 0.35 * deep) + vec3(0.2, 0.24, 0.26) * (lip * 0.75 + rip * 0.18 * inside);
+    float a = inside * (0.66 + 0.24 * deep);
+    o = vec4(c * a, max(a, wet * 0.5)); }
+  else { vec3 l = texture(u_light, scr(v_px)).rgb; float glint = rip * (0.3 + 0.7 * deep);
+    o = vec4(l * glint * inside * 0.16, 0.0); } }`;
   const LIT = `
-uniform sampler2D u_src, u_light, u_seen; uniform vec2 u_cam, u_map;
+uniform sampler2D u_src, u_light, u_seen, u_void; uniform vec2 u_cam, u_map; uniform vec3 u_rock; uniform vec4 u_vein;
+vec3 abyss(vec2 p){ vec2 q = p / 150.0;
+  float n = fbm(q), plates = fbm(q * 3.1 + 9.0), crack = smoothstep(0.88, 0.97, 1.0 - abs(fbm(q * 1.7 + 4.0) * 2.0 - 1.0));
+  vec3 c = u_rock * (0.55 + 0.6 * n + 0.3 * plates) * (1.0 - 0.55 * crack);
+  float vein = smoothstep(0.94, 0.99, 1.0 - abs(fbm(q * 0.8 + 21.0) * 2.0 - 1.0)), pulse = 0.55 + 0.45 * sin(u_t * 0.6 + fbm(q * 0.5) * 12.0);
+  c += u_vein.rgb * vein * pulse * u_vein.a;
+  vec2 g = p / 96.0 + vec2(0.0, u_t * 0.07), cell = floor(g), f = fract(g) - 0.5, j = vec2(hash(cell + 3.1), hash(cell + 7.7)) - 0.5;
+  c += u_vein.rgb * 0.5 * smoothstep(0.05, 0.0, length(f - j * 0.7)) * step(0.8, hash(cell)) * (0.5 + 0.5 * sin(u_t * 1.3 + hash(cell) * 40.0)) * 0.12;
+  return c; }
 void main(){ vec3 c = texture(u_src, scr(v_px)).rgb, l = texture(u_light, scr(v_px)).rgb;
-  vec2 w = (v_px + u_cam) / u_map; float s = texture(u_seen, w).r;
+  vec2 w = (v_px + u_cam) / u_map; float s = texture(u_seen, w).r * (1.0 - texture(u_void, w).r) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
   l = 2.6 * tanh(l / 2.6);                                              // soft cap: pools never flatten into one blown-out level
-  o = vec4(c * l * s, 1.0); }`;
+  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55), c * l, s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   float sw = fbm(vec2(a * 2.0 + r * 4.0 - u_t * 2.0, r * 3.0 - u_t)), ring = smoothstep(0.95, 0.7, r) * smoothstep(0.2, 0.7, r + sw * 0.3);
   vec3 c = mix(vec3(0.3, 0.5, 1.0), vec3(0.9, 0.95, 1.0), sw * smoothstep(0.8, 0.2, r)); float al = ring * u_amt; o = vec4(c * al, 0.0); }`;
   SC.REPEAT = [];
-  let LT = null, BAKE = { key: '', tg: null }, SEEN = { key: '', rec: null, cv: null };
+  let LT = null, BAKE = { key: '', tg: null }, SEEN = { key: '', rec: null, cv: null }, VOID = { key: '', rec: null, cv: null };
   SC.programs = () => {
     // the world renders on a 2×2 view-px grid (the reference's art pixel), every sprite and rotated rig part re-rasterised on it;
     // light, glows and the HUD stay full resolution (HD pixel, styles.md §1)
-    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL }, { pixel: PIX * Z, view: [VW, VH] });
+    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER }, { pixel: PIX * Z, view: [VW, VH] });
     L.glyphs('0123456789+-/:%', { size: 60, fill: ['#fffbe2', '#ffd76a', '#e89a22'] });
     LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }) };
     if (window.HUD) HUD.init();
@@ -86,7 +139,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
       const v = c(x, y);
       // an accent zone keeps its own stone but not its colour: the colour is light (zoneFill), which fades out past the doorway
-      if (v === 1) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.35, 0.96, 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }); }
+      if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.35, 0.96, 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }); }
       else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
       else if (v === 0 && near(x, y, 7)) tile(B.top, x, y, { grade: [0.9, 1.0, 0, 1.1], tint: [B.tint[0] * 0.95, B.tint[1] * 0.97, B.tint[2], 1] }, 160);
     }
@@ -117,8 +170,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           if (c(x - 1, y) === 1) dark(X, Y, 3, TILE, 0.6);
           if (c(x + 1, y) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.6);
         }
-      } else if (v === 3) for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) if (c(x + dx, y + dy) === 1)
-        L.solid(X + (dx > 0 ? TILE - 4 : 0), Y + (dy > 0 ? TILE - 4 : 0), dx ? 4 : TILE, dy ? 4 : TILE, [0.12, 0.06, 0.04], 0, 0, 0, 1);
+      }
     }
     // large-scale variation without a grid: soft overlapping blobs (never per-cell steps, which read as dashed stripes)
     for (let i = 0; i < m.W * m.H / 18; i++) { const x = rnd(i, 7.7) * m.W, y = rnd(i, 8.8) * m.H; if (c(Math.floor(x), Math.floor(y)) !== 1) continue;
@@ -146,13 +198,52 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const d of m.decor) if (d.wall && d.secret === undefined && !SIM.hidden(m, d)) { const n = d.n || 'banner', [w, h] = SZ(n); L.sprite(n, d.x - w / 2, d.y - h + 8, { w, h }); }
     G.bind(null);
   }
+  // the fog's edge fades over ~2 cells instead of cutting along the grid; the fade spreads into rock but never onto unseen floor,
+  // so nothing behind a wall shows through it
+  // a set of cells (lava, water) as a soft mask, 4 texels a cell, blurred over about a cell so its 0.5 contour runs along the cells'
+  // edges and rounds their corners
+  const MASKS = {};
+  function maskTex(m, name, has) {
+    const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null }), key = m.seed + ':' + m.floor; if (M.key === key) return M.rec; M.key = key;
+    const K = 4, W = m.W * K, H = m.H * K, a = new Float32Array(W * H), b = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) a[y * W + x] = has(Math.floor(x / K), Math.floor(y / K)) ? 1 : 0;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * W + Math.min(W - 1, Math.max(0, x + d))]; b[y * W + x] = v / 5; }
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(H - 1, Math.max(0, y + d)) * W + x]; a[y * W + x] = v / 5; } }
+    const cv = M.cv || (M.cv = document.createElement('canvas')); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) { const v = Math.round(255 * a[i]); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    if (!M.rec) M.rec = G.canvasTex(name + 'mask', cv);
+    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, M.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
+    return M.rec;
+  }
+  const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.cell(m, x, y) === 3);
+  const waterTex = (m) => { const w = new Set(m.water || []); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x)); };
+  // 1 deep in the rock (3 to 6 cells from any floor, soft) and toward the map's edge, where a room may lie close: the abyss shows through
+  function voidTex(m) {
+    const key = m.seed + ':' + m.floor; if (VOID.key === key) return VOID.rec; VOID.key = key;
+    const W = m.W, H = m.H, d = new Float32Array(W * H).fill(99);
+    for (let i = 0; i < W * H; i++) if (m.cells[i] !== 0) d[i] = 0;
+    for (let pass = 0; pass < 8; pass++) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = d[y * W + x];
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const X = x + i, Y = y + j; if (X >= 0 && Y >= 0 && X < W && Y < H) v = Math.min(v, d[Y * W + X] + 1); } d[y * W + x] = v; }
+    const cv = VOID.cv || (VOID.cv = document.createElement('canvas')); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) { const x = i % W, y = Math.floor(i / W), e = Math.min(x, y, W - 1 - x, H - 1 - y), v = Math.round(255 * Math.max(SS(3, 6, d[i]), 1 - SS(0, 2.5, e))); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    if (!VOID.rec) VOID.rec = G.canvasTex('void', cv);
+    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, VOID.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
+    return VOID.rec;
+  }
   function seenTex(R) {
-    const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i += 7) n += R.seen[i];
+    const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n += R.seen[i];
     const key = m.seed + ':' + m.floor + ':' + n + ':' + R.rseen.join('');
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = document.createElement('canvas'); }
     const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H);
-    for (let i = 0; i < m.W * m.H; i++) { const v = R.seen[i] ? 255 : 0; im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    const K = [1, 2, 3, 2, 1], W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + 2] * R.seen[y * W + u]; } a[y * W + x] = v / 9; }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + 2] * a[u * W + x]; } b[y * W + x] = v / 9; }
+    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? 0.35 + 0.65 * Math.min(1, b[i] * 1.6) : c === 1 || c === 3 ? 0 : 0.6 * b[i];
+      const v = Math.round(255 * f); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!SEEN.rec) SEEN.rec = G.canvasTex('seen', cv);
     else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SEEN.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
@@ -444,8 +535,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const lavaCells = [];
     if (m.lava) for (let y = Math.floor(cy / TILE) - 1; y <= Math.floor((cy + VH) / TILE) + 1; y++) for (let x = Math.floor(cx / TILE) - 1; x <= Math.floor((cx + VW) / TILE) + 1; x++) if (SIM.cell(m, x, y) === 3) lavaCells.push([x, y]);
     // lava is ground (anyone can stand in it now, so it draws under them); its own short strong lights keep it glowing after lighting
-    for (const [x, y] of lavaCells) { const u0 = ((x * TILE + t * 3) % 256) / 256, v0 = ((y * TILE + t * 2) % 256) / 256;
-      L.sprite('lava_tex', sx(x * TILE), sy(y * TILE), { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / 256, v0 + TILE / 256], u: { grade: [1.1, 0.95 + 0.12 * Math.sin(t * 1.3 + x * 0.7 + y), 0, 1.05] } }); }
+    let lavaXf = null; const lavaU = (mode) => ({ u_t: t, u_mask: lavaTex(m), u_box: lavaBox, u_map: [MW, MH], u_mode: mode });
+    let lavaBox = null;
+    if (lavaCells.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of lavaCells) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      lavaBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; lavaXf = G.xf(sx(lavaBox[0]), sy(lavaBox[1]), lavaBox[2], lavaBox[3]);
+      G.draw(L.P.lava, lavaU(0), lavaXf); }
+    // shallow water, over the same box logic as the lava: the visible water cells' bounds and a cell of rim round them
+    let waterXf = null, waterBox = null; const waterU = (mode) => ({ u_t: t, u_mask: waterTex(m), u_light: LT.light, u_box: waterBox, u_map: [MW, MH], u_col: B.water || [0.07, 0.1, 0.12], u_mode: mode });
+    if (m.water && m.water.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const k of m.water) { const x = k % m.W, y = Math.floor(k / m.W); if ((x + 1) * TILE < cx || x * TILE > cx + VW || (y + 1) * TILE < cy || y * TILE > cy + VH) continue; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      if (x1 >= x0) { waterBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; waterXf = G.xf(sx(waterBox[0]), sy(waterBox[1]), waterBox[2], waterBox[3]); G.draw(L.P.pool, waterU(0), waterXf); } }
     // stairs / boss portal
     if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.FLOORS) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
     // sanctuary: the bonfire's rune circle, and an inlaid threshold wherever the floor leaves the safe zone (its doorways)
@@ -481,7 +580,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // ===== Y-sorted band =====
     const Y = [], knocked = {}; for (const e of ST.ev) if (e.k === 'prop') knocked[e.i] = e;
     const jig = (id) => knocked[id] && knockOf(knocked[id], GT);
-    m.decor.forEach((d, i) => { if (!d.wall && d.secret === undefined && d.n !== 'bones' && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(d.n, sx(d.x), sy(d.y), { dy: 4, j: jig('d' + i) })]); });
+    m.decor.forEach((d, i) => { if (!d.wall && d.secret === undefined && d.n !== 'bones' && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, j: jig('d' + i) })]); });   // lift: candles standing on a table
     for (const c of R.chests) if (vis(c.x, c.y) && !hid(c)) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, 22, 6, 0.5);
       drawProp(op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier >= 2 ? 1.15 : 1, u: { grade: c.tier === 3 ? [1.2, 1.12, 0, 1.1] : c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 }); }]); }
@@ -510,7 +609,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       else { const big = tc.kind === 'fire', j = jig('t' + i), up = big ? 44 : 32, fl = j ? 1 + 0.5 * Math.exp(-4 * (GT - knocked['t' + i].t)) : 1;
         Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp('brazier', sx(tc.x), sy(tc.y), { k: big ? 1.35 : 1, dy: 4, j });
           if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(tc.y) - up, (big ? 56 : 34) * fl, (big ? 80 : 50) * fl, col, i); }]); } });
-    for (const d of m.decor) if (d.n === 'candles' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => { for (let k = 0; k < 3; k++) flameB(sx(d.x) + [-8, 0, 9][k], sy(d.y) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k); }]);
+    for (const d of m.decor) if (d.n === 'candles' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => { for (let k = 0; k < 3; k++) flameB(sx(d.x) + [-8, 0, 9][k], sy(d.y) - (d.lift || 0) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k); }]);
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
@@ -543,7 +642,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 4)), ny = Math.max(1, Math.round((r.h - 2) / 4));
       for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) lt((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 240, col, 0.32, 1.8); }
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) lt(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
-    for (const d of m.decor) if (d.n === 'candles' && !hid(d)) lt(d.x, d.y - 10, 120, [1, 0.7, 0.35], 0.6 * flick(d.y));
+    for (const d of m.decor) if (d.n === 'candles' && !hid(d)) lt(d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y));
     // the shop is lit warm and bright: lanterns by its ways in, a lamp over the counter
     if (m.shop) { for (const q of m.shop.lanterns) lt(q.x, q.y - 40, 190, [1, 0.78, 0.45], 0.85 * flick(q.x)); lt(m.shop.x, m.shop.y - 50, 260, [1, 0.82, 0.55], 0.75); }
     for (const [x, y] of lavaCells) { if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, 140, [1.0, 0.42, 0.12], 0.55 * flick(x * 3 + y)); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2, 1.6); }
@@ -574,10 +673,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
-    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_cam: [cx, cy], u_map: [MW, MH] }); G.blend();
+    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
     // ===== emissive pass =====
     G.blend('add');
+    if (lavaXf) G.draw(L.P.lava, lavaU(1), lavaXf);
+    if (waterXf) G.draw(L.P.pool, waterU(1), waterXf);
     const flame = (x, y, w, hh, col, amt, seed) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: amt, u_col: col }, G.xf(x - w / 2, y - hh, w, hh));
     G.blend();
     G.blend('add');
@@ -809,8 +910,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (!r) continue; const h = R.hero; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; return S; } })();
     if (treasureS) states.push(['treasure', treasureS]);
     // the hoard fully dressed: statues by the rug, vases, a pile of gold
-    { const S = play(); S.run = SIM.newRun(S, 'campaign', 2); const R = S.run, pile = R.pots.find((p) => p.kind === 'goldpile'), r = R.map.rooms[DUNGEON.roomAt(R.map, pile.x, pile.y)], h = R.hero;
-      h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; states.push(['treasure_rich', S]); }
+    for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, pile = R.pots.find((p) => p.kind === 'goldpile'); if (!pile) continue;
+      const r = R.map.rooms[DUNGEON.roomAt(R.map, pile.x, pile.y)], h = R.hero;
+      h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; states.push(['treasure_rich', S]); break; }
     // a hoard spilled: every chest of the treasure room opened and its items settled; none may rest behind a prop
     if (treasureS) { const S = structuredClone(treasureS), R = S.run, rm = R.map.rooms.find((q) => q.type === 'treasure'), h = R.hero, hx = h.x, hy = h.y;
       for (const c of R.chests) if (DUNGEON.roomAt(R.map, c.x, c.y) === rm.id) SIM.openChest(S, R, c);
@@ -828,6 +930,34 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const f of [0, 1]) states.push(['web_' + (f ? 'r' : 'l'), play((S) => { S.run = SIM.newRun(S, 'campaign', 1); const R = S.run, d = R.map.decals.find((o) => o.n === 'dc_web' && o.f === f), h = R.hero;
       if (!d) return; h.x = d.x + (f ? -90 : 90); h.y = d.y + 90; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [d.x - VW / 2, d.y - VH / 2]; })]);
     // the floor's worst-lit room: the one whose farthest cell is farthest from any light
+    // the largest lava pool on the fire floors, close: its straight shores and its outer and inner corners (TASKS 105)
+    { let best = null; for (const seed of [1234, 1, 2, 3]) { const S = play(); S.run = SIM.newRun(S, 'campaign', seed); for (const f of [5, 6]) { SIM.enterFloor(S, S.run, f); const m = S.run.map, seen = new Set();
+        for (let k = 0; k < m.W * m.H; k++) { if (m.cells[k] !== 3 || seen.has(k)) continue; const comp = [], st = [k]; seen.add(k);
+          while (st.length) { const c = st.pop(); comp.push(c); for (const d of [1, -1, m.W, -m.W]) if (m.cells[c + d] === 3 && !seen.has(c + d)) { seen.add(c + d); st.push(c + d); } }
+          if (!best || comp.length > best.n) best = { n: comp.length, seed, f, x: comp.reduce((a, c) => a + c % m.W, 0) / comp.length, y: comp.reduce((a, c) => a + Math.floor(c / m.W), 0) / comp.length }; } } }
+      if (best) states.push(['lava_pool', play((S) => { S.run = SIM.newRun(S, 'campaign', best.seed); const R = S.run; SIM.enterFloor(S, R, best.f); const h = R.hero;
+        R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); h.x = (best.x + 0.5) * TILE; h.y = (best.y + 4) * TILE;
+        R.cam = [(best.x + 0.5) * TILE - VW / 2, (best.y + 0.5) * TILE - VH / 2]; })]); }
+    // shallow water with the hero wading in it, and the same pool seen whole with the hero on its shore (TASKS 106)
+    for (const seed of [1234, 1, 2, 3]) { const S = play(); S.run = SIM.newRun(S, 'campaign', seed); const R = S.run, m = R.map; if (!m.water.length) continue;
+      const k = m.water[Math.floor(m.water.length / 2)], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['water_pool', S]);
+      const S2 = structuredClone(S); S2.run.hero.y += 2.5 * TILE; states.push(['water_shore', S2]); break; }
+    // one room per furnishing plan (data.js ROOM_PLANS), lit and empty, the camera on it
+    for (const plan of Object.keys(D.ROOM_PLANS)) states.push(['plan_' + plan, play((S) => { for (const seed of [1234, 1, 2, 3, 4, 5, 6]) { S.run = SIM.newRun(S, 'campaign', seed); const R = S.run;
+      for (let f = 1; f <= D.FLOORS; f++) { SIM.enterFloor(S, R, f); const m = R.map, rm = m.rooms.filter((q) => q.plan === plan && q.type !== 'start').sort((a, b) => b.w * b.h - a.w * a.h)[0]; if (!rm) continue;
+        const h = R.hero; h.x = (rm.x + 0.5) * TILE; h.y = (rm.y + rm.h - 0.5) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+        R.cam = [(rm.x + rm.w / 2) * TILE - VW / 2, (rm.y + rm.h / 2) * TILE - VH / 2]; return; } } })]);
+    // the fog across a thin wall between two rooms with no passage: the hero's room open whole, the one behind the wall dark (TASKS 104)
+    states.push(['fog_wall', play((S) => { for (const seed of [1234, 1, 2, 3, 4, 5, 6, 7, 8]) { S.run = SIM.newRun(S, 'campaign', seed); const R = S.run, h = R.hero;
+      for (let f = 1; f <= D.FLOORS; f++) { SIM.enterFloor(S, R, f); const m = R.map;
+        for (const A of m.rooms) for (const B of m.rooms) for (const vert of [0, 1]) { if (A === B || A.type === 'secret' || B.type === 'secret') continue;
+          const a0 = vert ? A.y : A.x, aw = vert ? A.h : A.w, b0 = vert ? B.y : B.x, gap = b0 - (a0 + aw); if (gap < 1 || gap > 2) continue;
+          const o0 = Math.max(vert ? A.x : A.y, vert ? B.x : B.y), o1 = Math.min(vert ? A.x + A.w : A.y + A.h, vert ? B.x + B.w : B.y + B.h); if (o1 - o0 < 3) continue;
+          let shut = true; for (let v = o0 - 1; v <= o1; v++) for (let u = a0 + aw; u < b0; u++) if ((vert ? SIM.cell(m, v, u) : SIM.cell(m, u, v)) !== 0) shut = false;
+          if (!shut) continue; const mid = Math.floor((o0 + o1) / 2), hx = vert ? mid : a0 + aw - 1, hy = vert ? a0 + aw - 1 : mid;
+          R.en = R.en.filter((e) => e.room === B.id); R.msg = null; h.x = (hx + 0.5) * TILE; h.y = (hy + 0.5) * TILE; SIM.step(S, { px: 960, py: 540, keys: [] });
+          R.cam = [(vert ? h.x : (A.x + A.w + gap / 2) * TILE) - VW / 2, (vert ? (A.y + A.h + gap / 2) * TILE : h.y) - VH / 2]; return; } } } })]);
     states.push(['dark_room', play((S) => { const R = S.run, m = R.map, LR = DUNGEON.LIGHT_R, ls = m.torches.map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n]).map((d) => [d.x, d.y, LR[d.n]]));
       const worst = (r) => { let v = 0; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) v = Math.max(v, Math.min(...ls.map(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE) / 0.8) / (lr * TILE)))); return v; };
       const r = m.rooms.filter((q) => q.type !== 'shop' && q.id !== m.start).reduce((a, b) => (worst(b) > worst(a) ? b : a)), h = R.hero;

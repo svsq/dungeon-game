@@ -122,6 +122,14 @@
         // ones the camera faces), or a mechanism somewhere near (a loose flagstone, a sconce that pulls down) that sinks it
         const kind = pick(dir === 'u' ? ['crack', 'banner', 'banner', 'shelf', 'shelf', 'lever', 'lever'] : ['crack', 'crack', 'lever', 'lever', 'lever']);
         secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0, kind }); } }
+    // ---- shallow water (dungeon, crypt and hall floors): a few pools on a room's floor, clear of its ways in; the cells stay
+    // floor (anyone wades through, slowed, and a burning one is put out: sim.js) and keep props and posts off them ----
+    const water = []; let pools = 0;
+    if (!D.BIOMES[biome].lava && !boss) for (const r of rooms) { if (pools >= 3 || r.type === 'start' || r.type === 'shop' || r.type === 'secret' || r.w < 7 || r.h < 6 || R() > 0.35) continue;
+      for (let k = 0; k < 6; k++) { const pw = ri(2, Math.min(4, r.w - 4)), ph = ri(2, Math.min(3, r.h - 4)), px = ri(r.x + 1, r.x + r.w - 1 - pw), py = ri(r.y + 2, r.y + r.h - 1 - ph), got = [];
+        for (let y = py; y < py + ph; y++) for (let x = px; x < px + pw; x++) { if ((x === px || x === px + pw - 1) && (y === py || y === py + ph - 1) && pw > 2 && ph > 2 && R() < 0.6) continue;
+          if (at(x, y) === 1 && !isDoor(x, y) && !isDoor(x - 1, y) && !isDoor(x + 1, y) && !isDoor(x, y - 1) && !isDoor(x, y + 1) && !water.includes(y * W + x)) got.push(y * W + x); }
+        if (got.length >= 3) { water.push(...got); pools++; break; } } }
     // ---- contents ----
     // a cell next to a corridor mouth: any neighbour outside every room that is open floor
     const inRoom = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
@@ -137,6 +145,7 @@
     const spot = (r, inset = 1, pad = 0, big = false) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + inset, r.x + r.w - 1 - inset), y = ri(r.y + inset, r.y + r.h - 1 - inset);
       if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y, big === true ? 'chest' : big))) { used.add(key(x, y)); if (big) claim(x, y, big === true ? 'chest' : big); return [x, y]; } } return null; };
     for (const sc of secrets) for (const [x, y] of sc.front) used.add(key(x, y));
+    for (const k of water) used.add(key(k % W, Math.floor(k / W)));
     const wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2 + 6;
     const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [], shrines = [], rugs = [];
     // the top wall: what hangs on it (torches, sconces, banners, the shop sign) and the tall props standing against it (columns,
@@ -227,8 +236,75 @@
       for (const x of [r.x + 1, r.x + r.w - 2]) if (!at(x, r.y - 1) && Math.abs(x - cx) > 3 && !tallAt(wx(x), r.y, HANG.wall)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
       along('shop_gold'); along('shop_crate'); lightRoom(r, shop.lanterns.map((q) => [q.x, q.y, LIGHT_R.wall]).concat([[shop.x, shop.y, LIGHT_R.fire]]), true); }
     if (!shop) return null;
+    // a room furnished to a plan (data.js ROOM_PLANS): every solid piece keeps all of the room's open floor reachable from its ways in
+    let stackN = 0;
+    const furnish = (r, zb) => {
+      const inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, cellOf = (o) => key(Math.floor(o.x / TILE), Math.floor((o.y - 1) / TILE));
+      const hard = new Set([...chests, ...pots, ...torches.filter((t) => t.kind !== 'wall'), ...decor.filter((d) => d.solid && !d.wall)].map(cellOf));
+      if (r.type === 'shrine') hard.add(key(r.cx, r.cy));
+      const mouths = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const c = at(x + dx, y + dy); return (c === 1 || c === 4) && !inR(x + dx, y + dy); })) mouths.push([x, y]);
+      const open = (x, y) => inR(x, y) && at(x, y) === 1 && !hard.has(key(x, y));
+      const keeps = (cells) => { for (const [x, y] of cells) hard.add(key(x, y)); let total = 0; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (open(x, y)) total++;
+        const st = mouths.filter(([x, y]) => open(x, y)), seen = new Set(st.map(([x, y]) => key(x, y)));
+        while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = key(nx, ny); if (open(nx, ny) && !seen.has(k)) { seen.add(k); st.push([nx, ny]); } } }
+        const ok = !mouths.length || (seen.size === total && mouths.every(([x, y]) => open(x, y))); if (!ok) for (const [x, y] of cells) hard.delete(key(x, y)); return ok; };
+      const pool = new Set([...D.BIOMES[zb].props, ...(r.zone === 'crypt' ? ['coffin', 'grave'] : []), ...(r.zone === 'arcane' ? ['crystal'] : [])]), has = (ns) => ns.filter((n) => pool.has(n));
+      const kinds = r.type === 'start' ? ['store'] : r.type === 'boss' || r.type === 'shrine' ? ['hall', 'gallery', 'crypt', 'sanctum'] : Object.keys(D.ROOM_PLANS);
+      let fit = kinds.filter((k) => { const P = D.ROOM_PLANS[k]; return !P.need.length || has(P.need).length; });
+      if (r.zone === 'crypt' && fit.includes('crypt')) fit = ['crypt']; if (r.zone === 'arcane' && fit.includes('sanctum')) fit = ['sanctum'];
+      if (!fit.length) return;
+      let roll = R() * fit.reduce((a, k) => a + D.ROOM_PLANS[k].w, 0), plan = fit[0]; for (const k of fit) { roll -= D.ROOM_PLANS[k].w; if (roll < 0) { plan = k; break; } }
+      const P = D.ROOM_PLANS[plan], busy = r.type === 'boss' || r.type === 'shrine' || r.type === 'start', c2 = 2 * r.x + r.w - 1;
+      r.plan = plan;
+      // the back wall: one kind of tall prop, evenly spaced or mirrored about the room's axis
+      const backOK = (x, n) => x > r.x && x < r.x + r.w - 1 && at(x, r.y - 1) === 0 && free(x, r.y) && free(x, r.y + 1) && roomy(x, r.y, n) && roomyCell(x, r.y + 1) && !doorway(x, r.y) && !hungAt(wx(x), r.y, half(n)) && keeps([[x, r.y]]) && (hard.delete(key(x, r.y)), true);
+      const putBack = (x, n) => { claim(x, r.y, n); used.add(key(x, r.y + 1)); bulk.add(key(x, r.y + 1)); hard.add(key(x, r.y)); decor.push({ x: wx(x), y: r.y * TILE + 22, n, solid: 1, r: r.id }); };
+      const bn = P.back && has(P.back.n)[0];
+      if (bn) { const step = Math.ceil((D.PROP_W[bn] + 8) / TILE);
+        if (P.back.mode === 'row') { let k = Math.min(P.back.max, 1 + Math.floor((r.w - 3) / step)); const x0 = Math.round(c2 / 2 - (k - 1) * step / 2);
+          for (let q = 0; q < k; q++) for (const d of [0, 1, -1]) { const x = x0 + q * step + d; if (backOK(x, bn)) { putBack(x, bn); break; } } }
+        else { let placed = 0; const cn = P.back.center && pool.has(P.back.center) ? P.back.center : null;
+          if (cn && c2 % 2 === 0 && backOK(c2 / 2, cn)) putBack(c2 / 2, cn);
+          for (let x = Math.floor((c2 - 1) / 2); x > r.x && placed < P.back.max; x--) { const xm = c2 - x;
+            if (xm <= x || Math.abs(wx(xm) - wx(x)) < D.PROP_W[bn] + 4 || !backOK(x, bn) || !backOK(xm, bn)) continue;
+            putBack(x, bn); putBack(xm, bn); placed++; x -= step - 1; } } }
+      // the floor: coffins or crystals in mirrored rows with an aisle down the middle, the front row and the walls' lanes kept open
+      const floorOK = (x, y, n) => x > r.x && x < r.x + r.w - 1 && free(x, y) && !doorway(x, y) && roomy(x, y, n);
+      const putFloor = (x, y, n) => { claim(x, y, n); hard.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n, solid: 1, r: r.id }); };
+      const fn = P.floor && !busy && has(P.floor.n)[R() < 0.5 ? 0 : has(P.floor.n).length - 1];
+      if (fn && r.w >= 7 && r.h >= 6) { const a0 = Math.max(2, Math.ceil((D.PROP_W[fn] + 4) / (2 * TILE))), x = Math.floor((c2 - 2 * a0) / 2), xm = c2 - x;
+        const rows = P.floor.mode === 'pair' ? [r.y + Math.floor(r.h / 2)] : []; if (P.floor.mode === 'rows') for (let y = r.y + 3; y <= r.y + r.h - 2; y += 2) rows.push(y);
+        for (const y of rows) if (xm - x >= 2 && floorOK(x, y, fn) && floorOK(xm, y, fn) && Math.abs(wx(xm) - wx(x)) >= D.PROP_W[fn] + 4 && keeps([[x, y], [xm, y]])) { putFloor(x, y, fn); putFloor(xm, y, fn); } }
+      // stacks of barrels and crates in corners, read as one pile (they overlap on purpose)
+      const corners = [[r.x, r.y + r.h - 1, 1, -1], [r.x + r.w - 1, r.y + r.h - 1, -1, -1], [r.x, r.y, 1, 1], [r.x + r.w - 1, r.y, -1, 1]];
+      for (let q = corners.length - 1; q > 0; q--) { const z = Math.floor(R() * (q + 1)); [corners[q], corners[z]] = [corners[z], corners[q]]; }
+      let stacks = r.type === 'start' ? Math.min(1, P.stacks || 0) : P.stacks || 0;
+      for (const [x0, y0, ix, iy] of corners) { if (stacks <= 0) break; if (at(x0 - ix, y0) !== 0 || at(x0, y0 - iy) !== 0) continue;
+        const cells = [[x0, y0], [x0 + ix, y0], [x0, y0 + iy]].slice(0, 2 + (R() < 0.6 ? 1 : 0)).filter(([x, y]) => inR(x, y) && free(x, y) && !doorway(x, y) && roomyCell(x, y) && !wide.some(([ex, ey, eh]) => Math.abs(ey - y) <= 1 && Math.abs(ex - wx(x)) < eh + 28));
+        if (cells.length < 2 || !keeps(cells)) continue; stacks--; stackN++;
+        for (const [x, y] of cells) { const kind = R() < 0.5 ? 'barrel' : 'crate'; used.add(key(x, y)); bulk.add(key(x, y)); pots.push({ x: wx(x), y: wy(y), kind, hp: 1, stack: stackN }); }
+        for (const [x, y] of cells) wide.push([wx(x), y, 24]); }
+      // a table by a side wall with candles burning on it
+      if (P.table && !busy && R() < P.table) { const side = R() < 0.5 ? -1 : 1, x = side < 0 ? r.x + 1 : r.x + r.w - 2, mid = r.y + Math.floor(r.h / 2);
+        for (const y of [mid, mid + 1, mid - 1, mid + 2]) if (y > r.y + 1 && y < r.y + r.h - 1 && floorOK(x, y, 'table') && keeps([[x, y]])) { putFloor(x, y, 'table'); decor.push({ x: wx(x) + ri(-5, 5), y: wy(y) + 1, n: 'candles', lift: 22 }); break; } }
+      // pots in a line along one side wall
+      if (P.side && !busy) { const x = R() < 0.5 ? r.x : r.x + r.w - 1, s = x === r.x ? -1 : 1; let n = 0;
+        for (let y = r.y + 2; y < r.y + r.h - 1 && n < 3; y += 2) if (at(x + s, y) === 0 && free(x, y) && !doorway(x, y) && roomy(x, y, P.side) && keeps([[x, y]])) { claim(x, y, P.side); pots.push({ x: wx(x), y: wy(y), kind: P.side, hp: 1 }); n++; } }
+      // bones by the walls, never strewn across the floor
+      for (let q = 0, n = ri(0, P.bones || 0); q < n; q++) for (let k = 0; k < 20; k++) { const side = ri(0, 2), x = side === 0 ? r.x : side === 1 ? r.x + r.w - 1 : ri(r.x, r.x + r.w - 1), y = side === 2 ? r.y + r.h - 1 : ri(r.y + 1, r.y + r.h - 1);
+        if (free(x, y) && !doorway(x, y)) { used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: 'bones' }); break; } } };
+    // a chest stands against a side or the front wall, out of the ways in
+    const wallSpot = (r, n) => { const c = []; for (let y = r.y + 2; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+        if (!(x === r.x && at(x - 1, y) === 0) && !(x === r.x + r.w - 1 && at(x + 1, y) === 0) && !(y === r.y + r.h - 1 && at(x, y + 1) === 0)) continue;
+        if (free(x, y) && !doorway(x, y) && roomy(x, y, n)) c.push([x, y]); }
+      if (!c.length) return null; const p = c[Math.floor(R() * c.length)]; used.add(key(...p)); claim(...p, n); return p; };
     for (const r of rooms) { if (r.type === 'shop') continue;
       const area = r.w * r.h, zb = r.zone || biome;
+      // the hoard's centrepiece, as in the reference: a rug running from the top wall with the best chest on it
+      let first = null;
+      if (r.type === 'treasure' && r.w >= 7 && r.h >= 6) { const y0 = r.y + 1; rugs.push({ cx: wx(r.cx), y: y0 * TILE - 6, h: Math.min(r.h - 2, 4.4) * TILE });
+        if (free(r.cx, y0 + 1) && roomy(r.cx, y0 + 1)) { claim(r.cx, y0 + 1); first = [r.cx, y0 + 1]; } }
+      if (r.type !== 'treasure' && r.type !== 'secret') furnish(r, zb);   // a secret room is a small cache: its chest and gold need the space
       if (r.type === 'combat' || r.type === 'exit' || r.type === 'treasure') {
         let n = Math.min(Math.floor(area / 9), 2 + Math.floor(floor / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
         n = Math.max(1, Math.round(n * D.BAL.pop));
@@ -241,38 +317,20 @@
       if (r.type === 'boss') { addEnemy('boss', r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < Math.round(4 * D.BAL.pop); i++) { const p = spot(r, 2); if (p) addEnemy(pick(roster.filter((t) => t !== 'brute')), p[0], p[1], r.id); } }
       // chests
       const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.2 ? 1 : 0);
-      // the hoard's centrepiece, as in the reference: a rug running from the top wall with the best chest on it
-      let first = null;
-      if (r.type === 'treasure' && r.w >= 7 && r.h >= 6) { const y0 = r.y + 1; rugs.push({ cx: wx(r.cx), y: y0 * TILE - 6, h: Math.min(r.h - 2, 4.4) * TILE });
-        if (free(r.cx, y0 + 1) && roomy(r.cx, y0 + 1)) { claim(r.cx, y0 + 1); first = [r.cx, y0 + 1]; } }
-      for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' ? 3 : r.type === 'treasure' ? 2 : 1, open: 0 }); }
-      // the hoard's dressing: a statue each side of the rug against the back wall, vases about the room, now and then a small
+      for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : (r.type === 'secret' ? spot(r, 1, 0, true) : null) || wallSpot(r, 'chest') || spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' ? 3 : r.type === 'treasure' ? 2 : 1, open: 0 }); }
+      // the hoard's dressing: a statue each side of the rug against the back wall, vases along the walls, now and then a small
       // pile of gold
       if (r.type === 'treasure') {
         for (const side of [-1, 1]) for (const d of [3, 4, 2]) { const x = r.cx + side * d; if (x <= r.x || x >= r.x + r.w - 1 || at(x, r.y - 1) !== 0 || !free(x, r.y) || !free(x, r.y + 1) || !roomy(x, r.y, 'statue') || doorway(x, r.y) || hungAt(wx(x), r.y, half('statue'))) continue;
           claim(x, r.y, 'statue'); used.add(key(x, r.y + 1)); decor.push({ x: wx(x), y: r.y * TILE + 22, n: 'statue', solid: 1, r: r.id }); break; }
-        for (let i = 0, n = ri(2, 4); i < n; i++) { const kind = pick(['vase_a', 'vase_b', 'vase_c']), p = spot(r, 1, 0, kind); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind, hp: 1 }); }
-        if (R() < 0.25) { const p = spot(r, 1, 0, 'goldpile'); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); } }
-      // breakables along the walls
-      for (let i = 0, n = ri(1, 4); i < n; i++) { const side = ri(0, 3), x = side === 0 ? r.x : side === 1 ? r.x + r.w - 1 : ri(r.x, r.x + r.w - 1),
-        y = side === 2 ? r.y : side === 3 ? r.y + r.h - 1 : ri(r.y, r.y + r.h - 1);
-        const out = side === 0 ? at(x - 1, y) : side === 1 ? at(x + 1, y) : side === 2 ? at(x, y - 1) : at(x, y + 1);
-        const kind = R() < 0.5 ? 'pot' : R() < 0.5 ? 'barrel' : 'crate'; if (free(x, y) && out === 0 && !doorway(x, y) && roomy(x, y, kind)) { claim(x, y, kind); pots.push({ x: wx(x), y: wy(y), kind, hp: 1 }); } }
+        for (let i = 0, n = ri(2, 4); i < n; i++) { const kind = pick(['vase_a', 'vase_b', 'vase_c']), p = wallSpot(r, kind); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind, hp: 1 }); }
+        if (R() < 0.25) { const p = wallSpot(r, 'goldpile'); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); } }
       // a heap of gold is a secret room's reward only (a rich one), never left lying in the open
       if (r.type === 'secret') { const p = spot(r, 1, 0, 'gold'); if (p) pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'gold', hp: 1, rich: 1 }); }
-      // torches on the top wall face (cells above the room's first row that are rock), every 4–5 tiles
+      // torches on the top wall face (cells above the room's first row that are rock), every 4–5 tiles, between the tall props
       for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y) && !tallAt(wx(x), r.y, HANG.wall)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
-      if (r.type !== 'start' && r.type !== 'secret' && R() < 0.5) { const p = spot(r, 1, 0, 'brazier'); if (p) torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); }
-      // decor
-      for (let i = 0, n = ri(1, 3); i < n; i++) { const n2 = pick(['bones', 'candles', 'bones', 'table']), p = spot(r, 1, 0, n2 === 'table' && 'table'); if (p) decor.push(n2 === 'table' ? { x: wx(p[0]), y: wy(p[1]), n: n2, solid: 1, r: r.id } : { x: wx(p[0]), y: wy(p[1]), n: n2 }); }
       for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5 && !tallAt(wx(x), r.y, HANG.banner) && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < 1.5 * TILE && Math.abs(t.y - r.y * TILE) < TILE)) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
-      // big biome props standing against the top wall (solid)
-      for (let x = r.x + 1 + ri(0, 2); x < r.x + r.w - 1; x += ri(2, 5)) { const n = pick(D.BIOMES[zb].props);
-        if (R() < 0.3 || !free(x, r.y) || !free(x, r.y + 1) || !roomy(x, r.y, n) || !roomyCell(x, r.y + 1) || at(x, r.y - 1) !== 0 || doorway(x, r.y) || hungAt(wx(x), r.y, half(n))) continue; claim(x, r.y, n); used.add(key(x, r.y + 1)); bulk.add(key(x, r.y + 1));
-        decor.push({ x: wx(x), y: r.y * TILE + 22, n, solid: 1, r: r.id }); }
-      for (let i = 0, n = ri(1, 3); i < n; i++) { const x = ri(r.x + 1, r.x + r.w - 2); if (!free(x, r.y) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; used.add(key(x, r.y)); decor.push({ x: wx(x) + ri(-6, 6), y: r.y * TILE + 20, n: 'candles' }); }
-      if (r.zone === 'arcane') for (let i = 0; i < 2; i++) { const p = spot(r, 2, 0, 'crystal'); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n: 'crystal', solid: 1, r: r.id }); }
-      if (r.zone === 'crypt') for (let i = 0; i < 2; i++) { const n = R() < 0.5 ? 'coffin' : 'grave', p = spot(r, 2, 0, n); if (p) decor.push({ x: wx(p[0]), y: wy(p[1]), n, solid: 1, r: r.id }); }
+      for (let i = 0, n = ri(1, 2); i < n; i++) { const x = ri(r.x + 1, r.x + r.w - 2); if (!free(x, r.y) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; used.add(key(x, r.y)); decor.push({ x: wx(x) + ri(-6, 6), y: r.y * TILE + 20, n: 'candles' }); }
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });
       lightRoom(r, []);
     }
@@ -344,7 +402,7 @@
       for (let i = 0; i < n; i++) { const x = r.x + R() * r.w, y = r.y + 0.5 + R() * (r.h - 0.5); if (at(Math.floor(x), Math.floor(y)) !== 1) continue;
         const fight = r.type === 'combat' || r.type === 'exit' || r.type === 'boss';
         const pool = (fight || r.type === 'treasure' || r.type === 'secret') && R() < 0.35 ? ['dc_blood', 'dc_blood2', 'dc_coins', 'dc_bones', 'dc_sword'] : DEC[zb];
-        decals.push({ x: x * TILE, y: y * TILE, n: pool[Math.floor(R() * pool.length)], f: R() < 0.5 ? 1 : 0, s: 0.8 + 0.5 * R() }); } }
+        if (water.includes(Math.floor(y) * W + Math.floor(x))) continue; decals.push({ x: x * TILE, y: y * TILE, n: pool[Math.floor(R() * pool.length)], f: R() < 0.5 ? 1 : 0, s: 0.8 + 0.5 * R() }); } }
     // cobwebs: the sprite is spun across a top-left corner, so a web only ever hangs in a room's top corner where the back wall
     // meets a side wall (mirrored for the right one), more of them in the crypt and the halls than in the fire depths
     const WEB = { crypt: 0.6, arcane: 0.6, dungeon: 0.35, lava: 0.15 };
@@ -361,7 +419,7 @@
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); for (const [x, y] of shop.solid) bl(x, y);
     return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length };
+      enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, water };
   }
 
   // room index of a world point (or -1 in a corridor)
