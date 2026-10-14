@@ -11,7 +11,8 @@ node live/tune.cjs                                   # демо, demoCheck, self
 node ~/.claude/skills/ref2game/scripts/qa.mjs        # → frames/qa/ (кадры состояний, листы циклов, report.json)
 node tools/swingcheck.mjs                            # → frames/swing/
 node tools/lootvis.mjs                               # → frames/lootvis/
-for s in 1 2 3 4 5; do node tools/playtest.cjs $s; done > frames/playtest_r2.txt   # бот по кампании: этажи, время, уровень, HP, убийства
+node tools/difficulty.cjs --seeds 1-40 --runs 2 > frames/difficulty.txt   # бот-игрок трёх уровней: победы, гибель по этажам, HP, зелья, уклонения
+for s in 1 2 3 4 5; do node tools/playtest.cjs $s; done > frames/playtest_r2.txt   # средний бот по кампании: этажи, время, уровень, HP, убийства
 for n in merchant skeleton goblin cultist; do sh tools/rig_$n.sh >/dev/null; done   # пересборка ригов; в конце каждого jointgap
 ```
 
