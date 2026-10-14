@@ -178,8 +178,8 @@
 
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
   const UI = {
-    menu: (hasRun, diff) => {
-      const items = [['continue', 'Продолжить забег', hasRun], ['campaign', hasRun ? 'Новая кампания (сброс)' : 'Кампания — 8 этажей', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
+    menu: (hasRun, diff, arm) => {
+      const items = [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 8 этажей' : arm ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
         ['endless', 'Бесконечный спуск (WIP)', false], ['meta', 'Алтарь душ', true]];
       return items.map(([id, label, on], i) => ({ id, label, on, x: 760, y: 440 + i * 86, w: 400, h: 72 }));
     },
