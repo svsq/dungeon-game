@@ -24,9 +24,9 @@ const metaNext = (S) => D.META.filter((M) => (S.meta.up[M.id] || 0) < M.max && S
   .sort((a, b) => a.cost(S.meta.up[a.id] || 0) - b.cost(S.meta.up[b.id] || 0))[0];
 const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.meta.shards >= D.giftCost(tier, R.floor));
 
-function play({ seed = 1, profile = 'average', runs = 1, log = () => {} } = {}) {
+function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = () => {} } = {}) {
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
-  const S = SIM.spawn(0, {}); S.seedBase = seed; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
+  const S = SIM.spawn(0, {}); S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
   const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
   let cur = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
   const fresh = () => ({ floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });

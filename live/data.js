@@ -33,7 +33,10 @@
 
   // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2);
   // a kill pays double so XP and loot per floor stay where they were
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2 };
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2, spike: 0.12 };   // spike: share of max HP per stab, through armour
+  // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
+  const DIFF = { easy: { name: 'Лёгкая', dmg: 0.7, hp: 0.8, xp: 1.25 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.35, hp: 1.25, xp: 0.85 } };
+  const DIFF_ORDER = ['easy', 'normal', 'hard'];
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
@@ -103,7 +106,7 @@
 
   const ABILITIES = [
     { id: 'whirl', name: 'Вихрь клинка', icon: 'ab_whirl', key: '1', unlock: 1, mp: 10, cd: 6, desc: 'Круговой удар: {d}% атаки всем рядом' },
-    { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 1.4, desc: 'Огненный взрыв: {d} урона' },
+    { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 0.5, desc: 'Огненный взрыв: {d} урона' },
     { id: 'shield', name: 'Магический щит', icon: 'ab_shield', key: '3', unlock: 4, mp: 20, cd: 16, desc: 'Барьер на 5 с: {d} урона' },
   ];
   // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
@@ -152,7 +155,7 @@
   // a floor's takings in shards are about the floor's number: a cheap gift is most of a floor, the dear one three
   const giftCost = (tier, f) => Math.round([0, 4, 9, 16][tier] * (1 + 0.15 * (f - 1)));
 
-  const xpNeed = (lvl) => Math.round(24 * Math.pow(lvl, 1.55));
+  const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
   // the merchant: one per floor. A bot clearing a floor brings home ~150 + 200 × floor gold, so a floor's takings buy one
   // piece a rarity above what it drops, or a few potions; loot sells back for a quarter
@@ -173,10 +176,10 @@
 
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
   const UI = {
-    menu: (hasRun) => {
-      const items = [['continue', 'Продолжить забег', hasRun], ['campaign', hasRun ? 'Новая кампания (сброс)' : 'Кампания — 8 этажей', true], ['endless', 'Бесконечный спуск (WIP)', false],
-        ['meta', 'Алтарь душ', true]];
-      return items.map(([id, label, on], i) => ({ id, label, on, x: 760, y: 470 + i * 92, w: 400, h: 72 }));
+    menu: (hasRun, diff) => {
+      const items = [['continue', 'Продолжить забег', hasRun], ['campaign', hasRun ? 'Новая кампания (сброс)' : 'Кампания — 8 этажей', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
+        ['endless', 'Бесконечный спуск (WIP)', false], ['meta', 'Алтарь душ', true]];
+      return items.map(([id, label, on], i) => ({ id, label, on, x: 760, y: 440 + i * 86, w: 400, h: 72 }));
     },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? 'Скрыть секреты' : 'Открыть все секреты', on: true, x: 520, y: 16, w: 430, h: 60 },
@@ -225,7 +228,7 @@
     crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, BIOMES, FLOORS, biomeOf, floorName, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

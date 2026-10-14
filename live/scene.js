@@ -186,14 +186,24 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     return { blade, k, bend, fs, start, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
   }
   const DEPTH_K = 0.65;   // the 3/4 camera's squeeze of floor depth
+  // the whirl's turn (0..1) over WHIRL_T s: speeds up and slows down over 0.1 s, so the blade neither starts nor stops dead
+  const WHIRL_T = 0.4, whirlP = (t) => { const a = 0.1, v = 1 / (WHIRL_T - a); t = Math.max(0, Math.min(WHIRL_T, t));
+    return t < a ? v * t * t / (2 * a) : t < WHIRL_T - a ? v * (t - a / 2) : 1 - v * (WHIRL_T - t) ** 2 / (2 * a); };
   SC.swingPose = swingPose; SC.SWING = SWING; SC.hide = {};   // hide: QA-only switches (weapon) for render-twice checks
   function drawHero(h, hx, hy, GT, st, o = {}) {
-    const P = heroPose(h, GT, st), { RG, s, run } = P, face = h.face, gx = RG.gap, gy = RG.footL[1];
-    const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, casting = GT - h.castT < 0.3 && h.castK !== 'whirl', whirlU = (GT - h.whirlT) / 0.32;
+    const P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
+    const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && h.castK !== 'whirl';
+    // whirl: the hand and blade sweep a ground ellipse at waist height around the body from the aim, behind it while pointing away;
+    // eased in from the current pose and out of a crouch
+    const wt = GT - h.whirlT, whirlE = wt >= 0 ? SS(0, 0.14, wt) * (1 - SS(WHIRL_T, WHIRL_T + 0.14, wt)) : 0, wa0 = h.whirlA ?? h.aim;
+    const wTh0 = Math.atan2(Math.sin(wa0) / DEPTH_K, Math.cos(wa0)), whirlTh = wTh0 + Math.PI * 2 * whirlP(wt);
+    // a turn narrows the rig to a sliver and opens it mirrored instead of flipping it in one frame; fX is the rig's signed x scale
+    const tu = (GT - (h.faceT ?? -9)) / 0.12, fX = tu >= 0 && tu < 1 ? h.face * (tu < 0.5 ? -(1 - 0.9 * SS(0, 0.5, tu)) : 0.1 + 0.9 * SS(0.5, 1, tu)) : h.face, face = fX >= 0 ? 1 : -1;
+    const pdx = P.dirx * face * h.face;
     const hurt = GT - h.hurtT < 0.12, alpha = o.alpha === undefined ? 1 : o.alpha;
     // body: hip rides the stance leg (low at double support), slow breath at rest
     const dbl = 0.5 + 0.5 * Math.cos(4 * Math.PI * P.u0), breath = (1 - run) * Math.sin(GT * 2.1) * 0.9;
-    const bodyDy = run * (2.6 - 0.9 * Math.abs(P.dirx)) * dbl + breath * 1.4;
+    const bodyDy = run * (2.6 - 0.9 * Math.abs(pdx)) * dbl + breath * 1.4;
     // dash and hurt lean the upper body about the hip (the feet stay planted): eased in and out, never a one-frame switch
     const dA = GT - h.dashT, dashE = SS(0, 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
     const hA = GT - h.hurtT, hurtE = h.deadT >= 0 ? 0 : SS(0, 0.07, hA) * (1 - SS(0.12, 0.3, hA));
@@ -206,9 +216,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const du = h.deadT >= 0 ? GT - h.deadT : -1, buckle = du >= 0 ? SS(0, 0.15, du) : 0, fq = Math.min(1, Math.max(0, (du - 0.12) / 0.35));
     const fallR = du < 0 ? 0 : -face * (0.1 * buckle + 1.32 * (2.4 * fq * fq - 1.4 * fq * fq * fq) - (du > 0.47 ? 0.03 * Math.sin(Math.PI * Math.min(1, (du - 0.47) / 0.16)) : 0));
     const fc = Math.cos(fallR), fs = Math.sin(fallR);
-    const root = [hx, hy], R2S = (px, py, dy = 0) => { const x = face * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
+    const root = [hx, hy], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
     const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, U = { alpha, grade: hurt ? [0.4, 2.4, 0, 1] : [dk, dk, 0, 1] }, Ufar = { alpha, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * dk, 0.72 * dk, 0, 1] };
-    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0) => L.sprite('hero__' + n, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(face, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s], u });
+    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0) => L.sprite('hero__' + n, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s], u });
     const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
     const dist2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
     const id = o.id || 'hero';
@@ -217,8 +227,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const side of ['L', 'R']) {
       const A0 = RG['ankle' + side], u = ((P.u0 + (side === 'L' ? 0 : 0.5)) % 1), A = P.sl / 2 / s * run;   // half a step in rig px: stance slides back at body speed
       let off, lift = 0;
-      if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2, e = SS(0.12, 0.95, w); off = -A + 2 * A * e; lift = Math.pow(Math.sin(Math.PI * w), 0.6) * (13 + 2 * Math.abs(P.dirx)) * run; }
-      tg[side] = { tx: A0[0] + off * P.dirx + (side === 'L' ? -9 : 9) * (1 - run * 0.6), ty: A0[1] - lift, lift, dz: off * P.diry - 0.5 * A * Math.abs(P.diry) };
+      if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2, e = SS(0.12, 0.95, w); off = -A + 2 * A * e; lift = Math.pow(Math.sin(Math.PI * w), 0.6) * (13 + 2 * Math.abs(pdx)) * run; }
+      tg[side] = { tx: A0[0] + off * pdx + (side === 'L' ? -9 : 9) * (1 - run * 0.6), ty: A0[1] - lift, lift, dz: off * P.diry - 0.5 * A * Math.abs(P.diry) };
     }
     // the dash pose: the near leg reaches toward the dash, the far one trails with its knee bent (the gait does not run while dashing)
     if (dashE > 0) { tg.R.tx += 12 * dashE * dashF; tg.L.tx -= 16 * dashE * dashF; tg.L.ty -= 12 * dashE; tg.L.lift = Math.max(tg.L.lift, 12 * dashE); }
@@ -226,7 +236,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     let drop = 0;
     for (const side of ['L', 'R']) { const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], Lm = 0.955 * (dist2(H0, K0) + dist2(K0, A0)), dx = tg[side].tx - H0[0];
       drop = Math.max(drop, tg[side].ty - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx * dx))); }
-    const hipDy = Math.max(bodyDy / s, drop) + 48 * buckle + 10 * dashE + 8 * hurtE;
+    const hipDy = Math.max(bodyDy / s, drop) + 48 * buckle + 10 * dashE + 8 * hurtE + 7 * whirlE;
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0], Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
     const R2U = (px, py, dy = 0) => { const p = R2S(px, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };
     for (const side of ['L', 'R']) {
@@ -246,13 +256,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const aimL = face > 0 ? h.aim : Math.PI - h.aim;                       // aim in rig space (mirrored for left)
     const W = WEAPON[st.wtype];
     let bladeA = null, armR = null;
-    if (whirlU >= 0 && whirlU < 1) { bladeA = aimL + whirlU * Math.PI * 2; }
     let swingK = 0, bend = 0, bladeFs = 1, armA = 0;
     // the swing aims along shoulder → target (chest height at 0.8 reach), not along the raw aim from the feet, so the blade crosses
     // the body it hits even when the arm is raised for an uppercut
     const swAim = (a) => { const sh = R2U(RG.shR[0], RG.shR[1] + hipDy), tx = hx + Math.cos(a) * st.reach * 0.8, ty = hy + Math.sin(a) * st.reach * 0.8 - 34, g = Math.atan2(ty - sh[1], tx - sh[0]);
       return face > 0 ? g : Math.PI - g; };
-    if (!(whirlU >= 0 && whirlU < 1) && swinging) { const arcR = st.arc * Math.PI / 180, pT = GT - (h.patkT === undefined ? -9 : h.patkT);
+    if (whirlE === 0 && swinging) { const arcR = st.arc * Math.PI / 180, pT = GT - (h.patkT === undefined ? -9 : h.patkT);
       const prev = pT < SWING.end && h.patkT < h.atkT ? swingPose(pT, swAim(h.patkA), arcR, -0.95) : null;
       const sw = swingPose(atkT, swAim(h.atkA), arcR, -0.95, prev);
       bladeA = sw.blade; armA = sw.arm; swingK = sw.k; bend = sw.bend; bladeFs = sw.fs; }
@@ -265,15 +274,26 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     };
     const legSwing = Math.sin(P.p) * 0.42 * run;
     const arms = { L: armPose('L', -legSwing * 0.8 + breath * 0.06 - sway * 1.5), R: armPose('R', legSwing * 0.8 - breath * 0.05 - sway * 1.5) };
+    const pose = (A, dr1, bend, k) => { A.r1 += dr1 * k; A.r2 += (A.r1 + bend - A.r2) * k; };   // blended by the effect's strength: no elbow snap at its start
     if (swingK > 0) {
       armR = arms.R; const w = wrapPi(armA - Math.PI / 2), r1 = w - 0.15 * Math.sin(w);   // ≈0.85·w near rest, yet periodic: no spin at ±π
       armR.r2 = armR.r2 + wrapPi(r1 + bend - armR.r2) * swingK; armR.r1 = armR.r1 + wrapPi(r1 - armR.r1) * swingK;
-    } else if (bladeA !== null || casting) {
-      const want = bladeA !== null ? bladeA : aimL, rest = Math.PI / 2;      // rest arm hangs straight down
-      const k = bladeA !== null ? 1 : SS(0, 0.06, GT - h.castT) * (1 - SS(0.2, 0.3, GT - h.castT));
-      armR = arms.R; armR.r1 = (want - rest) * 0.85 * k + armR.r1 * (1 - k); armR.r2 = armR.r1 + 0.12;
     }
-    const pose = (A, dr1, bend, k) => { A.r1 += dr1 * k; A.r2 += (A.r1 + bend - A.r2) * k; };   // blended by the effect's strength: no elbow snap at its start
+    // two-bone reach of an arm to a rig-space target (relative to its shoulder), the elbow bending down: blended by k
+    const reach = (A, tx, ty, k) => { const l1 = dist2(A.S0, A.E0), l2 = dist2(A.E0, A.Hd0), d = Math.min(Math.hypot(tx, ty), l1 + l2 - 0.5), b = Math.atan2(ty, tx);
+      const a1 = b + Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), E = [Math.cos(a1) * l1, Math.sin(a1) * l1];
+      const r1 = a1 - ang(A.S0, A.E0), r2 = Math.atan2(ty - E[1], tx - E[0]) - ang(A.E0, A.Hd0);
+      A.r1 += wrapPi(r1 - A.r1) * k; A.r2 += wrapPi(r2 - A.r2) * k; };
+    const armLen = (A) => dist2(A.S0, A.E0) + dist2(A.E0, A.Hd0);
+    const castE = casting ? SS(0, 0.24, castT) * (1 - SS(0.3, 0.5, castT)) : 0;
+    if (whirlE > 0 && swingK === 0) {   // the ellipse is centred behind the shoulder, toward the body's axis, inside the arm's reach
+      const l = armLen(arms.R), wx = Math.cos(whirlTh) * face, tx = -0.3 * l + 0.4 * l * wx, ty = 0.6 * l + 0.25 * l * Math.sin(whirlTh);
+      armR = arms.R; reach(arms.R, tx, ty, whirlE);
+      pose(arms.L, 0.8, -0.5, whirlE);
+    } else if (castE > 0) {             // the free hand pushes the spell toward the aim; the sword arm lowers its blade
+      const l = armLen(arms.L); reach(arms.L, 0.25 * l + Math.cos(aimL) * 0.6 * l, Math.sin(aimL) * 0.6 * l, castE);
+      pose(arms.R, -0.25, 0.35, castE);
+    }
     if (dashE > 0) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); }
     if (hurtE > 0 && swingK === 0) { pose(arms.L, -0.45, 0.5, hurtE); pose(arms.R, -0.3, 0.45, hurtE); }
     if (buckle > 0) { const f = SS(0, 0.2, du); arms.L.r1 -= 0.9 * f; arms.L.r2 = arms.L.r1 + 0.35; arms.R.r1 -= 1.1 * f; arms.R.r2 = arms.R.r1 + 0.3; }
@@ -286,25 +306,28 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02, u); };
     const drawArm = (side, u) => { const A = arms[side], J = side === 'L' ? jL : jR;
       part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR); part('farm' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
-    const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), ba = bladeA !== null ? bladeA : -0.95 + arms.R.r1 * 0.5;
-      const sa = (face > 0 ? ba : Math.PI - ba) + fallR + bodyR;                       // screen angle of the blade
+    const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), b0 = -0.95 + arms.R.r1 * 0.5, ba = bladeA !== null ? bladeA : b0 + (0.9 - b0) * castE;
+      let sa = Math.atan2(Math.sin(ba), fX * Math.cos(ba)) + fallR + bodyR;           // screen angle of the blade, squeezed with the rig
       // a slash sweeps flat around the body: on the floor plane the camera squeezes depth to DEPTH_K, so a blade pointing up or down
       // the screen points away from or at the camera and projects shorter (by the screen angle of a flat blade)
-      const fsD = bladeFs * (1 + (DEPTH_K / Math.hypot(DEPTH_K * Math.cos(sa), Math.sin(sa)) - 1) * swingK);
+      let fsD = bladeFs * (1 + (DEPTH_K / Math.hypot(DEPTH_K * Math.cos(sa), Math.sin(sa)) - 1) * swingK) * Math.hypot(fX * Math.cos(ba), Math.sin(ba));
+      if (whirlE > 0) { const c = Math.cos(whirlTh), d = Math.sin(whirlTh) * DEPTH_K; sa += wrapPi(Math.atan2(d, c) - sa) * whirlE; fsD += (Math.hypot(c, d) - fsD) * whirlE; }
       const tw = len, th = len * G.tex(tex).h / G.tex(tex).w;
       L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: [tw * 0.22, th * 0.78], u: U });
       const tip = [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
       L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); };
     // from behind the resting blade points away from the camera, so it sits behind the body unless it swings down
     const backK = h.back ? SS(0, 0.08, GT - (h.backT ?? -9)) : 1 - SS(0, 0.08, GT - (h.backT ?? -9));
-    const behind = bladeA !== null ? Math.sin(face > 0 ? bladeA : Math.PI - bladeA) < -0.35 : backK > 0.5;
+    const behind = whirlE > 0.5 ? Math.sin(whirlTh) < -0.1 : bladeA !== null ? Math.sin(face > 0 ? bladeA : Math.PI - bladeA) < -0.35 : backK > 0.5;
     L.joint(id + '_view', 'back', [backK, 0]);
     const all = () => {
-      drawArm('L', Ufar); drawLeg('L', Ufar); drawLeg('R', U);
+      const castFront = castE > 0.3;   // the casting hand reaches forward across the chest, in front of the body
+      if (!castFront) drawArm('L', Ufar); drawLeg('L', Ufar); drawLeg('R', U);
       if (behind) { weapon(); drawArm('R', U); }
-      const bodyAt = { m: M.of(M.t(...hipS), M.r(fallR + bodyR), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s] };
+      const bodyAt = { m: M.of(M.t(...hipS), M.r(fallR + bodyR), M.s(fX, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s] };
       if (backK < 1) L.sprite('hero__body', 0, 0, Object.assign({ u: U }, bodyAt));
       if (backK > 0 && window.ASSETS.hero__body_back) L.sprite('hero__body_back', 0, 0, Object.assign({ u: Object.assign({}, U, { alpha: alpha * backK }) }, bodyAt));
+      if (castFront) drawArm('L', backK > 0.5 ? Ufar : U);
       if (!behind) { drawArm('R', U); weapon(); }
     };
     all();
@@ -576,7 +599,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const pose = (T) => swingPose(T, f > 0 ? e.a : Math.PI - e.a, st.arc * Math.PI / 180, -0.95), sw = pose(a), lead = pose(Math.min(a, sw.Tf - 1e-4)), q = SS(sw.Ts, sw.Tf + 0.05, a);
         const Rr = st.reach + 30, lb = scr(lead.blade); L.joint('hero_fx', 'trailC', [ex, ey - 40]); L.joint('hero_fx', 'trail', [ex + Math.cos(lb) * Rr * 0.56, ey - 40 + Math.sin(lb) * Rr * 0.56]);
         if (q < 1) G.draw(L.P.arc, { u_arc: [scr(sw.start), scr(lead.blade), 0.34, 0.78], u_col: [1, 0.85, 0.6], u_amt: 1.6 * (1 - q * q) }, G.xf(ex - Rr, ey - 40 - Rr, 2 * Rr, 2 * Rr)); }
-      if (e.k === 'whirl' && a < 0.4) { const q = a / 0.4; G.draw(L.P.arc, { u_arc: [0, 6.2831 * Math.min(1, a / 0.32), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q) }, G.xf(ex - 118, ey - 34 - 118, 236, 236)); }
+      if (e.k === 'whirl' && a < WHIRL_T + 0.08) { const q = a / (WHIRL_T + 0.08), a0 = e.a === undefined ? 0 : Math.atan2(Math.sin(e.a) / DEPTH_K, Math.cos(e.a)); G.draw(L.P.arc, { u_arc: [a0, a0 + 6.2831 * whirlP(a), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q) }, G.xf(ex - 118, ey - 34 - 118, 236, 236)); }
       if (e.k === 'eswing' && a < 0.2) G.draw(L.P.arc, { u_arc: [e.a - 0.9, e.a + 0.9 * Math.min(1, a / 0.12), 0.2, 0.75], u_col: [1, 0.5, 0.4], u_amt: 1 - a / 0.2 }, G.xf(ex - 50, ey - 26 - 50, 100, 100));
       if (e.k === 'hit' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
           L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d, e.crit ? 12 : 8, e.fire ? [1, 0.6, 0.2] : [1, 0.85, 0.6], 1 - q); } }
@@ -909,6 +932,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     transitions.hero_dash = eventT(clear, (S) => { const h = S.run.hero; h.dashT = S.t; h.dashX = 1; h.dashY = 0; });
     transitions.hero_dash_up = eventT(clear, (S) => { const h = S.run.hero; h.dashT = S.t; h.dashX = 0; h.dashY = -1; });
     transitions.hero_hurt = eventT(clear, (S) => { const h = S.run.hero; h.hurtT = S.t; h.hurtX = 1; });
+    transitions.hero_turn = eventT(clear, (S) => { const h = S.run.hero; h.face = -h.face; h.faceT = S.t; });
+    // whirl and cast need the pointer held on one aim: the sim re-aims the hero every step
+    const aimT = (a, fire) => { const fr = []; let S = play(clear); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
+      if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } fire(S, h); } fr.push(S); S = structuredClone(S);
+      const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, keys: [] }); } return fr; };
+    const whirl = (S, h) => { h.whirlT = h.castT = S.t; h.castK = 'whirl'; h.whirlA = h.aim; S.ev.push({ k: 'whirl', t: S.t, x: h.x, y: h.y, a: h.aim }); };
+    const cast = (S, h) => { h.castT = S.t; h.castK = 'fireball'; };
+    for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) { transitions['hero_whirl_' + n] = aimT(a, whirl); transitions['hero_cast_' + n] = aimT(a, cast); }
     // a lone monster beside the hero, then an event on it: a skeleton crumbles, a spider flips onto its back, a goblin's ears ring on a hit
     const lone = (ty, id = 990) => (S) => { const R = S.run, h = R.hero; R.msg = null; R.en = [{ id, type: ty, x: h.x + 60, y: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0,
       face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; };

@@ -16,7 +16,20 @@
   const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; let t = Math.imul(R.rs ^ (R.rs >>> 15), 1 | R.rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const ri = (R, a, b) => a + Math.floor(rnd(R) * (b - a + 1));
   const pick = (R, arr) => arr[Math.floor(rnd(R) * arr.length)];
-  const ev = (S, e) => { e.t = S.t; S.ev.push(e); };
+  const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (S.run && S.run.log && !S.demo) note(S.run, e); };
+  const dif = (R, k) => (D.DIFF[R.diff] || D.DIFF.normal)[k];
+  const who = (e) => e ? e.type + (e.elite && e.type !== 'boss' ? ' (элита)' : '') : '?';
+  // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
+  const logFloor = (R) => R.log.fl[R.log.fl.length - 1];
+  const add = (o, k, n = 1) => { o[k] = (o[k] || 0) + n; };
+  function note(R, e) { const L = logFloor(R); if (!L) return;
+    if (e.k === 'hurt') { add(L.dmg, e.src, e.n); add(L.hits, e.src); R.log.last = e.src; }
+    else if (e.k === 'drink') add(L.pot, e.b);
+    else if (e.k === 'kill') add(L.kills, who(R.en.find((o) => o.id === e.id) || { type: e.type }));
+    else if (e.k === 'lvl') L.lvl = e.lvl;
+    else if (e.k === 'gold') L.gold += e.n || 0;
+    else if (e.k === 'trade') { if (e.n < 0) { L.buy -= e.n; L.buys.push(e.s); } else L.sell += e.n; }
+    else if (e.k === 'cast' || e.k === 'whirl' || e.k === 'shield') add(L.ab, e.k === 'cast' ? 'fireball' : e.k); }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 
@@ -98,7 +111,7 @@
   // ---------------- run & floor ----------------
   function newHero(meta) {
     const up = meta.up || {};
-    const h = { x: 0, y: 0, vx: 0, vy: 0, face: 1, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
+    const h = { x: 0, y: 0, vx: 0, vy: 0, face: 1, faceT: -9, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
       base: { str: 5, agi: 4, int: 3, vit: 5 }, gold: 0, eq: {}, bag: new Array(24).fill(null), ab: { whirl: 1, fireball: 0, shield: 0 },
       cd: { whirl: 0, fireball: 0, shield: 0, dash: 0, atk: 0 }, atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
       hurtT: -9, ifr: 0, shield: 0, shieldT: -9, shieldUntil: 0, poison: 0, burn: 0, burnT: -9, spikeT: -9, dist: 0, gp: 0, deadT: -1, regen: 0, bless: 0 };
@@ -106,8 +119,9 @@
     return h;
   }
   function newRun(S, mode, seed) {
-    const R = { mode, seed, itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta), cam: [0, 0], camV: [0, 0],
+    const R = { mode, seed, diff: S.demo ? 'normal' : S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta), cam: [0, 0], camV: [0, 0],
       freeze: 0, trauma: 0, map: null, en: [], proj: [], drops: [], chests: [], pots: [], shrines: [], seen: [], rseen: [], bossDead: 0, won: 0, saveT: 0, msg: null };
+    if (!S.demo) R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
     const h = R.hero;
     const give = (it) => { it.id = R.nextId++; return it; };
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: 'sword', rar: 0, mods: {}, atk: BASES.sword.atk }));
@@ -132,19 +146,20 @@
   // plain skeletons of the floor's strength around a summoner, never more than its cap of its own alive at once
   function raise(S, R, e) { const M = MOD.summoner, sk = ENEMIES.skeleton, f = R.floor, own = R.en.filter((o) => o.summ === e.id && o.deadT < 0).length;
     for (let i = 0; i < Math.min(M.n, M.cap - own); i++) { const a = rnd(R) * 6.28, x = e.x + Math.cos(a) * 70, y = e.y + Math.sin(a) * 50; if (solidAt(R.map, x, y, true)) continue;
-      const hp = Math.round(sk.hp * BAL.hp * (1 + 0.5 * (f - 1)));
+      const hp = Math.round(sk.hp * BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)));
       R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: sk.dmg * BAL.dmg * 1.35 * (1 + 0.3 * (f - 1)), elite: 0, room: e.room, st: 'chase', t0: S.t, face: 1, aimA: 0,
         cdT: S.t + 1, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: e.id, spawnT: S.t, seenT: S.t });
       ev(S, { k: 'summon', x, y }); } }
   // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit
   function blast(S, R, e) { const M = MOD.explosive, h = R.hero; e.fuse = 0;
-    if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y);
+    if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' взрыв');
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) hitEnemy(S, R, o, Math.round(e.max * 0.25), false, e.x, e.y, 1.5);
     breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
   function enterFloor(S, R, f) {
-    R.floor = f; R.propHit = {}; const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, { endless: R.mode === 'endless' });
+    R.floor = f; R.propHit = {};
+    if (R.log) R.log.fl.push({ f, time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, { endless: R.mode === 'endless' });
     R.map = m; R.en = []; R.proj = []; R.drops = [];
-    const sc = BAL.hp * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * (1 + 0.3 * (f - 1));
+    const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * (1 + 0.3 * (f - 1));
     for (const e of m.enemies) { const E = ENEMIES[e.type], el = e.elite && e.type !== 'boss' ? eliteK(e, 'hp') : 1;
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (!e.elite ? 1 : e.type === 'boss' ? 1.35 : eliteK(e, 'dmg')),
         elite: e.elite, room: e.room, st: 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
@@ -287,20 +302,20 @@
     const i = h.bag.indexOf(null); if (i < 0) return false; if (!it.id) it.id = R.nextId++; h.bag[i] = it; return true;
   }
   function gainXp(S, R, n) {
-    const h = R.hero; h.xp += n;
+    const h = R.hero; n = Math.round(n * dif(R, 'xp')); h.xp += n; if (R.log) logFloor(R).xp += n;
     while (h.xp >= D.xpNeed(h.lvl)) { h.xp -= D.xpNeed(h.lvl); h.lvl++; h.pts += 3; h.sp += 1;
       for (const a of ABILITIES) if (a.unlock === h.lvl && !h.ab[a.id]) { h.ab[a.id] = 1; ev(S, { k: 'unlock', x: h.x, y: h.y, id: a.id }); }
       const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp; ev(S, { k: 'lvl', x: h.x, y: h.y, lvl: h.lvl }); }
   }
-  function hurtHero(S, R, dmg, sx, sy, kind) {
+  function hurtHero(S, R, dmg, sx, sy, kind, src) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr) return;
-    const st = heroSt(S); dmg = Math.max(1, Math.round(dmg * 100 / (100 + st.def * 5)));
+    const st = heroSt(S), K = 20 + 12 * R.floor; dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * K / (K + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (h.shield > 0 && S.t < h.shieldUntil) { const a = Math.min(h.shield, dmg); h.shield -= a; dmg -= a; ev(S, { k: 'absorb', x: h.x, y: h.y, n: a }); if (dmg <= 0) return; }
     h.hp -= dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; h.ifr = S.t + K.IFR; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
     if (kind === 'poison') h.poison = S.t + 3;
     if (kind === 'fire') h.burn = S.t + 3;
-    ev(S, { k: "hurt", x: h.x, y: h.y - 40, n: dmg });
+    ev(S, { k: "hurt", x: h.x, y: h.y - 40, n: dmg, src: src || kind || '?' });
     if (h.hp <= 0) { h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
   }
   function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind) {
@@ -371,9 +386,9 @@
     if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не хватает маны' }); return; }
     const AR = D.abRank(id, rank); h.mp -= A.mp; h.cd[id] = S.t + A.cd * AR.cd; h.castT = S.t; h.castK = id;
     const st = heroSt(S);
-    if (id === 'whirl') { h.whirlT = S.t; const dmgK = AR.k;
+    if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k;
       for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < 92 + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
-      breakPots(S, R, h.x, h.y, 92); hitProps(S, R, h.x, h.y, 92); hitChests(S, R, h.x, h.y, 92); hitSecrets(S, R, h.x, h.y, 92); ev(S, { k: 'whirl', x: h.x, y: h.y }); }
+      breakPots(S, R, h.x, h.y, 92); hitProps(S, R, h.x, h.y, 92); hitChests(S, R, h.x, h.y, 92); hitSecrets(S, R, h.x, h.y, 92); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = Math.round((14 + st.int * 2.6) * AR.k * st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
     if (id === 'shield') { h.shield = Math.round((30 + st.int * 4) * AR.k); h.shieldUntil = S.t + 5; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
@@ -467,6 +482,7 @@
   function stepPlay(S, inp, keys) {
     const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t;
     const st = heroSt(S);
+    if (R.log && h.deadT < 0) { const L = logFloor(R); L.time += DT; L.minHp = Math.min(L.minHp, h.hp / st.maxHp); L.minMp = Math.min(L.minMp, h.mp / st.maxMp); }
     // mouse → world aim
     const mx = R.cam[0] + inp.px / ZOOM, my = R.cam[1] + inp.py / ZOOM;
     if (h.deadT >= 0) { if (t - h.deadT > 1.6) return endRun(S, 'dead'); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
@@ -479,10 +495,11 @@
     h.vx = app(h.vx, ix / il * spd); h.vy = app(h.vy, iy / il * spd);
     h.aim = Math.atan2(my - (h.y - RIG.shoulder + 8), mx - h.x);
     const busy = t - h.atkT < 0.22 || t - h.castT < 0.25;
-    const wasBack = h.back;
+    const wasBack = h.back, wasFace = h.face;
     if (busy) { h.face = Math.cos(h.aim) >= 0 ? 1 : -1; h.back = Math.sin(h.aim) < -0.5 ? 1 : 0; }
     else if (ix || iy) { if (ix) h.face = ix; h.back = iy < 0 ? 1 : iy > 0 ? 0 : h.back; }
     if (h.back !== wasBack) h.backT = t;
+    if (h.face !== wasFace) h.faceT = t;
     // dash
     if (keys.Space && h.cd.dash <= t) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
       h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; h.ifr = Math.max(h.ifr, t + 0.22); ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
@@ -494,7 +511,7 @@
     if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y }); }
     // ---- melee: hold LMB ----
     if (inp.press && h.cd.atk <= t) {
-      h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); h.face = Math.cos(h.aim) >= 0 ? 1 : -1;
+      h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
       ev(S, { k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face });
     }
     if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= K.HIT) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
@@ -518,20 +535,20 @@
     if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
     h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT);
-    if (h.poison > t) { h.hp -= 2.5 * st.resist * DT; if (h.hp <= 1) h.hp = 1; }
+    if (h.poison > t) { h.hp -= 2.5 * st.resist * DT; if (h.hp <= 1) h.hp = 1; if (R.log) add(logFloor(R).dmg, 'poison', 2.5 * st.resist * DT); }
     // a fire hex sets the hero alight: a tick every 0.5 s for 3 s, past the invulnerability window like poison, never the killing blow
-    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((2 + 0.4 * R.floor) * st.resist)); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n }); }
+    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((2 + 0.4 * R.floor) * st.resist)); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn' }); }
     if (h.shield > 0 && t > h.shieldUntil) h.shield = 0;
     // spikes: up for 0.7 s of every 2.4 s; a plate is 2×2 cells, feet a little inside its edge count
     const onPlate = (a, tr) => Math.abs(a.x - tr.x) < TILE - 4 && Math.abs(a.y - tr.y) < TILE - 6;
     for (const tr of m.traps) { const ph = ((t / 2.4 + tr.ph) % 1 + 1) % 1, up = ph < 0.29;
-      if (up && onPlate(h, tr) && t - h.spikeT > 0.7) { h.spikeT = t; hurtHero(S, R, 9 * (1 + 0.2 * (R.floor - 1)), h.x, h.y - 20); ev(S, { k: 'spike', x: tr.x, y: tr.y }); }
+      if (up && onPlate(h, tr) && t - h.spikeT > 0.7) { h.spikeT = t; hurtHero(S, R, heroSt(S).maxHp * BAL.spike, h.x, h.y - 20, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); }
       // the spikes don't care whose feet are on them: lure or knock monsters onto a plate
       if (up) for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onPlate(e, tr) && t - (e.spikeT ?? -9) > 0.7) {
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (R.floor - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
     // lava burns whoever stands in it, every half second
     const lavaDmg = 8 * (1 + 0.2 * (R.floor - 1));
-    if (onLava(m, h) && t - (h.lavaT ?? -9) >= 0.5) { h.lavaT = t; hurtHero(S, R, lavaDmg * st.resist, h.x, h.y); ev(S, { k: 'scorch', x: h.x, y: h.y }); }
+    if (onLava(m, h) && t - (h.lavaT ?? -9) >= 0.5) { h.lavaT = t; hurtHero(S, R, lavaDmg * st.resist, h.x, h.y, undefined, 'lava'); ev(S, { k: 'scorch', x: h.x, y: h.y }); }
     for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onLava(m, e) && t - (e.lavaT ?? -9) >= 0.5) {
       e.lavaT = t; hitEnemy(S, R, e, Math.round(lavaDmg * 1.25), false, e.x, e.y, 0, 'fire'); ev(S, { k: 'scorch', x: e.x, y: e.y }); }
     stepProjectiles(S, R);
@@ -612,7 +629,7 @@
       let boom = wall || age > p.life;
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
       else if (inStart(m, Math.floor(p.x / TILE), Math.floor((p.y + 28) / TILE))) boom = true;
-      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { hurtHero(S, R, p.dmg, p.x, p.y, p.k); struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { hurtHero(S, R, p.dmg, p.x, p.y, p.k, who(p.src && R.en.find((o) => o.id === p.src)) + ' снаряд'); struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
@@ -658,11 +675,11 @@
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
           if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1), own: 'en', r: 6 });
             ev(S, { k: "eshoot", x: e.x, y: e.y - 44, id: e.id }); }
-          else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
-          else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
+          else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e)); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
+          else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e)); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
       } else if (e.st === 'strike') {
         if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA, v = 330 * Math.min(1, (t - e.t0) / 0.05); { e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT;
-            if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison'); struck(S, R, e); } } } else skid(m, e, E);
+            if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison', who(e)); struck(S, R, e); } } } else skid(m, e, E);
         if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : 0.32)) { e.st = 'chase'; e.cdT = t + E.cd * eliteK(e, 'cd') * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
     }
@@ -724,9 +741,9 @@
   function stepBossMove(S, R) {
     for (const e of R.en) { if (e.type !== 'boss' || e.deadT >= 0 || e.st !== 'bwind') continue;
       const t = S.t, h = R.hero, m = R.map, rage = e.hp < e.max * 0.5, w = rage ? 0.55 : 0.8, u = t - e.t0;
-      if (e.mv === 'charge' && u > w && u < w + 0.6) { move(m, e, Math.cos(e.aimA) * 520 * DT, Math.sin(e.aimA) * 520 * DT, 26, true); if (!e.hitDone && Math.hypot(h.x - e.x, h.y - e.y) < 50) { e.hitDone = 1; hurtHero(S, R, e.dmg * 1.2, e.x, e.y); } }
+      if (e.mv === 'charge' && u > w && u < w + 0.6) { move(m, e, Math.cos(e.aimA) * 520 * DT, Math.sin(e.aimA) * 520 * DT, 26, true); if (!e.hitDone && Math.hypot(h.x - e.x, h.y - e.y) < 50) { e.hitDone = 1; hurtHero(S, R, e.dmg * 1.2, e.x, e.y, undefined, who(e)); } }
       if (u >= w && !e.fired) { e.fired = 1;
-        if (e.mv === 'slam') { if (Math.hypot(h.x - e.x, h.y - e.y) < 130 && losClear(R.map, e.x, e.y, h.x, h.y)) hurtHero(S, R, e.dmg * 1.3, e.x, e.y); ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id }); R.trauma = 1; }
+        if (e.mv === 'slam') { if (Math.hypot(h.x - e.x, h.y - e.y) < 130 && losClear(R.map, e.x, e.y, h.x, h.y)) hurtHero(S, R, e.dmg * 1.3, e.x, e.y, undefined, who(e)); ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id }); R.trauma = 1; }
         if (e.mv === 'volley') { const n = rage ? 14 : 10; for (let i = 0; i < n; i++) { const a = e.aimA + (i / n) * Math.PI * 2;
           R.proj.push({ id: R.nextId++, k: 'fire', x: e.x, y: e.y - 60, vx: Math.cos(a) * 230, vy: Math.sin(a) * 230, t0: t, life: 2.6, dmg: e.dmg * 0.7, own: 'en', r: 9 }); } roar(S, R, e); }
         if (e.mv === 'summon') { for (let i = 0; i < 2; i++) { const a = rnd(R) * 6.28, x = e.x + Math.cos(a) * 90, y = e.y + Math.sin(a) * 60;
@@ -785,6 +802,8 @@
     S.meta.best = Math.max(S.meta.best || 0, R.floor);
     S.result = { how, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' ? REWARD.win : 0, time: R.t };
+    if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
+      S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; S.screen = how; S.saveN++;
   }
   function startCampaign(S) { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0; S.run = newRun(S, 'campaign', seed); S.saved = null; S.screen = 'play'; }
@@ -792,10 +811,11 @@
   function stepUI(S, inp, keys) {
     const x = inp.px, y = inp.py, click = inp.click;
     if (S.screen === 'menu') {
-      const b = D.hitUI(UI.menu(!!S.saved), x, y); S.hover = b ? b.id : '';
+      const b = D.hitUI(UI.menu(!!S.saved, S.meta.diff), x, y); S.hover = b ? b.id : '';
       if (click && b && b.on) {
         if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: 'Этаж ' + S.run.floor + ' — ' + D.floorName(S.run.floor), t: S.t }; }
         if (b.id === 'campaign') startCampaign(S);
+        if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
         if (b.id === 'meta') S.screen = 'meta';
         ev(S, { k: 'ui', x, y });
       }
@@ -813,7 +833,7 @@
       const b = D.hitUI(UI.pause(), x, y); S.hover = b ? b.id : '';
       if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
       if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; return; }
-      if (click && b && b.id === 'abandon') { endRun(S, 'dead'); return; }
+      if (click && b && b.id === 'abandon') { if (S.run.log) S.run.log.abandon = 1; endRun(S, 'dead'); return; }
       return;
     }
     if (S.screen === 'dead' || S.screen === 'win') {
@@ -897,7 +917,7 @@
         if (best) { gx = (tx + best[1]) * TILE + 16 - h.x; gy = (ty + best[2]) * TILE + 18 - h.y; } }
       if (Math.abs(gx) > 5) inp[gx > 0 ? 'right' : 'left'] = 1; if (Math.abs(gy) > 5) inp[gy > 0 ? 'down' : 'up'] = 1;
     } else inp.press = 1;
-    if (td < 330 && td > 140 && h.cd.fireball <= S.t && h.mp > 30) inp.slot = 2;
+    if (td < 330 && td > 140 && h.cd.fireball <= S.t && h.mp > 30) { const [hx, hy] = hand(h); if (losClear(m, hx, hy + 20, tg.x, tg.y - 10)) inp.slot = 2; }
     if (h.hp < 40) inp.keys.push('KeyQ');
     return inp;
   }
