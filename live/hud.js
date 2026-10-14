@@ -9,6 +9,8 @@
   HUD.init = () => {};
   const hex = (c) => '#' + c.map((v) => Math.round(Math.min(1, v) * 255).toString(16).padStart(2, '0')).join('');
   const lab = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: C.text, out: '#140c0c' }, o));
+  // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
+  const underHud = (x, y) => (x > W - 240 && y < 290) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   function panel(id, x, y, w, h, o = {}) {
     L.rrect(x - 3, y - 3, w + 6, h + 6, (o.r || 8) + 3, o.rim || C.rim, o.rim2 || [0.2, 0.16, 0.13], o.a ?? 0.95);
@@ -63,6 +65,10 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       if (e.st !== 'idle' || e.hp < e.max || e.elite) { const w = e.elite ? 64 : 48; L.rrect(x - w / 2 - 2, y - 2, w + 4, 10, 3, [0.02, 0.02, 0.02], [0.02, 0.02, 0.02], 0.85);
         L.rrect(x - w / 2, y, w * Math.max(0, e.hp / e.max), 6, 2, e.elite ? [1, 0.6, 0.15] : [0.85, 0.12, 0.1], e.elite ? [0.7, 0.3, 0.05] : [0.5, 0.05, 0.05]); }
+      // an elite's name, its powers first, in the colour of its first power
+      if (e.elite && e.mods && e.mods.length) { const c = D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 16;
+        if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py)))
+          lab('el' + (e.id % 40), s, x, ly, { size: 18, al: 0.5, col: hex(c) }); }
       if (e.st === 'idle' || bi > 40) continue; bi++; void E; }
     // the "!" when a monster notices the hero
     for (const ev of S.ev) { const a = GT - ev.t; if (a < 0) continue;
@@ -188,7 +194,7 @@
   const LOOT_COL = { open: [0.35, 1, 0.45], secret: [0.8, 0.5, 1], stuck: [1, 0.22, 0.2] };
   function lootMarks(R, t, V) { const A = SIM.lootAudit(R), pulse = 0.75 + 0.25 * Math.sin(t * 5);
     for (const o of A.list) { const col = LOOT_COL[o.at], x = V.sx(o.x), y = V.sy(o.y) - 12;
-      if ((x > W - 240 && y < 290) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420)) continue;   // under a HUD panel: the minimap shows it
+      if (underHud(x, y)) continue;   // under a HUD panel: the minimap shows it
       if (x > 30 && x < W - 30 && y > 30 && y < H - 30) {
         if (o.chest) { L.rrect(x - 17, y - 17, 34, 34, 4, col, col, 0.25 * pulse); L.ring(x, y, 22, 22, col, pulse, 0.12); for (let k = 0; k < o.n; k++) L.rrect(x - (o.n - 1) * 5 + k * 10 - 3, y - 34, 6, 6, 3, col, col); }
         else { L.solid(x, y, 16, 16, col, Math.PI / 4, 8, 8, 0.85 * pulse); L.ring(x, y, 18, 18, col, pulse, 0.14); }

@@ -223,7 +223,7 @@
   // an overhead chop: cock back-up over the wind-up, accelerate over the top so the blade crosses the aim on the damage frame
   // (the strike's first frame), follow through, then keep turning the same way down to the hanging rest: no swing back
   function chop(e, E, GT, face, H, base, o) {
-    const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0, RAISE = o.raise, T = o.chopT, P = 1.3;
+    const ew = E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0, RAISE = o.raise, T = o.chopT, P = 1.3;
     const imp = above(aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - 0.15, RAISE + 0.3), vEnd = P * (imp - RAISE) / T;   // blade = its angle in the drawing
     if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T;
       if (u < tc) { const k = SS(0, Math.max(0.05, tc), u); return { r1: lerp(base, RAISE, k), bend: lerp(o.bend0 ?? 0.18, o.bendUp ?? 0.9, k), k }; }
@@ -238,7 +238,7 @@
     return { r1: lerp(fol, rest, k), bend: lerp(0.15, o.bend0 ?? 0.18, k), k: 1 - k }; }
   // a stab: the arm cocks back with the elbow folded, then thrusts straight along the aim, the blade in line with the forearm
   function stab(e, E, GT, face, H, base, bend0) {
-    const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0, aim = aimRig(e, face, H), imp = aim - Math.PI / 2, BACK = 1.3, T = 0.09;
+    const ew = E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0, aim = aimRig(e, face, H), imp = aim - Math.PI / 2, BACK = 1.3, T = 0.09;
     const impN = BACK - (((BACK - imp) % TAU) + TAU) % TAU;
     if (e.st === 'wind') { const tc = ew - T;
       if (u < tc) { const k = SS(0, tc, u); return { r1: lerp(base, BACK, k), bend: lerp(bend0, 1.6, k), k, crouch: k, ang: null }; }
@@ -276,7 +276,7 @@
       if (n === 'skeleton' && !live) { const kind = ['pile', 'burst', 'topple'][e.id % 3]; base.crumble = { t: GT - e.deadT, kind, dir: e.dieA }; if (kind !== 'topple') base.fallR = 0; }
       biped(base); return true; }
     if (n === 'spider') {
-      const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0;
+      const ew = E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0;
       // it rears up through the wind-up (front legs raised at the hero), stays up through the lunge, settles after it
       base.rear = !live ? 0 : e.st === 'wind' ? SS(0, ew, u) : e.st === 'strike' ? 1 - SS(0.24, 0.45, u) : 0;
       // it dies one of two ways, picked by its id: the legs draw in under it where it stands, or they fold and it turns onto its back
@@ -286,7 +286,7 @@
       if (live && e.st === 'strike') { const g = SS(0.3, 0.45, u); base.vx *= g; base.vy *= g; }   // the lunge is a body thrust, legs trailing: no gait until it lands
       spider(base); return true; }
     if (n === 'cultist') {
-      const ew = E.wind * (e.elite ? 0.85 : 1), u = GT - e.t0, wind = live && e.st === 'wind', str = live && e.st === 'strike';
+      const ew = E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0, wind = live && e.st === 'wind', str = live && e.st === 'strike';
       // the staff tips forward through the wind-up; the free hand thrusts at the aim, fully out on the shot frame (the strike's first)
       base.staff = wind ? -0.35 * SS(0, ew * 0.8, u) : str ? -0.35 * (1 - SS(0.1, 0.32, u)) : 0;
       base.push = wind ? SS(ew - 0.14, ew, u) : str ? 1 - SS(0.08, 0.32, u) : 0; base.aimR = aimRig(e, face, H) - 0.1;

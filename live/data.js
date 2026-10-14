@@ -34,8 +34,22 @@
   // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2);
   // a kill pays double so XP and loot per floor stay where they were
   const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2 };
-  // elites (the aura mini-bosses) over a regular monster; the brute keeps a lower bar, its floor-2 exit guard already walls runs
-  const ELITE = { hp: 3.6, bruteHp: 2.4, dmg: 1.5 };
+  // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
+  // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
+  // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, share: 0.04, brute: { hp: 2.4, dmg: 1.5, spd: 1.1, wind: 0.85, cd: 1 } };
+  // the boss is an elite too but keeps its own pace
+  const eliteK = (e, k) => !e.elite ? 1 : e.type === 'boss' ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
+  // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
+  const ELITE_MODS = [
+    { id: 'fiery', name: 'Огненный', col: [1.0, 0.42, 0.08], burn: 3 },
+    { id: 'vampire', name: 'Кровожадный', col: [0.92, 0.08, 0.2], heal: 0.12 },
+    { id: 'summoner', name: 'Призывающий', col: [0.5, 1.0, 0.4], every: 8, n: 2, cap: 3 },
+    { id: 'explosive', name: 'Взрывной', col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.5 },
+  ];
+  const eliteMods = (f) => (f >= 6 ? [2, 2] : f >= 4 ? [1, 2] : [1, 1]);
+  const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
+    .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
   // equipment slots and bases. lvl scales with the floor where the item drops.
   const SLOTS = ['weapon', 'offhand', 'helm', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
@@ -211,7 +225,7 @@
     crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, BIOMES, FLOORS, biomeOf, floorName, ENEMIES, BAL, ELITE, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, BIOMES, FLOORS, biomeOf, floorName, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -96,6 +96,9 @@
       f.type = 'lowpass'; f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(300, t + 1.3); env(g, t, 0.08, 0.5, 1.3); s.connect(f); f.connect(g); g.connect(o);
       s.start(t); lfo.start(t); s.stop(t + 1.5); lfo.stop(t + 1.5); noise(o, { a: 0.05, d: 1.2, v: 0.25, type: 'lowpass', f0: 700, f1: 120 }); },
     summon: (o) => tone(o, { type: 'triangle', f0: 600, f1: 150, a: 0.1, d: 0.7, v: 0.12, det: 20 }),
+    // an explosive corpse hisses louder up to its burst; a vampire's drain is a low wet pull
+    fuse: (o) => { noise(o, { a: 0.9, d: 0.15, v: 0.22, type: 'bandpass', f0: 1200, f1: 4200 }); tone(o, { type: 'square', f0: 220, f1: 880, a: 0.9, d: 0.1, v: 0.05 }); },
+    drain: (o) => tone(o, { type: 'sawtooth', f0: 180, f1: 70, a: 0.03, d: 0.35, v: 0.1, det: 12 }),
     alert: (o) => tone(o, { type: 'triangle', f0: 880, f1: 1100, d: 0.07, v: 0.05 }),
     nope: (o) => tone(o, { type: 'square', f0: 130, d: 0.14, v: 0.06 }),
     ui: (o) => tone(o, { type: 'triangle', f0: 1200, d: 0.04, v: 0.06 }),

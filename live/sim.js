@@ -4,7 +4,7 @@
 // persist S.meta and the run), camera, and the event bus S.ev that drives every FX in the scene.
 (function (root) {
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
-  const { TILE, ENEMIES, BAL, ELITE, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
+  const { TILE, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
   const DT = 1 / 120, L = 26.0;
   // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
   const ZOOM = D.ZOOM || 1, VIEW = { W: 1920, H: 1080 }, WIN = { W: VIEW.W / ZOOM, H: VIEW.H / ZOOM }, toPx = (R, x, y) => ({ px: (x - R.cam[0]) * ZOOM, py: (y - R.cam[1]) * ZOOM });
@@ -118,13 +118,37 @@
     enterFloor(S, R, 1);
     return R;
   }
+  // ---------------- elite powers ----------------
+  const MOD = Object.fromEntries(ELITE_MODS.map((m) => [m.id, m])), has = (e, id) => !!(e.mods && e.mods.includes(id));
+  function rollMods(R, f) { const [a, b] = D.eliteMods(f), n = a + (b > a && rnd(R) < 0.5 ? 1 : 0), pool = ELITE_MODS.map((m) => m.id), out = [];
+    while (out.length < n) out.push(pool.splice(Math.floor(rnd(R) * pool.length), 1)[0]); return out; }
+  // what an elite's powers add to a blow of its that landed on the hero
+  function struck(S, R, e) {
+    const h = R.hero; if (!e || !e.mods || h.hurtT !== S.t) return;
+    if (has(e, 'fiery')) { h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); h.burnT = Math.min(h.burnT ?? -9, S.t - 0.5); }
+    if (has(e, 'vampire') && e.deadT < 0) { const n = Math.round(e.max * MOD.vampire.heal); e.hp = Math.min(e.max, e.hp + n);
+      ev(S, { k: 'drain', x: h.x, y: h.y - 40, tx: e.x, ty: e.y - ENEMIES[e.type].h * 0.5, n, id: e.id }); }
+  }
+  // plain skeletons of the floor's strength around a summoner, never more than its cap of its own alive at once
+  function raise(S, R, e) { const M = MOD.summoner, sk = ENEMIES.skeleton, f = R.floor, own = R.en.filter((o) => o.summ === e.id && o.deadT < 0).length;
+    for (let i = 0; i < Math.min(M.n, M.cap - own); i++) { const a = rnd(R) * 6.28, x = e.x + Math.cos(a) * 70, y = e.y + Math.sin(a) * 50; if (solidAt(R.map, x, y, true)) continue;
+      const hp = Math.round(sk.hp * BAL.hp * (1 + 0.5 * (f - 1)));
+      R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: sk.dmg * BAL.dmg * 1.35 * (1 + 0.3 * (f - 1)), elite: 0, room: e.room, st: 'chase', t0: S.t, face: 1, aimA: 0,
+        cdT: S.t + 1, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: e.id, spawnT: S.t, seenT: S.t });
+      ev(S, { k: 'summon', x, y }); } }
+  // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit
+  function blast(S, R, e) { const M = MOD.explosive, h = R.hero; e.fuse = 0;
+    if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y);
+    for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) hitEnemy(S, R, o, Math.round(e.max * 0.25), false, e.x, e.y, 1.5);
+    breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
   function enterFloor(S, R, f) {
     R.floor = f; R.propHit = {}; const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, { endless: R.mode === 'endless' });
     R.map = m; R.en = []; R.proj = []; R.drops = [];
     const sc = BAL.hp * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * (1 + 0.3 * (f - 1));
-    for (const e of m.enemies) { const E = ENEMIES[e.type], el = e.elite ? (e.type === 'boss' ? 1 : e.type === 'brute' ? ELITE.bruteHp : ELITE.hp) : 1;
-      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (!e.elite ? 1 : e.type === 'boss' ? 1.35 : ELITE.dmg),
+    for (const e of m.enemies) { const E = ENEMIES[e.type], el = e.elite && e.type !== 'boss' ? eliteK(e, 'hp') : 1;
+      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (!e.elite ? 1 : e.type === 'boss' ? 1.35 : eliteK(e, 'dmg')),
         elite: e.elite, room: e.room, st: 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
+    for (const e of R.en) if (e.elite && e.type !== 'boss') e.mods = rollMods(R, f);
     R.shop = stockShop(R, f);
     R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s));
     // a big monster's post can graze a prop: the post is where it can actually stand
@@ -210,8 +234,10 @@
       if (d < 0.01) { dx = 0; dy = d = 1; }
       move(m, o, s.x + dx / d * rr - o.x, s.y + dy / d * rr / 1.6 - o.y, r, mon); }
   }
-  const losClear = (m, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10); for (let i = 1; i < n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u;
-    const c = cell(m, Math.floor(x / TILE), Math.floor((y - 8) / TILE)); if (c === 0 || c === 4) return false; } return true; };
+  // a point blocks the line only if the wall is there both at it and 8 px up: two actors hugging the same wall can still reach
+  // each other along its face, and a line through a wall still crosses a whole blocked cell
+  const losClear = (m, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10), wall = (x, y) => { const c = cell(m, Math.floor(x / TILE), Math.floor(y / TILE)); return c === 0 || c === 4; };
+    for (let i = 1; i < n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u; if (wall(x, y - 8) && wall(x, y)) return false; } return true; };
   // flow field from a target tile over open floor (monsters avoid the sanctuary): derived data, cached by key, never in the state
   const FLOW = { key: '', d: null };
   const FLOW2 = { key: '', d: null };
@@ -280,7 +306,7 @@
   function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind) {
     if (e.deadT >= 0) return;
     e.hp -= dmg; e.hitT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e);
-    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.type === 'boss' || ENEMIES[e.type].ghost;
+    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost;
     if (!heavy) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
     if (kind === 'fire') { e.burn = S.t + 3; e.burnT = S.t; }
     ev(S, { k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 });
@@ -292,10 +318,13 @@
     if (e.st === 'home') { e.st = 'chase'; e.t0 = e.seenT = R.t; } }
   function killEnemy(S, R, e) {
     e.deadT = S.t; e.hp = 0; R.kills++; if (!e.summ) fstat(R).kills++; R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
-    const E = ENEMIES[e.type]; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (R.floor - 1)) * (e.elite ? 3 : 1)));
+    const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (R.floor - 1)) * (e.elite ? 3 + nm : 1)));
+    if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
     ev(S, { k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id });
+    // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
+    if (e.summ) return;
     const gb = 1 + 0.15 * ((S.meta.up || {}).gold || 0);
-    if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + R.floor * 2) * (e.elite ? 4 : 1) * gb * BAL.reward) });
+    if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + R.floor * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
     const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
     if (e.type !== 'boss' && (e.elite || rnd(R) < LT.p * BAL.reward)) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, LT.q, undefined, LT) });
     if (rnd(R) < 0.07 * BAL.reward) drop(R, e.x, e.y, { kind: 'item', item: potion(rnd(R) < 0.65 ? 'hp_potion' : 'mp_potion') });
@@ -583,7 +612,7 @@
       let boom = wall || age > p.life;
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
       else if (inStart(m, Math.floor(p.x / TILE), Math.floor((p.y + 28) / TILE))) boom = true;
-      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { hurtHero(S, R, p.dmg, p.x, p.y, p.k); boom = true; p.onHero = 1; }
+      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { hurtHero(S, R, p.dmg, p.x, p.y, p.k); struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
@@ -596,7 +625,7 @@
     const m = R.map, h = R.hero, t = S.t, htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE), F = flow(m, htx, hty), heroOk = live && h.deadT < 0;
     for (const e of R.en) {
       const E = ENEMIES[e.type];
-      if (e.deadT >= 0) continue;
+      if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) blast(S, R, e); continue; }
       if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; hitEnemy(S, R, e, Math.max(1, Math.round(2 + R.floor)), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0; }
@@ -613,6 +642,7 @@
       if (e.st === 'chase' && E.kind !== 'boss' && e.hx !== undefined) {
         if (d < 420 && !inSanct && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) e.seenT = t;
         else if (t - e.seenT > 4) { e.st = 'home'; e.t0 = t; continue; } }
+      if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
       if (e.st === 'chase') {
         const reach = E.r + K.R + E.reach;
         if (E.kind === 'boss') { bossThink(S, R, e, d); continue; }
@@ -624,16 +654,16 @@
         move(m, e, e.vx * DT, e.vy * DT, E.r, true);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
       } else if (e.st === 'wind') {
-        skid(m, e, E); const w = E.wind * (e.elite ? 0.85 : 1);
+        skid(m, e, E); const w = E.wind * eliteK(e, 'wind');
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
-          if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava'; R.proj.push({ id: R.nextId++, k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1), own: 'en', r: 6 });
+          if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1), own: 'en', r: 6 });
             ev(S, { k: "eshoot", x: e.x, y: e.y - 44, id: e.id }); }
-          else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) hurtHero(S, R, e.dmg, e.x, e.y); ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
-          else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) hurtHero(S, R, e.dmg, e.x, e.y); ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
+          else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
+          else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
       } else if (e.st === 'strike') {
         if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA, v = 330 * Math.min(1, (t - e.t0) / 0.05); { e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT;
-            if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison'); } } } else skid(m, e, E);
-        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : 0.32)) { e.st = 'chase'; e.cdT = t + E.cd * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
+            if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison'); struck(S, R, e); } } } else skid(m, e, E);
+        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : 0.32)) { e.st = 'chase'; e.cdT = t + E.cd * eliteK(e, 'cd') * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
     }
     // separation: monsters don't stack
@@ -679,7 +709,7 @@
         if (best) { const gx = (tx + best[1]) * TILE + TILE / 2 - e.x, gy = (ty + best[2]) * TILE + TILE / 2 + 4 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; } }
       else if (d > 0) { vx = dx / d * want; vy = dy / d * want; }
     }
-    const sp = E.spd * (e.elite ? 1.1 : 1) * kv, k = 1 - Math.exp(-9 * DT);
+    const sp = E.spd * eliteK(e, 'spd') * kv, k = 1 - Math.exp(-9 * DT);
     e.vx += (vx * sp - e.vx) * k; e.vy += (vy * sp - e.vy) * k;
   }
   function bossThink(S, R, e, d) {
@@ -1063,6 +1093,30 @@
       let gaveUp = 0; for (let i = 0; i < 120 * 45 && e.st !== 'idle'; i++) { if (e.st === 'chase' && i % 60 === 0) { h.x = m.spawn.x; h.y = m.spawn.y; } step(S, { keys: [] }); gaveUp |= e.st === 'home'; }
       if (!gaveUp) out.push('a monster never gives up a hero hiding in the sanctuary');
       else if (e.st !== 'idle' || Math.hypot(e.x - hx, e.y - hy) > 16) out.push(`a monster that lost the hero did not walk back to its post (${e.st}, ${Math.round(Math.hypot(e.x - hx, e.y - hy))} px off)`); }
+    // elites: a blow never knocks one back; a fiery one's landed blow sets the hero burning and a vampire's heals it; a summoner
+    // raises skeletons up to its cap and no further; an explosive corpse bursts once its fuse is out, hurting a hero in reach only
+    { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
+      const R = S.run, h = R.hero, rm = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 10 && q.h >= 5), cx = (rm.x + rm.w / 2) * TILE, cy = (rm.y + rm.h / 2) * TILE;
+      const put = () => { R.en = []; R.proj = []; h.hp = heroSt(S).maxHp; h.burn = 0; h.ifr = 0; h.x = cx; h.y = cy; h.vx = h.vy = 0; };
+      const el = (mods, dx, o) => { const e = Object.assign({ id: R.nextId++, type: 'skeleton', x: h.x + dx, y: h.y, vx: 0, vy: 0, hp: 400, max: 400, dmg: 5, elite: 1, mods, room: rm.id, st: 'chase',
+        t0: S.t, face: -1, aimA: Math.PI, cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: S.t }, o); R.en.push(e); return e; };
+      put(); const kb = el([], 40); hitEnemy(S, R, kb, 1, false, h.x, h.y); if (kb.kbx || kb.kby) out.push('an elite is knocked back by a blow');
+      put(); const fv = el(['fiery', 'vampire'], 30, { hp: 200 }); let hit = 0;
+      for (let i = 0; i < 120 * 3 && !hit; i++) { const a = h.hp; step(S, { keys: [] }); hit = h.hp < a; }
+      if (!hit) out.push('an elite next to the hero never strikes it');
+      else { if (!(h.burn > S.t)) out.push("a fiery elite's blow does not set the hero burning"); if (fv.hp <= 200) out.push("a vampire elite's blow does not heal it"); }
+      put(); h.ifr = 1e9; const sm = el(['summoner'], 140, { cdT: 1e9 }); sm.sumT = S.t; let most = 0;
+      for (let i = 0; i < 120 * 30; i++) { step(S, { keys: [] }); most = Math.max(most, R.en.filter((o) => o.summ === sm.id && o.deadT < 0).length); }
+      if (most < 1) out.push('a summoner elite raises nothing'); if (most > MOD.summoner.cap) out.push(`a summoner elite keeps ${most} skeletons up, over its cap`);
+      for (const [dx, near] of [[60, 1], [MOD.explosive.r + 30, 0]]) { put(); const ex = el(['explosive'], dx, { cdT: 1e9, hp: 1 }); hitEnemy(S, R, ex, 5, false, h.x, h.y); const a = h.hp;
+        for (let i = 0; i < 120 * MOD.explosive.fuse * 0.8; i++) step(S, { keys: [] }); if (h.hp < a) out.push('an explosive elite bursts before its fuse is out');
+        for (let i = 0; i < 120 * 0.5; i++) step(S, { keys: [] });
+        if ((h.hp < a) !== !!near) out.push(near ? "an explosive elite's corpse does not hurt the hero in reach" : "an explosive elite's corpse hurts the hero out of reach"); } }
+    // the hero and a monster side by side against the same wall above them still reach each other
+    { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
+      const R = S.run, m = R.map, h = R.hero, rm = m.rooms.find((q) => q.id !== m.start && q.w >= 6), y = rm.y * TILE + 5, x = (rm.x + 2) * TILE;
+      if (!losClear(m, x, y, x + 40, y)) out.push('two actors against the same wall cannot reach each other along it');
+      if (losClear(m, x, y, x, y - 3 * TILE)) out.push('a line straight up through the wall above a room is clear'); }
     // a cultist's fire hex (lava floors) sets the hero burning for a few ticks; the plain hex does not
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, rm = R.map.rooms.find((q) => q.id !== R.map.start); R.en = []; h.hp = h.base.vit * 100; h.ifr = 0;
