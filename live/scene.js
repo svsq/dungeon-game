@@ -21,16 +21,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y = -q.y;                    // y up, 
   float core = smoothstep(w * 0.55, 0.0, abs(x)) * smoothstep(0.65, 0.1, h);
   vec3 c = mix(u_col * vec3(1.0, 0.55, 0.35), u_col, body); c = mix(c, vec3(1.0, 0.95, 0.75), core * 0.85);
   float a = body * u_amt; o = vec4(c * a * 1.5, 0.0); }`;
-  // a slash crescent: angles a0..a1 around the centre at radius r (uv of the quad), fading toward the trailing end
+  // a slash crescent: angles a0..a1 (ellipse parameter) around the centre at radius 0.8 of the quad, sharp at both ends and hollow
+  // inside, brightest toward the head; u_dark lays a soft dark rim under it so it reads on a lit floor
   const ARC = `
-uniform vec4 u_arc; uniform vec3 u_col; uniform float u_amt;              // a0, a1, thickness (fraction of r), squash y
+uniform vec4 u_arc; uniform vec3 u_col; uniform float u_amt, u_dark;     // a0, a1, thickness (fraction of r), squash y
 void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y /= u_arc.w; float r = length(q), a = atan(q.y, q.x);
   float a0 = u_arc.x, a1 = u_arc.y, span = a1 - a0, u = (a - a0) / span;
   for (int k = -1; k <= 1; k++) { float aa = a + float(k) * 6.2831853; float uu = (aa - a0) / span; if (uu >= 0.0 && uu <= 1.0) { u = uu; break; } }
   if (u < 0.0 || u > 1.0) discard;
-  float th = u_arc.z * (0.25 + 0.75 * u), band = smoothstep(th, 0.0, abs(r - 0.82 + th * 0.4));
-  float a2 = band * pow(u, 1.6) * u_amt; vec3 c = mix(u_col, vec3(1.0), smoothstep(0.6, 1.0, u) * band);
-  o = vec4(c * a2, a2 * 0.5); }`;
+  float th = u_arc.z * pow(sin(3.14159 * clamp(u * 0.92, 0.0, 1.0)), 0.7) + 1e-4, d = abs(r - 0.80);
+  float band = 1.0 - smoothstep(th * 0.35, th, d), head = 1.0 - smoothstep(0.86, 1.0, u);
+  float a2 = band * pow(u, 1.4) * head * u_amt, sh = (1.0 - smoothstep(th, th * 2.4 + 0.03, d)) * pow(u, 1.1) * head * u_dark;
+  vec3 c = mix(u_col, vec3(1.0), smoothstep(0.6, 1.0, u) * band);
+  o = vec4(c * a2, clamp(max(a2 * 0.5, sh), 0.0, 1.0)); }`;
   const LIT = `
 uniform sampler2D u_src, u_light, u_seen; uniform vec2 u_cam, u_map;
 void main(){ vec3 c = texture(u_src, scr(v_px)).rgb, l = texture(u_light, scr(v_px)).rgb;
@@ -166,9 +169,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     return { RG, s, run, dirx: dirx * h.face, diry, p, u0, sl };
   }
   // the melee swing in rig angles: a short pull back, an ease-in strike that crosses the aim on the sim's damage frame (K.HIT),
-  // a follow-through that bleeds the speed off, then a recovery that keeps turning the same way so the blade never sweeps back
-  // through the target. It starts from the end of the arc nearer the rest pose (an aim straight up is an uppercut), which keeps
-  // the wind-up short in every direction.
+  // a follow-through that bleeds the speed off, then a recovery that turns the blade flat toward the camera before it travels
+  // back to guard, so its way home never reads as a second sweep in any direction. It starts from the end of the arc nearer the
+  // rest pose (an aim straight up is an uppercut), which keeps the wind-up short in every direction.
   const SWING = { pull: 0.09, follow: 0.09, end: 0.5, back: 0.35, over: 0.5 }, TAU = Math.PI * 2;
   const wrapPi = (a) => a - TAU * Math.floor((a + Math.PI) / TAU);
   function swingPose(T, saRaw, arc, rest, from) {
@@ -181,9 +184,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (T < Ta) { const q = SS(0, Ta, T), b0 = from ? from.blade : rest, k0 = from ? from.k : 0; k = k0 + (1 - k0) * q; blade = b0 + wrapPi(a0 - b0) * q; bend = 1.1; }
     else if (T < Ts) { const e = Math.pow((T - Ta) / (Ts - Ta), 1.5); blade = a0 + dir * th * e; bend = 1.1 - 0.95 * e; }
     else if (T < Tf) { blade = follow(T - Ts); bend = 0.15 + 0.15 * SS(Ts, Tf, T); }
-    else { const bf = follow(Tf - Ts), q = SS(Tf, SWING.end, T), fwd = ((dir * (rest - bf)) % TAU + TAU) % TAU, d = fwd < Math.PI * 0.75 ? dir * fwd : wrapPi(rest - bf);
-      blade = bf + d * q; k = 1 - q; bend = 0.3; fs = 1 - 0.5 * Math.sin(Math.PI * q); }   // the blade turns flat toward the camera on the way back: no second swing
-    return { blade, k, bend, fs, start, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
+    else { const bf = follow(Tf - Ts), u = (T - Tf) / (SWING.end - Tf), q = SS(0, 1, u), d0 = wrapPi(rest - bf), d1 = d0 - Math.sign(d0) * TAU;
+      const via = (d, x) => { let t = wrapPi(x - bf); if (d < 0 && t > 0) t -= TAU; if (d > 0 && t < 0) t += TAU; return Math.abs(t) <= Math.abs(d); };   // the blade lowers past the hip
+      blade = bf + (via(d0, Math.PI / 2) || Math.abs(d1) > 1.25 * Math.PI ? d0 : d1) * SS(0.15, 0.75, u); k = 1 - q; bend = 0.3; fs = 1 - 0.6 * SS(0, 0.2, u) * (1 - SS(0.6, 0.95, u)); }
+    return { blade, k, bend, fs, dir, start, end, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
   }
   const DEPTH_K = 0.65;   // the 3/4 camera's squeeze of floor depth
   // the whirl's turn (0..1) over WHIRL_T s: speeds up and slows down over 0.1 s, so the blade neither starts nor stops dead
@@ -198,18 +202,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const wt = GT - h.whirlT, whirlE = wt >= 0 ? SS(0, 0.14, wt) * (1 - SS(WHIRL_T, WHIRL_T + 0.14, wt)) : 0, wa0 = h.whirlA ?? h.aim;
     const wTh0 = Math.atan2(Math.sin(wa0) / DEPTH_K, Math.cos(wa0)), whirlTh = wTh0 + Math.PI * 2 * whirlP(wt);
     // a turn narrows the rig to a sliver and opens it mirrored instead of flipping it in one frame; fX is the rig's signed x scale
-    const tu = (GT - (h.faceT ?? -9)) / 0.12, fX = tu >= 0 && tu < 1 ? h.face * (tu < 0.5 ? -(1 - 0.9 * SS(0, 0.5, tu)) : 0.1 + 0.9 * SS(0.5, 1, tu)) : h.face, face = fX >= 0 ? 1 : -1;
+    const tu = (GT - (h.faceT ?? -9)) / 0.15, fX = tu >= 0 && tu < 1 ? h.face * (tu < 0.4 ? -(1 - 0.9 * SS(0, 0.4, tu)) : 0.1 + 0.9 * SS(0.4, 1, tu)) : h.face, face = fX >= 0 ? 1 : -1;
     const pdx = P.dirx * face * h.face;
     const hurt = GT - h.hurtT < 0.12, alpha = o.alpha === undefined ? 1 : o.alpha;
     // body: hip rides the stance leg (low at double support), slow breath at rest
     const dbl = 0.5 + 0.5 * Math.cos(4 * Math.PI * P.u0), breath = (1 - run) * Math.sin(GT * 2.1) * 0.9;
-    const bodyDy = run * (2.6 - 0.9 * Math.abs(pdx)) * dbl + breath * 1.4;
+    const bodyDy = run * (2.6 - 0.9 * Math.abs(pdx)) * dbl;
     // dash and hurt lean the upper body about the hip (the feet stay planted): eased in and out, never a one-frame switch
     const dA = GT - h.dashT, dashE = SS(0, 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
     const hA = GT - h.hurtT, hurtE = h.deadT >= 0 ? 0 : SS(0, 0.07, hA) * (1 - SS(0.12, 0.3, hA));
     // standing, the upper body sways slowly about the hip (two slow waves, so it never reads as a metronome)
     const swE = atkT >= 0 ? SS(0, 0.06, atkT) * (1 - SS(SWING.end - 0.1, SWING.end, atkT)) : 0;
     const idle = (1 - run) * (1 - dashE) * (1 - hurtE) * (1 - swE) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1), sway = idle * (0.022 * Math.sin(GT * 0.83) + 0.01 * Math.sin(GT * 1.37 + 1));
+    // every 4–5 s the weight moves onto the other leg: the hip slides toward it and the free heel lifts
+    const wsh = 2 * SS(-0.35, 0.35, Math.sin(GT * 1.43) + 0.3 * Math.sin(GT * 0.61)) - 1, hipDx = 10 * wsh * idle;
+    const heel = { L: 0.06 * idle * SS(0.3, 1, wsh), R: 0.06 * idle * SS(0.3, 1, -wsh) };
     const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face;
     // death keeps the rig: the knees buckle (the hip drops, IK folds them), the arms fling, then the whole body falls back about the feet,
     // accelerating but slowed just before the floor so it lands with a small bounce instead of a board's slap
@@ -236,12 +243,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     let drop = 0;
     for (const side of ['L', 'R']) { const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], Lm = 0.955 * (dist2(H0, K0) + dist2(K0, A0)), dx = tg[side].tx - H0[0];
       drop = Math.max(drop, tg[side].ty - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx * dx))); }
-    const hipDy = Math.max(bodyDy / s, drop) + 48 * buckle + 10 * dashE + 8 * hurtE + 7 * whirlE;
-    const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0], Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
-    const R2U = (px, py, dy = 0) => { const p = R2S(px, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };
+    const hipDy = Math.max(bodyDy / s, drop) + breath * 1.4 / s + 48 * buckle + 10 * dashE + 8 * hurtE + 7 * whirlE;
+    const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0] + hipDx, Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
+    const R2U = (px, py, dy = 0) => { const p = R2S(px + hipDx, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty, lift } = tg[side];
-      const Hp = [H0[0], H0[1] + hipDy];
+      const Hp = [H0[0] + hipDx, H0[1] + hipDy];
       const l1 = dist2(H0, K0), l2 = dist2(K0, A0); let dx = tx - Hp[0], dy = ty - Hp[1], d = Math.hypot(dx, dy);
       const dm = Math.min(d, l1 + l2 - 0.5); const base = Math.atan2(dy, dx), cosA = (l1 * l1 + dm * dm - l2 * l2) / (2 * l1 * dm);
       // seen from the front or back, most of the knee's fold points at the camera: a smaller sideways bend, a foreshortened shin
@@ -265,7 +272,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const prev = pT < SWING.end && h.patkT < h.atkT ? swingPose(pT, swAim(h.patkA), arcR, -0.95) : null;
       const sw = swingPose(atkT, swAim(h.atkA), arcR, -0.95, prev);
       bladeA = sw.blade; armA = sw.arm; swingK = sw.k; bend = sw.bend; bladeFs = sw.fs; }
-    const shoulderDy = hipDy;
+    const shoulderDy = hipDy - 0.6 * breath / s;   // the chest lifts on the breath a little more than the hip
     const armPose = (side, swingA) => {
       const S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side];
       const Sp = [S0[0], S0[1] + shoulderDy];
@@ -303,7 +310,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const jL = armJ(arms.L), jR = armJ(arms.R);
     // ---- draw: far arm → far leg → near leg → body → near arm + weapon (weapon behind the body when it points away) ----
     const drawLeg = (side, u) => { const g = legs[side];
-      part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02, u); };
+      part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02 + heel[side], u); };
     const drawArm = (side, u) => { const A = arms[side], J = side === 'L' ? jL : jR;
       part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR); part('farm' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
     const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), b0 = -0.95 + arms.R.r1 * 0.5, ba = bladeA !== null ? bladeA : b0 + (0.9 - b0) * castE;
@@ -334,7 +341,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // joint trace (animation.md §14)
     const J = (n, p) => L.joint(id, n, p);
     if (h.qaTgt) { const tx = hx + h.qaTgt[0] - h.x, ty = hy + h.qaTgt[1] - h.y; J('target', [tx, ty - 34]); J('targetLo', [tx, ty]); J('targetHi', [tx, ty - 68]); }
-    J('ground', root); J('head', R2U(RG.head[0], RG.head[1], hipDy * s)); J('top', R2U(RG.top[0], RG.top[1], hipDy * s)); J('hip', R2S((RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1], hipDy * s));
+    J('ground', root); J('head', R2U(RG.head[0], RG.head[1], hipDy * s)); J('top', R2U(RG.top[0], RG.top[1], hipDy * s)); J('hip', R2S((RG.hipL[0] + RG.hipR[0]) / 2 + hipDx, RG.hipL[1], hipDy * s));
     for (const side of ['L', 'R']) { const g = legs[side]; J('hip' + side, R2S(g.Hp[0], g.Hp[1])); J('knee' + side, R2S(g.K[0], g.K[1])); J('ankle' + side, R2S(g.T[0], g.T[1]));
       const dT = [g.T[0] - g.A0[0], g.T[1] - g.A0[1]]; J('heel' + side, R2S(RG['heel' + side][0] + dT[0], RG['heel' + side][1] + dT[1])); J('toe' + side, R2S(RG['toe' + side][0] + dT[0], RG['toe' + side][1] + dT[1])); J('ground' + side, [root[0], root[1] + tg[side].dz * s]);
       const A = arms[side], j2 = side === 'L' ? jL : jR; J('sh' + side, R2U(A.Sp[0], A.Sp[1])); J('elbow' + side, R2U(j2.E[0], j2.E[1])); J('hand' + side, R2U(j2.Hd[0], j2.Hd[1])); }
@@ -595,12 +602,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); } }
     // event FX
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue; const ex = sx(e.x), ey = sy(e.y);
-      if (e.k === 'swing' && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, scr = (b) => (f > 0 ? b : Math.PI - b);
-        const pose = (T) => swingPose(T, f > 0 ? e.a : Math.PI - e.a, st.arc * Math.PI / 180, -0.95), sw = pose(a), lead = pose(Math.min(a, sw.Tf - 1e-4)), q = SS(sw.Ts, sw.Tf + 0.05, a);
-        const Rr = st.reach + 30, lb = scr(lead.blade); L.joint('hero_fx', 'trailC', [ex, ey - 40]); L.joint('hero_fx', 'trail', [ex + Math.cos(lb) * Rr * 0.56, ey - 40 + Math.sin(lb) * Rr * 0.56]);
-        if (q < 1) G.draw(L.P.arc, { u_arc: [scr(sw.start), scr(lead.blade), 0.34, 0.78], u_col: [1, 0.85, 0.6], u_amt: 1.6 * (1 - q * q) }, G.xf(ex - Rr, ey - 40 - Rr, 2 * Rr, 2 * Rr)); }
-      if (e.k === 'whirl' && a < WHIRL_T + 0.08) { const q = a / (WHIRL_T + 0.08), a0 = e.a === undefined ? 0 : Math.atan2(Math.sin(e.a) / DEPTH_K, Math.cos(e.a)); G.draw(L.P.arc, { u_arc: [a0, a0 + 6.2831 * whirlP(a), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q) }, G.xf(ex - 118, ey - 34 - 118, 236, 236)); }
-      if (e.k === 'eswing' && a < 0.2) G.draw(L.P.arc, { u_arc: [e.a - 0.9, e.a + 0.9 * Math.min(1, a / 0.12), 0.2, 0.75], u_col: [1, 0.5, 0.4], u_amt: 1 - a / 0.2 }, G.xf(ex - 50, ey - 26 - 50, 100, 100));
+      // the trail runs from the arc's start to the blade, centred on the shoulder, and stops at the arc's end; it fades from the damage
+      // frame, so its brightest frame is the hit and the follow-through shows only on the blade itself
+      if (e.k === 'swing' && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, RG = RIGS.hero, s = HERO_H / RG.h, W = WEAPON[st.wtype];
+        const shx = ex + f * (RG.shR[0] - RG.gap) * s, shy = ey + (RG.shR[1] - RG.footL[1]) * s, tx = ex + Math.cos(e.a) * st.reach * 0.8, ty = ey + Math.sin(e.a) * st.reach * 0.8 - 34;
+        const g = Math.atan2(ty - shy, tx - shx), pose = (T) => swingPose(T, f > 0 ? g : Math.PI - g, st.arc * Math.PI / 180, -0.95), sw = pose(a), lead = pose(Math.min(a, sw.Ts));
+        const SQ = 0.72, scr = (b) => (f > 0 ? b : Math.PI - b), ell = (b) => Math.atan2(Math.sin(scr(b)) / SQ, Math.cos(scr(b)));
+        const arm = Math.hypot(RG.handR[0] - RG.shR[0], RG.handR[1] - RG.shR[1]) * s, Rr = (arm + (W ? W[1] * 0.78 : 20)) / 0.8, q = SS(SIM.K.HIT, SIM.K.HIT + 0.1, a);
+        const e0 = ell(sw.start), e1 = e0 + wrapPi(ell(lead.blade) - e0), em = e0 + 0.645 * (e1 - e0), amt = 1.3 * (1 - q * q), open = sw.dir * (lead.blade - sw.start) > 0.05;
+        const pt = (b) => [shx + Math.cos(b) * Rr * 0.8, shy + Math.sin(b) * Rr * 0.8 * SQ];
+        L.joint('hero_fx', 'trailC', [shx, shy]); L.joint('hero_fx', 'trail', pt(e1)); L.joint('hero_fx', 'trailMid', pt(em));   // the crescent's brightness centroid sits 0.645 of the way to its head
+        L.joint('hero_fx', 'aim', [shx + Math.cos(g) * 40, shy + Math.sin(g) * 40]);
+        L.joint('hero_fx', 'trailA', [open && q < 1 ? amt * Math.min(1, Math.abs(e1 - e0)) : 0, 0]);
+        if (open && q < 1) G.draw(L.P.arc, { u_arc: [e0, e1, 0.16, SQ], u_col: [1, 0.85, 0.6], u_amt: amt, u_dark: 0.45 * (1 - q) }, G.xf(shx - Rr, shy - Rr, 2 * Rr, 2 * Rr)); }
+      if (e.k === 'whirl' && a < WHIRL_T + 0.08) { const q = a / (WHIRL_T + 0.08), a0 = e.a === undefined ? 0 : Math.atan2(Math.sin(e.a) / DEPTH_K, Math.cos(e.a)); G.draw(L.P.arc, { u_arc: [a0, a0 + 6.2831 * whirlP(a), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q), u_dark: 0 }, G.xf(ex - 118, ey - 34 - 118, 236, 236)); }
+      if (e.k === 'eswing' && a < 0.2) G.draw(L.P.arc, { u_arc: [e.a - 0.9, e.a + 0.9 * Math.min(1, a / 0.12), 0.2, 0.75], u_col: [1, 0.5, 0.4], u_amt: 1 - a / 0.2, u_dark: 0 }, G.xf(ex - 50, ey - 26 - 50, 100, 100));
       if (e.k === 'hit' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
           L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d, e.crit ? 12 : 8, e.fire ? [1, 0.6, 0.2] : [1, 0.85, 0.6], 1 - q); } }
       if (e.k === 'scorch' && a < 0.4) { const q = a / 0.4; L.glow(ex, ey - 6, 34, [1, 0.5, 0.15], 0.9 * (1 - q), 2.4); L.ring(ex, ey, 10 + 22 * q, 6 + 10 * q, [1, 0.55, 0.2], 1 - q, 0.2); }
