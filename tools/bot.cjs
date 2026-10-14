@@ -31,10 +31,12 @@ function play({ seed = 1, profile = 'average', runs = 1, log = () => {} } = {}) 
   let cur = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
   const fresh = () => ({ floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
-  function walk(R, inp, x, y) {
+  // the way round a wall: a target close in a straight line can still be a long walk away
+  const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
+  function walk(R, inp, x, y, round) {
     const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), tx = Math.floor(h.x / T), ty = Math.floor(h.y / T);
     let gx = x - h.x, gy = y - h.y;
-    if (Math.hypot(gx, gy) > 40) { let best = null;
+    if (round || Math.hypot(gx, gy) > 40) { let best = null;
       for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!best || v < best[0])) best = [v, ax, ay]; }
       if (best) { gx = (tx + best[1]) * T + 16 - h.x; gy = (ty + best[2]) * T + 18 - h.y; } }
     if (Math.abs(gx) > 4) inp[gx > 0 ? 'right' : 'left'] = 1; if (Math.abs(gy) > 4) inp[gy > 0 ? 'down' : 'up'] = 1;
@@ -46,12 +48,15 @@ function play({ seed = 1, profile = 'average', runs = 1, log = () => {} } = {}) 
     const h = R.hero, t = S.t; if (h.cd.dash > t) return;
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < P.react || seen.has(key)) continue; seen.add(key);
-      const w = e.st === 'bwind' ? (e.hp < e.max * 0.5 ? 0.55 : 0.8) : E.wind * (e.elite ? 0.85 : 1), d = Math.hypot(h.x - e.x, h.y - e.y);
+      const w = e.st === 'bwind' ? (e.hp < e.max * 0.5 ? 0.55 : 0.8) : E.wind * D.eliteK(e, 'wind'), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster') continue;
       const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
       if (e.st === 'bwind' && e.mv !== 'slam') dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
+    // an explosive elite's corpse: out of its reach before the fuse is out
+    for (const e of R.en) { if (!e.fuse || t - e.deadT < P.react || seen.has('f' + e.id)) continue; seen.add('f' + e.id);
+      const d = Math.hypot(h.x - e.x, h.y - e.y); if (d > 130 || rand() >= P.dodge) continue; dash(inp, (h.x - e.x) / (d || 1), (h.y - e.y) / (d || 1)); return; }
     for (const p of R.proj) { if (p.own !== 'en' || p.dead || t - p.t0 < P.react || seen.has('p' + p.id)) continue;
       const rx = h.x - p.x, ry = h.y - 38 - p.y, v2 = p.vx * p.vx + p.vy * p.vy, tc = (rx * p.vx + ry * p.vy) / v2;
       if (tc < 0 || tc > 0.7) continue; seen.add('p' + p.id);
@@ -67,7 +72,8 @@ function play({ seed = 1, profile = 'average', runs = 1, log = () => {} } = {}) 
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
     if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
-    else if (td > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y); else inp.press = 1;
+    else { const round = pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
+      if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round); else inp.press = 1; }
     if (td > 140 && td < 330 && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)) inp.slot = 2;
     if (h.cd.whirl <= S.t && live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= P.whirl) inp.slot = 1;
     if (P.shield && h.ab.shield && h.cd.shield <= S.t && h.hp < st.maxHp * P.shield) inp.slot = 3;
@@ -120,7 +126,7 @@ function play({ seed = 1, profile = 'average', runs = 1, log = () => {} } = {}) 
     else if (!near && shop && chase(R, shop)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
     else if (live.length && !late) fight(S, R, inp, live, st);
     else { walk(R, inp, m.exit.x, m.exit.y); if (dist(m.exit) < 55) inp.keys.push('KeyE'); }
-    if (awake.length) dodge(S, R, inp, awake);
+    if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
     if (Math.hypot(h.x - lx, h.y - ly) > 20) { lx = h.x; ly = h.y; lt = S.t; }
     if (S.t - lt > 1) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); inp.press = 1;
