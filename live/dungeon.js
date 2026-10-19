@@ -1,5 +1,5 @@
 // live/dungeon.js — procedural floor generator: genFloor(seed, floor) → plain JSON map data. Pure function of its inputs.
-// Rooms placed at random without overlap → MST + extra loop edges → 2-wide L corridors → start room (safe) at a leaf,
+// Rooms placed at random without overlap → MST + extra loop edges → 2-wide L corridors → start room at a leaf,
 // exit room farthest by graph distance (floor 8: the boss lair) → room roles → contents (enemies, chests, pots, traps,
 // lava, torches, decor) → validation (everything reachable from the start, spawns on open floor).
 (function (root) {

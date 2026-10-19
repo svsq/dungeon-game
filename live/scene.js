@@ -109,18 +109,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (window.HUD) HUD.init();
   };
   const rnd = L.rnd, SS = L.SS;
-  // the safe zone is the start room plus one cell (SIM's inStart): its edge is visible only where floor crosses it
-  const SANCT = { key: null, edges: [] };
-  const sanctEdges = (m) => { const key = m.seed + ':' + m.floor; if (SANCT.key === key) return SANCT.edges; SANCT.key = key; const out = SANCT.edges = [];
-    const r = m.rooms[m.start], inZ = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, T = TILE;   // the room itself, as the sim's ward
-    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { if (SIM.cell(m, x, y) !== 1) continue;
-      if (!inZ(x + 1, y) && SIM.cell(m, x + 1, y) === 1) out.push([(x + 1) * T - 2, y * T, 4, T]); if (!inZ(x - 1, y) && SIM.cell(m, x - 1, y) === 1) out.push([x * T - 2, y * T, 4, T]);
-      if (!inZ(x, y + 1) && SIM.cell(m, x, y + 1) === 1) out.push([x * T, (y + 1) * T - 2, T, 4]); if (!inZ(x, y - 1) && SIM.cell(m, x, y - 1) === 1) out.push([x * T, y * T - 2, T, 4]); }
-    // one sill per doorway: merge edge cells that continue each other
-    for (let i = 0; i < out.length; i++) for (let j = out.length - 1; j > i; j--) { const a = out[i], b = out[j], v = a[2] < a[3];
-      if (v === (b[2] < b[3]) && (v ? a[0] === b[0] && (a[1] + a[3] === b[1] || b[1] + b[3] === a[1]) : a[1] === b[1] && (a[0] + a[2] === b[0] || b[0] + b[2] === a[0]))) {
-        if (v) { a[1] = Math.min(a[1], b[1]); a[3] += b[3]; } else { a[0] = Math.min(a[0], b[0]); a[2] += b[2]; } out.splice(j, 1); j = out.length; } }
-    return out; };
   const zoneAt = (m, x, y) => { for (const r of m.rooms) if (r.zone && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r.zone; return m.biome; };
   const torchCol = (m, tc) => D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome].torch;
 
@@ -566,10 +554,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (x1 >= x0) { waterBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; waterXf = G.xf(sx(waterBox[0]), sy(waterBox[1]), waterBox[2], waterBox[3]); G.draw(L.P.pool, waterU(0), waterXf); } }
     // stairs / boss portal
     if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.FLOORS) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
-    // sanctuary: the bonfire's rune circle, and an inlaid threshold wherever the floor leaves the safe zone (its doorways)
+    // the start room's bonfire sits in a rune circle
     if (window.ASSETS.sanct_circle && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
-    if (window.ASSETS.sanct_sill) for (const [X, Y, w, hh] of sanctEdges(m)) if (vis(X, Y)) { const v = w < hh, [aw, ah] = SZ('sanct_sill'), sw = Math.max(w, hh) + 4, sh = ah;
-      L.sprite('sanct_sill', 0, 0, { m: M.of(M.t(sx(X + w / 2), sy(Y + hh / 2)), M.r(v ? Math.PI / 2 : 0)), w: sw, h: sh, pivot: [sw / 2, 6] }); }
     // spike traps: a 2×2-cell plate on the ground; its spikes stand in the Y-sorted band (they have height)
     for (const tp of m.traps) if (vis(tp.x, tp.y)) L.sprite('trap_plate', sx(tp.x - TILE), sy(tp.y - TILE), { w: 2 * TILE, h: 2 * TILE });
     // flat decor (bones) and blood / scorch decals from events
@@ -702,7 +688,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     G.blend();
     G.blend('add');
     // shrine and portal
-    for (const [X, Y, w, hh] of sanctEdges(m)) if (vis(X, Y) && known(X, Y)) { const c = [X + w / 2, Y + hh / 2]; L.glow(sx(c[0]), sy(c[1]), 22, [1.0, 0.72, 0.3], 0.22 + 0.08 * Math.sin(t * 2 + c[0] * 0.05)); }
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
     // a mechanism catches the light now and then: a faint four-point glint for a third of a second every five or so, each on
     // its own beat, so it reads only to someone already looking at it
@@ -1039,9 +1024,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const h = R.hero; h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h - 1) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, r.y * TILE - VH / 2 + 40]; return S; } };
     for (const [nm, tall] of [['wallprops', 0], ['wallprops_tall', 1]]) { const S = wallS(tall); if (S) states.push([nm, S]); }
     states.push(['sanct', play((S) => { const R = S.run, r = R.map.rooms[R.map.start], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1);
-      h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1.5) * TILE; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
-    // a corridor running along the safe room's side (seed 1, floor 1): the threshold follows the room's edge, not the corridor's middle
-    states.push(['sanct_side', play((S) => { S.run = SIM.newRun(S, 'campaign', 1); const R = S.run, r = R.map.rooms[R.map.start], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1);
       h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1.5) * TILE; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
     // the shop: the room from its doorway side, the hero at the counter (the prompt), and the trade screen at its worst
     const shopS = (prep) => play((S) => { const R = S.run, sh = R.map.shop, r = R.map.rooms[sh.room], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);

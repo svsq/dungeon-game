@@ -29,7 +29,7 @@
     lab(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: 30, al: 0.5, col: on ? (hv ? '#fff2c8' : C.text) : '#6d6258' });
   }
   const dim = (a = 0.62) => L.solid(0, 0, W, H, [0, 0, 0], 0, 0, 0, a);
-  const fmtT = (s) => { s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
   HUD.draw = (S, t, V) => {
     G.bind(null); G.blend();

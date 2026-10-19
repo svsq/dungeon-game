@@ -223,12 +223,11 @@
   // ---------------- map queries ----------------
   const cell = (m, tx, ty) => (tx < 0 || ty < 0 || tx >= m.W || ty >= m.H ? 0 : m.cells[ty * m.W + tx]);
   const inRoom1 = (r, tx, ty) => tx >= r.x - 1 && tx <= r.x + r.w && ty >= r.y - 1 && ty <= r.y + r.h;
-  // the sanctuary and the merchant's warded shop (plus one cell): monsters never set foot in them, their bolts die at the line
-  // the sanctuary is the safe room itself: a ring around it would take in half of a corridor that runs along its side
+  // the start room and the merchant's shop (plus one cell): the generator posts no monster there; they are not warded (TASKS 152)
   const inRoom0 = (r, tx, ty) => tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h;
   const inStart = (m, tx, ty) => inRoom0(m.rooms[m.start], tx, ty) || (!!m.shop && inRoom1(m.rooms[m.shop.room], tx, ty));
   // lava (3) can be entered — it burns — by the hero and by a monster knocked into it; a monster never walks into it on its own
-  const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty); return c === 3 ? !lavaOk : c !== 1 || (mon && inStart(m, tx, ty)); };
+  const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty); return c === 3 ? !lavaOk : c !== 1; };
   const onLava = (m, o) => cell(m, Math.floor(o.x / TILE), Math.floor(o.y / TILE)) === 3;
   // shallow water (dungeon.js m.water) lies on floor cells: anyone wades through it slowed, and it puts out a burning one
   const WET = new WeakMap(), WADE = 0.75;
@@ -261,28 +260,28 @@
   // each other along its face, and a line through a wall still crosses a whole blocked cell
   const losClear = (m, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10), wall = (x, y) => { const c = cell(m, Math.floor(x / TILE), Math.floor(y / TILE)); return c === 0 || c === 4; };
     for (let i = 1; i < n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u; if (wall(x, y - 8) && wall(x, y)) return false; } return true; };
-  // flow field from a target tile over open floor (monsters avoid the sanctuary): derived data, cached by key, never in the state
+  // flow field from a target tile over open floor: derived data, cached by key, never in the state
   const FLOW = { key: '', d: null };
   const FLOW2 = { key: '', d: null };
-  function bfs(m, tx, ty, lim, sanct) {
+  function bfs(m, tx, ty, lim) {
     const d = new Int16Array(m.W * m.H).fill(-1), q = new Int32Array(m.W * m.H); let qh = 0, qt = 0;
     const blk = new Uint8Array(m.W * m.H); for (const i of m.block || []) blk[i] = 1;
     if (cell(m, tx, ty) === 1) { d[ty * m.W + tx] = 0; q[qt++] = ty * m.W + tx; }
     while (qh < qt) { const i = q[qh++], x = i % m.W, y = (i / m.W) | 0, dv = d[i]; if (dv > lim) continue;
       for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay, j = ny * m.W + nx;
-        if (nx < 0 || ny < 0 || nx >= m.W || ny >= m.H || d[j] >= 0 || m.cells[j] !== 1 || blk[j] || (!sanct && inStart(m, nx, ny))) continue; d[j] = dv + 1; q[qt++] = j; } }
+        if (nx < 0 || ny < 0 || nx >= m.W || ny >= m.H || d[j] >= 0 || m.cells[j] !== 1 || blk[j]) continue; d[j] = dv + 1; q[qt++] = j; } }
     return d;
   }
   function flow(m, tx, ty, any) {
     const C = any ? FLOW2 : FLOW, key = m.seed + ':' + m.floor + ':' + tx + ',' + ty; if (C.key === key) return C.d;
-    C.key = key; C.d = bfs(m, tx, ty, any ? 400 : 40, any); return C.d;
+    C.key = key; C.d = bfs(m, tx, ty, any ? 400 : 40); return C.d;
   }
   // a monster walking back to its post may be far from it: a whole-floor field per post, a few kept at once
   const HOME = new Map();
   function homeFlow(m, tx, ty) {
     const fk = m.seed + ':' + m.floor; if (HOME.fk !== fk) { HOME.clear(); HOME.fk = fk; }
     const key = ty * m.W + tx; let d = HOME.get(key);
-    if (!d) { d = bfs(m, tx, ty, 400, false); if (HOME.size >= 24) HOME.delete(HOME.keys().next().value); }
+    if (!d) { d = bfs(m, tx, ty, 400); if (HOME.size >= 24) HOME.delete(HOME.keys().next().value); }
     else HOME.delete(key);
     HOME.set(key, d); return d;
   }
@@ -506,7 +505,7 @@
 
   // ---------------- the world step (screen 'play') ----------------
   function stepPlay(S, inp, keys) {
-    const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t;
+    const R = S.run, h = R.hero, m = R.map, t = S.t; R.t = t; R.play = (R.play ?? (R.log ? R.log.fl.reduce((n, L) => n + L.time, 0) : 0)) + DT;   // saves from before the counter resume from the journal's per-floor time
     const st = heroSt(S);
     if (R.log && h.deadT < 0) { const L = logFloor(R); L.time += DT; L.minHp = Math.min(L.minHp, h.hp / st.maxHp); L.minMp = Math.min(L.minMp, h.mp / st.maxMp); L.maxHp = st.maxHp; L.maxMp = st.maxMp; L.atk = st.atk; L.def = st.def; }
     // mouse → world aim
@@ -657,7 +656,6 @@
       if (pc === 4 && p.own === 'hero') { const q = secretAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (q && kindOf(q) === 'crack') hitSecret(S, R, q); }
       let boom = wall || age > p.life;
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
-      else if (inStart(m, Math.floor(p.x / TILE), Math.floor((p.y + 28) / TILE))) boom = true;
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { hurtHero(S, R, p.dmg, p.x, p.y, p.k, (p.who || '?') + ' снаряд'); struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
@@ -678,25 +676,30 @@
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
       if (e.face !== e.pf) { if (e.pf) e.ft = t; e.pf = e.face; }
       if (e.st === 'idle' || e.st === 'home') {
-        if (heroOk && d < 330 && (DG.roomAt(m, h.x, h.y) === e.room || d < 170) && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) { aggroRoom(R, e); ev(S, { k: 'alert', x: e.x, y: e.y - E.h - 8, id: e.id }); if (e.type === 'boss') roar(S, R, e); }
+        if (heroOk && !(e.calmT > t) && d < 330 && (DG.roomAt(m, h.x, h.y) === e.room || d < 170) && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) { aggroRoom(R, e); ev(S, { k: 'alert', x: e.x, y: e.y - E.h - 8, id: e.id }); if (e.type === 'boss') roar(S, R, e); }
         else { if (e.st === 'idle') idle(m, e, E, t); else goHome(m, e, E, t); continue; } }
       if (!heroOk) { e.vx = e.vy = 0; continue; }
-      const inSanct = inStart(m, htx, hty);
       // a committed attack keeps facing its aim: a lunge that carries past the hero must not mirror mid-strike; a hero straight above or below doesn't flip it every frame
       e.face = e.st === 'wind' || e.st === 'strike' ? (Math.cos(e.aimA) >= 0 ? 1 : -1) : Math.abs(dx) > 10 ? (dx > 0 ? 1 : -1) : e.face;
-      // a hero out of sight (or behind the sanctuary line) for 4 s is lost: the monster walks back to its post
+      // a hero out of sight for 4 s is lost: the monster walks back to its post
       if (e.st === 'chase' && E.kind !== 'boss' && e.hx !== undefined) {
-        if (d < 420 && !inSanct && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) e.seenT = t;
-        else if (t - e.seenT > 4) { e.st = 'home'; e.t0 = t; continue; } }
+        if (d < 420 && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) e.seenT = t;
+        else if (t - e.seenT > 4) { e.st = 'home'; e.t0 = t; continue; }
+        // under two cells of headway along the path in 2.5 s while short of the fight and the hero holds still (a corridor jammed by its own kind,
+        // a wall in the way): it walks back to its post and stays deaf to the sight of the hero for a while, or it would turn round
+        // at once and jam the corridor again. A hero on the move resets it: a chase is not a jam
+        const near = d < (E.kind === 'caster' ? 300 : E.r + K.R + E.reach + 40), fv = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)], pd = fv >= 0 ? fv : d / TILE;
+        if (near || e.stuckK !== e.t0 || pd <= e.aF - 2 || Math.hypot(h.x - e.ax, h.y - e.ay) > 48) { e.stuckK = e.t0; e.aF = pd; e.ax = h.x; e.ay = h.y; e.aT = t; }
+        else if (t - e.aT > 2.5) { e.st = 'home'; e.t0 = t; e.calmT = t + 4; continue; } }
       if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
       if (e.st === 'chase') {
         const reach = E.r + K.R + E.reach;
         if (E.kind === 'boss') { bossThink(S, R, e, d); continue; }
         if (E.kind === 'caster') { const los = losClear(m, e.x, e.y - 20, h.x, h.y - 20);
-          if (d < 360 && los && t >= e.cdT && !inSanct) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
-          const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d, inSanct); }
-        else if (d < reach && t >= e.cdT && !inSanct) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); continue; }
-        else steer(e, E, m, F, d < reach * 0.8 ? 0 : 1, dx, dy, d, inSanct);
+          if (d < 360 && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
+          const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d); }
+        else if (d < reach && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); continue; }
+        else steer(e, E, m, F, d < reach * 0.8 ? 0 : 1, dx, dy, d);
         move(m, e, e.vx * DT, e.vy * DT, E.r, true);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
       } else if (e.st === 'wind') {
@@ -737,17 +740,17 @@
     const dx = e.hx - e.x, dy = e.hy - e.y, d = Math.hypot(dx, dy);
     // home, or walked for long enough without getting there (blocked): this is the post now
     if (d < 8 || t - e.t0 > 25) { e.st = 'idle'; e.hx = e.x; e.hy = e.y; e.vx = e.vy = 0; return; }
-    steer(e, E, m, homeFlow(m, Math.floor(e.hx / TILE), Math.floor(e.hy / TILE)), 1, dx, dy, d, false, 0.6);
+    steer(e, E, m, homeFlow(m, Math.floor(e.hx / TILE), Math.floor(e.hy / TILE)), 1, dx, dy, d, 0.6);
     move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT;
     if (Math.abs(e.vx) > 6) e.face = e.vx > 0 ? 1 : -1;
   }
   // a monster that stops to attack skids to a halt instead of freezing mid-stride (the rig's gait reads its speed and distance)
   function skid(m, e, E) { const k = Math.exp(-14 * DT); e.vx *= k; e.vy *= k; const v = Math.hypot(e.vx, e.vy); if (v < 1) { e.vx = e.vy = 0; return; } move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT; }
-  function steer(e, E, m, F, want, dx, dy, d, inSanct, kv = 1) {
+  function steer(e, E, m, F, want, dx, dy, d, kv = 1) {
     let vx = 0, vy = 0;
     if (want !== 0) {
       const tx = Math.floor(e.x / TILE), ty = Math.floor(e.y / TILE), here = F[ty * m.W + tx];
-      if (want > 0 && d < 140 && losClear(m, e.x, e.y - 6, e.x + dx, e.y + dy - 6) && !inSanct) { vx = dx / d; vy = dy / d; }
+      if (want > 0 && d < 140 && losClear(m, e.x, e.y - 6, e.x + dx, e.y + dy - 6)) { vx = dx / d; vy = dy / d; }
       else if (here >= 0) { let best = null;
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const j = (ty + ay) * m.W + tx + ax, v = F[j];
           if (v < 0 || (ax && ay && (F[ty * m.W + tx + ax] < 0 || F[(ty + ay) * m.W + tx] < 0))) continue;
@@ -760,7 +763,7 @@
   }
   function bossThink(S, R, e, d) {
     const t = S.t, m = R.map, h = R.hero, E = ENEMIES.boss, rage = e.hp < e.max * 0.5;
-    if (t < e.cdT) { const F = flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)); steer(e, E, m, F, d > 80 ? 1 : 0, h.x - e.x, h.y - e.y, d, false); move(m, e, e.vx * DT * (rage ? 1.3 : 1), e.vy * DT * (rage ? 1.3 : 1), E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT; return; }
+    if (t < e.cdT) { const F = flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)); steer(e, E, m, F, d > 80 ? 1 : 0, h.x - e.x, h.y - e.y, d); move(m, e, e.vx * DT * (rage ? 1.3 : 1), e.vy * DT * (rage ? 1.3 : 1), E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT; return; }
     const moves = d < 120 ? ['slam', 'slam', 'volley', 'summon'] : ['volley', 'charge', 'summon', 'volley'];
     e.phase = (e.phase + 1) % 997; const mv = moves[(e.phase * 7 + Math.floor(t)) % moves.length];
     if (mv === 'summon' && R.en.filter((o) => o.summ && o.deadT < 0).length >= 4) { e.cdT = t + 0.5; return; }
@@ -830,8 +833,8 @@
     S.meta.shards += bonus; S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win') S.meta.wins = (S.meta.wins || 0) + 1;
     S.meta.best = Math.max(S.meta.best || 0, R.floor);
     S.result = { how, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
-      C: W2.C, win: how === 'win' ? REWARD.win : 0, time: R.t };
-    if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
+      C: W2.C, win: how === 'win' ? REWARD.win : 0, time: R.play || 0 };
+    if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; S.screen = how; S.saveN++;
   }
@@ -958,7 +961,7 @@
     const S = cache.S; while (S.steps < n) { const inp = scriptInput(S.t, S); step(S, inp); }
     return Object.assign({}, S, { loop, q });
   }
-  // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the sanctuary, exit reachable
+  // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function selfCheck() {
     const out = [];
     for (let lvl = 1; lvl <= 32; lvl++) for (const slot of D.SLOTS) {
@@ -1008,7 +1011,7 @@
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
-      for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the sanctuary`); }
+      for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
       // bulky props (chests, tables, coffins, statues…) read wider than their cell: two of them never share a cell edge or corner
       { const big = m.chests.map((c) => [c.x, c.y, 'chest']).concat(m.decor.filter((d) => (d.solid || d.n === 'table') && !d.wall).map((d) => [d.x, d.y, d.n]), m.torches.filter((t) => t.kind === 'brazier').map((t) => [t.x, t.y, 'brazier']), m.shrines.map((t) => [t.x, t.y, 'altar']),
@@ -1041,7 +1044,7 @@
         for (const e of m.enemies) if (tc.has(Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE))) out.push(`seed ${seed} f${f}: ${e.type} posted on a spike plate`);
         const a = fill(new Set()), b = fill(tc); for (let k = 0; k < a.length; k++) if (a[k] && !b[k] && !tc.has(k)) { out.push(`seed ${seed} f${f}: spike plates cut off floor`); break; } }
       const ex = DG.genFloor; void ex; void F;
-      // exit reachable from the spawn over floor (ignoring the sanctuary rule, which only binds monsters)
+      // exit reachable from the spawn over floor
       const seen = new Uint8Array(m.W * m.H), st = [[Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE)]]; let ok = false;
       while (st.length) { const [x, y] = st.pop(); if (x === m.exit.tx && y === m.exit.ty) { ok = true; break; }
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay; if (cell(m, nx, ny) === 1 && !seen[ny * m.W + nx]) { seen[ny * m.W + nx] = 1; st.push([nx, ny]); } } }
@@ -1051,7 +1054,7 @@
       else { const fx = Math.floor(m.shop.front.x / TILE), fy = Math.floor(m.shop.front.y / TILE), sn = new Uint8Array(m.W * m.H), q2 = [Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE)];
         while (q2.length) { const k = q2.pop(); for (const d of [1, -1, m.W, -m.W]) { const n = k + d; if (!sn[n] && cell(m, n % m.W, Math.floor(n / m.W)) === 1 && !m.block.includes(n)) { sn[n] = 1; q2.push(n); } } }
         if (!sn[fy * m.W + fx]) out.push(`seed ${seed} f${f}: the merchant's counter can't be reached`);
-        for (const e of m.enemies) if (e.room === m.shop.room || inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} posted in a ward`);
+        for (const e of m.enemies) if (e.room === m.shop.room || inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} posted in the start room or the shop`);
         // the shop's loose props stand against a wall and keep off its ways in; every open cell of the room is reachable from
         // the counter (only the merchant's nook behind it is closed on purpose)
         const r = m.rooms[m.shop.room], inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, blk = new Set(m.block);
@@ -1104,7 +1107,9 @@
       for (let i = 0; i < 120 * 40; i++) { step(S, scriptInput(S.t, S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
       if (!snap) out.push('save check: the demo hero never lives past 10 s');
       const T = spawn(0, { run: JSON.parse(snap || 'null') }); T.screen = 'play'; T.run = T.saved; for (let i = 0; i < 240; i++) step(T, { press: 1, px: 1000, py: 500, keys: [] });
-      if (!T.ev.some((e) => e.k === 'swing')) out.push('a loaded save cannot attack (clock behind the saved timers)'); }
+      if (!T.ev.some((e) => e.k === 'swing')) out.push('a loaded save cannot attack (clock behind the saved timers)');
+      const p0 = T.run.play; T.screen = 'pause'; for (let i = 0; i < 240; i++) step(T, { keys: [] }); T.screen = 'play'; step(T, { keys: [] });
+      if (Math.abs(T.run.play - p0 - DT) > 1e-6) out.push(`run timer: 2 s on the pause screen added ${(T.run.play - p0).toFixed(2)} s of play`); }
     // a thrown-away item must not come straight back: it lands on another cell and is picked up only after the hero walks away and returns
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 60; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, it = rollItem(R, 1, 1); it.id = 99999; throwAway(R, h, it);
@@ -1140,9 +1145,10 @@
       const R = S.run, h = R.hero, m = R.map, e = R.en.find((o) => o.type !== 'boss' && !ENEMIES[o.type].ghost && ENEMIES[o.type].kind !== 'caster'); R.en = [e];
       for (let i = 0; i < 120 * 20; i++) step(S, { keys: [] });
       if (Math.hypot(e.x - e.hx, e.y - e.hy) > 24) out.push('an idle monster wandered off its post');
-      const hx = e.hx, hy = e.hy; h.ifr = 1e9; h.x = e.x + 60; h.y = e.y; aggroRoom(R, e); h.x = m.spawn.x; h.y = m.spawn.y;
-      let gaveUp = 0; for (let i = 0; i < 120 * 45 && e.st !== 'idle'; i++) { if (e.st === 'chase' && i % 60 === 0) { h.x = m.spawn.x; h.y = m.spawn.y; } step(S, { keys: [] }); gaveUp |= e.st === 'home'; }
-      if (!gaveUp) out.push('a monster never gives up a hero hiding in the sanctuary');
+      const hx = e.hx, hy = e.hy, far = m.rooms.reduce((a, q) => Math.hypot(q.cx * TILE - hx, q.cy * TILE - hy) > Math.hypot(a.cx * TILE - hx, a.cy * TILE - hy) ? q : a), hide = () => { h.x = far.cx * TILE + 16; h.y = far.cy * TILE + 16; };
+      h.ifr = 1e9; h.x = e.x + 60; h.y = e.y; aggroRoom(R, e); hide();
+      let gaveUp = 0; for (let i = 0; i < 120 * 45 && e.st !== 'idle'; i++) { if (e.st === 'chase' && i % 60 === 0) hide(); step(S, { keys: [] }); gaveUp |= e.st === 'home'; }
+      if (!gaveUp) out.push('a monster never gives up a hero hiding in a far room');
       else if (e.st !== 'idle' || Math.hypot(e.x - hx, e.y - hy) > 16) out.push(`a monster that lost the hero did not walk back to its post (${e.st}, ${Math.round(Math.hypot(e.x - hx, e.y - hy))} px off)`); }
     // elites: a blow never knocks one back; a fiery one's landed blow sets the hero burning and a vampire's heals it; a summoner
     // raises skeletons up to its cap and no further; an explosive corpse bursts once its fuse is out, hurting a hero in reach only
@@ -1267,14 +1273,32 @@
         const cg = R.shop.goods.find((q) => q.n); h.gold = 1e6; const c0 = cg.n; step(S, at('buy:' + R.shop.goods.indexOf(cg)));
         if (h.gold !== 1e6 || cg.n !== c0) out.push('a buy into a full bag took the gold');
         step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('Esc does not close the shop'); } }
-    // the shop is warded like the sanctuary: a monster chasing the hero stops at its line
+    // a jam in a two-cell corridor (TASKS 151): monsters queued behind the ones at the hero don't stand still for long, they leave;
+    // and the start room and the shop are open to a chasing monster (152)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run, h = R.hero, m = R.map, r = m.rooms[m.shop.room], e = R.en.find((o) => !ENEMIES[o.type].ghost && ENEMIES[o.type].kind === 'melee');
-      const mouth = []; for (let y = r.y - 2; y <= r.y + r.h + 1; y++) for (let x = r.x - 2; x <= r.x + r.w + 1; x++) if (cell(m, x, y) === 1 && !inRoom1(r, x, y) && DG.roomAt(m, x * TILE, y * TILE) < 0) mouth.push([x, y]);
-      R.en = [e]; Object.assign(e, { x: mouth[0][0] * TILE + 16, y: mouth[0][1] * TILE + 18, hp: 1e4, max: 1e4, dmg: 0, st: 'idle' }); h.ifr = 1e9;
-      h.x = m.shop.front.x; h.y = m.shop.front.y + 20; aggroRoom(R, e); let inside = 0;
-      for (let i = 0; i < 120 * 6; i++) { h.x = m.shop.front.x; h.y = m.shop.front.y + 20; step(S, { keys: [] }); if (DG.roomAt(m, e.x, e.y) === r.id) inside = 1; }
-      if (inside) out.push('a monster walked into the warded shop'); }
+      const R = S.run, h = R.hero, m = R.map, corr = (x, y) => cell(m, x, y) === 1 && DG.roomAt(m, x * TILE + 16, y * TILE + 16) < 0;
+      let lane = null;   // a straight corridor two cells wide and 14 long, rock on both sides: the hero at one end, ten monsters down it
+      for (let y = 1; y < m.H - 2 && !lane; y++) for (let x = 1; x < m.W - 14 && !lane; x++) for (const v of [0, 1]) {
+        const at = (i, k) => v ? [x + k, y + i] : [x + i, y + k];
+        if ([...Array(14)].every((_, i) => { const [ax, ay] = at(i, 0), [bx, by] = at(i, 1), [cx, cy] = at(i, -1), [dx, dy] = at(i, 2);
+          return corr(ax, ay) && corr(bx, by) && cell(m, cx, cy) === 0 && cell(m, dx, dy) === 0; })) {
+          const c = (i, k) => { const [px, py] = at(i, k); return py * m.W + px; };
+          lane = { at: c(0, 0), back: [...Array(10)].map((_, n) => c(4 + (n >> 1), n & 1)) }; break; } }
+      if (!lane) out.push('jam check: no straight corridor long enough');
+      else { const sk = ENEMIES.brute, reach = sk.r + K.R + sk.reach;
+        h.ifr = 1e9; h.x = (lane.at % m.W) * TILE + 16; h.y = ((lane.at / m.W) | 0) * TILE + 18;
+        R.en = lane.back.map((j) => { const x = (j % m.W) * TILE + 16, y = ((j / m.W) | 0) * TILE + 18;
+          return { id: R.nextId++, type: 'brute', x, y, hx: x, hy: y, vx: 0, vy: 0, hp: 1e5, max: 1e5, dmg: 0, elite: 0, room: -1, st: 'chase', t0: S.t, face: 1, aimA: 0,
+            cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: S.t }; });
+        const wait = R.en.map(() => 0); let worst = 0;
+        for (let i = 0; i < 120 * 12; i++) { h.x = (lane.at % m.W) * TILE + 16; h.y = ((lane.at / m.W) | 0) * TILE + 18; step(S, { keys: [] });
+          R.en.forEach((e, k) => { wait[k] = e.st === 'chase' && Math.hypot(h.x - e.x, h.y - e.y) > reach + 40 ? wait[k] + DT : 0; worst = Math.max(worst, wait[k]); }); }
+        if (worst > 5) out.push(`jam check: a monster queued in a corridor short of the fight for ${worst.toFixed(1)} s`); }
+      const r = m.rooms[m.shop.room], e = R.en[0] || {}, mouth = [];
+      for (let y = r.y - 2; y <= r.y + r.h + 1; y++) for (let x = r.x - 2; x <= r.x + r.w + 1; x++) if (cell(m, x, y) === 1 && !inRoom1(r, x, y) && DG.roomAt(m, x * TILE, y * TILE) < 0) mouth.push([x, y]);
+      R.en = [Object.assign(e, { x: mouth[0][0] * TILE + 16, y: mouth[0][1] * TILE + 18, st: 'chase', t0: S.t, seenT: S.t, calmT: 0, kbx: 0, kby: 0 })];
+      let inside = 0; for (let i = 0; i < 120 * 6 && !inside; i++) { h.x = m.shop.front.x; h.y = m.shop.front.y + 20; step(S, { keys: [] }); if (DG.roomAt(m, e.x, e.y) === r.id && e.st === 'wind') inside = 1; }
+      if (lane && !inside) out.push('a monster chasing the hero does not follow it into the shop to strike'); }
     return out.concat(secretCheck(), propCheck());
   }
   // a table stops the hero walking into it; a blow on it (or on a brazier) knocks once per swing and carries its material
