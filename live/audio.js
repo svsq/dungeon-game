@@ -99,6 +99,7 @@
     unlock: (o) => [784, 1175].forEach((f, i) => tone(o, { f0: f, t: now() + i * 0.12, d: 0.8, v: 0.12 })),
     drink: (o) => { for (let i = 0; i < 3; i++) tone(o, { f0: rr(260, 340), f1: rr(450, 560), t: now() + i * 0.11, d: 0.08, v: 0.14 }); },
     shield: (o) => { tone(o, { f0: 520, f1: 1040, a: 0.05, d: 0.5, v: 0.1 }); tone(o, { f0: 780, f1: 1560, a: 0.05, d: 0.5, v: 0.07, det: 8 }); },
+    dodge: (o) => noise(o, { d: 0.14, v: 0.18, type: 'bandpass', f0: 2400, f1: 900, q: 1.5 }),
     absorb: (o) => tone(o, { type: 'triangle', f0: 1400, f1: 1100, d: 0.18, v: 0.1 }),
     bless: (o) => [392, 494, 587, 784].forEach((f) => { tone(o, { f0: f, a: 0.4, d: 1.4, v: 0.07 }); tone(o, { f0: f, a: 0.4, d: 1.4, v: 0.04, det: 9 }); }),
     teleport: (o) => { tone(o, { f0: 260, f1: 1600, a: 0.05, d: 0.6, v: 0.12 }); noise(o, { a: 0.1, d: 0.5, v: 0.15, f0: 900, f1: 5000, q: 3 }); },

@@ -40,7 +40,9 @@
   // spike: share of max HP per stab, through armour; dmgUp: monsters' damage grows by this per floor (0.3 let the hero's HP and
   // armour outgrow it: a player's minimum HP on floors 5–8 sat at 55–76 % on hard, TASKS 154); earlyCd: the elites' attack
   // cooldown factor on floors 1–3, where they alone took a player down to 11 %
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2, spike: 0.12, dmgUp: 0.4, earlyCd: 0.85, early: 3 };
+  // dodge: % chance to take no harm from a monster's blow, bolt or blast, per point of agility, its cap, and what a dash adds while it lasts
+  // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs)
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2, spike: 0.12, dmgUp: 0.4, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 } };
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   const DIFF = { easy: { name: 'Лёгкая', dmg: 0.7, hp: 0.8, xp: 1.25 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.35, hp: 1.25, xp: 0.85 } };
   const DIFF_ORDER = ['easy', 'normal', 'hard'];
@@ -108,7 +110,7 @@
     { k: 'crit', label: '+{v}% крит. шанса', a: 2, b: 0.4 }, { k: 'hp', label: '+{v} к здоровью', a: 8, b: 4 },
     { k: 'mp', label: '+{v} к мане', a: 5, b: 2 }, { k: 'aspd', label: '+{v}% скорости атаки', a: 4, b: 0.8 },
     { k: 'mspd', label: '+{v}% скорости бега', a: 3, b: 0.5 }, { k: 'leech', label: '+{v}% вампиризма', a: 1, b: 0.3 },
-    { k: 'fire', label: '+{v}% урона огнём', a: 6, b: 2 },
+    { k: 'fire', label: '+{v}% урона огнём', a: 6, b: 2 }, { k: 'dodge', label: '+{v}% уклонения', a: 1, b: 0.25 },
     { k: 'regen', label: '+{v} здоровья в секунду', a: 0.5, b: 0.15 }, { k: 'onhit', label: '+{v} здоровья за удар', a: 0.5, b: 0.2 },
   ];
   // by base first: a legendary staff or axe must not be called a blade

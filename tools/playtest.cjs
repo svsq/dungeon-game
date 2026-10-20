@@ -7,7 +7,7 @@ const seed = +(process.argv[2] && !process.argv[2].startsWith('--') ? process.ar
 const pct = (x) => Math.round(x * 100) + '%';
 play({ seed, profile: arg('profile', 'average'), runs: +arg('runs', 1), diff: arg('diff', 'normal'), log: (r) => {
   if (json) return console.log(JSON.stringify(r));
-  for (const f of r.floors) console.log(`floor ${f.floor}: ${f.time}s lvl ${f.lvl} hp ${f.hp} kills ${f.kills} gold ${f.gold} loot ${f.loot}/${f.lootN} shards ${f.shards} bank ${f.bank}`);
+  for (const f of r.floors) console.log(`floor ${f.floor}: ${f.time}s lvl ${f.lvl} hp ${f.hp} kills ${f.kills} gold ${f.gold} loot ${f.loot}/${f.lootN} shards ${f.shards} bank ${f.bank} dodge ${f.dodge}%`);
   const R = r.result, meta = Object.entries(r.meta).map(([k, v]) => k + v).join(' ') || '-';
   console.log(`end ${R.how} f${R.floor}${R.time ? ' ' + Math.round(R.time) + 's' : ''} lvl ${R.lvl || '-'} shards ${R.shards ?? '-'} meta ${meta}`);
   console.log(`  minhp ${pct(r.minhp)} minmp ${pct(r.minmp)} hurt ${r.hurt} dodges ${r.dodges} potions hp ${r.hp_potion} mp ${r.mp_potion}` +

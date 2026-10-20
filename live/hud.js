@@ -86,6 +86,7 @@
         lab('dn' + (ev.id % 40), String(ev.n), V.sx(ev.x) + (L.rnd(ev.t, 1) - 0.5) * 24, V.sy(ev.y) - 40 * q - 10, { size: s, al: 0.5, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
       if (ev.k === 'hurt' && a < 0.8) lab('hu' + Math.floor(ev.t * 10 % 8), '-' + ev.n, V.sx(ev.x), V.sy(ev.y) - 50 * (a / 0.8), { size: 30, al: 0.5, col: C.red, a: 1 - L.SS(0.6, 0.8, a) });
       if (ev.k === 'gold' && a < 0.9) lab('gd' + Math.floor(ev.t * 10 % 8), '+' + ev.n, V.sx(ev.x), V.sy(ev.y) - 30 - 40 * (a / 0.9), { size: 24, al: 0.5, col: C.gold, a: 1 - L.SS(0.7, 0.9, a) });
+      if (ev.k === 'dodge' && a < 0.7) lab('dg' + Math.floor(ev.t * 10 % 6), 'уклон', V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, al: 0.5, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) lab('ab' + Math.floor(ev.t * 10 % 6), 'щит ' + ev.n, V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, al: 0.5, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // interaction prompt
     let pr = null; HUD.promptBox = null;
@@ -316,10 +317,11 @@
     for (const b of U.r) if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot);
     const he = U.r.find((q) => q.id === S.hover && q.slot && !h.eq[q.slot]);
     const pct = (v) => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%', num = (v) => Math.round(v * 10) / 10;
-    const derived = [['Атака', st.atk], ['Защита', st.def], ['Здоровье', st.maxHp], ['Мана', st.maxMp], ['Крит', Math.round(st.crit) + '%'], ['Ск. атаки', pct(st.aspd)],
+    const derived = [['Атака', st.atk], ['Защита', st.def], ['Здоровье', st.maxHp], ['Мана', st.maxMp], ['Крит', Math.round(st.crit) + '%'], ['Уклонение', num(st.dodge) + '%'], ['Ск. атаки', pct(st.aspd)],
       ['Ск. бега', pct(st.mspd)], ['Вампиризм', st.leech ? num(st.leech) + '%' : '—'], ['Здоровье/с', st.regen ? '+' + num(st.regen) : '—'], ['За удар', st.onhit ? '+' + num(st.onhit) : '—']];
-    const dy0 = P.y + 446; L.rrect(P.x + 304, dy0 - 18, 286, derived.length * 24 + 18, 6, [0.07, 0.06, 0.07], [0.04, 0.035, 0.045], 0.8);
-    derived.forEach(([n, v], i) => { const y = dy0 + 6 + i * 24; lab('dv_n' + i, n, P.x + 318, y, { size: 19, col: C.dim }); lab('dv_v' + i, v, P.x + 576, y, { size: 20, al: 1 }); });
+    const dy0 = P.y + 446; // the rows share the height ten of them had at 24 px, so an eleventh (dodge) does not run into the hint under the window
+    const rowH = Math.min(24, 240 / derived.length); L.rrect(P.x + 304, dy0 - 18, 286, derived.length * rowH + 18, 6, [0.07, 0.06, 0.07], [0.04, 0.035, 0.045], 0.8);
+    derived.forEach(([n, v], i) => { const y = dy0 + 6 + i * rowH; lab('dv_n' + i, n, P.x + 318, y, { size: 19, col: C.dim }); lab('dv_v' + i, v, P.x + 576, y, { size: 20, al: 1 }); });
     L.uiBox('inv_der', P.x + 304, dy0 - 18, 286, derived.length * 24 + 18);
     lab('inv_bag', 'Сумка', P.x + 640, P.y + 90, { size: 24, col: C.dim });
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]);
