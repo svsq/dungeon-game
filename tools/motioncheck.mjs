@@ -10,13 +10,17 @@
 //   flat      — spider_death: the body never collapses to a card while it turns over (its joints' height ≥ FLAT of the rest's)
 //   breath    — *_idle loops: the hip and the head rise and fall at least HIP / HEAD of the height (a still pelvis passed "something moves")
 //   cast      — hero_cast_*: the casting hand leaves its rest by at least CAST of the height (a cast down moved it 3 px)
+//   phase     — side walk cycles (*_right, *_left): each arm's swing along the travel correlates with its own leg's at most PHASE (qa.mjs
+//               fails only above +0.3, so arms a quarter cycle off the legs, 0.06, passed as swinging against them)
+//   aim       — attacks: on an impact frame whose target stands more than AIM_R of the height from the grip, the blade points within
+//               AIM of the target (qa.mjs takes the blade touching the target's body axis, which a fist next to it does at 146°)
 //   prompt    — *prompt* states: the interaction plate (HUD.promptBox) stays clear of the hero's joint box (it sat on him at a chest)
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15;
+const ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75;
 const root = process.cwd(), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
 const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0]));
   fs.stat(f, (e) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); }); });
@@ -80,6 +84,27 @@ for (const nm of await p.evaluate(() => window.__QA.states.map((q) => q[0]).filt
   if (!r.pb || !r.hero) { report('prompt', nm, false, r.pb ? 'no hero joints' : 'no prompt drawn'); continue; }
   const [x0, y0, x1, y1] = box(r.hero), [px, py, pw, ph] = r.pb, ix = Math.min(x1, px + pw) - Math.max(x0, px), iy = Math.min(y1, py + ph) - Math.max(y0, py);
   report('prompt', nm, ix <= 0 || iy <= 0, `plate ${px.toFixed(0)},${py.toFixed(0)} ${pw.toFixed(0)}×${ph} against hero ${x0.toFixed(0)},${y0.toFixed(0)}–${x1.toFixed(0)},${y1.toFixed(0)}`);
+}
+const corr = (a, b) => { const ma = a.reduce((x, y) => x + y, 0) / a.length, mb = b.reduce((x, y) => x + y, 0) / b.length; let s = 0, sa = 0, sb = 0;
+  a.forEach((x, i) => { s += (x - ma) * (b[i] - mb); sa += (x - ma) ** 2; sb += (b[i] - mb) ** 2; }); return s / Math.sqrt(sa * sb || 1); };
+const cycles = await p.evaluate(() => Object.keys(window.__QA.cycles || {}).filter((n) => /_(right|left)$/.test(n) && window.__QA.subject[n]));
+for (const nm of cycles) {
+  const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.cycles[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const j = LIB.TRACE[id] || null, c = st.cam || [0, 0]; LIB.TRACE = null; return j && Object.fromEntries(Object.entries(j).filter(([, q]) => Array.isArray(q)).map(([k, q]) => [k, [q[0] + c[0], q[1] + c[1]]])); }); }, nm);
+  if (fr.some((j) => !j)) { report('phase', nm, false, 'no trace'); continue; }
+  const dx = Math.sign(fr[fr.length - 1].ground[0] - fr[0].ground[0]) || 1, cs = [];
+  for (const s of ['L', 'R']) { if (!fr.every((j) => j['hand' + s] && j['sh' + s] && j['ankle' + s] && j['hip' + s])) continue;
+    cs.push([s, corr(fr.map((j) => (j['hand' + s][0] - j['sh' + s][0]) * dx), fr.map((j) => (j['ankle' + s][0] - j['hip' + s][0]) * dx))]); }
+  if (cs.length) report('phase', nm, cs.every(([, c]) => c <= PHASE), cs.map(([s, c]) => `arm ${s} vs its leg ${c.toFixed(2)}`).join(', '));
+}
+for (const nm of await p.evaluate(() => Object.keys(window.__QA.attacks || {}))) {
+  const fr = await p.evaluate((nm) => { const A = window.__QA.attacks[nm]; return A.states.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[A.subject] || null; LIB.TRACE = null; return j; }); }, nm);
+  let worst = 0, n = 0; const bad = [];
+  for (const j of fr) { if (!j || !j.grip || !j.tip || !j.target || !j.ground) continue; const H = j.ground[1] - (j.top || j.head)[1], tg = [j.target[0] - j.grip[0], j.target[1] - j.grip[1]];
+    if (Math.hypot(tg[0], tg[1]) <= AIM_R * H) continue; n++;
+    let d = Math.abs(Math.atan2(j.tip[1] - j.grip[1], j.tip[0] - j.grip[0]) - Math.atan2(tg[1], tg[0])) * 180 / Math.PI; d = Math.min(d, 360 - d); worst = Math.max(worst, d);
+    if (d > AIM) bad.push(`${(Math.atan2(tg[1], tg[0]) * 180 / Math.PI).toFixed(0)}°→${d.toFixed(0)}°`); }
+  report('aim', nm, !bad.length, `${n} far targets, worst blade error ${worst.toFixed(0)}°${bad.length ? ', off: ' + bad.join(' ') : ''}`);
 }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));

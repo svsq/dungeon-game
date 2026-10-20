@@ -50,10 +50,10 @@
     // the upper body leans about the hip; arms ride it
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0], Hc[1], hipDy * s), bc = Math.cos(lean), bs = Math.sin(lean);
     const R2U = (px, py, dy = 0) => { const p = R2S(px, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };
-    const legSwing = Math.sin(ph) * 0.4 * run, arms = {};
+    const legSwing = Math.cos(ph) * 0.4 * run, arms = {};
     // arms swing against the same-side leg along the travel: the sign comes from where the drawn hand sits relative to its shoulder
     const vxn = sp > 1 ? o.vx / sp : 1, vyn = sp > 1 ? o.vy / sp : 0;
-    for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = face * (Hd0[1] - S0[1]) * vxn + (Hd0[0] - S0[0]) * vyn, sg = Jt > 0 ? 1 : -1;
+    for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = (Hd0[0] - S0[0]) * vyn - face * (Hd0[1] - S0[1]) * vxn, sg = Jt > 0 ? 1 : -1;
       const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + breath * 0.04 * (side === 'L' ? 1 : -1);
       const r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
       const E0 = RG['elbow' + side], Sp = [S0[0], S0[1] + hipDy];

@@ -364,7 +364,7 @@
     const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost;
     if (!heavy) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
     if (kind === 'fire') { e.burn = S.t + 3; e.burnT = S.t; }
-    ev(S, { k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 });
+    ev(S, { k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 });
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
     const st = heroSt(S); if (kind !== 'burn') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
     if (e.hp <= 0) { e.dieA = Math.atan2(dy, dx); killEnemy(S, R, e); }   // the killing blow's direction: bones fly that way
@@ -447,13 +447,16 @@
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
   function hitProps(S, R, x, y, rad, ax, arc) {
     const m = R.map, hit = R.propHit || (R.propHit = {});
-    const knock = (id, p, n) => { const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
-      if (d > rad + 18) return; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return; if (!losClear(m, x, y, p.x, p.y)) return;
-      if (S.t - (hit[id] ?? -9) < 0.2) return; hit[id] = S.t; const mat = D.PROP_MAT[n] || 'stone';
+    // things on a wall are struck at their foot on the floor (the wall cell blocks the line), the event stays at the thing
+    const knock = (id, p, n, mat = D.PROP_MAT[n] || 'stone', foot = p) => { const dx = foot.x - x, dy = foot.y - y, d = Math.hypot(dx, dy);
+      if (d > rad + 18) return; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return; if (!losClear(m, x, y, foot.x, foot.y)) return;
+      if (S.t - (hit[id] ?? -9) < 0.2) return; hit[id] = S.t;
       if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
       ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, s: dx >= 0 ? 1 : -1 }); };
-    m.decor.forEach((d, i) => { if (d.solid && !d.wall) knock('d' + i, d, d.n); });
-    m.torches.forEach((t2, i) => { if (t2.kind === 'brazier') knock('t' + i, t2, 'brazier'); });
+    m.decor.forEach((d, i) => { if (d.solid && !d.wall) knock('d' + i, d, d.n);
+      else if (d.wall && d.n === 'banner' && d.secret === undefined && !hidden(m, d)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
+    m.torches.forEach((t2, i) => { if (hidden(m, t2)) return; if (t2.kind !== 'wall') knock('t' + i, t2, 'brazier');
+      else knock('t' + i, t2, 'torch_sconce', 'metal', t2.side ? t2 : { x: t2.x, y: t2.y + 30 }); });
   }
   function hitChests(S, R, x, y, rad, ax, arc) {
     for (const c of R.chests) { if (c.open) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
