@@ -70,17 +70,22 @@
     axe: { slot: 'weapon', name: 'Боевой топор', icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
     hammer: { slot: 'weapon', name: 'Боевой молот', icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
     staff: { slot: 'weapon', name: 'Посох мага', icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
-    shield: { slot: 'offhand', name: 'Круглый щит', icon: 'it_shield', def: 4 },
+    shield: { slot: 'offhand', name: 'Круглый щит', icon: 'it_shield', def: 4, w: 1 / 3 },
+    buckler: { slot: 'offhand', name: 'Баклер', icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
+    tower_shield: { slot: 'offhand', name: 'Ростовой щит', icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },
     leather_helm: { slot: 'helm', name: 'Кожаный шлем', icon: 'it_helm_l', def: 2, typed: { aspd: 0.6 } },
     knight_helm: { slot: 'helm', name: 'Рыцарский шлем', icon: 'it_helm_k', def: 2, typed: { hp: 0.5 }, minF: 3 },
     leather_armor: { slot: 'armor', name: 'Кожаная броня', icon: 'it_armor_l', def: 3, typed: { mspd: 0.8 } },
     plate_armor: { slot: 'armor', name: 'Латный доспех', icon: 'it_armor_p', def: 3, typed: { hp: 1 }, minF: 3 },
-    gauntlets: { slot: 'gloves', name: 'Латные перчатки', icon: 'it_gloves', def: 1 },
-    boots: { slot: 'boots', name: 'Кожаные сапоги', icon: 'it_boots', def: 1 },
+    gauntlets: { slot: 'gloves', name: 'Латные перчатки', icon: 'it_gloves', def: 1, typed: { hp: 0.5 }, w: 1 / 2 },
+    leather_gloves: { slot: 'gloves', name: 'Кожаные перчатки', icon: 'it_gloves_l', def: 1, typed: { aspd: 0.6 }, w: 1 / 2 },
+    boots: { slot: 'boots', name: 'Кожаные сапоги', icon: 'it_boots', def: 1, typed: { mspd: 0.8 }, w: 1 / 2 },
+    iron_boots: { slot: 'boots', name: 'Латные сапоги', icon: 'it_boots_i', def: 1, typed: { hp: 0.5 }, minF: 3, w: 1 / 2 },
     ring: { slot: 'ring', name: 'Кольцо', icon: 'it_ring' },
     amulet: { slot: 'amulet', name: 'Амулет', icon: 'it_amulet' },
     cloak: { slot: 'armor', name: 'Плащ странника', icon: 'it_cloak', def: 3, typed: { mp: 1.4 } },
   };
+  // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {

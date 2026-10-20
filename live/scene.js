@@ -269,6 +269,23 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
   const WEAPON = { sword: ['it_sword', 46], longsword: ['it_longsword', 53], axe: ['it_axe', 48], hammer: ['it_hammer', 51], staff: ['it_staff', 58], fist: null };
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
+  // what the hero wears (TASKS 155): each slot picks the rig parts painted for its base (tools/gear.py), '' = the hero as first drawn
+  // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield rides the far forearm
+  const GEAR = { armor: { '': 'cl', leather_armor: 'le', plate_armor: '', cloak: 'hd' }, gloves: { '': 'cl', leather_gloves: '', gauntlets: 'pl' },
+    boots: { '': 'cl', boots: 'le', iron_boots: '' }, helm: { leather_helm: 'le', knight_helm: 'kn' } };
+  const SHIELD = { shield: ['it_shield', 30], buckler: ['it_buckler', 22], tower_shield: ['it_shield_t', 44] };
+  const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', shin: 'boots', foot: 'boots' };
+  function gearOf(h) {
+    const eq = h.eq || {}, b = (k) => (eq[k] ? eq[k].b : ''), tex = (n, sfx) => (sfx && window.ASSETS['hero__' + n + '_' + sfx] ? 'hero__' + n + '_' + sfx : 'hero__' + n);
+    const sfx = { armor: GEAR.armor[b('armor')] ?? '', gloves: GEAR.gloves[b('gloves')] ?? '', boots: GEAR.boots[b('boots')] ?? '' }, helm = GEAR.helm[b('helm')];
+    // a better piece is tinted toward its rarity: uncommon green .. legendary gold, just enough to tell at a glance
+    const rar = (k) => { const it = eq[k]; return it && it.rar > 0 ? [...D.RARITY[it.rar].col, 0.12 + 0.06 * it.rar] : null; };
+    const part = (n) => { const slot = SLOT_OF[n.slice(0, -1)]; return { tex: tex(n, sfx[slot]), tint: rar(slot) }; };
+    const nh = helm ? '_nh' : '', body = (v) => (window.ASSETS['hero__' + v + (sfx.armor ? '_' + sfx.armor : '') + nh] ? 'hero__' + v + (sfx.armor ? '_' + sfx.armor : '') + nh : 'hero__' + v);
+    const sh = SHIELD[b('offhand')];
+    return { part, body: body('body'), back: body('body_back'), helm: helm && window.ASSETS['hero__head_' + helm] ? helm : null, helmTint: rar('helm'), shield: sh, shieldTint: rar('offhand') };
+  }
+  SC.gearOf = gearOf;
   function heroPose(h, GT, st) {
     const RG = RIGS.hero, s = HERO_H / RG.h, sp = Math.hypot(h.vx, h.vy), run = SS(10, 150, sp) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1);
     const dirx = sp > 1 ? h.vx / sp : 0, diry = sp > 1 ? h.vy / sp : 0;
@@ -335,7 +352,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const fc = Math.cos(fallR), fs = Math.sin(fallR);
     const root = [hx, hy], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
     const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, U = { alpha, grade: hurt ? [0.4, 2.4, 0, 1] : [dk, HERO.lift * dk, 0, 1] }, Ufar = { alpha, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * dk, 0.72 * HERO.lift * dk, 0, 1] };
-    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0) => L.sprite('hero__' + n, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s], u });
+    const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: t }) : u);
+    const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0) => { const g = GR.part(n); return L.sprite(g.tex, 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };
     const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
     const dist2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
     const id = o.id || 'hero';
@@ -433,6 +451,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02 + heel[side], u); };
     const drawArm = (side, u) => { const A = arms[side], J = side === 'L' ? jL : jR;
       part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, bodyR); part('farm' + side, A.E0, R2U(J.E[0], J.E[1]), A.r2, u, 1, bodyR); };
+    // the shield is strapped across the far forearm, its face to the camera; from behind its plain back shows (darker)
+    const shield = (u) => { if (!GR.shield) return; const [tex, hh] = GR.shield, A = arms.L, E = R2U(jL.E[0], jL.E[1]), Hd = R2U(jL.Hd[0], jL.Hd[1]), ww = hh * G.tex(tex).w / G.tex(tex).h;
+      const c = [E[0] + 0.55 * (Hd[0] - E[0]) - fX * 4, E[1] + 0.55 * (Hd[1] - E[1])], back = backK > 0.5;
+      L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
     const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), b0 = -0.95 + arms.R.r1 * 0.5, ba = bladeA !== null ? bladeA : b0 + (0.9 - b0) * castE;
       let sa = Math.atan2(Math.sin(ba), fX * Math.cos(ba)) + fallR + bodyR;           // screen angle of the blade, squeezed with the rig
       // a slash sweeps flat around the body: on the floor plane the camera squeezes depth to DEPTH_K, so a blade pointing up or down
@@ -454,11 +476,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (!castFront) drawArm('L', Ufar);
       // seen from the front the cape's flap hangs over the far arm, as painted, but behind both legs
       if (backK < 1 && window.ASSETS.hero__cape) L.sprite('hero__cape', 0, 0, Object.assign({ u: Object.assign({}, U, soft('hero__cape', capeA)) }, bodyAt));
+      if (!castFront) shield(Ufar);
       drawLeg('L', Ufar); drawLeg('R', U);
       if (behind) { weapon(); drawArm('R', U); }
-      if (backK < 1) L.sprite('hero__body', 0, 0, Object.assign({ u: Object.assign({}, U, soft('hero__body', hairA)) }, bodyAt));
-      if (backK > 0 && window.ASSETS.hero__body_back) L.sprite('hero__body_back', 0, 0, Object.assign({ u: Object.assign({}, U, { alpha: alpha * backK }, soft('hero__body_back', capeB, hairA)) }, bodyAt));
-      if (castFront) drawArm('L', backK > 0.5 ? Ufar : U);
+      if (backK < 1) L.sprite(GR.body, 0, 0, Object.assign({ u: Object.assign({}, U, soft('hero__body', GR.helm ? 0 : hairA)) }, bodyAt));
+      if (backK < 1 && GR.helm) L.sprite('hero__head_' + GR.helm, 0, 0, Object.assign({ u: tinted(U, GR.helmTint) }, bodyAt));
+      if (backK > 0 && window.ASSETS.hero__body_back) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, U, { alpha: alpha * backK }, soft('hero__body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
+      if (backK > 0 && GR.helm) L.sprite('hero__head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, tinted(U, GR.helmTint), { alpha: alpha * backK }) }, bodyAt));
+      if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); shield(backK > 0.5 ? Ufar : U); }
       if (!behind) { drawArm('R', U); weapon(); }
     };
     all();
@@ -1260,7 +1285,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_' + zone, S]); }
     // hero walk cycles: right, left, down, up — the same state at successive distances
-    const cyc = (dx, dy) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
+    const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
     const base = play((S) => { S.run.msg = null; S.run.en = []; }), clone = () => structuredClone(base);
     const swingAt = (a, T, tgt) => { const S = clone(), h = S.run.hero; h.aim = h.atkA = a; h.face = Math.cos(a) >= 0 ? 1 : -1; h.back = Math.sin(a) < -0.5 ? 1 : 0; h.atkT = S.t - T; h.vx = h.vy = 0;
@@ -1350,11 +1375,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // starting a run or a floor fades the screen in from black; every QA state but the one that checks it is looked at in full light
     const calm = (o, seen = new Set()) => { if (!o || typeof o !== 'object' || seen.has(o) || (Array.isArray(o) && typeof o[0] === 'number')) return; seen.add(o);
       if (Array.isArray(o.ev) && 'screen' in o && !o.keepFloor) o.ev = o.ev.filter((e) => e.k !== 'floor'); for (const v of Object.values(o)) calm(v, seen); };
-    const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1) }, enCycles),
-      sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up'].map((k) => [k, ['hero__cape', 'hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR']])),
+    // what the hero wears (TASKS 155): every armour with a matching set, from the front and from behind, alone in a lit room; the
+    // walk cycles again in the full plate set (its parts must move like the plain rig's)
+    const KIT = { none: {}, leather: { armor: 'leather_armor', helm: 'leather_helm', gloves: 'leather_gloves', boots: 'boots', offhand: 'buckler' },
+      plate: { armor: 'plate_armor', helm: 'knight_helm', gloves: 'gauntlets', boots: 'iron_boots', offhand: 'tower_shield' }, cloak: { armor: 'cloak', gloves: 'leather_gloves', boots: 'boots', offhand: 'shield' },
+      rare: { armor: 'plate_armor', helm: 'leather_helm', gloves: 'gauntlets', boots: 'boots', offhand: 'shield', rar: 3 } };
+    const wear = (kit) => (S) => { const h = S.run.hero, k = KIT[kit]; for (const sl of ['armor', 'helm', 'gloves', 'boots', 'offhand']) h.eq[sl] = k[sl] ? { id: 0, b: k[sl], rar: k.rar || 0, lvl: 1, mods: {} } : null; };
+    for (const kit of Object.keys(KIT)) for (const back of [0, 1]) states.push(['gear_' + kit + (back ? '_back' : ''), play((S) => { wear(kit)(S); const R = S.run, h = R.hero, m = R.map, rm = m.rooms[m.start];
+      h.x = (rm.cx - 2.5) * TILE; h.y = (rm.cy + 1.5) * TILE; h.back = back; h.backT = -9; h.vx = h.vy = 0; R.en = []; R.msg = null; R.cam = [h.x - VW / 2, h.y - VH / 2]; })]);
+    const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles),
+      sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, ['hero__cape', 'hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR', 'hero__body_nh', 'hero__body_back_nh', 'hero__head_kn', 'hero__head_back_kn', 'hero__farmL_pl', 'hero__farmR_pl', 'it_shield_t']])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_')[0]); return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
-      subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_')[0]; return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1]) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
-      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_')[0])), 'ghost', 'boss'], loops, attacks, swings, impacts, transitions, box };
+      subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_')[0]; return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1]) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
+      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_')[0])), 'ghost', 'boss'], loops, attacks, swings, impacts, transitions, box };
     calm(out); return out;
   };
 })();

@@ -63,7 +63,8 @@
     const lo = o.min || 0, hi = o.max ?? 4, w = [60, 26, 10, 3.5, 0.5].map((v, i) => (i < lo || i > hi ? 0 : v * (i ? Math.pow(1 + 0.22 * floor + 0.6 * q, i * 0.9) : 1)));
     let s = w.reduce((a, b) => a + b, 0) * rnd(R), rar = lo; while (rar < hi && (s -= w[rar]) > 0) rar++;
     const keys = Object.keys(BASES).filter((k) => (!BASES[k].minF || floor >= BASES[k].minF) && (!slotOnly || BASES[k].slot === slotOnly));
-    const bk = pick(R, keys);
+    let s2 = keys.reduce((a, k) => a + (BASES[k].w ?? 1), 0) * rnd(R), bk = keys[keys.length - 1];
+    for (const k of keys) if ((s2 -= BASES[k].w ?? 1) < 0) { bk = k; break; }
     return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor, mods: {} }));
   }
   function rollAffixes(R, it) {
