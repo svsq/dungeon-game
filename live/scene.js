@@ -97,6 +97,7 @@ void main(){ vec3 c = texture(u_src, scr(v_px)).rgb, l = texture(u_light, scr(v_
   float top = texture(u_top, w).r;
   l = mix(l, min(l, u_amb * 1.3), smoothstep(0.3, 1.0, top) * 0.8);  // wall tops past the first row keep the ambient: no torch shines through a wall
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
+  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
@@ -808,8 +809,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // ===== light map =====
     const ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], amb = AMB.map((v, i) => 0.7 * v + 0.3 * B.amb[i] * ab); G.bind(LT.light, [...amb, 1]); G.blend('add');
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + VW + r || y < cy - r || y > cy + VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
-    // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him
-    lt(h.x, h.y - 30, 170, [0.8, 0.72, 0.6], 0.2); lt(h.x, h.y - 44, 95, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
+    // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
+    // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
+    lt(h.x, h.y - 30, 250, [0.8, 0.72, 0.6], 0.2 + 0.8 * (1 - HERO.k)); lt(h.x, h.y - 44, 95, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
     TL.forEach((q) => lt(...q));
@@ -1085,12 +1087,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const cl = (v, hi) => Math.max(0, Math.min(hi, v));
       R.cam = [cl((h.x + ctr(q)[0] * TILE) / 2 - VW / 2, m.W * TILE - VW), cl((h.y + ctr(q)[1] * TILE) / 2 - VH / 2 - 30, m.H * TILE - VH)];
       R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
-      const types = ['skeleton', 'skeleton', 'goblin', 'brute', 'skeleton', 'spider', 'cultist'], ang = [0, 0.9, 1.8, 2.7, 3.6, 5.6, 4.4];
+      const types = ['skeleton', 'skeleton', 'goblin', 'brute', 'skeleton', 'spider', 'cultist'], ang = [0, 0.9, 1.8, 2.7, 3.6, 5.0, 4.4];
       R.en = types.map((ty, i) => { const a = ang[i], E = D.ENEMIES[ty]; return { id: 900 + i, type: ty, x: h.x + Math.cos(a) * (150 + 40 * (i % 2)), y: h.y + Math.sin(a) * 110, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: rm.id, st: 'chase', t0: 0, face: Math.cos(a) > 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }; });
       R.chests.push({ x: h.x - 3.5 * TILE, y: (rm.y + 1) * TILE + 12, tier: 2, open: 1, openT: S.t - 3 });
       for (const [gx, gy] of [[-2, 1.2], [-4.6, 1.6], [2, 6.6]]) R.pots.push({ x: h.x + gx * TILE, y: (rm.y + gy) * TILE + 10, kind: 'goldpile', hp: 1 }); R.pots.push({ x: h.x + 3.5 * TILE, y: (rm.y + 1) * TILE + 10, kind: 'goldpile', hp: 1 });
       const A = SIM.K.HIT + 0.03; h.atkT = S.t - A; h.atkA = 0; h.aim = 0; h.face = 1; S.ev.push({ k: 'swing', t: S.t - A, x: h.x, y: h.y, a: 0, f: 1 });
-      R.en.slice(0, 5).forEach((e, i) => { e.hp = Math.round(e.max * 0.6); S.ev.push({ k: 'hit', t: S.t - 0.1 - 0.08 * i, x: e.x, y: e.y - 50, n: 12, crit: i === 2 ? 1 : 0, id: e.id }); });
+      R.en.slice(0, 5).forEach((e, i) => { e.hp = Math.round(e.max * 0.6); S.ev.push({ k: 'hit', t: S.t - 0.1 - 0.08 * i, x: e.x, y: e.y - D.ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: 12, crit: i === 2 ? 1 : 0, id: e.id }); });
       return S; } })();
     states.push(['match', match]);
     // a blow's flash: the first one fills the body white for 0.06 s, one landing within 0.3 s of the last only lights its edge
@@ -1177,6 +1179,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           if (!shut) continue; const mid = Math.floor((o0 + o1) / 2), hx = vert ? mid : a0 + aw - 1, hy = vert ? a0 + aw - 1 : mid;
           R.en = R.en.filter((e) => e.room === B.id); R.msg = null; h.x = (hx + 0.5) * TILE; h.y = (hy + 0.5) * TILE; SIM.step(S, { px: 960, py: 540, keys: [] });
           R.cam = [(vert ? h.x : (A.x + A.w + gap / 2) * TILE) - VW / 2, (vert ? (A.y + A.h + gap / 2) * TILE : h.y) - VH / 2]; return; } } } })]);
+    // the hero in the darkest corridor cell, the farthest from every light: his own lamp must show the floor around him (TASKS 170)
+    states.push(['dark_corridor', play((S) => { const R = S.run, m = R.map, LR = DUNGEON.LIGHT_R, ls = m.torches.map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n]).map((d) => [d.x, d.y, LR[d.n]]));
+      const inRoom = (x, y) => m.rooms.some((r) => x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h);
+      let best = null, bv = -1; for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (SIM.cell(m, x, y) !== 1 || inRoom(x, y)) continue;
+        const v = Math.min(...ls.map(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE) / 0.8) / (lr * TILE))); if (v > bv) { bv = v; best = [x, y]; } }
+      const h = R.hero; h.x = (best[0] + 0.5) * TILE; h.y = (best[1] + 0.5) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; for (let i = 0; i < 60; i++) SIM.step(S, { px: 960, py: 510, keys: [] }); })]);
     states.push(['dark_room', play((S) => { const R = S.run, m = R.map, LR = DUNGEON.LIGHT_R, ls = m.torches.map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n]).map((d) => [d.x, d.y, LR[d.n]]));
       const worst = (r) => { let v = 0; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) v = Math.max(v, Math.min(...ls.map(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE) / 0.8) / (lr * TILE)))); return v; };
       const r = m.rooms.filter((q) => q.type !== 'shop' && q.id !== m.start).reduce((a, b) => (worst(b) > worst(a) ? b : a)), h = R.hero;
