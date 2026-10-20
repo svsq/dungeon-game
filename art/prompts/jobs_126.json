@@ -1,0 +1,32 @@
+[
+ {
+  "name": "floor_d_tex",
+  "prompt": "art/prompts/floor_d5_tex.txt",
+  "size": "1024x1024",
+  "alpha": "none"
+ },
+ {
+  "name": "floor_c_tex",
+  "prompt": "art/prompts/floor_c5_tex.txt",
+  "size": "1024x1024",
+  "alpha": "none"
+ },
+ {
+  "name": "floor_a_tex",
+  "prompt": "art/prompts/floor_a5_tex.txt",
+  "size": "1024x1024",
+  "alpha": "none"
+ },
+ {
+  "name": "floor_l_tex",
+  "prompt": "art/prompts/floor_l5_tex.txt",
+  "size": "1024x1024",
+  "alpha": "none"
+ },
+ {
+  "name": "wall_d_tex",
+  "prompt": "art/prompts/wall_d5_tex.txt",
+  "size": "1024x1024",
+  "alpha": "none"
+ }
+]
