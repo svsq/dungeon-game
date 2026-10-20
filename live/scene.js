@@ -741,7 +741,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
       if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y), GT, st), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
     }]);
-    Y.sort((a, b) => a[0] - b[0]).forEach(([, d]) => d());
+    L.SNAP = 1; try { Y.sort((a, b) => a[0] - b[0]).forEach(([, d]) => d()); } finally { L.SNAP = 0; }
 
     // ===== light map =====
     const ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], amb = AMB.map((v, i) => 0.7 * v + 0.3 * B.amb[i] * ab); G.bind(LT.light, [...amb, 1]); G.blend('add');
