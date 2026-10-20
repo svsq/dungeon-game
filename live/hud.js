@@ -83,6 +83,8 @@
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 50, 'E или удар — открыть сундук'];
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60); if (sh) pr = [sh.x, sh.y - 70, 'E — дары алтаря'];
     if (SIM.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, 'E — торговать'];
+    const dr = SIM.doorNear(R, 64); if (dr) { const lk = SIM.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? 'E или удар — открыть дверь' : lk.kind === 'key' ? (R.keys > 0 ? 'E — отпереть ключом' : 'Заперто: нужен ключ') : 'Заперто: где-то есть рычаг']; }
+    const lv = SIM.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, 'E — потянуть рычаг'];
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 60, m.floor === D.FLOORS ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : 'E — спуститься на этаж ' + (m.floor + 1)];
     if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28, x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20; panel('prompt_box', x, y, w, 40, { r: 6 }); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); }
   }
@@ -159,7 +161,10 @@
 
   function currencies(S, R) {
     const gold = String(R.hero.gold), shards = String(S.meta.shards), gw = lw('gold_count', gold, { size: 19 }) + 48;
-    return [['gold_count', 'it_gold', gold, 116, gw, C.gold], ['shard_count', 'crystal', shards, 126 + gw, lw('shard_count', shards, { size: 19 }) + 48, '#9cc8ff']];
+    const sw = lw('shard_count', shards, { size: 19 }) + 48, out = [['gold_count', 'it_gold', gold, 116, gw, C.gold], ['shard_count', 'crystal', shards, 126 + gw, sw, '#9cc8ff']];
+    // a key found on this floor, until it opens its door
+    if (R.keys > 0) out.push(['key_count', 'it_key', String(R.keys), 136 + gw + sw, lw('key_count', String(R.keys), { size: 19 }) + 48, C.gold]);
+    return out;
   }
 
   function souls(S, R, V) {
@@ -208,12 +213,13 @@
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   function minimap(S, R, t) {
     const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 46, n = R.seen.reduce((a, b) => a + b, 0);
-    const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('');
+    const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = document.createElement('canvas')); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.cell(m, x, y));
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y);
         if (c === 1) { g.fillStyle = '#6b625c'; g.fillRect(x * k, y * k, k, k); } else if (c === 3) { g.fillStyle = '#c4441a'; g.fillRect(x * k, y * k, k, k); }
+        else if (c === 5) { g.fillStyle = '#a0682e'; g.fillRect(x * k, y * k, k, k); }
         else if (at(x, y + 1) === 1 || at(x, y - 1) === 1 || at(x + 1, y) === 1 || at(x - 1, y) === 1) { g.fillStyle = '#2a2427'; g.fillRect(x * k, y * k, k, k); } }
       if (MAP.rec) { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, MAP.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); MAP.rec.w = mw; MAP.rec.h = mh; }
       else MAP.rec = G.canvasTex('minimap', cv); }

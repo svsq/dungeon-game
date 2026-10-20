@@ -35,7 +35,10 @@
 
   // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2);
   // a kill pays double so XP and loot per floor stay where they were
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2, spike: 0.12 };   // spike: share of max HP per stab, through armour
+  // spike: share of max HP per stab, through armour; dmgUp: monsters' damage grows by this per floor (0.3 let the hero's HP and
+  // armour outgrow it: a player's minimum HP on floors 5–8 sat at 55–76 % on hard, TASKS 154); earlyCd: the elites' attack
+  // cooldown factor on floors 1–3, where they alone took a player down to 11 %
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2, spike: 0.12, dmgUp: 0.4, earlyCd: 0.85, early: 3 };
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   const DIFF = { easy: { name: 'Лёгкая', dmg: 0.7, hp: 0.8, xp: 1.25 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.35, hp: 1.25, xp: 0.85 } };
   const DIFF_ORDER = ['easy', 'normal', 'hard'];

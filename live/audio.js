@@ -83,6 +83,18 @@
     secret: (o) => { noise(o, { a: 0.01, d: 1.1, v: 0.6, type: 'lowpass', f0: 1200, f1: 80 }); tone(o, { f0: 70, f1: 32, d: 0.9, v: 0.6 });
       for (let i = 0; i < 8; i++) noise(o, { t: now() + 0.1 + i * rr(0.05, 0.1), d: 0.05, v: 0.18, type: 'lowpass', f0: rr(600, 1400) });
       [659, 880, 1319].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.45 + i * 0.12, d: 1.1, v: 0.08 })); },
+    // doors: a creak and the leaf hitting the wall (a kick slams it), a locked one rattles in its frame, a key turns, a lever clanks
+    door: (o, e) => { if (e.kick) { noise(o, { d: 0.25, v: 0.5, type: 'lowpass', f0: 600, f1: 120 }); tone(o, { f0: 110, f1: 60, d: 0.3, v: 0.4 }); }
+      else { tone(o, { type: 'sawtooth', f0: 330, f1: 180, a: 0.05, d: 0.35, v: 0.05, det: 12 }); noise(o, { t: now() + 0.3, d: 0.2, v: 0.3, type: 'lowpass', f0: 500, f1: 120 }); } },
+    locked: (o) => { for (let i = 0; i < 3; i++) noise(o, { t: now() + i * 0.06, d: 0.05, v: 0.25, f0: rr(900, 1300), q: 6 }); tone(o, { f0: 140, f1: 100, d: 0.12, v: 0.2 }); },
+    unlatch: (o) => { tone(o, { f0: 900, f1: 600, d: 0.05, v: 0.2 }); tone(o, { f0: 600, f1: 380, t: now() + 0.12, d: 0.07, v: 0.25 }); noise(o, { t: now() + 0.12, d: 0.06, v: 0.2, type: 'highpass', f0: 2000 }); },
+    lever: (o) => { noise(o, { d: 0.12, v: 0.4, f0: 700, q: 4 }); tone(o, { f0: 180, f1: 90, d: 0.25, v: 0.3 }); noise(o, { t: now() + 0.4, a: 0.05, d: 0.6, v: 0.15, type: 'lowpass', f0: 400, f1: 100 }); },
+    key: (o) => [1319, 1760, 2093].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.05, d: 0.35, v: 0.07 })),
+    // traps: silk catches with a sticky creak, tears with a dry rip, burns with a hiss; an ambush is a low drum and a rising whoosh
+    web: (o) => { noise(o, { a: 0.02, d: 0.25, v: 0.18, f0: 2600, f1: 1400, q: 5 }); tone(o, { type: 'triangle', f0: 240, f1: 170, d: 0.2, v: 0.05 }); },
+    webtear: (o) => noise(o, { d: 0.18, v: 0.3, type: 'highpass', f0: 3000, f1: 1500 }),
+    webburn: (o) => noise(o, { a: 0.02, d: 0.5, v: 0.25, type: 'bandpass', f0: 1800, f1: 600, q: 2 }),
+    ambush: (o) => { tone(o, { f0: 65, f1: 45, d: 0.6, v: 0.6 }); tone(o, { f0: 98, f1: 60, t: now() + 0.18, d: 0.5, v: 0.4 }); noise(o, { a: 0.3, d: 0.4, v: 0.2, type: 'bandpass', f0: 300, f1: 1800, q: 3 }); },
     lvl: (o) => [523, 659, 784, 1047].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.09, d: 0.6, v: 0.12 })),
     unlock: (o) => [784, 1175].forEach((f, i) => tone(o, { f0: f, t: now() + i * 0.12, d: 0.8, v: 0.12 })),
     drink: (o) => { for (let i = 0; i < 3; i++) tone(o, { f0: rr(260, 340), f1: rr(450, 560), t: now() + i * 0.11, d: 0.08, v: 0.14 }); },
