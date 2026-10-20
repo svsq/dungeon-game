@@ -56,7 +56,8 @@
     const others = rooms.filter((r) => r.type === 'combat'); for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
     const nTreasure = 1 + (R() < 0.5 ? 1 : 0);
     others.slice(0, nTreasure).forEach((r) => (r.type = 'treasure'));
-    if (others.length > 4 && R() < 0.7) others[nTreasure].type = 'shrine';
+    // an altar on every second floor (TASKS 137): the roll stays so the rest of the floor is laid out as before
+    R(); if (floor % 2 === 0) (others[nTreasure] || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
     // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
     const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
       if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };
@@ -366,7 +367,8 @@
       // torches on the top wall face (cells above the room's first row that are rock), every 4–5 tiles, between the tall props
       for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y) && !tallAt(wx(x), r.y, HANG.wall) && !doorTop(wx(x), r.y, HANG.wall)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
       for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5 && !tallAt(wx(x), r.y, HANG.banner) && !doorTop(wx(x), r.y, HANG.banner) && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < 1.5 * TILE && Math.abs(t.y - r.y * TILE) < TILE)) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
-      for (let i = 0, n = ri(1, 2); i < n; i++) { const x = ri(r.x + 1, r.x + r.w - 2); if (!free(x, r.y) || at(x, r.y - 1) !== 0 || doorway(x, r.y)) continue; used.add(key(x, r.y)); decor.push({ x: wx(x) + ri(-6, 6), y: r.y * TILE + 20, n: 'candles' }); }
+      // one group at most, and never at the foot of a statue, a rack or a sconce: candles piled on a pedestal read as clutter
+      for (let i = 0, n = R() < 0.6 ? 1 : 0; i < n; i++) { const x = ri(r.x + 1, r.x + r.w - 2); if (!free(x, r.y) || at(x, r.y - 1) !== 0 || doorway(x, r.y) || !roomy(x, r.y, 'candles') || tallAt(wx(x), r.y, 14) || hungAt(wx(x), r.y, 6)) continue; used.add(key(x, r.y)); decor.push({ x: wx(x) + ri(-6, 6), y: r.y * TILE + 20, n: 'candles' }); }
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });
       lightRoom(r, []);
     }
@@ -418,7 +420,10 @@
     // a monster's post doesn't keep a plate out (the monster is moved off it below); anything else keeps its cell
     const foes = new Set(enemies.map((e) => key(Math.floor(e.x / TILE), Math.floor(e.y / TILE))));
     const ok = (x, y) => at(x, y) === 1 && !solid.has(key(x, y)) && (!used.has(key(x, y)) || foes.has(key(x, y)));
-    const plate = (r, x, y, ph) => { if (x < r.x || y < r.y + 1 || x + 1 >= r.x + r.w || y + 1 >= r.y + r.h || nearDoor(x, y)) return false;
+    // a bulky prop beside a plate hides its holes and reads as standing on it (TASKS 128): a free cell all round
+    const bigC = new Set(chests.concat(torches.filter((t) => t.kind === 'brazier'), shrines, decor.filter((d) => (d.solid || d.n === 'table') && !d.wall)).map((p) => key(Math.floor(p.x / TILE), Math.floor(p.y / TILE))));
+    const crowded = (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) if (bigC.has(key(x + i, y + j))) return true; return false; };
+    const plate = (r, x, y, ph) => { if (x < r.x || y < r.y + 1 || x + 1 >= r.x + r.w || y + 1 >= r.y + r.h || nearDoor(x, y) || crowded(x, y)) return false;
       if (traps.some((t) => Math.abs(t.x / TILE - (x + 1)) < 3 && Math.abs(t.y / TILE - (y + 1)) < 3)) return false;   // plates never touch: no strips
       const cs = [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]; if (cs.some(([cx, cy]) => !ok(cx, cy))) return false;
       for (const [cx, cy] of cs) solid.add(key(cx, cy));

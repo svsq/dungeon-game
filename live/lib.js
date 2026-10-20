@@ -27,6 +27,20 @@ uniform vec4 u_bulge;          // centre uv, radius (uv), amount — local infla
 uniform vec4 u_bend;           // amp (uv of height), load u, load width (uv), on — sag field: catenary dip + local dip
 uniform float u_disc;          // > 0: only a round disc of the drawn rect is kept (soft edge width, uv) — joint caps
 uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 rooted at the bottom / 1 hung from the top — pushed aside, leaned by wind
+// u_snap: the sprite is re-drawn on the target's pixel grid as pixel art, not as a downscaled photo: 4×4 samples per target
+// pixel (jx, jy: one target pixel in texture uv); kept only if half covered (by the mip average, which a squeezed sprite
+// keeps honest where the samples would sweep its whole length) and painted in its most common colour. No darkest-on-the-edge rule:
+// a rig is many parts, and each part's own edge would draw dark seams inside the figure; the ink pass gives the outer contour
+uniform float u_snap;
+vec4 snapTex(vec2 tuv, vec2 jx, vec2 jy, float lod){
+  if (texture(u_tex, tuv).a < 0.5) return vec4(0.0);
+  vec4 tp[16]; float cov = 0.0;
+  for (int k = 0; k < 16; k++) { vec2 f = (vec2(float(k % 4), float(k / 4)) + 0.5) / 4.0 - 0.5; vec4 t = textureLod(u_tex, tuv + jx * f.x + jy * f.y, lod);
+    tp[k] = vec4(t.rgb / max(t.a, 1e-3), t.a); cov += step(0.5, t.a); }
+  vec3 best = vec3(0.0);
+  { float bn = -1.0; int bk = 0; for (int k = 0; k < 16; k++) { float n = 0.0; for (int j = 0; j < 16; j++) n += step(length(tp[k].rgb - tp[j].rgb), 0.13) * step(0.5, tp[j].a); if (tp[k].a >= 0.5 && n > bn) { bn = n; bk = k; } }
+    vec4 acc = vec4(0.0); for (int j = 0; j < 16; j++) { float w = step(length(tp[bk].rgb - tp[j].rgb), 0.13) * step(0.5, tp[j].a); acc += vec4(tp[j].rgb * w, w); } best = acc.rgb / max(acc.a, 1.0); }
+  return vec4(best, 1.0); }
 // soft bones in one painted sprite (an animal's neck and head, a tail): weight map u_wtex (R, G, B = bones 0..2,
 // tools/softbones.py), u_bone0..2 = root (uv), angle (rad), on; u_wsz = texture px. Every pixel turns about its bone's root by
 // angle × weight, so the bone bends with no cut. Bone 2 is a child of bone 0 (the head turns at the poll, then rides on the
@@ -55,6 +69,7 @@ void main(){
   // mip level from the undeformed mapping (a warped lookup has no usable derivatives across its seams)
   vec2 tsz = vec2(textureSize(u_tex, 0)) * (u_src.zw - u_src.xy), du = dFdx(uv) * tsz, dv = dFdy(uv) * tsz;
   float lod0 = max(0.0, 0.5 * log2(max(dot(du, du), dot(dv, dv))));
+  vec2 jx = dFdx(uv) * (u_src.zw - u_src.xy), jy = dFdy(uv) * (u_src.zw - u_src.xy);
   if (u_sway.w > 0.5) {
     float w = u_sway.w < 1.5 ? pow(clamp(1.0 - uv.y, 0.0, 1.0), 1.6) : pow(clamp(uv.y, 0.0, 1.0), 1.3);
     float s = sin(u_sway.z + uv.x * u_sway.y + uv.y * 2.0) + 0.45 * sin(u_sway.z * 1.73 + uv.x * u_sway.y * 2.3 + 1.7);
@@ -72,7 +87,8 @@ void main(){
   float bErr = 0.0; if (u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0) { uv = boneInv(uv, bErr); if (bErr > 1.5) discard; }
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
   vec2 tuv = mix(u_src.xy, u_src.zw, uv);
-  vec4 c = (u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0) ? textureLod(u_tex, tuv, lod0 + u_lod) : texture(u_tex, tuv, u_lod);
+  bool boned = u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0;
+  vec4 c = boned ? textureLod(u_tex, tuv, lod0 + u_lod) : u_snap > 0.5 && u_lod == 0.0 ? snapTex(tuv, jx, jy, max(0.0, lod0 - 1.0)) : texture(u_tex, tuv, u_lod);
   c *= smoothstep(0.0, max(u_fade.x, 1e-4), uv.x) * smoothstep(1.0, 1.0 - max(u_fade.y, 1e-4), uv.x) ;
   if (u_tfade > 0.0) c *= smoothstep(0.0, u_tfade, uv.y);
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
@@ -367,6 +383,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
     rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
+  L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
   // sprite(name, x, y, { w | h, src, pad, flip, rot, pivot, m, u: { uniforms without the u_ prefix } })
   //   x,y = top-left of the visible image. pad grows the quad (fraction of w/h) so deformed pixels are not clipped.
@@ -377,7 +394,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     const sw = tx.w * (src[2] - src[0]), sh = tx.h * (src[3] - src[1]);
     let w = o.w, h = o.h; if (w && !h) h = w * sh / sw; if (h && !w) w = h * sw / sh; if (!w) { w = sw; h = sh; }
     const pad = o.pad || 0, pw = w * pad, ph = h * pad;
-    const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx });
+    const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx }); if (U.snap === undefined) U.snap = L.SNAP;
     if (L.sp) { const sp = L.sp;
       Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0] });
       x += sp.dx; y += sp.dy; if (o.m) o = Object.assign({}, o, { m: M.mul(M.t(sp.dx, sp.dy), o.m) }); }

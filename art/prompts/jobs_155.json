@@ -1,0 +1,71 @@
+[
+ {
+  "name": "gear_shirt",
+  "prompt": "art/prompts/gear_shirt.txt",
+  "ref": [
+   "art/gen/gear_shirt_tpl.png=the hero rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "gear_leather",
+  "prompt": "art/prompts/gear_leather.txt",
+  "ref": [
+   "art/gen/gear_leather_tpl.png=the hero rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "gear_hood",
+  "prompt": "art/prompts/gear_hood.txt",
+  "ref": [
+   "art/gen/gear_hood_tpl.png=the hero rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "gear_gauntlet",
+  "prompt": "art/prompts/gear_gauntlet.txt",
+  "ref": [
+   "art/gen/gear_gauntlet_tpl.png=the hero rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "gear_helm_le",
+  "prompt": "art/prompts/gear_helm_le.txt",
+  "ref": [
+   "art/gen/gear_helm_le_tpl.png=the hero rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "gear_helm_kn",
+  "prompt": "art/prompts/gear_helm_kn.txt",
+  "ref": [
+   "art/gen/gear_helm_kn_tpl.png=the hero rig part sheet to repaint",
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "icons2_sheet",
+  "prompt": "art/prompts/icons2_sheet.txt",
+  "ref": [
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ }
+]

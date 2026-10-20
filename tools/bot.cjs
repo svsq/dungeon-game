@@ -99,7 +99,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), i = sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
     if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
   }
-  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0 }; };
+  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge) }; };
   for (let i = 0; i < 120 * 60 * 60 * runs && out.length < runs; i++) {
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }

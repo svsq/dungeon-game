@@ -1,0 +1,346 @@
+{
+ "shirt": {
+  "sfx": "cl",
+  "K": 3,
+  "items": [
+   {
+    "piece": "body",
+    "src": "body",
+    "box": [
+     41,
+     1,
+     176,
+     236
+    ],
+    "at": [
+     65,
+     159
+    ]
+   },
+   {
+    "piece": "body_back",
+    "src": "body_back",
+    "box": [
+     41,
+     1,
+     188,
+     305
+    ],
+    "at": [
+     535,
+     56
+    ]
+   },
+   {
+    "piece": "uarmL",
+    "src": "uarmL",
+    "box": [
+     17,
+     95,
+     72,
+     165
+    ],
+    "at": [
+     1041,
+     192
+    ]
+   },
+   {
+    "piece": "farmL",
+    "src": "farmL",
+    "box": [
+     23,
+     159,
+     69,
+     238
+    ],
+    "at": [
+     1041,
+     594
+    ]
+   },
+   {
+    "piece": "thighL",
+    "src": "thighL",
+    "box": [
+     25,
+     216,
+     82,
+     291
+    ],
+    "at": [
+     1271,
+     139
+    ]
+   },
+   {
+    "piece": "shinL",
+    "src": "shinL",
+    "box": [
+     25,
+     285,
+     77,
+     334
+    ],
+    "at": [
+     1271,
+     503
+    ]
+   },
+   {
+    "piece": "footL",
+    "src": "footL",
+    "box": [
+     32,
+     328,
+     98,
+     360
+    ],
+    "at": [
+     1271,
+     789
+    ]
+   }
+  ]
+ },
+ "leather": {
+  "sfx": "le",
+  "K": 3,
+  "items": [
+   {
+    "piece": "body",
+    "src": "body",
+    "box": [
+     41,
+     1,
+     176,
+     236
+    ],
+    "at": [
+     64,
+     159
+    ]
+   },
+   {
+    "piece": "body_back",
+    "src": "body_back",
+    "box": [
+     41,
+     1,
+     188,
+     305
+    ],
+    "at": [
+     533,
+     56
+    ]
+   },
+   {
+    "piece": "uarmL",
+    "src": "uarmL",
+    "box": [
+     17,
+     95,
+     72,
+     165
+    ],
+    "at": [
+     1038,
+     196
+    ]
+   },
+   {
+    "piece": "thighL",
+    "src": "thighL",
+    "box": [
+     25,
+     216,
+     82,
+     291
+    ],
+    "at": [
+     1038,
+     602
+    ]
+   },
+   {
+    "piece": "shinL",
+    "src": "shinL",
+    "box": [
+     25,
+     285,
+     77,
+     334
+    ],
+    "at": [
+     1273,
+     260
+    ]
+   },
+   {
+    "piece": "footL",
+    "src": "footL",
+    "box": [
+     32,
+     328,
+     98,
+     360
+    ],
+    "at": [
+     1273,
+     667
+    ]
+   }
+  ]
+ },
+ "hood": {
+  "sfx": "hd",
+  "K": 3,
+  "items": [
+   {
+    "piece": "body",
+    "src": "body",
+    "box": [
+     41,
+     1,
+     176,
+     236
+    ],
+    "at": [
+     129,
+     159
+    ]
+   },
+   {
+    "piece": "body_back",
+    "src": "body_back",
+    "box": [
+     41,
+     1,
+     188,
+     305
+    ],
+    "at": [
+     663,
+     56
+    ]
+   },
+   {
+    "piece": "uarmL",
+    "src": "uarmL",
+    "box": [
+     17,
+     95,
+     72,
+     165
+    ],
+    "at": [
+     1233,
+     196
+    ]
+   },
+   {
+    "piece": "thighL",
+    "src": "thighL",
+    "box": [
+     25,
+     216,
+     82,
+     291
+    ],
+    "at": [
+     1233,
+     602
+    ]
+   }
+  ]
+ },
+ "gauntlet": {
+  "sfx": "pl",
+  "K": 6,
+  "items": [
+   {
+    "piece": "farmL",
+    "src": "farmL",
+    "box": [
+     23,
+     159,
+     69,
+     238
+    ],
+    "at": [
+     630,
+     275
+    ]
+   }
+  ]
+ },
+ "helm_le": {
+  "sfx": "hle",
+  "K": 5,
+  "items": [
+   {
+    "piece": "head",
+    "src": "head:body",
+    "box": [
+     42,
+     1,
+     171,
+     90
+    ],
+    "at": [
+     130,
+     289
+    ]
+   },
+   {
+    "piece": "head_back",
+    "src": "head:body_back",
+    "box": [
+     56,
+     1,
+     156,
+     84
+    ],
+    "at": [
+     905,
+     304
+    ]
+   }
+  ]
+ },
+ "helm_kn": {
+  "sfx": "hkn",
+  "K": 5,
+  "items": [
+   {
+    "piece": "head",
+    "src": "head:body",
+    "box": [
+     42,
+     1,
+     171,
+     90
+    ],
+    "at": [
+     130,
+     289
+    ]
+   },
+   {
+    "piece": "head_back",
+    "src": "head:body_back",
+    "box": [
+     56,
+     1,
+     156,
+     84
+    ],
+    "at": [
+     905,
+     304
+    ]
+   }
+  ]
+ }
+}
