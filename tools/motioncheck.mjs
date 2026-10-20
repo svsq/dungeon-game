@@ -10,6 +10,7 @@
 //   flat      — spider_death: the body never collapses to a card while it turns over (its joints' height ≥ FLAT of the rest's)
 //   breath    — *_idle loops: the hip and the head rise and fall at least HIP / HEAD of the height (a still pelvis passed "something moves")
 //   cast      — hero_cast_*: the casting hand leaves its rest by at least CAST of the height (a cast down moved it 3 px)
+//   prompt    — *prompt* states: the interaction plate (HUD.promptBox) stays clear of the hero's joint box (it sat on him at a chest)
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
@@ -72,6 +73,13 @@ for (const nm of meta.tr.filter((n) => n.startsWith('hero_cast_'))) {
   const fr = (await trace('transitions', nm)).map((f) => f.hero).filter(Boolean), H = tall(fr[0]);
   const rel = (j, k) => [j[k][0] - j.ground[0], j[k][1] - j.ground[1]], mv = Math.max(...['handL', 'handR'].map((k) => Math.max(...fr.map((j) => Math.hypot(rel(j, k)[0] - rel(fr[0], k)[0], rel(j, k)[1] - rel(fr[0], k)[1])))));
   report('cast', nm, mv >= CAST * H, `a hand leaves its rest by ${mv.toFixed(0)} px = ${(100 * mv / H).toFixed(0)} % of ${H.toFixed(0)} px`);
+}
+for (const nm of await p.evaluate(() => window.__QA.states.map((q) => q[0]).filter((n) => n.includes('prompt')))) {
+  const r = await p.evaluate((nm) => { const st = window.__QA.states.find((q) => q[0] === nm)[1]; LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const o = { pb: HUD.promptBox, hero: LIB.TRACE.hero || null }; LIB.TRACE = null; return o; }, nm);
+  if (!r.pb || !r.hero) { report('prompt', nm, false, r.pb ? 'no hero joints' : 'no prompt drawn'); continue; }
+  const [x0, y0, x1, y1] = box(r.hero), [px, py, pw, ph] = r.pb, ix = Math.min(x1, px + pw) - Math.max(x0, px), iy = Math.min(y1, py + ph) - Math.max(y0, py);
+  report('prompt', nm, ix <= 0 || iy <= 0, `plate ${px.toFixed(0)},${py.toFixed(0)} ${pw.toFixed(0)}×${ph} against hero ${x0.toFixed(0)},${y0.toFixed(0)}–${x1.toFixed(0)},${y1.toFixed(0)}`);
 }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));

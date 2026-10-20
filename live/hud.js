@@ -88,14 +88,20 @@
       if (ev.k === 'gold' && a < 0.9) lab('gd' + Math.floor(ev.t * 10 % 8), '+' + ev.n, V.sx(ev.x), V.sy(ev.y) - 30 - 40 * (a / 0.9), { size: 24, al: 0.5, col: C.gold, a: 1 - L.SS(0.7, 0.9, a) });
       if (ev.k === 'absorb' && a < 0.7) lab('ab' + Math.floor(ev.t * 10 % 6), 'щит ' + ev.n, V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, al: 0.5, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // interaction prompt
-    let pr = null;
-    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 50, 'E или удар — открыть сундук'];
-    const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60); if (sh) pr = [sh.x, sh.y - 70, 'E — дары алтаря'];
+    let pr = null; HUD.promptBox = null;
+    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, 'E или удар — открыть сундук'];
+    const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60); if (sh) pr = [sh.x, sh.y - 78, 'E — дары алтаря'];
     if (SIM.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, 'E — торговать'];
     const dr = SIM.doorNear(R, 64); if (dr) { const lk = SIM.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? 'E или удар — открыть дверь' : lk.kind === 'key' ? (R.keys > 0 ? 'E — отпереть ключом' : 'Заперто: нужен ключ') : 'Заперто: где-то есть рычаг']; }
     const lv = SIM.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, 'E — потянуть рычаг'];
-    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 60, m.floor === D.FLOORS ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : 'E — спуститься на этаж ' + (m.floor + 1)];
-    if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28, x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20; panel('prompt_box', x, y, w, 40, { r: 6 }); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); }
+    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.FLOORS ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : 'E — спуститься на этаж ' + (m.floor + 1)];
+    // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
+    // when that leaves the screen, to the bottom of the screen (TASKS 134)
+    if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
+      const hx0 = V.sx(h.x - 30), hx1 = V.sx(h.x + 30), hy0 = V.sy(h.y - 92), hy1 = V.sy(h.y + 6);
+      if (x < hx1 && x + w > hx0 && y < hy1 && y + 40 > hy0) y = Math.min(y, hy0 - 48);
+      if (y < 120) { x = (W - w) / 2; y = H - 150; }
+      HUD.promptBox = [x, y, w, 40]; panel('prompt_box', x, y, w, 40, { r: 6 }); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); }
   }
 
   // ---------------- in-game HUD ----------------

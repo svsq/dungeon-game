@@ -4,6 +4,7 @@
 (function () {
   const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
   const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider' };   // the ghost bends its one sprite (softbones)
+  const SKULL_K = { skeleton: 1.3 };
   MON.rigOf = (type) => { const n = RIG[type]; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
   const d2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
   const rotP = (p, c, a) => { const dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * Math.cos(a) - dy * Math.sin(a), c[1] + dx * Math.sin(a) + dy * Math.cos(a)]; };
@@ -101,15 +102,17 @@
     // far arm (+ its item) → far leg → near leg → body → near arm (+ its item)
     drawArm('L', o.Ufar); held('L', o.Ufar); drawLeg('L', o.Ufar); drawLeg('R', o.U);
     piece('body', hipS, () => L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U }));
+    // the skull is drawn larger about the neck: at 38 px a skull of the painted size reads as a bead (TASKS 127)
+    const skK = RG.skull ? SKULL_K[o.n] || 1 : 1, skP = (P) => RG.skull ? [RG.skull[0] + (P[0] - RG.skull[0]) * skK, RG.skull[1] + (P[1] - RG.skull[1]) * skK] : P;
     if (RG.skull) { const at = R2U(RG.skull[0], RG.skull[1] + hipDy);   // a loose skull turns about its own middle, not the neck
-      piece('skull', at, () => L.sprite(o.n + '__skull', 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [RG.skull[0] * s, RG.skull[1] * s], u: o.U }), R2U(RG.skull[0], (RG.skull[1] + RG.top[1]) / 2 + hipDy)); }
+      piece('skull', at, () => L.sprite(o.n + '__skull', 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + lean), M.s(face * skK, skK)), w: RG.w * s, h: RG.h * s, pivot: [RG.skull[0] * s, RG.skull[1] * s], u: o.U }), R2U(RG.skull[0], RG.skull[1] + (RG.top[1] - RG.skull[1]) * skK / 2 + hipDy)); }
     // ears hang on a spring from their roots: they lag the head's bob twice a stride, plus whatever the caller kicks (o.ear, tips down)
     if (RG.earL) { const flop = 0.11 * run * Math.sin(2 * ph - 1.1) + 0.03 * breath + (o.ear || 0);
       for (const [sd, sg] of [['L', -1], ['R', 1]]) { const P = RG['ear' + sd], r = sg * flop * (sd === 'L' ? 1 : 0.85), Pd = [P[0], P[1] + hipDy];
         part('ear' + sd, P, R2U(...Pd), r, o.U, 1, lean); L.joint(o.id, 'ear' + sd, R2U(...rotP([RG['ear' + sd + 'Tip'][0], RG['ear' + sd + 'Tip'][1] + hipDy], Pd, r))); } }
     drawArm('R', o.U); held('R', o.U);
     // the far foot stands higher in 3/4: each foot has its own ground
-    J('ground', root); J('head', R2U(RG.head[0], RG.head[1], hipDy * s), RG.skull ? 'skull' : 'body'); J('top', R2U(RG.top[0], RG.top[1], hipDy * s), RG.skull ? 'skull' : 'body'); J('hip', hipS, 'body');
+    J('ground', root); J('head', R2U(...skP(RG.head), hipDy * s), RG.skull ? 'skull' : 'body'); J('top', R2U(...skP(RG.top), hipDy * s), RG.skull ? 'skull' : 'body'); J('hip', hipS, 'body');
     if (cr >= 0) J('mid', R2U(Hc[0], (Hc[1] + RG.top[1]) / 2, hipDy * s), 'body');
     for (const side of ['L', 'R']) { const g = legs[side], A = arms[side], dT = [g.T[0] - g.A0[0], g.T[1] - g.A0[1]];
       J('hip' + side, R2S(g.Hp[0], g.Hp[1]), 'thigh' + side); J('knee' + side, R2S(g.K[0], g.K[1]), 'shin' + side); J('ankle' + side, R2S(g.T[0], g.T[1]), 'foot' + side);
