@@ -358,6 +358,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     for (const k in SH) P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
     for (const k in extra) P[k] = G.program(k, extra[k]);
     const px = L.PIXEL, lo = { view, nearest: px > 1 };
+    for (const k in T) G.free(T[k]);
     T.bg = G.target(Math.round(w / px), Math.round(h / px), true, lo); T.comp = G.target(Math.round(w / px), Math.round(h / px), true, lo);
     T.mask = G.target(w / 2, h / 2, true); T.rays = G.target(w / 2, h / 2, true);
     T.b1 = G.target(w / 4, h / 4); T.b2 = G.target(w / 4, h / 4); T.c1 = G.target(w / 8, h / 8); T.c2 = G.target(w / 8, h / 8);

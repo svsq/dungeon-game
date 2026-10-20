@@ -3,9 +3,10 @@
 (function (root) {
   const TILE = 32;                         // world units are view px; HD-pixel art drawn at display size (styles.md §1)
   // the camera's zoom: the world fills the 1920×1080 screen from a 1920/ZOOM × 1080/ZOOM window. Only whole art-pixel steps keep
-  // the pixel grid whole: 1 (one art pixel = 2 screen px, the reference's scale) or 1.5 (3 screen px, read as too large); the HUD
-  // stays in screen px
-  const ZOOM = 1;
+  // the pixel grid whole: 1 (one art pixel = 2 screen px, the reference's scale), 1.5 (3 px) or 2 (4 px); the player picks one in
+  // the menu or the pause (S.meta.zoom), ZOOM is the default. The HUD stays in screen px
+  const ZOOM = 1, ZOOMS = [1, 1.5, 2];
+  const zoomName = (z) => '×' + String(z || ZOOM).replace('.', ',');
 
   // rock, vein: the rock past the dungeon and under the fog of war (scene.js LIT) and the faint veins glowing in it [r, g, b, strength];
   // water: the colour of its shallow pools (scene.js WATER); seam: how much the wall tops' joints smoulder in the vein colour;
@@ -199,15 +200,15 @@
 
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
   const UI = {
-    menu: (hasRun, diff, arm) => {
+    menu: (hasRun, diff, arm, zoom) => {
       const items = [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 8 этажей' : arm ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
-        ['endless', 'Бесконечный спуск (WIP)', false], ['meta', 'Алтарь душ', true]];
+        ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['endless', 'Бесконечный спуск (WIP)', false], ['meta', 'Алтарь душ', true]];
       return items.map(([id, label, on], i) => ({ id, label, on, x: 760, y: 440 + i * 86, w: 400, h: 72 }));
     },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? 'Скрыть секреты' : 'Открыть все секреты', on: true, x: 520, y: 16, w: 430, h: 60 },
       { id: 'dbg_loot', label: S && S.dbgLoot ? 'Убрать подсветку лута' : 'Подсветить лут', on: true, x: 970, y: 16, w: 430, h: 60 }],
-    pause: () => [['resume', 'Продолжить'], ['save', 'Сохранить и выйти в меню'], ['abandon', 'Сдаться (конец забега)']]
+    pause: (zoom) => [['resume', 'Продолжить'], ['zoom', 'Масштаб: ' + zoomName(zoom)], ['save', 'Сохранить и выйти в меню'], ['abandon', 'Сдаться (конец забега)']]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 430 + i * 92, w: 480, h: 72 })),
     end: () => [['menu', 'В главное меню'], ['again', 'Новый забег']].map(([id, label], i) => ({ id, label, on: true, x: 600 + i * 380, y: 920, w: 340, h: 72 })),
     meta: () => META.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / 5) * 800, y: 270 + (i % 5) * 112, w: 760, h: 96 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 870, w: 300, h: 70 }]),
@@ -265,7 +266,7 @@
     crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
