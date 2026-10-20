@@ -2,21 +2,23 @@
 // Shared by sim.js (rules) and scene.js / hud.js (drawing). Pure data + pure helpers, no state.
 (function (root) {
   const TILE = 32;                         // world units are view px; HD-pixel art drawn at display size (styles.md §1)
-  // the camera's zoom: the world fills the 1920×1080 screen from a 1920/ZOOM × 1080/ZOOM window. 1.5 keeps the pixel grid whole
-  // (one art pixel = 2 world px = 3 screen px); the HUD stays in screen px
-  const ZOOM = 1.5;
+  // the camera's zoom: the world fills the 1920×1080 screen from a 1920/ZOOM × 1080/ZOOM window. Only whole art-pixel steps keep
+  // the pixel grid whole: 1 (one art pixel = 2 screen px, the reference's scale) or 1.5 (3 screen px, read as too large); the HUD
+  // stays in screen px
+  const ZOOM = 1;
 
   // rock, vein: the rock past the dungeon and under the fog of war (scene.js LIT) and the faint veins glowing in it [r, g, b, strength];
-  // water: the colour of its shallow pools (scene.js WATER)
+  // water: the colour of its shallow pools (scene.js WATER); seam: how much the wall tops' joints smoulder in the vein colour;
+  // fill: the light an accent room of this biome is flooded with; dim: how much darker its pale floor stone is laid as an accent zone, so its light reads as pools
   const BIOMES = {
-    dungeon: { name: 'Подземелье', rock: [0.118, 0.082, 0.07], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0.08], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    dungeon: { name: 'Подземелье', rock: [0.06, 0.042, 0.036], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0.08], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
-    crypt: { name: 'Крипты', rock: [0.08, 0.1, 0.085], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0.07], amb: [0.07, 0.11, 0.09], torch: [0.45, 1.0, 0.45], floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    crypt: { name: 'Крипты', rock: [0.04, 0.05, 0.043], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0.07], amb: [0.07, 0.11, 0.09], torch: [0.35, 1.0, 0.4], fill: 0.12, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.86, 0.98, 0.9], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
-    lava: { name: 'Огненные глубины', rock: [0.13, 0.07, 0.05], vein: [1.0, 0.38, 0.08, 0.14], amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    lava: { name: 'Огненные глубины', rock: [0.08, 0.043, 0.03], vein: [1.0, 0.38, 0.08, 0.14], seam: 1.4, amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
-    arcane: { name: 'Чертоги', rock: [0.075, 0.08, 0.11], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0.1], amb: [0.07, 0.08, 0.14], torch: [0.4, 0.7, 1.0], floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
-      tint: [0.86, 0.9, 1.04], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
+    arcane: { name: 'Чертоги', rock: [0.038, 0.04, 0.056], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0.1], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.15, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+      tint: [0.68, 0.78, 1.12], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
   };
   const FLOORS = 8;
   const biomeOf = (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane');

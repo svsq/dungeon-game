@@ -290,7 +290,7 @@
       // the staff tips forward through the wind-up; the free hand thrusts at the aim, fully out on the shot frame (the strike's first)
       base.staff = wind ? -0.35 * SS(0, ew * 0.8, u) : str ? -0.35 * (1 - SS(0.1, 0.32, u)) : 0;
       base.push = wind ? SS(ew - 0.14, ew, u) : str ? 1 - SS(0.08, 0.32, u) : 0; base.aimR = aimRig(e, face, H) - 0.1;
-      robed(base); return true; }
+      return robed(base); }
     if (n === 'brute') {
       const boss = e.type === 'boss', w = boss ? (e.hp < e.max * 0.5 ? 0.55 : 0.8) : 0;
       const p = live ? chop(e, E, GT, face, H, 0, { raise: 2.9, chopT: 0.26, recover: 0.32, over: 0.9, bossW: w }) : null;   // the clock only; arms re-pose from their walk swing
