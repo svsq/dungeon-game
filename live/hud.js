@@ -5,12 +5,12 @@
   const HUD = (window.HUD = {}), L = LIB, D = DATA, W = SIM.VIEW.W, H = SIM.VIEW.H, TILE = D.TILE;
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
-  const MAP = { key: '', rec: null, cv: null, k: 2 };
+  const MAP = { key: '', rec: null, cv: null, k: 3 };
   HUD.init = () => {};
   const hex = (c) => '#' + c.map((v) => Math.round(Math.min(1, v) * 255).toString(16).padStart(2, '0')).join('');
   const lab = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: C.text, out: '#140c0c' }, o));
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
-  const underHud = (x, y) => (x > W - 240 && y < 290) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
+  const underHud = (x, y) => (x > W - 260 && y < 440) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   function panel(id, x, y, w, h, o = {}) {
     L.rrect(x - 3, y - 3, w + 6, h + 6, (o.r || 8) + 3, o.rim || C.rim, o.rim2 || [0.2, 0.16, 0.13], o.a ?? 0.95);
@@ -58,13 +58,22 @@
   }
 
   // ---------------- world-space overlays: monster bars, damage numbers, prompts ----------------
+  // the concept's enemy bar: a capsule with a pale rim and a red heart ball on its left end
+  function capsule(x, y, w, f, elite) {
+    const x0 = x - w / 2, fill = elite ? [[1, 0.62, 0.16], [0.66, 0.28, 0.04]] : [[0.88, 0.1, 0.06], [0.54, 0.04, 0.03]];
+    L.rrect(x0 - 2, y - 2, w + 4, 16, 8, [0.79, 0.77, 0.75], [0.46, 0.43, 0.42], 0.95);
+    L.rrect(x0, y, w, 12, 6, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03]);
+    const fw = Math.max(0, Math.min(1, f)) * (w - 14); if (fw > 1) L.rrect(x0 + 10, y + 3, fw, 6, 3, ...fill);
+    L.rrect(x0 - 5, y - 3, 18, 18, 9, [0.12, 0.05, 0.04], [0.12, 0.05, 0.04]);
+    L.rrect(x0 - 3, y - 1, 14, 14, 7, [1, 0.3, 0.18], [0.62, 0.04, 0.03]);
+    L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
+  }
   function world(S, R, t, V) {
     const GT = S.t, h = R.hero, m = R.map;
     let bi = 0;
     for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss') continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
-      if (e.st !== 'idle' || e.hp < e.max || e.elite) { const w = e.elite ? 64 : 48; L.rrect(x - w / 2 - 2, y - 2, w + 4, 10, 3, [0.02, 0.02, 0.02], [0.02, 0.02, 0.02], 0.85);
-        L.rrect(x - w / 2, y, w * Math.max(0, e.hp / e.max), 6, 2, e.elite ? [1, 0.6, 0.15] : [0.85, 0.12, 0.1], e.elite ? [0.7, 0.3, 0.05] : [0.5, 0.05, 0.05]); }
+      if (e.st !== 'idle' || e.hp < e.max || e.elite) capsule(x, y, e.elite ? 80 : 64, e.hp / e.max, e.elite);
       // an elite's name, its powers first, in the colour of its first power
       if (e.elite && e.mods && e.mods.length) { const c = D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 16;
         if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py)))
@@ -72,9 +81,9 @@
       if (e.st === 'idle' || bi > 40) continue; bi++; void E; }
     // the "!" when a monster notices the hero
     for (const ev of S.ev) { const a = GT - ev.t; if (a < 0) continue;
-      if (ev.k === 'alert' && a < 0.7) lab('al' + (ev.id % 30), '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, al: 0.5, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
-      if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 34 : 24) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
-        lab('dn' + (ev.id % 40), String(ev.n), V.sx(ev.x) + (L.rnd(ev.t, 1) - 0.5) * 24, V.sy(ev.y) - 40 * q - 10, { size: s, al: 0.5, col: ev.crit ? '#ffcf3a' : ev.fire ? '#ffa05a' : '#f4ead2', out: '#2a0d06', a: 1 - L.SS(0.6, 0.8, a) }); }
+      if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) lab('al' + (ev.id % 30), '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, al: 0.5, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
+      if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 32 : 19) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
+        lab('dn' + (ev.id % 40), String(ev.n), V.sx(ev.x) + (L.rnd(ev.t, 1) - 0.5) * 24, V.sy(ev.y) - 40 * q - 10, { size: s, al: 0.5, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
       if (ev.k === 'hurt' && a < 0.8) lab('hu' + Math.floor(ev.t * 10 % 8), '-' + ev.n, V.sx(ev.x), V.sy(ev.y) - 50 * (a / 0.8), { size: 30, al: 0.5, col: C.red, a: 1 - L.SS(0.6, 0.8, a) });
       if (ev.k === 'gold' && a < 0.9) lab('gd' + Math.floor(ev.t * 10 % 8), '+' + ev.n, V.sx(ev.x), V.sy(ev.y) - 30 - 40 * (a / 0.9), { size: 24, al: 0.5, col: C.gold, a: 1 - L.SS(0.7, 0.9, a) });
       if (ev.k === 'absorb' && a < 0.7) lab('ab' + Math.floor(ev.t * 10 % 6), 'щит ' + ev.n, V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, al: 0.5, col: '#8fc4ff', a: 1 - a / 0.7 }); }
@@ -212,38 +221,61 @@
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   function minimap(S, R, t) {
-    const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 46, n = R.seen.reduce((a, b) => a + b, 0);
+    const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => a + b, 0);
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = document.createElement('canvas')); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
-      const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.cell(m, x, y));
-      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y);
-        if (c === 1) { g.fillStyle = '#6b625c'; g.fillRect(x * k, y * k, k, k); } else if (c === 3) { g.fillStyle = '#c4441a'; g.fillRect(x * k, y * k, k, k); }
-        else if (c === 5) { g.fillStyle = '#a0682e'; g.fillRect(x * k, y * k, k, k); }
-        else if (at(x, y + 1) === 1 || at(x, y - 1) === 1 || at(x + 1, y) === 1 || at(x - 1, y) === 1) { g.fillStyle = '#2a2427'; g.fillRect(x * k, y * k, k, k); } }
+      const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5;
+      const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+      // rooms as stone slabs with a pale rim, as in the concept: the rim sits on the wall cells that border the floor
+      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y), X = x * k, Y = y * k;
+        if (c === 1) { const v = L.rnd(x * 7 + y * 131, 3); fill(X, Y, k, k, v < 0.2 ? '#6e665f' : v > 0.85 ? '#8a8178' : '#7d746c'); }
+        else if (c === 3) fill(X, Y, k, k, '#c4441a');
+        else if (c === 5) fill(X, Y, k, k, '#a0682e');
+        else { const u = open(at(x, y - 1)), d = open(at(x, y + 1)), l = open(at(x - 1, y)), r = open(at(x + 1, y)); if (!(u || d || l || r)) continue;
+          fill(X, Y, k, k, '#1b1719');
+          if (d) fill(X, Y + k - 2, k, 2, '#a59a8e'); if (l) fill(X, Y, 2, k, '#a59a8e'); if (r) fill(X + k - 2, Y, 2, k, '#a59a8e');
+          if (u) fill(X, Y, k, 2, '#3a3230'); } }
       if (MAP.rec) { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, MAP.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); MAP.rec.w = mw; MAP.rec.h = mh; }
       else MAP.rec = G.canvasTex('minimap', cv); }
     const title = ('Этаж ' + m.floor + ' — ' + D.floorName(m.floor)).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
-    const legend = [['#4aa0ff', 'Вы'], ['#ffd040', 'Сокровища'], ['#ff4040', 'Босс'], ['#e8e0d0', 'Выход'], ['#5ee08a', 'Торговец']];
-    // the legend's right column decides the width on small maps with short floor names
-    const lgw = 2 * (Math.max(...legend.filter((_, i) => i % 2).map(([, s], j) => lw('mm_l' + (2 * j + 1), s, { size: 14 }))) + 23);
-    const pw = Math.max(mw + 20, tw + 20, lgw), px = W - 14 - pw / 2 - mw / 2;
-    const lgh = 22 * Math.ceil(legend.length / 2), prog = progress(R);
-    panel('minimap', W - pw - 14, 12, pw, mh + 44 + lgh + 8 + 30, { r: 5, a: 0.82 });
-    lab('mm_t', title, W - pw / 2 - 14, 29, { size: 17, al: 0.5 });
+    const legend = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец']];
+    const pw = Math.max(mw + 24, tw + 24), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
+    panel('minimap', x0, 12, pw, ph, { r: 5, a: 0.86 });
+    lab('mm_t', title, x0 + pw / 2, 31, { size: 17, al: 0.5 });
     L.sprite('minimap', px, py, { w: mw, h: mh });
-    const dot = (x, y, col, r) => L.rrect(px + x / TILE * k - r * 0.75, py + y / TILE * k - r * 0.75, 1.5 * r, 1.5 * r, r * 0.75, col, col);
-    for (const c of R.chests) if (!c.open && !SIM.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) dot(c.x, c.y, [1, 0.82, 0.25], 4);
-    for (const e of R.en) if (e.type === 'boss' && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) dot(e.x, e.y, [1, 0.25, 0.25], 6);
-    if (R.seen[m.exit.ty * m.W + m.exit.tx]) { dot(m.exit.x, m.exit.y, [0.92, 0.88, 0.8], 5); }
-    if (m.shop && R.rseen[m.shop.room]) dot(m.shop.x, m.shop.y, [0.37, 0.88, 0.54], 5);
-    if (S.debug && S.dbgLoot) for (const o of SIM.lootAudit(R).list) dot(o.x, o.y, LOOT_COL[o.at], o.chest ? 4 : 3);
-    dot(R.hero.x, R.hero.y, [0.3, 0.65, 1], 5 + Math.sin(t * 6));
-    legend.forEach(([col, s], i) => { const x = W - pw - 4 + (i % 2) * (pw / 2 - 6), y = py + mh + 16 + Math.floor(i / 2) * 22; L.rrect(x, y - 5, 10, 10, 5, hexc(col), hexc(col)); lab('mm_l' + i, s, x + 15, y, { size: 14, col: C.dim }); });
+    const mark = (x, y, id, s) => icon_(id, px + x / TILE * k, py + y / TILE * k, s);
+    for (const c of R.chests) if (!c.open && !SIM.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
+    for (const e of R.en) if (e.type === 'boss' && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
+    if (R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
+    if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
+    if (S.debug && S.dbgLoot) for (const o of SIM.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + o.x / TILE * k - r, py + o.y / TILE * k - r, 2 * r, 2 * r, r, c, c); }
+    mark(R.hero.x, R.hero.y, 'you', 13 + 1.5 * Math.sin(t * 6));
+    legend.forEach(([id, s], i) => { const y = lg0 + i * 26; icon_(id, x0 + 22, y, 16); lab('mm_l' + i, s, x0 + 38, y + 1, { size: 16, col: C.text }); });
+    compass(x0 + pw - 52, lg0 + 26 * legend.length - 62, 34);
     // this floor's completion: monsters, loot, secrets (the last only where the floor has any)
-    const y = py + mh + lgh + 22; L.solid(W - pw - 4, y - 14, pw - 20, 1, C.rim, 0, 0, 0, 0.5);
-    prog.forEach(([id, ic, s, done], i) => { const x = W - pw - 4 + i * (pw - 20) / prog.length; icon(ic, x, y - 4, 18, done ? undefined : { alpha: 0.75 });
+    const y = lg0 + 26 * legend.length + 8; L.solid(x0 + 10, y - 14, pw - 20, 1, C.rim, 0, 0, 0, 0.5);
+    prog.forEach(([id, ic, s, done], i) => { const x = x0 + 10 + i * (pw - 20) / prog.length; icon(ic, x, y - 4, 18, done ? undefined : { alpha: 0.75 });
       lab('mm_p' + id, s, x + 22, y + 6, { size: 15, col: done ? C.gold : C.text }); });
+  }
+  // minimap markers, centred on (x, y): gems as in the concept, a slab for a room, the stairs for the exit
+  const GEM = { you: [[0.55, 0.8, 1], [0.1, 0.3, 0.95]], gold: [[1, 0.9, 0.4], [0.85, 0.5, 0.05]], boss: [[1, 0.4, 0.3], [0.65, 0.04, 0.03]], shop: [[0.6, 1, 0.7], [0.12, 0.6, 0.3]] };
+  function icon_(id, x, y, s) {
+    if (id === 'exit') { icon('stairs', x - s / 2, y - s / 2, s); return; }
+    if (id === 'room') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.65, 0.6, 0.55], [0.65, 0.6, 0.55]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.49, 0.45, 0.42], [0.42, 0.39, 0.37]); return; }
+    const [c0, c1] = GEM[id], r = s / 2;
+    L.rrect(x - r - 1.5, y - r - 1.5, s + 3, s + 3, r + 1.5, [0.06, 0.04, 0.04], [0.06, 0.04, 0.04]);
+    L.rrect(x - r, y - r, s, s, r, c0, c1);
+    L.rrect(x - r * 0.55, y - r * 0.6, r * 0.6, r * 0.5, r * 0.25, [1, 1, 1], [1, 1, 1], 0.75);
+    if (id === 'boss') { L.rrect(x - r * 0.45, y - r * 0.25, r * 0.9, r * 0.6, r * 0.3, [0.98, 0.92, 0.85], [0.98, 0.92, 0.85]); L.solid(x - r * 0.3, y - r * 0.05, r * 0.2, r * 0.2, [0.3, 0.02, 0.02]); L.solid(x + r * 0.1, y - r * 0.05, r * 0.2, r * 0.2, [0.3, 0.02, 0.02]); }
+  }
+  // the compass rose of the concept's map panel; the long needle points north
+  function compass(cx, cy, r) {
+    L.ring(cx, cy, r * 0.62, r * 0.62, C.rim, 0.9, 0.08);
+    const ndl = (a, len, col) => { for (let i = 0; i < 6; i++) { const q = i / 6, w = (1 - q) * r * 0.16 + 1, d = q * len; L.solid(cx + Math.cos(a) * d - w / 2, cy + Math.sin(a) * d - w / 2, w, w, col, a + Math.PI / 4, w / 2, w / 2); } };
+    for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 + Math.PI / 4, r * 0.45, [0.4, 0.34, 0.28]);
+    for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 - Math.PI / 2, i === 0 ? r * 0.95 : r * 0.75, i === 0 ? [0.93, 0.88, 0.8] : [0.7, 0.64, 0.56]);
+    [['С', 0, -1], ['В', 1, 0], ['Ю', 0, 1], ['З', -1, 0]].forEach(([s, dx, dy]) => lab('mm_c' + s, s, cx + dx * (r + 10), cy + dy * (r + 10) + 1, { size: 14, al: 0.5, col: C.dim }));
   }
   // floor completion cells for the minimap: [id, icon, text, complete]
   function progress(R) {
@@ -254,7 +286,6 @@
     out.push(['sec', 'it_key', f.secN ? pc(f.sec, f.secN) : '0%', f.secN > 0 && f.sec >= f.secN]);
     return out;
   }
-  const hexc = (s) => [parseInt(s.slice(1, 3), 16) / 255, parseInt(s.slice(3, 5), 16) / 255, parseInt(s.slice(5, 7), 16) / 255];
 
   // ---------------- hero screen ----------------
   function inv(S, R, t) {
