@@ -9,7 +9,7 @@
   // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
   const ZOOM = D.ZOOM || 1, VIEW = { W: 1920, H: 1080 }, WIN = { W: VIEW.W / ZOOM, H: VIEW.H / ZOOM }, toPx = (R, x, y) => ({ px: (x - R.cam[0]) * ZOOM, py: (y - R.cam[1]) * ZOOM });
   const HINT = 'WASD — движение · ЛКМ — атака · 1 2 3 — способности · Пробел — рывок · Q/R — зелья · E — действие · I — герой · Esc — пауза';
-  const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, IFR: 0.5, STEP: 20 };
+  const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 20 };
   const DEMO_SEED = 4243;
 
   // ---------------- rng (state lives in the run: deterministic replay) ----------------
@@ -63,7 +63,8 @@
     const lo = o.min || 0, hi = o.max ?? 4, w = [60, 26, 10, 3.5, 0.5].map((v, i) => (i < lo || i > hi ? 0 : v * (i ? Math.pow(1 + 0.22 * floor + 0.6 * q, i * 0.9) : 1)));
     let s = w.reduce((a, b) => a + b, 0) * rnd(R), rar = lo; while (rar < hi && (s -= w[rar]) > 0) rar++;
     const keys = Object.keys(BASES).filter((k) => (!BASES[k].minF || floor >= BASES[k].minF) && (!slotOnly || BASES[k].slot === slotOnly));
-    const bk = pick(R, keys);
+    let s2 = keys.reduce((a, k) => a + (BASES[k].w ?? 1), 0) * rnd(R), bk = keys[keys.length - 1];
+    for (const k of keys) if ((s2 -= BASES[k].w ?? 1) < 0) { bk = k; break; }
     return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor, mods: {} }));
   }
   function rollAffixes(R, it) {
@@ -90,7 +91,7 @@
   const GIFT_V = Object.fromEntries(D.GIFTS.map((g) => [g.id, g.v]));
   const gift = (h, id) => ((h.perks || {})[id] || 0) * GIFT_V[id];
   function stats(h, meta) {
-    const s = { str: h.base.str, agi: h.base.agi, int: h.base.int, vit: h.base.vit, atk: 0, def: 0, crit: 0, hp: 0, mp: 0, aspd: 0, mspd: 0, leech: 0, fire: 0, regen: 0, onhit: 0 };
+    const s = { str: h.base.str, agi: h.base.agi, int: h.base.int, vit: h.base.vit, atk: 0, def: 0, crit: 0, hp: 0, mp: 0, aspd: 0, mspd: 0, leech: 0, fire: 0, regen: 0, onhit: 0, dodge: 0 };
     let wpn = null;
     for (const k in h.eq) { const it = h.eq[k]; if (!it) continue; if (k === 'weapon') wpn = it; s.def += it.def || 0; const mods = itemMods(it); for (const m in mods) s[m] = (s[m] || 0) + mods[m]; }
     const up = (meta && meta.up) || {}, W = wpn ? BASES[wpn.b] : { atk: 3, spd: 0.45, arc: 110, reach: 51 };
@@ -100,12 +101,12 @@
       maxMp: Math.round(40 + s.int * 6 + (h.lvl - 1) * 2 + s.mp + 10 * (up.mana || 0) + gift(h, 'wisdom')),
       atk: Math.round(((wpn ? wpn.atk : 3) + s.str * 1.6 + s.atk + (W.spell ? s.int * 0.8 : 0)) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100)),
       def: Math.round(s.def + s.vit * 0.3 + gift(h, 'ward')),
-      crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')),
+      crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')), dodge: Math.min(BAL.dodge.cap, s.agi * BAL.dodge.agi + s.dodge),
       aspd: s.agi * 1.2 + s.aspd + gift(h, 'haste'), mspd: Math.min(40, s.agi * 0.4 + s.mspd + gift(h, 'swift')), leech: s.leech + gift(h, 'leech'),
       regen: s.regen + 0.5 * (up.regen || 0) + gift(h, 'life'), onhit: s.onhit,
       spell: (1 + s.int * 0.04) * (1 + (W.spell || 0)) * (1 + s.fire / 100) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100) * (1 + gift(h, 'arcane') / 100),
       resist: 1 - 0.15 * (up.resist || 0), gold: 1 + gift(h, 'greed') / 100,
-      wcd: W.spd, arc: W.arc, reach: W.reach, kb: W.kb || 1, wtype: wpn ? wpn.b : 'fist',
+      wcd: W.spd, arc: W.arc + gift(h, 'cleave'), reach: W.reach * (1 + gift(h, 'reach') / 100), kb: W.kb || 1, wtype: wpn ? wpn.b : 'fist',
     };
     return out;
   }
@@ -140,7 +141,10 @@
     while (out.length < n) out.push(pool.splice(Math.floor(rnd(R) * pool.length), 1)[0]); return out; }
   // what an elite's powers add to a blow of its that landed on the hero
   function struck(S, R, e) {
-    const h = R.hero; if (!e || !e.mods || h.hurtT !== S.t) return;
+    const h = R.hero; if (!e || h.hurtT !== S.t) return;
+    // thorns: a share of a blow taken at close quarters goes back into whoever struck it (not into a caster's bolt)
+    if (gift(h, 'thorns') && e.deadT < 0 && Math.hypot(e.x - h.x, e.y - h.y) < 150) hitEnemy(S, R, e, Math.max(1, Math.round(h.lastHit * gift(h, 'thorns') / 100)), 0, h.x, h.y, 0, 'thorns');
+    if (!e.mods) return;
     if (has(e, 'fiery')) { h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); h.burnT = Math.min(h.burnT ?? -9, S.t - 0.5); }
     if (has(e, 'vampire') && e.deadT < 0) { const n = Math.round(e.max * MOD.vampire.heal); e.hp = Math.min(e.max, e.hp + n);
       ev(S, { k: 'drain', x: h.x, y: h.y - 40, tx: e.x, ty: e.y - ENEMIES[e.type].h * 0.5, n, id: e.id }); }
@@ -347,32 +351,41 @@
       for (const a of ABILITIES) if (a.unlock === h.lvl && !h.ab[a.id]) { h.ab[a.id] = 1; ev(S, { k: 'unlock', x: h.x, y: h.y, id: a.id }); }
       const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp; ev(S, { k: 'lvl', x: h.x, y: h.y, lvl: h.lvl }); }
   }
+  // no invulnerability after a blow (the balance was tuned without it). A dash leaps spikes and lava; against a monster's blow, bolt
+  // or blast it only adds to the chance to dodge (BAL.dodge), it never makes the hero immune
   function hurtHero(S, R, dmg, sx, sy, kind, src) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr) return;
-    const st = heroSt(S), K = 20 + 12 * R.floor; dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * K / (K + st.def)));   // armour's share falls as floors climb: deep monsters still bite
+    const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
+    if (kind !== 'spike' && src !== 'lava' && rnd(R) * 100 < heroSt(S).dodge + (dashing ? BAL.dodge.dash : 0)) { ev(S, { k: 'dodge', x: h.x, y: h.y, dash: dashing ? 1 : 0 }); return; }
+    const st = heroSt(S), KD = 20 + 12 * R.floor; dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (h.shield > 0 && S.t < h.shieldUntil) { const a = Math.min(h.shield, dmg); h.shield -= a; dmg -= a; ev(S, { k: 'absorb', x: h.x, y: h.y, n: a }); if (dmg <= 0) return; }
-    h.hp -= dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; h.ifr = S.t + K.IFR; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
+    h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
     if (kind === 'poison') h.poison = S.t + 3;
     if (kind === 'fire') h.burn = S.t + 3;
     ev(S, { k: "hurt", x: h.x, y: h.y - 40, n: dmg, src: src || kind || '?' });
+    // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
+    if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
+      ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: 'Второй шанс!', t: S.t }; return; }
     if (h.hp <= 0) { h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
   }
   function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind) {
     if (e.deadT >= 0) return;
-    e.hp -= dmg; e.hitT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e);
+    if (gift(R.hero, 'execute') && e.hp < 0.25 * e.max) dmg = Math.round(dmg * (1 + gift(R.hero, 'execute') / 100));
+    e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e);
     const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost;
     if (!heavy) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
     if (kind === 'fire') { e.burn = S.t + 3; e.burnT = S.t; }
-    ev(S, { k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 });
+    ev(S, { k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 });
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
-    const st = heroSt(S); if (kind !== 'burn') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
+    const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
     if (e.hp <= 0) { e.dieA = Math.atan2(dy, dx); killEnemy(S, R, e); }   // the killing blow's direction: bones fly that way
   }
   function aggroRoom(R, e) { for (const o of R.en) if (o.deadT < 0 && (o === e || o.st === 'idle') && (o.room === e.room || (Math.hypot(o.x - e.x, o.y - e.y) < 220 && losClear(R.map, o.x, o.y - 10, e.x, e.y - 10)))) { o.st = 'chase'; o.t0 = o.seenT = R.t; }
     if (e.st === 'home') { e.st = 'chase'; e.t0 = e.seenT = R.t; } }
   function killEnemy(S, R, e) {
-    e.deadT = S.t; e.hp = 0; R.kills++; if (!e.summ) fstat(R).kills++; R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
+    e.deadT = S.t; e.hp = 0; R.kills++;
+    if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (!e.summ) fstat(R).kills++; R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
     const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (R.floor - 1)) * (e.elite ? 3 + nm : 1)));
     if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
     ev(S, { k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id });
@@ -407,7 +420,8 @@
   function usePotion(S, R, b) {
     const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? 'Нет зелий здоровья' : 'Нет зелий маны' }); return; }
     const st = heroSt(S), it = h.bag[i];
-    if (b === 'hp_potion') h.hp = Math.min(st.maxHp, h.hp + st.maxHp * CONSUMABLES.hp_potion.heal); else h.mp = Math.min(st.maxMp, h.mp + st.maxMp * CONSUMABLES.mp_potion.mana);
+    const brew = 1 + gift(h, 'thrift') / 100;
+    if (b === 'hp_potion') h.hp = Math.min(st.maxHp, h.hp + st.maxHp * CONSUMABLES.hp_potion.heal * brew); else h.mp = Math.min(st.maxMp, h.mp + st.maxMp * CONSUMABLES.mp_potion.mana * brew);
     if (--it.n <= 0) h.bag[i] = null; ev(S, { k: 'drink', x: h.x, y: h.y, b });
   }
   // gear for an empty slot goes straight onto the hero instead of into the bag
@@ -447,13 +461,16 @@
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
   function hitProps(S, R, x, y, rad, ax, arc) {
     const m = R.map, hit = R.propHit || (R.propHit = {});
-    const knock = (id, p, n) => { const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
-      if (d > rad + 18) return; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return; if (!losClear(m, x, y, p.x, p.y)) return;
-      if (S.t - (hit[id] ?? -9) < 0.2) return; hit[id] = S.t; const mat = D.PROP_MAT[n] || 'stone';
+    // things on a wall are struck at their foot on the floor (the wall cell blocks the line), the event stays at the thing
+    const knock = (id, p, n, mat = D.PROP_MAT[n] || 'stone', foot = p) => { const dx = foot.x - x, dy = foot.y - y, d = Math.hypot(dx, dy);
+      if (d > rad + 18) return; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return; if (!losClear(m, x, y, foot.x, foot.y)) return;
+      if (S.t - (hit[id] ?? -9) < 0.2) return; hit[id] = S.t;
       if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
       ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, s: dx >= 0 ? 1 : -1 }); };
-    m.decor.forEach((d, i) => { if (d.solid && !d.wall) knock('d' + i, d, d.n); });
-    m.torches.forEach((t2, i) => { if (t2.kind === 'brazier') knock('t' + i, t2, 'brazier'); });
+    m.decor.forEach((d, i) => { if (d.solid && !d.wall) knock('d' + i, d, d.n);
+      else if (d.wall && d.n === 'banner' && d.secret === undefined && !hidden(m, d)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
+    m.torches.forEach((t2, i) => { if (hidden(m, t2)) return; if (t2.kind !== 'wall') knock('t' + i, t2, 'brazier');
+      else knock('t' + i, t2, 'torch_sconce', 'metal', t2.side ? t2 : { x: t2.x, y: t2.y + 30 }); });
   }
   function hitChests(S, R, x, y, rad, ax, arc) {
     for (const c of R.chests) { if (c.open) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
@@ -589,12 +606,11 @@
     if (h.face !== wasFace) h.faceT = t;
     // dash
     if (keys.Space && h.cd.dash <= t) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
-      h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; h.ifr = Math.max(h.ifr, t + 0.22); ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
+      h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
     // a dash is a leap: spikes under it never bite, and one that would come down on a plate carries on until it is clear of it
     const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t - h.dashT < K.DASH_T;
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
-    if (dashing) h.ifr = Math.max(h.ifr, t + DT);
     const mvx = dashing ? h.dashX * K.DASH : h.vx, mvy = dashing ? h.dashY * K.DASH : h.vy;
     const ox = h.x, oy = h.y; const [bx, by] = move(m, h, mvx * DT, mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     shove(m, h, K.R, false, solids(R));
@@ -780,7 +796,9 @@
           else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e)); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
           else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e)); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
       } else if (e.st === 'strike') {
-        if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA, v = 330 * Math.min(1, (t - e.t0) / 0.05); { e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT;
+        // the lunge stops on contact and springs back for 0.1 s: carried on, the spider passed through the hero to land behind him
+        if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA; if (!(e.bncT > e.t0) && d < E.r + K.R + 4) e.bncT = t;
+          const v = e.bncT > e.t0 ? (t - e.bncT < 0.1 ? -150 : 0) : 330 * Math.min(1, (t - e.t0) / 0.05); { e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT;
             if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison', who(e)); struck(S, R, e); } } } else skid(m, e, E);
         if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : 0.32)) { e.st = 'chase'; e.cdT = t + E.cd * (e.elite && e.type !== 'boss' && e.type !== 'brute' && R.floor <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
@@ -1135,6 +1153,10 @@
         const fill = (skip) => { const seen = new Uint8Array(m.W * m.H), st = [Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE)]; seen[st[0]] = 1;
           while (st.length) { const k = st.pop(); for (const d of [1, -1, m.W, -m.W]) { const n = k + d; if (!seen[n] && cell(m, n % m.W, Math.floor(n / m.W)) === 1 && !m.block.includes(n) && !skip.has(n)) { seen[n] = 1; st.push(n); } } } return seen; };
         for (const e of m.enemies) if (tc.has(Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE))) out.push(`seed ${seed} f${f}: ${e.type} posted on a spike plate`);
+        for (const p of m.chests.concat(m.torches.filter((t) => t.kind === 'brazier'), m.shrines, m.decor.filter((d) => (d.solid || d.n === 'table') && !d.wall))) {
+          const x = Math.floor(p.x / TILE), y = Math.floor(p.y / TILE); let hit = false;
+          for (let j = -1; j <= 1 && !hit; j++) for (let i = -1; i <= 1; i++) if (tc.has((y + j) * m.W + x + i)) hit = true;
+          if (hit) out.push(`seed ${seed} f${f}: ${p.n || p.kind || 'chest'} right beside a spike plate at ${p.x},${p.y}`); }
         const a = fill(new Set()), b = fill(tc); for (let k = 0; k < a.length; k++) if (a[k] && !b[k] && !tc.has(k)) { out.push(`seed ${seed} f${f}: spike plates cut off floor`); break; } }
       const ex = DG.genFloor; void ex; void F;
       // exit reachable from the spawn over floor
@@ -1586,9 +1608,12 @@
         if (!go(tr.x - 4, [])) out.push('dash: standing on raised spikes does not hurt'); } }
     // traps (TASKS 71): a web holds the hero to WEB.k of his pace until a blow tears it; fire burns it; an ambush's flagstone calls
     // P.n monsters round the hero in its room, once, hunting at once, outside the floor's count of foes
-    { let S = null, R = null; for (let sd = 1; sd < 80 && !R; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play';
-        for (let f = 1; f <= 4; f++) { if (f > 1) enterFloor(S, S.run, f); if (S.run.map.webs.length && S.run.map.ambush.length) { R = S.run; break; } } }
-      if (!R) out.push('traps: no floor of 80 seeds with webs and an ambush'); else { const m = R.map, h = R.hero, w = m.webs[0]; R.en = [];
+    // the web chosen has open floor and no other web for the free run to its left, or the free run measures a wall or a web
+    { let S = null, R = null, w = null; const clear = (m, o) => [-200, -150, -100, -50, 0].every((d) => cell(m, Math.floor((o.x + d) / TILE), Math.floor(o.y / TILE)) === 1)
+      && !m.webs.some((q) => q !== o && Math.abs(q.y - o.y) < 48 && q.x > o.x - 240 && q.x < o.x);
+      for (let sd = 1; sd < 80 && !R; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play';
+        for (let f = 1; f <= 4; f++) { if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; w = m.webs.find((o) => clear(m, o)); if (w && m.ambush.length) { R = S.run; break; } } }
+      if (!R) out.push('traps: no floor of 80 seeds with webs and an ambush'); else { const m = R.map, h = R.hero; R.en = [];
         const run = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; const x0 = h.x; for (let i = 0; i < 30; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x0; };
         const free = run(w.x - 200, w.y), held = run(w.x - 12, w.y); if (!(held < free * 0.6)) out.push(`traps: a web does not hold the hero (${held.toFixed(0)} px against ${free.toFixed(0)})`);
         h.x = w.x - 40; h.y = w.y + 8; h.atkT = -9; h.cd.atk = 0; step(S, { px: 960 + 60, py: 540 - 30, press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { px: 1020, py: 510, keys: [] });
@@ -1613,6 +1638,33 @@
         step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen === 'altar') out.push('altar: a used altar opens again');
         const T = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); if (stats(T.saved.hero, T.meta).atk !== heroSt(S).atk) out.push('altar: a gift is lost on save/load');
         const old = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); delete old.saved.hero.perks; if (!(stats(old.saved.hero, old.meta).atk > 0)) out.push('altar: a save without gifts breaks the stats'); } }
+    // an altar on every second floor and on no other (TASKS 137), over many seeds
+    { const bad = []; for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.FLOORS; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
+        if (n !== (f % 2 === 0 ? 1 : 0)) bad.push(`seed ${seed} floor ${f}: ${n}`); }
+      if (bad.length) out.push(`altar: not one altar on each even floor and none on odd ones (${bad.length}: ${bad.slice(0, 3).join(', ')})`); }
+    // each gift does what it says: reach and swing width, potion strength, a kill's meal, thorns back into a close striker (not a far one),
+    // one second chance per gift, more damage on a nearly dead monster
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero, give = (id) => { h.perks[id] = (h.perks[id] || 0) + 1; };
+      const st0 = heroSt(S); give('reach'); give('cleave'); const st1 = heroSt(S);
+      if (!(st1.reach > st0.reach * 1.1 && st1.arc === st0.arc + 25)) out.push('gift: reach or swing width did not grow');
+      h.hp = 1; h.bag[0] = potion('hp_potion', 2); usePotion(S, R, 'hp_potion'); const plain = h.hp; give('thrift'); h.hp = 1; usePotion(S, R, 'hp_potion');
+      if (!(h.hp > plain * 1.2)) out.push('gift: a stronger brew heals no more');
+      const mob = (dx) => { const E = ENEMIES.goblin; const e = { id: 9001, type: 'goblin', x: h.x + dx, y: h.y, vx: 0, vy: 0, hp: 500, max: 500, dmg: 10, elite: 0, room: -1, st: 'chase', t0: 0, face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, r: E.r }; R.en = [e]; return e; };
+      give('feast'); h.hp = 10; let e = mob(40); e.hp = 1; hitEnemy(S, R, e, 5, 0, h.x, h.y); if (!(h.hp > 10)) out.push('gift: a kill did not feed the hero');
+      give('thorns'); e = mob(40); h.ifr = 0; h.hp = 100; hurtHero(S, R, 40, e.x, e.y, undefined, 'goblin'); struck(S, R, e); const near = 500 - e.hp;
+      e = mob(400); h.ifr = 0; h.hurtT = -9; hurtHero(S, R, 40, e.x, e.y, undefined, 'cultist'); struck(S, R, e);
+      if (!(near > 0) || e.hp !== 500) out.push(`gift: thorns hit a close striker ${near}, a far one ${500 - e.hp}`);
+      give('execute'); e = mob(40); e.hp = 400; hitEnemy(S, R, e, 50, 0, h.x, h.y); const full = 400 - e.hp; e.hp = 100; hitEnemy(S, R, e, 50, 0, h.x, h.y);
+      if (!(100 - e.hp > full * 1.4)) out.push('gift: a finishing blow is no stronger');
+      give('phoenix'); R.en = []; h.ifr = 0; h.hp = 5; hurtHero(S, R, 9999, h.x + 30, h.y); const once = h.deadT < 0 && h.hp > 0; h.ifr = 0; hurtHero(S, R, 9999, h.x + 30, h.y);
+      if (!once || h.deadT < 0) out.push('gift: the second chance did not save the hero once, or saved him twice'); }
+    // dodge (BAL.dodge): a blow misses about as often as the hero's dodge says, a dash adds its share but never makes him immune,
+    // and lava under a dash does not burn
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero; R.en = [];
+      const rate = (dash) => { let miss = 0; for (let i = 0; i < 2000; i++) { h.hp = 1e6; h.dashT = dash ? S.t : -9; const hp0 = h.hp; hurtHero(S, R, 10, h.x + 20, h.y); if (h.hp === hp0) miss++; } return miss / 20; };
+      const d0 = heroSt(S).dodge, plain = rate(false), dash = rate(true), want = Math.min(100, d0 + BAL.dodge.dash);
+      if (Math.abs(plain - d0) > 2 || Math.abs(dash - want) > 4 || dash >= 99) out.push(`dodge: ${plain}% standing (want ${d0}%), ${dash}% dashing (want ${want}%, never all)`);
+      h.hp = 1e6; h.dashT = S.t; hurtHero(S, R, 50, h.x, h.y, undefined, 'lava'); if (h.hp !== 1e6) out.push('dodge: lava burns a dashing hero'); h.dashT = -9; }
     // the new meta perks reach a new hero: heirloom gear a rarity up with its affixes, skill points, mana, regeneration, resistance
     { const up = { gear: 2, skill: 2, mana: 3, regen: 2, resist: 3 }, S = spawn(0, { meta: { shards: 0, up } }), R = newRun(S, 'campaign', 777), h = R.hero, st = stats(h, S.meta);
       const R0 = newRun(spawn(0, {}), 'campaign', 777), st0 = stats(h, { up: {} });

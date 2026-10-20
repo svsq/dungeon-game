@@ -2,21 +2,23 @@
 // Shared by sim.js (rules) and scene.js / hud.js (drawing). Pure data + pure helpers, no state.
 (function (root) {
   const TILE = 32;                         // world units are view px; HD-pixel art drawn at display size (styles.md §1)
-  // the camera's zoom: the world fills the 1920×1080 screen from a 1920/ZOOM × 1080/ZOOM window. 1.5 keeps the pixel grid whole
-  // (one art pixel = 2 world px = 3 screen px); the HUD stays in screen px
-  const ZOOM = 1.5;
+  // the camera's zoom: the world fills the 1920×1080 screen from a 1920/ZOOM × 1080/ZOOM window. Only whole art-pixel steps keep
+  // the pixel grid whole: 1 (one art pixel = 2 screen px, the reference's scale) or 1.5 (3 screen px, read as too large); the HUD
+  // stays in screen px
+  const ZOOM = 1;
 
   // rock, vein: the rock past the dungeon and under the fog of war (scene.js LIT) and the faint veins glowing in it [r, g, b, strength];
-  // water: the colour of its shallow pools (scene.js WATER)
+  // water: the colour of its shallow pools (scene.js WATER); seam: how much the wall tops' joints smoulder in the vein colour;
+  // fill: the light an accent room of this biome is flooded with; dim: how much darker its pale floor stone is laid as an accent zone, so its light reads as pools
   const BIOMES = {
-    dungeon: { name: 'Подземелье', rock: [0.118, 0.082, 0.07], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0.08], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    dungeon: { name: 'Подземелье', rock: [0.06, 0.042, 0.036], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0.08], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
-    crypt: { name: 'Крипты', rock: [0.08, 0.1, 0.085], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0.07], amb: [0.07, 0.11, 0.09], torch: [0.45, 1.0, 0.45], floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    crypt: { name: 'Крипты', rock: [0.04, 0.05, 0.043], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0.07], amb: [0.07, 0.11, 0.09], torch: [0.35, 1.0, 0.4], fill: 0.12, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.86, 0.98, 0.9], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
-    lava: { name: 'Огненные глубины', rock: [0.13, 0.07, 0.05], vein: [1.0, 0.38, 0.08, 0.14], amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    lava: { name: 'Огненные глубины', rock: [0.08, 0.043, 0.03], vein: [1.0, 0.38, 0.08, 0.14], seam: 1.4, amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
-    arcane: { name: 'Чертоги', rock: [0.075, 0.08, 0.11], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0.1], amb: [0.07, 0.08, 0.14], torch: [0.4, 0.7, 1.0], floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
-      tint: [0.86, 0.9, 1.04], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
+    arcane: { name: 'Чертоги', rock: [0.038, 0.04, 0.056], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0.1], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.15, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+      tint: [0.68, 0.78, 1.12], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
   };
   const FLOORS = 8;
   const biomeOf = (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane');
@@ -24,11 +26,11 @@
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const ENEMIES = {
-    skeleton: { name: 'Скелет', hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76 },
+    skeleton: { name: 'Скелет', hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76, blood: 'bone' },
     goblin: { name: 'Гоблин', hp: 20, dmg: 6, spd: 104, r: 10, reach: 28, wind: 0.30, cd: 0.9, xp: 6, kind: 'melee', h: 72 },
-    spider: { name: 'Паук', hp: 18, dmg: 5, spd: 92, r: 15, reach: 76, wind: 0.36, cd: 1.6, xp: 7, kind: 'lunge', h: 53, poison: 1 },
+    spider: { name: 'Паук', hp: 18, dmg: 5, spd: 92, r: 15, reach: 76, wind: 0.36, cd: 1.6, xp: 7, kind: 'lunge', h: 53, poison: 1, blood: 'ichor' },
     cultist: { name: 'Культист', hp: 26, dmg: 9, spd: 56, r: 13, reach: 305, wind: 0.55, cd: 2.0, xp: 10, kind: 'caster', h: 84 },
-    ghost: { name: 'Призрак', hp: 28, dmg: 7, spd: 60, r: 13, reach: 30, wind: 0.45, cd: 1.3, xp: 9, kind: 'melee', h: 74, ghost: 1 },
+    ghost: { name: 'Призрак', hp: 28, dmg: 7, spd: 60, r: 13, reach: 30, wind: 0.45, cd: 1.3, xp: 9, kind: 'melee', h: 74, ghost: 1, blood: 'ecto' },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112 },
     boss: { name: 'Повелитель Демонов', hp: 520, dmg: 24, spd: 48, r: 36, reach: 56, wind: 0.8, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
@@ -38,7 +40,9 @@
   // spike: share of max HP per stab, through armour; dmgUp: monsters' damage grows by this per floor (0.3 let the hero's HP and
   // armour outgrow it: a player's minimum HP on floors 5–8 sat at 55–76 % on hard, TASKS 154); earlyCd: the elites' attack
   // cooldown factor on floors 1–3, where they alone took a player down to 11 %
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2, spike: 0.12, dmgUp: 0.4, earlyCd: 0.85, early: 3 };
+  // dodge: % chance to take no harm from a monster's blow, bolt or blast, per point of agility, its cap, and what a dash adds while it lasts
+  // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs)
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.6, reward: 2, spike: 0.12, dmgUp: 0.4, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 } };
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   const DIFF = { easy: { name: 'Лёгкая', dmg: 0.7, hp: 0.8, xp: 1.25 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.35, hp: 1.25, xp: 0.85 } };
   const DIFF_ORDER = ['easy', 'normal', 'hard'];
@@ -68,17 +72,22 @@
     axe: { slot: 'weapon', name: 'Боевой топор', icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
     hammer: { slot: 'weapon', name: 'Боевой молот', icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
     staff: { slot: 'weapon', name: 'Посох мага', icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
-    shield: { slot: 'offhand', name: 'Круглый щит', icon: 'it_shield', def: 4 },
+    shield: { slot: 'offhand', name: 'Круглый щит', icon: 'it_shield', def: 4, w: 1 / 3 },
+    buckler: { slot: 'offhand', name: 'Баклер', icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
+    tower_shield: { slot: 'offhand', name: 'Ростовой щит', icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },
     leather_helm: { slot: 'helm', name: 'Кожаный шлем', icon: 'it_helm_l', def: 2, typed: { aspd: 0.6 } },
     knight_helm: { slot: 'helm', name: 'Рыцарский шлем', icon: 'it_helm_k', def: 2, typed: { hp: 0.5 }, minF: 3 },
     leather_armor: { slot: 'armor', name: 'Кожаная броня', icon: 'it_armor_l', def: 3, typed: { mspd: 0.8 } },
     plate_armor: { slot: 'armor', name: 'Латный доспех', icon: 'it_armor_p', def: 3, typed: { hp: 1 }, minF: 3 },
-    gauntlets: { slot: 'gloves', name: 'Латные перчатки', icon: 'it_gloves', def: 1 },
-    boots: { slot: 'boots', name: 'Кожаные сапоги', icon: 'it_boots', def: 1 },
+    gauntlets: { slot: 'gloves', name: 'Латные перчатки', icon: 'it_gloves', def: 1, typed: { hp: 0.5 }, w: 1 / 2 },
+    leather_gloves: { slot: 'gloves', name: 'Кожаные перчатки', icon: 'it_gloves_l', def: 1, typed: { aspd: 0.6 }, w: 1 / 2 },
+    boots: { slot: 'boots', name: 'Кожаные сапоги', icon: 'it_boots', def: 1, typed: { mspd: 0.8 }, w: 1 / 2 },
+    iron_boots: { slot: 'boots', name: 'Латные сапоги', icon: 'it_boots_i', def: 1, typed: { hp: 0.5 }, minF: 3, w: 1 / 2 },
     ring: { slot: 'ring', name: 'Кольцо', icon: 'it_ring' },
     amulet: { slot: 'amulet', name: 'Амулет', icon: 'it_amulet' },
     cloak: { slot: 'armor', name: 'Плащ странника', icon: 'it_cloak', def: 3, typed: { mp: 1.4 } },
   };
+  // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {
@@ -101,7 +110,7 @@
     { k: 'crit', label: '+{v}% крит. шанса', a: 2, b: 0.4 }, { k: 'hp', label: '+{v} к здоровью', a: 8, b: 4 },
     { k: 'mp', label: '+{v} к мане', a: 5, b: 2 }, { k: 'aspd', label: '+{v}% скорости атаки', a: 4, b: 0.8 },
     { k: 'mspd', label: '+{v}% скорости бега', a: 3, b: 0.5 }, { k: 'leech', label: '+{v}% вампиризма', a: 1, b: 0.3 },
-    { k: 'fire', label: '+{v}% урона огнём', a: 6, b: 2 },
+    { k: 'fire', label: '+{v}% урона огнём', a: 6, b: 2 }, { k: 'dodge', label: '+{v}% уклонения', a: 1, b: 0.25 },
     { k: 'regen', label: '+{v} здоровья в секунду', a: 0.5, b: 0.15 }, { k: 'onhit', label: '+{v} здоровья за удар', a: 0.5, b: 0.2 },
   ];
   // by base first: a legendary staff or axe must not be called a blade
@@ -143,22 +152,31 @@
 
   // a dungeon altar's gifts: it offers one of each tier, takes shards from the meta bank and gives one gift for the rest of the
   // run (the blessing only for the floor), then goes dark. v is the bonus per gift taken
+  // tag: the HUD chip's text when the desc does not start with the number ({v} the total value, {n} how many taken)
   const GIFTS = [
     { id: 'bless', tier: 1, name: 'Благословение', icon: 'bf_bless', v: 20, desc: '+20% урона' },
-    { id: 'vigor', tier: 1, name: 'Крепкая плоть', icon: 'it_hp', v: 20, desc: '+20 к здоровью' },
+    { id: 'vigor', tier: 1, name: 'Крепкая плоть', icon: 'it_armor_p', v: 20, desc: '+20 к здоровью' },
     { id: 'wisdom', tier: 1, name: 'Ясный разум', icon: 'it_mp', v: 20, desc: '+20 к мане' },
     { id: 'greed', tier: 1, name: 'Звон монет', icon: 'it_gold', v: 25, desc: '+25% золота' },
+    { id: 'reach', tier: 1, name: 'Длинная рука', icon: 'it_longsword', v: 12, desc: '+12% дальности удара' },
+    { id: 'thrift', tier: 1, name: 'Крепкий настой', icon: 'it_hp', v: 30, desc: 'Зелья сильнее на 30%', tag: '+{v}%' },
     { id: 'swift', tier: 2, name: 'Лёгкие ноги', icon: 'it_boots', v: 10, desc: '+10% скорости бега' },
     { id: 'haste', tier: 2, name: 'Быстрая рука', icon: 'it_gloves', v: 12, desc: '+12% скорости атаки' },
     { id: 'ward', tier: 2, name: 'Каменная кожа', icon: 'it_shield', v: 6, desc: '+6 к защите' },
     { id: 'crit', tier: 2, name: 'Глаз хищника', icon: 'it_ring', v: 8, desc: '+8% крит. шанса' },
+    { id: 'cleave', tier: 2, name: 'Широкий замах', icon: 'ab_whirl', v: 25, desc: '+25° к ширине замаха' },
+    { id: 'feast', tier: 2, name: 'Пир', icon: 'it_axe', v: 3, desc: 'Убийство лечит 3% здоровья', tag: '{v}%' },
+    { id: 'thorns', tier: 2, name: 'Шипы', icon: 'it_buckler', v: 30, desc: '30% урона вблизи — обратно врагу' },
     { id: 'fury', tier: 3, name: 'Ярость крови', icon: 'it_sword', v: 15, desc: '+15% урона' },
     { id: 'leech', tier: 3, name: 'Жажда', icon: 'it_amulet', v: 4, desc: '+4% вампиризма' },
     { id: 'arcane', tier: 3, name: 'Пламя души', icon: 'ab_fire', v: 25, desc: '+25% силы заклинаний' },
     { id: 'life', tier: 3, name: 'Живая кровь', icon: 'crystal', v: 1.5, desc: '+1.5 здоровья в секунду' },
+    { id: 'phoenix', tier: 3, name: 'Второй шанс', icon: 'bf_burn', v: 50, desc: 'Раз за забег: смерть → 50% здоровья', tag: '×{n}' },
+    { id: 'execute', tier: 3, name: 'Добивание', icon: 'it_hammer', v: 60, desc: '+60% урона по врагам при HP < 25%' },
   ];
-  // a floor's takings in shards are about the floor's number: a cheap gift is most of a floor, the dear one three
-  const giftCost = (tier, f) => Math.round([0, 4, 9, 16][tier] * (1 + 0.15 * (f - 1)));
+  // an altar stands on every second floor, so it is paid from two floors' takings: the cheap gift is about the first floor's
+  // (a first run reaches the floor-2 altar with ~6–12 shards), the middle one two floors', the dear one three or more
+  const giftCost = (tier, f) => Math.round([0, 5, 13, 24][tier] * (1 + 0.15 * (f - 1)));
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
