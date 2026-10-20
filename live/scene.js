@@ -5,7 +5,8 @@
 // emissive pass (flames, lava, fireballs, slashes, sparks) → bloom + grade → HUD (hud.js).
 (function () {
   const SC = (window.SCENE = {}), L = LIB, M = L.M, D = DATA, W = SIM.VIEW.W, H = SIM.VIEW.H, TILE = D.TILE;
-  const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h], PIX = 2, Z = D.ZOOM || 1, VW = W / Z, VH = H / Z;   // VW×VH: the world window on screen
+  const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h], PIX = 2;
+  let Z = D.ZOOM || 1, VW = W / Z, VH = H / Z;   // VW×VH: the world window on screen; Z follows the run's zoom (views)
   // each hole cluster of trap_plate is a triangle: one hole behind, two in front; TRAP_HOLE is the back hole's centre across
   // the plate (x, y), measured from the art
   const TRAP_HOLE = { x: [0.29, 0.70], y: [0.255, 0.655] };
@@ -110,11 +111,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   SC.programs = () => {
     // the world renders on a 2×2 view-px grid (the reference's art pixel), every sprite and rotated rig part re-rasterised on it;
     // light, glows and the HUD stay full resolution (HD pixel, styles.md §1)
-    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER }, { pixel: PIX * Z, view: [VW, VH] });
+    views(Z);
     L.glyphs('0123456789+-/:%', { size: 60, fill: ['#fffbe2', '#ffd76a', '#e89a22'] });
-    LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }) };
     if (window.HUD) HUD.init();
   };
+  function views(z) {
+    Z = z; VW = W / Z; VH = H / Z;
+    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER }, { pixel: PIX * Z, view: [VW, VH] });
+    if (LT) { G.free(LT.light); G.free(LT.lit); }
+    LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }) };
+  }
   const rnd = L.rnd, SS = L.SS;
   const zoneAt = (m, x, y) => { for (const r of m.rooms) if (r.zone && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r.zone; return m.biome; };
   const torchCol = (m, tc) => D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome].torch;
@@ -605,6 +611,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // ---------------- render ----------------
   SC.render = (t) => {
     const ST = SC.state || SIM.at(t), GT = ST.t, R = ST.run;
+    if (R && (R.zoom || D.ZOOM || 1) !== Z) views(R.zoom || D.ZOOM || 1);
     if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); return; }
     const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}), st = SIM.stats(h, ST.meta);
     bake(m); const seen = seenTex(R);
