@@ -173,8 +173,8 @@
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, { endless: R.mode === 'endless' });
     R.map = m; R.en = []; R.proj = []; R.drops = [];
     const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
-    for (const e of m.enemies) { const E = ENEMIES[e.type], el = e.elite && e.type !== 'boss' ? eliteK(e, 'hp') : 1;
-      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (e.type === 'boss' ? D.dmgAt(f, 1) / D.dmgAt(f) : 1) * (!e.elite ? 1 : e.type === 'boss' ? 1.35 : eliteK(e, 'dmg')),
+    for (const e of m.enemies) { const E = ENEMIES[e.type], gk = (e.guard && D.ELITE.guard[f]) || 1, el = (e.elite && e.type !== 'boss' ? eliteK(e, 'hp') : 1) * gk;
+      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (e.type === 'boss' ? D.dmgAt(f, 1) / D.dmgAt(f) : 1) * (!e.elite ? 1 : e.type === 'boss' ? 1.35 : eliteK(e, 'dmg')) * gk,
         elite: e.elite, room: e.room, st: 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
     for (const e of R.en) if (e.elite && e.type !== 'boss') e.mods = rollMods(R, f);

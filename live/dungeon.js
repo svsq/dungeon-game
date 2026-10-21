@@ -366,7 +366,7 @@
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
           addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && floor <= 2)) || (floor >= 3 && R() < D.ELITE.share) ? 1 : 0); }
-        if (guard) { const p = spot(r, 2); if (p) addEnemy('brute', p[0], p[1], r.id, 1); }
+        if (guard) { const p = spot(r, 2); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
       if (r.type === 'boss') { addEnemy('boss', r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < Math.round(4 * D.BAL.pop); i++) { const p = spot(r, 2); if (p) addEnemy(pick(roster.filter((t) => t !== 'brute')), p[0], p[1], r.id); } }
       // chests

@@ -53,7 +53,9 @@
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, share: 0.04, brute: { hp: 2.4, dmg: 1.5, spd: 1.1, wind: 0.85, cd: 1 } };
+  // guard: the exit guard's health and blows by floor; the first one, on the 2nd floor, alone took a player through 3.3 times his
+  // health, the steepest step of the run (TASKS 180)
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, share: 0.04, brute: { hp: 2.4, dmg: 1.5, spd: 1.1, wind: 0.85, cd: 1 }, guard: { 2: 0.85 } };
   // the boss is an elite too but keeps its own pace
   const eliteK = (e, k) => !e.elite ? 1 : e.type === 'boss' ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
