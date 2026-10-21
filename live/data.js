@@ -181,21 +181,21 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  // the merchant: one per floor. A bot clearing a floor brings home ~150 + 200 × floor gold, so a floor's takings buy one
-  // piece a rarity above what it drops, or a few potions; loot sells back for a quarter
+  // the merchant: one per floor. A bot arrives at the 8th floor with ~6000 gold, so the showpiece (a rarity or two above what
+  // drops there) costs most of a run's takings; loot sells back for an eighth, or selling alone would fund the shelf
   const SHOP = {
     gear: (f) => 4 + (f >= 4 ? 1 : 0),
     // the first piece on the shelf is the showpiece: at least this rarity
-    best: (f) => Math.min(4, 1 + Math.floor(f / 3)),
-    q: (f) => 0.6 + 0.1 * f,
+    best: (f) => Math.min(4, 2 + Math.floor(f / 3)),
+    q: (f) => 1.4 + 0.15 * f,
     cons: (f) => [['hp_potion', 3 + Math.floor(f / 2)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 1 + (f >= 5 ? 1 : 0)]],
-    rarK: [1, 1.8, 3.2, 5.5, 9],
-    sell: 0.25, buyback: 4,
+    rarK: [1, 2, 4, 7, 12],
+    sell: 0.12, buyback: 4,
     lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
       'Монстры ко мне не суются — у меня обереги.', 'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
   };
-  const CONS_PRICE = { hp_potion: (f) => 30 + 10 * f, mp_potion: (f) => 25 + 8 * f, scroll: (f) => 50 + 10 * f };
-  const itemPrice = (it, f) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((25 + 15 * it.lvl) * SHOP.rarK[it.rar] / 5) * 5);
+  const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };
+  const itemPrice = (it, f) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((50 + 30 * it.lvl) * SHOP.rarK[it.rar] / 5) * 5);
   const sellPrice = (it, f) => Math.max(1, Math.floor(itemPrice(it, f) * SHOP.sell));
 
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------

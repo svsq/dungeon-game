@@ -216,8 +216,9 @@
     return T;
   }
   const runCompletion = (R) => completion(Object.values(R.stats || {}));
-  // the end-of-run reward: the base (gold brought back, a win) plus a bonus for thoroughness, 5 shards per floor visited at 100%
-  const REWARD = { goldPer: 80, win: 30, perFloor: 5 };
+  // the end-of-run reward: the base (gold brought back, a win) plus a bonus for thoroughness, 3 shards per floor visited at 100%.
+  // With the stairs and the elites a win brings ~120 shards, so the altar's 1395 take some 20 runs
+  const REWARD = { goldPer: 500, win: 30, perFloor: 3 };
   function runReward(R, how) {
     const C = runCompletion(R), base = Math.floor(R.goldTot / REWARD.goldPer) + (how === 'win' ? REWARD.win : 0);
     const cap = REWARD.perFloor * C.floors, bonus = Math.round(C.pct * cap);
@@ -392,7 +393,7 @@
   function killEnemy(S, R, e) {
     e.deadT = S.t; e.hp = 0; R.kills++;
     if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (!e.summ) fstat(R).kills++; R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
-    const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (R.floor - 1)) * (e.elite ? 3 + nm : 1)));
+    const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (R.floor - 1)) * (e.elite && e.type !== 'boss' ? 3 + nm : 1)));
     if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
     ev(S, { k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id });
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
@@ -403,7 +404,7 @@
     const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
     if (e.type !== 'boss' && (e.elite || rnd(R) < LT.p * BAL.reward)) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, LT.q, undefined, LT) });
     if (rnd(R) < POT.kill * BAL.reward) drop(R, e.x, e.y, { kind: 'item', item: potion(rnd(R) < 0.65 ? 'hp_potion' : 'mp_potion') });
-    const sh = e.type === 'boss' ? 20 : e.elite ? 2 : rnd(R) < 0.05 * BAL.reward ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
+    const sh = e.type === 'boss' ? 20 : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (e.type === 'boss') { R.bossDead = 1; R.msg = { s: 'Повелитель Демонов повержен! Портал наружу открыт', t: S.t }; for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, o.q, undefined, o) }); }
   }
   // a thrown-away item lands on a free neighbouring cell and stays put until the hero has walked away from it and comes back
@@ -692,7 +693,7 @@
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (R.floor === D.FLOORS && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте Повелителя Демонов' }); return; }
-      R.shards += R.floor; S.meta.shards += R.floor; ev(S, { k: 'stairs', x: h.x, y: h.y, n: R.floor, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
+      const sn = Math.ceil(R.floor / 2); R.shards += sn; S.meta.shards += sn; ev(S, { k: 'stairs', x: h.x, y: h.y, n: sn, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
   }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
