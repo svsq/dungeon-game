@@ -46,10 +46,17 @@
       if (R() < 0.5) { carveH(A.cx, B.cx, A.cy); carveV(A.cy, B.cy, B.cx); } else { carveV(A.cy, B.cy, A.cx); carveH(A.cx, B.cx, B.cy); } }
     const adj = rooms.map(() => []); for (const [a, b] of edges) { adj[a].push(b); adj[b].push(a); }
     // ---- roles: start at a leaf on the rim, exit farthest by hops then distance ----
-    const leaves = rooms.filter((r) => adj[r.id].length === 1 && !(boss && r.id === 0));
+    const hops = (from) => { const h = rooms.map(() => 99), q = [from.id]; h[from.id] = 0;
+      while (q.length) { const a = q.shift(); for (const b of adj[a]) if (h[b] > h[a] + 1) { h[b] = h[a] + 1; q.push(b); } } return h; };
+    let leaves = rooms.filter((r) => adj[r.id].length === 1 && !(boss && r.id === 0));
+    // the boss hall is fixed (the biggest room), so the start is among the rooms farthest from it on foot (rim leaves first), or the
+    // boss was a room away; the walk is counted on the carved cells, not by room hops: corridors cut through rooms and merge
+    if (boss) { const d = new Array(W * H).fill(-1), q = [rooms[0].cy * W + rooms[0].cx], at0 = (r) => d[r.cy * W + r.cx]; d[q[0]] = 0;
+      for (let i = 0; i < q.length; i++) { const c = q[i]; for (const n of [c - 1, c + 1, c - W, c + W]) if (cells[n] && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } }
+      const farAll = Math.max(...rooms.map(at0)); if (!leaves.some((r) => at0(r) >= farAll * 0.6)) leaves = rooms.slice(1);
+      const far = Math.max(...leaves.map(at0)); leaves = leaves.filter((r) => at0(r) >= far * 0.8); }
     const start = (leaves.length ? pick(leaves) : rooms[rooms.length - 1]);
-    const hop = rooms.map(() => 99); hop[start.id] = 0; const q = [start.id];
-    while (q.length) { const a = q.shift(); for (const b of adj[a]) if (hop[b] > hop[a] + 1) { hop[b] = hop[a] + 1; q.push(b); } }
+    const hop = hops(start);
     const exitR = boss ? rooms[0] : rooms.filter((r) => r !== start).sort((p, q2) => (hop[q2.id] - hop[p.id]) || (dist(q2, start) - dist(p, start)))[0];
     start.type = 'start'; exitR.type = boss ? 'boss' : 'exit';
     // a Fisher–Yates shuffle: a random sort comparator gives each JS engine its own order, so node checks would see other maps than the browser
