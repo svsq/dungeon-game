@@ -379,6 +379,20 @@
       if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 }); }
     else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
   }
+  // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
+  // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
+  const UP = '#8fd98a', DOWN = '#e0604f';
+  function compare(S, it, slot, h, lines) {
+    const cur = h.eq[slot], of = (x) => { const o = { atk: (x && x.atk) || 0, def: (x && x.def) || 0 }; if (x) { const m = SIM.itemMods(x); for (const k in m) o[k] = (o[k] || 0) + m[k]; } return o; };
+    const a = of(it), c = of(cur), num = (v) => String(Math.round(Math.abs(v) * 10) / 10);
+    lines.push([cur ? 'Против надетого: ' + SIM.itemName(cur) : 'Слот «' + D.SLOT_NAME[slot] + '» пуст', C.dim, 19]);
+    for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05) continue;
+      lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), d > 0 ? UP : DOWN, 19]); }
+    const s0 = SIM.stats(h, S.meta), s1 = SIM.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
+    const tot = [['здоровье', 'maxHp'], ['атака', 'atk'], ['защита', 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
+    if (tot.length) lines.push(['Итог: ' + tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · '),
+      tot.every(([, k]) => s1[k] >= s0[k]) ? UP : tot.every(([, k]) => s1[k] <= s0[k]) ? DOWN : C.gold, 20]);
+  }
   function tooltip(S, it, b, h, deal, at) {
     const lines = [], cons = SIM.isCons(it), B = cons ? null : D.BASES[it.b];
     lines.push([SIM.itemName(it), hex(D.RARITY[it.rar].col), 28]);
@@ -387,7 +401,7 @@
       if (it.def) lines.push(['Защита: ' + it.def, C.text, 22]);
       const typed = SIM.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');
-      const cur = h.eq[B.slot]; if (cur && cur !== it) { lines.push(['Надето: ' + SIM.itemName(cur) + (cur.atk ? ' · атака ' + cur.atk : '') + (cur.def ? ' · защита ' + cur.def : ''), C.dim, 19]); }
+      if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
       if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
     else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : 'Возвращает в безопасную комнату', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
     if (deal) lines.push([deal[0], deal[1], 22]);
@@ -416,7 +430,7 @@
     L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1);
     G.blend('add'); L.glow(W / 2, 200, 500, [0.3, 0.5, 1], 0.25 + 0.05 * Math.sin(t * 2)); G.blend();
     lab('mt_t', 'Алтарь душ', W / 2, 140, { size: 72, al: 0.5, col: '#9cc8ff' });
-    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят монстры, боссы и каждый пройденный этаж', W / 2, 220, { size: 26, al: 0.5, col: C.dim });
+    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят элиты, боссы, тайники и этажи, пройденные полностью', W / 2, 220, { size: 26, al: 0.5, col: C.dim });
     for (const b of D.UI.meta()) {
       if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
