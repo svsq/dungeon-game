@@ -69,9 +69,9 @@
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
   function world(S, R, t, V) {
-    const GT = S.t, h = R.hero, m = R.map;
+    const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     let bi = 0;
-    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss') continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
+    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss' || !seen(e.x, e.y)) continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       if (e.hp < e.max || e.elite) capsule(x, y, e.elite ? 80 : 64, e.hp / e.max, e.elite);
       // an elite's name, its powers first, in the colour of its first power
@@ -80,7 +80,7 @@
           lab('el' + (e.id % 40), s, x, ly, { size: 18, al: 0.5, col: hex(c) }); }
       if (e.st === 'idle' || bi > 40) continue; bi++; void E; }
     // the "!" when a monster notices the hero
-    for (const ev of S.ev) { const a = GT - ev.t; if (a < 0) continue;
+    for (const ev of S.ev) { const a = GT - ev.t; if (a < 0 || !seen(ev.x, ev.y)) continue;
       if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) lab('al' + (ev.id % 30), '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, al: 0.5, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
       if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 32 : 19) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
         const E = D.ENEMIES[ev.type], side = ev.x < h.x ? -1 : 1, hx = ev.x + side * (E ? 14 : 0), hy = ev.y - (E ? E.h * 0.5 + 18 : 0);   // over the head and its HP bar, leaning away from the hero: the chest stays clear
