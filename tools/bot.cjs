@@ -9,11 +9,12 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
 // before a fireball; shield: cast below this share of HP; focus: casters first; kite: backs off with low HP and no potion;
-// gift: highest altar tier taken
+// gift: highest altar tier taken; step: walks back out of a wind-up's reach while the dash recharges; traps: keeps off a spike
+// plate that is up or about to rise
 const PROFILES = {
   novice: { react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, stats: ['str', 'vit', 'agi', 'int'] },
   average: { react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  expert: { react: 0.2, dodge: 0.8, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  expert: { react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
 };
 
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -30,7 +31,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   const S = SIM.spawn(0, {}); S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
   const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
-  let cur = null, fl = null, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
+  let cur = null, fl = null, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
   const fresh = () => ({ floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
@@ -50,7 +51,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
   // the dash goes along the held direction keys
   const dash = (inp, dx, dy) => { const d = Math.hypot(dx, dy) || 1; inp.left = inp.right = inp.up = inp.down = 0; steer(inp, dx / d, dy / d); inp.keys.push('Space'); cur.dodges++; };
   function dodge(S, R, inp, live) {
-    const h = R.hero, t = S.t; if (h.cd.dash > t) return;
+    const h = R.hero, t = S.t, ready = h.cd.dash <= t; if (!ready && !P.step) return;
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < P.react || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? (e.hp < e.max * 0.5 ? 0.55 : 0.8) : E.wind * D.eliteK(e, 'wind'), d = Math.hypot(h.x - e.x, h.y - e.y);
@@ -58,7 +59,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
       const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
+      if (!ready) { if (e.st === 'wind') { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
       if (e.st === 'bwind' && e.mv !== 'slam') dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
+    if (!ready) return;
     // an explosive elite's corpse: out of its reach before the fuse is out
     for (const e of R.en) { if (!e.fuse || t - e.deadT < P.react || seen.has('f' + e.id)) continue; seen.add('f' + e.id);
       const d = Math.hypot(h.x - e.x, h.y - e.y); if (d > 130 || rand() >= P.dodge) continue; dash(inp, (h.x - e.x) / (d || 1), (h.y - e.y) / (d || 1)); return; }
@@ -67,6 +70,17 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
       if (tc < 0 || tc > 0.7) continue; seen.add('p' + p.id);
       if (Math.hypot(rx - p.vx * tc, ry - p.vy * tc) > 28 || rand() >= P.dodge) continue;
       const s = (rx * p.vy - ry * p.vx) >= 0 ? 1 : -1; dash(inp, -p.vy * s, p.vx * s); return; }
+  }
+  // spikes are up for 0.7 s of every 2.4 s (sim.js): hold back from a plate that is up or rises within the next step, and dash
+  // off one that is about to rise under the feet (a dash leaps them)
+  const SPK = 2.4, UP = 0.29, onPl = (x, y, tr) => Math.abs(x - tr.x) < T - 4 && Math.abs(y - tr.y) < T - 6;
+  const spikeSoon = (t, tr, ahead) => { const ph = ((t / SPK + tr.ph) % 1 + 1) % 1; return ph < UP || ph > 1 - ahead / SPK; };
+  function avoidSpikes(S, R, h, inp) {
+    const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), traps = R.map.traps || [];
+    const under = traps.find((tr) => onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.2));
+    if (under) { if (h.cd.dash <= S.t && !inp.keys.includes('Space')) { const ax = dx || Math.sign(h.x - under.x) || 1, ay = dy; dash(inp, ax, ay); } return; }
+    if (!dx && !dy) return; const nx = h.x + dx * 28, ny = h.y + dy * 28;
+    if (traps.some((tr) => onPl(nx, ny, tr) && !onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.45))) inp.left = inp.right = inp.up = inp.down = 0;
   }
   function fight(S, R, inp, live, st) {
     const h = R.hero, dist = (e) => Math.hypot(e.x - h.x, e.y - h.y);
@@ -101,8 +115,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), i = sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
     if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
   }
-  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, hpPot: fl.hp_potion, mpPot: fl.mp_potion }; };
-  const freshFl = () => ({ dmg: {}, hp_potion: 0, mp_potion: 0 });
+  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion }; };
+  const freshFl = () => ({ dmg: {}, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0 });
   for (let i = 0; i < 120 * 60 * 60 * runs && out.length < runs; i++) {
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
@@ -144,6 +158,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     else if (live.length && !late) fight(S, R, inp, live, st);
     else { walk(R, inp, m.exit.x, m.exit.y); if (dist(m.exit) < 55) inp.keys.push('KeyE'); }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
+    if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }
+    if (P.traps) avoidSpikes(S, R, h, inp);
     // a shut door in the way: open it (a locked one only with the key, above)
     if (SIM.doorNear(R, 60) && !SIM.doorLock(m, SIM.doorNear(R, 60))) inp.keys.push('KeyE');
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
@@ -152,9 +168,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
       Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40)); if (S.t - lt > 3) { inp.keys.push('Space'); lt = S.t; } }
     // a potion once HP has sat under the line for the time it takes to notice
     if (h.hp < st.maxHp * P.hp) { if (lowT < 0) lowT = S.t; if (S.t - lowT >= P.react && held(h, 'hp_potion')) { inp.keys.push('KeyQ'); lowT = -1; } } else lowT = -1;
-    cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
+    cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); fl.minhp = Math.min(fl.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
     SIM.step(S, inp);
-    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
+    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.hits++; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
     if (!S.run && cur) cur.floors.push(floorLine(R, h));
   }
   if (cur && !cur.result) { cur.result = stuck ? { how: 'stuck', floor: stuck } : { how: 'timeout', floor: S.run ? S.run.floor : 0 }; out.push(cur); log(cur); }
