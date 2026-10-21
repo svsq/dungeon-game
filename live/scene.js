@@ -40,7 +40,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y /= u_arc.w; float r = length(q), a =
   // never follows the grid; scorched rock outside it, a glowing lip, a band of cooling crust with live cracks, then the open flow
   // with drifting plates. All noise is in world px: no tile seams. u_mode 0 draws the ground, 1 the glow for the emissive pass
   const LAVA = `
-uniform sampler2D u_mask; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode;
+uniform sampler2D u_mask, u_seen; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode;
 void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   float mk = texture(u_mask, w / u_map).r, e = mk + (fbm(w / 20.0) - 0.5) * 0.3;
   if (e < 0.2) discard;
@@ -60,14 +60,14 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   if (u_mode < 0.5) { float scorch = smoothstep(-10.0, -1.0, d) * (1.0 - inside);
     o = vec4(col * inside * 0.7 + vec3(0.035, 0.02, 0.015) * scorch, max(inside, scorch * 0.7)); }   // its own lights brighten it
   else { vec3 em = hot * (1.0 - cool) * (1.0 - plate * 0.75) * 0.55 + vec3(1.0, 0.5, 0.12) * lip * 0.55 + hot * crack * cool * 0.3;
-    o = vec4(em * inside * 0.6, 0.0); } }`;
+    o = vec4(em * inside * 0.6 * texture(u_seen, w / u_map).r, 0.0); } }`;
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
   // gives nothing of the layout away. On the world's 2 px grid
   // shallow water over the same kind of soft mask: a wet dark rim on the floor around it, a pale lip, then translucent water in the
   // biome's colour with slow ripples; u_mode 1 adds, for the emissive pass, the light falling on it broken into glints by the ripples
   const WATER = `
-uniform sampler2D u_mask, u_light; uniform vec4 u_box; uniform vec2 u_map; uniform vec3 u_col; uniform float u_mode;
+uniform sampler2D u_mask, u_light, u_seen; uniform vec4 u_box; uniform vec2 u_map; uniform vec3 u_col; uniform float u_mode;
 void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   float mk = texture(u_mask, w / u_map).r, e = mk + (fbm(w / 18.0) - 0.5) * 0.22;
   if (e < 0.2) discard;
@@ -80,7 +80,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
     float a = inside * (0.66 + 0.24 * deep);
     o = vec4(c * a, max(a, wet * 0.5)); }
   else { vec3 l = texture(u_light, scr(v_px)).rgb; float glint = rip * (0.3 + 0.7 * deep);
-    o = vec4(l * glint * inside * 0.16, 0.0); } }`;
+    o = vec4(l * glint * inside * 0.16 * texture(u_seen, w / u_map).r, 0.0); } }`;
   const LIT = `
 uniform sampler2D u_src, u_light, u_seen, u_void, u_top; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam;
 vec3 abyss(vec2 p){ vec2 q = p / 150.0;
@@ -643,13 +643,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const lavaCells = [];
     if (m.lava) for (let y = Math.floor(cy / TILE) - 1; y <= Math.floor((cy + VH) / TILE) + 1; y++) for (let x = Math.floor(cx / TILE) - 1; x <= Math.floor((cx + VW) / TILE) + 1; x++) if (SIM.cell(m, x, y) === 3) lavaCells.push([x, y]);
     // lava is ground (anyone can stand in it now, so it draws under them); its own short strong lights keep it glowing after lighting
-    let lavaXf = null; const lavaU = (mode) => ({ u_t: t, u_mask: lavaTex(m), u_box: lavaBox, u_map: [MW, MH], u_mode: mode });
+    let lavaXf = null; const lavaU = (mode) => ({ u_t: t, u_mask: lavaTex(m), u_seen: seen, u_box: lavaBox, u_map: [MW, MH], u_mode: mode });
     let lavaBox = null;
     if (lavaCells.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of lavaCells) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       lavaBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; lavaXf = G.xf(sx(lavaBox[0]), sy(lavaBox[1]), lavaBox[2], lavaBox[3]);
       G.draw(L.P.lava, lavaU(0), lavaXf); }
     // shallow water, over the same box logic as the lava: the visible water cells' bounds and a cell of rim round them
-    let waterXf = null, waterBox = null; const waterU = (mode) => ({ u_t: t, u_mask: waterTex(m), u_light: LT.light, u_box: waterBox, u_map: [MW, MH], u_col: B.water || [0.07, 0.1, 0.12], u_mode: mode });
+    let waterXf = null, waterBox = null; const waterU = (mode) => ({ u_t: t, u_mask: waterTex(m), u_light: LT.light, u_seen: seen, u_box: waterBox, u_map: [MW, MH], u_col: B.water || [0.07, 0.1, 0.12], u_mode: mode });
     if (m.water && m.water.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
       for (const k of m.water) { const x = k % m.W, y = Math.floor(k / m.W); if ((x + 1) * TILE < cx || x * TILE > cx + VW || (y + 1) * TILE < cy || y * TILE > cy + VH) continue; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       if (x1 >= x0) { waterBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; waterXf = G.xf(sx(waterBox[0]), sy(waterBox[1]), waterBox[2], waterBox[3]); G.draw(L.P.pool, waterU(0), waterXf); } }
@@ -864,7 +864,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const env = Math.sin(Math.PI * ph / 0.35), tc = P.k === 'sconce' ? m.torches[P.t] : null, x = tc ? tc.x - 8 : P.cx * TILE + 7, y = tc ? tc.y - 2 : P.cy * TILE + 6;
       if (vis(x, y) && known(x, y)) L.star(sx(x), sy(y), 12, [1, 0.94, 0.78], 0.5 * env); });
     // the cultist's free hand holds a green spark: the brightest point of the figure, as in the reference's enemy sheet
-    for (const [id, p] of Object.entries(RIM.hands)) { L.glow(p[0], p[1], 18, [0.5, 1, 0.3], 0.9); L.glow(p[0], p[1], 6, [0.9, 1, 0.8], 0.9, 4); }
+    for (const [id, p] of Object.entries(RIM.hands)) { const e = R.en.find((o) => String(o.id) === id); if (!e || !known(e.x, e.y)) continue; L.glow(p[0], p[1], 18, [0.5, 1, 0.3], 0.9); L.glow(p[0], p[1], 6, [0.9, 1, 0.8], 0.9, 4); }
     // crystals and cold-fire torches carry a halo of their own, so the arcane blue is a light source, not a tint
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x));
     m.torches.forEach((tc, i) => { const col = torchCol(m, tc); if (col[2] > col[0] && !hid(tc) && vis(tc.x, tc.y) && known(tc.x, tc.y)) L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2); });
@@ -880,7 +880,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let j = 0; j < 4; j++) { const q = (t * 0.45 + rnd(e.id, j)) % 1, an = rnd(e.id, j + 7) * 6.28;
         L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); } }
     // event FX
-    for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue; const ex = sx(e.x), ey = sy(e.y);
+    for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       // the trail runs from the arc's start to the blade, centred on the shoulder, and stops at the arc's end; it fades from the damage
       // frame, so its brightest frame is the hit and the follow-through shows only on the blade itself
       if (e.k === 'swing' && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, RG = RIGS.hero, s = HERO_H / RG.h, W = WEAPON[st.wtype];
@@ -954,7 +954,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     }
     G.blend();
     // non-additive event FX (dust, debris, blood)
-    for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue; const ex = sx(e.x), ey = sy(e.y);
+    for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       if (e.k === 'step' && a < 0.4) { const q = a / 0.4; L.puff(ex, ey - 2 - 6 * q, 5 + 8 * q, [0.35, 0.3, 0.27], 0.35 * (1 - q), e.t * 10); }
       if (e.k === 'dash' && a < 0.45) for (let j = 0; j < 5; j++) { const q = a / 0.45, s = rnd(e.t, j); L.puff(ex - e.dx * (10 + 60 * q * s), ey - e.dy * (10 + 60 * q * s) - 4, 7 + 12 * q, [0.35, 0.3, 0.27], 0.45 * (1 - q), e.t + j); }
       // a skeleton chips: bone splinters thrown up, they bounce once on the floor at its feet and fade
@@ -1173,7 +1173,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const seed of [1234, 1, 2, 3]) { const S = play(); S.run = SIM.newRun(S, 'campaign', seed); const R = S.run, m = R.map; if (!m.water.length) continue;
       const k = m.water[Math.floor(m.water.length / 2)], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['water_pool', S]);
-      const S2 = structuredClone(S); S2.run.hero.y += 2.5 * TILE; states.push(['water_shore', S2]); break; }
+      const S2 = structuredClone(S); S2.run.hero.y += 2.5 * TILE; states.push(['water_shore', S2]);
+      // TASKS 176: an elite cultist, its blow's number and the pool in unexplored cells on the frame's right show nothing; explored, they show
+      for (const open of [0, 1]) { const S3 = structuredClone(S), R3 = S3.run, h3 = R3.hero, px = (k % m.W + 0.5) * TILE, py = (Math.floor(k / m.W) + 0.5) * TILE, E = D.ENEMIES.cultist;
+        h3.x = px - 9 * TILE; h3.y = py; R3.cam = [px - VW * 0.62, py - VH / 2]; R3.seen = R3.seen.map((v, i) => (open || i % m.W <= Math.floor(h3.x / TILE) + 3 ? 1 : 0));
+        R3.en = [{ id: 990, type: 'cultist', x: px + 2 * TILE, y: py - 2 * TILE, vx: 0, vy: 0, hp: E.hp * 0.6, max: E.hp, dmg: 1, elite: 1, mods: ['summoner'], room: -1,
+          st: 'idle', t0: 0, face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 }];
+        S3.ev.push({ k: 'hit', t: S3.t - 0.15, x: px + 2 * TILE, y: py - 2 * TILE - E.h * 0.5 - 6, type: 'cultist', n: 17, crit: 0, id: 990 });
+        states.push([open ? 'fog_hide_seen' : 'fog_hide', S3]); }
+      break; }
     // one room per furnishing plan (data.js ROOM_PLANS), lit and empty, the camera on it
     for (const plan of Object.keys(D.ROOM_PLANS)) states.push(['plan_' + plan, play((S) => { for (const seed of [1234, 1, 2, 3, 4, 5, 6]) { S.run = SIM.newRun(S, 'campaign', seed); const R = S.run;
       for (let f = 1; f <= D.FLOORS; f++) { SIM.enterFloor(S, R, f); const m = R.map, rm = m.rooms.filter((q) => q.plan === plan && q.type !== 'start').sort((a, b) => b.w * b.h - a.w * a.h)[0]; if (!rm) continue;
