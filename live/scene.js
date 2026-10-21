@@ -895,7 +895,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.joint('hero_fx', 'trailA', [open && q < 1 ? amt * Math.min(1, Math.abs(e1 - e0)) : 0, 0]);
         if (open && q < 1) L.glow(...pt(em), 50, [1, 0.8, 0.5], 0.5 * amt / 1.3);
         if (open && q < 1) G.draw(L.P.arc, { u_arc: [e0, e1, 0.16, SQ], u_col: [1, 0.85, 0.6], u_amt: amt, u_dark: 0.45 * (1 - q) }, G.xf(shx - Rr, shy - Rr, 2 * Rr, 2 * Rr)); }
-      if (e.k === 'whirl' && a < WHIRL_T + 0.08) { const q = a / (WHIRL_T + 0.08), a0 = e.a === undefined ? 0 : Math.atan2(Math.sin(e.a) / DEPTH_K, Math.cos(e.a)); G.draw(L.P.arc, { u_arc: [a0, a0 + 6.2831 * whirlP(a), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q), u_dark: 0 }, G.xf(ex - 118, ey - 34 - 118, 236, 236)); }
+      if (e.k === 'whirl' && a < WHIRL_T + 0.08) { const q = a / (WHIRL_T + 0.08), a0 = e.a === undefined ? 0 : Math.atan2(Math.sin(e.a) / DEPTH_K, Math.cos(e.a)); const wq = (e.r || 92) / 0.8; G.draw(L.P.arc, { u_arc: [a0, a0 + 6.2831 * whirlP(a), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q), u_dark: 0 }, G.xf(ex - wq, ey - 34 - wq, 2 * wq, 2 * wq)); }
       if (e.k === 'eswing' && a < 0.2) G.draw(L.P.arc, { u_arc: [e.a - 0.9, e.a + 0.9 * Math.min(1, a / 0.12), 0.2, 0.75], u_col: [1, 0.5, 0.4], u_amt: 1 - a / 0.2, u_dark: 0 }, G.xf(ex - 50, ey - 26 - 50, 100, 100));
       // a ghost's ectoplasm: glowing drops that drift up and thin out, they never reach the floor
       if (e.k === 'hit' && a < 0.6 && !e.fire && BLOOD(e.type) === 'ecto') { const q = a / 0.6; L.glow(ex, ey, 30 + 16 * q, [0.4, 1, 0.8], 0.7 * (1 - q), 2.4);
@@ -1073,7 +1073,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const [name, age] of [['shard_flash', 0.1], ['shard_flight', 0.55], ['shard_arrival', 1.05]]) {
       states.push([name, play((S) => { worst(S); S.run.msg = null; const h = S.run.hero; S.ev = [{ k: 'shard', x: h.x, y: h.y, n: 3, floor: S.run.floor, t: S.t - age }]; })]);
     }
-    states.push(['shard_floor', play((S) => { SIM.enterFloor(S, S.run, 8); worst(S); S.run.msg = { s: 'Этаж 8 — Трон Демона', t: S.t - 0.8 }; S.ev = [{ k: 'stairs', n: 7, floor: 7, t: S.t - 0.8 }]; })]);
+    states.push(['shard_floor', play((S) => { SIM.enterFloor(S, S.run, 8); worst(S); S.run.msg = { s: 'Этаж 8 — Трон Демона', t: S.t - 0.8 }; const h = S.run.hero; S.ev = [{ k: 'shard', x: h.x, y: h.y, n: 10, floor: 8, s: 'Все враги этажа повержены · +10 осколков душ', t: S.t - 0.8 }]; })]);
     // the reference's composition: a fight in a lit room with an accent zone in the frame's far side, monsters standing apart
     // on a ring around the hero mid-swing, a chest and gold at the back wall
     const match = (() => { for (const want of ['arcane', null]) for (let sd = 1; sd < 60; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map;
@@ -1360,7 +1360,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const aimT = (a, fire) => { const fr = []; let S = play(clear); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, keys: [] }); } return fr; };
-    const whirl = (S, h) => { h.whirlT = h.castT = S.t; h.castK = 'whirl'; h.whirlA = h.aim; S.ev.push({ k: 'whirl', t: S.t, x: h.x, y: h.y, a: h.aim }); };
+    const whirl = (S, h) => { h.whirlT = h.castT = S.t; h.castK = 'whirl'; h.whirlA = h.aim; S.ev.push({ k: 'whirl', t: S.t, x: h.x, y: h.y, a: h.aim, r: D.abRank('whirl', 1).r }); };
+    // TASKS 177: the whirl's circle on screen is its reach: skeletons at the edge of the damage zone, right, left and below (the zone is squeezed ×1.3 in depth)
+    states.push(['whirl_reach', play((S) => { const R = S.run, h = R.hero, E = D.ENEMIES.skeleton, wr = D.abRank('whirl', 1).r - 4 + E.r; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2];
+      R.en = [[wr, 0], [-wr, 0], [0, wr / 1.3]].map(([dx, dy], i) => ({ id: 980 + i, type: 'skeleton', x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0,
+        face: dx > 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 }));
+      h.aim = 0; whirl(S, h); h.whirlT = h.castT = S.ev.at(-1).t = S.t - 0.22; })]);
     const cast = (S, h) => { h.castT = S.t; h.castK = 'fireball'; };
     for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) { transitions['hero_whirl_' + n] = aimT(a, whirl); transitions['hero_cast_' + n] = aimT(a, cast); }
     // a lone monster beside the hero, then an event on it: a skeleton crumbles, a spider flips onto its back, a goblin's ears ring on a hit

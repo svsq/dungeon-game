@@ -33,6 +33,7 @@
     else if (e.k === 'kill') add(L.kills, who(R.en.find((o) => o.id === e.id) || { type: e.type }));
     else if (e.k === 'lvl') L.lvl = e.lvl;
     else if (e.k === 'gold') L.gold += e.n || 0;
+    else if (e.k === 'shard') add(L, 'shards', e.n);
     else if (e.k === 'trade') { if (e.n < 0) { L.buy -= e.n; L.buys.push(e.s); } else L.sell += e.n; }
     else if (e.k === 'cast' || e.k === 'whirl' || e.k === 'shield') add(L.ab, e.k === 'cast' ? 'fireball' : e.k);
     if (e.k === 'equip' || e.k === 'unequip') { const st = heroSt(S); (L.gear = L.gear || []).push({ t: +e.t.toFixed(2), slot: e.slot, on: e.on || null, off: e.off || null, maxHp: st.maxHp, def: st.def, atk: st.atk }); }
@@ -216,14 +217,19 @@
     return T;
   }
   const runCompletion = (R) => completion(Object.values(R.stats || {}));
-  // the end-of-run reward: the base (gold brought back, a win) plus a bonus for thoroughness, 3 shards per floor visited at 100%.
-  // With the stairs and the elites a win brings ~120 shards, so the altar's 1395 take some 20 runs
-  const REWARD = { goldPer: 500, win: 30, perFloor: 3 };
+  // the end-of-run reward: gold brought back and a win. Thoroughness is paid on the floor itself, 10 shards for each of its kills,
+  // loot and secrets at 100 % and 1 per secret found (TASKS 175); with the elites and the boss a thorough win brings ~120 shards,
+  // so the altar's 1395 take some 20 runs
+  const REWARD = { goldPer: 500, win: 30, full: 10, secret: 1 };
   function runReward(R, how) {
     const C = runCompletion(R), base = Math.floor(R.goldTot / REWARD.goldPer) + (how === 'win' ? REWARD.win : 0);
-    const cap = REWARD.perFloor * C.floors, bonus = Math.round(C.pct * cap);
-    return { base, bonus, cap, C };
+    return { base, bonus: 0, cap: 0, C };
   }
+  const FULL = [['kills', 'foes', 'Все враги этажа повержены'], ['loot', 'lootN', 'Весь лут этажа собран'], ['sec', 'secN', 'Все тайники этажа найдены']];
+  function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
+  // a floor's kills, loot or secrets brought to 100 % pay once, on the spot
+  function checkFull(S, R) { const f = fstat(R), h = R.hero; f.full = f.full || {};
+    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, s + ' · +' + REWARD.full + ' осколков душ'); } }
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
   const MASK = { key: '', set: null };
@@ -397,7 +403,7 @@
     if (e.st === 'home') { e.st = 'chase'; e.t0 = e.seenT = R.t; } }
   function killEnemy(S, R, e) {
     e.deadT = S.t; e.hp = 0; R.kills++;
-    if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (!e.summ) fstat(R).kills++; R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
+    if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (!e.summ) { fstat(R).kills++; checkFull(S, R); } R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
     const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (R.floor - 1)) * (e.elite && e.type !== 'boss' ? 3 + nm : 1)));
     if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
     ev(S, { k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id });
@@ -423,7 +429,7 @@
     R.drops.push({ id: R.nextId++, kind: 'item', item: it, x: h.x, y: h.y - 10, vx: (x * TILE + 16 - h.x) / 0.45, vy: (y * TILE + 20 - h.y) / 0.45, z: 0, vz: 200, t0: R.t, tossed: 1, fly: 0.45 });
   }
   // potion drops: a floor cleared whole gives ~2.5 health potions (it gave ~9, and a player drank 4 in a whole run, TASKS 154)
-  const POT = { chest: 0.12, vase: 0.1, pot: 0.08, kill: 0.02 };
+  const POT = { chest: 0.085, vase: 0.07, pot: 0.055, kill: 0.007 };
   function drop(R, x, y, o) { const a = rnd(R) * Math.PI * 2, v = 60 + rnd(R) * 90; if (o.item && !o.item.id) o.item.id = R.nextId++;
     if (o.kind === 'item') { o.loot = 1; if (!o.pre) fstat(R).lootN++; delete o.pre; }
     R.drops.push(Object.assign({ id: R.nextId++, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, z: 0, vz: 160 + rnd(R) * 80, t0: R.t }, o)); }
@@ -456,11 +462,11 @@
     const AR = D.abRank(id, rank); h.mp -= A.mp; h.cd[id] = S.t + A.cd * AR.cd; h.castT = S.t; h.castK = id;
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k;
-      for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < 92 + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
-      breakPots(S, R, h.x, h.y, 92); hitProps(S, R, h.x, h.y, 92); hitChests(S, R, h.x, h.y, 92); hitSecrets(S, R, h.x, h.y, 92); hitDoors(S, R, h.x, h.y, 92); tearWebs(S, R, h.x, h.y, 92); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim }); }
+      const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
+      breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = Math.round((14 + st.int * 2.6) * AR.k * st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
-    if (id === 'shield') { h.shield = Math.round((30 + st.int * 4) * AR.k); h.shieldUntil = S.t + 5; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
+    if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, R.floor); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
   function breakPots(S, R, x, y, rad, ax, arc) {
     for (const p of R.pots) { if (p.hp <= 0) continue; const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
@@ -510,6 +516,7 @@
     if (kind === 'lever') R.trauma = Math.min(1, R.trauma + 0.3);
     fstat(R).sec++;
     ev(S, { k: 'secret', x: q.x, y: q.y - 20, i, kind }); R.msg = { s: 'Тайная комната!', t: S.t };
+    giveShards(S, R, REWARD.secret, q.x, q.y - 20); checkFull(S, R);
   }
   // a secret's bookshelf standing (it blocks its cell) or broken (it does not)
   function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
@@ -698,7 +705,7 @@
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (R.floor === D.FLOORS && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте Повелителя Демонов' }); return; }
-      const sn = Math.ceil(R.floor / 2); R.shards += sn; S.meta.shards += sn; ev(S, { k: 'stairs', x: h.x, y: h.y, n: sn, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
+      ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
   }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
@@ -928,8 +935,8 @@
         if (p.kind === 'gold') { const n = Math.round(p.n * heroSt(S).gold); h.gold += n; R.goldTot += n; p.got = 1; ev(S, { k: 'gold', x: p.x, y: p.y, n }); }
         else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
         else if (p.kind === 'key') { R.keys = (R.keys || 0) + 1; p.got = 1; ev(S, { k: 'key', x: p.x, y: p.y }); R.msg = { s: 'Ключ! Он отпирает дверь на этом этаже', t: S.t }; }
-        else if (wearIfFree(S, R, p.item)) { p.got = 1; if (p.loot) fstat(R).loot++; ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }
-        else if (bagAdd(R, p.item)) { p.got = 1; if (p.loot) fstat(R).loot++; ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }); }
+        else if (wearIfFree(S, R, p.item)) { p.got = 1; if (p.loot) { fstat(R).loot++; checkFull(S, R); } ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }
+        else if (bagAdd(R, p.item)) { p.got = 1; if (p.loot) { fstat(R).loot++; checkFull(S, R); } ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }); }
         else if (S.t - (R.fullT || -9) > 2.5) { R.fullT = S.t; ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Инвентарь полон' }); }
       } }
     R.drops = R.drops.filter((p) => !p.got);
@@ -1582,7 +1589,13 @@
       if (JSON.stringify(T.run.stats) !== JSON.stringify(R.stats)) out.push('completion: stats lost on save/load');
       const before = T.meta.shards, W2 = runReward(T.run, 'dead'), found = T.run.shards; endRun(T, 'dead'); endRun(T, 'dead');
       if (T.meta.shards - before !== W2.base + W2.bonus || T.result.shards !== found + W2.base + W2.bonus) out.push('completion: the end bonus was not paid exactly once');
-      if (W2.cap !== REWARD.perFloor * 2 || W2.bonus !== Math.round(W2.C.pct * W2.cap)) out.push('completion: bonus not explained by its formula');
+      if (W2.bonus) out.push('completion: an end-of-run thoroughness bonus is still paid');
+      // the last kill of a floor pays its 10 shards once, on the spot (TASKS 175)
+      { const S2 = spawn(0, {}); step(S2, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S2, { keys: [] }); const R2 = S2.run;
+        const live = R2.en.filter((o) => !o.summ && o.deadT < 0), s0 = R2.shards; live.forEach((o, i) => { hitEnemy(S2, R2, o, 1e9, false, o.x, o.y); if (i === live.length - 2 && R2.shards !== s0) out.push('completion: the floor paid before its last kill'); });
+        if (R2.shards - s0 !== REWARD.full || !fstat(R2).full.kills) out.push(`completion: the last kill paid ${R2.shards - s0} shards, not ${REWARD.full}`);
+        R2.en.push(Object.assign({}, live[0], { id: 9e6 + 1, deadT: -1, hp: 5 })); fstat(R2).foes++; hitEnemy(S2, R2, R2.en.at(-1), 1e9, false, 0, 0);
+        if (R2.shards - s0 !== REWARD.full) out.push('completion: a floor paid its kills twice'); }
       const L2 = spawn(0, {}); L2.saved = JSON.parse(JSON.stringify(R)); delete L2.saved.stats; L2.run = L2.saved; L2.screen = 'play'; step(L2, { keys: [] });
       if (!L2.run.stats || L2.run.stats[2].foes !== L2.run.en.filter((o) => !o.summ).length) out.push('completion: an old save gets no stats for its floor'); }
     // doors: shut, a doored room stays unseen and its monsters can't see the hero through the door; E opens it; a locked one holds
@@ -1661,10 +1674,11 @@
         step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen === 'altar') out.push('altar: a used altar opens again');
         const T = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); if (stats(T.saved.hero, T.meta).atk !== heroSt(S).atk) out.push('altar: a gift is lost on save/load');
         const old = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); delete old.saved.hero.perks; if (!(stats(old.saved.hero, old.meta).atk > 0)) out.push('altar: a save without gifts breaks the stats'); } }
-    // an altar on every second floor and on no other (TASKS 137), over many seeds
-    { const bad = []; for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.FLOORS; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
-        if (n !== (f % 2 === 0 ? 1 : 0)) bad.push(`seed ${seed} floor ${f}: ${n}`); }
-      if (bad.length) out.push(`altar: not one altar on each even floor and none on odd ones (${bad.length}: ${bad.slice(0, 3).join(', ')})`); }
+    // an altar on every second floor and on no other (TASKS 137), the last on the floor before the boss's, none on his (TASKS 183)
+    { const bad = [], want = (f) => (f < D.FLOORS && (f % 2 === 0 || f === D.FLOORS - 1) ? 1 : 0);
+      for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.FLOORS; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
+        if (n !== want(f)) bad.push(`seed ${seed} floor ${f}: ${n}`); }
+      if (bad.length) out.push(`altar: not one altar on floors 2, 4, 6 and 7 and none on the others (${bad.length}: ${bad.slice(0, 3).join(', ')})`); }
     // each gift does what it says: reach and swing width, potion strength, a kill's meal, thorns back into a close striker (not a far one),
     // one second chance per gift, more damage on a nearly dead monster
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero, give = (id) => { h.perks[id] = (h.perks[id] || 0) + 1; };
