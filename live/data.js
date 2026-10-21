@@ -120,7 +120,7 @@
     boots: 'Поступь Тени', ring: 'Кольцо Бездны', amulet: 'Сердце Дракона' };
 
   const ABILITIES = [
-    { id: 'whirl', name: 'Вихрь клинка', icon: 'ab_whirl', key: '1', unlock: 1, mp: 10, cd: 6, desc: 'Круговой удар: {d}% атаки всем рядом' },
+    { id: 'whirl', name: 'Вихрь клинка', icon: 'ab_whirl', key: '1', unlock: 1, mp: 0, cd: 6, desc: 'Круговой удар: {d}% атаки всем рядом' },
     { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 0.5, desc: 'Огненный взрыв: {d} урона' },
     { id: 'shield', name: 'Магический щит', icon: 'ab_shield', key: '3', unlock: 4, mp: 20, cd: 16, desc: 'Барьер на 5 с: {d} урона' },
   ];
