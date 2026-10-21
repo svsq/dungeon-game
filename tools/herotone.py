@@ -3,7 +3,8 @@
 # Rebuilds from art/old/herotone/ so it can be re-run
 import os, shutil, numpy as np; from PIL import Image
 SRC, DST = 'art/old/herotone', 'art/gen'
-NAMES = [n[:-4] for n in os.listdir(DST) if n.endswith('.png') and (n.startswith('hero__body') or n.startswith('hero__cape'))]
+# the *_w files are the soft-bone weight maps of the same parts, not art: they keep their values
+NAMES = [n[:-4] for n in os.listdir(DST) if n.endswith('.png') and not n.endswith('_w.png') and (n.startswith('hero__body') or n.startswith('hero__cape'))]
 for n in NAMES:
     if not os.path.exists(f'{SRC}/{n}.png'): shutil.copy(f'{DST}/{n}.png', f'{SRC}/{n}.png')
 for n in NAMES:
@@ -16,7 +17,9 @@ for n in NAMES:
         flap = red & (ys > 155) & (ys < 222) & (xs > 84) & (xs < 138)
         a[flap, :3] = np.array([0.36, 0.38, 0.46])[None] * np.clip(0.5 + 1.6 * lum[flap], 0.3, 1.5)[:, None] * 255
         red &= ~flap
-    a[red, :3] *= np.array([0.7, 0.55, 0.6])[None]
+    # crimson in hue and chroma only: the concept's cape is as light as the painted one (p50 0.39)
+    deep = a[red, :3] * np.array([0.7, 0.55, 0.6])[None]; l0 = lum[red] * 255; l1 = deep @ np.array([0.3, 0.59, 0.11])
+    a[red, :3] = deep * np.clip(l0 / np.maximum(l1, 1), 1, 2.2)[:, None]
     if n.startswith('hero__body') and '_nh' not in n and '_hd' not in n:
         hair = (al > 0) & (ys < top + (80 if 'back' in n else 46)) & (r > g * 1.15) & (r < g * 3.2) & (g > b * 0.95) & (s > 0.25)
         a[hair, :3] = np.array([0x5a, 0x32, 0x20], float)[None] / 255 * np.clip(0.45 + 1.2 * lum[hair], 0.3, 1.6)[:, None] * 255
