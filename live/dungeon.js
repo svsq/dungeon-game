@@ -71,8 +71,9 @@
     const others = rooms.filter((r) => r.type === 'combat'); for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
     const nTreasure = 1 + (R() < 0.5 ? 1 : 0);
     others.slice(0, nTreasure).forEach((r) => (r.type = 'treasure'));
-    // an altar on every second floor (TASKS 137): the roll stays so the rest of the floor is laid out as before
-    R(); if (floor % 2 === 0) (others[nTreasure] || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
+    // an altar on every second floor (TASKS 137), the last one on the floor before the boss's: past him a gift buys nothing
+    // (TASKS 183); the roll stays so the rest of the floor is laid out as before
+    R(); if (!boss && (floor % 2 === 0 || floor === D.FLOORS - 1)) (others[nTreasure] || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
     // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
     const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
       if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };

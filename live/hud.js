@@ -165,7 +165,7 @@
     if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff' });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
     for (const G of D.GIFTS) { const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', String(Math.round(G.v * n * 10) / 10)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff' }); }
-    if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / 5 });
+    if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1 });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1 });
     list.forEach((b, i) => { const x = 116 + (i % 8) * 46, y = 190 + Math.floor(i / 8) * 64;
@@ -188,11 +188,11 @@
   function souls(S, R, V) {
     const tx = currencies(S, R)[1][3] + 18, ty = 164;
     for (const e of S.ev) {
-      const a = S.t - e.t, floorReward = e.k === 'stairs' && e.n > 0;
-      if ((!floorReward && e.k !== 'shard') || a < 0 || a > 3.5 || (e.floor !== undefined && e.floor !== R.floor - (floorReward ? 1 : 0))) continue;
+      const a = S.t - e.t, floorReward = e.k === 'shard' && !!e.s;
+      if (e.k !== 'shard' || a < 0 || a > 3.5 || (e.floor !== undefined && e.floor !== R.floor)) continue;
       const x0 = floorReward ? W / 2 : V.sx(e.x), y0 = floorReward ? 280 : V.sy(e.y) - 20;
       if (floorReward) {
-        const text = 'Осколки душ: +' + e.n + ' за этаж ' + e.floor, alpha = L.SS(0, 0.15, a) * (1 - L.SS(2.8, 3.5, a));
+        const text = e.s, alpha = L.SS(0, 0.15, a) * (1 - L.SS(2.8, 3.5, a));
         const w = lw('soul_reward', text, { size: 22 }) + 36;
         panel('soul_reward_box', W / 2 - w / 2, 213, w, 42, { a: 0.8 * alpha });
         lab('soul_reward', text, W / 2, 235, { size: 22, al: 0.5, col: '#9cc8ff', a: alpha });
@@ -333,7 +333,7 @@
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });
       lab('ab_r' + i, r ? 'ранг ' + r + ' / ' + D.AB_MAX : 'с ' + A.unlock + ' уровня', b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
-      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? Math.round((14 + st.int * 2.6) * k * st.spell) : Math.round((30 + st.int * 4) * k);
+      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? Math.round((14 + st.int * 2.6) * k * st.spell) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
@@ -473,9 +473,8 @@
     // the reward, line by line: what was found, the base payout, the thoroughness bonus with its formula, the total
     L.solid(bx + 30, by + 290, 1180, 1, C.rim, 0, 0, 0, 0.6);
     const base = r.base ?? r.bonus ?? 0, sb = r.statBonus || 0;
-    const rew = [['Осколки, найденные в забеге', '+' + (r.found ?? (r.shards - base - sb))],
-      ['Награда за забег: золото ÷ 80' + (r.win ? ' + ' + r.win + ' за победу' : ''), '+' + base],
-      ['Бонус за полноту: ' + Math.round(100 * C2.pct) + '% от ' + (r.cap || 0) + ' (по 5 за каждый этаж)', '+' + sb]];
+    const rew = [['Осколки, найденные в забеге (элиты, босс, тайники, полнота этажей)', '+' + (r.found ?? (r.shards - base - sb))],
+      ['Награда за забег: золото ÷ ' + SIM.REWARD.goldPer + (r.win ? ' + ' + r.win + ' за победу' : ''), '+' + base]].concat(sb ? [['Бонус за полноту', '+' + sb]] : []);
     rew.forEach(([n, v], i) => { lab('e_rn' + i, n, bx + 30, by + 330 + i * 44, { size: 24, col: C.dim }); lab('e_rv' + i, v, bx + 1210, by + 330 + i * 44, { size: 24, al: 1, col: '#9cc8ff' }); });
     L.solid(bx + 30, by + 488, 1180, 1, C.rim, 0, 0, 0, 0.6);
     lab('e_tn', 'Итого осколков душ', bx + 30, by + 530, { size: 30, col: C.text }); lab('e_tv', '+' + r.shards, bx + 1210, by + 530, { size: 30, al: 1, col: '#9cc8ff' });
