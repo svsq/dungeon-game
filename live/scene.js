@@ -1113,6 +1113,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.cam = [h.x - 260, h.y - VH / 2 - 30]; R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
       R.en = ['skeleton', 'goblin', 'cultist', 'brute'].flatMap((ty, i) => [0, 1].map((el) => { const E = D.ENEMIES[ty]; return { id: 940 + i * 2 + el, type: ty, x: h.x + 170 + i * 190, y: h.y - 90 + el * 190, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: el, room: rm.id,
         st: 'idle', t0: 0, face: -1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, mods: el ? [['fiery'], ['vampire'], ['summoner'], ['explosive', 'fiery']][i] : undefined }; })); })]);
+    // a summoner ghost elite in the crypt, right under a green wall torch, a plain ghost beside it (TASKS 172: the ghost read as
+    // one green blot with its aura and the torchlight)
+    states.push(['elite_ghost_crypt', play((S) => { const R = S.run, h = R.hero; SIM.enterFloor(S, R, 3); const m = R.map;
+      const tr = m.torches.find((q) => q.kind === 'wall' && m.rooms.some((r) => r.type === 'combat' && q.x > (r.x + 2) * TILE && q.x < (r.x + r.w - 2) * TILE && q.y < (r.y + 1) * TILE && q.y > (r.y - 2) * TILE)) || m.torches[0];
+      const rm = m.rooms.find((r) => tr.x > r.x * TILE && tr.x < (r.x + r.w) * TILE && tr.y < (r.y + 1) * TILE && tr.y > (r.y - 2) * TILE) || m.rooms[0];
+      const gy = (rm.y + 2.2) * TILE; h.x = tr.x - 4.5 * TILE; h.y = gy + 1.5 * TILE; h.face = 1;
+      R.cam = [tr.x - VW / 2, gy - VH / 2]; R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
+      const E = D.ENEMIES.ghost, g = (id, x, el) => ({ id, type: 'ghost', x, y: gy, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: el, mods: el ? ['summoner'] : undefined, room: rm.id,
+        st: 'idle', t0: 0, face: -1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 });
+      R.en = [g(960, tr.x, 1), g(961, tr.x + 3.5 * TILE, 0)]; for (let i = 0; i < 20; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); R.en.forEach((e) => { e.x = e === R.en[0] ? tr.x : tr.x + 3.5 * TILE; e.y = gy; }); })]);
     // an elite's powers in play: an explosive corpse 0.6 s into its fuse (its reach on the floor), a vampire draining the hero
     states.push(['elite_fx', play((S) => { const R = S.run, h = R.hero, rm = R.map.rooms.find((r) => r.type === 'combat') || R.map.rooms[0]; h.x = (rm.x + 2.5) * TILE; h.y = (rm.y + rm.h / 2) * TILE;
       R.cam = [h.x - 360, h.y - VH / 2 - 30]; R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;

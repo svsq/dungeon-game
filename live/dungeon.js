@@ -44,6 +44,11 @@
     const carveV = (y0, y1, x) => { for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) { if (!at(x, y)) set(x, y, 1); if (!at(x + 1, y)) set(x + 1, y, 1); } };
     for (const [a, b] of edges) { const A = rooms[a], B = rooms[b];
       if (R() < 0.5) { carveH(A.cx, B.cx, A.cy); carveV(A.cy, B.cy, B.cx); } else { carveV(A.cy, B.cy, A.cx); carveH(A.cx, B.cx, B.cy); } }
+    // two floors meeting only at a cell's corner (a 2×2 of floor and rock on the diagonals) can't be walked but let blows and bolts
+    // through the corner: open the square into a two-cell way, like the corridors (TASKS 174)
+    for (let pass = 0, n = 1; n && pass < 4; pass++) { n = 0;
+      for (let y = 2; y < H - 3; y++) for (let x = 1; x < W - 3; x++) { const a = !at(x, y), b = !at(x + 1, y), c = !at(x, y + 1), d = !at(x + 1, y + 1);
+        if (a === d && b === c && a !== b) { n++; set(x, y, 1); set(x + 1, y, 1); set(x, y + 1, 1); set(x + 1, y + 1, 1); } } }
     const adj = rooms.map(() => []); for (const [a, b] of edges) { adj[a].push(b); adj[b].push(a); }
     // ---- roles: start at a leaf on the rim, exit farthest by hops then distance ----
     const hops = (from) => { const h = rooms.map(() => 99), q = [from.id]; h[from.id] = 0;
