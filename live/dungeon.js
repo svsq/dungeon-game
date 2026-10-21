@@ -344,11 +344,12 @@
       if (r.type === 'combat' || r.type === 'exit' || r.type === 'treasure') {
         let n = Math.min(Math.floor(area / 9), 2 + Math.floor(floor / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
         n = Math.max(1, Math.round(n * D.BAL.pop));
-        const pack = pick(roster);
+        const pack = pick(roster), guard = r.type === 'exit' && floor % 2 === 0;
         for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
-          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0) || (floor >= 3 && R() < D.ELITE.share) ? 1 : 0); }
-        if (r.type === 'exit' && floor % 2 === 0) { const p = spot(r, 2); if (p) addEnemy('brute', p[0], p[1], r.id, 1); }
+          // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
+          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && floor <= 2)) || (floor >= 3 && R() < D.ELITE.share) ? 1 : 0); }
+        if (guard) { const p = spot(r, 2); if (p) addEnemy('brute', p[0], p[1], r.id, 1); }
       }
       if (r.type === 'boss') { addEnemy('boss', r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < Math.round(4 * D.BAL.pop); i++) { const p = spot(r, 2); if (p) addEnemy(pick(roster.filter((t) => t !== 'brute')), p[0], p[1], r.id); } }
       // chests

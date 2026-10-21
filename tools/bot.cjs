@@ -2,7 +2,9 @@
 // skill. A profile sets what a player of that skill gets wrong: how late they see a wind-up or a bolt, how often they dash out
 // of it, how far their aim drifts, how low they let HP go before a potion, how they spend mana. Between runs it buys meta ranks.
 const SIM = require('../live/sim.js'), D = require('../live/data.js');
-const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'hurt'];
+// what hurt the hero, in the groups the balance pass weighs against each other
+const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|взрыв|boss/.test(k) ? 'elite' : 'mob';
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
@@ -28,7 +30,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   const S = SIM.spawn(0, {}); S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
   const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
-  let cur = null, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
+  let cur = null, fl = null, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
   const fresh = () => ({ floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
@@ -99,7 +101,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), i = sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
     if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
   }
-  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge) }; };
+  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, hpPot: fl.hp_potion, mpPot: fl.mp_potion }; };
+  const freshFl = () => ({ dmg: {}, hp_potion: 0, mp_potion: 0 });
   for (let i = 0; i < 120 * 60 * 60 * runs && out.length < runs; i++) {
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
@@ -109,7 +112,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     }
     const R = S.run, h = R.hero, m = R.map;
     if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; }
-    if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h)); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear(); }
+    if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h)); fl = freshFl(); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear(); }
     if (S.t - tF > STUCK) { stuck = R.floor; break; }
     while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
     for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
@@ -151,7 +154,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (h.hp < st.maxHp * P.hp) { if (lowT < 0) lowT = S.t; if (S.t - lowT >= P.react && held(h, 'hp_potion')) { inp.keys.push('KeyQ'); lowT = -1; } } else lowT = -1;
     cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
     SIM.step(S, inp);
-    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') cur[e.b]++; else if (COUNT.includes(e.k)) cur[e.k]++; }
+    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
     if (!S.run && cur) cur.floors.push(floorLine(R, h));
   }
   if (cur && !cur.result) { cur.result = stuck ? { how: 'stuck', floor: stuck } : { how: 'timeout', floor: S.run ? S.run.floor : 0 }; out.push(cur); log(cur); }
