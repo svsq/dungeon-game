@@ -1,0 +1,6 @@
+Use case: floor traps for a top-down 3/4 dungeon game (Image 1 is the style reference only; Image 2 is the game's corner cobweb decal: match its silk colour, line weight and pixel density).
+Subject: 3 separate pieces on one row with wide empty gaps:
+1. a large round sticky spider web lying flat on the stone floor, seen from the 3/4 top-down camera (an ellipse, wider than tall), thick grey-white silk spokes and spirals, a few clumps of silk and a dead fly caught in it;
+2. a second flat floor web of the same kind, a different irregular shape, a little smaller;
+3. the first web torn apart: a few loose shredded strands and silk tufts lying flat, mostly empty.
+Constraints: flat on the ground only, nothing standing up, no floor drawn, no shadows, no glow, no spider, every piece complete and separate.
