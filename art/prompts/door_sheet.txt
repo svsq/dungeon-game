@@ -1,0 +1,6 @@
+Use case: door parts for a top-down 3/4 dungeon game (Image 1 is the style reference only; Image 2 is the game's existing door: match its stones, wood, iron, outline and pixel density exactly).
+Subject: 5 separate pieces on a 3+2 grid with wide empty gaps, each on one shared ground line per row:
+row 1: the stone arch door frame of Image 2 alone, the doorway inside it an empty pitch-black opening (no door in it); the wooden door leaf of Image 2 alone, without the stone frame (iron-bound vertical planks, rounded top, iron ring handle), sized to fill that opening; a heavy black iron padlock with a keyhole, front view;
+row 2: an iron wall lever on a square stone mounting plate, front view, its handle (an iron rod with a wooden grip) pointing up and to the left; the same lever exactly, its handle pointing down and to the right.
+Scale: the frame is as wide as two floor tiles and as tall as the wall; the padlock is a quarter of the leaf's width; the lever plate is a third of the frame's width.
+Constraints: every piece complete and separate, nothing touching, no glow, no light, no shadows on the ground, no floor, no wall around the frame.

@@ -38,17 +38,25 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const keys = {}, hint = document.getElementById('hint'), dev = document.getElementById('dev'), flash = document.getElementById('flash');
   const SPEEDS = [0.1, 0.25, 0.5, 1];
   // game saves: meta progress + the current run in localStorage (the sim asks by bumping S.saveN)
-  const loadPersist = () => { try { return { meta: JSON.parse(localStorage.getItem('dc_meta') || 'null'), run: JSON.parse(localStorage.getItem('dc_run') || 'null') }; } catch (e) { return {}; } };
+  // v2 keys: the balance pass (task 154) started every player from scratch; the old v1 saves are dropped
+  try { for (const k of ['dc_meta', 'dc_run']) localStorage.removeItem(k); sessionStorage.removeItem('live'); } catch (e) {}
+  const loadPersist = () => { try { return { meta: JSON.parse(localStorage.getItem('dc2_meta') || 'null'), run: JSON.parse(localStorage.getItem('dc2_run') || 'null') }; } catch (e) { return {}; } };
   let savedN = -1;
   const persist = () => { if (!play || !SIM.persist) return; const p = SIM.persist(play);
-    try { localStorage.setItem('dc_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc_run', JSON.stringify(p.run)); else localStorage.removeItem('dc_run'); } catch (e) { console.warn('save failed', e); } };
+    try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run'); } catch (e) { console.warn('save failed', e); } };
   addEventListener('beforeunload', () => { if (play && play.screen === 'play' && play.run && !play.demo) { play.saved = play.run; persist(); play.saved = null; } });
-  const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; hint.style.opacity = 0; };
+  const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; hint.style.opacity = 0; };
+  // a finished run's log goes to the browser's downloads as crypt-run-<date>.json, for the balance analysis
+  let loggedN = 0;
+  const downloadLog = (res) => { const d = new Date(), pad = (n) => String(n).padStart(2, '0'), stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
+    const body = Object.assign({ date: d.toISOString() }, res.log, { result: Object.assign({}, res, { log: undefined }) });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(body, null, 1)], { type: 'application/json' })); a.download = `crypt-run-${stamp}.json`; a.click(); };
   let play = null, acc = 0, simT = 0, speed = 1, paused = false, stepOnce = false, fps = 60;
-  try { const sv = JSON.parse(sessionStorage.getItem('live') || 'null');                     // restore across live reloads
+  try { const sv = JSON.parse(sessionStorage.getItem('live2') || 'null');                     // restore across live reloads
     if (sv) { simT = sv.simT; speed = sv.speed; paused = sv.paused; if (sv.play) { play = Object.assign(SIM.create(), sv.play); hint.style.opacity = 0; }
       flash.style.opacity = 1; setTimeout(() => (flash.style.opacity = 0), 1200); } } catch (e) {}
-  const save = () => { try { sessionStorage.setItem('live', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
+  if (play) loggedN = play.logN || 0;
+  const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
     if (c === 'KeyP') { paused = !paused; e.preventDefault(); return; }
@@ -67,7 +75,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   addEventListener('contextmenu', (e) => e.preventDefault());
   const toView = (e) => { const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * VW; ptr.y = (e.clientY - r.top) / r.height * VH; };
   addEventListener('pointermove', toView);
-  addEventListener('pointerdown', (e) => { toView(e); if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } if (!play) startPlay(); });
+  addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
+    if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; });
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
@@ -82,6 +91,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
         jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys };
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
+      if ((play.logN || 0) !== loggedN) { loggedN = play.logN || 0; if (play.result && play.result.log) downloadLog(play.result); }
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
       SCENE.state = play;
     } else SCENE.state = null;

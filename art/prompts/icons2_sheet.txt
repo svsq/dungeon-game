@@ -1,0 +1,3 @@
+Use case: four more inventory item icons for the same dungeon RPG. Image 1 is the style reference only. Image 2 is the game's item icon sheet: match its icons exactly in style, size (about 16x16 art pixels), outline, palette and shading.
+Subject: 4 separate icons in one row with wide empty gaps, each centred in its cell: a small round iron buckler with a central steel boss; a tall rectangular wooden tower shield reinforced with iron bands and rivets; a pair of brown leather gloves; a pair of steel plate boots (greaves and sabatons) with gold trim.
+Constraints: icons separate and complete, nothing touching, transparent background, no panels, no frames, no glow, no text.

@@ -1,0 +1,7 @@
+Use case: door pieces for a top-down 3/4 dungeon game (Image 1 is the style reference only; Image 2 is the game's door leaf seen face-on: match its planks, iron bands, rivets, ring handle, outline and pixel density exactly; Image 3 shows the edge-on viewing angle to copy for pieces 1 and 2, ignore its stone blocks).
+Subject: 3 separate pieces in one row with wide empty gaps, all on one shared ground line, lit from the top-left:
+1. the leaf of Image 2 standing upright, turned 90 degrees so it runs away from the camera, seen from above-left: a tall narrow slanted piece showing its left face (planks running up, the two iron bands, the ring) and its top edge, exactly the angle of the wooden door in Image 3, with NO stone blocks;
+2. the same leaf turned the other way, seen from above-right, showing its right face and top edge, still lit from the top-left;
+3. a short heavy black iron bar with two square iron brackets at its ends, front view, as wide as the leaf of Image 2.
+Scale: pieces 1 and 2 are exactly as tall as the wooden door in Image 3; the bar is a sixth of the leaf's height.
+Constraints: no stone, no frame, no floor, no wall, no shadows on the ground, no glow, every piece complete and separate, nothing touching.

@@ -81,6 +81,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
     return { fb, t, w, h, vw: view[0], vh: view[1] };
   };
+  G.free = (tg) => { if (!tg) return; gl.deleteFramebuffer(tg.fb); gl.deleteTexture(tg.t); };
   G.bind = (tg, clear) => {
     cur = tg; gl.bindFramebuffer(gl.FRAMEBUFFER, tg ? tg.fb : null);
     gl.viewport(0, 0, tg ? tg.w : G.W, tg ? tg.h : G.H);

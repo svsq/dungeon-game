@@ -4,12 +4,13 @@
 // blade. Writes a contact sheet per swing. Then, on SCENE.QA().impacts (the damage frame all round, a body on the target): the blade
 // stays visible over the body (pixels it changes with the target vs without), and it projects shorter when it strikes toward or
 // away from the camera. Last, the walk cycles draw the view they travel in (hero_up from behind, the rest from the front).
-// Exit 2 when a hand moves more than HAND_MAX px in one frame, the blade turns back by more than BACK_MAX, or any check fails.
+// Exit 2 when a hand moves more than HAND_MAX px in one frame, the blade turns back by more than BACK_MAX while showing most of its
+// length, turns more than TURN_MAX over a swing, the trail sits off the aim or peaks off the damage frame, or any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), out = args.includes('--out') ? args[args.indexOf('--out') + 1] : 'frames/swing';
-const HAND_MAX = 36, BACK_MAX = 0.35;  // px/frame outside the strike: an eased wind-up overhead peaks near 33, the old one-frame breaks were 41–47; rad/frame against the swing: the lift back to guard is ≤ 0.34, the old back-sweep 0.9+
+const HAND_MAX = 36, BACK_MAX = 0.12, VIS_LEN = 0.6, TURN_MAX = 1.4 * Math.PI, TRAIL_ERR = 25 * Math.PI / 180;  // px/frame outside the strike: an eased wind-up overhead peaks near 33, the old one-frame breaks were 41–47; rad/frame against the swing while the blade shows more than VIS_LEN of its length (a blade turned to the camera may travel home); the blade's visible turn over a swing; the trail's middle off the aim on its brightest frame
 fs.mkdirSync(out, { recursive: true });
 const root = process.cwd(), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
 const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0]));
@@ -24,31 +25,38 @@ await p.evaluate(() => { window.__QA = SCENE.QA(); });
 const names = await p.evaluate(() => Object.keys(window.__QA.swings || {}));
 let fails = 0; const rep = {};
 for (const name of names) {
-  const fr = [], trail = [];
+  const fr = [], trail = [], fxs = [];
   const n = await p.evaluate((nm) => window.__QA.swings[nm].length, name);
   for (let i = 0; i < n; i++) {
     const r = await p.evaluate(([nm, i]) => { const st = window.__QA.swings[nm][i]; LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE.hero, fx = LIB.TRACE.hero_fx; LIB.TRACE = null;
       const h = st.run.hero, c = st.run.cam, T = st.t - h.atkT, sw = SCENE.swingPose(T, h.face > 0 ? h.atkA : Math.PI - h.atkA, SIM.stats(h, st.meta).arc * Math.PI / 180, -0.95);
-      return { j, fx, strike: T >= SCENE.SWING.pull && T < sw.Ts + 1 / 60, box: [(h.x - c[0]) * (DATA.ZOOM || 1) - 135, (h.y - c[1]) * (DATA.ZOOM || 1) - 195, 270, 255] }; }, [name, i]);
+      return { j, fx, T, hit: SIM.K.HIT, strike: T >= SCENE.SWING.pull && T < sw.Ts + 1 / 60, box: [(h.x - c[0]) * (DATA.ZOOM || 1) - 135, (h.y - c[1]) * (DATA.ZOOM || 1) - 195, 270, 255] }; }, [name, i]);
     const shot = await p.screenshot({ clip: { x: r.box[0], y: r.box[1], width: r.box[2], height: r.box[3] } });
     fs.writeFileSync(path.join(out, `${name}_${String(i).padStart(2, '0')}.png`), shot);
-    fr.push(Object.assign(r.j || {}, { strike: r.strike })); trail.push(r.fx && r.fx.trail ? Math.atan2(r.fx.trail[1] - r.fx.trailC[1], r.fx.trail[0] - r.fx.trailC[0]) : null);
+    fr.push(Object.assign(r.j || {}, { strike: r.strike, T: r.T, hit: r.hit })); trail.push(r.fx && r.fx.trail ? Math.atan2(r.fx.trail[1] - r.fx.trailC[1], r.fx.trail[0] - r.fx.trailC[0]) : null);
+    fxs.push(r.fx || null);
   }
   const rel = (f, k) => [f[k][0] - f.ground[0], f[k][1] - f.ground[1]];
   let hand = 0, tip = 0, handAt = 0; const ang = [];
   for (let i = 0; i < fr.length; i++) { const f = fr[i]; if (!f || !f.grip || !f.tip) { ang.push(null); continue; } ang.push(Math.atan2(f.tip[1] - f.grip[1], f.tip[0] - f.grip[0]));
     if (i && fr[i - 1] && fr[i - 1].grip) { const dh = Math.hypot(...rel(f, 'handR').map((v, k) => v - rel(fr[i - 1], 'handR')[k])), dt = Math.hypot(...rel(f, 'tip').map((v, k) => v - rel(fr[i - 1], 'tip')[k]));
       if (!f.strike && !fr[i - 1].strike && dh > hand) { hand = dh; handAt = i; } tip = Math.max(tip, dt); } }   // the strike itself is meant to be fast
-  // the dominant turning direction over the strike, then the largest turn against it afterwards
+  // the dominant turning direction over the strike, then the largest turn against it after the strike while the blade shows most of its
+  // length (turned flat toward the camera it may travel home), and the blade's visible turn over the whole swing
+  const len = fr.map((f) => f && f.grip && f.tip ? Math.hypot(f.tip[0] - f.grip[0], f.tip[1] - f.grip[1]) : 0), lmax = Math.max(...len);
   const d = []; for (let i = 1; i < ang.length; i++) if (ang[i] !== null && ang[i - 1] !== null) { let x = ang[i] - ang[i - 1]; x -= 2 * Math.PI * Math.round(x / (2 * Math.PI)); d.push(x); } else d.push(0);
-  const big = d.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0), sgn = Math.sign(big); let back = 0;
-  for (const x of d) if (Math.sign(x) === -sgn) back = Math.max(back, Math.abs(x));
+  const big = d.reduce((a, b) => (Math.abs(b) > Math.abs(a) ? b : a), 0), sgn = Math.sign(big), at = d.indexOf(big); let back = 0, turn = 0;   // the wind-up before the strike turns against it by design
+  d.forEach((x, k) => { const vis = Math.min(len[k], len[k + 1]) > VIS_LEN * lmax; if (!vis) return; turn += Math.abs(x); if (k > at && Math.sign(x) === -sgn) back = Math.max(back, Math.abs(x)); });
   // the trail's leading end turns about its centre the way the blade turns (a trail sweeping backwards reads as a second swing)
   let tsum = 0; for (let i = 1; i < trail.length; i++) if (trail[i] !== null && trail[i - 1] !== null) { let x = trail[i] - trail[i - 1]; x -= 2 * Math.PI * Math.round(x / (2 * Math.PI)); tsum += x; }
   const trailOk = Math.abs(tsum) > 0.3 && Math.sign(tsum) === sgn;
-  rep[name] = { ang: ang.map((a) => a === null ? null : +a.toFixed(2)), handMax: +hand.toFixed(1), handAt, tipMax: +tip.toFixed(1), backPerFrame: +back.toFixed(2), trailTurn: +tsum.toFixed(2) };
-  const bad = hand > HAND_MAX || back > BACK_MAX || !trailOk; if (bad) fails++;
-  console.log(`${bad ? 'FAIL' : 'ok  '} ${name}: hand ≤ ${hand.toFixed(1)} px/frame outside the strike (@${handAt}), tip ≤ ${tip.toFixed(1)} px/frame, back ≤ ${back.toFixed(2)} rad/frame, trail turns ${tsum.toFixed(2)} rad${trailOk ? '' : ' (against the blade)'}`);
+  // the trail sits on the aim and peaks on the damage frame: its middle within TRAIL_ERR of the aim on its brightest frame
+  let pk = -1; fxs.forEach((f, k) => { if (f && f.trailA && (pk < 0 || f.trailA[0] > fxs[pk].trailA[0])) pk = k; });
+  const P = pk >= 0 ? fxs[pk] : null, err = P ? Math.abs(Math.atan2(Math.sin(Math.atan2(P.trailMid[1] - P.trailC[1], P.trailMid[0] - P.trailC[0]) - Math.atan2(P.aim[1] - P.trailC[1], P.aim[0] - P.trailC[0])), Math.cos(Math.atan2(P.trailMid[1] - P.trailC[1], P.trailMid[0] - P.trailC[0]) - Math.atan2(P.aim[1] - P.trailC[1], P.aim[0] - P.trailC[0])))) : 9;
+  const late = P ? (fr[pk].T - fr[pk].hit) * 60 : 9, placeOk = err <= TRAIL_ERR && Math.abs(late) <= 1.01;
+  rep[name] = { len: len.map((v) => +v.toFixed(1)), ang: ang.map((a) => a === null ? null : +a.toFixed(2)), handMax: +hand.toFixed(1), handAt, tipMax: +tip.toFixed(1), backPerFrame: +back.toFixed(2), turn: +turn.toFixed(2), trailTurn: +tsum.toFixed(2), trailErrDeg: +(err * 180 / Math.PI).toFixed(1), trailPeakFrames: +late.toFixed(2) };
+  const bad = hand > HAND_MAX || back > BACK_MAX || turn > TURN_MAX || !trailOk || !placeOk; if (bad) fails++;
+  console.log(`${bad ? 'FAIL' : 'ok  '} ${name}: hand ≤ ${hand.toFixed(1)} px/frame outside the strike (@${handAt}), tip ≤ ${tip.toFixed(1)} px/frame, back ≤ ${back.toFixed(2)} rad/frame, turn ${turn.toFixed(2)} rad, trail turns ${tsum.toFixed(2)} rad${trailOk ? '' : ' (against the blade)'}, trail ${(err * 180 / Math.PI).toFixed(0)}° off the aim, peak ${late >= 0 ? '+' : ''}${late.toFixed(1)} frames from the hit`);
 }
 // ---- impacts: the blade over the body it hits, and its length by direction ----
 const VIS_MIN = 0.5, DEPTH_MAX = 0.9;   // share of the blade's own pixels still drawn over the body; vertical / horizontal blade length
