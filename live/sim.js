@@ -151,7 +151,7 @@
     // thorns: a share of a blow taken at close quarters goes back into whoever struck it (not into a caster's bolt)
     if (gift(h, 'thorns') && e.deadT < 0 && Math.hypot(e.x - h.x, e.y - h.y) < 150) hitEnemy(S, R, e, Math.max(1, Math.round(h.lastHit * gift(h, 'thorns') / 100)), 0, h.x, h.y, 0, 'thorns');
     if (!e.mods) return;
-    if (has(e, 'fiery')) { h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); h.burnT = Math.min(h.burnT ?? -9, S.t - 0.5); }
+    if (has(e, 'fiery')) { if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); }   // a fresh blow only extends the fire, the ticks keep their pace
     if (has(e, 'vampire') && e.deadT < 0) { const n = Math.round(e.max * MOD.vampire.heal); e.hp = Math.min(e.max, e.hp + n);
       ev(S, { k: 'drain', x: h.x, y: h.y - 40, tx: e.x, ty: e.y - ENEMIES[e.type].h * 0.5, n, id: e.id }); }
   }
@@ -369,7 +369,7 @@
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
     if (kind === 'poison') h.poison = S.t + 3;
-    if (kind === 'fire') h.burn = S.t + 3;
+    if (kind === 'fire') h.burn = Math.max(h.burn, S.t + 3);
     ev(S, { k: "hurt", x: h.x, y: h.y - 40, n: dmg, src: src || kind || '?' });
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
     if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
@@ -653,7 +653,7 @@
     h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT);
     if (h.poison > t) { h.hp -= 2.5 * st.resist * DT; if (h.hp <= 1) h.hp = 1; if (R.log) add(logFloor(R).dmg, 'poison', 2.5 * st.resist * DT); }
     // a fire hex sets the hero alight: a tick every 0.5 s for 3 s, past the invulnerability window like poison, never the killing blow
-    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((2 + 0.4 * R.floor) * st.resist)); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn' }); }
+    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((1.5 + 0.3 * R.floor) * st.resist * dif(R, 'dmg'))); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn' }); }
     if (h.shield > 0 && t > h.shieldUntil) h.shield = 0;
     // spikes: up for 0.7 s of every 2.4 s; a plate is 2×2 cells, feet a little inside its edge count
     for (const tr of m.traps) { const ph = ((t / 2.4 + tr.ph) % 1 + 1) % 1, up = ph < 0.29;
