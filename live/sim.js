@@ -562,7 +562,7 @@
       R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: P.room, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
         cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
       ev(S, { k: 'summon', x, y }); n++; }
-    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: 'Засада!', t: S.t };
+    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: 'Засада!', t: S.t, d: 2, room: P.room };
   }
   // a door opens to a press of E or a blow (a kick, it flies open), unless it is locked: a key the hero carries opens the lock for
   // good, a lever opens every door of its lock at once
@@ -664,6 +664,7 @@
     for (const P of m.ambush || []) if (!P.fired && Math.abs(h.x - P.x) < 13 && Math.abs(h.y - P.y) < 13) springAmbush(S, R, P);
     // ---- status ----
     const rIn = reveal(R);
+    if (R.msg && R.msg.room !== undefined && rIn !== R.msg.room && !R.msg.outT) R.msg.outT = t;   // a room's alarm is about that room only
     if (m.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y); if (d < 230 && R.shop.away) { R.shop.away = 0; R.shop.greetT = t; } else if (d > 360) R.shop.away = 1; }
     if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
@@ -993,8 +994,8 @@
       return;
     }
     if (S.screen === 'dead' || S.screen === 'win') {
-      const b = D.hitUI(UI.end(), x, y); S.hover = b ? b.id : '';
-      if (click && b) { if (b.id === 'menu') S.screen = 'menu'; else startCampaign(S); }
+      const b = D.hitUI(UI.end(S.result && S.result.log), x, y); S.hover = b ? b.id : '';
+      if (click && b && b.on) { if (b.id === 'log') { S.logReq = (S.logReq || 0) + 1; ev(S, { k: 'ui', x, y }); } else if (b.id === 'menu') S.screen = 'menu'; else startCampaign(S); }
       return;
     }
     if (S.screen === 'altar') {
