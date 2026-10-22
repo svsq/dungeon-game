@@ -1,6 +1,7 @@
 # hero tone (TASKS 166): the concept's hero is steel with dark brown hair and a deep crimson cape, red nowhere else: the plate
 # torso's red tabard flap becomes dark steel, the orange hair dark brown (#5a3220) and the bright red cape and scarf deep crimson.
-# Rebuilds from art/old/herotone/ so it can be re-run
+# Rebuilds from art/old/herotone/ so it can be re-run, which silently overwrites any later hand edit of art/gen/hero__body*
+# and hero__cape*: edit the originals in art/old/herotone/ instead, or delete them there to make the current art the new source
 import os, shutil, numpy as np; from PIL import Image
 SRC, DST = 'art/old/herotone', 'art/gen'
 # the *_w files are the soft-bone weight maps of the same parts, not art: they keep their values
