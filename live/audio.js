@@ -103,6 +103,11 @@
     absorb: (o) => tone(o, { type: 'triangle', f0: 1400, f1: 1100, d: 0.18, v: 0.1 }),
     bless: (o) => [392, 494, 587, 784].forEach((f) => { tone(o, { f0: f, a: 0.4, d: 1.4, v: 0.07 }); tone(o, { f0: f, a: 0.4, d: 1.4, v: 0.04, det: 9 }); }),
     teleport: (o) => { tone(o, { f0: 260, f1: 1600, a: 0.05, d: 0.6, v: 0.12 }); noise(o, { a: 0.1, d: 0.5, v: 0.15, f0: 900, f1: 5000, q: 3 }); },
+    // stairs: footfalls going down stone steps, each lower and further; the floor altar: a low hum under a dark bell
+    stairs: (o) => { for (let i = 0; i < 4; i++) { const t = now() + i * 0.17; tone(o, { f0: 130 - i * 14, f1: 60 - i * 6, t, d: 0.12, v: 0.32 - i * 0.05 }); noise(o, { t, d: 0.07, v: 0.16 - i * 0.025, type: 'lowpass', f0: 900 - i * 120 }); }
+      noise(o, { t: now() + 0.05, a: 0.1, d: 0.6, v: 0.06, type: 'lowpass', f0: 500, f1: 150 }); },
+    altar: (o) => { tone(o, { f0: 73, a: 0.25, d: 1.6, v: 0.22 }); tone(o, { f0: 110, a: 0.25, d: 1.4, v: 0.1, det: 7 });
+      [294, 440].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.1 + i * 0.18, d: 1.3, v: 0.07 })); },
     floor: (o) => { tone(o, { f0: 98, f1: 92, a: 0.01, d: 1.8, v: 0.3 }); tone(o, { type: 'triangle', f0: 196, a: 0.01, d: 1.6, v: 0.08, det: 6 }); },
     roar: (o) => { const t = now(), s = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
       s.type = 'sawtooth'; s.frequency.setValueAtTime(95, t); s.frequency.exponentialRampToValueAtTime(55, t + 1.3); lfo.frequency.value = 23; lg.gain.value = 18; lfo.connect(lg); lg.connect(s.frequency);

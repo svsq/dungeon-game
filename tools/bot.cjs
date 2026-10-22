@@ -102,10 +102,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
     else { const round = pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
       if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round); else inp.press = 1; }
-    if (td > 140 && td < 330 && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)) inp.slot = 2;
+    if (h.ab.fireball && td > 140 && td < 330 && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)) inp.slot = 2;
     if (h.cd.whirl <= S.t && live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= P.whirl) inp.slot = 1;
-    if (P.shield && h.ab.shield && h.cd.shield <= S.t && h.hp < st.maxHp * P.shield) inp.slot = 3;
-    if (P.mp && h.mp < 12 && td < 330) inp.keys.push('KeyR');
+    if (P.shield && h.ab.shield && h.cd.shield <= S.t && h.mp >= D.ABILITIES.find((a) => a.id === 'shield').mp && h.hp < st.maxHp * P.shield) inp.slot = 3;
+    if (P.mp && h.mp < 12 && td < 330 && held(h, 'mp_potion')) inp.keys.push('KeyR');
   }
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
   function trade(R, h) {

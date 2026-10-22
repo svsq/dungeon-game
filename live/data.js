@@ -194,7 +194,7 @@
   ];
   // an altar stands on every second floor, so it is paid from two floors' takings: a bot reaches the floor-2 altar with ~12 shards,
   // so the middle gift is within reach at every altar (TASKS 183), the dear one takes three floors or more
-  const giftCost = (tier, f) => Math.round([0, 4, 9, 20][tier] * (1 + 0.15 * (f - 1)));
+  const giftCost = (tier, f) => Math.round([0, 4, 9, 16][tier] * (1 + 0.15 * (f - 1)));
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
@@ -223,7 +223,7 @@
   const UI = {
     menu: (hasRun, diff, arm, zoom) => {
       const items = [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 8 этажей' : arm ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
-        ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['endless', 'Бесконечный спуск (WIP)', false], ['meta', 'Алтарь душ', true]];
+        ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['meta', 'Алтарь душ', true]];
       return items.map(([id, label, on], i) => ({ id, label, on, x: 760, y: 440 + i * 86, w: 400, h: 72 }));
     },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
@@ -231,7 +231,7 @@
       { id: 'dbg_loot', label: S && S.dbgLoot ? 'Убрать подсветку лута' : 'Подсветить лут', on: true, x: 970, y: 16, w: 430, h: 60 }],
     pause: (zoom) => [['resume', 'Продолжить'], ['zoom', 'Масштаб: ' + zoomName(zoom)], ['save', 'Сохранить и выйти в меню'], ['abandon', 'Сдаться (конец забега)']]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 430 + i * 92, w: 480, h: 72 })),
-    end: () => [['menu', 'В главное меню'], ['again', 'Новый забег']].map(([id, label], i) => ({ id, label, on: true, x: 600 + i * 380, y: 920, w: 340, h: 72 })),
+    end: (hasLog) => [['menu', 'В главное меню', true], ['again', 'Новый забег', true], ['log', 'Сохранить журнал', !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
     meta: () => META.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / 5) * 800, y: 270 + (i % 5) * 112, w: 760, h: 96 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 870, w: 300, h: 70 }]),
     // a dungeon altar: its three gifts side by side, cheapest first
     altar: () => { const P = { x: 360, y: 190, w: 1200, h: 700 };
