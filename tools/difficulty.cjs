@@ -49,10 +49,10 @@ const bossOf = (a) => { const l = a.map((r) => (r.floors.find((f) => f.floor ===
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // on normal the yardstick is pressure, not losses (the player's call): the average player drinks a potion or two a floor and drops
 // to a quarter or so of the health on every floor, and no single floor is where the runs end
-// (the 2nd floor may be lighter than the 1st: the 1st does not always give decent gear, the player's call — its potion floor is lower)
+// (the 2nd floor may be lighter than the 1st: the 1st does not always give decent gear, the player's call — its potion floor is lower; the 7th's blows come rarer and bigger, so its lowest health sits higher)
 const BANDS = {
   easy: { average: { win: [0.85, 1] } },
-  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] } }, deathShare: 0.25, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30] }, expert: { win: [0, 0.85] } },
+  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] } }, deathShare: 0.25, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30] }, expert: { win: [0, 0.85] } },
   hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] } } };
 function check() {
   const miss = [], B = BANDS[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
