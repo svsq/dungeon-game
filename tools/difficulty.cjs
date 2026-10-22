@@ -26,6 +26,17 @@ function report() {
     const top = Array.from({ length: FLOORS }, (_, i) => { const t = {}; for (const r of a) { const f = r.floors.find((q) => q.floor === i + 1); for (const g in (f && f.dmg) || {}) t[g] = (t[g] || 0) + f.dmg[g]; }
       const g = Object.keys(t).sort((x, y) => t[y] - t[x])[0]; return g || '-'; }).join(' ');
     console.log([p, k + 1, perFloor(a, (f) => Math.round((f.minhp ?? 1) * 100), 0), perFloor(a, (f) => f.hits || 0, 0), perFloor(a, (f) => f.hpPot || 0, 1), perFloor(a, (f) => f.mpPot || 0, 1), GROUPS.map((g) => Math.round((tot[g] || 0) / sum * 100) + '%').join(' / '), top].join(' | ')); }
+  // the shard economy: found in the run, the end-of-run bonus, gifts taken at altars, floors' categories at 100%, potions left in the bag
+  console.log('\nprofile | run | shards found | end reward | gifts | full categories by floor | secrets found by floor | hp pot left');
+  for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
+    console.log([p, k + 1, avg(a, (r) => r.result.found || 0).toFixed(1), avg(a, (r) => (r.result.base || 0) + (r.result.statBonus || 0)).toFixed(1), avg(a, (r) => r.gifts).toFixed(1),
+      perFloor(a, (f) => f.full || 0, 1), perFloor(a, (f) => (f.secN ? f.sec / f.secN : 1) * 100, 0), avg(a, (r) => r.potLeft || 0).toFixed(1) + ' (found ' + avg(a, (r) => r.potFound || 0).toFixed(1) + ', bought ' + avg(a, (r) => r.potBought || 0).toFixed(1) + ')'].join(' | ')); }
+  // at each altar: the bank on arrival, the tier-2 gift's price, the share of visits that could pay for it
+  console.log('\nprofile | run | altar floor: bank / tier-2 price / can pay');
+  for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
+    const fl = [...new Set(a.flatMap((r) => (r.altars || []).map((q) => q.f)))].sort((x, y) => x - y);
+    console.log([p, k + 1, fl.map((f) => { const l = a.flatMap((r) => (r.altars || []).filter((q) => q.f === f));
+      return `f${f}: ${avg(l, (q) => q.bank).toFixed(0)} / ${avg(l, (q) => q.c2).toFixed(0)} / ${Math.round(avg(l, (q) => q.bank >= q.c2) * 100)}%`; }).join('  ')].join(' | ')); }
 }
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
