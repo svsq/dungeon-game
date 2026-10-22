@@ -14,11 +14,11 @@
   const BIOMES = {
     dungeon: { name: 'Подземелье', rock: [0.06, 0.042, 0.036], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0.08], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
-    crypt: { name: 'Крипты', rock: [0.04, 0.05, 0.043], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0.07], amb: [0.07, 0.11, 0.09], torch: [0.35, 1.0, 0.4], fill: 0.05, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    crypt: { name: 'Крипты', rock: [0.04, 0.05, 0.043], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0.07], amb: [0.07, 0.11, 0.09], torch: [0.35, 1.0, 0.4], fill: 0.08, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.86, 0.98, 0.9], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
     lava: { name: 'Огненные глубины', rock: [0.08, 0.043, 0.03], vein: [1.0, 0.38, 0.08, 0.14], seam: 1.4, amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
-    arcane: { name: 'Чертоги', rock: [0.038, 0.04, 0.056], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0.1], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.15, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    arcane: { name: 'Чертоги', rock: [0.038, 0.04, 0.056], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0.1], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.68, 0.78, 1.12], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
   };
   const FLOORS = 8;
