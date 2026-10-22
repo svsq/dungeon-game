@@ -765,7 +765,7 @@
       if (pc === 5 && p.own === 'hero') { const d = doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) openDoor(S, R, d, 1); }
       let boom = wall || age > p.life;
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
-      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { if (!p.vol || R.volHit !== p.vol) hurtHero(S, R, p.dmg, p.x, p.y, p.k, (p.who || '?') + ' снаряд'); if (p.vol) R.volHit = p.vol; struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.k, (p.who || '?') + ' снаряд'); if (p.vol) for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
@@ -814,7 +814,7 @@
       } else if (e.st === 'wind') {
         skid(m, e, E); const w = E.wind * eliteK(e, 'wind');
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
-          if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * (e.elite ? 0.8 : 1), own: 'en', r: 6 });
+          if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
             ev(S, { k: "eshoot", x: e.x, y: e.y - 44, id: e.id }); }
           else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e)); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
           else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e)); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
@@ -894,7 +894,7 @@
           if (solidAt(m, x, y, true)) continue; const E2 = ENEMIES.skeleton;
           R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp: E2.hp * 4 * BAL.hp, max: E2.hp * 4 * BAL.hp, dmg: E2.dmg * 2 * BAL.dmg, elite: 0, room: e.room, st: 'chase', t0: t, face: 1, aimA: 0, cdT: t + 1, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 1, spawnT: t });
           ev(S, { k: 'summon', x, y }); } } }
-      if (u > w + (e.mv === 'charge' ? 0.7 : 0.4)) { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (rage ? 0.65 : 1.5); } }
+      if (u > w + (e.mv === 'charge' ? 0.7 : 0.4)) { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + ENEMIES.boss.rest[rage ? 1 : 0]; } }
   }
   // the sprite boxes of the solid props (half width, height, standing on the prop's foot): an item that lies behind one (above its
   // foot, so the prop draws after it) inside its box cannot be seen, so it hops to the nearest open spot instead
@@ -1330,19 +1330,23 @@
         for (let i = 0; i < 120 * MOD.explosive.fuse * 0.8; i++) step(S, { keys: [] }); if (h.hp < a) out.push('an explosive elite bursts before its fuse is out');
         for (let i = 0; i < 120 * 0.5; i++) step(S, { keys: [] });
         if ((h.hp < a) !== !!near) out.push(near ? "an explosive elite's corpse does not hurt the hero in reach" : "an explosive elite's corpse hurts the hero out of reach"); }
-      // no blow takes more than its cap of the health: every kind's strike, blast and bolt on the first and the last floor, and a
-      // real elite strike through the sim
-      const f0 = R.floor, lose = (src) => { put(); h.ifr = 0; const a = h.hp; for (let i = 0; i < 50 && h.hp === a; i++) hurtHero(S, R, 1e6, h.x + 20, h.y, undefined, src); return (a - h.hp) / heroSt(S).maxHp; };
+      // no blow takes more than its cap of the health: the real strike of an elite of every kind (a caster's bolt, the boss's moves)
+      // and an explosive corpse's blast, on the first and the last floor
+      const f0 = R.floor, first = (secs) => { const mx = heroSt(S).maxHp; let lost = 0;
+        for (let i = 0; i < 120 * secs && !lost; i++) { const a = h.hp; step(S, { keys: [] }); lost = (a - h.hp) / mx; } return lost; };
       for (const f of [1, D.FLOORS]) { R.floor = f;
-        for (const type in ENEMIES) for (const src of [who({ type, elite: 1 }), who({ type, elite: 1 }) + ' взрыв', who({ type, elite: 1 }) + ' снаряд']) {
-          const l = lose(src), cap = type === 'boss' ? BAL.cap.boss : BAL.cap.blow; if (l > cap + 0.01) out.push(`f${f}: a blow of ${src} takes ${Math.round(l * 100)}% of the health, over ${cap * 100}%`); } }
-      R.floor = f0; put(); el(['fiery'], 30, { dmg: 1e5 }); const mx = heroSt(S).maxHp; let lost = 0;
-      for (let i = 0; i < 120 * 3 && !lost; i++) { const a = h.hp; step(S, { keys: [] }); lost = (a - h.hp) / mx; }
-      put(); h.ifr = 0; R.volHit = 0; let wounds = 0;
-      for (let i = 0; i < 2; i++) R.proj.push({ id: R.nextId++, vol: 1e7, who: 'boss', k: 'fire', x: h.x + 4 * i, y: h.y - 38, vx: 0, vy: 0, t0: S.t, life: 1, dmg: 10, own: 'en', r: 9 });
-      for (let i = 0; i < 12; i++) { step(S, { keys: [] }); wounds += S.ev.filter((q) => q.k === 'hurt' && q.t === S.t).length; }
-      if (wounds !== 1 && !S.ev.some((q) => q.k === 'dodge')) out.push(`two bolts of one boss volley wound the hero ${wounds} times, not once`);
-      if (!lost) out.push('a capped elite never strikes the hero'); else if (lost > BAL.cap.blow + 0.01) out.push(`an elite's real blow takes ${Math.round(lost * 100)}% of the health, over the cap`); }
+        for (const type in ENEMIES) { put(); el([], type === 'cultist' ? 120 : 40, { type, dmg: 1e5 }); const l = first(6), cap = type === 'boss' ? BAL.cap.boss : BAL.cap.blow;
+          if (!l) out.push(`f${f}: an elite ${type} never strikes the hero`); else if (l > cap + 0.01) out.push(`f${f}: an elite ${type}'s blow takes ${Math.round(l * 100)}% of the health, over ${cap * 100}%`); }
+        put(); const ex = el(['explosive'], 60, { cdT: 1e9, hp: 1, dmg: 1e5 }); hitEnemy(S, R, ex, 5, false, h.x, h.y); const l = first(MOD.explosive.fuse + 0.5);
+        if (l > BAL.cap.blow + 0.01) out.push(`f${f}: an explosive corpse takes ${Math.round(l * 100)}% of the health, over the cap`); }
+      R.floor = f0;
+      // a volley wounds once, and a bolt of an earlier volley still in flight does not wound again after a later volley's bolt
+      const bolt = (vol, dx) => { const p = { id: R.nextId++, vol, who: 'boss', k: 'fire', x: h.x + dx, y: h.y - 38, vx: 0, vy: 0, t0: S.t, life: 2, dmg: 10, own: 'en', r: 9 }; R.proj.push(p); return p; };
+      const wounds = (n) => { let w = 0; for (let i = 0; i < n; i++) { step(S, { keys: [] }); w += S.ev.filter((q) => q.k === 'hurt' && q.t === S.t && q.src === 'boss снаряд').length; } return w; };
+      put(); bolt(1e7, 0); bolt(1e7, 4); let w = wounds(12);
+      if (w !== 1 && !S.ev.some((q) => q.k === 'dodge')) out.push(`two bolts of one boss volley wound the hero ${w} times, not once`);
+      put(); bolt(2e7, 0); bolt(3e7, 0); const late = bolt(2e7, 100); w = wounds(12); late.x = h.x; late.y = h.y - 38; w += wounds(12);
+      if (w !== 2 && !S.ev.some((q) => q.k === 'dodge')) out.push(`bolts of two interleaved volleys wound the hero ${w} times, not twice`); }
     // the hero and a monster side by side against the same wall above them still reach each other
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, m = R.map, h = R.hero, rm = m.rooms.find((q) => q.id !== m.start && q.w >= 6), y = rm.y * TILE + 5, x = (rm.x + 2) * TILE;

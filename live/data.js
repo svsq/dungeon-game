@@ -33,8 +33,9 @@
     cultist: { name: 'Культист', hp: 26, dmg: 9, spd: 56, r: 13, reach: 305, wind: 0.55, cd: 2.0, xp: 10, kind: 'caster', h: 84, rim: [0.5, 1, 0.4], val: 0.55 },
     ghost: { name: 'Призрак', hp: 28, dmg: 7, spd: 60, r: 13, reach: 30, wind: 0.45, cd: 1.3, xp: 9, kind: 'melee', h: 74, ghost: 1, blood: 'ecto' },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112 },
-    // the finale: a fight of ~25 s that costs about two healths and a potion or two (TASKS 215)
-    boss: { name: 'Повелитель Демонов', hp: 1200, dmg: 28, spd: 48, r: 36, reach: 56, wind: 0.8, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
+    // the finale: a fight of ~25 s that costs about two healths and a potion or two (TASKS 215); rest: the pause after a move, calm
+    // and in rage
+    boss: { name: 'Повелитель Демонов', hp: 1200, dmg: 28, spd: 48, r: 36, reach: 56, wind: 0.8, cd: 1.6, xp: 300, kind: 'boss', h: 180, rest: [1.5, 0.65] },
   };
 
   // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2);
@@ -57,8 +58,9 @@
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
   // guards: the floors with an elite brute guarding the exit; the 7th has one too, else the last floor before the boss went
   // unguarded (TASKS 214). guard: the exit guard's health and blows by floor; the first one, on the 2nd floor, alone took a player
-  // through 3.3 times his health, the steepest step of the run (TASKS 180)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [2, 4, 6, 7], guard: { 2: 0.85 } };
+  // through 3.3 times his health, the steepest step of the run (TASKS 180). bolt: an elite caster's bolt, else it took 34–36 % of
+  // the health (TASKS 201)
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [2, 4, 6, 7], guard: { 2: 0.85 } };
   // the boss is an elite too but keeps its own pace
   const eliteK = (e, k) => !e.elite ? 1 : e.type === 'boss' ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
@@ -206,13 +208,16 @@
     cons: (f) => [['hp_potion', 1 + Math.floor(f / 3)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 1 + (f >= 5 ? 1 : 0)]],
     // a legendary showpiece at 12× was bought on the 6th floor by every average run, and the 7th became the calmest floor (TASKS 216)
     rarK: [1, 2, 4, 7, 20],
+    // selling keeps the old legendary 12×: a dearer showpiece must not make every legendary found worth more gold (209)
+    sellK: [1, 2, 4, 7, 12],
     sell: 0.12, buyback: 4,
     lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
       'Монстры ко мне не суются — у меня обереги.', 'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
   };
   const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };
-  const itemPrice = (it, f) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((50 + 30 * it.lvl) * SHOP.rarK[it.rar] / 5) * 5);
-  const sellPrice = (it, f) => Math.max(1, Math.floor(itemPrice(it, f) * SHOP.sell));
+  const price = (it, f, rk) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((50 + 30 * it.lvl) * rk[it.rar] / 5) * 5);
+  const itemPrice = (it, f) => price(it, f, SHOP.rarK);
+  const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
   const UI = {
