@@ -13,16 +13,28 @@
   // a spike per hole [dx, dy, w, h, tex] on the art grid's 2 px (tools/spike.py), the tall one from the back hole drawn first
   const TRAP_SPIKE = [[0, 0, 14, 24, 'trap_spike'], [-5, 6, 10, 18, 'trap_spike_s'], [5, 6, 10, 18, 'trap_spike_s']];
   const FLAME = `
-uniform float u_seed, u_amt; uniform vec3 u_col;
+uniform float u_seed, u_amt, u_mode; uniform vec3 u_col;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y = -q.y;                    // y up, base at q.y = -1
   float t = u_t * 2.2 + u_seed * 13.0, h = (q.y + 1.0) * 0.5;
   float n = fbm(vec2(q.x * 3.0 + u_seed, q.y * 2.4 - t * 2.4));
-  float w = mix(0.62, 0.05, pow(h, 0.9)) * (0.75 + 0.5 * n);
+  float w = mix(0.66, 0.08, pow(h, 0.8)) * (0.8 + 0.4 * n);
   float x = q.x + (n - 0.5) * 0.5 * h + sin(t * 1.7 + q.y * 3.0) * 0.08 * h;
-  float body = smoothstep(w, w * 0.35, abs(x)) * smoothstep(1.0, 0.55, h + (n - 0.5) * 0.4) * smoothstep(-0.02, 0.12, h);
-  float core = smoothstep(w * 0.7, 0.0, abs(x)) * smoothstep(0.75, 0.05, h);
-  vec3 c = mix(u_col * vec3(1.0, 0.55, 0.35), u_col, body); c = mix(c, vec3(1.0, 0.97, 0.88), core);
-  float a = body * u_amt; o = vec4(c * a * 1.5, 0.0); }`;
+  // the body ends low; two tongues lick up out of its top third, each on its own beat
+  float f = min(w - abs(x), 0.62 + (n - 0.5) * 0.3 - h);
+  for (int k = 0; k < 2; k++) { float s = float(k) * 2.0 - 1.0, top = 0.86 + 0.12 * sin(t * (2.3 + 0.6 * float(k)) + s * 1.7) + (n - 0.5) * 0.2;
+    float tx = x - s * (0.2 + 0.06 * sin(t * 1.3 + s)), tw = 0.2 * clamp((top - h) / (top - 0.45), 0.0, 1.0);
+    f = max(f, min(tw - abs(tx), min(top - h, h - 0.4))); }
+  f = min(f, h);
+  // pass 0: a dark rim one art px outside the silhouette (normal blend); pass 1: the fire itself, emissive
+  float px = fwidth(f);
+  if (u_mode < 0.5) { if (f > 0.0 || f < -px) discard; o = vec4(vec3(0.0), 0.55); return; }
+  if (f <= 0.0) discard;
+  // three flat steps on the art grid, no gradient (style bible): white core in the lower 40 %, then yellow, then the outer colour
+  bool warm = u_col.r >= max(u_col.g, u_col.b);
+  vec3 outer = warm ? vec3(0.941, 0.212, 0.016) : u_col * 0.9, mid = warm ? vec3(0.933, 0.839, 0.541) : mix(u_col, vec3(1.0), 0.5);
+  float heat = 1.0 - abs(x) / max(w, 1e-3) - h * 0.6 + (n - 0.5) * 0.35;
+  vec3 c = heat > 0.5 && h < 0.4 ? vec3(1.0, 1.0, 0.96) : heat > 0.2 && h < 0.75 ? mid : outer;
+  o = vec4(c * 1.5 * u_amt, 1.0); }`;
   // a slash crescent: angles a0..a1 (ellipse parameter) around the centre at radius 0.8 of the quad, sharp at both ends and hollow
   // inside, brightest toward the head; u_dark lays a soft dark rim under it so it reads on a lit floor
   const ARC = `
@@ -91,7 +103,7 @@ vec3 abyss(vec2 p){ vec2 q = p / 150.0;
   vec2 g = p / 96.0 + vec2(0.0, u_t * 0.07), cell = floor(g), f = fract(g) - 0.5, j = vec2(hash(cell + 3.1), hash(cell + 7.7)) - 0.5;
   c += u_vein.rgb * 0.5 * smoothstep(0.05, 0.0, length(f - j * 0.7)) * step(0.8, hash(cell)) * (0.5 + 0.5 * sin(u_t * 1.3 + hash(cell) * 40.0)) * 0.12;
   return c; }
-void main(){ vec3 c = texture(u_src, scr(v_px)).rgb, l = texture(u_light, scr(v_px)).rgb;
+void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture(u_light, scr(v_px)).rgb; float em = clamp(1.0 - src.a, 0.0, 1.0);
   // the rim breaks off into the abyss block by block, as the concept's masonry does: the edge is decided per 14 px wall-top block
   vec2 w = (v_px + u_cam) / u_map, wp = floor(v_px / 2.0) * 2.0 + u_cam, bq = floor(wp / 14.0) * 14.0 + 7.0; float vd = texture(u_void, bq / u_map).r;
   vd = smoothstep(0.45, 0.55, vd + (fbm(bq / 22.0) * 0.7 + fbm(bq / 9.0) * 0.3 - 0.5) * 1.4 * min(1.0, vd * 2.5));
@@ -104,7 +116,7 @@ void main(){ vec3 c = texture(u_src, scr(v_px)).rgb, l = texture(u_light, scr(v_
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
-  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55), c * l + seam, s), 1.0); }`;
+  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55), mix(c * l + seam, c * 1.8, em), s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
@@ -720,7 +732,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       drawProp(op > 0.5 ? (c.gold && window.ASSETS.chest_open_gold ? 'chest_open_gold' : 'chest_open') : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier >= 2 ? 1.15 : 1, u: { grade: c.tier === 3 ? [1.2, 1.12, 0, 1.1] : c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 }); }]); }
     // lean: the flame's tip shifted sideways (px), its base stays on the wick
-    const flameB = (x, y, w, hh, col, seed, lean = 0) => { G.blend('add'); G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1.6, u_col: col }, [w, 0, 0, -lean, hh, 0, x - w / 2 + lean, y - hh, 1]); G.blend(); };
+    const flameB = (x, y, w, hh, col, seed, lean = 0) => { const xf = [w, 0, 0, -lean, hh, 0, x - w / 2 + lean, y - hh, 1];
+      G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col, u_mode: 0 }, xf);
+      G.blend('emit'); G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col, u_mode: 1 }, xf); G.blend(); };
     // a struck fire flares and leans away from the blow, swings back past upright once and settles
     const blown = (id, hh) => { const e = knocked[id], a = e ? GT - e.t : 9; return a < 1.2 ? { fl: 1 + 0.55 * Math.exp(-4 * a), lean: e.s * hh * 0.45 * Math.exp(-3.5 * a) * Math.cos(7 * a) } : { fl: 1, lean: 0 }; };
     // the secrets' covers: a banner that sways in the draught and falls when torn, a bookshelf that breaks; a wall worked by a
@@ -864,7 +878,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     G.blend('add');
     if (lavaXf) G.draw(L.P.lava, lavaU(1), lavaXf);
     if (waterXf) G.draw(L.P.pool, waterU(1), waterXf);
-    const flame = (x, y, w, hh, col, amt, seed) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: amt, u_col: col }, G.xf(x - w / 2, y - hh, w, hh));
     G.blend();
     G.blend('add');
     // shrine and portal
@@ -881,7 +894,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // a wall torch's fire lights the stone behind it: the concept's sconces are among the frame's hottest points (TASKS 167)
     m.torches.forEach((tc, i) => { const col = torchCol(m, tc); if (hid(tc) || !vis(tc.x, tc.y) || !known(tc.x, tc.y)) return;
       if (col[2] > col[0]) L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2);
-      else if (tc.kind === 'wall') L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 20, 40, col, 0.6 * flick(i)); });
+      else if (tc.kind === 'wall') L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 20, 40, col, 0.35 * flick(i)); });
     for (const s of R.shrines) if (!s.used && vis(s.x, s.y) && known(s.x, s.y)) { L.glow(sx(s.x), sy(s.y) - 34, 30, [0.4, 0.7, 1.0], 0.5 + 0.2 * Math.sin(t * 3)); }
     // gold catches the light: loose coins, heaps and spilt coins keep a yellow sheen the fire's orange can't take, and twinkle pale
     // yellow, each on its own beat (TASKS 167)
