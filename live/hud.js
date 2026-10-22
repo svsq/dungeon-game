@@ -69,9 +69,9 @@
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
   function world(S, R, t, V) {
-    const GT = S.t, h = R.hero, m = R.map;
+    const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     let bi = 0;
-    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss') continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
+    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss' || !seen(e.x, e.y)) continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       if (e.hp < e.max || e.elite) capsule(x, y, e.elite ? 80 : 64, e.hp / e.max, e.elite);
       // an elite's name, its powers first, in the colour of its first power
@@ -80,7 +80,7 @@
           lab('el' + (e.id % 40), s, x, ly, { size: 18, al: 0.5, col: hex(c) }); }
       if (e.st === 'idle' || bi > 40) continue; bi++; void E; }
     // the "!" when a monster notices the hero
-    for (const ev of S.ev) { const a = GT - ev.t; if (a < 0) continue;
+    for (const ev of S.ev) { const a = GT - ev.t; if (a < 0 || !seen(ev.x, ev.y)) continue;
       if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) lab('al' + (ev.id % 30), '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, al: 0.5, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
       if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 32 : 19) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
         const E = D.ENEMIES[ev.type], side = ev.x < h.x ? -1 : 1, hx = ev.x + side * (E ? 14 : 0), hy = ev.y - (E ? E.h * 0.5 + 18 : 0);   // over the head and its HP bar, leaning away from the hero: the chest stays clear
@@ -165,7 +165,7 @@
     if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff' });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
     for (const G of D.GIFTS) { const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', String(Math.round(G.v * n * 10) / 10)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff' }); }
-    if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / 5 });
+    if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1 });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1 });
     list.forEach((b, i) => { const x = 116 + (i % 8) * 46, y = 190 + Math.floor(i / 8) * 64;
@@ -188,11 +188,11 @@
   function souls(S, R, V) {
     const tx = currencies(S, R)[1][3] + 18, ty = 164;
     for (const e of S.ev) {
-      const a = S.t - e.t, floorReward = e.k === 'stairs' && e.n > 0;
-      if ((!floorReward && e.k !== 'shard') || a < 0 || a > 3.5 || (e.floor !== undefined && e.floor !== R.floor - (floorReward ? 1 : 0))) continue;
+      const a = S.t - e.t, floorReward = e.k === 'shard' && !!e.s;
+      if (e.k !== 'shard' || a < 0 || a > 3.5 || (e.floor !== undefined && e.floor !== R.floor)) continue;
       const x0 = floorReward ? W / 2 : V.sx(e.x), y0 = floorReward ? 280 : V.sy(e.y) - 20;
       if (floorReward) {
-        const text = 'Осколки душ: +' + e.n + ' за этаж ' + e.floor, alpha = L.SS(0, 0.15, a) * (1 - L.SS(2.8, 3.5, a));
+        const text = e.s, alpha = L.SS(0, 0.15, a) * (1 - L.SS(2.8, 3.5, a));
         const w = lw('soul_reward', text, { size: 22 }) + 36;
         panel('soul_reward_box', W / 2 - w / 2, 213, w, 42, { a: 0.8 * alpha });
         lab('soul_reward', text, W / 2, 235, { size: 22, al: 0.5, col: '#9cc8ff', a: alpha });
@@ -333,7 +333,7 @@
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });
       lab('ab_r' + i, r ? 'ранг ' + r + ' / ' + D.AB_MAX : 'с ' + A.unlock + ' уровня', b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
-      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? Math.round((14 + st.int * 2.6) * k * st.spell) : Math.round((30 + st.int * 4) * k);
+      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? Math.round((14 + st.int * 2.6) * k * st.spell) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
@@ -379,6 +379,20 @@
       if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 }); }
     else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
   }
+  // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
+  // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
+  const UP = '#8fd98a', DOWN = '#e0604f';
+  function compare(S, it, slot, h, lines) {
+    const cur = h.eq[slot], of = (x) => { const o = { atk: (x && x.atk) || 0, def: (x && x.def) || 0 }; if (x) { const m = SIM.itemMods(x); for (const k in m) o[k] = (o[k] || 0) + m[k]; } return o; };
+    const a = of(it), c = of(cur), num = (v) => String(Math.round(Math.abs(v) * 10) / 10);
+    lines.push([cur ? 'Против надетого: ' + SIM.itemName(cur) : 'Слот «' + D.SLOT_NAME[slot] + '» пуст', C.dim, 19]);
+    for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05) continue;
+      lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), d > 0 ? UP : DOWN, 19]); }
+    const s0 = SIM.stats(h, S.meta), s1 = SIM.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
+    const tot = [['здоровье', 'maxHp'], ['атака', 'atk'], ['защита', 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
+    if (tot.length) lines.push(['Итог: ' + tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · '),
+      tot.every(([, k]) => s1[k] >= s0[k]) ? UP : tot.every(([, k]) => s1[k] <= s0[k]) ? DOWN : C.gold, 20]);
+  }
   function tooltip(S, it, b, h, deal, at) {
     const lines = [], cons = SIM.isCons(it), B = cons ? null : D.BASES[it.b];
     lines.push([SIM.itemName(it), hex(D.RARITY[it.rar].col), 28]);
@@ -387,7 +401,7 @@
       if (it.def) lines.push(['Защита: ' + it.def, C.text, 22]);
       const typed = SIM.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');
-      const cur = h.eq[B.slot]; if (cur && cur !== it) { lines.push(['Надето: ' + SIM.itemName(cur) + (cur.atk ? ' · атака ' + cur.atk : '') + (cur.def ? ' · защита ' + cur.def : ''), C.dim, 19]); }
+      if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
       if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
     else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : 'Возвращает в безопасную комнату', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
     if (deal) lines.push([deal[0], deal[1], 22]);
@@ -416,7 +430,7 @@
     L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1);
     G.blend('add'); L.glow(W / 2, 200, 500, [0.3, 0.5, 1], 0.25 + 0.05 * Math.sin(t * 2)); G.blend();
     lab('mt_t', 'Алтарь душ', W / 2, 140, { size: 72, al: 0.5, col: '#9cc8ff' });
-    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят монстры, боссы и каждый пройденный этаж', W / 2, 220, { size: 26, al: 0.5, col: C.dim });
+    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят элиты, боссы, тайники и этажи, пройденные полностью', W / 2, 220, { size: 26, al: 0.5, col: C.dim });
     for (const b of D.UI.meta()) {
       if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
@@ -473,9 +487,8 @@
     // the reward, line by line: what was found, the base payout, the thoroughness bonus with its formula, the total
     L.solid(bx + 30, by + 290, 1180, 1, C.rim, 0, 0, 0, 0.6);
     const base = r.base ?? r.bonus ?? 0, sb = r.statBonus || 0;
-    const rew = [['Осколки, найденные в забеге', '+' + (r.found ?? (r.shards - base - sb))],
-      ['Награда за забег: золото ÷ 80' + (r.win ? ' + ' + r.win + ' за победу' : ''), '+' + base],
-      ['Бонус за полноту: ' + Math.round(100 * C2.pct) + '% от ' + (r.cap || 0) + ' (по 5 за каждый этаж)', '+' + sb]];
+    const rew = [['Осколки, найденные в забеге (элиты, босс, тайники, полнота этажей)', '+' + (r.found ?? (r.shards - base - sb))],
+      ['Награда за забег: золото ÷ ' + SIM.REWARD.goldPer + (r.win ? ' + ' + r.win + ' за победу' : ''), '+' + base]].concat(sb ? [['Бонус за полноту', '+' + sb]] : []);
     rew.forEach(([n, v], i) => { lab('e_rn' + i, n, bx + 30, by + 330 + i * 44, { size: 24, col: C.dim }); lab('e_rv' + i, v, bx + 1210, by + 330 + i * 44, { size: 24, al: 1, col: '#9cc8ff' }); });
     L.solid(bx + 30, by + 488, 1180, 1, C.rim, 0, 0, 0, 0.6);
     lab('e_tn', 'Итого осколков душ', bx + 30, by + 530, { size: 30, col: C.text }); lab('e_tv', '+' + r.shards, bx + 1210, by + 530, { size: 30, al: 1, col: '#9cc8ff' });
