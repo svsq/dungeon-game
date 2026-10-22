@@ -28,6 +28,11 @@ const metaNext = (S) => D.META.filter((M) => (S.meta.up[M.id] || 0) < M.max && S
   .sort((a, b) => a.cost(S.meta.up[a.id] || 0) - b.cost(S.meta.up[b.id] || 0))[0];
 const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.meta.shards >= D.giftCost(tier, R.floor));
 
+// the hero's health, attack and armour on a floor's arrival, and without each source in turn: all gear, bought gear, altar gifts,
+// meta ranks; the levels' share is what is left without gear, gifts and meta
+const power = (S, h) => { const f = (hh, meta) => { const st = SIM.stats(hh, meta); return [st.maxHp, st.atk, st.def]; }, eq = (keep) => Object.fromEntries(Object.entries(h.eq).filter(([, it]) => it && keep(it)));
+  return { all: f(h, S.meta), noGear: f(Object.assign({}, h, { eq: {} }), S.meta), noBought: f(Object.assign({}, h, { eq: eq((it) => !it.bought) }), S.meta),
+    noGifts: f(Object.assign({}, h, { perks: {} }), S.meta), noMeta: f(h, { up: {} }), bare: f(Object.assign({}, h, { eq: {}, perks: {} }), { up: {} }) }; };
 function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = () => {} } = {}) {
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   const S = SIM.spawn(0, {}); S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
@@ -117,7 +122,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (sh && sh.gifts && !sh.seen) { sh.seen = 1; cur.altars.push({ f: R.floor, bank: S.meta.shards, c2: sh.gifts[1].cost }); }
     if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
   }
-  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion }; };
+  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, pw: fl.pw }; };
   const freshFl = () => ({ dmg: {}, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0 });
   for (let i = 0; i < 120 * 60 * 60 * runs && out.length < runs; i++) {
     if (!S.run) {
@@ -130,12 +135,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; }
     cur.potLeft = held(h, 'hp_potion');
     if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h));
-      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear(); }
+      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear(); }
     if (S.t - tF > STUCK) { stuck = R.floor; break; }
     while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
     for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
     h.bag.forEach((it, j) => { if (!gear(it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (val(it) > val(c)) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } });
-    if (S.screen === 'shop') { SIM.step(S, trade(R, h)); continue; }
+    if (S.screen === 'shop') { const had = new Set(h.bag.filter(Boolean).map((it) => it.id)), g = h.gold; SIM.step(S, trade(R, h));
+      if (h.gold < g) for (const it of h.bag) if (it && it.b && !had.has(it.id)) it.bought = 1; continue; }
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
     const st = SIM.stats(h, S.meta), inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, px: 960, py: 540, keys: [], slot: 0 };
@@ -175,6 +181,12 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); fl.minhp = Math.min(fl.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
     SIM.step(S, inp);
     for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.hits++; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
+    // the boss fight, from its first wound to the end: how long, how much of the health it took (healing aside), potions drunk
+    const B = S.run && R.en.find((e) => e.type === 'boss');
+    if (B && !fl.boss && B.hp < B.max) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0 };
+    if (fl.boss && !fl.boss.done) { const b = fl.boss; b.t = +(S.t - b.t0).toFixed(1);
+      for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') b.dmg += e.n / st.maxHp; else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
+      if (!S.run || B.deadT >= 0 || h.deadT >= 0) b.done = 1; }
     if (!S.run && cur) cur.floors.push(floorLine(R, h));
   }
   if (cur && !cur.result) { cur.result = stuck ? { how: 'stuck', floor: stuck } : { how: 'timeout', floor: S.run ? S.run.floor : 0 }; out.push(cur); log(cur); }

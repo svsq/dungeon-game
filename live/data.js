@@ -33,7 +33,8 @@
     cultist: { name: 'Культист', hp: 26, dmg: 9, spd: 56, r: 13, reach: 305, wind: 0.55, cd: 2.0, xp: 10, kind: 'caster', h: 84, rim: [0.5, 1, 0.4], val: 0.55 },
     ghost: { name: 'Призрак', hp: 28, dmg: 7, spd: 60, r: 13, reach: 30, wind: 0.45, cd: 1.3, xp: 9, kind: 'melee', h: 74, ghost: 1, blood: 'ecto' },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112 },
-    boss: { name: 'Повелитель Демонов', hp: 520, dmg: 24, spd: 48, r: 36, reach: 56, wind: 0.8, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
+    // the finale: a fight of ~25 s that costs about two healths and a potion or two (TASKS 215)
+    boss: { name: 'Повелитель Демонов', hp: 1200, dmg: 28, spd: 48, r: 36, reach: 56, wind: 0.8, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
 
   // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2);
@@ -44,7 +45,8 @@
   // dodge: % chance to take no harm from a monster's blow, bolt or blast, per point of agility, its cap, and what a dash adds while it lasts
   // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs)
   // dmgLate: more growth per floor past the 4th, where gear bought from the merchant let a player's minimum HP sit at 44–76 %
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, spike: 0.12, dmgUp: 0.4, dmgLate: 0.3, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 } };
+  // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, spike: 0.12, dmgUp: 0.4, dmgLate: 0.3, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
   const dmgAt = (f, boss) => 1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4));
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
@@ -53,9 +55,10 @@
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
-  // guard: the exit guard's health and blows by floor; the first one, on the 2nd floor, alone took a player through 3.3 times his
-  // health, the steepest step of the run (TASKS 180)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guard: { 2: 0.85 } };
+  // guards: the floors with an elite brute guarding the exit; the 7th has one too, else the last floor before the boss went
+  // unguarded (TASKS 214). guard: the exit guard's health and blows by floor; the first one, on the 2nd floor, alone took a player
+  // through 3.3 times his health, the steepest step of the run (TASKS 180)
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [2, 4, 6, 7], guard: { 2: 0.85 } };
   // the boss is an elite too but keeps its own pace
   const eliteK = (e, k) => !e.elite ? 1 : e.type === 'boss' ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
@@ -201,7 +204,8 @@
     best: (f) => Math.min(4, 2 + Math.floor(f / 3)),
     q: (f) => 1.4 + 0.15 * f,
     cons: (f) => [['hp_potion', 1 + Math.floor(f / 3)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 1 + (f >= 5 ? 1 : 0)]],
-    rarK: [1, 2, 4, 7, 12],
+    // a legendary showpiece at 12× was bought on the 6th floor by every average run, and the 7th became the calmest floor (TASKS 216)
+    rarK: [1, 2, 4, 7, 20],
     sell: 0.12, buyback: 4,
     lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
       'Монстры ко мне не суются — у меня обереги.', 'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
