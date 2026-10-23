@@ -31,14 +31,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y = -q.y;                    // y up, 
   vec3 col = heat > 0.68 ? (warm ? vec3(1.0, 0.98, 0.9) : mix(u_col, vec3(1.0), 0.85)) : heat > 0.34 ? mid : outer;
   o = vec4(col * 1.5 * u_amt, 1.0); }`;
   // a slash crescent: angles a0..a1 (ellipse parameter) around the centre at radius 0.8 of the quad, sharp at both ends and hollow
-  // inside, brightest toward the head; u_dark lays a soft dark rim under it so it reads on a lit floor
+  // inside. u_hard 1: the sword's slash, a flat band with a white heart on the art grid (u_sz: the quad in view px) fading toward the
+  // tail; 0: the soft trail of the whirl and enemy swings, brightest toward the head. u_dark lays a dark rim under it so it reads on
+  // a lit floor
   const ARC = `
-uniform vec4 u_arc; uniform vec3 u_col; uniform float u_amt, u_dark;     // a0, a1, thickness (fraction of r), squash y
-void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y /= u_arc.w; float r = length(q), a = atan(q.y, q.x);
+uniform vec4 u_arc; uniform vec3 u_col; uniform vec2 u_sz; uniform float u_amt, u_dark, u_hard;     // a0, a1, thickness (fraction of r), squash y
+void main(){ vec2 q = v_uv * 2.0 - 1.0; if (u_hard > 0.5) q = (floor(v_uv * u_sz * 0.5) + 0.5) * 4.0 / u_sz - 1.0;
+  q.y /= u_arc.w; float r = length(q), a = atan(q.y, q.x);
   float a0 = u_arc.x, a1 = u_arc.y, span = a1 - a0, u = (a - a0) / span;
   for (int k = -1; k <= 1; k++) { float aa = a + float(k) * 6.2831853; float uu = (aa - a0) / span; if (uu >= 0.0 && uu <= 1.0) { u = uu; break; } }
   if (u < 0.0 || u > 1.0) discard;
-  float th = u_arc.z * pow(sin(3.14159 * clamp(u * 0.92, 0.0, 1.0)), 0.7) + 1e-4, d = abs(r - 0.80);
+  float d = abs(r - 0.80);
+  if (u_hard > 0.5) { float th = u_arc.z * pow(sin(3.14159 * u), 0.7), px = 4.0 / u_sz.x;
+    float band = step(d, th), a2 = band * (0.7 + 0.3 * u) * u_amt, sh = step(d, th + px) * step(px, th) * u_dark;
+    o = vec4(mix(u_col, vec3(1.0), step(d, th * 0.65)) * a2, clamp(max(a2 * 0.5, sh), 0.0, 1.0)); return; }
+  float th = u_arc.z * pow(sin(3.14159 * clamp(u * 0.92, 0.0, 1.0)), 0.7) + 1e-4;
   float band = 1.0 - smoothstep(th * 0.35, th, d), head = 1.0 - smoothstep(0.86, 1.0, u);
   float a2 = band * pow(u, 1.4) * head * u_amt, sh = (1.0 - smoothstep(th, th * 2.4 + 0.03, d)) * pow(u, 1.1) * head * u_dark;
   vec3 c = mix(u_col, vec3(1.0), max(smoothstep(0.6, 1.0, u), 1.0 - smoothstep(0.0, th * 0.8, d)) * band);
@@ -351,6 +358,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     return { blade, k, bend, fs, dir, start, end, Ts, Tf, arm: T < Tf ? blade : follow(Tf - Ts) };   // arm: the arm follows the blade until the recovery, then lowers from the end pose
   }
   const DEPTH_K = 0.65;   // the 3/4 camera's squeeze of floor depth
+  // the slash crescent's half-span about the aim, and where its brightness centroid sits along it (the ARC shader's taper and tail fade)
+  const ARC_HALF = 1.35, ARC_MID = 0.52;
   // the whirl's turn (0..1) over WHIRL_T s: speeds up and slows down over 0.1 s, so the blade neither starts nor stops dead
   const WHIRL_T = 0.4, whirlP = (t) => { const a = 0.1, v = 1 / (WHIRL_T - a); t = Math.max(0, Math.min(WHIRL_T, t));
     return t < a ? v * t * t / (2 * a) : t < WHIRL_T - a ? v * (t - a / 2) : 1 - v * (WHIRL_T - t) ** 2 / (2 * a); };
@@ -979,22 +988,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); } }
     // event FX
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
-      // the trail runs from the arc's start to the blade, centred on the shoulder, and stops at the arc's end; it fades from the damage
-      // frame, so its brightest frame is the hit and the follow-through shows only on the blade itself
-      if (e.k === 'swing' && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, RG = RIGS.hero, s = HERO_H / RG.h, W = WEAPON[st.wtype];
+      // the crescent is a vertical C on the chest, ±ARC_HALF about the aim, drawn in the blade's turning direction over the strike so
+      // it stands whole on the damage frame (the concept's slash); after the hit it fades and its tail runs after the head
+      if (e.k === 'swing' && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, RG = RIGS.hero, s = HERO_H / RG.h;
         const shx = ex + f * (RG.shR[0] - RG.gap) * s, shy = ey + (RG.shR[1] - RG.footL[1]) * s, tx = ex + Math.cos(e.a) * st.reach * 0.8, ty = ey + Math.sin(e.a) * st.reach * 0.8 - 34;
-        const g = Math.atan2(ty - shy, tx - shx), pose = (T) => swingPose(T, f > 0 ? g : Math.PI - g, st.arc * Math.PI / 180, -0.95), sw = pose(a), lead = pose(Math.min(a, sw.Ts));
-        const SQ = 0.85, scr = (b) => (f > 0 ? b : Math.PI - b), ell = (b) => Math.atan2(Math.sin(scr(b)) / SQ, Math.cos(scr(b)));
-        const arm = Math.hypot(RG.handR[0] - RG.shR[0], RG.handR[1] - RG.shR[1]) * s, Rr = (arm + (W ? W[1] * 0.78 : 20)) / 0.8, q = SS(SIM.K.HIT, SIM.K.HIT + 0.1, a);
-        const e0 = ell(sw.start), e1 = e0 + wrapPi(ell(lead.blade) - e0), em = e0 + 0.645 * (e1 - e0), amt = 1.3 * (1 - q * q), open = sw.dir * (lead.blade - sw.start) > 0.05;
-        const pt = (b) => [shx + Math.cos(b) * Rr * 0.8, shy + Math.sin(b) * Rr * 0.8 * SQ];
-        L.joint('hero_fx', 'trailC', [shx, shy]); L.joint('hero_fx', 'trail', pt(e1)); L.joint('hero_fx', 'trailMid', pt(em));   // the crescent's brightness centroid sits 0.645 of the way to its head
-        L.joint('hero_fx', 'aim', [shx + Math.cos(g) * 40, shy + Math.sin(g) * 40]);
-        L.joint('hero_fx', 'trailA', [open && q < 1 ? amt * Math.min(1, Math.abs(e1 - e0)) : 0, 0]);
-        if (open && q < 1) L.glow(...pt(em), 50, [1, 0.8, 0.5], 0.5 * amt / 1.3);
-        if (open && q < 1) G.draw(L.P.arc, { u_arc: [e0, e1, 0.24, SQ], u_col: [1, 0.85, 0.6], u_amt: amt, u_dark: 0.45 * (1 - q) }, G.xf(shx - Rr, shy - Rr, 2 * Rr, 2 * Rr)); }
-      if (e.k === 'whirl' && a < WHIRL_T + 0.08) { const q = a / (WHIRL_T + 0.08), a0 = e.a === undefined ? 0 : Math.atan2(Math.sin(e.a) / DEPTH_K, Math.cos(e.a)); const wq = (e.r || 92) / 0.8; G.draw(L.P.arc, { u_arc: [a0, a0 + 6.2831 * whirlP(a), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q), u_dark: 0 }, G.xf(ex - wq, ey - 34 - wq, 2 * wq, 2 * wq)); }
-      if (e.k === 'eswing' && a < 0.2) G.draw(L.P.arc, { u_arc: [e.a - 0.9, e.a + 0.9 * Math.min(1, a / 0.12), 0.2, 0.75], u_col: [1, 0.5, 0.4], u_amt: 1 - a / 0.2, u_dark: 0 }, G.xf(ex - 50, ey - 26 - 50, 100, 100));
+        const sw = swingPose(a, f > 0 ? Math.atan2(ty - shy, tx - shx) : Math.PI - Math.atan2(ty - shy, tx - shx), st.arc * Math.PI / 180, -0.95);
+        const cx = 2 * Math.round(ex / 2), cy = 2 * Math.round((ey - 0.5 * HERO_H) / 2), g = Math.atan2(ty - cy, tx - cx), Rr = 2 * Math.round(0.62 * HERO_H / 0.8 / 2);
+        const p = 1 - (1 - Math.min(1, (a - SWING.pull) / (SIM.K.HIT - SWING.pull))) ** 2, q = SS(SIM.K.HIT, SIM.K.HIT + 0.1, a), span = 2 * ARC_HALF * f * sw.dir;
+        const e0 = g - span / 2 + 0.3 * span * q, e1 = g - span / 2 + span * p, amt = 1.3 * (1 - q * q), open = p > 0.02 && q < 1;
+        const pt = (b) => [cx + Math.cos(b) * Rr * 0.8, cy + Math.sin(b) * Rr * 0.8];
+        L.joint('hero_fx', 'trailC', [cx, cy]); L.joint('hero_fx', 'trail', pt(e1)); L.joint('hero_fx', 'trailMid', pt(e0 + ARC_MID * (e1 - e0)));
+        L.joint('hero_fx', 'aim', [cx + Math.cos(g) * 40, cy + Math.sin(g) * 40]);
+        L.joint('hero_fx', 'trailA', [open ? amt * p : 0, 0]);
+        if (open) G.draw(L.P.arc, { u_arc: [e0, e1, 0.12, 1], u_col: [1, 0.85, 0.6], u_sz: [2 * Rr, 2 * Rr], u_amt: amt, u_dark: 0.45 * (1 - q), u_hard: 1 }, G.xf(cx - Rr, cy - Rr, 2 * Rr, 2 * Rr)); }
+      if (e.k === 'whirl' && a < WHIRL_T + 0.08) { const q = a / (WHIRL_T + 0.08), a0 = e.a === undefined ? 0 : Math.atan2(Math.sin(e.a) / DEPTH_K, Math.cos(e.a)); const wq = (e.r || 92) / 0.8; G.draw(L.P.arc, { u_arc: [a0, a0 + 6.2831 * whirlP(a), 0.26, 0.5], u_col: [1, 0.85, 0.6], u_amt: 1.5 * (1 - q), u_dark: 0, u_hard: 0 }, G.xf(ex - wq, ey - 34 - wq, 2 * wq, 2 * wq)); }
+      if (e.k === 'eswing' && a < 0.2) G.draw(L.P.arc, { u_arc: [e.a - 0.9, e.a + 0.9 * Math.min(1, a / 0.12), 0.2, 0.75], u_col: [1, 0.5, 0.4], u_amt: 1 - a / 0.2, u_dark: 0, u_hard: 0 }, G.xf(ex - 50, ey - 26 - 50, 100, 100));
       // a ghost's ectoplasm: glowing drops that drift up and thin out, they never reach the floor
       if (e.k === 'hit' && a < 0.6 && !e.fire && BLOOD(e.type) === 'ecto') { const q = a / 0.6; L.glow(ex, ey, 30 + 16 * q, [0.4, 1, 0.8], 0.7 * (1 - q), 2.4);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j + 20) * 6.28, d = 6 + 26 * Math.sqrt(q); L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.7 - 34 * q, 5 + 3 * rnd(e.t, j), [0.5, 1, 0.85], 0.9 * (1 - q)); } }
