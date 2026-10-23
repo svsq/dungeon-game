@@ -6,7 +6,7 @@
   const D = root.DATA || require('./data.js');
   const { TILE, ENEMIES } = D;
   // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
-  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, crystal: 6.5, shrine: 6 };
+  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6 };
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken)
   const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
@@ -90,6 +90,8 @@
     // beside the torch-lit dungeon in one view)
     const zones = ['crypt', 'arcane', 'dungeon'].filter((z) => z !== biome);
     others.filter((r) => r.type === 'combat' || r.type === 'treasure').slice(0, 1 + (R() < 0.6 ? 1 : 0)).forEach((r, i) => (r.zone = zones[(i + Math.floor(R() * 2)) % zones.length]));
+    // a staged view (the QA match) sets its zones after the draw above, so the layout stays the seed's
+    if (opts.zones) for (const r of rooms) if (r.id in opts.zones) { if (opts.zones[r.id]) r.zone = opts.zones[r.id]; else delete r.zone; }
     // ---- lava pools (lava biome / arcane boss): blobs in a room's side bays, off the 2-wide corridor lanes through its centre
     // and clear of every corridor mouth; a pool is kept only if every floor cell stays reachable ----
     const lava = [];
@@ -396,6 +398,36 @@
       // torches on the top wall face (cells above the room's first row that are rock), every 4–5 tiles, between the tall props
       for (let x = r.x + 1 + ri(0, 1); x < r.x + r.w - 1; x += ri(3, 5)) if (!at(x, r.y - 1) && at(x, r.y) && !tallAt(wx(x), r.y, HANG.wall) && !doorTop(wx(x), r.y, HANG.wall)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
       for (let x = r.x + 2; x < r.x + r.w - 2; x += ri(5, 8)) if (!at(x, r.y - 1) && R() < 0.5 && !tallAt(wx(x), r.y, HANG.banner) && !doorTop(wx(x), r.y, HANG.banner) && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < 1.5 * TILE && Math.abs(t.y - r.y * TILE) < TILE)) decor.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 2, n: 'banner', wall: 1 });
+      // standing lights, as the concept has them (TASKS 194): candlesticks at the foot of the top wall between its sconces, candelabra
+      // either side of a hoard's chest or a shrine's altar, a pair of torch posts flanking a way in through a side or the bottom wall
+      if (r.type !== 'secret' && r.type !== 'boss') {
+        // a stand must leave every open cell of the room reachable from its ways in: lava, chests, pots and solid props already
+        // there count as walls (a candlestick once sealed a nook between a rack and a lava pool)
+        const inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, cellOf = (o) => key(Math.floor(o.x / TILE), Math.floor((o.y - 1) / TILE));
+        const nookFree = (px, py, also) => { const hard = new Set([...chests, ...pots, ...torches.filter((t) => t.kind !== 'wall'), ...decor.filter((d) => d.solid && !d.wall)].map(cellOf));
+          hard.add(key(px, py)); if (also) hard.add(key(...also)); if (r.type === 'shrine') hard.add(key(r.cx, r.cy));
+          const open = (x, y) => inR(x, y) && at(x, y) === 1 && !hard.has(key(x, y)), seen = new Set(), st = [];
+          for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (open(x, y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at(x + dx, y + dy) === 1 && !inR(x + dx, y + dy))) { seen.add(key(x, y)); st.push([x, y]); }
+          if (!st.length) return true;
+          while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (open(nx, ny) && !seen.has(key(nx, ny))) { seen.add(key(nx, ny)); st.push([nx, ny]); } } }
+          for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (open(x, y) && !seen.has(key(x, y))) return false;
+          return true; };
+        const fits = (x, y, n, also) => free(x, y) && !doorway(x, y) && roomy(x, y, n) && nookFree(x, y, also);
+        const stand = (x, y, n, py = wy(y)) => { claim(x, y, n); decor.push({ x: wx(x), y: py, n, solid: 1, r: r.id }); };
+        const sticks = [];
+        for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (at(x, r.y - 1) === 0 && !tallAt(wx(x), r.y, half('candlestick')) && !hungAt(wx(x), r.y, half('candlestick'))) sticks.push([x, r.y, r.y * TILE + 22]);
+        for (let y = r.y + 2; y < r.y + r.h - 1; y++) for (const x of [r.x, r.x + r.w - 1]) if (at(x + (x === r.x ? -1 : 1), y) === 0 && !torches.some((t) => t.side && Math.abs(t.y - y * TILE) < 1.5 * TILE && Math.abs(t.x - wx(x)) < TILE)) sticks.push([x, y, wy(y)]);
+        for (let i = 0, n = 1 + (r.w * r.h >= 80) + (r.w * r.h >= 120); i < n && sticks.length; i++) { const [x, y, py] = sticks.splice(Math.floor(R() * sticks.length), 1)[0];
+          if (fits(x, y, 'candlestick')) stand(x, y, 'candlestick', py); }
+        const pair = (a, b, n) => { if (fits(...a, n) && fits(...b, n, a) && (a[1] !== b[1] || Math.abs(a[0] - b[0]) * TILE > half(n) * 2 + 4)) { stand(...a, n); stand(...b, n); } };
+        if (r.type === 'treasure' && r.h >= 6) pair([r.cx - 2, r.y + 2], [r.cx + 2, r.y + 2], 'candelabra');
+        if (r.type === 'shrine') pair([r.cx - 2, r.cy - 1], [r.cx + 2, r.cy - 1], 'candelabra');
+        if (r.type !== 'shrine' && r.w >= 8 && R() < 0.8) {
+          const ways = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1]]) if (at(x + dx, y + dy) === 1 && !inRoom(x + dx, y + dy)) {
+            const g = ways.find((w) => w.dx === dx && w.dy === dy && (dx ? w.a === x && y - w.hi === 1 : w.a === y && x - w.hi === 1));
+            if (g) g.hi++; else ways.push({ dx, dy, a: dx ? x : y, lo: dx ? y : x, hi: dx ? y : x }); }
+          const w = ways.length ? ways[Math.floor(R() * ways.length)] : null;
+          if (w) pair(w.dx ? [w.a, w.lo - 2] : [w.lo - 2, w.a], w.dx ? [w.a, w.hi + 2] : [w.hi + 2, w.a], 'torch_stand'); } }
       // one group at most, and never at the foot of a statue, a rack or a sconce: candles piled on a pedestal read as clutter
       for (let i = 0, n = R() < 0.6 ? 1 : 0; i < n; i++) { const x = ri(r.x + 1, r.x + r.w - 2); if (!free(x, r.y) || at(x, r.y - 1) !== 0 || doorway(x, r.y) || !roomy(x, r.y, 'candles') || tallAt(wx(x), r.y, 14) || hungAt(wx(x), r.y, 6)) continue; used.add(key(x, r.y)); decor.push({ x: wx(x) + ri(-6, 6), y: r.y * TILE + 20, n: 'candles' }); }
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });

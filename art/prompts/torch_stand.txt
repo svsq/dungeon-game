@@ -1,0 +1,3 @@
+Use case: one prop for a top-down 3/4 dungeon game (Image 1 is the style reference only; Image 2 is the game's brazier and Image 3 its wall torch: match them exactly in style, outline, palette and pixel density).
+Subject: a standing iron torch post, seen from the front at the 3/4 angle: a heavy square stone base block, a thick dark iron pole about three times as tall as the base is wide, with iron rings bound round it, and at the top a small open iron fire basket of riveted bands (like a tiny brazier) filled with charred black wood and coals of Image 2; unlit, no fire. Reads clearly as one tall upright object.
+Constraints: one object centred on an empty background, complete, upright, no flame, no glow, no light, no embers, no shadow on the ground, no floor.

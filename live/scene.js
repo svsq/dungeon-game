@@ -48,26 +48,32 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; q.y /= u_arc.w; float r = length(q), a =
   // with drifting plates. All noise is in world px: no tile seams. u_mode 0 draws the ground, 1 the glow for the emissive pass
   const LAVA = `
 uniform sampler2D u_mask, u_seen; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode;
+vec3 vor(vec2 p){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0, id = 0.0;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(x, y), o = vec2(hash(i + g), hash(i + g + 7.7));
+    o = 0.5 + 0.4 * sin(u_t * 0.25 + 6.2831 * o); float dd = length(g + o - f);
+    if (dd < d1) { d2 = d1; d1 = dd; id = hash(i + g + 3.3); } else if (dd < d2) d2 = dd; }
+  return vec3(d1, d2, id); }
 void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   float mk = texture(u_mask, w / u_map).r, e = mk + (fbm(w / 20.0) - 0.5) * 0.3;
   if (e < 0.2) discard;
   float d = (e - 0.5) / max(length(vec2(dFdx(mk), dFdy(mk))), 0.002);   // px inside the shore (negative outside): bands keep their width in any pool
   vec2 q = w / 52.0 + vec2(u_t * 0.045, u_t * 0.03), wq = vec2(fbm(q + 3.1), fbm(q + 8.7));
   float f = fbm(q * 1.3 + wq * 1.7 - vec2(0.0, u_t * 0.035));
-  vec3 hot = mix(vec3(0.5, 0.05, 0.01), vec3(1.0, 0.4, 0.06), smoothstep(0.32, 0.62, f));
-  hot = mix(hot, vec3(1.0, 0.86, 0.48), smoothstep(0.64, 0.8, f));
-  float c = fbm(w / 34.0 + vec2(u_t * 0.025, u_t * 0.018) + wq * 0.8), plate = smoothstep(0.6, 0.66, c), seam = 1.0 - smoothstep(0.0, 0.04, abs(c - 0.63));
   float inside = smoothstep(-0.8, 0.8, d), lip = smoothstep(-1.2, 0.4, d) * (1.0 - smoothstep(1.0, 3.0, d)), cool = 1.0 - smoothstep(2.0, 6.5, d);
-  float crack = 1.0 - smoothstep(0.0, 0.07, abs(fbm(w / 10.0 + u_t * 0.01) - 0.5));
-  vec3 crust = vec3(0.1, 0.055, 0.045), shore = mix(crust, hot, crack * 0.85);
-  vec3 col = mix(hot, crust * 1.4, plate * 0.8 * (1.0 - cool));
-  col = mix(col, vec3(1.0, 0.55, 0.14), seam * plate * 0.5 * (1.0 - cool));
-  col = mix(col, shore, cool);
-  col = mix(col, vec3(1.0, 0.58, 0.14), lip * 0.85);
+  // the concept's lava is a crust of dark plates split by a net of glowing cracks, with a river of open flow through the field and
+  // here and there a sunk plate; flat steps on the art grid, no smooth ramp
+  vec3 vc = vor(w / 17.0 + wq * 0.9);
+  float edge = vc.y - vc.x, wid = (0.08 + 0.12 * fbm(w / 40.0 + 5.0)) * mix(1.0, 0.55, cool);
+  float melt = clamp(step(0.56, fbm(w / 110.0 + wq * 0.6 + vec2(u_t * 0.02, 0.0))) + step(vc.z, 0.15), 0.0, 1.0) * step(cool, 0.5);
+  vec3 Y = vec3(0.96, 0.6, 0.12), O = vec3(0.97, 0.3, 0.04), Rd = vec3(0.92, 0.09, 0.01), K = vc.z > 0.75 ? vec3(0.34, 0.09, 0.045) : vec3(0.16, 0.03, 0.02);
+  vec3 col = edge < wid * 0.4 ? Y : edge < wid ? O : edge < wid * 1.9 ? Rd : K;
+  col = mix(col, f > 0.62 ? Y : f > 0.5 ? O : Rd, melt);
+  col = lip > 0.5 ? vec3(1.0, 0.58, 0.14) : col;
+  float heat = clamp(col.r + col.g - 0.5, 0.0, 1.4);
   if (u_mode < 0.5) { float scorch = smoothstep(-10.0, -1.0, d) * (1.0 - inside);
     o = vec4(col * inside * 0.7 + vec3(0.035, 0.02, 0.015) * scorch, max(inside, scorch * 0.7)); }   // its own lights brighten it
-  else { vec3 em = hot * (1.0 - cool) * (1.0 - plate * 0.75) * 0.55 + vec3(1.0, 0.5, 0.12) * lip * 0.55 + hot * crack * cool * 0.3;
-    o = vec4(em * inside * 0.6 * texture(u_seen, w / u_map).r, 0.0); } }`;
+  else if (u_mode < 1.5) o = vec4(col * heat * inside * 0.33 * texture(u_seen, w / u_map).r, 0.0);
+  else o = vec4(col * inside * 0.56, inside); }`;   // 2: over itself as an emitter, so the fires' light can't turn the crust orange
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
   // gives nothing of the layout away. On the world's 2 px grid
@@ -138,6 +144,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
 
   // a door's leaf fills its two-cell opening; the arch is squashed to the wall's height, its opening as wide as the leaf
   const DOOR = { w: 62, h: 80, fw: 118, fh: 100 };
+  // the fires of the standing lights from the foot's middle at their SIZES heights: [dx, up, w, h] (wick tips and the post's basket)
+  const STAND = { candlestick: [[0, 59, 9, 15]], candelabra: [[0, 64, 9, 15], [-16, 54, 8, 13], [16, 54, 8, 13]], torch_stand: [[0, 69, 18, 32]] }, CANDLE = [1, 0.7, 0.35];
   // the wick tips of table_candles from its foot's middle, in view px at its SIZES height
   const TABLE_WICKS = [[2, 58], [-4, 52], [8, 52]];
   // door_edge_a (src px; _b is its mirror): k makes its vertical edges as tall as door_leaf; the feet of its far (left) and near
@@ -148,7 +156,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // the fire biome's tops are dark basalt instead (its seams smoulder in LIT), so it no longer reads as the dungeon gone brown
   const TOP_LIFT = 1.45, topTint = (B) => (B.lava ? [0.8, 0.66, 0.62, 1] : [0.95, 0.97, 1.04, 1]);
   function bake(m) {
-    const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : q.hp)).join(''); if (BAKE.key === key) return; BAKE.key = key;
+    const key = m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : q.hp)).join(''); if (BAKE.key === key) return; BAKE.key = key;
     const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome];
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
       BAKE.tg = G.target(MW, MH, false);
@@ -229,7 +237,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // edges and rounds their corners
   const MASKS = {};
   // a map's key with its secrets' state: an unfound secret room is rock to the masonry and the abyss, found it gets its rim
-  const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
+  const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
   function maskTex(m, name, has) {
     const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null }), key = mapKey(m); if (M.key === key) return M.rec; M.key = key;
     const K = 4, W = m.W * K, H = m.H * K, a = new Float32Array(W * H), b = new Float32Array(W * H);
@@ -650,6 +658,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
       TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr, pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]); });
     for (const d of m.decor) if (d.n === 'candles' && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
+    for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
+      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), tp ? 200 : d.n === 'candelabra' ? 150 : 125, col, (tp ? 1.0 : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
+      TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]); }
     for (const p of R.pots) if ((p.kind === 'gold' || p.kind === 'goldpile') && p.hp > 0 && !hid(p)) TL.push([p.x, p.y - 10, 110, [1, 0.78, 0.4], 0.35]);
     for (const c of R.chests) if (c.tier === 3 && !c.open && !hid(c)) TL.push([c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
     // how deep a point of the floor stands in the fires' light, 0 in the dark to 1 in a brazier's pool
@@ -671,7 +682,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     let lavaBox = null;
     if (lavaCells.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of lavaCells) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       lavaBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; lavaXf = G.xf(sx(lavaBox[0]), sy(lavaBox[1]), lavaBox[2], lavaBox[3]);
-      G.draw(L.P.lava, lavaU(0), lavaXf); }
+      G.draw(L.P.lava, lavaU(0), lavaXf); G.blend('emit'); G.draw(L.P.lava, lavaU(2), lavaXf); G.blend(); }
     // shallow water, over the same box logic as the lava: the visible water cells' bounds and a cell of rim round them
     let waterXf = null, waterBox = null; const waterU = (mode) => ({ u_t: t, u_mask: waterTex(m), u_light: LT.light, u_seen: seen, u_box: waterBox, u_map: [MW, MH], u_col: B.water || [0.07, 0.1, 0.12], u_mode: mode });
     if (m.water && m.water.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
@@ -821,6 +832,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(tc.y) - up, (big ? 44 : 26) * bl.fl, (big ? 64 : 40) * bl.fl, col, i, bl.lean); }]); } });
     for (const d of m.decor) { const t2 = d.n === 'candles' && d.lift && onTable(d); if (t2 && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames(TABLE_WICKS.map(([ox, oy]) => [sx(t2.x) + ox, sy(t2.y) + 4 - oy + 2, 7, 12, [1, 0.7, 0.35], d.x + ox]))]); }
     for (const d of m.decor) if (d.n === 'candles' && !(d.lift && onTable(d)) && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames([0, 1, 2].map((k) => [sx(d.x) + [-8, 0, 9][k], sy(d.y) - (d.lift || 0) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k]))]);
+    // standing lights (TASKS 194): their fires ride the prop when it is knocked
+    m.decor.forEach((d, i) => { const S0 = STAND[d.n]; if (!S0 || !vis(d.x, d.y) || !known(d.x, d.y) || hid(d)) return; const j = jig('d' + i), col = d.n === 'torch_stand' ? torchCol(m, d) : CANDLE;
+      Y.push([d.y + 1, () => flames(S0.map(([ox, up, w, hh], k) => [sx(d.x) + ox + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(d.y) + 4 - up, w, hh, col, d.x + 7 * k]))]); });
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
@@ -917,6 +931,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const p of R.pots) if ((p.kind === 'gold' || p.kind === 'goldpile') && p.hp > 0 && !hid(p) && vis(p.x, p.y) && known(p.x, p.y)) glint(p.x, p.y - 8, 3, p.x * 7 + p.y);
     for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && known(d.x, d.y)) glint(d.x, d.y + 4, 1, d.x * 3 + d.y);
     for (const c of R.chests) if (c.gold && c.open && vis(c.x, c.y) && known(c.x, c.y)) { glint(c.x - 8, c.y - 22, 3, c.x); glint(c.x + 10, c.y - 18, 2, c.y); }
+    // embers: single art pixels rising off every fire and the lava's cracks and dying out, each on its own beat; the concept's fires
+    // throw off sparks, and the hot specks of its frame are these points, not more glow (TASKS 184)
+    const embers = (x, y, n, rise, col, k) => { for (let j = 0; j < n; j++) { const q = (t * (0.45 + 0.2 * rnd(k, j)) + rnd(k, j + 3)) % 1; if (q > 0.85) continue;
+      const ex = x + (rnd(k, j + 7) - 0.5) * 10 + Math.sin(t * 1.7 + j * 2.1 + k) * 5 * q, ey = y - rise * q * (0.7 + 0.3 * rnd(k, j + 11));
+      G.blend('add'); L.solid(Math.round(sx(ex) / PIX) * PIX, Math.round(sy(ey) / PIX) * PIX, PIX, PIX, q < 0.35 ? col.map((v) => 0.5 + 0.5 * v) : col, 0, 0, 0, 1.8 * Math.pow(1 - q / 0.85, 0.6)); G.blend(); } };
+    m.torches.forEach((tc, i) => { if (!vis(tc.x, tc.y) || hid(tc) || !known(tc.x, tc.y)) return; const col = torchCol(m, tc), big = tc.kind === 'fire';
+      if (tc.kind === 'wall') embers(tc.x + (tc.side ? -tc.side * 9 : 3), tc.y - 30, 2, 34, col, i * 13 + 1);
+      else embers(tc.x, tc.y - (big ? 44 + 40 : 32 + 26), big ? 5 : 3, big ? 70 : 46, col, i * 13 + 2); });
+    for (const d of m.decor) if (d.n === 'torch_stand' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) embers(d.x, d.y + 4 - STAND.torch_stand[0][1] - 20, 3, 40, torchCol(m, d), d.x + d.y);
+    for (const [x, y] of lavaCells) if (rnd(x, y) < 0.6 && known(x * TILE, y * TILE)) embers((x + rnd(y, x)) * TILE, (y + 0.5) * TILE, 1, 30, [1, 0.62, 0.15], x * 31 + y);
     if (m.floor === D.FLOORS && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     // projectiles
     for (const p of R.proj) { if (!known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
@@ -1131,25 +1155,49 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['shard_floor', play((S) => { SIM.enterFloor(S, S.run, 8); worst(S); S.run.msg = { s: 'Этаж 8 — Трон Демона', t: S.t - 0.8 }; const h = S.run.hero; S.ev = [{ k: 'shard', x: h.x, y: h.y, n: 10, floor: 8, s: 'Все враги этажа повержены · +10 осколков душ', t: S.t - 0.8 }]; })]);
     // the reference's composition: a fight in a lit room with an accent zone in the frame's far side, monsters standing apart
     // on a ring around the hero mid-swing, a chest and gold at the back wall
-    const match = (() => { for (const want of ['arcane', null]) for (let sd = 1; sd < 400; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map;
-      const ctr = (r) => [r.x + r.w / 2, r.y + r.h / 2], near = (q, r) => q.zone && (!want || q.zone === want) && ctr(q)[0] > ctr(r)[0] && Math.abs(ctr(q)[0] - ctr(r)[0]) < 18 && Math.abs(ctr(q)[1] - ctr(r)[1]) < 10;
-      const rm = m.rooms.find((r) => r.type === 'combat' && !r.zone && r.w >= 13 && r.h >= 9 && m.rooms.some((q) => near(q, r)));
+    // the fight mid-frame (its room half a view clear of the map's edges, so the camera never clamps), the blue hall in the frame's
+    // lower right, the green crypt in its upper right and a lava field in its left third: the zones are set on the seed's own
+    // layout, not searched for (TASKS 189)
+    // seed 290 is the one a search over the 189 / 184 measures picked (SC.matchSeed starts the search elsewhere)
+    const match = (() => { for (let sd = SC.matchSeed || 290; sd < 900; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run; let m = R.map;
+      const MW = m.W * TILE, MH = m.H * TILE, ctr = (r) => [(r.x + r.w / 2) * TILE, (r.y + r.h / 2) * TILE];
+      const fits = (r) => { const [x, y] = ctr(r); return x >= 0.52 * VW && MW - x >= 0.52 * VW && y >= 0.52 * VH && MH - y >= 0.52 * VH; };
+      const rm = m.rooms.find((r) => r.type === 'combat' && r.w >= 12 && r.h >= 8 && fits(r));
       if (!rm) continue;
-      const q = m.rooms.find((z) => near(z, rm)), h = R.hero, inR = (o) => DUNGEON.roomAt(m, o.x, o.y) === rm.id;
+      // each zone the room nearest to where the concept has it: the blue hall at 88 % of the width and 72 % of the height, the crypt
+      // at 77 % and 23 % (but left of the minimap)
+      const hx = ctr(rm)[0], hy = ctr(rm)[1] + 16, zr = (dx0, dx1, dy0, dy1, tx, ty) => m.rooms.filter((q) => q !== rm && (q.type === 'combat' || q.type === 'treasure') && q.w >= 7 && q.h >= 6)
+        .map((q) => [q, ctr(q)[0] - hx, ctr(q)[1] - hy]).filter(([, dx, dy]) => dx >= dx0 && dx <= dx1 && dy >= dy0 && dy <= dy1).sort((a, b) => Math.hypot(a[1] - tx, a[2] - ty) - Math.hypot(b[1] - tx, b[2] - ty))[0];
+      const arc = zr(0.22 * VW, 0.46 * VW, -0.05 * VH, 0.42 * VH, 0.37 * VW, 0.22 * VH), cry = zr(0.1 * VW, 0.3 * VW, -0.5 * VH, -0.08 * VH, 0.26 * VW, -0.27 * VH);
+      if (!arc || !cry) continue;
+      const cam = [hx - 0.51 * VW, hy - 0.51 * VH], inView = (r) => r.x * TILE < cam[0] + VW && (r.x + r.w) * TILE > cam[0] && r.y * TILE < cam[1] + VH && (r.y + r.h) * TILE > cam[1];
+      // the concept's blue hall runs on to the frame's right edge: the rooms past it to the right and below join it
+      const past = (r) => r !== rm && r !== cry[0] && ctr(r)[0] - hx > arc[1] + 4 * TILE && ctr(r)[1] - hy > -0.05 * VH;
+      const zones = {}; for (const r of m.rooms) if (inView(r)) zones[r.id] = r === arc[0] || past(r) ? 'arcane' : r === cry[0] ? 'crypt' : null;
+      const was = JSON.stringify(m.rooms.map((r) => [r.x, r.y, r.w, r.h])); SIM.enterFloor(S, R, 1, { zones }); m = R.map;
+      if (JSON.stringify(m.rooms.map((r) => [r.x, r.y, r.w, r.h])) !== was) continue;
+      const h = R.hero, inR = (o) => DUNGEON.roomAt(m, o.x, o.y) === rm.id;
       m.traps = m.traps.filter((t2) => !inR(t2)); m.decor = m.decor.filter((d) => d.wall || !inR(d)); R.pots = R.pots.filter((p) => !inR(p)); R.chests = R.chests.filter((c) => !inR(c)); m.torches = m.torches.filter((t2) => t2.kind === 'wall' || !inR(t2));
       for (const fx of [rm.x + 1.5, rm.x + rm.w - 1.5]) m.torches.push({ x: fx * TILE, y: (rm.y + 1.6) * TILE, kind: 'brazier', r: rm.id });
-      h.x = ctr(rm)[0] * TILE; h.y = ctr(rm)[1] * TILE + 16;
+      h.x = hx; h.y = hy;
       h.eq.armor = { id: 3100, b: 'plate_armor', lvl: 1, rar: 0, def: 3, mods: {} }; h.eq.boots = { id: 3101, b: 'boots', lvl: 1, rar: 0, def: 1, mods: {} };   // the concept's hero wears steel (TASKS 166)
-      const cl = (v, hi) => Math.max(0, Math.min(hi, v));
-      R.cam = [cl((h.x + ctr(q)[0] * TILE) / 2 - VW / 2, m.W * TILE - VW), cl((h.y + ctr(q)[1] * TILE) / 2 - VH / 2 - 30, m.H * TILE - VH)];
-      // the concept's lava glows in the frame's left third: a pool on the nearest open floor there (TASKS 169)
-      { const c0 = Math.floor(R.cam[0] / TILE), r0 = Math.floor(R.cam[1] / TILE), dr = new Set((m.doors || []).flatMap((d) => d.cells.map(([x, y]) => y * m.W + x))), pool = [];
-        const ok = (x, y) => SIM.cell(m, x, y) === 1 && !dr.has(y * m.W + x) && DUNGEON.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) !== rm.id;
-        find: for (let y = r0 + 9; y < r0 + 26; y++) for (let x = c0 + 2; x < c0 + 18; x++) { let all = true; for (let j = -1; j <= 2; j++) for (let k = -1; k <= 3; k++) if (!ok(x + k, y + j)) all = false;
-          if (all) { for (let j = 0; j < 2; j++) for (let k = 0; k < 3; k++) pool.push([x + k, y + j]); for (const [k, j] of [[1, -1], [3, 0], [-1, 1]]) pool.push([x + k, y + j]); break find; } }
-        const on = (o) => pool.some(([x, y]) => Math.floor(o.x / TILE) === x && Math.floor(o.y / TILE) === y);
+      R.cam = cam;
+      // the concept's lava fills the frame's left third: a field of 10×7 cells with a ragged shore, wide enough for its crust and
+      // plates, on the open floor there rather than the rock where it can, never in the fight's room or a doorway (TASKS 169, 189)
+      { const c0 = Math.floor(cam[0] / TILE), r0 = Math.floor(cam[1] / TILE), dr = new Set((m.doors || []).flatMap((d) => d.cells.map(([x, y]) => y * m.W + x)));
+        const shape = []; for (let j = 0; j < 7; j++) for (let k = 0; k < 10; k++) if (!((j === 0 || j === 6) && (k === 0 || k === 9)) && !(j === 0 && k === 8) && !(j === 6 && k === 1) && !(j === 3 && k === 9)) shape.push([k, j]);
+        shape.push([-1, 2], [-1, 3], [10, 1], [10, 4], [3, -1], [4, -1], [5, 7], [6, 7]);
+        const near = (x, y) => { for (let j = -1; j <= 1; j++) for (let k = -1; k <= 1; k++) { const id = DUNGEON.roomAt(m, (x + k + 0.5) * TILE, (y + j + 0.5) * TILE); if (id === rm.id || (id >= 0 && !['combat', 'treasure'].includes(m.rooms[id].type)) || dr.has((y + j) * m.W + x + k)) return true; } return false; };
+        let best = null;
+        // as near as it can to where the concept has it: its top a third down the frame, at the left edge
+        for (let y = r0 + 7; y <= r0 + 20; y++) for (let x = c0; x <= c0 + 9; x++) { let sc = 0;
+          for (const [k, j] of shape) { const X = x + k, Y = y + j; if (X < 1 || Y < 1 || X >= m.W - 1 || Y >= m.H - 1 || near(X, Y)) { sc = -1; break; } sc += SIM.cell(m, X, Y) === 1 ? 2 : 1; }
+          if (sc > 0) sc -= 8 * (Math.abs(y - r0 - 11) + Math.abs(x - c0 - 1));
+          if (sc > 0 && (!best || sc > best[2])) best = [x, y, sc]; }
+        const pool = best ? shape.map(([k, j]) => [best[0] + k, best[1] + j]) : [];
+        const on = (o) => pool.some(([x, y]) => Math.abs(Math.floor(o.x / TILE) - x) <= 1 && Math.floor(o.y / TILE) - y >= -1 && Math.floor(o.y / TILE) - y <= 2);
         for (const [x, y] of pool) m.cells[y * m.W + x] = 3; m.lava = (m.lava || 0) + pool.length;
-        m.decor = m.decor.filter((d) => d.wall || !on(d)); R.pots = R.pots.filter((p) => !on(p)); R.chests = R.chests.filter((c) => !on(c)); m.torches = m.torches.filter((t2) => t2.kind === 'wall' || !on(t2)); m.traps = m.traps.filter((t2) => !on(t2)); }
+        m.decor = m.decor.filter((d) => !on(d)); R.pots = R.pots.filter((p) => !on(p)); R.chests = R.chests.filter((c) => !on(c)); m.torches = m.torches.filter((t2) => !on(t2)); m.traps = m.traps.filter((t2) => !on(t2)); }
       R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
       const types = ['skeleton', 'skeleton', 'goblin', 'brute', 'skeleton', 'spider', 'cultist'], ang = [0, 0.9, 1.8, 2.7, 3.3, 5.0, 4.4];   // the 5th stands clear of the gold chest: its bar and number stay off it
       R.en = types.map((ty, i) => { const a = ang[i], E = D.ENEMIES[ty]; return { id: 900 + i, type: ty, x: h.x + Math.cos(a) * (150 + 40 * (i % 2)), y: h.y + Math.sin(a) * 110, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: rm.id, st: 'chase', t0: 0, face: Math.cos(a) > 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }; });
