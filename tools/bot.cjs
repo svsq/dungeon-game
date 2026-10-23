@@ -37,7 +37,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   const S = SIM.spawn(0, {}); S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
   const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
-  let cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0;
+  let cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
   const fresh = () => ({ floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
@@ -88,9 +88,12 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (!dx && !dy) return; const nx = h.x + dx * 28, ny = h.y + dy * 28;
     if (traps.some((tr) => onPl(nx, ny, tr) && !onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.45))) inp.left = inp.right = inp.up = inp.down = 0;
   }
-  function fight(S, R, inp, live, st) {
+  function fight(S, R, inp, live, st, walkD) {
     const h = R.hero, dist = (e) => Math.hypot(e.x - h.x, e.y - h.y);
-    let tg = live.reduce((a, e) => (!a || dist(e) < dist(a) ? e : a), null);
+    // the nearest by the walk, not the crow: two foes about as far in a straight line but round a wall from each other swap
+    // places as the nearest with each step, and the bot walks back and forth between their paths for good
+    const far = (e) => Math.max(dist(e), walkD(e));
+    let tg = live.reduce((a, e) => (!a || far(e) < far(a) ? e : a), null);
     // a caster once picked stays the target while it is within 400 px: a fixed 320 px line flips the target every step for one
     // standing on it, and the bot walks back and forth between two paths for good
     if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && dist(focus) < 400)) focus = live.filter((e) => D.ENEMIES[e.type].kind === 'caster' && dist(e) < 320).sort((a, b) => dist(a) - dist(b))[0] || null;
@@ -136,7 +139,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     cur.potLeft = held(h, 'hp_potion');
     if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h));
       if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear(); }
-    if (S.t - tF > STUCK) { stuck = R.floor; break; }
+    if (S.t - tF > STUCK) { stuck = { how: 'stuck', floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
     while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
     for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
     h.bag.forEach((it, j) => { if (!gear(it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (val(it) > val(c)) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } });
@@ -146,6 +149,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
     const st = SIM.stats(h, S.meta), inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, px: 960, py: 540, keys: [], slot: 0 };
     const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1).slice(), reach = (o) => [0, 1, -1, m.W, -m.W].some((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d] >= 0);
+    const walkD = (o) => T * Math.min(...[0, 1, -1, m.W, -m.W].map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9);
     // a monster behind a door still locked can't be fought
     const live = R.en.filter((e) => e.deadT < 0 && reach(e)), awake = live.filter((e) => e.st !== 'idle' && e.st !== 'home');
     const near = live.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 260), late = R.floor < D.FLOORS && S.t - tF > 200;
@@ -158,15 +162,16 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
     const shrine = first(R.shrines.filter((s) => !s.used && shrineGift(S, R, P)));
     const shop = m.shop && R.shopped !== R.floor && (h.bag.some(gear) || h.gold >= 60) && !given.has(m.shop) ? m.shop : null;
-    if (!near && !late && drop && chase(R, drop)) walk(R, inp, drop.x, drop.y);
-    else if (!near && !late && chest && chase(R, chest)) { walk(R, inp, chest.x, chest.y + 20); if (dist(chest) < 50) inp.keys.push('KeyE'); }
-    else if (!near && !late && shrine && chase(R, shrine)) { walk(R, inp, shrine.x, shrine.y + 30); if (dist(shrine) < 55) inp.keys.push('KeyE'); }
-    else if (!near && !late && locked && chase(R, locked)) { const dx = locked.dir === 'l' ? -1 : locked.dir === 'r' ? 1 : 0, dy = locked.dir === 'u' ? -1 : locked.dir === 'd' ? 1 : 0;
+    const aim = (k, o) => { goal = o ? [k, Math.floor(o.x / T), Math.floor(o.y / T)] : [k]; return true; };
+    if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
+    else if (!near && !late && chest && chase(R, chest) && aim('chest', chest)) { walk(R, inp, chest.x, chest.y + 20); if (dist(chest) < 50) inp.keys.push('KeyE'); }
+    else if (!near && !late && shrine && chase(R, shrine) && aim('shrine', shrine)) { walk(R, inp, shrine.x, shrine.y + 30); if (dist(shrine) < 55) inp.keys.push('KeyE'); }
+    else if (!near && !late && locked && chase(R, locked) && aim('door', locked)) { const dx = locked.dir === 'l' ? -1 : locked.dir === 'r' ? 1 : 0, dy = locked.dir === 'u' ? -1 : locked.dir === 'd' ? 1 : 0;
       walk(R, inp, locked.x + dx * 40, locked.y + dy * 40); if (Math.hypot(locked.x - h.x, locked.y - h.y + 10) < 60) inp.keys.push('KeyE'); }
-    else if (!near && !late && lever && chase(R, lever.L)) { walk(R, inp, lever.x, lever.y); if (SIM.leverNear(R)) inp.keys.push('KeyE'); }
-    else if (!near && shop && chase(R, shop)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
-    else if (live.length && !late) fight(S, R, inp, live, st);
-    else { walk(R, inp, m.exit.x, m.exit.y); if (dist(m.exit) < 55) inp.keys.push('KeyE'); }
+    else if (!near && !late && lever && chase(R, lever.L) && aim('lever', lever)) { walk(R, inp, lever.x, lever.y); if (SIM.leverNear(R)) inp.keys.push('KeyE'); }
+    else if (!near && shop && chase(R, shop) && aim('shop', shop.front)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
+    else if (live.length && !late && aim('fight', live.slice().sort((a, b) => Math.max(dist(a), walkD(a)) - Math.max(dist(b), walkD(b)))[0])) fight(S, R, inp, live, st, walkD);
+    else { aim('exit', m.exit); walk(R, inp, m.exit.x, m.exit.y); if (dist(m.exit) < 55) inp.keys.push('KeyE'); }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
     if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }
     if (P.traps) avoidSpikes(S, R, h, inp);
@@ -192,7 +197,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
       if (!S.run || B.deadT >= 0 || h.deadT >= 0) b.done = 1; }
     if (!S.run && cur) cur.floors.push(floorLine(R, h));
   }
-  if (cur && !cur.result) { cur.result = stuck ? { how: 'stuck', floor: stuck } : { how: 'timeout', floor: S.run ? S.run.floor : 0 }; out.push(cur); log(cur); }
+  if (cur && !cur.result) { cur.result = stuck ? stuck : { how: 'timeout', floor: S.run ? S.run.floor : 0 }; out.push(cur); log(cur); }
   return out;
 }
 

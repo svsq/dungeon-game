@@ -1,11 +1,12 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert] [--runs 1] [--diff easy|normal|hard] [-j 8] [--check]
+// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert] [--runs 1] [--diff easy|normal|hard] [-j 8] [--quiet] [--check]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
-// the third run, bought meta and all, to its band
+// the third run, bought meta and all, to its band. By default it takes half the cores; --quiet (for the night) runs 2 bots at the lowest
+// priority, on macOS in the background QoS class (the efficiency cores): slower, but the laptop's fans stay quiet
 const { execFile } = require('child_process'), os = require('os'), path = require('path');
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), jobs = +arg('-j', os.cpus().length);
+const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? 2 : Math.max(1, Math.floor(os.cpus().length / 2)));
 const profiles = arg('--profiles', 'novice,average,expert').split(','), FLOORS = require('../live/data.js').FLOORS;
 const todo = []; for (const p of profiles) for (let s = s0; s <= (s1 || s0); s++) todo.push([p, s]);
 const res = {}; let left = todo.length;
@@ -94,9 +95,12 @@ function check() {
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
 function next() {
   const job = todo.shift(); if (!job) return; const [p, s] = job;
-  execFile('node', [path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--json'], { maxBuffer: 1 << 26 }, (err, out) => {
+  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--json'];
+  if (quiet && process.platform === 'darwin') cmd.unshift('taskpolicy', '-b');
+  const child = execFile(cmd[0], cmd.slice(1), { maxBuffer: 1 << 26 }, (err, out) => {
     if (err) console.error(`seed ${s} ${p}: ${err.message.split('\n')[0]}`);
     else (res[p] = res[p] || []).push(out.trim().split('\n').map((l) => JSON.parse(l)));
     if (--left === 0) { report(); if (process.argv.includes('--check')) check(); } else next(); });
+  if (quiet) try { os.setPriority(child.pid, 19); } catch (e) { /* the bot just runs at normal priority */ }
 }
 for (let i = 0; i < jobs; i++) next();
