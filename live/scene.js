@@ -50,9 +50,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; if (u_hard > 0.5) q = (floor(v_uv * u_sz
   float a2 = band * pow(u, 1.4) * head * u_amt, sh = (1.0 - smoothstep(th, th * 2.4 + 0.03, d)) * pow(u, 1.1) * head * u_dark;
   vec3 c = mix(u_col, vec3(1.0), max(smoothstep(0.6, 1.0, u), 1.0 - smoothstep(0.0, th * 0.8, d)) * band);
   o = vec4(c * a2, clamp(max(a2 * 0.5, sh), 0.0, 1.0)); }`;
-  // lava over a soft mask of its cells (4 texels a cell, blurred): the shoreline is the mask's 0.5 contour broken by noise, so it
-  // never follows the grid; scorched rock outside it, a glowing lip, a band of cooling crust with live cracks, then the open flow
-  // with drifting plates. All noise is in world px: no tile seams. u_mode 0 draws the ground, 1 the glow for the emissive pass
+  // lava over a soft mask of its cells (4 texels a cell, blurred): the shoreline is the mask's 0.5 contour, a little broken by noise,
+  // so it never follows the grid. As in the concept it is liquid: orange mottled with dark red, split by a net of thin yellow-hot
+  // cracks, a thin hot lip against the bank and scorched stone past it (TASKS 186). The mask's G, B hold each cell's flow: a
+  // river's pattern is carried along it whole (one river flows one way, so nothing stretches; where two meet there is a seam),
+  // still lava creeps. All in world px, flat steps, no smooth ramp. u_mode 0 draws the
+  // ground, 1 the glow for the emissive pass, 2 itself again as an emitter so the fires' light can't tint it
   const LAVA = `
 uniform sampler2D u_mask, u_seen; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode;
 vec3 vor(vec2 p){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0, id = 0.0;
@@ -60,27 +63,26 @@ vec3 vor(vec2 p){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0, id 
     o = 0.5 + 0.4 * sin(u_t * 0.25 + 6.2831 * o); float dd = length(g + o - f);
     if (dd < d1) { d2 = d1; d1 = dd; id = hash(i + g + 3.3); } else if (dd < d2) d2 = dd; }
   return vec3(d1, d2, id); }
+// the pattern at p: (crack width left, mottling, a darker patch)
+vec3 field(vec2 p){ vec2 wq = vec2(fbm(p / 50.0 + 3.1), fbm(p / 50.0 + 8.7)); vec3 vc = vor(p / 21.0 + wq * 1.4);
+  float crack = vc.y - vc.x - (0.05 + 0.12 * fbm(p / 30.0 + 5.0)) + 0.25 * step(fbm(p / 45.0 + 9.0), 0.42);   // not every seam glows
+  return vec3(crack, fbm(p / 26.0 + wq * 1.8) + 0.3 * (0.5 - vc.x), step(vc.z, 0.08) * step(0.55, fbm(p / 80.0 + 2.0))); }
 void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
-  float mk = texture(u_mask, w / u_map).r, e = mk + (fbm(w / 20.0) - 0.5) * 0.3;
+  vec4 M = texture(u_mask, w / u_map); float mk = M.r, e = mk + (fbm(w / 20.0) - 0.5) * 0.2;
   if (e < 0.2) discard;
   float d = (e - 0.5) / max(length(vec2(dFdx(mk), dFdy(mk))), 0.002);   // px inside the shore (negative outside): bands keep their width in any pool
-  vec2 q = w / 52.0 + vec2(u_t * 0.045, u_t * 0.03), wq = vec2(fbm(q + 3.1), fbm(q + 8.7));
-  float f = fbm(q * 1.3 + wq * 1.7 - vec2(0.0, u_t * 0.035));
-  float inside = smoothstep(-0.8, 0.8, d), lip = smoothstep(-1.2, 0.4, d) * (1.0 - smoothstep(1.0, 3.0, d)), cool = 1.0 - smoothstep(2.0, 6.5, d);
-  // the concept's lava is a crust of dark plates split by a net of glowing cracks, with a river of open flow through the field and
-  // here and there a sunk plate; flat steps on the art grid, no smooth ramp
-  vec3 vc = vor(w / 17.0 + wq * 0.9);
-  float edge = vc.y - vc.x, wid = (0.08 + 0.12 * fbm(w / 40.0 + 5.0)) * mix(1.0, 0.55, cool);
-  float melt = clamp(step(0.56, fbm(w / 110.0 + wq * 0.6 + vec2(u_t * 0.02, 0.0))) + step(vc.z, 0.15), 0.0, 1.0) * step(cool, 0.5);
-  vec3 Y = vec3(0.96, 0.6, 0.12), O = vec3(0.97, 0.3, 0.04), Rd = vec3(0.92, 0.09, 0.01), K = vc.z > 0.75 ? vec3(0.34, 0.09, 0.045) : vec3(0.16, 0.03, 0.02);
-  vec3 col = edge < wid * 0.4 ? Y : edge < wid ? O : edge < wid * 1.9 ? Rd : K;
-  col = mix(col, f > 0.62 ? Y : f > 0.5 ? O : Rd, melt);
-  col = lip > 0.5 ? vec3(1.0, 0.58, 0.14) : col;
+  vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;
+  vec3 f = field(w - fl * 12.0 * u_t - vec2(u_t * 3.0, u_t * 2.0));
+  float inside = smoothstep(-0.8, 0.8, d), lip = step(0.0, d) * step(d, 2.0) * step(0.35, fbm(w / 12.0 + vec2(0.0, u_t * 0.3)));
+  vec3 Y = vec3(1.0, 0.72, 0.16), O = vec3(0.95, 0.33, 0.03), Rd = vec3(0.72, 0.1, 0.02), V = vec3(0.4, 0.05, 0.02);
+  vec3 col = f.x < -0.04 ? Y : f.x < 0.0 ? O : f.y > 0.6 ? O : f.y > 0.4 ? Rd : V;
+  col = f.z > 0.5 && f.x > 0.02 ? V : col;
+  col = lip > 0.5 ? Y : col;
   float heat = clamp(col.r + col.g - 0.5, 0.0, 1.4);
   if (u_mode < 0.5) { float scorch = smoothstep(-10.0, -1.0, d) * (1.0 - inside);
     o = vec4(col * inside * 0.7 + vec3(0.035, 0.02, 0.015) * scorch, max(inside, scorch * 0.7)); }   // its own lights brighten it
   else if (u_mode < 1.5) o = vec4(col * heat * inside * 0.33 * texture(u_seen, w / u_map).r, 0.0);
-  else o = vec4(col * inside * 0.56, inside); }`;   // 2: over itself as an emitter, so the fires' light can't turn the crust orange
+  else o = vec4(col * inside * 0.56, inside); }`;
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
   // gives nothing of the layout away. On the world's 2 px grid
@@ -252,21 +254,27 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const MASKS = {};
   // a map's key with its secrets' state: an unfound secret room is rock to the masonry and the abyss, found it gets its rim
   const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
-  function maskTex(m, name, has) {
+  // R: the soft mask; G, B (vec, optional): a direction per cell (x, y in -1..1) around 0.5, not blurred: the shader reads its cell's
+  // own with texelFetch
+  function maskTex(m, name, has, vec, passes = 2) {
     const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null }), key = mapKey(m); if (M.key === key) return M.rec; M.key = key;
-    const K = 4, W = m.W * K, H = m.H * K, a = new Float32Array(W * H), b = new Float32Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) a[y * W + x] = +has(Math.floor(x / K), Math.floor(y / K));
-    for (let pass = 0; pass < 2; pass++) {
+    const K = 4, W = m.W * K, H = m.H * K, ch = [0, 1, 2].map(() => new Float32Array(W * H)), b = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const cx = Math.floor(x / K), cy = Math.floor(y / K), v = +has(cx, cy), f = v && vec ? vec(cx, cy) : null;
+      ch[0][y * W + x] = v; if (f) { ch[1][y * W + x] = f[0]; ch[2][y * W + x] = f[1]; } }
+    for (const a of [ch[0]]) for (let pass = 0; pass < passes; pass++) {
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * W + Math.min(W - 1, Math.max(0, x + d))]; b[y * W + x] = v / 5; }
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(H - 1, Math.max(0, y + d)) * W + x]; a[y * W + x] = v / 5; } }
     const cv = M.cv || (M.cv = document.createElement('canvas')); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
-    for (let i = 0; i < W * H; i++) { const v = Math.round(255 * a[i]); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    for (let i = 0; i < W * H; i++) { const v = Math.round(255 * ch[0][i]); im.data[i * 4] = v; im.data[i * 4 + 3] = 255;
+      im.data[i * 4 + 1] = vec ? Math.round(255 * (0.5 + 0.5 * ch[1][i])) : v; im.data[i * 4 + 2] = vec ? Math.round(255 * (0.5 + 0.5 * ch[2][i])) : v; }
     g.putImageData(im, 0, 0);
     if (!M.rec) M.rec = G.canvasTex(name + 'mask', cv);
     else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, M.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
     return M.rec;
   }
-  const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.cell(m, x, y) === 3);
+  // a river's crust drifts its way (dungeon.js lavaFlow: 0 right, 1 down, 2 left, 3 up); a pool, or the staged field, lies still
+  const FLOW = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.cell(m, x, y) === 3, (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
   const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
   // where the fire depths' abyss may glow: rock within a few cells of a floor or lava cell
   const veinTex = (m) => { const d = rockDist(m); return maskTex(m, 'veins', (x, y) => x >= 0 && y >= 0 && x < m.W && y < m.H && d[y * m.W + x] <= 5); };
@@ -1338,6 +1346,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (best) states.push(['lava_pool', play((S) => { S.run = SIM.newRun(S, 'campaign', best.seed); const R = S.run; SIM.enterFloor(S, R, best.f); const h = R.hero;
         R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); h.x = (best.x + 0.5) * TILE; h.y = (best.y + 4) * TILE;
         R.cam = [(best.x + 0.5) * TILE - VW / 2, (best.y + 0.5) * TILE - VH / 2]; })]); }
+    // the fire depths' streams (TASKS 186): a lava hall with the hero on its island, and a river with the hero on its causeway
+    for (const kind of ['hall', 'river']) { let got = null;
+      for (const seed of [1, 2, 3, 1234]) { if (got) break; const S = play(); S.run = SIM.newRun(S, 'campaign', seed); for (const f of [5, 6]) { SIM.enterFloor(S, S.run, f);
+        const q = (S.run.map.streams || []).filter((o) => o.kind === kind).sort((a, b) => b.n - a.n)[0]; if (q) { got = { seed, f, room: q.room }; break; } } }
+      if (got) states.push(['lava_' + kind, play((S) => { S.run = SIM.newRun(S, 'campaign', got.seed); const R = S.run; SIM.enterFloor(S, R, got.f); const m = R.map, h = R.hero, r = m.rooms[got.room];
+        R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+        let at = null; for (let d = 0; d < 8 && !at; d++) for (let j = -d; j <= d && !at; j++) for (let i = -d; i <= d && !at; i++) if (SIM.cell(m, r.cx + i, r.cy + j) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => SIM.cell(m, r.cx + i + a, r.cy + j + b) === 3)) at = [r.cx + i, r.cy + j];
+        at = at || [r.cx, r.cy]; h.x = (at[0] + 0.5) * TILE; h.y = (at[1] + 0.6) * TILE; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]); }
     // shallow water with the hero wading in it, and the same pool seen whole with the hero on its shore (TASKS 106)
     for (const seed of [1234, 1, 2, 3]) { const S = play(); S.run = SIM.newRun(S, 'campaign', seed); const R = S.run, m = R.map; if (!m.water.length) continue;
       const k = m.water[Math.floor(m.water.length / 2)], h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
