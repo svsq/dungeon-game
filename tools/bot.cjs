@@ -44,6 +44,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
   function walk(R, inp, x, y, round) {
     const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), tx = Math.floor(h.x / T), ty = Math.floor(h.y / T);
+    // in lava (a dash or a blow carried it in): out by the nearest floor first, or with no floor next to it it burns where it stands
+    if (SIM.cell(m, tx, ty) === 3) { const seen = new Set([ty * m.W + tx]), q = [[tx, ty]];
+      for (let i = 0; i < q.length; i++) { const [cx, cy] = q[i]; if (SIM.cell(m, cx, cy) === 1) { const ex = cx * T + 16 - h.x, ey = cy * T + 18 - h.y;
+          if (Math.abs(ex) > 4) inp[ex > 0 ? 'right' : 'left'] = 1; if (Math.abs(ey) > 4) inp[ey > 0 ? 'down' : 'up'] = 1; return; }
+        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + ax, ny = cy + ay, k = ny * m.W + nx; if (!seen.has(k) && (SIM.cell(m, nx, ny) === 1 || SIM.cell(m, nx, ny) === 3)) { seen.add(k); q.push([nx, ny]); } } } }
     let gx = x - h.x, gy = y - h.y;
     if (round || Math.hypot(gx, gy) > 40) { let best = null;
       // standing in a prop's own cell (a chest against the wall), the way on may run straight through the prop: step out of the

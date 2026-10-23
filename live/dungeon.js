@@ -6,7 +6,7 @@
   const D = root.DATA || require('./data.js');
   const { TILE, ENEMIES } = D;
   // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
-  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6 };
+  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5 };
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken)
   const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
@@ -102,8 +102,86 @@
           if (at(x, y) === 1 && !lane(r, x, y) && !isDoor(x, y) && !isDoor(x - 1, y) && !isDoor(x + 1, y) && !isDoor(x, y - 1) && !isDoor(x, y + 1)) { saved.push([x, y]); set(x, y, 3); } }
         if (saved.length < 3 || !connected()) { for (const [x, y] of saved) set(x, y, 1); continue; }
         lava.push(...saved); return; } };
-    // a fire floor without a single pool reads as the wrong biome: a second pass that skips the roll
-    if (D.BIOMES[biome].lava || boss) for (let pass = 0; pass < 2 && !lava.length; pass++) for (const r of rooms) {
+    // ---- the fire depths (TASKS 186): blobs in side bays never read as a lava floor. Rivers 2–5 cells wide run across rooms from
+    // under one wall to under the other, a lava hall is mostly lava with stone paths from its ways in to an island, and every
+    // river is crossed by a two-cell stone causeway where the corridors' lanes run through the room. A river or hall that would
+    // cut any floor off is undone. flow: lava cell → the way its crust drifts (0 right, 1 down, 2 left, 3 up); pools lie still ----
+    const flow = {}, streams = [];
+    const lavaRoom = (r) => r.type === 'combat' && !r.zone && !streams.some((q) => q.room === r.id);
+    // a river is a channel walked from a spring under the rock, across a room (and any corridor or room on its way) to a dead end,
+    // 2–4 cells wide and wandering: through rock it is a trench between masonry banks, as in the concept; a corridor it crosses stays
+    // floor (a causeway over it), a room it crosses gets a two-cell causeway where its ways in need one
+    // scraps the causeways, paths and corridor mouths cut off (fewer than four cells) are dropped: a lone cell of lava reads as a
+    // blot. Next to floor a scrap becomes floor, else rock (floor too where rock would hang one cell thick)
+    const scraps = (cut) => { const comp = new Set(); for (const [x0, y0] of cut) { if (at(x0, y0) !== 3 || comp.has(y0 * W + x0)) continue; const part = [[x0, y0]]; comp.add(y0 * W + x0);
+        for (let i = 0; i < part.length; i++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = part[i][0] + dx, y = part[i][1] + dy; if (at(x, y) === 3 && !comp.has(y * W + x)) { comp.add(y * W + x); part.push([x, y]); } }
+        if (part.length < 4) for (const [x, y] of part) { const nf = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at(x + dx, y + dy) === 1);
+          set(x, y, nf || (at(x, y - 1) && at(x, y + 1)) ? 1 : 0); } } };
+    const CROSS = ['combat', 'treasure'], roomOf = (x, y) => rooms.find((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
+    const river = (r, dir) => { const [dx, dy] = [[1, 0], [0, 1], [-1, 0], [0, -1]][dir], vert = dir % 2 === 1, px = vert ? 1 : 0, py = vert ? 0 : 1;
+      if ((vert ? r.w : r.h) < 8) return false;
+      // the spring lies 4–9 cells before the room's near wall, level with a spot inside it
+      const lat = vert ? ri(r.x + 2, r.x + r.w - 5) : ri(r.y + 2, r.y + r.h - 5), back = ri(4, 9);
+      const sx = vert ? lat : dx > 0 ? r.x - back : r.x + r.w - 1 + back, sy = vert ? (dy > 0 ? r.y - back : r.y + r.h - 1 + back) : lat;
+      const len = back + (vert ? r.h : r.w) + ri(4, 12); let c = 0, wd = ri(2, 3); const cut = [], crossed = new Set();
+      const undo = () => { for (const [x, y] of cut) set(x, y, at(x, y) === 3 ? 0 : at(x, y)); for (const [x, y, v] of was) set(x, y, v); return false; }, was = [];
+      walk: for (let i = 0; i < len; i++) {
+        if (i && R() < 0.3) c += R() < 0.5 ? -1 : 1;
+        if (i && R() < 0.25) wd = Math.max(2, Math.min(4, wd + (R() < 0.5 ? -1 : 1)));
+        for (let k = 0; k < wd; k++) { const x = sx + dx * i + px * (c + k), y = sy + dy * i + py * (c + k);
+          if (x < 3 || y < 4 || x > W - 4 || y > H - 4) break walk;
+          const v = at(x, y), q = roomOf(x, y);
+          if (v === 4) return undo();
+          if (v === 3) continue;
+          if (v === 1) { if (!q) continue; if (!CROSS.includes(q.type) || q.zone) { if (i < back) return undo(); break walk; } if (isDoor(x, y)) continue; crossed.add(q); was.push([x, y, 1]); }
+          set(x, y, 3); cut.push([x, y]); } }
+      if (!crossed.has(r)) return undo();
+      // rock one cell thick between the stream and a floor would hang as a strip of masonry, and a floor and the stream meeting at a
+      // cell's corner would pass blows: both become stream
+      for (let pass = 0, n = 1; n && pass < 4; pass++) { n = 0;
+        for (const [x0, y0] of cut.slice()) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const x = x0 + i, y = y0 + j;
+          if (x < 2 || y < 3 || x > W - 3 || y > H - 3 || at(x, y) !== 0) continue;
+          const up = at(x, y - 1), dn = at(x, y + 1);
+          if (up && dn && (up === 3 || dn === 3) && up !== 4 && dn !== 4) { set(x, y, 3); cut.push([x, y]); n++; continue; }
+          // a 2×2 of open and rock on the diagonals, either way round
+          for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) { const a = at(x + ox, y + oy), b = at(x + ox + 1, y + oy), c2 = at(x + ox, y + oy + 1), d = at(x + ox + 1, y + oy + 1);
+            if (!a === !d && !b === !c2 && !a !== !b && [a, b, c2, d].includes(3) && ![a, b, c2, d].includes(4)) { set(x, y, 3); cut.push([x, y]); n++; break; } } } }
+      // the crossings: in every room the stream cuts, a two-cell causeway along its middle lanes until nothing is cut off
+      const along = ([x, y]) => (vert ? y : x);
+      for (const q of crossed) { if (connected()) break; const mid = vert ? q.cy : q.cx;
+        for (const m0 of [mid, mid - 2, mid + 2, mid - 3, mid + 3]) { const ford = cut.filter(([x, y]) => roomOf(x, y) === q && at(x, y) === 3 && (along([x, y]) === m0 || along([x, y]) === m0 + 1));
+          for (const [x, y] of ford) set(x, y, 1); if (connected()) break; for (const [x, y] of ford) set(x, y, 3); } }
+      scraps(cut);
+      const live = cut.filter(([x, y]) => at(x, y) === 3);
+      if (live.length < 12 || !connected()) return undo();
+      for (const [x, y] of live) { lava.push([x, y]); flow[y * W + x] = dir; }
+      streams.push({ room: r.id, kind: 'river', n: live.length }); return true; };
+    const hall = (r, dir) => { if (r.w < 10 || r.h < 8) return false;
+      const inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, keep = new Set(), k2 = (x, y) => y * W + x;
+      for (let y = r.cy - 1; y <= r.cy + 1; y++) for (let x = r.cx - 1; x <= r.cx + 1; x++) keep.add(k2(x, y));
+      const mouths = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const c = at(x + dx, y + dy); return (c === 1 || c === 4) && !inR(x + dx, y + dy); })) mouths.push([x, y]);
+      // a two-cell path from each way in to the island, the shortest through the room
+      for (const [mx, my] of mouths) { const prev = new Map([[k2(mx, my), -1]]), q = [[mx, my]]; let end = null;
+        for (let i = 0; i < q.length && !end; i++) { const [x, y] = q[i]; if (keep.has(k2(x, y))) { end = [x, y]; break; }
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (inR(nx, ny) && at(nx, ny) === 1 && !prev.has(k2(nx, ny))) { prev.set(k2(nx, ny), k2(x, y)); q.push([nx, ny]); } } }
+        for (let k = end ? k2(...end) : -1, last = null; k >= 0; last = k, k = prev.get(k)) { keep.add(k);
+          if (last !== null) { const sx = Math.abs(last - k) === 1 ? 0 : 1, x = k % W + sx, y = Math.floor(k / W) + (1 - sx); if (inR(x, y)) keep.add(k2(x, y)); } } }
+      const cut = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1 && !keep.has(k2(x, y)) && !isDoor(x, y)) { cut.push([x, y]); set(x, y, 3); }
+      scraps(cut);
+      if (cut.length * 2 < r.w * r.h || !connected()) { for (const [x, y] of cut) set(x, y, 1); return false; }
+      for (const [x, y] of cut) if (at(x, y) === 3) { lava.push([x, y]); flow[y * W + x] = dir; } streams.push({ room: r.id, kind: 'hall', n: cut.length }); return true; };
+    if (D.BIOMES[biome].lava && !boss) {
+      // the first river a room or two from the start, so the floor reads as the fire depths from its first fight
+      const near = rooms.filter((r) => lavaRoom(r) && hop[r.id] >= 1 && hop[r.id] <= 2), rest = rooms.filter((r) => lavaRoom(r) && !near.includes(r));
+      for (let i = near.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [near[i], near[j]] = [near[j], near[i]]; }
+      for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+      const tryRiver = (r) => { const dirs = [1, 3, 0, 2].filter((d) => (d % 2 ? r.w : r.h) >= 8); for (let k = 0; k < 3 && dirs.length; k++) if (river(r, dirs[Math.floor(R() * dirs.length)])) return true; return false; };
+      for (const r of near) if (tryRiver(r)) break;
+      const wantR = 2 + (R() < 0.5 ? 1 : 0), big = rest.filter((r) => r.w >= 10 && r.h >= 8);
+      if (big.length && R() < 0.75) for (const r of big) if (lavaRoom(r) && hall(r, Math.floor(R() * 4))) break;
+      for (const r of rest) { if (streams.filter((q) => q.kind === 'river').length >= wantR) break; if (lavaRoom(r)) tryRiver(r); } }
+    // a fire floor without a river, and the boss's hall, get pools: a second pass that skips the roll
+    if ((D.BIOMES[biome].lava && !lava.length) || boss) for (let pass = 0; pass < 2 && !lava.length; pass++) for (const r of rooms) {
       if (r.type !== 'start' && r.type !== 'shop' && r.w >= 8 && r.h >= 6 && (pass || R() < (boss ? 1 : 0.75))) pool(r); }
     function connected() { const seen = new Uint8Array(W * H), st = [[start.cx, start.cy]]; seen[start.cy * W + start.cx] = 1;
       while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
@@ -201,6 +279,8 @@
       if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y, big === true ? 'chest' : big))) { used.add(key(x, y)); if (big) claim(x, y, big === true ? 'chest' : big); return [x, y]; } } return null; };
     for (const sc of secrets) for (const [x, y] of sc.front) used.add(key(x, y));
     for (const k of water) used.add(key(k % W, Math.floor(k / W)));
+    // nothing stands in lava or a cell from its shore: no spawn, chest, pot or prop (a chest stood half in a pool, TASKS 186)
+    const shore = new Set(); for (const [x, y] of lava) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (!used.has(key(x + i, y + j))) { used.add(key(x + i, y + j)); shore.add(key(x + i, y + j)); }
     const wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2 + 6;
     const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [], shrines = [], rugs = [];
     // the top wall: what hangs on it (torches, sconces, banners, the shop sign) and the tall props standing against it (columns,
@@ -226,6 +306,8 @@
       const lights = torches.filter((t) => t.r === r.id).map((t) => [t.x, t.y, LIGHT_R[t.kind]])
         .concat(decor.filter((d) => LIGHT_R[d.n] && inR(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.filter(inR).map((s) => [s.x, s.y, LIGHT_R.shrine]), extra);
       if (r.id === start.id) lights.push([wx(start.cx), wy(start.cy), LIGHT_R.fire]);
+      // lava glows: every cell of it lights the floor around (the scene gives each one a light of its own)
+      for (const [x, y] of lava) if (x >= r.x - 4 && x < r.x + r.w + 4 && y >= r.y - 4 && y < r.y + r.h + 4) lights.push([wx(x), wy(y), LIGHT_R.lava]);
       const reach = (x, y) => Math.min(...lights.map(([lx, ly, lr]) => Math.hypot(lx - wx(x), (ly - wy(y)) / 0.8) / (lr * TILE)));
       for (let k = 0; k < 12; k++) { let dark = null;
         for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) { const v = lights.length ? reach(x, y) : 9; if (v > 1 && (!dark || v > dark[2])) dark = [x, y, v]; }
@@ -233,7 +315,7 @@
         const cand = [];
         for (let x = r.x; x < r.x + r.w; x++) if (!at(x, r.y - 1) && at(x, r.y) === 1 && !doorway(x, r.y) && !tallAt(wx(x), r.y, HANG.wall) && !doorTop(wx(x), r.y, HANG.wall) && !torches.some((t) => t.kind === 'wall' && Math.abs(t.x - wx(x)) < 2 * TILE && Math.abs(t.y - r.y * TILE) < TILE) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - wx(x)) < 1.5 * TILE && Math.abs(d.y - r.y * TILE) < TILE))
           cand.push([x, r.y, 0, { x: wx(x), y: r.y * TILE - 26, kind: 'wall', r: r.id }]);
-        for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of [[r.x, -1], [r.x + r.w - 1, 1]]) if (!at(x + s, y) && free(x, y) && !doorway(x, y))
+        for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of [[r.x, -1], [r.x + r.w - 1, 1]]) if (!at(x + s, y) && (free(x, y) || shore.has(key(x, y))) && !doorway(x, y))   // a sconce hangs on the wall: a lava shore under it is no matter
           cand.push([x, y, 0.5, { x: s < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: s, r: r.id, cell: [x, y] }]);
         for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (!wallOnly && free(x, y) && !doorway(x, y)) {
           if (r.type !== 'start' && roomy(x, y, 'brazier')) cand.push([x, y, 1.5, { x: wx(x), y: wy(y), kind: 'brazier', r: r.id, cell: [x, y], big: 1 }]);
@@ -570,7 +652,7 @@
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); for (const [x, y] of shop.solid) bl(x, y);
     return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, water, doors, locks, webs, ambush };
+      enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, doors, locks, webs, ambush };
   }
 
   // room index of a world point (or -1 in a corridor)
