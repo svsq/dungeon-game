@@ -91,6 +91,8 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     gl.enable(gl.BLEND);
     if (mode === 'add') gl.blendFunc(gl.ONE, gl.ONE);
     else if (mode === 'screen') gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+    // premultiplied over, but alpha drops by the source's: the lit pass reads 1 - alpha as "an emitter, don't multiply by the light"
+    else if (mode === 'emit') gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
     else if (mode === 'none') gl.disable(gl.BLEND);
     else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   };

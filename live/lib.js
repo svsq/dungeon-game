@@ -331,7 +331,7 @@ void main(){ vec2 uv = scr(v_px); vec3 c = texture(u_src, uv).rgb;
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   c += vec3(0.020, 0.010, -0.018) * (smoothstep(0.4, 1.0, l) * u_warm) + vec3(-0.012, 0.004, 0.016) * (smoothstep(0.5, 0.0, l) * u_warm);
   float mx = max(c.r, max(c.g, c.b));
-  if (mx > 0.8 && u_roll > 0.0) { float k = (0.8 + (1.0 - exp(-(mx - 0.8) * 3.0)) * 0.19) / mx; c *= u_roll < 1.0 ? mix(1.0, k, u_roll) : k; }
+  if (mx > 0.92 && u_roll > 0.0) { float k = (0.92 + (1.0 - exp(-(mx - 0.92) * 5.0)) * 0.08) / mx; c *= u_roll < 1.0 ? mix(1.0, k, u_roll) : k; }
   vec2 q = (v_px / u_res - 0.5) * vec2(1.0, 0.85);
   c *= mix(u_vig, 1.0, smoothstep(0.85, 0.3, length(q) * 1.25));
   c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), u_desat);

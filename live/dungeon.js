@@ -83,7 +83,9 @@
     const shopR = others.find((r) => r.type === 'combat' && shopFits(r));
     if (!shopR) return null;
     shopR.type = 'shop';
-    for (const r of others) if (r.type === 'combat' && R() < 0.35 && r.w >= 8) r.trap = 1;
+    // a biome with no spiders has no webs, so plates and ambushes make up for them: the traps grow towards the end, not thin out
+    const webless = !D.BIOMES[biome].roster.includes('spider');
+    for (const r of others) if (r.type === 'combat' && R() < (webless ? 0.55 : 0.35) && r.w >= 8) r.trap = 1;
     // accent zones: one or two rooms per floor in another biome's look (the reference shows a green crypt and a blue hall
     // beside the torch-lit dungeon in one view)
     const zones = ['crypt', 'arcane', 'dungeon'].filter((z) => z !== biome);
@@ -353,6 +355,15 @@
       if (!c.length) return null; const p = c[Math.floor(R() * c.length)]; used.add(key(...p)); claim(...p, n); return p; };
     for (const r of rooms) { if (r.type === 'shop') continue;
       const area = r.w * r.h, zb = r.zone || biome;
+      // an accent zone is lit by hearths of its colour in the corners (and mid-sides of a long room), the arcane one round a crystal
+      // obelisk: the concept's blue hall is pools of cold fire in the dark, not a room washed blue (TASKS 188). A hearth stands a
+      // cell in from the walls and a cell clear of a way in, so it never stands in a doorway
+      if (r.zone && r.zone !== 'dungeon' && r.type !== 'boss' && r.type !== 'shrine') {
+        const clear = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (doorway(x + i, y + j)) return false; return free(x, y); };
+        const spots = [[r.x + 1, r.y + 1], [r.x + r.w - 2, r.y + 1], [r.x + 1, r.y + r.h - 2], [r.x + r.w - 2, r.y + r.h - 2]].concat(r.w >= 11 ? [[r.cx, r.y + 1], [r.cx, r.y + r.h - 2]] : []);
+        for (const [x, y] of spots) { const sx = Math.sign(r.cx - x), sy = Math.sign(r.cy - y), p = [[x, y], [x + sx, y], [x, y + sy], [x + sx, y + sy]].find(([a, b]) => clear(a, b) && roomy(a, b, 'brazier'));
+          if (p) { claim(p[0], p[1], 'brazier'); torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); } }
+        if (r.zone === 'arcane' && r.type !== 'treasure' && clear(r.cx, r.cy) && roomy(r.cx, r.cy, 'crystal')) { claim(r.cx, r.cy, 'crystal'); decor.push({ x: wx(r.cx), y: wy(r.cy), n: 'crystal', solid: 1, r: r.id }); } }
       // the hoard's centrepiece, as in the reference: a rug running from the top wall with the best chest on it
       let first = null;
       if (r.type === 'treasure' && r.w >= 7 && r.h >= 6) { const y0 = r.y + 1; rugs.push({ cx: wx(r.cx), y: y0 * TILE - 6, h: Math.min(r.h - 2, 4.4) * TILE });
@@ -361,7 +372,7 @@
       if (r.type === 'combat' || r.type === 'exit' || r.type === 'treasure') {
         let n = Math.min(Math.floor(area / 9), 2 + Math.floor(floor / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
         n = Math.max(1, Math.round(n * D.BAL.pop));
-        const pack = pick(roster), guard = r.type === 'exit' && floor % 2 === 0;
+        const pack = pick(roster), guard = r.type === 'exit' && D.ELITE.guards.includes(floor);
         for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
@@ -490,12 +501,15 @@
       for (let i = 0, n = sp >= 2 ? ri(2, 3) : R() < 0.5 ? 1 : 0; i < n; i++) { const p = floorSpot(r); if (p) webs.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, v: ri(0, 1), s: 0.9 + 0.3 * R(), f: R() < 0.5 ? 1 : 0, torn: 0 }); } }
     { const pool = rooms.filter((r) => r.type === 'combat' || r.type === 'exit' || r.locked); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
       pool.sort((a, b) => (b.locked || 0) - (a.locked || 0));
-      for (const r of pool.slice(0, floor === 1 ? (R() < 0.3 ? 1 : 0) : ri(1, 2))) { const p = floorSpot(r); if (p) ambush.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, cx: p[0], cy: p[1], room: r.id, n: 2 + Math.floor(floor / 3) + (r.locked ? 1 : 0) }); } }
+      for (const r of pool.slice(0, floor === 1 ? (R() < 0.3 ? 1 : 0) : webless ? ri(2, 3) : ri(1, 2))) { const p = floorSpot(r); if (p) ambush.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, cx: p[0], cy: p[1], room: r.id, n: 2 + Math.floor(floor / 3) + (r.locked ? 1 : 0) }); } }
     // start room: a sanctuary bonfire in the centre
     const sanct = { x: start.cx * TILE + TILE / 2, y: start.cy * TILE + TILE / 2 + 8 };
     torches.push({ x: sanct.x, y: sanct.y, kind: 'fire' });
-    const spawn = { x: start.cx * TILE + TILE / 2, y: (start.cy + 2) * TILE + TILE / 2 };
-    if (at(start.cx, start.cy + 2) !== 1) spawn.y = (start.cy + 1) * TILE + TILE / 2;
+    // the hero arrives below and beside the fire, not under it: straight below, its bowl sat on his head in the first frame of a floor
+    const spawnOk = (dx, dy) => { const x = (start.cx + 0.5 + dx) * TILE, y = (start.cy + 0.5 + dy) * TILE;
+      return [[x - 10, y], [x + 10, y], [x, y - 8]].every(([px, py]) => at(Math.floor(px / TILE), Math.floor(py / TILE)) === 1 && !solid.has(key(Math.floor(px / TILE), Math.floor(py / TILE)))) ? { x, y } : null; };
+    const spawn = [[1, 3], [-1, 3], [2, 2], [-2, 2], [1, 2], [-1, 2], [0, 2], [0, 1]].reduce((a, [dx, dy]) => a || spawnOk(dx, dy), null)
+      || { x: start.cx * TILE + TILE / 2, y: (start.cy + 1) * TILE + TILE / 2 };
     // flat floor decals (baked into the floor map): wear everywhere, a biome flavour per room, gore and coins where fights happen
     const DEC = { dungeon: ['dc_crack', 'dc_grime', 'dc_rubble', 'dc_slab', 'dc_straw', 'dc_shards', 'dc_leaves'], crypt: ['dc_moss', 'dc_bones', 'dc_crack', 'dc_grime', 'dc_puddle'],
       lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'] };
