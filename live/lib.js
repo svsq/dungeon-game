@@ -32,9 +32,9 @@ uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 roo
 // pixel (jx, jy: one target pixel in texture uv); kept only if half covered (by the mip average, which a squeezed sprite
 // keeps honest where the samples would sweep its whole length) and painted in its most common colour. No darkest-on-the-edge rule:
 // a rig is many parts, and each part's own edge would draw dark seams inside the figure; the ink pass gives the outer contour
-uniform float u_snap;
-vec4 snapTex(vec2 tuv, vec2 jx, vec2 jy, float lod){
-  if (texture(u_tex, tuv).a < 0.5) return vec4(0.0);
+uniform float u_snap;           // 1: snap to the target's pixel grid, 2: the same from the full-size texture
+vec4 snapTex(vec2 tuv, vec2 jx, vec2 jy, float lod, float a0){
+  if (a0 < 0.5) return vec4(0.0);
   vec4 tp[16]; float cov = 0.0;
   for (int k = 0; k < 16; k++) { vec2 f = (vec2(float(k % 4), float(k / 4)) + 0.5) / 4.0 - 0.5; vec4 t = textureLod(u_tex, tuv + jx * f.x + jy * f.y, lod);
     tp[k] = vec4(t.rgb / max(t.a, 1e-3), t.a); cov += step(0.5, t.a); }
@@ -89,7 +89,12 @@ void main(){
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
   vec2 tuv = mix(u_src.xy, u_src.zw, uv);
   bool boned = u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0;
-  vec4 c = boned ? textureLod(u_tex, tuv, lod0 + u_lod) : u_snap > 0.5 && u_lod == 0.0 ? snapTex(tuv, jx, jy, max(0.0, lod0 - 1.0)) : texture(u_tex, tuv, u_lod);
+  // a boned sprite snaps too (the hero's body and cape): averaged from the mip it melted its face and plate into one pink tone.
+  // Its coverage comes from an explicit lod, as a warped lookup has no usable derivatives
+  // u_snap 2: a sprite painted in flat cells on the target's grid (the hero's face) samples the full-size texture, or a one-cell eye
+  // averages into the skin around it in the mip and loses the vote
+  vec4 c = u_snap > 0.5 && u_lod == 0.0 ? snapTex(tuv, jx, jy, u_snap > 1.5 ? 0.0 : max(0.0, lod0 - 1.0), boned ? textureLod(u_tex, tuv, lod0).a : texture(u_tex, tuv).a)
+    : boned ? textureLod(u_tex, tuv, lod0 + u_lod) : texture(u_tex, tuv, u_lod);
   c *= smoothstep(0.0, max(u_fade.x, 1e-4), uv.x) * smoothstep(1.0, 1.0 - max(u_fade.y, 1e-4), uv.x) ;
   if (u_tfade > 0.0) c *= smoothstep(0.0, u_tfade, uv.y);
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));

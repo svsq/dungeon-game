@@ -364,9 +364,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const WHIRL_T = 0.4, whirlP = (t) => { const a = 0.1, v = 1 / (WHIRL_T - a); t = Math.max(0, Math.min(WHIRL_T, t));
     return t < a ? v * t * t / (2 * a) : t < WHIRL_T - a ? v * (t - a / 2) : 1 - v * (WHIRL_T - t) ** 2 / (2 * a); };
   SC.swingPose = swingPose; SC.SWING = SWING; SC.hide = {};   // hide: QA-only switches (weapon, hero) for render-twice checks
-  // the hero's paint is lifted over the world's: lit by the same light as the floor he stands on, he must still read first
-  // k: how lit the hero already is (0 dark .. 1 by a fire), which takes the lift and his key light back off
-  const HERO = { lift: 1.3, k: 0 };
+  // the hero's paint under the light: his own lantern lights him wherever he stands, so his paint is taken down, not lifted (at 1.3 he
+  // read as a pink-white blot, TASKS 197), a little less by a fire; HSAT keeps his steel from taking the fire's orange.
+  // k: how lit the hero already is (0 dark .. 1 by a fire), which takes his key light back off
+  const HERO = { lift: 0.85, k: 0 }, HSAT = 0.8;
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && h.castK !== 'whirl';
@@ -397,8 +398,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const fallR = du < 0 ? 0 : -face * (0.1 * buckle + 1.32 * (2.4 * fq * fq - 1.4 * fq * fq * fq) - (du > 0.47 ? 0.03 * Math.sin(Math.PI * Math.min(1, (du - 0.47) / 0.16)) : 0));
     const fc = Math.cos(fallR), fs = Math.sin(fallR);
     const root = [hx, hy], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
-    const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, U = { alpha, grade: hurt ? [0.4, 2.4, 0, 1] : [0.6 * dk, HERO.lift * dk, 0, 1] }, Ufar = { alpha, grade: hurt ? [0.4, 2.4, 0, 1] : [0.5 * dk, 0.72 * HERO.lift * dk, 0, 1] };
-    const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: t }) : u);
+    const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, ft = hurt || !HERO.fireTint ? [1, 1, 1, 0] : [...HERO.fireTint(h.x, h.y), 1], U = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [HSAT * dk, HERO.lift * dk, 0, 1] }, Ufar = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * HSAT * dk, 0.72 * HERO.lift * dk, 0, 1] };
+    const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: [0, 1, 2].map((i) => (u.tint ? 1 + (u.tint[i] - 1) * u.tint[3] : 1) * (1 + (t[i] - 1) * t[3])).concat(1) }) : u);   // a piece's rarity over the fire's tint
     const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0) => { const g = GR.part(n); return L.sprite(g.tex, 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };
     const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
     const dist2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -419,6 +420,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       drop = Math.max(drop, tg[side].ty - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx * dx))); }
     const hipDy = Math.max(bodyDy / s, drop) + breath * 1.4 / s + 48 * buckle + 10 * dashE + 8 * hurtE + 7 * whirlE;
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0] + hipDx, Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
+    // the face is painted on the world's art grid (one texture cell, RIGS.hero.h / 42 px, is one world pixel): the cell of the near
+    // eye is kept on a world pixel through the torso's lean, or the one-cell eye lands across two pixels and drops out of the snap.
+    // Arms ride on hipS and move with it
+    if (du < 0) { const C = RG.h / 42, ex = fX * ((13.5 * C) - Hc[0]) * s, ey = (6.5 * C - Hc[1]) * s, r = fallR + bodyR;
+      const qx = hipS[0] + ex * Math.cos(r) - ey * Math.sin(r), qy = hipS[1] + ex * Math.sin(r) + ey * Math.cos(r);
+      hipS[0] += 2 * Math.round((qx - 1) / 2) + 1 - qx; hipS[1] += 2 * Math.round((qy - 1) / 2) + 1 - qy; }
     const R2U = (px, py, dy = 0) => { const p = R2S(px + hipDx, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty, lift } = tg[side];
@@ -525,8 +532,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (!castFront) shield(Ufar);
       drawLeg('L', Ufar); drawLeg('R', U);
       if (behind) { weapon(); drawArm('R', U); }
-      if (backK < 1) L.sprite(GR.body, 0, 0, Object.assign({ u: Object.assign({}, U, soft('hero__body', GR.helm ? 0 : hairA)) }, bodyAt));
-      if (backK < 1 && GR.helm) L.sprite('hero__head_' + GR.helm, 0, 0, Object.assign({ u: tinted(U, GR.helmTint) }, bodyAt));
+      if (backK < 1) L.sprite(GR.body, 0, 0, Object.assign({ u: Object.assign({}, U, { snap: 2 * L.SNAP }, soft('hero__body', GR.helm ? 0 : hairA)) }, bodyAt));
+      if (backK < 1 && GR.helm) L.sprite('hero__head_' + GR.helm, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
       if (backK > 0 && window.ASSETS.hero__body_back) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, U, { alpha: alpha * backK }, soft('hero__body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK > 0 && GR.helm) L.sprite('hero__head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, tinted(U, GR.helmTint), { alpha: alpha * backK }) }, bodyAt));
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); shield(backK > 0.5 ? Ufar : U); }
@@ -584,8 +591,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const sat = e.type === 'skeleton' ? 0.4 : 0.95, val = (E.val || 1) * (1 - 0.3 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
     const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat, val, 0, 1.05];
     const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
-    let tint = own; if (lt) { const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
-      tint = c.map((v, i) => own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g))))); }
+    const tint = lt ? HERO.fireTint(e.x, e.y, own) : own;
     // bone, horn and eyes stay pale under the fire: a demon's horns lit salmon read as orange, the concept's are tan (TASKS 185)
     const rim = dead < 0 && !hit ? { tint: [...tint, 1], pale: 1 } : {};
     // the lit edge: one art pixel on the side of the whole silhouette that faces the nearest fire, in its colour; in the dark, none
@@ -701,7 +707,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (const [x, y, r, col, amt, k = 2.2] of TL) { const d = Math.hypot((px - x) / r, (py - 40 - y) / (0.8 * r)); if (d >= 1) continue;
         const s = amt * Math.exp(-d * d * k) * SS(1, 0.7, d), dx = x - px, dy = y - (py - 40), n = Math.hypot(dx, dy) || 1; bx += dx / n * s; by += dy / n * s; w += s; for (let i = 0; i < 3; i++) c[i] += col[i] * s; }
       return { dx: w ? bx / w : 0, dy: w ? by / w : 0, col: w ? c.map((v) => v / w) : [1, 1, 1], k: w, all: AMB0.map((v, i) => v + c[i]) }; };
-    HERO.k = HERO.kAt(h.x, h.y); HERO.lift = 1.3 - 0.35 * HERO.k;
+    // the fire's colour on an actor falls half bleached and without the lit pass's 1.6 saturation: as a tint over its own (own),
+    // the boosted light is taken back to the bleached one (TASKS 185); the concept's demon stays red, its hero steel in torchlight
+    HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
+      return c.map((v, i) => own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g))))); };
+    HERO.k = HERO.kAt(h.x, h.y); HERO.lift = 0.85 + 0.1 * HERO.k;
 
     // ===== ground: the baked map, then decals =====
     L.beginBG([0, 0, 0, 1]);
@@ -785,7 +795,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
       Y.push([d.y - 38, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(d.x), sy(d.y + 8 - hh)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); });
     for (const c of R.chests) if (vis(c.x, c.y) && !hid(c)) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, 22, 6, 0.5);
-      drawProp(op > 0.5 ? (c.gold && window.ASSETS.chest_open_gold ? 'chest_open_gold' : 'chest_open') : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier >= 2 ? 1.15 : 1, u: { grade: c.tier === 3 ? [1.2, 1.12, 0, 1.1] : c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
+      // the gold chest's coins are painted in their own flat golds: the tier's lift would melt them into one orange heap
+      const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold;
+      drawProp(gold ? 'chest_open_gold' : op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier >= 2 ? 1.15 : 1, u: { grade: gold ? [1, 1, 0, 1] : c.tier === 3 ? [1.2, 1.12, 0, 1.1] : c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 });
       if (p.kind === 'gold' || p.kind === 'goldpile') emitted((a) => drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4, u: { alpha: a, tint: GOLD_TINT } })); }]); }
     // lean: the flame's tip shifted sideways (px), its base stays on the wick
@@ -960,12 +972,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const s of R.shrines) if (!s.used && vis(s.x, s.y) && known(s.x, s.y)) { L.glow(sx(s.x), sy(s.y) - 34, 30, [0.4, 0.7, 1.0], 0.5 + 0.2 * Math.sin(t * 3)); }
     // gold catches the light: loose coins, heaps and spilt coins keep a yellow sheen the fire's orange can't take, and twinkle pale
     // yellow, each on its own beat (TASKS 167)
-    const glint = (x, y, n, k) => { L.glow(sx(x), sy(y) + 2, 6 + 3 * n, [0.9, 0.95, 0.3], 0.7, 3); for (let j = 0; j < n; j++) { const ph = (t * (0.7 + 0.3 * rnd(k, j)) + rnd(k, j + 5)) % 1.6; if (ph > 0.5) continue;
+    const glint = (x, y, n, k, sheen = true) => { if (sheen) L.glow(sx(x), sy(y) + 2, 6 + 3 * n, [0.9, 0.95, 0.3], 0.7, 3); for (let j = 0; j < n; j++) { const ph = (t * (0.7 + 0.3 * rnd(k, j)) + rnd(k, j + 5)) % 1.6; if (ph > 0.5) continue;
       L.star(sx(x) + (rnd(k, j + 9) - 0.5) * 16, sy(y) - 4 - rnd(k, j + 13) * 10, 9, [1, 0.92, 0.5], 0.8 * Math.sin(Math.PI * ph / 0.5)); } };
     for (const p of R.drops) if (p.kind === 'gold' && !p.got && vis(p.x, p.y) && known(p.x, p.y)) glint(p.x, p.y - p.z, 2, p.id);
     for (const p of R.pots) if ((p.kind === 'gold' || p.kind === 'goldpile') && p.hp > 0 && !hid(p) && vis(p.x, p.y) && known(p.x, p.y)) glint(p.x, p.y - 8, 3, p.x * 7 + p.y);
     for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && known(d.x, d.y)) glint(d.x, d.y + 4, 1, d.x * 3 + d.y);
-    for (const c of R.chests) if (c.gold && c.open && vis(c.x, c.y) && known(c.x, c.y)) { glint(c.x - 8, c.y - 22, 3, c.x); glint(c.x + 10, c.y - 18, 2, c.y); }
+    // the gold chest's coins are painted in the concept's golds (tools/goldchest.py): the sheen would turn them green, they only twinkle
+    for (const c of R.chests) if (c.gold && c.open && vis(c.x, c.y) && known(c.x, c.y)) { glint(c.x - 8, c.y - 22, 3, c.x, false); glint(c.x + 10, c.y - 18, 2, c.y, false); }
     // embers: single art pixels rising off every fire and the lava's cracks and dying out, each on its own beat; the concept's fires
     // throw off sparks, and the hot specks of its frame are these points, not more glow (TASKS 184)
     const embers = (x, y, n, rise, col, k) => { for (let j = 0; j < n; j++) { const q = (t * (0.45 + 0.2 * rnd(k, j)) + rnd(k, j + 3)) % 1; if (q > 0.85) continue;
@@ -1235,7 +1248,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
       const types = ['skeleton', 'skeleton', 'goblin', 'brute', 'skeleton', 'spider', 'cultist'], ang = [0, 0.9, 1.8, 2.3, 3.3, 5.0, 4.4];   // the 5th stands clear of the gold chest: its bar and number stay off it; the demon in front of it, its face clear
       R.en = types.map((ty, i) => { const a = ang[i], E = D.ENEMIES[ty]; return { id: 900 + i, type: ty, x: h.x + Math.cos(a) * (150 + 40 * (i % 2)), y: h.y + Math.sin(a) * 110, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: rm.id, st: 'chase', t0: 0, face: Math.cos(a) > 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }; });
-      R.chests.push({ x: h.x - 3.5 * TILE, y: (rm.y + 1) * TILE + 12, tier: 2, open: 1, openT: S.t - 3, gold: 1 });
+      // the gold chest where the concept has its chests, at the bottom wall right of the fight: under a brazier its fire washes it orange
+      R.chests.push({ x: h.x + 2.5 * TILE, y: (rm.y + rm.h - 1) * TILE + 4, tier: 2, open: 1, openT: S.t - 3, gold: 1 });
       // gold lying loose and spilt coins round the chest and the fight: the concept's yellow sparkle (TASKS 167)
       for (const [gx, gy] of [[-2, 1.2], [-4.6, 1.6], [2, 6.6]]) R.drops.push({ id: 9e5 + gx, kind: 'gold', n: 40, x: h.x + gx * TILE, y: (rm.y + gy) * TILE + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9 });
       R.pots.push({ x: h.x + 3.5 * TILE, y: (rm.y + 1) * TILE + 10, kind: 'goldpile', hp: 1 });
