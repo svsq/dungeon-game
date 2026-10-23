@@ -95,19 +95,26 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   else { vec3 l = texture(u_light, scr(v_px)).rgb; float glint = rip * (0.3 + 0.7 * deep);
     o = vec4(l * glint * inside * 0.16 * texture(u_seen, w / u_map).r, 0.0); } }`;
   const LIT = `
-uniform sampler2D u_src, u_light, u_seen, u_void, u_top; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam;
-vec3 abyss(vec2 p){ vec2 q = p / 150.0;
-  float n = fbm(q), plates = fbm(q * 3.1 + 9.0), crack = smoothstep(0.88, 0.97, 1.0 - abs(fbm(q * 1.7 + 4.0) * 2.0 - 1.0));
-  vec3 c = u_rock * (0.55 + 0.6 * n + 0.3 * plates) * (1.0 - 0.55 * crack);
-  float vein = smoothstep(0.94, 0.99, 1.0 - abs(fbm(q * 0.8 + 21.0) * 2.0 - 1.0)), pulse = 0.55 + 0.45 * sin(u_t * 0.6 + fbm(q * 0.5) * 12.0);
-  c += u_vein.rgb * vein * pulse * u_vein.a;
+uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam;
+// the abyss is black (TASKS 187): the concept's rock past the masonry is a flat near-black, its veins only in the fire depths, faint,
+// and only by the explored masonry and lava (u_veins), so the fog gives nothing of the layout away
+vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock;
+  float near = texture(u_veins, w).r * smoothstep(0.05, 0.3, texture(u_seen, w).r) * u_vein.a;
+  float vein = step(0.965, 1.0 - abs(fbm(q * 0.8 + 21.0) * 2.0 - 1.0)), pulse = 0.55 + 0.45 * sin(u_t * 0.6 + fbm(q * 0.5) * 12.0);
+  c += u_vein.rgb * vein * pulse * near;
   vec2 g = p / 96.0 + vec2(0.0, u_t * 0.07), cell = floor(g), f = fract(g) - 0.5, j = vec2(hash(cell + 3.1), hash(cell + 7.7)) - 0.5;
-  c += u_vein.rgb * 0.5 * smoothstep(0.05, 0.0, length(f - j * 0.7)) * step(0.8, hash(cell)) * (0.5 + 0.5 * sin(u_t * 1.3 + hash(cell) * 40.0)) * 0.12;
+  c += u_vein.rgb * step(length(f - j * 0.7), 0.03) * step(0.8, hash(cell)) * (0.5 + 0.5 * sin(u_t * 1.3 + hash(cell) * 40.0)) * near;
   return c; }
+float rimAt(vec2 bq){ float vd = texture(u_void, bq / u_map).r;
+  return smoothstep(0.45, 0.55, vd + (fbm(bq / 22.0) * 0.7 + fbm(bq / 9.0) * 0.3 - 0.5) * 1.4 * min(1.0, vd * 2.5)); }
 void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture(u_light, scr(v_px)).rgb; float em = clamp(1.0 - src.a, 0.0, 1.0);
   // the rim breaks off into the abyss block by block, as the concept's masonry does: the edge is decided per 14 px wall-top block
-  vec2 w = (v_px + u_cam) / u_map, wp = floor(v_px / 2.0) * 2.0 + u_cam, bq = floor(wp / 14.0) * 14.0 + 7.0; float vd = texture(u_void, bq / u_map).r;
-  vd = smoothstep(0.45, 0.55, vd + (fbm(bq / 22.0) * 0.7 + fbm(bq / 9.0) * 0.3 - 0.5) * 1.4 * min(1.0, vd * 2.5));
+  vec2 w = (v_px + u_cam) / u_map, wp = floor(v_px / 2.0) * 2.0 + u_cam, bq = floor(wp / 14.0) * 14.0 + 7.0, pb = wp - bq + 7.0; float vd = rimAt(bq);
+  // a block on the stepped edge: one art pixel of pale bevel on its top and left where they face the abyss, a dark one on its
+  // bottom and right
+  if (vd < 0.5) { float lit = max(step(pb.y, 1.0) * rimAt(bq - vec2(0.0, 14.0)), step(pb.x, 1.0) * rimAt(bq - vec2(14.0, 0.0))),
+      dk = max(step(12.0, pb.y) * rimAt(bq + vec2(0.0, 14.0)), step(12.0, pb.x) * rimAt(bq + vec2(14.0, 0.0)));
+    c = lit > 0.5 ? c * 1.4 + 0.05 : dk > 0.5 ? c * 0.3 : c; }
   float s = texture(u_seen, w).r * (1.0 - vd) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
   float top = texture(u_top, w).r;
   // wall tops past the first row keep the ambient: no torch shines through a wall; their pale bevels still catch a fire close by
@@ -117,7 +124,7 @@ void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
-  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55), mix(c * l + seam, c * 1.8, em), s), 1.0); }`;
+  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), mix(c * l + seam, c * 1.8, em), s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
@@ -254,6 +261,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   }
   const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.cell(m, x, y) === 3);
   const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
+  // where the fire depths' abyss may glow: rock within a few cells of a floor or lava cell
+  const veinTex = (m) => { const d = rockDist(m); return maskTex(m, 'veins', (x, y) => x >= 0 && y >= 0 && x < m.W && y < m.H && d[y * m.W + x] <= 5); };
   const waterTex = (m) => { const w = new Set(m.water || []); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x)); };
   // 1 deep in the rock (3 to 6 cells from any floor, soft) and toward the map's edge, where a room may lie close: the abyss shows through
   // cells of rock from the nearest floor or wall face (a top wall's two face cells count as open): the masonry is a rim of two
@@ -561,9 +570,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // in the room, not only inside a pool; bone loses its warm cast
     // in a fire's pool the body is darkened as the hero's is, so the light on it reads as a rim, not a lit figure (TASKS 165); the rim
     // takes the monster's own colour where it has one (a spider's cold blue, a cultist's green), else the biome's fire
-    const sat = e.type === 'skeleton' ? 0.55 : e.type === 'goblin' ? 1.25 : 0.95, val = 0.85 * (E.val || 1) * (1 - 0.55 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
+    // the fire's colour falls on a monster half bleached, and without the lit pass's 1.6 saturation: the concept's demon stays red, its
+    // spider blue and its cultist green in the torchlight (TASKS 185). The tint takes the boosted light to the bleached one
+    const sat = e.type === 'skeleton' ? 0.4 : 0.95, val = (E.val || 1) * (1 - 0.3 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
     const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat, val, 0, 1.05];
-    const rim = dead < 0 && !hit ? { rim: [0.77, -0.6 * e.face, -0.8, 0.02], rimCol: E.rim || RIM.col, tint: E.tint || [1, 1, 1, 0] } : {};
+    const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
+    let tint = own; if (lt) { const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
+      tint = c.map((v, i) => own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g))))); }
+    // bone, horn and eyes stay pale under the fire: a demon's horns lit salmon read as orange, the concept's are tan (TASKS 185)
+    const rim = dead < 0 && !hit ? { tint: [...tint, 1], pale: 1 } : {};
+    // the lit edge: one art pixel on the side of the whole silhouette that faces the nearest fire, in its colour; in the dark, none
+    const edgeOf = () => { if (dead >= 0 || hit || !lt || lt.k < 0.15) return null; const n = Math.hypot(lt.dx, lt.dy * 1.25) || 1, a = 0.4 * SS(0.15, 0.8, lt.k);
+      const c = E.rim || lt.col, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
+      return { dx: Math.round(2 * lt.dx / n), dy: Math.round(2 * lt.dy * 1.25 / n), col: c.map((v) => (g + 0.5 * (v - g)) * a) }; };
+    const INK = [0.024, 0.02, 0.024];
     L.shadow(x, y + 2, w * 0.32, 7, 0.45 * alpha);
     // a body topples (accelerating, slowed just before the floor), bounces once and lies for seconds before it fades; a ghost dissolves upward
     if (dead >= 0) { if (E.ghost) { const gy = y - flt - 40 * SS(0, 0.9, dead); L.joint('en' + e.id, 'ground', [x, y]); L.joint('en' + e.id, 'top', [x, gy - h * (1 + 0.3 * dead)]);
@@ -576,8 +596,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       L.joint('en' + e.id, 'ground', [x, y]); CJ('mid', h / 2); CJ('top', h);
       const corpse = () => L.sprite(tex, 0, 0, { m: M.of(M.t(x, y), M.r(ca), M.s(e.face, cs)), w, h, pivot: [w / 2, h], u: { alpha, grade: [dk, dk * 0.9, 0, 1] } });
       if (MONSTERS.rigOf(e.type)) { const dk2 = [dk, dk * 0.9, 0, 1];
-        L.inked(() => MONSTERS.draw(e, E, x, y, GT, { id: 'en' + e.id, H: h, face: e.face, lean: 0, fallR: ca, death: DV, U: { alpha, grade: dk2 }, Ufar: { alpha, grade: [dk * 0.85, dk * 0.72, 0, 1] }, t }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); return; }
-      L.inked(corpse, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); return; }
+        L.inked(() => MONSTERS.draw(e, E, x, y, GT, { id: 'en' + e.id, H: h, face: e.face, lean: 0, fallR: ca, death: DV, U: { alpha, grade: dk2 }, Ufar: { alpha, grade: [dk * 0.85, dk * 0.72, 0, 1] }, t }), { r: 2, n: 8, col: INK, dy: 0, emit: true }); return; }
+      L.inked(corpse, { r: 2, n: 8, col: INK, dy: 0, emit: true }); return; }
     // turning about narrows the body to a sliver and opens it the other way over 0.16 s instead of mirroring in one frame
     const tA = GT - (e.ft ?? -9), tc = tA < 0.16 ? -Math.cos(Math.PI * SS(0, 0.16, tA)) : 1, tw = Math.sign(tc || 1) * Math.max(0.12, Math.abs(tc));
     if (tw < 1) L.pre = M.of(M.t(x, y), M.s(tw, 1), M.t(-x, -y));
@@ -594,7 +614,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.08, hA) * (1 - SS(0.12, 0.32, hA)) : 0;   // a hit flinches the upper body away from the hero
       const Ur = Object.assign({ alpha, grade }, rim), Uf = { alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] };
       const rig = () => { const r = MONSTERS.draw(e, E, x, y, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t }); if (r && r.handR) RIM.hands[e.id] = r.handR; };
-      halo(rig); if (edge) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); return; }
+      halo(rig); if (edge) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: edgeOf() }); return; }
     // an unrigged body (the ghost) is knocked back off the blow on a spring and leans away from it; the tail lashes
     const kA = GT - e.hitT, kick = kA >= 0 && kA < 0.6 ? SS(0, 0.08, kA) * Math.exp(-kA / 0.14) * Math.cos(TAU * 3 * kA) : 0;
     x -= e.face * 6 * kick; lean -= 0.2 * kick * e.face;
@@ -610,7 +630,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const X = (u / 361 - 0.5) * w * sx * e.face, Y = (v / 409 - 1) * h * sy; return [x + X * Math.cos(lean) - Y * Math.sin(lean), y - flt + X * Math.sin(lean) + Y * Math.cos(lean)]; };
       L.joint('en' + e.id, 'tail', tp([205, 395], [190, 198], tail)); L.joint('en' + e.id, 'claw', tp([330, 250], [266, 148], reach)); }
     const body = () => L.sprite(tex, 0, 0, { m: M.of(M.t(x, y - flt), M.r(lean), M.s(sx * e.face, sy)), w, h, pivot: [w / 2, h], u: Object.assign({ alpha, grade }, rim, bones) });
-    halo(body); if (edge) rimFlash(body); if (E.ghost) body(); else L.inked(body, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+    halo(body); if (edge) rimFlash(body); if (E.ghost) body(); else L.inked(body, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: edgeOf() });
     }
   }
 
@@ -666,6 +686,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // how deep a point of the floor stands in the fires' light, 0 in the dark to 1 in a brazier's pool
     HERO.kAt = (px, py) => { let l = 0; for (const [x, y, r, col, amt, k = 2.2] of TL) { const d = Math.hypot((px - x) / r, (py - 40 - y) / (0.8 * r)); if (d < 1) l += amt * Math.exp(-d * d * k) * SS(1, 0.7, d) * (col[0] + col[1] + col[2]) / 3; }
       return SS(0.4, 1.2, l); };
+    // where the fires' light on a point of the floor comes from and its colour, weighted as kAt weighs it; null in the dark
+    const AMB0 = [0.34, 0.40, 0.58].map((v, i) => 0.7 * v + 0.3 * B.amb[i] * 0.5 / Math.max(...B.amb));
+    HERO.lightAt = (px, py) => { let bx = 0, by = 0, w = 0; const c = [0, 0, 0];
+      for (const [x, y, r, col, amt, k = 2.2] of TL) { const d = Math.hypot((px - x) / r, (py - 40 - y) / (0.8 * r)); if (d >= 1) continue;
+        const s = amt * Math.exp(-d * d * k) * SS(1, 0.7, d), dx = x - px, dy = y - (py - 40), n = Math.hypot(dx, dy) || 1; bx += dx / n * s; by += dy / n * s; w += s; for (let i = 0; i < 3; i++) c[i] += col[i] * s; }
+      return { dx: w ? bx / w : 0, dy: w ? by / w : 0, col: w ? c.map((v) => v / w) : [1, 1, 1], k: w, all: AMB0.map((v, i) => v + c[i]) }; };
     HERO.k = HERO.kAt(h.x, h.y); HERO.lift = 1.3 - 0.35 * HERO.k;
 
     // ===== ground: the baked map, then decals =====
@@ -900,7 +926,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
-    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_amb: amb, u_seam: B.seam || 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
+    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_amb: amb, u_seam: B.seam || 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
     // ===== emissive pass =====
     G.blend('add');
@@ -1199,7 +1225,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         for (const [x, y] of pool) m.cells[y * m.W + x] = 3; m.lava = (m.lava || 0) + pool.length;
         m.decor = m.decor.filter((d) => !on(d)); R.pots = R.pots.filter((p) => !on(p)); R.chests = R.chests.filter((c) => !on(c)); m.torches = m.torches.filter((t2) => !on(t2)); m.traps = m.traps.filter((t2) => !on(t2)); }
       R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
-      const types = ['skeleton', 'skeleton', 'goblin', 'brute', 'skeleton', 'spider', 'cultist'], ang = [0, 0.9, 1.8, 2.7, 3.3, 5.0, 4.4];   // the 5th stands clear of the gold chest: its bar and number stay off it
+      const types = ['skeleton', 'skeleton', 'goblin', 'brute', 'skeleton', 'spider', 'cultist'], ang = [0, 0.9, 1.8, 2.3, 3.3, 5.0, 4.4];   // the 5th stands clear of the gold chest: its bar and number stay off it; the demon in front of it, its face clear
       R.en = types.map((ty, i) => { const a = ang[i], E = D.ENEMIES[ty]; return { id: 900 + i, type: ty, x: h.x + Math.cos(a) * (150 + 40 * (i % 2)), y: h.y + Math.sin(a) * 110, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: rm.id, st: 'chase', t0: 0, face: Math.cos(a) > 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }; });
       R.chests.push({ x: h.x - 3.5 * TILE, y: (rm.y + 1) * TILE + 12, tier: 2, open: 1, openT: S.t - 3, gold: 1 });
       // gold lying loose and spilt coins round the chest and the fight: the concept's yellow sparkle (TASKS 167)
