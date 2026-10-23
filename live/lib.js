@@ -20,6 +20,7 @@ uniform vec4 u_sway;           // amp (uv), spatial freq, phase, mode (1 rooted 
 uniform vec2 u_pad;            // quad padding (uv) so swayed pixels are not clipped
 uniform vec4 u_rim; uniform vec3 u_rimCol;   // strength, dir.xy (uv), width
 uniform vec4 u_tint;           // rgb, amount
+uniform float u_pale;          // how much the pale parts (bone, horn, eyes) lose their colour, before the tint
 uniform vec2 u_fade;           // soft left / right edge (uv) to hide strip cuts
 uniform float u_vfade;         // ragged bottom fade (uv of the drawn rect)
 uniform float u_tfade;         // soft top fade
@@ -99,6 +100,7 @@ void main(){
   rgb = mix(vec3(l), rgb, u_grade.x) * u_grade.y;
   rgb = (rgb - 0.5) * u_grade.w + 0.5;
   rgb = mix(rgb, u_haze, u_grade.z);
+  if (u_pale > 0.0) { float lp = dot(rgb, vec3(0.299, 0.587, 0.114)); rgb = mix(rgb, vec3(lp * 0.65), u_pale * smoothstep(0.25, 0.5, lp)); }
   rgb = mix(rgb, rgb * u_tint.rgb, u_tint.a);
   if (u_rim.x > 0.0) {
     float a2 = texture(u_tex, mix(u_src.xy, u_src.zw, uv + u_rim.yz * u_rim.w), u_lod).a;
@@ -382,7 +384,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
 
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
-    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
@@ -397,7 +399,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     const pad = o.pad || 0, pw = w * pad, ph = h * pad;
     const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx }); if (U.snap === undefined) U.snap = L.SNAP;
     if (L.sp) { const sp = L.sp;
-      Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0] });
+      Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
       x += sp.dx; y += sp.dy; if (o.m) o = Object.assign({}, o, { m: M.mul(M.t(sp.dx, sp.dy), o.m) }); }
     const uni = {}; for (const k in U) uni[k.startsWith('u_') ? k : 'u_' + k] = U[k];
     uni.u_pad = [pad / (1 + 2 * pad), pad / (1 + 2 * pad)];
@@ -416,8 +418,13 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // soft contact shadow of a group of sprites cast onto what is behind (draw it before the group itself)
   L.dropShadow = (draw, sp = { dx: 16, dy: 30, a: 0.45, lod: 4.5 }) => { L.sp = sp; draw(); L.sp = null; };
   // one weighted ink silhouette around a whole puppet: n offset flat-ink copies, then the puppet itself
-  L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6 } = {}) => {
+  // emit: the ink is an emitter, so no light lifts it; rim { dx, dy, col }: one more flat copy shifted toward the light over the ink,
+  // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
+  L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
+    if (emit) G.blend('emit');
     for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; L.sp = { dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }; draw(); }
+    if (rim) { G.blend('emit'); L.sp = { dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }; draw(); }
+    if (emit || rim) G.blend();
     L.sp = null; draw(); };
 
   // ---------------- primitives ----------------
