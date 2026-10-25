@@ -202,19 +202,20 @@
     const S2 = (px, py) => [root[0] + (px - gx) * s, root[1] + (py - gy) * s];
     const bump = (u, a, b) => (u <= a || u >= b ? 0 : Math.pow(Math.sin(Math.PI * (u - a) / (b - a)), 2));
     const greet = o.greetT !== undefined ? t - o.greetT : 9, trade = o.tradeT !== undefined ? t - o.tradeT : 9;
+    const hit = t - (o.hitT ?? -9), recoil = hit >= 0 && hit < 0.65 ? Math.sin(Math.PI * SS(0, 0.65, hit)) * Math.exp(-3 * hit) : 0;
     const wave = greet >= 0 && greet < 1.5 ? SS(0, 0.25, greet) * (1 - SS(1.2, 1.5, greet)) : 0, nod = trade >= 0 && trade < 0.7 ? bump(trade, 0, 0.7) : 0;
     // a 6 s work loop, eased off while the hero stands close: a coin onto the scales, a look, a stroke of the beard
     const work = 1 - 0.7 * (o.near || 0), u = (t + (o.seed || 0)) % 6;
     const coin = bump(u, 0.2, 1.8) * work, peek = bump(u, 0.6, 1.6) * work, beard = bump(u, 2.6, 5.0) * work * (1 - wave), rub = beard * Math.sin(t * 9) * 0.12;
-    const breath = Math.sin(t * 1.8 + (o.seed || 0)), lift = breath * 4 - 10 * nod;     // rig px: shoulders and head ride the breath, sink on the nod
-    const rL = [-0.18 * coin - 0.1 * nod, -0.18 * coin - 0.75 * coin - 0.1 * nod + 0.02 * breath];
-    const rR = [lerp(0.32 * beard + 0.12 * nod, -1.9, wave), lerp(0.32 * beard + 2.45 * beard + rub + 0.12 * nod, -2.6 + 0.4 * Math.sin(greet * 13), wave)];
+    const breath = Math.sin(t * 1.8 + (o.seed || 0)), lift = breath * 4 - 10 * nod - 18 * recoil;
+    const rL = [-0.18 * coin - 0.1 * nod + 0.65 * recoil, -0.18 * coin - 0.75 * coin - 0.1 * nod + 0.02 * breath - 1.3 * recoil];
+    const rR = [lerp(0.32 * beard + 0.12 * nod, -1.9, wave) - 0.65 * recoil, lerp(0.32 * beard + 2.45 * beard + rub + 0.12 * nod, -2.6 + 0.4 * Math.sin(greet * 13), wave) - 1.4 * recoil];
     const arm = (side, r) => { const S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
       const E = rotP([E0[0], E0[1] + lift], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + lift], Sp, r[0]), E, r[1] - r[0]); return { S0, E0, Sp, E, Hd, r }; };
     const A = { L: arm('L', rL), R: arm('R', rR) };
     const part = (nm, pv, at, rot) => L.sprite('merchant__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
     L.sprite('merchant__body', 0, 0, { m: M.of(M.t(...root)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
-    const look = (o.look || 0) * (o.near || 0), hr = 0.09 * look - 0.07 * peek, hx = 5 * look - 4 * peek, hy = lift + 8 * peek + 6 * nod;
+    const look = (o.look || 0) * (o.near || 0), hr = 0.09 * look - 0.07 * peek - 0.18 * recoil, hx = 5 * look - 4 * peek, hy = lift + 8 * peek + 6 * nod - 14 * recoil;
     part('head', RG.neck, [RG.neck[0] + hx, RG.neck[1] + hy], hr);
     for (const sd of ['L', 'R']) { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]); }
     const J = (nm, p) => L.joint(o.id, nm, S2(...p));
