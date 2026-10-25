@@ -1,6 +1,7 @@
 STYLE: dark-fantasy dungeon pixel art matching Image 1, 16x16-pixel tile scale, a hero about 26 pixels tall. Every pixel is a hard square of one flat colour on one even grid; no anti-aliasing, no blur, no gradients, no noise.
 Shading: 3-4 flat tone steps per material, hard terminator, hue-shifted ramps: warm shadows go dark red-brown (#36120f, #231010), stone shadows go cold blue-grey (#252534, #141420); highlights warm cream (#eed68a), never pure white.
 Palette: low-key and muted like Image 1: charcoal and slate stone (#3e3234, #6b5c56), rust and leather browns (#552f25, #733a21, #934218), deep reds (#73140d, #4f150c), bone (#c8b89a), small accents of ember orange (#f03604, #c25d1a), toxic green (#52c04f) and arcane blue (#64bdea).
+Material accents: gold uses #9f5116 / #e2881e / #f9ce4a (the concept's coin ramp, as in chest_open_gold); dark green bronze and moss use #1a4135. Keep blue, green and red gemstones distinct; gold should read yellow rather than copper.
 Line: a 1-pixel dark outline (#231010 or #060506) around characters, items and props; stone and floor read through dark mortar lines instead of outlines.
 Detail: chunky readable silhouettes, detail only on faces, weapons and focal props; big quiet stone areas.
 Light: even neutral studio light from the top-left, soft and moderately bright so the art can be relit in the game; no light sources lit, flames drawn unlit, no glow, no light rays, no cast shadows.
