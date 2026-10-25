@@ -212,7 +212,8 @@
     sellK: [1, 2, 4, 7, 12],
     sell: 0.12, buyback: 4,
     lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
-      'Монстры ко мне не суются — у меня обереги.', 'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
+      'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
+    hitLines: ['Эй! Я тут торгую, а не дерусь.', 'Осторожнее! Товар хрупкий.', 'Мечом скидку не выбьешь.'],
   };
   const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };
   const price = (it, f, rk) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((50 + 30 * it.lvl) * rk[it.rar] / 5) * 5);
@@ -284,7 +285,7 @@
     altar: 56, gold: 52, goldpile: 32, barrel: 56, crate: 51, pot: 36, vase_a: 60, vase_b: 48, vase_c: 60, candlestick: 60, candelabra: 66, torch_stand: 76 };
   const PROP_MAT = { table: 'wood', rack: 'wood', bookshelf: 'wood', coffin: 'wood', shop_shelf: 'wood', shop_barrel: 'wood', shop_crate: 'wood',
     statue: 'stone', pillar: 'stone', grave: 'stone', cage: 'metal', brazier: 'metal', candlestick: 'metal', candelabra: 'metal', torch_stand: 'metal', shop_lantern: 'metal', shop_armor: 'metal', shop_weapons: 'metal',
-    crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth' };
+    crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth', fire: 'fire', bones: 'bone' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
   root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BAL, dmgAt, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,

@@ -482,17 +482,26 @@
       else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + R.floor }); else if (rnd(R) < POT.pot) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
   }
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
-  function hitProps(S, R, x, y, rad, ax, arc) {
+  function hitProps(S, R, x, y, rad, ax, arc, bonesOnly = false) {
     const m = R.map, hit = R.propHit || (R.propHit = {});
     // things on a wall are struck at their foot on the floor (the wall cell blocks the line), the event stays at the thing
     const knock = (id, p, n, mat = D.PROP_MAT[n] || 'stone', foot = p) => { const dx = foot.x - x, dy = foot.y - y, d = Math.hypot(dx, dy);
-      if (d > rad + 18) return; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return; if (!losClear(m, x, y, foot.x, foot.y)) return;
-      if (S.t - (hit[id] ?? -9) < 0.2) return; hit[id] = S.t;
+      if (d > rad + 18) return false; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return false; if (!losClear(m, x, y, foot.x, foot.y)) return false;
+      if (S.t - (hit[id] ?? -9) < 0.2) return false; hit[id] = S.t;
       if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
-      ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, s: dx >= 0 ? 1 : -1 }); };
-    m.decor.forEach((d, i) => { if (d.solid && !d.wall) knock('d' + i, d, d.n);
+      if (n !== 'merchant') ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, s: dx >= 0 ? 1 : -1 }); return true; };
+    m.decor.forEach((d, i) => { if (hidden(m, d)) return;
+      if (d.n === 'bones') knock('d' + i, d, d.n);
+      else if (bonesOnly) return;
+      else if (d.n === 'candles' && !d.lift && (d.outUntil || 0) <= S.t) {
+        if (knock('d' + i, d, d.n, 'wax')) { d.outUntil = S.t + 3; ev(S, { k: 'snuff', x: d.x, y: d.y }); } }
+      else if (d.solid && !d.wall) knock('d' + i, d, d.n);
       else if (d.wall && d.n === 'banner' && d.secret === undefined && !hidden(m, d)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
-    m.torches.forEach((t2, i) => { if (hidden(m, t2)) return; if (t2.kind !== 'wall') knock('t' + i, t2, 'brazier');
+    if (bonesOnly) return;
+    if (m.shop && R.shop && S.t - (R.shop.hitT ?? -9) >= 0.7 && knock('merchant', m.shop, 'merchant', 'cloth')) {
+      R.shop.hitT = S.t; R.shop.hitLine = ((R.shop.hitLine ?? -1) + 1) % D.SHOP.hitLines.length;
+      ev(S, { k: 'merchantHit', x: m.shop.x, y: m.shop.y }); }
+    m.torches.forEach((t2, i) => { if (hidden(m, t2)) return; if (t2.kind !== 'wall') knock('t' + i, t2, 'brazier', D.PROP_MAT[t2.kind] || D.PROP_MAT.brazier);
       else knock('t' + i, t2, 'torch_sconce', 'metal', t2.side ? t2 : { x: t2.x, y: t2.y + 30 }); });
   }
   function hitChests(S, R, x, y, rad, ax, arc) {
@@ -503,11 +512,12 @@
   const secretAt = (m, tx, ty) => (m.secrets || []).find((q) => !q.open && q.wall.some(([x, y]) => x === tx && y === ty));
   const kindOf = (q) => q.kind || 'crack';
   function hitSecrets(S, R, x, y, rad, ax, arc) {
-    for (const q of R.map.secrets || []) { if (q.open || kindOf(q) === 'lever') continue; const fy = q.y + (kindOf(q) === 'shelf' ? 22 : 0), dx = q.x - x, dy = fy - (y - 10), d = Math.hypot(dx, dy);
-      if (d > rad + 26) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) continue; hitSecret(S, R, q); } }
+    for (const q of R.map.secrets || []) { if (q.open) continue; const fy = q.y + (kindOf(q) === 'shelf' ? 22 : 0), dx = q.x - x, dy = fy - (y - 10), d = Math.hypot(dx, dy);
+      if (d > rad + 26) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) continue; if (!losClear(R.map, x, y, q.x, fy)) continue; hitSecret(S, R, q); } }
   function hitSecret(S, R, q) {
     if (S.t - (q.hitT ?? -9) < 0.2) return;
-    q.hitT = S.t; if (kindOf(q) === 'banner') { openSecret(S, R, q); return; }
+    q.hitT = S.t; if (kindOf(q) === 'lever') { ev(S, { k: 'hollow', x: q.x, y: q.y - 20 }); return; }
+    if (kindOf(q) === 'banner') { openSecret(S, R, q); return; }
     q.hp--; R.trauma = Math.min(1, R.trauma + 0.2);
     if (q.hp > 0) { if (kindOf(q) === 'crack') ev(S, { k: 'wallhit', x: q.x, y: q.y - 20, i: R.map.secrets.indexOf(q) }); return; }
     openSecret(S, R, q);
@@ -640,7 +650,8 @@
     shove(m, h, K.R, false, solids(R));
     { const w = webAt(m, h); if (w && h.web !== m.webs.indexOf(w)) ev(S, { k: 'web', x: w.x, y: w.y, i: m.webs.indexOf(w) }); h.web = w ? m.webs.indexOf(w) : -1; }
     const moved = Math.hypot(h.x - ox, h.y - oy);
-    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y }); }
+    if (moved > 0.02 && dashing) hitProps(S, R, h.x, h.y, K.R, undefined, undefined, true);
+    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h) }); }
     // ---- melee: hold LMB ----
     if (inp.press && h.cd.atk <= t) {
       h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
@@ -1401,9 +1412,13 @@
         const on = (o) => wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
         for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o)) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
         const run = (x, y) => { R.en = []; h.vx = h.vy = 0; for (let i = 0; i < 60; i++) { h.x = x; h.y = y; step(S, { keys: [], right: 1 }); } return h.vx; };
-        const sp = m.spawn, vDry = run(sp.x, sp.y), vWet = run((k0 % m.W + 0.5) * TILE, (Math.floor(k0 / m.W) + 0.5) * TILE);
+        const sp = m.spawn; S.ev = []; const vDry = run(sp.x, sp.y);
+        if (!S.ev.some((e) => e.k === 'step' && !e.wet)) out.push('water check: dry steps are missing');
+        S.ev = []; const vWet = run((k0 % m.W + 0.5) * TILE, (Math.floor(k0 / m.W) + 0.5) * TILE);
+        if (!S.ev.some((e) => e.k === 'step' && e.wet)) out.push('water check: wet steps are missing');
         if (!(vWet < vDry * 0.85)) out.push(`water check floor ${f}: wading ${Math.round(vWet)} px/s is not slower than ${Math.round(vDry)}`);
-        h.burn = S.t + 3; step(S, { keys: [] }); if (h.burn > S.t) out.push(`water check floor ${f}: the water does not put out a burning hero`); }
+        h.burn = S.t + 3; S.ev = []; step(S, { keys: [] }); if (h.burn > S.t || !S.ev.some((e) => e.k === 'douse')) out.push(`water check floor ${f}: the water does not put out a burning hero`);
+        S.ev = []; step(S, { keys: [] }); if (S.ev.some((e) => e.k === 'douse')) out.push('water check: extinguished hero keeps steaming'); }
       if (!tested) out.push('water check: no floor with water'); }
     // a body wider than a two-cell wall (the boss, 72 px) walking at it stops at it: with only its corners tested it straddled
     // the wall and walked into the rock for good
@@ -1517,7 +1532,7 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), meleeSpacingCheck());
+    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck());
   }
   function meleeSpacingCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234); S.screen = 'play';
@@ -1580,6 +1595,42 @@
       if (!S.ev.some((e) => e.k === 'prop' && e.i === 't' + bi && e.mat === 'metal' && e.s === -1)) out.push('prop check: a blow from the right does not knock the brazier'); }
     return out;
   }
+  function reactionCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234); S.screen = 'play';
+    const R = S.run, m = R.map, h = R.hero, x = h.x, y = h.y;
+    R.en = []; R.pots = []; R.chests = []; R.shrines = []; m.decor = []; m.torches = []; m.block = []; m.traps = []; m.webs = [];
+    for (let ty = Math.floor(y / TILE) - 4; ty <= Math.floor(y / TILE) + 4; ty++) for (let tx = Math.floor(x / TILE) - 4; tx <= Math.floor(x / TILE) + 4; tx++) m.cells[ty * m.W + tx] = 1;
+    const bones = { n: 'bones', x: x + 30, y }, candle = { n: 'candles', x, y: y + 30 }, tableCandle = { n: 'candles', x, y: y + 30, lift: 22 };
+    m.decor = [bones, candle, tableCandle]; const rs = R.rs;
+    hitProps(S, R, x, y, 45); hitProps(S, R, x, y, 45);
+    if (S.ev.filter((e) => e.k === 'prop' && e.mat === 'bone').length !== 1) out.push('reaction check: bones must scatter once per strike');
+    S.t += 0.44; hitProps(S, R, x, y, 45);
+    if (S.ev.filter((e) => e.k === 'prop' && e.mat === 'bone').length !== 2) out.push('reaction check: bones ignore a second sword swing');
+    if (candle.outUntil !== S.t - 0.44 + 3 || tableCandle.outUntil) out.push('reaction check: only floor candles go out for three seconds');
+    if (S.ev.filter((e) => e.k === 'snuff').length !== 1) out.push('reaction check: snuff smoke missing or repeated');
+    if (R.rs !== rs) out.push('reaction check: cosmetic reactions change gameplay RNG');
+    S.ev = []; S.t += 1; h.x = x; h.y = y; h.vx = h.vy = 0;
+    step(S, { right: 1, keys: ['Space'], ...toPx(R, x + 100, y) });
+    if (!S.ev.some((e) => e.k === 'prop' && e.mat === 'bone')) out.push('reaction check: dash does not scatter bones');
+    const saved = JSON.parse(JSON.stringify(persist(S))).run.map.decor[1];
+    if (saved.outUntil !== candle.outUntil) out.push('reaction check: snuffed candle loses its timer in a save');
+    S.ev = []; S.t = candle.outUntil - 0.01; hitProps(S, R, x, y, 45);
+    if (S.ev.some((e) => e.k === 'snuff')) out.push('reaction check: unlit candle snuffs again');
+    S.ev = []; S.t += 0.02; hitProps(S, R, x, y, 45);
+    if (!S.ev.some((e) => e.k === 'snuff')) out.push('reaction check: candle cannot be snuffed after relighting');
+    m.torches = [{ x, y, kind: 'fire' }]; S.t += 1; S.ev = []; hitProps(S, R, x - 30, y, 45);
+    if (!S.ev.some((e) => e.k === 'prop' && e.mat === 'fire')) out.push('reaction check: campfire rings like metal');
+    const sh = m.shop; h.x = sh.front.x; h.y = sh.front.y + 4; h.vx = h.vy = 0; h.cd.atk = 0; R.freeze = 0; S.ev = [];
+    const aim = toPx(R, sh.x, sh.y - 35); step(S, { press: 1, keys: [], ...aim });
+    for (let i = 0; i < 35; i++) step(S, { keys: [], ...aim });
+    if (!S.ev.some((e) => e.k === 'merchantHit') || R.shop.hitLine !== 0) out.push('reaction check: merchant does not react to melee over his counter');
+    m.secrets = [{ kind: 'lever', x: x + 64, y, hp: 2, open: 0, wall: [] }]; S.t += 1; S.ev = []; hitSecrets(S, R, x, y, 80, 0, 1);
+    if (!S.ev.some((e) => e.k === 'hollow') || m.secrets[0].hp !== 2 || m.secrets[0].open) out.push('reaction check: mechanism wall must answer without breaking');
+    for (const ty of [Math.floor(y / TILE), Math.floor((y - 8) / TILE)]) m.cells[ty * m.W + Math.floor((x + 32) / TILE)] = 0;
+    S.t += 1; S.ev = []; hitSecrets(S, R, x, y, 80, 0, 1);
+    if (S.ev.some((e) => e.k === 'hollow')) out.push('reaction check: hollow sound gives away a secret through rock');
+    return out;
+  }
   // a run snapshot for localStorage (the whole run is plain JSON)
   // secrets, loot tables and completion stats, played through the sim
   function secretCheck() {
@@ -1599,7 +1650,7 @@
       if (name === 'shelf') { stand(); press(); if (q.open) out.push('secret check shelf: E opens a bookshelf'); swing(); if (q.open) out.push('secret check shelf: one blow breaks it');
         swing(); if (!q.open) out.push('secret check shelf: two blows do not break it');
         const d = m.decor.find((o) => o.secret === m.secrets.indexOf(q)); if (!d || d.solid || m.block.includes(Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE))) out.push('secret check shelf: the broken shelf still blocks the way'); }
-      if (name === 'sconce') { swing(); swing(); if (q.open) out.push('secret check sconce: blows open a mechanism\'s wall'); const t2 = m.torches[q.trig.t]; h.x = t2.x; h.y = t2.y + 50; press(); if (!q.open) out.push('secret check sconce: E under the sconce does not open it'); }
+      if (name === 'sconce') { swing(); swing(); if (q.open) out.push('secret check sconce: blows open a mechanism\'s wall'); if (!S.ev.some((e) => e.k === 'hollow')) out.push('secret check: mechanism wall does not sound hollow'); const t2 = m.torches[q.trig.t]; h.x = t2.x; h.y = t2.y + 50; press(); if (!q.open) out.push('secret check sconce: E under the sconce does not open it'); }
       if (name === 'plate') { swing(); swing(); if (q.open) out.push('secret check plate: blows open a mechanism\'s wall'); h.x = q.trig.x; h.y = q.trig.y; step(S, { keys: [] }); if (!q.open) out.push('secret check plate: stepping on the flagstone does not open it'); }
       if (q.wall.some(([x, y]) => cell(m, x, y) !== 1)) out.push(`secret check ${name}: the opened wall is still solid`);
       if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted`);

@@ -755,7 +755,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     crystal: (a, s) => ({ rot: s * 0.03 * Math.exp(-4 * a) * Math.sin(26 * a), dx: 0, sy: 1 + 0.04 * Math.exp(-6 * a) * Math.sin(30 * a) }),
     cloth: (a, s) => ({ rot: s * 0.04 * Math.exp(-6 * a) * Math.sin(16 * a), dx: 0, sy: 1 - 0.1 * Math.exp(-6 * a) * Math.sin(16 * a) }) };
   const BLOOD = (type) => (D.ENEMIES[type] || {}).blood;
-  const knockOf = (e, T) => { const a = T - e.t; if (a < 0 || a >= 1.5) return null; const j = KNOCK[e.mat](a, e.s); j.fl = 0.6 * (1 - SS(0.03, 0.12, a)); return j; };
+  const knockOf = (e, T) => { const a = T - e.t; if (a < 0 || a >= 1.5 || !KNOCK[e.mat]) return null; const j = KNOCK[e.mat](a, e.s); j.fl = 0.6 * (1 - SS(0.03, 0.12, a)); return j; };
 
   // ---------------- render ----------------
   SC.render = (t) => {
@@ -804,7 +804,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
       TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr, pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]); });
-    for (const d of m.decor) if (d.n === 'candles' && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
+    for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
       TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), tp ? 200 : d.n === 'candelabra' ? 150 : 125, col, (tp ? 1.0 : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]); }
@@ -999,7 +999,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp('brazier', sx(tc.x), sy(tc.y), { k: big ? 1.35 : 1, dy: 4, j });
           if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(tc.y) - up, (big ? 44 : 26) * bl.fl, (big ? 64 : 40) * bl.fl, col, i, bl.lean); }]); } });
     for (const d of m.decor) { const t2 = d.n === 'candles' && d.lift && onTable(d); if (t2 && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames(TABLE_WICKS.map(([ox, oy]) => [sx(t2.x) + ox, sy(t2.y) + 4 - oy + 2, 7, 12, [1, 0.7, 0.35], d.x + ox]))]); }
-    for (const d of m.decor) if (d.n === 'candles' && !(d.lift && onTable(d)) && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames([0, 1, 2].map((k) => [sx(d.x) + [-8, 0, 9][k], sy(d.y) - (d.lift || 0) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k]))]);
+    for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !(d.lift && onTable(d)) && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames([0, 1, 2].map((k) => [sx(d.x) + [-8, 0, 9][k], sy(d.y) - (d.lift || 0) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k]))]);
     // standing lights (TASKS 194): their fires ride the prop when it is knocked
     m.decor.forEach((d, i) => { const S0 = STAND[d.n]; if (!S0 || !vis(d.x, d.y) || !known(d.x, d.y) || hid(d)) return; const j = jig('d' + i), col = d.n === 'torch_stand' ? torchCol(m, d) : CANDLE;
       Y.push([d.y + 1, () => flames(S0.map(([ox, up, w, hh], k) => [sx(d.x) + ox + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(d.y) + 4 - up, w, hh, col, d.x + 7 * k]))]); });
@@ -1007,7 +1007,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
       Y.push([sh.y, () => { L.shadow(sx(sh.x), sy(sh.y) + 2, 26, 6, 0.4);
-        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: R.shop.greetT, tradeT: R.shop.tradeT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: R.shop.greetT, tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
@@ -1177,7 +1177,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'prop' && a < 0.9) { const [pw, ph] = SZ(e.n), ix = ex - e.s * pw * 0.3, iy = ey - ph * 0.45;
         if ((e.mat === 'metal' || e.mat === 'stone') && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.mat === 'metal' ? 8 : 4); j++) { const an = Math.PI * (e.s > 0 ? 1 : 0) + (rnd(e.t, j) - 0.5) * 2.4, v = 90 + 120 * rnd(e.t, j + 5);
           L.star(ix + Math.cos(an) * v * a, iy + Math.sin(an) * v * a * 0.7 + 260 * a * a, 6, [1, 0.88, 0.6], 1 - q); } }
-        if (e.n === 'brazier' || e.n === 'torch_sconce') for (let j = 0; j < (e.n === 'brazier' ? 10 : 7); j++) { const q = a / 0.9, an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 1.6, v = 60 + 110 * rnd(e.t, j + 3);
+        if (e.n === 'brazier' || e.n === 'torch_sconce' || e.mat === 'fire') for (let j = 0; j < (e.n === 'torch_sconce' ? 7 : 10); j++) { const q = a / 0.9, an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 1.6, v = 60 + 110 * rnd(e.t, j + 3);
           L.star(ex + Math.cos(an) * v * a, ey - ph * 0.9 + Math.sin(an) * v * a + 60 * a * a, 5, [1, 0.6, 0.2], (1 - q) * (0.6 + 0.4 * rnd(e.t, j + 9))); }
         if (e.mat === 'crystal' && a < 0.5) { const q = a / 0.5; L.glow(ix, iy, 40 + 30 * q, [0.5, 0.75, 1], 1.4 * (1 - q), 2.6); for (let j = 0; j < 6; j++) { const an = j / 6 * 6.28 + e.t;
           L.star(ix + Math.cos(an) * 30 * q, iy + Math.sin(an) * 22 * q, 8, [0.6, 0.85, 1], 1 - q); } } }
@@ -1201,7 +1201,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     G.blend();
     // non-additive event FX (dust, debris, blood)
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
-      if (e.k === 'step' && a < 0.4) { const q = a / 0.4; L.puff(ex, ey - 2 - 6 * q, 5 + 8 * q, [0.35, 0.3, 0.27], 0.35 * (1 - q), e.t * 10); }
+      if (e.k === 'step' && !e.wet && a < 0.4) { const q = a / 0.4; L.puff(ex, ey - 2 - 6 * q, 5 + 8 * q, [0.35, 0.3, 0.27], 0.35 * (1 - q), e.t * 10); }
+      if (e.k === 'step' && e.wet && a < 0.6) { const q = a / 0.6, col = B.water.map((v) => Math.min(1, v * 3 + 0.15));
+        L.ring(ex, ey + 2, 5 + 27 * q, 2 + 12 * q, col, 0.65 * (1 - q), 0.07);
+        L.ring(ex - 2, ey + 3, 2 + 19 * q, 1 + 8 * q, col, 0.3 * (1 - q), 0.09);
+        for (let j = 0; j < 3; j++) { const an = rnd(e.t, j) * 6.28, v = 25 + 30 * rnd(e.t, j + 4), u = Math.min(a, 0.32);
+          L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u * 0.5 - 65 * u + 210 * u * u, 3, 4, col, an, 1, 2, 1 - SS(0.2, 0.34, a)); } }
+      if ((e.k === 'douse' || e.k === 'snuff') && a < 0.6) { const q = a / 0.6, steam = e.k === 'douse';
+        for (let j = 0; j < 3; j++) L.puff(ex + (j - 1) * (steam ? 9 : 7) + Math.sin(q * 5 + j) * 4, ey - (steam ? 16 : [16, 28, 18][j]) - (steam ? 38 : 26) * q, (steam ? 9 : 4) + 10 * q, steam ? [0.88, 0.92, 0.94] : [0.4, 0.39, 0.37], (steam ? 0.75 : 0.5) * (1 - q), e.t * 13 + j); }
+      if (e.k === 'hollow' && a < 0.6) { const q = a / 0.6;
+        for (let j = 0; j < 4; j++) L.puff(ex + (j - 1.5) * 10, ey + 8 + 14 * q, 4 + 10 * q, [0.4, 0.36, 0.34], 0.45 * (1 - q), e.t * 11 + j); }
+      if (e.k === 'prop' && e.mat === 'bone' && a < 0.7) { const n = 3 + (parseInt(e.i.slice(1), 10) % 3);
+        for (let j = 0; j < n; j++) { const an = j / n * 6.28 + rnd(e.t, j), u = Math.min(a, 0.38), px = ex + Math.cos(an) * (45 + 20 * rnd(e.t, j + 7)) * u, py = ey + Math.sin(an) * 28 * u - 70 * u + 185 * u * u, rot = an + u * 8, al = 1 - SS(0.45, 0.7, a);
+          L.solid(px, py, 9, 4, [0.23, 0.2, 0.17], rot, 4, 2, al); L.solid(px, py - 1, 7, 2, [0.73, 0.69, 0.57], rot, 3, 1, al);
+          for (const side of [-1, 1]) L.solid(px + side * Math.cos(rot) * 3, py + side * Math.sin(rot) * 3 - 1, 3, 3, [0.73, 0.69, 0.57], rot, 1.5, 1.5, al); } }
       if (e.k === 'dash' && a < 0.45) for (let j = 0; j < 5; j++) { const q = a / 0.45, s = rnd(e.t, j); L.puff(ex - e.dx * (10 + 60 * q * s), ey - e.dy * (10 + 60 * q * s) - 4, 7 + 12 * q, [0.35, 0.3, 0.27], 0.45 * (1 - q), e.t + j); }
       // a skeleton chips: bone splinters thrown up, they bounce once on the floor at its feet and fade
       if (e.k === 'hit' && a < 0.7 && !e.fire && BLOOD(e.type) === 'bone') { const fl = ey + D.ENEMIES[e.type].h * 0.5 + 6;
@@ -1234,7 +1247,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         if (col) for (let j = 0; j < (mat === 'wood' ? 8 : 7); j++) { const an = Math.PI * (e.s > 0 ? 1 : 0) + (rnd(e.t, j) - 0.5) * 1.8, v = 50 + 70 * rnd(e.t, j + 7);
           const px = ix + Math.cos(an) * v * a, py = Math.min(ey + 4 - 6 * rnd(e.t, j + 2), iy + Math.sin(an) * v * a * 0.6 - 110 * a + 420 * a * a), long = mat === 'wood';
           L.solid(px, py, long ? 9 : 5, long ? 3 : 4, col, an + a * 9 * (rnd(e.t, j + 4) - 0.5), long ? 3.5 : 2, 1.5, 1 - SS(0.6, 0.9, a)); }
-        if (mat !== 'metal' && a < 0.7) for (let j = 0; j < 3; j++) { const q = a / 0.7; L.puff(ix + (j - 1) * 9 - e.s * 14 * q, iy + 10 * q, 7 + 10 * q, [0.4, 0.36, 0.33], 0.35 * (1 - q), e.t * 7 + j); } }
+        if ((col || mat === 'cloth') && a < 0.7) for (let j = 0; j < 3; j++) { const q = a / 0.7; L.puff(ix + (j - 1) * 9 - e.s * 14 * q, iy + 10 * q, 7 + 10 * q, [0.4, 0.36, 0.33], 0.35 * (1 - q), e.t * 7 + j); } }
       if (e.k === 'scorch' && a < 0.8) for (let j = 0; j < 3; j++) { const q = a / 0.8; L.puff(ex + (j - 1) * 7, ey - 8 - 26 * q, 6 + 8 * q, [0.12, 0.1, 0.1], 0.45 * (1 - q), e.t * 13 + j); }
       if (e.k === 'kill' && a < 0.6) for (let j = 0; j < 6; j++) { const q = a / 0.6; L.puff(ex + (j - 2.5) * 8, ey - 10 - 20 * q, 8 + 10 * q, e.type === 'ghost' ? [0.5, 0.7, 0.9] : [0.3, 0.27, 0.25], 0.5 * (1 - q), e.t + j); }
       if ((e.k === 'hurt' || e.k === 'die') && a < 0.45) for (let j = 0; j < (e.k === 'die' ? 9 : 5); j++) { const q = a / 0.45, an = rnd(e.t, j + 30) * 6.28, d = 6 + 30 * q, oy = e.k === 'die' ? -40 : 0;
@@ -1580,7 +1593,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.cam = [q.x - VW / 2, q.y - VH / 2 - 40];
       if (P && P.k === 'plate') { h.x = P.x + 40; h.y = P.y + 10; R.cam = [(q.x + P.x) / 2 - VW / 2, (q.y + P.y) / 2 - VH / 2 - 20]; }
       if (P && P.k === 'sconce') { const t2 = m.torches[P.t]; h.x = t2.x + 80; h.y = t2.y + 70; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 120); R.cam = [(q.x + t2.x) / 2 - VW / 2, (q.y + t2.y) / 2 - VH / 2]; }
-      if (stage === 1) { SIM.hitSecret(S, R, q); S.ev = S.ev.filter((e) => e.k === 'wallhit'); if (S.ev[0]) S.ev[0].t = S.t - 0.1; }
+      if (stage === 1) { SIM.hitSecret(S, R, q); S.ev = S.ev.filter((e) => e.k === 'wallhit' || e.k === 'hollow'); if (S.ev[0]) S.ev[0].t = S.t - (age || 0.1); }
       if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret'); S.ev[0].t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
       if (stage === 3 && q.kind === 'crack') { const r = m.rooms[q.room]; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE + 10; R.cam = [h.x - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; }
       return S; } };
@@ -1632,6 +1645,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // event responses: pain at the rim on low health with a bolt bursting on the hero, the fall, a scroll's two pillars,
     // the arrival on a floor, the boss's roar, a spike plate firing, the buff row with its worst strings
     const fx = (fn) => play((S) => { const R = S.run, h = R.hero; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; fn(S, R, h); });
+    const reactionS = (kind, age) => fx((S, R, h) => {
+      const m = R.map, rm = m.rooms.find((r) => r.type === 'combat' && r.w >= 9 && r.h >= 7) || m.rooms[m.start];
+      h.x = (rm.cx - 1) * TILE; h.y = rm.cy * TILE; R.cam = [h.x - VW / 2, h.y - VH / 2];
+      const x = h.x + (kind === 'water' || kind === 'douse' ? 0 : 60), y = h.y; m.seed += 1000000 + ['bone', 'snuff', 'water', 'douse'].indexOf(kind) * 1000;
+      R.en = []; R.pots = []; R.chests = []; R.shrines = []; R.drops = []; m.decor = []; m.torches = [{ x: h.x - 100, y: h.y - 90, kind: 'brazier' }]; m.traps = []; m.webs = []; m.block = []; S.ev = [];
+      if (kind === 'bone') { m.decor.push({ n: 'bones', x, y }); S.ev.push({ k: 'prop', mat: 'bone', n: 'bones', i: 'd0', s: 1, x, y, t: S.t - age }); }
+      if (kind === 'snuff') { m.decor.push({ n: 'candles', x, y, outUntil: age >= 0 ? S.t - age + 3 : 0 }); if (age >= 0) S.ev.push({ k: kind, x, y, t: S.t - age }); }
+      if (kind === 'water' || kind === 'douse') { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); m.water = [];
+        for (let cy = ty - 1; cy <= ty + 1; cy++) for (let cx = tx - 2; cx <= tx + 2; cx++) { const k = cy * m.W + cx; m.cells[k] = 1; m.water.push(k); }
+        S.ev.push({ k: kind === 'water' ? 'step' : kind, wet: true, x, y, t: S.t - age }); }
+    });
+    for (const kind of ['bone', 'snuff', 'water', 'douse']) for (const age of [0.08, 0.24, 0.5]) states.push(['reaction_' + kind + '_' + Math.round(age * 100), reactionS(kind, age)]);
+    for (const age of [-0.1, 2.9, 3.1]) states.push(['reaction_candles_' + age, reactionS('snuff', age)]);
+    states.push(['reaction_hollow', secretS((q) => q.kind === 'lever', 1, 0.18)]);
     states.push(['fx_hurt', fx((S, R, h) => { h.hp = Math.round(SIM.stats(h, S.meta).maxHp * 0.15); h.hurtT = S.t - 0.08;
       S.ev.push({ k: 'hurt', t: S.t - 0.08, x: h.x, y: h.y - 40, n: 30 }, { k: 'pop', t: S.t - 0.08, x: h.x, y: h.y - 38, c: 'hex', hero: 1 }); })]);
     states.push(['fx_die', fx((S, R, h) => { h.hp = 0; h.deadT = S.t - 0.8; S.ev.push({ k: 'die', t: S.t - 0.8, x: h.x, y: h.y }); })]);
@@ -1665,6 +1692,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['merchant_beard', shopS((S) => { S.run.hero.x -= 400; at6(S, 3.8); })]);
     states.push(['merchant_greet', shopS((S) => { at6(S, 0); S.run.shop.greetT = S.t - 0.6; })]);
     states.push(['merchant_nod', shopS((S) => { at6(S, 0); S.run.shop.tradeT = S.t - 0.35; })]);
+    for (let line = 0; line < D.SHOP.hitLines.length; line++) states.push(['merchant_hit_' + line, shopS((S) => { at6(S, 0); S.run.shop.hitT = S.t - 0.16; S.run.shop.hitLine = line; })]);
     states.push(['shop_screen_sell', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = 'sell:23'; })]);
     states.push(['small_props', play((S) => {
       const R = S.run, m = R.map, r = m.rooms.filter((q) => q.type === 'combat').reduce((a, b) => a.w * a.h > b.w * b.h ? a : b), h = R.hero;
@@ -1755,7 +1783,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the merchant: his work loop (5 of its 6 s) at 1/60 s, then a greeting and a nod on a trade (subject 'merchant')
     { const fr = []; let S = shopS((S) => { const h = S.run.hero; h.x -= 500; h.y += 200; S.run.shop.greetT = -9; S.run.shop.tradeT = -9; });
       for (let i = 0; i < 300; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.merchant_work = fr; }
-    for (const [nm, k] of [['merchant_greet', 'greetT'], ['merchant_trade', 'tradeT']]) { const fr = []; let S = shopS((S) => { S.run.shop.greetT = -9; S.run.shop.tradeT = -9; S.run.shop[k] = S.t + 0.1; S.run.shop.away = 0; });
+    for (const [nm, k] of [['merchant_greet', 'greetT'], ['merchant_trade', 'tradeT'], ['merchant_hit', 'hitT']]) { const fr = []; let S = shopS((S) => { S.run.shop.greetT = -9; S.run.shop.tradeT = -9; S.run.shop[k] = S.t + 0.1; S.run.shop.away = 0; });
       for (let i = 0; i < 100; i++) { fr.push(S); S = structuredClone(S); for (let k2 = 0; k2 < 2; k2++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions[nm] = fr; }
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
@@ -1765,6 +1793,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
       const h = R.hero; return [h.x - R.cam[0] - 50, h.y - R.cam[1] - 90, 100, 110]; };
     const anim = {};
+    for (const kind of ['bone', 'snuff', 'water', 'douse']) {
+      const base = reactionS(kind, 0.02), on = [], off = [];
+      for (let i = 0; i < 16; i++) { const S = structuredClone(base); S.t += i / 60; on.push(S); const clean = structuredClone(S); clean.ev = []; off.push(clean); }
+      anim['reaction_' + kind] = { on, off, box: [940, 430, 170, 150], min: 0.002 };
+    }
     for (const kind of ['whirl', 'fireball', 'boom']) {
       const base = spellState(kind, 0.05), on = [], off = [];
       for (let i = 0; i < 16; i++) {

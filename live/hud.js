@@ -98,6 +98,11 @@
       const w = lw(id, s, o) + 8, hh = o.size * 1.24 + 8, b = place(x, y - hh / 2, w, hh, nameZones.concat(actorZones));
       if (b) lab(id, s, b.x + w / 2, b.y + hh / 2, { ...o, al: 0.5 });
     };
+    if (m.shop && R.shop && GT >= R.shop.hitT && GT - R.shop.hitT < 2.5 && seen(m.shop.x, m.shop.y) && S.screen === 'play') {
+      const s = D.SHOP.hitLines[R.shop.hitLine || 0], size = 22, w = lw('merchant_hit', s, { size }) + 28;
+      const b = place(V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60, w, 42, actorZones);
+      if (b) { panel('merchant_bubble', b.x, b.y, w, 42); lab('merchant_hit', s, b.x + w / 2, b.y + 22, { size, al: 0.5, col: C.gold }); }
+    }
     const bars = [];
     // in rock a body is void: no label over nothing
     for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss' || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
