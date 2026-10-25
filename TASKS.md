@@ -7,8 +7,6 @@
 
 ## Ассеты
 
-198. ⏳ **[А]** Этап 2 (`assets_r3.md` 5, мелочи; переносится из r2). Мелкие пропсы перегружены деталью вдвое сильнее крупных (нарушено «одна плотность текселей»): арт-пиксель исходника на экране `table_candles` 0,24 px сетки, `bones` 0,25, `padlock` 0,26, `candles` и `vase_a` 0,27 против 0,52–0,56 у `statue` и `en_goblin` — после снапа это рябь. Скрипт `tools/simplify.py` (перезапускаемый, оригиналы в `art/old/simplify/`): для арт-пикселя < 0,3 уменьшить исходник nearest по своей сетке до `2 × HEIGHT/2`, квантовать в ≤ 12 цветов `style_bible`, убрать островки < 2 px, вернуть тёмную кромку 1 px, `prep.py`; у `candles` и `bones` оставить 2–3 свечи и 3–4 кости. Цель: 0,4–0,6 у всех (`table_candles`, `bones`, `candles`, `vase_a/b/c`, `shop_gems`, `shop_scales`, `padlock`). `shop_counter` в `sizes.js` 42 → 52. Убрать из сборки неиспользуемые текстуры (≈ 50 МБ в VRAM): `gear_*_tpl` и исходники `gear_*`, `door_leaf_kit`, `door_sheet`, `door_side_sheet`, `web_sheet`, `icons2_sheet`, `hero_torso`, `hero_arm`, `hero_leg`, `hero_back`, `hero_body_back`, `brute`, `goblin`, `skeleton` — в `art/src/` или список исключений `prep.py`.
-
 ## Анимация
 
 ## Геймплей
