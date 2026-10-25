@@ -896,7 +896,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       Y.push([sh.y, () => { L.shadow(sx(sh.x), sy(sh.y) + 2, 26, 6, 0.4);
         L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: R.shop.greetT, tradeT: R.shop.tradeT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
-        drawProp('shop_scales', sx(c.x) - 26, sy(c.y) - 24); drawProp('shop_gems', sx(c.x) + 28, sy(c.y) - 24); }]); }
+        const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
+        drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in
@@ -1501,8 +1502,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['merchant_greet', shopS((S) => { at6(S, 0); S.run.shop.greetT = S.t - 0.6; })]);
     states.push(['merchant_nod', shopS((S) => { at6(S, 0); S.run.shop.tradeT = S.t - 0.35; })]);
     states.push(['shop_screen_sell', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = 'sell:23'; })]);
+    states.push(['small_props', play((S) => {
+      const R = S.run, m = R.map, r = m.rooms.filter((q) => q.type === 'combat').reduce((a, b) => a.w * a.h > b.w * b.h ? a : b), h = R.hero;
+      R.en = []; R.pots = []; R.chests = []; R.shrines = []; R.msg = null; S.ev = [];
+      m.decor = []; m.traps = []; m.webs = []; m.rugs = [];
+      const at = (col, row) => ({ x: (r.x + r.w * (0.25 + 0.25 * col)) * TILE, y: (r.y + r.h * (0.3 + 0.25 * row)) * TILE });
+      for (const [i, n] of ['table', 'candles', 'bones', 'vase_a', 'vase_b', 'vase_c', 'padlock', 'shop_scales', 'shop_gems'].entries()) m.decor.push(Object.assign({ n }, at(i % 3, Math.floor(i / 3))));
+      m.decor.push(Object.assign({ n: 'candles', lift: 30 }, at(0, 0), { y: at(0, 0).y + 1 }));
+      h.x = (r.x + 1) * TILE; h.y = (r.y + r.h - 1) * TILE;
+      R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2];
+    })]);
     // every biome's floor texture under real light, so a regenerated floor is judged in place
-    for (const [zone, f] of [['crypt', 3], ['lava', 5], ['arcane', 7]]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3); SIM.enterFloor(S, S.run, f);
+    for (const [zone, f] of [['dungeon', 1], ['crypt', 3], ['lava', 5], ['arcane', 7]]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3); SIM.enterFloor(S, S.run, f);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_' + zone, S]); }
     // hero walk cycles: right, left, down, up — the same state at successive distances

@@ -36,7 +36,17 @@
   ],
   "skip": [
    "*_sheet",
-   "*_raw"
+   "*_raw",
+   "gear_*",
+   "door_leaf_kit",
+   "hero_torso",
+   "hero_arm",
+   "hero_leg",
+   "hero_back",
+   "hero_body_back",
+   "brute",
+   "goblin",
+   "skeleton"
   ],
   "max": 2048,
   "walk": {
