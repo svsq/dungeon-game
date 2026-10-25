@@ -8,6 +8,7 @@
   let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, amb = null, beatT = 0;
   try { muted = localStorage.getItem('dc_mute') === '1'; } catch (e) {}
   const recent = {};
+  let waterAmb = null;
 
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -148,8 +149,29 @@
 
   // ---- ambience: a drone and air per biome, plus sparse one-shots ----
   const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
+  function waterAmbience(S, on) {
+    const R = S.run, h = R?.hero;
+    const sources = on ? (R.map.waterFeatures || []).filter((q) => q.kind !== 'flood' && R.seen[Math.floor(q.y / DATA.TILE) * R.map.W + Math.floor(q.x / DATA.TILE)]) : [];
+    let source = null, dist = 280;
+    for (const q of sources) { const d = Math.hypot(q.x - h.x, q.y - h.y); if (d < dist) { source = q; dist = d; } }
+    if (!waterAmb && source) {
+      const g = ctx.createGain(), pan = ctx.createStereoPanner(), filter = ctx.createBiquadFilter(), n = ctx.createBufferSource();
+      g.gain.value = 0; filter.type = 'bandpass'; filter.frequency.value = 1250; filter.Q.value = 0.45;
+      n.buffer = noiseBuf; n.loop = true; n.connect(filter); filter.connect(g); g.connect(pan); pan.connect(dry); pan.connect(wet); n.start();
+      waterAmb = { g, pan, next: 0 };
+    }
+    if (!waterAmb) return;
+    const amount = source ? (1 - dist / 280) ** 2 : 0;
+    waterAmb.g.gain.setTargetAtTime(amount * 0.16, now(), 0.25);
+    waterAmb.pan.pan.setTargetAtTime(source ? Math.max(-0.8, Math.min(0.8, (source.x - h.x) / 250)) : 0, now(), 0.2);
+    if (source && now() > waterAmb.next) {
+      waterAmb.next = now() + rr(0.16, 0.65);
+      tone(out((source.x - h.x) / 350, amount * 0.45, 0.55), { f0: rr(680, 1250), f1: rr(240, 420), d: rr(0.06, 0.13), v: 0.08 });
+    }
+  }
   function ambience(S) {
     const R = S.run, on = !!R && ['play', 'inv', 'shop', 'pause'].includes(S.screen), biome = on ? R.map.biome : null;
+    waterAmbience(S, on && S.screen === 'play');
     if (amb && amb.biome !== biome) { const a = amb; a.g.gain.setTargetAtTime(0.0001, now(), 0.6); setTimeout(() => a.nodes.forEach((n) => { try { n.stop(); } catch (e) {} }), 3000); amb = null; }
     if (!amb && biome) { const B = BED[biome] || BED.dungeon, g = ctx.createGain(); g.gain.value = 0.0001; g.connect(dry); const sw = ctx.createGain(); sw.gain.value = 0.5; g.connect(sw); sw.connect(wet);
       const nodes = [], lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.connect(g);

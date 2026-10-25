@@ -723,6 +723,13 @@
       e.lavaT = t; hitEnemy(S, R, e, Math.round(lavaDmg * 1.25), false, e.x, e.y, 0, 'fire'); ev(S, { k: 'scorch', x: e.x, y: e.y }); }
     stepProjectiles(S, R);
     stepMonsters(S, R, 1);
+    for (const e of R.en) {
+      const moved = Math.hypot(e.x - (e.waterX ?? e.x), e.y - (e.waterY ?? e.y)); e.waterX = e.x; e.waterY = e.y;
+      if (e.deadT < 0 && !ENEMIES[e.type].ghost && inWater(m, e) && moved < TILE) {
+        e.waterStride = (e.waterStride || 0) + moved;
+        if (e.waterStride >= 24) { e.waterStride %= 24; ev(S, { k: 'step', x: e.x, y: e.y, wet: true, id: e.id }); }
+      } else e.waterStride = 0;
+    }
     stepDrops(S, R, true);
     // ---- camera: follow + look toward the cursor, spring, clamped to the map ----
     camera(R, h, (inp.px / Z - WIN(R).W / 2) * 0.12, (inp.py / Z - WIN(R).H / 2) * 0.12);
@@ -733,6 +740,7 @@
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
+    for (const q of R.map.waterFeatures || []) if (q.kind !== 'flood') out.push({ x: q.x, y: q.y + 4, r: 24 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 }); return out; };
   function interact(S, R) {
     const h = R.hero, m = R.map;
@@ -962,6 +970,7 @@
     for (const c of R.chests) add(c.x, c.y, 'chest', c.tier >= 2 ? 1.15 : 1); for (const p of R.pots) if (p.hp > 0) add(p.x, p.y, p.kind);
     for (const d of m.decor) if (d.solid && !d.wall) add(d.x, d.y, d.n); for (const t of m.torches) if (t.kind !== 'wall') add(t.x, t.y, 'brazier', t.kind === 'fire' ? 1.35 : 1);
     for (const s of R.shrines) add(s.x, s.y, 'altar');
+    for (const q of m.waterFeatures || []) if (q.kind !== 'flood') out.push([q.x, q.y + 18, 34, 68]);
     // a shut door's leaf (scene.js) stands over the cells behind it: a bottom wall's over the room's last row, a top wall's arch over the corridor
     for (const d of m.doors || []) if (!d.open) { const side = d.dir === 'l' || d.dir === 'r';
       out.push(d.dir === 'u' ? [d.x, d.y, 58, 100] : side ? [d.x, d.y + TILE, 17, 103] : [d.x, d.y + TILE, 31, 80]); }
@@ -1198,6 +1207,26 @@
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
       for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
+      {
+        const wet = new Set(m.water), bridge = new Set(m.waterBridges), flooded = (o) => m.rooms[DG.roomAt(m, o.x, o.y)]?.flooded;
+        for (const k of wet) if (m.cells[k] !== 1 || !Number.isInteger(m.waterFlow[k]) || m.waterFlow[k] < 0 || m.waterFlow[k] > 3) out.push(`seed ${seed} f${f}: water off floor or without flow`);
+        for (const k of bridge) if (m.cells[k] !== 1 || wet.has(k) || m.block.includes(k)) out.push(`seed ${seed} f${f}: water crossing is wet or blocked`);
+        for (const o of [...m.chests, ...m.pots, ...m.enemies, ...m.decor.filter((d) => d.solid), ...m.torches.filter((q) => q.kind !== 'wall')]) {
+          if (wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)) && !flooded(o)) out.push(`seed ${seed} f${f}: post or prop in stream`);
+        }
+        for (const q of m.waterFeatures) {
+          const r = m.rooms[q.room];
+          if (['start', 'shop', 'secret', 'boss'].includes(r.type)) out.push(`seed ${seed} f${f}: water in protected room`);
+          if (q.kind === 'flood') {
+            for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (m.cells[y * m.W + x] === 1 && !wet.has(y * m.W + x)) out.push(`seed ${seed} f${f}: flooded room has dry floor`);
+          } else {
+            const path = new Set(q.cells), seen = new Set([q.source]), todo = [q.source];
+            for (let i = 0; i < todo.length; i++) for (const d of [-1, 1, -m.W, m.W]) if (path.has(todo[i] + d) && !seen.has(todo[i] + d)) { seen.add(todo[i] + d); todo.push(todo[i] + d); }
+            if (!seen.has(q.drain) || seen.size !== path.size || !q.bridge.length || q.width < 1 || q.width > 3) out.push(`seed ${seed} f${f}: stream or crossing disconnected`);
+            if (cell(m, Math.floor(q.x / TILE), r.y - 1) !== 0) out.push(`seed ${seed} f${f}: spring not attached to wall`);
+          }
+        }
+      }
       // the fire depths (TASKS 186): two rivers at least, and nothing stands in lava or a cell from its shore
       if (D.BIOMES[m.biome].lava && f < D.FLOORS && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
       { const shore = (o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor((o.y - 1) / TILE); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) === 3) return true; return false; };
@@ -1370,7 +1399,7 @@
       if (Object.values(h.eq).some((q) => q && q.id === 88803)) out.push('a potion was worn'); }
     // a monster that loses the hero gives up and walks back to its post; idle, it shifts about the spot but stays on it
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run, h = R.hero, m = R.map, e = R.en.find((o) => o.type !== 'boss' && !ENEMIES[o.type].ghost && ENEMIES[o.type].kind !== 'caster'); R.en = [e];
+      const R = S.run, h = R.hero, m = R.map, e = R.en.find((o) => o.type !== 'boss' && !ENEMIES[o.type].ghost && ENEMIES[o.type].kind !== 'caster'); R.en = [e]; m.traps = [];
       for (let i = 0; i < 120 * 20; i++) step(S, { keys: [] });
       if (Math.hypot(e.x - e.hx, e.y - e.hy) > 24) out.push('an idle monster wandered off its post');
       const hx = e.hx, hy = e.hy, far = m.rooms.reduce((a, q) => Math.hypot(q.cx * TILE - hx, q.cy * TILE - hy) > Math.hypot(a.cx * TILE - hx, a.cy * TILE - hy) ? q : a), hide = () => { h.x = far.cx * TILE + 16; h.y = far.cy * TILE + 16; };
@@ -1443,9 +1472,9 @@
       for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (!S.ev.some((e) => e.k === 'roar')) out.push('the boss does not roar when he first sees the hero'); }
     // shallow water: the hero wades slower, a burning hero stepping in is put out, and no prop, chest or monster post stands in it
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); const R = S.run, h = R.hero; let tested = false;
-      for (let f = 1; f <= D.FLOORS && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[0];
+      for (let f = 1; f <= D.FLOORS && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[0], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
         const on = (o) => wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
-        for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o)) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
+        for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o) && !m.rooms[DG.roomAt(m, o.x, o.y)]?.flooded) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
         const run = (x, y) => { R.en = []; h.vx = h.vy = 0; for (let i = 0; i < 60; i++) { h.x = x; h.y = y; step(S, { keys: [], right: 1 }); } return h.vx; };
         const sp = m.spawn; S.ev = []; const vDry = run(sp.x, sp.y);
         if (!S.ev.some((e) => e.k === 'step' && !e.wet)) out.push('water check: dry steps are missing');
@@ -1453,7 +1482,17 @@
         if (!S.ev.some((e) => e.k === 'step' && e.wet)) out.push('water check: wet steps are missing');
         if (!(vWet < vDry * 0.85)) out.push(`water check floor ${f}: wading ${Math.round(vWet)} px/s is not slower than ${Math.round(vDry)}`);
         h.burn = S.t + 3; S.ev = []; step(S, { keys: [] }); if (h.burn > S.t || !S.ev.some((e) => e.k === 'douse')) out.push(`water check floor ${f}: the water does not put out a burning hero`);
-        S.ev = []; step(S, { keys: [] }); if (S.ev.some((e) => e.k === 'douse')) out.push('water check: extinguished hero keeps steaming'); }
+        S.ev = []; step(S, { keys: [] }); if (S.ev.some((e) => e.k === 'douse')) out.push('water check: extinguished hero keeps steaming');
+        const vx = (wet, ghost = false) => {
+          const e = { x: wet ? (k0 % m.W + 0.5) * TILE : sp.x, y: wet ? (Math.floor(k0 / m.W) + 0.5) * TILE : sp.y, vx: 0, vy: 0, type: ghost ? 'ghost' : 'skeleton' };
+          for (let i = 0; i < 120; i++) steer(e, ENEMIES[e.type], m, [], 1, 100, 0, 100); return e.vx;
+        };
+        if (Math.abs(vx(true) / vx(false) - WADE) > 0.001) out.push('water check: monsters do not wade slower');
+        if (Math.abs(vx(true, true) / vx(false, true) - 1) > 0.001) out.push('water check: floating ghosts wade');
+        for (const k of m.waterBridges) if (inWater(m, { x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE })) out.push('water check: a stone crossing slows walkers');
+        const e = Object.assign(foe, { x: h.x, y: h.y, burn: S.t + 3, calmT: 1e9, st: 'idle' }); R.en = [e]; S.ev = [];
+        step(S, { keys: [] }); if (e.burn > S.t || !S.ev.some((a) => a.k === 'douse')) out.push('water check: a burning monster is not extinguished');
+      }
       if (!tested) out.push('water check: no floor with water'); }
     // a body wider than a two-cell wall (the boss, 72 px) walking at it stops at it: with only its corners tested it straddled
     // the wall and walked into the rock for good
