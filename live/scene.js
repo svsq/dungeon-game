@@ -1502,7 +1502,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['merchant_nod', shopS((S) => { at6(S, 0); S.run.shop.tradeT = S.t - 0.35; })]);
     states.push(['shop_screen_sell', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = 'sell:23'; })]);
     // every biome's floor texture under real light, so a regenerated floor is judged in place
-    for (const [zone, f] of [['crypt', 3], ['lava', 5], ['arcane', 7]]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3); SIM.enterFloor(S, S.run, f);
+    for (const [zone, f] of [['dungeon', 1], ['crypt', 3], ['lava', 5], ['arcane', 7]]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3); SIM.enterFloor(S, S.run, f);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_' + zone, S]); }
     // hero walk cycles: right, left, down, up — the same state at successive distances
