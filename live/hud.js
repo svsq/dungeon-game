@@ -59,8 +59,14 @@
 
   // ---------------- world-space overlays: monster bars, damage numbers, prompts ----------------
   // the concept's enemy bar: a capsule with a pale rim and a red heart ball on its left end
-  function capsule(x, y, w, f, elite) {
+  function capsule(x, y, w, f, elite, quiet = false) {
     const x0 = x - w / 2, fill = elite ? [[1, 0.62, 0.16], [0.66, 0.28, 0.04]] : [[0.88, 0.1, 0.06], [0.54, 0.04, 0.03]];
+    if (quiet) {
+      L.rrect(x0, y + 2, w, 8, 3, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.6);
+      const fw = Math.max(0, Math.min(1, f)) * (w - 4);
+      if (fw > 1) L.rrect(x0 + 2, y + 4, fw, 4, 2, ...fill, 0.6);
+      return;
+    }
     L.rrect(x0 - 2, y - 2, w + 4, 16, 8, [0.79, 0.77, 0.75], [0.46, 0.43, 0.42], 0.95);
     L.rrect(x0, y, w, 12, 6, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03]);
     const fw = Math.max(0, Math.min(1, f)) * (w - 14); if (fw > 1) L.rrect(x0 + 10, y + 3, fw, 6, 3, ...fill);
@@ -70,27 +76,68 @@
   }
   function world(S, R, t, V) {
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
-    let bi = 0;
+    const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
+    for (const e of R.en) if (e.deadT < 0 && seen(e.x, e.y)) {
+      const [w, hh] = SZ('en_' + (e.type === 'boss' ? 'brute' : e.type)), scale = (e.type === 'boss' ? 1.6 : e.elite ? 1.3 : 1) * k;
+      actorZones.push({ x: V.sx(e.x) - w * scale / 2, y: V.sy(e.y) - hh * scale, w: w * scale, h: hh * scale + 6 });
+    }
+    const occupied = [], nameZones = [], overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    const place = (x, y, w, hh, extra = []) => {
+      const b = { x: Math.round(Math.max(4, Math.min(W - w - 4, x - w / 2))), y, w, h: hh };
+      for (let i = 0; i <= occupied.length + extra.length; i++) {
+        const hits = occupied.concat(extra).filter((o) => overlaps(b, o));
+        if (!hits.length) {
+          if (b.y < 4 || b.y + b.h > H - 4 || [[b.x, b.y], [b.x + w, b.y], [b.x, b.y + hh], [b.x + w, b.y + hh]].some(([px, py]) => underHud(px, py))) return null;
+          occupied.push(b); return b;
+        }
+        b.y = Math.min(...hits.map((o) => o.y)) - hh - 4;
+      }
+      return null;
+    };
+    const float = (id, s, x, y, o) => {
+      const w = lw(id, s, o) + 8, hh = o.size * 1.24 + 8, b = place(x, y - hh / 2, w, hh, nameZones.concat(actorZones));
+      if (b) lab(id, s, b.x + w / 2, b.y + hh / 2, { ...o, al: 0.5 });
+    };
+    const bars = [];
     // in rock a body is void: no label over nothing
-    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss' || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const E = D.ENEMIES[e.type], x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + (e.type === 'boss' ? 'brute' : e.type))[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
+    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss' || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
-      if (e.hp < e.max || e.elite) capsule(x, y, e.elite ? 80 : 64, e.hp / e.max, e.elite);
+      let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (e.elite && e.mods && e.mods.length) { const c = D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 16;
-        if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py)))
-          lab('el' + (e.id % 40), s, x, ly, { size: 18, al: 0.5, col: hex(c) }); }
-      if (e.st === 'idle' || bi > 40) continue; bi++; void E; }
+      if (e.elite && e.mods && e.mods.length) { const c = D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
+        if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py))) {
+          const b = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones);
+          if (b) {
+            const cx = b.x + b.w / 2;
+            lab('el' + (e.id % 40), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c) });
+            capsule(cx, b.y + 39, 80, e.hp / e.max, true);
+            nameZones.push({ x: cx - hw - 20, y: b.y - 20, w: hw * 2 + 40, h: 70 });
+            named = true;
+          }
+        }
+      }
+      if (!named && (e.hp < e.max || e.elite)) bars.push({ e, x, y });
+    }
+    for (const { e, x, y } of bars.sort((a, b) => b.e.elite - a.e.elite)) {
+      const w = e.elite ? 80 : 64, b = place(x, y - 3, w + 12, 18, actorZones);
+      if (!b) continue;
+      const quiet = !e.elite && R.en.some((o) => o.elite && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < 160);
+      capsule(b.x + b.w / 2, b.y + 3, w, e.hp / e.max, e.elite, quiet);
+    }
     // the "!" when a monster notices the hero
-    for (const ev of S.ev) { const a = GT - ev.t; if (a < 0 || !seen(ev.x, ev.y)) continue;
-      if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) lab('al' + (ev.id % 30), '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, al: 0.5, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
+    for (const [i, ev] of S.ev.entries()) { const a = GT - ev.t; if (a < 0 || !seen(ev.x, ev.y) || V.sx(ev.x) < -50 || V.sx(ev.x) > W + 50 || V.sy(ev.y) < -50 || V.sy(ev.y) > H + 150) continue;
+      if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) float('al' + i, '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
       if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 24 : 19) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
         const E = D.ENEMIES[ev.type], side = ev.x < h.x ? -1 : 1, hx = ev.x + side * (E ? 14 : 0), hy = ev.y - (E ? E.h * 0.5 + 18 : 0);   // over the head and its HP bar, leaning away from the hero: the chest stays clear
-        lab('dn' + (ev.id % 40), String(ev.n), V.sx(hx) + (L.rnd(ev.t, 1) - 0.5) * 12, V.sy(hy) - 40 * q - 10, { size: s, al: 0.5, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
-      if (ev.k === 'hurt' && a < 0.8) lab('hu' + Math.floor(ev.t * 10 % 8), '-' + ev.n, V.sx(ev.x), V.sy(ev.y) - 50 * (a / 0.8), { size: 30, al: 0.5, col: C.red, a: 1 - L.SS(0.6, 0.8, a) });
+        float('dn' + i, String(ev.n), V.sx(hx) + (L.rnd(ev.t, 1) - 0.5) * 12, V.sy(hy) - 40 * q - 10, { size: s, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
+      if (ev.k === 'hurt' && a < 0.8) {
+        const s = '-' + ev.n, offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;
+        float('hu' + i, s, V.sx(ev.x) + (ev.side || h.hurtX || -1) * offset, V.sy(ev.y) - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
+      }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 18;   // up off the head, then into the counter
-        lab('gd' + Math.floor(ev.t * 10 % 8), '+' + ev.n, x0 + (tx - x0) * q, y0 + (164 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
-      if (ev.k === 'dodge' && a < 0.7) lab('dg' + Math.floor(ev.t * 10 % 6), 'уклон', V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, al: 0.5, col: '#d8e6f0', a: 1 - a / 0.7 });
-      if (ev.k === 'absorb' && a < 0.7) lab('ab' + Math.floor(ev.t * 10 % 6), 'щит ' + ev.n, V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, al: 0.5, col: '#8fc4ff', a: 1 - a / 0.7 }); }
+        lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (164 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
+      if (ev.k === 'dodge' && a < 0.7) float('dg' + i, 'уклон', V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
+      if (ev.k === 'absorb' && a < 0.7) float('ab' + i, 'щит ' + ev.n, V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // interaction prompt
     let pr = null; HUD.promptBox = null;
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, 'E или удар — открыть сундук'];
