@@ -126,6 +126,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     R.shopped = R.floor; return { keys: ['Escape'] };
   }
   function pray(S, R) {
+    if (R.shrines[R.altar] && R.shrines[R.altar].used) return { keys: ['Escape'] };
     const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), i = sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
     if (sh && sh.gifts && !sh.seen) { sh.seen = 1; cur.altars.push({ f: R.floor, bank: S.meta.shards, c2: sh.gifts[1].cost }); }
     if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
