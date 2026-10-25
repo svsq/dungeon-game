@@ -386,7 +386,7 @@
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
     if (kind === 'poison') h.poison = S.t + 3;
     if (kind === 'fire') h.burn = Math.max(h.burn, S.t + 3);
-    ev(S, { k: "hurt", x: h.x, y: h.y - 40, n: dmg, blow, src: src || kind || '?' });
+    ev(S, { k: "hurt", x: h.x, y: h.y - 40, n: dmg, blow, side: h.hurtX || -1, src: src || kind || '?' });
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
     if (h.hp <= 0 && (h.perks || {}).phoenix > (h.revived || 0)) { h.revived = (h.revived || 0) + 1; h.hp = Math.round(st.maxHp * GIFT_V.phoenix / 100); h.ifr = S.t + 1.2;
       ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: 'Второй шанс!', t: S.t }; return; }
@@ -811,7 +811,7 @@
           if (d < 360 && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
           const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d); }
         else if (d < reach && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); continue; }
-        else steer(e, E, m, F, d < reach * 0.8 ? 0 : 1, dx, dy, d);
+        else steer(e, E, m, F, d < Math.max(reach * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
         move(m, e, e.vx * DT, e.vy * DT, E.r, true);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
       } else if (e.st === 'wind') {
@@ -823,7 +823,7 @@
           else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e)); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
       } else if (e.st === 'strike') {
         // the lunge stops on contact and springs back for 0.1 s: carried on, the spider passed through the hero to land behind him
-        if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA; if (!(e.bncT > e.t0) && d < E.r + K.R + 4) e.bncT = t;
+        if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA; if (!(e.bncT > e.t0) && d <= E.r + K.R + 6.01) e.bncT = t;
           const v = e.bncT > e.t0 ? (t - e.bncT < 0.1 ? -150 : 0) : 330 * Math.min(1, (t - e.t0) / 0.05); { e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT;
             if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison', who(e)); struck(S, R, e); } } } else skid(m, e, E);
         if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : 0.32)) { e.st = 'chase'; e.cdT = t + E.cd * (e.elite && e.type !== 'boss' && e.type !== 'brute' && R.floor <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
@@ -834,7 +834,20 @@
     for (let i = 0; i < live2.length; i++) for (let j = i + 1; j < live2.length; j++) { const a = live2[i], b = live2[j], ra = ENEMIES[a.type].r + ENEMIES[b.type].r + 4;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); if (d < ra && d > 0.01) { const p = (ra - d) * 0.5; move(m, a, -dx / d * p, -dy / d * p, ENEMIES[a.type].r, true); move(m, b, dx / d * p, dy / d * p, ENEMIES[b.type].r, true); } }
     // whatever moved them (walking, knockback, a lunge, the crowd), monsters stand clear of props; a ghost floats through
-    { const sol = solids(R); for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost) shove(m, e, ENEMIES[e.type].r, true, sol); }
+    const sol = solids(R);
+    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost) shove(m, e, ENEMIES[e.type].r, true, sol);
+    if (heroOk) for (const e of R.en) {
+      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge'].includes(E.kind)) continue;
+      const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
+      if (d >= stop) continue;
+      const angle = d > 0.01 ? Math.atan2(dy, dx) : e.face > 0 ? Math.PI : 0;
+      for (let i = 0; i <= 24; i++) {
+        const a = angle + Math.ceil(i / 2) * (i % 2 ? 1 : -1) * Math.PI / 12, trial = { x: e.x, y: e.y };
+        move(m, trial, h.x + Math.cos(a) * stop - e.x, h.y + Math.sin(a) * stop - e.y, E.r, true, !E.ghost);
+        if (Math.hypot(trial.x - h.x, trial.y - h.y) < stop - 0.01 || !E.ghost && sol.some((o) => Math.hypot(trial.x - o.x, (trial.y - o.y) * 1.6) < E.r + o.r - 0.01)) continue;
+        e.x = trial.x; e.y = trial.y; break;
+      }
+    }
     // corpses are removed once they have faded
     R.en = R.en.filter((e) => e.deadT < 0 || t - e.deadT < 6);
   }
@@ -1491,7 +1504,47 @@
       R.en = [Object.assign(e, { x: mouth[0][0] * TILE + 16, y: mouth[0][1] * TILE + 18, st: 'chase', t0: S.t, seenT: S.t, calmT: 0, kbx: 0, kby: 0 })];
       let inside = 0; for (let i = 0; i < 120 * 6 && !inside; i++) { h.x = m.shop.front.x; h.y = m.shop.front.y + 20; step(S, { keys: [] }); if (DG.roomAt(m, e.x, e.y) === r.id && e.st === 'wind') inside = 1; }
       if (lane && !inside) out.push('a monster chasing the hero does not follow it into the shop to strike'); }
-    return out.concat(secretCheck(), propCheck());
+    return out.concat(secretCheck(), propCheck(), meleeSpacingCheck());
+  }
+  function meleeSpacingCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234); S.screen = 'play';
+    const R = S.run, m = R.map, h = R.hero, rm = m.rooms.filter((r) => r.type === 'combat').sort((a, b) => b.w * b.h - a.w * a.h)[0];
+    const x = (rm.x + rm.w / 2) * TILE, y = (rm.y + rm.h / 2) * TILE;
+    R.pots = []; R.chests = []; m.decor = []; m.block = []; m.traps = []; m.water = []; R.shrines = [];
+    for (let ty = Math.floor(y / TILE) - 5; ty <= Math.floor(y / TILE) + 5; ty++) for (let tx = Math.floor(x / TILE) - 5; tx <= Math.floor(x / TILE) + 5; tx++) m.cells[ty * m.W + tx] = 1;
+    const mob = (type, dx, dy, id = 9000) => ({ id, type, x: x + dx, y: y + dy, vx: 0, vy: 0, hp: 1e6, max: 1e6, dmg: 10, elite: 0, room: rm.id,
+      st: 'chase', t0: S.t, face: -1, aimA: Math.PI, cdT: S.t, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 });
+    for (const type of ['goblin', 'skeleton', 'ghost', 'brute', 'spider']) for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+      const E = ENEMIES[type], e = mob(type, Math.cos(a) * 120, Math.sin(a) * 120), stop = E.r + K.R + 6;
+      R.en = [e]; R.proj = []; R.freeze = 0; h.hp = 1e6; h.ifr = 0; h.poison = h.burn = 0; h.deadT = -1;
+      let close = Infinity;
+      for (let i = 0; i < 120 * 5; i++) {
+        h.x = x; h.y = y; h.vx = h.vy = 0; step(S, { keys: [] });
+        close = Math.min(close, Math.hypot(e.x - h.x, e.y - h.y));
+      }
+      if (close < stop - 0.1) out.push(`${type}: closes to ${close.toFixed(1)} px, below ${stop}`);
+      if (h.hp >= 1e6) out.push(`${type}: cannot hit the hero from its stopping distance`);
+      e.x = h.x; e.y = h.y; e.vx = e.vy = 0; R.freeze = 0; step(S, { keys: [] });
+      if (Math.hypot(e.x - h.x, e.y - h.y) < stop - 0.1) out.push(`${type}: stays inside the hero after contact`);
+    }
+    R.en = [mob('goblin', 28, 0), mob('skeleton', 29, -6, 9001), mob('goblin', 29, 6, 9002)];
+    h.ifr = 1e9; h.poison = h.burn = 0; R.freeze = 0;
+    for (let i = 0; i < 240; i++) {
+      h.x = x; h.y = y; step(S, { keys: [] });
+      if (R.en.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < ENEMIES[e.type].r + K.R + 5.9)) { out.push('the crowd pushes a monster inside the hero'); break; }
+    }
+    for (const kind of ['chest', 'wall']) {
+      const wallX = (Math.floor(x / TILE) + 2) * TILE, heroX = kind === 'wall' ? wallX - 36 : x;
+      const e = mob('goblin', kind === 'wall' ? wallX - 13 - x : 25, 0); R.en = [e]; R.freeze = 0; R.chests = kind === 'chest' ? [{ x: x + 48, y, open: 0 }] : [];
+      if (kind === 'wall') for (let ty = Math.floor(y / TILE) - 5; ty <= Math.floor(y / TILE) + 5; ty++) m.cells[ty * m.W + Math.floor(x / TILE) + 2] = 0;
+      for (let i = 0; i < 30; i++) {
+        h.x = heroX; h.y = y; h.vx = h.vy = 0; step(S, { keys: [] });
+        if (Math.hypot(e.x - h.x, e.y - h.y) < 27.9) { out.push(`a ${kind} prevents a monster standing clear of the hero`); break; }
+        if (kind === 'chest' && Math.hypot(e.x - x - 48, (e.y - y) * 1.6) < 25.9) { out.push('hero contact pushes a monster into a chest'); break; }
+        if (solidAt(m, e.x, e.y, true)) { out.push('hero contact pushes a monster into a wall'); break; }
+      }
+    }
+    return out;
   }
   // a table stops the hero walking into it; a blow on it (or on a brazier) knocks once per swing and carries its material
   function propCheck() {
