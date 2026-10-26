@@ -7,9 +7,18 @@
 const { execFile } = require('child_process'), os = require('os'), path = require('path');
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? 2 : Math.max(1, Math.floor(os.cpus().length / 2)));
+const fs = require('fs');
 const profiles = arg('--profiles', 'novice,average,expert').split(','), FLOORS = require('../live/data.js').FLOORS;
-const todo = []; for (const p of profiles) for (let s = s0; s <= (s1 || s0); s++) todo.push([p, s]);
-const res = {}; let left = todo.length;
+const res = {}, failed = [];
+const resume = arg('--resume', ''), replayFloor = +arg('--replay-floor', 0);
+if (resume) for (const [p, rows] of Object.entries(JSON.parse(fs.readFileSync(resume, 'utf8')))) {
+  res[p] = rows.filter((r) => r.length === runs && r.every((x) => x.seed === r[0].seed && ['win', 'dead'].includes(x.result?.how))
+    && r[0].seed >= s0 && r[0].seed <= (s1 || s0) && (!replayFloor || r[0].result.floor < replayFloor));
+}
+const todo = []; for (const p of profiles) for (let s = s0; s <= (s1 || s0); s++) {
+  if (!(res[p] || []).some((r) => r[0].seed === s && r.length >= runs)) todo.push([p, s]);
+}
+let left = todo.length;
 const avg = (a, f) => a.reduce((n, r) => n + f(r), 0) / (a.length || 1);
 function report() {
   const head = ['profile', 'run', 'n', 'wins', 'stuck', 'deaths by floor ' + Array.from({ length: FLOORS }, (_, i) => i + 1).join(' '), 'minhp', 'hurt', 'dodges', 'hp pot', 'mp pot', 'minmp', 'time', 'lvl after floor ' + Array.from({ length: FLOORS }, (_, i) => i + 1).join(' ')];
@@ -41,9 +50,9 @@ function report() {
     console.log([p, k + 1, fl.map((f) => { const l = a.flatMap((r) => (r.altars || []).filter((q) => q.f === f));
       return `f${f}: ${avg(l, (q) => q.bank).toFixed(0)} / ${avg(l, (q) => q.c2).toFixed(0)} / ${Math.round(avg(l, (q) => q.bank >= q.c2) * 100)}%`; }).join('  ')].join(' | ')); }
   // the boss fight, for the runs that reached the boss
-  console.log('\nprofile | run | boss: reached / died / fight s (median) / health lost / hp potions');
-  for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue; const b = bossOf(a);
-    if (b.n) console.log([p, k + 1, `${b.n} / ${Math.round(b.died * 100)}% / ${b.t.toFixed(0)} / ${Math.round(b.dmg * 100)}% / ${b.pot.toFixed(1)}`].join(' | ')); }
+  console.log('\nprofile | run | floor / boss: reached / died / fight s (median) / health lost / hp potions');
+  for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue; for (const f of [2, 4, 6, FLOORS]) { const b = bossOf(a, f);
+    if (b.n) console.log([p, k + 1, f, `${b.n} / ${Math.round(b.died * 100)}% / ${b.t.toFixed(0)} / ${Math.round(b.dmg * 100)}% / ${b.pot.toFixed(1)}`].join(' | ')); } }
   // how big one blow is before the shield, as a share of the max health; levels gained on each floor
   console.log('\nprofile | run | blow % of max hp by floor: mob p50 | heavy p50 | mob p90 | elite p90 | levels gained by floor');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
@@ -56,8 +65,8 @@ const blowAt = (a, i, g, q) => { const l = a.flatMap((r) => ((r.floors.find((f) 
 // levels gained on floor i + 1 by the runs that finished it (the hero starts at level 1)
 const lvlUp = (a, i) => { const l = a.map((r) => { const f = r.floors.find((q) => q.floor === i + 1), pr = i ? r.floors.find((q) => q.floor === i) : { lvl: 1 }; return f && pr ? f.lvl - pr.lvl : null; }).filter((v) => v !== null);
   return l.length ? avg(l, (v) => v) : null; };
-const bossOf = (a) => { const l = a.map((r) => (r.floors.find((f) => f.floor === FLOORS) || {}).boss).filter(Boolean), ts = l.map((b) => b.t).sort((x, y) => x - y);
-  return { n: l.length, died: a.filter((r) => r.result.how === 'dead' && r.result.floor === FLOORS && (r.floors.find((f) => f.floor === FLOORS) || {}).boss).length / (l.length || 1),
+const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f) => f.floor === floor) || {}).boss).filter(Boolean), ts = l.map((b) => b.t).sort((x, y) => x - y);
+  return { n: l.length, died: avg(l, (b) => b.died || 0),
     t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot) }; };
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // on normal the yardstick is pressure, not losses (the player's call): the average player drinks a potion or two a floor and drops
@@ -67,12 +76,27 @@ const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
 const BANDS = {
   easy: { average: { win: [0.85, 1] } },
-  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] } }, deathShare: 0.25, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30],
+  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] } }, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] } },
   hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] } } };
 function check() {
-  const miss = [], B = BANDS[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
-  for (const p in B) { const a = (res[p] || []).map((x) => x[0]).filter(Boolean), b = B[p]; if (!a.length) continue;
+  const miss = failed.map((s) => `missing result: ${s}`), B = BANDS[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
+  for (const p of profiles) {
+    const rows = res[p] || [], seen = new Set();
+    for (const row of rows) {
+      const seed = row[0]?.seed;
+      if (!Number.isInteger(seed) || seed < s0 || seed > (s1 || s0) || seen.has(seed)) miss.push(`${p}: invalid or duplicate seed ${seed}`);
+      seen.add(seed);
+      if (row.length !== runs) miss.push(`${p} seed ${seed}: ${row.length} runs, expected ${runs}`);
+      for (let k = 0; k < runs; k++) {
+        const r = row[k];
+        if (!r || r.seed !== seed || !['win', 'dead'].includes(r.result?.how)) miss.push(`${p} seed ${seed} run ${k + 1}: incomplete result (${r?.result?.how || 'missing'})`);
+      }
+    }
+    for (let seed = s0; seed <= (s1 || s0); seed++) if (!seen.has(seed)) miss.push(`${p}: missing seed ${seed}`);
+  }
+  for (const p in B) { const a = (res[p] || []).map((x) => x[0]).filter(Boolean), b = B[p]; if (!profiles.includes(p)) continue;
+    if (a.length !== (s1 || s0) - s0 + 1) miss.push(`${p}: ${a.length} results, expected ${(s1 || s0) - s0 + 1}`); if (!a.length) continue;
     const win = avg(a, (r) => r.result.how === 'win'); if (b.win && !inB(win, b.win)) miss.push(`${p}: wins ${Math.round(win * 100)}% outside ${b.win.map((v) => v * 100).join('–')}%`);
     for (let i = 0; i < FLOORS; i++) { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); if (!l.length) continue;
       const mh = avg(l, (f) => (f.minhp ?? 1) * 100), hp = avg(l, (f) => f.hpPot || 0), bf = Object.assign({}, b, (b.floor || {})[i + 1]);
@@ -81,10 +105,20 @@ function check() {
       for (const [g, k, who] of [['mob', 'mobBlow', 'a plain monster'], ['heavy', 'heavyBlow', 'a plain demon']]) { const v = blowAt(a, i, g, 0.5);
         if (bf[k] && v !== null && !inB(v, bf[k])) miss.push(`${p} f${i + 1}: ${who}'s blow ${v.toFixed(1)}% of the health, outside ${bf[k].join('–')}%`); }
       const lu = lvlUp(a, i); if (bf.lvlUp && lu !== null && !inB(lu, bf.lvlUp)) miss.push(`${p} f${i + 1}: ${lu.toFixed(1)} levels gained, outside ${bf.lvlUp.join('–')}`); }
-    // deaths at the boss swing 2–10% between runs of 80 seeds (the bot comes with potions to spare): the band is on what it costs
     const bo = bossOf(a); if (b.bossLost && bo.n && !inB(bo.dmg, b.bossLost)) miss.push(`${p}: the boss takes ${Math.round(bo.dmg * 100)}% of the health, outside ${b.bossLost.map((v) => v * 100).join('–')}%`);
     if (b.bossPot && bo.n && !inB(bo.pot, b.bossPot)) miss.push(`${p}: ${bo.pot.toFixed(1)} hp potions at the boss, outside ${b.bossPot.join('–')}`);
     if (b.bossT && bo.n && !inB(bo.t, b.bossT)) miss.push(`${p}: the boss fight lasts ${bo.t.toFixed(0)} s, outside ${b.bossT.join('–')} s`);
+    if (b.bossDied && a.length < 160) console.log(`${p}: boss death band needs 160 seeds (${a.length} measured)`);
+    if (b.bossDied && a.length >= 160 && !inB(bo.died, b.bossDied)) miss.push(`${p}: boss deaths ${(bo.died * 100).toFixed(1)}%, outside ${b.bossDied.map((v) => v * 100).join('–')}%`);
+    for (const f in b.chapters || {}) { const c = bossOf(a, +f), band = b.chapters[f]; if (!c.n) continue;
+      if (band.died && !inB(c.died, band.died)) miss.push(`${p} f${f}: boss deaths ${(c.died * 100).toFixed(1)}%, outside ${band.died.map((v) => v * 100).join('–')}%`);
+      if (band.t && !inB(c.t, band.t)) miss.push(`${p} f${f}: boss fight ${c.t.toFixed(1)} s, outside ${band.t.join('–')} s`);
+    }
+    if (b.pressure) for (let f = 4; f <= FLOORS; f++) { const at = (floor, fn) => { const l = a.flatMap((r) => r.floors.filter((q) => q.floor === floor)); return avg(l, fn); },
+      dmg = at(f, (q) => q.dmgHp || 0), prev = at(f - 1, (q) => q.dmgHp || 0), pot = at(f, (q) => q.hpPot || 0), pot0 = at(f - 1, (q) => q.hpPot || 0);
+      if (dmg < prev) miss.push(`${p} f${f}: floor damage ${dmg.toFixed(2)} max HP, below f${f - 1} ${prev.toFixed(2)}`);
+      if (pot < pot0 - 0.3 - 1e-9) miss.push(`${p} f${f}: potion use falls ${ (pot0 - pot).toFixed(2)}, over 0.3`);
+    }
     const dead = a.filter((r) => r.result.how === 'dead'), by = Array(FLOORS).fill(0); for (const r of dead) by[r.result.floor - 1]++;
     if (b.deathShare && dead.length >= 8) by.forEach((n, i) => { if (n / dead.length > b.deathShare) miss.push(`${p}: ${n} of ${dead.length} deaths on floor ${i + 1}, over ${b.deathShare * 100}%`); });
     const am = b.meta && runs >= b.meta.run ? (res[p] || []).map((x) => x[b.meta.run - 1]).filter(Boolean) : [];
@@ -96,11 +130,26 @@ const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const
 function next() {
   const job = todo.shift(); if (!job) return; const [p, s] = job;
   const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--json'];
+  const snapshots = arg('--snapshots', ''), floor = arg('--replay-floor', '');
+  const dump = arg('--dump-state', ''); if (dump) cmd.push('--dump-state', dump);
+  if (snapshots) {
+    cmd.push('--snapshots', snapshots);
+    const file = path.join(snapshots, `${diff}_${p}_${s}_f${floor}.bin`);
+    if (floor && fs.existsSync(file)) cmd.push('--checkpoint', file);
+  }
   if (quiet && process.platform === 'darwin') cmd.unshift('taskpolicy', '-b');
   const child = execFile(cmd[0], cmd.slice(1), { maxBuffer: 1 << 26 }, (err, out) => {
-    if (err) console.error(`seed ${s} ${p}: ${err.message.split('\n')[0]}`);
-    else (res[p] = res[p] || []).push(out.trim().split('\n').map((l) => JSON.parse(l)));
+    if (err) { failed.push(`${s} ${p}`); console.error(`seed ${s} ${p}: ${err.message.split('\n')[0]}\n${(err.stderr || '').split('\n').slice(0, 7).join('\n')}`); }
+    else { res[p] = (res[p] || []).filter((r) => r[0].seed !== s); res[p].push(out.trim().split('\n').map((l) => JSON.parse(l))); }
+    const dest = arg('--json-out', ''); if (dest) fs.writeFileSync(dest, JSON.stringify(res));
     if (--left === 0) { report(); if (process.argv.includes('--check')) check(); } else next(); });
   if (quiet) try { os.setPriority(child.pid, 19); } catch (e) { /* the bot just runs at normal priority */ }
 }
-for (let i = 0; i < jobs; i++) next();
+const sources = arg('--from-json', '');
+if (sources) {
+  for (const file of sources.split(',')) for (const [p, rows] of Object.entries(JSON.parse(fs.readFileSync(file, 'utf8')))) {
+    res[p] = (res[p] || []).concat(rows.filter((r) => r[0].seed >= s0 && r[0].seed <= (s1 || s0)));
+  }
+  report(); if (process.argv.includes('--check')) check();
+} else if (!left) { report(); if (process.argv.includes('--check')) check(); }
+else for (let i = 0; i < jobs; i++) next();
