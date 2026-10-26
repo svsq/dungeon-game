@@ -151,7 +151,7 @@
   const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
   function waterAmbience(S, on) {
     const R = S.run, h = R?.hero;
-    const sources = on ? (R.map.waterFeatures || []).filter((q) => q.kind !== 'flood' && R.seen[Math.floor(q.y / DATA.TILE) * R.map.W + Math.floor(q.x / DATA.TILE)]) : [];
+    const sources = on ? (R.map.waterFeatures || []).filter((q) => R.seen[Math.floor(q.y / DATA.TILE) * R.map.W + Math.floor(q.x / DATA.TILE)]) : [];
     let source = null, dist = 280;
     for (const q of sources) { const d = Math.hypot(q.x - h.x, q.y - h.y); if (d < dist) { source = q; dist = d; } }
     if (!waterAmb && source) {

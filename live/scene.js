@@ -427,11 +427,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SEEN.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
     return SEEN.rec;
   }
-  const SPELL_FLOOR = { key: '', rec: null };
+  const SPELL_FLOOR = { key: '', rec: null, cv: null };
   function spellFloor(R) {
-    const m = R.map, key = m.seed + ':' + m.floor + ':' + m.cells.join('') + ':' + R.seen.join('');
+    // a rolling hash of the cells and the explored mask: no string of the whole map per frame (TASKS 242)
+    const m = R.map; let hsh = 0; for (let i = 0; i < m.cells.length; i++) hsh = (Math.imul(hsh, 31) + m.cells[i] * 2 + (R.seen[i] ? 1 : 0)) | 0;
+    const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
     if (SPELL_FLOOR.key === key) return SPELL_FLOOR.rec;
-    const cv = document.createElement('canvas'); cv.width = m.W; cv.height = m.H;
+    const cv = SPELL_FLOOR.cv || (SPELL_FLOOR.cv = document.createElement('canvas')); cv.width = m.W; cv.height = m.H;
     const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H), hidden = SIM.secretMask(m);
     for (let i = 0; i < m.cells.length; i++) {
       im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3) && R.seen[i] && !hidden.has(i) ? 255 : 0;
@@ -925,7 +927,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const k of m.waterBridges || []) { const x = k % m.W * TILE, y = Math.floor(k / m.W) * TILE; if (!vis(x, y)) continue;
       const b = D.BIOMES[zoneAt(m, x / TILE, y / TILE)]; L.shadow(sx(x + 16), sy(y + 22), 16, 9, 0.65);
       G.draw(L.P.waterstone, { u_stone: G.tex(b.floor), u_origin: [x, y], u_grate: 0 }, G.xf(sx(x), sy(y - 2), TILE, TILE)); }
-    for (const q of m.waterFeatures || []) if (q.kind !== 'flood') {
+    for (const q of m.waterFeatures || []) {
       const x = q.drain % m.W * TILE, y = Math.floor(q.drain / m.W) * TILE;
       if (vis(x, y)) G.draw(L.P.waterstone, { u_stone: G.tex(B.floor), u_origin: [x, y], u_grate: 1 }, G.xf(sx(x), sy(y), TILE, TILE));
     }
@@ -986,7 +988,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // ===== Y-sorted band =====
     const Y = [], knocked = {}; for (const e of ST.ev) if (e.k === 'prop') knocked[e.i] = e;
     for (const egg of R.eggs || []) if (egg.hp > 0 && vis(egg.x, egg.y)) Y.push([egg.y, () => { const [w0, h0] = SZ('spider_eggs'), h = 40, w = w0 / h0 * h, pulse = Math.sin((GT - egg.t0) * 9) * 1.5; L.shadow(sx(egg.x), sy(egg.y), w / 2, 5, 0.5); L.sprite('spider_eggs', sx(egg.x) - w / 2, sy(egg.y) - h - pulse, { w, h: h + pulse, u: { snap: 0 } }); }]);
-    for (const q of m.waterFeatures || []) if (q.kind !== 'flood' && vis(q.x, q.y)) Y.push([q.y + 16, () => {
+    for (const q of m.waterFeatures || []) if (vis(q.x, q.y)) Y.push([q.y + 16, () => {
       L.shadow(sx(q.x), sy(q.y + 12), 32, 8, 0.65);
       const xf = G.xf(sx(q.x - 48), sy(q.y - 72), 96, 100);
       G.draw(L.P.spring, { u_t: t, u_kind: q.kind === 'stream' ? 1 : 0, u_seed: q.room }, xf);
@@ -1212,6 +1214,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), hh = SZ(EN_TEX[e.type])[1] * 1.3;
       for (let j = 0; j < 4; j++) { const q = (t * 0.45 + rnd(e.id, j)) % 1, an = rnd(e.id, j + 7) * 6.28;
         L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); } }
+    // the forge lord is charred dark, or his red skin vanished into his own red-lit arena; his heat shows as a breathing glow in the
+    // chest and embers off the body (TASKS 232)
+    for (const e of R.en) { if (e.type !== 'boss_forge' || e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
+      const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), hh = SZ(EN_TEX[e.type])[1] * D.BOSSES[e.type].scale, pu = 0.5 + 0.5 * Math.sin(t * 2.2);
+      L.glow(x, y - hh * 0.58, 20 + 5 * pu, [1, 0.5, 0.12], 0.55 + 0.25 * pu, 3);
+      for (let j = 0; j < 9; j++) { const q = (t * 0.5 + rnd(e.id, j)) % 1, an = rnd(e.id, j + 7) * 6.28;
+        L.star(x + Math.cos(an) * E.r * 1.1 * (1 - 0.4 * q) + 7 * Math.sin(t * 2 + j), y - hh * (0.15 + 0.95 * q), 4 + 3 * (1 - q), [1, 0.5 + 0.3 * rnd(e.id, j + 3), 0.12], Math.sin(Math.PI * q) * 0.8); } }
     // event FX
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       // the crescent is a vertical C on the chest, ±ARC_HALF about the aim, drawn in the blade's turning direction over the strike so
@@ -1647,14 +1656,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
         let at = null; for (let d = 0; d < 8 && !at; d++) for (let j = -d; j <= d && !at; j++) for (let i = -d; i <= d && !at; i++) if (SIM.cell(m, r.cx + i, r.cy + j) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => SIM.cell(m, r.cx + i + a, r.cy + j + b) === 3)) at = [r.cx + i, r.cy + j];
         at = at || [r.cx, r.cy]; h.x = (at[0] + 0.5) * TILE; h.y = (at[1] + 0.6) * TILE; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]); }
-    for (const floor of [1, 3, 7]) for (const kind of ['fountain', 'stream', 'flood']) {
+    for (const floor of [1, 3, 7]) for (const kind of ['fountain', 'stream']) {
       for (const seed of [1, 2, 3, 1234]) {
         const S = play(); S.run = SIM.newRun(S, 'campaign', seed); const R = S.run; SIM.enterFloor(S, R, floor);
         const m = R.map, q = m.waterFeatures.find((q) => q.kind === kind); if (!q) continue;
         const r = m.rooms[q.room], h = R.hero, k = q.bridge?.[Math.floor(q.bridge.length / 2)] || m.water.filter((k) => DUNGEON.roomAt(m, (k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE) === r.id
           && !m.block.includes(k) && !R.pots.some((p) => Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE) === k)).sort((a, b) => Math.hypot(a % m.W - r.cx, Math.floor(a / m.W) - r.cy) - Math.hypot(b % m.W - r.cx, Math.floor(b / m.W) - r.cy))[0];
         h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.6) * TILE; h.vx = h.vy = 0; h.ifr = 1e9;
-        R.en = kind === 'flood' ? R.en.filter((e) => e.room === r.id) : []; R.msg = null;
+        R.en = []; R.msg = null;
         R.zoom = 2; R.cam = [(r.x + r.w / 2) * TILE - W / 4, (r.y + r.h / 2) * TILE - H / 4 - 20];
         R.seen.fill(1); R.rseen.fill(1); S.ev = [];
         states.push(['water_' + kind + '_' + m.biome, S]);
@@ -1930,7 +1939,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
       const h = R.hero; return [h.x - R.cam[0] - 50, h.y - R.cam[1] - 90, 100, 110]; };
     const anim = {};
-    for (const kind of ['fountain', 'stream', 'flood']) {
+    for (const kind of ['fountain', 'stream']) {
       const base = states.find(([name]) => name === 'water_' + kind + '_dungeon')?.[1]; if (!base) continue;
       const on = [], off = [];
       for (let i = 0; i < 24; i++) {

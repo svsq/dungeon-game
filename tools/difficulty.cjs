@@ -81,6 +81,11 @@ const BANDS = {
   hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] } } };
 function check() {
   const miss = failed.map((s) => `missing result: ${s}`), B = BANDS[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
+  // one fresh version only: results saved from another version or resumed from a checkpoint never pass (TASKS 240)
+  const { VERSION } = require('./bot.cjs'), all = Object.values(res).flat(2);
+  const stale = all.filter((r) => r.ver !== VERSION).length, resumed = all.filter((r) => r.resumed).length;
+  if (stale) miss.push(`${stale} result(s) played on another version of the game or the bot (now ${VERSION})`);
+  if (resumed) miss.push(`${resumed} result(s) resumed from a checkpoint: --check needs fresh runs`);
   for (const p of profiles) {
     const rows = res[p] || [], seen = new Set();
     for (const row of rows) {
