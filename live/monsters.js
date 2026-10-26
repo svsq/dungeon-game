@@ -188,7 +188,7 @@
     const Ub = flip > 0 && o.U.grade ? Object.assign({}, o.U, { grade: [o.U.grade[0] * (1 - 0.35 * SS(0.5, 1, flip)), ...o.U.grade.slice(1)] }) : o.U;
     L.sprite('spider__body', 0, 0, { m: M.of(M.t(...S2(RG.w / 2, RG.h, lift)), M.r(o.lean || 0), M.s(1, fk)), w: RG.w * s, h: RG.h * s, pivot: [RG.w / 2 * s, RG.h * s], u: Ub });
     if (o.crown && window.ASSETS.queen_crown) { const p = S2(RG.w / 2, RG.h * 0.23, lift), w = o.H * 0.65, h = o.H * 0.4;
-      L.sprite('queen_crown', 0, 0, { m: M.of(M.t(...p), M.r(o.lean || 0), M.s(1, fk)), w, h, pivot: [w / 2, h * 0.85], u: Object.assign({}, Ub, { tint: [1, 1, 1, 0], pale: 0.35, snap: 0 }) }); }
+      L.sprite('queen_crown', 0, 0, { m: M.of(M.t(...p), M.r(o.lean || 0), M.s(1, fk)), w, h, pivot: [w / 2, h * 0.85], u: Object.assign({}, Ub, { tint: [1, 1, 1, 0], pale: 0.35 }) }); }
     // the trace turns with the body (o.lean about its foot), or a lean the eye sees never reaches the checks
     const Pb = S2(RG.w / 2, RG.h, lift), BT = (q) => rotP(q, Pb, o.lean || 0);
     const J = (nm, p) => L.joint(o.id, nm, p); J('ground', root); J('top', BT(S2(RG.w / 2, 0, lift))); J('head', BT(S2(RG.w / 2, RG.h * 0.75, lift)));

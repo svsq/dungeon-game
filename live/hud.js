@@ -555,7 +555,7 @@
     if (!r.abandoned) SCENE.endActors(r, win, t, 410, 490);
     if (!win && (!last || !last.actor || r.abandoned)) icon(r.abandoned ? 'it_scroll' : last && last.src === 'spike' ? 'trap_spike' : 'bf_burn', 346, 340, 128);
     const actor = last && last.actor, name = win ? 'Глубины покорены' : r.abandoned ? 'Вы прервали поход' : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.damageName(last && last.src);
-    const y = 540 + wrap('e_cause', name, 410, 540, 350, 28, C.text, 0.5);
+    const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
       lab('e_last', 'Последний удар: −' + last.n + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
       lab('e_recent', 'Последние попадания', 234, 686, { size: 21, col: C.dim });

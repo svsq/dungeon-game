@@ -1,0 +1,8 @@
+[
+ {"name": "water_basin", "prompt": "art/prompts/water_basin.txt", "ref": ["art/gen/altar.png=dungeon altar: stone material and scale", "art/gen/grave.png=gravestone: stone material"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "water_spout", "prompt": "art/prompts/water_spout.txt", "ref": ["art/gen/statue.png=statue: carved stone material"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "water_grate", "prompt": "art/prompts/water_grate.txt", "ref": ["art/gen/statue.png=statue: carved stone material", "art/gen/trap_plate.png=trap plate: iron and stone"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "water_drain", "prompt": "art/prompts/water_drain.txt", "ref": ["art/gen/trap_plate.png=trap plate: iron and stone floor fitting"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "water_stone_a", "prompt": "art/prompts/water_stone_a.txt", "ref": ["art/gen/floor_d_tex.png=dungeon floor stone"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "water_stone_b", "prompt": "art/prompts/water_stone_b.txt", "ref": ["art/gen/floor_d_tex.png=dungeon floor stone"], "size": "1024x1024", "alpha": "auto"}
+]
