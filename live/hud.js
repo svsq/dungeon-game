@@ -78,7 +78,7 @@
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
     for (const e of R.en) if (e.deadT < 0 && seen(e.x, e.y)) {
-      const [w, hh] = SZ('en_' + (e.type === 'boss' ? 'brute' : e.type)), scale = (e.type === 'boss' ? 1.6 : e.elite ? 1.3 : 1) * k;
+      const [w, hh] = SZ('en_' + (D.BOSSES[e.type] ? (D.BOSSES[e.type].rig || 'brute') : e.type)), scale = (D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1) * k;
       actorZones.push({ x: V.sx(e.x) - w * scale / 2, y: V.sy(e.y) - hh * scale, w: w * scale, h: hh * scale + 6 });
     }
     const occupied = [], nameZones = [], overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -105,7 +105,7 @@
     }
     const bars = [];
     // in rock a body is void: no label over nothing
-    for (const e of R.en) { if (e.deadT >= 0 || e.type === 'boss' || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
+    for (const e of R.en) { if (e.deadT >= 0 || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
@@ -197,8 +197,8 @@
     // floor title + minimap
     minimap(S, R, t);
     // boss bar
-    const boss = R.en.find((e) => e.type === 'boss' && e.deadT < 0 && e.st !== 'idle');
-    if (boss) { lab('bossn', D.ENEMIES.boss.name, W / 2, 46, { size: 30, al: 0.5, col: '#ff8a5a' }); bar('bossbar', W / 2 - 400, 66, 800, 26, boss.hp / boss.max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02]); }
+    const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
+    if (boss) { lab('bossn', D.ENEMIES[boss.type].name, W / 2, 46, { size: 30, al: 0.5, col: '#ff8a5a' }); bar('bossbar', W / 2 - 400, 66, 800, 26, boss.hp / boss.max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02]); }
     // floor banner
     if (R.msg && S.screen === 'play') { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
       const size = Math.max(18, Math.floor(30 * Math.min(1, 1000 / lw('msg_m', s, { size: 30 })))), w = lw('msg', s, { size }) + 60;
@@ -312,7 +312,7 @@
     L.sprite('minimap', px, py, { w: mw, h: mh });
     const mark = (x, y, id, s) => icon_(id, px + x / TILE * k, py + y / TILE * k, s);
     for (const c of R.chests) if (!c.open && !SIM.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
-    for (const e of R.en) if (e.type === 'boss' && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
+    for (const e of R.en) if (!!D.BOSSES[e.type] && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
     if (R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
     for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));

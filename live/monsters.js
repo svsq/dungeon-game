@@ -5,7 +5,7 @@
   const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
   const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider' };   // the ghost bends its one sprite (softbones)
   const SKULL_K = { skeleton: 1.3 };
-  MON.rigOf = (type) => { const n = RIG[type]; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
+  MON.rigOf = (type) => { const n = RIG[type] || (DATA.BOSSES[type] || {}).rig; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
   const d2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
   const rotP = (p, c, a) => { const dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * Math.cos(a) - dy * Math.sin(a), c[1] + dx * Math.sin(a) + dy * Math.cos(a)]; };
   const lerp = (a, b, k) => a + (b - a) * k;
@@ -122,7 +122,7 @@
   }
   MON.biped = biped;
   // one stride (two steps) in view px for a rig drawn H tall: what the sim's distance must cover per gait cycle
-  MON.stride = (type, H) => { const RG = RIGS[RIG[type]], s = H / RG.h; return type === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
+  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
 
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
   // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
@@ -156,7 +156,7 @@
     const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), dv = sp > 1 ? [o.vx / sp, o.vy / sp] : [1, 0], sl = 0.32 * o.H, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1;
     const rear = o.rear || 0, curl = o.curl || 0, breath = (1 - run) * Math.sin(o.t * 2.4 + (o.seed || 0));
     // a blow (o.crouch, up to 6) drops the body onto spread legs
-    const fl = (o.crouch || 0) / 6, lift = (0.07 + 0.16 * rear) * o.H * (1 - curl) + run * 0.6 * Math.abs(Math.sin(u0 * TAU * 2)) + 1.3 * breath - 0.06 * o.H * fl;
+    const fl = (o.crouch || 0) / 6, lift = (0.07 + 0.16 * rear) * o.H * (1 - curl) + run * Math.max(0.6, 0.012 * o.H) * Math.abs(Math.sin(u0 * TAU * 2)) + 1.3 * breath - 0.06 * o.H * fl;
     // dying, it flips onto its back (o.flip 0..1): the body turns about its middle with a hop, the underside darker, the legs fold up
     // out to the sides with their knees up, hooked like a dead beetle's, and twitch out (o.dead: seconds since death); on its back it shows a shallow belly
     const flip = o.flip || 0, fk = Math.cos(Math.PI * flip) * (1 - 0.4 * flip), hop = Math.sin(Math.PI * flip) * 0.3 * o.H;
@@ -187,6 +187,8 @@
     drawLegs();
     const Ub = flip > 0 && o.U.grade ? Object.assign({}, o.U, { grade: [o.U.grade[0] * (1 - 0.35 * SS(0.5, 1, flip)), ...o.U.grade.slice(1)] }) : o.U;
     L.sprite('spider__body', 0, 0, { m: M.of(M.t(...S2(RG.w / 2, RG.h, lift)), M.r(o.lean || 0), M.s(1, fk)), w: RG.w * s, h: RG.h * s, pivot: [RG.w / 2 * s, RG.h * s], u: Ub });
+    if (o.crown && window.ASSETS.queen_crown) { const p = S2(RG.w / 2, RG.h * 0.23, lift), w = o.H * 0.65, h = o.H * 0.4;
+      L.sprite('queen_crown', 0, 0, { m: M.of(M.t(...p), M.r(o.lean || 0), M.s(1, fk)), w, h, pivot: [w / 2, h * 0.85], u: Object.assign({}, Ub, { tint: [1, 1, 1, 0], pale: 0.35, snap: 0 }) }); }
     // the trace turns with the body (o.lean about its foot), or a lean the eye sees never reaches the checks
     const Pb = S2(RG.w / 2, RG.h, lift), BT = (q) => rotP(q, Pb, o.lean || 0);
     const J = (nm, p) => L.joint(o.id, nm, p); J('ground', root); J('top', BT(S2(RG.w / 2, 0, lift))); J('head', BT(S2(RG.w / 2, RG.h * 0.75, lift)));
@@ -236,7 +238,7 @@
     // the impact is taken within half a turn of the raise, and the raise goes on past it far enough to swing: wrapped a turn ahead of
     // a raise that stopped just short of it, the blow wound the arm round the shoulder
     // o.bendHit: the elbow's bend on the blow; a blade drawn cocked over the shoulder reaches the aim on a whipped forearm, not an arm thrown up
-    const ew = E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0, T = o.chopT, P = 1.3, bh = o.bendHit ?? 0.15, i0 = aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - bh;   // blade = its angle in the drawing
+    const ew = E.wind * DATA.eliteK(e, 'wind'), u = Math.max(0, GT - e.t0), T = o.chopT, P = 1.3, bh = o.bendHit ?? 0.15, i0 = aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - bh;   // blade = its angle in the drawing
     const imp = o.raise + (((i0 - o.raise + Math.PI) % TAU + TAU) % TAU - Math.PI), RAISE = Math.min(o.raise, imp - 0.6), vEnd = P * (imp - RAISE) / T;
     if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T;
       if (u < tc) { const k = SS(0, Math.max(0.05, tc - (o.top || 0)), u); return { r1: lerp(base, RAISE, k), bend: lerp(o.bend0 ?? 0.18, o.bendUp ?? 0.9, k), k }; }
@@ -297,9 +299,10 @@
       if (n === 'skeleton' && !live) { const kind = ['pile', 'burst', 'topple'][e.id % 3]; base.crumble = { t: GT - e.deadT, kind, dir: e.dieA }; if (kind !== 'topple') base.fallR = 0; }
       biped(base); return true; }
     if (n === 'spider') {
-      const ew = E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0;
+      base.crown = e.type === 'boss_spider';
+      const ew = DATA.BOSSES[e.type] ? DATA.bossMove(e).wind : E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0;
       // it rears up through the wind-up (front legs raised at the hero), stays up through the lunge, settles after it
-      base.rear = !live ? 0 : e.st === 'wind' ? SS(0, ew, u) : e.st === 'strike' ? 1 - SS(0.24, 0.45, u) : 0;
+      base.rear = !live ? 0 : e.st === 'bwind' ? (e.mv === 'weave' ? SS(0, Math.min(0.3, ew), u) * (0.6 + 0.15 * Math.sin(u * 12)) * (1 - SS(ew + DATA.bossMove(e).duration - 0.3, ew + DATA.bossMove(e).duration, u)) : SS(0, ew, u) * (1 - SS(ew, ew + 0.4, u))) : e.st === 'wind' ? SS(0, ew, u) : e.st === 'strike' ? 1 - SS(0.24, 0.45, u) : 0;
       // it dies one of two ways, picked by its id: the legs draw in under it where it stands, or they fold and it turns onto its back
       const back = e.id % 2 === 0, dd = GT - e.deadT;
       base.curl = live ? 0 : SS(0, back ? 0.15 : 0.4, dd); base.aimX = Math.cos(e.aimA) * face;
@@ -307,19 +310,27 @@
       if (live && e.st === 'strike') { const g = SS(0.3, 0.45, u); base.vx *= g; base.vy *= g; }   // the lunge is a body thrust, legs trailing: no gait until it lands
       spider(base); return true; }
     if (n === 'cultist') {
-      const ew = E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0, wind = live && e.st === 'wind', str = live && e.st === 'strike';
+      const ew = DATA.BOSSES[e.type] ? DATA.bossMove(e).wind : E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0, wind = live && (e.st === 'wind' || e.st === 'bwind'), str = live && e.st === 'strike';
       // the staff tips forward through the wind-up; the free hand thrusts at the aim, fully out on the shot frame (the strike's first)
-      base.staff = wind ? -0.35 * SS(0, ew * 0.8, u) : str ? -0.35 * (1 - SS(0.1, 0.32, u)) : 0;
-      base.push = wind ? SS(ew - 0.14, ew, u) : str ? 1 - SS(0.08, 0.32, u) : 0; base.aimR = aimRig(e, face, H) - 0.1;
+      const settle = DATA.BOSSES[e.type] && e.st === 'bwind' ? 1 - SS(ew, ew + DATA.bossMove(e).duration, u) : 1;
+      base.staff = wind ? -0.35 * SS(0, ew * 0.8, u) * settle : str ? -0.35 * (1 - SS(0.1, 0.32, u)) : 0;
+      base.push = wind ? SS(ew - 0.14, ew, u) * settle : str ? 1 - SS(0.08, 0.32, u) : 0; base.aimR = aimRig(e, face, H) - 0.1;
       // the robe sinks onto the hem first (dl s), then the body lies down, half filling out again
       if (!live && o.death && o.death.sink) { const dd = GT - e.deadT, D0 = o.death; base.sink = 0.55 * SS(0, D0.dl, dd) * (1 - 0.5 * SS(D0.dl, D0.dl + D0.dur, dd)); }
       return robed(base); }
     if (n === 'brute') {
-      const boss = e.type === 'boss', w = boss ? (e.hp < e.max * 0.5 ? 0.55 : 0.8) : 0;
+      const boss = !!DATA.BOSSES[e.type], move = boss ? DATA.bossMove(e) : null, w = move ? move.wind : 0;
+      const ready = live && boss && e.mv === 'charge' && move.next === 'slam' && (e.st === 'bwind' || e.nextMove === 'slam');
       // fists on the floor and the body down for a beat on the slam, a beat at the top of the raise
-      const CO = { raise: -2.6, chopT: 0.26, recover: 0.32, over: 0.15, hold: 0.14, top: 0.12, bossW: w }, p = live ? chop(e, E, GT, face, H, 0, CO) : null;   // the clock only; arms re-pose from their walk swing
-      if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.05, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
-        base.arm = (side, b) => { const q = chop(e, E, GT, face, H, b, CO), d = side === 'L' ? 0.12 : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+      const CO = { raise: -2.6, chopT: boss ? Math.min(0.26, w) : 0.26, recover: 0.32, over: 0.15, hold: 0.14, top: 0.12, bossW: w };
+      const pose = (b) => { if (!live) return null;
+        if (!ready) return chop(e, E, GT, face, H, b, CO);
+        const q = chop(Object.assign({}, e, { st: 'bwind' }), E, e.t0 + w - CO.chopT, face, H, b, CO), k = SS(0, w, GT - e.t0);
+        return { r1: lerp(b, q.r1, k), bend: lerp(0.18, q.bend, k), k };
+      };
+      const p = pose(0);
+      if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
+        base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.12 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       biped(base); return true; }
     return false;
   };
