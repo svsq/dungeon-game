@@ -759,7 +759,7 @@
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
-    for (const q of R.map.waterFeatures || []) if (q.kind !== 'flood') out.push({ x: q.x, y: q.y + 4, r: 24 });
+    for (const q of R.map.waterFeatures || []) out.push({ x: q.x, y: q.y + 4, r: 24 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 }); return out; };
   function interact(S, R) {
     const h = R.hero, m = R.map;
@@ -775,7 +775,7 @@
       if (R.floor === D.FLOORS && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте Повелителя Демонов' }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
-    if (used) openAltar(S, R, used);
+    if (used && canDonate(R)) openAltar(S, R, used);
   }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
@@ -794,6 +794,8 @@
     ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? ' до конца этажа' : ' до конца забега'), t: S.t };
     S.screen = 'play'; S.saveN++;
   }
+  // a spent altar only answers while a donation can go through (TASKS 242)
+  const canDonate = (R) => (R.donations || 0) < 10 && R.hero.gold >= 1000;
   function donate(S, R, x, y) {
     if ((R.donations || 0) >= 10) { ev(S, { k: 'nope', x, y, s: 'Лимит: 10 пожертвований за забег' }); return; }
     if (R.hero.gold < 1000) { ev(S, { k: 'nope', x, y, s: 'Не хватает золота' }); return; }
@@ -1130,7 +1132,7 @@
     for (const c of R.chests) add(c.x, c.y, 'chest', c.tier >= 2 ? 1.15 : 1); for (const p of R.pots) if (p.hp > 0) add(p.x, p.y, p.kind);
     for (const d of m.decor) if (d.solid && !d.wall) add(d.x, d.y, d.n); for (const t of m.torches) if (t.kind !== 'wall') add(t.x, t.y, 'brazier', t.kind === 'fire' ? 1.35 : 1);
     for (const s of R.shrines) add(s.x, s.y, 'altar');
-    for (const q of m.waterFeatures || []) if (q.kind !== 'flood') out.push([q.x, q.y + 18, 34, 68]);
+    for (const q of m.waterFeatures || []) out.push([q.x, q.y + 18, 34, 68]);
     // a shut door's leaf (scene.js) stands over the cells behind it: a bottom wall's over the room's last row, a top wall's arch over the corridor
     for (const d of m.doors || []) if (!d.open) { const side = d.dir === 'l' || d.dir === 'r';
       out.push(d.dir === 'u' ? [d.x, d.y, 58, 100] : side ? [d.x, d.y + TILE, 17, 103] : [d.x, d.y + TILE, 31, 80]); }
@@ -1368,18 +1370,16 @@
       for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
       {
-        const wet = new Set(m.water), bridge = new Set(m.waterBridges), flooded = (o) => m.rooms[DG.roomAt(m, o.x, o.y)]?.flooded;
+        const wet = new Set(m.water), bridge = new Set(m.waterBridges);
         for (const k of wet) if (m.cells[k] !== 1 || !Number.isInteger(m.waterFlow[k]) || m.waterFlow[k] < 0 || m.waterFlow[k] > 3) out.push(`seed ${seed} f${f}: water off floor or without flow`);
         for (const k of bridge) if (m.cells[k] !== 1 || wet.has(k) || m.block.includes(k)) out.push(`seed ${seed} f${f}: water crossing is wet or blocked`);
         for (const o of [...m.chests, ...m.pots, ...m.enemies, ...m.decor.filter((d) => d.solid), ...m.torches.filter((q) => q.kind !== 'wall')]) {
-          if (wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)) && !flooded(o)) out.push(`seed ${seed} f${f}: post or prop in stream`);
+          if (wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE))) out.push(`seed ${seed} f${f}: post or prop in stream`);
         }
         for (const q of m.waterFeatures) {
           const r = m.rooms[q.room];
           if (['start', 'shop', 'secret', 'boss'].includes(r.type)) out.push(`seed ${seed} f${f}: water in protected room`);
-          if (q.kind === 'flood') {
-            for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (m.cells[y * m.W + x] === 1 && !wet.has(y * m.W + x)) out.push(`seed ${seed} f${f}: flooded room has dry floor`);
-          } else {
+          {
             const path = new Set(q.cells), seen = new Set([q.source]), todo = [q.source];
             for (let i = 0; i < todo.length; i++) for (const d of [-1, 1, -m.W, m.W]) if (path.has(todo[i] + d) && !seen.has(todo[i] + d)) { seen.add(todo[i] + d); todo.push(todo[i] + d); }
             if (!seen.has(q.drain) || seen.size !== path.size || !q.bridge.length || q.width < 1 || q.width > 3) out.push(`seed ${seed} f${f}: stream or crossing disconnected`);
@@ -1463,6 +1463,7 @@
           for (let k = 0; k < all.length; k++) if (all[k] && !cut[k] && !shut.has(k) && !inR(r, k % m.W, Math.floor(k / m.W))) { out.push(`${tag} cuts off floor beyond it`); break; }
           const holders = m.chests.filter((c) => c.key === li).concat(m.enemies.filter((e) => e.key === li));
           if (L.kind === 'key' && (holders.length !== 1 || !at0(holders[0].x, holders[0].y) || inR(r, Math.floor(holders[0].x / TILE), Math.floor(holders[0].y / TILE)))) out.push(`${tag}: its key is not on this side`);
+          if (holders.some((o) => D.BOSSES[o.type])) out.push(`${tag}: its key is on a boss behind a sealed arena`);
           if (L.kind === 'lever' && (!L.lever || !at0(L.lever.x, L.lever.y + 40))) out.push(`${tag}: its lever is out of reach`);
           if (L.kind !== 'key' && L.kind !== 'lever') out.push(`${tag} has no key and no lever`); }); }
       // a merchant on every floor: his counter's front is reachable on foot, his room holds no monster post
@@ -1634,7 +1635,7 @@
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); const R = S.run, h = R.hero; let tested = false;
       for (let f = 1; f <= D.FLOORS && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[0], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
         const on = (o) => wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
-        for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o) && !m.rooms[DG.roomAt(m, o.x, o.y)]?.flooded) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
+        for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o)) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
         const run = (x, y) => { R.en = []; h.vx = h.vy = 0; for (let i = 0; i < 60; i++) { h.x = x; h.y = y; step(S, { keys: [], right: 1 }); } return h.vx; };
         const sp = m.spawn; S.ev = []; const vDry = run(sp.x, sp.y);
         if (!S.ev.some((e) => e.k === 'step' && !e.wet)) out.push('water check: dry steps are missing');
@@ -2051,7 +2052,8 @@
         if (S.meta.shards !== o.cost - 1 || sh.used || S.screen !== 'altar') out.push('altar: a gift went through without enough shards');
         S.meta.shards = o.cost + 3; h.hp = 1; step(S, at(2));
         if (S.meta.shards !== 3 || !sh.used || S.screen !== 'play' || heroSt(S).atk <= a0 || h.hp !== heroSt(S).maxHp) out.push('altar: a gift did not take its price, apply, heal or close');
-        step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+        h.gold = 0; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen === 'altar') out.push('altar: a spent altar opens with nothing to donate');
+        h.gold = 5000; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
         const bank = S.meta.shards, perks = JSON.stringify(h.perks); step(S, at(2));
         if (S.screen !== 'altar' || S.meta.shards !== bank || JSON.stringify(h.perks) !== perks) out.push('altar: a used altar refuses donations or sells a second gift');
         const T = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); if (stats(T.saved.hero, T.meta).atk !== heroSt(S).atk) out.push('altar: a gift is lost on save/load');
@@ -2175,6 +2177,7 @@
         S.t = b.shieldUntil + DT; hitEnemy(S, R, b, 20, 0, b.x, b.y); if (b.hp >= hp) out.push('necro: expired barrier still absorbs damage');
         if (m.decor.filter((d) => d.cover).length < 2) out.push('necro: missing cover columns');
       }
+      if (type === 'boss' && (D.bossMove({ type, mv: 'weave', phase: 2 }).vulnerable || 1) !== 1) out.push('boss: the finale opens up while weaving');
       if (B.moves.convergence) { beginBossMove(S, R, b, 'convergence'); S.t += B.moves.convergence.wind + DT; stepBossMove(S, R);
         if (!m.webs.some((w) => w.boss === b.id && !w.torn) || !R.en.some((o) => o.summ === b.id && o.deadT < 0) || !R.lavaPending.length) out.push('boss: third phase does not combine all chapter mechanics');
       }
@@ -2220,6 +2223,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { openSecret, debugSecrets, lootAudit, openChest, DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

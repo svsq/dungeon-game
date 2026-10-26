@@ -2,6 +2,11 @@
 // skill. A profile sets what a player of that skill gets wrong: how late they see a wind-up or a bolt, how often they dash out
 // of it, how far their aim drifts, how low they let HP go before a potion, how they spend mana. Between runs it buys meta ranks.
 const SIM = require('../live/sim.js'), D = require('../live/data.js');
+// the version of the game and the bot a result was played on: --check refuses results of mixed versions or resumed from a
+// checkpoint, whose monsters were rescaled over a floor built by older data (TASKS 240)
+const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = require('fs'), path = require('path');
+  for (const f of ['live/data.js', 'live/sim.js', 'live/dungeon.js', 'tools/bot.cjs']) h.update(fs.readFileSync(path.join(__dirname, '..', f)));
+  return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|взрыв|boss/.test(k) ? 'elite' : 'mob';
 const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
@@ -54,7 +59,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(R.floor, 1) / D.dmgAt(R.floor) : 1) * (!e.elite ? 1 : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd;
     }
   }
-  const fresh = () => ({ seed, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  const fresh = () => ({ seed, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
@@ -232,4 +237,4 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
   return out;
 }
 
-module.exports = { play, PROFILES };
+module.exports = { play, PROFILES, VERSION };

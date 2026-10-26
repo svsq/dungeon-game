@@ -64,7 +64,8 @@
     } }
   };
   Object.assign(BOSSES.boss.moves, {
-    weave: Object.assign({}, BOSSES.boss_spider.moves.weave, { wind: 0.6, n: 7, duration: 0.65 }),
+    // the queen's weaving window stays hers: the finale weaves without opening up (TASKS 238)
+    weave: Object.assign({}, BOSSES.boss_spider.moves.weave, { wind: 0.6, n: 7, duration: 0.65, vulnerable: 1 }),
     raise: Object.assign({}, BOSSES.boss_necro.moves.raise, { wind: 0.6, dmg: 4, hp: 4 }),
     lava: Object.assign({}, BOSSES.boss_forge.moves.lava, { wind: 0.7, n: 26, cover: 0.35 })
   });
@@ -74,7 +75,7 @@
   const bossPhase = (e) => BOSSES[e.type].phases[e.phase || 0] || BOSSES[e.type].phases[0];
   const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
-    boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [1.3, 0.45, 0.3, 0.85], rim: [1, 0.4, 0.12] },
+    boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
     boss_necro: { name: 'Верховный некромант', hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
     boss_spider: { name: 'Королева пауков', hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
     skeleton: { name: 'Скелет', hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76, blood: 'bone' },

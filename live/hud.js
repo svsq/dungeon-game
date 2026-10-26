@@ -146,7 +146,7 @@
     // interaction prompt
     let pr = null; HUD.promptBox = null;
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, 'E или удар — открыть сундук'];
-    const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60); if (sh) pr = [sh.x, sh.y - 78, sh.used ? 'E — пожертвовать золото' : 'E — дары и пожертвования'];
+    const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? 'E — пожертвовать золото' : 'E — дары и пожертвования'];
     if (SIM.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, 'E — торговать'];
     const dr = SIM.doorNear(R, 64); if (dr) { const lk = SIM.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? 'E или удар — открыть дверь' : lk.kind === 'key' ? (R.keys > 0 ? 'E — отпереть ключом' : 'Заперто: нужен ключ') : 'Заперто: где-то есть рычаг']; }
     const lv = SIM.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, 'E — потянуть рычаг'];
