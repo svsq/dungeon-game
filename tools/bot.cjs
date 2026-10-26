@@ -18,7 +18,9 @@ const PROFILES = {
   mage: { react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
 };
 
-function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function rng(seed) { let a = seed >>> 0; const draw = () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  draw.state = (value) => { if (value !== undefined) a = value; return a; }; return draw; }
+
 const toPx = (R, x, y) => ({ px: (x - R.cam[0]) * ZOOM, py: (y - R.cam[1]) * ZOOM });
 const click = (r) => ({ px: r.x + r.w / 2, py: r.y + r.h / 2, click: 1, keys: [] });
 const val = (x) => x ? (x.atk || 0) * 2 + (x.def || 0) * 2 + x.rar * 3 + x.lvl : -1;
@@ -33,12 +35,26 @@ const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.met
 const power = (S, h) => { const f = (hh, meta) => { const st = SIM.stats(hh, meta); return [st.maxHp, st.atk, st.def]; }, eq = (keep) => Object.fromEntries(Object.entries(h.eq).filter(([, it]) => it && keep(it)));
   return { all: f(h, S.meta), noGear: f(Object.assign({}, h, { eq: {} }), S.meta), noBought: f(Object.assign({}, h, { eq: eq((it) => !it.bought) }), S.meta),
     noGifts: f(Object.assign({}, h, { perks: {} }), S.meta), noMeta: f(h, { up: {} }), bare: f(Object.assign({}, h, { eq: {}, perks: {} }), { up: {} }) }; };
-function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = () => {} } = {}) {
+function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initial = null, checkpoint = null, log = () => {} } = {}) {
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
-  const S = SIM.spawn(0, {}); S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 });
+  if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
+  const S = initial ? initial.S : SIM.spawn(0, {});
+  if (!initial) { S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 }); }
+
   const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
   let cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
-  const fresh = () => ({ floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  if (initial) {
+    [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] = initial.vars;
+    rand.state(initial.rng); for (const event of S.ev) counted.add(event);
+    const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;
+    const sc = D.BAL.hp * hpScale * (1 + 0.5 * (R.floor - 1)), dc = D.BAL.dmg * 1.35 * D.dmgAt(R.floor);
+    for (const e of R.en) {
+      const E = D.ENEMIES[e.type], boss = !!D.BOSSES[e.type], guard = e.guard && D.ELITE.guard[R.floor], gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, gh = (typeof guard === 'object' ? guard.hp : guard) || 1;
+      const health = e.hp / e.max; e.max = Math.round(E.hp * sc * (e.elite && !boss ? D.eliteK(e, 'hp') : 1) * gh); e.hp = e.max * health;
+      e.dmg = E.dmg * dc * (boss ? D.dmgAt(R.floor, 1) / D.dmgAt(R.floor) : 1) * (!e.elite ? 1 : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd;
+    }
+  }
+  const fresh = () => ({ seed, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
@@ -55,6 +71,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
       // cell away from it first
       let B = BLK.get(m); if (!B) BLK.set(m, B = new Set(m.block)); const inProp = B.has(ty * m.W + tx), ox = tx * T + 16 - h.x, oy = ty * T + 16 - h.y;
       for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!inProp || ax * ox + ay * oy <= 0) && (!best || v < best[0])) best = [v, ax, ay]; }
+      if (!best && inProp && S.t - lt > 1) {
+        if (backT <= S.t) { const side = Math.sign(h.x - (tx + 0.5) * T) || 1;
+          const [ax, ay] = [[side, 0], [-side, 0], [0, -1], [0, 1]].find(([dx, dy]) => SIM.cell(m, tx + dx, ty + dy) === 1) || [0, 0];
+          backT = S.t + 0.7; backX = ax; backY = ay;
+        }
+        return;
+      }
       if (best) { gx = (tx + best[1]) * T + 16 - h.x; gy = (ty + best[2]) * T + 18 - h.y; } }
     if (Math.abs(gx) > 4) inp[gx > 0 ? 'right' : 'left'] = 1; if (Math.abs(gy) > 4) inp[gy > 0 ? 'down' : 'up'] = 1;
   }
@@ -65,7 +88,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     const h = R.hero, t = S.t, ready = h.cd.dash <= t; if (!ready && !P.step) return;
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < P.react || seen.has(key)) continue; seen.add(key);
-      const w = e.st === 'bwind' ? (e.hp < e.max * 0.5 ? 0.55 : 0.8) : E.wind * D.eliteK(e, 'wind'), d = Math.hypot(h.x - e.x, h.y - e.y);
+      const w = e.st === 'bwind' ? D.bossMove(e).wind : E.wind * D.eliteK(e, 'wind'), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster') continue;
       const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
@@ -131,11 +154,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (sh && sh.gifts && !sh.seen) { sh.seen = 1; cur.altars.push({ f: R.floor, bank: S.meta.shards, c2: sh.gifts[1].cost }); }
     if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
   }
-  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, pw: fl.pw, blows: fl.blows }; };
-  const freshFl = () => ({ dmg: {}, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0, blows: {} });
-  for (let i = 0; i < 120 * 60 * 60 * runs && out.length < runs; i++) {
+  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), maxHp: SIM.stats(h, S.meta).maxHp, kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, dmgHp: fl.dmgHp, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, pw: fl.pw, blows: fl.blows }; };
+  const freshFl = () => ({ dmg: {}, dmgHp: 0, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0, blows: {} });
+  for (let i = initial ? initial.i : 0; i < 120 * 60 * 60 * runs && out.length < runs; i++) {
     if (!S.run) {
-      if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
+      if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
       if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta().find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
       if (S.screen === 'menu') { SIM.step(S, click(D.UI.menu(false).find((q) => q.id === (metaNext(S) ? 'meta' : 'campaign')))); continue; }
       SIM.step(S, { keys: ['Escape'] }); continue;
@@ -144,7 +167,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; }
     cur.potLeft = held(h, 'hp_potion');
     if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h));
-      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear(); }
+      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear();
+      if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
+        vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] });
+    }
     if (S.t - tF > STUCK) { stuck = { how: 'stuck', floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
     while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
     for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
@@ -166,7 +192,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     const chest = first(R.chests.filter((c) => !c.open && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
     const locked = R.keys > 0 ? first((m.doors || []).filter((d) => { const L = SIM.doorLock(m, d); return L && L.kind === 'key'; })) : null;
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
-    const shrine = first(R.shrines.filter((s) => !s.used && shrineGift(S, R, P)));
+    const shrine = first(R.shrines.filter((s) => !s.used && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
     const shop = m.shop && R.shopped !== R.floor && (h.bag.some(gear) || h.gold >= 60) && !given.has(m.shop) ? m.shop : null;
     const aim = (k, o) => { goal = o ? [k, Math.floor(o.x / T), Math.floor(o.y / T)] : [k]; return true; };
     if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
@@ -190,20 +216,19 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', log = 
     // a potion once HP has sat under the line for the time it takes to notice
     if (h.hp < st.maxHp * P.hp) { if (lowT < 0) lowT = S.t; if (S.t - lowT >= P.react && held(h, 'hp_potion')) { inp.keys.push('KeyQ'); lowT = -1; } } else lowT = -1;
     cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); fl.minhp = Math.min(fl.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
+    const B = R.en.find((e) => D.BOSSES[e.type]);
     SIM.step(S, inp);
     // each blow's size before the shield, as a share of the max health, by source group; a plain demon's slam is a group of its
     // own, the heavy hitter (TASKS 225)
     for (const e of S.ev) if (!counted.has(e) && e.blow && (e.k === 'hurt' || (e.k === 'absorb' && e.n >= e.blow))) { const g = (D.ENEMIES[e.src] || {}).kind === 'slam' ? 'heavy' : SRC(e.src || ''); (fl.blows[g] = fl.blows[g] || []).push(+(e.blow / st.maxHp).toFixed(3)); }
-    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.hits++; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
-    // the boss fight, from its first wound to the end: how long, how much of the health it took (healing aside), potions drunk
-    const B = S.run && R.en.find((e) => e.type === 'boss');
-    if (B && !fl.boss && B.hp < B.max) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0 };
+    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.hits++; fl.dmgHp += e.n / st.maxHp; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
+    if (B && !fl.boss && (B.hp < B.max || (R.arena && R.arena.active))) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0 };
     if (fl.boss && !fl.boss.done) { const b = fl.boss; b.t = +(S.t - b.t0).toFixed(1);
       for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') b.dmg += e.n / st.maxHp; else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
-      if (!S.run || B.deadT >= 0 || h.deadT >= 0) b.done = 1; }
+      if (!S.run || !B || B.deadT >= 0 || h.deadT >= 0) { b.done = 1; b.died = h.deadT >= 0 ? 1 : 0; } }
     if (!S.run && cur) cur.floors.push(floorLine(R, h));
   }
-  if (cur && !cur.result) { cur.result = stuck ? stuck : { how: 'timeout', floor: S.run ? S.run.floor : 0 }; out.push(cur); log(cur); }
+  if (cur && !cur.result) { cur.result = stuck ? stuck : { how: 'timeout', floor: S.run ? S.run.floor : 0 }; out.push(cur); log(cur, S); }
   return out;
 }
 

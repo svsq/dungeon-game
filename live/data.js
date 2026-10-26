@@ -26,16 +26,64 @@
   const floorName = (f) => (f === FLOORS ? 'Трон Демона' : BIOMES[biomeOf(f)].name);
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
+  const BOSSES = {
+    boss_spider: { floor: 2, hp: 390, dmg: 18, rig: 'spider', scale: 2.2, phases: [
+      { at: 1, moves: ['weave', 'eggs', 'slam'], rest: 0.85, speed: 1 }
+    ], moves: {
+      weave: { wind: 0.65, dmg: 0, n: 5, cap: 16, r: 150, size: 1.2, spacing: 45, vulnerable: 1.6, duration: 1.6 },
+      eggs: { wind: 0.7, dmg: 1.6, n: 2, cap: 4, r: 110, hp: 1.8, type: 'spider', delay: 0.8, hatch: 3, eggHp: 1, duration: 0.5 },
+      slam: { wind: 0.7, dmg: 1.2, r: 100, duration: 0.4 }
+    } },
+    boss_necro: { floor: 4, hp: 410, dmg: 14, rig: 'cultist', scale: 1.65, phases: [
+      { at: 1, moves: ['volley', 'raise', 'slam'], rest: 0.9, speed: 1 },
+      { at: 0.55, moves: ['volley', 'raise', 'slam'], enter: 'barrier', rest: 0.6, speed: 1.1 }
+    ], moves: {
+      slam: { wind: 0.7, dmg: 1.2, r: 115, duration: 0.4 },
+      volley: { wind: 0.7, dmg: 0.7, n: 8, rings: 2, gap: 0.35, offset: 0.5, speed: 210, life: 2.8, r: 9, origin: 64, target: 38, duration: 0.75, kind: 'arcane' },
+      raise: { wind: 0.85, dmg: 2.6, n: 2, cap: 4, r: 140, hp: 3, type: 'skeleton', delay: 0.8, duration: 0.5 },
+      barrier: { wind: 0.65, dmg: 0, hp: 0.18, time: 5, duration: 0.4 }
+    } },
+    boss_forge: { floor: 6, hp: 600, dmg: 18, rig: 'brute', scale: 1.7, phases: [
+      { at: 1, moves: ['lava', 'slam', 'charge'], rest: 0.85, speed: 1.1 },
+      { at: 0.5, moves: ['lava', 'charge', 'slam'], rest: 0.6, speed: 1.3 }
+    ], moves: {
+      slam: { wind: 0.8, dmg: 1.25, r: 135, duration: 0.4 },
+      charge: { wind: 0.75, dmg: 1.15, speed: 430, time: 0.6, stop: 46, r: 54, duration: 0.7 },
+      lava: { wind: 0.9, dmg: 0, n: 32, cover: 0.45, warn: 1.1, duration: 0.5 }
+    } },
+    boss: { hp: 950, dmg: 22, phases: [
+      { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
+      { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.35, speed: 1.3, finishMove: 1,
+        changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.55, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
+    ], moves: {
+      slam: { wind: 0.8, dmg: 1.3, r: 145, duration: 0.4 },
+      volley: { wind: 0.8, dmg: 0.55, n: 10, rings: 1, gap: 0.32, offset: 0.5, speed: 230, life: 2.6, r: 9, origin: 60, target: 38, duration: 0.7 },
+      charge: { wind: 0.8, dmg: 1.1, speed: 520, time: 0.6, stop: 46, r: 54, duration: 0.7 },
+      roar: { wind: 0.65, dmg: 0, r: 220, push: 150, summon: 'summon', rest: 0.25, duration: 0.45 },
+      summon: { wind: 0.8, dmg: 2, n: 2, cap: 4, r: 90, hp: 4, type: 'skeleton', delay: 1, duration: 0.4 }
+    } }
+  };
+  Object.assign(BOSSES.boss.moves, {
+    weave: Object.assign({}, BOSSES.boss_spider.moves.weave, { wind: 0.6, n: 7, duration: 0.65 }),
+    raise: Object.assign({}, BOSSES.boss_necro.moves.raise, { wind: 0.6, dmg: 4, hp: 4 }),
+    lava: Object.assign({}, BOSSES.boss_forge.moves.lava, { wind: 0.7, n: 26, cover: 0.35 })
+  });
+  BOSSES.boss.moves.convergence = { wind: 0.7, dmg: 0, effects: ['weave', 'raise', 'lava'], duration: 0.5 };
+  BOSSES.boss.phases.push({ at: 0.25, moves: ['volley', 'charge', 'raise', 'lava', 'weave'], enter: 'convergence', rest: 0.45, speed: 1.3,
+    changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.6, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } });
+  const bossPhase = (e) => BOSSES[e.type].phases[e.phase || 0] || BOSSES[e.type].phases[0];
+  const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
+    boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [1.3, 0.45, 0.3, 0.85], rim: [1, 0.4, 0.12] },
+    boss_necro: { name: 'Верховный некромант', hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
+    boss_spider: { name: 'Королева пауков', hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
     skeleton: { name: 'Скелет', hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76, blood: 'bone' },
     goblin: { name: 'Гоблин', hp: 20, dmg: 6, spd: 104, r: 10, reach: 28, wind: 0.30, cd: 0.9, xp: 6, kind: 'melee', h: 72, tint: [0.55, 1.2, 0.6, 0.95] },
-    spider: { name: 'Паук', hp: 18, dmg: 5, spd: 92, r: 15, reach: 76, wind: 0.36, cd: 1.6, xp: 7, kind: 'lunge', h: 53, poison: 1, blood: 'ichor', rim: [0.45, 0.65, 1], tint: [0.45, 0.6, 1.35, 0.8] },
+    spider: { name: 'Паук', hp: 18, dmg: 5, spd: 92, r: 15, reach: 76, wind: 0.36, cd: 1.6, xp: 7, kind: 'lunge', h: 53, webImmune: 1, poison: 1, blood: 'ichor', rim: [0.45, 0.65, 1], tint: [0.45, 0.6, 1.35, 0.8] },
     cultist: { name: 'Культист', hp: 26, dmg: 9, spd: 56, r: 13, reach: 305, wind: 0.55, cd: 2.0, xp: 10, kind: 'caster', h: 84, rim: [0.3, 1, 0.62], val: 0.55, tint: [0.3, 1.15, 0.85, 1] },
     ghost: { name: 'Призрак', hp: 28, dmg: 7, spd: 60, r: 13, reach: 30, wind: 0.45, cd: 1.3, xp: 9, kind: 'melee', h: 74, ghost: 1, blood: 'ecto' },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
-    // the finale: a fight of ~25 s that costs about two healths and a potion or two (TASKS 215); rest: the pause after a move, calm
-    // and in rage
-    boss: { name: 'Повелитель Демонов', hp: 1200, dmg: 28, spd: 48, r: 36, reach: 56, wind: 0.8, cd: 1.6, xp: 300, kind: 'boss', h: 180, rest: [1.5, 0.65] },
+    boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
 
   // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2);
@@ -47,8 +95,8 @@
   // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs)
   // dmgLate: more growth per floor past the 4th, where gear bought from the merchant let a player's minimum HP sit at 44–76 %
   // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, spike: 0.12, dmgUp: 0.4, dmgLate: 0.3, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
-  const dmgAt = (f, boss) => 1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4));
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.3, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 }, floorDmg: { 1: 0.96, 5: 0.95, 8: 0.82 } };
+  const dmgAt = (f, boss) => (1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4))) * (boss ? 1 : BAL.floorDmg[f] || 1);
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
   const DIFF = { easy: { name: 'Лёгкая', dmg: 0.75, hp: 0.75, xp: 1 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.3, hp: 1.25, xp: 1 } };
@@ -56,13 +104,9 @@
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
-  // guards: the floors with an elite brute guarding the exit; the 7th has one too, else the last floor before the boss went
-  // unguarded (TASKS 214). guard: the exit guard's health and blows by floor; the first one, on the 2nd floor, alone took a player
-  // through 3.3 times his health, the steepest step of the run (TASKS 180). bolt: an elite caster's bolt, else it took 34–36 % of
-  // the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [2, 4, 6, 7], guard: { 2: 0.85 } };
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.05, dmg: 0.82 } } };
   // the boss is an elite too but keeps its own pace
-  const eliteK = (e, k) => !e.elite ? 1 : e.type === 'boss' ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
+  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
     { id: 'fiery', name: 'Огненный', col: [1.0, 0.42, 0.08], burn: 3 },
@@ -270,6 +314,7 @@
   // a side wall, pots in a line along one, bones by the walls; the middle and the ways in stay open. `need`: the plan suits a room
   // whose biome (or zone) has any of these props; `w`: its weight among the plans that suit
   const ROOM_PLANS = {
+    arena: { need: [], w: 0, bones: 0 },
     armory: { need: ['rack'], w: 3, back: { n: ['rack'], mode: 'row', max: 3 }, stacks: 1, table: 0.4, bones: 1 },
     library: { need: ['bookshelf'], w: 2, back: { n: ['bookshelf'], mode: 'pairs', max: 1 }, table: 0.9 },
     prison: { need: ['cage'], w: 2, back: { n: ['cage'], mode: 'row', max: 3 }, bones: 3 },
@@ -289,7 +334,7 @@
     crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth', fire: 'fire', bones: 'bone' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BAL, dmgAt, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
