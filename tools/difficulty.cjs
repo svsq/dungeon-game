@@ -65,8 +65,12 @@ const blowAt = (a, i, g, q) => { const l = a.flatMap((r) => ((r.floors.find((f) 
 // levels gained on floor i + 1 by the runs that finished it (the hero starts at level 1)
 const lvlUp = (a, i) => { const l = a.map((r) => { const f = r.floors.find((q) => q.floor === i + 1), pr = i ? r.floors.find((q) => q.floor === i) : { lvl: 1 }; return f && pr ? f.lvl - pr.lvl : null; }).filter((v) => v !== null);
   return l.length ? avg(l, (v) => v) : null; };
-const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f) => f.floor === floor) || {}).boss).filter(Boolean), ts = l.map((b) => b.t).sort((x, y) => x - y);
-  return { n: l.length, died: avg(l, (b) => b.died || 0),
+// the fight's length is the winners' (a death cuts a fight short); deaths carry a 95 % Wilson interval: a band met by a point is
+// only as sure as the sample (TASKS 227)
+const wilson = (k, n) => { if (!n) return [0, 0]; const z = 1.96, p = k / n, c = (p + z * z / (2 * n)) / (1 + z * z / n), w = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n); return [c - w, c + w]; };
+const ci = (k, n) => wilson(k, n).map((v) => (v * 100).toFixed(1)).join('–') + '%';
+const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f) => f.floor === floor) || {}).boss).filter(Boolean), ts = l.filter((b) => !b.died).map((b) => b.t).sort((x, y) => x - y);
+  return { n: l.length, k: l.filter((b) => b.died).length, died: avg(l, (b) => b.died || 0),
     t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot) }; };
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // on normal the yardstick is pressure, not losses (the player's call): the average player drinks a potion or two a floor and drops
@@ -76,7 +80,7 @@ const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
 const BANDS = {
   easy: { average: { win: [0.85, 1] } },
-  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] } }, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30],
+  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] } },
   hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] } } };
 function check() {
@@ -114,6 +118,7 @@ function check() {
     if (b.bossPot && bo.n && !inB(bo.pot, b.bossPot)) miss.push(`${p}: ${bo.pot.toFixed(1)} hp potions at the boss, outside ${b.bossPot.join('–')}`);
     if (b.bossT && bo.n && !inB(bo.t, b.bossT)) miss.push(`${p}: the boss fight lasts ${bo.t.toFixed(0)} s, outside ${b.bossT.join('–')} s`);
     if (b.bossDied && a.length < 160) console.log(`${p}: boss death band needs 160 seeds (${a.length} measured)`);
+    if (b.bossDied && bo.n) console.log(`${p}: boss deaths ${bo.k}/${bo.n} = ${(bo.died * 100).toFixed(1)}% (95% CI ${ci(bo.k, bo.n)})`);
     if (b.bossDied && a.length >= 160 && !inB(bo.died, b.bossDied)) miss.push(`${p}: boss deaths ${(bo.died * 100).toFixed(1)}%, outside ${b.bossDied.map((v) => v * 100).join('–')}%`);
     for (const f in b.chapters || {}) { const c = bossOf(a, +f), band = b.chapters[f]; if (!c.n) continue;
       if (band.died && !inB(c.died, band.died)) miss.push(`${p} f${f}: boss deaths ${(c.died * 100).toFixed(1)}%, outside ${band.died.map((v) => v * 100).join('–')}%`);

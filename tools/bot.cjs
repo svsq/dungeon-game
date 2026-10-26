@@ -78,7 +78,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
       for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!inProp || ax * ox + ay * oy <= 0) && (!best || v < best[0])) best = [v, ax, ay]; }
       if (!best && inProp && S.t - lt > 1) {
         if (backT <= S.t) { const side = Math.sign(h.x - (tx + 0.5) * T) || 1;
-          const [ax, ay] = [[side, 0], [-side, 0], [0, -1], [0, 1]].find(([dx, dy]) => SIM.cell(m, tx + dx, ty + dy) === 1) || [0, 0];
+          const [ax, ay] = [[side, 0], [-side, 0], [0, -1], [0, 1]].find(([dx, dy]) => SIM.cell(m, tx + dx, ty + dy) === 1 && !B.has((ty + dy) * m.W + tx + dx)) || [0, 0];
           backT = S.t + 0.7; backX = ax; backY = ay;
         }
         return;
@@ -92,13 +92,16 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
   function dodge(S, R, inp, live) {
     const h = R.hero, t = S.t, ready = h.cd.dash <= t; if (!ready && !P.step) return;
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
-      const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < P.react || seen.has(key)) continue; seen.add(key);
+      // a boss is dodged only on the moves that strike with its body (the volley is read bolt by bolt below); the slam that follows
+      // a charge the hero got out of is a pattern a player learns, met without waiting to see it wind up (TASKS 227)
+      if (e.st === 'bwind' && (!['slam', 'charge'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
+      const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : E.wind * D.eliteK(e, 'wind'), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster') continue;
       const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
-      if (!ready) { if (e.st === 'wind') { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
+      if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
       if (e.st === 'bwind' && e.mv !== 'slam') dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
     if (!ready) return;
     // an explosive elite's corpse: out of its reach before the fuse is out
