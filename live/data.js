@@ -51,9 +51,9 @@
       charge: { wind: 0.75, dmg: 1.15, speed: 430, time: 0.6, stop: 46, r: 54, duration: 0.7 },
       lava: { wind: 0.9, dmg: 0, n: 32, cover: 0.45, warn: 1.1, duration: 0.5 }
     } },
-    // the finale: ~22 s that cost about two healths and a potion or two; kills 10–20 % of the average players who reach it (TASKS 215,
-    // 219, 227): its danger is in the moves and the phases, its health only keeps the fight long enough to show all three
-    boss: { hp: 1000, dmg: 19, phases: [
+    // the finale: 20+ s that cost about two healths and a potion or two; kills 10–20 % of the average players who reach it (TASKS 215,
+    // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three
+    boss: { hp: 900, dmg: 19, phases: [
       { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
       { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.35, speed: 1.3, finishMove: 1,
         changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.55, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
@@ -110,10 +110,12 @@
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
   // guards: the floors with an elite brute guarding the exit: only the 7th, the chapter bosses hold 2/4/6 (TASKS 220-222), else
-  // the last floor before the boss went unguarded (TASKS 214). guard: the guard's health and blows; tankier but hitting as hard as
-  // any elite brute: with its blows cut to 0.82 the 7th floor was easier than the 6th (TASKS 227). bolt: an elite caster's bolt,
+  // the last floor before the boss went unguarded (TASKS 214). guard: the guard's health and blows; tankier than an elite brute,
+  // its blows a little lighter: at 0.82 the 7th floor was easier than the 6th, at 1 harder than the 8th (TASKS 227). bolt: an elite caster's bolt,
   // else it took 34–36 % of the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.05, dmg: 1 } } };
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.05, dmg: 0.9 } },
+    // exit: the exit room's elite by floor; on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
+    exit: { 1: { hp: 0.7, dmg: 0.75 } } };
   // the boss is an elite too but keeps its own pace
   const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
