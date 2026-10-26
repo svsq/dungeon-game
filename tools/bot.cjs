@@ -210,7 +210,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
       walk(R, inp, locked.x + dx * 40, locked.y + dy * 40); if (Math.hypot(locked.x - h.x, locked.y - h.y + 10) < 60) inp.keys.push('KeyE'); }
     else if (!near && !late && lever && chase(R, lever.L) && aim('lever', lever)) { walk(R, inp, lever.x, lever.y); if (SIM.leverNear(R)) inp.keys.push('KeyE'); }
     else if (!near && shop && chase(R, shop) && aim('shop', shop.front)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
-    else if (live.length && !late && aim('fight', live.slice().sort((a, b) => Math.max(dist(a), walkD(a)) - Math.max(dist(b), walkD(b)))[0])) fight(S, R, inp, live, st, walkD);
+    // a sealed arena opens only on the boss's death: there is no running late past him to the stairs
+    else if (live.length && (!late || (R.arena && R.arena.active)) && aim('fight', live.slice().sort((a, b) => Math.max(dist(a), walkD(a)) - Math.max(dist(b), walkD(b)))[0])) fight(S, R, inp, live, st, walkD);
     else { aim('exit', m.exit); walk(R, inp, m.exit.x, m.exit.y); if (dist(m.exit) < 55) inp.keys.push('KeyE'); }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
     if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }

@@ -53,10 +53,10 @@
     } },
     // the finale: 20+ s that cost about two healths and a potion or two; kills 10–20 % of the average players who reach it (TASKS 215,
     // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three
-    boss: { hp: 900, dmg: 19, phases: [
+    boss: { hp: 950, dmg: 22, phases: [
       { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
       { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.35, speed: 1.3, finishMove: 1,
-        changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.55, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
+        changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.55, dmg: 1, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
     ], moves: {
       slam: { wind: 0.8, dmg: 1.3, r: 145, duration: 0.4 },
       volley: { wind: 0.8, dmg: 0.55, n: 10, rings: 1, gap: 0.32, offset: 0.5, speed: 230, life: 2.6, r: 9, origin: 60, target: 38, duration: 0.7 },
@@ -73,7 +73,7 @@
   });
   BOSSES.boss.moves.convergence = { wind: 0.7, dmg: 0, effects: ['weave', 'raise', 'lava'], duration: 0.5 };
   BOSSES.boss.phases.push({ at: 0.25, moves: ['volley', 'charge', 'raise', 'lava', 'weave'], enter: 'convergence', rest: 0.45, speed: 1.3,
-    changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.6, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } });
+    changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.6, dmg: 1, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } });
   const bossPhase = (e) => BOSSES[e.type].phases[e.phase || 0] || BOSSES[e.type].phases[0];
   const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
@@ -100,7 +100,7 @@
   // 0.25, not 0.3, once the chapter bosses took over floors 2/4/6: one curve for every floor, no per-floor patches (TASKS 227)
   // startHpPot: the hero starts with three healing potions: with two, the early deaths came with an empty bag (TASKS 222)
   // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.25, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 2.1, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.25, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 10, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
   const dmgAt = (f, boss) => 1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4));
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
@@ -115,7 +115,7 @@
   // else it took 34–36 % of the health (TASKS 201)
   const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.05, dmg: 0.9 } },
     // exit: the exit room's elite by floor; on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
-    exit: { 1: { hp: 0.7, dmg: 0.75 } } };
+    exit: { 1: { hp: 0.85, dmg: 0.85 } } };
   // the boss is an elite too but keeps its own pace
   const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
