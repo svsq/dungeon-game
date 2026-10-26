@@ -43,7 +43,7 @@
       raise: { wind: 0.85, dmg: 2.6, n: 2, cap: 4, r: 140, hp: 3, type: 'skeleton', delay: 0.8, duration: 0.5 },
       barrier: { wind: 0.65, dmg: 0, hp: 0.18, time: 5, duration: 0.4 }
     } },
-    boss_forge: { floor: 6, hp: 600, dmg: 18, rig: 'brute', scale: 1.7, phases: [
+    boss_forge: { floor: 6, hp: 600, dmg: 20, rig: 'brute', scale: 1.7, phases: [
       { at: 1, moves: ['lava', 'slam', 'charge'], rest: 0.85, speed: 1.1 },
       { at: 0.5, moves: ['lava', 'charge', 'slam'], rest: 0.6, speed: 1.3 }
     ], moves: {
@@ -51,7 +51,9 @@
       charge: { wind: 0.75, dmg: 1.15, speed: 430, time: 0.6, stop: 46, r: 54, duration: 0.7 },
       lava: { wind: 0.9, dmg: 0, n: 32, cover: 0.45, warn: 1.1, duration: 0.5 }
     } },
-    boss: { hp: 950, dmg: 22, phases: [
+    // the finale: ~22 s that cost about two healths and a potion or two; kills 10–20 % of the average players who reach it (TASKS 215,
+    // 219, 227): its danger is in the moves and the phases, its health only keeps the fight long enough to show all three
+    boss: { hp: 1000, dmg: 19, phases: [
       { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
       { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.35, speed: 1.3, finishMove: 1,
         changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.55, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
@@ -94,10 +96,12 @@
   // cooldown factor on floors 1–3, where they alone took a player down to 11 %
   // dodge: % chance to take no harm from a monster's blow, bolt or blast, per point of agility, its cap, and what a dash adds while it lasts
   // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs)
-  // dmgLate: more growth per floor past the 4th, where gear bought from the merchant let a player's minimum HP sit at 44–76 %
+  // dmgLate: more growth per floor past the 4th, where gear bought from the merchant let a player's minimum HP sit at 44–76 %;
+  // 0.25, not 0.3, once the chapter bosses took over floors 2/4/6: one curve for every floor, no per-floor patches (TASKS 227)
+  // startHpPot: the hero starts with three healing potions: with two, the early deaths came with an empty bag (TASKS 222)
   // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.3, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 }, floorDmg: { 1: 0.96, 5: 0.95, 8: 0.82 } };
-  const dmgAt = (f, boss) => (1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4))) * (boss ? 1 : BAL.floorDmg[f] || 1);
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.25, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
+  const dmgAt = (f, boss) => 1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4));
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
   const DIFF = { easy: { name: 'Лёгкая', dmg: 0.75, hp: 0.75, xp: 1 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.3, hp: 1.25, xp: 1 } };
@@ -105,7 +109,11 @@
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.05, dmg: 0.82 } } };
+  // guards: the floors with an elite brute guarding the exit: only the 7th, the chapter bosses hold 2/4/6 (TASKS 220-222), else
+  // the last floor before the boss went unguarded (TASKS 214). guard: the guard's health and blows; tankier but hitting as hard as
+  // any elite brute: with its blows cut to 0.82 the 7th floor was easier than the 6th (TASKS 227). bolt: an elite caster's bolt,
+  // else it took 34–36 % of the health (TASKS 201)
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.05, dmg: 1 } } };
   // the boss is an elite too but keeps its own pace
   const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
