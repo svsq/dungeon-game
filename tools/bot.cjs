@@ -231,9 +231,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
     // own, the heavy hitter (TASKS 225)
     for (const e of S.ev) if (!counted.has(e) && e.blow && (e.k === 'hurt' || (e.k === 'absorb' && e.n >= e.blow))) { const g = (D.ENEMIES[e.src] || {}).kind === 'slam' ? 'heavy' : SRC(e.src || ''); (fl.blows[g] = fl.blows[g] || []).push(+(e.blow / st.maxHp).toFixed(3)); }
     for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.hits++; fl.dmgHp += e.n / st.maxHp; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
-    if (B && !fl.boss && (B.hp < B.max || (R.arena && R.arena.active))) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0 };
+    if (B && !fl.boss && (B.hp < B.max || (R.arena && R.arena.active))) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0, hp0: +(h.hp / st.maxHp).toFixed(3), bag: held(h, 'hp_potion'), minhp: 1, by: {} };
     if (fl.boss && !fl.boss.done) { const b = fl.boss; b.t = +(S.t - b.t0).toFixed(1);
-      for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') b.dmg += e.n / st.maxHp; else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
+      for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') { b.dmg += e.n / st.maxHp; const g = / снаряд$/.test(e.src || '') ? 'volley' : D.BOSSES[(e.src || '').split(' ')[0]] ? B && B.mv || 'boss' : (e.src || '?').split(' ')[0]; b.by[g] = +((b.by[g] || 0) + e.n / st.maxHp).toFixed(3); } else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
+      b.minhp = +Math.min(b.minhp, h.hp / st.maxHp).toFixed(3);
       if (!S.run || !B || B.deadT >= 0 || h.deadT >= 0) { b.done = 1; b.died = h.deadT >= 0 ? 1 : 0; } }
     if (!S.run && cur) cur.floors.push(floorLine(R, h));
   }

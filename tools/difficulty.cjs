@@ -75,12 +75,15 @@ const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // on normal the yardstick is pressure, not losses (the player's call): the average player drinks a potion or two a floor and drops
 // to a quarter or so of the health on every floor, and no single floor is where the runs end
-// (the 2nd floor may be lighter than the 1st: the 1st does not always give decent gear, the player's call — its potion floor is lower; the 7th's blows come rarer and bigger, so its lowest health sits higher)
+// (the 2nd floor may be lighter than the 1st: the 1st does not always give decent gear, the player's call — its potion floor is lower; the 7th's blows come rarer and bigger, so its lowest health sits higher;
+// pressure, like the finale's deaths, is judged on 160 seeds: on 80 a floor's potions swing ±0.4 (the player's call in TASKS 227);
+// the 8th's lowest health counts a run the finale ends as 0, so the survivors' 25 % reads as 20–22.5 % at the finale's 10–20 % deaths,
+// the player's call in TASKS 227)
 // mobBlow: a plain monster's blow (median, % of the max health, before the shield); heavyBlow: the same for the plain demon, a slow
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
 const BANDS = {
   easy: { average: { win: [0.85, 1] } },
-  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30],
+  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: [20, 45] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] } },
   hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] } } };
 function check() {
@@ -124,7 +127,8 @@ function check() {
       if (band.died && !inB(c.died, band.died)) miss.push(`${p} f${f}: boss deaths ${(c.died * 100).toFixed(1)}%, outside ${band.died.map((v) => v * 100).join('–')}%`);
       if (band.t && !inB(c.t, band.t)) miss.push(`${p} f${f}: boss fight ${c.t.toFixed(1)} s, outside ${band.t.join('–')} s`);
     }
-    if (b.pressure) for (let f = 4; f <= FLOORS; f++) { const at = (floor, fn) => { const l = a.flatMap((r) => r.floors.filter((q) => q.floor === floor)); return avg(l, fn); },
+    if (b.pressure && a.length < 160) console.log(`${p}: pressure curve needs 160 seeds (${a.length} measured)`);
+    if (b.pressure && a.length >= 160) for (let f = 4; f <= FLOORS; f++) { const at = (floor, fn) => { const l = a.flatMap((r) => r.floors.filter((q) => q.floor === floor)); return avg(l, fn); },
       dmg = at(f, (q) => q.dmgHp || 0), prev = at(f - 1, (q) => q.dmgHp || 0), pot = at(f, (q) => q.hpPot || 0), pot0 = at(f - 1, (q) => q.hpPot || 0);
       if (dmg < prev) miss.push(`${p} f${f}: floor damage ${dmg.toFixed(2)} max HP, below f${f - 1} ${prev.toFixed(2)}`);
       if (pot < pot0 - 0.3 - 1e-9) miss.push(`${p} f${f}: potion use falls ${ (pot0 - pot).toFixed(2)}, over 0.3`);

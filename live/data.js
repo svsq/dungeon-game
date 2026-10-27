@@ -53,14 +53,16 @@
     } },
     // the finale: 20+ s that cost about two healths and a potion or two; kills 10–20 % of the average players who reach it (TASKS 215,
     // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three
-    boss: { hp: 950, dmg: 22, phases: [
+    // phases; the double ring is what kills, the slams and charges stay smaller: bigger ones sank the survivors' lowest health more
+    // than they added deaths (227)
+    boss: { hp: 900, dmg: 22, phases: [
       { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
       { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.35, speed: 1.3, finishMove: 1,
-        changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.55, dmg: 1, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
+        changes: { charge: { wind: 0.55, dmg: 1.1, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.15, r: 110 }, volley: { wind: 0.55, dmg: 1.3, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
     ], moves: {
-      slam: { wind: 0.8, dmg: 1.3, r: 145, duration: 0.4 },
-      volley: { wind: 0.8, dmg: 0.55, n: 10, rings: 1, gap: 0.32, offset: 0.5, speed: 230, life: 2.6, r: 9, origin: 60, target: 38, duration: 0.7 },
-      charge: { wind: 0.8, dmg: 1.1, speed: 520, time: 0.6, stop: 46, r: 54, duration: 0.7 },
+      slam: { wind: 0.8, dmg: 1.15, r: 145, duration: 0.4 },
+      volley: { wind: 0.8, dmg: 0.35, n: 10, rings: 1, gap: 0.32, offset: 0.5, speed: 230, life: 2.6, r: 9, origin: 60, target: 38, duration: 0.7 },
+      charge: { wind: 0.8, dmg: 0.95, speed: 520, time: 0.6, stop: 46, r: 54, duration: 0.7 },
       roar: { wind: 0.65, dmg: 0, r: 220, push: 150, summon: 'summon', rest: 0.25, duration: 0.45 },
       summon: { wind: 0.8, dmg: 2, n: 2, cap: 4, r: 90, hp: 4, type: 'skeleton', delay: 1, duration: 0.4 }
     } }
@@ -97,10 +99,11 @@
   // dodge: % chance to take no harm from a monster's blow, bolt or blast, per point of agility, its cap, and what a dash adds while it lasts
   // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs)
   // dmgLate: more growth per floor past the 4th, where gear bought from the merchant let a player's minimum HP sit at 44–76 %;
-  // 0.25, not 0.3, once the chapter bosses took over floors 2/4/6: one curve for every floor, no per-floor patches (TASKS 227)
+  // 0.22, not 0.3, once the chapter bosses took over floors 2/4/6: one curve for every floor, no per-floor patches; at 0.25 a
+  // plain blow on the 7th floor took over 10 % of the health (TASKS 227)
   // startHpPot: the hero starts with three healing potions: with two, the early deaths came with an empty bag (TASKS 222)
   // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 2.1, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.25, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 10, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 2.1, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.22, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 10, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
   const dmgAt = (f, boss) => 1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4));
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
