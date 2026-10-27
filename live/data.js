@@ -21,9 +21,6 @@
     arcane: { name: 'Чертоги', rock: [0.008, 0.005, 0.008], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.68, 0.78, 1.12], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
   };
-  const FLOORS = 8;
-  const biomeOf = (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane');
-  const floorName = (f) => (f === FLOORS ? 'Трон Демона' : BIOMES[biomeOf(f)].name);
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
@@ -118,14 +115,10 @@
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
-  // guards: the floors with an elite brute guarding the exit: only the 7th, the chapter bosses hold 2/4/6 (TASKS 220-222), else
-  // the last floor before the boss went unguarded (TASKS 214). guard: the guard's health and blows; tankier than an elite brute,
-  // at 0.82 the 7th floor was easier than the 6th, 2.05/1 cost more than the 8th, 2.05/0.9 less than the 6th once the late growth
-  // began at the 6th (TASKS 227). bolt: an elite caster's bolt,
+  // bolt: an elite caster's bolt,
   // else it took 34–36 % of the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } },
-    // exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy); on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
-    exit: { 1: { hp: 0.85, dmg: 0.85 } } };
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 },
+  };
   // the boss is an elite too but keeps its own pace
   const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
@@ -136,6 +129,26 @@
     { id: 'explosive', name: 'Взрывной', col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
   ];
   const eliteMods = (f) => (f >= 6 ? [2, 2] : f >= 4 ? [1, 2] : [1, 1]);
+  // a run (R.mode): its floors, each floor's biome and boss, its exit guards and the title of its last floor. depth: how many
+  // campaign floors lie above its 1st, so a floor of the run is as strong as campaign floor f + depth in everything that grows
+  // as floors climb (monsters, loot, gold, prices, traps); lvl and kit: the hero it starts with.
+  // guard: the floors with an elite brute guarding the exit, with its health and blows; in the campaign only the 7th, the chapter
+  // bosses hold 2/4/6 (TASKS 220-222), else the last floor before the boss went unguarded (TASKS 214); tankier than an elite brute,
+  // at 0.82 the 7th floor was easier than the 6th, 2.05/1 cost more than the 8th, 2.05/0.9 less than the 6th once the late growth
+  // began at the 6th (TASKS 227). exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy);
+  // on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241).
+  // The water caves are a run of their own until the story joins them to the campaign (R-27): four floors and their boss for a
+  // hero of level 10, who in the campaign enters the 8th (TASKS 300); until the cave biome and its serpent exist they stand on the
+  // dungeon's floors with the forge lord. Its kit matches what the average bot wears entering the 8th: all eight slots, mostly epic
+  const RUNS = {
+    campaign: { name: 'Кампания', floors: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
+      boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
+      last: 'Трон Демона', seal: 'Сначала одолейте Повелителя Демонов' },
+    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, biome: () => 'dungeon', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры',
+      kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
+  };
+  const runOf = (mode) => RUNS[mode] || RUNS.campaign;
+  const floorName = (f, mode) => { const N = runOf(mode); return N.last && f === N.floors ? N.last : N.title || BIOMES[N.biome(f)].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
@@ -288,9 +301,11 @@
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
   const UI = {
     menu: (hasRun, diff, arm, zoom) => {
-      const items = [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 8 этажей' : arm ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
+      // arm: the run whose button was pressed once over a saved run (a second press drops the save)
+      const run = (id, fresh, again) => [id, !hasRun ? fresh : arm === id ? 'Точно сбросить забег?' : again, true];
+      const items = [['continue', 'Продолжить забег', hasRun], run('campaign', 'Кампания — 8 этажей', 'Новая кампания (сброс)'), run('cave', 'Затопленные пещеры — 4 этажа', 'Пещеры заново (сброс)'), ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
         ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['meta', 'Алтарь душ', true]];
-      return items.map(([id, label, on], i) => ({ id, label, on, x: 760, y: 440 + i * 86, w: 400, h: 72 }));
+      return items.map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 }));
     },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? 'Скрыть секреты' : 'Открыть все секреты', on: true, x: 520, y: 16, w: 430, h: 60 },
@@ -355,7 +370,7 @@
     crystal: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth', fire: 'fire', bones: 'bone' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, FLOORS, DIFF, DIFF_ORDER, biomeOf, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, RUNS, runOf, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, ELITE, eliteK, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,4 +1,4 @@
-// node tools/playtest.cjs [seed] [--profile novice|average|expert|mage] [--runs N] [--diff easy|normal|hard] [--json]
+// node tools/playtest.cjs [seed] [--profile novice|average|expert|mage] [--runs N] [--diff easy|normal|hard] [--mode campaign|cave] [--json]
 // the bot (tools/bot.cjs) plays N campaigns in a row with meta ranks bought in between; prints each floor and each run's end.
 // A floor it cannot finish in 400 s ends as "stuck": a bot defect, never a balance result.
 const { play } = require('./bot.cjs'), fs = require('fs'), path = require('path'), v8 = require('v8');
@@ -9,7 +9,7 @@ const snapshots = arg('snapshots', ''), source = arg('checkpoint', ''), dump = a
 if (snapshots) fs.mkdirSync(snapshots, { recursive: true });
 play({ seed, initial: source ? v8.deserialize(fs.readFileSync(source)) : null, checkpoint: snapshots ? (frame) => {
   fs.writeFileSync(path.join(snapshots, `${frame.diff}_${frame.profile}_${seed}_f${frame.S.run.floor}.bin`), v8.serialize(frame));
-} : null, profile: arg('profile', 'average'), runs: +arg('runs', 1), diff: arg('diff', 'normal'), log: (r, S) => {
+} : null, profile: arg('profile', 'average'), runs: +arg('runs', 1), diff: arg('diff', 'normal'), mode: arg('mode', 'campaign'), log: (r, S) => {
   if (dump) fs.writeFileSync(dump, v8.serialize(S));
   if (json) return console.log(JSON.stringify(r));
   for (const f of r.floors) console.log(`floor ${f.floor}: ${f.time}s lvl ${f.lvl} hp ${f.hp} kills ${f.kills} gold ${f.gold} loot ${f.loot}/${f.lootN} shards ${f.shards} bank ${f.bank} dodge ${f.dodge}%`);
