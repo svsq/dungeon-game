@@ -1397,7 +1397,10 @@
       S.run = R; S.screen = 'play'; step(S, { keys: [] });
       if (R.itemBalance !== D.ITEM_BAL.version || h.eq.armor.def !== items[0].def) out.push('live reload equipment was not rebalanced');
     }
-    for (const seed of [1, 77, 4242, 90001]) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const m = DG.genFloor(seed * 31 + f * 1013, f);
+    // the water caves' floors (TASKS 301) are held to the campaign's rules
+    const GEN = [1, 77, 4242, 90001].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
+      .concat([1, 77, 4242, 90001, 5, 12, 33, 2024].flatMap((sd) => Array.from({ length: D.RUNS.cave.floors }, (_, i) => ['cave', sd, i + 1])));
+    for (const [mode, sd, f] of GEN) { const seed = mode === 'campaign' ? sd : 'cave ' + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
@@ -1481,6 +1484,14 @@
       while (st.length) { const [x, y] = st.pop(); if (x === m.exit.tx && y === m.exit.ty) { ok = true; break; }
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay; if (cell(m, nx, ny) === 1 && !seen[ny * m.W + nx]) { seen[ny * m.W + nx] = 1; st.push([nx, ny]); } } }
       if (!ok) out.push(`seed ${seed} f${f}: exit unreachable`);
+      // a cave (TASKS 301): its floor's size, no doors and no masonry streams, pockets that lead nowhere, and no straight stretch of
+      // wall over four cells but the merchant's back wall and the secret caches
+      if (mode === 'cave') { const [w0, h0] = D.RUNS.cave.size[f - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
+        if (m.W !== w0 || m.H !== h0) out.push(`seed ${seed} f${f}: the cave is ${m.W}×${m.H}, not ${w0}×${h0}`);
+        if (m.doors.length || m.waterFeatures.length) out.push(`seed ${seed} f${f}: doors or streams in the cave`);
+        for (const r of m.rooms) if (r.pocket && m.edges.filter((e) => e.includes(r.id)).length !== 1) out.push(`seed ${seed} f${f}: pocket ${r.id} is not a dead end`);
+        const skip = (x, y) => (Math.abs(x - sh.cx) <= 5 && y >= sh.y - 2 && y <= sh.y + 5) || hid.has(y * m.W + x) || m.rooms.some((r) => r.type === 'secret' && x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h);
+        for (const q of DG.straightRuns(m.cells, m.W, m.H, skip)) out.push(`seed ${seed} f${f}: a straight cave wall ${q.n} cells long at ${q.x},${q.y}`); }
       // doors: two corridor cells just past a room's edge, every way into a doored room has one; a locked room is never the way to
       // the exit or to anything else, and its key or lever lies on this side of its doors
       { const inR = (r, x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, any = (x, y) => m.rooms.some((r) => inR(r, x, y));
