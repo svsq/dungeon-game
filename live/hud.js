@@ -290,13 +290,14 @@
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = document.createElement('canvas')); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
-      const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5;
+      const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
       const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
       // rooms as stone slabs with a pale rim, as in the concept: the rim sits on the wall cells that border the floor
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y), X = x * k, Y = y * k;
         if (c === 1) { const v = L.rnd(x * 7 + y * 131, 3); fill(X, Y, k, k, v < 0.2 ? '#6e665f' : v > 0.85 ? '#8a8178' : '#7d746c'); }
         else if (c === 3) fill(X, Y, k, k, '#c4441a');
         else if (c === 5) fill(X, Y, k, k, '#a0682e');
+        else if (c === 6) fill(X, Y, k, k, '#1f4d52');
         else { const u = open(at(x, y - 1)), d = open(at(x, y + 1)), l = open(at(x - 1, y)), r = open(at(x + 1, y)); if (!(u || d || l || r)) continue;
           fill(X, Y, k, k, '#1b1719');
           if (d) fill(X, Y + k - 2, k, 2, '#a59a8e'); if (l) fill(X, Y, 2, k, '#a59a8e'); if (r) fill(X + k - 2, Y, 2, k, '#a59a8e');
