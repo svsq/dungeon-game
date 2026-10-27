@@ -77,13 +77,14 @@ const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // to a quarter or so of the health on every floor, and no single floor is where the runs end
 // (the 2nd floor may be lighter than the 1st: the 1st does not always give decent gear, the player's call — its potion floor is lower; the 7th's blows come rarer and bigger, so its lowest health sits higher;
 // pressure, like the finale's deaths, is judged on 160 seeds: on 80 a floor's potions swing ±0.4 (the player's call in TASKS 227);
-// the 8th's lowest health counts a run the finale ends as 0, so the survivors' 25 % reads as 20–22.5 % at the finale's 10–20 % deaths,
-// the player's call in TASKS 227)
+// the 8th is judged by the finale's own bands and its survivors' lowest health (winMinhp), not by the floor's potions and lowest
+// health with the dead as 0: a finale that kills 10–20 % costs about 2.4 potions and leaves the survivors at 22–25 %, and the finale
+// itself may cost up to 2.5 potions (the player's calls in TASKS 227)
 // mobBlow: a plain monster's blow (median, % of the max health, before the shield); heavyBlow: the same for the plain demon, a slow
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
 const BANDS = {
   easy: { average: { win: [0.85, 1] } },
-  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: [20, 45] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2], bossT: [20, 30],
+  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [22, 45] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] } },
   hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] } } };
 function check() {
@@ -113,6 +114,8 @@ function check() {
     for (let i = 0; i < FLOORS; i++) { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); if (!l.length) continue;
       const mh = avg(l, (f) => (f.minhp ?? 1) * 100), hp = avg(l, (f) => f.hpPot || 0), bf = Object.assign({}, b, (b.floor || {})[i + 1]);
       if (bf.minhp && !inB(mh, bf.minhp)) miss.push(`${p} f${i + 1}: min hp ${Math.round(mh)}% outside ${bf.minhp.join('–')}%`);
+      if (bf.winMinhp) { const w = a.filter((r) => r.result.how === 'win').map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean), v = w.length ? avg(w, (f) => (f.minhp ?? 1) * 100) : null;
+        if (v !== null && !inB(v, bf.winMinhp)) miss.push(`${p} f${i + 1}: survivors' min hp ${v.toFixed(1)}% outside ${bf.winMinhp.join('–')}%`); }
       if (bf.hpPot && !inB(hp, bf.hpPot)) miss.push(`${p} f${i + 1}: ${hp.toFixed(1)} hp potions outside ${bf.hpPot.join('–')}`);
       for (const [g, k, who] of [['mob', 'mobBlow', 'a plain monster'], ['heavy', 'heavyBlow', 'a plain demon']]) { const v = blowAt(a, i, g, 0.5);
         if (bf[k] && v !== null && !inB(v, bf[k])) miss.push(`${p} f${i + 1}: ${who}'s blow ${v.toFixed(1)}% of the health, outside ${bf[k].join('–')}%`); }

@@ -131,8 +131,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
     const far = (e) => Math.max(dist(e), walkD(e));
     let tg = live.reduce((a, e) => (!a || far(e) < far(a) ? e : a), null);
     // a caster once picked stays the target while it is within 400 px: a fixed 320 px line flips the target every step for one
-    // standing on it, and the bot walks back and forth between two paths for good
-    if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && dist(focus) < 400)) focus = live.filter((e) => D.ENEMIES[e.type].kind === 'caster' && dist(e) < 320).sort((a, b) => dist(a) - dist(b))[0] || null;
+    // standing on it, and the bot walks back and forth between two paths for good; by the walk too: a caster close through a wall
+    // was picked and dropped on the way round, and the bot circled in the corridor (seed 193, TASKS 227)
+    if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && far(focus) < 400)) focus = live.filter((e) => D.ENEMIES[e.type].kind === 'caster' && far(e) < 320).sort((a, b) => far(a) - far(b))[0] || null;
       if (focus) tg = focus; }
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
     const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, a = Math.atan2(tg.y - 30 - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - 30 - oy, tg.x - ox);
