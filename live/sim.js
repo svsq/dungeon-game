@@ -22,7 +22,10 @@
   const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log && !S.demo) note(S, e); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
-  const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, (R.floor || 1) / 3) : v; };
+  // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
+  // reads the depth, the run's own floor numbers only place its bosses, guards and end
+  const RUN = (R) => D.runOf(R.mode), dep = (R, f = R.floor) => (f || 1) + RUN(R).depth, lastFloor = (R) => R.floor === RUN(R).floors;
+  const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' (элита)' : '') : '?';
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
   const logFloor = (R) => R.log.fl[R.log.fl.length - 1];
@@ -140,6 +143,10 @@
     h.eq.armor = give({ b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: BASES.leather_armor.def });
     const gr = (S.meta.up || {}).gear || 0; if (gr) for (const it of [h.eq.weapon, h.eq.armor]) { it.rar = gr; rollAffixes(R, itemPower(it)); }
     h.bag[0] = give(potion('hp_potion', BAL.startHpPot + ((S.meta.up || {}).potion || 0))); h.bag[1] = give(potion('mp_potion', 1));
+    // a run that starts deeper hands the hero its levels as points to lay out and its kit (data.js RUNS)
+    const N = RUN(R); if (N.lvl > 1) { h.lvl = N.lvl; h.pts += 3 * (N.lvl - 1); h.sp += N.lvl - 1; for (const a of ABILITIES) if (a.unlock <= h.lvl) h.ab[a.id] = Math.max(1, h.ab[a.id] || 0); }
+    if (N.kit) { const K = N.kit; for (const [b, rar] of K.gear) h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} })));
+      h.bag[0].n += K.hp - BAL.startHpPot; h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
     enterFloor(S, R, 1);
     return R;
@@ -159,7 +166,7 @@
       ev(S, { k: 'drain', x: h.x, y: h.y - 40, tx: e.x, ty: e.y - ENEMIES[e.type].h * 0.5, n, id: e.id }); }
   }
   // plain skeletons of the floor's strength around a summoner, never more than its cap of its own alive at once
-  function raise(S, R, e) { const M = MOD.summoner, sk = ENEMIES.skeleton, f = R.floor, own = R.en.filter((o) => o.summ === e.id && o.deadT < 0).length;
+  function raise(S, R, e) { const M = MOD.summoner, sk = ENEMIES.skeleton, f = dep(R), own = R.en.filter((o) => o.summ === e.id && o.deadT < 0).length;
     for (let i = 0; i < Math.min(M.n, M.cap - own); i++) { const a = rnd(R) * 6.28, x = e.x + Math.cos(a) * 70, y = e.y + Math.sin(a) * 50; if (solidAt(R.map, x, y, true)) continue;
       const hp = Math.round(sk.hp * BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)));
       R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: sk.dmg * BAL.dmg * 1.35 * D.dmgAt(f), elite: 0, room: e.room, st: 'chase', t0: S.t, face: 1, aimA: 0,
@@ -172,18 +179,18 @@
     breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
   function enterFloor(S, R, f, gen) {
     R.floor = f; R.propHit = {};
-    if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ endless: R.mode === 'endless' }, gen));
+    if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ endless: R.mode === 'endless', mode: R.mode }, gen));
     R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.drops = []; R.scorches = [];
-    const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
-    for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? D.ELITE.guard[f] : e.exit && e.elite ? D.ELITE.exit[f] : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
-      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(f, 1) / D.dmgAt(f) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
+    const d = dep(R, f), sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (d - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(d);
+    for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? RUN(R).guard[f] : e.exit && e.elite ? RUN(R).exit[f] : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
+      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
         elite: e.elite, guard: e.guard || 0, room: e.room, st: 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
-    for (const e of R.en) if (e.elite && !D.BOSSES[e.type]) e.mods = rollMods(R, f);
+    for (const e of R.en) if (e.elite && !D.BOSSES[e.type]) e.mods = rollMods(R, d);
     // a closed door is a solid cell (5) that blocks sight like rock until it opens
     for (const d of m.doors || []) if (!d.open) for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5;
     R.keys = 0;
-    R.shop = stockShop(R, f);
+    R.shop = stockShop(R, d);
     R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s));
     // a big monster's post can graze a prop: the post is where it can actually stand
     { const sol = solids(R), clear = (x, y, r) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r);
@@ -197,7 +204,7 @@
     const h = R.hero; h.x = m.spawn.x; h.y = m.spawn.y; h.vx = h.vy = 0; h.bless = 0;
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
     reveal(R); ev(S, { k: 'floor', x: h.x, y: h.y, f });
-    R.msg = { s: 'Этаж ' + f + ' — ' + D.floorName(f), t: S.t };
+    R.msg = { s: 'Этаж ' + f + ' — ' + D.floorName(f, R.mode), t: S.t };
     S.saveN++;
   }
 
@@ -409,7 +416,7 @@
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
     if (kind !== 'spike' && src !== 'lava' && rnd(R) * 100 < heroSt(S).dodge + (dashing ? BAL.dodge.dash : 0)) { ev(S, { k: 'dodge', x: h.x, y: h.y, dash: dashing ? 1 : 0 }); return; }
-    const st = heroSt(S), KD = 20 + 12 * R.floor; dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
+    const st = heroSt(S), KD = 20 + 12 * dep(R); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : BAL.cap.blow)));
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
     const blow = dmg;
@@ -445,21 +452,21 @@
   function killEnemy(S, R, e) {
     e.deadT = S.t; e.hp = 0; R.kills++;
     if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (!e.summ) { fstat(R).kills++; checkFull(S, R); } R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
-    const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (R.floor - 1)) * (e.elite && !D.BOSSES[e.type] ? 3 + nm : 1)));
+    const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (dep(R) - 1)) * (e.elite && !D.BOSSES[e.type] ? 3 + nm : 1)));
     if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
     ev(S, { k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id });
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
     if (e.summ) return;
     if (e.key !== undefined) drop(R, e.x, e.y, { kind: 'key', lock: e.key });
     const gb = 1 + 0.15 * ((S.meta.up || {}).gold || 0);
-    if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + R.floor * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
+    if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + dep(R) * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
     const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
-    if (!D.BOSSES[e.type] && (e.elite || rnd(R) < LT.p * BAL.reward)) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, LT.q, undefined, LT) });
+    if (!D.BOSSES[e.type] && (e.elite || rnd(R) < LT.p * BAL.reward)) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
     if (rnd(R) < POT.kill * BAL.reward) drop(R, e.x, e.y, { kind: 'item', item: potion(rnd(R) < 0.65 ? 'hp_potion' : 'mp_potion') });
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
-    const sh = D.BOSSES[e.type] ? (e.type === 'boss' ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
+    const fin = D.BOSSES[e.type] && lastFloor(R), sh = D.BOSSES[e.type] ? (fin ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (D.BOSSES[e.type]) finishArena(S, R, e);
-    if (e.type === 'boss') { R.bossDead = 1; R.msg = { s: 'Повелитель Демонов повержен! Портал наружу открыт', t: S.t }; for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, o.q, undefined, o) }); }
+    if (fin) { R.bossDead = 1; R.msg = { s: ENEMIES[e.type].name + ' повержен! Портал наружу открыт', t: S.t }; for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) }); }
   }
   // a thrown-away item lands on a free neighbouring cell and stays put until the hero has walked away from it and comes back
   function throwAway(R, h, it) {
@@ -507,17 +514,17 @@
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
-    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.int, AR.k, st.spell, R.floor);
+    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.int, AR.k, st.spell, dep(R));
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
-    if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, R.floor); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
+    if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
   function breakPots(S, R, x, y, rad, ax, arc) {
     for (const p of R.pots) { if (p.hp <= 0) continue; const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 10) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, p.x, p.y)) continue;
       p.hp = 0; p.brokeT = S.t; ev(S, { k: 'break', x: p.x, y: p.y, kind: p.kind });
-      if (p.kind === 'gold' || p.kind === 'goldpile') { for (let k = 0; k < (p.rich ? 6 : p.kind === 'goldpile' ? 2 : 3); k++) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 8) + R.floor * 2 }); }
-      else if (p.kind.startsWith('vase')) { drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 9) + R.floor * 2 }); if (rnd(R) < POT.vase) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
-      else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + R.floor }); else if (rnd(R) < POT.pot) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
+      if (p.kind === 'gold' || p.kind === 'goldpile') { for (let k = 0; k < (p.rich ? 6 : p.kind === 'goldpile' ? 2 : 3); k++) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 8) + dep(R) * 2 }); }
+      else if (p.kind.startsWith('vase')) { drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 9) + dep(R) * 2 }); if (rnd(R) < POT.vase) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
+      else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + dep(R) }); else if (rnd(R) < POT.pot) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
   }
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
   function hitProps(S, R, x, y, rad, ax, arc, bonesOnly = false) {
@@ -605,7 +612,7 @@
   // an ambush's flagstone sinks under the hero and calls monsters of the floor out of the dark round the room, in a ring, at once
   // on the hunt; they pay their XP but carry nothing (like a summoner's), and nothing of the floor's completion hangs on them
   function springAmbush(S, R, P) {
-    const m = R.map, h = R.hero, f = R.floor, roster = D.BIOMES[m.biome].roster.filter((t) => t !== 'brute' || f >= 3), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
+    const m = R.map, h = R.hero, f = dep(R), roster = D.BIOMES[m.biome].roster.filter((t) => t !== 'brute' || f >= 3), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
     ev(S, { k: 'click', x: P.x, y: P.y }); ev(S, { k: 'ambush', x: h.x, y: h.y });
     const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
     for (let i = 0, n = 0; i < 40 && n < P.n; i++) { const a = rnd(R) * 6.28, d = 130 + rnd(R) * 90, x = h.x + Math.cos(a) * d, y = h.y + Math.sin(a) * d * 0.8;
@@ -652,10 +659,10 @@
     const pre = !!c.loot; for (const it of c.loot || chestLoot(R, c)) drop(R, c.x, c.y + 10, { kind: 'item', item: it, pre });
     c.loot = [];
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
-    drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + R.floor * 6 + ri(R, 0, 10)) * c.tier) });
+    drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
   function chestLoot(R, c) { const LT = LOOT.chest[c.tier], out = [];
-    for (let i = 0; i < LT.n; i++) out.push(rollItem(R, R.floor, i ? LT.q * 0.8 : LT.q));
+    for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q));
     if (rnd(R) < POT.chest) out.push(potion('hp_potion')); if (rnd(R) < 0.25) out.push(potion('scroll'));
     for (const it of out) it.id = R.nextId++; return out; }
 
@@ -731,19 +738,19 @@
     if (h.poison > t) { const n = 2.5 * st.resist * DT; h.hp -= n; if (h.hp <= 1) h.hp = 1; if (R.log) add(logFloor(R).dmg, 'poison', n);
       h.poisonAcc = (h.poisonAcc || 0) + n; if (t - (h.poisonT ?? -9) >= 0.5) { h.poisonT = t; const k = Math.round(h.poisonAcc); if (k > 0) { h.poisonAcc -= k; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: k, src: 'poison' }); } } }
     // a fire hex sets the hero alight: a tick every 0.5 s for 3 s, past the invulnerability window like poison, never the killing blow
-    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((1.5 + 0.3 * R.floor) * st.resist * dif(R, 'dmg'))); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn' }); }
+    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((1.5 + 0.3 * dep(R)) * st.resist * dif(R, 'dmg'))); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn' }); }
     if (h.shield > 0 && t > h.shieldUntil) h.shield = 0;
     // spikes: up for 0.7 s of every 2.4 s; a plate is 2×2 cells, feet a little inside its edge count
     for (const tr of m.traps) { const ph = ((t / 2.4 + tr.ph) % 1 + 1) % 1, up = ph < 0.29;
       if (up && onPlate(h, tr) && !dashing && t - h.spikeT > 0.7) { h.spikeT = t; hurtHero(S, R, heroSt(S).maxHp * BAL.spike, h.x, h.y - 20, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); }
       // the spikes don't care whose feet are on them: lure or knock monsters onto a plate
       if (up) for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onPlate(e, tr) && t - (e.spikeT ?? -9) > 0.7) {
-        e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (R.floor - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
+        e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (dep(R) - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
     // water puts the fire out
     if (h.burn > t && inWater(m, h)) { h.burn = 0; ev(S, { k: 'douse', x: h.x, y: h.y }); }
     for (const e of R.en) if (e.deadT < 0 && e.burn > t && !ENEMIES[e.type].ghost && inWater(m, e)) { e.burn = 0; ev(S, { k: 'douse', x: e.x, y: e.y }); }
     // lava burns whoever stands in it, every half second
-    const lavaDmg = 8 * (1 + 0.2 * (R.floor - 1));
+    const lavaDmg = 8 * (1 + 0.2 * (dep(R) - 1));
     if (onLava(m, h) && t - (h.lavaT ?? -9) >= 0.5) { h.lavaT = t; hurtHero(S, R, lavaDmg * st.resist, h.x, h.y, undefined, 'lava'); ev(S, { k: 'scorch', x: h.x, y: h.y }); }
     for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onLava(m, e) && t - (e.lavaT ?? -9) >= 0.5) {
       e.lavaT = t; hitEnemy(S, R, e, Math.round(lavaDmg * 1.25), false, e.x, e.y, 0, 'fire'); ev(S, { k: 'scorch', x: e.x, y: e.y }); }
@@ -779,7 +786,7 @@
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (arenaSealed(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте босса главы' }); return; }
-      if (R.floor === D.FLOORS && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте Повелителя Демонов' }); return; }
+      if (lastFloor(R) && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: RUN(R).seal }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) openAltar(S, R, used);
@@ -787,7 +794,7 @@
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
   function openAltar(S, R, sh) {
-    if (!sh.gifts) sh.gifts = [1, 2, 3].map((tier) => ({ id: pick(R, D.GIFTS.filter((g) => g.tier === tier)).id, cost: D.giftCost(tier, R.floor) }));
+    if (!sh.gifts) sh.gifts = [1, 2, 3].map((tier) => ({ id: pick(R, D.GIFTS.filter((g) => g.tier === tier)).id, cost: D.giftCost(tier, dep(R)) }));
     for (const g of sh.gifts) if (g.id === 'greed') g.id = 'alert';
     R.altar = R.shrines.indexOf(sh); S.screen = 'altar'; S.hover = ''; ev(S, { k: 'altar', x: sh.x, y: sh.y });
   }
@@ -833,7 +840,7 @@
   // a sale goes onto the buy-back row at the price paid for it, so a slip of the mouse costs nothing
   function sell(S, R, i) {
     const h = R.hero, sh = R.shop, it = h.bag[i]; if (!it) return;
-    const n = isCons(it) ? 1 : 0, price = D.sellPrice(it, R.floor), one = n && it.n > 1 ? Object.assign({}, it, { id: R.nextId++, n: 1 }) : it;
+    const n = isCons(it) ? 1 : 0, price = D.sellPrice(it, dep(R)), one = n && it.n > 1 ? Object.assign({}, it, { id: R.nextId++, n: 1 }) : it;
     if (n && it.n > 1) it.n--; else h.bag[i] = null;
     h.gold += price; sh.tradeT = S.t; sh.back.push({ it: one, price }); if (sh.back.length > D.SHOP.buyback) sh.back.shift();
     ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: price, s: 'Продано: ' + itemName(one), rar: one.rar });
@@ -863,7 +870,7 @@
     for (const e of R.en) {
       const E = ENEMIES[e.type];
       if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) blast(S, R, e); continue; }
-      if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; hitEnemy(S, R, e, Math.max(1, Math.round(2 + R.floor)), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
+      if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; hitEnemy(S, R, e, Math.max(1, Math.round(2 + dep(R))), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0; }
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
@@ -907,7 +914,7 @@
         if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA; if (!(e.bncT > e.t0) && d <= E.r + K.R + 6.01) e.bncT = t;
           const v = e.bncT > e.t0 ? (t - e.bncT < 0.1 ? -150 : 0) : 330 * Math.min(1, (t - e.t0) / 0.05); { e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT;
             if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison', who(e), e); struck(S, R, e); } } } else skid(m, e, E);
-        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : 0.32)) { e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && R.floor <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
+        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : 0.32)) { e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
     }
     // separation: monsters don't stack
@@ -999,7 +1006,7 @@
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
     for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
-    if (e.type !== 'boss') { R.msg = { s: ENEMIES[e.type].name + ': победа! Алтарь и лестница открыты', t: S.t }; drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, 2) }); }
+    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + ': победа! Алтарь и лестница открыты', t: S.t }; drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
   }
   function bossWebs(S, R, e, M) {
     const m = R.map, r = m.rooms[e.room];
@@ -1206,29 +1213,32 @@
     const R = S.run; if (!R) return;
     const W2 = runReward(R, how), bonus = W2.base + W2.bonus;
     S.meta.shards += bonus; S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win') S.meta.wins = (S.meta.wins || 0) + 1;
-    S.meta.best = Math.max(S.meta.best || 0, R.floor);
-    S.result = { how, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
+    if (RUN(R) === D.RUNS.campaign) S.meta.best = Math.max(S.meta.best || 0, R.floor);
+    S.result = { how, mode: R.mode, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
       damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; S.screen = how; S.saveN++;
   }
-  function startCampaign(S) { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0; S.run = newRun(S, 'campaign', seed); S.saved = null; S.screen = 'play'; }
+  // a hero who starts above level 1 opens on the hero screen, his points still to lay out
+  function startRun(S, mode = 'campaign') { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0; S.run = newRun(S, mode, seed); S.saved = null;
+    S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   function stepUI(S, inp, keys) {
     const x = inp.px, y = inp.py, click = inp.click;
     if (S.screen === 'menu') {
-      const arm = S.resetT !== undefined && S.t - S.resetT < 3, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
+      const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
       if (click && b && b.on) {
-        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: 'Этаж ' + S.run.floor + ' — ' + D.floorName(S.run.floor), t: S.t }; }
-        if (b.id === 'campaign') { if (!S.saved || arm) { S.resetT = undefined; startCampaign(S); } else S.resetT = S.t; }   // a saved run is dropped only on a second press
+        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: 'Этаж ' + S.run.floor + ' — ' + D.floorName(S.run.floor, S.run.mode), t: S.t }; }
+        // a saved run is dropped only on a second press of the same run's button
+        if (D.RUNS[b.id]) { if (!S.saved || arm === b.id) { S.resetT = undefined; startRun(S, b.id); } else { S.resetT = S.t; S.resetM = b.id; } }
         if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
         if (b.id === 'zoom') nextZoom(S);
         if (b.id === 'meta') S.screen = 'meta';
         ev(S, { k: 'ui', x, y });
       }
-      if (keys.Enter) { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; } else startCampaign(S); }
+      if (keys.Enter) { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; } else startRun(S); }
       return;
     }
     if (S.screen === 'meta') {
@@ -1248,7 +1258,7 @@
     }
     if (S.screen === 'dead' || S.screen === 'win') {
       const b = D.hitUI(UI.end(S.result && S.result.log), x, y); S.hover = b ? b.id : '';
-      if (click && b && b.on) { if (b.id === 'log') { S.logReq = (S.logReq || 0) + 1; ev(S, { k: 'ui', x, y }); } else if (b.id === 'menu') S.screen = 'menu'; else startCampaign(S); }
+      if (click && b && b.on) { if (b.id === 'log') { S.logReq = (S.logReq || 0) + 1; ev(S, { k: 'ui', x, y }); } else if (b.id === 'menu') S.screen = 'menu'; else startRun(S, (S.result && S.result.mode) || 'campaign'); }
       return;
     }
     if (S.screen === 'altar') {
@@ -1359,7 +1369,7 @@
     }
     for (const seed of [1, 77, 4242]) {
       const R = { rs: seed };
-      for (let lvl = 1; lvl <= D.FLOORS; lvl++) for (let i = 0; i < 100; i++) {
+      for (let lvl = 1; lvl <= D.RUNS.campaign.floors; lvl++) for (let i = 0; i < 100; i++) {
         const it = rollItem(R, lvl, i % 4), expected = itemPower({ b: it.b, rar: it.rar, lvl, mods: {} });
         if (it.atk !== expected.atk || it.def !== expected.def) out.push(`seed ${seed} lvl${lvl}: rolled item has wrong power`);
         if (Object.keys(it.mods).length !== RARITY[it.rar].affixes) out.push(`seed ${seed} lvl${lvl}: wrong affix count`);
@@ -1387,7 +1397,7 @@
       S.run = R; S.screen = 'play'; step(S, { keys: [] });
       if (R.itemBalance !== D.ITEM_BAL.version || h.eq.armor.def !== items[0].def) out.push('live reload equipment was not rebalanced');
     }
-    for (const seed of [1, 77, 4242, 90001]) for (let f = 1; f <= D.FLOORS; f++) { const m = DG.genFloor(seed * 31 + f * 1013, f);
+    for (const seed of [1, 77, 4242, 90001]) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const m = DG.genFloor(seed * 31 + f * 1013, f);
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
@@ -1412,7 +1422,7 @@
         }
       }
       // the fire depths (TASKS 186): two rivers at least, and nothing stands in lava or a cell from its shore
-      if (D.BIOMES[m.biome].lava && f < D.FLOORS && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
+      if (D.BIOMES[m.biome].lava && f < D.RUNS.campaign.floors && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
       { const shore = (o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor((o.y - 1) / TILE); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) === 3) return true; return false; };
         for (const [k, list] of [['monster', m.enemies], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['brazier', m.torches.filter((t) => t.kind !== 'wall')]]) for (const o of list) if (shore(o)) out.push(`seed ${seed} f${f}: a ${k} by lava at ${Math.round(o.x)},${Math.round(o.y)}`); }
       // a secret's fake wall counts as broken: rock one cell thick between two floors would hang in the floor as a bare wall face (TASKS 178)
@@ -1615,7 +1625,7 @@
       // and an explosive corpse's blast, on the first and the last floor
       const f0 = R.floor, first = (secs) => { const mx = heroSt(S).maxHp; let lost = 0;
         for (let i = 0; i < 120 * secs && !lost; i++) { const a = h.hp; step(S, { keys: [] }); lost = (a - h.hp) / mx; } return lost; };
-      for (const f of [1, D.FLOORS]) { R.floor = f;
+      for (const f of [1, D.RUNS.campaign.floors]) { R.floor = f;
         for (const type in ENEMIES) { put(); el([], type === 'cultist' ? 120 : 40, { type, dmg: 1e5 }); const l = first(D.BOSSES[type] ? 12 : 6), cap = D.BOSSES[type] ? BAL.cap.boss : BAL.cap.blow;
           if (!l) out.push(`f${f}: an elite ${type} never strikes the hero`); else if (l > cap + 0.01) out.push(`f${f}: an elite ${type}'s blow takes ${Math.round(l * 100)}% of the health, over ${cap * 100}%`); }
         put(); const ex = el(['explosive'], 60, { cdT: 1e9, hp: 1, dmg: 1e5 }); hitEnemy(S, R, ex, 5, false, h.x, h.y); const l = first(MOD.explosive.fuse + 0.5);
@@ -1636,7 +1646,7 @@
     // floors meeting only at a corner: the generator leaves none, and a line through such a corner is shut (TASKS 174)
     { const pm = { W: 4, H: 4, cells: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0] };
       if (losClear(pm, 1.5 * TILE, 1.5 * TILE, 2.5 * TILE, 2.5 * TILE)) out.push('a line through the corner of two walls is clear');
-      for (let f = 1; f <= D.FLOORS; f++) for (let s = 1; s <= 8; s++) { const m = DG.genFloor(s * 131 + f, f), so = (x, y) => solidC(m, x, y); let n = 0;
+      for (let f = 1; f <= D.RUNS.campaign.floors; f++) for (let s = 1; s <= 8; s++) { const m = DG.genFloor(s * 131 + f, f), so = (x, y) => solidC(m, x, y); let n = 0;
         for (let y = 0; y < m.H - 1; y++) for (let x = 0; x < m.W - 1; x++) if (so(x, y) === so(x + 1, y + 1) && so(x + 1, y) === so(x, y + 1) && so(x, y) !== so(x + 1, y)) n++;
         if (n) out.push(`floor ${f} seed ${s * 131 + f}: ${n} floors meet only at a corner`); } }
     // a cultist's fire hex (lava floors) sets the hero burning for a few ticks; the plain hex does not
@@ -1653,11 +1663,11 @@
       if (!tp || tp.fx !== fx || tp.fy !== fy) out.push('a teleport event does not carry where the hero left from'); }
     // the boss roars as he first sees the hero
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run; enterFloor(S, R, D.FLOORS); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; R.en = [b]; h.x = b.x; h.y = b.y + 160; h.ifr = 1e9;
+      const R = S.run; enterFloor(S, R, D.RUNS.campaign.floors); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; R.en = [b]; h.x = b.x; h.y = b.y + 160; h.ifr = 1e9;
       for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (!S.ev.some((e) => e.k === 'roar')) out.push('the boss does not roar when he first sees the hero'); }
     // shallow water: the hero wades slower, a burning hero stepping in is put out, and no prop, chest or monster post stands in it
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); const R = S.run, h = R.hero; let tested = false;
-      for (let f = 1; f <= D.FLOORS && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[Math.floor(m.water.length / 2)], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
+      for (let f = 1; f <= D.RUNS.campaign.floors && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[Math.floor(m.water.length / 2)], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
         const on = (o) => wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
         for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o)) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
         const run = (x, y) => { R.en = []; h.vx = h.vy = 0; for (let i = 0; i < 60; i++) { h.x = x; h.y = y; step(S, { keys: [], right: 1 }); } return h.vx; };
@@ -1689,7 +1699,7 @@
     // of the floor behind the wall (TASKS 104)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero; let tested = 0;
-      for (let f = 1; f <= D.FLOORS && tested < 3; f++) { enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.floors && tested < 3; f++) { enterFloor(S, R, f); const m = R.map;
         for (const A of m.rooms) for (const B of m.rooms) for (const vert of [0, 1]) { if (A === B || A.type === 'secret' || B.type === 'secret' || tested >= 3) continue;
           const a0 = vert ? A.y : A.x, aw = vert ? A.h : A.w, b0 = vert ? B.y : B.x, gap = b0 - (a0 + aw); if (gap < 1 || gap > 2) continue;
           const o0 = Math.max(vert ? A.x : A.y, vert ? B.x : B.y), o1 = Math.min(vert ? A.x + A.w : A.y + A.h, vert ? B.x + B.w : B.y + B.h); if (o1 - o0 < 3) continue;
@@ -1707,7 +1717,7 @@
     // and the same setup with the wall dug out does hit (so the check really reaches it)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero; let spot = null;
-      for (let f = 1; f <= D.FLOORS && !spot; f++) { enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.floors && !spot; f++) { enterFloor(S, R, f); const m = R.map;
         for (let ty = 1; ty < m.H - 4 && !spot; ty++) for (let tx = 1; tx < m.W - 1 && !spot; tx++) for (const k of [1, 2]) {
           const below = ty + k + 1, ok = (x, y) => cell(m, x, y) === 1 && !inStart(m, x, y);
           if (ok(tx, ty) && ok(tx - 1, ty) && ok(tx + 1, ty) && ok(tx, below) && ok(tx - 1, below) && ok(tx + 1, below) && [...Array(k)].every((_, i) => cell(m, tx, ty + 1 + i) === 0)) { spot = { tx, ty, k, below }; break; } } }
@@ -1726,7 +1736,7 @@
     // monsters stand clear of solid props: at every post, and when knocked into a chest or chasing the hero straight across one
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, m = R.map, inside = (e) => !ENEMIES[e.type].ghost && e.deadT < 0 && solids(R).some((o) => Math.hypot(e.x - o.x, (e.y - o.y) * 1.6) < o.r + ENEMIES[e.type].r - 1);
-      for (let f = 1; f <= D.FLOORS; f++) { enterFloor(S, R, f); const e = R.en.find(inside); if (e) { out.push(`floor ${f}: a ${e.type} is posted inside a prop`); break; } }
+      for (let f = 1; f <= D.RUNS.campaign.floors; f++) { enterFloor(S, R, f); const e = R.en.find(inside); if (e) { out.push(`floor ${f}: a ${e.type} is posted inside a prop`); break; } }
       enterFloor(S, R, 1); const c = R.chests.find((q) => cell(m, Math.floor((q.x - 64) / TILE), Math.floor(q.y / TILE)) === 1 && cell(R.map, Math.floor((q.x + 64) / TILE), Math.floor(q.y / TILE)) === 1);
       if (!c) out.push('prop check: no chest with floor on both sides on floor 1');
       else { const e = R.en.find((o) => !ENEMIES[o.type].ghost && ENEMIES[o.type].kind === 'melee'); R.en = [e]; Object.assign(e, { x: c.x - 40, y: c.y, kbx: 900, kby: 0, hp: 1e4, max: 1e4, dmg: 0, st: 'idle' });
@@ -1916,7 +1926,7 @@
       press(); swing(); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
     // every secret of a few whole campaigns, one by one: the hero is put where its tell is (in front of a wall, under a banner
     // or a sconce, below a shelf, on a flagstone), the collisions settle, and the action meant for it opens it
-    for (const sd of [11, 222]) for (let f = 1; f <= D.FLOORS; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
+    for (const sd of [11, 222]) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9; const cells0 = m.cells.slice();
       m.secrets.forEach((q, i) => { const base = m.secrets.map((o) => o.open);
         if (secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) { m.secrets.forEach((o) => { if (o !== q && !o.open) openSecret(S, R, o, true); }); }
@@ -2067,7 +2077,7 @@
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
-      for (let f = 1; !R.shrines.length && f < D.FLOORS; ) enterFloor(S, R, ++f);
+      for (let f = 1; !R.shrines.length && f < D.RUNS.campaign.floors; ) enterFloor(S, R, ++f);
       if (!R.shrines.length) out.push('altar: no altar on any floor of seed 777');
       else { const sh = R.shrines[0], tier = (o) => D.GIFTS.find((q) => q.id === o.id).tier; R.en = []; h.x = sh.x; h.y = sh.y + 40; step(S, { keys: ['KeyE'] });
         if (S.screen !== 'altar' || !sh.gifts || sh.gifts.map(tier).join() !== '1,2,3' || !(sh.gifts[0].cost < sh.gifts[1].cost && sh.gifts[1].cost < sh.gifts[2].cost)) out.push('altar: E does not offer one gift per tier at rising prices');
@@ -2120,8 +2130,8 @@
       e.summ = 1; if (completionHints(R).some((o) => o.kind === 'foe')) out.push('hints: summoned enemy highlighted');
       f.kills = f.foes; f.loot = f.lootN; if (completionHints(R).length) out.push('hints: completed categories still highlighted'); }
     // an altar on every second floor and on no other (TASKS 137), the last on the floor before the boss's, none on his (TASKS 183)
-    { const bad = [], want = (f) => (f < D.FLOORS && (f % 2 === 0 || f === D.FLOORS - 1) ? 1 : 0);
-      for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.FLOORS; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
+    { const bad = [], want = (f) => (f < D.RUNS.campaign.floors && (f % 2 === 0 || f === D.RUNS.campaign.floors - 1) ? 1 : 0);
+      for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
         if (n !== want(f)) bad.push(`seed ${seed} floor ${f}: ${n}`); }
       if (bad.length) out.push(`altar: not one altar on floors 2, 4, 6 and 7 and none on the others (${bad.length}: ${bad.slice(0, 3).join(', ')})`); }
     // each gift does what it says: reach and swing width, potion strength, a kill's meal, thorns back into a close striker (not a far one),
@@ -2259,6 +2269,30 @@
       if (R.freeze > 0 && Math.abs((S.t - p.t0) - up) > 1e-9) out.push('hit-stop: a bolt ages in the freeze');
       for (let i = 0; i < 8; i++) step(S, { keys: [], px: 960, py: 540 });
       if (h.hp <= 10) out.push('hit-stop: a potion pressed in the freeze is lost'); }
+    // the water caves as a run of their own (TASKS 300): the menu starts it on the hero screen with its level and kit, its floors
+    // carry their run's boss, guard and altars, the boss's death opens the way out, and the campaign's record is left alone
+    { const N = D.RUNS.cave, S = spawn(0, {}), r = UI.menu(false).find((q) => q.id === 'cave');
+      step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); const R = S.run, h = R && R.hero;
+      if (!R || R.mode !== 'cave' || S.screen !== 'inv') out.push('cave: the menu button does not start the cave run on the hero screen');
+      else {
+        if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`cave: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
+        if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push('cave: the kit is not worn');
+        if (ABILITIES.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push('cave: an ability of the hero\'s level is still locked');
+        for (let f = 1; f <= N.floors; f++) { if (f > 1) enterFloor(S, R, f); const m = R.map, guards = m.enemies.filter((e) => e.guard).length;
+          if ((m.bossType || undefined) !== N.boss(f)) out.push(`cave f${f}: boss ${m.bossType} where the run has ${N.boss(f)}`);
+          if (!!N.guard[f] !== guards > 0 && !N.boss(f)) out.push(`cave f${f}: ${guards} exit guard(s)`);
+          if (m.shrines.length !== ((f % 2 === 0 || f === N.floors - 1) && !N.boss(f) ? 1 : 0)) out.push(`cave f${f}: ${m.shrines.length} altar(s)`);
+          if (f === 1 && R.en.some((e) => !D.BOSSES[e.type] && e.max < Math.round(D.ENEMIES[e.type].hp * BAL.hp * (1 + 0.5 * N.depth)))) out.push('cave f1: a monster weaker than the run\'s depth'); }
+        const b = R.en.find((e) => D.BOSSES[e.type]); S.screen = 'play'; h.ifr = 1e9; h.x = R.map.exit.x; h.y = R.map.exit.y; interact(S, R);
+        if (!S.run) out.push('cave: the way out opens before the boss dies');
+        else { const best = S.meta.best; killEnemy(S, R, b); if (!R.bossDead) out.push('cave: the boss\'s death does not open the way out');
+          h.x = R.map.exit.x; h.y = R.map.exit.y; interact(S, R);
+          if (S.screen !== 'win' || (S.result || {}).mode !== 'cave') out.push('cave: leaving after the boss is not a win of the cave run');
+          if (S.meta.best !== best) out.push('cave: the cave run moved the campaign\'s floor record'); } }
+      // a saved run is dropped only by a second press of the same button
+      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); const c = UI.menu(true).find((q) => q.id === 'campaign'), v = UI.menu(true).find((q) => q.id === 'cave');
+      step(T, { keys: [], click: 1, px: c.x + 10, py: c.y + 10 }); step(T, { keys: [] }); step(T, { keys: [], click: 1, px: v.x + 10, py: v.y + 10 });
+      if (T.run) out.push('cave: a press on another run\'s button drops the saved run'); }
     return out;
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });

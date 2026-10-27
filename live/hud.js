@@ -150,7 +150,7 @@
     if (SIM.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, 'E — торговать'];
     const dr = SIM.doorNear(R, 64); if (dr) { const lk = SIM.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? 'E или удар — открыть дверь' : lk.kind === 'key' ? (R.keys > 0 ? 'E — отпереть ключом' : 'Заперто: нужен ключ') : 'Заперто: где-то есть рычаг']; }
     const lv = SIM.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, 'E — потянуть рычаг'];
-    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.FLOORS ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : 'E — спуститься на этаж ' + (m.floor + 1)];
+    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : 'E — спуститься на этаж ' + (m.floor + 1)];
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
     if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
@@ -303,7 +303,7 @@
           if (u) fill(X, Y, k, 2, '#3a3230'); } }
       if (MAP.rec) { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, MAP.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); MAP.rec.w = mw; MAP.rec.h = mh; }
       else MAP.rec = G.canvasTex('minimap', cv); }
-    const title = ('Этаж ' + m.floor + ' — ' + D.floorName(m.floor)).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
+    const title = ('Этаж ' + m.floor + ' — ' + D.floorName(m.floor, R.mode)).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
     const hints = SIM.completionHints(R);
     const legend = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец']].concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
     const pw = Math.max(mw + 24, tw + 24), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
@@ -482,11 +482,11 @@
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
     lab('m_t', 'ГЛУБИНЫ КРИПТЫ', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_s', 'Спуститесь на восемь этажей и одолейте Повелителя Демонов', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
+    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
       const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? 'Впервые? Начните с лёгкой' : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? '×1,5 — крупнее' : '';
       if (tip) lab('mb_tip_' + b.id, tip, b.x + b.w + 24, b.y + b.h / 2 + 1, { size: 21, al: 0, col: '#9fd08a' }); }
-    if (S.saved) { const s = 'Сохранённый забег: этаж ' + S.saved.floor + ', уровень ' + S.saved.hero.lvl; lab('m_sv', s, W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' }); }
+    if (S.saved) { const s = 'Сохранённый забег: ' + (S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ') + 'этаж ' + S.saved.floor + ', уровень ' + S.saved.hero.lvl; lab('m_sv', s, W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' }); }
     const info = 'Осколки душ: ' + S.meta.shards + '   ·   Забегов: ' + (S.meta.runs || 0) + '   ·   Побед: ' + (S.meta.wins || 0) + '   ·   Рекорд: этаж ' + (S.meta.best || 0);
     lab('m_i', info, W / 2, H - 70, { size: 24, al: 0.5, col: C.dim });
   }

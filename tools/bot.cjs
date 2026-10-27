@@ -40,11 +40,11 @@ const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.met
 const power = (S, h) => { const f = (hh, meta) => { const st = SIM.stats(hh, meta); return [st.maxHp, st.atk, st.def]; }, eq = (keep) => Object.fromEntries(Object.entries(h.eq).filter(([, it]) => it && keep(it)));
   return { all: f(h, S.meta), noGear: f(Object.assign({}, h, { eq: {} }), S.meta), noBought: f(Object.assign({}, h, { eq: eq((it) => !it.bought) }), S.meta),
     noGifts: f(Object.assign({}, h, { perks: {} }), S.meta), noMeta: f(h, { up: {} }), bare: f(Object.assign({}, h, { eq: {}, perks: {} }), { up: {} }) }; };
-function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initial = null, checkpoint = null, log = () => {} } = {}) {
+function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, checkpoint = null, log = () => {} } = {}) {
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
-  if (!initial) { S.seedBase = seed; S.meta.diff = diff; SIM.step(S, { keys: [], px: 960, py: 598, click: 1 }); }
+  if (!initial) { S.seedBase = seed; S.meta.diff = diff; SIM.step(S, click(D.UI.menu(false).find((q) => q.id === mode))); }
 
   const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
   let cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
@@ -54,12 +54,12 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
     const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;
     const sc = D.BAL.hp * hpScale * (1 + 0.5 * (R.floor - 1)), dc = D.BAL.dmg * 1.35 * D.dmgAt(R.floor);
     for (const e of R.en) {
-      const E = D.ENEMIES[e.type], boss = !!D.BOSSES[e.type], guard = e.guard && D.ELITE.guard[R.floor], gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, gh = (typeof guard === 'object' ? guard.hp : guard) || 1;
+      const E = D.ENEMIES[e.type], boss = !!D.BOSSES[e.type], guard = e.guard && D.runOf(R.mode).guard[R.floor], gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, gh = (typeof guard === 'object' ? guard.hp : guard) || 1;
       const health = e.hp / e.max; e.max = Math.round(E.hp * sc * (e.elite && !boss ? D.eliteK(e, 'hp') : 1) * gh); e.hp = e.max * health;
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(R.floor, 1) / D.dmgAt(R.floor) : 1) * (!e.elite ? 1 : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd;
     }
   }
-  const fresh = () => ({ seed, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  const fresh = () => ({ seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
@@ -169,7 +169,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
       if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta().find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
-      if (S.screen === 'menu') { SIM.step(S, click(D.UI.menu(false).find((q) => q.id === (metaNext(S) ? 'meta' : 'campaign')))); continue; }
+      if (S.screen === 'menu') { SIM.step(S, click(D.UI.menu(false).find((q) => q.id === (metaNext(S) ? 'meta' : mode)))); continue; }
       SIM.step(S, { keys: ['Escape'] }); continue;
     }
     const R = S.run, h = R.hero, m = R.map;
@@ -181,6 +181,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] });
     }
     if (S.t - tF > STUCK) { stuck = { how: 'stuck', floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
+    // the points a run starts with are laid out on the hero screen, where each point of VIT or INT comes with its health or mana
+    if (R.floor === 1 && S.t - tF < 1 && h.pts > 0) { while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; } const s0 = SIM.stats(h, S.meta); h.hp = s0.maxHp; h.mp = s0.maxMp; }
     while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
     for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
     h.bag.forEach((it, j) => { if (!gear(it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (val(it) > val(c)) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } });
@@ -193,7 +195,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', initia
     const walkD = (o) => T * Math.min(...[0, 1, -1, m.W, -m.W].map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9);
     // a monster behind a door still locked can't be fought
     const live = R.en.filter((e) => e.deadT < 0 && reach(e)), awake = live.filter((e) => e.st !== 'idle' && e.st !== 'home');
-    const near = live.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 260), late = R.floor < D.FLOORS && S.t - tF > 200;
+    const near = live.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 260), late = R.floor < D.runOf(R.mode).floors && S.t - tF > 200;
     const room = h.bag.includes(null), takes = (p) => p.kind !== 'item' || room || SIM.isCons(p.item) || !h.eq[D.BASES[p.item.b].slot];
     const dist = (o) => Math.hypot(o.x - h.x, o.y - h.y), first = (list) => list.filter((o) => !given.has(o)).sort((a, b) => dist(a) - dist(b))[0];
     // what lies behind a door still locked is out of reach until its key or lever is found

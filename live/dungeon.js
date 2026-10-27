@@ -1,4 +1,4 @@
-// live/dungeon.js — procedural floor generator: genFloor(seed, floor) → plain JSON map data. Pure function of its inputs.
+// live/dungeon.js — procedural floor generator: genFloor(seed, floor, { mode }) → plain JSON map data. Pure function of its inputs.
 // Rooms placed at random without overlap → MST + extra loop edges → 2-wide L corridors → start room at a leaf,
 // exit room farthest by graph distance (floor 8: the boss lair) → room roles → contents (enemies, chests, pots, traps,
 // lava, torches, decor) → validation (everything reachable from the start, spawns on open floor).
@@ -18,11 +18,13 @@
 
   function tryGen(seed, floor, opts) {
     const R = mul32(seed), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pick = (arr) => arr[Math.floor(R() * arr.length)];
-    const biome = D.biomeOf(floor), bossType = !opts.endless && (floor === D.FLOORS ? 'boss' : Object.keys(D.BOSSES).find((k) => D.BOSSES[k].floor === floor)), boss = !!bossType;
+    // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; floor: its place in its own run
+    const N = D.runOf(opts.mode), depth = floor + N.depth, last = floor === N.floors;
+    const biome = N.biome(floor), bossType = !opts.endless && N.boss(floor), boss = !!bossType;
     const W = 72, H = 54, cells = new Array(W * H).fill(0), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : cells[y * W + x]);
     const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2) cells[y * W + x] = v; };
     // ---- rooms ----
-    const rooms = [], want = 13 + Math.min(4, floor >> 1);
+    const rooms = [], want = 13 + Math.min(4, depth >> 1);
     for (let i = 0; i < 900 && rooms.length < want; i++) {
       const big = rooms.length === 0 && boss;
       const w = big ? 18 : ri(7, 14), h = big ? 14 : ri(6, 10), x = ri(3, W - w - 3), y = ri(4, H - h - 3);
@@ -73,7 +75,7 @@
     others.slice(0, nTreasure).forEach((r) => (r.type = 'treasure'));
     // an altar on every second floor (TASKS 137), the last one on the floor before the boss's: past him a gift buys nothing
     // (TASKS 183); the roll stays so the rest of the floor is laid out as before
-    R(); if (!boss && (floor % 2 === 0 || floor === D.FLOORS - 1)) (others[nTreasure] || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
+    R(); if (!boss && (floor % 2 === 0 || floor === N.floors - 1)) (others[nTreasure] || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
     // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
     const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
       if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };
@@ -170,7 +172,7 @@
       scraps(cut);
       if (cut.length * 2 < r.w * r.h || !connected()) { for (const [x, y] of cut) set(x, y, 1); return false; }
       for (const [x, y] of cut) if (at(x, y) === 3) { lava.push([x, y]); flow[y * W + x] = dir; } streams.push({ room: r.id, kind: 'hall', n: cut.length }); return true; };
-    if (D.BIOMES[biome].lava && floor !== D.FLOORS) {
+    if (D.BIOMES[biome].lava && !last) {
       // the first river a room or two from the start, so the floor reads as the fire depths from its first fight
       const near = rooms.filter((r) => lavaRoom(r) && hop[r.id] >= 1 && hop[r.id] <= 2), rest = rooms.filter((r) => lavaRoom(r) && !near.includes(r));
       for (let i = near.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [near[i], near[j]] = [near[j], near[i]]; }
@@ -226,7 +228,7 @@
     const waterRng = mul32(seed ^ 0x211a73), wi = (a, b) => a + Math.floor(waterRng() * (b - a + 1));
     const secretFront = new Set(secrets.flatMap((q) => q.front.concat(q.wall).map(([x, y]) => y * W + x)));
     const addWater = (k, dir) => { if (!wet.has(k)) { wet.add(k); water.push(k); } waterFlow[k] = dir; };
-    if (!D.BIOMES[biome].lava && floor !== D.FLOORS) {
+    if (!D.BIOMES[biome].lava && !last) {
       const candidates = rooms.filter((r) => r.type === 'combat' && !r.trap && !secrets.some((q) => q.front.some(([x, y]) => roomOf(x, y) === r)));
       for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
       let n = 0;
@@ -277,9 +279,9 @@
       const all = flood(new Set());
       const spare = (r, ds) => { const shut = new Set(ds.flatMap((d) => d.cells.map(([x, y]) => y * W + x))), got = flood(shut);
         for (let k = 0; k < W * H; k++) { const x = k % W, y = Math.floor(k / W); if (all[k] && !got[k] && !shut.has(k) && !(x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) return false; } return true; };
-      if (R() < (floor === 1 ? 0.5 : 0.8)) { const lk = cand.filter(([r, ds]) => r.type !== 'exit' && spare(r, ds)).sort(([a], [b]) => (b.type === 'treasure') - (a.type === 'treasure'))[0];
+      if (R() < (depth === 1 ? 0.5 : 0.8)) { const lk = cand.filter(([r, ds]) => r.type !== 'exit' && spare(r, ds)).sort(([a], [b]) => (b.type === 'treasure') - (a.type === 'treasure'))[0];
         if (lk) { for (const d of lk[1]) { d.lock = 0; doors.push(d); } locks.push({ room: lk[0].id, kind: '', open: 0 }); lk[0].locked = lk[0].doors = 1; if (lk[0].w >= 8 && R() < 0.35) lk[0].trap = 1; } }
-      let n = 0; const want = ri(1, 3) + (floor >= 4 ? 1 : 0);
+      let n = 0; const want = ri(1, 3) + (depth >= 4 ? 1 : 0);
       for (const [r, ds] of cand) { if (n >= want) break; if (r.locked || clash(ds)) continue; r.doors = 1; doors.push(...ds); n++; } }
     if (boss) {
       const key = (x, y) => y * W + x;
@@ -339,9 +341,9 @@
     const sx = exitR.cx, sy = exitR.cy + (boss ? 4 : 0); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 2; i++) used.add(key(sx + i, sy + j));
     const exit = { x: sx * TILE + TILE, y: sy * TILE + TILE / 2, tx: sx, ty: sy };
     for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // the bonfire and the spawn tiles
-    const roster = D.BIOMES[biome].roster, lvl = floor;
+    const roster = D.BIOMES[biome].roster, lvl = depth;
     const addEnemy = (type, x, y, room, elite = 0) => enemies.push({ type, x: wx(x), y: wy(y), room, elite });
-    if (boss && floor < D.FLOORS) claim(exitR.cx - 3, sy, 'altar');
+    if (boss && !last) claim(exitR.cx - 3, sy, 'altar');
     for (const r of rooms) if (r.type === 'shrine') claim(r.cx, r.cy, 'altar');   // the altar's cell first: props are placed around it
     // no corner of a room is left in the dark: while some floor cell lies outside every light's reach, light the cell
     // nearest to it, preferring a sconce on the top wall, then on a side wall, then a brazier, then candles
@@ -499,13 +501,13 @@
         if (free(r.cx, y0 + 1) && roomy(r.cx, y0 + 1)) { claim(r.cx, y0 + 1); first = [r.cx, y0 + 1]; } }
       if (r.type !== 'treasure' && r.type !== 'secret') furnish(r, zb);   // a secret room is a small cache: its chest and gold need the space
       if (r.type === 'combat' || r.type === 'exit' || r.type === 'treasure') {
-        let n = Math.min(Math.floor(area / 9), 2 + Math.floor(floor / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
+        let n = Math.min(Math.floor(area / 9), 2 + Math.floor(depth / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
         n = Math.max(1, Math.round(n * D.BAL.pop));
-        const pack = pick(roster), guard = r.type === 'exit' && D.ELITE.guards.includes(floor);
+        const pack = pick(roster), guard = r.type === 'exit' && !!N.guard[floor];
         for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
-          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && floor <= 2)) || (floor >= 3 && R() < D.ELITE.share) ? 1 : 0);
+          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (depth >= 3 && R() < D.ELITE.share) ? 1 : 0);
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
         if (guard) { const p = spot(r, 2); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
@@ -561,7 +563,7 @@
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });
       lightRoom(r, []);
     }
-    if (boss && floor < D.FLOORS) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
+    if (boss && !last) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
     // each secret's cover or mechanism, once the rooms are furnished. A cover is one of many like it (banners and shelves hang
     // and stand everywhere); a mechanism is a flagstone a few steps from the wall or a sconce near it. With no place for its
     // mechanism, a secret falls back to a plain breakable wall
@@ -642,7 +644,7 @@
         const runX = [-1, 0, 1, 2].every((i) => at(x + i, y - 1) === 0 && at(x + i, y + 2) === 0) && [-1, 2].every((i) => at(x + i, y) === 1 && at(x + i, y + 1) === 1);
         const runY = [-1, 0, 1, 2].every((j) => at(x - 1, y + j) === 0 && at(x + 2, y + j) === 0) && [-1, 2].every((j) => at(x, y + j) === 1 && at(x + 1, y + j) === 1);
         if (runX || runY) cand.push([x, y]); }
-      for (let n = floor < 2 ? 0 : ri(0, 2) + (floor >= 5 ? 1 : 0), k = 0; n > 0 && k < 60 && cand.length; k++) { const [x, y] = cand[Math.floor(R() * cand.length)];
+      for (let n = depth < 2 ? 0 : ri(0, 2) + (depth >= 5 ? 1 : 0), k = 0; n > 0 && k < 60 && cand.length; k++) { const [x, y] = cand[Math.floor(R() * cand.length)];
         if (traps.some((t) => Math.abs(t.x / TILE - (x + 1)) < 7 && Math.abs(t.y / TILE - (y + 1)) < 7)) continue;
         for (const [cx, cy] of [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]) used.add(key(cx, cy));
         traps.push({ x: (x + 1) * TILE, y: (y + 1) * TILE, ph: R(), cor: 1 }); n--; } }
@@ -662,7 +664,7 @@
       for (let i = 0, n = sp >= 2 ? ri(2, 3) : R() < 0.5 ? 1 : 0; i < n; i++) { const p = floorSpot(r); if (p) webs.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, v: ri(0, 1), s: 0.9 + 0.3 * R(), f: R() < 0.5 ? 1 : 0, torn: 0 }); } }
     { const pool = rooms.filter((r) => r.type === 'combat' || r.type === 'exit' || r.locked); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
       pool.sort((a, b) => (b.locked || 0) - (a.locked || 0));
-      for (const r of pool.slice(0, floor === 1 ? (R() < 0.3 ? 1 : 0) : webless ? ri(2, 3) : ri(1, 2))) { const p = floorSpot(r); if (p) ambush.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, cx: p[0], cy: p[1], room: r.id, n: 2 + Math.floor(floor / 3) + (r.locked ? 1 : 0) }); } }
+      for (const r of pool.slice(0, depth === 1 ? (R() < 0.3 ? 1 : 0) : webless ? ri(2, 3) : ri(1, 2))) { const p = floorSpot(r); if (p) ambush.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, cx: p[0], cy: p[1], room: r.id, n: 2 + Math.floor(depth / 3) + (r.locked ? 1 : 0) }); } }
     // start room: a sanctuary bonfire in the centre
     const sanct = { x: start.cx * TILE + TILE / 2, y: start.cy * TILE + TILE / 2 + 8 };
     torches.push({ x: sanct.x, y: sanct.y, kind: 'fire' });

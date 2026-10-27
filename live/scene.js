@@ -925,7 +925,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       else { const [gw, gh] = SZ('water_grate'); L.sprite('water_grate', sx(q.x) - gw / 2, sy(top + 4) - gh, { w: gw, h: gh }); }
     }
     // stairs / boss portal
-    if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.FLOORS) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
+    if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.runOf(R.mode).floors) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
     // the start room's bonfire sits in a rune circle
     if (window.ASSETS.sanct_circle && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
     // spike traps: a 2×2-cell plate on the ground; its spikes stand in the Y-sorted band (they have height)
@@ -1137,7 +1137,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const [x, y] of lavaCells) { if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, 140, [1.0, 0.42, 0.12], 0.55 * flick(x * 3 + y)); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2, 1.6); }
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, [0.4, 0.7, 1.0], 0.9);
-    if (m.floor === D.FLOORS && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
+    if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
     for (const p of R.proj) lt(p.x, p.y + 20, p.own === 'hero' ? 140 : 150, p.k === 'hex' ? [0.4, 1.0, 0.4] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
@@ -1205,7 +1205,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       else embers(tc.x, tc.y - (big ? 44 + 40 : 32 + 26), big ? 5 : 3, big ? 70 : 46, col, i * 13 + 2); });
     for (const d of m.decor) if (d.n === 'torch_stand' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) embers(d.x, d.y + 4 - STAND.torch_stand[0][1] - 20, 3, 40, torchCol(m, d), d.x + d.y);
     for (const [x, y] of lavaCells) if (rnd(x, y) < 0.6 && known(x * TILE, y * TILE)) embers((x + rnd(y, x)) * TILE, (y + 0.5) * TILE, 1, 30, [1, 0.62, 0.15], x * 31 + y);
-    if (m.floor === D.FLOORS && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
+    if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     // projectiles
     for (const p of R.proj) { if (p.own === 'hero' && p.k === 'fire' || !known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
       for (let k = 6; k >= 0; k--) { const f = k / 6; L.glow(x - Math.cos(a) * k * 7, y - Math.sin(a) * k * 7, (p.r + 4) * (1 - f * 0.6) * 1.6, col, 0.5 * (1 - f), 2.5); }
@@ -1403,6 +1403,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
+      ['menu_cave_armed', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.resetT = S.t; S.resetM = 'cave'; })],
       ['play', play()],
       ['play_worst', play((S) => { worst(S); S.run.msg = { s: 'Повелитель Демонов повержен! Портал наружу открыт — путь на поверхность свободен, герой', t: S.t - 1 }; })],
       ['inv', play((S) => { worst(S); S.screen = 'inv'; })],
@@ -1694,12 +1695,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       break; }
     // one room per furnishing plan (data.js ROOM_PLANS), lit and empty, the camera on it
     for (const plan of Object.keys(D.ROOM_PLANS)) states.push(['plan_' + plan, play((S) => { for (const seed of [1234, 1, 2, 3, 4, 5, 6]) { S.run = SIM.newRun(S, 'campaign', seed); const R = S.run;
-      for (let f = 1; f <= D.FLOORS; f++) { SIM.enterFloor(S, R, f); const m = R.map, rm = m.rooms.filter((q) => q.plan === plan && q.type !== 'start').sort((a, b) => b.w * b.h - a.w * a.h)[0]; if (!rm) continue;
+      for (let f = 1; f <= D.RUNS.campaign.floors; f++) { SIM.enterFloor(S, R, f); const m = R.map, rm = m.rooms.filter((q) => q.plan === plan && q.type !== 'start').sort((a, b) => b.w * b.h - a.w * a.h)[0]; if (!rm) continue;
         const h = R.hero; h.x = (rm.x + 0.5) * TILE; h.y = (rm.y + rm.h - 0.5) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
         R.cam = [(rm.x + rm.w / 2) * TILE - VW / 2, (rm.y + rm.h / 2) * TILE - VH / 2]; return; } } })]);
     // the fog across a thin wall between two rooms with no passage: the hero's room open whole, the one behind the wall dark (TASKS 104)
     states.push(['fog_wall', play((S) => { for (const seed of [1234, 1, 2, 3, 4, 5, 6, 7, 8]) { S.run = SIM.newRun(S, 'campaign', seed); const R = S.run, h = R.hero;
-      for (let f = 1; f <= D.FLOORS; f++) { SIM.enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.floors; f++) { SIM.enterFloor(S, R, f); const m = R.map;
         for (const A of m.rooms) for (const B of m.rooms) for (const vert of [0, 1]) { if (A === B || A.type === 'secret' || B.type === 'secret') continue;
           const a0 = vert ? A.y : A.x, aw = vert ? A.h : A.w, b0 = vert ? B.y : B.x, gap = b0 - (a0 + aw); if (gap < 1 || gap > 2) continue;
           const o0 = Math.max(vert ? A.x : A.y, vert ? B.x : B.y), o1 = Math.min(vert ? A.x + A.w : A.y + A.h, vert ? B.x + B.w : B.y + B.h); if (o1 - o0 < 3) continue;
@@ -1811,7 +1812,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['fx_die', fx((S, R, h) => { h.hp = 0; h.deadT = S.t - 0.8; S.ev.push({ k: 'die', t: S.t - 0.8, x: h.x, y: h.y }); })]);
     states.push(['fx_teleport', fx((S, R, h) => { S.ev.push({ k: 'teleport', t: S.t - 0.2, x: h.x, y: h.y, fx: h.x + 360, fy: h.y - 60 }); })]);
     states.push(['fx_arrive', fx((S, R, h) => { S.keepFloor = 1; S.ev.push({ k: 'floor', t: S.t - 0.45, x: h.x, y: h.y, f: R.floor }); })]);
-    states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.FLOORS); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
+    states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.floors); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [b.x - VW / 2, b.y + 60 - VH / 2]; S.ev.push({ k: 'roar', t: S.t - 0.25, x: b.x, y: b.y - 70, id: b.id }); })]);
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
     states.push(['buffs', fx((S, R, h) => { worst(S); h.perks = Object.fromEntries(D.GIFTS.map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 99999, shieldUntil: S.t + 4, burn: S.t + 0.4, poison: S.t + 2.2 }); })]);
