@@ -355,7 +355,7 @@
     else HOME.delete(key);
     HOME.set(key, d); return d;
   }
-  // fog of war: a cell opens when the hero has a line of sight to it (rock and fake walls block it, lava doesn't) within 8×6 cells;
+  // fog of war: a cell opens when the hero has a line of sight to it (rock and fake walls block it, lava and deep water don't) within 8×6 cells;
   // the wall cells around what is seen open with it, and two more above each, so the 3/4 facades show whole. A room opens whole
   // as soon as any of its floor is in sight, its own ring of wall too, but never the floor of a room behind a thin wall (TASKS 104)
   const REV = { arr: null, k: '' };
@@ -365,7 +365,7 @@
     if (REV.arr === R.seen && REV.k === k) return ri2;
     REV.arr = R.seen; REV.k = k;
     const hid = secretMask(m), inMap = (x, y) => x >= 0 && y >= 0 && x < W && y < m.H;
-    const opaque = (x, y) => { if (!inMap(x, y)) return true; const n = y * W + x, c = m.cells[n]; return (c !== 1 && c !== 3) || hid.has(n); };
+    const opaque = (x, y) => { if (!inMap(x, y)) return true; const n = y * W + x, c = m.cells[n]; return (c !== 1 && c !== 3 && c !== 6) || hid.has(n); };
     const wall = (x, y) => { if (!inMap(x, y) || !opaque(x, y)) return; for (let d = 0; d <= 2 && inMap(x, y - d) && opaque(x, y - d); d++) R.seen[(y - d) * W + x] = 1; };
     const fx = h.x / TILE, fy = h.y / TILE;
     const sight = (x, y) => { const dx = x + 0.5 - fx, dy = y + 0.5 - fy, n = Math.ceil(Math.hypot(dx, dy) * 3);
@@ -1400,13 +1400,14 @@
     // the water caves' floors (TASKS 301) are held to the campaign's rules
     const GEN = [1, 77, 4242, 90001].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
       .concat([1, 77, 4242, 90001, 5, 12, 33, 2024].flatMap((sd) => Array.from({ length: D.RUNS.cave.floors }, (_, i) => ['cave', sd, i + 1])));
+    const caveKinds = {};
     for (const [mode, sd, f] of GEN) { const seed = mode === 'campaign' ? sd : 'cave ' + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
       for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
-      {
+      if (mode === 'campaign') {
         const wet = new Set(m.water), bridge = new Set(m.waterBridges);
         for (const k of wet) if (m.cells[k] !== 1 || !Number.isInteger(m.waterFlow[k]) || m.waterFlow[k] < 0 || m.waterFlow[k] > 3) out.push(`seed ${seed} f${f}: water off floor or without flow`);
         for (const k of bridge) if (m.cells[k] !== 1 || wet.has(k) || m.block.includes(k)) out.push(`seed ${seed} f${f}: water crossing is wet or blocked`);
@@ -1424,6 +1425,34 @@
           }
         }
       }
+      // the cave's water (TASKS 302): deep water (6) never meets dry floor, every deep pool has shallows on its shore, every floor
+      // cell is reached on foot over shallows and crossings, the water keeps its share of the floor (secret caches left out), nothing
+      // stands in it, a crossing lies over deep water, and every source is on a wall over its water
+      if (mode === 'cave') { const W = m.W, wet = new Set(m.water), over = new Set(m.crossings.flatMap((c) => (c.kind === 'neck' ? [] : c.cells))), hid = new Set(m.secrets.flatMap((q) => q.hide));
+        for (const r of m.rooms) if (r.type === 'secret') for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) hid.add(y * W + x);
+        const D8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1], dry = (k) => m.cells[k] === 1 && !wet.has(k) && !over.has(k), deepAt = (k) => m.cells[k] === 6;
+        let open = 0, nDeep = 0, bad = 0; const seenD = new Uint8Array(W * m.H);
+        for (let k = 0; k < W * m.H; k++) { const c = m.cells[k]; if ((c === 1 || c === 6) && !hid.has(k)) open++; if (c !== 6) continue; nDeep++;
+          if (D8.some((d) => dry(k + d)) && !bad++) out.push(`seed ${seed} f${f}: deep water on dry floor at ${k % W},${Math.floor(k / W)}`);
+          if (seenD[k]) continue; const st = [k]; seenD[k] = 1; let shore = false;
+          while (st.length) { const j = st.pop(); for (const d of D8) { const n = j + d; if (deepAt(n) && !seenD[n]) { seenD[n] = 1; st.push(n); } else if (wet.has(n)) shore = true; } }
+          if (!shore) out.push(`seed ${seed} f${f}: deep water at ${k % W},${Math.floor(k / W)} without a shore of shallows`); }
+        const share = (m.water.length + nDeep + over.size) / open;
+        if (share < 0.15 || share > 0.35) out.push(`seed ${seed} f${f}: water is ${Math.round(share * 100)} % of the floor`);
+        { const seen = new Uint8Array(W * m.H), s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), st = [s0]; seen[s0] = 1;
+          while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && (m.cells[n] === 1 || m.cells[n] === 4)) { seen[n] = 1; st.push(n); } } }
+          const cut = m.cells.findIndex((c, k) => c === 1 && !seen[k]); if (cut >= 0) out.push(`seed ${seed} f${f}: floor at ${cut % W},${Math.floor(cut / W)} cut off by water`);
+          for (const r of m.rooms) if (!seen[r.cy * W + r.cx] && m.cells[r.cy * W + r.cx] === 1) out.push(`seed ${seed} f${f}: the ${r.type} hall ${r.id} cut off by water`); }
+        const inW = (k) => wet.has(k) || over.has(k) || deepAt(k), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE);
+        for (const [n, list] of [['monster', m.enemies], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['fire', m.torches.filter((q) => q.kind !== 'wall')], ['altar', m.shrines], ['web', m.webs], ['ambush', m.ambush]])
+          for (const o of list) if (inW(cellOf(o))) out.push(`seed ${seed} f${f}: a ${n} in the water at ${Math.round(o.x)},${Math.round(o.y)}`);
+        for (const tr of m.traps) for (const [i, j] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) if (inW((tr.y / TILE + j) * W + tr.x / TILE + i)) out.push(`seed ${seed} f${f}: a spike plate in the water`);
+        for (const c of m.crossings) { caveKinds[c.kind] = (caveKinds[c.kind] || 0) + 1;
+          if (c.cells.some((k) => m.cells[k] !== 1 || (c.kind !== 'neck' && wet.has(k)))) out.push(`seed ${seed} f${f}: a ${c.kind} off the floor or wading`);
+          if (c.kind !== 'neck' && !c.cells.some((k) => [1, -1, W, -W].some((d) => deepAt(k + d)))) out.push(`seed ${seed} f${f}: a ${c.kind} over no deep water`); }
+        for (const q of m.waterFeatures) { caveKinds[q.kind] = (caveKinds[q.kind] || 0) + 1; const back = { u: -W, d: W, l: -1, r: 1 }[q.dir];
+          if (!['waterfall', 'breach', 'spring'].includes(q.kind) || !(wet.has(q.cell) || deepAt(q.cell) || over.has(q.cell)) || m.cells[q.cell + back] !== 0) out.push(`seed ${seed} f${f}: a ${q.kind} off its wall or its water`); }
+        for (const k in m.waterFlow) if (!(wet.has(+k) || deepAt(+k)) || !(m.waterFlow[k] >= 0 && m.waterFlow[k] <= 3)) out.push(`seed ${seed} f${f}: a stream's flow off its water`); }
       // the fire depths (TASKS 186): two rivers at least, and nothing stands in lava or a cell from its shore
       if (D.BIOMES[m.biome].lava && f < D.RUNS.campaign.floors && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
       { const shore = (o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor((o.y - 1) / TILE); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) === 3) return true; return false; };
@@ -1488,7 +1517,7 @@
       // wall over four cells but the merchant's back wall and the secret caches
       if (mode === 'cave') { const [w0, h0] = D.RUNS.cave.size[f - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
         if (m.W !== w0 || m.H !== h0) out.push(`seed ${seed} f${f}: the cave is ${m.W}×${m.H}, not ${w0}×${h0}`);
-        if (m.doors.length || m.waterFeatures.length) out.push(`seed ${seed} f${f}: doors or streams in the cave`);
+        if (m.doors.length) out.push(`seed ${seed} f${f}: doors in the cave`);
         for (const r of m.rooms) if (r.pocket && m.edges.filter((e) => e.includes(r.id)).length !== 1) out.push(`seed ${seed} f${f}: pocket ${r.id} is not a dead end`);
         const skip = (x, y) => (Math.abs(x - sh.cx) <= 5 && y >= sh.y - 2 && y <= sh.y + 5) || hid.has(y * m.W + x) || m.rooms.some((r) => r.type === 'secret' && x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h);
         for (const q of DG.straightRuns(m.cells, m.W, m.H, skip)) out.push(`seed ${seed} f${f}: a straight cave wall ${q.n} cells long at ${q.x},${q.y}`); }
@@ -1565,6 +1594,8 @@
         for (const r of m.rooms) { let dark = 0;
           for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (cell(m, x, y) === 1 && !lights.some(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE - 6) / 0.8) <= lr * TILE)) dark++;
           if (dark) out.push(`seed ${seed} f${f}: ${dark} dark cells in ${r.type} room ${r.id} (${r.w}×${r.h})`); } } }
+    // the cave's water comes in every kind over the floors checked: falls, breaches, springs, isthmuses, fords and bridges
+    for (const k of ['waterfall', 'breach', 'spring', 'neck', 'ford', 'bridge']) if (!caveKinds[k]) out.push(`cave: no ${k} on any of the floors checked`);
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); let snap = null;   // the last save of a living hero: the demo hero may fall before 40 s
       for (let i = 0; i < 120 * 40; i++) { step(S, scriptInput(S.t, S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
@@ -2300,6 +2331,27 @@
           h.x = R.map.exit.x; h.y = R.map.exit.y; interact(S, R);
           if (S.screen !== 'win' || (S.result || {}).mode !== 'cave') out.push('cave: leaving after the boss is not a win of the cave run');
           if (S.meta.best !== best) out.push('cave: the cave run moved the campaign\'s floor record'); } }
+      // the cave's water on foot (TASKS 302): the hero wades the shallows slower and neither walks nor dashes into deep water, a
+      // monster knocked at deep water stops on the shore, a bolt flies on over it, and the monsters' way round goes over no deep cell
+      { const Z = spawn(0, {}); Z.run = newRun(Z, 'cave', 3); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, W = m.W, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        // a dry cell with three cells of deep water beyond it, in a straight line
+        let at0 = null; for (let k = 0; k < m.cells.length && !at0; k++) if (m.cells[k] === 1 && !m.water.includes(k)) for (const [dx, dy] of DIRS) if ([1, 2, 3].every((i) => m.cells[k + i * (dx + dy * W)] === 6)) { at0 = [k, dx, dy]; break; }
+        if (!at0) out.push('cave water: no shore with deep water beyond it on floor 1'); else {
+          const [k, dx, dy] = at0, x0 = (k % W + 0.5) * TILE, y0 = (Math.floor(k / W) + 0.5) * TILE, deepOn = (o) => cell(m, Math.floor(o.x / TILE), Math.floor(o.y / TILE)) === 6;
+          R2.en = []; R2.msg = null; h.ifr = 1e9; h.x = x0; h.y = y0; let inDeep = false;
+          const go = { right: dx > 0, left: dx < 0, down: dy > 0, up: dy < 0, keys: [] };
+          for (let i = 0; i < 120; i++) { step(Z, Object.assign({}, go, { keys: i % 40 === 0 ? ['Space'] : [] })); if (deepOn(h)) inDeep = true; }
+          if (inDeep) out.push('cave water: the hero walks or dashes into deep water');
+          const E = ENEMIES.skeleton, e = { id: 78000, type: 'skeleton', x: x0, y: y0, vx: 0, vy: 0, hp: 999, max: 999, dmg: 0, elite: 0, room: -1, st: 'idle', t0: 0, face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 };
+          h.x = x0 - dx * 6 * TILE - dy * 6 * TILE; h.y = y0 - dy * 6 * TILE + dx * 6 * TILE; R2.en = [e]; inDeep = false; void E;
+          for (let i = 0; i < 120; i++) { if (i % 20 === 0) { e.kbx = dx * 900; e.kby = dy * 900; } step(Z, { keys: [] }); if (deepOn(e)) inDeep = true; }
+          if (inDeep) out.push('cave water: a monster is knocked into deep water');
+          R2.en = []; R2.proj = [{ id: R2.nextId++, x: x0, y: y0 - 20, vx: dx * 250, vy: dy * 250, t0: Z.t, life: 3, dmg: 0, own: 'en', r: 6, k: 'hex' }]; const p = R2.proj[0]; let over = false;
+          for (let i = 0; i < 60; i++) { step(Z, { keys: [] }); if (cell(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)) === 6 && !p.dead) over = true; }
+          if (!over || p.dead) out.push('cave water: a bolt stops at deep water');
+          const F = flow(m, k % W, Math.floor(k / W), 1); if (F.some((v, j) => v >= 0 && m.cells[j] === 6)) out.push('cave water: the monsters\' way runs over deep water'); }
+        // shallows slow the hero as they do in the campaign's streams
+        if (!m.water.length || !inWater(m, { x: (m.water[0] % W + 0.5) * TILE, y: (Math.floor(m.water[0] / W) + 0.5) * TILE })) out.push('cave water: its shallows are not wading water'); }
       // a saved run is dropped only by a second press of the same button
       const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); const c = UI.menu(true).find((q) => q.id === 'campaign'), v = UI.menu(true).find((q) => q.id === 'cave');
       step(T, { keys: [], click: 1, px: c.x + 10, py: c.y + 10 }); step(T, { keys: [] }); step(T, { keys: [], click: 1, px: v.x + 10, py: v.y + 10 });

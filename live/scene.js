@@ -153,7 +153,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   // the bank ragged on the art grid, pale streaks and ripples carried down the flow, flecks of foam along the banks, the fires
   // above broken into its ripples; a dark wet rim on the stone round it
   const WATER = `
-uniform sampler2D u_mask; uniform vec4 u_box, u_room; uniform vec2 u_map; uniform vec3 u_col;
+uniform sampler2D u_mask, u_deep; uniform vec4 u_box, u_room; uniform vec2 u_map; uniform vec3 u_col;
 uniform vec4 u_fire[8]; uniform vec3 u_fireCol[8];
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   if (w.x < u_room.x || w.y < u_room.y || w.x >= u_room.z || w.y >= u_room.w) discard;
@@ -177,14 +177,18 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   vec3 deep = u_col * 0.7 + vec3(0.02, 0.06, 0.065), shallow = u_col + vec3(0.05, 0.12, 0.12);
   vec3 col = mix(shallow, deep, depth) + vec3(0.09, 0.15, 0.14) * rip + vec3(0.16, 0.22, 0.2) * streak;
   col = mix(col, vec3(0.32, 0.38, 0.35), foam * 0.8) + reflection * 0.5;
-  float wet = smoothstep(-10.0, -1.0, d) * (1.0 - inside), a = inside * mix(0.8, 0.93, depth);
+  // deep water past the shallows: darker, opaque, the bottom gone (a placeholder until the cave's water shader, TASKS 304)
+  float dp = smoothstep(0.35, 0.75, texture(u_deep, w / u_map).r);
+  col = mix(col, u_col * 0.55 + vec3(0.0, 0.035, 0.04) + vec3(0.05, 0.08, 0.08) * rip, dp);
+  float wet = smoothstep(-10.0, -1.0, d) * (1.0 - inside), a = inside * mix(mix(0.8, 0.93, depth), 0.98, dp);
   o = vec4(col * a, a + wet * 0.5); }`;
   // a fountain's jet from the mask's mouth into its basin: a thin twisting pour on the art grid, drops thrown out where it lands,
-  // rings spreading in the basin. Box 48 x 64 view px, the mouth at the top, the basin's water at u_fall px
+  // rings spreading in the basin. Box 48 x 64 view px, the mouth at the top, the basin's water at u_fall px; u_wide widens the pour
+  // (a cave's fall down a wall face)
   const JET = `
-uniform float u_seed, u_fall;
+uniform float u_seed, u_fall, u_wide;
 void main(){ vec2 p = floor(v_uv * vec2(48.0, 64.0) / 2.0) * 2.0 + 1.0 - vec2(24.0, 0.0); float a = 0.0; vec3 col = vec3(0.0);
-  if (p.y < u_fall) { float width = 2.0 + p.y / u_fall * 1.5, curve = 1.5 * sin(p.y * 0.22 - u_t * 9.0 + u_seed);
+  if (p.y < u_fall) { float width = (2.0 + p.y / u_fall * 1.5) * (1.0 + u_wide), curve = 1.5 * sin(p.y * 0.22 - u_t * 9.0 + u_seed);
     if (abs(p.x - curve) < width) { a = 0.85; col = vec3(0.12, 0.24, 0.24) + step(0.45, sin(p.y * 0.8 - u_t * 24.0)) * vec3(0.2, 0.24, 0.2); } }
   vec2 r = (p - vec2(0.0, u_fall + 2.0)) * vec2(1.0, 2.6);
   float ring = abs(fract(length(r) / 14.0 - u_t * 1.4) - 0.5);
@@ -268,7 +272,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       BAKE.tg = G.target(MW, MH, false);
       const cv = document.createElement('canvas'); cv.width = cv.height = 1; const rec = G.canvasTex('map', cv); rec.t = BAKE.tg.t; rec.w = MW; rec.h = MH; }
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
-    const hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : v === 5 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
+    const hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
@@ -369,7 +373,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // where the fire depths' abyss may glow: rock within a few cells of a floor or lava cell
   const veinTex = (m) => { const d = rockDist(m); return maskTex(m, 'veins', (x, y) => x >= 0 && y >= 0 && x < m.W && y < m.H && d[y * m.W + x] <= 5); };
   // the dry crossings are stepping stones laid in the stream: the water runs on under them (TASKS 230)
-  const waterTex = (m) => { const w = new Set((m.water || []).concat(m.waterBridges || [])); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x), (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };
+  // a cave's deep water (cell 6) and the bridges over it are water too, and deep water has a mask of its own (TASKS 302)
+  const waterTex = (m) => { const w = new Set((m.water || []).concat(m.waterBridges || [], (m.crossings || []).flatMap((c) => c.cells))); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x) || SIM.cell(m, x, y) === 6, (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };
+  const deepTex = (m) => maskTex(m, 'deep', (x, y) => SIM.cell(m, x, y) === 6, null, 1);
   // 1 deep in the rock (3 to 6 cells from any floor, soft) and toward the map's edge, where a room may lie close: the abyss shows through
   // cells of rock from the nearest floor or wall face (a top wall's two face cells count as open): the masonry is a rim of two
   // cells around the rooms, the third fades, and the abyss shows past it, so rooms read by their silhouette as in the reference
@@ -401,7 +407,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const K = [1, 2, 3, 2, 1], W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + 2] * R.seen[y * W + u]; } a[y * W + x] = v / 9; }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + 2] * a[u * W + x]; } b[y * W + x] = v / 9; }
-    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? 0.35 + 0.65 * Math.min(1, b[i] * 1.6) : c === 1 || c === 3 || c === 5 ? 0 : 0.6 * b[i];
+    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? 0.35 + 0.65 * Math.min(1, b[i] * 1.6) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
       const v = Math.round(255 * f); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!SEEN.rec) SEEN.rec = G.canvasTex('seen', cv);
@@ -898,8 +904,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (lavaCells.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of lavaCells) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       lavaBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; lavaXf = G.xf(sx(lavaBox[0]), sy(lavaBox[1]), lavaBox[2], lavaBox[3]);
       G.draw(L.P.lava, lavaU(0), lavaXf); G.blend('emit'); G.draw(L.P.lava, lavaU(2), lavaXf); G.blend(); }
-    const waterRooms = new Map();
-    for (const k of m.water || []) {
+    const waterRooms = new Map(), caveW = D.runOf(R.mode).arch === 'cave';
+    // a cave's water runs through the rock between its halls: one pass over the whole view, unclipped
+    if (caveW && (m.water.length || m.deep)) { const box = [Math.floor(cx / TILE - 1) * TILE, Math.floor(cy / TILE - 1) * TILE, VW + 3 * TILE, VH + 3 * TILE];
+      const fires = TL.slice().sort((a, b) => Math.hypot(a[0] - cx - VW / 2, a[1] - cy - VH / 2) - Math.hypot(b[0] - cx - VW / 2, b[1] - cy - VH / 2)).slice(0, 8);
+      while (fires.length < 8) fires.push([0, 0, 0, [0, 0, 0], 0]);
+      G.draw(L.P.pool, { u_t: t, u_mask: waterTex(m), u_deep: deepTex(m), u_box: box, u_map: [MW, MH], u_col: D.BIOMES[m.biome].water || [0.07, 0.1, 0.12], u_room: [0, 0, MW, MH],
+        u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, G.xf(sx(box[0]), sy(box[1]), box[2], box[3])); }
+    if (!caveW) for (const k of m.water || []) {
       const x = k % m.W, y = Math.floor(k / m.W), id = DUNGEON.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE);
       const b = waterRooms.get(id) || [x, y, x, y]; b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); waterRooms.set(id, b);
     }
@@ -908,14 +920,23 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const waterBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE], room = m.rooms[id], b = D.BIOMES[room?.zone || m.biome];
       const fires = TL.slice().sort((a, b) => Math.hypot(a[0] - (x0 + x1) * TILE / 2, a[1] - (y0 + y1) * TILE / 2) - Math.hypot(b[0] - (x0 + x1) * TILE / 2, b[1] - (y0 + y1) * TILE / 2)).slice(0, 8);
       while (fires.length < 8) fires.push([0, 0, 0, [0, 0, 0], 0]);
-      G.draw(L.P.pool, { u_t: t, u_mask: waterTex(m), u_box: waterBox, u_map: [MW, MH], u_col: b.water || [0.07, 0.1, 0.12],
+      G.draw(L.P.pool, { u_t: t, u_mask: waterTex(m), u_deep: deepTex(m), u_box: waterBox, u_map: [MW, MH], u_col: b.water || [0.07, 0.1, 0.12],
         u_room: room ? [room.x * TILE, room.y * TILE, (room.x + room.w) * TILE, (room.y + room.h) * TILE] : [0, 0, MW, MH],
         u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, G.xf(sx(waterBox[0]), sy(waterBox[1]), waterBox[2], waterBox[3]));
     }
     for (const k of m.waterBridges || []) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE; if (!vis(x, y)) continue;
       const n = rnd(k, 3) < 0.35 ? 'water_stone_b' : 'water_stone_a', [w, hh] = SZ(n), jx = Math.round((rnd(k, 5) - 0.5) * 4) * 2;
       L.shadow(sx(x + jx), sy(y + hh / 2), w * 0.45, 4, 0.5); drawProp(n, sx(x + jx), sy(y) + hh / 2, { flip: rnd(k, 9) < 0.5, u: { grade: [0.85, 0.72, 0, 1] } }); }
-    for (const q of m.waterFeatures || []) {
+    // a plank bridge over deep water: boards across the way, dark gaps between them, a beam along each edge (placeholder art until
+    // the cave's props, TASKS 306)
+    for (const c of m.crossings || []) if (c.kind === 'bridge') { const hor = c.axis === 'x', set = new Set(c.cells);
+      for (const k of c.cells) { const x = (k % m.W) * TILE, y = Math.floor(k / m.W) * TILE; if (!vis(x + TILE / 2, y + TILE / 2)) continue;
+        for (let i = 0; i < 4; i++) { const tone = 0.8 + 0.25 * rnd(k * 4 + i, 11), col = [0.26 * tone, 0.17 * tone, 0.1 * tone];
+          if (hor) L.solid(sx(x + i * 8), sy(y), 7, TILE, col); else L.solid(sx(x), sy(y + i * 8), TILE, 7, col); }
+        const n1 = hor ? k - m.W : k - 1, n2 = hor ? k + m.W : k + 1;
+        if (!set.has(n1)) { if (hor) L.solid(sx(x), sy(y), TILE, 3, [0.15, 0.1, 0.06]); else L.solid(sx(x), sy(y), 3, TILE, [0.15, 0.1, 0.06]); }
+        if (!set.has(n2)) { if (hor) L.solid(sx(x), sy(y + TILE - 3), TILE, 3, [0.15, 0.1, 0.06]); else L.solid(sx(x + TILE - 3), sy(y), 3, TILE, [0.15, 0.1, 0.06]); } } }
+    for (const q of m.waterFeatures || []) { if (q.drain === undefined) continue;
       const x = (q.drain % m.W + 0.5) * TILE, y = (Math.floor(q.drain / m.W) + 0.5) * TILE, [w, hh] = SZ('water_drain');
       if (vis(x, y)) L.sprite('water_drain', sx(x) - w / 2, sy(y) - hh / 2, { w, h: hh });
       // the source on the wall: a mask spouting into a basin (a fountain), or a barred culvert at the wall's foot (a stream)
@@ -989,9 +1010,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.shadow(sx(q.x), sy(foot - 2), bw * 0.45, 6, 0.6); L.sprite('water_basin', sx(q.x) - bw / 2, sy(foot) - bh, { w: bw, h: bh });
         // the pour: from the mask's mouth (a quarter up its plate) to the basin's water, a third down the basin
         const mouth = top - 9 - SZ('water_spout')[1] * 0.3, water = foot - bh * 0.62, xf = G.xf(sx(q.x) - 24, sy(mouth), 48, 64);
-        G.draw(L.P.jet, { u_t: t, u_seed: q.room, u_fall: water - mouth }, xf);
+        G.draw(L.P.jet, { u_t: t, u_seed: q.room, u_fall: water - mouth, u_wide: 0 }, xf);
         L.anchor('water_source', [sx(q.x), sy(mouth)], [xf[6] + xf[0] * 0.5, xf[7]], 2);
       }]); }
+    // a cave's fall: a pour from the lip of the top wall down its face into the water (a placeholder until TASKS 304)
+    for (const q of m.waterFeatures || []) if (q.kind === 'waterfall' && vis(q.x, q.y)) { const lip = q.y - 2 * TILE + 6, xf = G.xf(sx(q.x) - 24, sy(lip), 48, 64);
+      G.draw(L.P.jet, { u_t: t, u_seed: q.cell, u_fall: q.y - lip, u_wide: 2.5 }, xf); L.anchor('cave_fall', [sx(q.x), sy(lip)], [xf[6] + xf[0] * 0.5, xf[7]], 2); }
     for (const e of ST.ev) { const a = GT - e.t;
       if (e.k === 'whirl' && a >= 0 && a < 0.48) Y.push([e.y - 1000, () => { G.blend('emit'); whirlFx(e, a, 0); G.blend(); }]);
     }
@@ -1861,6 +1885,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['cave_hall', S]); }
+    // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
+    { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
+      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => q.kind === 'bridge'); if (!c) continue;
+        const k = c.cells[0], h = R.hero, shore = [1, -1, m.W, -m.W].map((d) => k + d).find((n) => m.cells[n] === 1 && !c.cells.includes(n)) ?? k;
+        h.x = (shore % m.W + 0.5) * TILE; h.y = (Math.floor(shore / m.W) + 0.6) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['cave_crossing', structuredClone(S)]); break; }
+      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, q = m.waterFeatures.find((o) => o.kind === 'waterfall' && o.room >= 0); if (!q) continue;
+        const h = R.hero; h.x = q.x + 2 * TILE; h.y = q.y + 4 * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - VW / 2, q.y - VH / 2]; states.push(['cave_fall', structuredClone(S)]); break; } }
     // hero walk cycles: right, left, down, up — the same state at successive distances
     const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
