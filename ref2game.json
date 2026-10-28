@@ -35,7 +35,9 @@
    "drowned__*",
    "merchant__*",
    "crab__*",
-   "eel__*"
+   "eel__*",
+   "skel_archer__*",
+   "skel_mage__*"
   ],
   "skip": [
    "*_sheet",
@@ -50,7 +52,9 @@
    "brute",
    "goblin",
    "skeleton",
-   "drowned"
+   "drowned",
+   "skel_archer",
+   "skel_mage"
   ],
   "max": 2048,
   "walk": {

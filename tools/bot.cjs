@@ -96,8 +96,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       // a charge the hero got out of is a pattern a player learns, met without waiting to see it wind up (TASKS 227)
       if (e.st === 'bwind' && (!['slam', 'charge'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
-      const w = e.st === 'bwind' ? D.bossMove(e).wind : E.wind * D.eliteK(e, 'wind'), d = Math.hypot(h.x - e.x, h.y - e.y);
-      if (age > w || E.kind === 'caster' || e.spit) continue;
+      const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
+      if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
       const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
@@ -137,7 +137,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // a caster once picked stays the target while it is within 400 px: a fixed 320 px line flips the target every step for one
     // standing on it, and the bot walks back and forth between two paths for good; by the walk too: a caster close through a wall
     // was picked and dropped on the way round, and the bot circled in the corridor (seed 193, TASKS 227)
-    if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && far(focus) < 400)) focus = live.filter((e) => D.ENEMIES[e.type].kind === 'caster' && far(e) < 320).sort((a, b) => far(a) - far(b))[0] || null;
+    if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && far(focus) < 400)) focus = live.filter((e) => (D.ENEMIES[e.type].kind === 'caster' || D.ENEMIES[e.type].kind === 'archer') && far(e) < 320).sort((a, b) => far(a) - far(b))[0] || null;
       if (focus) tg = focus; }
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
     const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, a = Math.atan2(tg.y - 30 - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - 30 - oy, tg.x - ox);

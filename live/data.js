@@ -23,10 +23,13 @@
     // cave: natural rock instead of masonry (scene.js caveBake, TASKS 303), lit cold (305): its own light is the mushrooms' (shroom)
     // and the crystals' (gem) glow, fire only by the camp and the merchant; ambK: how much of the dark's colour is the biome's
     // ambient rather than the common cool one; its props (TASKS 306) dress its halls to the ROOM_PLANS that have `cave`; its monsters
-    // are the dungeon's with the drowned, the slime, the crab and the eel (TASKS 307-310); the rest and the packs by floor are TASKS 311-312
+    // are the dungeon's with the drowned, the slime, the crab, the eel and the skeleton archer and mage (TASKS 307-311); from: the run's
+    // first floor of a kind (TASKS 312), so each floor brings its own: the drowned and the slimes, then the crabs before the archers,
+    // then the eels in the lakes and the mages
     cave: { name: 'Затопленные пещеры', rock: [0.006, 0.006, 0.009], water: [0.06, 0.1, 0.12], vein: [0.3, 0.7, 0.8, 0], amb: [0.06, 0.075, 0.11], ambK: 0.6, torch: [1.0, 0.62, 0.26],
       shroom: [0.2, 0.85, 0.78], gem: [0.32, 0.62, 1.0], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
-      cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime', 'crab', 'eel'], props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
+      cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime', 'crab', 'eel', 'skel_archer', 'skel_mage'],
+      from: { crab: 2, skel_archer: 2, eel: 3, skel_mage: 3 }, props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -116,6 +119,14 @@
     // waiting for it would hold the hero up
     eel: { name: 'Угорь из глубины', hp: 40, dmg: 12, spd: 0, r: 16, reach: 46, wind: 0.5, cd: 0.9, xp: 14, kind: 'eel', h: 100, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9],
       sense: 290, warn: 0.85, rise: 0.4, stay: 2.6, bites: 2, dive: 0.45, swim: [1.3, 2.3], apart: 3, spit: { reach: 270, wind: 0.6, spd: 330, dmg: 0.8 } },
+    // the skeleton archer (TASKS 311) keeps `keep` px off the hero, backing away from one who closes in; it draws for `wind` s with its
+    // aim line showing, follows the hero with it until `arrow.lock` s before the loose, and the arrow flies straight at `arrow.spd`
+    skel_archer: { name: 'Скелет-лучник', hp: 24, dmg: 9, spd: 74, r: 13, reach: 340, wind: 0.8, cd: 1.9, xp: 10, kind: 'archer', h: 76, blood: 'bone', rim: [0.6, 0.85, 0.45],
+      keep: [190, 290], arrow: { spd: 560, lock: 0.28, r: 4 } },
+    // the skeleton water mage (TASKS 311) keeps behind another monster from the hero (`behind` px past it) and throws a slow ball of
+    // water that slows the hero by `orb.slow` for `orb.t` s
+    skel_mage: { name: 'Скелет-маг', hp: 26, dmg: 8, spd: 58, r: 13, reach: 330, wind: 0.75, cd: 2.6, xp: 11, kind: 'caster', h: 76, blood: 'bone', rim: [0.45, 0.9, 0.95],
+      behind: 80, orb: { spd: 150, life: 2.6, r: 10, slow: 0.6, t: 2.5 } },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
     boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
@@ -145,12 +156,16 @@
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
   // bolt: an elite caster's bolt,
   // else it took 34–36 % of the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 },
+  // minWind: in a run that asks for it (RUNS.cave.minWind) an elite's wind-up is cut no shorter than this, so an elite archer's aim
+  // line or a mage's cast still gives the time to step aside (TASKS 312); a wind-up already shorter is kept
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, minWind: 0.45, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 },
   };
   // the boss is an elite too but keeps its own pace
   // a deep-water monster under the surface (TASKS 310): out of sight and out of reach
   const under = (e) => !!ENEMIES[e.type].deep && (e.st === 'deep' || e.st === 'stir' || e.st === 'dive');
   const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
+  // a wind-up of w s as this monster has it (e.mw: spawned in a run with ELITE.minWind)
+  const windOf = (e, w) => { const v = w * eliteK(e, 'wind'); return e.mw && !BOSSES[e.type] ? Math.max(v, Math.min(w, ELITE.minWind)) : v; };
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
     { id: 'fiery', name: 'Огненный', col: [1.0, 0.42, 0.08], burn: 3 },
@@ -174,10 +189,16 @@
     campaign: { name: 'Кампания', floors: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
       last: 'Трон Демона', seal: 'Сначала одолейте Повелителя Демонов' },
-    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры',
+    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', minWind: 1,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
   };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
+  const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
+  // the caves' packs by role (TASKS 312), a hall's weight for each when it can hold it: line, a crab or two just inside the way the
+  // hero comes in with the archers (and from the 3rd floor a mage) at the far end behind them; shore, drowned in the hall's shallows;
+  // hall, slimes in a big hall (area in cells); bones, the old dungeon's kinds, now and then with an archer or a mage at the back.
+  // eel: the chance of an eel in a hall's deep water and in each lake between halls, by floor
+  const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: ['skeleton', 'goblin', 'spider'] };
   const floorName = (f, mode) => { const N = runOf(mode); return N.last && f === N.floors ? N.last : N.title || BIOMES[N.biome(f)].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
@@ -411,7 +432,7 @@
     stalag_a: 'stone', stalag_b: 'stone', boulder_a: 'stone', boulder_b: 'stone', wreck_cv: 'wood', tent_cv: 'cloth', skel_cv: 'bone' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, RUNS, runOf, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, ELITE, eliteK, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, RUNS, runOf, rosterAt, CAVE_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

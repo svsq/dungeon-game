@@ -83,7 +83,7 @@
     hit: (o, e) => { if (e.arm) return SFX.clang(o, e); tone(o, { f0: e.crit ? 180 : 150, f1: 55, d: 0.12, v: 0.5 }); noise(o, { d: 0.06, v: 0.3, type: 'highpass', f0: 1800 });
       if (e.crit) tone(o, { type: 'triangle', f0: 1900, d: 0.25, v: 0.12 }); if (e.fire) noise(o, { d: 0.25, v: 0.2, type: 'highpass', f0: 3000 }); },
     kill: (o, e) => { tone(o, { f0: 110, f1: 40, d: 0.25, v: 0.45 });
-      if (e.type === 'skeleton' || e.type === 'brute') for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.04 + i * rr(0.03, 0.06), d: 0.03, v: 0.18, f0: rr(1800, 3500), q: 6 });
+      if (e.type === 'skeleton' || e.type === 'skel_archer' || e.type === 'skel_mage' || e.type === 'brute') for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.04 + i * rr(0.03, 0.06), d: 0.03, v: 0.18, f0: rr(1800, 3500), q: 6 });
       else if (e.type === 'ghost') tone(o, { type: 'triangle', f0: 700, f1: 180, a: 0.05, d: 0.6, v: 0.15 });
       else if (e.type === 'slime' || e.type === 'slime_s') SFX.squelch(o, { big: e.type === 'slime' });
       else if (e.type === 'crab') { for (let i = 0; i < 4; i++) noise(o, { t: now() + i * rr(0.03, 0.06), d: 0.04, v: 0.22, f0: rr(900, 1600), q: 4 }); noise(o, { t: now() + 0.12, d: 0.3, v: 0.15, type: 'lowpass', f0: 500, f1: 120 }); }
@@ -95,8 +95,15 @@
     cast: (o) => { noise(o, { a: 0.02, d: 0.3, v: 0.3, type: 'bandpass', f0: 500, f1: 1800, q: 1 }); tone(o, { type: 'sawtooth', f0: 160, f1: 320, d: 0.2, v: 0.05 }); },
     boom: (o) => { noise(o, { a: 0.005, d: 0.8, v: 0.6, type: 'lowpass', f0: 1600, f1: 90 }); tone(o, { f0: 75, f1: 30, d: 0.6, v: 0.6 }); },
     slam: (o, e) => { noise(o, { d: e.big ? 1.0 : 0.5, v: 0.6, type: 'lowpass', f0: 900, f1: 60 }); tone(o, { f0: 60, f1: 25, d: e.big ? 0.9 : 0.45, v: 0.7 }); },
+    // the skeleton archer and mage (TASKS 311): the bow's twang and the arrow's hiss, a dull thunk where it breaks on rock; the mage's
+    // gulp of water thrown, its splash, and the cold slap on a hero it soaks
+    loose: (o) => { tone(o, { type: 'triangle', f0: 190, f1: 120, a: 0.003, d: 0.18, v: 0.16 }); tone(o, { type: 'sine', f0: 380, f1: 300, a: 0.003, d: 0.1, v: 0.06 }); noise(o, { t: now() + 0.02, a: 0.01, d: 0.16, v: 0.14, type: 'highpass', f0: 3800, f1: 2200 }); },
+    orb: (o) => { tone(o, { f0: 220, f1: 520, a: 0.02, d: 0.16, v: 0.1 }); noise(o, { a: 0.03, d: 0.25, v: 0.16, f0: 600, f1: 1300, q: 2.5 }); for (let i = 0; i < 4; i++) tone(o, { t: now() + 0.05 + i * rr(0.03, 0.06), f0: rr(500, 900), f1: rr(900, 1400), a: 0.003, d: 0.04, v: 0.05 }); },
+    soak: (o) => { SFX.splash(o); noise(o, { t: now() + 0.03, a: 0.01, d: 0.4, v: 0.18, type: 'highpass', f0: 3000, f1: 1600 }); },
     eshoot: (o) => tone(o, { type: 'triangle', f0: 500, f1: 900, a: 0.02, d: 0.2, v: 0.12 }),
-    pop: (o, e) => { if (e.c === 'jet') { SFX.splash(o); if (e.hero) noise(o, { d: 0.2, v: 0.25, f0: 1800, f1: 600, q: 0.7 }); return; } if (e.c === 'hex') tone(o, { type: 'square', f0: 900, f1: 300, d: 0.12, v: e.hero ? 0.12 : 0.05 }); noise(o, { d: e.hero ? 0.3 : 0.15, v: e.hero ? 0.35 : 0.15, type: 'lowpass', f0: 1800, f1: 200 }); },
+    pop: (o, e) => { if (e.c === 'arrow') { if (!e.hero) { noise(o, { d: 0.05, v: 0.25, type: 'lowpass', f0: 1400, f1: 400 }); tone(o, { f0: 240, f1: 160, d: 0.05, v: 0.08 }); } return; }
+      if (e.c === 'orb') { SFX.splash(o); noise(o, { d: 0.2, v: 0.2, f0: 1200, f1: 500, q: 0.8 }); return; }
+      if (e.c === 'jet') { SFX.splash(o); if (e.hero) noise(o, { d: 0.2, v: 0.25, f0: 1800, f1: 600, q: 0.7 }); return; } if (e.c === 'hex') tone(o, { type: 'square', f0: 900, f1: 300, d: 0.12, v: e.hero ? 0.12 : 0.05 }); noise(o, { d: e.hero ? 0.3 : 0.15, v: e.hero ? 0.35 : 0.15, type: 'lowpass', f0: 1800, f1: 200 }); },
     spike: (o) => { noise(o, { d: 0.12, v: 0.3, type: 'highpass', f0: 3500 }); tone(o, { type: 'triangle', f0: 1650, d: 0.3, v: 0.08 }); tone(o, { type: 'triangle', f0: 2470, d: 0.22, v: 0.05 }); },
     scorch: (o) => noise(o, { a: 0.01, d: 0.3, v: 0.18, type: 'highpass', f0: 2400 }),
     gold: (o) => { for (let i = 0; i < 4; i++) tone(o, { type: 'triangle', f0: rr(2200, 3600), t: now() + i * rr(0.03, 0.07), d: 0.18, v: 0.08 }); },

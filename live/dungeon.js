@@ -581,7 +581,7 @@
     const sx = exitR.cx, sy = exitR.cy + (boss ? 4 : 0); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 2; i++) used.add(key(sx + i, sy + j));
     const exit = { x: sx * TILE + TILE, y: sy * TILE + TILE / 2, tx: sx, ty: sy };
     for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // the bonfire and the spawn tiles
-    const roster = D.BIOMES[biome].roster, lvl = depth;
+    const roster = D.rosterAt(biome, floor), lvl = depth;
     const bridged = new Set(crossings.flatMap((c) => c.cells));
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
         && !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 2 * TILE); });
@@ -596,6 +596,39 @@
         if (shore) c.push([x, y]); }
       return c.length ? c[Math.floor(R() * c.length)] : null; };
     const addEnemy = (type, x, y, room, elite = 0) => enemies.push({ type, x: wx(x), y: wy(y), room, elite });
+    // the caves' packs by role (data.js CAVE_PACKS, TASKS 312). The way the hero comes into a hall is its cell nearest the start
+    // (on foot, round the deep water); a crab stands two to four steps on from it, the shooters the farthest on that the hall goes
+    const CP = D.CAVE_PACKS, has = (t) => roster.includes(t);
+    const fromStart = cave ? (() => { const dist = new Int32Array(W * H).fill(-1), q = [start.cy * W + start.cx]; dist[q[0]] = 0;
+      for (let i = 0; i < q.length; i++) for (const d of [1, -1, W, -W]) { const n = q[i] + d; if (dist[n] < 0 && cells[n] === 1) { dist[n] = dist[q[i]] + 1; q.push(n); } }
+      return dist; })() : null;
+    const cavePack = (r, n, guard) => {
+      const inR = (x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, open = [];
+      for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y) && !doorway(x, y) && fromStart[y * W + x] >= 0) open.push([x, y]);
+      let way = null; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * W + x; if (fromStart[k] >= 0 && (!way || fromStart[k] < fromStart[way])) way = k; }
+      const take = (c) => { const i = Math.floor(R() * c.length), p = c[i]; if (!p) return null; used.add(key(p[0], p[1])); open.splice(open.indexOf(p), 1); return p; };
+      const fs = (p) => fromStart[p[1] * W + p[0]] - fromStart[way], fresh = () => open.filter(([x, y]) => free(x, y));
+      const near = () => { const c = fresh(); return take(c.filter((p) => fs(p) >= 2 && fs(p) <= 4)) || take(c.sort((a, b) => fs(a) - fs(b)).slice(0, 1)); };
+      const back = () => { const c = fresh().sort((a, b) => fs(b) - fs(a)); return take(c.slice(0, Math.max(1, Math.ceil(c.length * 0.3)))); };
+      const anywhere = () => take(fresh()), shore = shallowIn(r), old = CP.old.filter(has);
+      const kinds = [['line', has('crab') && has('skel_archer') && way !== null ? CP.line : 0], ['shore', has('drowned') && shore ? CP.shore : 0], ['hall', has('slime') && r.w * r.h >= CP.hallArea ? CP.hall : 0], ['bones', CP.bones]];
+      let roll = R() * kinds.reduce((a, k) => a + k[1], 0), kind = 'bones'; for (const [k, w] of kinds) { if (w && (roll -= w) < 0) { kind = k; break; } }
+      const plan = [], oldOne = () => pick(old);
+      if (kind === 'line') { const nc = n >= 5 ? 2 : 1, ns = Math.min(n - nc, n >= 4 ? 2 : 1); for (let i = 0; i < nc; i++) plan.push(['crab', near]);
+        for (let i = 0; i < ns; i++) plan.push([i === 1 && has('skel_mage') && R() < 0.5 ? 'skel_mage' : 'skel_archer', back]); }
+      else if (kind === 'shore') { for (let i = 0, k = Math.min(n, ri(1, 2)); i < k; i++) plan.push(['drowned', null]); }
+      else if (kind === 'hall') { for (let i = 0, k = Math.min(n, ri(2, 3)); i < k; i++) plan.push(['slime', anywhere]); }
+      if (has('skel_mage') && plan.length < n && kind !== 'line' && R() < 0.4) plan.push(['skel_mage', back]);
+      else if (has('skel_archer') && plan.length < n && kind === 'bones' && R() < 0.3) plan.push(['skel_archer', back]);
+      const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
+      let first = true;
+      for (const [type0, where] of plan) { let type = type0, p = null;
+        if (ENEMIES[type].lurk) { p = shallowIn(r); if (!p) type = oldOne(); }
+        if (!p) p = (where || anywhere)() || anywhere(); if (!p) break; if (ENEMIES[type].lurk) used.add(key(p[0], p[1]));
+        addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && first && !(guard && depth <= 2)) || (depth >= 3 && R() < D.ELITE.share) ? 1 : 0);
+        if (r.type === 'exit' && first) enemies[enemies.length - 1].exit = 1; first = false; }
+      // an eel in the hall's deep water, out of the count
+      if (has('eel') && R() < CP.eel[floor - 1]) { const q = deepIn(r); if (q) addEnemy('eel', q[0], q[1], r.id); } };
     if (boss && !last) claim(exitR.cx - 3, sy, 'altar');
     for (const r of rooms) if (r.type === 'shrine') claim(r.cx, r.cy, 'altar');   // the altar's cell first: props are placed around it
     // no corner of a room is left in the dark: while some floor cell lies outside every light's reach, light the cell
@@ -769,7 +802,8 @@
         let n = Math.min(Math.floor(area / 9), 2 + Math.floor(depth / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
         n = Math.max(1, Math.round(n * D.BAL.pop));
         const pack = pick(roster), guard = r.type === 'exit' && !!N.guard[floor];
-        for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
+        if (cave) cavePack(r, n, guard);
+        else for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // a drowned lies in the room's shallows (TASKS 307); a room with none takes another of the roster
           if (ENEMIES[type].lurk) { const q = shallowIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
@@ -833,6 +867,13 @@
       lightRoom(r, []);
     }
     if (boss && !last) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
+    // an eel in a lake between the halls (TASKS 312): one body of deep water out of every hall's box, by the floor's chance
+    if (cave && roster.includes('eel')) { const inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h), lake = new Set();
+      for (let k = 0; k < W * H; k++) { if (cells[k] !== 6 || lake.has(k) || inBox(k % W, Math.floor(k / W)) || deepSize(k) < EEL_MIN) continue;
+        const body = [k], got = new Set(body); for (let i = 0; i < body.length; i++) for (const d of [1, -1, W, -W]) if (cells[body[i] + d] === 6 && !got.has(body[i] + d)) { got.add(body[i] + d); body.push(body[i] + d); }
+        for (const q of body) lake.add(q); if (body.some((q) => inBox(q % W, Math.floor(q / W))) || R() >= D.CAVE_PACKS.lake[floor - 1]) continue;
+        const c = body.filter((q) => { const x = q % W, y = Math.floor(q / W); for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (at(x + i, y + j) === 1) return !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 3 * TILE); return false; });
+        if (c.length) { const q = c[Math.floor(R() * c.length)]; addEnemy('eel', q % W, Math.floor(q / W), -1); } } }
     // ---- the cave's dressing (TASKS 306), from a stream of its own so the halls' monsters and chests stay where they were. Solid props
     // (stalagmites, boulders, a wreck, a tent) stand on dry floor against the rock, never on a cell whose blocking could cut a way: its
     // open neighbours must still meet round it. Each hall is dressed to a plan of data.js ROOM_PLANS (the ones with `cave`); the start

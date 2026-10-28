@@ -1,0 +1,5 @@
+[
+ {"name": "en_skel_archer", "prompt": "art/prompts/en_skel_archer.txt", "ref": ["art/gen/en_skeleton.png=the approved skeleton: bones, skull, scale, pixel density and outline"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "en_skel_mage", "prompt": "art/prompts/en_skel_mage.txt", "ref": ["art/gen/en_skeleton.png=the approved skeleton: bones, skull, scale, pixel density and outline"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "skel_gear_sheet", "prompt": "art/prompts/skel_gear.txt", "ref": ["art/gen/en_skeleton.png=approved monster of this game: scale, pixel density and outline"], "size": "1536x1024", "alpha": "auto"}
+]
