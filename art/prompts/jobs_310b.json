@@ -1,0 +1,3 @@
+[
+ {"name": "eel_parts_sheet", "prompt": "art/prompts/eel_parts.txt", "ref": ["art/gen/en_eel.png=the approved monster: design, pose, colours and pixel size"], "size": "1536x1024", "alpha": "auto"}
+]

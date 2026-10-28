@@ -4,7 +4,7 @@
 // persist S.meta and the run), camera, and the event bus S.ev that drives every FX in the scene.
 (function (root) {
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
-  const { TILE, ENEMIES, BAL, ELITE, eliteK, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
+  const { TILE, ENEMIES, BAL, ELITE, eliteK, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
   const DT = 1 / 120, L = 26.0;
   // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
   // the zoom lives on the run (R.zoom, copied from the player's setting every step) so camera and pointer follow a change at once
@@ -14,6 +14,7 @@
   const HINT = 'WASD — движение · ЛКМ — атака · 1 2 3 — способности · Пробел — рывок · Q/R — зелья · E — действие · I — герой · Esc — пауза';
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 20 };
   const DEMO_SEED = 4243;
+  const EEL_MOUTH = [44, 56];   // where the eel's mouth is when it is up: ahead of it and over the water (view px; the scene draws it there)
 
   // ---------------- rng (state lives in the run: deterministic replay) ----------------
   const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; let t = Math.imul(R.rs ^ (R.rs >>> 15), 1 | R.rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -207,6 +208,45 @@
   function crabTurn(e, E, a, k) { const f = faOf(e), top = E.turn * eliteK(e, 'spd') * k, d = angDiff(a, f), want = Math.max(-top, Math.min(top, d * 5)), acc = 8 * DT;
     e.faV = (e.faV || 0) + Math.max(-acc, Math.min(acc, want - (e.faV || 0))); e.fa = angDiff(f + e.faV * DT, 0); e.face = Math.cos(e.fa) >= 0 ? 1 : -1; }
   const armored = (e, E, x, y) => !!E.armor && Math.hypot(x - e.x, y - e.y) > 1 && Math.abs(angDiff(Math.atan2(y - e.y, x - e.x), faOf(e))) < E.armor.arc;
+  // ---------------- the eel from the deep (TASKS 310) ----------------
+  // its water: the deep cells (6) joined to its post's, cached per map (deep water never changes)
+  const DEEPW = new WeakMap();
+  function deepBody(m, e) { let c = DEEPW.get(m); if (!c) DEEPW.set(m, c = new Map()); const k0 = Math.floor(e.hy / TILE) * m.W + Math.floor(e.hx / TILE);
+    let b = c.get(k0); if (b) return b; b = [];
+    if (m.cells[k0] === 6) { const seen = new Set([k0]), q = [k0]; while (q.length) { const k = q.pop(); b.push(k); for (const dd of [1, -1, m.W, -m.W]) { const n = k + dd; if (m.cells[n] === 6 && !seen.has(n)) { seen.add(n); q.push(n); } } } }
+    c.set(k0, b); return b; }
+  // where it comes up: a cell of its water by the hero, in sight of him, `apart` cells from the last spot (or, with none so far
+  // off, any other); within a bite if it can, else among the nearest from which the jet reaches him
+  function eelSpot(R, e, E, apart = E.apart) { const m = R.map, h = R.hero, bite = E.r + K.R + E.reach - 8, close = [], far = [];
+    for (const k of deepBody(m, e)) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE, d = Math.hypot(h.x - x, h.y - y);
+      if (d < E.r + K.R + 10 || d > E.spit.reach - 20 || (e.lx !== undefined && Math.hypot(x - e.lx, y - e.ly) < apart * TILE) || !losClear(m, x, y - 10, h.x, h.y - 10)) continue;
+      (d <= bite ? close : far).push([x, y, d]); }
+    if (close.length) return close[Math.floor(rnd(R) * close.length)];
+    far.sort((a, b) => a[2] - b[2] || a[0] - b[0] || a[1] - b[1]); return far.length ? far[Math.floor(rnd(R) * Math.min(3, far.length))] : apart > 1 ? eelSpot(R, e, E, 1) : null; }
+  // deep → stir (bubbles and its shadow where it will come up) → rise → chase (up, turning to the hero) ⇄ wind → strike → dive → deep
+  function eel(S, R, e, E, heroOk, d) {
+    const m = R.map, h = R.hero, t = S.t, u = t - e.t0, dx = h.x - e.x, dy = h.y - e.y; e.vx = e.vy = 0;
+    const hunt = heroOk && Math.hypot(h.x - e.hx, h.y - e.hy) < E.sense + 6 * TILE;
+    if (e.st === 'deep') { if (!hunt || t < e.cdT) return;
+      const p = eelSpot(R, e, E); if (!p) return; e.x = p[0]; e.y = p[1]; e.st = 'stir'; e.t0 = t; e.face = h.x >= e.x ? 1 : -1; ev(S, { k: 'stir', x: e.x, y: e.y, id: e.id }); return; }
+    if (e.st === 'stir') { if (u >= E.warn * eliteK(e, 'wind')) { rise(S, R, e); e.bit = 0; } return; }
+    if (e.st === 'dive') { if (u >= E.dive) { e.st = 'deep'; e.t0 = t; e.lx = e.x; e.ly = e.y; e.cdT = t + E.swim[0] + (E.swim[1] - E.swim[0]) * rnd(R); } return; }
+    const dive = () => { e.st = 'dive'; e.t0 = t; ev(S, { k: 'dive', x: e.x, y: e.y, id: e.id }); };
+    if (e.st === 'rise') { if (u < E.rise) return; e.st = 'chase'; e.t0 = e.upT = t; e.cdT = Math.max(e.cdT, t + 0.15); return; }
+    if (!heroOk) { if (e.st === 'chase') dive(); return; }
+    if (e.st === 'chase') { if (Math.abs(dx) > 10) e.face = dx > 0 ? 1 : -1;
+      if (e.bit >= E.bites || t - e.upT > E.stay) { dive(); return; }
+      if (t < e.cdT) return;
+      const near = d < E.r + K.R + E.reach, los = losClear(m, e.x, e.y - 30, h.x, h.y - 30);
+      if (near || (d < E.spit.reach && los)) { e.st = 'wind'; e.t0 = t; e.spit = near ? 0 : 1; e.tx = h.x; e.ty = h.y; e.face = dx >= 0 ? 1 : -1; e.aimA = e.spit ? Math.atan2(h.y - 38 - (e.y - EEL_MOUTH[1]), h.x - e.x - e.face * EEL_MOUTH[0]) : Math.atan2(dy, dx); }
+      return; }
+    if (e.st === 'wind') { if (u < (e.spit ? E.spit.wind : E.wind) * eliteK(e, 'wind')) return; e.st = 'strike'; e.t0 = t; e.bit++;
+      if (e.spit) { const a = e.aimA, v = E.spit.spd;
+        R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'jet', x: e.x + e.face * EEL_MOUTH[0], y: e.y - EEL_MOUTH[1], vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: t, life: (E.spit.reach + 40) / v, dmg: e.dmg * E.spit.dmg * eliteK(e, 'bolt'), own: 'en', r: 7, gz: EEL_MOUTH[1] - 20 });
+        ev(S, { k: 'spit', x: e.x + e.face * EEL_MOUTH[0], y: e.y - EEL_MOUTH[1], a, id: e.id }); return; }
+      if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < 1.0) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); }
+      ev(S, { k: 'bite', x: e.x + Math.cos(e.aimA) * (E.r + 26), y: e.y + Math.sin(e.aimA) * (E.r + 26) * 0.8, a: e.aimA, id: e.id }); return; }
+    if (e.st === 'strike') { if (u < 0.4) return; e.st = 'chase'; e.t0 = t; e.cdT = t + E.cd * eliteK(e, 'cd') * (0.8 + 0.4 * rnd(R)); } }
   // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit
   function blast(S, R, e) { const M = MOD.explosive, h = R.hero; e.fuse = 0;
     if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' взрыв', e);
@@ -219,7 +259,7 @@
     const d = dep(R, f), sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (d - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? RUN(R).guard[f] : e.exit && e.elite ? RUN(R).exit[f] : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
-        elite: e.elite, guard: e.guard || 0, room: e.room, st: E.lurk ? 'lurk' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
+        elite: e.elite, guard: e.guard || 0, room: e.room, st: E.lurk ? 'lurk' : E.deep ? 'deep' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
     for (const e of R.en) if (e.elite && !D.BOSSES[e.type]) e.mods = rollMods(R, d);
     // a closed door is a solid cell (5) that blocks sight like rock until it opens
@@ -229,7 +269,7 @@
     R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s));
     // a big monster's post can graze a prop: the post is where it can actually stand
     { const sol = solids(R), clear = (x, y, r) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r);
-      for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost) continue; shove(m, e, r, true, sol);
+      for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost || ENEMIES[e.type].deep) continue; shove(m, e, r, true, sol);
         // squeezed between two props, the push only rocks it back and forth: take the nearest spot where it fits
         if (!clear(e.x, e.y, r)) find: for (let d = 4; d <= 96; d += 4) for (let a = 0; a < 16; a++) { const x = e.x + Math.cos(a * Math.PI / 8) * d, y = e.y + Math.sin(a * Math.PI / 8) * d;
           if (clear(x, y, r)) { e.x = x; e.y = y; break find; } }
@@ -247,8 +287,10 @@
   // loot is items picked up out of all the items the floor has put out (its chests' contents from the start, then every drop as
   // it falls); a drop counts when first picked up, and an item thrown away or sold stays counted, while picking it up again
   // never counts twice (a thrown item is not a loot drop)
+  // the eel (TASKS 310) is no part of the count either: it comes up when it pleases, and a hall would wait on it
+  const counted = (e) => !e.summ && !ENEMIES[e.type].deep;
   function floorStat(R) { const m = R.map;
-    return { foes: R.en.filter((e) => !e.summ).length, kills: R.en.filter((e) => !e.summ && e.deadT >= 0).length,
+    return { foes: R.en.filter(counted).length, kills: R.en.filter((e) => counted(e) && e.deadT >= 0).length,
       lootN: R.chests.reduce((n, c) => n + (c.loot ? c.loot.length : 0), 0) + R.drops.filter((d) => d.loot).length, loot: 0,
       secN: (m.secrets || []).length, sec: (m.secrets || []).filter((q) => q.open).length }; }
   const fstat = (R) => { R.stats = R.stats || {}; return R.stats[R.floor] || (R.stats[R.floor] = floorStat(R)); };
@@ -265,7 +307,7 @@
     const f = (R.stats || {})[R.floor]; if (!f) return [];
     const near = (k, n) => f[n] > 0 && f[k] < f[n] && f[k] / f[n] >= 0.85, out = [];
     const put = (o, kind) => { if (!hidden(R.map, o)) out.push({ x: o.x, y: o.y, kind }); };
-    if (near('kills', 'foes')) for (const e of R.en) if (!e.summ && e.deadT < 0) put(e, 'foe');
+    if (near('kills', 'foes')) for (const e of R.en) if (counted(e) && e.deadT < 0) put(e, 'foe');
     if (near('loot', 'lootN')) {
       for (const c of R.chests) if (!c.open && c.loot && c.loot.length) put(c, 'loot');
       for (const d of R.drops) if (d.loot && !d.got && d.kind === 'item') put(d, 'loot');
@@ -273,7 +315,7 @@
     if (near('sec', 'secN') || near('loot', 'lootN') || near('kills', 'foes')) for (const q of R.map.secrets || []) if (!q.open) {
       const room = R.map.rooms[q.room], inside = (o) => inRoom0(room, Math.floor(o.x / TILE), Math.floor(o.y / TILE));
       if (near('sec', 'secN') || (near('loot', 'lootN') && R.chests.some((c) => !c.open && c.loot && c.loot.length && inside(c))) ||
-        (near('kills', 'foes') && R.en.some((e) => !e.summ && e.deadT < 0 && inside(e)))) out.push({ x: q.x, y: q.y, kind: 'secret' });
+        (near('kills', 'foes') && R.en.some((e) => counted(e) && e.deadT < 0 && inside(e)))) out.push({ x: q.x, y: q.y, kind: 'secret' });
     }
     return out;
   }
@@ -473,14 +515,14 @@
   }
   // (ax, ay): where the blow came from on the floor, when not its source (a bolt bursts at the height of the body it hit)
   function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind, ax = sx, ay = sy) {
-    if (e.deadT >= 0) return;
+    if (e.deadT >= 0 || under(e)) return;
     if (R.map.bossType === e.type && !R.arena) { stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     const arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
     dmg = absorbShield(S, e, dmg, { id: e.id }); if (dmg <= 0) return;
     if (gift(R.hero, 'execute') && e.hp < 0.25 * e.max) dmg = Math.round(dmg * (1 + gift(R.hero, 'execute') / 100));
     e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e); if (e.st === 'lurk') rise(S, R, e);
-    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost || e.st === 'rise';
+    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost || ENEMIES[e.type].deep || e.st === 'rise';
     if (!heavy && !arm) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
     if (kind === 'fire') { e.burn = S.t + 3; e.burnT = S.t; }
     ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
@@ -492,7 +534,7 @@
     if (e.st === 'home') { e.st = 'chase'; e.t0 = e.seenT = R.t; } }
   function killEnemy(S, R, e) {
     e.deadT = S.t; e.hp = 0; R.kills++;
-    if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (!e.summ) { fstat(R).kills++; checkFull(S, R); } R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
+    if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (counted(e)) { fstat(R).kills++; checkFull(S, R); } R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
     const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (dep(R) - 1)) * (e.elite && !D.BOSSES[e.type] ? 3 + nm : 1)));
     if (E.puddle) (R.map.goo = R.map.goo || []).push({ id: R.nextId++, x: e.x, y: e.y, t0: S.t, T: E.puddle.t, r: E.puddle.r, rNow: E.puddle.r });
     if (E.split) split(S, R, e, E);
@@ -655,7 +697,7 @@
   // an ambush's flagstone sinks under the hero and calls monsters of the floor out of the dark round the room, in a ring, at once
   // on the hunt; they pay their XP but carry nothing (like a summoner's), and nothing of the floor's completion hangs on them
   function springAmbush(S, R, P) {
-    const m = R.map, h = R.hero, f = dep(R), roster = D.BIOMES[m.biome].roster.filter((t) => (t !== 'brute' || f >= 3) && !ENEMIES[t].lurk), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
+    const m = R.map, h = R.hero, f = dep(R), roster = D.BIOMES[m.biome].roster.filter((t) => (t !== 'brute' || f >= 3) && !ENEMIES[t].lurk && !ENEMIES[t].deep), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
     ev(S, { k: 'click', x: P.x, y: P.y }); ev(S, { k: 'ambush', x: h.x, y: h.y });
     const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
     for (let i = 0, n = 0; i < 40 && n < P.n; i++) { const a = rnd(R) * 6.28, d = 130 + rnd(R) * 90, x = h.x + Math.cos(a) * d, y = h.y + Math.sin(a) * d * 0.8;
@@ -896,13 +938,14 @@
   function stepProjectiles(S, R) {
     const m = R.map, h = R.hero;
     for (const p of R.proj) { if (p.dead) continue;
-      const cx = Math.floor(p.x / TILE), cy = Math.floor((p.y + 20) / TILE);
+      // gz: how far over its floor it flies (an eel's jet leaves its mouth high over the water)
+      const gz = p.gz ?? 20, cx = Math.floor(p.x / TILE), cy = Math.floor((p.y + gz) / TILE);
       p.x += p.vx * DT; p.y += p.vy * DT; const age = S.t - p.t0;
-      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)), wall = pc === 0 || pc === 4 || pc === 5 || pinch(m, cx, cy, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE));
+      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = pc === 0 || pc === 4 || pc === 5 || pinch(m, cx, cy, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE));
       if (pc === 4 && p.own === 'hero') { const q = secretAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (q && kindOf(q) === 'crack') hitSecret(S, R, q); }
       if (pc === 5 && p.own === 'hero') { const d = doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || m.decor.some((d) => d.cover && !d.broken && Math.abs(p.x - d.x) < 26 && p.y > d.y - 75 && p.y < d.y + 8);
-      if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
+      if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.k, (p.who || '?') + ' снаряд', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
@@ -922,6 +965,7 @@
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0; }
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
       if (e.face !== e.pf) { if (e.pf) e.ft = t; e.pf = e.face; }
+      if (E.kind === 'eel') { eel(S, R, e, E, heroOk, d); continue; }
       // a drowned under the shallows stirs only for a hero close by; it stands up out of the water before it can do anything
       if (e.st === 'lurk') { e.vx = e.vy = 0; if (heroOk && d < E.sense && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) rise(S, R, e); continue; }
       if (e.st === 'rise') { e.vx = e.vy = 0; if (t - e.t0 < E.rise) continue; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = Math.max(e.cdT, t + 0.25); }
@@ -990,12 +1034,12 @@
       }
     }
     // separation: monsters don't stack
-    const live2 = R.en.filter((e) => e.deadT < 0 && e.st !== 'idle');
+    const live2 = R.en.filter((e) => e.deadT < 0 && e.st !== 'idle' && !ENEMIES[e.type].deep);
     for (let i = 0; i < live2.length; i++) for (let j = i + 1; j < live2.length; j++) { const a = live2[i], b = live2[j], ra = ENEMIES[a.type].r + ENEMIES[b.type].r + 4;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); if (d < ra && d > 0.01) { const p = (ra - d) * 0.5; move(m, a, -dx / d * p, -dy / d * p, ENEMIES[a.type].r, true); move(m, b, dx / d * p, dy / d * p, ENEMIES[b.type].r, true); } }
     // whatever moved them (walking, knockback, a lunge, the crowd), monsters stand clear of props; a ghost floats through
     const sol = solids(R);
-    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost) shove(m, e, ENEMIES[e.type].r, true, sol);
+    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
     if (heroOk) for (const e of R.en) {
       const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab'].includes(E.kind) || e.st === 'lurk') continue;
       const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
@@ -1477,7 +1521,7 @@
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
-      for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
+      for (const e of m.enemies) { if (!reachH(e.x, e.y) && !(ENEMIES[e.type].deep && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 6)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
       if (mode === 'campaign') {
         const wet = new Set(m.water), bridge = new Set(m.waterBridges);
@@ -1518,7 +1562,9 @@
         const inW = (k) => wet.has(k) || over.has(k) || deepAt(k), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE);
         // a drowned lies in the shallows (TASKS 307), off the crossings; every other monster stands dry
         for (const o of m.enemies) if (ENEMIES[o.type].lurk && (!wet.has(cellOf(o)) || over.has(cellOf(o)) || deepAt(cellOf(o)))) out.push(`seed ${seed} f${f}: a drowned out of the shallows at ${Math.round(o.x)},${Math.round(o.y)}`);
-        for (const [n, list] of [['monster', m.enemies.filter((o) => !ENEMIES[o.type].lurk)], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['fire', m.torches.filter((q) => q.kind !== 'wall')], ['altar', m.shrines], ['web', m.webs], ['ambush', m.ambush]])
+        // an eel (TASKS 310) has its post in deep water
+        for (const o of m.enemies) if (ENEMIES[o.type].deep && m.cells[cellOf(o)] !== 6) out.push(`seed ${seed} f${f}: an eel out of the deep water at ${Math.round(o.x)},${Math.round(o.y)}`);
+        for (const [n, list] of [['monster', m.enemies.filter((o) => !ENEMIES[o.type].lurk && !ENEMIES[o.type].deep)], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['fire', m.torches.filter((q) => q.kind !== 'wall')], ['altar', m.shrines], ['web', m.webs], ['ambush', m.ambush]])
           for (const o of list) if (inW(cellOf(o))) out.push(`seed ${seed} f${f}: a ${n} in the water at ${Math.round(o.x)},${Math.round(o.y)}`);
         for (const tr of m.traps) for (const [i, j] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) if (inW((tr.y / TILE + j) * W + tr.x / TILE + i)) out.push(`seed ${seed} f${f}: a spike plate in the water`);
         for (const c of m.crossings) { caveKinds[c.kind] = (caveKinds[c.kind] || 0) + 1;
@@ -2136,7 +2182,7 @@
         R2.en.push(Object.assign({}, live[0], { id: 9e6 + 1, deadT: -1, hp: 5 })); fstat(R2).foes++; hitEnemy(S2, R2, R2.en.at(-1), 1e9, false, 0, 0);
         if (R2.shards - s0 !== REWARD.full) out.push('completion: a floor paid its kills twice'); }
       const L2 = spawn(0, {}); L2.saved = JSON.parse(JSON.stringify(R)); delete L2.saved.stats; L2.run = L2.saved; L2.screen = 'play'; step(L2, { keys: [] });
-      if (!L2.run.stats || L2.run.stats[2].foes !== L2.run.en.filter((o) => !o.summ).length) out.push('completion: an old save gets no stats for its floor'); }
+      if (!L2.run.stats || L2.run.stats[2].foes !== L2.run.en.filter(counted).length) out.push('completion: an old save gets no stats for its floor'); }
     // doors: shut, a doored room stays unseen and its monsters can't see the hero through the door; E opens it; a locked one holds
     // against E and blows until its key is picked up, which opens it for good; a lever opens every door of its lock
     { for (const kind of ['key', 'lever']) { let S = null, R = null, L = null;
@@ -2269,6 +2315,45 @@
           if (!hurt || !S.ev.some((v) => v.k === 'rush' && v.id === e.id)) out.push('crab: never rushes a hero at its side');
           if (Math.abs(angDiff(e.fa, 0)) > 0.6) out.push(`crab: the rush turned its shell to ${e.fa.toFixed(2)}`);
           if (e.y - y0 < 40) out.push(`crab: the rush carries it only ${(e.y - y0).toFixed(0)} px sideways`); } } }
+    // the eel (TASKS 310): it lies in deep water on the cave's floors and is no part of their count; under the water no blow touches it
+    // and bolts fly over it; with the hero on its shore it shows where it will come up, comes up there in deep water by him, bites
+    // him there and spits at him farther off, is hurt only while up, dives within its stay and comes up again `apart` cells away
+    { const S = spawn(0, {}), quiet = { px: 960, py: 540, keys: [] }, E = ENEMIES.eel; let R, h, n = 0, spot = null;
+      for (let sd = 1; sd <= 6 && !spot; sd++) { S.run = newRun(S, 'cave', sd); S.screen = 'play'; R = S.run; h = R.hero;
+      for (let f = 1; f <= 4; f++) { enterFloor(S, R, f); const eels = R.en.filter((e) => e.type === 'eel'); n += eels.length;
+        if (R.stats[f].foes !== R.en.filter((e) => !e.summ && e.type !== 'eel').length) out.push(`eel: floor ${f} counts its eels among its foes`);
+        if (eels.some((e) => e.st !== 'deep' || R.map.cells[Math.floor(e.y / TILE) * R.map.W + Math.floor(e.x / TILE)] !== 6)) out.push(`eel: floor ${f} has an eel out of its deep water`);
+        // a shore: the shallows by a deep water of an eel's body
+        if (!spot) for (const e of eels) { const m = R.map, body = new Set(deepBody(m, e)); if (body.size < 12) continue;
+          for (const k of body) { const s0 = [k - m.W, k + m.W, k - 1, k + 1].find((j) => m.cells[j] === 1);
+            if (s0 !== undefined) { spot = { f, id: e.id, x: (s0 % m.W + 0.5) * TILE, y: (Math.floor(s0 / m.W) + 0.5) * TILE }; break; } } if (spot) break; } } }
+      if (!n) out.push('eel: none on floors 1-4 of seeds 1-6'); if (!spot) out.push('eel: no shore by a deep water of 12 cells on floors 1-4 of seeds 1-6');
+      else { enterFloor(S, R, spot.f); const m = R.map, e = R.en.find((o) => o.type === 'eel'), body = new Set(deepBody(m, e)), cellOf = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
+        R.en = [e]; Object.assign(e, { hp: 1e4, max: 1e4, dmg: 5, st: 'deep', cdT: 99 }); const reset = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; h.hp = 1e4; h.ifr = 0; h.dashT = -9; R.proj = []; };
+        // under: a blow and a bolt do nothing; the bolt flies on over the water
+        reset(e.x - 200, e.y); hitEnemy(S, R, e, 100, false, e.x - 20, e.y); if (e.hp !== 1e4) out.push('eel: a blow hurts it under the water');
+        R.proj.push({ id: R.nextId++, k: 'fire', x: e.x - 30, y: e.y - E.h * 0.45, vx: 400, vy: 0, t0: S.t, life: 2, dmg: 100, own: 'hero', r: 6 });
+        step(S, { px: 960, py: 540, keys: [] }); for (let i = 0; i < 12; i++) step(S, quiet); if (e.hp !== 1e4) out.push('eel: a bolt hurts it under the water');
+        // the hunt, 20 s with the hero on its shore: stir → rise → up, in its own deep water each time, a fresh spot each time up
+        reset(spot.x, spot.y); Object.assign(e, { st: 'deep', cdT: 0 }); const seen = [], ups = []; let hurt = 0, jet = 0, off = 0, stirT = -1, hitUp = 0, last = e.st;
+        for (let i = 0; i < 120 * 20; i++) { step(S, quiet); h.x = spot.x; h.y = spot.y; h.vx = h.vy = 0; h.hp = 1e4; h.ifr = 0;
+          if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt++; if (R.proj.some((p) => p.k === 'jet')) jet = 1;
+          if (e.st !== last) { seen.push(e.st); if (e.st === 'stir') stirT = S.t; if (e.st === 'rise') { if (Math.abs(S.t - stirT - E.warn) > 0.02) out.push(`eel: comes up ${(S.t - stirT).toFixed(2)} s after it stirs, not ${E.warn}`); ups.push([e.x, e.y]); } last = e.st; }
+          if (!body.has(cellOf(e))) off = 1;
+          if (e.st === 'chase' && !hitUp) { const hp = e.hp; hitEnemy(S, R, e, 10, false, h.x, h.y); hitUp = hp - e.hp; } }
+        if (off) out.push('eel: leaves its deep water'); if (ups.length < 3) out.push(`eel: comes up only ${ups.length} times in 20 s by the hero`);
+        for (const st of ['stir', 'rise', 'chase', 'wind', 'strike', 'dive', 'deep']) if (!seen.includes(st)) out.push(`eel: never goes ${st} in 20 s by the hero`);
+        for (let i = 1; i < ups.length; i++) if (Math.hypot(ups[i][0] - ups[i - 1][0], ups[i][1] - ups[i - 1][1]) < E.apart * TILE - 0.01) out.push(`eel: comes up ${(Math.hypot(ups[i][0] - ups[i - 1][0], ups[i][1] - ups[i - 1][1]) / TILE).toFixed(1)} cells from its last spot`);
+        if (!hurt) out.push('eel: never hurts a hero on its shore'); if (hitUp !== 10) out.push(`eel: a blow while it is up does ${hitUp}, not 10`);
+        // the jet: a hero on the shore out of its bite (spit) — it shows up in the hunt from a spot farther off, or from a fresh one here
+        if (!jet) { reset(spot.x, spot.y); Object.assign(e, { st: 'chase', t0: S.t, upT: S.t, cdT: 0, bit: 0 }); const far = [...body].map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE])
+            .find(([x, y]) => Math.hypot(x - h.x, y - h.y) > E.r + K.R + E.reach + 20 && Math.hypot(x - h.x, y - h.y) < E.spit.reach - 40 && losClear(m, x, y - 30, h.x, h.y - 30));
+          if (far) { e.x = far[0]; e.y = far[1]; for (let i = 0; i < 240 && !jet; i++) { step(S, quiet); h.x = spot.x; h.y = spot.y; if (R.proj.some((p) => p.k === 'jet')) jet = 1; } } }
+        if (!jet) out.push('eel: never spits at a hero out of its bite');
+        // up for no longer than its stay, then under: a blow does nothing again
+        Object.assign(e, { st: 'chase', t0: S.t, upT: S.t, cdT: 99, bit: 0 }); let t1 = -1; for (let i = 0; i < 120 * 4 && t1 < 0; i++) { step(S, quiet); if (e.st === 'dive') t1 = S.t; }
+        if (t1 < 0 || t1 - e.upT > E.stay + 0.02) out.push(`eel: stays up ${(t1 - e.upT).toFixed(2)} s, not up to ${E.stay}`);
+        for (let i = 0; i < 120 * E.dive + 2; i++) step(S, quiet); const hp = e.hp; hitEnemy(S, R, e, 10, false, h.x, h.y); if (e.st !== 'deep' || e.hp !== hp) out.push(`eel: a blow after its dive does ${hp - e.hp} (${e.st})`); } }
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;

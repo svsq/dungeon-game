@@ -34,7 +34,8 @@
    "*_w",
    "drowned__*",
    "merchant__*",
-   "crab__*"
+   "crab__*",
+   "eel__*"
   ],
   "skip": [
    "*_sheet",

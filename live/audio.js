@@ -59,6 +59,13 @@
       for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.15 + i * rr(0.04, 0.09), d: 0.05, v: 0.08, f0: rr(1500, 3200), q: 4 });
       tone(o, { type: 'sawtooth', f0: 82, f1: 62, t: now() + 0.2, a: 0.08, d: 0.6, v: 0.06, det: 10 }); },
     grab: (o) => noise(o, { d: 0.12, v: 0.2, f0: 1300, f1: 500, q: 1 }),
+    // the eel (TASKS 310): the water boils where it will come up (a run of low bubbles, rising), the snap of its jaws, the jet's
+    // gargle and hiss, the slap and gulp of its dive
+    stir: (o) => { for (let i = 0; i < 9; i++) { const t = now() + i * rr(0.06, 0.1); tone(o, { f0: rr(180, 320) * (1 + i * 0.06), f1: rr(420, 700), t, a: 0.004, d: 0.05, v: 0.07 }); }
+      noise(o, { a: 0.25, d: 0.5, v: 0.07, type: 'lowpass', f0: 380, f1: 600 }); },
+    bite: (o) => { noise(o, { d: 0.03, v: 0.4, type: 'highpass', f0: 2200 }); tone(o, { type: 'square', f0: 260, f1: 120, d: 0.05, v: 0.08 }); noise(o, { t: now() + 0.02, d: 0.12, v: 0.15, type: 'lowpass', f0: 900, f1: 300 }); },
+    spit: (o) => { noise(o, { a: 0.02, d: 0.12, v: 0.15, f0: 500, f1: 900, q: 3 }); noise(o, { t: now() + 0.08, a: 0.01, d: 0.3, v: 0.22, type: 'highpass', f0: 2500, f1: 1400 }); },
+    dive: (o) => { SFX.splash(o); noise(o, { t: now() + 0.05, a: 0.02, d: 0.35, v: 0.25, f0: 700, f1: 160, q: 0.8 }); tone(o, { t: now() + 0.15, f0: 160, f1: 70, d: 0.2, v: 0.08 }); },
     grabbed: (o) => { noise(o, { d: 0.08, v: 0.3, type: 'lowpass', f0: 1600, f1: 400 }); noise(o, { t: now() + 0.05, a: 0.03, d: 0.22, v: 0.18, f0: 600, f1: 250, q: 1.5 }); },
     squelch: (o, e) => { const k = e.big === false ? 1.5 : 1; noise(o, { d: 0.18, v: 0.3, f0: 700 * k, f1: 220 * k, q: 3 }); tone(o, { f0: 220 * k, f1: 90 * k, d: 0.14, v: 0.12 }); },
     land: (o, e) => SFX.squelch(o, { big: e.type === 'slime' }),
@@ -80,6 +87,7 @@
       else if (e.type === 'ghost') tone(o, { type: 'triangle', f0: 700, f1: 180, a: 0.05, d: 0.6, v: 0.15 });
       else if (e.type === 'slime' || e.type === 'slime_s') SFX.squelch(o, { big: e.type === 'slime' });
       else if (e.type === 'crab') { for (let i = 0; i < 4; i++) noise(o, { t: now() + i * rr(0.03, 0.06), d: 0.04, v: 0.22, f0: rr(900, 1600), q: 4 }); noise(o, { t: now() + 0.12, d: 0.3, v: 0.15, type: 'lowpass', f0: 500, f1: 120 }); }
+      else if (e.type === 'eel') { SFX.dive(o); tone(o, { type: 'sawtooth', f0: 140, f1: 55, a: 0.02, d: 0.5, v: 0.06, det: 15 }); }
       else if (e.type === 'drowned') { SFX.splash(o); noise(o, { t: now() + 0.25, d: 0.35, v: 0.22, type: 'lowpass', f0: 700, f1: 150 }); }
       else noise(o, { d: 0.18, v: 0.2, type: 'lowpass', f0: 900, f1: 200 }); },
     hurt: (o) => { tone(o, { f0: 120, f1: 50, d: 0.16, v: 0.55 }); tone(o, { type: 'sawtooth', f0: 210, f1: 150, a: 0.01, d: 0.14, v: 0.06 }); noise(o, { d: 0.08, v: 0.2, f0: 700, q: 2 }); },
@@ -88,7 +96,7 @@
     boom: (o) => { noise(o, { a: 0.005, d: 0.8, v: 0.6, type: 'lowpass', f0: 1600, f1: 90 }); tone(o, { f0: 75, f1: 30, d: 0.6, v: 0.6 }); },
     slam: (o, e) => { noise(o, { d: e.big ? 1.0 : 0.5, v: 0.6, type: 'lowpass', f0: 900, f1: 60 }); tone(o, { f0: 60, f1: 25, d: e.big ? 0.9 : 0.45, v: 0.7 }); },
     eshoot: (o) => tone(o, { type: 'triangle', f0: 500, f1: 900, a: 0.02, d: 0.2, v: 0.12 }),
-    pop: (o, e) => { if (e.c === 'hex') tone(o, { type: 'square', f0: 900, f1: 300, d: 0.12, v: e.hero ? 0.12 : 0.05 }); noise(o, { d: e.hero ? 0.3 : 0.15, v: e.hero ? 0.35 : 0.15, type: 'lowpass', f0: 1800, f1: 200 }); },
+    pop: (o, e) => { if (e.c === 'jet') { SFX.splash(o); if (e.hero) noise(o, { d: 0.2, v: 0.25, f0: 1800, f1: 600, q: 0.7 }); return; } if (e.c === 'hex') tone(o, { type: 'square', f0: 900, f1: 300, d: 0.12, v: e.hero ? 0.12 : 0.05 }); noise(o, { d: e.hero ? 0.3 : 0.15, v: e.hero ? 0.35 : 0.15, type: 'lowpass', f0: 1800, f1: 200 }); },
     spike: (o) => { noise(o, { d: 0.12, v: 0.3, type: 'highpass', f0: 3500 }); tone(o, { type: 'triangle', f0: 1650, d: 0.3, v: 0.08 }); tone(o, { type: 'triangle', f0: 2470, d: 0.22, v: 0.05 }); },
     scorch: (o) => noise(o, { a: 0.01, d: 0.3, v: 0.18, type: 'highpass', f0: 2400 }),
     gold: (o) => { for (let i = 0; i < 4; i++) tone(o, { type: 'triangle', f0: rr(2200, 3600), t: now() + i * rr(0.03, 0.07), d: 0.18, v: 0.08 }); },
