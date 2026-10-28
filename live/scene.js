@@ -153,7 +153,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   // the bank ragged on the art grid, pale streaks and ripples carried down the flow, flecks of foam along the banks, the fires
   // above broken into its ripples; a dark wet rim on the stone round it
   const WATER = `
-uniform sampler2D u_mask, u_deep; uniform vec4 u_box, u_room; uniform vec2 u_map; uniform vec3 u_col;
+uniform sampler2D u_mask, u_deep; uniform vec4 u_box, u_room; uniform vec2 u_map; uniform vec3 u_col; uniform vec2 u_clear;
 uniform vec4 u_fire[8]; uniform vec3 u_fireCol[8];
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   if (w.x < u_room.x || w.y < u_room.y || w.x >= u_room.z || w.y >= u_room.w) discard;
@@ -178,10 +178,54 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   vec3 col = mix(shallow, deep, depth) + vec3(0.09, 0.15, 0.14) * rip + vec3(0.16, 0.22, 0.2) * streak;
   col = mix(col, vec3(0.32, 0.38, 0.35), foam * 0.8) + reflection * 0.5;
   // deep water past the shallows: darker, opaque, the bottom gone (a placeholder until the cave's water shader, TASKS 304)
-  float dp = smoothstep(0.35, 0.75, texture(u_deep, w / u_map).r);
+  // u_clear: the shallows' cover at the bank and the wet rim's darkening; a cave's shallows show the pebbled bed its bake lays
+  // under them (TASKS 303), and the deep water comes in over a cell
+  float dp = smoothstep(0.2, 0.8, texture(u_deep, w / u_map).r);
   col = mix(col, u_col * 0.55 + vec3(0.0, 0.035, 0.04) + vec3(0.05, 0.08, 0.08) * rip, dp);
-  float wet = smoothstep(-10.0, -1.0, d) * (1.0 - inside), a = inside * mix(mix(0.8, 0.93, depth), 0.98, dp);
-  o = vec4(col * a, a + wet * 0.5); }`;
+  float wet = smoothstep(-10.0, -1.0, d) * (1.0 - inside), a = inside * mix(mix(u_clear.x, 0.93, depth), 0.98, dp);
+  o = vec4(col * a, a + wet * u_clear.y); }`;
+  // a cave's floor map in one pass on the art grid (TASKS 303): natural rock, no masonry. The rock's outline follows the soft mask
+  // of the open cells pushed about by noise, so it runs off the cell grid; a top rock shows a low front face (ref.png's flat camera,
+  // not the concepts' cliffs) with a pale lip and moss hanging from it; the other rock shows its boulder tops with an ink line and a
+  // lit bevel where it faces up or left. By the water: wet pebbles, a low bank face where the floor stands over the water, the
+  // pebbled bed under the shallows. waterAt is the pool shader's own bank (WATER), so the two meet
+  const CAVE = `
+uniform sampler2D u_open, u_water, u_floor, u_wall, u_top, u_shore; uniform vec2 u_map; uniform float u_wet, u_lift;
+float openAt(vec2 p){ return texture(u_open, p / u_map).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12; }
+bool isOpen(vec2 p){ return openAt(p) > 0.47; }
+float waterAt(vec2 p){ return u_wet * (texture(u_water, p / u_map).r + (vnoise(p / 6.0) - 0.5) * 0.32); }
+vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
+vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.1, 0.25, 0.21) : n < 0.75 ? vec3(0.18, 0.35, 0.17) : vec3(0.31, 0.48, 0.17); }
+void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 col;
+  if (op > 0.47) {
+    vec3 sh = tx(u_shore, w + 37.0); float wa = waterAt(w);
+    col = tx(u_floor, w) * (0.86 + 0.28 * fbm(w / 170.0));
+    col = mix(col, sh * 0.9, smoothstep(0.14, 0.44, wa));
+    if (wa > 0.5) col = sh * vec3(0.4, 0.5, 0.56);
+    else if (wa > 0.02) { float hl = 10.0 + 5.0 * vnoise(vec2(w.x / 23.0, 9.0)), ld = 99.0;
+      for (int k = 1; k <= 8; k++) { float d = float(k) * 2.0; if (d > hl) break; if (waterAt(w + vec2(0.0, d)) > 0.5) { ld = d; break; } }
+      if (ld < 99.0) { float h = ld / hl; col = mix(sh, tx(u_wall, w), 0.55) * (0.42 + 0.4 * h);
+        if (hl - ld < 2.5) col = col * 1.45 + 0.05;
+        if (ld < 2.5) col *= 0.55;
+        if (step(0.62, vnoise(vec2(w.x / 5.0, 2.0))) * step(hl - ld, 2.0 + 6.0 * hash(vec2(floor(w.x / 2.0), 4.0))) > 0.5) col = moss(w); } }
+    float ao = smoothstep(0.47, 0.9, op), under = 0.0;
+    for (int k = 1; k <= 6; k++) if (!isOpen(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
+    col *= (0.6 + 0.4 * ao) * (1.0 - 0.5 * under);
+    float m = (1.0 - smoothstep(0.47, 0.6, op)) * step(0.56, fbm(w / 13.0 + 5.0)) * step(wa, 0.3);
+    if (m > 0.5) col = moss(w) * (0.75 + 0.25 * ao);
+  } else {
+    float hf = 26.0 + 14.0 * vnoise(vec2(w.x / 31.0, 3.0)), fd = 99.0;
+    for (int k = 1; k <= 20; k++) { float d = float(k) * 2.0; if (d > hf) break; if (isOpen(w + vec2(0.0, d))) { fd = d; break; } }
+    if (fd < 99.0) { float h = fd / hf; col = tx(u_wall, w) * (0.4 + 0.65 * h * h);
+      if (hf - fd < 2.5) col = col * 1.5 + 0.05;
+      if (fd < 2.5) col *= 0.45;
+      float drip = step(0.55, vnoise(vec2(w.x / 13.0, 5.0))) * (2.0 + 14.0 * hash(vec2(floor(w.x / 2.0), 1.0)) * step(0.5, vnoise(vec2(w.x / 5.0, 8.0))));
+      if (hf - fd < drip) col = moss(w) * (0.6 + 0.4 * h);
+      if (waterAt(w + vec2(0.0, fd + 2.0)) > 0.5) col *= mix(vec3(0.6, 0.72, 0.78), vec3(1.0), smoothstep(0.0, 14.0, fd)); }
+    else { col = tx(u_top, w + 91.0) * u_lift;
+      if (isOpen(w - vec2(2.0, 0.0)) || isOpen(w + vec2(2.0, 0.0)) || isOpen(w - vec2(0.0, 2.0))) col = vec3(0.024, 0.02, 0.026);
+      else if (isOpen(w - vec2(4.0, 0.0)) || isOpen(w - vec2(0.0, 4.0))) col = col * 1.6 + 0.04; } }
+  o = vec4(col, 1.0); }`;
   // a fountain's jet from the mask's mouth into its basin: a thin twisting pour on the art grid, drops thrown out where it lands,
   // rings spreading in the basin. Box 48 x 64 view px, the mouth at the top, the basin's water at u_fall px; u_wide widens the pour
   // (a cave's fall down a wall face)
@@ -198,7 +242,7 @@ void main(){ vec2 p = floor(v_uv * vec2(48.0, 64.0) / 2.0) * 2.0 + 1.0 - vec2(24
     if (length(p - drop) < 1.5 && age < 0.85) { col = vec3(0.4, 0.52, 0.5); a = 0.85; } }
   if (a == 0.0) discard; o = vec4(col * a, a); }`;
   const LIT = `
-uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam;
+uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam, u_cave;
 // the abyss is black (TASKS 187): the concept's rock past the masonry is a flat near-black, its veins only in the fire depths, faint,
 // and only by the explored masonry and lava (u_veins), so the fog gives nothing of the layout away
 vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock;
@@ -212,11 +256,13 @@ float rimAt(vec2 bq){ float vd = texture(u_void, bq / u_map).r;
   return smoothstep(0.45, 0.55, vd + (fbm(bq / 22.0) * 0.7 + fbm(bq / 9.0) * 0.3 - 0.5) * 1.4 * min(1.0, vd * 2.5)); }
 void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture(u_light, scr(v_px)).rgb; float em = clamp(1.0 - src.a, 0.0, 1.0);
   // the rim breaks off into the abyss block by block, as the concept's masonry does: the edge is decided per 14 px wall-top block
-  vec2 w = (v_px + u_cam) / u_map, wp = floor(v_px / 2.0) * 2.0 + u_cam, bq = floor(wp / 14.0) * 14.0 + 7.0, pb = wp - bq + 7.0; float vd = rimAt(bq);
+  // a cave's rock breaks off per art pixel instead (TASKS 303): no masonry blocks in its outline
+  float blk = u_cave > 0.5 ? 2.0 : 14.0;
+  vec2 w = (v_px + u_cam) / u_map, wp = floor(v_px / 2.0) * 2.0 + u_cam, bq = floor(wp / blk) * blk + blk * 0.5, pb = wp - bq + blk * 0.5; float vd = rimAt(bq);
   // a block on the stepped edge: one art pixel of pale bevel on its top and left where they face the abyss, a dark one on its
   // bottom and right
-  if (vd < 0.5) { float lit = max(step(pb.y, 1.0) * rimAt(bq - vec2(0.0, 14.0)), step(pb.x, 1.0) * rimAt(bq - vec2(14.0, 0.0))),
-      dk = max(step(12.0, pb.y) * rimAt(bq + vec2(0.0, 14.0)), step(12.0, pb.x) * rimAt(bq + vec2(14.0, 0.0)));
+  if (vd < 0.5) { float lit = max(step(pb.y, 1.0) * rimAt(bq - vec2(0.0, blk)), step(pb.x, 1.0) * rimAt(bq - vec2(blk, 0.0))),
+      dk = max(step(blk - 2.0, pb.y) * rimAt(bq + vec2(0.0, blk)), step(blk - 2.0, pb.x) * rimAt(bq + vec2(blk, 0.0)));
     c = lit > 0.5 ? c * 1.4 + 0.05 : dk > 0.5 ? c * 0.3 : c; }
   float s = texture(u_seen, w).r * (1.0 - vd) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
   float top = texture(u_top, w).r;
@@ -233,7 +279,7 @@ uniform float u_amt;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   float sw = fbm(vec2(a * 2.0 + r * 4.0 - u_t * 2.0, r * 3.0 - u_t)), ring = smoothstep(0.95, 0.7, r) * smoothstep(0.2, 0.7, r + sw * 0.3);
   vec3 c = mix(vec3(0.3, 0.5, 1.0), vec3(0.9, 0.95, 1.0), sw * smoothstep(0.8, 0.2, r)); float al = ring * u_amt; o = vec4(c * al, 0.0); }`;
-  SC.REPEAT = [];
+  SC.REPEAT = ['floor_cv_tex', 'wall_cv_tex', 'walltop_cv_tex', 'shore_cv_tex'];
   let LT = null, BAKE = { key: '', tg: null }, SEEN = { key: '', rec: null, cv: null }, VOID = { key: '', rec: null, cv: null };
   SC.programs = () => {
     // the world renders on a 2×2 view-px grid (the reference's art pixel), every sprite and rotated rig part re-rasterised on it;
@@ -244,7 +290,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   };
   function views(z) {
     Z = z; VW = W / Z; VH = H / Z;
-    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
+    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER, cave: CAVE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); }
     LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }) };
   }
@@ -277,40 +323,45 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
     const dark = (x, y, w, h, a) => L.solid(x, y, w, h, [0.01, 0.01, 0.015], 0, 0, 0, a);
-    for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
-      const v = c(x, y);
-      // an accent zone keeps its own stone, near grey and dark (as dark as the tint it lost made it): the colour proper is its hearths'
-      // light and the fill, which fades out past the doorway
-      if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
-      else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
-      else if (v === 0 && RD[y * m.W + x] <= 3) tile(B.top, x, y, { grade: [0.55, TOP_LIFT, 0, 1], tint: topTint(B) }, TST);
-    }
-    // an accent zone's stone thins out over the cells past its doorway in 8 px steps, so the threshold has no hard line
-    for (const r of m.rooms) if (r.zone) { const Z = D.BIOMES[r.zone], q = TILE / 4;
-      for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (c(x, y) !== 1 || zoneAt(m, x, y) !== m.biome) continue;
-        for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const px = x + (i + 0.5) / 4, py = y + (j + 0.5) / 4, d = Math.hypot(Math.max(r.x - px, 0, px - r.x - r.w), Math.max(r.y - py, 0, py - r.y - r.h)), a = 1 - SS(0, 2.6, d);
-          if (a < 0.03) continue; const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
-          L.sprite(Z.floor, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [0.25, 0.96 * 0.55 * (Z.dim || 1), 0, 1], tint: [...Z.tint, 0.35], alpha: a } }); } } }
-    // contact darkening, rims, edges
-    for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
-      const v = c(x, y), X = x * TILE, Y = y * TILE;
-      if (v === 1) {
-        // contact shadow at the wall's foot as a soft ramp (hard-edged bands read as stray stripes)
-        if (c(x, y - 1) === 0) for (let k = 0; k < 6; k++) dark(X, Y, TILE, 14 - k * 2.2, 0.09);
-        if (c(x - 1, y) === 0) for (let k = 0; k < 4; k++) dark(X, Y, 8 - k * 1.8, TILE, 0.08);
-        if (c(x + 1, y) === 0) for (let k = 0; k < 4; k++) dark(X + TILE - 8 + k * 1.8, Y, 8 - k * 1.8, TILE, 0.08);
-        if (c(x, y + 1) === 0) for (let k = 0; k < 3; k++) dark(X, Y + TILE - 6 + k * 2, TILE, 6 - k * 2, 0.08);
-      } else if (v === 0) {
-        // walls stand two cells tall (the reference's 3/4 faces): the lower face sits on the floor, the upper one carries the lip
-        const face = c(x, y + 1) !== 0, face2 = !face && c(x, y + 2) !== 0;
-        if (face) { dark(X, Y + TILE - 4, TILE, 4, 0.5); for (let k = 0; k < 4; k++) dark(X, Y + TILE - 14 + k * 2.5, TILE, 14 - k * 2.5, 0.06);
-          if (c(x - 1, y) === 1 || c(x - 1, y + 1) === 1) dark(X, Y, 3, TILE, 0.7); if (c(x + 1, y) === 1 || c(x + 1, y + 1) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.7); }
-        if (face2) { dark(X, Y, TILE, 3, 0.75); L.solid(X, Y + 3, TILE, 1, [0.5, 0.45, 0.42], 0, 0, 0, 0.35);
-          if (c(x - 1, y + 1) === 1) dark(X, Y, 3, TILE, 0.7); if (c(x + 1, y + 1) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.7); }
-        if (!face && !face2 && near(x, y, 4)) {
-          if (c(x, y + 1) === 1) dark(X, Y + TILE - 3, TILE, 3, 0.6);
-          if (c(x - 1, y) === 1) dark(X, Y, 3, TILE, 0.6);
-          if (c(x + 1, y) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.6);
+    if (B.cave) G.draw(L.P.cave, { u_open: openTex(m), u_water: waterTex(m), u_wet: m.water.length || m.deep ? 1 : 0, u_lift: TOP_LIFT, u_map: [MW, MH],
+      u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) }, G.xf(0, 0, MW, MH));
+    else masonry();
+    function masonry() {
+      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
+        const v = c(x, y);
+        // an accent zone keeps its own stone, near grey and dark (as dark as the tint it lost made it): the colour proper is its hearths'
+        // light and the fill, which fades out past the doorway
+        if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
+        else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
+        else if (v === 0 && RD[y * m.W + x] <= 3) tile(B.top, x, y, { grade: [0.55, TOP_LIFT, 0, 1], tint: topTint(B) }, TST);
+      }
+      // an accent zone's stone thins out over the cells past its doorway in 8 px steps, so the threshold has no hard line
+      for (const r of m.rooms) if (r.zone) { const Z = D.BIOMES[r.zone], q = TILE / 4;
+        for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (c(x, y) !== 1 || zoneAt(m, x, y) !== m.biome) continue;
+          for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const px = x + (i + 0.5) / 4, py = y + (j + 0.5) / 4, d = Math.hypot(Math.max(r.x - px, 0, px - r.x - r.w), Math.max(r.y - py, 0, py - r.y - r.h)), a = 1 - SS(0, 2.6, d);
+            if (a < 0.03) continue; const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
+            L.sprite(Z.floor, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [0.25, 0.96 * 0.55 * (Z.dim || 1), 0, 1], tint: [...Z.tint, 0.35], alpha: a } }); } } }
+      // contact darkening, rims, edges
+      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
+        const v = c(x, y), X = x * TILE, Y = y * TILE;
+        if (v === 1) {
+          // contact shadow at the wall's foot as a soft ramp (hard-edged bands read as stray stripes)
+          if (c(x, y - 1) === 0) for (let k = 0; k < 6; k++) dark(X, Y, TILE, 14 - k * 2.2, 0.09);
+          if (c(x - 1, y) === 0) for (let k = 0; k < 4; k++) dark(X, Y, 8 - k * 1.8, TILE, 0.08);
+          if (c(x + 1, y) === 0) for (let k = 0; k < 4; k++) dark(X + TILE - 8 + k * 1.8, Y, 8 - k * 1.8, TILE, 0.08);
+          if (c(x, y + 1) === 0) for (let k = 0; k < 3; k++) dark(X, Y + TILE - 6 + k * 2, TILE, 6 - k * 2, 0.08);
+        } else if (v === 0) {
+          // walls stand two cells tall (the reference's 3/4 faces): the lower face sits on the floor, the upper one carries the lip
+          const face = c(x, y + 1) !== 0, face2 = !face && c(x, y + 2) !== 0;
+          if (face) { dark(X, Y + TILE - 4, TILE, 4, 0.5); for (let k = 0; k < 4; k++) dark(X, Y + TILE - 14 + k * 2.5, TILE, 14 - k * 2.5, 0.06);
+            if (c(x - 1, y) === 1 || c(x - 1, y + 1) === 1) dark(X, Y, 3, TILE, 0.7); if (c(x + 1, y) === 1 || c(x + 1, y + 1) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.7); }
+          if (face2) { dark(X, Y, TILE, 3, 0.75); L.solid(X, Y + 3, TILE, 1, [0.5, 0.45, 0.42], 0, 0, 0, 0.35);
+            if (c(x - 1, y + 1) === 1) dark(X, Y, 3, TILE, 0.7); if (c(x + 1, y + 1) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.7); }
+          if (!face && !face2 && near(x, y, 4)) {
+            if (c(x, y + 1) === 1) dark(X, Y + TILE - 3, TILE, 3, 0.6);
+            if (c(x - 1, y) === 1) dark(X, Y, 3, TILE, 0.6);
+            if (c(x + 1, y) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.6);
+          }
         }
       }
     }
@@ -376,6 +427,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // a cave's deep water (cell 6) and the bridges over it are water too, and deep water has a mask of its own (TASKS 302)
   const waterTex = (m) => { const w = new Set((m.water || []).concat(m.waterBridges || [], (m.crossings || []).flatMap((c) => c.cells))); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x) || SIM.cell(m, x, y) === 6, (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };
   const deepTex = (m) => maskTex(m, 'deep', (x, y) => SIM.cell(m, x, y) === 6, null, 1);
+  // a cave's open cells (floor, water, doors, found secrets) for its rock outline (CAVE)
+  const openTex = (m) => { const hid = SIM.secretMask(m); return maskTex(m, 'open', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 4 && !hid.has(y * m.W + x); }, null, 1); };
   // 1 deep in the rock (3 to 6 cells from any floor, soft) and toward the map's edge, where a room may lie close: the abyss shows through
   // cells of rock from the nearest floor or wall face (a top wall's two face cells count as open): the masonry is a rim of two
   // cells around the rooms, the third fades, and the abyss shows past it, so rooms read by their silhouette as in the reference
@@ -909,7 +962,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (caveW && (m.water.length || m.deep)) { const box = [Math.floor(cx / TILE - 1) * TILE, Math.floor(cy / TILE - 1) * TILE, VW + 3 * TILE, VH + 3 * TILE];
       const fires = TL.slice().sort((a, b) => Math.hypot(a[0] - cx - VW / 2, a[1] - cy - VH / 2) - Math.hypot(b[0] - cx - VW / 2, b[1] - cy - VH / 2)).slice(0, 8);
       while (fires.length < 8) fires.push([0, 0, 0, [0, 0, 0], 0]);
-      G.draw(L.P.pool, { u_t: t, u_mask: waterTex(m), u_deep: deepTex(m), u_box: box, u_map: [MW, MH], u_col: D.BIOMES[m.biome].water || [0.07, 0.1, 0.12], u_room: [0, 0, MW, MH],
+      G.draw(L.P.pool, { u_t: t, u_mask: waterTex(m), u_deep: deepTex(m), u_box: box, u_map: [MW, MH], u_col: D.BIOMES[m.biome].water || [0.07, 0.1, 0.12], u_room: [0, 0, MW, MH], u_clear: D.BIOMES[m.biome].cave ? [0.6, 0.25] : [0.8, 0.5],
         u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, G.xf(sx(box[0]), sy(box[1]), box[2], box[3])); }
     if (!caveW) for (const k of m.water || []) {
       const x = k % m.W, y = Math.floor(k / m.W), id = DUNGEON.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE);
@@ -921,7 +974,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const fires = TL.slice().sort((a, b) => Math.hypot(a[0] - (x0 + x1) * TILE / 2, a[1] - (y0 + y1) * TILE / 2) - Math.hypot(b[0] - (x0 + x1) * TILE / 2, b[1] - (y0 + y1) * TILE / 2)).slice(0, 8);
       while (fires.length < 8) fires.push([0, 0, 0, [0, 0, 0], 0]);
       G.draw(L.P.pool, { u_t: t, u_mask: waterTex(m), u_deep: deepTex(m), u_box: waterBox, u_map: [MW, MH], u_col: b.water || [0.07, 0.1, 0.12],
-        u_room: room ? [room.x * TILE, room.y * TILE, (room.x + room.w) * TILE, (room.y + room.h) * TILE] : [0, 0, MW, MH],
+        u_room: room ? [room.x * TILE, room.y * TILE, (room.x + room.w) * TILE, (room.y + room.h) * TILE] : [0, 0, MW, MH], u_clear: [0.8, 0.5],
         u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, G.xf(sx(waterBox[0]), sy(waterBox[1]), waterBox[2], waterBox[3]));
     }
     for (const k of m.waterBridges || []) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE; if (!vis(x, y)) continue;
@@ -1186,7 +1239,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
-    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_amb: amb, u_seam: B.seam || 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
+    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
     // ===== emissive pass =====
     G.blend('add');
@@ -1881,6 +1934,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const [zone, f] of [['dungeon', 1], ['crypt', 3], ['lava', 5], ['arcane', 7]]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3); SIM.enterFloor(S, S.run, f);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_' + zone, S]); }
+    // the cave's stone under real light (TASKS 303): the 2nd floor's biggest hall with its rock, banks and water
+    { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 2);
+      const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
+      h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_cave', S]); }
     // the water caves' biggest hall and its winding ways (TASKS 301), the whole hall in view
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;

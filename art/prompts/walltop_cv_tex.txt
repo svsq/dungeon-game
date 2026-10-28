@@ -1,0 +1,4 @@
+Use case: a seamless tileable material for the top of the solid rock mass between cave halls in a top-down 3/4 dungeon game (Image 1 is the style reference for pixel size and shading; Image 2 is the approved cave material reference: take only the dark rock tops and palette).
+Subject: the top of solid cave rock seen from directly above: clustered rounded dark boulders and rock lumps of mixed sizes (6 to 20 art pixels), each with a faint pale top-left edge and a darker lower right, packed tight with near-black gaps between them, very dark cold blue-grey, low contrast, like the dark boulder masses around the halls in Image 2.
+Composition: the whole canvas is this surface, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no bricks, no blocks in a grid, no moss, no water, no objects.

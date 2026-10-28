@@ -1,0 +1,4 @@
+Use case: a seamless tileable material for the wet bank where a cave floor meets water, in a top-down 3/4 dungeon game (Image 1 is the style reference for pixel size and shading; Image 2 is the approved cave material reference: take only its wet shore stones and palette).
+Subject: a wet cave shore seen from above: tightly packed rounded wet pebbles and small smooth stones (3 to 10 art pixels), dark slick blue-grey and grey-brown, each stone with a tiny cream wet highlight at its top-left, dark teal-black gaps between them, scattered small dark-green moss clumps.
+Composition: the whole canvas is wet pebble shore, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no water surface, no objects, no glow.
