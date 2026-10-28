@@ -20,6 +20,10 @@
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
     arcane: { name: 'Чертоги', rock: [0.008, 0.005, 0.008], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.68, 0.78, 1.12], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
+    // cave: natural rock instead of masonry (scene.js caveBake, TASKS 303); its monsters, props and cold light are TASKS 305-312,
+    // until then the dungeon's
+    cave: { name: 'Затопленные пещеры', rock: [0.006, 0.006, 0.009], water: [0.06, 0.1, 0.12], vein: [0.3, 0.7, 0.8, 0], amb: [0.1, 0.095, 0.11], torch: [1.0, 0.62, 0.26], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
+      cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -138,14 +142,13 @@
   // began at the 6th (TASKS 227). exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy);
   // on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241).
   // The water caves are a run of their own until the story joins them to the campaign (R-27): four floors and their boss for a
-  // hero of level 10, who in the campaign enters the 8th (TASKS 300); until the cave biome and its serpent exist they stand on the
-  // dungeon's floors with the forge lord. arch: the floor archetype (dungeon.js; the campaign's rooms and corridors by default);
-  // size: each floor's map in cells, growing with the run. Its kit matches what the average bot wears entering the 8th: all eight slots, mostly epic
+  // hero of level 10, who in the campaign enters the 8th (TASKS 300); until its serpent exists the forge lord holds the 4th.
+  // arch: the floor archetype (dungeon.js; the campaign's rooms and corridors by default); size: each floor's map in cells, growing with the run. Its kit matches what the average bot wears entering the 8th: all eight slots, mostly epic
   const RUNS = {
     campaign: { name: 'Кампания', floors: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
       last: 'Трон Демона', seal: 'Сначала одолейте Повелителя Демонов' },
-    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'dungeon', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры',
+    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры',
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
   };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
