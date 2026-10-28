@@ -22,26 +22,32 @@ try {
   await p.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
   await p.waitForFunction(() => window.__ready, null, { timeout: 30000 });
   const names = await p.evaluate(() => {
-    window.__WATER = SCENE.QA().states.filter(([name]) => /^water_(fountain|stream)_/.test(name) || name === 'water_crossing');
+    window.__WATER = SCENE.QA().states.filter(([name]) => /^water_(fountain|stream)_/.test(name) || ['water_crossing', 'cave_water', 'cave_waterfall'].includes(name));
     return window.__WATER.map(([name]) => name);
   });
-  if (names.length !== 7) failures.push(`expected seven water states, got ${names.length}`);
+  if (names.length !== 9) failures.push(`expected nine water states, got ${names.length}`);
   for (const name of names) {
     const result = await p.evaluate((name) => {
       const base = window.__WATER.find(([key]) => key === name)[1], canvas = document.getElementById('c'), draw = G.draw;
-      let calls = {};
+      // a room's pool keeps its box as the camera moves and passes the same fires; a cave's water box follows the view, so each fire
+      // it passes inside both views (a margin in) must be passed again, unchanged
+      let calls = {}, cave = null;
       G.draw = (program, uniforms, xf, ...rest) => {
         if (program === LIB.P.pool) calls[uniforms.u_box.join(',')] = JSON.stringify([uniforms.u_fire, uniforms.u_fireCol]);
+        if (program === LIB.P.cavewater) { const f = uniforms.u_fire, c = uniforms.u_fireCol; cave = { box: uniforms.u_box, fires: [] };
+          for (let i = 0; i < f.length / 4; i++) if (f[i * 4 + 3]) cave.fires.push(JSON.stringify([f.slice(i * 4, i * 4 + 4), c.slice(i * 3, i * 3 + 3)])); }
         return draw(program, uniforms, xf, ...rest);
       };
+      const inside = (fire, box) => { const [x, y] = JSON.parse(fire)[0]; return x > box[0] + 160 && x < box[0] + box[2] - 160 && y > box[1] + 120 && y < box[1] + box[3] - 160; };
       try {
         SCENE.state = structuredClone(base); SCENE.render(base.t + 0.01);
-        const first = canvas.toDataURL(), reference = calls;
+        const first = canvas.toDataURL(), reference = calls, caveRef = cave;
         calls = {}; SCENE.render(base.t + 0.01);
         const deterministic = first === canvas.toDataURL(); let shifts = 0, changes = 0;
         for (const [dx, dy] of [[-64, 0], [-32, 0], [32, 0], [64, 0], [0, -32], [0, 32]]) {
-          SCENE.state = structuredClone(base); SCENE.state.run.cam[0] += dx; SCENE.state.run.cam[1] += dy; calls = {}; SCENE.render(base.t + 0.01);
+          SCENE.state = structuredClone(base); SCENE.state.run.cam[0] += dx; SCENE.state.run.cam[1] += dy; calls = {}; cave = null; SCENE.render(base.t + 0.01);
           for (const [key, value] of Object.entries(calls)) if (reference[key]) { shifts++; if (reference[key] !== value) changes++; }
+          if (caveRef && cave) for (const fire of caveRef.fires) if (inside(fire, caveRef.box) && inside(fire, cave.box)) { shifts++; if (!cave.fires.includes(fire)) changes++; }
         }
         return { url: first, deterministic, shifts, changes };
       } finally { G.draw = draw; }
@@ -51,7 +57,7 @@ try {
     if (!result.shifts || result.changes) failures.push(name + ': reflections changed with the camera');
     samples.push({ name, deterministic: result.deterministic, shifts: result.shifts, changes: result.changes });
   }
-  for (const name of ['water_fountain_dungeon', 'water_stream_dungeon']) {
+  for (const name of ['water_fountain_dungeon', 'water_stream_dungeon', 'cave_water']) {
     const fps = await p.evaluate(async (name) => {
       const base = window.__WATER.find(([key]) => key === name)[1]; SCENE.state = structuredClone(base);
       return await new Promise((resolve) => {
@@ -83,7 +89,7 @@ try {
   });
   await hold(800);
   const near = await p.evaluate(() => {
-    const pair = window.__audioConnections.find(([from]) => from instanceof BiquadFilterNode && from.frequency.value === 1250);
+    const pair = window.__audioConnections.find(([from]) => from instanceof BiquadFilterNode && from.type === 'bandpass' && Math.abs(from.Q.value - 0.45) < 1e-3);
     window.__waterGain = pair?.[1]; return window.__waterGain?.gain.value || 0;
   });
   await p.evaluate(() => { const S = window.__waterAudioState; S.run.hero.x += 1000; S.t += 1; });
@@ -91,11 +97,22 @@ try {
   const far = await p.evaluate(() => window.__waterGain?.gain.value || 0);
   if (!(near > 0.01 && far < near * 0.05)) failures.push(`water sound does not fade with distance: ${near} → ${far}`);
   samples.push({ sound: { near, far } });
+  // a cave's fall roars further and louder than a fountain, panned to its side (TASKS 304)
+  await p.evaluate(() => { const S = structuredClone(window.__WATER.find(([name]) => name === 'cave_waterfall')[1]), R = S.run, q = R.map.waterFeatures.find((q) => q.kind === 'waterfall');
+    R.hero.x = q.x + 200; R.hero.y = q.y + 32; R.seen.fill(1); S.demo = false; window.__waterAudioState = S; });
+  await hold(1500);
+  const fall = await p.evaluate(() => window.__waterGain?.gain.value || 0);
+  // away from every source on the floor, not just this one
+  await p.evaluate(() => { const S = window.__waterAudioState; S.run.hero.x = -4000; S.t += 1; });
+  await hold(1500);
+  const fallFar = await p.evaluate(() => window.__waterGain?.gain.value || 0);
+  if (!(fall > near * 0.5 && fallFar < fall * 0.05)) failures.push(`the cave's fall is not heard 200 px off or does not fade: ${fall} → ${fallFar} (fountain at 32 px ${near})`);
+  samples.push({ fall: { at200: fall, far: fallFar } });
 } finally {
   if (browser) await browser.close();
   await new Promise((r) => server.close(r));
 }
 fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify({ failures, samples }, null, 2));
 for (const f of failures) console.log('FAIL', f);
-console.log(`watercheck: ${failures.length ? failures.length + ' failure(s)' : 'ok'} (7 states, reflections, fps, sound)`);
+console.log(`watercheck: ${failures.length ? failures.length + ' failure(s)' : 'ok'} (9 states, reflections, fps, sound)`);
 process.exitCode = failures.length ? 2 : 0;

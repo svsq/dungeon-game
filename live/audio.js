@@ -148,24 +148,28 @@
   }
 
   // ---- ambience: a drone and air per biome, plus sparse one-shots ----
-  const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
+  const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, cave: { f: 50, air: 700, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
+  // a source is heard within its reach: a cave's fall roars further and lower than a fountain or a spring (TASKS 304)
+  const SRC_SOUND = { waterfall: { reach: 460, f: 800, v: 0.24, gap: [0.08, 0.3] } }, SRC_PLAIN = { reach: 280, f: 1250, v: 0.16, gap: [0.16, 0.65] };
   function waterAmbience(S, on) {
     const R = S.run, h = R?.hero;
     const sources = on ? (R.map.waterFeatures || []).filter((q) => R.seen[Math.floor(q.y / DATA.TILE) * R.map.W + Math.floor(q.x / DATA.TILE)]) : [];
-    let source = null, dist = 280;
-    for (const q of sources) { const d = Math.hypot(q.x - h.x, q.y - h.y); if (d < dist) { source = q; dist = d; } }
+    let source = null, near = 1;
+    for (const q of sources) { const d = Math.hypot(q.x - h.x, q.y - h.y) / (SRC_SOUND[q.kind] || SRC_PLAIN).reach; if (d < near) { source = q; near = d; } }
+    const K = (source && SRC_SOUND[source.kind]) || SRC_PLAIN;
     if (!waterAmb && source) {
       const g = ctx.createGain(), pan = ctx.createStereoPanner(), filter = ctx.createBiquadFilter(), n = ctx.createBufferSource();
       g.gain.value = 0; filter.type = 'bandpass'; filter.frequency.value = 1250; filter.Q.value = 0.45;
       n.buffer = noiseBuf; n.loop = true; n.connect(filter); filter.connect(g); g.connect(pan); pan.connect(dry); pan.connect(wet); n.start();
-      waterAmb = { g, pan, next: 0 };
+      waterAmb = { g, pan, filter, next: 0 };
     }
     if (!waterAmb) return;
-    const amount = source ? (1 - dist / 280) ** 2 : 0;
-    waterAmb.g.gain.setTargetAtTime(amount * 0.16, now(), 0.25);
+    const amount = source ? (1 - near) ** 2 : 0;
+    waterAmb.g.gain.setTargetAtTime(amount * K.v, now(), 0.25);
+    if (source) waterAmb.filter.frequency.setTargetAtTime(K.f, now(), 0.4);
     waterAmb.pan.pan.setTargetAtTime(source ? Math.max(-0.8, Math.min(0.8, (source.x - h.x) / 250)) : 0, now(), 0.2);
     if (source && now() > waterAmb.next) {
-      waterAmb.next = now() + rr(0.16, 0.65);
+      waterAmb.next = now() + rr(...K.gap);
       tone(out((source.x - h.x) / 350, amount * 0.45, 0.55), { f0: rr(680, 1250), f1: rr(240, 420), d: rr(0.06, 0.13), v: 0.08 });
     }
   }
