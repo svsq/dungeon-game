@@ -828,7 +828,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
   const modCol = (e, j = 0) => e.mods && e.mods.length ? D.ELITE_MODS.find((m) => m.id === e.mods[j % e.mods.length]).col : ELITE;
-  const EN_TEX = { boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime' };
+  const EN_TEX = { boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab' };
   // per frame: the rim colour of the floor's fire, and the cultists' free hands (view px) for their glow
   const RIM = { col: [1, 0.75, 0.4], hands: {} };
   // how a body goes down, picked by its id: dl s on its feet first (the knees giving, a robe sinking), then dur s to the floor,
@@ -897,7 +897,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       L.inked(corpse, { r: 2, n: 8, col: INK, dy: 0, emit: true }); return; }
     // turning about narrows the body to a sliver and opens it the other way over 0.16 s instead of mirroring in one frame
     const tA = GT - (e.ft ?? -9), tc = tA < 0.16 ? -Math.cos(Math.PI * SS(0, 0.16, tA)) : 1, tw = Math.sign(tc || 1) * Math.max(0.12, Math.abs(tc));
-    if (tw < 1) L.pre = M.of(M.t(x, y), M.s(tw, 1), M.t(-x, -y));
+    if (tw < 1 && E.kind !== 'crab') L.pre = M.of(M.t(x, y), M.s(tw, 1), M.t(-x, -y));   // the crab turns on the floor (monsters.js)
     try { drawLive(); } finally { L.pre = null; }
     // an elite's aura: its own silhouette, blurred and glowing, breathing and flickering behind the body
     function halo(draw) { if (!e.elite || D.BOSSES[e.type]) return; const pu = 0.5 + 0.5 * Math.sin(t * 2.6 + e.id);
@@ -1552,7 +1552,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // a ghost's ectoplasm: glowing drops that drift up and thin out, they never reach the floor
       if (e.k === 'hit' && a < 0.6 && !e.fire && BLOOD(e.type) === 'ecto') { const q = a / 0.6; L.glow(ex, ey, 30 + 16 * q, [0.4, 1, 0.8], 0.7 * (1 - q), 2.4);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j + 20) * 6.28, d = 6 + 26 * Math.sqrt(q); L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.7 - 34 * q, 5 + 3 * rnd(e.t, j), [0.5, 1, 0.85], 0.9 * (1 - q)); } }
-      if (e.k === 'hit' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
+      // a blow off the crab's armour (TASKS 309): a white flash on the shell's edge toward the blow and a fan of sparks thrown back at it
+      // under gravity, no blood: it reads as steel struck, not a wound
+      if (e.k === 'hit' && e.arm && a < 0.45) { const ox = ex + Math.cos(e.a) * 20, oy = ey + 10 + Math.sin(e.a) * 15, q = a / 0.45;
+        if (a < 0.12) { L.glow(ox, oy, 26 + 30 * a, [1, 0.92, 0.7], 1.6 * (1 - a / 0.12), 2.6); L.star(ox, oy, 22 * (1 - a / 0.12) + 6, [1, 0.97, 0.85], 1 - a / 0.12); }
+        for (let j = 0; j < (e.crit ? 14 : 10); j++) { const an = e.a + (rnd(e.t, j) - 0.5) * 1.9, v = 140 + 220 * rnd(e.t, j + 5), life = 0.2 + 0.25 * rnd(e.t, j + 9); if (a > life) continue;
+          const px = ox + Math.cos(an) * v * a, py = oy + Math.sin(an) * v * a * 0.75 - 50 * a + 520 * a * a, k = 1 - a / life;
+          L.star(px, py, 5 + 3 * k, [1, 0.75 + 0.2 * k, 0.4 + 0.4 * k], k); L.star(px - Math.cos(an) * v * 0.012, py - (Math.sin(an) * v * 0.75 - 50 + 1040 * a) * 0.012, 3, [1, 0.6, 0.25], 0.5 * k); } }
+      // the crab's pinch: a glint where the claw snaps shut
+      if (e.k === 'pinch' && a < 0.15) { const k = 1 - a / 0.15; L.star(ex, ey - 12, 16 * k + 4, [1, 0.95, 0.8], 0.9 * k); }
+      if (e.k === 'hit' && !e.arm && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
           L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d, e.crit ? 12 : 8, e.fire ? [1, 0.6, 0.2] : [1, 0.85, 0.6], (e.fire ? 0.6 : 1) * (1 - q)); } }
       if (e.k === 'scorch' && a < 0.4) { const q = a / 0.4; L.glow(ex, ey - 6, 34, [1, 0.5, 0.15], 0.3 * (1 - q), 2.4); L.ring(ex, ey, 10 + 22 * q, 6 + 10 * q, [1, 0.55, 0.2], 0.6 * (1 - q), 0.2); }
       if (e.k === 'boom' && a < 0.65) {
@@ -1645,6 +1654,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'hit' && a < 0.7 && !e.fire && BLOOD(e.type) === 'bone') { const fl = ey + D.ENEMIES[e.type].h * 0.5 + 6;
         for (let j = 0; j < (e.crit ? 9 : 6); j++) { const an = -Math.PI / 2 + (rnd(e.t, j + 20) - 0.5) * 2.6, v = 50 + 80 * rnd(e.t, j + 7), long = rnd(e.t, j + 3) < 0.4;
           L.solid(ex + Math.cos(an) * v * a, Math.min(fl - 4 * rnd(e.t, j + 2), ey + Math.sin(an) * v * a - 60 * a + 520 * a * a), long ? 7 : 4, long ? 2 : 3, [0.86, 0.82, 0.7], an + a * 12 * (rnd(e.t, j + 4) - 0.5), long ? 3 : 2, 1, 1 - SS(0.5, 0.7, a)); } }
+      // the crab's shell chips off a blow past its armour: red-brown flakes and a few drops of its pale blue blood
+      if (e.k === 'hit' && !e.arm && a < 0.6 && !e.fire && BLOOD(e.type) === 'shell') { const fl = ey + D.ENEMIES[e.type].h * 0.5 + 6;
+        for (let j = 0; j < (e.crit ? 8 : 5); j++) { const an = -Math.PI / 2 + (rnd(e.t, j + 20) - 0.5) * 2.8, v = 50 + 70 * rnd(e.t, j + 7);
+          L.solid(ex + Math.cos(an) * v * a, Math.min(fl - 4 * rnd(e.t, j + 2), ey + Math.sin(an) * v * a - 50 * a + 480 * a * a), 4, 3, j % 2 ? [0.45, 0.16, 0.08] : [0.62, 0.3, 0.14], an + a * 10 * (rnd(e.t, j + 4) - 0.5), 2, 1.5, 1 - SS(0.4, 0.6, a)); }
+        for (let j = 0; j < 4; j++) { const q = Math.min(1, a / 0.45), an = rnd(e.t, j + 40) * 6.28, d = 6 + 26 * q; L.puff(ex + Math.cos(an) * d, ey + Math.sin(an) * d + 50 * q * q, 2.5 + 2 * rnd(e.t, j), [0.35, 0.5, 0.62], 0.85 * (1 - q), j); } }
+      // the rush kicks up grit off the floor behind it
+      if (e.k === 'rush' && a < 0.6) for (let j = 0; j < 5; j++) { const q = a / 0.6, s2 = rnd(e.t, j); L.puff(ex - Math.cos(e.a) * (10 + 50 * q * s2) + (s2 - 0.5) * 20, ey - Math.sin(e.a) * (10 + 50 * q * s2) * 0.8 - 3, 6 + 10 * q, [0.35, 0.33, 0.3], 0.4 * (1 - q), e.t + j); }
       // red blood; a spider's ichor is a sick green
       if (e.k === 'hit' && a < 0.45 && !e.fire && (!BLOOD(e.type) || BLOOD(e.type) === 'ichor')) for (let j = 0; j < 5; j++) { const q = a / 0.45, an = rnd(e.t, j + 20) * 6.28, d = 6 + 30 * q;
         L.puff(ex + Math.cos(an) * d, ey + Math.sin(an) * d + 50 * q * q, 3 + 2 * rnd(e.t, j), BLOOD(e.type) === 'ichor' ? [0.36, 0.46, 0.08] : [0.45, 0.04, 0.04], 0.9 * (1 - q), j); }
@@ -2114,6 +2130,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }; });
       R.cam = [(r.x + r.w / 2) * TILE - VW / 2, y0 - VH / 2 - 40]; };
     states.push(['monsters', play(lineup)]);
+    // the crab (TASKS 309) turned four ways and between, at rest in a lit hall: its shell, legs and claws must read whichever way it faces
+    states.push(['crab_facings', play((S) => { lineup(S); const R = S.run, r = R.map.rooms.find((q) => R.en[0].room === q.id), E = D.ENEMIES.crab, y0 = R.en[0].y;
+      R.en = [0, 1, 2, 3, 4, 5].map((i) => ({ id: 960 + i, type: 'crab', x: (r.x + r.w / 2) * TILE + (i - 2.5) * 110, y: y0 + (i % 2) * 40, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'idle', t0: 0,
+        fa: [0, Math.PI / 2, Math.PI, -Math.PI / 2, 0.8, -2.4][i], face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 })); })]);
     // event responses: pain at the rim on low health with a bolt bursting on the hero, the fall, a scroll's two pillars,
     // the arrival on a floor, the boss's roar, a spike plate firing, the buff row with its worst strings
     const fx = (fn) => play((S) => { const R = S.run, h = R.hero; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; fn(S, R, h); });
@@ -2237,7 +2257,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 }, o); };
         h.x = x - 20; h.y = y - 3 * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x - VW / 2, y - 2 * TILE - VH / 2]; S.ev = [];
         R.en = [mk(970, 'drowned', x, y, { st: 'rise', t0: S.t - 0.5, face: -1 }), mk(971, 'drowned', ...at(k2), { st: 'lurk', t0: -9 }),
-          mk(972, 'slime', x - 200, y - 3 * TILE, { st: 'strike', t0: S.t - 0.23, aimA: 0 }), mk(973, 'slime_s', x - 250, y - 5 * TILE, { st: 'wind', t0: S.t - 0.3, aimA: 0.3 })];
+          mk(972, 'slime', x - 200, y - 3 * TILE, { st: 'strike', t0: S.t - 0.23, aimA: 0 }), mk(973, 'slime_s', x - 250, y - 5 * TILE, { st: 'wind', t0: S.t - 0.3, aimA: 0.3 }),
+          mk(974, 'crab', x + 90, y - 3 * TILE - 20, { st: 'wind', t0: S.t - 0.45, fa: Math.PI - 0.3, face: -1, tx: h.x, ty: h.y }), mk(975, 'crab', x - 120, y - 3 * TILE + 70, { st: 'chase', fa: -1.2, face: 1, hitT: S.t - 0.06, armT: S.t - 0.06 })];
+        S.ev.push({ k: 'hit', t: S.t - 0.06, x: x - 120, y: y - 3 * TILE + 70 - D.ENEMIES.crab.h * 0.5 - 6, type: 'crab', n: 3, crit: 0, id: 975, arm: 1, a: -1.2 });
         m.goo.push({ id: 9, x: x + 160, y: y - 4 * TILE, t0: S.t - 3, T: 10, r: 34, rNow: 34 }); S.ev.push({ k: 'rise', t: S.t - 0.5, x, y, id: 970 });
         states.push(['cave_monsters', structuredClone(S)]); break; } }
     // hero walk cycles: right, left, down, up — the same state at successive distances
@@ -2266,10 +2288,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20; const x0 = (r.x + r.w / 2) * TILE, y0 = (r.y + r.h / 2) * TILE, d = i * st / n;
         R.en = [{ id: 990, type: ty, x: x0 + dx * d, y: y0 + dy * d, vx: dx * E.spd, vy: dy * E.spd, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: -9, face: dx < 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: d, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
         R.cam = [x0 - VW / 2, y0 - VH / 2]; }); out.push(S); } return out; };
-    const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
+    const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
     const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
       // the grab from out of the blow's reach: it catches the hero and hauls him a step in
-      drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })), brute_attack: enemyT('brute', 1), spider_attack: enemyT('spider', 0), boss_attack: enemyT('boss', 0), cultist_attack: enemyT('cultist', 0) };
+      drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })),
+      // the crab (TASKS 309): the pinch at the hero before it; the rush at a hero off its right side (it faces right, the hero below)
+      crab_attack: enemyT('crab', 0), crab_rush: enemyT('crab', 0, 'slam', 0, (e, h) => ({ x: h.x, y: h.y - 110, fa: 0, face: 1, aimA: Math.PI / 2, rush: 1 })), brute_attack: enemyT('brute', 1), spider_attack: enemyT('spider', 0), boss_attack: enemyT('boss', 0), cultist_attack: enemyT('cultist', 0) };
     // deaths: a few live frames, then the kill, through the fall and the bounce (the hero mid-stride and at rest, a skeleton)
     const eventT = (prep, kill) => { const fr = []; let S = play(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
     const heroDies = (S) => { const h = S.run.hero; h.hp = 0; h.deadT = S.t; };
@@ -2302,18 +2326,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the two ways each of the rest goes down (id % 2), the ghost's one; then a blow on every type (the flinch)
     for (const ty of ['goblin', 'brute', 'cultist', 'boss']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill); }
     transitions.ghost_death = eventT(lone('ghost'), kill);
-    for (const ty of ['drowned', 'slime']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill); }
+    for (const ty of ['drowned', 'slime', 'crab']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill); }
     // the drowned stands up out of the shallows (the hero out of its sense: the rise is the event's), and sinks back at its post
     const lurk = (S) => { lone('drowned')(S); const e = S.run.en[0], h = S.run.hero; h.x -= 140; e.st = 'lurk'; e.t0 = -9; };
     transitions.drowned_rise = eventT(lurk, (S) => { const e = S.run.en[0]; e.st = 'rise'; e.t0 = S.t; S.ev.push({ k: 'rise', t: S.t, x: e.x, y: e.y, id: e.id }); });
     transitions.drowned_sink = eventT((S) => { lurk(S); S.run.en[0].st = 'idle'; }, (S) => { const e = S.run.en[0]; e.st = 'lurk'; e.t0 = S.t; });
-    for (const ty of ['skeleton', 'spider', 'brute', 'cultist', 'ghost', 'boss', 'drowned', 'slime']) transitions['hit_' + ty] = eventT((S) => { lone(ty)(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
+    // a blow off the crab's armour: sparks, the claws driven back, no flinch of the shell
+    transitions.hit_crab_armor = eventT((S) => { lone('crab')(S); const h = S.run.hero; S.run.cam = [h.x - VW / 2, h.y - VH / 2]; }, (S) => { const e = S.run.en[0], h = S.run.hero; e.hitT = e.armT = S.t;
+      S.ev.push({ k: 'hit', t: S.t, x: e.x, y: e.y - D.ENEMIES.crab.h * 0.5 - 6, type: 'crab', n: 3, crit: 0, id: e.id, arm: 1, a: Math.atan2(h.y - e.y, h.x - e.x) }); });
+    for (const ty of ['skeleton', 'spider', 'brute', 'cultist', 'ghost', 'boss', 'drowned', 'slime', 'crab']) transitions['hit_' + ty] = eventT((S) => { lone(ty)(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
     transitions.goblin_attack = enemyT('goblin', 0);
     transitions.goblin_hit = eventT((S) => { lone('goblin')(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
     // a monster at its post, 2 s at 1/60 s: breathing, a turn and a shift about the spot
     const loops = {};
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
-    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
+    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; });
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }

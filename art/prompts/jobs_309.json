@@ -1,0 +1,3 @@
+[
+ {"name": "en_crab", "prompt": "art/prompts/en_crab.txt", "ref": ["art/gen/en_skeleton.png=approved monster of this game: pixel density and outline"], "size": "1024x1024", "alpha": "auto"}
+]

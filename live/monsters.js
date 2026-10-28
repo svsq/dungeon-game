@@ -3,7 +3,7 @@
 // the legs, and swings its arms from pose curves keyed to the attack's own clock; the spider walks eight legs in two alternating sets.
 (function () {
   const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
-  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned' };   // the ghost bends its one sprite (softbones)
+  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned', crab: 'crab' };   // the ghost bends its one sprite (softbones)
   const SKULL_K = { skeleton: 1.3 };
   MON.rigOf = (type) => { const n = RIG[type] || (DATA.BOSSES[type] || {}).rig; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
   const d2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
@@ -122,7 +122,7 @@
   }
   MON.biped = biped;
   // one stride (two steps) in view px for a rig drawn H tall: what the sim's distance must cover per gait cycle
-  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
+  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
 
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
   // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
@@ -194,6 +194,72 @@
     const J = (nm, p) => L.joint(o.id, nm, p); J('ground', root); J('top', BT(S2(RG.w / 2, 0, lift))); J('head', BT(S2(RG.w / 2, RG.h * 0.75, lift)));
     legs.forEach((g, i) => J('foot' + i, g.T));
   }
+
+  // ---------------- the crab (TASKS 309): drawn from straight above, laid out on the floor round its facing ----------------
+  // crab space: px of the shell's drawing (its front up); a point of it stands on the floor at (u forward, v to its right) view px,
+  // turned to o.fa and squeezed CRAB.qy in depth, and its height z lifts it straight up the screen. The legs are two-bone IK in the
+  // upright plane through socket and foot (knees up); the gait is a tripod (L0 R1 L2 | R0 L1 R2) driven by the distance walked in
+  // the crab's own frame, so it walks sideways as readily as ahead
+  // leg, claw: each part's scale against the shell's (the claws are the shield wall of the design, the legs a crab's, not a spider's)
+  const CRAB = { w: 0.95, z: 0.2, qy: 0.82, reach: 0.9, sl: 0.36, leg: 0.8, arm: 0.85, claw: 1.05, spread: [0.6, 0.05, -0.55], set: [0, 1, 0] };
+  function crab(o) {
+    const RG = RIGS.crab, s = o.H * CRAB.w / RG.w, fa = o.fa, cf = Math.cos(fa), sf = Math.sin(fa), root = [o.x, o.y], c = RG.c, qy = CRAB.qy;
+    const S2 = (u, v, z) => [root[0] + u * cf - v * sf, root[1] + (u * sf + v * cf) * qy - z];   // floor (u, v, z) → screen
+    const UV = (px, py, side = 1) => [-(py - c[1]) * s, side * (px - c[0]) * s];                    // crab space → floor (u, v); side −1 mirrors to the right
+    const len = (P, k = 1) => d2(P.root, P.end) * s * k, l1 = len(RG.legA, CRAB.leg), l2 = len(RG.legB, CRAB.leg), a1 = len(RG.armA, CRAB.arm), a2 = len(RG.armB, CRAB.arm);
+    const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), vu = sp > 1 ? (o.vx * cf + o.vy * sf) / sp : 1, vv = sp > 1 ? (-o.vx * sf + o.vy * cf) / sp : 0;
+    const curl = o.curl || 0, breath = (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0)) * (1 - curl);
+    const zB = o.H * CRAB.z * (1 - 0.35 * (o.low || 0)) * (1 - 0.8 * curl) + 0.6 * breath + run * 0.5 * Math.abs(Math.sin(o.dist / (CRAB.sl * (l1 + l2)) * TAU));
+    const sl = CRAB.sl * (l1 + l2), u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, bx = o.bx || 0, by = o.by || 0;   // bx, by: the shell knocked about (floor px)
+    // a segment drawn from one screen point to another: its drawing turned onto the line and stretched along it (foreshortened)
+    const seg = (tex, P, from, to, flip, u, ks) => { const want = Math.atan2(to[1] - from[1], to[0] - from[0]), k = Math.max(0.3, Math.hypot(to[0] - from[0], to[1] - from[1]) / len(P, ks));
+      L.sprite(tex, 0, 0, { m: M.of(M.t(from[0], from[1]), M.r(want), M.s(k, flip ? -1 : 1), M.r(-ang(P.root, P.end))), w: P.w * s * ks, h: P.h * s * ks, pivot: [P.root[0] * s * ks, P.root[1] * s * ks], u }); };
+    const legs = [];
+    for (const side of [1, -1]) RG.legs.forEach((so, j) => {
+      const [us, vs] = UV(so[0], so[1], -side), Sk = [us + bx, vs + by, zB * 0.85], out = side;   // side 1: the right, −1: the drawn left
+      const ra = CRAB.spread[j], D = CRAB.reach * (l1 + l2) * (1 + 0.15 * (o.low || 0)) * (1 - 0.55 * curl), A = sl / 2 * run;
+      const ph = (u0 + (CRAB.set[j] ^ (side < 0 ? 1 : 0) ? 0.5 : 0)) % 1; let off, up = 0;
+      if (ph < 0.5) off = A * (1 - 4 * ph); else { const w = (ph - 0.5) * 2; off = -A + 2 * A * SS(0.1, 0.9, w); up = Math.sin(Math.PI * w) * 0.12 * o.H * run; }
+      // the rest foot out from its socket, turned forward for the front legs and back for the hind ones; dying they fold in under it
+      const dirU = Math.sin(ra), dirV = out * Math.cos(ra), twitch = curl > 0 ? Math.sin(o.t * 21 + j * 2 + side) * 0.06 * D * SS(0.1, 0.35, o.dead || 0) * (1 - SS(0.6, 1.4, o.dead || 0)) : 0;
+      const F = [us + dirU * (D + twitch) + vu * off, vs + dirV * (D + twitch) + vv * off, up + curl * 0.35 * zB];
+      const hx = F[0] - Sk[0], hy = F[1] - Sk[1], hd = Math.hypot(hx, hy) || 1, dz = F[2] - Sk[2], d = Math.min(Math.hypot(hd, dz), (l1 + l2) * 0.98), base = Math.atan2(dz, hd);
+      const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), ka = base + a;
+      const K = [Sk[0] + hx / hd * Math.cos(ka) * l1, Sk[1] + hy / hd * Math.cos(ka) * l1, Sk[2] + Math.sin(ka) * l1];
+      const ta = Math.atan2(F[2] - K[2], Math.hypot(F[0] - K[0], F[1] - K[1]) * Math.sign((F[0] - K[0]) * hx + (F[1] - K[1]) * hy || 1));
+      const T = [K[0] + hx / hd * Math.cos(ta) * l2, K[1] + hy / hd * Math.cos(ta) * l2, K[2] + Math.sin(ta) * l2];
+      legs.push({ side, j, Sk: S2(...Sk), K: S2(...K), T: S2(...T), depth: (Sk[0] * sf + Sk[1] * cf) });
+    });
+    // the claws: shoulder at the shell's front corner, the wrist set by the pose (floor u, v, z), the elbow out to the side; the pincer
+    // points ahead and a little in; its movable finger opens on o.open
+    const claw = (side, P) => { const [us, vs] = UV(RG.claw[0], RG.claw[1], -side), out = side, Sh = [us + bx, vs + by], W = [Sh[0] + 0.5 * (a1 + a2) * Math.cos(0.45) + P.u, Sh[1] + out * (0.5 * (a1 + a2) * Math.sin(0.45) + P.v)], dx0 = W[0] - Sh[0], dy0 = W[1] - Sh[1];
+      // the reach eased into its limit, never met: an arm pulled straight sweeps its elbow across in a frame (the IK's singularity)
+      const lim = (a1 + a2) * 0.86, d0 = Math.hypot(dx0, dy0) || 1, dd = d0 < 0.6 * lim ? d0 : lim - 0.4 * lim * Math.exp(-(d0 - 0.6 * lim) / (0.4 * lim)), dx = dx0, dy = dy0, b0 = Math.atan2(dy, dx);
+      const a = Math.acos(Math.max(-1, Math.min(1, (a1 * a1 + dd * dd - a2 * a2) / (2 * a1 * dd)))), ea = b0 + out * a, E = [Sh[0] + Math.cos(ea) * a1, Sh[1] + Math.sin(ea) * a1];
+      const Wr = [E[0] + Math.cos(Math.atan2(W[1] - E[1], W[0] - E[0])) * a2, E[1] + Math.sin(Math.atan2(W[1] - E[1], W[0] - E[0])) * a2], ha = -out * (P.in ?? 0.2), hl = len(RG.hand, CRAB.claw);
+      const End = [Wr[0] + Math.cos(ha) * hl, Wr[1] + Math.sin(ha) * hl], z0 = zB * 0.8, zw = P.z;
+      return { side, out, Sh: S2(Sh[0], Sh[1], z0), E: S2(E[0], E[1], (z0 + zw) / 2), W: S2(Wr[0], Wr[1], zw), End: S2(End[0], End[1], zw + (P.tip || 0)), open: P.open || 0, depth: Wr[0] * sf + Wr[1] * cf }; };
+    const CL = o.claws || ((side) => ({ u: 0, v: 0 }));
+    const claws = [1, -1].map((side) => { const p = CL(side); return claw(side, { u: p.u || 0, v: p.v || 0, z: zB * 0.75 + (p.z || 0), open: p.open, in: p.in ?? 0.55, tip: p.tip }); });
+    const drawClaw = (g) => { const U = g.depth < 0 ? o.Ufar : o.U, fl = g.side < 0; seg('crab__armA', RG.armA, g.Sh, g.E, !fl, U, CRAB.arm); seg('crab__armB', RG.armB, g.E, g.W, !fl, U, CRAB.arm);
+      const H0 = RG.hand, F0 = RG.finger, sc = s * CRAB.claw, want = Math.atan2(g.End[1] - g.W[1], g.End[0] - g.W[0]), k = Math.max(0.3, Math.hypot(g.End[0] - g.W[0], g.End[1] - g.W[1]) / len(H0, CRAB.claw)), a0 = ang(H0.root, H0.end);
+      const hm = [M.t(g.W[0], g.W[1]), M.r(want), M.s(k, fl ? 1 : -1), M.r(-a0)];
+      L.sprite('crab__hand', 0, 0, { m: M.of(...hm), w: H0.w * sc, h: H0.h * sc, pivot: [H0.root[0] * sc, H0.root[1] * sc], u: U });
+      const th = ang(H0.hinge, H0.end) - 0.75 * g.open;
+      L.sprite('crab__finger', 0, 0, { m: M.of(...hm, M.t((H0.hinge[0] - H0.root[0]) * sc, (H0.hinge[1] - H0.root[1]) * sc), M.r(th), M.s(0.88, 1), M.r(-ang(F0.root, F0.end))), w: F0.w * sc, h: F0.h * sc, pivot: [F0.root[0] * sc, F0.root[1] * sc], u: U }); };
+    for (const g of [...legs].sort((p, q) => p.depth - q.depth)) { const U = g.depth < 0 ? o.Ufar : o.U, fl = g.side < 0; seg('crab__legA', RG.legA, g.Sk, g.K, fl, U, CRAB.leg); seg('crab__legB', RG.legB, g.K, g.T, fl, U, CRAB.leg); }
+    for (const g of claws) if (g.depth < 0) drawClaw(g);
+    const B = S2(bx, by, zB);
+    L.sprite('crab__body', 0, 0, { m: M.of(M.t(B[0], B[1]), M.s(1, qy), M.r(fa + Math.PI / 2)), w: RG.w * s, h: RG.h * s, pivot: [c[0] * s, c[1] * s], u: o.U });
+    for (const g of claws) if (g.depth >= 0) drawClaw(g);
+    const J = (nm, p) => L.joint(o.id, nm, p), fr = UV(RG.front[0], RG.front[1]);
+    const sa = (c[1] - RG.front[1]) * s, sb = (RG.w / 2) * s * 0.85, ext = Math.hypot(sa * sf, sb * cf) * qy;   // the shell's far edge on screen: its top
+    J('ground', root); J('top', [B[0], B[1] - ext]); J('head', S2(fr[0] + bx, by, zB)); J('hip', B);
+    legs.forEach((g, i) => { J('foot' + i, g.T); J('knee' + i, g.K); });
+    for (const g of claws) { const n = g.side > 0 ? 'L' : 'R'; J('hand' + n, g.W); J('claw' + n, g.End); J('elbow' + n, g.E); }
+    return { s };
+  }
+  MON.crabLeg = () => { const RG = RIGS.crab; return RG ? (d2(RG.legA.root, RG.legA.end) + d2(RG.legB.root, RG.legB.end)) * CRAB.leg : 0; };
 
   // ---------------- the merchant: behind his counter, facing the camera; the counter hides his legs ----------------
   // o: { id, x, y, H, t, look (−1..1, where the hero stands), near (0..1), greetT, tradeT, U }
@@ -324,6 +390,29 @@
         base.arm = (side, b) => { const r = lerp(-2.3 + (side === 'L' ? 0.25 : 0), b, SS(0.45, 1, k)); return [r, r + lerp(0.5, 0.18, SS(0.45, 1, k))]; };
       }
       biped(base); return true; }
+    if (n === 'crab') {
+      const u = GT - e.t0, R0 = E.rush, ew = (e.rush ? R0.wind : E.wind) * DATA.eliteK(e, 'wind'), Hh = H;
+      const c = Object.assign(base, { fa: e.fa ?? (face > 0 ? 0 : Math.PI) });
+      // a blow off the armour drives the claws back (they took it); one past it rocks the shell back
+      const hA = GT - (e.armT ?? -9), ra = hA >= 0 ? SS(0, 0.1, hA) * (1 - SS(0.16, 0.45, hA)) : 0, rb = Math.abs((e.hitT ?? -9) - (e.armT ?? -9)) > 1e-6 ? ring(GT, e.hitT, 1, 4, 0.15) : 0;
+      c.bx = -0.05 * Hh * rb; let P = () => ({});
+      // at rest the claws now and then click: the finger opens a little and snaps back
+      const ck = (GT + e.id * 1.7) % (3.4 + (e.id % 3)), click = ck < 0.36 ? Math.sin(Math.PI * ck / 0.36) ** 2 : 0;
+      if (!live) { const dd = GT - e.deadT, q = SS(0, 0.5, dd); c.curl = q; c.dead = dd; P = () => ({ u: -0.08 * Hh * q, v: 0.12 * Hh * q, z: -0.12 * Hh * q, open: 0.7 * q, in: 0.55 - 0.7 * q }); }
+      else if (e.rush && (e.st === 'wind' || e.st === 'strike')) {
+        // the rush: it drops low on spread legs, claws drawn in tight before its face, and scuttles sideways; it rises as it stops
+        const k = e.st === 'wind' ? SS(0, ew, u) : 1 - SS(R0.t, R0.t + 0.2, u); c.low = k;
+        if (e.st === 'strike') { const g = SS(R0.t, R0.t + 0.2, u); c.vx *= g; c.vy *= g; }   // it skates on spread legs, no steps, until it stops
+        P = () => ({ u: -0.06 * Hh * k, v: -0.08 * Hh * k, z: -0.04 * Hh * k, open: 0, in: 0.55 + 0.2 * k }); }
+      else if (e.st === 'wind' || e.st === 'strike') {
+        // the pinch: both claws rise and spread open through the wind-up; the one on the hero's side shoots out and snaps shut on
+        // the strike's first frame, the other jabs half as far, then they settle back
+        const rel = Number.isFinite(e.tx) ? Math.atan2(e.ty - e.y, e.tx - e.x) - c.fa : 0, near = Math.sin(rel) >= 0 ? 1 : -1;
+        const k = e.st === 'wind' ? SS(0, ew, u) : 1, wl = ew + SIM.DT, T = e.st === 'wind' ? u - wl : u, x = SS(-0.1, 0.1, T), back = e.st === 'strike' ? SS(0.14, 0.32, u) : 0;   // the thrust spans the wind-up's end
+        P = (side) => { const m = side === near ? 1 : 0.5, j = x * (1 - back) * m, r = k * (1 - back);
+          return { u: -0.04 * Hh * r * (1 - x) + 0.2 * Hh * j - 0.06 * Hh * ra, v: 0.07 * Hh * r * (1 - x) - 0.06 * Hh * j, z: 0.2 * Hh * r * (1 - x) + 0.05 * Hh * j, open: r * (1 - x), in: 0.55 - 0.6 * r * (1 - x) - 0.1 * j }; }; }
+      else P = (side) => ({ u: -0.06 * Hh * ra + 0.012 * Hh * Math.sin(GT * 1.6 + side + e.id), z: 0.01 * Hh * Math.sin(GT * 1.3 + side * 2 + e.id), open: 0.35 * click * (side > 0 ? 1 : 0.6) });
+      c.claws = P; crab(c); return true; }
     if (n === 'spider') {
       base.crown = e.type === 'boss_spider';
       const ew = DATA.BOSSES[e.type] ? DATA.bossMove(e).wind : E.wind * DATA.eliteK(e, 'wind'), u = GT - e.t0;

@@ -1,0 +1,3 @@
+[
+ {"name": "crab_parts_sheet", "prompt": "art/prompts/crab_parts.txt", "ref": ["art/gen/en_crab.png=the approved monster: design, colours and pixel size"], "size": "1536x1024", "alpha": "auto"}
+]

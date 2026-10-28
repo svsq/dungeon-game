@@ -1,0 +1,7 @@
+Use case: a cut-out rig part sheet for an enemy of a top-down dungeon action game. Image 1 is the style reference only. Image 2 is the approved monster: copy its design, colours, proportions, pixel size and outline exactly.
+Subject: the SAME armoured crab as Image 2, seen from straight above as in Image 2, split into separate parts laid out with wide empty gaps (at least half a part's width) between them, all at the same scale as Image 2, each part complete (including the areas normally hidden by other parts):
+1) the shell (carapace) alone WITHOUT any legs and WITHOUT the claws, its front with the two eye stalks pointing UP, with small clean round leg sockets along its sides;
+2) one walking leg straightened out horizontally: the thick upper segment at the left (its socket end), the knee joint, and the lower segment with the dark pointed tip at the right;
+3) one claw arm straightened out horizontally: the two short thick segments from the socket (left) to the wrist (right), WITHOUT the pincer;
+4) one pincer (the big armoured claw hand) lying horizontally, pointing RIGHT: the knobbly bone-plated palm at the left with its fixed lower finger, and its movable upper finger drawn SEPARATELY right above it with a small gap, both pointing right.
+Constraints: exactly 5 separate pieces, nothing touching, no shadow, no floor, no labels.

@@ -15,12 +15,12 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, 
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
 // before a fireball; shield: cast below this share of HP; focus: casters first; kite: backs off with low HP and no potion;
 // gift: highest altar tier taken; step: walks back out of a wind-up's reach while the dash recharges; traps: keeps off a spike
-// plate that is up or about to rise
+// plate that is up or about to rise; flank: share of armoured crabs it walks round to strike off the armour (the rest it hacks at the front)
 const PROFILES = {
-  novice: { react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, stats: ['str', 'vit', 'agi', 'int'] },
-  average: { react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  expert: { react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  mage: { react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
+  novice: { flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, stats: ['str', 'vit', 'agi', 'int'] },
+  average: { flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  expert: { flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  mage: { flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
 };
 
 function rng(seed) { let a = seed >>> 0; const draw = () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -98,11 +98,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : E.wind * D.eliteK(e, 'wind'), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster') continue;
-      const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : E.r + HR + E.reach * 1.25 + 24;
+      const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
       if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
-      if (e.st === 'bwind' && e.mv !== 'slam') dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
+      if ((e.st === 'bwind' && e.mv !== 'slam') || e.rush) dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
     if (!ready) return;
     // an explosive elite's corpse: out of its reach before the fuse is out
     for (const e of R.en) { if (!e.fuse || t - e.deadT < P.react || seen.has('f' + e.id)) continue; seen.add('f' + e.id);
@@ -124,6 +124,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!dx && !dy) return; const nx = h.x + dx * 28, ny = h.y + dy * 28;
     if (traps.some((tr) => onPl(nx, ny, tr) && !onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.45))) inp.left = inp.right = inp.up = inp.down = 0;
   }
+  // which way round a crab to go (+1 / −1) while the hero stands within its armour's arc (a little wider, it turns as he goes), else 0
+  const armFront = (e) => { const E = D.ENEMIES[e.type]; if (!E.armor || !(P.flank > 0) || ((Math.imul(e.id + 1, 2654435761) ^ seed) >>> 0) % 1000 / 1000 >= P.flank) return 0;
+    const h = S.run.hero, fa = e.fa ?? (e.face > 0 ? 0 : Math.PI); let r = Math.atan2(h.y - e.y, h.x - e.x) - fa; r = Math.atan2(Math.sin(r), Math.cos(r));
+    return Math.abs(r) < E.armor.arc + 0.35 ? (r >= 0 ? 1 : -1) : 0; };
   function fight(S, R, inp, live, st, walkD) {
     const h = R.hero, dist = (e) => Math.hypot(e.x - h.x, e.y - h.y);
     // the nearest by the walk, not the crow: two foes about as far in a straight line but round a wall from each other swap
@@ -141,8 +145,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
     if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
     else { const round = pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
-      if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round); else inp.press = 1; }
-    if (h.ab.fireball && td > 140 && td < 330 && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)) inp.slot = 2;
+      // a crab's armour faces the hero (TASKS 309): from before it, circle round it close, inside its rush and toward its back, and
+      // strike only once off its armour; a blow on the armour does a fifth
+      const fr = armFront(tg);
+      if (fr && !round && td < 260) { const ah = Math.atan2(h.y - tg.y, h.x - tg.x), Rc = E.r + HR + 16, a2 = ah + fr * 0.7, px = tg.x + Math.cos(a2) * Rc, py = tg.y + Math.sin(a2) * Rc;
+        steer(inp, (px - h.x) / (Math.hypot(px - h.x, py - h.y) || 1), (py - h.y) / (Math.hypot(px - h.x, py - h.y) || 1)); }
+      else if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round); else inp.press = 1; }
+    if (h.ab.fireball && !armFront(tg) && td > 140 && td < 330 && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)) inp.slot = 2;
     if (h.cd.whirl <= S.t && live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= P.whirl) inp.slot = 1;
     if (P.shield && h.ab.shield && h.cd.shield <= S.t && h.mp >= D.ABILITIES.find((a) => a.id === 'shield').mp && h.hp < st.maxHp * P.shield) inp.slot = 3;
     if (P.mp && h.mp < 12 && td < 330 && held(h, 'mp_potion')) inp.keys.push('KeyR');

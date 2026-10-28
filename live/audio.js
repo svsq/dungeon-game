@@ -68,12 +68,18 @@
     snuff: (o) => noise(o, { d: 0.18, v: 0.1, type: 'highpass', f0: 3200, f1: 1500 }),
     hollow: (o) => { tone(o, { f0: 85, f1: 65, d: 0.28, v: 0.35 }); noise(o, { d: 0.25, v: 0.2, f0: 240, q: 6 }); },
     merchantHit: (o) => { tone(o, { type: 'triangle', f0: 170, f1: 250, d: 0.12, v: 0.18 }); noise(o, { d: 0.09, v: 0.12, type: 'lowpass', f0: 700 }); },
-    hit: (o, e) => { tone(o, { f0: e.crit ? 180 : 150, f1: 55, d: 0.12, v: 0.5 }); noise(o, { d: 0.06, v: 0.3, type: 'highpass', f0: 1800 });
+    // a blow off the crab's armour (TASKS 309) rings like struck iron, with no thud of flesh under it: the player hears it is wasted
+    clang: (o, e) => { noise(o, { d: 0.03, v: 0.35, type: 'highpass', f0: 3500 }); for (const [f, v, d] of [[1180, 0.13, 0.5], [1730, 0.09, 0.38], [2610, 0.06, 0.3], [3390, 0.04, 0.22]]) tone(o, { type: 'triangle', f0: f * (e.crit ? 1.06 : 1), f1: f * 0.985, a: 0.003, d, v });
+      tone(o, { f0: 260, f1: 180, d: 0.08, v: 0.12 }); },
+    pinch: (o) => { noise(o, { d: 0.04, v: 0.3, type: 'highpass', f0: 2600 }); tone(o, { type: 'square', f0: 900, f1: 500, d: 0.035, v: 0.05 }); noise(o, { t: now() + 0.02, d: 0.06, v: 0.15, f0: 1400, q: 5 }); },
+    rush: (o) => { for (let i = 0; i < 9; i++) noise(o, { t: now() + i * rr(0.035, 0.05), d: 0.025, v: 0.13, f0: rr(1800, 3200), q: 5 }); noise(o, { a: 0.02, d: 0.35, v: 0.12, type: 'lowpass', f0: 600, f1: 250 }); },
+    hit: (o, e) => { if (e.arm) return SFX.clang(o, e); tone(o, { f0: e.crit ? 180 : 150, f1: 55, d: 0.12, v: 0.5 }); noise(o, { d: 0.06, v: 0.3, type: 'highpass', f0: 1800 });
       if (e.crit) tone(o, { type: 'triangle', f0: 1900, d: 0.25, v: 0.12 }); if (e.fire) noise(o, { d: 0.25, v: 0.2, type: 'highpass', f0: 3000 }); },
     kill: (o, e) => { tone(o, { f0: 110, f1: 40, d: 0.25, v: 0.45 });
       if (e.type === 'skeleton' || e.type === 'brute') for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.04 + i * rr(0.03, 0.06), d: 0.03, v: 0.18, f0: rr(1800, 3500), q: 6 });
       else if (e.type === 'ghost') tone(o, { type: 'triangle', f0: 700, f1: 180, a: 0.05, d: 0.6, v: 0.15 });
       else if (e.type === 'slime' || e.type === 'slime_s') SFX.squelch(o, { big: e.type === 'slime' });
+      else if (e.type === 'crab') { for (let i = 0; i < 4; i++) noise(o, { t: now() + i * rr(0.03, 0.06), d: 0.04, v: 0.22, f0: rr(900, 1600), q: 4 }); noise(o, { t: now() + 0.12, d: 0.3, v: 0.15, type: 'lowpass', f0: 500, f1: 120 }); }
       else if (e.type === 'drowned') { SFX.splash(o); noise(o, { t: now() + 0.25, d: 0.35, v: 0.22, type: 'lowpass', f0: 700, f1: 150 }); }
       else noise(o, { d: 0.18, v: 0.2, type: 'lowpass', f0: 900, f1: 200 }); },
     hurt: (o) => { tone(o, { f0: 120, f1: 50, d: 0.16, v: 0.55 }); tone(o, { type: 'sawtooth', f0: 210, f1: 150, a: 0.01, d: 0.14, v: 0.06 }); noise(o, { d: 0.08, v: 0.2, f0: 700, q: 2 }); },
