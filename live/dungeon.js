@@ -425,6 +425,30 @@
         c.posts = [];
         for (const e of [0, 1]) for (const side of [0, 1]) { const a = e ? (u1 + 1) * TILE - 6 : u0 * TILE + 6, b = side ? (v0 + 2) * TILE + 2 : v0 * TILE + 4;
           c.posts.push({ x: hor ? a : side ? (v0 + 2) * TILE + 4 : v0 * TILE - 4, y: hor ? b : a + (e ? 8 : 2), fire: lit.includes(e) ? 1 : 0, near: side }); } } }
+    const serpentPools = [], floodCells = [];
+    if (bossType === 'boss_serpent') {
+      for (const [dx, dy] of [[0, -3], [-5, 2], [4, 2]]) {
+        const cx = exitR.cx + dx, cy = exitR.cy + dy, body = [];
+        for (let y = cy - 3; y <= cy + 3; y++) for (let x = cx - 3; x <= cx + 3; x++) {
+          if (Math.hypot((x - cx) / 3, (y - cy) / 2.3) > 1) continue;
+          const k = y * W + x; set(x, y, 1); body.push(k); addWater(k);
+        }
+        const pool = new Set(body), deep = body.filter((k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].every((d) => pool.has(k + d)));
+        if (deep.length < 2) return null;
+        for (const k of deep) { cells[k] = 6; wet.delete(k); water.splice(water.indexOf(k), 1); }
+        serpentPools.push(deep);
+      }
+      for (let y = exitR.y + 1; y < exitR.y + exitR.h - 1; y++) for (let x = exitR.x + 1; x < exitR.x + exitR.w - 1; x++) {
+        const k = y * W + x;
+        if (at(x, y) === 1 && !wet.has(k) && Math.hypot(x - exitR.cx, y - exitR.cy - 4) > 2 && [1, -1, W, -W].some((d) => wet.has(k + d))) floodCells.push(k);
+      }
+      tidy();
+      for (let pass = 0; pass < 8; pass++) { const runs = straightRuns(cells, W, H, shopCorner); if (!runs.length) break;
+        for (const q of runs) { const x = q.x + q.dx * (q.n >> 1) + q.nx, y = q.y + q.dy * (q.n >> 1) + q.ny; set(x, y, 1); }
+        tidy();
+      }
+      if (!connected()) return null;
+    }
     // ---- secret rooms: anywhere off a straight stretch of wall (a room's or a corridor's, any side but the shop's), a small room
     // behind a two-cell-thick fake wall (cell 4: solid, drawn as rock, breaks under blows) and a short passage. How many is
     // left to chance (1–10, fewer when the rock has no room for them; none at all only on the boss's floor, and rarely), so the
@@ -518,8 +542,7 @@
         if (lk) { for (const d of lk[1]) { d.lock = 0; doors.push(d); } locks.push({ room: lk[0].id, kind: '', open: 0 }); lk[0].locked = lk[0].doors = 1; if (lk[0].w >= 8 && R() < 0.35) lk[0].trap = 1; } }
       let n = 0; const want = ri(1, 3) + (depth >= 4 ? 1 : 0);
       for (const [r, ds] of cand) { if (n >= want) break; if (r.locked || clash(ds)) continue; r.doors = 1; doors.push(...ds); n++; } }
-    // the cave's boss hall is not sealed by doors yet (its arena is TASKS 313)
-    if (boss && !cave) {
+    if (boss) {
       const key = (x, y) => y * W + x;
       const inR = (x, y) => x >= exitR.x && x < exitR.x + exitR.w && y >= exitR.y && y < exitR.y + exitR.h;
       const mouths = new Map();
@@ -814,7 +837,8 @@
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
         if (guard) { const p = spot(r, 2); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
-      if (r.type === 'boss') { addEnemy(bossType, r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
+      if (r.type === 'boss') { if (bossType === 'boss_serpent') { const k = serpentPools[0][0]; enemies.push({ type: bossType, x: wx(k % W), y: wy(Math.floor(k / W)), room: r.id, elite: 1 }); }
+        else addEnemy(bossType, r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
       // chests
       // a locked room pays for its key: one chest of the secret rooms' tier and another of the hoards', often a heap of gold
       const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.2 ? 1 : 0);
@@ -1102,7 +1126,7 @@
     // a fountain's basin stands on the floor, three cells wide; a stream's culvert is in the wall (TASKS 230)
     for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
     return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora };
+      bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
   }
 
   // room index of a world point (or -1 in a corridor)

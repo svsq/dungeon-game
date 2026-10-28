@@ -543,7 +543,7 @@
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.96);
     lab('e_t', win ? 'ПОБЕДА' : r.abandoned ? 'ЗАБЕГ ЗАВЕРШЁН' : 'ВЫ ПОГИБЛИ', W / 2, 100, { size: 76, al: 0.5, col: win ? C.gold : '#d8402a' });
-    lab('e_s', win ? 'Повелитель Демонов повержен. Путь на поверхность свободен.' : 'Подземелье забрало ещё одного героя. Но души помнят…', W / 2, 164, { size: 26, al: 0.5, col: C.dim });
+    lab('e_s', win ? (r.mode === 'cave' ? 'Глубинный змей повержен. Путь из пещер свободен.' : 'Повелитель Демонов повержен. Путь на поверхность свободен.') : 'Подземелье забрало ещё одного героя. Но души помнят…', W / 2, 164, { size: 26, al: 0.5, col: C.dim });
     panel('e_story', 200, 220, 420, 650, { r: 10 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {
       const words = String(s).split(' '), lines = []; let line = '';

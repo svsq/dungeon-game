@@ -52,11 +52,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] = initial.vars;
     rand.state(initial.rng); for (const event of S.ev) counted.add(event);
     const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;
-    const sc = D.BAL.hp * hpScale * (1 + 0.5 * (R.floor - 1)), dc = D.BAL.dmg * 1.35 * D.dmgAt(R.floor);
+    const depth = R.floor + D.runOf(R.mode).depth, sc = D.BAL.hp * hpScale * (1 + 0.5 * (depth - 1)), dc = D.BAL.dmg * 1.35 * D.dmgAt(depth);
     for (const e of R.en) {
       const E = D.ENEMIES[e.type], boss = !!D.BOSSES[e.type], guard = e.guard && D.runOf(R.mode).guard[R.floor], gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, gh = (typeof guard === 'object' ? guard.hp : guard) || 1;
       const health = e.hp / e.max; e.max = Math.round(E.hp * sc * (e.elite && !boss ? D.eliteK(e, 'hp') : 1) * gh); e.hp = e.max * health;
-      e.dmg = E.dmg * dc * (boss ? D.dmgAt(R.floor, 1) / D.dmgAt(R.floor) : 1) * (!e.elite ? 1 : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd;
+      e.dmg = E.dmg * dc * (boss ? D.dmgAt(depth, 1) / D.dmgAt(depth) : 1) * (!e.elite ? 1 : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd;
     }
   }
   const fresh = () => ({ seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
@@ -94,15 +94,15 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       // a boss is dodged only on the moves that strike with its body (the volley is read bolt by bolt below); the slam that follows
       // a charge the hero got out of is a pattern a player learns, met without waiting to see it wind up (TASKS 227)
-      if (e.st === 'bwind' && (!['slam', 'charge'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
+      if (e.st === 'bwind' && (!['slam', 'charge', 'bite', 'tail', 'wave'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
-      const range = e.st === 'bwind' ? (e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
+      const range = e.st === 'bwind' ? (['bite', 'tail'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
       if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
-      if ((e.st === 'bwind' && e.mv !== 'slam') || e.rush) dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
+      if ((e.st === 'bwind' && !['slam', 'tail', 'bite'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
     if (!ready) return;
     // an explosive elite's corpse: out of its reach before the fuse is out
     for (const e of R.en) { if (!e.fuse || t - e.deadT < P.react || seen.has('f' + e.id)) continue; seen.add('f' + e.id);
@@ -144,6 +144,14 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
     if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
+    else if (E.deep) {
+      if (Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) <= st.reach + E.r + HR - 8) inp.press = 1;
+      else { const m = R.map, F = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1); let best = null;
+        for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = (Math.floor(tg.x / T) + i + 0.5) * T, y = (Math.floor(tg.y / T) + j + 0.5) * T, k = Math.floor(y / T) * m.W + Math.floor(x / T);
+          if (F[k] < 0 || m.cells[k] !== 1 || Math.hypot(x - tg.x, (y - tg.y) * 1.25) > st.reach + E.r + HR - 12) continue;
+          if (!best || F[k] < best.d) best = { x, y, d: F[k] }; }
+        if (best) walk(R, inp, best.x, best.y); }
+    }
     else { const round = pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
       // a crab's armour faces the hero (TASKS 309): from before it, circle round it close, inside its rush and toward its back, and
       // strike only once off its armour; a blow on the armour does a fifth
@@ -200,8 +208,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
     const st = SIM.stats(h, S.meta), inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, px: 960, py: 540, keys: [], slot: 0 };
-    const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1).slice(), reach = (o) => [0, 1, -1, m.W, -m.W].some((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d] >= 0);
-    const walkD = (o) => T * Math.min(...[0, 1, -1, m.W, -m.W].map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9);
+    const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1).slice(), offsets = (o) => D.ENEMIES[o.type]?.deep ? [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => j * m.W + i)) : [0, 1, -1, m.W, -m.W];
+    const reach = (o) => offsets(o).some((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d] >= 0);
+    const walkD = (o) => T * Math.min(...offsets(o).map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9);
     // a monster behind a door still locked can't be fought, nor an eel under its water (TASKS 310)
     const live = R.en.filter((e) => e.deadT < 0 && !D.under(e) && reach(e)), awake = live.filter((e) => e.st !== 'idle' && e.st !== 'home');
     const near = live.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 260), late = R.floor < D.runOf(R.mode).floors && S.t - tF > 200;

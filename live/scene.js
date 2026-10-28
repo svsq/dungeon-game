@@ -400,7 +400,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // the fire biome's tops are dark basalt instead (its seams smoulder in LIT), so it no longer reads as the dungeon gone brown
   const TOP_LIFT = 1.45, topTint = (B) => (B.lava ? [0.8, 0.66, 0.62, 1] : [0.95, 0.97, 1.04, 1]);
   function bake(m) {
-    const key = m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : q.hp)).join(''); if (BAKE.key === key) return; BAKE.key = key;
+    const key = mapKey(m) + ':' + (m.secrets || []).map((q) => q.hp).join(''); if (BAKE.key === key) return; BAKE.key = key;
     const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome];
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
       BAKE.tg = G.target(MW, MH, false);
@@ -486,7 +486,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // edges and rounds their corners
   const MASKS = {};
   // a map's key with its secrets' state: an unfound secret room is rock to the masonry and the abyss, found it gets its rim
-  const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
+  const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + (m.geometry || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
   // R: the soft mask; G, B (vec, optional): a direction per cell (x, y in -1..1) around 0.5, not blurred: the shader reads its cell's
   // own with texelFetch
   function maskTex(m, name, has, vec, passes = 2) {
@@ -828,7 +828,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
   const modCol = (e, j = 0) => e.mods && e.mods.length ? D.ELITE_MODS.find((m) => m.id === e.mods[j % e.mods.length]).col : ELITE;
-  const EN_TEX = { boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage' };
+  const EN_TEX = { boss_serpent: 'serpent__body', boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage' };
   // per frame: the rim colour of the floor's fire, and the cultists' free hands (view px) for their glow
   const ARROW_H = 32;
   // and the skeleton mages' pearls and gathering hands (TASKS 311): [pearl, palm, gather 0..1]
@@ -916,6 +916,73 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const jt = M.ap(M.of(M.r(rot), M.s(kj, kj)), [J.tip[0] - J.hinge[0], J.tip[1] - J.hinge[1]]);
     L.joint('en' + e.id, 'ground', [x, y]); JT('top', fwd([RG.hinge[0] - 60, 40])); JT('head', fwd(RG.snout)); JT('jaw', [Hj[0] + jt[0], Hj[1] + jt[1]]);
   }
+  function drawSerpent(e, E, x, y, GT, t, o) {
+    if (e.st === 'idle') return;
+    const RG = RIGS.serpent, RB = RIGS.serpent__body, RT = RIGS.serpent__tail, B = D.BOSSES[e.type], u = GT - e.t0, dead = e.deadT >= 0 ? GT - e.deadT : -1;
+    if (dead > 1.6) return;
+    const f = e.face || 1, s = 168 / RG.h, col = [0.45, 0.72, 0.76];
+    if (dead < 0 && (e.st === 'deep' || e.st === 'stir')) {
+      if (e.st === 'stir') { const q = SS(0, B.warn, u);
+        for (let j = 0; j < 6; j++) L.shadow(x + Math.cos(j * 0.8 + t) * (20 + 18 * q), y + Math.sin(j * 0.8 + t) * 12, 25, 9, 0.4 + 0.3 * q);
+        for (let j = 0; j < 15; j++) { const q1 = (u * 2 + j / 15) % 1, a = j * 2.4, r = 12 + 38 * rnd(e.id, j);
+          L.ring(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.4, 1 + 5 * q1, 1 + 3 * q1, col, 0.8 * (1 - q1), 0.35); }
+      }
+      L.joint('en' + e.id, 'ground', [x, y]); return;
+    }
+    const sub = dead >= 0 ? SS(0.35, 1.5, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
+    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : 0;
+    const snap = attacking ? SS(w - 0.1, w + 0.09, u) * (1 - SS(w + 0.15, w + Mv.duration, u)) : 0;
+    const hit = dead < 0 ? 0.12 * SS(0, 0.06, GT - e.hitT) * (1 - SS(0.12, 0.35, GT - e.hitT)) : 0;
+    let base = 0.045 * Math.sin(t * 1.4) - 0.15 * coil + 0.2 * snap + sub * 0.3;
+    let mid = 0.075 * Math.sin(t * 1.4 - 0.9) - 0.2 * coil + 0.25 * snap - hit;
+    let head = 0.08 * Math.sin(t * 1.4 - 1.8) + 0.2 * coil - 0.2 * snap - hit;
+    const bite = attacking && e.mv === 'bite' ? SS(w - 0.14, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
+    const [cMid, cBase] = RB.bones, cHead = bite > 0 ? RG.head : RB.bones[2];
+    if (bite > 0) {
+      const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, Mv.r / d), a = Math.max(-1.2, Math.min(1.2, Math.atan2(dy * 0.7, Math.abs(dx) + 1)));
+      const l1 = Math.hypot(cMid[0] - cBase[0], cMid[1] - cBase[1]), l2 = Math.hypot(cHead[0] - cMid[0], cHead[1] - cMid[1]), l3 = Math.hypot(RG.snout[0] - cHead[0], RG.snout[1] - cHead[1]);
+      const tx = dx * f * k / s - Math.cos(a) * l3, ty = (dy * k - 40) / s - Math.sin(a) * l3, len = Math.max(1, Math.min(l1 + l2 - 0.01, Math.hypot(tx, ty)));
+      const a1 = Math.atan2(ty, tx) - Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + len * len - l2 * l2) / (2 * l1 * len))));
+      const a2 = Math.atan2(ty - Math.sin(a1) * l1, tx - Math.cos(a1) * l1);
+      const b0 = a1 - Math.atan2(cMid[1] - cBase[1], cMid[0] - cBase[0]), b1 = a2 - Math.atan2(cHead[1] - cMid[1], cHead[0] - cMid[0]) - b0;
+      const b2 = a - Math.atan2(RG.snout[1] - cHead[1], RG.snout[0] - cHead[0]) - b0 - b1;
+      const mix = (a, b) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * bite;
+      base = mix(base, b0); mid = mix(mid, b1); head = mix(head, b2);
+    }
+    const forward = (p) => rotAbout(rotAbout(rotAbout(p, cHead, head), cMid, mid), cBase, base);
+    const mouth = forward(RG.snout), pin = attacking && e.mv === 'fan' ? SS(w - 0.2, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
+    const bx = x + pin * (50 * f - (mouth[0] - RG.base[0]) * s * f), by = y + 2 + sub * 145 + pin * (-92 - (mouth[1] - RG.base[1]) * s);
+    const mat = M.of(M.t(bx, by), M.s(f, 1)), at = (p) => M.ap(mat, [(p[0] - RG.base[0]) * s, (p[1] - RG.base[1]) * s]);
+    const cut = { cut: [y + 3 + bite * Math.max(0, e.ty - e.y), 4, 1] }, U = Object.assign({ alpha: o.alpha, grade: dead >= 0 ? [0.5, 0.65, 0, 1] : o.grade }, o.rim, cut);
+    const tailU = e.st === 'recover' ? w + Mv.duration + u : u, tailActive = e.mv === 'tail' && (attacking || (e.st === 'recover' && u < 0.3));
+    const tailK = tailActive ? SS(0, 0.4, tailU) * (1 - SS(w + Mv.duration, w + Mv.duration + 0.3, tailU)) : 0;
+    const tailSweep = tailActive ? SS(w - 0.08, w + 0.48, tailU) * Math.PI * 2 : 0;
+    const body = () => {
+      for (let j = 1; j >= 0; j--) { const a = Math.PI + j * 0.8, tx = x + Math.cos(a) * (60 + j * 32) * f, ty = y + Math.sin(a) * 20 + j * 12 + sub * 65;
+        const b = RT.bones[0], k = 0.14 + 0.12 * Math.sin(t * 2 - j) + 0.3 * snap;
+        const sweeping = tailK > 0, angle = e.aimA - Math.PI + tailSweep, r0 = Math.atan2(RG.tail.tip[1] - RG.tail.base[1], RG.tail.tip[0] - RG.tail.base[0]);
+        const mt = sweeping && !j ? M.of(M.t(tx + (x + Math.cos(angle) * 25 - tx) * tailK, ty + (y + Math.sin(angle) * 25 - ty) * tailK), M.s(f * (1 + 0.1 * tailK), 1 + 0.1 * tailK), M.r(Math.atan2(Math.sin(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0), Math.cos(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0)) * tailK)) : M.of(M.t(tx, ty), M.s(f * (j ? -0.75 : 1), j ? 0.75 : 1));
+        L.sprite('serpent__tail', 0, 0, { m: mt, w: RG.tail.w * s, h: RG.tail.h * s, pivot: RG.tail.base.map((v) => v * s), pad: 0.3,
+          u: Object.assign({}, U, sweeping ? { alpha: o.alpha * (j ? 1 - tailK : 1), cut: [y + 3 + 200 * tailK, 4, 1] } : {}, { wtex: G.tex('serpent__tail_w'), wsz: [RT.w, RT.h], bone0: [b[0] / RT.w, b[1] / RT.h, k, 1] }) });
+      }
+      if (bite > 0) {
+        const piece = (name, root, pos, a) => L.sprite('serpent__' + name, 0, 0, { m: M.of(mat, M.t((pos[0] - RG.base[0]) * s, (pos[1] - RG.base[1]) * s), M.r(a)),
+          w: RG.w * s, h: RG.h * s, pivot: root.map((v) => v * s), u: U });
+        piece('neckL', cBase, cBase, base);
+        piece('neckU', cMid, rotAbout(cMid, cBase, base), base + mid);
+        piece('head', cHead, rotAbout(rotAbout(cHead, cMid, mid), cBase, base), base + mid + head);
+      } else L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
+        u: Object.assign({}, U, { wtex: G.tex('serpent__body_w'), wsz: [RB.w, RB.h], bone0: [cMid[0] / RB.w, cMid[1] / RB.h, mid, 1], bone1: [cBase[0] / RB.w, cBase[1] / RB.h, base, 1], bone2: [cHead[0] / RB.w, cHead[1] / RB.h, head, 1] }) });
+    };
+    L.shadow(x, y + 2, 52 * (1 - sub), 14, 0.55 * (1 - sub));
+    L.inked(body, { r: 2, n: 8, col: o.INK, dy: 0, emit: true, rim: dead < 0 ? o.edgeOf() : null });
+    for (let j = 0; j < 3; j++) { const q = (t * 0.65 + j / 3) % 1; L.ring(x, y + 2, 28 + 45 * q, 10 + 15 * q, col, 0.6 * (1 - q) * (1 - sub), 0.06); }
+    if (e.openUntil > GT) for (let j = 0; j < 3; j++) L.star(x + (j - 1) * 17, y - 160 - 4 * Math.sin(t * 6 + j), 6, [0.85, 0.82, 0.5], 0.8);
+    L.joint('en' + e.id, 'ground', [x, y]); L.joint('en' + e.id, 'head', at(mouth)); L.joint('en' + e.id, 'top', at(forward(RG.top)));
+    if (bite > 0.999 && Math.abs(u - w) < 0.06) { const d = Math.hypot(e.tx - e.x, e.ty - e.y) || 1, k = Math.min(1, Mv.r / d); L.anchor('serpent_bite', [x + (e.tx - e.x) * k, y + (e.ty - e.y) * k - 38], at(mouth), 4); }
+    if (pin > 0.999 && Math.abs(u - w) < 0.06) { const [mx, my] = SIM.serpentMouth(e); L.anchor('serpent_mouth', [x + mx - e.x, y + my - e.y], at(mouth), 4); }
+    if (attacking && e.mv === 'wave' && Math.abs(u - w) < 0.06) L.anchor('serpent_wave', [x, y - 38], [x, y - 38], 2);
+  }
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
     const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3, hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
@@ -945,6 +1012,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const c = E.rim || lt.col, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
       return { dx: Math.round(2 * lt.dx / n), dy: Math.round(2 * lt.dy * 1.25 / n), col: c.map((v) => (g + 0.5 * (v - g)) * a) }; };
     const INK = [0.024, 0.02, 0.024];
+    if (E.kind === 'serpent') return drawSerpent(e, E, x, y, GT, t, { alpha, grade, rim, INK, edgeOf });
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
     const sub = submerged(e, E, GT), cut = sub > 0 ? { cut: [y + 3, 5, 1] } : {};
     if (sub > 0) lurkFx(e, x, y, t, sub);
@@ -1604,8 +1672,32 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         else for (const s of [-1, 1]) L.solid(Math.round((sx(q.x) + s * 7 * f) / PIX) * PIX, Math.round((sy(q.y) - 10 * Math.sin(Math.PI * Math.min(1, f * 1.6))) / PIX) * PIX, PIX, PIX, [0.5, 0.7, 0.75], 0, 0, 0, 0.6 * (1 - f)); }
       G.blend(); }
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
+    for (const e of R.en) { if (e.type !== 'boss_serpent' || e.deadT >= 0 || e.st !== 'bwind') continue;
+      const Mv = D.bossMove(e), u = GT - e.t0; if (u > Mv.wind) continue;
+      const q = SS(0, Mv.wind, u), x = sx(e.x), y = sy(e.y), col = [0.85, 0.5, 0.22], amt = 0.3 + 0.45 * q;
+      if (e.mv === 'tail' || e.mv === 'bite') { const arc = e.mv === 'tail' ? Math.PI : Mv.arc;
+        for (let j = 0; j < 96; j++) { const a = e.aimA - arc + j / 95 * 2 * arc, r = Mv.r * (0.95 + 0.025 * Math.sin(j * 2.3 + t * 7));
+          const len = Math.max(5, r * arc * 2 / 95 * 1.3);
+          L.solid(x + Math.cos(a) * r, y + Math.sin(a) * r, len + 3, 8, [0.08, 0.06, 0.04], a + Math.PI / 2, (len + 3) / 2, 4, amt);
+          L.solid(x + Math.cos(a) * r, y + Math.sin(a) * r, len, 4, col, a + Math.PI / 2, len / 2, 2, amt); }
+      } else { const [mx, my] = e.mv === 'fan' ? SIM.serpentMouth(e) : [e.x, e.y - 38], n = e.mv === 'fan' ? Mv.n : 1;
+        for (let j = 0; j < n; j++) { const a = e.aimA + (n > 1 ? (j / (n - 1) - 0.5) * Mv.spread * 2 : 0), len = Mv.reach;
+          L.solid(sx(mx), sy(my + (e.mv === 'fan' ? 82 : 28)), len, 3, col, a, 0, 1.5, amt * 0.6); }
+      }
+    }
+    for (const e of R.en) if (e.type === 'boss_serpent' && e.floodAt > GT) {
+      for (const k of m.floodCells) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+        L.ring(sx(x), sy(y), 11 + 3 * Math.sin(t * 8 + k), 5, [0.5, 0.8, 0.85], 0.5, 0.12); }
+    }
     // projectiles
     for (const p of R.proj) { if (p.own === 'hero' && p.k === 'fire' || p.k === 'arrow' || !known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
+      if (p.k === 'wave') { const ca = Math.cos(a), sa = Math.sin(a), age = GT - p.t0;
+        for (let j = -9; j <= 9; j++) { const v = j / 9, bend = 9 * (1 - v * v) + 3 * Math.sin(j * 1.7 + age * 16), X = x - sa * v * 34 + ca * bend, Y = y + ca * v * 34 + sa * bend;
+          L.shadow(X, Y + 32, 10, 5, 0.35);
+          for (let b = 2; b >= 0; b--) L.solid(X - ca * b * 6, Y - sa * b * 6 + b * 3, 7, 7 - b, b ? [0.18, 0.47, 0.53] : [0.65, 0.87, 0.9], a, 3.5, 3, (1 - 0.25 * Math.abs(v)) * (1 - b * 0.2));
+        }
+        continue;
+      }
       // an eel's jet (TASKS 310): a rope of water off its mouth, a bright head and drops strung out behind it that sag and thin out
       if (p.k === 'jet') { const age = GT - p.t0, back = Math.min(70, age * Math.hypot(p.vx, p.vy)), ca = Math.cos(a), sa = Math.sin(a);
         for (let j = 0; j < 9; j++) { const q = j / 8, d = back * q + 3 * Math.sin(t * 40 + j), w = 6 * (1 - 0.55 * q); L.solid(x - ca * d, y - sa * d + 8 * q * q, w + 3, w * 0.75, [0.42 + 0.35 * (1 - q), 0.7 + 0.2 * (1 - q), 0.82], a, (w + 3) / 2, w * 0.37, 0.9 * (1 - 0.75 * q)); }
@@ -2489,6 +2581,46 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     transitions.goblin_hit = eventT((S) => { lone('goblin')(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
     // a monster at its post, 2 s at 1/60 s: breathing, a turn and a shift about the spot
     const loops = {};
+    const serpentState = (fn) => play((S) => {
+      S.run = SIM.newRun(S, 'cave', 71); SIM.enterFloor(S, S.run, 4); const R = S.run, m = R.map, h = R.hero, b = R.en.find((e) => e.type === 'boss_serpent'), r = m.rooms[b.room];
+      h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 0.5) * TILE; h.ifr = 1e9; SIM.step(S, { px: 960, py: 540, keys: [] });
+      R.en = [b]; b.id = 990; const k = m.serpentPools[1][0];
+      Object.assign(b, { x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE, pool: 1, st: 'chase', cdT: S.t + 99, t0: S.t, face: 1, mv: 'wave', phase: 0, bit: 0 });
+      R.seen.fill(1); R.msg = null; R.trauma = 0; S.ev = []; R.cam = [b.x + 85 - VW / 2, b.y - 25 - VH / 2]; if (fn) fn(S, b);
+    });
+    const serpentFrames = (fn, n = 120) => { const frames = []; let S = serpentState(fn);
+      for (let i = 0; i < n; i++) { frames.push(S); S = structuredClone(S); for (let j = 0; j < 2; j++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return frames;
+    };
+    loops.serpent_idle = serpentFrames();
+    transitions.serpent_rise = serpentFrames((S, b) => { b.st = 'stir'; b.t0 = S.t - 0.3; });
+    transitions.serpent_dive = serpentFrames((S, b) => { b.st = 'dive'; b.t0 = S.t; });
+    transitions.serpent_death = serpentFrames((S, b) => { b.hp = 0; b.deadT = S.t; }, 95);
+    states.push(['serpent_arena', serpentState()]);
+    for (const mv of Object.keys(D.BOSSES.boss_serpent.moves)) {
+      const setup = (S, b) => { b.st = 'bwind'; b.mv = mv; b.t0 = S.t; b.fired = 0; b.hitDone = 0; b.tx = S.run.hero.x; b.ty = S.run.hero.y; b.face = b.tx >= b.x ? 1 : -1; b.aimA = Math.atan2(b.ty - b.y, b.tx - b.x);
+        if (mv === 'fan') { const [x, y] = SIM.serpentMouth(b); b.aimA = Math.atan2(S.run.hero.y - 38 - y, S.run.hero.x - x); }
+      };
+      transitions['serpent_' + mv] = serpentFrames(setup, 155);
+      states.push(['serpent_warn_' + mv, structuredClone(transitions['serpent_' + mv][Math.floor(D.BOSSES.boss_serpent.moves[mv].wind * 60 * 0.9)])]);
+      states.push(['serpent_attack_' + mv, structuredClone(transitions['serpent_' + mv][Math.floor((D.BOSSES.boss_serpent.moves[mv].wind + 0.12) * 60)])]);
+      if (mv === 'wave') states.push(['serpent_emit_wave', structuredClone(transitions.serpent_wave[52])]);
+      if (mv === 'fan') for (const face of [-1, 1]) {
+        const frames = serpentFrames((S, b) => { setup(S, b); b.face = face; const h = S.run.hero; h.x = b.x + face * 100; h.y = b.y;
+          const [x, y] = SIM.serpentMouth(b); b.aimA = Math.atan2(h.y - 38 - y, h.x - x);
+        }, 65);
+        states.push(['serpent_emit_fan_' + face, structuredClone(frames[61])]);
+      }
+    }
+    states.push(['serpent_punish_window', serpentState((S, b) => { b.st = 'recover'; b.openUntil = b.cdT = S.t + 2; })]);
+    for (let i = 0; i < 8; i++) states.push(['serpent_bite_aim_' + i, serpentState((S, b) => {
+      const a = i * Math.PI / 4; b.st = 'bwind'; b.mv = 'bite'; b.t0 = S.t - D.BOSSES.boss_serpent.moves.bite.wind - 0.01; b.aimA = a; b.face = Math.cos(a) >= 0 ? 1 : -1;
+      b.tx = b.x + Math.cos(a) * 100; b.ty = b.y + Math.sin(a) * 100; S.run.hero.x = b.tx; S.run.hero.y = b.ty;
+    })]);
+    transitions.serpent_flood = serpentFrames((S, b) => { b.hp = b.max * 0.5; }, 130);
+    states.push(['serpent_flood_warning', structuredClone(transitions.serpent_flood[45])]);
+    states.push(['serpent_flood', structuredClone(transitions.serpent_flood[100])]);
+    states.push(['serpent_emerge_warning', structuredClone(transitions.serpent_rise[30])]);
+    { const S = structuredClone(states.find(([name]) => name === 'win')[1]); S.result.mode = 'cave'; S.result.floor = 4; states.push(['win_cave', S]); }
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
     for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
@@ -2518,6 +2650,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
     const box = (name, S) => Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, W, H];
+      if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
       const e = (enCycles[name] || loops[name]) && R.en[0];
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
@@ -2628,7 +2761,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, ['hero__cape', 'hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR', 'hero__body_nh', 'hero__body_back_nh', 'hero__head_kn', 'hero__head_back_kn', 'hero__farmL_pl', 'hero__farmR_pl', 'it_shield_t']])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
       subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_').slice(0, -1).join('_'); return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1)) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
-      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'eel', 'boss'], loops, attacks, swings, impacts, transitions, box };
+      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'eel', 'serpent', 'boss'], loops, attacks, swings, impacts, transitions, box };
     calm(out); return out;
   };
 })();

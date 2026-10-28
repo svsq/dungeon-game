@@ -37,7 +37,8 @@
    "crab__*",
    "eel__*",
    "skel_archer__*",
-   "skel_mage__*"
+   "skel_mage__*",
+   "serpent__*"
   ],
   "skip": [
    "*_sheet",
