@@ -6,7 +6,7 @@
   const D = root.DATA || require('./data.js');
   const { TILE, ENEMIES } = D;
   // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
-  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5 };
+  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5, shroom: 5, shroom_a: 5, shroom_b: 5, crystal_cv: 6.5 };
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
   // (set by the sim), 6 deep water (blocks walking and knockback, not projectiles or sight)
   const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -554,6 +554,7 @@
     for (const r of rooms) if (r.type === 'shrine') claim(r.cx, r.cy, 'altar');   // the altar's cell first: props are placed around it
     // no corner of a room is left in the dark: while some floor cell lies outside every light's reach, light the cell
     // nearest to it, preferring a sconce on the top wall, then on a side wall, then a brazier, then candles
+    const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     const lightRoom = (r, extra, wallOnly) => {
       const inR = (o) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= (r.y - 1) * TILE && o.y < (r.y + r.h) * TILE;
       const lights = torches.filter((t) => t.r === r.id).map((t) => [t.x, t.y, LIGHT_R[t.kind]])
@@ -566,20 +567,29 @@
         for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) { const v = lights.length ? reach(x, y) : 9; if (v > 1 && (!dark || v > dark[2])) dark = [x, y, v]; }
         if (!dark) break;
         const cand = [];
+        // a cave is lit by its glowing mushrooms and crystals (TASKS 305): mushrooms grow by the rock and the water and, failing
+        // that, out on the floor; a crystal stands against a straight bit of wall with open floor round it, so it never closes a
+        // way; every other light leans to crystals. A sconce is the last resort: the cave's few torches are the people's
+        const glass = cave && R() < 0.4 ? -0.8 : 2;
+        if (cave) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { if (!free(x, y) || doorway(x, y)) continue;
+          const rock = N4.filter(([dx, dy]) => at(x + dx, y + dy) === 0), shoreBy = N4.some(([dx, dy]) => wet.has((y + dy) * W + x + dx));
+          cand.push([x, y, rock.length || shoreBy ? 0 : 1.5, { x: wx(x), y: wy(y), n: 'shroom', r: r.id, cell: [x, y] }]);
+          if (rock.length !== 1) continue; const [dx, dy] = rock[0], open = [-1, 0, 1].every((s) => [1, 2].every((d) => at(x - dx * d + dy * s, y - dy * d + dx * s) === 1 && !used.has(key(x - dx * d + dy * s, y - dy * d + dx * s))));
+          if (open && at(x + dy, y + dx) === 1 && at(x - dy, y - dx) === 1 && roomy(x, y, 'crystal_cv')) cand.push([x, y, glass, { x: wx(x), y: wy(y), n: 'crystal_cv', solid: 1, r: r.id, cell: [x, y], big: 1 }]); }
         // a cave's walls run anywhere through its box: every wall its floor meets can carry a sconce
         for (const ty of cave ? Array.from({ length: r.h }, (_, i) => r.y + i) : [r.y]) for (let x = r.x; x < r.x + r.w; x++) if (!at(x, ty - 1) && at(x, ty) === 1 && !doorway(x, ty) && !tallAt(wx(x), ty, HANG.wall) && !doorTop(wx(x), ty, HANG.wall) && !torches.some((t) => t.kind === 'wall' && Math.abs(t.x - wx(x)) < 2 * TILE && Math.abs(t.y - ty * TILE) < TILE) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - wx(x)) < 1.5 * TILE && Math.abs(d.y - ty * TILE) < TILE))
-          cand.push([x, ty, 0, { x: wx(x), y: ty * TILE - 26, kind: 'wall', r: r.id }]);
+          cand.push([x, ty, cave ? 4 : 0, { x: wx(x), y: ty * TILE - 26, kind: 'wall', r: r.id }]);
         const sides = cave ? Array.from({ length: r.w }, (_, i) => [[r.x + i, -1], [r.x + i, 1]]).flat() : [[r.x, -1], [r.x + r.w - 1, 1]];
         for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of sides) if (!at(x + s, y) && (free(x, y) || shore.has(key(x, y)) || wet.has(y * W + x)) && !doorway(x, y))   // a sconce hangs on the wall: a lava shore or water under it is no matter
-          cand.push([x, y, 0.5, { x: s < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: s, r: r.id, cell: [x, y] }]);
-        for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (!wallOnly && free(x, y) && !doorway(x, y)) {
+          cand.push([x, y, cave ? 4.5 : 0.5, { x: s < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: s, r: r.id, cell: [x, y] }]);
+        if (!cave) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (!wallOnly && free(x, y) && !doorway(x, y)) {
           if (r.type !== 'start' && roomy(x, y, 'brazier')) cand.push([x, y, 1.5, { x: wx(x), y: wy(y), kind: 'brazier', r: r.id, cell: [x, y], big: 1 }]);
           cand.push([x, y, 3, { x: wx(x), y: wy(y), n: 'candles', cell: [x, y] }]); }
         const viable = cand.filter((c) => Math.hypot(c[3].x - wx(dark[0]), (c[3].y - wy(dark[1])) / 0.8) <= LIGHT_R[c[3].n || c[3].kind] * TILE);
         if (!viable.length) return false;
         const best = viable.reduce((a, b) => (Math.hypot(b[0] - dark[0], b[1] - dark[1]) + b[2] < Math.hypot(a[0] - dark[0], a[1] - dark[1]) + a[2] ? b : a))[3];
-        if (best.cell) { used.add(key(...best.cell)); if (best.big) claim(...best.cell, 'brazier'); }
-        delete best.cell; delete best.big;
+        if (best.cell) { used.add(key(...best.cell)); if (best.big) claim(...best.cell, best.n || 'brazier'); }
+        delete best.cell; delete best.big; if (best.n === 'shroom') best.n = R() < 0.55 ? 'shroom_a' : 'shroom_b';
         if (best.n) decor.push(best); else torches.push(best);
         lights.push([best.x, best.y, LIGHT_R[best.n || best.kind]]); } return true; };
     // the shop: shelves on the back wall, the merchant behind a three-cell counter with the scales on it, sacks and a barrel
@@ -773,6 +783,14 @@
       lightRoom(r, []);
     }
     if (boss && !last) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
+    // a cave's tunnels have a mushroom by the rock now and then, so a long way between halls is not one black stretch
+    if (cave) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !inRoom(x, y) && free(x, y) && N4.some(([dx, dy]) => at(x + dx, y + dy) === 0) && R() < 0.035) {
+      used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: R() < 0.55 ? 'shroom_a' : 'shroom_b' }); }
+    // where the cave's roof drips (TASKS 305): a drop falls every p seconds from phase ph onto the floor or into the water; the
+    // scene draws it and the sound plays its landing from the same schedule
+    const drips = [];
+    if (cave) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const c = at(x, y); if ((c !== 1 && c !== 6) || rooms.some((q) => q.type === 'secret' && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h) || R() > 0.02) continue;
+      drips.push({ x: Math.round((x + 0.2 + 0.6 * R()) * TILE), y: Math.round((y + 0.2 + 0.6 * R()) * TILE), p: +(2.5 + 5 * R()).toFixed(2), ph: +(9 * R()).toFixed(2), wet: wet.has(y * W + x) || c === 6 ? 1 : 0 }); }
     // each secret's cover or mechanism, once the rooms are furnished. A cover is one of many like it (banners and shelves hang
     // and stand everywhere); a mechanism is a flagstone a few steps from the wall or a sconce near it. With no place for its
     // mechanism, a secret falls back to a plain breakable wall
@@ -913,7 +931,7 @@
     // a fountain's basin stands on the floor, three cells wide; a stream's culvert is in the wall (TASKS 230)
     for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
     return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush };
+      bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips };
   }
 
   // room index of a world point (or -1 in a corridor)

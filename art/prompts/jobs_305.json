@@ -1,0 +1,5 @@
+[
+ {"name": "shroom_a", "prompt": "art/prompts/shroom_a.txt", "ref": ["art/raw/refcrop_cave_shrooms.png=cave concept crop: mushroom design only, do not copy its glow"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "shroom_b", "prompt": "art/prompts/shroom_b.txt", "ref": ["art/raw/refcrop_cave_shrooms.png=cave concept crop: mushroom design only, do not copy its glow"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "crystal_cv", "prompt": "art/prompts/crystal_cv.txt", "ref": ["art/raw/refcrop_cave_crystals.png=cave concept crop: crystal cluster design only, do not copy its glow", "art/gen/crystal.png=the game's crystal prop: facet material and outline"], "size": "1024x1024", "alpha": "auto"}
+]
