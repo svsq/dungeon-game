@@ -23,10 +23,10 @@
     // cave: natural rock instead of masonry (scene.js caveBake, TASKS 303), lit cold (305): its own light is the mushrooms' (shroom)
     // and the crystals' (gem) glow, fire only by the camp and the merchant; ambK: how much of the dark's colour is the biome's
     // ambient rather than the common cool one; its props (TASKS 306) dress its halls to the ROOM_PLANS that have `cave`; its monsters
-    // are the dungeon's with the drowned and the slime (TASKS 307, 308); the rest and the packs by floor are TASKS 309-312
+    // are the dungeon's with the drowned, the slime and the crab (TASKS 307-309); the rest and the packs by floor are TASKS 310-312
     cave: { name: 'Затопленные пещеры', rock: [0.006, 0.006, 0.009], water: [0.06, 0.1, 0.12], vein: [0.3, 0.7, 0.8, 0], amb: [0.06, 0.075, 0.11], ambK: 0.6, torch: [1.0, 0.62, 0.26],
       shroom: [0.2, 0.85, 0.78], gem: [0.32, 0.62, 1.0], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
-      cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime'], props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
+      cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime', 'crab'], props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -104,6 +104,11 @@
     // The small ones are raised like a summoner's skeletons (summ): a little XP, no loot, no part in the floor's count
     slime: { name: 'Слизень', hp: 30, dmg: 8, spd: 40, r: 15, reach: 105, wind: 0.5, cd: 1.5, xp: 9, kind: 'hop', h: 44, blood: 'slime', split: 'slime_s', jump: { t: 0.46, h: 46, land: 0.4 }, puddle: { r: 34, t: 10 } },
     slime_s: { name: 'Малый слизень', hp: 10, dmg: 4, spd: 52, r: 10, reach: 80, wind: 0.4, cd: 1.3, xp: 2, kind: 'hop', h: 28, blood: 'slime', jump: { t: 0.38, h: 32, land: 0.34 }, puddle: { r: 20, t: 6 } },
+    // the armoured crab (TASKS 309) faces its way (fa, rad), turning toward the hero at only `turn` rad/s: a blow, bolt or blast from within
+    // `armor.arc` of its front does `armor.k` of its damage. It pinches only what stands in front of it; a hero out to its side at
+    // `rush.near`..`rush.reach` px is run down sideways, the shell still facing where it faced
+    crab: { name: 'Панцирный краб', hp: 58, dmg: 11, spd: 46, r: 17, reach: 32, wind: 0.6, cd: 1.6, xp: 15, kind: 'crab', h: 46, blood: 'shell', rim: [0.95, 0.6, 0.45],
+      turn: 1.5, armor: { arc: 1.05, k: 0.2 }, rush: { near: 24, reach: 150, wind: 0.5, t: 0.42, spd: 380, dmg: 0.8, cd: 4.5 } },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
     boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };

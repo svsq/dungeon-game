@@ -200,6 +200,13 @@
       R.en.push({ id: R.nextId++, type: E.split, x, y, vx: 0, vy: 0, hp, max: hp, dmg: Es.dmg * BAL.dmg * 1.35 * D.dmgAt(f), elite: 0, room: e.room, st: 'chase', t0: S.t, face: Math.cos(a) >= 0 ? 1 : -1, aimA: a,
         cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: Math.cos(a) * 200, kby: Math.sin(a) * 140, burn: 0, burnT: 0, summ: e.id, spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); }
     ev(S, { k: 'split', x: e.x, y: e.y, id: e.id }); }
+  // the crab (TASKS 309) faces its own way, fa, turning toward what it wants at no more than E.turn rad/s; a blow from within the
+  // armour's arc of its front is blunted. Before its first turn it faces the way its rig was mirrored
+  const faOf = (e) => e.fa ?? (e.face > 0 ? 0 : Math.PI);
+  // a heavy body: the turn gathers pace and eases out onto its mark (faV, rad/s), no snap into the full rate
+  function crabTurn(e, E, a, k) { const f = faOf(e), top = E.turn * eliteK(e, 'spd') * k, d = angDiff(a, f), want = Math.max(-top, Math.min(top, d * 5)), acc = 8 * DT;
+    e.faV = (e.faV || 0) + Math.max(-acc, Math.min(acc, want - (e.faV || 0))); e.fa = angDiff(f + e.faV * DT, 0); e.face = Math.cos(e.fa) >= 0 ? 1 : -1; }
+  const armored = (e, E, x, y) => !!E.armor && Math.hypot(x - e.x, y - e.y) > 1 && Math.abs(angDiff(Math.atan2(y - e.y, x - e.x), faOf(e))) < E.armor.arc;
   // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit
   function blast(S, R, e) { const M = MOD.explosive, h = R.hero; e.fuse = 0;
     if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' взрыв', e);
@@ -464,17 +471,19 @@
       ev(S, { k: 'bless', x: h.x, y: h.y, id: 'phoenix' }); R.msg = { s: 'Второй шанс!', t: S.t }; return; }
     if (h.hp <= 0) { h.hp = 0; h.deadT = S.t; ev(S, { k: 'die', x: h.x, y: h.y }); }
   }
-  function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind) {
+  // (ax, ay): where the blow came from on the floor, when not its source (a bolt bursts at the height of the body it hit)
+  function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind, ax = sx, ay = sy) {
     if (e.deadT >= 0) return;
     if (R.map.bossType === e.type && !R.arena) { stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
+    const arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
     dmg = absorbShield(S, e, dmg, { id: e.id }); if (dmg <= 0) return;
     if (gift(R.hero, 'execute') && e.hp < 0.25 * e.max) dmg = Math.round(dmg * (1 + gift(R.hero, 'execute') / 100));
     e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e); if (e.st === 'lurk') rise(S, R, e);
     const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost || e.st === 'rise';
-    if (!heavy) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
+    if (!heavy && !arm) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
     if (kind === 'fire') { e.burn = S.t + 3; e.burnT = S.t; }
-    ev(S, { k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 });
+    ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
     const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
     if (e.hp <= 0) { e.dieA = Math.atan2(dy, dx); killEnemy(S, R, e); }   // the killing blow's direction: bones fly that way
@@ -898,7 +907,7 @@
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
-          for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) hitEnemy(S, R, e, p.dmg, false, p.x, p.y, 1.2, 'fire');
+          for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) hitEnemy(S, R, e, p.dmg, false, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
           breakPots(S, R, bx, by, 50); hitProps(S, R, bx, by, 50); tearWebs(S, R, bx, by - 20, 66, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by }); R.trauma = Math.min(1, R.trauma + 0.2); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
     R.proj = R.proj.filter((p) => !p.dead);
@@ -918,10 +927,14 @@
       if (e.st === 'rise') { e.vx = e.vy = 0; if (t - e.t0 < E.rise) continue; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = Math.max(e.cdT, t + 0.25); }
       if (e.st === 'idle' || e.st === 'home') {
         if (heroOk && (!D.BOSSES[e.type] || !m.bossType || R.arena) && !(e.calmT > t) && d < 330 && (DG.roomAt(m, h.x, h.y) === e.room || d < 170) && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) { aggroRoom(R, e); ev(S, { k: 'alert', x: e.x, y: e.y - E.h - 8, id: e.id }); if (e.type === 'boss') roar(S, R, e); }
-        else { if (e.st === 'idle') idle(m, e, E, t); else goHome(m, e, E, t); continue; } }
+        else { if (e.st === 'idle') idle(m, e, E, t); else goHome(m, e, E, t);
+          // a crab at its post looks one way, then the other, at its own slow pace
+          if (E.kind === 'crab') { const per = 6 + (e.id % 5), n = Math.floor((t + e.id * 2.3) / per); crabTurn(e, E, n % 2 ? 0.5 : Math.PI - 0.5, 0.5); }
+          continue; } }
       if (!heroOk) { e.vx = e.vy = 0; continue; }
       // a committed attack keeps facing its aim: a lunge that carries past the hero must not mirror mid-strike; a hero straight above or below doesn't flip it every frame
-      e.face = e.st === 'wind' || e.st === 'strike' || e.st === 'bwind' ? (Math.cos(e.aimA) >= 0 ? 1 : -1) : Math.abs(dx) > 10 ? (dx > 0 ? 1 : -1) : e.face;
+      if (E.kind === 'crab') { if (e.st === 'chase' || (e.st === 'wind' && !e.rush)) { crabTurn(e, E, Math.atan2(dy, dx), e.st === 'wind' ? 0.5 : 1); if (e.st === 'wind') e.aimA = e.fa; } else crabTurn(e, E, faOf(e), 0); }
+      else e.face = e.st === 'wind' || e.st === 'strike' || e.st === 'bwind' ? (Math.cos(e.aimA) >= 0 ? 1 : -1) : Math.abs(dx) > 10 ? (dx > 0 ? 1 : -1) : e.face;
       // a hero out of sight for 4 s is lost: the monster walks back to its post
       if (e.st === 'chase' && E.kind !== 'boss' && e.hx !== undefined) {
         if (d < 420 && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) e.seenT = t;
@@ -939,15 +952,23 @@
         if (E.kind === 'caster') { const los = losClear(m, e.x, e.y - 20, h.x, h.y - 20);
           if (d < 360 && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
           const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d); }
+        // the crab pinches only what stands before its claws; one out to its side, not too close, it runs down sideways
+        else if (E.kind === 'crab' && t >= e.cdT && d < reach && Math.abs(angDiff(Math.atan2(dy, dx), faOf(e))) < E.armor.arc * 0.8) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = faOf(e); e.rush = 0; continue; }
+        else if (E.kind === 'crab' && t >= e.cdT && t >= (e.rushT ?? 0) && d > E.r + K.R + E.rush.near && d < E.r + K.R + E.rush.reach && Math.abs(Math.abs(angDiff(Math.atan2(dy, dx), faOf(e))) - Math.PI / 2) < 0.7
+          && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.rush = 1; continue; }
+        else if (E.kind === 'crab') steer(e, E, m, F, d < Math.max(reach * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
         else if (d < reach && t >= e.cdT && (E.kind !== 'hop' || losClear(m, e.x, e.y - 6, h.x, h.y - 6))) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 0; continue; }
         else if (E.grab && d < E.r + K.R + E.grab.reach && t >= e.cdT && t >= (e.grabT ?? 0) && losClear(m, e.x, e.y - 20, h.x, h.y - 20)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 1; continue; }
         else steer(e, E, m, F, d < Math.max(Math.min(reach, E.r + K.R + 46) * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
         move(m, e, e.vx * DT, e.vy * DT, E.r, true);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
       } else if (e.st === 'wind') {
-        skid(m, e, E); const w = (e.grab ? E.grab.wind : E.wind) * eliteK(e, 'wind');
+        skid(m, e, E); const w = (e.grab ? E.grab.wind : e.rush ? E.rush.wind : E.wind) * eliteK(e, 'wind');
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
           if (e.grab) { grab(S, R, e); continue; }
+          if (E.kind === 'crab') { if (e.rush) { e.hitDone = 0; ev(S, { k: 'rush', x: e.x, y: e.y, a: e.aimA, id: e.id }); continue; }
+            if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < E.armor.arc && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); }
+            ev(S, { k: 'pinch', x: e.x + Math.cos(e.aimA) * (E.r + 14), y: e.y + Math.sin(e.aimA) * (E.r + 14) * 0.8, a: e.aimA, id: e.id }); continue; }
           if (E.kind === 'hop') { takeOff(R, e, E); continue; }
           if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
             ev(S, { k: "eshoot", x: e.x, y: e.y - 44, id: e.id }); }
@@ -957,9 +978,15 @@
         // the lunge stops on contact and springs back for 0.1 s: carried on, the spider passed through the hero to land behind him
         if (E.kind === 'lunge' && t - e.t0 < 0.24) { const a = e.aimA; if (!(e.bncT > e.t0) && d <= E.r + K.R + 6.01) e.bncT = t;
           const v = e.bncT > e.t0 ? (t - e.bncT < 0.1 ? -150 : 0) : 330 * Math.min(1, (t - e.t0) / 0.05); { e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT;
-            if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison', who(e), e); struck(S, R, e); } } } else if (E.kind !== 'hop') skid(m, e, E);
+            if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg, e.x, e.y, 'poison', who(e), e); struck(S, R, e); } } }
+        // the crab's rush runs sideways, the shell still facing its way, stops on the hero and springs back off him
+        else if (E.kind === 'crab' && e.rush && t - e.t0 < E.rush.t) { const a = e.aimA; if (!(e.bncT > e.t0) && d <= E.r + K.R + 6.01) e.bncT = t;
+          const v = e.bncT > e.t0 ? (t - e.bncT < 0.1 ? -120 : 0) : E.rush.spd * Math.min(1, (t - e.t0) / 0.06); e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += Math.abs(v) * DT;
+          if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg * E.rush.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } }
+        else if (E.kind !== 'hop') skid(m, e, E);
         if (E.kind === 'hop') hop(S, R, e, E);
-        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
+        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
+          if (e.rush) { e.st = 'chase'; e.rush = 0; e.hitDone = 0; e.rushT = t + E.rush.cd; e.cdT = t + 0.5; continue; } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
     }
     // separation: monsters don't stack
@@ -970,7 +997,7 @@
     const sol = solids(R);
     for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost) shove(m, e, ENEMIES[e.type].r, true, sol);
     if (heroOk) for (const e of R.en) {
-      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop'].includes(E.kind) || e.st === 'lurk') continue;
+      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab'].includes(E.kind) || e.st === 'lurk') continue;
       const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
       if (d >= stop) continue;
       const angle = d > 0.01 ? Math.atan2(dy, dx) : e.face > 0 ? Math.PI : 0;
@@ -2209,6 +2236,39 @@
         const run = (x) => { R.en = []; R.freeze = 0; h.x = x; h.y = y0; h.vx = h.vy = 0; const x1 = h.x; for (let i = 0; i < 24; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x1; };
         m.goo = []; const dry = run(x0 - 5 * TILE); m.goo = [{ id: 1, x: x0, y: y0, t0: S.t, T: 60, r: 60, rNow: 60 }]; const held = run(x0 - 50);
         if (!(held < dry * 0.75)) out.push(`cave monsters: a puddle does not slow the hero (${held.toFixed(0)} px against ${dry.toFixed(0)})`); } }
+    // the crab (TASKS 309): a blow, a bolt or a blast from its front does armor.k of its damage, from its side or back all of it; it
+    // turns no faster than its turn rate; it pinches a hero before it and never one behind it; a hero at its side is run down
+    // sideways, the shell still facing its way
+    { const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run, h = R.hero, quiet = { px: 960, py: 540, keys: [] }, E = ENEMIES.crab;
+      let n = 0; for (let f = 1; f <= 4; f++) { enterFloor(S, R, f); n += R.en.filter((e) => e.type === 'crab').length; } if (!n) out.push('crab: none on floors 1-4 of seed 3');
+      let m, wet, sol, spot = null; for (let f = 1; f <= 4 && !spot; f++) { enterFloor(S, R, f); m = R.map; wet = new Set(m.water); sol = solids(R);
+      const open = (x, y) => { for (let j = -1; j <= 4; j++) for (let i = -5; i <= 5; i++) { const k = (y + j) * m.W + x + i; if (m.cells[k] !== 1 || wet.has(k)) return false; }
+        return !sol.some((o) => Math.abs(o.x - (x + 0.5) * TILE) < 6 * TILE && o.y - (y + 0.5) * TILE > -2 * TILE && o.y - (y + 0.5) * TILE < 5 * TILE); };
+      for (let k = 0; k < m.W * m.H && !spot; k++) if (open(k % m.W, Math.floor(k / m.W))) spot = [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; }
+      if (!spot) out.push('crab: no open dry floor on floors 1-4 of seed 3'); else { const [x0, y0] = spot;
+        const crab = (o) => { R.en = []; R.proj = []; h.x = x0 - 140; h.y = y0; h.vx = h.vy = 0; h.hp = 1e4; h.ifr = 0; h.dashT = -9; h.pull = null;
+          const e = Object.assign({ id: R.nextId++, type: 'crab', x: x0, y: y0, vx: 0, vy: 0, hp: 1e4, max: 1e4, dmg: 5, elite: 0, room: -1, st: 'chase', t0: S.t, face: 1, fa: 0, aimA: 0,
+            cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, hx: x0, hy: y0, seenT: S.t, ft: -9 }, o); R.en.push(e); return e; };
+        for (const [nm, a, k] of [['front', 0, E.armor.k], ['front-side', E.armor.arc - 0.1, E.armor.k], ['side', Math.PI / 2, 1], ['back', Math.PI, 1]]) {
+          const e = crab({}); hitEnemy(S, R, e, 100, false, x0 + Math.cos(a) * 40, y0 + Math.sin(a) * 40);
+          if (Math.abs(1e4 - e.hp - 100 * k) > 1) out.push(`crab: a blow from its ${nm} does ${1e4 - e.hp}, not ${100 * k}`); }
+        for (const [nm, a, k] of [['front', 0, E.armor.k], ['back', Math.PI, 1]]) { const e = crab({ cdT: 99 }), v = 400;
+          R.proj.push({ id: R.nextId++, k: 'fire', x: x0 + Math.cos(a) * 140, y: y0 - 20, vx: -Math.cos(a) * v, vy: 0, t0: S.t, life: 2, dmg: 100, own: 'hero', r: 6 });
+          for (let i = 0; i < 120 && R.proj.length; i++) { step(S, quiet); h.hp = 1e4; }
+          if (Math.abs(1e4 - e.hp - 100 * k) > 1) out.push(`crab: a bolt from its ${nm} does ${1e4 - e.hp}, not ${100 * k}`); }
+        // the turn: the hero behind it, half a second
+        { const e = crab({ cdT: 99, rushT: 99 }); h.x = x0 - 120; for (let i = 0; i < 60; i++) step(S, quiet); const turned = Math.abs(e.fa);
+          if (!(turned > 0.2 && turned <= E.turn * 0.5 + 0.02)) out.push(`crab: turns ${turned.toFixed(2)} rad in 0.5 s, not up to ${E.turn * 0.5}`); }
+        // the pinch: a hero before it is hurt; one behind it is not, for the second it takes to turn even half way
+        { const e = crab({}); h.x = x0 + E.r + K.R + 14; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 + E.r + K.R + 14; h.y = y0; }
+          if (!hurt || !S.ev.some((v) => v.k === 'pinch' && v.id === e.id)) out.push('crab: never pinches a hero before it'); }
+        { const e = crab({ rushT: 99 }); h.x = x0 - E.r - K.R - 14; let hurt = 0; for (let i = 0; i < 120; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 - E.r - K.R - 14; h.y = y0; e.x = x0; e.y = y0; }
+          if (hurt) out.push('crab: pinches a hero behind it'); }
+        // the rush: a hero 100 px off its side; it runs at him and hurts him, still facing its way
+        { const e = crab({ rushT: 0 }); h.x = x0; h.y = y0 + 100; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; if (!hurt) { h.x = x0; h.y = y0 + 100; } }
+          if (!hurt || !S.ev.some((v) => v.k === 'rush' && v.id === e.id)) out.push('crab: never rushes a hero at its side');
+          if (Math.abs(angDiff(e.fa, 0)) > 0.6) out.push(`crab: the rush turned its shell to ${e.fa.toFixed(2)}`);
+          if (e.y - y0 < 40) out.push(`crab: the rush carries it only ${(e.y - y0).toFixed(0)} px sideways`); } } }
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
