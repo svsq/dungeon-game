@@ -310,7 +310,7 @@ void main(){ vec2 p = floor(v_uv * vec2(48.0, 64.0) / 2.0) * 2.0 + 1.0 - vec2(24
     if (length(p - drop) < 1.5 && age < 0.85) { col = vec3(0.4, 0.52, 0.5); a = 0.85; } }
   if (a == 0.0) discard; o = vec4(col * a, a); }`;
   const LIT = `
-uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam, u_cave;
+uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins, u_water; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam, u_cave;
 // the abyss is black (TASKS 187): the concept's rock past the masonry is a flat near-black, its veins only in the fire depths, faint,
 // and only by the explored masonry and lava (u_veins), so the fog gives nothing of the layout away
 vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock;
@@ -336,12 +336,23 @@ void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture
   float top = texture(u_top, w).r;
   // wall tops past the first row keep the ambient: no torch shines through a wall; their pale bevels still catch a fire close by
   l = mix(l, min(l, u_amb * 1.3), smoothstep(0.3, 1.0, top) * 0.8 * (1.0 - 0.75 * smoothstep(0.14, 0.3, dot(c, vec3(0.3, 0.5, 0.2)))));
+  // the water throws the light it catches back onto the rock over and beside it (TASKS 305): slow bright ripples on a cave's wet
+  // rock and bank within two cells of the water, stronger where the light at the water is. Added, not multiplied: on the dark
+  // rock a multiplied glint was lost
+  vec3 glint = vec3(0.0);
+  if (u_cave > 0.5) { vec2 cs = 32.0 / u_map; float near = 0.0;
+    for (int i = 0; i < 11; i++) { vec2 o = i < 9 ? vec2(float(i % 3) - 1.0, 0.5 + float(i / 3)) : vec2(float(i) * 2.0 - 19.0, 0.0);
+      near = max(near, texture(u_water, w + o * cs).r * (i < 9 ? 1.0 - 0.3 * float(i / 3) : 0.8)); }
+    near *= 1.0 - smoothstep(0.2, 0.6, texture(u_water, w).r);
+    // ripples thrown on a wall run as broken wavy bands drifting upward
+    float band = smoothstep(0.55, 0.95, sin(wp.y / 4.5 + 2.2 * sin(wp.x / 26.0 + u_t * 0.9) + u_t * 1.7)) * smoothstep(0.35, 0.7, fbm(wp / 46.0 + vec2(u_t * 0.12, -u_t * 0.2)));
+    glint = vec3(0.3, 0.75, 0.8) * band * near * (0.14 + 0.6 * dot(min(l, vec3(1.2)), vec3(0.33))); }
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
-  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), mix(c * l + seam, c * 1.8, em), s), 1.0); }`;
+  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), mix(c * l + seam + glint, c * 1.8, em), s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
@@ -364,7 +375,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   }
   const rnd = L.rnd, SS = L.SS;
   const zoneAt = (m, x, y) => { for (const r of m.rooms) if (r.zone && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r.zone; return m.biome; };
-  const torchCol = (m, tc) => D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome].torch;
+  // the cave's glowing props: where the light sits above the foot (up), its pool's radius and strength, and the colour key of
+  // its biome (BIOMES.cave.shroom / gem); a prop away from the cave keeps the fallback colour
+  const GLOW = { shroom_a: { up: 22, r: 150, amt: 0.65, col: 'shroom', cap: 15 }, shroom_b: { up: 34, r: 175, amt: 0.75, col: 'shroom', cap: 19 }, crystal_cv: { up: 42, r: 230, amt: 0.9, col: 'gem', cap: 26 } };
+  const GLOW_COL = { shroom: [0.2, 0.85, 0.78], gem: [0.32, 0.62, 1.0] };
+  const glowBeat = (d, t) => (d.n === 'crystal_cv' ? 0.94 + 0.04 * Math.sin(t * 2.3 + d.x) + 0.02 * Math.sin(t * 7.1 + d.y) : 0.84 + 0.16 * Math.sin(t * 0.9 + (d.x * 0.37 + d.y * 0.11)));
+  // a roof drop of m.drips falls for DRIP_FALL s and lands at ph + n·p (audio.js plays the landing from the same schedule)
+  const DRIP_FALL = 0.38, dripAge = (q, t) => { const a = (t - q.ph) % q.p; return a < 0 ? a + q.p : a; };
+  const torchCol = (m, tc) =>D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome].torch;
 
   // a door's leaf fills its two-cell opening; the arch is squashed to the wall's height, its opening as wide as the leaf
   const DOOR = { w: 62, h: 80, fw: 118, fh: 100 };
@@ -989,13 +1007,18 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
       TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), tp ? 200 : d.n === 'candelabra' ? 150 : 125, col, (tp ? 1.0 : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]); }
+    // the cave's own light (TASKS 305): mushrooms breathe slowly in turquoise, crystals hold a steady blue with a faint shimmer;
+    // each is a wide soft pool and a small bright one at its heart, so the floor round it reads as lit by it, not tinted. Kept out
+    // of TL: fireTint takes a fire's colour back off the actors, and taken off a cold light it painted the hero red
+    const GL = []; for (const d of m.decor) { const g = GLOW[d.n]; if (!g || hid(d)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
+      GL.push([d.x, d.y - g.up, g.r, col, g.amt * b, 2.6]); GL.push([d.x, d.y - g.up, g.r * 0.4, col, g.amt * 1.8 * b, 2.4]); }
     for (const p of R.pots) if ((p.kind === 'gold' || p.kind === 'goldpile') && p.hp > 0 && !hid(p)) TL.push([p.x, p.y - 10, 110, [1, 0.78, 0.4], 0.35]);
     for (const c of R.chests) if (c.tier === 3 && !c.open && !hid(c)) TL.push([c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
     // how deep a point of the floor stands in the fires' light, 0 in the dark to 1 in a brazier's pool
     HERO.kAt = (px, py) => { let l = 0; for (const [x, y, r, col, amt, k = 2.2] of TL) { const d = Math.hypot((px - x) / r, (py - 40 - y) / (0.8 * r)); if (d < 1) l += amt * Math.exp(-d * d * k) * SS(1, 0.7, d) * (col[0] + col[1] + col[2]) / 3; }
       return SS(0.4, 1.2, l); };
     // where the fires' light on a point of the floor comes from and its colour, weighted as kAt weighs it; null in the dark
-    const AMB0 = [0.34, 0.40, 0.58].map((v, i) => 0.7 * v + 0.3 * B.amb[i] * 0.5 / Math.max(...B.amb));
+    const AMB0 = [0.34, 0.40, 0.58].map((v, i) => (1 - (B.ambK || 0.3)) * v + (B.ambK || 0.3) * B.amb[i] * 0.5 / Math.max(...B.amb));
     HERO.lightAt = (px, py) => { let bx = 0, by = 0, w = 0; const c = [0, 0, 0];
       for (const [x, y, r, col, amt, k = 2.2] of TL) { const d = Math.hypot((px - x) / r, (py - 40 - y) / (0.8 * r)); if (d >= 1) continue;
         const s = amt * Math.exp(-d * d * k) * SS(1, 0.7, d), dx = x - px, dy = y - (py - 40), n = Math.hypot(dx, dy) || 1; bx += dx / n * s; by += dy / n * s; w += s; for (let i = 0; i < 3; i++) c[i] += col[i] * s; }
@@ -1271,14 +1294,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     L.SNAP = 1; try { Y.sort((a, b) => a[0] - b[0]).forEach(([, d]) => d()); } finally { L.SNAP = 0; }
 
     // ===== light map =====
-    const ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], amb = AMB.map((v, i) => 0.7 * v + 0.3 * B.amb[i] * ab); G.bind(LT.light, [...amb, 1]); G.blend('add');
+    const ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], ak = B.ambK || 0.3, amb = AMB.map((v, i) => (1 - ak) * v + ak * B.amb[i] * ab); G.bind(LT.light, [...amb, 1]); G.blend('add');
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + VW + r || y < cy - r || y > cy + VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
     lt(h.x, h.y - 30, 250, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
-    TL.forEach((q) => lt(...q));
+    TL.forEach((q) => lt(...q)); GL.forEach((q) => lt(...q));
     for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 8)), ny = Math.max(1, Math.round((r.h - 2) / 8));
       for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) lt((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 150, col, D.BIOMES[r.zone].fill || 0.32, 1.8); }
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) lt(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
@@ -1312,7 +1335,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
-    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
+    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
     // ===== emissive pass =====
     G.blend('add');
@@ -1355,6 +1378,22 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       else embers(tc.x, tc.y - (big ? 44 + 40 : 32 + 26), big ? 5 : 3, big ? 70 : 46, col, i * 13 + 2); });
     for (const d of m.decor) if (d.n === 'torch_stand' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) embers(d.x, d.y + 4 - STAND.torch_stand[0][1] - 20, 3, 40, torchCol(m, d), d.x + d.y);
     for (const [x, y] of lavaCells) if (rnd(x, y) < 0.6 && known(x * TILE, y * TILE)) embers((x + rnd(y, x)) * TILE, (y + 0.5) * TILE, 1, 30, [1, 0.62, 0.15], x * 31 + y);
+    // the mushrooms' caps and the crystals glow over their own light, and the mushrooms shed spores: single pale motes drifting up
+    // and sideways a long way, slower than embers, each on its own beat (TASKS 305)
+    for (const d of m.decor) { const g = GLOW[d.n]; if (!g || hid(d) || !vis(d.x, d.y) || !known(d.x, d.y)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
+      L.glow(sx(d.x), sy(d.y) - g.up, g.cap * 2.4, col, 0.32 * b, 2.4); L.glow(sx(d.x), sy(d.y) - g.up, g.cap, col.map((v) => 0.5 + 0.5 * v), 0.22 * b, 3);
+      if (g.col !== 'shroom') continue;
+      for (let j = 0; j < 4; j++) { const k = d.x * 7 + d.y * 13, q = (t * (0.12 + 0.06 * rnd(k, j)) + rnd(k, j + 3)) % 1; if (q > 0.9) continue;
+        const ex = d.x + (rnd(k, j + 7) - 0.5) * 22 + Math.sin(t * 0.7 + j * 2.3 + k) * 14 * q, ey = d.y - g.up + 4 - 70 * q * (0.6 + 0.4 * rnd(k, j + 11));
+        G.blend('add'); L.solid(Math.round(sx(ex) / PIX) * PIX, Math.round(sy(ey) / PIX) * PIX, PIX, PIX, col.map((v) => 0.4 + 0.6 * v), 0, 0, 0, 0.9 * Math.sin(Math.PI * q / 0.9)); G.blend(); } }
+    // roof drops: a short pale streak speeding down, then a crown of two motes on stone or a ring on the water
+    for (const q of m.drips || []) { if (!vis(q.x, q.y) || !known(q.x, q.y)) continue; const a = dripAge(q, t), land = q.p - DRIP_FALL;
+      G.blend('add');
+      if (a >= land) { const f = (a - land) / DRIP_FALL, y = q.y - 90 * (1 - f * f); L.solid(Math.round(sx(q.x) / PIX) * PIX, Math.round(sy(y) / PIX) * PIX, PIX, PIX * 3, [0.55, 0.75, 0.8], 0, 0, 0, 0.55 * SS(0, 0.2, f)); }
+      else if (a < 0.45) { const f = a / 0.45;
+        if (q.wet) L.ring(sx(q.x), sy(q.y), 3 + 14 * f, (3 + 14 * f) * 0.45, [0.55, 0.78, 0.82], 0.5 * (1 - f), 0.25);
+        else for (const s of [-1, 1]) L.solid(Math.round((sx(q.x) + s * 7 * f) / PIX) * PIX, Math.round((sy(q.y) - 10 * Math.sin(Math.PI * Math.min(1, f * 1.6))) / PIX) * PIX, PIX, PIX, [0.5, 0.7, 0.75], 0, 0, 0, 0.6 * (1 - f)); }
+      G.blend(); }
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     // projectiles
     for (const p of R.proj) { if (p.own === 'hero' && p.k === 'fire' || !known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
@@ -2032,7 +2071,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const k = m.water.filter((k) => !run.includes(k)).sort((a, b) => Math.hypot(...at(a).map((v, i) => v - [x0, y0][i])) - Math.hypot(...at(b).map((v, i) => v - [x0, y0][i])))[0]; if (k === undefined) continue;
         const h = R.hero; [h.x, h.y] = at(k); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x0 - VW / 2, y0 - VH / 2]; S.ev = [];
         for (const [age, dx] of [[0.12, 0], [0.4, -14]]) S.ev.push({ k: 'step', wet: true, x: h.x + dx, y: h.y, t: S.t - age });
-        states.push(['cave_water', structuredClone(S)]); break; } }
+        states.push(['cave_water', structuredClone(S)]); break; }
+      // the cave's own light (TASKS 305): a crystal by water with mushrooms round it, a drop falling and another just landed
+      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
+        const near = (o, r) => m.water.some((k) => Math.hypot((k % m.W + 0.5) * TILE - o.x, (Math.floor(k / m.W) + 0.5) * TILE - o.y) < r);
+        const c = m.decor.find((d) => d.n === 'crystal_cv' && near(d, 6 * TILE) && m.decor.filter((e) => e.n.startsWith('shroom') && Math.hypot(e.x - d.x, e.y - d.y) < 500).length >= 2); if (!c) continue;
+        const h = R.hero; h.x = c.x + 90; h.y = c.y + 70; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [c.x - VW / 2, c.y - VH / 2]; S.ev = [];
+        m.drips = m.drips.filter((q) => Math.abs(q.x - c.x) > VW / 2 || Math.abs(q.y - c.y) > VH / 2);
+        m.drips.push({ x: c.x - 150, y: c.y + 40, p: 4, ph: S.t + 0.2, wet: 0 }, { x: c.x + 200, y: c.y - 60, p: 4, ph: S.t - 0.15, wet: 0 }, { x: c.x - 40, y: c.y + 160, p: 5, ph: S.t + 0.25, wet: near({ x: c.x - 40, y: c.y + 160 }, 20) ? 1 : 0 });
+        if (at(c) >= 0) states.push(['cave_light', structuredClone(S)]); break; } }
     // hero walk cycles: right, left, down, up — the same state at successive distances
     const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
@@ -2135,6 +2182,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         if (name === 'cave_water') { m.water = []; m.waterBridges = []; m.crossings = []; m.cells = m.cells.map((c) => (c === 6 ? 1 : c)); } off.push(clean); }
       anim[name] = { on, off, box: name === 'cave_water' ? [400, 200, 1120, 680] : [880, 420, 160, 180], min: 0.003 };
     }
+    // the cave's mushrooms breathe and shed spores, its roof drips: with them gone the frame must be calmer
+    { const base = states.find(([n]) => n === 'cave_light')?.[1];
+      if (base) { const on = [], off = [];
+        for (let i = 0; i < 24; i++) { const S = structuredClone(base); S.t += i / 60; on.push(S); const clean = structuredClone(S), m = clean.run.map; m.decor = m.decor.filter((d) => !GLOW[d.n]); m.drips = []; off.push(clean); }
+        anim.cave_light = { on, off, box: [610, 290, 700, 500], min: 0.003 }; } }
     for (const kind of ['bone', 'snuff', 'water', 'douse']) {
       const base = reactionS(kind, 0.02), on = [], off = [];
       for (let i = 0; i < 16; i++) { const S = structuredClone(base); S.t += i / 60; on.push(S); const clean = structuredClone(S); clean.ev = []; off.push(clean); }

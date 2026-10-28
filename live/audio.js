@@ -8,7 +8,7 @@
   let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, amb = null, beatT = 0;
   try { muted = localStorage.getItem('dc_mute') === '1'; } catch (e) {}
   const recent = {};
-  let waterAmb = null;
+  let waterAmb = null, echo = null, dripT = -1;
 
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -21,6 +21,12 @@
     const conv = ctx.createConvolver(), n = ctx.sampleRate * 2.2, ir = ctx.createBuffer(2, n, ctx.sampleRate);
     for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let lp = 0; for (let i = 0; i < n; i++) { const k = i / n; lp += ((Math.random() * 2 - 1) - lp) * (0.6 - 0.45 * k); d[i] = lp * Math.pow(1 - k, 2.6); } }
     conv.buffer = ir; wet = ctx.createGain(); wet.gain.value = 0.35; wet.connect(conv); conv.connect(master);
+    // a cave answers (TASKS 305): every sound sent to the hall also comes back off the far rock, twice, darker each time; the send
+    // opens only in the caves
+    echo = ctx.createGain(); echo.gain.value = 0;
+    for (const [d, pan] of [[0.29, -0.5], [0.43, 0.5]]) { const dl = ctx.createDelay(1), fb = ctx.createGain(), lp = ctx.createBiquadFilter(), p = ctx.createStereoPanner(), g = ctx.createGain();
+      dl.delayTime.value = d; fb.gain.value = 0.32; lp.type = 'lowpass'; lp.frequency.value = 1700; p.pan.value = pan; g.gain.value = 0.5;
+      echo.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(p); p.connect(g); g.connect(master); }
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   }
   addEventListener('keydown', (e) => { init(); if (e.code === 'KeyM' && ctx) { muted = !muted; master.gain.setTargetAtTime(muted ? 0 : 0.7, ctx.currentTime, 0.05); try { localStorage.setItem('dc_mute', muted ? '1' : '0'); } catch (er) {} } });
@@ -29,7 +35,7 @@
   // ---- building blocks: every voice ends in a panner and a send to the reverb ----
   const now = () => ctx.currentTime;
   function out(pan = 0, vol = 1, rev = 0.3) { const g = ctx.createGain(); g.gain.value = vol; const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan));
-    g.connect(p); p.connect(dry); if (rev > 0) { const s = ctx.createGain(); s.gain.value = rev; p.connect(s); s.connect(wet); } return g; }
+    g.connect(p); p.connect(dry); if (rev > 0) { const s = ctx.createGain(); s.gain.value = rev; p.connect(s); s.connect(wet); s.connect(echo); } return g; }
   function env(g, t, a, peak, d, end = 0.0001) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(end, t + a + d); }
   function tone(dst, { type = 'sine', f0, f1 = f0, t = now(), a = 0.005, d = 0.2, v = 0.3, det = 0 }) {
     const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.detune.value = det; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + a + d);
@@ -173,9 +179,20 @@
       tone(out((source.x - h.x) / 350, amount * 0.45, 0.55), { f0: rr(680, 1250), f1: rr(240, 420), d: rr(0.06, 0.13), v: 0.08 });
     }
   }
+  // the roof's drops land as the scene draws them (m.drips, scene.js DRIP_FALL): a high tick on stone, a lower plop with a bubble
+  // in the water, each drop its own pitch, panned and faded by where it falls on screen
+  function drips(S, on) {
+    const R = S.run, last = dripT; dripT = S.t; if (!on || last < 0 || S.t - last > 0.5 || S.t <= last) return;
+    for (const q of R.map.drips || []) { if (Math.floor((S.t - q.ph) / q.p) === Math.floor((last - q.ph) / q.p)) continue;
+      const dx = q.x - (R.cam[0] + W / 2), dy = q.y - (R.cam[1] + H / 2), vol = 1 - Math.hypot(dx, dy * 1.4) / 1100; if (vol <= 0 || !R.seen[Math.floor(q.y / DATA.TILE) * R.map.W + Math.floor(q.x / DATA.TILE)]) continue;
+      const o = out(dx / (W * 0.6), vol * vol, 0.7), f = 900 + (q.x * 7 + q.y * 3) % 900;
+      if (q.wet) { tone(o, { f0: f * 0.75, f1: f * 1.6, a: 0.004, d: 0.07, v: 0.07 }); tone(o, { t: now() + 0.05, f0: f * 1.1, f1: f * 1.9, d: 0.05, v: 0.03 }); }
+      else { tone(o, { f0: f * 1.5, f1: f * 0.9, d: 0.035, v: 0.05 }); noise(o, { d: 0.03, v: 0.03, type: 'highpass', f0: 4000 }); } }
+  }
   function ambience(S) {
     const R = S.run, on = !!R && ['play', 'inv', 'shop', 'pause'].includes(S.screen), biome = on ? R.map.biome : null;
-    waterAmbience(S, on && S.screen === 'play');
+    waterAmbience(S, on && S.screen === 'play'); drips(S, on && S.screen === 'play');
+    echo.gain.setTargetAtTime(biome === 'cave' ? 0.6 : 0, now(), 0.5);
     if (amb && amb.biome !== biome) { const a = amb; a.g.gain.setTargetAtTime(0.0001, now(), 0.6); setTimeout(() => a.nodes.forEach((n) => { try { n.stop(); } catch (e) {} }), 3000); amb = null; }
     if (!amb && biome) { const B = BED[biome] || BED.dungeon, g = ctx.createGain(); g.gain.value = 0.0001; g.connect(dry); const sw = ctx.createGain(); sw.gain.value = 0.5; g.connect(sw); sw.connect(wet);
       const nodes = [], lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.connect(g);
