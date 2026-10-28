@@ -54,6 +54,16 @@
     dash: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.3, type: 'lowpass', f0: 2500, f1: 400 }),
     step: (o, e) => e.wet ? SFX.splash(o) : noise(o, { d: 0.05, v: 0.06, type: 'lowpass', f0: rr(500, 800) }),
     splash: (o) => { noise(o, { d: 0.14, v: 0.12, f0: 1400, f1: 450, q: 0.7 }); tone(o, { f0: 440, f1: 180, d: 0.08, v: 0.04 }); },
+    // the cave's monsters (TASKS 307, 308): the drowned bursting out of the water, its grab's wet slap and the haul, a slime's squelch
+    rise: (o) => { noise(o, { a: 0.01, d: 0.5, v: 0.4, f0: 1100, f1: 300, q: 0.6 }); tone(o, { f0: 300, f1: 90, d: 0.25, v: 0.1 });
+      for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.15 + i * rr(0.04, 0.09), d: 0.05, v: 0.08, f0: rr(1500, 3200), q: 4 });
+      tone(o, { type: 'sawtooth', f0: 82, f1: 62, t: now() + 0.2, a: 0.08, d: 0.6, v: 0.06, det: 10 }); },
+    grab: (o) => noise(o, { d: 0.12, v: 0.2, f0: 1300, f1: 500, q: 1 }),
+    grabbed: (o) => { noise(o, { d: 0.08, v: 0.3, type: 'lowpass', f0: 1600, f1: 400 }); noise(o, { t: now() + 0.05, a: 0.03, d: 0.22, v: 0.18, f0: 600, f1: 250, q: 1.5 }); },
+    squelch: (o, e) => { const k = e.big === false ? 1.5 : 1; noise(o, { d: 0.18, v: 0.3, f0: 700 * k, f1: 220 * k, q: 3 }); tone(o, { f0: 220 * k, f1: 90 * k, d: 0.14, v: 0.12 }); },
+    land: (o, e) => SFX.squelch(o, { big: e.type === 'slime' }),
+    split: (o) => { SFX.squelch(o, {}); SFX.squelch(o, { big: false }); },
+    goo: (o) => noise(o, { a: 0.02, d: 0.2, v: 0.14, f0: 520, f1: 260, q: 4 }),
     douse: (o) => noise(o, { a: 0.02, d: 0.58, v: 0.28, type: 'highpass', f0: 4000, f1: 1200 }),
     snuff: (o) => noise(o, { d: 0.18, v: 0.1, type: 'highpass', f0: 3200, f1: 1500 }),
     hollow: (o) => { tone(o, { f0: 85, f1: 65, d: 0.28, v: 0.35 }); noise(o, { d: 0.25, v: 0.2, f0: 240, q: 6 }); },
@@ -63,6 +73,8 @@
     kill: (o, e) => { tone(o, { f0: 110, f1: 40, d: 0.25, v: 0.45 });
       if (e.type === 'skeleton' || e.type === 'brute') for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.04 + i * rr(0.03, 0.06), d: 0.03, v: 0.18, f0: rr(1800, 3500), q: 6 });
       else if (e.type === 'ghost') tone(o, { type: 'triangle', f0: 700, f1: 180, a: 0.05, d: 0.6, v: 0.15 });
+      else if (e.type === 'slime' || e.type === 'slime_s') SFX.squelch(o, { big: e.type === 'slime' });
+      else if (e.type === 'drowned') { SFX.splash(o); noise(o, { t: now() + 0.25, d: 0.35, v: 0.22, type: 'lowpass', f0: 700, f1: 150 }); }
       else noise(o, { d: 0.18, v: 0.2, type: 'lowpass', f0: 900, f1: 200 }); },
     hurt: (o) => { tone(o, { f0: 120, f1: 50, d: 0.16, v: 0.55 }); tone(o, { type: 'sawtooth', f0: 210, f1: 150, a: 0.01, d: 0.14, v: 0.06 }); noise(o, { d: 0.08, v: 0.2, f0: 700, q: 2 }); },
     die: (o) => { tone(o, { f0: 90, f1: 28, a: 0.02, d: 1.4, v: 0.6 }); tone(o, { type: 'triangle', f0: 440, f1: 110, a: 0.3, d: 1.4, v: 0.12 }); noise(o, { a: 0.2, d: 1.2, v: 0.15, type: 'lowpass', f0: 800, f1: 100 }); },

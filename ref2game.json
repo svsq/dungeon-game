@@ -32,6 +32,7 @@
    "cultist__*",
    "spider__*",
    "*_w",
+   "drowned__*",
    "merchant__*"
   ],
   "skip": [
@@ -46,7 +47,8 @@
    "hero_body_back",
    "brute",
    "goblin",
-   "skeleton"
+   "skeleton",
+   "drowned"
   ],
   "max": 2048,
   "walk": {

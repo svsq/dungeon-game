@@ -1,0 +1,4 @@
+[
+ {"name": "en_drowned", "prompt": "art/prompts/en_drowned.txt", "ref": ["art/gen/en_skeleton.png=approved monster of this game: scale, pixel density and outline"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "en_slime", "prompt": "art/prompts/en_slime.txt", "ref": ["art/gen/en_skeleton.png=approved monster of this game: pixel density and outline"], "size": "1024x1024", "alpha": "auto"}
+]
