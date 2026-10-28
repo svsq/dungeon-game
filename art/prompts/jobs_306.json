@@ -1,0 +1,164 @@
+[
+ {
+  "name": "stalag_a",
+  "prompt": "art/prompts/stalag_a.txt",
+  "ref": [
+   "art/raw/refcrop_cave_stalag.png=cave concept crop: stalagmite rock design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "stalag_b",
+  "prompt": "art/prompts/stalag_b.txt",
+  "ref": [
+   "art/raw/refcrop_cave_stalag.png=cave concept crop: stalagmite rock design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "boulder_a",
+  "prompt": "art/prompts/boulder_a.txt",
+  "ref": [
+   "art/raw/refcrop_cave_stalag.png=cave concept crop: rock and moss design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "boulder_b",
+  "prompt": "art/prompts/boulder_b.txt",
+  "ref": [
+   "art/raw/refcrop_cave_stalag.png=cave concept crop: rock design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "lily_cv",
+  "prompt": "art/prompts/lily_cv.txt",
+  "ref": [
+   "art/raw/refcrop_cave_lily.png=cave concept crop: lily pad design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "weed_cv",
+  "prompt": "art/prompts/weed_cv.txt",
+  "ref": [
+   "art/raw/refcrop_cave_weed.png=cave concept crop: water weed design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "wreck_cv",
+  "prompt": "art/prompts/wreck_cv.txt",
+  "ref": [
+   "art/raw/refcrop_cave_wreck.png=cave concept crop: boat wreck design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "skel_cv",
+  "prompt": "art/prompts/skel_cv.txt",
+  "ref": [
+   "art/raw/refcrop_cave_skel.png=cave concept crop: slumped skeleton design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "tent_cv",
+  "prompt": "art/prompts/tent_cv.txt",
+  "ref": [
+   "art/raw/refcrop_cave_camp.png=cave concept crop: tent design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "campfire_cv",
+  "prompt": "art/prompts/campfire_cv.txt",
+  "ref": [
+   "art/raw/refcrop_cave_camp.png=cave concept crop: stone fire ring design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "bridge_post",
+  "prompt": "art/prompts/bridge_post.txt",
+  "ref": [
+   "art/raw/refcrop_cave_bridge.png=cave concept crop: bridge post design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "bridge_torch",
+  "prompt": "art/prompts/bridge_torch.txt",
+  "ref": [
+   "art/raw/refcrop_cave_bridge.png=cave concept crop: torch post design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "plank_a",
+  "prompt": "art/prompts/plank_a.txt",
+  "ref": [
+   "art/raw/refcrop_cave_bridge.png=cave concept crop: deck board design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "plank_b",
+  "prompt": "art/prompts/plank_b.txt",
+  "ref": [
+   "art/raw/refcrop_cave_bridge.png=cave concept crop: deck board design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "ford_a",
+  "prompt": "art/prompts/ford_a.txt",
+  "ref": [
+   "art/raw/refcrop_cave_ford.png=cave concept crop: stepping stone design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "ford_b",
+  "prompt": "art/prompts/ford_b.txt",
+  "ref": [
+   "art/raw/refcrop_cave_ford.png=cave concept crop: stepping stone design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "dc_pebbles",
+  "prompt": "art/prompts/dc_pebbles.txt",
+  "ref": [
+   "art/raw/refcrop_cave_ford.png=cave concept crop: pebble design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "dc_silt",
+  "prompt": "art/prompts/dc_silt.txt",
+  "ref": [
+   "art/raw/refcrop_cave_ford.png=cave concept crop: wet floor design only, do not copy its light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ }
+]
