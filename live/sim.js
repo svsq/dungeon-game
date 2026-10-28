@@ -77,7 +77,7 @@
     const keys = Object.keys(BASES).filter((k) => (!BASES[k].minF || floor >= BASES[k].minF) && (!slotOnly || BASES[k].slot === slotOnly));
     let s2 = keys.reduce((a, k) => a + (BASES[k].w ?? 1), 0) * rnd(R), bk = keys[keys.length - 1];
     for (const k of keys) if ((s2 -= BASES[k].w ?? 1) < 0) { bk = k; break; }
-    return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor, mods: {} }));
+    return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor + (R.mode ? RUN(R).loot || 0 : 0), mods: {} }));
   }
   function rollAffixes(R, it) {
     const pool = AFFIXES.slice(); for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { const a = pool.splice(Math.floor(rnd(R) * pool.length), 1)[0];
