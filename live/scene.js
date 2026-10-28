@@ -828,9 +828,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
   const modCol = (e, j = 0) => e.mods && e.mods.length ? D.ELITE_MODS.find((m) => m.id === e.mods[j % e.mods.length]).col : ELITE;
-  const EN_TEX = { boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel' };
+  const EN_TEX = { boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage' };
   // per frame: the rim colour of the floor's fire, and the cultists' free hands (view px) for their glow
-  const RIM = { col: [1, 0.75, 0.4], hands: {} };
+  const ARROW_H = 32;
+  // and the skeleton mages' pearls and gathering hands (TASKS 311): [pearl, palm, gather 0..1]
+  const RIM = { col: [1, 0.75, 0.4], hands: {}, mages: {} };
   // how a body goes down, picked by its id: dl s on its feet first (the knees giving, a robe sinking), then dur s to the floor,
   // and a bounce on landing; a heavy body falls slower and the boss slowest
   function deathOf(e) { const v = e.id % 2, ty = e.type;
@@ -862,7 +864,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (e.st === 'rise') { const q = SS(0, E.rise, u); return Object.assign(P, { sub: 1 - SS(0, E.rise * 0.85, u), base: P.base - 0.25 * (1 - q), mid: P.mid - 0.2 * (1 - q), head: P.head - 0.35 * (1 - q), jaw: 0.3 * (1 - q) + P.jaw * q }); }
     // it goes back under in an arc, nose first
     if (e.st === 'dive') { const q = SS(0, E.dive, u); return Object.assign(P, { sub: SS(0.08, E.dive, u), base: P.base + 0.45 * q, mid: P.mid + 0.35 * q, head: P.head + 0.4 * q, jaw: P.jaw * (1 - q) }); }
-    const ew = (e.spit ? E.spit.wind : E.wind) * DATA.eliteK(e, 'wind'), ax = Math.cos(e.aimA || 0), ay = Math.sin(e.aimA || 0);
+    const ew = D.windOf(e, e.spit ? E.spit.wind : E.wind), ax = Math.cos(e.aimA || 0), ay = Math.sin(e.aimA || 0);
     // the bite: it coils back into an S with its jaw agape, then the neck snaps out over the shore toward the aim, the head held level
     // as a striking snake's, shuts on the strike's first frames and draws back
     if (!e.spit && (e.st === 'wind' || e.st === 'strike')) {
@@ -916,7 +918,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   }
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
-    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3, hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : E.wind * D.eliteK(e, 'wind'), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
+    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3, hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
     const sp = Math.hypot(e.vx, e.vy), ph = e.dist / 20 * Math.PI, step = SS(5, 40, sp) * Math.abs(Math.sin(ph));
     const flt = E.ghost ? 6 + 3 * Math.sin(t * 2.3 + e.id) : 0;
     let sx = 1, sy = 1, lean = 0;
@@ -932,7 +934,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // takes the monster's own colour where it has one (a spider's cold blue, a cultist's green), else the biome's fire
     // the fire's colour falls on a monster half bleached, and without the lit pass's 1.6 saturation: the concept's demon stays red, its
     // spider blue and its cultist green in the torchlight (TASKS 185). The tint takes the boosted light to the bleached one
-    const sat = e.type === 'skeleton' ? 0.4 : 0.95, val = (E.val || 1) * (1 - 0.3 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
+    const sat = e.type === 'skeleton' ? 0.4 : e.type === 'skel_archer' || e.type === 'skel_mage' ? 0.7 : 0.95, val = (E.val || 1) * (1 - 0.3 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
     const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat, val, 0, 1.05];
     const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
     const tint = lt ? HERO.fireTint(e.x, e.y, own) : own;
@@ -979,14 +981,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (E.blood === 'slime') return drawSlime();
     if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.08, hA) * (1 - SS(0.12, 0.32, hA)) : 0;   // a hit flinches the upper body away from the hero
       const Ur = Object.assign({ alpha, grade }, rim, cut), Uf = Object.assign({ alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] }, cut), dy = sub * h * 1.02;
-      const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub }); if (r && r.handR) RIM.hands[e.id] = r.handR; };
+      const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub }); if (r && r.handR) RIM.hands[e.id] = r.handR; if (r && r.palm) RIM.mages[e.id] = [r.pearl, r.palm, r.gather]; };
       halo(rig); if (edge) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: edgeOf() }); return; }
     // the slime (TASKS 308) is one painting on a soft bone (art/softbones.json) squashed and stretched about its foot in the shader
     // (u_jelly): it breathes and ripples as it creeps, squats through the wind-up, shoots up stretched and leans along the hop,
     // lands squashed and wobbles out; a blow dents it
     function drawSlime() {
       const lerp = (a, b, q) => a + (b - a) * q, ring = (t0, A, hz, tau) => { const v = GT - t0; return v >= 0 && v < 6 * tau ? A * SS(0, 0.06, v) * Math.exp(-v / tau) * Math.sin(TAU * hz * v) : 0; };
-      const J = E.jump, u = GT - e.t0, ew = E.wind * D.eliteK(e, 'wind'), sp = Math.hypot(e.vx, e.vy), crawl = e.st === 'strike' ? 0 : SS(4, 30, sp), dir = Math.cos(e.aimA) >= 0 ? 1 : -1;
+      const J = E.jump, u = GT - e.t0, ew = D.windOf(e, E.wind), sp = Math.hypot(e.vx, e.vy), crawl = e.st === 'strike' ? 0 : SS(4, 30, sp), dir = Math.cos(e.aimA) >= 0 ? 1 : -1;
       let k = 1 + 0.03 * Math.sin(t * 2.4 + e.id) * (1 - crawl) + 0.08 * crawl * Math.sin(e.dist / 8), bend = 0.1 * crawl * Math.sign(e.vx) + 0.04 * Math.sin(t * 1.7 + e.id), z = 0;
       if (e.st === 'wind') { const q = SS(0, ew, u); k = lerp(k, 0.68, q) + 0.025 * q * (1 - SS(ew - 0.12, ew, u)) * Math.sin(u * 50); bend = lerp(bend, -0.12 * dir, q); }
       // the arc eases up out of the squat (sin²) and falls on at speed (sin); the squash takes the fall on at the same speed in the
@@ -1069,7 +1071,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const ST = SC.state || SIM.at(t), GT = ST.t, R = ST.run;
     if (R && (R.zoom || D.ZOOM || 1) !== Z) views(R.zoom || D.ZOOM || 1);
     if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); return; }
-    const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}), st = SIM.stats(h, ST.meta);
+    const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.mages = {}), st = SIM.stats(h, ST.meta);
     bake(m); const seen = seenTex(R);
     const tr = R.trauma * R.trauma, shx = 16 * tr * (L.rnd(Math.floor(GT * 30), 1) - 0.5) * 2, shy = 12 * tr * (L.rnd(Math.floor(GT * 30), 2) - 0.5) * 2;
     const cx = Math.round((R.cam[0] + shx) / PIX) * PIX, cy = Math.round((R.cam[1] + shy) / PIX) * PIX, sx = (x) => x - cx, sy = (y) => y - cy;
@@ -1352,6 +1354,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'whirl' && a >= 0 && a < 0.48) Y.push([e.y - 1000, () => { G.blend('emit'); whirlFx(e, a, 0); G.blend(); }]);
     }
     for (const p of R.proj) if (p.own === 'hero' && p.k === 'fire' && vis(p.x, p.y)) Y.push([p.y + 20, () => fireFx(p)]);
+    // a skeleton archer's arrow (TASKS 311): the painted arrow along its flight, a faint streak of air behind it
+    for (const p of R.proj) if (p.k === 'arrow' && vis(p.x, p.y) && known(p.x, p.y)) Y.push([p.y + p.gz, () => { const a = Math.atan2(p.vy, p.vx), ah = ARROW_H, aw = ah * G.tex('skel_arrow').w / G.tex('skel_arrow').h, x = sx(p.x), y = sy(p.y);
+      L.solid(x, y, 26, 2, [0.75, 0.75, 0.7], a + Math.PI, 0, 1, 0.18 * SS(0, 0.05, GT - p.t0));
+      L.inked(() => L.sprite('skel_arrow', 0, 0, { m: M.of(M.t(x, y), M.r(a + Math.PI / 2)), w: aw, h: ah, pivot: [aw / 2, ah * 0.1] }), { r: 1.5, n: 6, col: [0.024, 0.02, 0.024], dy: 0 }); }]);
     const jig = (id) => knocked[id] && knockOf(knocked[id], GT);
     // the painted wax is near white and outshone the fight; dimmed, the flames stay the brightest thing on a candle
     const WAX = { grade: [0.8, 0.55, 0, 1] }, WAX_T = { grade: [0.9, 0.8, 0, 1] };
@@ -1491,6 +1497,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     lt(h.x, h.y - 30, 250, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
+    for (const [id, [pe, pa, g]] of Object.entries(RIM.mages)) { if (pe) lt(pe[0] + cx, pe[1] + cy, 70, [0.35, 0.85, 0.95], 0.5); if (g > 0) lt(pa[0] + cx, pa[1] + cy, 50 + 40 * g, [0.35, 0.85, 0.95], 0.8 * g); }
     TL.forEach((q) => lt(...q)); GL.forEach((q) => lt(...q));
     for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 8)), ny = Math.max(1, Math.round((r.h - 2) / 8));
       for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) lt((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 150, col, D.BIOMES[r.zone].fill || 0.32, 1.8); }
@@ -1501,7 +1508,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, [0.4, 0.7, 1.0], 0.9);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
-    for (const p of R.proj) lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' ? 90 : 150, p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
+    for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
     for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.7, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
@@ -1512,7 +1519,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'whirl' && a < 0.25) lt(e.x, e.y - 20, 190, weaponCol(e.rar || 0), 0.6 * (1 - a / 0.25));
       if (e.k === 'lvl' && a < 1.5) lt(e.x, e.y - 30, 300, [1, 0.85, 0.4], 1.5 * (1 - a / 1.5));
       if (e.k === 'swing' && a < 0.22) lt(h.x + Math.cos(e.a) * 30, h.y - 30 + Math.sin(e.a) * 20, 150, [1, 0.9, 0.75], 0.7 * (1 - a / 0.22));
-      if (e.k === 'pop' && e.c !== 'jet' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
+      if (e.k === 'pop' && e.c !== 'jet' && e.c !== 'arrow' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : e.c === 'orb' ? [0.35, 0.85, 0.95] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
       if (e.k === 'teleport' && a < 0.9) { const q = 1 - a / 0.9; lt(e.x, e.y - 30, 260, [0.55, 0.75, 1], 1.6 * q); lt(e.fx ?? e.x, (e.fy ?? e.y) - 30, 220, [0.55, 0.75, 1], 1.2 * q); }
       if (e.k === 'floor' && a < 1.6) lt(e.x, e.y - 20, 300, [1, 0.85, 0.55], 1.2 * (1 - a / 1.6));
       if (e.k === 'roar' && a < 0.8) lt(e.x, e.y + 40, 420, [1, 0.3, 0.12], 1.4 * (1 - a / 0.8));
@@ -1543,6 +1550,18 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (vis(x, y) && known(x, y)) L.star(sx(x), sy(y), 12, [1, 0.94, 0.78], 0.5 * env); });
     // the cultist's free hand holds a green spark: the brightest point of the figure, as in the reference's enemy sheet
     for (const [id, p] of Object.entries(RIM.hands)) { const e = R.en.find((o) => String(o.id) === id); if (!e || !known(e.x, e.y)) continue; L.glow(p[0], p[1], 18, [0.5, 1, 0.3], 0.9); L.glow(p[0], p[1], 6, [0.9, 1, 0.8], 0.9, 4); }
+    // a skeleton mage's pearl glows sea-green on its staff; through the cast water gathers and swirls in its free hand (TASKS 311)
+    for (const [id, [pe, pa, g]] of Object.entries(RIM.mages)) { const e = R.en.find((o) => String(o.id) === id); if (!e || !known(e.x, e.y)) continue;
+      if (pe) { L.glow(pe[0], pe[1], 12, [0.35, 0.85, 0.95], 0.55 + 0.15 * Math.sin(t * 2.3 + e.id), 3); L.glow(pe[0], pe[1], 4, [0.85, 1, 1], 0.7, 4); }
+      if (g > 0) { L.glow(pa[0], pa[1], 6 + 12 * g, [0.35, 0.85, 0.95], 0.9 * g, 3);
+        for (let j = 0; j < 5; j++) { const an = t * 7 + j * 1.256, rr = 13 * (1 - 0.6 * g); L.solid(Math.round((pa[0] + Math.cos(an) * rr) / PIX) * PIX, Math.round((pa[1] + Math.sin(an) * rr * 0.6) / PIX) * PIX, PIX, PIX, [0.6, 0.95, 1], 0, 0, 0, 0.9 * g); } } }
+    // a drawn bow's aim (TASKS 311): a thin red line from the bow to where the arrow would stop, faint as the string comes back and
+    // bright once the aim is fixed (the arrow then flies down it)
+    for (const e of R.en) { const E = D.ENEMIES[e.type]; if (E.kind !== 'archer' || e.st !== 'wind' || e.deadT >= 0 || !known(e.x, e.y)) continue;
+      const u = GT - e.t0, w = D.windOf(e, E.wind), lock = u >= w - E.arrow.lock, a = e.aimA, len = Math.max(0, (e.aimD || 0) - 16), x0 = sx(e.x + Math.cos(a) * 16), y0 = sy(e.y - SIM.ARROW_Y + Math.sin(a) * 16);
+      const amt = lock ? 0.75 + 0.25 * Math.sin(GT * 40) : 0.32 * SS(0.05, 0.3, u);
+      L.solid(x0, y0, len, PIX, [1, 0.25, 0.15], a, 0, PIX / 2, amt); if (lock) L.solid(x0, y0, len, PIX * 2.5, [1, 0.3, 0.2], a, 0, PIX * 1.25, 0.18);
+      L.glow(x0 + Math.cos(a) * len, y0 + Math.sin(a) * len, 8, [1, 0.3, 0.2], amt * 0.7, 3); }
     // crystals and cold-fire torches carry a halo of their own, so the arcane blue is a light source, not a tint
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x));
     // a cold fire carries a halo of its own over everything (a warm sconce's is painted on the wall behind it, `halo`)
@@ -1586,12 +1605,18 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       G.blend(); }
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     // projectiles
-    for (const p of R.proj) { if (p.own === 'hero' && p.k === 'fire' || !known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
+    for (const p of R.proj) { if (p.own === 'hero' && p.k === 'fire' || p.k === 'arrow' || !known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
       // an eel's jet (TASKS 310): a rope of water off its mouth, a bright head and drops strung out behind it that sag and thin out
       if (p.k === 'jet') { const age = GT - p.t0, back = Math.min(70, age * Math.hypot(p.vx, p.vy)), ca = Math.cos(a), sa = Math.sin(a);
         for (let j = 0; j < 9; j++) { const q = j / 8, d = back * q + 3 * Math.sin(t * 40 + j), w = 6 * (1 - 0.55 * q); L.solid(x - ca * d, y - sa * d + 8 * q * q, w + 3, w * 0.75, [0.42 + 0.35 * (1 - q), 0.7 + 0.2 * (1 - q), 0.82], a, (w + 3) / 2, w * 0.37, 0.9 * (1 - 0.75 * q)); }
         for (let j = 0; j < 6; j++) { const q = rnd(p.id, j), d = back * (0.2 + 0.8 * q); L.solid(x - ca * d + (rnd(p.id, j + 9) - 0.5) * 12, y - sa * d + 14 * q + (rnd(p.id, j + 5) - 0.5) * 8, 3, 3, [0.62, 0.84, 0.92], 0, 1.5, 1.5, 0.8 * (1 - q)); }
         L.solid(x, y, 7, 6, [0.85, 0.96, 1], a, 3.5, 3, 0.95); L.glow(x, y, p.r * 2, [0.5, 0.85, 1], 0.2, 3); continue; }
+      // a mage's ball of water (TASKS 311): a wobbling sphere with a bright crest, a ring rolling round it and drops shed behind it
+      if (p.k === 'orb') { const age = GT - p.t0, r = p.r * (1 + 0.08 * Math.sin(age * 18)), ca = Math.cos(a), sa = Math.sin(a);
+        L.glow(x, y, r * 2.6, [0.3, 0.8, 0.95], 0.45, 2.4); L.glow(x, y, r * 1.2, [0.55, 0.95, 1], 0.8, 3.2); L.ring(x, y, r * (1 + 0.1 * Math.sin(age * 14)), r * (0.85 + 0.1 * Math.cos(age * 14)), [0.7, 0.95, 1], 0.7, 0.18);
+        L.solid(x - r * 0.35, y - r * 0.45, PIX * 2, PIX, [0.95, 1, 1], 0, 0, 0, 0.9);
+        for (let j = 0; j < 5; j++) { const q = ((age * 2.2 + j / 5) % 1), d = r + 26 * q; L.solid(Math.round((x - ca * d + (rnd(p.id, j) - 0.5) * 8) / PIX) * PIX, Math.round((y - sa * d + 14 * q * q) / PIX) * PIX, PIX, PIX, [0.55, 0.9, 1], 0, 0, 0, 0.8 * (1 - q)); }
+        continue; }
       for (let k = 6; k >= 0; k--) { const f = k / 6; L.glow(x - Math.cos(a) * k * 7, y - Math.sin(a) * k * 7, (p.r + 4) * (1 - f * 0.6) * 1.6, col, 0.5 * (1 - f), 2.5); }
       L.glow(x, y, p.r * 2.2, [1, 0.95, 0.8], 0.9, 3); }
     // elites: a few embers drift up off the body, over the halo drawn behind it
@@ -1665,7 +1690,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'bless' && a < 1.2) { const q = a / 1.2; L.glow(ex, ey - 30, 90, [0.5, 0.8, 1], 1.4 * (1 - q)); L.ring(ex, ey, 40 + 90 * q, 20 + 45 * q, [0.6, 0.85, 1], 1 - q, 0.1); }
       // an enemy bolt bursts where it dies; on the hero it splashes wider with a ring
       // the jet bursts into a spray that falls
-      if (e.k === 'pop' && e.c === 'jet' && a < 0.5) { const col = [0.62, 0.86, 0.94]; if (e.hero) L.ring(ex, ey + 30, 10 + 40 * a / 0.5, 6 + 16 * a / 0.5, col, 0.6 * (1 - a / 0.5), 0.15);
+      if (e.k === 'orb' && a < 0.3) { const q = a / 0.3; L.glow(ex, ey, 22, [0.35, 0.85, 0.95], 0.9 * (1 - q), 3); L.ring(ex, ey, 6 + 16 * q, 4 + 10 * q, [0.7, 0.95, 1], 0.8 * (1 - q), 0.15); }
+      if (e.k === 'soak' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey + 38, 12 + 30 * q, 5 + 12 * q, [0.6, 0.9, 1], 0.7 * (1 - q), 0.12); }
+      if (e.k === 'pop' && e.c === 'arrow') { /* splinters: below, not lit up */ }
+      else if (e.k === 'pop' && (e.c === 'jet' || e.c === 'orb') && a < 0.5) { const col = [0.62, 0.86, 0.94]; if (e.hero) L.ring(ex, ey + 30, 10 + 40 * a / 0.5, 6 + 16 * a / 0.5, col, 0.6 * (1 - a / 0.5), 0.15);
         for (let j = 0; j < (e.hero ? 12 : 7); j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 3, v = 60 + 90 * rnd(e.t, j + 4), u = Math.min(a, 0.45); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u - 30 * u + 420 * u * u, 3, 4, col, an, 1.5, 2, 1 - SS(0.3, 0.45, a)); } }
       else if (e.k === 'pop' && a < (e.hero ? 0.4 : 0.25)) { const q = a / (e.hero ? 0.4 : 0.25), col = e.c === 'hex' ? [0.45, 1, 0.4] : [1, 0.55, 0.18];
         L.glow(ex, ey, (e.hero ? 46 : 26) * (1 + 0.5 * q), col, 0.35 * (1 - q), 2.4); if (e.hero) L.ring(ex, ey, 14 + 40 * q, 10 + 28 * q, col, 0.6 * (1 - q), 0.18);
@@ -1696,8 +1724,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           for (let j = 0; j < 5; j++) L.star(ex + 10 * Math.sin(a * 4 + j * 1.3), ey - 50 - 110 * q + j * 14, 6 - j, [0.6, 0.8, 1], 0.7 * (1 - j / 5) * (1 - SS(1.2, 1.6, a))); } }
     }
     G.blend();
+    // a hero soaked by a mage's water drips from head to foot while it slows him (TASKS 311)
+    if (GT < (h.slowT ?? -9) && h.deadT < 0 && !SC.hide.hero) { const left = h.slowT - GT;
+      for (let j = 0; j < 6; j++) { const c = GT * 1.7 + j / 6, q = c % 1, k = Math.floor(c) * 7 + j;
+        L.solid(Math.round((sx(h.x) + (rnd(k, 1) - 0.5) * 28) / PIX) * PIX, Math.round((sy(h.y) - 64 * rnd(k, 2) + 46 * q * q) / PIX) * PIX, PIX, PIX * 2, [0.55, 0.85, 0.95], 0, 0, 0, 0.85 * (1 - q) * SS(0, 0.3, left)); } }
     // non-additive event FX (dust, debris, blood)
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
+      // an arrow breaks on the rock: splinters of its shaft and a puff of grit (TASKS 311)
+      if (e.k === 'pop' && e.c === 'arrow' && !e.hero && a < 0.4) { const u = Math.min(a, 0.3); L.puff(ex, ey + 4, 4 + 10 * a / 0.4, [0.35, 0.3, 0.27], 0.35 * (1 - a / 0.4), e.t * 10);
+        for (let j = 0; j < 4; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 50 + 70 * rnd(e.t, j + 4); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u + 300 * u * u, 4, 2, [0.55, 0.36, 0.2], an + 8 * u * (j - 1.5), 2, 1, 1 - SS(0.25, 0.4, a)); } }
       if (e.k === 'step' && !e.wet && a < 0.4) { const q = a / 0.4; L.puff(ex, ey - 2 - 6 * q, 5 + 8 * q, [0.35, 0.3, 0.27], 0.35 * (1 - q), e.t * 10); }
       if (e.k === 'step' && e.wet && a < 0.6) { const q = a / 0.6, col = B.water.map((v) => Math.min(1, v * 3 + 0.15));
         L.ring(ex, ey + 2, 5 + 27 * q, 2 + 12 * q, col, 0.65 * (1 - q), 0.07);
@@ -2320,7 +2355,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const look = (name, find) => { for (const sd of [3, 5, 8, 13, 21]) for (let f = 1; f <= 4; f++) { if (S.run.seed !== sd && f === 1) S.run = SIM.newRun(S, 'cave', sd); SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, o = find(m); if (!o) continue;
         const h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); [h.x, h.y] = o.hero || [o.x + 120, o.y + 90]; R.cam = [o.x - VW / 2, o.y - VH / 2]; S.ev = []; states.push([name, structuredClone(S)]); return; } };
       const mid = (c) => { const xs = c.cells.map((k) => (k % S.run.map.W + 0.5) * TILE), ys = c.cells.map((k) => (Math.floor(k / S.run.map.W) + 0.5) * TILE); return [xs.reduce((a, b) => a + b) / xs.length, ys.reduce((a, b) => a + b) / ys.length]; };
-      look('cave_bridge', (m) => { const c = m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'x' && q.span[1] - q.span[0] >= 4) || m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'x'); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; });
+      // the bridge with the most water plants round it: the plants' stir is measured on this frame (cave_bridge_life)
+      const plants = (m, c) => { const [x, y] = mid(c); return (m.flora || []).filter((q) => q.n !== 'moss' && Math.abs(q.x - x) < 240 && Math.abs(q.y - y) < 160).length; };
+      look('cave_bridge', (m) => { const bs = m.crossings.filter((q) => q.kind === 'bridge' && q.axis === 'x'), c = bs.filter((q) => q.span[1] - q.span[0] >= 4 && plants(m, q) >= 4).sort((a, b) => plants(m, b) - plants(m, a))[0]; if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; });
       look('cave_bridge_v', (m) => { const c = m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'y'); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x + 10, y] }; });
       look('cave_ford', (m) => { const c = m.crossings.find((q) => q.look === 'walk'), d = m.crossings.find((q) => q.look === 'stones'); if (!c) return null; if (!d) { const [x, y] = mid(c); return { x, y, hero: [x, y] }; } const [x, y] = mid(c), [x2, y2] = mid(d);
         return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
@@ -2355,6 +2392,23 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         R.en = [mk(980, x + 0.5 * TILE, y, { face: 1 }), mk(981, x + 3 * TILE, y + 4, { st: 'wind', t0: S.t - 0.4, aimA: -1.0, face: 1 }),
           mk(982, x + 6 * TILE, y, { st: 'strike', t0: S.t - 0.03, spit: 1, aimA: Math.atan2(h.y - 38 - (y - 56), h.x - x - 6 * TILE + 44) }), mk(983, x + 8.5 * TILE, y - 4, { st: 'stir', t0: S.t - 0.6 })];
         states.push(['eel_states', structuredClone(S)]); break; } }
+      // the skeleton archer and mage (TASKS 311) in a cave hall: a crab before them, the archer drawn with its aim fixed on the hero
+      // and another just raising its bow, the mage gathering water behind the crab, an arrow and a ball of water in flight, the hero soaked
+    { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
+      const R = S.run, m = R.map, r = m.rooms.filter((q) => q.id !== m.start && q.type === 'combat').sort((a, b) => b.w * b.h - a.w * a.h)[0], h = R.hero, x0 = (r.x + 2) * TILE, y0 = (r.cy + 0.5) * TILE;
+        const mk = (id, type, X, Y, o) => { const E = D.ENEMIES[type]; return Object.assign({ id, type, x: X, y: Y, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: S.t - 1,
+          face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, hx: X, hy: Y }, o); };
+        m.decor = m.decor.filter((d) => !(Math.abs(d.y - y0) < 4 * TILE && d.x > x0 - TILE && d.x < x0 + 10 * TILE));
+        h.x = x0; h.y = y0; h.slowT = S.t + 1.5; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x0 + 4 * TILE - VW / 2, y0 - 40 - VH / 2]; S.ev = [];
+        const aim = (X, Y) => Math.atan2(h.y - 38 - (Y - SIM.ARROW_Y), h.x - X), A = D.ENEMIES.skel_archer;
+        R.en = [mk(970, 'crab', x0 + 3 * TILE, y0 + 6, { fa: Math.PI, face: -1 }),
+          mk(971, 'skel_archer', x0 + 8 * TILE, y0 - 1.6 * TILE, { st: 'wind', t0: S.t - A.wind + 0.12, aimA: aim(x0 + 8 * TILE, y0 - 1.6 * TILE), aimD: 7.4 * TILE }),
+          mk(972, 'skel_archer', x0 + 9 * TILE, y0 + 1.8 * TILE, { st: 'wind', t0: S.t - 0.18, aimA: aim(x0 + 9 * TILE, y0 + 1.8 * TILE), aimD: 9 * TILE, elite: 1, mods: ['fiery'] }),
+          mk(973, 'skel_mage', x0 + 6.5 * TILE, y0 + 0.2 * TILE, { st: 'wind', t0: S.t - 0.6, aimA: Math.PI })];
+        const O = D.ENEMIES.skel_mage.orb, ar = D.ENEMIES.skel_archer.arrow;
+        R.proj = [{ id: 9901, src: 973, k: 'orb', kind: 'water', x: x0 + 4.4 * TILE, y: y0 - 44, vx: -O.spd, vy: 0, t0: S.t - 0.5, life: O.life, dmg: 1, own: 'en', r: O.r, hitR: 20 + O.r },
+          { id: 9902, src: 971, k: 'arrow', kind: 'arrow', x: x0 + 2 * TILE, y: y0 - 70, vx: -ar.spd, vy: 40, t0: S.t - 0.3, life: 1, dmg: 1, own: 'en', r: ar.r, gz: SIM.ARROW_Y - 10 }];
+        states.push(['skel_ranged', structuredClone(S)]); }
     // hero walk cycles: right, left, down, up — the same state at successive distances
     const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
@@ -2381,12 +2435,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20; const x0 = (r.x + r.w / 2) * TILE, y0 = (r.y + r.h / 2) * TILE, d = i * st / n;
         R.en = [{ id: 990, type: ty, x: x0 + dx * d, y: y0 + dy * d, vx: dx * E.spd, vy: dy * E.spd, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: -9, face: dx < 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: d, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
         R.cam = [x0 - VW / 2, y0 - VH / 2]; }); out.push(S); } return out; };
-    const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
+    const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
     const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
       // the grab from out of the blow's reach: it catches the hero and hauls him a step in
       drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })),
       // the crab (TASKS 309): the pinch at the hero before it; the rush at a hero off its right side (it faces right, the hero below)
-      crab_attack: enemyT('crab', 0), crab_rush: enemyT('crab', 0, 'slam', 0, (e, h) => ({ x: h.x, y: h.y - 110, fa: 0, face: 1, aimA: Math.PI / 2, rush: 1 })), brute_attack: enemyT('brute', 1), spider_attack: enemyT('spider', 0), boss_attack: enemyT('boss', 0), cultist_attack: enemyT('cultist', 0) };
+      crab_attack: enemyT('crab', 0), crab_rush: enemyT('crab', 0, 'slam', 0, (e, h) => ({ x: h.x, y: h.y - 110, fa: 0, face: 1, aimA: Math.PI / 2, rush: 1 })), brute_attack: enemyT('brute', 1),
+      // the archer looses from range and the mage throws from behind (TASKS 311): the hero 6 cells off
+      skel_archer_attack: enemyT('skel_archer', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), skel_mage_attack: enemyT('skel_mage', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), spider_attack: enemyT('spider', 0), boss_attack: enemyT('boss', 0), cultist_attack: enemyT('cultist', 0) };
     // deaths: a few live frames, then the kill, through the fall and the bounce (the hero mid-stride and at rest, a skeleton)
     const eventT = (prep, kill) => { const fr = []; let S = play(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
     const heroDies = (S) => { const h = S.run.hero; h.hp = 0; h.deadT = S.t; };
@@ -2419,6 +2475,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the two ways each of the rest goes down (id % 2), the ghost's one; then a blow on every type (the flinch)
     for (const ty of ['goblin', 'brute', 'cultist', 'boss']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill); }
     transitions.ghost_death = eventT(lone('ghost'), kill);
+    for (const ty of ['skel_archer', 'skel_mage']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_burst'] = eventT(lone(ty, 991), kill); transitions[ty + '_death_topple'] = eventT(lone(ty, 992), kill); }
     for (const ty of ['drowned', 'slime', 'crab']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill); }
     // the drowned stands up out of the shallows (the hero out of its sense: the rise is the event's), and sinks back at its post
     const lurk = (S) => { lone('drowned')(S); const e = S.run.en[0], h = S.run.hero; h.x -= 140; e.st = 'lurk'; e.t0 = -9; };
@@ -2427,13 +2484,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // a blow off the crab's armour: sparks, the claws driven back, no flinch of the shell
     transitions.hit_crab_armor = eventT((S) => { lone('crab')(S); const h = S.run.hero; S.run.cam = [h.x - VW / 2, h.y - VH / 2]; }, (S) => { const e = S.run.en[0], h = S.run.hero; e.hitT = e.armT = S.t;
       S.ev.push({ k: 'hit', t: S.t, x: e.x, y: e.y - D.ENEMIES.crab.h * 0.5 - 6, type: 'crab', n: 3, crit: 0, id: e.id, arm: 1, a: Math.atan2(h.y - e.y, h.x - e.x) }); });
-    for (const ty of ['skeleton', 'spider', 'brute', 'cultist', 'ghost', 'boss', 'drowned', 'slime', 'crab']) transitions['hit_' + ty] = eventT((S) => { lone(ty)(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
+    for (const ty of ['skeleton', 'spider', 'brute', 'cultist', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage']) transitions['hit_' + ty] = eventT((S) => { lone(ty)(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
     transitions.goblin_attack = enemyT('goblin', 0);
     transitions.goblin_hit = eventT((S) => { lone('goblin')(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
     // a monster at its post, 2 s at 1/60 s: breathing, a turn and a shift about the spot
     const loops = {};
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
-    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
+    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; });
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }

@@ -4,7 +4,7 @@
 // persist S.meta and the run), camera, and the event bus S.ev that drives every FX in the scene.
 (function (root) {
   const D = root.DATA || require('./data.js'), DG = root.DUNGEON || require('./dungeon.js');
-  const { TILE, ENEMIES, BAL, ELITE, eliteK, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
+  const { TILE, ENEMIES, BAL, ELITE, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI } = D;
   const DT = 1 / 120, L = 26.0;
   // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
   // the zoom lives on the run (R.zoom, copied from the player's setting every step) so camera and pointer follow a change at once
@@ -229,7 +229,7 @@
     const hunt = heroOk && Math.hypot(h.x - e.hx, h.y - e.hy) < E.sense + 6 * TILE;
     if (e.st === 'deep') { if (!hunt || t < e.cdT) return;
       const p = eelSpot(R, e, E); if (!p) return; e.x = p[0]; e.y = p[1]; e.st = 'stir'; e.t0 = t; e.face = h.x >= e.x ? 1 : -1; ev(S, { k: 'stir', x: e.x, y: e.y, id: e.id }); return; }
-    if (e.st === 'stir') { if (u >= E.warn * eliteK(e, 'wind')) { rise(S, R, e); e.bit = 0; } return; }
+    if (e.st === 'stir') { if (u >= windOf(e, E.warn)) { rise(S, R, e); e.bit = 0; } return; }
     if (e.st === 'dive') { if (u >= E.dive) { e.st = 'deep'; e.t0 = t; e.lx = e.x; e.ly = e.y; e.cdT = t + E.swim[0] + (E.swim[1] - E.swim[0]) * rnd(R); } return; }
     const dive = () => { e.st = 'dive'; e.t0 = t; ev(S, { k: 'dive', x: e.x, y: e.y, id: e.id }); };
     if (e.st === 'rise') { if (u < E.rise) return; e.st = 'chase'; e.t0 = e.upT = t; e.cdT = Math.max(e.cdT, t + 0.15); return; }
@@ -240,7 +240,7 @@
       const near = d < E.r + K.R + E.reach, los = losClear(m, e.x, e.y - 30, h.x, h.y - 30);
       if (near || (d < E.spit.reach && los)) { e.st = 'wind'; e.t0 = t; e.spit = near ? 0 : 1; e.tx = h.x; e.ty = h.y; e.face = dx >= 0 ? 1 : -1; e.aimA = e.spit ? Math.atan2(h.y - 38 - (e.y - EEL_MOUTH[1]), h.x - e.x - e.face * EEL_MOUTH[0]) : Math.atan2(dy, dx); }
       return; }
-    if (e.st === 'wind') { if (u < (e.spit ? E.spit.wind : E.wind) * eliteK(e, 'wind')) return; e.st = 'strike'; e.t0 = t; e.bit++;
+    if (e.st === 'wind') { if (u < windOf(e, e.spit ? E.spit.wind : E.wind)) return; e.st = 'strike'; e.t0 = t; e.bit++;
       if (e.spit) { const a = e.aimA, v = E.spit.spd;
         R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'jet', x: e.x + e.face * EEL_MOUTH[0], y: e.y - EEL_MOUTH[1], vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: t, life: (E.spit.reach + 40) / v, dmg: e.dmg * E.spit.dmg * eliteK(e, 'bolt'), own: 'en', r: 7, gz: EEL_MOUTH[1] - 20 });
         ev(S, { k: 'spit', x: e.x + e.face * EEL_MOUTH[0], y: e.y - EEL_MOUTH[1], a, id: e.id }); return; }
@@ -259,7 +259,7 @@
     const d = dep(R, f), sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (d - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? RUN(R).guard[f] : e.exit && e.elite ? RUN(R).exit[f] : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
-        elite: e.elite, guard: e.guard || 0, room: e.room, st: E.lurk ? 'lurk' : E.deep ? 'deep' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
+        elite: e.elite, guard: e.guard || 0, room: e.room, st: E.lurk ? 'lurk' : E.deep ? 'deep' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9, mw: RUN(R).minWind ? 1 : 0 }); }
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
     for (const e of R.en) if (e.elite && !D.BOSSES[e.type]) e.mods = rollMods(R, d);
     // a closed door is a solid cell (5) that blocks sight like rock until it opens
@@ -368,6 +368,8 @@
   // a slime's puddle (TASKS 308) slows whoever wades in, slimes and ghosts aside, until it dries; it shrinks over its last GOO.dry s
   // (m.goo; its radius now, rNow, is kept by the sim's step)
   const GOO = { k: 0.55, mon: 0.6, dry: 2 };
+  // a skeleton mage's ball of water (TASKS 311) slows the hero it soaks for a while
+  const ORB = ENEMIES.skel_mage.orb, soaked = (S, h) => S.t < (h.slowT ?? -9);
   const gooAt = (m, o) => (m.goo || []).find((g) => g.rNow > 4 && Math.abs(o.x - g.x) < g.rNow && Math.abs(o.y - g.y) < g.rNow * 0.6);
   // feet box against the grid, axis by axis (slides along walls); the middles of its front and back edges too, or a body wider
   // than a two-cell wall (the boss) straddles it with its corners on both sides
@@ -506,6 +508,7 @@
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
     if (kind === 'poison') h.poison = S.t + 3;
     if (kind === 'fire') h.burn = Math.max(h.burn, S.t + 3);
+    if (kind === 'water') { h.slowT = S.t + ORB.t; ev(S, { k: 'soak', x: h.x, y: h.y - 38 }); }
     ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: dmg, blow, side: h.hurtX || -1, src: src || kind || '?',
       actor: actor ? { type: actor.type, elite: actor.elite, mods: (actor.mods || []).slice() } : null });
     // a second chance (a gift): the killing blow leaves half the health instead, once per gift taken
@@ -697,7 +700,7 @@
   // an ambush's flagstone sinks under the hero and calls monsters of the floor out of the dark round the room, in a ring, at once
   // on the hunt; they pay their XP but carry nothing (like a summoner's), and nothing of the floor's completion hangs on them
   function springAmbush(S, R, P) {
-    const m = R.map, h = R.hero, f = dep(R), roster = D.BIOMES[m.biome].roster.filter((t) => (t !== 'brute' || f >= 3) && !ENEMIES[t].lurk && !ENEMIES[t].deep), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
+    const m = R.map, h = R.hero, f = dep(R), roster = D.rosterAt(m.biome, R.floor).filter((t) => (t !== 'brute' || f >= 3) && !ENEMIES[t].lurk && !ENEMIES[t].deep), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
     ev(S, { k: 'click', x: P.x, y: P.y }); ev(S, { k: 'ambush', x: h.x, y: h.y });
     const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
     for (let i = 0, n = 0; i < 40 && n < P.n; i++) { const a = rnd(R) * 6.28, d = 130 + rnd(R) * 90, x = h.x + Math.cos(a) * d, y = h.y + Math.sin(a) * d * 0.8;
@@ -767,7 +770,7 @@
     R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
     // ---- input: 8-way run with accel / decel ----
     const ix = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), iy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), il = Math.hypot(ix, iy) || 1;
-    const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < 0.2 ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1);
+    const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < 0.2 ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1) * (soaked(S, h) ? ORB.slow : 1);
     const app = (v, tg) => { const a = (Math.abs(tg) > Math.abs(v) ? K.ACC : K.DEC) * DT; return v < tg ? Math.min(tg, v + a) : Math.max(tg, v - a); };
     h.vx = app(h.vx, ix / il * spd); h.vy = app(h.vy, iy / il * spd);
     h.aim = Math.atan2(my - (h.y - RIG.shoulder + 8), mx - h.x);
@@ -946,7 +949,7 @@
       if (pc === 5 && p.own === 'hero') { const d = doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || m.decor.some((d) => d.cover && !d.broken && Math.abs(p.x - d.x) < 26 && p.y > d.y - 75 && p.y < d.y + 8);
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
-      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.k, (p.who || '?') + ' снаряд', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' снаряд', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
@@ -986,7 +989,7 @@
         // under two cells of headway along the path in 2.5 s while short of the fight and the hero holds still (a corridor jammed by its own kind,
         // a wall in the way): it walks back to its post and stays deaf to the sight of the hero for a while, or it would turn round
         // at once and jam the corridor again. A hero on the move resets it: a chase is not a jam
-        const near = d < (E.kind === 'caster' ? 300 : E.r + K.R + E.reach + 40), fv = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)], pd = fv >= 0 ? fv : d / TILE;
+        const near = d < (E.kind === 'caster' || E.kind === 'archer' ? 300 : E.r + K.R + E.reach + 40), fv = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)], pd = fv >= 0 ? fv : d / TILE;
         if (near || e.stuckK !== e.t0 || pd <= e.aF - 2 || Math.hypot(h.x - e.ax, h.y - e.ay) > 48) { e.stuckK = e.t0; e.aF = pd; e.ax = h.x; e.ay = h.y; e.aT = t; }
         else if (t - e.aT > 2.5) { e.st = 'home'; e.t0 = t; e.calmT = t + 4; continue; } }
       if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
@@ -994,8 +997,13 @@
         const reach = E.r + K.R + E.reach;
         if (E.kind === 'boss') { bossThink(S, R, e, d); continue; }
         if (E.kind === 'caster') { const los = losClear(m, e.x, e.y - 20, h.x, h.y - 20);
-          if (d < 360 && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
-          const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d); }
+          if (d < (E.orb ? E.reach : 360) && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
+          const c = E.behind && d > 120 ? cover(R, e, h) : null;
+          if (!c || !toward(e, E, m, c[0], c[1])) { const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d); } }
+        // the archer looses at the hero in sight within its reach; between shots it keeps its distance, backing off from one who comes on
+        else if (E.kind === 'archer') { const los = losClear(m, e.x, e.y - ARROW_Y, h.x, h.y - 38);
+          if (d < E.reach && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; aimArrow(m, e, E, h); continue; }
+          steer(e, E, m, F, d < E.keep[0] ? -1 : d > E.keep[1] || !los ? 1 : 0, dx, dy, d, d < E.keep[0] ? 0.85 : 1); }
         // the crab pinches only what stands before its claws; one out to its side, not too close, it runs down sideways
         else if (E.kind === 'crab' && t >= e.cdT && d < reach && Math.abs(angDiff(Math.atan2(dy, dx), faOf(e))) < E.armor.arc * 0.8) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = faOf(e); e.rush = 0; continue; }
         else if (E.kind === 'crab' && t >= e.cdT && t >= (e.rushT ?? 0) && d > E.r + K.R + E.rush.near && d < E.r + K.R + E.rush.reach && Math.abs(Math.abs(angDiff(Math.atan2(dy, dx), faOf(e))) - Math.PI / 2) < 0.7
@@ -1007,14 +1015,21 @@
         move(m, e, e.vx * DT, e.vy * DT, E.r, true);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
       } else if (e.st === 'wind') {
-        skid(m, e, E); const w = (e.grab ? E.grab.wind : e.rush ? E.rush.wind : E.wind) * eliteK(e, 'wind');
+        skid(m, e, E); const w = windOf(e, e.grab ? E.grab.wind : e.rush ? E.rush.wind : E.wind);
+        if (E.kind === 'archer' && t - e.t0 < w - E.arrow.lock) aimArrow(m, e, E, h);
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
           if (e.grab) { grab(S, R, e); continue; }
           if (E.kind === 'crab') { if (e.rush) { e.hitDone = 0; ev(S, { k: 'rush', x: e.x, y: e.y, a: e.aimA, id: e.id }); continue; }
             if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < E.armor.arc && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); }
             ev(S, { k: 'pinch', x: e.x + Math.cos(e.aimA) * (E.r + 14), y: e.y + Math.sin(e.aimA) * (E.r + 14) * 0.8, a: e.aimA, id: e.id }); continue; }
           if (E.kind === 'hop') { takeOff(R, e, E); continue; }
-          if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
+          if (E.kind === 'archer') { const a = e.aimA, A = E.arrow, x0 = e.x + Math.cos(a) * 16, y0 = e.y - ARROW_Y + Math.sin(a) * 16;
+            R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'arrow', kind: has(e, 'fiery') ? 'fire' : 'arrow', x: x0, y: y0, vx: Math.cos(a) * A.spd, vy: Math.sin(a) * A.spd, t0: t, life: (E.reach + 60) / A.spd, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: A.r, gz: ARROW_Y - 10 });
+            ev(S, { k: 'loose', x: x0, y: y0, a, id: e.id }); }
+          else if (E.orb) { const a = e.aimA, O = E.orb, x0 = e.x + Math.cos(a) * 22, y0 = e.y - 44;
+            R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'orb', kind: 'water', x: x0, y: y0, vx: Math.cos(a) * O.spd, vy: Math.sin(a) * O.spd, t0: t, life: O.life, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: O.r, hitR: 20 + O.r });
+            ev(S, { k: 'orb', x: x0, y: y0, id: e.id }); }
+          else if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
             ev(S, { k: "eshoot", x: e.x, y: e.y - 44, id: e.id }); }
           else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
           else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
@@ -1076,6 +1091,24 @@
     if (Math.abs(e.vx) > 6) e.face = e.vx > 0 ? 1 : -1;
   }
   // a monster that stops to attack skids to a halt instead of freezing mid-stride (the rig's gait reads its speed and distance)
+  // the archer's arrow leaves the bow ARROW_Y px over its feet; its aim line runs to the first wall the arrow would meet (e.aimD)
+  const ARROW_Y = 46;
+  function aimArrow(m, e, E, h) { const a = Math.atan2(h.y - 38 - (e.y - ARROW_Y), h.x - e.x), gz = ARROW_Y - 10, x0 = e.x, y0 = e.y - ARROW_Y + gz, n = Math.ceil((E.reach + 60) / 6);
+    let cx = Math.floor(x0 / TILE), cy = Math.floor(y0 / TILE), dd = E.reach + 60; e.aimA = a;
+    for (let i = 1; i <= n; i++) { const x = x0 + Math.cos(a) * i * 6, y = y0 + Math.sin(a) * i * 6, nx = Math.floor(x / TILE), ny = Math.floor(y / TILE);
+      if (solidC(m, nx, ny) || pinch(m, cx, cy, nx, ny)) { dd = i * 6; break; } cx = nx; cy = ny; }
+    e.aimD = dd; }
+  // a mage's cover: the nearest monster of the fight standing between it and the hero; it keeps `behind` px past it, away from him
+  function cover(R, e, h) { const E = ENEMIES[e.type], de = Math.hypot(h.x - e.x, h.y - e.y); let best = null, bd = 1e9;
+    for (const o of R.en) { if (o === e || o.deadT >= 0 || o.st !== 'chase' && o.st !== 'wind' && o.st !== 'strike') continue; const K0 = ENEMIES[o.type];
+      if (K0.kind === 'caster' || K0.kind === 'archer' || K0.kind === 'eel' || K0.kind === 'boss' || under(o)) continue;
+      const dh = Math.hypot(h.x - o.x, h.y - o.y), dm = Math.hypot(o.x - e.x, o.y - e.y); if (dh >= de || dm > 320 || dm >= bd) continue; bd = dm; best = o; }
+    if (!best) return null; const dh = Math.hypot(best.x - h.x, best.y - h.y) || 1;
+    return [best.x + (best.x - h.x) / dh * E.behind, best.y + (best.y - h.y) / dh * E.behind]; }
+  // walk straight to a spot in the open, slowing as it comes; false when a wall stands between
+  function toward(e, E, m, gx, gy) { const dx = gx - e.x, dy = gy - e.y, d = Math.hypot(dx, dy);
+    if (!losClear(m, e.x, e.y - 6, gx, gy - 6)) return false;
+    const sp = E.spd * eliteK(e, 'spd') * (inWater(m, e) ? WADE : 1) * SS01(Math.max(0, Math.min(1, (d - 6) / 34))), k = 1 - Math.exp(-9 * DT); e.vx += (dx / (d || 1) * sp - e.vx) * k; e.vy += (dy / (d || 1) * sp - e.vy) * k; return true; }
   function skid(m, e, E) { const k = Math.exp(-14 * DT); e.vx *= k; e.vy *= k; const v = Math.hypot(e.vx, e.vy); if (v < 1) { e.vx = e.vy = 0; return; } move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT; }
   function steer(e, E, m, F, want, dx, dy, d, kv = 1) {
     let vx = 0, vy = 0;
@@ -2282,6 +2315,57 @@
         const run = (x) => { R.en = []; R.freeze = 0; h.x = x; h.y = y0; h.vx = h.vy = 0; const x1 = h.x; for (let i = 0; i < 24; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x1; };
         m.goo = []; const dry = run(x0 - 5 * TILE); m.goo = [{ id: 1, x: x0, y: y0, t0: S.t, T: 60, r: 60, rNow: 60 }]; const held = run(x0 - 50);
         if (!(held < dry * 0.75)) out.push(`cave monsters: a puddle does not slow the hero (${held.toFixed(0)} px against ${dry.toFixed(0)})`); } }
+    // the caves' packs (TASKS 312): each floor brings its own kinds (data.js BIOMES.cave.from); in a hall with a crab and archers the
+    // crab stands nearer the way the hero comes in; eels come up in the lakes between the halls too. ELITE.minWind holds in the caves
+    // only, and never lengthens a wind-up already shorter
+    { const S = spawn(0, {}), seen = [null, new Set(), new Set(), new Set(), new Set()]; let lakes = 0, lines = 0;
+      for (const sd of [3, 5, 8]) { S.run = newRun(S, 'cave', sd); const R = S.run;
+        for (let f = 1; f <= 4; f++) { enterFloor(S, R, f); const m = R.map; for (const e of R.en) seen[f].add(e.type); lakes += R.en.filter((e) => e.type === 'eel' && e.room < 0).length;
+          const st = m.rooms[m.start], W = m.W, F = new Int32Array(W * m.H).fill(-1), q = [st.cy * W + st.cx], fv = (e) => F[Math.floor(e.y / TILE) * W + Math.floor(e.x / TILE)]; F[q[0]] = 0;
+          for (let i = 0; i < q.length; i++) for (const d of [1, -1, W, -W]) { const n = q[i] + d; if (F[n] < 0 && m.cells[n] === 1) { F[n] = F[q[i]] + 1; q.push(n); } }
+          for (const r of m.rooms) { const cr = R.en.filter((e) => e.room === r.id && e.type === 'crab'), ar = R.en.filter((e) => e.room === r.id && e.type === 'skel_archer'); if (!cr.length || !ar.length) continue; lines++;
+            if (Math.min(...cr.map(fv)) > Math.min(...ar.map(fv))) out.push(`cave packs: seed ${sd} f${f} room ${r.id}: the archers stand nearer the way in than the crab`); } } }
+      const D0 = D.BIOMES.cave.from;
+      for (let f = 1; f <= 4; f++) for (const t of D.BIOMES.cave.roster) { const due = (D0[t] || 1) <= f; if (!due && seen[f].has(t)) out.push(`cave packs: a ${t} on floor ${f}, before its floor ${D0[t]}`); }
+      for (const t of ['crab', 'skel_archer']) if (!seen[2].has(t)) out.push(`cave packs: no ${t} on floor 2`);
+      for (const t of ['eel', 'skel_mage']) if (!seen[3].has(t)) out.push(`cave packs: no ${t} on floor 3`);
+      if (!lakes) out.push('cave packs: no eel in a lake between halls on floors 3-4 of seeds 3, 5, 8'); if (!lines) out.push('cave packs: no hall with a crab before archers');
+      const el = (type, mw) => ({ type, elite: 1, mw });
+      if (Math.abs(D.windOf(el('skeleton', 1), ENEMIES.skeleton.wind) - ELITE.minWind) > 1e-9 || Math.abs(D.windOf(el('skeleton', 0), ENEMIES.skeleton.wind) - ENEMIES.skeleton.wind * ELITE.wind) > 1e-9
+        || Math.abs(D.windOf(el('goblin', 1), ENEMIES.goblin.wind) - ENEMIES.goblin.wind) > 1e-9) out.push('cave packs: ELITE.minWind does not hold an elite wind-up as it should'); }
+    // the skeleton archer and mage (TASKS 311): the archer backs off from a hero who comes close; its aim follows him until the lock
+    // and then holds; the arrow flies straight down it and hits a hero who stood still, not one who stepped aside after the lock.
+    // The mage's ball flies at orb.spd and slows the hero it soaks; with a monster between it and the hero it keeps behind that one
+    { const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run, h = R.hero, quiet = { px: 960, py: 540, keys: [] }; enterFloor(S, R, 1);
+      const m = R.map, sol = solids(R), wet = new Set(m.water);
+      const open = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -6; i <= 6; i++) { const k = (y + j) * m.W + x + i; if (m.cells[k] !== 1 || wet.has(k)) return false; }
+        return !sol.some((o) => Math.abs(o.x - (x + 0.5) * TILE) < 7 * TILE && Math.abs(o.y - (y + 0.5) * TILE) < 2 * TILE); };
+      let spot = null; for (let k = 0; k < m.W * m.H && !spot; k++) if (open(k % m.W, Math.floor(k / m.W))) spot = [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
+      const mob = (type, x, y, o) => { const E = ENEMIES[type]; const e = Object.assign({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp: 1e4, max: 1e4, dmg: 5, elite: 0, room: -1, st: 'chase', t0: S.t, face: -1, aimA: Math.PI,
+        cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, hx: x, hy: y, seenT: S.t, ft: -9 }, o); R.en.push(e); return e; };
+      if (!spot) out.push('skeleton archer: no open dry floor on floor 1 of seed 3'); else { const [x0, y0] = spot, A = ENEMIES.skel_archer, O = ENEMIES.skel_mage.orb;
+        const reset = () => { R.en = []; R.proj = []; m.decor = m.decor.filter((d) => Math.hypot(d.x - x0, d.y - y0) > 9 * TILE); h.x = x0 - 4 * TILE; h.y = y0; h.vx = h.vy = 0; h.hp = 1e4; h.ifr = 0; h.slowT = -9; h.dashT = -9; S.ev = []; };
+        const hits = () => S.ev.filter((q) => (q.k === 'hurt' && /снаряд/.test(q.src)) || q.k === 'dodge').length;
+        reset(); const b = mob('skel_archer', h.x + 110, y0, { cdT: 99 }), d0 = Math.hypot(b.x - h.x, b.y - h.y); for (let i = 0; i < 120; i++) step(S, quiet);
+        if (!(Math.hypot(b.x - h.x, b.y - h.y) > d0 + 20)) out.push(`skeleton archer: it does not back off from a hero at ${Math.round(d0)} px`);
+        for (const side of [0, 1]) { reset(); const a = mob('skel_archer', x0 + 4 * TILE, y0); let n = 0; while (a.st !== 'wind' && n++ < 10) step(S, quiet);
+          if (a.st !== 'wind') { out.push('skeleton archer: it does not draw at a hero in sight and reach'); break; }
+          const w = D.windOf(a, A.wind); h.y = y0 - 16; while (S.t - a.t0 < w - A.arrow.lock - 0.05) step(S, quiet);
+          const a1 = a.aimA, want = Math.atan2(h.y - 38 - (a.y - ARROW_Y), h.x - a.x); if (Math.abs(angDiff(a1, want)) > 0.02) out.push('skeleton archer: its aim does not follow the hero before the lock');
+          while (S.t - a.t0 < w - A.arrow.lock + 0.03) step(S, quiet); const lk = a.aimA; if (side) h.y += 40; step(S, quiet);
+          if (Math.abs(a.aimA - lk) > 1e-9 && a.st === 'wind') out.push('skeleton archer: its aim moves after the lock');
+          while (a.st === 'wind') step(S, quiet); const p = R.proj.find((q) => q.k === 'arrow'); if (!p) { out.push('skeleton archer: no arrow on the loose'); break; }
+          const v0 = [p.vx, p.vy]; for (let i = 0; i < 90 && !p.dead; i++) { step(S, quiet); if (p.vx !== v0[0] || p.vy !== v0[1]) { out.push('skeleton archer: the arrow turns in flight'); break; } }
+          if (Math.abs(Math.atan2(v0[1], v0[0]) - lk) > 1e-9) out.push('skeleton archer: the arrow leaves off its aim line');
+          if (!side && !hits()) out.push('skeleton archer: the arrow misses a hero who stood still'); if (side && hits()) out.push('skeleton archer: the arrow hits a hero who stepped aside after the lock'); }
+        reset(); const g = mob('skel_mage', x0 + 4 * TILE, y0); let n = 0; while (!R.proj.some((q) => q.k === 'orb') && n++ < 400) step(S, quiet);
+        const o = R.proj.find((q) => q.k === 'orb'); if (!o) out.push('skeleton mage: no ball of water thrown'); else { if (Math.abs(Math.hypot(o.vx, o.vy) - O.spd) > 1e-6) out.push('skeleton mage: the ball does not fly at orb.spd');
+          n = 0; while (!o.dead && n++ < 600) step(S, quiet); if (!(h.slowT > S.t) && !S.ev.some((q) => q.k === 'dodge')) out.push('skeleton mage: the ball does not soak the hero it hits');
+          const run = (slow) => { R.en = []; R.proj = []; R.freeze = 0; h.x = x0 - 4 * TILE; h.y = y0; h.vx = h.vy = 0; h.slowT = slow ? S.t + 9 : -9; const x1 = h.x; for (let i = 0; i < 24; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x1; };
+          const dry = run(0), wetR = run(1); if (!(wetR < dry * (O.slow + 0.1))) out.push(`skeleton mage: a soaked hero is not slowed (${wetR.toFixed(0)} px against ${dry.toFixed(0)})`); }
+        reset(); const c = mob('skeleton', x0 - 1 * TILE, y0, { cdT: 99 }), q = mob('skel_mage', x0 + 4 * TILE, y0 + 16, { cdT: 99 });
+        for (let i = 0; i < 240; i++) { step(S, quiet); c.x = x0 - TILE; c.y = y0; c.st = 'chase'; }
+        if (!(q.x > c.x + ENEMIES.skel_mage.behind * 0.6 && Math.abs(q.y - c.y) < 40)) out.push(`skeleton mage: it does not keep behind the skeleton (at ${Math.round(q.x - c.x)}, ${Math.round(q.y - c.y)} from it)`); } }
     // the crab (TASKS 309): a blow, a bolt or a blast from its front does armor.k of its damage, from its side or back all of it; it
     // turns no faster than its turn rate; it pinches a hero before it and never one behind it; a hero at its side is run down
     // sideways, the shell still facing its way
@@ -2598,7 +2682,7 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { openSecret, debugSecrets, lootAudit, openChest, DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+  root.SIM = { openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
     stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);
