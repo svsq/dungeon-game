@@ -828,7 +828,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
   const modCol = (e, j = 0) => e.mods && e.mods.length ? D.ELITE_MODS.find((m) => m.id === e.mods[j % e.mods.length]).col : ELITE;
-  const EN_TEX = { boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab' };
+  const EN_TEX = { boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel' };
   // per frame: the rim colour of the floor's fire, and the cultists' free hands (view px) for their glow
   const RIM = { col: [1, 0.75, 0.4], hands: {} };
   // how a body goes down, picked by its id: dl s on its feet first (the knees giving, a robe sinking), then dur s to the floor,
@@ -847,6 +847,73 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (let j = 0; j < 3; j++) { const per = 1.7 + 0.5 * j, ph = ((t + e.id * 0.37 + j * 0.61) % per) / per, bx = x + (rnd(e.id, j) - 0.5) * 24, by = y - 5 + (rnd(e.id, j + 3) - 0.5) * 8;
       if (ph < 0.22) { const q = ph / 0.22; L.ring(bx, by, 1.5 + 2.5 * q, 1 + 1.6 * q, col, 0.75 * k, 0.45); }
       else if (ph < 0.42) { const q = (ph - 0.22) / 0.2; L.ring(bx, by, 4 + 12 * q, 2 + 5 * q, col, 0.55 * (1 - q) * k, 0.1); } } }
+  // ---------------- the eel from the deep (TASKS 310) ----------------
+  // one painting of its neck and head (eel__body) bent on three soft bones in the shader: the base at the water (G), the mid-neck
+  // (R) and the head (B, riding on the mid-neck), with the lower jaw (eel__jaw) hung at the mouth's hinge where the bones carry it.
+  // Everything under the waterline (y) is cut away. Poses are angles in its facing's frame: + leans forward over the snout
+  const EEL = { k: 1.12, col: [0.42, 0.62, 0.66], reach: 26 };
+  const rotAbout = (p, c, a) => { const dx = p[0] - c[0], dy = p[1] - c[1], cs = Math.cos(a), sn = Math.sin(a); return [c[0] + dx * cs - dy * sn, c[1] + dx * sn + dy * cs]; };
+  function eelPose(e, E, GT, t, h) {
+    const u = GT - e.t0, P = { base: 0.05 * Math.sin(t * 1.3 + e.id), mid: 0.08 * Math.sin(t * 1.3 - 0.8 + e.id), head: 0.1 * Math.sin(t * 1.3 - 1.6 + e.id), jaw: 0.06 + 0.05 * Math.sin(t * 2.1 + e.id), sub: 0, dx: 0, dy: 0 };
+    const dead = e.deadT >= 0 ? GT - e.deadT : -1, lerp = (a, b, q) => a + (b - a) * q;
+    if (dead >= 0) { const q = SS(0, 0.5, dead); return { base: lerp(P.base, 0.45, q), mid: lerp(P.mid, 0.55, q), head: lerp(P.head, 0.6, q), jaw: lerp(P.jaw, 0.8, SS(0, 0.25, dead)) - 0.3 * SS(0.6, 1.2, dead), sub: SS(0.35, 1.5, dead), dx: 0, dy: 0 }; }
+    if (e.st === 'deep' || e.st === 'stir') return Object.assign(P, { sub: 1 });
+    // it breaks the surface head first, tipped back, and settles upright
+    if (e.st === 'rise') { const q = SS(0, E.rise, u); return Object.assign(P, { sub: 1 - SS(0, E.rise * 0.85, u), base: P.base - 0.25 * (1 - q), mid: P.mid - 0.2 * (1 - q), head: P.head - 0.35 * (1 - q), jaw: 0.3 * (1 - q) + P.jaw * q }); }
+    // it goes back under in an arc, nose first
+    if (e.st === 'dive') { const q = SS(0, E.dive, u); return Object.assign(P, { sub: SS(0.08, E.dive, u), base: P.base + 0.45 * q, mid: P.mid + 0.35 * q, head: P.head + 0.4 * q, jaw: P.jaw * (1 - q) }); }
+    const ew = (e.spit ? E.spit.wind : E.wind) * DATA.eliteK(e, 'wind'), ax = Math.cos(e.aimA || 0), ay = Math.sin(e.aimA || 0);
+    // the bite: it coils back into an S with its jaw agape, then the neck snaps out over the shore toward the aim, the head held level
+    // as a striking snake's, shuts on the strike's first frames and draws back
+    if (!e.spit && (e.st === 'wind' || e.st === 'strike')) {
+      const k = e.st === 'wind' ? SS(0, ew, u) : 1, wl = ew + SIM.DT, T = e.st === 'wind' ? u - wl : u, x = SS(-0.08, 0.09, T), back = e.st === 'strike' ? SS(0.16, 0.4, u) : 0, f = x * (1 - back), c = k * (1 - x), r = 1 - k * (1 - back);
+      const shut = e.st === 'strike' ? SS(0.02, 0.07, u) * (1 - SS(0.22, 0.4, u)) : 0;
+      return Object.assign(P, { base: P.base * r - 0.18 * c + 0.28 * f, mid: P.mid * r - 0.28 * c + 0.3 * f, head: P.head * r + 0.22 * c - 0.38 * f,
+        jaw: lerp(P.jaw, 0.75, k) * (1 - shut) * (1 - back) + P.jaw * back, dx: (-8 * c + EEL.reach * f) * ax, dy: (-8 * c + EEL.reach * f) * ay * 0.7 }); }
+    // the jet: it rears back, head up and the mouth opening, then whips its head forward and spits; the mouth closes as it settles
+    if (e.st === 'wind' || e.st === 'strike') {
+      const k = e.st === 'wind' ? SS(0, ew, u) : 1, wl = ew + SIM.DT, T = e.st === 'wind' ? u - wl : u, x = SS(-0.08, 0.06, T), back = e.st === 'strike' ? SS(0.12, 0.4, u) : 0, f = x * (1 - back), c = k * (1 - x), r = 1 - k * (1 - back);
+      return Object.assign(P, { base: P.base * r - 0.12 * c + 0.1 * f, mid: P.mid * r - 0.25 * c + 0.15 * f, head: P.head * r - 0.2 * c + 0.08 * f,
+        jaw: lerp(P.jaw, 0.3, c) * (1 - x) + (0.3 + 0.5 * f) * x * (1 - back) + P.jaw * back * x, dx: 6 * f * ax, dy: 6 * f * ay * 0.7 }); }
+    return P; }
+  function drawEel(e, E, x, y, GT, t, o) {
+    const RG = RIGS.eel, RB = RIGS.eel__body, dead = e.deadT >= 0 ? GT - e.deadT : -1, k = e.elite ? 1.3 : 1;
+    const hA = GT - e.hitT, fl = hA >= 0 && dead < 0 ? SS(0, 0.06, hA) * (1 - SS(0.12, 0.35, hA)) : 0;
+    const P = eelPose(e, E, GT, t), s = EEL.k * SZ('en_eel')[1] * k / RG.h, f = e.face || 1, yw = y + 2 + P.dy;
+    if (dead > 1.6) return;
+    P.mid -= 0.18 * fl; P.head -= 0.25 * fl;
+    // under the surface: bubbles now and then where it lies; before it comes up its shadow gathers and the water boils there
+    const stir = e.st === 'stir' ? SS(0, 0.5, GT - e.t0) : 0;
+    if (dead < 0 && (e.st === 'deep' || e.st === 'stir')) { const kk = e.st === 'deep' ? 0.35 : 0.5 + 0.5 * stir;
+      // the shadow: a long dark body coiling just under the surface, drawn twice over so it reads on dark water
+      if (stir > 0) { const sw = Math.sin(t * 5 + e.id) * 4; for (let j = 0; j < 2; j++) { L.shadow(x + (6 + sw) * f, y - 2, 22 + 22 * stir, 7 + 6 * stir, 0.7 * stir); L.shadow(x - (16 - sw) * f, y + 1, 12 + 14 * stir, 5 + 3 * stir, 0.55 * stir); }
+        L.ring(x, y, 20 + 24 * stir, 7 + 8 * stir, EEL.col, 0.3 * stir, 0.06); }
+      for (let j = 0; j < (stir > 0 ? 8 : 2); j++) { const per = (stir > 0 ? 0.45 : 2.6) + 0.25 * j, ph = ((t + e.id * 0.37 + j * 0.61) % per) / per, bx = x + (rnd(e.id, j) - 0.5) * (stir > 0 ? 50 : 24), by = y - 3 + (rnd(e.id, j + 3) - 0.5) * 12;
+        if (ph < 0.22) { const q = ph / 0.22; L.ring(bx, by, 1.5 + 3 * q, 1 + 1.8 * q, EEL.col, 0.9 * kk, 0.45); if (stir > 0) L.solid(bx - 1.5, by - 2 - 3 * q, 3, 3, [0.75, 0.9, 0.95], 0, 0, 0, 0.8 * kk); }
+        else if (ph < 0.45) { const q = (ph - 0.22) / 0.23; L.ring(bx, by, 4 + 14 * q, 2 + 6 * q, EEL.col, 0.6 * (1 - q) * kk, 0.1); } }
+      L.joint('en' + e.id, 'ground', [x, y]); return; }
+    // the bones (prepped px of eel__body): base G, mid-neck R, head B
+    const [cMid, cBase, cHead] = RB.bones, W = RB.w, H = RB.h;
+    const fwd = (p) => rotAbout(rotAbout(rotAbout(p, cHead, P.head), cMid, P.mid), cBase, P.base);
+    const sink = P.sub * (RG.base[1] - Math.min(RG.chin[1], RG.snout[1]) + 40) * s, bx = x + P.dx, by = yw + sink, cut = { cut: [yw, 4, 1] };
+    const Mb = M.of(M.t(bx, by), M.s(f, 1)), at = (p) => M.ap(Mb, [(p[0] - RG.base[0]) * s, (p[1] - RG.base[1]) * s]);
+    const bones = { wtex: G.tex('eel__body_w'), wsz: [W, H], bone0: [cMid[0] / W, cMid[1] / H, P.mid, 1], bone1: [cBase[0] / W, cBase[1] / H, P.base, 1], bone2: [cHead[0] / W, cHead[1] / H, P.head, 1] };
+    const alpha = o.alpha, U0 = Object.assign({ alpha, grade: dead >= 0 ? [0.8, 0.75, 0, 1] : o.grade }, dead < 0 ? o.rim : {}, cut), U = Object.assign({}, U0, bones);
+    // the jaw: its hinge where the bones carry the mouth's corner, turned with the head and opened about it
+    const J = RG.jaw, kj = Math.hypot(RG.chin[0] - RG.hinge[0], RG.chin[1] - RG.hinge[1]) / Math.hypot(J.tip[0] - J.hinge[0], J.tip[1] - J.hinge[1]);
+    const a0 = Math.atan2(RG.chin[1] - RG.hinge[1], RG.chin[0] - RG.hinge[0]) - Math.atan2(J.tip[1] - J.hinge[1], J.tip[0] - J.hinge[0]), Hj = fwd(RG.hinge), rot = P.base + P.mid + P.head + a0 + 0.6 * P.jaw;
+    const jaw = () => L.sprite('eel__jaw', 0, 0, { m: M.of(Mb, M.t((Hj[0] - RG.base[0]) * s, (Hj[1] - RG.base[1]) * s), M.r(rot), M.s(kj, kj)), w: J.w * s, h: J.h * s, pivot: [J.hinge[0] * s, J.hinge[1] * s], u: U0 });
+    const body = () => { jaw(); L.sprite('eel__body', 0, 0, { m: Mb, w: W * s, h: H * s, pivot: [RG.base[0] * s, RG.base[1] * s], pad: 0.3, u: U }); };
+    // the water rings round the neck where it stands in it
+    const up = 1 - P.sub; if (up > 0.05) { const nx = at(fwd([RG.base[0], RG.base[1] - 40]))[0];
+      for (let j = 0; j < 3; j++) { const q = ((t * 0.7 + j / 3 + e.id * 0.13) % 1); L.ring(nx, yw + 1, 16 + 30 * q, 5 + 10 * q, EEL.col, 0.45 * up * (1 - q) * alpha, 0.08); }
+      L.shadow(nx, yw + 2, 26 * up, 7 * up, 0.35 * up * alpha); }
+    if (dead < 0) { o.halo(body); if (o.edge) o.rimFlash(body); }
+    L.inked(body, { r: 2, n: 8, col: o.INK, dy: 0, emit: true, rim: dead < 0 ? o.edgeOf() : null });
+    const JT = (n, p) => L.joint('en' + e.id, n, at(p));
+    const jt = M.ap(M.of(M.r(rot), M.s(kj, kj)), [J.tip[0] - J.hinge[0], J.tip[1] - J.hinge[1]]);
+    L.joint('en' + e.id, 'ground', [x, y]); JT('top', fwd([RG.hinge[0] - 60, 40])); JT('head', fwd(RG.snout)); JT('jaw', [Hj[0] + jt[0], Hj[1] + jt[1]]);
+  }
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
     const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3, hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : E.wind * D.eliteK(e, 'wind'), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
@@ -876,6 +943,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const c = E.rim || lt.col, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
       return { dx: Math.round(2 * lt.dx / n), dy: Math.round(2 * lt.dy * 1.25 / n), col: c.map((v) => (g + 0.5 * (v - g)) * a) }; };
     const INK = [0.024, 0.02, 0.024];
+    if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
     const sub = submerged(e, E, GT), cut = sub > 0 ? { cut: [y + 3, 5, 1] } : {};
     if (sub > 0) lurkFx(e, x, y, t, sub);
     if (sub > 0.995) { L.joint('en' + e.id, 'ground', [x, y]); return; }
@@ -1421,7 +1489,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
     lt(h.x, h.y - 30, 250, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
-    for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
+    for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
     TL.forEach((q) => lt(...q)); GL.forEach((q) => lt(...q));
     for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 8)), ny = Math.max(1, Math.round((r.h - 2) / 8));
@@ -1433,7 +1501,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, [0.4, 0.7, 1.0], 0.9);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
-    for (const p of R.proj) lt(p.x, p.y + 20, p.own === 'hero' ? 140 : 150, p.k === 'hex' ? [0.4, 1.0, 0.4] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : 1.2);
+    for (const p of R.proj) lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' ? 90 : 150, p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
     for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.7, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
@@ -1444,7 +1512,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'whirl' && a < 0.25) lt(e.x, e.y - 20, 190, weaponCol(e.rar || 0), 0.6 * (1 - a / 0.25));
       if (e.k === 'lvl' && a < 1.5) lt(e.x, e.y - 30, 300, [1, 0.85, 0.4], 1.5 * (1 - a / 1.5));
       if (e.k === 'swing' && a < 0.22) lt(h.x + Math.cos(e.a) * 30, h.y - 30 + Math.sin(e.a) * 20, 150, [1, 0.9, 0.75], 0.7 * (1 - a / 0.22));
-      if (e.k === 'pop' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
+      if (e.k === 'pop' && e.c !== 'jet' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
       if (e.k === 'teleport' && a < 0.9) { const q = 1 - a / 0.9; lt(e.x, e.y - 30, 260, [0.55, 0.75, 1], 1.6 * q); lt(e.fx ?? e.x, (e.fy ?? e.y) - 30, 220, [0.55, 0.75, 1], 1.2 * q); }
       if (e.k === 'floor' && a < 1.6) lt(e.x, e.y - 20, 300, [1, 0.85, 0.55], 1.2 * (1 - a / 1.6));
       if (e.k === 'roar' && a < 0.8) lt(e.x, e.y + 40, 420, [1, 0.3, 0.12], 1.4 * (1 - a / 0.8));
@@ -1452,7 +1520,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'spike' && a < 0.2) lt(e.x, e.y, 110, [1, 0.9, 0.75], 0.5 * (1 - a / 0.2)); }
     if (h.shield > 0 && GT < h.shieldUntil) lt(h.x, h.y - 30, 160, [0.4, 0.7, 1], 0.7);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], ((e.kind || 'crack') === 'crack' ? 1.4 : 0.7) * (1 - a / 1.2)); }
-    for (const e of R.en) if (e.elite && e.type !== 'boss' && e.deadT < 0 && e.st !== 'lurk') lt(e.x, e.y + 4, 110, modCol(e), 0.3 + 0.1 * Math.sin(t * 3 + e.id));
+    for (const e of R.en) if (e.elite && e.type !== 'boss' && e.deadT < 0 && e.st !== 'lurk' && !D.under(e)) lt(e.x, e.y + 4, 110, modCol(e), 0.3 + 0.1 * Math.sin(t * 3 + e.id));
     // an explosive corpse's fuse: its light swells and beats faster until the burst
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();
@@ -1519,10 +1587,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     // projectiles
     for (const p of R.proj) { if (p.own === 'hero' && p.k === 'fire' || !known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
+      // an eel's jet (TASKS 310): a rope of water off its mouth, a bright head and drops strung out behind it that sag and thin out
+      if (p.k === 'jet') { const age = GT - p.t0, back = Math.min(70, age * Math.hypot(p.vx, p.vy)), ca = Math.cos(a), sa = Math.sin(a);
+        for (let j = 0; j < 9; j++) { const q = j / 8, d = back * q + 3 * Math.sin(t * 40 + j), w = 6 * (1 - 0.55 * q); L.solid(x - ca * d, y - sa * d + 8 * q * q, w + 3, w * 0.75, [0.42 + 0.35 * (1 - q), 0.7 + 0.2 * (1 - q), 0.82], a, (w + 3) / 2, w * 0.37, 0.9 * (1 - 0.75 * q)); }
+        for (let j = 0; j < 6; j++) { const q = rnd(p.id, j), d = back * (0.2 + 0.8 * q); L.solid(x - ca * d + (rnd(p.id, j + 9) - 0.5) * 12, y - sa * d + 14 * q + (rnd(p.id, j + 5) - 0.5) * 8, 3, 3, [0.62, 0.84, 0.92], 0, 1.5, 1.5, 0.8 * (1 - q)); }
+        L.solid(x, y, 7, 6, [0.85, 0.96, 1], a, 3.5, 3, 0.95); L.glow(x, y, p.r * 2, [0.5, 0.85, 1], 0.2, 3); continue; }
       for (let k = 6; k >= 0; k--) { const f = k / 6; L.glow(x - Math.cos(a) * k * 7, y - Math.sin(a) * k * 7, (p.r + 4) * (1 - f * 0.6) * 1.6, col, 0.5 * (1 - f), 2.5); }
       L.glow(x, y, p.r * 2.2, [1, 0.95, 0.8], 0.9, 3); }
     // elites: a few embers drift up off the body, over the halo drawn behind it
-    for (const e of R.en) { if (!e.elite || D.BOSSES[e.type] || e.deadT >= 0 || e.st === 'lurk' || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
+    for (const e of R.en) { if (!e.elite || D.BOSSES[e.type] || e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
       const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), hh = SZ(EN_TEX[e.type])[1] * 1.3;
       for (let j = 0; j < 4; j++) { const q = (t * 0.45 + rnd(e.id, j)) % 1, an = rnd(e.id, j + 7) * 6.28;
         L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); } }
@@ -1591,7 +1664,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'summon' && a < 0.6) { const q = a / 0.6; L.ring(ex, ey, 20 + 30 * q, 10 + 15 * q, [0.5, 1, 0.4], 1 - q, 0.2); L.glow(ex, ey - 20, 50, [0.4, 1, 0.3], 1 - q); }
       if (e.k === 'bless' && a < 1.2) { const q = a / 1.2; L.glow(ex, ey - 30, 90, [0.5, 0.8, 1], 1.4 * (1 - q)); L.ring(ex, ey, 40 + 90 * q, 20 + 45 * q, [0.6, 0.85, 1], 1 - q, 0.1); }
       // an enemy bolt bursts where it dies; on the hero it splashes wider with a ring
-      if (e.k === 'pop' && a < (e.hero ? 0.4 : 0.25)) { const q = a / (e.hero ? 0.4 : 0.25), col = e.c === 'hex' ? [0.45, 1, 0.4] : [1, 0.55, 0.18];
+      // the jet bursts into a spray that falls
+      if (e.k === 'pop' && e.c === 'jet' && a < 0.5) { const col = [0.62, 0.86, 0.94]; if (e.hero) L.ring(ex, ey + 30, 10 + 40 * a / 0.5, 6 + 16 * a / 0.5, col, 0.6 * (1 - a / 0.5), 0.15);
+        for (let j = 0; j < (e.hero ? 12 : 7); j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 3, v = 60 + 90 * rnd(e.t, j + 4), u = Math.min(a, 0.45); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u - 30 * u + 420 * u * u, 3, 4, col, an, 1.5, 2, 1 - SS(0.3, 0.45, a)); } }
+      else if (e.k === 'pop' && a < (e.hero ? 0.4 : 0.25)) { const q = a / (e.hero ? 0.4 : 0.25), col = e.c === 'hex' ? [0.45, 1, 0.4] : [1, 0.55, 0.18];
         L.glow(ex, ey, (e.hero ? 46 : 26) * (1 + 0.5 * q), col, 0.35 * (1 - q), 2.4); if (e.hero) L.ring(ex, ey, 14 + 40 * q, 10 + 28 * q, col, 0.6 * (1 - q), 0.18);
         for (let j = 0; j < (e.hero ? 8 : 4); j++) { const an = rnd(e.t, j) * 6.28, d = 6 + (e.hero ? 40 : 22) * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.8, 7, col, 0.6 * (1 - q)); } }
       // a knocked prop: sparks off metal and stone, a brazier spits embers, crystal flares
@@ -1628,11 +1704,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.ring(ex - 2, ey + 3, 2 + 19 * q, 1 + 8 * q, col, 0.3 * (1 - q), 0.09);
         for (let j = 0; j < 3; j++) { const an = rnd(e.t, j) * 6.28, v = 25 + 30 * rnd(e.t, j + 4), u = Math.min(a, 0.32);
           L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u * 0.5 - 65 * u + 210 * u * u, 3, 4, col, an, 1, 2, 1 - SS(0.2, 0.34, a)); } }
-      // the drowned bursts up out of the shallows (TASKS 307): rings and a sheet of drops thrown high
-      if (e.k === 'rise' && a < 0.9) { const q = a / 0.9, col = B.water.map((v) => Math.min(1, v * 3 + 0.2));
+      // the drowned bursts up out of the shallows (TASKS 307): rings and a sheet of drops thrown high; so does the eel coming up, going
+      // under and sinking dead (TASKS 310)
+      if ((e.k === 'rise' || e.k === 'dive' || (e.k === 'kill' && e.type === 'eel')) && a < 0.9) { const q = a / 0.9, col = B.water.map((v) => Math.min(1, v * 3 + 0.2));
         L.ring(ex, ey + 2, 12 + 46 * q, 5 + 18 * q, col, 0.7 * (1 - q), 0.06); L.ring(ex, ey + 3, 6 + 30 * SS(0.15, 1, q), 3 + 12 * SS(0.15, 1, q), col, 0.45 * (1 - q), 0.09);
         for (let j = 0; j < 12; j++) { const an = rnd(e.t, j) * 6.28, v = 30 + 50 * rnd(e.t, j + 4), up = 120 + 90 * rnd(e.t, j + 8), u = Math.min(a, 0.55);
           L.solid(ex + Math.cos(an) * v * u, ey - 20 + Math.sin(an) * v * u * 0.5 - up * u + 420 * u * u, 3, 4, col, an, 1, 2, 1 - SS(0.4, 0.6, a)); } }
+      // the eel's jaws snap shut shedding water
+      if (e.k === 'bite' && a < 0.4) { const col = B.water.map((v) => Math.min(1, v * 3 + 0.25));
+        for (let j = 0; j < 7; j++) { const an = e.a + (rnd(e.t, j) - 0.5) * 2.2, v = 50 + 70 * rnd(e.t, j + 4), u = Math.min(a, 0.35); L.solid(ex + Math.cos(an) * v * u, ey - 40 + Math.sin(an) * v * u * 0.6 - 40 * u + 380 * u * u, 2, 4, col, an, 1, 2, 1 - SS(0.25, 0.4, a)); } }
       // a drowned's blow sheds water, not blood; a slime's spatters green gobs (and more of them when it lands, splits or bursts)
       if (e.k === 'hit' && a < 0.45 && !e.fire && BLOOD(e.type) === 'water') { const col = B.water.map((v) => Math.min(1, v * 3 + 0.2));
         for (let j = 0; j < 5; j++) { const an = rnd(e.t, j + 20) * 6.28, v = 30 + 40 * rnd(e.t, j + 4), u = Math.min(a, 0.4); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u * 0.6 - 40 * u + 300 * u * u, 2, 4, col, an, 1, 2, 1 - SS(0.3, 0.45, a)); } }
@@ -2261,7 +2341,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           mk(974, 'crab', x + 90, y - 3 * TILE - 20, { st: 'wind', t0: S.t - 0.45, fa: Math.PI - 0.3, face: -1, tx: h.x, ty: h.y }), mk(975, 'crab', x - 120, y - 3 * TILE + 70, { st: 'chase', fa: -1.2, face: 1, hitT: S.t - 0.06, armT: S.t - 0.06 })];
         S.ev.push({ k: 'hit', t: S.t - 0.06, x: x - 120, y: y - 3 * TILE + 70 - D.ENEMIES.crab.h * 0.5 - 6, type: 'crab', n: 3, crit: 0, id: 975, arm: 1, a: -1.2 });
         m.goo.push({ id: 9, x: x + 160, y: y - 4 * TILE, t0: S.t - 3, T: 10, r: 34, rNow: 34 }); S.ev.push({ k: 'rise', t: S.t - 0.5, x, y, id: 970 });
-        states.push(['cave_monsters', structuredClone(S)]); break; } }
+        states.push(['cave_monsters', structuredClone(S)]); break; }
+      // the eel (TASKS 310) by a lake's shore: one up watching the hero, one coiled to bite, one spitting its jet, one about to come
+      // up (its shadow and the boiling water), and the hero on the shore above them
+      S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
+      for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, W = m.W, deep = (k) => m.cells[k] === 6;
+        // a shore over a run of deep water at least nine cells long, two rows out
+        const at = (k) => [(k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE], run = (k) => { let n = 0; while (deep(k + n)) n++; return n; };
+        const k = m.cells.findIndex((c, k) => c === 1 && m.cells[k - W] === 1 && deep(k + W) && run(k + 2 * W) >= 9); if (k < 0) continue;
+        const [x, y] = at(k + 2 * W), h = R.hero, mk = (id, X, Y, o) => { const E = D.ENEMIES.eel; return Object.assign({ id, type: 'eel', x: X, y: Y, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: -1, st: 'chase', t0: S.t - 1,
+          face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, hx: X, hy: Y, upT: S.t - 1, bit: 0 }, o); };
+        h.x = x + 4.5 * TILE; h.y = y - 2.5 * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x + 4.5 * TILE - VW / 2, y - 40 - VH / 2]; S.ev = [];
+        R.en = [mk(980, x + 0.5 * TILE, y, { face: 1 }), mk(981, x + 3 * TILE, y + 4, { st: 'wind', t0: S.t - 0.4, aimA: -1.0, face: 1 }),
+          mk(982, x + 6 * TILE, y, { st: 'strike', t0: S.t - 0.03, spit: 1, aimA: Math.atan2(h.y - 38 - (y - 56), h.x - x - 6 * TILE + 44) }), mk(983, x + 8.5 * TILE, y - 4, { st: 'stir', t0: S.t - 0.6 })];
+        states.push(['eel_states', structuredClone(S)]); break; } }
     // hero walk cycles: right, left, down, up — the same state at successive distances
     const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
@@ -2345,6 +2438,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       h.x -= 400; R.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; });
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }
       loops[ty + '_idle'] = fr; }
+    // the eel (TASKS 310) on the lake of eel_states, the hero on the shore: it comes up, bites him, spits at him farther off, dives,
+    // is struck and dies; up and watching for 2 s (subject en990)
+    { const lake = (states.find((q) => q[0] === 'eel_states') || [])[1], E = D.ENEMIES.eel;
+      const eelT = (o, hero = [20, -2 * TILE], ev, n = 100) => { if (!lake) return []; const fr = []; let S = structuredClone(lake); const R = S.run, h = R.hero, e = R.en.find((q) => q.id === 981);
+        Object.assign(e, { id: 990, st: 'chase', t0: S.t, upT: S.t, cdT: 99, face: 1, aimA: 0, spit: 0, bit: 0 }); R.en = [e]; S.ev = []; h.x = e.x + hero[0]; h.y = e.y + hero[1]; h.ifr = 1e9; h.vx = h.vy = 0;
+        R.cam = [e.x - VW / 2, e.y - 60 - VH / 2]; Object.assign(e, typeof o === 'function' ? o(e, h, S) : o);
+        for (let i = 0; i < n; i++) { if (i === 5 && ev) ev(S, e); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
+      transitions.eel_rise = eelT((e, h, S) => ({ st: 'stir', t0: S.t - E.warn + 0.15 }));
+      // the sim picks the attack and its aim itself: up with no wait, the hero within its bite, then out of it
+      transitions.eel_bite = eelT((e, h, S) => ({ cdT: S.t }));
+      transitions.eel_spit = eelT((e, h, S) => ({ cdT: S.t }), [4 * TILE, -2.5 * TILE]);
+      transitions.eel_dive = eelT((e, h, S) => ({ upT: S.t - E.stay + 0.1 }), [5 * TILE, -2.5 * TILE]);
+      transitions.eel_death = eelT({}, [5 * TILE, -2.5 * TILE], (S, e) => { e.hp = 0; e.deadT = S.t; e.hitT = S.t; e.dieA = Math.PI; }, 75);
+      transitions.hit_eel = eelT({}, [5 * TILE, -2.5 * TILE], (S, e) => { e.hitT = S.t; }, 75);
+      loops.eel_idle = eelT({}, [7 * TILE, -2.5 * TILE], null, 120); }
     // the merchant: his work loop (5 of its 6 s) at 1/60 s, then a greeting and a nod on a trade (subject 'merchant')
     { const fr = []; let S = shopS((S) => { const h = S.run.hero; h.x -= 500; h.y += 200; S.run.shop.greetT = -9; S.run.shop.tradeT = -9; });
       for (let i = 0; i < 300; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.merchant_work = fr; }
@@ -2463,7 +2571,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, ['hero__cape', 'hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR', 'hero__body_nh', 'hero__body_back_nh', 'hero__head_kn', 'hero__head_back_kn', 'hero__farmL_pl', 'hero__farmR_pl', 'it_shield_t']])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
       subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_').slice(0, -1).join('_'); return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1)) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
-      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'boss'], loops, attacks, swings, impacts, transitions, box };
+      rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'eel', 'boss'], loops, attacks, swings, impacts, transitions, box };
     calm(out); return out;
   };
 })();

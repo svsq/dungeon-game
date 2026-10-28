@@ -1,0 +1,3 @@
+[
+ {"name": "en_eel", "prompt": "art/prompts/en_eel.txt", "ref": ["art/gen/en_drowned.png=approved monster of this game: scale, pixel density, outline and the cave's colours"], "size": "1024x1024", "alpha": "auto"}
+]

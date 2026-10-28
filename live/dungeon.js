@@ -586,6 +586,15 @@
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
         && !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 2 * TILE); });
       if (!c.length) return null; const k = c[Math.floor(R() * c.length)]; return [k % W, Math.floor(k / W)]; };
+    // an eel's post (TASKS 310): a cell of the room's deep water with shallows or floor within two cells, so it can come up by a shore,
+    // in a body of deep water of at least EEL_MIN cells, so it has somewhere else to come up
+    const EEL_MIN = 12, deepN = new Map(), deepSize = (k0) => { if (deepN.has(k0)) return deepN.get(k0); const seen = [k0], q = [k0], got = new Set(q);
+      while (q.length) { const k = q.pop(); for (const d of [1, -1, W, -W]) if (cells[k + d] === 6 && !got.has(k + d)) { got.add(k + d); seen.push(k + d); q.push(k + d); } }
+      for (const k of seen) deepN.set(k, seen.length); return seen.length; };
+    const deepIn = (r) => { const c = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 6 && deepSize(y * W + x) >= EEL_MIN && !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 3 * TILE)) {
+        let shore = false; for (let j = -2; j <= 2 && !shore; j++) for (let i = -2; i <= 2; i++) if (at(x + i, y + j) === 1) { shore = true; break; }
+        if (shore) c.push([x, y]); }
+      return c.length ? c[Math.floor(R() * c.length)] : null; };
     const addEnemy = (type, x, y, room, elite = 0) => enemies.push({ type, x: wx(x), y: wy(y), room, elite });
     if (boss && !last) claim(exitR.cx - 3, sy, 'altar');
     for (const r of rooms) if (r.type === 'shrine') claim(r.cx, r.cy, 'altar');   // the altar's cell first: props are placed around it
@@ -763,13 +772,15 @@
         for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // a drowned lies in the room's shallows (TASKS 307); a room with none takes another of the roster
-          if (ENEMIES[type].lurk) { const q = shallowIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk); }
+          if (ENEMIES[type].lurk) { const q = shallowIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
+          // an eel in its deep water; a room with none takes another
+          if (ENEMIES[type].deep) { const q = deepIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
           addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (depth >= 3 && R() < D.ELITE.share) ? 1 : 0);
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
         if (guard) { const p = spot(r, 2); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
-      if (r.type === 'boss') { addEnemy(bossType, r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute')), p[0], p[1], r.id); } }
+      if (r.type === 'boss') { addEnemy(bossType, r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
       // chests
       // a locked room pays for its key: one chest of the secret rooms' tier and another of the hoards', often a heap of gold
       const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.2 ? 1 : 0);

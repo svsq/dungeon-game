@@ -77,7 +77,7 @@
   function world(S, R, t, V) {
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
-    for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && seen(e.x, e.y)) {
+    for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && !D.under(e) && seen(e.x, e.y)) {
       const [w, hh] = SZ('en_' + (D.BOSSES[e.type] ? (D.BOSSES[e.type].rig || 'brute') : e.type)), scale = (D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1) * k;
       actorZones.push({ x: V.sx(e.x) - w * scale / 2, y: V.sy(e.y) - hh * scale, w: w * scale, h: hh * scale + 6 });
     }
@@ -105,7 +105,7 @@
     }
     const bars = [];
     // in rock a body is void: no label over nothing
-    for (const e of R.en) { if (e.deadT >= 0 || e.st === 'lurk' || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
+    for (const e of R.en) { if (e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ('en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
