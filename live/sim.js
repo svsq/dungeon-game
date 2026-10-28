@@ -1452,7 +1452,15 @@
           if (c.kind !== 'neck' && !c.cells.some((k) => [1, -1, W, -W].some((d) => deepAt(k + d)))) out.push(`seed ${seed} f${f}: a ${c.kind} over no deep water`); }
         for (const q of m.waterFeatures) { caveKinds[q.kind] = (caveKinds[q.kind] || 0) + 1; const back = { u: -W, d: W, l: -1, r: 1 }[q.dir];
           if (!['waterfall', 'breach', 'spring'].includes(q.kind) || !(wet.has(q.cell) || deepAt(q.cell) || over.has(q.cell)) || m.cells[q.cell + back] !== 0) out.push(`seed ${seed} f${f}: a ${q.kind} off its wall or its water`); }
-        for (const k in m.waterFlow) if (!(wet.has(+k) || deepAt(+k)) || !(m.waterFlow[k] >= 0 && m.waterFlow[k] <= 3)) out.push(`seed ${seed} f${f}: a stream's flow off its water`); }
+        for (const k in m.waterFlow) if (!(wet.has(+k) || deepAt(+k)) || !(m.waterFlow[k] >= 0 && m.waterFlow[k] <= 3)) out.push(`seed ${seed} f${f}: a stream's flow off its water`);
+        // the cave's dressing (TASKS 306): no solid prop cuts a way, lilies and weed grow in the water, moss hangs from a rock face
+        { const blocked = new Set(m.block.concat(m.pots.map(cellOf))), seen = new Uint8Array(W * m.H), s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), st = [s0]; seen[s0] = 1;
+          while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && (m.cells[n] === 1 || m.cells[n] === 4) && !blocked.has(n)) { seen[n] = 1; st.push(n); } } }
+          // the space behind the merchant's counter is closed on purpose (the shop is one built piece)
+          const sh = m.rooms.find((r) => r.type === 'shop'), inShop = (k) => sh && k % W >= sh.x && k % W < sh.x + sh.w && Math.floor(k / W) >= sh.y && Math.floor(k / W) < sh.y + sh.h;
+          const cut = m.cells.findIndex((c, k) => c === 1 && !seen[k] && !blocked.has(k) && !inShop(k) && !hid.has(k)); if (cut >= 0) out.push(`seed ${seed} f${f}: floor at ${cut % W},${Math.floor(cut / W)} cut off by the props`); }
+        for (const o of m.flora) { const k = cellOf(o), up = Math.floor(o.y / TILE - 1) * W + Math.floor(o.x / TILE);
+          if (o.n === 'moss' ? m.cells[up] !== 0 : !inW(k)) out.push(`seed ${seed} f${f}: ${o.n} off its ${o.n === 'moss' ? 'rock face' : 'water'} at ${Math.round(o.x)},${Math.round(o.y)}`); } }
       // the fire depths (TASKS 186): two rivers at least, and nothing stands in lava or a cell from its shore
       if (D.BIOMES[m.biome].lava && f < D.RUNS.campaign.floors && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
       { const shore = (o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor((o.y - 1) / TILE); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) === 3) return true; return false; };

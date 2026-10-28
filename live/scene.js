@@ -381,6 +381,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const GLOW_COL = { shroom: [0.2, 0.85, 0.78], gem: [0.32, 0.62, 1.0] };
   const glowBeat = (d, t) => (d.n === 'crystal_cv' ? 0.94 + 0.04 * Math.sin(t * 2.3 + d.x) + 0.02 * Math.sin(t * 7.1 + d.y) : 0.84 + 0.16 * Math.sin(t * 0.9 + (d.x * 0.37 + d.y * 0.11)));
   // a roof drop of m.drips falls for DRIP_FALL s and lands at ph + n·p (audio.js plays the landing from the same schedule)
+  // a cave crossing's boards (TASKS 306): pitch, board to board along the way; up, the fire cup's height on a torch post
+  const BRIDGE = { pitch: 12, up: 66 }, WET = new WeakMap();
   const DRIP_FALL = 0.38, dripAge = (q, t) => { const a = (t - q.ph) % q.p; return a < 0 ? a + q.p : a; };
   const torchCol = (m, tc) =>D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome].torch;
 
@@ -1007,6 +1009,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
       TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), tp ? 200 : d.n === 'candelabra' ? 150 : 125, col, (tp ? 1.0 : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]); }
+    // a cave bridge's fire posts (TASKS 306): the crossing's warm light, on the deck and in the water under it
+    for (const c of m.crossings || []) for (const p of c.posts || []) if (p.fire) { const f = flick(p.x + p.y);
+      // the pool lies on the deck and the water round the post's foot, the small bright one at the flame over the post's top, so
+      // the post itself is not burnt out by a light at its middle
+      TL.push([p.x, p.y + 30, 190, B.torch, 0.95 * f, 3.0]); TL.push([p.x, p.y - BRIDGE.up - 50, 44, B.torch.map((v) => 0.4 + 0.6 * v), 1.1 * f, 2.6]); }
     // the cave's own light (TASKS 305): mushrooms breathe slowly in turquoise, crystals hold a steady blue with a faint shimmer;
     // each is a wide soft pool and a small bright one at its heart, so the floor round it reads as lit by it, not tinted. Kept out
     // of TL: fireTint takes a fire's colour back off the actors, and taken off a cold light it painted the hero red
@@ -1070,18 +1077,83 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         u_room: room ? [room.x * TILE, room.y * TILE, (room.x + room.w) * TILE, (room.y + room.h) * TILE] : [0, 0, MW, MH],
         u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, G.xf(sx(waterBox[0]), sy(waterBox[1]), waterBox[2], waterBox[3]));
     }
-    for (const k of m.waterBridges || []) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE; if (!vis(x, y)) continue;
+    if (!caveW) for (const k of m.waterBridges || []) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE; if (!vis(x, y)) continue;
       const n = rnd(k, 3) < 0.35 ? 'water_stone_b' : 'water_stone_a', [w, hh] = SZ(n), jx = Math.round((rnd(k, 5) - 0.5) * 4) * 2;
       L.shadow(sx(x + jx), sy(y + hh / 2), w * 0.45, 4, 0.5); drawProp(n, sx(x + jx), sy(y) + hh / 2, { flip: rnd(k, 9) < 0.5, u: { grade: [0.85, 0.72, 0, 1] } }); }
-    // a plank bridge over deep water: boards across the way, dark gaps between them, a beam along each edge (placeholder art until
-    // the cave's props, TASKS 306)
-    for (const c of m.crossings || []) if (c.kind === 'bridge') { const hor = c.axis === 'x', set = new Set(c.cells);
-      for (const k of c.cells) { const x = (k % m.W) * TILE, y = Math.floor(k / m.W) * TILE; if (!vis(x + TILE / 2, y + TILE / 2)) continue;
-        for (let i = 0; i < 4; i++) { const tone = 0.8 + 0.25 * rnd(k * 4 + i, 11), col = [0.26 * tone, 0.17 * tone, 0.1 * tone];
-          if (hor) L.solid(sx(x + i * 8), sy(y), 7, TILE, col); else L.solid(sx(x), sy(y + i * 8), TILE, 7, col); }
-        const n1 = hor ? k - m.W : k - 1, n2 = hor ? k + m.W : k + 1;
-        if (!set.has(n1)) { if (hor) L.solid(sx(x), sy(y), TILE, 3, [0.15, 0.1, 0.06]); else L.solid(sx(x), sy(y), 3, TILE, [0.15, 0.1, 0.06]); }
-        if (!set.has(n2)) { if (hor) L.solid(sx(x), sy(y + TILE - 3), TILE, 3, [0.15, 0.1, 0.06]); else L.solid(sx(x + TILE - 3), sy(y), 3, TILE, [0.15, 0.1, 0.06]); } } }
+    const wetSet = WET.get(m) || (WET.set(m, new Set(m.water)), WET.get(m));
+    const inWet = (x, y) => { const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE); return SIM.cell(m, cx, cy) === 6 || wetSet.has(cy * m.W + cx); };
+    const ev2 = (v) => Math.round(v / 2) * 2;
+    // rings spreading slowly round whatever stands in the water
+    const ripple = (x, y, r, sd, a = 0.28) => { for (let k = 0; k < 2; k++) { const ph = (t * 0.42 + k * 0.5 + rnd(sd, 3)) % 1, q = r * (0.55 + 0.9 * ph);
+      L.ring(sx(x), sy(y), q, q * 0.38, [0.55, 0.82, 0.84], a * Math.sin(Math.PI * ph), 0.16); } };
+    // a stream's water breaks white on a post or a stone it runs past
+    const spray = (x, y, sd) => { const k = Math.floor(y / TILE) * m.W + Math.floor(x / TILE); if (m.waterFlow[k] === undefined) return;
+      for (let j = 0; j < 4; j++) { const ph = (t * 1.4 + rnd(sd, j)) % 1; L.solid(ev2(sx(x) + (rnd(sd, j + 4) - 0.5) * 18), ev2(sy(y) - 2 - 7 * Math.sin(Math.PI * ph)), 2, 2, [0.8, 0.92, 0.92], 0, 0, 0, 0.7 * (1 - ph)); } };
+    // a ford of flat stepping stones, one to a cell, each a little off the grid, the water ringing round it
+    const fordStones = (c) => { for (const k of c.cells) { const n = rnd(k, 3) < 0.4 ? 'ford_b' : 'ford_a', [w, hh] = SZ(n), x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6);
+      ripple(x, y + 3, w * 0.55, k); L.shadow(sx(x), sy(y) + hh * 0.3, w * 0.5, 4, 0.45); drawProp(n, sx(x), sy(y) + hh * 0.55, { flip: rnd(k, 9) < 0.5 }); spray(x, y, k); } };
+    // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
+    // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
+    // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
+    const planks = (c, band) => { const hor = c.axis === 'x', [u0, u1, v0] = c.span, bridge = c.kind === 'bridge', T = TILE, sd = c.cells[0];
+      const A0 = u0 * T - 6, len = (u1 - u0 + 1) * T + 12, B0 = v0 * T, BW = 2 * T, n = Math.max(3, Math.round(len / BRIDGE.pitch)), pitch = len / n;
+      const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
+      const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
+      const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
+        if (bridge && i > 1 && i < n - 2 && r(1) < 0.05) continue;
+        boards.push({ a, off: (r(2) - 0.5) * 4, l: BW + 6 + (r(3) - 0.5) * 7, rot: (r(4) - 0.5) * 0.07, tone: 0.72 + 0.36 * r(5), n: r(6) < 0.5 ? 'plank_a' : 'plank_b', f: r(7) < 0.5, z: z(a) }); }
+      const board = (q, h, draw) => { const [X, Y] = P(q.a, B0 + BW / 2 + q.off, h); draw(X, Y, hor ? Math.PI / 2 + q.rot : q.rot); };
+      // the shadow on the water, then the reflection of the near edge and the posts, wavering
+      for (const q of boards) board(q, -6, (X, Y, rot) => L.solid(X - q.l / 2, Y - 5, q.l, 10, [0.005, 0.02, 0.025], rot, q.l / 2, 5, bridge ? 0.42 : 0.3));
+      if (bridge && hor) for (const q of boards) { const near = B0 + BW + 4; if (!inWet(q.a, near + 14)) continue;
+        for (let k = 0; k < 5; k++) { const [X, Y] = P(q.a, near + 4 + k * 4), dx = ev2(Math.sin(t * 1.6 + q.a * 0.13 + k * 1.3) * 1.6); L.solid(X - 4 + dx, Y, 8, 4, [0.2 * q.tone, 0.13 * q.tone, 0.08 * q.tone], 0, 0, 0, 0.2 * (1 - k / 5)); } }
+      for (const p of c.posts || []) if (inWet(p.x, p.y + 6)) { ripple(p.x, p.y + 2, 16, p.x + p.y); for (let k = 0; k < 6; k++) { const dx = ev2(Math.sin(t * 1.5 + p.x * 0.1 + k * 1.1) * 1.6);
+        L.solid(ev2(sx(p.x)) - 6 + dx, ev2(sy(p.y)) + 4 + k * 4, 12, 4, [0.18, 0.11, 0.07], 0, 0, 0, 0.26 * (1 - k / 6)); } }
+      // a plank walk's stilts into the water along its near edge
+      if (!bridge) for (let i = 0; i < boards.length; i += 3) for (const b of hor ? [B0 + BW + 1] : [B0 + 3, B0 + BW - 3]) { const q = boards[i], [X, Y] = P(q.a, b);
+        if (inWet(hor ? q.a : b, hor ? b + 4 : q.a + 4)) ripple(hor ? q.a : b, hor ? b + 4 : q.a + 4, 9, q.a + b, 0.22); L.solid(X - 2, Y - 2, 4, 8, [0.12, 0.07, 0.045]); }
+      // the beams under the boards: along the near edge of a deck across the screen, along both sides of one running down it
+      if (hor) for (const q of boards) { const [X, Y] = P(q.a, B0 + BW + 2, q.z); L.solid(X - pitch / 2 - 1, Y - 2, pitch + 2, 5, [0.12, 0.07, 0.045]); }
+      for (const q of boards) board(q, q.z, (X, Y, rot) => L.sprite(q.n, X - q.l / 2, Y - 5, { w: q.l, h: 10, rot, pivot: [q.l / 2, 5], flip: q.f, u: { grade: [0.9, q.tone, 0, 1] } }));
+      // a deck running down the screen is framed by its two stringers, logs along its sides over the boards' ends, and shows the
+      // edge of its last board at its near end
+      if (!hor) { const [, y0] = P(A0, 0, lift), [, y1] = P(A0 + len, 0, lift);
+        for (const b of [B0 - 1, B0 + BW + 1]) { const [X] = P(0, b); L.solid(X - 3, y0, 6, y1 - y0, [0.15, 0.09, 0.055]); L.solid(X - 3, y0, 2, y1 - y0, [0.33, 0.21, 0.12]); L.solid(X + 2, y0, 1, y1 - y0, [0.06, 0.035, 0.02]); }
+        const [xl] = P(0, B0 - 4); L.solid(xl, y1, BW + 8, 4, [0.1, 0.06, 0.035]); }
+      if (!bridge) return;
+      // the rails: a stake every third board on each side, two ropes from stake to stake, each span sagging
+      const stakes = boards.filter((q, i) => i % (hor ? 3 : 4) === 0 || i === boards.length - 1), sh = hor ? 22 : 13;
+      // seen from above a stake and the rope it holds run down the same line on a deck running down the screen: one rope there,
+      // the stakes over it, each with its pale cut top
+      const sw = hor ? 4 : 6, stake = (X, Y) => { L.solid(X - sw / 2, Y - sh, sw, sh, [0.09, 0.05, 0.03]); L.solid(X - sw / 2, Y - sh, 2, sh, [0.26, 0.16, 0.09]);
+        L.solid(X - sw / 2, Y - sh - 2, sw, 3, [0.5, 0.36, 0.21]); L.solid(X - sw / 2, Y - sh + 1, sw, 1, [0.05, 0.03, 0.02]); };
+      const rail = (side) => { const b = side ? B0 + BW + 1 : B0 - 1, top = (q, hgt) => P(q.a, b, q.z + hgt);
+        if (hor) for (const q of stakes) stake(...top(q, 0));
+        for (let i = 0; i + 1 < stakes.length; i++) for (const hgt of hor ? [19, 10] : [11]) { const A = stakes[i], Bq = stakes[i + 1];
+          for (let k = 0; k < 6; k++) { const w0 = k / 6, w1 = (k + 1) / 6, dr = (w) => 3 * Math.sin(Math.PI * w);
+            const [x0, y0] = P(A.a + (Bq.a - A.a) * w0, b, A.z + (Bq.z - A.z) * w0 + hgt - dr(w0)), [x1, y1] = P(A.a + (Bq.a - A.a) * w1, b, A.z + (Bq.z - A.z) * w1 + hgt - dr(w1));
+            const l = Math.hypot(x1 - x0, y1 - y0), an = Math.atan2(y1 - y0, x1 - x0); L.solid(x0, y0 + 1, l + 1, 1, [0.2, 0.13, 0.06], an, 0, 0); L.solid(x0, y0 - 1, l + 1, 2, [0.55, 0.42, 0.22], an, 0, 0); } }
+        if (!hor) for (const q of stakes) { const [X, Y] = top(q, 0); stake(X + (side ? 2 : -2), Y); } };
+      // a deck running down the screen has its rails at its sides, level with whoever walks it: they draw behind him
+      if (hor) { rail(0); band.push([B0 + BW + 2, () => rail(1)]); } else { rail(0); rail(1); }
+      for (const p of c.posts) band.push([p.y, () => { L.shadow(sx(p.x), sy(p.y), 12, 4, 0.5); drawProp(p.fire ? 'bridge_torch' : 'bridge_post', sx(p.x), sy(p.y), { dy: 4 });
+        if (p.fire && known(p.x, p.y)) { halo(sx(p.x), sy(p.y) - BRIDGE.up + 6, B.torch, p.x); flameB(sx(p.x), sy(p.y) - BRIDGE.up, 18 * flick(p.x), 32 * flick(p.x + 1), B.torch, p.x + p.y, 0); } }]); };
+    // the cave's crossings (TASKS 306): stepping stones, a low plank walk, a rope bridge; its near rail and posts stand in the band
+    const bandX = [];
+    for (const c of m.crossings || []) { if (c.kind === 'neck') continue; const xs = c.cells.map((k) => (k % m.W) * TILE), ys = c.cells.map((k) => Math.floor(k / m.W) * TILE);
+      if (!vis((Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2, 260)) continue;
+      if (c.look === 'stones') { fordStones(c); continue; }
+      planks(c, bandX); }
+    // a strand of moss hanging from the lip of a rock face, one art pixel wide: dark at its root, yellow-green at its tip, a leaf
+    // pixel now and then to either side; it sways more the lower it hangs. Painted strands drawn this small melted into the rock
+    const MOSS = [[0.12, 0.27, 0.2], [0.25, 0.47, 0.19], [0.45, 0.66, 0.2], [0.68, 0.84, 0.28]];
+    const mossStrand = (o, sd) => { const n = Math.round(9 + 16 * o.s), top = o.y - 34 - 2 * Math.floor(3 * rnd(o.x, 2)), x0 = ev2(sx(o.x));
+      for (let k = 0; k < n; k++) { const q = k / n, dx = ev2(Math.sin(t * 0.7 + sd + k * 0.18) * 3.2 * q * q), col = MOSS[Math.min(3, Math.floor(q * 3.6))], Y = ev2(sy(top)) + 2 * k;
+        L.solid(x0 + dx, Y, 2, 2, col); if (k > 2 && rnd(sd, k) < 0.22) L.solid(x0 + dx + (rnd(sd, k + 50) < 0.5 ? -2 : 2), Y, 2, 2, MOSS[Math.min(3, Math.floor(q * 3.6) + 1)]); } };
+    // the cave's flora: lilies float on the calm water, moss hangs from the rock faces (water weed stands in the band)
+    for (const o of m.flora || []) { if (!vis(o.x, o.y) || o.n === 'weed_cv') continue; const sd = o.x * 0.37 + o.y * 0.11;
+      if (o.n === 'lily_cv') { const [w0, h0] = SZ(o.n), w = w0 * o.s, hh = h0 * o.s, dx = Math.round(Math.sin(t * 0.35 + sd)) * 2; L.sprite('lily_cv', sx(o.x) - w / 2 + dx, sy(o.y) - hh / 2, { w, h: hh, flip: !!o.f, u: { grade: [0.9, 0.85, 0, 1] } }); }
+      else mossStrand(o, sd); }
     for (const q of m.waterFeatures || []) { if (q.drain === undefined) continue;
       const x = (q.drain % m.W + 0.5) * TILE, y = (Math.floor(q.drain / m.W) + 0.5) * TILE, [w, hh] = SZ('water_drain');
       if (vis(x, y)) L.sprite('water_drain', sx(x) - w / 2, sy(y) - hh / 2, { w, h: hh });
@@ -1195,6 +1267,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const halo = (x, y, col, i) => { if (col[0] >= col[2]) L.glow(x, y - 16, 52, col, 0.2 * flick(i), 3.0); };
     // a struck fire flares and leans away from the blow, swings back past upright once and settles
     const blown = (id, hh) => { const e = knocked[id], a = e ? GT - e.t : 9; return a < 1.2 ? { fl: 1 + 0.55 * Math.exp(-4 * a), lean: e.s * hh * 0.45 * Math.exp(-3.5 * a) * Math.cos(7 * a) } : { fl: 1, lean: 0 }; };
+    for (const b of bandX) Y.push(b);
+    // water weed stands up out of the water, its foot under the surface, stirring in the slow current
+    for (const o of m.flora || []) if (o.n === 'weed_cv' && vis(o.x, o.y)) Y.push([o.y, () => { const [w0, h0] = SZ('weed_cv'), w = w0 * o.s, hh = h0 * o.s * 0.86, sd = o.x * 0.37 + o.y * 0.11;
+      ripple(o.x, o.y, w * 0.45, sd, 0.2);
+      L.sprite('weed_cv', ev2(sx(o.x)) - w / 2, ev2(sy(o.y)) - hh, { w, h: hh, rot: 0.035 * Math.sin(t * 0.9 + sd), pivot: [w / 2, hh], src: [0, 0, 1, 0.86], flip: !!o.f, u: { grade: [0.9, 0.9, 0, 1] } }); }]);
     // the secrets' covers: a banner that sways in the draught and falls when torn, a bookshelf that breaks; a wall worked by a
     // mechanism sinks into the floor (a top wall's face slides down, other sides' rock settles away)
     (m.secrets || []).forEach((q, i) => { if (!vis(q.x, q.y) || inSecret(q)) return; const kind = q.kind || 'crack', a = q.open ? GT - (q.openT ?? -9) : -1;
@@ -1261,8 +1338,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16, { j: { rot, dx: 0, sy: 1 } }); if (lit) flameB(sx(tc.x) + 3 * c + 41 * s + 7 * pull, sy(tc.y) + 37 + 3 * s - 41 * c - 6 * pull, 20 * fl, 36 * fl, col, i, lean); }]); }
       else if (tc.kind === 'wall') Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16, { j }); if (lit) { halo(sx(tc.x) + 3 + (j ? j.dx + Math.sin(j.rot) * 40 : 0), sy(tc.y) - 4, col, i); flameB(sx(tc.x) + 3 + (j ? j.dx + Math.sin(j.rot) * 40 : 0), sy(tc.y) - 4, 20 * fl, 36 * fl, col, i, lean); } }]);
       else { const big = tc.kind === 'fire', up = big ? 44 : 32, bl = blown('t' + i, big ? 80 : 50);
-        Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp('brazier', sx(tc.x), sy(tc.y), { k: big ? 1.35 : 1, dy: 4, j });
-          if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(tc.y) - up, (big ? 44 : 26) * bl.fl, (big ? 64 : 40) * bl.fl, col, i, bl.lean); }]); } });
+        // the cave's camp fire burns in a ring of stones on the ground (TASKS 306), not in a brazier
+        const camp = big && B.cave, lo = camp ? 12 : up;
+        Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp(camp ? 'campfire_cv' : 'brazier', sx(tc.x), sy(tc.y), { k: big && !camp ? 1.35 : 1, dy: camp ? 10 : 4, j });
+          if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * lo : 0), sy(tc.y) - lo, (big ? 44 : 26) * bl.fl, (big ? 64 : 40) * bl.fl, col, i, bl.lean); }]); } });
     for (const d of m.decor) { const t2 = d.n === 'candles' && d.lift && onTable(d); if (t2 && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames(TABLE_WICKS.map(([ox, oy]) => [sx(t2.x) + ox, sy(t2.y) + 4 - oy + 2, 7, 12, [1, 0.7, 0.35], d.x + ox]))]); }
     for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !(d.lift && onTable(d)) && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames([0, 1, 2].map((k) => [sx(d.x) + [-8, 0, 9][k], sy(d.y) - (d.lift || 0) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k]))]);
     // standing lights (TASKS 194): their fires ride the prop when it is knocked
@@ -2079,7 +2158,18 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const h = R.hero; h.x = c.x + 90; h.y = c.y + 70; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [c.x - VW / 2, c.y - VH / 2]; S.ev = [];
         m.drips = m.drips.filter((q) => Math.abs(q.x - c.x) > VW / 2 || Math.abs(q.y - c.y) > VH / 2);
         m.drips.push({ x: c.x - 150, y: c.y + 40, p: 4, ph: S.t + 0.2, wet: 0 }, { x: c.x + 200, y: c.y - 60, p: 4, ph: S.t - 0.15, wet: 0 }, { x: c.x - 40, y: c.y + 160, p: 5, ph: S.t + 0.25, wet: near({ x: c.x - 40, y: c.y + 160 }, 20) ? 1 : 0 });
-        if (at(c) >= 0) states.push(['cave_light', structuredClone(S)]); break; } }
+        if (at(c) >= 0) states.push(['cave_light', structuredClone(S)]); break; }
+      // the cave's props (TASKS 306): a rope bridge with a fire on its posts, the hero on its deck; a plank walk and stepping stones;
+      // the explorer's camp round the start's fire; a hall with a boat's wreck on its shore
+      const look = (name, find) => { for (const sd of [3, 5, 8, 13, 21]) for (let f = 1; f <= 4; f++) { if (S.run.seed !== sd && f === 1) S.run = SIM.newRun(S, 'cave', sd); SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, o = find(m); if (!o) continue;
+        const h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); [h.x, h.y] = o.hero || [o.x + 120, o.y + 90]; R.cam = [o.x - VW / 2, o.y - VH / 2]; S.ev = []; states.push([name, structuredClone(S)]); return; } };
+      const mid = (c) => { const xs = c.cells.map((k) => (k % S.run.map.W + 0.5) * TILE), ys = c.cells.map((k) => (Math.floor(k / S.run.map.W) + 0.5) * TILE); return [xs.reduce((a, b) => a + b) / xs.length, ys.reduce((a, b) => a + b) / ys.length]; };
+      look('cave_bridge', (m) => { const c = m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'x' && q.span[1] - q.span[0] >= 4) || m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'x'); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; });
+      look('cave_bridge_v', (m) => { const c = m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'y'); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x + 10, y] }; });
+      look('cave_ford', (m) => { const c = m.crossings.find((q) => q.look === 'walk'), d = m.crossings.find((q) => q.look === 'stones'); if (!c) return null; if (!d) { const [x, y] = mid(c); return { x, y, hero: [x, y] }; } const [x, y] = mid(c), [x2, y2] = mid(d);
+        return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
+      look('cave_camp', (m) => { const r = m.rooms.find((q) => q.camp); return r ? { x: m.sanct.x, y: m.sanct.y - 40, hero: [m.spawn.x, m.spawn.y] } : null; });
+      look('cave_wreck', (m) => { const d = m.decor.find((o) => o.n === 'wreck_cv'); return d ? { x: d.x, y: d.y - 20 } : null; }); }
     // hero walk cycles: right, left, down, up — the same state at successive distances
     const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
@@ -2187,6 +2277,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (base) { const on = [], off = [];
         for (let i = 0; i < 24; i++) { const S = structuredClone(base); S.t += i / 60; on.push(S); const clean = structuredClone(S), m = clean.run.map; m.decor = m.decor.filter((d) => !GLOW[d.n]); m.drips = []; off.push(clean); }
         anim.cave_light = { on, off, box: [610, 290, 700, 500], min: 0.003 }; } }
+    // the cave's water plants, lilies and moss stir, and the water rings round a bridge's posts (TASKS 306): measured on a frame
+    // stilled round them (the water, the glowing mushrooms and the drips taken out, the bake rekeyed), with them and without them
+    for (const name of ['cave_bridge']) { const base = states.find(([n]) => n === name)?.[1]; if (!base) continue; const on = [], off = [];
+      const still = (S) => { const m = S.run.map; m.seed += 306000; m.water = []; m.waterFeatures = []; m.drips = []; m.deep = 0; m.cells = m.cells.map((c) => (c === 6 ? 1 : c)); m.decor = m.decor.filter((d) => !GLOW[d.n]); return S; };
+      for (let i = 0; i < 24; i++) { const S = still(structuredClone(base)); S.t += i / 60; S.ev = []; on.push(S); const clean = structuredClone(S), m = clean.run.map;
+        m.flora = []; for (const c of m.crossings) c.posts = []; off.push(clean); }
+      anim[name + '_life'] = { on, off, box: [720, 380, 480, 320], min: 0.002 }; }
     for (const kind of ['bone', 'snuff', 'water', 'douse']) {
       const base = reactionS(kind, 0.02), on = [], off = [];
       for (let i = 0; i < 16; i++) { const S = structuredClone(base); S.t += i / 60; on.push(S); const clean = structuredClone(S); clean.ev = []; off.push(clean); }

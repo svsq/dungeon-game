@@ -294,10 +294,27 @@
           const path = []; for (let k = prev[end]; k >= 0 && deep[k]; k = prev[k]) path.push(k);
           const a = path[path.length - 1], b = path[0], hor = Math.abs(a % W - b % W) >= Math.abs(Math.floor(a / W) - Math.floor(b / W)), s = hor ? W : 1;
           // two cells wide: the second row on the side where the deep water goes on
-          const side = path.filter((k) => deep[k + s]).length >= path.filter((k) => deep[k - s]).length ? s : -s, cs = path.concat(path.filter((k) => deep[k + side]).map((k) => k + side));
-          const kind = path.length <= 2 ? 'neck' : path.length <= 5 && Q() < 0.6 ? 'ford' : 'bridge';
+          const side = path.filter((k) => deep[k + s]).length >= path.filter((k) => deep[k - s]).length ? s : -s;
+          let cs = path.concat(path.filter((k) => deep[k + side]).map((k) => k + side));
+          let kind = path.length <= 2 ? 'neck' : path.length <= 5 && Q() < 0.6 ? 'ford' : 'bridge';
+          // a plank bridge runs straight (TASKS 306): a path over the deep water that bends is crossed on stepping stones instead
+          const straight = new Set(path.map((k) => (hor ? Math.floor(k / W) : k % W))).size === 1;
+          if (kind === 'bridge' && !straight) kind = 'ford';
+          // a straight crossing reaches the shore with both its rows (TASKS 306): the second row goes on the side whose ends meet the
+          // shallows soonest, and the deep water still under either row past the way's ends goes under the crossing too; a deck that
+          // stopped with one row over deep water read as broken off in the middle of the lake
+          let clean = false;
+          if (kind !== 'neck' && straight) { const step = hor ? 1 : W, lo = path.reduce((a, k) => Math.min(a, k)), hi = path.reduce((a, k) => Math.max(a, k));
+            const reach = (sd, from, dir) => { for (let e = 0; e <= 4; e++) { const k = from + dir * step * e; if (!cells[k] || !cells[k + sd]) return -1; if (!deep[k] && !deep[k + sd]) return e; } return -1; };
+            let best = null;
+            for (const sd of [side, -side]) { if (path.some((k) => !cells[k + sd])) continue; const a = reach(sd, lo - step, -1), b = reach(sd, hi + step, 1);
+              if (a >= 0 && b >= 0 && (!best || a + b < best[1] + best[2])) best = [sd, a, b]; }
+            if (best) { const [sd, a, b] = best; cs = []; clean = true;
+              for (let k = lo - a * step; k <= hi + b * step; k += step) for (const c of [k, k + sd]) if (deep[c]) cs.push(c); } }
+          // with no way to land both rows, no planks: stepping stones follow the cells whatever their shape
+          if (kind === 'bridge' && !clean) kind = 'ford';
           for (const k of cs) { deep[k] = 0; if (kind !== 'neck') cross[k] = 1; }
-          crossings.push({ kind, cells: cs, axis: hor ? 'x' : 'y' }); }
+          crossings.push({ kind, cells: cs, axis: hor ? 'x' : 'y', clean: clean ? 1 : 0 }); }
         // every deep pool has a shore of shallows
         const seen = new Uint8Array(W * H);
         for (let k0 = 0; k0 < W * H; k0++) { if (!deep[k0] || seen[k0]) continue; const st = [k0]; seen[k0] = 1; let shore = false;
@@ -391,7 +408,23 @@
       // a floor with too little water for a flooded cave (a few small halls, no room for lakes) is laid out anew
       if (!settle() || share() < 0.15) return null;
       for (let k = 0; k < W * H; k++) if (wt[k]) { if (deep[k]) { cells[k] = 6; if (flowW[k] >= 0) waterFlow[k] = flowW[k]; } else if (!cross[k]) addWater(k, flowW[k]); }
-      for (const c of crossings) if (c.kind === 'ford') waterBridges.push(...c.cells); }
+      for (const c of crossings) if (c.kind === 'ford') waterBridges.push(...c.cells);
+      // how each crossing is built (TASKS 306), from a stream of its own: a straight ford two cells wide is now and then a low plank
+      // walk instead of stepping stones; a bridge's deck runs on over the shallows at either end to the dry floor, and stands on a
+      // thick post at each corner, a fire on the posts of one end or both of most bridges. u along the way, v across it, in cells
+      const Dq = mul32(seed ^ 0x306b41d);
+      for (const c of crossings) { if (c.kind === 'neck') continue; const hor = c.axis === 'x', U = (k) => (hor ? k % W : Math.floor(k / W)), V = (k) => (hor ? Math.floor(k / W) : k % W);
+        const us = c.cells.map(U), vs = c.cells.map(V), v0 = Math.min(...vs), straight = Math.max(...vs) - v0 === 1, cellAt = (u, v) => (hor ? v * W + u : u * W + v);
+        let u0 = Math.min(...us), u1 = Math.max(...us);
+        if (c.kind === 'ford') { c.look = straight && c.clean && Dq() < 0.45 ? 'walk' : 'stones'; if (c.look === 'stones') continue; }
+        const shallow = (u) => [v0, v0 + 1].every((v) => wet.has(cellAt(u, v)));
+        for (let n = 0; n < 3 && shallow(u0 - 1); n++) u0--; for (let n = 0; n < 3 && shallow(u1 + 1); n++) u1++;
+        c.span = [u0, u1, v0];
+        if (c.kind !== 'bridge') continue;
+        const fire = Dq(), lit = fire < 0.35 ? [] : fire < 0.75 ? [Dq() < 0.5 ? 0 : 1] : [0, 1];
+        c.posts = [];
+        for (const e of [0, 1]) for (const side of [0, 1]) { const a = e ? (u1 + 1) * TILE - 6 : u0 * TILE + 6, b = side ? (v0 + 2) * TILE + 2 : v0 * TILE + 4;
+          c.posts.push({ x: hor ? a : side ? (v0 + 2) * TILE + 4 : v0 * TILE - 4, y: hor ? b : a + (e ? 8 : 2), fire: lit.includes(e) ? 1 : 0, near: side }); } } }
     // ---- secret rooms: anywhere off a straight stretch of wall (a room's or a corridor's, any side but the shop's), a small room
     // behind a two-cell-thick fake wall (cell 4: solid, drawn as rock, breaks under blows) and a short passage. How many is
     // left to chance (1–10, fewer when the rock has no room for them; none at all only on the boss's floor, and rarely), so the
@@ -783,6 +816,83 @@
       lightRoom(r, []);
     }
     if (boss && !last) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
+    // ---- the cave's dressing (TASKS 306), from a stream of its own so the halls' monsters and chests stay where they were. Solid props
+    // (stalagmites, boulders, a wreck, a tent) stand on dry floor against the rock, never on a cell whose blocking could cut a way: its
+    // open neighbours must still meet round it. Each hall is dressed to a plan of data.js ROOM_PLANS (the ones with `cave`); the start
+    // hall is an explorer's camp round the fire. Water plants and lilies float on calm water and moss hangs from the rock faces: they
+    // stand in nobody's way, so they are a list of their own (flora), not props ----
+    const flora = [];
+    if (cave) {
+      const Dr = mul32(seed ^ 0x306d1e5), dri = (a, b) => a + Math.floor(Dr() * (b - a + 1)), N8 = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
+      // a crossing's planks run on over the shallows to the dry floor (span): nothing grows under them
+      const over = new Set(crossings.flatMap((c) => c.cells)); for (const c of crossings) if (c.span) { const [u0, u1, v0] = c.span;
+        for (let u = u0 - 1; u <= u1 + 1; u++) for (let v = v0 - 1; v <= v0 + 2; v++) over.add(c.axis === 'x' ? v * W + u : u * W + v); }
+      const wetAt = (x, y) => wet.has(y * W + x) || at(x, y) === 6 || over.has(y * W + x);
+      const dry = (x, y) => at(x, y) === 1 && !wetAt(x, y), rockN = (x, y) => N4.filter(([dx, dy]) => at(x + dx, y + dy) === 0).length;
+      const shoreAt = (x, y) => dry(x, y) && N8.some(([dx, dy]) => wetAt(x + dx, y + dy));
+      const hardC = new Set(); const hard = (px, py) => hardC.add(key(Math.floor(px / TILE), Math.floor(py / TILE)));
+      for (const o of [...chests, ...pots, ...shrines, ...torches.filter((t) => t.kind !== 'wall'), ...decor.filter((d) => d.solid && !d.wall)]) hard(o.x, o.y); for (const [x, y] of shop.solid) hard(x, y);
+      const go = (x, y) => at(x, y) === 1 && !hardC.has(key(x, y));
+      // blocking (x, y) keeps every way: its open side neighbours are joined round the ring of its eight
+      const keepsWay = (x, y) => { const ring = N8.map(([dx, dy]) => go(x + dx, y + dy)), comp = new Array(8).fill(-1); let n = 0;
+        for (let i = 0; i < 8; i++) { if (!ring[i] || comp[i] >= 0) continue; for (let j = i; ring[j % 8] && comp[j % 8] < 0; j++) comp[j % 8] = n; for (let j = i - 1; ring[(j + 8) % 8] && comp[(j + 8) % 8] < 0; j--) comp[(j + 8) % 8] = n; n++; }
+        const sides = [1, 3, 5, 7].filter((i) => ring[i]).map((i) => comp[i]); return sides.every((c) => c === sides[0]); };
+      // the water's own cells count as bulky (so nothing stands in it): by the water, only the props round count
+      const roomyBy = (x, y, n) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (bulk.has(key(x + i, y + j)) && !wetAt(x + i, y + j)) return false;
+        return !wide.some(([ex, ey, eh]) => Math.abs(ey - y) <= 1 && Math.abs(ex - wx(x)) < eh + half(n) + 4); };
+      const canStand = (x, y, n) => dry(x, y) && free(x, y) && !doorway(x, y) && roomyBy(x, y, n) && keepsWay(x, y) && !(at(x, y - 1) === 0 && hungAt(wx(x), y, half(n)));
+      const stand = (x, y, n, r) => { claim(x, y, n); hardC.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n, solid: 1, r }); };
+      const shuffled = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Dr() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const cellsOf = (r, f) => { const out = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (f(x, y)) out.push([x, y]); return shuffled(out); };
+      // a pile of barrels and crates against the rock, read as one (they overlap on purpose)
+      const stack = (r, near) => { const c0 = cellsOf(r, (x, y) => rockN(x, y) >= 1 && dry(x, y) && free(x, y) && !doorway(x, y) && roomyCell(x, y) && keepsWay(x, y)).sort((a, b) => (near ? Math.hypot(a[0] - near[0], a[1] - near[1]) - Math.hypot(b[0] - near[0], b[1] - near[1]) : 0));
+        for (const [x, y] of c0.slice(0, 12)) { const cs = [[x, y], ...N4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => rockN(a, b) >= 1 && dry(a, b) && free(a, b) && !doorway(a, b) && roomyCell(a, b))].slice(0, dri(2, 3));
+          if (cs.length < 2 || cs.some(([a, b]) => wide.some(([ex, ey, eh]) => Math.abs(ey - b) <= 1 && Math.abs(ex - wx(a)) < eh + 28))) continue;
+          const ok = []; for (const [a, b] of cs) { if (!keepsWay(a, b)) break; hardC.add(key(a, b)); ok.push([a, b]); } if (ok.length < 2) { for (const [a, b] of ok) hardC.delete(key(a, b)); continue; }
+          stackN++; for (const [a, b] of ok) { used.add(key(a, b)); bulk.add(key(a, b)); pots.push({ x: wx(a), y: wy(b), kind: Dr() < 0.5 ? 'barrel' : 'crate', hp: 1, stack: stackN }); wide.push([wx(a), b, 24]); } return true; } return false; };
+      const lie = (r, n, k, by) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && rockN(x, y) >= 1 && (!by || Math.hypot(x - by[0], y - by[1]) < 5)).slice(0, k)) {
+        used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id }); } };
+      const rocks = (r, k, glass) => { let n = 0; for (const [x, y] of cellsOf(r, (x, y) => rockN(x, y) >= 1 || N8.filter(([dx, dy]) => at(x + dx, y + dy) === 0).length >= 3)) { if (n >= k) break;
+        const by = shoreAt(x, y), nm = glass && by && Dr() < 0.25 && !decor.some((d) => d.n === 'crystal_cv' && Math.hypot(d.x - wx(x), d.y - wy(y)) < 9 * TILE) ? 'crystal_cv' : pick4(); if (canStand(x, y, nm)) { stand(x, y, nm, r.id); n++; } } };
+      const ROCKS = ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'stalag_a', 'boulder_b'], pick4 = () => ROCKS[Math.floor(Dr() * ROCKS.length)];
+      const plans = Object.entries(D.ROOM_PLANS).filter(([, P]) => P.cave && P.need.every((n) => D.BIOMES.cave.props.includes(n)));
+      for (const r of rooms) {
+        if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss') continue;
+        if (r === start) {
+          // the explorer's camp: the tent backed against the rock a few steps from the fire, a pile of his barrels and crates, now and
+          // then what is left of him
+          const fire = [start.cx, start.cy], tent = cellsOf(r, (x, y) => at(x, y - 1) === 0 && Math.hypot(x - fire[0], y - fire[1]) >= 2.5 && Math.hypot(x - fire[0], y - fire[1]) <= 5.5)
+            .sort((a, b) => Math.hypot(a[0] - fire[0], a[1] - fire[1]) - Math.hypot(b[0] - fire[0], b[1] - fire[1])).find(([x, y]) => canStand(x, y, 'tent_cv'));
+          if (tent) { stand(...tent, 'tent_cv', r.id); r.camp = 1; }
+          stack(r, tent || fire); if (Dr() < 0.45) lie(r, 'skel_cv', 1, fire); lie(r, 'bones', dri(0, 1));
+          continue; }
+        // a wreck wants a shore with deep water by it, or across a cell of shallows
+        const deepBy = (x, y) => N4.some(([dx, dy]) => at(x + dx, y + dy) === 6 || (wet.has((y + dy) * W + x + dx) && N8.some(([ex, ey]) => at(x + dx + ex, y + dy + ey) === 6)));
+        const want = plans.filter(([, P]) => !P.cave.wreck || cellsOf(r, (x, y) => shoreAt(x, y) && deepBy(x, y)).length);
+        let roll = Dr() * want.reduce((a, [, P]) => a + P.w, 0), plan = want[0]; for (const q of want) { roll -= q[1].w; if (roll < 0) { plan = q; break; } }
+        if (!plan) continue; const P = plan[1].cave, nOf = (v) => (Array.isArray(v) ? dri(v[0], v[1]) : v || 0), area = r.w * r.h; r.plan = plan[0];
+        if (P.wreck) { const c = cellsOf(r, (x, y) => shoreAt(x, y) && deepBy(x, y)).find(([x, y]) => canStand(x, y, 'wreck_cv')); if (c) stand(...c, 'wreck_cv', r.id); }
+        if (P.tent) { const c = cellsOf(r, (x, y) => at(x, y - 1) === 0).find(([x, y]) => canStand(x, y, 'tent_cv')); if (c) stand(...c, 'tent_cv', r.id); }
+        rocks(r, Math.round(nOf(P.rocks) * Math.min(1.5, area / 90)), true);
+        for (let i = nOf(P.stacks); i > 0; i--) stack(r);
+        lie(r, 'skel_cv', nOf(P.skel)); lie(r, 'bones', nOf(P.bones)); }
+      // more glowing mushrooms than the light needs, in clumps of two or three along the water's edge (the concept's banks glow)
+      for (const r of rooms) { if (r.type === 'shop' || r.type === 'secret') continue; let n = Math.round(r.w * r.h / 110);
+        for (const [x, y] of cellsOf(r, (x, y) => shoreAt(x, y) && free(x, y) && !doorway(x, y))) { if (n <= 0) break; if (decor.some((d) => /^shroom/.test(d.n) && Math.abs(d.x - wx(x)) < 5 * TILE && Math.abs(d.y - wy(y)) < 4 * TILE)) continue;
+          const clear = (a, b) => !wide.some(([ex, ey, eh]) => Math.abs(ey - b) <= 1 && Math.abs(ex - wx(a)) < eh + 14); if (!clear(x, y)) continue;
+          const clump = [[x, y], ...N8.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => shoreAt(a, b) && free(a, b) && !doorway(a, b) && clear(a, b))].slice(0, dri(2, 3));
+          for (const [a, b] of clump) { used.add(key(a, b)); decor.push({ x: wx(a) + dri(-8, 8), y: wy(b) + dri(-4, 3), n: Dr() < 0.55 ? 'shroom_a' : 'shroom_b' }); } n--; } }
+      // calm water (no stream's current, away from a fall) carries lilies in loose groups; weed stands up out of the water by its edge;
+      // moss hangs from the low faces of the rock over floor or water
+      const src = waterFeatures.map((q) => q.cell), calm = (x, y) => wetAt(x, y) && !over.has(y * W + x) && waterFlow[y * W + x] === undefined && !src.some((k) => Math.abs(k % W - x) + Math.abs(Math.floor(k / W) - y) < 4);
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        if (calm(x, y) && Dr() < 0.05) for (const [dx, dy] of [[0, 0], ...N8].filter(() => Dr() < 0.4).slice(0, 3)) if (calm(x + dx, y + dy) && !flora.some((o) => o.n === 'lily_cv' && Math.abs(o.x - wx(x + dx)) < 20 && Math.abs(o.y - wy(y + dy)) < 16))
+          flora.push({ n: 'lily_cv', x: wx(x + dx) + dri(-8, 8), y: (y + dy) * TILE + dri(10, 22), f: Dr() < 0.5 ? 1 : 0, s: +(0.75 + 0.4 * Dr()).toFixed(2) });
+        if (wetAt(x, y) && !over.has(y * W + x) && N8.some(([dx, dy]) => dry(x + dx, y + dy) || at(x + dx, y + dy) === 0) && Dr() < 0.07)
+          flora.push({ n: 'weed_cv', x: wx(x) + dri(-8, 8), y: y * TILE + dri(14, 26), f: Dr() < 0.5 ? 1 : 0, s: +(0.7 + 0.45 * Dr()).toFixed(2) });
+        if (at(x, y) === 0 && (at(x, y + 1) === 1 || at(x, y + 1) === 6) && Dr() < 0.13 && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < TILE && Math.abs(t.y + 26 - (y + 1) * TILE) < TILE)
+          && !waterFeatures.some((q) => q.kind === 'waterfall' && Math.abs(q.x - wx(x)) < 2 * TILE && Math.abs(q.y - (y + 1) * TILE) < 2 * TILE))
+          for (let i = dri(2, 4), x0 = wx(x) + dri(-4, 4); i > 0; i--) flora.push({ n: 'moss', x: x0 + dri(-9, 9), y: (y + 1) * TILE, f: Dr() < 0.5 ? 1 : 0, s: +(0.55 + 0.6 * Dr()).toFixed(2) }); } }
     // a cave's tunnels have a mushroom by the rock now and then, so a long way between halls is not one black stretch
     if (cave) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !inRoom(x, y) && free(x, y) && N4.some(([dx, dy]) => at(x + dx, y + dy) === 0) && R() < 0.035) {
       used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: R() < 0.55 ? 'shroom_a' : 'shroom_b' }); }
@@ -902,7 +1012,7 @@
       || { x: start.cx * TILE + TILE / 2, y: (start.cy + 1) * TILE + TILE / 2 };
     // flat floor decals (baked into the floor map): wear everywhere, a biome flavour per room, gore and coins where fights happen
     const DEC = { dungeon: ['dc_crack', 'dc_grime', 'dc_rubble', 'dc_slab', 'dc_straw', 'dc_shards', 'dc_leaves'], crypt: ['dc_moss', 'dc_bones', 'dc_crack', 'dc_grime', 'dc_puddle'],
-      lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'], cave: ['dc_moss', 'dc_rubble', 'dc_crack', 'dc_moss', 'dc_grime'] };
+      lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'], cave: ['dc_moss', 'dc_pebbles', 'dc_rubble', 'dc_moss', 'dc_silt', 'dc_pebbles', 'dc_crack'] };
     // a decal is drawn up to 40·s px across (scene.js bake, over the walls already painted): it shrinks until that square lies on
     // open floor, so no stone, rubbish or stain climbs a wall or spills onto the rock; one that would have to shrink past half is left out
     const decals = [], onFloor = (px, py, h) => { for (let y = Math.floor((py - h) / TILE); y <= Math.floor((py + h - 0.01) / TILE); y++) for (let x = Math.floor((px - h) / TILE); x <= Math.floor((px + h - 0.01) / TILE); x++) if (at(x, y) !== 1) return false; return true; };
@@ -912,6 +1022,9 @@
         const fight = r.type === 'combat' || r.type === 'exit' || r.type === 'boss';
         const pool = (fight || r.type === 'treasure' || r.type === 'secret') && R() < 0.35 ? ['dc_blood', 'dc_blood2', 'dc_coins', 'dc_bones', 'dc_sword'] : DEC[zb];
         if (wet.has(Math.floor(y) * W + Math.floor(x))) continue; fitDecal({ x: x * TILE, y: y * TILE, n: pool[Math.floor(R() * pool.length)], f: R() < 0.5 ? 1 : 0, s: 0.8 + 0.5 * R() }); } }
+    // the water leaves its silt, pebbles and puddles on the cave's banks (TASKS 306)
+    if (cave) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !wet.has(y * W + x) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => wet.has((y + dy) * W + x + dx)) && R() < 0.3)
+      fitDecal({ x: (x + 0.2 + 0.6 * R()) * TILE, y: (y + 0.2 + 0.6 * R()) * TILE, n: ['dc_silt', 'dc_pebbles', 'dc_silt', 'dc_puddle'][Math.floor(R() * 4)], f: R() < 0.5 ? 1 : 0, s: 0.7 + 0.4 * R() });
     // cobwebs: the sprite is spun across a top-left corner, so a web only ever hangs in a room's top corner where the back wall
     // meets a side wall (mirrored for the right one), more of them in the crypt and the halls than in the fire depths
     const WEB = { crypt: 0.6, arcane: 0.6, dungeon: 0.35, cave: 0.35, lava: 0.15 };
@@ -931,7 +1044,7 @@
     // a fountain's basin stands on the floor, three cells wide; a stream's culvert is in the wall (TASKS 230)
     for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
     return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips };
+      bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora };
   }
 
   // room index of a world point (or -1 in a corridor)
