@@ -582,6 +582,10 @@
     const exit = { x: sx * TILE + TILE, y: sy * TILE + TILE / 2, tx: sx, ty: sy };
     for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // the bonfire and the spawn tiles
     const roster = D.BIOMES[biome].roster, lvl = depth;
+    const bridged = new Set(crossings.flatMap((c) => c.cells));
+    const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
+        && !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 2 * TILE); });
+      if (!c.length) return null; const k = c[Math.floor(R() * c.length)]; return [k % W, Math.floor(k / W)]; };
     const addEnemy = (type, x, y, room, elite = 0) => enemies.push({ type, x: wx(x), y: wy(y), room, elite });
     if (boss && !last) claim(exitR.cx - 3, sy, 'altar');
     for (const r of rooms) if (r.type === 'shrine') claim(r.cx, r.cy, 'altar');   // the altar's cell first: props are placed around it
@@ -758,6 +762,8 @@
         const pack = pick(roster), guard = r.type === 'exit' && !!N.guard[floor];
         for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
+          // a drowned lies in the room's shallows (TASKS 307); a room with none takes another of the roster
+          if (ENEMIES[type].lurk) { const q = shallowIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk); }
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
           addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (depth >= 3 && R() < D.ELITE.share) ? 1 : 0);
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }

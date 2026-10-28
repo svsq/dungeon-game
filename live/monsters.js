@@ -3,7 +3,7 @@
 // the legs, and swings its arms from pose curves keyed to the attack's own clock; the spider walks eight legs in two alternating sets.
 (function () {
   const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
-  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider' };   // the ghost bends its one sprite (softbones)
+  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned' };   // the ghost bends its one sprite (softbones)
   const SKULL_K = { skeleton: 1.3 };
   MON.rigOf = (type) => { const n = RIG[type] || (DATA.BOSSES[type] || {}).rig; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
   const d2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
@@ -297,6 +297,32 @@
       if (n === 'goblin') base.ear = earKick(e, GT, p0, live);
       // a skeleton dies one of three ways, picked by its id: a heap, bones flung off by the blow, or a fall that breaks apart
       if (n === 'skeleton' && !live) { const kind = ['pile', 'burst', 'topple'][e.id % 3]; base.crumble = { t: GT - e.deadT, kind, dir: e.dieA }; if (kind !== 'topple') base.fallR = 0; }
+      biped(base); return true; }
+    if (n === 'drowned') {
+      // a shamble: hunched forward, short dragging steps; it climbs out of the water arms first (o.rise 0..1)
+      base.lean += 0.12 * face; base.lift = 0.042;
+      const u = GT - e.t0, G0 = E.grab;
+      if (live && e.grab && (e.st === 'wind' || e.st === 'strike')) {
+        // the grab: the near arm cocks back with the elbow folded, shoots out along the aim, holds, then hauls back clenched if it
+        // caught the hero (the sim's gotT on this strike) or drops back empty
+        const gw = G0.wind * DATA.eliteK(e, 'wind'), aimN = aimRig(e, face, H) - Math.PI / 2, got = e.st === 'strike' && Math.abs((e.gotT ?? -9) - e.t0) < 0.02;
+        // the thrust spans the wind-up's end: the hand closes as the sim's grab lands (the strike's first frame) and reaches on 0.15 s
+        const T = e.st === 'wind' ? u : gw + u, k = SS(0, gw - 0.15, T), x = SS(gw - 0.15, gw + 0.15, T), y = e.st === 'strike' ? SS(0.14, got ? 0.4 : G0.strike, u) : 0;
+        const z = got && e.st === 'strike' ? SS(0.38, G0.strike, u) : 0, back = 0.45, thrust = (b) => lerp(b + back * k, aimN, x);   // z: the haul eased back to rest by the strike's end
+        base.lean += (-0.1 * k + 0.16 * x - (got ? 0.22 : 0.05) * y) * (1 - z) * face;
+        base.arm = (side, b) => { if (side === 'L') return [b - 0.35 * k * (1 - y), b - 0.35 * k * (1 - y) + 0.18];
+          const r1 = lerp(thrust(b), got ? b + 0.35 : b, y), r2 = r1 + lerp(lerp(0.18, 1.4, k), 0.05, x) + (got ? 1.3 : 0.13) * y; return [lerp(r1, b, z), lerp(r2, b + 0.18, z)]; };
+      } else if (live && (e.st === 'wind' || e.st === 'strike')) {
+        // the blow: both fists raised overhead together, brought down on the hero, the body dropping with them
+        const CO = { raise: -2.5, chopT: 0.2, recover: 0.31, over: 0.25, hold: 0.1, top: 0.14, bendUp: 0.7, bendHit: 0.3, bend0: 0.18 };
+        const p = chop(e, E, GT, face, H, 0, CO);
+        if (p) { const hit = e.st === 'strike' ? u : -1; base.crouch += 18 * (hit >= 0 ? SS(0, 0.06, hit) * (1 - SS(0.2, 0.32, hit)) : 0); base.lean += 0.18 * p.k * (e.st === 'strike' ? 1 : SS(0.6, 1, u / Math.max(0.05, E.wind))) * face;
+          base.arm = (side, b) => { const q = chop(e, E, GT, face, H, b, CO), d = side === 'L' ? -0.14 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+      } else if (live && (e.st === 'rise' || e.st === 'lurk')) {
+        const k = o.rise ?? 1;   // arms up out of the water first, lowered as it stands
+        base.lean += 0.18 * (1 - k) * face;
+        base.arm = (side, b) => { const r = lerp(-2.3 + (side === 'L' ? 0.25 : 0), b, SS(0.45, 1, k)); return [r, r + lerp(0.5, 0.18, SS(0.45, 1, k))]; };
+      }
       biped(base); return true; }
     if (n === 'spider') {
       base.crown = e.type === 'boss_spider';

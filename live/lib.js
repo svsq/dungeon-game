@@ -28,6 +28,9 @@ uniform vec4 u_bulge;          // centre uv, radius (uv), amount — local infla
 uniform vec4 u_bend;           // amp (uv of height), load u, load width (uv), on — sag field: catenary dip + local dip
 uniform float u_disc;          // > 0: only a round disc of the drawn rect is kept (soft edge width, uv) — joint caps
 uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 rooted at the bottom / 1 hung from the top — pushed aside, leaned by wind
+uniform vec4 u_jelly;          // centre x, foot y (uv), height scale k, on — a soft body squashed (k < 1) or stretched about its foot: the foot
+                               // keeps its row, the height scales by k and the width by 1/√k, most at mid-height (the volume stays)
+uniform vec3 u_cut;            // y (target px), fade (px), on — whatever lies below the row is under water: gone, with a soft waterline
 // u_snap: the sprite is re-drawn on the target's pixel grid as pixel art, not as a downscaled photo: 4×4 samples per target
 // pixel (jx, jy: one target pixel in texture uv); kept only if half covered (by the mip average, which a squeezed sprite
 // keeps honest where the samples would sweep its whole length) and painted in its most common colour. No darkest-on-the-edge rule:
@@ -84,6 +87,8 @@ void main(){
   }
   if (u_lean.x != 0.0) { float r = clamp(u_lean.y > 0.5 ? uv.y : 1.0 - uv.y, 0.0, 1.0); uv.x -= u_lean.x * r * r; if (u_lean.y < 0.5) uv.y += abs(u_lean.x) * 0.18 * r * r; }
   if (u_bend.w > 0.0) uv.y -= u_bend.x * (0.6 * sin(3.14159 * clamp(uv.x, 0.0, 1.0)) + 0.4 * exp(-pow((uv.x - u_bend.y) / u_bend.z, 2.0)));
+  if (u_jelly.w > 0.0) { float hy = (u_jelly.y - uv.y) / u_jelly.z; uv.y = u_jelly.y - hy;
+    float sx = 1.0 + (inversesqrt(u_jelly.z) - 1.0) * (0.55 + 0.45 * sin(3.14159 * clamp(hy / max(u_jelly.y, 1e-3), 0.0, 1.0))); uv.x = u_jelly.x + (uv.x - u_jelly.x) / sx; }
   if (u_bulge.w > 0.0) { vec2 d = uv - u_bulge.xy; float r = length(d) / u_bulge.z; if (r < 1.0) uv = u_bulge.xy + d * (1.0 - u_bulge.w * (1.0 - r * r)); }
   float bErr = 0.0; if (u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0) { uv = boneInv(uv, bErr); if (bErr > 1.5) discard; }
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
@@ -99,6 +104,7 @@ void main(){
   if (u_tfade > 0.0) c *= smoothstep(0.0, u_tfade, uv.y);
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
   if (u_vfade > 0.0) c *= smoothstep(1.0, 1.0 - u_vfade, uv.y + u_vfade * 0.8 * (fbm(vec2(uv.x * 60.0, 0.0)) - 0.3));
+  if (u_cut.z > 0.0) c *= smoothstep(u_cut.x, u_cut.x - u_cut.y, v_px.y);
   if (c.a < 0.002) discard;
   vec3 rgb = c.rgb / c.a;
   float l = dot(rgb, vec3(0.299, 0.587, 0.114));
@@ -389,7 +395,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
 
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
-    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
