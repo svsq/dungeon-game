@@ -974,10 +974,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     let base = 0.045 * Math.sin(t * (Math.PI * 2 / 4.5)) - 0.28 * coil + 0.2 * snap + sub * 0.3;
     let mid = 0.075 * Math.sin(t * (Math.PI * 2 / 4.5) - 0.9) - 0.36 * coil + 0.25 * snap - hit;
     let head = 0.08 * Math.sin(t * (Math.PI * 2 / 4.5) - 1.8) + 0.34 * coil - 0.2 * snap - hit;
-    const bite = attacking && e.mv === 'bite' ? SS(w - 0.14, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
+    const bite = attacking && e.mv === 'bite' ? SS(w - 0.4, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
     const [cMid, cBase] = RB.bones, cHead = bite > 0 ? RG.head : RB.bones[2];
     if (bite > 0) {
-      const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, Mv.r / d), a = Math.max(-1.2, Math.min(1.2, Math.atan2(dy * 0.7, Math.abs(dx) + 1)));
+      const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, Mv.r / d), a = Math.max(-1.55, Math.min(1.55, Math.atan2(dy * 0.7, Math.abs(dx) + 1)));
       const l1 = Math.hypot(cMid[0] - cBase[0], cMid[1] - cBase[1]), l2 = Math.hypot(cHead[0] - cMid[0], cHead[1] - cMid[1]), l3 = Math.hypot(RG.snout[0] - cHead[0], RG.snout[1] - cHead[1]);
       const tx = dx * f * k / s - Math.cos(a) * l3, ty = (dy * k - 40) / s - Math.sin(a) * l3, len = Math.max(1, Math.min(l1 + l2 - 0.01, Math.hypot(tx, ty)));
       const a1 = Math.atan2(ty, tx) - Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + len * len - l2 * l2) / (2 * l1 * len))));
@@ -1007,10 +1007,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           u: Object.assign({}, U, sweeping ? { alpha: o.alpha * (j ? 1 - tailK : 1), cut: [y + 3 + 200 * tailK, 4, 1] } : {}, { wtex: G.tex('serpent__tail_w'), wsz: [RT.w, RT.h], bone0: [b[0] / RT.w, b[1] / RT.h, k, 1] }) });
       } };
       tails(0);
-      const xf = e.endPortrait ? 1 : SS(0, 0.4, bite), soft = () => L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
+      const xf = e.endPortrait ? 1 : Math.max(SS(0, 0.4, bite), SS(0.02, 0.15, coil), dead >= 0 ? SS(0, 0.15, dead) : 0), soft = () => L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
         u: Object.assign({}, U, { alpha: U.alpha * (1 - xf), wtex: G.tex('serpent__body_w'), wsz: [RB.w, RB.h], bone0: [cMid[0] / RB.w, cMid[1] / RB.h, mid, 1], bone1: [cBase[0] / RB.w, cBase[1] / RB.h, base, 1], bone2: [cHead[0] / RB.w, cHead[1] / RB.h, head, 1] }) });
-      if (bite > 0 || e.endPortrait) {
-        // the neck's three pieces take over from the soft body over the first of the strike, so the shape does not jump (TASKS 325)
+      if (xf > 0) {
         if (xf < 1) soft();
         const piece = (name, root, pos, a) => L.sprite('serpent__' + name, 0, 0, { m: M.of(mat, M.t((pos[0] - RG.base[0]) * s, (pos[1] - RG.base[1]) * s), M.r(a)),
           w: RG.w * s, h: RG.h * s, pivot: root.map((v) => v * s), pad: 0.3, u: Object.assign({}, U, { alpha: U.alpha * xf }) });
