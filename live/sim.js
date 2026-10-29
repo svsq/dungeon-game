@@ -840,10 +840,16 @@
       if (kindOf(q) === 'banner') return Math.abs(h.x - q.x) < 40 && h.y > q.y && h.y - q.y < 64;
       if (q.trig && q.trig.k === 'sconce') { const t = m.torches[q.trig.t]; return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; } return false; }); }
   function openChest(S, R, c) {
+    if (c.open) return;
+    const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
     c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier });
     // its items were rolled on entering the floor (they count toward the floor's loot from the start); a chest from an older save rolls now
     const pre = !!c.loot; for (const it of c.loot || chestLoot(R, c)) drop(R, c.x, c.y + 10, { kind: 'item', item: it, pre });
     c.loot = [];
+    if (!c.ambushRolled) {
+      c.ambushRolled = 1;
+      if (role && (role.type === 'treasure' || role.type === 'secret') && rnd(R) < 0.05) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
+    }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
     drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
@@ -925,7 +931,6 @@
     if (keys.KeyE) interact(S, R);
     // a loose flagstone sinks under the hero's step
     for (const q of m.secrets || []) if (!q.open && q.trig && q.trig.k === 'plate' && Math.abs(h.x - q.trig.x) < 13 && Math.abs(h.y - q.trig.y) < 13) { q.trig.downT = t; ev(S, { k: 'click', x: q.trig.x, y: q.trig.y }); openSecret(S, R, q); }
-    for (const P of m.ambush || []) if (!P.fired && Math.abs(h.x - P.x) < 13 && Math.abs(h.y - P.y) < 13) springAmbush(S, R, P);
     // ---- status ----
     const rIn = reveal(R);
     if (R.msg && R.msg.room !== undefined && rIn !== R.msg.room && !R.msg.outT) R.msg.outT = t;   // a room's alarm is about that room only
@@ -2376,18 +2381,31 @@
     { let S = null, R = null, w = null; const clear = (m, o) => [-200, -150, -100, -50, 0].every((d) => cell(m, Math.floor((o.x + d) / TILE), Math.floor(o.y / TILE)) === 1)
       && !m.webs.some((q) => q !== o && Math.abs(q.y - o.y) < 48 && q.x > o.x - 240 && q.x < o.x);
       for (let sd = 1; sd < 80 && !R; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play';
-        for (let f = 1; f <= 4; f++) { if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; w = m.webs.find((o) => clear(m, o)); if (w && m.ambush.length) { R = S.run; break; } } }
-      if (!R) out.push('traps: no floor of 80 seeds with webs and an ambush'); else { const m = R.map, h = R.hero; R.en = [];
+        for (let f = 1; f <= 4; f++) { if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; w = m.webs.find((o) => clear(m, o)); if (w) { R = S.run; break; } } }
+      if (!R) out.push('traps: no floor of 80 seeds with webs'); else { const m = R.map, h = R.hero; R.en = [];
         const run = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; const x0 = h.x; for (let i = 0; i < 30; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x0; };
         const free = run(w.x - 200, w.y), held = run(w.x - 12, w.y); if (!(held < free * 0.6)) out.push(`traps: a web does not hold the hero (${held.toFixed(0)} px against ${free.toFixed(0)})`);
         h.x = w.x - 40; h.y = w.y + 8; h.atkT = -9; h.cd.atk = 0; step(S, { px: 960 + 60, py: 540 - 30, press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { px: 1020, py: 510, keys: [] });
         if (!w.torn) out.push('traps: a blow does not tear a web');
         const w2 = m.webs.find((o) => !o.torn); if (w2) { tearWebs(S, R, w2.x, w2.y, 30, undefined, undefined, 1); if (!w2.torn || !S.ev.some((e) => e.k === 'webburn')) out.push('traps: fire does not burn a web'); }
-        const P = m.ambush[0], foes = fstat(R).foes; h.x = P.x; h.y = P.y; R.en = []; step(S, { px: 960, py: 540, keys: [] });
-        const got = R.en.filter((e) => e.summ === 'amb'); if (!P.fired || (got.length !== 0 && got.length !== P.n) || got.some((e) => e.st !== 'chase' || DG.roomAt(m, e.x, e.y) !== P.room)) out.push(`traps: an ambush calls ${got.length} of ${P.n} monsters`);
-        h.x = P.x + 40; step(S, { keys: [] }); h.x = P.x; step(S, { keys: [] }); if (R.en.filter((e) => e.summ === 'amb').length !== got.length) out.push('traps: an ambush springs twice');
-        if (!got.length && (R.msg && R.msg.s === 'Засада!' || S.ev.some((e) => e.k === 'ambush'))) out.push('ambush: announces an empty spawn');
-        if (got.length) hitEnemy(S, R, got[0], 1e9, false, P.x, P.y); if (fstat(R).foes !== foes || fstat(R).kills !== 0 && floorStat(R).foes !== fstat(R).foes) out.push('traps: an ambush counts toward the floor'); } }
+      } }
+    {
+      const S = spawn(0, {}); S.run = newRun(S, 'cave', 26837); S.screen = 'play'; const R = S.run, m = R.map;
+      if (m.ambush.length) out.push('ambush: generated pressure plate');
+      const room = m.rooms.filter((r) => r.type === 'treasure').sort((a, b) => b.w * b.h - a.w * a.h)[0];
+      if (!room) out.push('ambush: no treasure fixture'); else {
+        R.hero.x = (room.cx + 0.5) * TILE; R.hero.y = (room.cy + 0.5) * TILE;
+        const before = R.en.length; S.ev = []; const P = { room: room.id, n: 4 };
+        const ok = springAmbush(S, R, P), got = R.en.slice(before);
+        if (ok ? got.length !== 4 || got.some((e) => e.elite || e.room !== room.id) : got.length || S.ev.some((e) => e.k === 'ambush')) out.push('ambush: partial or elite group / false announcement');
+        springAmbush(S, R, P); if (R.en.length !== before + got.length) out.push('ambush: group repeats');
+        const c = R.chests[0]; S.ev = []; const n = R.en.length; c.open = 0; openChest(S, R, c); openChest(S, R, c);
+        if (S.ev.filter((e) => e.k === 'chest').length !== 1) out.push('ambush: chest opens twice');
+        const T = spawn(0, JSON.parse(JSON.stringify(persist(S)))); if (T.saved && !T.saved.chests.find((q) => q.x === c.x && q.y === c.y).ambushRolled) out.push('ambush: roll lost on save');
+        const small = { room: room.id, n: 4 }; R.hero.x = m.spawn.x; R.hero.y = m.spawn.y; S.ev = []; const count = R.en.length;
+        if (springAmbush(S, R, small) || R.en.length !== count || S.ev.some((e) => e.k === 'ambush')) out.push('ambush: spawns with hero outside room');
+      }
+    }
     // the cave's monsters (TASKS 307, 308): the run places drowned in the shallows and slimes; a drowned lies still until the hero
     // comes within its sense, rises and only then hunts; its grab draws the hero a step in; a slime's hop lands against the hero and
     // hurts him; a slime splits in two small ones that carry nothing and stay out of the floor's count, the small ones never split,
