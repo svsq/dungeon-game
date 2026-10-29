@@ -1,7 +1,7 @@
 // in-game sprite sizes in view px: { name: [w, h] } (engine.md §7 "Display size vs texture size"), from one height per name
 (function () {
   const HEIGHT = {
-    serpent__body: 154, serpent__tail: 70, hero: 84, hero_back: 84, en_skeleton: 76, en_goblin: 72, en_spider: 53, en_cultist: 84, en_ghost: 74, en_brute: 112, en_drowned: 82, en_slime: 44, en_crab: 52, en_eel: 100, en_skel_archer: 78, en_skel_mage: 78,
+    serpent__body: 154, serpent__tail: 70, hero: 84, hero_back: 84, en_skeleton: 76, en_goblin: 72, en_spider: 53, en_cultist: 84, en_ghost: 74, en_brute: 112, en_drowned: 82, en_slime: 44, en_crab: 62, en_eel: 100, en_skel_archer: 78, en_skel_mage: 78,
     barrel: 56, crate: 51, pot: 36, chest: 43, chest_open: 52, chest_open_gold: 57, bones: 30, candles: 33, torch_sconce: 46, banner: 64, table: 52,
     stairs: 64, brazier: 51, coffin: 51, statue: 117, pillar: 89, crystal: 81, altar: 56, cage: 81, rack: 71,
     bookshelf: 107, grave: 51, treasure: 52, door: 64, portrait: 140, padlock: 28, table_candles: 58,

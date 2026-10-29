@@ -209,7 +209,7 @@
   // upright plane through socket and foot (knees up); the gait is a tripod (L0 R1 L2 | R0 L1 R2) driven by the distance walked in
   // the crab's own frame, so it walks sideways as readily as ahead
   // leg, claw: each part's scale against the shell's (the claws are the shield wall of the design, the legs a crab's, not a spider's)
-  const CRAB = { w: 0.95, z: 0.2, qy: 0.82, reach: 0.9, sl: 0.36, leg: 0.8, arm: 0.85, claw: 1.05, spread: [0.6, 0.05, -0.55], set: [0, 1, 0] };
+  const CRAB = { turn: 0.5, w: 0.95, z: 0.2, qy: 0.82, reach: 0.72, sl: 0.36, leg: 0.8, arm: 0.85, claw: 1.05, spread: [0.6, 0.05, -0.55], set: [0, 1, 0] };
   function crab(o) {
     const RG = RIGS.crab, s = o.H * CRAB.w / RG.w, fa = o.fa, cf = Math.cos(fa), sf = Math.sin(fa), root = [o.x, o.y], c = RG.c, qy = CRAB.qy;
     const S2 = (u, v, z) => [root[0] + u * cf - v * sf, root[1] + (u * sf + v * cf) * qy - z];   // floor (u, v, z) → screen
@@ -230,7 +230,11 @@
       if (ph < 0.5) off = A * (1 - 4 * ph); else { const w = (ph - 0.5) * 2; off = -A + 2 * A * SS(0.1, 0.9, w); up = Math.sin(Math.PI * w) * 0.12 * o.H * run; }
       // the rest foot out from its socket, turned forward for the front legs and back for the hind ones; dying they fold in under it
       const dirU = Math.sin(ra), dirV = out * Math.cos(ra), twitch = curl > 0 ? Math.sin(o.t * 21 + j * 2 + side) * 0.06 * D * SS(0.1, 0.35, o.dead || 0) * (1 - SS(0.6, 1.4, o.dead || 0)) : 0;
-      const F = [us + dirU * (D + twitch) + vu * off, vs + dirV * (D + twitch) + vv * off, up + curl * 0.35 * zB];
+      // standing, the crab turns on the spot by steps: each foot keeps the heading it was set down at and swings round to the next in the
+      // last quarter of a step, the tripod's two sets half a step apart (TASKS 328)
+      const stand = (1 - run) * (1 - curl) * (o.calm || 0) * (1 - SS(0, 0.6, o.dead || 0)), xs = o.fa / CRAB.turn + (CRAB.set[j] ^ (side < 0 ? 1 : 0) ? 0.5 : 0), fl0 = Math.floor(xs), fr0 = xs - fl0, sw = SS(0.7, 1, fr0);
+      const e = (o.fa - (fl0 + sw - (xs - o.fa / CRAB.turn)) * CRAB.turn) * stand, ce = Math.cos(e), se = Math.sin(e); up += Math.sin(Math.PI * sw) * 0.14 * o.H * stand * (fr0 > 0.7 ? 1 : 0);
+      const F0 = [us + dirU * (D + twitch) + vu * off, vs + dirV * (D + twitch) + vv * off], F = [F0[0] * ce + F0[1] * se, -F0[0] * se + F0[1] * ce, up + curl * 0.35 * zB];
       const hx = F[0] - Sk[0], hy = F[1] - Sk[1], hd = Math.hypot(hx, hy) || 1, dz = F[2] - Sk[2], d = Math.min(Math.hypot(hd, dz), (l1 + l2) * 0.98), base = Math.atan2(dz, hd);
       const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), ka = base + a;
       const K = [Sk[0] + hx / hd * Math.cos(ka) * l1, Sk[1] + hy / hd * Math.cos(ka) * l1, Sk[2] + Math.sin(ka) * l1];
@@ -458,7 +462,7 @@
         P = (side) => { const m = side === near ? 1 : 0.5, j = x * (1 - back) * m, r = k * (1 - back);
           return { u: -0.04 * Hh * r * (1 - x) + 0.2 * Hh * j - 0.06 * Hh * ra, v: 0.07 * Hh * r * (1 - x) - 0.06 * Hh * j, z: 0.2 * Hh * r * (1 - x) + 0.05 * Hh * j, open: r * (1 - x), in: 0.55 - 0.6 * r * (1 - x) - 0.1 * j }; }; }
       else P = (side) => ({ u: -0.06 * Hh * ra + 0.012 * Hh * Math.sin(GT * 1.6 + side + e.id), z: 0.01 * Hh * Math.sin(GT * 1.3 + side * 2 + e.id), open: 0.35 * click * (side > 0 ? 1 : 0.6) });
-      c.claws = P; crab(c); return true; }
+      c.calm = !live || e.st === 'idle' || e.st === 'home' ? 1 : 0; c.claws = P; crab(c); return true; }
     if (n === 'spider') {
       base.crown = e.type === 'boss_spider';
       const ew = DATA.BOSSES[e.type] ? DATA.bossMove(e).wind : DATA.windOf(e, E.wind), u = GT - e.t0;
