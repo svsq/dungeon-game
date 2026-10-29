@@ -13,7 +13,9 @@ from scipy import ndimage
 ROOT = Path(__file__).resolve().parent.parent
 NAMES = ('table_candles', 'bones', 'candles', 'vase_a', 'vase_b', 'vase_c', 'shop_gems', 'shop_scales', 'padlock',
          # generated at 1024 for 30-50 px on screen: their art pixel was finer than the world's grid (TASKS 230, 234)
-         'queen_crown', 'spider_eggs', 'water_basin', 'water_spout', 'water_grate', 'water_drain', 'water_stone_a', 'water_stone_b')
+         'queen_crown', 'spider_eggs', 'water_basin', 'water_spout', 'water_grate', 'water_drain', 'water_stone_a', 'water_stone_b',
+         # the cave's water props, drawn finer than the world's grid too (TASKS 327)
+         'lily_cv', 'weed_cv', 'ford_a', 'ford_b')
 UP = 4
 INK = '#060506'
 PALETTES = {
@@ -32,6 +34,10 @@ PALETTES = {
     'water_drain': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#552f25', '#733a21', '#1a4135'],
     'water_stone_a': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
     'water_stone_b': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
+    'lily_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f', '#c8b89a'],
+    'weed_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f'],
+    'ford_a': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
+    'ford_b': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
 }
 
 

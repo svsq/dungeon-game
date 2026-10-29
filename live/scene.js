@@ -932,8 +932,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the jaw: its hinge where the bones carry the mouth's corner, turned with the head and opened about it
     const J = RG.jaw, kj = Math.hypot(RG.chin[0] - RG.hinge[0], RG.chin[1] - RG.hinge[1]) / Math.hypot(J.tip[0] - J.hinge[0], J.tip[1] - J.hinge[1]);
     const a0 = Math.atan2(RG.chin[1] - RG.hinge[1], RG.chin[0] - RG.hinge[0]) - Math.atan2(J.tip[1] - J.hinge[1], J.tip[0] - J.hinge[0]), Hj = fwd(RG.hinge), rot = P.base + P.mid + P.head + a0 + 0.6 * P.jaw;
-    const jaw = () => L.sprite('eel__jaw', 0, 0, { m: M.of(Mb, M.t((Hj[0] - RG.base[0]) * s, (Hj[1] - RG.base[1]) * s), M.r(rot), M.s(kj, kj)), w: J.w * s, h: J.h * s, pivot: [J.hinge[0] * s, J.hinge[1] * s], u: U0 });
-    const body = () => { jaw(); L.sprite('eel__body', 0, 0, { m: Mb, w: W * s, h: H * s, pivot: [RG.base[0] * s, RG.base[1] * s], pad: 0.3, u: U }); };
+    const jaw = () => L.sprite('eel__jaw', 0, 0, { m: M.of(Mb, M.t((Hj[0] - RG.base[0]) * s, (Hj[1] - RG.base[1]) * s), M.r(rot), M.s(kj, kj)), w: J.w * s, h: J.h * s, pivot: [J.hinge[0] * s, J.hinge[1] * s], u: Object.assign({}, U0, { alpha: alpha * SS(0.1, 0.32, P.jaw) }) });
+    const body = () => { L.sprite('eel__body', 0, 0, { m: Mb, w: W * s, h: H * s, pivot: [RG.base[0] * s, RG.base[1] * s], pad: 0.3, u: U }); jaw(); };
     // the water rings round the neck where it stands in it
     const up = 1 - P.sub; if (up > 0.05) { const nx = at(fwd([RG.base[0], RG.base[1] - 40]))[0];
       for (let j = 0; j < 3; j++) { const q = ((t * 0.7 + j / 3 + e.id * 0.13) % 1); L.ring(nx, yw + 1, 16 + 30 * q, 5 + 10 * q, EEL.col, 0.45 * up * (1 - q) * alpha, 0.08); }
