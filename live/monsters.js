@@ -209,7 +209,7 @@
   // upright plane through socket and foot (knees up); the gait is a tripod (L0 R1 L2 | R0 L1 R2) driven by the distance walked in
   // the crab's own frame, so it walks sideways as readily as ahead
   // leg, claw: each part's scale against the shell's (the claws are the shield wall of the design, the legs a crab's, not a spider's)
-  const CRAB = { turn: 0.5, w: 0.95, z: 0.2, qy: 0.82, reach: 0.72, sl: 0.36, leg: 0.8, arm: 0.85, claw: 1.05, spread: [0.6, 0.05, -0.55], set: [0, 1, 0] };
+  const CRAB = { turn: 0.5, w: 0.95, z: 0.2, qy: 0.82, reach: 0.68, sl: 0.36, leg: 0.8, arm: 0.85, claw: 1.05, spread: [0.6, 0.05, -0.55], set: [0, 1, 0] };
   function crab(o) {
     const RG = RIGS.crab, s = o.H * CRAB.w / RG.w, fa = o.fa, cf = Math.cos(fa), sf = Math.sin(fa), root = [o.x, o.y], c = RG.c, qy = CRAB.qy;
     const S2 = (u, v, z) => [root[0] + u * cf - v * sf, root[1] + (u * sf + v * cf) * qy - z];   // floor (u, v, z) → screen
@@ -227,7 +227,7 @@
       const [us, vs] = UV(so[0], so[1], -side), Sk = [us + bx, vs + by, zB * 0.85], out = side;   // side 1: the right, −1: the drawn left
       const ra = CRAB.spread[j], D = CRAB.reach * (l1 + l2) * (1 + 0.15 * (o.low || 0)) * (1 - 0.55 * curl), A = sl / 2 * run;
       const ph = (u0 + (CRAB.set[j] ^ (side < 0 ? 1 : 0) ? 0.5 : 0)) % 1; let off, up = 0;
-      if (ph < 0.5) off = A * (1 - 4 * ph); else { const w = (ph - 0.5) * 2; off = -A + 2 * A * SS(0.1, 0.9, w); up = Math.sin(Math.PI * w) * 0.12 * o.H * run; }
+      if (ph < 0.5) off = A * (1 - 4 * ph); else { const w = (ph - 0.5) * 2; off = -A + 2 * A * (-w + 6 * w * w - 4 * w * w * w); up = Math.sin(Math.PI * w) ** 2 * 0.12 * o.H * run; }
       // the rest foot out from its socket, turned forward for the front legs and back for the hind ones; dying they fold in under it
       const dirU = Math.sin(ra), dirV = out * Math.cos(ra), twitch = curl > 0 ? Math.sin(o.t * 21 + j * 2 + side) * 0.06 * D * SS(0.1, 0.35, o.dead || 0) * (1 - SS(0.6, 1.4, o.dead || 0)) : 0;
       // standing, the crab turns on the spot by steps: each foot keeps the heading it was set down at and swings round to the next in the
@@ -243,11 +243,11 @@
           const angle = p.fa + Math.atan2(Math.sin(q.fa - p.fa), Math.cos(q.fa - p.fa)) * k, c0 = Math.cos(angle), s0 = Math.sin(angle), vx = mix(p.vx, q.vx), vy = mix(p.vy, q.vy), speed = Math.hypot(vx, vy) || 1;
           const pu = us + dirU * D + (vx * c0 + vy * s0) / speed * sl / 2, pv = vs + dirV * D + (-vx * s0 + vy * c0) / speed * sl / 2;
           const last = trail[trail.length - 1], dx = mix(p.x, q.x) - last.x + pu * c0 - pv * s0, dy = (mix(p.y, q.y) - last.y) / qy + pu * s0 + pv * c0;
-          const hold = 1 - SS(0.5, 1, ph);
+          const transfer = Math.max(0, 2 * ph - 1), hold = 1 - transfer ** 3 * (transfer * (6 * transfer - 15) + 10);
           F[0] += (dx * cf + dy * sf - F[0]) * hold; F[1] += (-dx * sf + dy * cf - F[1]) * hold;
         }
       }
-      const hx = F[0] - Sk[0], hy = F[1] - Sk[1], hd = Math.hypot(hx, hy) || 1, dz = F[2] - Sk[2], d = Math.min(Math.hypot(hd, dz), (l1 + l2) * 0.98), base = Math.atan2(dz, hd);
+      const hx = F[0] - Sk[0], hy = F[1] - Sk[1], hd = Math.hypot(hx, hy) || 1, dz = F[2] - Sk[2], raw = Math.hypot(hd, dz), limit = (l1 + l2) * 0.98, d = raw < 0.95 * limit ? raw : limit - 0.05 * limit * Math.exp(-(raw - 0.95 * limit) / (0.05 * limit)), base = Math.atan2(dz, hd);
       const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), ka = base + a;
       const K = [Sk[0] + hx / hd * Math.cos(ka) * l1, Sk[1] + hy / hd * Math.cos(ka) * l1, Sk[2] + Math.sin(ka) * l1];
       const ta = Math.atan2(F[2] - K[2], Math.hypot(F[0] - K[0], F[1] - K[1]) * Math.sign((F[0] - K[0]) * hx + (F[1] - K[1]) * hy || 1));

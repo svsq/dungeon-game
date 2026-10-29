@@ -2642,9 +2642,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
     {
       const S = play(); S.run = SIM.newRun(S, 'cave', 8); SIM.enterFloor(S, S.run, 2);
-      const R = S.run, e = structuredClone(enCycles.crab_right[0].run.en[0]), h = R.hero, x0 = h.x, y0 = h.y;
-      R.en = [e]; R.msg = null; R.seen.fill(1); R.cam = [x0 - VW / 2, y0 - VH / 2]; h.x -= 250;
+      const R = S.run, m = R.map, e = structuredClone(enCycles.crab_right[0].run.en[0]);
+      const center = m.cells.findIndex((c, k) => c === 1 && m.rooms.some((r) => r.type === 'combat' && k % m.W >= r.x && k % m.W < r.x + r.w && Math.floor(k / m.W) >= r.y && Math.floor(k / m.W) < r.y + r.h) && Array.from({ length: 81 }, (_, j) => [j % 9 - 4, Math.floor(j / 9) - 4]).every(([dx, dy]) => Math.hypot(dx, dy) > 4 || m.cells[k + dy * m.W + dx] === 1));
+      if (center < 0) throw new Error('No open floor for crab turning');
       const frames = [], trail = [], speed = D.ENEMIES.crab.spd, rate = 0.8, radius = speed / rate;
+      const x0 = (center % m.W + 0.5) * TILE, y0 = (Math.floor(center / m.W) + 0.5) * TILE - radius;
+      R.en = [e]; R.pots = []; R.chests = []; R.msg = null; R.seen.fill(1); R.cam = [x0 - VW / 2, y0 + radius - VH / 2];
       for (let i = -120; i < 180; i++) {
         const t = (i + 120) / 60, a = t * rate;
         Object.assign(e, { x: x0 + radius * Math.sin(a), y: y0 + radius * (1 - Math.cos(a)), fa: a, vx: speed * Math.cos(a), vy: speed * Math.sin(a), dist: speed * t, crabTrail: trail });
@@ -2801,6 +2804,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
       const e = (enCycles[name] || loops[name]) && R.en[0];
+      if (e && e.type === 'crab') { const hh = SZ('en_crab')[1]; return [e.x - R.cam[0] - 2 * hh, e.y - R.cam[1] - 2 * hh, 4 * hh, 4 * hh]; }
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
       const h = R.hero; return [h.x - R.cam[0] - 50, h.y - R.cam[1] - 90, 100, 110]; };
     const anim = {};
