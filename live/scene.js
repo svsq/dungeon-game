@@ -264,7 +264,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // out, rim and chevrons brightening to the instant it lands. u_kind 0 a sector or circle (bite, tail), 1 a strip (wave), 2 a fan of
   // u_n rays out to u_arc either side, each as wide as a jet's hit (u_hw)
   const SERP_TELE = `
-uniform float u_kind, u_q, u_r, u_arc, u_hw, u_n; uniform vec2 u_org, u_sz, u_dir;
+uniform float u_kind, u_q, u_r, u_arc, u_hw, u_n, u_fade; uniform vec2 u_org, u_sz, u_dir;
 void main(){ vec2 p = floor(v_uv * u_sz / 2.0) * 2.0 + 1.0 - u_org, nrm = vec2(-u_dir.y, u_dir.x);
   float inside = 0.0, ed = 99.0, front = 0.0, run = 0.0, ray = 1.0;
   if (u_kind < 0.5) { float r = length(p), an = abs(atan(dot(p, nrm), dot(p, u_dir)));
@@ -279,8 +279,8 @@ void main(){ vec2 p = floor(v_uv * u_sz / 2.0) * 2.0 + 1.0 - u_org, nrm = vec2(-
   float chev = step(0.5, fract((run - u_t * 70.0) / 16.0 + (u_kind > 0.5 ? abs(dot(p, nrm)) / 40.0 : 0.0)));
   float hatch = step(0.5, fract((p.x + p.y) / 12.0));
   float pulse = 0.85 + 0.15 * sin(u_t * 18.0), ready = smoothstep(0.82, 1.0, u_q);
-  float fill = inside * (u_kind > 1.5 ? mix(0.015, 0.17, ray) : 0.07) * (1.0 + 2.4 * front * u_q) * (0.8 + 0.3 * (u_kind < 0.5 ? hatch : chev));
-  float a = clamp((fill + edge * (0.5 + 0.4 * u_q)) * pulse + inside * ready * 0.28 * (u_kind > 1.5 ? ray : 1.0), 0.0, 0.85);
+  float fill = inside * (u_kind > 1.5 ? mix(0.015, 0.17, ray) : 0.07) * (1.0 + 1.5 * front * u_q) * (0.8 + 0.3 * (u_kind < 0.5 ? hatch : chev));
+  float a = clamp((fill + edge * (0.5 + 0.4 * u_q)) * pulse + inside * ready * 0.2 * (u_kind > 1.5 ? ray : 1.0), 0.0, 0.8) * u_fade;
   vec3 col = mix(vec3(0.86, 0.26, 0.15), vec3(1.0, 0.8, 0.55), clamp(edge * 0.9 + ready * 0.5, 0.0, 1.0));
   o = vec4(col * a, a); }`;
   // a cave's water source (TASKS 304), drawn round its point u_src. A fall (u_kind 0) runs over the rock's top to the lip of the face
@@ -960,12 +960,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       L.joint('en' + e.id, 'ground', [x, y]); return;
     }
     const sub = dead >= 0 ? SS(0.35, 1.5, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
-    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : 0;
+    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : dead < 0 && e.floodAt > GT ? SS(0, 0.35, 1.2 - (e.floodAt - GT)) * (0.85 + 0.15 * Math.sin(t * 22)) : dead < 0 && e.floodT !== undefined && GT - e.floodT < 0.6 ? (1 - SS(0, 0.6, GT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0;
     const snap = attacking ? SS(w - 0.1, w + 0.09, u) * (1 - SS(w + 0.15, w + Mv.duration, u)) : 0;
     const hit = dead < 0 ? 0.12 * SS(0, 0.06, GT - e.hitT) * (1 - SS(0.12, 0.35, GT - e.hitT)) : 0;
-    let base = 0.045 * Math.sin(t * 1.4) - 0.15 * coil + 0.2 * snap + sub * 0.3;
-    let mid = 0.075 * Math.sin(t * 1.4 - 0.9) - 0.2 * coil + 0.25 * snap - hit;
-    let head = 0.08 * Math.sin(t * 1.4 - 1.8) + 0.2 * coil - 0.2 * snap - hit;
+    let base = 0.045 * Math.sin(t * 1.4) - 0.28 * coil + 0.2 * snap + sub * 0.3;
+    let mid = 0.075 * Math.sin(t * 1.4 - 0.9) - 0.36 * coil + 0.25 * snap - hit;
+    let head = 0.08 * Math.sin(t * 1.4 - 1.8) + 0.34 * coil - 0.2 * snap - hit;
     const bite = attacking && e.mv === 'bite' ? SS(w - 0.14, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
     const [cMid, cBase] = RB.bones, cHead = bite > 0 ? RG.head : RB.bones[2];
     if (bite > 0) {
@@ -988,23 +988,30 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const tailK = tailActive ? SS(0, 0.4, tailU) * (1 - SS(w + Mv.duration, w + Mv.duration + 0.3, tailU)) : 0;
     const tailSweep = tailActive ? SS(w - 0.08, w + 0.48, tailU) * Math.PI * 2 : 0;
     const body = () => {
-      for (let j = 1; j >= 0; j--) { const a = Math.PI + j * 0.8, tx = x + Math.cos(a) * (60 + j * 32) * f, ty = y + Math.sin(a) * 20 + j * 12 + sub * 65;
+      const tails = (pass) => { for (let j = 1; j >= 0; j--) { const a = Math.PI + j * 0.8, tx = x + Math.cos(a) * (60 + j * 32) * f, ty = y + Math.sin(a) * 20 + j * 12 + sub * 65;
         const b = RT.bones[0], k = 0.14 + 0.12 * Math.sin(t * 2 - j) + 0.3 * snap;
         const sweeping = tailK > 0, angle = e.aimA - Math.PI + tailSweep, r0 = Math.atan2(RG.tail.tip[1] - RG.tail.base[1], RG.tail.tip[0] - RG.tail.base[0]);
         const mt = sweeping && !j ? M.of(M.t(tx + (x + Math.cos(angle) * 25 - tx) * tailK, ty + (y + Math.sin(angle) * 25 - ty) * tailK), M.s(f * (1 + 0.1 * tailK), 1 + 0.1 * tailK), M.r(Math.atan2(Math.sin(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0), Math.cos(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0)) * tailK)) : M.of(M.t(tx, ty), M.s(f * (j ? -0.75 : 1), j ? 0.75 : 1));
+        if ((sweeping && !j && Math.sin(angle) > 0.15 ? 1 : 0) !== pass) continue;
         L.sprite('serpent__tail', 0, 0, { m: mt, w: RG.tail.w * s, h: RG.tail.h * s, pivot: RG.tail.base.map((v) => v * s), pad: 0.3,
           u: Object.assign({}, U, sweeping ? { alpha: o.alpha * (j ? 1 - tailK : 1), cut: [y + 3 + 200 * tailK, 4, 1] } : {}, { wtex: G.tex('serpent__tail_w'), wsz: [RT.w, RT.h], bone0: [b[0] / RT.w, b[1] / RT.h, k, 1] }) });
-      }
+      } };
+      tails(0);
+      const xf = SS(0, 0.4, bite), soft = () => L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
+        u: Object.assign({}, U, { alpha: U.alpha * (1 - xf), wtex: G.tex('serpent__body_w'), wsz: [RB.w, RB.h], bone0: [cMid[0] / RB.w, cMid[1] / RB.h, mid, 1], bone1: [cBase[0] / RB.w, cBase[1] / RB.h, base, 1], bone2: [cHead[0] / RB.w, cHead[1] / RB.h, head, 1] }) });
       if (bite > 0) {
+        // the neck's three pieces take over from the soft body over the first of the strike, so the shape does not jump (TASKS 325)
+        if (xf < 1) soft();
         const piece = (name, root, pos, a) => L.sprite('serpent__' + name, 0, 0, { m: M.of(mat, M.t((pos[0] - RG.base[0]) * s, (pos[1] - RG.base[1]) * s), M.r(a)),
-          w: RG.w * s, h: RG.h * s, pivot: root.map((v) => v * s), u: U });
+          w: RG.w * s, h: RG.h * s, pivot: root.map((v) => v * s), pad: 0.3, u: Object.assign({}, U, { alpha: U.alpha * xf }) });
         piece('neckL', cBase, cBase, base);
         piece('neckU', cMid, rotAbout(cMid, cBase, base), base + mid);
         piece('head', cHead, rotAbout(rotAbout(cHead, cMid, mid), cBase, base), base + mid + head);
-      } else L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
-        u: Object.assign({}, U, { wtex: G.tex('serpent__body_w'), wsz: [RB.w, RB.h], bone0: [cMid[0] / RB.w, cMid[1] / RB.h, mid, 1], bone1: [cBase[0] / RB.w, cBase[1] / RB.h, base, 1], bone2: [cHead[0] / RB.w, cHead[1] / RB.h, head, 1] }) });
+      } else soft();
+      tails(1);
     };
     L.shadow(x, y + 2, 52 * (1 - sub), 14, 0.55 * (1 - sub));
+    if (pin > 0.02) { L.shadow(bx, by + 4, 46, 13, 0.5 * pin); for (let j = 0; j < 2; j++) { const q = (t * 1.2 + j / 2) % 1; L.ring(bx, by + 2, 26 + 26 * q, (26 + 26 * q) * 0.36, [0.7, 0.9, 0.92], 0.6 * pin * (1 - q), 0.12); } }
     L.inked(body, { r: 2, n: 8, col: o.INK, dy: 0, emit: true, rim: dead < 0 ? o.edgeOf() : null });
     for (let j = 0; j < 3; j++) { const q = (t * 0.65 + j / 3) % 1; L.ring(x, y + 2, 28 + 45 * q, 10 + 15 * q, col, 0.6 * (1 - q) * (1 - sub), 0.06); }
     if (e.openUntil > GT) for (let j = 0; j < 3; j++) L.star(x + (j - 1) * 17, y - 160 - 4 * Math.sin(t * 6 + j), 6, [0.85, 0.82, 0.5], 0.8);
@@ -1614,7 +1621,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, [0.4, 0.7, 1.0], 0.9);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
-    for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
+    for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' || p.k === 'wave' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' || p.k === 'wave' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
     for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.7, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
@@ -1711,18 +1718,24 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       G.blend(); }
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     for (const e of R.en) { if (e.type !== 'boss_serpent' || e.deadT >= 0 || e.st !== 'bwind') continue;
-      const Mv = D.bossMove(e), u = GT - e.t0; if (u > Mv.wind) continue;
+      const Mv = D.bossMove(e), u = GT - e.t0; if (u > Mv.wind + (e.mv === 'tail' ? 0.5 : 0)) continue;
       const q = SS(0, Mv.wind, u), x = sx(e.x), y = sy(e.y), tele = (ox, oy, kind, reach, extra) => { const R0 = reach + 12;
-        G.draw(L.P.serptele, Object.assign({ u_t: t, u_kind: kind, u_q: q, u_r: reach, u_arc: 0, u_hw: 0, u_n: 1, u_org: [R0, R0], u_sz: [2 * R0, 2 * R0], u_dir: [Math.cos(e.aimA), Math.sin(e.aimA)] }, extra), G.xf(ox - R0, oy - R0, 2 * R0, 2 * R0)); };
+        G.draw(L.P.serptele, Object.assign({ u_t: t, u_kind: kind, u_q: q, u_r: reach, u_arc: 0, u_hw: 0, u_n: 1, u_fade: 1 - SS(Mv.wind, Mv.wind + 0.5, u), u_org: [R0, R0], u_sz: [2 * R0, 2 * R0], u_dir: [Math.cos(e.aimA), Math.sin(e.aimA)] }, extra), G.xf(ox - R0, oy - R0, 2 * R0, 2 * R0)); };
       if (e.mv === 'tail') tele(x, y, 0, Mv.r, { u_arc: Math.PI + 0.1 });
       else if (e.mv === 'bite') tele(x, y, 0, Mv.r, { u_arc: Mv.arc });
       else if (e.mv === 'wave') tele(x, sy(e.y - 38 + 28), 1, Mv.reach, { u_hw: 34 });
       else { const [mx, my] = SIM.serpentMouth(e); tele(sx(mx), sy(my + 82), 2, Mv.reach, { u_arc: Mv.spread, u_hw: 22, u_n: Mv.n }); }
     }
     for (const e of R.en) if (e.type === 'boss_serpent' && e.floodAt > GT) {
+      const q = 1 - (e.floodAt - GT) / 1.2;
       for (const k of m.floodCells) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
-        L.ring(sx(x), sy(y), 11 + 3 * Math.sin(t * 8 + k), 5, [0.5, 0.8, 0.85], 0.5, 0.12); }
+        for (let j = 0; j < 2; j++) { const ph = (t * 1.6 + j * 0.5 + rnd(k, 1)) % 1; L.ring(sx(x), sy(y), 10 + 14 * ph, (10 + 14 * ph) * 0.5, [0.7, 0.92, 0.95], (0.35 + 0.55 * q) * (1 - ph), 0.16); } }
     }
+    // the shallows spreading over the shore (TASKS 326): a ring of foam and a few flecks where the water has just arrived
+    if (m.flood && m.flood.n) for (let i = Math.max(0, m.flood.n - 40); i < m.flood.n; i++) { const k = m.flood.cells[i], a = GT - (m.flood.t0 + 1.6 * i / m.flood.cells.length); if (a < 0 || a > 0.7) continue;
+      const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE, f = a / 0.7;
+      L.ring(sx(x), sy(y), 8 + 16 * f, (8 + 16 * f) * 0.5, [0.8, 0.95, 0.95], 0.8 * (1 - f), 0.2);
+      for (let j = 0; j < 3; j++) L.solid(Math.round((sx(x) + (rnd(k, j) - 0.5) * 26) / PIX) * PIX, Math.round((sy(y) + (rnd(k, j + 4) - 0.5) * 12 - 8 * f) / PIX) * PIX, PIX, PIX, [0.85, 0.97, 0.96], 0, 0, 0, 0.9 * (1 - f)); }
     // projectiles
     for (const p of R.proj) { if (p.own === 'hero' && p.k === 'fire' || p.k === 'arrow' || !known(p.x, p.y)) continue; const x = sx(p.x), y = sy(p.y), col = p.k === 'hex' ? [0.45, 1.0, 0.4] : [1.0, 0.55, 0.18], a = Math.atan2(p.vy, p.vx);
       if (p.k === 'wave') { const ca = Math.cos(a), sa = Math.sin(a), age = GT - p.t0;
