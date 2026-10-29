@@ -957,6 +957,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const f = e.face || 1, s = 168 / RG.h, col = [0.45, 0.72, 0.76];
     if (dead < 0 && (e.st === 'deep' || e.st === 'stir')) {
       if (e.st === 'stir') { const q = SS(0, B.warn, u);
+        const scale = 0.42 + q * 0.16; L.sprite('serpent__body', 0, 0, { m: M.of(M.t(x, y + 4), M.s(f * scale, 0.16 + q * 0.04)), w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), u: { alpha: 0.25 + q * 0.35, grade: [0.15, 0.35, 0, 1], tint: [0.3, 0.7, 0.8, 1] } });
         for (let j = 0; j < 6; j++) L.shadow(x + Math.cos(j * 0.8 + t) * (20 + 18 * q), y + Math.sin(j * 0.8 + t) * 12, 25, 9, 0.4 + 0.3 * q);
         L.shadow(x, y + 6, 20 + 46 * q, 8 + 18 * q, 0.35 + 0.5 * q);
         for (let j = 0; j < 4; j++) { const q2 = (u * 1.4 + j / 4) % 1; L.ring(x, y + 4, 12 + 70 * (1 - q2), (12 + 70 * (1 - q2)) * 0.42, [0.62, 0.9, 0.95], (0.25 + 0.6 * q) * Math.sin(Math.PI * q2), 0.14); }
