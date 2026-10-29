@@ -189,9 +189,9 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // pebbled bed under the shallows. waterAt is the pool shader's own bank (WATER), so the two meet
   const CAVE_EDGE = `
 uniform sampler2D u_open, u_water; uniform vec2 u_map; uniform float u_wet;
-float openAt(vec2 p){ return texture(u_open, p / u_map).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12; }
+float openAt(vec2 p){ return textureLod(u_open, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12; }
 bool isOpen(vec2 p){ return openAt(p) > 0.47; }
-float waterAt(vec2 p){ return u_wet * (texture(u_water, p / u_map).r + (vnoise(p / 6.0) - 0.5) * 0.32); }
+float waterAt(vec2 p){ return u_wet * (textureLod(u_water, p / u_map, 0.0).r + (vnoise(p / 6.0) - 0.5) * 0.32); }
 float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)); }
 `;
   const CAVE = CAVE_EDGE + `
@@ -208,7 +208,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
     col = gFloor(w) * (0.86 + 0.28 * fbm(w / 170.0));
     col = mix(col, sh * 0.9, smoothstep(0.14, 0.44, wa));
     if (wa > 0.5) col = sh * vec3(0.4, 0.5, 0.56);
-    else if (wa > 0.02) { float hl = 10.0 + 5.0 * vnoise(vec2(w.x / 23.0, 9.0)), ld = 99.0;
+    else { float hl = 10.0 + 5.0 * vnoise(vec2(w.x / 23.0, 9.0)), ld = 99.0;
       for (int k = 1; k <= 8; k++) { float d = float(k) * 2.0; if (d > hl) break; if (waterAt(w + vec2(0.0, d)) > 0.5) { ld = d; break; } }
       if (ld < 99.0) { float h = ld / hl; col = mix(sh, gWall(w), 0.55) * (0.42 + 0.4 * h);
         if (hl - ld < 2.5) col = col * 1.45 + 0.05;
@@ -248,11 +248,11 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float streak = run * step(0.78, vnoise(vec2(q.x / 2.5, q.y / 16.0))) * step(0.45, vnoise(p / 23.0));
   float swell = (1.0 - run) * step(0.87, vnoise(vec2(w.x / 14.0 + u_t * 0.15, w.y / 5.0))) * step(0.5, vnoise(w / 40.0 + u_t * 0.05));
   vec2 gc = floor(w / vec2(24.0, 12.0)), gl = w - (gc + vec2(0.3 + 0.4 * hash(gc + 3.0), 0.5)) * vec2(24.0, 12.0); float gh = hash(gc);
-  float glint = step(0.82, gh) * step(0.55, sin(u_t * (0.8 + 1.6 * gh) + gh * 40.0)) * step(abs(gl.y), 1.0) * step(abs(gl.x), 2.0 + 4.0 * hash(gc + 5.0));
+  float glint = step(0.82, gh) * step(0.55, sin(u_t * (0.8 + 1.6 * gh) + gh * 40.0)) * step(abs(gl.y), 1.0) * step(abs(gl.x), 1.0 + 2.0 * hash(gc + 5.0));
   vec3 refl = vec3(0.0); float band = step(0.5, vnoise(vec2(w.x / 5.0 + sin(u_t * 0.7) * 0.6, w.y / 2.5 - u_t * (0.6 + 2.5 * run))));
   for (int i = 0; i < 16; i++) { vec2 r0 = w - u_fire[i].xy - vec2(sin(w.y * 0.25 + u_t * 1.4 + hash(u_fire[i].xy) * 6.283) * (1.5 + 3.0 * run), 44.0);
     refl += u_fireCol[i] * exp(-r0.x * r0.x / 70.0 - r0.y * r0.y / 1400.0) * u_fire[i].w * band; }
-  vec3 shallow = vec3(0.1, 0.42, 0.58), deep = vec3(0.025, 0.11, 0.2);
+  vec3 shallow = vec3(0.1, 0.42, 0.58), deep = vec3(0.05, 0.18, 0.21);
   vec3 col = mix(mix(shallow, shallow * 0.8, depth), deep * (0.85 + 0.15 * vnoise(w / 30.0)), dp) * (1.0 - 0.4 * edge);
   col += vec3(0.12, 0.2, 0.19) * streak + vec3(0.06, 0.1, 0.1) * swell + vec3(0.3, 0.38, 0.36) * glint;
   float fn = vnoise(w / 4.0 + vec2(u_t * 0.25, 0.0) - flow * run * u_t * 3.0), foam = inside * max((1.0 - smoothstep(0.0, 6.0, d)) * step(0.55, fn), (1.0 - smoothstep(0.0, 3.0, d)) * step(0.3, fn));
