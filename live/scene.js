@@ -197,19 +197,23 @@ float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)); }
   const CAVE = CAVE_EDGE + `
 uniform sampler2D u_floor, u_wall, u_top, u_shore; uniform float u_lift;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
+vec3 ramp(vec3 c, vec3 lo, vec3 mid, vec3 hi){ float t = clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.08) / 0.37, 0.0, 1.0); return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
+vec3 gFloor(vec2 p){ return ramp(tx(u_floor, p), vec3(0.13, 0.085, 0.055), vec3(0.46, 0.3, 0.185), vec3(0.72, 0.54, 0.36)); }
+vec3 gWall(vec2 p){ return ramp(tx(u_wall, p), vec3(0.03, 0.03, 0.026), vec3(0.19, 0.175, 0.14), vec3(0.45, 0.4, 0.31)); }
+vec3 gTop(vec2 p){ return ramp(tx(u_top, p), vec3(0.016, 0.016, 0.014), vec3(0.1, 0.095, 0.082), vec3(0.24, 0.215, 0.18)); }
 vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.1, 0.25, 0.21) : n < 0.75 ? vec3(0.18, 0.35, 0.17) : vec3(0.31, 0.48, 0.17); }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 col;
   if (op > 0.47) {
     vec3 sh = tx(u_shore, w + 37.0); float wa = waterAt(w);
-    col = tx(u_floor, w) * (0.86 + 0.28 * fbm(w / 170.0));
+    col = gFloor(w) * (0.86 + 0.28 * fbm(w / 170.0));
     col = mix(col, sh * 0.9, smoothstep(0.14, 0.44, wa));
     if (wa > 0.5) col = sh * vec3(0.4, 0.5, 0.56);
     else if (wa > 0.02) { float hl = 10.0 + 5.0 * vnoise(vec2(w.x / 23.0, 9.0)), ld = 99.0;
       for (int k = 1; k <= 8; k++) { float d = float(k) * 2.0; if (d > hl) break; if (waterAt(w + vec2(0.0, d)) > 0.5) { ld = d; break; } }
-      if (ld < 99.0) { float h = ld / hl; col = mix(sh, tx(u_wall, w), 0.55) * (0.42 + 0.4 * h);
+      if (ld < 99.0) { float h = ld / hl; col = mix(sh, gWall(w), 0.55) * (0.42 + 0.4 * h);
         if (hl - ld < 2.5) col = col * 1.45 + 0.05;
         if (ld < 2.5) col *= 0.55;
-        if (step(0.62, vnoise(vec2(w.x / 5.0, 2.0))) * step(hl - ld, 2.0 + 6.0 * hash(vec2(floor(w.x / 2.0), 4.0))) > 0.5) col = moss(w); } }
+        if (step(0.5, vnoise(vec2(w.x / 5.0, 2.0))) * step(hl - ld, 2.0 + 8.0 * hash(vec2(floor(w.x / 2.0), 4.0))) > 0.5) col = moss(w); } }
     float ao = smoothstep(0.47, 0.9, op), under = 0.0;
     for (int k = 1; k <= 6; k++) if (!isOpen(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.6 + 0.4 * ao) * (1.0 - 0.5 * under);
@@ -218,13 +222,13 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   } else {
     float hf = faceH(w.x), fd = 99.0;
     for (int k = 1; k <= 20; k++) { float d = float(k) * 2.0; if (d > hf) break; if (isOpen(w + vec2(0.0, d))) { fd = d; break; } }
-    if (fd < 99.0) { float h = fd / hf; col = tx(u_wall, w) * (0.4 + 0.65 * h * h);
+    if (fd < 99.0) { float h = fd / hf; col = gWall(w) * (0.4 + 0.65 * h * h);
       if (hf - fd < 2.5) col = col * 1.5 + 0.05;
       if (fd < 2.5) col *= 0.45;
       float drip = step(0.55, vnoise(vec2(w.x / 13.0, 5.0))) * (2.0 + 14.0 * hash(vec2(floor(w.x / 2.0), 1.0)) * step(0.5, vnoise(vec2(w.x / 5.0, 8.0))));
       if (hf - fd < drip) col = moss(w) * (0.6 + 0.4 * h);
       if (waterAt(w + vec2(0.0, fd + 2.0)) > 0.5) col *= mix(vec3(0.6, 0.72, 0.78), vec3(1.0), smoothstep(0.0, 14.0, fd)); }
-    else { col = tx(u_top, w + 91.0) * u_lift;
+    else { col = gTop(w + 91.0) * u_lift;
       if (isOpen(w - vec2(2.0, 0.0)) || isOpen(w + vec2(2.0, 0.0)) || isOpen(w - vec2(0.0, 2.0))) col = vec3(0.024, 0.02, 0.026);
       else if (isOpen(w - vec2(4.0, 0.0)) || isOpen(w - vec2(0.0, 4.0))) col = col * 1.6 + 0.04; } }
   o = vec4(col, 1.0); }`;
@@ -240,7 +244,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float inside = step(0.0, d);
   vec2 fl = texture(u_mask, w / u_map).gb * 2.0 - 1.0; float run = smoothstep(0.1, 0.5, length(fl)); vec2 flow = length(fl) > 0.01 ? normalize(fl) : vec2(0.0, 1.0);
   vec2 p = w - flow * u_t * 30.0, q = vec2(dot(p, vec2(-flow.y, flow.x)), dot(p, flow));
-  float dp = smoothstep(0.2, 0.8, texture(u_deep, w / u_map).r + (vnoise(w / 11.0) - 0.5) * 0.25), depth = smoothstep(2.0, 16.0, d);
+  float dv = texture(u_deep, w / u_map).r + (vnoise(w / 11.0) - 0.5) * 0.25, dp = smoothstep(0.2, 0.8, dv), depth = smoothstep(2.0, 16.0, d), edge = smoothstep(0.08, 0.22, dv) * (1.0 - smoothstep(0.32, 0.6, dv));
   float streak = run * step(0.78, vnoise(vec2(q.x / 2.5, q.y / 16.0))) * step(0.45, vnoise(p / 23.0));
   float swell = (1.0 - run) * step(0.87, vnoise(vec2(w.x / 14.0 + u_t * 0.15, w.y / 5.0))) * step(0.5, vnoise(w / 40.0 + u_t * 0.05));
   vec2 gc = floor(w / vec2(24.0, 12.0)), gl = w - (gc + vec2(0.3 + 0.4 * hash(gc + 3.0), 0.5)) * vec2(24.0, 12.0); float gh = hash(gc);
@@ -248,13 +252,36 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   vec3 refl = vec3(0.0); float band = step(0.5, vnoise(vec2(w.x / 5.0 + sin(u_t * 0.7) * 0.6, w.y / 2.5 - u_t * (0.6 + 2.5 * run))));
   for (int i = 0; i < 16; i++) { vec2 r0 = w - u_fire[i].xy - vec2(sin(w.y * 0.25 + u_t * 1.4 + hash(u_fire[i].xy) * 6.283) * (1.5 + 3.0 * run), 44.0);
     refl += u_fireCol[i] * exp(-r0.x * r0.x / 70.0 - r0.y * r0.y / 1400.0) * u_fire[i].w * band; }
-  vec3 shallow = vec3(0.08, 0.24, 0.3), deep = vec3(0.059, 0.165, 0.18);
-  vec3 col = mix(mix(shallow, shallow * 0.75, depth), deep * (0.85 + 0.15 * vnoise(w / 30.0)), dp);
+  vec3 shallow = vec3(0.1, 0.42, 0.58), deep = vec3(0.025, 0.11, 0.2);
+  vec3 col = mix(mix(shallow, shallow * 0.8, depth), deep * (0.85 + 0.15 * vnoise(w / 30.0)), dp) * (1.0 - 0.4 * edge);
   col += vec3(0.12, 0.2, 0.19) * streak + vec3(0.06, 0.1, 0.1) * swell + vec3(0.3, 0.38, 0.36) * glint;
-  float foam = inside * (1.0 - smoothstep(0.0, 4.0, d)) * step(0.55, vnoise(w / 4.0 + vec2(u_t * 0.25, 0.0) - flow * run * u_t * 3.0));
-  col = mix(col, vec3(0.42, 0.52, 0.5), foam * 0.85) + refl * 0.35;
-  float a = max(inside * mix(mix(0.42, 0.72, depth), 0.96, dp), foam * 0.85), wet = (1.0 - inside) * smoothstep(-10.0, -1.0, d);
+  float fn = vnoise(w / 4.0 + vec2(u_t * 0.25, 0.0) - flow * run * u_t * 3.0), foam = inside * max((1.0 - smoothstep(0.0, 6.0, d)) * step(0.55, fn), (1.0 - smoothstep(0.0, 3.0, d)) * step(0.3, fn));
+  col = mix(col, vec3(0.72, 0.87, 0.85), foam * 0.85) + refl * 0.35;
+  float a = max(inside * mix(mix(0.5, 0.8, depth), 0.97, dp), foam * 0.85), wet = (1.0 - inside) * smoothstep(-10.0, -1.0, d);
   o = vec4(col * a, a + wet * 0.2); }`;
+  // the serpent's strike zones on the ground (TASKS 324): what a blow will hit, filled from the middle outwards as the wind-up runs
+  // out, rim and chevrons brightening to the instant it lands. u_kind 0 a sector or circle (bite, tail), 1 a strip (wave), 2 a fan of
+  // u_n rays out to u_arc either side, each as wide as a jet's hit (u_hw)
+  const SERP_TELE = `
+uniform float u_kind, u_q, u_r, u_arc, u_hw, u_n; uniform vec2 u_org, u_sz, u_dir;
+void main(){ vec2 p = floor(v_uv * u_sz / 2.0) * 2.0 + 1.0 - u_org, nrm = vec2(-u_dir.y, u_dir.x);
+  float inside = 0.0, ed = 99.0, front = 0.0, run = 0.0, ray = 1.0;
+  if (u_kind < 0.5) { float r = length(p), an = abs(atan(dot(p, nrm), dot(p, u_dir)));
+    inside = step(r, u_r) * step(an, u_arc); ed = min(u_r - r, (u_arc - an) * max(r, 1.0)); front = step(r, u_r * u_q); run = r; }
+  else if (u_kind < 1.5) { float al = dot(p, u_dir), ac = dot(p, nrm);
+    inside = step(0.0, al) * step(al, u_r) * step(abs(ac), u_hw); ed = min(u_hw - abs(ac), min(al, u_r - al)); front = step(al, u_r * u_q); run = al; }
+  else { float al = dot(p, u_dir), an = atan(dot(p, nrm), al), best = -99.0;
+    for (int j = 0; j < 5; j++) { float aj = (float(j) / (u_n - 1.0) - 0.5) * 2.0 * u_arc; best = max(best, u_hw - abs(al * sin(an - aj))); }
+    float wedge = step(10.0, al) * step(al, u_r) * step(abs(an), u_arc + 0.32);
+    inside = wedge; ray = step(0.0, best); ed = best; front = step(al, u_r * u_q); run = al; }
+  float edge = inside * (1.0 - smoothstep(0.0, 4.0, ed)) * (u_kind > 1.5 ? ray : 1.0);
+  float chev = step(0.5, fract((run - u_t * 70.0) / 16.0 + (u_kind > 0.5 ? abs(dot(p, nrm)) / 40.0 : 0.0)));
+  float hatch = step(0.5, fract((p.x + p.y) / 12.0));
+  float pulse = 0.85 + 0.15 * sin(u_t * 18.0), ready = smoothstep(0.82, 1.0, u_q);
+  float fill = inside * (u_kind > 1.5 ? mix(0.015, 0.17, ray) : 0.07) * (1.0 + 2.4 * front * u_q) * (0.8 + 0.3 * (u_kind < 0.5 ? hatch : chev));
+  float a = clamp((fill + edge * (0.5 + 0.4 * u_q)) * pulse + inside * ready * 0.28 * (u_kind > 1.5 ? ray : 1.0), 0.0, 0.85);
+  vec3 col = mix(vec3(0.86, 0.26, 0.15), vec3(1.0, 0.8, 0.55), clamp(edge * 0.9 + ready * 0.5, 0.0, 1.0));
+  o = vec4(col * a, a); }`;
   // a cave's water source (TASKS 304), drawn round its point u_src. A fall (u_kind 0) runs over the rock's top to the lip of the face
   // the bake laid under it and pours down it into the water: streaks racing down, foam boiling at its foot, spray thrown up, mist
   // drifting off, rings spreading. A breach (1) gushes out of a side wall (u_dir: towards the wall), a spring (2) boils up by it.
@@ -369,7 +396,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   };
   function views(z) {
     Z = z; VW = W / Z; VH = H / Z;
-    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER, cave: CAVE, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
+    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER, cave: CAVE, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); }
     LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }) };
   }
@@ -924,6 +951,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (dead < 0 && (e.st === 'deep' || e.st === 'stir')) {
       if (e.st === 'stir') { const q = SS(0, B.warn, u);
         for (let j = 0; j < 6; j++) L.shadow(x + Math.cos(j * 0.8 + t) * (20 + 18 * q), y + Math.sin(j * 0.8 + t) * 12, 25, 9, 0.4 + 0.3 * q);
+        L.shadow(x, y + 6, 20 + 46 * q, 8 + 18 * q, 0.35 + 0.5 * q);
+        for (let j = 0; j < 4; j++) { const q2 = (u * 1.4 + j / 4) % 1; L.ring(x, y + 4, 12 + 70 * (1 - q2), (12 + 70 * (1 - q2)) * 0.42, [0.62, 0.9, 0.95], (0.25 + 0.6 * q) * Math.sin(Math.PI * q2), 0.14); }
         for (let j = 0; j < 15; j++) { const q1 = (u * 2 + j / 15) % 1, a = j * 2.4, r = 12 + 38 * rnd(e.id, j);
           L.ring(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.4, 1 + 5 * q1, 1 + 3 * q1, col, 0.8 * (1 - q1), 0.35); }
       }
@@ -1674,16 +1703,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     for (const e of R.en) { if (e.type !== 'boss_serpent' || e.deadT >= 0 || e.st !== 'bwind') continue;
       const Mv = D.bossMove(e), u = GT - e.t0; if (u > Mv.wind) continue;
-      const q = SS(0, Mv.wind, u), x = sx(e.x), y = sy(e.y), col = [0.85, 0.5, 0.22], amt = 0.3 + 0.45 * q;
-      if (e.mv === 'tail' || e.mv === 'bite') { const arc = e.mv === 'tail' ? Math.PI : Mv.arc;
-        for (let j = 0; j < 96; j++) { const a = e.aimA - arc + j / 95 * 2 * arc, r = Mv.r * (0.95 + 0.025 * Math.sin(j * 2.3 + t * 7));
-          const len = Math.max(5, r * arc * 2 / 95 * 1.3);
-          L.solid(x + Math.cos(a) * r, y + Math.sin(a) * r, len + 3, 8, [0.08, 0.06, 0.04], a + Math.PI / 2, (len + 3) / 2, 4, amt);
-          L.solid(x + Math.cos(a) * r, y + Math.sin(a) * r, len, 4, col, a + Math.PI / 2, len / 2, 2, amt); }
-      } else { const [mx, my] = e.mv === 'fan' ? SIM.serpentMouth(e) : [e.x, e.y - 38], n = e.mv === 'fan' ? Mv.n : 1;
-        for (let j = 0; j < n; j++) { const a = e.aimA + (n > 1 ? (j / (n - 1) - 0.5) * Mv.spread * 2 : 0), len = Mv.reach;
-          L.solid(sx(mx), sy(my + (e.mv === 'fan' ? 82 : 28)), len, 3, col, a, 0, 1.5, amt * 0.6); }
-      }
+      const q = SS(0, Mv.wind, u), x = sx(e.x), y = sy(e.y), tele = (ox, oy, kind, reach, extra) => { const R0 = reach + 12;
+        G.draw(L.P.serptele, Object.assign({ u_t: t, u_kind: kind, u_q: q, u_r: reach, u_arc: 0, u_hw: 0, u_n: 1, u_org: [R0, R0], u_sz: [2 * R0, 2 * R0], u_dir: [Math.cos(e.aimA), Math.sin(e.aimA)] }, extra), G.xf(ox - R0, oy - R0, 2 * R0, 2 * R0)); };
+      if (e.mv === 'tail') tele(x, y, 0, Mv.r, { u_arc: Math.PI + 0.1 });
+      else if (e.mv === 'bite') tele(x, y, 0, Mv.r, { u_arc: Mv.arc });
+      else if (e.mv === 'wave') tele(x, sy(e.y - 38 + 28), 1, Mv.reach, { u_hw: 34 });
+      else { const [mx, my] = SIM.serpentMouth(e); tele(sx(mx), sy(my + 82), 2, Mv.reach, { u_arc: Mv.spread, u_hw: 22, u_n: Mv.n }); }
     }
     for (const e of R.en) if (e.type === 'boss_serpent' && e.floodAt > GT) {
       for (const k of m.floodCells) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
