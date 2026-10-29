@@ -27,7 +27,7 @@
     // first floor of a kind (TASKS 312), so each floor brings its own: the drowned and the slimes, then the crabs before the archers,
     // then the eels in the lakes and the mages
     cave: { name: 'Затопленные пещеры', rock: [0.006, 0.006, 0.009], water: [0.06, 0.1, 0.12], vein: [0.3, 0.7, 0.8, 0], amb: [0.098, 0.095, 0.1], ambK: 0.9, torch: [1.0, 0.62, 0.26],
-      shroom: [0.2, 0.85, 0.78], gem: [0.32, 0.62, 1.0], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
+      shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
       cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime', 'crab', 'eel', 'skel_archer', 'skel_mage'],
       from: { crab: 2, skel_archer: 2, eel: 3, skel_mage: 3 }, props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
   };

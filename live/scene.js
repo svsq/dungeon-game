@@ -198,10 +198,10 @@ float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)); }
 uniform sampler2D u_floor, u_wall, u_top, u_shore; uniform float u_lift;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 vec3 ramp(vec3 c, vec3 lo, vec3 mid, vec3 hi){ float t = clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.08) / 0.37, 0.0, 1.0); return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
-vec3 gFloor(vec2 p){ return ramp(tx(u_floor, p), vec3(0.13, 0.085, 0.055), vec3(0.46, 0.3, 0.185), vec3(0.72, 0.54, 0.36)); }
-vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.03, 0.03, 0.026), vec3(0.19, 0.175, 0.14), vec3(0.45, 0.4, 0.31)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
+vec3 gFloor(vec2 p){ return ramp(tx(u_floor, p), vec3(0.14, 0.078, 0.052), vec3(0.49, 0.28, 0.17), vec3(0.74, 0.51, 0.33)); }
+vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.03, 0.03, 0.029), vec3(0.19, 0.185, 0.175), vec3(0.44, 0.425, 0.4)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
 vec3 gTop(vec2 p){ return ramp(tx(u_top, p), vec3(0.016, 0.016, 0.014), vec3(0.1, 0.095, 0.082), vec3(0.24, 0.215, 0.18)); }
-vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.1, 0.25, 0.21) : n < 0.75 ? vec3(0.18, 0.35, 0.17) : vec3(0.31, 0.48, 0.17); }
+vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.08, 0.18, 0.14) : n < 0.75 ? vec3(0.13, 0.25, 0.15) : vec3(0.24, 0.34, 0.18); }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 col;
   if (op > 0.47) {
     vec3 sh = tx(u_shore, w + 37.0); float wa = waterAt(w);
@@ -411,7 +411,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const g = GLOW[d.n]; if (!g) return null;
     const s = d.s || 1; return { ...g, up: g.up * s, cap: g.cap * s, r: g.r * (0.8 + 0.2 * s), amt: g.amt * (d.glow || 1) };
   };
-  const GLOW_COL = { shroom: [0.2, 0.85, 0.78], gem: [0.32, 0.62, 1.0] };
+  const GLOW_COL = { shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0] };
   const glowBeat = (d, t) => (d.n === 'crystal_cv' ? 0.94 + 0.04 * Math.sin(t * 2.3 + d.x) + 0.02 * Math.sin(t * 7.1 + d.y) : 0.84 + 0.16 * Math.sin(t * 0.9 + (d.x * 0.37 + d.y * 0.11)));
   // a roof drop of m.drips falls for DRIP_FALL s and lands at ph + n·p (audio.js plays the landing from the same schedule)
   // a cave crossing's boards (TASKS 306): pitch, board to board along the way; up, the fire cup's height on a torch post
