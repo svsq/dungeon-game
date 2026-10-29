@@ -968,7 +968,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       L.joint('en' + e.id, 'ground', [x, y]); return;
     }
     const sub = e.endPortrait ? 0 : dead >= 0 ? SS(0, 1.4, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
-    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : e.floodAt > poseT ? SS(0, 0.35, 1.2 - (e.floodAt - poseT)) * (0.85 + 0.15 * Math.sin(t * 22)) : e.floodT !== undefined && poseT - e.floodT < 0.6 ? (1 - SS(0, 0.6, poseT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0;
+    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, attackCoil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : 0;
+    const floodCoil = e.floodAt > poseT ? SS(0, 0.35, 1.2 - (e.floodAt - poseT)) * (0.85 + 0.15 * Math.sin(t * 22)) : e.floodT !== undefined && poseT - e.floodT < 0.6 ? (1 - SS(0, 0.6, poseT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0, coil = Math.max(attackCoil, floodCoil);
     const snap = attacking ? SS(w - 0.1, w + 0.09, u) * (1 - SS(w + 0.15, w + Mv.duration, u)) : 0;
     const hit = dead < 0 ? 0.12 * SS(0, 0.06, GT - e.hitT) * (1 - SS(0.12, 0.35, GT - e.hitT)) : 0;
     let base = 0.045 * Math.sin(t * (Math.PI * 2 / 4.5)) - 0.28 * coil + 0.2 * snap + sub * 0.3;
