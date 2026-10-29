@@ -2399,7 +2399,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.cam = [(r.x + r.w / 2) * TILE - VW / 2, y0 - VH / 2 - 40]; };
     states.push(['monsters', play(lineup)]);
     // the crab (TASKS 309) turned four ways and between, at rest in a lit hall: its shell, legs and claws must read whichever way it faces
-    states.push(['crab_facings', play((S) => { lineup(S); const R = S.run, r = R.map.rooms.find((q) => R.en[0].room === q.id), E = D.ENEMIES.crab, y0 = R.en[0].y;
+    states.push(['crab_facings', play((S) => { S.run = SIM.newRun(S, 'cave', 8); SIM.enterFloor(S, S.run, 2); const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'secret').sort((a, b) => b.w * b.h - a.w * a.h)[0], E = D.ENEMIES.crab, y0 = (r.cy + 0.5) * TILE; R.seen.fill(1); R.msg = null; R.cam = [(r.cx + 0.5) * TILE - VW / 2, y0 - VH / 2];
       R.en = [0, 1, 2, 3, 4, 5].map((i) => ({ id: 960 + i, type: 'crab', x: (r.x + r.w / 2) * TILE + (i - 2.5) * 110, y: y0 + (i % 2) * 40, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'idle', t0: 0,
         fa: [0, Math.PI / 2, Math.PI, -Math.PI / 2, 0.8, -2.4][i], face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 })); })]);
     // event responses: pain at the rim on low health with a bolt bursting on the hero, the fall, a scroll's two pillars,
@@ -2637,6 +2637,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         R.en = [{ id: 990, type: ty, x: x0 + dx * d, y: y0 + dy * d, vx: dx * E.spd, vy: dy * E.spd, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: -9, face: dx < 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: d, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
         R.cam = [x0 - VW / 2, y0 - VH / 2]; }); out.push(S); } return out; };
     const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
+    {
+      const S = play(); S.run = SIM.newRun(S, 'cave', 8); SIM.enterFloor(S, S.run, 2);
+      const R = S.run, e = structuredClone(enCycles.crab_right[0].run.en[0]), h = R.hero, x0 = h.x, y0 = h.y;
+      R.en = [e]; R.msg = null; R.seen.fill(1); R.cam = [x0 - VW / 2, y0 - VH / 2]; h.x -= 250;
+      const frames = [], trail = [], speed = D.ENEMIES.crab.spd, rate = 0.8, radius = speed / rate;
+      for (let i = -120; i < 180; i++) {
+        const t = (i + 120) / 60, a = t * rate;
+        Object.assign(e, { x: x0 + radius * Math.sin(a), y: y0 + radius * (1 - Math.cos(a)), fa: a, vx: speed * Math.cos(a), vy: speed * Math.sin(a), dist: speed * t, crabTrail: trail });
+        trail.push({ x: e.x, y: e.y, fa: a, vx: e.vx, vy: e.vy, dist: e.dist }); if (trail.length > 180) trail.shift();
+        S.t = 5 + t; if (i >= 0) frames.push(structuredClone(S));
+      }
+      enCycles.crab_turning = frames;
+    }
     const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
       // the grab from out of the blow's reach: it catches the hero and hauls him a step in
       drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })),
@@ -2644,6 +2657,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       crab_attack: enemyT('crab', 0), crab_rush: enemyT('crab', 0, 'slam', 0, (e, h) => ({ x: h.x, y: h.y - 110, fa: 0, face: 1, aimA: Math.PI / 2, rush: 1 })), brute_attack: enemyT('brute', 1),
       // the archer looses from range and the mage throws from behind (TASKS 311): the hero 6 cells off
       skel_archer_attack: enemyT('skel_archer', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), skel_mage_attack: enemyT('skel_mage', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), spider_attack: enemyT('spider', 0), boss_attack: enemyT('boss', 0), cultist_attack: enemyT('cultist', 0) };
+    transitions.crab_turning = enCycles.crab_turning; delete enCycles.crab_turning;
     // deaths: a few live frames, then the kill, through the fall and the bounce (the hero mid-stride and at rest, a skeleton)
     const eventT = (prep, kill) => { const fr = []; let S = play(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
     const heroDies = (S) => { const h = S.run.hero; h.hp = 0; h.deadT = S.t; };

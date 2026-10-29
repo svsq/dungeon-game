@@ -21,14 +21,16 @@ try {
   await page.waitForFunction(() => window.__ready);
   const cycles = await page.evaluate(() => {
     const Q = SCENE.QA(), out = {};
-    for (const [kind, name] of [...Object.keys(Q.cycles).map((n) => ['cycles', n]), ...Object.keys(Q.loops || {}).map((n) => ['loops', n])].filter(([, n]) => n.startsWith('crab'))) {
+    for (const [kind, name] of [...Object.keys(Q.cycles).map((n) => ['cycles', n]), ...Object.keys(Q.loops || {}).map((n) => ['loops', n]), ...Object.keys(Q.transitions || {}).filter((n) => n === 'crab_turning').map((n) => ['transitions', n])].filter(([, n]) => n.startsWith('crab'))) {
       const id = Q.subject[name], fr = [];
-      for (const st of Q[kind][name]) { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id], cam = st.cam || [0, 0];
+      for (const st of Q[kind][name]) { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id], cam = st.run.cam || [0, 0];
         fr.push(j ? Object.fromEntries(Object.entries(j).map(([k, v]) => [k, [v[0] + cam[0], v[1] + cam[1]]])) : null); }
       LIB.TRACE = null; out[name] = { loop: kind === 'loops', fr };
     }
     return out;
   });
+  if (!cycles.crab_turning || cycles.crab_turning.fr.length < 120) errors.push('missing moving turn trace');
+  for (const [name, { fr }] of Object.entries(cycles)) if (!fr.length || fr.some((f) => !f || !f.hip || !Array.from({ length: 6 }, (_, i) => f['foot' + i]).every(Boolean))) throw new Error(name + ': incomplete crab joint trace');
   // a foot standing on the floor keeps its place in the world while the body walks over it: of each foot's frame-to-frame world moves,
   // the quietest 40 % must be under 25 % of the body's own move
   // standing, a crab turning on the spot sets its feet down: each stays put for at least half of the frames
