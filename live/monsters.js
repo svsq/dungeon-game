@@ -243,7 +243,7 @@
           const angle = p.fa + Math.atan2(Math.sin(q.fa - p.fa), Math.cos(q.fa - p.fa)) * k, c0 = Math.cos(angle), s0 = Math.sin(angle), vx = mix(p.vx, q.vx), vy = mix(p.vy, q.vy), speed = Math.hypot(vx, vy) || 1;
           const pu = us + dirU * D + (vx * c0 + vy * s0) / speed * sl / 2, pv = vs + dirV * D + (-vx * s0 + vy * c0) / speed * sl / 2;
           const last = trail[trail.length - 1], dx = mix(p.x, q.x) - last.x + pu * c0 - pv * s0, dy = (mix(p.y, q.y) - last.y) / qy + pu * s0 + pv * c0;
-          const hold = 1 - SS(0.5, 0.6, ph);
+          const hold = 1 - SS(0.5, 1, ph);
           F[0] += (dx * cf + dy * sf - F[0]) * hold; F[1] += (-dx * sf + dy * cf - F[1]) * hold;
         }
       }
