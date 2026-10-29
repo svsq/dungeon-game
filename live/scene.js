@@ -2504,17 +2504,17 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         for (let k = 0; k < m.cells.length && !found; k++) {
           if (m.cells[k] !== 1 || m.cells[k + 1] !== 6 || m.block.includes(k)) continue;
           let end = k + 1; while (end < k + 10 && m.cells[end] === 6) end++;
-          if (m.cells[end] !== 1 || Math.floor(k / m.W) !== Math.floor(end / m.W)) continue;
+          if (end - k < 5 || m.cells[end] !== 1 || Math.floor(k / m.W) !== Math.floor(end / m.W)) continue;
           const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999;
-          R.en = []; R.pots = []; R.chests = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.cam = [h.x - VW / 2, h.y - VH / 2];
+          R.en = []; R.pots = []; R.chests = []; R.proj = []; R.msg = null; R.freeze = R.trauma = 0; S.ev = []; R.seen.fill(1); R.rseen.fill(1); R.cam = [h.x - VW / 2, h.y - VH / 2];
           SIM.step(S, { keys: [], rclick: 1, px: W, py: H / 2 });
-          let n = 0;
+          let n = 0; const pending = [];
           for (let i = 0; i < 100; i++) {
             const p = R.proj.find((p) => p.own === 'hero');
-            if (p && SIM.cell(m, Math.floor(p.x / TILE), Math.floor((p.y + (p.gz ?? 20)) / TILE)) === 6 && n < 3 && i >= n * 8 + 4) { R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['cave_fireball_deep_' + n++, structuredClone(S)]); }
+            if (p && SIM.cell(m, Math.floor(p.x / TILE), Math.floor((p.y + (p.gz ?? 20)) / TILE)) === 6 && Math.hypot(p.x - h.x, p.y + (p.gz ?? 20) - h.y) > 60 && n < 3 && i >= n * 8 + 4) { R.cam = [h.x - VW / 2, h.y - VH / 2]; pending.push(['cave_fireball_deep_' + n++, structuredClone(S)]); }
             SIM.step(S, { keys: [], px: W, py: H / 2 });
           }
-          found = n === 3;
+          found = n === 3; if (found) states.push(...pending);
         }
       }
       if (!found) throw new Error('No real fireball crossing deep water in cave QA');
@@ -2741,7 +2741,22 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const a = i * Math.PI / 4; b.st = 'bwind'; b.mv = 'bite'; b.t0 = S.t - D.BOSSES.boss_serpent.moves.bite.wind - 0.01; b.aimA = a; b.face = Math.cos(a) >= 0 ? 1 : -1;
       b.tx = b.x + Math.cos(a) * 100; b.ty = b.y + Math.sin(a) * 100; S.run.hero.x = b.tx; S.run.hero.y = b.ty;
     })]);
-    transitions.serpent_flood = serpentFrames((S, b) => { b.hp = b.max * 0.5; }, 130);
+    transitions.serpent_flood = serpentFrames((S, b) => {
+      const R = S.run, m = R.map, h = R.hero, threshold = D.BOSSES.boss_serpent.phases.find((p) => p.at < 1).at;
+      b.hp = b.max * threshold + 1; b.cdT = S.t + 0.25;
+      const floor = m.cells.flatMap((v, k) => v === 1 && !m.block.includes(k) ? [{ x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE }] : [])
+        .sort((p, q) => Math.hypot(p.x - b.x, p.y - b.y) - Math.hypot(q.x - b.x, q.y - b.y));
+      if (!floor.length) throw new Error('No shore for phase two cast');
+      h.x = floor[0].x; h.y = floor[0].y; h.mp = 999; h.ab.fireball = 1; h.cd.fireball = 0;
+      const z = R.zoom || D.ZOOM || 1;
+      SIM.step(S, { keys: [], rclick: 1, px: (b.x - R.cam[0]) * z, py: (b.y - D.ENEMIES.boss_serpent.h * 0.45 - R.cam[1]) * z });
+    }, 240);
+    {
+      const frames = transitions.serpent_flood, complete = frames.find((S) => S.run.map.flood && S.run.map.flood.n === S.run.map.floodCells.length);
+      const attack = frames.find((S) => S.run.en[0].phase === 1 && S.run.proj.some((p) => p.src === S.run.en[0].id && (p.k === 'wave' || p.k === 'jet')));
+      if (!complete || !attack || !complete.run.en.some((e) => e.type === 'drowned')) throw new Error('Incomplete live phase two QA');
+      states.push(['cave_flood_complete', structuredClone(complete)], ['cave_phase2_attack', structuredClone(attack)]);
+    }
     states.push(['serpent_flood_warning', structuredClone(transitions.serpent_flood[45])]);
     states.push(['serpent_flood', structuredClone(transitions.serpent_flood[100])]);
     states.push(['serpent_emerge_warning', structuredClone(transitions.serpent_rise[30])]);
