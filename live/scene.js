@@ -375,6 +375,7 @@ void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture
     // ripples thrown on a wall run as broken wavy bands drifting upward
     float band = smoothstep(0.55, 0.95, sin(wp.y / 4.5 + 2.2 * sin(wp.x / 26.0 + u_t * 0.9) + u_t * 1.7)) * smoothstep(0.35, 0.7, fbm(wp / 46.0 + vec2(u_t * 0.12, -u_t * 0.2)));
     glint = vec3(0.3, 0.75, 0.8) * band * near * (0.14 + 0.6 * dot(min(l, vec3(1.2)), vec3(0.33))); }
+  if (u_cave > 0.5) l = max(l, vec3(0.52, 0.49, 0.46));
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
@@ -569,7 +570,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     return VOID.rec;
   }
   function seenTex(R) {
-    const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n += R.seen[i];
+    const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n = (Math.imul(n, 31) + R.seen[i]) | 0;
     const key = m.seed + ':' + m.floor + ':' + n + ':' + R.rseen.join('');
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = document.createElement('canvas'); }
@@ -2463,6 +2464,17 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['cave_hall', S]); }
+    {
+      const base = structuredClone(states.find(([n]) => n === 'cave_hall')[1]);
+      base.run.map.torches = []; base.run.map.decor = base.run.map.decor.filter((d) => !GLOW[d.n]);
+      states.push(['cave_known_dark', structuredClone(base)]);
+      const R = base.run, m = R.map, mid = Math.floor(R.hero.x / TILE) + 2;
+      for (let y = 0; y < m.H; y++) for (let x = mid; x < m.W; x++) R.seen[y * m.W + x] = 0;
+      states.push(['cave_known_boundary', structuredClone(base)]);
+      for (const [name, x, y] of [['left', -32, R.hero.y], ['right', m.W * TILE + 32, R.hero.y], ['top', R.hero.x, -32], ['bottom', R.hero.x, m.H * TILE + 32]]) {
+        const S = structuredClone(base); S.run.hero.x = x; S.run.hero.y = y; states.push(['cave_map_' + name, S]);
+      }
+    }
     // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => q.kind === 'bridge'); if (!c) continue;
@@ -2472,7 +2484,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const h = R.hero; h.x = q.x + 2 * TILE; h.y = q.y + 4 * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - VW / 2, q.y - VH / 2]; states.push(['cave_waterfall', structuredClone(S)]); break; }
       // a breach gushing out of a side wall and a spring boiling up under the rock (TASKS 304)
       for (const kind of ['breach', 'spring']) for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, q = R.map.waterFeatures.find((o) => o.kind === kind); if (!q) continue;
-        const h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - VW / 2, q.y - VH / 2]; h.x = q.x - VW / 2 + 160; h.y = q.y - VH / 2 + 160;
+        const h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - VW / 2, q.y - VH / 2]; const m = R.map, block = new Set(m.block || []), spots = [];
+        for (let y = 1; y < m.H - 1; y++) for (let x = 1; x < m.W - 1; x++) {
+          if (SIM.cell(m, x, y) !== 1 || block.has(y * m.W + x)) continue;
+          const px = (x + 0.5) * TILE, py = (y + 0.5) * TILE;
+          if ([-12, 12].some((dx) => [-12, 12].some((dy) => SIM.cell(m, Math.floor((px + dx) / TILE), Math.floor((py + dy) / TILE)) !== 1))) continue;
+          spots.push([Math.hypot(px - q.x, py - q.y), px, py]);
+        }
+        spots.sort((a, b) => a[0] - b[0]); if (!spots.length) throw new Error('No safe hero position for cave_' + kind);
+        [, h.x, h.y] = spots[0];
         states.push(['cave_' + kind, structuredClone(S)]); break; }
       // a stream running into a lake with deep water (TASKS 304), the hero wading in the shallows by it, his last steps' rings spreading
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, run = Object.keys(m.waterFlow).map(Number).filter((k) => m.cells[k] === 1 || m.cells[k] === 6); if (!run.length) continue;
