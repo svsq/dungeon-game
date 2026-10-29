@@ -991,7 +991,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const mouth = forward(RG.snout), pin = attacking && e.mv === 'fan' ? SS(w - 0.2, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
     const bx = x + pin * (50 * f - (mouth[0] - RG.base[0]) * s * f), by = y + 2 + sub * 145 + pin * (-92 - (mouth[1] - RG.base[1]) * s);
     const mat = M.of(M.t(bx, by), M.s(f, 1)), at = (p) => M.ap(mat, [(p[0] - RG.base[0]) * s, (p[1] - RG.base[1]) * s]);
-    const cut = { cut: [y + (e.endPortrait ? 300 : 3) + bite * Math.max(0, e.ty - e.y), 4, 1] }, U = Object.assign({ alpha: o.alpha, grade: dead >= 0 ? [0.5, 0.65, 0, 1] : o.grade }, o.rim, cut);
+    const cut = { cut: [y + (e.endPortrait ? 300 : 3) + bite * Math.max(0, (e.ty ?? e.y) - e.y), 4, 1] }, U = Object.assign({ alpha: o.alpha, grade: dead >= 0 ? [0.5, 0.65, 0, 1] : o.grade }, o.rim, cut);
     const tailU = e.st === 'recover' ? w + Mv.duration + u : u, tailActive = e.mv === 'tail' && (attacking || (e.st === 'recover' && u < 0.3));
     const tailK = tailActive ? SS(0, 0.4, tailU) * (1 - SS(w + Mv.duration, w + Mv.duration + 0.3, tailU)) : 0;
     const tailSweep = tailActive ? SS(w - 0.08, w + 0.48, tailU) * Math.PI * 2 : 0;
@@ -1005,9 +1005,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           u: Object.assign({}, U, sweeping ? { alpha: o.alpha * (j ? 1 - tailK : 1), cut: [y + 3 + 200 * tailK, 4, 1] } : {}, { wtex: G.tex('serpent__tail_w'), wsz: [RT.w, RT.h], bone0: [b[0] / RT.w, b[1] / RT.h, k, 1] }) });
       } };
       tails(0);
-      const xf = SS(0, 0.4, bite), soft = () => L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
+      const xf = e.endPortrait ? 1 : SS(0, 0.4, bite), soft = () => L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
         u: Object.assign({}, U, { alpha: U.alpha * (1 - xf), wtex: G.tex('serpent__body_w'), wsz: [RB.w, RB.h], bone0: [cMid[0] / RB.w, cMid[1] / RB.h, mid, 1], bone1: [cBase[0] / RB.w, cBase[1] / RB.h, base, 1], bone2: [cHead[0] / RB.w, cHead[1] / RB.h, head, 1] }) });
-      if (bite > 0) {
+      if (bite > 0 || e.endPortrait) {
         // the neck's three pieces take over from the soft body over the first of the strike, so the shape does not jump (TASKS 325)
         if (xf < 1) soft();
         const piece = (name, root, pos, a) => L.sprite('serpent__' + name, 0, 0, { m: M.of(mat, M.t((pos[0] - RG.base[0]) * s, (pos[1] - RG.base[1]) * s), M.r(a)),
