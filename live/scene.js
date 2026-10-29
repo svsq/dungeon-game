@@ -199,7 +199,7 @@ uniform sampler2D u_floor, u_wall, u_top, u_shore; uniform float u_lift;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 vec3 ramp(vec3 c, vec3 lo, vec3 mid, vec3 hi){ float t = clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.08) / 0.37, 0.0, 1.0); return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
 vec3 gFloor(vec2 p){ return ramp(tx(u_floor, p), vec3(0.13, 0.085, 0.055), vec3(0.46, 0.3, 0.185), vec3(0.72, 0.54, 0.36)); }
-vec3 gWall(vec2 p){ return ramp(tx(u_wall, p), vec3(0.03, 0.03, 0.026), vec3(0.19, 0.175, 0.14), vec3(0.45, 0.4, 0.31)); }
+vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.03, 0.03, 0.026), vec3(0.19, 0.175, 0.14), vec3(0.45, 0.4, 0.31)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
 vec3 gTop(vec2 p){ return ramp(tx(u_top, p), vec3(0.016, 0.016, 0.014), vec3(0.1, 0.095, 0.082), vec3(0.24, 0.215, 0.18)); }
 vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.1, 0.25, 0.21) : n < 0.75 ? vec3(0.18, 0.35, 0.17) : vec3(0.31, 0.48, 0.17); }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 col;
@@ -222,10 +222,10 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   } else {
     float hf = faceH(w.x), fd = 99.0;
     for (int k = 1; k <= 20; k++) { float d = float(k) * 2.0; if (d > hf) break; if (isOpen(w + vec2(0.0, d))) { fd = d; break; } }
-    if (fd < 99.0) { float h = fd / hf; col = gWall(w) * (0.4 + 0.65 * h * h);
+    if (fd < 99.0) { float h = fd / hf; col = gWall(w) * (0.58 + 0.6 * h * h);
       if (hf - fd < 2.5) col = col * 1.5 + 0.05;
       if (fd < 2.5) col *= 0.45;
-      float drip = step(0.55, vnoise(vec2(w.x / 13.0, 5.0))) * (2.0 + 14.0 * hash(vec2(floor(w.x / 2.0), 1.0)) * step(0.5, vnoise(vec2(w.x / 5.0, 8.0))));
+      float drip = step(0.5, vnoise(vec2(w.x / 13.0, 5.0))) * (3.0 + 18.0 * hash(vec2(floor(w.x / 2.0), 1.0)) * step(0.5, vnoise(vec2(w.x / 5.0, 8.0))));
       if (hf - fd < drip) col = moss(w) * (0.6 + 0.4 * h);
       if (waterAt(w + vec2(0.0, fd + 2.0)) > 0.5) col *= mix(vec3(0.6, 0.72, 0.78), vec3(1.0), smoothstep(0.0, 14.0, fd)); }
     else { col = gTop(w + 91.0) * u_lift;
@@ -237,7 +237,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   // their flow; lakes and pools lie still (ref v2): only slow swells and a few glints twinkle on them. The fires stand in it as
   // columns broken into bands. The bank is the bake's waterAt (CAVE_EDGE), so the two meet
   const CAVE_WATER = `
-uniform sampler2D u_mask, u_deep; uniform vec4 u_box; uniform vec2 u_map; uniform vec4 u_fire[16]; uniform vec3 u_fireCol[16];
+uniform sampler2D u_mask, u_deep; uniform vec4 u_box; uniform vec2 u_map; uniform vec4 u_fire[16]; uniform vec3 u_fireCol[16]; uniform float u_emit;
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float mk = texture(u_mask, w / u_map).r; if (mk < 0.04) discard;
   float d = (mk + (vnoise(w / 6.0) - 0.5) * 0.32 - 0.5) * 32.0; if (d < -12.0) discard;
@@ -257,6 +257,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   col += vec3(0.12, 0.2, 0.19) * streak + vec3(0.06, 0.1, 0.1) * swell + vec3(0.3, 0.38, 0.36) * glint;
   float fn = vnoise(w / 4.0 + vec2(u_t * 0.25, 0.0) - flow * run * u_t * 3.0), foam = inside * max((1.0 - smoothstep(0.0, 6.0, d)) * step(0.55, fn), (1.0 - smoothstep(0.0, 3.0, d)) * step(0.3, fn));
   col = mix(col, vec3(0.72, 0.87, 0.85), foam * 0.85) + refl * 0.35;
+  if (u_emit > 0.5) { float g = (foam * 0.8 + glint) * 0.5; o = vec4(vec3(0.7, 0.92, 0.92) * g * 0.6, g * 0.6); return; }
   float a = max(inside * mix(mix(0.5, 0.8, depth), 0.97, dp), foam * 0.85), wet = (1.0 - inside) * smoothstep(-10.0, -1.0, d);
   o = vec4(col * a, a + wet * 0.2); }`;
   // the serpent's strike zones on the ground (TASKS 324): what a blow will hit, filled from the middle outwards as the wind-up runs
@@ -1267,8 +1268,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (caveW && (m.water.length || m.deep)) { const box = [Math.floor(cx / TILE - 1) * TILE, Math.floor(cy / TILE - 1) * TILE, VW + 3 * TILE, VH + 3 * TILE];
       const fires = TL.filter((f) => f[0] > box[0] - 40 && f[0] < box[0] + box[2] + 40 && f[1] + 44 > box[1] - 80 && f[1] + 44 < box[1] + box[3] + 80).sort((a, b) => a[1] - b[1] || a[0] - b[0]).slice(0, 16);
       while (fires.length < 16) fires.push([0, 0, 0, [0, 0, 0], 0]);
-      G.draw(L.P.cavewater, { u_t: t, u_mask: waterTex(m), u_deep: deepTex(m), u_box: box, u_map: [MW, MH],
-        u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, G.xf(sx(box[0]), sy(box[1]), box[2], box[3])); }
+      const cwU = { u_t: t, u_mask: waterTex(m), u_deep: deepTex(m), u_box: box, u_map: [MW, MH],
+        u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, cwX = G.xf(sx(box[0]), sy(box[1]), box[2], box[3]);
+      G.draw(L.P.cavewater, Object.assign(cwU, { u_emit: 0 }), cwX); G.blend('emit'); G.draw(L.P.cavewater, Object.assign(cwU, { u_emit: 1 }), cwX); G.blend(); }
     if (!caveW) for (const k of m.water || []) {
       const x = k % m.W, y = Math.floor(k / m.W), id = DUNGEON.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE);
       const b = waterRooms.get(id) || [x, y, x, y]; b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); waterRooms.set(id, b);
@@ -1583,6 +1585,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       L.shadow(sx(h.x), sy(h.y) + 2, 20, 6, 0.85);
       if (GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
       if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y), GT, st), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0 });
+      // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
+      if (caveW && h.deadT < 0 && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) {
+        const X = Math.round(sx(h.x) / PIX) * PIX, Y0 = Math.round(sy(h.y) / PIX) * PIX;
+        for (let dy = -10; dy <= 6; dy += PIX) { const hw = Math.round(24 * Math.sqrt(Math.max(0, 1 - ((dy + 2) / 9) ** 2)) / PIX) * PIX; if (hw <= 0) continue;
+          L.solid(X - hw, Y0 + dy, 2 * hw, PIX, dy < -8 ? [0.62, 0.84, 0.86] : [0.07, 0.3, 0.42], 0, 0, 0, dy < -8 ? 0.7 : 0.5); }
+        for (let k = 0; k < 2; k++) { const ph = (t * 0.9 + k * 0.5) % 1; L.ring(X, Y0 - 2, 14 + 22 * ph, (14 + 22 * ph) * 0.4, [0.62, 0.86, 0.88], 0.5 * (1 - ph), 0.16); }
+      }
     }]);
     L.SNAP = 1; try { Y.sort((a, b) => a[0] - b[0]).forEach(([, d]) => d()); } finally { L.SNAP = 0; }
 
