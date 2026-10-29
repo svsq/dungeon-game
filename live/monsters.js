@@ -235,6 +235,18 @@
       const stand = (1 - run) * (1 - curl) * (o.calm || 0) * (1 - SS(0, 0.6, o.dead || 0)), xs = o.fa / CRAB.turn + (CRAB.set[j] ^ (side < 0 ? 1 : 0) ? 0.5 : 0), fl0 = Math.floor(xs), fr0 = xs - fl0, sw = SS(0.7, 1, fr0);
       const e = (o.fa - (fl0 + sw - (xs - o.fa / CRAB.turn)) * CRAB.turn) * stand, ce = Math.cos(e), se = Math.sin(e); up += Math.sin(Math.PI * sw) * 0.14 * o.H * stand * (fr0 > 0.7 ? 1 : 0);
       const F0 = [us + dirU * (D + twitch) + vu * off, vs + dirV * (D + twitch) + vv * off], F = [F0[0] * ce + F0[1] * se, -F0[0] * se + F0[1] * ce, up + curl * 0.35 * zB];
+      if (run > 0.8 && !curl && o.trail && o.trail.length > 1) {
+        const plant = o.dist - ph * 2 * sl, trail = o.trail;
+        const i = trail.findIndex((p) => p.dist >= plant);
+        if (i > 0) {
+          const p = trail[i - 1], q = trail[i], k = (plant - p.dist) / Math.max(0.0001, q.dist - p.dist), mix = (a, b) => a + (b - a) * k;
+          const angle = p.fa + Math.atan2(Math.sin(q.fa - p.fa), Math.cos(q.fa - p.fa)) * k, c0 = Math.cos(angle), s0 = Math.sin(angle), vx = mix(p.vx, q.vx), vy = mix(p.vy, q.vy), speed = Math.hypot(vx, vy) || 1;
+          const pu = us + dirU * D + (vx * c0 + vy * s0) / speed * sl / 2, pv = vs + dirV * D + (-vx * s0 + vy * c0) / speed * sl / 2;
+          const last = trail[trail.length - 1], dx = mix(p.x, q.x) - last.x + pu * c0 - pv * s0, dy = (mix(p.y, q.y) - last.y) / qy + pu * s0 + pv * c0;
+          const hold = 1 - SS(0.5, 0.6, ph);
+          F[0] += (dx * cf + dy * sf - F[0]) * hold; F[1] += (-dx * sf + dy * cf - F[1]) * hold;
+        }
+      }
       const hx = F[0] - Sk[0], hy = F[1] - Sk[1], hd = Math.hypot(hx, hy) || 1, dz = F[2] - Sk[2], d = Math.min(Math.hypot(hd, dz), (l1 + l2) * 0.98), base = Math.atan2(dz, hd);
       const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), ka = base + a;
       const K = [Sk[0] + hx / hd * Math.cos(ka) * l1, Sk[1] + hy / hd * Math.cos(ka) * l1, Sk[2] + Math.sin(ka) * l1];
@@ -442,7 +454,7 @@
       biped(base); return true; }
     if (n === 'crab') {
       const u = GT - e.t0, R0 = E.rush, ew = DATA.windOf(e, e.rush ? R0.wind : E.wind), Hh = H;
-      const c = Object.assign(base, { fa: e.fa ?? (face > 0 ? 0 : Math.PI) });
+      const c = Object.assign(base, { fa: e.fa ?? (face > 0 ? 0 : Math.PI), trail: e.crabTrail });
       // a blow off the armour drives the claws back (they took it); one past it rocks the shell back
       const hA = GT - (e.armT ?? -9), ra = hA >= 0 ? SS(0, 0.1, hA) * (1 - SS(0.16, 0.45, hA)) : 0, rb = Math.abs((e.hitT ?? -9) - (e.armT ?? -9)) > 1e-6 ? ring(GT, e.hitT, 1, 4, 0.15) : 0;
       c.bx = -0.05 * Hh * rb; let P = () => ({});
