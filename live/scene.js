@@ -952,7 +952,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   }
   function drawSerpent(e, E, x, y, GT, t, o) {
     if (e.st === 'idle') return;
-    const RG = RIGS.serpent, RB = RIGS.serpent__body, RT = RIGS.serpent__tail, B = D.BOSSES[e.type], u = GT - e.t0, dead = e.deadT >= 0 ? GT - e.deadT : -1;
+    const RG = RIGS.serpent, RB = RIGS.serpent__body, RT = RIGS.serpent__tail, B = D.BOSSES[e.type], dead = e.deadT >= 0 ? GT - e.deadT : -1, poseT = dead >= 0 ? e.deadT : GT, u = poseT - e.t0;
+    if (dead >= 0) t = e.deadT;
     if (dead > 1.6) return;
     const f = e.face || 1, s = 168 / RG.h, col = [0.45, 0.72, 0.76];
     if (dead < 0 && (e.st === 'deep' || e.st === 'stir')) {
@@ -966,13 +967,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       }
       L.joint('en' + e.id, 'ground', [x, y]); return;
     }
-    const sub = e.endPortrait ? 0 : dead >= 0 ? SS(0.35, 1.5, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
-    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : dead < 0 && e.floodAt > GT ? SS(0, 0.35, 1.2 - (e.floodAt - GT)) * (0.85 + 0.15 * Math.sin(t * 22)) : dead < 0 && e.floodT !== undefined && GT - e.floodT < 0.6 ? (1 - SS(0, 0.6, GT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0;
+    const sub = e.endPortrait ? 0 : dead >= 0 ? SS(0, 1.4, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
+    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : e.floodAt > poseT ? SS(0, 0.35, 1.2 - (e.floodAt - poseT)) * (0.85 + 0.15 * Math.sin(t * 22)) : e.floodT !== undefined && poseT - e.floodT < 0.6 ? (1 - SS(0, 0.6, poseT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0;
     const snap = attacking ? SS(w - 0.1, w + 0.09, u) * (1 - SS(w + 0.15, w + Mv.duration, u)) : 0;
     const hit = dead < 0 ? 0.12 * SS(0, 0.06, GT - e.hitT) * (1 - SS(0.12, 0.35, GT - e.hitT)) : 0;
-    let base = 0.045 * Math.sin(t * 1.4) - 0.28 * coil + 0.2 * snap + sub * 0.3;
-    let mid = 0.075 * Math.sin(t * 1.4 - 0.9) - 0.36 * coil + 0.25 * snap - hit;
-    let head = 0.08 * Math.sin(t * 1.4 - 1.8) + 0.34 * coil - 0.2 * snap - hit;
+    let base = 0.045 * Math.sin(t * (Math.PI * 2 / 4.5)) - 0.28 * coil + 0.2 * snap + sub * 0.3;
+    let mid = 0.075 * Math.sin(t * (Math.PI * 2 / 4.5) - 0.9) - 0.36 * coil + 0.25 * snap - hit;
+    let head = 0.08 * Math.sin(t * (Math.PI * 2 / 4.5) - 1.8) + 0.34 * coil - 0.2 * snap - hit;
     const bite = attacking && e.mv === 'bite' ? SS(w - 0.14, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
     const [cMid, cBase] = RB.bones, cHead = bite > 0 ? RG.head : RB.bones[2];
     if (bite > 0) {
@@ -986,6 +987,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const mix = (a, b) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * bite;
       base = mix(base, b0); mid = mix(mid, b1); head = mix(head, b2);
     }
+    if (dead >= 0 && !e.endPortrait) { const fall = SS(0, 0.5, dead); base += 0.18 * fall; mid += 0.25 * fall; head -= 0.2 * fall; }
     if (e.endPortrait) { base += 0.9; mid += 0.6; head -= 0.5; }
     const forward = (p) => rotAbout(rotAbout(rotAbout(p, cHead, head), cMid, mid), cBase, base);
     const mouth = forward(RG.snout), pin = attacking && e.mv === 'fan' ? SS(w - 0.2, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
@@ -996,8 +998,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const tailK = tailActive ? SS(0, 0.4, tailU) * (1 - SS(w + Mv.duration, w + Mv.duration + 0.3, tailU)) : 0;
     const tailSweep = tailActive ? SS(w - 0.08, w + 0.48, tailU) * Math.PI * 2 : 0;
     const body = () => {
-      const tails = (pass) => { for (let j = 1; j >= 0; j--) { const a = Math.PI + j * 0.8, tx = x + Math.cos(a) * (60 + j * 32) * f, ty = y + Math.sin(a) * 20 + j * 12 + sub * 65;
-        const b = RT.bones[0], k = 0.14 + 0.12 * Math.sin(t * 2 - j) + 0.3 * snap;
+      const tails = (pass) => { for (let j = 1; j >= 0; j--) { const a = Math.PI + j * 0.8, tx = x + Math.cos(a) * (60 + j * 32) * f, ty = y + Math.sin(a) * 20 + j * 12 + sub * 145;
+        const b = RT.bones[0], k = 0.14 + 0.12 * Math.sin(t * (Math.PI * 2 / 4.5) - j) + 0.3 * snap;
         const sweeping = tailK > 0, angle = e.aimA - Math.PI + tailSweep, r0 = Math.atan2(RG.tail.tip[1] - RG.tail.base[1], RG.tail.tip[0] - RG.tail.base[0]);
         const mt = sweeping && !j ? M.of(M.t(tx + (x + Math.cos(angle) * 25 - tx) * tailK, ty + (y + Math.sin(angle) * 25 - ty) * tailK), M.s(f * (1 + 0.1 * tailK), 1 + 0.1 * tailK), M.r(Math.atan2(Math.sin(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0), Math.cos(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0)) * tailK)) : M.of(M.t(tx, ty), M.s(f * (j ? -0.75 : 1), j ? 0.75 : 1));
         if ((sweeping && !j && Math.sin(angle) > 0.15 ? 1 : 0) !== pass) continue;
@@ -2715,7 +2717,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const serpentFrames = (fn, n = 120) => { const frames = []; let S = serpentState(fn);
       for (let i = 0; i < n; i++) { frames.push(S); S = structuredClone(S); for (let j = 0; j < 2; j++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return frames;
     };
-    loops.serpent_idle = serpentFrames();
+    loops.serpent_idle = serpentFrames(undefined, 271);
     transitions.serpent_rise = serpentFrames((S, b) => { b.st = 'stir'; b.t0 = S.t - 0.3; });
     transitions.serpent_dive = serpentFrames((S, b) => { b.st = 'dive'; b.t0 = S.t; });
     transitions.serpent_death = serpentFrames((S, b) => { b.hp = 0; b.deadT = S.t; }, 95);
