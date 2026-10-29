@@ -128,6 +128,7 @@ def simplify(im, height, palette, name):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--only', default='')
     args = parser.parse_args()
     meta_path = ROOT / 'art/simplify.json'
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
@@ -138,21 +139,26 @@ def main():
     accents = {'#2a202f', '#51384e', '#5f3d60', '#a47f84', '#895e54', '#1d131f', '#0f2a2e'}
     palette = np.array([c for c in bible.tolist() if '#%02x%02x%02x' % tuple(c) not in accents], dtype=np.uint8)
     for name in NAMES:
+        if args.only and name not in args.only.split(','):
+            continue
         dest = ROOT / 'art/gen' / (name + '.png')
         backup = ROOT / 'art/old/simplify' / (name + '.png')
+        source = ROOT / 'art/raw' / (name + '.png') if name in ('water_stone_a', 'water_stone_b') else backup
+        if not source.exists():
+            source = backup
         if not args.check:
             if backup.exists() or name not in meta or digest(dest) != meta[name]['output_sha256']:
                 if not backup.exists():
                     backup.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(dest, backup)
-                im = Image.open(backup).convert('RGBA')
+                im = Image.open(source).convert('RGBA')
                 if name == 'bones':
                     im = reduce_bones(im)
                 ramp = np.array([hex_rgb(h) for h in PALETTES[name]], dtype=np.uint8) if name in PALETTES else palette
                 assert all(list(color) in bible.tolist() for color in ramp), name + ': color outside style bible'
                 out = simplify(im, heights[name], ramp, name)
                 out.save(dest)
-                meta[name] = {'source_sha256': digest(backup), 'output_sha256': digest(dest), 'height': heights[name], 'cell': UP}
+                meta[name] = {'source_sha256': digest(source), 'output_sha256': digest(dest), 'height': heights[name], 'cell': UP}
         entry = meta[name]
         assert digest(dest) == entry['output_sha256'], name + ': modified since simplification'
         a = np.array(Image.open(dest).convert('RGBA'))

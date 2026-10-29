@@ -90,14 +90,14 @@
     "cell": 4
   },
   "water_stone_a": {
-    "source_sha256": "f92813b3ab2c681d94c47fb094292b6e80e281b8679d745752f22891f94fe55f",
-    "output_sha256": "918591ca07e81d2c29ec7c07bdfa84cc007ef4888c2fb0955e7f87db0f5aedc4",
+    "source_sha256": "a440145bd69509e060d877a567977a7efc0e9d5b5740ed69fccc45b5d707b652",
+    "output_sha256": "f520dbd3c0cf5c381c13f97b35ad85406c81fa490f60087dc0c95e36a580c92e",
     "height": 18,
     "cell": 4
   },
   "water_stone_b": {
-    "source_sha256": "be65fe36cf3a56d96857d7ebc708756727ee2e569dc596e77ec5919ae232f9e6",
-    "output_sha256": "f3fec28d9dcd3889467406dc546dff6c95b4f9b0ccd29b82877de4756a638114",
+    "source_sha256": "898d00feb45fdd74db82b3fc1734d3ebd864b57216d905486970c94ce8f58631",
+    "output_sha256": "bf2b4a028da59b464e0dbbde8660e1e1c8c44f06c97c9ff2595a238ea88cdb40",
     "height": 16,
     "cell": 4
   },
