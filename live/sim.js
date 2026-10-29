@@ -2635,6 +2635,19 @@
       S.ev = []; for (let i = 0; i < 120; i++) step(S, { keys: [] });
       if (S.ev.some((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv'))) out.push('cave reactions: stationary hero retriggers decor');
     }
+    {
+      const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); const R = S.run, m = R.map, h = R.hero, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE);
+      m.decor = []; R.en = []; R.chests = []; R.pots = [];
+      for (let y = ty - 3; y <= ty + 3; y++) for (let x = tx - 1; x <= tx + 7; x++) m.cells[y * m.W + x] = x >= tx + 1 && x <= tx + 3 ? 6 : 1;
+      const fire = () => ({ id: R.nextId++, k: 'fire', own: 'hero', x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE - 20, gz: 20, vx: 300, vy: 0, t0: S.t, life: 2, r: 6, dmg: 100 });
+      const p = fire(); R.proj = [p]; for (let i = 0; i < 50; i++) { S.t += DT; stepProjectiles(S, R); }
+      if (p.dead || p.x < (tx + 4) * TILE) out.push('hero fireball: dies over deep water');
+      const target = { id: R.nextId++, type: 'skeleton', x: (tx + 5.5) * TILE, y: p.y + ENEMIES.skeleton.h * 0.45, hp: 500, max: 500, deadT: -1, elite: 0, room: -1, st: 'idle', hitT: -9, kbx: 0, kby: 0, burn: 0, burnT: 0 };
+      R.en = [target]; for (let i = 0; i < 40 && !p.dead; i++) { S.t += DT; stepProjectiles(S, R); }
+      if (target.hp >= 500) out.push('hero fireball: no damage after deep water');
+      m.cells[ty * m.W + tx + 2] = 0; const q = fire(); R.proj = [q]; for (let i = 0; i < 50 && !q.dead; i++) { S.t += DT; stepProjectiles(S, R); }
+      if (!q.dead || q.x >= (tx + 3) * TILE) out.push('hero fireball: passes through rock above water');
+    }
     // an altar on every second floor and on no other (TASKS 137), the last on the floor before the boss's, none on his (TASKS 183)
     { const bad = [], want = (f) => (f < D.RUNS.campaign.floors && (f % 2 === 0 || f === D.RUNS.campaign.floors - 1) ? 1 : 0);
       for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;

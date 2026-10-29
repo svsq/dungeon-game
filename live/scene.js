@@ -589,25 +589,26 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SEEN.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
     return SEEN.rec;
   }
-  const SPELL_FLOOR = { key: '', rec: null, cv: null };
-  function spellFloor(R) {
+  const SPELL_FLOOR = { key: '', rec: null, cv: null }, SPELL_WATER = { key: '', rec: null, cv: null };
+  function spellFloor(R, water = false) {
+    const cache = water ? SPELL_WATER : SPELL_FLOOR;
     // a rolling hash of the cells and the explored mask: no string of the whole map per frame (TASKS 242)
     const m = R.map; let hsh = 0; for (let i = 0; i < m.cells.length; i++) hsh = (Math.imul(hsh, 31) + m.cells[i] * 2 + (R.seen[i] ? 1 : 0)) | 0;
     const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
-    if (SPELL_FLOOR.key === key) return SPELL_FLOOR.rec;
-    const cv = SPELL_FLOOR.cv || (SPELL_FLOOR.cv = document.createElement('canvas')); cv.width = m.W; cv.height = m.H;
+    if (cache.key === key) return cache.rec;
+    const cv = cache.cv || (cache.cv = document.createElement('canvas')); cv.width = m.W; cv.height = m.H;
     const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H), hidden = SIM.secretMask(m);
     for (let i = 0; i < m.cells.length; i++) {
-      im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3) && R.seen[i] && !hidden.has(i) ? 255 : 0;
+      im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3 || water && m.cells[i] === 6) && R.seen[i] && !hidden.has(i) ? 255 : 0;
       im.data[i * 4 + 3] = 255;
     }
     g.putImageData(im, 0, 0);
-    if (!SPELL_FLOOR.rec) SPELL_FLOOR.rec = G.canvasTex('spell_floor', cv);
+    if (!cache.rec) cache.rec = G.canvasTex(water ? 'spell_water' : 'spell_floor', cv);
     // the mips are rebuilt with every upload: a floor of another size left the old ones behind, the texture went incomplete and
     // read as all rock, so every spell on the cave's larger floors was masked away
-    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SPELL_FLOOR.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
-      SPELL_FLOOR.rec.w = cv.width; SPELL_FLOOR.rec.h = cv.height; }
-    SPELL_FLOOR.key = key; return SPELL_FLOOR.rec;
+    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, cache.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
+      cache.rec.w = cv.width; cache.rec.h = cv.height; }
+    cache.key = key; return cache.rec;
   }
 
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
@@ -1191,7 +1192,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const MW = m.W * TILE, MH = m.H * TILE;
     const known = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)] || R.seen[Math.floor((y + 40) / TILE) * m.W + Math.floor(x / TILE)];
     const spellU = { u_floor: spellFloor(R), u_map: [MW, MH], u_cam: [cx, cy] };
-    const spell = (program, x, y, rx, ry, u) => G.draw(L.P[program], { ...spellU, ...u }, G.xf(sx(x) - rx, sy(y) - ry, rx * 2, ry * 2));
+    const spell = (program, x, y, rx, ry, u) => G.draw(L.P[program], { ...spellU, ...(program === 'fireball' ? { u_floor: spellFloor(R, true) } : {}), ...u }, G.xf(sx(x) - rx, sy(y) - ry, rx * 2, ry * 2));
     const weaponCol = (rar) => rar ? D.RARITY[rar].col : [0.55, 0.72, 0.9];
     const whirlFx = (e, a, mode) => {
       const radius = e.r || 92, y = e.y - (mode ? 0 : 34), angle = Math.atan2(Math.sin(e.a || 0) / DEPTH_K, Math.cos(e.a || 0)) + Math.PI * 2 * whirlP(a);
@@ -2493,6 +2494,28 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.hero.x = d.x; R.hero.y = d.y + (d.wall ? 40 : 15); R.cam = [d.x - VW / 2, d.y - VH / 2];
       SIM.hitProps(S, R, R.hero.x, R.hero.y, 60);
       for (const age of [0.08, 0.2, 0.5]) { const T = structuredClone(S); T.t += age; states.push(['cave_reaction_' + type + '_' + age, T]); }
+    }
+    {
+      let found = false;
+      for (let seed = 1; seed <= 20 && !found; seed++) {
+        const S = play(); S.run = SIM.newRun(S, 'cave', seed); S.screen = 'play'; const R = S.run, m = R.map;
+        for (let k = 0; k < m.cells.length && !found; k++) {
+          if (m.cells[k] !== 1 || m.cells[k + 1] !== 6 || m.block.includes(k)) continue;
+          let end = k + 1; while (end < k + 10 && m.cells[end] === 6) end++;
+          if (m.cells[end] !== 1 || Math.floor(k / m.W) !== Math.floor(end / m.W)) continue;
+          const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999;
+          R.en = []; R.pots = []; R.chests = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.cam = [h.x - VW / 2, h.y - VH / 2];
+          SIM.step(S, { keys: [], rclick: 1, px: W, py: H / 2 });
+          let n = 0;
+          for (let i = 0; i < 100; i++) {
+            const p = R.proj.find((p) => p.own === 'hero');
+            if (p && SIM.cell(m, Math.floor(p.x / TILE), Math.floor((p.y + (p.gz ?? 20)) / TILE)) === 6 && n < 3 && i >= n * 8 + 4) { R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['cave_fireball_deep_' + n++, structuredClone(S)]); }
+            SIM.step(S, { keys: [], px: W, py: H / 2 });
+          }
+          found = n === 3;
+        }
+      }
+      if (!found) throw new Error('No real fireball crossing deep water in cave QA');
     }
     // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
