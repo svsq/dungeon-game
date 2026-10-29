@@ -260,9 +260,16 @@
     e.pool = best.i; e.x = best.x; e.y = best.y; e.face = h.x >= e.x ? 1 : -1; e.st = 'stir'; e.t0 = S.t; e.vx = e.vy = 0;
     ev(S, { k: 'stir', x: e.x, y: e.y, id: e.id });
   }
+  // the shallows spread from the lakes over 1.6 s, the nearest shore first, so the flood has a front (TASKS 326)
+  function floodStep(S, R) {
+    const m = R.map, F = m.flood; if (!F || F.n >= F.cells.length) return;
+    const n = Math.min(F.cells.length, 1 + Math.floor(F.cells.length * Math.min(1, (S.t - F.t0) / 1.6))); if (n === F.n) return;
+    const add = F.cells.slice(F.n, n); F.n = n; m.water.push(...add); m.arenaWater.push(...add); WET.delete(m); m.geometry = (m.geometry || 0) + 1;
+  }
   function serpentFlood(S, R, e) {
-    const m = R.map; m.arenaWater = m.floodCells.filter((k) => m.cells[k] === 1 && !m.water.includes(k) && !m.block.includes(k));
-    m.water.push(...m.arenaWater); WET.delete(m); m.geometry = (m.geometry || 0) + 1;
+    const m = R.map, pools = m.serpentPools.flat(), near = (k) => Math.min(...pools.map((q) => Math.hypot(q % m.W - k % m.W, Math.floor(q / m.W) - Math.floor(k / m.W))));
+    const cells = m.floodCells.filter((k) => m.cells[k] === 1 && !m.water.includes(k) && !m.block.includes(k)).map((k) => [near(k), k]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((q) => q[1]);
+    m.arenaWater = []; m.flood = { cells, t0: S.t, n: 0 }; e.floodT = S.t;
     const r = m.rooms[e.room], sol = solids(R), E = ENEMIES.drowned, spots = [];
     for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) {
       const p = { x: (x + 0.5) * TILE, y: (y + 0.5) * TILE };
@@ -280,6 +287,7 @@
     const B = D.BOSSES[e.type], t = S.t, h = R.hero, u = t - e.t0;
     e.vx = e.vy = 0;
     if (e.floodAt && t >= e.floodAt) { e.floodAt = 0; serpentFlood(S, R, e); }
+    floodStep(S, R);
     if (!e.phase && e.hp <= e.max * B.phases[1].at && e.st !== 'bwind') {
       e.phase = 1; e.floodAt = t + 1.2; R.msg = { s: 'Вода поднимается! Утопленники идут со дна', t, d: 3 };
       ev(S, { k: 'bossphase', id: e.id, phase: 1 }); ev(S, { k: 'floodwarn', x: e.x, y: e.y });
@@ -1222,6 +1230,7 @@
   }
   function finishArena(S, R, e) {
     if (R.arena) R.arena.active = 0;
+    R.map.flood = null;
     if (R.map.arenaWater?.length) { const wet = new Set(R.map.arenaWater); R.map.water = R.map.water.filter((k) => !wet.has(k)); R.map.arenaWater = []; WET.delete(R.map); }
     for (const k of R.map.arenaLava || []) if (R.map.cells[k] === 3) { R.map.cells[k] = 1; R.map.lava--; }
     R.map.arenaLava = []; R.lavaPending = []; R.map.geometry = (R.map.geometry || 0) + 1;
@@ -2633,6 +2642,9 @@
       S.t += 1.21; serpent(S, R, b, true);
       if (m.water.length <= water || !m.arenaWater.length || m.cells.some((c, k) => c !== cells[k]) || !arenaPath(m, b.room)) out.push('serpent: flood changes collision or cuts off the arena');
       if (R.en.filter((e) => e.summ === b.id && e.type === 'drowned').length !== 2) out.push('serpent: flood must raise two drowned');
+      if (m.flood.cells.length > 4 && m.flood.n >= m.flood.cells.length) out.push('serpent: the flood has no front');
+      S.t += 0.8; serpent(S, R, b, true); const mid = m.flood.n; S.t += 1; serpent(S, R, b, true);
+      if (!(mid > 1 && mid < m.flood.cells.length) || m.flood.n !== m.flood.cells.length || new Set(m.arenaWater).size !== m.flood.cells.length) out.push('serpent: the flood does not spread over 1.6 s to every shore cell');
       b.st = 'bwind'; b.mv = 'tail'; b.fired = 0; b.t0 = S.t; b.dmg = 1e6; h.ifr = 0; h.hp = 1e6; h.x = b.x + 80; h.y = b.y;
       let lost = 0;
       for (let i = 0; i < 12 && !lost; i++) { b.fired = 0; b.t0 = S.t; h.ifr = 0; const hp2 = h.hp;
