@@ -773,19 +773,41 @@
     (R.map.webs || []).forEach((w, i) => { if (w.torn) return; const dx = w.x - x, dy = w.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 20 * w.s) return; if (arc !== undefined && d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) return;
       w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); }); }
-  // an ambush's flagstone sinks under the hero and calls monsters of the floor out of the dark round the room, in a ring, at once
-  // on the hunt; they pay their XP but carry nothing (like a summoner's), and nothing of the floor's completion hangs on them
   function springAmbush(S, R, P) {
-    const m = R.map, h = R.hero, f = dep(R), roster = D.rosterAt(m.biome, R.floor).filter((t) => (t !== 'brute' || f >= 3) && !ENEMIES[t].lurk && !ENEMIES[t].deep), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
-    ev(S, { k: 'click', x: P.x, y: P.y }); ev(S, { k: 'ambush', x: h.x, y: h.y });
+    const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
+    if (!room || P.fired) return false;
+    P.fired = 1;
+    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep);
+    if (!roster.length) return false;
+    const group = Array.from({ length: P.n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = solids(R), block = new Set(m.block || []);
+    const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;
+    const walk = (x, y) => inside(x, y) && cell(m, x, y) === 1 && !block.has(y * m.W + x);
+    const seen = new Set(), queue = [[Math.floor(h.x / TILE), Math.floor(h.y / TILE)]];
+    while (queue.length) {
+      const [x, y] = queue.pop(), k = y * m.W + x; if (seen.has(k) || !walk(x, y)) continue;
+      seen.add(k); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) queue.push([x + dx, y + dy]);
+    }
+    const candidates = [];
+    for (const k of seen) {
+      const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+      if (Math.hypot(x - h.x, y - h.y) < 96 || hidden(m, { x, y })) continue;
+      if ([-radius, 0, radius].some((dx) => [-radius, 0, radius].some((dy) => !walk(Math.floor((x + dx) / TILE), Math.floor((y + dy) / TILE))))) continue;
+      if (obstacles.some((o) => Math.hypot(x - o.x, y - o.y) < radius + o.r + 4) || R.en.some((e) => e.deadT < 0 && Math.hypot(x - e.x, y - e.y) < radius + ENEMIES[e.type].r + 4)) continue;
+      candidates.push({ x, y });
+    }
+    for (let i = candidates.length - 1; i > 0; i--) { const j = ri(R, 0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
+    const positions = [];
+    for (const p of candidates) if (positions.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= 2 * radius + 4)) { positions.push(p); if (positions.length === group.length) break; }
+    if (positions.length !== group.length) return false;
     const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
-    for (let i = 0, n = 0; i < 40 && n < P.n; i++) { const a = rnd(R) * 6.28, d = 130 + rnd(R) * 90, x = h.x + Math.cos(a) * d, y = h.y + Math.sin(a) * d * 0.8;
-      const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); if (!r || tx < r.x || ty < r.y || tx >= r.x + r.w || ty >= r.y + r.h || solidAt(m, x, y, true) || (m.block || []).includes(ty * m.W + tx)) continue;
-      const type = pick(R, roster), E = ENEMIES[type], hp = Math.round(E.hp * sc);
+    for (let i = 0; i < group.length; i++) {
+      const { x, y } = positions[i], type = group[i], E = ENEMIES[type], hp = Math.round(E.hp * sc);
       R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: P.room, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
         cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
-      ev(S, { k: 'summon', x, y }); n++; }
-    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: 'Засада!', t: S.t, d: 2, room: P.room };
+      ev(S, { k: 'summon', x, y });
+    }
+    P.downT = S.t; ev(S, { k: 'ambush', x: h.x, y: h.y });
+    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: 'Засада!', t: S.t, d: 2, room: P.room }; return true;
   }
   // a door opens to a press of E or a blow (a kick, it flies open), unless it is locked: a key the hero carries opens the lock for
   // good, a lever opens every door of its lock at once
@@ -2362,9 +2384,10 @@
         if (!w.torn) out.push('traps: a blow does not tear a web');
         const w2 = m.webs.find((o) => !o.torn); if (w2) { tearWebs(S, R, w2.x, w2.y, 30, undefined, undefined, 1); if (!w2.torn || !S.ev.some((e) => e.k === 'webburn')) out.push('traps: fire does not burn a web'); }
         const P = m.ambush[0], foes = fstat(R).foes; h.x = P.x; h.y = P.y; R.en = []; step(S, { px: 960, py: 540, keys: [] });
-        const got = R.en.filter((e) => e.summ === 'amb'); if (!P.fired || got.length !== P.n || got.some((e) => e.st !== 'chase' || DG.roomAt(m, e.x, e.y) !== P.room)) out.push(`traps: an ambush calls ${got.length} of ${P.n} monsters`);
+        const got = R.en.filter((e) => e.summ === 'amb'); if (!P.fired || (got.length !== 0 && got.length !== P.n) || got.some((e) => e.st !== 'chase' || DG.roomAt(m, e.x, e.y) !== P.room)) out.push(`traps: an ambush calls ${got.length} of ${P.n} monsters`);
         h.x = P.x + 40; step(S, { keys: [] }); h.x = P.x; step(S, { keys: [] }); if (R.en.filter((e) => e.summ === 'amb').length !== got.length) out.push('traps: an ambush springs twice');
-        hitEnemy(S, R, got[0], 1e9, false, P.x, P.y); if (fstat(R).foes !== foes || fstat(R).kills !== 0 && floorStat(R).foes !== fstat(R).foes) out.push('traps: an ambush counts toward the floor'); } }
+        if (!got.length && (R.msg && R.msg.s === 'Засада!' || S.ev.some((e) => e.k === 'ambush'))) out.push('ambush: announces an empty spawn');
+        if (got.length) hitEnemy(S, R, got[0], 1e9, false, P.x, P.y); if (fstat(R).foes !== foes || fstat(R).kills !== 0 && floorStat(R).foes !== fstat(R).foes) out.push('traps: an ambush counts toward the floor'); } }
     // the cave's monsters (TASKS 307, 308): the run places drowned in the shallows and slimes; a drowned lies still until the hero
     // comes within its sense, rises and only then hunts; its grab draws the hero a step in; a slime's hop lands against the hero and
     // hurts him; a slime splits in two small ones that carry nothing and stay out of the floor's count, the small ones never split,
