@@ -290,6 +290,7 @@
     floodStep(S, R);
     if (!e.phase && e.hp <= e.max * B.phases[1].at && e.st !== 'bwind') {
       e.phase = 1; e.floodAt = t + 1.2; R.msg = { s: 'Вода поднимается! Утопленники идут со дна', t, d: 3 };
+      R.trauma = Math.min(1, R.trauma + 0.28);
       ev(S, { k: 'bossphase', id: e.id, phase: 1 }); ev(S, { k: 'floodwarn', x: e.x, y: e.y });
     }
     if (e.st === 'deep') { if (t >= e.cdT) serpentSurface(S, R, e); return; }
