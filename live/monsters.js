@@ -396,7 +396,7 @@
       if (e.st === 'wind' && k > 0.5) { const sa = Math.atan2(Math.sin(aimR), Math.cos(aimR) * face), aw = 0.42 * H * G.tex('skel_arrow').w / G.tex('skel_arrow').h;
         L.sprite('skel_arrow', 0, 0, { m: M.of(M.t(hd[0], hd[1]), M.r(sa + Math.PI / 2)), w: aw, h: 0.42 * H, pivot: [aw / 2, 0.42 * H * 0.96], u: o.U }); }
       // the string: two straight runs to the hand while it holds it, else one from nock to nock
-      if (!L.sp) { const held = e.st === 'wind' && k > 0.5, col = [0.62, 0.58, 0.5], seg = (p, q) => L.solid(p[0], p[1], Math.hypot(q[0] - p[0], q[1] - p[1]), 1.6, col, Math.atan2(q[1] - p[1], q[0] - p[0]), 0, 0.8, (o.U.alpha ?? 1) * 0.95);
+      if (!L.sp) { const held = e.st === 'wind' && k > 0.5, col = [0.62, 0.58, 0.5], seg = (p, q) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]), a = Math.atan2(q[1] - p[1], q[0] - p[0]); L.solid(p[0], p[1], d, 3, [0.025, 0.02, 0.02], a, 0, 1.5, o.U.alpha ?? 1); L.solid(p[0], p[1], d, 1.6, col, a, 0, 0.8, (o.U.alpha ?? 1) * 0.95); };
         if (held) { seg(top, hand); seg(hand, bot); } else seg(top, bot); }
       L.joint(o.id, 'nockT', top); L.joint(o.id, 'nockB', bot); return true; }
     if (n === 'skel_mage') {
