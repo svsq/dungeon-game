@@ -328,3 +328,5 @@ python3 -m http.server 8930
 - **321 закрыта:** повтор `node tools/ambushcheck.cjs` — PASS, 117 полных групп и 7723 тихих исхода. Перенесена в TASKS_COMPLETED. Это закрытие уже реализованного исправления, механика 320 сохранена.
 
 - **332 закрыта:** `node tools/caveresultcheck.cjs` — PASS 18 исходов после save/continue на сидах 1/7/26837, cave и campaign. Счётчики берутся из реальной симуляции, 4/8 этажей; просмотрены win/dead/retreat. Кадры `frames/cave_results`, рендер `cavecheck --input` — PASS. Старый остаток endRun/save/load выполнен.
+
+- **331 закрыта:** `node tools/cavemapcheck.mjs` — PASS: GPU-кэши при равном числе клеток, save/continue, настоящий штатный hot reload с сохранением исследования/zoom, шесть детерминированных кадров на zoom 1,5. Результаты `frames/cave_mapcheck`; старый остаток 331 выполнен.
