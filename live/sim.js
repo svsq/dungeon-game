@@ -696,12 +696,14 @@
       if (d > rad + 18) return false; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return false; if (!losClear(m, x, y, foot.x, foot.y)) return false;
       if (S.t - (hit[id] ?? -9) < 0.2) return false; hit[id] = S.t;
       if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
-      if (n !== 'merchant') ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, s: dx >= 0 ? 1 : -1 }); return true; };
+      if (n !== 'merchant') ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, scale: p.s || 1, s: dx >= 0 ? 1 : -1 }); return true; };
     m.decor.forEach((d, i) => { if (hidden(m, d)) return;
-      if (d.n === 'bones') knock('d' + i, d, d.n);
+      if (d.n === 'bones' || d.n === 'skel_cv') knock('d' + i, d, d.n);
       else if (bonesOnly) return;
       else if (d.n === 'candles' && !d.lift && (d.outUntil || 0) <= S.t) {
         if (knock('d' + i, d, d.n, 'wax')) { d.outUntil = S.t + 3; ev(S, { k: 'snuff', x: d.x, y: d.y }); } }
+      else if (/^shroom_[ab]$/.test(d.n)) knock('d' + i, d, d.n, 'fungus');
+      else if (d.wall && d.n === 'shop_sign') knock('d' + i, d, d.n, 'wood', { x: d.x, y: d.y + 30 });
       else if (d.solid && !d.wall) knock('d' + i, d, d.n);
       else if (d.wall && d.n === 'banner' && d.secret === undefined && !hidden(m, d)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
     if (bonesOnly) return;
@@ -871,7 +873,16 @@
     m.goo = (m.goo || []).filter((g) => t < g.t0 + g.T); for (const g of m.goo) g.rNow = g.r * Math.min(1, (g.t0 + g.T - t) / GOO.dry);
     const moved = Math.hypot(h.x - ox, h.y - oy);
     if (moved > 0.02 && dashing) hitProps(S, R, h.x, h.y, K.R, undefined, undefined, true);
-    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h) }); }
+    if (moved > 0.02) {
+      const hits = R.propHit || (R.propHit = {});
+      m.decor.forEach((d, i) => {
+        const fungus = /^shroom_[ab]$/.test(d.n); if (!fungus && d.n !== 'skel_cv') return;
+        if (hidden(m, d) || Math.hypot(d.x - h.x, d.y - h.y) > (fungus ? 25 : 30) || !losClear(m, h.x, h.y, d.x, d.y)) return;
+        const id = 'd' + i; if (S.t - (hits[id] ?? -9) < 0.65) return;
+        hits[id] = S.t; ev(S, { k: 'prop', x: d.x, y: d.y, i: id, n: d.n, mat: fungus ? 'fungus' : 'bone', scale: d.s || 1, touch: 1, s: h.x < d.x ? 1 : -1 });
+      });
+    }
+    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     // ---- melee: hold LMB ----
     if (inp.press && h.cd.atk <= t) {
       h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
@@ -2571,6 +2582,18 @@
       f.sec = 17; if (completionHints(R).some((o) => o.kind === 'secret')) out.push('hints: secret location highlighted');
       e.summ = 1; if (completionHints(R).some((o) => o.kind === 'foe')) out.push('hints: summoned enemy highlighted');
       f.kills = f.foes; f.loot = f.lootN; if (completionHints(R).length) out.push('hints: completed categories still highlighted'); }
+    {
+      const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run, h = R.hero, m = R.map;
+      R.en = []; m.decor = [{ n: 'shroom_a', x: h.x + 10, y: h.y, s: 0.6 }, { n: 'skel_cv', x: h.x + 12, y: h.y }];
+      S.ev = []; hitProps(S, R, h.x, h.y, 30); const n = S.ev.filter((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv')).length;
+      if (n !== 2) out.push('cave reactions: mushroom or skeleton ignores a blow');
+      hitProps(S, R, h.x, h.y, 30); if (S.ev.filter((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv')).length !== n) out.push('cave reactions: repeated blow bypasses cooldown');
+      S.t += 1; const x = Math.floor((h.x + 6) / TILE), y = Math.floor(h.y / TILE), k = y * m.W + x, saved = m.cells[k];
+      m.cells[k] = 0; hitProps(S, R, h.x - TILE, h.y, 80); m.cells[k] = saved;
+      if (S.ev.filter((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv')).length !== n) out.push('cave reactions: response through rock');
+      S.ev = []; for (let i = 0; i < 120; i++) step(S, { keys: [] });
+      if (S.ev.some((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv'))) out.push('cave reactions: stationary hero retriggers decor');
+    }
     // an altar on every second floor and on no other (TASKS 137), the last on the floor before the boss's, none on his (TASKS 183)
     { const bad = [], want = (f) => (f < D.RUNS.campaign.floors && (f % 2 === 0 || f === D.RUNS.campaign.floors - 1) ? 1 : 0);
       for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
