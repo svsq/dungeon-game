@@ -38,6 +38,20 @@ try {
     if (anchor && !result.anchors.some((a) => a.name === anchor)) errors.push(name + ': missing ' + anchor);
     for (const a of result.anchors) if (!Number.isFinite(a.d) || a.d > a.tol) errors.push(`${name}: ${a.name} misses by ${a.d.toFixed(1)} px`);
   }
+  for (const mv of ['bite', 'tail', 'wave', 'fan']) {
+    const r = await page.evaluate((mv) => {
+      const S = window.serpentQA.states.find(([n]) => n === 'serpent_warn_' + mv)[1], cv = document.getElementById('c'), Mv = DATA.BOSSES.boss_serpent.moves[mv];
+      const shot = (st) => { const C = structuredClone(S); C.run.en[0].st = st; SCENE.state = C; SCENE.render(C.t + 0.01); const g = document.createElement('canvas'); g.width = cv.width; g.height = cv.height;
+        const x = g.getContext('2d', { willReadFrequently: true }); x.drawImage(cv, 0, 0); return x.getImageData(0, 0, g.width, g.height).data; };
+      const on = shot('bwind'), off = shot('recover'), R = S.run, e = R.en[0], z = R.zoom || DATA.ZOOM || 1, X = (e.x - R.cam[0]) * z, Y = (e.y - R.cam[1]) * z;
+      let n = 0; for (let i = 0; i < on.length; i += 4) { const px = (i / 4) % cv.width, py = Math.floor(i / 4 / cv.width);
+        if (Math.abs(px - X) < 100 * z && py > Y - 260 * z && py < Y - 10 * z) continue;
+        if (Math.abs(on[i] - off[i]) + Math.abs(on[i + 1] - off[i + 1]) + Math.abs(on[i + 2] - off[i + 2]) > 45) n++; }
+      const area = mv === 'bite' ? Mv.arc * Mv.r * Mv.r : mv === 'tail' ? Math.PI * Mv.r * Mv.r : mv === 'wave' ? 68 * Mv.reach : Mv.n * 44 * Mv.reach;
+      return { n, area: area * z * z };
+    }, mv);
+    if (r.n < r.area * 0.3) errors.push(`serpent_warn_${mv}: the telegraph covers ${r.n} px of the ${Math.round(r.area)} px a blow hits (at least 30 % expected)`);
+  }
   for (const name of ['serpent_tail', 'serpent_bite']) {
     const url = await page.evaluate((name) => {
       const frames = window.serpentQA.transitions[name], sheet = document.createElement('canvas'); sheet.width = 1600; sheet.height = 900;
