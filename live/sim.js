@@ -390,11 +390,6 @@
       for (const c of R.chests) if (!c.open && c.loot && c.loot.length) put(c, 'loot');
       for (const d of R.drops) if (d.loot && !d.got && d.kind === 'item') put(d, 'loot');
     }
-    if (near('sec', 'secN') || near('loot', 'lootN') || near('kills', 'foes')) for (const q of R.map.secrets || []) if (!q.open) {
-      const room = R.map.rooms[q.room], inside = (o) => inRoom0(room, Math.floor(o.x / TILE), Math.floor(o.y / TILE));
-      if (near('sec', 'secN') || (near('loot', 'lootN') && R.chests.some((c) => !c.open && c.loot && c.loot.length && inside(c))) ||
-        (near('kills', 'foes') && R.en.some((e) => counted(e) && e.deadT < 0 && inside(e)))) out.push({ x: q.x, y: q.y, kind: 'secret' });
-    }
     return out;
   }
   function damageName(src) {
@@ -2573,6 +2568,7 @@
       R.drops = [{ x: e.x, y: e.y, kind: 'item', loot: 1, got: 0 }, { x: e.x, y: e.y, kind: 'item', loot: 0, got: 0 }];
       const hints = completionHints(R);
       if (hints.filter((o) => o.kind === 'foe').length !== 1 || hints.filter((o) => o.kind === 'loot').length !== 2) out.push('hints: misses live foe, chest or item at 85%');
+      f.sec = 17; if (completionHints(R).some((o) => o.kind === 'secret')) out.push('hints: secret location highlighted');
       e.summ = 1; if (completionHints(R).some((o) => o.kind === 'foe')) out.push('hints: summoned enemy highlighted');
       f.kills = f.foes; f.loot = f.lootN; if (completionHints(R).length) out.push('hints: completed categories still highlighted'); }
     // an altar on every second floor and on no other (TASKS 137), the last on the floor before the boss's, none on his (TASKS 183)
