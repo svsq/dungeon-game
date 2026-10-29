@@ -1084,6 +1084,23 @@
     { const pool = rooms.filter((r) => r.type === 'combat' || r.type === 'exit' || r.locked); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
       pool.sort((a, b) => (b.locked || 0) - (a.locked || 0));
       for (const r of pool.slice(0, depth === 1 ? (R() < 0.3 ? 1 : 0) : webless ? ri(2, 3) : ri(1, 2))) { const p = floorSpot(r); if (p) ambush.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, cx: p[0], cy: p[1], room: r.id, n: 2 + Math.floor(depth / 3) + (r.locked ? 1 : 0) }); } }
+    if (cave) {
+      const mushrooms = decor.filter((d) => /^shroom_[ab]$/.test(d.n)), removed = new Set();
+      const floor = rooms.flatMap((r) => {
+        const out = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) out.push([wx(x), wy(y)]); return out;
+      });
+      const fixed = torches.map((t) => [t.x, t.y, LIGHT_R[t.kind]]).concat(decor.filter((d) => LIGHT_R[d.n] && !mushrooms.includes(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.map((q) => [q.x, q.y, LIGHT_R.shrine]));
+      for (const d of mushrooms.filter((_, i) => i % 2 === 0)) {
+        const near = floor.filter(([x, y]) => Math.hypot(x - d.x, (y - d.y) / 0.8) <= LIGHT_R[d.n] * TILE);
+        const lights = fixed.concat(mushrooms.filter((q) => q !== d && !removed.has(q)).map((q) => [q.x, q.y, LIGHT_R[q.n]]));
+        if (near.every(([x, y]) => lights.some(([lx, ly, r]) => Math.hypot(x - lx, (y - ly) / 0.8) <= r * TILE))) removed.add(d);
+      }
+      for (let i = decor.length - 1; i >= 0; i--) if (removed.has(decor[i])) decor.splice(i, 1);
+    }
+    if (cave) for (const d of decor) if (/^shroom_[ab]$/.test(d.n)) {
+      const v = (Math.imul(Math.round(d.x), 73856093) ^ Math.imul(Math.round(d.y), 19349663)) >>> 0;
+      d.s = [0.6, 0.8, 1][v % 3]; d.glow = 0.85 + (v % 5) * 0.05;
+    }
     // start room: a sanctuary bonfire in the centre
     const sanct = { x: start.cx * TILE + TILE / 2, y: start.cy * TILE + TILE / 2 + 8 };
     torches.push({ x: sanct.x, y: sanct.y, kind: 'fire' });
