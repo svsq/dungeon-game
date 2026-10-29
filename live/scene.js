@@ -964,7 +964,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       }
       L.joint('en' + e.id, 'ground', [x, y]); return;
     }
-    const sub = dead >= 0 ? SS(0.35, 1.5, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
+    const sub = e.endPortrait ? 0 : dead >= 0 ? SS(0.35, 1.5, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
     const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : dead < 0 && e.floodAt > GT ? SS(0, 0.35, 1.2 - (e.floodAt - GT)) * (0.85 + 0.15 * Math.sin(t * 22)) : dead < 0 && e.floodT !== undefined && GT - e.floodT < 0.6 ? (1 - SS(0, 0.6, GT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0;
     const snap = attacking ? SS(w - 0.1, w + 0.09, u) * (1 - SS(w + 0.15, w + Mv.duration, u)) : 0;
     const hit = dead < 0 ? 0.12 * SS(0, 0.06, GT - e.hitT) * (1 - SS(0.12, 0.35, GT - e.hitT)) : 0;
@@ -984,11 +984,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const mix = (a, b) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * bite;
       base = mix(base, b0); mid = mix(mid, b1); head = mix(head, b2);
     }
+    if (e.endPortrait) { base += 0.9; mid += 0.6; head -= 0.5; }
     const forward = (p) => rotAbout(rotAbout(rotAbout(p, cHead, head), cMid, mid), cBase, base);
     const mouth = forward(RG.snout), pin = attacking && e.mv === 'fan' ? SS(w - 0.2, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
     const bx = x + pin * (50 * f - (mouth[0] - RG.base[0]) * s * f), by = y + 2 + sub * 145 + pin * (-92 - (mouth[1] - RG.base[1]) * s);
     const mat = M.of(M.t(bx, by), M.s(f, 1)), at = (p) => M.ap(mat, [(p[0] - RG.base[0]) * s, (p[1] - RG.base[1]) * s]);
-    const cut = { cut: [y + 3 + bite * Math.max(0, e.ty - e.y), 4, 1] }, U = Object.assign({ alpha: o.alpha, grade: dead >= 0 ? [0.5, 0.65, 0, 1] : o.grade }, o.rim, cut);
+    const cut = { cut: [y + (e.endPortrait ? 300 : 3) + bite * Math.max(0, e.ty - e.y), 4, 1] }, U = Object.assign({ alpha: o.alpha, grade: dead >= 0 ? [0.5, 0.65, 0, 1] : o.grade }, o.rim, cut);
     const tailU = e.st === 'recover' ? w + Mv.duration + u : u, tailActive = e.mv === 'tail' && (attacking || (e.st === 'recover' && u < 0.3));
     const tailK = tailActive ? SS(0, 0.4, tailU) * (1 - SS(w + Mv.duration, w + Mv.duration + 0.3, tailU)) : 0;
     const tailSweep = tailActive ? SS(w - 0.08, w + 0.48, tailU) * Math.PI * 2 : 0;
@@ -1139,14 +1140,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   SC.endActors = (r, win, t, x, y) => {
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
     const enemy = (actor, px, py, dead) => {
-      const gt = t + 100, e = Object.assign({ id: 990, x: 0, y: 0, vx: 0, vy: 0, dist: 0, face: -1, st: 'idle', t0: -9, hitT: -9, hitP: -9, burn: 0, deadT: dead ? gt - 2 : -1, dieA: 0 }, actor);
+      const gt = t + 100, e = Object.assign({ id: 990, x: 0, y: 0, vx: 0, vy: 0, dist: 0, face: -1, st: 'idle', t0: -9, hitT: -9, hitP: -9, burn: 0, deadT: dead ? gt - (actor.type === 'boss_serpent' ? 0.6 : 2) : -1, dieA: 0 }, actor);
       const k = dead ? 0.85 : 160 / (SZ(EN_TEX[e.type])[1] * (D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1));
       L.pre = M.of(M.t(px, py), M.s(k, k), M.t(-px, -py));
       try { drawEnemy(e, px, py, gt, t); } finally { L.pre = null; }
     };
     if (win) {
       // the fallen lord behind and aside, the hero large and lit in front of him: the two never merge into one dark shape (TASKS 235)
-      enemy({ type: 'boss', elite: 1 }, x - 90, y - 5, true);
+      enemy({ type: r.mode === 'cave' ? 'boss_serpent' : 'boss', elite: r.mode === 'cave' ? 0 : 1, st: 'chase', mv: 'wave', endPortrait: r.mode === 'cave' }, x - 90, y - 5, true);
       if (r.hero) {
         const h = Object.assign({}, r.hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
         const hx = x + 35, hy = y + 70;
@@ -2709,7 +2710,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['serpent_flood_warning', structuredClone(transitions.serpent_flood[45])]);
     states.push(['serpent_flood', structuredClone(transitions.serpent_flood[100])]);
     states.push(['serpent_emerge_warning', structuredClone(transitions.serpent_rise[30])]);
-    { const S = structuredClone(states.find(([name]) => name === 'win')[1]); S.result.mode = 'cave'; S.result.floor = 4; states.push(['win_cave', S]); }
+    {
+      const S = structuredClone(states.find(([name]) => name === 'win')[1]); S.result.mode = 'cave'; S.result.floor = 4;
+      const R = SIM.newRun(S, 'cave', 71); S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta);
+      S.result.C.floors = 4; states.push(['win_cave_worst', structuredClone(S)]);
+      Object.assign(S.result, { lvl: 12, kills: 80, gold: 800, shards: 121, found: 70, base: 31, statBonus: 20, time: 1800 });
+      Object.assign(S.result.C, { foes: 80, kills: 80, lootN: 70, loot: 65, secN: 4, sec: 2, pct: (1 + 65 / 70 + 0.5) / 3 });
+      states.push(['win_cave', S]);
+    }
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
     for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
