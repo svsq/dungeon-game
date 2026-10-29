@@ -1435,7 +1435,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           if (rnd(P.cx + k, P.cy - k) < 0.25) d = -d; if (rnd(P.cy + k, P.cx) < 0.5) x = Math.max(X0 + 2, Math.min(X0 + S0 - 4, x + d));
           if (k === 4) for (let j = 1; j <= 3; j++) L.solid(x - d * j, y + j * 2 - 2, 2, 2, ink, 0, 0, 0, 0.7); } } };
     for (const q of m.secrets || []) { const P = q.trig; if (P && P.k === 'plate' && vis(P.x, P.y)) flagstone(P, q.open ? SS(0, 0.12, GT - (P.downT ?? q.openT ?? -9)) : 0); }
-    for (const P of m.ambush || []) if (vis(P.x, P.y)) flagstone(P, P.fired ? SS(0, 0.12, GT - (P.downT ?? -9)) : 0, P.fired);
 
     // webs on the floor (TASKS 71): torn to a few strands by a blow, burnt to a sooty few by fire
     (m.webs || []).forEach((w, i) => { if (!vis(w.x, w.y)) return; const n = w.torn ? 'web_torn' : w.v ? 'web_b' : 'web_a', A0 = ASSETS[n], ww = 84 * w.s * (w.torn ? 0.8 : w.v ? 0.85 : 1), hh = ww * A0.h / A0.w;
@@ -2382,10 +2381,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const at = (S, x, y, hx = x + 50, hy = y + 40) => { const R = S.run; Object.assign(R.hero, { x: hx, y: hy, vx: 0, vy: 0 }); R.en = R.en.filter((e) => e.type === 'spider' && Math.hypot(e.x - x, e.y - y) < 260); R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.cam = [x - VW / 2, y - VH / 2]; };
       let [S, w] = find((m) => m.webs.length >= 2 && m.webs[0]); if (S) { at(S, w.x, w.y, w.x + 4, w.y + 2); states.push(['web', S]);
         const [S2, w2] = find((m) => m.webs.length >= 2 && m.webs[0]); at(S2, w2.x, w2.y); for (const o of S2.run.map.webs) { o.torn = 1; o.tornT = S2.t - 2; } states.push(['web_torn', S2]); }
-      [S, w] = find((m) => m.ambush[0]); if (S) { at(S, w.x, w.y, w.x + 40, w.y + 30); S.run.en = []; states.push(['ambush', S]);
-        const [S2, P] = find((m) => m.ambush[0]); at(S2, P.x, P.y, P.x, P.y); S2.run.en = []; S2.ev = []; SIM.springAmbush(S2, S2.run, P); for (const e of S2.ev) e.t = S2.t - 0.3; S2.run.msg = null; states.push(['ambush_sprung', S2]);
-        const [S3, P3] = find((m) => m.ambush[0]); at(S3, P3.x, P3.y, P3.x, P3.y); SIM.springAmbush(S3, S3.run, P3); P3.downT = S3.t - 30; S3.run.en = []; S3.ev = []; S3.run.msg = null;
-        at(S3, P3.x, P3.y, P3.x + 70, P3.y + 40); S3.run.en = []; states.push(['ambush_spent', S3]); }
+
       [S, w] = find((m) => m.traps.find((t) => t.cor)); if (S) { at(S, w.x, w.y, w.x + 70, w.y); S.run.en = []; w.ph = (1 - (S.t / 2.4) % 1 + 0.1) % 1; states.push(['trap_corridor', S]); } }
     const crack = (d) => (o) => o.kind === 'crack' && o.dir === d, sconce = (o) => o.trig && o.trig.k === 'sconce', plate = (o) => o.trig && o.trig.k === 'plate';
     for (const [n, f, stage, age] of [['secret_crack', crack('u'), 0], ['secret_crack_hit', crack('u'), 1], ['secret_crack_break', crack('u'), 2, 0.25], ['secret_room', crack('u'), 3],

@@ -1081,9 +1081,6 @@
       if (free(x, y) && !solid.has(key(x, y)) && !doorway(x, y) && !trapCell(x, y)) { used.add(key(x, y)); return [x, y]; } } return null; };
     for (const r of rooms) { const sp = enemies.filter((e) => e.room === r.id && e.type === 'spider').length; if (!sp) continue;
       for (let i = 0, n = sp >= 2 ? ri(2, 3) : R() < 0.5 ? 1 : 0; i < n; i++) { const p = floorSpot(r); if (p) webs.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, v: ri(0, 1), s: 0.9 + 0.3 * R(), f: R() < 0.5 ? 1 : 0, torn: 0 }); } }
-    { const pool = rooms.filter((r) => r.type === 'combat' || r.type === 'exit' || r.locked); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-      pool.sort((a, b) => (b.locked || 0) - (a.locked || 0));
-      for (const r of pool.slice(0, depth === 1 ? (R() < 0.3 ? 1 : 0) : webless ? ri(2, 3) : ri(1, 2))) { const p = floorSpot(r); if (p) ambush.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, cx: p[0], cy: p[1], room: r.id, n: 2 + Math.floor(depth / 3) + (r.locked ? 1 : 0) }); } }
     if (cave) {
       const mushrooms = decor.filter((d) => /^shroom_[ab]$/.test(d.n)), removed = new Set();
       const floor = rooms.flatMap((r) => {
