@@ -8,6 +8,7 @@
   let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, amb = null, beatT = 0;
   try { muted = localStorage.getItem('dc_mute') === '1'; } catch (e) {}
   const recent = {};
+  let waterAmb = null;
 
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -45,7 +46,12 @@
     whirl: (o) => { noise(o, { a: 0.05, d: 0.38, v: 0.4, f0: 600, f1: 2600, q: 2 }); noise(o, { t: now() + 0.12, d: 0.25, v: 0.25, f0: 2200, f1: 700, q: 2 }); },
     eswing: (o) => noise(o, { d: 0.14, v: 0.22, f0: 1500, f1: 400, q: 1.2 }),
     dash: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.3, type: 'lowpass', f0: 2500, f1: 400 }),
-    step: (o) => noise(o, { d: 0.05, v: 0.06, type: 'lowpass', f0: rr(500, 800) }),
+    step: (o, e) => e.wet ? SFX.splash(o) : noise(o, { d: 0.05, v: 0.06, type: 'lowpass', f0: rr(500, 800) }),
+    splash: (o) => { noise(o, { d: 0.14, v: 0.12, f0: 1400, f1: 450, q: 0.7 }); tone(o, { f0: 440, f1: 180, d: 0.08, v: 0.04 }); },
+    douse: (o) => noise(o, { a: 0.02, d: 0.58, v: 0.28, type: 'highpass', f0: 4000, f1: 1200 }),
+    snuff: (o) => noise(o, { d: 0.18, v: 0.1, type: 'highpass', f0: 3200, f1: 1500 }),
+    hollow: (o) => { tone(o, { f0: 85, f1: 65, d: 0.28, v: 0.35 }); noise(o, { d: 0.25, v: 0.2, f0: 240, q: 6 }); },
+    merchantHit: (o) => { tone(o, { type: 'triangle', f0: 170, f1: 250, d: 0.12, v: 0.18 }); noise(o, { d: 0.09, v: 0.12, type: 'lowpass', f0: 700 }); },
     hit: (o, e) => { tone(o, { f0: e.crit ? 180 : 150, f1: 55, d: 0.12, v: 0.5 }); noise(o, { d: 0.06, v: 0.3, type: 'highpass', f0: 1800 });
       if (e.crit) tone(o, { type: 'triangle', f0: 1900, d: 0.25, v: 0.12 }); if (e.fire) noise(o, { d: 0.25, v: 0.2, type: 'highpass', f0: 3000 }); },
     kill: (o, e) => { tone(o, { f0: 110, f1: 40, d: 0.25, v: 0.45 });
@@ -73,6 +79,9 @@
       else if (m === 'stone') { tone(o, { f0: 95, f1: 60, d: 0.15, v: 0.4 }); noise(o, { d: 0.18, v: 0.3, type: 'lowpass', f0: 1400, f1: 300 }); noise(o, { d: 0.05, v: 0.15, type: 'highpass', f0: 3000 }); }
       else if (m === 'metal') { noise(o, { d: 0.06, v: 0.3, type: 'highpass', f0: 2500 }); [520, 1370, 2210].forEach((f, i) => tone(o, { type: 'triangle', f0: f * rr(0.97, 1.03), d: 0.7 - i * 0.15, v: 0.09 - i * 0.02 })); }
       else if (m === 'crystal') [1568, 2349, 3136].forEach((f, i) => tone(o, { f0: f * rr(0.99, 1.01), t: now() + i * 0.03, d: 1.0, v: 0.07 }));
+      else if (m === 'bone') for (let i = 0; i < 4; i++) noise(o, { t: now() + i * 0.035, d: 0.035, v: 0.12, f0: rr(1600, 2800), q: 5 });
+      else if (m === 'fire') noise(o, { a: 0.01, d: 0.35, v: 0.2, type: 'highpass', f0: 2600, f1: 900 });
+      else if (m === 'wax') return;
       else noise(o, { d: 0.18, v: 0.35, type: 'lowpass', f0: 500, f1: 150 });
       if (e.n === 'brazier') noise(o, { t: now() + 0.03, a: 0.02, d: 0.4, v: 0.15, type: 'highpass', f0: 2400 });
       if (e.n === 'shop_gold') SFX.gold(o); },
@@ -140,8 +149,29 @@
 
   // ---- ambience: a drone and air per biome, plus sparse one-shots ----
   const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
+  function waterAmbience(S, on) {
+    const R = S.run, h = R?.hero;
+    const sources = on ? (R.map.waterFeatures || []).filter((q) => R.seen[Math.floor(q.y / DATA.TILE) * R.map.W + Math.floor(q.x / DATA.TILE)]) : [];
+    let source = null, dist = 280;
+    for (const q of sources) { const d = Math.hypot(q.x - h.x, q.y - h.y); if (d < dist) { source = q; dist = d; } }
+    if (!waterAmb && source) {
+      const g = ctx.createGain(), pan = ctx.createStereoPanner(), filter = ctx.createBiquadFilter(), n = ctx.createBufferSource();
+      g.gain.value = 0; filter.type = 'bandpass'; filter.frequency.value = 1250; filter.Q.value = 0.45;
+      n.buffer = noiseBuf; n.loop = true; n.connect(filter); filter.connect(g); g.connect(pan); pan.connect(dry); pan.connect(wet); n.start();
+      waterAmb = { g, pan, next: 0 };
+    }
+    if (!waterAmb) return;
+    const amount = source ? (1 - dist / 280) ** 2 : 0;
+    waterAmb.g.gain.setTargetAtTime(amount * 0.16, now(), 0.25);
+    waterAmb.pan.pan.setTargetAtTime(source ? Math.max(-0.8, Math.min(0.8, (source.x - h.x) / 250)) : 0, now(), 0.2);
+    if (source && now() > waterAmb.next) {
+      waterAmb.next = now() + rr(0.16, 0.65);
+      tone(out((source.x - h.x) / 350, amount * 0.45, 0.55), { f0: rr(680, 1250), f1: rr(240, 420), d: rr(0.06, 0.13), v: 0.08 });
+    }
+  }
   function ambience(S) {
     const R = S.run, on = !!R && ['play', 'inv', 'shop', 'pause'].includes(S.screen), biome = on ? R.map.biome : null;
+    waterAmbience(S, on && S.screen === 'play');
     if (amb && amb.biome !== biome) { const a = amb; a.g.gain.setTargetAtTime(0.0001, now(), 0.6); setTimeout(() => a.nodes.forEach((n) => { try { n.stop(); } catch (e) {} }), 3000); amb = null; }
     if (!amb && biome) { const B = BED[biome] || BED.dungeon, g = ctx.createGain(); g.gain.value = 0.0001; g.connect(dry); const sw = ctx.createGain(); sw.gain.value = 0.5; g.connect(sw); sw.connect(wet);
       const nodes = [], lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.connect(g);

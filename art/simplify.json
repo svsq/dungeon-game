@@ -1,0 +1,104 @@
+{
+  "table_candles": {
+    "source_sha256": "38eb6fa6a422e0e0fa776b17bb8ddad043535dade43612992f563208535de502",
+    "output_sha256": "ffac8364ab63d799d6423e8f6294531b764b15085f94360d07a9663e010ba490",
+    "height": 58,
+    "cell": 4
+  },
+  "bones": {
+    "source_sha256": "0c9cf6f580673a1b5e44a4d2f7b70fb6d02c4281173e6f125f76e542761aa40b",
+    "output_sha256": "0acae3c1e93c8b3200f352a507defa60409137bc349d33badac2858b0c2ef562",
+    "height": 30,
+    "cell": 4
+  },
+  "candles": {
+    "source_sha256": "a3bd71db9838edfdbbe091e19a8149323839e85040566aa11931ce4027e17263",
+    "output_sha256": "28a81ca1e7ffa0d659e30a7fee6ee802c733e6f3afc6f8e5a2556e38c32018e1",
+    "height": 33,
+    "cell": 4
+  },
+  "vase_a": {
+    "source_sha256": "ba8f791546dadd7ecc82f4b1f6ea237926c68b5b612302845cbb3990b08779aa",
+    "output_sha256": "8e361dd207e2df158d9a9910f089e2e6e787a2518fe56e12b018024502ed2368",
+    "height": 60,
+    "cell": 4
+  },
+  "vase_b": {
+    "source_sha256": "316024dbabd10c090471e0d4ee04e4d8b2eeb8ebc8dbbd4a5789b8dd57807189",
+    "output_sha256": "30bd83e8b4805d695bd7144922932597189cb71553cf9a209d3298a549ccfae5",
+    "height": 48,
+    "cell": 4
+  },
+  "vase_c": {
+    "source_sha256": "3f81a20c6a1d98ce18345e73eb779ff130efd9a478c0eecf6daf2833b48f0878",
+    "output_sha256": "f951ab5f53d82629f834c63b3028055efdaa05a931c4b0215b1919846f984f38",
+    "height": 60,
+    "cell": 4
+  },
+  "shop_gems": {
+    "source_sha256": "a757a45a7dc0c65fe57a05df7fa91f50cd396bbcdd6b0c68a7ca2daf718ce546",
+    "output_sha256": "b1461021aec870ee37b1f6aee8750b4258edc4b449e66e181b90de1a2456787e",
+    "height": 24,
+    "cell": 4
+  },
+  "shop_scales": {
+    "source_sha256": "0ef7d032a31dde5148de5619eb7619f6d19bc697fc45e1694738c92ec6099845",
+    "output_sha256": "44ae7973d4aab44a9fe5a120df2362640e6574288aeca6f010dda039de0ba130",
+    "height": 40,
+    "cell": 4
+  },
+  "padlock": {
+    "source_sha256": "599519761a61888e38ac8b9dea3f3433055b749ba27f9b5d282473e3e71152ca",
+    "output_sha256": "9424f7f16537f96fa2538e6fd21c444db4abfc665a16ae6351913dd859759320",
+    "height": 28,
+    "cell": 4
+  },
+  "queen_crown": {
+    "source_sha256": "ceed673ff1989a4cf6101f2b38b8f77762824c801090c3f9aa6a7e56274b010c",
+    "output_sha256": "25d5da1857a70b6143360ccdae450e8df04dbd37dded0c9a06dc06a424966860",
+    "height": 47,
+    "cell": 4
+  },
+  "spider_eggs": {
+    "source_sha256": "dddab4da28df5c9f5048215763a8fee39f8da6d1b8aee1d10c2903a70a6fd3d8",
+    "output_sha256": "eb4dbc55998f41c3268a88ebc404f454379bf2b6ccc2dd3082d28a2effb2df13",
+    "height": 40,
+    "cell": 4
+  },
+  "water_basin": {
+    "source_sha256": "fefea1377d52cb0d5b2ba0c9a7090cf7633a6b8c0bd13ad60fa00a67c29ba48b",
+    "output_sha256": "ee92de52544c7b785fc819b1f819e0847c9a06dd88b75115636ef9e4e47a17bf",
+    "height": 40,
+    "cell": 4
+  },
+  "water_spout": {
+    "source_sha256": "e7c2e98a2c1a694a1203fc21e3cd7a398034f33c970fe9f04110046e7d2f30ab",
+    "output_sha256": "1c4ba88410f4e95b23923e29db1f2df7cdde8c8f1d1958d7d23c813b26d19634",
+    "height": 42,
+    "cell": 4
+  },
+  "water_grate": {
+    "source_sha256": "5d5fd1dc880d97c07dc92642203162406b83b18e6700b00ce64268bdb44ee1b1",
+    "output_sha256": "2518537c60e374e43dd805b57b5d5bc5191f26f08829b2eaf45b84d77694bfbc",
+    "height": 36,
+    "cell": 4
+  },
+  "water_drain": {
+    "source_sha256": "9cdd4f9ba4208bdc06113e57a93be1cdbf86017ed2a4f89940701d034ba45fce",
+    "output_sha256": "a64b5c6e29af22823380bf700e77a242da9c7bc1f2d6d95188a44d57fa8b2151",
+    "height": 34,
+    "cell": 4
+  },
+  "water_stone_a": {
+    "source_sha256": "f92813b3ab2c681d94c47fb094292b6e80e281b8679d745752f22891f94fe55f",
+    "output_sha256": "918591ca07e81d2c29ec7c07bdfa84cc007ef4888c2fb0955e7f87db0f5aedc4",
+    "height": 18,
+    "cell": 4
+  },
+  "water_stone_b": {
+    "source_sha256": "be65fe36cf3a56d96857d7ebc708756727ee2e569dc596e77ec5919ae232f9e6",
+    "output_sha256": "f3fec28d9dcd3889467406dc546dff6c95b4f9b0ccd29b82877de4756a638114",
+    "height": 16,
+    "cell": 4
+  }
+}
