@@ -113,7 +113,7 @@
       crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')), dodge: Math.min(BAL.dodge.cap, s.agi * BAL.dodge.agi + s.dodge + gift(h, 'alert')),
       aspd: s.agi * 1.2 + s.aspd + gift(h, 'haste'), mspd: Math.min(40, s.agi * 0.4 + s.mspd + gift(h, 'swift')), leech: s.leech + gift(h, 'leech'),
       regen: s.regen + 0.5 * (up.regen || 0) + gift(h, 'life'), onhit: s.onhit,
-      spell: (1 + s.int * 0.04) * (1 + (W.spell || 0)) * (1 + s.fire / 100) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100) * (1 + gift(h, 'arcane') / 100),
+      spellBase: (wpn ? wpn.atk : 3) + s.int * 1.6, spell: 1 + (W.spell || 0) + s.fire / 100 + 0.06 * (up.dmg || 0) + gift(h, 'fury') / 100 + gift(h, 'arcane') / 100,
       resist: 1 - 0.15 * (up.resist || 0), gold: 1 + gift(h, 'greed') / 100,
       wcd: W.spd, arc: W.arc + gift(h, 'cleave'), reach: W.reach * (1 + gift(h, 'reach') / 100), kb: W.kb || 1, wtype: wpn ? wpn.b : 'fist',
     };
@@ -507,7 +507,7 @@
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
-    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.int, AR.k, st.spell, R.floor);
+    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, R.floor); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
@@ -2264,6 +2264,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { openSecret, debugSecrets, lootAudit, openChest, DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

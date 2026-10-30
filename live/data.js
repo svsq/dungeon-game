@@ -27,7 +27,8 @@
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
-    boss_spider: { floor: 2, hp: 390, dmg: 18, rig: 'spider', scale: 2.2, phases: [
+    // the queen at 410, not 390: a fireball build burned her in 14 s (TASKS 245)
+    boss_spider: { floor: 2, hp: 410, dmg: 18, rig: 'spider', scale: 2.2, phases: [
       { at: 1, moves: ['weave', 'eggs', 'slam'], rest: 0.85, speed: 1 }
     ], moves: {
       weave: { wind: 0.65, dmg: 0, n: 5, cap: 16, r: 150, size: 1.2, spacing: 45, vulnerable: 1.6, duration: 1.6 },
@@ -55,9 +56,10 @@
     // the finale: 20+ s that cost about two healths and two potions; kills 10–20 % of the average players who reach it (TASKS 215,
     // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three
     // phases; at 900 the fight ran under 20 s, so the 2nd and 3rd phases rest longer and the 3rd raises a barrier. Its blows are big
-    // (most reach the boss's cap), so each mistake costs up to half the health and two in a row kill: 28 killed 8.5 %, 31 kills 15 %
-    // at 2.1 potions (the player let the finale cost up to 2.5, TASKS 227)
-    boss: { hp: 900, dmg: 31, phases: [
+    // (most reach the boss's cap), so each mistake costs up to half the health and two in a row kill: 28 killed 8.5 %, 31 killed 15 %
+    // at 2.1 potions (the player let the finale cost up to 2.5, TASKS 227); 28 again once the fireball no longer burned it down and
+    // the bot read its gear: 31 killed 18.5 % (TASKS 245, 246)
+    boss: { hp: 900, dmg: 28, phases: [
       { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
       { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.45, speed: 1.3, finishMove: 1,
         changes: { charge: { wind: 0.55, dmg: 1.1, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.15, r: 110 }, volley: { wind: 0.55, dmg: 1.3, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
@@ -123,11 +125,14 @@
   // at 0.82 the 7th floor was easier than the 6th, 2.05/1 cost more than the 8th, 2.05/0.9 less than the 6th once the late growth
   // began at the 6th (TASKS 227). bolt: an elite caster's bolt,
   // else it took 34–36 % of the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } },
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } },
     // exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy); on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
     exit: { 1: { hp: 0.85, dmg: 0.85 } } };
-  // the boss is an elite too but keeps its own pace
-  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
+  // the boss is an elite too but keeps its own pace. minWind: an elite's wind-up never ends sooner than this nor sooner than its
+  // plain kin's, so every elite blow can be seen and dodged: the elite ghost's 0.34 s took half the deaths of the 3rd floor, the
+  // elite skeleton's 0.39 s a fifth (TASKS 246)
+  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k]
+    : k === 'wind' ? Math.max(ELITE.wind, Math.min(1, ELITE.minWind / ENEMIES[e.type].wind)) : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
     { id: 'fiery', name: 'Огненный', col: [1.0, 0.42, 0.08], burn: 3 },
@@ -194,9 +199,11 @@
     cloak: 'Плащ Ночи', weapon: 'Пламенный клинок', offhand: 'Эгида Зари', helm: 'Венец Короля', armor: 'Доспех Феникса', gloves: 'Длани Титана',
     boots: 'Поступь Тени', ring: 'Кольцо Бездны', amulet: 'Сердце Дракона' };
 
+  // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
+  // build felled the bosses in 8–14 s (TASKS 245)
   const ABILITIES = [
     { id: 'whirl', name: 'Вихрь клинка', icon: 'ab_whirl', key: '1', unlock: 1, mp: 0, cd: 6, desc: 'Круговой удар: {d}% атаки всем рядом' },
-    { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 0.5, desc: 'Огненный взрыв: {d} урона' },
+    { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 2.5, desc: 'Огненный взрыв: {d} урона' },
     { id: 'shield', name: 'Магический щит', icon: 'ab_shield', key: '3', unlock: 4, mp: 30, cd: 16, desc: 'Барьер на 10 с: {d} урона' },
   ];
   // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
@@ -206,8 +213,11 @@
   // about one elite's blow anywhere (TASKS 179), but slower to grow than the blows: INT, rank and floor all multiplied in made it
   // a second life bar, 688 on floor 8 against the hero's 588 (TASKS 199)
   const SHIELD_T = 10, shieldHp = (int, r, f) => Math.round((24 + int * 2) * abRank('shield', r).k * (1 + 0.2 * (f - 1)));
-  // half the monsters' health growth per floor: without it a strength build stopped casting by mid-dungeon (TASKS 203)
-  const fireDmg = (int, k, spell, f) => Math.round((14 + int * 2.6) * k * spell * (1 + 0.25 * (f - 1)));
+  // a swing with INT for STR: the weapon in hand plus 1.6 per INT (stats: spellBase), so it grows with the gear as a swing does
+  // and a strength build keeps casting deep down (TASKS 203); its bonuses add up into one sum (stats: spell). INT counted twice,
+  // fire %, rank and floor all multiplied in made one fireball take 1800 on the 8th on hard, seven swings (TASKS 245)
+  const FIRE_K = 1.5;
+  const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   const STATS = [
     { k: 'str', name: 'СИЛ', full: 'Сила: урон в ближнем бою' },
     { k: 'agi', name: 'ЛОВ', full: 'Ловкость: скорость атаки, крит' },
