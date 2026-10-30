@@ -1,4 +1,4 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert] [--runs 1] [--diff easy|normal|hard] [--mode campaign|cave] [-j 8] [--quiet] [--check]
+// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|cave] [-j 8] [--quiet] [--check]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
@@ -74,21 +74,25 @@ const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f
   return { n: l.length, k: l.filter((b) => b.died).length, died: avg(l, (b) => b.died || 0),
     t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot) }; };
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
+// builder: a player who gathers fire and crit and burns the bosses with fireballs still fights each for 15 s or more (TASKS 245)
+const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 4: { t: [15, Infinity] }, 6: { t: [15, Infinity] } } };
 // on normal the yardstick is pressure, not losses (the player's call): the average player drinks a potion or two a floor and drops
 // to a quarter or so of the health on every floor, and no single floor is where the runs end
 // (the 2nd floor may be lighter than the 1st: the 1st does not always give decent gear, the player's call — its potion floor is lower; the 7th's blows come rarer and bigger, so its lowest health sits higher;
 // pressure, like the finale's deaths, is judged on 160 seeds: on 80 a floor's potions swing ±0.4 (the player's call in TASKS 227);
 // the 8th is judged by the finale's own bands and its survivors' lowest health (winMinhp), not by the floor's potions and lowest
 // health with the dead as 0: a finale that kills 10–20 % costs about 2.4 potions and leaves the survivors at 22–25 %, and the finale
-// itself may cost up to 2.5 potions (the player's calls in TASKS 227)
+// itself may cost up to 2.5 potions (the player's calls in TASKS 227); the survivors' floor is 18 %, not 22: both are set by the
+// one fight (the average drinks below 40 %, the finale's blow reaches the 50 % cap), and no finale kept both bands a standard
+// error inside, a blow of 27 killed 9 % with the survivors at 23 % (the player's call in TASKS 246)
 // mobBlow: a plain monster's blow (median, % of the max health, before the shield); heavyBlow: the same for the plain demon, a slow
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
 // the water caves get their bands with their balance (TASKS 314)
 const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, campaign: {
   easy: { average: { win: [0.85, 1] } },
-  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [22, 45] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
-    mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] } },
-  hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] } } } };
+  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
+    mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] }, builder: BUILDER },
+  hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] }, builder: BUILDER } };
 function check() {
   const miss = failed.map((s) => `missing result: ${s}`), B = (BANDS[mode] || {})[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
   // one fresh version only: results saved from another version or resumed from a checkpoint never pass (TASKS 240)
