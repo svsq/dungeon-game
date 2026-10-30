@@ -22,10 +22,10 @@ try {
   await p.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
   await p.waitForFunction(() => window.__ready, null, { timeout: 30000 });
   const names = await p.evaluate(() => {
-    window.__WATER = SCENE.QA().states.filter(([name]) => /^water_(fountain|stream|flood)_/.test(name) || name === 'water_crossing');
+    window.__WATER = SCENE.QA().states.filter(([name]) => /^water_(fountain|stream)_/.test(name) || name === 'water_crossing');
     return window.__WATER.map(([name]) => name);
   });
-  if (names.length !== 10) failures.push(`expected ten water states, got ${names.length}`);
+  if (names.length !== 7) failures.push(`expected seven water states, got ${names.length}`);
   for (const name of names) {
     const result = await p.evaluate((name) => {
       const base = window.__WATER.find(([key]) => key === name)[1], canvas = document.getElementById('c'), draw = G.draw;
@@ -51,7 +51,7 @@ try {
     if (!result.shifts || result.changes) failures.push(name + ': reflections changed with the camera');
     samples.push({ name, deterministic: result.deterministic, shifts: result.shifts, changes: result.changes });
   }
-  for (const name of ['water_fountain_dungeon', 'water_flood_dungeon']) {
+  for (const name of ['water_fountain_dungeon', 'water_stream_dungeon']) {
     const fps = await p.evaluate(async (name) => {
       const base = window.__WATER.find(([key]) => key === name)[1]; SCENE.state = structuredClone(base);
       return await new Promise((resolve) => {
@@ -73,18 +73,21 @@ try {
     AudioNode.prototype.connect = function (target, ...args) { window.__audioConnections.push([this, target]); return connect.call(this, target, ...args); };
   });
   await p.keyboard.press('z');
+  await p.waitForFunction(() => AUDIO.state === 'running', null, { timeout: 5000 });
+  // the page's own loop feeds AUDIO its state every frame too: the test state is fed just as often, or the two race (TASKS 242)
+  const hold = (ms) => p.evaluate((ms) => new Promise((done) => { const id = setInterval(() => AUDIO.update(window.__waterAudioState), 8); setTimeout(() => { clearInterval(id); done(); }, ms); }), ms);
   await p.evaluate(() => {
     const S = structuredClone(window.__WATER.find(([name]) => name === 'water_fountain_dungeon')[1]), R = S.run;
     const q = R.map.waterFeatures.find((q) => q.kind === 'fountain'); R.hero.x = q.x; R.hero.y = q.y + 32;
-    R.seen.fill(1); S.demo = false; window.__waterAudioState = S; AUDIO.update(S);
+    R.seen.fill(1); S.demo = false; window.__waterAudioState = S;
   });
-  await p.waitForTimeout(500);
+  await hold(800);
   const near = await p.evaluate(() => {
     const pair = window.__audioConnections.find(([from]) => from instanceof BiquadFilterNode && from.frequency.value === 1250);
     window.__waterGain = pair?.[1]; return window.__waterGain?.gain.value || 0;
   });
-  await p.evaluate(() => { const S = window.__waterAudioState; S.run.hero.x += 1000; S.t += 1; AUDIO.update(S); });
-  await p.waitForTimeout(1000);
+  await p.evaluate(() => { const S = window.__waterAudioState; S.run.hero.x += 1000; S.t += 1; });
+  await hold(1500);
   const far = await p.evaluate(() => window.__waterGain?.gain.value || 0);
   if (!(near > 0.01 && far < near * 0.05)) failures.push(`water sound does not fade with distance: ${near} → ${far}`);
   samples.push({ sound: { near, far } });
@@ -94,5 +97,5 @@ try {
 }
 fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify({ failures, samples }, null, 2));
 for (const f of failures) console.log('FAIL', f);
-console.log(`watercheck: ${failures.length ? failures.length + ' failure(s)' : 'ok'} (10 states, reflections, fps, sound)`);
+console.log(`watercheck: ${failures.length ? failures.length + ' failure(s)' : 'ok'} (7 states, reflections, fps, sound)`);
 process.exitCode = failures.length ? 2 : 0;

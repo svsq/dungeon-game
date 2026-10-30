@@ -27,7 +27,8 @@
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
-    boss_spider: { floor: 2, hp: 390, dmg: 18, rig: 'spider', scale: 2.2, phases: [
+    // the queen at 410, not 390: a fireball build burned her in 14 s (TASKS 245)
+    boss_spider: { floor: 2, hp: 410, dmg: 18, rig: 'spider', scale: 2.2, phases: [
       { at: 1, moves: ['weave', 'eggs', 'slam'], rest: 0.85, speed: 1 }
     ], moves: {
       weave: { wind: 0.65, dmg: 0, n: 5, cap: 16, r: 150, size: 1.2, spacing: 45, vulnerable: 1.6, duration: 1.6 },
@@ -43,7 +44,8 @@
       raise: { wind: 0.85, dmg: 2.6, n: 2, cap: 4, r: 140, hp: 3, type: 'skeleton', delay: 0.8, duration: 0.5 },
       barrier: { wind: 0.65, dmg: 0, hp: 0.18, time: 5, duration: 0.4 }
     } },
-    boss_forge: { floor: 6, hp: 600, dmg: 18, rig: 'brute', scale: 1.7, phases: [
+    // the forge lord at 21, not 20: the 6th has to cost more than the 5th (TASKS 222, 227)
+    boss_forge: { floor: 6, hp: 600, dmg: 21, rig: 'brute', scale: 1.7, phases: [
       { at: 1, moves: ['lava', 'slam', 'charge'], rest: 0.85, speed: 1.1 },
       { at: 0.5, moves: ['lava', 'charge', 'slam'], rest: 0.6, speed: 1.3 }
     ], moves: {
@@ -51,30 +53,39 @@
       charge: { wind: 0.75, dmg: 1.15, speed: 430, time: 0.6, stop: 46, r: 54, duration: 0.7 },
       lava: { wind: 0.9, dmg: 0, n: 32, cover: 0.45, warn: 1.1, duration: 0.5 }
     } },
-    boss: { hp: 950, dmg: 22, phases: [
+    // the finale: 20+ s that cost about two healths and two potions; kills 10–20 % of the average players who reach it (TASKS 215,
+    // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three
+    // phases; at 900 the fight ran under 20 s, so the 2nd and 3rd phases rest longer and the 3rd raises a barrier. Its blows are big
+    // (most reach the boss's cap), so each mistake costs up to half the health and two in a row kill: 28 killed 8.5 %, 31 killed 15 %
+    // at 2.1 potions (the player let the finale cost up to 2.5, TASKS 227); 28 again once the fireball no longer burned it down and
+    // the bot read its gear: 31 killed 18.5 % (TASKS 245, 246)
+    boss: { hp: 900, dmg: 28, phases: [
       { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
-      { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.35, speed: 1.3, finishMove: 1,
-        changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.55, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
+      { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.45, speed: 1.3, finishMove: 1,
+        changes: { charge: { wind: 0.55, dmg: 1.1, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.15, r: 110 }, volley: { wind: 0.55, dmg: 1.3, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
     ], moves: {
-      slam: { wind: 0.8, dmg: 1.3, r: 145, duration: 0.4 },
-      volley: { wind: 0.8, dmg: 0.55, n: 10, rings: 1, gap: 0.32, offset: 0.5, speed: 230, life: 2.6, r: 9, origin: 60, target: 38, duration: 0.7 },
-      charge: { wind: 0.8, dmg: 1.1, speed: 520, time: 0.6, stop: 46, r: 54, duration: 0.7 },
+      slam: { wind: 0.8, dmg: 1.15, r: 145, duration: 0.4 },
+      volley: { wind: 0.8, dmg: 0.35, n: 10, rings: 1, gap: 0.32, offset: 0.5, speed: 230, life: 2.6, r: 9, origin: 60, target: 38, duration: 0.7 },
+      charge: { wind: 0.8, dmg: 0.95, speed: 520, time: 0.6, stop: 46, r: 54, duration: 0.7 },
       roar: { wind: 0.65, dmg: 0, r: 220, push: 150, summon: 'summon', rest: 0.25, duration: 0.45 },
       summon: { wind: 0.8, dmg: 2, n: 2, cap: 4, r: 90, hp: 4, type: 'skeleton', delay: 1, duration: 0.4 }
     } }
   };
   Object.assign(BOSSES.boss.moves, {
-    weave: Object.assign({}, BOSSES.boss_spider.moves.weave, { wind: 0.6, n: 7, duration: 0.65 }),
+    // the queen's weaving window stays hers: the finale weaves without opening up (TASKS 238)
+    weave: Object.assign({}, BOSSES.boss_spider.moves.weave, { wind: 0.6, n: 7, duration: 0.65, vulnerable: 1 }),
     raise: Object.assign({}, BOSSES.boss_necro.moves.raise, { wind: 0.6, dmg: 4, hp: 4 }),
-    lava: Object.assign({}, BOSSES.boss_forge.moves.lava, { wind: 0.7, n: 26, cover: 0.35 })
+    lava: Object.assign({}, BOSSES.boss_forge.moves.lava, { wind: 0.7, n: 26, cover: 0.35 }),
+    barrier: Object.assign({}, BOSSES.boss_necro.moves.barrier, { hp: 0.12, time: 4 })
   });
-  BOSSES.boss.moves.convergence = { wind: 0.7, dmg: 0, effects: ['weave', 'raise', 'lava'], duration: 0.5 };
-  BOSSES.boss.phases.push({ at: 0.25, moves: ['volley', 'charge', 'raise', 'lava', 'weave'], enter: 'convergence', rest: 0.45, speed: 1.3,
-    changes: { charge: { wind: 0.55, dmg: 1.3, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.6, r: 110 }, volley: { wind: 0.6, dmg: 0.75, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } });
+  BOSSES.boss.moves.convergence = { wind: 0.7, dmg: 0, effects: ['weave', 'raise', 'lava', 'barrier'], duration: 0.5 };
+  // the 3rd phase strikes with the 2nd's numbers: its own were left from before the 2nd was retuned (TASKS 227)
+  BOSSES.boss.phases.push({ at: 0.25, moves: ['volley', 'charge', 'raise', 'lava', 'weave'], enter: 'convergence', rest: 0.6, speed: 1.3,
+    changes: BOSSES.boss.phases[1].changes });
   const bossPhase = (e) => BOSSES[e.type].phases[e.phase || 0] || BOSSES[e.type].phases[0];
   const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
-    boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [1.3, 0.45, 0.3, 0.85], rim: [1, 0.4, 0.12] },
+    boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
     boss_necro: { name: 'Верховный некромант', hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
     boss_spider: { name: 'Королева пауков', hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
     skeleton: { name: 'Скелет', hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76, blood: 'bone' },
@@ -86,17 +97,22 @@
     boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
 
-  // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2);
+  // half the monsters, each 2.5× as dangerous (hp × dmg ≈ 2.56: a straight 2.5 on both walled every bot run at floor 2); dmg 2.15,
+  // not 1.85, once the hit-stop stopped dropping the hero's dashes and swings: the average bot won 69–71 % (TASKS 227);
   // a kill pays double so XP and loot per floor stay where they were
   // spike: share of max HP per stab, through armour; dmgUp: monsters' damage grows by this per floor (0.3 let the hero's HP and
   // armour outgrow it: a player's minimum HP on floors 5–8 sat at 55–76 % on hard, TASKS 154); earlyCd: the elites' attack
   // cooldown factor on floors 1–3, where they alone took a player down to 11 %
   // dodge: % chance to take no harm from a monster's blow, bolt or blast, per point of agility, its cap, and what a dash adds while it lasts
-  // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs)
-  // dmgLate: more growth per floor past the 4th, where gear bought from the merchant let a player's minimum HP sit at 44–76 %
+  // (a dash used to make the hero immune: an expert bot that dashed through blows won 98 % of runs; it adds nothing now: with +10
+  // the expert, who dashes twice as often, still won 89–93 %, TASKS 227)
+  // dmgLate: more growth per floor past the 5th, where gear bought from the merchant let a player's minimum HP sit at 44–76 %;
+  // one curve for every floor, no per-floor patches (TASKS 227): from the 4th, the 5th (the plain demon's first floor) cost more
+  // than the forge lord's 6th and a plain blow on the 7th took over 10 % of the health
+  // startHpPot: the hero starts with three healing potions: with two, the early deaths came with an empty bag (TASKS 222)
   // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 1.85, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.3, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 20, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 }, floorDmg: { 1: 0.96, 5: 0.95, 8: 0.82 } };
-  const dmgAt = (f, boss) => (1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 4))) * (boss ? 1 : BAL.floorDmg[f] || 1);
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 2.15, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.27, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 0, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 } };
+  const dmgAt = (f, boss) => 1 + BAL.dmgUp * (f - 1) + (boss ? 0 : BAL.dmgLate * Math.max(0, f - 5));
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
   const DIFF = { easy: { name: 'Лёгкая', dmg: 0.75, hp: 0.75, xp: 1 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.3, hp: 1.25, xp: 1 } };
@@ -104,9 +120,19 @@
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
   // kill, quicker on its feet, swings sooner and more often, hits harder and is never knocked back (a knockback per blow kept
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.05, dmg: 0.82 } } };
-  // the boss is an elite too but keeps its own pace
-  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k] : ELITE[k];
+  // guards: the floors with an elite brute guarding the exit: only the 7th, the chapter bosses hold 2/4/6 (TASKS 220-222), else
+  // the last floor before the boss went unguarded (TASKS 214). guard: the guard's health and blows; tankier than an elite brute,
+  // at 0.82 the 7th floor was easier than the 6th, 2.05/1 cost more than the 8th, 2.05/0.9 less than the 6th once the late growth
+  // began at the 6th (TASKS 227). bolt: an elite caster's bolt,
+  // else it took 34–36 % of the health (TASKS 201)
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } },
+    // exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy); on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
+    exit: { 1: { hp: 0.85, dmg: 0.85 } } };
+  // the boss is an elite too but keeps its own pace. minWind: an elite's wind-up never ends sooner than this nor sooner than its
+  // plain kin's, so every elite blow can be seen and dodged: the elite ghost's 0.34 s took half the deaths of the 3rd floor, the
+  // elite skeleton's 0.39 s a fifth (TASKS 246)
+  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k]
+    : k === 'wind' ? Math.max(ELITE.wind, Math.min(1, ELITE.minWind / ENEMIES[e.type].wind)) : ELITE[k];
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
     { id: 'fiery', name: 'Огненный', col: [1.0, 0.42, 0.08], burn: 3 },
@@ -173,9 +199,11 @@
     cloak: 'Плащ Ночи', weapon: 'Пламенный клинок', offhand: 'Эгида Зари', helm: 'Венец Короля', armor: 'Доспех Феникса', gloves: 'Длани Титана',
     boots: 'Поступь Тени', ring: 'Кольцо Бездны', amulet: 'Сердце Дракона' };
 
+  // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
+  // build felled the bosses in 8–14 s (TASKS 245)
   const ABILITIES = [
     { id: 'whirl', name: 'Вихрь клинка', icon: 'ab_whirl', key: '1', unlock: 1, mp: 0, cd: 6, desc: 'Круговой удар: {d}% атаки всем рядом' },
-    { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 0.5, desc: 'Огненный взрыв: {d} урона' },
+    { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 2.5, desc: 'Огненный взрыв: {d} урона' },
     { id: 'shield', name: 'Магический щит', icon: 'ab_shield', key: '3', unlock: 4, mp: 30, cd: 16, desc: 'Барьер на 10 с: {d} урона' },
   ];
   // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
@@ -185,8 +213,11 @@
   // about one elite's blow anywhere (TASKS 179), but slower to grow than the blows: INT, rank and floor all multiplied in made it
   // a second life bar, 688 on floor 8 against the hero's 588 (TASKS 199)
   const SHIELD_T = 10, shieldHp = (int, r, f) => Math.round((24 + int * 2) * abRank('shield', r).k * (1 + 0.2 * (f - 1)));
-  // half the monsters' health growth per floor: without it a strength build stopped casting by mid-dungeon (TASKS 203)
-  const fireDmg = (int, k, spell, f) => Math.round((14 + int * 2.6) * k * spell * (1 + 0.25 * (f - 1)));
+  // a swing with INT for STR: the weapon in hand plus 1.6 per INT (stats: spellBase), so it grows with the gear as a swing does
+  // and a strength build keeps casting deep down (TASKS 203); its bonuses add up into one sum (stats: spell). INT counted twice,
+  // fire %, rank and floor all multiplied in made one fireball take 1800 on the 8th on hard, seven swings (TASKS 245)
+  const FIRE_K = 1.5;
+  const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   const STATS = [
     { k: 'str', name: 'СИЛ', full: 'Сила: урон в ближнем бою' },
     { k: 'agi', name: 'ЛОВ', full: 'Ловкость: скорость атаки, крит' },

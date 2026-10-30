@@ -11,7 +11,9 @@ from scipy import ndimage
 
 
 ROOT = Path(__file__).resolve().parent.parent
-NAMES = ('table_candles', 'bones', 'candles', 'vase_a', 'vase_b', 'vase_c', 'shop_gems', 'shop_scales', 'padlock')
+NAMES = ('table_candles', 'bones', 'candles', 'vase_a', 'vase_b', 'vase_c', 'shop_gems', 'shop_scales', 'padlock',
+         # generated at 1024 for 30-50 px on screen: their art pixel was finer than the world's grid (TASKS 230, 234)
+         'queen_crown', 'spider_eggs', 'water_basin', 'water_spout', 'water_grate', 'water_drain', 'water_stone_a', 'water_stone_b')
 UP = 4
 INK = '#060506'
 PALETTES = {
@@ -22,6 +24,14 @@ PALETTES = {
     'shop_gems': ['#060506', '#231010', '#c8b89a', '#eed68a', '#9f5116', '#e2881e', '#f9ce4a', '#73140d', '#f03604', '#1a4135', '#52c04f', '#64bdea'],
     'shop_scales': ['#060506', '#231010', '#36120f', '#552f25', '#733a21', '#9f5116', '#e2881e', '#f9ce4a', '#c8b89a'],
     'padlock': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#9f5116', '#e2881e'],
+    'queen_crown': ['#060506', '#141420', '#2a202f', '#51384e', '#895e54', '#c8b89a', '#64bdea'],
+    'spider_eggs': ['#060506', '#1d131f', '#2a202f', '#5f3d60', '#a47f84', '#c8b89a'],
+    'water_basin': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135', '#0f2a2e'],
+    'water_spout': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
+    'water_grate': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#552f25', '#733a21', '#1a4135'],
+    'water_drain': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#552f25', '#733a21', '#1a4135'],
+    'water_stone_a': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
+    'water_stone_b': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
 }
 
 
@@ -117,7 +127,10 @@ def main():
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
     sizes = (ROOT / 'live/sizes.js').read_text().split('const HEIGHT')[1].split('};')[0]
     heights = dict((n, int(h)) for n, h in re.findall(r'(\w+): (\d+)', sizes))
-    palette = np.array([hex_rgb(h) for h in dict.fromkeys(re.findall(r'#[0-9a-fA-F]{6}', (ROOT / 'art/style_bible.txt').read_text()))], dtype=np.uint8)
+    bible = np.array([hex_rgb(h) for h in dict.fromkeys(re.findall(r'#[0-9a-fA-F]{6}', (ROOT / 'art/style_bible.txt').read_text()))], dtype=np.uint8)
+    # the spider and water accents serve their own props only: a prop without a ramp of its own keeps the bible it was simplified with
+    accents = {'#2a202f', '#51384e', '#5f3d60', '#a47f84', '#895e54', '#1d131f', '#0f2a2e'}
+    palette = np.array([c for c in bible.tolist() if '#%02x%02x%02x' % tuple(c) not in accents], dtype=np.uint8)
     for name in NAMES:
         dest = ROOT / 'art/gen' / (name + '.png')
         backup = ROOT / 'art/old/simplify' / (name + '.png')
@@ -130,7 +143,7 @@ def main():
                 if name == 'bones':
                     im = reduce_bones(im)
                 ramp = np.array([hex_rgb(h) for h in PALETTES[name]], dtype=np.uint8) if name in PALETTES else palette
-                assert all(list(color) in palette.tolist() for color in ramp), name + ': color outside style bible'
+                assert all(list(color) in bible.tolist() for color in ramp), name + ': color outside style bible'
                 out = simplify(im, heights[name], ramp, name)
                 out.save(dest)
                 meta[name] = {'source_sha256': digest(backup), 'output_sha256': digest(dest), 'height': heights[name], 'cell': UP}
@@ -152,7 +165,7 @@ def main():
                 wide |= np.indices(mask.shape)[0] - 1 >= heights[name] * 0.78
             edge &= wide
         assert np.all(low[edge, :3] == hex_rgb(INK)), name + ': broken dark contour'
-        assert all(list(c) in palette.tolist() for c in np.unique(a[solid, :3], axis=0)), name + ': color outside style bible'
+        assert all(list(c) in bible.tolist() for c in np.unique(a[solid, :3], axis=0)), name + ': color outside style bible'
         density = UP * heights[name] / (2 * a.shape[0])
         assert 0.4 <= density <= 0.6, name + ': incorrect density'
         r, g, b = np.moveaxis(a[..., :3].astype(float), -1, 0)

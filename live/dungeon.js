@@ -229,15 +229,9 @@
     if (!D.BIOMES[biome].lava && floor !== D.FLOORS) {
       const candidates = rooms.filter((r) => r.type === 'combat' && !r.trap && !secrets.some((q) => q.front.some(([x, y]) => roomOf(x, y) === r)));
       for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
-      const flooded = candidates.length > 2 ? candidates.pop() : null;
-      if (flooded) {
-        flooded.flooded = 1;
-        for (let y = flooded.y; y < flooded.y + flooded.h; y++) for (let x = flooded.x; x < flooded.x + flooded.w; x++) if (at(x, y) === 1) addWater(y * W + x, 1);
-        waterFeatures.push({ kind: 'flood', room: flooded.id, x: (flooded.cx + 0.5) * TILE, y: (flooded.cy + 0.5) * TILE });
-      }
       let n = 0;
-      for (const r of candidates.concat(rooms.filter((q) => q.type === 'combat' && q !== flooded && !candidates.includes(q) && !secrets.some((s) => s.front.some(([x, y]) => roomOf(x, y) === q))))) {
-        if (n >= 2 || r.flooded) continue;
+      for (const r of candidates.concat(rooms.filter((q) => q.type === 'combat' && !candidates.includes(q) && !secrets.some((s) => s.front.some(([x, y]) => roomOf(x, y) === q))))) {
+        if (n >= 2) continue;
         const w = wi(1, 3), xs = [];
         for (let x = r.x + 2; x + w <= r.x + r.w - 2; x++) if (Array.from({ length: w + 2 }, (_, i) => x + i - 1).every((cx) => at(cx, r.y - 1) === 0 && !isDoor(cx, r.y) && !secretFront.has(r.y * W + cx))) xs.push(x);
         if (!xs.length) continue;
@@ -318,11 +312,11 @@
     const spot = (r, inset = 1, pad = 0, big = false) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + inset, r.x + r.w - 1 - inset), y = ri(r.y + inset, r.y + r.h - 1 - inset);
       if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y, big === true ? 'chest' : big))) { used.add(key(x, y)); if (big) claim(x, y, big === true ? 'chest' : big); return [x, y]; } } return null; };
     for (const sc of secrets) for (const [x, y] of sc.front) used.add(key(x, y));
-    for (const k of water) if (!roomOf(k % W, Math.floor(k / W))?.flooded) {
+    for (const k of water) {
       const x = k % W, y = Math.floor(k / W); used.add(key(x, y));
       for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) bulk.add(key(x + i, y + j));
     }
-    for (const q of waterFeatures) if (q.kind !== 'flood') {
+    for (const q of waterFeatures) {
       for (const k of q.bridge) used.add(key(k % W, Math.floor(k / W)));
       for (let y = rooms[q.room].y; y <= rooms[q.room].y + 1; y++) for (let x = Math.floor((q.x - 34) / TILE); x <= Math.floor((q.x + 34) / TILE); x++) used.add(key(x, y));
     }
@@ -336,11 +330,11 @@
     const HANG = { wall: 14, banner: 18, shop_sign: 22 };
     const hungAt = (px, ry, hw) => torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.y - (ry * TILE - 26)) < TILE && Math.abs(t.x - px) < hw + HANG.wall)
       || decor.some((d) => HANG[d.n] && Math.abs(d.y - ry * TILE) < 2 * TILE && Math.abs(d.x - px) < hw + HANG[d.n]) || doorTop(px, ry, hw)
-      || waterFeatures.some((q) => q.kind !== 'flood' && rooms[q.room].y === ry && Math.abs(q.x - px) < hw + 34);
+      || waterFeatures.some((q) => rooms[q.room].y === ry && Math.abs(q.x - px) < hw + 34);
     // a door in a top wall stands in a stone arch wider than its corridor
     const doorTop = (px, ry, hw) => doors.some((d) => d.dir === 'u' && d.y === ry * TILE && Math.abs(d.x - px) < hw + 58);
     const tallAt = (px, ry, hw) => decor.some((d) => d.solid && Math.abs(d.y - (ry * TILE + 22)) < 4 && Math.abs(d.x - px) < hw + half(d.n))
-      || waterFeatures.some((q) => q.kind !== 'flood' && rooms[q.room].y === ry && Math.abs(q.x - px) < hw + 34);
+      || waterFeatures.some((q) => rooms[q.room].y === ry && Math.abs(q.x - px) < hw + 34);
     // stairs / boss altar
     const sx = exitR.cx, sy = exitR.cy + (boss ? 4 : 0); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 2; i++) used.add(key(sx + i, sy + j));
     const exit = { x: sx * TILE + TILE, y: sy * TILE + TILE / 2, tx: sx, ty: sy };
@@ -511,7 +505,8 @@
         for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
-          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && floor <= 2)) || (floor >= 3 && R() < D.ELITE.share) ? 1 : 0); }
+          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && floor <= 2)) || (floor >= 3 && R() < D.ELITE.share) ? 1 : 0);
+          if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
         if (guard) { const p = spot(r, 2); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
       if (r.type === 'boss') { addEnemy(bossType, r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute')), p[0], p[1], r.id); } }
@@ -594,7 +589,7 @@
       while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && cells[n] === 1 && !shut.has(n)) { seen[n] = 1; st.push(n); } } }
       const roomOf = (o) => rooms.find((q) => o.x >= q.x * TILE && o.x < (q.x + q.w) * TILE && o.y >= q.y * TILE && o.y < (q.y + q.h) * TILE);
       const here = (o) => { const q = roomOf(o); return !!q && q !== lr && q.type !== 'start' && q.type !== 'secret' && seen[Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE)]; };
-      const elites = enemies.filter((e) => e.elite && e.type !== 'boss' && here(e)), boxes = chests.filter((c) => c.tier < 3 && here(c));
+      const elites = enemies.filter((e) => e.elite && !D.BOSSES[e.type] && here(e)), boxes = chests.filter((c) => c.tier < 3 && here(c));
       const walls = []; for (const q of rooms) { if (q === lr || q.type === 'secret' || q.type === 'shop' || q.type === 'start' || !seen[q.cy * W + q.cx]) continue;
         for (let x = q.x + 1; x < q.x + q.w - 1; x++) if (!at(x, q.y - 1) && at(x, q.y) === 1 && seen[q.y * W + x] && !doorway(x, q.y) && !tallAt(wx(x), q.y, 14) && !hungAt(wx(x), q.y, 14) && Math.hypot(x - lr.cx, q.y - lr.cy) > 8) walls.push([x, q]); }
       const roll = R(); L.kind = roll < 0.6 && (elites.length || boxes.length) ? 'key' : walls.length ? 'lever' : elites.length || boxes.length ? 'key' : '';
@@ -704,7 +699,8 @@
     // cells taken by solid props: the flow fields route around them
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); for (const [x, y] of shop.solid) bl(x, y);
-    for (const q of waterFeatures) if (q.kind !== 'flood') bl(q.x, q.y);
+    // a fountain's basin stands on the floor, three cells wide; a stream's culvert is in the wall (TASKS 230)
+    for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
     return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, doors, locks, webs, ambush };
   }

@@ -146,7 +146,7 @@
     // interaction prompt
     let pr = null; HUD.promptBox = null;
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, 'E или удар — открыть сундук'];
-    const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60); if (sh) pr = [sh.x, sh.y - 78, sh.used ? 'E — пожертвовать золото' : 'E — дары и пожертвования'];
+    const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? 'E — пожертвовать золото' : 'E — дары и пожертвования'];
     if (SIM.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, 'E — торговать'];
     const dr = SIM.doorNear(R, 64); if (dr) { const lk = SIM.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? 'E или удар — открыть дверь' : lk.kind === 'key' ? (R.keys > 0 ? 'E — отпереть ключом' : 'Заперто: нужен ключ') : 'Заперто: где-то есть рычаг']; }
     const lv = SIM.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, 'E — потянуть рычаг'];
@@ -394,7 +394,7 @@
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });
       lab('ab_r' + i, r ? 'ранг ' + r + ' / ' + D.AB_MAX : 'с ' + A.unlock + ' уровня', b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
-      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.int, k, st.spell, R.floor) : D.shieldHp(st.int, Math.max(1, r), R.floor);
+      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
@@ -555,7 +555,7 @@
     if (!r.abandoned) SCENE.endActors(r, win, t, 410, 490);
     if (!win && (!last || !last.actor || r.abandoned)) icon(r.abandoned ? 'it_scroll' : last && last.src === 'spike' ? 'trap_spike' : 'bf_burn', 346, 340, 128);
     const actor = last && last.actor, name = win ? 'Глубины покорены' : r.abandoned ? 'Вы прервали поход' : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.damageName(last && last.src);
-    const y = 540 + wrap('e_cause', name, 410, 540, 350, 28, C.text, 0.5);
+    const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
       lab('e_last', 'Последний удар: −' + last.n + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
       lab('e_recent', 'Последние попадания', 234, 686, { size: 21, col: C.dim });
