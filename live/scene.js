@@ -198,7 +198,11 @@ float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)); }
 uniform sampler2D u_floor, u_wall, u_top, u_shore; uniform float u_lift;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 vec3 ramp(vec3 c, vec3 lo, vec3 mid, vec3 hi){ float t = clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.08) / 0.37, 0.0, 1.0); return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
-vec3 gFloor(vec2 p){ return ramp(tx(u_floor, p), vec3(0.14, 0.078, 0.052), vec3(0.49, 0.28, 0.17), vec3(0.74, 0.51, 0.33)); }
+vec3 gFloor(vec2 p){
+  vec3 gravel = ramp(tx(u_floor, p * 2.6), vec3(0.14, 0.078, 0.052), vec3(0.49, 0.28, 0.17), vec3(0.74, 0.51, 0.33));
+  vec3 earth = mix(vec3(0.3, 0.18, 0.12), vec3(0.6, 0.38, 0.25), vnoise(p / 3.0));
+  return mix(earth, gravel, smoothstep(0.28, 0.64, fbm(p / 19.0)));
+}
 vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.03, 0.03, 0.029), vec3(0.19, 0.185, 0.175), vec3(0.44, 0.425, 0.4)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
 vec3 gTop(vec2 p){ return ramp(tx(u_top, p), vec3(0.016, 0.016, 0.014), vec3(0.1, 0.095, 0.082), vec3(0.24, 0.215, 0.18)); }
 vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.08, 0.18, 0.14) : n < 0.75 ? vec3(0.13, 0.25, 0.15) : vec3(0.24, 0.34, 0.18); }
@@ -252,7 +256,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   vec3 refl = vec3(0.0); float band = step(0.5, vnoise(vec2(w.x / 5.0 + sin(u_t * 0.7) * 0.6, w.y / 2.5 - u_t * (0.6 + 2.5 * run))));
   for (int i = 0; i < 16; i++) { vec2 r0 = w - u_fire[i].xy - vec2(sin(w.y * 0.25 + u_t * 1.4 + hash(u_fire[i].xy) * 6.283) * (1.5 + 3.0 * run), 44.0);
     refl += u_fireCol[i] * exp(-r0.x * r0.x / 70.0 - r0.y * r0.y / 1400.0) * u_fire[i].w * band; }
-  vec3 shallow = vec3(0.1, 0.42, 0.58), deep = vec3(0.05, 0.18, 0.21);
+  vec3 shallow = vec3(0.1, 0.42, 0.58), deep = vec3(0.08, 0.28, 0.32);
   vec3 col = mix(mix(shallow, shallow * 0.8, depth), deep * (0.85 + 0.15 * vnoise(w / 30.0)), dp) * (1.0 - 0.4 * edge);
   col += vec3(0.12, 0.2, 0.19) * streak + vec3(0.06, 0.1, 0.1) * swell + vec3(0.3, 0.38, 0.36) * glint;
   float fn = vnoise(w / 4.0 + vec2(u_t * 0.25, 0.0) - flow * run * u_t * 3.0), foam = inside * max((1.0 - smoothstep(0.0, 6.0, d)) * step(0.55, fn), (1.0 - smoothstep(0.0, 3.0, d)) * step(0.3, fn));
