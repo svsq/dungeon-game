@@ -8,7 +8,7 @@
     merchant: 78, shop_counter: 52, shop_scales: 40, shop_shelf: 104, shop_weapons: 58, shop_armor: 80, shop_sacks: 44, shop_gold: 32,
     shop_barrel: 66, shop_sign: 38, shop_lantern: 64, shop_crate: 34, shop_gems: 24,
     vase_a: 60, vase_b: 48, vase_c: 60, candlestick: 60, candelabra: 66, torch_stand: 76,
-    queen_crown: 47, spider_eggs: 40, water_basin: 40, water_spout: 42, water_grate: 36, water_drain: 34, water_stone_a: 18, water_stone_b: 16,
+    queen_crown: 47, spider_eggs: 40, water_basin: 40, water_spout: 42, water_grate: 36, water_drain: 34, water_stone_a: 18, water_stone_b: 18,
     shroom_a: 40, shroom_b: 56, crystal_cv: 84,
     stalag_a: 54, stalag_b: 74, boulder_a: 44, boulder_b: 32, lily_cv: 24, weed_cv: 40, wreck_cv: 50, skel_cv: 44, tent_cv: 80,
     campfire_cv: 36, bridge_post: 54, bridge_torch: 74, ford_a: 20, ford_b: 17,

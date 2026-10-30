@@ -41,7 +41,27 @@ for name in ['body', 'legA', 'legB', 'armA', 'armB', 'hand', 'finger']:
     near = ((rgb[:, :, None] - palette[None, None]) ** 2).sum(axis=3).argmin(axis=2)
     a[..., :3] = palette[near].astype(np.uint8); a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)
     a[a[..., 3] == 0] = 0
+    target = rg if name == 'body' else rg[name]
+    if name == 'body':
+        solid = a[..., 3] > 0
+        wide = nd.binary_dilation(nd.binary_erosion(solid, iterations=2), iterations=2)
+        edge = solid & ~nd.binary_erosion(solid)
+        edge |= solid & ~nd.binary_erosion(solid, iterations=2) & wide
+        a[edge, :3] = [6, 5, 6]
+    else:
+        a = np.pad(a, ((3, 3), (3, 3), (0, 0)))
+        for key in ('root', 'end', 'hinge'):
+            if key in target: target[key] = [v + 12 for v in target[key]]
+        yy, xx = np.indices(a.shape[:2])
+        for key in ('root', 'end'):
+            if key not in target: continue
+            x, y = np.array(target[key]) / 4
+            d = np.hypot(xx + 0.5 - x, yy + 0.5 - y)
+            cap = (d <= 1.8) & (a[..., 3] == 0)
+            a[cap] = [35, 16, 16, 255]
+            a[cap & (d < 1.1), :3] = [115, 58, 33]
+        h, w = a.shape[:2]
     Image.fromarray(a).resize((w * 4, h * 4), Image.Resampling.NEAREST).save(path)
-    target = rg if name == 'body' else rg[name]; target['w'], target['h'] = w * 4, h * 4
+    target['w'], target['h'] = w * 4, h * 4
 R = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip())); R['crab'] = rg
 open('live/rigs.js', 'w').write('window.RIGS = ' + json.dumps(R) + ';\n'); print(json.dumps(rg))
