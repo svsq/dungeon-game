@@ -40,7 +40,7 @@ try {
       SCENE.state = S; SCENE.render(S.t + 0.01);
       const canvas = document.getElementById('c'), url = canvas.toDataURL();
       SCENE.render(S.t + 0.01);
-      const deterministic = url === canvas.toDataURL();
+      const repeatUrl = canvas.toDataURL(), deterministic = url === repeatUrl;
       let actorVisible = null, actorCalls = [];
       if (name.startsWith('win_cave') || name === 'crab_facings' || (name.startsWith('cave_fireball_') && !name.endsWith('_hit'))) {
         const draw = G.draw, textures = Object.keys(ASSETS).filter((n) => n.startsWith(name.startsWith('win_cave') ? 'serpent__' : 'crab__')).map((n) => G.tex(n));
@@ -48,11 +48,12 @@ try {
         try { SCENE.render(S.t + 0.01); actorVisible = url !== canvas.toDataURL(); } finally { G.draw = draw; }
       }
       const R = S.run, m = R && R.map, h = R && R.hero;
-      return { url, actorVisible, actorCalls, deterministic, seed: m && m.seed, floor: R && R.floor, t: S.t, cam: R && R.cam,
+      return { url, repeatUrl: deterministic ? null : repeatUrl, actorVisible, actorCalls, deterministic, seed: m && m.seed, floor: R && R.floor, t: S.t, cam: R && R.cam,
         hero: h && [h.x, h.y], heroCell: h && SIM.cell(m, Math.floor(h.x / DATA.TILE), Math.floor(h.y / DATA.TILE)), hints: R && SIM.completionHints(R).map((o) => o.kind) };
     }, name);
     fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(result.url.split(',')[1], 'base64'));
-    delete result.url; report[name] = result;
+    if (result.repeatUrl) fs.writeFileSync(path.join(out, name + '_repeat.png'), Buffer.from(result.repeatUrl.split(',')[1], 'base64'));
+    delete result.url; delete result.repeatUrl; report[name] = result;
     if (result.actorVisible === false) errors.push(name + ': actor body invisible');
     if (!result.deterministic) errors.push(name + ': repeated frame changed');
     if (['cave_spring', 'cave_breach'].includes(name) && result.heroCell !== 1) errors.push(name + ': hero off walkable floor');
