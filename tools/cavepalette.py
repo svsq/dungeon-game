@@ -22,19 +22,30 @@ def measure(path, roi=None):
     lit = light >= 5
     colored = lit & (chroma >= 5)
     ranges = {name: (hue >= lo) & (hue < hi) for name, lo, hi in [('warm', 0, 60), ('yellow_green', 60, 120), ('green', 120, 180), ('cyan', 180, 240), ('blue', 240, 300)]}
-    return {'roi': roi if roi else 'full reference', 'L_p10_p50_p90_p99': np.percentile(light[lit], [10, 50, 90, 99]).round(2).tolist(), 'C_p50_p90': np.percentile(chroma[lit], [50, 90]).round(2).tolist(), 'C_gt40_pct': round(float((chroma[lit] > 40).mean()) * 100, 2), 'Lab_hue_C_ge5_pct': {k: round(float((mask & colored).sum() / max(1, colored.sum())) * 100, 2) for k, mask in ranges.items()}}
+    median_rgb = np.median(np.array(im)[lit], axis=0).astype(int)
+    return {'roi': roi if roi else 'full reference', 'lit_pct': round(float(lit.mean()) * 100, 2), 'median_rgb': '#%02x%02x%02x' % tuple(median_rgb), 'L_p10_p50_p90_p99': np.percentile(light[lit], [10, 50, 90, 99]).round(2).tolist(), 'C_p50_p90': np.percentile(chroma[lit], [50, 90]).round(2).tolist(), 'C_gt40_pct': round(float((chroma[lit] > 40).mean()) * 100, 2), 'Lab_hue_C_ge5_pct': {k: round(float((mask & colored).sum() / max(1, colored.sum())) * 100, 2) for k, mask in ranges.items()}}
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--frames', default='frames/cave_palette')
-parser.add_argument('--out', default='frames/cave_palette/metrics.json')
-parser.add_argument('--roi', default='380,120,1550,1000')
-args = parser.parse_args()
-roi = [int(v) for v in args.roi.split(',')]
-if len(roi) != 4 or roi[2] <= roi[0] or roi[3] <= roi[1]:
-    parser.error('--roi requires left,top,right,bottom')
-result = {name: measure(Path('study/refs') / (name + '.png')) for name in ['ref_cave_water', 'ref_cave_water_camera_v2']}
-for name in ['zone_cave', 'cave_hall', 'cave_water', 'cave_crossing']:
-    result[name] = measure(Path(args.frames) / (name + '.png'), roi)
-Path(args.out).write_text(json.dumps(result, indent=2) + '\n')
-print(json.dumps(result, ensure_ascii=False))
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--frames', default='frames/cave_palette')
+    parser.add_argument('--out', default='frames/cave_palette/metrics.json')
+    parser.add_argument('--roi', default='380,120,1550,1000')
+    parser.add_argument('--regions')
+    args = parser.parse_args()
+    roi = [int(v) for v in args.roi.split(',')]
+    if len(roi) != 4 or roi[2] <= roi[0] or roi[3] <= roi[1]:
+        parser.error('--roi requires left,top,right,bottom')
+    if args.regions:
+        regions = json.loads(Path(args.regions).read_text())
+        result = {name: measure(Path(r['reference']) if 'reference' in r else Path(args.frames) / (r['frame'] + '.png'), r['roi']) for name, r in regions.items()}
+    else:
+        result = {name: measure(Path('study/refs') / (name + '.png')) for name in ['ref_cave_water', 'ref_cave_water_camera_v2']}
+        for name in ['zone_cave', 'cave_hall', 'cave_water', 'cave_crossing']:
+            result[name] = measure(Path(args.frames) / (name + '.png'), roi)
+    Path(args.out).write_text(json.dumps(result, indent=2) + '\n')
+    print(json.dumps(result, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

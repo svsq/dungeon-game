@@ -199,11 +199,11 @@ uniform sampler2D u_floor, u_wall, u_top, u_shore; uniform float u_lift;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 vec3 ramp(vec3 c, vec3 lo, vec3 mid, vec3 hi){ float t = clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.08) / 0.37, 0.0, 1.0); return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
 vec3 gFloor(vec2 p){
-  vec3 gravel = ramp(tx(u_floor, p * 2.6), vec3(0.14, 0.078, 0.052), vec3(0.49, 0.28, 0.17), vec3(0.74, 0.51, 0.33));
-  vec3 earth = mix(vec3(0.3, 0.18, 0.12), vec3(0.6, 0.38, 0.25), vnoise(p / 3.0));
+  vec3 gravel = ramp(tx(u_floor, p * 2.6), vec3(0.14, 0.1, 0.072), vec3(0.46, 0.32, 0.23), vec3(0.72, 0.56, 0.42));
+  vec3 earth = mix(vec3(0.3, 0.19, 0.135), vec3(0.58, 0.39, 0.27), vnoise(p / 3.0));
   return mix(earth, gravel, smoothstep(0.28, 0.64, fbm(p / 19.0)));
 }
-vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.03, 0.03, 0.029), vec3(0.19, 0.185, 0.175), vec3(0.44, 0.425, 0.4)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
+vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.035, 0.035, 0.033), vec3(0.25, 0.245, 0.235), vec3(0.49, 0.475, 0.45)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
 vec3 gTop(vec2 p){ return ramp(tx(u_top, p), vec3(0.016, 0.016, 0.014), vec3(0.1, 0.095, 0.082), vec3(0.24, 0.215, 0.18)); }
 vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.08, 0.18, 0.14) : n < 0.75 ? vec3(0.13, 0.25, 0.15) : vec3(0.24, 0.34, 0.18); }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 col;
@@ -256,7 +256,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   vec3 refl = vec3(0.0); float band = step(0.5, vnoise(vec2(w.x / 5.0 + sin(u_t * 0.7) * 0.6, w.y / 2.5 - u_t * (0.6 + 2.5 * run))));
   for (int i = 0; i < 16; i++) { vec2 r0 = w - u_fire[i].xy - vec2(sin(w.y * 0.25 + u_t * 1.4 + hash(u_fire[i].xy) * 6.283) * (1.5 + 3.0 * run), 44.0);
     refl += u_fireCol[i] * exp(-r0.x * r0.x / 70.0 - r0.y * r0.y / 1400.0) * u_fire[i].w * band; }
-  vec3 shallow = vec3(0.1, 0.42, 0.58), deep = vec3(0.08, 0.28, 0.32);
+  vec3 shallow = vec3(0.09, 0.58, 0.76), deep = vec3(0.07, 0.41, 0.48);
   vec3 col = mix(mix(shallow, shallow * 0.8, depth), deep * (0.85 + 0.15 * vnoise(w / 30.0)), dp) * (1.0 - 0.4 * edge);
   col += vec3(0.12, 0.2, 0.19) * streak + vec3(0.06, 0.1, 0.1) * swell + vec3(0.3, 0.38, 0.36) * glint;
   float fn = vnoise(w / 4.0 + vec2(u_t * 0.25, 0.0) - flow * run * u_t * 3.0), foam = inside * max((1.0 - smoothstep(0.0, 6.0, d)) * step(0.55, fn), (1.0 - smoothstep(0.0, 3.0, d)) * step(0.3, fn));
@@ -379,7 +379,7 @@ void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture
     // ripples thrown on a wall run as broken wavy bands drifting upward
     float band = smoothstep(0.55, 0.95, sin(wp.y / 4.5 + 2.2 * sin(wp.x / 26.0 + u_t * 0.9) + u_t * 1.7)) * smoothstep(0.35, 0.7, fbm(wp / 46.0 + vec2(u_t * 0.12, -u_t * 0.2)));
     glint = vec3(0.3, 0.75, 0.8) * band * near * (0.14 + 0.6 * dot(min(l, vec3(1.2)), vec3(0.33))); }
-  if (u_cave > 0.5) l = max(l, vec3(0.52, 0.49, 0.46));
+  if (u_cave > 0.5) l = max(l, mix(vec3(0.86, 0.82, 0.78), vec3(0.52, 0.49, 0.46), smoothstep(0.1, 0.5, texture(u_water, w).r)));
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
@@ -1229,7 +1229,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
     const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), f = flick(i) * (col[2] > col[0] ? 1.35 : 1), big = tc.kind === 'fire', gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
-      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = pool ? 0.6 : 1;   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
+      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * (B.cave && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
       TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr, pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]); });
