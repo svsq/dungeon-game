@@ -1083,11 +1083,22 @@
       for (let i = 0, n = sp >= 2 ? ri(2, 3) : R() < 0.5 ? 1 : 0; i < n; i++) { const p = floorSpot(r); if (p) webs.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, v: ri(0, 1), s: 0.9 + 0.3 * R(), f: R() < 0.5 ? 1 : 0, torn: 0 }); } }
     if (cave) {
       const mushrooms = decor.filter((d) => /^shroom_[ab]$/.test(d.n)), removed = new Set();
+      for (const r of rooms.filter((r) => r.type === 'combat' && r.id % 2 === 0 && r.w * r.h >= 56)) {
+        const cand = [];
+        for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+          if (at(x, y) !== 1 || at(x, y - 1) !== 0 || doorway(x, y) || tallAt(wx(x), y, HANG.wall) || doorTop(wx(x), y, HANG.wall)) continue;
+          const px = wx(x), py = y * TILE - 26;
+          if (torches.some((t) => Math.hypot(t.x - px, t.y - py) < 4 * TILE)) continue;
+          cand.push({ x: px, y: py, kind: 'wall', r: r.id });
+        }
+        cand.sort((a, b) => Math.hypot(a.x - wx(r.cx), a.y - wy(r.cy)) - Math.hypot(b.x - wx(r.cx), b.y - wy(r.cy)));
+        if (cand.length) torches.push(cand[0]);
+      }
       const floor = rooms.flatMap((r) => {
         const out = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) out.push([wx(x), wy(y)]); return out;
       });
       const fixed = torches.map((t) => [t.x, t.y, LIGHT_R[t.kind]]).concat(decor.filter((d) => LIGHT_R[d.n] && !mushrooms.includes(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.map((q) => [q.x, q.y, LIGHT_R.shrine]));
-      for (const d of mushrooms.filter((_, i) => i % 2 === 0)) {
+      for (const d of mushrooms) {
         const near = floor.filter(([x, y]) => Math.hypot(x - d.x, (y - d.y) / 0.8) <= LIGHT_R[d.n] * TILE);
         const lights = fixed.concat(mushrooms.filter((q) => q !== d && !removed.has(q)).map((q) => [q.x, q.y, LIGHT_R[q.n]]));
         if (near.every(([x, y]) => lights.some(([lx, ly, r]) => Math.hypot(x - lx, (y - ly) / 0.8) <= r * TILE))) removed.add(d);
