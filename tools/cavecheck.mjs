@@ -26,9 +26,10 @@ try {
     names = await page.evaluate((states) => { window.caveQA = { states }; return states.map(([n]) => n); }, states);
   } else names = await page.evaluate(() => {
     window.caveQA = SCENE.QA();
-    return window.caveQA.states.filter(([n]) => n.startsWith('cave_') || ['zone_cave', 'completion_85', 'win_cave', 'win_cave_worst', 'crab_facings', 'skel_ranged', 'eel_states'].includes(n)).map(([n]) => n);
+    return window.caveQA.states.map(([n]) => n);
   });
   if (args.includes('--only')) names = names.filter((n) => args[args.indexOf('--only') + 1].split(',').includes(n));
+  else if (!args.includes('--input')) names = names.filter((n) => n.startsWith('cave_') || n.startsWith('serpent_') || ['zone_cave', 'completion_85', 'win_cave', 'win_cave_worst', 'crab_facings', 'skel_ranged', 'eel_states'].includes(n));
   if (new Set(names).size !== names.length) errors.push('duplicate QA state names');
   if (!names.length) errors.push('no requested QA states found');
   if (args.includes('--only')) for (const name of args[args.indexOf('--only') + 1].split(',')) if (!names.includes(name)) errors.push('missing requested QA state ' + name);
@@ -37,10 +38,12 @@ try {
   for (const name of names) {
     const result = await page.evaluate((name) => {
       const S = structuredClone(window.caveQA.states.find(([n]) => n === name)[1]);
+      const before = JSON.stringify(S);
       SCENE.state = S; SCENE.render(S.t + 0.01);
       const canvas = document.getElementById('c'), url = canvas.toDataURL();
       SCENE.render(S.t + 0.01);
       const repeatUrl = canvas.toDataURL(), deterministic = url === repeatUrl;
+      const damageText = name.startsWith('cave_fraction_') ? window.__UI.filter((u) => u.k === 'text' && /^(dn|hu|ab)\d+$/.test(u.id)).map((u) => u.s) : null;
       let actorVisible = null, actorCalls = [];
       if (name.startsWith('win_cave') || name === 'crab_facings' || (name.startsWith('cave_fireball_') && !name.endsWith('_hit'))) {
         const draw = G.draw, textures = Object.keys(ASSETS).filter((n) => n.startsWith(name.startsWith('win_cave') ? 'serpent__' : 'crab__')).map((n) => G.tex(n));
@@ -48,14 +51,18 @@ try {
         try { SCENE.render(S.t + 0.01); actorVisible = url !== canvas.toDataURL(); } finally { G.draw = draw; }
       }
       const R = S.run, m = R && R.map, h = R && R.hero;
-      return { url, repeatUrl: deterministic ? null : repeatUrl, actorVisible, actorCalls, deterministic, seed: m && m.seed, floor: R && R.floor, t: S.t, cam: R && R.cam,
+      const exitValid = name === 'cave_arena_exit' ? R.bossDead && R.en.filter((e) => DATA.BOSSES[e.type]).every((e) => e.deadT >= 0) && !window.__UI.some((u) => u.id === 'bossbar') : null;
+      return { url, damageText, exitValid, pure: before === JSON.stringify(S), repeatUrl: deterministic ? null : repeatUrl, actorVisible, actorCalls, deterministic, seed: m && m.seed, floor: R && R.floor, t: S.t, cam: R && R.cam,
         hero: h && [h.x, h.y], heroCell: h && SIM.cell(m, Math.floor(h.x / DATA.TILE), Math.floor(h.y / DATA.TILE)), hints: R && SIM.completionHints(R).map((o) => o.kind) };
     }, name);
     fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(result.url.split(',')[1], 'base64'));
     if (result.repeatUrl) fs.writeFileSync(path.join(out, name + '_repeat.png'), Buffer.from(result.repeatUrl.split(',')[1], 'base64'));
     delete result.url; delete result.repeatUrl; report[name] = result;
+    if (result.damageText && JSON.stringify(result.damageText) !== JSON.stringify([name.endsWith('_hit') ? '17' : name.endsWith('_hurt') ? '-17' : 'щит 17'])) errors.push(name + ': fractional damage text ' + result.damageText);
     if (result.actorVisible === false) errors.push(name + ': actor body invisible');
     if (!result.deterministic) errors.push(name + ': repeated frame changed');
+    if (!result.pure) errors.push(name + ': render mutated simulation state');
+    if (result.exitValid === false) errors.push(name + ': exit fixture has a living boss or boss HUD');
     if (['cave_spring', 'cave_breach'].includes(name) && result.heroCell !== 1) errors.push(name + ': hero off walkable floor');
     if (result.hints && result.hints.includes('secret')) errors.push(name + ': secret hint remains');
   }

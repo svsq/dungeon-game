@@ -2552,6 +2552,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const h = R.hero; [h.x, h.y] = at(k); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x0 - VW / 2, y0 - VH / 2]; S.ev = [];
         for (const [age, dx] of [[0.12, 0], [0.4, -14]]) S.ev.push({ k: 'step', wet: true, x: h.x + dx, y: h.y, t: S.t - age });
         states.push(['cave_water', structuredClone(S)]); break; }
+      for (const kind of ['hit', 'hurt', 'absorb']) {
+        const Q = structuredClone(states.find(([n]) => n === 'cave_water')[1]), h = Q.run.hero;
+        Q.ev = [{ k: kind, n: 16.799999999999997, x: h.x, y: h.y, t: Q.t - 0.2, fire: 1 }];
+        states.push(['cave_fraction_' + kind, Q]);
+      }
       // the cave's own light (TASKS 305): a crystal by water with mushrooms round it, a drop falling and another just landed
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
         const near = (o, r) => m.water.some((k) => Math.hypot((k % m.W + 0.5) * TILE - o.x, (Math.floor(k / m.W) + 0.5) * TILE - o.y) < r);
@@ -2744,7 +2749,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     transitions.serpent_death = serpentFrames((S, b) => { b.hp = 0; b.deadT = S.t; }, 95);
     states.push(['serpent_arena', serpentState()]);
     states.push(['cave_arena_exit', serpentState((S, b) => {
-      const R = S.run, h = R.hero; R.bossDead = true; b.hp = 0; b.deadT = S.t - 3;
+      const R = S.run, h = R.hero; S.t += 10; R.t += 10; R.bossDead = true; b.hp = 0; b.deadT = S.t - 3;
       h.x = R.map.exit.x - 48; h.y = R.map.exit.y + 32; R.cam = [R.map.exit.x - VW / 2, R.map.exit.y - VH / 2];
     })]);
     for (const mv of Object.keys(D.BOSSES.boss_serpent.moves)) {
