@@ -113,7 +113,7 @@
       crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')), dodge: Math.min(BAL.dodge.cap, s.agi * BAL.dodge.agi + s.dodge + gift(h, 'alert')),
       aspd: s.agi * 1.2 + s.aspd + gift(h, 'haste'), mspd: Math.min(40, s.agi * 0.4 + s.mspd + gift(h, 'swift')), leech: s.leech + gift(h, 'leech'),
       regen: s.regen + 0.5 * (up.regen || 0) + gift(h, 'life'), onhit: s.onhit,
-      spell: (1 + s.int * 0.04) * (1 + (W.spell || 0)) * (1 + s.fire / 100) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100) * (1 + gift(h, 'arcane') / 100),
+      spellBase: (wpn ? wpn.atk : 3) + s.int * 1.6, spell: 1 + (W.spell || 0) + s.fire / 100 + 0.06 * (up.dmg || 0) + gift(h, 'fury') / 100 + gift(h, 'arcane') / 100,
       resist: 1 - 0.15 * (up.resist || 0), gold: 1 + gift(h, 'greed') / 100,
       wcd: W.spd, arc: W.arc + gift(h, 'cleave'), reach: W.reach * (1 + gift(h, 'reach') / 100), kb: W.kb || 1, wtype: wpn ? wpn.b : 'fist',
     };
@@ -175,7 +175,7 @@
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ endless: R.mode === 'endless' }, gen));
     R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.drops = []; R.scorches = [];
     const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
-    for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard && D.ELITE.guard[f], gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
+    for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? D.ELITE.guard[f] : e.exit && e.elite ? D.ELITE.exit[f] : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(f, 1) / D.dmgAt(f) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
         elite: e.elite, guard: e.guard || 0, room: e.room, st: 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
@@ -286,6 +286,7 @@
   const boxHit = (m, x, y, r, mon, lavaOk) => solidAt(m, x - r, y - r * 0.6, mon, lavaOk) || solidAt(m, x + r, y - r * 0.6, mon, lavaOk) || solidAt(m, x - r, y + r * 0.4, mon, lavaOk) || solidAt(m, x + r, y + r * 0.4, mon, lavaOk)
     || solidAt(m, x, y - r * 0.6, mon, lavaOk) || solidAt(m, x, y + r * 0.4, mon, lavaOk);
   function move(m, o, dx, dy, r, mon, lavaOk = !mon || onLava(m, o)) {
+    // steps of at most 8 px: the boss's roar shoved the hero 150 px in one move, through a shut door (TASKS 219)
     const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 8);
     if (steps > 1) { let bx = false, by = false;
       for (let i = 0; i < steps; i++) { const hit = move(m, o, dx / steps, dy / steps, r, mon, lavaOk); bx ||= hit[0]; by ||= hit[1]; }
@@ -455,6 +456,7 @@
     const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
     if (!D.BOSSES[e.type] && (e.elite || rnd(R) < LT.p * BAL.reward)) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, LT.q, undefined, LT) });
     if (rnd(R) < POT.kill * BAL.reward) drop(R, e.x, e.y, { kind: 'item', item: potion(rnd(R) < 0.65 ? 'hp_potion' : 'mp_potion') });
+    // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     const sh = D.BOSSES[e.type] ? (e.type === 'boss' ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (D.BOSSES[e.type]) finishArena(S, R, e);
     if (e.type === 'boss') { R.bossDead = 1; R.msg = { s: 'Повелитель Демонов повержен! Портал наружу открыт', t: S.t }; for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, R.floor, o.q, undefined, o) }); }
@@ -505,7 +507,7 @@
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
-    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.int, AR.k, st.spell, R.floor);
+    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, R.floor); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
@@ -666,8 +668,11 @@
     // mouse → world aim
     const Z = zoomOf(R), mx = R.cam[0] + inp.px / Z, my = R.cam[1] + inp.py / Z;
     if (h.deadT >= 0) { if (t - h.deadT > 1.6) return endRun(S, 'dead'); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
-    // reactions keep running during hit-stop; the hero and camera hold
-    if (R.freeze > 0) { R.freeze -= DT; stepDrops(S, R, true); return; }
+    // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
+    // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
+    // Keys pressed in it are kept for the first step after it (TASKS 227)
+    if (R.freeze > 0) { R.freeze -= DT; R.frozen = 1; stepDrops(S, R, true); holdClocks(R); R.inbuf = Object.assign(R.inbuf || {}, keys); return; }
+    R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
     // ---- input: 8-way run with accel / decel ----
     const ix = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), iy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), il = Math.hypot(ix, iy) || 1;
     const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < 0.2 ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1);
@@ -722,7 +727,9 @@
     if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
     h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT);
-    if (h.poison > t) { h.hp -= 2.5 * st.resist * DT; if (h.hp <= 1) h.hp = 1; if (R.log) add(logFloor(R).dmg, 'poison', 2.5 * st.resist * DT); }
+    // the poison's drain is reported every half second like the burn's, so the balance tools and the death screen see it (TASKS 227)
+    if (h.poison > t) { const n = 2.5 * st.resist * DT; h.hp -= n; if (h.hp <= 1) h.hp = 1; if (R.log) add(logFloor(R).dmg, 'poison', n);
+      h.poisonAcc = (h.poisonAcc || 0) + n; if (t - (h.poisonT ?? -9) >= 0.5) { h.poisonT = t; const k = Math.round(h.poisonAcc); if (k > 0) { h.poisonAcc -= k; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: k, src: 'poison' }); } } }
     // a fire hex sets the hero alight: a tick every 0.5 s for 3 s, past the invulnerability window like poison, never the killing blow
     if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((1.5 + 0.3 * R.floor) * st.resist * dif(R, 'dmg'))); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn' }); }
     if (h.shield > 0 && t > h.shieldUntil) h.shield = 0;
@@ -759,7 +766,7 @@
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
-    for (const q of R.map.waterFeatures || []) if (q.kind !== 'flood') out.push({ x: q.x, y: q.y + 4, r: 24 });
+    for (const q of R.map.waterFeatures || []) if (q.kind === 'fountain') out.push({ x: q.x, y: q.y - 2, r: 34 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 }); return out; };
   function interact(S, R) {
     const h = R.hero, m = R.map;
@@ -775,7 +782,7 @@
       if (R.floor === D.FLOORS && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте Повелителя Демонов' }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
-    if (used) openAltar(S, R, used);
+    if (used && canDonate(R)) openAltar(S, R, used);
   }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
@@ -794,6 +801,8 @@
     ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? ' до конца этажа' : ' до конца забега'), t: S.t };
     S.screen = 'play'; S.saveN++;
   }
+  // a spent altar only answers while a donation can go through (TASKS 242)
+  const canDonate = (R) => (R.donations || 0) < 10 && R.hero.gold >= 1000;
   function donate(S, R, x, y) {
     if ((R.donations || 0) >= 10) { ev(S, { k: 'nope', x, y, s: 'Лимит: 10 пожертвований за забег' }); return; }
     if (R.hero.gold < 1000) { ev(S, { k: 'nope', x, y, s: 'Не хватает золота' }); return; }
@@ -840,7 +849,7 @@
       if (pc === 5 && p.own === 'hero') { const d = doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || m.decor.some((d) => d.cover && !d.broken && Math.abs(p.x - d.x) < 26 && p.y > d.y - 75 && p.y < d.y + 8);
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
-      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.k, (p.who || '?') + ' снаряд', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < 20) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.k, (p.who || '?') + ' снаряд', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
@@ -960,6 +969,13 @@
     const sp = E.spd * eliteK(e, 'spd') * kv * (!E.ghost && inWater(m, e) ? WADE : 1) * (!E.ghost && !E.webImmune && webAt(m, e) ? WEB.mon : 1), k = 1 - Math.exp(-9 * DT);
     e.vx += (vx * sp - e.vx) * k; e.vy += (vy * sp - e.vy) * k;
   }
+  function holdClocks(R) {
+    for (const e of R.en) { if (e.deadT >= 0) continue;
+      if (e.st === 'wind' || e.st === 'bwind' || e.st === 'strike') { e.t0 += DT; if (e.bncT > 0) e.bncT += DT; } }
+    for (const p of R.proj) p.t0 += DT;
+    for (const q of R.lavaPending || []) { q.t += DT; if (q.t0 !== undefined) q.t0 += DT; }
+    for (const egg of R.eggs || []) egg.hatchT += DT;
+  }
   const arenaSealed = (R) => !!(R.map.bossType && R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0));
   function stepArena(S, R) {
     const m = R.map, b = R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0), h = R.hero;
@@ -1004,6 +1020,8 @@
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * m.W + x; if (open(k) && !seen.has(k)) return false; }
     return true;
   }
+  // the arena's lava runs in from a few points on its walls as tongues (TASKS 233): each new cell grows off lava already there or
+  // warned, picked at random from that front, so the floor narrows to islands, never to a ring laid row by row along the walls
   function bossLava(S, R, e, M) {
     const m = R.map, r = m.rooms[e.room], block = new Set(m.block), keep = new Set();
     for (const o of [m.exit, ...R.shrines, ...solids(R), ...R.en.filter((o) => o.room === e.room && o.deadT < 0)]) {
@@ -1011,21 +1029,25 @@
       for (let y = ty - 1; y <= ty + 1; y++) for (let x = tx - 1; x <= tx + 1; x++) keep.add(y * m.W + x);
     }
     for (const d of m.doors || []) if (d.arena) for (const [x, y] of d.cells) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) keep.add((y + j) * m.W + x + i);
-    const pending = new Set((R.lavaPending || []).map((o) => o.cell)), candidates = [];
-    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * m.W + x;
-      if (m.cells[k] !== 1 || keep.has(k) || pending.has(k) || block.has(k)) continue;
-      const edge = Math.min(x - r.x, r.x + r.w - 1 - x, y - r.y, r.y + r.h - 1 - y);
-      candidates.push({ k, edge });
-    }
-    candidates.sort((a, b) => a.edge - b.edge || a.k - b.k);
+    const pending = new Set((R.lavaPending || []).map((o) => o.cell)), grown = new Set([...(m.arenaLava || []), ...pending]);
+    const ok = (k) => { const x = k % m.W, y = Math.floor(k / m.W);
+      return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h && m.cells[k] === 1 && !keep.has(k) && !pending.has(k) && !block.has(k); };
+    const seed = () => { const wall = [];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (Math.min(x - r.x, r.x + r.w - 1 - x, y - r.y, r.y + r.h - 1 - y) === 0 && ok(y * m.W + x)) wall.push(y * m.W + x);
+      return wall.length ? wall[Math.floor(rnd(R) * wall.length)] : -1; };
     let left = Math.min(M.n, Math.floor(r.w * r.h * M.cover) - (m.arenaLava || []).length - pending.size);
     R.lavaPending = R.lavaPending || [];
-    for (const o of candidates) { if (left <= 0) break; pending.add(o.k);
-      if (!arenaPath(m, e.room, pending)) { pending.delete(o.k); continue; }
-      R.lavaPending.push({ cell: o.k, t: S.t + M.warn, owner: e.id }); left--;
+    // a cell that would cut the floor off from the exit is kept dry for good
+    const add = (k) => { pending.add(k); if (!arenaPath(m, e.room, pending)) { pending.delete(k); keep.add(k); return; }
+      R.lavaPending.push({ cell: k, t0: S.t, t: S.t + M.warn, owner: e.id }); grown.add(k); left--; };
+    for (let i = grown.size ? (rnd(R) < 0.5 ? 1 : 0) : 3; i > 0 && left > 0; i--) { const k = seed(); if (k >= 0) add(k); }
+    for (let guard = 0; left > 0 && guard < 400; guard++) {
+      const front = []; for (const k of grown) for (const d of [1, -1, m.W, -m.W]) if (ok(k + d)) front.push(k + d);
+      const k = front.length ? front[Math.floor(rnd(R) * front.length)] : seed(); if (k < 0) break; add(k);
     }
     roar(S, R, e);
   }
+  function bossBarrier(S, e, M) { e.shield = Math.round(e.max * M.hp); e.shieldUntil = S.t + M.time; e.shieldT = S.t; ev(S, { k: 'barrier', x: e.x, y: e.y, id: e.id }); }
   function bossRaise(S, R, e, M) {
     const corpses = R.en.filter((o) => o.deadT >= 0 && o.room === e.room && !D.BOSSES[o.type] && !o.raised);
     const n = Math.max(0, M.cap - R.en.filter((o) => o.summ === e.id && o.deadT < 0).length);
@@ -1043,7 +1065,7 @@
     }
   }
   function beginBossMove(S, R, e, mv) {
-    e.st = 'bwind'; e.t0 = S.t; e.mv = mv; e.fired = 0; e.hitDone = 0;
+    e.st = 'bwind'; e.t0 = S.t; e.mv = mv; e.fired = 0; e.hitDone = 0; e.chain = 0;
     const M = D.bossMove(e);
     e.tx = R.hero.x; e.ty = R.hero.y;
     e.aimA = Math.atan2(R.hero.y - (M.target || 0) - e.y + (M.origin || 0), R.hero.x - e.x); e.vx = e.vy = 0;
@@ -1098,10 +1120,12 @@
         if (M.next && (e.hitDone || e.travel >= Math.max(0, e.targetD - M.stop) - 0.01 || moved < 0.01)) finished = true;
       }
       if (e.mv === 'volley' && u >= w + (e.fired || 0) * M.gap && (e.fired || 0) < M.rings) {
-        const ring = e.fired++, vol = R.nextId;
+        // both rings are one volley: it wounds once, so the second ring catches a hero who sidestepped the first instead of doubling
+        // the blow past the boss's cap (TASKS 227)
+        const ring = e.fired++, vol = ring ? e.vol : (e.vol = R.nextId);
         for (let i = 0; i < M.n; i++) { const a = e.aimA + (i + ring * M.offset) / M.n * Math.PI * 2;
           R.proj.push({ id: R.nextId++, vol, who: who(e), actorId: e.id, k: M.kind || 'fire', x: e.x, y: e.y - M.origin, vx: Math.cos(a) * M.speed, vy: Math.sin(a) * M.speed,
-            t0: t, life: M.life, dmg: e.dmg * M.dmg, own: 'en', r: M.r }); }
+            t0: t, life: M.life, dmg: e.dmg * M.dmg, own: 'en', r: M.r, spent: R.volHit === vol ? 1 : 0 }); }
         roar(S, R, e);
       } else if (e.mv !== 'volley' && u >= w && !e.fired) { e.fired = 1;
         if (e.mv === 'slam') { if (Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(m, e.x, e.y, h.x, h.y)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e);
@@ -1109,18 +1133,20 @@
         if (e.mv === 'roar') { roar(S, R, e); const d = Math.hypot(h.x - e.x, h.y - e.y) || 1;
           if (d < M.r && losClear(m, e.x, e.y, h.x, h.y)) move(m, h, (h.x - e.x) / d * M.push, (h.y - e.y) / d * M.push, K.R, true);
           if (M.summon) bossSummon(S, R, e, B.moves[M.summon]); }
-        for (const fx of M.effects || []) { if (fx === 'weave') bossWebs(S, R, e, B.moves[fx]); if (fx === 'raise') bossRaise(S, R, e, B.moves[fx]); if (fx === 'lava') bossLava(S, R, e, B.moves[fx]); }
+        for (const fx of M.effects || []) { if (fx === 'weave') bossWebs(S, R, e, B.moves[fx]); if (fx === 'raise') bossRaise(S, R, e, B.moves[fx]); if (fx === 'lava') bossLava(S, R, e, B.moves[fx]); if (fx === 'barrier') bossBarrier(S, e, B.moves[fx]); }
         if (e.mv === 'lava') bossLava(S, R, e, M);
         if (e.mv === 'raise') bossRaise(S, R, e, M);
-        if (e.mv === 'barrier') { e.shield = Math.round(e.max * M.hp); e.shieldUntil = t + M.time; e.shieldT = t; ev(S, { k: 'barrier', x: e.x, y: e.y, id: e.id }); }
+        if (e.mv === 'barrier') bossBarrier(S, e, M);
         if (e.mv === 'weave') bossWebs(S, R, e, M);
         if (e.mv === 'eggs') bossEggs(S, R, e, M);
         if (e.mv === 'summon') bossSummon(S, R, e, M);
       }
       if (finished) {
         e.nextMove = null;
-        if (M.next) { beginBossMove(S, R, e, M.next); e.t0 = t + (M.rest || 0); }
-        else { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (M.rest ?? D.bossPhase(e).rest); }
+        // the linked slam follows only a charge the hero got out of: a charge that landed ends the link, one mistake costs one blow
+        // (the player's call, TASKS 227: the slam 0.28 s after a landed charge could not be escaped and took 12 of 14 finale deaths)
+        if (M.next && !e.hitDone) { beginBossMove(S, R, e, M.next); e.t0 = t + (M.rest || 0); e.chain = 1; }
+        else { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (M.next ? D.bossPhase(e).rest : M.rest ?? D.bossPhase(e).rest); }
       }
     }
   }
@@ -1130,7 +1156,7 @@
     for (const c of R.chests) add(c.x, c.y, 'chest', c.tier >= 2 ? 1.15 : 1); for (const p of R.pots) if (p.hp > 0) add(p.x, p.y, p.kind);
     for (const d of m.decor) if (d.solid && !d.wall) add(d.x, d.y, d.n); for (const t of m.torches) if (t.kind !== 'wall') add(t.x, t.y, 'brazier', t.kind === 'fire' ? 1.35 : 1);
     for (const s of R.shrines) add(s.x, s.y, 'altar');
-    for (const q of m.waterFeatures || []) if (q.kind !== 'flood') out.push([q.x, q.y + 18, 34, 68]);
+    for (const q of m.waterFeatures || []) if (q.kind === 'fountain') out.push([q.x, q.y + 16, 46, 40]);
     // a shut door's leaf (scene.js) stands over the cells behind it: a bottom wall's over the room's last row, a top wall's arch over the corridor
     for (const d of m.doors || []) if (!d.open) { const side = d.dir === 'l' || d.dir === 'r';
       out.push(d.dir === 'u' ? [d.x, d.y, 58, 100] : side ? [d.x, d.y + TILE, 17, 103] : [d.x, d.y + TILE, 31, 80]); }
@@ -1280,7 +1306,7 @@
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
       if (keys.Escape && !S.demo) { S.screen = 'pause'; }
       else if ((keys.KeyI || keys.KeyC || keys.Tab) && !S.demo) { S.screen = 'inv'; }
-      else { stepPlay(S, inp, keys); if (S.run) stepBossMove(S, S.run); }
+      else { stepPlay(S, inp, keys); if (S.run && !S.run.frozen) stepBossMove(S, S.run); }
     } else stepUI(S, inp, keys);
     if (S.ev.length > 64) S.ev.splice(0, S.ev.length - 64);
     S.steps++; return S;
@@ -1368,18 +1394,16 @@
       for (const e of m.enemies) { if (!reachH(e.x, e.y)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
       {
-        const wet = new Set(m.water), bridge = new Set(m.waterBridges), flooded = (o) => m.rooms[DG.roomAt(m, o.x, o.y)]?.flooded;
+        const wet = new Set(m.water), bridge = new Set(m.waterBridges);
         for (const k of wet) if (m.cells[k] !== 1 || !Number.isInteger(m.waterFlow[k]) || m.waterFlow[k] < 0 || m.waterFlow[k] > 3) out.push(`seed ${seed} f${f}: water off floor or without flow`);
         for (const k of bridge) if (m.cells[k] !== 1 || wet.has(k) || m.block.includes(k)) out.push(`seed ${seed} f${f}: water crossing is wet or blocked`);
         for (const o of [...m.chests, ...m.pots, ...m.enemies, ...m.decor.filter((d) => d.solid), ...m.torches.filter((q) => q.kind !== 'wall')]) {
-          if (wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE)) && !flooded(o)) out.push(`seed ${seed} f${f}: post or prop in stream`);
+          if (wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE))) out.push(`seed ${seed} f${f}: post or prop in stream`);
         }
         for (const q of m.waterFeatures) {
           const r = m.rooms[q.room];
           if (['start', 'shop', 'secret', 'boss'].includes(r.type)) out.push(`seed ${seed} f${f}: water in protected room`);
-          if (q.kind === 'flood') {
-            for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (m.cells[y * m.W + x] === 1 && !wet.has(y * m.W + x)) out.push(`seed ${seed} f${f}: flooded room has dry floor`);
-          } else {
+          {
             const path = new Set(q.cells), seen = new Set([q.source]), todo = [q.source];
             for (let i = 0; i < todo.length; i++) for (const d of [-1, 1, -m.W, m.W]) if (path.has(todo[i] + d) && !seen.has(todo[i] + d)) { seen.add(todo[i] + d); todo.push(todo[i] + d); }
             if (!seen.has(q.drain) || seen.size !== path.size || !q.bridge.length || q.width < 1 || q.width > 3) out.push(`seed ${seed} f${f}: stream or crossing disconnected`);
@@ -1463,6 +1487,7 @@
           for (let k = 0; k < all.length; k++) if (all[k] && !cut[k] && !shut.has(k) && !inR(r, k % m.W, Math.floor(k / m.W))) { out.push(`${tag} cuts off floor beyond it`); break; }
           const holders = m.chests.filter((c) => c.key === li).concat(m.enemies.filter((e) => e.key === li));
           if (L.kind === 'key' && (holders.length !== 1 || !at0(holders[0].x, holders[0].y) || inR(r, Math.floor(holders[0].x / TILE), Math.floor(holders[0].y / TILE)))) out.push(`${tag}: its key is not on this side`);
+          if (holders.some((o) => D.BOSSES[o.type])) out.push(`${tag}: its key is on a boss behind a sealed arena`);
           if (L.kind === 'lever' && (!L.lever || !at0(L.lever.x, L.lever.y + 40))) out.push(`${tag}: its lever is out of reach`);
           if (L.kind !== 'key' && L.kind !== 'lever') out.push(`${tag} has no key and no lever`); }); }
       // a merchant on every floor: his counter's front is reachable on foot, his room holds no monster post
@@ -1632,9 +1657,9 @@
       for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (!S.ev.some((e) => e.k === 'roar')) out.push('the boss does not roar when he first sees the hero'); }
     // shallow water: the hero wades slower, a burning hero stepping in is put out, and no prop, chest or monster post stands in it
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); const R = S.run, h = R.hero; let tested = false;
-      for (let f = 1; f <= D.FLOORS && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[0], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
+      for (let f = 1; f <= D.FLOORS && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[Math.floor(m.water.length / 2)], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
         const on = (o) => wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
-        for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o) && !m.rooms[DG.roomAt(m, o.x, o.y)]?.flooded) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
+        for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o)) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
         const run = (x, y) => { R.en = []; h.vx = h.vy = 0; for (let i = 0; i < 60; i++) { h.x = x; h.y = y; step(S, { keys: [], right: 1 }); } return h.vx; };
         const sp = m.spawn; S.ev = []; const vDry = run(sp.x, sp.y);
         if (!S.ev.some((e) => e.k === 'step' && !e.wet)) out.push('water check: dry steps are missing');
@@ -2051,7 +2076,8 @@
         if (S.meta.shards !== o.cost - 1 || sh.used || S.screen !== 'altar') out.push('altar: a gift went through without enough shards');
         S.meta.shards = o.cost + 3; h.hp = 1; step(S, at(2));
         if (S.meta.shards !== 3 || !sh.used || S.screen !== 'play' || heroSt(S).atk <= a0 || h.hp !== heroSt(S).maxHp) out.push('altar: a gift did not take its price, apply, heal or close');
-        step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+        h.gold = 0; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen === 'altar') out.push('altar: a spent altar opens with nothing to donate');
+        h.gold = 5000; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
         const bank = S.meta.shards, perks = JSON.stringify(h.perks); step(S, at(2));
         if (S.screen !== 'altar' || S.meta.shards !== bank || JSON.stringify(h.perks) !== perks) out.push('altar: a used altar refuses donations or sells a second gift');
         const T = spawn(0, { meta: S.meta, run: JSON.parse(JSON.stringify(R)) }); if (stats(T.saved.hero, T.meta).atk !== heroSt(S).atk) out.push('altar: a gift is lost on save/load');
@@ -2171,11 +2197,13 @@
       if (B.moves.raise) { const o = R.en.find((o) => o !== b && !D.BOSSES[o.type]); if (o) { o.deadT = S.t; o.hp = 0; bossRaise(S, R, b, B.moves.raise);
           if (!o.raised || !R.en.some((e) => e.summ === b.id && e.deadT < 0)) out.push(`boss ${type}: fallen cannot be raised`); } }
       if (B.moves.barrier) { beginBossMove(S, R, b, 'barrier'); S.t += B.moves.barrier.wind + DT; stepBossMove(S, R); const hp = b.hp;
-        hitEnemy(S, R, b, 20, 0, b.x, b.y); if (b.hp !== hp || !(b.shield > 0)) out.push('necro: barrier does not absorb damage');
-        S.t = b.shieldUntil + DT; hitEnemy(S, R, b, 20, 0, b.x, b.y); if (b.hp >= hp) out.push('necro: expired barrier still absorbs damage');
-        if (m.decor.filter((d) => d.cover).length < 2) out.push('necro: missing cover columns');
+        hitEnemy(S, R, b, 20, 0, b.x, b.y); if (b.hp !== hp || !(b.shield > 0)) out.push(`boss ${type}: barrier does not absorb damage`);
+        S.t = b.shieldUntil + DT; hitEnemy(S, R, b, 20, 0, b.x, b.y); if (b.hp >= hp) out.push(`boss ${type}: expired barrier still absorbs damage`);
+        if (type === 'boss_necro' && m.decor.filter((d) => d.cover).length < 2) out.push('necro: missing cover columns');
       }
-      if (B.moves.convergence) { beginBossMove(S, R, b, 'convergence'); S.t += B.moves.convergence.wind + DT; stepBossMove(S, R);
+      if (type === 'boss' && (D.bossMove({ type, mv: 'weave', phase: 2 }).vulnerable || 1) !== 1) out.push('boss: the finale opens up while weaving');
+      if (B.moves.convergence) { b.shield = 0; beginBossMove(S, R, b, 'convergence'); S.t += B.moves.convergence.wind + DT; stepBossMove(S, R);
+        if (!(b.shield > 0)) out.push('boss: third phase raises no barrier');
         if (!m.webs.some((w) => w.boss === b.id && !w.torn) || !R.en.some((o) => o.summ === b.id && o.deadT < 0) || !R.lavaPending.length) out.push('boss: third phase does not combine all chapter mechanics');
       }
       if (B.moves.lava) { for (let i = 0; i < 8; i++) { bossLava(S, R, b, B.moves.lava); S.t += B.moves.lava.warn + DT; stepArena(S, R);
@@ -2197,16 +2225,15 @@
       b.phase = 1; b.hp = b.max * 0.4; R.proj = []; beginBossMove(S, R, b, 'volley'); const rings = new Set();
       for (let i = 0; i < 200; i++) { S.t += DT; stepBossMove(S, R); for (const p of R.proj) rings.add(p); stepProjectiles(S, R); }
       if ([...rings].filter((p) => p.onHero).length !== 2) out.push('boss: a stationary melee target escapes the shifted double volley');
-      h.x = b.x + 90; h.y = b.y; b.phase = 1; b.hp = b.max * 0.4; R.proj = []; beginBossMove(S, R, b, 'charge');
-      let charged = null, slammed = null;
-      for (let i = 0; i < 240; i++) { S.t += DT;
-        if (b.st === 'chase') bossThink(S, R, b, Math.hypot(h.x - b.x, h.y - b.y));
-        const move = b.mv;
-        stepBossMove(S, R);
-        if (charged === null && ((b.mv === 'charge' && b.hitDone) || (move === 'charge' && b.mv === 'slam'))) charged = S.t;
-        if (b.mv === 'slam' && b.fired) { slammed = S.t; break; }
-      }
-      if (charged === null || slammed === null || slammed - charged > 0.3) out.push('boss: charge impact leaves a healing window before the linked slam');
+      h.ifr = 0; h.hp = 1e6; b.hp = b.max * 0.4; R.proj = []; const n0 = S.ev.length; beginBossMove(S, R, b, 'volley');
+      for (let i = 0; i < 200; i++) { S.t += DT; h.ifr = 0; stepBossMove(S, R); stepProjectiles(S, R); }
+      if (S.ev.slice(n0).filter((e) => e.k === 'hurt' && / снаряд$/.test(e.src)).length > 1) out.push('boss: both rings of one volley wound the hero');
+      h.ifr = 1e9;
+      // the link (TASKS 227): a charge that lands ends it; one the hero stepped out of is followed by the slam where it stopped
+      const run = (aside) => { h.x = b.x + 90; h.y = b.y; h.ifr = 1e9; b.phase = 1; b.hp = b.max * 0.4; R.proj = []; beginBossMove(S, R, b, 'charge'); h.y += aside;
+        let slam = null; for (let i = 0; i < 120; i++) { S.t += DT; stepBossMove(S, R); if (b.mv === 'slam' && b.fired) { slam = S.t; break; } if (b.st === 'chase') break; } return slam; };
+      if (run(0) !== null) out.push('boss: a landed charge still chains the slam');
+      if (run(70) === null) out.push('boss: a charge the hero stepped out of is not followed by the slam');
       h.x = b.x + 90; h.y = b.y; h.ifr = 0; h.hp = heroSt(S).maxHp; const safeHp = h.hp;
       beginBossMove(S, R, b, 'charge'); h.y += K.DASH * K.DASH_T;
       for (let i = 0; i < 240; i++) { S.t += DT;
@@ -2215,11 +2242,28 @@
       }
       if (h.hp !== safeHp) out.push('boss: a perpendicular charge dodge still gets caught by the linked slam');
     }
+    // hit-stop holds what the player reacts to and keeps the keys pressed in it (TASKS 227)
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 71); S.screen = 'play'; const R = S.run; enterFloor(S, R, 8); const b = R.en.find((e) => e.type === 'boss'), h = R.hero;
+      R.en = [b]; h.ifr = 1e9; h.x = b.x + 200; h.y = b.y; b.st = 'bwind'; b.mv = 'slam'; b.t0 = S.t; b.fired = 0; R.arena = { active: 1, room: b.room, t0: S.t };
+      const u0 = S.t - b.t0; R.freeze = 0.05; h.cd.dash = 0; const d0 = h.dashT;
+      step(S, { keys: ['Space'], px: 960, py: 540 }); for (let i = 0; i < 4; i++) step(S, { keys: [], px: 960, py: 540 });
+      if (Math.abs((S.t - b.t0) - u0) > 1e-9 && R.freeze > 0) out.push('hit-stop: a boss wind-up runs on in the freeze');
+      for (let i = 0; i < 8; i++) step(S, { keys: [], px: 960, py: 540 });
+      if (h.dashT === d0) out.push('hit-stop: a dash pressed in the freeze is lost');
+      // a plain monster's wind-up, a bolt's flight clock and a potion key pressed in the freeze
+      const e = Object.assign({}, b, { id: R.nextId++, type: 'skeleton', st: 'wind', t0: S.t, hp: 50, max: 50, phase: 0 }); R.en = [b, e]; b.st = 'chase';
+      R.proj = [{ id: R.nextId++, x: h.x + 600, y: h.y, vx: 0, vy: 0, t0: S.t, life: 9, dmg: 0, own: 'en', r: 9 }]; const p = R.proj[0];
+      h.hp = 10; h.bag[0] = { b: 'hp_potion', n: 1, id: R.nextId++ }; const ue = S.t - e.t0, up = S.t - p.t0; R.freeze = 0.05;
+      step(S, { keys: ['KeyQ'], px: 960, py: 540 }); for (let i = 0; i < 3 && R.freeze > 0; i++) step(S, { keys: [], px: 960, py: 540 });
+      if (R.freeze > 0 && Math.abs((S.t - e.t0) - ue) > 1e-9) out.push('hit-stop: a monster wind-up runs on in the freeze');
+      if (R.freeze > 0 && Math.abs((S.t - p.t0) - up) > 1e-9) out.push('hit-stop: a bolt ages in the freeze');
+      for (let i = 0; i < 8; i++) step(S, { keys: [], px: 960, py: 540 });
+      if (h.hp <= 10) out.push('hit-stop: a potion pressed in the freeze is lost'); }
     return out;
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { openSecret, debugSecrets, lootAudit, openChest, DT, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -149,70 +149,50 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
   // gives nothing of the layout away. On the world's 2 px grid
+  // shallow water as the accepted cave reference shows it (TASKS 230, study/refs/ref_cave_water.png): dark teal, nearly opaque,
+  // the bank ragged on the art grid, pale streaks and ripples carried down the flow, flecks of foam along the banks, the fires
+  // above broken into its ripples; a dark wet rim on the stone round it
   const WATER = `
 uniform sampler2D u_mask; uniform vec4 u_box, u_room; uniform vec2 u_map; uniform vec3 u_col;
 uniform vec4 u_fire[8]; uniform vec3 u_fireCol[8];
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   if (w.x < u_room.x || w.y < u_room.y || w.x >= u_room.z || w.y >= u_room.w) discard;
-  vec2 uv = w / u_map; float mk = texture(u_mask, uv).r;
+  float mk = texture(u_mask, w / u_map).r;
   if (mk < 0.04) discard;
   vec2 flow = texelFetch(u_mask, ivec2(floor(w / 32.0)) * 4 + 2, 0).gb * 2.0 - 1.0;
-  if (length(flow) < 0.1) flow = vec2(0.0, 0.15);
-  vec2 p = w - flow * u_t * 22.0;
-  float e = mk + (vnoise(w / 9.0) - 0.5) * 0.1;
-  float d = (e - 0.5) * 32.0, inside = smoothstep(-0.8, 0.8, d);
-  float bank = (1.0 - smoothstep(0.0, 4.0, d)) * inside;
-  float wave = sin(p.y * 0.42 + sin(p.x * 0.18) * 2.2 + vnoise(p / 16.0) * 4.0);
-  float rip = step(0.8, wave) * step(0.5, vnoise(p / vec2(9.0, 22.0)));
-  vec2 bend = p / 17.0 + vec2(sin(p.y * 0.07 + u_t * 0.5), sin(p.x * 0.08 - u_t * 0.4)) * 0.8;
-  float caustic = pow(max(0.0, 1.0 - abs(sin(bend.x * 3.0) + sin(bend.y * 3.7))), 9.0);
-  float foam = bank * step(0.56, vnoise(p / 5.0)) * (0.6 + 0.4 * sin(u_t * 2.0 + w.x));
+  if (length(flow) < 0.1) flow = vec2(0.0, 1.0);
+  flow = normalize(flow);
+  vec2 p = w - flow * u_t * 26.0, q = vec2(dot(p, vec2(-flow.y, flow.x)), dot(p, flow));
+  float e = mk + (vnoise(w / 6.0) - 0.5) * 0.32;
+  float d = (e - 0.5) * 32.0, inside = step(0.0, d);
+  float bank = (1.0 - smoothstep(0.0, 5.0, d)) * inside, depth = smoothstep(2.0, 14.0, d);
+  float streak = step(0.8, vnoise(vec2(q.x / 2.5, q.y / 16.0))) * step(0.45, vnoise(p / 23.0));
+  float rip = step(0.78, sin(q.y * 0.32 + vnoise(p / 12.0) * 5.0)) * step(0.55, vnoise(p / vec2(9.0, 20.0)));
+  float foam = bank * step(0.6, vnoise(p / 4.0 + 3.0));
   vec3 reflection = vec3(0.0);
   for (int i = 0; i < 8; i++) {
-    vec2 q = w - u_fire[i].xy - vec2(sin(p.y * 0.16 + hash(u_fire[i].xy) * 6.283) * 5.0, 48.0);
-    float r = exp(-q.x * q.x / 200.0 - q.y * q.y / 2800.0) * u_fire[i].w;
-    reflection += u_fireCol[i] * r * (0.12 + 0.88 * rip);
+    vec2 r0 = w - u_fire[i].xy - vec2(sin(q.y * 0.2 + hash(u_fire[i].xy) * 6.283) * 4.0, 48.0);
+    reflection += u_fireCol[i] * exp(-r0.x * r0.x / 160.0 - r0.y * r0.y / 2400.0) * u_fire[i].w * rip;
   }
-  vec3 col = u_col * 1.8 + vec3(0.12, 0.25, 0.29) + vec3(0.26, 0.36, 0.31) * caustic;
-  col += vec3(0.22, 0.33, 0.32) * rip + vec3(0.42, 0.5, 0.44) * foam + reflection * 0.65;
-  float wet = smoothstep(-12.0, -1.0, d) * (1.0 - inside), a = inside * 0.34;
-  o = vec4(col * a, a + wet * 0.34); }`;
-  const SPRING = `
-uniform float u_kind, u_seed;
-void main(){ vec2 p = floor(v_uv * vec2(96.0, 100.0) / 2.0) * 2.0 - vec2(48.0, 72.0);
-  float grain = vnoise(p / 4.0 + u_seed), stone = floor(grain * 3.0) / 3.0;
-  vec3 col = vec3(0.18, 0.20, 0.19) + stone * vec3(0.16, 0.15, 0.12); float a = 0.0;
-  float basin = length((p - vec2(0.0, 3.0)) / vec2(32.0, 15.0));
-  if (basin < 1.0) { a = 1.0; col *= p.y > 5.0 ? 0.6 : 1.0;
-    float inner = length((p + vec2(0.0, 2.0)) / vec2(25.0, 8.0));
-    if (inner < 1.0) { col = vec3(0.08, 0.2, 0.23); float ring = abs(fract(length(p * vec2(1.0, 1.9)) / 12.0 - u_t * 1.6) - 0.5);
-      col += vec3(0.2, 0.3, 0.28) * step(ring, 0.07); }
-    else if (p.y < 3.0) col += vec3(0.12, 0.12, 0.1);
-    if (abs(sin(atan(p.y - 3.0, p.x) * 5.0)) < 0.12) col *= 0.65;
-  }
-  float plate = max(abs(p.x) / 16.0, abs(p.y + 34.0) / 15.0);
-  if (plate < 1.0) { a = 1.0; col = vec3(0.16, 0.18, 0.16) + stone * 0.2;
-    float hole = length((p + vec2(0.0, 31.0)) / vec2(9.0, 6.0));
-    if (hole < 1.0) col = hole < 0.65 ? vec3(0.018, 0.028, 0.028) : vec3(0.22, 0.26, 0.22);
-    if (u_kind > 0.5 && abs(mod(p.x + 11.0, 6.0) - 3.0) < 1.0 && p.y < -23.0 && p.y > -40.0) col = vec3(0.035, 0.045, 0.04);
-  }
-  if (p.y >= -30.0 && p.y < 0.0) { float width = 2.0 + (p.y + 30.0) * 0.06, curve = sin(p.y * 0.18 - u_t * 8.0 + u_seed);
-    if (abs(p.x - curve) < width) { a = 0.75; col = vec3(0.26, 0.45, 0.46) + step(0.4, sin(p.y * 0.7 - u_t * 22.0)) * vec3(0.22, 0.25, 0.21); }
-  }
-  for (int j = 0; j < 9; j++) { float k = float(j), age = fract(u_t * 1.3 + hash(vec2(k, u_seed)));
-    vec2 drop = vec2((hash(vec2(k, 3.0)) - 0.5) * 30.0 * age, -sin(age * 3.14159) * (8.0 + hash(vec2(k, 7.0)) * 12.0) + age * 6.0);
-    if (length(p - drop) < 1.4 && age < 0.85) { col = vec3(0.48, 0.64, 0.61); a = 0.8; }
-  }
+  vec3 deep = u_col * 0.7 + vec3(0.02, 0.06, 0.065), shallow = u_col + vec3(0.05, 0.12, 0.12);
+  vec3 col = mix(shallow, deep, depth) + vec3(0.09, 0.15, 0.14) * rip + vec3(0.16, 0.22, 0.2) * streak;
+  col = mix(col, vec3(0.32, 0.38, 0.35), foam * 0.8) + reflection * 0.5;
+  float wet = smoothstep(-10.0, -1.0, d) * (1.0 - inside), a = inside * mix(0.8, 0.93, depth);
+  o = vec4(col * a, a + wet * 0.5); }`;
+  // a fountain's jet from the mask's mouth into its basin: a thin twisting pour on the art grid, drops thrown out where it lands,
+  // rings spreading in the basin. Box 48 x 64 view px, the mouth at the top, the basin's water at u_fall px
+  const JET = `
+uniform float u_seed, u_fall;
+void main(){ vec2 p = floor(v_uv * vec2(48.0, 64.0) / 2.0) * 2.0 + 1.0 - vec2(24.0, 0.0); float a = 0.0; vec3 col = vec3(0.0);
+  if (p.y < u_fall) { float width = 2.0 + p.y / u_fall * 1.5, curve = 1.5 * sin(p.y * 0.22 - u_t * 9.0 + u_seed);
+    if (abs(p.x - curve) < width) { a = 0.85; col = vec3(0.12, 0.24, 0.24) + step(0.45, sin(p.y * 0.8 - u_t * 24.0)) * vec3(0.2, 0.24, 0.2); } }
+  vec2 r = (p - vec2(0.0, u_fall + 2.0)) * vec2(1.0, 2.6);
+  float ring = abs(fract(length(r) / 14.0 - u_t * 1.4) - 0.5);
+  if (length(r) < 26.0 && step(ring, 0.06) > 0.5) { a = max(a, 0.55 * (1.0 - length(r) / 26.0)); col = vec3(0.24, 0.32, 0.3); }
+  for (int j = 0; j < 7; j++) { float k = float(j), age = fract(u_t * 1.6 + hash(vec2(k, u_seed)));
+    vec2 drop = vec2((hash(vec2(k, 3.0)) - 0.5) * 26.0 * age, u_fall - sin(age * 3.14159) * (5.0 + hash(vec2(k, 7.0)) * 8.0));
+    if (length(p - drop) < 1.5 && age < 0.85) { col = vec3(0.4, 0.52, 0.5); a = 0.85; } }
   if (a == 0.0) discard; o = vec4(col * a, a); }`;
-  const WATERSTONE = `
-uniform sampler2D u_stone; uniform vec2 u_origin; uniform float u_grate;
-void main(){ vec2 p = floor(v_uv * 32.0 / 2.0) * 2.0 + 1.0, q = abs(p - 16.0);
-  float edge = min(14.0 - q.x, 13.0 - q.y);
-  if (edge < 0.0 || q.x + q.y > 23.0 + floor(hash(u_origin) * 3.0) * 2.0) discard;
-  vec3 col = texture(u_stone, fract((u_origin + p) / 288.0)).rgb * 0.85;
-  if (edge < 2.0) col = p.y < 16.0 && p.x < 28.0 ? col * 1.4 : col * 0.3;
-  if (u_grate > 0.5 && q.x < 10.0 && q.y < 9.0) col = mod(p.x, 6.0) < 2.0 ? vec3(0.18, 0.2, 0.18) : vec3(0.018, 0.024, 0.025);
-  o = vec4(col, 1.0); }`;
   const LIT = `
 uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam;
 // the abyss is black (TASKS 187): the concept's rock past the masonry is a flat near-black, its veins only in the fire depths, faint,
@@ -260,7 +240,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   };
   function views(z) {
     Z = z; VW = W / Z; VH = H / Z;
-    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER, spring: SPRING, waterstone: WATERSTONE, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
+    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, pool: WATER, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); }
     LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }) };
   }
@@ -388,7 +368,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
   // where the fire depths' abyss may glow: rock within a few cells of a floor or lava cell
   const veinTex = (m) => { const d = rockDist(m); return maskTex(m, 'veins', (x, y) => x >= 0 && y >= 0 && x < m.W && y < m.H && d[y * m.W + x] <= 5); };
-  const waterTex = (m) => { const w = new Set(m.water || []); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x), (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };
+  // the dry crossings are stepping stones laid in the stream: the water runs on under them (TASKS 230)
+  const waterTex = (m) => { const w = new Set((m.water || []).concat(m.waterBridges || [])); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x), (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };
   // 1 deep in the rock (3 to 6 cells from any floor, soft) and toward the map's edge, where a room may lie close: the abyss shows through
   // cells of rock from the nearest floor or wall face (a top wall's two face cells count as open): the masonry is a rim of two
   // cells around the rooms, the third fades, and the abyss shows past it, so rooms read by their silhouette as in the reference
@@ -427,11 +408,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SEEN.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
     return SEEN.rec;
   }
-  const SPELL_FLOOR = { key: '', rec: null };
+  const SPELL_FLOOR = { key: '', rec: null, cv: null };
   function spellFloor(R) {
-    const m = R.map, key = m.seed + ':' + m.floor + ':' + m.cells.join('') + ':' + R.seen.join('');
+    // a rolling hash of the cells and the explored mask: no string of the whole map per frame (TASKS 242)
+    const m = R.map; let hsh = 0; for (let i = 0; i < m.cells.length; i++) hsh = (Math.imul(hsh, 31) + m.cells[i] * 2 + (R.seen[i] ? 1 : 0)) | 0;
+    const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
     if (SPELL_FLOOR.key === key) return SPELL_FLOOR.rec;
-    const cv = document.createElement('canvas'); cv.width = m.W; cv.height = m.H;
+    const cv = SPELL_FLOOR.cv || (SPELL_FLOOR.cv = document.createElement('canvas')); cv.width = m.W; cv.height = m.H;
     const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H), hidden = SIM.secretMask(m);
     for (let i = 0; i < m.cells.length; i++) {
       im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3) && R.seen[i] && !hidden.has(i) ? 255 : 0;
@@ -796,11 +779,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       try { drawEnemy(e, px, py, gt, t); } finally { L.pre = null; }
     };
     if (win) {
-      enemy({ type: 'boss', elite: 1 }, x - 85, y - 65, true);
+      // the fallen lord behind and aside, the hero large and lit in front of him: the two never merge into one dark shape (TASKS 235)
+      enemy({ type: 'boss', elite: 1 }, x - 90, y - 5, true);
       if (r.hero) {
         const h = Object.assign({}, r.hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
-        L.pre = M.of(M.t(x, y), M.s(1.35, 1.35), M.t(-x, -y));
-        try { drawHero(h, x, y, t, r.heroStats, { id: 'victor', victory: true }); } finally { L.pre = null; }
+        const hx = x + 35, hy = y + 70;
+        G.blend('add'); L.glow(hx, hy - 70, 120, [0.95, 0.7, 0.35], 0.28); G.blend(); L.shadow(hx, hy + 2, 46, 9, 0.6);
+        L.pre = M.of(M.t(hx, hy), M.s(1.5, 1.5), M.t(-hx, -hy));
+        try { drawHero(h, hx, hy, t, r.heroStats, { id: 'victor', victory: true }); } finally { L.pre = null; }
       }
     } else {
       const last = (r.damage || []).slice(-1)[0]; if (last && last.actor) enemy(last.actor, x, y, false);
@@ -898,7 +884,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const x0 = Math.max(0, cx), y0 = Math.max(0, cy), x1 = Math.min(MW, cx + VW), y1 = Math.min(MH, cy + VH);
       if (x1 > x0 && y1 > y0) L.sprite('map', x0 - cx, y0 - cy, { w: x1 - x0, h: y1 - y0, src: [x0 / MW, 1 - y0 / MH, x1 / MW, 1 - y1 / MH] }); }
     L.beginComp();
-    for (const q of R.lavaPending || []) { const x = (q.cell % m.W) * TILE + 16, y = Math.floor(q.cell / m.W) * TILE + 16; if (vis(x, y) && known(x, y)) L.cracks(sx(x), sy(y), 20, Math.max(0, GT - q.t + 1.1), q.cell, 0); }
+    // lava about to break through (TASKS 233): over the whole warning the cell darkens to crust, its cracks spread and glow
+    // (emissive pass below) and it lights the floor, so the next tongue reads before it lands
+    const warnOf = (q) => SS(0, 1, (GT - (q.t0 ?? q.t - 1.1)) / Math.max(0.1, q.t - (q.t0 ?? q.t - 1.1)));
+    for (const q of R.lavaPending || []) { const x = (q.cell % m.W) * TILE + 16, y = Math.floor(q.cell / m.W) * TILE + 16; if (!vis(x, y) || !known(x, y)) continue;
+      const u = warnOf(q); L.solid(sx(x - 16), sy(y - 16), TILE, TILE, [0.06, 0.03, 0.025], 0, 0, 0, 0.55 * u); L.cracks(sx(x), sy(y), 12 + 14 * u, 0.17 * u, q.cell, 0); }
     // lava (animated, also emissive later): the crust drifts
     const lavaCells = [];
     if (m.lava) for (let y = Math.floor(cy / TILE) - 1; y <= Math.floor((cy + VH) / TILE) + 1; y++) for (let x = Math.floor(cx / TILE) - 1; x <= Math.floor((cx + VW) / TILE) + 1; x++) if (SIM.cell(m, x, y) === 3) lavaCells.push([x, y]);
@@ -922,12 +912,17 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         u_room: room ? [room.x * TILE, room.y * TILE, (room.x + room.w) * TILE, (room.y + room.h) * TILE] : [0, 0, MW, MH],
         u_fire: fires.flatMap((f) => [f[0], f[1], f[2], f[4]]), u_fireCol: fires.flatMap((f) => f[3]) }, G.xf(sx(waterBox[0]), sy(waterBox[1]), waterBox[2], waterBox[3]));
     }
-    for (const k of m.waterBridges || []) { const x = k % m.W * TILE, y = Math.floor(k / m.W) * TILE; if (!vis(x, y)) continue;
-      const b = D.BIOMES[zoneAt(m, x / TILE, y / TILE)]; L.shadow(sx(x + 16), sy(y + 22), 16, 9, 0.65);
-      G.draw(L.P.waterstone, { u_stone: G.tex(b.floor), u_origin: [x, y], u_grate: 0 }, G.xf(sx(x), sy(y - 2), TILE, TILE)); }
-    for (const q of m.waterFeatures || []) if (q.kind !== 'flood') {
-      const x = q.drain % m.W * TILE, y = Math.floor(q.drain / m.W) * TILE;
-      if (vis(x, y)) G.draw(L.P.waterstone, { u_stone: G.tex(B.floor), u_origin: [x, y], u_grate: 1 }, G.xf(sx(x), sy(y), TILE, TILE));
+    for (const k of m.waterBridges || []) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE; if (!vis(x, y)) continue;
+      const n = rnd(k, 3) < 0.35 ? 'water_stone_b' : 'water_stone_a', [w, hh] = SZ(n), jx = Math.round((rnd(k, 5) - 0.5) * 4) * 2;
+      L.shadow(sx(x + jx), sy(y + hh / 2), w * 0.45, 4, 0.5); drawProp(n, sx(x + jx), sy(y) + hh / 2, { flip: rnd(k, 9) < 0.5, u: { grade: [0.85, 0.72, 0, 1] } }); }
+    for (const q of m.waterFeatures || []) {
+      const x = (q.drain % m.W + 0.5) * TILE, y = (Math.floor(q.drain / m.W) + 0.5) * TILE, [w, hh] = SZ('water_drain');
+      if (vis(x, y)) L.sprite('water_drain', sx(x) - w / 2, sy(y) - hh / 2, { w, h: hh });
+      // the source on the wall: a mask spouting into a basin (a fountain), or a barred culvert at the wall's foot (a stream)
+      const top = m.rooms[q.room].y * TILE;
+      if (!vis(q.x, top)) continue;
+      if (q.kind === 'fountain') { const [sw, sh] = SZ('water_spout'); L.sprite('water_spout', sx(q.x) - sw / 2, sy(top - 9) - sh, { w: sw, h: sh }); }
+      else { const [gw, gh] = SZ('water_grate'); L.sprite('water_grate', sx(q.x) - gw / 2, sy(top + 4) - gh, { w: gw, h: gh }); }
     }
     // stairs / boss portal
     if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.FLOORS) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
@@ -985,13 +980,18 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
 
     // ===== Y-sorted band =====
     const Y = [], knocked = {}; for (const e of ST.ev) if (e.k === 'prop') knocked[e.i] = e;
-    for (const egg of R.eggs || []) if (egg.hp > 0 && vis(egg.x, egg.y)) Y.push([egg.y, () => { const [w0, h0] = SZ('spider_eggs'), h = 40, w = w0 / h0 * h, pulse = Math.sin((GT - egg.t0) * 9) * 1.5; L.shadow(sx(egg.x), sy(egg.y), w / 2, 5, 0.5); L.sprite('spider_eggs', sx(egg.x) - w / 2, sy(egg.y) - h - pulse, { w, h: h + pulse, u: { snap: 0 } }); }]);
-    for (const q of m.waterFeatures || []) if (q.kind !== 'flood' && vis(q.x, q.y)) Y.push([q.y + 16, () => {
-      L.shadow(sx(q.x), sy(q.y + 12), 32, 8, 0.65);
-      const xf = G.xf(sx(q.x - 48), sy(q.y - 72), 96, 100);
-      G.draw(L.P.spring, { u_t: t, u_kind: q.kind === 'stream' ? 1 : 0, u_seed: q.room }, xf);
-      L.anchor('water_source', [sx(q.x), sy(q.y - 31)], [xf[6] + xf[0] * 0.5, xf[7] + xf[4] * 0.41], 2);
-    }]);
+    // a clutch on the art grid like every sprite (TASKS 234); it stirs by whole art pixels, quicker as the hatch nears, never by a squash
+    for (const egg of R.eggs || []) if (egg.hp > 0 && vis(egg.x, egg.y)) Y.push([egg.y, () => { const [w, h] = SZ('spider_eggs'), left = egg.hatchT - GT, beat = 3 + 9 * SS(2, 0, left);
+      const stir = Math.sin((GT - egg.t0) * beat) > 0.55 ? 2 : 0, lean = left < 1 && Math.sin((GT - egg.t0) * 23) > 0.3 ? 2 : 0;
+      L.shadow(sx(egg.x), sy(egg.y), w / 2, 5, 0.5); L.sprite('spider_eggs', sx(egg.x) - w / 2 + lean, sy(egg.y) - h - stir, { w, h }); }]);
+    for (const q of m.waterFeatures || []) if (q.kind === 'fountain' && vis(q.x, q.y)) { const top = m.rooms[q.room].y * TILE, [bw, bh] = SZ('water_basin'), foot = top + 36;
+      Y.push([foot, () => {
+        L.shadow(sx(q.x), sy(foot - 2), bw * 0.45, 6, 0.6); L.sprite('water_basin', sx(q.x) - bw / 2, sy(foot) - bh, { w: bw, h: bh });
+        // the pour: from the mask's mouth (a quarter up its plate) to the basin's water, a third down the basin
+        const mouth = top - 9 - SZ('water_spout')[1] * 0.3, water = foot - bh * 0.62, xf = G.xf(sx(q.x) - 24, sy(mouth), 48, 64);
+        G.draw(L.P.jet, { u_t: t, u_seed: q.room, u_fall: water - mouth }, xf);
+        L.anchor('water_source', [sx(q.x), sy(mouth)], [xf[6] + xf[0] * 0.5, xf[7]], 2);
+      }]); }
     for (const e of ST.ev) { const a = GT - e.t;
       if (e.k === 'whirl' && a >= 0 && a < 0.48) Y.push([e.y - 1000, () => { G.blend('emit'); whirlFx(e, a, 0); G.blend(); }]);
     }
@@ -1135,12 +1135,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the shop is lit warm and bright: lanterns by its ways in, a lamp over the counter
     if (m.shop) { for (const q of m.shop.lanterns) lt(q.x, q.y - 40, 190, [1, 0.78, 0.45], 0.85 * flick(q.x)); lt(m.shop.x, m.shop.y - 50, 260, [1, 0.82, 0.55], 0.75); }
     for (const [x, y] of lavaCells) { if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, 140, [1.0, 0.42, 0.12], 0.55 * flick(x * 3 + y)); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2, 1.6); }
+    for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, [0.4, 0.7, 1.0], 0.9);
     if (m.floor === D.FLOORS && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
     for (const p of R.proj) lt(p.x, p.y + 20, p.own === 'hero' ? 140 : 150, p.k === 'hex' ? [0.4, 1.0, 0.4] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
-    for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.55, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
+    for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.7, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       if (e.k === 'prop' && e.mat === 'crystal' && a < 0.7) lt(e.x, e.y - 30, 260, [0.4, 0.65, 1.0], 1.4 * (1 - a / 0.7));
       if (e.k === 'prop' && (e.n === 'brazier' || e.n === 'torch_sconce') && a < 0.6) lt(e.x, e.y - 30, 240, [1.0, 0.6, 0.25], 0.9 * (1 - a / 0.6));
@@ -1166,6 +1167,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // ===== emissive pass =====
     G.blend('add');
     if (lavaXf) G.draw(L.P.lava, lavaU(1), lavaXf);
+    for (const q of R.lavaPending || []) { const x = (q.cell % m.W) * TILE + 16, y = Math.floor(q.cell / m.W) * TILE + 16; if (!vis(x, y) || !known(x, y)) continue;
+      const u = warnOf(q), beat = 0.7 + 0.3 * Math.sin(GT * (8 + 10 * u) + q.cell); L.glow(sx(x), sy(y), 12 + 10 * u, [1, 0.42, 0.1], (0.2 + 0.7 * u) * beat, 2.4); }
     G.blend();
     G.blend('add');
     // shrine and portal
@@ -1212,6 +1215,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), hh = SZ(EN_TEX[e.type])[1] * 1.3;
       for (let j = 0; j < 4; j++) { const q = (t * 0.45 + rnd(e.id, j)) % 1, an = rnd(e.id, j + 7) * 6.28;
         L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); } }
+    // the forge lord is charred dark, or his red skin vanished into his own red-lit arena; his heat shows as a breathing glow in the
+    // chest and embers off the body (TASKS 232)
+    for (const e of R.en) { if (e.type !== 'boss_forge' || e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
+      const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), hh = SZ(EN_TEX[e.type])[1] * D.BOSSES[e.type].scale, pu = 0.5 + 0.5 * Math.sin(t * 2.2);
+      L.glow(x, y - hh * 0.58, 20 + 5 * pu, [1, 0.5, 0.12], 0.55 + 0.25 * pu, 3);
+      for (let j = 0; j < 9; j++) { const q = (t * 0.5 + rnd(e.id, j)) % 1, an = rnd(e.id, j + 7) * 6.28;
+        L.star(x + Math.cos(an) * E.r * 1.1 * (1 - 0.4 * q) + 7 * Math.sin(t * 2 + j), y - hh * (0.15 + 0.95 * q), 4 + 3 * (1 - q), [1, 0.5 + 0.3 * rnd(e.id, j + 3), 0.12], Math.sin(Math.PI * q) * 0.8); } }
     // event FX
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       // the crescent is a vertical C on the chest, ±ARC_HALF about the aim, drawn in the blade's turning direction over the strike so
@@ -1647,14 +1657,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
         let at = null; for (let d = 0; d < 8 && !at; d++) for (let j = -d; j <= d && !at; j++) for (let i = -d; i <= d && !at; i++) if (SIM.cell(m, r.cx + i, r.cy + j) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => SIM.cell(m, r.cx + i + a, r.cy + j + b) === 3)) at = [r.cx + i, r.cy + j];
         at = at || [r.cx, r.cy]; h.x = (at[0] + 0.5) * TILE; h.y = (at[1] + 0.6) * TILE; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]); }
-    for (const floor of [1, 3, 7]) for (const kind of ['fountain', 'stream', 'flood']) {
+    for (const floor of [1, 3, 7]) for (const kind of ['fountain', 'stream']) {
       for (const seed of [1, 2, 3, 1234]) {
         const S = play(); S.run = SIM.newRun(S, 'campaign', seed); const R = S.run; SIM.enterFloor(S, R, floor);
         const m = R.map, q = m.waterFeatures.find((q) => q.kind === kind); if (!q) continue;
         const r = m.rooms[q.room], h = R.hero, k = q.bridge?.[Math.floor(q.bridge.length / 2)] || m.water.filter((k) => DUNGEON.roomAt(m, (k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE) === r.id
           && !m.block.includes(k) && !R.pots.some((p) => Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE) === k)).sort((a, b) => Math.hypot(a % m.W - r.cx, Math.floor(a / m.W) - r.cy) - Math.hypot(b % m.W - r.cx, Math.floor(b / m.W) - r.cy))[0];
         h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.6) * TILE; h.vx = h.vy = 0; h.ifr = 1e9;
-        R.en = kind === 'flood' ? R.en.filter((e) => e.room === r.id) : []; R.msg = null;
+        R.en = []; R.msg = null;
         R.zoom = 2; R.cam = [(r.x + r.w / 2) * TILE - W / 4, (r.y + r.h / 2) * TILE - H / 4 - 20];
         R.seen.fill(1); R.rseen.fill(1); S.ev = [];
         states.push(['water_' + kind + '_' + m.biome, S]);
@@ -1930,7 +1940,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
       const h = R.hero; return [h.x - R.cam[0] - 50, h.y - R.cam[1] - 90, 100, 110]; };
     const anim = {};
-    for (const kind of ['fountain', 'stream', 'flood']) {
+    for (const kind of ['fountain', 'stream']) {
       const base = states.find(([name]) => name === 'water_' + kind + '_dungeon')?.[1]; if (!base) continue;
       const on = [], off = [];
       for (let i = 0; i < 24; i++) {
@@ -1983,6 +1993,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         R.cam = [b.x - VW / 2, b.y - VH / 2]; R.msg = { s: D.ENEMIES[type].name, t: S.t - 0.5 };
       })]);
     }
+    // the forge lord's lava through its warning, a third, two thirds and the instant before it breaks through (TASKS 233)
+    for (const [i, part] of [0.33, 0.66, 0.97].entries()) states.push(['arena_lava_warn_' + i, play((S) => {
+      SIM.enterFloor(S, S.run, 6); const R = S.run, b = R.en.find((e) => e.type === 'boss_forge'), h = R.hero;
+      h.x = b.x + 90; h.y = b.y + 130; h.ifr = 1e9; R.seen.fill(1); R.msg = null;
+      SIM.step(S, { keys: [] }); b.st = 'bwind'; b.mv = 'lava'; b.t0 = S.t; b.fired = 0; b.hitDone = 0; const M = D.bossMove(b);
+      for (let k = 0; k < Math.ceil((M.wind + 0.01 + M.warn * part) / SIM.DT); k++) SIM.step(S, { keys: [] });
+      R.cam = [b.x - VW / 2, b.y - VH / 2]; })]);
     for (const [name, phase, span] of [['boss_phase2_volley', 1, 2.25], ['boss_phase3_warning', 2, 1.4], ['boss_phase3_lava', 2, 2.2]]) states.push([name, play((S) => {
       SIM.enterFloor(S, S.run, 8); const R = S.run, b = R.en.find((e) => e.type === 'boss'), h = R.hero;
       h.x = b.x + 90; h.y = b.y + 110; h.ifr = 1e9; R.seen.fill(1); SIM.step(S, { keys: [] });
