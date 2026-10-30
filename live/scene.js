@@ -1310,6 +1310,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const n = rnd(k, 3) < 0.35 ? 'water_stone_b' : 'water_stone_a', [w, hh] = SZ(n), jx = Math.round((rnd(k, 5) - 0.5) * 4) * 2;
       L.shadow(sx(x + jx), sy(y + hh / 2), w * 0.45, 4, 0.5); drawProp(n, sx(x + jx), sy(y) + hh / 2, { flip: rnd(k, 9) < 0.5, u: { grade: [0.85, 0.72, 0, 1] } }); }
     const wetSet = WET.get(m) || (WET.set(m, new Set(m.water)), WET.get(m));
+    const dryCrossings = new Set((m.crossings || []).filter((c) => c.kind === 'bridge' || c.kind === 'ford').flatMap((c) => c.cells));
     const inWet = (x, y) => { const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE); return SIM.cell(m, cx, cy) === 6 || wetSet.has(cy * m.W + cx); };
     const ev2 = (v) => Math.round(v / 2) * 2;
     // rings spreading slowly round whatever stands in the water
@@ -1607,7 +1608,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
       if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y), GT, st), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0 });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
-      if (caveW && h.deadT < 0 && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) {
+      const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);
+      if (caveW && h.deadT < 0 && !dryCrossings.has(heroCell) && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(heroCell)) {
         const X = Math.round(sx(h.x) / PIX) * PIX, Y0 = Math.round(sy(h.y) / PIX) * PIX;
         for (let dy = -10; dy <= 6; dy += PIX) { const hw = Math.round(24 * Math.sqrt(Math.max(0, 1 - ((dy + 2) / 9) ** 2)) / PIX) * PIX; if (hw <= 0) continue;
           L.solid(X - hw, Y0 + dy, 2 * hw, PIX, dy < -8 ? [0.62, 0.84, 0.86] : [0.07, 0.3, 0.42], 0, 0, 0, dy < -8 ? 0.7 : 0.5); }
@@ -2571,6 +2573,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
       look('cave_camp', (m) => { const r = m.rooms.find((q) => q.camp); return r ? { x: m.sanct.x, y: m.sanct.y - 40, hero: [m.spawn.x, m.spawn.y] } : null; });
       look('cave_wreck', (m) => { const d = m.decor.find((o) => o.n === 'wreck_cv'); return d ? { x: d.x, y: d.y - 20 } : null; });
+      for (const [name, dx, dy] of [['front', 0, 1], ['back', 0, -1], ['left', -1, 0], ['right', 1, 0]]) for (const moving of [0, 1]) {
+        const Q = structuredClone(states.find(([n]) => n === 'cave_water')[1]), R = Q.run, h = R.hero;
+        h.face = dx < 0 ? -1 : 1; h.back = dy < 0; h.backT = -9; h.aim = Math.atan2(dy, dx);
+        h.vx = dx * 150 * moving; h.vy = dy * 150 * moving; h.gp = 1.2; h.atkT = h.castT = h.dashT = h.hurtT = -9;
+        Q.ev = []; R.zoom = 2; R.cam = [h.x - VW / 4, h.y - VH / 4];
+        states.push(['cave_wade_' + name + (moving ? '_stride' : '_idle'), Q]);
+      }
       // the cave's monsters (TASKS 307, 308) on a shore: a drowned halfway up out of the shallows, another lying in wait (bubbles),
       // a slime at the top of its hop, a small one squatting to jump, a puddle of slime
       S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
