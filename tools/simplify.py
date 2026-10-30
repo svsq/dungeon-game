@@ -34,7 +34,7 @@ PALETTES = {
     'water_drain': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#552f25', '#733a21', '#1a4135'],
     'water_stone_a': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
     'water_stone_b': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
-    'lily_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f', '#c8b89a'],
+    'lily_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f', '#c8b89a', '#eed68a'],
     'weed_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f'],
     'ford_a': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
     'ford_b': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
@@ -73,7 +73,8 @@ def reduce_bones(im):
 
 
 def simplify(im, height, palette, name):
-    im = im.crop(im.getbbox())
+    box = Image.fromarray((np.array(im)[..., 3] >= 128).astype(np.uint8) * 255).getbbox() if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv') else im.getbbox()
+    im = im.crop(box)
     w = round(height * im.width / im.height)
     a = np.array(im.resize((w, height), Image.Resampling.NEAREST))
     source_green = a[..., 1].copy()
@@ -117,9 +118,23 @@ def simplify(im, height, palette, name):
         if name == 'shop_scales':
             a[solid & ~wide, :3] = hex_rgb('#e2881e')
             a[solid & ~wide & (source_green > 110), :3] = hex_rgb('#f9ce4a')
+    if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv'):
+        steps = 2
+        wide = ndimage.binary_dilation(ndimage.binary_erosion(solid, iterations=steps), iterations=steps)
+        outline |= solid & ~ndimage.binary_erosion(solid, iterations=steps) & wide
     a[outline, :3] = palette[ink]
     a[..., 3] = solid * 255
     a[~solid, :3] = 0
+    if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv'):
+        border = 1
+        pad = border + 1
+        canvas = np.zeros((height + 2 * pad, w + 2 * pad, 4), dtype=np.uint8)
+        canvas[pad:-pad, pad:-pad] = a
+        grown = ndimage.binary_dilation(canvas[..., 3] > 0, iterations=border)
+        canvas[grown & (canvas[..., 3] == 0), :3] = palette[ink]
+        canvas[..., 3] = grown * 255
+        im = Image.fromarray(canvas)
+        return im.resize((im.width * UP, im.height * UP), Image.Resampling.NEAREST)
     canvas = Image.new('RGBA', (w + 2, height + 2))
     canvas.paste(Image.fromarray(a), (1, 1))
     return canvas.resize((canvas.width * UP, canvas.height * UP), Image.Resampling.NEAREST)
@@ -143,7 +158,7 @@ def main():
             continue
         dest = ROOT / 'art/gen' / (name + '.png')
         backup = ROOT / 'art/old/simplify' / (name + '.png')
-        source = ROOT / 'art/raw' / (name + '.png') if name in ('water_stone_a', 'water_stone_b') else backup
+        source = ROOT / 'art/raw' / (name + '.png') if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv') else backup
         if not source.exists():
             source = backup
         if not args.check:
