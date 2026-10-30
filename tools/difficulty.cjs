@@ -92,7 +92,7 @@ const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 
   easy: { average: { win: [0.85, 1] } },
   normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] }, builder: BUILDER },
-  hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] }, builder: BUILDER } };
+  hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] }, builder: BUILDER } } };
 function check() {
   const miss = failed.map((s) => `missing result: ${s}`), B = (BANDS[mode] || {})[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
   // one fresh version only: results saved from another version or resumed from a checkpoint never pass (TASKS 240)
