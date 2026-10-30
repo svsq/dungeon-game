@@ -1,0 +1,3 @@
+[{"name": "candlestick", "prompt": "art/prompts/candlestick.txt", "ref": ["art/gen/candles.png=the game's candles", "art/gen/brazier.png=the game's brazier"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "candelabra", "prompt": "art/prompts/candelabra.txt", "ref": ["art/gen/candles.png=the game's candles", "art/gen/brazier.png=the game's brazier"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "torch_stand", "prompt": "art/prompts/torch_stand.txt", "ref": ["art/gen/brazier.png=the game's brazier", "art/gen/torch_sconce.png=the game's wall torch"], "size": "1024x1024", "alpha": "auto"}]
