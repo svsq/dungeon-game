@@ -1485,7 +1485,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // candles standing on a table are one painted piece with it (table_candles): the pair drawn apart never sat right
     const onTable = (c) => m.decor.find((t) => t.n === 'table' && Math.abs(t.x - c.x) <= 6 && c.y - t.y === 1);
     const lit = new Set(m.decor.filter((c) => c.n === 'candles' && c.lift).map(onTable).filter(Boolean));
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] ? d.s || 1 : 1, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] ? d.s || 1 : 1, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
@@ -1721,7 +1721,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the mushrooms' caps and the crystals glow over their own light, and the mushrooms shed spores: single pale motes drifting up
     // and sideways a long way, slower than embers, each on its own beat (TASKS 305)
     for (const d of m.decor) { const g = glowOf(d); if (!g || hid(d) || !vis(d.x, d.y) || !known(d.x, d.y)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
-      L.glow(sx(d.x), sy(d.y) - g.up, g.cap * 2.4, col, (g.col === 'shroom' ? 0.23 : 0.32) * b, 2.4); L.glow(sx(d.x), sy(d.y) - g.up, g.cap, col.map((v) => 0.5 + 0.5 * v), (g.col === 'shroom' ? 0.16 : 0.22) * b, 3);
+      L.glow(sx(d.x), sy(d.y) - g.up, g.cap * 2.4, col, (g.col === 'shroom' ? 0.16 : 0.32) * b, 2.4); L.glow(sx(d.x), sy(d.y) - g.up, g.cap, col.map((v) => 0.5 + 0.5 * v), (g.col === 'shroom' ? 0.11 : 0.22) * b, 3);
       if (g.col !== 'shroom') continue;
       for (let j = 0; j < 4; j++) { const k = d.x * 7 + d.y * 13, q = (t * (0.12 + 0.06 * rnd(k, j)) + rnd(k, j + 3)) % 1; if (q > 0.9) continue;
         const ex = d.x + (rnd(k, j + 7) - 0.5) * 22 + Math.sin(t * 0.7 + j * 2.3 + k) * 14 * q, ey = d.y - g.up + 4 - 70 * q * (0.6 + 0.4 * rnd(k, j + 11));
@@ -2573,6 +2573,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
       look('cave_camp', (m) => { const r = m.rooms.find((q) => q.camp); return r ? { x: m.sanct.x, y: m.sanct.y - 40, hero: [m.spawn.x, m.spawn.y] } : null; });
       look('cave_wreck', (m) => { const d = m.decor.find((o) => o.n === 'wreck_cv'); return d ? { x: d.x, y: d.y - 20 } : null; });
+      for (const place of ['bridge', 'camp']) for (const [dir, face, back] of [['front', 1, 0], ['back', 1, 1], ['left', -1, 0], ['right', 1, 0]]) {
+        const Q = structuredClone(states.find(([n]) => n === 'cave_' + place)[1]), h = Q.run.hero;
+        Object.assign(h, { face, back, backT: -9, faceT: -9, vx: 0, vy: 0, atkT: -9, castT: -9, dashT: -9 }); Q.ev = [];
+        states.push(['cave_light_' + place + '_' + dir, Q]);
+      }
       for (const [name, dx, dy] of [['front', 0, 1], ['back', 0, -1], ['left', -1, 0], ['right', 1, 0]]) for (const moving of [0, 1]) {
         const Q = structuredClone(states.find(([n]) => n === 'cave_water')[1]), R = Q.run, h = R.hero;
         h.face = dx < 0 ? -1 : 1; h.back = dy < 0; h.backT = -9; h.aim = Math.atan2(dy, dx);
@@ -2738,6 +2743,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     transitions.serpent_dive = serpentFrames((S, b) => { b.st = 'dive'; b.t0 = S.t; });
     transitions.serpent_death = serpentFrames((S, b) => { b.hp = 0; b.deadT = S.t; }, 95);
     states.push(['serpent_arena', serpentState()]);
+    states.push(['cave_arena_exit', serpentState((S, b) => {
+      const R = S.run, h = R.hero; R.bossDead = true; b.hp = 0; b.deadT = S.t - 3;
+      h.x = R.map.exit.x - 48; h.y = R.map.exit.y + 32; R.cam = [R.map.exit.x - VW / 2, R.map.exit.y - VH / 2];
+    })]);
     for (const mv of Object.keys(D.BOSSES.boss_serpent.moves)) {
       const setup = (S, b) => { b.st = 'bwind'; b.mv = mv; b.t0 = S.t; b.fired = 0; b.hitDone = 0; b.tx = S.run.hero.x; b.ty = S.run.hero.y; b.face = b.tx >= b.x ? 1 : -1; b.aimA = Math.atan2(b.ty - b.y, b.tx - b.x);
         if (mv === 'fan') { const [x, y] = SIM.serpentMouth(b); b.aimA = Math.atan2(S.run.hero.y - 38 - y, S.run.hero.x - x); }
