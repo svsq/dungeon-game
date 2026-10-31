@@ -232,7 +232,7 @@
       const s = e.k === 'trade' ? e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) + ' зол.' : e.k === 'pickup' ? (e.worn ? 'Надето: ' : 'Подобрано: ') + e.s : e.k === 'lvl' ? 'Новый уровень ' + e.lvl + '! Нажмите ' + K('≡', 'I') : e.k === 'unlock' ? 'Открыта способность: ' + D.ABILITIES.find((A) => A.id === e.id).name : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 24;
       panel('feedbox' + i, 18, y - 15, w, 30, { r: 5, a: 0.7 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
-    if (S.screen === 'play') { const k = K('≡ — герой · ☰ — пауза', 'I — герой · M — звук · Esc — пауза'), kw = lw('keys', k, { size: 15 }) + 24;
+    if (S.screen === 'play') { const k = K('≡ — герой · L3 — звук · ☰ — пауза', 'I — герой · M — звук · Esc — пауза'), kw = lw('keys', k, { size: 15 }) + 24;
       panel('keys_box', W - 12 - kw, H - 36, kw, 30, { r: 6, a: 0.7 }); lab('keys', k, W - 24, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
   }
 

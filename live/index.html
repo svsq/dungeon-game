@@ -35,6 +35,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   window.__ready = true;
   if (render) return;
 
+  // 252: the dev line also opens with #dev (a hash survives where a query got lost) or from the pad itself — R3 toggles it
+  let devOn = q.has('dev') || /dev/.test(location.hash);
   const keys = {}, hint = document.getElementById('hint'), dev = document.getElementById('dev'), flash = document.getElementById('flash');
   const SPEEDS = [0.1, 0.25, 0.5, 1];
   // game saves: meta progress + the current run in localStorage (the sim asks by bumping S.saveN)
@@ -64,6 +66,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
     keys[c] = 1; if (play) pend.keys.push(c); if (c.startsWith('Arrow')) kbArrows[c] = 1;
+    if (c === 'Enter' && play && play.screen === 'play') pend.keys.push('KeyE');   // 252: Enter = действие в бою (Steam Deck в режиме рабочего стола шлёт Enter с A)
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay();
     e.preventDefault();
@@ -87,13 +90,40 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const ARROWS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'], kbArrows = {};   // keyboard's own arrow state: stick/dpad never stomp a held key
   const gpTilt = (v) => Math.sign(v) * v * v, gpKeys = new Set(), gpPrev = [], gpDir = { x: 0, y: 0 }, gpMove = { ArrowLeft: 0, ArrowRight: 0, ArrowUp: 0, ArrowDown: 0 };
   const gpDown = (code) => { keys[code] = 1; pend.keys.push(code); }, gpUp = (code) => { keys[code] = 0; };
-  const gpClear = () => { for (const c of gpKeys) gpUp(c); for (const c of ARROWS) gpUp(c); gpKeys.clear(); gpPrev.length = 0; ptr.down = 0;
+  let gpOn = 0, gpIdx = -1;                                 // gpOn: a pad was read last frame — the unplug cleanup runs once, not every frame
+  const gpClear = () => { if (!gpOn) return; gpOn = 0; gpIdx = -1;   // 252: running it every frame zeroed ptr.down and killed the LMB/R2 hold attack
+    for (const c of gpKeys) gpUp(c); for (const c of ARROWS) gpUp(c); gpKeys.clear(); gpPrev.length = 0; ptr.down = 0;
     for (const c of ARROWS) gpMove[c] = 0; for (const c of ARROWS) if (kbArrows[c]) keys[c] = 1;   // a held keyboard arrow survives the unplug
     PAD.at = -99; PAD.mag = 1; PAD.active = 0; };   // pad gone → pad mode off: hints and the drawn cursor return to mouse/keyboard
+  // 252: the pad is read through one standard view (W3C 'standard' order: 0 A 1 B 2 X 3 Y 4 LB 5 RB 6 LT 7 RT 8 Select
+  // 9 Start 10 L3 11 R3 12–15 dpad ↑↓←→; axes 0/1 left, 2/3 right stick). A pad without 'standard' mapping (Firefox on
+  // Linux, raw evdev order) gets the xpad layout: buttons A B X Y LB RB Select Start Guide L3 R3, axes LX LY LT RX RY RT
+  // hatX hatY — triggers as axes resting at −1 (or 0 until first touched), dpad as a hat.
+  const gpView = (gp) => {
+    const bt = gp.buttons || [], ax = gp.axes || [], bp = (i) => !!(bt[i] && (bt[i].pressed || bt[i].value > 0.5));
+    if (gp.mapping === 'standard' || ax.length < 6) return { press: bp, ax: [ax[0] || 0, ax[1] || 0, ax[2] || 0, ax[3] || 0], std: gp.mapping === 'standard' };
+    const XP = [0, 1, 2, 3, 4, 5, -1, -1, 6, 7, 9, 10], hx = ax[6] || 0, hy = ax[7] || 0;
+    return { std: false, ax: [ax[0] || 0, ax[1] || 0, ax[3] || 0, ax[4] || 0],
+      press: (i) => i === 6 ? (ax[2] || 0) > 0.3 : i === 7 ? (ax[5] || 0) > 0.3 : i === 12 ? hy < -0.5 : i === 13 ? hy > 0.5 : i === 14 ? hx < -0.5 : i === 15 ? hx > 0.5 : XP[i] >= 0 && bp(XP[i]) };
+  };
+  const gpBusy = (v) => v.ax.some((a) => Math.abs(a) > 0.3) || [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].some(v.press);
+  // which pad: Steam can show the browser two (its virtual pad and the Deck itself), and pads[0] may be the silent one —
+  // the pad that was last touched drives, a 'standard' one is the default before anything is pressed
+  const gpPick = (pads) => {
+    const cur = pads.find((p) => p.index === gpIdx);
+    if (cur && gpBusy(gpView(cur))) return cur;
+    const busy = pads.find((p) => gpBusy(gpView(p)));
+    if (busy) { if (cur) gpClear(); gpIdx = busy.index; return busy; }   // switching pads drops the old one's held keys
+    if (cur) return cur;
+    const d = pads.find((p) => p.mapping === 'standard') || pads[0]; gpIdx = d.index; return d;
+  };
+  const gpOver = () => gpButtonsOf(play).find((b) => b.on !== false && ptr.x >= b.x && ptr.x <= b.x + b.w && ptr.y >= b.y && ptr.y <= b.y + b.h);
   const pollPad = (dt) => {
-    const pads = ((navigator.getGamepads && navigator.getGamepads()) || []).filter(Boolean), gp = pads[0];
-    if (!gp) { gpClear(); return; }
-    const bt = gp.buttons || [], ax = gp.axes || [], press = (i) => !!(bt[i] && bt[i].pressed);
+    const pads = Array.from((navigator.getGamepads && navigator.getGamepads()) || []).filter((p) => p && p.connected !== false);
+    PAD.n = pads.length;
+    if (!pads.length) { gpClear(); return; }
+    const gp = gpPick(pads); gpOn = 1;
+    const V = gpView(gp), bt = gp.buttons || [], ax = V.ax, press = V.press;
     let began = false;                                       // the button that ends the attract demo must not also act
     const act = (i, down, up) => {                           // press → action, release → cleanup (mirrors keydown/keyup)
       if (press(i)) { if (!gpPrev[i]) { if (!play) { startPlay(); began = true; } else if (!began) down(); } }
@@ -113,12 +143,14 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     ptr.x = Math.min(VW, Math.max(0, ptr.x + gpTilt(ax[2] || 0) * 1100 * dt));
     ptr.y = Math.min(VH, Math.max(0, ptr.y + gpTilt(ax[3] || 0) * 1100 * dt));
     PAD.px = ptr.x; PAD.py = ptr.y;
-    act(0, () => { if (!play.screen || play.screen === 'play') gpDown('KeyE'); else if (play.screen === 'menu') gpDown('Enter'); else { ptr.down = 1; ptr.click = 1; } }, () => { gpUp('KeyE'); gpUp('Enter'); ptr.down = 0; });   // A: действие / подтвердить
+    act(0, () => { if (!play.screen || play.screen === 'play') gpDown('KeyE'); else if (play.screen === 'menu' && !gpOver()) gpDown('Enter'); else { ptr.down = 1; ptr.click = 1; } }, () => { gpUp('KeyE'); gpUp('Enter'); ptr.down = 0; });   // A: действие / подтвердить
     act(1, () => gpDown(play.screen === 'play' ? 'Space' : 'Escape'), () => { gpUp('Space'); gpUp('Escape'); });                                       // B: рывок / назад
     act(2, () => pend.slot = 1, () => {}); act(3, () => { if (!play.screen || play.screen === 'play') pend.slot = 2; else ptr.rclick = 1; }, () => {}); act(6, () => pend.slot = 3, () => {});                               // X / Y / LT: способности
     act(4, () => gpDown('KeyQ'), () => gpUp('KeyQ')); act(5, () => gpDown('KeyR'), () => gpUp('KeyR'));                                               // LB / RB: зелья HP / маны
     act(7, () => { ptr.down = 1; ptr.click = 1; }, () => { ptr.down = 0; });                                                                          // RT: атака (удержание) / click
     act(8, () => gpDown('KeyI'), () => gpUp('KeyI')); act(9, () => gpDown('Escape'), () => gpUp('Escape'));                                           // Select: герой, Start: пауза
+    act(11, () => { devOn = !devOn; }, () => {});                                                                                                     // R3: строка диагностики (как ?dev)
+    act(10, () => dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM' })), () => dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyM' })));                                                          // L3: звук (audio.js слушает keydown)
     // dpad / left stick → menu focus (249): only on UI screens, edge + hold repeat; on entering a screen cursor snaps to the first button
     if (play && PAD.active) {
       if (gpLastScreen !== play.screen) {
@@ -139,13 +171,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       if (dx) { const c = dx > 0 ? 'ArrowRight' : 'ArrowLeft'; keys[c] = 1; gpMove[c] = 1; }
       if (dy) { const c = dy > 0 ? 'ArrowDown' : 'ArrowUp'; keys[c] = 1; gpMove[c] = 1; }
     }
-    for (let i = 0; i < 10; i++) gpPrev[i] = press(i);
-    const used = Math.abs(ax[0] || 0) > 0.3 || Math.abs(ax[1] || 0) > 0.3 || Math.abs(ax[2] || 0) > 0.3 || Math.abs(ax[3] || 0) > 0.3 || bt.some((_, i) => press(i));
-    if (used) PAD.at = simT;
+    for (let i = 0; i < 12; i++) gpPrev[i] = press(i);
+    if (gpBusy(V)) PAD.at = simT;                            // judged on the standard view: a trigger axis resting at −1 is not "used"
     PAD.active = play && simT - PAD.at < 10 ? 1 : 0;
-    if (gp.mapping) PAD.map = gp.mapping;                      // ?dev shows raw axes — real pads often order them differently
+    PAD.map = gp.mapping || '—' + (V.std ? '' : ' (xpad)');   // ?dev shows raw axes — real pads often order them differently
     let bi = []; for (let i = 0; i < bt.length; i++) if (bt[i] && bt[i].pressed) bi.push(i); else if (bt[i] && bt[i].value > 0.05) bi.push(i + '·');   // diag 252: индексы всех нажатых кнопок (· — полунажатый триггер/ось-кнопка), по ним снимается раскладка на Deck
-    PAD.raw = { pads: pads.length, id: (gp.id || '').slice(0, 36), ax: Array.from(ax, (v) => +v.toFixed(2)), bi, nb: bt.filter((b) => b.pressed).length, btn: bt.length };
+    PAD.raw = { pads: pads.length, idx: gp.index, id: (gp.id || '').slice(0, 36), ax: Array.from(ax, (v) => +v.toFixed(2)), bi, nb: bt.filter((b) => b.pressed).length, btn: bt.length };
   };
   // pad focus navigation in menus (249): the dpad / left stick snaps the virtual cursor onto the screen's next button —
   // the sim keeps hit-testing the pointer, so hover, click and tooltips come free. Button geometry is read from the same
@@ -182,6 +213,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     const nb = gpSnap(bs, cx, cy, dx, dy);
     if (nb) { ptr.x = nb.x + nb.w / 2; ptr.y = nb.y + nb.h / 2; }
   };
+  // why the pad may be silent: the Gamepad API exists only in a secure context (https or 127.0.0.1/localhost — not a LAN
+  // address like http://192.168.x.x), and a browser reports a pad only after one of its buttons is pressed on the page
+  const gpApi = !!navigator.getGamepads && window.isSecureContext !== false;
+  const gpDiag = () => !gpApi ? `\nPAD: браузер прячет Gamepad API (${window.isSecureContext === false ? 'небезопасный адрес ' + location.host + ' — откройте через 127.0.0.1' : 'нет navigator.getGamepads'})`
+    : !PAD.n ? '\nPADs 0 — браузер не видит пад: нажмите кнопку пада на странице; Steam Deck — см. README' : '';
+  if (!gpApi && window.isSecureContext === false) { hint.textContent += ' · геймпад недоступен по адресу ' + location.host + ' — откройте через 127.0.0.1'; }
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
@@ -194,18 +231,18 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       acc += dt;
       const kbMove = keys.ArrowLeft || keys.ArrowRight || keys.ArrowUp || keys.ArrowDown || keys.KeyA || keys.KeyD || keys.KeyW || keys.KeyS;   // keyboard full speed (analog stick tilt)
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, mag: kbMove ? 1 : PAD.mag };
+        jump: keys.Space, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, mag: kbMove ? 1 : PAD.mag };
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
-      const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
+      const logNew = (play.logN || 0) !== loggedN && devOn, logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
       SCENE.state = play;
     } else SCENE.state = null;
     try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
-    if (!STATIC) dev.style.display = (paused || speed !== 1 || q.has('dev')) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
-    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (window.PAD && window.PAD.raw ? `\nPADs ${PAD.raw.pads} «${PAD.raw.id}»  map ${PAD.map}  ax ${PAD.raw.ax.join(' ')}  b[${(PAD.raw.bi || []).join(' ')}] из ${PAD.raw.btn}  mag ${(PAD.mag || 0).toFixed(2)}` : '');
+    if (!STATIC) dev.style.display = (paused || speed !== 1 || devOn) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
+    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (gpDiag() + (window.PAD && window.PAD.raw && PAD.n ? `\nPADs ${PAD.raw.pads} «${PAD.raw.id}»  map ${PAD.map}  ax ${PAD.raw.ax.join(' ')}  b[${(PAD.raw.bi || []).join(' ')}] из ${PAD.raw.btn}  mag ${(PAD.mag || 0).toFixed(2)}  #${PAD.raw.idx}` : ''));
     requestAnimationFrame(loop);
   };
   loop();
