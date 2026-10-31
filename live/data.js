@@ -202,22 +202,28 @@
   // arch: the floor archetype (dungeon.js; the campaign's rooms and corridors by default); size: each floor's map in cells, growing with the run. Its kit matches what the average bot wears entering the 8th: all eight slots, mostly epic
   // chapters: the run's later floors laid out by another run's description (TASKS 339): from the 9th the campaign goes on into the
   // water caves, its 9th–12th are the caves' 1st–4th (their maps, packs, guard and the serpent on the last) at the campaign's own
-  // depth; chapter: how many floors its own description lays out (biome, boss, guard, exit and altars count in those);
-  // names: a floor's own title over its biome's
+  // depth (shift: floors added to it; none: 9–12). The hero who comes down from the demon lord is not the caves' own hero of level
+  // 10 with a kit: on the caves' first two floors, as they were, the average bot past the 8th lost no run and drank 0.2–0.3 potions
+  // a floor (minimum health 58 %), and gained 0.4–0.6 of a level. early: the caves' kinds come a floor sooner (crabs and archers on
+  // the 9th, mages and eels on the 10th); pop: more monsters a hall on each of its floors, so the 9th and 10th hold about 40, as many
+  // as the 7th and 8th (27 and 32 before). Then, 19 runs from the 9th: minimum health 47/48/41/25 %, potions 0.6/0.7/1.1/1.7, the
+  // serpent takes 174 % of the health. chapter: how many floors its own description lays out (biome, boss, guard, exit and altars
+  // count in those); names: a floor's own title over its biome's
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
-      chapters: [{ from: 9, run: 'cave' }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея' },
+      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.3, 1, 1], early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея' },
     cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
   };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   // floor f of a run: N, the description that lays it out (the run's own or its chapter's), lf, its place among N's floors, n, how
   // many floors N lays out, depth, the campaign floor it is worth; last: the end of its chapter (layout: no river, no altar before
-  // the boss), fin: the run's own last floor (the way out, the victory); biome and boss: its biome and its boss, if any
+  // the boss), fin: the run's own last floor (the way out, the victory); biome and boss: its biome and its boss, if any; pop and
+  // early: its chapter's monsters a hall and how many floors sooner its kinds come (RUNS chapters)
   const stageOf = (mode, f) => { const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
     n = c ? N.floors : M.chapter || M.floors;
-    return { N, lf, n, depth: f + M.depth, last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf] }; };
+    return { N, lf, n, depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || 1, early: (c && c.early) || 0 }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
   // the caves' packs by role (TASKS 312), a hall's weight for each when it can hold it: line, a crab or two just inside the way the
   // hero comes in with the archers (and from the 3rd floor a mage) at the far end behind them; shore, drowned in the hall's shallows;

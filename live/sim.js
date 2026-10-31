@@ -332,7 +332,7 @@
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) hitEnemy(S, R, o, Math.round(e.max * 0.25), false, e.x, e.y, 1.5);
     breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
   function enterFloor(S, R, f, gen) {
-    R.floor = f; R.propHit = {};
+    R.floor = f; R.propHit = {}; R.bossDead = 0;   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ endless: R.mode === 'endless', mode: R.mode }, gen));
     R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.drops = []; R.scorches = []; m.goo = [];
     const d = dep(R, f), sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (d - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(d);
@@ -2942,6 +2942,13 @@
               h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
               if (S2.screen !== 'win' || (S2.result || {}).mode !== 'campaign' || S2.result.floor !== 12) out.push('campaign: leaving after the serpent is not a campaign win');
               if (S2.meta.best !== Math.max(best || 0, 12)) out.push('campaign: the win does not set the floor record to 12'); } } } }
+      // the campaign's caves bring their kinds a floor sooner and more monsters to their first two floors (data.js RUNS chapters);
+      // the caves' own run keeps its floors as they were
+      { const kinds = (mode, f) => { const c = {}; let n = 0; for (let sd = 1; sd <= 12; sd++) for (const e of DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode }).enemies) { c[e.type] = 1; n++; } return [c, n / 12]; };
+        const [c9, n9] = kinds('campaign', 9), [c1, n1] = kinds('cave', 1), [c10] = kinds('campaign', 10);
+        if (!c9.crab || !c9.skel_archer || c9.skel_mage || !c10.skel_mage) out.push('campaign caves: the 9th does not bring crabs and archers, or the 10th its mages');
+        if (c1.crab || c1.skel_archer) out.push('cave run: crabs or archers on its 1st floor');
+        if (n9 < n1 * 1.3) out.push(`campaign f9: ${n9.toFixed(1)} monsters, the caves' 1st ${n1.toFixed(1)}: not denser`); }
       // a saved run is dropped only by a second press of the same button
       const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); const c = UI.menu(true).find((q) => q.id === 'campaign'), v = UI.menu(true).find((q) => q.id === 'cave');
       step(T, { keys: [], click: 1, px: c.x + 10, py: c.y + 10 }); step(T, { keys: [] }); step(T, { keys: [], click: 1, px: v.x + 10, py: v.y + 10 });

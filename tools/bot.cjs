@@ -177,7 +177,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
           if (!best || F[k] < best.d) best = { x, y, d: F[k] }; }
         if (best) walk(R, inp, best.x, best.y); }
     }
-    else { const round = pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
+    // blind: rock between them (a corner) stops the blow; a drowned lying in its shallows round a corner never rises to meet it and
+    // the bot swung at the rock for good (TASKS 339): walk round to a clear line
+    else { const blind = !SIM.losClear(R.map, h.x, h.y, tg.x, tg.y), round = blind || pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
       // a crab's armour faces the hero (TASKS 309): from before it, circle round it close, inside its rush and toward its back, and
       // strike only once off its armour; a blow on the armour does a fifth
       const fr = armFront(tg);

@@ -78,7 +78,7 @@ const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f
     t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot) }; };
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // builder: a player who gathers fire and crit and burns the bosses with fireballs still fights each for 15 s or more (TASKS 245)
-const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 4: { t: [15, Infinity] }, 6: { t: [15, Infinity] } } };
+const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8: { t: [15, Infinity] }, 4: { t: [15, Infinity] }, 6: { t: [15, Infinity] } } };
 // on normal the yardstick is pressure, not losses (the player's call): the average player drinks a potion or two a floor and drops
 // to a quarter or so of the health on every floor, and no single floor is where the runs end
 // (the 2nd floor may be lighter than the 1st: the 1st does not always give decent gear, the player's call — its potion floor is lower; the 7th's blows come rarer and bigger, so its lowest health sits higher;
@@ -132,10 +132,10 @@ function check() {
       for (const [g, k, who] of [['mob', 'mobBlow', 'a plain monster'], ['heavy', 'heavyBlow', 'a plain demon']]) { const v = blowAt(a, i, g, 0.5);
         if (bf[k] && v !== null && !inB(v, bf[k])) miss.push(`${p} f${i + 1}: ${who}'s blow ${v.toFixed(1)}% of the health, outside ${bf[k].join('–')}%`); }
       const lu = lvlUp(a, i); if (bf.lvlUp && lu !== null && !inB(lu, bf.lvlUp)) miss.push(`${p} f${i + 1}: ${lu.toFixed(1)} levels gained, outside ${bf.lvlUp.join('–')}`); }
-    const bo = bossOf(a); if (b.bossLost && bo.n && !inB(bo.dmg, b.bossLost)) miss.push(`${p}: the boss takes ${Math.round(bo.dmg * 100)}% of the health, outside ${b.bossLost.map((v) => v * 100).join('–')}%`);
+    const bo = bossOf(a, b.bossFloor || FLOORS); if (b.bossLost && bo.n && !inB(bo.dmg, b.bossLost)) miss.push(`${p}: the boss takes ${Math.round(bo.dmg * 100)}% of the health, outside ${b.bossLost.map((v) => v * 100).join('–')}%`);
     if (b.bossPot && bo.n && !inB(bo.pot, b.bossPot)) miss.push(`${p}: ${bo.pot.toFixed(1)} hp potions at the boss, outside ${b.bossPot.join('–')}`);
     if (b.bossT && bo.n && !inB(bo.t, b.bossT)) miss.push(`${p}: the boss fight lasts ${bo.t.toFixed(0)} s, outside ${b.bossT.join('–')} s`);
-    const bd = bossOf(a, b.bossFloor || FLOORS);
+    const bd = bo;
     if (b.bossDied && a.length < 160) console.log(`${p}: boss death band needs 160 seeds (${a.length} measured)`);
     if (b.bossDied && bd.n) console.log(`${p}: boss deaths ${bd.k}/${bd.n} = ${(bd.died * 100).toFixed(1)}% (95% CI ${ci(bd.k, bd.n)})`);
     if (b.bossDied && a.length >= 160 && !inB(bd.died, b.bossDied)) miss.push(`${p}: boss deaths ${(bd.died * 100).toFixed(1)}%, outside ${b.bossDied.map((v) => v * 100).join('–')}%`);
