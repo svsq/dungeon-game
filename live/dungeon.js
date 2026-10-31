@@ -146,7 +146,7 @@
     shopR.type = 'shop';
     const shopCorner = (x, y) => Math.abs(x - shopR.cx) <= 5 && y >= shopR.y - 2 && y <= shopR.y + 5;
     if (cave) { for (let y = shopR.y; y <= shopR.y + 4; y++) for (let x = shopR.cx - 4; x <= shopR.cx + 4; x++) set(x, y, 1); tidy(); breakRuns(shopCorner); }
-    // a biome with no spiders has no webs, so plates and ambushes make up for them: the traps grow towards the end, not thin out
+    // a biome with no spiders has no webs, so plates make up for them: the traps grow towards the end, not thin out
     const webless = !D.BIOMES[biome].roster.includes('spider');
     for (const r of others) if (r.type === 'combat' && R() < (webless ? 0.55 : 0.35) && r.w >= 8) r.trap = 1;
     // accent zones: one or two rooms per floor in another biome's look (the reference shows a green crypt and a blue hall
@@ -1073,17 +1073,42 @@
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (free(x, y) && !solid.has(key(x, y)) && !doorway(x, y)) { const d = Math.hypot(x - ex, y - ey); if (!best || d < best[0]) best = [d, x, y]; }
       if (best) { used.add(key(best[1], best[2])); e.x = wx(best[1]); e.y = wy(best[2]); } }
     // traps (TASKS 71). Webs on the floor of a room spiders keep: they hold whoever wades in (a spider runs over them) until a blow
-    // or fire tears them. An ambush: a loose flagstone like a secret's own mechanism (the player can't tell them apart) that calls
-    // monsters out of the dark round whoever steps on it, in a fighting room or a locked one
+    // or fire tears them. Ambushes no longer come from floor plates (TASKS 320): a chest in a treasure or secret room may spring one
+    // (sim.js openChest), so `ambush` stays empty
     const webs = [], ambush = [];
     const trapCell = (x, y) => traps.some((t) => x >= t.x / TILE - 1 && x < t.x / TILE + 1 && y >= t.y / TILE - 1 && y < t.y / TILE + 1);
     const floorSpot = (r) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + 1, r.x + r.w - 2), y = ri(r.y + 1, r.y + r.h - 2);
       if (free(x, y) && !solid.has(key(x, y)) && !doorway(x, y) && !trapCell(x, y)) { used.add(key(x, y)); return [x, y]; } } return null; };
     for (const r of rooms) { const sp = enemies.filter((e) => e.room === r.id && e.type === 'spider').length; if (!sp) continue;
       for (let i = 0, n = sp >= 2 ? ri(2, 3) : R() < 0.5 ? 1 : 0; i < n; i++) { const p = floorSpot(r); if (p) webs.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, v: ri(0, 1), s: 0.9 + 0.3 * R(), f: R() < 0.5 ? 1 : 0, torn: 0 }); } }
-    { const pool = rooms.filter((r) => r.type === 'combat' || r.type === 'exit' || r.locked); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-      pool.sort((a, b) => (b.locked || 0) - (a.locked || 0));
-      for (const r of pool.slice(0, depth === 1 ? (R() < 0.3 ? 1 : 0) : webless ? ri(2, 3) : ri(1, 2))) { const p = floorSpot(r); if (p) ambush.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, cx: p[0], cy: p[1], room: r.id, n: 2 + Math.floor(depth / 3) + (r.locked ? 1 : 0) }); } }
+    if (cave) {
+      const mushrooms = decor.filter((d) => /^shroom_[ab]$/.test(d.n)), removed = new Set();
+      for (const r of rooms.filter((r) => r.type === 'combat' && r.id % 2 === 0 && r.w * r.h >= 56)) {
+        const cand = [];
+        for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+          if (at(x, y) !== 1 || at(x, y - 1) !== 0 || doorway(x, y) || tallAt(wx(x), y, HANG.wall) || doorTop(wx(x), y, HANG.wall)) continue;
+          const px = wx(x), py = y * TILE - 26;
+          if (torches.some((t) => Math.hypot(t.x - px, t.y - py) < 4 * TILE)) continue;
+          cand.push({ x: px, y: py, kind: 'wall', r: r.id });
+        }
+        cand.sort((a, b) => Math.hypot(a.x - wx(r.cx), a.y - wy(r.cy)) - Math.hypot(b.x - wx(r.cx), b.y - wy(r.cy)));
+        if (cand.length) torches.push(cand[0]);
+      }
+      const floor = rooms.flatMap((r) => {
+        const out = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) out.push([wx(x), wy(y)]); return out;
+      });
+      const fixed = torches.map((t) => [t.x, t.y, LIGHT_R[t.kind]]).concat(decor.filter((d) => LIGHT_R[d.n] && !mushrooms.includes(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.map((q) => [q.x, q.y, LIGHT_R.shrine]));
+      for (const d of mushrooms) {
+        const near = floor.filter(([x, y]) => Math.hypot(x - d.x, (y - d.y) / 0.8) <= LIGHT_R[d.n] * TILE);
+        const lights = fixed.concat(mushrooms.filter((q) => q !== d && !removed.has(q)).map((q) => [q.x, q.y, LIGHT_R[q.n]]));
+        if (near.every(([x, y]) => lights.some(([lx, ly, r]) => Math.hypot(x - lx, (y - ly) / 0.8) <= r * TILE))) removed.add(d);
+      }
+      for (let i = decor.length - 1; i >= 0; i--) if (removed.has(decor[i])) decor.splice(i, 1);
+    }
+    if (cave) for (const d of decor) if (/^shroom_[ab]$/.test(d.n)) {
+      const v = (Math.imul(Math.round(d.x), 73856093) ^ Math.imul(Math.round(d.y), 19349663)) >>> 0;
+      d.s = [0.6, 0.8, 1][v % 3]; d.glow = 0.85 + (v % 5) * 0.05;
+    }
     // start room: a sanctuary bonfire in the centre
     const sanct = { x: start.cx * TILE + TILE / 2, y: start.cy * TILE + TILE / 2 + 8 };
     torches.push({ x: sanct.x, y: sanct.y, kind: 'fire' });

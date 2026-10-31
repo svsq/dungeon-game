@@ -95,8 +95,10 @@ try {
   await p.evaluate(() => { const S = window.__waterAudioState; S.run.hero.x += 1000; S.t += 1; });
   await hold(1500);
   const far = await p.evaluate(() => window.__waterGain?.gain.value || 0);
+  const audio = await p.evaluate(() => ({ state: AUDIO.state, connections: window.__audioConnections.length,
+    waterChannel: !!window.__waterGain, contextState: window.__waterGain?.context.state, time: window.__waterGain?.context.currentTime }));
   if (!(near > 0.01 && far < near * 0.05)) failures.push(`water sound does not fade with distance: ${near} → ${far}`);
-  samples.push({ sound: { near, far } });
+  samples.push({ sound: { near, far, ...audio } });
   // a cave's fall roars further and louder than a fountain, panned to its side (TASKS 304)
   await p.evaluate(() => { const S = structuredClone(window.__WATER.find(([name]) => name === 'cave_waterfall')[1]), R = S.run, q = R.map.waterFeatures.find((q) => q.kind === 'waterfall');
     R.hero.x = q.x + 200; R.hero.y = q.y + 32; R.seen.fill(1); S.demo = false; window.__waterAudioState = S; });
