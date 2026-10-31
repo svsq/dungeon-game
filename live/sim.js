@@ -117,7 +117,7 @@
       crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')), dodge: Math.min(BAL.dodge.cap, s.agi * BAL.dodge.agi + s.dodge + gift(h, 'alert')),
       aspd: s.agi * 1.2 + s.aspd + gift(h, 'haste'), mspd: Math.min(40, s.agi * 0.4 + s.mspd + gift(h, 'swift')), leech: s.leech + gift(h, 'leech'),
       regen: s.regen + 0.5 * (up.regen || 0) + gift(h, 'life'), onhit: s.onhit,
-      spell: (1 + s.int * 0.04) * (1 + (W.spell || 0)) * (1 + s.fire / 100) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100) * (1 + gift(h, 'arcane') / 100),
+      spellBase: (wpn ? wpn.atk : 3) + s.int * 1.6, spell: 1 + (W.spell || 0) + s.fire / 100 + 0.06 * (up.dmg || 0) + gift(h, 'fury') / 100 + gift(h, 'arcane') / 100,
       resist: 1 - 0.15 * (up.resist || 0), gold: 1 + gift(h, 'greed') / 100,
       wcd: W.spd, arc: W.arc + gift(h, 'cleave'), reach: W.reach * (1 + gift(h, 'reach') / 100), kb: W.kb || 1, wtype: wpn ? wpn.b : 'fist',
     };
@@ -290,6 +290,7 @@
     floodStep(S, R);
     if (!e.phase && e.hp <= e.max * B.phases[1].at && e.st !== 'bwind') {
       e.phase = 1; e.floodAt = t + 1.2; R.msg = { s: 'Вода поднимается! Утопленники идут со дна', t, d: 3 };
+      R.trauma = Math.min(1, R.trauma + 0.28);
       ev(S, { k: 'bossphase', id: e.id, phase: 1 }); ev(S, { k: 'floodwarn', x: e.x, y: e.y });
     }
     if (e.st === 'deep') { if (t >= e.cdT) serpentSurface(S, R, e); return; }
@@ -337,7 +338,8 @@
     const d = dep(R, f), sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (d - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? RUN(R).guard[f] : e.exit && e.elite ? RUN(R).exit[f] : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
-        elite: e.elite, guard: e.guard || 0, room: e.room, st: D.BOSSES[e.type] ? 'idle' : E.lurk ? 'lurk' : E.deep ? 'deep' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9, mw: RUN(R).minWind ? 1 : 0 }); }
+        elite: e.elite, guard: e.guard || 0, room: e.room, st: D.BOSSES[e.type] ? 'idle' : E.lurk ? 'lurk' : E.deep ? 'deep' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
+    for (const e of R.en) if (e.type === 'crab') e.fa = faOf(e);
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
     for (const e of R.en) if (e.elite && !D.BOSSES[e.type]) e.mods = rollMods(R, d);
     // a closed door is a solid cell (5) that blocks sight like rock until it opens
@@ -389,11 +391,6 @@
     if (near('loot', 'lootN')) {
       for (const c of R.chests) if (!c.open && c.loot && c.loot.length) put(c, 'loot');
       for (const d of R.drops) if (d.loot && !d.got && d.kind === 'item') put(d, 'loot');
-    }
-    if (near('sec', 'secN') || near('loot', 'lootN') || near('kills', 'foes')) for (const q of R.map.secrets || []) if (!q.open) {
-      const room = R.map.rooms[q.room], inside = (o) => inRoom0(room, Math.floor(o.x / TILE), Math.floor(o.y / TILE));
-      if (near('sec', 'secN') || (near('loot', 'lootN') && R.chests.some((c) => !c.open && c.loot && c.loot.length && inside(c))) ||
-        (near('kills', 'foes') && R.en.some((e) => counted(e) && e.deadT < 0 && inside(e)))) out.push({ x: q.x, y: q.y, kind: 'secret' });
     }
     return out;
   }
@@ -681,7 +678,7 @@
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; hitEnemy(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
-    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.int, AR.k, st.spell, dep(R));
+    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
@@ -701,12 +698,14 @@
       if (d > rad + 18) return false; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) return false; if (!losClear(m, x, y, foot.x, foot.y)) return false;
       if (S.t - (hit[id] ?? -9) < 0.2) return false; hit[id] = S.t;
       if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
-      if (n !== 'merchant') ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, s: dx >= 0 ? 1 : -1 }); return true; };
+      if (n !== 'merchant') ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, scale: p.s || 1, s: dx >= 0 ? 1 : -1 }); return true; };
     m.decor.forEach((d, i) => { if (hidden(m, d)) return;
-      if (d.n === 'bones') knock('d' + i, d, d.n);
+      if (d.n === 'bones' || d.n === 'skel_cv') knock('d' + i, d, d.n);
       else if (bonesOnly) return;
       else if (d.n === 'candles' && !d.lift && (d.outUntil || 0) <= S.t) {
         if (knock('d' + i, d, d.n, 'wax')) { d.outUntil = S.t + 3; ev(S, { k: 'snuff', x: d.x, y: d.y }); } }
+      else if (/^shroom_[ab]$/.test(d.n)) knock('d' + i, d, d.n, 'fungus');
+      else if (d.wall && d.n === 'shop_sign') knock('d' + i, d, d.n, 'wood', { x: d.x, y: d.y + 30 });
       else if (d.solid && !d.wall) knock('d' + i, d, d.n);
       else if (d.wall && d.n === 'banner' && d.secret === undefined && !hidden(m, d)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
     if (bonesOnly) return;
@@ -776,19 +775,41 @@
     (R.map.webs || []).forEach((w, i) => { if (w.torn) return; const dx = w.x - x, dy = w.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 20 * w.s) return; if (arc !== undefined && d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) return;
       w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); }); }
-  // an ambush's flagstone sinks under the hero and calls monsters of the floor out of the dark round the room, in a ring, at once
-  // on the hunt; they pay their XP but carry nothing (like a summoner's), and nothing of the floor's completion hangs on them
   function springAmbush(S, R, P) {
-    const m = R.map, h = R.hero, f = dep(R), roster = D.rosterAt(m.biome, R.floor).filter((t) => (t !== 'brute' || f >= 3) && !ENEMIES[t].lurk && !ENEMIES[t].deep), r = m.rooms[P.room]; P.downT = S.t; P.fired = 1;
-    ev(S, { k: 'click', x: P.x, y: P.y }); ev(S, { k: 'ambush', x: h.x, y: h.y });
+    const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
+    if (!room || P.fired) return false;
+    P.fired = 1;
+    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep);
+    if (!roster.length) return false;
+    const group = Array.from({ length: P.n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = solids(R), block = new Set(m.block || []);
+    const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;
+    const walk = (x, y) => inside(x, y) && cell(m, x, y) === 1 && !block.has(y * m.W + x);
+    const seen = new Set(), queue = [[Math.floor(h.x / TILE), Math.floor(h.y / TILE)]];
+    while (queue.length) {
+      const [x, y] = queue.pop(), k = y * m.W + x; if (seen.has(k) || !walk(x, y)) continue;
+      seen.add(k); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) queue.push([x + dx, y + dy]);
+    }
+    const candidates = [];
+    for (const k of seen) {
+      const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+      if (Math.hypot(x - h.x, y - h.y) < 96 || hidden(m, { x, y })) continue;
+      if ([-radius, 0, radius].some((dx) => [-radius, 0, radius].some((dy) => !walk(Math.floor((x + dx) / TILE), Math.floor((y + dy) / TILE))))) continue;
+      if (obstacles.some((o) => Math.hypot(x - o.x, y - o.y) < radius + o.r + 4) || R.en.some((e) => e.deadT < 0 && Math.hypot(x - e.x, y - e.y) < radius + ENEMIES[e.type].r + 4)) continue;
+      candidates.push({ x, y });
+    }
+    for (let i = candidates.length - 1; i > 0; i--) { const j = ri(R, 0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
+    const positions = [];
+    for (const p of candidates) if (positions.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= 2 * radius + 4)) { positions.push(p); if (positions.length === group.length) break; }
+    if (positions.length !== group.length) return false;
     const sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(f);
-    for (let i = 0, n = 0; i < 40 && n < P.n; i++) { const a = rnd(R) * 6.28, d = 130 + rnd(R) * 90, x = h.x + Math.cos(a) * d, y = h.y + Math.sin(a) * d * 0.8;
-      const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); if (!r || tx < r.x || ty < r.y || tx >= r.x + r.w || ty >= r.y + r.h || solidAt(m, x, y, true) || (m.block || []).includes(ty * m.W + tx)) continue;
-      const type = pick(R, roster), E = ENEMIES[type], hp = Math.round(E.hp * sc);
+    for (let i = 0; i < group.length; i++) {
+      const { x, y } = positions[i], type = group[i], E = ENEMIES[type], hp = Math.round(E.hp * sc);
       R.en.push({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * dc, elite: 0, room: P.room, st: 'chase', t0: S.t, face: x < h.x ? 1 : -1, aimA: 0,
         cdT: S.t + 0.8, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
-      ev(S, { k: 'summon', x, y }); n++; }
-    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: 'Засада!', t: S.t, d: 2, room: P.room };
+      ev(S, { k: 'summon', x, y });
+    }
+    P.downT = S.t; ev(S, { k: 'ambush', x: h.x, y: h.y });
+    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: 'Засада!', t: S.t, d: 2, room: P.room }; return true;
   }
   // a door opens to a press of E or a blow (a kick, it flies open), unless it is locked: a key the hero carries opens the lock for
   // good, a lever opens every door of its lock at once
@@ -821,10 +842,16 @@
       if (kindOf(q) === 'banner') return Math.abs(h.x - q.x) < 40 && h.y > q.y && h.y - q.y < 64;
       if (q.trig && q.trig.k === 'sconce') { const t = m.torches[q.trig.t]; return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; } return false; }); }
   function openChest(S, R, c) {
+    if (c.open) return;
+    const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
     c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier });
     // its items were rolled on entering the floor (they count toward the floor's loot from the start); a chest from an older save rolls now
     const pre = !!c.loot; for (const it of c.loot || chestLoot(R, c)) drop(R, c.x, c.y + 10, { kind: 'item', item: it, pre });
     c.loot = [];
+    if (!c.ambushRolled) {
+      c.ambushRolled = 1;
+      if (role && (role.type === 'treasure' || role.type === 'secret') && rnd(R) < 0.05) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
+    }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
     drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
@@ -876,7 +903,16 @@
     m.goo = (m.goo || []).filter((g) => t < g.t0 + g.T); for (const g of m.goo) g.rNow = g.r * Math.min(1, (g.t0 + g.T - t) / GOO.dry);
     const moved = Math.hypot(h.x - ox, h.y - oy);
     if (moved > 0.02 && dashing) hitProps(S, R, h.x, h.y, K.R, undefined, undefined, true);
-    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h) }); }
+    if (moved > 0.02) {
+      const hits = R.propHit || (R.propHit = {});
+      m.decor.forEach((d, i) => {
+        const fungus = /^shroom_[ab]$/.test(d.n); if (!fungus && d.n !== 'skel_cv') return;
+        if (hidden(m, d) || Math.hypot(d.x - h.x, d.y - h.y) > (fungus ? 25 : 30) || !losClear(m, h.x, h.y, d.x, d.y)) return;
+        const id = 'd' + i; if (S.t - (hits[id] ?? -9) < 0.65) return;
+        hits[id] = S.t; ev(S, { k: 'prop', x: d.x, y: d.y, i: id, n: d.n, mat: fungus ? 'fungus' : 'bone', scale: d.s || 1, touch: 1, s: h.x < d.x ? 1 : -1 });
+      });
+    }
+    if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     // ---- melee: hold LMB ----
     if (inp.press && h.cd.atk <= t) {
       h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
@@ -897,7 +933,6 @@
     if (keys.KeyE) interact(S, R);
     // a loose flagstone sinks under the hero's step
     for (const q of m.secrets || []) if (!q.open && q.trig && q.trig.k === 'plate' && Math.abs(h.x - q.trig.x) < 13 && Math.abs(h.y - q.trig.y) < 13) { q.trig.downT = t; ev(S, { k: 'click', x: q.trig.x, y: q.trig.y }); openSecret(S, R, q); }
-    for (const P of m.ambush || []) if (!P.fired && Math.abs(h.x - P.x) < 13 && Math.abs(h.y - P.y) < 13) springAmbush(S, R, P);
     // ---- status ----
     const rIn = reveal(R);
     if (R.msg && R.msg.room !== undefined && rIn !== R.msg.room && !R.msg.outT) R.msg.outT = t;   // a room's alarm is about that room only
@@ -927,6 +962,13 @@
       e.lavaT = t; hitEnemy(S, R, e, Math.round(lavaDmg * 1.25), false, e.x, e.y, 0, 'fire'); ev(S, { k: 'scorch', x: e.x, y: e.y }); }
     stepProjectiles(S, R);
     stepMonsters(S, R, 1);
+    for (const e of R.en) if (e.type === 'crab' && e.deadT < 0) {
+      // not enumerable: the render-only trail stays out of the saved run (JSON) and starts afresh after a load
+      if (!e.crabTrail) Object.defineProperty(e, 'crabTrail', { value: [], writable: true, enumerable: false });
+      const trail = e.crabTrail;
+      trail.push({ x: e.x, y: e.y, fa: faOf(e), dist: e.dist, vx: e.vx, vy: e.vy });
+      if (trail.length > 180) trail.shift();
+    }
     for (const e of R.en) {
       const moved = Math.hypot(e.x - (e.waterX ?? e.x), e.y - (e.waterY ?? e.y)); e.waterX = e.x; e.waterY = e.y;
       if (e.deadT < 0 && !ENEMIES[e.type].ghost && inWater(m, e) && moved < TILE) {
@@ -1303,7 +1345,9 @@
     }
   }
   function beginBossMove(S, R, e, mv) {
+    // spd0 + its direction: the walk the plant cuts off — the render eases the gait down from it instead of snapping the feet (TASKS 333)
     e.st = 'bwind'; e.t0 = S.t; e.mv = mv; e.fired = 0; e.hitDone = 0; e.chain = 0;
+    e.spd0 = Math.hypot(e.vx, e.vy); e.vxn0 = e.spd0 > 1 ? e.vx / e.spd0 : 1; e.vyn0 = e.spd0 > 1 ? e.vy / e.spd0 : 0;
     const M = D.bossMove(e);
     e.tx = R.hero.x; e.ty = R.hero.y;
     e.aimA = Math.atan2(R.hero.y - (M.target || 0) - e.y + (M.origin || 0), R.hero.x - e.x); e.vx = e.vy = 0;
@@ -1392,7 +1436,7 @@
   // foot, so the prop draws after it) inside its box cannot be seen, so it hops to the nearest open spot instead
   function propBoxes(R) { const m = R.map, out = [], add = (x, y, n, k = 1) => { if (D.PROP_W[n]) out.push([x, y, D.PROP_W[n] * k / 2, D.PROP_H[n] * k]); };
     for (const c of R.chests) add(c.x, c.y, 'chest', c.tier >= 2 ? 1.15 : 1); for (const p of R.pots) if (p.hp > 0) add(p.x, p.y, p.kind);
-    for (const d of m.decor) if (d.solid && !d.wall) add(d.x, d.y, d.n); for (const t of m.torches) if (t.kind !== 'wall') add(t.x, t.y, 'brazier', t.kind === 'fire' ? 1.35 : 1);
+    for (const d of m.decor) if (!d.wall && (d.solid || ['shroom_a', 'shroom_b', 'skel_cv'].includes(d.n))) add(d.x, d.y, d.n, d.s || 1); for (const t of m.torches) if (t.kind !== 'wall') add(t.x, t.y, 'brazier', t.kind === 'fire' ? 1.35 : 1);
     for (const s of R.shrines) add(s.x, s.y, 'altar');
     for (const q of m.waterFeatures || []) if (q.kind === 'fountain') out.push([q.x, q.y + 16, 46, 40]);
     // a shut door's leaf (scene.js) stands over the cells behind it: a bottom wall's over the room's last row, a top wall's arch over the corridor
@@ -1400,7 +1444,7 @@
       out.push(d.dir === 'u' ? [d.x, d.y, 58, 100] : side ? [d.x, d.y + TILE, 17, 103] : [d.x, d.y + TILE, 31, 80]); }
     return out; }
   const behindProp = (B, x, y) => B.some(([px, py, hw, h]) => Math.abs(x - px) < hw + 10 && y < py + 2 && y > py - h + 6);
-  const DROP_REST = 3;   // bump when the resting rule changes: items saved under an older rule are checked again
+  const DROP_REST = 4;   // bump when the resting rule changes: items saved under an older rule are checked again
   function settleDrop(R, p) { const m = R.map, hid = secretMask(m), k0 = Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE); p.rest = DROP_REST;
     const B = propBoxes(R), blk = new Set(m.block), spot = (k) => [(k % m.W) * TILE + TILE / 2, Math.floor(k / m.W) * TILE + 20];
     // an item lying on another one hides it too: items keep their icons apart
@@ -1727,7 +1771,7 @@
       for (const d of m.decor) if (['altar', 'chest', 'chest_open', 'pot', 'stairs', 'treasure'].includes(d.n)) out.push(`seed ${seed} f${f}: decor uses the ${d.n} sprite`);
       // spike plates (2×2 cells) keep clear of corridor mouths and never wall off floor: walking around every plate reaches
       // everything walking over them would
-      // webs lie on the floor of a room spiders keep; an ambush's flagstone on open floor of a fighting or a locked room (TASKS 71)
+      // webs lie on the floor of a room spiders keep; ambush plates are gone (TASKS 320)
       for (const w of m.webs) { const ri = DG.roomAt(m, w.x, w.y); if (ri < 0 || !m.enemies.some((e) => e.room === ri && e.type === 'spider') || cell(m, Math.floor(w.x / TILE), Math.floor(w.y / TILE)) !== 1) out.push(`seed ${seed} f${f}: a web off a spiders' room`); }
       for (const P of m.ambush) { const r = m.rooms[P.room], k = P.cy * m.W + P.cx;
         if (!r || !(r.type === 'combat' || r.type === 'exit' || r.locked) || cell(m, P.cx, P.cy) !== 1 || m.block.includes(k) || DG.roomAt(m, P.x, P.y) !== P.room) out.push(`seed ${seed} f${f}: an ambush off a fighting room's open floor`);
@@ -2348,17 +2392,31 @@
     { let S = null, R = null, w = null; const clear = (m, o) => [-200, -150, -100, -50, 0].every((d) => cell(m, Math.floor((o.x + d) / TILE), Math.floor(o.y / TILE)) === 1)
       && !m.webs.some((q) => q !== o && Math.abs(q.y - o.y) < 48 && q.x > o.x - 240 && q.x < o.x);
       for (let sd = 1; sd < 80 && !R; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play';
-        for (let f = 1; f <= 4; f++) { if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; w = m.webs.find((o) => clear(m, o)); if (w && m.ambush.length) { R = S.run; break; } } }
-      if (!R) out.push('traps: no floor of 80 seeds with webs and an ambush'); else { const m = R.map, h = R.hero; R.en = [];
+        for (let f = 1; f <= 4; f++) { if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; w = m.webs.find((o) => clear(m, o)); if (w) { R = S.run; break; } } }
+      if (!R) out.push('traps: no floor of 80 seeds with webs'); else { const m = R.map, h = R.hero; R.en = [];
         const run = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; const x0 = h.x; for (let i = 0; i < 30; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x0; };
         const free = run(w.x - 200, w.y), held = run(w.x - 12, w.y); if (!(held < free * 0.6)) out.push(`traps: a web does not hold the hero (${held.toFixed(0)} px against ${free.toFixed(0)})`);
         h.x = w.x - 40; h.y = w.y + 8; h.atkT = -9; h.cd.atk = 0; step(S, { px: 960 + 60, py: 540 - 30, press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { px: 1020, py: 510, keys: [] });
         if (!w.torn) out.push('traps: a blow does not tear a web');
         const w2 = m.webs.find((o) => !o.torn); if (w2) { tearWebs(S, R, w2.x, w2.y, 30, undefined, undefined, 1); if (!w2.torn || !S.ev.some((e) => e.k === 'webburn')) out.push('traps: fire does not burn a web'); }
-        const P = m.ambush[0], foes = fstat(R).foes; h.x = P.x; h.y = P.y; R.en = []; step(S, { px: 960, py: 540, keys: [] });
-        const got = R.en.filter((e) => e.summ === 'amb'); if (!P.fired || got.length !== P.n || got.some((e) => e.st !== 'chase' || DG.roomAt(m, e.x, e.y) !== P.room)) out.push(`traps: an ambush calls ${got.length} of ${P.n} monsters`);
-        h.x = P.x + 40; step(S, { keys: [] }); h.x = P.x; step(S, { keys: [] }); if (R.en.filter((e) => e.summ === 'amb').length !== got.length) out.push('traps: an ambush springs twice');
-        hitEnemy(S, R, got[0], 1e9, false, P.x, P.y); if (fstat(R).foes !== foes || fstat(R).kills !== 0 && floorStat(R).foes !== fstat(R).foes) out.push('traps: an ambush counts toward the floor'); } }
+      } }
+    {
+      const S = spawn(0, {}); S.run = newRun(S, 'cave', 26837); S.screen = 'play'; const R = S.run, m = R.map;
+      if (m.ambush.length) out.push('ambush: generated pressure plate');
+      const room = m.rooms.filter((r) => r.type === 'treasure').sort((a, b) => b.w * b.h - a.w * a.h)[0];
+      if (!room) out.push('ambush: no treasure fixture'); else {
+        R.hero.x = (room.cx + 0.5) * TILE; R.hero.y = (room.cy + 0.5) * TILE;
+        const before = R.en.length; S.ev = []; const P = { room: room.id, n: 4 };
+        const ok = springAmbush(S, R, P), got = R.en.slice(before);
+        if (ok ? got.length !== 4 || got.some((e) => e.elite || e.room !== room.id) : got.length || S.ev.some((e) => e.k === 'ambush')) out.push('ambush: partial or elite group / false announcement');
+        springAmbush(S, R, P); if (R.en.length !== before + got.length) out.push('ambush: group repeats');
+        const c = R.chests[0]; S.ev = []; const n = R.en.length; c.open = 0; openChest(S, R, c); openChest(S, R, c);
+        if (S.ev.filter((e) => e.k === 'chest').length !== 1) out.push('ambush: chest opens twice');
+        const T = spawn(0, JSON.parse(JSON.stringify(persist(S)))); if (T.saved && !T.saved.chests.find((q) => q.x === c.x && q.y === c.y).ambushRolled) out.push('ambush: roll lost on save');
+        const small = { room: room.id, n: 4 }; R.hero.x = m.spawn.x; R.hero.y = m.spawn.y; S.ev = []; const count = R.en.length;
+        if (springAmbush(S, R, small) || R.en.length !== count || S.ev.some((e) => e.k === 'ambush')) out.push('ambush: spawns with hero outside room');
+      }
+    }
     // the cave's monsters (TASKS 307, 308): the run places drowned in the shallows and slimes; a drowned lies still until the hero
     // comes within its sense, rises and only then hunts; its grab draws the hero a step in; a slime's hop lands against the hero and
     // hurts him; a slime splits in two small ones that carry nothing and stay out of the floor's count, the small ones never split,
@@ -2398,8 +2456,7 @@
         m.goo = []; const dry = run(x0 - 5 * TILE); m.goo = [{ id: 1, x: x0, y: y0, t0: S.t, T: 60, r: 60, rNow: 60 }]; const held = run(x0 - 50);
         if (!(held < dry * 0.75)) out.push(`cave monsters: a puddle does not slow the hero (${held.toFixed(0)} px against ${dry.toFixed(0)})`); } }
     // the caves' packs (TASKS 312): each floor brings its own kinds (data.js BIOMES.cave.from); in a hall with a crab and archers the
-    // crab stands nearer the way the hero comes in; eels come up in the lakes between the halls too. ELITE.minWind holds in the caves
-    // only, and never lengthens a wind-up already shorter
+    // crab stands nearer the way the hero comes in; eels come up in the lakes between the halls too.
     { const S = spawn(0, {}), seen = [null, new Set(), new Set(), new Set(), new Set()]; let lakes = 0, lines = 0;
       for (const sd of [3, 5, 8]) { S.run = newRun(S, 'cave', sd); const R = S.run;
         for (let f = 1; f <= 4; f++) { enterFloor(S, R, f); const m = R.map; for (const e of R.en) seen[f].add(e.type); lakes += R.en.filter((e) => e.type === 'eel' && e.room < 0).length;
@@ -2412,9 +2469,7 @@
       for (const t of ['crab', 'skel_archer']) if (!seen[2].has(t)) out.push(`cave packs: no ${t} on floor 2`);
       for (const t of ['eel', 'skel_mage']) if (!seen[3].has(t)) out.push(`cave packs: no ${t} on floor 3`);
       if (!lakes) out.push('cave packs: no eel in a lake between halls on floors 3-4 of seeds 3, 5, 8'); if (!lines) out.push('cave packs: no hall with a crab before archers');
-      const el = (type, mw) => ({ type, elite: 1, mw });
-      if (Math.abs(D.windOf(el('skeleton', 1), ENEMIES.skeleton.wind) - ELITE.minWind) > 1e-9 || Math.abs(D.windOf(el('skeleton', 0), ENEMIES.skeleton.wind) - ENEMIES.skeleton.wind * ELITE.wind) > 1e-9
-        || Math.abs(D.windOf(el('goblin', 1), ENEMIES.goblin.wind) - ENEMIES.goblin.wind) > 1e-9) out.push('cave packs: ELITE.minWind does not hold an elite wind-up as it should'); }
+    }
     // the skeleton archer and mage (TASKS 311): the archer backs off from a hero who comes close; its aim follows him until the lock
     // and then holds; the arrow flies straight down it and hits a hero who stood still, not one who stepped aside after the lock.
     // The mage's ball flies at orb.spd and slows the hero it soaks; with a monster between it and the hero it keeps behind that one
@@ -2573,8 +2628,34 @@
       R.drops = [{ x: e.x, y: e.y, kind: 'item', loot: 1, got: 0 }, { x: e.x, y: e.y, kind: 'item', loot: 0, got: 0 }];
       const hints = completionHints(R);
       if (hints.filter((o) => o.kind === 'foe').length !== 1 || hints.filter((o) => o.kind === 'loot').length !== 2) out.push('hints: misses live foe, chest or item at 85%');
+      f.sec = 17; if (completionHints(R).some((o) => o.kind === 'secret')) out.push('hints: secret location highlighted');
       e.summ = 1; if (completionHints(R).some((o) => o.kind === 'foe')) out.push('hints: summoned enemy highlighted');
       f.kills = f.foes; f.loot = f.lootN; if (completionHints(R).length) out.push('hints: completed categories still highlighted'); }
+    {
+      const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run, h = R.hero, m = R.map;
+      R.en = []; m.decor = [{ n: 'shroom_a', x: h.x + 10, y: h.y, s: 0.6 }, { n: 'skel_cv', x: h.x + 12, y: h.y }];
+      S.ev = []; hitProps(S, R, h.x, h.y, 30); const n = S.ev.filter((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv')).length;
+      if (n !== 2) out.push('cave reactions: mushroom or skeleton ignores a blow');
+      hitProps(S, R, h.x, h.y, 30); if (S.ev.filter((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv')).length !== n) out.push('cave reactions: repeated blow bypasses cooldown');
+      S.t += 1; const x = Math.floor((h.x + 6) / TILE), y = Math.floor(h.y / TILE), k = y * m.W + x, saved = m.cells[k];
+      m.cells[k] = 0; hitProps(S, R, h.x - TILE, h.y, 80); m.cells[k] = saved;
+      if (S.ev.filter((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv')).length !== n) out.push('cave reactions: response through rock');
+      S.ev = []; for (let i = 0; i < 120; i++) step(S, { keys: [] });
+      if (S.ev.some((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv'))) out.push('cave reactions: stationary hero retriggers decor');
+    }
+    {
+      const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); const R = S.run, m = R.map, h = R.hero, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE);
+      m.decor = []; R.en = []; R.chests = []; R.pots = [];
+      for (let y = ty - 3; y <= ty + 3; y++) for (let x = tx - 1; x <= tx + 7; x++) m.cells[y * m.W + x] = x >= tx + 1 && x <= tx + 3 ? 6 : 1;
+      const fire = () => ({ id: R.nextId++, k: 'fire', own: 'hero', x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE - 20, gz: 20, vx: 300, vy: 0, t0: S.t, life: 2, r: 6, dmg: 100 });
+      const p = fire(); R.proj = [p]; for (let i = 0; i < 50; i++) { S.t += DT; stepProjectiles(S, R); }
+      if (p.dead || p.x < (tx + 4) * TILE) out.push('hero fireball: dies over deep water');
+      const target = { id: R.nextId++, type: 'skeleton', x: (tx + 5.5) * TILE, y: p.y + ENEMIES.skeleton.h * 0.45, hp: 500, max: 500, deadT: -1, elite: 0, room: -1, st: 'idle', hitT: -9, kbx: 0, kby: 0, burn: 0, burnT: 0 };
+      R.en = [target]; for (let i = 0; i < 40 && !p.dead; i++) { S.t += DT; stepProjectiles(S, R); }
+      if (target.hp >= 500) out.push('hero fireball: no damage after deep water');
+      m.cells[ty * m.W + tx + 2] = 0; const q = fire(); R.proj = [q]; for (let i = 0; i < 50 && !q.dead; i++) { S.t += DT; stepProjectiles(S, R); }
+      if (!q.dead || q.x >= (tx + 3) * TILE) out.push('hero fireball: passes through rock above water');
+    }
     // an altar on every second floor and on no other (TASKS 137), the last on the floor before the boss's, none on his (TASKS 183)
     { const bad = [], want = (f) => (f < D.RUNS.campaign.floors && (f % 2 === 0 || f === D.RUNS.campaign.floors - 1) ? 1 : 0);
       for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
@@ -2828,6 +2909,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { serpentMouth, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

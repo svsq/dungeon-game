@@ -1,9 +1,8 @@
 {
  "generator": {
-  "provider": "codex",
-  "model": null,
+  "tool": "imagegen",
   "size": "1536x1024",
-  "quality": "high",
+  "alpha": "auto",
   "opaque": [
    "bg_sky*",
    "*_tex"

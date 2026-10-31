@@ -189,26 +189,30 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // pebbled bed under the shallows. waterAt is the pool shader's own bank (WATER), so the two meet
   const CAVE_EDGE = `
 uniform sampler2D u_open, u_water; uniform vec2 u_map; uniform float u_wet;
-float openAt(vec2 p){ return texture(u_open, p / u_map).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12; }
+float openAt(vec2 p){ return textureLod(u_open, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12; }
 bool isOpen(vec2 p){ return openAt(p) > 0.47; }
-float waterAt(vec2 p){ return u_wet * (texture(u_water, p / u_map).r + (vnoise(p / 6.0) - 0.5) * 0.32); }
+float waterAt(vec2 p){ return u_wet * (textureLod(u_water, p / u_map, 0.0).r + (vnoise(p / 6.0) - 0.5) * 0.32); }
 float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)); }
 `;
   const CAVE = CAVE_EDGE + `
 uniform sampler2D u_floor, u_wall, u_top, u_shore; uniform float u_lift;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 vec3 ramp(vec3 c, vec3 lo, vec3 mid, vec3 hi){ float t = clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.08) / 0.37, 0.0, 1.0); return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
-vec3 gFloor(vec2 p){ return ramp(tx(u_floor, p), vec3(0.13, 0.085, 0.055), vec3(0.46, 0.3, 0.185), vec3(0.72, 0.54, 0.36)); }
-vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.03, 0.03, 0.026), vec3(0.19, 0.175, 0.14), vec3(0.45, 0.4, 0.31)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
+vec3 gFloor(vec2 p){
+  vec3 gravel = ramp(tx(u_floor, p * 2.6), vec3(0.14, 0.1, 0.072), vec3(0.46, 0.32, 0.23), vec3(0.72, 0.56, 0.42));
+  vec3 earth = mix(vec3(0.3, 0.19, 0.135), vec3(0.58, 0.39, 0.27), vnoise(p / 3.0));
+  return mix(earth, gravel, smoothstep(0.28, 0.64, fbm(p / 19.0)));
+}
+vec3 gWall(vec2 p){ return ramp(tx(u_wall, vec2(p.x * 1.3, p.y * 0.5)), vec3(0.035, 0.035, 0.033), vec3(0.25, 0.245, 0.235), vec3(0.49, 0.475, 0.45)) * (0.74 + 0.5 * vnoise(vec2(p.x / 5.0, p.y / 48.0))); }
 vec3 gTop(vec2 p){ return ramp(tx(u_top, p), vec3(0.016, 0.016, 0.014), vec3(0.1, 0.095, 0.082), vec3(0.24, 0.215, 0.18)); }
-vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.1, 0.25, 0.21) : n < 0.75 ? vec3(0.18, 0.35, 0.17) : vec3(0.31, 0.48, 0.17); }
+vec3 moss(vec2 p){ float n = vnoise(p / 3.0); return n < 0.4 ? vec3(0.08, 0.18, 0.14) : n < 0.75 ? vec3(0.13, 0.25, 0.15) : vec3(0.24, 0.34, 0.18); }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 col;
   if (op > 0.47) {
     vec3 sh = tx(u_shore, w + 37.0); float wa = waterAt(w);
     col = gFloor(w) * (0.86 + 0.28 * fbm(w / 170.0));
     col = mix(col, sh * 0.9, smoothstep(0.14, 0.44, wa));
     if (wa > 0.5) col = sh * vec3(0.4, 0.5, 0.56);
-    else if (wa > 0.02) { float hl = 10.0 + 5.0 * vnoise(vec2(w.x / 23.0, 9.0)), ld = 99.0;
+    else { float hl = 10.0 + 5.0 * vnoise(vec2(w.x / 23.0, 9.0)), ld = 99.0;
       for (int k = 1; k <= 8; k++) { float d = float(k) * 2.0; if (d > hl) break; if (waterAt(w + vec2(0.0, d)) > 0.5) { ld = d; break; } }
       if (ld < 99.0) { float h = ld / hl; col = mix(sh, gWall(w), 0.55) * (0.42 + 0.4 * h);
         if (hl - ld < 2.5) col = col * 1.45 + 0.05;
@@ -248,11 +252,11 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float streak = run * step(0.78, vnoise(vec2(q.x / 2.5, q.y / 16.0))) * step(0.45, vnoise(p / 23.0));
   float swell = (1.0 - run) * step(0.87, vnoise(vec2(w.x / 14.0 + u_t * 0.15, w.y / 5.0))) * step(0.5, vnoise(w / 40.0 + u_t * 0.05));
   vec2 gc = floor(w / vec2(24.0, 12.0)), gl = w - (gc + vec2(0.3 + 0.4 * hash(gc + 3.0), 0.5)) * vec2(24.0, 12.0); float gh = hash(gc);
-  float glint = step(0.82, gh) * step(0.55, sin(u_t * (0.8 + 1.6 * gh) + gh * 40.0)) * step(abs(gl.y), 1.0) * step(abs(gl.x), 2.0 + 4.0 * hash(gc + 5.0));
+  float glint = step(0.82, gh) * step(0.55, sin(u_t * (0.8 + 1.6 * gh) + gh * 40.0)) * step(abs(gl.y), 1.0) * step(abs(gl.x), 1.0 + 2.0 * hash(gc + 5.0));
   vec3 refl = vec3(0.0); float band = step(0.5, vnoise(vec2(w.x / 5.0 + sin(u_t * 0.7) * 0.6, w.y / 2.5 - u_t * (0.6 + 2.5 * run))));
   for (int i = 0; i < 16; i++) { vec2 r0 = w - u_fire[i].xy - vec2(sin(w.y * 0.25 + u_t * 1.4 + hash(u_fire[i].xy) * 6.283) * (1.5 + 3.0 * run), 44.0);
     refl += u_fireCol[i] * exp(-r0.x * r0.x / 70.0 - r0.y * r0.y / 1400.0) * u_fire[i].w * band; }
-  vec3 shallow = vec3(0.1, 0.42, 0.58), deep = vec3(0.025, 0.11, 0.2);
+  vec3 shallow = vec3(0.09, 0.58, 0.76), deep = vec3(0.07, 0.41, 0.48);
   vec3 col = mix(mix(shallow, shallow * 0.8, depth), deep * (0.85 + 0.15 * vnoise(w / 30.0)), dp) * (1.0 - 0.4 * edge);
   col += vec3(0.12, 0.2, 0.19) * streak + vec3(0.06, 0.1, 0.1) * swell + vec3(0.3, 0.38, 0.36) * glint;
   float fn = vnoise(w / 4.0 + vec2(u_t * 0.25, 0.0) - flow * run * u_t * 3.0), foam = inside * max((1.0 - smoothstep(0.0, 6.0, d)) * step(0.55, fn), (1.0 - smoothstep(0.0, 3.0, d)) * step(0.3, fn));
@@ -375,6 +379,7 @@ void main(){ vec4 src = texture(u_src, scr(v_px)); vec3 c = src.rgb, l = texture
     // ripples thrown on a wall run as broken wavy bands drifting upward
     float band = smoothstep(0.55, 0.95, sin(wp.y / 4.5 + 2.2 * sin(wp.x / 26.0 + u_t * 0.9) + u_t * 1.7)) * smoothstep(0.35, 0.7, fbm(wp / 46.0 + vec2(u_t * 0.12, -u_t * 0.2)));
     glint = vec3(0.3, 0.75, 0.8) * band * near * (0.14 + 0.6 * dot(min(l, vec3(1.2)), vec3(0.33))); }
+  if (u_cave > 0.5) l = max(l, mix(vec3(0.86, 0.82, 0.78), vec3(0.52, 0.49, 0.46), smoothstep(0.1, 0.5, texture(u_water, w).r)));
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
@@ -405,8 +410,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const zoneAt = (m, x, y) => { for (const r of m.rooms) if (r.zone && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r.zone; return m.biome; };
   // the cave's glowing props: where the light sits above the foot (up), its pool's radius and strength, and the colour key of
   // its biome (BIOMES.cave.shroom / gem); a prop away from the cave keeps the fallback colour
-  const GLOW = { shroom_a: { up: 22, r: 150, amt: 0.65, col: 'shroom', cap: 15 }, shroom_b: { up: 34, r: 175, amt: 0.75, col: 'shroom', cap: 19 }, crystal_cv: { up: 42, r: 230, amt: 0.9, col: 'gem', cap: 26 } };
-  const GLOW_COL = { shroom: [0.2, 0.85, 0.78], gem: [0.32, 0.62, 1.0] };
+  const GLOW = { shroom_a: { up: 22, r: 150, amt: 0.48, col: 'shroom', cap: 15 }, shroom_b: { up: 34, r: 175, amt: 0.55, col: 'shroom', cap: 19 }, crystal_cv: { up: 42, r: 230, amt: 0.9, col: 'gem', cap: 26 } };
+  const glowOf = (d) => {
+    const g = GLOW[d.n]; if (!g) return null;
+    const s = d.s || 1; return { ...g, up: g.up * s, cap: g.cap * s, r: g.r * (0.8 + 0.2 * s), amt: g.amt * (d.glow || 1) };
+  };
+  const GLOW_COL = { shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0] };
   const glowBeat = (d, t) => (d.n === 'crystal_cv' ? 0.94 + 0.04 * Math.sin(t * 2.3 + d.x) + 0.02 * Math.sin(t * 7.1 + d.y) : 0.84 + 0.16 * Math.sin(t * 0.9 + (d.x * 0.37 + d.y * 0.11)));
   // a roof drop of m.drips falls for DRIP_FALL s and lands at ph + n·p (audio.js plays the landing from the same schedule)
   // a cave crossing's boards (TASKS 306): pitch, board to board along the way; up, the fire cup's height on a torch post
@@ -505,7 +514,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (hurt) { const hx = bx + ux * 24, hy = by + uy * 24; crack(hx, hy, a0 - 1.4, 3, 3, 21 + i, 1); crack(hx, hy, a0 + 1.4, 3, 3, 31 + i, 1); L.solid(hx - 7, hy - 5, 14, 10, [0.03, 0.02, 0.03], a0, 7, 5, 0.9); } });
     // wall decor: banners hang on the wall faces
     // (a plain banner hangs in the Y band: struck, it swings)
-    for (const d of m.decor) if (d.wall && d.n !== 'banner' && d.secret === undefined && !SIM.hidden(m, d)) { const [w, h] = SZ(d.n); L.sprite(d.n, d.x - w / 2, d.y - h + 8, { w, h }); }
+    for (const d of m.decor) if (d.wall && d.n !== 'banner' && d.n !== 'shop_sign' && d.secret === undefined && !SIM.hidden(m, d)) { const [w, h] = SZ(d.n); L.sprite(d.n, d.x - w / 2, d.y - h + 8, { w, h }); }
     G.bind(null);
   }
   // the fog's edge fades over ~2 cells instead of cutting along the grid; the fade spreads into rock but never onto unseen floor,
@@ -569,7 +578,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     return VOID.rec;
   }
   function seenTex(R) {
-    const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n += R.seen[i];
+    const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n = (Math.imul(n, 31) + R.seen[i]) | 0;
     const key = m.seed + ':' + m.floor + ':' + n + ':' + R.rseen.join('');
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = document.createElement('canvas'); }
@@ -584,25 +593,26 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SEEN.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
     return SEEN.rec;
   }
-  const SPELL_FLOOR = { key: '', rec: null, cv: null };
-  function spellFloor(R) {
+  const SPELL_FLOOR = { key: '', rec: null, cv: null }, SPELL_WATER = { key: '', rec: null, cv: null };
+  function spellFloor(R, water = false) {
+    const cache = water ? SPELL_WATER : SPELL_FLOOR;
     // a rolling hash of the cells and the explored mask: no string of the whole map per frame (TASKS 242)
     const m = R.map; let hsh = 0; for (let i = 0; i < m.cells.length; i++) hsh = (Math.imul(hsh, 31) + m.cells[i] * 2 + (R.seen[i] ? 1 : 0)) | 0;
     const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
-    if (SPELL_FLOOR.key === key) return SPELL_FLOOR.rec;
-    const cv = SPELL_FLOOR.cv || (SPELL_FLOOR.cv = document.createElement('canvas')); cv.width = m.W; cv.height = m.H;
+    if (cache.key === key) return cache.rec;
+    const cv = cache.cv || (cache.cv = document.createElement('canvas')); cv.width = m.W; cv.height = m.H;
     const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H), hidden = SIM.secretMask(m);
     for (let i = 0; i < m.cells.length; i++) {
-      im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3) && R.seen[i] && !hidden.has(i) ? 255 : 0;
+      im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3 || water && m.cells[i] === 6) && R.seen[i] && !hidden.has(i) ? 255 : 0;
       im.data[i * 4 + 3] = 255;
     }
     g.putImageData(im, 0, 0);
-    if (!SPELL_FLOOR.rec) SPELL_FLOOR.rec = G.canvasTex('spell_floor', cv);
+    if (!cache.rec) cache.rec = G.canvasTex(water ? 'spell_water' : 'spell_floor', cv);
     // the mips are rebuilt with every upload: a floor of another size left the old ones behind, the texture went incomplete and
     // read as all rock, so every spell on the cave's larger floors was masked away
-    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SPELL_FLOOR.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
-      SPELL_FLOOR.rec.w = cv.width; SPELL_FLOOR.rec.h = cv.height; }
-    SPELL_FLOOR.key = key; return SPELL_FLOOR.rec;
+    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, cache.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
+      cache.rec.w = cv.width; cache.rec.h = cv.height; }
+    cache.key = key; return cache.rec;
   }
 
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
@@ -946,30 +956,33 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   }
   function drawSerpent(e, E, x, y, GT, t, o) {
     if (e.st === 'idle') return;
-    const RG = RIGS.serpent, RB = RIGS.serpent__body, RT = RIGS.serpent__tail, B = D.BOSSES[e.type], u = GT - e.t0, dead = e.deadT >= 0 ? GT - e.deadT : -1;
+    const RG = RIGS.serpent, RB = RIGS.serpent__body, RT = RIGS.serpent__tail, B = D.BOSSES[e.type], dead = e.deadT >= 0 ? GT - e.deadT : -1, poseT = dead >= 0 ? e.deadT : GT, u = poseT - e.t0;
+    if (dead >= 0) t = e.deadT;
     if (dead > 1.6) return;
     const f = e.face || 1, s = 168 / RG.h, col = [0.45, 0.72, 0.76];
     if (dead < 0 && (e.st === 'deep' || e.st === 'stir')) {
       if (e.st === 'stir') { const q = SS(0, B.warn, u);
         for (let j = 0; j < 6; j++) L.shadow(x + Math.cos(j * 0.8 + t) * (20 + 18 * q), y + Math.sin(j * 0.8 + t) * 12, 25, 9, 0.4 + 0.3 * q);
         L.shadow(x, y + 6, 20 + 46 * q, 8 + 18 * q, 0.35 + 0.5 * q);
+        const scale = 0.52 + q * 0.12; L.sprite('serpent__body', 0, 0, { m: M.of(M.t(x, y + 4), M.s(f * scale, 0.22 + q * 0.04)), w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), u: { alpha: 0.5 + q * 0.3, grade: [0.15, 0.35, 0, 1], tint: [0.3, 0.7, 0.8, 1] } });
         for (let j = 0; j < 4; j++) { const q2 = (u * 1.4 + j / 4) % 1; L.ring(x, y + 4, 12 + 70 * (1 - q2), (12 + 70 * (1 - q2)) * 0.42, [0.62, 0.9, 0.95], (0.25 + 0.6 * q) * Math.sin(Math.PI * q2), 0.14); }
         for (let j = 0; j < 15; j++) { const q1 = (u * 2 + j / 15) % 1, a = j * 2.4, r = 12 + 38 * rnd(e.id, j);
           L.ring(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.4, 1 + 5 * q1, 1 + 3 * q1, col, 0.8 * (1 - q1), 0.35); }
       }
       L.joint('en' + e.id, 'ground', [x, y]); return;
     }
-    const sub = dead >= 0 ? SS(0.35, 1.5, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
-    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, coil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : dead < 0 && e.floodAt > GT ? SS(0, 0.35, 1.2 - (e.floodAt - GT)) * (0.85 + 0.15 * Math.sin(t * 22)) : dead < 0 && e.floodT !== undefined && GT - e.floodT < 0.6 ? (1 - SS(0, 0.6, GT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0;
+    const sub = e.endPortrait ? 0 : dead >= 0 ? SS(0, 1.4, dead) : e.st === 'rise' ? 1 - SS(0, B.rise, u) : e.st === 'dive' ? SS(0, B.dive, u) : 0;
+    const Mv = D.bossMove(e), attacking = e.st === 'bwind', w = Mv.wind || 1, attackCoil = attacking ? SS(0, w, u) * (1 - SS(w, w + 0.3, u)) : 0;
+    const floodCoil = e.floodAt > poseT ? SS(0, 0.35, 1.2 - (e.floodAt - poseT)) * (0.85 + 0.15 * Math.sin(t * 22)) : e.floodT !== undefined && poseT - e.floodT < 0.6 ? (1 - SS(0, 0.6, poseT - e.floodT)) * (0.85 + 0.15 * Math.sin(t * 22)) : 0, coil = Math.max(attackCoil, floodCoil);
     const snap = attacking ? SS(w - 0.1, w + 0.09, u) * (1 - SS(w + 0.15, w + Mv.duration, u)) : 0;
     const hit = dead < 0 ? 0.12 * SS(0, 0.06, GT - e.hitT) * (1 - SS(0.12, 0.35, GT - e.hitT)) : 0;
-    let base = 0.045 * Math.sin(t * 1.4) - 0.28 * coil + 0.2 * snap + sub * 0.3;
-    let mid = 0.075 * Math.sin(t * 1.4 - 0.9) - 0.36 * coil + 0.25 * snap - hit;
-    let head = 0.08 * Math.sin(t * 1.4 - 1.8) + 0.34 * coil - 0.2 * snap - hit;
-    const bite = attacking && e.mv === 'bite' ? SS(w - 0.14, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
+    let base = 0.045 * Math.sin(t * (Math.PI * 2 / 4.5)) - 0.28 * coil + 0.2 * snap + sub * 0.3;
+    let mid = 0.075 * Math.sin(t * (Math.PI * 2 / 4.5) - 0.9) - 0.36 * coil + 0.25 * snap - hit;
+    let head = 0.08 * Math.sin(t * (Math.PI * 2 / 4.5) - 1.8) + 0.34 * coil - 0.2 * snap - hit;
+    const bite = attacking && e.mv === 'bite' ? SS(w - 0.4, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
     const [cMid, cBase] = RB.bones, cHead = bite > 0 ? RG.head : RB.bones[2];
     if (bite > 0) {
-      const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, Mv.r / d), a = Math.max(-1.2, Math.min(1.2, Math.atan2(dy * 0.7, Math.abs(dx) + 1)));
+      const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy) || 1, k = Math.min(1, Mv.r / d), a = Math.max(-1.55, Math.min(1.55, Math.atan2(dy * 0.7, Math.abs(dx) + 1)));
       const l1 = Math.hypot(cMid[0] - cBase[0], cMid[1] - cBase[1]), l2 = Math.hypot(cHead[0] - cMid[0], cHead[1] - cMid[1]), l3 = Math.hypot(RG.snout[0] - cHead[0], RG.snout[1] - cHead[1]);
       const tx = dx * f * k / s - Math.cos(a) * l3, ty = (dy * k - 40) / s - Math.sin(a) * l3, len = Math.max(1, Math.min(l1 + l2 - 0.01, Math.hypot(tx, ty)));
       const a1 = Math.atan2(ty, tx) - Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + len * len - l2 * l2) / (2 * l1 * len))));
@@ -979,17 +992,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const mix = (a, b) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * bite;
       base = mix(base, b0); mid = mix(mid, b1); head = mix(head, b2);
     }
+    if (dead >= 0 && !e.endPortrait) { const fall = SS(0, 0.5, dead); base += 0.18 * fall; mid += 0.25 * fall; head -= 0.2 * fall; }
+    if (e.endPortrait) { base += 0.9; mid += 0.6; head -= 0.5; }
     const forward = (p) => rotAbout(rotAbout(rotAbout(p, cHead, head), cMid, mid), cBase, base);
     const mouth = forward(RG.snout), pin = attacking && e.mv === 'fan' ? SS(w - 0.2, w, u) * (1 - SS(w + 0.08, w + Mv.duration, u)) : 0;
     const bx = x + pin * (50 * f - (mouth[0] - RG.base[0]) * s * f), by = y + 2 + sub * 145 + pin * (-92 - (mouth[1] - RG.base[1]) * s);
     const mat = M.of(M.t(bx, by), M.s(f, 1)), at = (p) => M.ap(mat, [(p[0] - RG.base[0]) * s, (p[1] - RG.base[1]) * s]);
-    const cut = { cut: [y + 3 + bite * Math.max(0, e.ty - e.y), 4, 1] }, U = Object.assign({ alpha: o.alpha, grade: dead >= 0 ? [0.5, 0.65, 0, 1] : o.grade }, o.rim, cut);
+    const cut = { cut: [y + (e.endPortrait ? 300 : 3) + bite * Math.max(0, (e.ty ?? e.y) - e.y), 4, 1] }, U = Object.assign({ alpha: o.alpha, grade: dead >= 0 ? [0.5, 0.65, 0, 1] : o.grade }, o.rim, cut);
     const tailU = e.st === 'recover' ? w + Mv.duration + u : u, tailActive = e.mv === 'tail' && (attacking || (e.st === 'recover' && u < 0.3));
     const tailK = tailActive ? SS(0, 0.4, tailU) * (1 - SS(w + Mv.duration, w + Mv.duration + 0.3, tailU)) : 0;
     const tailSweep = tailActive ? SS(w - 0.08, w + 0.48, tailU) * Math.PI * 2 : 0;
     const body = () => {
-      const tails = (pass) => { for (let j = 1; j >= 0; j--) { const a = Math.PI + j * 0.8, tx = x + Math.cos(a) * (60 + j * 32) * f, ty = y + Math.sin(a) * 20 + j * 12 + sub * 65;
-        const b = RT.bones[0], k = 0.14 + 0.12 * Math.sin(t * 2 - j) + 0.3 * snap;
+      const tails = (pass) => { for (let j = 1; j >= 0; j--) { const a = Math.PI + j * 0.8, tx = x + Math.cos(a) * (60 + j * 32) * f, ty = y + Math.sin(a) * 20 + j * 12 + sub * 145;
+        const b = RT.bones[0], k = 0.14 + 0.12 * Math.sin(t * (Math.PI * 2 / 4.5) - j) + 0.3 * snap;
         const sweeping = tailK > 0, angle = e.aimA - Math.PI + tailSweep, r0 = Math.atan2(RG.tail.tip[1] - RG.tail.base[1], RG.tail.tip[0] - RG.tail.base[0]);
         const mt = sweeping && !j ? M.of(M.t(tx + (x + Math.cos(angle) * 25 - tx) * tailK, ty + (y + Math.sin(angle) * 25 - ty) * tailK), M.s(f * (1 + 0.1 * tailK), 1 + 0.1 * tailK), M.r(Math.atan2(Math.sin(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0), Math.cos(Math.atan2(Math.sin(angle), Math.cos(angle) * f) - r0)) * tailK)) : M.of(M.t(tx, ty), M.s(f * (j ? -0.75 : 1), j ? 0.75 : 1));
         if ((sweeping && !j && Math.sin(angle) > 0.15 ? 1 : 0) !== pass) continue;
@@ -997,10 +1012,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           u: Object.assign({}, U, sweeping ? { alpha: o.alpha * (j ? 1 - tailK : 1), cut: [y + 3 + 200 * tailK, 4, 1] } : {}, { wtex: G.tex('serpent__tail_w'), wsz: [RT.w, RT.h], bone0: [b[0] / RT.w, b[1] / RT.h, k, 1] }) });
       } };
       tails(0);
-      const xf = SS(0, 0.4, bite), soft = () => L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
+      const xf = e.endPortrait ? 1 : Math.max(SS(0, 0.4, bite), SS(0.02, 0.15, coil), dead >= 0 ? SS(0, 0.15, dead) : 0), soft = () => L.sprite('serpent__body', 0, 0, { m: mat, w: RG.w * s, h: RG.h * s, pivot: RG.base.map((v) => v * s), pad: 0.3,
         u: Object.assign({}, U, { alpha: U.alpha * (1 - xf), wtex: G.tex('serpent__body_w'), wsz: [RB.w, RB.h], bone0: [cMid[0] / RB.w, cMid[1] / RB.h, mid, 1], bone1: [cBase[0] / RB.w, cBase[1] / RB.h, base, 1], bone2: [cHead[0] / RB.w, cHead[1] / RB.h, head, 1] }) });
-      if (bite > 0) {
-        // the neck's three pieces take over from the soft body over the first of the strike, so the shape does not jump (TASKS 325)
+      if (xf > 0) {
         if (xf < 1) soft();
         const piece = (name, root, pos, a) => L.sprite('serpent__' + name, 0, 0, { m: M.of(mat, M.t((pos[0] - RG.base[0]) * s, (pos[1] - RG.base[1]) * s), M.r(a)),
           w: RG.w * s, h: RG.h * s, pivot: root.map((v) => v * s), pad: 0.3, u: Object.assign({}, U, { alpha: U.alpha * xf }) });
@@ -1134,14 +1148,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   SC.endActors = (r, win, t, x, y) => {
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
     const enemy = (actor, px, py, dead) => {
-      const gt = t + 100, e = Object.assign({ id: 990, x: 0, y: 0, vx: 0, vy: 0, dist: 0, face: -1, st: 'idle', t0: -9, hitT: -9, hitP: -9, burn: 0, deadT: dead ? gt - 2 : -1, dieA: 0 }, actor);
+      const gt = t + 100, e = Object.assign({ id: 990, x: 0, y: 0, vx: 0, vy: 0, dist: 0, face: -1, st: 'idle', t0: -9, hitT: -9, hitP: -9, burn: 0, deadT: dead ? gt - (actor.type === 'boss_serpent' ? 0.6 : 2) : -1, dieA: 0 }, actor);
       const k = dead ? 0.85 : 160 / (SZ(EN_TEX[e.type])[1] * (D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1));
       L.pre = M.of(M.t(px, py), M.s(k, k), M.t(-px, -py));
       try { drawEnemy(e, px, py, gt, t); } finally { L.pre = null; }
     };
     if (win) {
       // the fallen lord behind and aside, the hero large and lit in front of him: the two never merge into one dark shape (TASKS 235)
-      enemy({ type: 'boss', elite: 1 }, x - 90, y - 5, true);
+      enemy({ type: r.mode === 'cave' ? 'boss_serpent' : 'boss', elite: r.mode === 'cave' ? 0 : 1, st: 'chase', mv: 'wave', endPortrait: r.mode === 'cave' }, x - 90, y - 5, true);
       if (r.hero) {
         const h = Object.assign({}, r.hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
         const hx = x + 35, hy = y + 70;
@@ -1163,6 +1177,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (NO_INK.has(n)) draw(); else L.inked(draw, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }
   // a knocked prop's recoil about its foot, away from the blow (s): wood rocks, metal rattles, stone shudders, crystal rings, sacks slump
   const KNOCK = {
+    fungus: (a, s) => ({ rot: s * 0.13 * Math.exp(-5 * a) * Math.sin(16 * a), dx: 0, sy: 1 - 0.06 * Math.exp(-7 * a) }),
     wood: (a, s) => ({ rot: s * 0.1 * Math.exp(-5 * a) * Math.sin(20 * a), dx: 0, sy: 1 - 0.03 * Math.exp(-8 * a) * Math.sin(20 * a) }),
     metal: (a, s) => ({ rot: s * 0.05 * Math.exp(-3.5 * a) * Math.sin(34 * a), dx: s * 1.5 * Math.exp(-10 * a) * Math.sin(60 * a), sy: 1 }),
     stone: (a, s) => ({ rot: s * 0.015 * Math.exp(-8 * a) * Math.sin(40 * a), dx: s * 2.5 * Math.exp(-12 * a) * Math.sin(70 * a), sy: 1 }),
@@ -1184,7 +1199,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const MW = m.W * TILE, MH = m.H * TILE;
     const known = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)] || R.seen[Math.floor((y + 40) / TILE) * m.W + Math.floor(x / TILE)];
     const spellU = { u_floor: spellFloor(R), u_map: [MW, MH], u_cam: [cx, cy] };
-    const spell = (program, x, y, rx, ry, u) => G.draw(L.P[program], { ...spellU, ...u }, G.xf(sx(x) - rx, sy(y) - ry, rx * 2, ry * 2));
+    const spell = (program, x, y, rx, ry, u) => G.draw(L.P[program], { ...spellU, ...(program === 'fireball' ? { u_floor: spellFloor(R, true) } : {}), ...u }, G.xf(sx(x) - rx, sy(y) - ry, rx * 2, ry * 2));
     const weaponCol = (rar) => rar ? D.RARITY[rar].col : [0.55, 0.72, 0.9];
     const whirlFx = (e, a, mode) => {
       const radius = e.r || 92, y = e.y - (mode ? 0 : 34), angle = Math.atan2(Math.sin(e.a || 0) / DEPTH_K, Math.cos(e.a || 0)) + Math.PI * 2 * whirlP(a);
@@ -1214,7 +1229,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
     const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), f = flick(i) * (col[2] > col[0] ? 1.35 : 1), big = tc.kind === 'fire', gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
-      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = pool ? 0.6 : 1;   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
+      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * (B.cave && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
       TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr, pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]); });
@@ -1230,7 +1245,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the cave's own light (TASKS 305): mushrooms breathe slowly in turquoise, crystals hold a steady blue with a faint shimmer;
     // each is a wide soft pool and a small bright one at its heart, so the floor round it reads as lit by it, not tinted. Kept out
     // of TL: fireTint takes a fire's colour back off the actors, and taken off a cold light it painted the hero red
-    const GL = []; for (const d of m.decor) { const g = GLOW[d.n]; if (!g || hid(d)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
+    const GL = []; for (const d of m.decor) { const g = glowOf(d); if (!g || hid(d)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
       GL.push([d.x, d.y - g.up, g.r, col, g.amt * b, 2.6]); GL.push([d.x, d.y - g.up, g.r * 0.4, col, g.amt * 1.8 * b, 2.4]); }
     for (const p of R.pots) if ((p.kind === 'gold' || p.kind === 'goldpile') && p.hp > 0 && !hid(p)) TL.push([p.x, p.y - 10, 110, [1, 0.78, 0.4], 0.35]);
     for (const c of R.chests) if (c.tier === 3 && !c.open && !hid(c)) TL.push([c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
@@ -1295,6 +1310,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const n = rnd(k, 3) < 0.35 ? 'water_stone_b' : 'water_stone_a', [w, hh] = SZ(n), jx = Math.round((rnd(k, 5) - 0.5) * 4) * 2;
       L.shadow(sx(x + jx), sy(y + hh / 2), w * 0.45, 4, 0.5); drawProp(n, sx(x + jx), sy(y) + hh / 2, { flip: rnd(k, 9) < 0.5, u: { grade: [0.85, 0.72, 0, 1] } }); }
     const wetSet = WET.get(m) || (WET.set(m, new Set(m.water)), WET.get(m));
+    const dryCrossings = new Set((m.crossings || []).filter((c) => c.kind === 'bridge' || c.kind === 'ford').flatMap((c) => c.cells));
     const inWet = (x, y) => { const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE); return SIM.cell(m, cx, cy) === 6 || wetSet.has(cy * m.W + cx); };
     const ev2 = (v) => Math.round(v / 2) * 2;
     // rings spreading slowly round whatever stands in the water
@@ -1414,7 +1430,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let j = 0; j < 4; j++) { const ph = (t * 0.22 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * (q.kind === 'shelf' ? 110 : 40) * (0.5 + ph) + Math.sin(t * 1.6 + j * 2) * 4;
         L.solid(X - ux * (ph * 30 - 4) - uy * sp, Yf - uy * (ph * 30 - 4) + ux * sp + (q.dy ? 0 : ph * ph * 10), 2, 2, [0.8, 0.84, 0.92], 0, 0, 0, 0.35 * near * Math.sin(ph * Math.PI)); } });
     // a secret's loose flagstone: the floor's own stone standing a hair proud of its neighbours; it sinks when stepped on
-    // an ambush's flagstone (TASKS 71) is the same loose stone: nothing tells the two apart until one is stepped on
+    // (ambush plates are gone, TASKS 320; only secrets use it now)
     const flagstone = (P, down, crack) => { const z = zoneAt(m, P.cx, P.cy), Z = D.BIOMES[z], TS = 288, X = P.cx * TILE, Yw = P.cy * TILE, u0 = (X % TS) / TS, v0 = (Yw % TS) / TS, lift = 1.5 * (1 - down) - down;
       const ink = [0.02, 0.015, 0.02], X0 = sx(X) + 2, Y0 = sy(Yw) + 2, S0 = TILE - 4;
       L.solid(X0, Y0 + S0 - 1, S0, 3, ink, 0, 0, 0, 0.45 + 0.3 * down);
@@ -1428,7 +1444,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           if (rnd(P.cx + k, P.cy - k) < 0.25) d = -d; if (rnd(P.cy + k, P.cx) < 0.5) x = Math.max(X0 + 2, Math.min(X0 + S0 - 4, x + d));
           if (k === 4) for (let j = 1; j <= 3; j++) L.solid(x - d * j, y + j * 2 - 2, 2, 2, ink, 0, 0, 0, 0.7); } } };
     for (const q of m.secrets || []) { const P = q.trig; if (P && P.k === 'plate' && vis(P.x, P.y)) flagstone(P, q.open ? SS(0, 0.12, GT - (P.downT ?? q.openT ?? -9)) : 0); }
-    for (const P of m.ambush || []) if (vis(P.x, P.y)) flagstone(P, P.fired ? SS(0, 0.12, GT - (P.downT ?? -9)) : 0, P.fired);
 
     // webs on the floor (TASKS 71): torn to a few strands by a blow, burnt to a sooty few by fire
     (m.webs || []).forEach((w, i) => { if (!vis(w.x, w.y)) return; const n = w.torn ? 'web_torn' : w.v ? 'web_b' : 'web_a', A0 = ASSETS[n], ww = 84 * w.s * (w.torn ? 0.8 : w.v ? 0.85 : 1), hh = ww * A0.h / A0.w;
@@ -1470,7 +1485,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // candles standing on a table are one painted piece with it (table_candles): the pair drawn apart never sat right
     const onTable = (c) => m.decor.find((t) => t.n === 'table' && Math.abs(t.x - c.x) <= 6 && c.y - t.y === 1);
     const lit = new Set(m.decor.filter((c) => c.n === 'candles' && c.lift).map(onTable).filter(Boolean));
-    m.decor.forEach((d, i) => { if (!d.wall && d.secret === undefined && d.n !== 'bones' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] ? d.s || 1 : 1, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
@@ -1550,7 +1565,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // at the hinge) or down from a bottom wall (seen from the left, its far end at the hinge)
       if (p > 0) { if (d.dir === 'u') edge('door_edge_b', X - DOOR.w / 2 - E.nearX * k, d.y - E.near * k, ea);
         else edge('door_edge_a', X - DOOR.w / 2 - E.farX * k, d.y + 4 - E.far * k, ea); }
-      if (d.dir === 'u') Y.push([d.y + 0.5, () => L.sprite('door_frame', X - DOOR.fw / 2, foot - DOOR.fh + 3, { w: DOOR.fw, h: DOOR.fh })]); }
+      if (d.dir === 'u' && !B.cave) Y.push([d.y + 0.5, () => L.sprite('door_frame', X - DOOR.fw / 2, foot - DOOR.fh + 3, { w: DOOR.fw, h: DOOR.fh })]); }
     // a locked room's lever on a top wall: up until pulled, then down for good
     for (const Lk of m.locks || []) { const lv = Lk.lever; if (Lk.kind !== 'lever' || !lv || !vis(lv.x, lv.y)) continue;
       const down = Lk.open && GT - (Lk.openT ?? -9) > 0.08, n = down ? 'lever_down' : 'lever_up', [ax, ay] = down ? [101, 92] : [189, 164], k = 30 / 190, A0 = ASSETS[n];
@@ -1593,7 +1608,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
       if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y), GT, st), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0 });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
-      if (caveW && h.deadT < 0 && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) {
+      const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);
+      if (caveW && h.deadT < 0 && !dryCrossings.has(heroCell) && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(heroCell)) {
         const X = Math.round(sx(h.x) / PIX) * PIX, Y0 = Math.round(sy(h.y) / PIX) * PIX;
         for (let dy = -10; dy <= 6; dy += PIX) { const hw = Math.round(24 * Math.sqrt(Math.max(0, 1 - ((dy + 2) / 9) ** 2)) / PIX) * PIX; if (hw <= 0) continue;
           L.solid(X - hw, Y0 + dy, 2 * hw, PIX, dy < -8 ? [0.62, 0.84, 0.86] : [0.07, 0.3, 0.42], 0, 0, 0, dy < -8 ? 0.7 : 0.5); }
@@ -1607,6 +1623,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + VW + r || y < cy - r || y > cy + VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
+    if (B.cave) lt(h.x, h.y - 45, 75, [0.35, 0.6, 0.85], 0.18);
     lt(h.x, h.y - 30, 250, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
@@ -1626,6 +1643,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
     for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.7, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
+      if (e.k === 'prop' && e.mat === 'fungus' && a < 0.5) lt(e.x, e.y - (e.n === 'shroom_b' ? 34 : 22) * (e.scale || 1), 90, B.shroom || GLOW_COL.shroom, (e.touch ? 0.2 : 0.55) * (1 - a / 0.5));
       if (e.k === 'prop' && e.mat === 'crystal' && a < 0.7) lt(e.x, e.y - 30, 260, [0.4, 0.65, 1.0], 1.4 * (1 - a / 0.7));
       if (e.k === 'prop' && (e.n === 'brazier' || e.n === 'torch_sconce') && a < 0.6) lt(e.x, e.y - 30, 240, [1.0, 0.6, 0.25], 0.9 * (1 - a / 0.6));
       if (e.k === 'boom' && a < 0.3) lt(e.gx ?? e.x, e.gy ?? e.y + 24, 180, [1.0, 0.6, 0.25], 0.6 * (1 - a / 0.3));
@@ -1635,7 +1653,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'pop' && e.c !== 'jet' && e.c !== 'arrow' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : e.c === 'orb' ? [0.35, 0.85, 0.95] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
       if (e.k === 'teleport' && a < 0.9) { const q = 1 - a / 0.9; lt(e.x, e.y - 30, 260, [0.55, 0.75, 1], 1.6 * q); lt(e.fx ?? e.x, (e.fy ?? e.y) - 30, 220, [0.55, 0.75, 1], 1.2 * q); }
       if (e.k === 'floor' && a < 1.6) lt(e.x, e.y - 20, 300, [1, 0.85, 0.55], 1.2 * (1 - a / 1.6));
-      if (e.k === 'roar' && a < 0.8) lt(e.x, e.y + 40, 420, [1, 0.3, 0.12], 1.4 * (1 - a / 0.8));
+      if (e.k === 'roar' && a < 0.8) lt(e.x, e.y + 40, 420, B.cave ? [0.35, 0.7, 0.85] : [1, 0.3, 0.12], 1.4 * (1 - a / 0.8));
       if (e.k === 'die' && a < 1.6) lt(e.x, e.y - 40 - 60 * SS(0.3, 1.6, a), 200, [0.5, 0.7, 1], 0.9 * SS(0.2, 0.5, a) * (1 - SS(1.2, 1.6, a)));
       if (e.k === 'spike' && a < 0.2) lt(e.x, e.y, 110, [1, 0.9, 0.75], 0.5 * (1 - a / 0.2)); }
     if (h.shield > 0 && GT < h.shieldUntil) lt(h.x, h.y - 30, 160, [0.4, 0.7, 1], 0.7);
@@ -1702,8 +1720,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const [x, y] of lavaCells) if (rnd(x, y) < 0.6 && known(x * TILE, y * TILE)) embers((x + rnd(y, x)) * TILE, (y + 0.5) * TILE, 1, 30, [1, 0.62, 0.15], x * 31 + y);
     // the mushrooms' caps and the crystals glow over their own light, and the mushrooms shed spores: single pale motes drifting up
     // and sideways a long way, slower than embers, each on its own beat (TASKS 305)
-    for (const d of m.decor) { const g = GLOW[d.n]; if (!g || hid(d) || !vis(d.x, d.y) || !known(d.x, d.y)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
-      L.glow(sx(d.x), sy(d.y) - g.up, g.cap * 2.4, col, 0.32 * b, 2.4); L.glow(sx(d.x), sy(d.y) - g.up, g.cap, col.map((v) => 0.5 + 0.5 * v), 0.22 * b, 3);
+    for (const d of m.decor) { const g = glowOf(d); if (!g || hid(d) || !vis(d.x, d.y) || !known(d.x, d.y)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
+      L.glow(sx(d.x), sy(d.y) - g.up, g.cap * 2.4, col, (g.col === 'shroom' ? 0.16 : 0.32) * b, 2.4); L.glow(sx(d.x), sy(d.y) - g.up, g.cap, col.map((v) => 0.5 + 0.5 * v), (g.col === 'shroom' ? 0.11 : 0.22) * b, 3);
       if (g.col !== 'shroom') continue;
       for (let j = 0; j < 4; j++) { const k = d.x * 7 + d.y * 13, q = (t * (0.12 + 0.06 * rnd(k, j)) + rnd(k, j + 3)) % 1; if (q > 0.9) continue;
         const ex = d.x + (rnd(k, j + 7) - 0.5) * 22 + Math.sin(t * 0.7 + j * 2.3 + k) * 14 * q, ey = d.y - g.up + 4 - 70 * q * (0.6 + 0.4 * rnd(k, j + 11));
@@ -1832,7 +1850,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'orb' && a < 0.3) { const q = a / 0.3; L.glow(ex, ey, 22, [0.35, 0.85, 0.95], 0.9 * (1 - q), 3); L.ring(ex, ey, 6 + 16 * q, 4 + 10 * q, [0.7, 0.95, 1], 0.8 * (1 - q), 0.15); }
       if (e.k === 'soak' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey + 38, 12 + 30 * q, 5 + 12 * q, [0.6, 0.9, 1], 0.7 * (1 - q), 0.12); }
       if (e.k === 'pop' && e.c === 'arrow') { /* splinters: below, not lit up */ }
-      else if (e.k === 'pop' && (e.c === 'jet' || e.c === 'orb') && a < 0.5) { const col = [0.62, 0.86, 0.94]; if (e.hero) L.ring(ex, ey + 30, 10 + 40 * a / 0.5, 6 + 16 * a / 0.5, col, 0.6 * (1 - a / 0.5), 0.15);
+      else if (e.k === 'pop' && (e.c === 'jet' || e.c === 'orb' || e.c === 'wave') && a < 0.5) { const col = [0.62, 0.86, 0.94]; if (e.hero) L.ring(ex, ey + 30, 10 + 40 * a / 0.5, 6 + 16 * a / 0.5, col, 0.6 * (1 - a / 0.5), 0.15);
         for (let j = 0; j < (e.hero ? 12 : 7); j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 3, v = 60 + 90 * rnd(e.t, j + 4), u = Math.min(a, 0.45); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u - 30 * u + 420 * u * u, 3, 4, col, an, 1.5, 2, 1 - SS(0.3, 0.45, a)); } }
       else if (e.k === 'pop' && a < (e.hero ? 0.4 : 0.25)) { const q = a / (e.hero ? 0.4 : 0.25), col = e.c === 'hex' ? [0.45, 1, 0.4] : [1, 0.55, 0.18];
         L.glow(ex, ey, (e.hero ? 46 : 26) * (1 + 0.5 * q), col, 0.35 * (1 - q), 2.4); if (e.hero) L.ring(ex, ey, 14 + 40 * q, 10 + 28 * q, col, 0.6 * (1 - q), 0.18);
@@ -1845,6 +1863,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           L.star(ex + Math.cos(an) * v * a, ey - ph * 0.9 + Math.sin(an) * v * a + 60 * a * a, 5, [1, 0.6, 0.2], (1 - q) * (0.6 + 0.4 * rnd(e.t, j + 9))); }
         if (e.mat === 'crystal' && a < 0.5) { const q = a / 0.5; L.glow(ix, iy, 40 + 30 * q, [0.5, 0.75, 1], 1.4 * (1 - q), 2.6); for (let j = 0; j < 6; j++) { const an = j / 6 * 6.28 + e.t;
           L.star(ix + Math.cos(an) * 30 * q, iy + Math.sin(an) * 22 * q, 8, [0.6, 0.85, 1], 1 - q); } } }
+      if (e.k === 'prop' && e.mat === 'fungus' && a < 0.7) {
+        const g = glowOf({ n: e.n, s: e.scale }), col = B.shroom || GLOW_COL.shroom, strength = e.touch ? 0.4 : 1;
+        L.glow(ex, ey - g.up, g.cap * 2, col, 0.45 * strength * (1 - a / 0.7), 3);
+        for (let j = 0; j < 9; j++) {
+          const an = rnd(e.t, j) * Math.PI * 2, v = 15 + rnd(e.t, j + 11) * 40, x = ex + Math.cos(an) * v * a, y = ey - g.up + Math.sin(an) * v * a * 0.5 - a * 25;
+          L.solid(Math.round(x / PIX) * PIX, Math.round(y / PIX) * PIX, PIX, PIX, col, 0, 0, 0, strength * (1 - a / 0.7));
+        }
+      }
       // the plate fires: sparks off the steel tips
       if (e.k === 'spike' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < 7; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.2, v = 60 + 90 * rnd(e.t, j + 5);
         L.star(ex + Math.cos(an) * v * a * 1.6, ey - 18 + Math.sin(an) * v * a * 1.6 + 200 * a * a, 6, [1, 0.88, 0.6], 1 - q); } }
@@ -1857,7 +1883,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         for (let j = 0; j < 10; j++) { const an = j / 10 * 6.28; L.star(ex + Math.cos(an) * (24 + 60 * q), ey - 20 + Math.sin(an) * (12 + 30 * q), 7, [1, 0.85, 0.5], 1 - q); } }
       // the boss's roar: shock rings off his maw and the floor around him
       if (e.k === 'roar' && a < 0.9) for (let j = 0; j < 3; j++) { const q = (a - j * 0.12) / 0.6; if (q < 0 || q > 1) continue;
-        L.ring(ex, ey, 40 + 260 * q, 24 + 150 * q, [1, 0.4, 0.15], 0.9 * (1 - q), 0.06); if (j === 0) L.glow(ex, ey, 70, [1, 0.45, 0.2], 1.2 * (1 - q), 2.4); }
+        L.ring(ex, ey, 40 + 260 * q, 24 + 150 * q, B.cave ? [0.5, 0.8, 0.9] : [1, 0.4, 0.15], 0.9 * (1 - q), 0.06); if (j === 0) L.glow(ex, ey, 70, B.cave ? [0.5, 0.85, 1] : [1, 0.45, 0.2], 1.2 * (1 - q), 2.4); }
       if (e.k === 'die') { if (a < 0.4) L.glow(ex, ey - 40, 70, [1, 0.25, 0.15], 1.4 * (1 - a / 0.4), 2.4);
         const q = SS(0.3, 1.6, a); if (a > 0.25 && a < 1.6) { L.glow(ex, ey - 50 - 110 * q, 26, [0.55, 0.75, 1], 0.9 * (1 - SS(1.2, 1.6, a)), 2.6);
           for (let j = 0; j < 5; j++) L.star(ex + 10 * Math.sin(a * 4 + j * 1.3), ey - 50 - 110 * q + j * 14, 6 - j, [0.6, 0.8, 1], 0.7 * (1 - j / 5) * (1 - SS(1.2, 1.6, a))); } }
@@ -1967,7 +1993,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const add = (col, amt) => { if (amt <= 0) return; r += col[0] * amt; g += col[1] * amt; b += col[2] * amt; w += amt; };
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       if (e.k === 'hurt' && a < 0.5) add([0.55, 0.02, 0.02], (0.25 + 0.4 * Math.min(1, 4 * e.n / st.maxHp)) * (1 - SS(0.05, 0.5, a)));
-      if (e.k === 'roar' && a < 0.8) add([0.6, 0.12, 0.02], 0.45 * (1 - SS(0.1, 0.8, a)));
+      if (e.k === 'roar' && a < 0.8) add(R.mode === 'cave' ? [0.15, 0.35, 0.45] : [0.6, 0.12, 0.02], 0.45 * (1 - SS(0.1, 0.8, a)));
       if (e.k === 'teleport' && a < 0.5) add([0.6, 0.8, 1], 0.3 * (1 - SS(0, 0.5, a)));
       if (e.k === 'floor' && a < 0.9) dark = Math.max(dark, 1 - SS(0, 0.9, a)); }
     const f = h.hp / st.maxHp; if (h.deadT < 0 && f < 0.3) add([0.45, 0.02, 0.02], (1 - f / 0.3) * (0.22 + 0.12 * Math.sin(GT * 6.5)));
@@ -2360,15 +2386,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const S2 = play(); S2.run = SIM.newRun(S2, 'campaign', sd); const R2 = S2.run, L2 = R2.map.locks[m.locks.indexOf(L0)]; Object.assign(R2.hero, { x: h.x, y: h.y }); R2.en = []; R2.msg = null; R2.seen.fill(1); R2.rseen.fill(1); R2.cam = R.cam.slice();
         SIM.pullLever(S2, R2, L2); L2.openT = S2.t - 2; R2.msg = null; states.push(['lever_pulled', S2]); break; } }
     { const S = play(), R = S.run, h = R.hero; R.en = []; R.msg = null; R.keys = 1; R.drops.push({ id: 9e6, kind: 'key', lock: 0, x: h.x + 60, y: h.y + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 2 }); states.push(['key_drop', S]); }
-    // traps (TASKS 71, 76): a room's webs whole and torn, an ambush's flagstone before and as it springs, a corridor's spikes up
+    // traps (TASKS 71, 76): a room's webs whole and torn, a corridor's spikes up
     { const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); for (let fl = 1; fl <= 4; fl++) { if (fl > 1) SIM.enterFloor(S, S.run, fl); const o = f(S.run.map); if (o) return [S, o]; } } return []; };
       const at = (S, x, y, hx = x + 50, hy = y + 40) => { const R = S.run; Object.assign(R.hero, { x: hx, y: hy, vx: 0, vy: 0 }); R.en = R.en.filter((e) => e.type === 'spider' && Math.hypot(e.x - x, e.y - y) < 260); R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.cam = [x - VW / 2, y - VH / 2]; };
       let [S, w] = find((m) => m.webs.length >= 2 && m.webs[0]); if (S) { at(S, w.x, w.y, w.x + 4, w.y + 2); states.push(['web', S]);
         const [S2, w2] = find((m) => m.webs.length >= 2 && m.webs[0]); at(S2, w2.x, w2.y); for (const o of S2.run.map.webs) { o.torn = 1; o.tornT = S2.t - 2; } states.push(['web_torn', S2]); }
-      [S, w] = find((m) => m.ambush[0]); if (S) { at(S, w.x, w.y, w.x + 40, w.y + 30); S.run.en = []; states.push(['ambush', S]);
-        const [S2, P] = find((m) => m.ambush[0]); at(S2, P.x, P.y, P.x, P.y); S2.run.en = []; S2.ev = []; SIM.springAmbush(S2, S2.run, P); for (const e of S2.ev) e.t = S2.t - 0.3; S2.run.msg = null; states.push(['ambush_sprung', S2]);
-        const [S3, P3] = find((m) => m.ambush[0]); at(S3, P3.x, P3.y, P3.x, P3.y); SIM.springAmbush(S3, S3.run, P3); P3.downT = S3.t - 30; S3.run.en = []; S3.ev = []; S3.run.msg = null;
-        at(S3, P3.x, P3.y, P3.x + 70, P3.y + 40); S3.run.en = []; states.push(['ambush_spent', S3]); }
+
       [S, w] = find((m) => m.traps.find((t) => t.cor)); if (S) { at(S, w.x, w.y, w.x + 70, w.y); S.run.en = []; w.ph = (1 - (S.t / 2.4) % 1 + 0.1) % 1; states.push(['trap_corridor', S]); } }
     const crack = (d) => (o) => o.kind === 'crack' && o.dir === d, sconce = (o) => o.trig && o.trig.k === 'sconce', plate = (o) => o.trig && o.trig.k === 'plate';
     for (const [n, f, stage, age] of [['secret_crack', crack('u'), 0], ['secret_crack_hit', crack('u'), 1], ['secret_crack_break', crack('u'), 2, 0.25], ['secret_room', crack('u'), 3],
@@ -2385,7 +2408,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.cam = [(r.x + r.w / 2) * TILE - VW / 2, y0 - VH / 2 - 40]; };
     states.push(['monsters', play(lineup)]);
     // the crab (TASKS 309) turned four ways and between, at rest in a lit hall: its shell, legs and claws must read whichever way it faces
-    states.push(['crab_facings', play((S) => { lineup(S); const R = S.run, r = R.map.rooms.find((q) => R.en[0].room === q.id), E = D.ENEMIES.crab, y0 = R.en[0].y;
+    states.push(['crab_facings', play((S) => { S.run = SIM.newRun(S, 'cave', 8); SIM.enterFloor(S, S.run, 2); const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'secret').sort((a, b) => b.w * b.h - a.w * a.h)[0], E = D.ENEMIES.crab, y0 = (r.cy + 0.5) * TILE; R.seen.fill(1); R.msg = null; R.cam = [(r.cx + 0.5) * TILE - VW / 2, y0 - VH / 2];
       R.en = [0, 1, 2, 3, 4, 5].map((i) => ({ id: 960 + i, type: 'crab', x: (r.x + r.w / 2) * TILE + (i - 2.5) * 110, y: y0 + (i % 2) * 40, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'idle', t0: 0,
         fa: [0, Math.PI / 2, Math.PI, -Math.PI / 2, 0.8, -2.4][i], face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 })); })]);
     // event responses: pain at the rim on low health with a bolt bursting on the hero, the fall, a scroll's two pillars,
@@ -2463,6 +2486,46 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['cave_hall', S]); }
+    {
+      const base = structuredClone(states.find(([n]) => n === 'cave_hall')[1]);
+      base.run.map.torches = []; base.run.map.decor = base.run.map.decor.filter((d) => !GLOW[d.n]);
+      states.push(['cave_known_dark', structuredClone(base)]);
+      const R = base.run, m = R.map, mid = Math.floor(R.hero.x / TILE) + 2;
+      for (let y = 0; y < m.H; y++) for (let x = mid; x < m.W; x++) R.seen[y * m.W + x] = 0;
+      states.push(['cave_known_boundary', structuredClone(base)]);
+      for (const [name, x, y] of [['left', -32, R.hero.y], ['right', m.W * TILE + 32, R.hero.y], ['top', R.hero.x, -32], ['bottom', R.hero.x, m.H * TILE + 32]]) {
+        const S = structuredClone(base); S.run.hero.x = x; S.run.hero.y = y; states.push(['cave_map_' + name, S]);
+      }
+    }
+    for (const type of ['shroom_a', 'skel_cv', 'shop_sign']) {
+      const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run;
+      const d = R.map.decor.find((q) => q.n === type); if (!d) throw new Error('Missing cave reaction prop: ' + type);
+      R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.hero.x = d.x; R.hero.y = d.y + (d.wall ? 40 : 15); R.cam = [d.x - VW / 2, d.y - VH / 2];
+      SIM.hitProps(S, R, R.hero.x, R.hero.y, 60);
+      for (const age of [0.08, 0.2, 0.5]) { const T = structuredClone(S); T.t += age; states.push(['cave_reaction_' + type + '_' + age, T]); }
+    }
+    {
+      let found = false;
+      for (let seed = 1; seed <= 20 && !found; seed++) {
+        const S = play(); S.run = SIM.newRun(S, 'cave', seed); S.screen = 'play'; const R = S.run, m = R.map;
+        for (let k = 0; k < m.cells.length && !found; k++) {
+          if (m.cells[k] !== 1 || m.cells[k + 1] !== 6 || m.block.includes(k)) continue;
+          let end = k + 1; while (end < k + 10 && m.cells[end] === 6) end++;
+          if (end - k < 5 || m.cells[end] !== 1 || Math.floor(k / m.W) !== Math.floor(end / m.W)) continue;
+          const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999;
+          R.en = []; R.pots = []; R.chests = []; R.proj = []; R.msg = null; R.freeze = R.trauma = 0; S.ev = []; R.seen.fill(1); R.rseen.fill(1); R.cam = [h.x - VW / 2, h.y - VH / 2];
+          SIM.step(S, { keys: [], rclick: 1, px: W, py: H / 2 });
+          let n = 0; const pending = [];
+          for (let i = 0; i < 100; i++) {
+            const p = R.proj.find((p) => p.own === 'hero');
+            if (p && SIM.cell(m, Math.floor(p.x / TILE), Math.floor((p.y + (p.gz ?? 20)) / TILE)) === 6 && Math.hypot(p.x - h.x, p.y + (p.gz ?? 20) - h.y) > 60 && n < 3 && i >= n * 8 + 4) { R.cam = [h.x - VW / 2, h.y - VH / 2]; pending.push(['cave_fireball_deep_' + n++, structuredClone(S)]); }
+            SIM.step(S, { keys: [], px: W, py: H / 2 });
+          }
+          found = n === 3; if (found) states.push(...pending);
+        }
+      }
+      if (!found) throw new Error('No real fireball crossing deep water in cave QA');
+    }
     // the cave's water (TASKS 302): the hero on the shore by a plank bridge over deep water, and a fall into a hall's pool
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, c = m.crossings.find((q) => q.kind === 'bridge'); if (!c) continue;
@@ -2472,7 +2535,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const h = R.hero; h.x = q.x + 2 * TILE; h.y = q.y + 4 * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - VW / 2, q.y - VH / 2]; states.push(['cave_waterfall', structuredClone(S)]); break; }
       // a breach gushing out of a side wall and a spring boiling up under the rock (TASKS 304)
       for (const kind of ['breach', 'spring']) for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, q = R.map.waterFeatures.find((o) => o.kind === kind); if (!q) continue;
-        const h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - VW / 2, q.y - VH / 2]; h.x = q.x - VW / 2 + 160; h.y = q.y - VH / 2 + 160;
+        const h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [q.x - VW / 2, q.y - VH / 2]; const m = R.map, block = new Set(m.block || []), spots = [];
+        for (let y = 1; y < m.H - 1; y++) for (let x = 1; x < m.W - 1; x++) {
+          if (SIM.cell(m, x, y) !== 1 || block.has(y * m.W + x)) continue;
+          const px = (x + 0.5) * TILE, py = (y + 0.5) * TILE;
+          if ([-12, 12].some((dx) => [-12, 12].some((dy) => SIM.cell(m, Math.floor((px + dx) / TILE), Math.floor((py + dy) / TILE)) !== 1))) continue;
+          spots.push([Math.hypot(px - q.x, py - q.y), px, py]);
+        }
+        spots.sort((a, b) => a[0] - b[0]); if (!spots.length) throw new Error('No safe hero position for cave_' + kind);
+        [, h.x, h.y] = spots[0];
         states.push(['cave_' + kind, structuredClone(S)]); break; }
       // a stream running into a lake with deep water (TASKS 304), the hero wading in the shallows by it, his last steps' rings spreading
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, run = Object.keys(m.waterFlow).map(Number).filter((k) => m.cells[k] === 1 || m.cells[k] === 6); if (!run.length) continue;
@@ -2481,6 +2552,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const h = R.hero; [h.x, h.y] = at(k); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x0 - VW / 2, y0 - VH / 2]; S.ev = [];
         for (const [age, dx] of [[0.12, 0], [0.4, -14]]) S.ev.push({ k: 'step', wet: true, x: h.x + dx, y: h.y, t: S.t - age });
         states.push(['cave_water', structuredClone(S)]); break; }
+      for (const kind of ['hit', 'hurt', 'absorb']) {
+        const Q = structuredClone(states.find(([n]) => n === 'cave_water')[1]), h = Q.run.hero;
+        Q.ev = [{ k: kind, n: 16.799999999999997, x: h.x, y: h.y, t: Q.t - 0.2, fire: 1 }];
+        states.push(['cave_fraction_' + kind, Q]);
+      }
       // the cave's own light (TASKS 305): a crystal by water with mushrooms round it, a drop falling and another just landed
       for (let f = 1; f <= 4; f++) { SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
         const near = (o, r) => m.water.some((k) => Math.hypot((k % m.W + 0.5) * TILE - o.x, (Math.floor(k / m.W) + 0.5) * TILE - o.y) < r);
@@ -2502,6 +2578,18 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
       look('cave_camp', (m) => { const r = m.rooms.find((q) => q.camp); return r ? { x: m.sanct.x, y: m.sanct.y - 40, hero: [m.spawn.x, m.spawn.y] } : null; });
       look('cave_wreck', (m) => { const d = m.decor.find((o) => o.n === 'wreck_cv'); return d ? { x: d.x, y: d.y - 20 } : null; });
+      for (const place of ['bridge', 'camp']) for (const [dir, face, back] of [['front', 1, 0], ['back', 1, 1], ['left', -1, 0], ['right', 1, 0]]) {
+        const Q = structuredClone(states.find(([n]) => n === 'cave_' + place)[1]), h = Q.run.hero;
+        Object.assign(h, { face, back, backT: -9, faceT: -9, vx: 0, vy: 0, atkT: -9, castT: -9, dashT: -9 }); Q.ev = [];
+        states.push(['cave_light_' + place + '_' + dir, Q]);
+      }
+      for (const [name, dx, dy] of [['front', 0, 1], ['back', 0, -1], ['left', -1, 0], ['right', 1, 0]]) for (const moving of [0, 1]) {
+        const Q = structuredClone(states.find(([n]) => n === 'cave_water')[1]), R = Q.run, h = R.hero;
+        h.face = dx < 0 ? -1 : 1; h.back = dy < 0; h.backT = -9; h.aim = Math.atan2(dy, dx);
+        h.vx = dx * 150 * moving; h.vy = dy * 150 * moving; h.gp = 1.2; h.atkT = h.castT = h.dashT = h.hurtT = -9;
+        Q.ev = []; R.zoom = 2; R.cam = [h.x - VW / 4, h.y - VH / 4];
+        states.push(['cave_wade_' + name + (moving ? '_stride' : '_idle'), Q]);
+      }
       // the cave's monsters (TASKS 307, 308) on a shore: a drowned halfway up out of the shallows, another lying in wait (bubbles),
       // a slime at the top of its hop, a small one squatting to jump, a puddle of slime
       S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play';
@@ -2575,13 +2663,31 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         R.en = [{ id: 990, type: ty, x: x0 + dx * d, y: y0 + dy * d, vx: dx * E.spd, vy: dy * E.spd, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: -9, face: dx < 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: d, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
         R.cam = [x0 - VW / 2, y0 - VH / 2]; }); out.push(S); } return out; };
     const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
-    const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
+    {
+      const S = play(); S.run = SIM.newRun(S, 'cave', 8); SIM.enterFloor(S, S.run, 2);
+      const R = S.run, m = R.map, e = structuredClone(enCycles.crab_right[0].run.en[0]);
+      const center = m.cells.findIndex((c, k) => c === 1 && m.rooms.some((r) => r.type === 'combat' && k % m.W >= r.x && k % m.W < r.x + r.w && Math.floor(k / m.W) >= r.y && Math.floor(k / m.W) < r.y + r.h) && Array.from({ length: 81 }, (_, j) => [j % 9 - 4, Math.floor(j / 9) - 4]).every(([dx, dy]) => Math.hypot(dx, dy) > 4 || m.cells[k + dy * m.W + dx] === 1));
+      if (center < 0) throw new Error('No open floor for crab turning');
+      const frames = [], trail = [], speed = D.ENEMIES.crab.spd, rate = 0.8, radius = speed / rate;
+      const x0 = (center % m.W + 0.5) * TILE, y0 = (Math.floor(center / m.W) + 0.5) * TILE - radius;
+      R.en = [e]; R.pots = []; R.chests = []; R.msg = null; R.seen.fill(1); R.cam = [x0 - VW / 2, y0 + radius - VH / 2];
+      for (let i = -120; i < 180; i++) {
+        const t = (i + 120) / 60, a = t * rate;
+        Object.assign(e, { x: x0 + radius * Math.sin(a), y: y0 + radius * (1 - Math.cos(a)), fa: a, vx: speed * Math.cos(a), vy: speed * Math.sin(a), dist: speed * t, crabTrail: trail });
+        trail.push({ x: e.x, y: e.y, fa: a, vx: e.vx, vy: e.vy, dist: e.dist }); if (trail.length > 180) trail.shift();
+        S.t = 5 + t; if (i >= 0) frames.push(structuredClone(S));
+      }
+      enCycles.crab_turning = frames;
+    }
+    // boss_slam_chain: the linked charge that missed (the hero stepped aside, as in the sim's own check) hands over to the slam
+    const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), boss_slam_chain: enemyT('boss', 1, 'charge', 1, (e, h) => { h.y += 70; }), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
       // the grab from out of the blow's reach: it catches the hero and hauls him a step in
       drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })),
       // the crab (TASKS 309): the pinch at the hero before it; the rush at a hero off its right side (it faces right, the hero below)
       crab_attack: enemyT('crab', 0), crab_rush: enemyT('crab', 0, 'slam', 0, (e, h) => ({ x: h.x, y: h.y - 110, fa: 0, face: 1, aimA: Math.PI / 2, rush: 1 })), brute_attack: enemyT('brute', 1),
       // the archer looses from range and the mage throws from behind (TASKS 311): the hero 6 cells off
       skel_archer_attack: enemyT('skel_archer', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), skel_mage_attack: enemyT('skel_mage', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), spider_attack: enemyT('spider', 0), boss_attack: enemyT('boss', 0), cultist_attack: enemyT('cultist', 0) };
+    transitions.crab_turning = enCycles.crab_turning; delete enCycles.crab_turning;
     // deaths: a few live frames, then the kill, through the fall and the bounce (the hero mid-stride and at rest, a skeleton)
     const eventT = (prep, kill) => { const fr = []; let S = play(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
     const heroDies = (S) => { const h = S.run.hero; h.hp = 0; h.deadT = S.t; };
@@ -2638,11 +2744,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const serpentFrames = (fn, n = 120) => { const frames = []; let S = serpentState(fn);
       for (let i = 0; i < n; i++) { frames.push(S); S = structuredClone(S); for (let j = 0; j < 2; j++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return frames;
     };
-    loops.serpent_idle = serpentFrames();
+    loops.serpent_idle = serpentFrames(undefined, 271);
     transitions.serpent_rise = serpentFrames((S, b) => { b.st = 'stir'; b.t0 = S.t - 0.3; });
     transitions.serpent_dive = serpentFrames((S, b) => { b.st = 'dive'; b.t0 = S.t; });
     transitions.serpent_death = serpentFrames((S, b) => { b.hp = 0; b.deadT = S.t; }, 95);
     states.push(['serpent_arena', serpentState()]);
+    states.push(['cave_arena_exit', serpentState((S, b) => {
+      const R = S.run, h = R.hero; S.t += 10; R.t += 10; R.bossDead = true; b.hp = 0; b.deadT = S.t - 3;
+      h.x = R.map.exit.x - 48; h.y = R.map.exit.y + 32; R.cam = [R.map.exit.x - VW / 2, R.map.exit.y - VH / 2];
+    })]);
     for (const mv of Object.keys(D.BOSSES.boss_serpent.moves)) {
       const setup = (S, b) => { b.st = 'bwind'; b.mv = mv; b.t0 = S.t; b.fired = 0; b.hitDone = 0; b.tx = S.run.hero.x; b.ty = S.run.hero.y; b.face = b.tx >= b.x ? 1 : -1; b.aimA = Math.atan2(b.ty - b.y, b.tx - b.x);
         if (mv === 'fan') { const [x, y] = SIM.serpentMouth(b); b.aimA = Math.atan2(S.run.hero.y - 38 - y, S.run.hero.x - x); }
@@ -2663,11 +2773,33 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const a = i * Math.PI / 4; b.st = 'bwind'; b.mv = 'bite'; b.t0 = S.t - D.BOSSES.boss_serpent.moves.bite.wind - 0.01; b.aimA = a; b.face = Math.cos(a) >= 0 ? 1 : -1;
       b.tx = b.x + Math.cos(a) * 100; b.ty = b.y + Math.sin(a) * 100; S.run.hero.x = b.tx; S.run.hero.y = b.ty;
     })]);
-    transitions.serpent_flood = serpentFrames((S, b) => { b.hp = b.max * 0.5; }, 130);
+    transitions.serpent_flood = serpentFrames((S, b) => {
+      const R = S.run, m = R.map, h = R.hero, threshold = D.BOSSES.boss_serpent.phases.find((p) => p.at < 1).at;
+      b.hp = b.max * threshold + 1; b.cdT = S.t + 0.25;
+      const floor = m.cells.flatMap((v, k) => v === 1 && !m.block.includes(k) ? [{ x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE }] : [])
+        .sort((p, q) => Math.hypot(p.x - b.x, p.y - b.y) - Math.hypot(q.x - b.x, q.y - b.y));
+      if (!floor.length) throw new Error('No shore for phase two cast');
+      h.x = floor[0].x; h.y = floor[0].y; h.mp = 999; h.ab.fireball = 1; h.cd.fireball = 0;
+      const z = R.zoom || D.ZOOM || 1;
+      SIM.step(S, { keys: [], rclick: 1, px: (b.x - R.cam[0]) * z, py: (b.y - D.ENEMIES.boss_serpent.h * 0.45 - R.cam[1]) * z });
+    }, 240);
+    {
+      const frames = transitions.serpent_flood, complete = frames.find((S) => S.run.map.flood && S.run.map.flood.n === S.run.map.floodCells.length);
+      const attack = frames.find((S) => S.run.en[0].phase === 1 && S.run.proj.some((p) => p.src === S.run.en[0].id && (p.k === 'wave' || p.k === 'jet')));
+      if (!complete || !attack || !complete.run.en.some((e) => e.type === 'drowned')) throw new Error('Incomplete live phase two QA');
+      states.push(['cave_flood_complete', structuredClone(complete)], ['cave_phase2_attack', structuredClone(attack)]);
+    }
     states.push(['serpent_flood_warning', structuredClone(transitions.serpent_flood[45])]);
     states.push(['serpent_flood', structuredClone(transitions.serpent_flood[100])]);
     states.push(['serpent_emerge_warning', structuredClone(transitions.serpent_rise[30])]);
-    { const S = structuredClone(states.find(([name]) => name === 'win')[1]); S.result.mode = 'cave'; S.result.floor = 4; states.push(['win_cave', S]); }
+    {
+      const S = structuredClone(states.find(([name]) => name === 'win')[1]); S.result.mode = 'cave'; S.result.floor = 4;
+      const R = SIM.newRun(S, 'cave', 71); S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta);
+      S.result.C.floors = 4; states.push(['win_cave_worst', structuredClone(S)]);
+      Object.assign(S.result, { lvl: 12, kills: 80, gold: 800, shards: 121, found: 70, base: 31, statBonus: 20, time: 1800 });
+      Object.assign(S.result.C, { foes: 80, kills: 80, lootN: 70, loot: 65, secN: 4, sec: 2, pct: (1 + 65 / 70 + 0.5) / 3 });
+      states.push(['win_cave', S]);
+    }
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
     for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
@@ -2700,6 +2832,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
       const e = (enCycles[name] || loops[name]) && R.en[0];
+      if (e && e.type === 'crab') { const hh = SZ('en_crab')[1]; return [e.x - R.cam[0] - 2 * hh, e.y - R.cam[1] - 2 * hh, 4 * hh, 4 * hh]; }
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
       const h = R.hero; return [h.x - R.cam[0] - 50, h.y - R.cam[1] - 90, 100, 110]; };
     const anim = {};

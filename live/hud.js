@@ -134,16 +134,16 @@
       if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) float('al' + i, '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
       if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 24 : 19) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
         const E = D.ENEMIES[ev.type], side = ev.x < h.x ? -1 : 1, hx = ev.x + side * (E ? 14 : 0), hy = ev.y - (E ? E.h * 0.5 + 18 : 0);   // over the head and its HP bar, leaning away from the hero: the chest stays clear
-        float('dn' + i, String(ev.n), V.sx(hx) + (L.rnd(ev.t, 1) - 0.5) * 12, V.sy(hy) - 40 * q - 10, ev.arm ? { size: Math.round(s * 0.85), col: '#aab6c2', out: '#141a20', a: 1 - L.SS(0.6, 0.8, a) }
+        float('dn' + i, String(Math.round(ev.n)), V.sx(hx) + (L.rnd(ev.t, 1) - 0.5) * 12, V.sy(hy) - 40 * q - 10, ev.arm ? { size: Math.round(s * 0.85), col: '#aab6c2', out: '#141a20', a: 1 - L.SS(0.6, 0.8, a) }
           : { size: s, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
       if (ev.k === 'hurt' && a < 0.8) {
-        const s = '-' + ev.n, offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;
+        const s = '-' + Math.round(ev.n), offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;
         float('hu' + i, s, V.sx(ev.x) + (ev.side || h.hurtX || -1) * offset, V.sy(ev.y) - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 18;   // up off the head, then into the counter
         lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (164 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, 'уклон', V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
-      if (ev.k === 'absorb' && a < 0.7) float('ab' + i, 'щит ' + ev.n, V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
+      if (ev.k === 'absorb' && a < 0.7) float('ab' + i, 'щит ' + Math.round(ev.n), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // interaction prompt
     let pr = null; HUD.promptBox = null;
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, 'E или удар — открыть сундук'];
@@ -199,7 +199,15 @@
     minimap(S, R, t);
     // boss bar
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
-    if (boss) { lab('bossn', D.ENEMIES[boss.type].name, W / 2, 46, { size: 30, al: 0.5, col: '#ff8a5a' }); bar('bossbar', W / 2 - 400, 66, 800, 26, boss.hp / boss.max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02]); }
+    if (boss) {
+      const max = Number.isFinite(boss.max) && boss.max > 0 ? boss.max : 1, hp = Math.max(0, Number.isFinite(boss.hp) ? boss.hp : 0);
+      lab('bossn', D.ENEMIES[boss.type].name, W / 2, 46, { size: 30, al: 0.5, col: '#ff8a5a' });
+      bar('bossbar', W / 2 - 400, 66, 800, 26, hp / max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02], Math.ceil(hp) + ' / ' + Math.ceil(max));
+      for (const phase of D.BOSSES[boss.type].phases || []) if (phase.at > 0 && phase.at < 1) {
+        const x = W / 2 - 397 + 794 * phase.at;
+        L.solid(x - 1, 68, 2, 6, [1, 0.9, 0.7]); L.solid(x - 1, 84, 2, 6, [1, 0.9, 0.7]);
+      }
+    }
     // floor banner
     if (R.msg && S.screen === 'play') { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
       const size = Math.max(18, Math.floor(30 * Math.min(1, 1000 / lw('msg_m', s, { size: 30 })))), w = lw('msg', s, { size }) + 60;
@@ -287,7 +295,7 @@
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   function minimap(S, R, t) {
-    const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => a + b, 0);
+    const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = document.createElement('canvas')); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
@@ -307,7 +315,7 @@
       else MAP.rec = G.canvasTex('minimap', cv); }
     const title = ('Этаж ' + m.floor + ' — ' + D.floorName(m.floor, R.mode)).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
     const hints = SIM.completionHints(R);
-    const legend = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец']].concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
+    const legend = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']].concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
     const pw = Math.max(mw + 24, tw + 24), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
     panel('minimap', x0, 12, pw, ph, { r: 5, a: 0.86 });
     lab('mm_t', title, x0 + pw / 2, 31, { size: 17, al: 0.5 });
@@ -317,11 +325,14 @@
     for (const e of R.en) if (!!D.BOSSES[e.type] && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
     if (R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
+    if (m.sanct && R.seen[Math.floor(m.sanct.y / TILE) * m.W + Math.floor(m.sanct.x / TILE)]) mark(m.sanct.x, m.sanct.y, 'camp', 12);
+    for (const q of R.shrines) if (!SIM.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
     for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
-      const c = o.kind === 'foe' ? [1, 0.3, 0.2] : o.kind === 'secret' ? [0.65, 0.55, 1] : [1, 0.85, 0.3];
+      const c = o.kind === 'foe' ? [1, 0.3, 0.2] : [1, 0.85, 0.3];
       L.rrect(x - 4, y - 4, 8, 8, 4, c, c, pulse); }
     if (S.debug && S.dbgLoot) for (const o of SIM.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + o.x / TILE * k - r, py + o.y / TILE * k - r, 2 * r, 2 * r, r, c, c); }
-    mark(R.hero.x, R.hero.y, 'you', 13 + 1.5 * Math.sin(t * 6));
+    const hs = 13 + 1.5 * Math.sin(t * 6), hx = Math.max(hs, Math.min(mw - hs, R.hero.x / TILE * k)), hy = Math.max(hs, Math.min(mh - hs, R.hero.y / TILE * k));
+    icon_('you', px + hx, py + hy, hs);
     legend.forEach(([id, s], i) => { const y = lg0 + i * 26; icon_(id, x0 + 22, y, 16); lab('mm_l' + i, s, x0 + 38, y + 1, { size: 16, col: C.text }); });
     compass(x0 + pw - 52, lg0 + 26 * legend.length - 62, 34);
     // this floor's completion: monsters, loot, secrets (the last only where the floor has any)
@@ -332,6 +343,8 @@
   // minimap markers, centred on (x, y): gems as in the concept, a slab for a room, the stairs for the exit
   const GEM = { you: [[0.55, 0.8, 1], [0.1, 0.3, 0.95]], gold: [[1, 0.9, 0.4], [0.85, 0.5, 0.05]], boss: [[1, 0.4, 0.3], [0.65, 0.04, 0.03]], shop: [[0.6, 1, 0.7], [0.12, 0.6, 0.3]] };
   function icon_(id, x, y, s) {
+    if (id === 'camp') { L.solid(x, y + s * 0.25, s, 3, [0.6, 0.35, 0.16]); L.solid(x, y, s * 0.55, s * 0.7, [1, 0.65, 0.2], Math.PI / 4, s * 0.275, s * 0.35); return; }
+    if (id === 'altar' || id === 'altar_used') { const col = id === 'altar' ? [0.65, 0.85, 1] : [0.45, 0.45, 0.5]; L.solid(x - s / 2, y + s / 4, s, s / 4, col); L.ring(x, y - s / 6, s / 3, s / 3, col, 1, 0.3); return; }
     if (id === 'hint') { L.rrect(x - 4, y - 4, 8, 8, 4, [1, 0.85, 0.3], [1, 0.85, 0.3]); return; }
     if (id === 'exit') { icon('stairs', x - s / 2, y - s / 2, s); return; }
     if (id === 'room') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.65, 0.6, 0.55], [0.65, 0.6, 0.55]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.49, 0.45, 0.42], [0.42, 0.39, 0.37]); return; }
@@ -396,7 +409,7 @@
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });
       lab('ab_r' + i, r ? 'ранг ' + r + ' / ' + D.AB_MAX : 'с ' + A.unlock + ' уровня', b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
-      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.int, k, st.spell, R.floor) : D.shieldHp(st.int, Math.max(1, r), R.floor);
+      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
@@ -483,7 +496,7 @@
     const [hw, hh] = SZ('hero'); L.sprite('hero', W / 2 - 520 - hw * 1.6, 340, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', W / 2 - 520 - hw * 1.6, 340, hw * 3.2, hh * 3.2);
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
     lab('m_t', 'ГЛУБИНЫ КРИПТЫ', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('m_s', 'Спуститесь на восемь этажей и одолейте Повелителя Демонов', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
+    lab('m_s', 'Выберите поход: кампания или Затопленные пещеры', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
     for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
       const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? 'Впервые? Начните с лёгкой' : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? '×1,5 — крупнее' : '';
@@ -559,11 +572,11 @@
     const actor = last && last.actor, name = win ? 'Глубины покорены' : r.abandoned ? 'Вы прервали поход' : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
-      lab('e_last', 'Последний удар: −' + last.n + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
+      lab('e_last', 'Последний удар: −' + Math.round(last.n) + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
       lab('e_recent', 'Последние попадания', 234, 686, { size: 21, col: C.dim });
       damage.slice().reverse().forEach((d, i) => {
         const src = SIM.damageName(d.src), size = Math.min(20, Math.floor(20 * 280 / Math.max(280, lw('e_src_m' + i, src, { size: 20 }))));
-        lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + d.n, 588, 724 + i * 38, { size: 21, al: 1, col: C.red });
+        lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + Math.round(d.n), 588, 724 + i * 38, { size: 21, al: 1, col: C.red });
       });
     } else wrap('e_flavor', win ? 'Сталь выдержала. Тьма отступила. Души павших вернутся вместе с вами.' : 'Найденные осколки сохранены. Новый герой продолжит ваш путь.', 234, 674, 350, 25, C.dim);
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';

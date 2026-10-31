@@ -35,7 +35,17 @@ def seamless(a):
     wy = np.sin(np.pi * (np.arange(h) + 0.5) / h) ** 2
     wx = np.sin(np.pi * (np.arange(w) + 0.5) / w) ** 2
     k = (wy[:, None] * wx[None, :])[..., None]
-    return a * k + np.roll(a, (h // 2, w // 2), (0, 1)) * (1 - k)
+    out = a * k + np.roll(a, (h // 2, w // 2), (0, 1)) * (1 - k)
+    for axis, size in [(0, h), (1, w)]:
+        band = min(32, size // 4)
+        for i in range(band):
+            lo, hi = [slice(None)] * 3, [slice(None)] * 3
+            lo[axis], hi[axis] = i, size - 1 - i
+            lo, hi = tuple(lo), tuple(hi)
+            p, q = out[lo].copy(), out[hi].copy()
+            t = 0.5 * (1 - i / band) ** 2
+            out[lo], out[hi] = p * (1 - t) + q * t, q * (1 - t) + p * t
+    return out
 
 
 def shore():

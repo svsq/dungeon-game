@@ -34,7 +34,7 @@ PALETTES = {
     'water_drain': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#552f25', '#733a21', '#1a4135'],
     'water_stone_a': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
     'water_stone_b': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
-    'lily_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f', '#c8b89a'],
+    'lily_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f', '#c8b89a', '#eed68a'],
     'weed_cv': ['#060506', '#0f2a2e', '#1a4135', '#52c04f'],
     'ford_a': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
     'ford_b': ['#060506', '#141420', '#252534', '#3e3234', '#6b5c56', '#c8b89a', '#1a4135'],
@@ -73,7 +73,8 @@ def reduce_bones(im):
 
 
 def simplify(im, height, palette, name):
-    im = im.crop(im.getbbox())
+    box = Image.fromarray((np.array(im)[..., 3] >= 128).astype(np.uint8) * 255).getbbox() if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv') else im.getbbox()
+    im = im.crop(box)
     w = round(height * im.width / im.height)
     a = np.array(im.resize((w, height), Image.Resampling.NEAREST))
     source_green = a[..., 1].copy()
@@ -117,9 +118,23 @@ def simplify(im, height, palette, name):
         if name == 'shop_scales':
             a[solid & ~wide, :3] = hex_rgb('#e2881e')
             a[solid & ~wide & (source_green > 110), :3] = hex_rgb('#f9ce4a')
+    if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv'):
+        steps = 2
+        wide = ndimage.binary_dilation(ndimage.binary_erosion(solid, iterations=steps), iterations=steps)
+        outline |= solid & ~ndimage.binary_erosion(solid, iterations=steps) & wide
     a[outline, :3] = palette[ink]
     a[..., 3] = solid * 255
     a[~solid, :3] = 0
+    if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv'):
+        border = 1
+        pad = border + 1
+        canvas = np.zeros((height + 2 * pad, w + 2 * pad, 4), dtype=np.uint8)
+        canvas[pad:-pad, pad:-pad] = a
+        grown = ndimage.binary_dilation(canvas[..., 3] > 0, iterations=border)
+        canvas[grown & (canvas[..., 3] == 0), :3] = palette[ink]
+        canvas[..., 3] = grown * 255
+        im = Image.fromarray(canvas)
+        return im.resize((im.width * UP, im.height * UP), Image.Resampling.NEAREST)
     canvas = Image.new('RGBA', (w + 2, height + 2))
     canvas.paste(Image.fromarray(a), (1, 1))
     return canvas.resize((canvas.width * UP, canvas.height * UP), Image.Resampling.NEAREST)
@@ -128,6 +143,7 @@ def simplify(im, height, palette, name):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--only', default='')
     args = parser.parse_args()
     meta_path = ROOT / 'art/simplify.json'
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
@@ -138,21 +154,26 @@ def main():
     accents = {'#2a202f', '#51384e', '#5f3d60', '#a47f84', '#895e54', '#1d131f', '#0f2a2e'}
     palette = np.array([c for c in bible.tolist() if '#%02x%02x%02x' % tuple(c) not in accents], dtype=np.uint8)
     for name in NAMES:
+        if args.only and name not in args.only.split(','):
+            continue
         dest = ROOT / 'art/gen' / (name + '.png')
         backup = ROOT / 'art/old/simplify' / (name + '.png')
+        source = ROOT / 'art/raw' / (name + '.png') if name in ('water_stone_a', 'water_stone_b', 'ford_a', 'ford_b', 'lily_cv', 'weed_cv') else backup
+        if not source.exists():
+            source = backup
         if not args.check:
             if backup.exists() or name not in meta or digest(dest) != meta[name]['output_sha256']:
                 if not backup.exists():
                     backup.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(dest, backup)
-                im = Image.open(backup).convert('RGBA')
+                im = Image.open(source).convert('RGBA')
                 if name == 'bones':
                     im = reduce_bones(im)
                 ramp = np.array([hex_rgb(h) for h in PALETTES[name]], dtype=np.uint8) if name in PALETTES else palette
                 assert all(list(color) in bible.tolist() for color in ramp), name + ': color outside style bible'
                 out = simplify(im, heights[name], ramp, name)
                 out.save(dest)
-                meta[name] = {'source_sha256': digest(backup), 'output_sha256': digest(dest), 'height': heights[name], 'cell': UP}
+                meta[name] = {'source_sha256': digest(source), 'output_sha256': digest(dest), 'height': heights[name], 'cell': UP}
         entry = meta[name]
         assert digest(dest) == entry['output_sha256'], name + ': modified since simplification'
         a = np.array(Image.open(dest).convert('RGBA'))
