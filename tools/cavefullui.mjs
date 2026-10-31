@@ -8,7 +8,7 @@ const {chromium}=createRequire(path.join(skill,'qa.mjs'))(path.join(skill,'node_
 const out='frames/cave_full_play';fs.mkdirSync(out,{recursive:true});
 const server=http.createServer((q,r)=>fs.readFile(path.join(process.cwd(),decodeURIComponent(q.url.split('?')[0])),(e,b)=>{r.writeHead(e?404:200,{'Content-Type':q.url.includes('.js')?'application/javascript':q.url.includes('.png')?'image/png':'text/html'});r.end(b);}));
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const browser=await chromium.launch({args:['--use-angle=metal','--enable-gpu','--ignore-gpu-blocklist']});
+const browser=await chromium.launch({args:[...(process.platform==='darwin'?['--use-angle=metal']:[]),'--enable-gpu','--ignore-gpu-blocklist']});
 const page=await browser.newPage({viewport:{width:1920,height:1080}}),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 try {
