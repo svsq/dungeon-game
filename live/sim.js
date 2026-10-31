@@ -1343,7 +1343,9 @@
     }
   }
   function beginBossMove(S, R, e, mv) {
+    // spd0 + its direction: the walk the plant cuts off — the render eases the gait down from it instead of snapping the feet (TASKS 333)
     e.st = 'bwind'; e.t0 = S.t; e.mv = mv; e.fired = 0; e.hitDone = 0; e.chain = 0;
+    e.spd0 = Math.hypot(e.vx, e.vy); e.vxn0 = e.spd0 > 1 ? e.vx / e.spd0 : 1; e.vyn0 = e.spd0 > 1 ? e.vy / e.spd0 : 0;
     const M = D.bossMove(e);
     e.tx = R.hero.x; e.ty = R.hero.y;
     e.aimA = Math.atan2(R.hero.y - (M.target || 0) - e.y + (M.origin || 0), R.hero.x - e.x); e.vx = e.vy = 0;
