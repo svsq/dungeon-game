@@ -28,11 +28,13 @@
     return out;
   }
 
-  function tryGen(seed, floor, opts) {
+  function tryGen(seed, runFloor, opts) {
     const R = mul32(seed), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pick = (arr) => arr[Math.floor(R() * arr.length)];
-    // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; floor: its place in its own run
-    const N = D.runOf(opts.mode), depth = floor + N.depth, last = floor === N.floors;
-    const biome = N.biome(floor), bossType = !opts.endless && N.boss(floor), boss = !!bossType;
+    // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; runFloor: its place in the run; floor: its
+    // place among the floors its description lays out (data.js stageOf: the campaign's 9th is the caves' 1st); last: its chapter's
+    // end, fin: the run's last floor (past any other boss an altar and the stairs wait)
+    const ST = D.stageOf(opts.mode, runFloor), N = ST.N, floor = ST.lf, depth = ST.depth, last = ST.last, fin = ST.fin;
+    const biome = ST.biome, bossType = !opts.endless && ST.boss, boss = !!bossType;
     // the cave archetype (R-18, TASKS 301): the same rooms and links, but a room is a blob of floor inside its box round a core
     // where the start's fire or the stairs stand, a link is a winding tunnel 2–4 cells wide, and small dead-end pockets hang off
     // the rooms for a chest or an ambush; the map grows floor by floor and has no straight stretch of wall longer than four cells
@@ -130,7 +132,7 @@
     others.slice(0, nTreasure).forEach((r) => (r.type = 'treasure'));
     // an altar on every second floor (TASKS 137), the last one on the floor before the boss's: past him a gift buys nothing
     // (TASKS 183); the roll stays so the rest of the floor is laid out as before
-    R(); if (!boss && (floor % 2 === 0 || floor === N.floors - 1)) ((cave ? others.find((r) => r.type === 'combat' && !r.pocket) : others[nTreasure]) || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
+    R(); if (!boss && (floor % 2 === 0 || floor === ST.n - 1)) ((cave ? others.find((r) => r.type === 'combat' && !r.pocket) : others[nTreasure]) || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
     // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
     const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
       if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };
@@ -469,7 +471,7 @@
         // a straight stretch of wall with open floor in front of it, clear of the shop; a side passage keeps two cells of rock above and
         // below its fake wall, or, broken, it leaves a one-cell strip of wall hanging over the next floor (TASKS 178)
         // (a cave's walls bend every few cells: there the floor has to be open only before the two-cell opening itself)
-        if (!all(-1, 0, cave ? 0 : -1, cave ? 1 : 2, (x, y) => at(x, y) === 1 && !inShop(x, y) && !onWater.has(y * W + x) && !(cave && rooms.some((q) => q.type === 'secret' && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h)) && !(boss && x >= exitR.x && x < exitR.x + exitR.w && y >= exitR.y && y < exitR.y + exitR.h)) || !all(1, 2, dx ? -2 : -1, dx ? 3 : 2, rockAt)) continue;
+        if (!all(-1, 0, cave ? 0 : -1, cave ? 1 : 2, (x, y) => at(x, y) === 1 && !inShop(x, y) && !onWater.has(y * W + x) && !(cave && rooms.some((q) => q.type === 'secret' && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h)) && !(boss && x >= exitR.x && x < exitR.x + exitR.w && y >= exitR.y && y < exitR.y + exitR.h)) || !all(-1, 0, -1, 2, (x, y) => !inShop(x, y)) || !all(1, 2, dx ? -2 : -1, dx ? 3 : 2, rockAt)) continue;   // the whole front (below) off the shop: a cave checks only the opening's floor
         const plen = ri(0, 2), D = ri(3, 5), S = ri(3, 6), l0 = -ri(0, S - 2), d0 = 3 + plen, d1 = d0 + D - 1;
         if (plen && !all(3, 2 + plen, -2, 3, rockAt)) continue;
         const [ax, ay] = C(d0, l0), [bx, by] = C(d1, l0 + S - 1), rx = Math.min(ax, bx), ry = Math.min(ay, by), rw = Math.abs(bx - ax) + 1, rh = Math.abs(by - ay) + 1;
@@ -652,7 +654,7 @@
         if (r.type === 'exit' && first) enemies[enemies.length - 1].exit = 1; first = false; }
       // an eel in the hall's deep water, out of the count
       if (has('eel') && R() < CP.eel[floor - 1]) { const q = deepIn(r); if (q) addEnemy('eel', q[0], q[1], r.id); } };
-    if (boss && !last) claim(exitR.cx - 3, sy, 'altar');
+    if (boss && !fin) claim(exitR.cx - 3, sy, 'altar');
     for (const r of rooms) if (r.type === 'shrine') claim(r.cx, r.cy, 'altar');   // the altar's cell first: props are placed around it
     // no corner of a room is left in the dark: while some floor cell lies outside every light's reach, light the cell
     // nearest to it, preferring a sconce on the top wall, then on a side wall, then a brazier, then candles
@@ -841,7 +843,7 @@
         else addEnemy(bossType, r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
       // chests
       // a locked room pays for its key: one chest of the secret rooms' tier and another of the hoards', often a heap of gold
-      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (floor === 1 ? 1 : 0) : R() < 0.2 ? 1 : 0);
+      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (runFloor === 1 ? 1 : 0) : R() < 0.2 ? 1 : 0);
       for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : (r.type === 'secret' ? spot(r, 1, 0, true) : null) || wallSpot(r, 'chest') || spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' || (r.locked && i === 0) ? 3 : r.type === 'treasure' || r.locked ? 2 : 1, open: 0 }); }
       // the hoard's dressing: a statue each side of the rug against the back wall, vases along the walls, now and then a small
       // pile of gold
@@ -890,7 +892,7 @@
       if (r.type === 'shrine') shrines.push({ x: wx(r.cx), y: wy(r.cy), used: 0 });
       lightRoom(r, []);
     }
-    if (boss && !last) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
+    if (boss && !fin) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
     // an eel in a lake between the halls (TASKS 312): one body of deep water out of every hall's box, by the floor's chance
     if (cave && roster.includes('eel')) { const inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h), lake = new Set();
       for (let k = 0; k < W * H; k++) { if (cells[k] !== 6 || lake.has(k) || inBox(k % W, Math.floor(k / W)) || deepSize(k) < EEL_MIN) continue;
@@ -1150,7 +1152,7 @@
     for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); for (const [x, y] of shop.solid) bl(x, y);
     // a fountain's basin stands on the floor, three cells wide; a stream's culvert is in the wall (TASKS 230)
     for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
-    return { seed, floor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
+    return { seed, floor: runFloor, biome, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       bossType, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
   }
 

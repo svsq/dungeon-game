@@ -8,7 +8,9 @@ const { execFile } = require('child_process'), os = require('os'), path = requir
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? 2 : Math.max(1, Math.floor(os.cpus().length / 2)));
 const fs = require('fs');
-const mode = arg('--mode', 'campaign'), RUN = require('../live/data.js').runOf(mode), FLOORS = RUN.floors, BOSS_FLOORS = Array.from({ length: FLOORS }, (_, i) => i + 1).filter((f) => RUN.boss(f));
+const DATA = require('../live/data.js'), mode = arg('--mode', 'campaign'), RUN = DATA.runOf(mode), FLOORS = RUN.floors, STAGE = (f) => DATA.stageOf(mode, f), BOSS_FLOORS = Array.from({ length: FLOORS }, (_, i) => i + 1).filter((f) => STAGE(f).boss);
+// past: of the runs, the share that got past floor f (won, or died deeper): the demon lord's 8th is the old campaign's finale (TASKS 339)
+const past = (a, f) => avg(a, (r) => r.result.how === 'win' || r.result.floor > f);
 const profiles = arg('--profiles', 'novice,average,expert').split(',');
 const res = {}, failed = [];
 const resume = arg('--resume', ''), replayFloor = +arg('--replay-floor', 0);
@@ -24,13 +26,14 @@ const avg = (a, f) => a.reduce((n, r) => n + f(r), 0) / (a.length || 1);
 function report() {
   const head = ['profile', 'run', 'n', 'wins', 'stuck', 'deaths by floor ' + Array.from({ length: FLOORS }, (_, i) => i + 1).join(' '), 'minhp', 'hurt', 'dodges', 'hp pot', 'mp pot', 'minmp', 'time', 'lvl after floor ' + Array.from({ length: FLOORS }, (_, i) => i + 1).join(' ')];
   console.log(head.join(' | '));
+  const ends = BOSS_FLOORS.filter((f) => STAGE(f).last && f < FLOORS);
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
     const by = Array(FLOORS).fill(0); for (const r of a) if (r.result.how === 'dead') by[r.result.floor - 1]++;
     const pc = (x) => Math.round(x * 100) + '%';
     console.log([p, k + 1, a.length, pc(avg(a, (r) => r.result.how === 'win')), a.filter((r) => r.result.how === 'stuck' || r.result.how === 'timeout').length,
       by.join(' '), pc(avg(a, (r) => r.minhp)), avg(a, (r) => r.hurt).toFixed(0), avg(a, (r) => r.dodges).toFixed(0), avg(a, (r) => r.hp_potion).toFixed(1),
       avg(a, (r) => r.mp_potion).toFixed(1), pc(avg(a, (r) => r.minmp)), Math.round(avg(a, (r) => r.floors.reduce((n, f) => n + f.time, 0)) / 60) + 'm',
-      perFloor(a, (f) => f.lvl, 0)].join(' | ')); }
+      perFloor(a, (f) => f.lvl, 0)].join(' | ') + ends.map((f) => ` | past f${f} ${Math.round(past(a, f) * 100)}%`).join('')); }
   // per floor, of the runs that reached it: potions drunk and what the damage came from
   console.log('\nprofile | run | min hp by floor | hits by floor | hp pot by floor | mp pot by floor | damage share ' + GROUPS.join(' / ') + ' | top source by floor');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
@@ -87,12 +90,14 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 4
 // error inside, a blow of 27 killed 9 % with the survivors at 23 % (the player's call in TASKS 246)
 // mobBlow: a plain monster's blow (median, % of the max health, before the shield); heavyBlow: the same for the plain demon, a slow
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
-// the water caves get their bands with their balance (TASKS 314)
+// the water caves get their bands with their balance (TASKS 314); in the campaign (TASKS 339) the old finale's bands hold its 8th:
+// past: the share past a floor (the old 8-floor campaign's wins), bossFloor: the floor of bossDied (the demon lord); the serpent's own
+// fight bands stand on the 12th (chapters: lost, pot, t). The share of whole 12-floor wins has no band until the player sets one
 const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, campaign: {
-  easy: { average: { win: [0.85, 1] } },
-  normal: { average: { win: [0.4, 0.6], minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
-    mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0, 0.85] }, builder: BUILDER },
-  hard: { average: { win: [0.1, 0.25] }, expert: { win: [0.4, 0.6] }, builder: BUILDER } } };
+  easy: { average: { past: { 8: [0.85, 1] } } },
+  normal: { average: { past: { 8: [0.4, 0.6] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 12: { minhp: null, hpPot: null } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
+    mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { past: { 8: [0, 0.85] } }, builder: BUILDER },
+  hard: { average: { past: { 8: [0.1, 0.25] } }, expert: { past: { 8: [0.4, 0.6] } }, builder: BUILDER } } };
 function check() {
   const miss = failed.map((s) => `missing result: ${s}`), B = (BANDS[mode] || {})[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
   // one fresh version only: results saved from another version or resumed from a checkpoint never pass (TASKS 240)
@@ -117,10 +122,11 @@ function check() {
   for (const p in B) { const a = (res[p] || []).map((x) => x[0]).filter(Boolean), b = B[p]; if (!profiles.includes(p)) continue;
     if (a.length !== (s1 || s0) - s0 + 1) miss.push(`${p}: ${a.length} results, expected ${(s1 || s0) - s0 + 1}`); if (!a.length) continue;
     const win = avg(a, (r) => r.result.how === 'win'); if (b.win && !inB(win, b.win)) miss.push(`${p}: wins ${Math.round(win * 100)}% outside ${b.win.map((v) => v * 100).join('–')}%`);
+    for (const f in b.past || {}) { const v = past(a, +f); if (!inB(v, b.past[f])) miss.push(`${p}: ${Math.round(v * 100)}% past floor ${f}, outside ${b.past[f].map((x) => x * 100).join('–')}%`); }
     for (let i = 0; i < FLOORS; i++) { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); if (!l.length) continue;
       const mh = avg(l, (f) => (f.minhp ?? 1) * 100), hp = avg(l, (f) => f.hpPot || 0), bf = Object.assign({}, b, (b.floor || {})[i + 1]);
       if (bf.minhp && !inB(mh, bf.minhp)) miss.push(`${p} f${i + 1}: min hp ${Math.round(mh)}% outside ${bf.minhp.join('–')}%`);
-      if (bf.winMinhp) { const w = a.filter((r) => r.result.how === 'win').map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean), v = w.length ? avg(w, (f) => (f.minhp ?? 1) * 100) : null;
+      if (bf.winMinhp) { const w = a.filter((r) => r.result.how === 'win' || r.result.floor > i + 1).map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean), v = w.length ? avg(w, (f) => (f.minhp ?? 1) * 100) : null;
         if (v !== null && !inB(v, bf.winMinhp)) miss.push(`${p} f${i + 1}: survivors' min hp ${v.toFixed(1)}% outside ${bf.winMinhp.join('–')}%`); }
       if (bf.hpPot && !inB(hp, bf.hpPot)) miss.push(`${p} f${i + 1}: ${hp.toFixed(1)} hp potions outside ${bf.hpPot.join('–')}`);
       for (const [g, k, who] of [['mob', 'mobBlow', 'a plain monster'], ['heavy', 'heavyBlow', 'a plain demon']]) { const v = blowAt(a, i, g, 0.5);
@@ -129,15 +135,19 @@ function check() {
     const bo = bossOf(a); if (b.bossLost && bo.n && !inB(bo.dmg, b.bossLost)) miss.push(`${p}: the boss takes ${Math.round(bo.dmg * 100)}% of the health, outside ${b.bossLost.map((v) => v * 100).join('–')}%`);
     if (b.bossPot && bo.n && !inB(bo.pot, b.bossPot)) miss.push(`${p}: ${bo.pot.toFixed(1)} hp potions at the boss, outside ${b.bossPot.join('–')}`);
     if (b.bossT && bo.n && !inB(bo.t, b.bossT)) miss.push(`${p}: the boss fight lasts ${bo.t.toFixed(0)} s, outside ${b.bossT.join('–')} s`);
+    const bd = bossOf(a, b.bossFloor || FLOORS);
     if (b.bossDied && a.length < 160) console.log(`${p}: boss death band needs 160 seeds (${a.length} measured)`);
-    if (b.bossDied && bo.n) console.log(`${p}: boss deaths ${bo.k}/${bo.n} = ${(bo.died * 100).toFixed(1)}% (95% CI ${ci(bo.k, bo.n)})`);
-    if (b.bossDied && a.length >= 160 && !inB(bo.died, b.bossDied)) miss.push(`${p}: boss deaths ${(bo.died * 100).toFixed(1)}%, outside ${b.bossDied.map((v) => v * 100).join('–')}%`);
+    if (b.bossDied && bd.n) console.log(`${p}: boss deaths ${bd.k}/${bd.n} = ${(bd.died * 100).toFixed(1)}% (95% CI ${ci(bd.k, bd.n)})`);
+    if (b.bossDied && a.length >= 160 && !inB(bd.died, b.bossDied)) miss.push(`${p}: boss deaths ${(bd.died * 100).toFixed(1)}%, outside ${b.bossDied.map((v) => v * 100).join('–')}%`);
     for (const f in b.chapters || {}) { const c = bossOf(a, +f), band = b.chapters[f]; if (!c.n) continue;
       if (band.died && !inB(c.died, band.died)) miss.push(`${p} f${f}: boss deaths ${(c.died * 100).toFixed(1)}%, outside ${band.died.map((v) => v * 100).join('–')}%`);
       if (band.t && !inB(c.t, band.t)) miss.push(`${p} f${f}: boss fight ${c.t.toFixed(1)} s, outside ${band.t.join('–')} s`);
+      if (band.lost && !inB(c.dmg, band.lost)) miss.push(`${p} f${f}: the boss takes ${Math.round(c.dmg * 100)}% of the health, outside ${band.lost.map((v) => v * 100).join('–')}%`);
+      if (band.pot && !inB(c.pot, band.pot)) miss.push(`${p} f${f}: ${c.pot.toFixed(1)} hp potions at the boss, outside ${band.pot.join('–')}`);
     }
     if (b.pressure && a.length < 160) console.log(`${p}: pressure curve needs 160 seeds (${a.length} measured)`);
-    if (b.pressure && a.length >= 160) for (let f = 4; f <= FLOORS; f++) { const at = (floor, fn) => { const l = a.flatMap((r) => r.floors.filter((q) => q.floor === floor)); return avg(l, fn); },
+    if (b.pressure && a.length >= 160) for (let f = 4; f <= FLOORS; f++) { if (STAGE(f).lf === 1) continue;   // a chapter starts afresh past its boss
+      const at = (floor, fn) => { const l = a.flatMap((r) => r.floors.filter((q) => q.floor === floor)); return avg(l, fn); },
       dmg = at(f, (q) => q.dmgHp || 0), prev = at(f - 1, (q) => q.dmgHp || 0), pot = at(f, (q) => q.hpPot || 0), pot0 = at(f - 1, (q) => q.hpPot || 0);
       if (dmg < prev) miss.push(`${p} f${f}: floor damage ${dmg.toFixed(2)} max HP, below f${f - 1} ${prev.toFixed(2)}`);
       if (pot < pot0 - 0.3 - 1e-9) miss.push(`${p} f${f}: potion use falls ${ (pot0 - pot).toFixed(2)}, over 0.3`);

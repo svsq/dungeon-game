@@ -195,26 +195,36 @@
   // at 0.82 the 7th floor was easier than the 6th, 2.05/1 cost more than the 8th, 2.05/0.9 less than the 6th once the late growth
   // began at the 6th (TASKS 227). exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy);
   // on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241).
-  // The water caves are a run of their own until the story joins them to the campaign (R-27): four floors and their boss for a
-  // hero of level 10, who in the campaign enters the 8th (TASKS 300); until its serpent exists the forge lord holds the 4th.
+  // The water caves are the campaign's 9th–12th floors (TASKS 339) and also a run of their own, kept as a test button in the menu
+  // (R-27): four floors and their boss for a hero of level 10, who in the campaign enters the 8th (TASKS 300).
   // loot: levels added to the items it finds, buys and is given over what its depth gives, so they start at the hero's level (the
   // caves: depth 6 made the 1st floor's items level 7 for a hero of level 10);
   // arch: the floor archetype (dungeon.js; the campaign's rooms and corridors by default); size: each floor's map in cells, growing with the run. Its kit matches what the average bot wears entering the 8th: all eight slots, mostly epic
+  // chapters: the run's later floors laid out by another run's description (TASKS 339): from the 9th the campaign goes on into the
+  // water caves, its 9th–12th are the caves' 1st–4th (their maps, packs, guard and the serpent on the last) at the campaign's own
+  // depth; chapter: how many floors its own description lays out (biome, boss, guard, exit and altars count in those);
+  // names: a floor's own title over its biome's
   const RUNS = {
-    campaign: { name: 'Кампания', floors: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
+    campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
-      last: 'Трон Демона', seal: 'Сначала одолейте Повелителя Демонов' },
+      chapters: [{ from: 9, run: 'cave' }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея' },
     cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
   };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
+  // floor f of a run: N, the description that lays it out (the run's own or its chapter's), lf, its place among N's floors, n, how
+  // many floors N lays out, depth, the campaign floor it is worth; last: the end of its chapter (layout: no river, no altar before
+  // the boss), fin: the run's own last floor (the way out, the victory); biome and boss: its biome and its boss, if any
+  const stageOf = (mode, f) => { const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
+    n = c ? N.floors : M.chapter || M.floors;
+    return { N, lf, n, depth: f + M.depth, last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf] }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
   // the caves' packs by role (TASKS 312), a hall's weight for each when it can hold it: line, a crab or two just inside the way the
   // hero comes in with the archers (and from the 3rd floor a mage) at the far end behind them; shore, drowned in the hall's shallows;
   // hall, slimes in a big hall (area in cells); bones, the old dungeon's kinds, now and then with an archer or a mage at the back.
   // eel: the chance of an eel in a hall's deep water and in each lake between halls, by floor
   const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: ['skeleton', 'goblin', 'spider'] };
-  const floorName = (f, mode) => { const N = runOf(mode); return N.last && f === N.floors ? N.last : N.title || BIOMES[N.biome(f)].name; };
+  const floorName = (f, mode) => { const M = runOf(mode), st = stageOf(mode, f); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
@@ -374,7 +384,7 @@
     menu: (hasRun, diff, arm, zoom) => {
       // arm: the run whose button was pressed once over a saved run (a second press drops the save)
       const run = (id, fresh, again) => [id, !hasRun ? fresh : arm === id ? 'Точно сбросить забег?' : again, true];
-      const items = [['continue', 'Продолжить забег', hasRun], run('campaign', 'Кампания — 8 этажей', 'Новая кампания (сброс)'), run('cave', 'Затопленные пещеры — 4 этажа', 'Пещеры заново (сброс)'), ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
+      const items = [['continue', 'Продолжить забег', hasRun], run('campaign', 'Кампания — 12 этажей', 'Новая кампания (сброс)'), run('cave', 'Тест: пещеры отдельно', 'Тест пещер заново (сброс)'), ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
         ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['meta', 'Алтарь душ', true]];
       return items.map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 }));
     },
@@ -452,7 +462,7 @@
     stalag_a: 'stone', stalag_b: 'stone', boulder_a: 'stone', boulder_b: 'stone', wreck_cv: 'wood', tent_cv: 'cloth', skel_cv: 'bone' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, RUNS, runOf, rosterAt, CAVE_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

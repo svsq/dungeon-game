@@ -25,7 +25,7 @@
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
   // reads the depth, the run's own floor numbers only place its bosses, guards and end
-  const RUN = (R) => D.runOf(R.mode), dep = (R, f = R.floor) => (f || 1) + RUN(R).depth, lastFloor = (R) => R.floor === RUN(R).floors;
+  const RUN = (R) => D.runOf(R.mode), STAGE = (R, f = R.floor) => D.stageOf(R.mode, f || 1), dep = (R, f = R.floor) => STAGE(R, f).depth, lastFloor = (R) => R.floor === RUN(R).floors;
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' (элита)' : '') : '?';
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
@@ -336,7 +336,7 @@
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ endless: R.mode === 'endless', mode: R.mode }, gen));
     R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.drops = []; R.scorches = []; m.goo = [];
     const d = dep(R, f), sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (d - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(d);
-    for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? RUN(R).guard[f] : e.exit && e.elite ? RUN(R).exit[f] : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
+    for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? STAGE(R, f).guard : e.exit && e.elite ? STAGE(R, f).exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
         elite: e.elite, guard: e.guard || 0, room: e.room, st: D.BOSSES[e.type] ? 'idle' : E.lurk ? 'lurk' : E.deep ? 'deep' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
     for (const e of R.en) if (e.type === 'crab') e.fa = faOf(e);
@@ -628,9 +628,11 @@
     if (!D.BOSSES[e.type] && (e.elite || rnd(R) < LT.p * BAL.reward)) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
     if (rnd(R) < POT.kill * BAL.reward) drop(R, e.x, e.y, { kind: 'item', item: potion(rnd(R) < 0.65 ? 'hp_potion' : 'mp_potion') });
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
-    const fin = D.BOSSES[e.type] && lastFloor(R), sh = D.BOSSES[e.type] ? (fin ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
+    // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
+    const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || STAGE(R).last), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (D.BOSSES[e.type]) finishArena(S, R, e);
-    if (fin) { R.bossDead = 1; R.msg = { s: ENEMIES[e.type].name + ' повержен! Портал наружу открыт', t: S.t }; for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) }); }
+    if (big) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
+    if (fin) { R.bossDead = 1; R.msg = { s: ENEMIES[e.type].name + ' повержен! Портал наружу открыт', t: S.t }; }
   }
   // a thrown-away item lands on a free neighbouring cell and stays put until the hero has walked away from it and comes back
   function throwAway(R, h, it) {
@@ -1279,7 +1281,7 @@
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
     for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
-    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + ': победа! Алтарь и лестница открыты', t: S.t }; drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
+    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + ': победа! Алтарь и лестница открыты', t: S.t }; if (!STAGE(R).last) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
   }
   function bossWebs(S, R, e, M) {
     const m = R.map, r = m.rooms[e.room];
@@ -1673,10 +1675,11 @@
       if (R.itemBalance !== D.ITEM_BAL.version || h.eq.armor.def !== items[0].def) out.push('live reload equipment was not rebalanced');
     }
     // the water caves' floors (TASKS 301) are held to the campaign's rules
+    // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
     const GEN = [1, 77, 4242, 90001].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
       .concat([1, 77, 4242, 90001, 5, 12, 33, 2024].flatMap((sd) => Array.from({ length: D.RUNS.cave.floors }, (_, i) => ['cave', sd, i + 1])));
     const caveKinds = {};
-    for (const [mode, sd, f] of GEN) { const seed = mode === 'campaign' ? sd : 'cave ' + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode });
+    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' ? 'cave' : 'campaign', lf = ST.lf, seed = (run === 'campaign' ? '' : 'cave ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
@@ -1741,7 +1744,7 @@
         for (const o of m.flora) { const k = cellOf(o), up = Math.floor(o.y / TILE - 1) * W + Math.floor(o.x / TILE);
           if (o.n === 'moss' ? m.cells[up] !== 0 : !inW(k)) out.push(`seed ${seed} f${f}: ${o.n} off its ${o.n === 'moss' ? 'rock face' : 'water'} at ${Math.round(o.x)},${Math.round(o.y)}`); } }
       // the fire depths (TASKS 186): two rivers at least, and nothing stands in lava or a cell from its shore
-      if (D.BIOMES[m.biome].lava && f < D.RUNS.campaign.floors && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
+      if (D.BIOMES[m.biome].lava && !ST.last && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
       { const shore = (o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor((o.y - 1) / TILE); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) === 3) return true; return false; };
         for (const [k, list] of [['monster', m.enemies], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['brazier', m.torches.filter((t) => t.kind !== 'wall')]]) for (const o of list) if (shore(o)) out.push(`seed ${seed} f${f}: a ${k} by lava at ${Math.round(o.x)},${Math.round(o.y)}`); }
       // a secret's fake wall counts as broken: rock one cell thick between two floors would hang in the floor as a bare wall face (TASKS 178)
@@ -1802,7 +1805,7 @@
       if (!ok) out.push(`seed ${seed} f${f}: exit unreachable`);
       // a cave (TASKS 301): its floor's size, no doors and no masonry streams, pockets that lead nowhere, and no straight stretch of
       // wall over four cells but the merchant's back wall and the secret caches
-      if (mode === 'cave') { const [w0, h0] = D.RUNS.cave.size[f - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
+      if (mode === 'cave') { const [w0, h0] = D.RUNS.cave.size[lf - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
         if (m.W !== w0 || m.H !== h0) out.push(`seed ${seed} f${f}: the cave is ${m.W}×${m.H}, not ${w0}×${h0}`);
         if (m.doors.some((d) => !d.arena)) out.push(`seed ${seed} f${f}: non-arena doors in the cave`);
         for (const r of m.rooms) if (r.pocket && m.edges.filter((e) => e.includes(r.id)).length !== 1) out.push(`seed ${seed} f${f}: pocket ${r.id} is not a dead end`);
@@ -1975,7 +1978,7 @@
     // floors meeting only at a corner: the generator leaves none, and a line through such a corner is shut (TASKS 174)
     { const pm = { W: 4, H: 4, cells: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0] };
       if (losClear(pm, 1.5 * TILE, 1.5 * TILE, 2.5 * TILE, 2.5 * TILE)) out.push('a line through the corner of two walls is clear');
-      for (let f = 1; f <= D.RUNS.campaign.floors; f++) for (let s = 1; s <= 8; s++) { const m = DG.genFloor(s * 131 + f, f), so = (x, y) => solidC(m, x, y); let n = 0;
+      for (let f = 1; f <= D.RUNS.campaign.chapter; f++) for (let s = 1; s <= 8; s++) { const m = DG.genFloor(s * 131 + f, f), so = (x, y) => solidC(m, x, y); let n = 0;
         for (let y = 0; y < m.H - 1; y++) for (let x = 0; x < m.W - 1; x++) if (so(x, y) === so(x + 1, y + 1) && so(x + 1, y) === so(x, y + 1) && so(x, y) !== so(x + 1, y)) n++;
         if (n) out.push(`floor ${f} seed ${s * 131 + f}: ${n} floors meet only at a corner`); } }
     // a cultist's fire hex (lava floors) sets the hero burning for a few ticks; the plain hex does not
@@ -1992,11 +1995,11 @@
       if (!tp || tp.fx !== fx || tp.fy !== fy) out.push('a teleport event does not carry where the hero left from'); }
     // the boss roars as he first sees the hero
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run; enterFloor(S, R, D.RUNS.campaign.floors); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; R.en = [b]; h.x = b.x; h.y = b.y + 160; h.ifr = 1e9;
+      const R = S.run; enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; R.en = [b]; h.x = b.x; h.y = b.y + 160; h.ifr = 1e9;
       for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (!S.ev.some((e) => e.k === 'roar')) out.push('the boss does not roar when he first sees the hero'); }
     // shallow water: the hero wades slower, a burning hero stepping in is put out, and no prop, chest or monster post stands in it
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); const R = S.run, h = R.hero; let tested = false;
-      for (let f = 1; f <= D.RUNS.campaign.floors && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[Math.floor(m.water.length / 2)], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
+      for (let f = 1; f <= D.RUNS.campaign.chapter && !tested; f++) { enterFloor(S, R, f); const m = R.map; if (!m.water.length) continue; tested = true; const wet = new Set(m.water), k0 = m.water[Math.floor(m.water.length / 2)], foe = structuredClone(R.en.find((e) => !ENEMIES[e.type].ghost));
         const on = (o) => wet.has(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE));
         for (const o of [...R.chests, ...R.pots, ...m.decor.filter((d) => d.solid), ...m.torches.filter((t) => t.kind !== 'wall'), ...R.en]) if (on(o)) out.push(`water check floor ${f}: ${o.type || o.kind || o.n || 'chest'} stands in the water`);
         const run = (x, y) => { R.en = []; h.vx = h.vy = 0; for (let i = 0; i < 60; i++) { h.x = x; h.y = y; step(S, { keys: [], right: 1 }); } return h.vx; };
@@ -2028,7 +2031,7 @@
     // of the floor behind the wall (TASKS 104)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero; let tested = 0;
-      for (let f = 1; f <= D.RUNS.campaign.floors && tested < 3; f++) { enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.chapter && tested < 3; f++) { enterFloor(S, R, f); const m = R.map;
         for (const A of m.rooms) for (const B of m.rooms) for (const vert of [0, 1]) { if (A === B || A.type === 'secret' || B.type === 'secret' || tested >= 3) continue;
           const a0 = vert ? A.y : A.x, aw = vert ? A.h : A.w, b0 = vert ? B.y : B.x, gap = b0 - (a0 + aw); if (gap < 1 || gap > 2) continue;
           const o0 = Math.max(vert ? A.x : A.y, vert ? B.x : B.y), o1 = Math.min(vert ? A.x + A.w : A.y + A.h, vert ? B.x + B.w : B.y + B.h); if (o1 - o0 < 3) continue;
@@ -2046,7 +2049,7 @@
     // and the same setup with the wall dug out does hit (so the check really reaches it)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero; let spot = null;
-      for (let f = 1; f <= D.RUNS.campaign.floors && !spot; f++) { enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.chapter && !spot; f++) { enterFloor(S, R, f); const m = R.map;
         for (let ty = 1; ty < m.H - 4 && !spot; ty++) for (let tx = 1; tx < m.W - 1 && !spot; tx++) for (const k of [1, 2]) {
           const below = ty + k + 1, ok = (x, y) => cell(m, x, y) === 1 && !inStart(m, x, y);
           if (ok(tx, ty) && ok(tx - 1, ty) && ok(tx + 1, ty) && ok(tx, below) && ok(tx - 1, below) && ok(tx + 1, below) && [...Array(k)].every((_, i) => cell(m, tx, ty + 1 + i) === 0)) { spot = { tx, ty, k, below }; break; } } }
@@ -2065,7 +2068,7 @@
     // monsters stand clear of solid props: at every post, and when knocked into a chest or chasing the hero straight across one
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, m = R.map, inside = (e) => !ENEMIES[e.type].ghost && e.deadT < 0 && solids(R).some((o) => Math.hypot(e.x - o.x, (e.y - o.y) * 1.6) < o.r + ENEMIES[e.type].r - 1);
-      for (let f = 1; f <= D.RUNS.campaign.floors; f++) { enterFloor(S, R, f); const e = R.en.find(inside); if (e) { out.push(`floor ${f}: a ${e.type} is posted inside a prop`); break; } }
+      for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { enterFloor(S, R, f); const e = R.en.find(inside); if (e) { out.push(`floor ${f}: a ${e.type} is posted inside a prop`); break; } }
       enterFloor(S, R, 1); const c = R.chests.find((q) => cell(m, Math.floor((q.x - 64) / TILE), Math.floor(q.y / TILE)) === 1 && cell(R.map, Math.floor((q.x + 64) / TILE), Math.floor(q.y / TILE)) === 1);
       if (!c) out.push('prop check: no chest with floor on both sides on floor 1');
       else { const e = R.en.find((o) => !ENEMIES[o.type].ghost && ENEMIES[o.type].kind === 'melee'); R.en = [e]; Object.assign(e, { x: c.x - 40, y: c.y, kbx: 900, kby: 0, hp: 1e4, max: 1e4, dmg: 0, st: 'idle' });
@@ -2255,7 +2258,7 @@
       press(); swing(); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
     // every secret of a few whole campaigns, one by one: the hero is put where its tell is (in front of a wall, under a banner
     // or a sconce, below a shelf, on a flagstone), the collisions settle, and the action meant for it opens it
-    for (const sd of [11, 222]) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
+    for (const sd of [11, 222]) for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9; const cells0 = m.cells.slice();
       m.secrets.forEach((q, i) => { const base = m.secrets.map((o) => o.open);
         if (secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) { m.secrets.forEach((o) => { if (o !== q && !o.open) openSecret(S, R, o, true); }); }
@@ -2578,7 +2581,7 @@
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
-      for (let f = 1; !R.shrines.length && f < D.RUNS.campaign.floors; ) enterFloor(S, R, ++f);
+      for (let f = 1; !R.shrines.length && f < D.RUNS.campaign.chapter; ) enterFloor(S, R, ++f);
       if (!R.shrines.length) out.push('altar: no altar on any floor of seed 777');
       else { const sh = R.shrines[0], tier = (o) => D.GIFTS.find((q) => q.id === o.id).tier; R.en = []; h.x = sh.x; h.y = sh.y + 40; step(S, { keys: ['KeyE'] });
         if (S.screen !== 'altar' || !sh.gifts || sh.gifts.map(tier).join() !== '1,2,3' || !(sh.gifts[0].cost < sh.gifts[1].cost && sh.gifts[1].cost < sh.gifts[2].cost)) out.push('altar: E does not offer one gift per tier at rising prices');
@@ -2656,11 +2659,12 @@
       m.cells[ty * m.W + tx + 2] = 0; const q = fire(); R.proj = [q]; for (let i = 0; i < 50 && !q.dead; i++) { S.t += DT; stepProjectiles(S, R); }
       if (!q.dead || q.x >= (tx + 3) * TILE) out.push('hero fireball: passes through rock above water');
     }
-    // an altar on every second floor and on no other (TASKS 137), the last on the floor before the boss's, none on his (TASKS 183)
-    { const bad = [], want = (f) => (f < D.RUNS.campaign.floors && (f % 2 === 0 || f === D.RUNS.campaign.floors - 1) ? 1 : 0);
+    // an altar on every second floor of a chapter and on no other (TASKS 137), the last on the floor before the chapter's boss, one past
+    // him if the run goes on (the demon lord's 8th, TASKS 339), none on the run's last floor (TASKS 183): 2, 4, 6, 7, 8, 10, 11
+    { const bad = [], want = (f) => { const st = D.stageOf('campaign', f); return !st.fin && (st.lf % 2 === 0 || st.lf === st.n - 1) ? 1 : 0; };
       for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
         if (n !== want(f)) bad.push(`seed ${seed} floor ${f}: ${n}`); }
-      if (bad.length) out.push(`altar: not one altar on floors 2, 4, 6 and 7 and none on the others (${bad.length}: ${bad.slice(0, 3).join(', ')})`); }
+      if (bad.length) out.push(`altar: not one altar on floors 2, 4, 6, 7, 8, 10 and 11 and none on the others (${bad.length}: ${bad.slice(0, 3).join(', ')})`); }
     // each gift does what it says: reach and swing width, potion strength, a kill's meal, thorns back into a close striker (not a far one),
     // one second chance per gift, more damage on a nearly dead monster
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero, give = (id) => { h.perks[id] = (h.perks[id] || 0) + 1; };
@@ -2900,6 +2904,44 @@
           const F = flow(m, k % W, Math.floor(k / W), 1); if (F.some((v, j) => v >= 0 && m.cells[j] === 6)) out.push('cave water: the monsters\' way runs over deep water'); }
         // shallows slow the hero as they do in the campaign's streams
         if (!m.water.length || !inWater(m, { x: (m.water[0] % W + 0.5) * TILE, y: (Math.floor(m.water[0] / W) + 0.5) * TILE })) out.push('cave water: its shallows are not wading water'); }
+      // the caves as the campaign's 9th–12th (TASKS 339): the demon lord on the 8th pays as a finale but opens the stairs, the 9th is
+      // the caves' 1st at the campaign's depth with the same hero (level, kit, gold, bag), the 11th keeps the caves' exit guard and the
+      // 10th and 11th their altars, the serpent holds the 12th and only his death wins the campaign; a run saved in the caves goes on there
+      { const S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 7); S2.screen = 'play'; const R2 = S2.run, h2 = R2.hero, NC = D.RUNS.cave;
+        enterFloor(S2, R2, 8); h2.ifr = 1e9; h2.lvl = 11; h2.gold = 777; R2.drops = [];
+        const lord = R2.en.find((e) => e.type === 'boss'); let want = '';
+        if (!lord) out.push('campaign f8: no demon lord'); else {
+          killEnemy(S2, R2, lord);
+          if (R2.bossDead) out.push('campaign f8: the demon lord\'s death opens the way out of the campaign');
+          if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f8: the demon lord does not pay the finale\'s 20 shards');
+          if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f8: the demon lord does not drop the finale\'s loot');
+          if (!R2.map.shrines.length) out.push('campaign f8: no altar past the demon lord');
+          R2.drops = []; want = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.bag, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+          if (!S2.run || R2.floor !== 9) out.push(`campaign: the stairs past the demon lord lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 9th`);
+          else {
+            const m = R2.map;
+            if (m.biome !== 'cave' || m.W !== NC.size[0][0] || m.H !== NC.size[0][1] || !m.crossings) out.push('campaign f9: not the caves\' first floor');
+            if (JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.bag, h2.perks, h2.ab]) !== want) out.push('campaign f9: the hero changed on the way down');
+            if (dep(R2) !== 9) out.push(`campaign f9: depth ${dep(R2)}, not 9`);
+            if (R2.en.some((e) => !D.BOSSES[e.type] && e.max < Math.round(D.ENEMIES[e.type].hp * BAL.hp * (1 + 0.5 * 8)))) out.push('campaign f9: a monster weaker than the 9th floor');
+            if (!R2.msg || !R2.msg.s.includes('Этаж 9') || !R2.msg.s.includes(NC.title)) out.push(`campaign f9: the floor's title is "${R2.msg && R2.msg.s}"`);
+            for (let f = 10; f <= 12; f++) { enterFloor(S2, R2, f); const mf = R2.map, lf = f - 8;
+              if ((mf.bossType || undefined) !== NC.boss(lf)) out.push(`campaign f${f}: boss ${mf.bossType}, the caves' ${lf}th has ${NC.boss(lf)}`);
+              if (!NC.boss(lf) && !!NC.guard[lf] !== mf.enemies.some((e) => e.guard)) out.push(`campaign f${f}: exit guard does not match the caves' ${lf}th`);
+              if (mf.shrines.length !== (f === 10 || f === 11 ? 1 : 0)) out.push(`campaign f${f}: ${mf.shrines.length} altar(s)`);
+              if (f === 11) { // a run saved here, through the browser's storage, goes on in the caves
+                S2.saved = S2.run; S2.run = null; S2.screen = 'menu'; const S3 = spawn(1, JSON.parse(JSON.stringify(persist(S2)))), cb = UI.menu(true).find((q) => q.id === 'continue');
+                step(S3, { keys: [], click: 1, px: cb.x + 10, py: cb.y + 10 });
+                if (!S3.run || S3.run.floor !== 11 || S3.run.mode !== 'campaign' || S3.run.map.biome !== 'cave' || S3.screen !== 'play') out.push('campaign f11: a run saved in the caves does not go on there');
+                else { for (let i = 0; i < 30; i++) step(S3, { keys: [] }); if (!S3.run || dep(S3.run) !== 11) out.push('campaign f11: the continued run breaks'); }
+                S2.run = R2; S2.saved = null; S2.screen = 'play'; } }
+            const sp = R2.en.find((e) => e.type === 'boss_serpent'), best = S2.meta.best; h2.ifr = 1e9; h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+            if (!S2.run) out.push('campaign f12: the way out opens before the serpent dies');
+            else if (!sp) out.push('campaign f12: no serpent');
+            else { killEnemy(S2, R2, sp); if (!R2.bossDead) out.push('campaign f12: the serpent\'s death does not open the way out');
+              h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+              if (S2.screen !== 'win' || (S2.result || {}).mode !== 'campaign' || S2.result.floor !== 12) out.push('campaign: leaving after the serpent is not a campaign win');
+              if (S2.meta.best !== Math.max(best || 0, 12)) out.push('campaign: the win does not set the floor record to 12'); } } } }
       // a saved run is dropped only by a second press of the same button
       const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); const c = UI.menu(true).find((q) => q.id === 'campaign'), v = UI.menu(true).find((q) => q.id === 'cave');
       step(T, { keys: [], click: 1, px: c.x + 10, py: c.y + 10 }); step(T, { keys: [] }); step(T, { keys: [], click: 1, px: v.x + 10, py: v.y + 10 });

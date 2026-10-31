@@ -1155,7 +1155,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     };
     if (win) {
       // the fallen lord behind and aside, the hero large and lit in front of him: the two never merge into one dark shape (TASKS 235)
-      enemy({ type: r.mode === 'cave' ? 'boss_serpent' : 'boss', elite: r.mode === 'cave' ? 0 : 1, st: 'chase', mv: 'wave', endPortrait: r.mode === 'cave' }, x - 90, y - 5, true);
+      const sea = D.stageOf(r.mode, D.runOf(r.mode).floors).boss === 'boss_serpent';   // the run's last boss: the serpent ends the campaign too (TASKS 339)
+      enemy({ type: sea ? 'boss_serpent' : 'boss', elite: sea ? 0 : 1, st: 'chase', mv: 'wave', endPortrait: sea }, x - 90, y - 5, true);
       if (r.hero) {
         const h = Object.assign({}, r.hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9 });
         const hx = x + 35, hy = y + 70;
@@ -1284,7 +1285,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (lavaCells.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of lavaCells) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       lavaBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; lavaXf = G.xf(sx(lavaBox[0]), sy(lavaBox[1]), lavaBox[2], lavaBox[3]);
       G.draw(L.P.lava, lavaU(0), lavaXf); G.blend('emit'); G.draw(L.P.lava, lavaU(2), lavaXf); G.blend(); }
-    const waterRooms = new Map(), caveW = D.runOf(R.mode).arch === 'cave';
+    const waterRooms = new Map(), caveW = D.stageOf(R.mode, m.floor).arch === 'cave';
     // a cave's water runs through the rock between its halls: one pass over the whole view, unclipped. The fires it reflects are
     // the ones over the view taken in map order, not by distance to the camera, so a reflection never pops as the camera moves
     if (caveW && (m.water.length || m.deep)) { const box = [Math.floor(cx / TILE - 1) * TILE, Math.floor(cy / TILE - 1) * TILE, VW + 3 * TILE, VH + 3 * TILE];
@@ -2056,7 +2057,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
       ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 0, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
-      ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
+      ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 12, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
     ];
     for (const [name, S] of states.filter(([n]) => ['dead', 'win', 'dead_short'].includes(n))) {
@@ -2315,12 +2316,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       break; }
     // one room per furnishing plan (data.js ROOM_PLANS), lit and empty, the camera on it
     for (const plan of Object.keys(D.ROOM_PLANS)) states.push(['plan_' + plan, play((S) => { for (const seed of [1234, 1, 2, 3, 4, 5, 6]) { S.run = SIM.newRun(S, 'campaign', seed); const R = S.run;
-      for (let f = 1; f <= D.RUNS.campaign.floors; f++) { SIM.enterFloor(S, R, f); const m = R.map, rm = m.rooms.filter((q) => q.plan === plan && q.type !== 'start').sort((a, b) => b.w * b.h - a.w * a.h)[0]; if (!rm) continue;
+      for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { SIM.enterFloor(S, R, f); const m = R.map, rm = m.rooms.filter((q) => q.plan === plan && q.type !== 'start').sort((a, b) => b.w * b.h - a.w * a.h)[0]; if (!rm) continue;
         const h = R.hero; h.x = (rm.x + 0.5) * TILE; h.y = (rm.y + rm.h - 0.5) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
         R.cam = [(rm.x + rm.w / 2) * TILE - VW / 2, (rm.y + rm.h / 2) * TILE - VH / 2]; return; } } })]);
     // the fog across a thin wall between two rooms with no passage: the hero's room open whole, the one behind the wall dark (TASKS 104)
     states.push(['fog_wall', play((S) => { for (const seed of [1234, 1, 2, 3, 4, 5, 6, 7, 8]) { S.run = SIM.newRun(S, 'campaign', seed); const R = S.run, h = R.hero;
-      for (let f = 1; f <= D.RUNS.campaign.floors; f++) { SIM.enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { SIM.enterFloor(S, R, f); const m = R.map;
         for (const A of m.rooms) for (const B of m.rooms) for (const vert of [0, 1]) { if (A === B || A.type === 'secret' || B.type === 'secret') continue;
           const a0 = vert ? A.y : A.x, aw = vert ? A.h : A.w, b0 = vert ? B.y : B.x, gap = b0 - (a0 + aw); if (gap < 1 || gap > 2) continue;
           const o0 = Math.max(vert ? A.x : A.y, vert ? B.x : B.y), o1 = Math.min(vert ? A.x + A.w : A.y + A.h, vert ? B.x + B.w : B.y + B.h); if (o1 - o0 < 3) continue;
@@ -2433,7 +2434,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['fx_die', fx((S, R, h) => { h.hp = 0; h.deadT = S.t - 0.8; S.ev.push({ k: 'die', t: S.t - 0.8, x: h.x, y: h.y }); })]);
     states.push(['fx_teleport', fx((S, R, h) => { S.ev.push({ k: 'teleport', t: S.t - 0.2, x: h.x, y: h.y, fx: h.x + 360, fy: h.y - 60 }); })]);
     states.push(['fx_arrive', fx((S, R, h) => { S.keepFloor = 1; S.ev.push({ k: 'floor', t: S.t - 0.45, x: h.x, y: h.y, f: R.floor }); })]);
-    states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.floors); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
+    states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [b.x - VW / 2, b.y + 60 - VH / 2]; S.ev.push({ k: 'roar', t: S.t - 0.25, x: b.x, y: b.y - 70, id: b.id }); })]);
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
     states.push(['buffs', fx((S, R, h) => { worst(S); h.perks = Object.fromEntries(D.GIFTS.map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 99999, shieldUntil: S.t + 4, burn: S.t + 0.4, poison: S.t + 2.2 }); })]);
@@ -2482,6 +2483,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 2);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_cave', S]); }
+    // the campaign going on into the caves (TASKS 339): its 9th floor on arrival, title and all, and the serpent's 12th
+    { const S = play(); SIM.enterFloor(S, S.run, 9); S.run.msg.t = S.t - 0.8; states.push(['campaign_f9_arrive', S]); }
+    { const S = play(); SIM.enterFloor(S, S.run, 12); const R = S.run, r = R.map.rooms.find((q) => q.type === 'boss') || R.map.rooms[0], h = R.hero;
+      h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h - 2) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['campaign_f12_serpent', S]); }
     // the water caves' biggest hall and its winding ways (TASKS 301), the whole hall in view
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;

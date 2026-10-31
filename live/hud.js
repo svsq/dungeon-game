@@ -52,7 +52,7 @@
   function title(S, t) {
     L.solid(0, 0, W, 200, [0, 0, 0], 0, 0, 0, 0.35);
     lab('tt', 'ГЛУБИНЫ КРИПТЫ', W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('ts', 'восемь этажей тьмы · случайные подземелья · лут и прокачка', W / 2, 168, { size: 28, al: 0.5, col: C.dim });
+    lab('ts', 'двенадцать этажей тьмы · случайные подземелья · лут и прокачка', W / 2, 168, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
     lab('tp', 'Нажмите любую клавишу', W / 2, H - 90, { size: 34, al: 0.5, a });
   }
@@ -496,7 +496,7 @@
     const [hw, hh] = SZ('hero'); L.sprite('hero', W / 2 - 520 - hw * 1.6, 340, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', W / 2 - 520 - hw * 1.6, 340, hw * 3.2, hh * 3.2);
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
     lab('m_t', 'ГЛУБИНЫ КРИПТЫ', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('m_s', 'Выберите поход: кампания или Затопленные пещеры', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
+    lab('m_s', 'Двенадцать этажей: от подземелья до Затопленных пещер', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
     for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
       const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? 'Впервые? Начните с лёгкой' : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? '×1,5 — крупнее' : '';
@@ -556,7 +556,7 @@
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.96);
     lab('e_t', win ? 'ПОБЕДА' : r.abandoned ? 'ЗАБЕГ ЗАВЕРШЁН' : 'ВЫ ПОГИБЛИ', W / 2, 100, { size: 76, al: 0.5, col: win ? C.gold : '#d8402a' });
-    lab('e_s', win ? (r.mode === 'cave' ? 'Глубинный змей повержен. Путь из пещер свободен.' : 'Повелитель Демонов повержен. Путь на поверхность свободен.') : 'Подземелье забрало ещё одного героя. Но души помнят…', W / 2, 164, { size: 26, al: 0.5, col: C.dim });
+    lab('e_s', win ? (r.mode === 'cave' ? 'Глубинный змей повержен. Путь из пещер свободен.' : 'Повелитель Демонов и Глубинный змей повержены. Путь на поверхность свободен.') : 'Подземелье забрало ещё одного героя. Но души помнят…', W / 2, 164, { size: 26, al: 0.5, col: C.dim });
     panel('e_story', 200, 220, 420, 650, { r: 10 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {
       const words = String(s).split(' '), lines = []; let line = '';
