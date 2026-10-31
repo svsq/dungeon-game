@@ -6,13 +6,14 @@ html,body{margin:0;background:#000;height:100%;overflow:hidden}
 canvas{display:block;width:min(100vw,calc(100vh*var(--ar)));height:auto;aspect-ratio:var(--ar);margin:auto;position:absolute;inset:0}
 canvas{cursor:crosshair}
 #hint{pointer-events:none;position:absolute;left:0;right:0;bottom:3vh;text-align:center;font:600 18px -apple-system,sans-serif;color:#fff;text-shadow:0 2px 6px #000;transition:opacity .4s}
-#dev{position:absolute;left:10px;bottom:8px;font:12px ui-monospace,Menlo,monospace;color:#fff;background:#0008;padding:5px 8px;border-radius:6px;opacity:.55;white-space:pre}
+#dev{position:absolute;left:10px;bottom:8px;font:12px ui-monospace,Menlo,monospace;color:#fff;background:#0008;padding:5px 8px;border-radius:6px;opacity:.55;white-space:pre-wrap;max-width:calc(100vw - 40px)}
 #dev:hover{opacity:1}
+#padst{pointer-events:none;position:absolute;left:0;right:0;bottom:calc(3vh + 28px);text-align:center;font:500 14px -apple-system,sans-serif;color:#ffd38a;text-shadow:0 2px 6px #000;white-space:pre-line}
 #flash{position:absolute;right:12px;bottom:10px;font:600 13px -apple-system,sans-serif;color:#9f9;background:#000a;padding:4px 10px;border-radius:6px;opacity:0;transition:opacity .6s}
 </style>
 </head><body><canvas id="c"></canvas>
 <div id="hint">press any key or click to play — arrows / WASD move, Space jump, X action, R restart</div>
-<div id="dev"></div><div id="flash">reloaded</div>
+<div id="padst"></div><div id="dev"></div><div id="flash">reloaded</div>
 <script>
 // LIVE PREVIEW. Scripts and images load with a cache-buster; the page polls its sources and reloads itself when any of
 // them changes, keeping the play state (sessionStorage). Attract demo until a key or click, then play (keyboard + pointer).
@@ -61,6 +62,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
+    if (c === 'Backquote' || c === 'F2') { devOn = !devOn; e.preventDefault(); return; }   // 252: the dev line without a pad and without editing the URL
     if (c === 'KeyP') { paused = !paused; e.preventDefault(); return; }
     if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
     if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
@@ -79,7 +81,10 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   addEventListener('contextmenu', (e) => e.preventDefault());
   const toView = (e) => { const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * VW; ptr.y = (e.clientY - r.top) / r.height * VH; };
   addEventListener('pointermove', toView);
-  addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
+  // 252: a tap on the letterbox bar outside the picture (Steam Deck 16:10 — top/bottom bars) toggles the dev line: works by touch,
+  // with no pad seen and no keyboard
+  addEventListener('pointerdown', (e) => { const r = cv.getBoundingClientRect(); if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) { devOn = !devOn; return; }
+    toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; });
@@ -215,9 +220,20 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   };
   // why the pad may be silent: the Gamepad API exists only in a secure context (https or 127.0.0.1/localhost — not a LAN
   // address like http://192.168.x.x), and a browser reports a pad only after one of its buttons is pressed on the page
-  const gpApi = !!navigator.getGamepads && window.isSecureContext !== false;
+  const gpApi = !!navigator.getGamepads && window.isSecureContext !== false, gpEv = { on: 0, off: 0, id: '' };
+  addEventListener('gamepadconnected', (e) => { gpEv.on++; gpEv.id = (e.gamepad && e.gamepad.id || '').slice(0, 40); });   // did the browser ever announce a pad
+  addEventListener('gamepaddisconnected', () => { gpEv.off++; });
+  // pad status for the attract screen (no dev mode needed): what the browser tells the page about pads
+  const padStatus = () => {
+    if (!navigator.getGamepads) return 'Геймпад: этот браузер не даёт странице Gamepad API';
+    if (window.isSecureContext === false) return 'Геймпад: недоступен по адресу ' + location.host + ' — откройте игру через 127.0.0.1';
+    const n = Array.from(navigator.getGamepads() || []).filter(Boolean);
+    if (!n.length) return 'Геймпад: браузер не видит ни одного' + (gpEv.on ? ` (был «${gpEv.id}», отключён)` : ' — нажмите кнопку пада; если надпись не меняется, браузер до пада не достаёт (README → Steam Deck)');
+    return 'Геймпад: ' + n.map((g) => `«${(g.id || '').slice(0, 40)}» ${g.mapping || 'нестандартный'}`).join(' · ') + ' — нажмите любую кнопку пада';
+  };
+  const padst = document.getElementById('padst');
   const gpDiag = () => !gpApi ? `\nPAD: браузер прячет Gamepad API (${window.isSecureContext === false ? 'небезопасный адрес ' + location.host + ' — откройте через 127.0.0.1' : 'нет navigator.getGamepads'})`
-    : !PAD.n ? '\nPADs 0 — браузер не видит пад: нажмите кнопку пада на странице; Steam Deck — см. README' : '';
+    : !PAD.n ? `\nPADs 0  gamepadconnected ${gpEv.on}  ·  ${navigator.userAgent.replace(/^.*\) /, '')}` : '';
   if (!gpApi && window.isSecureContext === false) { hint.textContent += ' · геймпад недоступен по адресу ' + location.host + ' — откройте через 127.0.0.1'; }
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
@@ -234,13 +250,14 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
         jump: keys.Space, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, mag: kbMove ? 1 : PAD.mag };
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
-      const logNew = (play.logN || 0) !== loggedN && devOn, logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
+      const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
       if (SIM.outOfPlay && SIM.outOfPlay(play)) play = SIM.respawn ? SIM.respawn(play, simT) : SIM.spawn(simT);
       SCENE.state = play;
     } else SCENE.state = null;
     try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
+    { const t = !play || devOn ? padStatus() : ''; if (padst.textContent !== t) padst.textContent = t; }
     if (!STATIC) dev.style.display = (paused || speed !== 1 || devOn) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
     if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (gpDiag() + (window.PAD && window.PAD.raw && PAD.n ? `\nPADs ${PAD.raw.pads} «${PAD.raw.id}»  map ${PAD.map}  ax ${PAD.raw.ax.join(' ')}  b[${(PAD.raw.bi || []).join(' ')}] из ${PAD.raw.btn}  mag ${(PAD.mag || 0).toFixed(2)}  #${PAD.raw.idx}` : ''));
     requestAnimationFrame(loop);
