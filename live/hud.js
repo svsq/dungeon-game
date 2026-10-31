@@ -572,11 +572,11 @@
     const actor = last && last.actor, name = win ? 'Глубины покорены' : r.abandoned ? 'Вы прервали поход' : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
-      lab('e_last', 'Последний удар: −' + last.n + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
+      lab('e_last', 'Последний удар: −' + Math.round(last.n) + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
       lab('e_recent', 'Последние попадания', 234, 686, { size: 21, col: C.dim });
       damage.slice().reverse().forEach((d, i) => {
         const src = SIM.damageName(d.src), size = Math.min(20, Math.floor(20 * 280 / Math.max(280, lw('e_src_m' + i, src, { size: 20 }))));
-        lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + d.n, 588, 724 + i * 38, { size: 21, al: 1, col: C.red });
+        lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + Math.round(d.n), 588, 724 + i * 38, { size: 21, al: 1, col: C.red });
       });
     } else wrap('e_flavor', win ? 'Сталь выдержала. Тьма отступила. Души павших вернутся вместе с вами.' : 'Найденные осколки сохранены. Новый герой продолжит ваш путь.', 234, 674, 350, 25, C.dim);
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
