@@ -146,7 +146,7 @@
     shopR.type = 'shop';
     const shopCorner = (x, y) => Math.abs(x - shopR.cx) <= 5 && y >= shopR.y - 2 && y <= shopR.y + 5;
     if (cave) { for (let y = shopR.y; y <= shopR.y + 4; y++) for (let x = shopR.cx - 4; x <= shopR.cx + 4; x++) set(x, y, 1); tidy(); breakRuns(shopCorner); }
-    // a biome with no spiders has no webs, so plates and ambushes make up for them: the traps grow towards the end, not thin out
+    // a biome with no spiders has no webs, so plates make up for them: the traps grow towards the end, not thin out
     const webless = !D.BIOMES[biome].roster.includes('spider');
     for (const r of others) if (r.type === 'combat' && R() < (webless ? 0.55 : 0.35) && r.w >= 8) r.trap = 1;
     // accent zones: one or two rooms per floor in another biome's look (the reference shows a green crypt and a blue hall
@@ -1073,8 +1073,8 @@
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (free(x, y) && !solid.has(key(x, y)) && !doorway(x, y)) { const d = Math.hypot(x - ex, y - ey); if (!best || d < best[0]) best = [d, x, y]; }
       if (best) { used.add(key(best[1], best[2])); e.x = wx(best[1]); e.y = wy(best[2]); } }
     // traps (TASKS 71). Webs on the floor of a room spiders keep: they hold whoever wades in (a spider runs over them) until a blow
-    // or fire tears them. An ambush: a loose flagstone like a secret's own mechanism (the player can't tell them apart) that calls
-    // monsters out of the dark round whoever steps on it, in a fighting room or a locked one
+    // or fire tears them. Ambushes no longer come from floor plates (TASKS 320): a chest in a treasure or secret room may spring one
+    // (sim.js openChest), so `ambush` stays empty
     const webs = [], ambush = [];
     const trapCell = (x, y) => traps.some((t) => x >= t.x / TILE - 1 && x < t.x / TILE + 1 && y >= t.y / TILE - 1 && y < t.y / TILE + 1);
     const floorSpot = (r) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + 1, r.x + r.w - 2), y = ri(r.y + 1, r.y + r.h - 2);

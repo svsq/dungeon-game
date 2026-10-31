@@ -1430,7 +1430,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let j = 0; j < 4; j++) { const ph = (t * 0.22 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * (q.kind === 'shelf' ? 110 : 40) * (0.5 + ph) + Math.sin(t * 1.6 + j * 2) * 4;
         L.solid(X - ux * (ph * 30 - 4) - uy * sp, Yf - uy * (ph * 30 - 4) + ux * sp + (q.dy ? 0 : ph * ph * 10), 2, 2, [0.8, 0.84, 0.92], 0, 0, 0, 0.35 * near * Math.sin(ph * Math.PI)); } });
     // a secret's loose flagstone: the floor's own stone standing a hair proud of its neighbours; it sinks when stepped on
-    // an ambush's flagstone (TASKS 71) is the same loose stone: nothing tells the two apart until one is stepped on
+    // (ambush plates are gone, TASKS 320; only secrets use it now)
     const flagstone = (P, down, crack) => { const z = zoneAt(m, P.cx, P.cy), Z = D.BIOMES[z], TS = 288, X = P.cx * TILE, Yw = P.cy * TILE, u0 = (X % TS) / TS, v0 = (Yw % TS) / TS, lift = 1.5 * (1 - down) - down;
       const ink = [0.02, 0.015, 0.02], X0 = sx(X) + 2, Y0 = sy(Yw) + 2, S0 = TILE - 4;
       L.solid(X0, Y0 + S0 - 1, S0, 3, ink, 0, 0, 0, 0.45 + 0.3 * down);
@@ -2386,7 +2386,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const S2 = play(); S2.run = SIM.newRun(S2, 'campaign', sd); const R2 = S2.run, L2 = R2.map.locks[m.locks.indexOf(L0)]; Object.assign(R2.hero, { x: h.x, y: h.y }); R2.en = []; R2.msg = null; R2.seen.fill(1); R2.rseen.fill(1); R2.cam = R.cam.slice();
         SIM.pullLever(S2, R2, L2); L2.openT = S2.t - 2; R2.msg = null; states.push(['lever_pulled', S2]); break; } }
     { const S = play(), R = S.run, h = R.hero; R.en = []; R.msg = null; R.keys = 1; R.drops.push({ id: 9e6, kind: 'key', lock: 0, x: h.x + 60, y: h.y + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 2 }); states.push(['key_drop', S]); }
-    // traps (TASKS 71, 76): a room's webs whole and torn, an ambush's flagstone before and as it springs, a corridor's spikes up
+    // traps (TASKS 71, 76): a room's webs whole and torn, a corridor's spikes up
     { const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); for (let fl = 1; fl <= 4; fl++) { if (fl > 1) SIM.enterFloor(S, S.run, fl); const o = f(S.run.map); if (o) return [S, o]; } } return []; };
       const at = (S, x, y, hx = x + 50, hy = y + 40) => { const R = S.run; Object.assign(R.hero, { x: hx, y: hy, vx: 0, vy: 0 }); R.en = R.en.filter((e) => e.type === 'spider' && Math.hypot(e.x - x, e.y - y) < 260); R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.cam = [x - VW / 2, y - VH / 2]; };
       let [S, w] = find((m) => m.webs.length >= 2 && m.webs[0]); if (S) { at(S, w.x, w.y, w.x + 4, w.y + 2); states.push(['web', S]);

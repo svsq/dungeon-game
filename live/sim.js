@@ -963,7 +963,9 @@
     stepProjectiles(S, R);
     stepMonsters(S, R, 1);
     for (const e of R.en) if (e.type === 'crab' && e.deadT < 0) {
-      const trail = e.crabTrail || (e.crabTrail = []);
+      // not enumerable: the render-only trail stays out of the saved run (JSON) and starts afresh after a load
+      if (!e.crabTrail) Object.defineProperty(e, 'crabTrail', { value: [], writable: true, enumerable: false });
+      const trail = e.crabTrail;
       trail.push({ x: e.x, y: e.y, fa: faOf(e), dist: e.dist, vx: e.vx, vy: e.vy });
       if (trail.length > 180) trail.shift();
     }
@@ -1769,7 +1771,7 @@
       for (const d of m.decor) if (['altar', 'chest', 'chest_open', 'pot', 'stairs', 'treasure'].includes(d.n)) out.push(`seed ${seed} f${f}: decor uses the ${d.n} sprite`);
       // spike plates (2×2 cells) keep clear of corridor mouths and never wall off floor: walking around every plate reaches
       // everything walking over them would
-      // webs lie on the floor of a room spiders keep; an ambush's flagstone on open floor of a fighting or a locked room (TASKS 71)
+      // webs lie on the floor of a room spiders keep; ambush plates are gone (TASKS 320)
       for (const w of m.webs) { const ri = DG.roomAt(m, w.x, w.y); if (ri < 0 || !m.enemies.some((e) => e.room === ri && e.type === 'spider') || cell(m, Math.floor(w.x / TILE), Math.floor(w.y / TILE)) !== 1) out.push(`seed ${seed} f${f}: a web off a spiders' room`); }
       for (const P of m.ambush) { const r = m.rooms[P.room], k = P.cy * m.W + P.cx;
         if (!r || !(r.type === 'combat' || r.type === 'exit' || r.locked) || cell(m, P.cx, P.cy) !== 1 || m.block.includes(k) || DG.roomAt(m, P.x, P.y) !== P.room) out.push(`seed ${seed} f${f}: an ambush off a fighting room's open floor`);
