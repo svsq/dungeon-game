@@ -8,7 +8,11 @@ import zipfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--out', default='frames/cave_review_r2')
+parser.add_argument('--reviewed', action='store_true')
 args = parser.parse_args()
+reviews = [Path(f'study/critique/cave_{role}_r2.md') for role in ['assets', 'fidelity', 'frame', 'game', 'motion']]
+if args.reviewed and any(not p.is_file() for p in reviews):
+    raise SystemExit('Missing round 2 critic reports')
 out = Path(args.out)
 out.mkdir(parents=True, exist_ok=True)
 
@@ -76,6 +80,9 @@ for pattern in [
     'frames/cave_reactions/*', 'frames/cave_density/report.json',
 ]:
     files.update(p for p in Path('.').glob(pattern) if p.is_file())
+if args.reviewed:
+    files.update(reviews)
+    files.update(p for p in Path('study/critique').glob('cave_*_r2/**/*') if p.is_file())
 
 def digest(path):
     with path.open('rb') as f:
@@ -84,7 +91,7 @@ def digest(path):
 
 manifest = {
     'status': 'prepared_with_known_failures' if qa['fails'] or cave['errors'] else 'prepared',
-    'critics_launched': False,
+    'critics_launched': args.reviewed,
     'balance_run': False,
     'capture_runs': runs,
     'source_base': subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip(),
