@@ -220,6 +220,13 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   };
   // why the pad may be silent: the Gamepad API exists only in a secure context (https or 127.0.0.1/localhost — not a LAN
   // address like http://192.168.x.x), and a browser reports a pad only after one of its buttons is pressed on the page
+  // 252: input log for the dev line — what the page actually receives (Steam Input on the Deck turns pad buttons into keys
+  // and mouse; each button's key is read here to bind it). Capture phase, so the dev keys and the letterbox tap show too.
+  const inLog = [], logIn = (s) => { inLog.push(s); if (inLog.length > 8) inLog.shift(); };
+  const mods = (e) => (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + (e.metaKey ? 'Meta+' : '');
+  addEventListener('keydown', (e) => { if (!e.repeat) logIn(mods(e) + (e.code || '?') + (e.key && e.key.length === 1 && e.key.trim() && e.code !== 'Key' + e.key.toUpperCase() ? '«' + e.key + '»' : '')); }, true);
+  addEventListener('mousedown', (e) => logIn(['ЛКМ', 'СКМ', 'ПКМ', 'M4', 'M5'][e.button] || 'M' + e.button), true);
+  addEventListener('wheel', (e) => logIn('колесо' + (e.deltaY > 0 ? '↓' : e.deltaY < 0 ? '↑' : e.deltaX > 0 ? '→' : '←')), { capture: true, passive: true });
   const gpApi = !!navigator.getGamepads && window.isSecureContext !== false, gpEv = { on: 0, off: 0, id: '' };
   addEventListener('gamepadconnected', (e) => { gpEv.on++; gpEv.id = (e.gamepad && e.gamepad.id || '').slice(0, 40); });   // did the browser ever announce a pad
   addEventListener('gamepaddisconnected', () => { gpEv.off++; });
@@ -234,6 +241,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const padst = document.getElementById('padst');
   const gpDiag = () => !gpApi ? `\nPAD: браузер прячет Gamepad API (${window.isSecureContext === false ? 'небезопасный адрес ' + location.host + ' — откройте через 127.0.0.1' : 'нет navigator.getGamepads'})`
     : !PAD.n ? `\nPADs 0  gamepadconnected ${gpEv.on}  ·  ${navigator.userAgent.replace(/^.*\) /, '')}` : '';
+  const inDiag = () => '\nввод: ' + (inLog.length ? inLog.join(' · ') : '—');
   if (!gpApi && window.isSecureContext === false) { hint.textContent += ' · геймпад недоступен по адресу ' + location.host + ' — откройте через 127.0.0.1'; }
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
@@ -259,7 +267,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
     { const t = !play || devOn ? padStatus() : ''; if (padst.textContent !== t) padst.textContent = t; }
     if (!STATIC) dev.style.display = (paused || speed !== 1 || devOn) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
-    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (gpDiag() + (window.PAD && window.PAD.raw && PAD.n ? `\nPADs ${PAD.raw.pads} «${PAD.raw.id}»  map ${PAD.map}  ax ${PAD.raw.ax.join(' ')}  b[${(PAD.raw.bi || []).join(' ')}] из ${PAD.raw.btn}  mag ${(PAD.mag || 0).toFixed(2)}  #${PAD.raw.idx}` : ''));
+    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + inDiag() + (gpDiag() + (window.PAD && window.PAD.raw && PAD.n ? `\nPADs ${PAD.raw.pads} «${PAD.raw.id}»  map ${PAD.map}  ax ${PAD.raw.ax.join(' ')}  b[${(PAD.raw.bi || []).join(' ')}] из ${PAD.raw.btn}  mag ${(PAD.mag || 0).toFixed(2)}  #${PAD.raw.idx}` : ''));
     requestAnimationFrame(loop);
   };
   loop();
