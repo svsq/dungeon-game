@@ -1117,8 +1117,13 @@
     // the hero arrives below and beside the fire, not under it: straight below, its bowl sat on his head in the first frame of a floor
     const spawnOk = (dx, dy) => { const x = (start.cx + 0.5 + dx) * TILE, y = (start.cy + 0.5 + dy) * TILE;
       return [[x - 10, y], [x + 10, y], [x, y - 8]].every(([px, py]) => at(Math.floor(px / TILE), Math.floor(py / TILE)) === 1 && !solid.has(key(Math.floor(px / TILE), Math.floor(py / TILE)))) ? { x, y } : null; };
-    const spawn = [[1, 3], [-1, 3], [2, 2], [-2, 2], [1, 2], [-1, 2], [0, 2], [0, 1]].reduce((a, [dx, dy]) => a || spawnOk(dx, dy), null)
-      || { x: start.cx * TILE + TILE / 2, y: (start.cy + 1) * TILE + TILE / 2 };
+    // a small cave pocket may have none of those spots clear: then beside the fire, then the nearest open cell of the room. The old
+    // last resort, straight below the fire, was a notch of rock in a 5×5 pocket and the hero arrived inside the wall (TASKS 335)
+    const nearest = () => { let best = null; for (let y = start.y; y < start.y + start.h; y++) for (let x = start.x; x < start.x + start.w; x++) {
+      const dx = x - start.cx, dy = y - start.cy, d = dx * dx + dy * dy; if (!d || (best && d >= best[0])) continue; const p = spawnOk(dx, dy); if (p) best = [d, p]; }
+      return best && best[1]; };
+    const spawn = [[1, 3], [-1, 3], [2, 2], [-2, 2], [1, 2], [-1, 2], [0, 2], [0, 1], [1, 1], [-1, 1], [2, 1], [-2, 1], [1, 0], [-1, 0], [2, 0], [-2, 0]].reduce((a, [dx, dy]) => a || spawnOk(dx, dy), null)
+      || nearest() || { x: start.cx * TILE + TILE / 2, y: (start.cy + 1) * TILE + TILE / 2 };
     // flat floor decals (baked into the floor map): wear everywhere, a biome flavour per room, gore and coins where fights happen
     const DEC = { dungeon: ['dc_crack', 'dc_grime', 'dc_rubble', 'dc_slab', 'dc_straw', 'dc_shards', 'dc_leaves'], crypt: ['dc_moss', 'dc_bones', 'dc_crack', 'dc_grime', 'dc_puddle'],
       lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'], cave: ['dc_moss', 'dc_pebbles', 'dc_rubble', 'dc_moss', 'dc_silt', 'dc_pebbles', 'dc_crack'] };
