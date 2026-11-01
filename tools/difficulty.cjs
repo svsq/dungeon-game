@@ -92,7 +92,8 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
 // the water caves get their bands with their balance (TASKS 314); in the campaign (TASKS 339) the old finale's bands hold its 8th:
 // past: the share past a floor (the old 8-floor campaign's wins), bossFloor: the floor of bossDied (the demon lord); the serpent's own
-// fight bands stand on the 12th (chapters: lost, pot, t). The share of whole 12-floor wins has no band until the player sets one
+// fight bands stand on the 12th (chapters: lost, pot, t). The share of whole 12-floor wins has no band: the player's call 01.11.2026
+// for now (the average takes 45–48 % over 160 seeds; a band belongs to the follow-up balance, TASKS 340/341)
 const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, campaign: {
   easy: { average: { past: { 8: [0.85, 1] } } },
   normal: { average: { past: { 8: [0.4, 0.6] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 12: { minhp: null, hpPot: null } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],

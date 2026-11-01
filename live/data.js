@@ -207,8 +207,10 @@
   // a floor (minimum health 58 %), and gained 0.4–0.6 of a level. early: the caves' kinds come a floor sooner (crabs and archers on
   // the 9th, mages and eels on the 10th); pop: more monsters a hall on each of its floors, so the 9th and 10th hold about 40, as many
   // as the 7th and 8th (27 and 32 before). Then, 19 runs from the 9th: minimum health 47/48/41/25 %, potions 0.6/0.7/1.1/1.7, the
-  // serpent takes 174 % of the health. chapter: how many floors its own description lays out (biome, boss, guard, exit and altars
-  // count in those); names: a floor's own title over its biome's
+  // serpent takes 174 % of the health. pop[0] 1.5 and 1.8 measured apart on 160 seeds (TASKS 339): the 9th stays a breather —
+  // minimum health 52–54 % (band 25–45), 0.4–0.6 potions (0.8–2), 0–1 deaths; denser halls are no lever for the band, so 1.5
+  // stays and the 9th's pressure gets its own task (341).
+  // chapter: how many floors its own description lays out (biome, boss, guard, exit and altars count in those); names: a floor's own title over its biome's
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },

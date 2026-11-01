@@ -2939,6 +2939,8 @@
             if (!S2.run) out.push('campaign f12: the way out opens before the serpent dies');
             else if (!sp) out.push('campaign f12: no serpent');
             else { killEnemy(S2, R2, sp); if (!R2.bossDead) out.push('campaign f12: the serpent\'s death does not open the way out');
+              if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f12: the serpent does not pay the finale\'s 20 shards');
+              if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f12: the serpent does not drop the finale\'s loot');
               h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
               if (S2.screen !== 'win' || (S2.result || {}).mode !== 'campaign' || S2.result.floor !== 12) out.push('campaign: leaving after the serpent is not a campaign win');
               if (S2.meta.best !== Math.max(best || 0, 12)) out.push('campaign: the win does not set the floor record to 12'); } } } }
