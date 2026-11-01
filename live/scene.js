@@ -1687,13 +1687,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (pe) { L.glow(pe[0], pe[1], 12, [0.35, 0.85, 0.95], 0.55 + 0.15 * Math.sin(t * 2.3 + e.id), 3); L.glow(pe[0], pe[1], 4, [0.85, 1, 1], 0.7, 4); }
       if (g > 0) { L.glow(pa[0], pa[1], 6 + 12 * g, [0.35, 0.85, 0.95], 0.9 * g, 3);
         for (let j = 0; j < 5; j++) { const an = t * 7 + j * 1.256, rr = 13 * (1 - 0.6 * g); L.solid(Math.round((pa[0] + Math.cos(an) * rr) / PIX) * PIX, Math.round((pa[1] + Math.sin(an) * rr * 0.6) / PIX) * PIX, PIX, PIX, [0.6, 0.95, 1], 0, 0, 0, 0.9 * g); } } }
-    // a drawn bow's aim (TASKS 311): a thin red line from the bow to where the arrow would stop, faint as the string comes back and
-    // bright once the aim is fixed (the arrow then flies down it)
-    for (const e of R.en) { const E = D.ENEMIES[e.type]; if (E.kind !== 'archer' || e.st !== 'wind' || e.deadT >= 0 || !known(e.x, e.y)) continue;
-      const u = GT - e.t0, w = D.windOf(e, E.wind), lock = u >= w - E.arrow.lock, a = e.aimA, len = Math.max(0, (e.aimD || 0) - 16), x0 = sx(e.x + Math.cos(a) * 16), y0 = sy(e.y - SIM.ARROW_Y + Math.sin(a) * 16);
-      const amt = lock ? 0.75 + 0.25 * Math.sin(GT * 40) : 0.32 * SS(0.05, 0.3, u);
-      L.solid(x0, y0, len, PIX, [1, 0.25, 0.15], a, 0, PIX / 2, amt); if (lock) L.solid(x0, y0, len, PIX * 2.5, [1, 0.3, 0.2], a, 0, PIX * 1.25, 0.18);
-      L.glow(x0 + Math.cos(a) * len, y0 + Math.sin(a) * len, 8, [1, 0.3, 0.2], amt * 0.7, 3); }
     // crystals and cold-fire torches carry a halo of their own, so the arcane blue is a light source, not a tint
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x));
     // a cold fire carries a halo of its own over everything (a warm sconce's is painted on the wall behind it, `halo`)

@@ -131,8 +131,8 @@
     // waiting for it would hold the hero up
     eel: { name: 'Угорь из глубины', hp: 40, dmg: 12, spd: 0, r: 16, reach: 46, wind: 0.5, cd: 0.9, xp: 14, kind: 'eel', h: 100, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9],
       sense: 290, warn: 0.85, rise: 0.4, stay: 2.6, bites: 2, dive: 0.45, swim: [1.3, 2.3], apart: 3, spit: { reach: 270, wind: 0.6, spd: 330, dmg: 0.8 } },
-    // the skeleton archer (TASKS 311) keeps `keep` px off the hero, backing away from one who closes in; it draws for `wind` s with its
-    // aim line showing, follows the hero with it until `arrow.lock` s before the loose, and the arrow flies straight at `arrow.spd`
+    // the skeleton archer (TASKS 311) keeps `keep` px off the hero, backing away from one who closes in; it draws for `wind` s (no aim
+    // line is drawn, TASKS 338: the draw pose reads the threat), follows the hero until `arrow.lock` s before the loose, and the arrow flies straight at `arrow.spd`
     skel_archer: { name: 'Скелет-лучник', hp: 24, dmg: 9, spd: 74, r: 13, reach: 340, wind: 0.8, cd: 1.9, xp: 10, kind: 'archer', h: 76, blood: 'bone', rim: [0.6, 0.85, 0.45],
       keep: [190, 290], arrow: { spd: 560, lock: 0.28, r: 4 } },
     // the skeleton water mage (TASKS 311) keeps behind another monster from the hero (`behind` px past it) and throws a slow ball of

@@ -1215,7 +1215,7 @@
     if (Math.abs(e.vx) > 6) e.face = e.vx > 0 ? 1 : -1;
   }
   // a monster that stops to attack skids to a halt instead of freezing mid-stride (the rig's gait reads its speed and distance)
-  // the archer's arrow leaves the bow ARROW_Y px over its feet; its aim line runs to the first wall the arrow would meet (e.aimD)
+  // the archer's arrow leaves the bow ARROW_Y px over its feet; e.aimD is how far it would fly, to the first wall it would meet (no line is drawn since TASKS 338)
   const ARROW_Y = 46;
   function aimArrow(m, e, E, h) { const a = Math.atan2(h.y - 38 - (e.y - ARROW_Y), h.x - e.x), gz = ARROW_Y - 10, x0 = e.x, y0 = e.y - ARROW_Y + gz, n = Math.ceil((E.reach + 60) / 6);
     let cx = Math.floor(x0 / TILE), cy = Math.floor(y0 / TILE), dd = E.reach + 60; e.aimA = a;
