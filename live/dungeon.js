@@ -13,7 +13,7 @@
 
   function genFloor(seed, floor, opts = {}) {
     // a floor without a secret room is rerolled a few times before one is accepted, unless it meant to have none
-    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) return m; }
+    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) return m; }
     throw new Error('dungeon generation failed');
   }
 
@@ -28,7 +28,7 @@
     return out;
   }
 
-  function tryGen(seed, runFloor, opts) {
+  function tryGen(seed, runFloor, opts, strict) {
     const R = mul32(seed), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pick = (arr) => arr[Math.floor(R() * arr.length)];
     // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; runFloor: its place in the run; floor: its
     // place among the floors its description lays out (data.js stageOf: the campaign's 9th is the caves' 1st); last: its chapter's
@@ -237,7 +237,7 @@
       scraps(cut);
       if (cut.length * 2 < r.w * r.h || !connected()) { for (const [x, y] of cut) set(x, y, 1); return false; }
       for (const [x, y] of cut) if (at(x, y) === 3) { lava.push([x, y]); flow[y * W + x] = dir; } streams.push({ room: r.id, kind: 'hall', n: cut.length }); return true; };
-    if (D.BIOMES[biome].lava && !last) {
+    if (D.BIOMES[biome].lava && !(last && boss)) {
       // the first river a room or two from the start, so the floor reads as the fire depths from its first fight
       const near = rooms.filter((r) => lavaRoom(r) && hop[r.id] >= 1 && hop[r.id] <= 2), rest = rooms.filter((r) => lavaRoom(r) && !near.includes(r));
       for (let i = near.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [near[i], near[j]] = [near[j], near[i]]; }
@@ -491,7 +491,7 @@
         const kind = pick(dir === 'u' && !cave ? ['crack', 'banner', 'banner', 'shelf', 'shelf', 'lever', 'lever'] : ['crack', 'crack', 'lever', 'lever', 'lever']);
         secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0, kind }); } }
     const secretFront = new Set(secrets.flatMap((q) => q.front.concat(q.wall).map(([x, y]) => y * W + x)));
-    if (!D.BIOMES[biome].lava && !last && !cave) {
+    if (!D.BIOMES[biome].lava && !(last && boss) && !cave) {
       const candidates = rooms.filter((r) => r.type === 'combat' && !r.trap && !secrets.some((q) => q.front.some(([x, y]) => roomOf(x, y) === r)));
       for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
       let n = 0;
@@ -565,7 +565,7 @@
       // one doubled door (TASKS 355): such a floor is rolled again, as one with two plain doors that close (above); not in a cave, whose
       // arena edge is ragged rock (its leaves are a task of their own)
       const ad = doors.filter((d) => d.arena);
-      if (!cave && ad.some((d, i) => ad.some((o, j) => j > i && o.dir === d.dir && Math.abs(o.x - d.x) + Math.abs(o.y - d.y) < 4 * TILE))) return null;
+      if (strict && !cave && ad.some((d, i) => ad.some((o, j) => j > i && o.dir === d.dir && Math.abs(o.x - d.x) + Math.abs(o.y - d.y) < 4 * TILE))) return null;
     }
     // ---- contents ----
     // a cell next to a corridor mouth: any neighbour outside every room that is open floor
@@ -616,13 +616,13 @@
     // serpent falls; on open floor to the portal's right, else the spot of its room nearest the portal that has room (the altar
     // stands on its left)
     let down = null;
-    if (fin && D.RUNS.campaign.then && D.runOf(opts.mode) === D.RUNS.campaign) for (const [dx, dy] of [[4, 0], [4, 1], [4, -1]].concat((() => { const c = [];   // then any spot of the exit room, nearest first
+    if (fin && D.RUNS.campaign.then && D.runOf(opts.mode) === D.RUNS.campaign) for (const [dx, dy] of [[4, 0], [4, 1], [4, -1]].concat((() => { const c = [];
       for (let y = exitR.y; y < exitR.y + exitR.h; y++) for (let x = exitR.x; x < exitR.x + exitR.w; x++) { const d = Math.hypot(x - sx, y - sy); if (d >= 3.5) c.push([x - sx, y - sy, d]); }
       return c.sort((a, b) => a[2] - b[2]).map(([a, b]) => [a, b]); })())) {
       const x = sx + dx, y = sy + dy; let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j)) || wet.has((y + j) * W + x + i)) ok = false;
       if (ok) { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); down = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y }; break; } }
     for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // the bonfire and the spawn tiles
-    const kf = Math.min(ST.n, floor + ST.early), roster = D.rosterAt(biome, kf), lvl = depth;   // kf: the floor whose kinds it brings (data.js stageOf early)
+    const kf = Math.min(ST.n, floor + ST.early), roster = D.rosterAt(biome, kf), lvl = depth;
     const bridged = new Set(crossings.flatMap((c) => c.cells));
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
         && !enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 2 * TILE); });
