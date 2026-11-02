@@ -561,6 +561,11 @@
           y: side ? (p.y + cs.length / 2) * TILE : (p.dir === 'u' ? exitR.y : exitR.y + exitR.h) * TILE, lock: -1, open: 1 });
       }
       exitR.doors = 1;
+      // a way into the arena wider than one door (a broad corridor, a room flush with it) takes a row of leaves side by side, read as
+      // one doubled door (TASKS 355): such a floor is rolled again, as one with two plain doors that close (above); not in a cave, whose
+      // arena edge is ragged rock (its leaves are a task of their own)
+      const ad = doors.filter((d) => d.arena);
+      if (!cave && ad.some((d, i) => ad.some((o, j) => j > i && o.dir === d.dir && Math.abs(o.x - d.x) + Math.abs(o.y - d.y) < 4 * TILE))) return null;
     }
     // ---- contents ----
     // a cell next to a corridor mouth: any neighbour outside every room that is open floor
