@@ -1156,7 +1156,7 @@
           else if (E.orb) { const a = e.aimA, O = E.orb, x0 = e.x + Math.cos(a) * 22, y0 = e.y - 44;
             R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'orb', kind: 'water', x: x0, y: y0, vx: Math.cos(a) * O.spd, vy: Math.sin(a) * O.spd, t0: t, life: O.life, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: O.r, hitR: 20 + O.r });
             ev(S, { k: 'orb', x: x0, y: y0, id: e.id }); }
-          else if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
+          else if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || R.map.biome === 'magma' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
             ev(S, { k: "eshoot", x: e.x, y: e.y - 44, id: e.id }); }
           else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
           else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
@@ -1693,10 +1693,12 @@
     // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
     const GEN = [1, 77, 4242, 90001].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
       .concat([1, 77, 4242, 90001, 5, 12, 33, 2024].flatMap((sd) => Array.from({ length: D.RUNS.cave.floors }, (_, i) => ['cave', sd, i + 1])))
+      // the magma caves (TASKS 399) are laid out as caves until their own archetype (400): held to the caves' rules too
+      .concat([1, 77, 4242, 5].flatMap((sd) => Array.from({ length: D.RUNS.magma.floors }, (_, i) => ['magma', sd, i + 1])))
       // a 5×5 cave pocket for a start room with no clear spot by the fire: the hero arrived inside the rock (run seed 93, TASKS 335)
       .concat([['campaign', 101, 9]]);
     const caveKinds = {};
-    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' ? 'cave' : 'campaign', lf = ST.lf, seed = (run === 'campaign' ? '' : 'cave ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run });
+    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' ? 'cave' : 'campaign', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
@@ -1822,7 +1824,7 @@
       if (!ok) out.push(`seed ${seed} f${f}: exit unreachable`);
       // a cave (TASKS 301): its floor's size, no doors and no masonry streams, pockets that lead nowhere, and no straight stretch of
       // wall over four cells but the merchant's back wall and the secret caches
-      if (mode === 'cave') { const [w0, h0] = D.RUNS.cave.size[lf - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
+      if (mode === 'cave') { const [w0, h0] = ST.N.size[lf - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
         if (m.W !== w0 || m.H !== h0) out.push(`seed ${seed} f${f}: the cave is ${m.W}×${m.H}, not ${w0}×${h0}`);
         if (m.doors.some((d) => !d.arena)) out.push(`seed ${seed} f${f}: non-arena doors in the cave`);
         for (const r of m.rooms) if (r.pocket && m.edges.filter((e) => e.includes(r.id)).length !== 1) out.push(`seed ${seed} f${f}: pocket ${r.id} is not a dead end`);
@@ -2931,26 +2933,26 @@
       if (R.freeze > 0 && Math.abs((S.t - p.t0) - up) > 1e-9) out.push('hit-stop: a bolt ages in the freeze');
       for (let i = 0; i < 8; i++) step(S, { keys: [], px: 960, py: 540 });
       if (h.hp <= 10) out.push('hit-stop: a potion pressed in the freeze is lost'); }
-    // the water caves as a run of their own (TASKS 300): the menu starts it on the hero screen with its level and kit, its floors
+    // the water caves and the magma caves as runs of their own (TASKS 300, 399): the menu starts each on the hero screen with its level and kit, its floors
     // carry their run's boss, guard and altars, the boss's death opens the way out, and the campaign's record is left alone
-    { const N = D.RUNS.cave, S = spawn(0, {}), r = UI.menu(false).find((q) => q.id === 'cave');
+    for (const RID of ['cave', 'magma']) { const N = D.RUNS[RID], S = spawn(0, {}), r = UI.menu(false).find((q) => q.id === RID);
       step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); const R = S.run, h = R && R.hero;
-      if (!R || R.mode !== 'cave' || S.screen !== 'inv') out.push('cave: the menu button does not start the cave run on the hero screen');
+      if (!R || R.mode !== RID || S.screen !== 'inv') out.push(RID + ': the menu button does not start the run on the hero screen');
       else {
-        if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`cave: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
-        if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push('cave: the kit is not worn');
-        if (ABILITIES.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push('cave: an ability of the hero\'s level is still locked');
+        if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`${RID}: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
+        if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push(RID + ': the kit is not worn');
+        if (ABILITIES.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push(RID + ': an ability of the hero\'s level is still locked');
         for (let f = 1; f <= N.floors; f++) { if (f > 1) enterFloor(S, R, f); const m = R.map, guards = m.enemies.filter((e) => e.guard).length;
-          if ((m.bossType || undefined) !== N.boss(f)) out.push(`cave f${f}: boss ${m.bossType} where the run has ${N.boss(f)}`);
-          if (!!N.guard[f] !== guards > 0 && !N.boss(f)) out.push(`cave f${f}: ${guards} exit guard(s)`);
-          if (m.shrines.length !== ((f % 2 === 0 || f === N.floors - 1) && !N.boss(f) ? 1 : 0)) out.push(`cave f${f}: ${m.shrines.length} altar(s)`);
-          if (f === 1 && R.en.some((e) => !D.BOSSES[e.type] && e.max < Math.round(D.ENEMIES[e.type].hp * BAL.hp * (1 + 0.5 * N.depth)))) out.push('cave f1: a monster weaker than the run\'s depth'); }
+          if ((m.bossType || undefined) !== N.boss(f)) out.push(`${RID} f${f}: boss ${m.bossType} where the run has ${N.boss(f)}`);
+          if (!!N.guard[f] !== guards > 0 && !N.boss(f)) out.push(`${RID} f${f}: ${guards} exit guard(s)`);
+          if (m.shrines.length !== ((f % 2 === 0 || f === N.floors - 1) && !N.boss(f) ? 1 : 0)) out.push(`${RID} f${f}: ${m.shrines.length} altar(s)`);
+          if (f === 1 && R.en.some((e) => !D.BOSSES[e.type] && e.max < Math.round(D.ENEMIES[e.type].hp * BAL.hp * (1 + 0.5 * N.depth)))) out.push(RID + ' f1: a monster weaker than the run\'s depth'); }
         const b = R.en.find((e) => D.BOSSES[e.type]); S.screen = 'play'; h.ifr = 1e9; h.x = R.map.exit.x; h.y = R.map.exit.y; interact(S, R);
-        if (!S.run) out.push('cave: the way out opens before the boss dies');
-        else { const best = S.meta.best; killEnemy(S, R, b); if (!R.bossDead) out.push('cave: the boss\'s death does not open the way out');
+        if (!S.run) out.push(RID + ': the way out opens before the boss dies');
+        else { const best = S.meta.best; killEnemy(S, R, b); if (!R.bossDead) out.push(RID + ': the boss\'s death does not open the way out');
           h.x = R.map.exit.x; h.y = R.map.exit.y; interact(S, R);
-          if (S.screen !== 'win' || (S.result || {}).mode !== 'cave') out.push('cave: leaving after the boss is not a win of the cave run');
-          if (S.meta.best !== best) out.push('cave: the cave run moved the campaign\'s floor record'); } }
+          if (S.screen !== 'win' || (S.result || {}).mode !== RID) out.push(RID + ': leaving after the boss is not a win of the run');
+          if (S.meta.best !== best) out.push(RID + ': the run moved the campaign\'s floor record'); } }
       // the cave's water on foot (TASKS 302): the hero wades the shallows slower and neither walks nor dashes into deep water, a
       // monster knocked at deep water stops on the shore, a bolt flies on over it, and the monsters' way round goes over no deep cell
       { const Z = spawn(0, {}); Z.run = newRun(Z, 'cave', 3); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, W = m.W, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];

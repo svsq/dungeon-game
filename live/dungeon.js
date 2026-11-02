@@ -651,7 +651,7 @@
       const fs = (p) => fromStart[p[1] * W + p[0]] - fromStart[way], fresh = () => open.filter(([x, y]) => free(x, y));
       const near = () => { const c = fresh(); return take(c.filter((p) => fs(p) >= 2 && fs(p) <= 4)) || take(c.sort((a, b) => fs(a) - fs(b)).slice(0, 1)); };
       const back = () => { const c = fresh().sort((a, b) => fs(b) - fs(a)); return take(c.slice(0, Math.max(1, Math.ceil(c.length * 0.3)))); };
-      const anywhere = () => take(fresh()), shore = shallowIn(r), old = CP.old.filter(has);
+      const anywhere = () => take(fresh()), shore = shallowIn(r), old = (D.BIOMES[biome].old || CP.old).filter(has);
       const kinds = [['line', has('crab') && has('skel_archer') && way !== null ? CP.line : 0], ['shore', has('drowned') && shore ? CP.shore : 0], ['hall', has('slime') && r.w * r.h >= CP.hallArea ? CP.hall : 0], ['bones', CP.bones]];
       let roll = R() * kinds.reduce((a, k) => a + k[1], 0), kind = 'bones'; for (const [k, w] of kinds) { if (w && (roll -= w) < 0) { kind = k; break; } }
       const plan = [], oldOne = () => pick(old);
@@ -1146,7 +1146,8 @@
       || nearest() || { x: start.cx * TILE + TILE / 2, y: (start.cy + 1) * TILE + TILE / 2 };
     // flat floor decals (baked into the floor map): wear everywhere, a biome flavour per room, gore and coins where fights happen
     const DEC = { dungeon: ['dc_crack', 'dc_grime', 'dc_rubble', 'dc_slab', 'dc_straw', 'dc_shards', 'dc_leaves'], crypt: ['dc_moss', 'dc_bones', 'dc_crack', 'dc_grime', 'dc_puddle'],
-      lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'], cave: ['dc_moss', 'dc_pebbles', 'dc_rubble', 'dc_moss', 'dc_silt', 'dc_pebbles', 'dc_crack'] };
+      lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'], cave: ['dc_moss', 'dc_pebbles', 'dc_rubble', 'dc_moss', 'dc_silt', 'dc_pebbles', 'dc_crack'],
+      magma: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_soot', 'dc_pebbles', 'dc_crack'] };
     // a decal is drawn up to 40·s px across (scene.js bake, over the walls already painted): it shrinks until that square lies on
     // open floor, so no stone, rubbish or stain climbs a wall or spills onto the rock; one that would have to shrink past half is left out
     const decals = [], onFloor = (px, py, h) => { for (let y = Math.floor((py - h) / TILE); y <= Math.floor((py + h - 0.01) / TILE); y++) for (let x = Math.floor((px - h) / TILE); x <= Math.floor((px + h - 0.01) / TILE); x++) if (at(x, y) !== 1) return false; return true; };

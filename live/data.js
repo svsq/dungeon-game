@@ -30,6 +30,12 @@
       shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
       cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime', 'crab', 'eel', 'skel_archer', 'skel_mage'],
       from: { crab: 2, skel_archer: 2, eel: 3, skel_mage: 3 }, props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
+    // the magma caves (R-36, TASKS 399): a run of their own after the campaign's 12th. Until the plateau archetype (400) and the lava
+    // (401) they are laid out as the water caves and dressed in their rock, lit warm; old: the kinds a cave pack fills its halls with
+    magma: { name: 'Магмовые пещеры', rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, torch: [1.0, 0.45, 0.16],
+      shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
+      cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer'], old: ['skeleton', 'goblin', 'brute', 'cultist'],
+      from: { cultist: 2, brute: 3 }, props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'tent_cv'] },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -224,6 +230,10 @@
       chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.3, 1, 1], elite: [0.10, 0.13, 0.07, 0.06], mob: 0.85, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
     cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
+    // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
+    // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); the caves' sizes and the forge lord on the 4th until 400 and 413
+    magma: { name: 'Магмовые пещеры', floors: 4, depth: 12, lvl: 15, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 12,
+      kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: 'Сначала одолейте хозяина магмы' },
   };
   // the endless descent (R-05, TASKS 348–349; a test button in the menu for now, after the serpent later, TASKS 354): no last floor.
   // Floors come in pairs, each pair one biome drawn from the run's seed (repeats allowed, the caves among them); the second floor of
@@ -430,10 +440,10 @@
       const run = (id, fresh, again) => [id, !hasRun ? fresh : arm === id ? 'Точно сбросить забег?' : again, true];
       const items = [['continue', 'Продолжить забег', hasRun], run('campaign', 'Кампания — 12 этажей', 'Новая кампания (сброс)'), run('cave', 'Тест: пещеры отдельно', 'Тест пещер заново (сброс)'), ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
         ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['meta', 'Алтарь душ', true]];
-      // the test runs stand side by side: the endless descent's beside the caves' (TASKS 348), the column keeps its places
+      // the test runs stand side by side: the endless descent's right of the caves' (TASKS 348), the magma caves' left (399); the column keeps its places
       const out = items.map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 })), cv = out.find((b) => b.id === 'cave');
-      const [id, label, on] = run('endless', 'Тест: бесконечный спуск', 'Тест спуска заново (сброс)');
-      return out.concat([{ id, label, on, x: cv.x + cv.w + 24, y: cv.y, w: cv.w, h: cv.h }]);
+      const [id, label, on] = run('endless', 'Тест: бесконечный спуск', 'Тест спуска заново (сброс)'), [mid, mlabel, mon] = run('magma', 'Тест: магмовые пещеры', 'Тест магмы заново (сброс)');
+      return out.concat([{ id, label, on, x: cv.x + cv.w + 24, y: cv.y, w: cv.w, h: cv.h }, { id: mid, label: mlabel, on: mon, x: cv.x - cv.w - 24, y: cv.y, w: cv.w, h: cv.h }]);
     },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? 'Скрыть секреты' : 'Открыть все секреты', on: true, x: 520, y: 16, w: 430, h: 60 },

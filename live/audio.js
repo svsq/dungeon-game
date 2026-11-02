@@ -192,7 +192,7 @@
   }
 
   // ---- ambience: a drone and air per biome, plus sparse one-shots ----
-  const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, cave: { f: 50, air: 700, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
+  const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, cave: { f: 50, air: 700, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, magma: { f: 38, air: 240, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
   // a source is heard within its reach: a cave's fall roars further and lower than a fountain or a spring (TASKS 304)
   const SRC_SOUND = { waterfall: { reach: 460, f: 800, v: 0.24, gap: [0.08, 0.3] } }, SRC_PLAIN = { reach: 280, f: 1250, v: 0.16, gap: [0.16, 0.65] };
   function waterAmbience(S, on) {
@@ -230,7 +230,7 @@
   function ambience(S) {
     const R = S.run, on = !!R && ['play', 'inv', 'shop', 'pause'].includes(S.screen), biome = on ? R.map.biome : null;
     waterAmbience(S, on && S.screen === 'play'); drips(S, on && S.screen === 'play');
-    echo.gain.setTargetAtTime(biome === 'cave' ? 0.6 : 0, now(), 0.5);
+    echo.gain.setTargetAtTime(biome === 'cave' || biome === 'magma' ? 0.6 : 0, now(), 0.5);
     if (amb && amb.biome !== biome) { const a = amb; a.g.gain.setTargetAtTime(0.0001, now(), 0.6); setTimeout(() => a.nodes.forEach((n) => { try { n.stop(); } catch (e) {} }), 3000); amb = null; }
     if (!amb && biome) { const B = BED[biome] || BED.dungeon, g = ctx.createGain(); g.gain.value = 0.0001; g.connect(dry); const sw = ctx.createGain(); sw.gain.value = 0.5; g.connect(sw); sw.connect(wet);
       const nodes = [], lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220; lp.connect(g);
