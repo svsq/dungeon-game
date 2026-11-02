@@ -199,7 +199,7 @@
   }
 
   // ---- ambience: a drone and air per biome, plus sparse one-shots ----
-  const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, cave: { f: 50, air: 700, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, magma: { f: 38, air: 240, one: 'ember' }, arcane: { f: 62, air: 900, one: 'chime' } };
+  const BED = { dungeon: { f: 55, air: 500, one: 'drip' }, cave: { f: 50, air: 700, one: 'drip' }, crypt: { f: 49, air: 380, one: 'drip' }, lava: { f: 41, air: 260, one: 'ember' }, magma: { f: 38, air: 240, one: 'magma' }, arcane: { f: 62, air: 900, one: 'chime' } };
   // a source is heard within its reach: a cave's fall roars further and lower than a fountain or a spring (TASKS 304)
   const SRC_SOUND = { waterfall: { reach: 460, f: 800, v: 0.24, gap: [0.08, 0.3] } }, SRC_PLAIN = { reach: 280, f: 1250, v: 0.16, gap: [0.16, 0.65] };
   function waterAmbience(S, on) {
@@ -275,6 +275,10 @@
     if (amb && now() > amb.next) { amb.next = now() + rr(1.5, 5); const o = out(rr(-0.8, 0.8), rr(0.3, 0.7), 0.8);
       if (amb.one === 'drip') tone(o, { f0: rr(1100, 1700), f1: rr(500, 800), d: 0.08, v: 0.06 });
       if (amb.one === 'ember') { for (let i = 0; i < 5; i++) noise(o, { t: now() + i * rr(0.02, 0.09), d: 0.02, v: 0.06, f0: rr(2000, 5000), q: 4 }); noise(o, { a: 0.3, d: 1.2, v: 0.08, type: 'lowpass', f0: 200 }); }
+      // the magma caves (TASKS 404): the rock creaks and cracks in the heat, a dull knock and a dry split, now and then embers
+      if (amb.one === 'magma') { if (Math.random() < 0.6) { tone(o, { f0: rr(70, 95), f1: rr(38, 50), d: rr(0.12, 0.22), v: 0.14 }); noise(o, { t: now() + rr(0, 0.04), d: rr(0.02, 0.05), v: 0.07, type: 'highpass', f0: rr(1800, 3200) });
+          if (Math.random() < 0.5) noise(o, { t: now() + rr(0.08, 0.2), d: 0.03, v: 0.04, type: 'highpass', f0: rr(2500, 4000) }); }
+        else { for (let i = 0; i < 5; i++) noise(o, { t: now() + i * rr(0.02, 0.09), d: 0.02, v: 0.06, f0: rr(2000, 5000), q: 4 }); noise(o, { a: 0.3, d: 1.2, v: 0.08, type: 'lowpass', f0: 200 }); } }
       if (amb.one === 'chime') tone(o, { f0: [1047, 1319, 1568, 1976][Math.floor(rr(0, 4))], a: 0.02, d: 1.2, v: 0.03 }); }
     // a heartbeat while the hero is low on health
     if (on && S.screen === 'play' && R.hero.deadT < 0) { const st = window.SIM && SIM.stats ? SIM.stats(R.hero, S.meta) : null, f = st ? R.hero.hp / st.maxHp : 1;

@@ -950,11 +950,13 @@
           cand.push([x, y, rock.length || shoreBy ? 0 : 1.5, { x: wx(x), y: wy(y), n: 'shroom', r: r.id, cell: [x, y] }]);
           if (rock.length !== 1) continue; const [dx, dy] = rock[0], open = [-1, 0, 1].every((s) => [1, 2].every((d) => at(x - dx * d + dy * s, y - dy * d + dx * s) === 1 && !used.has(key(x - dx * d + dy * s, y - dy * d + dx * s))));
           if (open && at(x + dy, y + dx) === 1 && at(x - dy, y - dx) === 1 && roomy(x, y, 'crystal_cv')) cand.push([x, y, glass, { x: wx(x), y: wy(y), n: 'crystal_cv', solid: 1, r: r.id, cell: [x, y], big: 1 }]); }
-        // a cave's walls run anywhere through its box: every wall its floor meets can carry a sconce
-        for (const ty of cave ? Array.from({ length: r.h }, (_, i) => r.y + i) : [r.y]) for (let x = r.x; x < r.x + r.w; x++) if (!at(x, ty - 1) && at(x, ty) === 1 && !doorway(x, ty) && !tallAt(wx(x), ty, HANG.wall) && !doorTop(wx(x), ty, HANG.wall) && !torches.some((t) => t.kind === 'wall' && Math.abs(t.x - wx(x)) < 2 * TILE && Math.abs(t.y - ty * TILE) < TILE) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - wx(x)) < 1.5 * TILE && Math.abs(d.y - ty * TILE) < TILE))
+        // a cave's walls run anywhere through its box: every wall its floor meets can carry a sconce. On the plateaus the lava is the
+        // light and fire is people's: a sconce only by an altar (TASKS 404); the camp's fire and the merchant's lamps are their own
+        const sconce = !plat || r.type === 'shrine';
+        if (sconce) for (const ty of cave ? Array.from({ length: r.h }, (_, i) => r.y + i) : [r.y]) for (let x = r.x; x < r.x + r.w; x++) if (!at(x, ty - 1) && at(x, ty) === 1 && !doorway(x, ty) && !tallAt(wx(x), ty, HANG.wall) && !doorTop(wx(x), ty, HANG.wall) && !torches.some((t) => t.kind === 'wall' && Math.abs(t.x - wx(x)) < 2 * TILE && Math.abs(t.y - ty * TILE) < TILE) && !decor.some((d) => d.n === 'banner' && Math.abs(d.x - wx(x)) < 1.5 * TILE && Math.abs(d.y - ty * TILE) < TILE))
           cand.push([x, ty, cave ? 4 : 0, { x: wx(x), y: ty * TILE - 26, kind: 'wall', r: r.id }]);
         const sides = cave ? Array.from({ length: r.w }, (_, i) => [[r.x + i, -1], [r.x + i, 1]]).flat() : [[r.x, -1], [r.x + r.w - 1, 1]];
-        for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of sides) if (!at(x + s, y) && (free(x, y) || shore.has(key(x, y)) || wet.has(y * W + x)) && !doorway(x, y))   // a sconce hangs on the wall: a lava shore or water under it is no matter
+        if (sconce) for (let y = r.y + 1; y < r.y + r.h; y++) for (const [x, s] of sides) if (!at(x + s, y) && (free(x, y) || shore.has(key(x, y)) || wet.has(y * W + x)) && !doorway(x, y))   // a sconce hangs on the wall: a lava shore or water under it is no matter
           cand.push([x, y, cave ? 4.5 : 0.5, { x: s < 0 ? x * TILE + 14 : (x + 1) * TILE - 14, y: y * TILE + 4, kind: 'wall', side: s, r: r.id, cell: [x, y] }]);
         if (!cave) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (!wallOnly && free(x, y) && !doorway(x, y)) {
           if (r.type !== 'start' && roomy(x, y, 'brazier')) cand.push([x, y, 1.5, { x: wx(x), y: wy(y), kind: 'brazier', r: r.id, cell: [x, y], big: 1 }]);
@@ -1359,7 +1361,7 @@
       for (let i = 0, n = sp >= 2 ? ri(2, 3) : R() < 0.5 ? 1 : 0; i < n; i++) { const p = floorSpot(r); if (p) webs.push({ x: wx(p[0]), y: p[1] * TILE + TILE / 2, v: ri(0, 1), s: 0.9 + 0.3 * R(), f: R() < 0.5 ? 1 : 0, torn: 0 }); } }
     if (cave) {
       const mushrooms = decor.filter((d) => /^shroom_[ab]$/.test(d.n)), removed = new Set();
-      for (const r of rooms.filter((r) => r.type === 'combat' && r.id % 2 === 0 && r.w * r.h >= 56)) {
+      for (const r of plat ? [] : rooms.filter((r) => r.type === 'combat' && r.id % 2 === 0 && r.w * r.h >= 56)) {
         const cand = [];
         for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
           if (at(x, y) !== 1 || at(x, y - 1) !== 0 || doorway(x, y) || tallAt(wx(x), y, HANG.wall) || doorTop(wx(x), y, HANG.wall)) continue;
