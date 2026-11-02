@@ -30,8 +30,8 @@
       shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
       cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime', 'crab', 'eel', 'skel_archer', 'skel_mage'],
       from: { crab: 2, skel_archer: 2, eel: 3, skel_mage: 3 }, props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
-    // the magma caves (R-36, TASKS 399): a run of their own after the campaign's 12th. Until the plateau archetype (400) and the lava
-    // (401) they are laid out as the water caves and dressed in their rock, lit warm; old: the kinds a cave pack fills its halls with
+    // the magma caves (R-36, TASKS 399): a run of their own after the campaign's 12th, laid out as plateaus over lava and a chasm (400).
+    // Until their own look (402–404) they wear the water caves' rock, lit warm; old: the kinds a cave pack fills its halls with
     magma: { name: 'Магмовые пещеры', rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer'], old: ['skeleton', 'goblin', 'brute', 'cultist'],
@@ -224,6 +224,22 @@
   // elsewhere), set so pressure climbs floor by floor; mob, the chapter's plain blows (TASKS 340: 10.5–11.6 % of the health at the
   // depth's, band 6–10).
   // chapter: how many floors its own description lays out (biome, boss, guard, exit and altars count in those); names: a floor's own title over its biome's
+  // floor archetypes as data (TASKS 400; the campaign's rooms and the water caves move in with 379). plateau: the magma caves' tables
+  // of ash and basalt over lava and a dark chasm, joined by long narrow ridges (the reference's plan is no cave: no halls in solid
+  // rock). cells: map cells per plateau; gap: rock kept between two plateaus' boxes, so a ridge runs 15–30 cells; plat and small: a
+  // plateau's box [w, h] ranges, the big ones tried first (bigTries) and the small ones fill the gaps (a boss floor's first is its arena); rag: how ragged a blob's edge is;
+  // ridge: its width and how far each bend strays off the straight line; deg: the ridges a plateau has on the tree (one more only
+  // where nothing else joins); loops: ridges over the tree, only between plateaus at least loopHops apart on it and each kept only if
+  // the floor's longest walk keeps loopKeep of its length (loopLast for its first, so every floor has one), so no loop cuts the way short; ledges: dead-end spurs off the ridges ending in a small pad (a
+  // chest, an ambush, a cache); band: rock cells along the floor's edge turn to lava as far as the noise allows (0 below the first
+  // threshold, 1–3 cells past each next one); channel: a gap of rock narrower than this between two floors is a lava bed; isle: the
+  // noise over which rock stays standing in the lava; cliff: rows from the top within which a plateau backs onto the rock wall
+  // (the only wall the plateaus have); path: the least walk from the start to the stairs per floor, in cells (1.4 × the water
+  // caves' mean on the same floor, 30 seeds)
+  const ARCH = {
+    plateau: { cells: 760, gap: [12, 11], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, rag: 1, ridge: { w: [2, 3], bend: [3, 7] },
+      deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.45, 0.7, 0.88], channel: 6, isle: 0.74, cliff: 8, path: [148, 168, 211, 0] },
+  };
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
@@ -231,8 +247,9 @@
     cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
-    // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); the caves' sizes and the forge lord on the 4th until 400 and 413
-    magma: { name: 'Магмовые пещеры', floors: 4, depth: 12, lvl: 15, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 12,
+    // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); laid out as plateaus
+    // (TASKS 400) on maps a size up from the caves', the 4th a plateau floor of the 3rd caves' size with the forge lord until his arena (413)
+    magma: { name: 'Магмовые пещеры', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 12,
       kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: 'Сначала одолейте хозяина магмы' },
   };
   // the endless descent (R-05, TASKS 348–349; a test button in the menu for now, after the serpent later, TASKS 354): no last floor.
@@ -519,7 +536,7 @@
     stalag_a: 'stone', stalag_b: 'stone', boulder_a: 'stone', boulder_b: 'stone', wreck_cv: 'wood', tent_cv: 'cloth', skel_cv: 'bone' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, ARCH, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
