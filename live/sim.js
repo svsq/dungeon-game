@@ -171,7 +171,7 @@
   function raise(S, R, e) { const M = MOD.summoner, sk = ENEMIES.skeleton, f = dep(R), own = R.en.filter((o) => o.summ === e.id && o.deadT < 0).length;
     for (let i = 0; i < Math.min(M.n, M.cap - own); i++) { const a = rnd(R) * 6.28, x = e.x + Math.cos(a) * 70, y = e.y + Math.sin(a) * 50; if (solidAt(R.map, x, y, true)) continue;
       const hp = Math.round(sk.hp * BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1)));
-      R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: sk.dmg * BAL.dmg * 1.35 * D.dmgAt(f), elite: 0, room: e.room, st: 'chase', t0: S.t, face: 1, aimA: 0,
+      R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: sk.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room: e.room, st: 'chase', t0: S.t, face: 1, aimA: 0,
         cdT: S.t + 1, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: e.id, spawnT: S.t, seenT: S.t });
       ev(S, { k: 'summon', x, y }); } }
   // ---------------- the cave's monsters (TASKS 307, 308) ----------------
@@ -199,7 +199,7 @@
   // a slime bursts in two small ones flung apart from the killing blow; they join the fight at once
   function split(S, R, e, E) { const f = dep(R), Es = ENEMIES[E.split], hp = Math.round(Es.hp * BAL.hp * dif(R, 'hp') * (1 + 0.5 * (f - 1))), a0 = e.dieA ?? 0;
     for (const sd of [-1, 1]) { const a = a0 + sd * 1.1, x = e.x + Math.cos(a) * 8, y = e.y + Math.sin(a) * 6;
-      R.en.push({ id: R.nextId++, type: E.split, x, y, vx: 0, vy: 0, hp, max: hp, dmg: Es.dmg * BAL.dmg * 1.35 * D.dmgAt(f), elite: 0, room: e.room, st: 'chase', t0: S.t, face: Math.cos(a) >= 0 ? 1 : -1, aimA: a,
+      R.en.push({ id: R.nextId++, type: E.split, x, y, vx: 0, vy: 0, hp, max: hp, dmg: Es.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room: e.room, st: 'chase', t0: S.t, face: Math.cos(a) >= 0 ? 1 : -1, aimA: a,
         cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: Math.cos(a) * 200, kby: Math.sin(a) * 140, burn: 0, burnT: 0, summ: e.id, spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); }
     ev(S, { k: 'split', x: e.x, y: e.y, id: e.id }); }
   // the crab (TASKS 309) faces its own way, fa, turning toward what it wants at no more than E.turn rad/s; a blow from within the
@@ -337,7 +337,7 @@
     R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.drops = []; R.scorches = []; m.goo = [];
     const d = dep(R, f), sc = BAL.hp * dif(R, 'hp') * (1 + 0.5 * (d - 1)), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? STAGE(R, f).guard : e.exit && e.elite ? STAGE(R, f).exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk;
-      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? 1 : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
+      R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el), max: Math.round(E.hp * sc * el), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? STAGE(R, f).mob : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd,
         elite: e.elite, guard: e.guard || 0, room: e.room, st: D.BOSSES[e.type] ? 'idle' : E.lurk ? 'lurk' : E.deep ? 'deep' : 'idle', t0: -9, face: rnd(R) < 0.5 ? -1 : 1, aimA: 0, cdT: 0, hitT: -9, deadT: -1, dist: rnd(R) * 50, kbx: 0, kby: 0, burn: 0, burnT: 0, tx: 0, ty: 0, phase: 0, bossVersion: 1, summ: 0, hx: e.x, hy: e.y, seenT: 0, ft: -9 }); }
     for (const e of R.en) if (e.type === 'crab') e.fa = faOf(e);
     m.enemies.forEach((e, i) => { if (e.key !== undefined) R.en[i].key = e.key; });
