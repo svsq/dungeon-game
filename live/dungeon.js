@@ -33,21 +33,23 @@
     // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; runFloor: its place in the run; floor: its
     // place among the floors its description lays out (data.js stageOf: the campaign's 9th is the caves' 1st); last: its chapter's
     // end, fin: the run's last floor (past any other boss an altar and the stairs wait)
-    const ST = D.stageOf(opts.mode, runFloor), N = ST.N, floor = ST.lf, depth = ST.depth, last = ST.last, fin = ST.fin;
-    const biome = ST.biome, bossType = !opts.endless && ST.boss, boss = !!bossType;
+    const ST = D.stageOf(opts.mode, runFloor, opts.runSeed), N = ST.N, floor = ST.lf, depth = ST.depth, last = ST.last, fin = ST.fin;
+    const biome = ST.biome, bossType = ST.boss, boss = !!bossType;
     // the cave archetype (R-18, TASKS 301): the same rooms and links, but a room is a blob of floor inside its box round a core
     // where the start's fire or the stairs stand, a link is a winding tunnel 2–4 cells wide, and small dead-end pockets hang off
     // the rooms for a chest or an ambush; the map grows floor by floor and has no straight stretch of wall longer than four cells
-    const cave = N.arch === 'cave';
-    const [W, H] = cave ? N.size[floor - 1] : [72, 54], cells = new Array(W * H).fill(0), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : cells[y * W + x]);
+    const cave = (ST.arch || N.arch) === 'cave';
+    const [W, H] = ST.size || (cave ? N.size[floor - 1] : [72, 54]), cells = new Array(W * H).fill(0), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : cells[y * W + x]);
     const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2) cells[y * W + x] = v; };
     // ---- rooms ----
     // a cave's rooms stand six cells apart and more: the rock between them holds its water and its long tunnels
-    const rooms = [], want = cave ? Math.round(W * H / 420) : 13 + Math.min(4, depth >> 1);
+    // a small map (the endless descent's first floors, TASKS 349) takes smaller rooms, or eight of them never fit
+    const small = !cave && W < 64;
+    const rooms = [], want = cave ? Math.round(W * H / 420) : ST.rooms || 13 + Math.min(4, depth >> 1);
     const apart = (x, y, w, h, g = cave ? [6, 6] : [2, 3]) => !rooms.some((r) => x < r.x + r.w + g[0] && x + w + g[0] > r.x && y < r.y + r.h + g[1] && y + h + g[1] > r.y);
     for (let i = 0; i < 900 && rooms.length < want; i++) {
       const big = rooms.length === 0 && boss;
-      const w = big ? 18 : cave ? ri(9, 15) : ri(7, 14), h = big ? 14 : cave ? ri(8, 12) : ri(6, 10), x = ri(3, W - w - 3), y = ri(4, H - h - 3);
+      const w = big ? 18 : cave ? ri(9, 15) : small ? ri(6, 11) : ri(7, 14), h = big ? 14 : cave ? ri(8, 12) : small ? ri(5, 8) : ri(6, 10), x = ri(3, W - w - 3), y = ri(4, H - h - 3);
       if (!apart(x, y, w, h)) continue;
       rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: rooms.length });
     }
@@ -132,7 +134,7 @@
     others.slice(0, nTreasure).forEach((r) => (r.type = 'treasure'));
     // an altar on every second floor (TASKS 137), the last one on the floor before the boss's: past him a gift buys nothing
     // (TASKS 183); the roll stays so the rest of the floor is laid out as before
-    R(); if (!boss && (floor % 2 === 0 || floor === ST.n - 1)) ((cave ? others.find((r) => r.type === 'combat' && !r.pocket) : others[nTreasure]) || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
+    R(); if (!boss && (ST.altar ?? (floor % 2 === 0 || floor === ST.n - 1))) ((cave ? others.find((r) => r.type === 'combat' && !r.pocket) : others[nTreasure]) || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine';
     // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
     const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
       if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };
@@ -826,7 +828,7 @@
       if (r.type === 'combat' || r.type === 'exit' || r.type === 'treasure') {
         let n = Math.min(Math.floor(area / 9), 2 + Math.floor(depth / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
         n = Math.max(1, Math.round(n * D.BAL.pop * ST.pop));
-        const pack = pick(roster), guard = r.type === 'exit' && !!N.guard[floor];
+        const pack = pick(roster), guard = r.type === 'exit' && !!ST.guard;
         if (cave) cavePack(r, n, guard);
         else for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
@@ -837,7 +839,11 @@
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
           addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
-        if (guard) { const p = spot(r, 2); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
+        // a small exit room (the endless descent's first floors) may have no free cell two in from its walls: there (only there for now:
+        // the campaign's 7th loses its guard the same way on ~4 seeds in 25, its balance measured so) one in, then any free cell, then any floor
+        // but the stairs' (a crowded 7×5 exit room; the sim shoves a monster off a prop it grazes)
+        if (guard) { const p = spot(r, 2) || (D.runOf(opts.mode).endless && (spot(r, 1) || (() => { for (const ok of [(x, y) => free(x, y) && !doorway(x, y), (x, y) => free(x, y), (x, y) => at(x, y) === 1 && !(x === exit.tx && y === exit.ty)])
+          for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (ok(x, y)) { used.add(key(x, y)); return [x, y]; } return null; })())); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
       if (r.type === 'boss') { if (bossType === 'boss_serpent') { const k = serpentPools[0][0]; enemies.push({ type: bossType, x: wx(k % W), y: wy(Math.floor(k / W)), room: r.id, elite: 1 }); }
         else addEnemy(bossType, r.cx, r.cy - 3, r.id, 1); for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
