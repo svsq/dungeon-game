@@ -238,7 +238,6 @@
     // took 22 and 31 s, 149 and 211 %, the expert's 24 s, 123–136 %, 40 seeds)
     deepBoss: { hp: 1.6, dmg: 1.6 }, size: { from: [48, 36], to: [88, 66], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
-  // the endless descent's pair p (0, 1, …) of the run seeded `seed`: its biome
   const mix32 = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
   // a shuffled bag per block of pool-length pairs: a plain draw left run 104062 without caves for 7 pairs (floors 13-25), one chance in five a pair
   const pairBiome = (seed, p) => { const P = RUNS.endless.pool.slice(), n = P.length, b = Math.floor(p / n); let a = mix32((mix32(seed >>> 0) + Math.imul(b + 1, 0x9e3779b9)) >>> 0);
