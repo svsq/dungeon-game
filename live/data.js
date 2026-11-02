@@ -209,7 +209,9 @@
   // as the 7th and 8th (27 and 32 before). Then, 19 runs from the 9th: minimum health 47/48/41/25 %, potions 0.6/0.7/1.1/1.7, the
   // serpent takes 174 % of the health. pop[0] 1.5 and 1.8 measured apart on 160 seeds (TASKS 339): the 9th stays a breather —
   // minimum health 52–54 % (band 25–45), 0.4–0.6 potions (0.8–2), 0–1 deaths; denser halls are no lever for the band, so 1.5
-  // stays and the 9th's pressure gets its own task (341).
+  // stays and the 9th's pressure comes from elites (TASKS 341): elite, the share of monsters that come as elites on 9–12 (0.04
+  // elsewhere), set so pressure climbs floor by floor; mob, the chapter's plain blows (TASKS 340: 10.5–11.6 % of the health at the
+  // depth's, band 6–10).
   // chapter: how many floors its own description lays out (biome, boss, guard, exit and altars count in those); names: a floor's own title over its biome's
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
