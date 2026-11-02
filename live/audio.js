@@ -110,6 +110,13 @@
       if (e.c === 'jet') { SFX.splash(o); if (e.hero) noise(o, { d: 0.2, v: 0.25, f0: 1800, f1: 600, q: 0.7 }); return; } if (e.c === 'hex') tone(o, { type: 'square', f0: 900, f1: 300, d: 0.12, v: e.hero ? 0.12 : 0.05 }); noise(o, { d: e.hero ? 0.3 : 0.15, v: e.hero ? 0.35 : 0.15, type: 'lowpass', f0: 1800, f1: 200 }); },
     spike: (o) => { noise(o, { d: 0.12, v: 0.3, type: 'highpass', f0: 3500 }); tone(o, { type: 'triangle', f0: 1650, d: 0.3, v: 0.08 }); tone(o, { type: 'triangle', f0: 2470, d: 0.22, v: 0.05 }); },
     scorch: (o) => noise(o, { a: 0.01, d: 0.3, v: 0.18, type: 'highpass', f0: 2400 }),
+    // the magma caves' crust (TASKS 401): a dry crack and a low groan as it gives, a hiss and a gulp as it melts, a tick as it sets;
+    // a monster knocked off a plateau: a sizzling plunge into the lava, a fading cry into the chasm
+    crack: (o) => { noise(o, { d: 0.09, v: 0.35, type: 'highpass', f0: 1800 }); noise(o, { t: now() + 0.07, d: 0.06, v: 0.25, type: 'highpass', f0: 2600 }); tone(o, { f0: 70, f1: 45, a: 0.02, d: 0.5, v: 0.25 }); },
+    melt: (o) => { noise(o, { a: 0.02, d: 0.6, v: 0.2, type: 'highpass', f0: 2000, f1: 900 }); tone(o, { f0: 110, f1: 60, a: 0.03, d: 0.35, v: 0.3 }); },
+    set: (o) => noise(o, { d: 0.05, v: 0.12, type: 'highpass', f0: 3200 }),
+    sink: (o) => { noise(o, { a: 0.01, d: 1.2, v: 0.28, type: 'highpass', f0: 1800, f1: 700 }); tone(o, { f0: 140, f1: 55, a: 0.02, d: 0.6, v: 0.3 }); },
+    fall: (o) => { tone(o, { type: 'triangle', f0: 420, f1: 120, a: 0.02, d: 0.8, v: 0.08 }); noise(o, { a: 0.05, d: 0.7, v: 0.12, type: 'lowpass', f0: 900, f1: 200 }); },
     gold: (o) => { for (let i = 0; i < 4; i++) tone(o, { type: 'triangle', f0: rr(2200, 3600), t: now() + i * rr(0.03, 0.07), d: 0.18, v: 0.08 }); },
     pickup: (o, e) => { tone(o, { type: 'triangle', f0: 660, f1: 990, d: 0.12, v: 0.12 }); if ((e.rar || 0) >= 2) tone(o, { f0: 1320, t: now() + 0.08, d: 0.4, v: 0.1 }); },
     shard: (o) => { tone(o, { f0: 1245, d: 0.7, v: 0.12 }); tone(o, { f0: 1865, t: now() + 0.06, d: 0.6, v: 0.08 }); },

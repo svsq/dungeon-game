@@ -235,10 +235,16 @@
   // threshold, 1–3 cells past each next one); channel: a gap of rock narrower than this between two floors is a lava bed; isle: the
   // noise over which rock stays standing in the lava; cliff: rows from the top within which a plateau backs onto the rock wall
   // (the only wall the plateaus have); path: the least walk from the start to the stairs per floor, in cells (1.4 × the water
-  // caves' mean on the same floor, 30 seeds)
+  // caves' mean on the same floor, 30 seeds). lava (TASKS 401): a lake per lakeCells map cells, its blob's radii [x, y], laid lakeOff
+  // cells off the floor and lakeApart apart, kept from lakeMin cells; rivers river cells wide, a ridge cell costing them ridgeCost
+  // (they cross one only where they must), the rock past `near` cells off the floor dearer, `dark` cells off it a river's last way out;
+  // falls down the top wall, fallApart apart, and vents; a lake joined down a river to its nearest with the chance join, if within
+  // joinMax; isle: the noise over which basalt stands in a lake; bridge: the chance a crossing of three cells and more is tried as a
+  // chain bridge; crust: the noise over which a bank's lava is crust; share: the band of lava in floor and lava (selfCheck)
   const ARCH = {
     plateau: { cells: 760, gap: [12, 11], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, rag: 1, ridge: { w: [2, 3], bend: [3, 7] },
-      deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.45, 0.7, 0.88], channel: 6, isle: 0.74, cliff: 8, path: [148, 168, 211, 0] },
+      deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.35, 0.6, 0.82], channel: 6, isle: 0.74, cliff: 8, path: [148, 168, 211, 0],
+      lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.4, 0.6] } },
   };
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
