@@ -2179,12 +2179,14 @@
     }
     // the endless descent (TASKS 348–349): a pair is one biome drawn from the run's seed, the same for the same seed; every biome
     // comes up; a pair ends by turns with the exit's elite guard and the biome's boss; maps grow to the cap and no further; floors
-    // generate with the hero on open floor; a run goes on past the 12th and its depth is the record
+    // generate with the hero on open floor; a run goes on past the 12th and its depth is the record; no demon lord nor serpent before
+    // the 8th
     { const E = D.RUNS.endless, seen = new Set();
       for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 20; f++) { const a = D.stageOf('endless', f, sd), b = D.stageOf('endless', f, sd); seen.add(a.biome);
         if (a.biome !== b.biome || a.biome !== D.stageOf('endless', f % 2 ? f + 1 : f - 1, sd).biome) { out.push(`endless seed ${sd} f${f}: a pair's biome not fixed by the seed`); break; }
         const p = Math.floor((f - 1) / 2), end = f % 2 === 0;
-        if (end !== !!(a.boss || a.guard) || (end && (p % 2 === 1) !== !!a.boss) || (a.boss && a.boss !== E.bosses[a.biome])) { out.push(`endless seed ${sd} f${f}: wrong end of the pair`); break; } }
+        const big = E.big.includes(E.bosses[a.biome]) && f < E.bigFrom;
+        if ((end && f >= E.guardFrom) !== !!(a.boss || a.guard) && !(end && a.boss) || (end && (p % 2 === 1 && !big) !== !!a.boss) || (a.boss && a.boss !== E.bosses[a.biome])) { out.push(`endless seed ${sd} f${f}: wrong end of the pair`); break; } }
       for (const b of E.pool) if (!seen.has(b)) out.push(`endless: biome ${b} never comes up on 40 seeds`);
       for (let sd = 1; sd <= 5; sd++) { let last = {};   // within each kind of map (rooms, caves) apart: a cave starts larger
         for (let f = 1; f <= 40; f++) { const st = D.stageOf('endless', f, sd), k = st.arch || 'rooms', a = st.size[0] * st.size[1];
