@@ -8,7 +8,7 @@
   let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, amb = null, beatT = 0;
   try { muted = localStorage.getItem('dc_mute') === '1'; } catch (e) {}
   const recent = {};
-  let waterAmb = null, echo = null, dripT = -1;
+  let waterAmb = null, lavaAmb = null, echo = null, dripT = -1;
 
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -224,6 +224,32 @@
       tone(out((source.x - h.x) / 350, amount * 0.45, 0.55), { f0: rr(680, 1250), f1: rr(240, 420), d: rr(0.06, 0.13), v: 0.08 });
     }
   }
+  // the magma caves' lava (TASKS 403): its sources rumble low and bubble, the nearest one heard, panned to its side and fading with
+  // distance as the cave's fall does (304): a fall roars widest, a vent heaves and spits, a breach gurgles
+  const LAVA_SOUND = { fall: { reach: 520, f: 170, v: 0.3, gap: [0.12, 0.45] }, vent: { reach: 360, f: 120, v: 0.22, gap: [0.3, 1.1] }, breach: { reach: 400, f: 150, v: 0.24, gap: [0.2, 0.7] } };
+  function lavaAmbience(S, on) {
+    const R = S.run, h = R?.hero;
+    const sources = on ? (R.map.lavaFeatures || []).filter((q) => R.seen[Math.floor(q.y / DATA.TILE) * R.map.W + Math.floor(q.x / DATA.TILE)]) : [];
+    let source = null, near = 1;
+    for (const q of sources) { const d = Math.hypot(q.x - h.x, q.y - h.y) / LAVA_SOUND[q.kind].reach; if (d < near) { source = q; near = d; } }
+    if (!lavaAmb && source) {
+      const g = ctx.createGain(), pan = ctx.createStereoPanner(), filter = ctx.createBiquadFilter(), n = ctx.createBufferSource();
+      g.gain.value = 0; filter.type = 'lowpass'; filter.frequency.value = 160; filter.Q.value = 0.9;
+      n.buffer = noiseBuf; n.loop = true; n.connect(filter); filter.connect(g); g.connect(pan); pan.connect(dry); pan.connect(wet); n.start();
+      lavaAmb = { g, pan, filter, next: 0 };
+    }
+    if (!lavaAmb) return;
+    const K = source ? LAVA_SOUND[source.kind] : LAVA_SOUND.vent, amount = source ? (1 - near) ** 2 : 0;
+    lavaAmb.g.gain.setTargetAtTime(amount * K.v * 4, now(), 0.3);
+    if (source) lavaAmb.filter.frequency.setTargetAtTime(K.f, now(), 0.4);
+    lavaAmb.pan.pan.setTargetAtTime(source ? Math.max(-0.8, Math.min(0.8, (source.x - h.x) / 250)) : 0, now(), 0.2);
+    if (source && now() > lavaAmb.next) {
+      lavaAmb.next = now() + rr(...K.gap);
+      const o = out((source.x - h.x) / 350, amount * 0.6, 0.45), f = rr(90, 170);
+      tone(o, { f0: f, f1: f * rr(1.8, 2.6), a: 0.01, d: rr(0.08, 0.16), v: 0.16 });
+      if (source.kind !== 'breach' && Math.random() < 0.4) noise(o, { t: now() + 0.1, d: 0.05, v: 0.05, f0: rr(1500, 3000), q: 3 });
+    }
+  }
   // the roof's drops land as the scene draws them (m.drips, scene.js DRIP_FALL): a high tick on stone, a lower plop with a bubble
   // in the water, each drop its own pitch, panned and faded by where it falls on screen
   function drips(S, on) {
@@ -236,7 +262,7 @@
   }
   function ambience(S) {
     const R = S.run, on = !!R && ['play', 'inv', 'shop', 'pause'].includes(S.screen), biome = on ? R.map.biome : null;
-    waterAmbience(S, on && S.screen === 'play'); drips(S, on && S.screen === 'play');
+    waterAmbience(S, on && S.screen === 'play'); lavaAmbience(S, on && S.screen === 'play'); drips(S, on && S.screen === 'play');
     echo.gain.setTargetAtTime(biome === 'cave' || biome === 'magma' ? 0.6 : 0, now(), 0.5);
     if (amb && amb.biome !== biome) { const a = amb; a.g.gain.setTargetAtTime(0.0001, now(), 0.6); setTimeout(() => a.nodes.forEach((n) => { try { n.stop(); } catch (e) {} }), 3000); amb = null; }
     if (!amb && biome) { const B = BED[biome] || BED.dungeon, g = ctx.createGain(); g.gain.value = 0.0001; g.connect(dry); const sw = ctx.createGain(); sw.gain.value = 0.5; g.connect(sw); sw.connect(wet);
