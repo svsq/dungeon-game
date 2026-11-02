@@ -29,11 +29,11 @@ try {
     return window.caveQA.states.map(([n]) => n);
   });
   if (args.includes('--only')) names = names.filter((n) => args[args.indexOf('--only') + 1].split(',').includes(n));
-  else if (!args.includes('--input')) names = names.filter((n) => n.startsWith('cave_') || n.startsWith('serpent_') || ['zone_cave', 'completion_85', 'win_cave', 'win_cave_worst', 'crab_facings', 'skel_ranged', 'eel_states'].includes(n));
+  else if (!args.includes('--input')) names = names.filter((n) => n.startsWith('cave_') || n.startsWith('serpent_') || n.startsWith('magma_') || ['zone_cave', 'zone_magma', 'completion_85', 'win_cave', 'win_cave_worst', 'crab_facings', 'skel_ranged', 'eel_states'].includes(n));
   if (new Set(names).size !== names.length) errors.push('duplicate QA state names');
   if (!names.length) errors.push('no requested QA states found');
   if (args.includes('--only')) for (const name of args[args.indexOf('--only') + 1].split(',')) if (!names.includes(name)) errors.push('missing requested QA state ' + name);
-  for (const required of ['cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
+  for (const required of ['zone_magma', 'magma_hall', 'magma_crossing', 'cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
   const report = {};
   for (const name of names) {
     const result = await page.evaluate((name) => {
