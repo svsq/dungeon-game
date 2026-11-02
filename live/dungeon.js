@@ -650,7 +650,7 @@
       for (const [type0, where] of plan) { let type = type0, p = null;
         if (ENEMIES[type].lurk) { p = shallowIn(r); if (!p) type = oldOne(); }
         if (!p) p = (where || anywhere)() || anywhere(); if (!p) break; if (ENEMIES[type].lurk) used.add(key(p[0], p[1]));
-        addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && first && !(guard && depth <= 2)) || (depth >= 3 && R() < D.ELITE.share) ? 1 : 0);
+        addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && first && !(guard && depth <= 2)) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
         if (r.type === 'exit' && first) enemies[enemies.length - 1].exit = 1; first = false; }
       // an eel in the hall's deep water, out of the count
       if (has('eel') && R() < CP.eel[kf - 1]) { const q = deepIn(r); if (q) addEnemy('eel', q[0], q[1], r.id); } };
@@ -835,7 +835,7 @@
           // an eel in its deep water; a room with none takes another
           if (ENEMIES[type].deep) { const q = deepIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
-          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (depth >= 3 && R() < D.ELITE.share) ? 1 : 0);
+          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
         if (guard) { const p = spot(r, 2); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
