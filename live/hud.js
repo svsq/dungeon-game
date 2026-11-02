@@ -580,7 +580,7 @@
       });
     } else wrap('e_flavor', win ? 'Сталь выдержала. Тьма отступила. Души павших вернутся вместе с вами.' : 'Найденные осколки сохранены. Новый герой продолжит ваш путь.', 234, 674, 350, 25, C.dim);
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
-    const runRows = [['Этаж', r.floor], ['Уровень', r.lvl], ['Время', fmtT(r.time || 0)], ['Собрано золота', r.gold], ['Убито монстров', r.kills]];
+    const runRows = [r.record ? ['Глубина', r.floor + (r.record.fresh ? ' · новый рекорд!' : ' · рекорд ' + r.record.best)] : ['Этаж', r.floor], ['Уровень', r.lvl], ['Время', fmtT(r.time || 0)], ['Собрано золота', r.gold], ['Убито монстров', r.kills]];
     const doneRows = [['Монстры', C2.foes ? C2.kills + '/' + C2.foes + ' · ' + pc(C2.kills, C2.foes) : '—'], ['Предметы', C2.lootN ? C2.loot + '/' + C2.lootN + ' · ' + pc(C2.loot, C2.lootN) : '—'],
       ['Тайники', C2.secN ? C2.sec + '/' + C2.secN + ' · ' + pc(C2.sec, C2.secN) : '—'], ['Этажей пройдено', C2.floors], ['Полнота', Math.round(100 * C2.pct) + '%']];
     const bx = 650, by = 220;

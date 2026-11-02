@@ -2402,6 +2402,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
     // the cave's loose stone is cut from the baked cave floor (TASKS 337): the same three moments on a cave floor
     for (const [n, stage, age] of [['cave_secret_plate', 0], ['cave_secret_plate_sink', 2, 0.04], ['cave_secret_plate_open', 3]]) { const S = secretS(plate, stage, age, 'cave'); if (S) states.push([n, S]); }
+    // the endless descent (TASKS 353): each biome's first-size and capped-size floor, each of the five bosses in its arena, the menu
+    // with a record depth, the end of a run that set a new one
+    { const at = (f, find) => { for (let sd = 1; sd < 400; sd++) if (find(DATA.stageOf('endless', f, sd))) return sd; return 0; };
+      const floorS = (sd, f, boss) => play((S) => { S.run = SIM.newRun(S, 'endless', sd); if (f > 1) SIM.enterFloor(S, S.run, f); const R = S.run, h = R.hero; R.msg = null; S.ev = [];
+        R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); const b = boss && R.en.find((e) => DATA.BOSSES[e.type]);
+        if (b) { const r = R.map.rooms[b.room]; h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h - 2) * TILE; R.cam = [h.x - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; } });
+      for (const b of DATA.RUNS.endless.pool) {
+        const s1 = at(1, (q) => q.biome === b); if (s1) states.push(['endless_' + b + '_small', floorS(s1, 1)]);
+        const s2 = at(17, (q) => q.biome === b); if (s2) states.push(['endless_' + b + '_cap', floorS(s2, 17)]); }
+      for (const type of Object.values(DATA.RUNS.endless.bosses)) { let found = null;
+        for (let f = 8; f <= 24 && !found; f += 4) { const sd = at(f, (q) => q.boss === type); if (sd) found = [sd, f]; }
+        if (found) states.push(['endless_boss_' + type, floorS(found[0], found[1], true)]); }
+      states.push(['endless_menu', mk((S) => { S.saved = null; S.meta.bestEndless = 23; })]);
+      const dead = states.find(([n]) => n === 'dead'); if (dead) { const S = structuredClone(dead[1]); S.result.mode = 'endless'; S.result.floor = 24; S.result.record = { best: 24, fresh: true }; states.push(['endless_dead_record', S]); } }
     // every monster type in a row, idle, facing right: the rigs at rest against their approved sprites
     const lineup = (S) => { const R = S.run, r = R.map.rooms.filter((q) => q.id !== R.map.start).reduce((a, b) => (b.w > a.w ? b : a)), h = R.hero, y0 = (r.y + r.h / 2) * TILE + 16;
       R.msg = null; R.seen = R.seen.map(() => 1); h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20;

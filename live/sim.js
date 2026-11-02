@@ -1495,10 +1495,10 @@
     S.meta.shards += bonus; S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win') S.meta.wins = (S.meta.wins || 0) + 1;
     if (RUN(R) === D.RUNS.campaign) S.meta.best = Math.max(S.meta.best || 0, R.floor);
     // the endless descent's record depth (TASKS 348): the deepest floor reached
-    if (RUN(R).endless) { S.meta.bestEndless = Math.max(S.meta.bestEndless || 0, R.floor); }
+    const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless) S.meta.bestEndless = Math.max(deepBest, R.floor);
     S.result = { how, mode: R.mode, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
-      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
+      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: R.floor > deepBest } : undefined, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; S.screen = how; S.saveN++;
@@ -2200,7 +2200,11 @@
         if (st.guard && !m.enemies.some((e) => e.guard)) out.push(`endless seed ${sd} f${f}: no exit guard`); }
       const S = spawn(0, {}); S.run = newRun(S, 'endless', 9); S.screen = 'play'; const R = S.run; enterFloor(S, R, 13);
       if (R.floor !== 13 || lastFloor(R) || !R.map) out.push('endless: a run does not go on past the 12th');
-      endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless') out.push('endless: the record depth is not kept');
+      // saved on the 13th and taken up again (the menu's «Продолжить»): the same floor, its pair's biome, the map, and on down
+      { const T = spawn(0, { run: JSON.parse(JSON.stringify(R)) }); T.screen = 'menu'; { const b = UI.menu(true, T.meta.diff, 0, T.meta.zoom).find((q) => q.id === 'continue'); step(T, { px: b.x + b.w / 2, py: b.y + b.h / 2, click: 1, keys: [] }); }
+        const Q = T.run; if (!Q || Q.mode !== 'endless' || Q.floor !== 13 || Q.map.W !== R.map.W || D.floorName(Q.floor, Q.mode, Q.seed) !== D.floorName(13, 'endless', 9)) out.push('endless: a saved run does not continue as it was');
+        else { enterFloor(T, Q, 14); if (D.stageOf('endless', 14, Q.seed).biome !== D.stageOf('endless', 13, 9).biome) out.push('endless: a continued run loses its pair\'s biome'); } }
+      endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless' || !S.result.record || !S.result.record.fresh) out.push('endless: the record depth is not kept');
       // each of the five bosses at the end of an endless pair (TASKS 350): its arena seals when the hero walks in and opens at its
       // death; a chapter's end boss pays as the finale (20 shards, LOOT.boss), the others as a chapter boss (3 shards and an item);
       // its floor keeps an altar, and the stairs lead on to the next pair
