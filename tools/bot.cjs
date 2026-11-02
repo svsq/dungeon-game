@@ -55,11 +55,18 @@ const power = (S, h) => { const f = (hh, meta) => { const st = SIM.stats(hh, met
   return { all: f(h, S.meta), noGear: f(Object.assign({}, h, { eq: {} }), S.meta), noBought: f(Object.assign({}, h, { eq: eq((it) => !it.bought) }), S.meta),
     noGifts: f(Object.assign({}, h, { perks: {} }), S.meta), noMeta: f(h, { up: {} }), bare: f(Object.assign({}, h, { eq: {}, perks: {} }), { up: {} }) }; };
 // descend: past the serpent the bot takes the stairs on into the endless descent instead of the portal out (TASKS 354)
+// a run from the main menu: a test run's button is behind «Тесты» (TASKS 417). The bot steps onto that screen without a sim step: the
+// run's seed counts the clock, and one step more there would give every test run other floors than the ones measured before
+function startRun(S, mode) {
+  for (const [screen, id] of D.startPath(mode)) { const b = (screen === 'menu' ? D.UI.menu(false) : D.UI.tests(false)).find((q) => q.id === id);
+    if (id === 'tests') S.screen = 'tests'; else SIM.step(S, click(b)); }
+}
+
 function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1 } = {}) {
   const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
-  if (!initial) { S.seedBase = seed; S.meta.diff = diff; SIM.step(S, click(D.UI.menu(false).find((q) => q.id === mode))); }
+  if (!initial) { S.seedBase = seed; S.meta.diff = diff; startRun(S, mode); }
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
   let gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
@@ -221,7 +228,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
       if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta().find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
-      if (S.screen === 'menu') { SIM.step(S, click(D.UI.menu(false).find((q) => q.id === (metaNext(S) ? 'meta' : mode)))); continue; }
+      if (S.screen === 'menu') { if (metaNext(S)) SIM.step(S, click(D.UI.menu(false).find((q) => q.id === 'meta'))); else startRun(S, mode); continue; }
       SIM.step(S, { keys: ['Escape'] }); continue;
     }
     const R = S.run, h = R.hero, m = R.map;

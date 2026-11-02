@@ -451,17 +451,18 @@
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
+  const TEST_RUNS = [['cave', 'Затопленные пещеры', 'Пещеры заново (сброс)'], ['magma', 'Магмовые пещеры', 'Магма заново (сброс)'], ['endless', 'Бесконечный спуск', 'Спуск заново (сброс)']];
+  // the buttons that start a run from the main menu, in the order pressed: a test run is behind «Тесты» (bots and checks press these)
+  const startPath = (mode) => (mode === 'campaign' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]);
   const UI = {
-    menu: (hasRun, diff, arm, zoom) => {
-      // arm: the run whose button was pressed once over a saved run (a second press drops the save)
-      const run = (id, fresh, again) => [id, !hasRun ? fresh : arm === id ? 'Точно сбросить забег?' : again, true];
-      const items = [['continue', 'Продолжить забег', hasRun], run('campaign', 'Кампания — 12 этажей', 'Новая кампания (сброс)'), run('cave', 'Тест: пещеры отдельно', 'Тест пещер заново (сброс)'), ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true],
-        ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['meta', 'Алтарь душ', true]];
-      // the test runs stand side by side: the endless descent's right of the caves' (TASKS 348), the magma caves' left (399); the column keeps its places
-      const out = items.map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 })), cv = out.find((b) => b.id === 'cave');
-      const [id, label, on] = run('endless', 'Тест: бесконечный спуск', 'Тест спуска заново (сброс)'), [mid, mlabel, mon] = run('magma', 'Тест: магмовые пещеры', 'Тест магмы заново (сброс)');
-      return out.concat([{ id, label, on, x: cv.x + cv.w + 24, y: cv.y, w: cv.w, h: cv.h }, { id: mid, label: mlabel, on: mon, x: cv.x - cv.w - 24, y: cv.y, w: cv.w, h: cv.h }]);
-    },
+    // arm: the run whose button was pressed once over a saved run (a second press drops the save)
+    menu: (hasRun, diff, arm, zoom) => [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 12 этажей' : arm === 'campaign' ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true],
+      ['tests', 'Тесты', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true], ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['meta', 'Алтарь душ', true]]
+      .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 })),
+    // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
+    // magma caves, then the endless descent past them), «Назад» last
+    tests: (hasRun, arm) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !hasRun ? fresh : arm === id ? 'Точно сбросить забег?' : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
+      .concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? 'Скрыть секреты' : 'Открыть все секреты', on: true, x: 520, y: 16, w: 430, h: 60 },
       { id: 'dbg_loot', label: S && S.dbgLoot ? 'Убрать подсветку лута' : 'Подсветить лут', on: true, x: 970, y: 16, w: 430, h: 60 }],
@@ -537,6 +538,6 @@
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
   root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, ARCH, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
-    ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
+    ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

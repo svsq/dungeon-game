@@ -39,6 +39,7 @@
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
     if (R && V && S.screen === 'play') souls(S, R, V);
     if (S.screen === 'menu') menu(S, t);
+    if (S.screen === 'tests') tests(S, t);
     if (S.screen === 'meta') meta(S, t);
     if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', 'Отладка · `', W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
     if (S.screen === 'pause') { dim(0.55); lab('p_title', 'Пауза', W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause(S.meta.zoom)) button('pb_' + b.id, b, S.hover); }
@@ -491,18 +492,31 @@
   }
 
   // ---------------- menus ----------------
-  function menu(S, t) {
+  // the main menu's backdrop: embers along the bottom, the hero and a brute facing each other across the buttons
+  function menuBack(t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.8, 260, [1, 0.45, 0.15], 0.12 + 0.05 * Math.sin(t * 2 + i), 2); G.blend(); }
     const [hw, hh] = SZ('hero'); L.sprite('hero', W / 2 - 520 - hw * 1.6, 340, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', W / 2 - 520 - hw * 1.6, 340, hw * 3.2, hh * 3.2);
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
+  }
+  const savedLine = (S) => 'Сохранённый забег: ' + (S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ') + 'этаж ' + S.saved.floor + ', уровень ' + S.saved.hero.lvl;
+  // the test runs (TASKS 417): a press over a saved run asks again, as on the main menu, so the save is named here too
+  function tests(S, t) {
+    menuBack(t);
+    lab('ts_t', 'Тесты', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('ts_s', 'Отдельные забеги: биомы после кампании и бесконечный спуск', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
+    for (const b of D.UI.tests(!!S.saved, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM)) button('tb_' + b.id, b, S.hover);
+    if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
+  }
+  function menu(S, t) {
+    menuBack(t);
     lab('m_t', 'ГЛУБИНЫ КРИПТЫ', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_s', 'Двенадцать этажей: от подземелья до Затопленных пещер', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
     for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
       const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? 'Впервые? Начните с лёгкой' : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? '×1,5 — крупнее' : '';
       if (tip) lab('mb_tip_' + b.id, tip, b.x + b.w + 24, b.y + b.h / 2 + 1, { size: 21, al: 0, col: '#9fd08a' }); }
-    if (S.saved) { const s = 'Сохранённый забег: ' + (S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ') + 'этаж ' + S.saved.floor + ', уровень ' + S.saved.hero.lvl; lab('m_sv', s, W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' }); }
+    if (S.saved) lab('m_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
     const info = 'Осколки душ: ' + S.meta.shards + '   ·   Забегов: ' + (S.meta.runs || 0) + '   ·   Побед: ' + (S.meta.wins || 0) + '   ·   Рекорд: этаж ' + (S.meta.best || 0) + (S.meta.bestEndless ? '   ·   Спуск: этаж ' + S.meta.bestEndless : '');
     lab('m_i', info, W / 2, H - 70, { size: 24, al: 0.5, col: C.dim });
   }

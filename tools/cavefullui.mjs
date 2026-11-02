@@ -14,7 +14,7 @@ page.on('pageerror',e=>errors.push(e.message));
 try {
 await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);await page.waitForFunction(()=>window.__ready);
 const result=await page.evaluate(()=>{
-const S=SIM.spawn(0,{});S.seedBase=7;const start=DATA.UI.menu(false).find(b=>b.id==='cave');SIM.step(S,{keys:[],click:1,px:start.x+start.w/2,py:start.y+start.h/2});const shots=[],report={};
+const S=SIM.spawn(0,{});S.seedBase=7;for(const [scr,id] of DATA.startPath('cave')){const start=(scr==='menu'?DATA.UI.menu(false):DATA.UI.tests(false)).find(b=>b.id===id);SIM.step(S,{keys:[],click:1,px:start.x+start.w/2,py:start.y+start.h/2});}const shots=[],report={};
 const capture=name=>{SCENE.state=S;SCENE.render(S.t+.01);shots.push({name:'ui_'+name,url:document.getElementById('c').toDataURL()});};
 if(S.screen!=='play')SIM.step(S,{keys:['Escape']});SIM.step(S,{keys:[]});SIM.step(S,{keys:['KeyI']});capture('inventory_skills');report.inventory=S.screen;
 const H=S.run.hero,clickInv=id=>{const q=DATA.UI.inv().r.find(b=>b.id===id);if(!q)throw Error(id);SIM.step(S,{keys:[],click:1,px:q.x+q.w/2,py:q.y+q.h/2});};

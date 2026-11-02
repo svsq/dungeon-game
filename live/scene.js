@@ -2026,8 +2026,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
-      ['menu_cave_armed', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.resetT = S.t; S.resetM = 'cave'; })],
-      ['menu_magma_armed', mk((S) => { S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.saved.hero.lvl = 18; S.resetT = S.t; S.resetM = 'magma'; })],
+      ['menu_armed', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.saved.floor = 12; S.saved.hero.lvl = 17; S.resetT = S.t; S.resetM = 'campaign'; })],
+      // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
+      ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
+      ['tests_cave_armed', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'cave'; })],
+      ['tests_magma_armed', mk((S) => { S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.saved.hero.lvl = 18; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'magma'; S.hover = 'endless'; })],
       ['play', play()],
       ['play_worst', play((S) => { worst(S); S.run.msg = { s: 'Повелитель Демонов повержен! Портал наружу открыт — путь на поверхность свободен, герой', t: S.t - 1 }; })],
       ['inv', play((S) => { worst(S); S.screen = 'inv'; })],
