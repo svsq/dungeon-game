@@ -629,7 +629,7 @@
     if (rnd(R) < POT.kill * BAL.reward) drop(R, e.x, e.y, { kind: 'item', item: potion(rnd(R) < 0.65 ? 'hp_potion' : 'mp_potion') });
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
-    const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || STAGE(R).last), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
+    const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || chapterEnd(R, e)), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (D.BOSSES[e.type]) finishArena(S, R, e);
     if (big) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
     if (fin) { R.bossDead = 1; R.msg = { s: ENEMIES[e.type].name + ' повержен! Портал наружу открыт', t: S.t }; }
@@ -1256,6 +1256,9 @@
     for (const q of R.lavaPending || []) { q.t += DT; if (q.t0 !== undefined) q.t0 += DT; }
     for (const egg of R.eggs || []) egg.hatchT += DT;
   }
+  // a boss that closes a chapter pays as the finale did (20 shards, LOOT.boss); in the endless descent every pair ends its 'chapter',
+  // so there only the chapters' end bosses (the demon lord, the serpent) pay so, the others as the campaign's chapter bosses (TASKS 350)
+  const chapterEnd = (R, e) => STAGE(R).last && (!RUN(R).endless || D.RUNS.endless.big.includes(e.type));
   const arenaSealed = (R) => !!(R.map.bossType && R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0));
   function stepArena(S, R) {
     const m = R.map, b = R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0), h = R.hero;
@@ -1281,7 +1284,7 @@
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
     for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
-    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + ': победа! Алтарь и лестница открыты', t: S.t }; if (!STAGE(R).last) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
+    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + ': победа! Алтарь и лестница открыты', t: S.t }; if (!chapterEnd(R, e)) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
   }
   function bossWebs(S, R, e, M) {
     const m = R.map, r = m.rooms[e.room];
@@ -2197,7 +2200,21 @@
         if (st.guard && !m.enemies.some((e) => e.guard)) out.push(`endless seed ${sd} f${f}: no exit guard`); }
       const S = spawn(0, {}); S.run = newRun(S, 'endless', 9); S.screen = 'play'; const R = S.run; enterFloor(S, R, 13);
       if (R.floor !== 13 || lastFloor(R) || !R.map) out.push('endless: a run does not go on past the 12th');
-      endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless') out.push('endless: the record depth is not kept'); }
+      endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless') out.push('endless: the record depth is not kept');
+      // each of the five bosses at the end of an endless pair (TASKS 350): its arena seals when the hero walks in and opens at its
+      // death; a chapter's end boss pays as the finale (20 shards, LOOT.boss), the others as a chapter boss (3 shards and an item);
+      // its floor keeps an altar, and the stairs lead on to the next pair
+      for (const type of Object.values(E.bosses)) { let found = null;
+        for (let sd = 1; sd <= 80 && !found; sd++) for (let f = 8; f <= 24 && !found; f += 4) if (D.stageOf('endless', f, sd).boss === type) found = [sd, f];
+        if (!found) { out.push(`endless: no ${type} on floors 8–24 of seeds 1–80`); continue; }
+        const T = spawn(0, {}); T.run = newRun(T, 'endless', found[0]); T.screen = 'play'; const Q = T.run; enterFloor(T, Q, found[1]); const m2 = Q.map, b = Q.en.find((e) => e.type === type), r = m2.rooms[b.room];
+        Q.hero.x = (r.x + r.w / 2) * TILE; Q.hero.y = (r.y + r.h / 2) * TILE; stepArena(T, Q);
+        if (!Q.arena || !Q.arena.active || !arenaSealed(Q)) { out.push(`endless ${type}: the arena does not seal`); continue; }
+        Q.drops = []; b.hp = 0; killEnemy(T, Q, b); const big = E.big.includes(type), shards = Q.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0), items = Q.drops.filter((d) => d.kind === 'item' && !isCons(d.item)).length;
+        if (arenaSealed(Q) || Q.arena.active || (m2.doors || []).some((d) => d.arena && !d.open)) out.push(`endless ${type}: the arena stays shut after its death`);
+        if (shards !== (big ? 20 : 3) || items < (big ? LOOT.boss.length : 1) || (!big && items > 1)) out.push(`endless ${type}: pays ${shards} shards and ${items} items`);
+        if (!m2.shrines.some((q) => q.boss)) out.push(`endless ${type}: no altar on its floor`);
+        enterFloor(T, Q, found[1] + 1); if (Q.floor !== found[1] + 1 || D.stageOf('endless', Q.floor, found[0]).pair !== found[1] / 2) out.push(`endless ${type}: the stairs do not lead on`); } }
     return out;
   }
   // a table stops the hero walking into it; a blow on it (or on a brazier) knocks once per swing and carries its material
