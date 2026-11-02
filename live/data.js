@@ -240,7 +240,9 @@
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   // the endless descent's pair p (0, 1, …) of the run seeded `seed`: its biome
   const mix32 = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
-  const pairBiome = (seed, p) => { const a = mix32((mix32(seed >>> 0) + Math.imul(p + 1, 0x9e3779b9)) >>> 0); const P = RUNS.endless.pool; return P[a % P.length]; };
+  // a shuffled bag per block of pool-length pairs: a plain draw left run 104062 without caves for 7 pairs (floors 13-25), one chance in five a pair
+  const pairBiome = (seed, p) => { const P = RUNS.endless.pool.slice(), n = P.length, b = Math.floor(p / n); let a = mix32((mix32(seed >>> 0) + Math.imul(b + 1, 0x9e3779b9)) >>> 0);
+    for (let i = n - 1; i > 0; i--) { a = mix32(a + 0x9e3779b9); const j = a % (i + 1); [P[i], P[j]] = [P[j], P[i]]; } return P[p % n]; };
   // floor f of the endless descent: lf is its place in its pair (a cave pair is laid out as the caves' 3rd and 4th, with all their
   // kinds, lakes and eels); size: its map in cells, growing with f to the cap; altar: on a guard pair's second floor and before a boss
   // big: the chapters' end bosses (the demon lord, the serpent) come no sooner than `bigFrom` (the player's call 02.11.2026): an arcane
