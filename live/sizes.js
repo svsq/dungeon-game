@@ -12,6 +12,7 @@
     shroom_a: 40, shroom_b: 56, crystal_cv: 84,
     stalag_a: 54, stalag_b: 74, boulder_a: 44, boulder_b: 32, lily_cv: 24, weed_cv: 40, wreck_cv: 50, skel_cv: 44, tent_cv: 80,
     campfire_cv: 36, bridge_post: 54, bridge_torch: 74, ford_a: 20, ford_b: 17,
+    basalt_a: 60, basalt_b: 44, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 19,
   };
   const S = (window.SIZES = window.SIZES || {}), A = window.ASSETS || {};
   for (const n in HEIGHT) if (A[n]) S[n] = [Math.round(HEIGHT[n] * A[n].w / A[n].h), HEIGHT[n]];

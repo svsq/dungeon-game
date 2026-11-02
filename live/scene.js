@@ -588,13 +588,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const zoneAt = (m, x, y) => { for (const r of m.rooms) if (r.zone && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r.zone; return m.biome; };
   // the cave's glowing props: where the light sits above the foot (up), its pool's radius and strength, and the colour key of
   // its biome (BIOMES.cave.shroom / gem); a prop away from the cave keeps the fallback colour
-  const GLOW = { shroom_a: { up: 22, r: 150, amt: 0.48, col: 'shroom', cap: 15 }, shroom_b: { up: 34, r: 175, amt: 0.55, col: 'shroom', cap: 19 }, crystal_cv: { up: 42, r: 230, amt: 0.9, col: 'gem', cap: 26 } };
+  const GLOW = { shroom_a: { up: 22, r: 150, amt: 0.48, col: 'shroom', cap: 15 }, shroom_b: { up: 34, r: 175, amt: 0.55, col: 'shroom', cap: 19 }, crystal_cv: { up: 42, r: 230, amt: 0.9, col: 'gem', cap: 26 },
+    // the magma caves' (TASKS 405): a hot fissure in the ground breathing like a mushroom, obsidian holding a steady inner ember
+    vent_mg: { up: 6, r: 140, amt: 0.5, col: 'shroom', cap: 10 }, obsidian_mg: { up: -6, r: 150, amt: 0.3, col: 'gem', cap: 3 } };   // its glow lies round its foot: lit from inside, it read pink
   const glowOf = (d) => {
     const g = GLOW[d.n]; if (!g) return null;
     const s = d.s || 1; return { ...g, up: g.up * s, cap: g.cap * s, r: g.r * (0.8 + 0.2 * s), amt: g.amt * (d.glow || 1) };
   };
   const GLOW_COL = { shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0] };
-  const glowBeat = (d, t) => (d.n === 'crystal_cv' ? 0.94 + 0.04 * Math.sin(t * 2.3 + d.x) + 0.02 * Math.sin(t * 7.1 + d.y) : 0.84 + 0.16 * Math.sin(t * 0.9 + (d.x * 0.37 + d.y * 0.11)));
+  const glowBeat = (d, t) => (d.n === 'crystal_cv' || d.n === 'obsidian_mg' ? 0.94 + 0.04 * Math.sin(t * 2.3 + d.x) + 0.02 * Math.sin(t * 7.1 + d.y) : 0.84 + 0.16 * Math.sin(t * 0.9 + (d.x * 0.37 + d.y * 0.11)));
   // a roof drop of m.drips falls for DRIP_FALL s and lands at ph + n·p (audio.js plays the landing from the same schedule)
   // a cave crossing's boards (TASKS 306): pitch, board to board along the way; up, the fire cup's height on a torch post
   const BRIDGE = { pitch: 12, up: 66 }, WET = new WeakMap();
@@ -675,6 +677,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       L.puff(x * TILE, y * TILE, 60 + 70 * rnd(i, 9.9), [0.02, 0.015, 0.015], 0.10 + 0.1 * rnd(i, 6.6), i + 0.5); }
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) if (c(x, y) === 0 && RD[y * m.W + x] >= 2 && RD[y * m.W + x] <= 3) L.puff(x * TILE + 16, y * TILE + 16, 36, [0, 0, 0], RD[y * m.W + x] === 2 ? 0.05 : 0.12, x * 3 + y);
     for (const g of m.rugs || []) if (window.ASSETS.carpet) { const w = g.h * ASSETS.carpet.w / ASSETS.carpet.h; L.puff(g.cx, g.y + g.h / 2 + 4, g.h * 0.55, [0, 0, 0], 0.3, 1); L.sprite('carpet', g.cx - w / 2, g.y, { w, h: g.h }); }
+    // the cult's circle under each altar on the plateaus (TASKS 405): a dull red ring on the art grid with marks round it
+    if (m.cliff) for (const s of m.shrines || []) { const cx0 = s.x, cy0 = s.y + 8;
+      for (let a = 0; a < 6.283; a += 0.035) for (const [rx, ry, col] of [[58, 26, [0.32, 0.05, 0.03]], [48, 21, [0.22, 0.04, 0.03]]]) L.solid(Math.round((cx0 + Math.cos(a) * rx) / 2) * 2, Math.round((cy0 + Math.sin(a) * ry) / 2) * 2, 2, 2, col);
+      for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283 + 0.4; L.solid(Math.round((cx0 + Math.cos(a) * 53) / 2) * 2 - 2, Math.round((cy0 + Math.sin(a) * 23.5) / 2) * 2 - 2, 4, 4, [0.4, 0.07, 0.04]); } }
     // painted floor decals: cracks, grime, moss, blood, coins, bones, webs…
     for (const d of m.decals || []) { if (SIM.hidden(m, d)) continue; const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0); L.sprite(d.n, d.x - w0 * k / 2, d.y - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: d.n === 'dc_web' ? 0.7 : 0.92 } }); }
     // stains and scorch marks scattered on the floor
@@ -1741,7 +1747,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // candles standing on a table are one painted piece with it (table_candles): the pair drawn apart never sat right
     const onTable = (c) => m.decor.find((t) => t.n === 'table' && Math.abs(t.x - c.x) <= 6 && c.y - t.y === 1);
     const lit = new Set(m.decor.filter((c) => c.n === 'candles' && c.lift).map(onTable).filter(Boolean));
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] ? d.s || 1 : 1, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
+    // a chain fence on the plateau's edge (TASKS 405): iron posts with a cap, two chains of links sagging between them, on the art grid
+    const fence = (d) => { const n = Math.max(1, Math.round(d.len / 40)), step = d.len / n, X0 = sx(d.x), Y0 = sy(d.y), px2 = (v) => Math.round(v / PIX) * PIX;
+      for (let i = 0; i < n; i++) for (const [up, sag] of [[24, 7], [13, 5]]) { const a = X0 + i * step, len = step;
+        for (let u = 4; u < len - 2; u += 4) { const q = u / len, y = Y0 - up + sag * 4 * q * (1 - q), lk = (u / 4) % 2;
+          L.solid(px2(a + u), px2(y) + PIX, lk ? PIX * 2 : PIX, PIX, [0.02, 0.018, 0.02]); L.solid(px2(a + u), px2(y), lk ? PIX * 2 : PIX, PIX, lk ? [0.36, 0.32, 0.3] : [0.55, 0.5, 0.46]); } }
+      for (let i = 0; i <= n; i++) { const X = px2(X0 + i * step) - PIX;
+        L.solid(X - PIX, px2(Y0 - 30), PIX * 4, 30, [0.02, 0.018, 0.02]); L.solid(X, px2(Y0 - 28), PIX * 2, 28, [0.2, 0.18, 0.17]); L.solid(X, px2(Y0 - 28), PIX, 28, [0.34, 0.31, 0.29]);
+        L.solid(X - PIX, px2(Y0 - 34), PIX * 4, PIX * 2, [0.12, 0.11, 0.1]); } };
+    for (const d of m.decor) if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d)]);
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] ? d.s || 1 : 1, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
@@ -1982,10 +1997,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (const [x, y] of lavaCells) { if (rnd(x + 0.3, y) > 0.035 || !known(x * TILE, y * TILE)) continue; const P = 7 + 4 * rnd(x, y + 9);
         for (let j = 0; j < 2; j++) { const q = (t / P + rnd(x, y + j) + j * 0.5) % 1, px = (x + 0.5) * TILE + Math.sin(q * 5 + x) * 14 * q, py = (y + 0.5) * TILE - 150 * q;
           L.puff(sx(px), sy(py), 18 + 46 * q, [0.06, 0.05, 0.05], 0.22 * Math.sin(Math.PI * q), x * 7 + y + j); } }
-      const AG = 150; for (let gy = Math.floor(cy / AG) - 1; gy <= Math.floor((cy + VH) / AG); gy++) for (let gx = Math.floor(cx / AG); gx <= Math.floor((cx + VW) / AG); gx++) for (let j = 0; j < 3; j++) {
+      const AG = 150; for (let gy = Math.floor(cy / AG) - 1; gy <= Math.floor((cy + VH) / AG); gy++) for (let gx = Math.floor(cx / AG); gx <= Math.floor((cx + VW) / AG); gx++) for (let j = 0; j < 2; j++) {
         const k = gx * 131 + gy * 71 + j, fall = 10 + 8 * rnd(k, 1), y0 = (rnd(k, 2) * AG + t * fall) % AG, ax = gx * AG + rnd(k, 3) * AG + Math.sin(t * (0.4 + 0.3 * rnd(k, 4)) + k) * 12, ay = gy * AG + y0;
         if (!known(ax, ay)) continue; const sz = rnd(k, 5) < 0.3 ? PIX * 2 : PIX;
-        L.solid(Math.round(sx(ax) / PIX) * PIX, Math.round(sy(ay) / PIX) * PIX, sz, PIX, [0.62, 0.57, 0.53], 0, 0, 0, 0.75 * Math.sin(Math.PI * y0 / AG)); } }
+        L.solid(Math.round(sx(ax) / PIX) * PIX, Math.round(sy(ay) / PIX) * PIX, sz, PIX, [0.5, 0.46, 0.43], 0, 0, 0, 0.5 * Math.sin(Math.PI * y0 / AG)); } }
     // the mushrooms' caps and the crystals glow over their own light, and the mushrooms shed spores: single pale motes drifting up
     // and sideways a long way, slower than embers, each on its own beat (TASKS 305)
     for (const d of m.decor) { const g = glowOf(d); if (!g || hid(d) || !vis(d.x, d.y) || !known(d.x, d.y)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
@@ -2784,6 +2799,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, h = R.hero;
       const r = m.rooms.filter((q) => q.type !== 'secret' && q.y <= m.cliff[q.cx] + 2).sort((a, b) => b.w * b.h - a.w * a.h)[0] || m.rooms[0];
       h.x = (r.cx + 0.5) * TILE; h.y = (r.y + 4.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, r.y * TILE - 160]; states.push(['magma_hall', S]); }
+    // TASKS 405: a hall of the cult (banners, a cage, basalt, a chain fence on its edge) and the cult's camp round the start's fire
+    { const find = (want) => { for (const sd of [3, 5, 8, 13, 21]) for (let f = 1; f <= 3; f++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; if (f > 1) SIM.enterFloor(S, S.run, f); const r = want(S.run.map); if (r) return [S, r]; } return null; };
+      const shot = (got, name) => { if (!got) return; const [S, r] = got, R = S.run, h = R.hero; h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 1.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push([name, S]); };
+      shot(find((m) => m.rooms.find((r) => r.plan === 'cultden' && m.decor.some((d) => d.n === 'fence_mg' && d.r === r.id) && m.decor.some((d) => d.n === 'cage' && d.r === r.id))), 'magma_props');
+      shot(find((m) => m.rooms.find((r) => r.camp)), 'magma_camp'); }
     // TASKS 404: the light of the magma caves: an altar's hall by the lava, the hero and a foe on its bank lit from the lava's side
     { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 2); const R = S.run, m = R.map, W = m.W, h = R.hero, sh = R.shrines[0];
       if (sh) { let best = null; for (let k = 0; k < m.cells.length; k++) { if (m.cells[k] !== 1 || ![1, -1, W, -W].some((o) => m.cells[k + o] === 3 && !m.crust.includes(k + o))) continue;

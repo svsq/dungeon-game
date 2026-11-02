@@ -6,7 +6,7 @@
   const D = root.DATA || require('./data.js');
   const { TILE, ENEMIES } = D;
   // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
-  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5, shroom: 5, shroom_a: 5, shroom_b: 5, crystal_cv: 6.5 };
+  const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5, shroom: 5, shroom_a: 5, shroom_b: 5, crystal_cv: 6.5, vent_mg: 5, obsidian_mg: 6.5 };
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
   // (set by the sim), 6 deep water (blocks walking and knockback, not projectiles or sight)
   const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -966,6 +966,8 @@
         const best = viable.reduce((a, b) => (Math.hypot(b[0] - dark[0], b[1] - dark[1]) + b[2] < Math.hypot(a[0] - dark[0], a[1] - dark[1]) + a[2] ? b : a))[3];
         if (best.cell) { used.add(key(...best.cell)); if (best.big) claim(...best.cell, best.n || 'brazier'); }
         delete best.cell; delete best.big; if (best.n === 'shroom') best.n = R() < 0.55 ? 'shroom_a' : 'shroom_b';
+        // the plateaus' ground glows from hot fissures where a cave's mushrooms grow, and its glass is obsidian (TASKS 405)
+        if (plat && /^shroom_/.test(best.n)) best.n = 'vent_mg'; if (plat && best.n === 'crystal_cv') best.n = 'obsidian_mg';
         if (best.n) decor.push(best); else torches.push(best);
         lights.push([best.x, best.y, LIGHT_R[best.n || best.kind]]); shine(lights[lights.length - 1]); } return true; };
     // the shop: shelves on the back wall, the merchant behind a three-cell counter with the scales on it, sacks and a barrel
@@ -1031,7 +1033,7 @@
         const ok = !mouths.length || (seen.size === total && mouths.every(([x, y]) => open(x, y))); if (!ok) for (const [x, y] of cells) hard.delete(key(x, y)); return ok; };
       const pool = new Set([...D.BIOMES[zb].props, ...(r.zone === 'crypt' ? ['coffin', 'grave'] : []), ...(r.zone === 'arcane' ? ['crystal'] : [])]), has = (ns) => ns.filter((n) => pool.has(n));
       const kinds = r.type === 'boss' ? ['arena'] : r.type === 'start' ? ['store'] : r.type === 'boss' || r.type === 'shrine' ? ['hall', 'gallery', 'crypt', 'sanctum'] : Object.keys(D.ROOM_PLANS).filter((k) => k !== 'arena');
-      let fit = kinds.filter((k) => { const P = D.ROOM_PLANS[k]; return !P.need.length || has(P.need).length; });
+      let fit = kinds.filter((k) => { const P = D.ROOM_PLANS[k]; return !P.magma && (!P.need.length || has(P.need).length); });   // the magma caves' halls are dressed by the cave's own pass
       if (r.zone === 'crypt' && fit.includes('crypt')) fit = ['crypt']; if (r.zone === 'arcane' && fit.includes('sanctum')) fit = ['sanctum'];
       if (!fit.length) return;
       let roll = R() * fit.reduce((a, k) => a + D.ROOM_PLANS[k].w, 0), plan = fit[0]; for (const k of fit) { roll -= D.ROOM_PLANS[k].w; if (roll < 0) { plan = k; break; } }
@@ -1200,24 +1202,38 @@
       // the water's own cells count as bulky (so nothing stands in it): by the water, only the props round count
       const roomyBy = (x, y, n) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (bulk.has(key(x + i, y + j)) && !wetAt(x + i, y + j)) return false;
         return !wide.some(([ex, ey, eh]) => Math.abs(ey - y) <= 1 && Math.abs(ex - wx(x)) < eh + half(n) + 4); };
-      const canStand = (x, y, n) => dry(x, y) && free(x, y) && !doorway(x, y) && roomyBy(x, y, n) && keepsWay(x, y) && !(at(x, y - 1) === 0 && hungAt(wx(x), y, half(n)));
+      const canStand = (x, y, n) => dry(x, y) && free(x, y) && !doorway(x, y) && roomyBy(x, y, n) && keepsWay(x, y) && !(at(x, y - 1) === 0 && hungAt(wx(x), y, half(n))) && !(plat && N8.some(([dx, dy]) => at(x + dx, y + dy) === 3));
       const stand = (x, y, n, r) => { claim(x, y, n); hardC.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n, solid: 1, r }); };
       const shuffled = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Dr() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
       const cellsOf = (r, f) => { const out = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (f(x, y)) out.push([x, y]); return shuffled(out); };
       // a pile of barrels and crates against the rock, read as one (they overlap on purpose)
-      const stack = (r, near) => { const c0 = cellsOf(r, (x, y) => rockN(x, y) >= 1 && dry(x, y) && free(x, y) && !doorway(x, y) && roomyCell(x, y) && keepsWay(x, y)).sort((a, b) => (near ? Math.hypot(a[0] - near[0], a[1] - near[1]) - Math.hypot(b[0] - near[0], b[1] - near[1]) : 0));
-        for (const [x, y] of c0.slice(0, 12)) { const cs = [[x, y], ...N4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => rockN(a, b) >= 1 && dry(a, b) && free(a, b) && !doorway(a, b) && roomyCell(a, b))].slice(0, dri(2, 3));
+      // on a plateau any edge but the lava's will do (nothing stands a cell from the lava: 186)
+      const edgeN = (x, y) => (plat ? (N8.some(([dx, dy]) => at(x + dx, y + dy) !== 1) && !N8.some(([dx, dy]) => at(x + dx, y + dy) === 3) ? 1 : 0) : rockN(x, y));
+      const stack = (r, near) => { const c0 = cellsOf(r, (x, y) => edgeN(x, y) >= 1 && dry(x, y) && free(x, y) && !doorway(x, y) && roomyCell(x, y) && keepsWay(x, y)).sort((a, b) => (near ? Math.hypot(a[0] - near[0], a[1] - near[1]) - Math.hypot(b[0] - near[0], b[1] - near[1]) : 0));
+        for (const [x, y] of c0.slice(0, 12)) { const cs = [[x, y], ...N4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => edgeN(a, b) >= 1 && dry(a, b) && free(a, b) && !doorway(a, b) && roomyCell(a, b))].slice(0, dri(2, 3));
           if (cs.length < 2 || cs.some(([a, b]) => wide.some(([ex, ey, eh]) => Math.abs(ey - b) <= 1 && Math.abs(ex - wx(a)) < eh + 28))) continue;
           const ok = []; for (const [a, b] of cs) { if (!keepsWay(a, b)) break; hardC.add(key(a, b)); ok.push([a, b]); } if (ok.length < 2) { for (const [a, b] of ok) hardC.delete(key(a, b)); continue; }
           stackN++; for (const [a, b] of ok) { used.add(key(a, b)); bulk.add(key(a, b)); pots.push({ x: wx(a), y: wy(b), kind: Dr() < 0.5 ? 'barrel' : 'crate', hp: 1, stack: stackN }); wide.push([wx(a), b, 24]); } return true; } return false; };
       const lie = (r, n, k, by) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && rockN(x, y) >= 1 && (!by || Math.hypot(x - by[0], y - by[1]) < 5)).slice(0, k)) {
         used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id }); } };
+      // on the plateaus: basalt stumps and boulders, obsidian anywhere by the edge rather than by water (TASKS 405)
+      const GEM = plat ? 'obsidian_mg' : 'crystal_cv';
       const rocks = (r, k, glass) => { let n = 0; for (const [x, y] of cellsOf(r, (x, y) => rockN(x, y) >= 1 || N8.filter(([dx, dy]) => at(x + dx, y + dy) === 0).length >= 3)) { if (n >= k) break;
-        const by = shoreAt(x, y), nm = glass && by && Dr() < 0.25 && !decor.some((d) => d.n === 'crystal_cv' && Math.hypot(d.x - wx(x), d.y - wy(y)) < 9 * TILE) ? 'crystal_cv' : pick4(); if (canStand(x, y, nm)) { stand(x, y, nm, r.id); n++; } } };
-      const ROCKS = ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'stalag_a', 'boulder_b'], pick4 = () => ROCKS[Math.floor(Dr() * ROCKS.length)];
-      const plans = Object.entries(D.ROOM_PLANS).filter(([, P]) => P.cave && P.need.every((n) => D.BIOMES.cave.props.includes(n)));
+        const by = shoreAt(x, y), nm = glass && (plat || by) && Dr() < (plat ? 0.15 : 0.25) && !decor.some((d) => d.n === GEM && Math.hypot(d.x - wx(x), d.y - wy(y)) < 9 * TILE) ? GEM : pick4(); if (canStand(x, y, nm)) { stand(x, y, nm, r.id); n++; } } };
+      const ROCKS = plat ? ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'basalt_a', 'boulder_mg_b'] : ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'stalag_a', 'boulder_b'], pick4 = () => ROCKS[Math.floor(Dr() * ROCKS.length)];
+      const PK = plat ? 'magma' : 'cave', SKEL = plat ? 'skel_mg' : 'skel_cv', PB = D.BIOMES[plat ? 'magma' : 'cave'];
+      const plans = Object.entries(D.ROOM_PLANS).filter(([, P]) => P[PK] && P.need.every((n) => PB.props.includes(n)));
+      // a prop standing anywhere in the hall it can, the rock's edge first
+      const standIn = (r, n, k) => { for (let i = 0; i < k; i++) { const c = [...cellsOf(r, (x, y) => rockN(x, y) >= 1), ...cellsOf(r, () => true)].find(([x, y]) => canStand(x, y, n)); if (c) stand(...c, n, r.id); } };
       for (const r of rooms) {
         if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss') continue;
+        if (r === start && plat) {
+          // the cult's camp round the fire: its banners on their posts a few steps off, a pile of its barrels and crates, a cage,
+          // the bones of whoever it burnt (TASKS 405)
+          const fire = [start.cx, start.cy], ring = (n) => cellsOf(r, (x, y) => Math.hypot(x - fire[0], y - fire[1]) >= 2.5 && Math.hypot(x - fire[0], y - fire[1]) <= 5.5).find(([x, y]) => canStand(x, y, n));
+          for (let i = 0; i < 2; i++) { const c = ring('banner_mg'); if (c) stand(...c, 'banner_mg', r.id); }
+          stack(r, fire); if (Dr() < 0.5) { const c = ring('cage'); if (c) stand(...c, 'cage', r.id); } lie(r, 'skel_mg', Dr() < 0.5 ? 1 : 0, fire); lie(r, 'bones', dri(1, 2)); r.camp = 1;
+          continue; }
         if (r === start) {
           // the explorer's camp: the tent backed against the rock a few steps from the fire, a pile of his barrels and crates, now and
           // then what is left of him
@@ -1228,16 +1244,29 @@
           continue; }
         // a wreck wants a shore with deep water by it, or across a cell of shallows
         const deepBy = (x, y) => N4.some(([dx, dy]) => at(x + dx, y + dy) === 6 || (wet.has((y + dy) * W + x + dx) && N8.some(([ex, ey]) => at(x + dx + ex, y + dy + ey) === 6)));
-        const want = plans.filter(([, P]) => !P.cave.wreck || cellsOf(r, (x, y) => shoreAt(x, y) && deepBy(x, y)).length);
+        const want = plans.filter(([, P]) => !P[PK].wreck || cellsOf(r, (x, y) => shoreAt(x, y) && deepBy(x, y)).length);
         let roll = Dr() * want.reduce((a, [, P]) => a + P.w, 0), plan = want[0]; for (const q of want) { roll -= q[1].w; if (roll < 0) { plan = q; break; } }
-        if (!plan) continue; const P = plan[1].cave, nOf = (v) => (Array.isArray(v) ? dri(v[0], v[1]) : v || 0), area = r.w * r.h; r.plan = plan[0];
+        if (!plan) continue; const P = plan[1][PK], nOf = (v) => (Array.isArray(v) ? dri(v[0], v[1]) : v || 0), area = r.w * r.h; r.plan = plan[0];
         if (P.wreck) { const c = cellsOf(r, (x, y) => shoreAt(x, y) && deepBy(x, y)).find(([x, y]) => canStand(x, y, 'wreck_cv')); if (c) stand(...c, 'wreck_cv', r.id); }
         if (P.tent) { const c = cellsOf(r, (x, y) => at(x, y - 1) === 0).find(([x, y]) => canStand(x, y, 'tent_cv')); if (c) stand(...c, 'tent_cv', r.id); }
+        if (P.banners) standIn(r, 'banner_mg', nOf(P.banners)); if (P.cages) standIn(r, 'cage', nOf(P.cages));
         rocks(r, Math.round(nOf(P.rocks) * Math.min(1.5, area / 90)), true);
         for (let i = nOf(P.stacks); i > 0; i--) stack(r);
-        lie(r, 'skel_cv', nOf(P.skel)); lie(r, 'bones', nOf(P.bones)); }
+        lie(r, SKEL, nOf(P.skel)); lie(r, 'bones', nOf(P.bones)); }
+      if (plat) {
+        // the altar of the cult: candles round it, a skull at its foot (the scene draws its circle on the floor)
+        for (const s of shrines) for (const [dx, dy] of [[-44, 10], [44, 10], [-26, 34], [26, 34]]) if (Dr() < 0.8) { const x = Math.floor((s.x + dx) / TILE), y = Math.floor((s.y + dy) / TILE);
+          if (at(x, y) === 1 && !doorway(x, y)) decor.push({ x: s.x + dx, y: s.y + dy, n: 'candles' }); }
+        for (const s of shrines) decor.push({ x: s.x + dri(-30, 30), y: s.y + 40, n: 'bones', f: Dr() < 0.5 ? 1 : 0 });
+        // chain fences on iron posts along some of the plateaus' front edges, over the lava or the chasm, 3 to 6 cells: a railing on the
+        // very edge, so not held a cell off the lava as the props are (186); it is not solid and hides nothing
+        for (const r of rooms) { if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss' || Dr() > 0.55) continue;
+          const runs = []; for (let y = r.y; y < r.y + r.h; y++) { let x0 = -1; for (let x = r.x; x <= r.x + r.w; x++) { const ok = x < r.x + r.w && at(x, y) === 1 && (at(x, y + 1) === 0 || at(x, y + 1) === 3) && at(x, y + 2) !== 1 && !over.has((y + 1) * W + x) && !hardC.has(key(x, y));
+            if (ok && x0 < 0) x0 = x; if (!ok && x0 >= 0) { if (x - x0 >= 3) runs.push([x0, x, y]); x0 = -1; } } }
+          if (!runs.length) continue; const [x0, x1, y] = runs[Math.floor(Dr() * runs.length)], n = Math.min(x1 - x0, dri(3, 6)), a = x0 + Math.floor(Dr() * (x1 - x0 - n + 1));
+          decor.push({ x: a * TILE + 6, y: (y + 1) * TILE - 6, n: 'fence_mg', len: n * TILE - 12, r: r.id }); } }
       // more glowing mushrooms than the light needs, in clumps of two or three along the water's edge (the concept's banks glow)
-      for (const r of rooms) { if (r.type === 'shop' || r.type === 'secret') continue; let n = Math.round(r.w * r.h / 110);
+      for (const r of rooms) { if (plat || r.type === 'shop' || r.type === 'secret') continue; let n = Math.round(r.w * r.h / 110);
         for (const [x, y] of cellsOf(r, (x, y) => shoreAt(x, y) && free(x, y) && !doorway(x, y))) { if (n <= 0) break; if (decor.some((d) => /^shroom/.test(d.n) && Math.abs(d.x - wx(x)) < 5 * TILE && Math.abs(d.y - wy(y)) < 4 * TILE)) continue;
           const clear = (a, b) => !wide.some(([ex, ey, eh]) => Math.abs(ey - b) <= 1 && Math.abs(ex - wx(a)) < eh + 14); if (!clear(x, y)) continue;
           const clump = [[x, y], ...N8.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => shoreAt(a, b) && free(a, b) && !doorway(a, b) && clear(a, b))].slice(0, dri(2, 3));
@@ -1250,12 +1279,12 @@
           flora.push({ n: 'lily_cv', x: wx(x + dx) + dri(-8, 8), y: (y + dy) * TILE + dri(10, 22), f: Dr() < 0.5 ? 1 : 0, s: +(0.75 + 0.4 * Dr()).toFixed(2) });
         if (wetAt(x, y) && !over.has(y * W + x) && N8.some(([dx, dy]) => dry(x + dx, y + dy) || at(x + dx, y + dy) === 0) && Dr() < 0.07)
           flora.push({ n: 'weed_cv', x: wx(x) + dri(-8, 8), y: y * TILE + dri(14, 26), f: Dr() < 0.5 ? 1 : 0, s: +(0.7 + 0.45 * Dr()).toFixed(2) });
-        if (at(x, y) === 0 && (at(x, y + 1) === 1 || at(x, y + 1) === 6) && Dr() < 0.13 && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < TILE && Math.abs(t.y + 26 - (y + 1) * TILE) < TILE)
+        if (!plat && at(x, y) === 0 && (at(x, y + 1) === 1 || at(x, y + 1) === 6) && Dr() < 0.13 && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - wx(x)) < TILE && Math.abs(t.y + 26 - (y + 1) * TILE) < TILE)
           && !waterFeatures.some((q) => q.kind === 'waterfall' && Math.abs(q.x - wx(x)) < 2 * TILE && Math.abs(q.y - (y + 1) * TILE) < 2 * TILE))
           for (let i = dri(2, 4), x0 = wx(x) + dri(-4, 4); i > 0; i--) flora.push({ n: 'moss', x: x0 + dri(-9, 9), y: (y + 1) * TILE, f: Dr() < 0.5 ? 1 : 0, s: +(0.55 + 0.6 * Dr()).toFixed(2) }); } }
     // a cave's tunnels have a mushroom by the rock now and then, so a long way between halls is not one black stretch
     if (cave) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !inRoom(x, y) && free(x, y) && N4.some(([dx, dy]) => at(x + dx, y + dy) === 0) && R() < 0.035) {
-      used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: R() < 0.55 ? 'shroom_a' : 'shroom_b' }); }
+      used.add(key(x, y)); const nm = R() < 0.55 ? 'shroom_a' : 'shroom_b'; decor.push({ x: wx(x), y: wy(y), n: plat ? 'vent_mg' : nm }); }
     // where the cave's roof drips (TASKS 305): a drop falls every p seconds from phase ph onto the floor or into the water; the
     // scene draws it and the sound plays its landing from the same schedule
     const drips = [];
@@ -1403,7 +1432,7 @@
     // flat floor decals (baked into the floor map): wear everywhere, a biome flavour per room, gore and coins where fights happen
     const DEC = { dungeon: ['dc_crack', 'dc_grime', 'dc_rubble', 'dc_slab', 'dc_straw', 'dc_shards', 'dc_leaves'], crypt: ['dc_moss', 'dc_bones', 'dc_crack', 'dc_grime', 'dc_puddle'],
       lava: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_slab', 'dc_soot'], arcane: ['dc_puddle', 'dc_crack', 'dc_grime', 'dc_slab'], cave: ['dc_moss', 'dc_pebbles', 'dc_rubble', 'dc_moss', 'dc_silt', 'dc_pebbles', 'dc_crack'],
-      magma: ['dc_soot', 'dc_rubble', 'dc_crack', 'dc_soot', 'dc_pebbles', 'dc_crack'] };
+      magma: ['dc_soot', 'dc_ash_mg', 'dc_crack', 'dc_splash_mg', 'dc_soot', 'dc_ash_mg', 'dc_rubble', 'dc_splash_mg'] };
     // a decal is drawn up to 40·s px across (scene.js bake, over the walls already painted): it shrinks until that square lies on
     // open floor, so no stone, rubbish or stain climbs a wall or spills onto the rock; one that would have to shrink past half is left out
     const decals = [], onFloor = (px, py, h) => { for (let y = Math.floor((py - h) / TILE); y <= Math.floor((py + h - 0.01) / TILE); y++) for (let x = Math.floor((px - h) / TILE); x <= Math.floor((px + h - 0.01) / TILE); x++) if (at(x, y) !== 1) return false; return true; };
