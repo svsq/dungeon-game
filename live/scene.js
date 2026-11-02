@@ -1435,7 +1435,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const flagstone = (P, down, crack) => { const z = zoneAt(m, P.cx, P.cy), Z = D.BIOMES[z], TS = 288, X = P.cx * TILE, Yw = P.cy * TILE, u0 = (X % TS) / TS, v0 = (Yw % TS) / TS, lift = 1.5 * (1 - down) - down;
       const ink = [0.02, 0.015, 0.02], X0 = sx(X) + 2, Y0 = sy(Yw) + 2, S0 = TILE - 4;
       L.solid(X0, Y0 + S0 - 1, S0, 3, ink, 0, 0, 0, 0.45 + 0.3 * down);
-      L.sprite(Z.floor, X0, Y0 - lift, { w: S0, h: S0, src: [u0 + 2 / TS, v0 + 2 / TS, u0 + (TILE - 2) / TS, v0 + (TILE - 2) / TS], u: { grade: [z === m.biome ? 1 : 0.35, 0.96 * (z === m.biome ? 1 : Z.dim || 1) * (1.05 - 0.22 * down), 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } });
+      // a cave's floor is the CAVE bake's own (gradient maps, noise, moss), not the floor tile: the stone is cut from the baked map
+      // where it is drawn, so its grain and colour run on from its neighbours and only the ink rim, its shadow and the pale lip tell it
+      // (TASKS 337: the floor tile it used to take stood 16–25 levels off the cave floor's mean colour)
+      if (B.cave) { const MW = m.W * TILE, MH = m.H * TILE, xw = X + 2, yw = Yw + 2;
+        L.sprite('map', X0, Y0 - lift, { w: S0, h: S0, src: [xw / MW, 1 - (yw - lift) / MH, (xw + S0) / MW, 1 - (yw - lift + S0) / MH] });
+        L.solid(X0, Y0 - lift, S0, S0, ink, 0, 0, 0, 0.2 * down); }
+      else L.sprite(Z.floor, X0, Y0 - lift, { w: S0, h: S0, src: [u0 + 2 / TS, v0 + 2 / TS, u0 + (TILE - 2) / TS, v0 + (TILE - 2) / TS], u: { grade: [z === m.biome ? 1 : 0.35, 0.96 * (z === m.biome ? 1 : Z.dim || 1) * (1.05 - 0.22 * down), 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } });
       for (const [x, y, w, hh] of [[X0, Y0 - lift, S0, 2], [X0, Y0 - lift, 2, S0], [X0 + S0 - 2, Y0 - lift, 2, S0]]) L.solid(x, y, w, hh, ink, 0, 0, 0, 0.4 + 0.35 * down);
       if (down < 0.5) L.solid(X0 + 2, Y0 - lift + 2, S0 - 4, 1, [0.9, 0.8, 0.65], 0, 0, 0, 0.12);
       if (crack && down > 0.5) {   // a sprung ambush stays a broken, sunken stone, so on the way back it is not taken for one still waiting
@@ -2349,7 +2355,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['props_knock', propS(0.07)], ['props_settle', propS(0.4)]);
     // each way a secret hides: whole (from a step away, where the draught or a banner's sway is the only tell), worked (a blow
     // on a wall or a shelf, a banner torn, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
-    const secretS = (f, stage, age = 0) => { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find(f); if (!q) continue;
+    const secretS = (f, stage, age = 0, mode = 'campaign') => { for (let sd = 1; sd < 120; sd++) for (let fl = 1; fl <= (mode === 'cave' ? 4 : 1); fl++) { const S = play(); S.run = SIM.newRun(S, mode, sd); if (fl > 1) SIM.enterFloor(S, S.run, fl); const R = S.run, m = R.map, q = m.secrets.find(f); if (!q) continue;
       if (SIM.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) continue;
       const h = R.hero, P = q.trig; h.x = q.x - q.dx * 70 + (q.dy ? 50 : 0); h.y = q.y - q.dy * 80 + (q.kind === 'shelf' ? 40 : 0); h.aim = Math.atan2(q.dy, q.dx); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [q.x - VW / 2, q.y - VH / 2 - 40];
@@ -2394,6 +2400,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_break', (o) => o.kind === 'shelf', 2, 0.2], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
       ['secret_sconce', sconce, 0], ['secret_sconce_sink', sconce, 2, 0.8], ['secret_sconce_open', sconce, 3],
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
+    // the cave's loose stone is cut from the baked cave floor (TASKS 337): the same three moments on a cave floor
+    for (const [n, stage, age] of [['cave_secret_plate', 0], ['cave_secret_plate_sink', 2, 0.04], ['cave_secret_plate_open', 3]]) { const S = secretS(plate, stage, age, 'cave'); if (S) states.push([n, S]); }
     // every monster type in a row, idle, facing right: the rigs at rest against their approved sprites
     const lineup = (S) => { const R = S.run, r = R.map.rooms.filter((q) => q.id !== R.map.start).reduce((a, b) => (b.w > a.w ? b : a)), h = R.hero, y0 = (r.y + r.h / 2) * TILE + 16;
       R.msg = null; R.seen = R.seen.map(() => 1); h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20;
