@@ -232,7 +232,10 @@
   // floors, then stays; rooms: one to `size.cells` cells of the map (13–17 on the campaign's 72×54). The hero starts as in the campaign
   RUNS.endless = { name: 'Бесконечный спуск', floors: Infinity, depth: 0, lvl: 1, endless: 1, biome: () => 'dungeon', boss: () => undefined, guard: {}, exit: {},
     pool: ['dungeon', 'crypt', 'lava', 'arcane', 'cave'], bosses: { dungeon: 'boss_spider', crypt: 'boss_necro', lava: 'boss_forge', arcane: 'boss', cave: 'boss_serpent' },
-    pairGuard: { hp: 2.2, dmg: 1 }, big: ['boss', 'boss_serpent'], bigFrom: 8, guardFrom: 6, size: { from: [48, 36], to: [88, 66], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
+    pairGuard: { hp: 2.2, dmg: 1 }, big: ['boss', 'boss_serpent'], bigFrom: 8, guardFrom: 6,
+    // a boss past the campaign's last floor (the descent after the serpent): its health and blows over the depth's, so its fight holds
+    // the campaign's boss bands (20–90 s, 150–250 % of the hero's health; TASKS 354: at ×1 the 16th's and 20th's took 14–21 s, 60–100 %)
+    deepBoss: { hp: 1.6, dmg: 1.6 }, size: { from: [48, 36], to: [88, 66], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   // the endless descent's pair p (0, 1, …) of the run seeded `seed`: its biome
   const mix32 = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
@@ -246,7 +249,7 @@
     const bossPair = p % 2 === 1 && !(M.big.includes(M.bosses[biome]) && 2 * p + 2 < M.bigFrom);
     const Z = M.size, k = Math.min(1, (f - 1) / (Z.floors - 1)), from = cave ? Z.cave : Z.from, size = [0, 1].map((i) => 2 * Math.round((from[i] + (Z.to[i] - from[i]) * k) / 2));
     return { N: cave ? RUNS.cave : M, lf: cave ? 3 + pos : 1 + pos, n: cave ? 4 : 2, depth: f, last: end, fin: false, biome, boss: bossPair && end ? M.bosses[biome] : undefined, arch: cave ? 'cave' : undefined,
-      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: 1, early: 0, elite: ELITE.share, mob: 1, size, rooms: cave ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p }; };
+      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: 1, early: 0, elite: ELITE.share, mob: 1, size, rooms: cave ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > BAL.deep.from ? M.deepBoss : undefined }; };
   // floor f of a run: N, the description that lays it out (the run's own or its chapter's), lf, its place among N's floors, n, how
   // many floors N lays out, depth, the campaign floor it is worth; last: the end of its chapter (layout: no river, no altar before
   // the boss), fin: the run's own last floor (the way out, the victory); biome and boss: its biome and its boss, if any; pop and
