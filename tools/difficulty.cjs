@@ -1,4 +1,4 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|cave|endless] [--floors 30: the endless descent's report window] [-j 8] [--quiet] [--check]
+// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|cave|endless] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
@@ -8,7 +8,7 @@ const { execFile } = require('child_process'), os = require('os'), path = requir
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? 2 : Math.max(1, Math.floor(os.cpus().length / 2)));
 const fs = require('fs');
-const DATA = require('../live/data.js'), mode = arg('--mode', 'campaign'), RUN = DATA.runOf(mode), FLOORS = Number.isFinite(RUN.floors) ? RUN.floors : +arg('--floors', 30), STAGE = (f) => DATA.stageOf(mode, f), BOSS_FLOORS = Array.from({ length: FLOORS }, (_, i) => i + 1).filter((f) => STAGE(f).boss);
+const DATA = require('../live/data.js'), mode = arg('--mode', 'campaign'), RUN = DATA.runOf(mode), DESCEND = process.argv.includes('--descend'), FLOORS = Number.isFinite(RUN.floors) && !DESCEND ? RUN.floors : +arg('--floors', 30), STAGE = (f) => DATA.stageOf(mode, f), BOSS_FLOORS = Array.from({ length: FLOORS }, (_, i) => i + 1).filter((f) => STAGE(f).boss);
 // past: of the runs, the share that got past floor f (won, or died deeper): the demon lord's 8th is the old campaign's finale (TASKS 339)
 const past = (a, f) => avg(a, (r) => r.result.how === 'win' || r.result.floor > f);
 const profiles = arg('--profiles', 'novice,average,expert').split(',');
@@ -28,13 +28,13 @@ function report() {
   console.log(head.join(' | '));
   const ends = RUN.endless ? [] : BOSS_FLOORS.filter((f) => STAGE(f).last && f < FLOORS);
   // the endless descent (TASKS 352): how deep the runs go — a run still alive when the bot's hour is up ends as 'timeout', not stuck
-  if (RUN.endless) for (const p of profiles) { const a = (res[p] || []).map((x) => x[0]).filter(Boolean); if (!a.length) continue;
+  if (RUN.endless || DESCEND) for (const p of profiles) { const a = (res[p] || []).map((x) => x[0]).filter(Boolean); if (!a.length) continue;
     const deep = a.map((r) => r.result.floor || 0).sort((x, y) => x - y), q = (k) => deep[Math.min(deep.length - 1, Math.floor(deep.length * k))];
     console.log(`${p}: depth reached median ${q(0.5)}, p10 ${q(0.1)}, p90 ${q(0.9)}, deepest ${deep[deep.length - 1]}; alive at the hour ${a.filter((r) => r.result.how === 'timeout').length}, stuck ${a.filter((r) => r.result.how === 'stuck').length}\n`); }
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
     const by = Array(FLOORS).fill(0); for (const r of a) if (r.result.how === 'dead') by[Math.min(r.result.floor, FLOORS) - 1]++;   // deeper than the window: its last column
     const pc = (x) => Math.round(x * 100) + '%';
-    console.log([p, k + 1, a.length, pc(avg(a, (r) => r.result.how === 'win')), a.filter((r) => r.result.how === 'stuck' || (r.result.how === 'timeout' && !RUN.endless)).length,
+    console.log([p, k + 1, a.length, pc(avg(a, (r) => r.result.how === 'win')), a.filter((r) => r.result.how === 'stuck' || (r.result.how === 'timeout' && !RUN.endless && !DESCEND)).length,
       by.join(' '), pc(avg(a, (r) => r.minhp)), avg(a, (r) => r.hurt).toFixed(0), avg(a, (r) => r.dodges).toFixed(0), avg(a, (r) => r.hp_potion).toFixed(1),
       avg(a, (r) => r.mp_potion).toFixed(1), pc(avg(a, (r) => r.minmp)), Math.round(avg(a, (r) => r.floors.reduce((n, f) => n + f.time, 0)) / 60) + 'm',
       perFloor(a, (f) => f.lvl, 0)].join(' | ') + ends.map((f) => ` | past f${f} ${Math.round(past(a, f) * 100)}%`).join('')); }
@@ -167,7 +167,7 @@ function check() {
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
 function next() {
   const job = todo.shift(); if (!job) return; const [p, s] = job;
-  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode, '--json'];
+  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode, '--json'].concat(DESCEND ? ['--descend'] : []);
   const snapshots = arg('--snapshots', ''), floor = arg('--replay-floor', '');
   const dump = arg('--dump-state', ''); if (dump) cmd.push('--dump-state', dump);
   if (snapshots) {
