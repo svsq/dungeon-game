@@ -9,7 +9,7 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|взрыв|boss/.test(k) ? 'elite' : 'mob';
-const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, FLANK = 8, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
@@ -60,7 +60,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const S = initial ? initial.S : SIM.spawn(0, {});
   if (!initial) { S.seedBase = seed; S.meta.diff = diff; SIM.step(S, click(D.UI.menu(false).find((q) => q.id === mode))); }
 
-  const out = [], chased = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
+  const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
   let gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] = initial.vars;
@@ -182,8 +182,14 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else { const blind = !SIM.losClear(R.map, h.x, h.y, tg.x, tg.y), round = blind || pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
       // a crab's armour faces the hero (TASKS 309): from before it, circle round it close, inside its rush and toward its back, and
       // strike only once off its armour; a blow on the armour does a fifth
-      const fr = armFront(tg);
-      if (fr && !round && td < 260) { const ah = Math.atan2(h.y - tg.y, h.x - tg.x), Rc = E.r + HR + 16, a2 = ah + fr * 0.7, px = tg.x + Math.cos(a2) * Rc, py = tg.y + Math.sin(a2) * Rc;
+      // a crab in a narrow way (deep water on one side, rock on the other) can't be walked round: the bot circled before its armour
+      // for 300 s (run seed 129, the 12th, TASKS 335). The side with floor to stand on, else the other; with neither, or still before the armour
+      // after `FLANK` s on end, it hacks at the front as a player would who sees there is no getting behind
+      const Rc = E.r + HR + 16, ah = Math.atan2(h.y - tg.y, h.x - tg.x), spot = (side) => { const a2 = ah + side * 0.7, px = tg.x + Math.cos(a2) * Rc, py = tg.y + Math.sin(a2) * Rc;
+        return SIM.cell(R.map, Math.floor(px / T), Math.floor(py / T)) === 1 ? [px, py] : null; };
+      let fr = armFront(tg), sp = null; if (!fr) flanked.delete(tg.id);   // off the armour: the next stand before it counts afresh
+      if (fr && !round && td < 260) { const ft = (flanked.get(tg.id) || 0) + SIM.DT; flanked.set(tg.id, ft); sp = ft <= FLANK && (spot(fr) || spot(-fr)); if (!sp) fr = 0; }
+      if (fr && !round && td < 260) { const [px, py] = sp;
         steer(inp, (px - h.x) / (Math.hypot(px - h.x, py - h.y) || 1), (py - h.y) / (Math.hypot(px - h.x, py - h.y) || 1)); }
       else if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round); else inp.press = 1; }
     if (h.ab.fireball && !armFront(tg) && td > (P.caster ? 0 : 140) && td < (P.caster ? 380 : 330) && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)
@@ -221,7 +227,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; }
     cur.potLeft = held(h, 'hp_potion');
     if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h));
-      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); seen.clear();
+      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear();
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] });
     }
