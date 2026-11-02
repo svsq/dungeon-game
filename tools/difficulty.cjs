@@ -100,7 +100,7 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8
 // for now (the average takes 45–48 % over 160 seeds; a band belongs to the follow-up balance, TASKS 340/341)
 const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, campaign: {
   easy: { average: { past: { 8: [0.85, 1] } } },
-  normal: { average: { past: { 8: [0.4, 0.6] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 12: { minhp: null, hpPot: null } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
+  normal: { average: { past: { 8: [0.4, 0.6] }, deep: { lost: [1.5, 2.5], t: [20, 90] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 12: { minhp: null, hpPot: null } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { past: { 8: [0, 0.85] } }, builder: BUILDER },
   hard: { average: { past: { 8: [0.1, 0.25] } }, expert: { past: { 8: [0.4, 0.6] } }, builder: BUILDER } } };
 function check() {
@@ -150,6 +150,11 @@ function check() {
       if (band.lost && !inB(c.dmg, band.lost)) miss.push(`${p} f${f}: the boss takes ${Math.round(c.dmg * 100)}% of the health, outside ${band.lost.map((v) => v * 100).join('–')}%`);
       if (band.pot && !inB(c.pot, band.pot)) miss.push(`${p} f${f}: ${c.pot.toFixed(1)} hp potions at the boss, outside ${band.pot.join('–')}`);
     }
+    // past the serpent (--descend, TASKS 354): the descent's bosses on floors 13+ hold the campaign's boss bands, all fights pooled
+    if (DESCEND && b.deep) { const l = a.flatMap((r) => r.floors.filter((f) => f.floor > 12 && f.boss).map((f) => f.boss)), ts = l.filter((q) => !q.died).map((q) => q.t).sort((x, y) => x - y);
+      if (l.length) { const lost = avg(l, (q) => q.dmg), t = ts[ts.length >> 1] || 0; console.log(`${p}: descent bosses ${l.length} fights, ${Math.round(lost * 100)}% of the health, ${t.toFixed(0)} s`);
+        if (!inB(lost, b.deep.lost)) miss.push(`${p}: descent bosses take ${Math.round(lost * 100)}% of the health, outside ${b.deep.lost.map((v) => v * 100).join('–')}%`);
+        if (!inB(t, b.deep.t)) miss.push(`${p}: descent boss fights last ${t.toFixed(0)} s, outside ${b.deep.t.join('–')} s`); } }
     if (b.pressure && a.length < 160) console.log(`${p}: pressure curve needs 160 seeds (${a.length} measured)`);
     if (b.pressure && a.length >= 160) for (let f = 4; f <= FLOORS; f++) { if (STAGE(f).lf === 1) continue;   // a chapter starts afresh past its boss
       const at = (floor, fn) => { const l = a.flatMap((r) => r.floors.filter((q) => q.floor === floor)); return avg(l, fn); },
@@ -167,7 +172,7 @@ function check() {
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
 function next() {
   const job = todo.shift(); if (!job) return; const [p, s] = job;
-  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode, '--json'].concat(DESCEND ? ['--descend'] : []);
+  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode, '--json'].concat(DESCEND ? ['--descend'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : []);
   const snapshots = arg('--snapshots', ''), floor = arg('--replay-floor', '');
   const dump = arg('--dump-state', ''); if (dump) cmd.push('--dump-state', dump);
   if (snapshots) {

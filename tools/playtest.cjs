@@ -9,7 +9,7 @@ const snapshots = arg('snapshots', ''), source = arg('checkpoint', ''), dump = a
 if (snapshots) fs.mkdirSync(snapshots, { recursive: true });
 play({ seed, initial: source ? v8.deserialize(fs.readFileSync(source)) : null, checkpoint: snapshots ? (frame) => {
   fs.writeFileSync(path.join(snapshots, `${frame.diff}_${frame.profile}_${seed}_f${frame.S.run.floor}.bin`), v8.serialize(frame));
-} : null, profile: arg('profile', 'average'), descend: process.argv.includes('--descend'), stopAfter: +arg('stop-after', 0), runs: +arg('runs', 1), diff: arg('diff', 'normal'), mode: arg('mode', 'campaign'), log: (r, S) => {
+} : null, profile: arg('profile', 'average'), descend: process.argv.includes('--descend'), stopAfter: +arg('stop-after', 0), hours: +arg('hours', 1), runs: +arg('runs', 1), diff: arg('diff', 'normal'), mode: arg('mode', 'campaign'), log: (r, S) => {
   if (dump) fs.writeFileSync(dump, v8.serialize(S));
   if (json) return console.log(JSON.stringify(r));
   for (const f of r.floors) console.log(`floor ${f.floor}: ${f.time}s lvl ${f.lvl} hp ${f.hp} kills ${f.kills} gold ${f.gold} loot ${f.loot}/${f.lootN} shards ${f.shards} bank ${f.bank} dodge ${f.dodge}%`);
