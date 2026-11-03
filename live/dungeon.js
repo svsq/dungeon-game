@@ -1263,6 +1263,13 @@
         for (const s of shrines) for (const [dx, dy] of [[-44, 10], [44, 10], [-26, 34], [26, 34]]) if (Dr() < 0.8) { const x = Math.floor((s.x + dx) / TILE), y = Math.floor((s.y + dy) / TILE);
           if (at(x, y) === 1 && !doorway(x, y)) decor.push({ x: s.x + dx, y: s.y + dy, n: 'candles' }); }
         for (const s of shrines) decor.push({ x: s.x + dri(-30, 30), y: s.y + 40, n: 'bones', f: Dr() < 0.5 ? 1 : 0 });
+        // torches on posts all over the plateaus, as the ref has them (TASKS 423, the player's call over 404's "fire only by people"):
+        // by the drops first, then out in the hall, at least 4 cells apart and from any other fire
+        const fires = () => [...decor.filter((d) => d.n === 'torch_stand'), ...torches, ...shrines, { x: wx(start.cx), y: wy(start.cy) }];
+        for (const r of rooms) { if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss') continue; let k = Math.max(1, Math.round(r.w * r.h / 30));
+          const drop = (x, y) => [[0, 2], [0, 1], [1, 0], [-1, 0], [2, 0], [-2, 0], [0, -1]].some(([dx, dy]) => at(x + dx, y + dy) !== 1);
+          for (const [x, y] of [...cellsOf(r, drop), ...cellsOf(r, () => true)]) { if (k <= 0) break;
+            if (!canStand(x, y, 'torch_stand') || fires().some((f) => Math.hypot(f.x - wx(x), f.y - wy(y)) < 4 * TILE)) continue; stand(x, y, 'torch_stand', r.id); k--; } }
         // chain fences on iron posts along some of the plateaus' front edges, over the lava or the chasm, 3 to 6 cells: a railing on the
         // very edge, so not held a cell off the lava as the props are (186); it is not solid and hides nothing
         for (const r of rooms) { if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss' || Dr() > 0.55) continue;
