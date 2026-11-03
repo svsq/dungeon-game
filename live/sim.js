@@ -339,7 +339,7 @@
   function enterFloor(S, R, f, gen) {
     R.floor = f; R.propHit = {}; R.bossDead = 0;   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed }, gen));
-    R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.drops = []; R.scorches = []; m.goo = [];
+    R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.pyres = []; R.drops = []; R.scorches = []; m.goo = [];
     const stg = STAGE(R, f), d = stg.depth, sc = BAL.hp * dif(R, 'hp') * D.hpAt(d), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? stg.guard : e.exit && e.elite ? stg.exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk, bk = (D.BOSSES[e.type] && stg.bossK) || { hp: 1, dmg: 1 };
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el * bk.hp), max: Math.round(E.hp * sc * el * bk.hp), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? stg.mob : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd * bk.dmg,
@@ -414,9 +414,23 @@
       for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !D.BOSSES[e.type] && D.hazIn(z, e.x, e.y) && (e.haz || (e.haz = {}))[tag] !== n) { e.haz[tag] = n;
         hitEnemy(S, R, e, Math.round(H.mon * (1 + 0.2 * (dep(R) - 1))), false, z.x, z.y, H.kb, H.burn ? 'fire' : undefined); } });
   }
+  // a fire priest's ring (TASKS 410): it glows over its warning, then the pillar of fire stands for its burst and hurts a hero within
+  // it once; it cares for no one else
+  function stepPyres(S, R) { const h = R.hero, t = S.t, P = ENEMIES.fire_priest.pyre;
+    for (const p of R.pyres) { const u = t - p.t0; if (u < P.warn) continue;
+      if (!p.lit) { p.lit = 1; ev(S, { k: 'pillar', x: p.x, y: p.y, r: P.r, id: p.id }); R.trauma = Math.min(1, R.trauma + 0.15); }
+      if (!p.hit && h.deadT < 0 && Math.hypot(h.x - p.x, (h.y - p.y) / P.ry) < P.r) { p.hit = 1; hurtHero(S, R, p.dmg, p.x, p.y - 10, 'fire', p.who + ' столб', R.en.find((o) => o.id === p.src)); } }
+    R.pyres = R.pyres.filter((p) => t - p.t0 < P.warn + P.burst); }
+  // a fire priest's cast: a ring under the hero, or (kin) fire on the weapons of the allies nearest it
+  function pyre(S, R, e, E) { e.kinS = 0; const h = R.hero, p = { id: R.nextId++, src: e.id, who: who(e), x: h.x, y: h.y, t0: S.t, dmg: e.dmg * E.pyre.dmg * eliteK(e, 'bolt') };
+    (R.pyres = R.pyres || []).push(p); ev(S, { k: 'pyre', x: p.x, y: p.y, r: E.pyre.r, d: E.pyre.warn, id: p.id, src: e.id }); }
+  const kinOf = (R, e, E) => R.en.filter((o) => o !== e && o.deadT < 0 && !o.summ && !D.BOSSES[o.type] && E.kindle.kinds.includes(ENEMIES[o.type].kind) && o.st !== 'idle' && o.st !== 'lurk'
+    && Math.hypot(o.x - e.x, o.y - e.y) < E.kindle.r).sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y)).slice(0, E.kindle.n);
+  function kindle(S, R, e, E) { const K = E.kindle, to = kinOf(R, e, E); e.kin = 0; e.kinS = 1; e.kinT = S.t + K.every;
+    for (const o of to) o.fireT = S.t + K.t; ev(S, { k: 'kindle', x: e.x, y: e.y - 44, id: e.id, to: to.map((o) => o.id) }); }
   function damageName(src) {
     const type = String(src || '').split(' ')[0], E = ENEMIES[type];
-    if (E) return E.name + (src.includes('элита') ? ' (элита)' : '') + (src.endsWith('снаряд') ? ' · снаряд' : src.endsWith('взрыв') ? ' · взрыв' : '');
+    if (E) return E.name + (src.includes('элита') ? ' (элита)' : '') + (src.endsWith('снаряд') ? ' · снаряд' : src.endsWith('взрыв') ? ' · взрыв' : src.endsWith('столб') ? ' · столб огня' : '');
     return ({ spike: 'Шипы', lava: 'Лава', burn: 'Горение', poison: 'Яд', fire: 'Огонь', vent: 'Жерло', rock: 'Обвал' })[src] || 'Неизвестный источник';
   }
   // the end-of-run reward: gold brought back and a win. Thoroughness is paid on the floor itself, 10 shards for each of its kills,
@@ -604,6 +618,8 @@
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
     if (kind !== 'spike' && src !== 'lava' && rnd(R) * 100 < heroSt(S).dodge + (dashing ? BAL.dodge.dash : 0)) { ev(S, { k: 'dodge', x: h.x, y: h.y, dash: dashing ? 1 : 0 }); return; }
+    // a weapon a fire priest set alight (TASKS 410): a harder blow that sets the hero burning
+    if (actor && actor.fireT > S.t && kind === undefined && !/ (снаряд|взрыв|столб)$/.test(src || '')) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
     const st = heroSt(S), KD = 20 + 12 * dep(R); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : BAL.cap.blow)));
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
@@ -1009,6 +1025,7 @@
       if (up) for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onPlate(e, tr) && t - (e.spikeT ?? -9) > 0.7) {
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (dep(R) - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
     if (m.hazards) stepHazards(S, R);
+    if (R.pyres && R.pyres.length) stepPyres(S, R);
     // water puts the fire out
     if (h.burn > t && inWater(m, h)) { h.burn = 0; ev(S, { k: 'douse', x: h.x, y: h.y }); }
     for (const e of R.en) if (e.deadT < 0 && e.burn > t && !ENEMIES[e.type].ghost && inWater(m, e)) { e.burn = 0; ev(S, { k: 'douse', x: e.x, y: e.y }); }
@@ -1183,8 +1200,9 @@
       if (e.st === 'chase') {
         const reach = E.r + K.R + E.reach;
         if (E.kind === 'boss') { bossThink(S, R, e, d); continue; }
+        if (E.kindle && t >= (e.kinT ?? (e.kinT = t + E.kindle.first)) && kinOf(R, e, E).length) { e.st = 'wind'; e.t0 = t; e.kin = 1; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
         if (E.kind === 'caster') { const los = losClear(m, e.x, e.y - 20, h.x, h.y - 20);
-          if (d < (E.orb ? E.reach : 360) && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
+          if (d < (E.orb || E.pyre ? E.reach : 360) && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
           const c = E.behind && d > 120 ? cover(R, e, h) : null;
           if (!c || !toward(e, E, m, c[0], c[1])) { const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d); } }
         // the archer looses at the hero in sight within its reach; between shots it keeps its distance, backing off from one who comes on
@@ -1203,7 +1221,7 @@
         move(m, e, e.vx * DT, e.vy * DT, E.r, true);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
       } else if (e.st === 'wind') {
-        skid(m, e, E); const w = windOf(e, e.grab ? E.grab.wind : e.rush ? E.rush.wind : E.wind);
+        skid(m, e, E); const w = windOf(e, e.grab ? E.grab.wind : e.rush ? E.rush.wind : e.kin ? E.kindle.wind : E.wind);
         if (E.kind === 'archer' && t - e.t0 < w - E.arrow.lock) aimArrow(m, e, E, h);
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
           if (e.grab) { grab(S, R, e); continue; }
@@ -1214,6 +1232,8 @@
           if (E.kind === 'archer') { const a = e.aimA, A = E.arrow, x0 = e.x + Math.cos(a) * 16, y0 = e.y - ARROW_Y + Math.sin(a) * 16;
             R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'arrow', kind: has(e, 'fiery') ? 'fire' : 'arrow', x: x0, y: y0, vx: Math.cos(a) * A.spd, vy: Math.sin(a) * A.spd, t0: t, life: (E.reach + 60) / A.spd, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: A.r, gz: ARROW_Y - 10 });
             ev(S, { k: 'loose', x: x0, y: y0, a, id: e.id }); }
+          else if (e.kin) kindle(S, R, e, E);
+          else if (E.pyre) pyre(S, R, e, E);
           else if (E.orb) { const a = e.aimA, O = E.orb, x0 = e.x + Math.cos(a) * 22, y0 = e.y - 44;
             R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'orb', kind: 'water', x: x0, y: y0, vx: Math.cos(a) * O.spd, vy: Math.sin(a) * O.spd, t0: t, life: O.life, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: O.r, hitR: 20 + O.r });
             ev(S, { k: 'orb', x: x0, y: y0, id: e.id }); }
@@ -2095,6 +2115,26 @@
         if (farM.hp < farM.max) out.push("a smouldering skeleton's blast hurts a monster out of reach");
         if (!(a4.fuse > S.t - 0.1)) out.push("a smouldering skeleton's blast does not set off another in reach");
         h.ifr = 0; }
+      // the fire priest (TASKS 410): its ring falls where the hero stood, hurts him only after its warning and only if he stays, and
+      // sets him alight; it sets alight the weapon of an ally in the fight near it, whose blows then hit harder and set the hero burning
+      { const P = ENEMIES.fire_priest.pyre, pr = (o) => el([], 220, Object.assign({ type: 'fire_priest', elite: 0, hp: 100, max: 100, dmg: 10, cdT: 0, kinT: 1e9 }, o));
+        for (const stay of [1, 0]) { put(); const p = pr(); let a = h.hp, at = -1, early = 0;
+          for (let i = 0; i < 120 * 3 && h.hp === a; i++) { step(S, { keys: [] }); if (at < 0 && R.pyres.length) { at = S.t; if (!stay) h.x -= 3 * P.r; }
+            if (at >= 0 && S.t - at < P.warn - DT && h.hp < a) early = 1; if (p.st === 'chase' && at >= 0) p.cdT = 1e9; }
+          if (at < 0) { out.push('a fire priest in reach never casts its ring'); break; }
+          if (early) out.push("a fire priest's ring burns before its warning is out");
+          if (stay && !(h.hp < a)) out.push("a fire priest's ring does not hurt the hero standing in it");
+          if (stay && !(h.burn > S.t)) out.push("a fire priest's ring does not set the hero burning");
+          if (!stay && h.hp < a) out.push("a fire priest's ring hurts a hero who stepped out of it"); }
+        put(); h.ifr = 1e9; const p2 = pr({ kinT: S.t, cdT: 1e9 }), ally = el([], 120, { elite: 0, hp: 100, max: 100, dmg: 10, cdT: 1e9, x: p2.x - 60, y: h.y + 40 });
+        for (let i = 0; i < 120 * 2 && !(ally.fireT > S.t); i++) step(S, { keys: [] });
+        if (!(ally.fireT > S.t)) out.push("a fire priest never sets alight an ally's weapon");
+        else { h.ifr = 0; let hurt = [0, 0], burnt = 0;
+          for (const lit of [0, 1]) for (let k = 0; k < 20 && !hurt[lit]; k++) { const keep = ally.fireT; if (!lit) ally.fireT = 0; h.hp = heroSt(S).maxHp; h.burn = 0; h.ifr = 0;
+            hurtHero(S, R, 40, ally.x, ally.y, undefined, who(ally), ally); hurt[lit] = heroSt(S).maxHp - h.hp; if (lit) burnt = h.burn > S.t; ally.fireT = keep; }
+          if (!(hurt[1] > hurt[0] * 1.15)) out.push(`a blow of an ally with its weapon alight is no harder (${hurt[0]} → ${hurt[1]})`);
+          if (!burnt) out.push("a blow of an ally with its weapon alight does not set the hero burning"); }
+        h.ifr = 0; R.pyres = []; }
       // no blow takes more than its cap of the health: the real strike of an elite of every kind (a caster's bolt, the boss's moves)
       // and an explosive corpse's blast, on the first and the last floor
       const f0 = R.floor, first = (secs) => { const mx = heroSt(S).maxHp; let lost = 0;

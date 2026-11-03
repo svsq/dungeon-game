@@ -3,8 +3,9 @@
 // the legs, and swings its arms from pose curves keyed to the attack's own clock; the spider walks eight legs in two alternating sets.
 (function () {
   const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
-  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned', crab: 'crab', skel_archer: 'skel_archer', skel_mage: 'skel_mage', skel_ember: 'skeleton' };   // the ghost bends its one sprite (softbones)
+  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned', crab: 'crab', skel_archer: 'skel_archer', skel_mage: 'skel_mage', skel_ember: 'skeleton', fire_priest: 'cultist' };   // the ghost bends its one sprite (softbones)
   const SKULL_K = { skeleton: 1.3 };
+  MON.wpn = {};
   MON.rigOf = (type) => { const n = RIG[type] || (DATA.BOSSES[type] || {}).rig; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
   const d2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
   const rotP = (p, c, a) => { const dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * Math.cos(a) - dy * Math.sin(a), c[1] + dx * Math.sin(a) + dy * Math.cos(a)]; };
@@ -124,6 +125,11 @@
       J('hip' + side, R2S(g.Hp[0], g.Hp[1]), 'thigh' + side); J('knee' + side, R2S(g.K[0], g.K[1]), 'shin' + side); J('ankle' + side, R2S(g.T[0], g.T[1]), 'foot' + side);
       J('heel' + side, R2S(RG['heel' + side][0] + dT[0], RG['heel' + side][1] + dT[1]), 'foot' + side); J('toe' + side, R2S(RG['toe' + side][0] + dT[0], RG['toe' + side][1] + dT[1]), 'foot' + side);
       J('ground' + side, R2S(gx, RG['foot' + side][1] + tg[side].dz)); J('sh' + side, R2U(A.Sp[0], A.Sp[1]), 'uarm' + side); J('elbow' + side, R2U(A.E[0], A.E[1]), 'farm' + side); J('hand' + side, R2U(A.Hd[0], A.Hd[1]), 'farm' + side); }
+    // where its weapon is (the hand that holds it to the blade's tip, or the fists), for the fire a priest lights on it (TASKS 410)
+    { const sd = o.wSide || 'R', A = arms[sd], hd = R2U(A.Hd[0], A.Hd[1]), it = items[sd], P = (p) => (L.pre ? M.ap(L.pre, p) : p);
+      const ba = RG['blade' + sd] !== undefined ? RG['blade' + sd] + A.r2 : null, bl = 0.3 * RG.h;
+      const tip = it ? [hd[0] + Math.cos(it.sa) * it.th * (1 - it.gr), hd[1] + Math.sin(it.sa) * it.th * (1 - it.gr)] : ba !== null ? R2U(A.Hd[0] + Math.cos(ba) * bl, A.Hd[1] + Math.sin(ba) * bl) : null;
+      MON.wpn[o.id] = tip ? [P(hd), P(tip), 1] : [P(hd), P(R2U(arms[sd === 'L' ? 'R' : 'L'].Hd[0], arms[sd === 'L' ? 'R' : 'L'].Hd[1])), 0]; }
     return { R2U, arms, s, items, head: R2U(...skP(RG.head), hipDy * s), chest: R2U(Hc[0], (Hc[1] + RG.top[1]) / 2, hipDy * s), hip: hipS };
   }
   MON.biped = biped;
@@ -139,6 +145,7 @@
 
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
   // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
+  const STAFF_HEAD = [31, 37];
   function robed(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.foot, fallR = o.fallR || 0, root = [o.x, o.y];
     const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), ph = o.dist / (0.28 * RG.h * s) * TAU;
@@ -146,17 +153,19 @@
     const lean = (o.lean || 0) + sway, rot = fallR + lean, rc = Math.cos(rot), rs = Math.sin(rot), ky = 1 - (o.sink || 0);
     // the robe pivots at the hem's centre: everything above leans with it
     const R2U = (px, py) => { const x = face * (px - gx) * s, y = ((py - gy) * s - bob) * ky; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
-    const part = (nm, pv, at, r, u) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(rot), M.s(face, ky), M.r(r)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u });
+    const tx = o.tex || o.n, part = (nm, pv, at, r, u) => L.sprite(tx + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(rot), M.s(face, ky), M.r(r)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u });
     const swing = run * 0.12 * Math.sin(ph + 1), staffR = (o.staff || 0) + swing * 0.5 + 0.04 * breath;
     const push = o.push || 0, r1 = -swing - 0.06 * breath + lerp(0, (o.aimR ?? 0) - 0.4, push), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push);
     const E = rotP(RG.elbowR, RG.shR, r1), Hd = rotP(rotP(RG.handR, RG.shR, r1), E, r2 - r1), HdL = rotP(RG.handL, RG.shL, staffR);
     part('farmL', RG.shL, R2U(...RG.shL), staffR, o.Ufar);
-    L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, ky)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    L.sprite(tx + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, ky)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
     part('uarmR', RG.shR, R2U(...RG.shR), r1, o.U); part('farmR', RG.elbowR, R2U(...E), r2, o.U);
     const J = (nm, p) => L.joint(o.id, nm, p);
     J('ground', root); J('top', R2U(...RG.top)); J('head', R2U(RG.top[0], RG.top[1] + 0.12 * RG.h)); J('hip', R2U(gx, gy - 0.45 * RG.h));
     J('shL', R2U(...RG.shL)); J('handL', R2U(...HdL)); J('shR', R2U(...RG.shR)); J('elbowR', R2U(...E)); J('handR', R2U(...Hd));
-    return { handR: R2U(...Hd) };
+    // the ring in the staff's forked head (drawing px of the cultist's staff), where the fire priest's flame burns
+    const head = R2U(...rotP(STAFF_HEAD, RG.shL, staffR)); J('staffHead', head);
+    return { handR: R2U(...Hd), staffHead: head };
   }
 
   // ---------------- the spider: eight legs in two alternating sets, knees arched up, seen from the front ----------------
@@ -520,9 +529,12 @@
       const settle = DATA.BOSSES[e.type] && e.st === 'bwind' ? 1 - SS(ew, ew + DATA.bossMove(e).duration, u) : 1;
       base.staff = wind ? -0.35 * SS(0, ew * 0.8, u) * settle : str ? -0.35 * (1 - SS(0.1, 0.32, u)) : 0;
       base.push = wind ? SS(ew - 0.14, ew, u) * settle : str ? 1 - SS(0.08, 0.32, u) : 0; base.aimR = aimRig(e, face, H) - 0.1;
+      // the fire priest (TASKS 410) wears its own crimson; lighting its allies' weapons it raises the staff and its open hand high
+      if (e.type === 'fire_priest') { base.tex = 'priest'; const kw = DATA.windOf(e, E.kindle.wind), kin = live && e.kin && e.st === 'wind' ? SS(0, kw * 0.7, u) : live && e.st === 'strike' && e.kinS ? 1 - SS(0.1, 0.32, u) : 0;
+        if (kin > 0) { base.staff = lerp(base.staff, -0.55, kin); base.push = Math.max(base.push, kin); base.aimR = lerp(base.aimR, -Math.PI / 2 - 0.3, kin); } }
       // the robe sinks onto the hem first (dl s), then the body lies down, half filling out again
       if (!live && o.death && o.death.sink) { const dd = GT - e.deadT, D0 = o.death; base.sink = 0.55 * SS(0, D0.dl, dd) * (1 - 0.5 * SS(D0.dl, D0.dl + D0.dur, dd)); }
-      return robed(base); }
+      const r = robed(base); if (e.type === 'fire_priest' && live) r.priest = 1; return r; }
     if (n === 'brute') {
       const boss = !!DATA.BOSSES[e.type], move = boss ? DATA.bossMove(e) : null, w = move ? move.wind : 0;
       const linked = boss && e.mv === 'charge' && move.next === 'slam';

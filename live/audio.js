@@ -100,6 +100,10 @@
     // a fuse (an explosive corpse, a smouldering skeleton, TASKS 411): a hiss rising to the burst, sputtering ever faster
     fuse: (o, e) => { noise(o, { a: 0.05, d: e.d, v: 0.18, type: 'highpass', f0: 1400, f1: 4200 });
       for (let i = 0, n = Math.round(e.d * 14); i < n; i++) noise(o, { t: now() + e.d * Math.sqrt(i / n), d: 0.02, v: 0.1 + 0.12 * i / n, f0: rr(2000, 4000), q: 5 }); },
+    // the fire priest (TASKS 410): its ring hums up under the hero, the pillar roars out of it; lighting the weapons, a whoosh
+    pyre: (o, e) => { tone(o, { f0: 70, f1: 140, a: e.d * 0.8, d: 0.2, v: 0.25 }); noise(o, { a: e.d * 0.8, d: 0.2, v: 0.16, type: 'bandpass', f0: 300, f1: 1200, q: 2 }); },
+    pillar: (o) => { noise(o, { a: 0.01, d: 0.6, v: 0.5, type: 'lowpass', f0: 2600, f1: 300 }); tone(o, { f0: 90, f1: 45, a: 0.01, d: 0.5, v: 0.4 }); for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.05 + i * rr(0.04, 0.08), d: 0.03, v: 0.15, f0: rr(2000, 4000), q: 5 }); },
+    kindle: (o) => { noise(o, { a: 0.03, d: 0.4, v: 0.3, type: 'bandpass', f0: 400, f1: 1800, q: 1.2 }); noise(o, { t: now() + 0.1, a: 0.02, d: 0.3, v: 0.15, type: 'highpass', f0: 2500, f1: 1500 }); },
     boom: (o) => { noise(o, { a: 0.005, d: 0.8, v: 0.6, type: 'lowpass', f0: 1600, f1: 90 }); tone(o, { f0: 75, f1: 30, d: 0.6, v: 0.6 }); },
     slam: (o, e) => { noise(o, { d: e.big ? 1.0 : 0.5, v: 0.6, type: 'lowpass', f0: 900, f1: 60 }); tone(o, { f0: 60, f1: 25, d: e.big ? 0.9 : 0.45, v: 0.7 }); },
     // the skeleton archer and mage (TASKS 311): the bow's twang and the arrow's hiss, a dull thunk where it breaks on rock; the mage's

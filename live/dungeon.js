@@ -876,8 +876,9 @@
     const doorway = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (at(x + i, y + j) === 1 && !inRoom(x + i, y + j)) return true; return false; };
     const used = new Set(), key = (x, y) => x + ',' + y;
     // the close-set plateaus' boxes reach over the rock between them (TASKS 422), so a cache may be dug inside one: its cells are
-    // the cache's own, kept from whatever the plateau round it places (secOpen while the cache itself is furnished)
-    const secOwn = new Set(plat ? secrets.flatMap((q) => { const r = rooms[q.room], ks = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) ks.push(key(x, y)); return ks; }) : []);
+    // the cache's own, kept from whatever the plateau round it places (secOpen while the cache itself is furnished); its passage
+    // too, or a hall's chest stood in it behind the fake wall (magma seed 4242 f3, TASKS 410)
+    const secOwn = new Set(plat ? secrets.flatMap((q) => { const r = rooms[q.room], ks = q.hide.map((k) => key(k % W, Math.floor(k / W))); for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) ks.push(key(x, y)); return ks; }) : []);
     let secOpen = false;
     const free = (x, y, pad = 0) => { for (let j = -pad; j <= pad; j++) for (let i = -pad; i <= pad; i++) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j)) || (!secOpen && secOwn.has(key(x + i, y + j)))) return false; return true; };
     // bulky props draw wider than their cell: in the shop (one built piece) no two share an edge or a corner; everywhere else
@@ -968,6 +969,7 @@
       else if (kind === 'hall') { for (let i = 0, k = Math.min(n, ri(2, 3)); i < k; i++) plan.push(['slime', anywhere]); }
       if (has('skel_mage') && plan.length < n && kind !== 'line' && R() < 0.4) plan.push(['skel_mage', back]);
       else if (has('skel_archer') && plan.length < n && kind === 'bones' && R() < 0.3) plan.push(['skel_archer', back]);
+      if (has('fire_priest') && plan.length < n - 2 && R() < 0.3) plan.push(['fire_priest', back]);
       if (has('skel_ember') && plan.length < n - 1 && R() < 0.35) for (let i = 0, k = Math.min(n - plan.length - 1, ri(2, 3)); i < k; i++) plan.push(['skel_ember', anywhere]);
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;

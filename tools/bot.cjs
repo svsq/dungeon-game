@@ -8,7 +8,7 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
   for (const f of ['live/data.js', 'live/sim.js', 'live/dungeon.js', 'tools/bot.cjs']) h.update(fs.readFileSync(path.join(__dirname, '..', f)));
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
-const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|взрыв|boss/.test(k) ? 'elite' : 'mob';
+const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
 const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, FLANK = 8, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
@@ -158,19 +158,21 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!dx && !dy) return; const nx = h.x + dx * 28, ny = h.y + dy * 28;
     if (traps.some((tr) => onPl(nx, ny, tr) && !onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.45))) inp.left = inp.right = inp.up = inp.down = 0;
   }
-  // the magma caves' hazards (TASKS 406, data.js HAZ): out of a ring that will burst within its warning (a dash when it is about to),
-  // and no step into one that bursts within the next 0.9 s; a ring keeps its pull a little past its edge
+  // the magma caves' hazards (TASKS 406, data.js HAZ) and a fire priest's rings (TASKS 410): out of a ring that will burst within its
+  // warning (a dash when it is about to), and no step into one that bursts within the next 0.9 s; a ring keeps its pull a little past its edge
   const hazSoon = (t, z) => { const H = D.HAZ[z.k], c = D.hazClock(z, t); return c < H.burst ? 0 : z.per - c; };
-  const hazNear = (z, x, y, pad) => { const H = D.HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r + pad; };
+  const rings = (S, R) => (R.map.hazards || []).map((z) => { const H = D.HAZ[z.k]; return { x: z.x, y: z.y, r: H.r, ry: H.ry, warn: H.warn, soon: hazSoon(S.t, z) }; })
+    .concat((R.pyres || []).map((p) => { const P = D.ENEMIES.fire_priest.pyre; return { x: p.x, y: p.y, r: P.r, ry: P.ry, warn: P.warn, soon: Math.max(0, P.warn - (S.t - p.t0)) }; }));
+  const hazNear = (z, x, y, pad) => Math.hypot(x - z.x, (y - z.y) / z.ry) < z.r + pad;
   function avoidHazards(S, R, h, inp) {
-    const hz = R.map.hazards; if (!hz || !hz.length) return;
-    const under = hz.find((z) => hazNear(z, h.x, h.y, 18) && hazSoon(S.t, z) < D.HAZ[z.k].warn + 0.1);
-    if (under) { const ax = h.x - under.x, ay = (h.y - under.y) / D.HAZ[under.k].ry, d = Math.hypot(ax, ay) || 1;
-      if (hazSoon(S.t, under) < 0.3 && h.cd.dash <= S.t && !inp.keys.includes('Space')) { dash(inp, ax / d || 1, ay / d); return; }
+    const hz = rings(S, R); if (!hz.length) return;
+    const under = hz.find((z) => hazNear(z, h.x, h.y, 18) && z.soon < z.warn + 0.1);
+    if (under) { const ax = h.x - under.x, ay = (h.y - under.y) / under.ry, d = Math.hypot(ax, ay) || 1;
+      if (under.soon < 0.3 && h.cd.dash <= S.t && !inp.keys.includes('Space')) { dash(inp, ax / d || 1, ay / d); return; }
       inp.left = inp.right = inp.up = inp.down = 0; steer(inp, ax / d || 1, ay / d); return; }
     const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); if (!dx && !dy) return;
     const nx = h.x + dx * 30, ny = h.y + dy * 30;
-    if (hz.some((z) => hazNear(z, nx, ny, 12) && !hazNear(z, h.x, h.y, 12) && hazSoon(S.t, z) < 0.9)) inp.left = inp.right = inp.up = inp.down = 0;
+    if (hz.some((z) => hazNear(z, nx, ny, 12) && !hazNear(z, h.x, h.y, 12) && z.soon < 0.9)) inp.left = inp.right = inp.up = inp.down = 0;
   }
   // which way round a crab to go (+1 / −1) while the hero stands within its armour's arc (a little wider, it turns as he goes), else 0
   const armFront = (e) => { const E = D.ENEMIES[e.type]; if (!E.armor || !(P.flank > 0) || ((Math.imul(e.id + 1, 2654435761) ^ seed) >>> 0) % 1000 / 1000 >= P.flank) return 0;
@@ -187,6 +189,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // was picked and dropped on the way round, and the bot circled in the corridor (seed 193, TASKS 227)
     if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && far(focus) < 400)) focus = live.filter((e) => (D.ENEMIES[e.type].kind === 'caster' || D.ENEMIES[e.type].kind === 'archer') && far(e) < 320).sort((a, b) => far(a) - far(b))[0] || null;
       if (focus) tg = focus; }
+    // a fire priest within reach is struck first by all but the novice: left alone it lights the whole pack's weapons (TASKS 410)
+    if (P.haz) { const pr = live.filter((e) => e.type === 'fire_priest' && far(e) < 360).sort((a, b) => far(a) - far(b))[0]; if (pr) tg = pr; }
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
     const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, a = Math.atan2(tg.y - 30 - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - 30 - oy, tg.x - ox);
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));

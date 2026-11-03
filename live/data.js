@@ -34,8 +34,8 @@
     // Their ash, basalt and crust are baked by scene.js MAGMA (TASKS 402); old: the kinds a cave pack fills its halls with
     magma: { name: 'Магмовые пещеры', rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
-      cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember'], old: ['skeleton', 'goblin', 'brute', 'cultist'],
-      from: { cultist: 2, brute: 3, skel_ember: 2 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
+      cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest'], old: ['skeleton', 'goblin', 'brute', 'cultist'],
+      from: { cultist: 2, brute: 3, skel_ember: 2, fire_priest: 2 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -151,6 +151,13 @@
     // hero draws it into pays for it, and one that catches another sets it off
     skel_ember: { name: 'Тлеющий скелет', hp: 18, dmg: 14, spd: 102, r: 13, reach: 24, wind: 0.8, cd: 9, xp: 9, kind: 'bomber', h: 76, blood: 'bone', tex: 'en_skeleton', rim: [1, 0.5, 0.15], tint: [0.85, 0.55, 0.4, 0.8], val: 0.9,
       boom: { r: 92, dmg: 1, mon: 0.35, fuse: 0.8 } },
+    // the fire priest (TASKS 410), the summoner of R-22 in the reference's crimson hood at the altar: keeps behind another monster from
+    // the hero (`behind`, as the skeleton mage) and works two ways. A ring of fire under the hero (`pyre`): the ring glows `warn` s
+    // where he stood when it was cast, then a pillar of fire stands there `burst` s, hurting him once and setting him alight. Every
+    // `kindle.every` s (the first `kindle.first` s into the fight) it sets alight the weapons of up to `n` allies within `r` for `t` s:
+    // their blows ×`dmg` and set the hero burning
+    fire_priest: { name: 'Жрец пламени', hp: 36, dmg: 12, spd: 54, r: 13, reach: 380, wind: 0.6, cd: 3.4, xp: 16, kind: 'caster', h: 84, tex: 'en_cultist', rim: [1, 0.45, 0.15], val: 1, behind: 90,
+      pyre: { r: 54, ry: 0.62, warn: 1.0, burst: 0.45, dmg: 1.1 }, kindle: { every: 8, first: 2.5, r: 280, n: 3, t: 6, dmg: 1.3, wind: 0.7, kinds: ['melee', 'slam', 'lunge', 'crab'] } },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
     boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
