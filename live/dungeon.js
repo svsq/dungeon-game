@@ -991,8 +991,15 @@
       else if (kind === 'hall') { for (let i = 0, k = Math.min(n, ri(2, 3)); i < k; i++) plan.push(['slime', anywhere]); }
       if (has('skel_mage') && plan.length < n && kind !== 'line' && R() < 0.4) plan.push(['skel_mage', back]);
       else if (has('skel_archer') && plan.length < n && kind === 'bones' && R() < 0.3) plan.push(['skel_archer', back]);
-      if (has('fire_priest') && plan.length < n - 2 && R() < 0.3) plan.push(['fire_priest', back]);
-      if (has('skel_ember') && plan.length < n - 1 && R() < 0.35) for (let i = 0, k = Math.min(n - plan.length - 1, ri(2, 3)); i < k; i++) plan.push(['skel_ember', anywhere]);
+      // the magma caves' packs (TASKS 412) take the place of the caves' roles and the old kinds' filling
+      const MP = D.BIOMES[biome].packs && D[D.BIOMES[biome].packs];
+      if (MP) { const opts = Object.values(MP).filter((P) => P.plan[0][0].some(has)); let roll = R() * opts.reduce((a, P) => a + P.w, 0), P = opts[opts.length - 1];
+        for (const o of opts) if ((roll -= o.w) < 0) { P = o; break; }
+        const W2 = { near, back, any: anywhere }; plan.length = 0;
+        for (const [kinds, [lo, hi], where] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where]]); }
+        const own = P.plan[0][1][0], last = P.plan[P.plan.length - 1], lk = last[0].filter(has);
+        while (plan.length < n && lk.length) plan.push([pick(lk), W2[last[2]]]);
+        if (plan.length > n) plan.length = Math.max(n, own); }
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;
       for (const [type0, where] of plan) { let type = type0, p = null;
