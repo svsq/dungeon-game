@@ -2316,8 +2316,17 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck());
+    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), lootLevelCheck());
   }
+  // a run of its own (the caves, the magma caves) finds, is sold and is given items at about its hero's level on its first floor:
+  // the magma caves' loot over their depth once made them 10 levels over him and the run a walk (TASKS 424)
+  function lootLevelCheck() {
+    const out = [];
+    for (const mode of Object.keys(D.RUNS)) { const M = D.RUNS[mode]; if (!M.lvl || M.lvl < 2 || M.endless) continue;
+      const S = spawn(0, {}), R = newRun(S, mode, 7); enterFloor(S, R, 1); const lv = rollItem(R, dep(R)).lvl, sh = R.shop.goods.filter((g) => BASES[g.it.b]).map((g) => g.it.lvl);
+      if (Math.abs(lv - M.lvl) > 3) out.push(`${mode}: a 1st floor's item is level ${lv} for a hero of level ${M.lvl}`);
+      if (sh.some((l) => Math.abs(l - M.lvl) > 3)) out.push(`${mode}: the 1st floor's merchant sells items of level ${Math.min(...sh)}–${Math.max(...sh)} for a hero of level ${M.lvl}`); }
+    return out; }
   // the magma floors' types (TASKS 426, 427): a run's floors never take one type twice running and every type turns up; a lake floor
   // has islands in its lake, a hoard on one, no start, stairs or merchant on one and no cache dug in the lake
   function floorTypeCheck() {

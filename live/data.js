@@ -293,7 +293,9 @@
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
     // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); laid out as plateaus
     // (TASKS 400) on maps a size up from the caves', the 4th a plateau floor of the 3rd caves' size with the forge lord until his arena (413)
-    magma: { name: 'Магмовые пещеры', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 12,
+    // loot: +2 over the depth (13–16) puts its items at the hero's level, as the caves' +3 does (TASKS 424: +12 made them level 25–28,
+    // a legendary of 25 on the 1st floor, and the run a walk)
+    magma: { name: 'Магмовые пещеры', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 2,
       kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: 'Сначала одолейте хозяина магмы' },
   };
   // the endless descent (R-05, TASKS 348–349; a test button in the menu for now, after the serpent later, TASKS 354): no last floor.
