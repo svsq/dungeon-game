@@ -183,8 +183,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float dull = smoothstep(0.38, 0.58, fbm(p / 45.0 + 5.0));
   float seam = (v.y - v.x) * 14.0 * (0.85 + 0.6 * dull), id = v.z, beat = 0.5 + 0.5 * sin(u_t * 0.9 + id * 6.2831);
   vec3 Y = vec3(1.0, 0.74, 0.24), YO = vec3(1.0, 0.44, 0.07), O1 = vec3(0.99, 0.24, 0.045), O2 = vec3(0.98, 0.15, 0.035), Rd = vec3(0.8, 0.065, 0.03), Dk = vec3(0.5, 0.045, 0.025);
-  vec3 col = id < 0.45 ? O2 : id < 0.82 ? O1 : Rd;
-  if (v.x * 30.0 < 7.0 && hash(vec2(id, 1.7)) < 0.3) col = Dk;
+  vec3 col = id < 0.4 ? O2 : id < 0.74 ? O1 : Rd;
+  if (v.x * 30.0 < 8.0 && hash(vec2(id, 1.7)) < 0.42) col = Dk;
   if (hash(floor(w / 2.0) + id) < 0.05 && seam > 3.0) col = Dk;
   if (still > 0.5 && hash(vec2(id, 4.1)) < 0.07) col = seam > 3.0 ? vec3(0.4, 0.06, 0.03) : col;
   col = seam < 0.7 + 0.5 * beat ? Y : seam < 1.8 ? YO : seam < 3.5 ? mix(col, O1, 0.6) : col;
@@ -199,18 +199,25 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
       if (a > 0.32 && a < 0.62) for (int j = 0; j < 5; j++) { float k = float(j), an = 6.2831 * hash(vec2(k, hb)), s = (a - 0.32) / 0.3;
         vec2 dp = c + vec2(cos(an), 0.6 * sin(an)) * (6.0 + 16.0 * s) - vec2(0.0, sin(s * 3.14159) * (10.0 + 10.0 * hash(vec2(hb, k))));
         if (abs(w.x - dp.x) < 1.5 && abs(w.y - dp.y) < 1.5) col = Y; } } }
-  // the crust: black glass plates, dull seams; a weight widens them and turns them yellow, flashing as it gives; then it melts
-  if (texture(u_crust, w / u_map).r > 0.3) { float ck = 0.0, mt = 0.0;
+  // the crust (TASKS 419): the flat tops of sunken basalt columns, as the ref's ways across the lava are, packed hexagons with a lit
+  // upper rim, a dark lower one and dull red seams between; a weight widens the seams and turns them yellow, flashing as it gives;
+  // then it melts. Only its seams glow; the light lights its tops, so it reads as rock, not as a grey film over the lava
+  float cm = texture(u_crust, w / u_map).r, seamC = 0.0, crustOn = 0.0;
+  if (cm > 0.3) { float ck = 0.0, mt = 0.0; crustOn = 1.0;
     for (int i = 0; i < 8; i++) { vec2 q = abs(w - u_melt[i].xy); float c = step(q.x, 18.0) * step(q.y, 18.0); ck = max(ck, c * u_melt[i].z); mt = max(mt, c * u_melt[i].w); }
-    vec3 cv = vor(w / 16.0 + 2.0, 0.0); float cs = (cv.y - cv.x) * 8.0, warn = smoothstep(0.35, 1.0, ck), flash = step(0.5, fract(u_t * 5.0)) * step(0.75, ck);
-    vec3 cc = mix(vec3(0.11, 0.085, 0.08), vec3(0.17, 0.13, 0.12), step(0.5, cv.z)) + vec3(0.3, 0.06, 0.02) * warn;
-    if (cv.x * 16.0 < 2.5 && cv.z < 0.6) cc = vec3(0.26, 0.22, 0.21);
-    cc = cs < 1.0 + 2.5 * warn ? mix(vec3(0.42, 0.08, 0.03), mix(YO, Y, flash), warn) : cc;
-    col = mix(cc, col, mt); }
+    vec2 hp = vec2(w.x, w.y * 1.4) / 17.0, hs = vec2(1.0, 1.7320508), ha = mod(hp, hs) - hs * 0.5, hb = mod(hp - hs * 0.5, hs) - hs * 0.5;
+    vec2 gv = dot(ha, ha) < dot(hb, hb) ? ha : hb, hid = hp - gv; float hd = max(dot(abs(gv), vec2(0.5, 0.8660254)), abs(gv.x));
+    float warn = smoothstep(0.35, 1.0, ck), flash = step(0.5, fract(u_t * 5.0)) * step(0.75, ck);
+    vec3 cc = vec3(0.22, 0.2, 0.24) * (0.75 + 0.4 * hash(hid)) + vec3(0.25, 0.05, 0.02) * warn;
+    if (hd > 0.4) cc = gv.y < 0.0 && gv.x < 0.25 ? vec3(0.36, 0.33, 0.36) : vec3(0.04, 0.032, 0.036);
+    if (hd > 0.47 - 0.08 * warn) { cc = mix(vec3(0.5, 0.09, 0.03), mix(YO, Y, flash), warn); seamC = 1.0; }
+    if (cm < 0.38) { cc = vec3(0.02, 0.016, 0.02); seamC = 0.0; }
+    col = mix(cc, col, mt); seamC = max(seamC, mt); crustOn = 1.0 - mt; }
   // the glow over the lit frame is an even haze with no seams in it: it is added over whoever stands in front of the lava too,
   // and its pattern laid over the hero read as the lava showing through him
   if (u_mode < 0.5) o = vec4(col * inside * 0.7, inside);
-  else if (u_mode < 1.5) o = vec4(vec3(1.0, 0.36, 0.08) * 0.16 * smoothstep(0.0, 10.0, d) * texture(u_seen, w / u_map).r, 0.0);
+  else if (u_mode < 1.5) o = vec4(vec3(1.0, 0.36, 0.08) * 0.16 * smoothstep(0.0, 10.0, d) * (1.0 - crustOn) * texture(u_seen, w / u_map).r, 0.0);
+  else if (crustOn > 0.5 && seamC < 0.5) discard;
   else o = vec4(col * inside * 0.56, inside); }`;
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
