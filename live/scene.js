@@ -161,7 +161,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   // crust (TASKS 401) is black glass split by dull red seams; under a weight they widen and go yellow, flashing as it gives.
   // Same uniforms and modes as LAVA; on the art grid
   const MLAVA = `
-uniform sampler2D u_mask, u_seen, u_crust; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode, u_scorch; uniform vec4 u_melt[8];
+uniform sampler2D u_mask, u_seen, u_crust, u_face; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode, u_scorch; uniform vec4 u_melt[8];
 vec3 vor(vec2 p, float wob){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0, id = 0.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(x, y), o = vec2(hash(i + g), hash(i + g + 7.7));
     o = 0.5 + 0.4 * sin(wob + 6.2831 * o); float dd = length(g + o - f);
@@ -171,6 +171,8 @@ float mAt(vec2 p){ return textureLod(u_mask, p / u_map, 0.0).r; }
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2;
   if (e < 0.2) discard;
+  vec2 fc = textureLod(u_face, vec2(w.x / u_map.x, 1.0 - w.y / u_map.y), 0.0).rg;   // the bake's columns stand here (TASKS 418)
+  if (fc.r > 0.5) discard;
   float g = length(vec2(mAt(w + vec2(2.0, 0.0)) - mAt(w - vec2(2.0, 0.0)), mAt(w + vec2(0.0, 2.0)) - mAt(w - vec2(0.0, 2.0)))) / 4.0;
   float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d);
   vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;
@@ -187,6 +189,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   if (still > 0.5 && hash(vec2(id, 4.1)) < 0.07) col = seam > 3.0 ? vec3(0.4, 0.06, 0.03) : col;
   col = seam < 0.7 + 0.5 * beat ? Y : seam < 1.8 ? YO : seam < 3.5 ? mix(col, O1, 0.6) : col;
   col = d < 2.0 ? vec3(1.0, 0.92, 0.55) : d < 5.0 ? YO : col;
+  // at a column's foot: a hot line where it meets the lava, then its shadow, the lava dark red and cooling
+  col = fc.g > 0.84 ? YO : fc.g > 0.0 ? mix(col, Dk * 0.8, 0.7 * smoothstep(0.0, 0.5, fc.g)) : col;
   // a lake's bubbles: one in some cells of a 48 px grid, swelling to a dome with a hot rim, bursting in a ring and a spray of drops
   if (still > 0.5 && d > 12.0) { vec2 gc = floor(w / 48.0), c = (gc + 0.25 + 0.5 * vec2(hash(gc + 1.3), hash(gc + 2.9))) * 48.0; float hb = hash(gc + 0.7);
     if (hb < 0.45) { float P = 2.6 + 3.0 * hash(gc + 5.1), a = fract(u_t / P + hb * 7.0), r = length((w - c) * vec2(1.0, 1.4));
@@ -300,16 +304,19 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   o = vec4(col, 1.0); }`;
   // the magma caves' floor map (TASKS 402), the cave bake's way on the art grid: plateaus of ash and basalt over the lava and the
   // chasm. Only the top rows are a rock wall (u_cliff), with the cave's face and column tops; every other rock is the chasm, darkness
-  // with the lava's glow coming up from below, not a rock top. A plateau shows a low face of basalt columns (10–15 px) wherever it
-  // stands over the lava or the chasm; over the chasm the columns run on down into the dark. Soot and ash gather by the edges, the
-  // ground cracks hot by the lava. lavaAt is the lava shader's own bank (LAVA), so the two meet
+  // with the lava's glow coming up from below, not a rock top. Soot and ash gather by the edges, the ground cracks hot by the lava.
+  // A plateau's edge is a row of basalt columns as in ref_cave_lava (TASKS 418): round tops along its south and north edges, and
+  // under the south ones their faces, 20–32 px, standing on the lava or running down into the chasm. A face covers the lava below
+  // the edge (where the hero can't go), never the plateau, the crust or a crossing, and leaves a narrow river most of its width.
+  // u_out 1 writes the columns' mask for the lava shader (R: a column, G: the lava at a face's foot). lavaAt is the lava shader's
+  // own bank (LAVA), so the two meet
   const MAGMA_EDGE = CAVE_EDGE + `
 uniform sampler2D u_cliff, u_lava;
 float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2; }
 bool isWall(vec2 p){ return textureLod(u_cliff, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.5 > 0.5; }
 `;
   const MAGMA = MAGMA_EDGE + `
-uniform sampler2D u_floor, u_wall, u_top, u_shore, u_far; uniform float u_lift;
+uniform sampler2D u_floor, u_wall, u_top, u_shore, u_far, u_hot, u_crust, u_plat, u_lake; uniform float u_lift, u_out;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 float lum(vec3 c){ return clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.04) / 0.4, 0.0, 1.0); }
 vec3 ramp(float t, vec3 lo, vec3 mid, vec3 hi){ return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
@@ -319,50 +326,109 @@ vec3 gFloor(vec2 p){ vec3 a = tx(u_floor, p * 2.0); float t = lum(a);
 vec3 gCol(vec2 p){ return ramp(lum(tx(u_wall, vec2(p.x * 1.4, p.y * 0.55))), vec3(0.022, 0.021, 0.022), vec3(0.15, 0.143, 0.14), vec3(0.36, 0.34, 0.33)); }
 vec3 gTop(vec2 p){ return ramp(lum(tx(u_top, p)), vec3(0.012, 0.011, 0.012), vec3(0.075, 0.07, 0.068), vec3(0.19, 0.18, 0.175)); }
 vec3 gCrust(vec2 p){ return ramp(lum(tx(u_shore, p)), vec3(0.03, 0.02, 0.02), vec3(0.11, 0.095, 0.09), vec3(0.26, 0.24, 0.23)); }
-void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w), la = lavaAt(w), far = textureLod(u_far, w / u_map, 0.0).r; vec3 col;
+const float CW = 30.0;
+bool plat(vec2 p){ return isOpen(p) && lavaAt(p) <= 0.5 && textureLod(u_plat, p / u_map, 0.0).r > 0.3; }   // not the sliver the open mask's noise leaves past a lava cell
+// what a column may stand over: the open lava (not the crust, not under a crossing) or the chasm
+bool drop(vec2 p){ if (isWall(p)) return false; if (!isOpen(p)) return true;
+  return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
+bool dropRaw(vec2 p){ return textureLod(u_plat, p / u_map, 0.0).r < 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3 && textureLod(u_cliff, p / u_map, 0.0).r < 0.5; }
+// the south-edge column over w's x: (its centre x, its top's centre y, its face's height, 1 over the lava); y 0 when there is none
+vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y + 12.0;
+  if (plat(vec2(cx, y0))) return vec4(cx, 0.0, 0.0, 0.0);
+  float ey = -1.0;
+  for (int k = 1; k <= 44; k++) { float y = y0 - float(k) * 2.0; if (plat(vec2(cx, y))) { ey = y + 1.0; break; } }
+  if (ey < 0.0 || !drop(vec2(cx, ey + 1.0))) return vec4(cx, 0.0, 0.0, 0.0);
+  float run = 0.0; for (int k = 1; k <= 40; k++) { if (!dropRaw(vec2(cx, ey + float(k) * 2.0 - 1.0))) break; run = float(k) * 2.0; }
+  float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 40.0 + floor(hash(vec2(i, 3.1)) * 13.0) * 2.0 + (1.0 - lava) * 24.0;
+  float h = min(hgt, run - (lava > 0.5 ? 16.0 : 4.0)); if (h < 8.0) h = 0.0;
+  float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0;
+  return vec4(cx, ty, h, step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava
+// the north-edge column's top over w's x (the edge's far side shows only the tops)
+vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
+  if (plat(vec2(cx, w.y - 10.0))) return vec4(cx, 0.0, 0.0, 0.0);
+  for (int k = 0; k <= 10; k++) { float y = w.y - 10.0 + float(k) * 2.0; if (plat(vec2(cx, y))) {
+    if (!drop(vec2(cx, y - 2.0))) break; return vec4(cx, y + 3.0 + floor(hash(vec2(i, 6.7)) * 2.0) * 2.0, 0.0, 0.0); } }
+  return vec4(cx, 0.0, 0.0, 0.0); }
+// where w falls on a column (half width hw): 0 off it, 1 its top, 2 its face; f: across, down the face 0..1
+float colAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx / hw; f = vec2(xx, 0.0);
+  if (c.y <= 0.0 || abs(xx) > hw) return 0.0;
+  float ry = (w.y - c.y) / 8.0; if (ex * ex + ry * ry < 1.0) return 1.0;
+  if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z) { f.y = (w.y - c.y) / c.z; return 2.0; }
+  return 0.0; }
+// a cluster of 3–6 columns standing in a lake, one in some cells of a 112×96 grid, only where the lava round it is deep: no bank,
+// crust, crossing or source near (u_lake). The front-most column under w wins; foot: w is in the lava just under one
+float island(vec2 w, out vec4 c, out vec2 f, out float foot){ foot = 0.0;
+  vec2 g = floor(w / vec2(128.0, 112.0)); if (hash(g + 11.1) > 0.75) return 0.0;
+  vec2 ctr = floor((g * vec2(128.0, 112.0) + vec2(44.0 + 40.0 * hash(g + 2.2), 26.0 + 8.0 * hash(g + 3.3))) / 2.0) * 2.0 + 1.0;
+  if (textureLod(u_lake, ctr / u_map, 0.0).r < 0.5) return 0.0;
+  float n = 3.0 + floor(hash(g + 4.4) * 4.0), on = 0.0, by = -1e9;
+  for (int j = 0; j < 6; j++) { if (float(j) >= n) break; float fj = float(j);
+    vec4 cj = vec4(floor((ctr.x + (hash(g + fj * 1.7 + 5.5) - 0.5) * 60.0) / 2.0) * 2.0 + 1.0, floor((ctr.y + (hash(g + fj * 2.3 + 6.6) - 0.5) * 26.0) / 2.0) * 2.0 + 1.0,
+      20.0 + floor(hash(g + fj * 3.1) * 14.0) * 2.0, 1.0);
+    vec2 ff; float k = colAt(w, cj, ff, 13.0);
+    if (k > 0.5 && cj.y + cj.z > by) { by = cj.y + cj.z; on = k; c = cj; f = ff; }
+    if (abs(w.x - cj.x) <= 13.0 && w.y >= cj.y + cj.z) foot = max(foot, clamp(1.0 - (w.y - cj.y - cj.z) / 12.0, 0.0, 1.0)); }
+  return on; }
+vec3 capCol(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), xx = (w.x - c.x) / hw, yy = (w.y - c.y) / 8.0, r = xx * xx + yy * yy;
+  vec3 col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * id) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + id * 9.0)));
+  if (r > 0.64) col = yy < 0.2 && xx < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03);
+  else if (yy > 0.15 && xx > 0.05) col *= 0.72;
+  return col; }
+// a face: a lit left facet, a duller middle, a dark right and the ink between columns, rough with vertical streaks and a few
+// joints; over the lava its lower part glows orange in steps, over the chasm it fades into the dark
+vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx = f.x / hw, fq = floor(f.y * 7.0) / 7.0;
+  float t = xx < -0.82 ? 1.25 : xx < -0.27 ? 1.0 : xx < 0.27 ? 0.72 : xx < 0.82 ? 0.48 : 0.1;
+  float streak = vnoise(vec2(w.x / 3.0 + id * 17.0, w.y / 26.0)), grain = step(0.62, vnoise(w / 4.0 + id * 5.0));
+  vec3 col = vec3(0.1, 0.092, 0.11) * t * (streak < 0.3 ? 0.55 : streak > 0.72 ? 1.25 : 1.0) * (1.0 + 0.25 * grain) * (1.1 - 0.4 * fq);
+  if (hash(vec2(id, floor((w.y - c.y) / 2.0))) < 0.04 && xx < 0.82) col *= 0.3;
+  if (c.w > 0.5) { float g = smoothstep(0.25, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
+    col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.85, 0.3, 0.06), step(0.8, fq) * step(xx, 0.27)), g * 0.85); }
+  else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
+  return col; }
+void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
+  // the columns: the edge's only near a plateau (the floor mask over the few cells above), else a lake's
+  float nearP = 0.0; for (int k = 0; k <= 6; k++) nearP = max(nearP, textureLod(u_plat, (w - vec2(0.0, float(k) * 16.0)) / u_map, 0.0).r);
+  vec4 c = vec4(0.0); vec2 f = vec2(0.0); float on = 0.0, hw = CW * 0.5, foot = 0.0;
+  if (nearP > 0.02) { c = column(w); on = colAt(w, c, f, hw);
+    if (on < 0.5) { vec4 n = northTop(w); if (colAt(w, n, f, hw) > 0.5) { c = n; on = 1.0; } }
+    if (on < 0.5 && c.y > 0.0 && c.z > 0.0 && c.w > 0.5 && abs(w.x - c.x) <= hw && w.y >= c.y + c.z) foot = clamp(1.0 - (w.y - c.y - c.z) / 12.0, 0.0, 1.0); }
+  else { on = island(w, c, f, foot); if (on > 0.5) hw = 13.0; }
+  if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, 0.0, 1.0); return; }
+  float op = openAt(w), la = lavaAt(w), far = textureLod(u_far, w / u_map, 0.0).r; vec3 col;
   if (op > 0.47 && la <= 0.5) {
     col = gFloor(w);
     // soot and ash: the ground darkens toward a drop or the lava and greys with ash flecks there
     float edge = 1.0 - smoothstep(0.47, 0.72, op), hotEdge = smoothstep(0.18, 0.5, la), ash = hash(floor(w / 2.0) + 0.37);
     col *= 1.0 - 0.45 * max(edge, hotEdge) * (0.6 + 0.4 * fbm(w / 11.0));
     if (ash > 0.985 - 0.06 * max(edge, hotEdge)) col = mix(col, vec3(0.42, 0.4, 0.39), 0.7);
-    // cooled crust along the lava's bank, cracked through with a hot seam here and there
+    // cooled crust along the lava's bank
     if (la > 0.3) { col = mix(col, gCrust(w + 53.0), smoothstep(0.3, 0.42, la)); }
     // the ground by the lava cracks hot: thin seams from a noise field's contours, densest at the bank, dull red further off
     float near = smoothstep(0.08, 0.45, far), cr = abs(vnoise(w / 15.0 + 4.0) - 0.5) + 0.025 * (vnoise(w / 3.0) - 0.5);
     if (near > 0.0 && cr < 0.05 * near && step(0.42, fbm(w / 37.0 + 2.0)) > 0.5) col = mix(vec3(0.36, 0.06, 0.02), vec3(1.0, 0.42, 0.07), smoothstep(0.35, 0.95, near) * step(cr, 0.02 * near));
-    // the plateau's low face where it stands over the lava or the chasm: basalt columns with a pale lip, dark at the foot; over
-    // the lava its foot takes the glow
-    float hl = 10.0 + 5.0 * vnoise(vec2(w.x / 23.0, 9.0)), ld = 99.0; bool overLava = false;
-    for (int k = 1; k <= 8; k++) { float d = float(k) * 2.0; if (d > hl) break; vec2 q = w + vec2(0.0, d); if (isLow(q)) { ld = d; overLava = lavaAt(q) > 0.5; break; } }
-    if (ld < 99.0) { float h = ld / hl; col = gCol(w) * (0.55 + 0.6 * h);
-      if (hl - ld < 2.5) col = col * 1.5 + 0.04;
-      if (ld < 2.5) col = overLava ? mix(col, vec3(0.55, 0.13, 0.03), 0.6) : col * 0.4;
-      else if (overLava && ld < 6.5) col = mix(col, vec3(0.3, 0.07, 0.02), 0.35); }
     // a lit lip on a north edge over the drop, and the contact shadow under the back wall
-    else if (isLow(w - vec2(0.0, 2.0))) col = col * 1.35 + 0.03;
+    if (isLow(w - vec2(0.0, 2.0))) col = col * 1.35 + 0.03;
     float under = 0.0;
     for (int k = 1; k <= 6; k++) if (isWall(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.7 + 0.3 * smoothstep(0.47, 0.9, op)) * (1.0 - 0.5 * under);
   } else if (op > 0.47) col = gCrust(w + 53.0) * 0.6;
   else if (isWall(w)) {
-    float hf = faceH(w.x), fd = 99.0; bool drop = false;
-    for (int k = 1; k <= 20; k++) { float d = float(k) * 2.0; if (d > hf) break; vec2 q = w + vec2(0.0, d); if (!isWall(q)) { fd = d; drop = !isOpen(q); break; } }
+    float hf = faceH(w.x), fd = 99.0; bool down = false;
+    for (int k = 1; k <= 20; k++) { float d = float(k) * 2.0; if (d > hf) break; vec2 q = w + vec2(0.0, d); if (!isWall(q)) { fd = d; down = !isOpen(q); break; } }
     if (fd < 99.0) { float h = fd / hf; col = gCol(w) * (0.55 + 0.65 * h * h);
       if (hf - fd < 2.5) col = col * 1.5 + 0.04;
-      if (fd < 2.5) col *= drop ? 0.25 : 0.45;
-      if (drop) col *= 0.35 + 0.65 * smoothstep(0.0, hf, fd); }
+      if (fd < 2.5) col *= down ? 0.25 : 0.45;
+      if (down) col *= 0.35 + 0.65 * smoothstep(0.0, hf, fd); }
     else { col = gTop(w + 91.0) * u_lift;
       if (!isWall(w - vec2(2.0, 0.0)) || !isWall(w + vec2(2.0, 0.0)) || !isWall(w - vec2(0.0, 2.0))) col = vec3(0.018, 0.016, 0.017);
       else if (!isWall(w - vec2(4.0, 0.0)) || !isWall(w - vec2(0.0, 4.0))) col = col * 1.6 + 0.03; }
   } else {
-    // the chasm: under a plateau's face its columns run on down, fading into the dark; past them a deep red glow where the lava is
-    float dn = 99.0; for (int k = 1; k <= 14; k++) { float d = float(k) * 2.0; vec2 q = w - vec2(0.0, d); if (isOpen(q) || isWall(q)) { dn = d; break; } }
+    // the chasm: darkness, a deep red glow coming up where the lava is
     col = vec3(0.006, 0.005, 0.006);
-    if (dn < 99.0) col = max(col, gCol(w) * 0.55 * pow(1.0 - dn / 30.0, 2.0));
     float glow = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0));
     col += vec3(0.32, 0.06, 0.015) * glow * glow;
   }
+  if (on > 1.5) col = faceCol(w, c, f, hw); else if (on > 0.5) col = capCol(w, c, hw);
   o = vec4(col, 1.0); }`;
   // a cave's water (TASKS 304): deep water the style bible's dark teal and nearly opaque, shallows clear over the pebbled bed the
   // bake lays under them, darker as they deepen; foam flecks along the bank, a wet rim on the stone. Streams carry streaks down
@@ -514,7 +580,7 @@ void main(){ vec2 p = floor(v_uv * vec2(48.0, 64.0) / 2.0) * 2.0 + 1.0 - vec2(24
     if (length(p - drop) < 1.5 && age < 0.85) { col = vec3(0.4, 0.52, 0.5); a = 0.85; } }
   if (a == 0.0) discard; o = vec4(col * a, a); }`;
   const LIT = `
-uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins, u_water, u_heat; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam, u_cave, u_haze;
+uniform sampler2D u_src, u_light, u_seen, u_void, u_top, u_veins, u_water, u_heat, u_face; uniform vec2 u_cam, u_map; uniform vec3 u_rock, u_amb; uniform vec4 u_vein; uniform float u_seam, u_cave, u_haze;
 // the abyss is black (TASKS 187): the concept's rock past the masonry is a flat near-black, its veins only in the fire depths, faint,
 // and only by the explored masonry and lava (u_veins), so the fog gives nothing of the layout away
 vec3 abyss(vec2 p, vec2 w){ vec2 q = p / 150.0; vec3 c = u_rock;
@@ -529,7 +595,7 @@ float rimAt(vec2 bq){ float vd = texture(u_void, bq / u_map).r;
 // the air over the magma caves' lava shimmers (TASKS 403): rows of the world over it slip an art pixel aside and back in patches
 // drifting upward, only over the open lava (not its banks, where an actor stands sliced by it); the HUD is drawn after this pass
 vec2 haze(vec2 px){ if (u_haze < 0.5) return px; vec2 wv = px + u_cam;
-  float hz = smoothstep(0.55, 0.9, texture(u_heat, (wv + vec2(0.0, 6.0)) / u_map).r) * step(0.6, vnoise(vec2(wv.x / 70.0, wv.y / 22.0 + u_t * 0.9)));
+  float hz = smoothstep(0.55, 0.9, texture(u_heat, (wv + vec2(0.0, 6.0)) / u_map).r) * (1.0 - textureLod(u_face, vec2(wv.x / u_map.x, 1.0 - wv.y / u_map.y), 0.0).r) * step(0.6, vnoise(vec2(wv.x / 70.0, wv.y / 22.0 + u_t * 0.9)));
   float row = floor(wv.y / 2.0), sh = floor(sin(row * 0.55 + u_t * 4.0 + vnoise(wv / 40.0) * 5.0) * 1.4 + 0.5);
   return px + vec2(2.0 * sh * hz, 0.0); }
 void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = src.rgb, l = texture(u_light, scr(hp)).rgb; float em = clamp(1.0 - src.a, 0.0, 1.0);
@@ -622,14 +688,17 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
       BAKE.tg = G.target(MW, MH, false);
       const cv = document.createElement('canvas'); cv.width = cv.height = 1; const rec = G.canvasTex('map', cv); rec.t = BAKE.tg.t; rec.w = MW; rec.h = MH; }
+    if (m.cliff) { if (!BAKE.face || BAKE.face.vw !== MW || BAKE.face.vh !== MH) { G.free(BAKE.face); BAKE.face = G.target(MW / 2, MH / 2, false, { view: [MW, MH], nearest: true }); }   // on the art grid: a quarter of the bake's memory
+      BAKE.mg = { u_open: openTex(m), u_water: waterTex(m), u_wet: 0, u_lift: TOP_LIFT, u_map: [MW, MH], u_cliff: cliffTex(m), u_lava: lavaTex(m), u_far: lavaFarTex(m),
+        u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
+      G.bind(BAKE.face, [0, 0, 0, 1]); G.blend('none'); G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 1 }), G.xf(0, 0, MW, MH)); }
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
     const hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
     const dark = (x, y, w, h, a) => L.solid(x, y, w, h, [0.01, 0.01, 0.015], 0, 0, 0, a);
-    if (m.cliff) G.draw(L.P.magma, { u_open: openTex(m), u_water: waterTex(m), u_wet: 0, u_lift: TOP_LIFT, u_map: [MW, MH], u_cliff: cliffTex(m), u_lava: lavaTex(m), u_far: lavaFarTex(m),
-      u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) }, G.xf(0, 0, MW, MH));
+    if (m.cliff) G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 0 }), G.xf(0, 0, MW, MH));
     else if (B.cave) G.draw(L.P.cave, { u_open: openTex(m), u_water: waterTex(m), u_wet: m.water.length || m.deep ? 1 : 0, u_lift: TOP_LIFT, u_map: [MW, MH],
       u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) }, G.xf(0, 0, MW, MH));
     else masonry();
@@ -739,6 +808,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const cliffTex = (m) => maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && SIM.cell(m, x, y) === 0), null, 1);
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
   const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.cell(m, x, y) === 3, null, 8);
+  // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
+  const platTex = (m) => maskTex(m, 'plat', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 3 && v !== 4; }, null, 1);
+  // deep in a lake, where a cluster of columns may stand (TASKS 418): the cell and those round it and two below it open lava, no
+  // crust, crossing or source within a few cells
+  const lakeTex = (m) => { const cr = new Set(m.crust || []), un = lavaUnder(m), src = m.lavaFeatures || [];
+    const hot = (x, y) => SIM.cell(m, x, y) === 3 && !cr.has(y * m.W + x) && !un.has(y * m.W + x);
+    return maskTex(m, 'lake', (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 1; i++) if (!hot(x + i, y + j)) return false;
+      return !src.some((q) => Math.abs(Math.floor(q.x / TILE) - x) <= 3 && Math.abs(Math.floor(q.y / TILE) - y) <= 3); }, null, 0); };
   const crustTex = (m) => { const c = new Set(m.crust || []); return maskTex(m, 'crust', (x, y) => c.has(y * m.W + x), null, 1); };
   // the plateaus' chasm is no rock top: the lava's light reaches down into it (TASKS 402)
   const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] || SIM.chasm(m, x, y) ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
@@ -1499,7 +1576,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const [x, y, ck, mt] of melt) if (ck > 0.3) TL.push([x, y, 70 + 50 * mt, [1, 0.45, 0.12], 0.25 * ck + 0.35 * mt]);
     while (melt.length < 8) melt.push([-1e4, -1e4, 0, 0, 0]);
     // lava is ground (anyone can stand in it now, so it draws under them); its own short strong lights keep it glowing after lighting
-    let lavaXf = null; const lavaU = (mode) => ({ u_t: t, u_mask: mode === 1 && m.lavaUnder && m.lavaUnder.length ? lavaGlowTex(m) : lavaTex(m), u_crust: crustTex(m), u_melt: melt.flatMap((q) => q.slice(0, 4)), u_seen: seen, u_box: lavaBox, u_map: [MW, MH], u_mode: mode, u_scorch: m.cliff ? 0 : 1 });
+    let lavaXf = null; const lavaU = (mode) => ({ u_t: t, u_mask: mode === 1 && m.lavaUnder && m.lavaUnder.length ? lavaGlowTex(m) : lavaTex(m), u_crust: crustTex(m), u_melt: melt.flatMap((q) => q.slice(0, 4)), u_seen: seen, u_box: lavaBox, u_map: [MW, MH], u_mode: mode, u_scorch: m.cliff ? 0 : 1, u_face: BAKE.face || seen });
     let lavaBox = null; const lavaP = () => (m.cliff ? L.P.mlava : L.P.lava);
     if (lavaCells.length) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of lavaCells) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
       lavaBox = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]; lavaXf = G.xf(sx(lavaBox[0]), sy(lavaBox[1]), lavaBox[2], lavaBox[3]);
@@ -1941,7 +2018,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();
     // ===== lit composite (fog of war: unexplored cells stay black) =====
-    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_heat: m.cliff ? lavaGlowTex(m) : waterTex(m), u_haze: m.cliff ? 1 : 0, u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
+    G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_heat: m.cliff ? lavaGlowTex(m) : waterTex(m), u_haze: m.cliff ? 1 : 0, u_face: m.cliff && BAKE.face ? BAKE.face : seen, u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
     for (const q of m.lavaFeatures || []) { const got = lavaSrc(q); if (got && known(q.x, q.y)) G.draw(L.P.magmasrc, Object.assign(got.U, { u_mode: 2 }), got.xf); }
     // ===== emissive pass =====
