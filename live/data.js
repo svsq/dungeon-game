@@ -225,9 +225,16 @@
   // depth's, band 6–10).
   // chapter: how many floors its own description lays out (biome, boss, guard, exit and altars count in those); names: a floor's own title over its biome's
   // floor archetypes as data (TASKS 400; the campaign's rooms and the water caves move in with 379). plateau: the magma caves' tables
-  // of ash and basalt over lava and a dark chasm, joined by long narrow ridges (the reference's plan is no cave: no halls in solid
-  // rock). cells: map cells per plateau; gap: rock kept between two plateaus' boxes, so a ridge runs 15–30 cells; plat and small: a
-  // plateau's box [w, h] ranges, the big ones tried first (bigTries) and the small ones fill the gaps (a boss floor's first is its arena); rag: how ragged a blob's edge is;
+  // of ash and basalt over lava and a dark chasm (the reference's plan is no cave: no halls in solid rock). The plateaus stand close,
+  // most of what the camera sees, with lava between them in narrow channels and the chasm only in rare pits (TASKS 422: plateau 50 %
+  // of the frame and more, lava 20–30 %, chasm 15 % and less), joined by short ridges over the channels. cells: map cells per
+  // plateau; gap: rock kept between two plateaus' boxes (the channel); plat and small: a plateau's box [w, h] ranges, the big ones
+  // tried first (bigTries) and the small ones fill the gaps (a boss floor's first is its arena), then every box but the arena grows
+  // into the free rock up to grow; round: the blob's squareness (2 an ellipse); edge: [out, ragged] cells its edge is pushed out
+  // and in by a noise; caches, cacheSize: blocks of rock held among them for the secret caches (how many, their side); arenaGap:
+  // the rock kept between a boss's arena and the plateaus round it (its rim stays dark: no lava the hero could wade out over); pop:
+  // a plateau's monsters against a room's (the plateaus grown to fill the floor are more and bigger: as many a floor as before); rag: how
+  // ragged a blob's edge is;
   // ridge: its width and how far each bend strays off the straight line; deg: the ridges a plateau has on the tree (one more only
   // where nothing else joins); loops: ridges over the tree, only between plateaus at least loopHops apart on it and each kept only if
   // the floor's longest walk keeps loopKeep of its length (loopLast for its first, so every floor has one), so no loop cuts the way short; ledges: dead-end spurs off the ridges ending in a small pad (a
@@ -242,9 +249,9 @@
   // joinMax; isle: the noise over which basalt stands in a lake; bridge: the chance a crossing of three cells and more is tried as a
   // chain bridge; crust: the noise over which a bank's lava is crust; share: the band of lava in floor and lava (selfCheck)
   const ARCH = {
-    plateau: { cells: 760, gap: [12, 11], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, rag: 1, ridge: { w: [2, 3], bend: [3, 7] },
-      deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.35, 0.6, 0.82], channel: 6, isle: 0.74, cliff: 8, path: [148, 168, 211, 0],
-      lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.4, 0.6] } },
+    plateau: { cells: 600, gap: [2, 2], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, grow: [30, 22], round: 3, edge: [1, 3], caches: [2, 3], cacheSize: 8, arenaGap: 6, pop: 0.55, rag: 1, ridge: { w: [2, 3], bend: [1, 2] },
+      deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.15, 0.45, 0.7], channel: 7, isle: 0.74, cliff: 8, path: [148, 168, 211, 0],
+      lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
   };
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),

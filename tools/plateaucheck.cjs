@@ -5,7 +5,7 @@
 // kind and crust (TASKS 401). Writes an overview of the first --maps seeds' floors (floor grey, lava orange — a river's brighter —,
 // crust brown, crossings: a bridge wood, slabs slate, an arch pale grey; sources white, vents yellow; chasm black, wall rows
 // grey-blue, rooms framed by role). Exit 2 when a plateau floor
-// walks less than 1.4 × the caves' mean.
+// walks less than 1.4 × the caves' mean, or the frame's shares are off their bands (TASKS 422).
 const fs = require('fs'), path = require('path'), zlib = require('zlib');
 const DG = require('../live/dungeon.js'), D = require('../live/data.js');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
@@ -35,7 +35,17 @@ const overview = (m, file) => { const S = 6, w = m.W * S, h = m.H * S, b = Buffe
   for (const q of m.lavaFeatures || []) dot(q.x, q.y, q.kind === 'vent' ? [255, 255, 120] : [255, 255, 255], 3); dot(m.exit.x, m.exit.y, [0, 200, 255], 4);
   png(file, w, h, b); };
 
-const caveMean = [], rows = []; let bad = 0;
+// what the camera sees (TASKS 422): a 60×34-cell window (the 1920×1080 view at zoom 1) centred on every 3rd floor cell and held
+// inside the map (the camera's own leave past the map's edge, for the HUD, shows the same dark on every floor and is left out),
+// the wall rows along the top left out. Plateau: floor (crossings count as floor, crust as lava); lava: lava; chasm: the open dark.
+// The task's bands: plateau 50 % and more, lava 20–30 %, chasm 15 % and less, over all floors
+const shareOf = (m) => { const W = m.W, H = m.H, cls = new Uint8Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = m.cells[y * W + x];
+    cls[y * W + x] = v === 3 ? 1 : v ? 0 : m.cliff && y < m.cliff[x] ? 3 : 2; }
+  const S = [0, 0, 0]; let n = 0;
+  for (let k = 0; k < W * H; k += 3) { if (cls[k] !== 0 || m.cells[k] !== 1) continue; const cx = Math.max(30, Math.min(W - 30, k % W)), cy = Math.max(17, Math.min(H - 17, Math.floor(k / W))); n++;
+    for (let y = cy - 17; y < cy + 17; y++) for (let x = cx - 30; x < cx + 30; x++) { const c = x < 0 || y < 0 || x >= W || y >= H ? 2 : cls[y * W + x]; if (c < 3) S[c]++; } }
+  const t = S[0] + S[1] + S[2]; return S.map((v) => v / t); };
+const caveMean = [], rows = []; let bad = 0; const SH = [];
 for (let f = 1; f <= 3; f++) { const P = [], T = []; for (let sd = 1; sd <= N; sd++) { const [m, t] = gen('cave', f, sd); P.push(walkOf(m)); T.push(t); } caveMean[f] = mean(P);
   rows.push(`cave    f${f} ${D.RUNS.cave.size[f - 1].join('×')}: walk mean ${mean(P).toFixed(0)} med ${med(P)} ${Math.min(...P)}–${Math.max(...P)} | gen ${mean(T).toFixed(0)} ms (max ${Math.max(...T).toFixed(0)})`); }
 for (let f = 1; f <= D.RUNS.magma.floors; f++) { const P = [], T = [], L = [], LV = [], FL = [], LP = [], LG = [], SC = [], X = {}, LK = [], SR = [], CR = [];
@@ -43,12 +53,15 @@ for (let f = 1; f <= D.RUNS.magma.floors; f++) { const P = [], T = [], L = [], L
     const fl = m.cells.filter((c) => c === 1).length, lv = m.cells.filter((c) => c === 3).length, main = m.rooms.filter((r) => !r.pocket && r.type !== 'secret').length;
     LV.push(lv / (fl + lv)); FL.push(fl / (m.W * m.H)); LP.push(m.ridges.length - (main - 1)); LG.push(m.rooms.filter((r) => r.pocket).length); SC.push(m.secrets.length);
     for (const c of m.crossings) X[c.kind] = (X[c.kind] || 0) + 1; LK.push(m.lavaBodies.filter((b) => b.kind === 'lake').length); SR.push(m.lavaFeatures.length); CR.push(m.crust.length);
-    if (sd <= nMaps) overview(m, path.join(out, `magma_f${f}_s${sd}.png`)); }
+    SH.push(shareOf(m)); if (sd <= nMaps) overview(m, path.join(out, `magma_f${f}_s${sd}.png`)); }
   const ratio = caveMean[f] ? ` = ${(mean(P) / caveMean[f]).toFixed(2)}× the caves' mean (least ${(Math.min(...P) / caveMean[f]).toFixed(2)}×)` : '';
   if (caveMean[f] && Math.min(...P) < 1.4 * caveMean[f]) bad++;
   rows.push(`plateau f${f} ${D.RUNS.magma.size[f - 1].join('×')}: walk mean ${mean(P).toFixed(0)} med ${med(P)} ${Math.min(...P)}–${Math.max(...P)}${ratio} | gen ${mean(T).toFixed(0)} ms (max ${Math.max(...T).toFixed(0)})`);
   rows.push(`        ridges ${L.length}: p10 ${pct(L, 0.1)} med ${med(L)} p90 ${pct(L, 0.9)} cells (under 15: ${(L.filter((v) => v < 15).length / L.length * 100).toFixed(0)} %, over 30: ${(L.filter((v) => v > 30).length / L.length * 100).toFixed(0)} %) | loops ${mean(LP).toFixed(1)} (${Math.min(...LP)}–${Math.max(...LP)}) | ledges ${mean(LG).toFixed(1)} | secrets ${mean(SC).toFixed(1)} | lava ${(mean(LV) * 100).toFixed(0)} % of floor+lava (${(Math.min(...LV) * 100).toFixed(0)}–${(Math.max(...LV) * 100).toFixed(0)}) | floor ${(mean(FL) * 100).toFixed(0)} % of the map`);
   rows.push(`        lakes ${mean(LK).toFixed(1)} | sources ${mean(SR).toFixed(1)} | crossings ${Object.entries(X).map(([k, v]) => k + ' ' + (v / N).toFixed(1)).join(', ')} a floor | crust ${mean(CR).toFixed(0)} cells`); }
+{ const P = SH.map((s) => s[0]), L = SH.map((s) => s[1]), C = SH.map((s) => s[2]), r = (a) => `${(mean(a) * 100).toFixed(0)} % (${(Math.min(...a) * 100).toFixed(0)}–${(Math.max(...a) * 100).toFixed(0)})`;
+  rows.push(`in the frame (all floors): plateau ${r(P)} | lava ${r(L)} | chasm ${r(C)}`);
+  if (mean(P) < 0.5 || mean(L) < 0.2 || mean(L) > 0.3 || mean(C) > 0.15) { bad++; rows.push('        the frame is off the bands (plateau ≥ 50 %, lava 20–30 %, chasm ≤ 15 %)'); } }
 console.log(rows.join('\n'));
-console.log(bad ? `plateaucheck: ${bad} floor(s) walk less than 1.4 × the caves' mean` : `plateaucheck: ok (${N} seeds, overviews in ${out})`);
+console.log(bad ? `plateaucheck: ${bad} failure(s) (a floor's walk under 1.4 × the caves' mean, or the frame off its bands)` : `plateaucheck: ok (${N} seeds, overviews in ${out})`);
 if (bad) process.exitCode = 2;
