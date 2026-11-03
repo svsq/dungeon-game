@@ -268,6 +268,10 @@
       // the same type twice running (the boss's keeps the plain plateaus for its arena). lake (427): a big lake of lava over `fig` of
       // the map's width and height, off the top wall; a chain of `isles` plateaus of `isle` cells across it; `margin` cells of
       // lava between it and the plateaus on its shore
+      // arena (TASKS 413): the magma caves' last hall, a broad ring of plateau round a lake of lava, w × h cells; the lake's half-axes
+      // (lake) leave the ring wide enough for the colossus; a row of basalt slabs crosses the lake the short way (the hero may cut over,
+      // the colossus is too broad for it); cover: basalt slabs standing on the ring, solid, stopping bolts
+      arena: { w: 28, h: 20, lake: [7, 4.3], rag: 0.25, cover: 5 },
       types: ['plain', 'lake'], lake: { fig: [[0.2, 0.27], [0.22, 0.3]], at: [[0.35, 0.65], [0.5, 0.64]], isles: [3, 4], isle: [[7, 10], [6, 8]], margin: 2, islet: 0.86, share: [0.3, 0.55] },
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
   };

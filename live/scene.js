@@ -2969,6 +2969,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, h = R.hero;
       const r = m.rooms.filter((q) => q.type !== 'secret' && q.y <= m.cliff[q.cx] + 2).sort((a, b) => b.w * b.h - a.w * a.h)[0] || m.rooms[0];
       h.x = (r.cx + 0.5) * TILE; h.y = (r.y + 4.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, r.y * TILE - 160]; states.push(['magma_hall', S]); }
+    // TASKS 413: the colossus's arena on the magma caves' 4th floor: the ring round the lake, its slabs and cover, the boss above it
+    { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 4); const R = S.run, m = R.map, r = m.rooms.find((q) => q.type === 'boss'), h = R.hero;
+      h.x = (r.cx + 0.5) * TILE + 90; h.y = (r.cy + 0.5) * TILE + 200; R.en = R.en.filter((e) => D.BOSSES[e.type]); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [(r.cx + 0.5) * TILE - VW / 2, (r.cy + 0.5) * TILE - VH / 2]; states.push(['magma_arena', S]); }
     // TASKS 427: a lake floor, the camera on the island with the hoard and the crossings to it
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;
