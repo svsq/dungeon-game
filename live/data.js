@@ -531,10 +531,10 @@
     camp: { need: ['tent_cv'], w: 1, cave: { tent: 1, stacks: [1, 1], skel: [0, 1], rocks: [0, 2] } },
     // the magma caves' halls (TASKS 405), the same way: `rocks` basalt stumps and boulders by the edge (obsidian now and then),
     // `skel` the charred dead, `banners` the cult's on their posts, `cages` of its prisoners, `stacks` of its barrels and crates
-    cinder: { need: ['basalt_a'], w: 3, magma: { rocks: [5, 9], bones: [0, 1], skel: [0, 1] } },
-    pyre: { need: ['skel_mg'], w: 2, magma: { rocks: [2, 5], skel: [1, 2], bones: [2, 4] } },
-    cultden: { need: ['banner_mg'], w: 2, magma: { banners: [1, 2], cages: [0, 1], rocks: [1, 3], bones: [1, 2], stacks: [0, 1] } },
-    holding: { need: ['cage'], w: 1, magma: { cages: [1, 2], stacks: [1, 2], rocks: [1, 3], skel: [0, 1] } },
+    cinder: { need: ['basalt_a'], w: 3, magma: { rocks: [7, 11], bones: [1, 3], skel: [0, 1], stacks: [0, 1] } },
+    pyre: { need: ['skel_mg'], w: 2, magma: { rocks: [4, 7], skel: [1, 3], bones: [3, 5], stacks: [0, 1] } },
+    cultden: { need: ['banner_mg'], w: 2, magma: { banners: [1, 3], cages: [0, 1], rocks: [3, 5], bones: [2, 3], skel: [0, 1], stacks: [1, 2] } },
+    holding: { need: ['cage'], w: 1, magma: { cages: [1, 3], stacks: [1, 2], rocks: [3, 5], bones: [1, 3], skel: [0, 1] } },
   };
   const PROP_W = { chest: 53, coffin: 81, grave: 50, statue: 61, pillar: 81, crystal: 49, cage: 51, rack: 69, bookshelf: 103, table: 59, brazier: 57,
     altar: 67, gold: 96, goldpile: 46, barrel: 45, crate: 48, pot: 32, vase_a: 30, vase_b: 43, vase_c: 30, candlestick: 22, candelabra: 46, torch_stand: 26, crystal_cv: 68,

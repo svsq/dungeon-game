@@ -1218,7 +1218,9 @@
         used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id }); } };
       // on the plateaus: basalt stumps and boulders, obsidian anywhere by the edge rather than by water (TASKS 405)
       const GEM = plat ? 'obsidian_mg' : 'crystal_cv';
-      const rocks = (r, k, glass) => { let n = 0; for (const [x, y] of cellsOf(r, (x, y) => rockN(x, y) >= 1 || N8.filter(([dx, dy]) => at(x + dx, y + dy) === 0).length >= 3)) { if (n >= k) break;
+      // a plateau's hall has its stumps out in the open too, the edge's first (TASKS 420)
+      const rocks = (r, k, glass) => { let n = 0; const edge = cellsOf(r, (x, y) => rockN(x, y) >= 1 || N8.filter(([dx, dy]) => at(x + dx, y + dy) === 0).length >= 3);
+        for (const [x, y] of plat ? [...edge, ...cellsOf(r, () => true)] : edge) { if (n >= k) break;
         const by = shoreAt(x, y), nm = glass && (plat || by) && Dr() < (plat ? 0.15 : 0.25) && !decor.some((d) => d.n === GEM && Math.hypot(d.x - wx(x), d.y - wy(y)) < 9 * TILE) ? GEM : pick4(); if (canStand(x, y, nm)) { stand(x, y, nm, r.id); n++; } } };
       const ROCKS = plat ? ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'basalt_a', 'boulder_mg_b'] : ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'stalag_a', 'boulder_b'], pick4 = () => ROCKS[Math.floor(Dr() * ROCKS.length)];
       const PK = plat ? 'magma' : 'cave', SKEL = plat ? 'skel_mg' : 'skel_cv', PB = D.BIOMES[plat ? 'magma' : 'cave'];
@@ -1250,9 +1252,12 @@
         if (P.wreck) { const c = cellsOf(r, (x, y) => shoreAt(x, y) && deepBy(x, y)).find(([x, y]) => canStand(x, y, 'wreck_cv')); if (c) stand(...c, 'wreck_cv', r.id); }
         if (P.tent) { const c = cellsOf(r, (x, y) => at(x, y - 1) === 0).find(([x, y]) => canStand(x, y, 'tent_cv')); if (c) stand(...c, 'tent_cv', r.id); }
         if (P.banners) standIn(r, 'banner_mg', nOf(P.banners)); if (P.cages) standIn(r, 'cage', nOf(P.cages));
-        rocks(r, Math.round(nOf(P.rocks) * Math.min(1.5, area / 90)), true);
+        rocks(r, Math.round(nOf(P.rocks) * Math.min(plat ? 2 : 1.5, area / 90)), true);
         for (let i = nOf(P.stacks); i > 0; i--) stack(r);
-        lie(r, SKEL, nOf(P.skel)); lie(r, 'bones', nOf(P.bones)); }
+        lie(r, SKEL, nOf(P.skel)); lie(r, 'bones', nOf(P.bones));
+        // the ref's plateaus are strewn with the dead: bones out on the open ground as well, never a cell from the lava (186)
+        if (plat) for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && !N8.some(([dx, dy]) => at(x + dx, y + dy) === 3)).slice(0, Math.round(area / 45))) {
+          used.add(key(x, y)); decor.push({ x: wx(x) + dri(-8, 8), y: wy(y) + dri(-4, 4), n: Dr() < 0.2 ? SKEL : 'bones', f: Dr() < 0.5 ? 1 : 0, r: r.id }); } }
       if (plat) {
         // the altar of the cult: candles round it, a skull at its foot (the scene draws its circle on the floor)
         for (const s of shrines) for (const [dx, dy] of [[-44, 10], [44, 10], [-26, 34], [26, 34]]) if (Dr() < 0.8) { const x = Math.floor((s.x + dx) / TILE), y = Math.floor((s.y + dy) / TILE);
@@ -1437,7 +1442,7 @@
     // open floor, so no stone, rubbish or stain climbs a wall or spills onto the rock; one that would have to shrink past half is left out
     const decals = [], onFloor = (px, py, h) => { for (let y = Math.floor((py - h) / TILE); y <= Math.floor((py + h - 0.01) / TILE); y++) for (let x = Math.floor((px - h) / TILE); x <= Math.floor((px + h - 0.01) / TILE); x++) if (at(x, y) !== 1) return false; return true; };
     const fitDecal = (d) => { for (let s = d.s; s >= 0.5; s -= 0.05) if (onFloor(d.x, d.y, 20 * s)) { d.s = s; decals.push(d); return; } };
-    for (const r of rooms) { const zb = r.zone || biome, n = Math.round(r.w * r.h / 6);
+    for (const r of rooms) { const zb = r.zone || biome, n = Math.round(r.w * r.h / (plat ? 4 : 6));
       for (let i = 0; i < n; i++) { const x = r.x + R() * r.w, y = r.y + 0.5 + R() * (r.h - 0.5); if (at(Math.floor(x), Math.floor(y)) !== 1) continue;
         const fight = r.type === 'combat' || r.type === 'exit' || r.type === 'boss';
         const pool = (fight || r.type === 'treasure' || r.type === 'secret') && R() < 0.35 ? ['dc_blood', 'dc_blood2', 'dc_coins', 'dc_bones', 'dc_sword'] : DEC[zb];
@@ -1445,6 +1450,11 @@
     // the water leaves its silt, pebbles and puddles on the cave's banks (TASKS 306)
     if (cave) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !wet.has(y * W + x) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => wet.has((y + dy) * W + x + dx)) && R() < 0.3)
       fitDecal({ x: (x + 0.2 + 0.6 * R()) * TILE, y: (y + 0.2 + 0.6 * R()) * TILE, n: ['dc_silt', 'dc_pebbles', 'dc_silt', 'dc_puddle'][Math.floor(R() * 4)], f: R() < 0.5 ? 1 : 0, s: 0.7 + 0.4 * R() });
+    // the plateaus' edges crumble (TASKS 420): rubble, ash and soot along every drop, so the ground thickens toward its columns as
+    // the ref's does
+    const underS = new Set(lavaUnder);
+    if (plat) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !underS.has(y * W + x) && [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => at(x + dx, y + dy) === 0 || at(x + dx, y + dy) === 3)) && R() < 0.35)
+      fitDecal({ x: (x + 0.2 + 0.6 * R()) * TILE, y: (y + 0.2 + 0.6 * R()) * TILE, n: ['dc_rubble', 'dc_ash_mg', 'dc_pebbles', 'dc_soot'][Math.floor(R() * 4)], f: R() < 0.5 ? 1 : 0, s: 0.6 + 0.4 * R() });
     // cobwebs: the sprite is spun across a top-left corner, so a web only ever hangs in a room's top corner where the back wall
     // meets a side wall (mirrored for the right one), more of them in the crypt and the halls than in the fire depths
     const WEB = { crypt: 0.6, arcane: 0.6, dungeon: 0.35, cave: 0.35, lava: 0.15 };
