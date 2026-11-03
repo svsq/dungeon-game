@@ -15,7 +15,8 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, 
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
 // before a fireball; shield: cast below this share of HP; focus: casters first; kite: backs off with low HP and no potion;
 // gift: highest altar tier taken; step: walks back out of a wind-up's reach while the dash recharges; traps: keeps off a spike
-// plate that is up or about to rise; flank: share of armoured crabs it walks round to strike off the armour (the rest it hacks at the front);
+// plate that is up or about to rise; haz: steps out of a magma hazard's ring over its warning (TASKS 406: they are plain to see, the
+// novice aside); flank: share of armoured crabs it walks round to strike off the armour (the rest it hacks at the front);
 // cast: the share of its damage this player means to deal with the fireball, as it weighs gear;
 // simple: judges gear by its attack and defence numbers alone; skills: ranks one ability to the top before the next; caster: throws
 // the fireball whenever it is ready and the target is in sight, close or far, and keeps more mana potions
@@ -23,10 +24,10 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, 
 // from its gear, ranks the fireball first and burns the bosses with it
 const PROFILES = {
   novice: { flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
-  average: { flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  expert: { flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  mage: { flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.6, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
-  builder: { flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.5, caster: 1, skills: ['fireball', 'whirl', 'shield'], stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  average: { haz: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  expert: { haz: 1, flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  mage: { haz: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.6, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
+  builder: { haz: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.5, caster: 1, skills: ['fireball', 'whirl', 'shield'], stats: ['str', 'vit', 'str', 'vit', 'agi'] },
 };
 
 function rng(seed) { let a = seed >>> 0; const draw = () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -156,6 +157,20 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (under) { if (h.cd.dash <= S.t && !inp.keys.includes('Space')) { const ax = dx || Math.sign(h.x - under.x) || 1, ay = dy; dash(inp, ax, ay); } return; }
     if (!dx && !dy) return; const nx = h.x + dx * 28, ny = h.y + dy * 28;
     if (traps.some((tr) => onPl(nx, ny, tr) && !onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.45))) inp.left = inp.right = inp.up = inp.down = 0;
+  }
+  // the magma caves' hazards (TASKS 406, data.js HAZ): out of a ring that will burst within its warning (a dash when it is about to),
+  // and no step into one that bursts within the next 0.9 s; a ring keeps its pull a little past its edge
+  const hazSoon = (t, z) => { const H = D.HAZ[z.k], c = D.hazClock(z, t); return c < H.burst ? 0 : z.per - c; };
+  const hazNear = (z, x, y, pad) => { const H = D.HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r + pad; };
+  function avoidHazards(S, R, h, inp) {
+    const hz = R.map.hazards; if (!hz || !hz.length) return;
+    const under = hz.find((z) => hazNear(z, h.x, h.y, 18) && hazSoon(S.t, z) < D.HAZ[z.k].warn + 0.1);
+    if (under) { const ax = h.x - under.x, ay = (h.y - under.y) / D.HAZ[under.k].ry, d = Math.hypot(ax, ay) || 1;
+      if (hazSoon(S.t, under) < 0.3 && h.cd.dash <= S.t && !inp.keys.includes('Space')) { dash(inp, ax / d || 1, ay / d); return; }
+      inp.left = inp.right = inp.up = inp.down = 0; steer(inp, ax / d || 1, ay / d); return; }
+    const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); if (!dx && !dy) return;
+    const nx = h.x + dx * 30, ny = h.y + dy * 30;
+    if (hz.some((z) => hazNear(z, nx, ny, 12) && !hazNear(z, h.x, h.y, 12) && hazSoon(S.t, z) < 0.9)) inp.left = inp.right = inp.up = inp.down = 0;
   }
   // which way round a crab to go (+1 / −1) while the hero stands within its armour's arc (a little wider, it turns as he goes), else 0
   const armFront = (e) => { const E = D.ENEMIES[e.type]; if (!E.armor || !(P.flank > 0) || ((Math.imul(e.id + 1, 2654435761) ^ seed) >>> 0) % 1000 / 1000 >= P.flank) return 0;
@@ -287,6 +302,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
     if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }
     if (P.traps) avoidSpikes(S, R, h, inp);
+    if (P.haz) avoidHazards(S, R, h, inp);
     // a shut door in the way: open it (a locked one only with the key, above)
     if (SIM.doorNear(R, 60) && !SIM.doorLock(m, SIM.doorNear(R, 60))) inp.keys.push('KeyE');
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)

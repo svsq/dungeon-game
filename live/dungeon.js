@@ -1540,6 +1540,27 @@
     // (a plateau's merchant has a whole plateau, TASKS 422: lit again with the rest, his lamps and fire counted)
     const shopLights = () => shop.lanterns.map((q) => [q.x, q.y, LIGHT_R.wall]).concat([[shop.x, shop.y, LIGHT_R.fire]]);
     for (const r of rooms) if ((r.type !== 'shop' || plat) && !lightRoom(r, r.type === 'shop' ? shopLights() : [])) return null;
+    // the magma caves' hazards (TASKS 406, data.js HAZ): vents out on a plateau's open floor (a fissure's mouth, 3×3 of free floor
+    // round it, never by a way in), falling rocks on the passes between the plateaus and under the top wall; each kind kept apart,
+    // and both HAZ.clear cells off the start's fire, the spawn, the chests, the monsters' posts, the altar, the merchant's corner and
+    // the stairs. Their own random stream, so the rest of the floor is laid out as without them
+    const hazards = [];
+    if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y])];
+      const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);
+      const under = new Set(lavaUnder), inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
+      const shuf = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Z() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const lay = (k, cand) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1];
+        for (const [x, y] of shuf(cand)) { if (n <= 0) break; if (!clear(x, y) || hazards.some((z) => z.k === k && Math.hypot(z.x - wx(x), z.y - wy(y)) < H.apart * TILE)) continue;
+          const z = { k, x: wx(x), y: wy(y), per: H.per[0] + Z() * (H.per[1] - H.per[0]), ph: Z() }; hazards.push(z); n--;
+          if (k === 'vent') { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); } } };
+      const roomOf = (x, y) => { const q = rooms.find((r) => r.type !== 'secret' && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h); return q ? q.id : -1; };
+      const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
+      for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y))) vents.push([x, y]);
+      lay('vent', vents);
+      // a pass: floor off every room's box, not a crossing's deck; the wall's foot: a plateau's top row under the rock wall
+      const falls = []; for (let y = 3; y < H - 2; y++) for (let x = 2; x < W - 2; x++) { if (at(x, y) !== 1 || under.has(y * W + x) || used.has(key(x, y)) || shore.has(key(x, y))) continue;
+        if (!inBox(x, y) || (y <= cliff[x] + 1 && at(x, y - 1) === 0 && roomOf(x, y) >= 0 && rooms[roomOf(x, y)].type !== 'shop')) falls.push([x, y]); }
+      lay('fall', falls); }
     // the walk from where the hero arrives to the stairs (TASKS 400: a plateau floor's is held to AR.path)
     const walk = (() => { const s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e = exit.ty * W + exit.tx, d = new Int32Array(W * H).fill(-1), q = [s0]; d[s0] = 0;
       for (let i = 0; i < q.length && d[e] < 0; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && cells[n] === 1) { d[n] = d[q[i]] + 1; q.push(n); } } return d[e]; })();
@@ -1554,7 +1575,7 @@
     // a fountain's basin stands on the floor, three cells wide; a stream's culvert is in the wall (TASKS 230)
     for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
     return { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      bossType, walk, down, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, lava: lava.length, lavaFlow: flow, crust, lavaUnder, lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
+      bossType, walk, down, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
   }
 
   // room index of a world point (or -1 in a corridor); a secret room first: a plateau's box may hold one (TASKS 422)

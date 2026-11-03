@@ -115,6 +115,15 @@
     crack: (o) => { noise(o, { d: 0.09, v: 0.35, type: 'highpass', f0: 1800 }); noise(o, { t: now() + 0.07, d: 0.06, v: 0.25, type: 'highpass', f0: 2600 }); tone(o, { f0: 70, f1: 45, a: 0.02, d: 0.5, v: 0.25 }); },
     melt: (o) => { noise(o, { a: 0.02, d: 0.6, v: 0.2, type: 'highpass', f0: 2000, f1: 900 }); tone(o, { f0: 110, f1: 60, a: 0.03, d: 0.35, v: 0.3 }); },
     set: (o) => noise(o, { d: 0.05, v: 0.12, type: 'highpass', f0: 3200 }),
+    // the magma caves' hazards (TASKS 406): a vent's warning is a low boil rising to its burst, a roar of fire and a spatter; a rock
+    // about to fall is grit trickling and a creak, then the thud of its fall and stone breaking
+    hazwarn: (o, e) => { if (e.h === 'vent') { tone(o, { f0: 55, f1: 110, a: 1.0, d: 0.25, v: 0.35 }); noise(o, { a: 1.0, d: 0.2, v: 0.22, type: 'bandpass', f0: 300, f1: 900, q: 2 });
+        for (let i = 0; i < 6; i++) tone(o, { f0: rr(140, 220), f1: rr(260, 380), t: now() + 0.15 + i * 0.17, d: 0.06, v: 0.06 + i * 0.015 }); }
+      else { noise(o, { a: 0.5, d: 0.3, v: 0.16, type: 'highpass', f0: 2500, f1: 1200 }); tone(o, { type: 'triangle', f0: 120, f1: 95, a: 0.3, d: 0.4, v: 0.1 }); } },
+    erupt: (o) => { noise(o, { a: 0.02, d: 0.8, v: 0.45, type: 'lowpass', f0: 1800, f1: 200 }); tone(o, { f0: 70, f1: 38, a: 0.01, d: 0.7, v: 0.55 });
+      for (let i = 0; i < 5; i++) noise(o, { t: now() + 0.15 + i * 0.09, d: 0.08, v: 0.14, type: 'highpass', f0: 2600 }); },
+    rockfall: (o) => { tone(o, { f0: 90, f1: 40, a: 0.005, d: 0.35, v: 0.6 }); noise(o, { a: 0.005, d: 0.4, v: 0.4, type: 'lowpass', f0: 1400, f1: 250 });
+      for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.06 + i * 0.07, d: 0.05, v: 0.15, type: 'bandpass', f0: rr(1500, 3000), q: 3 }); },
     sink: (o) => { noise(o, { a: 0.01, d: 1.2, v: 0.28, type: 'highpass', f0: 1800, f1: 700 }); tone(o, { f0: 140, f1: 55, a: 0.02, d: 0.6, v: 0.3 }); },
     fall: (o) => { tone(o, { type: 'triangle', f0: 420, f1: 120, a: 0.02, d: 0.8, v: 0.08 }); noise(o, { a: 0.05, d: 0.7, v: 0.12, type: 'lowpass', f0: 900, f1: 200 }); },
     gold: (o) => { for (let i = 0; i < 4; i++) tone(o, { type: 'triangle', f0: rr(2200, 3600), t: now() + i * rr(0.03, 0.07), d: 0.18, v: 0.08 }); },
