@@ -87,7 +87,7 @@
     hit: (o, e) => { if (e.arm) return SFX.clang(o, e); tone(o, { f0: e.crit ? 180 : 150, f1: 55, d: 0.12, v: 0.5 }); noise(o, { d: 0.06, v: 0.3, type: 'highpass', f0: 1800 });
       if (e.crit) tone(o, { type: 'triangle', f0: 1900, d: 0.25, v: 0.12 }); if (e.fire) noise(o, { d: 0.25, v: 0.2, type: 'highpass', f0: 3000 }); },
     kill: (o, e) => { tone(o, { f0: 110, f1: 40, d: 0.25, v: 0.45 });
-      if (e.type === 'skeleton' || e.type === 'skel_archer' || e.type === 'skel_mage' || e.type === 'brute') for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.04 + i * rr(0.03, 0.06), d: 0.03, v: 0.18, f0: rr(1800, 3500), q: 6 });
+      if (e.type === 'skeleton' || e.type === 'skel_archer' || e.type === 'skel_mage' || e.type === 'skel_ember' || e.type === 'brute') for (let i = 0; i < 6; i++) noise(o, { t: now() + 0.04 + i * rr(0.03, 0.06), d: 0.03, v: 0.18, f0: rr(1800, 3500), q: 6 });
       else if (e.type === 'ghost') tone(o, { type: 'triangle', f0: 700, f1: 180, a: 0.05, d: 0.6, v: 0.15 });
       else if (e.type === 'slime' || e.type === 'slime_s') SFX.squelch(o, { big: e.type === 'slime' });
       else if (e.type === 'crab') { for (let i = 0; i < 4; i++) noise(o, { t: now() + i * rr(0.03, 0.06), d: 0.04, v: 0.22, f0: rr(900, 1600), q: 4 }); noise(o, { t: now() + 0.12, d: 0.3, v: 0.15, type: 'lowpass', f0: 500, f1: 120 }); }
@@ -97,6 +97,9 @@
     hurt: (o) => { tone(o, { f0: 120, f1: 50, d: 0.16, v: 0.55 }); tone(o, { type: 'sawtooth', f0: 210, f1: 150, a: 0.01, d: 0.14, v: 0.06 }); noise(o, { d: 0.08, v: 0.2, f0: 700, q: 2 }); },
     die: (o) => { tone(o, { f0: 90, f1: 28, a: 0.02, d: 1.4, v: 0.6 }); tone(o, { type: 'triangle', f0: 440, f1: 110, a: 0.3, d: 1.4, v: 0.12 }); noise(o, { a: 0.2, d: 1.2, v: 0.15, type: 'lowpass', f0: 800, f1: 100 }); },
     cast: (o) => { noise(o, { a: 0.02, d: 0.3, v: 0.3, type: 'bandpass', f0: 500, f1: 1800, q: 1 }); tone(o, { type: 'sawtooth', f0: 160, f1: 320, d: 0.2, v: 0.05 }); },
+    // a fuse (an explosive corpse, a smouldering skeleton, TASKS 411): a hiss rising to the burst, sputtering ever faster
+    fuse: (o, e) => { noise(o, { a: 0.05, d: e.d, v: 0.18, type: 'highpass', f0: 1400, f1: 4200 });
+      for (let i = 0, n = Math.round(e.d * 14); i < n; i++) noise(o, { t: now() + e.d * Math.sqrt(i / n), d: 0.02, v: 0.1 + 0.12 * i / n, f0: rr(2000, 4000), q: 5 }); },
     boom: (o) => { noise(o, { a: 0.005, d: 0.8, v: 0.6, type: 'lowpass', f0: 1600, f1: 90 }); tone(o, { f0: 75, f1: 30, d: 0.6, v: 0.6 }); },
     slam: (o, e) => { noise(o, { d: e.big ? 1.0 : 0.5, v: 0.6, type: 'lowpass', f0: 900, f1: 60 }); tone(o, { f0: 60, f1: 25, d: e.big ? 0.9 : 0.45, v: 0.7 }); },
     // the skeleton archer and mage (TASKS 311): the bow's twang and the arrow's hiss, a dull thunk where it breaks on rock; the mage's

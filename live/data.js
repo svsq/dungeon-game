@@ -34,8 +34,8 @@
     // Their ash, basalt and crust are baked by scene.js MAGMA (TASKS 402); old: the kinds a cave pack fills its halls with
     magma: { name: 'Магмовые пещеры', rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
-      cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer'], old: ['skeleton', 'goblin', 'brute', 'cultist'],
-      from: { cultist: 2, brute: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
+      cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember'], old: ['skeleton', 'goblin', 'brute', 'cultist'],
+      from: { cultist: 2, brute: 3, skel_ember: 2 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -145,6 +145,12 @@
     // water that slows the hero by `orb.slow` for `orb.t` s
     skel_mage: { name: 'Скелет-маг', hp: 26, dmg: 8, spd: 58, r: 13, reach: 330, wind: 0.75, cd: 2.6, xp: 11, kind: 'caster', h: 76, blood: 'bone', rim: [0.45, 0.9, 0.95],
       behind: 80, orb: { spd: 150, life: 2.6, r: 10, slow: 0.6, t: 2.5 } },
+    // the smouldering skeleton (TASKS 411) runs at the hero alight; within `reach` it lights its fuse (the wind-up) and stands
+    // hissing for `wind` s, then bursts. Killed first, its bones burst all the same once the fuse is out (a fuse already lit runs on).
+    // The blast hurts the hero within boom.r for dmg × boom.dmg and every monster in it for boom.mon of its own health: a pack the
+    // hero draws it into pays for it, and one that catches another sets it off
+    skel_ember: { name: 'Тлеющий скелет', hp: 18, dmg: 14, spd: 102, r: 13, reach: 24, wind: 0.8, cd: 9, xp: 9, kind: 'bomber', h: 76, blood: 'bone', tex: 'en_skeleton', rim: [1, 0.5, 0.15], tint: [0.85, 0.55, 0.4, 0.8], val: 0.9,
+      boom: { r: 92, dmg: 1, mon: 0.35, fuse: 0.8 } },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
     boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };

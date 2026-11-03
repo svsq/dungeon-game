@@ -132,7 +132,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
-      const range = e.st === 'bwind' ? (['bite', 'tail'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : 1e9) : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
+      const range = e.st === 'bwind' ? (['bite', 'tail'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
       if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }

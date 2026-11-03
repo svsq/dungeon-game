@@ -968,6 +968,7 @@
       else if (kind === 'hall') { for (let i = 0, k = Math.min(n, ri(2, 3)); i < k; i++) plan.push(['slime', anywhere]); }
       if (has('skel_mage') && plan.length < n && kind !== 'line' && R() < 0.4) plan.push(['skel_mage', back]);
       else if (has('skel_archer') && plan.length < n && kind === 'bones' && R() < 0.3) plan.push(['skel_archer', back]);
+      if (has('skel_ember') && plan.length < n - 1 && R() < 0.35) for (let i = 0, k = Math.min(n - plan.length - 1, ri(2, 3)); i < k; i++) plan.push(['skel_ember', anywhere]);
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;
       for (const [type0, where] of plan) { let type = type0, p = null;

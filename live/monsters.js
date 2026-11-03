@@ -3,7 +3,7 @@
 // the legs, and swings its arms from pose curves keyed to the attack's own clock; the spider walks eight legs in two alternating sets.
 (function () {
   const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
-  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned', crab: 'crab', skel_archer: 'skel_archer', skel_mage: 'skel_mage' };   // the ghost bends its one sprite (softbones)
+  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned', crab: 'crab', skel_archer: 'skel_archer', skel_mage: 'skel_mage', skel_ember: 'skeleton' };   // the ghost bends its one sprite (softbones)
   const SKULL_K = { skeleton: 1.3 };
   MON.rigOf = (type) => { const n = RIG[type] || (DATA.BOSSES[type] || {}).rig; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
   const d2 = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
@@ -124,7 +124,7 @@
       J('hip' + side, R2S(g.Hp[0], g.Hp[1]), 'thigh' + side); J('knee' + side, R2S(g.K[0], g.K[1]), 'shin' + side); J('ankle' + side, R2S(g.T[0], g.T[1]), 'foot' + side);
       J('heel' + side, R2S(RG['heel' + side][0] + dT[0], RG['heel' + side][1] + dT[1]), 'foot' + side); J('toe' + side, R2S(RG['toe' + side][0] + dT[0], RG['toe' + side][1] + dT[1]), 'foot' + side);
       J('ground' + side, R2S(gx, RG['foot' + side][1] + tg[side].dz)); J('sh' + side, R2U(A.Sp[0], A.Sp[1]), 'uarm' + side); J('elbow' + side, R2U(A.E[0], A.E[1]), 'farm' + side); J('hand' + side, R2U(A.Hd[0], A.Hd[1]), 'farm' + side); }
-    return { R2U, arms, s, items };
+    return { R2U, arms, s, items, head: R2U(...skP(RG.head), hipDy * s), chest: R2U(Hc[0], (Hc[1] + RG.top[1]) / 2, hipDy * s), hip: hipS };
   }
   MON.biped = biped;
   // an item's point at (fx, fy) of its texture, on screen
@@ -381,6 +381,17 @@
 
   const CHOP = (MON.CHOP = { skeleton: { raise: -1.2, bendUp: 1.0, bendHit: 2.4, bend0: 0, chopT: 0.26, recover: 0.28, over: 0.3, top: 0.08 } });
 
+  // the smouldering skeleton (TASKS 411) runs bent forward, its arms swinging wide against its legs; with its
+  // fuse lit it stands and throws them up and wide, shaking harder as the fuse burns down. Struck down, it keeps the pose it died
+  // in (the run eases out with its speed): the bones fall or fly from there
+  function emberPose(e, E, GT, face, base) {
+    const live = e.deadT < 0, u = GT - e.t0, w = DATA.windOf(e, E.wind), lit = e.st === 'wind' ? SS(0, 0.22, u) : 0, q = e.st === 'wind' ? Math.min(1, u / w) : 0;
+    const run = SS(10, 60, Math.hypot(base.vx, base.vy)) * (1 - lit), still = live ? 1 : 1 - SS(0, 0.1, GT - e.deadT);
+    base.lean = (base.lean || 0) + face * 0.16 * run; base.crouch += 5 * run + 4 * lit;
+    base.arm = (side, b) => { const sg = side === 'L' ? 1 : -1, shake = still * lit * (0.05 + 0.08 * q) * Math.sin(GT * (18 + 12 * q) + (side === 'L' ? 0 : 1.7));
+      const r1 = lerp(lerp(b, 1.5 * b - 0.3, run), -2.55 + 0.25 * sg, lit) + shake; return [r1, r1 + lerp(lerp(0.18, 0.1 - 0.4 * b, run), 0.5, lit) + shake * 0.6]; };
+  }
+
   // ---------------- per type ----------------
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
   MON.draw = (e, E, x, y, GT, o) => {
@@ -390,17 +401,21 @@
     if (!live && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
     if (n === 'skeleton' || n === 'goblin') {
       // cut from the approved drawing: its pose is the rest pose, the weapon and shield are part of the forearms
-      const RG = RIGS[n]; base.wSide = 'L';
+      const RG = RIGS[n], bomb = e.type === 'skel_ember'; base.wSide = 'L';
       // the skeleton chops overhead, the goblin coils and stabs along the aim
-      const pose = (b) => !live ? null : n === 'skeleton' ? chop(e, E, GT, face, H, b, Object.assign({ blade: RG.bladeL }, CHOP.skeleton))
+      const pose = (b) => !live || bomb ? null : n === 'skeleton' ? chop(e, E, GT, face, H, b, Object.assign({ blade: RG.bladeL }, CHOP.skeleton))
         : stab(e, E, GT, face, H, b, 0, 0.7);
       const p0 = pose(0);
       if (p0) { if (n === 'goblin') base.crouch += 22 * p0.crouch;
         base.arm = (side, b) => { if (side === 'L') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } const g = -0.3 * p0.k; return [b + g, b * 0.6 + g * 0.5]; }; }
       if (n === 'goblin') base.ear = earKick(e, GT, p0, live);
       // a skeleton dies one of three ways, picked by its id: a heap, bones flung off by the blow, or a fall that breaks apart
-      if (n === 'skeleton' && !live) { const kind = ['pile', 'burst', 'topple'][e.id % 3]; base.crumble = { t: GT - e.deadT, kind, dir: e.dieA }; if (kind !== 'topple') base.fallR = 0; }
-      biped(base); return true; }
+      if (bomb) emberPose(e, E, GT, face, base);
+      // a smouldering skeleton that went off flings its bones every way
+      if (n === 'skeleton' && !live) { const kind = e.blown ? 'burst' : ['pile', 'burst', 'topple'][e.id % 3]; base.crumble = { t: GT - e.deadT, kind, dir: e.dieA }; if (kind !== 'topple') base.fallR = 0; }
+      const r = biped(base); if (!bomb || !live) return true;
+      // where its fire burns (TASKS 411): the skull, the ribs, the pelvis and both hands, for the scene's flames
+      const P = (p) => (L.pre ? M.ap(L.pre, p) : p); r.fire = [r.head, r.chest, r.hip, r.R2U(r.arms.L.Hd[0], r.arms.L.Hd[1]), r.R2U(r.arms.R.Hd[0], r.arms.R.Hd[1])].map(P); return r; }
     if (n === 'skel_archer') {
       // the bow arm (R, near) swings up to point along the aim and holds the bow across it; the string hand (L) reaches the string
       // at the grip and draws it back to the jaw through the wind-up, the arrow nocked on it; on the loose the string snaps home,

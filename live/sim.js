@@ -326,11 +326,16 @@
     }
     if (u >= M.wind + M.duration) { e.st = 'recover'; e.t0 = t; e.cdT = t + D.bossPhase(e).rest + (e.hitDone ? 0 : 0.65); e.openUntil = e.hitDone ? 0 : e.cdT; }
   }
-  // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit
-  function blast(S, R, e) { const M = MOD.explosive, h = R.hero; e.fuse = 0;
+  // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit. A smouldering
+  // skeleton's blast (TASKS 411) is its own: each monster in it loses a share of its own health, and another smouldering one in it lights up
+  function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0;
     if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' взрыв', e);
-    for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) hitEnemy(S, R, o, Math.round(e.max * 0.25), false, e.x, e.y, 1.5);
+    for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
+      hitEnemy(S, R, o, Math.max(1, Math.round(B ? o.max * B.mon : e.max * 0.25)), false, e.x, e.y, 1.5); }
     breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
+  // a smouldering skeleton lights its fuse: it stands hissing through the wind-up and bursts at its end (stepMonsters)
+  function fuse(S, R, e) { const E = ENEMIES[e.type]; if (e.st === 'wind' || e.deadT >= 0) return; const d = windOf(e, E.wind);
+    e.st = 'wind'; e.t0 = S.t; e.fuse = S.t + d; e.aimA = Math.atan2(R.hero.y - e.y, R.hero.x - e.x); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d, id: e.id, lit: 1 }); }
   function enterFloor(S, R, f, gen) {
     R.floor = f; R.propHit = {}; R.bossDead = 0;   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed }, gen));
@@ -662,7 +667,9 @@
     const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (dep(R) - 1)) * (e.elite && !D.BOSSES[e.type] ? 3 + nm : 1)));
     if (E.puddle) (R.map.goo = R.map.goo || []).push({ id: R.nextId++, x: e.x, y: e.y, t0: S.t, T: E.puddle.t, r: E.puddle.r, rNow: E.puddle.r });
     if (E.split) split(S, R, e, E);
-    if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
+    // a smouldering skeleton killed bursts too, unless it went off itself or into the lava or the chasm; one already lit keeps its fuse
+    if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = S.t + E.boom.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: E.boom.fuse, id: e.id }); } }
+    else if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
     ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id }, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
     if (e.summ) return;
@@ -1148,6 +1155,7 @@
       if (e.face !== e.pf) { if (e.pf) e.ft = t; e.pf = e.face; }
       if (E.kind === 'eel') { eel(S, R, e, E, heroOk, d); continue; }
       if (E.kind === 'serpent') { serpent(S, R, e, heroOk); continue; }
+      if (E.kind === 'bomber' && e.st === 'wind') { skid(m, e, E); if (t >= e.fuse) { e.blown = 1; blast(S, R, e); killEnemy(S, R, e); } continue; }
       // a drowned under the shallows stirs only for a hero close by; it stands up out of the water before it can do anything
       if (e.st === 'lurk') { e.vx = e.vy = 0; if (heroOk && d < E.sense && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) rise(S, R, e); continue; }
       if (e.st === 'rise') { e.vx = e.vy = 0; if (t - e.t0 < E.rise) continue; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = Math.max(e.cdT, t + 0.25); }
@@ -1188,6 +1196,7 @@
         else if (E.kind === 'crab' && t >= e.cdT && t >= (e.rushT ?? 0) && d > E.r + K.R + E.rush.near && d < E.r + K.R + E.rush.reach && Math.abs(Math.abs(angDiff(Math.atan2(dy, dx), faOf(e))) - Math.PI / 2) < 0.7
           && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.rush = 1; continue; }
         else if (E.kind === 'crab') steer(e, E, m, F, d < Math.max(reach * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
+        else if (E.kind === 'bomber' && d < reach) { fuse(S, R, e); continue; }
         else if (d < reach && t >= e.cdT && (E.kind !== 'hop' || losClear(m, e.x, e.y - 6, h.x, h.y - 6))) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 0; continue; }
         else if (E.grab && d < E.r + K.R + E.grab.reach && t >= e.cdT && t >= (e.grabT ?? 0) && losClear(m, e.x, e.y - 20, h.x, h.y - 20)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 1; continue; }
         else steer(e, E, m, F, d < Math.max(Math.min(reach, E.r + K.R + 46) * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
@@ -1235,7 +1244,7 @@
     const sol = solids(R);
     for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
     if (heroOk) for (const e of R.en) {
-      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab'].includes(E.kind) || e.st === 'lurk') continue;
+      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab', 'bomber'].includes(E.kind) || e.st === 'lurk') continue;
       const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
       if (d >= stop) continue;
       const angle = d > 0.01 ? Math.atan2(dy, dx) : e.face > 0 ? Math.PI : 0;
@@ -2065,6 +2074,27 @@
         for (let i = 0; i < 120 * MOD.explosive.fuse * 0.8; i++) step(S, { keys: [] }); if (h.hp < a) out.push('an explosive elite bursts before its fuse is out');
         for (let i = 0; i < 120 * 0.5; i++) step(S, { keys: [] });
         if ((h.hp < a) !== !!near) out.push(near ? "an explosive elite's corpse does not hurt the hero in reach" : "an explosive elite's corpse hurts the hero out of reach"); }
+      // the smouldering skeleton (TASKS 411): beside the hero it lights its fuse, stands, and bursts at its end; killed short of him its
+      // bones burst all the same once the fuse is out; its blast takes a share of each monster's health within reach, none beyond,
+      // and sets off another smouldering one in it
+      { const B = ENEMIES.skel_ember.boom, W = ENEMIES.skel_ember.wind, sk = (dx, o) => el([], dx, Object.assign({ type: 'skel_ember', elite: 0, hp: 18, max: 18, dmg: 5 }, o));
+        put(); const a1 = sk(40); let litT = -1, x0 = 0, a = h.hp;
+        for (let i = 0; i < 120 * 2 && a1.deadT < 0; i++) { step(S, { keys: [] }); if (litT < 0 && a1.st === 'wind') { litT = S.t; x0 = a1.x; } if (litT < 0 && h.hp < a) break; }
+        if (litT < 0) out.push('a smouldering skeleton beside the hero never lights its fuse');
+        else { if (a1.deadT < 0 || Math.abs(a1.deadT - litT - W) > 2 * DT) out.push(`a smouldering skeleton bursts ${a1.deadT < 0 ? 'never' : (a1.deadT - litT).toFixed(2) + ' s'} after lighting, not ${W} s`);
+          if (Math.abs(a1.x - x0) > 6) out.push('a smouldering skeleton walks on with its fuse lit'); if (!(h.hp < a)) out.push("a smouldering skeleton's burst does not hurt the hero beside it"); }
+        put(); const a2 = sk(60, { st: 'idle' }); a = h.hp; hitEnemy(S, R, a2, 100, false, h.x, h.y); const dx2 = a2.x - h.x;
+        if (!(a2.fuse > S.t)) out.push('a smouldering skeleton killed lights no fuse');
+        for (let i = 0; i < 120 * B.fuse * 0.8; i++) { step(S, { keys: [] }); h.x = a2.x - dx2; h.vx = h.vy = 0; } if (h.hp < a) out.push("a smouldering skeleton's bones burst before the fuse is out");
+        for (let i = 0; i < 120 * 0.4; i++) { step(S, { keys: [] }); h.x = a2.x - dx2; h.vx = h.vy = 0; } if (!(h.hp < a)) out.push("a smouldering skeleton's bones never burst by the hero");
+        put(); h.ifr = 1e9; const a3 = sk(0, { st: 'wind', t0: S.t, fuse: S.t + 0.05 }), mk = (dy, type) => el([], 0, { type, elite: 0, hp: 200, max: 200, dmg: 1, y: h.y + dy, st: 'idle', cdT: 1e9 });
+        const nearM = mk(B.r - 20, 'goblin'), farM = mk(-(B.r + 40), 'goblin'), a4 = mk(-(B.r - 30), 'skel_ember');
+        for (let i = 0; i < 12; i++) step(S, { keys: [] });
+        if (a3.deadT < 0) out.push("a smouldering skeleton's lit fuse never runs out");
+        if (Math.abs(nearM.max - nearM.hp - Math.round(nearM.max * B.mon)) > 1) out.push(`a smouldering skeleton's blast takes ${nearM.max - nearM.hp} of a monster's ${nearM.max} in reach, not ${B.mon * 100}%`);
+        if (farM.hp < farM.max) out.push("a smouldering skeleton's blast hurts a monster out of reach");
+        if (!(a4.fuse > S.t - 0.1)) out.push("a smouldering skeleton's blast does not set off another in reach");
+        h.ifr = 0; }
       // no blow takes more than its cap of the health: the real strike of an elite of every kind (a caster's bolt, the boss's moves)
       // and an explosive corpse's blast, on the first and the last floor
       const f0 = R.floor, first = (secs) => { const mx = heroSt(S).maxHp; let lost = 0;
