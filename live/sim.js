@@ -1936,7 +1936,8 @@
         // the lava (TASKS 401): its share of floor and lava in AR.lava.share, lakes and sources, every crossing a walk over lava, the crust
         // on lava by the floor and no way shorter over it, and nothing stands in the lava, on the crust or a cell from either
         const L = A.lava, under = new Set(m.lavaUnder), crustS = new Set(m.crust), fl = m.cells.filter((c) => c === 1).length, share = m.lava / (fl + m.lava);
-        if (share < L.share[0] || share > L.share[1]) out.push(`seed ${seed} f${f}: lava is ${Math.round(share * 100)} % of floor and lava`);
+        const sh = (m.ftype && (D.ARCH.plateau[m.ftype] || {}).share) || L.share;
+        if (share < sh[0] || share > sh[1]) out.push(`seed ${seed} f${f}: lava is ${Math.round(share * 100)} % of floor and lava (${m.ftype})`);
         if (!m.lavaBodies.some((b) => b.kind === 'lake') || !m.lavaFeatures.length) out.push(`seed ${seed} f${f}: no lake or no source of lava`);
         for (const q of m.lavaFeatures) if (m.cells[q.cell] !== 3) out.push(`seed ${seed} f${f}: a lava ${q.kind} off its lava`);
         for (const c of m.crossings) if (!c.lava || c.cells.some((k) => m.cells[k] !== 1 || !under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 3))) out.push(`seed ${seed} f${f}: a ${c.kind} that is no crossing over lava`);
@@ -2315,8 +2316,24 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck());
+    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck());
   }
+  // the magma floors' types (TASKS 426, 427): a run's floors never take one type twice running and every type turns up; a lake floor
+  // has islands in its lake, a hoard on one, no start, stairs or merchant on one and no cache dug in the lake
+  function floorTypeCheck() {
+    const out = [], seen = {}, AR = D.ARCH.plateau;
+    for (let sd = 1; sd <= 10; sd++) { let prev = null;
+      for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f} (${m.ftype})`; seen[m.ftype] = (seen[m.ftype] || 0) + 1;
+        if (f < D.RUNS.magma.floors && m.ftype === prev) out.push(`${tag}: the same type as the floor before`); prev = m.ftype;
+        if (f === D.RUNS.magma.floors && m.ftype !== 'plain') out.push(`${tag}: the boss's floor is not the plain plateaus`);
+        if (m.ftype !== 'lake') continue; const isles = m.rooms.filter((r) => r.isle);
+        if (isles.length < 2) out.push(`${tag}: ${isles.length} islands in the lake`);
+        if (isles.some((r) => ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
+        if (!isles.some((r) => r.type === 'treasure')) out.push(`${tag}: no hoard on an island`);
+        for (const q of m.secrets) { const r = m.rooms[q.room]; let lava = 0; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (cell(m, x, y) === 3) lava++;
+          if (lava > 2) out.push(`${tag}: a cache with ${lava} cells of lava round it`); } } }
+    for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
+    return out; }
   // the magma caves' hazards (TASKS 406): as many on each floor as HAZ.n has (more each floor to the 3rd), every one HAZ.clear cells
   // off the start's fire, the spawn, the stairs, chests, monsters' posts and the altar, a vent on 3×3 of floor a cell off the lava;
   // the warning comes HAZ.warn s before the burst, which hurts the hero (a vent sets him alight) and a monster in its ring once a

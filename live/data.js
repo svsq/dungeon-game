@@ -264,6 +264,11 @@
   const ARCH = {
     plateau: { cells: 600, gap: [2, 2], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, grow: [30, 22], round: 3, edge: [1, 3], caches: [2, 3], cacheSize: 8, arenaGap: 6, pop: 0.55, rag: 1, ridge: { w: [2, 3], bend: [1, 2] },
       deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.15, 0.45, 0.7], channel: 7, isle: 0.74, cliff: 8, path: [148, 168, 211, 0],
+      // floor types (TASKS 426): each lays its own figure before the plateaus, which stand round it; the floors of a run never take
+      // the same type twice running (the boss's keeps the plain plateaus for its arena). lake (427): a big lake of lava over `fig` of
+      // the map's width and height, off the top wall; a chain of `isles` plateaus of `isle` cells across it; `margin` cells of
+      // lava between it and the plateaus on its shore
+      types: ['plain', 'lake'], lake: { fig: [[0.2, 0.27], [0.22, 0.3]], at: [[0.35, 0.65], [0.5, 0.64]], isles: [3, 4], isle: [[7, 10], [6, 8]], margin: 2, islet: 0.86, share: [0.3, 0.55] },
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
