@@ -292,9 +292,12 @@
       // river hang off the nearest terrace; rag, edge: their edges more ragged than the plain floor's
       terrace: { fallAt: [0.18, 0.26], wall: 6, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 3], short: [0.12, 0.3], branch: [1, 2], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
       // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
-      // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`
-      cave: { goal: [0.1, 0.16], pools: 3, path: [0, 0, 0, 0], share: [0.06, 0.3] },
-      types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], lake: { fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
+      // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`;
+      // pop: its halls are more than a floor's plateaus, each with its pack: as many monsters a floor as the plateaus'
+      cave: { goal: [0.1, 0.16], pools: 3, pop: 0.44, path: [0, 0, 0, 0], share: [0.06, 0.3] },
+      // first: the type of a run's first floor (the player's call 04.11.2026: the caves first, a lake's archers over the lava were too
+      // much for the first floor)
+      types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave', lake: { fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
         isle: [[[12, 15], [9, 11]], [[8, 10], [6, 8]], [[5, 7], [5, 6]]], margin: 2, plat: [[11, 16], [8, 11]], small: [[7, 10], [6, 8]], grow: [18, 13],
         islet: 1, share: [0.4, 0.66] },
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },

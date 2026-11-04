@@ -110,10 +110,10 @@
     const apart = (x, y, w, h, g0 = pl ? TY.gap : cave ? [6, 6] : [2, 3]) => !rooms.some((r) => { const g = pl && boss && r.id === 0 ? [Math.max(g0[0], AR.arenaGap), Math.max(g0[1], AR.arenaGap)] : g0;
       return x < r.x + r.w + g[0] && x + w + g[0] > r.x && y < r.y + r.h + g[1] && y + h + g[1] > r.y; });
     // the floor's type (TASKS 426), by the run's seed so a retry keeps it: never the last floor's (its own pick, so the
-    // whole run's chain is the same however it is reached), the plain plateaus on a boss's floor
+    // whole run's chain is the same however it is reached), the plain plateaus on a boss's floor, AR.first on the run's first
     // (a check may ask for a type: opts.ftype)
     const ftype = !plat ? null : opts.ftype && !boss ? opts.ftype : (() => { const T = AR.types, rs = (opts.runSeed ?? seed) >>> 0; let prev = null, t = 'plain';
-      for (let f = 1; f <= floor; f++) { const Q = mul32((rs ^ 0x426f) + f * 7907); Q(); const c = T.filter((x) => x !== prev); t = c[Math.floor(Q() * c.length)]; prev = t; }
+      for (let f = 1; f <= floor; f++) { const Q = mul32((rs ^ 0x426f) + f * 7907); Q(); const c = T.filter((x) => x !== prev); t = f === 1 && AR.first ? AR.first : c[Math.floor(Q() * c.length)]; prev = t; }
       return boss ? 'plain' : t; })();
     // a lake floor's lake (TASKS 427): the floor's figure, a ragged blob in the middle of the map no plateau stands on or grows into,
     // with a chain of islands across it along its longer axis, zigzagging: one big (the hoard's), then the smaller sizes in turn, in
@@ -1379,7 +1379,7 @@
       if (r.type !== 'treasure' && r.type !== 'secret' && !cave) furnish(r, zb);   // a secret room is a small cache: its chest and gold need the space
       if (r.type === 'combat' || r.type === 'exit' || r.type === 'treasure') {
         let n = Math.min(Math.floor(area / 9), 2 + Math.floor(depth / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
-        n = Math.max(1, Math.round(n * D.BAL.pop * ST.pop * (plat ? AR.pop : 1)));
+        n = Math.max(1, Math.round(n * D.BAL.pop * ST.pop * (plat ? TY.pop : 1)));
         const pack = pick(roster), guard = r.type === 'exit' && !!ST.guard;
         if (cave) cavePack(r, n, guard);
         else for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;

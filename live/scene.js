@@ -2816,6 +2816,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const L2 = o.n ? m.decor : m.torches; L2.push(o); S.ev.push({ k: 'prop', t: S.t - age, x: o.x, y: o.y, i: (o.n ? 'd' : 't') + (L2.length - 1), n, mat, s: 1 }); }
       h.x = cx; h.y = cy + 150; R.cam = [cx - VW / 2, cy - VH / 2]; });
     states.push(['props_knock', propS(0.07)], ['props_settle', propS(0.4)]);
+    // the magma caves' staged moments stand on a plain plateau floor (a run's first floor is a lava cave, TASKS 426): run 3's first
+    // plain floor, else the next run's
+    const plainMagma = (S) => { for (let sd = 3; sd < 60; sd++) { S.run = SIM.newRun(S, 'magma', sd); for (let f = 2; f <= 3; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'plain') return S.run; } } return S.run; };
     // each way a secret hides: whole (from a step away, where the draught or a banner's sway is the only tell), worked (a blow
     // on a wall or a shelf, a banner torn, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
     const secretS = (f, stage, age = 0, mode = 'campaign') => { for (let sd = 1; sd < 120; sd++) for (let fl = 1; fl <= (mode === 'cave' || mode === 'magma' ? 4 : 1); fl++) { const S = play(); S.run = SIM.newRun(S, mode, sd); if (fl > 1) SIM.enterFloor(S, S.run, fl); const R = S.run, m = R.map, q = m.secrets.find(f); if (!q) continue;
@@ -2964,12 +2967,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_cave', S]); }
     // the magma caves' 2nd floor (TASKS 399; their own floor, rock and lava come in 400–404): its biggest hall, its monsters left in
-    { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 2);
+    { const S = play(); plainMagma(S); S.screen = 'play';
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_magma', S]); }
     // the magma caves' look (TASKS 402): a plateau backing onto the top wall, its face over the chasm and the lava below; a ridge
     // with the drop on both sides
-    { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, h = R.hero;
+    { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       const r = m.rooms.filter((q) => q.type !== 'secret' && q.y <= m.cliff[q.cx] + 2).sort((a, b) => b.w * b.h - a.w * a.h)[0] || m.rooms[0];
       h.x = (r.cx + 0.5) * TILE; h.y = (r.y + 4.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, r.y * TILE - 160]; states.push(['magma_hall', S]); }
     // TASKS 413: the colossus's arena on the magma caves' 4th floor: the ring round the lake, its slabs and cover, the boss above it
@@ -3019,7 +3022,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_cave', S]); break; }
     // TASKS 411: smouldering skeletons in a magma hall: one running at the hero, one with its fuse lit half way, the bones of one
     // struck down burning beside a goblin caught in its reach
-    { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, h = R.hero;
+    { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       const r = m.rooms.filter((q) => q.type !== 'secret' && q.y <= m.cliff[q.cx] + 2).sort((a, b) => b.w * b.h - a.w * a.h)[0] || m.rooms[0], E = D.ENEMIES.skel_ember, B = E.boom;
       h.x = (r.cx + 0.5) * TILE; h.y = (r.y + 4.5) * TILE; h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; S.t = R.t = 40;
       const mk = (id, type, dx, dy, o) => Object.assign({ id, type, x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: S.t - 1, face: dx > 0 ? -1 : 1, aimA: Math.atan2(-dy, -dx),
@@ -3030,7 +3033,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       states.push(['magma_ember', S]); }
     // TASKS 410: a fire priest behind its pack, their weapons alight (a skeleton's sword, a goblin's knife, a demon's fists), its
     // ring glowing under the hero half way through its warning and a pillar standing in another one
-    { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, h = R.hero;
+    { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       const r = m.rooms.filter((q) => q.type !== 'secret' && q.y <= m.cliff[q.cx] + 2).sort((a, b) => b.w * b.h - a.w * a.h)[0] || m.rooms[0], P = D.ENEMIES.fire_priest.pyre;
       h.x = (r.cx + 0.5) * TILE - 120; h.y = (r.y + 4.5) * TILE; h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x + 120 - VW / 2, h.y - VH / 2]; S.t = R.t = 40;
       const mk = (id, type, dx, dy, o) => Object.assign({ id, type, x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: S.t - 1, face: -1, aimA: Math.PI,
@@ -3046,13 +3049,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       shot(find((m) => m.rooms.find((r) => r.plan === 'cultden' && m.decor.some((d) => d.n === 'fence_mg' && d.r === r.id) && m.decor.some((d) => d.n === 'cage' && d.r === r.id))), 'magma_props');
       shot(find((m) => m.rooms.find((r) => r.camp)), 'magma_camp'); }
     // TASKS 404: the light of the magma caves: an altar's hall by the lava, the hero and a foe on its bank lit from the lava's side
-    { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 2); const R = S.run, m = R.map, W = m.W, h = R.hero, sh = R.shrines[0];
+    { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, W = m.W, h = R.hero, sh = R.shrines[0];
       if (sh) { let best = null; for (let k = 0; k < m.cells.length; k++) { if (m.cells[k] !== 1 || ![1, -1, W, -W].some((o) => m.cells[k + o] === 3 && !m.crust.includes(k + o))) continue;
           const x = (k % W + 0.5) * TILE, y = (Math.floor(k / W) + 0.5) * TILE, d = Math.hypot(x - sh.x, y - sh.y); if (d > 160 && (!best || d < best[2])) best = [x, y, d]; }
         if (best) { h.x = best[0]; h.y = best[1]; const foe = R.en.find((e) => e.type === 'skeleton') || R.en[0];
           R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 600); if (foe) R.en.push(Object.assign(structuredClone(foe), { id: 9201, x: h.x + 70, y: h.y + 10, st: 'chase', face: -1 }));
           R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [(h.x + sh.x) / 2 - VW / 2, (h.y + sh.y) / 2 - VH / 2]; states.push(['magma_light', S]); } } }
-    { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, W = m.W, h = R.hero;
+    { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, W = m.W, h = R.hero;
       const low =(k) => SIM.chasm(m, k % W, Math.floor(k / W)) || m.cells[k] === 3, inRoom = (k) => DUNGEON.roomAt(m, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE) >= 0;
       const score = (k) => [1, 2, 3].some((d) => low(k - d)) && [1, 2, 3].some((d) => low(k + d)) && [1, 2, 3].some((d) => SIM.chasm(m, (k + W * 2 + d) % W, Math.floor((k + W * 2) / W)) || SIM.chasm(m, (k - d) % W, Math.floor(k / W)));
       let best = -1; for (let k = W * 8; k < m.cells.length - W * 8 && best < 0; k++) if (m.cells[k] === 1 && !inRoom(k) && score(k)) best = k;
