@@ -1933,6 +1933,10 @@
         if (!m.cliff || m.cliff.length !== W) out.push(`seed ${seed} f${f}: a plateau floor without its wall rows`);
         else for (let x = 0; x < W; x++) for (let y = 0; y < m.cliff[x]; y++) if (m.cells[y * W + x] === 3) { out.push(`seed ${seed} f${f}: lava in the wall at ${x},${y}`); x = W; break; }
         if (!m.lava) out.push(`seed ${seed} f${f}: a plateau floor without lava`);
+        // a cache hides in the top wall (TASKS 425): its room and passage in the wall's rows, the wall over it on each side, never a
+        // block of dark in the lava
+        for (const [i, q] of m.secrets.entries()) { const r = m.rooms[q.room], ks = q.hide.slice(); for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) ks.push(y * W + x);
+          if (ks.some((k) => Math.floor(k / W) >= m.cliff[k % W])) out.push(`seed ${seed} f${f}: secret ${i} is not in the top wall`); }
         // the lava (TASKS 401): its share of floor and lava in AR.lava.share, lakes and sources, every crossing a walk over lava, the crust
         // on lava by the floor and no way shorter over it, and nothing stands in the lava, on the crust or a cell from either
         const L = A.lava, under = new Set(m.lavaUnder), crustS = new Set(m.crust), fl = m.cells.filter((c) => c === 1).length, share = m.lava / (fl + m.lava);
@@ -2328,7 +2332,7 @@
       if (sh.some((l) => Math.abs(l - M.lvl) > 3)) out.push(`${mode}: the 1st floor's merchant sells items of level ${Math.min(...sh)}–${Math.max(...sh)} for a hero of level ${M.lvl}`); }
     return out; }
   // the magma floors' types (TASKS 426, 427): a run's floors never take one type twice running and every type turns up; a lake floor
-  // has islands in its lake, a hoard on one, no start, stairs or merchant on one and no cache dug in the lake
+  // has islands in its lake, a hoard on the big one, no start, stairs or merchant on one and no cache dug in the lake
   function floorTypeCheck() {
     const out = [], seen = {}, AR = D.ARCH.plateau;
     for (let sd = 1; sd <= 10; sd++) { let prev = null;
@@ -2339,6 +2343,16 @@
         if (isles.length < 2) out.push(`${tag}: ${isles.length} islands in the lake`);
         if (isles.some((r) => ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
         if (!isles.some((r) => r.type === 'treasure')) out.push(`${tag}: no hoard on an island`);
+        // the lake is the floor's figure (the player's note on 427): a big island with the hoard and smaller ones, the plateaus on its
+        // shore no bigger than the lake's own sizes, and no hole into the dark left in its lava
+        if (!isles.some((r) => r.isle === 2 && r.type === 'treasure')) out.push(`${tag}: the hoard is not on the big island`);
+        if (new Set(isles.map((r) => r.w * r.h > 90 ? 'big' : r.w * r.h > 40 ? 'mid' : 'small')).size < 2) out.push(`${tag}: the islands are all of a size`);
+        for (const r of m.rooms) if (!r.isle && !r.pocket && r.type !== 'secret' && r.type !== 'shop' && (r.w > AR.lake.grow[0] || r.h > AR.lake.grow[1])) out.push(`${tag}: a shore plateau of ${r.w}×${r.h}`);
+        { const W = m.W, seen = new Uint8Array(W * m.H), wallAt = (k) => Math.floor(k / W) < m.cliff[k % W];
+          for (let k0 = 0; k0 < W * m.H; k0++) { if (m.cells[k0] !== 0 || seen[k0] || wallAt(k0)) continue; const cs = [k0]; seen[k0] = 1; let shut = true;
+            for (let i = 0; i < cs.length; i++) for (const o of [1, -1, W, -W]) { const n = cs[i] + o, x = n % W, y = Math.floor(n / W);
+              if (x < 3 || y < 3 || x > W - 4 || y > m.H - 4) { shut = false; continue; } if (m.cells[n] === 3) continue; if (m.cells[n] !== 0 || wallAt(n)) { shut = false; continue; } if (!seen[n]) { seen[n] = 1; cs.push(n); } }
+            if (shut) { out.push(`${tag}: a hole of ${cs.length} cells into the dark in the lava at ${k0 % W},${Math.floor(k0 / W)}`); break; } } }
         for (const q of m.secrets) { const r = m.rooms[q.room]; let lava = 0; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (cell(m, x, y) === 3) lava++;
           if (lava > 2) out.push(`${tag}: a cache with ${lava} cells of lava round it`); } } }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);

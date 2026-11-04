@@ -244,7 +244,8 @@
   // plateau; gap: rock kept between two plateaus' boxes (the channel); plat and small: a plateau's box [w, h] ranges, the big ones
   // tried first (bigTries) and the small ones fill the gaps (a boss floor's first is its arena), then every box but the arena grows
   // into the free rock up to grow; round: the blob's squareness (2 an ellipse); edge: [out, ragged] cells its edge is pushed out
-  // and in by a noise; caches, cacheSize: blocks of rock held among them for the secret caches (how many, their side); arenaGap:
+  // and in by a noise; caches, cacheSize, cacheRows: stretches of the top wall's foot held clear of the plateaus for the secret caches
+  // (how many, their width, their rows from row 3; TASKS 425); arenaGap:
   // the rock kept between a boss's arena and the plateaus round it (its rim stays dark: no lava the hero could wade out over); pop:
   // a plateau's monsters against a room's (the plateaus grown to fill the floor are more and bigger: as many a floor as before); rag: how
   // ragged a blob's edge is;
@@ -262,17 +263,22 @@
   // joinMax; isle: the noise over which basalt stands in a lake; bridge: the chance a crossing of three cells and more is tried as a
   // chain bridge; crust: the noise over which a bank's lava is crust; share: the band of lava in floor and lava (selfCheck)
   const ARCH = {
-    plateau: { cells: 600, gap: [2, 2], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, grow: [30, 22], round: 3, edge: [1, 3], caches: [2, 3], cacheSize: 8, arenaGap: 6, pop: 0.55, rag: 1, ridge: { w: [2, 3], bend: [1, 2] },
-      deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.15, 0.45, 0.7], channel: 7, isle: 0.74, cliff: 8, path: [148, 168, 211, 0],
+    plateau: { cells: 600, gap: [2, 2], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, grow: [30, 22], round: 3, edge: [1, 3], caches: [2, 3], cacheSize: 8, cacheRows: 3, arenaGap: 6, pop: 0.55, rag: 1, ridge: { w: [2, 3], bend: [1, 2] },
+      deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.15, 0.45, 0.7], channel: 7, isle: 0.74, cliff: 10, path: [148, 168, 211, 0],
       // floor types (TASKS 426): each lays its own figure before the plateaus, which stand round it; the floors of a run never take
-      // the same type twice running (the boss's keeps the plain plateaus for its arena). lake (427): a big lake of lava over `fig` of
-      // the map's width and height, off the top wall; a chain of `isles` plateaus of `isle` cells across it; `margin` cells of
-      // lava between it and the plateaus on its shore
+      // the same type twice running (the boss's keeps the plain plateaus for its arena). lake (427): the floor's figure, a lake of
+      // lava in the middle of the map, its half-axes `fig` of the map's width and height, its middle at `at`; a chain of `isles`
+      // islands across it, one big (the hoard's), the rest of the `isle` sizes after it in turn [w, h ranges]; `margin` cells of lava
+      // between it and the plateaus on its shore, which are smaller there (plat, small, grow as the plain floor's), so they ring the
+      // lake rather than fill the floor; islet: the noise over which basalt stands in it (1: none, a cell of rock in it read as a hole
+      // into the dark; the lava shader's column clusters stand in it instead); share: its band of lava (selfCheck)
       // arena (TASKS 413): the magma caves' last hall, a broad ring of plateau round a lake of lava, w × h cells; the lake's half-axes
       // (lake) leave the ring wide enough for the colossus; a row of basalt slabs crosses the lake the short way (the hero may cut over,
       // the colossus is too broad for it); cover: basalt slabs standing on the ring, solid, stopping bolts
       arena: { w: 28, h: 20, lake: [7, 4.3], rag: 0.25, cover: 5 },
-      types: ['plain', 'lake'], lake: { fig: [[0.2, 0.27], [0.22, 0.3]], at: [[0.35, 0.65], [0.5, 0.64]], isles: [3, 4], isle: [[7, 10], [6, 8]], margin: 2, islet: 0.86, share: [0.3, 0.55] },
+      types: ['plain', 'lake'], lake: { fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
+        isle: [[[12, 15], [9, 11]], [[8, 10], [6, 8]], [[5, 7], [5, 6]]], margin: 2, plat: [[11, 16], [8, 11]], small: [[7, 10], [6, 8]], grow: [18, 13],
+        islet: 1, share: [0.4, 0.66] },
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it

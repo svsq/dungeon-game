@@ -813,7 +813,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // its glow (the emissive pass, drawn over everything) leaves out what lies under a crossing, or it shines through the slabs and planks
   const lavaGlowTex = (m) => maskTex(m, 'lavaglow', (x, y) => SIM.cell(m, x, y) === 3, (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);
   // the plateaus' back wall (TASKS 402): the rock rows above m.cliff, the only rock drawn as rock; the rest is the chasm
-  const cliffTex = (m) => maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && SIM.cell(m, x, y) === 0), null, 1);
+  // (an unfound cache in it, TASKS 425, is the wall's rock: its fake wall and room stand in the wall rows)
+  const cliffTex = (m) => { const hid = SIM.secretMask(m); return maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && (SIM.cell(m, x, y) === 0 || SIM.cell(m, x, y) === 4 || hid.has(y * m.W + x))), null, 1); };
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
   const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.cell(m, x, y) === 3, null, 8);
   // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
@@ -2862,7 +2863,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
     // the cave's loose stone is cut from the baked cave floor (TASKS 337): the same three moments on a cave floor
     // the magma caves' caches (TASKS 410, the player's note: they are found too easily), shut, as the hero comes up to them
-    for (const [n, f] of [['magma_secret_crack', (o) => o.kind === 'crack'], ['magma_secret_lever', (o) => o.kind === 'lever' && o.trig && o.trig.k !== 'plate'], ['magma_secret_plate', plate]]) { const S = secretS(f, 0, 0, 'magma'); if (S) states.push([n, S]); }
+    for (const [n, f, stage] of [['magma_secret_crack', (o) => o.kind === 'crack', 0], ['magma_secret_lever', (o) => o.kind === 'lever' && o.trig && o.trig.k !== 'plate', 0], ['magma_secret_plate', plate, 0], ['magma_secret_open', (o) => o.kind === 'crack', 3]]) { const S = secretS(f, stage, 0, 'magma'); if (S) states.push([n, S]); }
     for (const [n, stage, age] of [['cave_secret_plate', 0], ['cave_secret_plate_sink', 2, 0.04], ['cave_secret_plate_open', 3]]) { const S = secretS(plate, stage, age, 'cave'); if (S) states.push([n, S]); }
     // the endless descent (TASKS 353): each biome's first-size and capped-size floor, each of the five bosses in its arena, the menu
     // with a record depth, the end of a run that set a new one
@@ -2979,6 +2980,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const R = S.run, h = R.hero, r = m.rooms.find((q) => q.isle && q.type === 'treasure') || m.rooms.find((q) => q.isle);
       h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 0.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_lake', S]); break; }
+    // and the lake from its north shore: the hero on the floor of a shore plateau nearest the islands, the camera out over the lake
+    for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
+      for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;
+      const R = S.run, h = R.hero, W = m.W, is = m.rooms.filter((q) => q.isle), lx = is.reduce((a, q) => a + q.cx, 0) / is.length, ly = is.reduce((a, q) => a + q.cy, 0) / is.length;
+      let best = null; for (let k = 0; k < W * m.H; k++) { const x = k % W, y = Math.floor(k / W), r = m.rooms[DUNGEON.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE)];
+        if (m.cells[k] !== 1 || !r || r.isle || y > ly - 6 || m.cells[k + W] !== 1 || m.cells[k + 2 * W] === 1) continue; const d = Math.hypot(x - lx, (y - ly) * 1.5); if (!best || d < best[2]) best = [x, y, d]; }
+      if (!best) continue; h.x = (best[0] + 0.5) * TILE; h.y = (best[1] + 0.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [h.x - VW / 2, h.y - VH * 0.3]; states.push(['magma_lake_shore', S]); break; }
     // TASKS 411: smouldering skeletons in a magma hall: one running at the hero, one with its fuse lit half way, the bones of one
     // struck down burning beside a goblin caught in its reach
     { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, h = R.hero;
