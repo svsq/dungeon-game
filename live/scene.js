@@ -326,13 +326,15 @@ bool isWall(vec2 p){ return textureLod(u_cliff, p / u_map, 0.0).r + (fbm(p / 40.
 uniform sampler2D u_floor, u_wall, u_top, u_shore, u_far, u_hot, u_crust, u_plat, u_lake; uniform float u_lift, u_out;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 float lum(vec3 c){ return clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.04) / 0.4, 0.0, 1.0); }
+// each generated texture's own black point and range (421), so the ramps keep the tone and spread 402 set them to
+float lumN(vec3 c, float lo, float span){ return clamp((dot(c, vec3(0.3, 0.55, 0.15)) - lo) / span, 0.0, 1.0); }
 vec3 ramp(float t, vec3 lo, vec3 mid, vec3 hi){ return t < 0.5 ? mix(lo, mid, t * 2.0) : mix(mid, hi, t * 2.0 - 1.0); }
 bool isLow(vec2 p){ return (!isOpen(p) && !isWall(p)) || lavaAt(p) > 0.5; }
-vec3 gFloor(vec2 p){ vec3 a = tx(u_floor, p * 2.0); float t = lum(a);
+vec3 gFloor(vec2 p){ vec3 a = tx(u_floor, p); float t = lumN(a, 0.031, 0.55);
   return ramp(t, vec3(0.05, 0.047, 0.048), vec3(0.2, 0.188, 0.183), vec3(0.42, 0.395, 0.38)) * (0.86 + 0.28 * fbm(p / 150.0)); }
-vec3 gCol(vec2 p){ return ramp(lum(tx(u_wall, vec2(p.x * 1.4, p.y * 0.55))), vec3(0.022, 0.021, 0.022), vec3(0.15, 0.143, 0.14), vec3(0.36, 0.34, 0.33)); }
-vec3 gTop(vec2 p){ return ramp(lum(tx(u_top, p)), vec3(0.012, 0.011, 0.012), vec3(0.075, 0.07, 0.068), vec3(0.19, 0.18, 0.175)); }
-vec3 gCrust(vec2 p){ return ramp(lum(tx(u_shore, p)), vec3(0.03, 0.02, 0.02), vec3(0.11, 0.095, 0.09), vec3(0.26, 0.24, 0.23)); }
+vec3 gCol(vec2 p){ return ramp(lumN(tx(u_wall, vec2(p.x * 1.4, p.y * 0.55)), 0.038, 0.28), vec3(0.022, 0.021, 0.022), vec3(0.15, 0.143, 0.14), vec3(0.36, 0.34, 0.33)); }
+vec3 gTop(vec2 p){ return ramp(lumN(tx(u_top, p), 0.064, 0.45), vec3(0.012, 0.011, 0.012), vec3(0.075, 0.07, 0.068), vec3(0.19, 0.18, 0.175)); }
+vec3 gCrust(vec2 p){ return ramp(lumN(tx(u_shore, p), 0.033, 0.444), vec3(0.03, 0.02, 0.02), vec3(0.11, 0.095, 0.09), vec3(0.26, 0.24, 0.23)); }
 const float CW = 30.0;
 bool plat(vec2 p){ return isOpen(p) && lavaAt(p) <= 0.5 && textureLod(u_plat, p / u_map, 0.0).r > 0.3; }   // not the sliver the open mask's noise leaves past a lava cell
 // what a column may stand over: the open lava (not the crust, not under a crossing) or the chasm
@@ -3045,7 +3047,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       states.push(['magma_priest', S]); }
     // TASKS 405: a hall of the cult (banners, a cage, basalt, a chain fence on its edge) and the cult's camp round the start's fire
     { const find = (want) => { for (const sd of [3, 5, 8, 13, 21]) for (let f = 1; f <= 3; f++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; if (f > 1) SIM.enterFloor(S, S.run, f); const r = want(S.run.map); if (r) return [S, r]; } return null; };
-      const shot = (got, name) => { if (!got) return; const [S, r] = got, R = S.run, h = R.hero; h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 1.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push([name, S]); };
+      const shot = (got, name) => { if (!got) return; const [S, r] = got, R = S.run, h = R.hero; h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 1.5) * TILE; R.en = R.en.filter((e) => Math.abs(e.x - h.x) > VW / 2 + 200 || Math.abs(e.y - h.y) > VH / 2 + 200); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push([name, S]); };
       shot(find((m) => m.rooms.find((r) => r.plan === 'cultden' && m.decor.some((d) => d.n === 'fence_mg' && d.r === r.id) && m.decor.some((d) => d.n === 'cage' && d.r === r.id))), 'magma_props');
       shot(find((m) => m.rooms.find((r) => r.camp)), 'magma_camp'); }
     // TASKS 404: the light of the magma caves: an altar's hall by the lava, the hero and a foe on its bank lit from the lava's side

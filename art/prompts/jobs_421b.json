@@ -1,0 +1,11 @@
+[
+ {
+  "name": "dc_ash_mg",
+  "prompt": "art/prompts/dc_ash_mg.txt",
+  "ref": [
+   "art/raw/refcrop_mg_floor.png=magma cave concept crop: ash ground palette only, the decal must stay darker and sparser than this ground's pale grit"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ }
+]

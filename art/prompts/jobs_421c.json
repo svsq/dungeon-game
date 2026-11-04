@@ -1,0 +1,29 @@
+[
+ {
+  "name": "floor_mg_tex",
+  "prompt": "art/prompts/floor_mg_tex.txt",
+  "ref": [
+   "art/raw/refcrop_mg_crust.png=magma cave concept crop: ash ground with cracked darker plates and dark-red cracks, ground material and palette only, not its lava light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "walltop_mg_tex",
+  "prompt": "art/prompts/walltop_mg_tex.txt",
+  "ref": [
+   "art/raw/refcrop_mg_stones.png=magma cave concept crop: flat angular basalt column tops, shape and palette only, not the lava"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "basalt_a",
+  "prompt": "art/prompts/basalt_a.txt",
+  "ref": [
+   "art/raw/refcrop_mg_stones.png=magma cave concept crop: thick basalt columns with clover-shaped tops, design only, do not copy its lava or light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ }
+]
