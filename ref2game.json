@@ -28,7 +28,8 @@
    "skeleton__*",
    "goblin__*",
    "brute__*",
-   "cultist__*", "priest__*",
+   "cultist__*",
+   "priest__*",
    "spider__*",
    "*_w",
    "drowned__*",
@@ -37,7 +38,13 @@
    "eel__*",
    "skel_archer__*",
    "skel_mage__*",
-   "serpent__*"
+   "serpent__*",
+   "imp__*",
+   "golem__*",
+   "salamander__*",
+   "golemE__*",
+   "impE__*",
+   "salamanderE__*"
   ],
   "skip": [
    "*_sheet",
@@ -54,7 +61,9 @@
    "skeleton",
    "drowned",
    "skel_archer",
-   "skel_mage"
+   "skel_mage",
+   "imp",
+   "golem"
   ],
   "max": 2048,
   "walk": {

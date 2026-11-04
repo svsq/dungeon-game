@@ -1,0 +1,6 @@
+Use case: a cut-out rig part sheet for an enemy of a top-down dungeon action game. Image 1 is the style reference only. Image 2 is the approved monster: copy its design, colours, proportions, pixel size and thick dark outline exactly.
+Subject: the SAME lava salamander as Image 2, seen from straight above as in Image 2, split into separate parts laid out with wide empty gaps (at least half a part's width) between them, all at the same scale and the same coarse pixel grid as Image 2, each part complete (including the areas normally hidden by other parts):
+1) on the LEFT half: the head, body and tail in one piece WITHOUT any legs, pointing UP exactly as in Image 2, perfectly straight along a vertical line, with small clean rounded leg sockets on its flanks where the legs were;
+2) on the RIGHT half, in the upper part: one leg straightened out HORIZONTALLY, twice as long as in Image 2: a thick upper leg at the left (its rounded socket end), a knee joint in the middle, and the lower leg ending in the three-toed clawed foot at the right, toes pointing right;
+3) on the RIGHT half, in the lower part: the same leg again as a second copy, identical.
+Constraints: exactly 3 separate pieces, nothing touching, no shadow, no floor, no glow, no labels.

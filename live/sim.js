@@ -339,7 +339,7 @@
   function enterFloor(S, R, f, gen) {
     R.floor = f; R.propHit = {}; R.bossDead = 0;   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed }, gen));
-    R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.pyres = []; R.drops = []; R.scorches = []; m.goo = [];
+    R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.pyres = []; R.fires = []; R.drops = []; R.scorches = []; m.goo = [];
     const stg = STAGE(R, f), d = stg.depth, sc = BAL.hp * dif(R, 'hp') * D.hpAt(d), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? stg.guard : e.exit && e.elite ? stg.exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk, bk = (D.BOSSES[e.type] && stg.bossK) || { hp: 1, dmg: 1 };
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el * bk.hp), max: Math.round(E.hp * sc * el * bk.hp), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? stg.mob : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd * bk.dmg,
@@ -354,7 +354,7 @@
     R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s));
     // a big monster's post can graze a prop: the post is where it can actually stand
     { const sol = solids(R), clear = (x, y, r) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r);
-      for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost || ENEMIES[e.type].deep) continue; shove(m, e, r, true, sol);
+      for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost || ENEMIES[e.type].deep) continue; if (ENEMIES[e.type].kind === 'salamander') { e.hx = e.x; e.hy = e.y; continue; } shove(m, e, r, true, sol);
         // squeezed between two props, the push only rocks it back and forth: take the nearest spot where it fits
         if (!clear(e.x, e.y, r)) find: for (let d = 4; d <= 96; d += 4) for (let a = 0; a < 16; a++) { const x = e.x + Math.cos(a * Math.PI / 8) * d, y = e.y + Math.sin(a * Math.PI / 8) * d;
           if (clear(x, y, r)) { e.x = x; e.y = y; break find; } }
@@ -428,6 +428,113 @@
     && Math.hypot(o.x - e.x, o.y - e.y) < E.kindle.r).sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y)).slice(0, E.kindle.n);
   function kindle(S, R, e, E) { const K = E.kindle, to = kinOf(R, e, E); e.kin = 0; e.kinS = 1; e.kinT = S.t + K.every;
     for (const o of to) o.fireT = S.t + K.t; ev(S, { k: 'kindle', x: e.x, y: e.y - 44, id: e.id, to: to.map((o) => o.id) }); }
+  // ---------------- the imp (TASKS 407) ----------------
+  // a spot to leap to: open floor (no crust) within its leap, in sight of the hero and away from him, free of the others and the vents.
+  // across: the way round to it on foot is long or none (F, the hero's flow field), so he can't walk up to it
+  function impSpot(R, e, E, F, flee) {
+    const m = R.map, h = R.hero, L0 = E.leap, dh0 = Math.hypot(h.x - e.x, h.y - e.y), tx0 = Math.floor(e.x / TILE), ty0 = Math.floor(e.y / TILE), n = Math.ceil(L0.far / TILE), mid = (E.keep[0] + E.keep[1]) / 2, sol = solids(R);
+    let best = null;
+    for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) { const tx = tx0 + i, ty = ty0 + j, k = ty * m.W + tx;
+      if (cell(m, tx, ty) !== 1) continue; const x = (tx + 0.5) * TILE, y = (ty + 0.5) * TILE + 4, dl = Math.hypot(x - e.x, y - e.y);
+      if (dl < L0.near || dl > L0.far) continue; const dh = Math.hypot(h.x - x, h.y - y);
+      if (dh < E.flee + 30 || (flee && dh < dh0 + 50) || !losClear(m, e.x, e.y - 6, x, y - 6) || !losClear(m, x, y - 30, h.x, h.y - 30)) continue;
+      if (R.en.some((o) => o !== e && o.deadT < 0 && Math.hypot((o.st === 'leap' ? o.ltx : o.x) - x, (o.st === 'leap' ? o.lty : o.y) - y) < 26) || (m.hazards || []).some((z) => D.hazIn(z, x, y))) continue;
+      // (not into a prop: landed in a brazier, it was shoved out of it in one frame)
+      if (sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + E.r + 4)) continue;
+      const f = F[k], across = f < 0 || f * TILE > 1.6 * dh + 2 * TILE, sc = Math.abs(dh - mid) - (across ? 160 : 0) + 0.15 * dl + ((e.id * 7919 + k * 104729) % 97) / 5;
+      if (!best || sc < best[0]) best = [sc, x, y, across]; }
+    return best;
+  }
+  const acrossFrom = (R, e, F) => { const m = R.map, h = R.hero, f = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]; return f < 0 || f * TILE > 1.6 * Math.hypot(h.x - e.x, h.y - e.y) + 2 * TILE; };
+  // a leap: a crouch, the flight in a line over whatever lies between (its arc is the render's), a landing crouch
+  // (the walk it springs from eases out in the render, spd0 as a boss's move cuts it: zeroed in a frame, the arms' swing snapped)
+  function leap(S, R, e, E, x, y) { const d = Math.hypot(x - e.x, y - e.y), sp = Math.hypot(e.vx, e.vy); e.spd0 = sp; e.vxn0 = sp > 1 ? e.vx / sp : 1; e.vyn0 = sp > 1 ? e.vy / sp : 0; Object.assign(e, { st: 'leap', t0: S.t, lx: e.x, ly: e.y, ltx: x, lty: y, ld: 0.16 + d / E.leap.spd, vx: 0, vy: 0, kbx: 0, kby: 0 });
+    // it springs back from the hero facing him, its eyes on him; elsewhere it faces where it leaps
+    const h = R.hero, back = Math.hypot(h.x - x, h.y - y) > Math.hypot(h.x - e.lx, h.y - e.ly) && Math.hypot(h.x - e.lx, h.y - e.ly) < E.flee + 20;
+    e.face = back ? (h.x >= e.x ? 1 : -1) : x >= e.x ? 1 : -1; e.aimA = Math.atan2(y - e.y, x - e.x); ev(S, { k: 'leap', x: e.x, y: e.y, id: e.id }); }
+  // (eased along its line, as its arc is in the render: at full speed from the first frame the take-off and the landing jolted)
+  // (its first steps off the landing ease in from a standstill: spd0 0)
+  function leapStep(S, R, e, E) { const L0 = E.leap, u = S.t - e.t0, f = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), q = f * f * (3 - 2 * f);
+    e.x = e.lx + (e.ltx - e.lx) * q; e.y = e.ly + (e.lty - e.ly) * q; e.vx = e.vy = e.kbx = e.kby = 0;
+    if (q >= 1 && !e.landed) { e.landed = 1; ev(S, { k: 'land', x: e.x, y: e.y, id: e.id }); }
+    if (u >= L0.crouch + e.ld + L0.land) { e.st = 'chase'; e.t0 = e.seenT = S.t; e.landed = 0; e.spd0 = 0; e.vxn0 = 1; e.vyn0 = 0; e.leapT = S.t + L0.cd * (0.8 + 0.4 * rnd(R)) / eliteK(e, 'spd'); } }
+  // its turn in the chase: true when it began a leap or an attack
+  function impThink(S, R, e, E, F, d, dx, dy) {
+    const m = R.map, h = R.hero, t = S.t, ready = t >= (e.leapT ?? 0), k = Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE);
+    if (cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) !== 1) { const [x, y] = landOf(m, e.x, e.y); leap(S, R, e, E, x, y); return true; }   // knocked onto lava or crust
+    if (d < E.flee && ready) { const s = impSpot(R, e, E, F, 1); if (s) { leap(S, R, e, E, s[1], s[2]); return true; } }
+    if (d < E.r + K.R + E.reach && t >= e.cdT) { Object.assign(e, { st: 'wind', t0: t, claw: 1, tx: h.x, ty: h.y, aimA: Math.atan2(dy, dx) }); return true; }
+    const los = losClear(m, e.x, e.y - 30, h.x, h.y - 30);
+    if (los && d >= E.flee && d < E.spark.reach && t >= e.cdT) { Object.assign(e, { st: 'wind', t0: t, claw: 0, aimA: Math.atan2(h.y - 38 - (e.y - IMP_Y), h.x - e.x) }); return true; }
+    // every few seconds it looks for a better spot: across from him, or in sight and in range when it has neither
+    if (ready && t >= (e.lookT ?? 0)) { e.lookT = t + E.leap.look; const s = impSpot(R, e, E, F, 0), far = !los || d > E.keep[1] + 30;
+      if (s && ((s[3] && !acrossFrom(R, e, F)) || far)) { leap(S, R, e, E, s[1], s[2]); return true; } }
+    steer(e, E, m, F, d < E.keep[0] ? -1 : d > E.keep[1] || !los ? 1 : 0, dx, dy, d, d < E.keep[0] ? 0.9 : 1); void k;
+    return false;
+  }
+  const IMP_Y = 32;   // the spark leaves its hand this far over its feet
+
+  // ---------------- the lava salamander (TASKS 408) ----------------
+  // the floor's lava and land as one field from a tile (the salamander's way to the hero: swimming is walking for it), cached as flow is
+  const LFLOW = { key: '', d: null };
+  function lavaFlow(m, tx, ty) {
+    const key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m); if (LFLOW.key === key) return LFLOW.d;
+    const d = new Int16Array(m.W * m.H).fill(-1), q = [ty * m.W + tx]; d[q[0]] = 0; const blk = new Set(m.block || []);
+    for (let i = 0; i < q.length; i++) { const k = q[i]; if (d[k] > 60) continue; for (const o of [1, -1, m.W, -m.W]) { const j = k + o; if (d[j] >= 0 || blk.has(j) || (m.cells[j] !== 1 && m.cells[j] !== 3)) continue; d[j] = d[k] + 1; q.push(j); } }
+    LFLOW.key = key; LFLOW.d = d; return d;
+  }
+  // how many cells each floor cell lies from the lava, cached per map (lava doesn't move; crust counts as lava)
+  const LDIST = new WeakMap();
+  function lavaDist(m) { let d = LDIST.get(m); if (d) return d; d = new Int16Array(m.W * m.H).fill(-1); const q = [];
+    for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) { d[k] = 0; q.push(k); }
+    for (let i = 0; i < q.length; i++) { const k = q[i]; for (const o of [1, -1, m.W, -m.W]) { const j = k + o; if (j < 0 || j >= d.length || d[j] >= 0 || m.cells[j] !== 1) continue; d[j] = d[k] + 1; q.push(j); } }
+    LDIST.set(m, d); return d; }
+  const cellOf = (m, o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
+  // the open lava nearest it within n cells, its middle
+  function lavaNear(m, e, n) { const tx = Math.floor(e.x / TILE), ty = Math.floor(e.y / TILE); let best = null;
+    for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) { const x = tx + i, y = ty + j; if (cell(m, x, y) !== 3 || crustAt(m, y * m.W + x)) continue;
+      let deep = 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (cell(m, x + a, y + b) === 3) deep++;
+      const dd = i * i + j * j - deep; if (!best || dd < best[2]) best = [(x + 0.5) * TILE, (y + 0.5) * TILE, dd]; }
+    return best; }
+  function salamThink(S, R, e, E, d, dx, dy) {
+    const m = R.map, h = R.hero, t = S.t, B = E.breath, HL = E.heal, LD = lavaDist(m), here = LD[cellOf(m, e)], his = LD[cellOf(m, h)];
+    crabTurn(e, E, Math.atan2(dy, dx), 1);
+    if (e.hp < HL.at * e.max && t >= (e.healT ?? 0)) { const p = lavaNear(m, e, 10); if (p) { Object.assign(e, { st: 'soak', t0: t, sx: p[0], sy: p[1], healT: t + HL.cd, soaked: 0 }); ev(S, { k: 'flee', x: e.x, y: e.y, id: e.id }); return true; } }
+    const front = Math.abs(angDiff(Math.atan2(dy, dx), faOf(e)));
+    if (d < E.r + K.R + E.reach && t >= e.cdT && front < 0.6) { Object.assign(e, { st: 'wind', t0: t, br: 0, tx: h.x, ty: h.y, aimA: faOf(e) }); return true; }
+    if (d > E.r + K.R + B.near && d < B.reach + K.R && front < 0.35 && t >= e.cdT && t >= (e.brT ?? 0) && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { Object.assign(e, { st: 'wind', t0: t, br: 1, tx: h.x, ty: h.y, aimA: faOf(e) }); return true; }
+    // on land it keeps within its tether of the lava: a hero farther in is breathed at from the edge
+    const hold = here > 0 && his > E.tether && here >= E.tether - 1, F = lavaFlow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE));
+    steer(e, E, m, F, hold || d < E.r + K.R + E.reach * 0.8 ? 0 : 1, dx, dy, d, onLava(m, e) ? E.swim : 1);
+    return false;
+  }
+  // back into the lava to heal: it swims to the spot, then lies under, mending while nothing hurts it
+  function soak(S, R, e, E) { const m = R.map, t = S.t, HL = E.heal, dx = e.sx - e.x, dy = e.sy - e.y, d = Math.hypot(dx, dy);
+    crabTurn(e, E, d > 6 ? Math.atan2(dy, dx) : faOf(e), d > 6 ? 1 : 0.3);
+    const sp = (d > 6 ? E.spd * (onLava(m, e) ? E.swim : 1) * eliteK(e, 'spd') : 0) * SS01(Math.min(1, d / 24)), k = 1 - Math.exp(-9 * DT);
+    e.vx += ((d > 0.01 ? dx / d : 0) * sp - e.vx) * k; e.vy += ((d > 0.01 ? dy / d : 0) * sp - e.vy) * k;
+    move(m, e, e.vx * DT, e.vy * DT, E.r, true, true); e.dist += Math.hypot(e.vx, e.vy) * DT;
+    if (!onLava(m, e)) { if (t - e.t0 > 5) { e.st = 'chase'; e.t0 = t; } return; }
+    if (!e.soaked) { e.soaked = 1; e.soakT = t; ev(S, { k: 'submerge', x: e.x, y: e.y, id: e.id }); }
+    if (t - e.hitT > HL.calm) e.hp = Math.min(e.max, e.hp + HL.rate * e.max * DT);
+    if (e.hp >= HL.to * e.max || t - e.soakT > HL.most) { e.st = 'chase'; e.t0 = e.seenT = t; e.soaked = 0; e.cdT = t + 0.4; ev(S, { k: 'emerge', x: e.x, y: e.y, id: e.id }); } }
+  // its fire on the floor: the trail of its belly on land and the patches its breath leaves, a golem's pool of lava (TASKS 409).
+  // Each burns a hero in it at once and again every `per` s, and sets him alight
+  function addFire(R, S, x, y, o) { (R.fires = R.fires || []).push(Object.assign({ id: R.nextId++, x, y, t0: S.t }, o)); }
+  function stepFires(S, R) { const h = R.hero, t = S.t;
+    for (const p of R.fires) { if (t - p.t0 >= p.t || h.deadT >= 0 || Math.hypot(h.x - p.x, (h.y - p.y) / p.ry) >= p.r + K.R * 0.5 || t < (p.hitT ?? -9) + p.per) continue;
+      if (t - h.dashT < BAL.dodge.t && p.kind !== 'pool') continue;
+      p.hitT = t; hurtHero(S, R, p.dmg, p.x, p.y - 6, 'fire', p.who + (p.kind === 'pool' ? ' лужа' : ' огонь'), R.en.find((o) => o.id === p.src)); }
+    R.fires = R.fires.filter((p) => t - p.t0 < p.t); }
+  function breathFire(S, R, e, E) { const B = E.breath, a = e.aimA;
+    for (const q of [0.35, 0.65, 0.95]) { const x = e.x + Math.cos(a) * (E.r + B.reach * q), y = e.y + Math.sin(a) * (E.r + B.reach * q) * 0.8;
+      if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) === 1) addFire(R, S, x, y, { src: e.id, who: who(e), r: E.trail.r * (0.9 + 0.5 * q), ry: E.trail.ry, t: E.trail.t, dmg: e.dmg * E.trail.dmg, per: E.trail.per, kind: 'breath' }); } }
+
+  // ---------------- the magma golem (TASKS 409) ----------------
+  const crustOf = (e, E) => e.crust ?? E.crust.n;
+  function golemCrust(S, R, e, E, d) { const C = E.crust, t = S.t, n = crustOf(e, E);
+    if (n >= C.n || t - (e.blowT ?? -9) < C.calm || d < C.far) { e.growT = t; return; }
+    if (t - (e.growT ?? t) >= C.regrow) { e.crust = n + 1; e.growT = t; ev(S, { k: 'regrow', x: e.x, y: e.y - E.h * 0.55, id: e.id, n: e.crust }); } }
   function damageName(src) {
     const type = String(src || '').split(' ')[0], E = ENEMIES[type];
     if (E) return E.name + (src.includes('элита') ? ' (элита)' : '') + (src.endsWith('снаряд') ? ' · снаряд' : src.endsWith('взрыв') ? ' · взрыв' : src.endsWith('столб') ? ' · столб огня' : '');
@@ -643,13 +750,16 @@
     if (R.map.bossType === e.type && !R.arena) { stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     if (e.type === 'boss_serpent' && e.openUntil > S.t) dmg *= 1.4;
-    const arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
+    let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
+    // a golem's crust takes the blow and a plate of it comes off (TASKS 409); its fire doesn't
+    const CR0 = ENEMIES[e.type].crust; if (CR0 && kind !== 'burn' && kind !== 'thorns' && crustOf(e, ENEMIES[e.type]) > 0) { dmg = Math.max(1, Math.round(dmg * CR0.k)); e.crust = crustOf(e, ENEMIES[e.type]) - 1; e.growT = S.t; e.armT = S.t; arm = true; }
     dmg = absorbShield(S, e, dmg, { id: e.id }); if (dmg <= 0) return;
     if (gift(R.hero, 'execute') && e.hp < 0.25 * e.max) dmg = Math.round(dmg * (1 + gift(R.hero, 'execute') / 100));
-    e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e); if (e.st === 'lurk') rise(S, R, e);
-    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost || ENEMIES[e.type].deep || e.st === 'rise';
+    // blowT: a blow, not a burn's tick (a golem's crust grows back once the blows stop, TASKS 409)
+    e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (kind !== 'burn' && kind !== 'thorns') e.blowT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e); if (e.st === 'lurk') rise(S, R, e);
+    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || ENEMIES[e.type].heavy || e.elite || ENEMIES[e.type].ghost || ENEMIES[e.type].deep || e.st === 'rise' || e.st === 'leap';
     if (!heavy && !arm) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
-    if (kind === 'fire') { e.burn = S.t + 3; e.burnT = S.t; }
+    if (kind === 'fire' && !ENEMIES[e.type].lava) { e.burn = S.t + 3; e.burnT = S.t; }
     ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
     const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
@@ -683,6 +793,8 @@
     const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (dep(R) - 1)) * (e.elite && !D.BOSSES[e.type] ? 3 + nm : 1)));
     if (E.puddle) (R.map.goo = R.map.goo || []).push({ id: R.nextId++, x: e.x, y: e.y, t0: S.t, T: E.puddle.t, r: E.puddle.r, rNow: E.puddle.r });
     if (E.split) split(S, R, e, E);
+    // a golem falls apart into a pool of lava (TASKS 409)
+    if (E.pool && e.sinkT === undefined && e.fallT === undefined) { addFire(R, S, e.x, e.y, { src: e.id, who: who(e), r: E.pool.r, ry: E.pool.ry, t: E.pool.t, dmg: e.dmg * E.pool.dmg, per: E.pool.per, kind: 'pool' }); ev(S, { k: 'pool', x: e.x, y: e.y, r: E.pool.r, d: E.pool.t, id: e.id }); }
     // a smouldering skeleton killed bursts too, unless it went off itself or into the lava or the chasm; one already lit keeps its fuse
     if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = S.t + E.boom.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: E.boom.fuse, id: e.id }); } }
     else if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
@@ -851,7 +963,7 @@
     const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
     if (!room || P.fired) return false;
     P.fired = 1;
-    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep);
+    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
     if (!roster.length) return false;
     const group = Array.from({ length: P.n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = solids(R), block = new Set(m.block || []);
     const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;
@@ -1026,13 +1138,14 @@
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (dep(R) - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
     if (m.hazards) stepHazards(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
+    if (R.fires && R.fires.length) stepFires(S, R);
     // water puts the fire out
     if (h.burn > t && inWater(m, h)) { h.burn = 0; ev(S, { k: 'douse', x: h.x, y: h.y }); }
     for (const e of R.en) if (e.deadT < 0 && e.burn > t && !ENEMIES[e.type].ghost && inWater(m, e)) { e.burn = 0; ev(S, { k: 'douse', x: e.x, y: e.y }); }
     // lava burns whoever stands in it, every half second
     const lavaDmg = () => 8 * (1 + 0.2 * (dep(R) - 1));
     if (onLava(m, h) && t - (h.lavaT ?? -9) >= 0.5) { h.lavaT = t; hurtHero(S, R, lavaDmg() * st.resist, h.x, h.y, undefined, 'lava'); ev(S, { k: 'scorch', x: h.x, y: h.y }); }
-    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onLava(m, e) && t - (e.lavaT ?? -9) >= 0.5) {
+    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !ENEMIES[e.type].lava && onLava(m, e) && t - (e.lavaT ?? -9) >= 0.5) {
       if (m.cliff && !D.BOSSES[e.type]) { if (e.sinkT === undefined && e.fallT === undefined) { e.sinkT = t; e.burn = t + DOOM.sink + 0.5; e.burnT = t; e.kbx = e.kby = 0; ev(S, { k: 'sink', x: e.x, y: e.y, id: e.id, type: e.type }); } continue; }
       e.lavaT = t; hitEnemy(S, R, e, Math.round(lavaDmg() * 1.25), false, e.x, e.y, 0, 'fire'); ev(S, { k: 'scorch', x: e.x, y: e.y }); }
     if (crustSet(m)) stepCrust(S, R);
@@ -1173,6 +1286,11 @@
       if (E.kind === 'eel') { eel(S, R, e, E, heroOk, d); continue; }
       if (E.kind === 'serpent') { serpent(S, R, e, heroOk); continue; }
       if (E.kind === 'bomber' && e.st === 'wind') { skid(m, e, E); if (t >= e.fuse) { e.blown = 1; blast(S, R, e); killEnemy(S, R, e); } continue; }
+      // (when it went into the lava or came out of it, for the render's ease between swimming and walking)
+      if (E.kind === 'salamander') { const on = onLava(m, e) ? 1 : 0; if ((e.lv || 0) !== on) { e.lv = on; e.lvT = t; } }
+      if (e.st === 'leap') { leapStep(S, R, e, E); continue; }
+      if (e.st === 'soak') { soak(S, R, e, E); continue; }
+      if (E.crust) golemCrust(S, R, e, E, d);   // (at its post too: a hero who walked away finds it whole again)
       // a drowned under the shallows stirs only for a hero close by; it stands up out of the water before it can do anything
       if (e.st === 'lurk') { e.vx = e.vy = 0; if (heroOk && d < E.sense && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) rise(S, R, e); continue; }
       if (e.st === 'rise') { e.vx = e.vy = 0; if (t - e.t0 < E.rise) continue; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = Math.max(e.cdT, t + 0.25); }
@@ -1181,10 +1299,12 @@
         else { if (e.st === 'idle') idle(m, e, E, t); else goHome(m, e, E, t);
           // a crab at its post looks one way, then the other, at its own slow pace
           if (E.kind === 'crab') { const per = 6 + (e.id % 5), n = Math.floor((t + e.id * 2.3) / per); crabTurn(e, E, n % 2 ? 0.5 : Math.PI - 0.5, 0.5); }
+          else if (E.kind === 'salamander' && Math.hypot(e.vx, e.vy) > 4) crabTurn(e, E, Math.atan2(e.vy, e.vx), 0.5);
           continue; } }
       if (!heroOk) { e.vx = e.vy = 0; continue; }
       // a committed attack keeps facing its aim: a lunge that carries past the hero must not mirror mid-strike; a hero straight above or below doesn't flip it every frame
       if (E.kind === 'crab') { if (e.st === 'chase' || (e.st === 'wind' && !e.rush)) { crabTurn(e, E, Math.atan2(dy, dx), e.st === 'wind' ? 0.5 : 1); if (e.st === 'wind') e.aimA = e.fa; } else crabTurn(e, E, faOf(e), 0); }
+      else if (E.kind === 'salamander') { if (e.st !== 'chase') crabTurn(e, E, e.aimA, 1); }
       else e.face = e.st === 'wind' || e.st === 'strike' || e.st === 'bwind' ? (Math.cos(e.aimA) >= 0 ? 1 : -1) : Math.abs(dx) > 10 ? (dx > 0 ? 1 : -1) : e.face;
       // a hero out of sight for 4 s is lost: the monster walks back to its post
       if (e.st === 'chase' && E.kind !== 'boss' && e.hx !== undefined) {
@@ -1193,7 +1313,7 @@
         // under two cells of headway along the path in 2.5 s while short of the fight and the hero holds still (a corridor jammed by its own kind,
         // a wall in the way): it walks back to its post and stays deaf to the sight of the hero for a while, or it would turn round
         // at once and jam the corridor again. A hero on the move resets it: a chase is not a jam
-        const near = d < (E.kind === 'caster' || E.kind === 'archer' ? 300 : E.r + K.R + E.reach + 40), fv = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)], pd = fv >= 0 ? fv : d / TILE;
+        const near = d < (E.kind === 'caster' || E.kind === 'archer' || E.kind === 'imp' || E.kind === 'salamander' ? 300 : E.r + K.R + E.reach + 40), fv = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)], pd = fv >= 0 ? fv : d / TILE;
         if (near || e.stuckK !== e.t0 || pd <= e.aF - 2 || Math.hypot(h.x - e.ax, h.y - e.ay) > 48) { e.stuckK = e.t0; e.aF = pd; e.ax = h.x; e.ay = h.y; e.aT = t; }
         else if (t - e.aT > 2.5) { e.st = 'home'; e.t0 = t; e.calmT = t + 4; continue; } }
       if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
@@ -1215,20 +1335,36 @@
           && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.rush = 1; continue; }
         else if (E.kind === 'crab') steer(e, E, m, F, d < Math.max(reach * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
         else if (E.kind === 'bomber' && d < reach) { fuse(S, R, e); continue; }
+        else if (E.kind === 'imp') { if (impThink(S, R, e, E, F, d, dx, dy)) continue; }
+        else if (E.kind === 'salamander') { if (salamThink(S, R, e, E, d, dx, dy)) continue; }
         else if (d < reach && t >= e.cdT && (E.kind !== 'hop' || losClear(m, e.x, e.y - 6, h.x, h.y - 6))) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 0; continue; }
         else if (E.grab && d < E.r + K.R + E.grab.reach && t >= e.cdT && t >= (e.grabT ?? 0) && losClear(m, e.x, e.y - 20, h.x, h.y - 20)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 1; continue; }
         else steer(e, E, m, F, d < Math.max(Math.min(reach, E.r + K.R + 46) * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
-        move(m, e, e.vx * DT, e.vy * DT, E.r, true);
+        move(m, e, e.vx * DT, e.vy * DT, E.r, true, E.lava && E.kind === 'salamander' ? true : undefined);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
+        // the salamander's belly burns a trail on land behind it
+        if (E.trail && !onLava(m, e) && (e.trailD = (e.trailD || 0) + sp * DT) >= E.trail.every) { e.trailD = 0; addFire(R, S, e.x - Math.cos(faOf(e)) * E.r, e.y - Math.sin(faOf(e)) * E.r * 0.8, { src: e.id, who: who(e), r: E.trail.r, ry: E.trail.ry, t: E.trail.t, dmg: e.dmg * E.trail.dmg, per: E.trail.per, kind: 'trail' }); }
       } else if (e.st === 'wind') {
-        skid(m, e, E); const w = windOf(e, e.grab ? E.grab.wind : e.rush ? E.rush.wind : e.kin ? E.kindle.wind : E.wind);
+        skid(m, e, E); const w = windOf(e, e.grab ? E.grab.wind : e.rush ? E.rush.wind : e.kin ? E.kindle.wind : E.spark && !e.claw ? E.spark.wind : e.br ? E.breath.wind : E.wind);
         if (E.kind === 'archer' && t - e.t0 < w - E.arrow.lock) aimArrow(m, e, E, h);
+        if (E.spark && !e.claw && t - e.t0 < w - E.spark.lock) { e.aimA = Math.atan2(h.y - 38 - (e.y - IMP_Y), h.x - e.x); e.face = Math.cos(e.aimA) >= 0 ? 1 : -1; }
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
           if (e.grab) { grab(S, R, e); continue; }
           if (E.kind === 'crab') { if (e.rush) { e.hitDone = 0; ev(S, { k: 'rush', x: e.x, y: e.y, a: e.aimA, id: e.id }); continue; }
             if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < E.armor.arc && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); }
             ev(S, { k: 'pinch', x: e.x + Math.cos(e.aimA) * (E.r + 14), y: e.y + Math.sin(e.aimA) * (E.r + 14) * 0.8, a: e.aimA, id: e.id }); continue; }
           if (E.kind === 'hop') { takeOff(R, e, E); continue; }
+          if (E.kind === 'imp') { const a = e.aimA;
+            if (e.claw) { if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), a)) < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a, id: e.id }); continue; }
+            const Sp = E.spark, x0 = e.x + Math.cos(a) * 10, y0 = e.y - IMP_Y + Math.sin(a) * 10;
+            R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'spark', kind: 'fire', x: x0, y: y0, vx: Math.cos(a) * Sp.spd, vy: Math.sin(a) * Sp.spd, t0: t, life: (Sp.reach + 60) / Sp.spd, dmg: e.dmg * Sp.dmg * eliteK(e, 'bolt'), own: 'en', r: Sp.r, gz: IMP_Y - 6 });
+            ev(S, { k: 'flick', x: x0, y: y0, a, id: e.id }); continue; }
+          if (E.kind === 'salamander') { if (e.br) { e.hitDone = 0; breathFire(S, R, e, E); ev(S, { k: 'breath', x: e.x, y: e.y, a: e.aimA, id: e.id }); continue; }
+            if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < 0.9 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); }
+            ev(S, { k: 'snap', x: e.x + Math.cos(e.aimA) * (E.r + 10), y: e.y + Math.sin(e.aimA) * (E.r + 10) * 0.8, a: e.aimA, id: e.id }); continue; }
+          if (E.kind === 'golem') { const G0 = E.slam, px = e.x + Math.cos(e.aimA) * G0.at, py = e.y + Math.sin(e.aimA) * G0.at * 0.8;
+            if (Math.hypot(h.x - px, (h.y - py) / 0.7) < G0.r + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, px, py, undefined, who(e), e); struck(S, R, e); }
+            ev(S, { k: 'slam', x: px, y: py, id: e.id, big: 1, r: G0.r }); R.trauma = Math.min(1, R.trauma + 0.5); continue; }
           if (E.kind === 'archer') { const a = e.aimA, A = E.arrow, x0 = e.x + Math.cos(a) * 16, y0 = e.y - ARROW_Y + Math.sin(a) * 16;
             R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'arrow', kind: has(e, 'fiery') ? 'fire' : 'arrow', x: x0, y: y0, vx: Math.cos(a) * A.spd, vy: Math.sin(a) * A.spd, t0: t, life: (E.reach + 60) / A.spd, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: A.r, gz: ARROW_Y - 10 });
             ev(S, { k: 'loose', x: x0, y: y0, a, id: e.id }); }
@@ -1250,21 +1386,25 @@
         else if (E.kind === 'crab' && e.rush && t - e.t0 < E.rush.t) { const a = e.aimA; if (!(e.bncT > e.t0) && d <= E.r + K.R + 6.01) e.bncT = t;
           const v = e.bncT > e.t0 ? (t - e.bncT < 0.1 ? -120 : 0) : E.rush.spd * Math.min(1, (t - e.t0) / 0.06); e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += Math.abs(v) * DT;
           if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg * E.rush.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } }
+        // the breath: a hero in its cone at any moment of it is burnt once
+        else if (E.kind === 'salamander' && e.br) { skid(m, e, E); const B = E.breath;
+          if (!e.hitDone && t - e.t0 < B.t && d < E.r + B.reach + K.R && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < B.arc && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.hitDone = 1; hurtHero(S, R, e.dmg * B.dmg, e.x, e.y, 'fire', who(e) + ' пламя', e); struck(S, R, e); } }
         else if (E.kind !== 'hop') skid(m, e, E);
         if (E.kind === 'hop') hop(S, R, e, E);
-        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
-          if (e.rush) { e.st = 'chase'; e.rush = 0; e.hitDone = 0; e.rushT = t + E.rush.cd; e.cdT = t + 0.5; continue; } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
+        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : e.br ? E.breath.t : E.kind === 'golem' ? 0.55 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
+          if (e.rush) { e.st = 'chase'; e.rush = 0; e.hitDone = 0; e.rushT = t + E.rush.cd; e.cdT = t + 0.5; continue; }
+          if (e.br) { e.br = 0; e.brT = t + E.breath.cd * (0.8 + 0.4 * rnd(R)); } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
     }
     // separation: monsters don't stack
-    const live2 = R.en.filter((e) => e.deadT < 0 && e.st !== 'idle' && !ENEMIES[e.type].deep);
+    const live2 = R.en.filter((e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'leap' && !ENEMIES[e.type].deep);
     for (let i = 0; i < live2.length; i++) for (let j = i + 1; j < live2.length; j++) { const a = live2[i], b = live2[j], ra = ENEMIES[a.type].r + ENEMIES[b.type].r + 4;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); if (d < ra && d > 0.01) { const p = (ra - d) * 0.5; move(m, a, -dx / d * p, -dy / d * p, ENEMIES[a.type].r, true); move(m, b, dx / d * p, dy / d * p, ENEMIES[b.type].r, true); } }
     // whatever moved them (walking, knockback, a lunge, the crowd), monsters stand clear of props; a ghost floats through
     const sol = solids(R);
-    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
+    for (const e of R.en) if (e.deadT < 0 && e.st !== 'leap' && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
     if (heroOk) for (const e of R.en) {
-      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab', 'bomber'].includes(E.kind) || e.st === 'lurk') continue;
+      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab', 'bomber', 'imp', 'salamander', 'golem'].includes(E.kind) || e.st === 'lurk' || e.st === 'leap') continue;
       const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
       if (d >= stop) continue;
       const angle = d > 0.01 ? Math.atan2(dy, dx) : e.face > 0 ? Math.PI : 0;
@@ -1295,7 +1435,7 @@
     // home, or walked for long enough without getting there (blocked): this is the post now
     if (d < 8 || t - e.t0 > 25) { e.st = E.lurk && inWater(m, e) ? 'lurk' : 'idle'; e.t0 = t; e.hx = e.x; e.hy = e.y; e.vx = e.vy = 0; return; }
     steer(e, E, m, homeFlow(m, Math.floor(e.hx / TILE), Math.floor(e.hy / TILE)), 1, dx, dy, d, 0.6);
-    move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT;
+    move(m, e, e.vx * DT, e.vy * DT, E.r, true, E.kind === 'salamander' ? true : undefined); e.dist += Math.hypot(e.vx, e.vy) * DT;
     if (Math.abs(e.vx) > 6) e.face = e.vx > 0 ? 1 : -1;
   }
   // a monster that stops to attack skids to a halt instead of freezing mid-stride (the rig's gait reads its speed and distance)
@@ -1792,7 +1932,7 @@
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
-      for (const e of m.enemies) { if (!reachH(e.x, e.y) && !(ENEMIES[e.type].deep && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 6)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
+      for (const e of m.enemies) { if (!reachH(e.x, e.y) && !(ENEMIES[e.type].deep && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 6) && !(ENEMIES[e.type].kind === 'salamander' && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 3)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
       if (mode === 'campaign') {
         const wet = new Set(m.water), bridge = new Set(m.waterBridges);
@@ -1856,7 +1996,7 @@
       // fences, railings on the very edge that block and hide nothing: TASKS 405)
       if (D.BIOMES[m.biome].lava && !(ST.last && ST.boss) && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
       { const shore = (o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor((o.y - 1) / TILE); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) === 3) return true; return false; };
-        for (const [k, list] of [['monster', m.enemies], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift && d.n !== 'fence_mg')], ['brazier', m.torches.filter((t) => t.kind !== 'wall')]]) for (const o of list) if (shore(o)) out.push(`seed ${seed} f${f}: a ${k} by lava at ${Math.round(o.x)},${Math.round(o.y)}`); }
+        for (const [k, list] of [['monster', m.enemies.filter((e) => !ENEMIES[e.type].lava || ENEMIES[e.type].kind !== 'salamander')], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift && d.n !== 'fence_mg')], ['brazier', m.torches.filter((t) => t.kind !== 'wall')]]) for (const o of list) if (shore(o)) out.push(`seed ${seed} f${f}: a ${k} by lava at ${Math.round(o.x)},${Math.round(o.y)}`); }
       // a secret's fake wall counts as broken: rock one cell thick between two floors would hang in the floor as a bare wall face (TASKS 178)
       for (let y = 1; y < m.H - 1; y++) for (let x = 0; x < m.W; x++) if (!cell(m, x, y) && cell(m, x, y - 1) && cell(m, x, y + 1)) out.push(`seed ${seed} f${f}: one-cell wall between floors at ${x},${y}`);
       // bulky props (chests, tables, coffins, statues…) read wider than their cell: two of them never share a cell edge or corner
@@ -1955,7 +2095,7 @@
           if (fl8.some((n) => !dl.has(n))) { out.push(`seed ${seed} f${f}: the crust is a short cut at ${k % W},${Math.floor(k / W)}`); break; } }
         const hot = new Set(); for (let k = 0; k < W * m.H; k++) if (m.cells[k] === 3) for (const o of [0, 1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) hot.add(k + o);
         const onHot = (o) => hot.has(Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE));
-        for (const [n, list] of [['monster', m.enemies], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((q) => !q.wall && !q.lift && q.n !== 'fence_mg')], ['fire', m.torches.filter((q) => q.kind !== 'wall')]])
+        for (const [n, list] of [['monster', m.enemies.filter((e) => ENEMIES[e.type].kind !== 'salamander')], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((q) => !q.wall && !q.lift && q.n !== 'fence_mg')], ['fire', m.torches.filter((q) => q.kind !== 'wall')]])
           for (const o of list) if (onHot(o)) { out.push(`seed ${seed} f${f}: a ${n} in the lava or a cell from it at ${Math.round(o.x)},${Math.round(o.y)}`); break; } }
       // doors: two corridor cells just past a room's edge, every way into a doored room has one; a locked room is never the way to
       // the exit or to anything else, and its key or lever lies on this side of its doors
@@ -2323,7 +2463,7 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck());
+    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck(), magmaKindsCheck());
   }
   // a run of its own (the caves, the magma caves) finds, is sold and is given items at about its hero's level on its first floor:
   // the magma caves' loot over their depth once made them 10 levels over him and the run a walk (TASKS 424)
@@ -2419,6 +2559,67 @@
   // cycle, and nobody outside it
   // a run on a plain plateau floor for the checks of the plateaus' lava, chasm, crust and hazards (TASKS 426: a run's first floor
   // is a lava cave): run 3's first plain floor, else the next run's
+  // the magma caves' new kinds (TASKS 407–409), by a river of lava on a plain floor: a bank, three cells of open lava, the far bank
+  function magmaKindsCheck() {
+    const out = [], Z = spawn(0, {}); Z.screen = 'play'; let sp = null, LW = 3;
+    // (the first magma floor with such a crossing, seed by seed)
+    for (let sd = 3; sd < 40 && !sp; sd++) { Z.run = newRun(Z, 'magma', sd); for (let f = 1; f < D.RUNS.magma.floors && !sp; f++) { enterFloor(Z, Z.run, f); const m = Z.run.map, W = m.W;
+      const lav = (x, y) => cell(m, x, y) === 3 && !crustAt(m, y * W + x), fl = (x, y) => cell(m, x, y) === 1;
+      for (let k = 3; k >= 2 && !sp; k--) for (let y = 3; y < m.H - 3 && !sp; y++) for (let x = 3; x < W - 9 && !sp; x++)
+        if ([-2, -1, 0].every((i) => [-1, 0, 1].every((j) => fl(x + i, y + j))) && Array.from({ length: k }, (_, i) => i + 1).every((i) => [-1, 0, 1].every((j) => lav(x + i, y + j))) && [k + 1, k + 2].every((i) => [-1, 0, 1].every((j) => fl(x + i, y + j)))) { sp = [x, y]; LW = k; } } }
+    if (!sp) return ['magma kinds: no river two or three cells wide with banks on any magma floor'];
+    const R = Z.run, m = R.map, h = R.hero, W = m.W, t = () => Z.t, lav = (x, y) => cell(m, x, y) === 3 && !crustAt(m, y * W + x); R.msg = null;
+    const haz = m.hazards; m.hazards = [];   // (no vent or rock in the way of what is measured, and no blow dodged)
+    const agi = h.base.agi; h.base.agi = 0; h.eq = Object.fromEntries(Object.keys(h.eq).map((k) => [k, null]));
+    const X = (i) => (sp[0] + i + 0.5) * TILE, Y = (sp[1] + 0.5) * TILE + 4, steps = (s, f) => { for (let i = 0; i < 120 * s; i++) { step(Z, { keys: [] }); if (f && f()) return true; } return false; };
+    const put = (hx = X(-1)) => { R.en = []; R.proj = []; R.fires = []; h.hp = heroSt(Z).maxHp; h.deadT = -1; h.burn = 0; h.ifr = 0; h.x = hx; h.y = Y; h.vx = h.vy = 0; h.dashT = -9; };
+    const mk = (type, x, y, o) => { const E = ENEMIES[type], e = Object.assign({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp: E.hp * 3, max: E.hp * 3, dmg: 6, elite: 0, room: -1, st: 'chase', t0: t(), face: -1, aimA: Math.PI,
+      cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: t(), hx: x, hy: y }, o); R.en.push(e); return e; };
+    // the imp: a spark from range hurts and burns; one beside it leaps away; knocked into the lava it doesn't sink and leaps out;
+    // on the hero's bank it leaps over the lava to the far one, where he can't walk to it
+    { put(); const a = h.hp, i1 = mk('imp', X(-1) - 200, Y, { leapT: 1e9, lookT: 1e9 }); steps(3, () => h.hp < a);
+      if (!(h.hp < a)) out.push('an imp in range never hurts the hero with its spark'); else if (!(h.burn > t())) out.push("an imp's spark does not set the hero burning"); void i1;
+      put(); const i2 = mk('imp', X(-1) - 40, Y, { cdT: 1e9 }); let leapt = 0; steps(1.5, () => { if (i2.st === 'leap') leapt = 1; return leapt && i2.st === 'chase'; });
+      if (!leapt) out.push('an imp beside the hero does not leap away'); else if (Math.hypot(i2.x - h.x, i2.y - h.y) < ENEMIES.imp.flee) out.push('an imp leaps away and lands still beside the hero');
+      put(X(-3)); const i3 = mk('imp', X(Math.ceil(LW / 2)), Y, { cdT: 1e9 }); steps(1.5);
+      if (i3.sinkT !== undefined || i3.deadT >= 0) out.push('an imp in the lava sinks or burns'); else if (cell(m, Math.floor(i3.x / TILE), Math.floor(i3.y / TILE)) !== 1) out.push('an imp in the lava stays in it');
+      put(X(-2)); const i4 = mk('imp', X(-2) + 70, Y + 20, { cdT: 1e9, leapT: 0, lookT: 0 }); let over = 0; const F0 = () => flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE));
+      const far = () => i4.x > X(LW) + TILE / 2 && cell(m, Math.floor(i4.x / TILE), Math.floor(i4.y / TILE)) === 1;
+      steps(4, () => { if (i4.st === 'leap' && lav(Math.floor(i4.x / TILE), Math.floor(i4.y / TILE))) over = 1; h.x = X(-2); h.y = Y; return over && i4.st === 'chase' && far(); }); void F0;
+      if (!over) out.push('an imp on the hero\'s bank never leaps over the lava'); else if (!far()) out.push('an imp leaps out over the lava and does not land on the far bank'); }
+    // the salamander: in the lava by the bank it comes for the hero and hurts him, never burning in it; its breath burns one in its
+    // cone and spares one who stepped out of it; its fire on the floor burns; hurt, it swims back and heals, not while hit
+    { put(X(-2)); const a = h.hp, s1 = mk('salamander', X(Math.ceil(LW / 2)), Y, { fa: Math.PI }); let out1 = 0; steps(6, () => { if (!onLava(m, s1)) out1 = 1; return h.hp < a; });
+      if (s1.sinkT !== undefined || s1.hp < s1.max) out.push('a salamander burns in the lava'); if (!(h.hp < a)) out.push('a salamander by the bank never hurts the hero'); void out1;
+      for (const stay of [1, 0]) { put(X(-2)); const B = ENEMIES.salamander.breath, s2 = mk('salamander', X(-2) - 110, Y, { fa: 0, aimA: 0, brT: 0 }); let lit = -1, a2 = h.hp, early = 0;
+        // (out of the cone: off its side on whole floor, beyond its bite)
+        const side = [[0, 120], [0, -120], [-40, 120], [-40, -120]].map(([dx, dy]) => [s2.x + dx, s2.y + dy]).find(([x, y]) => cell(m, Math.floor(x / TILE), Math.floor(y / TILE)) === 1 && cell(m, Math.floor(x / TILE), Math.floor((y - 20) / TILE)) === 1) || [s2.x, s2.y + 120];
+        steps(2.5, () => { if (lit < 0 && s2.st === 'wind' && s2.br) lit = t(); if (!stay && lit >= 0) { h.x = side[0]; h.y = side[1]; h.vx = h.vy = 0; } if (lit >= 0 && t() - lit < B.wind - DT && h.hp < a2) early = 1; return lit >= 0 && t() > lit + B.wind + B.t; });
+        if (lit < 0) { out.push('a salamander in reach never breathes fire'); break; }
+        if (early) out.push("a salamander's breath burns before its wind-up is out");
+        if (stay && !(h.hp < a2 && h.burn > t() - 0.5)) out.push("a salamander's breath does not burn the hero in its cone"); if (!stay && h.hp < a2) out.push("a salamander's breath burns a hero out of its cone"); }
+      put(); const a3 = h.hp; addFire(R, Z, h.x, h.y, { src: 0, who: 'salamander', r: 15, ry: 0.6, t: 2.4, dmg: 5, per: 1, kind: 'trail' }); steps(0.2);
+      if (!(h.hp < a3) || !(h.burn > t())) out.push("a salamander's fire on the floor does not burn the hero in it");
+      put(X(-5)); const s3 = mk('salamander', X(-1), Y, { fa: 0 }); s3.hp = Math.round(s3.max * 0.4); const hp0 = s3.hp; let soaked = 0;
+      steps(6, () => { h.x = X(-8); h.y = Y; if (s3.st === 'soak' && onLava(m, s3)) soaked = 1; return soaked && s3.hp > s3.max * 0.55; });
+      if (!soaked) out.push('a salamander under half its health does not go back into the lava'); else if (!(s3.hp > hp0)) out.push('a salamander in the lava does not heal');
+      if (soaked && s3.st === 'soak') { const v = s3.hp; hitEnemy(Z, R, s3, 1, false, s3.x, s3.y, 0); const v1 = s3.hp; steps(0.8, () => { h.x = X(-8); h.y = Y; }); if (s3.hp > v1 + 0.5) out.push('a salamander heals in the lava while it is being hit'); void v; } }
+    // the golem: its first blows only take its crust off, then blows land whole; the crust grows back with the hero away and no blow
+    // landing; its slam hurts the hero before it and spares one who stepped back; dead, its pool burns him
+    { put(X(-6)); const C = ENEMIES.golem.crust, g = mk('golem', X(-6) - 60, Y, { cdT: 1e9, hp: 400, max: 400 }), took = [];
+      for (let i = 0; i <= C.n; i++) { const v = g.hp; hitEnemy(Z, R, g, 40, false, h.x, h.y); took.push(v - g.hp); }
+      if (took.slice(0, C.n).some((d) => d !== Math.round(40 * C.k)) || took[C.n] !== 40) out.push(`a golem's blows through its crust took ${took.join('/')}, not ${Math.round(40 * C.k)} × ${C.n} then 40`);
+      // (calm at its post: one walking after the hero stepped on a spike plate, a blow all the same)
+      put(X(-6)); R.en = [g]; Object.assign(g, { x: X(-2), y: Y, hx: X(-2), hy: Y, st: 'idle', calmT: 1e9 }); g.hitT = g.blowT = t(); let grew = 0; steps(C.calm + 3 * C.regrow, () => { h.x = g.x + 340; h.y = g.y; if ((g.crust ?? C.n) > 0) grew = 1; return grew; });
+      if (!grew) out.push("a golem's crust never grows back with the hero away");
+      for (const stay of [1, 0]) { put(X(0)); const g2 = mk('golem', X(-2), Y, { cdT: 0 }); let w = -1, a = h.hp;
+        steps(3, () => { if (w < 0 && g2.st === 'wind') w = t(); if (!stay && w >= 0) { h.x = g2.x - 2 * TILE; h.y = g2.y - 3 * TILE; } else if (stay) { h.x = X(0); h.y = Y; } h.vx = h.vy = 0; return w >= 0 && g2.st === 'chase'; });
+        if (w < 0) { out.push('a golem beside the hero never slams'); break; } if (stay && !(h.hp < a)) out.push("a golem's slam does not hurt the hero before it"); if (!stay && h.hp < a) out.push("a golem's slam hurts a hero who stepped back"); }
+      put(X(-1)); const g3 = mk('golem', X(-1), Y, { cdT: 1e9, st: 'idle', calmT: 1e9 }); g3.hp = 1; g3.crust = 0; hitEnemy(Z, R, g3, 10, false, h.x - 30, h.y); const pool = (R.fires || []).find((p) => p.kind === 'pool');
+      if (!pool) out.push('a golem falls without a pool of lava'); else { const a = h.hp; steps(0.3); if (!(h.hp < a)) out.push("a golem's pool does not burn the hero in it");
+        steps(ENEMIES.golem.pool.t); if (R.fires.includes(pool)) out.push("a golem's pool never cools"); } }
+    m.hazards = haz; h.base.agi = agi; return out;
+  }
   const plainRun = (Z) => { for (let sd = 3; sd < 60; sd++) { Z.run = newRun(Z, 'magma', sd); for (let f = 2; f < D.RUNS.magma.floors; f++) { enterFloor(Z, Z.run, f); if (Z.run.map.ftype === 'plain') return Z.run; } } return Z.run; };
   function hazardCheck() {
     const out = [], HZ = D.HAZ, cnt = { vent: [0, 0, 0, 0], fall: [0, 0, 0, 0] };
@@ -2446,7 +2647,8 @@
       // reach: a fixed one fell in the lava once the plateaus' sizes varied, TASKS 432)
       const clear = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (cell(m, tx + i, ty + j) !== 1) return false;
         return m.hazards.every((q) => q === z || Math.hypot(q.x - x, q.y - y) > HZ[q.k].r + 60); };
-      const off = [[H.r + 40, 0], [-H.r - 40, 0], [0, H.r * 0.6 + 40], [0, -H.r * 0.6 - 40]].find(([dx, dy]) => clear(z.x + dx, z.y + dy)) || [H.r + 40, 0];
+      // (further round it and further out when the four sides are not clear: the packs of TASKS 407 shifted the floor seed 3 draws)
+      const off = [40, 70, 100].flatMap((g) => Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4) * (H.r + g), Math.sin(i * Math.PI / 4) * (H.r * 0.6 + g)])).find(([dx, dy]) => clear(z.x + dx, z.y + dy)) || [H.r + 40, 0];
       const inside = run(z.x + 8, z.y), outside = run(z.x + off[0], z.y + off[1]);
       if (!(Math.abs(inside.lead - H.warn) < 0.05)) out.push(`magma hazards: a ${k}'s warning comes ${inside.lead.toFixed(2)} s before its burst, not ${H.warn}`);
       if (inside.lost < stats(h, Z.meta).maxHp * H.hp * 0.75 || inside.lost > stats(h, Z.meta).maxHp * H.hp * 2.5) out.push(`magma hazards: a ${k} in its ring takes ${inside.lost} health from the hero`);

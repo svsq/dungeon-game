@@ -36,8 +36,8 @@
     // the other red telegraphs on the floor stop reading
     magma: { name: 'Магмовые пещеры', rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, low: [1.05, 0.8, 0.74], floorK: 1.45, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
-      cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
-      from: { cultist: 2, skel_ember: 2, brute: 3, fire_priest: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
+      cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
+      from: { cultist: 2, skel_ember: 2, brute: 3, fire_priest: 3, salamander: 2, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -160,6 +160,25 @@
     // their blows ×`dmg` and set the hero burning
     fire_priest: { name: 'Жрец пламени', hp: 36, dmg: 12, spd: 54, r: 13, reach: 380, wind: 0.6, cd: 3.4, xp: 16, kind: 'caster', h: 84, tex: 'en_cultist', rim: [1, 0.45, 0.15], val: 1, behind: 90,
       pyre: { r: 54, ry: 0.62, warn: 1.0, burst: 0.45, dmg: 1.1 }, kindle: { every: 8, first: 2.5, r: 280, n: 3, t: 6, dmg: 1.3, wind: 0.7, kinds: ['melee', 'slam', 'lunge', 'crab'] } },
+    // the imp (TASKS 407), small and quick, in a pack: the only one the lava never stops. It keeps `keep` px off the hero and throws
+    // a spark (`spark`) from where he can't walk to it, leaps (`leap`) over lava and crust to a spot across from him (a cell whose way
+    // round on foot is long or none), and leaps away from one who comes within `flee`; cornered with its leap not ready, it claws
+    imp: { name: 'Имп', hp: 14, dmg: 7, spd: 112, r: 9, reach: 18, wind: 0.32, cd: 1.6, xp: 7, kind: 'imp', h: 54, lava: 1, rim: [1, 0.5, 0.15], tint: [1.05, 0.85, 0.8, 0.5],
+      keep: [150, 250], flee: 100, leap: { near: 56, far: 200, spd: 380, h: 0.32, crouch: 0.14, land: 0.2, cd: 1.4, look: 3 },
+      spark: { reach: 300, wind: 0.5, lock: 0.12, spd: 290, r: 5, dmg: 0.8 } },
+    // the lava salamander (TASKS 408) lives in the lava and hunts on land too, no farther than `tether` cells from it: it swims
+    // (×`swim`, only its back and the ripples show), crawls out, bites one close and breathes fire in a cone at one farther off
+    // (`breath`: the mouth glows through the wind-up), leaving a burning trail on land (`trail`); under `heal.at` of its health it
+    // goes back into the lava and heals there (`heal.rate` of its health a second, not while hit) up to `heal.to`, unless killed first
+    salamander: { name: 'Лавовая саламандра', hp: 64, dmg: 12, spd: 60, r: 16, reach: 24, wind: 0.45, cd: 1.4, xp: 16, kind: 'salamander', h: 30, lava: 1, rim: [1, 0.5, 0.2],
+      turn: 5, swim: 1.35, tether: 6, breath: { near: 34, reach: 150, arc: 0.42, wind: 0.8, t: 0.7, cd: 4.5, dmg: 0.9 },
+      trail: { every: 30, t: 2.4, r: 15, ry: 0.6, dmg: 0.35, per: 1 }, heal: { at: 0.5, to: 0.9, rate: 0.12, calm: 1, cd: 14, most: 7 } },
+    // the magma golem (TASKS 409), big and slow in a stone crust: each of its first `crust.n` blows only takes a plate off (×`crust.k`,
+    // sparks and a clang); a plate grows back every `crust.regrow` s once no blow has landed for `crust.calm` s and the hero is over
+    // `crust.far` px off. It slams both fists on the floor `slam.at` px before it (`slam.r` round); dead, it falls apart into a pool of
+    // lava (`pool`) that burns whoever stands in it
+    golem: { name: 'Магмовый голем', hp: 140, dmg: 20, spd: 36, r: 24, reach: 48, wind: 1.0, cd: 2.4, xp: 34, kind: 'golem', h: 124, heavy: 1, rim: [1, 0.45, 0.15],
+      crust: { n: 4, k: 0.25, regrow: 1.4, calm: 3, far: 150 }, slam: { r: 82, at: 46 }, pool: { r: 52, ry: 0.6, t: 3.5, dmg: 0.3, per: 0.5 } },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
     boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
@@ -200,7 +219,7 @@
   // the boss is an elite too but keeps its own pace. minWind: an elite's wind-up never ends sooner than this nor sooner than its
   // plain kin's, so every elite blow can be seen and dodged: the elite ghost's 0.34 s took half the deaths of the 3rd floor, the
   // elite skeleton's 0.39 s a fifth (TASKS 246)
-  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' ? ELITE.brute[k]
+  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' || e.type === 'golem' ? ELITE.brute[k]
     : k === 'wind' ? Math.max(ELITE.wind, Math.min(1, ELITE.minWind / ENEMIES[e.type].wind)) : ELITE[k];
   // a deep-water monster under the surface (TASKS 310): out of sight and out of reach
   const under = (e) => !!ENEMIES[e.type].deep && (e.st === 'deep' || e.st === 'stir' || e.st === 'dive' || (e.type === 'boss_serpent' && e.st === 'idle'));
@@ -398,6 +417,11 @@
     cult: { w: 2, plan: [[['cultist'], [2, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [1, 2], 'near']] },
     pyre: { w: 3, plan: [[['fire_priest'], [1, 1], 'back'], [['skeleton', 'goblin', 'brute'], [2, 3], 'near']] },
     brute: { w: 2, plan: [[['brute'], [1, 1], 'near'], [['goblin'], [2, 3], 'any']] },
+    // imps across a river from the way in (TASKS 407), salamanders in the lava by the hall (408), golems on the ridge in front of the
+    // priests (409): bank, a cell of the hall by its lava, the far half first; lava, a cell of lava at the hall's edge
+    imps: { w: 2, plan: [[['imp'], [3, 4], 'bank'], [['skeleton', 'goblin'], [0, 1], 'near']] },
+    lava: { w: 2, plan: [[['salamander'], [1, 2], 'lava'], [['skeleton', 'skel_archer', 'goblin'], [1, 2], 'any']] },
+    rock: { w: 2, plan: [[['golem'], [1, 1], 'near'], [['fire_priest', 'cultist'], [1, 1], 'back'], [['imp'], [0, 2], 'bank']] },
   };
   const floorName = (f, mode, seed) => { const M = runOf(mode), st = stageOf(mode, f, seed); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]

@@ -1,0 +1,5 @@
+[
+ {"name": "en_imp", "prompt": "art/prompts/en_imp.txt", "ref": ["art/gen/en_goblin.png=approved monster of this game: pixel density, outline and size", "study/refs/ref_cave_lava.png=biome concept: the imp at its left edge"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "en_golem", "prompt": "art/prompts/en_golem.txt", "ref": ["art/gen/en_brute.png=approved big monster of this game: pixel density, outline and size class"], "size": "1024x1024", "alpha": "auto"},
+ {"name": "en_salamander", "prompt": "art/prompts/en_salamander.txt", "ref": ["art/gen/crab__body.png=approved monster of this game seen from straight above: pixel size, outline and shading"], "size": "1024x1024", "alpha": "auto"}
+]

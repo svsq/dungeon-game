@@ -162,7 +162,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // warning (a dash when it is about to), and no step into one that bursts within the next 0.9 s; a ring keeps its pull a little past its edge
   const hazSoon = (t, z) => { const H = D.HAZ[z.k], c = D.hazClock(z, t); return c < H.burst ? 0 : z.per - c; };
   const rings = (S, R) => (R.map.hazards || []).map((z) => { const H = D.HAZ[z.k]; return { x: z.x, y: z.y, r: H.r, ry: H.ry, warn: H.warn, soon: hazSoon(S.t, z) }; })
-    .concat((R.pyres || []).map((p) => { const P = D.ENEMIES.fire_priest.pyre; return { x: p.x, y: p.y, r: P.r, ry: P.ry, warn: P.warn, soon: Math.max(0, P.warn - (S.t - p.t0)) }; }));
+    .concat((R.pyres || []).map((p) => { const P = D.ENEMIES.fire_priest.pyre; return { x: p.x, y: p.y, r: P.r, ry: P.ry, warn: P.warn, soon: Math.max(0, P.warn - (S.t - p.t0)) }; }))
+    // a salamander's fire on the floor and a golem's pool (TASKS 408, 409) burn as long as they last: walked out of, not dashed out of
+    .concat((R.fires || []).map((p) => ({ x: p.x, y: p.y, r: p.r, ry: p.ry, warn: 1, soon: 0.5 })));
   const hazNear = (z, x, y, pad) => Math.hypot(x - z.x, (y - z.y) / z.ry) < z.r + pad;
   function avoidHazards(S, R, h, inp) {
     const hz = rings(S, R); if (!hz.length) return;

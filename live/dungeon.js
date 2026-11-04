@@ -1242,7 +1242,17 @@
       const MP = D.BIOMES[biome].packs && D[D.BIOMES[biome].packs];
       if (MP) { const opts = Object.values(MP).filter((P) => P.plan[0][0].some(has)); let roll = R() * opts.reduce((a, P) => a + P.w, 0), P = opts[opts.length - 1];
         for (const o of opts) if ((roll -= o.w) < 0) { P = o; break; }
-        const W2 = { near, back, any: anywhere }; plan.length = 0;
+        // bank (TASKS 407): a cell of the hall with lava within three but none beside it, the far side from the way in first; lava (408): a cell of open lava
+        // (no crust, no bridge over it) at the hall's edge with its floor within two cells, the salamander's post
+        const crustK = new Set(crust), lavaBy = (x, y) => { let by = false; for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (at(x + i, y + j) === 3) { if (Math.abs(i) <= 1 && Math.abs(j) <= 1) return false; by = true; } return by; };
+        const bank = () => { const c = fresh().filter(([x, y]) => lavaBy(x, y)).sort((a, b) => fs(b) - fs(a)); return take(c.slice(0, Math.max(1, Math.ceil(c.length * 0.5)))) || back(); };
+        const lavaPost = () => { const c = [];
+          for (let y = r.y - 2; y < r.y + r.h + 2; y++) for (let x = r.x - 2; x < r.x + r.w + 2; x++) { const k = y * W + x;
+            if (at(x, y) !== 3 || crustK.has(k) || bridged.has(k) || enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 3 * TILE)) continue;
+            let shore = false; for (let j = -2; j <= 2 && !shore; j++) for (let i = -2; i <= 2; i++) if (at(x + i, y + j) === 1 && inR(x + i, y + j)) { shore = true; break; }
+            if (shore) c.push([x, y]); }
+          return c.length ? c[Math.floor(R() * c.length)] : null; };
+        const W2 ={ near, back, any: anywhere, bank, lava: lavaPost }; plan.length = 0;
         for (const [kinds, [lo, hi], where] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where]]); }
         const own = P.plan[0][1][0], last = P.plan[P.plan.length - 1], lk = last[0].filter(has);
         while (plan.length < n && lk.length) plan.push([pick(lk), W2[last[2]]]);
@@ -1251,6 +1261,8 @@
       let first = true;
       for (const [type0, where] of plan) { let type = type0, p = null;
         if (ENEMIES[type].lurk) { p = shallowIn(r); if (!p) type = oldOne(); }
+        // a salamander with no lava by the hall gives its place to another
+        if (ENEMIES[type].kind === 'salamander') { p = (where || anywhere)(); if (!p) type = oldOne(); }
         if (!p) p = (where || anywhere)() || anywhere(); if (!p) break; if (ENEMIES[type].lurk) used.add(key(p[0], p[1]));
         addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && first && !(guard && depth <= 2)) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
         if (r.type === 'exit' && first) enemies[enemies.length - 1].exit = 1; first = false; }
@@ -1524,7 +1536,7 @@
     // a river's ways over (TASKS 428) and the chasm's bridges (429) are where packs wait: on the bank past each one, two to seven steps on from its end, two of the
     // floor's kinds stand where none of the plateau's own pack does yet
     if (riverY.length || ftype === 'chasm') { const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], dry = (x, y) => !N8.some(([i, j]) => at(x + i, y + j) === 3);
-      const kinds = roster.filter((t) => !ENEMIES[t].lurk && !ENEMIES[t].deep && !D.BOSSES[t]);
+      const kinds = roster.filter((t) => !ENEMIES[t].lurk && !ENEMIES[t].deep && !D.BOSSES[t] && ENEMIES[t].kind !== 'salamander');
       for (const c of crossings) { if (!(c.river || c.chasm) || !kinds.length) continue; const own = new Set(c.cells);
         const ends = c.cells.flatMap((k) => [1, -1, W, -W].map((o) => k + o)).filter((k) => cells[k] === 1 && !own.has(k) && fromStart[k] >= 0);
         if (!ends.length) continue; const end = ends.reduce((a, b) => (fromStart[b] > fromStart[a] ? b : a)), ex = end % W, ey = Math.floor(end / W);
