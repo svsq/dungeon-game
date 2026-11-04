@@ -2379,7 +2379,7 @@
         // shore no bigger than the lake's own sizes, and no hole into the dark left in its lava
         if (!isles.some((r) => r.isle === 2 && r.type === 'treasure')) out.push(`${tag}: the hoard is not on the big island`);
         if (new Set(isles.map((r) => r.w * r.h > 90 ? 'big' : r.w * r.h > 40 ? 'mid' : 'small')).size < 2) out.push(`${tag}: the islands are all of a size`);
-        for (const r of m.rooms) if (!r.isle && !r.pocket && r.type !== 'secret' && r.type !== 'shop' && (r.w > AR.lake.grow[0] || r.h > AR.lake.grow[1])) out.push(`${tag}: a shore plateau of ${r.w}×${r.h}`);
+        for (const r of m.rooms) if (!r.isle && !r.pocket && r.type !== 'secret' && r.type !== 'shop' && (r.w > (r.g || AR.lake.grow)[0] || r.h > (r.g || AR.lake.grow)[1])) out.push(`${tag}: a shore plateau of ${r.w}×${r.h}`);
         { const W = m.W, seen = new Uint8Array(W * m.H), wallAt = (k) => Math.floor(k / W) < m.cliff[k % W];
           for (let k0 = 0; k0 < W * m.H; k0++) { if (m.cells[k0] !== 0 || seen[k0] || wallAt(k0)) continue; const cs = [k0]; seen[k0] = 1; let shut = true;
             for (let i = 0; i < cs.length; i++) for (const o of [1, -1, W, -W]) { const n = cs[i] + o, x = n % W, y = Math.floor(n / W);
@@ -2429,7 +2429,12 @@
         for (let i = 0; i < Math.round((H.warn + 0.6) * 120); i++) { h.x = hx; h.y = hy; h.vx = h.vy = 0; R2.en[0].x = mob.x; R2.en[0].y = mob.y; step(Z, { keys: [] });
           for (const e of Z.ev) { if (e.k === 'hazwarn' && e.i === m.hazards.indexOf(z) && warnT < 0) warnT = e.t; if ((e.k === 'erupt' || e.k === 'rockfall') && e.i === m.hazards.indexOf(z) && burstT < 0) burstT = e.t; } Z.ev = []; }
         return { lost: hp0 - h.hp, burn: h.burn > Z.t - 0.6, mob: 999 - R2.en[0].hp, lead: burstT - warnT }; };
-      const inside = run(z.x + 8, z.y), outside = run(z.x + H.r + 40, z.y);
+      // (the spot out of the ring is the first side of it on whole floor, two cells from any lava and out of every other hazard's
+      // reach: a fixed one fell in the lava once the plateaus' sizes varied, TASKS 432)
+      const clear = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (cell(m, tx + i, ty + j) !== 1) return false;
+        return m.hazards.every((q) => q === z || Math.hypot(q.x - x, q.y - y) > HZ[q.k].r + 60); };
+      const off = [[H.r + 40, 0], [-H.r - 40, 0], [0, H.r * 0.6 + 40], [0, -H.r * 0.6 - 40]].find(([dx, dy]) => clear(z.x + dx, z.y + dy)) || [H.r + 40, 0];
+      const inside = run(z.x + 8, z.y), outside = run(z.x + off[0], z.y + off[1]);
       if (!(Math.abs(inside.lead - H.warn) < 0.05)) out.push(`magma hazards: a ${k}'s warning comes ${inside.lead.toFixed(2)} s before its burst, not ${H.warn}`);
       if (inside.lost < stats(h, Z.meta).maxHp * H.hp * 0.75 || inside.lost > stats(h, Z.meta).maxHp * H.hp * 2.5) out.push(`magma hazards: a ${k} in its ring takes ${inside.lost} health from the hero`);
       if (H.burn && !inside.burn) out.push(`magma hazards: a vent does not set the hero alight`);

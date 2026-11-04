@@ -264,8 +264,15 @@
   // falls down the top wall, fallApart apart, and vents; a lake joined down a river to its nearest with the chance join, if within
   // joinMax; isle: the noise over which basalt stands in a lake; bridge: the chance a crossing of three cells and more is tried as a
   // chain bridge; crust: the noise over which a bank's lava is crust; share: the band of lava in floor and lava (selfCheck)
+  // mix (TASKS 432): the plateaus are of kinds, not one size grown to one cap: `arena` one or two broad fields (n, their box
+  // [w, h] ranges, grown up to `grow`; none on a boss's floor, its own arena is the field there), `ridge` long narrow ones (the long
+  // side first, `tall` of them upright), `ledge` small pads laid last in the gaps, which hold the hoards; the rest as `plat`/`small`,
+  // grown up to `grow`. edge and rag: a kind's ragged edge (a ridge's noise of a cell would cut it through); pop: its monsters
+  // against a plateau's
   const ARCH = {
-    plateau: { cells: 600, gap: [2, 2], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, grow: [30, 22], round: 3, edge: [1, 3], caches: [2, 3], cacheSize: 8, cacheRows: 3, arenaGap: 6, pop: 0.55, rag: 1, ridge: { w: [2, 3], bend: [1, 2] },
+    plateau: { cells: 600, gap: [2, 2], plat: [[15, 24], [11, 16]], small: [[8, 11], [7, 9]], bigTries: 500, grow: [30, 22], round: 3, edge: [1, 3], caches: [2, 3], cacheSize: 8, cacheRows: 3, arenaGap: 6, pop: 0.48, rag: 1, ridge: { w: [2, 3], bend: [1, 2] },
+      mix: { arena: { n: [1, 2], box: [[24, 30], [15, 19]], grow: [36, 26], pop: 1.2 }, ridge: { n: [2, 3], box: [[18, 26], [4, 5]], grow: [30, 6], tall: 0.3, edge: [0, 1.5], rag: 0.7, pop: 0.5 },
+        ledge: { n: [4, 6], box: [[6, 8], [5, 6]], grow: [9, 7], edge: [0, 1.2], rag: 0.6, pop: 0.3 } },
       deg: 2, loops: [1, 2], loopHops: 3, loopKeep: 0.85, loopLast: 0.7, ledges: [2, 4], band: [0.15, 0.45, 0.7], channel: 7, isle: 0.74, cliff: 10, path: [148, 168, 211, 0],
       // floor types (TASKS 426): each lays its own figure before the plateaus, which stand round it; the floors of a run never take
       // the same type twice running (the boss's keeps the plain plateaus for its arena). lake (427): the floor's figure, a lake of
@@ -282,26 +289,31 @@
       // height, swinging `amp` of it over `waves` bends; it widens round an island (`isle` cells, the hoard's) at `isleAt` of the
       // width; `cross`: the ways over it the plateaus on its banks keep (the island's included), spread along it; path: the least
       // walk to the stairs, 0.85 of the plain floor's (the ways over cut it short)
-      river: { w: [5, 7], at: [0.44, 0.58], amp: [0.07, 0.12], waves: [1.1, 2], isle: [[9, 12], [6, 8]], isleAt: [0.3, 0.7], margin: 2, cross: [2, 3], path: [126, 143, 179, 0], share: [0.3, 0.6] },
+      river: { pop: 0.52, w: [5, 7], at: [0.44, 0.58], amp: [0.07, 0.12], waves: [1.1, 2], isle: [[9, 12], [6, 8]], isleAt: [0.3, 0.7], margin: 2, cross: [2, 3], path: [126, 143, 179, 0], share: [0.3, 0.6] },
       // chasm (429): the plateaus stand `gap` cells apart over the black chasm, no lava along their edges or in the gaps between (a
       // lake of it deep down, `lakes`), joined by narrow ridges bent less than the plain floor's (`ridge`), their straight runs chain
       // bridges over the dark but a share `neck` of them left a neck of rock
-      chasm: { gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3] },
+      chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3] },
       // terrace (430): a lavafall down the top wall near one side of the map (`fallAt` of the width from it, the wall `wall` rows high
       // there) runs down to the bottom as a river `w` cells wide; on the wide side terraces step down, rows `rowH` high with `step`
       // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
       // its other (a serpentine), its other end a share `short` of the width short; `branch` plateaus on the narrow side over the
       // river hang off the nearest terrace; rag, edge: their edges more ragged than the plain floor's
-      terrace: { fallAt: [0.18, 0.26], wall: 6, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 3], short: [0.12, 0.3], branch: [1, 2], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
+      // (TASKS 432) a row may be a narrow ridge (`ridgeRow`: its chance, height, plateaus in it) or a broad field (`broadRow`, one
+      // a floor at most: two left too few rows for the walk to the stairs); never one plateau a row, which cut the walk short
+      terrace: { pop: 0.49, fallAt: [0.18, 0.26], wall: 6, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 4], ridgeRow: { p: 0.3, h: [4, 5], per: [2, 3] }, broadRow: { p: 0.15, h: [11, 12], per: [2, 3] }, short: [0.12, 0.3], branch: [1, 2], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
       // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
       // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`;
       // pop: its halls are more than a floor's plateaus, each with its pack: as many monsters a floor as the plateaus'
-      cave: { goal: [0.1, 0.16], pools: 3, pop: 0.44, path: [0, 0, 0, 0], share: [0.06, 0.3] },
+      cave: { goal: [0.1, 0.16], pools: 3, pop: 0.415, path: [0, 0, 0, 0], share: [0.06, 0.3],
+        mix: { arena: { n: [1, 2], box: [[16, 20], [12, 15]], pop: 1.5 }, ledge: { n: [3, 4], box: [[6, 8], [5, 7]], pop: 0.6 } } },
       // first: the type of a run's first floor (the player's call 04.11.2026: the caves first, a lake's archers over the lava were too
       // much for the first floor)
-      types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave', lake: { fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
+      types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave', lake: { pop: 0.47, fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
         isle: [[[12, 15], [9, 11]], [[8, 10], [6, 8]], [[5, 7], [5, 6]]], margin: 2, plat: [[11, 16], [8, 11]], small: [[7, 10], [6, 8]], grow: [18, 13],
-        islet: 1, share: [0.4, 0.66] },
+        islet: 1, share: [0.4, 0.66],
+        mix: { arena: { n: [1, 1], box: [[16, 20], [10, 13]], grow: [22, 15], pop: 1.4 }, ridge: { n: [2, 3], box: [[14, 20], [4, 5]], grow: [22, 6], tall: 0.3, edge: [0, 1.5], rag: 0.7, pop: 0.8 },
+          ledge: { n: [3, 5], box: [[6, 7], [5, 6]], grow: [8, 7], edge: [0, 1.2], rag: 0.6, pop: 0.5 } } },
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it

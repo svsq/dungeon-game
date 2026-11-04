@@ -10,7 +10,10 @@
   const hex = (c) => '#' + c.map((v) => Math.round(Math.min(1, v) * 255).toString(16).padStart(2, '0')).join('');
   const lab = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: C.text, out: '#140c0c' }, o));
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
-  const underHud = (x, y) => (x > W - 260 && y < 440) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
+  // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
+  let MMB = null;
+  const LEGEND = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']];
+  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   function panel(id, x, y, w, h, o = {}) {
     L.rrect(x - 3, y - 3, w + 6, h + 6, (o.r || 8) + 3, o.rim || C.rim, o.rim2 || [0.2, 0.16, 0.13], o.a ?? 0.95);
@@ -32,7 +35,7 @@
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend();
+    G.bind(null); G.blend(); MMB = null;
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
@@ -76,6 +79,7 @@
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
   function world(S, R, t, V) {
+    MMB = mmBox(R);
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && !D.under(e) && seen(e.x, e.y)) {
@@ -112,7 +116,8 @@
       // an elite's name, its powers first, in the colour of its first power
       if (e.elite && e.mods && e.mods.length) { const c = D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
         if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py))) {
-          const b = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones);
+          // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
+          const b0 = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
           if (b) {
             const cx = b.x + b.w / 2;
             lab('el' + (e.id % 40), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c) });
@@ -296,6 +301,9 @@
     const line = `Лут: подобрано ${A.got} из ${A.total} · на полу ${A.lying} · в сундуках ${A.boxed} · в тайниках ${sec} · недоступно ${A.stuck} · расхождение ${A.off}`;
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
+  // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
+  function mmBox(R) { const m = R.map, mw = m.W * MAP.k, mh = m.H * MAP.k, tw = lw('mm_t', ('Этаж ' + m.floor + ' — ' + D.floorName(m.floor, R.mode, R.seed)).toUpperCase(), { size: 17 }),
+      pw = Math.max(mw + 24, tw + 24); return [W - pw - 14, 12, pw, mh + 76 + 26 * (LEGEND.length + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }
   function minimap(S, R, t) {
     const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
@@ -317,7 +325,7 @@
       else MAP.rec = G.canvasTex('minimap', cv); }
     const title = ('Этаж ' + m.floor + ' — ' + D.floorName(m.floor, R.mode, R.seed)).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
     const hints = SIM.completionHints(R);
-    const legend = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']].concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
+    const legend = LEGEND.concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
     const pw = Math.max(mw + 24, tw + 24), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
     panel('minimap', x0, 12, pw, ph, { r: 5, a: 0.86 });
     lab('mm_t', title, x0 + pw / 2, 31, { size: 17, al: 0.5 });
