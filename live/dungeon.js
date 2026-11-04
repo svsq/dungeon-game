@@ -20,6 +20,17 @@
     throw new Error('dungeon generation failed');
   }
 
+  // the rooms a walk from cell a to cell b crosses (TASKS 433): those whose box holds three cells on a walk at most two steps longer
+  // than the shortest (a secret room is no way's); go: the cells a body walks
+  function wayRooms(cells, W, H, rooms, a, b, go = (c) => c === 1) {
+    const from = (k0) => { const d = new Int32Array(W * H).fill(-1), q = [k0]; d[k0] = 0;
+      for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && go(cells[n])) { d[n] = d[q[i]] + 1; q.push(n); } } return d; };
+    const da = from(a), db = from(b), L = da[b], out = new Set();
+    for (const r of rooms) { if (r.type === 'secret') continue; let n = 0;
+      for (let y = r.y; y < r.y + r.h && n < 3; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * W + x; if (da[k] >= 0 && db[k] >= 0 && da[k] + db[k] <= L + 2 && ++n >= 3) break; }
+      if (n >= 3) out.add(r.id); }
+    return out; }
+
   // runs of floor cells longer than four along one straight wall (rock or a fake wall beyond each), in each of the four
   // directions: { x, y } its first cell, (dx, dy) along it, (nx, ny) towards the rock, n its length; skip(x, y) leaves cells out
   function straightRuns(cells, W, H, skip) {
@@ -187,6 +198,12 @@
       if (MX.arena && !boss) for (let k = qi(MX.arena.n); k > 0; k--) kq.push('arena');
       if (MX.ridge) for (let k = qi(MX.ridge.n); k > 0; k--) kq.push('ridge');
       nLedge = MX.ledge ? qi(MX.ledge.n) : 0; }
+    // a terrace floor's ledges (TASKS 433) stand past its rows' short ends and over the river on its narrow side, where the rows
+    // leave room: dead ends off the serpentine
+    if (terr && MX && MX.ledge) { const Q = mul32(seed ^ 0x433e), qi = (a) => a[0] + Math.floor(Q() * (a[1] - a[0] + 1)), K = MX.ledge;
+      for (let n = qi(AR.terrace.ledges), i = 0; n > 0 && i < 400; i++) { const w = qi(K.box[0]), h = qi(K.box[1]), x = 3 + Math.floor(Q() * (W - w - 6)), y = 4 + AR.cacheRows + Math.floor(Q() * (H - h - 7 - AR.cacheRows));
+        if (!apart(x, y, w, h) || figHit(x, y, w, h) || holdHit(x, y, w, h)) continue;
+        rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: rooms.length, kind: 'ledge', g: K.grow }); n--; } }
     for (let i = 0; i < (terr ? 0 : 900) && rooms.length < want + nLedge; i++) {
       const big = rooms.length === 0 && boss;
       const kind = !MX || big ? null : kq.length ? kq[0] : rooms.length >= want || (i >= 600 && nLedge) ? 'ledge' : null, K = kind && MX[kind];
@@ -245,7 +262,10 @@
     const dist = (a, b) => Math.hypot(a.cx - b.cx, (a.cy - b.cy) * 1.2);
     // the plateaus' tree (TASKS 400) holds each plateau to two ridges, three only when no other way joins the next one: a long chain
     // with a few forks, so the walk from the start to the stairs crosses most of the floor
-    const inT = new Set([0]), edges = [], deg = rooms.map(() => 0);
+    // a ledge (TASKS 433) is a dead end off the tree, not a link in its chain: hung off its nearest plateau below, a side way the walk
+    // to the stairs never needs, with the floor's rewards at its end
+    const dead = (i) => rooms[i].kind === 'ledge', top0 = Math.max(0, rooms.findIndex((r, i) => i < main && !dead(i)));
+    const inT = new Set([top0, ...rooms.map((r, i) => i).filter((i) => i < main && dead(i))]), edges = [], deg = rooms.map(() => 0);
     // (a terrace floor's tree is its serpentine: each row's plateaus in a line, a row joined to the next at its one end and that to
     // the next at its other, the branches to the nearest terrace)
     if (terr) { const link = (a, b) => { edges.push([a, b, dist(rooms[a], rooms[b])]); deg[a]++; deg[b]++; };
@@ -253,15 +273,17 @@
       for (const b of terr.branch) { let best = null; for (const row of terr.rows) for (const a of row) { const d = dist(rooms[a], rooms[b]); if (!best || d < best[1]) best = [a, d]; } if (best) link(best[0], b); }
       for (let k = 0; k < main; k++) inT.add(k); }
     while (inT.size < main) { let best = null;
-      for (const cap of pl ? [AR.deg, AR.deg + 1, 99] : [99]) { for (const a of inT) if (deg[a] < cap) for (let b = 0; b < main; b++) if (!inT.has(b)) { const d = dist(rooms[a], rooms[b]); if (!best || d < best[2]) best = [a, b, d]; } if (best) break; }
+      for (const cap of pl ? [AR.deg, AR.deg + 1, 99] : [99]) { for (const a of inT) if (deg[a] < cap && !dead(a)) for (let b = 0; b < main; b++) if (!inT.has(b)) { const d = dist(rooms[a], rooms[b]); if (!best || d < best[2]) best = [a, b, d]; } if (best) break; }
       edges.push(best); inT.add(best[1]); deg[best[0]]++; deg[best[1]]++; }
+    for (let l = 0; l < main; l++) if (dead(l)) { let best = null; for (let b = 0; b < main; b++) if (!dead(b) && !rooms[b].isle && side(rooms[b]) === side(rooms[l])) { const d = dist(rooms[b], rooms[l]); if (!best || d < best[2]) best = [b, l, d]; }
+      if (best) { edges.push(best); deg[best[0]]++; deg[best[1]]++; } }
     // a river's banks (TASKS 428) are joined across it in TY.cross places, the island's ways counting, spread along it: the tree
     // crosses once or twice, the nearest pairs of plateaus on the two banks well off those places add the rest
     // (the island's two ways, one to each bank, are one place)
     if (riverY.length) { const over = (e) => side(rooms[e[0]]) !== side(rooms[e[1]]), midX = (e) => (rooms[e[0]].cx + rooms[e[1]].cx) / 2, want = ri(...TY.cross);
       const places = () => { const ss = edges.filter((e) => over(e) && (rooms[e[0]].isle || rooms[e[1]].isle)).map((e) => side(rooms[e[0]]) + side(rooms[e[1]]) - 2);
         return edges.filter((e) => over(e) && !rooms[e[0]].isle && !rooms[e[1]].isle).length + (ss.includes(-1) && ss.includes(1) ? 1 : ss.length ? 0.5 : 0); };
-      const cand = []; for (let a = 0; a < main; a++) for (let b = a + 1; b < main; b++) if (side(rooms[a]) * side(rooms[b]) === -1) cand.push([a, b, dist(rooms[a], rooms[b])]);
+      const cand = []; for (let a = 0; a < main; a++) for (let b = a + 1; b < main; b++) if (side(rooms[a]) * side(rooms[b]) === -1 && !dead(a) && !dead(b)) cand.push([a, b, dist(rooms[a], rooms[b])]);
       cand.sort((p, q) => p[2] - q[2]);
       // the island is a way over: joined to both banks, its nearest plateau on the bank it lacks
       const isl = rooms.findIndex((r) => r.isle), got = edges.filter((e) => e.includes(isl)).map((e) => side(rooms[e[0] === isl ? e[1] : e[0]]));
@@ -270,14 +292,14 @@
       // (a second pass reaches farther when the first left one place: an arena on a bank, TASKS 432, leaves its pairs far apart)
       for (const lim of [48, 64]) for (const e of cand) { if (places() >= (lim > 48 ? 2 : want)) break; if (e[2] > lim || edges.filter(over).some((f) => Math.abs(midX(f) - midX(e)) < W / 6)) continue; edges.push(e); deg[e[0]]++; deg[e[1]]++; } }
     // a pocket hangs off its nearest room and leads nowhere else
-    for (let p = main; p < rooms.length; p++) { let best = null; for (let b = 0; b < main; b++) { const d = dist(rooms[p], rooms[b]); if (!best || d < best[2]) best = [b, p, d]; } edges.push(best); }
-    if (!pl) for (let a = 0; a < main; a++) for (let b = a + 1; b < main; b++) {
+    for (let p = main; p < rooms.length; p++) { let best = null; for (let b = 0; b < main; b++) if (!dead(b)) { const d = dist(rooms[p], rooms[b]); if (!best || d < best[2]) best = [b, p, d]; } edges.push(best); }
+    if (!pl) for (let a = 0; a < main; a++) for (let b = a + 1; b < main; b++) { if (dead(a) || dead(b)) continue;
       if (edges.some((e) => (e[0] === a && e[1] === b) || (e[0] === b && e[1] === a))) continue;
       const d = dist(rooms[a], rooms[b]); if (d < 26 && R() < 0.28) edges.push([a, b, d]); }
     // the plateaus' loops join only plateaus far apart on the tree and not too far on the map: a short loop would cut the way short
     else { const tree = edges.slice(), hopT = (a) => { const h = rooms.map(() => 99), q = [a]; h[a] = 0;
         for (let i = 0; i < q.length; i++) for (const [p, o] of tree) for (const [u, v] of [[p, o], [o, p]]) if (u === q[i] && h[v] > h[u] + 1) { h[v] = h[u] + 1; q.push(v); } return h; };
-      const cand = []; if (!terr) for (let a = 0; a < main; a++) { const h = hopT(a); for (let b = a + 1; b < main; b++) { const d = dist(rooms[a], rooms[b]); if (h[b] >= AR.loopHops && d < 44 && side(rooms[a]) === side(rooms[b])) cand.push([a, b, d]); } }
+      const cand = []; if (!terr) for (let a = 0; a < main; a++) { const h = hopT(a); for (let b = a + 1; b < main; b++) { const d = dist(rooms[a], rooms[b]); if (!dead(a) && !dead(b) && h[b] >= AR.loopHops && d < 44 && side(rooms[a]) === side(rooms[b])) cand.push([a, b, d]); } }
       for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
       var loopCand = cand, loopWant = ri(...AR.loops); }
     const carveH = (x0, x1, y) => { for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) { if (!at(x, y)) set(x, y, 1); if (!at(x, y + 1)) set(x, y + 1, 1); } };
@@ -323,7 +345,7 @@
       // short of loops, a ridge of the tree gets a second one bowed the other way: a fork round an island of lava or dark that meets
       // again at the next plateau (no short cut: both ways are about as long); the floor's first loop may cost the walk down to
       // AR.loopLast, so every floor has one
-      const twin = terr ? [] : lines.slice(0, main - 1).filter((q) => Math.hypot(rooms[q.a].cx - rooms[q.b].cx, rooms[q.a].cy - rooms[q.b].cy) >= 22 && side(rooms[q.a]) === side(rooms[q.b]));
+      const twin = terr ? [] : lines.slice(0, main - 1).filter((q) => !dead(q.a) && !dead(q.b) && Math.hypot(rooms[q.a].cx - rooms[q.b].cx, rooms[q.a].cy - rooms[q.b].cy) >= 22 && side(rooms[q.a]) === side(rooms[q.b]));
       for (let i = twin.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [twin[i], twin[j]] = [twin[j], twin[i]]; }
       for (const q of twin) { if (loopWant <= 0) break; const c0 = cells.slice(), k0 = new Set(keep), n0 = lines.length; ridge(rooms[q.a], rooms[q.b], -q.s0);
         if (longest() >= top * (got ? AR.loopKeep : AR.loopLast)) { loopWant--; got++; continue; }
@@ -381,7 +403,7 @@
     // boss was a room away; the walk is counted on the carved cells, not by room hops: corridors cut through rooms and merge
     if (boss) { const d = new Array(W * H).fill(-1), q = [rooms[0].cy * W + rooms[0].cx], at0 = (r) => d[r.cy * W + r.cx]; d[q[0]] = 0;
       for (let i = 0; i < q.length; i++) { const c = q[i]; for (const n of [c - 1, c + 1, c - W, c + W]) if (cells[n] && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } }
-      const farAll = Math.max(...rooms.map(at0)); if (!leaves.some((r) => at0(r) >= farAll * 0.6)) leaves = rooms.slice(1, main);
+      const farAll = Math.max(...rooms.map(at0)); if (!leaves.some((r) => at0(r) >= farAll * 0.6)) leaves = rooms.slice(1, main).filter((r) => !narrow(r));
       const far = Math.max(...leaves.map(at0)); leaves = leaves.filter((r) => at0(r) >= far * 0.8); }
     // the plateaus (TASKS 400) put their start and stairs as far apart on foot as the floor has them: a pair of plateaus, the start a
     // leaf, drawn from those within a tenth of the longest walk
@@ -400,12 +422,16 @@
     const hop = hops(start);
     const exitR = far ? far[1] : boss ? rooms[0] : rooms.filter((r) => r !== start && !r.pocket && !narrow(r)).sort((p, q2) => (hop[q2.id] - hop[p.id]) || (dist(q2, start) - dist(p, start)))[0];
     start.type = 'start'; exitR.type = boss ? 'boss' : 'exit';
+    // the magma caves' way (TASKS 433): the plateaus and halls the walk from the start to the stairs crosses. The rewards go off it, to
+    // the dead ends first (a ledge, a pocket, a leaf of the tree), so no more than a third of a floor's lies on the way
+    let way = plat ? wayRooms(cells, W, H, rooms, start.cy * W + start.cx, exitR.cy * W + exitR.cx) : new Set(), deadEnd = (r) => (adj[r.id] || []).length === 1;
     // a Fisher–Yates shuffle: a random sort comparator gives each JS engine its own order, so node checks would see other maps than the browser
     const others = rooms.filter((r) => r.type === 'combat'); for (let i = others.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [others[i], others[j]] = [others[j], others[i]]; }
     const nTreasure = 1 + (R() < 0.5 ? 1 : 0);
     if (cave) others.sort((a, b) => (b.pocket || 0) - (a.pocket || 0));
     // the hoards go to the ledges first (TASKS 432): a small pad off the way with a chest on it
     if (MX) others.sort((a, b) => (b.kind === 'ledge') - (a.kind === 'ledge'));
+    if (plat) { const rank = (r) => (way.has(r.id) ? 2 : 0) + (deadEnd(r) ? 0 : 1); others.sort((a, b) => rank(a) - rank(b)); }
     // a lake's hoard is on one of its islands (TASKS 427): the short way over the lake pays
     { const i = others.findIndex((r) => r.isle === 2) >= 0 ? others.findIndex((r) => r.isle === 2) : others.findIndex((r) => r.isle); if (i > 0) others.unshift(others.splice(i, 1)[0]); }
     others.slice(0, nTreasure).forEach((r) => (r.type = 'treasure'));
@@ -428,7 +454,8 @@
     // edge to where the rock above is whole, the room's middle moved under it
     const caveShop = (r) => { if (!pl) return caveShopAt(r, r.cx);
       for (let s = 0; s <= (r.w >> 1) - 5; s++) for (const cx of s ? [r.cx - s, r.cx + s] : [r.cx]) if (caveShopAt(r, cx)) { r.cx = cx; r.cy = r.y + 2; return true; } return false; };   // its middle on the corner's floor, which no lava takes
-    const shopR = others.find((r) => r.type === 'combat' && !r.isle && (cave ? caveShop(r) : shopFits(r)));
+    // (the merchant keeps to the way: the rooms off it are the rewards')
+    const shopR = (plat ? [...others.filter((r) => way.has(r.id)), ...others.filter((r) => !way.has(r.id))] : others).find((r) => r.type === 'combat' && !r.isle && (cave ? caveShop(r) : shopFits(r)));
     if (!shopR) return null;
     shopR.type = 'shop'; if (pl) altar();
     const shopCorner = (x, y) => Math.abs(x - shopR.cx) <= 5 && y >= shopR.y - 2 && y <= shopR.y + 5;
@@ -1011,6 +1038,9 @@
         if (pl && ok) { const x0 = Math.min(rx, hx) - 2, x1 = Math.max(rx + rw, hx + 2) + 1; if (hy > AR.cliff) ok = false;
           for (let y = 0; y < hy && ok; y++) for (let x = x0; x <= x1; x++) if (!rockAt(x, y)) { ok = false; break; }
           for (let x = x0 - 1; x <= x1 + 1 && ok; x++) { let y = 1; while (y <= AR.cliff && at(x, y) === 0) y++; if (y > AR.cliff) ok = false; } }
+        // (the magma caves' caches are rewards off the way, TASKS 433: the first half of the tries look off it only, and past them one
+        // is dug from a plateau the walk crosses, a second only with four off it)
+        if (plat && way.has((roomOf(hx, hy) || {}).id)) { const on = secrets.filter((q) => way.has(q.host)).length; if (k < 4000 || (on && 3 * (on + 1) > secrets.length + 1)) ok = false; }
         if (!ok) continue;
         const sr = { x: rx, y: ry, w: rw, h: rh, cx: rx + (rw >> 1), cy: ry + (rh >> 1), type: 'secret', id: rooms.length };
         rooms.push(sr); for (let y = ry; y < ry + rh; y++) for (let x = rx; x < rx + rw; x++) set(x, y, 1);
@@ -1022,7 +1052,7 @@
         // how it is hidden: a plain stretch of wall that breaks, a banner or a bookshelf in front of it (top walls only, the
         // ones the camera faces), or a mechanism somewhere near (a loose flagstone, a sconce that pulls down) that sinks it
         const kind = pick(dir === 'u' && !cave ? ['crack', 'banner', 'banner', 'shelf', 'shelf', 'lever', 'lever'] : ['crack', 'crack', 'lever', 'lever', 'lever']);
-        secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0, kind }); } }
+        secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0, kind, host: (roomOf(hx, hy) || {}).id }); } }
     // the arena's lake (TASKS 413), dug once the floor's shape and roles are set: an ellipse of rock in the ring's middle that the
     // lava fills (platLava), a few basalt columns left standing in it and a row of slabs over it the short way
     const arenaLake = new Set(), arenaSlabs = [];
@@ -1030,6 +1060,8 @@
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (Math.hypot((x + 0.5 - cx) / L.lake[0], (y + 0.5 - cy) / L.lake[1]) < 1) { const k = y * W + x; cells[k] = 0; keep.delete(k); arenaLake.add(k); }
       for (let y = r.y; y < r.y + r.h; y++) for (const x of [r.cx, r.cx + 1]) { const k = y * W + x; if (arenaLake.has(k)) arenaSlabs.push(k); } }
     if (plat && !platLava()) return null;
+    // (the way again over the lava's crossings: a lake's slabs and a river's fords bring its islands on to it)
+    if (plat) way = wayRooms(cells, W, H, rooms, start.cy * W + start.cx, exitR.cy * W + exitR.cx);
     const secretFront = new Set(secrets.flatMap((q) => q.front.concat(q.wall).map(([x, y]) => y * W + x)));
     if (!D.BIOMES[biome].lava && !(last && boss) && !cave) {
       const candidates = rooms.filter((r) => r.type === 'combat' && !r.trap && !secrets.some((q) => q.front.some(([x, y]) => roomOf(x, y) === r)));
@@ -1439,7 +1471,7 @@
             if (!free(x, y, 1) || doorway(x, y) || Math.abs(x - sx) <= 2 && Math.abs(y - sy) <= 2) continue; claim(x, y, 'basalt_a'); decor.push({ x: wx(x), y: wy(y), n: n % 2 ? 'basalt_b' : 'basalt_a', solid: 1, r: r.id, cover: 1 }); n++; } } for (let i = 0; i < (bossType === 'boss' || bossType === 'boss_necro' ? Math.round(4 * D.BAL.pop) : 0); i++) { const p = spot(r, 2); if (p) addEnemy(bossType === 'boss_necro' ? 'skeleton' : pick(roster.filter((t) => t !== 'brute' && !ENEMIES[t].lurk && !ENEMIES[t].deep)), p[0], p[1], r.id); } }
       // chests
       // a locked room pays for its key: one chest of the secret rooms' tier and another of the hoards', often a heap of gold
-      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (runFloor === 1 ? 1 : 0) : R() < 0.2 ? 1 : 0);
+      const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (runFloor === 1 ? 1 : 0) : R() < 0.2 && !way.has(r.id) ? 1 : 0);
       for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : (r.type === 'secret' ? spot(r, 1, 0, true) : null) || wallSpot(r, 'chest') || spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' || (r.locked && i === 0) ? 3 : r.type === 'treasure' || r.locked ? 2 : 1, open: 0 }); }
       // the hoard's dressing: a statue each side of the rug against the back wall, vases along the walls, now and then a small
       // pile of gold
@@ -1501,6 +1533,17 @@
           if (d >= 2 && d <= 7 && !own.has(k) && free(x, y) && dry(x, y) && !crossings.some((q) => q.cells.includes(k)) && !rooms.some((q) => (q.type === 'start' || q.type === 'shop') && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h) && Math.hypot(x - start.cx, y - start.cy) > 12) spots.push([x, y]); }
         for (let i = 0; i < 2 && spots.length; i++) { const [x, y] = spots.splice(Math.floor(R() * spots.length), 1)[0]; used.add(key(x, y)); addEnemy(pick(kinds), x, y, (roomOf(x, y) || rooms.filter((q) => !['secret', 'start', 'shop'].includes(q.type)).reduce((a, q) => (Math.hypot(q.cx - x, q.cy - y) < Math.hypot(a.cx - x, a.cy - y) ? q : a))).id); enemies[enemies.length - 1].ford = 1; } } }
     if (boss && !fin) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
+    // the magma caves' elites and spoils (TASKS 433): an elite is a reward of the ways off the walk to the stairs, never met on it (the
+    // stairs' own aside). As many as the floor's chance drew go to the dead ends with a pack and nothing else to win, one each, then
+    // to the other rooms off the way; a dead end left with nothing gets a chest
+    if (plat) { const hosts = new Set(secrets.map((q) => (roomOf(...q.front[0]) || {}).id)), inRm = (o, r) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= r.y * TILE && o.y < (r.y + r.h) * TILE;
+      const drawn = enemies.filter((e) => e.elite && !e.exit && !e.guard && !D.BOSSES[e.type]); let n = drawn.length; for (const e of drawn) e.elite = 0;
+      const paid = (r) => r.type !== 'combat' || hosts.has(r.id) || chests.some((c) => inRm(c, r)) || enemies.some((e) => e.elite && e.room === r.id);
+      const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      const ends = shuffle(rooms.filter((r) => deadEnd(r) && !way.has(r.id) && r.type === 'combat')), offWay = shuffle(rooms.filter((r) => !way.has(r.id) && r.type === 'combat' && !deadEnd(r)));
+      for (const r of [...ends, ...offWay]) { if (n <= 0) break; const own = enemies.filter((e) => e.room === r.id && !e.ford); if (own.length && !(deadEnd(r) && paid(r))) { pick(own).elite = 1; n--; } }
+      for (const r of [...ends, ...offWay]) { if (n <= 0) break; const own = enemies.filter((e) => e.room === r.id && !e.ford && !e.elite); if (own.length) { pick(own).elite = 1; n--; } }
+      for (const r of ends) if (!paid(r)) { const p = wallSpot(r, 'chest') || spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: 1, open: 0 }); } }
     // an eel in a lake between the halls (TASKS 312): one body of deep water out of every hall's box, by the floor's chance
     if (cave && roster.includes('eel')) { const inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h), lake = new Set();
       for (let k = 0; k < W * H; k++) { if (cells[k] !== 6 || lake.has(k) || inBox(k % W, Math.floor(k / W)) || deepSize(k) < EEL_MIN) continue;
@@ -1843,8 +1886,27 @@
     // came out with its lava past its type's share or a lava cave with one way over its streams)
     if (plat) { const fl = cells.filter((c) => c === 1).length, sh = (AR[ftype] && AR[ftype].share) || AR.lava.share, share = lava.length / (fl + lava.length);
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
-    return { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
+    const map = { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       ftype, bossType, walk, down, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
+    // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
+    // the rare floor that misses is laid again)
+    if (plat && !boss && strict) { const q = rewardsOf(map); if (q.onWay * 3 > q.list.length || q.bare.length) return null; }
+    return map;
+  }
+
+  // a magma floor's rewards (TASKS 433): its chests (a cache's own counted as the cache, on the plateau it is dug from), altars and
+  // elites (not the stairs' own), each with its room; the rooms on the way from the start to the stairs, the dead ends off it, and
+  // those of them holding no reward
+  function rewardsOf(m) {
+    const W = m.W, s = m.rooms[m.start], way = wayRooms(m.cells, W, m.H, m.rooms, s.cy * W + s.cx, m.exit.ty * W + m.exit.tx, (c) => c === 1 || c === 5);
+    const sec = new Set(m.secrets.map((q) => q.room)), list = [];
+    for (const c of m.chests) { const r = roomAt(m, c.x, c.y); if (!sec.has(r)) list.push({ kind: 'chest', room: r }); }
+    for (const q of m.secrets) list.push({ kind: 'cache', room: q.host ?? -1 });
+    for (const a of m.shrines) if (!a.boss) list.push({ kind: 'altar', room: roomAt(m, a.x, a.y) });
+    for (const e of m.enemies) if (e.elite && !e.exit && !e.guard && !D.BOSSES[e.type]) list.push({ kind: 'elite', room: e.room });
+    const deg = m.rooms.map(() => 0); for (const [a, b] of m.edges) { deg[a]++; deg[b]++; }
+    const ends = m.rooms.filter((r) => deg[r.id] === 1 && !way.has(r.id) && ['combat', 'treasure', 'shrine'].includes(r.type));
+    return { way, list, onWay: list.filter((q) => way.has(q.room)).length, ends, bare: ends.filter((r) => !list.some((q) => q.room === r.id)) };
   }
 
   // room index of a world point (or -1 in a corridor); a secret room first: a plateau's box may hold one (TASKS 422)
@@ -1852,6 +1914,6 @@
     for (const r of map.rooms) if (r.type === 'secret' && inR(r)) return r.id;
     for (const r of map.rooms) if (inR(r)) return r.id; return -1; };
 
-  root.DUNGEON = { genFloor, roomAt, mul32, LIGHT_R, straightRuns, narrowTo };
+  root.DUNGEON = { genFloor, roomAt, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf };
   if (typeof module !== 'undefined') module.exports = root.DUNGEON;
 })(typeof window !== 'undefined' ? window : globalThis);

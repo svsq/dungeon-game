@@ -2323,7 +2323,7 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), lootLevelCheck());
+    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck());
   }
   // a run of its own (the caves, the magma caves) finds, is sold and is given items at about its hero's level on its first floor:
   // the magma caves' loot over their depth once made them 10 levels over him and the run a walk (TASKS 424)
@@ -2399,6 +2399,19 @@
     // the magma caves' packs (TASKS 412): each floor brings its own kinds — none of the 2nd's on the 1st, none of the 3rd's on the 2nd
     const by = [{}, {}, {}]; for (let sd = 1; sd <= 10; sd++) for (let f = 1; f <= 3; f++) for (const e of DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }).enemies) if (!e.guard) by[f - 1][e.type] = 1;
     for (const [t, f0] of Object.entries(D.BIOMES.magma.from)) { if (f0 > 3) continue; if (!by[f0 - 1][t]) out.push(`magma: no ${t} on the ${f0}th floor it comes on`); if (f0 > 1 && by[f0 - 2][t]) out.push(`magma: a ${t} before the ${f0}th floor`); }
+    return out; }
+  // the magma caves' side ways (TASKS 433): on every floor but the boss's two dead ends off the way to the stairs and more, a ledge
+  // always one, each holding a reward (a chest, an altar, an elite or a cache dug from it); no elite on the way but the stairs' own,
+  // and two thirds of the floor's rewards and more off it
+  function branchCheck() {
+    const out = [];
+    for (let sd = 1; sd <= 10; sd++) for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f} (${m.ftype})`, q = DG.rewardsOf(m);
+      const deg = m.rooms.map(() => 0); for (const [a, b] of m.edges) { deg[a]++; deg[b]++; }
+      if (q.ends.length < 2) out.push(`${tag}: ${q.ends.length} dead ends off the way`);
+      for (const r of q.bare) out.push(`${tag}: a dead end off the way with no reward (room ${r.id})`);
+      for (const r of m.rooms) if (r.kind === 'ledge' && deg[r.id] !== 1) out.push(`${tag}: a ledge on ${deg[r.id]} ways (room ${r.id})`);
+      if (q.onWay * 3 > q.list.length) out.push(`${tag}: ${q.onWay} of ${q.list.length} rewards on the way`);
+      const el = q.list.filter((w) => w.kind === 'elite' && q.way.has(w.room)).length; if (el) out.push(`${tag}: ${el} elites on the way`); }
     return out; }
   // the magma caves' hazards (TASKS 406): as many on each floor as HAZ.n has (more each floor to the 3rd), every one HAZ.clear cells
   // off the start's fire, the spawn, the stairs, chests, monsters' posts and the altar, a vent on 3×3 of floor a cell off the lava;

@@ -299,9 +299,10 @@
       // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
       // its other (a serpentine), its other end a share `short` of the width short; `branch` plateaus on the narrow side over the
       // river hang off the nearest terrace; rag, edge: their edges more ragged than the plain floor's
+      // ledges (TASKS 433): small pads past the rows' short ends and over the river, dead ends off the serpentine
       // (TASKS 432) a row may be a narrow ridge (`ridgeRow`: its chance, height, plateaus in it) or a broad field (`broadRow`, one
       // a floor at most: two left too few rows for the walk to the stairs); never one plateau a row, which cut the walk short
-      terrace: { pop: 0.49, fallAt: [0.18, 0.26], wall: 6, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 4], ridgeRow: { p: 0.3, h: [4, 5], per: [2, 3] }, broadRow: { p: 0.15, h: [11, 12], per: [2, 3] }, short: [0.12, 0.3], branch: [1, 2], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
+      terrace: { pop: 0.49, fallAt: [0.18, 0.26], wall: 6, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 4], ridgeRow: { p: 0.3, h: [4, 5], per: [2, 3] }, broadRow: { p: 0.15, h: [11, 12], per: [2, 3] }, short: [0.12, 0.3], branch: [1, 2], ledges: [2, 3], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
       // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
       // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`;
       // pop: its halls are more than a floor's plateaus, each with its pack: as many monsters a floor as the plateaus'
