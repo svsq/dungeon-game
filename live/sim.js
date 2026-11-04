@@ -662,7 +662,7 @@
   // the crust under the hero or a monster knocked onto it: standing CRUST.stand s cracks it and its crusted neighbours (light, a
   // crack), CRUST.crack s on they are lava for CRUST.hot s, then they set again; stepping off before it cracks lets it be
   function stepCrust(S, R) {
-    const m = R.map, t = S.t, cs = crustSet(m), M = m.melt || (m.melt = {}), on = new Set();
+    const m = R.map, t = S.t, cs = crustSet(m); if (!cs) return; const M = m.melt || (m.melt = {}), on = new Set();
     for (const o of [R.hero].concat(R.en)) { if (o.deadT >= 0 || (o !== R.hero && ENEMIES[o.type].ghost)) continue; const k = Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE); if (cs.has(k)) on.add(k); }
     for (const k of on) { const q = M[k] || (M[k] = { on: 0 }); if (q.crackT !== undefined) continue; q.on += DT; if (q.on < CRUST.stand) continue;
       for (const n of [k, k + 1, k - 1, k + m.W, k - m.W]) if (cs.has(n) && (!M[n] || M[n].crackT === undefined)) M[n] = { on: CRUST.stand, crackT: t };
@@ -1838,7 +1838,7 @@
         for (const [n, list] of [['monster', m.enemies.filter((o) => !ENEMIES[o.type].lurk && !ENEMIES[o.type].deep)], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['fire', m.torches.filter((q) => q.kind !== 'wall')], ['altar', m.shrines], ['web', m.webs], ['ambush', m.ambush]])
           for (const o of list) if (inW(cellOf(o))) out.push(`seed ${seed} f${f}: a ${n} in the water at ${Math.round(o.x)},${Math.round(o.y)}`);
         for (const tr of m.traps) for (const [i, j] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) if (inW((tr.y / TILE + j) * W + tr.x / TILE + i)) out.push(`seed ${seed} f${f}: a spike plate in the water`);
-        for (const c of m.crossings) { if (c.lava) continue; caveKinds[c.kind] = (caveKinds[c.kind] || 0) + 1;
+        for (const c of m.crossings) { if (c.lava || c.chasm) continue; caveKinds[c.kind] = (caveKinds[c.kind] || 0) + 1;
           if (c.cells.some((k) => m.cells[k] !== 1 || (c.kind !== 'neck' && wet.has(k)))) out.push(`seed ${seed} f${f}: a ${c.kind} off the floor or wading`);
           if (c.kind !== 'neck' && !c.cells.some((k) => [1, -1, W, -W].some((d) => deepAt(k + d)))) out.push(`seed ${seed} f${f}: a ${c.kind} over no deep water`); }
         for (const q of m.waterFeatures) { caveKinds[q.kind] = (caveKinds[q.kind] || 0) + 1; const back = { u: -W, d: W, l: -1, r: 1 }[q.dir];
@@ -1919,19 +1919,20 @@
         if (m.W !== w0 || m.H !== h0) out.push(`seed ${seed} f${f}: the cave is ${m.W}×${m.H}, not ${w0}×${h0}`);
         if (m.doors.some((d) => !d.arena)) out.push(`seed ${seed} f${f}: non-arena doors in the cave`);
         for (const r of m.rooms) if (r.pocket && m.edges.filter((e) => e.includes(r.id)).length !== 1) out.push(`seed ${seed} f${f}: pocket ${r.id} is not a dead end`);
-        const skip = (x, y) => (Math.abs(x - sh.cx) <= 5 && y >= sh.y - 2 && y <= sh.y + 5) || hid.has(y * m.W + x) || m.rooms.some((r) => r.type === 'secret' && x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h);
+        const chU = new Set(m.chasmUnder || []), skip = (x, y) => (Math.abs(x - sh.cx) <= 5 && y >= sh.y - 2 && y <= sh.y + 5) || hid.has(y * m.W + x) || chU.has(y * m.W + x) || m.rooms.some((r) => r.type === 'secret' && x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h);
         for (const q of DG.straightRuns(m.cells, m.W, m.H, skip)) out.push(`seed ${seed} f${f}: a straight cave wall ${q.n} cells long at ${q.x},${q.y}`); }
       // the plateaus (TASKS 400): a body two cells wide walks from the spawn to every plateau and ledge (a ridge never narrows to one
       // cell), the walk to the stairs is held to ARCH.plateau.path, the rock wall stands at the top only and no lava lies in it, and
       // the floor has lava
       if (plat) { const W = m.W, A = D.ARCH.plateau, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE);
-        const lost = DG.narrowTo(m.cells, W, m.H, s0, m.rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx));
+        // (a lava cave, TASKS 431, is the water caves' layout: its tunnels may narrow, its rock is all wall)
+        const lc = m.ftype === 'cave', lost = lc ? [] : DG.narrowTo(m.cells, W, m.H, s0, m.rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx));
         for (const k of lost) out.push(`seed ${seed} f${f}: plateau or ledge at ${k % W},${Math.floor(k / W)} out of reach of a body two cells wide`);
         const d = new Int32Array(W * m.H).fill(-1), q = [s0]; d[s0] = 0;
         for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && m.cells[n] === 1) { d[n] = d[q[i]] + 1; q.push(n); } }
-        const walk = d[m.exit.ty * W + m.exit.tx]; if (walk !== m.walk || walk < A.path[lf - 1]) out.push(`seed ${seed} f${f}: the walk to the stairs is ${walk} cells (${m.walk} counted, ${A.path[lf - 1]} at least)`);
+        const pth = ((m.ftype && A[m.ftype]) || A).path || A.path, walk = d[m.exit.ty * W + m.exit.tx]; if (walk !== m.walk || walk < pth[lf - 1]) out.push(`seed ${seed} f${f}: the walk to the stairs is ${walk} cells (${m.walk} counted, ${pth[lf - 1]} at least)`);
         if (!m.cliff || m.cliff.length !== W) out.push(`seed ${seed} f${f}: a plateau floor without its wall rows`);
-        else for (let x = 0; x < W; x++) for (let y = 0; y < m.cliff[x]; y++) if (m.cells[y * W + x] === 3) { out.push(`seed ${seed} f${f}: lava in the wall at ${x},${y}`); x = W; break; }
+        else if (!lc) for (let x = 0; x < W; x++) for (let y = 0; y < m.cliff[x]; y++) if (m.cells[y * W + x] === 3) { out.push(`seed ${seed} f${f}: lava in the wall at ${x},${y}`); x = W; break; }
         if (!m.lava) out.push(`seed ${seed} f${f}: a plateau floor without lava`);
         // a cache hides in the top wall (TASKS 425): its room and passage in the wall's rows, the wall over it on each side, never a
         // block of dark in the lava
@@ -1944,7 +1945,9 @@
         if (share < sh[0] || share > sh[1]) out.push(`seed ${seed} f${f}: lava is ${Math.round(share * 100)} % of floor and lava (${m.ftype})`);
         if (!m.lavaBodies.some((b) => b.kind === 'lake') || !m.lavaFeatures.length) out.push(`seed ${seed} f${f}: no lake or no source of lava`);
         for (const q of m.lavaFeatures) if (m.cells[q.cell] !== 3) out.push(`seed ${seed} f${f}: a lava ${q.kind} off its lava`);
-        for (const c of m.crossings) if (!c.lava || c.cells.some((k) => m.cells[k] !== 1 || !under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 3))) out.push(`seed ${seed} f${f}: a ${c.kind} that is no crossing over lava`);
+        // (a chain bridge over the chasm, TASKS 429: on floor walked over the dark, the dark beside it, never over lava)
+        const chU = new Set(m.chasmUnder || []);
+        for (const c of m.crossings) if (c.chasm ? c.kind !== 'bridge' || c.cells.some((k) => m.cells[k] !== 1 || !chU.has(k) || under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 0)) : !c.lava || c.cells.some((k) => m.cells[k] !== 1 || !under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 3))) out.push(`seed ${seed} f${f}: a ${c.kind} that is no crossing over ${c.chasm ? 'the chasm' : 'lava'}`);
         for (const k of crustS) if (m.cells[k] !== 3 || ![1, -1, W, -W].some((o) => m.cells[k + o] === 1)) out.push(`seed ${seed} f${f}: crust off a bank at ${k % W},${Math.floor(k / W)}`);
         // (the floor round each crust cell joins up on foot within a few steps: a crust cell never takes anyone over the lava)
         for (const k of crustS) { const fl8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].map((o) => k + o).filter((n) => m.cells[n] === 1); if (fl8.length < 2) continue;
@@ -2332,13 +2335,41 @@
       if (sh.some((l) => Math.abs(l - M.lvl) > 3)) out.push(`${mode}: the 1st floor's merchant sells items of level ${Math.min(...sh)}–${Math.max(...sh)} for a hero of level ${M.lvl}`); }
     return out; }
   // the magma floors' types (TASKS 426, 427): a run's floors never take one type twice running and every type turns up; a lake floor
-  // has islands in its lake, a hoard on the big one, no start, stairs or merchant on one and no cache dug in the lake
+  // has islands in its lake, a hoard on the big one, no start, stairs or merchant on one and no cache dug in the lake; a river floor
+  // its island with the hoard, two to four ways over and packs by them
   function floorTypeCheck() {
     const out = [], seen = {}, AR = D.ARCH.plateau;
     for (let sd = 1; sd <= 10; sd++) { let prev = null;
       for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f} (${m.ftype})`; seen[m.ftype] = (seen[m.ftype] || 0) + 1;
         if (f < D.RUNS.magma.floors && m.ftype === prev) out.push(`${tag}: the same type as the floor before`); prev = m.ftype;
         if (f === D.RUNS.magma.floors && m.ftype !== 'plain') out.push(`${tag}: the boss's floor is not the plain plateaus`);
+        // a river (TASKS 428): one island, the hoard on it; two to four places to cross, a pack waiting at them
+        if (m.ftype === 'river') { const W = m.W, isles = m.rooms.filter((r) => r.isle), rc = m.crossings.filter((c) => c.river);
+          if (isles.length !== 1 || isles[0].type !== 'treasure') out.push(`${tag}: the river's island holds no hoard`);
+          const xs = rc.map((c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length).sort((a, b) => a - b); let places = 0, last = -99; for (const x of xs) { if (x - last > 8) places++; last = x; }
+          if (places < 2 || places > 4) out.push(`${tag}: ${places} places to cross the river`);
+          const mx = (c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, held = rc.filter((c) => { const own = new Set(c.cells), ends = c.cells.flatMap((k) => [1, -1, W, -W].map((o) => k + o)).filter((k) => m.cells[k] === 1 && !own.has(k));
+            return m.enemies.some((e) => ends.some((k) => Math.hypot(e.x / TILE - 0.5 - (k % W), e.y / TILE - 0.5 - Math.floor(k / W)) < 8)); });
+          const bare = xs.filter((x, i) => (i === 0 || x - xs[i - 1] > 8) && !held.some((c) => Math.abs(mx(c) - x) <= 8 * 3)).length;
+          if (bare > 1) out.push(`${tag}: ${bare} places to cross the river with no pack by them`); }
+        // a chasm (TASKS 429): two chain bridges over the dark and more, packs waiting at them, the dark (not lava) round the plateaus
+        if (m.ftype === 'chasm') { const W = m.W, br = m.crossings.filter((c) => c.chasm);
+          if (br.length < 2) out.push(`${tag}: ${br.length} bridges over the chasm`);
+          const held = br.filter((c) => m.enemies.some((e) => c.cells.some((k) => Math.hypot(e.x / TILE - 0.5 - (k % W), e.y / TILE - 0.5 - Math.floor(k / W)) < 9))).length;
+          if (held < br.length / 2) out.push(`${tag}: ${held} of ${br.length} bridges with a pack by them`);
+          let rim = 0, lav = 0; for (let k = 0; k < W * m.H; k++) if (m.cells[k] === 1 && [1, -1, W, -W].some((o) => m.cells[k + o] !== 1 && m.cells[k + o] !== 4)) { rim++; if ([1, -1, W, -W].some((o) => m.cells[k + o] === 3)) lav++; }
+          if (lav > rim * 0.25) out.push(`${tag}: ${Math.round(lav / rim * 100)} % of the plateaus' edges by lava`); }
+        // terraces (TASKS 430): three rows and more, the start on the first or the last and the stairs on the other, a lavafall down
+        // the wall at the head of the river
+        if (m.ftype === 'terrace') { const rows = Math.max(...m.rooms.map((r) => (r.row ?? -1))) + 1, s0 = m.rooms.find((r) => r.type === 'start'), e0 = m.rooms.find((r) => r.type === 'exit');
+          if (rows < 3) out.push(`${tag}: ${rows} rows of terraces`);
+          if (!s0 || !e0 || s0.row === undefined || e0.row === undefined || Math.min(s0.row, e0.row) !== 0 || Math.max(s0.row, e0.row) !== rows - 1) out.push(`${tag}: the start and the stairs are not the serpentine's two ends`);
+          if (!m.lavaFeatures.some((q) => q.kind === 'fall')) out.push(`${tag}: no lavafall`); }
+        // a lava cave (TASKS 431): its rock all wall (no chasm), streams of lava across its tunnels crossed twice and more, a source
+        if (m.ftype === 'cave') { if (m.cliff.some((c) => c < m.H)) out.push(`${tag}: a lava cave with a chasm under its rock`);
+          if (m.crossings.filter((c) => c.lava).length < 2) out.push(`${tag}: ${m.crossings.length} ways over its lava`);
+          if (!m.lavaFeatures.length) out.push(`${tag}: no source of its lava`); }
+        if (m.rooms.some((r) => r.isle && ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
         if (m.ftype !== 'lake') continue; const isles = m.rooms.filter((r) => r.isle);
         if (isles.length < 2) out.push(`${tag}: ${isles.length} islands in the lake`);
         if (isles.some((r) => ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
@@ -2356,6 +2387,14 @@
         for (const q of m.secrets) { const r = m.rooms[q.room]; let lava = 0; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (cell(m, x, y) === 3) lava++;
           if (lava > 2) out.push(`${tag}: a cache with ${lava} cells of lava round it`); } } }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
+    // taking the stairs from every floor of a run onto the next, whatever its type (a step that read the floor it left crashed on a
+    // floor with no crust)
+    for (let sd = 1; sd <= 6; sd++) { const Z = spawn(0, {}); Z.run = newRun(Z, 'magma', sd); Z.screen = 'play'; const R2 = Z.run;
+      try { for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = R2.map; R2.en = []; R2.hero.x = m.exit.x; R2.hero.y = m.exit.y; R2.msg = null;
+          for (let i = 0; i < 30 && R2.floor === f; i++) step(Z, { keys: i % 10 === 0 ? ['KeyE'] : [] });
+          if (R2.floor !== f + 1) { out.push(`magma run ${sd}: the stairs of floor ${f} (${m.ftype}) do not take the hero down`); break; }
+          for (let i = 0; i < 60; i++) step(Z, { keys: [] }); } }
+      catch (e) { out.push(`magma run ${sd}: taking the stairs threw ${e.message}`); } }
     // the magma caves' packs (TASKS 412): each floor brings its own kinds — none of the 2nd's on the 1st, none of the 3rd's on the 2nd
     const by = [{}, {}, {}]; for (let sd = 1; sd <= 10; sd++) for (let f = 1; f <= 3; f++) for (const e of DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }).enemies) if (!e.guard) by[f - 1][e.type] = 1;
     for (const [t, f0] of Object.entries(D.BIOMES.magma.from)) { if (f0 > 3) continue; if (!by[f0 - 1][t]) out.push(`magma: no ${t} on the ${f0}th floor it comes on`); if (f0 > 1 && by[f0 - 2][t]) out.push(`magma: a ${t} before the ${f0}th floor`); }
@@ -2366,7 +2405,8 @@
   // cycle, and nobody outside it
   function hazardCheck() {
     const out = [], HZ = D.HAZ, cnt = { vent: [0, 0, 0, 0], fall: [0, 0, 0, 0] };
-    for (const sd of [1, 77, 4242, 5, 12, 33]) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma' }), W = m.W, tag = `magma ${sd} f${f}`;
+    // (counted on the plain plateaus: the floor types' figures leave each its own room for them)
+    for (const sd of [1, 77, 4242, 5, 12, 33]) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', ftype: 'plain' }), W = m.W, tag = `magma ${sd} f${f}`;
       const keepOff = [[m.spawn.x, m.spawn.y], [m.exit.x, m.exit.y], ...m.chests.map((c) => [c.x, c.y]), ...m.enemies.map((e) => [e.x, e.y]), ...m.shrines.map((q) => [q.x, q.y])];
       const st = m.rooms.find((r) => r.type === 'start'); keepOff.push([(st.cx + 0.5) * TILE, (st.cy + 0.5) * TILE + 6]);
       for (const z of m.hazards || []) { cnt[z.k][f - 1]++; const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
@@ -3219,9 +3259,10 @@
       // (it burns) and sets again; the monsters' way round never goes over lava or crust
       { const Z = spawn(0, {}); Z.run = newRun(Z, 'magma', 3); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, W = m.W, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
         const crustS = new Set(m.crust), lavaOn = (o) => cell(m, Math.floor(o.x / TILE), Math.floor(o.y / TILE)) === 3;
-        const bank = (pred) => { for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 1) for (const [dx, dy] of DIRS) if ([1, 2, 3].every((i) => pred(k + i * (dx + dy * W)))) return [k, dx, dy]; return null; };
+        // (five cells of lava ahead: a narrower channel between two floors is flown over by the knock)
+        const bank = (pred, n = 3) => { for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 1) for (const [dx, dy] of DIRS) if (Array.from({ length: n }, (_, i) => i + 1).every((i) => pred(k + i * (dx + dy * W)))) return [k, dx, dy]; return null; };
         const mob = (x, y) => ({ id: R2.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp: 999, max: 999, dmg: 0, elite: 0, room: -1, st: 'idle', t0: 0, face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 });
-        const L0 = bank((k) => m.cells[k] === 3 && !crustS.has(k)), C0 = bank((k) => !!m.cliff && m.cells[k] === 0 && Math.floor(k / W) >= m.cliff[k % W]);
+        const L0 = bank((k) => m.cells[k] === 3 && !crustS.has(k), 5), C0 = bank((k) => !!m.cliff && m.cells[k] === 0 && Math.floor(k / W) >= m.cliff[k % W]);
         if (!L0 || !C0) out.push('magma lava: no bank of lava or of the chasm on floor 1'); else {
           for (const [what, [k, dx, dy]] of [['lava', L0], ['chasm', C0]]) { const x0 = (k % W + 0.5) * TILE, y0 = (Math.floor(k / W) + 0.5) * TILE;
             R2.en = []; R2.msg = null; R2.drops = []; h.ifr = 1e9; h.x = x0; h.y = y0; h.kbx = h.kby = 0; let off = false;

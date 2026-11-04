@@ -276,7 +276,25 @@
       // (lake) leave the ring wide enough for the colossus; a row of basalt slabs crosses the lake the short way (the hero may cut over,
       // the colossus is too broad for it); cover: basalt slabs standing on the ring, solid, stopping bolts
       arena: { w: 28, h: 20, lake: [7, 4.3], rag: 0.25, cover: 5 },
-      types: ['plain', 'lake'], lake: { fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
+      // river (428): a wide winding river of lava across the map from edge to edge, `w` cells wide, its middle at `at` of the
+      // height, swinging `amp` of it over `waves` bends; it widens round an island (`isle` cells, the hoard's) at `isleAt` of the
+      // width; `cross`: the ways over it the plateaus on its banks keep (the island's included), spread along it; path: the least
+      // walk to the stairs, 0.85 of the plain floor's (the ways over cut it short)
+      river: { w: [5, 7], at: [0.44, 0.58], amp: [0.07, 0.12], waves: [1.1, 2], isle: [[9, 12], [6, 8]], isleAt: [0.3, 0.7], margin: 2, cross: [2, 3], path: [126, 143, 179, 0], share: [0.3, 0.6] },
+      // chasm (429): the plateaus stand `gap` cells apart over the black chasm, no lava along their edges or in the gaps between (a
+      // lake of it deep down, `lakes`), joined by narrow ridges bent less than the plain floor's (`ridge`), their straight runs chain
+      // bridges over the dark but a share `neck` of them left a neck of rock
+      chasm: { gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3] },
+      // terrace (430): a lavafall down the top wall near one side of the map (`fallAt` of the width from it, the wall `wall` rows high
+      // there) runs down to the bottom as a river `w` cells wide; on the wide side terraces step down, rows `rowH` high with `step`
+      // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
+      // its other (a serpentine), its other end a share `short` of the width short; `branch` plateaus on the narrow side over the
+      // river hang off the nearest terrace; rag, edge: their edges more ragged than the plain floor's
+      terrace: { fallAt: [0.18, 0.26], wall: 6, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 3], short: [0.12, 0.3], branch: [1, 2], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
+      // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
+      // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`
+      cave: { goal: [0.1, 0.16], pools: 3, path: [0, 0, 0, 0], share: [0.06, 0.3] },
+      types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], lake: { fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
         isle: [[[12, 15], [9, 11]], [[8, 10], [6, 8]], [[5, 7], [5, 6]]], margin: 2, plat: [[11, 16], [8, 11]], small: [[7, 10], [6, 8]], grow: [18, 13],
         islet: 1, share: [0.4, 0.66] },
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },

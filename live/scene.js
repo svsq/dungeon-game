@@ -818,7 +818,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
   const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.cell(m, x, y) === 3, null, 8);
   // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
-  const platTex = (m) => maskTex(m, 'plat', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 3 && v !== 4; }, null, 1);
+  // the chasm under a chain bridge (TASKS 429) is the dark: walked on, never ground
+  const CHUND = new WeakMap(), chasmUnder = (m) => { let u = CHUND.get(m); if (!u) CHUND.set(m, u = new Set(m.chasmUnder || [])); return u; };
+  const platTex = (m) => maskTex(m, 'plat', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 3 && v !== 4 && !chasmUnder(m).has(y * m.W + x); }, null, 1);
   // deep in a lake, where a cluster of columns may stand (TASKS 418): the cell and those round it and two below it open lava, no
   // crust, crossing or source within a few cells
   const lakeTex = (m) => { const cr = new Set(m.crust || []), un = lavaUnder(m), src = m.lavaFeatures || [];
@@ -836,7 +838,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const deepTex = (m) => maskTex(m, 'deep', (x, y) => SIM.cell(m, x, y) === 6, null, 1);
   const SRC_KIND = { waterfall: 0, breach: 1, spring: 2 }, SRC_DIR = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
   // a cave's open cells (floor, water, doors, found secrets) for its rock outline (CAVE)
-  const openTex = (m) => { const hid = SIM.secretMask(m); return maskTex(m, 'open', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 4 && !hid.has(y * m.W + x); }, null, 1); };
+  const openTex = (m) => { const hid = SIM.secretMask(m), ch = chasmUnder(m); return maskTex(m, 'open', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 4 && !hid.has(y * m.W + x) && !ch.has(y * m.W + x); }, null, 1); };
   // 1 deep in the rock (3 to 6 cells from any floor, soft) and toward the map's edge, where a room may lie close: the abyss shows through
   // cells of rock from the nearest floor or wall face (a top wall's two face cells count as open): the masonry is a rim of two
   // cells around the rooms, the third fades, and the abyss shows past it, so rooms read by their silhouette as in the reference
@@ -1673,7 +1675,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
-    const planks = (c, band) => { const hor = c.axis === 'x', [u0, u1, v0] = c.span, bridge = c.kind === 'bridge', T = TILE, sd = c.cells[0], iron = !!c.lava;
+    const planks = (c, band) => { const hor = c.axis === 'x', [u0, u1, v0] = c.span, bridge = c.kind === 'bridge', T = TILE, sd = c.cells[0], iron = !!c.lava || !!c.chasm;
       const A0 = u0 * T - 6, len = (u1 - u0 + 1) * T + 12, B0 = v0 * T, BW = 2 * T, n = Math.max(3, Math.round(len / BRIDGE.pitch)), pitch = len / n;
       const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
@@ -2988,6 +2990,33 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         if (m.cells[k] !== 1 || !r || r.isle || y > ly - 6 || m.cells[k + W] !== 1 || m.cells[k + 2 * W] === 1) continue; const d = Math.hypot(x - lx, (y - ly) * 1.5); if (!best || d < best[2]) best = [x, y, d]; }
       if (!best) continue; h.x = (best[0] + 0.5) * TILE; h.y = (best[1] + 0.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [h.x - VW / 2, h.y - VH * 0.3]; states.push(['magma_lake_shore', S]); break; }
+    // TASKS 428: a river floor, the camera on its widest way over with the pack waiting past it
+    for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
+      for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'river') m = S.run.map; } if (!m) continue;
+      const R = S.run, h = R.hero, W = m.W, c = m.crossings.filter((q) => q.river && q.kind !== 'arch').sort((a, b) => b.cells.length - a.cells.length)[0]; if (!c) continue;
+      const cx = c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, cy = c.cells.reduce((a, k) => a + Math.floor(k / W), 0) / c.cells.length, k0 = c.cells.reduce((a, k) => (Math.hypot(k % W - cx, Math.floor(k / W) - cy) > Math.hypot(a % W - cx, Math.floor(a / W) - cy) ? k : a));
+      h.x = (k0 % W + 0.5) * TILE; h.y = (Math.floor(k0 / W) + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [(cx + 0.5) * TILE - VW / 2, (cy + 0.5) * TILE - VH / 2]; states.push(['magma_river', S]); break; }
+    // TASKS 429: a chasm floor, the camera on its longest chain bridge
+    for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
+      for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'chasm') m = S.run.map; } if (!m) continue;
+      const R = S.run, h = R.hero, W = m.W, c = m.crossings.filter((q) => q.chasm).sort((a, b) => b.cells.length - a.cells.length)[0]; if (!c) continue;
+      const cx = c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, cy = c.cells.reduce((a, k) => a + Math.floor(k / W), 0) / c.cells.length;
+      h.x = (cx + 0.5) * TILE; h.y = (cy + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_chasm', S]); break; }
+    // TASKS 430: a terrace floor, the camera by its lavafall over the first rows and the turn down between them
+    for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
+      for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'terrace') m = S.run.map; } if (!m) continue;
+      const R = S.run, h = R.hero, q = m.lavaFeatures.find((o) => o.kind === 'fall'); if (!q) continue; const r = m.rooms.filter((o) => o.row === 1).sort((a, b) => Math.abs(a.cx * TILE - q.x) - Math.abs(b.cx * TILE - q.x))[0];
+      h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [(q.x + h.x) / 2 - VW / 2, q.y + VH * 0.3 - VH / 2]; states.push(['magma_terrace', S]); break; }
+    // TASKS 431: a lava cave, the camera on a way over a stream of lava across a tunnel
+    for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
+      for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'cave') m = S.run.map; } if (!m) continue;
+      const R = S.run, h = R.hero, W = m.W, c = m.crossings.filter((q) => q.kind !== 'arch').sort((a, b) => b.cells.length - a.cells.length)[0] || m.crossings[0]; if (!c) continue;
+      const cx = c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, cy = c.cells.reduce((a, k) => a + Math.floor(k / W), 0) / c.cells.length;
+      h.x = (cx + 0.5) * TILE; h.y = (cy + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_cave', S]); break; }
     // TASKS 411: smouldering skeletons in a magma hall: one running at the hero, one with its fuse lit half way, the bones of one
     // struck down burning beside a goblin caught in its reach
     { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 1); const R = S.run, m = R.map, h = R.hero;
