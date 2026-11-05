@@ -1928,25 +1928,73 @@
     return { way, list, onWay: list.filter((q) => way.has(q.room)).length, ends, bare: ends.filter((r) => !list.some((q) => q.room === r.id)) };
   }
 
-  // the start town (R-17, TASKS 1002): floor 0 of a run, a safe courtyard over the crypt; its plan is TASKS 1003's
+  // the start town (R-17, TASKS 1003): floor 0 of a run, the courtyard of a ruined fortress over the crypt, laid to a fixed plan
+  // after the accepted reference (study/refs/ref_town.png, a tile ≈ 31 px of it; study/refs/README.md): the stairs down in the
+  // gate at the top, the campfire and its tree in the middle of the square, the merchant top left, the forge and the enchanter
+  // (one workshop, TASKS 1013) top right, the Altar of Souls and the storage chest right of the square, the notice board and the
+  // portal's ring of stones below left, the mine on the right with its rails along the bottom wall only to the unloading yard
+  // (an ore bin) at the left; the seed moves only the small things: decor, ruin stubs, ground decals, where the townsfolk stand
+  const TOWN = { W: 56, H: 37,
+    floor: [[4, 4, 48, 28]],
+    // the outer ruins' ragged edge, the gate round the stairs, the services' back walls, the mine's rock and the wall over the rails
+    rock: [[4, 4, 48, 3], [4, 7, 2, 2], [50, 7, 2, 3], [4, 29, 3, 3], [4, 13, 1, 3], [51, 26, 1, 6],
+      [23, 4, 9, 4], [36, 11, 7, 2], [42, 11, 1, 5], [33, 19, 9, 2],
+      [44, 16, 8, 6], [4, 10, 4, 2], [4, 16, 4, 2], [4, 22, 4, 2], [12, 26, 12, 2], [31, 26, 10, 2]],
+    stairs: [27, 8], fire: [27, 17], spawn: [24, 19], shop: [17, 8], anvil: [36, 8], forge: [38, 7], lectern: [39, 14], shelf: [37, 13],
+    altar: [36, 21], chest: [39, 21], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [15, 29], herbs: [44, 25],
+    // the portal's ring is open toward the square (no stone east of it); where a body stands to use each service (the checks walk a two-cell-wide body there from the spawn)
+    use: { stairs: [27, 8], shop: [17, 10], altar: [36, 22], stash: [39, 22], anvil: [36, 9], lectern: [39, 15], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [16, 29] },
+    braziers: [[25, 8], [29, 8]],
+    // the benches round the fire come with the town's art (TASKS 1004): no prop of the game's fits them
+    benches: [[25, 16], [29, 19], [25, 19]],
+    rails: [[47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], ...Array.from({ length: 25 }, (_, i) => [41 - i, 30])],
+    // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it
+    npcs: [['smith', 35, 9], ['enchanter', 39, 15], ['keeper', 26, 18], ['porter', 32, 11], ['sweeper', 30, 21], ['miner', 38, 30], ['mason', 18, 29], ['gardener', 43, 24], ['child', 13, 18]],
+    // ruin stubs the seed picks some of, and spots for the small decor
+    stubs: [[9, 6], [44, 7], [10, 27], [45, 29], [5, 26], [49, 13], [12, 14]],
+    small: [['barrel', 13, 8], ['crate', 21, 8], ['barrel', 20, 11], ['crate', 33, 8], ['barrel', 41, 8], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
+      ['crate', 45, 10], ['barrel', 47, 10], ['crate', 42, 6], ['barrel', 12, 30], ['crate', 19, 29], ['crate', 48, 23], ['barrel', 9, 9], ['crate', 35, 25], ['barrel', 47, 27]] };
   function genTown(seed) {
-    const W = 56, H = 40, cells = new Array(W * H).fill(0), R = mul32(seed >>> 0);
-    const room = { x: 4, y: 5, w: W - 8, h: H - 10, type: 'town', id: 0 }; room.cx = room.x + (room.w >> 1); room.cy = room.y + (room.h >> 1);
-    for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) cells[y * W + x] = 1;
-    const sanct = { x: room.cx * TILE + TILE / 2, y: room.cy * TILE + TILE / 2 + 8 };
-    const exit = { x: room.cx * TILE + TILE / 2, y: (room.y + 2) * TILE + TILE / 2, tx: room.cx, ty: room.y + 2 };
-    const spawn = { x: sanct.x - 3 * TILE, y: sanct.y + 2 * TILE + Math.round(R() * 8) };
-    return { seed, floor: 0, town: 1, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block: [], decals: [], edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
-      ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: room.w * room.h, down: null, enemies: [], chests: [], pots: [], traps: [], torches: [{ x: sanct.x, y: sanct.y, kind: 'fire' }],
-      decor: [], shrines: [], rugs: [], shop: null, secrets: [], secretsWanted: 0, lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
+    const T = TOWN, W = T.W, H = T.H, cells = new Array(W * H).fill(0), R = mul32(seed >>> 0), wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2;
+    const fill = ([x0, y0, w, h], v) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) cells[y * W + x] = v; };
+    for (const r of T.floor) fill(r, 1); for (const r of T.rock) fill(r, 0);
+    const stubs = T.stubs.filter(() => R() < 0.5); for (const [x, y] of stubs) fill([x, y, 1 + (R() < 0.5 ? 1 : 0), 1], 0);
+    const room = { x: 4, y: 4, w: 48, h: 28, type: 'town', id: 0 }; room.cx = 27; room.cy = 17;
+    const at = ([x, y]) => ({ x: wx(x), y: wy(y) }), sanct = at(T.fire), exit = Object.assign(at(T.stairs), { tx: T.stairs[0], ty: T.stairs[1] });
+    const spawn = { x: wx(T.spawn[0]) + Math.round((R() - 0.5) * 12), y: wy(T.spawn[1]) + Math.round((R() - 0.5) * 8) };
+    const torches = [{ x: sanct.x, y: sanct.y, kind: 'fire' }, ...T.braziers.map((p) => Object.assign(at(p), { kind: 'brazier' })), Object.assign(at(T.forge), { kind: 'brazier' })];
+    const [sx, sy] = T.shop, cy = wy(sy + 1), shop = { room: 0, x: wx(sx), y: cy - 16, counter: { x: wx(sx), y: cy }, front: { x: wx(sx), y: cy + 30 },
+      solid: [-1, 0, 1].map((i) => [wx(sx + i), cy]), lanterns: [{ x: wx(sx + 3), y: wy(sy + 1) }] };
+    // the services stand in the existing props until the town's own art (TASKS 1004); role: what each one is
+    const decor = [
+      { ...at(T.altar), n: 'altar', role: 'altar', solid: 1 }, { ...at(T.chest), n: 'chest', role: 'stash', solid: 1 }, { ...at(T.anvil), n: 'table', role: 'anvil', solid: 1 },
+      { ...at(T.lectern), n: 'table_candles', role: 'lectern', solid: 1 }, { ...at(T.shelf), n: 'bookshelf', role: 'shelf', solid: 1 }, { ...at(T.board), n: 'banner', role: 'board', solid: 1 },
+      { ...at(T.tree), n: 'statue', role: 'tree', solid: 1 }, { ...at(T.bin), n: 'cage', role: 'ore_bin', solid: 1 }, { ...at(T.herbs), n: 'crate', role: 'herbs', solid: 1 },
+      { ...at([T.adit[0], T.adit[1] - 1]), n: 'rack', role: 'adit', wall: 1 },
+      ...[1, 2, 3, 4, 5].map((i) => { const a = i * Math.PI / 3; return { x: wx(T.portal[0]) + Math.cos(a) * 2.4 * TILE, y: wy(T.portal[1]) + Math.sin(a) * 1.9 * TILE, n: 'boulder_a', role: 'portal_stone', solid: 1 }; }),
+      ...T.small.filter(() => R() < 0.7).map(([n, x, y]) => ({ x: wx(x) + Math.round((R() - 0.5) * 10), y: wy(y) + Math.round((R() - 0.5) * 6), n, solid: 1 }))];
+    const rails = T.rails.map(([x, y]) => y * W + x);
+    const npcs = T.npcs.map(([role, x, y]) => ({ role, x: wx(x) + Math.round((R() - 0.5) * 10), y: wy(y) + Math.round((R() - 0.5) * 6) }));
+    const near = (x, y, r) => decor.some((d) => Math.hypot(d.x - x, d.y - y) < r) || Math.hypot(sanct.x - x, sanct.y - y) < 3 * TILE || rails.includes(Math.floor(y / TILE) * W + Math.floor(x / TILE));
+    const decals = [];
+    for (let i = 0; i < 70; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
+      decals.push({ x, y, n: ['dc_moss', 'dc_leaves', 'dc_pebbles', 'dc_straw', 'dc_moss', 'dc_rubble'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.5 }); }
+    const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin) };
+    return { seed, floor: 0, town: { svc, use: T.use, rails, npcs }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block: [], decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
+      ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: cells.filter((c) => c === 1).length, down: null, enemies: [], chests: [], pots: [], traps: [], torches,
+      decor, shrines: [], rugs: [], shop, secrets: [], secretsWanted: 0, lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
       water: [], waterFlow: {}, waterFeatures: [], waterBridges: [], deep: 0, crossings: [], doors: [], locks: [], webs: [], ambush: [], drips: [], flora: [], serpentPools: [], floodCells: [] };
   }
+  // where a body can stand in the town (TASKS 1003): open floor clear of its solid props (Node checks walk to every service over it)
+  function townWalk(m) { const ok = m.cells.map((c) => c === 1), off = (x, y) => { const k = Math.floor(y / TILE) * m.W + Math.floor(x / TILE); ok[k] = false; };
+    for (const d of m.decor) if (d.solid) off(d.x, d.y); for (const t of m.torches) if (t.kind !== 'wall') off(t.x, t.y); if (m.shop) for (const [x, y] of m.shop.solid) off(x, y);
+    return ok; }
 
   // room index of a world point (or -1 in a corridor); a secret room first: a plateau's box may hold one (TASKS 422)
   const roomAt = (map, x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), inR = (r) => tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h;
     for (const r of map.rooms) if (r.type === 'secret' && inR(r)) return r.id;
     for (const r of map.rooms) if (inR(r)) return r.id; return -1; };
 
-  root.DUNGEON = { genFloor, genTown, roomAt, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf };
+  root.DUNGEON = { genFloor, genTown, townWalk, TOWN, roomAt, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf };
   if (typeof module !== 'undefined') module.exports = root.DUNGEON;
 })(typeof window !== 'undefined' ? window : globalThis);
