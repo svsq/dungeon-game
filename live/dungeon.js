@@ -1928,11 +1928,25 @@
     return { way, list, onWay: list.filter((q) => way.has(q.room)).length, ends, bare: ends.filter((r) => !list.some((q) => q.room === r.id)) };
   }
 
+  // the start town (R-17, TASKS 1002): floor 0 of a run, a safe courtyard over the crypt; its plan is TASKS 1003's
+  function genTown(seed) {
+    const W = 56, H = 40, cells = new Array(W * H).fill(0), R = mul32(seed >>> 0);
+    const room = { x: 4, y: 5, w: W - 8, h: H - 10, type: 'town', id: 0 }; room.cx = room.x + (room.w >> 1); room.cy = room.y + (room.h >> 1);
+    for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) cells[y * W + x] = 1;
+    const sanct = { x: room.cx * TILE + TILE / 2, y: room.cy * TILE + TILE / 2 + 8 };
+    const exit = { x: room.cx * TILE + TILE / 2, y: (room.y + 2) * TILE + TILE / 2, tx: room.cx, ty: room.y + 2 };
+    const spawn = { x: sanct.x - 3 * TILE, y: sanct.y + 2 * TILE + Math.round(R() * 8) };
+    return { seed, floor: 0, town: 1, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block: [], decals: [], edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
+      ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: room.w * room.h, down: null, enemies: [], chests: [], pots: [], traps: [], torches: [{ x: sanct.x, y: sanct.y, kind: 'fire' }],
+      decor: [], shrines: [], rugs: [], shop: null, secrets: [], secretsWanted: 0, lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
+      water: [], waterFlow: {}, waterFeatures: [], waterBridges: [], deep: 0, crossings: [], doors: [], locks: [], webs: [], ambush: [], drips: [], flora: [], serpentPools: [], floodCells: [] };
+  }
+
   // room index of a world point (or -1 in a corridor); a secret room first: a plateau's box may hold one (TASKS 422)
   const roomAt = (map, x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), inR = (r) => tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h;
     for (const r of map.rooms) if (r.type === 'secret' && inR(r)) return r.id;
     for (const r of map.rooms) if (inR(r)) return r.id; return -1; };
 
-  root.DUNGEON = { genFloor, roomAt, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf };
+  root.DUNGEON = { genFloor, genTown, roomAt, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf };
   if (typeof module !== 'undefined') module.exports = root.DUNGEON;
 })(typeof window !== 'undefined' ? window : globalThis);
