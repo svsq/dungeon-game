@@ -70,7 +70,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   if (!initial) { S.seedBase = seed; S.meta.diff = diff; startRun(S, mode); }
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
-  let gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
+  let poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] = initial.vars;
     rand.state(initial.rng); for (const event of S.ev) counted.add(event);
@@ -86,8 +86,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
+  // a goal off the floor (a salamander in the lava by the bank, TASKS 413 seed 20) is walked to by its nearest floor cell: a field
+  // from a lava cell is empty, and the bot stood still for good
+  const goalCell = (m, x, y) => { const gx = Math.floor(x / T), gy = Math.floor(y / T); if (SIM.cell(m, gx, gy) === 1) return [gx, gy]; let best = null;
+    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (SIM.cell(m, gx + i, gy + j) === 1) { const d = Math.hypot((gx + i + 0.5) * T - x, (gy + j + 0.5) * T - y); if (!best || d < best[0]) best = [d, gx + i, gy + j]; }
+    return best ? [best[1], best[2]] : [gx, gy]; };
   function walk(R, inp, x, y, round) {
-    const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), tx = Math.floor(h.x / T), ty = Math.floor(h.y / T);
+    const m = R.map, h = R.hero, [fx, fy] = goalCell(m, x, y), F = SIM.flow(m, fx, fy, 1), tx = Math.floor(h.x / T), ty = Math.floor(h.y / T);
     // in lava (a dash or a blow carried it in): out by the nearest floor first, or with no floor next to it it burns where it stands;
     // a floor the way on starts from, if there is one: the nearest may be the far bank, a pocket behind locked doors (seed 120, hard)
     if (SIM.cell(m, tx, ty) === 3) { const seen = new Set([ty * m.W + tx]), q = [[tx, ty]], banks = [];
@@ -128,15 +133,15 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       // a boss is dodged only on the moves that strike with its body (the volley is read bolt by bolt below); the slam that follows
       // a charge the hero got out of is a pattern a player learns, met without waiting to see it wind up (TASKS 227)
-      if (e.st === 'bwind' && (!['slam', 'charge', 'bite', 'tail', 'wave'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
+      if (e.st === 'bwind' && (!['slam', 'charge', 'bite', 'tail', 'wave', 'fists', 'crack'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
-      const range = e.st === 'bwind' ? (['bite', 'tail'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
+      const range = e.st === 'bwind' ? (['bite', 'tail', 'fists'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : e.mv === 'crack' ? D.bossMove(e).len : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
       if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
-      if ((e.st === 'bwind' && !['slam', 'tail', 'bite'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
+      if ((e.st === 'bwind' && !['slam', 'tail', 'bite', 'fists'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
     if (!ready) return;
     // an explosive elite's corpse: out of its reach before the fuse is out
     for (const e of R.en) { if (!e.fuse || t - e.deadT < P.react || seen.has('f' + e.id)) continue; seen.add('f' + e.id);
@@ -164,7 +169,15 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const rings = (S, R) => (R.map.hazards || []).map((z) => { const H = D.HAZ[z.k]; return { x: z.x, y: z.y, r: H.r, ry: H.ry, warn: H.warn, soon: hazSoon(S.t, z) }; })
     .concat((R.pyres || []).map((p) => { const P = D.ENEMIES.fire_priest.pyre; return { x: p.x, y: p.y, r: P.r, ry: P.ry, warn: P.warn, soon: Math.max(0, P.warn - (S.t - p.t0)) }; }))
     // a salamander's fire on the floor and a golem's pool (TASKS 408, 409) burn as long as they last: walked out of, not dashed out of
-    .concat((R.fires || []).map((p) => ({ x: p.x, y: p.y, r: p.r, ry: p.ry, warn: 1, soon: 0.5 })));
+    .concat((R.fires || []).map((p) => ({ x: p.x, y: p.y, r: p.r, ry: p.ry, warn: 1, soon: 0.5, pool: p.kind === 'pool' && D.BOSSES[p.who] ? 1 : 0 })))
+    // the colossus's boulder and its rain of rocks (TASKS 413) are rings on the floor until they land
+    .concat((R.rocks || []).filter((q) => q.x !== undefined && S.t >= q.t0).map((q) => ({ x: q.x, y: q.y, r: q.r, ry: 0.75, warn: q.t - q.t0, soon: Math.max(0, q.t - S.t) })));
+  // the colossus's eruption (TASKS 413): to the slab of cover nearest the hero, beside it on his side, while rocks fall
+  const rainOn = (R, live) => (R.rocks || []).some((q) => q.kind === 'rain') || live.some((e) => e.st === 'bwind' && (e.mv === 'rain' || e.mv === 'erupt'));
+  function shelter(R) { const m = R.map, h = R.hero; let best = null;
+    for (const d of m.decor) { if (!d.cover || d.broken) continue; const tx = Math.floor(d.x / T), ty = Math.floor(d.y / T);
+      for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (SIM.cell(m, tx + ax, ty + ay) !== 1) continue; const x = (tx + ax) * T + 16, y = (ty + ay) * T + 18, dd = Math.hypot(x - h.x, y - h.y); if (!best || dd < best[0]) best = [dd, x, y]; } }
+    return best && { x: best[1], y: best[2] }; }
   const hazNear = (z, x, y, pad) => Math.hypot(x - z.x, (y - z.y) / z.ry) < z.r + pad;
   function avoidHazards(S, R, h, inp) {
     const hz = rings(S, R); if (!hz.length) return;
@@ -174,7 +187,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       inp.left = inp.right = inp.up = inp.down = 0; steer(inp, ax / d || 1, ay / d); return; }
     const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); if (!dx && !dy) return;
     const nx = h.x + dx * 30, ny = h.y + dy * 30;
-    if (hz.some((z) => hazNear(z, nx, ny, 12) && !hazNear(z, h.x, h.y, 12) && z.soon < 0.9)) inp.left = inp.right = inp.up = inp.down = 0;
+    const stop = hz.find((z) => hazNear(z, nx, ny, 12) && !hazNear(z, h.x, h.y, 12) && z.soon < 0.9); if (stop) { inp.left = inp.right = inp.up = inp.down = 0; if (stop.pool) poolHeld = 1; }
   }
   // which way round a crab to go (+1 / −1) while the hero stands within its armour's arc (a little wider, it turns as he goes), else 0
   const armFront = (e) => { const E = D.ENEMIES[e.type]; if (!E.armor || !(P.flank > 0) || ((Math.imul(e.id + 1, 2654435761) ^ seed) >>> 0) % 1000 / 1000 >= P.flank) return 0;
@@ -305,10 +318,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // a sealed arena opens only on the boss's death: there is no running late past him to the stairs
     else if (live.length && (!late || (R.arena && R.arena.active)) && aim('fight', live.slice().sort((a, b) => Math.max(dist(a), walkD(a)) - Math.max(dist(b), walkD(b)))[0])) fight(S, R, inp, live, st, walkD);
     else { const out = descend && m.down && R.bossDead ? m.down : m.exit; aim('exit', out); walk(R, inp, out.x, out.y); if (dist(out) < 55) inp.keys.push('KeyE'); }
+    if (P.haz && R.arena && R.arena.active && rainOn(R, live)) { const c = shelter(R); if (c) { inp.left = inp.right = inp.up = inp.down = 0; walk(R, inp, c.x, c.y); } }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
     if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }
     if (P.traps) avoidSpikes(S, R, h, inp);
-    if (P.haz) avoidHazards(S, R, h, inp);
+    poolHeld = 0; if (P.haz) avoidHazards(S, R, h, inp);
     // a shut door in the way: open it (a locked one only with the key, above)
     if (SIM.doorNear(R, 60) && !SIM.doorLock(m, SIM.doorNear(R, 60))) inp.keys.push('KeyE');
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
@@ -332,6 +346,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (fl.boss && !fl.boss.done) { const b = fl.boss; b.t = +(S.t - b.t0).toFixed(1);
       for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') { b.dmg += e.n / st.maxHp; const g = / снаряд$/.test(e.src || '') ? 'volley' : D.BOSSES[(e.src || '').split(' ')[0]] ? B && B.mv || 'boss' : (e.src || '?').split(' ')[0]; b.by[g] = +((b.by[g] || 0) + e.n / st.maxHp).toFixed(3); } else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
       b.minhp = +Math.min(b.minhp, h.hp / st.maxHp).toFixed(3);
+      // held back by the colossus's pools of lava (TASKS 413): the seconds the bot wanted a way they shut
+      if (poolHeld) b.cut = +((b.cut || 0) + SIM.DT).toFixed(3);
       if (!S.run || !B || B.deadT >= 0 || h.deadT >= 0) { b.done = 1; b.died = h.deadT >= 0 ? 1 : 0; } }
     if (!S.run && cur) cur.floors.push(floorLine(R, h));
   }

@@ -77,6 +77,27 @@
       charge: { wind: 0.75, dmg: 1.15, speed: 430, time: 0.6, stop: 46, r: 54, duration: 0.7 },
       lava: { wind: 0.9, dmg: 0, n: 32, cover: 0.45, warn: 1.1, duration: 0.5 }
     } },
+    // the magma caves' lord (TASKS 413). It rises out of its arena's lake and wades ashore (`rise` s up, `wade` px/s), then fights
+    // on land only. crack: a line of lava runs out at the hero (`len` px, `w` wide), side-stepped, not outrun; boulder: a rock thrown
+    // at him lands `fly` s later and leaves a pool of lava, held so pools never cut the ring (`cap` at once, none within `lakeGap` px
+    // of the lake nor `wayGap` cells of a way in or the slab crossing; the point moves off them); fists: both fists round about
+    // it, then it stands stuck `stuck` s, open to blows (×`open`); shatter (2nd phase): its crust cracks, the ring's outer edge falls
+    // into lava (`edge` cells deep, `warn` s warned) and imps come; erupt / rain (3rd): rocks fall over the ring for `time` s, but
+    // never within `shelter` px of a basalt slab of cover
+    boss_colossus: { hp: 1650, dmg: 24, scale: 1, rise: 2.2, wade: 70, phases: [
+      { at: 1, moves: ['crack', 'fists', 'boulder', 'charge', 'fists'], rest: 0.9, speed: 1 },
+      { at: 0.6, moves: ['boulder', 'crack', 'fists', 'charge', 'imps', 'fists'], enter: 'shatter', rest: 0.75, speed: 1.3 },
+      { at: 0.25, moves: ['rain', 'fists', 'crack', 'boulder', 'fists', 'charge'], enter: 'erupt', rest: 0.75, speed: 1.3 }
+    ], moves: {
+      crack: { wind: 0.9, dmg: 1.1, len: 480, w: 30, speed: 900, linger: 0.5, duration: 0.65 },
+      boulder: { wind: 0.85, dmg: 1.15, r: 56, fly: 0.95, cap: 2, lakeGap: 24, wayGap: 3, apart: 40, pool: { r: 46, ry: 0.6, t: 4.5, dmg: 0.22, per: 0.5 }, duration: 0.45 },
+      fists: { wind: 1.0, dmg: 1.3, r: 150, stuck: 1.2, open: 1.4, duration: 0.35 },
+      charge: { wind: 0.8, dmg: 1.1, speed: 420, time: 0.7, stop: 50, r: 62, duration: 0.7 },
+      shatter: { wind: 1.0, dmg: 0, edge: 1, warn: 1.6, summon: 'imps', duration: 0.5 },
+      imps: { wind: 0.7, dmg: 1, n: 2, cap: 3, r: 130, hp: 1, type: 'imp', delay: 0.8, duration: 0.4 },
+      erupt: { wind: 1.0, dmg: 0, next: 'rain', rest: 0.2, duration: 0.5 },
+      rain: { wind: 0.6, dmg: 0.9, n: 24, aimed: 5, time: 3.2, warn: 1.0, r: 42, shelter: 64, duration: 3.4 }
+    } },
     // the finale: 20+ s that cost about two healths and two potions; kills 10–20 % of the average players who reach it (TASKS 215,
     // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three
     // phases; at 900 the fight ran under 20 s, so the 2nd and 3rd phases rest longer and the 3rd raises a barrier. Its blows are big
@@ -110,6 +131,7 @@
   const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
     boss_serpent: { name: 'Глубинный змей', hp: BOSSES.boss_serpent.hp, dmg: BOSSES.boss_serpent.dmg, spd: 0, r: 28, reach: 60, wind: 0.85, cd: 1.35, xp: 300, kind: 'serpent', h: 154, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9] },
+    boss_colossus: { name: 'Магмовый колосс', hp: BOSSES.boss_colossus.hp, dmg: BOSSES.boss_colossus.dmg, spd: 44, r: 38, reach: 70, wind: 0.9, cd: 1.6, xp: 400, kind: 'boss', h: 230, val: 1.3, lava: 1, lake: 1, heavy: 1, rim: [1, 0.42, 0.12] },
     boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
     boss_necro: { name: 'Верховный некромант', hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
     boss_spider: { name: 'Королева пауков', hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
@@ -222,7 +244,7 @@
   const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' || e.type === 'golem' ? ELITE.brute[k]
     : k === 'wind' ? Math.max(ELITE.wind, Math.min(1, ELITE.minWind / ENEMIES[e.type].wind)) : ELITE[k];
   // a deep-water monster under the surface (TASKS 310): out of sight and out of reach
-  const under = (e) => !!ENEMIES[e.type].deep && (e.st === 'deep' || e.st === 'stir' || e.st === 'dive' || (e.type === 'boss_serpent' && e.st === 'idle'));
+  const under = (e) => (!!ENEMIES[e.type].deep && (e.st === 'deep' || e.st === 'stir' || e.st === 'dive' || (e.type === 'boss_serpent' && e.st === 'idle'))) || (!!ENEMIES[e.type].lake && (e.st === 'idle' || e.st === 'emerge'));
   const windOf = (e, w) => w * eliteK(e, 'wind');
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
@@ -360,7 +382,7 @@
     // (TASKS 400) on maps a size up from the caves', the 4th a plateau floor of the 3rd caves' size with the forge lord until his arena (413)
     // loot: +2 over the depth (13–16) puts its items at the hero's level, as the caves' +3 does (TASKS 424: +12 made them level 25–28,
     // a legendary of 25 on the 1st floor, and the run a walk)
-    magma: { name: 'Магмовые пещеры', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_forge' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 2, pop: [1.15, 1.25, 1.35, 1], elite: [0.06, 0.08, 0.1, 0.06],
+    magma: { name: 'Магмовые пещеры', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_colossus' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 2, pop: [1.15, 1.25, 1.35, 1], elite: [0.06, 0.08, 0.1, 0.06],
       kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: 'Сначала одолейте хозяина магмы' },
   };
   // the endless descent (R-05, TASKS 348–349; a test button in the menu for now, after the serpent later, TASKS 354): no last floor.

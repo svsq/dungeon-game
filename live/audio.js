@@ -145,6 +145,16 @@
       else { noise(o, { a: 0.5, d: 0.3, v: 0.16, type: 'highpass', f0: 2500, f1: 1200 }); tone(o, { type: 'triangle', f0: 120, f1: 95, a: 0.3, d: 0.4, v: 0.1 }); } },
     erupt: (o) => { noise(o, { a: 0.02, d: 0.8, v: 0.45, type: 'lowpass', f0: 1800, f1: 200 }); tone(o, { f0: 70, f1: 38, a: 0.01, d: 0.7, v: 0.55 });
       for (let i = 0; i < 5; i++) noise(o, { t: now() + 0.15 + i * 0.09, d: 0.08, v: 0.14, type: 'highpass', f0: 2600 }); },
+    // the colossus (TASKS 413): a crack tearing the floor open, a boulder's heave and its fall, rocks of the eruption, the edge giving
+    // way, the lake giving it up, the fists stuck in the floor grinding loose
+    colcrack: (o) => { noise(o, { a: 0.01, d: 0.7, v: 0.45, type: 'bandpass', f0: 2200, f1: 300, q: 1.2 }); tone(o, { f0: 55, f1: 30, a: 0.01, d: 0.6, v: 0.5 }); },
+    throw: (o) => { noise(o, { a: 0.05, d: 0.35, v: 0.25, type: 'bandpass', f0: 400, f1: 1400, q: 1.5 }); },
+    boulder: (o) => { tone(o, { f0: 70, f1: 28, a: 0.005, d: 0.7, v: 0.7 }); noise(o, { a: 0.005, d: 0.6, v: 0.5, type: 'lowpass', f0: 1600, f1: 150 }); },
+    rock: (o) => { tone(o, { f0: rr(110, 140), f1: 50, a: 0.005, d: 0.25, v: 0.35 }); noise(o, { a: 0.005, d: 0.25, v: 0.25, type: 'lowpass', f0: 1800, f1: 300 }); },
+    shatter: (o) => { for (let i = 0; i < 5; i++) noise(o, { t: now() + i * rr(0.05, 0.12), d: 0.15, v: 0.3, type: 'highpass', f0: rr(1500, 3000) }); tone(o, { f0: 50, f1: 28, a: 0.05, d: 1.4, v: 0.5 }); },
+    colerupt: (o) => { noise(o, { a: 0.1, d: 1.6, v: 0.5, type: 'lowpass', f0: 1200, f1: 120 }); tone(o, { f0: 45, f1: 26, a: 0.1, d: 1.5, v: 0.6 }); },
+    colrise: (o) => { noise(o, { a: 0.3, d: 1.2, v: 0.35, type: 'lowpass', f0: 600, f1: 1400 }); for (let i = 0; i < 6; i++) noise(o, { t: now() + i * rr(0.1, 0.2), d: 0.08, v: 0.2, type: 'lowpass', f0: rr(400, 800) }); },
+    stuck: (o) => { noise(o, { t: now() + 0.6, a: 0.2, d: 0.6, v: 0.2, type: 'bandpass', f0: 300, f1: 700, q: 2 }); },
     rockfall: (o) => { tone(o, { f0: 90, f1: 40, a: 0.005, d: 0.35, v: 0.6 }); noise(o, { a: 0.005, d: 0.4, v: 0.4, type: 'lowpass', f0: 1400, f1: 250 });
       for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.06 + i * 0.07, d: 0.05, v: 0.15, type: 'bandpass', f0: rr(1500, 3000), q: 3 }); },
     sink: (o) => { noise(o, { a: 0.01, d: 1.2, v: 0.28, type: 'highpass', f0: 1800, f1: 700 }); tone(o, { f0: 140, f1: 55, a: 0.02, d: 0.6, v: 0.3 }); },
@@ -218,8 +228,8 @@
     shop: (o) => [1568, 2093].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.14, d: 0.5, v: 0.07 })),
   };
   // events heard everywhere on the floor (not attenuated by distance)
-  const GLOBAL = new Set(['lvl', 'unlock', 'die', 'floor', 'roar', 'bless', 'teleport', 'shop', 'buy', 'trade', 'nope', 'ui', 'equip', 'toss', 'drink', 'pickup', 'shard', 'shield']);
-  const LIMIT = { step: 0.08, hit: 0.03, gold: 0.05, alert: 0.15, kill: 0.04, scorch: 0.12, pop: 0.05, spike: 0.1 };
+  const GLOBAL = new Set(['colerupt', 'shatter', 'lvl', 'unlock', 'die', 'floor', 'roar', 'bless', 'teleport', 'shop', 'buy', 'trade', 'nope', 'ui', 'equip', 'toss', 'drink', 'pickup', 'shard', 'shield']);
+  const LIMIT = { rock: 0.07, step: 0.08, hit: 0.03, gold: 0.05, alert: 0.15, kill: 0.04, scorch: 0.12, pop: 0.05, spike: 0.1 };
 
   function play(e, S) {
     const f = SFX[e.k]; if (!f) return;

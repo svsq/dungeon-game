@@ -1476,6 +1476,8 @@
           for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (ok(x, y)) { used.add(key(x, y)); return [x, y]; } return null; })())); if (p) { addEnemy('brute', p[0], p[1], r.id, 1); enemies[enemies.length - 1].guard = 1; } }
       }
       if (r.type === 'boss') { if (bossType === 'boss_serpent') { const k = serpentPools[0][0]; enemies.push({ type: bossType, x: wx(k % W), y: wy(Math.floor(k / W)), room: r.id, elite: 1 }); }
+        // the colossus lies in its lake (TASKS 413), off the slab crossing on a side of its own, between the basalt columns and the shore
+        else if (plat && D.ENEMIES[bossType].lake) enemies.push({ type: bossType, x: (r.cx + 1 + (R() < 0.5 ? -1 : 1) * 5.5) * TILE, y: (r.cy + 1) * TILE, room: r.id, elite: 1, lake: 1 });
         else addEnemy(bossType, r.cx, plat ? r.cy - Math.ceil(AR.arena.lake[1]) - 2 : r.cy - 3, r.id, 1);
         // the arena's cover (TASKS 413): basalt slabs round the ring's middle, clear of the lake, the ways in and the altar
         if (plat) { const L = AR.arena, a0 = R() * 6.283; let n = 0;

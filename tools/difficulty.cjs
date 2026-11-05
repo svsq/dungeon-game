@@ -58,9 +58,9 @@ function report() {
     console.log([p, k + 1, fl.map((f) => { const l = a.flatMap((r) => (r.altars || []).filter((q) => q.f === f));
       return `f${f}: ${avg(l, (q) => q.bank).toFixed(0)} / ${avg(l, (q) => q.c2).toFixed(0)} / ${Math.round(avg(l, (q) => q.bank >= q.c2) * 100)}%`; }).join('  ')].join(' | ')); }
   // the boss fight, for the runs that reached the boss
-  console.log('\nprofile | run | floor / boss: reached / died / fight s (median) / health lost / hp potions');
+  console.log('\nprofile | run | floor / boss: reached / died / fight s (median) / health lost / hp potions / held by pools s');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue; for (const f of BOSS_FLOORS) { const b = bossOf(a, f);
-    if (b.n) console.log([p, k + 1, f, `${b.n} / ${Math.round(b.died * 100)}% / ${b.t.toFixed(0)} / ${Math.round(b.dmg * 100)}% / ${b.pot.toFixed(1)}`].join(' | ')); } }
+    if (b.n) console.log([p, k + 1, f, `${b.n} / ${Math.round(b.died * 100)}% / ${b.t.toFixed(0)} / ${Math.round(b.dmg * 100)}% / ${b.pot.toFixed(1)} / ${b.cut.toFixed(1)}`].join(' | ')); } }
   // how big one blow is before the shield, as a share of the max health; levels gained on each floor
   console.log('\nprofile | run | blow % of max hp by floor: mob p50 | heavy p50 | mob p90 | elite p90 | levels gained by floor');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
@@ -79,7 +79,7 @@ const wilson = (k, n) => { if (!n) return [0, 0]; const z = 1.96, p = k / n, c =
 const ci = (k, n) => wilson(k, n).map((v) => (v * 100).toFixed(1)).join('–') + '%';
 const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f) => f.floor === floor) || {}).boss).filter(Boolean), ts = l.filter((b) => !b.died).map((b) => b.t).sort((x, y) => x - y);
   return { n: l.length, k: l.filter((b) => b.died).length, died: avg(l, (b) => b.died || 0),
-    t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot) }; };
+    t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot), cut: avg(l, (b) => b.cut || 0) }; };
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // builder: a player who gathers fire and crit and burns the bosses with fireballs still fights each for 15 s or more (TASKS 245)
 const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8: { t: [15, Infinity] }, 4: { t: [15, Infinity] }, 6: { t: [15, Infinity] } } };
@@ -98,7 +98,8 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8
 // past: the share past a floor (the old 8-floor campaign's wins), bossFloor: the floor of bossDied (the demon lord); the serpent's own
 // fight bands stand on the 12th (chapters: lost, pot, t). The share of whole 12-floor wins has no band: the player's call 01.11.2026
 // for now (the average takes 45–48 % over 160 seeds; a band belongs to the follow-up balance, TASKS 340/341)
-const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, campaign: {
+// the magma caves' colossus (TASKS 413): harder than the serpent (1.55 of the health, 0.9 potions, 35 s) by the player's call 02.11.2026
+const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, magma: { normal: { average: { bossLost: [1.8, 2.5], bossPot: [1.5, 2.5], bossT: [40, 70] } } }, campaign: {
   easy: { average: { past: { 8: [0.85, 1] } } },
   normal: { average: { past: { 8: [0.4, 0.6] }, deep: { lost: [1.5, 2.5], t: [20, 90] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 12: { minhp: null, hpPot: null } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { past: { 8: [0, 0.85] } }, builder: BUILDER },

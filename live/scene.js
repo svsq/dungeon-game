@@ -1157,7 +1157,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
   const modCol = (e, j = 0) => e.mods && e.mods.length ? D.ELITE_MODS.find((m) => m.id === e.mods[j % e.mods.length]).col : ELITE;
-  const EN_TEX = { boss_serpent: 'serpent__body', boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage', skel_ember: 'en_skeleton', fire_priest: 'en_cultist', imp: 'en_imp', golem: 'en_golem', salamander: 'en_salamander' };
+  const EN_TEX = { boss_serpent: 'serpent__body', boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', boss_colossus: 'en_colossus', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage', skel_ember: 'en_skeleton', fire_priest: 'en_cultist', imp: 'en_imp', golem: 'en_golem', salamander: 'en_salamander' };
   // per frame: the rim colour of the floor's fire, and the cultists' free hands (view px) for their glow
   const ARROW_H = 32;
   // and the skeleton mages' pearls and gathering hands (TASKS 311): [pearl, palm, gather 0..1]
@@ -1175,9 +1175,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     return { v, dl: 0, dur: 0.35, bounce: 0.025, buckle: 0 }; }
   // a drowned under the shallows (TASKS 307): 1 lying under, 0 standing; it sinks back over 0.9 s when it comes home
   // a monster knocked off a plateau (TASKS 401) goes under the same way: down into the lava as it burns, or dropping into the chasm
-  const submerged = (e, E, GT) => e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
+  const submerged = (e, E, GT) => E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.72 * SS(0, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
   // what shows of it then: a dark shape swaying under the surface and bubbles that rise and pop in small rings
-  function lurkFx(e, x, y, t, sub) { const k = SS(0.3, 0.9, sub), col = [0.42, 0.62, 0.66];
+  function lurkFx(e, x, y, t, sub, col = [0.42, 0.62, 0.66]) { const k = SS(0.3, 0.9, sub);
     L.shadow(x + 3 * Math.sin(t * 0.7 + e.id), y - 3, 25, 8, 0.4 * k);
     for (let j = 0; j < 3; j++) { const per = 1.7 + 0.5 * j, ph = ((t + e.id * 0.37 + j * 0.61) % per) / per, bx = x + (rnd(e.id, j) - 0.5) * 24, by = y - 5 + (rnd(e.id, j + 3) - 0.5) * 8;
       if (ph < 0.22) { const q = ph / 0.22; L.ring(bx, by, 1.5 + 2.5 * q, 1 + 1.6 * q, col, 0.75 * k, 0.45); }
@@ -1348,7 +1348,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     pts.forEach(([x, y, s], i) => { const f = (0.6 + 0.4 * k) * s * (0.9 + 0.1 * Math.sin(t * 11 + i * 1.7)); flameAt(x, y + 6 * f, 12 * f, 23 * f, [1, 0.45, 0.12], e.id * 3 + i, ln, t); }); G.blend(); }
   // ---------------- the magma caves' new kinds (TASKS 407–409) ----------------
   // their glowing bits (tools/emitmask.py): drawn again in the pose over the body in the emissive mode
-  const GLOWTEX = { imp: 'impE', golem: 'golemE', salamander: 'salamanderE' };
+  const GLOWTEX = { imp: 'impE', golem: 'golemE', salamander: 'salamanderE', boss_colossus: 'colossusE' };
   // the salamander swimming (1) or walking (0), eased over 0.35 s from when it went into the lava or came out of it
   const swimOf = (e, GT) => e.type !== 'salamander' ? 0 : e.lv ? SS(0, 0.35, GT - (e.lvT ?? -9)) : 1 - SS(0, 0.35, GT - (e.lvT ?? -9));
   // how bright: a golem's cracks blaze as its crust comes off and swell through its wind-up, then cool as it lies in its pool; an
@@ -1357,6 +1357,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (e.type === 'golem') { const C = E.crust, n = e.crust ?? C.n, w = e.st === 'wind' && dead < 0 ? SS(0, D.windOf(e, E.wind), u) : 0, k = (0.3 + 0.7 * (1 - n / C.n)) * (0.85 + 0.15 * Math.sin(t * 2.3 + e.id)) + 0.4 * w;
       return dead < 0 ? k : 0.9 * (1 - SS(0.3, E.pool.t, dead)); }
     if (e.type === 'imp') return dead < 0 ? 0.9 : 0.9 * (1 - SS(0, 0.6, dead));
+    // the colossus's core (TASKS 413) burns hotter each phase, swells through a wind-up and blazes as it comes up out of the lava
+    if (e.type === 'boss_colossus') { if (dead >= 0) return 0.9 * (1 - SS(0.5, 3, dead)); const ph = e.phase || 0, w = e.st === 'bwind' ? SS(0, D.bossMove(e).wind, u) : 0;
+      return (0.35 + 0.3 * ph) * (0.85 + 0.15 * Math.sin(t * 2.1 + e.id)) + 0.35 * w + (e.st === 'emerge' ? 0.6 * (1 - SS(0, 2.5, u)) : 0); }
     const br = dead >= 0 || !e.br ? 0 : e.st === 'wind' ? SS(0, D.windOf(e, E.breath.wind), u) : e.st === 'strike' ? 1 : 0; return dead < 0 ? 0.4 + 0.5 * br : 0.4 * (1 - SS(0, 1, dead)); }
   // the spark in an imp's hand through the throw's wind-up
   function impSpark(e, E, hand, GT, t) { const q = SS(0, D.windOf(e, E.spark.wind), GT - e.t0);
@@ -1412,6 +1415,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
     const sub = submerged(e, E, GT), cut = sub > 0 ? { cut: [y + 3, 5, 1] } : {};
     if (sub > 0 && E.lurk) lurkFx(e, x, y, t, sub);
+    if (sub > 0 && E.lake) lurkFx(e, x, y, t, sub, [1, 0.55, 0.18]);
     if (sub > 0.995) { L.joint('en' + e.id, 'ground', [x, y]); return; }
     L.shadow(x, y + 2, w * 0.32 * (1 - sub), 7, 0.45 * alpha * (1 - sub));
     // a body topples (accelerating, slowed just before the floor), bounces once and lies for seconds before it fades; a ghost dissolves upward
@@ -1897,6 +1901,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'whirl' && a >= 0 && a < 0.48) Y.push([e.y - 1000, () => { G.blend('emit'); whirlFx(e, a, 0); G.blend(); }]);
     }
     for (const p of R.proj) if (p.own === 'hero' && p.k === 'fire' && vis(p.x, p.y)) Y.push([p.y + 20, () => fireFx(p)]);
+    // the colossus's boulder in flight and the eruption's rocks falling (TASKS 413): over everything, their shadows on the floor
+    for (const q of R.rocks || []) { if (q.x === undefined || GT < q.t0 || !known(q.x, q.y)) continue; const big = q.kind === 'boulder', n = big ? 'boulder_mg_a' : 'boulder_mg_b', [w0, h0] = SZ(n), k = big ? 1.6 : 0.95;
+      const f = big ? Math.min(1, (GT - q.t0) / (q.t - q.t0)) : SS(0, 1, (GT - (q.t - 0.4)) / 0.4), gx = big ? q.sx + (q.x - q.sx) * f : q.x, gy = big ? q.gy + (q.y - q.gy) * f : q.y, z = big ? q.z * (1 - f) + 4 * 130 * f * (1 - f) : 640 * (1 - f * f);
+      Y.push([gy - 60, () => L.shadow(sx(gx), sy(gy) + 2, q.r * (0.3 + 0.5 * f), q.r * 0.75 * (0.3 + 0.5 * f), 0.5 * SS(0, 1, f))]);
+      if (!big && f <= 0) continue;
+      Y.push([1e8, () => L.sprite(n, 0, 0, { m: M.of(M.t(sx(gx), sy(gy) - z), M.r((GT - q.t0) * (big ? 4 : 7) * (q.id % 2 ? 1 : -1))), w: w0 * k, h: h0 * k, pivot: [w0 * k / 2, h0 * k * 0.6] })]); }
     // a salamander's fire on the floor (TASKS 408): low tongues of flame that flare up as it lands and die down over its last third
     for (const p of R.fires || []) if (p.kind !== 'pool' && vis(p.x, p.y) && known(p.x, p.y)) Y.push([p.y, () => { const u = GT - p.t0, k = SS(0, 0.15, u) * (1 - SS(0.6, 1, u / p.t));
       flames([0, 1, 2].map((j) => { const f = k * (0.75 + 0.25 * Math.sin(t * 9 + p.id + j * 2.1)); return [sx(p.x) + (rnd(p.id, j) - 0.5) * p.r * 1.2, sy(p.y) + (rnd(p.id, j + 3) - 0.5) * p.r * p.ry, 10 * f + 2, (14 + 8 * rnd(p.id, j + 6)) * f, [1, 0.5, 0.15], p.id * 3 + j, 2 * Math.sin(t * 2 + j)]; })); }]);
@@ -2106,11 +2116,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'die' && a < 1.6) lt(e.x, e.y - 40 - 60 * SS(0.3, 1.6, a), 200, [0.5, 0.7, 1], 0.9 * SS(0.2, 0.5, a) * (1 - SS(1.2, 1.6, a)));
       if (e.k === 'spike' && a < 0.2) lt(e.x, e.y, 110, [1, 0.9, 0.75], 0.5 * (1 - a / 0.2));
       if (e.k === 'erupt' && a < 0.7) lt(e.x, e.y - 20, 320, [1, 0.5, 0.15], 1.7 * (1 - a / 0.7));
+      if ((e.k === 'boulder' || e.k === 'colrise') && a < 0.6) lt(e.x, e.y - 10, 260, [1, 0.5, 0.15], 1.4 * (1 - a / 0.6));
+      if ((e.k === 'shatter' || e.k === 'colerupt') && a < 1) lt(e.x, e.y - 60, 520, [1, 0.45, 0.12], 0.8 * SS(0, 0.15, a) * (1 - a));
       if (e.k === 'pillar' && a < PILLAR_T) lt(e.x, e.y - 40, 300, [1, 0.5, 0.15], 1.6 * (1 - SS(PILLAR_T * 0.5, PILLAR_T, a))); }
     // a salamander's fire and a golem's pool light the floor round them (TASKS 408, 409); so does a salamander's breath
     for (const p of R.fires || []) { const u = GT - p.t0, k = SS(0, 0.15, u) * (1 - SS(0.6, 1, u / p.t)); lt(p.x, p.y - 6, p.kind === 'pool' ? 190 : 90, [1, 0.45, 0.12], (p.kind === 'pool' ? 1.2 : 0.55) * k); }
     for (const e of R.en) if (e.type === 'salamander' && e.deadT < 0 && e.br && (e.st === 'wind' || e.st === 'strike')) { const B = D.ENEMIES.salamander.breath, u = GT - e.t0;
       if (e.st === 'wind') lt(e.x + Math.cos(e.aimA) * 20, e.y + Math.sin(e.aimA) * 16, 110, [1, 0.45, 0.12], 0.9 * SS(0, D.windOf(e, B.wind), u)); else if (u < B.t) lt(e.x + Math.cos(e.aimA) * B.reach * 0.55, e.y + Math.sin(e.aimA) * B.reach * 0.45, 230, [1, 0.5, 0.15], 1.5 * (1 - SS(B.t - 0.2, B.t, u))); }
+    // the colossus's heart and its cracks running over the floor (TASKS 413)
+    for (const e of R.en) if (e.type === 'boss_colossus' && e.deadT < 0 && e.st !== 'idle') lt(e.x, e.y - 60, 220, [1, 0.42, 0.1], 0.35 + 0.25 * (e.phase || 0));
+    for (const c of R.cracks || []) { const u = GT - c.t0, front = Math.min(c.len, u * c.speed), cool = 1 - SS(c.len / c.speed, c.len / c.speed + c.linger, u); for (let l = 60; l < front; l += 90) lt(c.x + Math.cos(c.a) * l, c.y + Math.sin(c.a) * l, 120, [1, 0.45, 0.12], 0.7 * cool); }
     for (const e of R.en) if (e.type === 'golem' && e.deadT < 0) lt(e.x, e.y - 50, 120, [1, 0.4, 0.1], 0.25 + 0.5 * (1 - (e.crust ?? D.ENEMIES.golem.crust.n) / D.ENEMIES.golem.crust.n));
     // a fire priest's ring warms the floor under it as its warning runs out (TASKS 410)
     for (const p of R.pyres || []) { const q = Math.min(1, (GT - p.t0) / D.ENEMIES.fire_priest.pyre.warn); lt(p.x, p.y, 120, [1, 0.35, 0.1], 0.2 + 0.6 * q); }
@@ -2284,6 +2299,24 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const p of R.fires || []) { if (p.kind !== 'pool' || !vis(p.x, p.y) || !known(p.x, p.y)) continue; const u = GT - p.t0, q = u / p.t, X = sx(p.x), Y0 = sy(p.y), k = SS(0, 0.25, u) * (1 - SS(0.75, 1, q)), r = p.r * (0.55 + 0.45 * SS(0, 0.35, u));
       L.glow(X, Y0, r * 1.6, [1, 0.32, 0.06], 0.55 * k, 1.6); L.glow(X, Y0, r * (1.1 - 0.5 * q), [1, 0.62, 0.22], 0.9 * k, 2.6); L.ring(X, Y0, r * (1 - 0.35 * q), r * p.ry * (1 - 0.35 * q), [1, 0.5, 0.15], 0.6 * k, 0.12);
       for (let j = 0; j < 4; j++) { const b = (t * 0.9 + rnd(p.id, j)) % 1, bx = X + (rnd(p.id, j + 5) - 0.5) * r, by = Y0 + (rnd(p.id, j + 9) - 0.5) * r * p.ry; if (b < 0.3) L.ring(bx, by, 2 + 6 * b / 0.3, 1 + 3 * b / 0.3, [1, 0.8, 0.4], 0.8 * k * (1 - b / 0.3), 0.3); } }
+    // the colossus's telegraphs (TASKS 413), on the floor in the add pass: the fists' ring closing in through the wind-up; the crack's
+    // line of embers to where it will run, then the crack itself racing out and glowing as it cools; a circle where a rock will land,
+    // brighter as it comes; stars over its head while it stands stuck
+    {
+      for (const e of R.en) { if (e.type !== 'boss_colossus' || e.deadT >= 0 || !known(e.x, e.y)) continue; const X = sx(e.x), Y0 = sy(e.y), u = GT - e.t0;
+        if (e.openUntil > GT) for (let j = 0; j < 3; j++) L.star(X + (j - 1) * 30, Y0 - D.ENEMIES[e.type].h * 1.05 - 6 * Math.sin(t * 6 + j), 15, [1, 0.9, 0.55], 1);
+        if (e.st !== 'bwind') continue; const Mv = D.bossMove(e), w = Mv.wind, q = SS(0, w, u), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * q));
+        if (e.mv === 'fists' && u < w) { L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.4, 0.1], (0.3 + 0.55 * q) * beat, 0.05); L.ring(X, Y0, Mv.r * (1.5 - 0.5 * q), Mv.r * 0.75 * (1.5 - 0.5 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.04); }
+        if (e.mv === 'crack' && u < w) { const c = Math.cos(e.aimA), sn = Math.sin(e.aimA);
+          for (let l = 30; l <= Mv.len; l += 18) { const px = e.x + c * l, py = e.y + sn * l, cl = SIM.cell(m, Math.floor(px / TILE), Math.floor(py / TILE)); if (cl !== 1 && cl !== 3) break; const fl = 0.7 + 0.3 * Math.sin(GT * 30 + l * 0.2);
+            L.glow(sx(px), sy(py), 9 + 6 * q, [1, 0.4, 0.1], (0.15 + 0.55 * q) * fl * SS(0, w * 0.5, u - l / Mv.len * w * 0.4), 2.4); } } }
+      for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, front = Math.min(c.len, u * c.speed), cool = 1 - SS(run, run + c.linger, u), co = Math.cos(c.a), sn = Math.sin(c.a);
+        for (let l = 30; l <= front; l += 12) { const px = c.x + co * l, py = c.y + sn * l, jig = (rnd(c.id, Math.floor(l / 12)) - 0.5) * 8, hot = l > front - 40 ? 1.4 : 1;
+          L.glow(sx(px - sn * jig), sy(py + co * jig), c.w * 0.75, [1, 0.45, 0.1], 0.75 * cool * hot, 2.2); L.star(sx(px - sn * jig), sy(py + co * jig), 5, [1, 0.8, 0.4], 0.6 * cool * hot); } }
+      for (const q of R.rocks || []) { if (q.x === undefined || GT < q.t0 || !known(q.x, q.y)) continue; const f = Math.min(1, (GT - q.t0) / (q.t - q.t0)), X = sx(q.x), Y0 = sy(q.y), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * f));
+        if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.06); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
+        else L.ring(X, Y0, q.r, q.r * 0.75, [0.95, 0.82, 0.62], (0.25 + 0.55 * f) * beat, 0.1); }
+    }
     // a vent's warning (TASKS 406), from its clock: the ring it will throw lava over heats up and beats faster, its mouth bubbles
     for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue;
       const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(GT * (9 + 16 * q));
@@ -2323,6 +2356,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if ((e.k === 'submerge' || e.k === 'emerge' || e.k === 'flee') && e.k !== 'flee' && a < 0.7) { const q = a / 0.7; L.glow(ex, ey, 30 + 20 * q, [1, 0.5, 0.15], 0.8 * (1 - q), 2);
         for (let j = 0; j < 10; j++) { const an = rnd(e.t, j) * TAU, v = 50 + 90 * rnd(e.t, j + 3), life = 0.35 + 0.3 * rnd(e.t, j + 7); if (a > life) continue; const k = 1 - a / life;
           L.star(ex + Math.cos(an) * v * a, ey + Math.sin(an) * v * a * 0.6 - 120 * a + 420 * a * a, 4 + 3 * k, [1, 0.6 + 0.3 * k, 0.2], k); } }
+      // the colossus (TASKS 413): a boulder's dust and sparks, a falling rock's puff, lava thrown up as it rises, its crust bursting
+      if ((e.k === 'boulder' || e.k === 'rock') && a < 0.6) { const big = e.k === 'boulder', q = a / 0.6; L.ring(ex, ey, e.r * (0.5 + 0.8 * q), e.r * 0.75 * (0.5 + 0.8 * q), [0.95, 0.8, 0.6], 0.6 * (1 - q), 0.15);
+        for (let j = 0; j < (big ? 10 : 4); j++) { const an = rnd(e.t, j) * TAU, v = 60 + 120 * rnd(e.t, j + 3); L.star(ex + Math.cos(an) * v * a, ey + Math.sin(an) * v * a * 0.6 - 140 * a + 500 * a * a, 4 + 3 * (1 - q), [1, 0.6, 0.2], (big ? 1 : 0.6) * (1 - q)); } }
+      if ((e.k === 'colrise' || e.k === 'shatter' || e.k === 'colerupt') && a < 1.2) { const q = a / 1.2; L.glow(ex, ey - 80, 120 + 80 * q, [1, 0.45, 0.12], 0.7 * (1 - q), 2);
+        for (let j = 0; j < 18; j++) { const an = rnd(e.t, j) * TAU, v = 80 + 160 * rnd(e.t, j + 3), life = 0.6 + 0.6 * rnd(e.t, j + 7); if (a > life) continue; const k = 1 - a / life;
+          L.star(ex + Math.cos(an) * v * a, ey - 90 + Math.sin(an) * v * a * 0.6 - 160 * a + 380 * a * a, 4 + 4 * k, [1, 0.6 + 0.3 * k, 0.2], k); } }
       // the crab's pinch: a glint where the claw snaps shut
       if (e.k === 'pinch' && a < 0.15) { const k = 1 - a / 0.15; L.star(ex, ey - 12, 16 * k + 4, [1, 0.95, 0.8], 0.9 * k); }
       if (e.k === 'hit' && !e.arm && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
@@ -2373,7 +2412,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // a vampire's blow: blood drawn off the hero into the elite
       if (e.k === 'drain' && a < 0.5) for (let j = 0; j < 7; j++) { const u = Math.min(1, Math.max(0, (a - j * 0.03) / 0.3)); if (u <= 0 || u >= 1) continue;
         L.star(ex + (sx(e.tx) - ex) * u, ey + (sy(e.ty) - ey) * u - 30 * Math.sin(Math.PI * u), 8, [0.95, 0.1, 0.18], 1 - u * 0.5); }
-      if (e.k === 'summon' && a < 0.6) { const q = a / 0.6; L.ring(ex, ey, 20 + 30 * q, 10 + 15 * q, [0.5, 1, 0.4], 1 - q, 0.2); L.glow(ex, ey - 20, 50, [0.4, 1, 0.3], 1 - q); }
+      // (the colossus's imps, TASKS 413, come up out of the ground in fire, not in the necromancer's green)
+      if (e.k === 'summon' && a < 0.6) { const q = a / 0.6, c = e.fire ? [1, 0.5, 0.15] : [0.5, 1, 0.4]; L.ring(ex, ey, 20 + 30 * q, 10 + 15 * q, c, 1 - q, 0.2); L.glow(ex, ey - 20, 50, e.fire ? [1, 0.4, 0.1] : [0.4, 1, 0.3], 1 - q); }
       if (e.k === 'bless' && a < 1.2) { const q = a / 1.2; L.glow(ex, ey - 30, 90, [0.5, 0.8, 1], 1.4 * (1 - q)); L.ring(ex, ey, 40 + 90 * q, 20 + 45 * q, [0.6, 0.85, 1], 1 - q, 0.1); }
       // an enemy bolt bursts where it dies; on the hero it splashes wider with a ring
       // the jet bursts into a spray that falls
@@ -3061,6 +3101,26 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 4); const R = S.run, m = R.map, r = m.rooms.find((q) => q.type === 'boss'), h = R.hero;
       h.x = (r.cx + 0.5) * TILE + 90; h.y = (r.cy + 0.5) * TILE + 200; R.en = R.en.filter((e) => D.BOSSES[e.type]); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [(r.cx + 0.5) * TILE - VW / 2, (r.cy + 0.5) * TILE - VH / 2]; states.push(['magma_arena', S]); }
+    // TASKS 413: the colossus rising out of its lake, wading ashore, its moves' wind-ups and what they leave on the floor, stuck after
+    // its fists, the edge giving way (2nd phase), the rain of rocks (3rd)
+    { const S0 = play(); S0.run = SIM.newRun(S0, 'magma', 3); S0.screen = 'play'; SIM.enterFloor(S0, S0.run, 4);
+      const col = (name, f) => { const S = structuredClone(S0), R = S.run, m = R.map, r = m.rooms.find((q) => q.type === 'boss'), h = R.hero, b = R.en.find((e) => e.type === 'boss_colossus'), L0 = D.ARCH.plateau.arena;
+        R.en = [b]; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); S.t = R.t = 40; S.ev = []; h.ifr = 1e9;
+        const ox = (r.cx + 0.5) * TILE, oy = (r.cy + 0.5 - L0.lake[1] - 2.5) * TILE; h.x = ox + 230; h.y = oy + 60; R.arena = { active: 1, room: r.id, t0: S.t - 5 };
+        Object.assign(b, { x: ox, y: oy, st: 'chase', t0: S.t - 2, cdT: 99, face: 1, aimA: Math.atan2(h.y - oy, h.x - ox), tx: h.x, ty: h.y, phase: 0, dist: 0 });
+        f(S, R, h, b, r); R.cam = [b.x + 100 - VW / 2, b.y - 120 - VH / 2]; states.push([name, S]); };
+      const wind = (S, b, mv, k, ph = 0) => { b.phase = ph; b.st = 'bwind'; b.mv = mv; b.fired = 0; b.hitDone = 0; b.t0 = S.t - D.BOSSES.boss_colossus.moves[mv].wind * k; };
+      col('colossus_rise', (S, R, h, b) => { const p = R.map.enemies.find((e) => e.type === 'boss_colossus'); b.x = p.x; b.y = p.y; b.st = 'emerge'; b.t0 = S.t - 1.4; h.x = b.x + 60; h.y = b.y + 5 * TILE; });
+      col('colossus_wade', (S, R, h, b) => { const p = R.map.enemies.find((e) => e.type === 'boss_colossus'); b.x = p.x; b.y = p.y - 50; b.st = 'wade'; b.t0 = S.t - 0.5; b.tx = p.x; b.ty = p.y - 2.6 * TILE; b.vy = -70; b.dist = 30; h.x = b.x + 60; h.y = b.y - 5 * TILE; });
+      col('colossus_fists', (S, R, h, b) => wind(S, b, 'fists', 0.75));
+      col('colossus_stuck', (S, R, h, b) => { b.mv = 'fists'; b.st = 'chase'; b.t0 = S.t - D.BOSSES.boss_colossus.moves.fists.wind - 0.5; b.openUntil = S.t + 0.6; b.cdT = b.openUntil + 0.3; });
+      col('colossus_crack', (S, R, h, b) => { wind(S, b, 'crack', 0.7); R.cracks = [{ id: 7701, owner: b.id, who: 'boss_colossus', x: b.x, y: b.y, a: 0.9, len: 380, w: 30, speed: 900, linger: 0.5, t0: S.t - 0.25, dmg: 0, hit: 1 }]; });
+      col('colossus_boulder', (S, R, h, b) => { wind(S, b, 'boulder', 0.7, 1); R.rocks = [{ id: 7702, owner: b.id, who: 'boss_colossus', kind: 'boulder', x: h.x + 40, y: h.y + 150, sx: b.x - 30, gy: b.y + 2, z: 240, t0: S.t - 0.5, t: S.t + 0.45, r: 56, dmg: 0, pool: 1 }];
+        const P = D.BOSSES.boss_colossus.moves.boulder.pool; R.fires = [{ id: 7703, src: b.id, who: 'boss_colossus', x: h.x - 160, y: h.y + 120, t0: S.t - 1.2, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; });
+      col('colossus_rain', (S, R, h, b) => { wind(S, b, 'rain', 1.8, 2); const M = D.BOSSES.boss_colossus.moves.rain;
+        R.rocks = [0.15, 0.45, 0.75, 0.92, 0.99, 0.6, 0.3].map((f, i) => ({ id: 7710 + i, owner: b.id, who: 'boss_colossus', kind: 'rain', x: h.x - 300 + i * 95, y: h.y + 40 + (i % 3) * 70, t0: S.t - f * M.warn, t: S.t + (1 - f) * M.warn, r: M.r, dmg: 0, shelter: M.shelter })); });
+      col('colossus_shatter', (S, R, h, b) => { wind(S, b, 'shatter', 0.999, 1); const keep = S.t; for (let i = 0; i < 3; i++) SIM.step(S, { keys: [] }); b.t0 -= 0.5; S.t = R.t = keep + 0.03;
+        for (const q of R.lavaPending) { q.t0 -= 0.8; } R.en = R.en.filter((e) => e === b); }); }
     // TASKS 427: a lake floor, the camera on the island with the hoard and the crossings to it
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;
@@ -3377,14 +3437,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       h.x = (r.x + 2) * TILE; h.y = (r.y + r.h / 2) * TILE; h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2];
       R.en = [{ id: 990, type: ty, x: h.x + 34 + E.r, y: h.y, tx: h.x, ty: h.y, vx: 0, vy: 0, hp: E.hp * (phase ? 0.4 : 1), max: E.hp, dmg: 1, elite, room: r.id, st: D.BOSSES[ty] ? 'bwind' : 'wind', mv: move, phase, bossVersion: 1, t0: S.t,
         face: -1, aimA: Math.PI, targetD: 34 + E.r, travel: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; Object.assign(R.en[0], typeof extra === 'function' ? extra(R.en[0], h) : extra); });
-      for (let i = 0; i < (move === 'weave' || move === 'charge' ? 180 : 100); i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };   // the sim steps 1/120 s; frames are 1/60 s
+      for (let i = 0; i < (ty === 'boss_colossus' ? 200 : move === 'weave' || move === 'charge' ? 180 : 100); i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };   // the sim steps 1/120 s; frames are 1/60 s
     // monster walk cycles, right and down: one stride in 12 frames (the rig's own stride), subject en990
     const enCyc = (ty, dx, dy) => { const out = [], n = D.BOSSES[ty] ? 24 : 12, H0 = SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1), st = MONSTERS.stride(ty, H0), E = D.ENEMIES[ty];
       for (let i = 0; i < n; i++) { const S = play((S) => { const R = S.run, h = R.hero, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5); R.msg = null; R.seen = R.seen.map(() => 1);
         h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20; const x0 = (r.x + r.w / 2) * TILE, y0 = (r.y + r.h / 2) * TILE, d = i * st / n;
         R.en = [{ id: 990, type: ty, x: x0 + dx * d, y: y0 + dy * d, vx: dx * E.spd, vy: dy * E.spd, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: -9, face: dx < 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: d, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
         R.cam = [x0 - VW / 2, y0 - VH / 2]; }); out.push(S); } return out; };
-    const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'skel_ember', 'fire_priest', 'imp', 'golem', 'salamander', 'boss_spider', 'boss_necro', 'boss_forge']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
+    const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'skel_ember', 'fire_priest', 'imp', 'golem', 'salamander', 'boss_spider', 'boss_necro', 'boss_forge', 'boss_colossus']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
     {
       const S = play(); S.run = SIM.newRun(S, 'cave', 8); SIM.enterFloor(S, S.run, 2);
       const R = S.run, m = R.map, e = structuredClone(enCycles.crab_right[0].run.en[0]);
@@ -3402,7 +3462,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       enCycles.crab_turning = frames;
     }
     // boss_slam_chain: the linked charge that missed (the hero stepped aside, as in the sim's own check) hands over to the slam
-    const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), boss_slam_chain: enemyT('boss', 1, 'charge', 1, (e, h) => { h.y += 70; }), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
+    const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), boss_slam_chain: enemyT('boss', 1, 'charge', 1, (e, h) => { h.y += 70; }), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), colossus_fists: enemyT('boss_colossus', 1, 'fists'), colossus_crack: enemyT('boss_colossus', 1, 'crack'), colossus_boulder: enemyT('boss_colossus', 1, 'boulder', 1), colossus_charge: enemyT('boss_colossus', 1, 'charge'), colossus_call: enemyT('boss_colossus', 1, 'imps', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
       // the grab from out of the blow's reach: it catches the hero and hauls him a step in
       drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })),
       // the crab (TASKS 309): the pinch at the hero before it; the rush at a hero off its right side (it faces right, the hero below)

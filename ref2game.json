@@ -44,7 +44,9 @@
    "salamander__*",
    "golemE__*",
    "impE__*",
-   "salamanderE__*"
+   "salamanderE__*",
+   "colossus__*",
+   "colossusE__*"
   ],
   "skip": [
    "*_sheet",
@@ -63,7 +65,8 @@
    "skel_archer",
    "skel_mage",
    "imp",
-   "golem"
+   "golem",
+   "colossus"
   ],
   "max": 2048,
   "walk": {

@@ -3,7 +3,7 @@
 // the legs, and swings its arms from pose curves keyed to the attack's own clock; the spider walks eight legs in two alternating sets.
 (function () {
   const MON = (window.MONSTERS = {}), L = LIB, M = L.M, SS = L.SS, TAU = Math.PI * 2;
-  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned', crab: 'crab', skel_archer: 'skel_archer', skel_mage: 'skel_mage', skel_ember: 'skeleton', fire_priest: 'cultist', imp: 'imp', golem: 'golem', salamander: 'salamander' };   // the ghost bends its one sprite (softbones)
+  const RIG = { skeleton: 'skeleton', goblin: 'goblin', brute: 'brute', boss: 'brute', cultist: 'cultist', spider: 'spider', drowned: 'drowned', crab: 'crab', skel_archer: 'skel_archer', skel_mage: 'skel_mage', skel_ember: 'skeleton', fire_priest: 'cultist', imp: 'imp', golem: 'golem', salamander: 'salamander', boss_colossus: 'colossus' };   // the ghost bends its one sprite (softbones)
   const SKULL_K = { skeleton: 1.3 };
   MON.wpn = {};
   MON.rigOf = (type) => { const n = RIG[type] || (DATA.BOSSES[type] || {}).rig; return n && window.RIGS && RIGS[n] && window.ASSETS[n + '__body'] ? n : null; };
@@ -43,7 +43,7 @@
     let crouch0 = 0; for (const side of ['L', 'R']) { const H0 = RG['hip' + side], A0 = RG['ankle' + side], Lm = 0.95 * (d2(H0, RG['knee' + side]) + d2(RG['knee' + side], A0)), dx0 = A0[0] - H0[0];
       crouch0 = Math.max(crouch0, A0[1] - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx0 * dx0))); }
     // the breath at least 0.75 % of the height: a fixed 0.8 view px was lost on the boss
-    const hipDy = Math.max((run * 2.2 * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h), drop) + crouch0 + (o.crouch || 0);
+    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h), drop) + crouch0 + (o.crouch || 0);
     const legs = {};
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty } = tg[side], Hp = [H0[0], H0[1] + hipDy];
@@ -470,6 +470,34 @@
   // the magma golem (TASKS 409) heaves both fists over its head through the long wind-up and brings them down on the floor in
   // front of it, rests on them a beat; dead, it comes apart where it stands, stone by stone into its pool
   const GOLEM_SLAM = { raise: -2.6, chopT: 0.28, recover: 0.42, over: 0.15, hold: 0.24, top: 0.16, bendUp: 0.9, bendHit: 0.15, bend0: 0.18, dur: 0.55 };
+  // the colossus (TASKS 413): both fists over its head and down on the floor, where they stay through the stuck window and come back
+  // after it; the crack is one fist driven into the floor before it; the boulder is lifted over the head in both hands and thrown on
+  // ahead; a call (shatter, erupt, rain, imps) throws both arms up and the chest back for its whole length. No raise past -2.5: the
+  // blow is taken within half a turn of it (chop), and from further back a blow aimed low wound the arm a whole turn round the shoulder
+  const COL_FISTS = { raise: -2.5, chopT: 0.3, recover: 20, over: 0.15, hold: 9, top: 0.2, bendUp: 0.9, bendHit: 0.15, bend0: 0.18, dur: 30 };
+  const COL_CRACK = { raise: -2.3, chopT: 0.22, recover: 0.3, over: 0.2, hold: 0.12, top: 0.14, bendUp: 0.8, bendHit: 0.1, bend0: 0.18 };
+  const COL_THROW = { raise: -2.5, chopT: 0.18, recover: 0.3, over: 0.7, top: 0.25, bendUp: 1.5, bendHit: 0.05, bend0: 0.18 };
+  const COL_CALL = ['shatter', 'erupt', 'rain', 'imps'];
+  function colossusPose(e, E, GT, face, H, base) {
+    const live = e.deadT < 0; if (!live) return null; const u = GT - e.t0;
+    if (e.st === 'emerge') { const k = SS(0.3, DATA.BOSSES[e.type].rise, u); base.lean = (base.lean || 0) - face * 0.12 * k; return (side, b) => [lerp(b, side === 'L' ? -2.7 : -2.5, k), lerp(b + 0.18, side === 'L' ? -2.3 : -2.0, k)]; }
+    if (e.st === 'bwind') { const M = DATA.bossMove(e), w = M.wind;
+      if (e.mv === 'fists') { const p0 = chop(e, E, GT, face, H, 0, Object.assign({ bossW: w }, COL_FISTS)); if (!p0) return null; const hit = u - w;
+        base.crouch += 30 * (hit >= 0 ? SS(0, 0.07, hit) : 0.25 * p0.k); return (side, b) => { const q = chop(e, E, GT, face, H, b, Object.assign({ bossW: w }, COL_FISTS)), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+      if (e.mv === 'crack') { const CO = Object.assign({ bossW: w, dur: M.duration }, COL_CRACK), p0 = chop(e, E, GT, face, H, 0, CO); if (!p0) return null; const hit = u - w;
+        base.crouch += 24 * (hit >= 0 ? SS(0, 0.06, hit) * (1 - SS(0.25, M.duration, hit)) : 0.2 * p0.k); base.lean = (base.lean || 0) + face * 0.12 * p0.k;
+        return (side, b) => { if (side === 'L') return [b + 0.4 * p0.k, b + 0.5 * p0.k]; const q = chop(e, E, GT, face, H, b, CO); return [q.r1, q.r1 + q.bend]; }; }
+      if (e.mv === 'boulder') { const CO = Object.assign({ bossW: w, dur: M.duration }, COL_THROW), p0 = chop(e, E, GT, face, H, 0, CO); if (!p0) return null;
+        base.lean = (base.lean || 0) + face * lerp(-0.1, 0.15, SS(w - 0.06, w + 0.12, u)) * p0.k; base.rock = u < w;
+        return (side, b) => { const q = chop(e, E, GT, face, H, b, CO), d = side === 'L' ? -0.15 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+      if (e.mv === 'charge') { const end = w + Math.max(M.time, M.duration), k = SS(0, Math.min(0.3, w), u) * (1 - SS(end - 0.25, end, u)); base.lean = (base.lean || 0) + face * 0.22 * k; base.crouch += 14 * k; return (side, b) => [lerp(b, 0.7, k), lerp(b + 0.18, 1.1, k)]; }
+      if (COL_CALL.includes(e.mv)) { const end = w + M.duration, k = SS(0, Math.min(0.45, w * 0.6), u) * (1 - SS(end - 0.25, end, u)); base.lean = (base.lean || 0) - face * 0.14 * k;
+        return (side, b) => [lerp(b, side === 'L' ? -2.6 : -2.3, k), lerp(b + 0.18, side === 'L' ? -2.2 : -1.8, k)]; } }
+    // stuck with both fists on the floor (sim e.openUntil), then the arms come home over 0.3 s
+    if (e.mv === 'fists' && e.openUntil !== undefined && GT < e.openUntil + 0.3) { const w = DATA.bossMove(e).wind, fake = Object.assign({}, e, { st: 'bwind' }), back = SS(e.openUntil, e.openUntil + 0.3, GT);
+      base.crouch += 30 * (1 - back); return (side, b) => { const q = chop(fake, E, GT, face, H, b, Object.assign({ bossW: w }, COL_FISTS)), d = side === 'L' ? 0.1 * q.k * (1 - back) : 0; return [lerp(q.r1, b, back) + d, lerp(q.r1 + q.bend, b + 0.18, back) + d]; }; }
+    return null;
+  }
 
   // ---------------- per type ----------------
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
@@ -635,6 +663,14 @@
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       base.lift = 0.04; base.narrow = 0.2; return biped(base); }
+    if (n === 'colossus') { const arm = colossusPose(e, E, GT, face, H, base); if (arm) base.arm = arm;
+      if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
+      // (a body of 230 px sinks at each step by more than the walkers' 2.2 px, or its stride reads as a glide)
+      base.lift = 0.04; base.narrow = 0.15; base.bob = 5; const r = biped(base);
+      // the boulder in both hands over the head while it is lifted, gone from them on the throw (sim R.rocks takes it on)
+      if (base.rock && r) { const a = r.R2U(r.arms.L.Hd[0], r.arms.L.Hd[1]), b2 = r.R2U(r.arms.R.Hd[0], r.arms.R.Hd[1]), bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;
+        L.sprite('boulder_mg_a', 0, 0, { m: M.of(M.t((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2 - 0.05 * H)), w: bw, h: bh, pivot: [bw / 2, bh * 0.6], u: o.U }); }
+      return r; }
     if (n === 'salamander') { const u = GT - e.t0, B = E.breath, bw = DATA.windOf(e, e.br ? B.wind : E.wind), w = live && e.st === 'wind' ? SS(0, bw, u) : 0, str = live && e.st === 'strike';
       const sw = !live ? 0 : o.swim || 0, dd = live ? -1 : GT - e.deadT;
       return lizard({ id: o.id, x, y, H, fa: e.fa ?? (face > 0 ? 0 : Math.PI), dist: e.dist, vx: base.vx, vy: base.vy, t: o.t, seed: e.id, U: o.U, Ufar: o.Ufar, tex: o.tex, swim: sw,
