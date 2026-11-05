@@ -625,6 +625,6 @@
     const rank = ['I', 'II', 'III', 'IV', 'V'], goal = next ? next.name + ' ' + rank[up[next.id] || 0] : '';
     const line = affordable ? 'На осколки хватит: ' + goal : next ? 'До «' + goal + '» ещё ' + (next.cost(up[next.id] || 0) - S.meta.shards) + ' осколков' : 'Все улучшения предков открыты';
     wrap('e_goal', line, bx + 30, by + 566, 1000, 25, C.gold);
-    for (const b of D.UI.end(r.log)) button('eb_' + b.id, b, S.hover);
+    for (const b of D.UI.end(r.log, r.town)) button('eb_' + b.id, b, S.hover);
   }
 })();
