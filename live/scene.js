@@ -315,7 +315,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   // A plateau's edge is a row of basalt columns as in ref_cave_lava (TASKS 418): round tops along its south and north edges, and
   // under the south ones their faces, 20–32 px, standing on the lava or running down into the chasm. A face covers the lava below
   // the edge (where the hero can't go), never the plateau, the crust or a crossing, and leaves a narrow river most of its width.
-  // u_out 1 writes the columns' mask for the lava shader (R: a column, G: the lava at a face's foot). lavaAt is the lava shader's
+  // u_out 1 writes the columns' mask for the lava shader (R: a column, G: the lava at a face's foot, B: how far the lava's light is held off it: a cap's all, a face's but its foot). lavaAt is the lava shader's
   // own bank (LAVA), so the two meet
   const MAGMA_EDGE = CAVE_EDGE + `
 uniform sampler2D u_cliff, u_lava;
@@ -402,7 +402,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     if (on < 0.5) { vec4 n = northTop(w); if (colAt(w, n, f, hw) > 0.5) { c = n; on = 1.0; } }
     if (on < 0.5 && c.y > 0.0 && c.z > 0.0 && c.w > 0.5 && abs(w.x - c.x) <= hw && w.y >= c.y + c.z) foot = clamp(1.0 - (w.y - c.y - c.z) / 12.0, 0.0, 1.0); }
   else { on = island(w, c, f, foot); if (on > 0.5) hw = 13.0; }
-  if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, 0.0, 1.0); return; }
+  if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, on > 1.5 ? 0.9 * (1.0 - smoothstep(0.55, 0.95, f.y)) : on > 0.5 ? 1.0 : 0.0, 1.0); return; }
   float op = openAt(w), la = lavaAt(w), far = textureLod(u_far, w / u_map, 0.0).r; vec3 col;
   if (op > 0.47 && la <= 0.5) {
     col = gFloor(w);
@@ -622,18 +622,21 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   float top = texture(u_top, w).r;
   // wall tops past the first row keep the ambient: no torch shines through a wall; their pale bevels still catch a fire close by
   l = mix(l, min(l, u_amb * 1.3), smoothstep(0.3, 1.0, top) * 0.8 * (1.0 - 0.75 * smoothstep(0.14, 0.3, dot(c, vec3(0.3, 0.5, 0.2)))));
+  // the lava lights the columns from below (TASKS 445): the tops stay the dark stone of the concept (the rim and the foot of a face
+  // keep the glow); lit like the lava itself they came out tan
+  if (u_haze > 0.5) l = mix(l, min(l, u_amb * 2.0 + vec3(0.22, 0.07, 0.03)), textureLod(u_face, vec2(w.x, 1.0 - w.y), 0.0).b * 0.85);
   // the water throws the light it catches back onto the rock over and beside it (TASKS 305): slow bright ripples on a cave's wet
   // rock and bank within two cells of the water, stronger where the light at the water is. Added, not multiplied: on the dark
   // rock a multiplied glint was lost
   vec3 glint = vec3(0.0);
-  if (u_cave > 0.5) { vec2 cs = 32.0 / u_map; float near = 0.0;
+  if (u_cave > 0.5 && u_haze < 0.5) { vec2 cs = 32.0 / u_map; float near = 0.0;
     for (int i = 0; i < 11; i++) { vec2 o = i < 9 ? vec2(float(i % 3) - 1.0, 0.5 + float(i / 3)) : vec2(float(i) * 2.0 - 19.0, 0.0);
       near = max(near, texture(u_water, w + o * cs).r * (i < 9 ? 1.0 - 0.3 * float(i / 3) : 0.8)); }
     near *= 1.0 - smoothstep(0.2, 0.6, texture(u_water, w).r);
     // ripples thrown on a wall run as broken wavy bands drifting upward
     float band = smoothstep(0.55, 0.95, sin(wp.y / 4.5 + 2.2 * sin(wp.x / 26.0 + u_t * 0.9) + u_t * 1.7)) * smoothstep(0.35, 0.7, fbm(wp / 46.0 + vec2(u_t * 0.12, -u_t * 0.2)));
     glint = vec3(0.3, 0.75, 0.8) * band * near * (0.14 + 0.6 * dot(min(l, vec3(1.2)), vec3(0.33))); }
-  if (u_cave > 0.5) l = max(l, mix(u_low, vec3(0.52, 0.49, 0.46), smoothstep(0.1, 0.5, texture(u_water, w).r)));
+  if (u_cave > 0.5) l = max(l, mix(u_low, vec3(0.52, 0.49, 0.46), smoothstep(0.1, 0.5, texture(u_water, w).r) * (1.0 - u_haze)));
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   // a monster before the lava (the occluders' mask over its glow) takes no more of its light than a torch gives: lit to the lava's
   // own level it melted into it, the reference's figures stand dark against it (TASKS 407)
@@ -1621,8 +1624,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       return { dx: w ? bx / w : 0, dy: w ? by / w : 0, col: w ? c.map((v) => v / w) : [1, 1, 1], k: w, all: AMB0.map((v, i) => v + c[i]) }; };
     // the fire's colour on an actor falls half bleached and without the lit pass's 1.6 saturation: as a tint over its own (own),
     // the boosted light is taken back to the bleached one (TASKS 185); the concept's demon stays red, its hero steel in torchlight
-    HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
-      return c.map((v, i) => own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g))))); };
+    // (by the lava the light is the lava's, not the fires' the tint takes back: its green boost over the lava's orange came out as a
+    // lime hero, TASKS 450; the green channel is held to its own over the last four cells to the lava)
+    const lavaD = (px, py) => { if (!m.cliff) return 9; const cx0 = Math.floor(px / TILE), cy0 = Math.floor(py / TILE); let d = 9;
+      for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) if (SIM.cell(m, cx0 + i, cy0 + j) === 3) d = Math.min(d, Math.hypot(i, j)); return d; };
+    HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2], wl = SS(4, 1.5, lavaD(px, py)),
+        t = c.map((v, i) => own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g)))));
+      if (t[1] > own[1]) t[1] = own[1] + (t[1] - own[1]) * (1 - wl);
+      return t; };
     HERO.k = HERO.kAt(h.x, h.y); HERO.lift = 0.85 + 0.1 * HERO.k;
 
     // ===== ground: the baked map, then decals =====
@@ -2145,7 +2154,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       try { for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
           const sub = E.lake ? submerged(e, E, GT) : 0, U = sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {};
-          MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); } }
+          MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
+        // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
+        if (!SC.hide.hero && h.deadT < 0 && h.fallT === undefined && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y), GT, st, { id: 'occ' }); }
       finally { L.sp = null; L.joint = J0; } }
     G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_occ: LT.occ, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_heat: m.cliff ? lavaGlowTex(m) : waterTex(m), u_haze: m.cliff ? 1 : 0, u_face: m.cliff && BAKE.face ? BAKE.face : seen, u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_low: B.low || [0.86, 0.82, 0.78], u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
