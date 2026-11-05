@@ -1950,11 +1950,13 @@
     benches: [[25, 16], [29, 19], [25, 19]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
     // enchanter's runes, the Altar of Souls, the crypt's glow from below; the campfire and the gate's braziers are its torches
-    lights: [['lamp', 8, 13], ['lamp', 8, 19], ['lamp', 9, 25], ['lamp', 48, 9], ['lamp', 11, 20], ['lamp', 21, 7], ['lamp', 19, 24], ['lamp', 14, 28], ['lamp', 31, 31], ['lamp', 39, 28], ['forge', 38, 7], ['runes', 39, 15], ['altar', 36, 21], ['crypt', 27, 8], ['adit', 47, 22]],
+    lights: [['lamp', 8, 13], ['lamp', 8, 19], ['lamp', 9, 25], ['lamp', 48, 9], ['lamp', 11, 20], ['lamp', 21, 7], ['lamp', 19, 24], ['lamp', 14, 28], ['lamp', 31, 31], ['lamp', 39, 28], ['forge', 38, 7], ['runes', 39, 15], ['candle', 40, 14], ['altar', 36, 21], ['crypt', 27, 8], ['adit', 47, 22]],
     // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
     edge: [[6, 8], [50, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
-    // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore
-    props: [['logs_tw', 43, 8], ['stall_tw', 46, 10], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['cart_tw', 49, 24], ['blocks_tw', 19, 29], ['ore_tw', 13, 30]],
+    // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore;
+    // the workshop niches on the left with a work table, sacks, a crate and burning candles
+    props: [['logs_tw', 43, 8], ['stall_tw', 46, 10], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['cart_tw', 49, 24], ['blocks_tw', 19, 29], ['ore_tw', 13, 30],
+      ['table_candles', 6, 14], ['shop_sacks', 5, 21], ['shop_crate', 7, 24], ['candles', 5, 24]],
     rails: [[47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], ...Array.from({ length: 25 }, (_, i) => [41 - i, 30])],
     // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it
     npcs: [['smith', 35, 9], ['enchanter', 39, 15], ['keeper', 26, 18], ['porter', 32, 11], ['sweeper', 30, 21], ['miner', 38, 30], ['mason', 18, 29], ['gardener', 43, 24], ['child', 13, 18]],
