@@ -148,6 +148,34 @@ try {
       if (both / frames.length < 0.1 || error > 6) failures.push('walk ' + dir + ': support/contact ' + both + '/' + error.toFixed(2));
       results['walk_' + dir] = { doubleSupport: +(both / frames.length).toFixed(2), stepSourceError: +error.toFixed(2) };
     }
+    for (const face of [-1, 1]) {
+      const star = LIB.star, h = DATA.ENEMIES.boss_colossus.h;
+      let frames = 0, error = 0, radius = 0, travel = 0, previous = null;
+      try {
+        for (const source of __Q.transitions.colossus_fists) {
+          const S = structuredClone(source), e = S.run.en.find((e) => e.id === 990), stars = [];
+          e.face = e.pf = face; e.ft = -9;
+          LIB.star = (x, y, r, color, alpha) => {
+            if (color[0] === 1 && color[1] === 0.9 && color[2] === 0.55) stars.push([x, y]);
+            return star(x, y, r, color, alpha);
+          };
+          LIB.TRACE = {}; SCENE.state = S; SCENE.render(S.t + 0.01);
+          const j = LIB.TRACE.en990, active = e.openUntil > S.t;
+          if (!active) { if (stars.length) failures.push('stun stars outside stuck window'); continue; }
+          frames++;
+          if (stars.length !== 3 || !j.stun) { failures.push('stun stars missing for face ' + face); continue; }
+          const center = [stars.reduce((sum, p) => sum + p[0], 0) / 3, stars.reduce((sum, p) => sum + p[1], 0) / 3];
+          error = Math.max(error, dist(center, [j.head[0], j.head[1] - 0.16 * h]), dist(center, j.stun));
+          for (const p of stars) radius = Math.max(radius, dist(center, p));
+          const orbit = [stars[0][0] - center[0], stars[0][1] - center[1]];
+          if (previous) travel += dist(orbit, previous);
+          previous = orbit;
+          if (!(window.__ANCHORS || []).some((a) => a.name === 'colossus_stars' && a.d <= a.tol)) failures.push('stun QA anchor missing');
+        }
+      } finally { LIB.star = star; }
+      if (frames < 60 || error > 1 || radius > 0.13 * h || travel < 30) failures.push('stun orbit detached or static for face ' + face);
+      results['stun_' + face] = { frames, anchorError: +error.toFixed(2), radius: +radius.toFixed(2), travel: +travel.toFixed(2) };
+    }
     LIB.TRACE = null;
     return { results, failures };
   });
