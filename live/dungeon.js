@@ -660,7 +660,11 @@
       for (let i = tops.length - 1; i > 0; i--) { const j = Math.floor(P() * (i + 1)); [tops[i], tops[j]] = [tops[j], tops[i]]; }
       const nFall = pi(...LV.falls), heads = [];
       for (const x of tops) { if (heads.length >= nFall) break; if (heads.some((h) => Math.abs(h.x - x) < LV.fallApart)) continue;
-        const y = cliff[x] + 1, w = pi(2, 3); heads.push({ x, y, w, kind: cliff[x] >= 4 && P() < 0.7 ? 'fall' : 'breach' }); }
+        const w = pi(2, 3), kind = cliff[x] >= 4 && P() < 0.7 ? 'fall' : 'breach';
+        // a fall's wall stands LV.fallDeep rows deeper, two columns past it each side where the rock allows (TASKS 452): the
+        // reference's fall drops ≈ 178 px from a pool on the rock's top, and the plain wall left room for half of that
+        if (kind === 'fall') { const w0 = cliff[x]; for (let i = x - 2; i <= x + w + 1; i++) if (i > 0 && i < W - 1 && cliff[i] <= w0 && Array.from({ length: LV.fallDeep }, (_, j) => w0 + 1 + j).every((y) => rock(y * W + i))) cliff[i] = w0 + LV.fallDeep; }
+        heads.push({ x, y: cliff[x] + 1, w, kind }); }
       // a vent: a hot mouth in the open rock a few cells off a plateau, at the head of a river of its own
       const vents = lakeSpots.filter((k) => rock(k) && d[k] >= 3 && d[k] <= 5);
       for (let n = pi(...LV.vents), i = 0; n > 0 && i < 40 && vents.length; i++) { const k = vents[Math.floor(P() * vents.length)], x = k % W, y = Math.floor(k / W);
