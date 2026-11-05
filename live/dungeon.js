@@ -126,15 +126,20 @@
     // the floor's type (TASKS 426), by the run's seed so a retry keeps it: never the last floor's (its own pick, so the
     // whole run's chain is the same however it is reached), the plain plateaus on a boss's floor, AR.first on the run's first
     // (a check may ask for a type: opts.ftype)
-    const ftype = !plat ? null : opts.ftype && !boss ? opts.ftype : (() => { const T = AR.types, rs = (opts.runSeed ?? seed) >>> 0; let prev = null, t = 'plain';
-      for (let f = 1; f <= floor; f++) { const Q = mul32((rs ^ 0x426f) + f * 7907); Q(); const c = T.filter((x) => x !== prev); t = f === 1 && AR.first ? AR.first : c[Math.floor(Q() * c.length)]; prev = t; }
-      return boss ? 'plain' : t; })();
+    let ftype2 = null;
+    const ftype = !plat ? null : opts.ftype && !boss ? (ftype2 = opts.ftype2 || null, opts.ftype) : (() => { const T = AR.types, rs = (opts.runSeed ?? seed) >>> 0; let prev = null, t = 'plain', pm = false;
+      for (let f = 1; f <= floor; f++) { const Q = mul32((rs ^ 0x426f) + f * 7907); Q(); const c = T.filter((x) => x !== prev); t = f === 1 && AR.first ? AR.first : c[Math.floor(Q() * c.length)]; prev = t;
+        const m = AR.blend.over.includes(t) && !pm && mul32((rs ^ 0x4260) + f * 6007)() < AR.blend.p; pm = m; ftype2 = m ? AR.blend.with : null; }
+      return boss ? (ftype2 = null, 'plain') : t; })();
+    // the mix of two floor types (TASKS 426): a figure floor (the lake, the river, the terraces) over the chasm: the plateaus stand
+    // apart over the dark with bridges between, and the figure alone keeps the lava; its sizes and walk over the chasm's, the floor's share of lava its own
+    const MIX = plat && ftype2 ? AR[ftype2] : null;
     // a lake floor's lake (TASKS 427): the floor's figure, a ragged blob in the middle of the map no plateau stands on or grows into,
     // with a chain of islands across it along its longer axis, zigzagging: one big (the hoard's), then the smaller sizes in turn, in
     // a random order along the chain; the lava pours into its rock once the floor is laid (platLava). The plateaus on its shore are
     // smaller than the plain floor's and ring it
     // a floor type's own sizes and spacing over the plain floor's (data.js ARCH.plateau[type])
-    const TY = Object.assign({}, AR, plat && ftype && AR[ftype] ? AR[ftype] : {});
+    const TY = Object.assign({}, AR, MIX ? Object.assign({}, MIX, { lakes: 0, gap: AR.blend.gap }) : {}, plat && ftype && AR[ftype] ? AR[ftype] : {}), shareOf = !plat ? null : MIX ? [Math.min(MIX.share[0], AR[ftype].share[0]), Math.max(MIX.share[1], AR[ftype].share[1])] : (AR[ftype] && AR[ftype].share) || AR.lava.share;
     // a cave floor of the magma caves (TASKS 431) is laid out as the water caves' are, halls in the rock and winding tunnels, its
     // water lava; pl: the plateaus' layout (everything else of the magma caves holds for both)
     const lc = plat && ftype === 'cave', pl = plat && !lc;
@@ -416,7 +421,7 @@
       const pairs = []; for (const a of leaves.length ? leaves : main) { const d = walk(a); for (const b of main) if (b !== a) pairs.push([a, b, d[b.cy * W + b.cx]]); }
       const top = Math.max(...pairs.map((p) => p[2])), good = pairs.filter((p) => p[2] >= top * 0.9); return pick(good); })() : null;
     // (the last few tries take nine tenths of it: the close-set plateaus, TASKS 422, leave a rare seed no floor that walks the whole)
-    const pathMin = pl ? TY.path[floor - 1] * (strict ? 1 : 0.9) : 0;
+    const pathMin = pl ? TY.path[floor - 1] * (MIX ? AR.blend.pathKeep : 1) * (strict ? 1 : 0.9) : 0;
     if (far && far[2] < pathMin) return null;
     const start = far ? far[0] : (leaves.length ? pick(leaves) : rooms[rooms.length - 1]);
     const hop = hops(start);
@@ -609,7 +614,7 @@
       const rock = (k) => cells[k] === 0 && !arena[k] && !held(k % W, Math.floor(k / W));
       const ridgeCell = (k) => cells[k] === 1 && !boxed[k] && !held(k % W, Math.floor(k / W)) && !hidden.has(k);
       // lakes: ragged blobs in the rock a few cells off the plateaus, spaced apart, basalt left standing in their middles
-      const chasmF = ftype === 'chasm', lakes = [], nLake = chasmF ? TY.lakes : Math.round(W * H / LV.lakeCells);
+      const chasmF = ftype === 'chasm' || !!MIX, lakes = [], nLake = chasmF ? TY.lakes : Math.round(W * H / LV.lakeCells);
       if (fig) { const got = []; for (let k = 0; k < W * H; k++) if (fig[k] && rock(k)) { cells[k] = 3; got.push(k); } lakes.push({ cx: figAt[0], cy: figAt[1], cells: got, big: 1 });
         // the river runs along its length (the island splits it, a crossing spans it)
         if (riverY.length) for (const k of got) { const x = k % W, dy = riverY[Math.min(W - 1, x + 1)] - riverY[Math.max(0, x - 1)]; flow[k] = Math.abs(dy) > 2.2 ? (dy > 0 ? 1 : 3) : 0; }
@@ -768,7 +773,7 @@
           if (!deck || P() < TY.neck) continue; const c0 = cells.slice(), keepD = new Set(deck); for (const k of cs) if (!keepD.has(k)) cells[k] = 0; for (const k of deck) cells[k] = 1;
           if (narrowTo(cells, W, H, start.cy * W + start.cx, rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx)).length) { for (let k = 0; k < W * H; k++) cells[k] = c0[k]; continue; }
           for (const k of deck) chasmUnder.add(k); crossings.push({ kind: 'bridge', cells: deck, axis: hor ? 'x' : 'y', clean: 1, chasm: 1 }); }
-        if (crossings.filter((c) => c.chasm).length < 2) return false;
+        if (crossings.filter((c) => c.chasm).length < (MIX && ftype === 'river' ? AR.blend.riverBridges : 2)) return false;
         // what a bridge left of its ridge off the way goes to the dark
         const sv = new Uint8Array(W * H), st = [start.cy * W + start.cx]; sv[st[0]] = 1;
         while (st.length) { const k = st.pop(); for (const o of D4) { const n = k + o; if (!sv[n] && (cells[n] === 1 || cells[n] === 4)) { sv[n] = 1; st.push(n); } } }
@@ -1537,7 +1542,7 @@
     secOpen = false;
     // a river's ways over (TASKS 428) and the chasm's bridges (429) are where packs wait: on the bank past each one, two to seven steps on from its end, two of the
     // floor's kinds stand where none of the plateau's own pack does yet
-    if (riverY.length || ftype === 'chasm') { const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], dry = (x, y) => !N8.some(([i, j]) => at(x + i, y + j) === 3);
+    if (riverY.length || ftype === 'chasm' || MIX) { const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], dry = (x, y) => !N8.some(([i, j]) => at(x + i, y + j) === 3);
       const kinds = roster.filter((t) => !ENEMIES[t].lurk && !ENEMIES[t].deep && !D.BOSSES[t] && ENEMIES[t].kind !== 'salamander');
       for (const c of crossings) { if (!(c.river || c.chasm) || !kinds.length) continue; const own = new Set(c.cells);
         const ends = c.cells.flatMap((k) => [1, -1, W, -W].map((o) => k + o)).filter((k) => cells[k] === 1 && !own.has(k) && fromStart[k] >= 0);
@@ -1898,10 +1903,10 @@
     for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
     // (a floor type's invariants selfCheck holds it to, kept by a retry, TASKS 432: the plateaus' sizes vary, and a rare floor
     // came out with its lava past its type's share or a lava cave with one way over its streams)
-    if (plat) { const fl = cells.filter((c) => c === 1).length, sh = (AR[ftype] && AR[ftype].share) || AR.lava.share, share = lava.length / (fl + lava.length);
+    if (plat) { const fl = cells.filter((c) => c === 1).length, sh = shareOf, share = lava.length / (fl + lava.length);
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     const map = { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      ftype, bossType, walk, down, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
+      ftype, ftype2, shareOf, bossType, walk, down, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
     // the rare floor that misses is laid again)
     if (plat && !boss && strict) { const q = rewardsOf(map); if (q.onWay * 3 > q.list.length || q.bare.length) return null; }

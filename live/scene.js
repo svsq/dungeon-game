@@ -3166,6 +3166,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const cx = c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, cy = c.cells.reduce((a, k) => a + Math.floor(k / W), 0) / c.cells.length;
       h.x = (cx + 0.5) * TILE; h.y = (cy + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_chasm', S]); break; }
+    // TASKS 426: a mixed floor (the lake over the chasm), the camera on its longest chain bridge
+    for (let sd = 1; sd < 60; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
+      for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype2 && S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;
+      const R = S.run, h = R.hero, W = m.W, c = m.crossings.filter((q) => q.chasm).sort((a, b) => b.cells.length - a.cells.length)[0]; if (!c) continue;
+      const cx = c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, cy = c.cells.reduce((a, k) => a + Math.floor(k / W), 0) / c.cells.length;
+      h.x = (cx + 0.5) * TILE; h.y = (cy + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_mix', S]); break; }
     // TASKS 430: a terrace floor, the camera by its lavafall over the first rows and the turn down between them
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'terrace') m = S.run.map; } if (!m) continue;
