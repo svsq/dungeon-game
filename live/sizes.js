@@ -12,6 +12,10 @@
     shroom_a: 40, shroom_b: 56, crystal_cv: 84,
     stalag_a: 54, stalag_b: 74, boulder_a: 44, boulder_b: 32, lily_cv: 24, weed_cv: 40, wreck_cv: 50, skel_cv: 44, tent_cv: 80,
     campfire_cv: 36, bridge_post: 54, bridge_torch: 74, ford_a: 20, ford_b: 17,
+    // the start town (R-17, TASKS 1004): one or two tiles tall at most, by the style bible's town rule; the tree and the adit 70
+    anvil_tw: 40, forge_tw: 64, lectern_tw: 54, flasks_tw: 68, board_tw: 62, orebin_tw: 44, bench_tw: 28, logs_tw: 40, herbs_tw: 32, cart_tw: 40, picks_tw: 50,
+    blocks_tw: 36, campfire_tw: 42, ore_tw: 22, tree_tw: 70, awning_tw: 84, stall_tw: 64, well_tw: 62, adit_tw: 70, stone_tw_a: 54, stone_tw_b: 40,
+    dc_grass_tw: 20, dc_flowers_tw: 20, dc_leaves_tw: 16, disc_tw: 96, runes_tw: 72,
     basalt_a: 60, basalt_b: 44, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 22,
   };
   const S = (window.SIZES = window.SIZES || {}), A = window.ASSETS || {};

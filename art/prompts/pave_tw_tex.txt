@@ -1,0 +1,4 @@
+Use case: a seamless tileable paving material for the square and the paths of the start town of a top-down 3/4 dungeon game (Image 1 is the style reference for pixel size, line and shading; Image 2 is the approved town concept: take only its worn cobble paving and palette, never its warm firelight).
+Subject: worn old cobblestone paving seen straight from above: small irregular rounded-square slate cobbles (most 6 to 10 art pixels across) in loose rows, dark earth in the joints, a few cobbles missing with earth and a tuft of olive moss in the gap. Slate with a faint violet-brown tint (#2a2128, #372b34, #4b3943, #5f464f, top glints #81676f), joints #1c1712.
+Composition: the whole canvas is paving, edge to edge. It must tile seamlessly in both directions. The canvas is exactly 128x128 art pixels, every art pixel drawn as an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no warm light, no objects, no walls, no large slabs.
