@@ -1939,7 +1939,7 @@
     // the outer ruins' ragged edge, the gate round the stairs, the services' back walls, the mine's rock and the wall over the rails
     rock: [[4, 4, 48, 3], [4, 7, 2, 2], [50, 7, 2, 3], [4, 29, 3, 3], [4, 13, 1, 3], [51, 26, 1, 6],
       [23, 4, 9, 4], [36, 11, 7, 2], [42, 11, 1, 5], [33, 19, 9, 2],
-      [44, 16, 8, 6], [4, 10, 4, 2], [4, 16, 4, 2], [4, 22, 4, 2], [12, 26, 12, 2], [31, 26, 10, 2]],
+      [44, 18, 8, 4], [4, 10, 4, 2], [4, 16, 4, 2], [4, 22, 4, 2], [12, 26, 12, 2], [31, 26, 10, 2]],
     // the cobbled square round the fire and the paths off it to the stairs, the merchant, the forge, the altar, the board and the south gate
     pave: [[21, 14, 13, 8], [25, 8, 5, 6], [14, 10, 8, 3], [30, 9, 8, 3], [33, 21, 7, 2], [24, 22, 7, 8], [17, 21, 5, 2]],
     stairs: [27, 8], fire: [27, 17], spawn: [24, 19], shop: [17, 8], anvil: [36, 8], forge: [38, 7], lectern: [39, 14], shelf: [37, 13],
@@ -1948,6 +1948,11 @@
     use: { stairs: [27, 8], shop: [17, 10], altar: [36, 22], stash: [39, 22], anvil: [36, 9], lectern: [39, 15], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [16, 29] },
     braziers: [[25, 8], [29, 8]],
     benches: [[25, 16], [29, 19], [25, 19]],
+    // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
+    // enchanter's runes, the Altar of Souls, the crypt's glow from below; the campfire and the gate's braziers are its torches
+    lights: [['lamp', 8, 13], ['lamp', 8, 19], ['lamp', 9, 25], ['lamp', 48, 9], ['lamp', 11, 20], ['lamp', 21, 7], ['lamp', 19, 24], ['lamp', 14, 28], ['lamp', 31, 31], ['lamp', 39, 28], ['forge', 38, 7], ['runes', 39, 15], ['altar', 36, 21], ['crypt', 27, 8], ['adit', 47, 22]],
+    // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
+    edge: [[6, 8], [50, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
     // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore
     props: [['logs_tw', 43, 8], ['stall_tw', 46, 10], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['cart_tw', 49, 24], ['blocks_tw', 19, 29], ['ore_tw', 13, 30]],
     rails: [[47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], ...Array.from({ length: 25 }, (_, i) => [41 - i, 30])],
@@ -1968,7 +1973,7 @@
     // the forge's glow is the town's light (TASKS 1005), not a brazier's
     const torches = [{ x: sanct.x, y: sanct.y, kind: 'fire' }, ...T.braziers.map((p) => Object.assign(at(p), { kind: 'brazier' }))];
     const [sx, sy] = T.shop, cy = wy(sy + 1), shop = { room: 0, x: wx(sx), y: cy - 16, counter: { x: wx(sx), y: cy }, front: { x: wx(sx), y: cy + 30 },
-      solid: [-1, 0, 1].map((i) => [wx(sx + i), cy]), lanterns: [{ x: wx(sx + 3), y: wy(sy + 1) }] };
+      solid: [-1, 0, 1].map((i) => [wx(sx + i), cy]), lanterns: [] };
     // role: what each prop is to the town (services, townsfolk's work); the Altar of Souls and the storage chest are the game's own
     const decor = [
       { ...at(T.altar), n: 'altar', role: 'altar', solid: 1 }, { ...at(T.chest), n: 'chest', role: 'stash', solid: 1 }, { ...at(T.anvil), n: 'anvil_tw', role: 'anvil', solid: 1 },
@@ -1979,6 +1984,8 @@
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
       ...[1, 2, 3, 4, 5].map((i) => { const a = i * Math.PI / 3; return { x: wx(T.portal[0]) + Math.cos(a) * 2.4 * TILE, y: wy(T.portal[1]) + Math.sin(a) * 1.9 * TILE, n: i % 2 ? 'stone_tw_a' : 'stone_tw_b', role: 'portal_stone', solid: 1 }; }),
+      ...T.lights.filter(([k]) => k === 'lamp').map(([, x, y]) => ({ ...at([x, y]), n: 'shop_lantern', role: 'lamp', solid: 1 })),
+      ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: 'tree_tw', role: 'edge', solid: 1, s: 0.85 + 0.1 * (i % 3), f: i % 2 })),
       ...T.small.filter(() => R() < 0.7).map(([n, x, y]) => ({ x: wx(x) + Math.round((R() - 0.5) * 10), y: wy(y) + Math.round((R() - 0.5) * 6), n, solid: 1 }))];
     const rails = T.rails.map(([x, y]) => y * W + x);
     const pave = []; for (const [x0, y0, w, h] of T.pave) for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (cells[y * W + x] === 1 && !pave.includes(y * W + x)) pave.push(y * W + x);
@@ -1988,7 +1995,7 @@
     for (let i = 0; i < 70; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
       decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_moss', 'dc_pebbles'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.5 }); }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin) };
-    return { seed, floor: 0, town: { svc, use: T.use, rails, pave, npcs }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block: [], decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
+    return { seed, floor: 0, town: { svc, use: T.use, rails, pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block: [], decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
       ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: cells.filter((c) => c === 1).length, down: null, enemies: [], chests: [], pots: [], traps: [], torches,
       decor, shrines: [], rugs: [], shop, secrets: [], secretsWanted: 0, lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
       water: [], waterFlow: {}, waterFeatures: [], waterBridges: [], deep: 0, crossings: [], doors: [], locks: [], webs: [], ambush: [], drips: [], flora: [], serpentPools: [], floodCells: [] };
