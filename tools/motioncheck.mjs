@@ -15,12 +15,15 @@
 //   aim       — attacks: on an impact frame whose target stands more than AIM_R of the height from the grip, the blade points within
 //               AIM of the target (qa.mjs takes the blade touching the target's body axis, which a fist next to it does at 146°)
 //   prompt    — *prompt* states: the interaction plate (HUD.promptBox) stays clear of the hero's joint box (it sat on him at a chest)
+//   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
+//               golem's ground point (the far one swung on past the body and lay behind it)
+//   crust     — golem_crust_off: the molten share of the golem's box grows by CRUST once its plates are knocked off
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75;
+const ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75, CRUST = 0.05;
 const root = process.cwd(), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
 const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0]));
   fs.stat(f, (e) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); }); });
@@ -109,6 +112,25 @@ for (const nm of await p.evaluate(() => Object.keys(window.__QA.attacks || {})))
     if (d > AIM) bad.push(`${(Math.atan2(tg[1], tg[0]) * 180 / Math.PI).toFixed(0)}°→${d.toFixed(0)}°`); }
   report('aim', nm, !bad.length, `${n} far targets, worst blade error ${worst.toFixed(0)}°${bad.length ? ', off: ' + bad.join(' ') : ''}`);
 }
+// the golem's slam (TASKS 458): on the first frame of its strike both fists lie in the slam's zone and before its ground point
+if (meta.tr.includes('golem_attack')) {
+  const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.golem_attack; return Q.transitions.golem_attack.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const e = st.run.en[0] || {}, h = st.run.hero; const o = { st: e.st, ex: e.x, ey: e.y, aim: e.aimA, hx: h.x, en: LIB.TRACE[id] || null, hero: LIB.TRACE.hero || null }; LIB.TRACE = null; return o; }); });
+  const G0 = await p.evaluate(() => DATA.ENEMIES.golem.slam), f = fr.find((q) => q.st === 'strike' && q.en && q.hero);
+  if (!f || !f.en.handL || !f.en.handR) report('slam', 'golem_attack', false, 'no strike frame with both hands');
+  else { const s = Math.abs(f.hero.ground[0] - f.en.ground[0]) / Math.abs(f.hx - f.ex), c = [f.en.ground[0] + Math.cos(f.aim) * G0.at * s, f.en.ground[1] + Math.sin(f.aim) * G0.at * 0.8 * s], dir = Math.sign(Math.cos(f.aim)) || 1;
+    const far = ['L', 'R'].map((k) => { const q = f.en['hand' + k]; return [k, Math.hypot(q[0] - c[0], (q[1] - c[1]) / 0.7) / s, (q[0] - f.en.ground[0]) * dir / s]; });
+    report('slam', 'golem_attack', far.every(([, d, fw]) => d <= G0.r && fw >= 0), far.map(([k, d, fw]) => `hand ${k} ${d.toFixed(0)} px from the slam's centre (r ${G0.r}), ${fw.toFixed(0)} px before the ground`).join(', ')); } }
+// the golem's crust (TASKS 458): with its plates knocked off the molten core shows over at least CRUST of its body (it changed only
+// the cracks' glow before: the silhouette never told how much crust was left)
+if (meta.tr.includes('golem_crust_off')) {
+  const hot = await p.evaluate(() => { const Q = window.__QA, fr = Q.transitions.golem_crust_off, id = Q.subject.golem_crust_off, c = document.getElementById('c'), g = c.getContext('webgl2') || c.getContext('webgl');
+    return [0, fr.length - 1].map((i) => { const st = fr[i]; LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id]; LIB.TRACE = null; if (!j) return null;
+      const v = Object.values(j).filter((q) => Array.isArray(q)), x0 = Math.max(0, Math.round(Math.min(...v.map((q) => q[0])))), y0 = Math.max(0, Math.round(Math.min(...v.map((q) => q[1])))), x1 = Math.round(Math.max(...v.map((q) => q[0]))), y1 = Math.round(Math.max(...v.map((q) => q[1])));
+      const w = x1 - x0, h = y1 - y0, px = new Uint8Array(w * h * 4); g.readPixels(x0, c.height - y1, w, h, g.RGBA, g.UNSIGNED_BYTE, px); let n = 0;
+      for (let k = 0; k < w * h; k++) { const r = px[k * 4], gg = px[k * 4 + 1], b = px[k * 4 + 2]; if (r > 170 && gg > 60 && gg < 170 && b < 70) n++; } return n / (w * h); }); });
+  if (hot.some((q) => q === null)) report('crust', 'golem_crust_off', false, 'no trace');
+  else report('crust', 'golem_crust_off', hot[1] - hot[0] >= CRUST, `molten share of the golem's box ${(100 * hot[0]).toFixed(1)} % with its crust, ${(100 * hot[1]).toFixed(1)} % with it knocked off (at least +${100 * CRUST} %)`); }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

@@ -70,7 +70,11 @@
         if (T) {
           const origin = R2U(0, hipDy), ax = R2U(1, hipDy), ay = R2U(0, hipDy + 1), dx = T[0] - origin[0], dy = T[1] - origin[1];
           const a = ax[0] - origin[0], b = ax[1] - origin[1], c = ay[0] - origin[0], d = ay[1] - origin[1], det = a * d - b * c;
-          r = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], side === 'L' ? 1 : -1);
+          const ik = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], side === 'L' ? 1 : -1);
+          // a third value blends the joints' angles to the reach by it, not the hand's target: the reach may bend the elbow the other
+          // way than the pose it takes over from, and a target slid in from that pose flipped the elbow in a frame (the golem's slam)
+          const wrap = (v) => v - TAU * Math.round(v / TAU);
+          r = T.length > 2 ? [r[0] + wrap(ik[0] - r[0]) * T[2], r[1] + wrap(ik[1] - r[1]) * T[2]] : ik;
         }
       }
       const E0 = RG['elbow' + side], Sp = [S0[0], S0[1] + hipDy];
@@ -120,7 +124,23 @@
         L.sprite(o.n + '_shield', 0, 0, { m: M.of(M.t(Hd[0] + face * 4 * s, Hd[1] - 6 * s), M.r(fallR + lean * 0.5), M.s(face * 0.8, 1)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }); } }); };
     // far arm (+ its item) → far leg → near leg → body → near arm (+ its item)
     drawArm('L', o.Ufar); held('L', o.Ufar); drawLeg('L', o.Ufar); drawLeg('R', o.U);
-    piece('body', hipS, () => L.sprite(tx + '__body', 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U }));
+    const glowPass = tx !== o.n, crust = RG.plates && o.plates;
+    piece('body', hipS, () => L.sprite(tx + (crust && !glowPass ? '__core' : '__body'), 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U }));
+    // the golem's crust (TASKS 458): its plates over the bare core, as many as it has left; one knocked off is thrown away from the
+    // blow and tumbles to the floor, one growing back fades in white-hot at its edges; the bare core glows in the emissive pass
+    if (crust) { const P = o.plates, al = (o.U && o.U.alpha) ?? 1, bodyM = M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), opt = (u) => ({ m: bodyM, w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u });
+      RG.plates.forEach((C, j) => { const i = j + 1, on = i <= P.n, lost = (P.T || {})[i], grew = (P.G || {})[i];
+        if (glowPass) { const k = on ? (grew !== undefined ? 1 - SS(0, 0.35, P.GT - grew) : 0) : (lost !== undefined ? SS(0, 0.15, P.GT - lost) : 1);
+          if (k > 0.01) piece('plate' + i, hipS, () => L.sprite(o.n + 'E__corelit' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * k })))); return; }
+        if (on) { const a = grew !== undefined ? P.GT - grew : 9, k = SS(0, 0.35, a);
+          piece('plate' + i, hipS, () => { L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * k })));
+            if (k < 1) L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * 0.8 * (1 - k) * SS(0, 0.08, a), grade: [1, 2.6, 0, 1] }))); }); return; }
+        const a = lost === undefined ? 9 : P.GT - lost, q = a / 1.0; if (q >= 1) return;
+        // (thrown clear of the body, up first and down on the floor, a little hop, then it fades: kept over the body it was lost on it)
+        const c = R2U(C[0], C[1] + hipDy), an = (P.A || {})[i] ?? 0, fl = Math.min(1, q / 0.6), dx = Math.cos(an) * 0.95 * o.H * (1 - (1 - fl) ** 2) + Math.cos(an) * 0.08 * o.H * SS(0.6, 0.8, q),
+          dy = o.H * (0.48 * fl * fl - 0.42 * fl) - 0.05 * o.H * Math.sin(Math.PI * SS(0.6, 0.8, q)), spin = (Math.cos(an) >= 0 ? 1 : -1) * 3 * fl;
+        const mm = M.of(M.t(c[0] + dx, c[1] + dy), M.r(spin), M.t(-c[0], -c[1])), pre = L.pre; L.pre = pre ? M.mul(pre, mm) : mm;
+        try { L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * (1 - SS(0.82, 1, q)) }))); } finally { L.pre = pre; } }); }
     // the skull is drawn larger about the neck: at 38 px a skull of the painted size reads as a bead (TASKS 127)
     const skK = RG.skull ? SKULL_K[o.n] || 1 : 1, skP = (P) => RG.skull ? [RG.skull[0] + (P[0] - RG.skull[0]) * skK, RG.skull[1] + (P[1] - RG.skull[1]) * skK] : P;
     if (RG.skull) { const at = R2U(RG.skull[0], RG.skull[1] + hipDy);   // a loose skull turns about its own middle, not the neck
@@ -699,7 +719,12 @@
     if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 0.5; return biped(base); }
     if (n === 'golem') { const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
       if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 26 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);
-        base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+        // the fists come down on the floor where the slam lands, side by side, rest there and come home to the walk's own hang (TASKS 458):
+        // swung by the chop's angle alone the far one went on past the body and lay behind the golem
+        const w = DATA.windOf(e, E.wind), O = GOLEM_SLAM, k = e.st === 'strike' ? 1 - SS(O.hold, O.dur, u) : SS(w - O.chopT, w, u);
+        base.arm = (side, b) => { if (e.st === 'strike') return [b, b + 0.18 - 0.4 * b]; const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; };
+        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.1 : 0.1) * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - 0.05) * H, k]; }; }
+      base.plates = { n: e.crust ?? E.crust.n, T: e.plateT, A: e.plateA, G: e.plateG, GT };
       if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       base.lift = 0.04; base.narrow = 0.2; return biped(base); }
     if (n === 'colossus') {

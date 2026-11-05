@@ -68,7 +68,11 @@
    "golem",
    "colossus",
    "colossus_source",
-   "colossus_chest"
+   "colossus_chest",
+   "en_golem_core",
+   "golem__corelit*",
+   "golemE__core",
+   "golemE__plate*"
   ],
   "max": 2048,
   "walk": {
