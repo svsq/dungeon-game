@@ -541,9 +541,9 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     for (int k = 0; k < 40; k++) { float y = u_src.y - 60.0 + float(k) * 2.0; if (!isWall(vec2(x0, y))) { foot = y; break; } }
     float land = foot + 8.0; for (int k = 0; k < 30; k++) { float y = foot + float(k) * 2.0; if (lavaAt(vec2(x0, y)) > 0.5) { land = y; break; } }
     float lip = foot - faceH(x0), dx = w.x - u_src.x, y = w.y, wob = (vnoise(vec2(y / 7.0 - u_t * 1.5, u_seed)) - 0.5) * 3.0;
-    float hw = y < lip ? u_wide * (0.6 + 0.4 * smoothstep(lip - 34.0, lip, y)) + (vnoise(vec2(y / 5.0, u_seed + 9.0)) - 0.5) * 4.0 : u_wide + 5.0 * (y - lip) / max(land - lip, 1.0);
-    if (y >= lip - 34.0 && y < land + 4.0 && abs(dx - wob) < hw) {
-      if (y < lip - 2.0) { float s = vnoise(vec2(dx / 3.0, (y - u_t * 22.0) / 8.0)); col = hot(0.25 + 0.6 * s); a = smoothstep(lip - 36.0, lip - 24.0, y); glow = 0.5; }
+    float hw = y < lip ? u_wide * (0.6 + 0.4 * smoothstep(lip - 120.0, lip, y)) + (vnoise(vec2(y / 5.0, u_seed + 9.0)) - 0.5) * 4.0 : u_wide + 5.0 * (y - lip) / max(land - lip, 1.0);
+    if (y >= lip - 120.0 && y < land + 4.0 && abs(dx - wob) < hw) {
+      if (y < lip - 2.0) { float s = vnoise(vec2(dx / 3.0, (y - u_t * 22.0) / 8.0)); col = hot(0.25 + 0.6 * s); a = smoothstep(lip - 122.0, lip - 112.0, y); glow = 0.5; }
       else if (y < lip + 1.0) { col = vec3(1.0, 0.9, 0.55); a = 1.0; glow = 1.0; }
       else { float s = vnoise(vec2(dx / 2.5, (y - u_t * 70.0) / 14.0)) + 0.15 * (1.0 - abs(dx - wob) / hw);
         col = hot(s); if (abs(dx - wob) > hw - 2.0) col *= 0.6; a = 1.0; glow = 0.4 + 0.6 * s; } }
@@ -1895,7 +1895,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.anchor('water_source', [sx(q.x), sy(mouth)], [xf[6] + xf[0] * 0.5, xf[7]], 2);
       }]); }
     // the magma caves' sources: a fall down the back wall, a breach at its foot, a vent in the lava (MAGMA_SRC)
-    const lavaSrc = (q) => { const kind = { fall: 0, breach: 1, vent: 2 }[q.kind], box = [q.x - 72, q.y - 160, 144, 220];
+    const lavaSrc = (q) => { const kind = { fall: 0, breach: 1, vent: 2 }[q.kind], box = [q.x - 72, q.y - 250, 144, 310];
       return kind === undefined || !vis(q.x, q.y) ? null : { box, xf: G.xf(sx(box[0]), sy(box[1]), box[2], box[3]),
         U: { u_t: t, u_open: openTex(m), u_cliff: cliffTex(m), u_lava: lavaTex(m), u_map: [MW, MH], u_box: box, u_src: [q.x + (q.w - 1) * TILE / 2, q.y], u_kind: kind, u_seed: q.cell % 97, u_wide: q.w * TILE * 0.36 } }; };
     for (const q of m.lavaFeatures || []) { const got = lavaSrc(q); if (!got) continue; const { box, xf, U } = got;
@@ -2057,10 +2057,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         Y.push([by + 6, () => { for (const [dx, dy, sw, sh, tex] of TRAP_SPIKE) L.sprite(tex, sx(bx + dx) - sw / 2 + jit, sy(by + dy) - k * sh, { w: sw, h: k * sh, src: [0, 0, 1, k] }); }]); } }
     // a falling rock (TASKS 406) drops the last FALL_DROP s of its warning, from high over its shadow
     for (const z of m.hazards || []) { if (z.k !== 'fall' || !vis(z.x, z.y)) continue; const H = D.HAZ.fall, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < H.warn - FALL_DROP) continue;
-      const p = (w - (H.warn - FALL_DROP)) / FALL_DROP, [rw, rh] = SZ('boulder_mg_b'); Y.push([z.y + 2, () => L.sprite('boulder_mg_b', sx(z.x) - rw / 2, sy(z.y) - rh + 8 - 320 * (1 - p * p), { w: rw, h: rh })]); }
+      const p = (w - (H.warn - FALL_DROP)) / FALL_DROP, [rw, rh] = SZ('boulder_mg_b'); Y.push([z.y + 2, () => { const yy = sy(z.y) - rh + 8 - 320 * (1 - p * p); L.glow && L.glow(sx(z.x), yy + rh / 2, rh * 0.9, [1, 0.62, 0.25], 0.45 * p, 2.4); L.sprite('boulder_mg_b', sx(z.x) - rw / 2, yy, { w: rw, h: rh }); }]); }
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
     for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([e.y - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
-    for (const p of R.drops) if (vis(p.x, p.y)) Y.push([p.y, () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);
+    for (const p of R.drops) if (vis(p.x, p.y)) Y.push([p.y + (p.kind === 'item' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
     Y.push([h.y + (GT - h.atkT >= 0 && GT - h.atkT < 0.2 ? 90 : 0), () => {   // during the strike the blade must read over the target it hits
       L.shadow(sx(h.x), sy(h.y) + 2, 20, 6, 0.85);
       if (GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
@@ -2336,10 +2336,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           L.glow(sx(px - sn * jig), sy(py + co * jig), c.w * 0.75, [1, 0.45, 0.1], 0.75 * cool * hot, 2.2); L.star(sx(px - sn * jig), sy(py + co * jig), 5, [1, 0.8, 0.4], 0.6 * cool * hot); } }
       for (const q of R.rocks || []) { if (q.x === undefined || GT < q.t0 || !known(q.x, q.y)) continue; const f = Math.min(1, (GT - q.t0) / (q.t - q.t0)), X = sx(q.x), Y0 = sy(q.y), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * f));
         if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.06); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
-        else L.ring(X, Y0, q.r, q.r * 0.75, [0.95, 0.82, 0.62], (0.25 + 0.55 * f) * beat, 0.1); }
+        else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.62, 0.3], (0.4 + 0.55 * f) * beat, 0.1); L.glow(X, Y0, q.r * 0.7, [1, 0.5, 0.2], 0.2 * f, 2); } }
     }
     // a vent's warning (TASKS 406), from its clock: the ring it will throw lava over heats up and beats faster, its mouth bubbles
-    for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue;
+    for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn);
+      if (w < 0) { const X = sx(z.x), Y0 = sy(z.y), br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z.x);   // a live vent smoulders at rest, a dead crack doesn't
+        L.ring(X, Y0, H.r * 0.4, H.r * H.ry * 0.4, [1, 0.35, 0.08], 0.28 * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], 0.3 * br, 2.4);
+        for (let j = 0; j < 2; j++) { const b = (GT * 0.5 + rnd(z.x + z.y, j)) % 1; L.puff(X + (rnd(z.x, j + 3) - 0.5) * 14, Y0 - 4 - 26 * b, 3 + 3 * b, [0.5, 0.4, 0.34], 0.3 * (1 - b), j); } continue; }
       const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(GT * (9 + 16 * q));
       L.ring(X, Y0, H.r, H.r * H.ry, [1, 0.4, 0.1], (0.18 + 0.7 * q) * beat, 0.06); L.ring(X, Y0, H.r * 0.55, H.r * H.ry * 0.55, [1, 0.5, 0.15], 0.35 * q * beat, 0.1);
       L.glow(X, Y0 - 4, 18 + 30 * q, [1, 0.55, 0.15], 0.2 + 0.7 * q, 2.4);
@@ -2514,7 +2517,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // a drowned's blow sheds water, not blood; a slime's spatters green gobs (and more of them when it lands, splits or bursts)
       if (e.k === 'hit' && a < 0.45 && !e.fire && BLOOD(e.type) === 'water') { const col = B.water.map((v) => Math.min(1, v * 3 + 0.2));
         for (let j = 0; j < 5; j++) { const an = rnd(e.t, j + 20) * 6.28, v = 30 + 40 * rnd(e.t, j + 4), u = Math.min(a, 0.4); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u * 0.6 - 40 * u + 300 * u * u, 2, 4, col, an, 1, 2, 1 - SS(0.3, 0.45, a)); } }
-      { const gob = e.k === 'hit' && !e.fire && BLOOD(e.type) === 'slime' ? 5 : e.k === 'land' ? 4 : e.k === 'split' ? 12 : e.k === 'kill' && BLOOD(e.type) === 'slime' ? 9 : 0;
+      { const gob = e.k === 'hit' && !e.fire && BLOOD(e.type) === 'slime' ? 5 : e.k === 'land' && BLOOD(e.type) === 'slime' ? 4 : e.k === 'split' ? 12 : e.k === 'kill' && BLOOD(e.type) === 'slime' ? 9 : 0;
         if (gob && a < 0.55) { const big = e.k === 'split' || e.type === 'slime' ? 1 : 0.7;
           for (let j = 0; j < gob; j++) { const an = rnd(e.t, j + 30) * 6.28, v = (40 + 60 * rnd(e.t, j + 4)) * big, u = Math.min(a, 0.45), up = e.k === 'hit' ? 40 : 90;
             const px = ex + Math.cos(an) * v * u, py = ey - (e.k === 'hit' ? 0 : 12) + Math.sin(an) * v * u * 0.55 - up * u + 380 * u * u, sz = (3 + 2 * rnd(e.t, j + 9)) * big;
@@ -2965,6 +2968,22 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the magma caves' staged moments stand on a plain plateau floor (a run's first floor is a lava cave, TASKS 426): run 3's first
     // plain floor, else the next run's
     const plainMagma = (S) => { for (let sd = 3; sd < 60; sd++) { S.run = SIM.newRun(S, 'magma', sd); for (let f = 2; f <= 3; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'plain') return S.run; } } return S.run; };
+    // the magma kinds' moves, loops and cycles (TASKS 454) play on their own floor, not the crypt's: the hero in a plateau's hall with
+    // bare floor 14 cells to his left (where he stands for a blow) and 10 to his right (a priest's or an imp's range), the spot of
+    // those with the most lava round it
+    const MG = new Set(['skel_ember', 'fire_priest', 'imp', 'golem', 'salamander']); let mgS = null;
+    const playMg = (fn) => { if (!mgS) { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, W = m.W, crust = new Set(m.crust); let best = null;
+        for (let y = 3; y < m.H - 4; y++) for (let x = 14; x < W - 10; x++) { let ok = true;
+          for (let j = -3; j <= 4 && ok; j++) for (let i = -14; i <= 10 && ok; i++) { const k = (y + j) * W + x + i; ok = m.cells[k] === 1 && !crust.has(k); } if (!ok) continue;
+          let n = 0; for (let j = -8; j <= 8; j++) for (let i = -8; i <= 12; i++) if (m.cells[(y + j) * W + x + i] === 3) n++; if (!best || n > best[2]) best = [x, y, n]; }
+        if (!best) throw new Error('no bare hall for the magma kinds');
+        const h = R.hero, hx = (best[0] + 0.5) * TILE, hy = (best[1] + 0.5) * TILE, inBox = (p) => p.x > hx - 15 * TILE && p.x < hx + 11 * TILE && p.y > hy - 5 * TILE && p.y < hy + 6 * TILE;
+        for (const k of ['decor', 'torches', 'traps', 'hazards', 'webs', 'rugs']) if (m[k]) m[k] = m[k].filter((p) => !inBox(p));
+        m.block = m.block.filter((k) => !inBox({ x: (k % W + 0.5) * TILE, y: (Math.floor(k / W) + 0.5) * TILE }));
+        for (const k of ['pots', 'chests', 'shrines', 'drops']) if (R[k]) R[k] = R[k].filter((p) => !inBox(p));
+        R.en = []; R.proj = []; R.fires = []; S.ev = []; h.x = hx; h.y = hy; h.vx = h.vy = 0; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [hx - VW / 2, hy - VH / 2]; mgS = S; }
+      const S = structuredClone(mgS); if (fn) fn(S); return S; };
+    const playOf = (ty) => (MG.has(ty) ? playMg : play);
     // each way a secret hides: whole (from a step away, where the draught or a banner's sway is the only tell), worked (a blow
     // on a wall or a shelf, a banner torn, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
     const secretS = (f, stage, age = 0, mode = 'campaign') => { for (let sd = 1; sd < 120; sd++) for (let fl = 1; fl <= (mode === 'cave' || mode === 'magma' ? 4 : 1); fl++) { const S = play(); S.run = SIM.newRun(S, mode, sd); if (fl > 1) SIM.enterFloor(S, S.run, fl); const R = S.run, m = R.map, q = m.secrets.find(f); if (!q) continue;
@@ -3224,22 +3243,28 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // leap, one drawing back to throw with the spark in its hand, a spark on its way, one standing across the lava. Golems: one
     // in its whole crust walking up, one heaving its fists up for the slam with its crust half gone, the pool of one fallen
     // apart. Salamanders: one swimming, one breathing fire up the bank with its fire on the floor, one drawing breath on land
+    let mgLava = null;
     { const S0 = play(); plainMagma(S0); const m = S0.run.map, W = m.W, crust = new Set(m.crust), lav = (x, y) => m.cells[y * W + x] === 3 && !crust.has(y * W + x);
-      // a floor cell of a big hall with four cells of open lava to its right, two to four cells on
+      // a floor cell of a big hall with four cells of open lava to its right, two to four cells on, and the far bank (fx, three
+      // floor cells across) no more than ten cells on
+      const bank = (x, y) => { for (let i = x + 6; i <= x + 10; i++) if ([0, 1, 2].every((j) => m.cells[y * W + i + j] === 1 && m.cells[(y - 1) * W + i + j] === 1)) return i; return 0; };
       let spot = null; for (const r of m.rooms.filter((q) => q.type !== 'secret' && q.type !== 'start').sort((a, b) => b.w * b.h - a.w * a.h)) { for (let y = r.y + 2; y < r.y + r.h - 2 && !spot; y++) for (let x = r.x + 2; x < r.x + r.w && !spot; x++)
-        if (m.cells[y * W + x] === 1 && m.cells[y * W + x - 1] === 1 && m.cells[y * W + x - 2] === 1 && [2, 3, 4, 5].every((i) => lav(x + i, y)) && [2, 3, 4].every((i) => lav(x + i, y - 1) && lav(x + i, y + 1))) spot = [x, y, r]; if (spot) break; }
-      const stage = (name, f) => { const S = structuredClone(S0); S.screen = 'play'; const R = S.run, h = R.hero, [x, y, r] = spot || [m.rooms[1].cx, m.rooms[1].cy, m.rooms[1]];
+        if (m.cells[y * W + x] === 1 && m.cells[y * W + x - 1] === 1 && m.cells[y * W + x - 2] === 1 && [2, 3, 4, 5].every((i) => lav(x + i, y)) && [2, 3, 4].every((i) => lav(x + i, y - 1) && lav(x + i, y + 1)) && bank(x, y)) spot = [x, y, r, bank(x, y)]; if (spot) break; }
+      if (!spot) throw new Error('no hall by the lava with a far bank for the magma kinds');
+      mgLava = { S0, spot };
+      const stage = (name, f) => { const S = structuredClone(S0); S.screen = 'play'; const R = S.run, h = R.hero, [x, y, r, fx] = spot;
         h.x = (x - 3.5) * TILE; h.y = (y + 0.5) * TILE + 6; h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x + 120 - VW / 2, h.y - VH / 2]; S.t = R.t = 40; R.fires = []; R.proj = []; S.ev = [];
         const mk = (id, type, dx, dy, o) => Object.assign({ id, type, x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: S.t - 1, face: dx > 0 ? -1 : 1, aimA: Math.atan2(-dy, -dx),
           cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9, leapT: 1e9, lookT: 1e9, brT: 1e9 }, o);
-        f(S, R, h, mk, x, y); states.push([name, S]); };
+        f(S, R, h, mk, x, y, fx); states.push([name, S]); };
       const lavaX = (x) => (x + 3.5) * TILE;
-      stage('magma_imp', (S, R, h, mk, x, y) => { const L0 = D.ENEMIES.imp.leap, lx = h.x + 150, ly = h.y - 30, ltx = lavaX(x) + 3 * TILE, lty = h.y + 10, ld = 0.16 + Math.hypot(ltx - lx, lty - ly) / L0.spd, u = L0.crouch + ld * 0.5;
-        R.en = [mk(1301, 'imp', lx + (ltx - lx) * 0.5, ly + (lty - ly) * 0.5, { st: 'leap', t0: S.t - u, lx, ly, ltx, lty, ld, face: 1 }), mk(1302, 'imp', 200, 90, { st: 'wind', t0: S.t - 0.35, claw: 0, tx: h.x, ty: h.y, aimA: Math.PI }),
-          mk(1303, 'imp', lavaX(x) - h.x + 4.5 * TILE, -40, { st: 'idle' })];
+      // the leap from the near bank (x) to the far one (fx) over the lava, caught at its top
+      stage('magma_imp', (S, R, h, mk, x, y, fx) => { const L0 = D.ENEMIES.imp.leap, lx = (x + 0.5) * TILE, ly = h.y - 20, ltx = (fx + 0.6) * TILE, lty = h.y - 10, ld = 0.16 + Math.hypot(ltx - lx, lty - ly) / L0.spd, u = L0.crouch + ld * 0.5;
+        R.en = [mk(1301, 'imp', (lx + ltx) / 2 - h.x, (ly + lty) / 2 - h.y, { st: 'leap', t0: S.t - u, lx, ly, ltx, lty, ld, face: 1 }), mk(1302, 'imp', 100, 6, { st: 'wind', t0: S.t - 0.35, claw: 0, tx: h.x, ty: h.y, aimA: Math.PI }),
+          mk(1303, 'imp', (fx + 1.8) * TILE - h.x, -40, { st: 'idle' })];
         R.proj = [{ id: 1310, src: 1303, who: 'imp', k: 'spark', kind: 'fire', x: h.x + 90, y: h.y - 26, vx: -290, vy: 0, t0: S.t - 0.4, life: 2, dmg: 1, own: 'en', r: 5, gz: 26 }]; });
       stage('magma_golem', (S, R, h, mk) => { const E = D.ENEMIES.golem;
-        R.en = [mk(1401, 'golem', 140, 60, { vx: -E.spd, dist: 40, face: -1 }), mk(1402, 'golem', 230, -60, { st: 'wind', t0: S.t - E.wind * 0.7, crust: 2, tx: h.x, ty: h.y, aimA: Math.PI })];
+        R.en = [mk(1401, 'golem', -290, 40, { vx: E.spd, dist: 40, face: 1 }), mk(1402, 'golem', -130, -95, { st: 'wind', t0: S.t - E.wind * 0.7, crust: 2, tx: h.x, ty: h.y, face: 1, aimA: 0.4 })];   // (in the hall: the bank is three cells wide)
         R.fires = [{ id: 1410, src: 1403, who: 'golem', x: h.x - 80, y: h.y + 90, t0: S.t - 0.8, r: E.pool.r, ry: E.pool.ry, t: E.pool.t, dmg: 0, per: E.pool.per, kind: 'pool' }]; });
       stage('magma_salamander', (S, R, h, mk, x) => { const B = D.ENEMIES.salamander.breath, sx0 = lavaX(x) - h.x;
         R.en = [mk(1501, 'salamander', sx0 + 40, 10, { st: 'idle', fa: Math.PI / 2, lv: 1, lvT: S.t - 2, vx: 0, vy: 30, dist: 30 }), mk(1502, 'salamander', sx0 - 3 * TILE, -70, { st: 'strike', t0: S.t - 0.3, br: 1, fa: Math.PI - 0.3, aimA: Math.PI - 0.3 }),
@@ -3257,10 +3282,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         if (best) { h.x = best[0]; h.y = best[1]; const foe = R.en.find((e) => e.type === 'skeleton') || R.en[0];
           R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 600); if (foe) R.en.push(Object.assign(structuredClone(foe), { id: 9201, x: h.x + 70, y: h.y + 10, st: 'chase', face: -1 }));
           R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [(h.x + sh.x) / 2 - VW / 2, (h.y + sh.y) / 2 - VH / 2]; states.push(['magma_light', S]); } } }
+    // a ridge between the lava and the chasm: lava within three cells on one side, the chasm on the other
     { const S = play(); plainMagma(S); S.screen = 'play'; const R = S.run, m = R.map, W = m.W, h = R.hero;
-      const low =(k) => SIM.chasm(m, k % W, Math.floor(k / W)) || m.cells[k] === 3, inRoom = (k) => DUNGEON.roomAt(m, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE) >= 0;
-      const score = (k) => [1, 2, 3].some((d) => low(k - d)) && [1, 2, 3].some((d) => low(k + d)) && [1, 2, 3].some((d) => SIM.chasm(m, (k + W * 2 + d) % W, Math.floor((k + W * 2) / W)) || SIM.chasm(m, (k - d) % W, Math.floor(k / W)));
-      let best = -1; for (let k = W * 8; k < m.cells.length - W * 8 && best < 0; k++) if (m.cells[k] === 1 && !inRoom(k) && score(k)) best = k;
+      const ch = (k) => SIM.chasm(m, k % W, Math.floor(k / W)), lv = (k) => m.cells[k] === 3, inRoom = (k) => DUNGEON.roomAt(m, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE) >= 0;
+      const side = (k, o, f) => [1, 2, 3].some((d) => f(k + o * d)), score = (k) => [1, W].some((o) => (side(k, -o, lv) && side(k, o, ch)) || (side(k, -o, ch) && side(k, o, lv)));
+      let best = -1; for (const out of [1, 0]) for (let k = W * 8; k < m.cells.length - W * 8 && best < 0; k++) if (m.cells[k] === 1 && (!out || !inRoom(k)) && score(k)) best = k;
       if (best >= 0) { const x = (best % W + 0.5) * TILE, y = (Math.floor(best / W) + 0.5) * TILE; h.x = x; h.y = y; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 500); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x - VW / 2, y - VH / 2]; states.push(['magma_crossing', S]); } }
     // the magma caves' lava (TASKS 401): each kind of crossing over a river, a lake with its source, the crust giving under the hero
     // beside a cell of it melted, and monsters knocked off a plateau, one sinking in the lava and one dropping into the chasm
@@ -3468,9 +3494,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const swings = {};
     for (const deg of [-135, -90, -45, 0, 45, 90, 135, 180]) swings['hero_swing_' + (deg < 0 ? 'm' + -deg : deg)] = [...Array(30).keys()].map((i) => swingAt(deg * Math.PI / 180, -0.03 + i / 60, 1));
     // enemy attacks played by the sim 1/60 s apart: wind-up → strike → back to the chase must not pop
-    const enemyT = (ty, elite, move = 'slam', phase = 0, extra = {}) => { const fr = []; let S = play((S) => { const R = S.run, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5), h = R.hero, E = D.ENEMIES[ty];
-      h.x = (r.x + 2) * TILE; h.y = (r.y + r.h / 2) * TILE; h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2];
-      R.en = [{ id: 990, type: ty, x: h.x + 34 + E.r, y: h.y, tx: h.x, ty: h.y, vx: 0, vy: 0, hp: E.hp * (phase ? 0.4 : 1), max: E.hp, dmg: 1, elite, room: r.id, st: D.BOSSES[ty] ? 'bwind' : 'wind', mv: move, phase, bossVersion: 1, t0: S.t,
+    const enemyT = (ty, elite, move = 'slam', phase = 0, extra = {}) => { const fr = []; let S = playOf(ty)((S) => { const R = S.run, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5), h = R.hero, E = D.ENEMIES[ty];
+      if (!MG.has(ty)) { h.x = (r.x + 2) * TILE; h.y = (r.y + r.h / 2) * TILE; } h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2];
+      R.en = [{ id: 990, type: ty, x: h.x + 34 + E.r, y: h.y, tx: h.x, ty: h.y, vx: 0, vy: 0, hp: E.hp * (phase ? 0.4 : 1), max: E.hp, dmg: 1, elite, room: MG.has(ty) ? DUNGEON.roomAt(R.map, h.x, h.y) : r.id, st: D.BOSSES[ty] ? 'bwind' : 'wind', mv: move, phase, bossVersion: 1, t0: S.t,
         face: -1, aimA: Math.PI, targetD: 34 + E.r, travel: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }]; if (ty === 'boss_colossus' && move === 'charge') {
         const e = R.en[0], m = R.map, cx = Math.floor(e.x / TILE), cy = Math.floor(e.y / TILE);
         for (let y = cy - 4; y <= cy + 4; y++) for (let x = cx - 12; x <= cx + 3; x++) if (x > 0 && y > 0 && x < m.W - 1 && y < m.H - 1) m.cells[y * m.W + x] = 1;
@@ -3483,8 +3509,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let i = 0; i < (ty === 'boss_colossus' ? 200 : move === 'weave' || move === 'charge' ? 180 : 100); i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };   // the sim steps 1/120 s; frames are 1/60 s
     // monster walk cycles, right and down: one stride in 12 frames (the rig's own stride), subject en990
     const enCyc = (ty, dx, dy) => { const out = [], n = D.BOSSES[ty] ? 24 : 12, H0 = SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1), st = MONSTERS.stride(ty, H0), E = D.ENEMIES[ty];
-      for (let i = 0; i < n; i++) { const S = play((S) => { const R = S.run, h = R.hero, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5); R.msg = null; R.seen = R.seen.map(() => 1);
-        h.x = (r.x + 1) * TILE; h.y = (r.y + 1) * TILE + 20; const x0 = (r.x + r.w / 2) * TILE, y0 = (r.y + r.h / 2) * TILE, d = i * st / n;
+      for (let i = 0; i < n; i++) { const S = playOf(ty)((S) => { const R = S.run, h = R.hero, r = R.map.rooms.find((q) => q.id !== R.map.start && q.w >= 7 && q.h >= 5); R.msg = null; R.seen = R.seen.map(() => 1);
+        const mg = MG.has(ty), hx = h.x, hy = h.y; h.x = mg ? hx - 4 * TILE : (r.x + 1) * TILE; h.y = mg ? hy - 2 * TILE : (r.y + 1) * TILE + 20;
+        const x0 = mg ? hx + TILE : (r.x + r.w / 2) * TILE, y0 = mg ? hy : (r.y + r.h / 2) * TILE, d = i * st / n;
         R.en = [{ id: 990, type: ty, x: x0 + dx * d, y: y0 + dy * d, vx: dx * E.spd, vy: dy * E.spd, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: -9, face: dx < 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: d, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
         R.cam = [x0 - VW / 2, y0 - VH / 2]; }); out.push(S); } return out; };
     const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'skel_ember', 'fire_priest', 'imp', 'golem', 'salamander', 'boss_spider', 'boss_necro', 'boss_forge', 'boss_colossus']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
@@ -3542,7 +3569,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         transitions['colossus_death_' + move] = frames;
       }
     }
-    const eventT = (prep, kill) => { const fr = []; let S = play(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
+    const eventT = (prep, kill, ty) => { const fr = []; let S = playOf(ty)(prep); for (let i = 0; i < 75; i++) { if (i === 5) kill(S); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
     const heroDies = (S) => { const h = S.run.hero; h.hp = 0; h.deadT = S.t; };
     transitions.hero_death = eventT((S) => { S.run.en = []; S.run.msg = null; }, heroDies);
     transitions.hero_death_run = eventT((S) => { S.run.en = []; S.run.msg = null; const h = S.run.hero; h.vx = SIM.K.RUN; h.gp = 1.3; }, heroDies);
@@ -3571,18 +3598,32 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     transitions.skeleton_death = eventT(lone('skeleton'), kill); transitions.skeleton_death_burst = eventT(lone('skeleton', 991), kill); transitions.skeleton_death_topple = eventT(lone('skeleton', 992), kill);
     transitions.spider_death = eventT(lone('spider'), kill); transitions.spider_death_curl = eventT(lone('spider', 991), kill);
     // the two ways each of the rest goes down (id % 2), the ghost's one; then a blow on every type (the flinch)
-    for (const ty of ['goblin', 'brute', 'cultist', 'fire_priest', 'boss']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill); }
+    for (const ty of ['goblin', 'brute', 'cultist', 'fire_priest', 'boss']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
     transitions.ghost_death = eventT(lone('ghost'), kill);
     for (const ty of ['skel_archer', 'skel_mage']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_burst'] = eventT(lone(ty, 991), kill); transitions[ty + '_death_topple'] = eventT(lone(ty, 992), kill); }
     // a smouldering skeleton struck down: its bones lie with the fuse burning, then burst
     const emberKill = (S) => { kill(S); const e = S.run.en[0], B = D.ENEMIES.skel_ember.boom; e.fuse = S.t + B.fuse; S.ev.push({ k: 'fuse', t: S.t, x: e.x, y: e.y, r: B.r, d: B.fuse, id: e.id }); };
-    transitions.skel_ember_death = eventT(lone('skel_ember'), emberKill); transitions.skel_ember_death_topple = eventT(lone('skel_ember', 992), emberKill);
-    for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander']) { transitions[ty + '_death'] = eventT(lone(ty), kill); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill); }
+    transitions.skel_ember_death = eventT(lone('skel_ember'), emberKill, 'skel_ember'); transitions.skel_ember_death_topple = eventT(lone('skel_ember', 992), emberKill, 'skel_ember');
+    for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
     // a golem's pool of lava where it fell apart, through its whole life (TASKS 409)
-    transitions.golem_pool = eventT(lone('golem'), (S) => { kill(S); const e = S.run.en[0], P = D.ENEMIES.golem.pool; S.run.fires = [{ id: 995, src: e.id, who: 'golem', x: e.x, y: e.y, t0: S.t, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; S.ev.push({ k: 'pool', t: S.t, x: e.x, y: e.y, r: P.r, d: P.t, id: e.id }); });
+    transitions.golem_pool = eventT(lone('golem'), (S) => { kill(S); const e = S.run.en[0], P = D.ENEMIES.golem.pool; S.run.fires = [{ id: 995, src: e.id, who: 'golem', x: e.x, y: e.y, t0: S.t, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; S.ev.push({ k: 'pool', t: S.t, x: e.x, y: e.y, r: P.r, d: P.t, id: e.id }); }, 'golem');
     // a blow on a golem's crust takes a plate off: sparks off the stone, a clang; with its crust gone its cracks blaze
     transitions.hit_golem_crust = eventT((S) => { lone('golem')(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { const e = S.run.en[0], h = S.run.hero; e.hitT = e.armT = S.t; e.crust = 1;
+      S.ev.push({ k: 'hit', t: S.t, x: e.x, y: e.y - D.ENEMIES.golem.h * 0.5 - 6, type: 'golem', n: 3, crit: 0, id: e.id, arm: 1, a: Math.atan2(h.y - e.y, h.x - e.x) }); }, 'golem');
+    const roll = (S, n, at) => { const fr = []; for (let i = 0; i < n; i++) { if (at) at(S, i); fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };
+    // the golem's crust struck off plate by plate, then grown back plate by plate once the hero has gone off (TASKS 454)
+    transitions.golem_crust_off = roll(playMg(lone('golem')), 150, (S, i) => { if (i < 5 || (i - 5) % 25 || i > 80) return; const e = S.run.en[0], h = S.run.hero;
+      e.crust = (e.crust ?? D.ENEMIES.golem.crust.n) - 1; e.hitT = e.armT = e.blowT = e.growT = S.t;
       S.ev.push({ k: 'hit', t: S.t, x: e.x, y: e.y - D.ENEMIES.golem.h * 0.5 - 6, type: 'golem', n: 3, crit: 0, id: e.id, arm: 1, a: Math.atan2(h.y - e.y, h.x - e.x) }); });
+    transitions.golem_crust_regrow = roll(playMg((S) => { lone('golem')(S); const h = S.run.hero, e = S.run.en[0], C = D.ENEMIES.golem.crust; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2];
+      Object.assign(e, { crust: 0, blowT: S.t - C.calm - 1, growT: S.t - C.regrow + 0.2 }); }), 300);
+    // the salamander at the lava's bank of magma_salamander: down into the lava to heal, and up out of it once mended (TASKS 454)
+    { const { S0, spot: [x, y] } = mgLava, E = D.ENEMIES.salamander, sal = (o) => { const S = structuredClone(S0); S.screen = 'play'; const R = S.run, h = R.hero;
+        h.x = (x - 3.5) * TILE; h.y = (y + 0.5) * TILE + 6; h.ifr = 1e9; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; R.camV = [0, 0]; R.fires = []; R.proj = []; S.ev = [];   // (the camera at rest on its target: a camera still travelling jitters the art grid)
+        R.en = [Object.assign({ id: 990, type: 'salamander', x: (x + 0.5) * TILE, y: h.y, vx: 0, vy: 0, hp: E.hp * 0.3, max: E.hp, dmg: 1, elite: 0, room: DUNGEON.roomAt(R.map, h.x, h.y), st: 'soak', t0: S.t, face: 1, fa: 0, aimA: 0,
+          cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9, healT: S.t + 99, brT: 1e9, sx: (x + 3.5) * TILE, sy: h.y, soaked: 0, lv: 0, lvT: S.t - 2 }, o(S))]; return S; };
+      transitions.salamander_submerge = roll(sal(() => ({})), 150);
+      transitions.salamander_emerge = roll(sal((S) => ({ x: (x + 3.5) * TILE, hp: E.hp, soaked: 1, soakT: S.t - 2, fa: Math.PI, face: -1, lv: 1 })), 150); }
     // the drowned stands up out of the shallows (the hero out of its sense: the rise is the event's), and sinks back at its post
     const lurk = (S) => { lone('drowned')(S); const e = S.run.en[0], h = S.run.hero; h.x -= 140; e.st = 'lurk'; e.t0 = -9; };
     transitions.drowned_rise = eventT(lurk, (S) => { const e = S.run.en[0]; e.st = 'rise'; e.t0 = S.t; S.ev.push({ k: 'rise', t: S.t, x: e.x, y: e.y, id: e.id }); });
@@ -3590,7 +3631,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // a blow off the crab's armour: sparks, the claws driven back, no flinch of the shell
     transitions.hit_crab_armor = eventT((S) => { lone('crab')(S); const h = S.run.hero; S.run.cam = [h.x - VW / 2, h.y - VH / 2]; }, (S) => { const e = S.run.en[0], h = S.run.hero; e.hitT = e.armT = S.t;
       S.ev.push({ k: 'hit', t: S.t, x: e.x, y: e.y - D.ENEMIES.crab.h * 0.5 - 6, type: 'crab', n: 3, crit: 0, id: e.id, arm: 1, a: Math.atan2(h.y - e.y, h.x - e.x) }); });
-    for (const ty of ['skeleton', 'spider', 'brute', 'cultist', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', 'skel_ember', 'fire_priest', 'imp', 'salamander']) transitions['hit_' + ty] = eventT((S) => { lone(ty)(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
+    for (const ty of ['skeleton', 'spider', 'brute', 'cultist', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', 'skel_ember', 'fire_priest', 'imp', 'salamander']) transitions['hit_' + ty] = eventT((S) => { lone(ty)(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; }, ty);
     transitions.goblin_attack = enemyT('goblin', 0);
     transitions.goblin_hit = eventT((S) => { lone('goblin')(S); const h = S.run.hero; h.x -= 400; S.run.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; }, (S) => { S.run.en[0].hitT = S.t; });
     // a monster at its post, 2 s at 1/60 s: breathing, a turn and a shift about the spot
@@ -3664,7 +3705,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = structuredClone(states.find(([name]) => name === 'win_cave')[1]), R = SIM.newRun(S, 'magma', 71);
       S.result.mode = 'magma'; S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta); S.result.lvl = 17; states.push(['win_magma', S]); }
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
-    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage']) { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null;
+    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', ...MG]) { const fr = []; let S = playOf(ty)((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - VW / 2, h.y - VH / 2]; });
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }
@@ -3775,7 +3816,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     }
     // starting a run or a floor fades the screen in from black; every QA state but the one that checks it is looked at in full light
     const calm = (o, seen = new Set()) => { if (!o || typeof o !== 'object' || seen.has(o) || (Array.isArray(o) && typeof o[0] === 'number')) return; seen.add(o);
-      if (Array.isArray(o.ev) && 'screen' in o && !o.keepFloor) o.ev = o.ev.filter((e) => e.k !== 'floor'); for (const v of Object.values(o)) calm(v, seen); };
+      if ('screen' in o) { if (Array.isArray(o.ev) && !o.keepFloor) o.ev = o.ev.filter((e) => e.k !== 'floor'); return; }   // (a state holds no states: walking its map overflowed the Set)
+      for (const v of Object.values(o)) calm(v, seen); };
     // what the hero wears (TASKS 155): every armour with a matching set, from the front and from behind, alone in a lit room; the
     // walk cycles again in the full plate set (its parts must move like the plain rig's)
     const KIT = { none: {}, leather: { armor: 'leather_armor', helm: 'leather_helm', gloves: 'leather_gloves', boots: 'boots', offhand: 'buckler' },

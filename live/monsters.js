@@ -78,7 +78,7 @@
       arms[side] = { S0, E0, Sp, E, Hd, r1: r[0], r2: r[1] }; }
     // a crumbling body lets every piece go (o.crumble: { t: seconds since death, kind, dir: the killing blow's screen angle }):
     //   pile   — each piece drops on its own under gravity from where it was, slowed just before the floor, bounces once and lies
-    //            scattered; the skull lands and rolls away
+    //            scattered, more of it away from the blow than toward it; the skull lands and rolls away from the blow
     //   burst  — the pieces fly off away from the blow on arcs, land softly and skid to a stop, spinning
     //   topple — the scene's fall (fallR) first; on landing the pieces come apart where they lie and the skull rolls on
     // Identity at its start: no pop on death
@@ -97,8 +97,8 @@
       const restY = root[1] - 0.03 * H + (hsh(key, 1) - 0.5) * 0.14 * H * sc, dyM = Math.max(0, restY - at[1]);
       const tl = 1.15 * Math.sqrt(2 * Math.max(1, dyM) / g), q = Math.min(1, tt / tl), v = tt - tl;
       const hop = v > 0 && v < 0.16 ? 0.05 * H * (0.5 + hsh(key, 2)) * Math.max(top ? 0.4 : 0, Math.min(1, dyM / (0.4 * H))) * Math.sin(Math.PI * v / 0.16) : 0;
-      const rollD = skull ? (top ? (Math.cos(CK.dir ?? (face > 0 ? Math.PI : 0)) >= 0 ? 1 : -1) : hsh(key, 5) < 0.5 ? -1 : 1) * (0.35 + 0.25 * hsh(key, 6)) * H : 0, roll = v > 0 ? rollD * (1 - Math.exp(-v / 0.28)) * SS(0, 0.12, v) : 0;
-      const dx = (hsh(key, 3) - 0.5) * 0.6 * H * sc * SS(0, tl + 0.1, tt) + roll, dy = dyM * (2.6 * q * q - 1.6 * q * q * q) - hop;   // gravity, slowed just before the floor
+      const away = Math.cos(CK.dir ?? (face > 0 ? Math.PI : 0)), rollD = skull ? (away >= 0 ? 1 : -1) * (0.35 + 0.25 * hsh(key, 6)) * H : 0, roll = v > 0 ? rollD * (1 - Math.exp(-v / 0.28)) * SS(0, 0.12, v) : 0;
+      const dx = (hsh(key, 3) - 0.5 + (top ? 0 : 0.3 * away)) * 0.6 * H * sc * SS(0, tl + 0.1, tt) + roll, dy = dyM * (2.6 * q * q - 1.6 * q * q * q) - hop;   // gravity, slowed just before the floor
       const spin = (o.n === 'colossus' && ribs ? ((Math.cos(CK.dir ?? 0) >= 0 ? 1 : -1) * 1.35 - lean) * SS(0.12, 0.9, cr) : (ribs ? (hsh(key, 4) - 0.5) * (top ? 0.5 : 1) : (hsh(key, 4) - 0.5) * 3 * sc) * SS(0, tl + 0.12, tt)) + roll / (0.1 * H);
       return (CR[key] = M.of(M.t(c[0] + dx, c[1] + dy), M.r(spin), M.t(-c[0], -c[1]))); };
     const piece = (key, at, f, c) => { const m = crOf(key, at, c), pre = L.pre; if (m) L.pre = pre ? M.mul(pre, m) : m; try { f(); } finally { L.pre = pre; } };
@@ -320,18 +320,18 @@
   const LZ = { qy: 0.8, sl: 0.13, reach: 0.82, set: [0, 1, 1, 0], out: [0.95, 0.85], fwd: [0.12, -0.18] };
   function lizard(o) {
     const RG = RIGS.salamander, s = o.H / RG.h, fa = o.fa, cf = Math.cos(fa), sf = Math.sin(fa), qy = LZ.qy, c = RG.c, A = RG.legA, B = RG.legB;
-    const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp) * (1 - (o.swim || 0)), sw = o.swim || 0, curl = o.curl || 0, lunge = o.lunge || 0;
+    const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp) * (1 - (o.swim || 0)), sw = o.swim || 0, curl = o.curl || 0, lunge = o.lunge || 0, fl = o.flinch || 0;
     const sl = LZ.sl * o.H, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU, breath = Math.sin(o.t * 1.6 + (o.seed || 0));
-    const root = [o.x + cf * lunge * 0.08 * o.H, o.y + sf * lunge * 0.08 * o.H * qy];
+    const root = [o.x + cf * (lunge * 0.08 - fl * 0.07) * o.H, o.y + sf * (lunge * 0.08 - fl * 0.07) * o.H * qy];
     // the body's S: the tail swings against the head over each stride, idles in a slow sway, curls as it dies
-    const tail = (0.32 * run * Math.sin(ph) + 0.1 * (1 - run) * Math.sin(o.t * 1.3 + (o.seed || 0)) + 0.08 * sw * Math.sin(o.t * 2.2)) * (1 - curl) + 0.9 * curl;
-    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - lunge) * (1 - curl) - 0.3 * curl;
+    const tail = (0.32 * run * Math.sin(ph) + 0.1 * (1 - run) * Math.sin(o.t * 1.3 + (o.seed || 0)) + 0.08 * sw * Math.sin(o.t * 2.2)) * (1 - curl) + 0.9 * curl + 0.25 * fl;
+    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - lunge) * (1 - curl) - 0.3 * curl - 0.2 * fl;
     // body px → floor (u ahead, v to its right) about its middle, with the soft bones turned as the shader turns them; floor → screen
     const bend = (px, py) => { let p = [px, py]; const [b0, b1, b2] = RG.bones;
       if (py > b2[1]) p = rotP(p, b2, tip); if (py > b0[1]) p = rotP(p, b0, tail); if (py < b1[1]) p = rotP(p, b1, neck); return p; };
     const UV = (px, py) => { const p = bend(px, py); return [-(p[1] - c[1]) * s, (p[0] - c[0]) * s]; };
     const S2 = (u, v, z = 0) => [root[0] + u * cf - v * sf, root[1] + (u * sf + v * cf) * qy - z];
-    const lift = (0.025 + 0.015 * Math.abs(Math.sin(2 * ph)) * run) * o.H * (1 - sw) + 0.01 * o.H * breath * (1 - run);
+    const lift = (0.025 + 0.019 * Math.sin(2 * ph) ** 2 * run) * o.H * (1 - sw) + 0.01 * o.H * breath * (1 - run);
     // legs: rest foot out from its socket and a little ahead (front) or behind (hind); the stance foot slides back at body speed,
     // the swing foot comes forward on a lift arc
     const l1 = d2(A.root, A.end) * s * LZ.reach, l2 = d2(B.root, B.end) * s * LZ.reach, legs = [];
@@ -355,7 +355,7 @@
     const J = (nm, p) => L.joint(o.id, nm, p), at = (px, py, z = lift) => { const q = UV(px, py); return S2(q[0], q[1], z); };
     // top: a fixed third of its length over its middle (seen from above, its back's far edge swings with the facing; the checks
     // measure every motion against it); snout, not head: a lizard's head swings sideways, it does not bob like a walker's
-    J('ground', [o.x, o.y]); J('top', [o.x, o.y - 0.35 * o.H]); J('snout', at(RG.nose[0], RG.nose[1] + 30, lift + 0.08 * o.H)); J('tail', at(RG.tail[0], RG.tail[1]));
+    J('ground', [o.x, o.y]); J('top', [root[0], root[1] - 0.35 * o.H - lift]); J('snout', at(RG.nose[0], RG.nose[1] + 30, lift + 0.08 * o.H)); J('tail', at(RG.tail[0], RG.tail[1]));
     legs.forEach((g, i) => J('foot' + i, g.T));
     return { mouth: at(RG.mouth[0], RG.mouth[1]), nose: at(RG.nose[0], RG.nose[1]), fa: fa + neck * 0.6 };
   }
@@ -375,7 +375,7 @@
     // a 6 s work loop, eased off while the hero stands close: a coin onto the scales, a look, a stroke of the beard
     const work = 1 - 0.7 * (o.near || 0), u = (t + (o.seed || 0)) % 6;
     const coin = bump(u, 0.2, 1.8) * work, peek = bump(u, 0.6, 1.6) * work, beard = bump(u, 2.6, 5.0) * work * (1 - wave), rub = beard * Math.sin(t * 9) * 0.12;
-    const breath = Math.sin(t * 1.8 + (o.seed || 0)), lift = breath * 4 - 10 * nod - 18 * recoil;
+    const breath = Math.sin(t * 1.8 + (o.seed || 0)), lift = breath * 4 - 10 * nod - 22 * recoil;
     const rL = [-0.18 * coin - 0.1 * nod + 0.65 * recoil, -0.18 * coin - 0.75 * coin - 0.1 * nod + 0.02 * breath - 1.3 * recoil];
     const rR = [lerp(0.32 * beard + 0.12 * nod, -1.9, wave) - 0.65 * recoil, lerp(0.32 * beard + 2.45 * beard + rub + 0.12 * nod, -2.6 + 0.4 * Math.sin(greet * 13), wave) - 1.4 * recoil];
     const arm = (side, r) => { const S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
@@ -440,6 +440,7 @@
   }
 
   // a spring's answer to a kick at time t0: the render can't integrate, so each event the sim timestamps adds its impulse response
+  const hitFl = (u) => (u >= 0 ? SS(0, 0.12, u) * (1 - SS(0.16, 0.45, u)) : 0);
   const ring = (t, t0, A, hz = 4.2, tau = 0.22) => { const u = t - t0; return u >= 0 && u < 6 * tau ? A * SS(0, 0.06, u) * Math.exp(-u / tau) * Math.sin(TAU * hz * u) : 0; };   // eased in: a kick, not a teleport
   // the goblin's ears (tips down > 0): pinned up while it coils, flung on the spring, a flinch on a hit and a turn,
   // a twitch now and then at rest, and they droop once it dies
@@ -473,9 +474,9 @@
     const RG = RIGS.imp, u = GT - e.t0;
     // (the crouch eases out over the take-off and back in before the landing: dropped in a frame, the whole body popped)
     if (e.st === 'leap') { const L0 = E.leap, fl = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), SS(0.6, 1, fl)) : 1 - SS(0, L0.land, u - L0.crouch - e.ld);
-      const air = fl > 0 && fl < 1 ? SS(0, 0.25, fl) * (1 - SS(0.6, 1, fl)) : 0, tuck = 0.16 * RG.h * air, z = MON.impArc(e, E, GT);
-      base.y -= z + tuck * H / RG.h; base.crouch += tuck + 0.14 * RG.h * cr; base.lean = (base.lean || 0) + face * (0.35 * air * (Math.cos(e.aimA) * face >= 0 ? 1 : -0.6) - 0.12 * cr);   // (a spring back leans back)
-      base.arm = (side, b) => { const r = lerp(lerp(b, b + 0.4, cr), -1.6 + (side === 'L' ? 0.3 : 0), air), k = Math.max(cr, air); return [r, r + lerp(0.18 - 0.4 * b, 0.3 + 0.4 * air, k)]; }; return; }
+      const air = fl > 0 && fl < 1 ? SS(0, 0.25, fl) * (1 - SS(0.6, 1, fl)) : 0, tuck = 0.16 * RG.h * air * (1 - 0.45 * SS(0.5, 0.9, fl)), z = MON.impArc(e, E, GT);
+      base.y -= z + tuck * H / RG.h; base.crouch += tuck + 0.14 * RG.h * cr; base.lean = (base.lean || 0) + face * (0.35 * air * (1 - 1.5 * SS(0.2, 0.85, fl)) * (Math.cos(e.aimA) * face >= 0 ? 1 : -0.6) - 0.12 * cr);   // (a spring back leans back)
+      base.arm = (side, b) => { const r = lerp(lerp(b, b + 0.4, cr), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), air), k = Math.max(cr, air); return [r, r + lerp(0.18 - 0.4 * b, 0.3 + 0.4 * air, k)]; }; return; }
     if (e.st === 'wind' || e.st === 'strike') { const E2 = e.claw ? E : { wind: E.spark.wind }, CO = e.claw ? IMP_CLAW : IMP_THROW, pose = (b) => chop(e, E2, GT, face, H, b, CO), p0 = pose(0);
       if (p0) { base.crouch += 12 * p0.k; base.arm = (side, b) => { if (side === 'R') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } return [b + 0.5 * p0.k, b + 0.2 + 0.3 * p0.k]; }; } }
   }
@@ -629,8 +630,8 @@
       const u = GT - e.t0, R0 = E.rush, ew = DATA.windOf(e, e.rush ? R0.wind : E.wind), Hh = H;
       const c = Object.assign(base, { fa: e.fa ?? (face > 0 ? 0 : Math.PI), trail: e.crabTrail });
       // a blow off the armour drives the claws back (they took it); one past it rocks the shell back
-      const hA = GT - (e.armT ?? -9), ra = hA >= 0 ? SS(0, 0.1, hA) * (1 - SS(0.16, 0.45, hA)) : 0, rb = Math.abs((e.hitT ?? -9) - (e.armT ?? -9)) > 1e-6 ? ring(GT, e.hitT, 1, 4, 0.15) : 0;
-      c.bx = -0.05 * Hh * rb; let P = () => ({});
+      const hA = GT - (e.armT ?? -9), ra = hA >= 0 ? SS(0, 0.1, hA) * (1 - SS(0.16, 0.45, hA)) : 0, rb = Math.abs((e.hitT ?? -9) - (e.armT ?? -9)) > 1e-6 ? ring(GT, e.hitT, 1, 4, 0.22) : 0;
+      c.bx = -0.08 * Hh * rb; let P = () => ({});
       // at rest the claws now and then click: the finger opens a little and snaps back
       const ck = (GT + e.id * 1.7) % (3.4 + (e.id % 3)), click = ck < 0.36 ? Math.sin(Math.PI * ck / 0.36) ** 2 : 0;
       if (!live) { const dd = GT - e.deadT, q = SS(0, 0.5, dd); c.curl = q; c.dead = dd; P = () => ({ u: -0.08 * Hh * q, v: 0.12 * Hh * q, z: -0.12 * Hh * q, open: 0.7 * q, in: 0.55 - 0.7 * q }); }
@@ -724,7 +725,7 @@
     if (n === 'salamander') { const u = GT - e.t0, B = E.breath, bw = DATA.windOf(e, e.br ? B.wind : E.wind), w = live && e.st === 'wind' ? SS(0, bw, u) : 0, str = live && e.st === 'strike';
       const sw = !live ? 0 : o.swim || 0, dd = live ? -1 : GT - e.deadT;
       return lizard({ id: o.id, x, y, H, fa: e.fa ?? (face > 0 ? 0 : Math.PI), dist: e.dist, vx: base.vx, vy: base.vy, t: o.t, seed: e.id, U: o.U, Ufar: o.Ufar, tex: o.tex, swim: sw,
-        lunge: e.br ? 0.3 * w + (str ? 0.3 * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0 }); }
+        lunge: e.br ? 0.3 * w + (str ? 0.3 * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0, flinch: live ? hitFl(GT - (e.hitT ?? -9)) : 0 }); }
     return false;
   };
 })();

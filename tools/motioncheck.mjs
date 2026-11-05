@@ -1,7 +1,7 @@
 // node tools/motioncheck.mjs [--json frames/motion.json] — this game's motion checks on the joint trace of SCENE.QA() transitions and
 // loops (states 1/60 s apart), the defects the generic qa.mjs measures pass:
 //   corpse    — *_death: on the last frame the head lies on the far side of the ground point from the hero who killed it, and the
-//               body's box stays clear of the hero's (a body that fell the way it faced landed on its killer)
+//               body's box overlaps the hero's no more than it did standing (a body that fell the way it faced landed on its killer)
 //   arm       — *_attack (skeleton, goblin, brute, boss): the weapon arm (shoulder → hand) sweeps at most SPAN of a turn over the whole
 //               attack (the old chop wound it a full turn round the shoulder, a windmill) and travels at most ARM_UP up to the blow
 //               (an overhead slam goes up the front and back down the same arc)
@@ -41,11 +41,14 @@ const box = (j) => { const v = Object.values(j).filter((q) => Array.isArray(q));
 const tall = (j) => j.ground[1] - j.top[1];
 const unwrap = (a) => { const o = [a[0]]; for (let i = 1; i < a.length; i++) { let d = a[i] - a[i - 1]; d -= 2 * Math.PI * Math.round(d / (2 * Math.PI)); o.push(o[i - 1] + d); } return o; };
 
-for (const nm of meta.tr.filter((n) => /_death/.test(n) && !n.startsWith('hero') && !/^spider|^ghost|^skeleton_death$|^skeleton_death_burst$/.test(n))) {
-  const fr = await trace('transitions', nm), L = fr[fr.length - 1]; if (!L.en || !L.hero) { report('corpse', nm, false, 'no trace'); continue; }
-  const side = Math.sign(L.en.ground[0] - L.hero.ground[0]), lean = (L.en.head || L.en.top)[0] - L.en.ground[0], a = box(L.en), b = box(L.hero);
-  const over = Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
-  report('corpse', nm, lean * side >= 0 && over === 0, `head ${lean.toFixed(0)} px from the ground point, the hero on the ${side > 0 ? 'left' : 'right'}; overlap with the hero ${over.toFixed(0)} px²`);
+// (the serpent and the eel sink and leave no body; a body wider than it stands, a crab or a salamander, settles where it is and
+// has no way to fall, so only its box is held: it may not spread over the hero more than it stood over him)
+const overlap = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+for (const nm of meta.tr.filter((n) => /_death/.test(n) && !n.startsWith('hero') && !/^spider|^ghost|^serpent|^eel|^skeleton_death_burst$/.test(n))) {
+  const fr = await trace('transitions', nm), F = fr.find((f) => f.en && f.hero), L = fr[fr.length - 1]; if (!F || !L.en || !L.hero) { report('corpse', nm, false, 'no trace'); continue; }
+  const side = Math.sign(L.en.ground[0] - L.hero.ground[0]), lean = (L.en.head || L.en.top)[0] - L.en.ground[0], b0 = box(F.en), flat = b0[2] - b0[0] > b0[3] - b0[1];
+  const over0 = overlap(b0, box(F.hero)), over = overlap(box(L.en), box(L.hero));
+  report('corpse', nm, (flat || lean * side >= 0) && over <= over0, `head ${lean.toFixed(0)} px from the ground point${flat ? ' (flat, settles)' : ''}, the hero on the ${side > 0 ? 'left' : 'right'}; overlap with the hero ${over.toFixed(0)} px², ${over0.toFixed(0)} px² standing`);
 }
 for (const [nm, side] of [['skeleton_attack', 'L'], ['goblin_attack', 'L'], ['brute_attack', 'R'], ['boss_attack', 'R']]) { if (!meta.tr.includes(nm)) continue;
   const fr = await trace('transitions', nm), ok = fr.filter((f) => f.en && f.en['sh' + side] && f.en['hand' + side]);
@@ -57,7 +60,7 @@ for (const [nm, side] of [['skeleton_attack', 'L'], ['goblin_attack', 'L'], ['br
   if (process.env.ARMDUMP) console.log(nm, ok.map((f, i) => `${f.st[0]}${(a[i] / Math.PI).toFixed(2)}`).join(' '));
   report('arm', nm, (up === null || up <= ARM_UP) && span <= SPAN, `${up === null ? '' : `path to the blow ${(up / Math.PI).toFixed(2)}π, `}in all ${(all / Math.PI).toFixed(2)}π, span ${(span / Math.PI).toFixed(2)}π`);
 }
-for (const nm of meta.tr.filter((n) => /^hit_|_hit$/.test(n))) {
+for (const nm of meta.tr.filter((n) => /^hit_|_hit$/.test(n) && !/_armor$/.test(n))) {   // (a blow off the crab's armour is taken by its claws: the shell doesn't flinch)
   const fr = await trace('transitions', nm), f0 = fr[4]; if (!f0 || !f0.en) { report('flinch', nm, false, 'no trace'); continue; }
   const H = tall(f0.en), rt = (j) => [j.top[0] - j.ground[0], j.top[1] - j.ground[1]], d = Math.max(...fr.slice(5 + 6, 5 + 19).filter((f) => f.en).map((f) => Math.hypot(rt(f.en)[0] - rt(f0.en)[0], rt(f.en)[1] - rt(f0.en)[1])));
   report('flinch', nm, d >= FLINCH * H, `top moves ${d.toFixed(1)} px = ${(100 * d / H).toFixed(1)} % of ${H.toFixed(0)} px`);
