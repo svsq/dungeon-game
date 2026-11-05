@@ -1,0 +1,4 @@
+Use case: the HUD portrait of the hero (Image 1 is the style reference: copy the hero portrait at the top left of its HUD). Image 2 is the approved hero: same face, hair and armor.
+Subject: head and shoulders of the SAME hero as Image 2, facing slightly right, determined expression, messy brown hair, steel shoulder plate with a red cape collar.
+Composition: a square bust portrait filling the canvas, a flat dark slate background (#1a1a24) behind him.
+Constraints: no frame, no border, no text.

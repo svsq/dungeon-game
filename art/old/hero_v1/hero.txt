@@ -1,0 +1,5 @@
+Use case: the player character sprite (anchor drawing for a cut-out rig) for a top-down 3/4 dungeon action game. Image 1 is the style reference only; the hero must look like the hero of Image 1 (the young warrior in the centre swinging a sword).
+Subject: a young warrior with messy brown hair, steel shoulder plates and breastplate over a dark tunic, a red cape, brown leather gloves and boots, standing in the 3/4 front-right view of Image 1 (body turned toward the lower right of the screen).
+Pose: neutral rig pose: standing straight, feet a little apart directly under the hips with a clear gap between the legs, both arms hanging slightly away from the body with a gap between arms and torso, empty hands (no weapon, no shield), cape hanging straight behind.
+Composition: one character centred, full body, filling about 70% of the canvas height, wide empty margin. The character is 26 art pixels tall, every art pixel drawn as a block of one colour.
+Constraints: one character only, no weapon, no shadow on the ground, no floor.
