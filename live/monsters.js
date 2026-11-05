@@ -19,17 +19,18 @@
     // the stride amplitude nor the swing's side snaps
     const k0 = o.spd0 != null ? SS(0, 0.14, Math.max(0, o.t - o.t0)) : 1;
     const vxE = k0 < 1 ? lerp(o.vxn0 * o.spd0, o.vx, k0) : o.vx, vyE = k0 < 1 ? lerp(o.vyn0 * o.spd0, o.vy, k0) : o.vy;
-    const sp = Math.hypot(vxE, vyE), run = SS(4, 30, sp);
+    const sp = Math.hypot(vxE, vyE), run = SS(4, 30, sp) * (o.gaitK ?? 1);
     const dirx = sp > 1 ? vxE / sp * face : 0, diry = sp > 1 ? vyE / sp : 0;
-    const legL = d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL), sl = 0.4 * legL * s, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU;
+    const legL = d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL), sl = 0.4 * legL * s * (o.strideK || 1), u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU;
     const fc = Math.cos(fallR), fs = Math.sin(fallR), root = [o.x, o.y];
     const R2S = (px, py, dy = 0) => { const x = face * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
     // legs: the stance foot slides back at body speed, the swing foot eases forward on a lift arc (phase from distance)
     const tg = {};
     for (const side of ['L', 'R']) {
-      const A0 = RG['ankle' + side], u = (u0 + (side === 'L' ? 0 : 0.5)) % 1, A = sl / 2 / s * run;
+      const A0 = RG['ankle' + side], u = (u0 + (side === 'L' ? 0 : 0.5)) % 1, A = sl * (o.stanceTime || 0.5) / s * run;
       let off, lift = 0;
-      if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2; off = -A + 2 * A * SS(0.12, 0.95, w); lift = Math.pow(Math.sin(Math.PI * w), 0.6) * RG.h * (o.lift || 0.038) * (0.75 + 0.25 * Math.abs(dirx)) * run; }
+      const stance = o.stanceTime || 0.5;
+      if (u < stance) off = A * (1 - 2 * u / stance); else { const w = (u - stance) / (1 - stance); off = -A + 2 * A * SS(0.12, 0.95, w); lift = Math.pow(Math.sin(Math.PI * w), 0.6) * RG.h * (o.lift || 0.038) * (0.75 + 0.25 * Math.abs(dirx)) * run; }
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
       tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
@@ -43,7 +44,8 @@
     let crouch0 = 0; for (const side of ['L', 'R']) { const H0 = RG['hip' + side], A0 = RG['ankle' + side], Lm = 0.95 * (d2(H0, RG['knee' + side]) + d2(RG['knee' + side], A0)), dx0 = A0[0] - H0[0];
       crouch0 = Math.max(crouch0, A0[1] - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx0 * dx0))); }
     // the breath at least 0.75 % of the height: a fixed 0.8 view px was lost on the boss
-    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h), drop) + crouch0 + (o.crouch || 0);
+    const stepPhase = (u0 * 2) % 1, settle = (o.settle || 0) / s * run * SS(0, 0.1, stepPhase) * (1 - SS(0.1, 0.45, stepPhase));
+    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h), drop) + crouch0 + (o.crouch || 0) + settle;
     const legs = {};
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty } = tg[side], Hp = [H0[0], H0[1] + hipDy];
@@ -61,7 +63,16 @@
     const vxn = sp > 1 ? vxE / sp : 1, vyn = sp > 1 ? vyE / sp : 0;
     for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = (Hd0[0] - S0[0]) * vyn - face * (Hd0[1] - S0[1]) * vxn, sg = Jt > 0 ? 1 : -1;
       const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + breath * 0.04 * (side === 'L' ? 1 : -1);
-      const r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
+      let r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
+      if (o.handTarget) {
+        const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
+        const rest = R2U(Hd[0], Hd[1] + hipDy), T = o.handTarget(side, rest);
+        if (T) {
+          const origin = R2U(0, hipDy), ax = R2U(1, hipDy), ay = R2U(0, hipDy + 1), dx = T[0] - origin[0], dy = T[1] - origin[1];
+          const a = ax[0] - origin[0], b = ax[1] - origin[1], c = ay[0] - origin[0], d = ay[1] - origin[1], det = a * d - b * c;
+          r = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], side === 'L' ? 1 : -1);
+        }
+      }
       const E0 = RG['elbow' + side], Sp = [S0[0], S0[1] + hipDy];
       const E = rotP([E0[0], E0[1] + hipDy], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + hipDy], Sp, r[0]), E, r[1] - r[0]);
       arms[side] = { S0, E0, Sp, E, Hd, r1: r[0], r2: r[1] }; }
@@ -74,7 +85,7 @@
     const CR = {}, hsh = (key, k) => { let h = Math.imul((o.seed || 0) + 7919 * k, 2654435761); for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 2246822519); return ((h >>> 0) % 10007) / 10007; };
     const CK = o.crumble || null, TOP = 0.32;
     const crOf = (key, at, c = at) => { if (cr < 0) return null; if (CR[key]) return CR[key];   // c: the point it spins about
-      const H = o.H, g = 8 * H, kind = CK.kind || 'pile', skull = key === 'skull', ribs = key === 'body';
+      const H = o.H, g = 8 * H, kind = CK.kind || 'pile', skull = key === 'skull', ribs = key === 'body' || (o.n === 'colossus' && key.startsWith('mantle'));
       if (kind === 'burst') {
         const tt = cr, h0 = root[1] - at[1], hR = 0.03 * H, k = 0.025 * H, wt = ribs ? 0.45 : skull ? 1.3 : 1;
         const a = (CK.dir ?? (face > 0 ? Math.PI : 0)) + (hsh(key, 0) - 0.5) * 1.4, sp = H * (0.4 + 0.5 * hsh(key, 1)) * wt, vup = H * (1 + hsh(key, 2)) * (ribs ? 0.5 : 1);   // they land within about a tile: the render can't see walls to stop them
@@ -88,7 +99,7 @@
       const hop = v > 0 && v < 0.16 ? 0.05 * H * (0.5 + hsh(key, 2)) * Math.max(top ? 0.4 : 0, Math.min(1, dyM / (0.4 * H))) * Math.sin(Math.PI * v / 0.16) : 0;
       const rollD = skull ? (top ? (Math.cos(CK.dir ?? (face > 0 ? Math.PI : 0)) >= 0 ? 1 : -1) : hsh(key, 5) < 0.5 ? -1 : 1) * (0.35 + 0.25 * hsh(key, 6)) * H : 0, roll = v > 0 ? rollD * (1 - Math.exp(-v / 0.28)) * SS(0, 0.12, v) : 0;
       const dx = (hsh(key, 3) - 0.5) * 0.6 * H * sc * SS(0, tl + 0.1, tt) + roll, dy = dyM * (2.6 * q * q - 1.6 * q * q * q) - hop;   // gravity, slowed just before the floor
-      const spin = (ribs ? (hsh(key, 4) - 0.5) * (top ? 0.5 : 1) : (hsh(key, 4) - 0.5) * 3 * sc) * SS(0, tl + 0.12, tt) + roll / (0.1 * H);
+      const spin = (o.n === 'colossus' && ribs ? ((Math.cos(CK.dir ?? 0) >= 0 ? 1 : -1) * 1.35 - lean) * SS(0.12, 0.9, cr) : (ribs ? (hsh(key, 4) - 0.5) * (top ? 0.5 : 1) : (hsh(key, 4) - 0.5) * 3 * sc) * SS(0, tl + 0.12, tt)) + roll / (0.1 * H);
       return (CR[key] = M.of(M.t(c[0] + dx, c[1] + dy), M.r(spin), M.t(-c[0], -c[1]))); };
     const piece = (key, at, f, c) => { const m = crOf(key, at, c), pre = L.pre; if (m) L.pre = pre ? M.mul(pre, m) : m; try { f(); } finally { L.pre = pre; } };
     const tx = o.tex || o.n, part = (nm, pv, at, rot, u, k = 1, up = 0) => piece(nm, at, () => L.sprite(tx + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(face, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u }));
@@ -119,6 +130,7 @@
       for (const [sd, sg] of [['L', -1], ['R', 1]]) { const P = RG['ear' + sd], r = sg * flop * (sd === 'L' ? 1 : 0.85), Pd = [P[0], P[1] + hipDy];
         part('ear' + sd, P, R2U(...Pd), r, o.U, 1, lean); L.joint(o.id, 'ear' + sd, R2U(...rotP([RG['ear' + sd + 'Tip'][0], RG['ear' + sd + 'Tip'][1] + hipDy], Pd, r))); } }
     drawArm('R', o.U); held('R', o.U);
+    if (RG.mantleL) for (const side of ['L', 'R']) part('mantle' + side, Hc, hipS, 0, o.U, 1, lean);
     // the far foot stands higher in 3/4: each foot has its own ground
     J('ground', root); J('head', R2U(...skP(RG.head), hipDy * s), RG.skull ? 'skull' : 'body'); J('top', R2U(...skP(RG.top), hipDy * s), RG.skull ? 'skull' : 'body'); J('hip', hipS, 'body');
     if (cr >= 0) J('mid', R2U(Hc[0], (Hc[1] + RG.top[1]) / 2, hipDy * s), 'body');
@@ -470,32 +482,58 @@
   // the magma golem (TASKS 409) heaves both fists over its head through the long wind-up and brings them down on the floor in
   // front of it, rests on them a beat; dead, it comes apart where it stands, stone by stone into its pool
   const GOLEM_SLAM = { raise: -2.6, chopT: 0.28, recover: 0.42, over: 0.15, hold: 0.24, top: 0.16, bendUp: 0.9, bendHit: 0.15, bend0: 0.18, dur: 0.55 };
-  // the colossus (TASKS 413): both fists over its head and down on the floor, where they stay through the stuck window and come back
-  // after it; the crack is one fist driven into the floor before it; the boulder is lifted over the head in both hands and thrown on
-  // ahead; a call (shatter, erupt, rain, imps) throws both arms up and the chest back for its whole length. No raise past -2.5: the
-  // blow is taken within half a turn of it (chop), and from further back a blow aimed low wound the arm a whole turn round the shoulder
-  const COL_FISTS = { raise: -2.5, chopT: 0.3, recover: 20, over: 0.15, hold: 9, top: 0.2, bendUp: 0.9, bendHit: 0.15, bend0: 0.18, dur: 30 };
-  const COL_CRACK = { raise: -2.3, chopT: 0.22, recover: 0.3, over: 0.2, hold: 0.12, top: 0.14, bendUp: 0.8, bendHit: 0.1, bend0: 0.18 };
-  const COL_THROW = { raise: -2.5, chopT: 0.18, recover: 0.3, over: 0.7, top: 0.25, bendUp: 1.5, bendHit: 0.05, bend0: 0.18 };
   const COL_CALL = ['shatter', 'erupt', 'rain', 'imps'];
   function colossusPose(e, E, GT, face, H, base) {
-    const live = e.deadT < 0; if (!live) return null; const u = GT - e.t0;
-    if (e.st === 'emerge') { const k = SS(0.3, DATA.BOSSES[e.type].rise, u); base.lean = (base.lean || 0) - face * 0.12 * k; return (side, b) => [lerp(b, side === 'L' ? -2.7 : -2.5, k), lerp(b + 0.18, side === 'L' ? -2.3 : -2.0, k)]; }
-    if (e.st === 'bwind') { const M = DATA.bossMove(e), w = M.wind;
-      if (e.mv === 'fists') { const p0 = chop(e, E, GT, face, H, 0, Object.assign({ bossW: w }, COL_FISTS)); if (!p0) return null; const hit = u - w;
-        base.crouch += 30 * (hit >= 0 ? SS(0, 0.07, hit) : 0.25 * p0.k); return (side, b) => { const q = chop(e, E, GT, face, H, b, Object.assign({ bossW: w }, COL_FISTS)), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
-      if (e.mv === 'crack') { const CO = Object.assign({ bossW: w, dur: M.duration }, COL_CRACK), p0 = chop(e, E, GT, face, H, 0, CO); if (!p0) return null; const hit = u - w;
-        base.crouch += 24 * (hit >= 0 ? SS(0, 0.06, hit) * (1 - SS(0.25, M.duration, hit)) : 0.2 * p0.k); base.lean = (base.lean || 0) + face * 0.12 * p0.k;
-        return (side, b) => { if (side === 'L') return [b + 0.4 * p0.k, b + 0.5 * p0.k]; const q = chop(e, E, GT, face, H, b, CO); return [q.r1, q.r1 + q.bend]; }; }
-      if (e.mv === 'boulder') { const CO = Object.assign({ bossW: w, dur: M.duration }, COL_THROW), p0 = chop(e, E, GT, face, H, 0, CO); if (!p0) return null;
-        base.lean = (base.lean || 0) + face * lerp(-0.1, 0.15, SS(w - 0.06, w + 0.12, u)) * p0.k; base.rock = u < w;
-        return (side, b) => { const q = chop(e, E, GT, face, H, b, CO), d = side === 'L' ? -0.15 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
-      if (e.mv === 'charge') { const end = w + Math.max(M.time, M.duration), k = SS(0, Math.min(0.3, w), u) * (1 - SS(end - 0.25, end, u)); base.lean = (base.lean || 0) + face * 0.22 * k; base.crouch += 14 * k; return (side, b) => [lerp(b, 0.7, k), lerp(b + 0.18, 1.1, k)]; }
-      if (COL_CALL.includes(e.mv)) { const end = w + M.duration, k = SS(0, Math.min(0.45, w * 0.6), u) * (1 - SS(end - 0.25, end, u)); base.lean = (base.lean || 0) - face * 0.14 * k;
-        return (side, b) => [lerp(b, side === 'L' ? -2.6 : -2.3, k), lerp(b + 0.18, side === 'L' ? -2.2 : -1.8, k)]; } }
-    // stuck with both fists on the floor (sim e.openUntil), then the arms come home over 0.3 s
-    if (e.mv === 'fists' && e.openUntil !== undefined && GT < e.openUntil + 0.3) { const w = DATA.bossMove(e).wind, fake = Object.assign({}, e, { st: 'bwind' }), back = SS(e.openUntil, e.openUntil + 0.3, GT);
-      base.crouch += 30 * (1 - back); return (side, b) => { const q = chop(fake, E, GT, face, H, b, Object.assign({ bossW: w }, COL_FISTS)), d = side === 'L' ? 0.1 * q.k * (1 - back) : 0; return [lerp(q.r1, b, back) + d, lerp(q.r1 + q.bend, b + 0.18, back) + d]; }; }
+    if (e.deadT >= 0) return null;
+    const u = GT - e.t0, M = DATA.bossMove(e), w = M.wind;
+    const target = (side, p, rest, k) => [lerp(rest[0], base.x + face * p[0] * H, k) + face * (side === 'L' ? -0.22 : 0.22) * H * Math.sin(Math.PI * k), lerp(rest[1], base.y + p[1] * H, k)];
+    if (e.st === 'emerge' || e.st === 'wade') {
+      const k = e.st === 'emerge' ? SS(0, 0.55, u) : 1 - SS(0, 0.8, u);
+      base.lean = (base.lean || 0) - face * 0.3 * k;
+      base.handTarget = (side, rest) => target(side, [side === 'L' ? -0.18 : 0.55, -1.02], rest, k);
+      return null;
+    }
+    const stuck = e.mv === 'fists' && e.openUntil !== undefined && GT < e.openUntil + 0.4;
+    const crackBack = e.mv === 'crack' && u < w + M.duration + 0.4;
+    if ((e.st === 'bwind' || stuck || crackBack) && (e.mv === 'fists' || e.mv === 'crack')) {
+      const fists = e.mv === 'fists', end = fists ? (e.openUntil || e.t0 + w + M.duration + M.stuck) : e.t0 + w + M.duration;
+      const back = SS(end, end + 0.4, GT), raise = SS(0, w * 0.6, u), hit = SS(w - 0.28, w, u), k = raise * (1 - back);
+      const tug = fists && GT > e.t0 + w + M.duration ? Math.pow(Math.sin((GT - e.t0 - w - M.duration) * Math.PI / 0.4), 8) : 0;
+      base.crouch += (85 * hit - 3 * tug) * (1 - back);
+      base.lean = face * lerp(-0.16 * raise, 0.6 - 0.035 * tug, hit) * (1 - back);
+      base.handTarget = (side, rest) => {
+        if (!fists && side === 'L') return target(side, [-0.2, -0.35], rest, k);
+        const p = DATA.colossusContact(e, side), floor = [(p.x - e.x) / (face * E.h), (p.y - e.y) / E.h - 0.11];
+        return target(side, [lerp(side === 'L' ? -0.12 : 0.22, floor[0], hit) + (side === 'L' ? -0.3 : 0.2) * Math.sin(Math.PI * hit), lerp(-0.92, floor[1], hit)], rest, k);
+      };
+      return null;
+    }
+    if (e.st !== 'bwind') {
+      if (e.mv === 'charge' && u < w + M.duration + 0.14) base.gaitK = SS(w + M.duration, w + M.duration + 0.14, u);
+      return null;
+    }
+    if (e.mv === 'boulder') {
+      const dig = 1 - SS(w * 0.34, w * 0.78, u), grab = SS(0, w * 0.34, u), toss = SS(w * 0.78, w, u), back = SS(w, w + M.duration, u);
+      base.crouch += 85 * dig * grab;
+      base.lean = face * (0.6 * dig * grab - 0.12 * (1 - dig) * (1 - toss) + 0.3 * toss) * (1 - back);
+      base.rock = !e.fired; base.rockBuried = (1 - grab) * 0.35 * H;
+      const px = lerp(-0.05, 0.3, toss), py = lerp(-0.82, -0.9, toss);
+      base.rockAt = [lerp(0.2, px, 1 - dig), lerp(-0.16, py, 1 - dig)];
+      base.handTarget = (side, rest) => target(side, [base.rockAt[0] + (side === 'L' ? lerp(0.02, -0.18, SS(0.55, 0.98, 1 - dig)) : 0.075), base.rockAt[1] + 0.05], rest, grab * (1 - back));
+      return null;
+    }
+    if (e.mv === 'charge') {
+      const end = w + Math.max(M.time, M.duration), k = SS(0, Math.min(0.3, w), u) * (1 - SS(end - 0.25, end, u));
+      base.lean = (base.lean || 0) + face * 0.22 * k; base.crouch += 14 * k;
+      base.strideK = 1.45; base.lift = 0.065;
+      base.gaitK = SS(w, w + 0.12, u) * (1 - SS(end - 0.12, end, u));
+      return (side, b) => [lerp(b, 0.7, k * 0.65), lerp(b + 0.18, 1.1, k * 0.65)];
+    }
+    if (COL_CALL.includes(e.mv)) {
+      const end = w + M.duration, k = SS(0, Math.min(0.45, w * 0.6), u) * (1 - SS(end - 0.25, end, u)), pulse = Math.sin(u * 9) * k;
+      base.lean = (base.lean || 0) - face * (0.14 * k + 0.025 * pulse); base.crouch += 3 * pulse;
+      base.handTarget = (side, rest) => target(side, [side === 'L' ? -0.25 : 0.35, -0.83 - 0.04 * Math.sin(u * 9 + (side === 'L' ? 0 : 1))], rest, k);
+    }
     return null;
   }
 
@@ -505,7 +543,7 @@
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
     const base = { item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
-    if (!live && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
+    if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
     if (n === 'skeleton' || n === 'goblin') {
       // cut from the approved drawing: its pose is the rest pose, the weapon and shield are part of the forearms
       const RG = RIGS[n], bomb = e.type === 'skel_ember'; base.wSide = 'L';
@@ -663,13 +701,25 @@
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       base.lift = 0.04; base.narrow = 0.2; return biped(base); }
-    if (n === 'colossus') { const arm = colossusPose(e, E, GT, face, H, base); if (arm) base.arm = arm;
-      if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
+    if (n === 'colossus') {
+      const pose = !live && e.deathPose ? e.deathPose : e, clock = live ? GT : e.deadT;
+      if (!live) { base.t = o.t - (GT - e.deadT); base.vx = pose.vx; base.vy = pose.vy;
+        base.spd0 = pose.spd0; base.vxn0 = pose.vxn0; base.vyn0 = pose.vyn0; base.t0 = pose.t0;
+        const w = DATA.bossMove(pose).wind, u = clock - pose.t0, ha = clock - pose.hitT, fl = ha >= 0 ? SS(0, 0.08, ha) * (1 - SS(0.12, 0.32, ha)) : 0;
+        base.lean = -face * (0.08 * (pose.st === 'bwind' ? SS(0, w, u) * (1 - SS(w, w + 0.15, u)) : 0) + 0.14 * fl);
+        base.crouch = 6 * fl + 24 * SS(0, 0.65, GT - e.deadT); }
+      const arm = colossusPose(pose, E, clock, face, H, base); if (arm) base.arm = arm;
+      if (!live) { base.crumble = { t: Math.max(0, GT - e.deadT - 0.55) / 2.4, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       // (a body of 230 px sinks at each step by more than the walkers' 2.2 px, or its stride reads as a glide)
-      base.lift = 0.04; base.narrow = 0.15; base.bob = 5; const r = biped(base);
+      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.stanceTime = base.strideK ? 0.5 : 0.64; base.settle = base.strideK ? 0 : 4; const r = biped(base);
       // the boulder in both hands over the head while it is lifted, gone from them on the throw (sim R.rocks takes it on)
-      if (base.rock && r) { const a = r.R2U(r.arms.L.Hd[0], r.arms.L.Hd[1]), b2 = r.R2U(r.arms.R.Hd[0], r.arms.R.Hd[1]), bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;
-        L.sprite('boulder_mg_a', 0, 0, { m: M.of(M.t((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2 - 0.05 * H)), w: bw, h: bh, pivot: [bw / 2, bh * 0.6], u: o.U }); }
+      if (base.rock && r) {
+        const at = [x + face * base.rockAt[0] * H, y + base.rockAt[1] * H + base.rockBuried], bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;
+        if (!live) at[1] = Math.min(y - bh * 0.4, at[1] + 450 * (GT - e.deadT) ** 2);
+        L.joint(o.id, 'rock', L.pre ? M.ap(L.pre, at) : at);
+        const visible = Math.max(0, Math.min(1, (y - at[1] + bh * 0.6) / bh));
+        if (visible > 0 && !o.tex) L.inked(() => L.sprite('boulder_mg_a', 0, 0, { m: M.t(...at), w: bw, h: bh * visible, src: [0, 0, 1, visible], pivot: [bw / 2, bh * 0.6], u: o.U }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0 });
+      }
       return r; }
     if (n === 'salamander') { const u = GT - e.t0, B = E.breath, bw = DATA.windOf(e, e.br ? B.wind : E.wind), w = live && e.st === 'wind' ? SS(0, bw, u) : 0, str = live && e.st === 'strike';
       const sw = !live ? 0 : o.swim || 0, dd = live ? -1 : GT - e.deadT;

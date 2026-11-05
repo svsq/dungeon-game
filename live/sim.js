@@ -788,6 +788,7 @@
     for (let r = 1; r <= 8; r++) { let best = null; for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (Math.max(Math.abs(i), Math.abs(j)) === r && cell(m, tx + i, ty + j) === 1) { const d = i * i + j * j; if (!best || d < best[2]) best = [tx + i, ty + j, d]; }
       if (best) return [(best[0] + 0.5) * TILE, (best[1] + 0.5) * TILE + 6]; } return [x, y]; }
   function killEnemy(S, R, e) {
+    if (e.type === 'boss_colossus') e.deathPose = { ...e };
     e.deadT = S.t; e.hp = 0; R.kills++;
     if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (counted(e)) { fstat(R).kills++; checkFull(S, R); } R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
     const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (dep(R) - 1)) * (e.elite && !D.BOSSES[e.type] ? 3 + nm : 1)));
@@ -1320,7 +1321,7 @@
       if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
       if (e.st === 'chase') {
         const reach = E.r + K.R + E.reach;
-        if (E.kind === 'boss') { bossThink(S, R, e, d); continue; }
+        if (E.kind === 'boss') { bossThink(S, R, e, d); if (E.lake) colossusStep(S, R, e); continue; }
         if (E.kindle && t >= (e.kinT ?? (e.kinT = t + E.kindle.first)) && kinOf(R, e, E).length) { e.st = 'wind'; e.t0 = t; e.kin = 1; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
         if (E.kind === 'caster') { const los = losClear(m, e.x, e.y - 20, h.x, h.y - 20);
           if (d < (E.orb || E.pyre ? E.reach : 360) && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
@@ -1592,6 +1593,8 @@
     if (t < e.cdT && e.openUntil > t) { e.vx = e.vy = 0; return; }
     if (t < e.cdT) { const F = wideFlow(R, e, E) || flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)); steer(e, E, m, F, d > E.reach ? 1 : 0, h.x - e.x, h.y - e.y, d);
       move(m, e, e.vx * DT * P.speed, e.vy * DT * P.speed, E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT * P.speed; return; }
+    const nextPhase = E.lake && D.BOSSES[e.type].phases[(e.phase || 0) + 1];
+    if (nextPhase && e.hp / e.max <= nextPhase.at && !e.nextMove && t >= (e.openUntil || 0) + 0.4) return;
     const mv = e.nextMove || P.moves[(e.moveI || 0) % P.moves.length];
     if (e.nextMove) e.nextMove = null; else e.moveI = (e.moveI || 0) + 1;
     beginBossMove(S, R, e, mv);
@@ -1642,21 +1645,31 @@
   }
   // up out of the lake, then ashore through the lava to the clear cell that is near it and on the hero's side
   function colossusRise(S, R, e) {
-    const t = S.t, B = D.BOSSES[e.type]; e.vx = e.vy = 0;
+    const t = S.t, B = D.BOSSES[e.type];
+    if (e.st === 'idle' || e.st === 'emerge') e.vx = e.vy = 0;
     if (e.st === 'idle') return;
     if (e.st === 'emerge') { if (t - e.t0 < B.rise) return; const m = R.map, h = R.hero, a = wideClear(R, e, ENEMIES[e.type]).a; let best = null;
       for (let k = 0; k < a.length; k++) if (a[k]) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE, sc = Math.hypot(x - e.x, y - e.y) + 0.4 * Math.hypot(x - h.x, y - h.y); if (!best || sc < best[0]) best = [sc, x, y]; }
       e.st = 'wade'; e.t0 = t; e.tx = best ? best[1] : e.x; e.ty = best ? best[2] : e.y; ev(S, { k: 'colrise', x: e.x, y: e.y, id: e.id }); }
-    const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy), v = B.wade * DT;
+    const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy), speed = B.wade * Math.min(1, (t - e.t0) / 0.2), v = speed * DT;
     if (d <= v) { e.x = e.tx; e.y = e.ty; e.dist += d; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = t + 0.6; ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.5); return; }
-    e.x += dx / d * v; e.y += dy / d * v; e.vx = dx / d * B.wade; e.vy = dy / d * B.wade; e.dist += v; if (Math.abs(dx) > 4) e.face = dx > 0 ? 1 : -1;
+    e.x += dx / d * v; e.y += dy / d * v; e.vx = dx / d * speed; e.vy = dy / d * speed; e.dist += v; if (Math.abs(dx) > 4) e.face = dx > 0 ? 1 : -1;
+    colossusStep(S, R, e);
+  }
+  function colossusStep(S, R, e) {
+    const stride = D.BOSSES[e.type].step, i = Math.floor(e.dist / stride);
+    if (e.stepI !== undefined && i > e.stepI) {
+      ev(S, { k: 'colstep', ...D.colossusStepAt(e, i), id: e.id });
+      R.trauma = Math.min(1, R.trauma + 0.09);
+    }
+    e.stepI = i;
   }
   // a crack runs over the floor and the lava alike and stops at rock
   function colossusCrack(S, R, e, M) {
-    const m = R.map, c = Math.cos(e.aimA), sn = Math.sin(e.aimA); let len = M.len;
-    for (let l = E0; l <= M.len; l += 8) if (cell(m, Math.floor((e.x + c * l) / TILE), Math.floor((e.y + sn * l) / TILE)) !== 1 && cell(m, Math.floor((e.x + c * l) / TILE), Math.floor((e.y + sn * l) / TILE)) !== 3) { len = l; break; }
-    (R.cracks = R.cracks || []).push({ id: R.nextId++, owner: e.id, who: who(e), x: e.x, y: e.y, a: e.aimA, len, w: M.w, speed: M.speed, linger: M.linger, t0: S.t, dmg: e.dmg * M.dmg, hit: 0 });
-    ev(S, { k: 'colcrack', x: e.x, y: e.y, a: e.aimA, len, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4);
+    const p = D.colossusContact(e), m = R.map, c = Math.cos(e.aimA), sn = Math.sin(e.aimA); let len = M.len;
+    for (let l = E0; l <= M.len; l += 8) if (cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)) !== 1 && cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)) !== 3) { len = l; break; }
+    (R.cracks = R.cracks || []).push({ id: R.nextId++, owner: e.id, who: who(e), x: p.x, y: p.y, a: e.aimA, len, w: M.w, speed: M.speed, linger: M.linger, t0: S.t, dmg: e.dmg * M.dmg, hit: 0 });
+    ev(S, { k: 'colcrack', x: p.x, y: p.y, a: e.aimA, len, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4);
   }
   const E0 = 30;
   // where a pool of lava may lie: on the arena's floor, off the lake's shore, off the ways in, the crossing and the other pools, so
@@ -1678,7 +1691,7 @@
     // a point the pool may not take shifts to the nearest one within two cells that it may; no such one: the rock lands dry
     if (!pool) for (let rr = 8; rr <= 2 * TILE && !pool; rr += 8) for (let i = 0; i < 12 && !pool; i++) { const a = i / 12 * Math.PI * 2, px = h.x + Math.cos(a) * rr, py = h.y + Math.sin(a) * rr * 0.75;
       if (poolOk(R, e, M, px, py)) { x = px; y = py; pool = true; } }
-    (R.rocks = R.rocks || []).push({ id: R.nextId++, owner: e.id, who: who(e), kind: 'boulder', x, y, sx: e.x + e.face * 30, gy: e.y + 2, z: ENEMIES[e.type].h * 1.05, t0: S.t, t: S.t + M.fly, r: M.r, dmg: e.dmg * M.dmg, pool: pool ? 1 : 0 });
+    (R.rocks = R.rocks || []).push({ id: R.nextId++, owner: e.id, who: who(e), kind: 'boulder', x, y, sx: e.x + e.face * 0.3 * ENEMIES[e.type].h, gy: e.y, z: ENEMIES[e.type].h * 0.9, t0: S.t, t: S.t + M.fly, r: M.r, dmg: e.dmg * M.dmg, pool: pool ? 1 : 0 });
     ev(S, { k: 'throw', x: e.x, y: e.y, tx: x, ty: y, id: e.id });
   }
   // the ring's outer edge falls into lava (2nd phase), but never the cells the fight keeps: the ways in, the altar and the exit,
@@ -1728,7 +1741,7 @@
     for (const e of R.en) { if (!D.BOSSES[e.type] || e.type === 'boss_serpent' || e.deadT >= 0 || e.st === 'idle') continue;
       const t = S.t, h = R.hero, m = R.map, B = D.BOSSES[e.type];
       if (e.bossVersion !== 1) { e.st = 'chase'; e.cdT = t; e.phase = Math.max(0, B.phases.findLastIndex((p) => e.hp / e.max <= p.at)); e.moveI = 0; e.nextMove = null; e.bossVersion = 1; }
-      if ((e.phase || 0) + 1 < B.phases.length && e.hp / e.max <= B.phases[(e.phase || 0) + 1].at && (!D.bossPhase(e).finishMove || (e.st !== 'bwind' && !e.nextMove))) {
+      if ((e.phase || 0) + 1 < B.phases.length && e.hp / e.max <= B.phases[(e.phase || 0) + 1].at && (!D.bossPhase(e).finishMove || (e.st !== 'bwind' && !e.nextMove && t >= (e.openUntil || 0) + (e.type === 'boss_colossus' ? 0.4 : 0)))) {
         e.phase = (e.phase || 0) + 1; e.moveI = 0; e.nextMove = null;
         ev(S, { k: 'bossphase', id: e.id, phase: e.phase });
         if (D.bossPhase(e).enter) beginBossMove(S, R, e, D.bossPhase(e).enter);
@@ -1740,9 +1753,11 @@
         const x = e.x, y = e.y, dist = Math.min(M.speed * DT, Math.max(0, e.targetD - M.stop - e.travel));
         move(m, e, Math.cos(e.aimA) * dist, Math.sin(e.aimA) * dist, ENEMIES[e.type].r, true);
         const moved = Math.hypot(e.x - x, e.y - y); e.dist += moved; e.travel += moved;
+        if (e.type === 'boss_colossus') { e.vx = (e.x - x) / DT; e.vy = (e.y - y) / DT; }
         if (!e.hitDone && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(m, e.x, e.y, h.x, h.y)) { e.hitDone = 1; hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e); }
         if (M.next && (e.hitDone || e.travel >= Math.max(0, e.targetD - M.stop) - 0.01 || moved < 0.01)) finished = true;
       }
+      if (e.type === 'boss_colossus' && e.mv === 'charge' && (finished || u <= w || u >= w + M.time)) e.vx = e.vy = 0;
       if (e.mv === 'volley' && u >= w + (e.fired || 0) * M.gap && (e.fired || 0) < M.rings) {
         // both rings are one volley: it wounds once, so the second ring catches a hero who sidestepped the first instead of doubling
         // the blow past the boss's cap (TASKS 227)
@@ -1779,7 +1794,7 @@
         // (the player's call, TASKS 227: the slam 0.28 s after a landed charge could not be escaped and took 12 of 14 finale deaths)
         if (M.next && !e.hitDone) { beginBossMove(S, R, e, M.next); e.t0 = t + (M.rest || 0); e.chain = 1; }
         else { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (M.next ? D.bossPhase(e).rest : M.rest ?? D.bossPhase(e).rest);
-          if (M.stuck) { e.openUntil = t + M.stuck; e.cdT = e.openUntil + 0.3; ev(S, { k: 'stuck', x: e.x, y: e.y, id: e.id, d: M.stuck }); } }
+          if (M.stuck) { e.openUntil = t + M.stuck; e.cdT = e.openUntil + 0.4; ev(S, { k: 'stuck', x: e.x, y: e.y, id: e.id, d: M.stuck }); } }
       }
     }
   }
@@ -3668,13 +3683,16 @@
         // stuck after its fists and open to blows
         R2.fires = []; R2.rocks = []; h.x = b.x + 100; h.y = b.y; beginBossMove(Z, R2, b, 'fists'); for (let i = 0; i < 120 * (B.moves.fists.wind + B.moves.fists.duration + 0.05); i++) { step(Z, { keys: [] }); h.ifr = 1e9; }
         if (!(b.openUntil > Z.t)) out.push(`${tag}: its fists leave it no stuck window`); else { const x0 = b.x, y0 = b.y, hp0 = b.hp; h.x = b.x + 400; for (let i = 0; i < 60; i++) step(Z, { keys: [] });
-          if (Math.hypot(b.x - x0, b.y - y0) > 1) out.push(`${tag}: it walks while stuck`); hitEnemy(Z, R2, b, 100, false, b.x + 50, b.y); if (Math.abs(hp0 - b.hp - 100 * B.moves.fists.open) > 0.6) out.push(`${tag}: no extra damage while it is stuck`); }
+          if (Math.hypot(b.x - x0, b.y - y0) > 1) out.push(`${tag}: it walks while stuck`); hitEnemy(Z, R2, b, 100, false, b.x + 50, b.y); if (Math.abs(hp0 - b.hp - 100 * B.moves.fists.open) > 0.6) out.push(`${tag}: no extra damage while it is stuck`);
+          b.phase = 0; b.hp = b.max * 0.59; stepBossMove(Z, R2);
+          if (b.phase !== 0) out.push(`${tag}: phase interrupts stuck window`); }
         // the rain: no rock in a slab's shelter
         b.phase = 2; R2.rocks = []; colossusRain(Z, R2, b, B.moves.rain); h.x = -999; h.y = -999;
         const cov = m.decor.filter((d) => d.cover); if (!cov.length) out.push(`${tag}: the arena has no slabs of cover`);
         if (R2.rocks.some((q) => q.x !== undefined && cov.some((d) => Math.hypot(q.x - d.x, q.y - d.y) < B.moves.rain.shelter - 15))) out.push(`${tag}: a rock of the rain falls in a slab's shelter`);
         // its death clears the floor
         colossusBoulder(Z, R2, b, M); R2.cracks.push({ id: 1, owner: b.id, x: b.x, y: b.y, a: 0, len: 100, w: 30, speed: 900, linger: 1, t0: Z.t, dmg: 0, hit: 1 }); b.hp = 1; killEnemy(Z, R2, b);
+        if (!b.deathPose || b.deathPose.deadT >= 0 || b.deathPose.t0 !== b.t0 || b.deathPose.dist !== b.dist) out.push(`${tag}: death loses its live pose`);
         if ((R2.rocks || []).length || (R2.cracks || []).length || (m.arenaLava || []).length || R2.fires.some((p) => p.src === b.id)) out.push(`${tag}: its death leaves rocks, cracks, pools or lava on the floor`); }
       // the caves as the campaign's 9th–12th (TASKS 339): the demon lord on the 8th pays as a finale but opens the stairs, the 9th is
       // the caves' 1st at the campaign's depth with the same hero (level, kit, gold, bag), the 11th keeps the caves' exit guard and the

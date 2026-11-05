@@ -154,6 +154,7 @@
     shatter: (o) => { for (let i = 0; i < 5; i++) noise(o, { t: now() + i * rr(0.05, 0.12), d: 0.15, v: 0.3, type: 'highpass', f0: rr(1500, 3000) }); tone(o, { f0: 50, f1: 28, a: 0.05, d: 1.4, v: 0.5 }); },
     colerupt: (o) => { noise(o, { a: 0.1, d: 1.6, v: 0.5, type: 'lowpass', f0: 1200, f1: 120 }); tone(o, { f0: 45, f1: 26, a: 0.1, d: 1.5, v: 0.6 }); },
     colrise: (o) => { noise(o, { a: 0.3, d: 1.2, v: 0.35, type: 'lowpass', f0: 600, f1: 1400 }); for (let i = 0; i < 6; i++) noise(o, { t: now() + i * rr(0.1, 0.2), d: 0.08, v: 0.2, type: 'lowpass', f0: rr(400, 800) }); },
+    colstep: (o) => { tone(o, { f0: 62, f1: 28, a: 0.005, d: 0.32, v: 0.4 }); noise(o, { a: 0.005, d: 0.2, v: 0.22, type: 'lowpass', f0: 700, f1: 170 }); },
     stuck: (o) => { noise(o, { t: now() + 0.6, a: 0.2, d: 0.6, v: 0.2, type: 'bandpass', f0: 300, f1: 700, q: 2 }); },
     rockfall: (o) => { tone(o, { f0: 90, f1: 40, a: 0.005, d: 0.35, v: 0.6 }); noise(o, { a: 0.005, d: 0.4, v: 0.4, type: 'lowpass', f0: 1400, f1: 250 });
       for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.06 + i * 0.07, d: 0.05, v: 0.15, type: 'bandpass', f0: rr(1500, 3000), q: 3 }); },

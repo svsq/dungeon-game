@@ -84,9 +84,9 @@
     // it, then it stands stuck `stuck` s, open to blows (×`open`); shatter (2nd phase): its crust cracks, the ring's outer edge falls
     // into lava (`edge` cells deep, `warn` s warned) and imps come; erupt / rain (3rd): rocks fall over the ring for `time` s, but
     // never within `shelter` px of a basalt slab of cover
-    boss_colossus: { hp: 1650, dmg: 24, scale: 1, rise: 2.2, wade: 70, phases: [
-      { at: 1, moves: ['crack', 'fists', 'boulder', 'charge', 'fists'], rest: 0.9, speed: 1 },
-      { at: 0.6, moves: ['boulder', 'crack', 'fists', 'charge', 'imps', 'fists'], enter: 'shatter', rest: 0.75, speed: 1.3 },
+    boss_colossus: { hp: 1650, dmg: 24, scale: 1, rise: 2.2, wade: 70, step: 29.80632555187274, phases: [
+      { at: 1, moves: ['crack', 'fists', 'boulder', 'charge', 'fists'], rest: 0.9, speed: 1, finishMove: 1 },
+      { at: 0.6, moves: ['boulder', 'crack', 'fists', 'charge', 'imps', 'fists'], enter: 'shatter', rest: 0.75, speed: 1.3, finishMove: 1 },
       { at: 0.25, moves: ['rain', 'fists', 'crack', 'boulder', 'fists', 'charge'], enter: 'erupt', rest: 0.75, speed: 1.3 }
     ], moves: {
       crack: { wind: 0.9, dmg: 1.1, len: 480, w: 30, speed: 900, linger: 0.5, duration: 0.65 },
@@ -131,7 +131,7 @@
   const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
     boss_serpent: { name: 'Глубинный змей', hp: BOSSES.boss_serpent.hp, dmg: BOSSES.boss_serpent.dmg, spd: 0, r: 28, reach: 60, wind: 0.85, cd: 1.35, xp: 300, kind: 'serpent', h: 154, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9] },
-    boss_colossus: { name: 'Магмовый колосс', hp: BOSSES.boss_colossus.hp, dmg: BOSSES.boss_colossus.dmg, spd: 44, r: 38, reach: 70, wind: 0.9, cd: 1.6, xp: 400, kind: 'boss', h: 230, val: 1.3, lava: 1, lake: 1, heavy: 1, rim: [1, 0.42, 0.12] },
+    boss_colossus: { name: 'Магмовый колосс', hp: BOSSES.boss_colossus.hp, dmg: BOSSES.boss_colossus.dmg, spd: 44, r: 38, reach: 70, wind: 0.9, cd: 1.6, xp: 400, kind: 'boss', h: 230, val: 1.1, tint: [1.1, 1.04, 0.88, 1], lava: 1, lake: 1, heavy: 1, rim: [1, 0.42, 0.12] },
     boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
     boss_necro: { name: 'Верховный некромант', hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
     boss_spider: { name: 'Королева пауков', hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
@@ -696,7 +696,14 @@
     basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', skel_mg: 'bone', banner_mg: 'cloth' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 
-  root.DATA = { TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  const colossusContact = (e, side = 'R') => ({ x: e.x + e.face * ENEMIES[e.type].h * (side === 'L' ? 0.02 : 0.45), y: e.y });
+
+  const colossusStepAt = (e, i) => {
+    const side = i % 2, s = ENEMIES[e.type].h / 320, speed = Math.hypot(e.vx, e.vy) || 1, off = BOSSES[e.type].step * 0.64;
+    const ankle = side ? 172.5 : 74.5, foot = side ? 175.18155197657393 : 70.64176829268293, narrow = (123.5 - ankle) * 0.15;
+    return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
+  };
+  root.DATA = { colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
