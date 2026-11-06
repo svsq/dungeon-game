@@ -193,12 +193,16 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float seam = (v.y - v.x) * 6.5 * (0.85 + 0.6 * dull) * (0.8 + 2.2 * smoothstep(0.48, 0.62, fbm(p / 26.0 + 1.3))), id = v.z, beat = 0.5 + 0.5 * sin(u_t * 0.9 + id * 6.2831);
   vec3 W1 = vec3(1.0, 0.98, 0.08), Y = vec3(1.0, 0.8, 0.02), YO = vec3(1.0, 0.42, 0.02), O1 = vec3(0.99, 0.24, 0.03), O2 = vec3(0.97, 0.15, 0.02), Rd = vec3(0.5, 0.04, 0.01), Dk = vec3(0.17, 0.018, 0.008);
   vec3 col = id < 0.06 ? Rd : id < 0.55 ? O2 : O1;
-  if (hash(floor(w / 2.0) + id) < 0.05 && seam > 3.0) col = Dk;
   if (still > 0.5 && hash(vec2(id, 4.1)) < 0.07) col = seam > 3.0 ? vec3(0.3, 0.04, 0.015) : col;
-  col = seam < 0.2 + 0.15 * beat ? W1 : seam < 0.5 + 0.2 * beat ? Y : seam < 1.0 ? YO : seam < 1.8 ? mix(col, O1, 0.5) : col;
+  // the concept's field has a large pattern (TASKS 481): slow dark-red backwaters up to ~130 px over a seventh of the lava, their
+  // plates cooling to red and black and their net dimmed to orange; lone dark art pixels read as pepper, not as cooling lava
+  float pool = step(0.6 + (id - 0.5) * 0.08, fbm(p / 120.0 + 17.0) * 0.75 + vnoise(p / 40.0 + 3.0) * 0.25);
+  if (pool > 0.5) col = hash(vec2(id, 9.3)) < 0.45 ? Dk : Rd;
+  col = seam < 0.2 + 0.15 * beat ? (pool > 0.5 ? YO : W1) : seam < 0.5 + 0.2 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.0 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 1.8 && pool < 0.5 ? mix(col, O1, 0.5) : col;
   col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;
   // at a column's foot: a hot line where it meets the lava, then its shadow, the lava dark red and cooling
-  col = fc.g > 0.84 ? YO : fc.g > 0.0 ? mix(col, Dk * 0.8, 0.7 * smoothstep(0.0, 0.5, fc.g)) : col;
+  // past a short shadow the lava round a column's foot glows (TASKS 481: the concept's columns stand in a bright halo)
+  col = fc.g > 0.84 ? Y : fc.g > 0.62 ? mix(col, Dk * 0.8, 0.7) : fc.g > 0.0 ? mix(col, Y, 0.75 * smoothstep(0.0, 0.62, fc.g) * (1.0 - pool)) : col;
   // a lake's bubbles: one in some cells of a 48 px grid, swelling to a dome with a hot rim, bursting in a ring and a spray of drops
   if (still > 0.5 && d > 12.0) { vec2 gc = floor(w / 48.0), c = (gc + 0.25 + 0.5 * vec2(hash(gc + 1.3), hash(gc + 2.9))) * 48.0; float hb = hash(gc + 0.7);
     if (hb < 0.45) { float P = 2.6 + 3.0 * hash(gc + 5.1), a = fract(u_t / P + hb * 7.0), r = length((w - c) * vec2(1.0, 1.4));
@@ -394,7 +398,7 @@ float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foo
   vec2 G = vec2(96.0, 80.0), g0 = floor(w / G); float on = 0.0, by = -1e9;
   for (int gy = -2; gy <= 0; gy++) for (int gx = -1; gx <= 1; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > 0.95 * smoothstep(0.3, 0.6, vnoise(g * 0.45 + 7.0))) continue;   // (in thickets and open reaches)
     vec2 ctr = g * G + vec2(30.0 + 36.0 * hash(g + 2.2), 20.0 + 24.0 * hash(g + 3.3)); float n = 3.0 + floor(hash(g + 4.4) * 6.0), h0 = 24.0 + floor(hash(g + 7.7) * 19.0) * 2.0;
-    for (int j = 0; j < 8; j++) { if (float(j) >= n) break; float fj = float(j), hw = 11.0 + floor(hash(g + fj * 4.7 + 9.1) * 7.0);
+    for (int j = 0; j < 8; j++) { if (float(j) >= n) break; float fj = float(j), hw = 15.0 + floor(hash(g + fj * 4.7 + 9.1) * 8.0);   // (30–44 px wide as the concept's, TASKS 481)
       float h = max(14.0, h0 + floor((hash(g + fj * 3.1) - 0.5) * 16.0) * 2.0 + (hash(g + fj * 5.3 + 1.9) < 0.15 ? 30.0 : 0.0));
       vec4 cj = vec4(floor((ctr.x + (hash(g + fj * 1.7 + 5.5) - 0.5) * 46.0) / 2.0) * 2.0 + 1.0, floor((ctr.y + (hash(g + fj * 2.3 + 6.6) - 0.5) * 22.0) / 2.0) * 2.0 + 1.0, h, 1.0);
       if (abs(w.x - cj.x) > hw || w.y < cj.y - 10.0 || w.y > cj.y + h + 14.0) continue;
