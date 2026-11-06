@@ -63,6 +63,7 @@
     if (S.screen === 'stash' && R) stash(S, R, t);
     if (S.screen === 'craft' && R) craft(S, R, t);
     if (S.screen === 'talk' && R && S.talk) talk(S, R, t);
+    if (S.screen === 'journal' && R) journal(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
 
@@ -263,7 +264,7 @@
       const s = e.k === 'trade' ? e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) + ' зол.' : e.k === 'pickup' ? (e.worn ? 'Надето: ' : 'Подобрано: ') + e.s : e.k === 'lvl' ? 'Новый уровень ' + e.lvl + '! Нажмите I' : e.k === 'unlock' ? 'Открыта способность: ' + D.ABILITIES.find((A) => A.id === e.id).name : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 24;
       panel('feedbox' + i, 18, y - 15, w, 30, { r: 5, a: 0.7 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
-    if (S.screen === 'play') { const k = 'I — герой · M — звук · Esc — пауза', kw = lw('keys', k, { size: 15 }) + 24;
+    if (S.screen === 'play') { const k = 'I — герой · J — задания · M — звук · Esc — пауза', kw = lw('keys', k, { size: 15 }) + 24;
       panel('keys_box', W - 12 - kw, H - 36, kw, 30, { r: 6, a: 0.7 }); lab('keys', k, W - 24, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
   }
 
@@ -658,6 +659,29 @@
     if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? 'Взять задание' : 'Сдать задание' }), S.hover);
     if (at('craft')) button('tk_craft', at('craft'), S.hover);
     lab('tk_keys', act ? (T.act.k === 'take' ? 'E — взять задание' : 'E — сдать задание') + ' · Esc — уйти' : 'E, пробел или ЛКМ — дальше · Esc — уйти', W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
+  // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
+  const QST = { done: ['Выполнено', '#8fd98a'], taken: ['В пути', '#e8c890'], turned: ['Сдано', '#8a7d6c'] };
+  function journal(S, R, t) {
+    const L0 = SIM.journalOf(R), U = D.UI.journal(L0.length), P = U.P, sel = L0.find((q) => q.id === S.jsel) || L0[0];
+    dim(0.6); panel('journal', P.x, P.y, P.w, P.h, { r: 10 });
+    lab('jr_t', 'Журнал заданий', P.x + 40, P.y + 50, { size: 40, col: C.gold });
+    const cb = U.r.find((q) => q.id === 'close'); panel('jr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('jr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    lab('jr_keys', 'ЛКМ — выбрать задание · J или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    if (!L0.length) { wrapLab('jr_none', R.viaTown ? 'Заданий пока нет. Их дают горожане в городе — ищите «!» над головой.' : 'Задания дают горожане в городе. В этом забеге города нет.', P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
+    L0.slice(0, 10).forEach((q, i) => { const b = U.r[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
+      panel('jr_r' + i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : hv ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined, a: q.st === 'turned' && !on ? 0.7 : undefined });
+      lab('jr_n' + i, Q.name, b.x + 16, b.y + 20, { size: 22, col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('jr_s' + i, st, b.x + b.w - 16, b.y + 20, { size: 17, al: 1, col });
+      lab('jr_f' + i, (D.FOLK[q.from] ? D.FOLK[q.from].name : '') + ' · ' + q.f + '-й этаж', b.x + 16, b.y + 44, { size: 16, col: C.dim }); });
+    const Q = D.QUESTS[sel.key], X = P.x + 540, Wd = P.w - 580, [st, col] = QST[sel.st]; let y = P.y + 130;
+    L.solid(X - 20, P.y + 110, 1, P.h - 180, C.rim, 0, 0, 0, 0.6);
+    lab('jr_dn', Q.name, X, y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
+    lab('jr_dk', (Q.kind === 'story' ? 'Сюжет · ' : '') + 'Дал: ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—'), X, y, { size: 20, col: C.dim }); y += 44;
+    y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 24, C.text) + 18;
+    lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.questLine(sel, R) : sel.st === 'done' ? ' · сдать — ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '') + ' в городе' : ''), X, y, { size: 22, col }); y += 48;
+    lab('jr_rw0', sel.st === 'turned' ? 'Получено:' : 'Награда:', X, y, { size: 22, col: C.dim }); y += 32;
+    wrapLab('jr_rw', SIM.rwLine(sel.rw), X, y, Wd, 22, C.gold);
   }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
   function craft(S, R, t) {

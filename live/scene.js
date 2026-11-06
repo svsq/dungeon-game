@@ -4110,6 +4110,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['gold', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин' });
       S.talk = { role: 'keeper', i: 0, pages: [D.QUEST_SAY.keeper.thanks + ' Получено: ' + SIM.rwLine(rw) + '.'], p: 0, act: null }; S.screen = 'talk'; })]);
+    // the quest journal (TASKS 1023): every quest a run can hold (three side, the Keeper's six steps) with the longest words, a turned-in
+    // one chosen with its longest reward; empty in the town
+    states.push(['journal', keeperS((S, R) => { R.offers = []; const mk = (key, f, from, o) => Object.assign({ id: 900 + R.quests.length, key, f, need: D.QUESTS[key].need(f), n: 0, st: 'taken', from, rw: D.questReward(D.QUESTS[key].rw, f) }, o);
+      R.quests = []; for (const [key, f, from, o] of [['fetch', 11, 'sweeper', { thing: 'Деревянная лошадка', ic: 'qi_horse', st: 'turned' }], ['named', 11, 'child', { title: 'Хромой Тарн' }], ['elites', 12, 'guard', { st: 'done', n: 5 }],
+        ...D.storyChain('campaign').map((c, i) => [c.key, c.f, 'keeper', { st: i < 5 ? 'turned' : 'taken' }])]) R.quests.push(mk(key, f, from, o));
+      R.quests[0].rw = Object.assign({}, D.questReward(['gold', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин', rar: 4 }); S.jsel = R.quests[0].id; S.screen = 'journal'; S.hover = 'q:3'; })]);
+    states.push(['journal_empty', keeperS((S, R) => { R.quests = []; S.screen = 'journal'; })]);
     states.push(['quest_named', questS('named', (S, R, q, h) => { const e = R.en.find((o) => o.quest === q.id); h.x = e.x - 120; h.y = e.y + 30; e.st = 'idle'; qFull(R); })]);
     states.push(['quest_keepsake', questS('fetch', (S, R, q, h) => { for (const c of R.chests) if (c.quest) delete c.quest; R.drops = R.drops.filter((d) => d.kind !== 'qitem');
       const r = R.map.rooms.find((o) => o.type === 'start'); h.x = r.cx * TILE; h.y = r.cy * TILE; R.drops.push({ id: 9999, kind: 'qitem', quest: q.id, ic: q.ic, x: h.x + 90, y: h.y + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }); R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); })]);

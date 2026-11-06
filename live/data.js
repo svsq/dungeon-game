@@ -739,6 +739,10 @@
     // a quest's page (TASKS 1018) puts its take or turn-in button left of it; the smith's talk keeps a way into his workshop
     talk: (T) => { const P = { x: 330, y: 640, w: 1260, h: 330 }, at = (i) => ({ x: P.x + P.w - 330 - i * 310, y: P.y + P.h - 92, w: 290, h: 64 }), last = T && T.p + 1 >= T.pages.length, r = [{ id: 'next', label: '', on: true, ...at(0) }];
       if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: 'Мастерская', on: true, ...at(r.length) }); return { P, r }; },
+    // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
+    journal: (n) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
+      for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 150, w: 1080, h: 780 }, r = [];
       for (let i = 0; i < STASH.max; i++) r.push({ id: 'stash:' + i, i, x: P.x + P.w / 2 - 170 + i * 120, y: P.y + 150, w: 100, h: 100 });

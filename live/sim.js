@@ -1464,6 +1464,9 @@
         const r = rooms[Math.min(rooms.length - 1, Math.floor(rnd(R) * Math.min(3, rooms.length)))]; if (!r) { q.lost = 1; continue; }
         const [x, y] = standNear(R, r.cx * TILE + TILE / 2, r.cy * TILE + TILE / 2 + 20);
         R.drops.push({ id: R.nextId++, kind: 'qitem', quest: q.id, ic: q.ic, x, y, vx: 0, vy: 0, z: 0, vz: 0, t0: R.t }); q.where = 'floor'; } } }
+  // the journal's order (TASKS 1023): done (to turn in) first, then those in hand, the story before the side, then the turned in
+  const journalOf = (R) => (R.quests || []).filter((q) => q.id > 0).map((q, i) => [q, i]).sort(([a, i], [b, j]) => ({ done: 0, taken: 1, turned: 2 })[a.st] - ({ done: 0, taken: 1, turned: 2 })[b.st]
+    || (D.QUESTS[a.key].kind === 'story' ? 0 : 1) - (D.QUESTS[b.key].kind === 'story' ? 0 : 1) || i - j).map(([q]) => q);
   // where a quest's goal is on this floor, for the map: the named foe (alive), the room to clear, the keepsake once seen
   function questMarks(R) { const out = []; if (R.town) return out;
     for (const q of R.quests || []) { if (q.st !== 'taken' || q.f !== R.floor) continue; const Q = D.QUESTS[q.key];
@@ -2309,6 +2312,13 @@
       if (b.id.startsWith('sell:')) sell(S, R, b.i);
       return;
     }
+    // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
+    if (S.screen === 'journal') {
+      const R = S.run, L0 = R ? journalOf(R) : [], U = UI.journal(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+      if (!R || keys.Escape || keys.KeyJ || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+      if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; ev(S, { k: 'ui', x, y }); }
+      return;
+    }
     if (S.screen === 'inv') {
       const R = S.run, h = R.hero, U = UI.inv(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
       if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
@@ -2348,6 +2358,7 @@
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
       if (keys.Escape && !S.demo) { S.screen = 'pause'; }
       else if ((keys.KeyI || keys.KeyC || keys.Tab) && !S.demo) { S.screen = 'inv'; }
+      else if (keys.KeyJ && !S.demo) { S.screen = 'journal'; S.hover = ''; ev(S, { k: 'ui', x: inp.px, y: inp.py }); }
       else { stepPlay(S, inp, keys); if (S.run && !S.run.frozen) stepBossMove(S, S.run); }
     } else stepUI(S, inp, keys);
     if (S.ev.length > 64) S.ev.splice(0, S.ev.length - 64);
@@ -4422,6 +4433,12 @@
       const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !S.talk.pages[0].startsWith(D.QUEST_SAY.keeper.thanks)) out.push('quest story: no thanks and next offer after the turn-in');
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
+    // the journal (TASKS 1023): J opens it over play, lists the run's quests done first, a click picks one, J closes it
+    R = run(91); R.quests = []; const a = takeQuest(S, R, newQuest(R, 'cull', 2, 'smith')), b2 = takeQuest(S, R, newQuest(R, 'descent', 3, 'porter')); b2.st = 'done';
+    S.screen = 'play'; step(S, { keys: [] }); step(S, { keys: ['KeyJ'] }); if (S.screen !== 'journal') out.push('journal: J does not open it');
+    else { const L0 = journalOf(R), r1 = UI.journal(L0.length).r[1]; if (L0[0] !== b2 || L0[1] !== a) out.push('journal: a done quest is not listed first');
+      step(S, { keys: [], click: 1, px: r1.x + 10, py: r1.y + 10 }); if (S.jsel !== a.id) out.push('journal: a click does not pick a quest');
+      step(S, { keys: ['KeyJ'] }); if (S.screen !== 'play') out.push('journal: J does not close it'); }
     return out;
   }
   function questCheck() {
@@ -4495,6 +4512,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);
