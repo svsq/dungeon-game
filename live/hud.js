@@ -526,7 +526,8 @@
     const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null;
     panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: it && it.rar ? col : hv ? C.rimHi : [0.3, 0.25, 0.21], c0: hv ? [0.16, 0.12, 0.1] : [0.07, 0.06, 0.07], c1: [0.04, 0.035, 0.045] });
     if (it) { if (it.rar >= 2) L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, col, [0, 0, 0], 0.18); icon(SIM.itemIcon(it), b.x + 8, b.y + 8, b.w - 16);
-      if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 }); }
+      if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 });
+      const hr = S.run && S.run.hero; if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 8, b.y + 18, { size: 18, al: 1, col: '#ff6a5a' }); } }
     else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
   }
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
@@ -547,13 +548,14 @@
     const lines = [], cons = SIM.isCons(it), B = cons ? null : D.BASES[it.b];
     lines.push([SIM.itemName(it), hex(D.RARITY[it.rar].col), 28]);
     if (!cons) { lines.push([D.RARITY[it.rar].name + ' · ' + D.SLOT_NAME[B.slot] + ' · ур. ' + it.lvl, C.dim, 20]);
+      const rq = D.reqLvl(it); if (rq > 1) lines.push(['Требуется уровень ' + rq, h.lvl < rq ? '#ff6a5a' : C.dim, 20]);
       if (it.atk) lines.push(['Атака: ' + it.atk + (B.spell ? '  (+' + Math.round(B.spell * 100) + '% к магии)' : ''), C.text, 22]);
       if (it.def) lines.push(['Защита: ' + it.def, C.text, 22]);
       const typed = SIM.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');
       for (const e of it.ench || []) lines.push([D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff', 22]);
       if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
-      if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
+      if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : h.lvl < rq ? 'Пока не надеть: мал уровень' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
     else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : 'Возвращает в безопасную комнату', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
     if (deal) lines.push([deal[0], deal[1], 22]);
     const w = Math.max(...lines.map(([s, , z], i) => lw('tt' + i, s, { size: z }))) + 36, hh = lines.reduce((a, l) => a + l[2] * 1.45, 0) + 24;

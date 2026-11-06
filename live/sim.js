@@ -914,7 +914,7 @@
   }
   // gear for an empty slot goes straight onto the hero instead of into the bag
   function wearIfFree(S, R, it) {
-    const h = R.hero, b = BASES[it.b]; if (isCons(it) || !b || !b.slot || h.eq[b.slot]) return false;
+    const h = R.hero, b = BASES[it.b]; if (isCons(it) || !b || !b.slot || h.eq[b.slot] || h.lvl < D.reqLvl(it)) return false;
     h.eq[b.slot] = it; ev(S, { k: 'equip', x: h.x, y: h.y, slot: b.slot, on: gearName(it) }); return true;
   }
   const READ_T = 1.6, bossFight = (R) => !!(R.map.bossType && R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'));
@@ -934,6 +934,8 @@
       if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
       h.read = { t0: S.t, i: idx }; h.vx = h.vy = 0; ev(S, { k: 'read', x: h.x, y: h.y }); return; }
     if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
+    // gear above the hero's level stays in the bag (TASKS 1028)
+    if (h.lvl < D.reqLvl(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Требуется уровень ' + D.reqLvl(it) }); return; }
     const slot = BASES[it.b].slot, old = h.eq[slot]; h.eq[slot] = it; h.bag[idx] = old || null; ev(S, { k: 'equip', x: h.x, y: h.y, slot, on: gearName(it), off: gearName(old) });
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
   }
@@ -4172,7 +4174,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck());
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -4369,6 +4371,20 @@
   // above its floor; elites only for an elite hunt; a boss is no monster), rooms cleared to the last foe, the floor reached, a
   // chapter's boss; done at its need, nothing counts past it; turned in only in the town and only once, for its reward (gold, XP,
   // an item in the bag, shards to the bank); the quests travel in the save and stay small
+  // TASKS 1028: gear asks a hero's level a little under its own: a find of the floor the hero is on goes on at once (the lowest levels
+  // the novice and average bots come to each campaign floor at, the test runs' starting heroes); a piece above the level is not
+  // put on by a click (a refusal, it stays in the bag) nor by a pickup into an empty slot; the starting gear asks nothing
+  function levelCheck() {
+    const out = [], S = spawn(0, {}), at = [1, 3, 3, 5, 6, 7, 8, 9, 11, 12, 13, 15];
+    at.forEach((l, i) => { if (D.reqLvl({ b: 'sword', lvl: i + 1 }) > l) out.push(`level: a ${i + 1}st-floor find asks more than level ${l}`); });
+    for (const mode of ['cave', 'magma']) { const R0 = newRun(S, mode, 3), f4 = rollItem(R0, dep(R0, 4), 0); if (D.reqLvl(f4) > R0.hero.lvl) out.push(`level: a ${mode} run's last floor's find asks more than its starting hero's level`); }
+    S.run = newRun(S, 'campaign', 5); S.screen = 'play'; const R = S.run, h = R.hero; if (Object.values(h.eq).some((it) => it && D.reqLvl(it) > 1)) out.push('level: the starting gear asks a level');
+    const deep = Object.assign(rollItem(R, 12, 0, 'helm'), { id: R.nextId++ }); h.eq.helm = null; h.bag[7] = deep; useItem(S, R, 7);
+    if (h.eq.helm || h.bag[7] !== deep || !S.ev.some((e) => e.k === 'nope' && e.s === 'Требуется уровень ' + D.reqLvl(deep))) out.push('level: a piece above the level is put on by a click');
+    h.bag[7] = null; if (wearIfFree(S, R, deep) || h.eq.helm) out.push('level: a piece above the level goes on at a pickup');
+    h.lvl = D.reqLvl(deep); h.bag[7] = deep; useItem(S, R, 7); if (h.eq.helm !== deep) out.push('level: a piece at the level is not put on');
+    return out;
+  }
   // a run whose townsfolk have no quest business (no offers, the Keeper's chain in hand), for the checks of the talk and the workshops
   const noQuests = (R) => { R.offers = []; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; };
   // TASKS 1018–1022: a run's offers are 2–3, each from its own townsman, the same for the same seed; ! over the giver, his talk ends

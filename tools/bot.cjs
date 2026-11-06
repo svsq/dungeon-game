@@ -47,6 +47,8 @@ const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) 
   const fire = D.fireDmg(st.spellBase, D.abRank('fireball', Math.max(1, h.ab.fireball || 0)).k, st.spell) / F.cd * Math.min(1, st.maxMp / 200), c = P.cast || 0.15;
   return Math.log(swing * (1 - c) + fire * c) + Math.log((st.maxHp + 20 * st.regen + 10 * st.onhit) * (KD + st.def) / KD / (1 - st.dodge / 100)); };
 const gear = (it) => it && !SIM.isCons(it);
+// gear the hero is too low to wear (TASKS 1028) is not bought for wearing, nor put on
+const wearable = (h, it) => h.lvl >= D.reqLvl(it);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
 // a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
 const metaNext = (S) => D.META.filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
@@ -267,7 +269,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const U = D.UI.shop(R.shop.goods.length), at = (id) => click(U.r.find((q) => q.id === id));
     const i = h.bag.findIndex(gear); if (i >= 0) { cur.sold++; return at('sell:' + i); }
     const room = h.bag.includes(null), buy = (g) => { cur.spent += g.price; return at('buy:' + R.shop.goods.indexOf(g)); };
-    const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
+    const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && wearable(h, g.it) && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
     for (const [b, want] of [['hp_potion', 6], ['mp_potion', P.caster ? 6 : 3]]) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
       if (g && held(h, b) < want && g.price <= h.gold && (room || h.bag.some((it) => it && it.b === b && it.n < D.CONSUMABLES[b].stack))) return buy(g); }
     R.shopped = R.floor; return { keys: ['Escape'] };
@@ -306,7 +308,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
     // the gear is weighed again only when the bag, the worn set, the level or a rank changed
     const gk = h.bag.map((it) => it ? it.id : 0).join() + '|' + D.SLOTS.map((k) => h.eq[k] ? h.eq[k].id : 0).join() + '|' + h.lvl + '|' + h.ab.fireball + '|' + R.floor;
-    if (gk !== gearKey) { gearKey = gk; h.bag.forEach((it, j) => { if (!gear(it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (worth(S, h, P, it) > worth(S, h, P, c, sl) + 1e-6) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } }); }
+    if (gk !== gearKey) { gearKey = gk; h.bag.forEach((it, j) => { if (!gear(it) || !wearable(h, it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (worth(S, h, P, it) > worth(S, h, P, c, sl) + 1e-6) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } }); }
     if (S.screen === 'shop') { const had = new Set(h.bag.filter(Boolean).map((it) => it.id)), g = h.gold; SIM.step(S, trade(S, R, h));
       if (h.gold < g) for (const it of h.bag) if (it && it.b && !had.has(it.id)) it.bought = 1; continue; }
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
@@ -320,7 +322,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // a monster behind a door still locked can't be fought, nor an eel under its water (TASKS 310)
     const live = R.en.filter((e) => e.deadT < 0 && !D.under(e) && reach(e)), awake = live.filter((e) => e.st !== 'idle' && e.st !== 'home');
     const near = live.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 260 && walkD(e) < 520), late = R.floor < D.runOf(R.mode).floors && S.t - tF > 200;
-    const room = h.bag.includes(null), takes = (p) => p.kind !== 'item' || room || SIM.isCons(p.item) || !h.eq[D.BASES[p.item.b].slot];
+    const room = h.bag.includes(null), takes = (p) => p.kind !== 'item' || room || SIM.isCons(p.item) || (!h.eq[D.BASES[p.item.b].slot] && wearable(h, p.item));
     const dist = (o) => Math.hypot(o.x - h.x, o.y - h.y), first = (list) => list.filter((o) => !given.has(o)).sort((a, b) => dist(a) - dist(b))[0];
     // what lies behind a door still locked is out of reach until its key or lever is found
     const drop = first(R.drops.filter((p) => !p.got && !p.tossed && !(p.fly > 0) && takes(p) && reach(p)));
