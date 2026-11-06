@@ -125,7 +125,9 @@
     }
     // a townsman's quest business over his head (TASKS 1018): ! a quest to take, ? one to turn in; his lines keep above it
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.questMark(R, f.role); if (!mk) continue;
-      const x = V.sx(f.x), y = V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
+      // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
+      if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
+      const x = Math.min(W - 20, Math.max(20, V.sx(f.x))), y = Math.max(26, V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i)), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
       G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
       L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
       lab('qmk' + f.i, mk, x, y + 1, { size: 34, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });

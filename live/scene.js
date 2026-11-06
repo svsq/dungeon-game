@@ -4127,6 +4127,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; R.ways = [4, 8, 12]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
+    // the portal both ways through the sim itself (TASKS 1025): a scroll read through in the 3rd floor's biggest hall, the hero a
+    // quarter second out at the town's ring; E there, a quarter second back at the very spot
+    const portalS = (back) => climbS(3, (S, R, m, h) => { const r = m.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+      h.x = r.cx * TILE; h.y = r.cy * TILE; for (const e of R.en) if (Math.hypot(e.x - h.x, e.y - h.y) < 700) { e.hp = 0; e.deadT = S.t; } else { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
+      h.bag[6] = { b: 'scroll', n: 1, id: R.nextId++ }; h.read = { t0: S.t, i: 6 }; for (let i = 0; i < 240 && R.floor; i++) SIM.step(S, { keys: [] });
+      if (back) SIM.step(S, { keys: ['KeyE'] }); for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); });
+    states.push(['town_portal', portalS(0)]);
+    states.push(['town_portal_back', portalS(1)]);
+    // the town with quests going (TASKS 1025): the first offer taken and done (? over its giver), the Keeper's chapter taken, the
+    // other givers' ! left, the tracker with both
+    states.push(['town_quests', play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map; SIM.step(S, { keys: [] });
+      const q = SIM.giveQuest(S, R, SIM.offersOf(R)[0].from); q.n = q.need; q.st = 'done'; SIM.giveQuest(S, R, 'keeper'); S.ev = []; R.msg = null;
+      const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
     const box = (name, S) => Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, W, H];
