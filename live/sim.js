@@ -772,20 +772,27 @@
       for (let i = 1; i < n; i++) { const cx = Math.floor(fx + dx * i / n), cy = Math.floor(fy + dy * i / n); if (cx === x && cy === y) break; if (opaque(cx, cy)) return false; } return true; };
     // on the plateaus (TASKS 453) the window is an ellipse, not its 17×13 box: over open lava nothing stops the sight, and the box's
     // straight sides showed as a rectangle of lava in the dark
-    const rooms = new Set(), oval = !!m.cliff;
-    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > 1) || !sight(x, y)) continue;
+    // (its rim varies cell by cell, TASKS 482: a walk along a straight way swept the ellipse's edge into a straight line)
+    const rooms = new Set(), oval = !!m.cliff, h01 = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
+    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > (0.72 + 0.28 * h01(x, y)) ** 2) || !sight(x, y)) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
       R.seen[y * W + x] = 1; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v);
       const ri = DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE); if (ri >= 0) rooms.add(ri); }
     // a room shows whole once seen; a plateau's box is mostly lava, so there only its floor and the lava within two cells of it
     // (TASKS 453: the whole box was a rectangle of lava cut out of the dark)
-    const nearFloor = (x, y, r) => { for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) { const X = x + u, Y = y + v;
-      if (X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
+    // (by distance, with a reach of 1.6–3.2 cells that varies cell by cell, TASKS 482: within a 5×5 square the edge ran ruler-straight
+    // along the floor's own rows for 6–18 cells)
+    const nearFloor = (x, y, r) => { const rr = 1.6 + 1.6 * h01(x, y); for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const X = x + u, Y = y + v;
+      if (u * u + v * v <= rr * rr && X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
     for (const ri of rooms) { if (R.rseen[ri]) continue; R.rseen[ri] = 1; const r = m.rooms[ri];
       for (let y = r.y - 2; y <= r.y + r.h + 1; y++) for (let x = r.x - 2; x <= r.x + r.w + 1; x++) { if (!inMap(x, y)) continue;
         const own = x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         if (oval && m.cells[y * W + x] !== 1 && !nearFloor(x, y, r)) continue;
         if (opaque(x, y)) wall(x, y); else if (own || DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0) R.seen[y * W + x] = 1; } }
+    // an open cell the reveal's edges left unseen in the middle of seen ones shows (TASKS 482: black holes inside the open lava)
+    if (oval) for (let y = ty - 14; y <= ty + 14; y++) for (let x = tx - 18; x <= tx + 18; x++) { if (!inMap(x, y) || R.seen[y * W + x] || opaque(x, y)) continue;
+      let n = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if ((u || v) && inMap(x + u, y + v) && R.seen[(y + v) * W + x + u]) n++;
+      if (n >= 6) R.seen[y * W + x] = 1; }
     // a door once seen shows whole: its leaf stands over the cells behind it (a top wall's over the corridor, a bottom wall's over the room)
     for (const d of m.doors || []) { if (!d.cells.some(([x, y]) => R.seen[y * W + x])) continue; const up = d.dir === 'u' ? [1, 2] : d.dir === 'd' ? [-1] : [];
       for (const [x, y] of d.cells) { R.seen[y * W + x] = 1; for (const k of up) if (inMap(x, y - k)) R.seen[(y - k) * W + x] = 1; } }

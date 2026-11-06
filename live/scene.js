@@ -701,7 +701,9 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   if (vd < 0.5) { float lit = max(step(pb.y, 1.0) * rimAt(bq - vec2(0.0, blk)), step(pb.x, 1.0) * rimAt(bq - vec2(blk, 0.0))),
       dk = max(step(blk - 2.0, pb.y) * rimAt(bq + vec2(0.0, blk)), step(blk - 2.0, pb.x) * rimAt(bq + vec2(blk, 0.0)));
     c = lit > 0.5 ? c * 1.4 + 0.05 : dk > 0.5 ? c * 0.3 : c; }
-  float s = texture(u_seen, w).r * (1.0 - vd) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
+  // (and sampled through a slow warp of up to half a cell, TASKS 482: the cells' grid still showed as straight runs on long edges)
+  vec2 ws = u_haze > 0.5 ? w + (vec2(fbm(wp / 52.0 + 2.9), fbm(wp / 52.0 + 11.3)) - 0.5) * 36.0 / u_map : w;
+  float s = texture(u_seen, ws).r * (1.0 - vd) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
   // the magma's fog edge (TASKS 453) is broken by a noise on the art grid: smooth, it ran ruler-straight along the cells' rows
   if (u_haze > 0.5) s = clamp(s + (fbm(wp / 26.0 + 7.3) - 0.5) * 2.2 * s * (1.0 - s), 0.0, 1.0);
   float top = texture(u_top, w).r;
@@ -3607,7 +3609,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // TASKS 453: the same island under the fog as play leaves it, revealed from where the hero stands (every other magma state
       // sees the whole map, so the fog's edge was never in a QA frame)
       const F = structuredClone(S), RF = F.run; RF.seen = RF.seen.map(() => 0); RF.rseen = RF.rseen.map(() => 0); RF.en = []; F.ev = [];
-      for (let i = 0; i < 3; i++) SIM.step(F, { keys: [] }); RF.hero.x = h.x; RF.hero.y = h.y; RF.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_fog', F]); break; }
+      for (let i = 0; i < 3; i++) SIM.step(F, { keys: [] }); RF.hero.x = h.x; RF.hero.y = h.y; RF.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_fog', F]);
+      // TASKS 482: the fog as a walk over the floor leaves it, 45 cells along the way to the exit, the camera looking back on it
+      const Wk = structuredClone(F), RW = Wk.run, W0 = m.W, from = Math.floor(h.y / TILE) * W0 + Math.floor(h.x / TILE), to = m.exit.ty * W0 + m.exit.tx, prev = new Map([[from, -1]]), q = [from];
+      for (let i = 0; i < q.length && !prev.has(to); i++) for (const o of [1, -1, W0, -W0]) { const n = q[i] + o; if (!prev.has(n) && (m.cells[n] === 1 || m.cells[n] === 6)) { prev.set(n, q[i]); q.push(n); } }
+      const way = []; for (let k = prev.has(to) ? to : -1; k >= 0; k = prev.get(k)) way.unshift(k);
+      for (const k of way.slice(0, 45)) { RW.hero.x = (k % W0 + 0.5) * TILE; RW.hero.y = (Math.floor(k / W0) + 0.5) * TILE; SIM.step(Wk, { keys: [] }); }
+      const mid = way[Math.min(way.length - 1, 22)] ?? from; RW.cam = [(mid % W0 + 0.5) * TILE - VW / 2, (Math.floor(mid / W0) + 0.5) * TILE - VH / 2]; Wk.ev = [];
+      states.push(['magma_fog_walk', Wk]); break; }
     // and the lake from its north shore: the hero on the floor of a shore plateau nearest the islands, the camera out over the lake
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;
