@@ -704,8 +704,9 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   // wall tops past the first row keep the ambient: no torch shines through a wall; their pale bevels still catch a fire close by
   l = mix(l, min(l, u_amb * 1.3), smoothstep(0.3, 1.0, top) * 0.8 * (1.0 - 0.75 * smoothstep(0.14, 0.3, dot(c, vec3(0.3, 0.5, 0.2)))));
   // the lava lights the columns from below (TASKS 445): the tops stay the dark stone of the concept (the rim and the foot of a face
-  // keep the glow); lit like the lava itself they came out tan
-  if (u_haze > 0.5) l = mix(l, min(l, u_amb * 2.0 + vec3(0.22, 0.07, 0.03)), textureLod(u_face, vec2(w.x, 1.0 - w.y), 0.0).b * 0.85);
+  // keep the glow); lit like the lava itself they came out tan. The crossings' basalt likewise (TASKS 448, the occluders' alpha)
+  vec4 oc = texture(u_occ, scr(v_px));
+  float bas = u_haze * max(textureLod(u_face, vec2(w.x, 1.0 - w.y), 0.0).b, oc.a * (1.0 - oc.r));
   // the water throws the light it catches back onto the rock over and beside it (TASKS 305): slow bright ripples on a cave's wet
   // rock and bank within two cells of the water, stronger where the light at the water is. Added, not multiplied: on the dark
   // rock a multiplied glint was lost
@@ -718,14 +719,18 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
     float band = smoothstep(0.55, 0.95, sin(wp.y / 4.5 + 2.2 * sin(wp.x / 26.0 + u_t * 0.9) + u_t * 1.7)) * smoothstep(0.35, 0.7, fbm(wp / 46.0 + vec2(u_t * 0.12, -u_t * 0.2)));
     glint = vec3(0.3, 0.75, 0.8) * band * near * (0.14 + 0.6 * dot(min(l, vec3(1.2)), vec3(0.33))); }
   if (u_cave > 0.5) l = max(l, mix(u_low, vec3(0.52, 0.49, 0.46), smoothstep(0.1, 0.5, texture(u_water, w).r) * (1.0 - u_haze)));
+  // an islet ringed by the magma's lava sums dozens of its lights, and the soft cap clipped their red first: the floor went yellow
+  // (TASKS 478). The level is held there with the hue kept, the concept's bank takes only a red rim
+  l *= mix(1.0, min(1.0, 1.5 / max(l.r, max(l.g, l.b))), u_haze * (1.0 - oc.r));   // (not an actor: TASKS 479 lights those)
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   // a monster before the lava (the occluders' mask over its glow) takes no more of its light than a torch gives: lit to the lava's
   // own level it melted into it, the reference's figures stand dark against it (TASKS 407)
   // (the occluders' mask: an actor is drawn into it white, a crossing's basalt black, TASKS 448: by the lava its tops came out tan)
-  vec4 oc = texture(u_occ, scr(v_px));
   l = mix(l, min(l, vec3(1.3, 1.0, 0.8)), oc.r * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
-  l = mix(l, min(l, u_amb * 2.0 + vec3(0.22, 0.07, 0.03)), oc.a * (1.0 - oc.r) * 0.85 * u_haze);
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
+  // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
+  // only the light's level, not its hue
+  l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * 2.0, 1.4), bas);
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
