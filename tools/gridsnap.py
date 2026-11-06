@@ -14,6 +14,7 @@ from PIL import Image
 K = 8
 INK = (6, 5, 6)
 BAS = [(14, 13, 14), (28, 26, 27), (46, 43, 43), (74, 69, 68)]
+ASH = [(62, 58, 56), (82, 76, 73), (100, 94, 90)]
 EMBER = [(138, 42, 16), (200, 80, 26)]
 CELLS = {'vent_mg': (24, 10), 'dc_ash_mg': (20, 20)}
 
@@ -60,7 +61,7 @@ def ash(a, keep=30):
     rng = np.random.default_rng(421)
     pick = rng.choice(len(grains), min(keep, len(grains)), replace=False) if grains else []
     for k in pick:
-        j, i, c = grains[k]; out[j, i, :3] = c.astype(np.uint8); out[j, i, 3] = 255
+        j, i, c = grains[k]; out[j, i, :3] = nearest(c, ASH); out[j, i, 3] = 255
     return out
 
 

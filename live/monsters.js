@@ -347,22 +347,27 @@
   // the head, body and tail are one drawing bent on soft bones (the tail from the hips, its tip riding on it, the neck): it swings
   // its body in an S as it walks, the head against the tail. Four legs, one drawing split at the knee, walk in diagonal pairs
   // (front left with hind right), the front elbows bent back and the hind knees forward, IK in the floor's plane with the knee raised
-  // o: { id, x, y, H (its length on the floor), fa, dist, vx, vy, t, seed, U, swim (0 on land .. 1 under), lunge, open, curl, glow }
+  // o: { id, x, y, H (its length on the floor), fa, dist, vx, vy, t, seed, U, swim (0 on land .. 1 under), lunge, open, curl, glow,
+  // inhale (0..1: drawing its breath), exhale (0..1 through the breath, < 0 none) }
+  // (TASKS 460) its fire is its body's: drawing breath the head goes back and the tail curls in; breathing out the head pushes ahead
+  // in kicks of recoil and sweeps slowly across the cone; coming out of the lava (and going in) the body heaves up off it
   const LZ = { qy: 0.8, sl: 0.13, reach: 0.82, set: [0, 1, 1, 0], out: [0.95, 0.85], fwd: [0.12, -0.18] };
   function lizard(o) {
     const RG = RIGS.salamander, s = o.H / RG.h, fa = o.fa, cf = Math.cos(fa), sf = Math.sin(fa), qy = LZ.qy, c = RG.c, A = RG.legA, B = RG.legB;
     const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp) * (1 - (o.swim || 0)), sw = o.swim || 0, curl = o.curl || 0, lunge = o.lunge || 0, fl = o.flinch || 0;
     const sl = LZ.sl * o.H, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU, breath = Math.sin(o.t * 1.6 + (o.seed || 0));
-    const root = [o.x + cf * (lunge * 0.08 - fl * 0.07) * o.H, o.y + sf * (lunge * 0.08 - fl * 0.07) * o.H * qy];
+    const inh = o.inhale || 0, ex = o.exhale ?? -1, kick = ex >= 0 ? 0.03 * Math.sin(ex * TAU * 3) * (1 - ex) * SS(0, 0.15, ex) : 0, heave = sw > 0 && sw < 1 ? Math.sin(Math.PI * sw) : 0;
+    const back = lunge * 0.08 - fl * 0.07 - inh * 0.12 - kick;
+    const root = [o.x + cf * back * o.H, o.y + sf * back * o.H * qy];
     // the body's S: the tail swings against the head over each stride, idles in a slow sway, curls as it dies
-    const tail = (0.32 * run * Math.sin(ph) + 0.1 * (1 - run) * Math.sin(o.t * 1.3 + (o.seed || 0)) + 0.08 * sw * Math.sin(o.t * 2.2)) * (1 - curl) + 0.9 * curl + 0.25 * fl;
-    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - lunge) * (1 - curl) - 0.3 * curl - 0.2 * fl;
+    const tail = (0.32 * run * Math.sin(ph) + 0.1 * (1 - run) * Math.sin(o.t * 1.3 + (o.seed || 0)) + 0.08 * sw * Math.sin(o.t * 2.2)) * (1 - curl) + 0.9 * curl + 0.25 * fl + 0.35 * inh;
+    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - Math.max(0, lunge)) * (1 - curl) - 0.3 * curl - 0.2 * fl - 0.18 * inh + (ex >= 0 ? 0.14 * Math.sin(ex * TAU) : 0);
     // body px → floor (u ahead, v to its right) about its middle, with the soft bones turned as the shader turns them; floor → screen
     const bend = (px, py) => { let p = [px, py]; const [b0, b1, b2] = RG.bones;
       if (py > b2[1]) p = rotP(p, b2, tip); if (py > b0[1]) p = rotP(p, b0, tail); if (py < b1[1]) p = rotP(p, b1, neck); return p; };
     const UV = (px, py) => { const p = bend(px, py); return [-(p[1] - c[1]) * s, (p[0] - c[0]) * s]; };
     const S2 = (u, v, z = 0) => [root[0] + u * cf - v * sf, root[1] + (u * sf + v * cf) * qy - z];
-    const lift = (0.025 + 0.019 * Math.sin(2 * ph) ** 2 * run) * o.H * (1 - sw) + 0.01 * o.H * breath * (1 - run);
+    const lift = (0.025 + 0.019 * Math.sin(2 * ph) ** 2 * run) * o.H * (1 - sw) + 0.01 * o.H * breath * (1 - run) + 0.04 * o.H * heave + 0.025 * o.H * inh;
     // legs: rest foot out from its socket and a little ahead (front) or behind (hind); the stance foot slides back at body speed,
     // the swing foot comes forward on a lift arc
     const l1 = d2(A.root, A.end) * s * LZ.reach, l2 = d2(B.root, B.end) * s * LZ.reach, legs = [];
@@ -517,8 +522,10 @@
   function emberPose(e, E, GT, face, base) {
     const live = e.deadT < 0, u = GT - e.t0, w = DATA.windOf(e, E.wind), lit = e.st === 'wind' ? SS(0, 0.22, u) : 0, q = e.st === 'wind' ? Math.min(1, u / w) : 0;
     const run = SS(10, 60, Math.hypot(base.vx, base.vy)) * (1 - lit), still = live ? 1 : 1 - SS(0, 0.1, GT - e.deadT);
-    base.lean = (base.lean || 0) + face * 0.16 * run; base.crouch += 5 * run + 4 * lit;
-    base.arm = (side, b) => { const sg = side === 'L' ? 1 : -1, shake = still * lit * (0.05 + 0.08 * q) * Math.sin(GT * (18 + 12 * q) + (side === 'L' ? 0 : 1.7));
+    // (TASKS 460: the fuse burning down shakes it whole, arms and body, three times as hard at the end, and it ducks just before)
+    const end = 1 - SS(w - 0.06, w, u), tremble = still * lit * (0.01 + 0.025 * q * q) * end * Math.sin(GT * (22 + 10 * q) + 0.6);
+    base.lean = (base.lean || 0) + face * 0.16 * run + tremble; base.crouch += 5 * run + 4 * lit + 7 * (e.st === 'wind' ? lit * SS(w - 0.15, w, u) : e.st === 'strike' || !live ? 1 : 0);
+    base.arm = (side, b) => { const sg = side === 'L' ? 1 : -1, shake = still * lit * (0.05 + 0.12 * q * q) * end * Math.sin(GT * (18 + 12 * q) + (side === 'L' ? 0 : 1.7));
       const r1 = lerp(lerp(b, 1.5 * b - 0.3, run), -2.55 + 0.25 * sg, lit) + shake; return [r1, r1 + lerp(lerp(0.18, 0.1 - 0.4 * b, run), 0.5, lit) + shake * 0.6]; };
   }
 
@@ -788,7 +795,8 @@
     if (n === 'salamander') { const u = GT - e.t0, B = E.breath, bw = DATA.windOf(e, e.br ? B.wind : E.wind), w = live && e.st === 'wind' ? SS(0, bw, u) : 0, str = live && e.st === 'strike';
       const sw = !live ? 0 : o.swim || 0, dd = live ? -1 : GT - e.deadT;
       return lizard({ id: o.id, x, y, H, fa: e.fa ?? (face > 0 ? 0 : Math.PI), dist: e.dist, vx: base.vx, vy: base.vy, t: o.t, seed: e.id, U: o.U, Ufar: o.Ufar, tex: o.tex, swim: sw,
-        lunge: e.br ? 0.3 * w + (str ? 0.3 * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0, flinch: live ? hitFl(GT - (e.hitT ?? -9)) : 0 }); }
+        lunge: e.br ? (str ? 0.35 * SS(0, 0.08, u) * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0, flinch: live ? hitFl(GT - (e.hitT ?? -9)) : 0,
+        inhale: e.br ? (str ? 1 - SS(0, 0.25, u) : w) : 0, exhale: e.br && str ? Math.min(1, u / B.t) : -1 }); }   // (the breath let go over 0.25 s, not in a frame)
     return false;
   };
 })();
