@@ -563,6 +563,19 @@
     // the town's storage chest (TASKS 1012): one cell of its own, a cell more per rank
     { id: 'vault', name: 'Сундук предков', town: 1, v: (r) => r, unit: (n) => plural(n, 'ячейка', 'ячейки', 'ячеек') + ' хранилища в городе', max: 2, cost: (r) => 40 + r * 20 },
   ];
+  // quests (R-17, TASKS 1017): a run's tasks, taken and turned in in the town, gone with the hero. A template: kind (side: a
+  // townsman's; story: the Keeper's chain, 1022), type (what counts: kill — monsters slain on floor f or deeper, `elite` only
+  // elites; reach — floor f reached; boss — a chapter's boss slain; clear — rooms cleared to the last monster on floor f or deeper;
+  // fetch, named, event — 1019–1021), need(f), its words and its reward kinds; the reward grows with the floor it points at
+  const QUESTS = {
+    cull: { kind: 'side', type: 'kill', name: 'Прополка', need: (f) => 10 + 2 * f, text: (q) => 'Убей ' + q.need + ' ' + plural(q.need, 'чудовище', 'чудовища', 'чудовищ') + ' на ' + q.f + '-м этаже или глубже.', rw: ['gold', 'xp'] },
+    elites: { kind: 'side', type: 'kill', elite: 1, name: 'Сильнейшие', need: (f) => 2 + Math.floor(f / 4), text: (q) => 'Одолей ' + q.need + ' ' + plural(q.need, 'элитного врага', 'элитных врагов', 'элитных врагов') + ' на ' + q.f + '-м этаже или глубже.', rw: ['gold', 'item'] },
+    sweep: { kind: 'side', type: 'clear', name: 'Тишина в залах', need: (f) => 3 + Math.floor(f / 4), text: (q) => 'Зачисти ' + q.need + ' ' + plural(q.need, 'комнату', 'комнаты', 'комнат') + ' до последнего врага на ' + q.f + '-м этаже или глубже.', rw: ['xp', 'shards'] },
+    descent: { kind: 'side', type: 'reach', name: 'Глубже', need: () => 1, text: (q) => 'Спустись до ' + q.f + '-го этажа.', rw: ['gold', 'shards'] },
+    chapter: { kind: 'story', type: 'boss', name: 'Хозяин главы', need: () => 1, text: (q) => 'Одолей хозяина главы на ' + q.f + '-м этаже.', rw: ['shards', 'item'] },
+  };
+  // what a quest pointing at floor f gives on its turn-in
+  const questReward = (rw, f) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 150 + 60 * f : k === 'xp' ? Math.round(0.35 * xpNeed(Math.max(1, f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
   // the town's workshops (R-32, TASKS 1013), a sink for spare gold and shards (389): the smith reforges a piece's own affixes for a
   // share of its price; the enchanter lays on up to three more, each dearer and riskier: a failure strips every enchantment
   // (strip share of failures) or spoils the piece (it loses one affix of its own)
@@ -792,7 +805,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -228,6 +228,8 @@
     buy: (o) => SFX.gold(o), trade: (o) => SFX.gold(o),
     // the townsfolk (TASKS 1015): the anvil rings on the smith's blow; a few soft murmured syllables when someone speaks up
     // a scroll read aloud (TASKS 1007): a rising airy shimmer under the teleport's own sound
+    // a quest (TASKS 1017): a short horn when taken, a rising fanfare when done, the coins' chime when turned in
+    quest: (o, e) => { if (e.s === 'turn') SFX.gold(o); else (e.s === 'done' ? [523, 659, 784, 1047] : [392, 523]).forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.1, d: 0.35, v: 0.06 })); },
     // a workshop's work (TASKS 1013): the anvil rings for a reforge; an enchantment chimes up, or falls apart in a hiss
     craft: (o, e) => { if (e.kind === 'forge') SFX.anvil(o); else if (e.ok) [660, 990, 1320].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.08, d: 0.5, v: 0.05 })); else { noise(o, { d: 0.5, v: 0.18, type: 'bandpass', f0: 2400, f1: 500, q: 2 }); tone(o, { f0: 400, f1: 120, d: 0.5, v: 0.06 }); } },
     // a waystone wakes (TASKS 1009): a low stone hum under a bright rising chime
@@ -238,7 +240,7 @@
     shop: (o) => [1568, 2093].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.14, d: 0.5, v: 0.07 })),
   };
   // events heard everywhere on the floor (not attenuated by distance)
-  const GLOBAL = new Set(['colerupt', 'shatter', 'lvl', 'unlock', 'die', 'floor', 'roar', 'bless', 'teleport', 'shop', 'buy', 'trade', 'nope', 'ui', 'equip', 'toss', 'drink', 'pickup', 'shard', 'shield', 'craft']);
+  const GLOBAL = new Set(['colerupt', 'shatter', 'lvl', 'unlock', 'die', 'floor', 'roar', 'bless', 'teleport', 'shop', 'buy', 'trade', 'nope', 'ui', 'equip', 'toss', 'drink', 'pickup', 'shard', 'shield', 'craft', 'quest']);
   const LIMIT = { rock: 0.07, step: 0.08, hit: 0.03, gold: 0.05, alert: 0.15, kill: 0.04, scorch: 0.12, pop: 0.05, spike: 0.1 };
 
   function play(e, S) {
