@@ -2361,7 +2361,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' || p.k === 'wave' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' || p.k === 'wave' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
-    for (const p of R.drops) if (p.kind === 'qitem') lt(p.x, p.y - 14, 90, [1, 0.8, 0.4], 0.75, 2.4);
+    // a quest's keepsake in a small white light of its own, as loot: in a warm one it took the floor's own orange (TASKS 1026)
+    for (const p of R.drops) if (p.kind === 'qitem') lt(p.x, p.y - 14, 50, [1, 0.97, 0.92], 0.8, 2.4);
     for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.7, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       if (e.k === 'prop' && e.mat === 'fungus' && a < 0.5) lt(e.x, e.y - (e.n === 'shroom_b' ? 34 : 22) * (e.scale || 1), 90, B.shroom || GLOW_COL.shroom, (e.touch ? 0.2 : 0.55) * (1 - a / 0.5));
@@ -2898,7 +2899,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (p.kind === 'key') { G.blend('add'); L.glow(x, y - z - 14 - bob, 30, [1, 0.8, 0.4], 0.7); G.blend(); const [w, hh] = SZ('it_key'); L.sprite('it_key', x - w * 0.3, y - z - hh * 0.6 - 4 - bob, { w: w * 0.6, h: hh * 0.6 }); return; }
     if (p.kind === 'shard') { G.blend('add'); L.glow(x, y - z - 14 - bob, 24, [0.4, 0.7, 1], 0.8); G.blend(); const [w, hh] = SZ('crystal'); L.sprite('crystal', x - w * 0.15, y - z - hh * 0.3 - bob, { w: w * 0.3, h: hh * 0.3 }); return; }
     // a quest's keepsake (TASKS 1020): its own icon in a warm gold light and a beam, so it reads as nobody's loot
-    if (p.kind === 'qitem') { const ic = p.ic || 'qi_casket', [w, hh] = SZ(ic), k = 0.7, col = [1, 0.78, 0.3]; G.blend('add'); L.glow(x, y - z - 16 - bob, 40, col, 0.7); L.solid(x - 3, y - z - 120, 6, 108, col, 0, 0, 0, 0.22 + 0.06 * Math.sin(t * 4)); G.blend();
+    if (p.kind === 'qitem') { const ic = p.ic || 'qi_casket', [w, hh] = SZ(ic), k = 0.7, col = [1, 0.93, 0.7]; L.shadow(x, y + 2, 16, 6, 0.6); G.blend('add'); L.glow(x, y - z - 16 - bob, 34, col, 0.5); L.solid(x - 3, y - z - 120, 6, 108, col, 0, 0, 0, 0.22 + 0.06 * Math.sin(t * 4)); G.blend();
       L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k }); return; }
     const it = p.item, ic = SIM.itemIcon(it), [w, hh] = SZ(ic), k = 0.62, col = D.RARITY[it.rar].col;
     if (it.rar >= 1) { G.blend('add'); L.glow(x, y - z - 14 - bob, 30, col, 0.55); if (it.rar >= 3) L.solid(x - 3, y - z - 110, 6, 100, col, 0, 0, 0, 0.18 + 0.05 * Math.sin(t * 4)); G.blend(); }
@@ -4094,6 +4095,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const keeperS = (fn) => climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] });
       const k = S.run.folk.find((q) => q.role === 'keeper'); h.x = k.x + 44; h.y = k.y + 12; R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; fn(S, R, h, k); });
     states.push(['town_keeper_prompt', keeperS(() => {})]);
+    // a giver's prompt with his own mark and the Keeper's near: the prompt stands in place of his own mark (TASKS 1026)
+    states.push(['town_porter_prompt', keeperS((S, R, h, k) => { R.offers = [{ key: 'fetch', from: 'porter', q: 0 }]; const p = R.folk.find((q) => q.role === 'porter');
+      Object.assign(p, { x: k.x + 110, y: k.y + 40, go: 0, spd: 0 }); h.x = p.x + 40; h.y = p.y + 10; R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; })]);
     states.push(['town_keeper_talk', keeperS((S, R) => { const P = D.KEEPER.rare('Посох Вечного Пламени'); S.talk = { role: 'keeper', i: 0, pages: [P[0], D.KEEPER.win[0], D.KEEPER.away[0]], p: 2 }; S.screen = 'talk'; S.hover = 'next'; })]);
     states.push(['town_guard_talk', keeperS((S) => { S.talk = { role: 'guard', i: 0, pages: D.FOLK.guard.lines[2].slice(), p: 0 }; S.screen = 'talk'; })]);
     // quests (TASKS 1018–1022): the marks over the givers (! and ?), the offer on its page (the longest text: a keepsake), the smith's

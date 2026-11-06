@@ -493,7 +493,7 @@
   const CONSUMABLES = {
     hp_potion: { name: 'Зелье здоровья', icon: 'it_hp', heal: 0.4, stack: 9 },
     mp_potion: { name: 'Зелье маны', icon: 'it_mp', mana: 0.5, stack: 9 },
-    scroll: { name: 'Свиток телепорта', icon: 'it_scroll', stack: 5 },
+    scroll: { name: 'Свиток возвращения', icon: 'it_scroll', stack: 5 },
   };
   const RARITY = [
     { id: 'common', name: 'Обычный', col: [0.78, 0.76, 0.72], affixes: 0 },
@@ -700,7 +700,8 @@
   // the Keeper of the Fire (R-25, TASKS 1016): what he says when spoken to (E), by what has happened since he last spoke; each
   // event is a page of the dialogue, the most weighty first, each told once; with nothing new, a pair of his idle lines
   const KEEPER = {
-    first: ['Новое лицо у старого огня. Садись, грейся.', 'Внизу крипта. Кто спускается — тот меняется. Кто возвращается — тот рассказывает.'],
+    first: ['Новое лицо у старого огня. Садись, грейся.', 'Внизу крипта. Кто спускается — тот меняется. Кто возвращается — тот рассказывает.',
+      'Прочти свиток возвращения (T) — и окажешься у кольца камней. Портал из кольца вернёт тебя туда, откуда ушёл. Свитки — у торговца и в сундуках.'],
     death1: ['Первый из вас не вернулся. Я видел, как дрогнул огонь.', 'Не горюй о нём: осколки его души остались у алтаря. Ты пойдёшь дальше, чем он.'],
     death: ['Ещё один огонёк погас внизу.', 'Каждый, кто падает, оставляет тропу короче для следующего.'],
     win: ['Ты вернулся с самого дна. Огонь горит ровнее, когда ты рядом.', 'Об этом спуске будут рассказывать у костра. Я — первым.'],
@@ -723,8 +724,8 @@
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save); «В город» (TASKS 1026, was «Алтарь
     // душ»: the upgrades are bought at the altar on the town's square) goes on with the saved run, or starts a campaign, in the town
-    menu: (hasRun, diff, arm, zoom) => [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 12 этажей' : arm === 'campaign' ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true],
-      ['tests', 'Тесты', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true], ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['town', 'В город', true]]
+    menu: (hasRun, diff, arm, zoom, inTown) => [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 12 этажей' : arm === 'campaign' ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true],
+      ['tests', 'Тесты', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true], ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['town', 'В город', !hasRun || !!inTown]]
       .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 })),
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last

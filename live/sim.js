@@ -1211,6 +1211,8 @@
     if (inp.slot >= 1 && inp.slot <= 3) castAbility(S, R, ABILITIES[inp.slot - 1].id, inp);
     if (inp.rclick) castAbility(S, R, 'fireball', inp);
     if (keys.KeyQ) usePotion(S, R, 'hp_potion');
+    // T reads the scroll of return (TASKS 1026: behind the bag alone, a novice never found it)
+    if (keys.KeyT) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); if (i >= 0) useItem(S, R, i); else ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Нет свитков возвращения' }); }
     if (keys.KeyR) usePotion(S, R, 'mp_potion');
     if (keys.KeyE) interact(S, R);
     if (R.map !== m) return;
@@ -1418,9 +1420,12 @@
   // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
   const qhash = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
   // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
-  function offersOf(R) { if (R.offers) return R.offers; const G = D.QUEST_GIVE; let a = qhash((R.seed >>> 0) + 0x51ed27);
-    const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.slice(), n = G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1));
-    R.offers = []; for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); }
+  // a batch more after each boss slain, as the merchant's shelf is stocked anew (TASKS 1026: 2–3 a run were all taken in the first
+  // minute); a batch's givers are those with no offer still waiting
+  function offersOf(R) { const G = D.QUEST_GIVE; R.offers = R.offers || []; if (R.offerB === undefined) R.offerB = R.offers.length ? 1 : 0;
+    while (R.offerB < 1 + (R.bossN || 0)) { const b = R.offerB++; let a = qhash((R.seed >>> 0) + 0x51ed27 + b * 7919);
+      const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.filter((w) => !R.offers.some((o) => o.from === w && !o.q)), n = Math.min(from.length, G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1)));
+      for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); } }
     return R.offers; }
   // the floor a quest taken now points at: past the deepest reached; a goal put on a floor wants one not yet built and no boss's
   function questFloor(R, key) { const Q = D.QUESTS[key], top = RUN(R).floors, d = R.deepest || 0;
@@ -2230,7 +2235,7 @@
   function stepUI(S, inp, keys) {
     const x = inp.px, y = inp.py, click = inp.click;
     if (S.screen === 'menu') {
-      const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
+      const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, S.saved && S.saved.town), x, y); S.hover = b ? b.id : '';
       if (click && b && b.on) {
         if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed), t: S.t }; }
         if (D.RUNS[b.id]) pressRun(S, b.id, arm);
@@ -4458,6 +4463,9 @@
       const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !S.talk.pages[0].startsWith(D.QUEST_SAY.keeper.thanks)) out.push('quest story: no thanks and next offer after the turn-in');
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
+    // TASKS 1026: a boss slain deals a batch of offers more, to townsmen with none waiting; T reads the scroll on a floor
+    R = run(93); const o0 = offersOf(R).length; R.bossN = 1; const o1 = offersOf(R); if (o1.length <= o0 || o1.slice(o0).some((o) => o1.slice(0, o0).some((p) => p.from === o.from && !p.q))) out.push('quest give: no fresh batch of offers after a boss');
+    enterFloor(S, R, 1); S.screen = 'play'; R.en = []; step(S, { keys: [] }); step(S, { keys: ['KeyT'] }); if (!R.hero.read) out.push('scroll: T does not read the scroll of return');
     // the journal (TASKS 1023): J opens it over play, lists the run's quests done first, a click picks one, J closes it
     R = run(91); R.quests = []; const a = takeQuest(S, R, newQuest(R, 'cull', 2, 'smith')), b2 = takeQuest(S, R, newQuest(R, 'descent', 3, 'porter')); b2.st = 'done';
     S.screen = 'play'; step(S, { keys: [] }); step(S, { keys: ['KeyJ'] }); if (S.screen !== 'journal') out.push('journal: J does not open it');

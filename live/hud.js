@@ -124,7 +124,9 @@
       if (b) { panel('merchant_bubble', b.x, b.y, w, 42); lab('merchant_hit', s, b.x + w / 2, b.y + 22, { size, al: 0.5, col: C.gold }); }
     }
     // a townsman's quest business over his head (TASKS 1018): ! a quest to take, ? one to turn in; his lines keep above it
-    if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.questMark(R, f.role); if (!mk) continue;
+    // the one the hero stands by shows his prompt in its place (TASKS 1026: the prompt, pushed off his own mark, landed by the Keeper's)
+    const talkTo = S.screen === 'play' ? SIM.folkNear(R) : null;
+    if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.questMark(R, f.role); if (!mk || f === talkTo) continue;
       // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
       if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
       const x = Math.min(W - 20, Math.max(20, V.sx(f.x))), y = Math.max(26, V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i)), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
@@ -266,7 +268,7 @@
       const s = e.k === 'trade' ? e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) + ' зол.' : e.k === 'pickup' ? (e.worn ? 'Надето: ' : 'Подобрано: ') + e.s : e.k === 'lvl' ? 'Новый уровень ' + e.lvl + '! Нажмите I' : e.k === 'unlock' ? 'Открыта способность: ' + D.ABILITIES.find((A) => A.id === e.id).name : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 24;
       panel('feedbox' + i, 18, y - 15, w, 30, { r: 5, a: 0.7 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
-    if (S.screen === 'play') { const k = 'I — герой · J — задания · M — звук · Esc — пауза', kw = lw('keys', k, { size: 15 }) + 24;
+    if (S.screen === 'play') { const k = 'I — герой · J — задания · T — свиток · M — звук · Esc — пауза', kw = lw('keys', k, { size: 15 }) + 24;
       panel('keys_box', W - 12 - kw, H - 36, kw, 30, { r: 6, a: 0.7 }); lab('keys', k, W - 24, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
   }
 
@@ -558,7 +560,7 @@
       for (const e of it.ench || []) lines.push([D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff', 22]);
       if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
       if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : h.lvl < rq ? 'Пока не надеть: мал уровень' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
-    else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : 'Возвращает в безопасную комнату', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
+    else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : S.run && S.run.viaTown ? 'Открывает портал в город (T)' : 'Возвращает в безопасную комнату (T)', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
     if (deal) lines.push([deal[0], deal[1], 22]);
     const w = Math.max(...lines.map(([s, , z], i) => lw('tt' + i, s, { size: z }))) + 36, hh = lines.reduce((a, l) => a + l[2] * 1.45, 0) + 24;
     let x = b.x + b.w + 12, y = b.y; if (x + w > W - 10) x = b.x - w - 12; if (y + hh > H - 10) y = H - 10 - hh;
@@ -589,7 +591,7 @@
     menuBack(t);
     lab('m_t', 'ГЛУБИНЫ КРИПТЫ', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_s', 'Двенадцать этажей: от подземелья до Затопленных пещер', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
+    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom, S.saved && S.saved.town)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
       const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? 'Впервые? Начните с лёгкой' : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? '×1,5 — крупнее' : '';
       if (tip) lab('mb_tip_' + b.id, tip, b.x + b.w + 24, b.y + b.h / 2 + 1, { size: 21, al: 0, col: '#9fd08a' }); }
