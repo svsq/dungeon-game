@@ -2679,7 +2679,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // event FX
     // a rock about to fall (TASKS 406): its shadow alone is lost on the dark ash, so a pale ring of falling dust marks where it lands
     for (const z of m.hazards || []) { if (z.k !== 'fall' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.fall, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue;
-      const q = w / H.warn; L.ring(sx(z.x), sy(z.y), H.r, H.r * H.ry, [0.95, 0.82, 0.62], (0.25 + 0.5 * q) * (0.8 + 0.2 * Math.sin(GT * 22)), 0.12); }
+      // (TASKS 487: the marks read by meaning, danger red, a gain yellow-green, a shelter blue: a pale ring was all of them) a danger is
+      // a red target, its ticks pointing in at where it lands
+      const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), a = (0.35 + 0.6 * q) * (0.8 + 0.2 * Math.sin(GT * 22)); L.ring(X, Y0, H.r, H.r * H.ry, [1, 0.22, 0.08], a, 0.14);
+      for (let j = 0; j < 8; j++) { const an = j / 8 * 6.283 + 0.39, cx = X + Math.cos(an) * H.r * 0.86, cy = Y0 + Math.sin(an) * H.r * H.ry * 0.86; L.solid(cx - 4, cy - 1, 8, 2, [1, 0.25, 0.1], an, 4, 1, a); } }
     // a fire priest's ring (TASKS 410): a circle of fire on the floor where the hero stood, its runes running round it and a second
     // ring closing in on it as the warning runs out; then the pillar (event FX)
     for (const p of R.pyres || []) { const P = D.ENEMIES.fire_priest.pyre, u = GT - p.t0; if (u >= P.warn || !vis(p.x, p.y)) continue;
@@ -2716,17 +2719,23 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // the colossus's rain (TASKS 466): while rocks of it are on their way, each whole slab of cover shows its shelter, a dark
       // overhang on the floor with a pale rim, where none falls
       if ((R.rocks || []).some((q) => q.kind === 'rain' && !q.done && GT < q.t + 0.2)) { const sh = D.BOSSES.boss_colossus.moves.rain.shelter, pulse = 0.8 + 0.2 * Math.sin(GT * 4);
-        for (const d of m.decor) if (d.cover && !d.broken && vis(d.x, d.y)) { const X = sx(d.x), Y0 = sy(d.y); L.shadow(X, Y0, sh, sh * 0.62, 0.42); L.ring(X, Y0, sh, sh * 0.62, [0.8, 0.85, 0.95], 0.45 * pulse, 0.05); } }
+        // (a shelter: a cool blue pool, filled, with a steady blue rim, TASKS 487)
+        for (const d of m.decor) if (d.cover && !d.broken && vis(d.x, d.y)) { const X = sx(d.x), Y0 = sy(d.y); L.shadow(X, Y0, sh, sh * 0.62, 0.42); L.glow(X, Y0, sh * 0.9, [0.3, 0.6, 1], 0.35 * pulse, 1.4); L.ring(X, Y0, sh, sh * 0.62, [0.45, 0.75, 1], 0.7 * pulse, 0.07); } }
       for (const q of R.rocks || []) { if (q.x === undefined || GT < q.t0 || !known(q.x, q.y)) continue; const f = Math.min(1, (GT - q.t0) / (q.t - q.t0)), X = sx(q.x), Y0 = sy(q.y), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * f));
         if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.06); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
-        else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.62, 0.3], (0.4 + 0.55 * f) * beat, 0.1); L.glow(X, Y0, q.r * 0.7, [1, 0.5, 0.2], 0.2 * f, 2); } }
+        else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.22, 0.08], (0.45 + 0.55 * f) * beat, 0.12); L.glow(X, Y0, q.r * 0.7, [1, 0.3, 0.1], 0.2 * f, 2); } }
     }
     // the brink (TASKS 476): a monster the hero could drive off an edge (SIM.brinkOf) has a ring at its feet beating slowly and the
     // edge by it lit, while the hero is near enough to make it a move
     if (m.cliff) for (const e of R.en) { if (Math.hypot(e.x - R.hero.x, e.y - R.hero.y) > 420 || !known(e.x, e.y)) continue; const b = SIM.brinkOf(m, e); if (!b) continue;
       // (the ring at its feet, on the dark floor: on the lava's own glare a ring at the edge was lost)
       const X = sx(e.x), Y = sy(e.y), beat = 0.7 + 0.3 * Math.sin(GT * 5 + e.id), a = (1 - b.d / D.BRINK.near * 0.5) * beat;
-      L.ring(X, Y, 24, 14, [1, 0.95, 0.7], 1.5 * a, 0.16); L.ring(X, Y, 17, 10, [1, 0.7, 0.3], 0.9 * a, 0.12); L.glow(sx(b.x), sy(b.y), 18, [1, 0.85, 0.5], 0.5 * a, 2.4); }
+      // (a gain: yellow-green chevrons at its feet running toward the edge it can be driven off, TASKS 487)
+      const an = Math.atan2(sy(b.y) - Y, sx(b.x) - X), G2 = [0.7, 1, 0.3];
+      L.ring(X, Y, 24, 14, G2, 1.5 * a, 0.16);
+      for (let j = 0; j < 3; j++) { const f = ((GT * 1.2 + j / 3) % 1), d = 4 + 40 * f, cx = X + Math.cos(an) * d, cy = Y + Math.sin(an) * d * 0.62, al = 1.4 * a * Math.sin(Math.PI * f);
+        for (const sg of [-1, 1]) for (let i = 0; i <= 3; i++) { const b2 = an + Math.PI + sg * 0.75; L.star(cx + Math.cos(b2) * i * 4, cy + Math.sin(b2) * i * 4 * 0.62, 4, G2, al); } }
+      L.glow(sx(b.x), sy(b.y), 18, [0.75, 1, 0.4], 0.5 * a, 2.4); }
     // a terrace's surge (TASKS 475), over the bridges' decks too: over its warning its band glows and beats faster, sparks jump off
     // the lava by it and the lava creeps up its edges; then it floods it and ebbs back
     for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0) continue;
