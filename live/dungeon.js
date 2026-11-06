@@ -1230,6 +1230,15 @@
       const ad = doors.filter((d) => d.arena);
       if (strict && !cave && ad.some((d, i) => ad.some((o, j) => j > i && o.dir === d.dir && Math.abs(o.x - d.x) + Math.abs(o.y - d.y) < 4 * TILE))) return null;
     }
+    // the magma caves' halls (TASKS 434, data.js MAGMA_HALLS): the big plateaus off the way to the stairs, dead ends first, each a
+    // kind its floor's roster has, no kind twice; their own stream, so the rest of the floor is laid out as before
+    const HL = D.MAGMA_HALLS, circles = [];
+    if (plat && !boss && HL) { const Hr = mul32(seed ^ 0x434a), have = D.rosterAt(biome, Math.min(ST.n, floor + ST.early)), rank = (r) => (way.has(r.id) ? 2 : 0) + (deadEnd(r) ? 0 : 1);
+      const cand = rooms.filter((r) => r.type === 'combat' && !r.pocket && !r.isle && !r.branch && r.kind !== 'ledge' && r.kind !== 'ridge' && r.w * r.h >= HL.area);
+      for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(Hr() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; } cand.sort((a, b) => rank(a) - rank(b));
+      let n = HL.n[0] + (Hr() < HL.two ? 1 : 0); const kinds = Object.entries(HL.kinds).filter(([, K]) => have.includes(K.need)), took = new Set();
+      for (const r of cand) { if (n <= 0 || !kinds.length) break; const pk = kinds.filter(([k]) => !took.has(k)); if (!pk.length) break;
+        let roll = Hr() * pk.reduce((a, [, K]) => a + K.w, 0), pick = pk[0][0]; for (const [k, K] of pk) if ((roll -= K.w) < 0) { pick = k; break; } r.hall = pick; took.add(pick); n--; } }
     // ---- contents ----
     // a cell next to a corridor mouth: any neighbour outside every room that is open floor
     const inRoom = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
@@ -1356,6 +1365,7 @@
         // (a lake's islands are the short way under fire, TASKS 472: archers at their far side over the crossings, the rest by the way in;
         // its shore stands past a bow's reach of them)
         if (r.isle && MP.line && has('skel_archer')) P = MP.line;
+        if (r.hall && MP[HL.kinds[r.hall].pack] && MP[HL.kinds[r.hall].pack].plan[0][0].some(has)) P = MP[HL.kinds[r.hall].pack];   // (a hall's own, TASKS 434)
         // bank (TASKS 407): a cell of the hall with lava within three but none beside it, the far side from the way in first; lava (408): a cell of open lava
         // (no crust, no bridge over it) at the hall's edge with its floor within two cells, the salamander's post
         const crustK = new Set(crust), lavaBy = (x, y) => { let by = false; for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (at(x + i, y + j) === 3) { if (Math.abs(i) <= 1 && Math.abs(j) <= 1) return false; by = true; } return by; };
@@ -1573,7 +1583,7 @@
         const kp = r.kind && MX ? MX[r.kind].pop || 1 : 1;
         n = Math.max(r.kind === 'ledge' ? 0 : 1, Math.round(n * D.BAL.pop * ST.pop * (plat ? TY.pop : 1) * kp));
         const pack = pick(roster), guard = r.type === 'exit' && !!ST.guard;
-        if (cave) { if (n > 0) cavePack(r, n, guard); }
+        if (cave) { if (n > 0) cavePack(r, n + (r.hall ? HL.kinds[r.hall].extra : 0), guard); }
         else for (let i = 0; i < n; i++) { const p = spot(r, 1); if (!p) break;
           let type = R() < 0.6 ? pack : pick(roster); if (type === 'brute' && R() < 0.6) type = pack === 'brute' ? 'skeleton' : pack;
           // a drowned lies in the room's shallows (TASKS 307); a room with none takes another of the roster
@@ -1731,8 +1741,24 @@
       const plans = Object.entries(D.ROOM_PLANS).filter(([, P]) => P[PK] && P.need.every((n) => PB.props.includes(n)));
       // a prop standing anywhere in the hall it can, the rock's edge first
       const standIn = (r, n, k) => { for (let i = 0; i < k; i++) { const c = [...cellsOf(r, (x, y) => rockN(x, y) >= 1), ...cellsOf(r, () => true)].find(([x, y]) => canStand(x, y, n)); if (c) stand(...c, n, r.id); } };
+      // a hall's props and reward (TASKS 434): its centre the hoard's, its props round it and against the rock
+      const near = (r, c, f) => cellsOf(r, f).sort((a, b) => Math.hypot(a[0] - c[0], a[1] - c[1]) - Math.hypot(b[0] - c[0], b[1] - c[1]));
+      const chestAt = (r, c, tier) => { const p = near(r, c, (x, y) => canStand(x, y, 'chest'))[0]; if (p) { claim(p[0], p[1], 'chest'); hardC.add(key(p[0], p[1])); chests.push({ x: wx(p[0]), y: wy(p[1]), tier, open: 0 }); } return p; };
+      const goldAt = (r, c, k) => { for (const p of near(r, c, (x, y) => canStand(x, y, 'goldpile')).slice(0, 8)) { if (k <= 0) break; if (!canStand(p[0], p[1], 'goldpile')) continue; claim(p[0], p[1], 'goldpile'); hardC.add(key(p[0], p[1])); pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); k--; } };
+      const brazierAt = (r, c) => { const p = near(r, c, (x, y) => canStand(x, y, 'brazier'))[0]; if (p) { claim(p[0], p[1], 'brazier'); hardC.add(key(p[0], p[1])); torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); } };
+      const hallProps = (r) => { const c = [r.cx, r.cy], back = (x, y) => at(x, y - 1) === 0 && at(x, y - 2) === 0;
+        if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id }); chestAt(r, c, 2);
+          for (const [dx, dy] of [[-2, -1], [2, -1], [-2, 1], [2, 1]]) { const x = c[0] + dx, y = c[1] + dy; if (free(x, y) && !doorway(x, y)) { used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: 'candles' }); } }
+          brazierAt(r, [c[0] - 4, c[1]]); brazierAt(r, [c[0] + 4, c[1]]); standIn(r, 'banner_mg', 2); lie(r, 'bones', dri(2, 3)); }
+        else if (r.hall === 'forge') { const f = near(r, c, (x, y) => back(x, y) && canStand(x, y, 'forge_tw'))[0] || near(r, c, (x, y) => canStand(x, y, 'forge_tw'))[0]; if (f) stand(...f, 'forge_tw', r.id);
+          const a = f && near(r, [f[0] + 3, f[1] + 2], (x, y) => canStand(x, y, 'anvil_tw'))[0]; if (a) stand(...a, 'anvil_tw', r.id);
+          if (f) brazierAt(r, [f[0] - 3, f[1] + 1]); standIn(r, 'rack', 1); stack(r); chestAt(r, a ? [a[0] + 2, a[1]] : c, 2); goldAt(r, a || c, 1); lie(r, 'bones', dri(1, 2)); }
+        else if (r.hall === 'nest') { const lieOpen = (n, k) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && !N8.some(([dx, dy]) => at(x + dx, y + dy) === 3)).slice(0, k)) { used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id }); } };
+          lieOpen('skel_mg', dri(3, 4)); lieOpen('bones', dri(5, 7)); chestAt(r, c, 1); goldAt(r, c, 2); rocks(r, dri(2, 3), false); }
+        else if (r.hall === 'prison') { standIn(r, 'cage', dri(2, 3)); stack(r); stack(r); chestAt(r, c, 1); goldAt(r, c, 1); lie(r, 'bones', dri(2, 4)); lie(r, 'skel_mg', 1); } };
       for (const r of rooms) {
         if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss') continue;
+        if (plat && r.hall) { hallProps(r); continue; }
         if (r === start && plat) {
           // the cult's camp round the fire: its banners on their posts a few steps off, a pile of its barrels and crates, a cage,
           // the bones of whoever it burnt (TASKS 405)
@@ -2066,7 +2092,7 @@
     if (plat) { const fl = cells.filter((c) => c === 1).length, sh = shareOf, share = lava.length / (fl + lava.length);
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     const map = { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      ftype, ftype2, shareOf, ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
+      ftype, ftype2, shareOf, ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
     // the rare floor that misses is laid again)
     if (plat && !boss && strict) { const q = rewardsOf(map); if (q.onWay * 3 > q.list.length || q.bare.length) return null; }

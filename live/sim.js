@@ -2859,6 +2859,17 @@
         if (!on) out.push(`${tag}: the walk to the stairs misses the surge`);
         if (m.enemies.some((e) => D.hazIn(z, e.x, e.y))) out.push(`${tag}: a monster posted in the surge`); }
       if (stepless > 4) out.push(`magma terraces: ${stepless} of 20 floors with no step down`); }
+    // the magma caves' halls (TASKS 434): one or two a floor but the boss's, each with its props, its reward and its own pack
+    { const HL = D.MAGMA_HALLS, kinds = {}, inR = (r, o) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= r.y * TILE && o.y < (r.y + r.h) * TILE;
+      for (let sd = 1; sd <= 10; sd++) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f}`, hs = m.rooms.filter((r) => r.hall);
+        if (f === D.RUNS.magma.floors ? hs.length : hs.length < HL.n[0] || hs.length > HL.n[1] + 1) out.push(`${tag}: ${hs.length} halls`);
+        for (const r of hs) { kinds[r.hall] = 1; const K = HL.kinds[r.hall], lead = D.MAGMA_PACKS[K.pack].plan[0][0];
+          const props = { sanctum: (m.circles || []).some((q) => q.r === r.id), forge: ['forge_tw', 'anvil_tw'].every((n) => m.decor.some((d) => d.n === n && inR(r, d))),
+            nest: m.decor.filter((d) => d.n === 'skel_mg' && inR(r, d)).length >= 3, prison: m.decor.filter((d) => d.n === 'cage' && inR(r, d)).length >= 2 }[r.hall];
+          if (!props) out.push(`${tag}: the ${r.hall} hall without its props`);
+          if (!m.chests.some((c) => inR(r, c))) out.push(`${tag}: the ${r.hall} hall without its chest`);
+          if (!m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`); } }
+      for (const k of Object.keys(HL.kinds)) if (!kinds[k]) out.push(`magma halls: no ${k} hall in 10 runs`); }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
     // the mix (TASKS 426): a lake, river or terrace floor over the chasm: it turns up in the runs, and on each figure a floor holds
     // the figure's own checks that the chasm could break (a walk to the stairs, a lava share, two bridges, every plateau in reach, the lake's islands)

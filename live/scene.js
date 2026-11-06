@@ -2088,6 +2088,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.runOf(R.mode).floors) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh, u: m.town ? { grade: [0.8, 0.5, 0, 1.1] } : undefined }); } }
     // the start room's bonfire sits in a rune circle
     if (window.ASSETS.sanct_circle && !m.town && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
+    // a magma hall's ritual circle (TASKS 434), the fire priests' as on ref_cave_lava
+    if (window.ASSETS.sanct_circle) for (const q of m.circles || []) if (vis(q.x, q.y)) { const d = 4.2 * TILE; L.sprite('sanct_circle', sx(q.x) - d / 2, sy(q.y) - d / 2, { w: d, h: d }); }
     // spike traps: a 2×2-cell plate on the ground; its spikes stand in the Y-sorted band (they have height)
     // on the magma's basalt the crypt's grey masonry plate read as a tile (TASKS 456): it goes dark and dull, a hot glint in each hole
     for (const tp of m.traps) if (vis(tp.x, tp.y)) { L.sprite('trap_plate', sx(tp.x - TILE), sy(tp.y - TILE), { w: 2 * TILE, h: 2 * TILE, u: m.cliff ? { grade: [0.35, 0.9, 0, 1.05] } : undefined });
@@ -3690,6 +3692,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const c = ph === 'rest' ? z.per * 0.5 : ph === 'warn' ? z.per + c0 * H.warn * 2 : c0 * (ph === 'flood' ? H.burst : H.burst + H.ebb), t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per;
         let hy = y - 4 * TILE; for (let j = 4; j < 9; j++) if (SIM.cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1 && !z.cells.includes(k0 - j * W)) { hy = y - j * TILE; break; }
         view(S, x, y, x, hy); S.t = R.t = t; S.ev = []; if (ph !== 'rest' && ph !== 'warn') S.ev.push({ k: 'surge', t: t - c, x: z.x, y: z.y, i: R.map.hazards.indexOf(z) }); states.push(['magma_surge_' + ph, S]); }
+      // the magma caves' halls (TASKS 434): each kind's first on the runs from seed 3, the camera on it, the hero at its edge
+      for (const kind of Object.keys(D.MAGMA_HALLS.kinds)) { const S = play(); let r = null;
+        for (let sd = 3; sd < 40 && !r; sd++) { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let f = 1; f <= 3 && !r; f++) { SIM.enterFloor(S, S.run, f); r = S.run.map.rooms.find((q) => q.hall === kind); } }
+        if (!r) continue; const R = S.run, x = (r.cx + 0.5) * TILE, y = (r.cy + 0.5) * TILE; const pack = R.en.filter((e) => e.room === r.id).map((e) => Object.assign(e, { st: 'idle' })); view(S, x, y, x - (r.w / 2 - 1) * TILE, y + 2 * TILE); R.en = pack; states.push(['magma_hall_' + kind, S]); }
       // the magma caves' dead things answering a blow (TASKS 466): a crack's embers, a charred skeleton's ash, a fence's swing
       { const S = play(); const k0 = at(S, 2, (m) => { const W = m.W; if (m.ftype === 'cave') return null; for (let k = W * 6; k < W * (m.H - 6); k++) if ([0, 1, 2, 3, -1, -2, -3].every((i) => [-2, -1, 0, 1, 2].every((j) => m.cells[k + j * W + i] === 1))) return k; return null; });
         if (k0 !== null) { const R = S.run, m = R.map, W = m.W, x = (k0 % W + 0.5) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE; view(S, x, y, x, y + 8); R.en = [];
