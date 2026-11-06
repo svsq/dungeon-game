@@ -7,6 +7,10 @@
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
   const MAP = { key: '', rec: null, cv: null, k: 3 };
   HUD.init = () => {};
+  // a line of text broken into lines of at most `width` px
+  const wrapLab = (id, s0, x, y, width, size, col) => { const lines = []; let line = '';
+    for (const w of String(s0).split(' ')) { const next = line ? line + ' ' + w : w; if (line && lw(id + '_m', next, { size }) > width) { lines.push(line); line = w; } else line = next; }
+    if (line) lines.push(line); lines.forEach((v, i) => lab(id + i, v, x, y + i * (size + 7), { size, col })); return lines.length * (size + 7); };
   const hex = (c) => '#' + c.map((v) => Math.round(Math.min(1, v) * 255).toString(16).padStart(2, '0')).join('');
   const lab = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: C.text, out: '#140c0c' }, o));
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
@@ -52,6 +56,7 @@
     if (S.screen === 'altar' && R) altar(S, R, t);
     if (S.screen === 'gate' && R) gate(S, R, t);
     if (S.screen === 'stash' && R) stash(S, R, t);
+    if (S.screen === 'craft' && R) craft(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
 
@@ -113,7 +118,7 @@
     }
     // the townsfolk's lines (TASKS 1015): a pair, the first line then the second, over the speaker's head; the merchant's call
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
-      if (b) { panel(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); } };
+      if (b) { panel(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) { const FD = D.FOLK[f.role]; if (!FD.lines || !f.near || GT < f.sayT || GT - f.sayT >= D.FOLK_SAY) continue;
       bubble('folk' + f.i, FD.lines[f.sayN][GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 48); }
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
@@ -172,6 +177,7 @@
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься в крипту' : 'E — спуститься на этаж ' + (m.floor + 1)];
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
+    { const cw = SIM.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? 'E — кузнец: перековка' : 'E — зачарователь: зачарование']; } }
     if (SIM.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, 'E — сундук-хранилище'];
     if (SIM.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, 'E — Алтарь душ: улучшения предков'];
     if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
@@ -509,6 +515,7 @@
       if (it.def) lines.push(['Защита: ' + it.def, C.text, 22]);
       const typed = SIM.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');
+      for (const e of it.ench || []) lines.push([D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff', 22]);
       if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
       if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
     else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : 'Возвращает в безопасную комнату', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
@@ -598,6 +605,35 @@
     lab('al_limit', 'Осталось пожертвований: ' + left + ' из 10', P.x + 640, b.y + 48, { size: 21, col: C.dim });
     refusal(S, W / 2, P.y + 674);
     lab('al_help', sh.used ? 'ЛКМ — пожертвовать золото · E или Esc — уйти' : 'ЛКМ — дар или пожертвование · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
+  // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
+  function craft(S, R, t) {
+    const h = R.hero, U = D.UI.craft(), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);
+    dim(0.55); panel('craft', P.x, P.y, P.w, P.h, { r: 10, rim: forge ? C.rim : [0.32, 0.42, 0.62] });
+    if (!forge) { G.blend('add'); L.glow(P.x + 1170, P.y + 90, 360, [0.3, 0.5, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend(); }
+    lab('cr_t', forge ? 'Кузнец · перековка' : 'Зачарователь · зачарование', P.x + 40, P.y + 46, { size: 40, col: forge ? C.gold : '#9cc8ff' });
+    const gs = h.gold + ' золота'; lab('cr_g', gs, P.x + P.w - 96, P.y + 46, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 30, 32);
+    if (!forge) { const ss = String(S.meta.shards); lab('cr_sh', ss, P.x + P.w - 96, P.y + 86, { size: 24, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 96 - lw('cr_sh', ss, { size: 24 }) - 36, P.y + 70, 30); }
+    lab('cr_eq', 'Надето', P.x + 40, P.y + 126, { size: 22, col: C.dim }); lab('cr_bag', 'Сумка', P.x + 40, P.y + 292, { size: 22, col: C.dim });
+    for (const b of U.r) { if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot); else if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]); else continue;
+      if (b.id === c.sel) { const k = forge ? [1, 0.8, 0.4] : [0.55, 0.75, 1]; L.solid(b.x - 4, b.y - 4, b.w + 8, 3, k); L.solid(b.x - 4, b.y + b.h + 1, b.w + 8, 3, k); L.solid(b.x - 4, b.y - 4, 3, b.h + 8, k); L.solid(b.x + b.w + 1, b.y - 4, 3, b.h + 8, k); } }
+    const X = P.x + 860, help = forge ? 'Свойства вещи собираются заново: столько же, сколько даёт её редкость. Зачарования остаются.' : 'До трёх зачарований на вещь. Каждое следующее дороже и рискованнее: чары могут сорваться или испортить вещь.';
+    wrapLab('cr_help', help, X, P.y + 126, 620, 21, C.dim);
+    if (!it) lab('cr_pick', 'Выберите вещь слева', X, P.y + 300, { size: 26, col: C.text });
+    else { const b = { id: 'cr_sel', x: X, y: P.y + 220, w: 110, h: 110 }; slot(S, b, it);
+      lab('cr_n', SIM.itemName(it), X + 130, P.y + 250, { size: 28, col: hex(D.RARITY[it.rar].col) }); lab('cr_r', D.RARITY[it.rar].name + ' · ур. ' + it.lvl, X + 130, P.y + 290, { size: 20, col: C.dim });
+      const rows = Object.entries(it.mods || {}).map(([k, v]) => [D.AFFIXES.find((a) => a.k === k).label.replace('{v}', v), '#8fd98a']).concat((it.ench || []).map((e) => [D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff']));
+      if (!rows.length) rows.push(['Свойств нет', C.dim]);
+      rows.forEach(([s0, col], i) => lab('cr_m' + i, s0, X, P.y + 360 + i * 32, { size: 22, col }));
+      const k = SIM.craftCost(S, R, it), btn = Object.assign({}, at('do'), { on: k.can && h.gold >= k.gold && S.meta.shards >= k.shards, label: !k.can ? k.why : (forge ? 'Перековать' : 'Зачаровать') + ' · ' + k.gold + ' золота' + (k.shards ? ' · ' + k.shards + ' осколков' : '') });
+      button('cr_do', btn, S.hover);
+      if (k.can && !forge) lab('cr_risk', k.fail ? 'Риск неудачи: ' + Math.round(k.fail * 100) + '%' : 'Первое зачарование — без риска', X + 310, btn.y - 26, { size: 21, al: 0.5, col: k.fail ? '#e0a070' : '#8fd98a' }); }
+    if (c.res && S.t - c.res.t < 4) lab('cr_res', c.res.s, X + 310, P.y + P.h - 60, { size: 23, al: 0.5, col: c.res.ok ? '#8fd98a' : '#e0604f', a: 1 - L.SS(3.4, 4, S.t - c.res.t) });
+    else refusal(S, X + 310, P.y + P.h - 60);
+    const cb = at('close'); panel('cr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('cr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    lab('cr_keys', 'ЛКМ — выбрать вещь · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+    const hb = U.r.find((q) => q.id === S.hover), hi = hb && (hb.id.startsWith('eq:') ? h.eq[hb.slot] : hb.id.startsWith('bag:') ? h.bag[hb.i] : null);
+    if (hi) tooltip(S, hi, hb, h, ['ЛКМ — выбрать', C.gold]);
   }
   // ---------------- the town's storage chest (R-33, TASKS 1012): gear left for the heroes to come ----------------
   function stash(S, R, t) {

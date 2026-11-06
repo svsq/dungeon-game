@@ -62,6 +62,7 @@
   function itemMods(it) {
     const mods = typeMods(it);
     for (const k in it.mods) mods[k] = (mods[k] || 0) + it.mods[k];
+    for (const e of it.ench || []) mods[e.k] = (mods[e.k] || 0) + e.v;
     return mods;
   }
   function rebalanceRun(R) {
@@ -1325,6 +1326,7 @@
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
     // out it is taken at once, with more a window to choose
+    const cw = atCraft(R); if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
@@ -1347,6 +1349,29 @@
   // the storage chest stands three cells right of the altar: between them the nearer one answers
   const atSoulAltar = (R) => near(R, 'altar', 70) && (!near(R, 'stash', 64) || nearer(R, 'altar', 'stash'));
   const atStash = (R) => near(R, 'stash', 64) && !atSoulAltar(R);
+  // ---------------- the town's workshops (R-32, TASKS 1013) ----------------
+  // the smith at his anvil reforges, the enchanter at her lectern enchants; the piece is chosen from the worn gear or the bag
+  const atCraft = (R) => (near(R, 'anvil', 80) ? 'forge' : near(R, 'lectern', 80) ? 'enchant' : null);
+  const craftItem = (S, R) => { const c = S.craft, h = R.hero; if (!c || !c.sel) return null; const [k, v] = c.sel.split(':'); const it = k === 'eq' ? h.eq[v] : h.bag[+v]; return it && BASES[it.b] ? it : null; };
+  // what the work costs on this piece now: gold (and shards for an enchantment), the chance it fails
+  function craftCost(S, R, it) { const C = D.CRAFT, p = D.itemPrice(it, tradeDepth(R));
+    if (S.craft.kind === 'forge') return { gold: Math.max(10, Math.round(p * C.reforge)), shards: 0, fail: 0, can: RARITY[it.rar].affixes > 0, why: 'Нечего перековывать: у обычной вещи нет свойств' };
+    const n = (it.ench || []).length, E = C.ench; return n >= E.max ? { gold: 0, shards: 0, fail: 0, can: false, why: 'Больше трёх чар вещь не держит' } : { gold: Math.max(10, Math.round(p * E.gold[n])), shards: E.shards[n], fail: E.fail[n], can: true }; }
+  function craft(S, R) { const h = R.hero, it = craftItem(S, R), at = R.map.town.svc[S.craft.kind === 'forge' ? 'anvil' : 'lectern'];
+    if (!it) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Выберите вещь' }); return; }
+    const c = craftCost(S, R, it); if (!c.can) { ev(S, { k: 'nope', x: h.x, y: h.y, s: c.why }); return; }
+    if (h.gold < c.gold) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не хватает золота' }); return; }
+    if (S.meta.shards < c.shards) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не хватает осколков душ' }); return; }
+    h.gold -= c.gold; S.meta.shards -= c.shards; let res, ok = 1;
+    if (S.craft.kind === 'forge') { it.mods = {}; rollAffixes(R, it); res = 'Перековано: свойства собраны заново'; }
+    else if (rnd(R) < c.fail) { ok = 0; const own = Object.keys(it.mods || {});
+      if (rnd(R) < D.CRAFT.ench.strip || !own.length) { it.ench = []; res = 'Чары сорвались: все зачарования сняты'; }
+      else { const k = own[Math.floor(rnd(R) * own.length)]; delete it.mods[k]; res = 'Вещь испорчена: пропало свойство «' + AFFIXES.find((a) => a.k === k).label.replace('{v}', '').replace(/^\+\s*/, '').trim() + '»'; } }
+    else { const used = new Set((it.ench || []).map((e) => e.k)), pool = AFFIXES.filter((a) => !used.has(a.k)), a = pool[Math.floor(rnd(R) * pool.length)];
+      const v = Math.max(1, Math.round((a.a + a.b * it.lvl) * (0.7 + 0.6 * rnd(R)) * (1 + 0.15 * it.rar)));
+      it.ench = (it.ench || []).concat({ k: a.k, v }); res = 'Зачаровано: ' + a.label.replace('{v}', v); }
+    const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
+    S.craft.res = { s: res, ok, t: S.t }; S.saveN++; ev(S, { k: 'craft', x: at.x, y: at.y, kind: S.craft.kind, ok }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // gear left in the town for the heroes to come: S.meta.stash, its cells D.STASH.cells(meta), its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)
@@ -2101,6 +2126,14 @@
     }
     // the storage chest: a click moves an item across, a drag drops it on the cell under the pointer (a drop where it started, or
     // off any cell, moves it across as a click would)
+    if (S.screen === 'craft') {
+      const R = S.run, U = UI.craft(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+      if (!R || !S.craft || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+      if (click && b && (b.id.startsWith('eq:') || b.id.startsWith('bag:'))) { const it = b.id.startsWith('eq:') ? R.hero.eq[b.slot] : R.hero.bag[b.i];
+        if (it && BASES[it.b]) { S.craft.sel = b.id; S.craft.res = null; ev(S, { k: 'ui', x, y }); } else if (it) ev(S, { k: 'nope', x, y, s: 'Только снаряжение' }); }
+      if (click && b && b.id === 'do') craft(S, R);
+      return;
+    }
     if (S.screen === 'stash') {
       const R = S.run, U = UI.stash(), b = D.hitUI(U.r, x, y), n = D.STASH.cells(S.meta); S.hover = b ? b.id : '';
       if (!R || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
@@ -3986,7 +4019,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck());
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -4132,6 +4165,33 @@
     const got = Q.hero.bag.find((it) => it && it.b === g1.b && it.lvl === g1.lvl && !isCons(it)); if (!got || got.id < Q.nextId - 1 || T.meta.stash.items[0]) out.push('stash: the next hero does not take the piece out with an id of his own');
     return out;
   }
+  // TASKS 1013: E at the anvil opens the smith's reforging, at the lectern the enchanter's enchanting; a reforge re-rolls a piece's
+  // own affixes for gold (not a common piece's, which has none), keeps its enchantments; the first enchantment never fails and
+  // reaches the hero's stats; a failed one strips the enchantments or takes an affix of the piece's own; a fourth is refused;
+  // each is paid in gold and shards
+  function craftCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.craft();
+    const click = (id) => { const b = U.r.find((q) => q.id === id); step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }); };
+    h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: ['KeyE'] }); if (S.screen !== 'craft' || S.craft.kind !== 'forge') { out.push('craft: E at the anvil does not open the smith'); return out; }
+    const it = Object.assign(rollItem(R, 6, 2, 'ring'), { id: R.nextId++, rar: 3 }); it.mods = {}; rollAffixes(R, it); h.bag[5] = it; h.gold = 100000;
+    click('bag:0'); if (S.craft.sel) out.push('craft: a potion is chosen for the workshop');
+    click('bag:5'); const m0 = JSON.stringify(it.mods), g0 = h.gold; it.ench = [{ k: 'str', v: 3 }]; click('do');
+    if (h.gold >= g0 || JSON.stringify(it.mods) === m0 || Object.keys(it.mods).length !== RARITY[it.rar].affixes || it.ench.length !== 1) out.push('craft: a reforge does not re-roll the affixes for gold, or loses the enchantment');
+    h.eq.weapon.rar = 0; h.eq.weapon.mods = {}; click('eq:weapon'); const g1 = h.gold; click('do'); if (h.gold !== g1) out.push('craft: a common piece is reforged');
+    step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('craft: Esc does not leave the workshop');
+    h.x = sv.lectern.x; h.y = sv.lectern.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen !== 'craft' || S.craft.kind !== 'enchant') { out.push('craft: E at the lectern does not open the enchanter'); return out; }
+    it.ench = []; h.eq.ring = it; h.bag[5] = null; S.meta.shards = 1000; click('eq:ring'); const st0 = heroSt(S), sh0 = S.meta.shards; click('do');
+    if (it.ench.length !== 1 || S.meta.shards !== sh0 - D.CRAFT.ench.shards[0]) out.push('craft: the first enchantment fails or is not paid in shards');
+    else { const e = it.ench[0], st1 = heroSt(S), was = SIM_STAT[e.k]; if (was && st1[was] <= st0[was]) out.push(`craft: the enchantment (${e.k}) does not reach the hero`); }
+    let fails = 0, strips = 0, spoils = 0;
+    for (let i = 0; i < 300; i++) { const n = it.ench.length, own = Object.keys(it.mods).length; if (n >= 3) { it.ench = []; continue; } click('do');
+      if (!S.craft.res || S.craft.res.ok) continue; fails++; if (!it.ench.length && Object.keys(it.mods).length === own) strips++; else if (it.ench.length === n && Object.keys(it.mods).length === own - 1) spoils++;
+      if (!Object.keys(it.mods).length) rollAffixes(R, it); }
+    if (!fails || fails !== strips + spoils || !spoils || !strips) out.push(`craft: a failure neither strips nor spoils as it should (${fails} = ${strips} + ${spoils})`);
+    it.ench = [{ k: 'str', v: 1 }, { k: 'agi', v: 1 }, { k: 'int', v: 1 }]; const g2 = h.gold; click('do'); if (it.ench.length !== 3 || h.gold !== g2) out.push('craft: a fourth enchantment is laid on');
+    return out;
+  }
+  const SIM_STAT = { str: 'atk', vit: 'maxHp', hp: 'maxHp', mp: 'maxMp', atk: 'atk', def: 'def', crit: 'crit', aspd: 'aspd', dodge: 'dodge', regen: 'regen', onhit: 'onhit' };
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
@@ -4184,6 +4244,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, atSoulAltar, atStash, stashOf, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

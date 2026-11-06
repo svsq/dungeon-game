@@ -563,6 +563,10 @@
     // the town's storage chest (TASKS 1012): one cell of its own, a cell more per rank
     { id: 'vault', name: 'Сундук предков', town: 1, v: (r) => r, unit: (n) => plural(n, 'ячейка', 'ячейки', 'ячеек') + ' хранилища в городе', max: 2, cost: (r) => 40 + r * 20 },
   ];
+  // the town's workshops (R-32, TASKS 1013), a sink for spare gold and shards (389): the smith reforges a piece's own affixes for a
+  // share of its price; the enchanter lays on up to three more, each dearer and riskier: a failure strips every enchantment
+  // (strip share of failures) or spoils the piece (it loses one affix of its own)
+  const CRAFT = { reforge: 0.35, ench: { max: 3, gold: [0.3, 0.6, 1.2], shards: [3, 6, 12], fail: [0, 0.2, 0.4], strip: 0.6 } };
   // the storage chest (R-33, TASKS 1012): gear left for the heroes to come, kept in the meta save with the item balance it was made under
   const STASH = { max: 3, cells: (meta) => 1 + ((meta && meta.up && meta.up.vault) || 0) };
 
@@ -674,6 +678,13 @@
     end: (hasLog, town) => [['menu', 'В главное меню', true], ['again', town ? 'Вернуться в город' : 'Новый забег', true], ['log', 'Сохранить журнал', !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
     meta: () => { const rows = Math.ceil(META.length / 2), step = Math.min(112, Math.floor(588 / rows));
       return META.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 266 + (i % rows) * step, w: 760, h: step - 10 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 890, w: 300, h: 70 }]); },
+    // a town workshop (TASKS 1013): the worn gear in a row and the bag under it on the left, the chosen piece, its affixes, the price
+    // and the work's button on the right
+    craft: () => { const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
+      SLOTS.forEach((sl, i) => r.push({ id: 'eq:' + sl, slot: sl, x: P.x + 40 + i * 96, y: P.y + 150, w: 84, h: 84 }));
+      for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 40 + (i % 8) * 96, y: P.y + 316 + Math.floor(i / 8) * 96, w: 84, h: 84 });
+      r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      return { P, r }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 150, w: 1080, h: 780 }, r = [];
       for (let i = 0; i < STASH.max; i++) r.push({ id: 'stash:' + i, i, x: P.x + P.w / 2 - 170 + i * 120, y: P.y + 150, w: 100, h: 100 });
@@ -768,7 +779,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
