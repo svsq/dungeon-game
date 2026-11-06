@@ -1647,6 +1647,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (let j = 0; j < 3; j++) { const ph = ((t * 0.8 + j / 3 + rnd(e.id, j)) % 1), r = 0.25 * L0 + 0.35 * L0 * ph; L.ring(x, y, r, r * 0.55, [1, 0.6, 0.2], 0.45 * sw * (1 - ph), 0.12); }
     if (sp > 8) for (let j = 0; j < 6; j++) { const q = ((t * 1.6 + j / 6) % 1), side = j % 2 ? 1 : -1, d = 0.3 * L0 + 0.5 * L0 * q, w = 0.12 * L0 + 0.3 * L0 * q;
       L.star(x - Math.cos(fa) * d - Math.sin(fa) * side * w, y + (-Math.sin(fa) * d + Math.cos(fa) * side * w) * 0.8, 4 + 3 * (1 - q), [1, 0.65, 0.25], 0.6 * sw * (1 - q) * SS(8, 40, sp)); } }
+  // the frame's lava mask and the map's box in target px, for a sunk salamander's clip (TASKS 460)
+  let LAVA_CLIP = null;
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
     const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3, hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
@@ -1720,6 +1722,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.08, hA) * (1 - SS(0.12, 0.32, hA)) : 0;   // a hit flinches the upper body away from the hero
       const Ur = Object.assign({ alpha, grade }, rim, cut), Uf = Object.assign({ alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] }, cut), dy = sub * h * 1.02;
       const sw = swimOf(e, GT); if (sw > 0) { Ur.grade = [Ur.grade[0], Ur.grade[1] * (1 - 0.3 * sw), 0, Ur.grade[3]]; if (e.st === 'soak' && e.soaked) Ur.alpha = alpha * (1 - 0.5 * SS(0, 0.5, GT - e.soakT)); }
+      // (a salamander sunk in the lava shows only over the open lava, TASKS 460: not over a slab or the bank by it)
+      if (sw > 0 && e.type === 'salamander' && LAVA_CLIP) { const clip = Object.assign({ clipk: SS(0.2, 0.8, sw) }, LAVA_CLIP); Object.assign(Ur, clip); Object.assign(Uf, clip); }
       const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
       const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub, swim: sw });
         if (r && r.head && E.lake) RIM.heads[e.id] = P(r.head);
@@ -1824,6 +1828,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     bake(m); const seen = seenTex(R);
     const tr = R.trauma * R.trauma, shx = 16 * tr * (L.rnd(Math.floor(GT * 30), 1) - 0.5) * 2, shy = 12 * tr * (L.rnd(Math.floor(GT * 30), 2) - 0.5) * 2;
     const cx = Math.round((R.cam[0] + shx) / PIX) * PIX, cy = Math.round((R.cam[1] + shy) / PIX) * PIX, sx = (x) => x - cx, sy = (y) => y - cy;
+    LAVA_CLIP = m.cliff ? { clipm: lavaGlowTex(m), clipb: [-cx, -cy, m.W * TILE, m.H * TILE] } : null;   // (drawEnemy's sunk salamander, TASKS 460)
     const vis = (x, y, pad = 120) => x > cx - pad && x < cx + VW + pad && y > cy - pad && y < cy + VH + pad * 1.5;
     const MW = m.W * TILE, MH = m.H * TILE;
     const known = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)] || R.seen[Math.floor((y + 40) / TILE) * m.W + Math.floor(x / TILE)];

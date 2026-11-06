@@ -31,6 +31,9 @@ uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 roo
 uniform vec4 u_jelly;          // centre x, foot y (uv), height scale k, on — a soft body squashed (k < 1) or stretched about its foot: the foot
                                // keeps its row, the height scales by k and the width by 1/√k, most at mid-height (the volume stays)
 uniform vec3 u_cut;            // y (target px), fade (px), on — whatever lies below the row is under water: gone, with a soft waterline
+// (TASKS 460) a body sunk in a pool seen from above is kept only over it: u_clipm a map mask (R), u_clipb the map's box in target px,
+// u_clipk how much (0 off)
+uniform sampler2D u_clipm; uniform vec4 u_clipb; uniform float u_clipk;
 // u_snap: the sprite is re-drawn on the target's pixel grid as pixel art, not as a downscaled photo: 4×4 samples per target
 // pixel (jx, jy: one target pixel in texture uv); kept only if half covered (by the mip average, which a squeezed sprite
 // keeps honest where the samples would sweep its whole length) and painted in its most common colour. No darkest-on-the-edge rule:
@@ -105,6 +108,7 @@ void main(){
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
   if (u_vfade > 0.0) c *= smoothstep(1.0, 1.0 - u_vfade, uv.y + u_vfade * 0.8 * (fbm(vec2(uv.x * 60.0, 0.0)) - 0.3));
   if (u_cut.z > 0.0) c *= smoothstep(u_cut.x, u_cut.x - u_cut.y, v_px.y);
+  if (u_clipk > 0.0) c *= mix(1.0, smoothstep(0.35, 0.65, texture(u_clipm, (v_px - u_clipb.xy) / u_clipb.zw).r), u_clipk);
   if (c.a < 0.002) discard;
   vec3 rgb = c.rgb / c.a;
   float l = dot(rgb, vec3(0.299, 0.587, 0.114));
@@ -395,7 +399,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
 
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
-    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
