@@ -1992,15 +1992,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // cell, a little off the grid, a hot line where the lava licks their foot; an arch over a narrow river flowing toward the camera
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
-    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [];
+    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03];
     const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       L.shadow(sx(x), foot + 3, w * 0.55, 4, 0.7); L.solid(ev2(sx(x) - w / 2), foot, ev2(w), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
       drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5 }); basaltOcc.push([n, sx(x) - w / 2, foot - hh, w, hh, rnd(k, 9) < 0.5]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
       if (c.axis !== 'x' || SIM.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
-      // (the painted opening is 0.38 of the arch's width and its crown 0.35 of its height down: the crown sits on the walk's near edge)
-      const T = G.tex('arch_mg'), wd = (x1 - x0) * 1.2 / 0.38, ht = wd * T.h / T.w, X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
+      // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
+      // river it was redrawn 7–15× smaller than painted and lost its contour)
+      const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
       basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
       L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht) }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
@@ -2042,7 +2043,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // seen from above a stake and the rope it holds run down the same line on a deck running down the screen: one rope there,
       // the stakes over it, each with its pale cut top
       // over lava (TASKS 401) the stakes are iron and the rails chains, links alternately seen face-on and edge-on, sagging deeper
-      const sw = hor ? 4 : 6, stake = (X, Y) => { L.solid(X - sw / 2, Y - sh, sw, sh, iron ? [0.06, 0.06, 0.065] : [0.09, 0.05, 0.03]); L.solid(X - sw / 2, Y - sh, 2, sh, iron ? [0.22, 0.21, 0.22] : [0.26, 0.16, 0.09]);
+      // (an iron stake 3 art px thick with an inked side each, TASKS 480: 2 px it read as a wire's barb)
+      const sw = iron ? 6 : hor ? 4 : 6, stake = (X, Y) => { if (iron) L.solid(X - sw / 2 - 2, Y - sh - 2, sw + 4, sh + 2, INKC);
+        L.solid(X - sw / 2, Y - sh, sw, sh, iron ? [0.06, 0.06, 0.065] : [0.09, 0.05, 0.03]); L.solid(X - sw / 2, Y - sh, 2, sh, iron ? [0.22, 0.21, 0.22] : [0.26, 0.16, 0.09]);
         L.solid(X - sw / 2, Y - sh - 2, sw, 3, iron ? [0.32, 0.3, 0.3] : [0.5, 0.36, 0.21]); L.solid(X - sw / 2, Y - sh + 1, sw, 1, [0.05, 0.03, 0.02]); };
       const rail = (side) => { const b = side ? B0 + BW + 1 : B0 - 1, top = (q, hgt) => P(q.a, b, q.z + hgt);
         if (hor) for (const q of stakes) stake(...top(q, 0));
@@ -2050,10 +2053,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           for (let k = 0; k < 6; k++) { const w0 = k / 6, w1 = (k + 1) / 6, dr = (w) => (iron ? 6 : 3) * Math.sin(Math.PI * w);
             const [x0, y0] = P(A.a + (Bq.a - A.a) * w0, b, A.z + (Bq.z - A.z) * w0 + hgt - dr(w0)), [x1, y1] = P(A.a + (Bq.a - A.a) * w1, b, A.z + (Bq.z - A.z) * w1 + hgt - dr(w1));
             const l = Math.hypot(x1 - x0, y1 - y0), an = Math.atan2(y1 - y0, x1 - x0);
-            // (links of 6×4 art px with an ink edge and a glint, face-on and edge-on in turn, TASKS 448: 2–4 px strokes read as noise)
-            if (iron) { const n = Math.max(1, Math.round(l / 5)); for (let j = 0; j < n; j++) { const px = ev2(x0 + (x1 - x0) * j / n), py = ev2(y0 + (y1 - y0) * j / n);
-                if ((k * 7 + j) % 2) { L.solid(px - 4, py - 2, 8, 4, [0.03, 0.025, 0.03]); L.solid(px - 2, py - 2, 4, 2, [0.3, 0.29, 0.31]); }
-                else { L.solid(px - 4, py - 4, 8, 6, [0.03, 0.025, 0.03]); L.solid(px - 2, py - 4, 4, 2, [0.5, 0.48, 0.5]); L.solid(px - 4, py - 2, 2, 2, [0.22, 0.21, 0.24]); L.solid(px + 2, py - 2, 2, 2, [0.22, 0.21, 0.24]); } } }
+            // (the concept's links, face-on and edge-on in turn: a face-on one an open ring 6×5 art px, the lava showing through it, inked
+            // round; packed solid blocks at 5 px read as barbed wire, TASKS 480)
+            if (iron) { const n = Math.max(1, Math.round(l / 9)); for (let j = 0; j < n; j++) { const px = ev2(x0 + (x1 - x0) * (j + 0.5) / n), py = ev2(y0 + (y1 - y0) * (j + 0.5) / n);
+                if ((k * n + j) % 2) { L.solid(px - 6, py - 4, 12, 4, INKC); L.solid(px - 4, py - 4, 8, 2, [0.4, 0.38, 0.41]); }
+                else { for (const [x, y, w, h] of [[-4, -6, 8, 2], [-4, 2, 8, 2], [-6, -4, 2, 6], [4, -4, 2, 6]]) L.solid(px + x, py + y, w, h, INKC);
+                  L.solid(px - 4, py - 4, 8, 2, [0.46, 0.44, 0.47]); L.solid(px - 4, py, 8, 2, [0.14, 0.13, 0.15]); L.solid(px - 4, py - 2, 2, 2, [0.26, 0.25, 0.28]); L.solid(px + 2, py - 2, 2, 2, [0.26, 0.25, 0.28]); } } }
             else { L.solid(x0, y0 + 1, l + 1, 1, [0.2, 0.13, 0.06], an, 0, 0); L.solid(x0, y0 - 1, l + 1, 2, [0.55, 0.42, 0.22], an, 0, 0); } } }
         if (!hor) for (const q of stakes) { const [X, Y] = top(q, 0); stake(X + (side ? 2 : -2), Y); } };
       // a deck running down the screen has its rails at its sides, level with whoever walks it: they draw behind him
