@@ -171,6 +171,7 @@
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься в крипту' : 'E — спуститься на этаж ' + (m.floor + 1)];
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
+    if (SIM.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, 'E — Алтарь душ: улучшения предков'];
     if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
@@ -551,7 +552,9 @@
     L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1);
     G.blend('add'); L.glow(W / 2, 200, 500, [0.3, 0.5, 1], 0.25 + 0.05 * Math.sin(t * 2)); G.blend();
     lab('mt_t', 'Алтарь душ', W / 2, 140, { size: 72, al: 0.5, col: '#9cc8ff' });
-    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят элиты, боссы, тайники и этажи, пройденные полностью', W / 2, 220, { size: 26, al: 0.5, col: C.dim });
+    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят элиты, боссы, тайники и этажи, пройденные полностью', W / 2, S.metaRun ? 204 : 220, { size: 26, al: 0.5, col: C.dim });
+    // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
+    if (S.metaRun) lab('mt_run', 'Сейчас действуют: здоровье, урон, золото, мана, восстановление, стойкость. Зелья, характеристики, снаряжение и умения — у следующего героя', W / 2, 242, { size: 19, al: 0.5, col: '#8a7d6c' });
     for (const b of D.UI.meta()) {
       if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
