@@ -741,7 +741,8 @@
     const ankle = side ? 172.5 : 74.5, foot = side ? 175.18155197657393 : 70.64176829268293, narrow = (123.5 - ankle) * 0.15;
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
-  root.DATA = { FOLK, FOLK_SAY, folkClock, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
+  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

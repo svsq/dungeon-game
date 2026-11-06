@@ -1210,13 +1210,13 @@
     // the stairs back up (R-19, TASKS 1027), only in a run through the town for now: in the start room, best just above the bonfire,
     // on three by three clear dry cells (the steps on the upper two, the hero steps off them onto the lowest)
     let up = null;
+    for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // reserved before the steps so that their 3x3 footprint cannot cover them
     // (a small start room may have no such spot: then the nearest one round it, a few cells out)
     if (opts.town) { const cand = []; for (let y = start.y - 6; y < start.y + start.h + 6; y++) for (let x = start.x - 6; x < start.x + start.w + 6; x++) { const dx = x - start.cx, dy = y - start.cy;
-        if (Math.abs(dx) <= 1 && dy >= -1 && dy <= 3) continue; const inside = x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h;
+        const inside = x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h;
         cand.push([x, y, (inside ? 0 : 20) + (dy < 0 ? 0 : 4) + Math.hypot(dx, dy + 2.5)]); }
       for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j)) || wet.has((y + j) * W + x + i)) ok = false;
         if (ok) { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y }; break; } } }
-    for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // the bonfire and the spawn tiles
     const kf = Math.min(ST.n, floor + ST.early), roster = D.rosterAt(biome, kf), lvl = depth;
     const bridged = new Set(crossings.flatMap((c) => c.cells));
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h

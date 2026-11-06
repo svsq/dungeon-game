@@ -382,28 +382,29 @@
     for (const [k, q] of Object.entries(d.p)) a[k] = fpatch(a[k], q); for (const k of d.d || []) delete a[k]; if (d.n !== undefined) a.length = d.n; return a; }
   const rle = (a) => { const o = []; for (let i = 0; i < a.length;) { let j = i; while (j < a.length && a[j] === a[i]) j++; o.push(a[i], j - i); i = j; } return o; };
   const unrle = (o) => { const a = []; for (let i = 0; i < o.length; i += 2) for (let k = 0; k < o[i + 1]; k++) a.push(o[i]); return a; };
-  // the floor f as first built, without touching the run (R's own fields are put back)
-  function freshFloor(R, f, M) { const keep = Object.assign({}, R), mode = R.mode; R.rs = M.rs; R.nextId = M.id; R.mode = M.mode;
+  function freshFloor(R, f, M) { const keep = Object.assign({}, R), mode = R.mode; R.rs = M.rs; R.nextId = M.id; R.mode = M.mode; R.floor = f;
     try { buildFloor(R, f, M.gen || undefined); return Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])); }
     finally { for (const k of Object.keys(R)) if (!(k in keep)) delete R[k]; Object.assign(R, keep); R.mode = mode; } }
+  // the baseline as JSON, taken when a floor is first built or first restored, so that leaving it again does not generate it a third time
+  const BASE = new WeakMap(), snapFloor = (o) => JSON.stringify(Object.fromEntries(FLOOR_KEYS.map((k) => [k, o[k]])));
   function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1) return;
-    const fresh = jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
+    const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
     M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
-  function restoreFloor(R, f, M) { const B = freshFloor(R, f, M); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k];
+  function restoreFloor(R, f, M) { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k];
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
     R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); }
-  // the nearest spot to (x, y) where the hero fits: off walls, props and the townsfolk
   function standNear(R, x, y) { const m = R.map, sol = solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
-  // how: 'down' (from above: at the spawn), 'up' (from below: at the foot of the stairs down), 'portal' (at the portal's spot)
   function enterFloor(S, R, f, gen, how = 'down') {
     if (R.map && R.viaTown) stashFloor(R);
+    if (R.map && R.town && R.shop) R.townShop = R.shop;
     R.floor = f; R.propHit = {};   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { restoreFloor(R, f, M); R.town = 0; R.folk = null; }
-    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); }
+    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) BASE.set(R.memo[f], snapFloor(R)); }
+    if (f === 0 && R.townShop) { R.shop = R.townShop; R.townShop = null; }
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
     const h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
@@ -908,9 +909,8 @@
   const READ_T = 1.6, bossFight = (R) => !!(R.map.bossType && R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'));
   // the scroll being read: a step, a dash or a blow breaks it off (the scroll is kept); read through, the portal opens where the hero
   // stands and takes him to the town's ring of stones; its pair in the town brings him back to that spot (and closes)
-  // (moved: the player steered this step)
   function readStep(S, R, moved, dashing) { const h = R.hero, q = h.read;
-    if (moved || dashing || h.deadT >= 0) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Чтение прервано' }); return; }
+    if (moved || dashing || h.deadT >= 0 || h.atkT > q.t0 || (h.castT ?? -9) > q.t0) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Чтение прервано' }); return; }
     if (S.t - q.t0 < READ_T) return;
     const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; if (--it.n <= 0) h.bag[q.i] = null;
     R.portal = { f: R.floor, x: h.x, y: h.y }; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
@@ -1191,7 +1191,9 @@
     if (keys.KeyQ) usePotion(S, R, 'hp_potion');
     if (keys.KeyR) usePotion(S, R, 'mp_potion');
     if (keys.KeyE) interact(S, R);
+    if (R.map !== m) return;
     if (h.read && R.hero === h) readStep(S, R, ix || iy ? 1 : 0, dashing);
+    if (R.map !== m) return;
     // a loose flagstone sinks under the hero's step
     for (const q of m.secrets || []) if (!q.open && q.trig && q.trig.k === 'plate' && Math.abs(h.x - q.trig.x) < 13 && Math.abs(h.y - q.trig.y) < 13) { q.trig.downT = t; ev(S, { k: 'click', x: q.trig.x, y: q.trig.y }); openSecret(S, R, q); }
     // ---- status ----
@@ -1257,7 +1259,7 @@
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
   // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
   const FOLK_R = { child: 9, hen: 6 }, folkR = (f) => FOLK_R[f.role] || 12;
-  const folkOf = (R) => R.folk || (R.folk = R.map.town.npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 })));
+  const folkOf = (R) => R.folk || (R.folk = D.folkInit(R.map.town.npcs));
   const townOk = (m) => m.town.walkOk || Object.defineProperty(m.town, 'walkOk', { value: DG.townWalk(m), enumerable: false }).walkOk;
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
   // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
@@ -1311,8 +1313,8 @@
     const sq = sq0; if (sq) { if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
     const lv = leverNear(R); if (lv) { pullLever(S, R, lv); return; }
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
-    // back up the stairs (TASKS 1027): to the floor above, at the foot of its stairs down; from the 1st, home to the town's gate
-    if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
+    const dUp = m.up ? Math.hypot(m.up.x - h.x, m.up.y - h.y) : 1e9;
+    if (dUp < 56 && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
     // the town's end of a portal (TASKS 1007): back to where the scroll was read; the portal closes behind the hero
     if (R.town && R.portal && m.town && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) { const P = R.portal;

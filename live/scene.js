@@ -763,7 +763,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
     const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
   // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest
-  const FOLK0 = (m) => m.town.npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
+  const FOLK0 = (m) => D.folkInit(m.town.npcs);
   const lerp1 = (a, b, k) => a + (b - a) * k, lerp2 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], E01 = (q) => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
   const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
   const TOOL = (tex, grip, o) => Object.assign({ tex, len: SZ(tex)[1], grip }, o);

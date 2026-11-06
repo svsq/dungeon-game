@@ -157,7 +157,7 @@
       for (const [sd, sg] of [['L', -1], ['R', 1]]) { const P = RG['ear' + sd], r = sg * flop * (sd === 'L' ? 1 : 0.85), Pd = [P[0], P[1] + hipDy];
         part('ear' + sd, P, R2U(...Pd), r, o.U, 1, lean); L.joint(o.id, 'ear' + sd, R2U(...rotP([RG['ear' + sd + 'Tip'][0], RG['ear' + sd + 'Tip'][1] + hipDy], Pd, r))); } }
     // townsfolk carry a head and a hip sword cut from the body: the head turns about the neck (o.headR), the sword hangs from the belt
-    for (const nm of ['sword', 'head']) if (RG[nm] && RG.parts.includes(nm)) part(nm, RG[nm], R2U(RG[nm][0], RG[nm][1] + hipDy), nm === 'head' ? o.headR || 0 : -lean * 0.6 + 0.02 * breath, o.U, 1, lean);
+    for (const nm of ['sword', 'head']) if (RG[nm] && RG.parts && RG.parts.includes(nm)) part(nm, RG[nm], R2U(RG[nm][0], RG[nm][1] + hipDy), nm === 'head' ? o.headR || 0 : -lean * 0.6 + 0.02 * breath, o.U, 1, lean);
     // what the near arm holds in front of the body (the porter's crate)
     if (o.front) o.front((sd) => R2U(arms[sd].Hd[0], arms[sd].Hd[1]));
     drawArm('R', o.U); held('R', o.U);
