@@ -148,6 +148,7 @@
       if (k === 'hall') return box(ri(16, 20), ri(12, 16));
       if (k === 'colonnade') return box(small ? ri(11, 13) : ri(12, 16), small ? ri(7, 8) : ri(8, 10));
       if (k === 'pit') return box(ri(10, 14), ri(8, 11));
+      if (k === 'tier') return box(ri(14, 18), ri(12, 15));
       if (k === 'L') { const w = ri(10, 14), h = ri(9, 13);
         if (R() < 0.5) { const d = Math.min(ri(3, 5), h - 5), ww = ri(Math.ceil(w * 0.35), Math.floor(w * 0.55)), left = R() < 0.5;
           return { k, w, h, core: [0, 0, w, h - d], mask: (i, j) => j < h - d || (left ? i < ww : i >= w - ww) }; }
@@ -586,6 +587,22 @@
     const pits = [];
     if (!cave) for (const r of rooms) if (r.shape === 'pit') { if (r.type !== 'combat' || r.zone) { r.shape = 'rect'; continue; }
       for (let y = r.y + 3; y < r.y + r.h - 2; y++) for (let x = r.x + 2; x < r.x + r.w - 2; x++) { set(x, y, 6); pits.push(y * W + x); } r.pit = 1; }
+    // a two-level hall (TASKS 375): the gallery its top rows (4–5), then a drop two cells high (deep water's cell: no walking, sight and
+    // blows pass), the floor below; the steps down a gap two cells wide in the drop; the drop's rows are ones no corridor comes in
+    // at from the side (it would end at the drop); a room with none, or another role, keeps its floor whole
+    const ledges = [], tierDecor = [];
+    if (!cave) for (const r of rooms) if (r.shape === 'tier') { const side = (y) => [r.x - 1, r.x + r.w].some((x) => at(x, y) === 1);
+      const rows = [4, 5, 6].filter((t) => r.h - t - 2 >= 5 && !side(r.y + t) && !side(r.y + t + 1)), t = rows.length ? rows[Math.floor(R() * rows.length)] : 0;
+      const mouthAt = (x) => [r.y - 1, r.y + r.h].some((y) => at(x, y) === 1 || at(x + 1, y) === 1);
+      const gaps = []; for (let x = r.x + 2; x <= r.x + r.w - 4; x++) if (!mouthAt(x)) gaps.push(x);
+      if (r.type !== 'combat' || r.zone || !t || !gaps.length) { r.shape = 'rect'; continue; }
+      const sx = gaps[Math.floor(R() * gaps.length)], ly = r.y + t; r.tier = { y: ly, sx };
+      for (let y = ly; y <= ly + 1; y++) for (let x = r.x; x < r.x + r.w; x++) if (x !== sx && x !== sx + 1) { set(x, y, 6); ledges.push(y * W + x); }
+      // the railing: sections along the drop's top, the gap at the steps left open
+      // (a section is three cells wide: a run shorter than one keeps its end flush with the steps and runs on into the side wall)
+      for (const [a, b, toGap] of [[r.x, sx, 1], [sx + 2, r.x + r.w, 0]]) { const n = b - a, k = Math.max(1, Math.round(n / 3));
+        for (let i = 0; i < k; i++) { const c = n < 3 ? (toGap ? b - 1.5 : a + 1.5) : a + (i + 0.5) * n / k; tierDecor.push({ x: Math.round(c * TILE), y: ly * TILE + 10, n: 'balustrade', r: r.id, rail: 1 }); } }
+      tierDecor.push({ x: (sx + 1) * TILE, y: (ly + 2) * TILE + 2, n: 'stairs_tier', r: r.id, steps: 1 }); }
     // a staged view (the QA match) sets its zones after the draw above, so the layout stays the seed's
     if (opts.zones) for (const r of rooms) if (r.id in opts.zones) { if (opts.zones[r.id]) r.zone = opts.zones[r.id]; else delete r.zone; }
     // ---- lava pools (lava biome / arcane boss): blobs in a room's side bays, off the 2-wide corridor lanes through its centre
@@ -604,7 +621,7 @@
     // cut any floor off is undone. flow: lava cell → the way its crust drifts (0 right, 1 down, 2 left, 3 up); pools lie still ----
     const flow = {}, streams = [];
     // (a hall floor's few rooms, TASKS 379, leave a fight's room or two: the hoards take rivers too)
-    const lavaRoom = (r) => (r.type === 'combat' || (r.type === 'treasure' && LY.room < 1)) && !r.zone && !r.pit && !r.court && !streams.some((q) => q.room === r.id);
+    const lavaRoom = (r) => (r.type === 'combat' || (r.type === 'treasure' && LY.room < 1)) && !r.zone && !r.pit && !r.tier && !r.court && !streams.some((q) => q.room === r.id);
     // a river is a channel walked from a spring under the rock, across a room (and any corridor or room on its way) to a dead end,
     // 2–4 cells wide and wandering: through rock it is a trench between masonry banks, as in the concept; a corridor it crosses stays
     // floor (a causeway over it), a room it crosses gets a two-cell causeway where its ways in need one
@@ -630,7 +647,7 @@
           const v = at(x, y), q = roomOf(x, y);
           if (v === 4) return undo();
           if (v === 3) continue;
-          if (v === 1 || v === 6) { if (!q) continue; if (!CROSS.includes(q.type) || q.zone || q.pit) { if (i < back) return undo(); break walk; } if (isDoor(x, y)) continue; crossed.add(q); was.push([x, y, 1]); }
+          if (v === 1 || v === 6) { if (!q) continue; if (!CROSS.includes(q.type) || q.zone || q.pit || q.tier) { if (i < back) return undo(); break walk; } if (isDoor(x, y)) continue; crossed.add(q); was.push([x, y, 1]); }
           set(x, y, 3); cut.push([x, y]); } }
       if (!crossed.has(r)) return undo();
       // rock one cell thick between the stream and a floor would hang as a strip of masonry, and a floor and the stream meeting at a
@@ -683,7 +700,7 @@
     if (D.BIOMES[biome].lava && !(last && boss) && strict && LY && streams.filter((q) => q.kind === 'river' && q.n >= 8).length < 2) return null;
     // a fire floor without a river, and the boss's hall, get pools: a second pass that skips the roll
     if ((D.BIOMES[biome].lava && !lava.length) || bossType === 'boss') for (let pass = 0; pass < 2 && !lava.length; pass++) for (const r of rooms) {
-      if (r.type !== 'start' && r.type !== 'shop' && r.type !== 'boss' && !r.pit && r.w >= 8 && r.h >= 6 && (pass || R() < (boss ? 1 : 0.75))) pool(r); }
+      if (r.type !== 'start' && r.type !== 'shop' && r.type !== 'boss' && !r.pit && !r.tier && r.w >= 8 && r.h >= 6 && (pass || R() < (boss ? 1 : 0.75))) pool(r); }
     function connected() { const seen = new Uint8Array(W * H), st = [[start.cx, start.cy]]; seen[start.cy * W + start.cx] = 1;
       while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
         if ((at(nx, ny) === 1 || at(nx, ny) === 4) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; st.push([nx, ny]); } } }
@@ -1222,7 +1239,7 @@
     const secretFront = new Set(secrets.flatMap((q) => q.front.concat(q.wall).map(([x, y]) => y * W + x)));
     if (!D.BIOMES[biome].lava && !(last && boss) && !cave) {
       // (a stream runs down from a room's top wall the length of its box: a shaped room's wings and pit leave it neither, TASKS 374)
-      const plain = (r) => !r.pit && !r.wings, candidates = rooms.filter((r) => r.type === 'combat' && plain(r) && !r.trap && !secrets.some((q) => q.front.some(([x, y]) => roomOf(x, y) === r)));
+      const plain = (r) => !r.pit && !r.wings && !r.tier, candidates = rooms.filter((r) => r.type === 'combat' && plain(r) && !r.trap && !secrets.some((q) => q.front.some(([x, y]) => roomOf(x, y) === r)));
       for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
       let n = 0;
       for (const r of candidates.concat(rooms.filter((q) => q.type === 'combat' && plain(q) && !candidates.includes(q) && !secrets.some((s) => s.front.some(([x, y]) => roomOf(x, y) === q))))) {
@@ -1319,6 +1336,8 @@
       if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y, big === true ? 'chest' : big))) { used.add(key(x, y)); if (big) claim(x, y, big === true ? 'chest' : big); return [x, y]; } } return null; };
     for (const sc of secrets) for (const [x, y] of sc.front) used.add(key(x, y));
     for (const [x, y] of deckUsed) used.add(key(x, y));
+    // (a two-level hall's steps and the cells at their foot and head stay clear, TASKS 375)
+    for (const r of rooms) if (r.tier) for (let y = r.tier.y - 1; y <= r.tier.y + 2; y++) for (let x = r.tier.sx - 1; x <= r.tier.sx + 2; x++) used.add(key(x, y));
     // a stream through a campaign room keeps bulky props a cell off its banks; a cave's water is everywhere, so only off the water
     for (const k of water) {
       const x = k % W, y = Math.floor(k / W), p = cave ? 0 : 1; used.add(key(x, y));
@@ -1332,7 +1351,7 @@
     // nothing stands in lava or a cell from its shore: no spawn, chest, pot or prop (a chest stood half in a pool, TASKS 186)
     const shore = new Set(); for (const [x, y] of lava) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (!used.has(key(x + i, y + j))) { used.add(key(x + i, y + j)); shore.add(key(x + i, y + j)); }
     const wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2 + 6;
-    const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [], shrines = [], rugs = [];
+    const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [...tierDecor], shrines = [], rugs = [];
     // the top wall: what hangs on it (torches, sconces, banners, the shop sign) and the tall props standing against it (columns,
     // statues, racks, shelves) must not overlap across their drawn widths, whichever came first: a prop would hide a sconce that
     // works a secret, or a torch would stick out of a statue's head
@@ -2106,7 +2125,7 @@
     if (plat) { const fl = cells.filter((c) => c === 1).length, sh = shareOf, share = lava.length / (fl + lava.length);
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     const map = { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      ftype, ftype2, shareOf, bossType, walk, down, up, pits, lay: LY ? ST.lay || 'rooms' : undefined, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
+      ftype, ftype2, shareOf, bossType, walk, down, up, pits, ledges, lay: LY ? ST.lay || 'rooms' : undefined, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
     // the rare floor that misses is laid again)
     if (plat && !boss && strict) { const q = rewardsOf(map); if (q.onWay * 3 > q.list.length || q.bare.length) return null; }
@@ -2203,7 +2222,7 @@
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin) };
     return { seed, floor: 0, town: { svc, use: T.use, rails, pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block: [], decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
       ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: cells.filter((c) => c === 1).length, down: null, enemies: [], chests: [], pots: [], traps: [], torches,
-      decor, shrines: [], rugs: [], shop, secrets: [], secretsWanted: 0, pits: [], lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
+      decor, shrines: [], rugs: [], shop, secrets: [], secretsWanted: 0, pits: [], ledges: [], lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
       water: [], waterFlow: {}, waterFeatures: [], waterBridges: [], deep: 0, crossings: [], doors: [], locks: [], webs: [], ambush: [], drips: [], flora: [], serpentPools: [], floodCells: [] };
   }
   // where a body can stand in the town (TASKS 1003): open floor clear of its solid props (Node checks walk to every service over it)

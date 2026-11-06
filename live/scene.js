@@ -924,7 +924,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       G.bind(BAKE.face, [0, 0, 0, 1]); G.blend('none'); G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 1 }), G.xf(0, 0, MW, MH)); }
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
     // (a pit room's chasm, TASKS 374, is its own cell here, 7: deep water's cell in the sim, drawn as a hole in the floor)
-    const PIT = new Set(m.pits || []), hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
+    // (a two-level hall's drop, TASKS 375, is its own cell too, 8: the gallery's front face down to the floor below)
+    const PIT = new Set(m.pits || []), LEDGE = new Set(m.ledges || []), hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : LEDGE.has(y * m.W + x) ? 8 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
@@ -954,6 +955,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         if (c(x, y + 1) !== 7) lip(X, Y + TILE, TILE, 4, 0.02, 0.55);
         if (c(x - 1, y) !== 7) lip(X - 2, Y, 2, TILE, 0.02, 0.5);
         if (c(x + 1, y) !== 7) lip(X + TILE, Y, 2, TILE, 0.02, 0.5); }
+      // a two-level hall's drop (TASKS 375): the gallery's front face, the room's own masonry, a pale lip along the gallery's edge,
+      // darker down its second row; the face's shadow on the floor at its foot
+      for (const k of LEDGE) { const x = k % m.W, y = Math.floor(k / m.W), X = x * TILE, Y = y * TILE, top = c(x, y - 1) !== 8;
+        tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
+        if (top) L.solid(X, Y, TILE, 2, [0.62, 0.58, 0.52], 0, 0, 0, 0.55); else for (let q = 0; q < 8; q++) dark(X, Y + q * 4, TILE, 4, 0.08 + q * 0.05);
+        if (c(x, y + 1) === 1) for (let q = 0; q < 5; q++) dark(X, Y + TILE + q * 3, TILE, 3, 0.32 - q * 0.06); }
       // an accent zone's stone thins out over the cells past its doorway in 8 px steps, so the threshold has no hard line
       for (const r of m.rooms) if (r.zone) { const Z = D.BIOMES[r.zone], q = TILE / 4;
         for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (c(x, y) !== 1 || zoneAt(m, x, y) !== m.biome) continue;
@@ -2069,6 +2076,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
     for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y) && !hid(d)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
+    // a two-level hall's steps (TASKS 375) lie on the ground: whoever walks them is drawn over them
+    for (const d of m.decor) if (d.steps && vis(d.x, d.y) && !hid(d)) drawProp(d.n, sx(d.x), sy(d.y), { dy: 0 });
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       // what a kill leaves on the floor by what it bled: a pool, a skeleton's bone dust, nothing of a ghost
       if (e.k === 'kill' && a < 12 && !e.gone) { const bl = BLOOD(e.type); if (bl === 'bone') { if (a < 6) L.puff(sx(e.x), sy(e.y) + 2, 14 + 6 * SS(0, 0.3, a), [0.5, 0.47, 0.4], 0.3 * (1 - SS(3, 6, a)), e.id); }
@@ -2182,7 +2191,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.solid(X - PIX, px2(Y0 - 30), PIX * 4, 30, [0.02, 0.018, 0.02]); L.solid(X, px2(Y0 - 28), PIX * 2, 28, [0.2, 0.18, 0.17]); L.solid(X, px2(Y0 - 28), PIX, 28, [0.34, 0.31, 0.29]);
         L.solid(X - PIX, px2(Y0 - 34), PIX * 4, PIX * 2, [0.12, 0.11, 0.1]); } };
     for (const d of m.decor) if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d)]);
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] || d.role === 'edge' ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] || d.role === 'edge' ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
@@ -3578,7 +3587,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       let best = -1; for (const out of [1, 0]) for (let k = W * 8; k < m.cells.length - W * 8 && best < 0; k++) if (m.cells[k] === 1 && (!out || !inRoom(k)) && score(k)) best = k;
       if (best >= 0) { const x = (best % W + 0.5) * TILE, y = (Math.floor(best / W) + 0.5) * TILE; h.x = x; h.y = y; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 500); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x - VW / 2, y - VH / 2]; states.push(['magma_crossing', S]); } }
     // the rooms' shapes (TASKS 374): each one in view, its whole floor explored, on the first campaign floor that has it
-    for (const shape of ['pit', 'colonnade', 'round', 'cross', 'L', 'T', 'gallery', 'hall', 'closet']) { const S = play(), R = S.run; let r = null;
+    for (const shape of ['pit', 'colonnade', 'round', 'cross', 'L', 'T', 'gallery', 'hall', 'closet', 'tier']) { const S = play(), R = S.run; let r = null;
       for (let sd = 0; sd < 6 && !r; sd++) { if (sd) { S.run = SIM.newRun(S, 'campaign', 1234 + sd); S.screen = 'play'; }
         for (let f = 1; f <= 8 && !r; f++) { SIM.enterFloor(S, S.run, f); r = S.run.map.rooms.find((q) => q.shape === shape && q.type === 'combat' && (shape !== 'pit' || q.pit)); } }
       if (!r) continue; void R; const Q = S.run, h = Q.hero, x = (r.x + r.w / 2) * TILE, y = (r.y + r.h / 2) * TILE;

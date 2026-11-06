@@ -2254,6 +2254,15 @@
           if (r.pit) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const inner = x >= r.x + 2 && x < r.x + r.w - 2 && y >= r.y + 3 && y < r.y + r.h - 2;
             if (inner !== (cell(m, x, y) === 6)) { out.push(`seed ${seed} f${f}: pit room ${r.id} is not a pit ringed with floor at ${x},${y}`); break; } } }
         for (const k of m.pits) if (m.cells[k] !== 6) out.push(`seed ${seed} f${f}: a pit cell is not deep`);
+        // a two-level hall (TASKS 375): its drop two rows of deep cells the room's width but the steps' gap, the gap floor, both levels
+        // reached on foot from the spawn, a railing along the drop
+        for (const r of m.rooms) if (r.tier) { const { y: ly, sx } = r.tier;
+          for (let y = ly; y <= ly + 1; y++) for (let x = r.x; x < r.x + r.w; x++) if ((x === sx || x === sx + 1) !== (cell(m, x, y) === 1) || (x !== sx && x !== sx + 1 && cell(m, x, y) !== 6)) { out.push(`seed ${seed} f${f}: two-level room ${r.id}'s drop or steps broken at ${x},${y}`); y = 1e9; break; }
+          if (!m.__walk) { const d = new Uint8Array(m.W * m.H), q = [Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE)]; d[q[0]] = 1;
+            for (let i = 0; i < q.length; i++) for (const o of [1, -1, m.W, -m.W]) { const n = q[i] + o; if (!d[n] && m.cells[n] === 1) { d[n] = 1; q.push(n); } } m.__walk = d; }
+          const reach = (y) => { for (let x = r.x; x < r.x + r.w; x++) if (m.__walk[y * m.W + x]) return true; return false; };
+          if (!reach(ly - 1) || !reach(ly + 2)) out.push(`seed ${seed} f${f}: a level of two-level room ${r.id} is out of reach`);
+          if (!m.decor.some((d) => d.n === 'balustrade' && d.r === r.id) || !m.decor.some((d) => d.steps && d.r === r.id)) out.push(`seed ${seed} f${f}: two-level room ${r.id} without its railing or its steps`); }
         // a nook (TASKS 376) is a dead end: one way in, no wider than a corridor; and some corridor runs three cells wide
         for (const r of m.rooms) if (r.pocket) { const mouth = []; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (!DG.inRm(r, x, y) && cell(m, x, y) === 1 && DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(r, x + dx, y + dy))) mouth.push([x, y]);
           // (one way: the cells by its mouth meet each other within six cells of it without passing through it)
