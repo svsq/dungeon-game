@@ -628,7 +628,11 @@
   const inStart = (m, tx, ty) => inRoom0(m.rooms[m.start], tx, ty) || (!!m.shop && inRoom1(m.rooms[m.shop.room], tx, ty));
   // the magma caves' crust (dungeon.js m.crust, TASKS 401): lava gone hard along the banks. The hero walks it, a monster keeps off it as
   // off lava; under one standing on it CRUST.stand s it cracks, CRUST.crack s on it is lava again (m.melt[k].hot) for CRUST.hot s
-  const CRUST = { stand: 1, crack: 0.5, hot: 3.5, set: 0.8 }, CRS = new WeakMap();
+  // (TASKS 476) thin: the crust of a way out to a hoard's islet (m.thin) cracks after `thin` s standing, so it is crossed at a walk and
+  // never stood on; fall: a hero the crust melts under falls into the lava, losing that share of his health past armour and set
+  // alight for `burn` s, and climbs out where he last stood on firm ground
+  const CRUST = { stand: 1, crack: 0.5, hot: 3.5, set: 0.8, thin: 0.35, fall: 0.3, burn: 3 }, CRS = new WeakMap(), THIN = new WeakMap();
+  const thinSet = (m) => { let s = THIN.get(m); if (!s) THIN.set(m, s = new Set(m.thin || [])); return s; };
   const crustSet = (m) => { if (!m.crust || !m.crust.length) return null; let s = CRS.get(m); if (!s) CRS.set(m, s = new Set(m.crust)); return s; };
   const crustAt = (m, k) => { const s = crustSet(m); return !!s && s.has(k) && !(m.melt && m.melt[k] && m.melt[k].hot); };
   // the plateaus' chasm (TASKS 400): the rock below the top wall, which only a blow knocks a monster into (TASKS 401)
@@ -848,15 +852,22 @@
   function stepCrust(S, R) {
     const m = R.map, t = S.t, cs = crustSet(m); if (!cs) return; const M = m.melt || (m.melt = {}), on = new Set();
     for (const o of [R.hero].concat(R.en)) { if (o.deadT >= 0 || (o !== R.hero && ENEMIES[o.type].ghost)) continue; const k = Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE); if (cs.has(k)) on.add(k); }
-    for (const k of on) { const q = M[k] || (M[k] = { on: 0 }); if (q.crackT !== undefined) continue; q.on += DT; if (q.on < CRUST.stand) continue;
+    for (const k of on) { const q = M[k] || (M[k] = { on: 0 }); if (q.crackT !== undefined) continue; q.on += DT; if (q.on < (thinSet(m).has(k) ? CRUST.thin : CRUST.stand)) continue;
       for (const n of [k, k + 1, k - 1, k + m.W, k - m.W]) if (cs.has(n) && (!M[n] || M[n].crackT === undefined)) M[n] = { on: CRUST.stand, crackT: t };
       ev(S, { k: 'crack', x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE }); }
     for (const key in M) { const q = M[key], k = +key, x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
       if (q.crackT === undefined) { if (!on.has(k) && (q.on -= 2 * DT) <= 0) delete M[key]; continue; }
-      if (!q.hot && q.meltT === undefined && t >= q.crackT + CRUST.crack) { q.hot = 1; q.meltT = t; ev(S, { k: 'melt', x, y }); }
+      if (!q.hot && q.meltT === undefined && t >= q.crackT + CRUST.crack) { q.hot = 1; q.meltT = t; ev(S, { k: 'melt', x, y });
+        const h = R.hero; if (h.hp > 0 && Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE) === k) lavaFall(S, R, h); }
       else if (q.hot && t >= q.meltT + CRUST.hot) { q.hot = 0; q.setT = t; ev(S, { k: 'set', x, y }); }
       else if (!q.hot && q.setT !== undefined && t >= q.setT + CRUST.set) delete M[key]; }
   }
+  // the hero falls through the crust into the lava (TASKS 476): hurt and alight, he climbs out where he last stood on firm ground
+  function lavaFall(S, R, h) { const fx = h.x, fy = h.y, back = h.safe || landOf(R.map, h.x, h.y);
+    hurtHero(S, R, heroSt(S).maxHp * CRUST.fall, fx, fy - 10, 'spike', 'lava'); if (h.hp <= 0) return;
+    if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + CRUST.burn);
+    h.x = back[0]; h.y = back[1]; h.vx = h.vy = 0; h.ifr = Math.max(h.ifr || 0, S.t + 1); R.trauma = Math.min(1, R.trauma + 0.35);
+    ev(S, { k: 'lavafall', x: fx, y: fy, tx: h.x, ty: h.y }); }
   // the floor nearest a spot off it (a monster gone into the lava or the chasm drops its loot on the bank)
   function landOf(m, x, y) { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); if (cell(m, tx, ty) === 1) return [x, y];
     for (let r = 1; r <= 8; r++) { let best = null; for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (Math.max(Math.abs(i), Math.abs(j)) === r && cell(m, tx + i, ty + j) === 1) { const d = i * i + j * j; if (!best || d < best[2]) best = [tx + i, ty + j, d]; }
@@ -1179,6 +1190,7 @@
     { const g = gooAt(m, h); if (g && h.gooIn !== g.id) ev(S, { k: 'goo', x: h.x, y: h.y }); h.gooIn = g ? g.id : -1; }
     m.goo = (m.goo || []).filter((g) => t < g.t0 + g.T); for (const g of m.goo) g.rNow = g.r * Math.min(1, (g.t0 + g.T - t) / GOO.dry);
     const moved = Math.hypot(h.x - ox, h.y - oy);
+    { const k = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE); if (m.cells[k] === 1) h.safe = [h.x, h.y]; }   // (firm ground to climb back onto, TASKS 476)
     if (moved > 0.02 && dashing) hitProps(S, R, h.x, h.y, K.R, undefined, undefined, true);
     if (moved > 0.02) {
       const hits = R.propHit || (R.propHit = {});
@@ -2263,7 +2275,8 @@
         const share = (m.water.length + nDeep + over.size) / open;
         if (!plat && (share < 0.15 || share > 0.35)) out.push(`seed ${seed} f${f}: water is ${Math.round(share * 100)} % of the floor`);
         { const seen = new Uint8Array(W * m.H), s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), st = [s0]; seen[s0] = 1;
-          while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && (m.cells[n] === 1 || m.cells[n] === 4)) { seen[n] = 1; st.push(n); } } }
+          // (a hoard's islet, TASKS 476, is reached over its thin crust only)
+          const thinS = new Set(m.thin || []); while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && (m.cells[n] === 1 || m.cells[n] === 4 || thinS.has(n))) { seen[n] = 1; st.push(n); } } }
           const cut = m.cells.findIndex((c, k) => c === 1 && !seen[k]); if (cut >= 0) out.push(`seed ${seed} f${f}: floor at ${cut % W},${Math.floor(cut / W)} cut off by water`);
           for (const r of m.rooms) if (!seen[r.cy * W + r.cx] && m.cells[r.cy * W + r.cx] === 1) out.push(`seed ${seed} f${f}: the ${r.type} hall ${r.id} cut off by water`); }
         const inW = (k) => wet.has(k) || over.has(k) || deepAt(k), cellOf = (o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE);
@@ -2282,7 +2295,7 @@
         for (const k in m.waterFlow) if (!(wet.has(+k) || deepAt(+k)) || !(m.waterFlow[k] >= 0 && m.waterFlow[k] <= 3)) out.push(`seed ${seed} f${f}: a stream's flow off its water`);
         // the cave's dressing (TASKS 306): no solid prop cuts a way, lilies and weed grow in the water, moss hangs from a rock face
         { const blocked = new Set(m.block.concat(m.pots.map(cellOf))), seen = new Uint8Array(W * m.H), s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), st = [s0]; seen[s0] = 1;
-          while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && (m.cells[n] === 1 || m.cells[n] === 4) && !blocked.has(n)) { seen[n] = 1; st.push(n); } } }
+          const thinS = new Set(m.thin || []); while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && (m.cells[n] === 1 || m.cells[n] === 4 || thinS.has(n)) && !blocked.has(n)) { seen[n] = 1; st.push(n); } } }
           // the space behind the merchant's counter is closed on purpose (the shop is one built piece)
           const sh = m.rooms.find((r) => r.type === 'shop'), inShop = (k) => sh && k % W >= sh.x && k % W < sh.x + sh.w && Math.floor(k / W) >= sh.y && Math.floor(k / W) < sh.y + sh.h;
           const cut = m.cells.findIndex((c, k) => c === 1 && !seen[k] && !blocked.has(k) && !inShop(k) && !hid.has(k)); if (cut >= 0) out.push(`seed ${seed} f${f}: floor at ${cut % W},${Math.floor(cut / W)} cut off by the props`); }
@@ -2362,7 +2375,8 @@
       // the floor has lava
       if (plat) { const W = m.W, A = D.ARCH.plateau, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE);
         // (a lava cave, TASKS 431, is the water caves' layout: its tunnels may narrow, its rock is all wall)
-        const lc = m.ftype === 'cave', lost = lc ? [] : DG.narrowTo(m.cells, W, m.H, s0, m.rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx));
+        const thinC = m.cells.slice(); for (const k of m.thin || []) thinC[k] = 1;   // (an islet's thin crust is its way, TASKS 476)
+        const lc = m.ftype === 'cave', lost = lc ? [] : DG.narrowTo(thinC, W, m.H, s0, m.rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx));
         for (const k of lost) out.push(`seed ${seed} f${f}: plateau or ledge at ${k % W},${Math.floor(k / W)} out of reach of a body two cells wide`);
         const d = new Int32Array(W * m.H).fill(-1), q = [s0]; d[s0] = 0;
         for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && m.cells[n] === 1) { d[n] = d[q[i]] + 1; q.push(n); } }
@@ -2384,7 +2398,12 @@
         // (a chain bridge over the chasm, TASKS 429: on floor walked over the dark, the dark beside it, never over lava)
         const chU = new Set(m.chasmUnder || []);
         for (const c of m.crossings) if (c.chasm ? c.kind !== 'bridge' || c.cells.some((k) => m.cells[k] !== 1 || !chU.has(k) || under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 0)) : !c.lava || c.cells.some((k) => m.cells[k] !== 1 || !under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 3))) out.push(`seed ${seed} f${f}: a ${c.kind} that is no crossing over ${c.chasm ? 'the chasm' : 'lava'}`);
-        for (const k of crustS) if (m.cells[k] !== 3 || ![1, -1, W, -W].some((o) => m.cells[k + o] === 1)) out.push(`seed ${seed} f${f}: crust off a bank at ${k % W},${Math.floor(k / W)}`);
+        for (const k of crustS) if (m.cells[k] !== 3 || (![1, -1, W, -W].some((o) => m.cells[k + o] === 1) && !(m.thin || []).includes(k))) out.push(`seed ${seed} f${f}: crust off a bank at ${k % W},${Math.floor(k / W)}`);
+        // a hoard's islet (TASKS 476): its chest on it, no monster on it, out of reach but over its thin crust
+        for (const r of m.rooms.filter((q) => q.islet)) { const inR = (o) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= r.y * TILE && o.y < (r.y + r.h) * TILE, thinS = new Set(m.thin || []);
+          const walk = (u) => { const d = new Uint8Array(W * m.H), q = [s0]; d[s0] = 1; for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const k = q[i] + o; if (!d[k] && (m.cells[k] === 1 || (u && thinS.has(k)))) { d[k] = 1; q.push(k); } } return d[r.cy * W + r.cx]; };
+          if (!m.chests.some(inR)) out.push(`seed ${seed} f${f}: an islet without its hoard`); if (m.enemies.some((e) => e.room === r.id || inR(e))) out.push(`seed ${seed} f${f}: a monster on an islet`);
+          if (walk(false) || !walk(true)) out.push(`seed ${seed} f${f}: an islet reached otherwise than over its thin crust`); }
         // (the floor round each crust cell joins up on foot within a few steps: a crust cell never takes anyone over the lava)
         for (const k of crustS) { const fl8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].map((o) => k + o).filter((n) => m.cells[n] === 1); if (fl8.length < 2) continue;
           const dl = new Map([[fl8[0], 0]]), ql = [fl8[0]]; for (let i = 0; i < ql.length; i++) { const c = ql[i]; if (dl.get(c) >= 6) continue; for (const o of [1, -1, W, -W]) { const n = c + o; if (!dl.has(n) && m.cells[n] === 1) { dl.set(n, dl.get(c) + 1); ql.push(n); } } }
@@ -2435,7 +2454,7 @@
       // fire floors always show lava, and no pool cuts floor off from the rest
       if (D.BIOMES[m.biome].lava && !m.lava) out.push(`seed ${seed} f${f}: a fire floor without lava`);
       { const sv = new Uint8Array(m.W * m.H), q3 = [Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE)]; sv[q3[0]] = 1;
-        while (q3.length) { const k = q3.pop(); for (const d of [1, -1, m.W, -m.W]) { const n = k + d; if (!sv[n] && (m.cells[n] === 1 || m.cells[n] === 4)) { sv[n] = 1; q3.push(n); } } }
+        const thinS = new Set(m.thin || []); while (q3.length) { const k = q3.pop(); for (const d of [1, -1, m.W, -m.W]) { const n = k + d; if (!sv[n] && (m.cells[n] === 1 || m.cells[n] === 4 || thinS.has(n))) { sv[n] = 1; q3.push(n); } } }
         if (m.cells.some((c, k) => c === 1 && !sv[k])) out.push(`seed ${seed} f${f}: lava cuts floor off`); }
       // secret rooms: sealed off by their fake wall (walking never gets in), reached once it breaks, one top-tier chest, no monsters
       if ((!m.secrets.length && !m.bossType) || m.secrets.length > 10) out.push(`seed ${seed} f${f}: ${m.secrets.length} secret rooms`);
@@ -3922,7 +3941,15 @@
           if (Math.abs(crackT - CRUST.stand) > 0.05 || Math.abs(meltT - CRUST.stand - CRUST.crack) > 0.05 || Math.abs(setT - meltT - CRUST.hot) > 0.05) out.push(`magma lava: the crust cracks at ${crackT.toFixed(2)} s, melts at ${meltT.toFixed(2)}, sets ${(setT - meltT).toFixed(2)} s later`);
           // (the lowest he comes to: a hero at full health with regeneration is back to it before the crust sets)
           if (hpMin >= hp0) out.push('magma lava: the crust melting under the hero does not burn him');
-          if (!crustAt(m, ck)) out.push('magma lava: the crust does not bear the hero again once it sets'); }
+          if (!crustAt(m, ck)) out.push('magma lava: the crust does not bear the hero again once it sets');
+          // (TASKS 476) the crust melting under him drops the hero into the lava: hurt by CRUST.fall of his health, alight, back on firm ground
+          { const o = [1, -1, W, -W].find((d) => m.cells[ck + d] === 1), sx0 = x0 + (o === 1 ? 1 : o === -1 ? -1 : 0) * TILE, sy0 = y0 + (o === W ? 1 : o === -W ? -1 : 0) * TILE;
+            m.melt = {}; h.hp = stats(h, Z.meta).maxHp; h.burn = 0; h.safe = [sx0, sy0]; Z.ev = []; let fell = null, hp1 = h.hp;
+            for (let i = 0; i < 120 * 2 && !fell; i++) { if (!fell) { h.x = x0; h.y = y0; h.vx = h.vy = 0; } hp1 = h.hp; step(Z, { keys: [] }); h.ifr = 0; fell = Z.ev.find((e) => e.k === 'lavafall'); }
+            if (!fell) out.push('magma lava: the hero does not fall through the crust melting under him');
+            else { const lost = hp1 - h.hp; if (lost < stats(h, Z.meta).maxHp * CRUST.fall * 0.7) out.push(`magma lava: a fall into the lava takes only ${Math.round(lost)} health`);
+              if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1 || Math.hypot(h.x - sx0, h.y - sy0) > 2) out.push('magma lava: after a fall the hero is not back on the firm ground he last stood on');
+              if (!(h.burn > Z.t)) out.push('magma lava: a fall into the lava does not set the hero alight'); } } }
         const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), 1); if (F.some((v, j) => v >= 0 && m.cells[j] === 3)) out.push('magma lava: the monsters\' way runs over lava or crust'); }
       // the magma colossus (TASKS 413): it lies hidden in its lake, rises and wades ashore once the hero is in; the ring round the
       // lake is one way round for its body, before the 2nd phase's edge falls into lava and after; its pools keep their limits; the

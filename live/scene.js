@@ -215,7 +215,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
     for (int i = 0; i < 8; i++) { vec2 q = abs(w - u_melt[i].xy); float c = step(q.x, 18.0) * step(q.y, 18.0); ck = max(ck, c * u_melt[i].z); mt = max(mt, c * u_melt[i].w); }
     vec2 hp = vec2(w.x, w.y * 1.4) / 17.0, hs = vec2(1.0, 1.7320508), ha = mod(hp, hs) - hs * 0.5, hb = mod(hp - hs * 0.5, hs) - hs * 0.5;
     vec2 gv = dot(ha, ha) < dot(hb, hb) ? ha : hb, hid = hp - gv; float hd = max(dot(abs(gv), vec2(0.5, 0.8660254)), abs(gv.x));
-    float warn = smoothstep(0.35, 1.0, ck), flash = step(0.5, fract(u_t * 5.0)) * step(0.75, ck);
+    // (thin crust, TASKS 476: its seams glow from the start, a way to cross quickly)
+    float thin = step(0.75, texelFetch(u_crust, ivec2(w / u_map * vec2(textureSize(u_crust, 0))), 0).g), warn = max(smoothstep(0.35, 1.0, ck), 0.45 * thin), flash = step(0.5, fract(u_t * 5.0)) * step(0.75, ck);
     vec3 cc = vec3(0.22, 0.2, 0.24) * (0.75 + 0.4 * hash(hid)) + vec3(0.25, 0.05, 0.02) * warn;
     if (hd > 0.4) cc = gv.y < 0.0 && gv.x < 0.25 ? vec3(0.36, 0.33, 0.36) : vec3(0.04, 0.032, 0.036);
     if (hd > 0.47 - 0.08 * warn) { cc = mix(vec3(0.5, 0.09, 0.03), mix(YO, Y, flash), warn); seamC = 1.0; }
@@ -1101,7 +1102,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const hot = (x, y) => SIM.cell(m, x, y) === 3 && !cr.has(y * m.W + x) && !un.has(y * m.W + x);
     return maskTex(m, 'lake', (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 1; i++) if (!hot(x + i, y + j)) return false;
       return !src.some((q) => Math.abs(Math.floor(q.x / TILE) - x) <= 3 && Math.abs(Math.floor(q.y / TILE) - y) <= 3); }, null, 0); };
-  const crustTex = (m) => { const c = new Set(m.crust || []); return maskTex(m, 'crust', (x, y) => c.has(y * m.W + x), null, 1); };
+  // (G: thin crust, an islet's way, TASKS 476)
+  const crustTex = (m) => { const c = new Set(m.crust || []), th = new Set(m.thin || []); return maskTex(m, 'crust', (x, y) => c.has(y * m.W + x), (x, y) => [th.has(y * m.W + x) ? 1 : -1, 0], 1); };
   // the plateaus' chasm is no rock top: the lava's light reaches down into it (TASKS 402)
   const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] || SIM.chasm(m, x, y) ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
   // where the fire depths' abyss may glow: rock within a few cells of a floor or lava cell
@@ -2421,6 +2423,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'die' && a < 1.6) lt(e.x, e.y - 40 - 60 * SS(0.3, 1.6, a), 200, [0.5, 0.7, 1], 0.9 * SS(0.2, 0.5, a) * (1 - SS(1.2, 1.6, a)));
       if (e.k === 'spike' && a < 0.2) lt(e.x, e.y, 110, [1, 0.9, 0.75], 0.5 * (1 - a / 0.2));
       if (e.k === 'erupt' && a < 0.7) lt(e.x, e.y - 20, 320, [1, 0.5, 0.15], 1.7 * (1 - a / 0.7));
+      if (e.k === 'lavafall' && a < 0.6) lt(e.x, e.y - 10, 260, [1, 0.5, 0.15], 1.5 * (1 - a / 0.6));
       if ((e.k === 'boulder' || e.k === 'colrise') && a < 0.6) lt(e.x, e.y - 10, 260, [1, 0.5, 0.15], 1.4 * (1 - a / 0.6));
       if ((e.k === 'shatter' || e.k === 'colerupt') && a < 1) lt(e.x, e.y - 60, 520, [1, 0.45, 0.12], 0.8 * SS(0, 0.15, a) * (1 - a));
       if (e.k === 'pillar' && a < PILLAR_T) lt(e.x, e.y - 40, 300, [1, 0.5, 0.15], 1.6 * (1 - SS(PILLAR_T * 0.5, PILLAR_T, a))); }
@@ -2924,6 +2927,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // a rock's fall (TASKS 406): a ring of dust and chips of basalt bouncing off; a vent's burst leaves a column of smoke
       if (e.k === 'rockfall' && a < 1) { const q = a / 1; for (let j = 0; j < 8; j++) { const an = j / 8 * 6.283 + rnd(e.t, j); L.puff(ex + Math.cos(an) * (10 + 46 * q), ey + 4 + Math.sin(an) * (6 + 26 * q) - 12 * q, 10 + 16 * q, [0.6, 0.54, 0.48], 0.75 * (1 - q), j); }
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j + 3) * 6.283, v = 50 + 70 * rnd(e.t, j + 9); if (a > 0.6) break; L.solid(ex + Math.cos(an) * v * a, Math.min(ey + 4, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 520 * a * a), 4, 3, [0.18, 0.16, 0.17], an + a * 8, 2, 1.5, 1 - SS(0.4, 0.6, a)); } }
+      // the hero through the crust (TASKS 476): a splash of lava where he went in, smoke and embers where he climbs out
+      if (e.k === 'lavafall' && a < 1.2) { const q = a / 1.2, X2 = sx(e.tx), Y2 = sy(e.ty);
+        for (let j = 0; j < 14; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 90 + 160 * rnd(e.t, j + 3); if (a > 0.8) break;
+          L.star(ex + Math.cos(an) * v * a, ey + Math.sin(an) * v * a + 420 * a * a, 5 + 3 * rnd(e.t, j + 5), [1, 0.5 + 0.4 * rnd(e.t, j + 7), 0.1], 1 - a / 0.8); }
+        L.ring(ex, ey, 14 + 40 * q, (14 + 40 * q) * 0.6, [1, 0.6, 0.2], 0.9 * (1 - q), 0.1);
+        for (let j = 0; j < 4; j++) L.puff(X2 + (j - 1.5) * 9, Y2 - 10 - 40 * q, 7 + 12 * q, [0.4, 0.36, 0.34], 0.5 * (1 - q), e.t * 5 + j); }
       if (e.k === 'erupt' && a < 1.6) for (let j = 0; j < 5; j++) { const q = a / 1.6; L.puff(ex + (j - 2) * 8 + Math.sin(a * 3 + j) * 6, ey - 16 - 70 * q * (0.6 + 0.4 * rnd(e.t, j)), 10 + 14 * q, [0.12, 0.1, 0.1], 0.5 * (1 - q), j); }
       if (e.k === 'scorch' && a < 0.8) for (let j = 0; j < 3; j++) { const q = a / 0.8; L.puff(ex + (j - 1) * 7, ey - 8 - 26 * q, 6 + 8 * q, [0.12, 0.1, 0.1], 0.45 * (1 - q), e.t * 13 + j); }
       if (e.k === 'kill' && a < 0.6 && !e.gone) for (let j = 0; j < 6; j++) { const q = a / 0.6; L.puff(ex + (j - 2.5) * 8, ey - 10 - 20 * q, 8 + 10 * q, e.type === 'ghost' ? [0.5, 0.7, 0.9] : [0.3, 0.27, 0.25], 0.5 * (1 - q), e.t + j); }
@@ -3702,6 +3711,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           m.decor = m.decor.filter((d) => Math.hypot(d.x - x, d.y - y) > 200).concat([{ n: 'vent_mg', x: x - 70, y: y + 10 }, { n: 'skel_mg', x: x + 60, y: y + 6 }, { n: 'fence_mg', x: x - 60, y: y - 60, len: 120 }]);
           const n0 = m.decor.length - 3; S.ev = [0, 1, 2].map((j) => ({ k: 'prop', t: S.t - 0.15, x: m.decor[n0 + j].n === 'fence_mg' ? x : m.decor[n0 + j].x, y: m.decor[n0 + j].y, i: 'd' + (n0 + j), n: m.decor[n0 + j].n, mat: D.PROP_MAT[m.decor[n0 + j].n], scale: 1, s: j ? 1 : -1 }));
           states.push(['magma_react', S]); } }
+      // a hoard's islet (TASKS 476): the hero at the foot of its thin crust; and the moment he falls through it
+      for (const ph of ['islet', 'crustfall']) { const S = play(); let r = null;
+        for (let sd = 3; sd < 40 && !r; sd++) { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let f = 2; f <= 3 && !r; f++) { SIM.enterFloor(S, S.run, f); r = S.run.map.rooms.find((q) => q.islet); } }
+        if (!r) continue; const R = S.run, m = R.map, W = m.W, th = m.thin || [], k = th.reduce((b, q) => (Math.hypot(q % W - r.cx, Math.floor(q / W) - r.cy) > Math.hypot(b % W - r.cx, Math.floor(b / W) - r.cy) ? q : b), th[0]);
+        const x = (k % W + 0.5) * TILE, y = (Math.floor(k / W) + 0.5) * TILE, mx = (r.cx + 0.5) * TILE, my = (r.cy + 0.5) * TILE; view(S, (x + mx) / 2, (y + my) / 2, x, y);
+        if (ph === 'crustfall') { S.ev.push({ k: 'lavafall', t: S.t - 0.15, x, y, tx: x, ty: y }); } states.push(['magma_' + ph, S]); }
       // the brink (TASKS 476): a skeleton a step off the lava, its edge lit, the hero two steps off it on the other side
       { const S = play(); const k0 = at(S, 2, (m) => { const W = m.W; if (m.ftype === 'cave') return null; for (let k = W * 4; k < W * (m.H - 4); k++) if (m.cells[k] === 1 && m.cells[k + 1] === 3 && m.cells[k + 2] === 3 && [-1, -2, -3, -4, -W, W, -W - 1, W - 1, -W - 2, W - 2].every((o) => m.cells[k + o] === 1)) return k; return null; });
         if (k0 !== null) { const R = S.run, W = R.map.W, x = (k0 % W + 0.75) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE; view(S, x, y, x - 90, y + 6);

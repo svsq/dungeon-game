@@ -371,7 +371,10 @@
         islet: 1, share: [0.4, 0.66],
         mix: { arena: { n: [1, 1], box: [[16, 20], [10, 13]], grow: [22, 15], pop: 1.4 }, ridge: { n: [2, 3], box: [[14, 20], [4, 5]], grow: [22, 6], tall: 0.3, edge: [0, 1.5], rag: 0.7, pop: 0.8 },
           ledge: { n: [3, 5], box: [[6, 7], [5, 6]], grow: [8, 7], edge: [0, 1.2], rag: 0.6, pop: 0.5 } } },
-      lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, fallDeep: 3, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
+      lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, fallDeep: 3, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4],
+        // a hoard's islet (TASKS 476): a pad of floor (`pad` cells) out in the open lava, `ring` cells of it all round, its only way a
+        // strip of thin crust two cells wide `len` cells long to the nearest plateau; `n` a floor
+        islet: { pad: [3, 3], ring: 1, len: [2, 9], n: 1 } } },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
   // every `per` seconds (drawn from the range, each its own phase), a hot ring on the floor, bubbles and a rising glow `warn` s
