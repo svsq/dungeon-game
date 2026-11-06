@@ -748,7 +748,7 @@
       panel('gt_r' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv ? C.rimHi : [0.32, 0.42, 0.62], c0: hv ? [0.14, 0.14, 0.2] : C.panel0 });
       if (q.k === 'portal') icon('it_scroll', b.x + 16, b.y + 12, 48); else L.sprite('waystone', b.x + 18, b.y + 6, { h: 62 });
       lab('gt_n' + i, q.k === 'portal' ? 'Портал — на этаж ' + q.f : 'Путевой камень — этаж ' + q.f, b.x + 84, b.y + 26, { size: 26, col: C.text });
-      lab('gt_d' + i, q.k === 'portal' ? 'туда, где прочитан свиток; портал закроется' : D.floorName(q.f, (R.memo && R.memo[q.f] || R).mode, R.seed), b.x + 84, b.y + 54, { size: 18, col: C.dim }); });
+      lab('gt_d' + i, q.k === 'portal' ? 'туда, где прочитан свиток; портал закроется' : D.floorName(q.f, (R.memo && R.memo[q.f] || R).mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1), b.x + 84, b.y + 54, { size: 18, col: C.dim }); });
     button('gt_leave', U.r[o.length], S.hover);
     lab('gt_help', 'ЛКМ — выбрать путь · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }

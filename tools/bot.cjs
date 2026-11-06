@@ -80,7 +80,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
-  const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0;
+  const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0] = initial.vars;
@@ -321,8 +321,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const R = S.run, h = R.hero, m = R.map;
     if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; fl = fl || freshFl(); }
     cur.potLeft = held(h, 'hp_potion');
-    // a visit to the town (TASKS 1024) is a pause of the floor it left: back through the portal, the floor's line goes on
-    if (R.town && !inTown) { inTown = 1; declined.clear(); R.shopped = -1; if (f0) cur.town.visits++; } else if (!R.town) inTown = 0;
+    // a visit to the town (TASKS 1024) is a pause of the floor it left: back through the portal, the floor's line goes on, its clocks
+    // (the floor's time, STUCK, the idle watch) shifted past the visit
+    if (R.town && !inTown) { inTown = 1; townT = S.t; declined.clear(); R.shopped = -1; if (f0) cur.town.visits++; }
+    else if (!R.town && inTown) { inTown = 0; if (f0 && R.floor === f0) { const d = S.t - townT; tF += d; progT += d; } }
     if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h)); else cur.meta = Object.assign({}, S.meta.up);
       if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
