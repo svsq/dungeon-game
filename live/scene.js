@@ -223,7 +223,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // and its pattern laid over the hero read as the lava showing through him
   if (u_mode < 0.5) o = vec4(col * inside * 0.7, inside);
   else if (u_mode < 1.5) o = vec4(vec3(1.0, 0.36, 0.08) * 0.16 * smoothstep(0.0, 10.0, d) * (1.0 - crustOn) * texture(u_seen, w / u_map).r * (1.0 - texture(u_occ, scr(v_px)).a), 0.0);
-  else if (crustOn > 0.5 && seamC < 0.5) discard;
+  // a crust plate's top keeps most of its own dark neutral stone through the light (TASKS 448: lit by the lava round it, it came out tan)
+  else if (crustOn > 0.5 && seamC < 0.5) o = vec4(col * 0.3 * 0.75, 0.75);
   else o = vec4(col * inside * 0.56, inside); }`;
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
@@ -658,6 +659,8 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
       dk = max(step(blk - 2.0, pb.y) * rimAt(bq + vec2(0.0, blk)), step(blk - 2.0, pb.x) * rimAt(bq + vec2(blk, 0.0)));
     c = lit > 0.5 ? c * 1.4 + 0.05 : dk > 0.5 ? c * 0.3 : c; }
   float s = texture(u_seen, w).r * (1.0 - vd) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
+  // the magma's fog edge (TASKS 453) is broken by a noise on the art grid: smooth, it ran ruler-straight along the cells' rows
+  if (u_haze > 0.5) s = clamp(s + (fbm(wp / 26.0 + 7.3) - 0.5) * 2.2 * s * (1.0 - s), 0.0, 1.0);
   float top = texture(u_top, w).r;
   // wall tops past the first row keep the ambient: no torch shines through a wall; their pale bevels still catch a fire close by
   l = mix(l, min(l, u_amb * 1.3), smoothstep(0.3, 1.0, top) * 0.8 * (1.0 - 0.75 * smoothstep(0.14, 0.3, dot(c, vec3(0.3, 0.5, 0.2)))));
@@ -679,7 +682,10 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   // a monster before the lava (the occluders' mask over its glow) takes no more of its light than a torch gives: lit to the lava's
   // own level it melted into it, the reference's figures stand dark against it (TASKS 407)
-  l = mix(l, min(l, vec3(1.3, 1.0, 0.8)), texture(u_occ, scr(v_px)).a * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
+  // (the occluders' mask: an actor is drawn into it white, a crossing's basalt black, TASKS 448: by the lava its tops came out tan)
+  vec4 oc = texture(u_occ, scr(v_px));
+  l = mix(l, min(l, vec3(1.3, 1.0, 0.8)), oc.r * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
+  l = mix(l, min(l, u_amb * 2.0 + vec3(0.22, 0.07, 0.03)), oc.a * (1.0 - oc.r) * 0.85 * u_haze);
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
@@ -1760,27 +1766,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // a ford of flat stepping stones, one to a cell, each a little off the grid, the water ringing round it
     const fordStones = (c) => { for (const k of c.cells) { const n = rnd(k, 3) < 0.4 ? 'ford_b' : 'ford_a', [w, hh] = SZ(n), x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6);
       ripple(x, y + 3, w * 0.55, k); L.shadow(sx(x), sy(y) + hh * 0.3, w * 0.5, 4, 0.45); drawProp(n, sx(x), sy(y) + hh * 0.55, { flip: rnd(k, 9) < 0.5 }); spray(x, y, k); } };
-    // the magma caves' crossings (TASKS 401, until their art in 402–405): flat basalt slabs a little proud of the lava, one to a cell,
-    // each a little off the grid, a hot rim where the lava licks its foot; a stone arch over a river's bed, its face over the lava
-    // running on below it on the near side and a lip on the far one
-    const basaltSlabs = (c) => { for (const k of c.cells) { const x = ev2((k % m.W + 0.5) * TILE + (rnd(k, 5) - 0.5) * 8), y = ev2((Math.floor(k / m.W) + 0.5) * TILE + (rnd(k, 6) - 0.5) * 6);
-      const w = 26 + 2 * Math.floor(3 * rnd(k, 7)), d = 18 + 2 * Math.floor(3 * rnd(k, 8)), X = ev2(sx(x) - w / 2), Y = ev2(sy(y) - d / 2), tone = 0.8 + 0.4 * rnd(k, 9), cut = 2 + 2 * Math.floor(2 * rnd(k, 4));
-      const top = [0.1 * tone, 0.085 * tone, 0.08 * tone];
-      L.shadow(sx(x), Y + d + 6, w * 0.55, 4, 0.7); L.solid(X - 2, Y + d + 4, w + 4, 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
-      L.solid(X + cut, Y + 4, w - 2 * cut, d + 4, [0.035, 0.03, 0.03]); L.solid(X, Y + cut + 4, w, d - 2 * cut + 2, [0.035, 0.03, 0.03]);
-      L.solid(X + cut, Y, w - 2 * cut, d, top); L.solid(X, Y + cut, w, d - 2 * cut, top);
-      L.solid(X + cut, Y, w - 2 * cut, 2, [0.22, 0.19, 0.18]); L.solid(X, Y + cut, 2, d - 2 * cut, [0.16, 0.14, 0.13]);
-      L.solid(X + 6 + 2 * Math.floor(4 * rnd(k, 2)), Y + 6 + 2 * Math.floor(2 * rnd(k, 3)), 6, 2, [0.05, 0.04, 0.04]); } };
-    const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y0 = Math.min(...ys) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
-      const lavaAt = (x, y) => SIM.cell(m, Math.floor(x / TILE), Math.floor(y / TILE)) === 3;
-      if (c.axis === 'x') { const X = ev2(sx(x0)), Wd = ev2(x1 - x0), Y = ev2(sy(y1));
-        if (lavaAt(x0 + 16, y0 - 16)) { L.solid(X, ev2(sy(y0)) - 4, Wd, 4, [0.05, 0.04, 0.04]); L.solid(X, ev2(sy(y0)) - 4, Wd, 2, [0.2, 0.16, 0.14]); }
-        if (lavaAt(x0 + 16, y1 + 16)) { L.solid(X, Y, Wd, 16, [0.07, 0.06, 0.06]); L.solid(X, Y, Wd, 2, [0.2, 0.16, 0.14]);
-          L.solid(X + 6, Y + 6, Wd - 12, 10, [0.012, 0.008, 0.008]); L.solid(X + 10, Y + 4, Wd - 20, 2, [0.012, 0.008, 0.008]); L.solid(X + 8, Y + 14, Wd - 16, 2, [1, 0.45, 0.08], 0, 0, 0, 0.75);
-          L.shadow(sx((x0 + x1) / 2), Y + 22, (x1 - x0) * 0.5, 6, 0.55); } }
-      else for (const [ex, sgn] of [[x0, -1], [x1, 1]]) { if (!lavaAt(ex + sgn * 16, (y0 + y1) / 2)) continue; const X = ev2(sx(ex)), Y = ev2(sy(y0)), Hh = ev2(y1 - y0);
-        L.solid(sgn < 0 ? X - 14 : X, Y + 6, 14, Hh, [0, 0, 0], 0, 0, 0, 0.45);
-        L.solid(sgn < 0 ? X - 6 : X, Y, 6, Hh + 8, [0.07, 0.06, 0.06]); L.solid(sgn < 0 ? X - 6 : X + 4, Y, 2, Hh + 8, [0.2, 0.16, 0.14]); L.solid(sgn < 0 ? X - 6 : X, Y + Hh + 6, 6, 2, [1, 0.45, 0.08], 0, 0, 0, 0.7); } };
+    // the magma caves' crossings (TASKS 401, art 448/451): stepping stones are the tops of basalt columns sunk in the lava, one to a
+    // cell, a little off the grid, a hot line where the lava licks their foot; an arch over a narrow river flowing toward the camera
+    // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
+    // river across the screen shows only its causeway of column tops
+    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [];
+    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
+      const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
+      L.shadow(sx(x), foot + 3, w * 0.55, 4, 0.7); L.solid(ev2(sx(x) - w / 2), foot, ev2(w), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
+      drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5 }); basaltOcc.push([n, sx(x) - w / 2, foot - hh, w, hh, rnd(k, 9) < 0.5]); } };
+    const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
+      if (c.axis !== 'x' || SIM.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
+      // (the painted opening is 0.38 of the arch's width and its crown 0.35 of its height down: the crown sits on the walk's near edge)
+      const T = G.tex('arch_mg'), wd = (x1 - x0) * 1.2 / 0.38, ht = wd * T.h / T.w, X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
+      basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
+      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht) }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
@@ -1790,7 +1790,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
         if (bridge && i > 1 && i < n - 2 && r(1) < 0.05) continue;
-        boards.push({ a, off: (r(2) - 0.5) * 4, l: BW + 6 + (r(3) - 0.5) * 7, rot: (r(4) - 0.5) * 0.07, tone: 0.72 + 0.36 * r(5), n: r(6) < 0.5 ? 'plank_a' : 'plank_b', f: r(7) < 0.5, z: z(a) }); }
+        boards.push({ a, off: (r(2) - 0.5) * 4, l: BW + 6 + (r(3) - 0.5) * 7, rot: iron ? 0 : (r(4) - 0.5) * 0.07, tone: 0.72 + 0.36 * r(5), n: r(6) < 0.5 ? 'plank_a' : 'plank_b', f: r(7) < 0.5, z: z(a) }); }
       const board = (q, h, draw) => { const [X, Y] = P(q.a, B0 + BW / 2 + q.off, h); draw(X, Y, hor ? Math.PI / 2 + q.rot : q.rot); };
       // the shadow on the water, then the reflection of the near edge and the posts, wavering
       for (const q of boards) board(q, -6, (X, Y, rot) => L.solid(X - q.l / 2, Y - 5, q.l, 10, [0.005, 0.02, 0.025], rot, q.l / 2, 5, bridge ? 0.42 : 0.3));
@@ -1803,7 +1803,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         if (inWet(hor ? q.a : b, hor ? b + 4 : q.a + 4)) ripple(hor ? q.a : b, hor ? b + 4 : q.a + 4, 9, q.a + b, 0.22); L.solid(X - 2, Y - 2, 4, 8, [0.12, 0.07, 0.045]); }
       // the beams under the boards: along the near edge of a deck across the screen, along both sides of one running down it
       if (hor) for (const q of boards) { const [X, Y] = P(q.a, B0 + BW + 2, q.z); L.solid(X - pitch / 2 - 1, Y - 2, pitch + 2, 5, [0.12, 0.07, 0.045]); }
-      for (const q of boards) board(q, q.z, (X, Y, rot) => L.sprite(q.n, X - q.l / 2, Y - 5, { w: q.l, h: 10, rot, pivot: [q.l / 2, 5], flip: q.f, u: { grade: iron ? [0.5, 0.42 * q.tone, 0, 1] : [0.9, q.tone, 0, 1] } }));
+      // (a chain bridge's boards end in a dark edge 2 px, TASKS 448: without it they ran together into one sheet)
+      for (const q of boards) board(q, q.z, (X, Y, rot) => { L.sprite(q.n, X - q.l / 2, Y - 5, { w: q.l, h: 10, rot, pivot: [q.l / 2, 5], flip: q.f, u: { grade: iron ? [0.5, 0.42 * q.tone, 0, 1] : [0.9, q.tone, 0, 1] } });
+        if (iron) { L.solid(X - q.l / 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, q.l / 2, 5); L.solid(X + q.l / 2 - 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, 2 - q.l / 2, 5); } });
       // a deck running down the screen is framed by its two stringers, logs along its sides over the boards' ends, and shows the
       // edge of its last board at its near end
       if (!hor) { const [, y0] = P(A0, 0, lift), [, y1] = P(A0 + len, 0, lift);
@@ -1823,13 +1825,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           for (let k = 0; k < 6; k++) { const w0 = k / 6, w1 = (k + 1) / 6, dr = (w) => (iron ? 6 : 3) * Math.sin(Math.PI * w);
             const [x0, y0] = P(A.a + (Bq.a - A.a) * w0, b, A.z + (Bq.z - A.z) * w0 + hgt - dr(w0)), [x1, y1] = P(A.a + (Bq.a - A.a) * w1, b, A.z + (Bq.z - A.z) * w1 + hgt - dr(w1));
             const l = Math.hypot(x1 - x0, y1 - y0), an = Math.atan2(y1 - y0, x1 - x0);
-            if (iron) { const n = Math.max(1, Math.round(l / 4)); for (let j = 0; j < n; j++) { const px = ev2(x0 + (x1 - x0) * j / n), py = ev2(y0 + (y1 - y0) * j / n);
-                if ((k * 7 + j) % 2) L.solid(px - 2, py - 1, 4, 2, [0.36, 0.33, 0.32]); else { L.solid(px - 2, py - 2, 4, 4, [0.07, 0.065, 0.07]); L.solid(px - 2, py - 2, 2, 2, [0.3, 0.27, 0.26]); } } }
+            // (links of 6×4 art px with an ink edge and a glint, face-on and edge-on in turn, TASKS 448: 2–4 px strokes read as noise)
+            if (iron) { const n = Math.max(1, Math.round(l / 5)); for (let j = 0; j < n; j++) { const px = ev2(x0 + (x1 - x0) * j / n), py = ev2(y0 + (y1 - y0) * j / n);
+                if ((k * 7 + j) % 2) { L.solid(px - 4, py - 2, 8, 4, [0.03, 0.025, 0.03]); L.solid(px - 2, py - 2, 4, 2, [0.3, 0.29, 0.31]); }
+                else { L.solid(px - 4, py - 4, 8, 6, [0.03, 0.025, 0.03]); L.solid(px - 2, py - 4, 4, 2, [0.5, 0.48, 0.5]); L.solid(px - 4, py - 2, 2, 2, [0.22, 0.21, 0.24]); L.solid(px + 2, py - 2, 2, 2, [0.22, 0.21, 0.24]); } } }
             else { L.solid(x0, y0 + 1, l + 1, 1, [0.2, 0.13, 0.06], an, 0, 0); L.solid(x0, y0 - 1, l + 1, 2, [0.55, 0.42, 0.22], an, 0, 0); } } }
         if (!hor) for (const q of stakes) { const [X, Y] = top(q, 0); stake(X + (side ? 2 : -2), Y); } };
       // a deck running down the screen has its rails at its sides, level with whoever walks it: they draw behind him
       if (hor) { rail(0); band.push([B0 + BW + 2, () => rail(1)]); } else { rail(0); rail(1); }
-      for (const p of c.posts) band.push([p.y, () => { L.shadow(sx(p.x), sy(p.y), 12, 4, 0.5); drawProp(p.fire ? 'bridge_torch' : 'bridge_post', sx(p.x), sy(p.y), { dy: 4, u: iron ? { grade: [0.45, 0.4, 0, 1] } : undefined });
+      for (const p of c.posts) band.push([p.y, () => { L.shadow(sx(p.x), sy(p.y), 12, 4, 0.5); drawProp(p.fire ? 'bridge_torch' : iron ? 'bridge_post_mg' : 'bridge_post', sx(p.x), sy(p.y), { dy: 4, u: iron && p.fire ? { grade: [0.45, 0.4, 0, 1] } : undefined });
+        if (iron && !p.fire) { const [w, hh] = SZ('bridge_post_mg'); basaltOcc.push(['bridge_post_mg', sx(p.x) - w / 2, sy(p.y) - hh + 4, w, hh, false]); }
         if (p.fire && known(p.x, p.y)) { halo(sx(p.x), sy(p.y) - BRIDGE.up + 6, B.torch, p.x); flameB(sx(p.x), sy(p.y) - BRIDGE.up, 18 * flick(p.x), 32 * flick(p.x + 1), B.torch, p.x + p.y, 0); } }]); };
     // the cave's crossings (TASKS 306): stepping stones, a low plank walk, a rope bridge; its near rail and posts stand in the band
     const bandX = [];
@@ -2203,8 +2208,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // whoever stands before the lava keeps its glow and its shimmer off them (TASKS 407): the monsters' silhouettes in a mask both
     // leave out. Without it a demon by a river came out see-through, the lava's plates showing through its body
     G.bind(LT.occ, [0, 0, 0, 0]); G.blend();
-    if (m.cliff) { const J0 = L.joint; L.joint = () => {}; L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [1, 1, 1] };
-      try { for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
+    if (m.cliff) { const J0 = L.joint; L.joint = () => {}; L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] };
+      try { for (const [n, x, y, w, hh, f] of basaltOcc) L.sprite(n, x, y, { w, h: hh, flip: f });
+        L.sp.ink = [1, 1, 1];
+        for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
           const sub = E.lake ? submerged(e, E, GT) : 0, U = sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {};
           MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
@@ -3227,7 +3234,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;
       const R = S.run, h = R.hero, r = m.rooms.find((q) => q.isle && q.type === 'treasure') || m.rooms.find((q) => q.isle);
       h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 0.5) * TILE; R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
-      R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_lake', S]); break; }
+      R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_lake', S]);
+      // TASKS 453: the same island under the fog as play leaves it, revealed from where the hero stands (every other magma state
+      // sees the whole map, so the fog's edge was never in a QA frame)
+      const F = structuredClone(S), RF = F.run; RF.seen = RF.seen.map(() => 0); RF.rseen = RF.rseen.map(() => 0); RF.en = []; F.ev = [];
+      for (let i = 0; i < 3; i++) SIM.step(F, { keys: [] }); RF.hero.x = h.x; RF.hero.y = h.y; RF.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_fog', F]); break; }
     // and the lake from its north shore: the hero on the floor of a shore plateau nearest the islands, the camera out over the lake
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;

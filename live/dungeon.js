@@ -1880,14 +1880,27 @@
       const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);
       const under = new Set(lavaUnder), inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
       const shuf = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Z() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-      const lay = (k, cand) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1];
-        for (const [x, y] of shuf(cand)) { if (n <= 0) break; if (!clear(x, y) || hazards.some((z) => z.k === k && Math.hypot(z.x - wx(x), z.y - wy(y)) < H.apart * TILE)) continue;
+      const lay = (k, cand, ordered) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1] - hazards.filter((z) => z.k === k).length;
+        for (const [x, y] of ordered ? cand : shuf(cand)) { if (n <= 0) break; if (!clear(x, y) || hazards.some((z) => z.k === k && Math.hypot(z.x - wx(x), z.y - wy(y)) < H.apart * TILE)) continue;
           const z = { k, x: wx(x), y: wy(y), per: H.per[0] + Z() * (H.per[1] - H.per[0]), ph: Z() }; hazards.push(z); n--;
           if (k === 'vent') { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); } } };
       const roomOf = (x, y) => { const q = rooms.find((r) => r.type !== 'secret' && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h); return q ? q.id : -1; };
+      // (TASKS 461) laid at random they stood on the walk to the stairs 1.5 rings a floor, a third of floors none: HZ.fall.aim rocks
+      // go first on its narrows, a ridge between the lava or a crossing's landing, and the vents by the chests off it, where a
+      // reward is worth the risk; the rest at random as before
+      const way = (() => { const s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e = exit.ty * W + exit.tx, from = new Int32Array(W * H).fill(-2), q = [s0]; from[s0] = -1;
+        for (let i = 0; i < q.length && from[e] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && cells[n] === 1) { from[n] = q[i]; q.push(n); } }
+        const out = []; if (from[e] !== -2) for (let k = e; k >= 0; k = from[k]) out.push(k); return out; })(), onWay = new Set(way);
+      const wide = (x, y) => { let n = 0; for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (at(x + i, y + j) === 1 && !under.has((y + j) * W + x + i)) n++;
+        for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (under.has((y + j) * W + x + i)) return n - 8; return n; };
+      const narrows = way.map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => !under.has(y * W + x) && !used.has(key(x, y))).map(([x, y], i) => [x, y, wide(x, y), i]).sort((a, b) => a[2] - b[2] || a[3] - b[3]);
+      for (const [x, y] of narrows) { if (hazards.filter((z) => z.k === 'fall').length >= Math.min(HZ.fall.aim, HZ.fall.n[Math.min(floor, HZ.fall.n.length) - 1])) break;
+        if (!clear(x, y) || hazards.some((z) => Math.hypot(z.x - wx(x), z.y - wy(y)) < HZ.fall.apart * TILE)) continue;
+        hazards.push({ k: 'fall', x: wx(x), y: wy(y), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1 }); }
       const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
       for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y))) vents.push([x, y]);
-      lay('vent', vents);
+      const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
+      lay('vent', shuf(vents).map((v) => [v, byChest(...v) ? 0 : 1]).sort((a, b) => a[1] - b[1]).map(([v]) => v), true);
       // a pass: floor off every room's box, not a crossing's deck; the wall's foot: a plateau's top row under the rock wall
       const falls = []; for (let y = 3; y < H - 2; y++) for (let x = 2; x < W - 2; x++) { if (at(x, y) !== 1 || under.has(y * W + x) || used.has(key(x, y)) || shore.has(key(x, y))) continue;
         if (!inBox(x, y) || (y <= cliff[x] + 1 && at(x, y - 1) === 0 && roomOf(x, y) >= 0 && rooms[roomOf(x, y)].type !== 'shop')) falls.push([x, y]); }

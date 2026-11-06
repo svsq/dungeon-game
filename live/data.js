@@ -366,10 +366,11 @@
   // before. Both hurt whoever stands within `r` px (the ring's half-width; its height is ry of it, the floor seen at 3/4) for `burst`
   // s: the hero `hp` of his health past armour (a dash leaps it, as spikes), a vent setting him alight for `burn` s, a monster `mon`
   // grown with depth, and knock him away. n: how many a floor of the magma caves, 1st to 4th (more each floor to the 3rd, the boss's
-  // fewer); apart: cells between two of a kind; clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
+  // fewer); apart: cells between two of a kind; aim: falling rocks laid first on the narrows of the walk to the stairs (TASKS 461);
+  // clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
   // stairs (selfCheck)
   const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8 },
-    fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6 }, clear: 3 };
+    fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2 }, clear: 3 };
   // where a hazard stands in its cycle at time t: 0 at the burst, the warning from per − warn to per
   const hazClock = (z, t) => ((t / z.per + z.ph) % 1 + 1) % 1 * z.per;
   const hazIn = (z, x, y) => { const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r; };
