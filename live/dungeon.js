@@ -2070,7 +2070,7 @@
       const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);
       const under = new Set(lavaUnder), inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
       const shuf = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Z() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-      const lay = (k, cand, ordered) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1] - hazards.filter((z) => z.k === k).length;
+      const lay = (k, cand, ordered) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1] - hazards.filter((z) => z.k === k && !z.tail).length;
         for (const [x, y] of ordered ? cand : shuf(cand)) { if (n <= 0) break; if (!clear(x, y) || hazards.some((z) => z.k === k && Math.hypot(z.x - wx(x), z.y - wy(y)) < H.apart * TILE)) continue;
           const z = { k, x: wx(x), y: wy(y), per: H.per[0] + Z() * (H.per[1] - H.per[0]), ph: Z() }; hazards.push(z); n--;
           if (k === 'vent') { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); } } };
@@ -2101,6 +2101,13 @@
       for (const pass of [0, 1]) for (const [x, y] of narrows) { if (hazards.filter((z) => z.k === 'fall' && !z.ford && !z.span).length >= aim) break; const ii = isleOf(x, y); if (!pass && ii >= 0 && hit.has(ii)) continue;
         if (!clear(x, y) || hazards.some((z) => Math.hypot(z.x - wx(x), z.y - wy(y)) < HZ.fall.apart * TILE)) continue;
         hazards.push({ k: 'fall', x: wx(x), y: wy(y), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1 }); if (ii >= 0) hit.add(ii); }
+      // an aimed rock is a run of them down the walk (TASKS 485): HZ.fall.run cells either way of it fall one after another HZ.fall.gap
+      // s apart, from one end, on the same clock. One ring was crossed in ≈ 0.2 s and none of ≈ 410 ever hit the hero: the run is
+      // waited out or dashed through, not walked into
+      for (const z of hazards.filter((q) => q.k === 'fall' && q.aim)) { const i0 = way.indexOf(Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE)); if (i0 < 0) continue;
+        const dir = Z() < 0.5 ? 1 : -1, cs = []; for (let j = -HZ.fall.run; j <= HZ.fall.run; j++) { const k = way[i0 + j]; if (k === undefined || (j && (!clear(k % W, Math.floor(k / W)) || under.has(k) && !z.span))) continue; cs.push([k, (j + HZ.fall.run) * dir]); }
+        const o0 = Math.min(...cs.map((c) => c[1])); for (const [k, o] of cs) { const ph = ((z.ph - (o - o0) * HZ.fall.gap / z.per) % 1 + 1) % 1;
+          if (k === Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE)) { z.ph = ph; continue; } hazards.push({ ...z, x: wx(k % W), y: wy(Math.floor(k / W)), ph, tail: 1 }); } }
       const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
       for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y))) vents.push([x, y]);
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
