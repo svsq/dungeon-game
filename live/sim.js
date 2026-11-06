@@ -4094,6 +4094,14 @@
     at(R.map.up, 30); E(S); if (R.floor !== 0 || !R.town || Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: the 1st floor\'s stairs up do not lead to the town\'s gate');
     if (R.shop.goods.map((g) => g.it.id).join() !== shelf0) out.push('climb: the town shelf is re-rolled on a return with no deeper floor reached');
     const size = JSON.stringify(persist(S)).length; if (size > 120000) out.push(`climb: a run with two kept floors saves ${size} bytes`);
+    // back up from the descent's 13th to the serpent's 12th (a run through the town): the floor is the campaign's again, not the
+    // descent's, whose bag has no round before the 13th (PR 19 review: the stack overflowed)
+    try { const S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run; enterFloor(S2, R2, 12);
+      for (const e of R2.en) if (D.BOSSES[e.type]) { e.hp = 0; e.deadT = S2.t; } R2.bossDead = 1; descend(S2, R2);
+      if (R2.floor !== 13 || R2.mode !== 'endless') out.push('climb: the descent past the serpent does not start on the 13th');
+      else { R2.hero.x = R2.map.up.x; R2.hero.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] });
+        if (R2.floor !== 12 || STAGE(R2).boss !== 'boss_serpent' || D.placeName(12, R2.mode, R2.seed, FROM(R2)) !== D.placeName(12, 'campaign', R2.seed)) out.push('climb: back up from the 13th, the 12th is not the campaign\'s'); } }
+    catch (err) { out.push('climb: back up from the 13th fails: ' + err.message); }
     return out;
   }
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
