@@ -721,13 +721,15 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   if (u_cave > 0.5) l = max(l, mix(u_low, vec3(0.52, 0.49, 0.46), smoothstep(0.1, 0.5, texture(u_water, w).r) * (1.0 - u_haze)));
   // an islet ringed by the magma's lava sums dozens of its lights, and the soft cap clipped their red first: the floor went yellow
   // (TASKS 478). The level is held there with the hue kept, the concept's bank takes only a red rim
-  l *= mix(1.0, min(1.0, 1.5 / max(l.r, max(l.g, l.b))), u_haze * (1.0 - oc.r));   // (not an actor: TASKS 479 lights those)
+  // An actor keeps a little more of it, else it dims by the lava; uncapped, its steel went khaki and its sword lime (TASKS 479)
+  l *= mix(1.0, min(1.0, mix(1.5, 1.8, oc.r) / max(l.r, max(l.g, l.b))), u_haze);
   l = 3.2 * tanh(l / 3.2);                                              // soft cap: pools never flatten into one blown-out level
   // a monster before the lava (the occluders' mask over its glow) takes no more of its light than a torch gives: lit to the lava's
   // own level it melted into it, the reference's figures stand dark against it (TASKS 407)
   // (the occluders' mask: an actor is drawn into it white, a crossing's basalt black, TASKS 448: by the lava its tops came out tan)
-  l = mix(l, min(l, vec3(1.3, 1.0, 0.8)), oc.r * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
-  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, 1.6));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
+  l = mix(l, min(l, vec3(1.2, 1.08, 1.0)), oc.r * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
+  // (in the magma caves the light on an actor is bleached instead, TASKS 479: its own colours stay and the fire is a warm sheen)
+  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(1.6, 0.35, oc.r * u_haze)));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
   // only the light's level, not its hue
   l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * 2.0, 1.4), bas);
@@ -1904,14 +1906,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       return { dx: w ? bx / w : 0, dy: w ? by / w : 0, col: w ? c.map((v) => v / w) : [1, 1, 1], k: w, all: AMB0.map((v, i) => v + c[i]) }; };
     // the fire's colour on an actor falls half bleached and without the lit pass's 1.6 saturation: as a tint over its own (own),
     // the boosted light is taken back to the bleached one (TASKS 185); the concept's demon stays red, its hero steel in torchlight
-    // (by the lava the light is the lava's, not the fires' the tint takes back: its green boost over the lava's orange came out as a
-    // lime hero, TASKS 450; the green channel is held to its own over the last four cells to the lava)
-    const lavaD = (px, py) => { if (!m.cliff) return 9; const cx0 = Math.floor(px / TILE), cy0 = Math.floor(py / TILE); let d = 9;
-      for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) if (SIM.cell(m, cx0 + i, cy0 + j) === 3) d = Math.min(d, Math.hypot(i, j)); return d; };
-    HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2], wl = SS(4, 1.5, lavaD(px, py)),
-        t = c.map((v, i) => own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g)))));
-      if (t[1] > own[1]) t[1] = own[1] + (t[1] - own[1]) * (1 - wl);
-      return t; };
+    // In the magma caves the lit pass bleaches the light on an actor itself (TASKS 479, the occluders' mask): a tint over it as
+    // well turned the steel khaki over a river and violet on a slab, the bones blue and the golem lilac
+    HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt || m.cliff) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
+      return c.map((v, i) => own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g))))); };
     HERO.k = HERO.kAt(h.x, h.y); HERO.lift = 0.85 + 0.1 * HERO.k;
 
     // ===== ground: the baked map, then decals =====
