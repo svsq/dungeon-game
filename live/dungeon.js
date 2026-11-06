@@ -120,7 +120,9 @@
     // spacing, its links (long narrow ridges with dead-end ledges) and what lies off the floor (lava, the chasm, a wall at the top only)
     const arch = ST.arch || N.arch, AR = D.ARCH[arch], plat = arch === 'plateau', cave = arch === 'cave' || plat;
     const [W, H] = ST.size || (cave ? N.size[floor - 1] : [72, 54]), cells = new Array(W * H).fill(0), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : cells[y * W + x]);
-    const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2) cells[y * W + x] = v; };
+    // (moat: a fortress's rock between its ring and its court, TASKS 380, no corridor is dug through once the gates are)
+    let moat = null;
+    const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2 && !(moat && v === 1 && moat(x, y))) cells[y * W + x] = v; };
     // ---- rooms ----
     // a cave's rooms stand six cells apart and more: the rock between them holds its water and its long tunnels
     // a small map (the endless descent's first floors, TASKS 349) takes smaller rooms, or eight of them never fit
@@ -130,7 +132,8 @@
     const rooms = [];
     // (a plateau boss's arena keeps AR.arenaGap round it, TASKS 422: its rim stays dark rock, never a channel the hero wades over)
     const apart = (x, y, w, h, g0 = pl ? TY.gap : cave ? [6, 6] : LY.gap) => !rooms.some((r) => { const g = pl && boss && r.id === 0 ? [Math.max(g0[0], AR.arenaGap), Math.max(g0[1], AR.arenaGap)] : g0;
-      return rectsOf(r).some(([rx, ry, rw, rh]) => x < rx + rw + g[0] && x + w + g[0] > rx && y < ry + rh + g[1] && y + h + g[1] > ry); });
+      const G = r.court ? LY.court.moat + LY.court.ring + 2 : 0;
+      return (G ? [[r.x - G, r.y - G, r.w + 2 * G, r.h + 2 * G]] : rectsOf(r)).some(([rx, ry, rw, rh]) => x < rx + rw + g[0] && x + w + g[0] > rx && y < ry + rh + g[1] && y + h + g[1] > ry); });
     // a room's shape (TASKS 374, data.js ROOM_SHAPES): its outer box, its core (a box inside it, x0 y0 w h from its corner) and the
     // mask of its floor; the floor past the core is laid as the room's wings, a box per row's run, runs alike stacked into one
     const shapeRoom = () => { const S = LY.shapes ? Object.fromEntries(Object.entries(LY.shapes).map(([k, p]) => [k, { p }])) : D.ROOM_SHAPES, ks = Object.keys(S).filter((k) => (!S[k].from || W >= S[k].from) && (k !== 'closet' || rooms.filter((r) => r.shape === 'closet').length < (LY.shapes ? 4 : 2))); let t = R() * ks.reduce((a, k) => a + S[k].p, 0), k = ks[0];
@@ -252,6 +255,9 @@
           if (x >= 0 && y >= 0 && x < cols && y < rows && !got.has(n) && !c.includes(n)) c.push(n); }
         if (!c.length) break; got.add(c[Math.floor(R() * c.length)]); }
       for (const k of [...got].sort((a, b) => a - b)) { const x = ox + (k % cols) * sx, y = oy + Math.floor(k / cols) * sy; rooms.push({ x, y, w: cw, h: chh, cx: x + (cw >> 1), cy: y + (chh >> 1), type: 'combat', id: rooms.length, shape: 'rect' }); } }
+    // a fortress's courtyard (TASKS 380): first, in the middle of the map; the ring round it is kept clear by `apart`
+    if (LY && LY.court && !boss) { const C = LY.court, w = ri(...C.w), h = ri(...C.h), x = ((W - w) >> 1) + ri(-2, 2), y = ((H - h) >> 1) + ri(-1, 1);
+      rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: 0, shape: 'rect', court: 1 }); }
     for (let i = 0; i < (terr || (LY && LY.grid && !boss) ? 0 : 900) && rooms.length < want + nLedge; i++) {
       const big = rooms.length === 0 && boss;
       const kind = !MX || big ? null : kq.length ? kq[0] : rooms.length >= want || (i >= 600 && nLedge) ? 'ledge' : null, K = kind && MX[kind];
@@ -390,9 +396,20 @@
       lines.push({ a: A.id, b: B.id, line, s0 }); };
     // a ridge's length, plateau edge to plateau edge: its middle line's run off every plateau's floor, in cells
     const ridgeLen = (q) => q.line.filter(([x, y]) => !rooms.some((r) => !r.pocket && Math.hypot((x - r.cx - 0.5) / (r.w / 2), (y - r.cy - 0.5) / (r.h / 2)) < 0.9)).length / 2;
+    // a fortress's ring and gates (TASKS 380): the ring a corridor round the court `moat` cells off it, the gates straight from the
+    // court's middle out to it on two opposite sides; a link to the court runs to the ring's nearest cell instead
+    const court = LY && LY.court ? rooms.find((r) => r.court) : null, ringC = [];
+    if (court) { const C = LY.court, G = C.moat + C.ring, x0 = court.x - G, y0 = court.y - G, x1 = court.x + court.w + G - 1, y1 = court.y + court.h + G - 1;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (x < x0 + C.ring || x > x1 - C.ring || y < y0 + C.ring || y > y1 - C.ring) { set(x, y, 1); ringC.push([x, y]); }
+      const hor = R() < 0.5, sides = (hor ? ['l', 'r'] : ['u', 'd']).slice(0, C.gates);
+      for (const sd of sides) { if (sd === 'u') carveV(court.y, y0, court.cx - 1); if (sd === 'd') carveV(court.y + court.h - 1, y1, court.cx - 1); if (sd === 'l') carveH(court.x, x0, court.cy - 1); if (sd === 'r') carveH(court.x + court.w - 1, x1, court.cy - 1); }
+      court.ring = [x0, y0, x1, y1]; court.gates = sides;
+      moat = (x, y) => x >= x0 + C.ring && x <= x1 - C.ring && y >= y0 + C.ring && y <= y1 - C.ring && !inRm(court, x, y) && cells[y * W + x] !== 1; }
+    const toRing = (O) => { let b = null, bd = 1e9; for (const [x, y] of ringC) { const d = Math.hypot(x - O.cx, y - O.cy); if (d < bd) { bd = d; b = [x, y]; } } return { cx: b[0], cy: b[1] }; };
     for (const [a, b] of edges) { const A = rooms[a], B = rooms[b];
       if (pl) ridge(A, B);
       else if (cave) tunnel(A, B);
+      else if (A.court || B.court) { const O = A.court ? B : A; winding(O, toRing(O)); }
       else winding(A, B); }
     // a rooms floor's dead ends (TASKS 376): a nook of 4–5 cells in the rock the corridors left whole (two cells of it all round),
     // ten cells and more from the nearest room, at the end of a way of its own from that room: a chest's place or an ambush's
@@ -467,7 +484,7 @@
     // (a ledge or a ridge, TASKS 432, is no start nor stairs: too small for the stairs' guard and its pack, too narrow for the camp,
     // whose hero came down past a ridge's edge into the lava)
     const narrow = (r) => r.kind === 'ledge' || r.kind === 'ridge' || r.shape === 'closet';
-    let leaves = rooms.filter((r) => adj[r.id].length === 1 && !(boss && r.id === 0) && !r.pocket && !r.isle && !narrow(r));
+    let leaves = rooms.filter((r) => adj[r.id].length === 1 && !(boss && r.id === 0) && !r.pocket && !r.isle && !narrow(r) && !r.court);
     // the boss hall is fixed (the biggest room), so the start is among the rooms farthest from it on foot (rim leaves first), or the
     // boss was a room away; the walk is counted on the carved cells, not by room hops: corridors cut through rooms and merge
     if (boss) { const d = new Array(W * H).fill(-1), q = [rooms[0].cy * W + rooms[0].cx], at0 = (r) => d[r.cy * W + r.cx]; d[q[0]] = 0;
@@ -490,7 +507,7 @@
     // (a rooms floor's last room may be a nook, TASKS 376: no start; a cave keeps its pocket start, TASKS 335)
     const start = far ? far[0] : (leaves.length ? pick(leaves) : rooms[cave ? rooms.length - 1 : main - 1]);
     const hop = hops(start);
-    const exitR = far ? far[1] : boss ? rooms[0] : rooms.filter((r) => r !== start && !r.pocket && !narrow(r)).sort((p, q2) => (hop[q2.id] - hop[p.id]) || (dist(q2, start) - dist(p, start)))[0];
+    const exitR = far ? far[1] : boss ? rooms[0] : rooms.filter((r) => r !== start && !r.pocket && !narrow(r) && !r.court).sort((p, q2) => (hop[q2.id] - hop[p.id]) || (dist(q2, start) - dist(p, start)))[0];
     start.type = 'start'; exitR.type = boss ? 'boss' : 'exit';
     // the magma caves' way (TASKS 433): the plateaus and halls the walk from the start to the stairs crosses. The rewards go off it, to
     // the dead ends first (a ledge, a pocket, a leaf of the tree), so no more than a third of a floor's lies on the way
@@ -500,7 +517,7 @@
     const nTreasure = 1 + (R() < 0.5 ? 1 : 0);
     if (!cave) others.sort((a, b) => (a.shape === 'closet') - (b.shape === 'closet'));
     // (a rooms floor's nooks, TASKS 376, stay out of the hoards: a hoard's chests and dressing want a room; a nook gets its own chest)
-    if (cave) others.sort((a, b) => (b.pocket || 0) - (a.pocket || 0)); else others.sort((a, b) => (a.pocket || 0) - (b.pocket || 0));
+    if (cave) others.sort((a, b) => (b.pocket || 0) - (a.pocket || 0)); else others.sort((a, b) => (a.pocket || 0) + (a.court || 0) - (b.pocket || 0) - (b.court || 0));
     // the hoards go to the ledges first (TASKS 432): a small pad off the way with a chest on it
     if (MX) others.sort((a, b) => (b.kind === 'ledge') - (a.kind === 'ledge'));
     if (plat) { const rank = (r) => (way.has(r.id) ? 2 : 0) + (deadEnd(r) ? 0 : 1); others.sort((a, b) => rank(a) - rank(b)); }
@@ -512,10 +529,12 @@
     // (a plateau floor's altar comes after its merchant: a plateau with room for his corner is rare enough without the altar taking it)
     R(); const altar = () => { if (!boss && (ST.altar ?? (floor % 2 === 0 || floor === ST.n - 1))) ((cave ? others.find((r) => r.type === 'combat' && !r.pocket) : others.slice(nTreasure).find((r) => !r.pocket)) || others[0] || rooms.find((r) => r.type === 'treasure') || {}).type = 'shrine'; };
     if (!pl) altar();
+    // the court's (TASKS 380): the floor's altar, moved there, or a pack round an elite
+    if (court) { if (R() < LY.court.altar) { const o = rooms.find((r) => r.type === 'shrine'); if (o) o.type = 'combat'; court.type = 'shrine'; } else court.courtElite = 1; }
     // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
     const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
       if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };
-    const shopFits = (r) => { if (r.w < 8 || r.h < 6 || (r.shape && r.shape !== 'rect')) return false;
+    const shopFits = (r) => { if (r.w < 8 || r.h < 6 || (r.shape && r.shape !== 'rect') || r.court) return false;
       for (let x = r.cx - 3; x <= r.cx + 3; x++) { if (Math.abs(x - r.cx) <= 2 && at(x, r.y - 1) !== 0) return false; for (let y = r.y; y <= r.y + 3; y++) if (isDoor(x, y)) return false; }
       return true; };
     // in a cave the merchant's corner is squared off under a straight back wall, two cells of rock thick (the only straight wall
@@ -562,7 +581,7 @@
     // cut any floor off is undone. flow: lava cell → the way its crust drifts (0 right, 1 down, 2 left, 3 up); pools lie still ----
     const flow = {}, streams = [];
     // (a hall floor's few rooms, TASKS 379, leave a fight's room or two: the hoards take rivers too)
-    const lavaRoom = (r) => (r.type === 'combat' || (r.type === 'treasure' && LY.room < 1)) && !r.zone && !r.pit && !streams.some((q) => q.room === r.id);
+    const lavaRoom = (r) => (r.type === 'combat' || (r.type === 'treasure' && LY.room < 1)) && !r.zone && !r.pit && !r.court && !streams.some((q) => q.room === r.id);
     // a river is a channel walked from a spring under the rock, across a room (and any corridor or room on its way) to a dead end,
     // 2–4 cells wide and wandering: through rock it is a trench between masonry banks, as in the concept; a corridor it crosses stays
     // floor (a causeway over it), a room it crosses gets a two-cell causeway where its ways in need one
@@ -1575,7 +1594,7 @@
           // an eel in its deep water; a room with none takes another
           if (ENEMIES[type].deep) { const q = deepIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
-          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
+          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (r.courtElite && i === 0) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
         // a small exit room (the endless descent's first floors) may have no free cell two in from its walls: there (only there for now:
         // the campaign's 7th loses its guard the same way on ~4 seeds in 25, its balance measured so) one in, then any free cell, then any floor

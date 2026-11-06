@@ -375,10 +375,14 @@
     maze: { name: 'Лабиринт', room: 1.3, rect: [[5, 8], [4, 6]], big: [2, [9, 11], [7, 8]], shapes: { rect: 50, L: 14, T: 10, cross: 6, closet: 14, gallery: 6 }, gap: [3, 4], bends: [8, 18], off: [2, 5], wide: 0, loops: [30, 0.45], nooks: [3, 5], pop: 0.8 },
     hall: { name: 'Чертог', room: 0.45, min: 6, minW: 64, rect: [[12, 16], [9, 12]], shapes: { rect: 20, hall: 30, round: 16, colonnade: 16, pit: 12, cross: 6 }, gap: [3, 4], bends: [24, 40], off: [2, 3], wide: 0.7, loops: [34, 0.2], nooks: [0, 1], pop: 1.7 },
     catacomb: { name: 'Катакомбы', room: 1.4, grid: { cell: [8, 6], step: [11, 9] }, gap: [2, 2], bends: [99, 99], off: [0, 0], wide: 0, loops: [12, 0.35], nooks: [1, 2], pop: 0.7 },
+    // a fortress (TASKS 380): a courtyard (court: w × h) in the middle of the map behind `moat` cells of rock and a ring of corridor
+    // `ring` cells wide, `gates` ways from the ring into it; the other rooms stand outside the ring and join it, not the court; the
+    // court holds the floor's altar (chance `altar`) or a pack round an elite; the start and the stairs lie outside
+    fortress: { name: 'Крепость', room: 0.85, minW: 64, court: { w: [14, 18], h: [10, 12], moat: 3, ring: 2, gates: 2, altar: 0.4 }, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.2], nooks: [1, 2], pop: 1 },
     // which layout a floor takes (TASKS 379): by its biome's weights, from its own floor on (`from`), never the one of the floor before;
     // a run's 1st floor and a boss's floor keep the plain rooms
-    lay: { dungeon: { rooms: 3, maze: 2 }, crypt: { rooms: 2, catacomb: 3, hall: 1, maze: 1 }, lava: { rooms: 2, hall: 2, maze: 2 }, arcane: { rooms: 2, hall: 2, catacomb: 1, maze: 1 } },
-    layFrom: { maze: 2, hall: 3, catacomb: 3 },
+    lay: { dungeon: { rooms: 3, maze: 2 }, crypt: { rooms: 2, catacomb: 3, hall: 1, maze: 1, fortress: 1 }, lava: { rooms: 2, hall: 2, maze: 2, fortress: 1 }, arcane: { rooms: 2, hall: 2, catacomb: 1, maze: 1, fortress: 2 } },
+    layFrom: { maze: 2, hall: 3, catacomb: 3, fortress: 3 },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
   // every `per` seconds (drawn from the range, each its own phase), a hot ring on the floor, bubbles and a rising glow `warn` s
