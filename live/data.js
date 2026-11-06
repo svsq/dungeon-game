@@ -364,6 +364,21 @@
         mix: { arena: { n: [1, 1], box: [[16, 20], [10, 13]], grow: [22, 15], pop: 1.4 }, ridge: { n: [2, 3], box: [[14, 20], [4, 5]], grow: [22, 6], tall: 0.3, edge: [0, 1.5], rag: 0.7, pop: 0.8 },
           ledge: { n: [3, 5], box: [[6, 7], [5, 6]], grow: [8, 7], edge: [0, 1.2], rag: 0.6, pop: 0.5 } } },
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, fallDeep: 3, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
+    // the rooms-and-corridors floors' layouts (TASKS 379), each a set of knobs on the one generator (dungeon.js): room, the room count
+    // of the floor's range taken (min: fewest a floor is laid with); rect, a plain room's size (cells, else by the map); shapes, the
+    // shapes' weights over ROOM_SHAPES; gap, the rock kept between rooms; bends, the corridor length (cells) past which it takes one
+    // bend and two; off, a bend's distance off the straight line; wide, the share of corridors three cells wide; loops, extra links
+    // between rooms nearer than [0] cells, each with the chance [1]; nooks, dead-end nooks; pop, the monsters a room holds; grid, a
+    // catacomb's chambers, all one size (cell) on a grid (step), joined to their neighbours only; minW, the narrowest map it is laid on; big, the first [0] rooms laid as plain
+    // rooms of [1]×[2] (the merchant's and the stairs' room want one)
+    rooms: { name: 'Залы и коридоры', room: 1, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.28], nooks: [1, 2], pop: 1 },
+    maze: { name: 'Лабиринт', room: 1.3, rect: [[5, 8], [4, 6]], big: [2, [9, 11], [7, 8]], shapes: { rect: 50, L: 14, T: 10, cross: 6, closet: 14, gallery: 6 }, gap: [3, 4], bends: [8, 18], off: [2, 5], wide: 0, loops: [30, 0.45], nooks: [3, 5], pop: 0.8 },
+    hall: { name: 'Чертог', room: 0.45, min: 6, minW: 64, rect: [[12, 16], [9, 12]], shapes: { rect: 20, hall: 30, round: 16, colonnade: 16, pit: 12, cross: 6 }, gap: [3, 4], bends: [24, 40], off: [2, 3], wide: 0.7, loops: [34, 0.2], nooks: [0, 1], pop: 1.7 },
+    catacomb: { name: 'Катакомбы', room: 1.4, grid: { cell: [8, 6], step: [11, 9] }, gap: [2, 2], bends: [99, 99], off: [0, 0], wide: 0, loops: [12, 0.35], nooks: [1, 2], pop: 0.7 },
+    // which layout a floor takes (TASKS 379): by its biome's weights, from its own floor on (`from`), never the one of the floor before;
+    // a run's 1st floor and a boss's floor keep the plain rooms
+    lay: { dungeon: { rooms: 3, maze: 2 }, crypt: { rooms: 2, catacomb: 3, hall: 1, maze: 1 }, lava: { rooms: 2, hall: 2, maze: 2 }, arcane: { rooms: 2, hall: 2, catacomb: 1, maze: 1 } },
+    layFrom: { maze: 2, hall: 3, catacomb: 3 },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
   // every `per` seconds (drawn from the range, each its own phase), a hot ring on the floor, bubbles and a rising glow `warn` s
@@ -415,21 +430,32 @@
   // big: the chapters' end bosses (the demon lord, the serpent) come no sooner than `bigFrom` (the player's call 02.11.2026): an arcane
   // or cave boss pair before it ends as a guard pair. The exit's guard (the campaign 7th's brute, 2.2 times an elite's health) stands
   // from `guardFrom`: on the 2nd it killed a hero of level 3 on five seeds in eight; before it a pair ends with the exit room's elite
-  const endlessStage = (f, seed) => { const M = RUNS.endless, p = Math.floor((f - 1) / 2), pos = (f - 1) % 2, biome = pairBiome(seed, p), cave = biome === 'cave', end = pos === 1;
+  const endlessBase = (f, seed) => { const M = RUNS.endless, p = Math.floor((f - 1) / 2), pos = (f - 1) % 2, biome = pairBiome(seed, p), cave = biome === 'cave', end = pos === 1;
     const bossPair = p % 2 === 1 && !(M.big.includes(M.bosses[biome]) && 2 * p + 2 < M.bigFrom);
     const Z = M.size, k = Math.min(1, (f - 1) / (Z.floors - 1)), from = cave ? Z.cave : Z.from, size = [0, 1].map((i) => 2 * Math.round((from[i] + (Z.to[i] - from[i]) * k) / 2));
     return { N: cave ? RUNS.cave : M, lf: cave ? 3 + pos : 1 + pos, n: cave ? 4 : 2, depth: f, last: end, fin: false, biome, boss: bossPair && end ? M.bosses[biome] : undefined, arch: cave ? 'cave' : undefined,
       guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: 1, early: 0, elite: ELITE.share, mob: 1, size, rooms: cave ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > BAL.deep.from ? M.deepBoss : undefined }; };
+  // (its rooms floors take the layouts as the campaign's do, TASKS 379, the chain over the descent's own floors)
+  const endlessStage = (f, seed) => { const o = endlessBase(f, seed); if (!o.arch) o.lay = layOf(seed, f, (g) => (g === f ? o : endlessBase(g, seed))); return o; };
   // floor f of a run: N, the description that lays it out (the run's own or its chapter's), lf, its place among N's floors, n, how
   // many floors N lays out, depth, the campaign floor it is worth; last: the end of its chapter (layout: no river, no altar before
   // the boss), fin: the run's own last floor (the way out, the victory); biome and boss: its biome and its boss, if any; pop and
   // early: its chapter's monsters a hall and how many floors sooner its kinds come (RUNS chapters); elite: the share of its
   // monsters (from the campaign's 3rd floor) that come as elites, ELITE.share unless its chapter sets one for the floor; mob: its plain
   // monsters' blows over the depth's (a boss's and an elite's keep theirs)
+  // the layout of a run's rooms-and-corridors floor f (TASKS 379): a chain from its 1st floor, each floor drawn by its own seed from its
+  // biome's weights less the floor before's, so a floor's layout is the same however the run reaches it
+  const layOf = (seed, f, at) => { let prev = 'rooms', got = 'rooms';
+    for (let g = 1; g <= f; g++) { const q = at(g); if (!q || q.arch || g === 1 || q.boss) { got = 'rooms'; prev = got; continue; }
+      const W = Object.entries(ARCH.lay[q.biome] || { rooms: 1 }).filter(([k]) => k !== prev && (ARCH.layFrom[k] || 1) <= q.depth && (!ARCH[k].minW || (q.size && q.size[0] >= ARCH[k].minW)));
+      let t = (mix32((mix32(seed >>> 0) + Math.imul(g, 0x379f1)) >>> 0) / 4294967296) * W.reduce((a, [, w]) => a + w, 0); got = W.length ? W[0][0] : 'rooms';
+      for (const [k, w] of W) { t -= w; if (t < 0) { got = k; break; } } prev = got; }
+    return got; };
   const stageOf = (mode, f, seed = 0) => { if (runOf(mode).endless) return endlessStage(f, seed); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
     n = c ? N.floors : M.chapter || M.floors;
     return { N, lf, n, depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
       elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1,
+      lay: N.arch ? undefined : layOf(seed, f, (g) => { const cg = (M.chapters || []).filter((q) => g >= q.from).pop(), Ng = cg ? RUNS[cg.run] : M, lg = cg ? g - cg.from + 1 : g; return { arch: Ng.arch, biome: Ng.biome(lg), boss: Ng.boss(lg), depth: g + M.depth, size: Ng.size && Ng.size[lg - 1] }; }),
       ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}) }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
   // the caves' packs by role (TASKS 312), a hall's weight for each when it can hold it: line, a crab or two just inside the way the

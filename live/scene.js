@@ -3584,6 +3584,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (!r) continue; void R; const Q = S.run, h = Q.hero, x = (r.x + r.w / 2) * TILE, y = (r.y + r.h / 2) * TILE;
       h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1) * TILE; Q.en = Q.en.filter((e) => e.room === r.id).slice(0, 2); Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - VW / 2, y - VH / 2];
       states.push(['room_' + shape, S]); }
+    // the rooms floors' layouts (TASKS 379): the first campaign floor of each, the view on its middle, the whole floor explored
+    for (const lay of ['maze', 'hall', 'catacomb']) { let S = null;
+      for (let sd = 1; sd < 40 && !S; sd++) for (const f of [3, 5, 7]) if (D.stageOf('campaign', f, sd).lay === lay) { S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); break; }
+      if (!S) continue; const Q = S.run, m = Q.map, r = m.rooms[m.start] || m.rooms[0], x = m.W * TILE / 2, y = m.H * TILE / 2;
+      Q.hero.x = (r.cx + 0.5) * TILE; Q.hero.y = (r.cy + 0.5) * TILE; Q.en = []; Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - VW / 2, y - VH / 2];
+      states.push(['lay_' + lay, S]); }
     // the magma caves' lava (TASKS 401): each kind of crossing over a river, a lake with its source, the crust giving under the hero
     // beside a cell of it melted, and monsters knocked off a plateau, one sinking in the lava and one dropping into the chasm
     { const at = (S, f, pick) => { S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };

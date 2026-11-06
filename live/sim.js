@@ -2211,7 +2211,7 @@
       // a 5×5 cave pocket for a start room with no clear spot by the fire: the hero arrived inside the rock (run seed 93, TASKS 335)
       .concat([['campaign', 101, 9]]);
     const caveKinds = {}, shapes = {};
-    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' || ST.arch === 'plateau' ? 'cave' : 'campaign', plat = ST.arch === 'plateau', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run });
+    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' || ST.arch === 'plateau' ? 'cave' : 'campaign', plat = ST.arch === 'plateau', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run, ...(run === 'campaign' ? { runSeed: sd } : {}) });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
@@ -2220,6 +2220,10 @@
       if (mode === 'campaign') {
         // the rooms' shapes (TASKS 374): a wing is floor joined to its room; a pit is deep cells inside its room's box with two cells
         // of floor round it (three at the top), nothing stands on it, and no stream runs through a shaped room
+        // a floor's layout (TASKS 379): all four come up over the floors checked; a catacomb's chambers are one size on its grid
+        if (m.lay) shapes['lay:' + m.lay] = 1;
+        if (m.lay === 'catacomb') { const ch = m.rooms.filter((r) => !r.pocket && r.type !== 'secret'), [cw, cH] = D.ARCH.catacomb.grid.cell, [sx, sy] = D.ARCH.catacomb.grid.step;
+          if (ch.some((r) => r.w !== cw || r.h !== cH || (r.x - ch[0].x) % sx || (r.y - ch[0].y) % sy)) out.push(`seed ${seed} f${f}: a catacomb chamber off its grid or size`); }
         for (const r of m.rooms) { if (r.shape) shapes[r.shape + (r.pit ? '*' : '')] = 1;
           for (const [a, b, c, d] of r.wings || []) for (let y = b; y < b + d; y++) for (let x = a; x < a + c; x++) if (cell(m, x, y) !== 1 && cell(m, x, y) !== 3) out.push(`seed ${seed} f${f}: room ${r.id}'s wing is not floor at ${x},${y}`);
           if (r.pit) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const inner = x >= r.x + 2 && x < r.x + r.w - 2 && y >= r.y + 3 && y < r.y + r.h - 2;
@@ -2477,6 +2481,7 @@
     for (const k of Object.keys(D.ROOM_SHAPES)) if (!shapes[k] && !shapes[k + '*']) out.push(`rooms: no ${k} room on any of the floors checked`);
     if (!shapes['pit*']) out.push('rooms: no pit dug on any of the floors checked');
     if (!shapes.wide) out.push('rooms: no corridor three cells wide on any of the floors checked');
+    for (const k of ['rooms', 'maze', 'hall', 'catacomb']) if (!shapes['lay:' + k]) out.push(`rooms: no ${k} layout on any of the floors checked`);
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); let snap = null;   // the last save of a living hero: the demo hero may fall before 40 s
       for (let i = 0; i < 120 * 40; i++) { step(S, scriptInput(S.t, S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
