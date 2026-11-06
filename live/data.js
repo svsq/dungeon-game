@@ -240,7 +240,7 @@
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
   // bolt: an elite caster's bolt,
   // else it took 34–36 % of the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } },
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } }, deepFrom: 12,
     // exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy); on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
     exit: { 1: { hp: 0.85, dmg: 0.85 } } };
   // the boss is an elite too but keeps its own pace. minWind: an elite's wind-up never ends sooner than this nor sooner than its
@@ -257,8 +257,17 @@
     { id: 'vampire', name: 'Кровожадный', col: [0.92, 0.08, 0.2], heal: 0.12 },
     { id: 'summoner', name: 'Призывающий', col: [0.72, 0.4, 1.0], every: 8, n: 2, cap: 3 },
     { id: 'explosive', name: 'Взрывной', col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
+    // deep: only in the endless descent past ELITE.deepFrom (TASKS 387, R-22): something new to meet below the campaign's depth.
+    // reflect: a share of each of the hero's blows (not its fire's ticks) comes back to him, never the last of his health;
+    // blink: every `every` s, `min`–`max` px off with a clear line, it steps to `gap` px before him and holds its blow `calm` s (melee only);
+    // ward: a shield of `share` of its health takes the blows from before it, one from behind breaks it; curse: its blow cuts the hero's for `t` s
+    { id: 'reflect', name: 'Отражающий', col: [0.88, 0.92, 1.0], k: 0.1, deep: 1 },
+    { id: 'blink', name: 'Мерцающий', col: [0.2, 0.95, 0.85], every: 6, min: 150, max: 450, gap: 70, calm: 0.7, deep: 1, melee: 1 },
+    { id: 'ward', name: 'Щитоносный', col: [0.35, 0.6, 1.0], share: 0.25, deep: 1 },
+    { id: 'curse', name: 'Проклинающий', col: [0.5, 0.85, 0.2], k: 0.7, t: 3, deep: 1 },
   ];
   const eliteMods = (f) => (f >= 6 ? [2, 2] : f >= 4 ? [1, 2] : [1, 1]);
+  const modPool = (mode, f, kind) => ELITE_MODS.filter((m) => (!m.deep || (RUNS[mode] && RUNS[mode].endless && f > ELITE.deepFrom)) && !(m.melee && (kind === 'caster' || kind === 'archer'))).map((m) => m.id);
   // a run (R.mode): its floors, each floor's biome and boss, its exit guards and the title of its last floor. depth: how many
   // campaign floors lie above its 1st, so a floor of the run is as strong as campaign floor f + depth in everything that grows
   // as floors climb (monsters, loot, gold, prices, traps); lvl and kit: the hero it starts with.
@@ -407,9 +416,20 @@
     deepBoss: { hp: 1.6, dmg: 1.6 }, size: { from: [48, 36], to: [88, 66], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   const mix32 = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
-  // a shuffled bag per block of pool-length pairs: a plain draw left run 104062 without caves for 7 pairs (floors 13-25), one chance in five a pair
-  const pairBiome = (seed, p) => { const P = RUNS.endless.pool.slice(), n = P.length, b = Math.floor(p / n); let a = mix32((mix32(seed >>> 0) + Math.imul(b + 1, 0x9e3779b9)) >>> 0);
-    for (let i = n - 1; i > 0; i--) { a = mix32(a + 0x9e3779b9); const j = a % (i + 1); [P[i], P[j]] = [P[j], P[i]]; } return P[p % n]; };
+  // two bags, each shuffled per block of pool-length draws and never the same twice across a block's seam (TASKS 386): the boss pairs
+  // (1, 3, …) draw their boss, each of the five once a round, and take its biome (a single bag repeated the spider on the 20th and the
+  // 24th, seed 3); the guard pairs (0, 2, …) draw their biome. A plain draw left run 104062 without caves for 7 pairs (floors 13-25).
+  // A big boss in the first round goes to a place no sooner than `bigFrom`
+  const BAGS = new Map();
+  const bagOrder = (seed, kind, b) => { const key = seed + ':' + kind + ':' + b; let P = BAGS.get(key); if (P) return P;
+    const M = RUNS.endless, n = M.pool.length; P = M.pool.map((_, i) => i);
+    let a = mix32((mix32(seed >>> 0) + Math.imul(b + 1, 0x9e3779b9) + (kind === 'boss' ? 0x5bd1e995 : 0)) >>> 0);
+    for (let i = n - 1; i > 0; i--) { a = mix32(a + 0x9e3779b9); const j = a % (i + 1); [P[i], P[j]] = [P[j], P[i]]; }
+    const big = (i) => M.big.includes(M.bosses[M.pool[i]]);
+    if (kind === 'boss' && !b) for (let q = 0; 4 * q + 4 < M.bigFrom && q < n; q++) if (big(P[q])) { const j = P.findIndex((x, k) => k > q && !big(x)); if (j > 0) [P[q], P[j]] = [P[j], P[q]]; }
+    if (b && P[0] === bagOrder(seed, kind, b - 1)[n - 1]) [P[0], P[1]] = [P[1], P[0]];
+    if (BAGS.size > 4096) BAGS.clear(); BAGS.set(key, P); return P; };
+  const pairBiome = (seed, p) => { const M = RUNS.endless, n = M.pool.length, i = Math.floor(p / 2); return M.pool[bagOrder(seed, p % 2 ? 'boss' : 'guard', Math.floor(i / n))[i % n]]; };
   // floor f of the endless descent: lf is its place in its pair (a cave pair is laid out as the caves' 3rd and 4th, with all their
   // kinds, lakes and eels); size: its map in cells, growing with f to the cap; altar: on a guard pair's second floor and before a boss
   // big: the chapters' end bosses (the demon lord, the serpent) come no sooner than `bigFrom` (the player's call 02.11.2026): an arcane
@@ -516,6 +536,10 @@
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)
+  // a newcomer's hints (TASKS 390): the whirl, shown with `n` foes awake within its reach and it ready, at most every `every` s, until
+  // the player has whirled `until` times in all (the novice bot cast the fireball 34 times a run and the whirl once, and died to the
+  // crypt's packs on the 3rd)
+  const TIPS = { whirl: { n: 3, every: 20, until: 5, s: 'Толпа вплотную — клавиша 1: Вихрь клинка' } };
   const ABILITIES = [
     { id: 'whirl', name: 'Вихрь клинка', icon: 'ab_whirl', key: '1', unlock: 1, mp: 0, cd: 6, desc: 'Круговой удар: {d}% атаки всем рядом' },
     { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 2.5, desc: 'Огненный взрыв: {d} урона' },
@@ -742,7 +766,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
