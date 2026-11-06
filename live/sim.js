@@ -999,7 +999,7 @@
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
-      breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
+      breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
@@ -1013,6 +1013,14 @@
       else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + dep(R) }); else if (rnd(R) < POT.pot) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
   }
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
+  // the townsfolk and hens in the way of a blow (TASKS 1033): it harms none of them, but each answers it: a townsman flinches and
+  // says so (f.hitT, f.ouch), a hen flicks its tail and runs (the hero is close, so it flees him anyway)
+  const FOLK_OUCH = ['Эй! Полегче!', 'Ты чего машешь?!', 'Осторожнее, герой!', 'Своих не бей!'];
+  function hitFolk(S, R, x, y, rad, ax, arc) { if (!R.town || !R.folk) return;
+    for (const f of R.folk) { const dx = f.x - x, dy = f.y - y, d = Math.hypot(dx, dy); if (d > rad + 12) continue;
+      if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (S.t - (f.hitT ?? -9) < 0.6) continue;
+      f.hitT = S.t; if (f.role === 'hen') { f.scareT = S.t; f.goal = null; ev(S, { k: 'hen', x: f.x, y: f.y }); continue; }
+      f.ouch = ((f.ouch ?? -1) + 1) % FOLK_OUCH.length; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role, ouch: 1 }); } }
   function hitProps(S, R, x, y, rad, ax, arc, bonesOnly = false) {
     const m = R.map, hit = R.propHit || (R.propHit = {});
     // things on a wall are struck at their foot on the floor (the wall cell blocks the line), the event stays at the thing
@@ -1258,10 +1266,13 @@
       for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
         if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
         const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
-      breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc);
+      breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc);
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) castAbility(S, R, ABILITIES[inp.slot - 1].id, inp);
+    // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
+    if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
+      S.meta.tipScroll = 1; R.msg = { s: 'Здоровья мало: T — свиток возвращения, портал в город', t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }
     // the whirl's hint (TASKS 390), over no other message
     { const W = D.TIPS.whirl; if (h.ab.whirl && h.cd.whirl <= S.t && (S.meta.whirls || 0) < W.until && S.t - (R.tipT ?? -1e9) > W.every && !(R.msg && S.t - R.msg.t < (R.msg.d || 3.5))) {
       const r = D.abRank('whirl', h.ab.whirl).r; if (R.en.filter((e) => e.deadT < 0 && !under(e) && e.st !== 'idle' && e.st !== 'home' && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < r + ENEMIES[e.type].r).length >= W.n) {
@@ -1427,6 +1438,7 @@
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
+    if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     const fk = folkNear(R); if (fk) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
@@ -1451,6 +1463,9 @@
   // ---------------- the town's workshops (R-32, TASKS 1013) ----------------
   // the smith at his anvil reforges, the enchanter at her lectern enchants; the piece is chosen from the worn gear or the bag
   const atCraft = (R) => (near(R, 'anvil', 80) ? 'forge' : near(R, 'lectern', 80) ? 'enchant' : null);
+  // the notice board (TASKS 1033): what every townsman has on offer, in one list; a quest is taken from it as from its giver
+  const atBoard = (R) => near(R, 'board', 64);
+  const boardOffers = (R) => D.QUEST_GIVE.from.map((role) => ({ role, of: offerOf(R, role) })).filter((o) => o.of);
   const craftItem = (S, R) => { const c = S.craft, h = R.hero; if (!c || !c.sel) return null; const [k, v] = c.sel.split(':'); const it = k === 'eq' ? h.eq[v] : h.bag[+v]; return it && BASES[it.b] ? it : null; };
   // what the work costs on this piece now: gold (and shards for an enchantment), the chance it fails
   function craftCost(S, R, it) { const C = D.CRAFT, p = D.itemPrice(it, tradeDepth(R));
@@ -1475,7 +1490,7 @@
   // a quest of the run: R.quests [{ id, key, f, need, n, st: taken | done | turned, from, rw, ... }]; its progress comes off the event
   // bus (ev → questOn), it is done when n reaches need, turned in in the town for its reward; it goes with the hero
   const QUEST_EV = new Set(['kill', 'clear', 'floor', 'qitem', 'qevent']);
-  function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f) }; }
+  function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f, R.hero && R.hero.lvl) }; }
   function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: 'Новое задание: ' + D.QUESTS[q.key].name, t: S.t }; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
   // how much one event moves a quest on
   function questStep(R, q, e) { const Q = D.QUESTS[q.key], deep = R.floor >= q.f && !R.town;
@@ -1492,6 +1507,8 @@
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; R.msg = { s: 'Задание выполнено: ' + D.QUESTS[q.key].name + ' — награда ждёт в городе', t: S.t, d: 4 }; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
+    if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
+    if (W.scroll && !bagAdd(R, { b: 'scroll', n: W.scroll })) drop(R, h.x, h.y + 20, { kind: 'item', item: { b: 'scroll', n: W.scroll, rar: 0, lvl: 1 } });
     if (W.gold) h.gold += W.gold; if (W.xp) gainXp(S, R, W.xp); if (W.shards) giveShards(S, R, W.shards, h.x, h.y, 'Награда за задание');
     if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
     q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: 'Задание сдано: ' + D.QUESTS[q.key].name, t: S.t }; S.saveN++; return true; }
@@ -1515,7 +1532,7 @@
   function offerOf(R, role) { if (!R.viaTown) return null; let o = null, key, f, story = 0;
     const st = role === 'keeper' && storyStep(R); if (st) { key = st.key; f = st.f; story = 1; }
     else { o = offersOf(R).find((q) => q.from === role && !q.q && questFloor(R, q.key)); if (!o) return null; key = o.key; f = questFloor(R, key); }
-    const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f), story },
+    const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f, R.hero.lvl), story },
       k = qhash((R.seed >>> 0) * 31 + f * 977 + key.length * 131 + role.length);
     if (Q.type === 'named') q.title = D.NAMED.titles[k % D.NAMED.titles.length];
     if (Q.type === 'fetch') { q.thing = D.QUEST_SAY[role].thing; q.ic = D.QUEST_SAY[role].ic; }
@@ -1525,7 +1542,7 @@
   const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
-  const rwLine = (W) => [W.gold && W.gold + ' золота', W.xp && W.xp + ' опыта', W.item && (W.got ? '«' + W.got + '»' : 'вещь'), W.shards && W.shards + ' ' + D.plural(W.shards, 'осколок', 'осколка', 'осколков')].filter(Boolean).join(' · ');
+  const rwLine = (W) => [W.scroll && W.scroll + ' ' + D.plural(W.scroll, 'свиток возвращения', 'свитка возвращения', 'свитков возвращения'), W.gold && W.gold + ' золота', W.xp && W.xp + ' опыта', W.item && (W.got ? '«' + W.got + '»' : 'вещь'), W.shards && W.shards + ' ' + D.plural(W.shards, 'осколок', 'осколка', 'осколков')].filter(Boolean).join(' · ');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
     const dn = questDone(R, role); if (dn) return { pages: ['«' + D.QUESTS[dn.key].name + '» — выполнено. ' + SAY.done], act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
@@ -2428,6 +2445,13 @@
       if (b.id.startsWith('buy:') && sh.goods[b.i]) buy(S, R, sh.goods[b.i], 0);
       if (b.id.startsWith('back:') && sh.back[b.i]) buy(S, R, sh.back[b.i], 1);
       if (b.id.startsWith('sell:')) sell(S, R, b.i);
+      return;
+    }
+    // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
+    if (S.screen === 'board') {
+      const R = S.run, L0 = R ? boardOffers(R) : [], U = UI.board(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+      if (!R || keys.Escape || keys.KeyE || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+      if (click && b && b.id.startsWith('take:') && L0[b.i]) giveQuest(S, R, L0[b.i].role);
       return;
     }
     // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
@@ -4534,7 +4558,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck());
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -4809,8 +4833,8 @@
         if (!e2 || e2.max !== hp || R.en.filter((o) => o.quest === q.id).length !== 1) out.push('quest named: the foe is not kept on its floor (or comes twice)');
         if (e2) killEnemy(S, R, e2); if (q.st !== 'done') out.push('quest named: its death does not do the quest');
         enterFloor(S, R, 0, undefined, 'portal'); if (questMark(R, 'guard') !== '?') out.push('quest named: no ? over the giver once done');
-        const g0 = R.hero.gold, T = talkTo(R, 'guard'); if (!T || !T.act || T.act.k !== 'turn') out.push('quest named: the talk does not offer the turn-in');
-        finish(); if (q.st !== 'turned' || R.hero.gold !== g0 + q.rw.gold || !q.rw.got || q.rw.rar < 3) out.push('quest named: the turn-in does not pay (gold, an epic piece)'); } }
+        const g0 = scrolls(R.hero), T = talkTo(R, 'guard'); if (!T || !T.act || T.act.k !== 'turn') out.push('quest named: the talk does not offer the turn-in');
+        finish(); if (q.st !== 'turned' || scrolls(R.hero) !== g0 + q.rw.scroll || !q.rw.got || q.rw.rar < 3) out.push('quest named: the turn-in does not pay (scrolls of return, an epic piece)'); } }
     // the named foe never on a boss's floor
     R = run(52); R.deepest = 1; if (questFloor(R, 'named') !== 3 || questFloor(R, 'cull') !== 2) out.push('quest give: a goal on a floor points at a boss\'s floor, or a hunt skips one');
     // the keepsake: three seeds should between them put it in a chest or cache and on the floor
@@ -4854,6 +4878,28 @@
       step(S, { keys: ['KeyJ'] }); if (S.screen !== 'play') out.push('journal: J does not close it'); }
     return out;
   }
+  const scrolls = (h) => h.bag.reduce((n, it) => n + (it && it.b === 'scroll' ? it.n : 0), 0);
+  // TASKS 1033: the notice board lists what the townsfolk offer and a quest is taken from it; a blow at a townsman makes him answer
+  // and a hen run, harming neither; the scroll's hint comes once, the first time a town run's hero falls low with a scroll in the bag
+  function townLoopCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 5, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, m = R.map; step(S, { keys: [] });
+    const B = boardOffers(R); if (!B.length) out.push('board: nothing on offer on a new run');
+    h.x = m.town.svc.board.x; h.y = m.town.svc.board.y + 34; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+    if (S.screen !== 'board') out.push(`board: E at the notice board does not open it (${S.screen})`);
+    else { const U = UI.board(B.length), b = U.r.find((q) => q.id === 'take:0'), n0 = (R.quests || []).length; step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+      if ((R.quests || []).length !== n0 + 1 || boardOffers(R).length !== B.length - 1) out.push('board: its button does not take the quest'); step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('board: Esc does not close it'); }
+    const F = folkOf(R), g = F.find((f) => f.role === 'guard'), hen = F.find((f) => f.role === 'hen');
+    for (const o of F) if (o !== g) o.x += 3000; h.x = g.x - 30; h.y = g.y; const hp0 = h.hp; S.ev = []; hitFolk(S, R, h.x, h.y, 60, 0, 2);
+    if (g.hitT !== S.t || !S.ev.some((e) => e.k === 'say' && e.ouch)) out.push('folk: a townsman struck does not answer the blow');
+    for (const o of F) if (o !== g) o.x -= 3000;
+    for (const o of F) if (o !== hen) o.x += 3000; h.x = hen.x - 20; h.y = hen.y; S.ev = []; hitFolk(S, R, h.x, h.y, 60, 0, 2); const x0 = hen.x, y0 = hen.y;
+    for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (hen.scareT === undefined || Math.hypot(hen.x - x0, hen.y - y0) < 10 || h.hp !== hp0) out.push('folk: a hen struck does not run');
+    for (const o of F) if (o !== hen) o.x -= 3000;
+    const T = spawn(0, {}); T.run = newRun(T, 'campaign', 5, { town: 1 }); T.screen = 'play'; const Q = T.run; enterFloor(T, Q, 1); Q.en = []; step(T, { keys: [] });
+    if (!Q.hero.bag.some((it) => it && it.b === 'scroll')) Q.hero.bag[5] = { b: 'scroll', n: 1, id: Q.nextId++ };
+    Q.hero.hp = 5; for (let i = 0; i < 30; i++) step(T, { keys: [] }); const tip = Q.msg && Q.msg.tip === 'scroll';
+    Q.msg = null; for (let i = 0; i < 30; i++) step(T, { keys: [] }); if (!tip || !T.meta.tipScroll || (Q.msg && Q.msg.tip === 'scroll')) out.push('scroll: the hint at low health does not come once');
+    return out; }
   function questCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 91, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero;
     const cull = takeQuest(S, R, newQuest(R, 'cull', 2, 'smith')), eli = takeQuest(S, R, newQuest(R, 'elites', 1, 'guard')), sw = takeQuest(S, R, newQuest(R, 'sweep', 1, 'keeper')), dsc = takeQuest(S, R, newQuest(R, 'descent', 3, 'keeper'));
@@ -4864,9 +4910,11 @@
     sw.n = 0; sw.st = 'taken'; const r0 = R.en.find((q) => q.deadT < 0 && counted(q) && q.room >= 0), s0 = sw.n; if (r0) for (const e of R.en.filter((q) => q.room === r0.room && q.deadT < 0 && counted(q))) killEnemy(S, R, e);
     if (r0 && sw.n !== s0 + 1) out.push('quest: a room cleared to the last foe does not count');
     enterFloor(S, R, 3); if (dsc.st !== 'done') out.push('quest: reaching the floor does not complete the descent');
-    const g0 = h.gold; if (turnIn(S, R, cull)) out.push('quest: turned in outside the town');
-    enterFloor(S, R, 0, undefined, 'up'); const x0 = h.xp, l0 = h.lvl, sh0 = S.meta.shards; if (!turnIn(S, R, cull) || h.gold !== g0 + cull.rw.gold || (h.xp === x0 && h.lvl === l0)) out.push('quest: the turn-in does not pay its gold and XP');
-    if (turnIn(S, R, cull) || h.gold !== g0 + cull.rw.gold) out.push('quest: a quest is turned in twice');
+    const g0 = scrolls(h); if (turnIn(S, R, cull)) out.push('quest: turned in outside the town');
+    // TASKS 1033: scrolls of return in place of gold, and the experience of the hero's level at the turn-in
+    enterFloor(S, R, 0, undefined, 'up'); const x0 = h.xp, l0 = h.lvl, sh0 = S.meta.shards; if (!turnIn(S, R, cull) || !cull.rw.scroll || scrolls(h) !== g0 + cull.rw.scroll || (h.xp === x0 && h.lvl === l0)) out.push('quest: the turn-in does not pay its scrolls and XP');
+    if (cull.rw.xp !== D.questReward(['xp'], cull.f, l0).xp) out.push(`quest: the turn-in's XP is not of the hero's level (${cull.rw.xp})`);
+    if (turnIn(S, R, cull) || scrolls(h) !== g0 + cull.rw.scroll) out.push('quest: a quest is turned in twice');
     if (!turnIn(S, R, dsc) || S.meta.shards !== sh0 + dsc.rw.shards) out.push('quest: the turn-in does not pay its shards');
     enterFloor(S, R, 4); eli.n = eli.need - 1; const el = R.en.find((q) => q.deadT < 0 && !D.BOSSES[q.type] && counted(q)); if (el) { el.elite = 1; killEnemy(S, R, el); }
     const bag0 = h.bag.filter(Boolean).length; if (eli.st === 'done') { enterFloor(S, R, 0, undefined, 'up'); turnIn(S, R, eli); if (h.bag.filter(Boolean).length !== bag0 + 1 || !eli.rw.got) out.push('quest: the reward item does not reach the bag'); } else out.push('quest: no elite to hunt');
@@ -4924,7 +4972,7 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { questIcon, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+  root.SIM = { FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
     stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -936,6 +936,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (hold) hold = Object.fromEntries(Object.entries(hold).map(([sd, q]) => [sd, q.abs === undefined ? q : Object.assign({}, q, { abs: lerp1(q.abs, -Math.PI / 2, rk) })]));
       lean *= 1 - rk; crouch *= 1 - rk; headR = lerp1(headR, -0.08, rk); if (robe) robe.headR = lerp1(robe.headR, -0.08, rk); if (rk > 0.3) fx = null; }
     if (tw > 0 && !robe) headR = lerp1(headR, -0.06 + 0.04 * Math.sin(GT * 4.1 + i), tw);
+    // struck by the hero's blow (TASKS 1033): a flinch back from it, knees giving, the head ducked, over half a second
+    { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
+      if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
     drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, { hold, handTarget: (sd) => tg[sd] || null, lean, headR, headF, crouch, front, robe, fx });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
@@ -4380,22 +4383,28 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const questS = (key, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run; R.offers = [{ key, from: 'guard', q: 0 }]; R.quests = [];
       SIM.giveQuest(S, R, 'guard'); const q = R.quests[0], h = R.hero; for (let f = 1; f <= q.f; f++) SIM.enterFloor(S, R, f); R.msg = null; R.seen = R.seen.map(() => 1); fn(S, R, q, h); R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; S.ev = []; });
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
-      R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['gold', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
+      R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
       const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);
     states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
-    states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['gold', 'item', 'shards', 'xp'], 12)) }];
+    states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; })]);
-    states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['gold', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин' });
+    states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин' });
       S.talk = { role: 'keeper', i: 0, pages: [D.QUEST_SAY.keeper.thanks + ' Получено: ' + SIM.rwLine(rw) + '.'], p: 0, act: null }; S.screen = 'talk'; })]);
     // the quest journal (TASKS 1023): every quest a run can hold (three side, the Keeper's six steps) with the longest words, a turned-in
     // one chosen with its longest reward; empty in the town
     states.push(['journal', keeperS((S, R) => { R.offers = []; const mk = (key, f, from, o) => Object.assign({ id: 900 + R.quests.length, key, f, need: D.QUESTS[key].need(f), n: 0, st: 'taken', from, rw: D.questReward(D.QUESTS[key].rw, f) }, o);
       R.quests = []; for (const [key, f, from, o] of [['fetch', 11, 'sweeper', { thing: 'Деревянная лошадка', ic: 'qi_horse', st: 'turned' }], ['named', 11, 'child', { title: 'Хромой Тарн' }], ['elites', 12, 'guard', { st: 'done', n: 5 }],
         ...D.storyChain('campaign').map((c, i) => [c.key, c.f, 'keeper', { st: i < 5 ? 'turned' : 'taken' }])]) R.quests.push(mk(key, f, from, o));
-      R.quests[0].rw = Object.assign({}, D.questReward(['gold', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин', rar: 4 }); S.jsel = R.quests[0].id; S.screen = 'journal'; S.hover = 'q:3'; })]);
+      R.quests[0].rw = Object.assign({}, D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин', rar: 4 }); S.jsel = R.quests[0].id; S.screen = 'journal'; S.hover = 'q:3'; })]);
     states.push(['journal_empty', keeperS((S, R) => { R.quests = []; S.screen = 'journal'; })]);
+    // the town's loop for the player (TASKS 1033): the notice board full (every giver with an offer, the longest names) and empty;
+    // a townsman answering a blow; the minimap's ! and ?; the scroll slot and its hint at low health on a floor
+    states.push(['town_board', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); S.screen = 'board'; S.hover = 'take:1'; })]);
+    states.push(['town_board_empty', keeperS((S, R) => { R.offers = []; R.offerB = 99; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; S.screen = 'board'; })]);
+    states.push(['town_ouch', keeperS((S, R, h) => { const g = R.folk.find((q) => q.role === 'guard'); g.hitT = S.t - 0.25; g.ouch = 2; h.x = g.x - 40; h.y = g.y + 8; R.cam = [g.x - VW / 2, g.y - 40 - VH / 2]; })]);
+    states.push(['scroll_tip', climbS(2, (S, R, m, h) => { h.bag[5] = { b: 'scroll', n: 3, id: R.nextId++ }; h.hp = 6; R.msg = { s: 'Здоровья мало: T — свиток возвращения, портал в город', t: S.t - 0.5, d: 4.5, tip: 'scroll' }; })]);
     states.push(['quest_named', questS('named', (S, R, q, h) => { const e = R.en.find((o) => o.quest === q.id); h.x = e.x - 120; h.y = e.y + 30; e.st = 'idle'; qFull(R); })]);
     states.push(['quest_keepsake', questS('fetch', (S, R, q, h) => { for (const c of R.chests) if (c.quest) delete c.quest; R.drops = R.drops.filter((d) => d.kind !== 'qitem');
       const r = R.map.rooms.find((o) => o.type === 'start'); h.x = r.cx * TILE; h.y = r.cy * TILE; R.drops.push({ id: 9999, kind: 'qitem', quest: q.id, ic: q.ic, x: h.x + 90, y: h.y + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }); R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); })]);
