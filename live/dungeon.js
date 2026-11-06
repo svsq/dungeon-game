@@ -2062,8 +2062,10 @@
           near.sort((a, b) => a[2] - b[2]);
           const pool = c1.flatMap((k) => [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => k + j * W + i))).filter((k, i, a) => a.indexOf(k) === i && cells[k] === 3 && !crust.includes(k) && !bridged.has(k) && !lavaUnder.includes(k) && !barred(k % W, Math.floor(k / W)));
           if (roster.includes('golem') && near.length) { const [x, y] = near[0]; used.add(key(x, y)); addEnemy('golem', x, y, roomAt(x, y)); enemies[enemies.length - 1].post = 'ford'; }
-          else if (roster.includes('salamander') && pool.length) { const k = pool[Math.floor(R() * pool.length)]; addEnemy('salamander', k % W, Math.floor(k / W), roomAt(k % W, Math.floor(k / W))); enemies[enemies.length - 1].post = 'ford'; }
-          else if (near.length) { const [x, y] = near[0], t = ['skeleton', 'goblin'].find((o) => roster.includes(o)) || roster[0]; used.add(key(x, y)); addEnemy(t, x, y, roomAt(x, y), 1); enemies[enemies.length - 1].post = 'ford'; } }
+          // (an elite on the landing before a salamander in the lava by it, TASKS 486: the salamander did not stand in the way, the
+          // choice on the 2nd floor was none; it guards only a landing with no floor to stand an elite on)
+          else if (near.length) { const [x, y] = near[0], t = ['skeleton', 'goblin'].find((o) => roster.includes(o)) || roster[0]; used.add(key(x, y)); addEnemy(t, x, y, roomAt(x, y), 1); enemies[enemies.length - 1].post = 'ford'; }
+          else if (roster.includes('salamander') && pool.length) { const k = pool[Math.floor(R() * pool.length)]; addEnemy('salamander', k % W, Math.floor(k / W), roomAt(k % W, Math.floor(k / W))); enemies[enemies.length - 1].post = 'ford'; } }
         riverFire = new Set(own(ws[1][1])); } }
     const hazards = [];
     if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y])];
@@ -2154,6 +2156,22 @@
     if (riverWay) { const Rw = riverWays(cells, W, H, fig, Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), (c) => c === 1), ws = riverAt(Rw, exit.ty * W + exit.tx);
       riverWay.ways = ws.map((q) => q[0]); riverWay.dry = Rw.dry[exit.ty * W + exit.tx]; if (!lastTry && !riverOk(Rw, exit.ty * W + exit.tx, strict ? AR.river.choice : AR.river.loose)) return null; }
     if (lakeWay) { Object.assign(lakeWay, lakeWays(cells, W, H, fig, Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), exit.ty * W + exit.tx, rooms.filter((r) => r.isle), (c) => c === 1)); if (!lakeOk(lakeWay, strict, lastTry)) return null; }
+    // the choice a lake or a river floor puts is seen from its first bank (TASKS 486: the way round and the stairs lay in the fog when
+    // the hero came out by the water, so the islands or the nearest crossing were the only answer): the floor of every way over and
+    // of the stairs' room shows once he stands within 3 cells of the water on his side of it (choice.at)
+    if (lakeWay || riverWay) { const s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx, N4 = [1, -1, W, -W], walk = (cells[s0] === 1);
+      const pathBy = (ok) => { const from = new Int32Array(W * H).fill(-2), q = [s0]; from[s0] = -1;
+        for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of N4) { const n = q[i] + o; if (from[n] === -2 && cells[n] === 1 && ok(n)) { from[n] = q[i]; q.push(n); } }
+        const out = []; if (from[e0] !== -2) for (let k = e0; k >= 0; k = from[k]) out.push(k); return out; };
+      const ways = []; if (lakeWay) { const chain = new Uint8Array(W * H), q = rooms.filter((r) => r.isle).map((r) => r.cy * W + r.cx).filter((k) => cells[k] === 1); for (const k of q) chain[k] = 1;
+        for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!chain[n] && fig[n] && cells[n] === 1) { chain[n] = 1; q.push(n); } }
+        ways.push(pathBy(() => true), pathBy((n) => !chain[n])); }
+      else { const Rw = riverWays(cells, W, H, fig, s0, (c) => c === 1); for (const [, pl] of riverAt(Rw, e0).slice(0, 3)) ways.push(pathBy((n) => Rw.lab[n] < 0 || Rw.lab[n] === pl)); }
+      const show = new Set(); for (const w of ways) for (const k of w) for (const o of [0, ...N4]) if (cells[k + o] === 1) show.add(k + o);
+      for (let y = exitR.y - 1; y <= exitR.y + exitR.h; y++) for (let x = exitR.x - 1; x <= exitR.x + exitR.w; x++) if (cells[y * W + x] === 1) show.add(y * W + x);
+      const mine = new Int32Array(W * H).fill(-1), q = [s0]; mine[s0] = 0; for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (mine[n] < 0 && cells[n] === 1 && !fig[n]) { mine[n] = 1; q.push(n); } }
+      const at = []; for (const k of q) { const x = k % W, y = Math.floor(k / W); let near = false; for (let j = -3; j <= 3 && !near; j++) for (let i = -3; i <= 3 && !near; i++) if (fig[(y + j) * W + x + i] && cells[(y + j) * W + x + i] === 3) near = true; if (near) at.push(k); }
+      if (walk && at.length && show.size) map.choice = { at, show: [...show] }; }
     return map;
   }
 

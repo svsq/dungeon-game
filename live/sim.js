@@ -760,6 +760,7 @@
   // the wall cells around what is seen open with it, and two more above each, so the 3/4 facades show whole. A room opens whole
   // as soon as any of its floor is in sight, its own ring of wall too, but never the floor of a room behind a thin wall (TASKS 104)
   const REV = { arr: null, k: '' };
+  const CHOICE = new WeakMap();
   function reveal(R) {
     const m = R.map, h = R.hero, W = m.W, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE), ri2 = DG.roomAt(m, h.x, h.y);
     const k = tx + ':' + ty + ':' + (m.secrets || []).map((q) => q.open).join('') + ':' + doorKey(m);
@@ -790,6 +791,9 @@
         const own = x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
         if (oval && m.cells[y * W + x] !== 1 && !nearFloor(x, y, r)) continue;
         if (opaque(x, y)) wall(x, y); else if (own || DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0) R.seen[y * W + x] = 1; } }
+    // a lake's or a river's choice (dungeon.js m.choice, TASKS 486): every way over and the stairs show from the first bank
+    if (m.choice && !R.choiceShown) { let A = CHOICE.get(m); if (!A) CHOICE.set(m, A = new Set(m.choice.at));
+      if (A.has(ty * W + tx)) { R.choiceShown = 1; for (const k of m.choice.show) { R.seen[k] = 1; const x = k % W, y = Math.floor(k / W); for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v); } } }
     // an open cell the reveal's edges left unseen in the middle of seen ones shows (TASKS 482: black holes inside the open lava)
     if (oval) for (let y = ty - 14; y <= ty + 14; y++) for (let x = tx - 18; x <= tx + 18; x++) { if (!inMap(x, y) || R.seen[y * W + x] || opaque(x, y)) continue;
       let n = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if ((u || v) && inMap(x + u, y + v) && R.seen[(y + v) * W + x + u]) n++;
@@ -3434,6 +3438,14 @@
         const e1 = mk(), e2 = mk(); R2.en = [e1, e2]; if (!brinkOf(m, e1)) out.push('magma brink: a skeleton a step off the lava is not marked');
         hitEnemy(Z, R2, e1, 1, false, x - 40, y); hitEnemy(Z, R2, e2, 1, false, x + 40, y);
         if (!(Math.abs(e1.kbx) > Math.abs(e2.kbx) * D.BRINK.kb * 0.95)) out.push(`magma brink: a blow toward the lava drives ${Math.round(e1.kbx)} against ${Math.round(e2.kbx)} away from it`); } }
+    // (TASKS 486) on a lake's or a river's floor the stairs' room shows as the hero first stands by the water on his side of it
+    for (const ft of ['lake', 'river']) { let Y = null; for (let sd = 1; sd < 30 && !Y; sd++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', sd); Q.screen = 'play';
+        for (let f = 1; f <= 3 && !Y; f++) { enterFloor(Q, Q.run, f); if (Q.run.map.ftype === ft && !Q.run.map.ftype2) Y = Q; } }
+      if (!Y) { out.push(`magma choice: no ${ft} floor in 29 runs`); continue; } const R3 = Y.run, m3 = R3.map, e3 = m3.exit.ty * m3.W + m3.exit.tx;
+      if (!m3.choice) { out.push(`magma choice: a ${ft} floor without its choice shown`); continue; }
+      if (R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor seen from the start`);
+      const k = m3.choice.at[0]; R3.hero.x = (k % m3.W + 0.5) * TILE; R3.hero.y = (Math.floor(k / m3.W) + 0.5) * TILE; step(Y, { keys: [] });
+      if (!R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor do not show from its first bank`); }
     return out;
   }
   function meleeSpacingCheck() {
