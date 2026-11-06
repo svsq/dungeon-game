@@ -7,6 +7,8 @@
   const { TILE, ENEMIES } = D;
   // how far each light source reaches, in tiles (matches the glow radii of the scene's light map)
   const LIGHT_R = { wall: 6.5, brazier: 6.5, fire: 8.5, candles: 3, candlestick: 3.5, candelabra: 4.5, torch_stand: 6.5, crystal: 6.5, shrine: 6, lava: 3.5, shroom: 5, shroom_a: 5, shroom_b: 5, crystal_cv: 6.5, vent_mg: 5, obsidian_mg: 6.5 };
+  // the share of the longest walk a start may be from the stairs or the boss (TASKS 506)
+  const WALK_FAR = 0.85;
   // cells: 0 rock, 1 floor, 3 lava (blocks walking, not projectiles), 4 a secret room's fake wall (solid until broken), 5 a shut door
   // (set by the sim), 6 deep water (blocks walking and knockback, not projectiles or sight)
   const mul32 = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -285,7 +287,9 @@
       if (up) [w, h] = [h, w];
       // (a shape drawn keeps its 40 tries at a place: drawn anew each try, the small ones that fit anywhere crowded out the big)
       const sh = !cave && !big ? (pend && pendT++ < 40 ? pend : (pendT = 0, pend = shapeRoom())) : null; if (sh) { w = sh.w; h = sh.h; }
-      const x = ri(3, W - w - 3), y = ri(4, H - h - 3);
+      // a rooms floor's boss hall stands against one side of the map (TASKS 506): set anywhere, a hall of 18×14 sat in the middle of a
+      // small map and one floor in five walked to it in under half the map's width and height
+      const edge = big && !pl && !cave ? ri(0, 3) : -1, x = edge === 0 ? 3 : edge === 1 ? W - w - 3 : ri(3, W - w - 3), y = edge === 2 ? 4 : edge === 3 ? H - h - 3 : ri(4, H - h - 3);
       if (sh ? (x + w > W - 3 || y + h > H - 3) : (!apart(x, y, w, h) || figHit(x, y, w, h) || holdHit(x, y, w, h))) continue;
       const r = sh ? shaped(x, y, sh) : { x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: rooms.length };
       if (sh) { if (!rectsOf(r).every(([a, b, c, d]) => apart(a, b, c, d))) continue; Object.assign(r, { type: 'combat', id: rooms.length }); pend = null; }
@@ -514,7 +518,7 @@
     if (boss) { const d = new Array(W * H).fill(-1), q = [rooms[0].cy * W + rooms[0].cx], at0 = (r) => d[r.cy * W + r.cx]; d[q[0]] = 0;
       for (let i = 0; i < q.length; i++) { const c = q[i]; for (const n of [c - 1, c + 1, c - W, c + W]) if (cells[n] && d[n] < 0) { d[n] = d[c] + 1; q.push(n); } }
       const farAll = Math.max(...rooms.map(at0)); if (!leaves.some((r) => at0(r) >= farAll * 0.6)) leaves = rooms.slice(1, main).filter((r) => !narrow(r));
-      const far = Math.max(...leaves.map(at0)); leaves = leaves.filter((r) => at0(r) >= far * 0.8); }
+      const far = Math.max(...leaves.map(at0)); leaves = leaves.filter((r) => at0(r) >= far * WALK_FAR); }
     // the plateaus (TASKS 400) put their start and stairs as far apart on foot as the floor has them: a pair of plateaus, the start a
     // leaf, drawn from those within a tenth of the longest walk
     // (a terrace floor's start and stairs are the serpentine's two ends: its first row's free end and its last row's)
@@ -526,12 +530,28 @@
       const pairs = []; for (const a of leaves.length ? leaves : main) { const d = walk(a); for (const b of main) if (b !== a) pairs.push([a, b, d[b.cy * W + b.cx]]); }
       const top = Math.max(...pairs.map((p) => p[2])), good = pairs.filter((p) => p[2] >= top * 0.9); return pick(good); })() : null;
     // (the last few tries take nine tenths of it: the close-set plateaus, TASKS 422, leave a rare seed no floor that walks the whole)
+    // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
+    const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
+      if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };
+    const shopFits = (r) => { if (r.w < 8 || r.h < 6 || (r.shape && r.shape !== 'rect') || r.court) return false;
+      for (let x = r.cx - 3; x <= r.cx + 3; x++) { if (Math.abs(x - r.cx) <= 2 && at(x, r.y - 1) !== 0) return false; for (let y = r.y; y <= r.y + 3; y++) if (isDoor(x, y)) return false; }
+      return true; };
+    // a rooms floor's start and stairs (TASKS 506): a leaf and a room at least WALK_FAR of the longest walk any leaf has to a room, not
+    // the hops' farthest from any leaf: a leaf beside the room many hops off left one floor in four a short walk to the stairs; with no
+    // leaf but nooks (a small map), any room starts
+    const pairFar = !pl && !boss && !cave ? (() => { const main = rooms.filter((r) => !r.pocket && !r.isle && !narrow(r) && !r.court), pairs = [];
+      for (const a of leaves.length ? leaves : main) { const d = new Int32Array(W * H).fill(-1), q = [a.cy * W + a.cx]; d[q[0]] = 0;
+        for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && cells[n]) { d[n] = d[q[i]] + 1; q.push(n); } }
+        for (const b of main) if (b !== a && d[b.cy * W + b.cx] > 0) pairs.push([a, b, d[b.cy * W + b.cx]]); }
+      // (a pair that takes the only room the merchant fits leaves the floor no shop: another pair, if any is far enough)
+      if (!pairs.length) return null; const top = Math.max(...pairs.map((p) => p[2])), good = pairs.filter((p) => p[2] >= top * WALK_FAR), shop = (p) => main.some((r) => r !== p[0] && r !== p[1] && shopFits(r));
+      return pick(good.some(shop) ? good.filter(shop) : good); })() : null;
     const pathMin = pl ? TY.path[floor - 1] * (MIX ? AR.blend.pathKeep : 1) * (strict ? 1 : 0.9) : 0;
     if (far && far[2] < pathMin) return null;
     // (a rooms floor's last room may be a nook, TASKS 376: no start; a cave keeps its pocket start, TASKS 335)
-    const start = far ? far[0] : (leaves.length ? pick(leaves) : rooms[cave ? rooms.length - 1 : main - 1]);
+    const start = far ? far[0] : pairFar ? pairFar[0] : (leaves.length ? pick(leaves) : rooms[cave ? rooms.length - 1 : main - 1]);
     const hop = hops(start);
-    const exitR = far ? far[1] : boss ? rooms[0] : rooms.filter((r) => r !== start && !r.pocket && !narrow(r) && !r.court).sort((p, q2) => (hop[q2.id] - hop[p.id]) || (dist(q2, start) - dist(p, start)))[0];
+    const exitR = far ? far[1] : boss ? rooms[0] : pairFar ? pairFar[1] : rooms.filter((r) => r !== start && !r.pocket && !narrow(r) && !r.court).sort((p, q2) => (hop[q2.id] - hop[p.id]) || (dist(q2, start) - dist(p, start)))[0];
     start.type = 'start'; exitR.type = boss ? 'boss' : 'exit';
     // the magma caves' way (TASKS 433): the plateaus and halls the walk from the start to the stairs crosses. The rewards go off it, to
     // the dead ends first (a ledge, a pocket, a leaf of the tree), so no more than a third of a floor's lies on the way
@@ -555,12 +575,6 @@
     if (!pl) altar();
     // the court's (TASKS 380): the floor's altar, moved there, or a pack round an elite
     if (court) { if (R() < LY.court.altar) { const o = rooms.find((r) => r.type === 'shrine'); if (o) o.type = 'combat'; court.type = 'shrine'; } else court.courtElite = 1; }
-    // the merchant's room, on every floor: the counter and his back wall need a solid top wall and no corridor mouth near them
-    const isDoor = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const nx = x + i, ny = y + j;
-      if (at(nx, ny) === 1 && !rooms.some((q) => nx >= q.x && nx < q.x + q.w && ny >= q.y && ny < q.y + q.h)) return true; } return false; };
-    const shopFits = (r) => { if (r.w < 8 || r.h < 6 || (r.shape && r.shape !== 'rect') || r.court) return false;
-      for (let x = r.cx - 3; x <= r.cx + 3; x++) { if (Math.abs(x - r.cx) <= 2 && at(x, r.y - 1) !== 0) return false; for (let y = r.y; y <= r.y + 3; y++) if (isDoor(x, y)) return false; }
-      return true; };
     // in a cave the merchant's corner is squared off under a straight back wall, two cells of rock thick (the only straight wall
     // the cave keeps); the rest of his room stays a blob
     const caveShopAt = (r, cx) => !r.pocket && r.w >= 9 && r.y >= 6 && [-1, -2].every((d) => Array.from({ length: 9 }, (_, i) => cx - 4 + i).every((x) => at(x, r.y + d) === 0))
@@ -1467,7 +1481,7 @@
       const lights = torches.filter((t) => t.r === r.id).map((t) => [t.x, t.y, LIGHT_R[t.kind]])
         .concat(decor.filter((d) => LIGHT_R[d.n] && inR(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.filter(inR).map((s) => [s.x, s.y, LIGHT_R.shrine]), extra);
       // (the fire stands 2 px lower than a cell's spot: a plateau's halls are wide enough for a cell to sit on that edge of its reach)
-      if (r.id === start.id) lights.push([wx(start.cx), plat ? start.cy * TILE + TILE / 2 + 8 : wy(start.cy), LIGHT_R.fire]);
+      if (r.id === start.id) lights.push([wx(start.cx), start.cy * TILE + TILE / 2 + 8, LIGHT_R.fire]);   // where the camp's fire stands (sanct)
       // lava glows: every cell of it lights the floor around (the scene gives each one a light of its own)
       for (const [x, y] of lava) if (at(x, y) === 3 && x >= r.x - 4 && x < r.x + r.w + 4 && y >= r.y - 4 && y < r.y + r.h + 4) lights.push([wx(x), wy(y), LIGHT_R.lava]);
       // each floor cell's nearest light (as a share of its reach), kept up as lights are added: a plateau's lava is hundreds of them

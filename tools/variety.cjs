@@ -1,7 +1,7 @@
 // node tools/variety.cjs [--seeds 30] [--mode campaign|cave|magma|endless] [--floors N] [--json]
 // how varied a run's floors come out (TASKS 382, R-18): each seed's floors laid as the game lays them (newRun / enterFloor seeds),
 // one row per floor number. Fails (exit code 2) when the runs are too alike: fewer than BAND.seqs different sequences of biome and
-// layout; two floors running alike (layout and map size both, neither a boss's); a floor number whose room count barely moves over
+// layout; two floors running alike (layout and map size both, neither a boss's, nor an endless cave pair: its two floors are the caves' 3rd and 4th by design, TASKS 506); a floor number whose room count barely moves over
 // the seeds or whose rooms come in too few shapes; too few dead ends; too many floors whose way from the start to the stairs is short.
 // Part of the acceptance of each of 373–380: run it after a change to the generator or to a run's floors.
 const path = require('path'), L = path.join(__dirname, '..', 'live');
@@ -11,9 +11,8 @@ const mode = arg('mode', 'campaign'), RUN = D.runOf(mode), N = +arg('seeds', 30)
 // the bands: seqs, different sequences at least; spread, a floor number's room count over the seeds moves this much at least (max − min);
 // shapes, a rooms floor's rooms come in this many shapes on average; dead, the share of rooms with one way in, at least; short, the
 // share of floors whose walk from the start to the stairs is under shortK of the map's width plus height, at most
-// (a boss's floor has its own short band, bossShort: its hall takes much of a small map and the way to it came short before R-18 too,
-// 0.33 on the 4th; the way to the boss is task 506)
-const BAND = { seqs: 3, spread: 2, shapes: 2.5, dead: 0.15, short: 0.25, bossShort: 0.45, shortK: 0.5 };
+// (a boss's floor is held to the same band since TASKS 506 set its hall against a side of the map)
+const BAND = { seqs: 3, spread: 2, shapes: 2.5, dead: 0.15, short: 0.25, shortK: 0.5 };
 const kind = (st) => st.lay || st.arch || 'rooms', rectsOf = G.rectsOf || ((r) => [[r.x, r.y, r.w, r.h]]), inRm = G.inRm || ((r, x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 // a room's ways in: the floor cells just outside it that lead off it, in groups touching each other (8 ways round)
 const ways = (m, r) => { const out = []; for (const [bx, by, bw, bh] of rectsOf(r)) for (let y = by - 1; y <= by + bh; y++) for (let x = bx - 1; x <= bx + bw; x++) {
@@ -33,7 +32,7 @@ for (let s = 1; s <= N; s++) { let prev = null; const seq = [];
     q.walk.push(m.walk); if (m.walk >= 0 && m.walk < BAND.shortK * (m.W + m.H)) q.short++;
     q.kinds[k] = (q.kinds[k] || 0) + 1; if (st.boss) q.boss++; q.size[m.W + '×' + m.H] = 1; seq.push(st.biome + ':' + k);
     const cur = { k, size: m.W + '×' + m.H, boss: !!st.boss };
-    if (prev) { pairs++; if (prev.k === cur.k && prev.size === cur.size && !prev.boss && !cur.boss) { alike++; alikeAt.push(`seed ${s} f${f - 1}–${f}`); } }
+    if (prev) { pairs++; if (prev.k === cur.k && prev.size === cur.size && !prev.boss && !cur.boss && !(RUN.endless && cur.k === 'cave' && f % 2 === 0)) { alike++; alikeAt.push(`seed ${s} f${f - 1}–${f}`); } }
     prev = cur; }
   seqs.set(seq.join(' '), (seqs.get(seq.join(' ')) || 0) + 1); }
 const avg = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1), fails = [];
@@ -47,8 +46,8 @@ for (const t of table) { const caves = Object.keys(t.rooms0.kinds).every((k) => 
   // (a catacomb's and a tomb's rooms are all plain boxes by design: the shapes band holds for the floors of other layouts)
   if (!caves && t.shapesMixed !== null && t.shapesMixed < BAND.shapes) fails.push(`floor ${t.floor}: ${t.shapesMixed} room shapes a floor of mixed layouts (band ≥ ${BAND.shapes})`);
   if (t.dead < BAND.dead) fails.push(`floor ${t.floor}: ${t.dead} of its rooms are dead ends (band ≥ ${BAND.dead})`);
-  const sb = t.rooms0.boss * 2 > t.rooms0.n ? BAND.bossShort : BAND.short;
-  if (t.short > sb) fails.push(`floor ${t.floor}: ${t.short} of its floors walk to the ${sb === BAND.short ? 'stairs' : 'boss'} in under ${BAND.shortK} of the map's width and height (band ≤ ${sb})`); }
+  const sb = BAND.short;
+  if (t.short > sb) fails.push(`floor ${t.floor}: ${t.short} of its floors walk to the ${t.rooms0.boss * 2 > t.rooms0.n ? 'boss' : 'stairs'} in under ${BAND.shortK} of the map's width and height (band ≤ ${sb})`); }
 if (json) console.log(JSON.stringify({ mode, seeds: N, seqs: seqs.size, alike, pairs, table: table.map(({ rooms0, ...t }) => t), fails }));
 else {
   console.log(`${mode}, ${N} seeds × ${F} floors: ${seqs.size} different sequences of biome and layout, ${alike} of ${pairs} floors running alike`);
