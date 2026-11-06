@@ -750,7 +750,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // noise, the cells by the lava first: the mask's blue)
     const SPILL = LAVA.replace('uniform sampler2D u_mask,', 'uniform float u_q; uniform sampler2D u_mask,')
       .replace('float mk = M.r, e = mk + (fbm(w / 20.0) - 0.5) * 0.2;', 'float lv = clamp((fbm(w / 18.0 + vec2(0.0, u_t * 0.25)) - 0.3) / 0.4, 0.0, 1.0) * 0.8 + texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).b * 0.2;\n  float mk = M.r * (1.0 - smoothstep(u_q - 0.1, u_q + 0.02, lv)), e = mk + (fbm(w / 20.0) - 0.5) * 0.2;')
-      .replace('vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;', 'vec2 fl = vec2(0.0, 0.5);');
+      .replace('vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;', 'vec2 fl = vec2(0.0, 0.5);')
+      // (drawn over the fog of war, it keeps to the explored cells: u_seen, 0 on an unexplored floor's)
+      .replace('float inside = smoothstep(-0.8, 0.8, d),', 'float inside = smoothstep(-0.8, 0.8, d) * smoothstep(0.1, 0.3, texture(u_seen, w / u_map).r),');
     L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); G.free(LT.occ); }
     // occ: the silhouettes of the monsters before the lava, which its glow and shimmer leave out (TASKS 407)
@@ -2396,7 +2398,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const z of m.hazards || []) { if (z.k !== 'vent') continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w >= 0) lt(z.x, z.y - 10, 110 + 90 * w / H.warn, [1, 0.45, 0.12], 0.25 + 0.95 * w / H.warn); }
     // a surge lights its band as it rises (TASKS 475)
     for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const q = D.surgeLevel(z, GT); if (q <= 0) continue;
-      z.cells.forEach((k, i) => { if (i % 3 || z.lv[i] > q) return; lt((k % z.W + 0.5) * TILE, (Math.floor(k / z.W) + 0.5) * TILE, 90, [1, 0.45, 0.12], 0.6 * q); }); }
+      z.cells.forEach((k, i) => { if (i % 3 || z.lv[i] > q || !R.seen[k]) return; lt((k % z.W + 0.5) * TILE, (Math.floor(k / z.W) + 0.5) * TILE, 90, [1, 0.45, 0.12], 0.6 * q); }); }
     // no cold light in the magma caves: their altars glow ember red (TASKS 404)
     const altarCol = m.cliff ? [1, 0.5, 0.22] : [0.4, 0.7, 1.0];
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, altarCol, 0.9);
@@ -2678,7 +2680,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the lava by it and the lava creeps up its edges; then it floods it and ebbs back
     for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0) continue;
       if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(GT * (8 + 14 * k));
-        z.cells.forEach((c, i) => { if (i % 2) return; const wx0 = (c % z.W + 0.5) * TILE, wy0 = (Math.floor(c / z.W) + 0.5) * TILE; if (!vis(wx0, wy0)) return; const X = sx(wx0), Y = sy(wy0);
+        z.cells.forEach((c, i) => { if (i % 2 || !R.seen[c]) return; const wx0 = (c % z.W + 0.5) * TILE, wy0 = (Math.floor(c / z.W) + 0.5) * TILE; if (!vis(wx0, wy0)) return; const X = sx(wx0), Y = sy(wy0);
           L.glow(X, Y, 22 + 10 * k, [1, 0.45, 0.1], (0.12 + 0.45 * k) * beat, 2.2);
           if (i % 6 === 0) { const b = (GT * (1.1 + 2 * k) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
       const box = surgeBox(z), xf = G.xf(sx(box[0]), sy(box[1]), box[2], box[3]);
@@ -3725,6 +3727,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const c = ph === 'rest' ? z.per * 0.5 : ph === 'warn' ? z.per + c0 * H.warn * 2 : c0 * (ph === 'flood' ? H.burst : H.burst + H.ebb), t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per;
         let hy = y - 4 * TILE; for (let j = 4; j < 9; j++) if (SIM.cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1 && !z.cells.includes(k0 - j * W)) { hy = y - j * TILE; break; }
         view(S, x, y, x, hy); S.t = R.t = t; S.ev = []; if (ph !== 'rest' && ph !== 'warn') S.ev.push({ k: 'surge', t: t - c, x: z.x, y: z.y, i: R.map.hazards.indexOf(z) }); states.push(['magma_surge_' + ph, S]); }
+      // (the flood over a floor all unexplored, and the same frame without the surge: they must be the same, TASKS 475 review)
+      { const q = states.find((p) => p[0] === 'magma_surge_flood'); if (q) { const S = structuredClone(q[1]); S.run.seen = S.run.seen.map(() => 0); S.run.rseen = (S.run.rseen || []).map(() => 0); states.push(['magma_surge_unseen', S]);
+        const S2 = structuredClone(S); S2.run.map.hazards = S2.run.map.hazards.filter((z) => z.k !== 'surge'); S2.ev = S2.ev.filter((e) => e.k !== 'surge'); states.push(['magma_surge_unseen_none', S2]); } }
       // the magma caves' halls (TASKS 434): each kind's first on the runs from seed 3, the camera on it, the hero at its edge
       for (const kind of Object.keys(D.MAGMA_HALLS.kinds)) { const S = play(); let r = null;
         for (let sd = 3; sd < 40 && !r; sd++) { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let f = 1; f <= 3 && !r; f++) { SIM.enterFloor(S, S.run, f); r = S.run.map.rooms.find((q) => q.hall === kind); } }
