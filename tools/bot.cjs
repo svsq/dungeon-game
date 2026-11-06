@@ -78,7 +78,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0] = initial.vars;
     rand.state(initial.rng); for (const event of S.ev) counted.add(event);
     const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;
-    const ST = D.stageOf(R.mode, R.floor, R.seed), depth = ST.depth, sc = D.BAL.hp * hpScale * D.hpAt(depth), dc = D.BAL.dmg * 1.35 * D.dmgAt(depth);
+    const ST = D.stageOf(R.mode, R.floor, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1), depth = ST.depth, sc = D.BAL.hp * hpScale * D.hpAt(depth), dc = D.BAL.dmg * 1.35 * D.dmgAt(depth);
     for (const e of R.en) {
       const E = D.ENEMIES[e.type], boss = !!D.BOSSES[e.type], guard = e.guard && ST.guard, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, gh = (typeof guard === 'object' ? guard.hp : guard) || 1;
       const bk = (boss && ST.bossK) || { hp: 1, dmg: 1 }, health = e.hp / e.max; e.max = Math.round(E.hp * sc * (e.elite && !boss ? D.eliteK(e, 'hp') : 1) * gh * bk.hp); e.hp = e.max * health;

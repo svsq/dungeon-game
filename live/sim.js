@@ -25,7 +25,9 @@
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
   // reads the depth, the run's own floor numbers only place its bosses, guards and end
-  const RUN = (R) => D.runOf(R.mode), STAGE = (R, f = R.floor) => D.stageOf(R.mode, f || 1, R.seed), dep = (R, f = R.floor) => STAGE(R, f).depth, lastFloor = (R) => R.floor === RUN(R).floors;
+  // the endless descent's first floor: past the serpent it goes on from the 13th (TASKS 386)
+  const FROM = (R) => (R.campaignWon ? D.RUNS.campaign.floors + 1 : 1);
+  const RUN = (R) => D.runOf(R.mode), STAGE = (R, f = R.floor) => D.stageOf(R.mode, f || 1, R.seed, FROM(R)), dep = (R, f = R.floor) => STAGE(R, f).depth, lastFloor = (R) => R.floor === RUN(R).floors;
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' (элита)' : '') : '?';
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
@@ -351,7 +353,7 @@
   // RNG; deterministic from R.rs and R.nextId, so a floor kept as a diff (TASKS 1008) is rebuilt and patched, not stored whole
   function buildFloor(R, f, gen) {
     R.bossDead = 0;
-    const m = f === 0 ? DG.genTown((R.seed * 31) >>> 0) : DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = null;
+    const m = f === 0 ? DG.genTown((R.seed * 31) >>> 0) : DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = null;
     R.map = m; R.arena = null; m.arenaBox = null; R.eggs = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.en = []; R.proj = []; R.pyres = []; R.fires = []; R.drops = []; R.scorches = []; m.goo = [];
     const stg = STAGE(R, f), d = stg.depth, sc = BAL.hp * dif(R, 'hp') * D.hpAt(d), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? stg.guard : e.exit && e.elite ? stg.exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk, bk = (D.BOSSES[e.type] && stg.bossK) || { hp: 1, dmg: 1 };
@@ -429,7 +431,7 @@
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
     reveal(R); ev(S, { k: 'floor', x: h.x, y: h.y, f });
-    R.msg = { s: D.placeName(f, R.mode, R.seed), t: S.t };
+    R.msg = { s: D.placeName(f, R.mode, R.seed, FROM(R)), t: S.t };
     S.saveN++;
   }
 
@@ -1450,6 +1452,11 @@
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost && (m.cliff && !D.BOSSES[e.type] ? 2 : true)); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0;
         if (e.fallT === undefined && chasm(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) { e.fallT = t; e.kbx = e.kby = 0; ev(S, { k: 'fall', x: e.x, y: e.y, id: e.id, type: e.type }); } }
+      // a tug whose warning ran out lands now, whatever the elite is doing (a blow it began meanwhile put it off past the
+      // warning, and the dash timed to the warning no longer slipped it); never once it is falling, sinking or the hero gone
+      if (e.tugW && t >= e.tugW) { const M = MOD.tug, d = Math.hypot(h.x - e.x, h.y - e.y), n = Math.min(M.n, d - (E.r + K.R + 24)); e.tugW = 0; e.tugT = t + M.every;
+        if (n > 0 && heroOk && e.fallT === undefined && e.sinkT === undefined && losClear(m, e.x, e.y - 10, h.x, h.y - 10) && !(t - h.dashT < BAL.dodge.t)) {
+          h.pull = { x: (e.x - h.x) / d, y: (e.y - h.y) / d, n, T: M.T, done: 0 }; ev(S, { k: 'tug', x: h.x, y: h.y, tx: e.x, ty: e.y, id: e.id }); } }
       // knocked off a plateau (TASKS 401): into the chasm it falls, in the lava it burns; either way it is gone in a moment
       if (e.fallT !== undefined || e.sinkT !== undefined) { e.vx = e.vy = 0; if (t >= (e.fallT ?? e.sinkT) + (e.fallT !== undefined ? DOOM.fall : DOOM.sink)) killEnemy(S, R, e); continue; }
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
@@ -1491,8 +1498,7 @@
       if (e.st === 'chase' && has(e, 'blink')) { if (e.blinkT === undefined) e.blinkT = t + MOD.blink.every / 2; if (t >= e.blinkT) e.blinkT = t + (blink(S, R, e) ? MOD.blink.every : 1); }
       if (e.st === 'chase' && has(e, 'tug')) { const M = MOD.tug, clear = () => losClear(m, e.x, e.y - 10, h.x, h.y - 10); if (e.tugT === undefined) e.tugT = t + M.every / 2;
         if (!e.tugW && t >= e.tugT) { if (d >= M.min && d <= M.max && clear()) { e.tugW = t + M.warn; ev(S, { k: 'tug_warn', x: e.x, y: e.y, id: e.id, d: M.warn }); } else e.tugT = t + 1; }
-        else if (e.tugW && t >= e.tugW) { e.tugW = 0; e.tugT = t + M.every; const n = Math.min(M.n, d - (E.r + K.R + 24));
-          if (n > 0 && clear() && !(t - h.dashT < BAL.dodge.t)) { h.pull = { x: (e.x - h.x) / d, y: (e.y - h.y) / d, n, T: M.T, done: 0 }; ev(S, { k: 'tug', x: h.x, y: h.y, tx: e.x, ty: e.y, id: e.id }); } } }
+      }
       if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
       if (e.st === 'chase') {
         const reach = E.r + K.R + E.reach;
@@ -2047,7 +2053,7 @@
     const W2 = runReward(R, 'win'); S.meta.shards += W2.base; S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, R.floor);
     R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; S.saveN++;
     ev(S, { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: R.floor }); enterFloor(S, R, R.floor + 1);
-    R.msg = { s: 'Кампания пройдена! +' + W2.base + ' осколков душ. Спуск продолжается: этаж ' + R.floor + ' — ' + D.floorName(R.floor, R.mode, R.seed), t: S.t, d: 5 }; }
+    R.msg = { s: 'Кампания пройдена! +' + W2.base + ' осколков душ. Спуск продолжается: этаж ' + R.floor + ' — ' + D.floorName(R.floor, R.mode, R.seed, FROM(R)), t: S.t, d: 5 }; }
   function startRun(S, mode = 'campaign') { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
@@ -2058,7 +2064,7 @@
     if (S.screen === 'menu') {
       const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
       if (click && b && b.on) {
-        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed), t: S.t }; }
+        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed, FROM(S.run)), t: S.t }; }
         if (D.RUNS[b.id]) pressRun(S, b.id, arm);
         if (b.id === 'tests') S.screen = 'tests';
         if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
@@ -2540,7 +2546,7 @@
     // raises skeletons up to its cap and no further; an explosive corpse bursts once its fuse is out, hurting a hero in reach only
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, rm = R.map.rooms.find((q) => q.id !== R.map.start && !q.trap && q.w >= 10 && q.h >= 5), cx = (rm.x + rm.w / 2) * TILE, cy = (rm.y + rm.h / 2) * TILE;   // off the spike plates
-      const put = () => { R.en = []; R.proj = []; h.hp = heroSt(S).maxHp; h.deadT = -1; h.burn = 0; h.ifr = 0; h.x = cx; h.y = cy; h.vx = h.vy = 0; };
+      const put = () => { R.en = []; R.proj = []; h.hp = heroSt(S).maxHp; h.deadT = -1; h.burn = 0; h.ifr = 0; h.x = cx; h.y = cy; h.vx = h.vy = 0; h.pull = null; h.chillT = h.curseT = -9; };
       const el = (mods, dx, o) => { const e = Object.assign({ id: R.nextId++, type: 'skeleton', x: h.x + dx, y: h.y, vx: 0, vy: 0, hp: 400, max: 400, dmg: 5, elite: 1, mods, room: rm.id, st: 'chase',
         t0: S.t, face: -1, aimA: Math.PI, cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: S.t }, o); R.en.push(e); return e; };
       put(); const kb = el([], 40); hitEnemy(S, R, kb, 1, false, h.x, h.y); if (kb.kbx || kb.kby) out.push('an elite is knocked back by a blow');
@@ -2588,6 +2594,10 @@
       const tg1 = tugAt(false), tg2 = tugAt(true);
       if (!tg1.warned || !tg1.pulled || tg1.moved < 40 || tg1.gap < ENEMIES.skeleton.r + K.R) out.push(`a tugging elite does not warn and draw the hero in short of itself (${JSON.stringify(tg1)})`);
       if (tg2.pulled) out.push('a dash does not slip the tug');
+      { put(); h.ifr = 1e9; const dx = [220, -220, 180, -180].find((q) => losClear(R.map, h.x + q, h.y - 10, h.x, h.y - 10)) || 220, tg = el(['tug'], dx, { cdT: 1e9, tugT: S.t }), x0 = h.x;
+        for (let i = 0; i < 120 && !tg.tugW; i++) { step(S, { keys: [] }); tg.x = x0 + dx; }
+        const due = tg.tugW; tg.st = 'wind'; tg.t0 = S.t; let at = 0; for (let i = 0; i < 120 && !at; i++) { step(S, { keys: [] }); tg.x = x0 + dx; if (h.pull) at = S.t; }
+        if (!due || !at || at > due + 2 * DT) out.push(`a tug put off by a blow begun in its warning (due ${due && due.toFixed(2)}, landed ${at && at.toFixed(2)})`); }
       // the whirl's hint (TASKS 390): shown by a crowd with the whirl ready, not once the player has whirled enough
       const tipped = (n) => { put(); S.meta.whirls = n; R.tipT = undefined; R.msg = null; h.ab.whirl = h.ab.whirl || 1; h.cd.whirl = 0; h.ifr = 1e9;
         for (const [dx, dy] of [[40, 0], [-40, 0], [0, 30]]) el([], dx, { y: h.y + dy, cdT: 1e9 }); step(S, { keys: [] }); return !!(R.msg && R.msg.tip === 'whirl'); };
@@ -3095,7 +3105,10 @@
       for (const b of E.pool) if (!seen.has(b)) out.push(`endless: biome ${b} never comes up on 40 seeds`);
       // the bosses from their own bag (TASKS 386): all five in each round of five boss pairs, never the same twice running
       for (let sd = 1; sd <= 40; sd++) { const seq = []; for (let f = 4; f <= 84; f += 4) seq.push(D.stageOf('endless', f, sd).boss);
-        if (seq.some((b, i) => !b || b === seq[i - 1]) || [0, 5, 10, 15].some((i) => new Set(seq.slice(i, i + 5)).size !== 5)) { out.push(`endless seed ${sd}: a boss again before all five came up (${seq.join(' ')})`); break; } }
+        if (seq.some((b, i) => !b || b === seq[i - 1]) || [0, 5, 10, 15].some((i) => new Set(seq.slice(i, i + 5)).size !== 5)) { out.push(`endless seed ${sd}: a boss again before all five came up (${seq.join(' ')})`); break; }
+        // past the serpent the descent's rounds start at its own first boss (the 16th)
+        const from = D.RUNS.campaign.floors + 1, deep = []; for (let f = from + 3; f <= from + 83; f += 4) deep.push(D.stageOf('endless', f, sd, from).boss);
+        if (deep.some((b, i) => !b || b === deep[i - 1]) || [0, 5, 10, 15].some((i) => new Set(deep.slice(i, i + 5)).size !== 5)) { out.push(`descent seed ${sd}: a boss again before all five came up (${deep.join(' ')})`); break; } }
       for (let sd = 1; sd <= 5; sd++) { let last = {};   // within each kind of map (rooms, caves) apart: a cave starts larger
         for (let f = 1; f <= 40; f++) { const st = D.stageOf('endless', f, sd), k = st.arch || 'rooms', a = st.size[0] * st.size[1];
           if (a < (last[k] || 0) || a > E.size.to[0] * E.size.to[1] || (f >= E.size.floors && a !== E.size.to[0] * E.size.to[1])) { out.push(`endless seed ${sd} f${f}: the map does not grow to its cap and stop`); break; } last[k] = a; } }

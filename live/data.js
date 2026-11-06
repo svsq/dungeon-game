@@ -433,13 +433,15 @@
     if (kind === 'boss' && !b) for (let q = 0; 4 * q + 4 < M.bigFrom && q < n; q++) if (big(P[q])) { const j = P.findIndex((x, k) => k > q && !big(x)); if (j > 0) [P[q], P[j]] = [P[j], P[q]]; }
     if (b && P[0] === bagOrder(seed, kind, b - 1)[n - 1]) [P[0], P[1]] = [P[1], P[0]];
     if (BAGS.size > 4096) BAGS.clear(); BAGS.set(key, P); return P; };
+  // from: the descent's first floor (the 13th past the serpent): the rounds count from its first pair, or the campaign's floors
+  // spent three of the first round's bosses on floors no one played (sixteenth to 28th repeated the necromancer, seed 1)
   const pairBiome = (seed, p) => { const M = RUNS.endless, n = M.pool.length, i = Math.floor(p / 2); return M.pool[bagOrder(seed, p % 2 ? 'boss' : 'guard', Math.floor(i / n))[i % n]]; };
   // floor f of the endless descent: lf is its place in its pair (a cave pair is laid out as the caves' 3rd and 4th, with all their
   // kinds, lakes and eels); size: its map in cells, growing with f to the cap; altar: on a guard pair's second floor and before a boss
   // big: the chapters' end bosses (the demon lord, the serpent) come no sooner than `bigFrom` (the player's call 02.11.2026): an arcane
   // or cave boss pair before it ends as a guard pair. The exit's guard (the campaign 7th's brute, 2.2 times an elite's health) stands
   // from `guardFrom`: on the 2nd it killed a hero of level 3 on five seeds in eight; before it a pair ends with the exit room's elite
-  const endlessStage = (f, seed) => { const M = RUNS.endless, p = Math.floor((f - 1) / 2), pos = (f - 1) % 2, biome = pairBiome(seed, p), cave = biome === 'cave', end = pos === 1;
+  const endlessStage = (f, seed, start = 1) => { const M = RUNS.endless, p = Math.floor((f - 1) / 2), pos = (f - 1) % 2, biome = pairBiome(seed, p - Math.floor((start - 1) / 2)), cave = biome === 'cave', end = pos === 1;
     const bossPair = p % 2 === 1 && !(M.big.includes(M.bosses[biome]) && 2 * p + 2 < M.bigFrom);
     const Z = M.size, k = Math.min(1, (f - 1) / (Z.floors - 1)), from = cave ? Z.cave : Z.from, size = [0, 1].map((i) => 2 * Math.round((from[i] + (Z.to[i] - from[i]) * k) / 2));
     return { N: cave ? RUNS.cave : M, lf: cave ? 3 + pos : 1 + pos, n: cave ? 4 : 2, depth: f, last: end, fin: false, biome, boss: bossPair && end ? M.bosses[biome] : undefined, arch: cave ? 'cave' : undefined,
@@ -450,7 +452,7 @@
   // early: its chapter's monsters a hall and how many floors sooner its kinds come (RUNS chapters); elite: the share of its
   // monsters (from the campaign's 3rd floor) that come as elites, ELITE.share unless its chapter sets one for the floor; mob: its plain
   // monsters' blows over the depth's (a boss's and an elite's keep theirs)
-  const stageOf = (mode, f, seed = 0) => { if (runOf(mode).endless) return endlessStage(f, seed); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
+  const stageOf = (mode, f, seed = 0, from = 1) => { if (runOf(mode).endless) return endlessStage(f, seed, from); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
     n = c ? N.floors : M.chapter || M.floors;
     return { N, lf, n, depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
       elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1 }; };
@@ -478,8 +480,8 @@
     rock: { w: 2, plan: [[['golem'], [1, 1], 'near'], [['fire_priest', 'cultist'], [1, 1], 'back'], [['imp'], [0, 2], 'bank']] },
   };
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
-  const placeName = (f, mode, seed) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed));
-  const floorName = (f, mode, seed) => { const M = runOf(mode), st = stageOf(mode, f, seed); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
+  const placeName = (f, mode, seed, from) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed, from));
+  const floorName = (f, mode, seed, from) => { const M = runOf(mode), st = stageOf(mode, f, seed, from); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
