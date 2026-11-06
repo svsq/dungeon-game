@@ -1351,8 +1351,8 @@
       else if (has('skel_archer') && plan.length < n && kind === 'bones' && R() < 0.3) plan.push(['skel_archer', back]);
       // the magma caves' packs (TASKS 412) take the place of the caves' roles and the old kinds' filling
       const MP = D.BIOMES[biome].packs && D[D.BIOMES[biome].packs];
-      if (MP) { const opts = Object.values(MP).filter((P) => P.plan[0][0].some(has)); let roll = R() * opts.reduce((a, P) => a + P.w, 0), P = opts[opts.length - 1];
-        for (const o of opts) if ((roll -= o.w) < 0) { P = o; break; }
+      if (MP) { const wOf = (P) => (Array.isArray(P.w) ? P.w[Math.min(P.w.length, floor) - 1] : P.w), opts = Object.values(MP).filter((P) => P.plan[0][0].some(has)); let roll = R() * opts.reduce((a, P) => a + wOf(P), 0), P = opts[opts.length - 1];
+        for (const o of opts) if ((roll -= wOf(o)) < 0) { P = o; break; }
         // (a lake's islands are the short way under fire, TASKS 472: archers at their far side over the crossings, the rest by the way in;
         // its shore stands past a bow's reach of them)
         if (r.isle && MP.line && has('skel_archer')) P = MP.line;
@@ -1710,10 +1710,13 @@
       // a pile of barrels and crates against the rock, read as one (they overlap on purpose)
       // on a plateau any edge but the lava's will do (nothing stands a cell from the lava: 186)
       const edgeN = (x, y) => (plat ? (N8.some(([dx, dy]) => at(x + dx, y + dy) !== 1) && !N8.some(([dx, dy]) => at(x + dx, y + dy) === 3) ? 1 : 0) : rockN(x, y));
+      // (TASKS 466) a pile breaks, but the monsters' flow and a body two cells wide don't go through it: the start still reaches the
+      // stairs by a way two cells wide past every pile and solid prop (a pile shut a throat of two cells on 4 floors of 32)
+      const s0 = start.cy * W + start.cx, e0 = exit.ty * W + exit.tx, wideWay = () => { const c2 = cells.slice(); for (const k of hardC) { const [a, b] = k.split(',').map(Number); c2[b * W + a] = 0; } c2[e0] = 1; return !narrowTo(c2, W, H, s0, [e0]).length; };
       const stack = (r, near) => { const c0 = cellsOf(r, (x, y) => edgeN(x, y) >= 1 && dry(x, y) && free(x, y) && !doorway(x, y) && roomyCell(x, y) && keepsWay(x, y)).sort((a, b) => (near ? Math.hypot(a[0] - near[0], a[1] - near[1]) - Math.hypot(b[0] - near[0], b[1] - near[1]) : 0));
         for (const [x, y] of c0.slice(0, 12)) { const cs = [[x, y], ...N4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => edgeN(a, b) >= 1 && dry(a, b) && free(a, b) && !doorway(a, b) && roomyCell(a, b))].slice(0, dri(2, 3));
           if (cs.length < 2 || cs.some(([a, b]) => wide.some(([ex, ey, eh]) => Math.abs(ey - b) <= 1 && Math.abs(ex - wx(a)) < eh + 28))) continue;
-          const ok = []; for (const [a, b] of cs) { if (!keepsWay(a, b)) break; hardC.add(key(a, b)); ok.push([a, b]); } if (ok.length < 2) { for (const [a, b] of ok) hardC.delete(key(a, b)); continue; }
+          const ok = []; for (const [a, b] of cs) { if (!keepsWay(a, b)) break; hardC.add(key(a, b)); ok.push([a, b]); } if (ok.length < 2 || !wideWay()) { for (const [a, b] of ok) hardC.delete(key(a, b)); continue; }
           stackN++; for (const [a, b] of ok) { used.add(key(a, b)); bulk.add(key(a, b)); pots.push({ x: wx(a), y: wy(b), kind: Dr() < 0.5 ? 'barrel' : 'crate', hp: 1, stack: stackN }); wide.push([wx(a), b, 24]); } return true; } return false; };
       const lie = (r, n, k, by) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && rockN(x, y) >= 1 && (!by || Math.hypot(x - by[0], y - by[1]) < 5)).slice(0, k)) {
         used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id }); } };

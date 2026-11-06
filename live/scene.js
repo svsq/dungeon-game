@@ -1995,7 +1995,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
     const planks = (c, band) => { const hor = c.axis === 'x', [u0, u1, v0] = c.span, bridge = c.kind === 'bridge', T = TILE, sd = c.cells[0], iron = !!c.lava || !!c.chasm;
       const A0 = u0 * T - 6, len = (u1 - u0 + 1) * T + 12, B0 = v0 * T, BW = 2 * T, n = Math.max(3, Math.round(len / BRIDGE.pitch)), pitch = len / n;
-      const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
+      // (a chain bridge gives under the hero, TASKS 466: the boards by him dip and tremble with his steps)
+      const hc = Math.floor(R.hero.y / T) * m.W + Math.floor(R.hero.x / T), on = bridge && c.cells.includes(hc), ha = hor ? R.hero.x : R.hero.y;
+      const dip = (a) => (on ? (5 + 1.2 * Math.sin(GT * 9)) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0);
+      const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) - dip(a);
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
         if (bridge && i > 1 && i < n - 2 && r(1) < 0.05) continue;
@@ -2200,14 +2203,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const onTable = (c) => m.decor.find((t) => t.n === 'table' && Math.abs(t.x - c.x) <= 6 && c.y - t.y === 1);
     const lit = new Set(m.decor.filter((c) => c.n === 'candles' && c.lift).map(onTable).filter(Boolean));
     // a chain fence on the plateau's edge (TASKS 405): iron posts with a cap, two chains of links sagging between them, on the art grid
-    const fence = (d) => { const n = Math.max(1, Math.round(d.len / 40)), step = d.len / n, X0 = sx(d.x), Y0 = sy(d.y), px2 = (v) => Math.round(v / PIX) * PIX;
+    // (struck or brushed, TASKS 466, its chains swing: the sag beats and dies away)
+    const fence = (d, i) => { const n = Math.max(1, Math.round(d.len / 40)), step = d.len / n, X0 = sx(d.x), Y0 = sy(d.y), px2 = (v) => Math.round(v / PIX) * PIX;
+      const e = knocked['d' + i], ka = e ? GT - e.t : 9, swing = ka < 1.6 ? (e.touch ? 2.5 : 5) * Math.exp(-2.2 * ka) * Math.sin(11 * ka) : 0;
       for (let i = 0; i < n; i++) for (const [up, sag] of [[24, 7], [13, 5]]) { const a = X0 + i * step, len = step;
-        for (let u = 4; u < len - 2; u += 4) { const q = u / len, y = Y0 - up + sag * 4 * q * (1 - q), lk = (u / 4) % 2;
+        for (let u = 4; u < len - 2; u += 4) { const q = u / len, y = Y0 - up + (sag + swing) * 4 * q * (1 - q), lk = (u / 4) % 2;
           L.solid(px2(a + u), px2(y) + PIX, lk ? PIX * 2 : PIX, PIX, [0.02, 0.018, 0.02]); L.solid(px2(a + u), px2(y), lk ? PIX * 2 : PIX, PIX, lk ? [0.36, 0.32, 0.3] : [0.55, 0.5, 0.46]); } }
       for (let i = 0; i <= n; i++) { const X = px2(X0 + i * step) - PIX;
         L.solid(X - PIX, px2(Y0 - 30), PIX * 4, 30, [0.02, 0.018, 0.02]); L.solid(X, px2(Y0 - 28), PIX * 2, 28, [0.2, 0.18, 0.17]); L.solid(X, px2(Y0 - 28), PIX, 28, [0.34, 0.31, 0.29]);
         L.solid(X - PIX, px2(Y0 - 34), PIX * 4, PIX * 2, [0.12, 0.11, 0.1]); } };
-    for (const d of m.decor) if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d)]);
+    m.decor.forEach((d, i) => { if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d, i)]); });
     m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] || d.role === 'edge' ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
@@ -2635,6 +2640,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, front = Math.min(c.len, u * c.speed), cool = 1 - SS(run, run + c.linger, u), co = Math.cos(c.a), sn = Math.sin(c.a);
         for (let l = 0; l <= front; l += 12) { const px = c.x + co * l, py = c.y + sn * l, jig = (rnd(c.id, Math.floor(l / 12)) - 0.5) * 8, hot = l > front - 40 ? 1.4 : 1;
           L.glow(sx(px - sn * jig), sy(py + co * jig), c.w * 0.75, [1, 0.45, 0.1], 0.75 * cool * hot, 2.2); L.star(sx(px - sn * jig), sy(py + co * jig), 5, [1, 0.8, 0.4], 0.6 * cool * hot); } }
+      // the colossus's rain (TASKS 466): while rocks of it are on their way, each whole slab of cover shows its shelter, a dark
+      // overhang on the floor with a pale rim, where none falls
+      if ((R.rocks || []).some((q) => q.kind === 'rain' && !q.done && GT < q.t + 0.2)) { const sh = D.BOSSES.boss_colossus.moves.rain.shelter, pulse = 0.8 + 0.2 * Math.sin(GT * 4);
+        for (const d of m.decor) if (d.cover && !d.broken && vis(d.x, d.y)) { const X = sx(d.x), Y0 = sy(d.y); L.shadow(X, Y0, sh, sh * 0.62, 0.42); L.ring(X, Y0, sh, sh * 0.62, [0.8, 0.85, 0.95], 0.45 * pulse, 0.05); } }
       for (const q of R.rocks || []) { if (q.x === undefined || GT < q.t0 || !known(q.x, q.y)) continue; const f = Math.min(1, (GT - q.t0) / (q.t - q.t0)), X = sx(q.x), Y0 = sy(q.y), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * f));
         if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.06); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
         else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.62, 0.3], (0.4 + 0.55 * f) * beat, 0.1); L.glow(X, Y0, q.r * 0.7, [1, 0.5, 0.2], 0.2 * f, 2); } }
@@ -2767,7 +2776,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.glow(ex, ey, (e.hero ? 46 : 26) * (1 + 0.5 * q), col, 0.35 * (1 - q), 2.4); if (e.hero) L.ring(ex, ey, 14 + 40 * q, 10 + 28 * q, col, 0.6 * (1 - q), 0.18);
         for (let j = 0; j < (e.hero ? 8 : 4); j++) { const an = rnd(e.t, j) * 6.28, d = 6 + (e.hero ? 40 : 22) * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.8, 7, col, 0.6 * (1 - q)); } }
       // a knocked prop: sparks off metal and stone, a brazier spits embers, crystal flares
-      if (e.k === 'prop' && a < 0.9) { const [pw, ph] = SZ(e.n), ix = ex - e.s * pw * 0.3, iy = ey - ph * 0.45;
+      if (e.k === 'prop' && a < 0.9) { const [pw, ph] = e.n === 'fence_mg' ? [24, 30] : SZ(e.n), ix = ex - e.s * pw * 0.3, iy = ey - ph * 0.45;
         if ((e.mat === 'metal' || e.mat === 'stone') && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.mat === 'metal' ? 8 : 4); j++) { const an = Math.PI * (e.s > 0 ? 1 : 0) + (rnd(e.t, j) - 0.5) * 2.4, v = 90 + 120 * rnd(e.t, j + 5);
           L.star(ix + Math.cos(an) * v * a, iy + Math.sin(an) * v * a * 0.7 + 260 * a * a, 6, [1, 0.88, 0.6], 1 - q); } }
         if (e.n === 'brazier' || e.n === 'torch_sconce' || e.mat === 'fire') for (let j = 0; j < (e.n === 'torch_sconce' ? 7 : 10); j++) { const q = a / 0.9, an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 1.6, v = 60 + 110 * rnd(e.t, j + 3);
@@ -2843,6 +2852,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         for (let j = 0; j < 3; j++) L.puff(ex + (j - 1) * (steam ? 9 : 7) + Math.sin(q * 5 + j) * 4, ey - (steam ? 16 : [16, 28, 18][j]) - (steam ? 38 : 26) * q, (steam ? 9 : 4) + 10 * q, steam ? [0.88, 0.92, 0.94] : [0.4, 0.39, 0.37], (steam ? 0.75 : 0.5) * (1 - q), e.t * 13 + j); }
       if (e.k === 'hollow' && a < 0.6) { const q = a / 0.6;
         for (let j = 0; j < 4; j++) L.puff(ex + (j - 1.5) * 10, ey + 8 + 14 * q, 4 + 10 * q, [0.4, 0.36, 0.34], 0.45 * (1 - q), e.t * 11 + j); }
+      // the magma caves' answers (TASKS 466): a crack spits embers (a few sparks and a hiss of smoke underfoot), a charred skeleton
+      // puffs ash as its bones fly, a chain fence throws a few sparks off its links
+      if (e.k === 'prop' && e.mat === 'ember' && a < 0.8) { const q = a / 0.8, k = e.touch ? 4 : 10;
+        for (let j = 0; j < k; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * (e.touch ? 1.2 : 2.2), v = (e.touch ? 40 : 80) + 90 * rnd(e.t, j + 3);
+          L.star(ex + Math.cos(an) * v * a, ey + Math.sin(an) * v * a + 140 * a * a, 4 + 2 * rnd(e.t, j + 5), [1, 0.55 + 0.3 * rnd(e.t, j + 7), 0.12], (1 - q) * 0.9); }
+        L.glow(ex, ey - 2, 16 + 10 * (1 - q), [1, 0.45, 0.1], (e.touch ? 0.3 : 0.6) * (1 - q), 2.4);
+        for (let j = 0; j < 2; j++) L.puff(ex + (j - 0.5) * 10, ey - 6 - 30 * q, 5 + 8 * q, [0.45, 0.4, 0.37], 0.3 * (1 - q), e.t * 5 + j); }
+      if (e.k === 'prop' && e.n === 'skel_mg' && !e.touch && a < 0.9) { const q = a / 0.9; for (let j = 0; j < 4; j++) L.puff(ex + (j - 1.5) * 9, ey - 10 - 18 * q, 7 + 12 * q, [0.3, 0.28, 0.27], 0.5 * (1 - q), e.t * 3 + j); }
+      if (e.k === 'prop' && e.mat === 'chain' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.touch ? 2 : 5); j++) { const an = (rnd(e.t, j) - 0.5) * 6.28, v = 50 + 60 * rnd(e.t, j + 2);
+        L.star(ex + Math.cos(an) * v * a, ey - 18 + Math.sin(an) * v * a * 0.6, 4, [1, 0.88, 0.6], 1 - q); } }
       if (e.k === 'prop' && e.mat === 'bone' && a < 0.7) { const n = 3 + (parseInt(e.i.slice(1), 10) % 3);
         for (let j = 0; j < n; j++) { const an = j / n * 6.28 + rnd(e.t, j), u = Math.min(a, 0.38), px = ex + Math.cos(an) * (45 + 20 * rnd(e.t, j + 7)) * u, py = ey + Math.sin(an) * 28 * u - 70 * u + 185 * u * u, rot = an + u * 8, al = 1 - SS(0.45, 0.7, a);
           L.solid(px, py, 9, 4, [0.23, 0.2, 0.17], rot, 4, 2, al); L.solid(px, py - 1, 7, 2, [0.73, 0.69, 0.57], rot, 3, 1, al);
@@ -2884,7 +2903,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           const sz = (big ? 4 : 3) + 4 * rnd(e.t, j + 13); L.solid(px, py, sz, sz * 0.8, [0.34, 0.3, 0.29], an + a * 6, sz / 2, sz / 2, 1 - SS(life * 0.75, life, a)); }
         for (let j = 0; j < (big ? 10 : 4); j++) { const q = Math.min(1, a / (big ? 1.4 : 0.8)); L.puff(ex + (j - (big ? 4.5 : 1.5)) * (big ? 12 : 10), ey + 10 + 26 * q, (big ? 16 : 10) + 22 * q, [0.4, 0.36, 0.34], (big ? 0.55 : 0.4) * (1 - q), e.t * 11 + j); } }
       // chips knocked off a prop fly from the struck side, bounce off the floor at its foot and fade; dust breathes out of it
-      if (e.k === 'prop' && a < 0.9) { const [pw, ph] = SZ(e.n), ix = ex - e.s * pw * 0.3, iy = ey - ph * 0.45, mat = e.mat,
+      if (e.k === 'prop' && a < 0.9) { const [pw, ph] = e.n === 'fence_mg' ? [24, 30] : SZ(e.n), ix = ex - e.s * pw * 0.3, iy = ey - ph * 0.45, mat = e.mat,
           col = mat === 'wood' ? [0.42, 0.27, 0.15] : mat === 'stone' ? [0.42, 0.4, 0.4] : mat === 'crystal' ? [0.55, 0.75, 1] : e.n === 'shop_gold' ? [1, 0.78, 0.25] : null;
         if (col) for (let j = 0; j < (mat === 'wood' ? 8 : 7); j++) { const an = Math.PI * (e.s > 0 ? 1 : 0) + (rnd(e.t, j) - 0.5) * 1.8, v = 50 + 70 * rnd(e.t, j + 7);
           const px = ix + Math.cos(an) * v * a, py = Math.min(ey + 4 - 6 * rnd(e.t, j + 2), iy + Math.sin(an) * v * a * 0.6 - 110 * a + 420 * a * a), long = mat === 'wood';
@@ -3661,6 +3680,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const c = ph === 'rest' ? z.per * 0.5 : ph === 'warn' ? z.per + c0 * H.warn * 2 : c0 * (ph === 'flood' ? H.burst : H.burst + H.ebb), t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per;
         let hy = y - 4 * TILE; for (let j = 4; j < 9; j++) if (SIM.cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1 && !z.cells.includes(k0 - j * W)) { hy = y - j * TILE; break; }
         view(S, x, y, x, hy); S.t = R.t = t; S.ev = []; if (ph !== 'rest' && ph !== 'warn') S.ev.push({ k: 'surge', t: t - c, x: z.x, y: z.y, i: R.map.hazards.indexOf(z) }); states.push(['magma_surge_' + ph, S]); }
+      // the magma caves' dead things answering a blow (TASKS 466): a crack's embers, a charred skeleton's ash, a fence's swing
+      { const S = play(); const k0 = at(S, 2, (m) => { const W = m.W; if (m.ftype === 'cave') return null; for (let k = W * 6; k < W * (m.H - 6); k++) if ([0, 1, 2, 3, -1, -2, -3].every((i) => [-2, -1, 0, 1, 2].every((j) => m.cells[k + j * W + i] === 1))) return k; return null; });
+        if (k0 !== null) { const R = S.run, m = R.map, W = m.W, x = (k0 % W + 0.5) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE; view(S, x, y, x, y + 8); R.en = [];
+          m.decor = m.decor.filter((d) => Math.hypot(d.x - x, d.y - y) > 200).concat([{ n: 'vent_mg', x: x - 70, y: y + 10 }, { n: 'skel_mg', x: x + 60, y: y + 6 }, { n: 'fence_mg', x: x - 60, y: y - 60, len: 120 }]);
+          const n0 = m.decor.length - 3; S.ev = [0, 1, 2].map((j) => ({ k: 'prop', t: S.t - 0.15, x: m.decor[n0 + j].n === 'fence_mg' ? x : m.decor[n0 + j].x, y: m.decor[n0 + j].y, i: 'd' + (n0 + j), n: m.decor[n0 + j].n, mat: D.PROP_MAT[m.decor[n0 + j].n], scale: 1, s: j ? 1 : -1 }));
+          states.push(['magma_react', S]); } }
       // the brink (TASKS 476): a skeleton a step off the lava, its edge lit, the hero two steps off it on the other side
       { const S = play(); const k0 = at(S, 2, (m) => { const W = m.W; if (m.ftype === 'cave') return null; for (let k = W * 4; k < W * (m.H - 4); k++) if (m.cells[k] === 1 && m.cells[k + 1] === 3 && m.cells[k + 2] === 3 && [-1, -2, -3, -4, -W, W, -W - 1, W - 1, -W - 2, W - 2].every((o) => m.cells[k + o] === 1)) return k; return null; });
         if (k0 !== null) { const R = S.run, W = R.map.W, x = (k0 % W + 0.75) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE; view(S, x, y, x - 90, y + 6);

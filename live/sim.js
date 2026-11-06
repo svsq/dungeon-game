@@ -972,8 +972,11 @@
       if (mat === 'stone' || mat === 'metal') R.trauma = Math.min(1, R.trauma + 0.06);
       if (n !== 'merchant') ev(S, { k: 'prop', x: p.x, y: p.y, i: id, n, mat, scale: p.s || 1, s: dx >= 0 ? 1 : -1 }); return true; };
     m.decor.forEach((d, i) => { if (hidden(m, d)) return;
-      if (d.n === 'bones' || d.n === 'skel_cv') knock('d' + i, d, d.n);
+      if (d.n === 'bones' || d.n === 'skel_cv' || d.n === 'skel_mg') knock('d' + i, d, d.n);
       else if (bonesOnly) return;
+      // the magma caves' dead things answer a blow too (TASKS 466): a crack spits embers, a chain fence clinks and swings
+      else if (d.n === 'vent_mg') knock('d' + i, d, d.n);
+      else if (d.n === 'fence_mg') { const f = { x: Math.max(d.x, Math.min(d.x + d.len, x)), y: d.y }; knock('d' + i, f, d.n, 'chain', f); }
       else if (d.n === 'candles' && !d.lift && (d.outUntil || 0) <= S.t) {
         if (knock('d' + i, d, d.n, 'wax')) { d.outUntil = S.t + 3; ev(S, { k: 'snuff', x: d.x, y: d.y }); } }
       else if (/^shroom_[ab]$/.test(d.n)) knock('d' + i, d, d.n, 'fungus');
@@ -1180,10 +1183,13 @@
     if (moved > 0.02) {
       const hits = R.propHit || (R.propHit = {});
       m.decor.forEach((d, i) => {
-        const fungus = /^shroom_[ab]$/.test(d.n); if (!fungus && d.n !== 'skel_cv') return;
-        if (hidden(m, d) || Math.hypot(d.x - h.x, d.y - h.y) > (fungus ? 25 : 30) || !losClear(m, h.x, h.y, d.x, d.y)) return;
+        // (and in the magma caves, TASKS 466: a crack hisses and sparks underfoot, a charred skeleton shifts, a chain fence swings by)
+        const fungus = /^shroom_[ab]$/.test(d.n), reach = fungus ? 25 : d.n === 'vent_mg' ? 22 : d.n === 'fence_mg' ? 34 : 30;
+        if (!fungus && !['skel_cv', 'skel_mg', 'vent_mg', 'fence_mg'].includes(d.n)) return;
+        const fx = d.n === 'fence_mg' ? Math.max(d.x, Math.min(d.x + d.len, h.x)) : d.x;
+        if (hidden(m, d) || Math.hypot(fx - h.x, d.y - h.y) > reach || !losClear(m, h.x, h.y, fx, d.y)) return;
         const id = 'd' + i; if (S.t - (hits[id] ?? -9) < 0.65) return;
-        hits[id] = S.t; ev(S, { k: 'prop', x: d.x, y: d.y, i: id, n: d.n, mat: fungus ? 'fungus' : 'bone', scale: d.s || 1, touch: 1, s: h.x < d.x ? 1 : -1 });
+        hits[id] = S.t; ev(S, { k: 'prop', x: fx, y: d.y, i: id, n: d.n, mat: fungus ? 'fungus' : D.PROP_MAT[d.n] || 'bone', scale: d.s || 1, touch: 1, s: h.x < d.x ? 1 : -1 });
       });
     }
     if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
@@ -3606,6 +3612,15 @@
       if (S.ev.filter((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv')).length !== n) out.push('cave reactions: response through rock');
       S.ev = []; for (let i = 0; i < 120; i++) step(S, { keys: [] });
       if (S.ev.some((e) => e.k === 'prop' && (e.n === 'shroom_a' || e.n === 'skel_cv'))) out.push('cave reactions: stationary hero retriggers decor');
+    }
+    // the magma caves' dead things (TASKS 466): a crack, a charred skeleton and a chain fence answer a blow, and a step by them
+    {
+      const S = spawn(0, {}); S.run = newRun(S, 'magma', 3); S.screen = 'play'; const R = S.run, h = R.hero, m = R.map, ns = ['vent_mg', 'skel_mg', 'fence_mg'];
+      R.en = []; m.decor = [{ n: 'vent_mg', x: h.x + 10, y: h.y }, { n: 'skel_mg', x: h.x - 12, y: h.y }, { n: 'fence_mg', x: h.x - 40, y: h.y + 6, len: 80 }];
+      S.ev = []; hitProps(S, R, h.x, h.y, 30); const got = new Set(S.ev.filter((e) => e.k === 'prop').map((e) => e.n));
+      for (const n of ns) if (!got.has(n)) out.push(`magma reactions: ${n} ignores a blow`);
+      S.t += 1; S.ev = []; const x0 = h.x; for (let i = 0; i < 60; i++) { step(S, { keys: [], right: 1 }); if (h.x - x0 > 30) break; }
+      const touched = new Set(S.ev.filter((e) => e.k === 'prop' && e.touch).map((e) => e.n)); for (const n of ns) if (!touched.has(n)) out.push(`magma reactions: ${n} ignores a step by it`);
     }
     {
       const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); const R = S.run, m = R.map, h = R.hero, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE);
