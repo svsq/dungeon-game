@@ -1958,8 +1958,8 @@
     props: [['logs_tw', 43, 8], ['stall_tw', 46, 10], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['cart_tw', 49, 24], ['blocks_tw', 19, 29], ['ore_tw', 13, 30],
       ['table_candles', 6, 14], ['shop_sacks', 5, 21], ['shop_crate', 7, 24], ['candles', 5, 24]],
     rails: [[47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], ...Array.from({ length: 25 }, (_, i) => [41 - i, 30])],
-    // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it
-    npcs: [['smith', 35, 9], ['enchanter', 39, 15], ['keeper', 26, 18], ['porter', 32, 11], ['sweeper', 30, 21], ['miner', 38, 30], ['mason', 18, 29], ['gardener', 43, 24], ['child', 13, 18]],
+    // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it; the cast is the player's (6 Nov 2026): no miner, mason or gardener
+    npcs: [['smith', 35, 9], ['enchanter', 40, 14], ['keeper', 29, 16], ['guard', 30, 10], ['porter', 32, 11], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 12, 17]],
     // ruin stubs the seed picks some of, and spots for the small decor
     stubs: [[9, 6], [44, 7], [10, 27], [45, 29], [5, 26], [49, 13], [12, 14]],
     small: [['barrel', 13, 8], ['crate', 21, 8], ['barrel', 20, 11], ['crate', 33, 8], ['barrel', 41, 8], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],

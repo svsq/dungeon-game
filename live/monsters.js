@@ -129,6 +129,8 @@
     if (RG.earL) { const flop = 0.11 * run * Math.sin(2 * ph - 1.1) + 0.03 * breath + (o.ear || 0);
       for (const [sd, sg] of [['L', -1], ['R', 1]]) { const P = RG['ear' + sd], r = sg * flop * (sd === 'L' ? 1 : 0.85), Pd = [P[0], P[1] + hipDy];
         part('ear' + sd, P, R2U(...Pd), r, o.U, 1, lean); L.joint(o.id, 'ear' + sd, R2U(...rotP([RG['ear' + sd + 'Tip'][0], RG['ear' + sd + 'Tip'][1] + hipDy], Pd, r))); } }
+    // townsfolk carry a head and a hip sword cut from the body: the head turns about the neck (o.headR), the sword hangs from the belt
+    for (const nm of ['sword', 'head']) if (RG[nm] && RG.parts.includes(nm)) part(nm, RG[nm], R2U(RG[nm][0], RG[nm][1] + hipDy), nm === 'head' ? o.headR || 0 : -lean * 0.6 + 0.02 * breath, o.U, 1, lean);
     drawArm('R', o.U); held('R', o.U);
     if (RG.mantleL) for (const side of ['L', 'R']) part('mantle' + side, Hc, hipS, 0, o.U, 1, lean);
     // the far foot stands higher in 3/4: each foot has its own ground
@@ -388,6 +390,29 @@
     for (const sd of ['L', 'R']) { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]); }
     const J = (nm, p) => L.joint(o.id, nm, S2(...p));
     L.joint(o.id, 'ground', root); J('top', [RG.top[0] + hx, RG.top[1] + hy]); J('head', [RG.neck[0] + hx, RG.neck[1] + hy]);
+    for (const sd of ['L', 'R']) { const a = A[sd]; J('sh' + sd, a.Sp); J('elbow' + sd, a.E); J('hand' + sd, a.Hd); }
+    return true;
+  };
+
+  // a robed townsfolk rig (body to the hem, two-bone arms, a head on the neck): o.arms(side) → [r1, r2] poses the arms, o.lift
+  // raises the torso's parts (rig px), o.headR / o.headD turn and shift the head; at rest it only breathes
+  MON.robed = (o) => {
+    const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
+    const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1;
+    const S2 = (px, py) => [root[0] + f * (px - gx) * s, root[1] + (py - gy) * s];
+    const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);
+    const arm = (side) => { const r = o.arms ? o.arms(side, breath) : [(side === 'L' ? 1 : -1) * 0.03 * breath, 0.05 * breath], S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
+      const E = rotP([E0[0], E0[1] + lift], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + lift], Sp, r[0]), E, r[1] - r[0]); return { S0, E0, Sp, E, Hd, r }; };
+    const A = { L: arm('L'), R: arm('R') };
+    const part = (nm, pv, at, rot) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.s(f, 1), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
+    const far = f > 0 ? 'L' : 'R', near = f > 0 ? 'R' : 'L', drawArm = (sd) => { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]); };
+    drawArm(far);
+    L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...root), M.s(f, 1)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    const hd = o.headD || [0, 0], hy = lift * 0.8 + hd[1];
+    part('head', RG.neck, [RG.neck[0] + hd[0], RG.neck[1] + hy], o.headR || 0);
+    drawArm(near);
+    const J = (nm, p) => L.joint(o.id, nm, S2(...p));
+    L.joint(o.id, 'ground', root); J('top', [RG.top[0] + hd[0], RG.top[1] + hy]); J('head', [RG.neck[0] + hd[0], RG.neck[1] + hy]);
     for (const sd of ['L', 'R']) { const a = A[sd]; J('sh' + sd, a.Sp); J('elbow' + sd, a.E); J('hand' + sd, a.Hd); }
     return true;
   };

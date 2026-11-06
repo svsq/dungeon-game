@@ -1,7 +1,7 @@
 # tint every part of a rig differently and mark its joints: a check that a cut follows the anatomy
 import sys, json, re; import numpy as np; from PIL import Image, ImageDraw
 name, out = sys.argv[1], sys.argv[2]; R = json.loads(re.sub(r'^window\.RIGS = |;\s*$', '', open('live/rigs.js').read().strip()))[name]
-cols = [(255, 80, 80), (80, 255, 80), (80, 120, 255), (255, 220, 60), (255, 80, 255), (60, 230, 230), (255, 150, 60), (160, 100, 255), (150, 255, 150), (255, 255, 255), (120, 60, 0)]
+cols = [(255, 80, 80), (80, 255, 80), (80, 120, 255), (255, 220, 60), (255, 80, 255), (60, 230, 230), (255, 150, 60), (160, 100, 255), (150, 255, 150), (255, 255, 255), (120, 60, 0), (255, 120, 160), (0, 160, 90), (200, 200, 0)]
 base = None
 for i, p in enumerate(R['parts']):
     a = np.array(Image.open(f'art/gen/{name}__{p}.png').convert('RGBA')).astype(float)

@@ -46,7 +46,8 @@
    "impE__*",
    "salamanderE__*",
    "colossus__*",
-   "colossusE__*"
+   "colossusE__*",
+   "town_*__*"
   ],
   "skip": [
    "*_sheet",

@@ -1,6 +1,8 @@
 // in-game sprite sizes in view px: { name: [w, h] } (engine.md §7 "Display size vs texture size"), from one height per name
 (function () {
   const HEIGHT = {
+    town_smith: 84, town_guard: 82, town_keeper: 82, town_enchanter: 82, town_porter: 79, town_sweeper: 75, town_child: 55, town_hen_white: 25, town_hen_red: 25, town_hen_grey: 25,
+    town_tool_hammer: 26, town_tool_tongs: 30, town_tool_broom: 62, town_tool_sack: 34, town_tool_crate: 32, town_tool_spear: 90, town_tool_staff: 84, town_tool_grain: 16,
     serpent__body: 154, serpent__tail: 70, hero: 84, hero_back: 84, en_skeleton: 76, en_goblin: 72, en_spider: 53, en_cultist: 84, en_ghost: 74, en_brute: 112, en_imp: 58, en_golem: 128, en_colossus: 230, en_salamander: 92, en_drowned: 82, en_slime: 44, en_crab: 62, en_eel: 100, en_skel_archer: 78, en_skel_mage: 78,
     barrel: 56, crate: 51, pot: 36, chest: 43, chest_open: 52, chest_open_gold: 57, bones: 30, candles: 33, torch_sconce: 46, banner: 64, table: 52,
     stairs: 64, brazier: 51, coffin: 51, statue: 117, pillar: 89, crystal: 81, altar: 56, cage: 81, rack: 71,

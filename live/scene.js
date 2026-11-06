@@ -713,6 +713,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const PAVE_K = 0.78;
   // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
   const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
+  // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
+  const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', sweeper: 'fire' };
+  const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
+    const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = 288, q = TILE / 4;
@@ -2087,6 +2091,19 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
+    // the townsfolk (TASKS 1014) at rest at their places, facing their work; their work loops are TASKS 1015
+    if (m.town) m.town.npcs.forEach((n, i) => { if (!vis(n.x, n.y)) return;
+      const face = TOWN_FACE(m, n) >= n.x ? 1 : -1, id = 'npc' + i;
+      if (n.role === 'hen') { const nm = ['town_hen_white', 'town_hen_red', 'town_hen_grey'][i % 3], RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;
+        const [w, hh] = SZ(nm), ph = GT * 1.3 + i * 2.1, peck = Math.max(0, Math.sin(ph)) ** 6, neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i), tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7);
+        Y.push([n.y, () => { L.shadow(sx(n.x), sy(n.y) + 1, 9, 3, 0.4);
+          L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(sx(n.x), sy(n.y)), M.s(face, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+        return; }
+      const nm = 'town_' + n.role; if (!RIGS[nm] || !window.ASSETS[nm + '__body']) return;
+      const H = SZ(nm)[1], seed = i * 1.7;
+      Y.push([n.y, () => { L.shadow(sx(n.x), sy(n.y) + 2, 0.24 * H, 6, 0.45);
+        L.inked(() => RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: sx(n.x), y: sy(n.y), H, t: GT, face, seed, U: {} })
+          : MONSTERS.biped({ id, n: nm, x: sx(n.x), y: sy(n.y), H, face, t: GT, seed, dist: 0, vx: 0, vy: 0, U: {}, Ufar: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]); });
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in
@@ -3164,6 +3181,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the whole town in one frame (TASKS 1003): every service, the gate, the mine and the rails
     { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
       const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; void h; states.push(['town_services', S]); }
+    // the townsfolk at their places (TASKS 1014), the hero out of the way at the unloading yard
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
+      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; states.push(['town_npc', S]); }
     // the magma caves' 2nd floor (TASKS 399; their own floor, rock and lava come in 400–404): its biggest hall, its monsters left in
     { const S = play(); plainMagma(S); S.screen = 'play';
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
