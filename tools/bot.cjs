@@ -26,7 +26,7 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, 
 // from its gear, ranks the fireball first and burns the bosses with it
 const PROFILES = {
   novice: { flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
-  average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
   expert: { haz: 1, water: 1, flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
   mage: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.6, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
   builder: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.5, caster: 1, skills: ['fireball', 'whirl', 'shield'], stats: ['str', 'vit', 'str', 'vit', 'agi'] },
@@ -163,16 +163,23 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (Math.hypot(rx - p.vx * tc, ry - p.vy * tc) > 28 || rand() >= P.dodge) continue;
       const s = (rx * p.vy - ry * p.vx) >= 0 ? 1 : -1; dash(inp, -p.vy * s, p.vx * s); return; }
   }
-  // spikes are up for 0.7 s of every 2.4 s (sim.js): hold back from a plate that is up or rises within the next step, and dash
-  // off one that is about to rise under the feet (a dash leaps them)
-  const SPK = 2.4, UP = 0.29, onPl = (x, y, tr) => Math.abs(x - tr.x) < T - 4 && Math.abs(y - tr.y) < T - 6;
-  const spikeSoon = (t, tr, ahead) => { const ph = ((t / SPK + tr.ph) % 1 + 1) % 1; return ph < UP || ph > 1 - ahead / SPK; };
+  // spikes are up for 0.7 s of every 2.4 s (sim.js). A plate is stepped on only if it stays down until the hero is off its far edge at
+  // a run (TASKS 507: a trapped corridor's row rises in a wave, and the old 0.45 s look ahead from a step short of it left the hero
+  // on the plate as it rose); short of that he waits in the gap before it. One about to rise under the feet he dashes off, forward
+  // if the dash lands clear, else back (a dash leaps the spikes)
+  const SPK = 2.4, UP = 0.29, PX = T - 4, PY = T - 6, RUN = 175, onPl = (x, y, tr) => Math.abs(x - tr.x) < PX && Math.abs(y - tr.y) < PY;
+  const phase = (t, tr) => ((t / SPK + tr.ph) % 1 + 1) % 1, upNow = (t, tr) => phase(t, tr) < UP, downFor = (t, tr) => (upNow(t, tr) ? 0 : (1 - phase(t, tr)) * SPK);
+  const spikeSoon = (t, tr, ahead) => upNow(t, tr) || downFor(t, tr) < ahead;
+  // the time from (x, y) moving along (ux, uy) to off the plate's far edge, a little past it
+  const crossT = (x, y, ux, uy, tr) => { const ex = ux ? (tr.x + Math.sign(ux) * PX - x) / ux : 0, ey = uy ? (tr.y + Math.sign(uy) * PY - y) / uy : 0; return (Math.max(ex, ey, 0) + 10) / RUN + 0.12; };
   function avoidSpikes(S, R, h, inp) {
-    const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), traps = R.map.traps || [];
-    const under = traps.find((tr) => onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.2));
-    if (under) { if (h.cd.dash <= S.t && !inp.keys.includes('Space')) { const ax = dx || Math.sign(h.x - under.x) || 1, ay = dy; dash(inp, ax, ay); } return; }
-    if (!dx && !dy) return; const nx = h.x + dx * 28, ny = h.y + dy * 28;
-    if (traps.some((tr) => onPl(nx, ny, tr) && !onPl(h.x, h.y, tr) && spikeSoon(S.t, tr, 0.45))) inp.left = inp.right = inp.up = inp.down = 0;
+    const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), traps = R.map.traps || [], t = S.t;
+    const L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+    const under = traps.find((tr) => onPl(h.x, h.y, tr) && spikeSoon(t, tr, 0.2));
+    if (under) { if (h.cd.dash <= t && !inp.keys.includes('Space')) { const fx = dx || Math.sign(h.x - under.x) || 1, fy = dy, n = Math.hypot(fx, fy) || 1, land = (s) => [h.x + s * fx / n * 100, h.y + s * fy / n * 100];
+        const clear = (s) => { const [x, y] = land(s); return !traps.some((tr) => onPl(x, y, tr) && spikeSoon(t, tr, 0.4)); }, s = clear(1) || !clear(-1) ? 1 : -1; dash(inp, s * fx, s * fy); } return; }
+    if (!dx && !dy) return; const nx = h.x + ux * 28, ny = h.y + uy * 28;
+    if (traps.some((tr) => onPl(nx, ny, tr) && !onPl(h.x, h.y, tr) && spikeSoon(t, tr, crossT(h.x, h.y, ux, uy, tr)))) inp.left = inp.right = inp.up = inp.down = 0;
   }
   // the magma caves' hazards (TASKS 406, data.js HAZ) and a fire priest's rings (TASKS 410): out of a ring that will burst within its
   // warning (a dash when it is about to), and no step into one that bursts within the next 0.9 s; a ring keeps its pull a little past its edge
