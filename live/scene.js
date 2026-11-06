@@ -717,6 +717,127 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', sweeper: 'fire' };
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
     const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
+  // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest
+  const FOLK0 = (m) => m.town.npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
+  const lerp1 = (a, b, k) => a + (b - a) * k, lerp2 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], E01 = (q) => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
+  const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
+  const TOOL = (tex, grip, o) => Object.assign({ tex, len: SZ(tex)[1], grip }, o);
+  // one townsperson (TASKS 1015): a work loop on its own clock (DATA.folkClock, shared with the sim's events), the walk of a round,
+  // and the talk: turned to the hero, head up, the free hand gesturing, eased in and out of the work pose. Hands are placed by IK on
+  // screen points; the tool rides the hand. The loop's moments (the blow, the poke, the throw) leave their effects in RIM.folk
+  function drawFolk(f, n, m, R, GT, Y, sx, sy) {
+    const i = f.i, FD = D.FOLK[f.role], X = sx(f.x), Yg = sy(f.y), id = 'npc' + i;
+    if (f.role === 'hen') { const nm = ['town_hen_white', 'town_hen_red', 'town_hen_grey'][i % 3], RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;
+      const face = TOWN_FACE(m, n) >= n.x ? 1 : -1, [w, hh] = SZ(nm), ph = GT * 1.3 + i * 2.1, peck = Math.max(0, Math.sin(ph)) ** 6, neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i), tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7);
+      Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4);
+        L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(X, Yg), M.s(face, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+      return; }
+    const nm = 'town_' + f.role; if (!RIGS[nm] || !window.ASSETS[nm + '__body']) return;
+    const H = SZ(nm)[1], c = D.folkClock(f.role, i, GT), u = c.u, T = m.town.svc, route = n.route;
+    // the talk's weight: in over 0.35 s from the first line, out over 0.45 s when the pair is said or the hero walks off
+    const e0 = Math.min(f.sayT + D.FOLK_SAY, f.byeT > f.sayT ? f.byeT : 1e9), tw = SS(f.sayT, f.sayT + 0.35, GT) * (1 - SS(e0, e0 + 0.45, GT));
+    const talkNow = GT >= f.sayT && GT < e0 + 0.2, wf = TOWN_FACE(m, n) >= n.x ? 1 : -1;
+    // the child, stopped, turns to the nearest hen to throw it grain
+    const hen = f.role === 'child' && route && !f.go && !talkNow ? (R.folk || []).filter((q) => q.role === 'hen').sort((a, b) => Math.hypot(a.x - f.x, a.y - f.y) - Math.hypot(b.x - f.x, b.y - f.y))[0] : null;
+    const face = hen ? (hen.x >= f.x ? 1 : -1) : (route || talkNow) && f.face ? f.face : wf;
+    const P = (dx, dy) => [X + face * dx * H, Yg + dy * H], mir = (q) => [X + (q[0] - X) * face * wf, q[1]];
+    const talkR = P(0.27, -0.52 + 0.025 * Math.sin(GT * 5.3 + i)), talkL = P(0.08, -0.36);
+    const atStop = route && !f.go, pu = GT - f.t0, stop = route && f.way >= 0 ? route[f.way] : null, moving = Math.hypot(f.vx, f.vy) > 2;
+    let tg = {}, hold = null, lean = 0, headR = 0, crouch = 0, front = null, robe = null, fx = null;
+    if (f.role === 'smith') {
+      // a blow every loop, every 4th a breather (the hammer down, the piece turned in the tongs): up over the head, down faster and
+      // faster onto the anvil, a small rebound, back up to the start
+      const A = T.anvil, top = [sx(A.x) - wf * 4, sy(A.y) - 0.82 * SZ('anvil_tw')[1]], brk = c.n % FD.rest === FD.rest - 1, hit = FD.hit;
+      const imp = [top[0] - wf * 21, top[1] - 5], lift = [imp[0] - wf * 3, imp[1] - 10], cock = [X + wf * 0.08 * H, Yg - 0.96 * H];
+      // the hammer's angle (as if facing right) rides the same path: its handle back over the shoulder at the top, level on the blow
+      const UPA = -2.6, IMPA = 0.12, RESTA = 0.9;
+      let hr, ha;
+      if (brk) { const k = Math.sin(Math.PI * u) ** 2; hr = lerp2(lift, [X + wf * 0.22 * H, Yg - 0.36 * H], k); ha = lerp1(IMPA - 0.2, RESTA, k); }
+      else if (u < 0.42) { const k = E01(u / 0.42); hr = lerp2(lift, cock, k); ha = lerp1(IMPA - 0.2, UPA, k); }
+      else if (u < hit) { const x = (u - 0.42) / (hit - 0.42); hr = lerp2(cock, imp, x * x); ha = lerp1(UPA, IMPA, x * x); }
+      else if (u < hit + 0.1) { const b = Math.sin(Math.PI * (u - hit) / 0.1); hr = [imp[0], imp[1] - 5 * b]; ha = IMPA - 0.15 * b; }
+      else { const k = E01((u - hit - 0.1) / (0.9 - hit)); hr = lerp2(imp, lift, k); ha = lerp1(IMPA, IMPA - 0.2, k); }
+      const hl = [top[0] - wf * 9, top[1] + 3 - (brk ? 7 * Math.sin(Math.PI * u) ** 2 : 0)];
+      tg = { R: lerp2(mir(hr), talkR, tw), L: lerp2(mir(hl), talkL, tw) };
+      hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(ha, RESTA, tw) }), L: TOOL('town_tool_tongs', 0.7, { rel: -1.1 }) };
+      lean = face * (0.05 + 0.05 * (!brk && u > 0.45 && u < hit + 0.1 ? 1 : 0)) * (1 - tw); headR = 0.14 * (1 - tw) - 0.05 * tw;
+      if (!brk && u >= hit && (u - hit) * c.per < 0.45 && tw < 0.5) fx = { k: 'spark', x: top[0], y: top[1], a: (u - hit) * c.per, seed: c.n * 7 + i };
+    } else if (f.role === 'keeper') {
+      // leans on his staff and dozes off (the head sinks, jerks up), now and then pokes the fire: embers fly up on the poke
+      const Fp = [sx(T.fire.x), sy(T.fire.y)], poke = bump01(u, 0.12, 0.42), dz = SS(0.5, 0.9, u) * (1 - SS(0.93, 0.97, u));
+      const reachP = [X + (Fp[0] - X) * 0.42, Yg - 0.36 * H];
+      tg = { R: lerp2(lerp2(P(0.2, -0.5), mir(reachP), poke), talkR, tw * 0.6) };
+      hold = { R: TOOL('town_tool_staff', 0.5, { abs: -Math.PI / 2 + 0.06 * Math.sin(GT * 0.9 + i) - poke * 0.95 * (1 - tw) }) };
+      headR = (0.32 * dz + 0.1 * poke) * (1 - tw) - 0.05 * tw; lean = face * (0.04 * dz + 0.1 * poke) * (1 - tw);
+      if (u > 0.27 && u < 0.27 + 1.2 / c.per && tw < 0.5) fx = { k: 'embers', x: Fp[0], y: Fp[1] - 14, a: (u - 0.27) * c.per, seed: c.n * 5 + i };
+    } else if (f.role === 'guard') {
+      // shifts his weight, now and then looks back over the yard, the spear upright in his hand
+      const look = u > 0.52 && u < 0.7 && tw < 0.5;
+      tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i)), talkR, tw * 0.5) };
+      hold = { R: TOOL('town_tool_spear', 0.58, { abs: -Math.PI / 2 - 0.05 }) };
+      lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u);
+      if (look) return drawFolkRig(f, n, nm, X, Yg, H, -face, GT, Y, { hold, handTarget: (sd) => (sd === 'R' ? [X - face * 0.24 * H, Yg - 0.42 * H] : null), lean: -lean, headR });
+    } else if (f.role === 'porter') {
+      // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down
+      const cw = 0.3 * H, chest = P(0.2, -0.46), floor = P(0.33, -0.14), act = atStop && stop && stop.act;
+      let k = f.load ? 1 : 0, bend = 0;
+      if (act === 'take') { k = SS(0.3, 1.15, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); } else if (act === 'drop') { k = 1 - SS(0.35, 1.2, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); }
+      const hasCrate = f.load || act === 'drop', cp = lerp2(floor, chest, k);
+      if (hasCrate) { cp[1] -= moving ? 1.2 * Math.abs(Math.sin(f.dist / 14)) : 0; tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] };
+        front = () => L.sprite('town_tool_crate', cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
+      else if (act === 'take') { tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] }; front = () => L.sprite('town_tool_crate', cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
+      if (tw > 0 && !hasCrate) tg = { R: lerp2(P(0.1, -0.38), talkR, tw) };
+      crouch = 34 * bend; lean = face * 0.3 * bend; headR = 0.15 * bend;
+    } else if (f.role === 'child') {
+      // at each stop he scatters grain to the hens: a hand into the bag, a throw out in front, the grain falling ahead of him
+      const bag = P(0.3, -0.42), throwing = atStop && route && tw < 0.5, dip = P(0.22, -0.44), out = P(0.45, -0.66), rest = P(0.08, -0.33);
+      let hr = rest;
+      if (throwing) hr = u < 0.3 ? lerp2(rest, dip, E01(u / 0.3)) : u < 0.47 ? lerp2(dip, out, E01((u - 0.3) / 0.17)) : lerp2(out, rest, E01((u - 0.47) / 0.4));
+      tg = { L: bag, R: tw > 0 ? lerp2(hr, talkR, tw) : throwing ? hr : null };
+      hold = { L: TOOL('town_tool_grain', 0.45, { abs: -Math.PI / 2 }) };
+      if (throwing && u > 0.47 && (u - 0.47) * c.per < 1.4) fx = { k: 'grain', x: out[0], y: out[1], g: Yg, face, a: (u - 0.47) * c.per, seed: c.n * 3 + i };
+    } else if (f.role === 'sweeper') {
+      // sweeps at each stop: the near hand drives the broom to and fro, the far hand higher up the handle, the bristles on the floor
+      const sweeping = !moving && tw < 0.99, ph = 2 * Math.PI * u, L0 = SZ('town_tool_broom')[1], grip = 0.3;
+      const hr = sweeping ? P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)) : P(0.2, -0.45);
+      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = sweeping ? Math.asin(down) : 1.25;
+      const dir = [-face * Math.cos(th), -Math.sin(th)];   // up the handle, away from the bristles
+      const abs = Math.atan2(dir[1], dir[0] * face);
+      tg = { R: hr, L: [hr[0] + dir[0] * 0.24 * L0, hr[1] + dir[1] * 0.24 * L0] };
+      hold = { R: TOOL('town_tool_broom', grip, { abs }) };
+      robe = { lift: sweeping ? 4 : 1.5 * Math.abs(Math.sin(f.dist / 9)), headR: sweeping ? 0.16 : 0.05 };
+      if (tw > 0) { tg.L = lerp2(tg.L, talkR, tw); robe.headR = lerp1(robe.headR, -0.05, tw); }
+      if (sweeping) { const q = Math.sin(ph); if (Math.abs(q) > 0.7) fx = { k: 'dust', x: hr[0] - dir[0] * (1 - grip) * L0, y: hr[1] - dir[1] * (1 - grip) * L0, amt: (Math.abs(q) - 0.7) / 0.3, seed: c.n * 2 + (q > 0 ? 1 : 0) + i }; }
+    } else if (f.role === 'enchanter') {
+      // reads at the lectern, turns a page, then lifts a flask and burns it: a cold blue flame in the hand
+      const Lc = T.lectern, book = [sx(Lc.x) - wf * 2, sy(Lc.y) - 0.72 * SZ('lectern_tw')[1]], page = bump01(u, 0.1, 0.32), flask = bump01(u, 0.4, 0.85);
+      const hr = [book[0] - wf * (10 - 16 * page), book[1] - 4 * page];
+      tg = { R: lerp2(mir(hr), talkR, tw), L: flask > 0.01 && tw < 0.99 ? lerp2(P(0.05, -0.36), P(0.24, -0.8), flask * (1 - tw)) : null };
+      robe = { lift: 1, headR: lerp1(0.18 * (1 - flask) - 0.12 * flask, -0.05, tw) };
+      const burn = bump01(u, 0.5, 0.78) * (1 - tw); if (burn > 0.02) fx = { k: 'flame', hand: 'L', amt: burn, seed: c.n + i };
+    }
+    if (tw > 0 && !robe) headR = lerp1(headR, -0.06 + 0.04 * Math.sin(GT * 4.1 + i), tw);
+    drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, { hold, handTarget: (sd) => tg[sd] || null, lean, headR, crouch, front, robe, fx });
+    // the crate the porter set down by the merchant waits there until he brings the next
+    if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && stop && stop.act === 'drop';
+      if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); } }
+  }
+  function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
+    const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;
+    Y.push([f.y, () => { L.shadow(X, Yg + 2, 0.24 * H, 6, 0.45);
+      let hand = null;
+      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, seed, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
+        : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, t: GT, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, Ufar: {}, hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, crouch: o.crouch, front: o.front });
+        if (r && fx && fx.hand) hand = r.hand ? r.hand(fx.hand) : r.R2U(r.arms[fx.hand].Hd[0], r.arms[fx.hand].Hd[1]); }, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+      if (fx) RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] } : {}));
+      if (fx && (fx.k === 'grain' || fx.k === 'dust')) folkDust(fx, GT); }]);
+  }
+  // the grain the child throws (it arcs out and falls ahead of him, lies a moment and is gone) and the sweeper's dust: drawn in the band
+  function folkDust(q, GT) {
+    if (q.k === 'dust') { L.puff(q.x, q.y - 3, 9 + 4 * q.amt, [0.5, 0.44, 0.36], 0.22 * q.amt, q.seed % 7); return; }
+    for (let j = 0; j < 9; j++) { const vx = q.face * (40 + 60 * rnd(q.seed, j)), vy = -30 - 40 * rnd(q.seed, j + 9), gy = q.g - 2 + 8 * rnd(q.seed, j + 19);
+      const T = (vy + Math.sqrt(vy * vy + 2 * 360 * (gy - q.y))) / 360, a = Math.min(q.a, T), x = q.x + vx * a, y = q.y + vy * a + 180 * a * a, k = 1 - SS(T + 0.4, T + 0.9, q.a);
+      if (k > 0) L.solid(Math.round(x), Math.round(y), 2, 2, [0.86, 0.74, 0.42], 0, 0, 0, k); } }
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
   function townFloor(m, B, c) {
     const P = TOWN_PAVE(m), TS = 288, q = TILE / 4;
@@ -1209,7 +1330,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // and the smouldering skeletons' fires (TASKS 411): skull, ribs, pelvis, hands
   // the fire priests' staff heads and hands, and the weapons a priest set alight (TASKS 410): [hand, tip or the other fist, blade]
   // and the imps' throwing hands with a spark in them (TASKS 407), the salamanders' mouths and headings (408)
-  const RIM = { col: [1, 0.75, 0.4], hands: {}, heads: {}, mages: {}, embers: {}, priests: {}, kindled: {}, imps: {}, salams: {} };
+  const RIM = { col: [1, 0.75, 0.4], hands: {}, heads: {}, mages: {}, embers: {}, priests: {}, kindled: {}, imps: {}, salams: {}, folk: [] };
   // how a body goes down, picked by its id: dl s on its feet first (the knees giving, a robe sinking), then dur s to the floor,
   // and a bounce on landing; a heavy body falls slower and the boss slowest
   function deathOf(e) { const v = e.id % 2, ty = e.type;
@@ -1595,7 +1716,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const ST = SC.state || SIM.at(t), GT = ST.t, R = ST.run;
     if (R && (R.zoom || D.ZOOM || 1) !== Z) views(R.zoom || D.ZOOM || 1);
     if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); return; }
-    const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.heads = {}, RIM.mages = {}, RIM.embers = {}, RIM.priests = {}, RIM.kindled = {}, RIM.imps = {}, RIM.salams = {}), st = SIM.stats(h, ST.meta);
+    const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.heads = {}, RIM.mages = {}, RIM.embers = {}, RIM.priests = {}, RIM.kindled = {}, RIM.imps = {}, RIM.salams = {}, RIM.folk = []), st = SIM.stats(h, ST.meta);
     // a fuse's ring and light stay on its body: a lit smouldering skeleton knocked back carries them with it (TASKS 411)
     const fuseAt = (q) => { const o = R.en.find((b) => b.id === q.id); return o ? [o.x, o.y] : [q.x, q.y]; };
     bake(m); const seen = seenTex(R);
@@ -2087,23 +2208,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
       Y.push([sh.y, () => { L.shadow(sx(sh.x), sy(sh.y) + 2, 26, 6, 0.4);
-        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: R.shop.greetT, tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: Math.max(R.shop.greetT, R.town ? R.shop.callT ?? -9 : -9), tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
-    // the townsfolk (TASKS 1014) at rest at their places, facing their work; their work loops are TASKS 1015
-    if (m.town) m.town.npcs.forEach((n, i) => { if (!vis(n.x, n.y)) return;
-      const face = TOWN_FACE(m, n) >= n.x ? 1 : -1, id = 'npc' + i;
-      if (n.role === 'hen') { const nm = ['town_hen_white', 'town_hen_red', 'town_hen_grey'][i % 3], RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;
-        const [w, hh] = SZ(nm), ph = GT * 1.3 + i * 2.1, peck = Math.max(0, Math.sin(ph)) ** 6, neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i), tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7);
-        Y.push([n.y, () => { L.shadow(sx(n.x), sy(n.y) + 1, 9, 3, 0.4);
-          L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(sx(n.x), sy(n.y)), M.s(face, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
-        return; }
-      const nm = 'town_' + n.role; if (!RIGS[nm] || !window.ASSETS[nm + '__body']) return;
-      const H = SZ(nm)[1], seed = i * 1.7;
-      Y.push([n.y, () => { L.shadow(sx(n.x), sy(n.y) + 2, 0.24 * H, 6, 0.45);
-        L.inked(() => RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: sx(n.x), y: sy(n.y), H, t: GT, face, seed, U: {} })
-          : MONSTERS.biped({ id, n: nm, x: sx(n.x), y: sy(n.y), H, face, t: GT, seed, dist: 0, vx: 0, vy: 0, U: {}, Ufar: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]); });
+    // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
+    if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in
@@ -2236,6 +2346,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     (m.secrets || []).forEach((q, i) => { const P = q.trig; if (q.open || !P || inSecret(q)) return; const ph = (t + i * 1.73) % 5.2; if (ph > 0.35) return;
       const env = Math.sin(Math.PI * ph / 0.35), tc = P.k === 'sconce' ? m.torches[P.t] : null, x = tc ? tc.x - 8 : P.cx * TILE + 7, y = tc ? tc.y - 2 : P.cy * TILE + 6;
       if (vis(x, y) && known(x, y)) L.star(sx(x), sy(y), 12, [1, 0.94, 0.78], 0.5 * env); });
+    // the townsfolk's work (TASKS 1015): sparks off the anvil on the blow, embers up off the keeper's poke, the enchanter's blue flame
+    for (const q of RIM.folk) { const a = q.a || 0;
+      if (q.k === 'spark') for (let j = 0; j < 8; j++) { const an = -Math.PI / 2 + (rnd(q.seed, j) - 0.5) * 2.6, v = 70 + 90 * rnd(q.seed, j + 8), k = 1 - SS(0.15, 0.45, a);
+        L.star(q.x + Math.cos(an) * v * a, q.y + Math.sin(an) * v * a + 260 * a * a, 5, [1, 0.85, 0.5], k); }
+      if (q.k === 'spark' && a < 0.12) L.glow(q.x, q.y, 18, [1, 0.6, 0.25], 0.8 * (1 - a / 0.12));
+      if (q.k === 'embers') for (let j = 0; j < 9; j++) { const b = a - 0.1 * rnd(q.seed, j); if (b < 0) continue; const k = 1 - SS(0.5, 1.1, b), dx = (rnd(q.seed, j + 9) - 0.5) * 40 * b + 6 * Math.sin(b * 7 + j);
+        L.star(q.x + dx, q.y - (50 + 40 * rnd(q.seed, j + 3)) * b, 5, [1, 0.6, 0.22], k); }
+      if (q.k === 'flame') { const fl = 0.85 + 0.15 * Math.sin(t * 23 + q.seed); L.glow(q.x, q.y - 6, 22, [0.3, 0.55, 1], 0.9 * q.amt * fl); L.glow(q.x, q.y - 6, 7, [0.75, 0.9, 1], q.amt * fl, 4);
+        L.star(q.x, q.y - 10 - 3 * Math.sin(t * 9), 7, [0.6, 0.8, 1], 0.7 * q.amt); } }
     // the imps' sparks in hand, the salamanders' breath and their ripples in the lava (TASKS 407, 408)
     for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue; const E = D.ENEMIES[e.type];
       if (RIM.imps[e.id]) impSpark(e, E, RIM.imps[e.id], GT, t); if (RIM.salams[e.id] && e.br) breathFx(e, E, RIM.salams[e.id], GT, t); const sw = swimOf(e, GT); if (sw > 0.02) swimFx(e, E, sx(e.x), sy(e.y), sw, GT, t); }
@@ -3761,11 +3880,36 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let i = 0; i < 300; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.merchant_work = fr; }
     for (const [nm, k] of [['merchant_greet', 'greetT'], ['merchant_trade', 'tradeT'], ['merchant_hit', 'hitT']]) { const fr = []; let S = shopS((S) => { S.run.shop.greetT = -9; S.run.shop.tradeT = -9; S.run.shop[k] = S.t + 0.1; S.run.shop.away = 0; });
       for (let i = 0; i < 100; i++) { fr.push(S); S = structuredClone(S); for (let k2 = 0; k2 < 2; k2++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions[nm] = fr; }
+    // the townsfolk (TASKS 1015), subject npc<i>: each one's work loop over one loop, the walkers' strides (the porter with his crate,
+    // the child), the porter lifting his crate, a talk starting (as the hammer comes back up: the blow itself is faster than a pop);
+    // stills of a talk's first and second line and the merchant calling
+    const folkSubj = {}, folkCyc = {}, folkCycT = {}, folkSpr = {};
+    const folkS = (fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null;
+      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; SIM.step(S, { keys: [] }); S.ev = []; if (fn) fn(S, R, m, h); });
+    const folkAt = (R, role) => R.folk.find((q) => q.role === role), camOn = (R, f) => { R.cam = [f.x - VW / 2, f.y - 40 - VH / 2]; };
+    const atStop = (R, f, k) => { const st = R.map.town.npcs[f.i].route[k]; Object.assign(f, { x: st.x, y: st.y, way: k, go: 0, spd: 0, vx: 0, vy: 0 }); };
+    for (const role of ['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child']) { let i = 0, per = 1;
+      const base = folkS((S, R) => { const f = folkAt(R, role); i = f.i; per = D.folkClock(role, i, S.t).per; if (R.map.town.npcs[i].route) { atStop(R, f, 0); f.t0 = S.t; f.face = role === 'child' ? 1 : -1; } camOn(R, f); });
+      loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i; }
+    for (const [role, load] of [['porter', 1], ['child', 0]]) { const nm = 'town_' + role, H0 = SZ(nm)[1], RG = RIGS[nm], dd = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), v = D.FOLK[role].v;
+      const st = 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * H0 / RG.h; let i = 0;
+      folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => folkS((S, R) => { const f = folkAt(R, role), d = k * st / 12; i = f.i; const n = R.map.town.npcs[f.i];
+        Object.assign(f, { x: n.x + d, dist: d, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - VW / 2, n.y - 40 - VH / 2]; }));
+      folkCycT['folk_' + role + '_right'] = st / v; folkSubj['folk_' + role + '_right'] = 'npc' + i; folkSpr['folk_' + role + '_right'] = Object.keys(ASSETS).filter((a) => a.startsWith(nm + '__')); }
+    { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'porter'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.face = 1; camOn(R, f); });
+      transitions.folk_porter_take = Array.from({ length: 110 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_porter_take = 'npc' + i; }
+    { let i = 0; const base = folkS((S, R, m, h) => { const f = folkAt(R, 'smith'); i = f.i; const c = D.folkClock('smith', i, S.t); S.t += ((0.72 - c.u + 1) % 1) * c.per; h.x = f.x + 46; h.y = f.y + 16; f.near = 1; f.sayT = S.t + 0.1; f.sayN = 0; f.face = 1; camOn(R, f); });
+      transitions.folk_talk = Array.from({ length: 60 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_talk = 'npc' + i; }
+    states.push(['town_talk', folkS((S, R, m, h) => { const f = folkAt(R, 'smith'); h.x = f.x - 46; h.y = f.y + 18; f.near = 1; f.sayT = S.t - 1; f.sayN = 1; f.face = -1; camOn(R, f); })]);
+    states.push(['town_talk_line2', folkS((S, R, m, h) => { const f = folkAt(R, 'porter'); Object.assign(f, { x: 22 * TILE, y: 12 * TILE + 16, load: 1, go: 1, way: 2, face: -1 }); h.x = f.x - 60; h.y = f.y - 4; f.near = 1; f.sayT = S.t - 3.4; f.sayN = 2; camOn(R, f); })]);
+    states.push(['town_folk_talk_all', folkS((S, R, m, h) => { for (const f of R.folk) if (D.FOLK[f.role].lines) { f.near = 1; f.sayT = S.t - 1; f.sayN = 0; f.face = 1; } const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
+    states.push(['merchant_call', folkS((S, R, m, h) => { R.shop.callT = S.t - 0.7; R.shop.callN = 3; h.x = m.shop.x + 300; h.y = m.shop.y + 200; R.cam = [m.shop.x + 150 - VW / 2, m.shop.y + 100 - VH / 2]; })]);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
     const box = (name, S) => Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, W, H];
       if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
+      if (folkSubj[name] && R.folk) { const f = R.folk[+folkSubj[name].slice(3)]; return [f.x - R.cam[0] - 70, f.y - R.cam[1] - 120, 140, 136]; }
       const e = (enCycles[name] || loops[name]) && R.en[0];
       if (e && e.type === 'crab') { const hh = SZ('en_crab')[1]; return [e.x - R.cam[0] - 2 * hh, e.y - R.cam[1] - 2 * hh, 4 * hh, 4 * hh]; }
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
@@ -3881,11 +4025,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let i = 0; i < Math.ceil(span / SIM.DT); i++) SIM.step(S, { keys: [] });
       R.cam = [b.x - VW / 2, b.y - VH / 2]; R.msg = null;
     })]);
-    const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles),
+    const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles, folkCyc),
       sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, ['hero__cape', 'hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR', 'hero__body_nh', 'hero__body_back_nh', 'hero__head_kn', 'hero__head_back_kn', 'hero__farmL_pl', 'hero__farmR_pl', 'it_shield_t']])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
       subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_').slice(0, -1).join('_'); return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1)) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
       rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'eel', 'serpent', 'boss'], loops, attacks, swings, impacts, transitions, box };
+    Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);
+    out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter'].map((r) => 'folk_' + r));
     calm(out); return out;
   };
 })();

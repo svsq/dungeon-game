@@ -226,6 +226,9 @@
     equip: (o) => { noise(o, { d: 0.08, v: 0.2, f0: 1600, q: 2 }); tone(o, { type: 'triangle', f0: 900, d: 0.1, v: 0.06 }); },
     toss: (o) => noise(o, { d: 0.12, v: 0.15, type: 'lowpass', f0: 1200, f1: 300 }),
     buy: (o) => SFX.gold(o), trade: (o) => SFX.gold(o),
+    // the townsfolk (TASKS 1015): the anvil rings on the smith's blow; a few soft murmured syllables when someone speaks up
+    anvil: (o) => { noise(o, { d: 0.03, v: 0.25, type: 'highpass', f0: 2500 }); [1180, 1630, 2470].forEach((f, i) => tone(o, { type: 'triangle', f0: f, d: 0.5 - i * 0.1, v: 0.05 - i * 0.012 })); },
+    say: (o, e) => { const b = e.role === 'child' ? 330 : e.role === 'sweeper' || e.role === 'enchanter' ? 250 : 150; for (let i = 0; i < 3; i++) tone(o, { type: 'triangle', f0: b * rr(0.9, 1.15), f1: b * rr(0.8, 1), t: now() + i * 0.09, d: 0.08, v: 0.035 }); },
     shop: (o) => [1568, 2093].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.14, d: 0.5, v: 0.07 })),
   };
   // events heard everywhere on the floor (not attenuated by distance)

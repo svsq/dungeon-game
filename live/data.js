@@ -603,7 +603,33 @@
     lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
       'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
     hitLines: ['Эй! Я тут торгую, а не дерусь.', 'Осторожнее! Товар хрупкий.', 'Мечом скидку не выбьешь.'],
+    // in the town he calls the hero over from across the yard (TASKS 1015)
+    calls: ['Зелья! Свитки! Подходи!', 'Товар из самой крипты!', 'Эй, герой! Глянь, что есть!', 'Дёшево отдам, пока не передумал!'],
   };
+  // the townsfolk (R-17, TASKS 1015): a pair of lines when the hero comes up (the next pair the next time), the clock of the work
+  // loop (per s; hit: the loop's impact phase, rest: every rest-th loop is a breather) and, for those with a round, the walking
+  // speed and the pause at each stop. The sim's events (the anvil's ring, the keeper's sparks) and the render share one clock
+  const FOLK = {
+    smith: { name: 'Кузнец', per: 1.45, hit: 0.6, rest: 4, lines: [['Горн не любит ждать.', 'Принесёшь руды — скую и тебе.'],
+      ['Слышишь, как поёт железо?', 'Внизу оно только ржавеет.'], ['Не стой у наковальни.', 'Искры кусаются, проверено.']] },
+    enchanter: { name: 'Зачарователь', per: 7.5, hit: 0.55, lines: [['Тише. Руны не любят шума.', 'Эта колба — не для питья.'],
+      ['В крипте спят старые чары.', 'Найдёшь камень с узором — неси.'], ['Пламя синее — значит, верно.', 'Жёлтое — значит, беги.']] },
+    keeper: { name: 'Хранитель огня', per: 9, hit: 0.3, lines: [['Костёр горит, пока ты жив.', 'Вернёшься — согреет снова.'],
+      ['Я помню всех, кто спускался.', 'Возвращались не все.'], ['Посиди у огня, путник.', 'Тьма подождёт.']] },
+    guard: { name: 'Страж', per: 8, lines: [['Внизу крипта. Сам решай.', 'Назад дорога длиннее.'], ['Мертвецы там не спят.', 'Держи клинок наготове.'],
+      ['Стою тут двадцать лет.', 'Наверх лезут реже, чем ты думаешь.']] },
+    porter: { name: 'Носильщик', per: 1.7, v: 34, lines: [['Посторонись, ноша тяжёлая!', 'Торговцу всё мало товару.'],
+      ['Ящик туда, ящик сюда.', 'Так и живём.'], ['Говорят, внизу золото.', 'А я вот ящики таскаю.']] },
+    sweeper: { name: 'Метельщица', per: 1.25, pause: 7, v: 20, lines: [['Опять пепел нанесли!', 'Ноги вытирай, милок.'],
+      ['Подмету — и снова сажа.', 'Как у вас там внизу, чисто?'], ['Береги себя, сынок.', 'Метлой от мертвецов не отмашешься.']] },
+    child: { name: 'Мальчишка', per: 2.3, pause: 6, v: 42, lines: [['А ты правда был в крипте?', 'Я тоже пойду, когда вырасту!'],
+      ['Куры меня слушаются!', 'Почти всегда.'], ['А мечом дашь подержать?', 'Ну хоть чуть-чуть!']] },
+    hen: { per: 2.2 },
+  };
+  // how long a pair of lines shows (each line half of it)
+  const FOLK_SAY = 5;
+  // a townsperson's loop clock: its own rate and phase per instance, so no two move in sync
+  const folkClock = (role, i, t) => { const per = FOLK[role].per * (1 + 0.12 * (((i * 0.618) % 1) - 0.5)), x = (t + i * 1.37) / per, n = Math.floor(x); return { n, u: x - n, per }; };
   const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };
   const price = (it, f, rk) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((50 + 30 * it.lvl) * rk[it.rar] / 5) * 5);
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
@@ -714,7 +740,7 @@
     const ankle = side ? 172.5 : 74.5, foot = side ? 175.18155197657393 : 70.64176829268293, narrow = (123.5 - ankle) * 0.15;
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
-  root.DATA = { placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, folkClock, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
