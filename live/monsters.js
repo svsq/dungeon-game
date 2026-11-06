@@ -429,23 +429,40 @@
   };
 
   // a robed townsfolk rig (body to the hem, two-bone arms, a head on the neck): o.arms(side) → [r1, r2] poses the arms, o.lift
-  // raises the torso's parts (rig px), o.headR / o.headD turn and shift the head; at rest it only breathes
+  // raises the torso's parts (rig px), o.headR / o.headD turn and shift the head; at rest it only breathes.
+  // Walking (o.dist, o.vx, o.vy, TASKS 1031): the shoes below the hem are cut from the body and step in turn, phased by the distance
+  // walked so a planted shoe holds the floor; the body rides up over each passing step, rocks a little and the hem swings after the
+  // stepping leg. hem: the cut's row (a few rows of skirt go with the shoes, so a rising body leaves no gap); split: the column between
+  // the shoes; step: a shoe's travel either side of the hem (rig px), one stride = 4 steps' travel
+  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 20 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
+  MON.robeStride = (n, H) => { const q = ROBE[n]; return q && RIGS[n] ? 4 * q.step * H / RIGS[n].h : 0; };
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
-    const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1;
-    const S2 = (px, py) => [root[0] + f * (px - gx) * s, root[1] + (py - gy) * s];
+    const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, Q = ROBE[o.n];
+    const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? (o.dist || 0) / MON.robeStride(o.n, o.H) * TAU : 0;
+    const bob = run * 1.5 * Math.sin(ph) ** 2, rot = f * run * 0.022 * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
+    const S2 = (px, py) => { const x = f * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);
     // o.handTarget(side) → a screen point the hand reaches for (two-bone IK), or null to keep o.arms' angles
     const arm = (side) => { let r = o.arms ? o.arms(side, breath) : [(side === 'L' ? 1 : -1) * 0.03 * breath, 0.05 * breath], S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
-      const T = o.handTarget && o.handTarget(side); if (T) r = reach(RG, side, [gx + (T[0] - root[0]) / (f * s), gy + (T[1] - root[1]) / s - lift], side === 'L' ? 1 : -1);
+      const T = o.handTarget && o.handTarget(side); if (T) { const d = [T[0] - root[0], T[1] - root[1]], u = [d[0] * rc + d[1] * rs, -d[0] * rs + d[1] * rc]; r = reach(RG, side, [gx + u[0] / (f * s), gy + (u[1] + bob) / s - lift], side === 'L' ? 1 : -1); }
       const E = rotP([E0[0], E0[1] + lift], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + lift], Sp, r[0]), E, r[1] - r[0]); return { S0, E0, Sp, E, Hd, r }; };
     const A = { L: arm('L'), R: arm('R') };
-    const part = (nm, pv, at, rot) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.s(f, 1), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
+    const part = (nm, pv, at, r) => L.sprite(o.n + '__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot), M.s(f, 1), M.r(r)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
     // the drawing's own layering: mirrored, the near arm stays near
     const far = 'L', near = 'R', drawArm = (sd) => { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]);
       if (o.hold && o.hold[sd]) MON.tool(o.id, o.hold[sd], S2(...a.E), S2(...a.Hd), f, o.U); };
     drawArm(far);
-    L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...root), M.s(f, 1)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    if (Q) {
+      // a shoe's place off the hem over its phase: planted from +step back to -step, then lifted and swung forward again
+      const shoe = (x0, x1, k) => { const q = ((ph + k * Math.PI) % TAU + TAU) % TAU, st = q < Math.PI, x = st ? Q.step * (1 - 2 * q / Math.PI) : -Q.step * Math.cos(q - Math.PI),
+          up = st ? 0 : 7 * Math.sin(q - Math.PI), w = (x1 - x0) * s, h = (RG.h - Q.hem) * s;
+        L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(root[0] + f * (x0 - gx + run * x) * s, root[1] + (Q.hem - gy - run * up) * s), M.s(f, 1)), w, h, src: [x0 / RG.w, Q.hem / RG.h, x1 / RG.w, 1], u: o.U }); };
+      // the far shoe (the drawing's right one, standing higher) first
+      shoe(Q.split, RG.w, 1); shoe(0, Q.split, 0);
+      L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...S2(gx, gy)), M.r(rot), M.s(f, 1)), w: RG.w * s, h: (Q.hem + 8) * s, src: [0, 0, 1, (Q.hem + 8) / RG.h], pivot: [gx * s, gy * s], pad: 0.04,
+        u: Object.assign({}, o.U, { lean: [-0.03 * run * Math.cos(ph), 1] }) }); }
+    else L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...root), M.s(f, 1)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
     const hd = o.headD || [0, 0], hy = lift * 0.8 + hd[1];
     part('head', RG.neck, [RG.neck[0] + hd[0], RG.neck[1] + hy], o.headR || 0);
     drawArm(near);

@@ -869,8 +869,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u);
       if (look) return drawFolkRig(f, n, nm, X, Yg, H, -face, GT, Y, { hold, handTarget: (sd) => (sd === 'R' ? [X - face * 0.24 * H, Yg - 0.42 * H] : null), lean: -lean, headR });
     } else if (f.role === 'porter') {
-      // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down
-      const cw = 0.3 * H, chest = P(0.2, -0.46), floor = P(0.33, -0.14), act = atStop && stop && stop.act;
+      // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
+      // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
+      const cw = 0.3 * H, chest = P(0.2, -0.46), floor = P(0.33, -0.14), act = atStop && f.lift;
       let k = f.load ? 1 : 0, bend = 0;
       if (act === 'take') { k = SS(0.3, 1.15, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); } else if (act === 'drop') { k = 1 - SS(0.35, 1.2, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); }
       const hasCrate = f.load || act === 'drop', cp = lerp2(floor, chest, k);
@@ -896,7 +897,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const abs = Math.atan2(dir[1], dir[0] * face);
       tg = { R: hr, L: [hr[0] + dir[0] * 0.24 * L0, hr[1] + dir[1] * 0.24 * L0] };
       hold = { R: TOOL('town_tool_broom', grip, { abs }) };
-      robe = { lift: sweeping ? 4 : 1.5 * Math.abs(Math.sin(f.dist / 9)), headR: sweeping ? 0.16 : 0.05 };
+      robe = { lift: sweeping ? 4 : 0, headR: sweeping ? 0.16 : 0.05 };
       if (tw > 0) { tg.L = lerp2(tg.L, talkR, tw); robe.headR = lerp1(robe.headR, -0.05, tw); }
       if (sweeping) { const q = Math.sin(ph); if (Math.abs(q) > 0.7) fx = { k: 'dust', x: hr[0] - dir[0] * (1 - grip) * L0, y: hr[1] - dir[1] * (1 - grip) * L0, amt: (Math.abs(q) - 0.7) / 0.3, seed: c.n * 2 + (q > 0 ? 1 : 0) + i }; }
     } else if (f.role === 'enchanter') {
@@ -910,14 +911,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (tw > 0 && !robe) headR = lerp1(headR, -0.06 + 0.04 * Math.sin(GT * 4.1 + i), tw);
     drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, { hold, handTarget: (sd) => tg[sd] || null, lean, headR, crouch, front, robe, fx });
     // the crate the porter set down by the merchant waits there until he brings the next
-    if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && stop && stop.act === 'drop';
+    if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
       if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); } }
   }
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;
     Y.push([f.y, () => { L.shadow(X, Yg + 2, 0.24 * H, 6, 0.45);
       let hand = null;
-      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, seed, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
+      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
         : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, t: GT, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, Ufar: {}, hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, crouch: o.crouch, front: o.front });
         if (r && fx && fx.hand) hand = r.hand ? r.hand(fx.hand) : r.R2U(r.arms[fx.hand].Hd[0], r.arms[fx.hand].Hd[1]); }, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
       if (fx) RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] } : {}));
@@ -4202,12 +4203,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const role of ['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child']) { let i = 0, per = 1;
       const base = folkS((S, R) => { const f = folkAt(R, role); i = f.i; per = D.folkClock(role, i, S.t).per; if (R.map.town.npcs[i].route) { atStop(R, f, 0); f.t0 = S.t; f.face = role === 'child' ? 1 : -1; } camOn(R, f); });
       loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i; }
-    for (const [role, load] of [['porter', 1], ['child', 0]]) { const nm = 'town_' + role, H0 = SZ(nm)[1], RG = RIGS[nm], dd = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), v = D.FOLK[role].v;
-      const st = 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * H0 / RG.h; let i = 0;
+    // every townsperson with a round has a walk (TASKS 1031): the cycles come from the town's rounds, and a rig with no gait fails here
+    const walkers = Object.keys(DUNGEON.TOWN.routes);
+    for (const role of walkers) { const nm = 'town_' + role, H0 = SZ(nm)[1], RG = RIGS[nm], dd = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), v = D.FOLK[role].v, load = role === 'porter' ? 1 : 0;
+      const st = RG.hipL ? 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * H0 / RG.h : MONSTERS.robeStride(nm, H0); let i = 0;
+      if (!st) throw new Error('folk: the ' + role + ' walks a round but its rig has no gait');
       folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => folkS((S, R) => { const f = folkAt(R, role), d = k * st / 12; i = f.i; const n = R.map.town.npcs[f.i];
         Object.assign(f, { x: n.x + d, dist: d, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - VW / 2, n.y - 40 - VH / 2]; }));
       folkCycT['folk_' + role + '_right'] = st / v; folkSubj['folk_' + role + '_right'] = 'npc' + i; folkSpr['folk_' + role + '_right'] = Object.keys(ASSETS).filter((a) => a.startsWith(nm + '__')); }
-    { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'porter'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.face = 1; camOn(R, f); });
+    { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'porter'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.lift = 'take'; f.face = 1; camOn(R, f); });
       transitions.folk_porter_take = Array.from({ length: 110 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_porter_take = 'npc' + i; }
     { let i = 0; const base = folkS((S, R, m, h) => { const f = folkAt(R, 'smith'); i = f.i; const c = D.folkClock('smith', i, S.t); S.t += ((0.72 - c.u + 1) % 1) * c.per; h.x = f.x + 46; h.y = f.y + 16; f.near = 1; f.sayT = S.t + 0.1; f.sayN = 0; f.face = 1; camOn(R, f); });
       transitions.folk_talk = Array.from({ length: 60 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_talk = 'npc' + i; }

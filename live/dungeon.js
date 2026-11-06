@@ -2195,7 +2195,7 @@
     // the rounds of those who walk (TASKS 1015): stops in cells, 'take' / 'drop' where the porter lifts and sets down his crate (from the
     // canvas stall to the merchant), the others pause at each stop to sweep or to scatter grain; the round loops back to the start
     routes: { porter: [[45, 10, 'take'], [34, 10], [22, 12], [22, 10, 'drop'], [22, 12], [34, 10]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]] },
-    npcs: [['smith', 35, 8], ['enchanter', 40, 14], ['keeper', 29, 16], ['guard', 30, 10], ['porter', 32, 11], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 12, 17]],
+    npcs: [['smith', 35, 8], ['enchanter', 40, 14], ['keeper', 29, 16], ['guard', 30, 10], ['porter', 32, 11], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18]],
     // ruin stubs the seed picks some of, and spots for the small decor
     stubs: [[9, 6], [44, 7], [10, 27], [45, 29], [5, 26], [49, 13], [12, 14]],
     small: [['barrel', 13, 8], ['crate', 21, 8], ['barrel', 20, 11], ['crate', 33, 8], ['barrel', 41, 8], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],

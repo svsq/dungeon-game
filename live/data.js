@@ -917,7 +917,10 @@
     const ankle = side ? 172.5 : 74.5, foot = side ? 175.18155197657393 : 70.64176829268293, narrow = (123.5 - ankle) * 0.15;
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
-  const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
+  // a walker starts standing at a stop of its round (the one it is placed on, give or take the seed's nudge, else the round's last): a first leg from off the round
+  // ran into the forge's corner, and the porter skipped his pick-up and walked to the merchant empty-handed (TASKS 1031)
+  const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1;
+    return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
   root.DATA = { FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, NAMED, storyChain, plural, reqLvl, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, BRINK, surgeLevel, MAGMA_HALLS,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;

@@ -1360,10 +1360,11 @@
       if (folkTalk(f, t)) f.face = h.x >= f.x ? 1 : -1;
       if (!route) { f.spd = 0; continue; }
       let want = 0, ux = 0, uy = 0;
-      if (!folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way])) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; }
+      if (!folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way])) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
       if (f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
         if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
-          if (tg.act === 'take') f.load = 1; else if (tg.act === 'drop') f.load = 0; if (tg.act) ev(S, { k: 'toss', x: f.x, y: f.y }); }
+          // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
+          f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); } }
         else { want = Math.min(FD.v, d * 3 + 8); ux = dx / d; uy = dy / d; } }
       f.spd += (want - f.spd) * Math.min(1, 7 * DT);
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
@@ -4431,14 +4432,22 @@
     for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 34))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
     for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
-      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(); let close = 9, off = 0, rings = 0;
+      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = []; let close = 9, off = 0, rings = 0, empty = 0;
       for (let i = 0; i < 120 * 120; i++) { const t0 = S.t; step(S, { keys: [] }); rings += S.ev.filter((e) => e.k === 'anvil' && e.t > t0).length;
-        for (const f of F) { if (!f.go && f.way >= 0) stops[f.i].add(f.way); if (f.role === 'porter') loads.add(f.load); if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
+        for (const f of F) { if (!f.go && f.way >= 0) stops[f.i].add(f.way); stuck[f.i] = Math.max(stuck[f.i], f.stuck);
+          if (f.role === 'porter') { loads.add(f.load); if (f.lift && lifts[lifts.length - 1]?.t !== f.t0) lifts.push({ k: f.lift, t: f.t0 });
+            const st = m.town.npcs[f.i].route[f.way]; if (!f.go && st.act && f.t0 === S.t && !f.lift) empty++; } if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
           for (const o of F) if (o.i > f.i) close = Math.min(close, Math.hypot(o.x - f.x, (o.y - f.y) * 1.4) / (folkR(o) + folkR(f))); } }
       for (const f of F) { const n = m.town.npcs[f.i]; if (n.route && stops[f.i].size < n.route.length) out.push(`folk ${sd}: the ${f.role} reaches ${stops[f.i].size} of ${n.route.length} stops in two minutes`); }
       if (close < 0.8) out.push(`folk ${sd}: two townsfolk pass through each other (${close.toFixed(2)} of their radii)`);
       if (off) out.push(`folk ${sd}: a walker steps off the open floor ${off} times`);
       if (loads.size < 2) out.push(`folk ${sd}: the porter never lifts or sets down his crate`);
+      // TASKS 1031: the porter's first round as every other: the crate taken up first and within his first leg, every set-down after
+      // a pick-up, no stop of his reached with nothing to do there; no walker stands blocked long enough to give up a stop
+      if (!lifts.length || lifts[0].k !== 'take' || lifts[0].t > 15) out.push(`folk ${sd}: the porter's first round does not start with the pick-up (${lifts[0] ? lifts[0].k + ' at ' + lifts[0].t.toFixed(1) + ' s' : 'none'})`);
+      if (lifts.some((q, j) => j && q.k === lifts[j - 1].k)) out.push(`folk ${sd}: the porter lifts or sets down twice running: a crate out of nowhere`);
+      if (empty) out.push(`folk ${sd}: the porter comes to a pick-up or a set-down with nothing to do ${empty} times`);
+      for (const f of F) if (stuck[f.i] > 2) out.push(`folk ${sd}: the ${f.role} stands blocked ${stuck[f.i].toFixed(1)} s`);
       if (rings < 40) out.push(`folk ${sd}: the anvil rings ${rings} times in two minutes`);
       const smith = F.find((f) => f.role === 'smith'); h.x = smith.x - 50; h.y = smith.y + 10; const t0 = S.t; step(S, { keys: [] });
       if (smith.sayT !== t0 + DT && smith.sayT !== S.t || !S.ev.some((e) => e.k === 'say' && e.role === 'smith')) out.push(`folk ${sd}: the smith says nothing to the hero beside him`);
