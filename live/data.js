@@ -694,6 +694,11 @@
   // crystals in mirrored rows on the floor with an aisle between, stacks of barrels and crates in corners, a table with candles by
   // a side wall, pots in a line along one, bones by the walls; the middle and the ways in stay open. `need`: the plan suits a room
   // whose biome (or zone) has any of these props; `w`: its weight among the plans that suit
+  // the shapes of the rooms-and-corridors floors' rooms (dungeon.js, TASKS 374), each a weight p of a room's draw: rect, a box; L
+  // and T, a box with a foot or a stem; cross; round, an oval hall; colonnade, a long hall with two rows of pillars; pit, a hall
+  // round a chasm in its middle (a combat room's: no fire, stairs or altar stands by it); gallery, long and narrow; closet, a small
+  // room off the way (never the start, the stairs, the merchant or the altar); hall, a big one (maps from `from` cells wide)
+  const ROOM_SHAPES = { rect: { p: 34 }, L: { p: 12 }, T: { p: 10 }, cross: { p: 9 }, round: { p: 8 }, colonnade: { p: 8 }, pit: { p: 7 }, gallery: { p: 5 }, closet: { p: 4 }, hall: { p: 3, from: 72 } };
   const ROOM_PLANS = {
     arena: { need: [], w: 0, bones: 0 },
     armory: { need: ['rack'], w: 3, back: { n: ['rack'], mode: 'row', max: 3 }, stacks: 1, table: 0.4, bones: 1 },
@@ -704,6 +709,8 @@
     crypt: { need: ['coffin', 'grave'], w: 3, back: { n: ['statue', 'pillar'], mode: 'pairs', max: 1 }, floor: { n: ['coffin', 'grave'], mode: 'rows' }, bones: 2 },
     sanctum: { need: ['crystal'], w: 3, back: { n: ['bookshelf', 'statue'], mode: 'pairs', max: 1 }, floor: { n: ['crystal'], mode: 'pair' } },
     store: { need: [], w: 2, stacks: 2, table: 0.3, bones: 1, side: 'pot' },
+    // a colonnade room's (TASKS 374): never drawn for another room
+    colonnade: { need: ['pillar', 'statue'], w: 0, floor: { n: ['pillar', 'statue'], mode: 'colonnade' }, stacks: 1, bones: 1 },
     // a cave hall's dressing (dungeon.js, TASKS 306), [min, max] of each: `rocks` stalagmites and boulders against the rock (a
     // crystal now and then by the water), more in a big hall; `skel` dead explorers sat against it, `bones` by it; `stacks` of
     // barrels and crates; `wreck` a boat's wreck on the shore of deep water; `tent` an abandoned camp. They need the cave's own
@@ -743,7 +750,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { ROOM_SHAPES, FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
