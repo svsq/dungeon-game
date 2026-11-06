@@ -113,7 +113,7 @@
       const spin = (o.n === 'colossus' && ribs ? ((Math.cos(CK.dir ?? 0) >= 0 ? 1 : -1) * 1.35 - lean) * SS(0.12, 0.9, cr) : (ribs ? (hsh(key, 4) - 0.5) * (top ? 0.5 : 1) : (hsh(key, 4) - 0.5) * 3 * sc) * SS(0, tl + 0.12, tt)) + roll / (0.1 * H);
       return (CR[key] = M.of(M.t(c[0] + dx, c[1] + dy), M.r(spin), M.t(-c[0], -c[1]))); };
     const piece = (key, at, f, c) => { const m = crOf(key, at, c), pre = L.pre; if (m) L.pre = pre ? M.mul(pre, m) : m; try { f(); } finally { L.pre = pre; } };
-    const tx = o.tex || o.n, part = (nm, pv, at, rot, u, k = 1, up = 0) => piece(nm, at, () => L.sprite(tx + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(face, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u }));
+    const tx = o.tex || o.n, part = (nm, pv, at, rot, u, k = 1, up = 0, fx = 1) => piece(nm, at, () => L.sprite(tx + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(face * fx, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u }));
     const drawLeg = (side, u) => { const g = legs[side];
       part('thigh' + side, g.H0, R2S(g.Hp[0], g.Hp[1]), g.r1, u, g.k1); part('shin' + side, g.K0, R2S(g.K[0], g.K[1]), g.r2, u, g.k2); part('foot' + side, g.A0, R2S(g.T[0], g.T[1]), -g.lift * 0.02, u); };
     const drawArm = (side, u) => { const A = arms[side]; part('uarm' + side, A.S0, R2U(A.Sp[0], A.Sp[1]), A.r1, u, 1, lean); part('farm' + side, A.E0, R2U(A.E[0], A.E[1]), A.r2, u, 1, lean); };
@@ -156,8 +156,9 @@
     if (RG.earL) { const flop = 0.11 * run * Math.sin(2 * ph - 1.1) + 0.03 * breath + (o.ear || 0);
       for (const [sd, sg] of [['L', -1], ['R', 1]]) { const P = RG['ear' + sd], r = sg * flop * (sd === 'L' ? 1 : 0.85), Pd = [P[0], P[1] + hipDy];
         part('ear' + sd, P, R2U(...Pd), r, o.U, 1, lean); L.joint(o.id, 'ear' + sd, R2U(...rotP([RG['ear' + sd + 'Tip'][0], RG['ear' + sd + 'Tip'][1] + hipDy], Pd, r))); } }
-    // townsfolk carry a head and a hip sword cut from the body: the head turns about the neck (o.headR), the sword hangs from the belt
-    for (const nm of ['sword', 'head']) if (RG[nm] && RG.parts && RG.parts.includes(nm)) part(nm, RG[nm], R2U(RG[nm][0], RG[nm][1] + hipDy), nm === 'head' ? o.headR || 0 : -lean * 0.6 + 0.02 * breath, o.U, 1, lean);
+    // townsfolk carry a head and a hip sword cut from the body: the head turns about the neck (o.headR) and looks the other way
+    // over the shoulder (o.headF, 1 → −1: the head alone is mirrored, narrowed on the way), the sword hangs from the belt
+    for (const nm of ['sword', 'head']) if (RG[nm] && RG.parts && RG.parts.includes(nm)) part(nm, RG[nm], R2U(RG[nm][0], RG[nm][1] + hipDy), nm === 'head' ? o.headR || 0 : -lean * 0.6 + 0.02 * breath, o.U, 1, lean, nm === 'head' ? o.headF ?? 1 : 1);
     // what the near arm holds in front of the body (the porter's crate)
     if (o.front) o.front((sd) => R2U(arms[sd].Hd[0], arms[sd].Hd[1]));
     drawArm('R', o.U); held('R', o.U);
