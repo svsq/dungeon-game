@@ -447,7 +447,8 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     // soot and ash: the ground darkens toward a drop or the lava and greys with ash flecks there
     float edge = 1.0 - smoothstep(0.47, 0.72, op), hotEdge = smoothstep(0.18, 0.5, la), ash = hash(floor(w / 2.0) + 0.37);
     col *= 1.0 - 0.45 * max(edge, hotEdge) * (0.6 + 0.4 * fbm(w / 11.0));
-    if (ash > 0.985 - 0.06 * max(edge, hotEdge)) col = mix(col, vec3(0.42, 0.4, 0.39), 0.7);
+    // (TASKS 457, r421 r2 p. 3.1: dark grit on the slabs too, as the ref's; light ash flecks by the edges)
+    if (ash < 0.06) col *= 0.55; else if (ash > 0.99 - 0.06 * max(edge, hotEdge)) col = mix(col, vec3(0.42, 0.4, 0.39), 0.7);
     // cooled crust along the lava's bank
     if (la > 0.3) { col = mix(col, gCrust(w + 53.0), smoothstep(0.3, 0.42, la)); }
     // the ground by the lava cracks hot: thin seams from a noise field's contours, densest at the bank, dull red further off

@@ -7,6 +7,8 @@ decals are Codex art since 421.
   banner_mg       the cult banner hung from a crossbar between two iron posts (it stands on the plateau, no wall to hang on)
   python3 tools/magmaprops.py
 """
+import sys
+
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -14,6 +16,8 @@ K = 8
 INK = (6, 5, 6)
 BAS = [(14, 13, 14), (28, 26, 27), (46, 43, 43), (74, 69, 68), (104, 98, 96)]
 OBS = [(9, 7, 11), (24, 18, 30), (44, 33, 54), (82, 66, 96), (150, 132, 160)]
+OBS_GLASS = {(82, 66, 96): (28, 26, 27), (44, 33, 54): (14, 13, 14), (24, 18, 30): (6, 5, 6), (9, 7, 11): (6, 5, 6)}
+OBS_EDGE = (120, 118, 128)
 ASH = [(40, 37, 36), (62, 58, 56), (92, 86, 82), (128, 120, 114)]
 
 
@@ -34,6 +38,56 @@ def reshade(src, ramp, cuts, green_to=None):
     out[ink, :3] = INK
     out[..., 3] = a[..., 3]
     return Image.fromarray(out.astype(np.uint8))
+
+
+def glass(im):
+    a = np.asarray(im.convert('RGBA')).copy(); rgb = a[..., :3].astype(int)
+    pal = np.array(OBS + [INK]); idx = np.argmin(((rgb[:, :, None, :] - pal[None, None]) ** 2).sum(-1), axis=-1)
+    light = (idx == 4) & (a[..., 3] > 128)
+    solid = a[..., 3] > 128; p = np.pad(idx, 1, mode='edge'); ps = np.pad(solid, 1)
+    darker = np.zeros_like(solid)
+    for dy, dx in ((0, 1), (2, 1), (1, 0), (1, 2)):
+        darker |= (p[dy:dy + idx.shape[0], dx:dx + idx.shape[1]] < 4) & ps[dy:dy + idx.shape[0], dx:dx + idx.shape[1]]
+    for i, c in enumerate(pal):
+        a[(idx == i) & solid, :3] = OBS_GLASS.get(tuple(c), c)
+    a[light, :3] = OBS_GLASS[OBS[3]]
+    a[light & darker, :3] = OBS_EDGE
+    return Image.fromarray(a)
+
+
+FERN_GROW, CLOSE = 5, 12
+
+
+def defern(im, src):
+    """the fern leaf left from boulder_b's greenery: its pixels outside the stone mass go clear, over stone they take the median of the stone around"""
+    from scipy import ndimage as nd
+    b = np.asarray(Image.open(src).convert('RGBA')).astype(int); a = np.asarray(im.convert('RGBA')).copy()
+    green = (b[..., 1] > b[..., 0] + 20) & (b[..., 3] > 0)
+    lab, n = nd.label(nd.binary_dilation(green, iterations=3))
+    fern = np.zeros_like(green)
+    for i, sl in enumerate(nd.find_objects(lab), 1):
+        if (lab[sl] == i).sum() >= 300 and sl[1].start >= 540:
+            fern |= nd.binary_dilation(lab == i, iterations=FERN_GROW)
+    solid = a[..., 3] > 128
+    fern &= solid
+    keep = solid & ~fern
+    stone = nd.binary_closing(keep, structure=np.ones((3, 3)), iterations=CLOSE)
+    stone = nd.binary_fill_holes(nd.binary_opening(stone, structure=np.ones((3, 3)), iterations=3) | keep)
+    a[fern & ~stone] = 0
+    for y, x in np.argwhere(fern & stone):
+        win = (slice(max(0, y - 10), y + 11), slice(max(0, x - 10), x + 11))
+        k = keep[win]
+        a[y, x, :3] = np.median(a[win][k][:, :3], axis=0).astype(np.uint8) if k.any() else BAS[2]
+        a[y, x, 3] = 255
+    near = nd.binary_dilation(fern, iterations=40)
+    lab2, n2 = nd.label(a[..., 3] > 0, np.ones((3, 3)))
+    for i in range(1, n2 + 1):
+        c = lab2 == i
+        if c.sum() < 2500 and (c & near).any(): a[c] = 0
+    now = a[..., 3] > 0
+    thin = now & ~nd.binary_dilation(nd.binary_opening(now, structure=np.ones((3, 3)), iterations=3), structure=np.ones((3, 3)), iterations=3)
+    a[thin & near] = 0
+    return Image.fromarray(a)
 
 
 def charred(src):
@@ -75,11 +129,12 @@ def banner():
 if __name__ == '__main__':
     out = {
         'boulder_mg_a': reshade('art/gen/boulder_a.png', [INK, BAS[1], BAS[2], BAS[3], BAS[4]], [0.08, 0.18, 0.3, 0.46], green_to=2),
-        'boulder_mg_b': reshade('art/gen/boulder_b.png', [INK, BAS[1], BAS[2], BAS[3], BAS[4]], [0.08, 0.18, 0.3, 0.46], green_to=2),
-        'obsidian_mg': reshade('art/gen/crystal_cv.png', [INK] + OBS[1:], [0.1, 0.3, 0.5, 0.72]),
+        'boulder_mg_b': defern(reshade('art/gen/boulder_b.png', [INK, BAS[1], BAS[2], BAS[3], BAS[4]], [0.08, 0.18, 0.3, 0.46], green_to=2), 'art/gen/boulder_b.png'),
+        'obsidian_mg': glass(reshade('art/gen/crystal_cv.png', [INK] + OBS[1:], [0.1, 0.3, 0.5, 0.72])),
         'skel_mg': charred('art/gen/skel_cv.png'),
         'banner_mg': banner(),
     }
-    for n, im in out.items():
+    only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(out)
+    for n, im in ((k, out[k]) for k in only):
         a = np.asarray(im.convert('RGBA')).copy(); a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)   # hard alpha, as every prop since 327
         Image.fromarray(a).save(f'art/gen/{n}.png'); print('art/gen/%s.png' % n, im.size)
