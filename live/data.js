@@ -42,7 +42,7 @@
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
-    boss_serpent: { hp: 1650, dmg: 55, scale: 1, phases: [
+    boss_serpent: { hp: 2000, dmg: 55, scale: 1, phases: [
       { at: 1, moves: ['wave', 'fan', 'bite', 'tail'], rest: 1.35, speed: 0 },
       { at: 0.55, moves: ['fan', 'bite', 'wave', 'tail'], rest: 1.1, speed: 0 }
     ], swim: 1.1, warn: 1, rise: 0.65, dive: 0.6, moves: {
@@ -377,8 +377,8 @@
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
-      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.3, 1, 1], elite: [0.10, 0.13, 0.07, 0.06], mob: 0.85, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
-    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3,
+      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.2], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
+    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
     // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); laid out as plateaus
@@ -424,7 +424,7 @@
   const stageOf = (mode, f, seed = 0) => { if (runOf(mode).endless) return endlessStage(f, seed); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
     n = c ? N.floors : M.chapter || M.floors;
     return { N, lf, n, depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
-      elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || 1 }; };
+      elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1 }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
   // the caves' packs by role (TASKS 312), a hall's weight for each when it can hold it: line, a crab or two just inside the way the
   // hero comes in with the archers (and from the 3rd floor a mage) at the far end behind them; shore, drowned in the hall's shallows;
