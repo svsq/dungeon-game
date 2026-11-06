@@ -44,10 +44,11 @@ function route(R, goal, banned) {
 // arrow keys toward the next cell centre, a fresh route twice a second (the walkers move); a cell the hero stays stuck by is
 // banned from the next routes; reached, he lets go of the keys and must still stand where the predicate holds
 function walk(S, goal, maxT = 50) {
-  const R = S.run, h = R.hero, t0 = S.t, banned = new Set(); let path = null, plan = -9, k = 0, best = Infinity, bestT = S.t, stuck = 0, dist = 0;
+  const R = S.run, h = R.hero, t0 = S.t, banned = new Set(); let path = null, plan = -9, k = 0, best = Infinity, bestT = S.t, stuck = 0, dist = 0, wait = null;
   while (S.t - t0 < maxT) {
     if (goal(R)) { for (let i = 0; i < 40 && Math.hypot(h.vx, h.vy) > 1; i++) stepIn(S); if (goal(R)) return { ok: 1, t: +(S.t - t0).toFixed(2), dist: Math.round(dist), stuck }; }
-    if (!path || S.t - plan > 0.5) { path = route(R, goal, banned); plan = S.t; k = 0; if (!path) return { ok: 0, why: 'no route', at: [Math.round(h.x), Math.round(h.y)] }; best = Infinity; }
+    // a walker by a service has no cell beside him clear of the service's reach for a while: wait up to 4 s for him to walk on
+    if (!path || S.t - plan > 0.5) { path = route(R, goal, banned); plan = S.t; k = 0; if (!path) { if (S.t - (wait ??= S.t) < 4) { stepIn(S); continue; } return { ok: 0, why: 'no route', at: [Math.round(h.x), Math.round(h.y)] }; } wait = null; best = Infinity; }
     while (k < path.length - 1 && Math.hypot(path[k][0] - h.x, path[k][1] - h.y) < 10) k++;
     const [wx, wy] = path[k] || [h.x, h.y], dx = wx - h.x, dy = wy - h.y, left = path.slice(k).length + Math.hypot(dx, dy) / TILE;
     if (left < best - 0.25) { best = left; bestT = S.t; }
@@ -100,6 +101,8 @@ for (const seed of seeds) for (const N of floors) {
     .reduce((a, b) => (Math.hypot(b.cx * TILE - R.map.spawn.x, b.cy * TILE - R.map.spawn.y) > Math.hypot(a.cx * TILE - R.map.spawn.x, a.cy * TILE - R.map.spawn.y) ? b : a));
   h.x = (rm.cx + 0.5) * TILE; h.y = (rm.cy + 0.5) * TILE; h.ifr = 1e9;
   for (const e of R.en) if (Math.hypot(e.x - h.x, e.y - h.y) < 900) { e.hp = 0; e.deadT = S.t; } else { e.st = 'idle'; }
+  // and the spikes round the spot taken out (a hall's spike row, tasks 377 and 507, struck through the reading on seed 3)
+  R.map.traps = R.map.traps.filter((q) => Math.hypot(q.x - h.x, q.y - h.y) > 120);
   const c = R.chests.find((q) => !q.open); if (c) SIM.openChest(S, R, c);
   R.drops.push({ id: R.nextId++, kind: 'gold', x: h.x + 40, y: h.y, vx: 0, vy: 0, z: 0, vz: 0, n: 77, t0: S.t, rest: 4 });
   for (let i = 0; i < 120; i++) stepIn(S); h.ifr = 0;
@@ -138,7 +141,7 @@ const REQUIRED = ['zone_town', 'town_services', 'town_npc', 'town_portal', 'town
 const townState = (n) => REQUIRED.includes(n) || /^(town_|quest_|journal|climb_|way_|merchant_|shop_wander|scroll_read|folk_)/.test(n);
 // the promise of each prompt: the words on it and what E must then open
 const PROMISE = [[/Алтарь душ/, 'meta'], [/сундук-хранилище/, 'stash'], [/кузнец/, 'craft:forge|talk:smith'], [/зачарователь/, 'craft:enchant'], [/торговать/, 'shop'],
-  [/спуститься в крипту/, 'floor 1'], [/портал на этаж (\d+)/, 'floor $1'], [/врата/, 'gate']];
+  [/спуститься на 1-й этаж/, 'floor 1'], [/портал на этаж (\d+)/, 'floor $1'], [/врата/, 'gate']];
 if (!args.includes('--sim-only')) {
   const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
   const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
