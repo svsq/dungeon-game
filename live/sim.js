@@ -419,7 +419,7 @@
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
     reveal(R); ev(S, { k: 'floor', x: h.x, y: h.y, f });
-    R.msg = { s: D.placeName(f, R.mode, R.seed), t: S.t };
+    R.msg = { s: D.placeName(f, R.mode, R.seed, m), t: S.t };
     S.saveN++;
   }
 
@@ -461,10 +461,10 @@
     const m = R.map, h = R.hero, t = S.t, dashing = t - h.dashT < BAL.dodge.t;
     m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(t / z.per + z.ph), tag = R.floor + ':' + i;
       if (c0 < z.per - H.warn && c >= z.per - H.warn) ev(S, { k: 'hazwarn', x: z.x, y: z.y, h: z.k, i });
-      if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : 0.15)); }
+      if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : z.k === 'surge' ? 'surge' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420 || (z.k === 'surge' && D.hazIn(z, h.x, h.y))) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : z.k === 'surge' ? 0.2 : 0.15)); }
       if (c >= H.burst) return;
       if (h.hp > 0 && D.hazIn(z, h.x, h.y) && !dashing && (h.haz || (h.haz = {}))[tag] !== n) { h.haz[tag] = n;
-        hurtHero(S, R, heroSt(S).maxHp * H.hp, z.x, z.y - 10, 'spike', z.k === 'vent' ? 'vent' : 'rock');
+        hurtHero(S, R, heroSt(S).maxHp * H.hp, z.k === 'surge' ? h.x : z.x, (z.k === 'surge' ? h.y : z.y) - 10, 'spike', z.k === 'vent' ? 'vent' : z.k === 'surge' ? 'surge' : 'rock');
         if (H.burn && h.hp > 0) { if (h.burn <= t) h.burnT = t - 0.5; h.burn = Math.max(h.burn, t + H.burn); } }
       for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !D.BOSSES[e.type] && D.hazIn(z, e.x, e.y) && (e.haz || (e.haz = {}))[tag] !== n) { e.haz[tag] = n;
         hitEnemy(S, R, e, Math.round(H.mon * (1 + 0.2 * (dep(R) - 1))), false, z.x, z.y, H.kb, H.burn ? 'fire' : undefined); } });
@@ -593,7 +593,7 @@
   function damageName(src) {
     const type = String(src || '').split(' ')[0], E = ENEMIES[type];
     if (E) return E.name + (src.includes('элита') ? ' (элита)' : '') + (src.endsWith('снаряд') ? ' · снаряд' : src.endsWith('взрыв') ? ' · взрыв' : src.endsWith('столб') ? ' · столб огня' : '');
-    return ({ spike: 'Шипы', lava: 'Лава', burn: 'Горение', poison: 'Яд', fire: 'Огонь', vent: 'Жерло', rock: 'Обвал' })[src] || 'Неизвестный источник';
+    return ({ spike: 'Шипы', lava: 'Лава', burn: 'Горение', poison: 'Яд', fire: 'Огонь', vent: 'Жерло', rock: 'Обвал', surge: 'Волна лавы' })[src] || 'Неизвестный источник';
   }
   // the end-of-run reward: gold brought back and a win. Thoroughness is paid on the floor itself, 10 shards for each of its kills,
   // loot and secrets at 100 % and 1 per secret found (TASKS 175); with the elites and the boss a thorough win brings ~120 shards,
@@ -637,6 +637,16 @@
   // 401, but for a boss's tongues of it, which he must be able to cross) and by a monster knocked into it; a monster never walks into it on its own. lavaOk 2: a blow carries a monster into the chasm
   const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty);
     if (c === 3) { const k = ty * m.W + tx; if (crustAt(m, k)) return !!mon && !lavaOk; return !lavaOk && !(!mon && m.arenaLava && m.arenaLava.includes(k)); } if (c === 0 && lavaOk === 2 && chasm(m, tx, ty)) return false; return c !== 1; };
+  // the brink (TASKS 476, data.js BRINK): a cell a monster sinks or falls in; whether one can be pushed off at all; the drop cell
+  // within `near` of it, if any (nearest first); whether a blow from (sx, sy) drives it at a drop
+  const dropCell = (m, tx, ty) => (cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx)) || chasm(m, tx, ty);
+  const pushable = (e) => { const E = ENEMIES[e.type]; return e.deadT < 0 && !E.ghost && !E.lava && !E.heavy && !E.deep && !e.elite && e.type !== 'brute' && !D.BOSSES[e.type] && e.sinkT === undefined && e.fallT === undefined; };
+  const brinkOf = (m, e) => { if (!m.cliff || !pushable(e)) return null; const tx0 = Math.floor(e.x / TILE), ty0 = Math.floor(e.y / TILE); let best = null;
+    for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const tx = tx0 + i, ty = ty0 + j; if (!dropCell(m, tx, ty)) continue;
+      const x = Math.max(tx * TILE, Math.min((tx + 1) * TILE, e.x)), y = Math.max(ty * TILE, Math.min((ty + 1) * TILE, e.y)), d = Math.hypot(x - e.x, y - e.y);
+      if (d <= D.BRINK.near && (!best || d < best.d)) best = { x, y, d, tx, ty }; } return best; };
+  const atBrink = (m, e, sx, sy) => { const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1;
+    return D.BRINK.reach.some((r) => dropCell(m, Math.floor((e.x + dx / d * r) / TILE), Math.floor((e.y + dy / d * r) / TILE))); };
   const onLava = (m, o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor(o.y / TILE); return cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx); };
   // shallow water (dungeon.js m.water) lies on floor cells: anyone wades through it slowed, and it puts out a burning one
   const WET = new WeakMap(), WADE = 0.75;
@@ -822,7 +832,7 @@
     // blowT: a blow, not a burn's tick (a golem's crust grows back once the blows stop, TASKS 409)
     e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (kind !== 'burn' && kind !== 'thorns') e.blowT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e); if (e.st === 'lurk') rise(S, R, e);
     const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || ENEMIES[e.type].heavy || e.elite || ENEMIES[e.type].ghost || ENEMIES[e.type].deep || e.st === 'rise' || e.st === 'leap';
-    if (!heavy && !arm) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
+    if (!heavy && !arm) { const kk = kb > 0 && R.map.cliff && pushable(e) && atBrink(R.map, e, sx, sy) ? kb * D.BRINK.kb : kb; e.kbx += dx / d * 300 * kk; e.kby += dy / d * 300 * kk; }
     if (kind === 'fire' && !ENEMIES[e.type].lava) { e.burn = S.t + 3; e.burnT = S.t; }
     ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
@@ -2025,7 +2035,7 @@
     if (S.screen === 'menu') {
       const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
       if (click && b && b.on) {
-        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed), t: S.t }; }
+        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed, S.run.map), t: S.t }; }
         if (D.RUNS[b.id]) pressRun(S, b.id, arm);
         if (b.id === 'tests') S.screen = 'tests';
         if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
@@ -2766,6 +2776,8 @@
         if (m.ftype2) { mixed++; if (pm) out.push(`${tag}: a mixed floor after a mixed floor`); if (!AR.blend.over.includes(m.ftype)) out.push(`${tag}: ${m.ftype} mixed with ${m.ftype2}`); } pm = !!m.ftype2;
         if (f === D.RUNS.magma.floors && m.ftype !== 'plain') out.push(`${tag}: the boss's floor is not the plain plateaus`);
         if (f === 1 && AR.first && m.ftype !== AR.first) out.push(`${tag}: the first floor is not ${AR.first}`);
+        if (f > 1 && AR.first && m.ftype === AR.first) out.push(`${tag}: ${AR.first} again past the first floor`);
+        if (f < D.RUNS.magma.floors && D.floorName(f, 'magma', sd, m) !== AR.names[m.ftype]) out.push(`${tag}: the title does not name the floor's type`);
         // a river (TASKS 428): one island, the hoard on it; two to four places to cross, a pack waiting at them
         if (m.ftype === 'river') { const W = m.W, isles = m.rooms.filter((r) => r.isle), rc = m.crossings.filter((c) => c.river);
           if (isles.length !== 1 || isles[0].type !== 'treasure') out.push(`${tag}: the river's island holds no hoard`);
@@ -2774,9 +2786,21 @@
           const mx = (c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, held = rc.filter((c) => { const own = new Set(c.cells), ends = c.cells.flatMap((k) => [1, -1, W, -W].map((o) => k + o)).filter((k) => m.cells[k] === 1 && !own.has(k));
             return m.enemies.some((e) => ends.some((k) => Math.hypot(e.x / TILE - 0.5 - (k % W), e.y / TILE - 0.5 - Math.floor(k / W)) < 8)); });
           const bare = xs.filter((x, i) => (i === 0 || x - xs[i - 1] > 8) && !held.some((c) => Math.abs(mx(c) - x) <= 8 * 3)).length;
-          if (bare > 1) out.push(`${tag}: ${bare} places to cross the river with no pack by them`); }
+          if (bare > 1) out.push(`${tag}: ${bare} places to cross the river with no pack by them`);
+          // the river's choice (TASKS 473), walked on the floor as laid: two ways over within AR.river.loose of each other, no walk
+          // round it shorter, the shortest guarded at its far landing and a rock falling on the next
+          const fig = new Uint8Array(W * m.H); if (m.riverBand) m.riverBand.forEach(([a, b], x) => { for (let y = Math.max(6, Math.floor(a)); y <= Math.min(m.H - 5, Math.ceil(b)); y++) if (y + 0.5 > a && y + 0.5 < b) fig[y * W + x] = 1; });
+          const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, Rw = DG.riverWays(m.cells, W, m.H, fig, s0, (c) => c === 1), ws = DG.riverAt(Rw, e0);
+          if (!m.riverBand || !DG.riverOk(Rw, e0, AR.river.loose)) out.push(`${tag}: no choice of ways over the river (${ws.map((q) => q[0]).join('/')}, round its end ${Rw.dry[e0]})`);
+          if (!m.enemies.some((e) => e.post === 'ford')) out.push(`${tag}: no guard at the river's shortest way over`);
+          if (!m.hazards.some((z) => z.ford)) out.push(`${tag}: no rock falling on the river's second way over`); }
         // a chasm (TASKS 429): two chain bridges over the dark and more, packs waiting at them, the dark (not lava) round the plateaus
         if (m.ftype === 'chasm') { const W = m.W, br = m.crossings.filter((c) => c.chasm);
+          // (TASKS 474) a rock falls on a bridge the walk to the stairs takes
+          { const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
+            for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1) { from[n] = q[i]; q.push(n); } }
+            const way = new Set(); for (let k = e0; k >= 0 && from[e0] !== -2; k = from[k]) way.add(k);
+            if (!m.hazards.some((z) => z.span && br.some((c) => c.cells.some((k) => way.has(k) && D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE))))) out.push(`${tag}: no rock falling on a bridge of the walk to the stairs`); }
           if (br.length < 2) out.push(`${tag}: ${br.length} bridges over the chasm`);
           const held = br.filter((c) => m.enemies.some((e) => c.cells.some((k) => Math.hypot(e.x / TILE - 0.5 - (k % W), e.y / TILE - 0.5 - Math.floor(k / W)) < 9))).length;
           if (held < br.length / 2) out.push(`${tag}: ${held} of ${br.length} bridges with a pack by them`);
@@ -2797,6 +2821,15 @@
         if (isles.length < 2) out.push(`${tag}: ${isles.length} islands in the lake`);
         if (isles.some((r) => ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
         if (!isles.some((r) => r.type === 'treasure')) out.push(`${tag}: no hoard on an island`);
+        // the lake's choice (TASKS 472), walked on the floor as laid: over the islands, and round them (their chain shut: the floor
+        // reached from their middles within the lake's figure, its noise allowed for)
+        if (!m.lakeAt) out.push(`${tag}: a lake without its figure`);
+        else { const W = m.W, s0 = Math.floor(m.spawn.y / D.TILE) * W + Math.floor(m.spawn.x / D.TILE), e0 = m.exit.ty * W + m.exit.tx, shut = new Uint8Array(W * m.H), [cx, cy, rx, ry] = m.lakeAt;
+          const inLake = (k) => Math.hypot((k % W + 0.5 - cx) / rx, (Math.floor(k / W) + 0.5 - cy) / ry) < 1.2, cq = isles.map((r) => r.cy * W + r.cx); for (const k of cq) shut[k] = 1;
+          for (let i = 0; i < cq.length; i++) for (const o of [1, -1, W, -W]) { const n = cq[i] + o; if (!shut[n] && m.cells[n] === 1 && inLake(n) && !(m.rooms.some((r) => !r.isle && n % W >= r.x && n % W < r.x + r.w && Math.floor(n / W) >= r.y && Math.floor(n / W) < r.y + r.h))) { shut[n] = 1; cq.push(n); } }
+          const walk = (ok) => { const d = new Int32Array(W * m.H).fill(-1), q = [s0]; d[s0] = 0; for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && m.cells[n] === 1 && ok(n)) { d[n] = d[q[i]] + 1; q.push(n); } } return d[e0]; };
+          const a = walk(() => true), b = walk((n) => !shut[n]), L = AR.lake.loose;
+          if (b < 0) out.push(`${tag}: no way round the lake`); else if (1 - a / b < L[0] || 1 - a / b > L[1]) out.push(`${tag}: the islands save ${Math.round(100 * (1 - a / b))} % of the way round (${a} against ${b})`); }
         // the lake is the floor's figure (the player's note on 427): a big island with the hoard and smaller ones, the plateaus on its
         // shore no bigger than the lake's own sizes, and no hole into the dark left in its lava
         if (!isles.some((r) => r.isle === 2 && r.type === 'treasure')) out.push(`${tag}: the hoard is not on the big island`);
@@ -2809,6 +2842,17 @@
             if (shut) { out.push(`${tag}: a hole of ${cs.length} cells into the dark in the lava at ${k0 % W},${Math.floor(k0 / W)}`); break; } } }
         for (const q of m.secrets) { const r = m.rooms[q.room]; let lava = 0; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (cell(m, x, y) === 3) lava++;
           if (lava > 2) out.push(`${tag}: a cache with ${lava} cells of lava round it`); } } }
+    // terraces' steps and surge (TASKS 475), on 20 terrace floors of their own: most have a step down (the upper row's face onto the
+    // lower), every one a surge the walk to the stairs crosses
+    { let stepless = 0;
+      for (let sd = 1; sd <= 10; sd++) for (const f of [2, 3]) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd, ftype: 'terrace' }), W = m.W, tag = `magma terrace ${sd} f${f}`;
+        if (!(m.steps || []).length) stepless++; const z = (m.hazards || []).find((q) => q.k === 'surge'); if (!z) { out.push(`${tag}: no surge`); continue; }
+        const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
+        for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1) { from[n] = q[i]; q.push(n); } }
+        let on = false; for (let k = e0; k >= 0 && from[e0] !== -2; k = from[k]) if (D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE)) on = true;
+        if (!on) out.push(`${tag}: the walk to the stairs misses the surge`);
+        if (m.enemies.some((e) => D.hazIn(z, e.x, e.y))) out.push(`${tag}: a monster posted in the surge`); }
+      if (stepless > 4) out.push(`magma terraces: ${stepless} of 20 floors with no step down`); }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
     // the mix (TASKS 426): a lake, river or terrace floor over the chasm: it turns up in the runs, and on each figure a floor holds
     // the figure's own checks that the chasm could break (a walk to the stairs, a lava share, two bridges, every plateau in reach, the lake's islands)
@@ -2967,6 +3011,38 @@
       if (H.burn && !inside.burn) out.push(`magma hazards: a vent does not set the hero alight`);
       if (inside.mob <= 0) out.push(`magma hazards: a ${k} does not hurt a monster in its ring`);
       if (outside.lost > 0) out.push(`magma hazards: a ${k} hurts the hero out of its ring`); }
+    // a terrace's surge (TASKS 475): it creeps up over its warning and floods its band HAZ.surge.warn later; the hero on it is hurt
+    // once and set alight, a monster on it hurt, the hero a few cells off it not
+    { const Z = spawn(0, {}); Z.screen = 'play'; let z = null;
+      for (let sd = 3; sd < 60 && !z; sd++) { Z.run = newRun(Z, 'magma', sd); for (let f = 2; f < D.RUNS.magma.floors && !z; f++) { enterFloor(Z, Z.run, f); const m0 = Z.run.map; if (m0.ftype === 'terrace' && !m0.ftype2) z = (m0.hazards || []).find((q) => q.k === 'surge'); } }
+      if (!z) out.push('magma hazards: no surge on a terrace floor of 57 runs');
+      else { const R2 = Z.run, m = R2.map, h = R2.hero, H = HZ.surge, W = m.W, i0 = m.hazards.indexOf(z), at = (c) => (((c / z.per - z.ph) % 1 + 1) % 1 + Math.ceil(Z.t / z.per + 2)) * z.per;
+        const cx = (k) => (k % W + 0.5) * TILE, cy = (k) => (Math.floor(k / W) + 0.5) * TILE, k0 = z.cells[z.lv.indexOf(Math.max(...z.lv))], cd = (a, b) => Math.max(Math.abs(a % W - b % W), Math.abs(Math.floor(a / W) - Math.floor(b / W)));
+        let k1 = -1; for (let k = 0; k < W * m.H && k1 < 0; k++) if (m.cells[k] === 1 && cd(k, k0) <= 9 && z.cells.every((q) => cd(q, k) >= 4) && [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].every((o) => m.cells[k + o] === 1)) k1 = k;
+        const mob = { id: R2.nextId++, type: 'skeleton', x: cx(k0), y: cy(k0), vx: 0, vy: 0, hp: 999, max: 999, dmg: 0, elite: 0, room: -1, st: 'idle', t0: 0, face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: -9 };
+        const run = (k) => { R2.en = [Object.assign({}, mob, { haz: {} })]; h.haz = {}; h.ifr = 0; h.burn = 0; h.dashT = -9; h.hp = stats(h, Z.meta).maxHp;
+          Z.t = R2.t = at(z.per - H.warn - 0.1); Z.ev = []; const hp0 = h.hp; let warnT = -1, burstT = -1, creep = 0;
+          for (let i = 0; i < Math.round((H.warn + 0.6) * 120); i++) { h.x = cx(k); h.y = cy(k); h.vx = h.vy = 0; R2.en[0].x = mob.x; R2.en[0].y = mob.y; step(Z, { keys: [] });
+            for (const e of Z.ev) { if (e.k === 'hazwarn' && e.i === i0 && warnT < 0) warnT = e.t; if (e.k === 'surge' && e.i === i0 && burstT < 0) burstT = e.t; } Z.ev = [];
+            if (warnT >= 0 && burstT < 0) creep = Math.max(creep, D.surgeLevel(z, Z.t)); }
+          return { lost: hp0 - h.hp, burn: h.burn > Z.t - 0.6, mob: 999 - R2.en[0].hp, lead: burstT - warnT, creep }; };
+        const inside = run(k0), outside = k1 >= 0 ? run(k1) : null;
+        if (!(Math.abs(inside.lead - H.warn) < 0.05)) out.push(`magma hazards: a surge's warning comes ${inside.lead.toFixed(2)} s before its flood, not ${H.warn}`);
+        if (!(inside.creep > H.creep * 0.8 && inside.creep <= H.creep)) out.push(`magma hazards: a surge creeps up to ${inside.creep.toFixed(2)} of its band over its warning, not ${H.creep}`);
+        if (inside.lost < stats(h, Z.meta).maxHp * H.hp * 0.75 || inside.lost > stats(h, Z.meta).maxHp * H.hp * 2.5) out.push(`magma hazards: a surge takes ${inside.lost} health from the hero on its band`);
+        if (!inside.burn) out.push('magma hazards: a surge does not set the hero alight');
+        if (inside.mob <= 0) out.push('magma hazards: a surge does not hurt a monster on its band');
+        if (!outside) out.push('magma hazards: no floor off the surge to stand on by it');
+        else if (outside.lost > 0) out.push('magma hazards: a surge hurts the hero off its band'); } }
+    // the brink (TASKS 476): a skeleton a cell off the lava is marked by it; a blow toward the lava drives it BRINK.kb times as far
+    // as a blow away from it
+    { const Z = spawn(0, {}); plainRun(Z); Z.screen = 'play'; const R2 = Z.run, m = R2.map, W = m.W; let k0 = -1;
+      for (let k = W * 4; k < W * (m.H - 4) && k0 < 0; k++) if (m.cells[k] === 1 && dropCell(m, (k + 1) % W, Math.floor((k + 1) / W)) && dropCell(m, (k + 2) % W, Math.floor((k + 2) / W)) && [-1, -2, -3, -W, W, -W - 1, W - 1].every((o) => m.cells[k + o] === 1)) k0 = k;
+      if (k0 < 0) out.push('magma brink: no floor by the lava on the first plain floor');
+      else { const x = (k0 % W + 0.75) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE, mk = () => ({ id: R2.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp: 999, max: 999, dmg: 0, elite: 0, room: -1, st: 'chase', t0: 0, face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: -9 });
+        const e1 = mk(), e2 = mk(); R2.en = [e1, e2]; if (!brinkOf(m, e1)) out.push('magma brink: a skeleton a step off the lava is not marked');
+        hitEnemy(Z, R2, e1, 1, false, x - 40, y); hitEnemy(Z, R2, e2, 1, false, x + 40, y);
+        if (!(Math.abs(e1.kbx) > Math.abs(e2.kbx) * D.BRINK.kb * 0.95)) out.push(`magma brink: a blow toward the lava drives ${Math.round(e1.kbx)} against ${Math.round(e2.kbx)} away from it`); } }
     return out;
   }
   function meleeSpacingCheck() {
@@ -4046,7 +4122,7 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+  root.SIM = { brinkOf, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
     stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

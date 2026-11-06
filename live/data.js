@@ -327,6 +327,10 @@
       // between it and the plateaus on its shore, which are smaller there (plat, small, grow as the plain floor's), so they ring the
       // lake rather than fill the floor; islet: the noise over which basalt stands in it (1: none, a cell of rock in it read as a hole
       // into the dark; the lava shader's column clusters stand in it instead); share: its band of lava (selfCheck)
+      // the lake's choice (TASKS 472): the islands chain across its short axis (`axis`: across its long one the way round was as
+      // short), the start and the stairs past its two ends, the shore's plateaus a ring round it; save: the share of the walk round
+      // the islands save ([least, most], the critic's 30–40 %), loose: the band once the strict tries are spent; path: the walk over
+      // the islands, the floor's least
       // arena (TASKS 413): the magma caves' last hall, a broad ring of plateau round a lake of lava, w × h cells; the lake's half-axes
       // (lake) leave the ring wide enough for the colossus; a row of basalt slabs crosses the lake the short way (the hero may cut over,
       // the colossus is too broad for it); cover: basalt slabs standing on the ring, solid, stopping bolts
@@ -335,7 +339,7 @@
       // height, swinging `amp` of it over `waves` bends; it widens round an island (`isle` cells, the hoard's) at `isleAt` of the
       // width; `cross`: the ways over it the plateaus on its banks keep (the island's included), spread along it; path: the least
       // walk to the stairs, 0.85 of the plain floor's (the ways over cut it short)
-      river: { pop: 0.52, w: [5, 7], at: [0.44, 0.58], amp: [0.07, 0.12], waves: [1.1, 2], isle: [[9, 12], [6, 8]], isleAt: [0.3, 0.7], margin: 2, cross: [2, 3], path: [126, 143, 179, 0], share: [0.3, 0.6] },
+      river: { pop: 0.52, choice: 1.3, loose: 1.45, w: [5, 7], at: [0.44, 0.58], amp: [0.07, 0.12], waves: [1.1, 2], isle: [[9, 12], [6, 8]], isleAt: [0.3, 0.7], margin: 2, cross: [2, 3], path: [0, 90, 95, 0], share: [0.3, 0.6] },
       // chasm (429): the plateaus stand `gap` cells apart over the black chasm, no lava along their edges or in the gaps between (a
       // lake of it deep down, `lakes`), joined by narrow ridges bent less than the plain floor's (`ridge`), their straight runs chain
       // bridges over the dark but a share `neck` of them left a neck of rock
@@ -346,9 +350,10 @@
       // its other (a serpentine), its other end a share `short` of the width short; `branch` plateaus on the narrow side over the
       // river hang off the nearest terrace; rag, edge: their edges more ragged than the plain floor's
       // ledges (TASKS 433): small pads past the rows' short ends and over the river, dead ends off the serpentine
+      // stepKeep (TASKS 475): the share of the longest stretch two rows run over together kept rock, a step down rather than lava
       // (TASKS 432) a row may be a narrow ridge (`ridgeRow`: its chance, height, plateaus in it) or a broad field (`broadRow`, one
       // a floor at most: two left too few rows for the walk to the stairs); never one plateau a row, which cut the walk short
-      terrace: { pop: 0.49, fallAt: [0.18, 0.26], wall: 7, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 4], ridgeRow: { p: 0.3, h: [4, 5], per: [2, 3] }, broadRow: { p: 0.15, h: [11, 12], per: [2, 3] }, short: [0.12, 0.3], branch: [1, 2], ledges: [2, 3], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
+      terrace: { pop: 0.49, stepKeep: 0.6, fallAt: [0.18, 0.26], wall: 7, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 4], ridgeRow: { p: 0.3, h: [4, 5], per: [2, 3] }, broadRow: { p: 0.15, h: [11, 12], per: [2, 3] }, short: [0.12, 0.3], branch: [1, 2], ledges: [2, 3], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
       // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
       // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`;
       // pop: its halls are more than a floor's plateaus, each with its pack: as many monsters a floor as the plateaus'
@@ -357,8 +362,10 @@
       // first: the type of a run's first floor (the player's call 04.11.2026: the caves first, a lake's archers over the lava were too
       // much for the first floor)
       types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave',
+      // a floor's title by its type (TASKS 471), so the player knows which question the floor asks; the boss's floor keeps its run's
+      names: { plain: 'Огненное плато', lake: 'Озеро огня', river: 'Река лавы', chasm: 'Мосты над бездной', terrace: 'Ступени лавопада', cave: 'Жаровые штольни' },
       // mix (TASKS 426): a floor of one of the figure types `over` takes the type `with` too, with the chance p, never on two floors running; riverBridges: the bridges over the chasm a river floor keeps at the least (its plateaus lie in two strips, the river on one side of each, so fewer face each other over the dark); gap: the plateaus' spacing then (the chasm's own left the ledges no room); pathKeep: the share of the figure's walk to the stairs kept (the bridges cut it)
-      blend: { p: 0.35, over: ['lake', 'river', 'terrace'], with: 'chasm', gap: [4, 4], pathKeep: 0.75, riverBridges: 1 }, lake: { pop: 0.47, fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [3, 5],
+      blend: { p: 0.35, over: ['lake', 'river', 'terrace'], with: 'chasm', gap: [4, 4], pathKeep: 0.75, riverBridges: 1 }, lake: { pop: 0.47, save: [0.3, 0.4], loose: [0.2, 0.5], path: [0, 60, 68, 0], axis: 'short', fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [2, 3],
         isle: [[[12, 15], [9, 11]], [[8, 10], [6, 8]], [[5, 7], [5, 6]]], margin: 2, plat: [[11, 16], [8, 11]], small: [[7, 10], [6, 8]], grow: [18, 13],
         islet: 1, share: [0.4, 0.66],
         mix: { arena: { n: [1, 1], box: [[16, 20], [10, 13]], grow: [22, 15], pop: 1.4 }, ridge: { n: [2, 3], box: [[14, 20], [4, 5]], grow: [22, 6], tall: 0.3, edge: [0, 1.5], rag: 0.7, pop: 0.8 },
@@ -375,10 +382,22 @@
   // clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
   // stairs (selfCheck)
   const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8 },
-    fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2 }, clear: 3 };
+    fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2 },
+    // a terrace floor's lavafall surges (TASKS 475): every `per` s its river rises over its banks, `band` cells of floor either side
+    // (the serpentine turns by it every other row): over the warning it creeps up to `creep` of the band, for `burst` s it floods
+    // the whole of it and hurts as a vent does, then it ebbs back over `ebb` s. Nothing is laid in its reach
+    surge: { per: [8, 10], warn: 1.6, burst: 0.7, ebb: 0.6, creep: 0.35, band: 2, hp: 0.12, burn: 2, mon: 14, kb: 0 }, clear: 3 };
+  // the brink (TASKS 476): the hero is never pushed off an edge (the player's call 02.11.2026), so the edge's price is the monsters':
+  // a blow that drives one at the lava or the chasm within `reach` px of it drives it `kb` times as far, and one within `near` px of
+  // such an edge shows it (scene.js) so that pushing it off is a move to aim for, not luck
+  const BRINK = { kb: 1.8, reach: [20, 36, 52], near: 34 };
   // where a hazard stands in its cycle at time t: 0 at the burst, the warning from per − warn to per
   const hazClock = (z, t) => ((t / z.per + z.ph) % 1 + 1) % 1 * z.per;
-  const hazIn = (z, x, y) => { const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r; };
+  const ZONE = new WeakMap(), zoneOf = (z) => { let q = ZONE.get(z); if (!q) ZONE.set(z, q = new Set(z.cells)); return q; };
+  const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r; };
+  // how far a surge has risen over its band at time t, 0..1 (TASKS 475)
+  const surgeLevel = (z, t) => { const H = HAZ.surge, c = hazClock(z, t); if (c < H.burst) return 1; if (c < H.burst + H.ebb) return 1 - (c - H.burst) / H.ebb;
+    const w = c - (z.per - H.warn); return w >= 0 ? H.creep * w / H.warn : 0; };
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
@@ -454,8 +473,9 @@
     rock: { w: 2, plan: [[['golem'], [1, 1], 'near'], [['fire_priest', 'cultist'], [1, 1], 'back'], [['imp'], [0, 2], 'bank']] },
   };
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
-  const placeName = (f, mode, seed) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed));
-  const floorName = (f, mode, seed) => { const M = runOf(mode), st = stageOf(mode, f, seed); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
+  const placeName = (f, mode, seed, m) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed, m));
+  const floorName = (f, mode, seed, m) => { const M = runOf(mode), st = stageOf(mode, f, seed), T = m && m.ftype && !m.bossType && ARCH.plateau.names[m.ftype];
+    return (M.names || {})[f] || T || st.N.title || BIOMES[st.biome].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
@@ -742,7 +762,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

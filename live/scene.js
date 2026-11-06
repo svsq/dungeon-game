@@ -337,7 +337,7 @@ float faceHF(vec2 p){ float h = faceH(p.x);
   return h; }
 `;
   const MAGMA = EDGE_BITE + MAGMA_EDGE + `
-uniform sampler2D u_floor, u_wall, u_top, u_shore, u_far, u_hot, u_crust, u_plat, u_lake; uniform float u_lift, u_out, u_fk;
+uniform sampler2D u_floor, u_wall, u_top, u_shore, u_far, u_hot, u_crust, u_plat, u_lake, u_stepm; uniform float u_lift, u_out, u_fk, u_step;
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 float lum(vec3 c){ return clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.04) / 0.4, 0.0, 1.0); }
 // each generated texture's own black point and range (421), so the ramps keep the tone and spread 402 set them to
@@ -359,13 +359,17 @@ bool dropRaw(vec2 p){ return textureLod(u_plat, p / u_map, 0.0).r < 0.5 && textu
 vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y + 12.0;
   if (plat(vec2(cx, y0))) return vec4(cx, 0.0, 0.0, 0.0);
   float ey = -1.0;
-  for (int k = 1; k <= 44; k++) { float y = y0 - float(k) * 2.0; if (plat(vec2(cx, y))) { ey = y + 1.0; break; } }
+  for (int k = 1; k <= 92; k++) { if (k > 44 && u_step < 0.5) break; float y = y0 - float(k) * 2.0; if (plat(vec2(cx, y))) { ey = y + 1.0; break; } }
   if (ey < 0.0 || !drop(vec2(cx, ey + 1.0))) return vec4(cx, 0.0, 0.0, 0.0);
-  float run = 0.0; for (int k = 1; k <= 40; k++) { if (!dropRaw(vec2(cx, ey + float(k) * 2.0 - 1.0))) break; run = float(k) * 2.0; }
+  // (a terrace's step, TASKS 475: its faces stand 64–96 px over the lava, and where the rock between two rows was kept, u_stepm,
+  // the face runs down to the lower row)
+  float stp = u_step * step(0.5, max(textureLod(u_stepm, vec2(cx, ey + 20.0) / u_map, 0.0).r, textureLod(u_stepm, vec2(cx, ey + 36.0) / u_map, 0.0).r)), cap = u_step > 0.5 ? 180.0 : 80.0;
+  float run = 0.0; for (int k = 1; k <= 90; k++) { if (float(k) * 2.0 > cap || !dropRaw(vec2(cx, ey + float(k) * 2.0 - 1.0))) break; run = float(k) * 2.0; }
   float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 40.0 + floor(hash(vec2(i, 3.1)) * 13.0) * 2.0 + (1.0 - lava) * 24.0;
-  float h = min(hgt, run - (lava > 0.5 ? 16.0 : 4.0)); if (h < 8.0) h = 0.0;
+  if (u_step > 0.5) hgt = stp > 0.5 ? 999.0 : 64.0 + floor(hash(vec2(i, 3.1)) * 17.0) * 2.0;
+  float h = min(hgt, run - (lava > 0.5 ? 16.0 : stp > 0.5 ? 0.0 : 4.0)); if (h < 8.0) h = 0.0;
   float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0;
-  return vec4(cx, ty, h, step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava
+  return vec4(cx, ty, h, stp > 0.5 ? 2.0 : step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava; 2: a step's, on the floor
 // the north-edge column's top over w's x (the edge's far side shows only the tops)
 vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
   if (plat(vec2(cx, w.y - 10.0))) return vec4(cx, 0.0, 0.0, 0.0);
@@ -404,7 +408,8 @@ vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx
   float streak = vnoise(vec2(w.x / 3.0 + id * 17.0, w.y / 26.0)), grain = step(0.62, vnoise(w / 4.0 + id * 5.0));
   vec3 col = vec3(0.1, 0.092, 0.11) * t * (streak < 0.3 ? 0.55 : streak > 0.72 ? 1.25 : 1.0) * (1.0 + 0.25 * grain) * (1.1 - 0.4 * fq);
   if (hash(vec2(id, floor((w.y - c.y) / 2.0))) < 0.04 && xx < 0.82) col *= 0.3;
-  if (c.w > 0.5) { float g = smoothstep(0.25, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
+  if (c.w > 1.5) col *= 1.0 - 0.35 * smoothstep(0.55, 1.0, fq);   // a step's face stands on the lower row: only its foot is shaded
+  else if (c.w > 0.5) { float g = smoothstep(0.25, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
     col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.85, 0.3, 0.06), step(0.8, fq) * step(xx, 0.27)), g * 0.85); }
   else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
   return col; }
@@ -414,7 +419,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
   vec4 c = vec4(0.0); vec2 f = vec2(0.0); float on = 0.0, hw = CW * 0.5, foot = 0.0;
   if (nearP > 0.02) { c = column(w); on = colAt(w, c, f, hw);
     if (on < 0.5) { vec4 n = northTop(w); if (colAt(w, n, f, hw) > 0.5) { c = n; on = 1.0; } }
-    if (on < 0.5 && c.y > 0.0 && c.z > 0.0 && c.w > 0.5 && abs(w.x - c.x) <= hw && w.y >= c.y + c.z) foot = clamp(1.0 - (w.y - c.y - c.z) / 12.0, 0.0, 1.0); }
+    if (on < 0.5 && c.y > 0.0 && c.z > 0.0 && c.w > 0.5 && c.w < 1.5 && abs(w.x - c.x) <= hw && w.y >= c.y + c.z) foot = clamp(1.0 - (w.y - c.y - c.z) / 12.0, 0.0, 1.0); }
   else { on = island(w, c, f, foot); if (on > 0.5) hw = 13.0; }
   if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, on > 1.5 ? 0.9 * (1.0 - smoothstep(0.55, 0.95, f.y)) : on > 0.5 ? 1.0 : 0.0, 1.0); return; }
   float op = openAt(w), la = lavaAt(w), far = textureLod(u_far, w / u_map, 0.0).r; vec3 col;
@@ -446,6 +451,9 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     else { col = gTop(w + 91.0) * u_lift;
       if (!isWall(w - vec2(2.0, 0.0)) || !isWall(w + vec2(2.0, 0.0)) || !isWall(w - vec2(0.0, 2.0))) col = vec3(0.018, 0.016, 0.017);
       else if (!isWall(w - vec2(4.0, 0.0)) || !isWall(w - vec2(0.0, 4.0))) col = col * 1.6 + 0.03; }
+  } else if (u_step > 0.5 && textureLod(u_stepm, w / u_map, 0.0).r > 0.5) {
+    // a terrace's step (TASKS 475) where no column's face reaches: the rock face between the rows, not the chasm
+    col = gCol(w) * (0.4 + 0.3 * fbm(w / 40.0));
   } else {
     // the chasm: darkness, a deep red glow coming up where the lava is
     col = vec3(0.006, 0.005, 0.006);
@@ -715,7 +723,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   };
   function views(z) {
     Z = z; VW = W / Z; VH = H / Z;
-    L.init(W, H, { flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
+    // a terrace's surge (TASKS 475): the lava's own pattern over its band, welling up in patches through it as u_q rises (a slow
+    // noise, the cells by the lava first: the mask's blue)
+    const SPILL = LAVA.replace('uniform sampler2D u_mask,', 'uniform float u_q; uniform sampler2D u_mask,')
+      .replace('float mk = M.r, e = mk + (fbm(w / 20.0) - 0.5) * 0.2;', 'float lv = clamp((fbm(w / 18.0 + vec2(0.0, u_t * 0.25)) - 0.3) / 0.4, 0.0, 1.0) * 0.8 + texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).b * 0.2;\n  float mk = M.r * (1.0 - smoothstep(u_q - 0.1, u_q + 0.02, lv)), e = mk + (fbm(w / 20.0) - 0.5) * 0.2;')
+      .replace('vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;', 'vec2 fl = vec2(0.0, 0.5);');
+    L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); G.free(LT.occ); }
     // occ: the silhouettes of the monsters before the lava, which its glow and shimmer leave out (TASKS 407)
     LT = { light: G.target(W / 2, H / 2, true, { view: [VW, VH] }), lit: G.target(W, H, true, { view: [VW, VH] }), occ: G.target(L.T.comp.w, L.T.comp.h, false, { view: [VW, VH] }) };
@@ -920,7 +933,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const cv = document.createElement('canvas'); cv.width = cv.height = 1; const rec = G.canvasTex('map', cv); rec.t = BAKE.tg.t; rec.w = MW; rec.h = MH; }
     if (m.cliff) { if (!BAKE.face || BAKE.face.vw !== MW || BAKE.face.vh !== MH) { G.free(BAKE.face); BAKE.face = G.target(MW / 2, MH / 2, false, { view: [MW, MH], nearest: true }); }   // on the art grid: a quarter of the bake's memory
       BAKE.mg = { u_fk: B.floorK || 1, u_open: openTex(m), u_water: waterTex(m), u_wet: 0, u_lift: TOP_LIFT, u_map: [MW, MH], u_cliff: cliffTex(m), u_lava: lavaTex(m), u_far: lavaFarTex(m),
-        u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_fall: fallU(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
+        u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_fall: fallU(m), u_step: m.ftype === 'terrace' && !m.ftype2 ? 1 : 0, u_stepm: stepTex(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
       G.bind(BAKE.face, [0, 0, 0, 1]); G.blend('none'); G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 1 }), G.xf(0, 0, MW, MH)); }
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
     const hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
@@ -1037,6 +1050,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m); if (!u) { const arch = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => c.cells)); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !arch.has(k)))); } return u; };
   const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x), (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
   // its glow (the emissive pass, drawn over everything) leaves out what lies under a crossing, or it shines through the slabs and planks
+  const surgeTex = (m, z) => { const lv = new Map(z.cells.map((k, i) => [k, z.lv[i]])); return maskTex(m, 'surge', (x, y) => lv.has(y * m.W + x), (x, y) => [0, 2 * lv.get(y * m.W + x) - 1]); };
+  const SBOX = new WeakMap(), surgeBox = (z) => { let b = SBOX.get(z); if (!b) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const k of z.cells) { const x = k % z.W, y = Math.floor(k / z.W); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    SBOX.set(z, b = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]); } return b; };
   const lavaGlowTex = (m) => maskTex(m, 'lavaglow', (x, y) => SIM.cell(m, x, y) === 3, (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);
   // the plateaus' back wall (TASKS 402): the rock rows above m.cliff, the only rock drawn as rock; the rest is the chasm
   // (an unfound cache in it, TASKS 425, is the wall's rock: its fake wall and room stand in the wall rows)
@@ -1055,6 +1071,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
   // the chasm under a chain bridge (TASKS 429) is the dark: walked on, never ground
   const CHUND = new WeakMap(), chasmUnder = (m) => { let u = CHUND.get(m); if (!u) CHUND.set(m, u = new Set(m.chasmUnder || [])); return u; };
+  const STEPS = new WeakMap(), stepTex = (m) => { let q = STEPS.get(m); if (!q) STEPS.set(m, q = new Set(m.steps || [])); return maskTex(m, 'steps', (x, y) => q.has(y * m.W + x), null, 1); };
   const platTex = (m) => maskTex(m, 'plat', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 3 && v !== 4 && !chasmUnder(m).has(y * m.W + x); }, null, 1);
   // deep in a lake, where a cluster of columns may stand (TASKS 418): the cell and those round it and two below it open lava, no
   // crust, crossing or source within a few cells
@@ -2341,6 +2358,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     // a vent heats up over its warning (TASKS 406); its burst flashes from its event
     for (const z of m.hazards || []) { if (z.k !== 'vent') continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w >= 0) lt(z.x, z.y - 10, 110 + 90 * w / H.warn, [1, 0.45, 0.12], 0.25 + 0.95 * w / H.warn); }
+    // a surge lights its band as it rises (TASKS 475)
+    for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const q = D.surgeLevel(z, GT); if (q <= 0) continue;
+      z.cells.forEach((k, i) => { if (i % 3 || z.lv[i] > q) return; lt((k % z.W + 0.5) * TILE, (Math.floor(k / z.W) + 0.5) * TILE, 90, [1, 0.45, 0.12], 0.6 * q); }); }
     // no cold light in the magma caves: their altars glow ember red (TASKS 404)
     const altarCol = m.cliff ? [1, 0.5, 0.22] : [0.4, 0.7, 1.0];
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, altarCol, 0.9);
@@ -2598,6 +2618,22 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.06); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
         else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.62, 0.3], (0.4 + 0.55 * f) * beat, 0.1); L.glow(X, Y0, q.r * 0.7, [1, 0.5, 0.2], 0.2 * f, 2); } }
     }
+    // the brink (TASKS 476): a monster the hero could drive off an edge (SIM.brinkOf) has a ring at its feet beating slowly and the
+    // edge by it lit, while the hero is near enough to make it a move
+    if (m.cliff) for (const e of R.en) { if (Math.hypot(e.x - R.hero.x, e.y - R.hero.y) > 420 || !known(e.x, e.y)) continue; const b = SIM.brinkOf(m, e); if (!b) continue;
+      // (the ring at its feet, on the dark floor: on the lava's own glare a ring at the edge was lost)
+      const X = sx(e.x), Y = sy(e.y), beat = 0.7 + 0.3 * Math.sin(GT * 5 + e.id), a = (1 - b.d / D.BRINK.near * 0.5) * beat;
+      L.ring(X, Y, 24, 14, [1, 0.95, 0.7], 1.5 * a, 0.16); L.ring(X, Y, 17, 10, [1, 0.7, 0.3], 0.9 * a, 0.12); L.glow(sx(b.x), sy(b.y), 18, [1, 0.85, 0.5], 0.5 * a, 2.4); }
+    // a terrace's surge (TASKS 475), over the bridges' decks too: over its warning its band glows and beats faster, sparks jump off
+    // the lava by it and the lava creeps up its edges; then it floods it and ebbs back
+    for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0) continue;
+      if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(GT * (8 + 14 * k));
+        z.cells.forEach((c, i) => { if (i % 2) return; const wx0 = (c % z.W + 0.5) * TILE, wy0 = (Math.floor(c / z.W) + 0.5) * TILE; if (!vis(wx0, wy0)) return; const X = sx(wx0), Y = sy(wy0);
+          L.glow(X, Y, 22 + 10 * k, [1, 0.45, 0.1], (0.12 + 0.45 * k) * beat, 2.2);
+          if (i % 6 === 0) { const b = (GT * (1.1 + 2 * k) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
+      const box = surgeBox(z), xf = G.xf(sx(box[0]), sy(box[1]), box[2], box[3]);
+      const u = (mode) => ({ u_t: GT, u_q: q, u_mask: surgeTex(m, z), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0 });
+      G.draw(L.P.spill, u(0), xf); G.blend('add'); G.draw(L.P.spill, u(2), xf); G.blend(); }
     // a vent's warning (TASKS 406), from its clock: the ring it will throw lava over heats up and beats faster, its mouth bubbles
     for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn);
       if (w < 0) { const X = sx(z.x), Y0 = sy(z.y), br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z.x);   // a live vent smoulders at rest, a dead crack doesn't
@@ -3484,6 +3520,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const R = S.run, h = R.hero, q = m.lavaFeatures.find((o) => o.kind === 'fall'); if (!q) continue; const r = m.rooms.filter((o) => o.row === 1).sort((a, b) => Math.abs(a.cx * TILE - q.x) - Math.abs(b.cx * TILE - q.x))[0];
       h.x = (r.cx + 0.5) * TILE; h.y = (r.cy + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [(q.x + h.x) / 2 - VW / 2, q.y + VH * 0.2 - VH / 2]; states.push(['magma_terrace', S]); break; }
+    // TASKS 475: a terrace's step, the upper row's face down onto the lower one where the rock between them was kept, the hero above it
+    for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
+      for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'terrace' && !S.run.map.ftype2 && (S.run.map.steps || []).length) m = S.run.map; } if (!m) continue;
+      const R = S.run, h = R.hero, W = m.W, n = m.steps.length, x = m.steps.reduce((a, k) => a + (k % W + 0.5) * TILE, 0) / n, y = m.steps.reduce((a, k) => a + (Math.floor(k / W) + 0.5) * TILE, 0) / n;
+      let hy = y - 3 * TILE; for (let j = 2; j < 8; j++) if (SIM.cell(m, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1) { hy = y - j * TILE; break; }
+      h.x = x; h.y = hy; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      R.cam = [x - VW / 2, y - VH / 2]; states.push(['magma_terrace_step', S]); break; }
     // TASKS 431: a lava cave, the camera on a way over a stream of lava across a tunnel
     for (let sd = 1; sd < 40; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype === 'cave') m = S.run.map; } if (!m) continue;
@@ -3588,7 +3631,20 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (const k of ['vent', 'fall']) { const name = k === 'vent' ? 'magma_vent' : 'magma_rock';
         for (const ph of ['warn', 'burst']) { const S = play(), z = at(S, 1, (m) => (m.hazards || []).find((q) => q.k === k)); if (!z) continue; const R = S.run, H = D.HAZ[k], i = R.map.hazards.indexOf(z);
           view(S, z.x, z.y, z.x + H.r + 46, z.y + 10); const c = ph === 'warn' ? z.per - H.warn * 0.35 : 0.12, t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per; S.t = R.t = t; S.ev = [];
-          if (ph === 'burst') S.ev.push({ k: k === 'vent' ? 'erupt' : 'rockfall', t: t - c, x: z.x, y: z.y, i }); states.push([name + '_' + ph, S]); } } }
+          if (ph === 'burst') S.ev.push({ k: k === 'vent' ? 'erupt' : 'rockfall', t: t - c, x: z.x, y: z.y, i }); states.push([name + '_' + ph, S]); } }
+      // a terrace's surge (TASKS 475): at rest, creeping up late in its warning, at its flood and ebbing back, the view on its ridge
+      // down the steps, the hero waiting on the plateau above it
+      for (const [ph, c0] of [['rest', 0.5], ['warn', -0.15], ['flood', 0.35], ['ebb', 0.95]]) { const S = play(); let z = null;
+        for (let sd = 3; sd < 60 && !z; sd++) { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let f = 2; f <= 3 && !z; f++) { SIM.enterFloor(S, S.run, f); const m = S.run.map; if (m.ftype === 'terrace' && !m.ftype2) z = (m.hazards || []).find((q) => q.k === 'surge'); } }
+        if (!z) continue; const R = S.run, H = D.HAZ.surge, W = R.map.W, k0 = z.cells[z.lv.indexOf(Math.max(...z.lv))], x = (k0 % W + 0.5) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE;
+        const c = ph === 'rest' ? z.per * 0.5 : ph === 'warn' ? z.per + c0 * H.warn * 2 : c0 * (ph === 'flood' ? H.burst : H.burst + H.ebb), t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per;
+        let hy = y - 4 * TILE; for (let j = 4; j < 9; j++) if (SIM.cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1 && !z.cells.includes(k0 - j * W)) { hy = y - j * TILE; break; }
+        view(S, x, y, x, hy); S.t = R.t = t; S.ev = []; if (ph !== 'rest' && ph !== 'warn') S.ev.push({ k: 'surge', t: t - c, x: z.x, y: z.y, i: R.map.hazards.indexOf(z) }); states.push(['magma_surge_' + ph, S]); }
+      // the brink (TASKS 476): a skeleton a step off the lava, its edge lit, the hero two steps off it on the other side
+      { const S = play(); const k0 = at(S, 2, (m) => { const W = m.W; if (m.ftype === 'cave') return null; for (let k = W * 4; k < W * (m.H - 4); k++) if (m.cells[k] === 1 && m.cells[k + 1] === 3 && m.cells[k + 2] === 3 && [-1, -2, -3, -4, -W, W, -W - 1, W - 1, -W - 2, W - 2].every((o) => m.cells[k + o] === 1)) return k; return null; });
+        if (k0 !== null) { const R = S.run, W = R.map.W, x = (k0 % W + 0.75) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE; view(S, x, y, x - 90, y + 6);
+          R.en = [{ id: 9001, type: 'skeleton', x, y, vx: 0, vy: 0, hp: 40, max: 40, dmg: 5, elite: 0, room: -1, st: 'chase', t0: 0, face: -1, aimA: Math.PI, cdT: 9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: 0 }];
+          states.push(['magma_brink', S]); } } }
     // the campaign going on into the caves (TASKS 339): its 9th floor on arrival, title and all, and the serpent's 12th
     { const S = play(); SIM.enterFloor(S, S.run, 9); S.run.msg.t = S.t - 0.8; states.push(['campaign_f9_arrive', S]); }
     { const S = play(); SIM.enterFloor(S, S.run, 12); const R = S.run, r = R.map.rooms.find((q) => q.type === 'boss') || R.map.rooms[0], h = R.hero;

@@ -33,7 +33,7 @@ try {
   if (new Set(names).size !== names.length) errors.push('duplicate QA state names');
   if (!names.length) errors.push('no requested QA states found');
   if (args.includes('--only')) for (const name of args[args.indexOf('--only') + 1].split(',')) if (!names.includes(name)) errors.push('missing requested QA state ' + name);
-  for (const required of ['zone_magma', 'magma_hall', 'magma_crossing', 'magma_lava', 'magma_fall', 'magma_light', 'magma_props', 'magma_camp', 'cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
+  for (const required of ['zone_magma', 'magma_brink', 'magma_terrace_step', 'magma_surge_warn', 'magma_surge_flood', 'magma_hall', 'magma_crossing', 'magma_lava', 'magma_fall', 'magma_light', 'magma_props', 'magma_camp', 'cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
   const report = {};
   for (const name of names) {
     const result = await page.evaluate((name) => {
