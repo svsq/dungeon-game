@@ -9,14 +9,16 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
-const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, FLANK = 8, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
 // before a fireball; shield: cast below this share of HP; focus: casters first; kite: backs off with low HP and no potion;
 // gift: highest altar tier taken; step: walks back out of a wind-up's reach while the dash recharges; traps: keeps off a spike
 // plate that is up or about to rise; haz: steps out of a magma hazard's ring over its warning (TASKS 406: they are plain to see, the
-// novice aside); flank: share of armoured crabs it walks round to strike off the armour (the rest it hacks at the front);
+// novice aside); water: reads the cave's water (TASKS 468): goes to the bank by an eel's bubbles to strike it as it comes up, and
+// keeps off a drowned lying in the shallows on the way to another foe; flank: share of armoured crabs it walks round to strike off
+// the armour (the rest it hacks at the front);
 // cast: the share of its damage this player means to deal with the fireball, as it weighs gear;
 // simple: judges gear by its attack and defence numbers alone; skills: ranks one ability to the top before the next; caster: throws
 // the fireball whenever it is ready and the target is in sight, close or far, and keeps more mana potions
@@ -24,10 +26,10 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, 
 // from its gear, ranks the fireball first and burns the bosses with it
 const PROFILES = {
   novice: { flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
-  average: { haz: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  expert: { haz: 1, flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  mage: { haz: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.6, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
-  builder: { haz: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.5, caster: 1, skills: ['fireball', 'whirl', 'shield'], stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  expert: { haz: 1, water: 1, flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  mage: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.6, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
+  builder: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.5, caster: 1, skills: ['fireball', 'whirl', 'shield'], stats: ['str', 'vit', 'str', 'vit', 'agi'] },
 };
 
 function rng(seed) { let a = seed >>> 0; const draw = () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -70,7 +72,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   if (!initial) { S.seedBase = seed; S.meta.diff = diff; startRun(S, mode); }
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
-  let poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
+  let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] = initial.vars;
     rand.state(initial.rng); for (const event of S.ev) counted.add(event);
@@ -129,7 +131,16 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // the dash goes along the held direction keys
   const dash = (inp, dx, dy) => { const d = Math.hypot(dx, dy) || 1; inp.left = inp.right = inp.up = inp.down = 0; steer(inp, dx / d, dy / d); inp.keys.push('Space'); cur.dodges++; };
   function dodge(S, R, inp, live) {
-    const h = R.hero, t = S.t, ready = h.cd.dash <= t; if (!ready && !P.step) return;
+    const h = R.hero, t = S.t, ready = h.cd.dash <= t;
+    // an archer's aim stops following the hero `arrow.lock` s before the loose (sim.js): one on its line then steps off it, a
+    // walk across, not a dash, and the arrow flies past (TASKS 468); not with a foe at arm's length, who would strike the back turned to it
+    const close = live.some((o) => { const K0 = D.ENEMIES[o.type].kind; return K0 !== 'archer' && K0 !== 'caster' && o.st !== 'lurk' && Math.hypot(o.x - h.x, o.y - h.y) < 70; });
+    if (!close) for (const e of live) { const E = D.ENEMIES[e.type]; if (E.kind !== 'archer' || e.st !== 'wind') continue;
+      const w = D.windOf(e, E.wind), age = t - e.t0, key = 'a' + e.id + ':' + e.t0; if (age < Math.max(P.react, w - E.arrow.lock) || age > w || seen.has(key)) continue; seen.add(key);
+      const ux = Math.cos(e.aimA), uy = Math.sin(e.aimA), rx = h.x - e.x, ry = h.y - 38 - (e.y - SIM.ARROW_Y), cr = rx * uy - ry * ux;
+      if (rx * ux + ry * uy < 0 || Math.abs(cr) > 30 || rand() >= P.dodge) continue;
+      const sd = cr >= 0 ? 1 : -1; backT = t + w - age + 0.3; backX = uy * sd; backY = -ux * sd; }
+    if (!ready && !P.step) return;
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       // a boss is dodged only on the moves that strike with its body (the volley is read bolt by bolt below); the slam that follows
       // a charge the hero got out of is a pattern a player learns, met without waiting to see it wind up (TASKS 227)
@@ -193,6 +204,23 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const armFront = (e) => { const E = D.ENEMIES[e.type]; if (!E.armor || !(P.flank > 0) || ((Math.imul(e.id + 1, 2654435761) ^ seed) >>> 0) % 1000 / 1000 >= P.flank) return 0;
     const h = S.run.hero, fa = e.fa ?? (e.face > 0 ? 0 : Math.PI); let r = Math.atan2(h.y - e.y, h.x - e.x) - fa; r = Math.atan2(Math.sin(r), Math.cos(r));
     return Math.abs(r) < E.armor.arc + 0.35 ? (r >= 0 ? 1 : -1) : 0; };
+  // a target in deep water is struck from the shore: the nearest floor cell within a blow of it (true once there)
+  function toBank(R, inp, tg, st) { const h = R.hero, E = D.ENEMIES[tg.type];
+    if (Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) <= st.reach + E.r + HR - 8) return true;
+    const m = R.map, F = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1); let best = null;
+    for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = (Math.floor(tg.x / T) + i + 0.5) * T, y = (Math.floor(tg.y / T) + j + 0.5) * T, k = Math.floor(y / T) * m.W + Math.floor(x / T);
+      if (F[k] < 0 || m.cells[k] !== 1 || Math.hypot(x - tg.x, (y - tg.y) * 1.25) > st.reach + E.r + HR - 12) continue;
+      if (!best || F[k] < best.d) best = { x, y, d: F[k] }; }
+    if (best) walk(R, inp, best.x, best.y); return false; }
+  // the bubbles where an eel will come up (sim.js eel: 'stir', `warn` s) by the hero: to the bank by them, to strike it as it rises
+  const EEL_STIR = 200;
+  // on the way to a fight with others: no step into a lying drowned's sense (in a fight at arm's length the blows come first); held
+  // back at most HOLD s on end
+  function keepOff(S, R, h, inp, lurk) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); if (!dx && !dy) return;
+    const nx = h.x + dx * 26, ny = h.y + dy * 26, E = D.ENEMIES.drowned;
+    const bad = (x, y) => lurk.some((o) => Math.hypot(o.x - x, o.y - y) < E.sense + 14);
+    if (!bad(nx, ny)) { holdT = 0; return; } if (bad(h.x, h.y)) return;
+    if ((holdT += SIM.DT) > HOLD) return; inp.left = inp.right = inp.up = inp.down = 0; }
   function fight(S, R, inp, live, st, walkD) {
     const h = R.hero, dist = (e) => Math.hypot(e.x - h.x, e.y - h.y);
     // the nearest by the walk, not the crow: two foes about as far in a straight line but round a wall from each other swap
@@ -211,14 +239,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
     if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
-    else if (E.deep) {
-      if (Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) <= st.reach + E.r + HR - 8) inp.press = 1;
-      else { const m = R.map, F = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1); let best = null;
-        for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = (Math.floor(tg.x / T) + i + 0.5) * T, y = (Math.floor(tg.y / T) + j + 0.5) * T, k = Math.floor(y / T) * m.W + Math.floor(x / T);
-          if (F[k] < 0 || m.cells[k] !== 1 || Math.hypot(x - tg.x, (y - tg.y) * 1.25) > st.reach + E.r + HR - 12) continue;
-          if (!best || F[k] < best.d) best = { x, y, d: F[k] }; }
-        if (best) walk(R, inp, best.x, best.y); }
-    }
+    else if (E.deep) { if (toBank(R, inp, tg, st)) inp.press = 1; }
     // blind: rock between them (a corner) stops the blow; a drowned lying in its shallows round a corner never rises to meet it and
     // the bot swung at the rock for good (TASKS 339): walk round to a clear line
     else { const blind = !SIM.losClear(R.map, h.x, h.y, tg.x, tg.y), round = blind || pathLen(R, tg.x, tg.y) > td + 64; // the sim measures a blow's reach with the floor's depth stretched by 1.25
@@ -256,8 +277,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (sh && sh.gifts && !sh.seen) { sh.seen = 1; cur.altars.push({ f: R.floor, bank: S.meta.shards, c2: sh.gifts[1].cost }); }
     if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
   }
-  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), maxHp: SIM.stats(h, S.meta).maxHp, kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, dmgHp: fl.dmgHp, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, pw: fl.pw, blows: fl.blows }; };
-  const freshFl = () => ({ dmg: {}, dmgHp: 0, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0, blows: {} });
+  const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), maxHp: SIM.stats(h, S.meta).maxHp, kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, by: fl.by, dmgHp: fl.dmgHp, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, pw: fl.pw, blows: fl.blows }; };
+  const freshFl = () => ({ dmg: {}, by: {}, dmgHp: 0, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0, blows: {} });
   for (let i = initial ? initial.i : 0; i < 120 * 60 * 60 * runs * hours && out.length < runs; i++) {
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
@@ -269,7 +290,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; }
     cur.potLeft = held(h, 'hp_potion');
     if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h));
-      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear();
+      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear(); holdT = 0;
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] });
     }
@@ -308,7 +329,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const shrine = first(R.shrines.filter((s) => !s.used && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
     const shop = m.shop && R.shopped !== R.floor && (h.bag.some(gear) || h.gold >= 60) && !given.has(m.shop) ? m.shop : null;
     const aim = (k, o) => { goal = o ? [k, Math.floor(o.x / T), Math.floor(o.y / T)] : [k]; return true; };
-    if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
+    // the cave's water (TASKS 468): an eel stirring by the hero is met on the bank with nothing else at arm's length; a drowned lying
+    // in its shallows is kept off on the way to another foe
+    const fightT = live.slice().sort((a, b) => Math.max(dist(a), walkD(a)) - Math.max(dist(b), walkD(b)))[0];
+    const lurk = P.water ? live.filter((e) => e.st === 'lurk' && e !== fightT) : [], others = awake.filter((e) => e.type !== 'eel' && e.st !== 'lurk');
+    const eel = P.water && !others.some((e) => dist(e) < 120) && R.en.find((e) => e.type === 'eel' && e.deadT < 0 && e.st === 'stir' && dist(e) < EEL_STIR && reach(e));
+    if (eel && aim('eel', eel)) toBank(R, inp, eel, st);
+    else if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
     else if (!near && !late && chest && chase(R, chest) && aim('chest', chest)) { walk(R, inp, chest.x, chest.y + 20); if (dist(chest) < 50) inp.keys.push('KeyE'); }
     else if (!near && !late && shrine && chase(R, shrine) && aim('shrine', shrine)) { walk(R, inp, shrine.x, shrine.y + 30); if (dist(shrine) < 55) inp.keys.push('KeyE'); }
     else if (!near && !late && locked && chase(R, locked) && aim('door', locked)) { const dx = locked.dir === 'l' ? -1 : locked.dir === 'r' ? 1 : 0, dy = locked.dir === 'u' ? -1 : locked.dir === 'd' ? 1 : 0;
@@ -316,13 +343,14 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (!near && !late && lever && chase(R, lever.L) && aim('lever', lever)) { walk(R, inp, lever.x, lever.y); if (SIM.leverNear(R)) inp.keys.push('KeyE'); }
     else if (!near && shop && chase(R, shop) && aim('shop', shop.front)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
     // a sealed arena opens only on the boss's death: there is no running late past him to the stairs
-    else if (live.length && (!late || (R.arena && R.arena.active)) && aim('fight', live.slice().sort((a, b) => Math.max(dist(a), walkD(a)) - Math.max(dist(b), walkD(b)))[0])) fight(S, R, inp, live, st, walkD);
+    else if (live.length && (!late || (R.arena && R.arena.active)) && aim('fight', fightT)) fight(S, R, inp, live, st, walkD);
     else { const out = descend && m.down && R.bossDead ? m.down : m.exit; aim('exit', out); walk(R, inp, out.x, out.y); if (dist(out) < 55) inp.keys.push('KeyE'); }
     if (P.haz && R.arena && R.arena.active && rainOn(R, live)) { const c = shelter(R); if (c) { inp.left = inp.right = inp.up = inp.down = 0; walk(R, inp, c.x, c.y); } }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
     if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }
     if (P.traps) avoidSpikes(S, R, h, inp);
     poolHeld = 0; if (P.haz) avoidHazards(S, R, h, inp);
+    if (lurk.length && fightT && fightT.st !== 'lurk' && dist(fightT) > 120) keepOff(S, R, h, inp, lurk);
     // a shut door in the way: open it (a locked one only with the key, above)
     if (SIM.doorNear(R, 60) && !SIM.doorLock(m, SIM.doorNear(R, 60))) inp.keys.push('KeyE');
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
@@ -341,7 +369,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // each blow's size before the shield, as a share of the max health, by source group; a plain demon's slam is a group of its
     // own, the heavy hitter (TASKS 225)
     for (const e of S.ev) if (!counted.has(e) && e.blow && (e.k === 'hurt' || (e.k === 'absorb' && e.n >= e.blow))) { const g = (D.ENEMIES[e.src] || {}).kind === 'slam' ? 'heavy' : SRC(e.src || ''); (fl.blows[g] = fl.blows[g] || []).push(+(e.blow / st.maxHp).toFixed(3)); }
-    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''); fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.hits++; fl.dmgHp += e.n / st.maxHp; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
+    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''), ty = (e.src || '?').split(' ')[0]; fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.by[ty] = +((fl.by[ty] || 0) + e.n / st.maxHp).toFixed(3); if (h.hp <= 0 || h.deadT >= 0) cur.killer = e.src; fl.hits++; fl.dmgHp += e.n / st.maxHp; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
     if (B && !fl.boss && (B.hp < B.max || (R.arena && R.arena.active))) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0, hp0: +(h.hp / st.maxHp).toFixed(3), bag: held(h, 'hp_potion'), minhp: 1, by: {} };
     if (fl.boss && !fl.boss.done) { const b = fl.boss; b.t = +(S.t - b.t0).toFixed(1);
       for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') { b.dmg += e.n / st.maxHp; const g = / снаряд$/.test(e.src || '') ? 'volley' : D.BOSSES[(e.src || '').split(' ')[0]] ? B && B.mv || 'boss' : (e.src || '?').split(' ')[0]; b.by[g] = +((b.by[g] || 0) + e.n / st.maxHp).toFixed(3); } else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
