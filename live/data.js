@@ -42,7 +42,7 @@
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
-    boss_serpent: { hp: 1900, dmg: 55, scale: 1, phases: [
+    boss_serpent: { hp: 2000, dmg: 55, scale: 1, phases: [
       { at: 1, moves: ['wave', 'fan', 'bite', 'tail'], rest: 1.35, speed: 0 },
       { at: 0.55, moves: ['fan', 'bite', 'wave', 'tail'], rest: 1.1, speed: 0 }
     ], swim: 1.1, warn: 1, rise: 0.65, dive: 0.6, moves: {

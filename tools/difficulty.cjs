@@ -94,12 +94,15 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8
 // error inside, a blow of 27 killed 9 % with the survivors at 23 % (the player's call in TASKS 246)
 // mobBlow: a plain monster's blow (median, % of the max health, before the shield); heavyBlow: the same for the plain demon, a slow
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
+// the water caves' bands (TASKS 314, 05.11.2026, the player's call: each floor harder than the last): the average hero of level 10 wins 71–77 % of 160 seeds,
+// minimum health falls 45→27 % and potions climb 0.9→1.9 from the 1st floor to the 4th (two sets, 1–160 and 161–320), the serpent takes 153–160 %;
 // the water caves get their bands with their balance (TASKS 314); in the campaign (TASKS 339) the old finale's bands hold its 8th:
 // past: the share past a floor (the old 8-floor campaign's wins), bossFloor: the floor of bossDied (the demon lord); the serpent's own
 // fight bands stand on the 12th (chapters: lost, pot, t). The share of whole 12-floor wins has no band: the player's call 01.11.2026
 // for now (the average takes 45–48 % over 160 seeds; a band belongs to the follow-up balance, TASKS 340/341)
 // the magma caves' colossus (TASKS 413): harder than the serpent (1.55 of the health, 0.9 potions, 35 s) by the player's call 02.11.2026
-const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, magma: { normal: { average: { bossLost: [1.8, 2.5], bossPot: [1.5, 2.5], bossT: [40, 70] } } }, campaign: {
+const BANDS = { cave: { normal: { average: { win: [0.65, 0.85], bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90], deathShare: 0.4,
+    floor: { 1: { minhp: [38, 54], hpPot: [0.5, 1.4] }, 2: { minhp: [30, 46], hpPot: [0.8, 1.9] }, 3: { minhp: [30, 46], hpPot: [1.1, 2.1] }, 4: { minhp: [20, 36], hpPot: [1.3, 2.5] } } } } }, magma: { normal: { average: { bossLost: [1.8, 2.5], bossPot: [1.5, 2.5], bossT: [40, 70] } } }, campaign: {
   easy: { average: { past: { 8: [0.85, 1] } } },
   normal: { average: { past: { 8: [0.4, 0.6] }, deep: { lost: [1.5, 2.5], t: [20, 90] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 12: { minhp: null, hpPot: null } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { past: { 8: [0, 0.85] } }, builder: BUILDER },
