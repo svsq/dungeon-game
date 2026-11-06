@@ -2222,6 +2222,14 @@
         // of floor round it (three at the top), nothing stands on it, and no stream runs through a shaped room
         // a floor's layout (TASKS 379): all four come up over the floors checked; a catacomb's chambers are one size on its grid
         if (m.lay) shapes['lay:' + m.lay] = 1;
+        // a bridge over a rift of lava and a trapped corridor (TASKS 377): the deck is floor with lava under it and beside it; the plates
+        // of a run go down one line three cells apart
+        for (const c of m.crossings.filter((q) => q.rift)) { shapes.rift = 1; const lu = new Set(m.lavaUnder), hor = c.axis === 'x';
+          if (c.cells.some((k) => m.cells[k] !== 1 || !lu.has(k))) out.push(`seed ${seed} f${f}: a rift bridge's deck is not floor over lava`);
+          if (!c.cells.some((k) => [hor ? -m.W : -1, hor ? m.W : 1].some((o) => m.cells[k + o] === 3))) out.push(`seed ${seed} f${f}: a rift bridge with no lava beside it`); }
+        const runs = {}; for (const t of m.traps) if (t.run !== undefined) (runs[t.run] = runs[t.run] || []).push(t);
+        for (const ps of Object.values(runs)) { shapes.gauntlet = 1; const xs = new Set(ps.map((t) => t.x)), ys = new Set(ps.map((t) => t.y)), st = (xs.size > 1 ? [...xs] : [...ys]).sort((a, b) => a - b);
+          if ((xs.size > 1) === (ys.size > 1) || ps.length < 2 || st.some((v, i) => i && v - st[i - 1] !== 3 * TILE)) out.push(`seed ${seed} f${f}: a trapped corridor's plates are not in a line three cells apart`); }
         // a fortress (TASKS 380): the court is reached by its gates only, the start and the stairs lie outside its ring, and it holds
         // the altar or an elite
         const ct = m.rooms.find((r) => r.court);
@@ -2342,9 +2350,10 @@
         if (!r || !(r.type === 'combat' || r.type === 'exit' || r.locked) || cell(m, P.cx, P.cy) !== 1 || m.block.includes(k) || DG.roomAt(m, P.x, P.y) !== P.room) out.push(`seed ${seed} f${f}: an ambush off a fighting room's open floor`);
         if (m.traps.some((t) => Math.abs(t.x / TILE - P.cx - 0.5) < 1.5 && Math.abs(t.y / TILE - P.cy - 0.5) < 1.5)) out.push(`seed ${seed} f${f}: an ambush on a spike plate`); }
       // a corridor's plate (TASKS 76) fills a straight two-cell stretch with rock both sides, three cells and more from any room or door
-      { const roomNear = (x, y, pad) => m.rooms.some((q) => x >= q.x - pad && x < q.x + q.w + pad && y >= q.y - pad && y < q.y + q.h + pad);
-        for (const tr of m.traps) { if (!tr.cor) continue; const x0 = tr.x / TILE - 1, y0 = tr.y / TILE - 1, cs = [[x0, y0], [x0 + 1, y0], [x0, y0 + 1], [x0 + 1, y0 + 1]];
-          if (cs.some(([x, y]) => cell(m, x, y) !== 1 || roomNear(x, y, 3) || m.doors.some((d) => d.cells.some(([dx, dy]) => Math.abs(dx - x) <= 3 && Math.abs(dy - y) <= 3)))) out.push(`seed ${seed} f${f}: corridor spike plate near a room or a door`);
+      // (a trapped corridor's plates, TASKS 377, a cell off a room and two off a door)
+      { const roomNear = (x, y, pad) => m.rooms.some((q) => DG.inRm(q, x, y, pad));
+        for (const tr of m.traps) { if (!tr.cor) continue; const x0 = tr.x / TILE - 1, y0 = tr.y / TILE - 1, cs = [[x0, y0], [x0 + 1, y0], [x0, y0 + 1], [x0 + 1, y0 + 1]], pr = tr.run !== undefined ? 1 : 3, pd = tr.run !== undefined ? 2 : 3;
+          if (cs.some(([x, y]) => cell(m, x, y) !== 1 || roomNear(x, y, pr) || m.doors.some((d) => d.cells.some(([dx, dy]) => Math.abs(dx - x) <= pd && Math.abs(dy - y) <= pd)))) out.push(`seed ${seed} f${f}: corridor spike plate near a room or a door`);
           const runX = [0, 1].every((i) => cell(m, x0 + i, y0 - 1) === 0 && cell(m, x0 + i, y0 + 2) === 0), runY = [0, 1].every((j) => cell(m, x0 - 1, y0 + j) === 0 && cell(m, x0 + 2, y0 + j) === 0);
           if (!runX && !runY) out.push(`seed ${seed} f${f}: corridor spike plate off a straight stretch`); } }
       { const tc = new Set(); for (const tr of m.traps) if (!tr.cor) for (let j = -1; j <= 0; j++) for (let i = -1; i <= 0; i++) tc.add((Math.floor(tr.y / TILE) + j) * m.W + Math.floor(tr.x / TILE) + i);
@@ -2490,6 +2499,8 @@
     for (const k of Object.keys(D.ROOM_SHAPES)) if (!shapes[k] && !shapes[k + '*']) out.push(`rooms: no ${k} room on any of the floors checked`);
     if (!shapes['pit*']) out.push('rooms: no pit dug on any of the floors checked');
     if (!shapes.wide) out.push('rooms: no corridor three cells wide on any of the floors checked');
+    if (!shapes.rift) out.push('rooms: no bridge over a rift of lava on any of the floors checked');
+    if (!shapes.gauntlet) out.push('rooms: no trapped corridor on any of the floors checked');
     for (const k of ['rooms', 'maze', 'hall', 'catacomb', 'fortress']) if (!shapes['lay:' + k]) out.push(`rooms: no ${k} layout on any of the floors checked`);
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); let snap = null;   // the last save of a living hero: the demo hero may fall before 40 s

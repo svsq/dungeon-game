@@ -3590,6 +3590,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (!S) continue; const Q = S.run, m = Q.map, r = m.rooms[m.start] || m.rooms[0], x = m.W * TILE / 2, y = m.H * TILE / 2;
       Q.hero.x = (r.cx + 0.5) * TILE; Q.hero.y = (r.cy + 0.5) * TILE; Q.en = []; Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - VW / 2, y - VH / 2];
       states.push(['lay_' + lay, S]); }
+    // a bridge over a rift of lava and a trapped corridor (TASKS 377): the first campaign floor with each, in view, explored
+    for (const [name, find] of [['rift_bridge', (m) => { const c = m.crossings.find((q) => q.rift); return c && c.cells[0]; }], ['gauntlet', (m) => { const t = m.traps.find((q) => q.run !== undefined); return t && Math.floor(t.y / TILE) * m.W + Math.floor(t.x / TILE); }]]) {
+      let S = null, k = null; for (let sd = 1; sd < 30 && k == null; sd++) for (let f = 3; f <= 7 && k == null; f++) { S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); k = find(S.run.map); }
+      if (k == null) continue; const Q = S.run, m = Q.map, x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+      Q.hero.x = x - 3 * TILE; Q.hero.y = y + 2 * TILE; Q.en = []; Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - VW / 2, y - VH / 2]; states.push([name, S]); }
     // the magma caves' lava (TASKS 401): each kind of crossing over a river, a lake with its source, the crust giving under the hero
     // beside a cell of it melted, and monsters knocked off a plateau, one sinking in the lava and one dropping into the chasm
     { const at = (S, f, pick) => { S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };

@@ -1110,6 +1110,33 @@
     // behind a two-cell-thick fake wall (cell 4: solid, drawn as rock, breaks under blows) and a short passage. How many is
     // left to chance (1–10, fewer when the rock has no room for them; none at all only on the boss's floor, and rarely), so the
     // player never knows when a floor is cleaned out ----
+    // a bridge over lava on the way between rooms (TASKS 377): on a fire floor of rooms, a straight stretch of corridor two cells wide
+    // with rock both sides crossed by a rift of lava 3–4 cells wide that runs 2–4 cells into the rock either side; the corridor
+    // over it is a plank bridge (a crossing over lava, as the plateaus' are: floor, with the lava drawn under its deck)
+    const deckUsed = [];
+    if (LY && D.BIOMES[biome].lava && !(last && boss)) { const nb = ri(...(LY.bridges || [1, 2])), runs = [];
+      const clear = (x, y) => at(x, y) === 1 && !rooms.some((q) => inRm(q, x, y, 2)), rock = (x, y) => at(x, y) === 0;
+      for (const hor of [1, 0]) for (let v = 4; v < (hor ? H : W) - 5; v++) { let n = 0;
+        for (let u = 3; u < (hor ? W : H) - 3; u++) { const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]);
+          const ok = clear(...c(u, v)) && clear(...c(u, v + 1)) && rock(...c(u, v - 1)) && rock(...c(u, v + 2));
+          n = ok ? n + 1 : 0; if (n >= 6) runs.push([hor, u - n + 1, v, n]); } }
+      for (let i = runs.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [runs[i], runs[j]] = [runs[j], runs[i]]; }
+      const took = [];
+      for (const [hor, u0r, v, n] of runs) { if (took.length >= nb) break; const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]), s0 = ri(3, 4), u0 = u0r + ((n - s0) >> 1), u1 = u0 + s0 - 1;
+        if (took.some(([h2, a, b]) => Math.abs(a - u0) < 12 && Math.abs(b - v) < 12)) continue;
+        const rift = []; let fine = true;
+        for (let u = u0; u <= u1; u++) for (const [side, base] of [[-1, v - 1], [1, v + 2]]) { const d = ri(2, 4); for (let k = 0; k < d; k++) { const [x, y] = c(u, base + side * k); if (at(x, y) !== 0) { if (k < 1) fine = false; break; } rift.push([x, y]); } }
+        if (!fine) continue;
+        for (const [x, y] of rift) { set(x, y, 3); lava.push([x, y]); flow[y * W + x] = hor ? 1 : 0; }
+        // (rock one cell thick between the rift and a floor would hang as a strip of masonry: it becomes rift, as by a river)
+        for (let pass = 0; pass < 2; pass++) for (const [x0, y0] of rift.slice()) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const x = x0 + i, y = y0 + j;
+          if (at(x, y) === 0 && at(x, y - 1) && at(x, y + 1) && at(x, y - 1) !== 4 && at(x, y + 1) !== 4) { set(x, y, 3); lava.push([x, y]); flow[y * W + x] = hor ? 1 : 0; rift.push([x, y]); } }
+        const deck = []; for (let u = u0; u <= u1; u++) for (const dv of [0, 1]) { const [x, y] = c(u, v + dv); deck.push(y * W + x); deckUsed.push([x, y]); }
+        lavaUnder.push(...deck); const cr = { kind: 'bridge', cells: deck, axis: hor ? 'x' : 'y', clean: 1, lava: 1, span: [u0, u1, v], posts: [], rift: 1 };
+        const lit = R() < 0.5 ? [] : [R() < 0.5 ? 0 : 1];
+        for (const e of [0, 1]) for (const side of [0, 1]) { const a = e ? (u1 + 1) * TILE - 6 : u0 * TILE + 6, b = side ? (v + 2) * TILE + 2 : v * TILE + 4;
+          cr.posts.push({ x: hor ? a : side ? (v + 2) * TILE + 4 : v * TILE - 4, y: hor ? b : a + (e ? 8 : 2), fire: lit.includes(e) ? 1 : 0, near: side }); }
+        crossings.push(cr); took.push([hor, u0, v]); } }
     const secrets = [], onWater = new Set([...wet, ...crossings.flatMap((c) => c.cells)]);
     // the rock a fall pours down or a spring comes out of is no secret's
     const srcRock = new Set(waterFeatures.filter((q) => q.dir).flatMap((q) => { const b = { u: -W, d: W, l: -1, r: 1 }[q.dir]; return [q.cell + b, q.cell + 2 * b, q.cell + b - 1, q.cell + b + 1, q.cell + b - W, q.cell + b + W]; }));
@@ -1267,6 +1294,7 @@
     const spot = (r, inset = 1, pad = 0, big = false) => { for (let k = 0; k < 40; k++) { const x = ri(r.x + inset, r.x + r.w - 1 - inset), y = ri(r.y + inset, r.y + r.h - 1 - inset);
       if (free(x, y, pad) && !doorway(x, y) && (!big || roomy(x, y, big === true ? 'chest' : big))) { used.add(key(x, y)); if (big) claim(x, y, big === true ? 'chest' : big); return [x, y]; } } return null; };
     for (const sc of secrets) for (const [x, y] of sc.front) used.add(key(x, y));
+    for (const [x, y] of deckUsed) used.add(key(x, y));
     // a stream through a campaign room keeps bulky props a cell off its banks; a cave's water is everywhere, so only off the water
     for (const k of water) {
       const x = k % W, y = Math.floor(k / W), p = cave ? 0 : 1; used.add(key(x, y));
@@ -1898,6 +1926,18 @@
         const runX = [-1, 0, 1, 2].every((i) => at(x + i, y - 1) === 0 && at(x + i, y + 2) === 0) && [-1, 2].every((i) => at(x + i, y) === 1 && at(x + i, y + 1) === 1);
         const runY = [-1, 0, 1, 2].every((j) => at(x - 1, y + j) === 0 && at(x + 2, y + j) === 0) && [-1, 2].every((j) => at(x, y + j) === 1 && at(x + 1, y + j) === 1);
         if (runX || runY) cand.push([x, y]); }
+      // a trapped corridor (TASKS 377), a way of its own kind from the 3rd floor: the floor's longest straight stretch two cells wide
+      // between rock (five cells and more, a cell off any room), a plate every third cell down all of it, their spikes rising in a wave
+      // along it, so it is crossed in time, plate by plate
+      if (LY && depth >= 3 && R() < (LY.gauntlet ?? 0.7)) { let best = null;
+        const ok = (x, y) => at(x, y) === 1 && !inAny(x, y, 1) && !used.has(key(x, y)) && !water.includes(y * W + x) && !doors.some((d) => d.cells.some(([dx, dy]) => Math.abs(dx - x) <= 2 && Math.abs(dy - y) <= 2));
+        for (const hor of [1, 0]) for (let v = 3; v < (hor ? H : W) - 4; v++) { let n = 0;
+          for (let u = 2; u < (hor ? W : H) - 2; u++) { const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]);
+            n = ok(...c(u, v)) && ok(...c(u, v + 1)) && at(...c(u, v - 1)) === 0 && at(...c(u, v + 2)) === 0 ? n + 1 : 0; if (n >= 5 && (!best || n > best[3])) best = [hor, u - n + 1, v, n]; } }
+        if (best) { const [hor, u0, v, n] = best, ph0 = R(), id = traps.length;
+          for (let o = (n - 1) % 3 >> 1, k = 0; o + 1 < n; o += 3, k++) { const [px, py] = hor ? [u0 + o, v] : [v, u0 + o];
+            for (const [cx, cy] of [[px, py], [px + 1, py], [px, py + 1], [px + 1, py + 1]]) used.add(key(cx, cy));
+            traps.push({ x: (px + 1) * TILE, y: (py + 1) * TILE, ph: (ph0 + k * 0.2) % 1, cor: 1, run: id }); } } }
       for (let n = depth < 2 ? 0 : ri(0, 2) + (depth >= 5 ? 1 : 0), k = 0; n > 0 && k < 60 && cand.length; k++) { const [x, y] = cand[Math.floor(R() * cand.length)];
         if (traps.some((t) => Math.abs(t.x / TILE - (x + 1)) < 7 && Math.abs(t.y / TILE - (y + 1)) < 7)) continue;
         for (const [cx, cy] of [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]) used.add(key(cx, cy));
