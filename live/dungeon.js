@@ -2447,7 +2447,8 @@
       ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => { const a = (60 + i * 240 / 7) * Math.PI / 180; return { x: wx(T.portal[0]) + Math.cos(a) * 2.4 * TILE, y: wy(T.portal[1]) + Math.sin(a) * 1.9 * TILE, n: i % 2 ? 'stone_tw_a' : 'stone_tw_b', role: 'portal_stone', solid: 1, s: i % 2 ? 0.85 : 1 }; }),
       ...[0, 1, 2, 3, 4, 5, 6].map((i) => { const a = Math.PI * (0.92 + i * 1.16 / 6); return { x: wx(T.forge[0]) + Math.cos(a) * 1.25 * TILE, y: wy(T.forge[1]) + 4 + Math.sin(a) * 0.8 * TILE, n: 'stone_tw_b', role: 'forge_stone', s: 0.42 + 0.06 * (i % 2) }; }),
       ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y]) => ({ ...at([x, y]), n: 'torch_stand', role: 'lamp', solid: 1 })),
-      ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: 'tree_tw', role: 'edge', solid: 1, s: 0.85 + 0.1 * (i % 3), f: i % 2 })),
+            // three trees round the edge, not one six times (TASKS 1030)
+      ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: ['tree_tw_b', 'tree_tw_c', 'tree_tw'][i % 3], role: 'edge', solid: 1, s: 0.85 + 0.1 * ((i >> 1) % 3), f: (i >> 1) % 2 })),
       ...T.small.filter(() => R() < 0.9).map(([n, x, y]) => ({ x: wx(x) + Math.round((R() - 0.5) * 10), y: wy(y) + Math.round((R() - 0.5) * 6), n, solid: 1 })),
       // each niche: its stores along the back and a few candles burning among them
       ...T.niches.flatMap(([x0, y0, w, h], k) => { const out = [], back = y0 < 10 ? y0 : y0 + h - 1, side = x0 > 50;
@@ -2469,8 +2470,9 @@
       T.routes[role] ? { route: T.routes[role].map(([x, y, act]) => Object.assign({ x: wx(x), y: wy(y) }, act ? { act } : {})) } : {}));
     const near = (x, y, r) => decor.some((d) => Math.hypot(d.x - x, d.y - y) < r) || Math.hypot(sanct.x - x, sanct.y - y) < 3 * TILE || rails.includes(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     const decals = [];
-    for (let i = 0; i < 70; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
-      decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.5 }); }
+    // separate tufts over the earth (TASKS 1030: its texture keeps only fine grain, so the tile's repeat does not show)
+    for (let i = 0; i < 150; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
+      decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_grass_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.7 + R() * 0.5 }); }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin) };
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
     // merchant's counter, and it stood behind it for good on seed 52)

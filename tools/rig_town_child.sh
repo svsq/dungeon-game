@@ -6,3 +6,4 @@ python3 ~/.claude/skills/ref2game/scripts/rigcut.py town_child --elbow --face ri
  --arm "R=104,116;116,120;122,140;122,158;114,162;134,168;148,190;148,216;122,216;112,196;108,175;104,150;100,130" --sh R=110,132 --hand R=128,190
 python3 tools/partcut.py town_child "head:6,0;144,0;146,70;128,100;108,112;70,112;50,104;10,96|85,110"
 python3 tools/jointcap.py town_child "uarmL:shL:12" "uarmR:shR:12" "thighL:hipL:12" "thighR:hipR:12"
+python3 tools/childface.py

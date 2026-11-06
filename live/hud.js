@@ -660,7 +660,10 @@
     wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 112, P.w - 360, 28, C.text);
     const act = at('act');
     // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
-    if (act) { const rs = 'Награда: ' + SIM.rwLine(T.act.rw); lab('tk_rw', rs, P.x + 300, P.y + P.h - 122, { size: 22, col: C.gold }); }
+    // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030)
+    if (act) { const rs = 'Награда: ' + SIM.rwLine(T.act.rw), ic = SIM.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
+      if (ic) { panel('tk_ic', P.x + 300, P.y + P.h - 160, 44, 44, { r: 6 }); icon(ic, P.x + 304, P.y + P.h - 156, 36); }
+      lab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, { size: 22, col: C.gold }); }
     if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: C.dim });
     button('tk_next', Object.assign({}, at('next'), { label: T.p + 1 < T.pages.length ? 'Дальше' : act && T.act.k === 'take' ? 'Не сейчас' : 'Уйти' }), S.hover);
     if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? 'Взять задание' : 'Сдать задание' }), S.hover);
@@ -683,7 +686,8 @@
       lab('jr_f' + i, (D.FOLK[q.from] ? D.FOLK[q.from].name : '') + ' · ' + q.f + '-й этаж', b.x + 16, b.y + 44, { size: 16, col: C.dim }); });
     const Q = D.QUESTS[sel.key], X = P.x + 540, Wd = P.w - 580, [st, col] = QST[sel.st]; let y = P.y + 130;
     L.solid(X - 20, P.y + 110, 1, P.h - 180, C.rim, 0, 0, 0, 0.6);
-    lab('jr_dn', Q.name, X, y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
+    if (sel.ic) { panel('jr_ic', X, y - 30, 48, 48, { r: 6 }); icon(sel.ic, X + 4, y - 26, 40); }
+    lab('jr_dn', Q.name, X + (sel.ic ? 60 : 0), y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
     lab('jr_dk', (Q.kind === 'story' ? 'Сюжет · ' : '') + 'Дал: ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—'), X, y, { size: 20, col: C.dim }); y += 44;
     y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 24, C.text) + 18;
     lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.questLine(sel, R) : sel.st === 'done' ? ' · сдать — ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '') + ' в городе' : ''), X, y, { size: 22, col }); y += 48;
