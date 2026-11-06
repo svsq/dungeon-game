@@ -4056,6 +4056,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['way_asleep', climbS(4, (S, R, m, h) => { h.x = m.way.x + 90; h.y = m.way.y + 50; R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
     states.push(['way_wake', climbS(4, (S, R, m, h) => { h.x = m.way.x + 30; h.y = m.way.y + 36; R.ways = [4]; S.ev.push({ k: 'waystone', x: m.way.x, y: m.way.y, t: S.t - 0.35 }); R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
     states.push(['way_awake', climbS(4, (S, R, m, h) => { h.x = m.way.x + 40; h.y = m.way.y + 50; R.ways = [4]; R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
+    // the merchant (TASKS 1010): the town's shelf after six floors and a boss, the wandering merchant's screen on a floor
+    states.push(['town_shop', climbS(0, (S, R, m, h) => { for (let f = 1; f <= 6; f++) SIM.enterFloor(S, R, f); R.bossN = 1; SIM.enterFloor(S, R, 0, undefined, 'up'); S.ev = []; R.msg = null;
+      h.x = R.map.shop.front.x; h.y = R.map.shop.front.y + 10; R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; S.screen = 'shop'; S.hover = 'buy:0'; })]);
+    states.push(['shop_wander', climbS(5, (S, R, m, h) => { R.shop = SIM.stockShopFor(R, 5, 'wander'); R.shop.line = 3; S.screen = 'shop'; S.hover = 'buy:0'; })]);
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; R.ways = [4, 8, 12]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);

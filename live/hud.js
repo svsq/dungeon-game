@@ -452,12 +452,12 @@
   }
   // ---------------- the merchant's screen ----------------
   function shop(S, R, t) {
-    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = R.floor;
+    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = SIM.tradeDepth(R);
     dim(0.6); panel('shop', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('sh_t', 'Лавка торговца', P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    lab('sh_t', sh.wander ? 'Странствующий торговец' : 'Лавка торговца', P.x + 40, P.y + 46, { size: 40, col: C.gold });
     const gs = h.gold + ' золота'; lab('sh_g', gs, P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 28, 36);
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 20 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 20, col: can ? C.gold : '#8a6a5a' }); };
-    lab('sh_buy', 'Товары · этаж ' + f, P.x + 40, P.y + 100, { size: 24, col: C.dim });
+    lab('sh_buy', R.town ? 'Товары города' + (sh.at ? ' · с глубин до этажа ' + sh.at : '') : sh.wander ? 'Товары из глубин · этаж ' + R.floor : 'Товары · этаж ' + R.floor, P.x + 40, P.y + 100, { size: 24, col: C.dim });
     sh.goods.forEach((g, i) => { const b = U.r.find((q) => q.id === 'buy:' + i); slot(S, b, g.n ? Object.assign({}, g.it, { n: g.n }) : g.it); price('shp_b' + i, b, g.price, h.gold >= g.price); });
     lab('sh_back', 'Выкуп проданного', P.x + 40, P.y + 550, { size: 24, col: C.dim });
     for (let i = 0; i < D.SHOP.buyback; i++) { const b = U.r.find((q) => q.id === 'back:' + i), g = sh.back[i]; slot(S, b, g && g.it); if (g) price('shp_k' + i, b, g.price, h.gold >= g.price); }
@@ -466,7 +466,7 @@
     // the merchant himself, his line for this visit
     const mx = P.x + 720, my = P.y + P.h - 64, [mw, mh] = SZ('merchant'), k = 2.1;
     L.sprite('merchant', mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
-    const line = '«' + D.SHOP.lines[sh.line % D.SHOP.lines.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 40;
+    const LN = sh.wander ? D.SHOP.wander.lines : D.SHOP.lines, line = '«' + LN[sh.line % LN.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 40;
     panel('sh_bubble', P.x + 620, P.y + 556, bw, 48, { r: 10 }); lab('sh_line', line, P.x + 640, P.y + 581, { size: lsz, col: '#fff2c8' });
     lab('sh_help', 'ЛКМ по товару — купить · ЛКМ по вещи в сумке — продать · E или Esc — закрыть', P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('sh_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('sh_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
