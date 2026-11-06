@@ -504,11 +504,13 @@
   //   nest: the smouldering dead's nest strewn with the charred and their bones, heaps of gold and a chest
   //   prison: the cult's cages with its prisoners' things piled by them, a chest
   const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5,
-    kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3 }, forge: { need: 'golem', pack: 'rock', extra: 1, w: 3 },
-      nest: { need: 'skel_ember', pack: 'ember', extra: 2, w: 2 }, prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 2 } } };
+    kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3 }, forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1 },
+      nest: { need: 'skel_ember', pack: 'nest', extra: 2, w: 2 }, prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 2 } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
+    // (nest: the smouldering dead's own hall, them alone; with the ember pack's archer it was half archers, TASKS 488; never drawn at random)
+    nest: { w: 0, plan: [[['skel_ember'], [3, 4], 'any']] },
     rush: { w: 1, plan: [[['goblin'], [2, 3], 'near'], [['skeleton'], [1, 1], 'any']] },
     ember: { w: 3, plan: [[['skel_ember'], [2, 3], 'any'], [['skel_archer'], [0, 1], 'back']] },
     cult: { w: 2, plan: [[['cultist'], [2, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [1, 2], 'near']] },
@@ -897,17 +899,17 @@
   const PROP_W = { chest: 53, coffin: 81, grave: 50, statue: 61, pillar: 81, crystal: 49, cage: 51, rack: 69, bookshelf: 103, table: 59, brazier: 57,
     altar: 67, gold: 96, goldpile: 46, barrel: 45, crate: 48, pot: 32, vase_a: 30, vase_b: 43, vase_c: 30, candlestick: 22, candelabra: 46, torch_stand: 26, crystal_cv: 68,
     stalag_a: 55, stalag_b: 44, boulder_a: 62, boulder_b: 63, wreck_cv: 107, tent_cv: 115, shroom_a: 42, shroom_b: 47, skel_cv: 51,
-    anvil_tw: 37, forge_tw: 83, basalt_a: 66, basalt_b: 62, boulder_mg_a: 62, boulder_mg_b: 63, obsidian_mg: 68, skel_mg: 51, banner_mg: 70, vent_mg: 53 };
+    anvil_tw: 37, forge_tw: 83, forge_mg: 83, basalt_a: 66, basalt_b: 62, boulder_mg_a: 62, boulder_mg_b: 63, obsidian_mg: 68, skel_mg: 51, banner_mg: 70, vent_mg: 53 };
   // and how tall (sizes.js heights): with the width, the sprite's box an item lying behind the prop disappears in
   const PROP_H = { chest: 52, coffin: 51, grave: 51, statue: 117, pillar: 89, crystal: 81, cage: 81, rack: 71, bookshelf: 107, table: 52, brazier: 51,
     altar: 56, gold: 52, goldpile: 32, barrel: 56, crate: 51, pot: 36, vase_a: 60, vase_b: 48, vase_c: 60, candlestick: 60, candelabra: 66, torch_stand: 76, crystal_cv: 84,
     stalag_a: 54, stalag_b: 74, boulder_a: 44, boulder_b: 32, wreck_cv: 50, tent_cv: 80, shroom_a: 40, shroom_b: 56, skel_cv: 44,
-    anvil_tw: 40, forge_tw: 64, basalt_a: 72, basalt_b: 44, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 22 };
+    anvil_tw: 40, forge_tw: 64, forge_mg: 64, basalt_a: 72, basalt_b: 44, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 22 };
   const PROP_MAT = { table: 'wood', rack: 'wood', bookshelf: 'wood', coffin: 'wood', shop_shelf: 'wood', shop_barrel: 'wood', shop_crate: 'wood',
     statue: 'stone', pillar: 'stone', grave: 'stone', cage: 'metal', brazier: 'metal', candlestick: 'metal', candelabra: 'metal', torch_stand: 'metal', shop_lantern: 'metal', shop_armor: 'metal', shop_weapons: 'metal',
     crystal: 'crystal', crystal_cv: 'crystal', shop_sacks: 'cloth', shop_gold: 'cloth', fire: 'fire', bones: 'bone',
     stalag_a: 'stone', stalag_b: 'stone', boulder_a: 'stone', boulder_b: 'stone', wreck_cv: 'wood', tent_cv: 'cloth', skel_cv: 'bone',
-    skel_mg: 'bone', fence_mg: 'chain', vent_mg: 'ember', anvil_tw: 'metal', forge_tw: 'stone',
+    skel_mg: 'bone', fence_mg: 'chain', vent_mg: 'ember', anvil_tw: 'metal', forge_tw: 'stone', forge_mg: 'stone',
     basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', skel_mg: 'bone', banner_mg: 'cloth' };
   const hitUI = (rects, x, y) => rects.find((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
 

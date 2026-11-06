@@ -1262,7 +1262,9 @@
     if (plat && !boss && HL) { const Hr = mul32(seed ^ 0x434a), have = D.rosterAt(biome, Math.min(ST.n, floor + ST.early)), rank = (r) => (way.has(r.id) ? 2 : 0) + (deadEnd(r) ? 0 : 1);
       const cand = rooms.filter((r) => r.type === 'combat' && !r.pocket && !r.isle && !r.branch && r.kind !== 'ledge' && r.kind !== 'ridge' && r.w * r.h >= HL.area);
       for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(Hr() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; } cand.sort((a, b) => rank(a) - rank(b));
-      let n = HL.n[0] + (Hr() < HL.two ? 1 : 0); const kinds = Object.entries(HL.kinds).filter(([, K]) => have.includes(K.need)), took = new Set();
+      // (a kind marked `early` comes on the 1st floor before its monster does, with the floor's own pack, TASKS 488: the prison alone
+      // could, and was there in 30 runs of 30)
+      let n = HL.n[0] + (Hr() < HL.two ? 1 : 0); const kinds = Object.entries(HL.kinds).filter(([, K]) => have.includes(K.need) || (floor === 1 && K.early)), took = new Set();
       for (const r of cand) { if (n <= 0 || !kinds.length) break; const pk = kinds.filter(([k]) => !took.has(k)); if (!pk.length) break;
         let roll = Hr() * pk.reduce((a, [, K]) => a + K.w, 0), pick = pk[0][0]; for (const [k, K] of pk) if ((roll -= K.w) < 0) { pick = k; break; } r.hall = pick; took.add(pick); n--; } }
     // ---- contents ----
@@ -1768,7 +1770,7 @@
           const ok = []; for (const [a, b] of cs) { if (!keepsWay(a, b)) break; hardC.add(key(a, b)); ok.push([a, b]); } if (ok.length < 2 || !wideWay()) { for (const [a, b] of ok) hardC.delete(key(a, b)); continue; }
           stackN++; for (const [a, b] of ok) { used.add(key(a, b)); bulk.add(key(a, b)); pots.push({ x: wx(a), y: wy(b), kind: Dr() < 0.5 ? 'barrel' : 'crate', hp: 1, stack: stackN }); wide.push([wx(a), b, 24]); } return true; } return false; };
       const lie = (r, n, k, by) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && rockN(x, y) >= 1 && (!by || Math.hypot(x - by[0], y - by[1]) < 5)).slice(0, k)) {
-        used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id }); } };
+        used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id, ...(n === 'skel_mg' ? { ember: 1 } : {}) }); } };
       // on the plateaus: basalt stumps and boulders, obsidian anywhere by the edge rather than by water (TASKS 405)
       const GEM = plat ? 'obsidian_mg' : 'crystal_cv';
       // a plateau's hall has its stumps out in the open too, the edge's first (TASKS 420)
@@ -1789,12 +1791,14 @@
         if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id }); chestAt(r, c, 2);
           for (const [dx, dy] of [[-2, -1], [2, -1], [-2, 1], [2, 1]]) { const x = c[0] + dx, y = c[1] + dy; if (free(x, y) && !doorway(x, y)) { used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: 'candles' }); } }
           brazierAt(r, [c[0] - 4, c[1]]); brazierAt(r, [c[0] + 4, c[1]]); standIn(r, 'banner_mg', 2); lie(r, 'bones', dri(2, 3)); }
-        else if (r.hall === 'forge') { const f = near(r, c, (x, y) => back(x, y) && canStand(x, y, 'forge_tw'))[0] || near(r, c, (x, y) => canStand(x, y, 'forge_tw'))[0]; if (f) stand(...f, 'forge_tw', r.id);
+        // (TASKS 488: the forge on the magma's basalt one, the town's slate came out pink; every hall reads as its kind in the frame and
+        // pays as the forge and the sanctum do)
+        else if (r.hall === 'forge') { const f = near(r, c, (x, y) => back(x, y) && canStand(x, y, 'forge_mg'))[0] || near(r, c, (x, y) => canStand(x, y, 'forge_mg'))[0]; if (f) stand(...f, 'forge_mg', r.id);
           const a = f && near(r, [f[0] + 3, f[1] + 2], (x, y) => canStand(x, y, 'anvil_tw'))[0]; if (a) stand(...a, 'anvil_tw', r.id);
-          if (f) brazierAt(r, [f[0] - 3, f[1] + 1]); standIn(r, 'rack', 1); stack(r); chestAt(r, a ? [a[0] + 2, a[1]] : c, 2); goldAt(r, a || c, 1); lie(r, 'bones', dri(1, 2)); }
-        else if (r.hall === 'nest') { const lieOpen = (n, k) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && !N8.some(([dx, dy]) => at(x + dx, y + dy) === 3)).slice(0, k)) { used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id }); } };
-          lieOpen('skel_mg', dri(3, 4)); lieOpen('bones', dri(5, 7)); chestAt(r, c, 1); goldAt(r, c, 2); rocks(r, dri(2, 3), false); }
-        else if (r.hall === 'prison') { standIn(r, 'cage', dri(2, 3)); stack(r); stack(r); chestAt(r, c, 1); goldAt(r, c, 1); lie(r, 'bones', dri(2, 4)); lie(r, 'skel_mg', 1); } };
+          if (f) { brazierAt(r, [f[0] - 3, f[1] + 1]); brazierAt(r, [f[0] + 4, f[1] - 1]); } standIn(r, 'rack', 2); stack(r); chestAt(r, a ? [a[0] + 2, a[1]] : c, 2); goldAt(r, a || c, 1); lie(r, 'bones', dri(1, 2)); }
+        else if (r.hall === 'nest') { const lieOpen = (n, k) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && !N8.some(([dx, dy]) => at(x + dx, y + dy) === 3)).slice(0, k)) { used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id, ...(n === 'skel_mg' ? { ember: 1 } : {}) }); } };
+          lieOpen('skel_mg', dri(5, 6)); lieOpen('bones', dri(6, 8)); chestAt(r, c, 2); goldAt(r, c, 2); rocks(r, dri(2, 3), false); }
+        else if (r.hall === 'prison') { standIn(r, 'cage', dri(4, 5)); standIn(r, 'banner_mg', 1); stack(r); stack(r); chestAt(r, c, 2); goldAt(r, c, 1); lie(r, 'bones', dri(2, 4)); lie(r, 'skel_mg', 1); } };
       for (const r of rooms) {
         if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss') continue;
         if (plat && r.hall) { hallProps(r); continue; }

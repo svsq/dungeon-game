@@ -786,9 +786,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // its biome (BIOMES.cave.shroom / gem); a prop away from the cave keeps the fallback colour
   const GLOW = { shroom_a: { up: 22, r: 150, amt: 0.48, col: 'shroom', cap: 15 }, shroom_b: { up: 34, r: 175, amt: 0.55, col: 'shroom', cap: 19 }, crystal_cv: { up: 42, r: 230, amt: 0.9, col: 'gem', cap: 26 },
     // the magma caves' (TASKS 405): a hot fissure in the ground breathing like a mushroom, obsidian holding a steady inner ember
-    vent_mg: { up: 6, r: 140, amt: 0.5, col: 'shroom', cap: 10 }, obsidian_mg: { up: -6, r: 150, amt: 0.3, col: 'gem', cap: 3 } };   // its glow lies round its foot: lit from inside, it read pink
+    vent_mg: { up: 6, r: 140, amt: 0.5, col: 'shroom', cap: 10 }, obsidian_mg: { up: -6, r: 150, amt: 0.3, col: 'gem', cap: 3 },
+    // (TASKS 488) the forge's coals, the basalt forge has no fire of its own; a nest's charred dead smoulder (d.ember)
+    forge_mg: { up: 28, r: 180, amt: 0.65, col: 'shroom', cap: 14 }, ember: { up: 8, r: 110, amt: 0.4, col: 'shroom', cap: 8 } };   // its glow lies round its foot: lit from inside, it read pink
   const glowOf = (d) => {
-    const g = GLOW[d.n]; if (!g) return null;
+    const g = GLOW[d.ember ? 'ember' : d.n]; if (!g) return null;
     const s = d.s || 1; return { ...g, up: g.up * s, cap: g.cap * s, r: g.r * (0.8 + 0.2 * s), amt: g.amt * (d.glow || 1) };
   };
   const GLOW_COL = { shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0] };
