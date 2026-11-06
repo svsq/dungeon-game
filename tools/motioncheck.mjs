@@ -22,12 +22,14 @@
 //   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
 //               golem's ground point (the far one swung on past the body and lay behind it)
 //   crust     — golem_crust_off: the molten share of the golem's box grows by CRUST once its plates are knocked off
+//   breathBody — salamander_breath: drawing its breath, the snout leaves its rest by at least BREATH of the body's length (TASKS 460:
+//               the fire hung on a still head, 2 px)
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-const ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75, WORK = 0.12, CRUST = 0.05;
+const BREATH = 0.15, ARM_UP = 1.5 * Math.PI, SPAN = 1.2 * Math.PI, FLINCH = 0.04, FLAT = 0.25, HIP = 0.008, HEAD = 0.012, CAST = 0.15, PHASE = -0.3, AIM_R = 0.25, AIM = 75, WORK = 0.12, CRUST = 0.05;
 const root = process.cwd(), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
 const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0]));
   fs.stat(f, (e) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r); }); });
@@ -78,6 +80,9 @@ if (meta.tr.includes('spider_attack')) { const fr = await trace('transitions', '
 if (meta.tr.includes('spider_death')) { const fr = (await trace('transitions', 'spider_death')).filter((f) => f.en), hy = (j) => { const b = box(j); return b[3] - b[1]; };
   const h0 = hy(fr[0].en), lo = Math.min(...fr.map((f) => hy(f.en)));
   report('flat', 'spider_death', lo >= FLAT * h0, `lowest height ${lo.toFixed(0)} px = ${(100 * lo / h0).toFixed(0)} % of ${h0.toFixed(0)} px`); }
+if (meta.tr.includes('salamander_breath')) { const fr = (await trace('transitions', 'salamander_breath')).filter((f) => f.en && f.en.snout && f.en.tail), f0 = fr[0];
+  const L = Math.hypot(f0.en.snout[0] - f0.en.tail[0], f0.en.snout[1] - f0.en.tail[1]), d = Math.max(...fr.map((f) => Math.hypot(f.en.snout[0] - f0.en.snout[0], f.en.snout[1] - f0.en.snout[1])));
+  report('breathBody', 'salamander_breath', d >= BREATH * L, `snout leaves its rest ${d.toFixed(1)} px = ${(100 * d / L).toFixed(0)} % of ${L.toFixed(0)} px`); }
 for (const nm of meta.loops.filter((n) => n.endsWith('_idle'))) {
   const fr = (await trace('loops', nm)).map((f) => (nm.startsWith('hero') ? f.hero : f.en)).filter(Boolean); if (!fr.length) continue;
   const H = tall(fr[0]), sp = (k) => { const v = fr.filter((j) => j[k]).map((j) => j[k][1] - j.ground[1]); return v.length ? Math.max(...v) - Math.min(...v) : null; }, hip = sp('hip'), head = sp('head') ?? sp('top');
