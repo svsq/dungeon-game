@@ -989,7 +989,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_fall: fallU(m), u_step: m.ftype === 'terrace' && !m.ftype2 ? 1 : 0, u_stepm: stepTex(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
       G.bind(BAKE.face, [0, 0, 0, 1]); G.blend('none'); G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 1 }), G.xf(0, 0, MW, MH)); }
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
-    const hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
+    // (a pit room's chasm, TASKS 374, is its own cell here, 7: deep water's cell in the sim, drawn as a hole in the floor)
+    // (a two-level hall's drop, TASKS 375, is its own cell too, 8: the gallery's front face down to the floor below)
+    const PIT = new Set(m.pits || []), LEDGE = new Set(m.ledges || []), hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : LEDGE.has(y * m.W + x) ? 8 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
@@ -1017,6 +1019,23 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         else if (v === 0 && RD[y * m.W + x] <= 3 && m.town) townTop(x, y);
         else if (v === 0 && RD[y * m.W + x] <= 3) tile(B.top, x, y, { grade: [0.55, TOP_LIFT, 0, 1], tint: topTint(B) }, TST);
       }
+      // a pit (TASKS 374): black below the floor; along its far edge the wall it drops down, the room's own masonry darkening into
+      // the dark over a cell and a half, a pale lip where the floor above breaks off over it; a dark edge on the other three sides
+      for (const k of PIT) { const x = k % m.W, y = Math.floor(k / m.W), X = x * TILE, Y = y * TILE;
+        dark(X, Y, TILE, TILE, 1);
+        if (c(x, y - 1) !== 7) { tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW); for (let q = 0; q < 8; q++) dark(X, Y + q * 4, TILE, 4, q * 0.08); }
+        else if (c(x, y - 2) !== 7) { tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW); for (let q = 0; q < 8; q++) dark(X, Y + q * 4, TILE, 4, Math.min(1, 0.62 + q * 0.06)); } }
+      for (const k of PIT) { const x = k % m.W, y = Math.floor(k / m.W), X = x * TILE, Y = y * TILE, lip = (lx, ly, w, h, v, a) => L.solid(lx, ly, w, h, [v, v * 0.94, v * 0.88], 0, 0, 0, a);
+        if (c(x, y - 1) !== 7) lip(X, Y - 2, TILE, 2, 0.6, 0.5);
+        if (c(x, y + 1) !== 7) lip(X, Y + TILE, TILE, 4, 0.02, 0.55);
+        if (c(x - 1, y) !== 7) lip(X - 2, Y, 2, TILE, 0.02, 0.5);
+        if (c(x + 1, y) !== 7) lip(X + TILE, Y, 2, TILE, 0.02, 0.5); }
+      // a two-level hall's drop (TASKS 375): the gallery's front face, the room's own masonry, a pale lip along the gallery's edge,
+      // darker down its second row; the face's shadow on the floor at its foot
+      for (const k of LEDGE) { const x = k % m.W, y = Math.floor(k / m.W), X = x * TILE, Y = y * TILE, top = c(x, y - 1) !== 8;
+        tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
+        if (top) L.solid(X, Y, TILE, 2, [0.62, 0.58, 0.52], 0, 0, 0, 0.55); else for (let q = 0; q < 8; q++) dark(X, Y + q * 4, TILE, 4, 0.08 + q * 0.05);
+        if (c(x, y + 1) === 1) for (let q = 0; q < 5; q++) dark(X, Y + TILE + q * 3, TILE, 3, 0.32 - q * 0.06); }
       // an accent zone's stone thins out over the cells past its doorway in 8 px steps, so the threshold has no hard line
       for (const r of m.rooms) if (r.zone) { const Z = D.BIOMES[r.zone], q = TILE / 4;
         for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (c(x, y) !== 1 || zoneAt(m, x, y) !== m.biome) continue;
@@ -2129,6 +2148,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       else { const [gw, gh] = SZ('water_grate'); L.sprite('water_grate', sx(q.x) - gw / 2, sy(top + 4) - gh, { w: gw, h: gh }); }
     }
     // stairs / boss portal
+    // a chapter boss's portal home (TASKS 383) is the town's own: its rune disc on the floor, its ring of stones, its light
+    const GATE = !m.town && R.arena && R.arena.gate;
+    if (GATE && vis(GATE.x, GATE.y) && known(GATE.x, GATE.y)) { const w = 2.6 * TILE, [w0, h0] = SZ('disc_tw'), k = w / w0; L.puff(sx(GATE.x), sy(GATE.y) + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite('disc_tw', sx(GATE.x) - w / 2, sy(GATE.y) - h0 * k / 2, { w, h: h0 * k }); }
     // the stairs on past the serpent (TASKS 354), beside the portal: dark till it falls
     if (m.down && vis(m.down.x, m.down.y)) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.down.x) - w / 2, sy(m.down.y) - hh / 2 - 4, { w, h: hh, u: R.bossDead ? undefined : { grade: [0.6, 0.55, 0, 1] } }); }
     // the town's crypt gate is a dark mouth between its braziers, not a lit frame (fidelity r2)
@@ -2153,6 +2175,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
     for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y) && !hid(d)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
+    // a two-level hall's steps (TASKS 375) lie on the ground: whoever walks them is drawn over them
+    for (const d of m.decor) if (d.steps && vis(d.x, d.y) && !hid(d)) drawProp(d.n, sx(d.x), sy(d.y), { dy: 0 });
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       // what a kill leaves on the floor by what it bled: a pool, a skeleton's bone dust, nothing of a ghost
       if (e.k === 'kill' && a < 12 && !e.gone) { const bl = BLOOD(e.type); if (bl === 'bone') { if (a < 6) L.puff(sx(e.x), sy(e.y) + 2, 14 + 6 * SS(0, 0.3, a), [0.5, 0.47, 0.4], 0.3 * (1 - SS(3, 6, a)), e.id); }
@@ -2268,7 +2292,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.solid(X - PIX, px2(Y0 - 30), PIX * 4, 30, [0.02, 0.018, 0.02]); L.solid(X, px2(Y0 - 28), PIX * 2, 28, [0.2, 0.18, 0.17]); L.solid(X, px2(Y0 - 28), PIX, 28, [0.34, 0.31, 0.29]);
         L.solid(X - PIX, px2(Y0 - 34), PIX * 4, PIX * 2, [0.12, 0.11, 0.1]); } };
     m.decor.forEach((d, i) => { if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d, i)]); });
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
+    if (GATE) for (let i = 1; i <= 5; i++) { const a = i * Math.PI / 3, x = GATE.x + Math.cos(a) * 2.4 * TILE, y = GATE.y + Math.sin(a) * 1.9 * TILE; if (vis(x, y) && known(x, y)) Y.push([y, () => drawProp(i % 2 ? 'stone_tw_a' : 'stone_tw_b', sx(x), sy(y), { dy: 4 })]); }
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
@@ -2454,6 +2479,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, altarCol, 0.9);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
     // the town's end of an open portal (TASKS 1007) and a scroll being read: the same cold blue as the way out
+    if (!m.town && R.arena && R.arena.gate && R.seen[Math.floor(R.arena.gate.y / TILE) * m.W + Math.floor(R.arena.gate.x / TILE)]) lt(R.arena.gate.x, R.arena.gate.y - 20, 260, [0.5, 0.7, 1.0], 1.3);
     const TP = R.town && R.portal && m.town ? m.town.svc.portal : null; if (TP) lt(TP.x, TP.y - 20, 260, [0.5, 0.7, 1.0], 1.3);
     // a waystone: a faint pool asleep, a breathing cold one awake; the town's ring answers once any waystone of the run is awake
     if (m.way) { const on = (R.ways || []).includes(m.floor); lt(m.way.x, m.way.y + 6, on ? 150 : 90, [0.55, 0.65, 1], on ? 0.45 + 0.08 * Math.sin(t * 1.7) : 0.2); }
@@ -2610,6 +2636,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         else for (const s of [-1, 1]) L.solid(Math.round((sx(q.x) + s * 7 * f) / PIX) * PIX, Math.round((sy(q.y) - 10 * Math.sin(Math.PI * Math.min(1, f * 1.6))) / PIX) * PIX, PIX, PIX, [0.5, 0.7, 0.75], 0, 0, 0, 0.6 * (1 - f)); }
       G.blend(); }
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
+    { const g = !m.town && R.arena && R.arena.gate; if (g && vis(g.x, g.y) && known(g.x, g.y)) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(g.x) - 52, sy(g.y) - 86, 104, 104)); }
     if (R.town && R.portal && m.town) { const P = m.town.svc.portal; G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(P.x) - 52, sy(P.y) - 86, 104, 104)); }
     // a scroll being read (TASKS 1007): a ring of cold light closes in round the hero's feet, sparks rise and quicken
     if (h.read) { const k = SS(0, 1.6, GT - h.read.t0), X = sx(h.x), Yh = sy(h.y);
@@ -3151,10 +3178,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // lower right, the green crypt in its upper right and a lava field in its left third: the zones are set on the seed's own
     // layout, not searched for (TASKS 189)
     // seed 290 is the one a search over the 189 / 184 measures picked (SC.matchSeed starts the search elsewhere)
-    const match = (() => { for (let sd = SC.matchSeed || 290; sd < 900; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run; let m = R.map;
+    // (on the 1st floor's map as it was when the composition was set, 72×54: the floor's own 56×42 is narrower than the view, TASKS 373)
+    const stage = { size: [72, 54], rooms: 13, secretK: 1 };
+    const match = (() => { for (let sd = SC.matchSeed || 290; sd < 900; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run; SIM.enterFloor(S, R, 1, { stage }); let m = R.map;
       const MW = m.W * TILE, MH = m.H * TILE, ctr = (r) => [(r.x + r.w / 2) * TILE, (r.y + r.h / 2) * TILE];
       const fits = (r) => { const [x, y] = ctr(r); return x >= 0.52 * VW && MW - x >= 0.52 * VW && y >= 0.52 * VH && MH - y >= 0.52 * VH; };
-      const rm = m.rooms.find((r) => r.type === 'combat' && r.w >= 12 && r.h >= 8 && fits(r));
+      const rm = m.rooms.find((r) => r.type === 'combat' && r.w >= 10 && r.h >= 7 && !r.wings && !r.pit && fits(r));
       if (!rm) continue;
       // each zone the room nearest to where the concept has it: the blue hall at 88 % of the width and 72 % of the height, the crypt
       // at 77 % and 23 % (but left of the minimap)
@@ -3166,7 +3195,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // the concept's blue hall runs on to the frame's right edge: the rooms past it to the right and below join it
       const past = (r) => r !== rm && r !== cry[0] && ctr(r)[0] - hx > arc[1] + 4 * TILE && ctr(r)[1] - hy > -0.05 * VH;
       const zones = {}; for (const r of m.rooms) if (inView(r)) zones[r.id] = r === arc[0] || past(r) ? 'arcane' : r === cry[0] ? 'crypt' : null;
-      const was = JSON.stringify(m.rooms.map((r) => [r.x, r.y, r.w, r.h])); SIM.enterFloor(S, R, 1, { zones }); m = R.map;
+      const was = JSON.stringify(m.rooms.map((r) => [r.x, r.y, r.w, r.h])); SIM.enterFloor(S, R, 1, { zones, stage }); m = R.map;
       if (JSON.stringify(m.rooms.map((r) => [r.x, r.y, r.w, r.h])) !== was) continue;
       const h = R.hero, inR = (o) => DUNGEON.roomAt(m, o.x, o.y) === rm.id;
       m.traps = m.traps.filter((t2) => !inR(t2)); m.decor = m.decor.filter((d) => d.wall || !inR(d)); R.pots = R.pots.filter((p) => !inR(p)); R.chests = R.chests.filter((c) => !inR(c)); m.torches = m.torches.filter((t2) => t2.kind === 'wall' || !inR(t2));
@@ -3760,6 +3789,24 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const side = (k, o, f) => [1, 2, 3].some((d) => f(k + o * d)), score = (k) => [1, W].some((o) => (side(k, -o, lv) && side(k, o, ch)) || (side(k, -o, ch) && side(k, o, lv)));
       let best = -1; for (const out of [1, 0]) for (let k = W * 8; k < m.cells.length - W * 8 && best < 0; k++) if (m.cells[k] === 1 && (!out || !inRoom(k)) && score(k)) best = k;
       if (best >= 0) { const x = (best % W + 0.5) * TILE, y = (Math.floor(best / W) + 0.5) * TILE; h.x = x; h.y = y; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 500); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x - VW / 2, y - VH / 2]; states.push(['magma_crossing', S]); } }
+    // the rooms' shapes (TASKS 374): each one in view, its whole floor explored, on the first campaign floor that has it
+    for (const shape of ['pit', 'colonnade', 'round', 'cross', 'L', 'T', 'gallery', 'hall', 'closet', 'tier']) { const S = play(), R = S.run; let r = null;
+      for (let sd = 0; sd < 6 && !r; sd++) { if (sd) { S.run = SIM.newRun(S, 'campaign', 1234 + sd); S.screen = 'play'; }
+        for (let f = 1; f <= 8 && !r; f++) { SIM.enterFloor(S, S.run, f); r = S.run.map.rooms.find((q) => q.shape === shape && q.type === 'combat' && (shape !== 'pit' || q.pit)); } }
+      if (!r) continue; void R; const Q = S.run, h = Q.hero, x = (r.x + r.w / 2) * TILE, y = (r.y + r.h / 2) * TILE;
+      h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1) * TILE; Q.en = Q.en.filter((e) => e.room === r.id).slice(0, 2); Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - VW / 2, y - VH / 2];
+      states.push(['room_' + shape, S]); }
+    // the rooms floors' layouts (TASKS 379): the first campaign floor of each, the view on its middle, the whole floor explored
+    for (const lay of ['maze', 'hall', 'catacomb', 'fortress', 'tomb']) { let S = null;
+      for (let sd = 1; sd < 40 && !S; sd++) for (const f of [3, 5, 7]) if (D.stageOf('campaign', f, sd).lay === lay) { S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); break; }
+      if (!S) continue; const Q = S.run, m = Q.map, r = m.rooms[m.start] || m.rooms[0], x = m.W * TILE / 2, y = m.H * TILE / 2;
+      Q.hero.x = (r.cx + 0.5) * TILE; Q.hero.y = (r.cy + 0.5) * TILE; Q.en = []; Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - VW / 2, y - VH / 2];
+      states.push(['lay_' + lay, S]); }
+    // a bridge over a rift of lava and a trapped corridor (TASKS 377): the first campaign floor with each, in view, explored
+    for (const [name, find] of [['rift_bridge', (m) => { const c = m.crossings.find((q) => q.rift); return c && c.cells[0]; }], ['gauntlet', (m) => { const t = m.traps.find((q) => q.run !== undefined); return t && Math.floor(t.y / TILE) * m.W + Math.floor(t.x / TILE); }]]) {
+      let S = null, k = null; for (let sd = 1; sd < 30 && k == null; sd++) for (let f = 3; f <= 7 && k == null; f++) { S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); k = find(S.run.map); }
+      if (k == null) continue; const Q = S.run, m = Q.map, x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+      Q.hero.x = x - 3 * TILE; Q.hero.y = y + 2 * TILE; Q.en = []; Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - VW / 2, y - VH / 2]; states.push([name, S]); }
     // the magma caves' lava (TASKS 401): each kind of crossing over a river, a lake with its source, the crust giving under the hero
     // beside a cell of it melted, and monsters knocked off a plateau, one sinking in the lava and one dropping into the chasm
     { const at = (S, f, pick) => { S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };
@@ -4355,6 +4402,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['town_gate_descent', climbS(0, (S, R, m, h) => { R.campaignWon = 1; R.memo = Object.assign({}, R.memo, { 14: { mode: 'endless' }, 15: { mode: 'endless' }, 16: { mode: 'endless' } }); R.portal = { f: 15, x: 0, y: 0 }; R.ways = [4, 8, 12, 14, 16]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; })]);
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; R.ways = [4, 8, 12]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
+    // a chapter boss's portal home (TASKS 383): the town's ring of stones and rune disc in its hall, the hero at it
+    const gateS = (f) => climbS(f, (S, R, m, h) => { const b = R.en.find((e) => D.BOSSES[e.type]); R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIM.killEnemy(S, R, b); R.freeze = 0; R.inbuf = null; R.msg = null; S.ev = [];
+      for (const e of R.en) if (e !== b) e.x += 6000; const g = R.arena.gate, r = m.rooms[b.room]; h.x = g.x + 40; h.y = g.y + 70;
+      for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) R.seen[y * m.W + x] = 1; R.rseen[b.room] = 1; });
+    states.push(['boss_gate', gateS(2)], ['boss_gate_crypt', gateS(4)]);
     // the portal both ways through the sim itself (TASKS 1025): a scroll read through in the 3rd floor's biggest hall, the hero a
     // quarter second out at the town's ring; E there, a quarter second back at the very spot
     const portalS = (back) => climbS(3, (S, R, m, h) => { const r = m.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
