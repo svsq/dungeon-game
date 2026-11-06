@@ -648,6 +648,17 @@
   };
   // how long a pair of lines shows (each line half of it)
   const FOLK_SAY = 5;
+  // the Keeper of the Fire (R-25, TASKS 1016): what he says when spoken to (E), by what has happened since he last spoke; each
+  // event is a page of the dialogue, the most weighty first, each told once; with nothing new, a pair of his idle lines
+  const KEEPER = {
+    first: ['Новое лицо у старого огня. Садись, грейся.', 'Внизу крипта. Кто спускается — тот меняется. Кто возвращается — тот рассказывает.'],
+    death1: ['Первый из вас не вернулся. Я видел, как дрогнул огонь.', 'Не горюй о нём: осколки его души остались у алтаря. Ты пойдёшь дальше, чем он.'],
+    death: ['Ещё один огонёк погас внизу.', 'Каждый, кто падает, оставляет тропу короче для следующего.'],
+    win: ['Ты вернулся с самого дна. Огонь горит ровнее, когда ты рядом.', 'Об этом спуске будут рассказывать у костра. Я — первым.'],
+    boss: (name) => [name + ' больше не ходит по крипте. Я почувствовал это даже здесь.', 'Но тьма внизу не пустеет — она ждёт следующего.'],
+    rare: (name) => ['«' + name + '»… Такие вещи не падают в руки случайно.', 'Береги её. Или она сбережёт тебя.'],
+    away: ['Давно тебя не было. Я уж думал подбросить в огонь ещё одно имя.', 'Отдохни. Глубина никуда не денется.'],
+  };
   // a townsperson's loop clock: its own rate and phase per instance, so no two move in sync
   const folkClock = (role, i, t) => { const per = FOLK[role].per * (1 + 0.12 * (((i * 0.618) % 1) - 0.5)), x = (t + i * 1.37) / per, n = Math.floor(x); return { n, u: x - n, per }; };
   const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };
@@ -685,6 +696,8 @@
       for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 40 + (i % 8) * 96, y: P.y + 316 + Math.floor(i / 8) * 96, w: 84, h: 84 });
       r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
       return { P, r }; },
+    // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
+    talk: () => { const P = { x: 330, y: 640, w: 1260, h: 330 }; return { P, r: [{ id: 'next', label: '', on: true, x: P.x + P.w - 330, y: P.y + P.h - 92, w: 290, h: 64 }] }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 150, w: 1080, h: 780 }, r = [];
       for (let i = 0; i < STASH.max; i++) r.push({ id: 'stash:' + i, i, x: P.x + P.w / 2 - 170 + i * 120, y: P.y + 150, w: 100, h: 100 });
@@ -779,7 +792,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
