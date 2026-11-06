@@ -240,7 +240,7 @@
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
   // bolt: an elite caster's bolt,
   // else it took 34–36 % of the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } },
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } }, deepFrom: 12,
     // exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy); on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
     exit: { 1: { hp: 0.85, dmg: 0.85 } } };
   // the boss is an elite too but keeps its own pace. minWind: an elite's wind-up never ends sooner than this nor sooner than its
@@ -257,8 +257,21 @@
     { id: 'vampire', name: 'Кровожадный', col: [0.92, 0.08, 0.2], heal: 0.12 },
     { id: 'summoner', name: 'Призывающий', col: [0.72, 0.4, 1.0], every: 8, n: 2, cap: 3 },
     { id: 'explosive', name: 'Взрывной', col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
+    // deep: only in the endless descent past ELITE.deepFrom (TASKS 387, R-22): something new to meet below the campaign's depth.
+    // reflect: a share of each of the hero's blows (not its fire's ticks) comes back to him, never the last of his health;
+    // blink: every `every` s, `min`–`max` px off with a clear line, it steps to `gap` px before him and holds its blow `calm` s (melee only);
+    // ward: a shield of `share` of its health takes the blows from before it, one from behind breaks it; curse: its blow cuts the hero's for `t` s
+    { id: 'reflect', name: 'Отражающий', col: [0.88, 0.92, 1.0], k: 0.1, deep: 1 },
+    { id: 'blink', name: 'Мерцающий', col: [0.2, 0.95, 0.85], every: 6, min: 150, max: 450, gap: 70, calm: 0.7, deep: 1, melee: 1 },
+    { id: 'ward', name: 'Щитоносный', col: [0.3, 0.42, 1.0], share: 0.25, deep: 1 },
+    { id: 'curse', name: 'Проклинающий', col: [0.5, 0.85, 0.2], k: 0.7, t: 3, deep: 1 },
+    // frost: its blow slows the hero to `slow` for `t` s (TASKS 477); tug: every `every` s, `min`–`max` px off with a clear line, it
+    // warns `warn` s and then draws the hero `n` px toward it over `T` s, short of its own reach; a dash under way slips it (melee only)
+    { id: 'frost', name: 'Ледяной', col: [0.55, 0.85, 1.0], slow: 0.7, t: 2, deep: 1 },
+    { id: 'tug', name: 'Притягивающий', col: [1.0, 0.5, 0.8], every: 7, min: 130, max: 320, warn: 0.6, n: 120, T: 0.35, deep: 1, melee: 1 },
   ];
   const eliteMods = (f) => (f >= 6 ? [2, 2] : f >= 4 ? [1, 2] : [1, 1]);
+  const modPool = (mode, f, kind) => ELITE_MODS.filter((m) => (!m.deep || (RUNS[mode] && RUNS[mode].endless && f > ELITE.deepFrom)) && !(m.melee && (kind === 'caster' || kind === 'archer'))).map((m) => m.id);
   // a run (R.mode): its floors, each floor's biome and boss, its exit guards and the title of its last floor. depth: how many
   // campaign floors lie above its 1st, so a floor of the run is as strong as campaign floor f + depth in everything that grows
   // as floors climb (monsters, loot, gold, prices, traps); lvl and kit: the hero it starts with.
@@ -407,15 +420,28 @@
     deepBoss: { hp: 1.6, dmg: 1.6 }, size: { from: [48, 36], to: [88, 66], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   const mix32 = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
-  // a shuffled bag per block of pool-length pairs: a plain draw left run 104062 without caves for 7 pairs (floors 13-25), one chance in five a pair
-  const pairBiome = (seed, p) => { const P = RUNS.endless.pool.slice(), n = P.length, b = Math.floor(p / n); let a = mix32((mix32(seed >>> 0) + Math.imul(b + 1, 0x9e3779b9)) >>> 0);
-    for (let i = n - 1; i > 0; i--) { a = mix32(a + 0x9e3779b9); const j = a % (i + 1); [P[i], P[j]] = [P[j], P[i]]; } return P[p % n]; };
+  // two bags, each shuffled per block of pool-length draws and never the same twice across a block's seam (TASKS 386): the boss pairs
+  // (1, 3, …) draw their boss, each of the five once a round, and take its biome (a single bag repeated the spider on the 20th and the
+  // 24th, seed 3); the guard pairs (0, 2, …) draw their biome. A plain draw left run 104062 without caves for 7 pairs (floors 13-25).
+  // A big boss in the first round goes to a place no sooner than `bigFrom`
+  const BAGS = new Map();
+  const bagOrder = (seed, kind, b) => { const key = seed + ':' + kind + ':' + b; let P = BAGS.get(key); if (P) return P;
+    const M = RUNS.endless, n = M.pool.length; P = M.pool.map((_, i) => i);
+    let a = mix32((mix32(seed >>> 0) + Math.imul(b + 1, 0x9e3779b9) + (kind === 'boss' ? 0x5bd1e995 : 0)) >>> 0);
+    for (let i = n - 1; i > 0; i--) { a = mix32(a + 0x9e3779b9); const j = a % (i + 1); [P[i], P[j]] = [P[j], P[i]]; }
+    const big = (i) => M.big.includes(M.bosses[M.pool[i]]);
+    if (kind === 'boss' && !b) for (let q = 0; 4 * q + 4 < M.bigFrom && q < n; q++) if (big(P[q])) { const j = P.findIndex((x, k) => k > q && !big(x)); if (j > 0) [P[q], P[j]] = [P[j], P[q]]; }
+    if (b && P[0] === bagOrder(seed, kind, b - 1)[n - 1]) [P[0], P[1]] = [P[1], P[0]];
+    if (BAGS.size > 4096) BAGS.clear(); BAGS.set(key, P); return P; };
+  // from: the descent's first floor (the 13th past the serpent): the rounds count from its first pair, or the campaign's floors
+  // spent three of the first round's bosses on floors no one played (sixteenth to 28th repeated the necromancer, seed 1)
+  const pairBiome = (seed, p) => { const M = RUNS.endless, n = M.pool.length, i = Math.floor(p / 2); return M.pool[bagOrder(seed, p % 2 ? 'boss' : 'guard', Math.floor(i / n))[i % n]]; };
   // floor f of the endless descent: lf is its place in its pair (a cave pair is laid out as the caves' 3rd and 4th, with all their
   // kinds, lakes and eels); size: its map in cells, growing with f to the cap; altar: on a guard pair's second floor and before a boss
   // big: the chapters' end bosses (the demon lord, the serpent) come no sooner than `bigFrom` (the player's call 02.11.2026): an arcane
   // or cave boss pair before it ends as a guard pair. The exit's guard (the campaign 7th's brute, 2.2 times an elite's health) stands
   // from `guardFrom`: on the 2nd it killed a hero of level 3 on five seeds in eight; before it a pair ends with the exit room's elite
-  const endlessStage = (f, seed) => { const M = RUNS.endless, p = Math.floor((f - 1) / 2), pos = (f - 1) % 2, biome = pairBiome(seed, p), cave = biome === 'cave', end = pos === 1;
+  const endlessStage = (f, seed, start = 1) => { const M = RUNS.endless, p = Math.floor((f - 1) / 2), pos = (f - 1) % 2, biome = pairBiome(seed, p - Math.floor((start - 1) / 2)), cave = biome === 'cave', end = pos === 1;
     const bossPair = p % 2 === 1 && !(M.big.includes(M.bosses[biome]) && 2 * p + 2 < M.bigFrom);
     const Z = M.size, k = Math.min(1, (f - 1) / (Z.floors - 1)), from = cave ? Z.cave : Z.from, size = [0, 1].map((i) => 2 * Math.round((from[i] + (Z.to[i] - from[i]) * k) / 2));
     return { N: cave ? RUNS.cave : M, lf: cave ? 3 + pos : 1 + pos, n: cave ? 4 : 2, depth: f, last: end, fin: false, biome, boss: bossPair && end ? M.bosses[biome] : undefined, arch: cave ? 'cave' : undefined,
@@ -426,7 +452,9 @@
   // early: its chapter's monsters a hall and how many floors sooner its kinds come (RUNS chapters); elite: the share of its
   // monsters (from the campaign's 3rd floor) that come as elites, ELITE.share unless its chapter sets one for the floor; mob: its plain
   // monsters' blows over the depth's (a boss's and an elite's keep theirs)
-  const stageOf = (mode, f, seed = 0) => { if (runOf(mode).endless) return endlessStage(f, seed); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
+  // (a floor above the descent's start is the campaign's: back up the stairs from the 13th, a run through the town stands on the
+  // serpent's 12th again, still in the descent's mode)
+  const stageOf = (mode, f, seed = 0, from = 1) => { if (runOf(mode).endless) return f < from ? stageOf('campaign', f, seed) : endlessStage(f, seed, from); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
     n = c ? N.floors : M.chapter || M.floors;
     return { N, lf, n, depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
       elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1 }; };
@@ -454,8 +482,8 @@
     rock: { w: 2, plan: [[['golem'], [1, 1], 'near'], [['fire_priest', 'cultist'], [1, 1], 'back'], [['imp'], [0, 2], 'bank']] },
   };
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
-  const placeName = (f, mode, seed) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed));
-  const floorName = (f, mode, seed) => { const M = runOf(mode), st = stageOf(mode, f, seed); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
+  const placeName = (f, mode, seed, from) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed, from));
+  const floorName = (f, mode, seed, from) => { const M = runOf(mode), st = stageOf(mode, f, seed, from); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
@@ -516,6 +544,10 @@
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)
+  // a newcomer's hints (TASKS 390): the whirl, shown with `n` foes awake within its reach and it ready, at most every `every` s, until
+  // the player has whirled `until` times in all (the novice bot cast the fireball 34 times a run and the whirl once, and died to the
+  // crypt's packs on the 3rd)
+  const TIPS = { whirl: { n: 3, every: 20, until: 5, s: 'Толпа вплотную — клавиша 1: Вихрь клинка' } };
   const ABILITIES = [
     { id: 'whirl', name: 'Вихрь клинка', icon: 'ab_whirl', key: '1', unlock: 1, mp: 0, cd: 6, desc: 'Круговой удар: {d}% атаки всем рядом' },
     { id: 'fireball', name: 'Огненный шар', icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 2.5, desc: 'Огненный взрыв: {d} урона' },
@@ -742,7 +774,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
