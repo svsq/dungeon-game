@@ -574,14 +574,17 @@
     elites: { kind: 'side', type: 'kill', elite: 1, name: 'Сильнейшие', need: (f) => 2 + Math.floor(f / 4), text: (q) => 'Одолей ' + q.need + ' ' + plural(q.need, 'элитного врага', 'элитных врагов', 'элитных врагов') + ' на ' + q.f + '-м этаже или глубже.', rw: ['gold', 'item'] },
     sweep: { kind: 'side', type: 'clear', name: 'Тишина в залах', need: (f) => 3 + Math.floor(f / 4), text: (q) => 'Зачисти ' + q.need + ' ' + plural(q.need, 'комнату', 'комнаты', 'комнат') + ' до последнего врага на ' + q.f + '-м этаже или глубже.', rw: ['xp', 'shards'] },
     descent: { kind: 'side', type: 'reach', name: 'Глубже', need: () => 1, ahead: 2, text: (q) => 'Спустись до ' + q.f + '-го этажа.', rw: ['gold', 'shards'] },
-    named: { kind: 'side', type: 'named', name: 'Охота', need: () => 1, fresh: 1, noBoss: 1, text: (q) => 'На ' + q.f + '-м этаже бродит чудовище по прозвищу ' + q.title + '. Найди и убей его: оно отмечено на карте.', rw: ['gold', 'item'], item: 3 },
+    // the named foe from the 3rd floor (TASKS 1024: on the 1st it killed the bot's level-1 hero on two seeds in six)
+    named: { kind: 'side', type: 'named', name: 'Охота', need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => 'На ' + q.f + '-м этаже бродит чудовище по прозвищу ' + q.title + '. Найди и убей его: оно отмечено на карте.', rw: ['gold', 'item'], item: 3 },
     fetch: { kind: 'side', type: 'fetch', name: 'Пропажа', need: () => 1, fresh: 1, noBoss: 1, text: (q) => '«' + q.thing + '» лежит где-то на ' + q.f + '-м этаже: в комнате, в сундуке или в тайнике. Найди и принеси.', rw: ['gold', 'xp'] },
     room: { kind: 'side', type: 'room', name: 'Логово', need: () => 1, fresh: 1, noBoss: 1, text: (q) => 'На ' + q.f + '-м этаже есть логово — оно отмечено на карте. Зачисти его до последнего врага.', rw: ['xp', 'shards'] },
     chapter: { kind: 'story', type: 'boss', name: 'Хозяин главы', need: () => 1, text: (q) => 'Одолей хозяина главы на ' + q.f + '-м этаже.', rw: ['shards', 'item'] },
     depths: { kind: 'story', type: 'reach', name: 'Новая глава', need: () => 1, text: (q) => 'Спустись до ' + q.f + '-го этажа: там начинается новая глава.', rw: ['shards', 'item'] },
   };
   // what a quest pointing at floor f gives on its turn-in (item: the reward piece's least rarity, 2 rare unless the template says)
-  const questReward = (rw, f) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 150 + 60 * f : k === 'xp' ? Math.round(0.35 * xpNeed(Math.max(1, f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
+  // (TASKS 1024: at 0.35 of a level's XP and 150 + 60·f gold the bot that turned in ~6 a run came to each floor a level up on the
+  // campaign's hero, and the average went past the 8th in 83 % of runs against the campaign's 70 % on the same seeds)
+  const questReward = (rw, f) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 100 + 40 * f : k === 'xp' ? Math.round(0.15 * xpNeed(Math.max(1, f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
   // who gives the side quests (TASKS 1018): a run draws QUEST_GIVE.n of them by its seed from the pool, each from a townsman of
   // its own; the floor a quest points at is set when it is taken, `ahead` floors past the deepest reached (one, unless the template
   // says). The Keeper gives the story chain (1022) and may give a side quest too
@@ -596,7 +599,7 @@
     keeper: { done: 'Огонь уже сказал мне. Ты справился.', ask: 'Огонь показал мне кое-что внизу. Послушай.', thanks: 'Огонь горит ровнее. Возьми, это твоё.', thing: 'Серебряный медальон', ic: 'qi_locket' },
   };
   // the named foes (1019): a name and what it is, drawn for the quest; it walks as a strong elite of its floor's kind
-  const NAMED = { hp: 1.6, titles: ['Гнилозуб', 'Костолом', 'Чёрный Ульф', 'Вдова Сажи', 'Старый Мор', 'Безглазый', 'Хромой Тарн', 'Ржавый Клык'] };
+  const NAMED = { hp: 1.3, titles: ['Гнилозуб', 'Костолом', 'Чёрный Ульф', 'Вдова Сажи', 'Старый Мор', 'Безглазый', 'Хромой Тарн', 'Ржавый Клык'] };
   // the Keeper's story chain (TASKS 1022, a stub for R-04): a run's chapters as quests in order — each boss of the run's floors
   // (`chapter`), and the first floor of each of its later chapters (`depths`); R-04 will give the steps their own words
   const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out;
@@ -658,6 +661,9 @@
     sell: 0.12, buyback: 4,
     // the town's shelf (TASKS 1010): the only steady source of potions and return scrolls in a run through the town, so it keeps
     // more of them than a floor's merchant did
+    // a run through the town starts with a scroll of return (TASKS 1024): without it the first way home was a chest's 25 %, and the
+    // average bot past the 8th fell from 70 to 25 % of runs, the merchant's gear and potions out of reach
+    townStart: { scroll: 1 },
     townCons: (f) => [['hp_potion', 3 + Math.floor(f / 3)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 2 + Math.floor(f / 4)]],
     // the wandering merchant (TASKS 1010): in a run through the town a floor's merchant is a chance, from the 2nd floor on; his gear
     // is stocked `depth` floors deeper, a little better made, the showpiece a rarity up

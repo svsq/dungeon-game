@@ -4102,7 +4102,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const qFull = (R) => { const mk = (key, f, o) => Object.assign({ id: 900 + R.quests.length, key, f, need: D.QUESTS[key].need(f), n: 0, st: 'taken', from: 'porter', rw: D.questReward(D.QUESTS[key].rw, f) }, o);
       R.quests.push(mk('cull', 12, { n: 30 }), mk('fetch', 11, { thing: 'Деревянная лошадка', ic: 'qi_horse' }), mk('chapter', 12, { st: 'done', from: 'keeper' })); };
     const questS = (key, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run; R.offers = [{ key, from: 'guard', q: 0 }]; R.quests = [];
-      SIM.giveQuest(S, R, 'guard'); SIM.enterFloor(S, R, 1); R.msg = null; const q = R.quests[0], h = R.hero; R.seen = R.seen.map(() => 1); fn(S, R, q, h); R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; S.ev = []; });
+      SIM.giveQuest(S, R, 'guard'); const q = R.quests[0], h = R.hero; for (let f = 1; f <= q.f; f++) SIM.enterFloor(S, R, f); R.msg = null; R.seen = R.seen.map(() => 1); fn(S, R, q, h); R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; S.ev = []; });
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['gold', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];

@@ -150,7 +150,7 @@
     if (N.kit) { const K = N.kit; for (const [b, rar] of K.gear) h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} })));
       h.bag[0].n += K.hp - BAL.startHpPot; h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
-    if (o.town) R.viaTown = 1;
+    if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
     enterFloor(S, R, o.town ? 0 : 1);
     return R;
   }
@@ -901,7 +901,9 @@
     R.drops.push({ id: R.nextId++, kind: 'item', item: it, x: h.x, y: h.y - 10, vx: (x * TILE + 16 - h.x) / 0.45, vy: (y * TILE + 20 - h.y) / 0.45, z: 0, vz: 200, t0: R.t, tossed: 1, fly: 0.45 });
   }
   // potion drops: a floor cleared whole gives ~2.5 health potions (it gave ~9, and a player drank 4 in a whole run, TASKS 154)
-  const POT = { chest: 0.085, vase: 0.07, pot: 0.055, kill: 0.007 };
+  // scroll: a chest's scroll of return; in a run through the town it is the way home and back (TASKS 1024): at a chest's quarter the bot
+  // found 14 a run, went home ten times and the potions never ran out (the average past the 8th in 83 % of runs, the campaign's 70 %)
+  const POT = { chest: 0.085, vase: 0.07, pot: 0.055, kill: 0.007, scroll: 0.25, scrollTown: 0.07 };
   function drop(R, x, y, o) { const a = rnd(R) * Math.PI * 2, v = 60 + rnd(R) * 90; if (o.item && !o.item.id) o.item.id = R.nextId++;
     if (o.kind === 'item') { o.loot = 1; if (!o.pre) fstat(R).lootN++; delete o.pre; }
     R.drops.push(Object.assign({ id: R.nextId++, x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6, z: 0, vz: 160 + rnd(R) * 80, t0: R.t }, o)); }
@@ -1135,7 +1137,7 @@
   }
   function chestLoot(R, c) { const LT = LOOT.chest[c.tier], out = [];
     for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q));
-    if (rnd(R) < POT.chest) out.push(potion('hp_potion')); if (rnd(R) < 0.25) out.push(potion('scroll'));
+    if (rnd(R) < POT.chest) out.push(potion('hp_potion')); if (rnd(R) < (R.viaTown ? POT.scrollTown : POT.scroll)) out.push(potion('scroll'));
     for (const it of out) it.id = R.nextId++; return out; }
 
   // ---------------- the world step (screen 'play') ----------------
@@ -1422,7 +1424,7 @@
     return R.offers; }
   // the floor a quest taken now points at: past the deepest reached; a goal put on a floor wants one not yet built and no boss's
   function questFloor(R, key) { const Q = D.QUESTS[key], top = RUN(R).floors, d = R.deepest || 0;
-    for (let f = Math.max(1, d + (Q.ahead || 1)); f <= top; f++) { if (Q.noBoss && STAGE(R, f).boss) continue; if (Q.fresh && R.memo && R.memo[f]) continue; return f; } return 0; }
+    for (let f = Math.max(Q.from || 1, d + (Q.ahead || 1)); f <= top; f++) { if (Q.noBoss && STAGE(R, f).boss) continue; if (Q.fresh && R.memo && R.memo[f]) continue; return f; } return 0; }
   // the Keeper's chain (1022): its first step not yet behind the hero, while none of the chain is in hand
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
     return D.storyChain(R.mode).find((s) => (s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
@@ -4408,13 +4410,13 @@
       if (questMark(R2, 'guard') !== '!') out.push('quest give: no ! over the giver of ' + key);
       const T = talkTo(R2, 'guard'); if (!T || !T.act || T.act.k !== 'take') { out.push('quest give: the giver\'s talk has no quest of ' + key); return null; }
       finish(); const q = R2.quests.find((o) => o.key === key); if (!q || questMark(R2, 'guard') || S.screen !== 'play') { out.push('quest give: E on the quest\'s page does not take ' + key); return null; }
-      if (q.f !== 1 || (D.QUESTS[key].noBoss && STAGE(R2, q.f).boss)) out.push(`quest give: ${key} points at floor ${q.f}`); return q; };
+      if (q.f !== (D.QUESTS[key].from || 1) || (D.QUESTS[key].noBoss && STAGE(R2, q.f).boss)) out.push(`quest give: ${key} points at floor ${q.f}`); return q; };
     // the named foe
     let q = takeKind(51, 'named'); R = S.run;
-    if (q) { enterFloor(S, R, 1); const e = R.en.find((o) => o.quest === q.id);
+    if (q) { for (let f = 1; f <= q.f; f++) enterFloor(S, R, f); const e = R.en.find((o) => o.quest === q.id);
       if (!e || !e.elite || e.title !== q.title || D.BOSSES[e.type] || D.eliteName(e) !== q.title) out.push('quest named: no named elite on its floor');
       else { if (!questMarks(R).some((o) => o.kind === 'named')) out.push('quest named: the foe is not on the map');
-        const hp = e.max; enterFloor(S, R, 0, undefined, 'up'); enterFloor(S, R, 1); const e2 = R.en.find((o) => o.quest === q.id);
+        const hp = e.max; enterFloor(S, R, 0, undefined, 'up'); enterFloor(S, R, q.f); const e2 = R.en.find((o) => o.quest === q.id);
         if (!e2 || e2.max !== hp || R.en.filter((o) => o.quest === q.id).length !== 1) out.push('quest named: the foe is not kept on its floor (or comes twice)');
         if (e2) killEnemy(S, R, e2); if (q.st !== 'done') out.push('quest named: its death does not do the quest');
         enterFloor(S, R, 0, undefined, 'portal'); if (questMark(R, 'guard') !== '?') out.push('quest named: no ? over the giver once done');
@@ -4524,7 +4526,7 @@
         endRun(S2, how); if (S2.screen !== how || !S2.result.town) { out.push(`town: no ${how} screen for a run through the town`); continue; }
         const b = UI.end(S2.result.log, S2.result.town).find((q) => q.id === 'again'); if (b.label !== 'Вернуться в город') out.push(`town: the ${how} screen does not offer the town`);
         press(S2, b); const Q3 = S2.run;
-        if (!Q3 || Q3.floor !== 0 || !Q3.town || S2.screen !== 'play' || Q3.hero.lvl !== 1 || Q3.hero.gold !== 0 || Q3.hero.bag.filter(Boolean).length !== 2) out.push(`town: after a ${how} the hero does not start anew in the town`);
+        if (!Q3 || Q3.floor !== 0 || !Q3.town || S2.screen !== 'play' || Q3.hero.lvl !== 1 || Q3.hero.gold !== 0 || Q3.hero.bag.filter(Boolean).length !== 3 || !Q3.hero.bag.some((it) => it && it.b === 'scroll')) out.push(`town: after a ${how} the hero does not start anew in the town`);
         if (S2.meta.shards < shards) out.push(`town: the meta loses shards after a ${how}`); } }
     return out;
   }

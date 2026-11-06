@@ -24,6 +24,9 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, CHASE = 10, 
 // the fireball whenever it is ready and the target is in sight, close or far, and keeps more mana potions
 // builder: the player's own run on hard (TASKS 245): a strength build that reads every property and gathers fire, INT and crit
 // from its gear, ranks the fireball first and burns the bosses with it
+// a run through the town (TASKS 1024): quests, how many side quests it takes at once (the Keeper's chain besides); home, whether it
+// reads a scroll of return when its health potions run out; scrolls, how many it keeps for that
+const TOWN = { novice: { quests: 1, home: 0, scrolls: 0 }, average: { quests: 2, home: 1, scrolls: 2 }, expert: { quests: 3, home: 1, scrolls: 2 }, mage: { quests: 2, home: 1, scrolls: 2 }, builder: { quests: 2, home: 1, scrolls: 2 } };
 const PROFILES = {
   novice: { flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
   average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
@@ -68,13 +71,15 @@ function startRun(S, mode) {
     if (id === 'tests') S.screen = 'tests'; else SIM.step(S, click(b)); }
 }
 
-function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1 } = {}) {
-  const P = PROFILES[profile], rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
+function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false } = {}) {
+  const P = Object.assign({}, PROFILES[profile], noTown ? { quests: 0, home: 0, scrolls: 0, noTown: 1 } : TOWN[profile]), rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
   if (!initial) { S.seedBase = seed; S.meta.diff = diff; startRun(S, mode); }
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet();
+  // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
+  const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0;
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] = initial.vars;
@@ -87,7 +92,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(depth, 1) / D.dmgAt(depth) : 1) * (!e.elite ? ST.mob : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd * bk.dmg;
     }
   }
-  const fresh = () => ({ seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
@@ -270,10 +275,24 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const i = h.bag.findIndex(gear); if (i >= 0) { cur.sold++; return at('sell:' + i); }
     const room = h.bag.includes(null), buy = (g) => { cur.spent += g.price; return at('buy:' + R.shop.goods.indexOf(g)); };
     const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && wearable(h, g.it) && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
-    for (const [b, want] of [['hp_potion', 6], ['mp_potion', P.caster ? 6 : 3]]) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
+    for (const [b, want] of [['hp_potion', 6], ['mp_potion', P.caster ? 6 : 3]].concat(R.viaTown ? [['scroll', P.scrolls]] : [])) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
       if (g && held(h, b) < want && g.price <= h.gold && (room || h.bag.some((it) => it && it.b === b && it.n < D.CONSUMABLES[b].stack))) return buy(g); }
     R.shopped = R.floor; return { keys: ['Escape'] };
   }
+  // a townsman's talk (TASKS 1024): pages turned with E; on the quest's page E takes it while the profile wants more (the Keeper's
+  // chain always), turns a done one in; else «not now», and the townsman is left alone this visit
+  function talkStep(S, R) { const T = S.talk; if (!T) return { keys: ['Escape'] }; if (T.p + 1 < T.pages.length) return { keys: ['KeyE'] };
+    const side = (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned' && D.QUESTS[q.key].kind === 'side').length;
+    if (T.act && (T.act.k === 'turn' || (P.quests && (D.QUESTS[T.act.key].kind === 'story' || side < P.quests)))) return { keys: ['KeyE'] };
+    declined.add(T.role); return { keys: ['Escape'] }; }
+  // in the town: turn in what is done, take what the profile wants, shop once a visit, then back down: through the open portal, else the crypt's stairs
+  function townGoal(S, R, inp) { const h = R.hero, m = R.map, sv = m.town.svc, F = R.folk || [], dist = (o) => Math.hypot(o.x - h.x, o.y - h.y);
+    const at = (f) => (f.role === 'smith' ? { x: sv.anvil.x, y: sv.anvil.y + 30 } : { x: f.x + 40, y: f.y + 10 });
+    const who = !P.noTown && (F.find((f) => SIM.questMark(R, f.role) === '?') || (P.quests && F.find((f) => SIM.questMark(R, f.role) === '!' && !declined.has(f.role))));
+    if (who) { const p = at(who); walk(R, inp, p.x, p.y); if (who.role === 'smith' ? SIM.atCraft(R) === 'forge' : SIM.folkNear(R) === who) inp.keys.push('KeyE'); goal = ['folk', who.role]; return; }
+    if (!P.noTown && m.shop && R.shopped !== 0) { walk(R, inp, m.shop.front.x, m.shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); goal = ['shop']; return; }
+    const out = R.portal ? { x: sv.portal.x + 10, y: sv.portal.y + 44 } : m.exit; walk(R, inp, out.x, out.y); goal = [R.portal ? 'portal' : 'exit'];
+    if (R.portal ? SIM.atGate(R) : dist(out) < 55) inp.keys.push('KeyE'); }
   function pray(S, R) {
     if (R.shrines[R.altar] && R.shrines[R.altar].used) return { keys: ['Escape'] };
     const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), i = sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
@@ -290,9 +309,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       SIM.step(S, { keys: ['Escape'] }); continue;
     }
     const R = S.run, h = R.hero, m = R.map;
-    if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; }
+    if (!cur) { cur = fresh(); cur.meta = Object.assign({}, S.meta.up); f0 = 0; fl = fl || freshFl(); }
     cur.potLeft = held(h, 'hp_potion');
-    if (R.floor !== f0) { if (f0) cur.floors.push(floorLine(R, h));
+    // a visit to the town (TASKS 1024) is a pause of the floor it left: back through the portal, the floor's line goes on
+    if (R.town && !inTown) { inTown = 1; declined.clear(); R.shopped = -1; if (f0) cur.town.visits++; } else if (!R.town) inTown = 0;
+    if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h));
       if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear(); holdT = 0;
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] });
@@ -312,6 +333,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (S.screen === 'shop') { const had = new Set(h.bag.filter(Boolean).map((it) => it.id)), g = h.gold; SIM.step(S, trade(S, R, h));
       if (h.gold < g) for (const it of h.bag) if (it && it.b && !had.has(it.id)) it.bought = 1; continue; }
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
+    if (S.screen === 'talk') { SIM.step(S, talkStep(S, R)); continue; }
+    if (S.screen === 'gate') { const o = SIM.gateWays(R), i = o.findIndex((q) => q.k === 'portal'); SIM.step(S, i >= 0 ? click(D.UI.gate(o.length).r[i]) : { keys: ['Escape'] }); continue; }
+    if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
     const st = SIM.stats(h, S.meta), inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, px: 960, py: 540, keys: [], slot: 0 };
     const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1).slice(), offsets = (o) => D.ENEMIES[o.type]?.deep ? [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => j * m.W + i)) : [0, 1, -1, m.W, -m.W];
@@ -337,7 +361,12 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const fightT = live.slice().sort((a, b) => Math.max(dist(a), walkD(a)) - Math.max(dist(b), walkD(b)))[0];
     const lurk = P.water ? live.filter((e) => e.st === 'lurk' && e !== fightT) : [], others = awake.filter((e) => e.type !== 'eel' && e.st !== 'lurk');
     const eel = P.water && !others.some((e) => dist(e) < 120) && R.en.find((e) => e.type === 'eel' && e.deadT < 0 && e.st === 'stir' && dist(e) < EEL_STIR && reach(e));
-    if (eel && aim('eel', eel)) toBank(R, inp, eel, st);
+    // home (TASKS 1024): out of health potions, or with gold to spend, or a boss just slain (the town's shelf is stocked anew); a
+    // scroll in the bag, nothing awake, no boss's fight; once a floor
+    const bossOn = R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
+    if (R.town) townGoal(S, R, inp);
+    else if (R.viaTown && P.home && homeF !== R.floor && !awake.length && !near && !bossOn && !h.read && held(h, 'scroll') && h.gold >= 250 && (held(h, 'hp_potion') <= 1 || h.gold >= 300 + 150 * R.floor || R.bossDead)) { homeF = R.floor; readWant = 1; inp.keys.push('KeyI'); goal = ['home']; }
+    else if (eel && aim('eel', eel)) toBank(R, inp, eel, st);
     else if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
     else if (!near && !late && chest && chase(R, chest) && aim('chest', chest)) { walk(R, inp, chest.x, chest.y + 20); if (dist(chest) < 50) inp.keys.push('KeyE'); }
     else if (!near && !late && shrine && chase(R, shrine) && aim('shrine', shrine)) { walk(R, inp, shrine.x, shrine.y + 30); if (dist(shrine) < 55) inp.keys.push('KeyE'); }
@@ -364,6 +393,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       // cells do not show (a gap between the merchant's counter and his barrel led behind the counter, where the only way out the
       // field knows runs through it, seed 36). Not in a fight, where the hero stands and swings
       if (S.t - lt > 3) { inp.keys.push('Space'); lt = S.t; if (dx || dy) { [backX, backY] = [[1, 0], [0, -1], [-1, 0], [0, 1]][unstick++ % 4]; backT = S.t + 0.6; } } }
+    // reading the scroll (1.6 s): a step or a blow breaks it off
+    if (h.read) { inp.left = inp.right = inp.up = inp.down = inp.press = 0; inp.slot = 0; inp.keys = inp.keys.filter((k) => k === 'KeyQ'); }
     // a potion once HP has sat under the line for the time it takes to notice
     if (h.hp < st.maxHp * P.hp) { if (lowT < 0) lowT = S.t; if (S.t - lowT >= P.react && held(h, 'hp_potion')) { inp.keys.push('KeyQ'); lowT = -1; } } else lowT = -1;
     cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); fl.minhp = Math.min(fl.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
@@ -372,7 +403,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // each blow's size before the shield, as a share of the max health, by source group; a plain demon's slam is a group of its
     // own, the heavy hitter (TASKS 225)
     for (const e of S.ev) if (!counted.has(e) && e.blow && (e.k === 'hurt' || (e.k === 'absorb' && e.n >= e.blow))) { const g = (D.ENEMIES[e.src] || {}).kind === 'slam' ? 'heavy' : SRC(e.src || ''); (fl.blows[g] = fl.blows[g] || []).push(+(e.blow / st.maxHp).toFixed(3)); }
-    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''), ty = (e.src || '?').split(' ')[0]; fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.by[ty] = +((fl.by[ty] || 0) + e.n / st.maxHp).toFixed(3); if (h.hp <= 0 || h.deadT >= 0) cur.killer = e.src; fl.hits++; fl.dmgHp += e.n / st.maxHp; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
+    for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'quest' && e.s !== 'done') cur.town[e.s === 'take' ? 'taken' : 'turned']++; else if (e.k === 'pickup' && e.s === D.CONSUMABLES.scroll.name) cur.town.found = (cur.town.found || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.scroll.name) cur.town.bought = (cur.town.bought || 0) + 1; else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''), ty = (e.src || '?').split(' ')[0]; fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.by[ty] = +((fl.by[ty] || 0) + e.n / st.maxHp).toFixed(3); if (h.hp <= 0 || h.deadT >= 0) cur.killer = e.src; fl.hits++; fl.dmgHp += e.n / st.maxHp; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
     if (B && !fl.boss && (B.hp < B.max || (R.arena && R.arena.active))) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0, hp0: +(h.hp / st.maxHp).toFixed(3), bag: held(h, 'hp_potion'), minhp: 1, by: {} };
     if (fl.boss && !fl.boss.done) { const b = fl.boss; b.t = +(S.t - b.t0).toFixed(1);
       for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') { b.dmg += e.n / st.maxHp; const g = / снаряд$/.test(e.src || '') ? 'volley' : D.BOSSES[(e.src || '').split(' ')[0]] ? B && B.mv || 'boss' : (e.src || '?').split(' ')[0]; b.by[g] = +((b.by[g] || 0) + e.n / st.maxHp).toFixed(3); } else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
