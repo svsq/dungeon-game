@@ -132,7 +132,7 @@
     // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; runFloor: its place in the run; floor: its
     // place among the floors its description lays out (data.js stageOf: the campaign's 9th is the caves' 1st); last: its chapter's
     // end, fin: the run's last floor (past any other boss an altar and the stairs wait)
-    const ST = D.stageOf(opts.mode, runFloor, opts.runSeed), N = ST.N, floor = ST.lf, depth = ST.depth, last = ST.last, fin = ST.fin;
+    const ST = D.stageOf(opts.mode, runFloor, opts.runSeed, opts.from), N = ST.N, floor = ST.lf, depth = ST.depth, last = ST.last, fin = ST.fin;
     const biome = ST.biome, bossType = ST.boss, boss = !!bossType;
     // the cave archetype (R-18, TASKS 301): the same rooms and links, but a room is a blob of floor inside its box round a core
     // where the start's fire or the stairs stand, a link is a winding tunnel 2–4 cells wide, and small dead-end pockets hang off
