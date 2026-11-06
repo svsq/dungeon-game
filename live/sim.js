@@ -414,6 +414,7 @@
     const h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
     if (how === 'up') [hx, hy] = standNear(R, m.exit.x, m.exit.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
+    else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.vx = h.vy = 0; h.bless = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
@@ -1205,6 +1206,7 @@
     if (R.msg && R.msg.room !== undefined && rIn !== R.msg.room && !R.msg.outT) R.msg.outT = t;   // a room's alarm is about that room only
     if (m.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y); if (d < 230 && R.shop.away) { R.shop.away = 0; R.shop.greetT = t; } else if (d > 360) R.shop.away = 1; }
     if (R.town && m.town) stepFolk(S, R);
+    if (m.way && !(R.ways || []).includes(R.floor) && Math.hypot(h.x - m.way.x, h.y - m.way.y) < 60) wake(S, R);
     if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
     h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT);
@@ -1305,6 +1307,7 @@
   }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
+    if (R.map.way) out.push({ x: R.map.way.x, y: R.map.way.y, r: 16 });
     for (const q of R.map.waterFeatures || []) if (q.kind === 'fountain') out.push({ x: q.x, y: q.y - 2, r: 34 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 });
     for (const f of R.folk || []) out.push({ x: f.x, y: f.y, r: folkR(f) }); return out; };
@@ -1320,9 +1323,9 @@
     const dUp = m.up ? Math.hypot(m.up.x - h.x, m.up.y - h.y) : 1e9;
     if (dUp < 56 && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
-    // the town's end of a portal (TASKS 1007): back to where the scroll was read; the portal closes behind the hero
-    if (R.town && R.portal && m.town && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) { const P = R.portal;
-      ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); enterFloor(S, R, P.f, undefined, 'portal'); R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
+    // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
+    // out it is taken at once, with more a window to choose
+    if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: RUN(R).seal }); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
@@ -1332,6 +1335,14 @@
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) openAltar(S, R, used);
   }
+  // ---------------- waystones (TASKS 1009) ----------------
+  // touched once, a waystone stays awake for the rest of the run; the town's ring of stones then jumps to it
+  function wake(S, R) { const w = R.map.way; R.ways = (R.ways || []).concat(R.floor).sort((a, b) => a - b);
+    ev(S, { k: 'waystone', x: w.x, y: w.y }); R.msg = { s: 'Путевой камень пробуждён: из города можно вернуться на этаж ' + R.floor, t: S.t, d: 4 }; S.saveN++; }
+  const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
+  const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []).concat((R.ways || []).map((f) => ({ k: 'way', f })));
+  function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
+    ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); enterFloor(S, R, o.f, undefined, o.k); if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
   function openAltar(S, R, sh) {
@@ -2061,6 +2072,12 @@
     if (S.screen === 'dead' || S.screen === 'win') {
       const b = D.hitUI(UI.end(S.result && S.result.log, S.result && S.result.town), x, y); S.hover = b ? b.id : '';
       if (click && b && b.on) { if (b.id === 'log') { S.logReq = (S.logReq || 0) + 1; ev(S, { k: 'ui', x, y }); } else if (b.id === 'menu') S.screen = 'menu'; else startRun(S, S.result && S.result.town ? 'town' : S.result && !S.result.campaignWon && S.result.mode || 'campaign'); }
+      return;
+    }
+    if (S.screen === 'gate') {
+      const R = S.run, o = gateWays(R), U = UI.gate(o.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+      if (!o.length || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }
+      if (click && b && b.id.startsWith('go:') && o[b.i]) gateGo(S, R, o[b.i]);
       return;
     }
     if (S.screen === 'altar') {
@@ -3931,7 +3948,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck());
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -3995,6 +4012,30 @@
     const size = JSON.stringify(persist(S)).length; if (size > 120000) out.push(`climb: a run with two kept floors saves ${size} bytes`);
     return out;
   }
+  // TASKS 1009: in a run through the town a waystone stands by the start of every D.wayFloor, reachable and clear of the stairs
+  // up (and nowhere else, nor in a run not through the town); touched, it wakes; the town's ring of stones then takes the hero to
+  // it at once, or, with a portal open too, offers both in a window; the portal stays open when a waystone is taken
+  function wayCheck() {
+    const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    for (const sd of [5, 17]) for (let f = 1; f <= 16; f++) { const mode = f > D.RUNS.campaign.floors ? 'endless' : 'campaign', m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, town: 1 });
+      if (!!m.way !== D.wayFloor(f)) { out.push(`way ${sd}/${f}: ${m.way ? 'a waystone off its floors' : 'no waystone'}`); continue; } if (!m.way) continue;
+      const k = m.way.ty * m.W + m.way.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
+      if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`way ${sd}/${f}: the waystone is off the floor or far from the spawn`);
+      if (m.up && Math.max(Math.abs(m.up.tx - m.way.tx), Math.abs(m.up.ty - m.way.ty)) < 3) out.push(`way ${sd}/${f}: the waystone stands on the stairs up`);
+      if (f === 4 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd }).way) out.push('way: a waystone in a run not through the town'); }
+    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
+    for (let f = 1; f <= 4; f++) enterFloor(S, R, f);
+    for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
+    for (let i = 0; i < 4; i++) step(S, { keys: [] }); if ((R.ways || []).length) out.push('way: the waystone wakes untouched');
+    at(R.map.way, 44); step(S, { keys: [] }); if ((R.ways || []).join() !== '4' || !S.ev.some((e) => e.k === 'waystone')) { out.push('way: a touched waystone does not wake'); return out; }
+    R.portal = { f: 4, x: R.map.spawn.x, y: R.map.spawn.y }; enterFloor(S, R, 0, undefined, 'portal');
+    at(R.map.town.svc.portal, 30); E(S); if (S.screen !== 'gate') { out.push('way: the ring with a portal and a waystone opens no choice'); return out; }
+    const b = UI.gate(2).r[1]; step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+    if (R.floor !== 4 || S.screen !== 'play' || !R.portal || Math.hypot(h.x - R.map.way.x, h.y - R.map.way.y) > 90) out.push(`way: the gate does not take the hero to the waystone (floor ${R.floor}, ${S.screen})`);
+    R.portal = null; enterFloor(S, R, 0, undefined, 'portal'); at(R.map.town.svc.portal, 30); E(S); if (R.floor !== 4 || S.screen !== 'play') out.push('way: with one waystone and no portal the ring does not take the hero there');
+    R.ways = []; enterFloor(S, R, 0, undefined, 'portal'); at(R.map.town.svc.portal, 30); E(S); if (R.floor !== 0 || S.screen !== 'play') out.push('way: the ring does something with no way out');
+    return out;
+  }
   function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
   function townCheck() {
     const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
@@ -4047,6 +4088,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

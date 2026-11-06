@@ -2280,6 +2280,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
     if (m.up && vis(m.up.x, m.up.y)) { const [w, hh] = SZ('stairs_up'), u = m.up; Y.push([u.y + 14, () => L.inked(() => L.sprite('stairs_up', sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
+    // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
+    if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
+      const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);
+      Y.push([u.y + 6, () => { const X = sx(u.x) - w / 2, Yt = sy(u.y) + 10 - hh; L.shadow(sx(u.x), sy(u.y) + 4, w * 0.28, 6, 0.5);
+        L.inked(() => L.sprite('waystone', X, Yt, { w, h: hh, u: { tint: [0.6, 0.58, 0.66, 1] } }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 });
+        if (k > 0.01) { G.blend('emit'); for (let j = 0; j < 2; j++) L.sprite('waystone_runes', X, Yt, { w, h: hh, u: { alpha: k } }); G.blend();
+          G.blend('add'); L.glow(X + 0.455 * w, Yt + 0.48 * hh, 0.3 * hh, [0.45, 0.65, 1], 0.22 * k, 2.4); G.blend(); } }]); }
     // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
     if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
@@ -2347,6 +2354,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
     // the town's end of an open portal (TASKS 1007) and a scroll being read: the same cold blue as the way out
     const TP = R.town && R.portal && m.town ? m.town.svc.portal : null; if (TP) lt(TP.x, TP.y - 20, 260, [0.5, 0.7, 1.0], 1.3);
+    // a waystone: a faint pool asleep, a breathing cold one awake; the town's ring answers once any waystone of the run is awake
+    if (m.way) { const on = (R.ways || []).includes(m.floor); lt(m.way.x, m.way.y + 6, on ? 150 : 90, [0.55, 0.65, 1], on ? 0.45 + 0.08 * Math.sin(t * 1.7) : 0.2); }
+    if (R.town && m.town && !TP && (R.ways || []).length) lt(m.town.svc.portal.x, m.town.svc.portal.y - 20, 200, [0.5, 0.65, 1], 0.55 + 0.1 * Math.sin(t * 1.3));
     if (h.read) lt(h.x, h.y - 30, 200, [0.55, 0.75, 1], 1.2 * SS(0, 1.6, GT - h.read.t0));
     for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' || p.k === 'wave' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' || p.k === 'wave' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
@@ -2361,6 +2371,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'lvl' && a < 1.5) lt(e.x, e.y - 30, 300, [1, 0.85, 0.4], 1.5 * (1 - a / 1.5));
       if (e.k === 'swing' && a < 0.22) lt(h.x + Math.cos(e.a) * 30, h.y - 30 + Math.sin(e.a) * 20, 150, [1, 0.9, 0.75], 0.7 * (1 - a / 0.22));
       if (e.k === 'pop' && e.c !== 'jet' && e.c !== 'arrow' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : e.c === 'orb' ? [0.35, 0.85, 0.95] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
+      if (e.k === 'waystone' && a < 1.2) lt(e.x, e.y - 40, 260, [0.55, 0.75, 1], 1.4 * (1 - a / 1.2));
       if (e.k === 'teleport' && a < 0.9) { const q = 1 - a / 0.9; lt(e.x, e.y - 30, 260, [0.55, 0.75, 1], 1.6 * q); lt(e.fx ?? e.x, (e.fy ?? e.y) - 30, 220, [0.55, 0.75, 1], 1.2 * q); }
       if (e.k === 'floor' && a < 1.6) lt(e.x, e.y - 20, 300, [1, 0.85, 0.55], 1.2 * (1 - a / 1.6));
       if (e.k === 'roar' && a < 0.8) lt(e.x, e.y + 40, 420, B.cave ? [0.35, 0.7, 0.85] : [1, 0.3, 0.12], 1.4 * (1 - a / 0.8));
@@ -2733,6 +2744,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         for (const [px, py, k] of [[ex, ey, 1], [sx(e.fx ?? e.x), sy(e.fy ?? e.y), 0.7]]) { const wd = 60 * (1 - 0.6 * q);
           G.draw(L.P.glow, { u_col: [0.55, 0.78, 1], u_k: 2.2, u_amt: 1.3 * k * (1 - q) }, G.xf(px - wd / 2, py - 220, wd, 240)); L.ring(px, py, 20 + 50 * q, 8 + 18 * q, [0.6, 0.85, 1], k * (1 - q), 0.15);
           for (let j = 0; j < 8; j++) { const an = j / 8 * 6.28 + a * 5; L.star(px + Math.cos(an) * 26 * (1 - q), py - 10 - 140 * q * (0.4 + rnd(j, 3)), 7, [0.7, 0.88, 1], k * (1 - q)); } } }
+      // a waystone wakes: a cold ring off its foot and sparks running up its face
+      if (e.k === 'waystone' && a < 1.2) { const q = a / 1.2; L.ring(ex, ey, 20 + 110 * q, 9 + 48 * q, [0.6, 0.8, 1], 0.9 * (1 - q), 0.1);
+        for (let j = 0; j < 9; j++) L.star(ex + (rnd(e.t, j) - 0.5) * 30, ey - 20 - 110 * Math.min(1, q * (1.2 + rnd(e.t, j + 4))), 7, [0.7, 0.88, 1], 1 - q); }
       if (e.k === 'floor' && a < 1.4) { const q = a / 1.4; L.ring(ex, ey, 30 + 120 * q, 14 + 56 * q, [1, 0.85, 0.5], 0.8 * (1 - q), 0.08);
         for (let j = 0; j < 10; j++) { const an = j / 10 * 6.28; L.star(ex + Math.cos(an) * (24 + 60 * q), ey - 20 + Math.sin(an) * (12 + 30 * q), 7, [1, 0.85, 0.5], 1 - q); } }
       // the boss's roar: shock rings off his maw and the floor around him
@@ -4037,6 +4051,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['climb_town_prompt', climbS(1, (S, R, m, h) => { h.x = m.up.x + 20; h.y = m.up.y + 34; })]);
     states.push(['scroll_read', climbS(1, (S, R, m, h) => { h.read = { t0: S.t - 1.1, i: 0 }; })]);
     states.push(['climb_arrived', climbS(2, (S, R, m, h) => { SIM.enterFloor(S, R, 1, undefined, 'up'); S.ev = []; R.msg = null; })]);
+    // waystones (TASKS 1009): asleep by the start of the 4th, waking under the hero's touch, awake; the town's ring with a portal and
+    // two waystones (its prompt and its window, the longest floor name in the rows)
+    states.push(['way_asleep', climbS(4, (S, R, m, h) => { h.x = m.way.x + 90; h.y = m.way.y + 50; R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
+    states.push(['way_wake', climbS(4, (S, R, m, h) => { h.x = m.way.x + 30; h.y = m.way.y + 36; R.ways = [4]; S.ev.push({ k: 'waystone', x: m.way.x, y: m.way.y, t: S.t - 0.35 }); R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
+    states.push(['way_awake', climbS(4, (S, R, m, h) => { h.x = m.way.x + 40; h.y = m.way.y + 50; R.ways = [4]; R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
+    states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
+    states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; R.ways = [4, 8, 12]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);

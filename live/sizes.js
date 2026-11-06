@@ -5,7 +5,7 @@
     town_tool_hammer: 26, town_tool_tongs: 30, town_tool_broom: 62, town_tool_sack: 34, town_tool_crate: 32, town_tool_spear: 90, town_tool_staff: 84, town_tool_grain: 16,
     serpent__body: 154, serpent__tail: 70, hero: 84, hero_back: 84, en_skeleton: 76, en_goblin: 72, en_spider: 53, en_cultist: 84, en_ghost: 74, en_brute: 112, en_imp: 58, en_golem: 128, en_colossus: 230, en_salamander: 92, en_drowned: 82, en_slime: 44, en_crab: 62, en_eel: 100, en_skel_archer: 78, en_skel_mage: 78,
     barrel: 56, crate: 51, pot: 36, chest: 43, chest_open: 52, chest_open_gold: 57, bones: 30, candles: 33, torch_sconce: 46, banner: 64, table: 52,
-    stairs: 64, stairs_up: 76, brazier: 51, coffin: 51, statue: 117, pillar: 89, crystal: 81, altar: 56, cage: 81, rack: 71,
+    stairs: 64, stairs_up: 76, waystone: 100, waystone_runes: 100, brazier: 51, coffin: 51, statue: 117, pillar: 89, crystal: 81, altar: 56, cage: 81, rack: 71,
     bookshelf: 107, grave: 51, treasure: 52, door: 64, portrait: 140, padlock: 28, table_candles: 58,
     merchant: 78, shop_counter: 52, shop_scales: 40, shop_shelf: 104, shop_weapons: 58, shop_armor: 80, shop_sacks: 44, shop_gold: 32,
     shop_barrel: 66, shop_sign: 38, shop_lantern: 64, shop_crate: 34, shop_gems: 24,

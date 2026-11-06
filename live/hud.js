@@ -12,6 +12,7 @@
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
   let MMB = null;
+  const WAY_LEG = ['way', 'Путевой камень'];
   const LEGEND = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']];
   const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
@@ -49,6 +50,7 @@
     if (S.screen === 'inv' && R) inv(S, R, t);
     if (S.screen === 'shop' && R) shop(S, R, t);
     if (S.screen === 'altar' && R) altar(S, R, t);
+    if (S.screen === 'gate' && R) gate(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
 
@@ -169,7 +171,7 @@
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься в крипту' : 'E — спуститься на этаж ' + (m.floor + 1)];
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
-    if (R.town && R.portal && m.town && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, 'E — портал на этаж ' + R.portal.f];
+    if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
     if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
@@ -315,10 +317,10 @@
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   // a small map's panel (the town, the endless descent's first floors) is still wide enough for the legend beside the compass
-  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%']]).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
+  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%'], WAY_LEG]).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
   // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
   function mmBox(R) { const m = R.map, mw = m.W * MAP.k, mh = m.H * MAP.k, tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed).toUpperCase(), { size: 17 }),
-      pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (LEGEND.length + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }
+      pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (LEGEND.length + (m.way ? 1 : 0) + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }
   function minimap(S, R, t) {
     const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
@@ -340,7 +342,7 @@
       else MAP.rec = G.canvasTex('minimap', cv); }
     const title = D.placeName(m.floor, R.mode, R.seed).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
     const hints = SIM.completionHints(R);
-    const legend = LEGEND.concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
+    const legend = LEGEND.concat(m.way ? [WAY_LEG] : [], hints.length ? [['hint', 'Остатки до 100%']] : []);
     const pw = Math.max(mw + 24, tw + 24, legendW()), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
     panel('minimap', x0, 12, pw, ph, { r: 5, a: 0.86 });
     lab('mm_t', title, x0 + pw / 2, 31, { size: 17, al: 0.5 });
@@ -351,6 +353,7 @@
     if (R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
     if (m.sanct && R.seen[Math.floor(m.sanct.y / TILE) * m.W + Math.floor(m.sanct.x / TILE)]) mark(m.sanct.x, m.sanct.y, 'camp', 12);
+    if (m.way && R.seen[m.way.ty * m.W + m.way.tx]) mark(m.way.x, m.way.y, 'way', 13);
     for (const q of R.shrines) if (!SIM.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
     for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
       const c = o.kind === 'foe' ? [1, 0.3, 0.2] : [1, 0.85, 0.3];
@@ -370,6 +373,7 @@
   function icon_(id, x, y, s) {
     if (id === 'camp') { L.solid(x, y + s * 0.25, s, 3, [0.6, 0.35, 0.16]); L.solid(x, y, s * 0.55, s * 0.7, [1, 0.65, 0.2], Math.PI / 4, s * 0.275, s * 0.35); return; }
     if (id === 'altar' || id === 'altar_used') { const col = id === 'altar' ? [0.65, 0.85, 1] : [0.45, 0.45, 0.5]; L.solid(x - s / 2, y + s / 4, s, s / 4, col); L.ring(x, y - s / 6, s / 3, s / 3, col, 1, 0.3); return; }
+    if (id === 'way') { const c = [0.62, 0.7, 1]; L.solid(x - s / 2, y + s * 0.3, s, s * 0.2, [0.4, 0.38, 0.45]); L.solid(x - s * 0.22, y - s / 2, s * 0.44, s * 0.82, [0.5, 0.47, 0.56]); L.solid(x - s * 0.08, y - s * 0.32, s * 0.16, s * 0.5, c); return; }
     if (id === 'hint') { L.rrect(x - 4, y - 4, 8, 8, 4, [1, 0.85, 0.3], [1, 0.85, 0.3]); return; }
     if (id === 'exit') { icon('stairs', x - s / 2, y - s / 2, s); return; }
     if (id === 'room') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.65, 0.6, 0.55], [0.65, 0.6, 0.55]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.49, 0.45, 0.42], [0.42, 0.39, 0.37]); return; }
@@ -589,6 +593,21 @@
     lab('al_limit', 'Осталось пожертвований: ' + left + ' из 10', P.x + 640, b.y + 48, { size: 21, col: C.dim });
     refusal(S, W / 2, P.y + 674);
     lab('al_help', sh.used ? 'ЛКМ — пожертвовать золото · E или Esc — уйти' : 'ЛКМ — дар или пожертвование · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
+  // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------
+  function gate(S, R, t) {
+    const o = SIM.gateWays(R), U = D.UI.gate(o.length), P = U.P;
+    dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 380, [0.45, 0.55, 1], 0.16 + 0.04 * Math.sin(t * 2)); G.blend();
+    panel('gate', P.x, P.y, P.w, P.h, { r: 10, rim: [0.32, 0.42, 0.62] });
+    lab('gt_t', 'Кольцо камней', P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
+    lab('gt_s', 'Куда открыть путь?', P.x + 40, P.y + 104, { size: 22, col: C.dim });
+    o.forEach((q, i) => { const b = U.r[i], hv = S.hover === b.id;
+      panel('gt_r' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv ? C.rimHi : [0.32, 0.42, 0.62], c0: hv ? [0.14, 0.14, 0.2] : C.panel0 });
+      if (q.k === 'portal') icon('it_scroll', b.x + 16, b.y + 12, 48); else L.sprite('waystone', b.x + 18, b.y + 6, { h: 62 });
+      lab('gt_n' + i, q.k === 'portal' ? 'Портал — на этаж ' + q.f : 'Путевой камень — этаж ' + q.f, b.x + 84, b.y + 26, { size: 26, col: C.text });
+      lab('gt_d' + i, q.k === 'portal' ? 'туда, где прочитан свиток; портал закроется' : D.floorName(q.f, (R.memo && R.memo[q.f] || R).mode, R.seed), b.x + 84, b.y + 54, { size: 18, col: C.dim }); });
+    button('gt_leave', U.r[o.length], S.hover);
+    lab('gt_help', 'ЛКМ — выбрать путь · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];

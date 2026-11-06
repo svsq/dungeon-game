@@ -228,6 +228,8 @@
     buy: (o) => SFX.gold(o), trade: (o) => SFX.gold(o),
     // the townsfolk (TASKS 1015): the anvil rings on the smith's blow; a few soft murmured syllables when someone speaks up
     // a scroll read aloud (TASKS 1007): a rising airy shimmer under the teleport's own sound
+    // a waystone wakes (TASKS 1009): a low stone hum under a bright rising chime
+    waystone: (o) => { tone(o, { f0: 110, f1: 165, a: 0.05, d: 1.1, v: 0.08 }); [880, 1320, 1760].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.1, d: 0.7, v: 0.05 })); },
     read: (o) => { noise(o, { a: 0.6, d: 1.0, v: 0.08, type: 'bandpass', f0: 600, f1: 3200, q: 3 }); tone(o, { f0: 330, f1: 660, a: 0.8, d: 0.8, v: 0.05 }); },
     anvil: (o) => { noise(o, { d: 0.03, v: 0.25, type: 'highpass', f0: 2500 }); [1180, 1630, 2470].forEach((f, i) => tone(o, { type: 'triangle', f0: f, d: 0.5 - i * 0.1, v: 0.05 - i * 0.012 })); },
     say: (o, e) => { const b = e.role === 'child' ? 330 : e.role === 'sweeper' || e.role === 'enchanter' ? 250 : 150; for (let i = 0; i < 3; i++) tone(o, { type: 'triangle', f0: b * rr(0.9, 1.15), f1: b * rr(0.8, 1), t: now() + i * 0.09, d: 0.08, v: 0.035 }); },
