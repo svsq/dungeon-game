@@ -32,7 +32,9 @@ try {
     const changed = (a,b,threshold) => {let n=0;for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>=threshold)n++;return n;};
     for (const mv of ['bite','tail','wave','fan']) {
       const S = structuredClone(Q.states.find(([n]) => n === 'serpent_warn_'+mv)[1]), e=S.run.en[0], M=DATA.BOSSES.boss_serpent.moves[mv], z=S.run.zoom||DATA.ZOOM||1;
-      const area=(mv==='bite'?M.arc*M.r*M.r:mv==='tail'?Math.PI*M.r*M.r:mv==='wave'?68*M.reach:M.n*44*M.reach)*z*z;
+      const reach=(x,y,a,gz)=>SIM.flightReach(S.run.map,x,y,a,M.speed,M.reach/M.speed,gz), [mx,my]=SIM.serpentMouth(e);
+      const len=mv==='wave'?[reach(e.x,e.y-38,e.aimA,28)]:mv==='fan'?Array.from({length:M.n},(_,i)=>reach(mx,my,e.aimA+(i/(M.n-1)-0.5)*M.spread*2,82)):[];
+      const area=(mv==='bite'?M.arc*M.r*M.r:mv==='tail'?Math.PI*M.r*M.r:mv==='wave'?68*len[0]:44*len.reduce((a,b)=>a+b,0))*z*z;
       const samples=[];
       for(let i=0;i<=Math.ceil(M.wind*60);i++) {
         const u=Math.min(M.wind,i/60);e.t0=S.t-u;
@@ -41,7 +43,7 @@ try {
         if(faint<area*.3)throw new Error(mv+' @'+u+': warning absent or too small '+faint+'/'+area);
         if(u>=M.wind*.9&&strong<area*.3)throw new Error(mv+' @'+u+': final warning too weak '+strong+'/'+area);
       }
-      report[mv]={area,samples};
+      report[mv]={area,len,samples};
     }
     const S=structuredClone(Q.states.find(([n])=>n==='serpent_emerge_warning')[1]),e=S.run.en[0],tex=G.tex('serpent__body'),B=DATA.BOSSES.boss_serpent;
     e.st='stir';const samples=[],sheet=document.createElement('canvas');sheet.width=1280;sheet.height=480;const sc=sheet.getContext('2d');

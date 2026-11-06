@@ -486,24 +486,32 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // out, rim and chevrons brightening to the instant it lands. u_kind 0 a sector or circle (bite, tail), 1 a strip (wave), 2 a fan of
   // u_n rays out to u_arc either side, each as wide as a jet's hit (u_hw)
   const SERP_TELE = `
-uniform float u_kind, u_q, u_r, u_arc, u_hw, u_n, u_fade; uniform vec2 u_org, u_sz, u_dir;
+uniform float u_kind, u_q, u_r, u_arc, u_hw, u_n, u_fade, u_len4; uniform vec2 u_org, u_sz, u_dir; uniform vec4 u_len;
+float rayLen(int j){ return j == 0 ? u_len.x : j == 1 ? u_len.y : j == 2 ? u_len.z : j == 3 ? u_len.w : u_len4; }
 void main(){ vec2 p = floor(v_uv * u_sz / 2.0) * 2.0 + 1.0 - u_org, nrm = vec2(-u_dir.y, u_dir.x);
-  float inside = 0.0, ed = 99.0, front = 0.0, run = 0.0, ray = 1.0;
+  float inside = 0.0, ed = 99.0, front = 0.0, run = 0.0, ray = 1.0, across = 0.0;
   if (u_kind < 0.5) { float r = length(p), an = abs(atan(dot(p, nrm), dot(p, u_dir)));
     inside = step(r, u_r) * step(an, u_arc); ed = min(u_r - r, (u_arc - an) * max(r, 1.0)); front = step(r, u_r * u_q); run = r; }
-  else if (u_kind < 1.5) { float al = dot(p, u_dir), ac = dot(p, nrm);
-    inside = step(0.0, al) * step(al, u_r) * step(abs(ac), u_hw); ed = min(u_hw - abs(ac), min(al, u_r - al)); front = step(al, u_r * u_q); run = al; }
-  else { float al = dot(p, u_dir), an = atan(dot(p, nrm), al), best = -99.0;
-    for (int j = 0; j < 5; j++) { float aj = (float(j) / (u_n - 1.0) - 0.5) * 2.0 * u_arc; best = max(best, u_hw - abs(al * sin(an - aj))); }
-    float wedge = step(10.0, al) * step(al, u_r) * step(abs(an), u_arc + 0.32);
-    inside = wedge; ray = step(0.0, best); ed = best; front = step(al, u_r * u_q); run = al; }
-  float edge = inside * (1.0 - smoothstep(0.0, 4.0, ed)) * (u_kind > 1.5 ? ray : 1.0);
-  float chev = step(0.5, fract((run - u_t * 70.0) / 16.0 + (u_kind > 0.5 ? abs(dot(p, nrm)) / 40.0 : 0.0)));
+  else {
+    // a jet or the wave hits whoever is within its reach of its path, and its path ends at the first wall: a capsule along each ray
+    // out to where the sim's flight stops, its rim rippled like water about the true edge so the area stays what it hits
+    float best = -99.0, bestRun = 0.0, wedgeLen = 0.0, an = atan(dot(p, nrm), dot(p, u_dir)), bestAn = 99.0;
+    for (int j = 0; j < 5; j++) { if (float(j) > u_n - 0.5) break;
+      float aj = u_kind < 1.5 ? 0.0 : (float(j) / (u_n - 1.0) - 0.5) * 2.0 * u_arc, L = rayLen(j);
+      vec2 d = vec2(cos(aj) * u_dir.x - sin(aj) * u_dir.y, sin(aj) * u_dir.x + cos(aj) * u_dir.y);
+      float al = clamp(dot(p, d), 0.0, L), dist = length(p - d * al), side = dot(p, vec2(-d.y, d.x));
+      float wob = (vnoise(vec2(al / 14.0 - u_t * 1.5, sign(side) * 5.0 + float(j) * 11.0)) - 0.5) * 6.0 + (vnoise(vec2(al / 5.0 + u_t * 2.0, float(j) * 7.0 + sign(side))) - 0.5) * 2.0;
+      float e = u_hw + wob - dist; if (e > best) { best = e; bestRun = al; across = side / u_hw; }
+      if (abs(an - aj) < bestAn) { bestAn = abs(an - aj); wedgeLen = L; } }
+    float al = dot(p, u_dir), wedge = u_kind > 1.5 ? step(10.0, al) * step(length(p), wedgeLen) * step(abs(an), u_arc + 0.32) : 0.0;
+    ray = step(0.0, best); inside = max(ray, wedge); ed = best; run = bestRun; front = step(run, u_r * u_q); }
+  float edge = (u_kind < 0.5 ? inside : ray) * (1.0 - smoothstep(0.0, 4.0, ed));
   float hatch = step(0.5, fract((p.x + p.y) / 12.0));
+  float crest = step(0.62, fract((run - u_t * 70.0) / 18.0 - across * across * 0.35 + (vnoise(vec2(run / 9.0, across * 3.0 - u_t)) - 0.5) * 0.5));
   float pulse = 0.85 + 0.15 * sin(u_t * 18.0), ready = smoothstep(0.82, 1.0, u_q);
-  float fill = inside * (u_kind > 1.5 ? mix(0.015, 0.17, ray) : 0.07) * (1.0 + 1.5 * front * u_q) * (0.8 + 0.3 * (u_kind < 0.5 ? hatch : chev));
-  float a = clamp((fill + edge * (0.5 + 0.4 * u_q)) * pulse + inside * ready * 0.2 * (u_kind > 1.5 ? ray : 1.0), 0.0, 0.8) * u_fade;
-  vec3 col = mix(vec3(0.86, 0.26, 0.15), vec3(1.0, 0.8, 0.55), clamp(edge * 0.9 + ready * 0.5, 0.0, 1.0));
+  float fill = inside * (u_kind > 0.5 ? mix(0.015, 0.1, ray) : 0.07) * (1.0 + 1.5 * front * u_q) * (u_kind < 0.5 ? 0.8 + 0.3 * hatch : 0.75 + 0.6 * crest * ray);
+  float a = clamp((fill + edge * (0.5 + 0.4 * u_q)) * pulse + inside * ready * 0.2 * (u_kind > 0.5 ? ray : 1.0), 0.0, 0.8) * u_fade;
+  vec3 col = mix(vec3(0.86, 0.26, 0.15), vec3(1.0, 0.8, 0.55), clamp(edge * 0.9 + ready * 0.5 + (u_kind > 0.5 ? crest * ray * front * 0.25 : 0.0), 0.0, 1.0));
   o = vec4(col * a, a); }`;
   // a cave's water source (TASKS 304), drawn round its point u_src. A fall (u_kind 0) runs over the rock's top to the lip of the face
   // the bake laid under it and pours down it into the water: streaks racing down, foam boiling at its foot, spray thrown up, mist
@@ -2493,12 +2501,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let j = 0; j < 8; j++) { const u = ((GT * (0.8 + 0.6 * k) + j / 8) % 1), a = j * 2.4; L.star(X + Math.cos(a) * (26 - 10 * k), Yh - 4 - 70 * u, 5, [0.7, 0.85, 1], (0.3 + 0.7 * k) * Math.sin(Math.PI * u)); } }
     for (const e of R.en) { if (e.type !== 'boss_serpent' || e.deadT >= 0 || e.st !== 'bwind') continue;
       const Mv = D.bossMove(e), u = GT - e.t0; if (u > Mv.wind + (e.mv === 'tail' ? 0.5 : 0)) continue;
-      const q = SS(0, Mv.wind, u), x = sx(e.x), y = sy(e.y), tele = (ox, oy, kind, reach, extra) => { const R0 = reach + 12;
+      const q = SS(0, Mv.wind, u), x = sx(e.x), y = sy(e.y), tele = (ox, oy, kind, reach, extra) => { const R0 = reach + (extra.u_hw || 0) + 12;
         G.draw(L.P.serptele, Object.assign({ u_t: t, u_kind: kind, u_q: q, u_r: reach, u_arc: 0, u_hw: 0, u_n: 1, u_fade: 1 - SS(Mv.wind, Mv.wind + 0.5, u), u_org: [R0, R0], u_sz: [2 * R0, 2 * R0], u_dir: [Math.cos(e.aimA), Math.sin(e.aimA)] }, extra), G.xf(ox - R0, oy - R0, 2 * R0, 2 * R0)); };
       if (e.mv === 'tail') tele(x, y, 0, Mv.r, { u_arc: Math.PI + 0.1 });
       else if (e.mv === 'bite') tele(x, y, 0, Mv.r, { u_arc: Mv.arc });
-      else if (e.mv === 'wave') tele(x, sy(e.y - 38 + 28), 1, Mv.reach, { u_hw: 34 });
-      else { const [mx, my] = SIM.serpentMouth(e); tele(sx(mx), sy(my + 82), 2, Mv.reach, { u_arc: Mv.spread, u_hw: 22, u_n: Mv.n }); }
+      else if (e.mv === 'wave') { const L = SIM.flightReach(m, e.x, e.y - 38, e.aimA, Mv.speed, Mv.reach / Mv.speed, 28); tele(x, sy(e.y - 38 + 28), 1, Mv.reach, { u_hw: 34, u_len: [L, 0, 0, 0], u_len4: 0 }); }
+      else { const [mx, my] = SIM.serpentMouth(e), L = []; for (let i = 0; i < Mv.n; i++) L.push(SIM.flightReach(m, mx, my, e.aimA + (i / (Mv.n - 1) - 0.5) * Mv.spread * 2, Mv.speed, Mv.reach / Mv.speed, 82));
+        tele(sx(mx), sy(my + 82), 2, Mv.reach, { u_arc: Mv.spread, u_hw: 22, u_n: Mv.n, u_len: [L[0], L[1] || 0, L[2] || 0, L[3] || 0], u_len4: L[4] || 0 }); }
     }
     for (const e of R.en) if (e.type === 'boss_serpent' && e.floodAt > GT) {
       const q = 1 - (e.floodAt - GT) / 1.2;

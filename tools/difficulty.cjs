@@ -46,6 +46,12 @@ function report() {
     const top = Array.from({ length: FLOORS }, (_, i) => { const t = {}; for (const r of a) { const f = r.floors.find((q) => q.floor === i + 1); for (const g in (f && f.dmg) || {}) t[g] = (t[g] || 0) + f.dmg[g]; }
       const g = Object.keys(t).sort((x, y) => t[y] - t[x])[0]; return g || '-'; }).join(' ');
     console.log([p, k + 1, perFloor(a, (f) => Math.round((f.minhp ?? 1) * 100), 0), perFloor(a, (f) => f.hits || 0, 0), perFloor(a, (f) => f.hpPot || 0, 1), perFloor(a, (f) => f.mpPot || 0, 1), GROUPS.map((g) => Math.round((tot[g] || 0) / sum * 100) + '%').join(' / '), top].join(' | ')); }
+  // by monster (TASKS 468): the health each took per run, as a share of the max, and what struck the killing blow
+  console.log('\nprofile | run | health taken per run, % of max, by monster | killing blows');
+  for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
+    const by = {}, kill = {}; for (const r of a) { for (const f of r.floors) for (const t in f.by || {}) by[t] = (by[t] || 0) + f.by[t]; if (r.result.how === 'dead' && r.killer) kill[r.killer] = (kill[r.killer] || 0) + 1; }
+    const list = (o, f) => Object.keys(o).sort((x, y) => o[y] - o[x]).slice(0, 10).map((t) => t + ' ' + f(o[t])).join(', ') || '-';
+    console.log([p, k + 1, list(by, (v) => Math.round(v / a.length * 100)), list(kill, (v) => v)].join(' | ')); }
   // the shard economy: found in the run, the end-of-run bonus, gifts taken at altars, floors' categories at 100%, potions left in the bag
   console.log('\nprofile | run | shards found | end reward | gifts | full categories by floor | secrets found by floor | hp pot left');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;

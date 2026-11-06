@@ -1387,16 +1387,23 @@
     ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: price, s: 'Продано: ' + itemName(one), rar: one.rar });
   }
 
+  const projWall = (m, x0, y0, x1, y1, gz) => { const cx = Math.floor(x0 / TILE), cy = Math.floor((y0 + gz) / TILE), nx = Math.floor(x1 / TILE), ny = Math.floor((y1 + gz) / TILE), pc = cell(m, nx, ny);
+    return pc === 0 || pc === 4 || pc === 5 || pinch(m, cx, cy, nx, ny); };
+  const projCover = (m, x, y) => m.decor.some((d) => d.cover && !d.broken && Math.abs(x - d.x) < 26 && y > d.y - 75 && y < d.y + 8);
+  // how far a shot fired now would fly before a wall or a cover stops it: the serpent's warnings end where its water really does
+  function flightReach(m, x, y, a, speed, life, gz) { const vx = Math.cos(a) * speed * DT, vy = Math.sin(a) * speed * DT, n = Math.ceil(life / DT);
+    for (let i = 1; i <= n; i++) { const x1 = x + vx, y1 = y + vy; if (projWall(m, x, y, x1, y1, gz) || projCover(m, x1, y1)) return (i - 1) * speed * DT; x = x1; y = y1; }
+    return n * speed * DT; }
   function stepProjectiles(S, R) {
     const m = R.map, h = R.hero;
     for (const p of R.proj) { if (p.dead) continue;
       // gz: how far over its floor it flies (an eel's jet leaves its mouth high over the water)
-      const gz = p.gz ?? 20, cx = Math.floor(p.x / TILE), cy = Math.floor((p.y + gz) / TILE);
+      const gz = p.gz ?? 20, x0 = p.x, y0 = p.y;
       p.x += p.vx * DT; p.y += p.vy * DT; const age = S.t - p.t0;
-      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = pc === 0 || pc === 4 || pc === 5 || pinch(m, cx, cy, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE));
+      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = projWall(m, x0, y0, p.x, p.y, gz);
       if (pc === 4 && p.own === 'hero') { const q = secretAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (q && kindOf(q) === 'crack') hitSecret(S, R, q); }
       if (pc === 5 && p.own === 'hero') { const d = doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) openDoor(S, R, d, 1); }
-      let boom = wall || age > p.life || m.decor.some((d) => d.cover && !d.broken && Math.abs(p.x - d.x) < 26 && p.y > d.y - 75 && p.y < d.y + 8);
+      let boom = wall || age > p.life || projCover(m, p.x, p.y);
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' снаряд', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
@@ -4039,7 +4046,7 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { serpentMouth, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+  root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
     stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);
