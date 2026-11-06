@@ -759,13 +759,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   };
   function views(z) {
     Z = z; VW = W / Z; VH = H / Z;
-    // a terrace's surge (TASKS 475): the lava's own pattern over its band, welling up in patches through it as u_q rises (a slow
-    // noise, the cells by the lava first: the mask's blue)
-    const SPILL = LAVA.replace('uniform sampler2D u_mask,', 'uniform float u_q; uniform sampler2D u_mask,')
-      .replace('float mk = M.r, e = mk + (fbm(w / 20.0) - 0.5) * 0.2;', 'float lv = clamp((fbm(w / 18.0 + vec2(0.0, u_t * 0.25)) - 0.3) / 0.4, 0.0, 1.0) * 0.8 + texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).b * 0.2;\n  float mk = M.r * (1.0 - smoothstep(u_q - 0.1, u_q + 0.02, lv)), e = mk + (fbm(w / 20.0) - 0.5) * 0.2;')
-      .replace('vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;', 'vec2 fl = vec2(0.0, 0.5);')
+    // a terrace's surge (TASKS 475): the magma's own lava (TASKS 483: the caves' shader drew it with plates three times the size of
+    // the lava round it) over its band, cell by cell (its mask unblurred: a blurred one lay over a bridge's deck as a rounded pill),
+    // welling up in patches as u_q rises (a slow noise, the cells by the lava first: the mask's blue), and over the warning's last
+    // moments a front running from the lavafall down the band (u_fr against the mask's green, how far a cell is from the fall)
+    const SPILL = MLAVA.replace('uniform sampler2D u_mask,', 'uniform float u_q, u_fr; uniform sampler2D u_mask,')
+      .replace('float mAt(vec2 p){ return textureLod(u_mask, p / u_map, 0.0).r - edgeBite(p, u_map); }',
+        'float mAt(vec2 p){ vec4 M = textureLod(u_mask, p / u_map, 0.0), C = texelFetch(u_mask, ivec2(p / u_map * vec2(textureSize(u_mask, 0))), 0);\n' +
+        '  float lv = clamp((fbm(p / 18.0 + vec2(0.0, u_t * 0.25)) - 0.3) / 0.4, 0.0, 1.0) * 0.8 + C.b * 0.2, q = max(u_q, step(C.g + (vnoise(p / 24.0) - 0.5) * 0.12, u_fr));\n' +
+        '  return M.r * (1.0 - smoothstep(q - 0.1, q + 0.02, lv)) - edgeBite(p, u_map); }')
+      .replace('vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;', 'vec2 fl = vec2(0.0);')
+      // (no bright bank round it: its band lies along a deck or a ridge by the lava, and the rim drew it as a box)
+      .replace('  col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;', '')
       // (drawn over the fog of war, it keeps to the explored cells: u_seen, 0 on an unexplored floor's)
-      .replace('float inside = smoothstep(-0.8, 0.8, d),', 'float inside = smoothstep(-0.8, 0.8, d) * smoothstep(0.1, 0.3, texture(u_seen, w / u_map).r),');
+      .replace('float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d);', 'float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d) * smoothstep(0.1, 0.3, texture(u_seen, w / u_map).r);');
+    if (SPILL.split('u_fr').length < 3 || SPILL.includes('vec3(1.0, 0.92, 0.3) : d < 5.0') || !SPILL.includes('vec2 fl = vec2(0.0);') || !SPILL.includes('smoothstep(0.1, 0.3, texture(u_seen')) throw new Error('SPILL: MLAVA changed under its patches');
     L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); G.free(LT.occ); }
     // occ: the silhouettes of the monsters before the lava, which its glow and shimmer leave out (TASKS 407)
@@ -1088,7 +1096,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m); if (!u) { const arch = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => c.cells)); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !arch.has(k)))); } return u; };
   const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x), (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
   // its glow (the emissive pass, drawn over everything) leaves out what lies under a crossing, or it shines through the slabs and planks
-  const surgeTex = (m, z) => { const lv = new Map(z.cells.map((k, i) => [k, z.lv[i]])); return maskTex(m, 'surge', (x, y) => lv.has(y * m.W + x), (x, y) => [0, 2 * lv.get(y * m.W + x) - 1]); };
+  const surgeTex = (m, z) => { const lv = new Map(z.cells.map((k, i) => [k, z.lv[i]])), F = fallsOf(m), f = F.length ? F.reduce((a, b) => (Math.hypot(b.x - z.x, b.y - z.y) < Math.hypot(a.x - z.x, a.y - z.y) ? b : a)) : z;
+    const ds = z.cells.map((k) => Math.hypot((k % m.W + 0.5) * TILE - f.x, (Math.floor(k / m.W) + 0.5) * TILE - f.y)), d0 = Math.min(...ds), d1 = Math.max(...ds), dn = new Map(z.cells.map((k, i) => [k, (ds[i] - d0) / Math.max(1, d1 - d0)]));
+    return maskTex(m, 'surge', (x, y) => lv.has(y * m.W + x), (x, y) => [2 * dn.get(y * m.W + x) - 1, 2 * lv.get(y * m.W + x) - 1], 0); };
   const SBOX = new WeakMap(), surgeBox = (z) => { let b = SBOX.get(z); if (!b) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const k of z.cells) { const x = k % z.W, y = Math.floor(k / z.W); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     SBOX.set(z, b = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]); } return b; };
   const lavaGlowTex = (m) => maskTex(m, 'lavaglow', (x, y) => SIM.cell(m, x, y) === 3, (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);
@@ -2712,7 +2722,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           L.glow(X, Y, 22 + 10 * k, [1, 0.45, 0.1], (0.12 + 0.45 * k) * beat, 2.2);
           if (i % 6 === 0) { const b = (GT * (1.1 + 2 * k) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
       const box = surgeBox(z), xf = G.xf(sx(box[0]), sy(box[1]), box[2], box[3]);
-      const u = (mode) => ({ u_t: GT, u_q: q, u_mask: surgeTex(m, z), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0 });
+      const FR = 0.4, fr = w >= H.warn - FR ? (w - (H.warn - FR)) / FR * 1.1 : -1;
+      const u = (mode) => ({ u_t: GT, u_q: q, u_fr: fr, u_mask: surgeTex(m, z), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0, u_face: BAKE.face || seen, u_occ: LT.occ });
       G.draw(L.P.spill, u(0), xf); G.blend('add'); G.draw(L.P.spill, u(2), xf); G.blend(); }
     // a vent's warning (TASKS 406), from its clock: the ring it will throw lava over heats up and beats faster, its mouth bubbles
     for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn);
@@ -3766,12 +3777,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           if (ph === 'burst') S.ev.push({ k: k === 'vent' ? 'erupt' : 'rockfall', t: t - c, x: z.x, y: z.y, i }); states.push([name + '_' + ph, S]); } }
       // a terrace's surge (TASKS 475): at rest, creeping up late in its warning, at its flood and ebbing back, the view on its ridge
       // down the steps, the hero waiting on the plateau above it
-      for (const [ph, c0] of [['rest', 0.5], ['warn', -0.15], ['flood', 0.35], ['ebb', 0.95]]) { const S = play(); let z = null;
+      for (const [ph, c0] of [['rest', 0.5], ['warn', -0.15], ['front', -0.06], ['flood', 0.35], ['ebb', 0.95]]) { const S = play(); let z = null;
         for (let sd = 3; sd < 60 && !z; sd++) { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let f = 2; f <= 3 && !z; f++) { SIM.enterFloor(S, S.run, f); const m = S.run.map; if (m.ftype === 'terrace' && !m.ftype2) z = (m.hazards || []).find((q) => q.k === 'surge'); } }
         if (!z) continue; const R = S.run, H = D.HAZ.surge, W = R.map.W, k0 = z.cells[z.lv.indexOf(Math.max(...z.lv))], x = (k0 % W + 0.5) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE;
-        const c = ph === 'rest' ? z.per * 0.5 : ph === 'warn' ? z.per + c0 * H.warn * 2 : c0 * (ph === 'flood' ? H.burst : H.burst + H.ebb), t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per;
+        const c = ph === 'rest' ? z.per * 0.5 : ph === 'warn' || ph === 'front' ? z.per + c0 * H.warn * 2 : c0 * (ph === 'flood' ? H.burst : H.burst + H.ebb), t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per;
         let hy = y - 4 * TILE; for (let j = 4; j < 9; j++) if (SIM.cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE) - j) === 1 && !z.cells.includes(k0 - j * W)) { hy = y - j * TILE; break; }
-        view(S, x, y, x, hy); S.t = R.t = t; S.ev = []; if (ph !== 'rest' && ph !== 'warn') S.ev.push({ k: 'surge', t: t - c, x: z.x, y: z.y, i: R.map.hazards.indexOf(z) }); states.push(['magma_surge_' + ph, S]); }
+        view(S, x, y, x, hy); S.t = R.t = t; S.ev = []; if (ph !== 'rest' && ph !== 'warn' && ph !== 'front') S.ev.push({ k: 'surge', t: t - c, x: z.x, y: z.y, i: R.map.hazards.indexOf(z) }); states.push(['magma_surge_' + ph, S]); }
       // (the flood over a floor all unexplored, and the same frame without the surge: they must be the same, TASKS 475 review)
       { const q = states.find((p) => p[0] === 'magma_surge_flood'); if (q) { const S = structuredClone(q[1]); S.run.seen = S.run.seen.map(() => 0); S.run.rseen = (S.run.rseen || []).map(() => 0); states.push(['magma_surge_unseen', S]);
         const S2 = structuredClone(S); S2.run.map.hazards = S2.run.map.hazards.filter((z) => z.k !== 'surge'); S2.ev = S2.ev.filter((e) => e.k !== 'surge'); states.push(['magma_surge_unseen_none', S2]); } }
