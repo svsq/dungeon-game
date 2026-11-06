@@ -263,8 +263,12 @@
     // ward: a shield of `share` of its health takes the blows from before it, one from behind breaks it; curse: its blow cuts the hero's for `t` s
     { id: 'reflect', name: 'Отражающий', col: [0.88, 0.92, 1.0], k: 0.1, deep: 1 },
     { id: 'blink', name: 'Мерцающий', col: [0.2, 0.95, 0.85], every: 6, min: 150, max: 450, gap: 70, calm: 0.7, deep: 1, melee: 1 },
-    { id: 'ward', name: 'Щитоносный', col: [0.35, 0.6, 1.0], share: 0.25, deep: 1 },
+    { id: 'ward', name: 'Щитоносный', col: [0.3, 0.42, 1.0], share: 0.25, deep: 1 },
     { id: 'curse', name: 'Проклинающий', col: [0.5, 0.85, 0.2], k: 0.7, t: 3, deep: 1 },
+    // frost: its blow slows the hero to `slow` for `t` s (TASKS 477); tug: every `every` s, `min`–`max` px off with a clear line, it
+    // warns `warn` s and then draws the hero `n` px toward it over `T` s, short of its own reach; a dash under way slips it (melee only)
+    { id: 'frost', name: 'Ледяной', col: [0.55, 0.85, 1.0], slow: 0.7, t: 2, deep: 1 },
+    { id: 'tug', name: 'Притягивающий', col: [1.0, 0.5, 0.8], every: 7, min: 130, max: 320, warn: 0.6, n: 120, T: 0.35, deep: 1, melee: 1 },
   ];
   const eliteMods = (f) => (f >= 6 ? [2, 2] : f >= 4 ? [1, 2] : [1, 1]);
   const modPool = (mode, f, kind) => ELITE_MODS.filter((m) => (!m.deep || (RUNS[mode] && RUNS[mode].endless && f > ELITE.deepFrom)) && !(m.melee && (kind === 'caster' || kind === 'archer'))).map((m) => m.id);

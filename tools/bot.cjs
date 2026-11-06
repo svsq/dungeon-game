@@ -155,6 +155,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
       if ((e.st === 'bwind' && !['slam', 'tail', 'bite', 'fists'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
     if (!ready) return;
+    // a tugging elite's warning (TASKS 477): a dash across its line before it draws the hero in
+    // (late in it: a dash slips the tug only while under way, BAL.dodge.t)
+    for (const e of live) { if (!e.tugW || e.tugW <= t || e.tugW - t > 0.15 || seen.has('t' + e.id + ':' + e.tugW) || D.ELITE_MODS.find((q) => q.id === 'tug').warn - (e.tugW - t) < P.react) continue;
+      seen.add('t' + e.id + ':' + e.tugW); if (rand() >= P.dodge) continue; const d = Math.hypot(h.x - e.x, h.y - e.y) || 1; dash(inp, -(h.y - e.y) / d, (h.x - e.x) / d); return; }
     // an explosive elite's corpse: out of its reach before the fuse is out
     for (const e of R.en) { if (!e.fuse || t - e.deadT < P.react || seen.has('f' + e.id)) continue; seen.add('f' + e.id);
       const d = Math.hypot(h.x - e.x, h.y - e.y); if (d > 130 || rand() >= P.dodge) continue; dash(inp, (h.x - e.x) / (d || 1), (h.y - e.y) / (d || 1)); return; }

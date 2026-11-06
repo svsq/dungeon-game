@@ -165,6 +165,7 @@
     if (gift(h, 'thorns') && e.deadT < 0 && Math.hypot(e.x - h.x, e.y - h.y) < 150) hitEnemy(S, R, e, Math.max(1, Math.round(h.lastHit * gift(h, 'thorns') / 100)), 0, h.x, h.y, 0, 'thorns');
     if (!e.mods) return;
     if (has(e, 'fiery')) { if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); }   // a fresh blow only extends the fire, the ticks keep their pace
+    if (has(e, 'frost')) { h.chillT = S.t + MOD.frost.t; ev(S, { k: 'chill', x: h.x, y: h.y - 40, id: e.id }); }
     if (has(e, 'curse')) { h.curseT = S.t + MOD.curse.t; ev(S, { k: 'curse', x: h.x, y: h.y - 40, id: e.id }); }
     if (has(e, 'vampire') && e.deadT < 0) { const n = Math.round(e.max * MOD.vampire.heal); e.hp = Math.min(e.max, e.hp + n);
       ev(S, { k: 'drain', x: h.x, y: h.y - 40, tx: e.x, ty: e.y - ENEMIES[e.type].h * 0.5, n, id: e.id }); }
@@ -1160,7 +1161,7 @@
     R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
     // ---- input: 8-way run with accel / decel ----
     const ix = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), iy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), il = Math.hypot(ix, iy) || 1;
-    const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < 0.2 ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1) * (soaked(S, h) ? ORB.slow : 1);
+    const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < 0.2 ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1) * (soaked(S, h) ? ORB.slow : 1) * (S.t < (h.chillT ?? -9) ? MOD.frost.slow : 1);
     const app = (v, tg) => { const a = (Math.abs(tg) > Math.abs(v) ? K.ACC : K.DEC) * DT; return v < tg ? Math.min(tg, v + a) : Math.max(tg, v - a); };
     h.vx = app(h.vx, ix / il * spd); h.vy = app(h.vy, iy / il * spd);
     h.aim = Math.atan2(my - (h.y - RIG.shoulder + 8), mx - h.x);
@@ -1488,6 +1489,10 @@
         if (near || e.stuckK !== e.t0 || pd <= e.aF - 2 || Math.hypot(h.x - e.ax, h.y - e.ay) > 48) { e.stuckK = e.t0; e.aF = pd; e.ax = h.x; e.ay = h.y; e.aT = t; }
         else if (t - e.aT > 2.5) { e.st = 'home'; e.t0 = t; e.calmT = t + 4; continue; } }
       if (e.st === 'chase' && has(e, 'blink')) { if (e.blinkT === undefined) e.blinkT = t + MOD.blink.every / 2; if (t >= e.blinkT) e.blinkT = t + (blink(S, R, e) ? MOD.blink.every : 1); }
+      if (e.st === 'chase' && has(e, 'tug')) { const M = MOD.tug, clear = () => losClear(m, e.x, e.y - 10, h.x, h.y - 10); if (e.tugT === undefined) e.tugT = t + M.every / 2;
+        if (!e.tugW && t >= e.tugT) { if (d >= M.min && d <= M.max && clear()) { e.tugW = t + M.warn; ev(S, { k: 'tug_warn', x: e.x, y: e.y, id: e.id, d: M.warn }); } else e.tugT = t + 1; }
+        else if (e.tugW && t >= e.tugW) { e.tugW = 0; e.tugT = t + M.every; const n = Math.min(M.n, d - (E.r + K.R + 24));
+          if (n > 0 && clear() && !(t - h.dashT < BAL.dodge.t)) { h.pull = { x: (e.x - h.x) / d, y: (e.y - h.y) / d, n, T: M.T, done: 0 }; ev(S, { k: 'tug', x: h.x, y: h.y, tx: e.x, ty: e.y, id: e.id }); } } }
       if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
       if (e.st === 'chase') {
         const reach = E.r + K.R + E.reach;
@@ -2569,6 +2574,20 @@
       for (let i = 0; i < 120 * MOD.blink.every && !jumped; i++) { const bx = bl.x; step(S, { keys: [] }); jumped = Math.abs(bl.x - bx) > 40; }
       if (!jumped) out.push('a blinking elite never steps up to the hero');
       else if (Math.hypot(bl.x - h.x, bl.y - h.y) > MOD.blink.gap + 30 || bl.cdT < S.t + MOD.blink.calm - 0.05 || boxHit(R.map, bl.x, bl.y, ENEMIES.skeleton.r, true, false)) out.push('a blinking elite lands off the hero, in rock or striking at once');
+      // frost and tug (TASKS 477): a frost elite's blow slows the hero for its time; a tugging one warns, then draws him in to short of
+      // its reach, never through it; a dash under way at the tug slips it
+      put(); const fr = el(['frost'], 30, { hp: 4000, max: 4000 }); let chilled = 0; for (let i = 0; i < 120 * 3 && !chilled; i++) { step(S, { keys: [] }); chilled = h.chillT > S.t; }
+      if (!chilled) out.push("a frost elite's blow does not chill the hero");
+      else { R.en = []; const t1 = h.chillT - S.t, walk = (chill) => { h.x = cx - 100; h.y = cy; h.vx = h.vy = 0; h.burn = 0; h.poison = 0; h.hurtT = -9; h.slowT = -9; h.chillT = chill ? S.t + t1 : -9;
+          const x0 = h.x; for (let i = 0; i < 60; i++) step(S, { right: 1, px: 1400, py: 540, keys: [] }); return h.x - x0; };
+        const slow = walk(1), fast = walk(0);
+        if (!(slow < fast * (MOD.frost.slow + 0.1) && slow > fast * (MOD.frost.slow - 0.1))) out.push(`a chilled hero walks ${Math.round(slow)} px against ${Math.round(fast)}`); }
+      const tugAt = (dash) => { put(); h.ifr = 1e9; const dx = [220, -220, 180, -180].find((q) => losClear(R.map, h.x + q, h.y - 10, h.x, h.y - 10)) || 220, tg = el(['tug'], dx, { cdT: 1e9, tugT: S.t }), x0 = h.x;
+        let warned = 0, pulled = 0; for (let i = 0; i < 120 * 1.5 && !pulled; i++) { if (dash && tg.tugW && tg.tugW - S.t < 0.1 && h.dashT < S.t - 1) h.dashT = S.t; step(S, { keys: [] }); warned ||= !!tg.tugW; pulled = !!h.pull; tg.x = x0 + dx; }
+        for (let i = 0; i < 120; i++) { step(S, { keys: [] }); tg.x = x0 + dx; } return { warned, pulled, moved: Math.abs(h.x - x0), gap: Math.abs(tg.x - h.x) }; };
+      const tg1 = tugAt(false), tg2 = tugAt(true);
+      if (!tg1.warned || !tg1.pulled || tg1.moved < 40 || tg1.gap < ENEMIES.skeleton.r + K.R) out.push(`a tugging elite does not warn and draw the hero in short of itself (${JSON.stringify(tg1)})`);
+      if (tg2.pulled) out.push('a dash does not slip the tug');
       // the whirl's hint (TASKS 390): shown by a crowd with the whirl ready, not once the player has whirled enough
       const tipped = (n) => { put(); S.meta.whirls = n; R.tipT = undefined; R.msg = null; h.ab.whirl = h.ab.whirl || 1; h.cd.whirl = 0; h.ifr = 1e9;
         for (const [dx, dy] of [[40, 0], [-40, 0], [0, 30]]) el([], dx, { y: h.y + dy, cdT: 1e9 }); step(S, { keys: [] }); return !!(R.msg && R.msg.tip === 'whirl'); };
