@@ -15,13 +15,15 @@
   const lab = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: C.text, out: '#140c0c' }, o));
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
-  let MMB = null;
+  let MMB = null, TRK = null;
   const WAY_LEG = ['way', 'Путевой камень'];
   // the town's own legend (TASKS 1023): its services instead of the dungeon's rooms, bosses and altars
   const TOWN_LEG = [['you', 'Вы'], ['exit', 'Спуск в крипту'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь душ'], ['stash', 'Хранилище'], ['craft', 'Мастерские'], ['way', 'Кольцо камней']];
-  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.way ? [WAY_LEG] : []));
+  // a quest's goal on this floor (TASKS 1019–1021) adds its own line
+  const QUEST_LEG = ['quest', 'Цель задания'];
+  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.way ? [WAY_LEG] : [], SIM.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']];
-  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
+  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   function panel(id, x, y, w, h, o = {}) {
     L.rrect(x - 3, y - 3, w + 6, h + 6, (o.r || 8) + 3, o.rim || C.rim, o.rim2 || [0.2, 0.16, 0.13], o.a ?? 0.95);
@@ -43,7 +45,7 @@
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); MMB = null;
+    G.bind(null); G.blend(); MMB = null; TRK = null;
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
@@ -91,7 +93,7 @@
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
   function world(S, R, t, V) {
-    MMB = mmBox(R);
+    MMB = mmBox(R); TRK = trkBox(S, R);
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && !D.under(e) && seen(e.x, e.y)) {
@@ -120,6 +122,13 @@
       const b = place(V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60, w, 42, actorZones);
       if (b) { panel('merchant_bubble', b.x, b.y, w, 42); lab('merchant_hit', s, b.x + w / 2, b.y + 22, { size, al: 0.5, col: C.gold }); }
     }
+    // a townsman's quest business over his head (TASKS 1018): ! a quest to take, ? one to turn in; his lines keep above it
+    if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.questMark(R, f.role); if (!mk) continue;
+      const x = V.sx(f.x), y = V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
+      G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
+      L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
+      lab('qmk' + f.i, mk, x, y + 1, { size: 34, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });
+      actorZones.push({ x: x - 20, y: y - 24, w: 40, h: 48 }); nameZones.push({ x: x - 22, y: y - 26, w: 44, h: 52 }); }
     // the townsfolk's lines (TASKS 1015): a pair, the first line then the second, over the speaker's head; the merchant's call
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
       if (b) { panel(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)
@@ -132,7 +141,7 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (e.elite && e.mods && e.mods.length) { const c = D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
+      if (e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
         if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py))) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const b0 = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
@@ -181,11 +190,11 @@
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься в крипту' : 'E — спуститься на этаж ' + (m.floor + 1)];
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
-    { const cw = SIM.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? 'E — кузнец: перековка' : 'E — зачарователь: зачарование']; } }
+    { const cw = SIM.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? (SIM.questMark(R, 'smith') ? 'E — кузнец: задание и перековка' : 'E — кузнец: перековка') : 'E — зачарователь: зачарование']; } }
     if (SIM.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, 'E — сундук-хранилище'];
     if (SIM.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, 'E — Алтарь душ: улучшения предков'];
     if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
-    if (!pr && S.screen === 'play') { const f = SIM.folkNear(R); if (f) pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, 'E — говорить: ' + D.FOLK[f.role].name]; }
+    if (!pr && S.screen === 'play') { const f = SIM.folkNear(R); if (f) { const mk = SIM.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? 'E — сдать задание: ' : mk === '!' ? 'E — задание: ' : 'E — говорить: ') + D.FOLK[f.role].name]; } }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
     if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
@@ -232,7 +241,7 @@
     }
     buffs(S, R, GT);
     // floor title + minimap
-    minimap(S, R, t);
+    minimap(S, R, t); tracker(S, R);
     // boss bar
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
     if (boss) {
@@ -331,12 +340,22 @@
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   // a small map's panel (the town, the endless descent's first floors) is still wide enough for the legend beside the compass
-  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%'], WAY_LEG], TOWN_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
+  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%'], WAY_LEG, QUEST_LEG], TOWN_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
   // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
   // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
   function mmBox(R) { const m = R.map, mw = m.W * mapK(R), mh = m.H * mapK(R), tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed).toUpperCase(), { size: 17 }),
       pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (legendOf(R).length + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }
+  // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands
+  const trkRows = (R) => (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned').slice(0, 4);
+  function trkBox(S, R) { const Q = trkRows(R); if (!Q.length || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(R);
+    const w = Math.max(280, ...Q.map((q, i) => Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.questLine(q, R), { size: 16 })))) + 32;
+    return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50]; }
+  function tracker(S, R) { const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B;
+    panel('qtrack', x0, y0, w, h, { r: 5, a: 0.84 }); lab('qt_t', 'Задания', x0 + 14, y0 + 20, { size: 16, col: C.dim });
+    trkRows(R).forEach((q, i) => { const y = y0 + 48 + i * 50, done = q.st === 'done', Q = D.QUESTS[q.key];
+      lab('qt_n' + i, Q.name, x0 + 14, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('qt_l' + i, SIM.questLine(q, R), x0 + 14, y + 22, { size: 16, col: done ? '#8fd98a' : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, k = mapK(R), mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
@@ -375,6 +394,11 @@
     for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
       const c = o.kind === 'foe' ? [1, 0.3, 0.2] : [1, 0.85, 0.3];
       L.rrect(x - 4, y - 4, 8, 8, 4, c, c, pulse); }
+    // a quest's goal (TASKS 1019–1021), seen or not: the named foe, the room to clear (its outline), the keepsake once seen
+    for (const o of SIM.questMarks(R)) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.55 + 0.45 * Math.sin(t * 5);
+      if (o.kind === 'room') { const r = o.r, c = [1, 0.8, 0.3]; L.solid(px + r.x * k, py + r.y * k, r.w * k, 2, c, 0, 0, 0, pulse); L.solid(px + r.x * k, py + (r.y + r.h) * k - 2, r.w * k, 2, c, 0, 0, 0, pulse);
+        L.solid(px + r.x * k, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); L.solid(px + (r.x + r.w) * k - 2, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); }
+      icon_('quest', x, y, 14, pulse); }
     if (S.debug && S.dbgLoot) for (const o of SIM.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + o.x / TILE * k - r, py + o.y / TILE * k - r, 2 * r, 2 * r, r, c, c); }
     const hs = 13 + 1.5 * Math.sin(t * 6), hx = Math.max(hs, Math.min(mw - hs, R.hero.x / TILE * k)), hy = Math.max(hs, Math.min(mh - hs, R.hero.y / TILE * k));
     icon_('you', px + hx, py + hy, hs);
@@ -387,12 +411,13 @@
   }
   // minimap markers, centred on (x, y): gems as in the concept, a slab for a room, the stairs for the exit
   const GEM = { you: [[0.55, 0.8, 1], [0.1, 0.3, 0.95]], gold: [[1, 0.9, 0.4], [0.85, 0.5, 0.05]], boss: [[1, 0.4, 0.3], [0.65, 0.04, 0.03]], shop: [[0.6, 1, 0.7], [0.12, 0.6, 0.3]] };
-  function icon_(id, x, y, s) {
+  function icon_(id, x, y, s, a0 = 1) {
     if (id === 'camp') { L.solid(x, y + s * 0.25, s, 3, [0.6, 0.35, 0.16]); L.solid(x, y, s * 0.55, s * 0.7, [1, 0.65, 0.2], Math.PI / 4, s * 0.275, s * 0.35); return; }
     if (id === 'altar' || id === 'altar_used') { const col = id === 'altar' ? [0.65, 0.85, 1] : [0.45, 0.45, 0.5]; L.solid(x - s / 2, y + s / 4, s, s / 4, col); L.ring(x, y - s / 6, s / 3, s / 3, col, 1, 0.3); return; }
     if (id === 'stash') { L.solid(x - s / 2, y - s * 0.2, s, s * 0.55, [0.55, 0.36, 0.18]); L.solid(x - s / 2, y - s * 0.38, s, s * 0.2, [0.7, 0.5, 0.25]); L.solid(x - s * 0.1, y - s * 0.15, s * 0.2, s * 0.2, [1, 0.85, 0.4]); return; }
     if (id === 'craft') { L.solid(x - s * 0.45, y + s * 0.1, s * 0.9, s * 0.25, [0.6, 0.6, 0.66]); L.solid(x - s * 0.25, y - s * 0.15, s * 0.5, s * 0.28, [0.75, 0.75, 0.8]); L.solid(x - s * 0.08, y - s * 0.5, s * 0.16, s * 0.4, [0.62, 0.42, 0.24]); return; }
     if (id === 'way') { const c = [0.62, 0.7, 1]; L.solid(x - s / 2, y + s * 0.3, s, s * 0.2, [0.4, 0.38, 0.45]); L.solid(x - s * 0.22, y - s / 2, s * 0.44, s * 0.82, [0.5, 0.47, 0.56]); L.solid(x - s * 0.08, y - s * 0.32, s * 0.16, s * 0.5, c); return; }
+    if (id === 'quest') { const a = a0; L.rrect(x - s / 2 - 2, y - s / 2 - 2, s + 4, s + 4, s / 2 + 2, [0.08, 0.05, 0.03], [0.08, 0.05, 0.03], a); L.solid(x, y, s * 0.62, s * 0.62, [1, 0.78, 0.25], Math.PI / 4, s * 0.31, s * 0.31, a); L.solid(x, y, s * 0.26, s * 0.26, [1, 0.97, 0.8], Math.PI / 4, s * 0.13, s * 0.13, a); return; }
     if (id === 'hint') { L.rrect(x - 4, y - 4, 8, 8, 4, [1, 0.85, 0.3], [1, 0.85, 0.3]); return; }
     if (id === 'exit') { icon('stairs', x - s / 2, y - s / 2, s); return; }
     if (id === 'room') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.65, 0.6, 0.55], [0.65, 0.6, 0.55]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.49, 0.45, 0.42], [0.42, 0.39, 0.37]); return; }
@@ -618,16 +643,21 @@
   }
   // ---------------- a word with a townsman (TASKS 1016, 1023): his likeness, his name, a page of his words ----------------
   function talk(S, R, t) {
-    const T = S.talk, U = D.UI.talk(), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = 'town_' + T.role;
+    const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
     L.solid(0, P.y - 120, W, H - P.y + 120, [0, 0, 0], 0, 0, 0, 0.35);
     panel('talk', P.x, P.y, P.w, P.h, { r: 10, rim: keeper ? [0.62, 0.42, 0.22] : C.rim });
     if (keeper) { G.blend('add'); L.glow(P.x + 150, P.y + P.h - 60, 200, [1, 0.6, 0.25], 0.16 + 0.04 * Math.sin(t * 3.1)); G.blend(); }
     const [sw, sh] = SZ(nm), k = 230 / sh; L.sprite(nm, P.x + 150 - sw * k / 2, P.y + P.h - 30 - sh * k, { w: sw * k, h: sh * k });
     lab('tk_n', FD.name, P.x + 300, P.y + 52, { size: 32, col: keeper ? '#ffc070' : C.gold });
     wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 112, P.w - 360, 28, C.text);
-    if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + 300, P.y + P.h - 60, { size: 20, col: C.dim });
-    button('tk_next', Object.assign({}, U.r[0], { label: T.p + 1 < T.pages.length ? 'Дальше' : 'Уйти' }), S.hover);
-    lab('tk_keys', 'E, пробел или ЛКМ — дальше · Esc — уйти', W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    const act = at('act');
+    // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
+    if (act) { const rs = 'Награда: ' + SIM.rwLine(T.act.rw); lab('tk_rw', rs, P.x + 300, P.y + P.h - 122, { size: 22, col: C.gold }); }
+    if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: C.dim });
+    button('tk_next', Object.assign({}, at('next'), { label: T.p + 1 < T.pages.length ? 'Дальше' : act && T.act.k === 'take' ? 'Не сейчас' : 'Уйти' }), S.hover);
+    if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? 'Взять задание' : 'Сдать задание' }), S.hover);
+    if (at('craft')) button('tk_craft', at('craft'), S.hover);
+    lab('tk_keys', act ? (T.act.k === 'take' ? 'E — взять задание' : 'E — сдать задание') + ' · Esc — уйти' : 'E, пробел или ЛКМ — дальше · Esc — уйти', W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
   function craft(S, R, t) {

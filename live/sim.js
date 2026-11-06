@@ -404,7 +404,7 @@
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { restoreFloor(R, f, M); R.town = 0; R.folk = null; }
-    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) BASE.set(R.memo[f], snapFloor(R)); }
+    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); questPlace(S, R); } }
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     if (f === 0) { R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
@@ -450,7 +450,9 @@
     const f = (R.stats || {})[R.floor]; if (!f) return [];
     const near = (k, n) => f[n] > 0 && f[k] < f[n] && f[k] / f[n] >= 0.85, out = [];
     const put = (o, kind) => { if (!hidden(R.map, o)) out.push({ x: o.x, y: o.y, kind }); };
-    if (near('kills', 'foes')) for (const e of R.en) if (counted(e) && e.deadT < 0) put(e, 'foe');
+    // a quest's named foe and marked room have their own mark on the map (TASKS 1021): no second one
+    const qr = new Set((R.quests || []).filter((q) => q.st === 'taken' && q.f === R.floor && q.room !== undefined).map((q) => q.room));
+    if (near('kills', 'foes')) for (const e of R.en) if (counted(e) && e.deadT < 0 && !e.quest && !qr.has(e.room)) put(e, 'foe');
     if (near('loot', 'lootN')) {
       for (const c of R.chests) if (!c.open && c.loot && c.loot.length) put(c, 'loot');
       for (const d of R.drops) if (d.loot && !d.got && d.kind === 'item') put(d, 'loot');
@@ -866,7 +868,7 @@
     // a smouldering skeleton killed bursts too, unless it went off itself or into the lava or the chasm; one already lit keeps its fuse
     if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = S.t + E.boom.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: E.boom.fuse, id: e.id }); } }
     else if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
-    ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id, elite: e.elite && !D.BOSSES[e.type] ? 1 : 0, boss: D.BOSSES[e.type] ? 1 : 0 }, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
+    ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id, elite: e.elite && !D.BOSSES[e.type] ? 1 : 0, boss: D.BOSSES[e.type] ? 1 : 0 }, e.quest ? { quest: e.quest } : {}, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // the last monster of a room down: the room is cleared (TASKS 1017, a quest's goal)
     if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) ev(S, { k: 'clear', x: e.x, y: e.y, room: e.room });
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
@@ -881,7 +883,7 @@
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
     const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || chapterEnd(R, e)), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
-    if (D.BOSSES[e.type]) { finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; } }
+    if (D.BOSSES[e.type]) { finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); } }
     if (big) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
     if (fin) { R.bossDead = 1; R.msg = { s: ENEMIES[e.type].name + ' повержен! Портал наружу открыт', t: S.t }; }
     e.x = ox; e.y = oy;
@@ -1032,7 +1034,10 @@
     const items = R.drops.filter((d) => d.loot && !d.got && d.kind === 'item').map((d) => ({ x: d.x, y: d.y, n: 1, at: where(d.x, d.y, d.rest === DROP_REST && !(d.fly > 0)), chest: 0 }));
     const chests = R.chests.filter((c) => !c.open && c.loot && c.loot.length).map((c) => ({ x: c.x, y: c.y, n: c.loot.length, at: where(c.x, c.y), chest: 1 }));
     const lying = items.length, boxed = chests.reduce((n, c) => n + c.n, 0);
-    return { total: f.lootN, got: f.loot, lying, boxed, list: items.concat(chests), stuck: items.concat(chests).filter((o) => o.at === 'stuck').length, off: f.lootN - f.loot - lying - boxed }; }
+    // a quest's keepsake (TASKS 1020) must be reachable as any loot, though it is no part of the floor's books
+    const keeps = R.drops.filter((d) => d.kind === 'qitem' && !d.got).map((d) => ({ x: d.x, y: d.y, n: 1, at: where(d.x, d.y, d.rest === DROP_REST && !(d.fly > 0)), chest: 0, quest: 1 }))
+      .concat(R.chests.filter((c) => !c.open && c.quest).map((c) => ({ x: c.x, y: c.y, n: 1, at: where(c.x, c.y), chest: 1, quest: 1 })));
+    return { total: f.lootN, got: f.loot, lying, boxed, list: items.concat(chests, keeps), stuck: items.concat(chests, keeps).filter((o) => o.at === 'stuck').length, off: f.lootN - f.loot - lying - boxed }; }
   // a blow tears the webs in its reach (the feet of the hero's own web too), fire burns them
   function tearWebs(S, R, x, y, rad, ax, arc, fire) {
     for (const egg of R.eggs || []) if (egg.hp > 0 && Math.hypot(egg.x - x, egg.y - y) < rad + 15 && (!arc || Math.abs(angDiff(Math.atan2(egg.y - y, egg.x - x), ax)) < arc / 2) && losClear(R.map, x, y, egg.x, egg.y)) {
@@ -1120,6 +1125,7 @@
       if (role && (role.type === 'treasure' || role.type === 'secret') && rnd(R) < 0.05) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
     }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
+    if (c.quest) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
     drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
   function chestLoot(R, c) { const LT = LOOT.chest[c.tier], out = [];
@@ -1329,7 +1335,8 @@
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
     // out it is taken at once, with more a window to choose
-    const cw = atCraft(R); if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
+    const cw = atCraft(R); if (cw === 'forge' && questMark(R, 'smith')) { const sm = folkOf(R).find((q) => q.role === 'smith'); if (sm) { openTalk(S, R, sm); return; } }
+    if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
@@ -1377,27 +1384,102 @@
       it.ench = (it.ench || []).concat({ k: a.k, v }); res = 'Зачаровано: ' + a.label.replace('{v}', v); }
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
     S.craft.res = { s: res, ok, t: S.t }; S.saveN++; ev(S, { k: 'craft', x: at.x, y: at.y, kind: S.craft.kind, ok }); }
-  // ---------------- quests (R-17, TASKS 1017) ----------------
-  // a quest of the run: R.quests [{ id, key, f, need, n, st: taken | done | turned, from, rw }]; its progress comes off the event
+  // ---------------- quests (R-17, TASKS 1017–1022) ----------------
+  // a quest of the run: R.quests [{ id, key, f, need, n, st: taken | done | turned, from, rw, ... }]; its progress comes off the event
   // bus (ev → questOn), it is done when n reaches need, turned in in the town for its reward; it goes with the hero
   const QUEST_EV = new Set(['kill', 'clear', 'floor', 'qitem', 'qevent']);
   function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f) }; }
   function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: 'Новое задание: ' + D.QUESTS[q.key].name, t: S.t }; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
-  // how much one event moves a quest on (1019–1021 add their goals here)
+  // how much one event moves a quest on
   function questStep(R, q, e) { const Q = D.QUESTS[q.key], deep = R.floor >= q.f && !R.town;
     if (Q.type === 'kill') return e.k === 'kill' && deep && !e.boss && (!Q.elite || e.elite) ? 1 : 0;
     if (Q.type === 'clear') return e.k === 'clear' && deep ? 1 : 0;
     if (Q.type === 'reach') return e.k === 'floor' && (R.deepest || 0) >= q.f ? q.need : 0;
     if (Q.type === 'boss') return e.k === 'kill' && e.boss && R.floor === q.f ? 1 : 0;
-    if (Q.type === 'fetch' || Q.type === 'named' || Q.type === 'event') return (e.k === 'qitem' || e.k === 'qevent' || e.k === 'kill') && e.quest === q.id ? 1 : 0;
+    if (Q.type === 'named') return e.k === 'kill' && e.quest === q.id ? 1 : 0;
+    if (Q.type === 'fetch') return e.k === 'qitem' && e.quest === q.id ? 1 : 0;
+    // the marked room cleared, or (362, 363, 366, when they come) the room's event done: an event of the bus `qevent` with the room
+    if (Q.type === 'room') return (e.k === 'clear' || e.k === 'qevent') && R.floor === q.f && !R.town && e.room === q.room ? 1 : 0;
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; R.msg = { s: 'Задание выполнено: ' + D.QUESTS[q.key].name + ' — награда ждёт в городе', t: S.t, d: 4 }; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
     if (W.gold) h.gold += W.gold; if (W.xp) gainXp(S, R, W.xp); if (W.shards) giveShards(S, R, W.shards, h.x, h.y, 'Награда за задание');
-    if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: 2 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); }
+    if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
     q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: 'Задание сдано: ' + D.QUESTS[q.key].name, t: S.t }; S.saveN++; return true; }
+  // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
+  const qhash = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
+  // the first offer is one of the goals put on a floor (named, fetch, room), the rest from the whole pool, each from its own townsman
+  function offersOf(R) { if (R.offers) return R.offers; const G = D.QUEST_GIVE; let a = qhash((R.seed >>> 0) + 0x51ed27);
+    const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, pool = G.pool.slice(), from = G.from.slice(), n = G.n[0] + Math.floor(r() * (G.n[1] - G.n[0] + 1));
+    R.offers = []; for (let i = 0; i < n; i++) { const key = pool.splice(Math.floor(r() * (i ? pool.length : 3)), 1)[0], who = from.splice(Math.floor(r() * from.length), 1)[0]; R.offers.push({ key, from: who, q: 0 }); }
+    return R.offers; }
+  // the floor a quest taken now points at: past the deepest reached; a goal put on a floor wants one not yet built and no boss's
+  function questFloor(R, key) { const Q = D.QUESTS[key], top = RUN(R).floors, d = R.deepest || 0;
+    for (let f = Math.max(1, d + (Q.ahead || 1)); f <= top; f++) { if (Q.noBoss && STAGE(R, f).boss) continue; if (Q.fresh && R.memo && R.memo[f]) continue; return f; } return 0; }
+  // the Keeper's chain (1022): its first step not yet behind the hero, while none of the chain is in hand
+  function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
+    return D.storyChain(R.mode).find((s) => (s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
+  // what a townsman offers now: the quest as it would be taken (its floor set, its foe's name or its keepsake drawn), or null
+  function offerOf(R, role) { if (!R.viaTown) return null; let o = null, key, f, story = 0;
+    const st = role === 'keeper' && storyStep(R); if (st) { key = st.key; f = st.f; story = 1; }
+    else { o = offersOf(R).find((q) => q.from === role && !q.q && questFloor(R, q.key)); if (!o) return null; key = o.key; f = questFloor(R, key); }
+    const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f), story },
+      k = qhash((R.seed >>> 0) * 31 + f * 977 + key.length * 131 + role.length);
+    if (Q.type === 'named') q.title = D.NAMED.titles[k % D.NAMED.titles.length];
+    if (Q.type === 'fetch') { q.thing = D.QUEST_SAY[role].thing; q.ic = D.QUEST_SAY[role].ic; }
+    return { o, q }; }
+  const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
+  // the mark over a townsman's head: ? a quest to turn in, ! one to take
+  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) ? '!' : '');
+  function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
+  // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
+  const rwLine = (W) => [W.gold && W.gold + ' золота', W.xp && W.xp + ' опыта', W.item && (W.got ? '«' + W.got + '»' : 'вещь'), W.shards && W.shards + ' ' + D.plural(W.shards, 'осколок', 'осколка', 'осколков')].filter(Boolean).join(' · ');
+  function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
+    const dn = questDone(R, role); if (dn) return { pages: ['«' + D.QUESTS[dn.key].name + '» — выполнено. ' + SAY.done], act: { k: 'turn', id: dn.id, rw: dn.rw } };
+    const of = offerOf(R, role); if (!of) return null;
+    return { pages: [of.q.story ? D.QUESTS[of.q.key].name + '. ' + SAY.ask : SAY.ask, D.QUESTS[of.q.key].text(of.q)], act: { k: 'take', key: of.q.key, rw: of.q.rw, name: D.QUESTS[of.q.key].name } }; }
+  // the talk's button: take the quest (the talk closes), or turn it in (the thanks, then whatever else the townsman has)
+  function talkAct(S, R, T) { const a = T.act; if (!a) return;
+    if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
+    const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
+    const nx = questTalk(R, T.role); T.pages = [D.QUEST_SAY[T.role].thanks + ' Получено: ' + rwLine(q.rw) + '.'].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+  // ---- the goals put on a floor when it is first built (1019–1021) ----
+  // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
+  function questRooms(R) { const m = R.map, sp = m.spawn;
+    return m.rooms.filter((r) => (r.type === 'combat' || r.type === 'treasure') && !r.pocket && !r.isle && !(m.shop && m.shop.room === r.id)).sort((a, b) => Math.hypot(b.cx * TILE - sp.x, b.cy * TILE - sp.y) - Math.hypot(a.cx * TILE - sp.x, a.cy * TILE - sp.y)); }
+  const plainFoe = (e) => e.deadT < 0 && counted(e) && !D.BOSSES[e.type] && !e.elite && !e.guard && !e.exit && !ENEMIES[e.type].lurk && !ENEMIES[e.type].deep && !ENEMIES[e.type].lake && e.room >= 0;
+  function questPlace(S, R) { const f = R.floor, m = R.map;
+    for (const q of R.quests || []) { const Q = D.QUESTS[q.key]; if (q.st !== 'taken' || q.f !== f || !Q.fresh || q.placed) continue; q.placed = 1; const rooms = questRooms(R);
+      if (Q.type === 'named') { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && e.room === r2.id)), e = r && R.en.find((o) => plainFoe(o) && o.room === r.id);
+        if (!e) { q.lost = 1; continue; } const stg = STAGE(R, f), mob = stg.mob || 1;
+        e.elite = 1; e.mods = rollMods(R, dep(R)); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); e.quest = q.id; e.title = q.title; q.room = e.room; }
+      else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
+        if (!r) { q.lost = 1; continue; } q.room = r.id; }
+      else if (Q.type === 'fetch') { const roomOf = (c) => m.rooms[DG.roomAt(m, c.x, c.y)] || {}, free = R.chests.filter((c) => !c.open && !c.quest);
+        const secret = free.filter((c) => roomOf(c).type === 'secret'), plain = free.filter((c) => roomOf(c).type !== 'secret'), u = qhash((R.seed >>> 0) * 7919 + f * 104729 + q.id) / 4294967296;
+        const c = u < 0.35 && secret.length ? pick(R, secret) : u < 0.7 && plain.length ? pick(R, plain) : null;
+        if (c) { c.quest = q.id; c.qic = q.ic; q.where = roomOf(c).type === 'secret' ? 'secret' : 'chest'; continue; }
+        const r = rooms[Math.min(rooms.length - 1, Math.floor(rnd(R) * Math.min(3, rooms.length)))]; if (!r) { q.lost = 1; continue; }
+        const [x, y] = standNear(R, r.cx * TILE + TILE / 2, r.cy * TILE + TILE / 2 + 20);
+        R.drops.push({ id: R.nextId++, kind: 'qitem', quest: q.id, ic: q.ic, x, y, vx: 0, vy: 0, z: 0, vz: 0, t0: R.t }); q.where = 'floor'; } } }
+  // where a quest's goal is on this floor, for the map: the named foe (alive), the room to clear, the keepsake once seen
+  function questMarks(R) { const out = []; if (R.town) return out;
+    for (const q of R.quests || []) { if (q.st !== 'taken' || q.f !== R.floor) continue; const Q = D.QUESTS[q.key];
+      if (Q.type === 'named') { const e = R.en.find((o) => o.quest === q.id && o.deadT < 0); if (e) out.push({ kind: 'named', x: e.x, y: e.y, q }); }
+      if (Q.type === 'room' && q.room !== undefined) { const r = R.map.rooms[q.room]; out.push({ kind: 'room', x: r.cx * TILE + TILE / 2, y: r.cy * TILE + TILE / 2, r, q }); }
+      if (Q.type === 'fetch') { const d = R.drops.find((o) => o.kind === 'qitem' && o.quest === q.id && !o.got); if (d && !hidden(R.map, d) && R.seen[Math.floor(d.y / TILE) * R.map.W + Math.floor(d.x / TILE)]) out.push({ kind: 'fetch', x: d.x, y: d.y, q }); } }
+    return out; }
+  // a quest's state in a few words, for the HUD's tracker
+  function questLine(q, R) { const Q = D.QUESTS[q.key];
+    if (q.st === 'done') return 'Выполнено — награда ждёт в городе';
+    if (Q.type === 'kill' || Q.type === 'clear') return q.n + ' / ' + q.need + ' · с ' + q.f + '-го этажа';
+    if (Q.type === 'named') return q.title + ' · ' + q.f + '-й этаж';
+    if (Q.type === 'fetch') return '«' + q.thing + '» · ' + q.f + '-й этаж';
+    if (Q.type === 'room') { const n = R && R.floor === q.f && q.room !== undefined ? R.en.filter((e) => e.room === q.room && e.deadT < 0 && counted(e)).length : 0; return (n ? 'Осталось врагов: ' + n : 'Отмечено на карте') + ' · ' + q.f + '-й этаж'; }
+    if (Q.type === 'boss') return 'Хозяин ' + q.f + '-го этажа';
+    return 'До ' + q.f + '-го этажа'; }
   // ---------------- a word with the townsfolk (TASKS 1016, 1023) ----------------
   // E by a townsman with something to say (not the smith or the enchanter, whose E is their workshop) opens the dialogue window
   const folkNear = (R) => { if (!R.town || !R.map.town) return null; let best = null, bd = 76;
@@ -1413,9 +1495,12 @@
     if (R.legend && T.legend !== R.legend) { T.legend = R.legend; out.push(...K.rare(R.legend)); }
     if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; out.push(...K.away); }
     return out; }
-  function openTalk(S, R, f) { const FD = D.FOLK[f.role]; let pages = f.role === 'keeper' ? keeperPages(S, R) : [];
-    if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    S.talk = { role: f.role, i: f.i, pages, p: 0 }; S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+  // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; the smith's talk keeps a button
+  // into his workshop
+  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = questTalk(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [];
+    if (qt) pages = pages.concat(qt.pages);
+    else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
+    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act: qt ? qt.act : null }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // gear left in the town for the heroes to come: S.meta.stash, its cells D.STASH.cells(meta), its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)
@@ -2062,7 +2147,7 @@
   function settleDrop(R, p) { const m = R.map, hid = secretMask(m), k0 = Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE); p.rest = DROP_REST;
     const B = propBoxes(R), blk = new Set(m.block), spot = (k) => [(k % m.W) * TILE + TILE / 2, Math.floor(k / m.W) * TILE + 20];
     // an item lying on another one hides it too: items keep their icons apart
-    const items = p.kind === 'item' ? R.drops.filter((o) => o !== p && !o.got && o.kind === 'item' && o.rest === DROP_REST) : [];
+    const items = p.kind === 'item' || p.kind === 'qitem' ? R.drops.filter((o) => o !== p && !o.got && (o.kind === 'item' || o.kind === 'qitem') && o.rest === DROP_REST) : [];
     const onItem = (x, y) => items.some((o) => Math.abs((o.fly > 0 ? o.tx : o.x) - x) < 22 && Math.abs((o.fly > 0 ? o.ty : o.y) - y) < 26);
     const seen0 = (k) => m.cells[k] === 1 && !blk.has(k) && !behindProp(B, ...spot(k)), ok = (k) => seen0(k) && !onItem(...spot(k));
     if (m.cells[k0] === 1 && !blk.has(k0) && !behindProp(B, p.x, p.y) && !onItem(p.x, p.y)) return;
@@ -2089,6 +2174,7 @@
       if (d < 26) {
         if (p.kind === 'gold') { const n = Math.round(p.n * heroSt(S).gold); h.gold += n; R.goldTot += n; p.got = 1; ev(S, { k: 'gold', x: p.x, y: p.y, n }); }
         else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
+        else if (p.kind === 'qitem') { p.got = 1; const q = (R.quests || []).find((o) => o.id === p.quest); ev(S, { k: 'qitem', x: p.x, y: p.y, quest: p.quest }); if (q) R.msg = { s: 'Найдено: «' + q.thing + '»', t: S.t }; }
         else if (p.kind === 'key') { R.keys = (R.keys || 0) + 1; p.got = 1; ev(S, { k: 'key', x: p.x, y: p.y }); R.msg = { s: 'Ключ! Он отпирает дверь на этом этаже', t: S.t }; }
         else if (wearIfFree(S, R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { fstat(R).loot++; checkFull(S, R); } ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }
         else if (bagAdd(R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { fstat(R).loot++; checkFull(S, R); } ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }); }
@@ -2173,8 +2259,12 @@
     // the storage chest: a click moves an item across, a drag drops it on the cell under the pointer (a drop where it started, or
     // off any cell, moves it across as a click would)
     if (S.screen === 'talk') {
-      const T = S.talk, b = D.hitUI(UI.talk().r, x, y); S.hover = b ? b.id : '';
+      const T = S.talk, b = T && D.hitUI(UI.talk(T).r, x, y); S.hover = b ? b.id : '';
       if (!T || !S.run || keys.Escape) { S.screen = 'play'; S.talk = null; return; }
+      if (click && b && b.id === 'craft') { S.talk = null; S.screen = 'craft'; S.craft = { kind: 'forge', sel: S.craft && S.craft.kind === 'forge' ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
+      // on a quest's last page E, the space or Enter press its button; «Дальше» / «Не сейчас» leave it
+      const last = T.p + 1 >= T.pages.length;
+      if (T.act && last && ((click && b && b.id === 'act') || keys.KeyE || keys.Space || keys.Enter)) { talkAct(S, S.run, T); return; }
       if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { S.screen = 'play'; S.talk = null; } else ev(S, { k: 'ui', x, y }); }
       return;
     }
@@ -4071,7 +4161,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck());
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -4222,7 +4312,7 @@
   // reaches the hero's stats; a failed one strips the enchantments or takes an affix of the piece's own; a fourth is refused;
   // each is paid in gold and shards
   function craftCheck() {
-    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.craft();
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.craft(); noQuests(R);
     const click = (id) => { const b = U.r.find((q) => q.id === id); step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }); };
     h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: ['KeyE'] }); if (S.screen !== 'craft' || S.craft.kind !== 'forge') { out.push('craft: E at the anvil does not open the smith'); return out; }
     const it = Object.assign(rollItem(R, 6, 2, 'ring'), { id: R.nextId++, rar: 3 }); it.mods = {}; rollAffixes(R, it); h.bag[5] = it; h.gold = 100000;
@@ -4248,7 +4338,7 @@
   // hero's death (the first death its own words), a chapter's boss by name, a legendary by name, a long time below; with nothing
   // new his idle pair; E or a click turns the page, the last closes; a guard talks his own lines; the smith's E stays his workshop
   function talkCheck() {
-    const out = [], S = spawn(0, {}), K = D.KEEPER, run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; return S.run; };
+    const out = [], S = spawn(0, {}), K = D.KEEPER, run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; noQuests(S.run); return S.run; };
     const talkTo = (R, role) => { const f = folkOf(R).find((q) => q.role === role); R.hero.x = f.x + 44; R.hero.y = f.y + 12; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); return S.talk; };
     const read = () => { const p = S.talk ? S.talk.pages.slice() : []; for (let i = 0; i < 12 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); return p; };
     let R = run(31); talkTo(R, 'keeper'); if (S.screen !== 'talk') { out.push('talk: E by the Keeper opens no dialogue'); return out; }
@@ -4268,6 +4358,72 @@
   // above its floor; elites only for an elite hunt; a boss is no monster), rooms cleared to the last foe, the floor reached, a
   // chapter's boss; done at its need, nothing counts past it; turned in only in the town and only once, for its reward (gold, XP,
   // an item in the bag, shards to the bank); the quests travel in the save and stay small
+  // a run whose townsfolk have no quest business (no offers, the Keeper's chain in hand), for the checks of the talk and the workshops
+  const noQuests = (R) => { R.offers = []; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; };
+  // TASKS 1018–1022: a run's offers are 2–3, each from its own townsman, the same for the same seed; ! over the giver, his talk ends
+  // on the quest's page and E takes it; the named foe (on its floor, never a boss's; an elite with its name; marked on the map; kept
+  // on the floor left and come back to), the keepsake (in a chest, a cache or on the floor, reachable, never in the bag), the marked
+  // room (another room cleared does not count) each do their quest; ? over the giver, the talk turns it in and pays; the Keeper's
+  // chain goes boss by boss and skips a boss slain before
+  function questGiveCheck() {
+    const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; return S.run; };
+    const talkTo = (R, role) => { const f = folkOf(R).find((q) => q.role === role); for (const o of folkOf(R)) if (o !== f) o.x += 3000; R.hero.x = f.x + 44; R.hero.y = f.y + 12; for (let i = 0; i < 20; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); for (const o of folkOf(R)) if (o !== f) o.x -= 3000; return S.talk; };
+    const finish = () => { for (let i = 0; i < 12 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); };
+    let R = run(41); const of = offersOf(R).map((o) => o.key + ':' + o.from).join();
+    if (of !== offersOf(run(41)).map((o) => o.key + ':' + o.from).join()) out.push('quest give: the offers differ for the same seed');
+    const seeds = [41, 42, 43, 44, 45, 46, 47, 48].map((sd) => offersOf(run(sd)));
+    if (seeds.some((o) => o.length < 2 || o.length > 3 || new Set(o.map((q) => q.from)).size !== o.length || !['named', 'fetch', 'room'].includes(o[0].key))) out.push('quest give: a run has not 2–3 offers from as many townsmen, the first a goal on a floor');
+    // each kind of goal on a run of its own: its offer moved to the guard, taken by talking to him
+    const takeKind = (sd, key) => { const R2 = run(sd); R2.offers = [{ key, from: 'guard', q: 0 }]; R2.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
+      if (questMark(R2, 'guard') !== '!') out.push('quest give: no ! over the giver of ' + key);
+      const T = talkTo(R2, 'guard'); if (!T || !T.act || T.act.k !== 'take') { out.push('quest give: the giver\'s talk has no quest of ' + key); return null; }
+      finish(); const q = R2.quests.find((o) => o.key === key); if (!q || questMark(R2, 'guard') || S.screen !== 'play') { out.push('quest give: E on the quest\'s page does not take ' + key); return null; }
+      if (q.f !== 1 || (D.QUESTS[key].noBoss && STAGE(R2, q.f).boss)) out.push(`quest give: ${key} points at floor ${q.f}`); return q; };
+    // the named foe
+    let q = takeKind(51, 'named'); R = S.run;
+    if (q) { enterFloor(S, R, 1); const e = R.en.find((o) => o.quest === q.id);
+      if (!e || !e.elite || e.title !== q.title || D.BOSSES[e.type] || D.eliteName(e) !== q.title) out.push('quest named: no named elite on its floor');
+      else { if (!questMarks(R).some((o) => o.kind === 'named')) out.push('quest named: the foe is not on the map');
+        const hp = e.max; enterFloor(S, R, 0, undefined, 'up'); enterFloor(S, R, 1); const e2 = R.en.find((o) => o.quest === q.id);
+        if (!e2 || e2.max !== hp || R.en.filter((o) => o.quest === q.id).length !== 1) out.push('quest named: the foe is not kept on its floor (or comes twice)');
+        if (e2) killEnemy(S, R, e2); if (q.st !== 'done') out.push('quest named: its death does not do the quest');
+        enterFloor(S, R, 0, undefined, 'portal'); if (questMark(R, 'guard') !== '?') out.push('quest named: no ? over the giver once done');
+        const g0 = R.hero.gold, T = talkTo(R, 'guard'); if (!T || !T.act || T.act.k !== 'turn') out.push('quest named: the talk does not offer the turn-in');
+        finish(); if (q.st !== 'turned' || R.hero.gold !== g0 + q.rw.gold || !q.rw.got || q.rw.rar < 3) out.push('quest named: the turn-in does not pay (gold, an epic piece)'); } }
+    // the named foe never on a boss's floor
+    R = run(52); R.deepest = 1; if (questFloor(R, 'named') !== 3 || questFloor(R, 'cull') !== 2) out.push('quest give: a goal on a floor points at a boss\'s floor, or a hunt skips one');
+    // the keepsake: three seeds should between them put it in a chest or cache and on the floor
+    const where = new Set();
+    for (const sd of [61, 62, 63, 64, 65, 66]) { q = takeKind(sd, 'fetch'); R = S.run; if (!q) continue; enterFloor(S, R, 1); where.add(q.where);
+      const A = lootAudit(Object.assign(R, { hero: Object.assign(R.hero, { x: R.map.spawn.x, y: R.map.spawn.y }) })), k = A.list.filter((o) => o.quest);
+      if (k.length !== 1 || k[0].at === 'stuck') { out.push(`quest fetch: seed ${sd}: the keepsake is not on its floor once, or out of reach (${k.map((o) => o.at)})`); continue; }
+      for (const sq of R.map.secrets || []) openSecret(S, R, sq, true); for (const c of R.chests) if (c.quest) openChest(S, R, c);
+      const d = R.drops.find((o) => o.kind === 'qitem'); const bag0 = R.hero.bag.filter(Boolean).length; R.hero.x = d.x; R.hero.y = d.y; d.t0 = -9; d.fly = 0; d.vz = 0; d.z = 0;
+      for (let i = 0; i < 60 && !d.got; i++) step(S, { keys: [] });
+      if (q.st !== 'done' || R.hero.bag.filter(Boolean).length !== bag0 || R.drops.some((o) => o.kind === 'qitem')) out.push(`quest fetch: seed ${sd}: picking it up does not do the quest, or it lands in the bag`); }
+    if (where.size < 2) out.push('quest fetch: the keepsake always lies in the same kind of place: ' + [...where]);
+    // the marked room: another room cleared does not count, the marked one does; the completion hints leave it to the quest's mark
+    q = takeKind(71, 'room'); R = S.run;
+    if (q) { enterFloor(S, R, 1); if (q.room === undefined || !questMarks(R).some((o) => o.kind === 'room')) out.push('quest room: no room marked');
+      else { const other = R.en.find((e) => e.deadT < 0 && counted(e) && e.room >= 0 && e.room !== q.room); if (other) for (const e of R.en.filter((o) => o.room === other.room && o.deadT < 0 && counted(o))) killEnemy(S, R, e);
+        if (q.n) out.push('quest room: another room cleared counts');
+        for (const e of R.en.filter((o) => o.room === q.room && o.deadT < 0 && counted(o)).slice(1)) killEnemy(S, R, e);
+        R.stats[1].kills = Math.ceil(R.stats[1].foes * 0.9); if (completionHints(R).some((o) => DG.roomAt(R.map, o.x, o.y) === q.room)) out.push('quest room: the completion hints mark the quest\'s room again');
+        for (const e of R.en.filter((o) => o.room === q.room && o.deadT < 0 && counted(o))) killEnemy(S, R, e); if (q.st !== 'done') out.push('quest room: clearing the marked room does not do it'); } }
+    // the Keeper's chain: the spider's floor first; the necromancer's after it; a boss slain before it is offered is skipped
+    R = run(81); R.offers = []; let T = talkTo(R, 'keeper'); const st0 = T && T.act && T.act.k === 'take' ? T.act : null; finish();
+    const sq = R.quests.find((o) => D.QUESTS[o.key].kind === 'story');
+    if (!st0 || !sq || sq.key !== 'chapter' || sq.f !== 2 || sq.from !== 'keeper') out.push('quest story: the Keeper does not open the chain with the second floor\'s boss');
+    else { enterFloor(S, R, 1); enterFloor(S, R, 2); const b = R.en.find((e) => D.BOSSES[e.type]); if (b) killEnemy(S, R, b); if (sq.st !== 'done') out.push('quest story: the boss slain does not do the step');
+      enterFloor(S, R, 0, undefined, 'portal'); if (questMark(R, 'keeper') !== '?') out.push('quest story: no ? over the Keeper'); const sh = S.meta.shards; talkTo(R, 'keeper');
+      for (let i = 0; i < 12 && S.screen === 'talk' && sq.st !== 'turned'; i++) step(S, { keys: ['KeyE'] });
+      if (sq.st !== 'turned' || S.meta.shards <= sh) out.push('quest story: the step is not turned in for shards');
+      // the thanks, then the next step's offer in the same talk
+      const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !S.talk.pages[0].startsWith(D.QUEST_SAY.keeper.thanks)) out.push('quest story: no thanks and next offer after the turn-in');
+      step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
+      R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
+    return out;
+  }
   function questCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 91, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero;
     const cull = takeQuest(S, R, newQuest(R, 'cull', 2, 'smith')), eli = takeQuest(S, R, newQuest(R, 'elites', 1, 'guard')), sw = takeQuest(S, R, newQuest(R, 'sweep', 1, 'keeper')), dsc = takeQuest(S, R, newQuest(R, 'descent', 3, 'keeper'));
@@ -4339,6 +4495,6 @@
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
   root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

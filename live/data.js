@@ -460,7 +460,7 @@
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
   const placeName = (f, mode, seed) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed));
   const floorName = (f, mode, seed) => { const M = runOf(mode), st = stageOf(mode, f, seed); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
-  const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
+  const eliteName = (e) => e.title || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
   // equipment slots and bases. lvl scales with the floor where the item drops.
@@ -566,16 +566,42 @@
   // quests (R-17, TASKS 1017): a run's tasks, taken and turned in in the town, gone with the hero. A template: kind (side: a
   // townsman's; story: the Keeper's chain, 1022), type (what counts: kill — monsters slain on floor f or deeper, `elite` only
   // elites; reach — floor f reached; boss — a chapter's boss slain; clear — rooms cleared to the last monster on floor f or deeper;
-  // fetch, named, event — 1019–1021), need(f), its words and its reward kinds; the reward grows with the floor it points at
+  // named — the named foe put on floor f slain (1019); fetch — the keepsake put on floor f picked up (1020); room — the marked room
+  // of floor f cleared, or the room's event done (1021)), need(f), its words and its reward kinds; the reward grows with its floor.
+  // `fresh`: the goal is put on floor f when it is first built, so f must be a floor not yet reached and no boss's (`noBoss`)
   const QUESTS = {
     cull: { kind: 'side', type: 'kill', name: 'Прополка', need: (f) => 10 + 2 * f, text: (q) => 'Убей ' + q.need + ' ' + plural(q.need, 'чудовище', 'чудовища', 'чудовищ') + ' на ' + q.f + '-м этаже или глубже.', rw: ['gold', 'xp'] },
     elites: { kind: 'side', type: 'kill', elite: 1, name: 'Сильнейшие', need: (f) => 2 + Math.floor(f / 4), text: (q) => 'Одолей ' + q.need + ' ' + plural(q.need, 'элитного врага', 'элитных врагов', 'элитных врагов') + ' на ' + q.f + '-м этаже или глубже.', rw: ['gold', 'item'] },
     sweep: { kind: 'side', type: 'clear', name: 'Тишина в залах', need: (f) => 3 + Math.floor(f / 4), text: (q) => 'Зачисти ' + q.need + ' ' + plural(q.need, 'комнату', 'комнаты', 'комнат') + ' до последнего врага на ' + q.f + '-м этаже или глубже.', rw: ['xp', 'shards'] },
-    descent: { kind: 'side', type: 'reach', name: 'Глубже', need: () => 1, text: (q) => 'Спустись до ' + q.f + '-го этажа.', rw: ['gold', 'shards'] },
+    descent: { kind: 'side', type: 'reach', name: 'Глубже', need: () => 1, ahead: 2, text: (q) => 'Спустись до ' + q.f + '-го этажа.', rw: ['gold', 'shards'] },
+    named: { kind: 'side', type: 'named', name: 'Охота', need: () => 1, fresh: 1, noBoss: 1, text: (q) => 'На ' + q.f + '-м этаже бродит чудовище по прозвищу ' + q.title + '. Найди и убей его: оно отмечено на карте.', rw: ['gold', 'item'], item: 3 },
+    fetch: { kind: 'side', type: 'fetch', name: 'Пропажа', need: () => 1, fresh: 1, noBoss: 1, text: (q) => '«' + q.thing + '» лежит где-то на ' + q.f + '-м этаже: в комнате, в сундуке или в тайнике. Найди и принеси.', rw: ['gold', 'xp'] },
+    room: { kind: 'side', type: 'room', name: 'Логово', need: () => 1, fresh: 1, noBoss: 1, text: (q) => 'На ' + q.f + '-м этаже есть логово — оно отмечено на карте. Зачисти его до последнего врага.', rw: ['xp', 'shards'] },
     chapter: { kind: 'story', type: 'boss', name: 'Хозяин главы', need: () => 1, text: (q) => 'Одолей хозяина главы на ' + q.f + '-м этаже.', rw: ['shards', 'item'] },
+    depths: { kind: 'story', type: 'reach', name: 'Новая глава', need: () => 1, text: (q) => 'Спустись до ' + q.f + '-го этажа: там начинается новая глава.', rw: ['shards', 'item'] },
   };
-  // what a quest pointing at floor f gives on its turn-in
+  // what a quest pointing at floor f gives on its turn-in (item: the reward piece's least rarity, 2 rare unless the template says)
   const questReward = (rw, f) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 150 + 60 * f : k === 'xp' ? Math.round(0.35 * xpNeed(Math.max(1, f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
+  // who gives the side quests (TASKS 1018): a run draws QUEST_GIVE.n of them by its seed from the pool, each from a townsman of
+  // its own; the floor a quest points at is set when it is taken, `ahead` floors past the deepest reached (one, unless the template
+  // says). The Keeper gives the story chain (1022) and may give a side quest too
+  const QUEST_GIVE = { n: [2, 3], from: ['smith', 'porter', 'sweeper', 'child', 'guard', 'keeper'], pool: ['named', 'fetch', 'room', 'cull', 'elites', 'sweep', 'descent'] };
+  // the townsfolk's words around a quest: the ask, the thanks on the turn-in, and the keepsake each would have back (1020)
+  const QUEST_SAY = {
+    smith: { done: 'Ну, показывай. Вижу — сделано.', ask: 'Раз уж ты вниз — есть дело. Заплачу честно.', thanks: 'Добрая работа. Держи, заслужил.', thing: 'Ларец с печатью', ic: 'qi_casket' },
+    porter: { done: 'Неужто управился? Вот это да!', ask: 'Слушай, раз уж ты туда идёшь… Мне самому никак — ящики.', thanks: 'Вот спасибо! Держи, от души.', thing: 'Ларец с печатью', ic: 'qi_casket' },
+    sweeper: { done: 'Вернулся, сынок! Живой, и дело сделал.', ask: 'Сынок, помоги старой. Внизу пропадает всё, что дорого.', thanks: 'Ох, уважил старуху. Возьми, не отказывайся.', thing: 'Серебряный медальон', ic: 'qi_locket' },
+    child: { done: 'Ты правда это сделал?! Покажи!', ask: 'Эй! Ты же герой? Тогда слушай, это важно!', thanks: 'Ух ты! Я всем расскажу! Это тебе!', thing: 'Деревянная лошадка', ic: 'qi_horse' },
+    guard: { done: 'Вижу по глазам — сделано.', ask: 'Пока стоишь тут — работа есть. Внизу кое-что не даёт мне спать.', thanks: 'Одной заботой меньше. Держи.', thing: 'Ларец с печатью', ic: 'qi_casket' },
+    keeper: { done: 'Огонь уже сказал мне. Ты справился.', ask: 'Огонь показал мне кое-что внизу. Послушай.', thanks: 'Огонь горит ровнее. Возьми, это твоё.', thing: 'Серебряный медальон', ic: 'qi_locket' },
+  };
+  // the named foes (1019): a name and what it is, drawn for the quest; it walks as a strong elite of its floor's kind
+  const NAMED = { hp: 1.6, titles: ['Гнилозуб', 'Костолом', 'Чёрный Ульф', 'Вдова Сажи', 'Старый Мор', 'Безглазый', 'Хромой Тарн', 'Ржавый Клык'] };
+  // the Keeper's story chain (TASKS 1022, a stub for R-04): a run's chapters as quests in order — each boss of the run's floors
+  // (`chapter`), and the first floor of each of its later chapters (`depths`); R-04 will give the steps their own words
+  const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out;
+    for (let f = 1; f <= M.floors; f++) { if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); }
+    return out; };
   // the town's workshops (R-32, TASKS 1013), a sink for spare gold and shards (389): the smith reforges a piece's own affixes for a
   // share of its price; the enchanter lays on up to three more, each dearer and riskier: a failure strips every enchantment
   // (strip share of failures) or spoils the piece (it loses one affix of its own)
@@ -710,7 +736,9 @@
       r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
       return { P, r }; },
     // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
-    talk: () => { const P = { x: 330, y: 640, w: 1260, h: 330 }; return { P, r: [{ id: 'next', label: '', on: true, x: P.x + P.w - 330, y: P.y + P.h - 92, w: 290, h: 64 }] }; },
+    // a quest's page (TASKS 1018) puts its take or turn-in button left of it; the smith's talk keeps a way into his workshop
+    talk: (T) => { const P = { x: 330, y: 640, w: 1260, h: 330 }, at = (i) => ({ x: P.x + P.w - 330 - i * 310, y: P.y + P.h - 92, w: 290, h: 64 }), last = T && T.p + 1 >= T.pages.length, r = [{ id: 'next', label: '', on: true, ...at(0) }];
+      if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: 'Мастерская', on: true, ...at(r.length) }); return { P, r }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 150, w: 1080, h: 780 }, r = [];
       for (let i = 0; i < STASH.max; i++) r.push({ id: 'stash:' + i, i, x: P.x + P.w / 2 - 170 + i * 120, y: P.y + 150, w: 100, h: 100 });
@@ -805,7 +833,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  root.DATA = { FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, NAMED, storyChain, plural, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
