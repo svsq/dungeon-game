@@ -100,6 +100,7 @@
       out.push({ kind, cells: cs, axis: hor ? 'x' : 'y', clean: clean ? 1 : 0 }); }
     return false;
   }
+  const NO_SHOP = Object.freeze({ x: -99, y: -99, w: 0, h: 0, cx: -99, cy: -99 });
   // a lake floor's two ways (TASKS 472): the walk to the stairs over the islands and the walk round the shore, and whether the
   // islands save the share AR.lake.save of the walk round
   // (a floor past the strict tries takes the looser band AR.lake.loose, and only the last few tries any)
@@ -528,11 +529,14 @@
     const caveShop = (r) => { if (!pl) return caveShopAt(r, r.cx);
       for (let s = 0; s <= (r.w >> 1) - 5; s++) for (const cx of s ? [r.cx - s, r.cx + s] : [r.cx]) if (caveShopAt(r, cx)) { r.cx = cx; r.cy = r.y + 2; return true; } return false; };   // its middle on the corner's floor, which no lava takes
     // (the merchant keeps to the way: the rooms off it are the rewards')
-    const shopR = (plat ? [...others.filter((r) => way.has(r.id)), ...others.filter((r) => !way.has(r.id))] : others).find((r) => r.type === 'combat' && !r.isle && (cave ? caveShop(r) : shopFits(r)));
+    // in a run through the town (TASKS 1010) the merchant lives in the town and is met on a floor only by chance: then no room is
+    // his, and the code that keeps clear of his corner keeps clear of a spot off the map
+    const wander = !!opts.town && D.wanderAt(opts.runSeed || 0, runFloor), merchant = !opts.town || wander;
+    const shopR = !merchant ? NO_SHOP : (plat ? [...others.filter((r) => way.has(r.id)), ...others.filter((r) => !way.has(r.id))] : others).find((r) => r.type === 'combat' && !r.isle && (cave ? caveShop(r) : shopFits(r)));
     if (!shopR) return null;
-    shopR.type = 'shop'; if (pl) altar();
+    if (merchant) shopR.type = 'shop'; if (pl) altar();
     const shopCorner = (x, y) => Math.abs(x - shopR.cx) <= 5 && y >= shopR.y - 2 && y <= shopR.y + 5;
-    if (cave) { for (let y = shopR.y; y <= shopR.y + 4; y++) for (let x = shopR.cx - 4; x <= shopR.cx + 4; x++) set(x, y, 1); tidy(); breakRuns(shopCorner); }
+    if (cave && merchant) { for (let y = shopR.y; y <= shopR.y + 4; y++) for (let x = shopR.cx - 4; x <= shopR.cx + 4; x++) set(x, y, 1); tidy(); breakRuns(shopCorner); }
     // a biome with no spiders has no webs, so plates make up for them: the traps grow towards the end, not thin out
     const webless = !D.BIOMES[biome].roster.includes('spider');
     for (const r of others) if (r.type === 'combat' && R() < (webless ? 0.55 : 0.35) && r.w >= 8) r.trap = 1;
@@ -1124,7 +1128,7 @@
     const srcRock = new Set(waterFeatures.filter((q) => q.dir).flatMap((q) => { const b = { u: -W, d: W, l: -1, r: 1 }[q.dir]; return [q.cell + b, q.cell + 2 * b, q.cell + b - 1, q.cell + b + 1, q.cell + b - W, q.cell + b + W]; }));
     const secretsWanted = boss && R() < 0.06 ? 0 : 1 + Math.floor(Math.pow(R(), 1.8) * 10);
     { const want = secretsWanted, DIRS = [[0, -1, 'u'], [0, 1, 'd'], [-1, 0, 'l'], [1, 0, 'r']];
-      const shopRoom = rooms.find((q) => q.type === 'shop');
+      const shopRoom = rooms.find((q) => q.type === 'shop') || NO_SHOP;
       const inShop = (x, y) => x >= shopRoom.x - 1 && x <= shopRoom.x + shopRoom.w && y >= shopRoom.y - 1 && y <= shopRoom.y + shopRoom.h;
       const rockAt = (x, y) => x >= 2 && y >= (pl ? 0 : 3) && x <= W - 3 && y <= H - 3 && at(x, y) === 0 && !srcRock.has(y * W + x);
       for (let k = 0; k < 8000 && secrets.length < want; k++) {
@@ -1341,6 +1345,18 @@
         cand.push([x, y, (inside ? 0 : 20) + (dy < 0 ? 0 : 4) + Math.hypot(dx, dy + 2.5)]); }
       for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j)) || wet.has((y + j) * W + x + i)) ok = false;
         if (ok) { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y }; break; } } }
+    // a waystone (TASKS 1009) by the start on every D.wayFloor: to one side of the bonfire, three or four cells out, on clear dry floor
+    let wayStone = null;
+    if (opts.town && D.wayFloor(runFloor)) { const cand = []; for (let y = start.y; y < start.y + start.h; y++) for (let x = start.x; x < start.x + start.w; x++) {
+        const dx = x - start.cx, dy = y - start.cy;
+        cand.push([x, y, Math.abs(Math.hypot(dx, dy) - 3.5) + (Math.abs(dx) < 2 ? 3 : 0)]); }
+      // its own cell and the one in front (where the hero stands to touch it) are free; no door, water or lava within two cells, so a
+      // seven-cell-wide start room can take it by its side wall without it blocking a way in
+      const inS = (x, y) => x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h;
+      for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = y > start.y && inS(x, y) && inS(x, y + 1) && !(up && Math.max(Math.abs(x - up.tx), Math.abs(y - up.ty)) < 3);
+        for (const [i, j] of [[0, 0], [0, 1]]) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j)) || wet.has((y + j) * W + x + i)) ok = false;
+        for (let j = -2; j <= 2 && ok; j++) for (let i = -2; i <= 2 && ok; i++) { const c = at(x + i, y + j); if ((c !== 0 && c !== 1) || wet.has((y + j) * W + x + i) || (c === 1 && Math.abs(i) < 2 && Math.abs(j) < 2 && !inS(x + i, y + j))) ok = false; }
+        if (ok) { used.add(key(x, y)); used.add(key(x, y + 1)); wayStone = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y }; break; } } }
     const kf = Math.min(ST.n, floor + ST.early), roster = D.rosterAt(biome, kf), lvl = depth;
     const bridged = new Set(crossings.flatMap((c) => c.cells));
     const shallowIn = (r) => { const c = water.filter((k) => { const x = k % W, y = Math.floor(k / W); return at(x, y) === 1 && !bridged.has(k) && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
@@ -1520,7 +1536,7 @@
       wall(-1, 'shop_armor'); wall(1, 'shop_weapons');
       for (const x of [r.x + 1, r.x + r.w - 2]) if (!at(x, r.y - 1) && Math.abs(x - cx) > 3 && !tallAt(wx(x), r.y, HANG.wall)) torches.push({ x: x * TILE + TILE / 2, y: r.y * TILE - 26, kind: 'wall', r: r.id });
       along('shop_gold'); along('shop_crate'); lightRoom(r, shop.lanterns.map((q) => [q.x, q.y, LIGHT_R.wall]).concat([[shop.x, shop.y, LIGHT_R.fire]]), !cave); }   // a cave's merchant room reaches past his walls
-    if (!shop) return null;
+    if (!shop && merchant) return null;
     // a room furnished to a plan (data.js ROOM_PLANS): every solid piece keeps all of the room's open floor reachable from its ways in
     let stackN = 0;
     const furnish = (r, zb) => {
@@ -1727,7 +1743,7 @@
       const dry = (x, y) => at(x, y) === 1 && !wetAt(x, y), rockN = (x, y) => N4.filter(([dx, dy]) => at(x + dx, y + dy) === 0).length;
       const shoreAt = (x, y) => dry(x, y) && N8.some(([dx, dy]) => wetAt(x + dx, y + dy));
       const hardC = new Set(); const hard = (px, py) => hardC.add(key(Math.floor(px / TILE), Math.floor(py / TILE)));
-      for (const o of [...chests, ...pots, ...shrines, ...torches.filter((t) => t.kind !== 'wall'), ...decor.filter((d) => d.solid && !d.wall)]) hard(o.x, o.y); for (const [x, y] of shop.solid) hard(x, y);
+      for (const o of [...chests, ...pots, ...shrines, ...torches.filter((t) => t.kind !== 'wall'), ...decor.filter((d) => d.solid && !d.wall)]) hard(o.x, o.y); if (shop) for (const [x, y] of shop.solid) hard(x, y);
       const go = (x, y) => at(x, y) === 1 && !hardC.has(key(x, y));
       // blocking (x, y) keeps every way: its open side neighbours are joined round the ring of its eight
       const keepsWay = (x, y) => { const ring = N8.map(([dx, dy]) => go(x + dx, y + dy)), comp = new Array(8).fill(-1); let n = 0;
@@ -1861,7 +1877,7 @@
     // and stand everywhere); a mechanism is a flagstone a few steps from the wall or a sconce near it. With no place for its
     // mechanism, a secret falls back to a plain breakable wall
     const secCells = new Set(); for (const sc of secrets) { const r = rooms[sc.room]; for (const k of sc.hide) secCells.add(k); for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) secCells.add(y * W + x); }
-    secrets.forEach((q, i) => { const [fx, fy] = q.front[5], sh = rooms.find((o) => o.type === 'shop'), inR = (o, x, y) => x >= o.x - 1 && x <= o.x + o.w && y >= o.y - 1 && y <= o.y + o.h;
+    secrets.forEach((q, i) => { const [fx, fy] = q.front[5], sh = rooms.find((o) => o.type === 'shop') || NO_SHOP, inR = (o, x, y) => x >= o.x - 1 && x <= o.x + o.w && y >= o.y - 1 && y <= o.y + o.h;
       const torchNear = torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - q.x) < 2 * TILE && Math.abs(t.y - fy * TILE) < TILE);
       if (q.kind === 'banner' && torchNear) q.kind = 'shelf';
       if (q.kind === 'shelf' && (!roomy(fx, fy, 'bookshelf', q.x) || hungAt(q.x, fy, half('bookshelf')))) q.kind = torchNear ? 'crack' : 'banner';
@@ -1895,7 +1911,7 @@
     // dropped if it would wall off any open cell, so there is always a way round
     const solid = new Set(); const sol = (x, y) => solid.add(key(Math.floor(x / TILE), Math.floor(y / TILE)));
     for (const c of chests) sol(c.x, c.y); for (const p of pots) sol(p.x, p.y); for (const t of torches) if (t.kind !== 'wall') sol(t.x, t.y);
-    for (const d of decor) if (d.solid) sol(d.x, d.y); for (const s of shrines) sol(s.x, s.y); for (const [x, y] of shop.solid) sol(x, y);
+    for (const d of decor) if (d.solid) sol(d.x, d.y); for (const s of shrines) sol(s.x, s.y); if (shop) for (const [x, y] of shop.solid) sol(x, y);
     const nearDoor = (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) if (doorway(x + i, y + j)) return true; return false; };
     const cutOff = () => { const seen = new Uint8Array(W * H), go = (x, y) => at(x, y) === 1 && !solid.has(key(x, y)), st = [[start.cx, start.cy + 2]]; seen[(start.cy + 2) * W + start.cx] = 1;
       while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
@@ -2107,7 +2123,9 @@
     for (const t of torches) { const i = secrets.findIndex((sc) => sc.room === t.r); if (i >= 0) t.sec = i; }
     // cells taken by solid props: the flow fields route around them
     const block = []; const bl = (x, y) => block.push(Math.floor(y / TILE) * W + Math.floor(x / TILE));
-    for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); for (const [x, y] of shop.solid) bl(x, y);
+    for (const c of chests) bl(c.x, c.y); for (const t of torches) if (t.kind !== 'wall') bl(t.x, t.y); for (const d of decor) if (d.solid) bl(d.x, d.y); for (const s of shrines) bl(s.x, s.y); if (shop) for (const [x, y] of shop.solid) bl(x, y);
+    // the waystone is solid too (TASKS 1024: off the block, the bot's way to the exit ran through it on seeds 55 and 58 and it stood there 400 s)
+    if (wayStone) bl(wayStone.x, wayStone.y);
     // a fountain's basin stands on the floor, three cells wide; a stream's culvert is in the wall (TASKS 230)
     for (const q of waterFeatures) if (q.kind === 'fountain') for (const dx of [-TILE, 0, TILE]) bl(q.x + dx, q.y);
     // (a floor type's invariants selfCheck holds it to, kept by a retry, TASKS 432: the plateaus' sizes vary, and a rare floor
@@ -2115,7 +2133,7 @@
     if (plat) { const fl = cells.filter((c) => c === 1).length, sh = shareOf, share = lava.length / (fl + lava.length);
       if (share < sh[0] || share > sh[1] || (lc && crossings.filter((c) => c.lava).length < 2)) return null; }
     const map = { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      ftype, ftype2, shareOf, ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
+      ftype, ftype2, shareOf, ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
     // the rare floor that misses is laid again)
     if (plat && !boss && strict) { const q = rewardsOf(map); if (q.onWay * 3 > q.list.length || q.bare.length) return null; }
@@ -2214,9 +2232,13 @@
     const near = (x, y, r) => decor.some((d) => Math.hypot(d.x - x, d.y - y) < r) || Math.hypot(sanct.x - x, sanct.y - y) < 3 * TILE || rails.includes(Math.floor(y / TILE) * W + Math.floor(x / TILE));
     const decals = [];
     for (let i = 0; i < 70; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
-      decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_moss', 'dc_pebbles'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.5 }); }
+      decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.5 }); }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin) };
-    return { seed, floor: 0, town: { svc, use: T.use, rails, pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block: [], decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
+    // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
+    // merchant's counter, and it stood behind it for good on seed 52)
+    const block = []; const bk = (x, y) => { const k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (!block.includes(k)) block.push(k); };
+    for (const d of decor) if (d.solid) bk(d.x, d.y); for (const t of torches) if (t.kind !== 'wall') bk(t.x, t.y); for (const [x, y] of shop.solid) bk(x, y);
+    return { seed, floor: 0, town: { svc, use: T.use, rails, pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block, decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
       ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: cells.filter((c) => c === 1).length, down: null, enemies: [], chests: [], pots: [], traps: [], torches,
       decor, shrines: [], rugs: [], shop, secrets: [], secretsWanted: 0, lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
       water: [], waterFlow: {}, waterFeatures: [], waterBridges: [], deep: 0, crossings: [], doors: [], locks: [], webs: [], ambush: [], drips: [], flora: [], serpentPools: [], floodCells: [] };

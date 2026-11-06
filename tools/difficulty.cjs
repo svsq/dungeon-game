@@ -1,4 +1,4 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|cave|magma|endless] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--job-min M: a bot process killed as hung after M min]
+// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|town|cave|magma|endless] [--no-town: a run through the town played straight down] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--job-min M: a bot process killed as hung after M min]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
@@ -63,6 +63,10 @@ function report() {
     const by = {}, kill = {}; for (const r of a) { for (const f of r.floors) for (const t in f.by || {}) by[t] = (by[t] || 0) + f.by[t]; if (r.result.how === 'dead' && r.killer) kill[r.killer] = (kill[r.killer] || 0) + 1; }
     const list = (o, f) => Object.keys(o).sort((x, y) => o[y] - o[x]).slice(0, 10).map((t) => t + ' ' + f(o[t])).join(', ') || '-';
     console.log([p, k + 1, list(by, (v) => Math.round(v / a.length * 100)), list(kill, (v) => v)].join(' | ')); }
+  // a run through the town (TASKS 1024): trips home by the scroll, scrolls read, quests taken and turned in, gold spent, per run
+  if (mode === 'town') { console.log('\nprofile | run | trips home | scrolls read (found, bought) | quests taken | turned in | gold spent | hp pot bought');
+    for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue; const T = (f) => avg(a, (r) => (r.town ? f(r.town) : 0)).toFixed(1);
+      console.log([p, k + 1, T((t) => t.visits), T((t) => t.scrolls) + ' (' + T((t) => t.found || 0) + ', ' + T((t) => t.bought || 0) + ')', T((t) => t.taken), T((t) => t.turned), avg(a, (r) => r.spent).toFixed(0), avg(a, (r) => r.potBought || 0).toFixed(1)].join(' | ')); } }
   // the shard economy: found in the run, the end-of-run bonus, gifts taken at altars, floors' categories at 100%, potions left in the bag
   console.log('\nprofile | run | shards found | end reward | gifts | full categories by floor | secrets found by floor | hp pot left');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
@@ -125,7 +129,7 @@ const BANDS = { cave: { normal: { average: { win: [0.65, 0.85], bossLost: [1.5, 
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { past: { 8: [0, 0.85] } }, builder: BUILDER },
   hard: { average: { past: { 8: [0.1, 0.25] } }, expert: { past: { 8: [0.4, 0.6] } }, builder: BUILDER } } };
 function check() {
-  const miss = failed.map((s) => `missing result: ${s}`), B = (BANDS[mode] || {})[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
+  const miss = failed.map((s) => `missing result: ${s}`), B = (BANDS[mode === 'town' ? 'campaign' : mode] || {})[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
   // one fresh version only: results saved from another version or resumed from a checkpoint never pass (TASKS 240)
   const { VERSION } = require('./bot.cjs'), all = Object.values(res).flat(2);
   const stale = all.filter((r) => r.ver !== VERSION).length, resumed = all.filter((r) => r.resumed).length;
@@ -194,7 +198,7 @@ function check() {
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
 function next() {
   const job = todo.shift(); if (!job) return; const [p, s] = job;
-  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode, '--json'].concat(DESCEND ? ['--descend'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : []);
+  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode, '--json'].concat(DESCEND ? ['--descend'] : [], process.argv.includes('--no-town') ? ['--no-town'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : []);
   const snapshots = arg('--snapshots', ''), floor = arg('--replay-floor', '');
   const dump = arg('--dump-state', ''); if (dump) cmd.push('--dump-state', dump);
   if (snapshots) {

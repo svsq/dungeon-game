@@ -2335,6 +2335,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
     if (m.up && vis(m.up.x, m.up.y)) { const [w, hh] = SZ('stairs_up'), u = m.up; Y.push([u.y + 14, () => L.inked(() => L.sprite('stairs_up', sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
+    // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
+    if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
+      const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);
+      Y.push([u.y + 6, () => { const X = sx(u.x) - w / 2, Yt = sy(u.y) + 10 - hh; L.shadow(sx(u.x), sy(u.y) + 4, w * 0.28, 6, 0.5);
+        L.inked(() => L.sprite('waystone', X, Yt, { w, h: hh, u: { tint: [0.6, 0.58, 0.66, 1] } }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 });
+        if (k > 0.01) { G.blend('emit'); for (let j = 0; j < 2; j++) L.sprite('waystone_runes', X, Yt, { w, h: hh, u: { alpha: k } }); G.blend();
+          G.blend('add'); L.glow(X + 0.455 * w, Yt + 0.48 * hh, 0.3 * hh, [0.45, 0.65, 1], 0.22 * k, 2.4); G.blend(); } }]); }
     // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
     if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
@@ -2349,7 +2356,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const p = (w - (H.warn - FALL_DROP)) / FALL_DROP, [rw, rh] = SZ('boulder_mg_b'); Y.push([z.y + 2, () => { const yy = sy(z.y) - rh + 8 - 320 * (1 - p * p); L.glow && L.glow(sx(z.x), yy + rh / 2, rh * 0.9, [1, 0.62, 0.25], 0.45 * p, 2.4); L.sprite('boulder_mg_b', sx(z.x) - rw / 2, yy, { w: rw, h: rh }); }]); }
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
     for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([e.y - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
-    for (const p of R.drops) if (vis(p.x, p.y)) Y.push([p.y + (p.kind === 'item' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
+    for (const p of R.drops) if (vis(p.x, p.y)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
     Y.push([h.y + (GT - h.atkT >= 0 && GT - h.atkT < 0.2 ? 90 : 0), () => {   // during the strike the blade must read over the target it hits
       L.shadow(sx(h.x), sy(h.y) + 2, 20, 6, 0.85);
       if (GT - h.dashT < 0.3) for (let k = 3; k >= 1; k--) { const a = GT - h.dashT; drawHero(h, sx(h.x - h.dashX * k * 22 * SS(0, 0.16, a)), sy(h.y - h.dashY * k * 22 * SS(0, 0.16, a)), GT, st, { alpha: 0.18 * (1 - a / 0.3), id: 'ghost' + k }); }
@@ -2405,10 +2412,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
     // the town's end of an open portal (TASKS 1007) and a scroll being read: the same cold blue as the way out
     const TP = R.town && R.portal && m.town ? m.town.svc.portal : null; if (TP) lt(TP.x, TP.y - 20, 260, [0.5, 0.7, 1.0], 1.3);
+    // a waystone: a faint pool asleep, a breathing cold one awake; the town's ring answers once any waystone of the run is awake
+    if (m.way) { const on = (R.ways || []).includes(m.floor); lt(m.way.x, m.way.y + 6, on ? 150 : 90, [0.55, 0.65, 1], on ? 0.45 + 0.08 * Math.sin(t * 1.7) : 0.2); }
+    if (R.town && m.town && !TP && (R.ways || []).length) lt(m.town.svc.portal.x, m.town.svc.portal.y - 20, 200, [0.5, 0.65, 1], 0.55 + 0.1 * Math.sin(t * 1.3));
     if (h.read) lt(h.x, h.y - 30, 200, [0.55, 0.75, 1], 1.2 * SS(0, 1.6, GT - h.read.t0));
     for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' || p.k === 'wave' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' || p.k === 'wave' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
+    // a quest's keepsake in a small white light of its own, as loot: in a warm one it took the floor's own orange (TASKS 1026)
+    for (const p of R.drops) if (p.kind === 'qitem') lt(p.x, p.y - 14, 50, [1, 0.97, 0.92], 0.8, 2.4);
     for (const p of R.drops) if (p.kind === 'item') { lt(p.x, p.y - 14, 46, [1, 0.97, 0.92], 0.7, 2.4); if (p.item.rar >= 2) lt(p.x, p.y - 10, 90, D.RARITY[p.item.rar].col, 0.5); }
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       if (e.k === 'prop' && e.mat === 'fungus' && a < 0.5) lt(e.x, e.y - (e.n === 'shroom_b' ? 34 : 22) * (e.scale || 1), 90, B.shroom || GLOW_COL.shroom, (e.touch ? 0.2 : 0.55) * (1 - a / 0.5));
@@ -2419,6 +2431,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'lvl' && a < 1.5) lt(e.x, e.y - 30, 300, [1, 0.85, 0.4], 1.5 * (1 - a / 1.5));
       if (e.k === 'swing' && a < 0.22) lt(h.x + Math.cos(e.a) * 30, h.y - 30 + Math.sin(e.a) * 20, 150, [1, 0.9, 0.75], 0.7 * (1 - a / 0.22));
       if (e.k === 'pop' && e.c !== 'jet' && e.c !== 'arrow' && a < 0.3) lt(e.x, e.y + 20, e.hero ? 200 : 120, e.c === 'hex' ? [0.4, 1, 0.4] : e.c === 'orb' ? [0.35, 0.85, 0.95] : [1, 0.55, 0.2], (e.hero ? 1.4 : 0.8) * (1 - a / 0.3));
+      if (e.k === 'craft' && a < 0.6) lt(e.x, e.y - 30, 200, e.kind === 'forge' ? [1, 0.7, 0.35] : e.ok ? [0.55, 0.75, 1] : [1, 0.35, 0.25], 1.3 * (1 - a / 0.6));
+      if (e.k === 'waystone' && a < 1.2) lt(e.x, e.y - 40, 260, [0.55, 0.75, 1], 1.4 * (1 - a / 1.2));
       if (e.k === 'teleport' && a < 0.9) { const q = 1 - a / 0.9; lt(e.x, e.y - 30, 260, [0.55, 0.75, 1], 1.6 * q); lt(e.fx ?? e.x, (e.fy ?? e.y) - 30, 220, [0.55, 0.75, 1], 1.2 * q); }
       if (e.k === 'floor' && a < 1.6) lt(e.x, e.y - 20, 300, [1, 0.85, 0.55], 1.2 * (1 - a / 1.6));
       if (e.k === 'roar' && a < 0.8) lt(e.x, e.y + 40, 420, B.cave ? [0.35, 0.7, 0.85] : [1, 0.3, 0.12], 1.4 * (1 - a / 0.8));
@@ -2835,6 +2849,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         for (const [px, py, k] of [[ex, ey, 1], [sx(e.fx ?? e.x), sy(e.fy ?? e.y), 0.7]]) { const wd = 60 * (1 - 0.6 * q);
           G.draw(L.P.glow, { u_col: [0.55, 0.78, 1], u_k: 2.2, u_amt: 1.3 * k * (1 - q) }, G.xf(px - wd / 2, py - 220, wd, 240)); L.ring(px, py, 20 + 50 * q, 8 + 18 * q, [0.6, 0.85, 1], k * (1 - q), 0.15);
           for (let j = 0; j < 8; j++) { const an = j / 8 * 6.28 + a * 5; L.star(px + Math.cos(an) * 26 * (1 - q), py - 10 - 140 * q * (0.4 + rnd(j, 3)), 7, [0.7, 0.88, 1], k * (1 - q)); } } }
+      // a workshop's work (TASKS 1013): sparks off the anvil; a blue burst over the lectern, or a red one when the spell falls apart
+      if (e.k === 'craft' && a < 0.9) { const q = a / 0.9, col = e.kind === 'forge' ? [1, 0.75, 0.35] : e.ok ? [0.55, 0.78, 1] : [1, 0.35, 0.25];
+        for (let j = 0; j < 12; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 40 + 90 * rnd(e.t, j + 7); L.star(ex + Math.cos(an) * v * q, ey - 30 + Math.sin(an) * v * q + 120 * q * q, 7, col, 1 - q); }
+        if (e.kind !== 'forge') L.ring(ex, ey - 20, 16 + 70 * q, 8 + 30 * q, col, 0.9 * (1 - q), 0.12); }
+      // a waystone wakes: a cold ring off its foot and sparks running up its face
+      if (e.k === 'waystone' && a < 1.2) { const q = a / 1.2; L.ring(ex, ey, 20 + 110 * q, 9 + 48 * q, [0.6, 0.8, 1], 0.9 * (1 - q), 0.1);
+        for (let j = 0; j < 9; j++) L.star(ex + (rnd(e.t, j) - 0.5) * 30, ey - 20 - 110 * Math.min(1, q * (1.2 + rnd(e.t, j + 4))), 7, [0.7, 0.88, 1], 1 - q); }
       if (e.k === 'floor' && a < 1.4) { const q = a / 1.4; L.ring(ex, ey, 30 + 120 * q, 14 + 56 * q, [1, 0.85, 0.5], 0.8 * (1 - q), 0.08);
         for (let j = 0; j < 10; j++) { const an = j / 10 * 6.28; L.star(ex + Math.cos(an) * (24 + 60 * q), ey - 20 + Math.sin(an) * (12 + 30 * q), 7, [1, 0.85, 0.5], 1 - q); } }
       // the boss's roar: shock rings off his maw and the floor around him
@@ -2995,6 +3016,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       coin(); emitted(coin); return; }
     if (p.kind === 'key') { G.blend('add'); L.glow(x, y - z - 14 - bob, 30, [1, 0.8, 0.4], 0.7); G.blend(); const [w, hh] = SZ('it_key'); L.sprite('it_key', x - w * 0.3, y - z - hh * 0.6 - 4 - bob, { w: w * 0.6, h: hh * 0.6 }); return; }
     if (p.kind === 'shard') { G.blend('add'); L.glow(x, y - z - 14 - bob, 24, [0.4, 0.7, 1], 0.8); G.blend(); const [w, hh] = SZ('crystal'); L.sprite('crystal', x - w * 0.15, y - z - hh * 0.3 - bob, { w: w * 0.3, h: hh * 0.3 }); return; }
+    // a quest's keepsake (TASKS 1020): its own icon in a warm gold light and a beam, so it reads as nobody's loot
+    if (p.kind === 'qitem') { const ic = p.ic || 'qi_casket', [w, hh] = SZ(ic), k = 0.7, col = [1, 0.93, 0.7]; L.shadow(x, y + 2, 16, 6, 0.6); G.blend('add'); L.glow(x, y - z - 16 - bob, 34, col, 0.5); L.solid(x - 3, y - z - 120, 6, 108, col, 0, 0, 0, 0.22 + 0.06 * Math.sin(t * 4)); G.blend();
+      L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k }); return; }
     const it = p.item, ic = SIM.itemIcon(it), [w, hh] = SZ(ic), k = 0.62, col = D.RARITY[it.rar].col;
     if (it.rar >= 1) { G.blend('add'); L.glow(x, y - z - 14 - bob, 30, col, 0.55); if (it.rar >= 3) L.solid(x - 3, y - z - 110, 6, 100, col, 0, 0, 0, 0.18 + 0.05 * Math.sin(t * 4)); G.blend(); }
     L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k });
@@ -4199,7 +4223,91 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     states.push(['climb_town_prompt', climbS(1, (S, R, m, h) => { h.x = m.up.x + 20; h.y = m.up.y + 34; })]);
     states.push(['scroll_read', climbS(1, (S, R, m, h) => { h.read = { t0: S.t - 1.1, i: 0 }; })]);
     states.push(['climb_arrived', climbS(2, (S, R, m, h) => { SIM.enterFloor(S, R, 1, undefined, 'up'); S.ev = []; R.msg = null; })]);
+    // waystones (TASKS 1009): asleep by the start of the 4th, waking under the hero's touch, awake; the town's ring with a portal and
+    // two waystones (its prompt and its window, the longest floor name in the rows)
+    states.push(['way_asleep', climbS(4, (S, R, m, h) => { h.x = m.way.x + 90; h.y = m.way.y + 50; R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
+    states.push(['way_wake', climbS(4, (S, R, m, h) => { h.x = m.way.x + 30; h.y = m.way.y + 36; R.ways = [4]; S.ev.push({ k: 'waystone', x: m.way.x, y: m.way.y, t: S.t - 0.35 }); R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
+    states.push(['way_awake', climbS(4, (S, R, m, h) => { h.x = m.way.x + 40; h.y = m.way.y + 50; R.ways = [4]; R.cam = [m.way.x - VW / 2, m.way.y - 40 - VH / 2]; })]);
+    // the merchant (TASKS 1010): the town's shelf after six floors and a boss, the wandering merchant's screen on a floor
+    states.push(['town_shop', climbS(0, (S, R, m, h) => { for (let f = 1; f <= 6; f++) SIM.enterFloor(S, R, f); R.bossN = 1; SIM.enterFloor(S, R, 0, undefined, 'up'); S.ev = []; R.msg = null;
+      h.x = R.map.shop.front.x; h.y = R.map.shop.front.y + 10; R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; S.screen = 'shop'; S.hover = 'buy:0'; })]);
+    states.push(['shop_wander', climbS(5, (S, R, m, h) => { R.shop = SIM.stockShopFor(R, 5, 'wander'); R.shop.line = 3; S.screen = 'shop'; S.hover = 'buy:0'; })]);
+    // the Altar of Souls on the square (TASKS 1011): its prompt, and its screen opened there mid-run
+    states.push(['town_altar_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; })]);
+    states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
+    // the storage chest (TASKS 1012): its prompt; its window with a piece in, a locked cell and a tip; a piece dragged over the bag
+    const stashS = (fn) => climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x; h.y = m.town.svc.stash.y + 40; const T = SIM.stashOf(S);
+      T.items = [Object.assign(SIM.rollItem(R, 9, 3, 'weapon'), { id: 900 }), null]; h.bag[3] = Object.assign(SIM.rollItem(R, 6, 2, 'armor'), { id: 901 }); S.meta.up = Object.assign({}, S.meta.up, { vault: 1 }); S.screen = 'stash'; fn(S, R, h); });
+    states.push(['town_stash_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x + 6; h.y = m.town.svc.stash.y + 40; })]);
+    states.push(['town_stash', stashS((S) => { S.hover = 'stash:0'; })]);
+    // gear above the hero's level (TASKS 1028): a deep piece in the chest and in the bag, the red line in its tooltip and the bag's mark
+    states.push(['town_stash_req', stashS((S, R, h) => { h.lvl = 2; S.hover = 'stash:0'; })]);
+    states.push(['inv_req', play((S) => { const R = S.run, h = R.hero; h.lvl = 3; for (let i = 0; i < 6; i++) h.bag[4 + i] = Object.assign(SIM.rollItem(R, 4 + 2 * i, 2), { id: 1500 + i }); S.screen = 'inv'; S.hover = 'bag:9'; })]);
+    states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
+    // the workshops (TASKS 1013): the prompts at the anvil and the lectern; the smith with a rare ring chosen; the enchanter after a
+    // failed enchantment; a piece with all three enchantments (the button's refusal, the longest)
+    const craftS = (kind, fn) => climbS(0, (S, R, m, h) => { const P = m.town.svc[kind === 'forge' ? 'anvil' : 'lectern']; h.x = P.x; h.y = P.y + 30; h.gold = 23456; S.meta.shards = 77;
+      const it = Object.assign(SIM.rollItem(R, 7, 3, 'ring'), { id: 950, rar: 3 }); h.bag[4] = it; S.screen = 'craft'; S.craft = { kind, sel: 'bag:4' }; fn(S, R, h, it); });
+    states.push(['town_forge_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.anvil.x; h.y = m.town.svc.anvil.y + 30; })]);
+    states.push(['town_enchant_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.lectern.x; h.y = m.town.svc.lectern.y + 30; })]);
+    states.push(['town_forge', craftS('forge', (S, R, h, it) => { it.ench = [{ k: 'crit', v: 4 }]; S.hover = 'do'; })]);
+    states.push(['town_enchant', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }]; S.craft.res = { s: 'Вещь испорчена: пропало свойство «к здоровью в секунду»', ok: 0, t: S.t - 0.5 }; S.hover = 'eq:weapon'; })]);
+    states.push(['town_enchant_full', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }, { k: 'leech', v: 3 }, { k: 'mspd', v: 6 }]; })]);
+    // a word with the townsfolk (TASKS 1016, 1023): the prompt by the Keeper; his dialogue on its longest page; the guard's line
+    const keeperS = (fn) => climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] });
+      const k = S.run.folk.find((q) => q.role === 'keeper'); h.x = k.x + 44; h.y = k.y + 12; R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; fn(S, R, h, k); });
+    states.push(['town_keeper_prompt', keeperS(() => {})]);
+    // a giver's prompt with his own mark and the Keeper's near: the prompt stands in place of his own mark (TASKS 1026)
+    states.push(['town_porter_prompt', keeperS((S, R, h, k) => { R.offers = [{ key: 'fetch', from: 'porter', q: 0 }]; const p = R.folk.find((q) => q.role === 'porter');
+      Object.assign(p, { x: k.x + 110, y: k.y + 40, go: 0, spd: 0 }); h.x = p.x + 40; h.y = p.y + 10; R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; })]);
+    states.push(['town_keeper_talk', keeperS((S, R) => { const P = D.KEEPER.rare('Посох Вечного Пламени'); S.talk = { role: 'keeper', i: 0, pages: [P[0], D.KEEPER.win[0], D.KEEPER.away[0]], p: 2 }; S.screen = 'talk'; S.hover = 'next'; })]);
+    states.push(['town_guard_talk', keeperS((S) => { S.talk = { role: 'guard', i: 0, pages: D.FOLK.guard.lines[2].slice(), p: 0 }; S.screen = 'talk'; })]);
+    // quests (TASKS 1018–1022): the marks over the givers (! and ?), the offer on its page (the longest text: a keepsake), the smith's
+    // offer with his workshop's button, the turn-in and its thanks with the longest reward; on the floor the named foe, the keepsake
+    // in the open, the marked room; the tracker full (four quests, the longest lines)
+    const qFull = (R) => { const mk = (key, f, o) => Object.assign({ id: 900 + R.quests.length, key, f, need: D.QUESTS[key].need(f), n: 0, st: 'taken', from: 'porter', rw: D.questReward(D.QUESTS[key].rw, f) }, o);
+      R.quests.push(mk('cull', 12, { n: 30 }), mk('fetch', 11, { thing: 'Деревянная лошадка', ic: 'qi_horse' }), mk('chapter', 12, { st: 'done', from: 'keeper' })); };
+    const questS = (key, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run; R.offers = [{ key, from: 'guard', q: 0 }]; R.quests = [];
+      SIM.giveQuest(S, R, 'guard'); const q = R.quests[0], h = R.hero; for (let f = 1; f <= q.f; f++) SIM.enterFloor(S, R, f); R.msg = null; R.seen = R.seen.map(() => 1); fn(S, R, q, h); R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; S.ev = []; });
+    states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
+      R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['gold', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
+    const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
+      const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = 'act'; });
+    states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);
+    states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
+    states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['gold', 'item', 'shards', 'xp'], 12)) }];
+      const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; })]);
+    states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['gold', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин' });
+      S.talk = { role: 'keeper', i: 0, pages: [D.QUEST_SAY.keeper.thanks + ' Получено: ' + SIM.rwLine(rw) + '.'], p: 0, act: null }; S.screen = 'talk'; })]);
+    // the quest journal (TASKS 1023): every quest a run can hold (three side, the Keeper's six steps) with the longest words, a turned-in
+    // one chosen with its longest reward; empty in the town
+    states.push(['journal', keeperS((S, R) => { R.offers = []; const mk = (key, f, from, o) => Object.assign({ id: 900 + R.quests.length, key, f, need: D.QUESTS[key].need(f), n: 0, st: 'taken', from, rw: D.questReward(D.QUESTS[key].rw, f) }, o);
+      R.quests = []; for (const [key, f, from, o] of [['fetch', 11, 'sweeper', { thing: 'Деревянная лошадка', ic: 'qi_horse', st: 'turned' }], ['named', 11, 'child', { title: 'Хромой Тарн' }], ['elites', 12, 'guard', { st: 'done', n: 5 }],
+        ...D.storyChain('campaign').map((c, i) => [c.key, c.f, 'keeper', { st: i < 5 ? 'turned' : 'taken' }])]) R.quests.push(mk(key, f, from, o));
+      R.quests[0].rw = Object.assign({}, D.questReward(['gold', 'item', 'shards', 'xp'], 12), { got: 'Посох Вечного Пламени Повелителя Глубин', rar: 4 }); S.jsel = R.quests[0].id; S.screen = 'journal'; S.hover = 'q:3'; })]);
+    states.push(['journal_empty', keeperS((S, R) => { R.quests = []; S.screen = 'journal'; })]);
+    states.push(['quest_named', questS('named', (S, R, q, h) => { const e = R.en.find((o) => o.quest === q.id); h.x = e.x - 120; h.y = e.y + 30; e.st = 'idle'; qFull(R); })]);
+    states.push(['quest_keepsake', questS('fetch', (S, R, q, h) => { for (const c of R.chests) if (c.quest) delete c.quest; R.drops = R.drops.filter((d) => d.kind !== 'qitem');
+      const r = R.map.rooms.find((o) => o.type === 'start'); h.x = r.cx * TILE; h.y = r.cy * TILE; R.drops.push({ id: 9999, kind: 'qitem', quest: q.id, ic: q.ic, x: h.x + 90, y: h.y + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }); R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); })]);
+    states.push(['quest_room', questS('room', (S, R, q, h) => { const r = R.map.rooms[q.room]; h.x = r.cx * TILE - 200; h.y = r.cy * TILE; qFull(R); })]);
+    states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
+    // past the campaign (PR #21 review): the waystones of the descent are named by the descent's biomes, not the campaign's
+    states.push(['town_gate_descent', climbS(0, (S, R, m, h) => { R.campaignWon = 1; R.memo = Object.assign({}, R.memo, { 14: { mode: 'endless' }, 15: { mode: 'endless' }, 16: { mode: 'endless' } }); R.portal = { f: 15, x: 0, y: 0 }; R.ways = [4, 8, 12, 14, 16]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; })]);
+    states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; R.ways = [4, 8, 12]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
+    // the portal both ways through the sim itself (TASKS 1025): a scroll read through in the 3rd floor's biggest hall, the hero a
+    // quarter second out at the town's ring; E there, a quarter second back at the very spot
+    const portalS = (back) => climbS(3, (S, R, m, h) => { const r = m.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+      h.x = r.cx * TILE; h.y = r.cy * TILE; for (const e of R.en) if (Math.hypot(e.x - h.x, e.y - h.y) < 700) { e.hp = 0; e.deadT = S.t; } else { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
+      h.bag[6] = { b: 'scroll', n: 1, id: R.nextId++ }; h.read = { t0: S.t, i: 6 }; for (let i = 0; i < 240 && R.floor; i++) SIM.step(S, { keys: [] });
+      if (back) SIM.step(S, { keys: ['KeyE'] }); for (let i = 0; i < 30; i++) SIM.step(S, { keys: [] }); });
+    states.push(['town_portal', portalS(0)]);
+    states.push(['town_portal_back', portalS(1)]);
+    // the town with quests going (TASKS 1025): the first offer taken and done (? over its giver), the Keeper's chapter taken, the
+    // other givers' ! left, the tracker with both
+    states.push(['town_quests', play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map; SIM.step(S, { keys: [] });
+      const q = SIM.giveQuest(S, R, SIM.offersOf(R)[0].from); q.n = q.need; q.st = 'done'; SIM.giveQuest(S, R, 'keeper'); S.ev = []; R.msg = null;
+      const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
     const box = (name, S) => Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, W, H];

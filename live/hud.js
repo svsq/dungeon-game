@@ -7,13 +7,23 @@
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
   const MAP = { key: '', rec: null, cv: null, k: 3 };
   HUD.init = () => {};
+  // a line of text broken into lines of at most `width` px
+  const wrapLab = (id, s0, x, y, width, size, col) => { const lines = []; let line = '';
+    for (const w of String(s0).split(' ')) { const next = line ? line + ' ' + w : w; if (line && lw(id + '_m', next, { size }) > width) { lines.push(line); line = w; } else line = next; }
+    if (line) lines.push(line); lines.forEach((v, i) => lab(id + i, v, x, y + i * (size + 7), { size, col })); return lines.length * (size + 7); };
   const hex = (c) => '#' + c.map((v) => Math.round(Math.min(1, v) * 255).toString(16).padStart(2, '0')).join('');
   const lab = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: C.text, out: '#140c0c' }, o));
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
-  let MMB = null;
+  let MMB = null, TRK = null;
+  const WAY_LEG = ['way', 'Путевой камень'];
+  // the town's own legend (TASKS 1023): its services instead of the dungeon's rooms, bosses and altars
+  const TOWN_LEG = [['you', 'Вы'], ['exit', 'Спуск в крипту'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь душ'], ['stash', 'Хранилище'], ['craft', 'Мастерские'], ['way', 'Кольцо камней']];
+  // a quest's goal on this floor (TASKS 1019–1021) adds its own line
+  const QUEST_LEG = ['quest', 'Цель задания'];
+  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.way ? [WAY_LEG] : [], SIM.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']];
-  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
+  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   function panel(id, x, y, w, h, o = {}) {
     L.rrect(x - 3, y - 3, w + 6, h + 6, (o.r || 8) + 3, o.rim || C.rim, o.rim2 || [0.2, 0.16, 0.13], o.a ?? 0.95);
@@ -35,7 +45,7 @@
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); MMB = null;
+    G.bind(null); G.blend(); MMB = null; TRK = null;
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
@@ -49,6 +59,11 @@
     if (S.screen === 'inv' && R) inv(S, R, t);
     if (S.screen === 'shop' && R) shop(S, R, t);
     if (S.screen === 'altar' && R) altar(S, R, t);
+    if (S.screen === 'gate' && R) gate(S, R, t);
+    if (S.screen === 'stash' && R) stash(S, R, t);
+    if (S.screen === 'craft' && R) craft(S, R, t);
+    if (S.screen === 'talk' && R && S.talk) talk(S, R, t);
+    if (S.screen === 'journal' && R) journal(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
 
@@ -79,7 +94,7 @@
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
   function world(S, R, t, V) {
-    MMB = mmBox(R);
+    MMB = mmBox(R); TRK = trkBox(S, R);
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && !D.under(e) && seen(e.x, e.y)) {
@@ -108,9 +123,20 @@
       const b = place(V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60, w, 42, actorZones);
       if (b) { panel('merchant_bubble', b.x, b.y, w, 42); lab('merchant_hit', s, b.x + w / 2, b.y + 22, { size, al: 0.5, col: C.gold }); }
     }
+    // a townsman's quest business over his head (TASKS 1018): ! a quest to take, ? one to turn in; his lines keep above it
+    // the one the hero stands by shows his prompt in its place (TASKS 1026: the prompt, pushed off his own mark, landed by the Keeper's)
+    const talkTo = S.screen === 'play' ? SIM.folkNear(R) : null;
+    if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.questMark(R, f.role); if (!mk || f === talkTo) continue;
+      // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
+      if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
+      const x = Math.min(W - 20, Math.max(20, V.sx(f.x))), y = Math.max(26, V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i)), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
+      G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
+      L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
+      lab('qmk' + f.i, mk, x, y + 1, { size: 34, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });
+      actorZones.push({ x: x - 20, y: y - 24, w: 40, h: 48 }); nameZones.push({ x: x - 22, y: y - 26, w: 44, h: 52 }); }
     // the townsfolk's lines (TASKS 1015): a pair, the first line then the second, over the speaker's head; the merchant's call
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
-      if (b) { panel(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); } };
+      if (b) { panel(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) { const FD = D.FOLK[f.role]; if (!FD.lines || !f.near || GT < f.sayT || GT - f.sayT >= D.FOLK_SAY) continue;
       bubble('folk' + f.i, FD.lines[f.sayN][GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 48); }
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
@@ -120,7 +146,7 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (e.elite && e.mods && e.mods.length) { const c = D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
+      if (e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
         if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py))) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const b0 = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
@@ -169,7 +195,11 @@
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься в крипту' : 'E — спуститься на этаж ' + (m.floor + 1)];
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
-    if (R.town && R.portal && m.town && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, 'E — портал на этаж ' + R.portal.f];
+    { const cw = SIM.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? (SIM.questMark(R, 'smith') ? 'E — кузнец: задание и перековка' : 'E — кузнец: перековка') : 'E — зачарователь: зачарование']; } }
+    if (SIM.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, 'E — сундук-хранилище'];
+    if (SIM.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, 'E — Алтарь душ: улучшения предков'];
+    if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
+    if (!pr && S.screen === 'play') { const f = SIM.folkNear(R); if (f) { const mk = SIM.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? 'E — сдать задание: ' : mk === '!' ? 'E — задание: ' : 'E — говорить: ') + D.FOLK[f.role].name]; } }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
     if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
@@ -216,7 +246,7 @@
     }
     buffs(S, R, GT);
     // floor title + minimap
-    minimap(S, R, t);
+    minimap(S, R, t); tracker(S, R);
     // boss bar
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
     if (boss) {
@@ -238,7 +268,7 @@
       const s = e.k === 'trade' ? e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) + ' зол.' : e.k === 'pickup' ? (e.worn ? 'Надето: ' : 'Подобрано: ') + e.s : e.k === 'lvl' ? 'Новый уровень ' + e.lvl + '! Нажмите I' : e.k === 'unlock' ? 'Открыта способность: ' + D.ABILITIES.find((A) => A.id === e.id).name : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 24;
       panel('feedbox' + i, 18, y - 15, w, 30, { r: 5, a: 0.7 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
-    if (S.screen === 'play') { const k = 'I — герой · M — звук · Esc — пауза', kw = lw('keys', k, { size: 15 }) + 24;
+    if (S.screen === 'play') { const k = 'I — герой · J — задания · T — свиток · M — звук · Esc — пауза', kw = lw('keys', k, { size: 15 }) + 24;
       panel('keys_box', W - 12 - kw, H - 36, kw, 30, { r: 6, a: 0.7 }); lab('keys', k, W - 24, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
   }
 
@@ -315,12 +345,24 @@
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   // a small map's panel (the town, the endless descent's first floors) is still wide enough for the legend beside the compass
-  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%']]).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
+  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%'], WAY_LEG, QUEST_LEG], TOWN_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
   // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
-  function mmBox(R) { const m = R.map, mw = m.W * MAP.k, mh = m.H * MAP.k, tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), { size: 17 }),
-      pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (LEGEND.length + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }
+  // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
+  const mapK = (R) => (R.map.town ? 5 : MAP.k);
+  function mmBox(R) { const m = R.map, mw = m.W * mapK(R), mh = m.H * mapK(R), tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), { size: 17 }),
+      pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (legendOf(R).length + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }
+  // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands
+  const trkRows = (R) => (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned').slice(0, 4);
+  function trkBox(S, R) { const Q = trkRows(R); if (!Q.length || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(R);
+    const w = Math.max(280, ...Q.map((q, i) => Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.questLine(q, R), { size: 16 })))) + 32;
+    return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50]; }
+  function tracker(S, R) { const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B;
+    panel('qtrack', x0, y0, w, h, { r: 5, a: 0.84 }); lab('qt_t', 'Задания', x0 + 14, y0 + 20, { size: 16, col: C.dim });
+    trkRows(R).forEach((q, i) => { const y = y0 + 48 + i * 50, done = q.st === 'done', Q = D.QUESTS[q.key];
+      lab('qt_n' + i, Q.name, x0 + 14, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('qt_l' + i, SIM.questLine(q, R), x0 + 14, y + 22, { size: 16, col: done ? '#8fd98a' : C.text }); }); }
   function minimap(S, R, t) {
-    const m = R.map, k = MAP.k, mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
+    const m = R.map, k = mapK(R), mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
     const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = document.createElement('canvas')); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
@@ -340,7 +382,7 @@
       else MAP.rec = G.canvasTex('minimap', cv); }
     const title = D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
     const hints = SIM.completionHints(R);
-    const legend = LEGEND.concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
+    const legend = legendOf(R).concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
     const pw = Math.max(mw + 24, tw + 24, legendW()), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
     panel('minimap', x0, 12, pw, ph, { r: 5, a: 0.86 });
     lab('mm_t', title, x0 + pw / 2, 31, { size: 17, al: 0.5 });
@@ -351,10 +393,17 @@
     if (R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
     if (m.sanct && R.seen[Math.floor(m.sanct.y / TILE) * m.W + Math.floor(m.sanct.x / TILE)]) mark(m.sanct.x, m.sanct.y, 'camp', 12);
+    if (m.way && R.seen[m.way.ty * m.W + m.way.tx]) mark(m.way.x, m.way.y, 'way', 13);
+    if (m.town) { const V0 = m.town.svc; mark(V0.altar.x, V0.altar.y, 'altar', 12); mark(V0.stash.x, V0.stash.y, 'stash', 12); mark(V0.anvil.x, V0.anvil.y, 'craft', 12); mark(V0.lectern.x, V0.lectern.y, 'craft', 12); mark(V0.portal.x, V0.portal.y, 'way', 13); }
     for (const q of R.shrines) if (!SIM.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
     for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
       const c = o.kind === 'foe' ? [1, 0.3, 0.2] : [1, 0.85, 0.3];
       L.rrect(x - 4, y - 4, 8, 8, 4, c, c, pulse); }
+    // a quest's goal (TASKS 1019–1021), seen or not: the named foe, the room to clear (its outline), the keepsake once seen
+    for (const o of SIM.questMarks(R)) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.55 + 0.45 * Math.sin(t * 5);
+      if (o.kind === 'room') { const r = o.r, c = [1, 0.8, 0.3]; L.solid(px + r.x * k, py + r.y * k, r.w * k, 2, c, 0, 0, 0, pulse); L.solid(px + r.x * k, py + (r.y + r.h) * k - 2, r.w * k, 2, c, 0, 0, 0, pulse);
+        L.solid(px + r.x * k, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); L.solid(px + (r.x + r.w) * k - 2, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); }
+      icon_('quest', x, y, 14, pulse); }
     if (S.debug && S.dbgLoot) for (const o of SIM.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + o.x / TILE * k - r, py + o.y / TILE * k - r, 2 * r, 2 * r, r, c, c); }
     const hs = 13 + 1.5 * Math.sin(t * 6), hx = Math.max(hs, Math.min(mw - hs, R.hero.x / TILE * k)), hy = Math.max(hs, Math.min(mh - hs, R.hero.y / TILE * k));
     icon_('you', px + hx, py + hy, hs);
@@ -367,9 +416,13 @@
   }
   // minimap markers, centred on (x, y): gems as in the concept, a slab for a room, the stairs for the exit
   const GEM = { you: [[0.55, 0.8, 1], [0.1, 0.3, 0.95]], gold: [[1, 0.9, 0.4], [0.85, 0.5, 0.05]], boss: [[1, 0.4, 0.3], [0.65, 0.04, 0.03]], shop: [[0.6, 1, 0.7], [0.12, 0.6, 0.3]] };
-  function icon_(id, x, y, s) {
+  function icon_(id, x, y, s, a0 = 1) {
     if (id === 'camp') { L.solid(x, y + s * 0.25, s, 3, [0.6, 0.35, 0.16]); L.solid(x, y, s * 0.55, s * 0.7, [1, 0.65, 0.2], Math.PI / 4, s * 0.275, s * 0.35); return; }
     if (id === 'altar' || id === 'altar_used') { const col = id === 'altar' ? [0.65, 0.85, 1] : [0.45, 0.45, 0.5]; L.solid(x - s / 2, y + s / 4, s, s / 4, col); L.ring(x, y - s / 6, s / 3, s / 3, col, 1, 0.3); return; }
+    if (id === 'stash') { L.solid(x - s / 2, y - s * 0.2, s, s * 0.55, [0.55, 0.36, 0.18]); L.solid(x - s / 2, y - s * 0.38, s, s * 0.2, [0.7, 0.5, 0.25]); L.solid(x - s * 0.1, y - s * 0.15, s * 0.2, s * 0.2, [1, 0.85, 0.4]); return; }
+    if (id === 'craft') { L.solid(x - s * 0.45, y + s * 0.1, s * 0.9, s * 0.25, [0.6, 0.6, 0.66]); L.solid(x - s * 0.25, y - s * 0.15, s * 0.5, s * 0.28, [0.75, 0.75, 0.8]); L.solid(x - s * 0.08, y - s * 0.5, s * 0.16, s * 0.4, [0.62, 0.42, 0.24]); return; }
+    if (id === 'way') { const c = [0.62, 0.7, 1]; L.solid(x - s / 2, y + s * 0.3, s, s * 0.2, [0.4, 0.38, 0.45]); L.solid(x - s * 0.22, y - s / 2, s * 0.44, s * 0.82, [0.5, 0.47, 0.56]); L.solid(x - s * 0.08, y - s * 0.32, s * 0.16, s * 0.5, c); return; }
+    if (id === 'quest') { const a = a0; L.rrect(x - s / 2 - 2, y - s / 2 - 2, s + 4, s + 4, s / 2 + 2, [0.08, 0.05, 0.03], [0.08, 0.05, 0.03], a); L.solid(x, y, s * 0.62, s * 0.62, [1, 0.78, 0.25], Math.PI / 4, s * 0.31, s * 0.31, a); L.solid(x, y, s * 0.26, s * 0.26, [1, 0.97, 0.8], Math.PI / 4, s * 0.13, s * 0.13, a); return; }
     if (id === 'hint') { L.rrect(x - 4, y - 4, 8, 8, 4, [1, 0.85, 0.3], [1, 0.85, 0.3]); return; }
     if (id === 'exit') { icon('stairs', x - s / 2, y - s / 2, s); return; }
     if (id === 'room') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.65, 0.6, 0.55], [0.65, 0.6, 0.55]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.49, 0.45, 0.42], [0.42, 0.39, 0.37]); return; }
@@ -448,12 +501,12 @@
   }
   // ---------------- the merchant's screen ----------------
   function shop(S, R, t) {
-    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = R.floor;
+    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = SIM.tradeDepth(R);
     dim(0.6); panel('shop', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('sh_t', 'Лавка торговца', P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    lab('sh_t', sh.wander ? 'Странствующий торговец' : 'Лавка торговца', P.x + 40, P.y + 46, { size: 40, col: C.gold });
     const gs = h.gold + ' золота'; lab('sh_g', gs, P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 28, 36);
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 20 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 20, col: can ? C.gold : '#8a6a5a' }); };
-    lab('sh_buy', 'Товары · этаж ' + f, P.x + 40, P.y + 100, { size: 24, col: C.dim });
+    lab('sh_buy', R.town ? 'Товары города' + (sh.at ? ' · с глубин до этажа ' + sh.at : '') : sh.wander ? 'Товары из глубин · этаж ' + R.floor : 'Товары · этаж ' + R.floor, P.x + 40, P.y + 100, { size: 24, col: C.dim });
     sh.goods.forEach((g, i) => { const b = U.r.find((q) => q.id === 'buy:' + i); slot(S, b, g.n ? Object.assign({}, g.it, { n: g.n }) : g.it); price('shp_b' + i, b, g.price, h.gold >= g.price); });
     lab('sh_back', 'Выкуп проданного', P.x + 40, P.y + 550, { size: 24, col: C.dim });
     for (let i = 0; i < D.SHOP.buyback; i++) { const b = U.r.find((q) => q.id === 'back:' + i), g = sh.back[i]; slot(S, b, g && g.it); if (g) price('shp_k' + i, b, g.price, h.gold >= g.price); }
@@ -462,7 +515,7 @@
     // the merchant himself, his line for this visit
     const mx = P.x + 720, my = P.y + P.h - 64, [mw, mh] = SZ('merchant'), k = 2.1;
     L.sprite('merchant', mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
-    const line = '«' + D.SHOP.lines[sh.line % D.SHOP.lines.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 40;
+    const LN = sh.wander ? D.SHOP.wander.lines : D.SHOP.lines, line = '«' + LN[sh.line % LN.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 40;
     panel('sh_bubble', P.x + 620, P.y + 556, bw, 48, { r: 10 }); lab('sh_line', line, P.x + 640, P.y + 581, { size: lsz, col: '#fff2c8' });
     lab('sh_help', 'ЛКМ по товару — купить · ЛКМ по вещи в сумке — продать · E или Esc — закрыть', P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('sh_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('sh_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
@@ -477,7 +530,8 @@
     const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null;
     panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: it && it.rar ? col : hv ? C.rimHi : [0.3, 0.25, 0.21], c0: hv ? [0.16, 0.12, 0.1] : [0.07, 0.06, 0.07], c1: [0.04, 0.035, 0.045] });
     if (it) { if (it.rar >= 2) L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, col, [0, 0, 0], 0.18); icon(SIM.itemIcon(it), b.x + 8, b.y + 8, b.w - 16);
-      if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 }); }
+      if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 });
+      const hr = S.run && S.run.hero; if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 8, b.y + 18, { size: 18, al: 1, col: '#ff6a5a' }); } }
     else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
   }
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
@@ -498,13 +552,15 @@
     const lines = [], cons = SIM.isCons(it), B = cons ? null : D.BASES[it.b];
     lines.push([SIM.itemName(it), hex(D.RARITY[it.rar].col), 28]);
     if (!cons) { lines.push([D.RARITY[it.rar].name + ' · ' + D.SLOT_NAME[B.slot] + ' · ур. ' + it.lvl, C.dim, 20]);
+      const rq = D.reqLvl(it); if (rq > 1) lines.push(['Требуется уровень ' + rq, h.lvl < rq ? '#ff6a5a' : C.dim, 20]);
       if (it.atk) lines.push(['Атака: ' + it.atk + (B.spell ? '  (+' + Math.round(B.spell * 100) + '% к магии)' : ''), C.text, 22]);
       if (it.def) lines.push(['Защита: ' + it.def, C.text, 22]);
       const typed = SIM.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');
+      for (const e of it.ench || []) lines.push([D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff', 22]);
       if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
-      if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
-    else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : 'Возвращает в безопасную комнату', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
+      if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : h.lvl < rq ? 'Пока не надеть: мал уровень' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
+    else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : S.run && S.run.viaTown ? 'Открывает портал в город (T)' : 'Возвращает в безопасную комнату (T)', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
     if (deal) lines.push([deal[0], deal[1], 22]);
     const w = Math.max(...lines.map(([s, , z], i) => lw('tt' + i, s, { size: z }))) + 36, hh = lines.reduce((a, l) => a + l[2] * 1.45, 0) + 24;
     let x = b.x + b.w + 12, y = b.y; if (x + w > W - 10) x = b.x - w - 12; if (y + hh > H - 10) y = H - 10 - hh;
@@ -535,7 +591,7 @@
     menuBack(t);
     lab('m_t', 'ГЛУБИНЫ КРИПТЫ', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_s', 'Двенадцать этажей: от подземелья до Затопленных пещер', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
+    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom, S.saved && S.saved.town)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
       const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? 'Впервые? Начните с лёгкой' : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? '×1,5 — крупнее' : '';
       if (tip) lab('mb_tip_' + b.id, tip, b.x + b.w + 24, b.y + b.h / 2 + 1, { size: 21, al: 0, col: '#9fd08a' }); }
@@ -547,7 +603,9 @@
     L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1);
     G.blend('add'); L.glow(W / 2, 200, 500, [0.3, 0.5, 1], 0.25 + 0.05 * Math.sin(t * 2)); G.blend();
     lab('mt_t', 'Алтарь душ', W / 2, 140, { size: 72, al: 0.5, col: '#9cc8ff' });
-    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят элиты, боссы, тайники и этажи, пройденные полностью', W / 2, 220, { size: 26, al: 0.5, col: C.dim });
+    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят элиты, боссы, тайники и этажи, пройденные полностью', W / 2, S.metaRun ? 204 : 220, { size: 26, al: 0.5, col: C.dim });
+    // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
+    if (S.metaRun) lab('mt_run', 'Сейчас действуют: здоровье, урон, золото, мана, восстановление, стойкость. Зелья, характеристики, снаряжение и умения — у следующего героя', W / 2, 242, { size: 19, al: 0.5, col: '#8a7d6c' });
     for (const b of D.UI.meta()) {
       if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
@@ -556,7 +614,7 @@
       const px = b.x + 36 + lw('mt_n' + b.id, M.name, { size: 28 });
       for (let i = 0; i < M.max; i++) L.rrect(px + i * 26, b.y + 22, 18, 18, 4, i < r ? [0.45, 0.7, 1] : [0.15, 0.15, 0.2], i < r ? [0.25, 0.45, 0.9] : [0.08, 0.08, 0.1]);
       lab('mt_c' + b.id, max ? 'Максимум' : 'Цена: ' + c, b.x + b.w - 24, b.y + b.h / 2, { size: 24, al: 1, col: max ? C.gold : can ? '#9cc8ff' : '#7a6e64' }); }
-    refusal(S, W / 2, 836);
+    refusal(S, W / 2, 868);
   }
   // the latest refusal on a full-screen menu, where the in-game feed is hidden
   function refusal(S, x, y) {
@@ -589,6 +647,110 @@
     lab('al_limit', 'Осталось пожертвований: ' + left + ' из 10', P.x + 640, b.y + 48, { size: 21, col: C.dim });
     refusal(S, W / 2, P.y + 674);
     lab('al_help', sh.used ? 'ЛКМ — пожертвовать золото · E или Esc — уйти' : 'ЛКМ — дар или пожертвование · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
+  // ---------------- a word with a townsman (TASKS 1016, 1023): his likeness, his name, a page of his words ----------------
+  function talk(S, R, t) {
+    const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
+    L.solid(0, P.y - 120, W, H - P.y + 120, [0, 0, 0], 0, 0, 0, 0.35);
+    panel('talk', P.x, P.y, P.w, P.h, { r: 10, rim: keeper ? [0.62, 0.42, 0.22] : C.rim });
+    if (keeper) { G.blend('add'); L.glow(P.x + 150, P.y + P.h - 60, 200, [1, 0.6, 0.25], 0.16 + 0.04 * Math.sin(t * 3.1)); G.blend(); }
+    const [sw, sh] = SZ(nm), k = 230 / sh; L.sprite(nm, P.x + 150 - sw * k / 2, P.y + P.h - 30 - sh * k, { w: sw * k, h: sh * k });
+    lab('tk_n', FD.name, P.x + 300, P.y + 52, { size: 32, col: keeper ? '#ffc070' : C.gold });
+    wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 112, P.w - 360, 28, C.text);
+    const act = at('act');
+    // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
+    if (act) { const rs = 'Награда: ' + SIM.rwLine(T.act.rw); lab('tk_rw', rs, P.x + 300, P.y + P.h - 122, { size: 22, col: C.gold }); }
+    if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: C.dim });
+    button('tk_next', Object.assign({}, at('next'), { label: T.p + 1 < T.pages.length ? 'Дальше' : act && T.act.k === 'take' ? 'Не сейчас' : 'Уйти' }), S.hover);
+    if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? 'Взять задание' : 'Сдать задание' }), S.hover);
+    if (at('craft')) button('tk_craft', at('craft'), S.hover);
+    lab('tk_keys', act ? (T.act.k === 'take' ? 'E — взять задание' : 'E — сдать задание') + ' · Esc — уйти' : 'E, пробел или ЛКМ — дальше · Esc — уйти', W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
+  // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
+  const QST = { done: ['Выполнено', '#8fd98a'], taken: ['В пути', '#e8c890'], turned: ['Сдано', '#8a7d6c'] };
+  function journal(S, R, t) {
+    const L0 = SIM.journalOf(R), U = D.UI.journal(L0.length), P = U.P, sel = L0.find((q) => q.id === S.jsel) || L0[0];
+    dim(0.6); panel('journal', P.x, P.y, P.w, P.h, { r: 10 });
+    lab('jr_t', 'Журнал заданий', P.x + 40, P.y + 50, { size: 40, col: C.gold });
+    const cb = U.r.find((q) => q.id === 'close'); panel('jr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('jr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    lab('jr_keys', 'ЛКМ — выбрать задание · J или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    if (!L0.length) { wrapLab('jr_none', R.viaTown ? 'Заданий пока нет. Их дают горожане в городе — ищите «!» над головой.' : 'Задания дают горожане в городе. В этом забеге города нет.', P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
+    L0.slice(0, 10).forEach((q, i) => { const b = U.r[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
+      panel('jr_r' + i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : hv ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined, a: q.st === 'turned' && !on ? 0.7 : undefined });
+      lab('jr_n' + i, Q.name, b.x + 16, b.y + 20, { size: 22, col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('jr_s' + i, st, b.x + b.w - 16, b.y + 20, { size: 17, al: 1, col });
+      lab('jr_f' + i, (D.FOLK[q.from] ? D.FOLK[q.from].name : '') + ' · ' + q.f + '-й этаж', b.x + 16, b.y + 44, { size: 16, col: C.dim }); });
+    const Q = D.QUESTS[sel.key], X = P.x + 540, Wd = P.w - 580, [st, col] = QST[sel.st]; let y = P.y + 130;
+    L.solid(X - 20, P.y + 110, 1, P.h - 180, C.rim, 0, 0, 0, 0.6);
+    lab('jr_dn', Q.name, X, y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
+    lab('jr_dk', (Q.kind === 'story' ? 'Сюжет · ' : '') + 'Дал: ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—'), X, y, { size: 20, col: C.dim }); y += 44;
+    y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 24, C.text) + 18;
+    lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.questLine(sel, R) : sel.st === 'done' ? ' · сдать — ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '') + ' в городе' : ''), X, y, { size: 22, col }); y += 48;
+    lab('jr_rw0', sel.st === 'turned' ? 'Получено:' : 'Награда:', X, y, { size: 22, col: C.dim }); y += 32;
+    wrapLab('jr_rw', SIM.rwLine(sel.rw), X, y, Wd, 22, C.gold);
+  }
+  // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
+  function craft(S, R, t) {
+    const h = R.hero, U = D.UI.craft(), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);
+    dim(0.55); panel('craft', P.x, P.y, P.w, P.h, { r: 10, rim: forge ? C.rim : [0.32, 0.42, 0.62] });
+    if (!forge) { G.blend('add'); L.glow(P.x + 1170, P.y + 90, 360, [0.3, 0.5, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend(); }
+    lab('cr_t', forge ? 'Кузнец · перековка' : 'Зачарователь · зачарование', P.x + 40, P.y + 46, { size: 40, col: forge ? C.gold : '#9cc8ff' });
+    const gs = h.gold + ' золота'; lab('cr_g', gs, P.x + P.w - 96, P.y + 46, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 30, 32);
+    if (!forge) { const ss = String(S.meta.shards); lab('cr_sh', ss, P.x + P.w - 96, P.y + 86, { size: 24, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 96 - lw('cr_sh', ss, { size: 24 }) - 36, P.y + 70, 30); }
+    lab('cr_eq', 'Надето', P.x + 40, P.y + 126, { size: 22, col: C.dim }); lab('cr_bag', 'Сумка', P.x + 40, P.y + 292, { size: 22, col: C.dim });
+    for (const b of U.r) { if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot); else if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]); else continue;
+      if (b.id === c.sel) { const k = forge ? [1, 0.8, 0.4] : [0.55, 0.75, 1]; L.solid(b.x - 4, b.y - 4, b.w + 8, 3, k); L.solid(b.x - 4, b.y + b.h + 1, b.w + 8, 3, k); L.solid(b.x - 4, b.y - 4, 3, b.h + 8, k); L.solid(b.x + b.w + 1, b.y - 4, 3, b.h + 8, k); } }
+    const X = P.x + 860, help = forge ? 'Свойства вещи собираются заново: столько же, сколько даёт её редкость. Зачарования остаются.' : 'До трёх зачарований на вещь. Каждое следующее дороже и рискованнее: чары могут сорваться или испортить вещь.';
+    wrapLab('cr_help', help, X, P.y + 126, 620, 21, C.dim);
+    if (!it) lab('cr_pick', 'Выберите вещь слева', X, P.y + 300, { size: 26, col: C.text });
+    else { const b = { id: 'cr_sel', x: X, y: P.y + 220, w: 110, h: 110 }; slot(S, b, it);
+      lab('cr_n', SIM.itemName(it), X + 130, P.y + 250, { size: 28, col: hex(D.RARITY[it.rar].col) }); lab('cr_r', D.RARITY[it.rar].name + ' · ур. ' + it.lvl, X + 130, P.y + 290, { size: 20, col: C.dim });
+      const rows = Object.entries(it.mods || {}).map(([k, v]) => [D.AFFIXES.find((a) => a.k === k).label.replace('{v}', v), '#8fd98a']).concat((it.ench || []).map((e) => [D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff']));
+      if (!rows.length) rows.push(['Свойств нет', C.dim]);
+      rows.forEach(([s0, col], i) => lab('cr_m' + i, s0, X, P.y + 360 + i * 32, { size: 22, col }));
+      const k = SIM.craftCost(S, R, it), btn = Object.assign({}, at('do'), { on: k.can && h.gold >= k.gold && S.meta.shards >= k.shards, label: !k.can ? k.why : (forge ? 'Перековать' : 'Зачаровать') + ' · ' + k.gold + ' золота' + (k.shards ? ' · ' + k.shards + ' осколков' : '') });
+      button('cr_do', btn, S.hover);
+      if (k.can && !forge) lab('cr_risk', k.fail ? 'Риск неудачи: ' + Math.round(k.fail * 100) + '%' : 'Первое зачарование — без риска', X + 310, btn.y - 26, { size: 21, al: 0.5, col: k.fail ? '#e0a070' : '#8fd98a' }); }
+    if (c.res && S.t - c.res.t < 4) lab('cr_res', c.res.s, X + 310, P.y + P.h - 60, { size: 23, al: 0.5, col: c.res.ok ? '#8fd98a' : '#e0604f', a: 1 - L.SS(3.4, 4, S.t - c.res.t) });
+    else refusal(S, X + 310, P.y + P.h - 60);
+    const cb = at('close'); panel('cr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('cr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    lab('cr_keys', 'ЛКМ — выбрать вещь · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+    const hb = U.r.find((q) => q.id === S.hover), hi = hb && (hb.id.startsWith('eq:') ? h.eq[hb.slot] : hb.id.startsWith('bag:') ? h.bag[hb.i] : null);
+    if (hi) tooltip(S, hi, hb, h, ['ЛКМ — выбрать', C.gold]);
+  }
+  // ---------------- the town's storage chest (R-33, TASKS 1012): gear left for the heroes to come ----------------
+  function stash(S, R, t) {
+    const h = R.hero, U = D.UI.stash(), P = U.P, T = SIM.stashOf(S), n = D.STASH.cells(S.meta), dr = S.drag, held = (id) => dr && dr.from === id;
+    dim(0.5); panel('stash', P.x, P.y, P.w, P.h, { r: 10 });
+    lab('st_t', 'Сундук-хранилище', P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    lab('st_s', 'Снаряжение здесь переживёт героя: следующий заберёт его в городе', P.x + 40, P.y + 100, { size: 22, col: C.dim });
+    for (let i = 0; i < D.STASH.max; i++) { const b = U.r.find((q) => q.id === 'stash:' + i);
+      if (i < n) slot(S, b, held(b.id) ? null : T.items[i]);
+      else { panel('st_lock' + i, b.x, b.y, b.w, b.h, { r: 6, rim: [0.22, 0.2, 0.2], c0: [0.04, 0.035, 0.04], c1: [0.03, 0.025, 0.03] }); lab('st_lk' + i, '×', b.x + b.w / 2, b.y + b.h / 2, { size: 40, al: 0.5, col: '#4a4038' }); } }
+    lab('st_cells', n < D.STASH.max ? 'Ячеек: ' + n + ' из ' + D.STASH.max + ' · ещё — «Сундук предков» на Алтаре душ' : 'Ячеек: ' + n, W / 2, P.y + 290, { size: 20, al: 0.5, col: C.dim });
+    lab('st_bag', 'Ваша сумка', P.x + 88, P.y + 344, { size: 24, col: C.dim });
+    for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'bag:' + i); slot(S, b, held(b.id) ? null : h.bag[i]); }
+    lab('st_help', 'ЛКМ — переложить · перетащите вещь в нужную ячейку · E или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    const cb = U.r.find((q) => q.id === 'close'); panel('st_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('st_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    refusal(S, W / 2, P.y + 326);
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.itemIcon(it), dr.x - 38, dr.y - 38, 76); return; }
+    const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
+    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? (SIM.isCons(it) ? 'Расходники не хранятся' : 'ЛКМ — в хранилище') : 'ЛКМ — забрать в сумку', C.gold]);
+  }
+  // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------
+  function gate(S, R, t) {
+    const o = SIM.gateWays(R), U = D.UI.gate(o.length), P = U.P;
+    dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 380, [0.45, 0.55, 1], 0.16 + 0.04 * Math.sin(t * 2)); G.blend();
+    panel('gate', P.x, P.y, P.w, P.h, { r: 10, rim: [0.32, 0.42, 0.62] });
+    lab('gt_t', 'Кольцо камней', P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
+    lab('gt_s', 'Куда открыть путь?', P.x + 40, P.y + 104, { size: 22, col: C.dim });
+    o.forEach((q, i) => { const b = U.r[i], hv = S.hover === b.id;
+      panel('gt_r' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv ? C.rimHi : [0.32, 0.42, 0.62], c0: hv ? [0.14, 0.14, 0.2] : C.panel0 });
+      if (q.k === 'portal') icon('it_scroll', b.x + 16, b.y + 12, 48); else L.sprite('waystone', b.x + 18, b.y + 6, { h: 62 });
+      lab('gt_n' + i, q.k === 'portal' ? 'Портал — на этаж ' + q.f : 'Путевой камень — этаж ' + q.f, b.x + 84, b.y + 26, { size: 26, col: C.text });
+      lab('gt_d' + i, q.k === 'portal' ? 'туда, где прочитан свиток; портал закроется' : D.floorName(q.f, (R.memo && R.memo[q.f] || R).mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1), b.x + 84, b.y + 54, { size: 18, col: C.dim }); });
+    button('gt_leave', U.r[o.length], S.hover);
+    lab('gt_help', 'ЛКМ — выбрать путь · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];

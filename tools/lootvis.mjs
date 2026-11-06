@@ -25,14 +25,17 @@ const res = await p.evaluate(({ MIN, mode }) => {
   const grab = (S, x, y) => { SCENE.state = S; SCENE.render(S.t + 0.01); gx.drawImage(cv, 0, 0); const X = Math.round((x - S.run.cam[0]) * Z), Y = Math.round((y - S.run.cam[1]) * Z);
     return { px: gx.getImageData(X - 30, Y - 50, 60, 60).data, X, Y }; };
   let n = 0;
-  for (const sd of [1, 2, 3, 4, 5, 6]) for (const f of mode === 'campaign' ? [1, 3, 5, 7] : [1, 2, 3, 4]) {
-    const S = SIM.spawn(0, {}); SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, mode, sd); if (f > 1) SIM.enterFloor(S, S.run, f); S.screen = 'play';
+  // a run through the town (campaign only) carries a quest's keepsake on the floor (TASKS 1020): in a chest, a cache or the open
+  for (const town of mode === 'campaign' ? [0, 1] : [0]) for (const sd of [1, 2, 3, 4, 5, 6]) for (const f of mode === 'campaign' ? [1, 3, 5, 7] : [1, 2, 3, 4]) {
+    const S = SIM.spawn(0, {}); SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, mode, sd, town ? { town: 1 } : {});
+    if (town) { const R0 = S.run; R0.deepest = f - 1; R0.offers = [{ key: 'fetch', from: ['guard', 'child', 'sweeper'][sd % 3], q: 0 }]; R0.quests = []; SIM.giveQuest(S, R0, R0.offers[0].from); SIM.enterFloor(S, R0, f); }
+    else if (f > 1) SIM.enterFloor(S, S.run, f); S.screen = 'play';
     const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; R.seen = R.seen.map(() => 1); for (const q of R.map.secrets) SIM.openSecret(S, R, q, true);
     for (const c of R.chests) SIM.openChest(S, R, c); h.x = -9999; h.y = -9999; for (let k = 0; k < 150; k++) SIM.step(S, { keys: [], px: 960, py: 540 }); R.msg = null; S.ev = [];
-    for (const d of R.drops.filter((o) => o.kind === 'item' && !o.got)) { n++; R.cam = [d.x - 640, d.y - 360];
+    for (const d of R.drops.filter((o) => (town ? o.kind === 'qitem' : o.kind === 'item') && !o.got)) { n++; R.cam = [d.x - 640, d.y - 360];
       const a = grab(S, d.x, d.y), crop = cv.toDataURL(); d.qaHide = 1; const b = grab(S, d.x, d.y); delete d.qaHide;
       let diff = 0; for (let k = 0; k < a.px.length; k += 4) diff += Math.abs(a.px[k] - b.px[k]) + Math.abs(a.px[k + 1] - b.px[k + 1]) + Math.abs(a.px[k + 2] - b.px[k + 2]);
-      if (diff < MIN) out.push({ sd, f, x: Math.round(d.x), y: Math.round(d.y), b: d.item.b, diff, crop, X: a.X, Y: a.Y }); } }
+      if (diff < MIN) out.push({ sd, f, x: Math.round(d.x), y: Math.round(d.y), b: d.item ? d.item.b : d.ic, diff, crop, X: a.X, Y: a.Y }); } }
   return { n, out };
 }, { MIN, mode });
 for (const [i, o] of res.out.entries()) fs.writeFileSync(path.join(out, `seed${o.sd}_f${o.f}_${o.b}_${i}.png`), Buffer.from(o.crop.split(',')[1], 'base64'));

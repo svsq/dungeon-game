@@ -1,0 +1,11 @@
+[
+ {
+  "name": "quest_items_sheet",
+  "prompt": "art/prompts/quest_items_sheet.txt",
+  "ref": [
+   "art/gen/items_sheet.png=the game item icons"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ }
+]

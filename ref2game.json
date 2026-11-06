@@ -47,7 +47,8 @@
    "salamanderE__*",
    "colossus__*",
    "colossusE__*",
-   "town_*__*"
+   "town_*__*",
+   "waystone*"
   ],
   "skip": [
    "*_sheet",
