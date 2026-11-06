@@ -9,7 +9,7 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
-const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
@@ -337,7 +337,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const kB = (Math.floor(h.x / (3 * T)) << 12) | Math.floor(h.y / (3 * T)); if (!been.has(kB)) { been.add(kB); progT = S.t; }
     if (R.kills !== kills0) { kills0 = R.kills; progT = S.t; }
     for (const e of R.en) if (e.deadT < 0 && e.hp < (low.get(e.id) ?? e.max)) { low.set(e.id, e.hp); progT = S.t; }
-    const why = S.t - tF > STUCK ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
+    // the town has a clock of its own (a visit takes 20–40 s): the floor's STUCK and the idle watch wait for the way back (PR #21 review)
+    const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
     if (why) { stuck = { how: 'stuck', why, floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
     // the points a run starts with are laid out on the hero screen, where each point of VIT or INT comes with its health or mana
     if (R.floor === 1 && S.t - tF < 1 && h.pts > 0) { while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; } const s0 = SIM.stats(h, S.meta); h.hp = s0.maxHp; h.mp = s0.maxMp; }
