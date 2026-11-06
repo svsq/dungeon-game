@@ -33,7 +33,7 @@ try {
   if (new Set(names).size !== names.length) errors.push('duplicate QA state names');
   if (!names.length) errors.push('no requested QA states found');
   if (args.includes('--only')) for (const name of args[args.indexOf('--only') + 1].split(',')) if (!names.includes(name)) errors.push('missing requested QA state ' + name);
-  for (const required of ['zone_magma', 'magma_hall', 'magma_crossing', 'magma_lava', 'magma_fall', 'magma_light', 'magma_props', 'magma_camp', 'cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
+  for (const required of ['zone_magma', 'magma_surge_unseen', 'magma_surge_unseen_none', 'magma_islet', 'magma_crustfall', 'magma_hall_sanctum', 'magma_hall_forge', 'magma_hall_nest', 'magma_hall_prison', 'magma_vent_rest', 'magma_react', 'magma_brink', 'magma_terrace_step', 'magma_surge_warn', 'magma_surge_flood', 'magma_hall', 'magma_crossing', 'magma_lava', 'magma_fall', 'magma_light', 'magma_props', 'magma_camp', 'cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
   const report = {};
   for (const name of names) {
     const result = await page.evaluate((name) => {
@@ -72,6 +72,9 @@ try {
       if (a.cell === 3 && a.type !== 'salamander' && a.st !== 'leap') errors.push(`${name}: ${a.type} ${a.id} stands in the lava`);
       if (a.cell !== 1 && a.cell !== 3) errors.push(`${name}: ${a.type} ${a.id} off the floor (cell ${a.cell})`); }
   }
+  // (a surge over unexplored floor draws nothing: the frame is the frame without it, TASKS 475 review)
+  { const a = path.join(out, 'magma_surge_unseen.png'), b = path.join(out, 'magma_surge_unseen_none.png');
+    if (fs.existsSync(a) && fs.existsSync(b) && !fs.readFileSync(a).equals(fs.readFileSync(b))) errors.push('magma_surge_unseen: the surge shows over unexplored floor'); }
   fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify({ states: report, errors }, null, 2));
 } finally { await browser.close(); server.close(); }
 console.log(errors.length ? errors.join('\n') : 'cavecheck: ok');

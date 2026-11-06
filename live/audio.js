@@ -175,6 +175,8 @@
       else if (m === 'fungus') { noise(o, { d: 0.15, v: e.touch ? 0.03 : 0.09, f0: 1800, f1: 500 }); tone(o, { f0: 420, f1: 250, d: 0.14, v: 0.025 }); }
       else if (m === 'bone') for (let i = 0; i < 4; i++) noise(o, { t: now() + i * 0.035, d: 0.035, v: 0.12, f0: rr(1600, 2800), q: 5 });
       else if (m === 'fire') noise(o, { a: 0.01, d: 0.35, v: 0.2, type: 'highpass', f0: 2600, f1: 900 });
+      else if (m === 'ember') noise(o, { a: 0.01, d: e.touch ? 0.25 : 0.4, v: e.touch ? 0.07 : 0.18, type: 'highpass', f0: 3200, f1: 1200 });
+      else if (m === 'chain') for (let i = 0; i < 3; i++) tone(o, { type: 'triangle', t: now() + i * 0.06, f0: rr(1900, 2600), d: 0.18, v: e.touch ? 0.025 : 0.06 });
       else if (m === 'wax') return;
       else noise(o, { d: 0.18, v: 0.35, type: 'lowpass', f0: 500, f1: 150 });
       if (e.n === 'brazier') noise(o, { t: now() + 0.03, a: 0.02, d: 0.4, v: 0.15, type: 'highpass', f0: 2400 });
