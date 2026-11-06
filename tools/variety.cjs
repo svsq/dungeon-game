@@ -28,7 +28,7 @@ const seqs = new Map(); let alike = 0, pairs = 0; const alikeAt = [];
 for (let s = 1; s <= N; s++) { let prev = null; const seq = [];
   for (let f = 1; f <= F; f++) { const st = D.stageOf(mode, f, s), m = G.genFloor((s * 31 + f * 1013) >>> 0, f, { mode, runSeed: s }), q = rows[f - 1], k = kind(st);
     const real = m.rooms.filter((r) => r.type !== 'secret' && !r.isle); q.n++; q.rooms.push(real.filter((r) => !r.pocket).length);
-    q.shapes.push(new Set(real.map((r) => r.shape || (r.pocket ? 'nook' : 'rect'))).size);
+    q.shapes.push(new Set(real.map((r) => r.shape || (r.pocket ? 'nook' : 'rect'))).size); if (!(D.ARCH[k] && (D.ARCH[k].grid || D.ARCH[k].bsp))) (q.mixed = q.mixed || []).push(q.shapes[q.shapes.length - 1]);
     for (const r of real) { q.all++; if (ways(m, r) === 1) q.dead++; }
     q.walk.push(m.walk); if (m.walk >= 0 && m.walk < BAND.shortK * (m.W + m.H)) q.short++;
     q.kinds[k] = (q.kinds[k] || 0) + 1; if (st.boss) q.boss++; q.size[m.W + '×' + m.H] = 1; seq.push(st.biome + ':' + k);
@@ -38,13 +38,14 @@ for (let s = 1; s <= N; s++) { let prev = null; const seq = [];
   seqs.set(seq.join(' '), (seqs.get(seq.join(' ')) || 0) + 1); }
 const avg = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1), fails = [];
 const table = rows.map((q, i) => ({ floor: i + 1 + (q.boss * 2 > q.n ? ' (boss)' : ''), kinds: Object.entries(q.kinds).map(([k, v]) => `${k} ${v}`).join(', '), size: Object.keys(q.size).join(' '),
-  rooms: `${Math.min(...q.rooms)}–${Math.max(...q.rooms)} (${avg(q.rooms).toFixed(1)})`, spread: Math.max(...q.rooms) - Math.min(...q.rooms), shapes: +avg(q.shapes).toFixed(1),
+  rooms: `${Math.min(...q.rooms)}–${Math.max(...q.rooms)} (${avg(q.rooms).toFixed(1)})`, spread: Math.max(...q.rooms) - Math.min(...q.rooms), shapes: +avg(q.shapes).toFixed(1), shapesMixed: q.mixed ? +avg(q.mixed).toFixed(1) : null,
   dead: +(q.dead / (q.all || 1)).toFixed(2), walk: `${Math.min(...q.walk)}–${Math.max(...q.walk)} (${avg(q.walk).toFixed(0)})`, short: +(q.short / q.n).toFixed(2), rooms0: q }));
 if (seqs.size < BAND.seqs) fails.push(`${seqs.size} different sequences of biome and layout over ${N} seeds (band ≥ ${BAND.seqs})`);
 if (alike) fails.push(`${alike} of ${pairs} floors running alike, layout and size both (${alikeAt.slice(0, 4).join(', ')}${alike > 4 ? ', …' : ''})`);
 for (const t of table) { const caves = Object.keys(t.rooms0.kinds).every((k) => k === 'cave' || k === 'plateau');
   if (t.spread < BAND.spread) fails.push(`floor ${t.floor}: its room count moves ${t.spread} over the seeds (band ≥ ${BAND.spread})`);
-  if (!caves && t.shapes < BAND.shapes) fails.push(`floor ${t.floor}: ${t.shapes} room shapes a floor (band ≥ ${BAND.shapes})`);
+  // (a catacomb's and a tomb's rooms are all plain boxes by design: the shapes band holds for the floors of other layouts)
+  if (!caves && t.shapesMixed !== null && t.shapesMixed < BAND.shapes) fails.push(`floor ${t.floor}: ${t.shapesMixed} room shapes a floor of mixed layouts (band ≥ ${BAND.shapes})`);
   if (t.dead < BAND.dead) fails.push(`floor ${t.floor}: ${t.dead} of its rooms are dead ends (band ≥ ${BAND.dead})`);
   const sb = t.rooms0.boss * 2 > t.rooms0.n ? BAND.bossShort : BAND.short;
   if (t.short > sb) fails.push(`floor ${t.floor}: ${t.short} of its floors walk to the ${sb === BAND.short ? 'stairs' : 'boss'} in under ${BAND.shortK} of the map's width and height (band ≤ ${sb})`); }

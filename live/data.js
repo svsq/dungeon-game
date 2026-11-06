@@ -378,11 +378,15 @@
     // a fortress (TASKS 380): a courtyard (court: w × h) in the middle of the map behind `moat` cells of rock and a ring of corridor
     // `ring` cells wide, `gates` ways from the ring into it; the other rooms stand outside the ring and join it, not the court; the
     // court holds the floor's altar (chance `altar`) or a pack round an elite; the start and the stairs lie outside
-    fortress: { name: 'Крепость', room: 0.85, minW: 64, court: { w: [14, 18], h: [10, 12], moat: 3, ring: 2, gates: 2, altar: 0.4 }, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.2], nooks: [1, 2], pop: 1 },
+    fortress: { name: 'Крепость', room: 0.85, min: 6, minW: 72, court: { w: [14, 18], h: [10, 12], moat: 3, ring: 2, gates: 2, altar: 0.4 }, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.2], nooks: [1, 2], pop: 1 },
+    // a tomb (TASKS 378): no corridors at all, the rooms wall to wall as in a crypt: the map cut in two again and again (bsp: a
+    // room's size between min and max, walls of two cells between), a patch of the pieces kept, each joined to its neighbours only,
+    // by a way two cells wide through the wall between them (the doors of 77 stand in them)
+    tomb: { name: 'Склеп', room: 1.15, minW: 56, bsp: { min: [6, 5], max: [12, 10] }, gap: [2, 2], bends: [99, 99], off: [0, 0], wide: 0, loops: [99, 0.3], nooks: [0, 0], pop: 0.9 },
     // which layout a floor takes (TASKS 379): by its biome's weights, from its own floor on (`from`), never the one of the floor before;
     // a run's 1st floor and a boss's floor keep the plain rooms
-    lay: { dungeon: { rooms: 3, maze: 2 }, crypt: { rooms: 2, catacomb: 3, hall: 1, maze: 1, fortress: 1 }, lava: { rooms: 2, hall: 2, maze: 2, fortress: 1 }, arcane: { rooms: 2, hall: 2, catacomb: 1, maze: 1, fortress: 2 } },
-    layFrom: { maze: 2, hall: 3, catacomb: 3, fortress: 3 },
+    lay: { dungeon: { rooms: 3, maze: 2 }, crypt: { rooms: 2, catacomb: 3, hall: 1, maze: 1, fortress: 1, tomb: 3 }, lava: { rooms: 2, hall: 2, maze: 2, fortress: 1 }, arcane: { rooms: 2, hall: 2, catacomb: 1, maze: 1, fortress: 2, tomb: 1 } },
+    layFrom: { maze: 2, hall: 3, catacomb: 3, fortress: 3, tomb: 3 },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
   // every `per` seconds (drawn from the range, each its own phase), a hot ring on the floor, bubbles and a rising glow `warn` s

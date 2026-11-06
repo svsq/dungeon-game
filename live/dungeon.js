@@ -22,6 +22,8 @@
     // (a floor no try above lays, which a magma floor's walk to the stairs left 1 seed in 300: a crash on entering it, never a
     // floor; reached only past them, so every floor they lay stays as it is)
     for (let attempt = 20; attempt < 40; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, false, false); if (m) return m; }
+    // (a layout of TASKS 379–380 no try lays, its rooms finding no room on the map: the plain rooms and corridors, not a crash)
+    for (let attempt = 40; attempt < 60; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, Object.assign({}, opts, { stage: Object.assign({}, opts.stage, { lay: 'rooms' }) }), false, false); if (m) return m; }
     throw new Error('dungeon generation failed');
   }
 
@@ -255,10 +257,25 @@
           if (x >= 0 && y >= 0 && x < cols && y < rows && !got.has(n) && !c.includes(n)) c.push(n); }
         if (!c.length) break; got.add(c[Math.floor(R() * c.length)]); }
       for (const k of [...got].sort((a, b) => a - b)) { const x = ox + (k % cols) * sx, y = oy + Math.floor(k / cols) * sy; rooms.push({ x, y, w: cw, h: chh, cx: x + (cw >> 1), cy: y + (chh >> 1), type: 'combat', id: rooms.length, shape: 'rect' }); } }
+    // a tomb (TASKS 378): the map cut in two again and again with a wall two cells thick at each cut, down to rooms of the layout's
+    // sizes; a patch of them grown from one to the floor's count; `nb`, the rooms sharing a wall four cells long and more with it
+    if (LY && LY.bsp && !boss) { const B = LY.bsp, cut = [];
+      const split = (x, y, w, h) => { const cw = w >= 2 * B.min[0] + 2, chh = h >= 2 * B.min[1] + 2;
+        if ((w <= B.max[0] && h <= B.max[1]) || (!cw && !chh)) { cut.push([x, y, w, h]); return; }
+        if (cw && (!chh || w / h > 1.2 || (w / h > 0.8 && R() < 0.5))) { const a = ri(B.min[0], w - B.min[0] - 2); split(x, y, a, h); split(x + a + 2, y, w - a - 2, h); }
+        else { const a = ri(B.min[1], h - B.min[1] - 2); split(x, y, w, a); split(x, y + a + 2, w, h - a - 2); } };
+      split(3, 4, W - 6, H - 7);
+      const touch = (p, q) => { const [ax, ay, aw, ah] = p, [bx, by, bw, bh] = q, ov = (a0, a1, b0, b1) => Math.min(a1, b1) - Math.max(a0, b0);
+        return ((ax + aw + 2 === bx || bx + bw + 2 === ax) && ov(ay, ay + ah, by, by + bh) >= 4) || ((ay + ah + 2 === by || by + bh + 2 === ay) && ov(ax, ax + aw, bx, bx + bw) >= 4); };
+      const got = [ri(0, cut.length - 1)];
+      while (got.length < Math.min(want, cut.length)) { const c = []; for (let i = 0; i < cut.length; i++) if (!got.includes(i) && got.some((g) => touch(cut[g], cut[i]))) c.push(i); if (!c.length) break; got.push(c[Math.floor(R() * c.length)]); }
+      got.sort((a, b) => a - b);
+      for (const i of got) { const [x, y, w, h] = cut[i]; rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: rooms.length, shape: 'rect' }); }
+      for (const r of rooms) r.nb = rooms.filter((q) => q !== r && touch([r.x, r.y, r.w, r.h], [q.x, q.y, q.w, q.h])).map((q) => q.id); }
     // a fortress's courtyard (TASKS 380): first, in the middle of the map; the ring round it is kept clear by `apart`
     if (LY && LY.court && !boss) { const C = LY.court, w = ri(...C.w), h = ri(...C.h), x = ((W - w) >> 1) + ri(-2, 2), y = ((H - h) >> 1) + ri(-1, 1);
       rooms.push({ x, y, w, h, cx: x + (w >> 1), cy: y + (h >> 1), type: 'combat', id: 0, shape: 'rect', court: 1 }); }
-    for (let i = 0; i < (terr || (LY && LY.grid && !boss) ? 0 : 900) && rooms.length < want + nLedge; i++) {
+    for (let i = 0; i < (terr || (LY && (LY.grid || LY.bsp) && !boss) ? 0 : 900) && rooms.length < want + nLedge; i++) {
       const big = rooms.length === 0 && boss;
       const kind = !MX || big ? null : kq.length ? kq[0] : rooms.length >= want || (i >= 600 && nLedge) ? 'ledge' : null, K = kind && MX[kind];
       if (K && kind !== 'ledge' && ++kt > 200) { kq.shift(); kt = 0; continue; }
@@ -317,7 +334,8 @@
         for (let y = dn ? r.y + r.h : r.y - 1; dn ? y < b : y > b; y += dn ? 1 : -1) { if (rooms.some((q) => q !== r && x >= q.x - AR.gap[0] && x < q.x + q.w + AR.gap[0] && y >= q.y - AR.gap[1] && y < q.y + q.h + AR.gap[1]) || holdHit(x, y, 1, 1)) break; set(x, y, 1); } } }
     // ---- connections: Prim MST on centre distance + extra short edges for loops ----
     // (a catacomb's chambers stand evenly on their grid: a jitter per pair, so its tree is no comb of equal links taken in order)
-    const dist = LY && LY.grid ? (a, b) => Math.hypot(a.cx - b.cx, (a.cy - b.cy) * 1.2) + 2 * (((a.id * 7919 + b.id * 104729 + seed) >>> 0) % 997) / 997 : (a, b) => Math.hypot(a.cx - b.cx, (a.cy - b.cy) * 1.2);
+    // (a tomb's rooms join their neighbours only, TASKS 378: any other pair is as good as never)
+    const dist = LY && LY.bsp && !boss ? (a, b) => Math.hypot(a.cx - b.cx, (a.cy - b.cy) * 1.2) + (a.nb && a.nb.includes(b.id) ? 2 * (((a.id * 7919 + b.id * 104729 + seed) >>> 0) % 997) / 997 : 1e6) : LY && LY.grid ? (a, b) => Math.hypot(a.cx - b.cx, (a.cy - b.cy) * 1.2) + 2 * (((a.id * 7919 + b.id * 104729 + seed) >>> 0) % 997) / 997 : (a, b) => Math.hypot(a.cx - b.cx, (a.cy - b.cy) * 1.2);
     // the plateaus' tree (TASKS 400) holds each plateau to two ridges, three only when no other way joins the next one: a long chain
     // with a few forks, so the walk from the start to the stairs crosses most of the floor
     // a ledge (TASKS 433) is a dead end off the tree, not a link in its chain: hung off its nearest plateau below, a side way the walk
@@ -405,11 +423,16 @@
       for (const sd of sides) { if (sd === 'u') carveV(court.y, y0, court.cx - 1); if (sd === 'd') carveV(court.y + court.h - 1, y1, court.cx - 1); if (sd === 'l') carveH(court.x, x0, court.cy - 1); if (sd === 'r') carveH(court.x + court.w - 1, x1, court.cy - 1); }
       court.ring = [x0, y0, x1, y1]; court.gates = sides;
       moat = (x, y) => x >= x0 + C.ring && x <= x1 - C.ring && y >= y0 + C.ring && y <= y1 - C.ring && !inRm(court, x, y) && cells[y * W + x] !== 1; }
+    // a tomb's way between two neighbours (TASKS 378): two cells wide straight through the wall they share, at a random place along it
+    const opening = (A, B) => { const hor = A.x + A.w + 2 === B.x || B.x + B.w + 2 === A.x, L = hor ? (A.x < B.x ? A : B) : (A.y < B.y ? A : B), O = L === A ? B : A;
+      const lo = hor ? Math.max(A.y, B.y) : Math.max(A.x, B.x), hi = hor ? Math.min(A.y + A.h, B.y + B.h) : Math.min(A.x + A.w, B.x + B.w), t = ri(lo + 1, Math.max(lo + 1, hi - 3)); void O;
+      for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { if (hor) set(L.x + L.w + i, t + j, 1); else set(t + j, L.y + L.h + i, 1); } };
     const toRing = (O) => { let b = null, bd = 1e9; for (const [x, y] of ringC) { const d = Math.hypot(x - O.cx, y - O.cy); if (d < bd) { bd = d; b = [x, y]; } } return { cx: b[0], cy: b[1] }; };
     for (const [a, b] of edges) { const A = rooms[a], B = rooms[b];
       if (pl) ridge(A, B);
       else if (cave) tunnel(A, B);
       else if (A.court || B.court) { const O = A.court ? B : A; winding(O, toRing(O)); }
+      else if (A.nb && A.nb.includes(B.id)) opening(A, B);
       else winding(A, B); }
     // a rooms floor's dead ends (TASKS 376): a nook of 4–5 cells in the rock the corridors left whole (two cells of it all round),
     // ten cells and more from the nearest room, at the end of a way of its own from that room: a chest's place or an ambush's
@@ -655,8 +678,9 @@
       // (a hall floor's few rooms, TASKS 379, go to the rivers first: its halls are lava enough)
       if (big.length && R() < 0.75 && LY.room >= 1) for (const r of big) if (lavaRoom(r) && hall(r, Math.floor(R() * 4))) break;
       for (const r of rest) { if (streams.filter((q) => q.kind === 'river').length >= wantR) break; if (lavaRoom(r)) tryRiver(r); } }
-    // (a fire floor of few rooms or small ones, TASKS 379's halls and maze, may find no room for its second river: laid anew)
-    if (D.BIOMES[biome].lava && !(last && boss) && strict && LY && LY !== D.ARCH.rooms && streams.filter((q) => q.kind === 'river' && q.n >= 8).length < 2) return null;
+    // (a fire floor of few rooms or small ones, TASKS 379's halls and maze, or now and then a plain one, may find no room for its second
+    // river: laid anew)
+    if (D.BIOMES[biome].lava && !(last && boss) && strict && LY && streams.filter((q) => q.kind === 'river' && q.n >= 8).length < 2) return null;
     // a fire floor without a river, and the boss's hall, get pools: a second pass that skips the roll
     if ((D.BIOMES[biome].lava && !lava.length) || bossType === 'boss') for (let pass = 0; pass < 2 && !lava.length; pass++) for (const r of rooms) {
       if (r.type !== 'start' && r.type !== 'shop' && r.type !== 'boss' && !r.pit && r.w >= 8 && r.h >= 6 && (pass || R() < (boss ? 1 : 0.75))) pool(r); }

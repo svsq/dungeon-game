@@ -2204,7 +2204,8 @@
     }
     // the water caves' floors (TASKS 301) are held to the campaign's rules
     // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
-    const GEN = [1, 77, 4242, 90001].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
+    // (seed 7: its 3rd and 7th floors are tombs, TASKS 378)
+    const GEN = [1, 77, 4242, 90001, 7].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
       .concat([1, 77, 4242, 90001, 5, 12, 33, 2024].flatMap((sd) => Array.from({ length: D.RUNS.cave.floors }, (_, i) => ['cave', sd, i + 1])))
       // the magma caves' plateaus (TASKS 400): held to the caves' rules but the water's, and to their own
       .concat([1, 77, 4242, 5, 12, 33].flatMap((sd) => Array.from({ length: D.RUNS.magma.floors }, (_, i) => ['magma', sd, i + 1])))
@@ -2232,6 +2233,13 @@
           if ((xs.size > 1) === (ys.size > 1) || ps.length < 2 || st.some((v, i) => i && v - st[i - 1] !== 3 * TILE)) out.push(`seed ${seed} f${f}: a trapped corridor's plates are not in a line three cells apart`); }
         // a fortress (TASKS 380): the court is reached by its gates only, the start and the stairs lie outside its ring, and it holds
         // the altar or an elite
+        // a tomb (TASKS 378) has no corridor: a floor cell outside every room is a way through a wall, a room a cell or two off it
+        // on two opposite sides (secret caches aside)
+        if (m.lay === 'tomb') { const rm = (x, y) => DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) >= 0, hid = secretMask(m); let loose = 0;
+          for (let y = 1; y < m.H - 1; y++) for (let x = 1; x < m.W - 1; x++) { const k = y * m.W + x; if (m.cells[k] !== 1 || rm(x, y) || hid.has(k) || m.secrets.some((q) => q.front.some(([fx, fy]) => fx === x && fy === y))) continue;
+            const two = (dx, dy) => [1, 2].some((d) => rm(x + dx * d, y + dy * d)) && [1, 2].some((d) => rm(x - dx * d, y - dy * d));
+            if (!two(1, 0) && !two(0, 1)) loose++; }
+          if (loose) out.push(`seed ${seed} f${f}: a tomb with ${loose} cells of corridor`); }
         const ct = m.rooms.find((r) => r.court);
         if (ct) { const [x0, y0, x1, y1] = ct.ring, inRing = (o) => { const x = Math.floor(o.x / TILE), y = Math.floor(o.y / TILE); return x >= x0 && x <= x1 && y >= y0 && y <= y1; };
           const mouth = []; for (let y = ct.y - 1; y <= ct.y + ct.h; y++) for (let x = ct.x - 1; x <= ct.x + ct.w; x++) if (!DG.inRm(ct, x, y) && cell(m, x, y) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(ct, x + dx, y + dy))) mouth.push([x, y]);
@@ -2501,7 +2509,7 @@
     if (!shapes.wide) out.push('rooms: no corridor three cells wide on any of the floors checked');
     if (!shapes.rift) out.push('rooms: no bridge over a rift of lava on any of the floors checked');
     if (!shapes.gauntlet) out.push('rooms: no trapped corridor on any of the floors checked');
-    for (const k of ['rooms', 'maze', 'hall', 'catacomb', 'fortress']) if (!shapes['lay:' + k]) out.push(`rooms: no ${k} layout on any of the floors checked`);
+    for (const k of ['rooms', 'maze', 'hall', 'catacomb', 'fortress', 'tomb']) if (!shapes['lay:' + k]) out.push(`rooms: no ${k} layout on any of the floors checked`);
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
     { const S = spawn(0, {}); step(S, { keys: [], px: 960, py: 598, click: 1 }); let snap = null;   // the last save of a living hero: the demo hero may fall before 40 s
       for (let i = 0; i < 120 * 40; i++) { step(S, scriptInput(S.t, S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
