@@ -4063,6 +4063,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the Altar of Souls on the square (TASKS 1011): its prompt, and its screen opened there mid-run
     states.push(['town_altar_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; })]);
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
+    // the storage chest (TASKS 1012): its prompt; its window with a piece in, a locked cell and a tip; a piece dragged over the bag
+    const stashS = (fn) => climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x; h.y = m.town.svc.stash.y + 40; const T = SIM.stashOf(S);
+      T.items = [Object.assign(SIM.rollItem(R, 9, 3, 'weapon'), { id: 900 }), null]; h.bag[3] = Object.assign(SIM.rollItem(R, 6, 2, 'armor'), { id: 901 }); S.meta.up = Object.assign({}, S.meta.up, { vault: 1 }); S.screen = 'stash'; fn(S, R, h); });
+    states.push(['town_stash_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x + 6; h.y = m.town.svc.stash.y + 40; })]);
+    states.push(['town_stash', stashS((S) => { S.hover = 'stash:0'; })]);
+    states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     states.push(['town_gate', climbS(0, (S, R, m, h) => { R.portal = { f: 11, x: 0, y: 0 }; R.ways = [4, 8, 12]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; S.hover = 'go:1'; })]);
     states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);

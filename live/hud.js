@@ -51,6 +51,7 @@
     if (S.screen === 'shop' && R) shop(S, R, t);
     if (S.screen === 'altar' && R) altar(S, R, t);
     if (S.screen === 'gate' && R) gate(S, R, t);
+    if (S.screen === 'stash' && R) stash(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
 
@@ -171,6 +172,7 @@
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься в крипту' : 'E — спуститься на этаж ' + (m.floor + 1)];
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
+    if (SIM.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, 'E — сундук-хранилище'];
     if (SIM.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, 'E — Алтарь душ: улучшения предков'];
     if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
@@ -563,7 +565,7 @@
       const px = b.x + 36 + lw('mt_n' + b.id, M.name, { size: 28 });
       for (let i = 0; i < M.max; i++) L.rrect(px + i * 26, b.y + 22, 18, 18, 4, i < r ? [0.45, 0.7, 1] : [0.15, 0.15, 0.2], i < r ? [0.25, 0.45, 0.9] : [0.08, 0.08, 0.1]);
       lab('mt_c' + b.id, max ? 'Максимум' : 'Цена: ' + c, b.x + b.w - 24, b.y + b.h / 2, { size: 24, al: 1, col: max ? C.gold : can ? '#9cc8ff' : '#7a6e64' }); }
-    refusal(S, W / 2, 836);
+    refusal(S, W / 2, 868);
   }
   // the latest refusal on a full-screen menu, where the in-game feed is hidden
   function refusal(S, x, y) {
@@ -596,6 +598,25 @@
     lab('al_limit', 'Осталось пожертвований: ' + left + ' из 10', P.x + 640, b.y + 48, { size: 21, col: C.dim });
     refusal(S, W / 2, P.y + 674);
     lab('al_help', sh.used ? 'ЛКМ — пожертвовать золото · E или Esc — уйти' : 'ЛКМ — дар или пожертвование · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
+  // ---------------- the town's storage chest (R-33, TASKS 1012): gear left for the heroes to come ----------------
+  function stash(S, R, t) {
+    const h = R.hero, U = D.UI.stash(), P = U.P, T = SIM.stashOf(S), n = D.STASH.cells(S.meta), dr = S.drag, held = (id) => dr && dr.from === id;
+    dim(0.5); panel('stash', P.x, P.y, P.w, P.h, { r: 10 });
+    lab('st_t', 'Сундук-хранилище', P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    lab('st_s', 'Снаряжение здесь переживёт героя: следующий заберёт его в городе', P.x + 40, P.y + 100, { size: 22, col: C.dim });
+    for (let i = 0; i < D.STASH.max; i++) { const b = U.r.find((q) => q.id === 'stash:' + i);
+      if (i < n) slot(S, b, held(b.id) ? null : T.items[i]);
+      else { panel('st_lock' + i, b.x, b.y, b.w, b.h, { r: 6, rim: [0.22, 0.2, 0.2], c0: [0.04, 0.035, 0.04], c1: [0.03, 0.025, 0.03] }); lab('st_lk' + i, '×', b.x + b.w / 2, b.y + b.h / 2, { size: 40, al: 0.5, col: '#4a4038' }); } }
+    lab('st_cells', n < D.STASH.max ? 'Ячеек: ' + n + ' из ' + D.STASH.max + ' · ещё — «Сундук предков» на Алтаре душ' : 'Ячеек: ' + n, W / 2, P.y + 290, { size: 20, al: 0.5, col: C.dim });
+    lab('st_bag', 'Ваша сумка', P.x + 88, P.y + 344, { size: 24, col: C.dim });
+    for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'bag:' + i); slot(S, b, held(b.id) ? null : h.bag[i]); }
+    lab('st_help', 'ЛКМ — переложить · перетащите вещь в нужную ячейку · E или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    const cb = U.r.find((q) => q.id === 'close'); panel('st_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('st_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    refusal(S, W / 2, P.y + 326);
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.itemIcon(it), dr.x - 38, dr.y - 38, 76); return; }
+    const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
+    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? (SIM.isCons(it) ? 'Расходники не хранятся' : 'ЛКМ — в хранилище') : 'ЛКМ — забрать в сумку', C.gold]);
   }
   // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------
   function gate(S, R, t) {

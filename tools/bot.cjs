@@ -48,7 +48,8 @@ const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) 
   return Math.log(swing * (1 - c) + fire * c) + Math.log((st.maxHp + 20 * st.regen + 10 * st.onhit) * (KD + st.def) / KD / (1 - st.dodge / 100)); };
 const gear = (it) => it && !SIM.isCons(it);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
-const metaNext = (S) => D.META.filter((M) => (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
+// a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
+const metaNext = (S) => D.META.filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
   .sort((a, b) => a.cost(S.meta.up[a.id] || 0) - b.cost(S.meta.up[b.id] || 0))[0];
 const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.meta.shards >= D.giftCost(tier, R.floor));
 
