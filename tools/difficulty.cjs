@@ -1,4 +1,4 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|cave|endless] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check]
+// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|cave|magma|endless] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
@@ -46,6 +46,12 @@ function report() {
     const top = Array.from({ length: FLOORS }, (_, i) => { const t = {}; for (const r of a) { const f = r.floors.find((q) => q.floor === i + 1); for (const g in (f && f.dmg) || {}) t[g] = (t[g] || 0) + f.dmg[g]; }
       const g = Object.keys(t).sort((x, y) => t[y] - t[x])[0]; return g || '-'; }).join(' ');
     console.log([p, k + 1, perFloor(a, (f) => Math.round((f.minhp ?? 1) * 100), 0), perFloor(a, (f) => f.hits || 0, 0), perFloor(a, (f) => f.hpPot || 0, 1), perFloor(a, (f) => f.mpPot || 0, 1), GROUPS.map((g) => Math.round((tot[g] || 0) / sum * 100) + '%').join(' / '), top].join(' | ')); }
+  // by monster (TASKS 468): the health each took per run, as a share of the max, and what struck the killing blow
+  console.log('\nprofile | run | health taken per run, % of max, by monster | killing blows');
+  for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
+    const by = {}, kill = {}; for (const r of a) { for (const f of r.floors) for (const t in f.by || {}) by[t] = (by[t] || 0) + f.by[t]; if (r.result.how === 'dead' && r.killer) kill[r.killer] = (kill[r.killer] || 0) + 1; }
+    const list = (o, f) => Object.keys(o).sort((x, y) => o[y] - o[x]).slice(0, 10).map((t) => t + ' ' + f(o[t])).join(', ') || '-';
+    console.log([p, k + 1, list(by, (v) => Math.round(v / a.length * 100)), list(kill, (v) => v)].join(' | ')); }
   // the shard economy: found in the run, the end-of-run bonus, gifts taken at altars, floors' categories at 100%, potions left in the bag
   console.log('\nprofile | run | shards found | end reward | gifts | full categories by floor | secrets found by floor | hp pot left');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
@@ -58,9 +64,9 @@ function report() {
     console.log([p, k + 1, fl.map((f) => { const l = a.flatMap((r) => (r.altars || []).filter((q) => q.f === f));
       return `f${f}: ${avg(l, (q) => q.bank).toFixed(0)} / ${avg(l, (q) => q.c2).toFixed(0)} / ${Math.round(avg(l, (q) => q.bank >= q.c2) * 100)}%`; }).join('  ')].join(' | ')); }
   // the boss fight, for the runs that reached the boss
-  console.log('\nprofile | run | floor / boss: reached / died / fight s (median) / health lost / hp potions');
+  console.log('\nprofile | run | floor / boss: reached / died / fight s (median) / health lost / hp potions / held by pools s');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue; for (const f of BOSS_FLOORS) { const b = bossOf(a, f);
-    if (b.n) console.log([p, k + 1, f, `${b.n} / ${Math.round(b.died * 100)}% / ${b.t.toFixed(0)} / ${Math.round(b.dmg * 100)}% / ${b.pot.toFixed(1)}`].join(' | ')); } }
+    if (b.n) console.log([p, k + 1, f, `${b.n} / ${Math.round(b.died * 100)}% / ${b.t.toFixed(0)} / ${Math.round(b.dmg * 100)}% / ${b.pot.toFixed(1)} / ${b.cut.toFixed(1)}`].join(' | ')); } }
   // how big one blow is before the shield, as a share of the max health; levels gained on each floor
   console.log('\nprofile | run | blow % of max hp by floor: mob p50 | heavy p50 | mob p90 | elite p90 | levels gained by floor');
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
@@ -79,7 +85,7 @@ const wilson = (k, n) => { if (!n) return [0, 0]; const z = 1.96, p = k / n, c =
 const ci = (k, n) => wilson(k, n).map((v) => (v * 100).toFixed(1)).join('–') + '%';
 const bossOf = (a, floor = FLOORS) => { const l = a.map((r) => (r.floors.find((f) => f.floor === floor) || {}).boss).filter(Boolean), ts = l.filter((b) => !b.died).map((b) => b.t).sort((x, y) => x - y);
   return { n: l.length, k: l.filter((b) => b.died).length, died: avg(l, (b) => b.died || 0),
-    t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot) }; };
+    t: ts[ts.length >> 1] || 0, dmg: avg(l, (b) => b.dmg), pot: avg(l, (b) => b.pot), cut: avg(l, (b) => b.cut || 0) }; };
 const GROUPS = ['mob', 'elite', 'bolt', 'trap', 'dot'];
 // builder: a player who gathers fire and crit and burns the bosses with fireballs still fights each for 15 s or more (TASKS 245)
 const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8: { t: [15, Infinity] }, 4: { t: [15, Infinity] }, 6: { t: [15, Infinity] } } };
@@ -94,13 +100,17 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8
 // error inside, a blow of 27 killed 9 % with the survivors at 23 % (the player's call in TASKS 246)
 // mobBlow: a plain monster's blow (median, % of the max health, before the shield); heavyBlow: the same for the plain demon, a slow
 // telegraphed heavy hitter by design (the player's call); lvlUp: levels a floor gives, so none drags or rushes; meta: the third run in a row with the meta bought from the first two, so the meta does not win the game (TASKS 202, 225)
+// the water caves' bands (TASKS 314, 05.11.2026, the player's call: each floor harder than the last): the average hero of level 10 wins 71–77 % of 160 seeds,
+// minimum health falls 45→27 % and potions climb 0.9→1.9 from the 1st floor to the 4th (two sets, 1–160 and 161–320), the serpent takes 153–160 %;
 // the water caves get their bands with their balance (TASKS 314); in the campaign (TASKS 339) the old finale's bands hold its 8th:
 // past: the share past a floor (the old 8-floor campaign's wins), bossFloor: the floor of bossDied (the demon lord); the serpent's own
 // fight bands stand on the 12th (chapters: lost, pot, t). The share of whole 12-floor wins has no band: the player's call 01.11.2026
 // for now (the average takes 45–48 % over 160 seeds; a band belongs to the follow-up balance, TASKS 340/341)
-const BANDS = { cave: { normal: { average: { bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90] } } }, campaign: {
+// the magma caves' colossus (TASKS 413): harder than the serpent (1.55 of the health, 0.9 potions, 35 s) by the player's call 02.11.2026
+const BANDS = { cave: { normal: { average: { win: [0.65, 0.85], bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90], deathShare: 0.4,
+    floor: { 1: { minhp: [38, 54], hpPot: [0.5, 1.4] }, 2: { minhp: [30, 46], hpPot: [0.8, 1.9] }, 3: { minhp: [30, 46], hpPot: [1.1, 2.1] }, 4: { minhp: [20, 36], hpPot: [1.3, 2.5] } } }, expert: { win: [0.72, 0.92] }, builder: { win: [0.72, 0.92] } } }, magma: { normal: { average: { bossLost: [1.8, 2.5], bossPot: [1.5, 2.5], bossT: [40, 70] } } }, campaign: {
   easy: { average: { past: { 8: [0.85, 1] } } },
-  normal: { average: { past: { 8: [0.4, 0.6] }, deep: { lost: [1.5, 2.5], t: [20, 90] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 12: { minhp: null, hpPot: null } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
+  normal: { average: { past: { 8: [0.4, 0.6] }, deep: { lost: [1.5, 2.5], t: [20, 90] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 9: { minhp: [34, 50], hpPot: [0.6, 1.6] }, 10: { minhp: [30, 44], hpPot: [0.9, 1.8] }, 11: { minhp: [26, 40], hpPot: [1.2, 2.3] }, 12: { minhp: [18, 32], hpPot: [1.6, 2.8] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
     mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { past: { 8: [0, 0.85] } }, builder: BUILDER },
   hard: { average: { past: { 8: [0.1, 0.25] } }, expert: { past: { 8: [0.4, 0.6] } }, builder: BUILDER } } };
 function check() {

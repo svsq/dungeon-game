@@ -29,6 +29,7 @@
    "goblin__*",
    "brute__*",
    "cultist__*",
+   "priest__*",
    "spider__*",
    "*_w",
    "drowned__*",
@@ -37,7 +38,16 @@
    "eel__*",
    "skel_archer__*",
    "skel_mage__*",
-   "serpent__*"
+   "serpent__*",
+   "imp__*",
+   "golem__*",
+   "salamander__*",
+   "golemE__*",
+   "impE__*",
+   "salamanderE__*",
+   "colossus__*",
+   "colossusE__*",
+   "town_*__*"
   ],
   "skip": [
    "*_sheet",
@@ -54,7 +64,16 @@
    "skeleton",
    "drowned",
    "skel_archer",
-   "skel_mage"
+   "skel_mage",
+   "imp",
+   "golem",
+   "colossus",
+   "colossus_source",
+   "colossus_chest",
+   "en_golem_core",
+   "golem__corelit*",
+   "golemE__core",
+   "golemE__plate*"
   ],
   "max": 2048,
   "walk": {

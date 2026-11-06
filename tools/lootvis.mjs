@@ -1,4 +1,4 @@
-// node tools/lootvis.mjs [--out frames/lootvis] — every item of loot lying on the floor must be seen. On several floors of a few
+// node tools/lootvis.mjs [--mode campaign|cave|magma] [--out frames/lootvis] — every item of loot lying on the floor must be seen. On several floors of a few
 // campaigns, every secret is opened and every chest emptied; once the items settle, each one is rendered with and without its sprite (its light
 // kept) and the change in a box around it is measured. A prop drawn over it, or a dark tinted room it vanishes into, shows as a small change.
 // Writes a crop of each failure. Exit 2 when an item changes its box by less than MIN.
@@ -7,7 +7,7 @@ const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), out = args.includes('--out') ? args[args.indexOf('--out') + 1] : 'frames/lootvis';
 const mode = args.includes('--mode') ? args[args.indexOf('--mode') + 1] : 'campaign';
-if (!['campaign', 'cave'].includes(mode)) throw new Error('unknown mode ' + mode);
+if (!['campaign', 'cave', 'magma'].includes(mode)) throw new Error('unknown mode ' + mode);
 const MIN = 20000;   // summed RGB change in the 60×60 box: a clearly drawn item gives 40k and more, the hidden ones measured 0–18k
 fs.mkdirSync(out, { recursive: true });
 const root = process.cwd(), types = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.json': 'application/json' };
@@ -25,7 +25,7 @@ const res = await p.evaluate(({ MIN, mode }) => {
   const grab = (S, x, y) => { SCENE.state = S; SCENE.render(S.t + 0.01); gx.drawImage(cv, 0, 0); const X = Math.round((x - S.run.cam[0]) * Z), Y = Math.round((y - S.run.cam[1]) * Z);
     return { px: gx.getImageData(X - 30, Y - 50, 60, 60).data, X, Y }; };
   let n = 0;
-  for (const sd of [1, 2, 3, 4, 5, 6]) for (const f of mode === 'cave' ? [1, 2, 3, 4] : [1, 3, 5, 7]) {
+  for (const sd of [1, 2, 3, 4, 5, 6]) for (const f of mode === 'campaign' ? [1, 3, 5, 7] : [1, 2, 3, 4]) {
     const S = SIM.spawn(0, {}); SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, mode, sd); if (f > 1) SIM.enterFloor(S, S.run, f); S.screen = 'play';
     const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; R.seen = R.seen.map(() => 1); for (const q of R.map.secrets) SIM.openSecret(S, R, q, true);
     for (const c of R.chests) SIM.openChest(S, R, c); h.x = -9999; h.y = -9999; for (let k = 0; k < 150; k++) SIM.step(S, { keys: [], px: 960, py: 540 }); R.msg = null; S.ev = [];

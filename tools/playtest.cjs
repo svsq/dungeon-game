@@ -1,4 +1,4 @@
-// node tools/playtest.cjs [seed] [--profile novice|average|expert|mage|builder] [--runs N] [--diff easy|normal|hard] [--mode campaign|cave] [--json] [--descend: past the serpent, on down into the endless descent] [--stop-after N] [--snapshots dir] [--checkpoint file]
+// node tools/playtest.cjs [seed] [--profile novice|average|expert|mage|builder] [--runs N] [--diff easy|normal|hard] [--mode campaign|cave|magma] [--json] [--descend: past the serpent, on down into the endless descent] [--stop-after N] [--snapshots dir] [--checkpoint file]
 // the bot (tools/bot.cjs) plays N campaigns in a row with meta ranks bought in between; prints each floor and each run's end.
 // A floor it cannot finish in 400 s ends as "stuck": a bot defect, never a balance result.
 const { play } = require('./bot.cjs'), fs = require('fs'), path = require('path'), v8 = require('v8');

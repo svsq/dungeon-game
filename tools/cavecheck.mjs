@@ -29,11 +29,11 @@ try {
     return window.caveQA.states.map(([n]) => n);
   });
   if (args.includes('--only')) names = names.filter((n) => args[args.indexOf('--only') + 1].split(',').includes(n));
-  else if (!args.includes('--input')) names = names.filter((n) => n.startsWith('cave_') || n.startsWith('serpent_') || ['zone_cave', 'completion_85', 'win_cave', 'win_cave_worst', 'crab_facings', 'skel_ranged', 'eel_states'].includes(n));
+  else if (!args.includes('--input')) names = names.filter((n) => n.startsWith('cave_') || n.startsWith('serpent_') || n.startsWith('magma_') || ['zone_cave', 'zone_magma', 'completion_85', 'win_cave', 'win_cave_worst', 'crab_facings', 'skel_ranged', 'eel_states'].includes(n));
   if (new Set(names).size !== names.length) errors.push('duplicate QA state names');
   if (!names.length) errors.push('no requested QA states found');
   if (args.includes('--only')) for (const name of args[args.indexOf('--only') + 1].split(',')) if (!names.includes(name)) errors.push('missing requested QA state ' + name);
-  for (const required of ['cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
+  for (const required of ['zone_magma', 'magma_hall', 'magma_crossing', 'magma_lava', 'magma_fall', 'magma_light', 'magma_props', 'magma_camp', 'cave_spring', 'cave_breach', 'cave_hall', 'cave_crossing', 'zone_cave', 'win_cave', 'cave_known_dark', 'cave_known_boundary', 'cave_monsters', 'eel_states', 'skel_ranged', 'cave_flood_complete', 'cave_phase2_attack', 'cave_fireball_deep_0', 'cave_fireball_deep_1', 'cave_fireball_deep_2']) if (!args.includes('--only') && !args.includes('--input') && !names.includes(required)) errors.push('missing state ' + required);
   const report = {};
   for (const name of names) {
     const result = await page.evaluate((name) => {
@@ -53,7 +53,10 @@ try {
       const R = S.run, m = R && R.map, h = R && R.hero;
       const exitValid = name === 'cave_arena_exit' ? R.bossDead && R.en.filter((e) => DATA.BOSSES[e.type]).every((e) => e.deadT >= 0) && !window.__UI.some((u) => u.id === 'bossbar') : null;
       return { url, damageText, exitValid, pure: before === JSON.stringify(S), repeatUrl: deterministic ? null : repeatUrl, actorVisible, actorCalls, deterministic, seed: m && m.seed, floor: R && R.floor, t: S.t, cam: R && R.cam,
-        hero: h && [h.x, h.y], heroCell: h && SIM.cell(m, Math.floor(h.x / DATA.TILE), Math.floor(h.y / DATA.TILE)), hints: R && SIM.completionHints(R).map((o) => o.kind) };
+        hero: h && [h.x, h.y], heroCell: h && SIM.cell(m, Math.floor(h.x / DATA.TILE), Math.floor(h.y / DATA.TILE)), hints: R && SIM.completionHints(R).map((o) => o.kind),
+        // the staged magma kinds (TASKS 454: an imp put off screen by doubled coordinates, another left standing in the lava)
+        actors: /^magma_(imp|golem|salamander|ember|priest)$/.test(name) ? R.en.filter((e) => e.deadT < 0).map((e) => { const Z = R.zoom || DATA.ZOOM || 1, vw = 1920 / Z, vh = 1080 / Z;
+          return { id: e.id, type: e.type, st: e.st, on: e.x > R.cam[0] + 20 && e.x < R.cam[0] + vw - 20 && e.y > R.cam[1] + 40 && e.y < R.cam[1] + vh, cell: SIM.cell(m, Math.floor(e.x / DATA.TILE), Math.floor(e.y / DATA.TILE)) }; }) : null };
     }, name);
     fs.writeFileSync(path.join(out, name + '.png'), Buffer.from(result.url.split(',')[1], 'base64'));
     if (result.repeatUrl) fs.writeFileSync(path.join(out, name + '_repeat.png'), Buffer.from(result.repeatUrl.split(',')[1], 'base64'));
@@ -65,6 +68,9 @@ try {
     if (result.exitValid === false) errors.push(name + ': exit fixture has a living boss or boss HUD');
     if (['cave_spring', 'cave_breach'].includes(name) && result.heroCell !== 1) errors.push(name + ': hero off walkable floor');
     if (result.hints && result.hints.includes('secret')) errors.push(name + ': secret hint remains');
+    for (const a of result.actors || []) { if (!a.on) errors.push(`${name}: ${a.type} ${a.id} off screen`);
+      if (a.cell === 3 && a.type !== 'salamander' && a.st !== 'leap') errors.push(`${name}: ${a.type} ${a.id} stands in the lava`);
+      if (a.cell !== 1 && a.cell !== 3) errors.push(`${name}: ${a.type} ${a.id} off the floor (cell ${a.cell})`); }
   }
   fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify({ states: report, errors }, null, 2));
 } finally { await browser.close(); server.close(); }

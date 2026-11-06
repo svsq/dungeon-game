@@ -1,0 +1,83 @@
+[
+ {
+  "name": "floor_mg_tex",
+  "prompt": "art/prompts/floor_mg_tex.txt",
+  "ref": [
+   "art/raw/refcrop_mg_crust.png=magma cave concept crop: ash ground with dark-red cracks, ground material and palette only, not its lava light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "shore_mg_tex",
+  "prompt": "art/prompts/shore_mg_tex.txt",
+  "ref": [
+   "art/raw/refcrop_mg_crust.png=magma cave concept crop: ground and cooled crust by the lava, material and palette only, not its lava light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "wall_mg_tex",
+  "prompt": "art/prompts/wall_mg_tex.txt",
+  "ref": [
+   "art/raw/refcrop_mg_basalt.png=magma cave concept crop: basalt column faces, material and palette only, not their lava glow"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "walltop_mg_tex",
+  "prompt": "art/prompts/walltop_mg_tex.txt",
+  "ref": [
+   "art/raw/refcrop_mg_stones.png=magma cave concept crop: flat hexagonal basalt column tops, shape and palette only, not the lava"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "basalt_a",
+  "prompt": "art/prompts/basalt_a.txt",
+  "ref": [
+   "art/raw/refcrop_mg_basalt.png=magma cave concept crop: basalt column design only, do not copy its lava or light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "basalt_b",
+  "prompt": "art/prompts/basalt_b.txt",
+  "ref": [
+   "art/raw/refcrop_mg_stones.png=magma cave concept crop: basalt column design only, do not copy its lava or light"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "vent_mg",
+  "prompt": "art/prompts/vent_mg.txt",
+  "ref": [
+   "art/raw/refcrop_mg_vent.png=magma cave concept crop: hot vent in the ground, shape only, do not copy its glow or smoke"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "dc_ash_mg",
+  "prompt": "art/prompts/dc_ash_mg.txt",
+  "ref": [
+   "art/raw/refcrop_mg_floor.png=magma cave concept crop: ash ground palette only"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "dc_splash_mg",
+  "prompt": "art/prompts/dc_splash_mg.txt",
+  "ref": [
+   "art/raw/refcrop_mg_crust.png=magma cave concept crop: palette only"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ }
+]

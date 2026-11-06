@@ -134,7 +134,7 @@
     for (const k of D.SLOTS) h.eq[k] = null;
     return h;
   }
-  function newRun(S, mode, seed) {
+  function newRun(S, mode, seed, o = {}) {
     const R = { mode, seed, diff: S.demo ? 'normal' : S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta), cam: [0, 0], camV: [0, 0],
       freeze: 0, trauma: 0, map: null, en: [], proj: [], drops: [], chests: [], pots: [], shrines: [], seen: [], rseen: [], bossDead: 0, won: 0, saveT: 0, msg: null };
     if (!S.demo) R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
@@ -149,7 +149,8 @@
     if (N.kit) { const K = N.kit; for (const [b, rar] of K.gear) h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} })));
       h.bag[0].n += K.hp - BAL.startHpPot; h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
-    enterFloor(S, R, 1);
+    if (o.town) R.viaTown = 1;
+    enterFloor(S, R, o.town ? 0 : 1);
     return R;
   }
   // ---------------- elite powers ----------------
@@ -326,15 +327,22 @@
     }
     if (u >= M.wind + M.duration) { e.st = 'recover'; e.t0 = t; e.cdT = t + D.bossPhase(e).rest + (e.hitDone ? 0 : 0.65); e.openUntil = e.hitDone ? 0 : e.cdT; }
   }
-  // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit
-  function blast(S, R, e) { const M = MOD.explosive, h = R.hero; e.fuse = 0;
+  // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit. A smouldering
+  // skeleton's blast (TASKS 411) is its own: each monster in it loses a share of its own health, and another smouldering one in it lights up
+  function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0;
     if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' взрыв', e);
-    for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) hitEnemy(S, R, o, Math.round(e.max * 0.25), false, e.x, e.y, 1.5);
+    for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
+      hitEnemy(S, R, o, Math.max(1, Math.round(B ? o.max * B.mon : e.max * 0.25)), false, e.x, e.y, 1.5); }
     breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
-  function enterFloor(S, R, f, gen) {
-    R.floor = f; R.propHit = {}; R.bossDead = 0;   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
-    if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] }); const m = DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed }, gen));
-    R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.en = []; R.proj = []; R.drops = []; R.scorches = []; m.goo = [];
+  // a smouldering skeleton lights its fuse: it stands hissing through the wind-up and bursts at its end (stepMonsters)
+  function fuse(S, R, e) { const E = ENEMIES[e.type]; if (e.st === 'wind' || e.deadT >= 0) return; const d = windOf(e, E.wind);
+    e.st = 'wind'; e.t0 = S.t; e.fuse = S.t + d; e.aimA = Math.atan2(R.hero.y - e.y, R.hero.x - e.x); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d, id: e.id, lit: 1 }); }
+  // a floor as it is first entered: the map from its seed, its monsters, chests, pots, altars and merchant rolled off the run's
+  // RNG; deterministic from R.rs and R.nextId, so a floor kept as a diff (TASKS 1008) is rebuilt and patched, not stored whole
+  function buildFloor(R, f, gen) {
+    R.bossDead = 0;
+    const m = f === 0 ? DG.genTown((R.seed * 31) >>> 0) : DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = null;
+    R.map = m; R.arena = null; R.eggs = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.en = []; R.proj = []; R.pyres = []; R.fires = []; R.drops = []; R.scorches = []; m.goo = [];
     const stg = STAGE(R, f), d = stg.depth, sc = BAL.hp * dif(R, 'hp') * D.hpAt(d), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? stg.guard : e.exit && e.elite ? stg.exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk, bk = (D.BOSSES[e.type] && stg.bossK) || { hp: 1, dmg: 1 };
       R.en.push({ id: R.nextId++, type: e.type, x: e.x, y: e.y, vx: 0, vy: 0, hp: Math.round(E.hp * sc * el * bk.hp), max: Math.round(E.hp * sc * el * bk.hp), dmg: E.dmg * dc * (D.BOSSES[e.type] ? D.dmgAt(d, 1) / D.dmgAt(d) : 1) * (!e.elite ? stg.mob : D.BOSSES[e.type] ? 1.35 : eliteK(e, 'dmg')) * gd * bk.dmg,
@@ -349,17 +357,69 @@
     R.chests = m.chests.map((c) => Object.assign({}, c)); for (const c of R.chests) c.loot = chestLoot(R, c); R.pots = m.pots.map((p) => Object.assign({}, p)); R.shrines = m.shrines.map((s) => Object.assign({}, s));
     // a big monster's post can graze a prop: the post is where it can actually stand
     { const sol = solids(R), clear = (x, y, r) => !boxHit(m, x, y, r, true, false) && !sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + r);
-      for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost || ENEMIES[e.type].deep) continue; shove(m, e, r, true, sol);
+      for (const e of R.en) { const r = ENEMIES[e.type].r; if (ENEMIES[e.type].ghost || ENEMIES[e.type].deep || ENEMIES[e.type].lake) continue; if (ENEMIES[e.type].kind === 'salamander') { e.hx = e.x; e.hy = e.y; continue; } shove(m, e, r, true, sol);
         // squeezed between two props, the push only rocks it back and forth: take the nearest spot where it fits
         if (!clear(e.x, e.y, r)) find: for (let d = 4; d <= 96; d += 4) for (let a = 0; a < 16; a++) { const x = e.x + Math.cos(a * Math.PI / 8) * d, y = e.y + Math.sin(a * Math.PI / 8) * d;
           if (clear(x, y, r)) { e.x = x; e.y = y; break find; } }
         e.hx = e.x; e.hy = e.y; } }
-    R.seen = new Array(m.W * m.H).fill(0); R.rseen = m.rooms.map(() => 0);
-    R.stats = R.stats || {}; R.stats[f] = floorStat(R);
-    const h = R.hero; h.x = m.spawn.x; h.y = m.spawn.y; h.vx = h.vy = 0; h.bless = 0; h.pull = null;
+    R.seen = new Array(m.W * m.H).fill(R.town); R.rseen = m.rooms.map(() => R.town);
+  }
+  // ---------------- floors kept as they were left (TASKS 1008, 1027; R-19) ----------------
+  // a run through the town can go back up the stairs or home through a portal and come back: each floor it leaves is kept as the
+  // diff of its changing parts against the same floor rebuilt fresh (the RNG and ids it was first built with are in R.memo[f]),
+  // the loot on its floor and its explored cells run-length coded; nothing comes back to life
+  const FLOOR_KEYS = ['map', 'en', 'chests', 'pots', 'shrines', 'shop', 'keys', 'bossDead', 'arena', 'eggs'];
+  const jclone = (o) => JSON.parse(JSON.stringify(o === undefined ? null : o));
+  function fdiff(a, b) {
+    if (a === b) return undefined;
+    if (a && b && typeof a === 'object' && typeof b === 'object' && Array.isArray(a) === Array.isArray(b)) {
+      const p = {}; let n = 0; for (const k of Object.keys(b)) { const d = fdiff(a[k], b[k]); if (d !== undefined) { p[k] = d; n++; } }
+      const del = Array.isArray(a) ? [] : Object.keys(a).filter((k) => !(k in b)), len = Array.isArray(a) && a.length !== b.length ? b.length : undefined;
+      return n || del.length || len !== undefined ? Object.assign({ p }, del.length ? { d: del } : {}, len !== undefined ? { n: len } : {}) : undefined; }
+    return { v: b === undefined ? null : b }; }
+  function fpatch(a, d) {
+    if ('v' in d) return jclone(d.v);
+    for (const [k, q] of Object.entries(d.p)) a[k] = fpatch(a[k], q); for (const k of d.d || []) delete a[k]; if (d.n !== undefined) a.length = d.n; return a; }
+  const rle = (a) => { const o = []; for (let i = 0; i < a.length;) { let j = i; while (j < a.length && a[j] === a[i]) j++; o.push(a[i], j - i); i = j; } return o; };
+  const unrle = (o) => { const a = []; for (let i = 0; i < o.length; i += 2) for (let k = 0; k < o[i + 1]; k++) a.push(o[i]); return a; };
+  function freshFloor(R, f, M) { const keep = Object.assign({}, R), mode = R.mode; R.rs = M.rs; R.nextId = M.id; R.mode = M.mode; R.floor = f;
+    try { buildFloor(R, f, M.gen || undefined); return Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])); }
+    finally { for (const k of Object.keys(R)) if (!(k in keep)) delete R[k]; Object.assign(R, keep); R.mode = mode; } }
+  // the baseline as JSON, taken when a floor is first built or first restored, so that leaving it again does not generate it a third time
+  const BASE = new WeakMap(), snapFloor = (o) => JSON.stringify(Object.fromEntries(FLOOR_KEYS.map((k) => [k, o[k]])));
+  function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1) return;
+    const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
+    M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
+  function restoreFloor(R, f, M) { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k];
+    R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); }
+  function standNear(R, x, y) { const m = R.map, sol = solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
+    if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
+    return [x, y]; }
+  function enterFloor(S, R, f, gen, how = 'down') {
+    if (R.map && R.viaTown) stashFloor(R);
+    if (R.map && R.town && R.shop) R.townShop = R.shop;
+    R.floor = f; if (f > 0) R.deepest = Math.max(R.deepest || 0, f); R.propHit = {};   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
+    if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
+    const M = f > 0 && R.memo && R.memo[f];
+    if (M) { restoreFloor(R, f, M); R.town = 0; R.folk = null; }
+    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) BASE.set(R.memo[f], snapFloor(R)); }
+    // the town's shelf grows with the deepest floor reached and is restocked only when that has grown, so going back and forth is no free
+    // re-roll; the buy-back row goes on across a restock
+    if (f === 0) { const dd = R.deepest || 0, old = R.townShop; R.townShop = null;
+      if (old && (old.at || 0) === dd) R.shop = old;
+      else { if (dd > 0) R.shop = stockShop(R, STAGE(R, dd).depth); R.shop.at = dd; if (old) R.shop.back = old.back; } }
+    const m = R.map;
+    R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
+    const h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
+    if (how === 'up') [hx, hy] = standNear(R, m.exit.x, m.exit.y + 46);
+    else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
+    h.x = hx; h.y = hy; h.vx = h.vy = 0; h.bless = 0; h.pull = null; h.read = null;
+    // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
+    if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
     reveal(R); ev(S, { k: 'floor', x: h.x, y: h.y, f });
-    R.msg = { s: 'Этаж ' + f + ' — ' + D.floorName(f, R.mode, R.seed), t: S.t };
+    R.msg = { s: D.placeName(f, R.mode, R.seed), t: S.t };
     S.saveN++;
   }
 
@@ -382,7 +442,7 @@
     T.pct = parts.length ? parts.reduce((a, [k, n]) => a + Math.min(1, k / n), 0) / parts.length : 0;
     return T;
   }
-  const runCompletion = (R) => completion(Object.values(R.stats || {}));
+  const runCompletion = (R) => completion(Object.entries(R.stats || {}).filter(([f]) => f !== '0').map(([, v]) => v));
   function completionHints(R) {
     const f = (R.stats || {})[R.floor]; if (!f) return [];
     const near = (k, n) => f[n] > 0 && f[k] < f[n] && f[k] / f[n] >= 0.85, out = [];
@@ -394,10 +454,146 @@
     }
     return out;
   }
+  // the magma caves' hazards (TASKS 406, data.js HAZ): each on its own clock; the warning and the burst are events (the scene's
+  // ring, glow and shadow are drawn from the clock itself), the burst hurts everyone in its ring once a cycle, monsters too: lure
+  // them onto a vent. The hero's hit is a share of his health past armour, as spikes, and a dash leaps it
+  function stepHazards(S, R) {
+    const m = R.map, h = R.hero, t = S.t, dashing = t - h.dashT < BAL.dodge.t;
+    m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(t / z.per + z.ph), tag = R.floor + ':' + i;
+      if (c0 < z.per - H.warn && c >= z.per - H.warn) ev(S, { k: 'hazwarn', x: z.x, y: z.y, h: z.k, i });
+      if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : 0.15)); }
+      if (c >= H.burst) return;
+      if (h.hp > 0 && D.hazIn(z, h.x, h.y) && !dashing && (h.haz || (h.haz = {}))[tag] !== n) { h.haz[tag] = n;
+        hurtHero(S, R, heroSt(S).maxHp * H.hp, z.x, z.y - 10, 'spike', z.k === 'vent' ? 'vent' : 'rock');
+        if (H.burn && h.hp > 0) { if (h.burn <= t) h.burnT = t - 0.5; h.burn = Math.max(h.burn, t + H.burn); } }
+      for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !D.BOSSES[e.type] && D.hazIn(z, e.x, e.y) && (e.haz || (e.haz = {}))[tag] !== n) { e.haz[tag] = n;
+        hitEnemy(S, R, e, Math.round(H.mon * (1 + 0.2 * (dep(R) - 1))), false, z.x, z.y, H.kb, H.burn ? 'fire' : undefined); } });
+  }
+  // a fire priest's ring (TASKS 410): it glows over its warning, then the pillar of fire stands for its burst and hurts a hero within
+  // it once; it cares for no one else
+  function stepPyres(S, R) { const h = R.hero, t = S.t, P = ENEMIES.fire_priest.pyre;
+    for (const p of R.pyres) { const u = t - p.t0; if (u < P.warn) continue;
+      if (!p.lit) { p.lit = 1; ev(S, { k: 'pillar', x: p.x, y: p.y, r: P.r, id: p.id }); R.trauma = Math.min(1, R.trauma + 0.15); }
+      if (!p.hit && h.deadT < 0 && Math.hypot(h.x - p.x, (h.y - p.y) / P.ry) < P.r) { p.hit = 1; hurtHero(S, R, p.dmg, p.x, p.y - 10, 'fire', p.who + ' столб', R.en.find((o) => o.id === p.src)); } }
+    R.pyres = R.pyres.filter((p) => t - p.t0 < P.warn + P.burst); }
+  // a fire priest's cast: a ring under the hero, or (kin) fire on the weapons of the allies nearest it
+  function pyre(S, R, e, E) { e.kinS = 0; const h = R.hero, p = { id: R.nextId++, src: e.id, who: who(e), x: h.x, y: h.y, t0: S.t, dmg: e.dmg * E.pyre.dmg * eliteK(e, 'bolt') };
+    (R.pyres = R.pyres || []).push(p); ev(S, { k: 'pyre', x: p.x, y: p.y, r: E.pyre.r, d: E.pyre.warn, id: p.id, src: e.id }); }
+  const kinOf = (R, e, E) => R.en.filter((o) => o !== e && o.deadT < 0 && !o.summ && !D.BOSSES[o.type] && E.kindle.kinds.includes(ENEMIES[o.type].kind) && o.st !== 'idle' && o.st !== 'lurk'
+    && Math.hypot(o.x - e.x, o.y - e.y) < E.kindle.r).sort((a, b) => Math.hypot(a.x - e.x, a.y - e.y) - Math.hypot(b.x - e.x, b.y - e.y)).slice(0, E.kindle.n);
+  function kindle(S, R, e, E) { const K = E.kindle, to = kinOf(R, e, E); e.kin = 0; e.kinS = 1; e.kinT = S.t + K.every;
+    for (const o of to) o.fireT = S.t + K.t; ev(S, { k: 'kindle', x: e.x, y: e.y - 44, id: e.id, to: to.map((o) => o.id) }); }
+  // ---------------- the imp (TASKS 407) ----------------
+  // a spot to leap to: open floor (no crust) within its leap, in sight of the hero and away from him, free of the others and the vents.
+  // across: the way round to it on foot is long or none (F, the hero's flow field), so he can't walk up to it
+  function impSpot(R, e, E, F, flee) {
+    const m = R.map, h = R.hero, L0 = E.leap, dh0 = Math.hypot(h.x - e.x, h.y - e.y), tx0 = Math.floor(e.x / TILE), ty0 = Math.floor(e.y / TILE), n = Math.ceil(L0.far / TILE), mid = (E.keep[0] + E.keep[1]) / 2, sol = solids(R);
+    let best = null;
+    for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) { const tx = tx0 + i, ty = ty0 + j, k = ty * m.W + tx;
+      if (cell(m, tx, ty) !== 1) continue; const x = (tx + 0.5) * TILE, y = (ty + 0.5) * TILE + 4, dl = Math.hypot(x - e.x, y - e.y);
+      if (dl < L0.near || dl > L0.far) continue; const dh = Math.hypot(h.x - x, h.y - y);
+      if (dh < E.flee + 30 || (flee && dh < dh0 + 50) || !losClear(m, e.x, e.y - 6, x, y - 6) || !losClear(m, x, y - 30, h.x, h.y - 30)) continue;
+      if (R.en.some((o) => o !== e && o.deadT < 0 && Math.hypot((o.st === 'leap' ? o.ltx : o.x) - x, (o.st === 'leap' ? o.lty : o.y) - y) < 26) || (m.hazards || []).some((z) => D.hazIn(z, x, y))) continue;
+      // (not into a prop: landed in a brazier, it was shoved out of it in one frame)
+      if (sol.some((o) => Math.hypot(x - o.x, (y - o.y) * 1.6) < o.r + E.r + 4)) continue;
+      const f = F[k], across = f < 0 || f * TILE > 1.6 * dh + 2 * TILE, sc = Math.abs(dh - mid) - (across ? 160 : 0) + 0.15 * dl + ((e.id * 7919 + k * 104729) % 97) / 5;
+      if (!best || sc < best[0]) best = [sc, x, y, across]; }
+    return best;
+  }
+  const acrossFrom = (R, e, F) => { const m = R.map, h = R.hero, f = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]; return f < 0 || f * TILE > 1.6 * Math.hypot(h.x - e.x, h.y - e.y) + 2 * TILE; };
+  // a leap: a crouch, the flight in a line over whatever lies between (its arc is the render's), a landing crouch
+  // (the walk it springs from eases out in the render, spd0 as a boss's move cuts it: zeroed in a frame, the arms' swing snapped)
+  function leap(S, R, e, E, x, y) { const d = Math.hypot(x - e.x, y - e.y), sp = Math.hypot(e.vx, e.vy); e.spd0 = sp; e.vxn0 = sp > 1 ? e.vx / sp : 1; e.vyn0 = sp > 1 ? e.vy / sp : 0; Object.assign(e, { st: 'leap', t0: S.t, lx: e.x, ly: e.y, ltx: x, lty: y, ld: 0.16 + d / E.leap.spd, vx: 0, vy: 0, kbx: 0, kby: 0 });
+    // it springs back from the hero facing him, its eyes on him; elsewhere it faces where it leaps
+    const h = R.hero, back = Math.hypot(h.x - x, h.y - y) > Math.hypot(h.x - e.lx, h.y - e.ly) && Math.hypot(h.x - e.lx, h.y - e.ly) < E.flee + 20;
+    e.face = back ? (h.x >= e.x ? 1 : -1) : x >= e.x ? 1 : -1; e.aimA = Math.atan2(y - e.y, x - e.x); ev(S, { k: 'leap', x: e.x, y: e.y, id: e.id }); }
+  // (eased along its line, as its arc is in the render: at full speed from the first frame the take-off and the landing jolted)
+  // (its first steps off the landing ease in from a standstill: spd0 0)
+  function leapStep(S, R, e, E) { const L0 = E.leap, u = S.t - e.t0, f = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), q = f * f * (3 - 2 * f);
+    e.x = e.lx + (e.ltx - e.lx) * q; e.y = e.ly + (e.lty - e.ly) * q; e.vx = e.vy = e.kbx = e.kby = 0;
+    if (q >= 1 && !e.landed) { e.landed = 1; ev(S, { k: 'land', x: e.x, y: e.y, id: e.id }); }
+    if (u >= L0.crouch + e.ld + L0.land) { e.st = 'chase'; e.t0 = e.seenT = S.t; e.landed = 0; e.spd0 = 0; e.vxn0 = 1; e.vyn0 = 0; e.leapT = S.t + L0.cd * (0.8 + 0.4 * rnd(R)) / eliteK(e, 'spd'); } }
+  // its turn in the chase: true when it began a leap or an attack
+  function impThink(S, R, e, E, F, d, dx, dy) {
+    const m = R.map, h = R.hero, t = S.t, ready = t >= (e.leapT ?? 0), k = Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE);
+    if (cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) !== 1) { const [x, y] = landOf(m, e.x, e.y); leap(S, R, e, E, x, y); return true; }   // knocked onto lava or crust
+    if (d < E.flee && ready) { const s = impSpot(R, e, E, F, 1); if (s) { leap(S, R, e, E, s[1], s[2]); return true; } }
+    if (d < E.r + K.R + E.reach && t >= e.cdT) { Object.assign(e, { st: 'wind', t0: t, claw: 1, tx: h.x, ty: h.y, aimA: Math.atan2(dy, dx) }); return true; }
+    const los = losClear(m, e.x, e.y - 30, h.x, h.y - 30);
+    if (los && d >= E.flee && d < E.spark.reach && t >= e.cdT) { Object.assign(e, { st: 'wind', t0: t, claw: 0, aimA: Math.atan2(h.y - 38 - (e.y - IMP_Y), h.x - e.x) }); return true; }
+    // every few seconds it looks for a better spot: across from him, or in sight and in range when it has neither
+    if (ready && t >= (e.lookT ?? 0)) { e.lookT = t + E.leap.look; const s = impSpot(R, e, E, F, 0), far = !los || d > E.keep[1] + 30;
+      if (s && ((s[3] && !acrossFrom(R, e, F)) || far)) { leap(S, R, e, E, s[1], s[2]); return true; } }
+    steer(e, E, m, F, d < E.keep[0] ? -1 : d > E.keep[1] || !los ? 1 : 0, dx, dy, d, d < E.keep[0] ? 0.9 : 1); void k;
+    return false;
+  }
+  const IMP_Y = 32;   // the spark leaves its hand this far over its feet
+
+  // ---------------- the lava salamander (TASKS 408) ----------------
+  // the floor's lava and land as one field from a tile (the salamander's way to the hero: swimming is walking for it), cached as flow is
+  const LFLOW = { key: '', d: null };
+  function lavaFlow(m, tx, ty) {
+    const key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m); if (LFLOW.key === key) return LFLOW.d;
+    const d = new Int16Array(m.W * m.H).fill(-1), q = [ty * m.W + tx]; d[q[0]] = 0; const blk = new Set(m.block || []);
+    for (let i = 0; i < q.length; i++) { const k = q[i]; if (d[k] > 60) continue; for (const o of [1, -1, m.W, -m.W]) { const j = k + o; if (d[j] >= 0 || blk.has(j) || (m.cells[j] !== 1 && m.cells[j] !== 3)) continue; d[j] = d[k] + 1; q.push(j); } }
+    LFLOW.key = key; LFLOW.d = d; return d;
+  }
+  // how many cells each floor cell lies from the lava, cached per map (lava doesn't move; crust counts as lava)
+  const LDIST = new WeakMap();
+  function lavaDist(m) { let d = LDIST.get(m); if (d) return d; d = new Int16Array(m.W * m.H).fill(-1); const q = [];
+    for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) { d[k] = 0; q.push(k); }
+    for (let i = 0; i < q.length; i++) { const k = q[i]; for (const o of [1, -1, m.W, -m.W]) { const j = k + o; if (j < 0 || j >= d.length || d[j] >= 0 || m.cells[j] !== 1) continue; d[j] = d[k] + 1; q.push(j); } }
+    LDIST.set(m, d); return d; }
+  const cellOf = (m, o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
+  // the open lava nearest it within n cells, its middle
+  function lavaNear(m, e, n) { const tx = Math.floor(e.x / TILE), ty = Math.floor(e.y / TILE); let best = null;
+    for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) { const x = tx + i, y = ty + j; if (cell(m, x, y) !== 3 || crustAt(m, y * m.W + x)) continue;
+      let deep = 0; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (cell(m, x + a, y + b) === 3) deep++;
+      const dd = i * i + j * j - deep; if (!best || dd < best[2]) best = [(x + 0.5) * TILE, (y + 0.5) * TILE, dd]; }
+    return best; }
+  function salamThink(S, R, e, E, d, dx, dy) {
+    const m = R.map, h = R.hero, t = S.t, B = E.breath, HL = E.heal, LD = lavaDist(m), here = LD[cellOf(m, e)], his = LD[cellOf(m, h)];
+    crabTurn(e, E, Math.atan2(dy, dx), 1);
+    if (e.hp < HL.at * e.max && t >= (e.healT ?? 0)) { const p = lavaNear(m, e, 10); if (p) { Object.assign(e, { st: 'soak', t0: t, sx: p[0], sy: p[1], healT: t + HL.cd, soaked: 0 }); ev(S, { k: 'flee', x: e.x, y: e.y, id: e.id }); return true; } }
+    const front = Math.abs(angDiff(Math.atan2(dy, dx), faOf(e)));
+    if (d < E.r + K.R + E.reach && t >= e.cdT && front < 0.6) { Object.assign(e, { st: 'wind', t0: t, br: 0, tx: h.x, ty: h.y, aimA: faOf(e) }); return true; }
+    if (d > E.r + K.R + B.near && d < B.reach + K.R && front < 0.35 && t >= e.cdT && t >= (e.brT ?? 0) && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { Object.assign(e, { st: 'wind', t0: t, br: 1, tx: h.x, ty: h.y, aimA: faOf(e) }); return true; }
+    // on land it keeps within its tether of the lava: a hero farther in is breathed at from the edge
+    const hold = here > 0 && his > E.tether && here >= E.tether - 1, F = lavaFlow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE));
+    steer(e, E, m, F, hold || d < E.r + K.R + E.reach * 0.8 ? 0 : 1, dx, dy, d, onLava(m, e) ? E.swim : 1);
+    return false;
+  }
+  // back into the lava to heal: it swims to the spot, then lies under, mending while nothing hurts it
+  function soak(S, R, e, E) { const m = R.map, t = S.t, HL = E.heal, dx = e.sx - e.x, dy = e.sy - e.y, d = Math.hypot(dx, dy);
+    crabTurn(e, E, d > 6 ? Math.atan2(dy, dx) : faOf(e), d > 6 ? 1 : 0.3);
+    const sp = (d > 6 ? E.spd * (onLava(m, e) ? E.swim : 1) * eliteK(e, 'spd') : 0) * SS01(Math.min(1, d / 24)), k = 1 - Math.exp(-9 * DT);
+    e.vx += ((d > 0.01 ? dx / d : 0) * sp - e.vx) * k; e.vy += ((d > 0.01 ? dy / d : 0) * sp - e.vy) * k;
+    move(m, e, e.vx * DT, e.vy * DT, E.r, true, true); e.dist += Math.hypot(e.vx, e.vy) * DT;
+    if (!onLava(m, e)) { if (t - e.t0 > 5) { e.st = 'chase'; e.t0 = t; } return; }
+    if (!e.soaked) { e.soaked = 1; e.soakT = t; ev(S, { k: 'submerge', x: e.x, y: e.y, id: e.id }); }
+    if (t - e.hitT > HL.calm) e.hp = Math.min(e.max, e.hp + HL.rate * e.max * DT);
+    if (e.hp >= HL.to * e.max || t - e.soakT > HL.most) { e.st = 'chase'; e.t0 = e.seenT = t; e.soaked = 0; e.cdT = t + 0.4; ev(S, { k: 'emerge', x: e.x, y: e.y, id: e.id }); } }
+  // its fire on the floor: the trail of its belly on land and the patches its breath leaves, a golem's pool of lava (TASKS 409).
+  // Each burns a hero in it once it is `arm` s old (at once by default) and again every `per` s, and sets him alight
+  function addFire(R, S, x, y, o) { (R.fires = R.fires || []).push(Object.assign({ id: R.nextId++, x, y, t0: S.t }, o)); }
+  function stepFires(S, R) { const h = R.hero, t = S.t;
+    for (const p of R.fires) { if (t - p.t0 >= p.t || t - p.t0 < (p.arm || 0) || h.deadT >= 0 || Math.hypot(h.x - p.x, (h.y - p.y) / p.ry) >= p.r + K.R * 0.5 || t < (p.hitT ?? -9) + p.per) continue;
+      if (t - h.dashT < BAL.dodge.t && p.kind !== 'pool') continue;
+      p.hitT = t; hurtHero(S, R, p.dmg, p.x, p.y - 6, 'fire', p.who + (p.kind === 'pool' ? ' лужа' : ' огонь'), R.en.find((o) => o.id === p.src)); }
+    R.fires = R.fires.filter((p) => t - p.t0 < p.t); }
+  function breathFire(S, R, e, E) { const B = E.breath, a = e.aimA;
+    for (const q of [0.35, 0.65, 0.95]) { const x = e.x + Math.cos(a) * (E.r + B.reach * q), y = e.y + Math.sin(a) * (E.r + B.reach * q) * 0.8;
+      if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) === 1) addFire(R, S, x, y, { src: e.id, who: who(e), r: E.trail.r * (0.9 + 0.5 * q), ry: E.trail.ry, t: E.trail.t, dmg: e.dmg * E.trail.dmg, per: E.trail.per, kind: 'breath' }); } }
+
+  // ---------------- the magma golem (TASKS 409) ----------------
+  const crustOf = (e, E) => e.crust ?? E.crust.n;
+  function golemCrust(S, R, e, E, d) { const C = E.crust, t = S.t, n = crustOf(e, E);
+    if (n >= C.n || t - (e.blowT ?? -9) < C.calm || d < C.far) { e.growT = t; return; }
+    if (t - (e.growT ?? t) >= C.regrow) { e.crust = n + 1; e.growT = t; (e.plateG = e.plateG || {})[e.crust] = t; ev(S, { k: 'regrow', x: e.x, y: e.y - E.h * 0.55, id: e.id, n: e.crust }); } }
   function damageName(src) {
     const type = String(src || '').split(' ')[0], E = ENEMIES[type];
-    if (E) return E.name + (src.includes('элита') ? ' (элита)' : '') + (src.endsWith('снаряд') ? ' · снаряд' : src.endsWith('взрыв') ? ' · взрыв' : '');
-    return ({ spike: 'Шипы', lava: 'Лава', burn: 'Горение', poison: 'Яд', fire: 'Огонь' })[src] || 'Неизвестный источник';
+    if (E) return E.name + (src.includes('элита') ? ' (элита)' : '') + (src.endsWith('снаряд') ? ' · снаряд' : src.endsWith('взрыв') ? ' · взрыв' : src.endsWith('столб') ? ' · столб огня' : '');
+    return ({ spike: 'Шипы', lava: 'Лава', burn: 'Горение', poison: 'Яд', fire: 'Огонь', vent: 'Жерло', rock: 'Обвал' })[src] || 'Неизвестный источник';
   }
   // the end-of-run reward: gold brought back and a win. Thoroughness is paid on the floor itself, 10 shards for each of its kills,
   // loot and secrets at 100 % and 1 per secret found (TASKS 175); with the elites and the boss a thorough win brings ~120 shards,
@@ -430,9 +626,18 @@
   // the start room and the merchant's shop (plus one cell): the generator posts no monster there; they are not warded (TASKS 152)
   const inRoom0 = (r, tx, ty) => tx >= r.x && tx < r.x + r.w && ty >= r.y && ty < r.y + r.h;
   const inStart = (m, tx, ty) => inRoom0(m.rooms[m.start], tx, ty) || (!!m.shop && inRoom1(m.rooms[m.shop.room], tx, ty));
-  // lava (3) can be entered — it burns — by the hero and by a monster knocked into it; a monster never walks into it on its own
-  const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty); return c === 3 ? !lavaOk : c !== 1; };
-  const onLava = (m, o) => cell(m, Math.floor(o.x / TILE), Math.floor(o.y / TILE)) === 3;
+  // the magma caves' crust (dungeon.js m.crust, TASKS 401): lava gone hard along the banks. The hero walks it, a monster keeps off it as
+  // off lava; under one standing on it CRUST.stand s it cracks, CRUST.crack s on it is lava again (m.melt[k].hot) for CRUST.hot s
+  const CRUST = { stand: 1, crack: 0.5, hot: 3.5, set: 0.8 }, CRS = new WeakMap();
+  const crustSet = (m) => { if (!m.crust || !m.crust.length) return null; let s = CRS.get(m); if (!s) CRS.set(m, s = new Set(m.crust)); return s; };
+  const crustAt = (m, k) => { const s = crustSet(m); return !!s && s.has(k) && !(m.melt && m.melt[k] && m.melt[k].hot); };
+  // the plateaus' chasm (TASKS 400): the rock below the top wall, which only a blow knocks a monster into (TASKS 401)
+  const chasm = (m, tx, ty) => !!m.cliff && tx > 0 && ty > 0 && tx < m.W - 1 && ty < m.H - 1 && ty >= m.cliff[tx] && m.cells[ty * m.W + tx] === 0;
+  // lava (3) can be entered — it burns — by the hero (not on the plateaus, where it stops him at the bank as deep water does, TASKS
+  // 401, but for a boss's tongues of it, which he must be able to cross) and by a monster knocked into it; a monster never walks into it on its own. lavaOk 2: a blow carries a monster into the chasm
+  const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty);
+    if (c === 3) { const k = ty * m.W + tx; if (crustAt(m, k)) return !!mon && !lavaOk; return !lavaOk && !(!mon && m.arenaLava && m.arenaLava.includes(k)); } if (c === 0 && lavaOk === 2 && chasm(m, tx, ty)) return false; return c !== 1; };
+  const onLava = (m, o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor(o.y / TILE); return cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx); };
   // shallow water (dungeon.js m.water) lies on floor cells: anyone wades through it slowed, and it puts out a burning one
   const WET = new WeakMap(), WADE = 0.75;
   const inWater = (m, o) => { if (!m.water || !m.water.length) return false; let w = WET.get(m); if (!w) WET.set(m, w = new Set(m.water));
@@ -451,7 +656,7 @@
   // than a two-cell wall (the boss) straddles it with its corners on both sides
   const boxHit = (m, x, y, r, mon, lavaOk) => solidAt(m, x - r, y - r * 0.6, mon, lavaOk) || solidAt(m, x + r, y - r * 0.6, mon, lavaOk) || solidAt(m, x - r, y + r * 0.4, mon, lavaOk) || solidAt(m, x + r, y + r * 0.4, mon, lavaOk)
     || solidAt(m, x, y - r * 0.6, mon, lavaOk) || solidAt(m, x, y + r * 0.4, mon, lavaOk);
-  function move(m, o, dx, dy, r, mon, lavaOk = !mon || onLava(m, o)) {
+  function move(m, o, dx, dy, r, mon, lavaOk = (!mon && !m.cliff) || onLava(m, o)) {
     // steps of at most 8 px: the boss's roar shoved the hero 150 px in one move, through a shut door (TASKS 219)
     const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 8);
     if (steps > 1) { let bx = false, by = false;
@@ -529,14 +734,21 @@
     const fx = h.x / TILE, fy = h.y / TILE;
     const sight = (x, y) => { const dx = x + 0.5 - fx, dy = y + 0.5 - fy, n = Math.ceil(Math.hypot(dx, dy) * 3);
       for (let i = 1; i < n; i++) { const cx = Math.floor(fx + dx * i / n), cy = Math.floor(fy + dy * i / n); if (cx === x && cy === y) break; if (opaque(cx, cy)) return false; } return true; };
-    const rooms = new Set();
-    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || !sight(x, y)) continue;
+    // on the plateaus (TASKS 453) the window is an ellipse, not its 17×13 box: over open lava nothing stops the sight, and the box's
+    // straight sides showed as a rectangle of lava in the dark
+    const rooms = new Set(), oval = !!m.cliff;
+    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > 1) || !sight(x, y)) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
       R.seen[y * W + x] = 1; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v);
       const ri = DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE); if (ri >= 0) rooms.add(ri); }
+    // a room shows whole once seen; a plateau's box is mostly lava, so there only its floor and the lava within two cells of it
+    // (TASKS 453: the whole box was a rectangle of lava cut out of the dark)
+    const nearFloor = (x, y, r) => { for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) { const X = x + u, Y = y + v;
+      if (X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
     for (const ri of rooms) { if (R.rseen[ri]) continue; R.rseen[ri] = 1; const r = m.rooms[ri];
       for (let y = r.y - 2; y <= r.y + r.h + 1; y++) for (let x = r.x - 2; x <= r.x + r.w + 1; x++) { if (!inMap(x, y)) continue;
         const own = x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+        if (oval && m.cells[y * W + x] !== 1 && !nearFloor(x, y, r)) continue;
         if (opaque(x, y)) wall(x, y); else if (own || DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0) R.seen[y * W + x] = 1; } }
     // a door once seen shows whole: its leaf stands over the cells behind it (a top wall's over the corridor, a bottom wall's over the room)
     for (const d of m.doors || []) { if (!d.cells.some(([x, y]) => R.seen[y * W + x])) continue; const up = d.dir === 'u' ? [1, 2] : d.dir === 'd' ? [-1] : [];
@@ -572,9 +784,12 @@
     const n = Math.min(o.shield, dmg); o.shield -= n; ev(S, Object.assign({ k: 'absorb', x: o.x, y: o.y, n }, extra)); return dmg - n;
   }
   function hurtHero(S, R, dmg, sx, sy, kind, src, actor) {
-    const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr) return;
+    const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr || R.town) return;
     const dashing = S.t - h.dashT < BAL.dodge.t; if (dashing && (kind === 'spike' || src === 'lava')) return;
     if (kind !== 'spike' && src !== 'lava' && rnd(R) * 100 < heroSt(S).dodge + (dashing ? BAL.dodge.dash : 0)) { ev(S, { k: 'dodge', x: h.x, y: h.y, dash: dashing ? 1 : 0 }); return; }
+    if (h.read) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Чтение прервано' }); }
+    // a weapon a fire priest set alight (TASKS 410): a harder blow that sets the hero burning
+    if (actor && actor.fireT > S.t && kind === undefined && !/ (снаряд|взрыв|столб)$/.test(src || '')) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
     const st = heroSt(S), KD = 20 + 12 * dep(R); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : BAL.cap.blow)));
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
@@ -594,17 +809,21 @@
   }
   // (ax, ay): where the blow came from on the floor, when not its source (a bolt bursts at the height of the body it hit)
   function hitEnemy(S, R, e, dmg, crit, sx, sy, kb = 1, kind, ax = sx, ay = sy) {
-    if (e.deadT >= 0 || under(e)) return;
+    if (e.deadT >= 0 || under(e) || R.town) return;
     if (R.map.bossType === e.type && !R.arena) { stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
-    if (e.type === 'boss_serpent' && e.openUntil > S.t) dmg *= 1.4;
-    const arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
+    if (D.BOSSES[e.type] && e.openUntil > S.t) dmg *= e.type === 'boss_serpent' ? 1.4 : D.BOSSES[e.type].moves.fists.open;
+    let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
+    // a golem's crust takes the blow and a plate of it comes off (TASKS 409); its fire doesn't
+    const CR0 = ENEMIES[e.type].crust; if (CR0 && kind !== 'burn' && kind !== 'thorns' && crustOf(e, ENEMIES[e.type]) > 0) { dmg = Math.max(1, Math.round(dmg * CR0.k)); const n0 = crustOf(e, ENEMIES[e.type]); e.crust = n0 - 1; e.growT = S.t; e.armT = S.t; arm = true;
+      (e.plateT = e.plateT || {})[n0] = S.t; (e.plateA = e.plateA || {})[n0] = Math.atan2(e.y - sy, e.x - sx); }   // (which plate went when, and which way: the render throws it off)
     dmg = absorbShield(S, e, dmg, { id: e.id }); if (dmg <= 0) return;
     if (gift(R.hero, 'execute') && e.hp < 0.25 * e.max) dmg = Math.round(dmg * (1 + gift(R.hero, 'execute') / 100));
-    e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e); if (e.st === 'lurk') rise(S, R, e);
-    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || e.elite || ENEMIES[e.type].ghost || ENEMIES[e.type].deep || e.st === 'rise';
+    // blowT: a blow, not a burn's tick (a golem's crust grows back once the blows stop, TASKS 409)
+    e.hp -= dmg; e.hitP = e.hitT; e.hitT = S.t; if (kind !== 'burn' && kind !== 'thorns') e.blowT = S.t; if (e.st === 'idle' || e.st === 'home') aggroRoom(R, e); if (e.st === 'lurk') rise(S, R, e);
+    const dx = e.x - sx, dy = e.y - sy, d = Math.hypot(dx, dy) || 1, heavy = e.type === 'brute' || ENEMIES[e.type].heavy || e.elite || ENEMIES[e.type].ghost || ENEMIES[e.type].deep || e.st === 'rise' || e.st === 'leap';
     if (!heavy && !arm) { e.kbx += dx / d * 300 * kb; e.kby += dy / d * 300 * kb; }
-    if (kind === 'fire') { e.burn = S.t + 3; e.burnT = S.t; }
+    if (kind === 'fire' && !ENEMIES[e.type].lava) { e.burn = S.t + 3; e.burnT = S.t; }
     ev(S, Object.assign({ k: 'hit', x: e.x, y: e.y - ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: dmg, crit: crit ? 1 : 0, id: e.id, fire: kind === 'fire' ? 1 : 0 }, arm ? { arm: 1, a: Math.atan2(ay - e.y, ax - e.x) } : {}));
     R.freeze = Math.max(R.freeze, crit ? 0.06 : 0.035); R.trauma = Math.min(1, R.trauma + (crit ? 0.22 : 0.12));
     const st = heroSt(S); if (kind !== 'burn' && kind !== 'thorns') R.hero.hp = Math.min(st.maxHp, R.hero.hp + dmg * st.leech / 100 + st.onhit);
@@ -612,16 +831,42 @@
   }
   function aggroRoom(R, e) { for (const o of R.en) if (o.deadT < 0 && (!D.BOSSES[o.type] || !R.map.bossType || R.arena) && (o === e || o.st === 'idle') && (o.room === e.room || (Math.hypot(o.x - e.x, o.y - e.y) < 220 && losClear(R.map, o.x, o.y - 10, e.x, e.y - 10)))) { o.st = 'chase'; o.t0 = o.seenT = R.t; }
     if (e.st === 'home') { e.st = 'chase'; e.t0 = e.seenT = R.t; } }
+  // how long a monster knocked off a plateau takes to go: falling into the chasm, sinking burning in the lava (TASKS 401)
+  const DOOM = { fall: 0.7, sink: 1.5 };
+  // the crust under the hero or a monster knocked onto it: standing CRUST.stand s cracks it and its crusted neighbours (light, a
+  // crack), CRUST.crack s on they are lava for CRUST.hot s, then they set again; stepping off before it cracks lets it be
+  function stepCrust(S, R) {
+    const m = R.map, t = S.t, cs = crustSet(m); if (!cs) return; const M = m.melt || (m.melt = {}), on = new Set();
+    for (const o of [R.hero].concat(R.en)) { if (o.deadT >= 0 || (o !== R.hero && ENEMIES[o.type].ghost)) continue; const k = Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE); if (cs.has(k)) on.add(k); }
+    for (const k of on) { const q = M[k] || (M[k] = { on: 0 }); if (q.crackT !== undefined) continue; q.on += DT; if (q.on < CRUST.stand) continue;
+      for (const n of [k, k + 1, k - 1, k + m.W, k - m.W]) if (cs.has(n) && (!M[n] || M[n].crackT === undefined)) M[n] = { on: CRUST.stand, crackT: t };
+      ev(S, { k: 'crack', x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE }); }
+    for (const key in M) { const q = M[key], k = +key, x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+      if (q.crackT === undefined) { if (!on.has(k) && (q.on -= 2 * DT) <= 0) delete M[key]; continue; }
+      if (!q.hot && q.meltT === undefined && t >= q.crackT + CRUST.crack) { q.hot = 1; q.meltT = t; ev(S, { k: 'melt', x, y }); }
+      else if (q.hot && t >= q.meltT + CRUST.hot) { q.hot = 0; q.setT = t; ev(S, { k: 'set', x, y }); }
+      else if (!q.hot && q.setT !== undefined && t >= q.setT + CRUST.set) delete M[key]; }
+  }
+  // the floor nearest a spot off it (a monster gone into the lava or the chasm drops its loot on the bank)
+  function landOf(m, x, y) { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); if (cell(m, tx, ty) === 1) return [x, y];
+    for (let r = 1; r <= 8; r++) { let best = null; for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (Math.max(Math.abs(i), Math.abs(j)) === r && cell(m, tx + i, ty + j) === 1) { const d = i * i + j * j; if (!best || d < best[2]) best = [tx + i, ty + j, d]; }
+      if (best) return [(best[0] + 0.5) * TILE, (best[1] + 0.5) * TILE + 6]; } return [x, y]; }
   function killEnemy(S, R, e) {
+    if (e.type === 'boss_colossus') e.deathPose = { ...e };
     e.deadT = S.t; e.hp = 0; R.kills++;
     if (gift(R.hero, 'feast') && R.hero.deadT < 0) { const st = heroSt(S); R.hero.hp = Math.min(st.maxHp, R.hero.hp + st.maxHp * gift(R.hero, 'feast') / 100); } if (counted(e)) { fstat(R).kills++; checkFull(S, R); } R.freeze = Math.max(R.freeze, 0.07); R.trauma = Math.min(1, R.trauma + 0.25);
     const E = ENEMIES[e.type]; const nm = e.mods ? e.mods.length : 0; gainXp(S, R, Math.round(E.xp * BAL.reward * (1 + 0.3 * (dep(R) - 1)) * (e.elite && !D.BOSSES[e.type] ? 3 + nm : 1)));
     if (E.puddle) (R.map.goo = R.map.goo || []).push({ id: R.nextId++, x: e.x, y: e.y, t0: S.t, T: E.puddle.t, r: E.puddle.r, rNow: E.puddle.r });
     if (E.split) split(S, R, e, E);
-    if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
-    ev(S, { k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id });
+    // a golem falls apart into a pool of lava (TASKS 409)
+    if (E.pool && e.sinkT === undefined && e.fallT === undefined) { addFire(R, S, e.x, e.y, { src: e.id, who: who(e), r: E.pool.r, ry: E.pool.ry, t: E.pool.t, dmg: e.dmg * E.pool.dmg, per: E.pool.per, arm: E.pool.arm, kind: 'pool' }); ev(S, { k: 'pool', x: e.x, y: e.y, r: E.pool.r, d: E.pool.t, id: e.id }); }
+    // a smouldering skeleton killed bursts too, unless it went off itself or into the lava or the chasm; one already lit keeps its fuse
+    if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = S.t + E.boom.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: E.boom.fuse, id: e.id }); } }
+    else if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
+    ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id }, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
     if (e.summ) return;
+    const [lx, ly] = landOf(R.map, e.x, e.y), ox = e.x, oy = e.y; e.x = lx; e.y = ly;
     if (e.key !== undefined) drop(R, e.x, e.y, { kind: 'key', lock: e.key });
     const gb = 1 + 0.15 * ((S.meta.up || {}).gold || 0);
     if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + dep(R) * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
@@ -634,6 +879,7 @@
     if (D.BOSSES[e.type]) finishArena(S, R, e);
     if (big) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
     if (fin) { R.bossDead = 1; R.msg = { s: ENEMIES[e.type].name + ' повержен! Портал наружу открыт', t: S.t }; }
+    e.x = ox; e.y = oy;
   }
   // a thrown-away item lands on a free neighbouring cell and stays put until the hero has walked away from it and comes back
   function throwAway(R, h, it) {
@@ -664,9 +910,22 @@
     const h = R.hero, b = BASES[it.b]; if (isCons(it) || !b || !b.slot || h.eq[b.slot]) return false;
     h.eq[b.slot] = it; ev(S, { k: 'equip', x: h.x, y: h.y, slot: b.slot, on: gearName(it) }); return true;
   }
+  const READ_T = 1.6, bossFight = (R) => !!(R.map.bossType && R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'));
+  // the scroll being read: a step, a dash or a blow breaks it off (the scroll is kept); read through, the portal opens where the hero
+  // stands and takes him to the town's ring of stones; its pair in the town brings him back to that spot (and closes)
+  function readStep(S, R, moved, dashing) { const h = R.hero, q = h.read;
+    if (moved || dashing || h.deadT >= 0 || h.atkT > q.t0 || (h.castT ?? -9) > q.t0) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Чтение прервано' }); return; }
+    if (S.t - q.t0 < READ_T) return;
+    const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; if (--it.n <= 0) h.bag[q.i] = null;
+    R.portal = { f: R.floor, x: h.x, y: h.y }; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   function useItem(S, R, idx) {
     const h = R.hero, it = h.bag[idx]; if (!it) return;
     if (it.b === 'hp_potion' || it.b === 'mp_potion') { usePotion(S, R, it.b); return; }
+    // in a run through the town (TASKS 1007) the scroll is read on the spot, READ_T s standing still, and opens a portal home
+    if (it.b === 'scroll' && R.viaTown) { S.screen = 'play';
+      if (R.town) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'В городе свиток не нужен' }); return; }
+      if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
+      h.read = { t0: S.t, i: idx }; h.vx = h.vy = 0; ev(S, { k: 'read', x: h.x, y: h.y }); return; }
     if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
     const slot = BASES[it.b].slot, old = h.eq[slot]; h.eq[slot] = it; h.bag[idx] = old || null; ev(S, { k: 'equip', x: h.x, y: h.y, slot, on: gearName(it), off: gearName(old) });
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
@@ -782,7 +1041,7 @@
     const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
     if (!room || P.fired) return false;
     P.fired = 1;
-    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep);
+    const roster = D.rosterAt(m.biome, R.floor).filter((t) => !D.BOSSES[t] && !ENEMIES[t].lurk && !ENEMIES[t].deep && ENEMIES[t].kind !== 'salamander');
     if (!roster.length) return false;
     const group = Array.from({ length: P.n }, () => pick(R, roster)), radius = Math.max(...group.map((t) => ENEMIES[t].r)), obstacles = solids(R), block = new Set(m.block || []);
     const inside = (x, y) => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h;
@@ -891,7 +1150,9 @@
     if (h.face !== wasFace) h.faceT = t;
     // dash
     if (keys.Space && h.cd.dash <= t) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
-      h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
+      h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY });
+      // the dash beats the flames out (TASKS 463: burning took the most hits and nothing put it out away from water)
+      if (h.burn > t) { h.burn = 0; ev(S, { k: 'snuff', x: h.x, y: h.y, hero: 1 }); } }
     // a dash is a leap: spikes under it never bite, and one that would come down on a plate carries on until it is clear of it
     const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t - h.dashT < K.DASH_T;
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
@@ -934,12 +1195,16 @@
     if (keys.KeyQ) usePotion(S, R, 'hp_potion');
     if (keys.KeyR) usePotion(S, R, 'mp_potion');
     if (keys.KeyE) interact(S, R);
+    if (R.map !== m) return;
+    if (h.read && R.hero === h) readStep(S, R, ix || iy ? 1 : 0, dashing);
+    if (R.map !== m) return;
     // a loose flagstone sinks under the hero's step
     for (const q of m.secrets || []) if (!q.open && q.trig && q.trig.k === 'plate' && Math.abs(h.x - q.trig.x) < 13 && Math.abs(h.y - q.trig.y) < 13) { q.trig.downT = t; ev(S, { k: 'click', x: q.trig.x, y: q.trig.y }); openSecret(S, R, q); }
     // ---- status ----
     const rIn = reveal(R);
     if (R.msg && R.msg.room !== undefined && rIn !== R.msg.room && !R.msg.outT) R.msg.outT = t;   // a room's alarm is about that room only
     if (m.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y); if (d < 230 && R.shop.away) { R.shop.away = 0; R.shop.greetT = t; } else if (d > 360) R.shop.away = 1; }
+    if (R.town && m.town) stepFolk(S, R);
     if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
     h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT);
@@ -947,7 +1212,9 @@
     if (h.poison > t) { const n = 2.5 * st.resist * DT; h.hp -= n; if (h.hp <= 1) h.hp = 1; if (R.log) add(logFloor(R).dmg, 'poison', n);
       h.poisonAcc = (h.poisonAcc || 0) + n; if (t - (h.poisonT ?? -9) >= 0.5) { h.poisonT = t; const k = Math.round(h.poisonAcc); if (k > 0) { h.poisonAcc -= k; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: k, src: 'poison' }); } } }
     // a fire hex sets the hero alight: a tick every 0.5 s for 3 s, past the invulnerability window like poison, never the killing blow
-    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { h.burnT = t; const n = Math.max(1, Math.round((1.5 + 0.3 * dep(R)) * st.resist * dif(R, 'dmg'))); h.hp = Math.max(1, h.hp - n); ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn' }); }
+    // a burn's ticks run up one number on screen (`chain`: the burn's first tick, `sum`: so far), not a number each half second
+    if (h.burn > t && t - (h.burnT ?? -9) >= 0.5) { if (t - (h.burnL ?? -9) > 0.75) { h.burnC = t; h.burnSum = 0; } h.burnT = h.burnL = t; const n = Math.max(1, Math.round((1.5 + 0.3 * dep(R)) * st.resist * dif(R, 'dmg'))); h.hp = Math.max(1, h.hp - n); h.burnSum = (h.burnSum || 0) + n;
+      ev(S, { k: 'scorch', x: h.x, y: h.y }); ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n, src: 'burn', chain: h.burnC, sum: h.burnSum }); }
     if (h.shield > 0 && t > h.shieldUntil) h.shield = 0;
     // spikes: up for 0.7 s of every 2.4 s; a plate is 2×2 cells, feet a little inside its edge count
     for (const tr of m.traps) { const ph = ((t / 2.4 + tr.ph) % 1 + 1) % 1, up = ph < 0.29;
@@ -955,14 +1222,19 @@
       // the spikes don't care whose feet are on them: lure or knock monsters onto a plate
       if (up) for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onPlate(e, tr) && t - (e.spikeT ?? -9) > 0.7) {
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (dep(R) - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
+    if (m.hazards) stepHazards(S, R);
+    if (R.pyres && R.pyres.length) stepPyres(S, R);
+    if (R.fires && R.fires.length) stepFires(S, R);
     // water puts the fire out
     if (h.burn > t && inWater(m, h)) { h.burn = 0; ev(S, { k: 'douse', x: h.x, y: h.y }); }
     for (const e of R.en) if (e.deadT < 0 && e.burn > t && !ENEMIES[e.type].ghost && inWater(m, e)) { e.burn = 0; ev(S, { k: 'douse', x: e.x, y: e.y }); }
     // lava burns whoever stands in it, every half second
     const lavaDmg = () => 8 * (1 + 0.2 * (dep(R) - 1));
     if (onLava(m, h) && t - (h.lavaT ?? -9) >= 0.5) { h.lavaT = t; hurtHero(S, R, lavaDmg() * st.resist, h.x, h.y, undefined, 'lava'); ev(S, { k: 'scorch', x: h.x, y: h.y }); }
-    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && onLava(m, e) && t - (e.lavaT ?? -9) >= 0.5) {
+    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !ENEMIES[e.type].lava && onLava(m, e) && t - (e.lavaT ?? -9) >= 0.5) {
+      if (m.cliff && !D.BOSSES[e.type]) { if (e.sinkT === undefined && e.fallT === undefined) { e.sinkT = t; e.burn = t + DOOM.sink + 0.5; e.burnT = t; e.kbx = e.kby = 0; ev(S, { k: 'sink', x: e.x, y: e.y, id: e.id, type: e.type }); } continue; }
       e.lavaT = t; hitEnemy(S, R, e, Math.round(lavaDmg() * 1.25), false, e.x, e.y, 0, 'fire'); ev(S, { k: 'scorch', x: e.x, y: e.y }); }
+    if (crustSet(m)) stepCrust(S, R);
     stepProjectiles(S, R);
     stepMonsters(S, R, 1);
     for (const e of R.en) if (e.type === 'crab' && e.deadT < 0) {
@@ -987,10 +1259,55 @@
   }
   function camera(R, h, lx, ly) { const w = WIN(R), tg = [h.x - w.W / 2 + lx, h.y - 30 - w.H / 2 + ly]; clampCam(R, tg);
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
+  // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
+  // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
+  // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
+  const FOLK_R = { child: 9, hen: 6 }, folkR = (f) => FOLK_R[f.role] || 12;
+  const folkOf = (R) => R.folk || (R.folk = D.folkInit(R.map.town.npcs));
+  const townOk = (m) => m.town.walkOk || Object.defineProperty(m.town, 'walkOk', { value: DG.townWalk(m), enumerable: false }).walkOk;
+  const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
+  // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
+  const folkTalk = (f, t) => f.near && t - f.sayT < D.FOLK_SAY;
+  const folkPause = (f, stop) => (f.role === 'porter' ? (stop && stop.act ? 1.8 : 0) : D.FOLK[f.role].pause || 0);
+  function stepFolk(S, R) {
+    const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0;
+    for (const f of F) { const n = m.town.npcs[f.i], FD = D.FOLK[f.role], r = folkR(f);
+      if (FD.lines) { const d = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25);
+        if (!f.near && alive && d < 72) { f.near = 1; f.sayT = t; f.sayN = (f.sayN + 1) % FD.lines.length; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+        else if (f.near && (d > 130 || !alive)) { f.near = 0; f.byeT = t; } }
+      // the loop's impact: the anvil rings on the smith's blow (not on his breather, not while he talks)
+      if (f.role === 'smith' && !folkTalk(f, t)) { const a = D.folkClock('smith', f.i, t - DT), b = D.folkClock('smith', f.i, t);
+        if ((a.n === b.n ? a.u < FD.hit && b.u >= FD.hit : b.u >= FD.hit) && b.n % FD.rest !== FD.rest - 1) ev(S, { k: 'anvil', x: f.x, y: f.y }); }
+      const route = n.route;
+      if (folkTalk(f, t)) f.face = h.x >= f.x ? 1 : -1;
+      if (!route) { f.spd = 0; continue; }
+      let want = 0, ux = 0, uy = 0;
+      if (!folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way])) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; }
+      if (f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
+        if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
+          if (tg.act === 'take') f.load = 1; else if (tg.act === 'drop') f.load = 0; if (tg.act) ev(S, { k: 'toss', x: f.x, y: f.y }); }
+        else { want = Math.min(FD.v, d * 3 + 8); ux = dx / d; uy = dy / d; } }
+      f.spd += (want - f.spd) * Math.min(1, 7 * DT);
+      if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
+      if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }
+      // round the others and the hero: try straight on, then wider and wider turns; nothing clear, it waits
+      const step = f.spd * DT, near = (x, y) => F.some((o) => o !== f && Math.hypot(o.x - x, (o.y - y) * 1.4) < r + folkR(o) + 3 && Math.hypot(o.x - x, (o.y - y) * 1.4) < Math.hypot(o.x - f.x, (o.y - f.y) * 1.4))
+        || (Math.hypot(h.x - x, (h.y - y) * 1.4) < r + K.R + 4 && Math.hypot(h.x - x, (h.y - y) * 1.4) < Math.hypot(h.x - f.x, (h.y - f.y) * 1.4));
+      let moved = false;
+      for (const a of [0, 0.6, -0.6, 1.2, -1.2]) { const c = Math.cos(a), sn = Math.sin(a), vx = ux * c - uy * sn, vy = ux * sn + uy * c, x = f.x + vx * step, y = f.y + vy * step;
+        if (!folkFree(m, x, y, r) || near(x, y)) continue;
+        f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
+      if (!moved) { f.vx = f.vy = 0; f.spd = 0; if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
+      if (Math.abs(f.vx) > 3) f.face = f.vx > 0 ? 1 : -1; }
+    // the merchant calls the hero over from across the yard, every so often
+    if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
+      if (alive && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 11) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
+  }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
     for (const q of R.map.waterFeatures || []) if (q.kind === 'fountain') out.push({ x: q.x, y: q.y - 2, r: 34 });
-    if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 }); return out; };
+    if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 });
+    for (const f of R.folk || []) out.push({ x: f.x, y: f.y, r: folkR(f) }); return out; };
   function interact(S, R) {
     const h = R.hero, m = R.map;
     const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56)); if (c) { openChest(S, R, c); return; }
@@ -1000,6 +1317,12 @@
     const sq = sq0; if (sq) { if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
     const lv = leverNear(R); if (lv) { pullLever(S, R, lv); return; }
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
+    const dUp = m.up ? Math.hypot(m.up.x - h.x, m.up.y - h.y) : 1e9;
+    if (dUp < 56 && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
+      ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
+    // the town's end of a portal (TASKS 1007): back to where the scroll was read; the portal closes behind the hero
+    if (R.town && R.portal && m.town && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) { const P = R.portal;
+      ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); enterFloor(S, R, P.f, undefined, 'portal'); R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: RUN(R).seal }); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
@@ -1064,16 +1387,23 @@
     ev(S, { k: 'trade', x: R.map.shop.x, y: R.map.shop.y, n: price, s: 'Продано: ' + itemName(one), rar: one.rar });
   }
 
+  const projWall = (m, x0, y0, x1, y1, gz) => { const cx = Math.floor(x0 / TILE), cy = Math.floor((y0 + gz) / TILE), nx = Math.floor(x1 / TILE), ny = Math.floor((y1 + gz) / TILE), pc = cell(m, nx, ny);
+    return pc === 0 || pc === 4 || pc === 5 || pinch(m, cx, cy, nx, ny); };
+  const projCover = (m, x, y) => m.decor.some((d) => d.cover && !d.broken && Math.abs(x - d.x) < 26 && y > d.y - 75 && y < d.y + 8);
+  // how far a shot fired now would fly before a wall or a cover stops it: the serpent's warnings end where its water really does
+  function flightReach(m, x, y, a, speed, life, gz) { const vx = Math.cos(a) * speed * DT, vy = Math.sin(a) * speed * DT, n = Math.ceil(life / DT);
+    for (let i = 1; i <= n; i++) { const x1 = x + vx, y1 = y + vy; if (projWall(m, x, y, x1, y1, gz) || projCover(m, x1, y1)) return (i - 1) * speed * DT; x = x1; y = y1; }
+    return n * speed * DT; }
   function stepProjectiles(S, R) {
     const m = R.map, h = R.hero;
     for (const p of R.proj) { if (p.dead) continue;
       // gz: how far over its floor it flies (an eel's jet leaves its mouth high over the water)
-      const gz = p.gz ?? 20, cx = Math.floor(p.x / TILE), cy = Math.floor((p.y + gz) / TILE);
+      const gz = p.gz ?? 20, x0 = p.x, y0 = p.y;
       p.x += p.vx * DT; p.y += p.vy * DT; const age = S.t - p.t0;
-      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = pc === 0 || pc === 4 || pc === 5 || pinch(m, cx, cy, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE));
+      const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = projWall(m, x0, y0, p.x, p.y, gz);
       if (pc === 4 && p.own === 'hero') { const q = secretAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (q && kindOf(q) === 'crack') hitSecret(S, R, q); }
       if (pc === 5 && p.own === 'hero') { const d = doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) openDoor(S, R, d, 1); }
-      let boom = wall || age > p.life || m.decor.some((d) => d.cover && !d.broken && Math.abs(p.x - d.x) < 26 && p.y > d.y - 75 && p.y < d.y + 8);
+      let boom = wall || age > p.life || projCover(m, p.x, p.y);
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' снаряд', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       if (boom) { p.dead = 1;
@@ -1091,11 +1421,21 @@
       if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) blast(S, R, e); continue; }
       if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; hitEnemy(S, R, e, Math.max(1, Math.round(2 + dep(R))), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
-      if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0; }
+      if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost && (m.cliff && !D.BOSSES[e.type] ? 2 : true)); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0;
+        if (e.fallT === undefined && chasm(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) { e.fallT = t; e.kbx = e.kby = 0; ev(S, { k: 'fall', x: e.x, y: e.y, id: e.id, type: e.type }); } }
+      // knocked off a plateau (TASKS 401): into the chasm it falls, in the lava it burns; either way it is gone in a moment
+      if (e.fallT !== undefined || e.sinkT !== undefined) { e.vx = e.vy = 0; if (t >= (e.fallT ?? e.sinkT) + (e.fallT !== undefined ? DOOM.fall : DOOM.sink)) killEnemy(S, R, e); continue; }
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
       if (e.face !== e.pf) { if (e.pf) e.ft = t; e.pf = e.face; }
       if (E.kind === 'eel') { eel(S, R, e, E, heroOk, d); continue; }
       if (E.kind === 'serpent') { serpent(S, R, e, heroOk); continue; }
+      if (E.lake && (e.st === 'idle' || e.st === 'emerge' || e.st === 'wade')) { colossusRise(S, R, e); continue; }
+      if (E.kind === 'bomber' && e.st === 'wind') { skid(m, e, E); if (t >= e.fuse) { e.blown = 1; blast(S, R, e); killEnemy(S, R, e); } continue; }
+      // (when it went into the lava or came out of it, for the render's ease between swimming and walking)
+      if (E.kind === 'salamander') { const on = onLava(m, e) ? 1 : 0; if ((e.lv || 0) !== on) { e.lv = on; e.lvT = t; } }
+      if (e.st === 'leap') { leapStep(S, R, e, E); continue; }
+      if (e.st === 'soak') { soak(S, R, e, E); continue; }
+      if (E.crust) golemCrust(S, R, e, E, d);   // (at its post too: a hero who walked away finds it whole again)
       // a drowned under the shallows stirs only for a hero close by; it stands up out of the water before it can do anything
       if (e.st === 'lurk') { e.vx = e.vy = 0; if (heroOk && d < E.sense && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) rise(S, R, e); continue; }
       if (e.st === 'rise') { e.vx = e.vy = 0; if (t - e.t0 < E.rise) continue; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = Math.max(e.cdT, t + 0.25); }
@@ -1104,10 +1444,12 @@
         else { if (e.st === 'idle') idle(m, e, E, t); else goHome(m, e, E, t);
           // a crab at its post looks one way, then the other, at its own slow pace
           if (E.kind === 'crab') { const per = 6 + (e.id % 5), n = Math.floor((t + e.id * 2.3) / per); crabTurn(e, E, n % 2 ? 0.5 : Math.PI - 0.5, 0.5); }
+          else if (E.kind === 'salamander' && Math.hypot(e.vx, e.vy) > 4) crabTurn(e, E, Math.atan2(e.vy, e.vx), 0.5);
           continue; } }
       if (!heroOk) { e.vx = e.vy = 0; continue; }
       // a committed attack keeps facing its aim: a lunge that carries past the hero must not mirror mid-strike; a hero straight above or below doesn't flip it every frame
       if (E.kind === 'crab') { if (e.st === 'chase' || (e.st === 'wind' && !e.rush)) { crabTurn(e, E, Math.atan2(dy, dx), e.st === 'wind' ? 0.5 : 1); if (e.st === 'wind') e.aimA = e.fa; } else crabTurn(e, E, faOf(e), 0); }
+      else if (E.kind === 'salamander') { if (e.st !== 'chase') crabTurn(e, E, e.aimA, 1); }
       else e.face = e.st === 'wind' || e.st === 'strike' || e.st === 'bwind' ? (Math.cos(e.aimA) >= 0 ? 1 : -1) : Math.abs(dx) > 10 ? (dx > 0 ? 1 : -1) : e.face;
       // a hero out of sight for 4 s is lost: the monster walks back to its post
       if (e.st === 'chase' && E.kind !== 'boss' && e.hx !== undefined) {
@@ -1116,15 +1458,16 @@
         // under two cells of headway along the path in 2.5 s while short of the fight and the hero holds still (a corridor jammed by its own kind,
         // a wall in the way): it walks back to its post and stays deaf to the sight of the hero for a while, or it would turn round
         // at once and jam the corridor again. A hero on the move resets it: a chase is not a jam
-        const near = d < (E.kind === 'caster' || E.kind === 'archer' ? 300 : E.r + K.R + E.reach + 40), fv = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)], pd = fv >= 0 ? fv : d / TILE;
+        const near = d < (E.kind === 'caster' || E.kind === 'archer' || E.kind === 'imp' || E.kind === 'salamander' ? 300 : E.r + K.R + E.reach + 40), fv = F[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)], pd = fv >= 0 ? fv : d / TILE;
         if (near || e.stuckK !== e.t0 || pd <= e.aF - 2 || Math.hypot(h.x - e.ax, h.y - e.ay) > 48) { e.stuckK = e.t0; e.aF = pd; e.ax = h.x; e.ay = h.y; e.aT = t; }
         else if (t - e.aT > 2.5) { e.st = 'home'; e.t0 = t; e.calmT = t + 4; continue; } }
       if (e.st === 'chase' && has(e, 'summoner')) { if (e.sumT === undefined) e.sumT = t + 2; if (t >= e.sumT) { e.sumT = t + MOD.summoner.every; raise(S, R, e); } }
       if (e.st === 'chase') {
         const reach = E.r + K.R + E.reach;
-        if (E.kind === 'boss') { bossThink(S, R, e, d); continue; }
+        if (E.kind === 'boss') { bossThink(S, R, e, d); if (E.lake) colossusStep(S, R, e); continue; }
+        if (E.kindle && t >= (e.kinT ?? (e.kinT = t + E.kindle.first)) && kinOf(R, e, E).length) { e.st = 'wind'; e.t0 = t; e.kin = 1; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
         if (E.kind === 'caster') { const los = losClear(m, e.x, e.y - 20, h.x, h.y - 20);
-          if (d < (E.orb ? E.reach : 360) && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
+          if (d < (E.orb || E.pyre ? E.reach : 360) && los && t >= e.cdT) { e.st = 'wind'; e.t0 = t; e.aimA = Math.atan2(h.y - 38 - (e.y - 44), h.x - e.x); continue; }
           const c = E.behind && d > 120 ? cover(R, e, h) : null;
           if (!c || !toward(e, E, m, c[0], c[1])) { const want = d < 170 ? -1 : d > 280 || !los ? 1 : 0; steer(e, E, m, F, want, dx, dy, d); } }
         // the archer looses at the hero in sight within its reach; between shots it keeps its distance, backing off from one who comes on
@@ -1136,27 +1479,46 @@
         else if (E.kind === 'crab' && t >= e.cdT && t >= (e.rushT ?? 0) && d > E.r + K.R + E.rush.near && d < E.r + K.R + E.rush.reach && Math.abs(Math.abs(angDiff(Math.atan2(dy, dx), faOf(e))) - Math.PI / 2) < 0.7
           && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.rush = 1; continue; }
         else if (E.kind === 'crab') steer(e, E, m, F, d < Math.max(reach * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
+        else if (E.kind === 'bomber' && d < reach) { fuse(S, R, e); continue; }
+        else if (E.kind === 'imp') { if (impThink(S, R, e, E, F, d, dx, dy)) continue; }
+        else if (E.kind === 'salamander') { if (salamThink(S, R, e, E, d, dx, dy)) continue; }
         else if (d < reach && t >= e.cdT && (E.kind !== 'hop' || losClear(m, e.x, e.y - 6, h.x, h.y - 6))) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 0; continue; }
         else if (E.grab && d < E.r + K.R + E.grab.reach && t >= e.cdT && t >= (e.grabT ?? 0) && losClear(m, e.x, e.y - 20, h.x, h.y - 20)) { e.st = 'wind'; e.t0 = t; e.tx = h.x; e.ty = h.y; e.aimA = Math.atan2(dy, dx); e.grab = 1; continue; }
         else steer(e, E, m, F, d < Math.max(Math.min(reach, E.r + K.R + 46) * 0.8, E.r + K.R + 6) ? 0 : 1, dx, dy, d);
-        move(m, e, e.vx * DT, e.vy * DT, E.r, true);
+        move(m, e, e.vx * DT, e.vy * DT, E.r, true, E.lava && E.kind === 'salamander' ? true : undefined);
         const sp = Math.hypot(e.vx, e.vy); e.dist += sp * DT;
+        // the salamander's belly burns a trail on land behind it
+        if (E.trail && !onLava(m, e) && (e.trailD = (e.trailD || 0) + sp * DT) >= E.trail.every) { e.trailD = 0; addFire(R, S, e.x - Math.cos(faOf(e)) * E.r, e.y - Math.sin(faOf(e)) * E.r * 0.8, { src: e.id, who: who(e), r: E.trail.r, ry: E.trail.ry, t: E.trail.t, dmg: e.dmg * E.trail.dmg, per: E.trail.per, kind: 'trail' }); }
       } else if (e.st === 'wind') {
-        skid(m, e, E); const w = windOf(e, e.grab ? E.grab.wind : e.rush ? E.rush.wind : E.wind);
+        skid(m, e, E); const w = windOf(e, e.grab ? E.grab.wind : e.rush ? E.rush.wind : e.kin ? E.kindle.wind : E.spark && !e.claw ? E.spark.wind : e.br ? E.breath.wind : E.wind);
         if (E.kind === 'archer' && t - e.t0 < w - E.arrow.lock) aimArrow(m, e, E, h);
+        if (E.spark && !e.claw && t - e.t0 < w - E.spark.lock) { e.aimA = Math.atan2(h.y - 38 - (e.y - IMP_Y), h.x - e.x); e.face = Math.cos(e.aimA) >= 0 ? 1 : -1; }
         if (t - e.t0 >= w) { e.st = 'strike'; e.t0 = t;
           if (e.grab) { grab(S, R, e); continue; }
           if (E.kind === 'crab') { if (e.rush) { e.hitDone = 0; ev(S, { k: 'rush', x: e.x, y: e.y, a: e.aimA, id: e.id }); continue; }
             if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < E.armor.arc && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); }
             ev(S, { k: 'pinch', x: e.x + Math.cos(e.aimA) * (E.r + 14), y: e.y + Math.sin(e.aimA) * (E.r + 14) * 0.8, a: e.aimA, id: e.id }); continue; }
           if (E.kind === 'hop') { takeOff(R, e, E); continue; }
+          if (E.kind === 'imp') { const a = e.aimA;
+            if (e.claw) { if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), a)) < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a, id: e.id }); continue; }
+            const Sp = E.spark, x0 = e.x + Math.cos(a) * 10, y0 = e.y - IMP_Y + Math.sin(a) * 10;
+            R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'spark', kind: 'fire', x: x0, y: y0, vx: Math.cos(a) * Sp.spd, vy: Math.sin(a) * Sp.spd, t0: t, life: (Sp.reach + 60) / Sp.spd, dmg: e.dmg * Sp.dmg * eliteK(e, 'bolt'), own: 'en', r: Sp.r, gz: IMP_Y - 6 });
+            ev(S, { k: 'flick', x: x0, y: y0, a, id: e.id }); continue; }
+          if (E.kind === 'salamander') { if (e.br) { e.hitDone = 0; breathFire(S, R, e, E); ev(S, { k: 'breath', x: e.x, y: e.y, a: e.aimA, id: e.id }); continue; }
+            if (d < E.r + K.R + E.reach * 1.25 && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < 0.9 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); }
+            ev(S, { k: 'snap', x: e.x + Math.cos(e.aimA) * (E.r + 10), y: e.y + Math.sin(e.aimA) * (E.r + 10) * 0.8, a: e.aimA, id: e.id }); continue; }
+          if (E.kind === 'golem') { const G0 = E.slam, px = e.x + Math.cos(e.aimA) * G0.at, py = e.y + Math.sin(e.aimA) * G0.at * 0.8;
+            if (Math.hypot(h.x - px, (h.y - py) / 0.7) < G0.r + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, px, py, undefined, who(e), e); struck(S, R, e); }
+            ev(S, { k: 'slam', x: px, y: py, id: e.id, big: 1, r: G0.r }); R.trauma = Math.min(1, R.trauma + 0.5); continue; }
           if (E.kind === 'archer') { const a = e.aimA, A = E.arrow, x0 = e.x + Math.cos(a) * 16, y0 = e.y - ARROW_Y + Math.sin(a) * 16;
             R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'arrow', kind: has(e, 'fiery') ? 'fire' : 'arrow', x: x0, y: y0, vx: Math.cos(a) * A.spd, vy: Math.sin(a) * A.spd, t0: t, life: (E.reach + 60) / A.spd, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: A.r, gz: ARROW_Y - 10 });
             ev(S, { k: 'loose', x: x0, y: y0, a, id: e.id }); }
+          else if (e.kin) kindle(S, R, e, E);
+          else if (E.pyre) pyre(S, R, e, E);
           else if (E.orb) { const a = e.aimA, O = E.orb, x0 = e.x + Math.cos(a) * 22, y0 = e.y - 44;
             R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: 'orb', kind: 'water', x: x0, y: y0, vx: Math.cos(a) * O.spd, vy: Math.sin(a) * O.spd, t0: t, life: O.life, dmg: e.dmg * eliteK(e, 'bolt'), own: 'en', r: O.r, hitR: 20 + O.r });
             ev(S, { k: 'orb', x: x0, y: y0, id: e.id }); }
-          else if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
+          else if (E.kind === 'caster') { const a = e.aimA, fire = R.map.biome === 'lava' || R.map.biome === 'magma' || has(e, 'fiery'); R.proj.push({ id: R.nextId++, src: e.id, who: who(e), k: fire ? 'fire' : 'hex', x: e.x + Math.cos(a) * 18, y: e.y - 44, vx: Math.cos(a) * 250, vy: Math.sin(a) * 250, t0: t, life: 2.2, dmg: e.dmg * (fire ? 1.25 : 1) * eliteK(e, 'bolt'), own: 'en', r: 6 });
             ev(S, { k: "eshoot", x: e.x, y: e.y - 44, id: e.id }); }
           else if (E.kind === 'slam') { if (d < 74 + K.R && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'slam', x: e.x + e.face * 26, y: e.y, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4); }
           else if (E.kind === 'melee') { const ad = Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)); if (d < E.r + K.R + E.reach * 1.25 && ad < 1.3 && losClear(m, e.x, e.y, h.x, h.y)) { hurtHero(S, R, e.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } ev(S, { k: 'eswing', x: e.x, y: e.y, a: e.aimA, id: e.id }); } }
@@ -1169,21 +1531,25 @@
         else if (E.kind === 'crab' && e.rush && t - e.t0 < E.rush.t) { const a = e.aimA; if (!(e.bncT > e.t0) && d <= E.r + K.R + 6.01) e.bncT = t;
           const v = e.bncT > e.t0 ? (t - e.bncT < 0.1 ? -120 : 0) : E.rush.spd * Math.min(1, (t - e.t0) / 0.06); e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v; move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += Math.abs(v) * DT;
           if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; hurtHero(S, R, e.dmg * E.rush.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } }
+        // the breath: a hero in its cone at any moment of it is burnt once
+        else if (E.kind === 'salamander' && e.br) { skid(m, e, E); const B = E.breath;
+          if (!e.hitDone && t - e.t0 < B.t && d < E.r + B.reach + K.R && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < B.arc && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.hitDone = 1; hurtHero(S, R, e.dmg * B.dmg, e.x, e.y, 'fire', who(e) + ' пламя', e); struck(S, R, e); } }
         else if (E.kind !== 'hop') skid(m, e, E);
         if (E.kind === 'hop') hop(S, R, e, E);
-        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
-          if (e.rush) { e.st = 'chase'; e.rush = 0; e.hitDone = 0; e.rushT = t + E.rush.cd; e.cdT = t + 0.5; continue; } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
+        if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : e.br ? E.breath.t : E.kind === 'golem' ? 0.55 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
+          if (e.rush) { e.st = 'chase'; e.rush = 0; e.hitDone = 0; e.rushT = t + E.rush.cd; e.cdT = t + 0.5; continue; }
+          if (e.br) { e.br = 0; e.brT = t + E.breath.cd * (0.8 + 0.4 * rnd(R)); } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
     }
     // separation: monsters don't stack
-    const live2 = R.en.filter((e) => e.deadT < 0 && e.st !== 'idle' && !ENEMIES[e.type].deep);
+    const live2 = R.en.filter((e) => e.deadT < 0 && e.st !== 'idle' && e.st !== 'leap' && !ENEMIES[e.type].deep);
     for (let i = 0; i < live2.length; i++) for (let j = i + 1; j < live2.length; j++) { const a = live2[i], b = live2[j], ra = ENEMIES[a.type].r + ENEMIES[b.type].r + 4;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); if (d < ra && d > 0.01) { const p = (ra - d) * 0.5; move(m, a, -dx / d * p, -dy / d * p, ENEMIES[a.type].r, true); move(m, b, dx / d * p, dy / d * p, ENEMIES[b.type].r, true); } }
     // whatever moved them (walking, knockback, a lunge, the crowd), monsters stand clear of props; a ghost floats through
     const sol = solids(R);
-    for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
+    for (const e of R.en) if (e.deadT < 0 && e.st !== 'leap' && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
     if (heroOk) for (const e of R.en) {
-      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab'].includes(E.kind) || e.st === 'lurk') continue;
+      const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab', 'bomber', 'imp', 'salamander', 'golem'].includes(E.kind) || e.st === 'lurk' || e.st === 'leap') continue;
       const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
       if (d >= stop) continue;
       const angle = d > 0.01 ? Math.atan2(dy, dx) : e.face > 0 ? Math.PI : 0;
@@ -1214,7 +1580,7 @@
     // home, or walked for long enough without getting there (blocked): this is the post now
     if (d < 8 || t - e.t0 > 25) { e.st = E.lurk && inWater(m, e) ? 'lurk' : 'idle'; e.t0 = t; e.hx = e.x; e.hy = e.y; e.vx = e.vy = 0; return; }
     steer(e, E, m, homeFlow(m, Math.floor(e.hx / TILE), Math.floor(e.hy / TILE)), 1, dx, dy, d, 0.6);
-    move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT;
+    move(m, e, e.vx * DT, e.vy * DT, E.r, true, E.kind === 'salamander' ? true : undefined); e.dist += Math.hypot(e.vx, e.vy) * DT;
     if (Math.abs(e.vx) > 6) e.face = e.vx > 0 ? 1 : -1;
   }
   // a monster that stops to attack skids to a halt instead of freezing mid-stride (the rig's gait reads its speed and distance)
@@ -1258,6 +1624,8 @@
     for (const p of R.proj) p.t0 += DT;
     for (const q of R.lavaPending || []) { q.t += DT; if (q.t0 !== undefined) q.t0 += DT; }
     for (const egg of R.eggs || []) egg.hatchT += DT;
+    for (const q of R.rocks || []) { q.t0 += DT; q.t += DT; }
+    for (const c of R.cracks || []) c.t0 += DT;
   }
   // a boss that closes a chapter pays as the finale did (20 shards, LOOT.boss); in the endless descent every pair ends its 'chapter',
   // so there only the chapters' end bosses (the demon lord, the serpent) pay so, the others as the campaign's chapter bosses (TASKS 350)
@@ -1267,13 +1635,14 @@
     const m = R.map, b = R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0), h = R.hero;
     if (b && m.bossType && !R.arena) { const r = m.rooms[b.room], pad = K.R + 4;
       if (h.x > r.x * TILE + pad && h.x < (r.x + r.w) * TILE - pad && h.y > r.y * TILE + pad && h.y < (r.y + r.h) * TILE - pad) {
-        R.arena = { active: 1, room: b.room, t0: S.t }; b.st = b.type === 'boss_serpent' ? 'deep' : 'chase'; b.cdT = S.t + 1; b.seenT = S.t;
+        R.arena = { active: 1, room: b.room, t0: S.t }; b.st = b.type === 'boss_serpent' ? 'deep' : ENEMIES[b.type].lake ? 'emerge' : 'chase'; b.cdT = S.t + 1; b.seenT = S.t; b.t0 = S.t;
         for (const d of m.doors) if (d.arena) { d.open = 0; d.openT = -9; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5; }
         R.msg = { s: ENEMIES[b.type].name, t: S.t, d: 3 }; roar(S, R, b);
       }
     }
     for (const q of R.lavaPending || []) if (S.t >= q.t && m.cells[q.cell] === 1) { m.cells[q.cell] = 3; m.arenaLava = m.arenaLava || []; m.arenaLava.push(q.cell); m.lava++; m.geometry = (m.geometry || 0) + 1; }
     R.lavaPending = (R.lavaPending || []).filter((q) => S.t < q.t);
+    if ((R.rocks && R.rocks.length) || (R.cracks && R.cracks.length)) colossusHazards(S, R);
     for (const egg of R.eggs || []) if (egg.hp > 0 && S.t >= egg.hatchT) { egg.hp = 0;
       const owner = R.en.find((e) => e.id === egg.owner && e.deadT < 0); if (owner) bossSummon(S, R, Object.assign({}, owner, { x: egg.x, y: egg.y }), Object.assign({}, D.BOSSES[owner.type].moves.eggs, { n: 1, r: 0 }));
     }
@@ -1283,7 +1652,7 @@
     R.map.flood = null;
     if (R.map.arenaWater?.length) { const wet = new Set(R.map.arenaWater); R.map.water = R.map.water.filter((k) => !wet.has(k)); R.map.arenaWater = []; WET.delete(R.map); }
     for (const k of R.map.arenaLava || []) if (R.map.cells[k] === 3) { R.map.cells[k] = 1; R.map.lava--; }
-    R.map.arenaLava = []; R.lavaPending = []; R.map.geometry = (R.map.geometry || 0) + 1;
+    R.map.arenaLava = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.fires = (R.fires || []).filter((p) => p.src !== e.id); R.map.geometry = (R.map.geometry || 0) + 1;
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
     for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
@@ -1364,8 +1733,11 @@
   }
   function bossThink(S, R, e, d) {
     const t = S.t, m = R.map, h = R.hero, E = ENEMIES[e.type], P = D.bossPhase(e);
-    if (t < e.cdT) { const F = flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)); steer(e, E, m, F, d > E.reach ? 1 : 0, h.x - e.x, h.y - e.y, d);
+    if (t < e.cdT && e.openUntil > t) { e.vx = e.vy = 0; return; }
+    if (t < e.cdT) { const F = wideFlow(R, e, E) || flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)); steer(e, E, m, F, d > E.reach ? 1 : 0, h.x - e.x, h.y - e.y, d);
       move(m, e, e.vx * DT * P.speed, e.vy * DT * P.speed, E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT * P.speed; return; }
+    const nextPhase = E.lake && D.BOSSES[e.type].phases[(e.phase || 0) + 1];
+    if (nextPhase && e.hp / e.max <= nextPhase.at && !e.nextMove && t >= (e.openUntil || 0) + 0.4) return;
     const mv = e.nextMove || P.moves[(e.moveI || 0) % P.moves.length];
     if (e.nextMove) e.nextMove = null; else e.moveI = (e.moveI || 0) + 1;
     beginBossMove(S, R, e, mv);
@@ -1386,15 +1758,133 @@
       const hp = E.hp * M.hp * BAL.hp * dif(R, 'hp');
       R.en.push({ id: R.nextId++, type: M.type, x: p.x, y: p.y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * M.dmg * BAL.dmg, elite: 0, room: e.room, st: 'chase', t0: S.t, face: 1,
         aimA: 0, cdT: S.t + M.delay, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: e.id, spawnT: S.t });
-      ev(S, { k: 'summon', x: p.x, y: p.y });
+      ev(S, { k: 'summon', x: p.x, y: p.y, fire: ENEMIES[M.type].lava ? 1 : 0 });
     }
+  }
+  // the colossus (TASKS 413) is too broad for the plain flow fields: they lead it on into gaps it doesn't fit (between a slab of cover
+  // and the edge, onto the crossing) and it stuck there. Its own field runs over the cells its body clears
+  const WIDE = new WeakMap();
+  function wideClear(R, e, E) {
+    const m = R.map, key = (m.geometry || 0) + ':' + doorKey(m) + ':' + E.r + ':' + e.room; let c = WIDE.get(m); if (c && c.key === key) return c;
+    const a = new Uint8Array(m.W * m.H), blk = new Set(m.block), r = m.rooms[e.room], n = Math.ceil(E.r / TILE), open = (q) => m.cells[q] === 1 && !blk.has(q);
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * m.W + x; if (!open(k)) continue;
+      const px = (x + 0.5) * TILE, py = (y + 0.5) * TILE; let ok = true;
+      for (let j = -n; j <= n && ok; j++) for (let i = -n; i <= n && ok; i++) { if (open((y + j) * m.W + x + i)) continue;
+        const qx = Math.max((x + i) * TILE, Math.min((x + i + 1) * TILE, px)), qy = Math.max((y + j) * TILE, Math.min((y + j + 1) * TILE, py));
+        if (Math.abs(qx - px) < E.r && qy - py > -E.r * 0.6 && qy - py < E.r * 0.4) ok = false; }
+      if (ok) a[k] = 1; }
+    c = { key, a, hk: '', d: null }; WIDE.set(m, c); return c;
+  }
+  // null when the colossus stands off its clear cells (a charge carried it there): the plain field takes it back out
+  function wideFlow(R, e, E) {
+    if (!E.lake) return null; const m = R.map, h = R.hero, c = wideClear(R, e, E), a = c.a, here = Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE);
+    if (!a[here]) return null;
+    const htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE), hk = htx + ',' + hty; if (c.hk === hk) return c.d;
+    const r = m.rooms[e.room], d = new Int16Array(m.W * m.H).fill(-1), q = []; let best = 1e9;
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (a[y * m.W + x]) best = Math.min(best, Math.abs(x - htx) + Math.abs(y - hty));
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (a[y * m.W + x] && Math.abs(x - htx) + Math.abs(y - hty) === best) { d[y * m.W + x] = 0; q.push(y * m.W + x); }
+    for (let i = 0; i < q.length; i++) for (const o of [1, -1, m.W, -m.W]) { const k = q[i] + o; if (a[k] && d[k] < 0) { d[k] = d[q[i]] + 1; q.push(k); } }
+    c.hk = hk; c.d = d; return d;
+  }
+  // up out of the lake, then ashore through the lava to the clear cell that is near it and on the hero's side
+  function colossusRise(S, R, e) {
+    const t = S.t, B = D.BOSSES[e.type];
+    if (e.st === 'idle' || e.st === 'emerge') e.vx = e.vy = 0;
+    if (e.st === 'idle') return;
+    if (e.st === 'emerge') { if (t - e.t0 < B.rise) return; const m = R.map, h = R.hero, a = wideClear(R, e, ENEMIES[e.type]).a; let best = null;
+      for (let k = 0; k < a.length; k++) if (a[k]) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE, sc = Math.hypot(x - e.x, y - e.y) + 0.4 * Math.hypot(x - h.x, y - h.y); if (!best || sc < best[0]) best = [sc, x, y]; }
+      e.st = 'wade'; e.t0 = t; e.tx = best ? best[1] : e.x; e.ty = best ? best[2] : e.y; ev(S, { k: 'colrise', x: e.x, y: e.y, id: e.id }); }
+    const dx = e.tx - e.x, dy = e.ty - e.y, d = Math.hypot(dx, dy), speed = B.wade * Math.min(1, (t - e.t0) / 0.2), v = speed * DT;
+    if (d <= v) { e.x = e.tx; e.y = e.ty; e.dist += d; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = t + 0.6; ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.5); return; }
+    e.x += dx / d * v; e.y += dy / d * v; e.vx = dx / d * speed; e.vy = dy / d * speed; e.dist += v; if (Math.abs(dx) > 4) e.face = dx > 0 ? 1 : -1;
+    colossusStep(S, R, e);
+  }
+  function colossusStep(S, R, e) {
+    const stride = D.BOSSES[e.type].step, i = Math.floor(e.dist / stride);
+    if (e.stepI !== undefined && i > e.stepI) {
+      ev(S, { k: 'colstep', ...D.colossusStepAt(e, i), id: e.id });
+      R.trauma = Math.min(1, R.trauma + 0.09);
+    }
+    e.stepI = i;
+  }
+  // a crack runs over the floor and the lava alike and stops at rock
+  function colossusCrack(S, R, e, M) {
+    const p = D.colossusContact(e), m = R.map, c = Math.cos(e.aimA), sn = Math.sin(e.aimA); let len = M.len;
+    for (let l = E0; l <= M.len; l += 8) if (cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)) !== 1 && cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)) !== 3) { len = l; break; }
+    (R.cracks = R.cracks || []).push({ id: R.nextId++, owner: e.id, who: who(e), x: p.x, y: p.y, a: e.aimA, len, w: M.w, speed: M.speed, linger: M.linger, t0: S.t, dmg: e.dmg * M.dmg, hit: 0 });
+    ev(S, { k: 'colcrack', x: p.x, y: p.y, a: e.aimA, len, id: e.id }); R.trauma = Math.min(1, R.trauma + 0.4);
+  }
+  const E0 = 30;
+  // where a pool of lava may lie: on the arena's floor, off the lake's shore, off the ways in, the crossing and the other pools, so
+  // pools never close the ring (the player's note on 413, 05.11.2026)
+  function poolOk(R, e, M, x, y) {
+    const m = R.map, r = m.rooms[e.room], P = M.pool, tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+    if (tx < r.x || ty < r.y || tx >= r.x + r.w || ty >= r.y + r.h || m.cells[ty * m.W + tx] !== 1) return false;
+    const n = Math.ceil((P.r + M.lakeGap) / TILE) + 1;
+    for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) { const k = (ty + j) * m.W + tx + i; if (m.cells[k] !== 3 || (m.arenaLava || []).includes(k)) continue;
+      const qx = Math.max((tx + i) * TILE, Math.min((tx + i + 1) * TILE, x)), qy = Math.max((ty + j) * TILE, Math.min((ty + j + 1) * TILE, y)); if (Math.hypot(qx - x, (qy - y) / P.ry) < P.r + M.lakeGap) return false; }
+    const way = M.wayGap * TILE, ends = [];
+    for (const c of m.crossings || []) if (c.kind === 'slabs') for (const k of c.cells) ends.push([(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
+    for (const d of m.doors || []) if (d.arena) for (const [cx, cy] of d.cells) ends.push([(cx + 0.5) * TILE, (cy + 0.5) * TILE]);
+    if (ends.some(([px, py]) => Math.hypot(px - x, py - y) < way)) return false;
+    return !(R.fires || []).some((p) => p.src === e.id && p.kind === 'pool' && Math.hypot(p.x - x, (p.y - y) / P.ry) < 2 * P.r + M.apart);
+  }
+  function colossusBoulder(S, R, e, M) {
+    const h = R.hero; let x = h.x, y = h.y, pool = poolOk(R, e, M, x, y);
+    // a point the pool may not take shifts to the nearest one within two cells that it may; no such one: the rock lands dry
+    if (!pool) for (let rr = 8; rr <= 2 * TILE && !pool; rr += 8) for (let i = 0; i < 12 && !pool; i++) { const a = i / 12 * Math.PI * 2, px = h.x + Math.cos(a) * rr, py = h.y + Math.sin(a) * rr * 0.75;
+      if (poolOk(R, e, M, px, py)) { x = px; y = py; pool = true; } }
+    (R.rocks = R.rocks || []).push({ id: R.nextId++, owner: e.id, who: who(e), kind: 'boulder', x, y, sx: e.x + e.face * 0.3 * ENEMIES[e.type].h, gy: e.y, z: ENEMIES[e.type].h * 0.9, t0: S.t, t: S.t + M.fly, r: M.r, dmg: e.dmg * M.dmg, pool: pool ? 1 : 0 });
+    ev(S, { k: 'throw', x: e.x, y: e.y, tx: x, ty: y, id: e.id });
+  }
+  // the ring's outer edge falls into lava (2nd phase), but never the cells the fight keeps: the ways in, the altar and the exit,
+  // the slabs of cover; a cell whose fall would cut the floor off from the exit stays
+  function colossusEdge(S, R, e, M) {
+    const m = R.map, r = m.rooms[e.room], L = D.ARCH.plateau.arena, cx = (r.cx + 0.5) * TILE, cy = (r.cy + 0.5) * TILE, keep = new Set(), W = m.W;
+    const near = (x, y, n) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) keep.add((ty + j) * W + tx + i); };
+    near(m.exit.x ?? (m.exit.tx + 0.5) * TILE, m.exit.y ?? (m.exit.ty + 0.5) * TILE, 2); for (const sh of R.shrines) near(sh.x, sh.y, 2); for (const d of m.decor) if (d.cover) near(d.x, d.y, 1);
+    for (const d of m.doors || []) if (d.arena) for (const [x, y] of d.cells) near((x + 0.5) * TILE, (y + 0.5) * TILE, 2);
+    const lake = (k) => Math.hypot((((k % W) + 0.5) * TILE - cx) / L.lake[0], ((Math.floor(k / W) + 0.5) * TILE - cy) / L.lake[1]) < TILE * 1.25;
+    const pending = new Set((R.lavaPending || []).map((q) => q.cell)), gone = new Set([...(m.arenaLava || []), ...pending]);
+    for (let depth = 0; depth < M.edge; depth++) { const band = [];
+      for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * W + x; if (m.cells[k] !== 1 || keep.has(k) || gone.has(k) || lake(k)) continue;
+        if ([1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].some((o) => (m.cells[k + o] !== 1 && !lake(k + o)) || gone.has(k + o))) band.push(k); }
+      for (const k of band) { pending.add(k); if (!arenaPath(m, e.room, pending)) { pending.delete(k); continue; } gone.add(k);
+        const d = Math.hypot((k % W + 0.5) * TILE - e.x, (Math.floor(k / W) + 0.5) * TILE - e.y);
+        R.lavaPending.push({ cell: k, t0: S.t, t: S.t + M.warn + d / 900, owner: e.id }); } }
+  }
+  // the eruption's rain: rocks over the ring at random, a few aimed at the hero; none within the shelter of a slab of cover
+  function colossusRain(S, R, e, M) {
+    const m = R.map, r = m.rooms[e.room], cover = m.decor.filter((d) => d.cover && !d.broken), floor = [];
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const k = y * m.W + x, px = (x + 0.5) * TILE, py = (y + 0.5) * TILE;
+      if (m.cells[k] === 1 && !cover.some((d) => Math.hypot(px - d.x, py - d.y) < M.shelter)) floor.push([px, py]); }
+    for (let i = 0; i < M.n; i++) { const t = S.t + M.warn + i / M.n * M.time, aim = i % Math.ceil(M.n / M.aimed) === Math.ceil(M.n / M.aimed) - 1, p = floor[Math.floor(rnd(R) * floor.length)];
+      if (!aim && !p) continue; (R.rocks = R.rocks || []).push({ id: R.nextId++, owner: e.id, who: who(e), kind: 'rain', x: aim ? undefined : p[0] + (rnd(R) - 0.5) * 20, y: aim ? undefined : p[1] + (rnd(R) - 0.5) * 20, t0: t - M.warn, t, r: M.r, dmg: e.dmg * M.dmg, shelter: M.shelter }); }
+    roar(S, R, e);
+  }
+  function colossusHazards(S, R) {
+    const h = R.hero, t = S.t, m = R.map, alive = h.deadT < 0;
+    for (const c of R.cracks) { if (c.hit || !alive) continue; const front = Math.min(c.len, (t - c.t0) * c.speed), rx = h.x - c.x, ry = h.y - c.y, al = rx * Math.cos(c.a) + ry * Math.sin(c.a), pe = Math.abs(-rx * Math.sin(c.a) + ry * Math.cos(c.a));
+      if (al > E0 && al < front && pe < c.w / 2 + K.R * 0.5) { c.hit = 1; hurtHero(S, R, c.dmg, h.x - Math.cos(c.a) * 12, h.y - Math.sin(c.a) * 12, undefined, c.who, R.en.find((o) => o.id === c.owner)); } }
+    R.cracks = R.cracks.filter((c) => t - c.t0 < c.len / c.speed + c.linger);
+    for (const q of R.rocks) {
+      // an aimed rock picks its spot as its shadow shows: where the hero is then, unless that is under a slab's shelter
+      if (q.x === undefined && t >= q.t0) { const sh = m.decor.some((d) => d.cover && !d.broken && Math.hypot(h.x - d.x, h.y - d.y) < q.shelter); if (sh || !alive) { q.done = 1; continue; } q.x = h.x; q.y = h.y; }
+      if (q.done || t < q.t) continue; q.done = 1;
+      const owner = R.en.find((o) => o.id === q.owner);
+      if (alive && Math.hypot(h.x - q.x, (h.y - q.y) / 0.75) < q.r + K.R * 0.5) hurtHero(S, R, q.dmg, q.x, q.y, undefined, q.who, owner);
+      ev(S, { k: q.kind === 'boulder' ? 'boulder' : 'rock', x: q.x, y: q.y, r: q.r, id: q.id }); R.trauma = Math.min(1, R.trauma + (q.kind === 'boulder' ? 0.45 : 0.15));
+      if (q.pool && owner) { const P = D.BOSSES[owner.type].moves.boulder, own = R.fires.filter((p) => p.src === owner.id && p.kind === 'pool');
+        if (own.length < P.cap && poolOk(R, owner, P, q.x, q.y)) { addFire(R, S, q.x, q.y, { src: owner.id, who: q.who, r: P.pool.r, ry: P.pool.ry, t: P.pool.t, dmg: owner.dmg * P.pool.dmg, per: P.pool.per, kind: 'pool' });
+          ev(S, { k: 'pool', x: q.x, y: q.y, r: P.pool.r, d: P.pool.t, id: owner.id }); } } }
+    R.rocks = R.rocks.filter((q) => !q.done);
   }
   function stepBossMove(S, R) {
     if (R.hero.deadT >= 0) return;
     for (const e of R.en) { if (!D.BOSSES[e.type] || e.type === 'boss_serpent' || e.deadT >= 0 || e.st === 'idle') continue;
       const t = S.t, h = R.hero, m = R.map, B = D.BOSSES[e.type];
       if (e.bossVersion !== 1) { e.st = 'chase'; e.cdT = t; e.phase = Math.max(0, B.phases.findLastIndex((p) => e.hp / e.max <= p.at)); e.moveI = 0; e.nextMove = null; e.bossVersion = 1; }
-      if ((e.phase || 0) + 1 < B.phases.length && e.hp / e.max <= B.phases[(e.phase || 0) + 1].at && (!D.bossPhase(e).finishMove || (e.st !== 'bwind' && !e.nextMove))) {
+      if ((e.phase || 0) + 1 < B.phases.length && e.hp / e.max <= B.phases[(e.phase || 0) + 1].at && (!D.bossPhase(e).finishMove || (e.st !== 'bwind' && !e.nextMove && t >= (e.openUntil || 0) + (e.type === 'boss_colossus' ? 0.4 : 0)))) {
         e.phase = (e.phase || 0) + 1; e.moveI = 0; e.nextMove = null;
         ev(S, { k: 'bossphase', id: e.id, phase: e.phase });
         if (D.bossPhase(e).enter) beginBossMove(S, R, e, D.bossPhase(e).enter);
@@ -1406,9 +1896,11 @@
         const x = e.x, y = e.y, dist = Math.min(M.speed * DT, Math.max(0, e.targetD - M.stop - e.travel));
         move(m, e, Math.cos(e.aimA) * dist, Math.sin(e.aimA) * dist, ENEMIES[e.type].r, true);
         const moved = Math.hypot(e.x - x, e.y - y); e.dist += moved; e.travel += moved;
+        if (e.type === 'boss_colossus') { e.vx = (e.x - x) / DT; e.vy = (e.y - y) / DT; }
         if (!e.hitDone && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(m, e.x, e.y, h.x, h.y)) { e.hitDone = 1; hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e); }
         if (M.next && (e.hitDone || e.travel >= Math.max(0, e.targetD - M.stop) - 0.01 || moved < 0.01)) finished = true;
       }
+      if (e.type === 'boss_colossus' && e.mv === 'charge' && (finished || u <= w || u >= w + M.time)) e.vx = e.vy = 0;
       if (e.mv === 'volley' && u >= w + (e.fired || 0) * M.gap && (e.fired || 0) < M.rings) {
         // both rings are one volley: it wounds once, so the second ring catches a hero who sidestepped the first instead of doubling
         // the blow past the boss's cap (TASKS 227)
@@ -1430,13 +1922,22 @@
         if (e.mv === 'weave') bossWebs(S, R, e, M);
         if (e.mv === 'eggs') bossEggs(S, R, e, M);
         if (e.mv === 'summon') bossSummon(S, R, e, M);
+        if (e.mv === 'imps') bossSummon(S, R, e, M);
+        if (e.mv === 'fists') { if (Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(m, e.x, e.y, h.x, h.y)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e);
+          ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id, r: M.r }); R.trauma = 1; }
+        if (e.mv === 'crack') colossusCrack(S, R, e, M);
+        if (e.mv === 'boulder') colossusBoulder(S, R, e, M);
+        if (e.mv === 'shatter') { roar(S, R, e); colossusEdge(S, R, e, M); bossSummon(S, R, e, B.moves[M.summon]); ev(S, { k: 'shatter', x: e.x, y: e.y, id: e.id }); }
+        if (e.mv === 'erupt') { roar(S, R, e); ev(S, { k: 'colerupt', x: e.x, y: e.y, id: e.id }); }
+        if (e.mv === 'rain') colossusRain(S, R, e, M);
       }
       if (finished) {
         e.nextMove = null;
         // the linked slam follows only a charge the hero got out of: a charge that landed ends the link, one mistake costs one blow
         // (the player's call, TASKS 227: the slam 0.28 s after a landed charge could not be escaped and took 12 of 14 finale deaths)
         if (M.next && !e.hitDone) { beginBossMove(S, R, e, M.next); e.t0 = t + (M.rest || 0); e.chain = 1; }
-        else { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (M.next ? D.bossPhase(e).rest : M.rest ?? D.bossPhase(e).rest); }
+        else { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (M.next ? D.bossPhase(e).rest : M.rest ?? D.bossPhase(e).rest);
+          if (M.stuck) { e.openUntil = t + M.stuck; e.cdT = e.openUntil + 0.4; ev(S, { k: 'stuck', x: e.x, y: e.y, id: e.id, d: M.stuck }); } }
       }
     }
   }
@@ -1501,7 +2002,7 @@
     const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless) S.meta.bestEndless = Math.max(deepBest, R.floor);
     S.result = { how, mode: R.mode, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
-      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: R.floor > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
+      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: R.floor > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; S.screen = how; S.saveN++;
@@ -1514,23 +2015,32 @@
     R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; S.saveN++;
     ev(S, { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: R.floor }); enterFloor(S, R, R.floor + 1);
     R.msg = { s: 'Кампания пройдена! +' + W2.base + ' осколков душ. Спуск продолжается: этаж ' + R.floor + ' — ' + D.floorName(R.floor, R.mode, R.seed), t: S.t, d: 5 }; }
-  function startRun(S, mode = 'campaign') { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0; S.run = newRun(S, mode, seed); S.saved = null;
+  function startRun(S, mode = 'campaign') { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
+  // a saved run is dropped only on a second press of the same run's button
+  const pressRun = (S, id, arm) => { if (!S.saved || arm === id) { S.resetT = undefined; startRun(S, id); } else { S.resetT = S.t; S.resetM = id; } };
   function stepUI(S, inp, keys) {
     const x = inp.px, y = inp.py, click = inp.click;
     if (S.screen === 'menu') {
       const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
       if (click && b && b.on) {
-        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: 'Этаж ' + S.run.floor + ' — ' + D.floorName(S.run.floor, S.run.mode, S.run.seed), t: S.t }; }
-        // a saved run is dropped only on a second press of the same run's button
-        if (D.RUNS[b.id]) { if (!S.saved || arm === b.id) { S.resetT = undefined; startRun(S, b.id); } else { S.resetT = S.t; S.resetM = b.id; } }
+        if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed), t: S.t }; }
+        if (D.RUNS[b.id]) pressRun(S, b.id, arm);
+        if (b.id === 'tests') S.screen = 'tests';
         if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
         if (b.id === 'zoom') nextZoom(S);
         if (b.id === 'meta') S.screen = 'meta';
         ev(S, { k: 'ui', x, y });
       }
       if (keys.Enter) { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; } else startRun(S); }
+      return;
+    }
+    // the test runs' screen (TASKS 417): each starts its run as the main menu's buttons did; «Назад» or Escape go back
+    if (S.screen === 'tests') {
+      const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.tests(!!S.saved, arm), x, y); S.hover = b ? b.id : '';
+      if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
+      if (click && b && b.on) { pressRun(S, b.id, arm); ev(S, { k: 'ui', x, y }); }
       return;
     }
     if (S.screen === 'meta') {
@@ -1549,8 +2059,8 @@
       return;
     }
     if (S.screen === 'dead' || S.screen === 'win') {
-      const b = D.hitUI(UI.end(S.result && S.result.log), x, y); S.hover = b ? b.id : '';
-      if (click && b && b.on) { if (b.id === 'log') { S.logReq = (S.logReq || 0) + 1; ev(S, { k: 'ui', x, y }); } else if (b.id === 'menu') S.screen = 'menu'; else startRun(S, S.result && !S.result.campaignWon && S.result.mode || 'campaign'); }
+      const b = D.hitUI(UI.end(S.result && S.result.log, S.result && S.result.town), x, y); S.hover = b ? b.id : '';
+      if (click && b && b.on) { if (b.id === 'log') { S.logReq = (S.logReq || 0) + 1; ev(S, { k: 'ui', x, y }); } else if (b.id === 'menu') S.screen = 'menu'; else startRun(S, S.result && S.result.town ? 'town' : S.result && !S.result.campaignWon && S.result.mode || 'campaign'); }
       return;
     }
     if (S.screen === 'altar') {
@@ -1693,14 +2203,16 @@
     // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
     const GEN = [1, 77, 4242, 90001].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
       .concat([1, 77, 4242, 90001, 5, 12, 33, 2024].flatMap((sd) => Array.from({ length: D.RUNS.cave.floors }, (_, i) => ['cave', sd, i + 1])))
+      // the magma caves' plateaus (TASKS 400): held to the caves' rules but the water's, and to their own
+      .concat([1, 77, 4242, 5, 12, 33].flatMap((sd) => Array.from({ length: D.RUNS.magma.floors }, (_, i) => ['magma', sd, i + 1])))
       // a 5×5 cave pocket for a start room with no clear spot by the fire: the hero arrived inside the rock (run seed 93, TASKS 335)
       .concat([['campaign', 101, 9]]);
     const caveKinds = {};
-    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' ? 'cave' : 'campaign', lf = ST.lf, seed = (run === 'campaign' ? '' : 'cave ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run });
+    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' || ST.arch === 'plateau' ? 'cave' : 'campaign', plat = ST.arch === 'plateau', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
-      for (const e of m.enemies) { if (!reachH(e.x, e.y) && !(ENEMIES[e.type].deep && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 6)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
+      for (const e of m.enemies) { if (!reachH(e.x, e.y) && !(ENEMIES[e.type].deep && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 6) && !((ENEMIES[e.type].kind === 'salamander' || ENEMIES[e.type].lake) && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 3)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
       if (mode === 'campaign') {
         const wet = new Set(m.water), bridge = new Set(m.waterBridges);
@@ -1733,7 +2245,7 @@
           while (st.length) { const j = st.pop(); for (const d of D8) { const n = j + d; if (deepAt(n) && !seenD[n]) { seenD[n] = 1; st.push(n); } else if (wet.has(n)) shore = true; } }
           if (!shore) out.push(`seed ${seed} f${f}: deep water at ${k % W},${Math.floor(k / W)} without a shore of shallows`); }
         const share = (m.water.length + nDeep + over.size) / open;
-        if (share < 0.15 || share > 0.35) out.push(`seed ${seed} f${f}: water is ${Math.round(share * 100)} % of the floor`);
+        if (!plat && (share < 0.15 || share > 0.35)) out.push(`seed ${seed} f${f}: water is ${Math.round(share * 100)} % of the floor`);
         { const seen = new Uint8Array(W * m.H), s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), st = [s0]; seen[s0] = 1;
           while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!seen[n] && (m.cells[n] === 1 || m.cells[n] === 4)) { seen[n] = 1; st.push(n); } } }
           const cut = m.cells.findIndex((c, k) => c === 1 && !seen[k]); if (cut >= 0) out.push(`seed ${seed} f${f}: floor at ${cut % W},${Math.floor(cut / W)} cut off by water`);
@@ -1746,7 +2258,7 @@
         for (const [n, list] of [['monster', m.enemies.filter((o) => !ENEMIES[o.type].lurk && !ENEMIES[o.type].deep)], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['fire', m.torches.filter((q) => q.kind !== 'wall')], ['altar', m.shrines], ['web', m.webs], ['ambush', m.ambush]])
           for (const o of list) if (inW(cellOf(o))) out.push(`seed ${seed} f${f}: a ${n} in the water at ${Math.round(o.x)},${Math.round(o.y)}`);
         for (const tr of m.traps) for (const [i, j] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) if (inW((tr.y / TILE + j) * W + tr.x / TILE + i)) out.push(`seed ${seed} f${f}: a spike plate in the water`);
-        for (const c of m.crossings) { caveKinds[c.kind] = (caveKinds[c.kind] || 0) + 1;
+        for (const c of m.crossings) { if (c.lava || c.chasm) continue; caveKinds[c.kind] = (caveKinds[c.kind] || 0) + 1;
           if (c.cells.some((k) => m.cells[k] !== 1 || (c.kind !== 'neck' && wet.has(k)))) out.push(`seed ${seed} f${f}: a ${c.kind} off the floor or wading`);
           if (c.kind !== 'neck' && !c.cells.some((k) => [1, -1, W, -W].some((d) => deepAt(k + d)))) out.push(`seed ${seed} f${f}: a ${c.kind} over no deep water`); }
         for (const q of m.waterFeatures) { caveKinds[q.kind] = (caveKinds[q.kind] || 0) + 1; const back = { u: -W, d: W, l: -1, r: 1 }[q.dir];
@@ -1760,10 +2272,11 @@
           const cut = m.cells.findIndex((c, k) => c === 1 && !seen[k] && !blocked.has(k) && !inShop(k) && !hid.has(k)); if (cut >= 0) out.push(`seed ${seed} f${f}: floor at ${cut % W},${Math.floor(cut / W)} cut off by the props`); }
         for (const o of m.flora) { const k = cellOf(o), up = Math.floor(o.y / TILE - 1) * W + Math.floor(o.x / TILE);
           if (o.n === 'moss' ? m.cells[up] !== 0 : !inW(k)) out.push(`seed ${seed} f${f}: ${o.n} off its ${o.n === 'moss' ? 'rock face' : 'water'} at ${Math.round(o.x)},${Math.round(o.y)}`); } }
-      // the fire depths (TASKS 186): two rivers at least, and nothing stands in lava or a cell from its shore
+      // the fire depths (TASKS 186): two rivers at least, and nothing stands in lava or a cell from its shore (but the plateaus' chain
+      // fences, railings on the very edge that block and hide nothing: TASKS 405)
       if (D.BIOMES[m.biome].lava && !(ST.last && ST.boss) && (m.streams || []).filter((q) => q.kind === 'river' && q.n >= 8).length < 2) out.push(`seed ${seed} f${f}: fewer than two lava rivers`);
       { const shore = (o) => { const tx = Math.floor(o.x / TILE), ty = Math.floor((o.y - 1) / TILE); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) === 3) return true; return false; };
-        for (const [k, list] of [['monster', m.enemies], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift)], ['brazier', m.torches.filter((t) => t.kind !== 'wall')]]) for (const o of list) if (shore(o)) out.push(`seed ${seed} f${f}: a ${k} by lava at ${Math.round(o.x)},${Math.round(o.y)}`); }
+        for (const [k, list] of [['monster', m.enemies.filter((e) => (!ENEMIES[e.type].lava || ENEMIES[e.type].kind !== 'salamander') && !ENEMIES[e.type].lake)], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((d) => !d.wall && !d.lift && d.n !== 'fence_mg')], ['brazier', m.torches.filter((t) => t.kind !== 'wall')]]) for (const o of list) if (shore(o)) out.push(`seed ${seed} f${f}: a ${k} by lava at ${Math.round(o.x)},${Math.round(o.y)}`); }
       // a secret's fake wall counts as broken: rock one cell thick between two floors would hang in the floor as a bare wall face (TASKS 178)
       for (let y = 1; y < m.H - 1; y++) for (let x = 0; x < m.W; x++) if (!cell(m, x, y) && cell(m, x, y - 1) && cell(m, x, y + 1)) out.push(`seed ${seed} f${f}: one-cell wall between floors at ${x},${y}`);
       // bulky props (chests, tables, coffins, statues…) read wider than their cell: two of them never share a cell edge or corner
@@ -1822,12 +2335,48 @@
       if (!ok) out.push(`seed ${seed} f${f}: exit unreachable`);
       // a cave (TASKS 301): its floor's size, no doors and no masonry streams, pockets that lead nowhere, and no straight stretch of
       // wall over four cells but the merchant's back wall and the secret caches
-      if (mode === 'cave') { const [w0, h0] = D.RUNS.cave.size[lf - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
+      if (mode === 'cave') { const [w0, h0] = ST.N.size[lf - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
         if (m.W !== w0 || m.H !== h0) out.push(`seed ${seed} f${f}: the cave is ${m.W}×${m.H}, not ${w0}×${h0}`);
         if (m.doors.some((d) => !d.arena)) out.push(`seed ${seed} f${f}: non-arena doors in the cave`);
         for (const r of m.rooms) if (r.pocket && m.edges.filter((e) => e.includes(r.id)).length !== 1) out.push(`seed ${seed} f${f}: pocket ${r.id} is not a dead end`);
-        const skip = (x, y) => (Math.abs(x - sh.cx) <= 5 && y >= sh.y - 2 && y <= sh.y + 5) || hid.has(y * m.W + x) || m.rooms.some((r) => r.type === 'secret' && x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h);
+        const chU = new Set(m.chasmUnder || []), skip = (x, y) => (Math.abs(x - sh.cx) <= 5 && y >= sh.y - 2 && y <= sh.y + 5) || hid.has(y * m.W + x) || chU.has(y * m.W + x) || m.rooms.some((r) => r.type === 'secret' && x >= r.x - 1 && x <= r.x + r.w && y >= r.y - 1 && y <= r.y + r.h);
         for (const q of DG.straightRuns(m.cells, m.W, m.H, skip)) out.push(`seed ${seed} f${f}: a straight cave wall ${q.n} cells long at ${q.x},${q.y}`); }
+      // the plateaus (TASKS 400): a body two cells wide walks from the spawn to every plateau and ledge (a ridge never narrows to one
+      // cell), the walk to the stairs is held to ARCH.plateau.path, the rock wall stands at the top only and no lava lies in it, and
+      // the floor has lava
+      if (plat) { const W = m.W, A = D.ARCH.plateau, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE);
+        // (a lava cave, TASKS 431, is the water caves' layout: its tunnels may narrow, its rock is all wall)
+        const lc = m.ftype === 'cave', lost = lc ? [] : DG.narrowTo(m.cells, W, m.H, s0, m.rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx));
+        for (const k of lost) out.push(`seed ${seed} f${f}: plateau or ledge at ${k % W},${Math.floor(k / W)} out of reach of a body two cells wide`);
+        const d = new Int32Array(W * m.H).fill(-1), q = [s0]; d[s0] = 0;
+        for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && m.cells[n] === 1) { d[n] = d[q[i]] + 1; q.push(n); } }
+        const pth = (((m.ftype && A[m.ftype]) || A).path || A.path).map((q) => q * (m.ftype2 ? A.blend.pathKeep : 1)), walk = d[m.exit.ty * W + m.exit.tx]; if (walk !== m.walk || walk < pth[lf - 1]) out.push(`seed ${seed} f${f}: the walk to the stairs is ${walk} cells (${m.walk} counted, ${pth[lf - 1]} at least)`);
+        if (!m.cliff || m.cliff.length !== W) out.push(`seed ${seed} f${f}: a plateau floor without its wall rows`);
+        else if (!lc) for (let x = 0; x < W; x++) for (let y = 0; y < m.cliff[x]; y++) if (m.cells[y * W + x] === 3) { out.push(`seed ${seed} f${f}: lava in the wall at ${x},${y}`); x = W; break; }
+        if (!m.lava) out.push(`seed ${seed} f${f}: a plateau floor without lava`);
+        // a cache hides in the top wall (TASKS 425): its room and passage in the wall's rows, the wall over it on each side, never a
+        // block of dark in the lava
+        for (const [i, q] of m.secrets.entries()) { const r = m.rooms[q.room], ks = q.hide.slice(); for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) ks.push(y * W + x);
+          if (ks.some((k) => Math.floor(k / W) >= m.cliff[k % W])) out.push(`seed ${seed} f${f}: secret ${i} is not in the top wall`); }
+        // the lava (TASKS 401): its share of floor and lava in AR.lava.share, lakes and sources, every crossing a walk over lava, the crust
+        // on lava by the floor and no way shorter over it, and nothing stands in the lava, on the crust or a cell from either
+        const L = A.lava, under = new Set(m.lavaUnder), crustS = new Set(m.crust), fl = m.cells.filter((c) => c === 1).length, share = m.lava / (fl + m.lava);
+        const sh = m.shareOf || L.share;
+        if (share < sh[0] || share > sh[1]) out.push(`seed ${seed} f${f}: lava is ${Math.round(share * 100)} % of floor and lava (${m.ftype})`);
+        if (!m.lavaBodies.some((b) => b.kind === 'lake') || !m.lavaFeatures.length) out.push(`seed ${seed} f${f}: no lake or no source of lava`);
+        for (const q of m.lavaFeatures) if (m.cells[q.cell] !== 3) out.push(`seed ${seed} f${f}: a lava ${q.kind} off its lava`);
+        // (a chain bridge over the chasm, TASKS 429: on floor walked over the dark, the dark beside it, never over lava)
+        const chU = new Set(m.chasmUnder || []);
+        for (const c of m.crossings) if (c.chasm ? c.kind !== 'bridge' || c.cells.some((k) => m.cells[k] !== 1 || !chU.has(k) || under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 0)) : !c.lava || c.cells.some((k) => m.cells[k] !== 1 || !under.has(k)) || !c.cells.some((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 3))) out.push(`seed ${seed} f${f}: a ${c.kind} that is no crossing over ${c.chasm ? 'the chasm' : 'lava'}`);
+        for (const k of crustS) if (m.cells[k] !== 3 || ![1, -1, W, -W].some((o) => m.cells[k + o] === 1)) out.push(`seed ${seed} f${f}: crust off a bank at ${k % W},${Math.floor(k / W)}`);
+        // (the floor round each crust cell joins up on foot within a few steps: a crust cell never takes anyone over the lava)
+        for (const k of crustS) { const fl8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].map((o) => k + o).filter((n) => m.cells[n] === 1); if (fl8.length < 2) continue;
+          const dl = new Map([[fl8[0], 0]]), ql = [fl8[0]]; for (let i = 0; i < ql.length; i++) { const c = ql[i]; if (dl.get(c) >= 6) continue; for (const o of [1, -1, W, -W]) { const n = c + o; if (!dl.has(n) && m.cells[n] === 1) { dl.set(n, dl.get(c) + 1); ql.push(n); } } }
+          if (fl8.some((n) => !dl.has(n))) { out.push(`seed ${seed} f${f}: the crust is a short cut at ${k % W},${Math.floor(k / W)}`); break; } }
+        const hot = new Set(); for (let k = 0; k < W * m.H; k++) if (m.cells[k] === 3) for (const o of [0, 1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) hot.add(k + o);
+        const onHot = (o) => hot.has(Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE));
+        for (const [n, list] of [['monster', m.enemies.filter((e) => ENEMIES[e.type].kind !== 'salamander' && !ENEMIES[e.type].lake)], ['chest', m.chests], ['pot', m.pots], ['prop', m.decor.filter((q) => !q.wall && !q.lift && q.n !== 'fence_mg')], ['fire', m.torches.filter((q) => q.kind !== 'wall')]])
+          for (const o of list) if (onHot(o)) { out.push(`seed ${seed} f${f}: a ${n} in the lava or a cell from it at ${Math.round(o.x)},${Math.round(o.y)}`); break; } }
       // doors: two corridor cells just past a room's edge, every way into a doored room has one; a locked room is never the way to
       // the exit or to anything else, and its key or lever lies on this side of its doors
       { const inR = (r, x, y) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h, any = (x, y) => m.rooms.some((r) => inR(r, x, y));
@@ -1860,10 +2409,13 @@
         for (const d of m.decor) if (d.r === r.id && ['shop_armor', 'shop_weapons', 'shop_gold', 'shop_crate'].includes(d.n)) { const x = Math.floor(d.x / TILE), y = Math.floor((d.y - 6) / TILE);
           if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => cell(m, x + dx, y + dy) === 0)) out.push(`seed ${seed} f${f}: ${d.n} stands in the middle of the shop`);
           if (mouths.some(([mx, my]) => Math.max(Math.abs(mx - x), Math.abs(my - y)) <= 2)) out.push(`seed ${seed} f${f}: ${d.n} by a way into the shop`); }
-        const nook = (x, y) => y <= r.y + 1 && Math.abs(x - r.cx) <= 1, go = (x, y) => inR(x, y) && cell(m, x, y) === 1 && !blk.has(y * m.W + x) && !nook(x, y);
-        const sv = new Set([fy * m.W + fx]), q3 = [[fx, fy]]; while (q3.length) { const [x, y] = q3.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
-          if (go(nx, ny) && !sv.has(ny * m.W + nx)) { sv.add(ny * m.W + nx); q3.push([nx, ny]); } } }
-        for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (go(x, y) && !sv.has(y * m.W + x)) { out.push(`seed ${seed} f${f}: shop props wall off floor`); y = 1e9; break; } }
+        // (a cell of its box the counter reaches only round the outside of the box, by a plateau's ridge along its edge, is the floor's
+        // shape, not the props': it counts only if the box's bare floor joins it to the counter)
+        const nook = (x, y) => y <= r.y + 1 && Math.abs(x - r.cx) <= 1, bare = (x, y) => inR(x, y) && cell(m, x, y) === 1 && !nook(x, y), go = (x, y) => bare(x, y) && !blk.has(y * m.W + x);
+        const fill = (ok) => { const sv = new Set([fy * m.W + fx]), q3 = [[fx, fy]]; while (q3.length) { const [x, y] = q3.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy;
+          if (ok(nx, ny) && !sv.has(ny * m.W + nx)) { sv.add(ny * m.W + nx); q3.push([nx, ny]); } } } return sv; };
+        const sv = fill(go), sv0 = fill(bare);
+        for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (go(x, y) && sv0.has(y * m.W + x) && !sv.has(y * m.W + x)) { out.push(`seed ${seed} f${f}: shop props wall off floor`); y = 1e9; break; } }
       // fire floors always show lava, and no pool cuts floor off from the rest
       if (D.BIOMES[m.biome].lava && !m.lava) out.push(`seed ${seed} f${f}: a fire floor without lava`);
       { const sv = new Uint8Array(m.W * m.H), q3 = [Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE)]; sv[q3[0]] = 1;
@@ -1970,6 +2522,47 @@
         for (let i = 0; i < 120 * MOD.explosive.fuse * 0.8; i++) step(S, { keys: [] }); if (h.hp < a) out.push('an explosive elite bursts before its fuse is out');
         for (let i = 0; i < 120 * 0.5; i++) step(S, { keys: [] });
         if ((h.hp < a) !== !!near) out.push(near ? "an explosive elite's corpse does not hurt the hero in reach" : "an explosive elite's corpse hurts the hero out of reach"); }
+      // the smouldering skeleton (TASKS 411): beside the hero it lights its fuse, stands, and bursts at its end; killed short of him its
+      // bones burst all the same once the fuse is out; its blast takes a share of each monster's health within reach, none beyond,
+      // and sets off another smouldering one in it
+      { const B = ENEMIES.skel_ember.boom, W = ENEMIES.skel_ember.wind, sk = (dx, o) => el([], dx, Object.assign({ type: 'skel_ember', elite: 0, hp: 18, max: 18, dmg: 5 }, o));
+        put(); const a1 = sk(40); let litT = -1, x0 = 0, a = h.hp;
+        for (let i = 0; i < 120 * 2 && a1.deadT < 0; i++) { step(S, { keys: [] }); if (litT < 0 && a1.st === 'wind') { litT = S.t; x0 = a1.x; } if (litT < 0 && h.hp < a) break; }
+        if (litT < 0) out.push('a smouldering skeleton beside the hero never lights its fuse');
+        else { if (a1.deadT < 0 || Math.abs(a1.deadT - litT - W) > 2 * DT) out.push(`a smouldering skeleton bursts ${a1.deadT < 0 ? 'never' : (a1.deadT - litT).toFixed(2) + ' s'} after lighting, not ${W} s`);
+          if (Math.abs(a1.x - x0) > 6) out.push('a smouldering skeleton walks on with its fuse lit'); if (!(h.hp < a)) out.push("a smouldering skeleton's burst does not hurt the hero beside it"); }
+        put(); const a2 = sk(60, { st: 'idle' }); a = h.hp; hitEnemy(S, R, a2, 100, false, h.x, h.y); const dx2 = a2.x - h.x;
+        if (!(a2.fuse > S.t)) out.push('a smouldering skeleton killed lights no fuse');
+        for (let i = 0; i < 120 * B.fuse * 0.8; i++) { step(S, { keys: [] }); h.x = a2.x - dx2; h.vx = h.vy = 0; } if (h.hp < a) out.push("a smouldering skeleton's bones burst before the fuse is out");
+        for (let i = 0; i < 120 * 0.4; i++) { step(S, { keys: [] }); h.x = a2.x - dx2; h.vx = h.vy = 0; } if (!(h.hp < a)) out.push("a smouldering skeleton's bones never burst by the hero");
+        put(); h.ifr = 1e9; const a3 = sk(0, { st: 'wind', t0: S.t, fuse: S.t + 0.05 }), mk = (dy, type) => el([], 0, { type, elite: 0, hp: 200, max: 200, dmg: 1, y: h.y + dy, st: 'idle', cdT: 1e9 });
+        const nearM = mk(B.r - 20, 'goblin'), farM = mk(-(B.r + 40), 'goblin'), a4 = mk(-(B.r - 30), 'skel_ember');
+        for (let i = 0; i < 12; i++) step(S, { keys: [] });
+        if (a3.deadT < 0) out.push("a smouldering skeleton's lit fuse never runs out");
+        if (Math.abs(nearM.max - nearM.hp - Math.round(nearM.max * B.mon)) > 1) out.push(`a smouldering skeleton's blast takes ${nearM.max - nearM.hp} of a monster's ${nearM.max} in reach, not ${B.mon * 100}%`);
+        if (farM.hp < farM.max) out.push("a smouldering skeleton's blast hurts a monster out of reach");
+        if (!(a4.fuse > S.t - 0.1)) out.push("a smouldering skeleton's blast does not set off another in reach");
+        h.ifr = 0; }
+      // the fire priest (TASKS 410): its ring falls where the hero stood, hurts him only after its warning and only if he stays, and
+      // sets him alight; it sets alight the weapon of an ally in the fight near it, whose blows then hit harder and set the hero burning
+      { const P = ENEMIES.fire_priest.pyre, pr = (o) => el([], 220, Object.assign({ type: 'fire_priest', elite: 0, hp: 100, max: 100, dmg: 10, cdT: 0, kinT: 1e9 }, o));
+        for (const stay of [1, 0]) { put(); const p = pr(); let a = h.hp, at = -1, early = 0;
+          for (let i = 0; i < 120 * 3 && h.hp === a; i++) { step(S, { keys: [] }); if (at < 0 && R.pyres.length) { at = S.t; if (!stay) h.x -= 3 * P.r; }
+            if (at >= 0 && S.t - at < P.warn - DT && h.hp < a) early = 1; if (p.st === 'chase' && at >= 0) p.cdT = 1e9; }
+          if (at < 0) { out.push('a fire priest in reach never casts its ring'); break; }
+          if (early) out.push("a fire priest's ring burns before its warning is out");
+          if (stay && !(h.hp < a)) out.push("a fire priest's ring does not hurt the hero standing in it");
+          if (stay && !(h.burn > S.t)) out.push("a fire priest's ring does not set the hero burning");
+          if (!stay && h.hp < a) out.push("a fire priest's ring hurts a hero who stepped out of it"); }
+        put(); h.ifr = 1e9; const p2 = pr({ kinT: S.t, cdT: 1e9 }), ally = el([], 120, { elite: 0, hp: 100, max: 100, dmg: 10, cdT: 1e9, x: p2.x - 60, y: h.y + 40 });
+        for (let i = 0; i < 120 * 2 && !(ally.fireT > S.t); i++) step(S, { keys: [] });
+        if (!(ally.fireT > S.t)) out.push("a fire priest never sets alight an ally's weapon");
+        else { h.ifr = 0; let hurt = [0, 0], burnt = 0;
+          for (const lit of [0, 1]) for (let k = 0; k < 20 && !hurt[lit]; k++) { const keep = ally.fireT; if (!lit) ally.fireT = 0; h.hp = heroSt(S).maxHp; h.burn = 0; h.ifr = 0;
+            hurtHero(S, R, 40, ally.x, ally.y, undefined, who(ally), ally); hurt[lit] = heroSt(S).maxHp - h.hp; if (lit) burnt = h.burn > S.t; ally.fireT = keep; }
+          if (!(hurt[1] > hurt[0] * 1.15)) out.push(`a blow of an ally with its weapon alight is no harder (${hurt[0]} → ${hurt[1]})`);
+          if (!burnt) out.push("a blow of an ally with its weapon alight does not set the hero burning"); }
+        h.ifr = 0; R.pyres = []; }
       // no blow takes more than its cap of the health: the real strike of an elite of every kind (a caster's bolt, the boss's moves)
       // and an explosive corpse's blast, on the first and the last floor
       const f0 = R.floor, first = (secs) => { const mx = heroSt(S).maxHp; let lost = 0;
@@ -2150,7 +2743,231 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck());
+    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck(), magmaKindsCheck());
+  }
+  // a run of its own (the caves, the magma caves) finds, is sold and is given items at about its hero's level on its first floor:
+  // the magma caves' loot over their depth once made them 10 levels over him and the run a walk (TASKS 424)
+  function lootLevelCheck() {
+    const out = [];
+    for (const mode of Object.keys(D.RUNS)) { const M = D.RUNS[mode]; if (!M.lvl || M.lvl < 2 || M.endless) continue;
+      const S = spawn(0, {}), R = newRun(S, mode, 7); enterFloor(S, R, 1); const lv = rollItem(R, dep(R)).lvl, sh = R.shop.goods.filter((g) => BASES[g.it.b]).map((g) => g.it.lvl);
+      if (Math.abs(lv - M.lvl) > 3) out.push(`${mode}: a 1st floor's item is level ${lv} for a hero of level ${M.lvl}`);
+      if (sh.some((l) => Math.abs(l - M.lvl) > 3)) out.push(`${mode}: the 1st floor's merchant sells items of level ${Math.min(...sh)}–${Math.max(...sh)} for a hero of level ${M.lvl}`); }
+    return out; }
+  // the magma floors' types (TASKS 426, 427): a run's floors never take one type twice running and every type turns up; a lake floor
+  // has islands in its lake, a hoard on the big one, no start, stairs or merchant on one and no cache dug in the lake; a river floor
+  // its island with the hoard, two to four ways over and packs by them
+  function floorTypeCheck() {
+    const out = [], seen = {}, AR = D.ARCH.plateau;
+    let mixed = 0;
+    for (let sd = 1; sd <= 10; sd++) { let prev = null, pm = false;
+      for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f} (${m.ftype})`; seen[m.ftype] = (seen[m.ftype] || 0) + 1;
+        if (f < D.RUNS.magma.floors && m.ftype === prev) out.push(`${tag}: the same type as the floor before`); prev = m.ftype;
+        if (m.ftype2) { mixed++; if (pm) out.push(`${tag}: a mixed floor after a mixed floor`); if (!AR.blend.over.includes(m.ftype)) out.push(`${tag}: ${m.ftype} mixed with ${m.ftype2}`); } pm = !!m.ftype2;
+        if (f === D.RUNS.magma.floors && m.ftype !== 'plain') out.push(`${tag}: the boss's floor is not the plain plateaus`);
+        if (f === 1 && AR.first && m.ftype !== AR.first) out.push(`${tag}: the first floor is not ${AR.first}`);
+        // a river (TASKS 428): one island, the hoard on it; two to four places to cross, a pack waiting at them
+        if (m.ftype === 'river') { const W = m.W, isles = m.rooms.filter((r) => r.isle), rc = m.crossings.filter((c) => c.river);
+          if (isles.length !== 1 || isles[0].type !== 'treasure') out.push(`${tag}: the river's island holds no hoard`);
+          const xs = rc.map((c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length).sort((a, b) => a - b); let places = 0, last = -99; for (const x of xs) { if (x - last > 8) places++; last = x; }
+          if (places < 2 || places > 4) out.push(`${tag}: ${places} places to cross the river`);
+          const mx = (c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, held = rc.filter((c) => { const own = new Set(c.cells), ends = c.cells.flatMap((k) => [1, -1, W, -W].map((o) => k + o)).filter((k) => m.cells[k] === 1 && !own.has(k));
+            return m.enemies.some((e) => ends.some((k) => Math.hypot(e.x / TILE - 0.5 - (k % W), e.y / TILE - 0.5 - Math.floor(k / W)) < 8)); });
+          const bare = xs.filter((x, i) => (i === 0 || x - xs[i - 1] > 8) && !held.some((c) => Math.abs(mx(c) - x) <= 8 * 3)).length;
+          if (bare > 1) out.push(`${tag}: ${bare} places to cross the river with no pack by them`); }
+        // a chasm (TASKS 429): two chain bridges over the dark and more, packs waiting at them, the dark (not lava) round the plateaus
+        if (m.ftype === 'chasm') { const W = m.W, br = m.crossings.filter((c) => c.chasm);
+          if (br.length < 2) out.push(`${tag}: ${br.length} bridges over the chasm`);
+          const held = br.filter((c) => m.enemies.some((e) => c.cells.some((k) => Math.hypot(e.x / TILE - 0.5 - (k % W), e.y / TILE - 0.5 - Math.floor(k / W)) < 9))).length;
+          if (held < br.length / 2) out.push(`${tag}: ${held} of ${br.length} bridges with a pack by them`);
+          let rim = 0, lav = 0; for (let k = 0; k < W * m.H; k++) if (m.cells[k] === 1 && [1, -1, W, -W].some((o) => m.cells[k + o] !== 1 && m.cells[k + o] !== 4)) { rim++; if ([1, -1, W, -W].some((o) => m.cells[k + o] === 3)) lav++; }
+          if (lav > rim * 0.25) out.push(`${tag}: ${Math.round(lav / rim * 100)} % of the plateaus' edges by lava`); }
+        // terraces (TASKS 430): three rows and more, the start on the first or the last and the stairs on the other, a lavafall down
+        // the wall at the head of the river
+        if (m.ftype === 'terrace') { const rows = Math.max(...m.rooms.map((r) => (r.row ?? -1))) + 1, s0 = m.rooms.find((r) => r.type === 'start'), e0 = m.rooms.find((r) => r.type === 'exit');
+          if (rows < 3) out.push(`${tag}: ${rows} rows of terraces`);
+          if (!s0 || !e0 || s0.row === undefined || e0.row === undefined || Math.min(s0.row, e0.row) !== 0 || Math.max(s0.row, e0.row) !== rows - 1) out.push(`${tag}: the start and the stairs are not the serpentine's two ends`);
+          if (!m.lavaFeatures.some((q) => q.kind === 'fall')) out.push(`${tag}: no lavafall`); }
+        // a lava cave (TASKS 431): its rock all wall (no chasm), streams of lava across its tunnels crossed twice and more, a source
+        if (m.ftype === 'cave') { if (m.cliff.some((c) => c < m.H)) out.push(`${tag}: a lava cave with a chasm under its rock`);
+          if (m.crossings.filter((c) => c.lava).length < 2) out.push(`${tag}: ${m.crossings.length} ways over its lava`);
+          if (!m.lavaFeatures.length) out.push(`${tag}: no source of its lava`); }
+        if (m.rooms.some((r) => r.isle && ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
+        if (m.ftype !== 'lake') continue; const isles = m.rooms.filter((r) => r.isle);
+        if (isles.length < 2) out.push(`${tag}: ${isles.length} islands in the lake`);
+        if (isles.some((r) => ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
+        if (!isles.some((r) => r.type === 'treasure')) out.push(`${tag}: no hoard on an island`);
+        // the lake is the floor's figure (the player's note on 427): a big island with the hoard and smaller ones, the plateaus on its
+        // shore no bigger than the lake's own sizes, and no hole into the dark left in its lava
+        if (!isles.some((r) => r.isle === 2 && r.type === 'treasure')) out.push(`${tag}: the hoard is not on the big island`);
+        if (new Set(isles.map((r) => r.w * r.h > 90 ? 'big' : r.w * r.h > 40 ? 'mid' : 'small')).size < 2) out.push(`${tag}: the islands are all of a size`);
+        for (const r of m.rooms) if (!r.isle && !r.pocket && r.type !== 'secret' && r.type !== 'shop' && (r.w > (r.g || AR.lake.grow)[0] || r.h > (r.g || AR.lake.grow)[1])) out.push(`${tag}: a shore plateau of ${r.w}×${r.h}`);
+        { const W = m.W, seen = new Uint8Array(W * m.H), wallAt = (k) => Math.floor(k / W) < m.cliff[k % W];
+          for (let k0 = 0; k0 < W * m.H; k0++) { if (m.cells[k0] !== 0 || seen[k0] || wallAt(k0)) continue; const cs = [k0]; seen[k0] = 1; let shut = true;
+            for (let i = 0; i < cs.length; i++) for (const o of [1, -1, W, -W]) { const n = cs[i] + o, x = n % W, y = Math.floor(n / W);
+              if (x < 3 || y < 3 || x > W - 4 || y > m.H - 4) { shut = false; continue; } if (m.cells[n] === 3) continue; if (m.cells[n] !== 0 || wallAt(n)) { shut = false; continue; } if (!seen[n]) { seen[n] = 1; cs.push(n); } }
+            if (shut) { out.push(`${tag}: a hole of ${cs.length} cells into the dark in the lava at ${k0 % W},${Math.floor(k0 / W)}`); break; } } }
+        for (const q of m.secrets) { const r = m.rooms[q.room]; let lava = 0; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (cell(m, x, y) === 3) lava++;
+          if (lava > 2) out.push(`${tag}: a cache with ${lava} cells of lava round it`); } } }
+    for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
+    // the mix (TASKS 426): a lake, river or terrace floor over the chasm: it turns up in the runs, and on each figure a floor holds
+    // the figure's own checks that the chasm could break (a walk to the stairs, a lava share, two bridges, every plateau in reach, the lake's islands)
+    if (!mixed) out.push('no mixed floor in 10 magma runs');
+    for (const ft of AR.blend.over) for (let sd = 1; sd <= 5; sd++) for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd, ftype: ft, ftype2: AR.blend.with }), tag = `mixed ${ft}+${m.ftype2} ${sd} f${f}`, W = m.W;
+      if (m.ftype !== ft || m.ftype2 !== AR.blend.with) { out.push(`${tag}: came out as ${m.ftype}+${m.ftype2}`); continue; }
+      const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), lost = DG.narrowTo(m.cells, W, m.H, s0, m.rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx));
+      if (lost.length) out.push(`${tag}: ${lost.length} plateau cells out of reach of a body two cells wide`);
+      const pth = (AR[ft].path || AR.path)[f - 1] * AR.blend.pathKeep * 0.9; if (m.walk < pth)   // (0.9: tryGen's last attempts relax the walk to that share)
+       out.push(`${tag}: the walk to the stairs is ${m.walk}, ${pth} at least`);
+      const sh = m.lava / (m.cells.filter((c) => c === 1).length + m.lava); if (sh < m.shareOf[0] || sh > m.shareOf[1]) out.push(`${tag}: lava is ${Math.round(sh * 100)} % of floor and lava`);
+      const br = m.crossings.filter((c) => c.chasm).length, need = ft === 'river' ? AR.blend.riverBridges : 2; if (br < need) out.push(`${tag}: ${br} bridges over the chasm`);
+      if (!m.cells.some((c, k) => c === 0 && Math.floor(k / W) >= m.cliff[k % W] && [1, -1, W, -W].some((o) => m.cells[k + o] === 1))) out.push(`${tag}: no chasm by the plateaus`);
+      if (ft === 'lake' && m.rooms.filter((r) => r.isle).length < 2) out.push(`${tag}: fewer than two islands in the lake`);
+      if (!m.rooms.some((r) => r.type === 'treasure')) out.push(`${tag}: no hoard`); }
+    // taking the stairs from every floor of a run onto the next, whatever its type (a step that read the floor it left crashed on a
+    // floor with no crust)
+    for (let sd = 1; sd <= 6; sd++) { const Z = spawn(0, {}); Z.run = newRun(Z, 'magma', sd); Z.screen = 'play'; const R2 = Z.run;
+      try { for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = R2.map; R2.en = []; R2.hero.x = m.exit.x; R2.hero.y = m.exit.y; R2.msg = null;
+          for (let i = 0; i < 30 && R2.floor === f; i++) step(Z, { keys: i % 10 === 0 ? ['KeyE'] : [] });
+          if (R2.floor !== f + 1) { out.push(`magma run ${sd}: the stairs of floor ${f} (${m.ftype}) do not take the hero down`); break; }
+          for (let i = 0; i < 60; i++) step(Z, { keys: [] }); } }
+      catch (e) { out.push(`magma run ${sd}: taking the stairs threw ${e.message}`); } }
+    // the magma caves' packs (TASKS 412): each floor brings its own kinds — none of the 2nd's on the 1st, none of the 3rd's on the 2nd
+    const by = [{}, {}, {}]; for (let sd = 1; sd <= 10; sd++) for (let f = 1; f <= 3; f++) for (const e of DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }).enemies) if (!e.guard) by[f - 1][e.type] = 1;
+    for (const [t, f0] of Object.entries(D.BIOMES.magma.from)) { if (f0 > 3) continue; if (!by[f0 - 1][t]) out.push(`magma: no ${t} on the ${f0}th floor it comes on`); if (f0 > 1 && by[f0 - 2][t]) out.push(`magma: a ${t} before the ${f0}th floor`); }
+    return out; }
+  // the magma caves' side ways (TASKS 433): on every floor but the boss's two dead ends off the way to the stairs and more, a ledge
+  // always one, each holding a reward (a chest, an altar, an elite or a cache dug from it); no elite on the way but the stairs' own,
+  // and two thirds of the floor's rewards and more off it
+  function branchCheck() {
+    const out = [];
+    for (let sd = 1; sd <= 10; sd++) for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f} (${m.ftype})`, q = DG.rewardsOf(m);
+      const deg = m.rooms.map(() => 0); for (const [a, b] of m.edges) { deg[a]++; deg[b]++; }
+      if (q.ends.length < 2) out.push(`${tag}: ${q.ends.length} dead ends off the way`);
+      for (const r of q.bare) out.push(`${tag}: a dead end off the way with no reward (room ${r.id})`);
+      for (const r of m.rooms) if (r.kind === 'ledge' && deg[r.id] !== 1) out.push(`${tag}: a ledge on ${deg[r.id]} ways (room ${r.id})`);
+      if (q.onWay * 3 > q.list.length) out.push(`${tag}: ${q.onWay} of ${q.list.length} rewards on the way`);
+      const el = q.list.filter((w) => w.kind === 'elite' && q.way.has(w.room)).length; if (el) out.push(`${tag}: ${el} elites on the way`); }
+    return out; }
+  // the magma caves' hazards (TASKS 406): as many on each floor as HAZ.n has (more each floor to the 3rd), every one HAZ.clear cells
+  // off the start's fire, the spawn, the stairs, chests, monsters' posts and the altar, a vent on 3×3 of floor a cell off the lava;
+  // the warning comes HAZ.warn s before the burst, which hurts the hero (a vent sets him alight) and a monster in its ring once a
+  // cycle, and nobody outside it
+  // a run on a plain plateau floor for the checks of the plateaus' lava, chasm, crust and hazards (TASKS 426: a run's first floor
+  // is a lava cave): run 3's first plain floor, else the next run's
+  // the magma caves' new kinds (TASKS 407–409), by a river of lava on a plain floor: a bank, three cells of open lava, the far bank
+  function magmaKindsCheck() {
+    const out = [], Z = spawn(0, {}); Z.screen = 'play'; let sp = null, LW = 3;
+    // the floor a bank cell reaches within eight cells round: a pocket of lava inside one plateau has its two sides joined
+    const bankOf = (m, x0, y0) => { const W = m.W, got = new Set([y0 * W + x0]); for (const k of got) for (const o of [1, -1, W, -W]) { const n = k + o, x = n % W, y = Math.floor(n / W);
+      if (Math.abs(x - x0) <= 8 && Math.abs(y - y0) <= 8 && cell(m, x, y) === 1) got.add(n); } return got; };
+    // (the first magma floor with such a crossing, seed by seed)
+    for (let sd = 3; sd < 40 && !sp; sd++) { Z.run = newRun(Z, 'magma', sd); for (let f = 1; f < D.RUNS.magma.floors && !sp; f++) { enterFloor(Z, Z.run, f); const m = Z.run.map, W = m.W; if (m.ftype2) continue;
+      const lav = (x, y) => cell(m, x, y) === 3 && !crustAt(m, y * W + x), fl = (x, y) => cell(m, x, y) === 1;
+      for (let k = 3; k >= 2 && !sp; k--) for (let y = 3; y < m.H - 3 && !sp; y++) for (let x = 3; x < W - 9 && !sp; x++)
+        if ([-2, -1, 0].every((i) => [-1, 0, 1].every((j) => fl(x + i, y + j))) && Array.from({ length: k }, (_, i) => i + 1).every((i) => [-1, 0, 1].every((j) => lav(x + i, y + j))) && [k + 1, k + 2].every((i) => [-1, 0, 1].every((j) => fl(x + i, y + j))) && !bankOf(m, x, y).has(y * W + x + k + 1)) { sp = [x, y]; LW = k; } } }
+    if (!sp) return ['magma kinds: no river two or three cells wide with banks on any magma floor'];
+    const R = Z.run, m = R.map, h = R.hero, W = m.W, t = () => Z.t, lav = (x, y) => cell(m, x, y) === 3 && !crustAt(m, y * W + x); R.msg = null;
+    const haz = m.hazards; m.hazards = [];   // (no vent or rock in the way of what is measured, and no blow dodged)
+    const agi = h.base.agi; h.base.agi = 0; h.eq = Object.fromEntries(Object.keys(h.eq).map((k) => [k, null]));
+    const X = (i) => (sp[0] + i + 0.5) * TILE, Y = (sp[1] + 0.5) * TILE + 4, steps = (s, f) => { for (let i = 0; i < 120 * s; i++) { step(Z, { keys: [] }); if (f && f()) return true; } return false; };
+    const put = (hx = X(-1)) => { R.en = []; R.proj = []; R.fires = []; h.hp = heroSt(Z).maxHp; h.deadT = -1; h.burn = 0; h.ifr = 0; h.x = hx; h.y = Y; h.vx = h.vy = 0; h.dashT = -9; };
+    const mk = (type, x, y, o) => { const E = ENEMIES[type], e = Object.assign({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp: E.hp * 3, max: E.hp * 3, dmg: 6, elite: 0, room: -1, st: 'chase', t0: t(), face: -1, aimA: Math.PI,
+      cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: t(), hx: x, hy: y }, o); R.en.push(e); return e; };
+    // the imp: a spark from range hurts and burns; one beside it leaps away; knocked into the lava it doesn't sink and leaps out;
+    // on the hero's bank it leaps over the lava to the far one, where he can't walk to it
+    { put(); const a = h.hp, i1 = mk('imp', X(-1) - 200, Y, { leapT: 1e9, lookT: 1e9 }); steps(3, () => h.hp < a);
+      if (!(h.hp < a)) out.push('an imp in range never hurts the hero with its spark'); else if (!(h.burn > t())) out.push("an imp's spark does not set the hero burning"); void i1;
+      put(); const i2 = mk('imp', X(-1) - 40, Y, { cdT: 1e9 }); let leapt = 0; steps(1.5, () => { if (i2.st === 'leap') leapt = 1; return leapt && i2.st === 'chase'; });
+      if (!leapt) out.push('an imp beside the hero does not leap away'); else if (Math.hypot(i2.x - h.x, i2.y - h.y) < ENEMIES.imp.flee) out.push('an imp leaps away and lands still beside the hero');
+      put(X(-3)); const i3 = mk('imp', X(Math.ceil(LW / 2)), Y, { cdT: 1e9 }); steps(1.5);
+      if (i3.sinkT !== undefined || i3.deadT >= 0) out.push('an imp in the lava sinks or burns'); else if (cell(m, Math.floor(i3.x / TILE), Math.floor(i3.y / TILE)) !== 1) out.push('an imp in the lava stays in it');
+      put(X(-2)); const i4 = mk('imp', X(-2) + 70, Y + 20, { cdT: 1e9, leapT: 0, lookT: 0 }); let over = 0; const F0 = () => flow(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE));
+      // (the far bank: floor the hero's bank doesn't reach within eight cells round; past a bend it lies lower down the river too)
+      const near = bankOf(m, sp[0], sp[1]), far = () => { const x = Math.floor(i4.x / TILE), y = Math.floor(i4.y / TILE); return cell(m, x, y) === 1 && !near.has(y * W + x); };
+      steps(4, () => { if (i4.st === 'leap' && lav(Math.floor(i4.x / TILE), Math.floor(i4.y / TILE))) over = 1; h.x = X(-2); h.y = Y; return over && i4.st === 'chase' && far(); }); void F0;
+      if (!over) out.push('an imp on the hero\'s bank never leaps over the lava'); else if (!far()) out.push('an imp leaps out over the lava and does not land on the far bank'); }
+    // the salamander: in the lava by the bank it comes for the hero and hurts him, never burning in it; its breath burns one in its
+    // cone and spares one who stepped out of it; its fire on the floor burns; hurt, it swims back and heals, not while hit
+    { put(X(-2)); const a = h.hp, s1 = mk('salamander', X(Math.ceil(LW / 2)), Y, { fa: Math.PI }); let out1 = 0; steps(6, () => { if (!onLava(m, s1)) out1 = 1; return h.hp < a; });
+      if (s1.sinkT !== undefined || s1.hp < s1.max) out.push('a salamander burns in the lava'); if (!(h.hp < a)) out.push('a salamander by the bank never hurts the hero'); void out1;
+      for (const stay of [1, 0]) { put(X(-2)); const B = ENEMIES.salamander.breath, s2 = mk('salamander', X(-2) - 110, Y, { fa: 0, aimA: 0, brT: 0 }); let lit = -1, a2 = h.hp, early = 0;
+        // (out of the cone: off its side on whole floor, beyond its bite)
+        const side = [[0, 120], [0, -120], [-40, 120], [-40, -120]].map(([dx, dy]) => [s2.x + dx, s2.y + dy]).find(([x, y]) => cell(m, Math.floor(x / TILE), Math.floor(y / TILE)) === 1 && cell(m, Math.floor(x / TILE), Math.floor((y - 20) / TILE)) === 1) || [s2.x, s2.y + 120];
+        steps(2.5, () => { if (lit < 0 && s2.st === 'wind' && s2.br) lit = t(); if (!stay && lit >= 0) { h.x = side[0]; h.y = side[1]; h.vx = h.vy = 0; } if (lit >= 0 && t() - lit < B.wind - DT && h.hp < a2) early = 1; return lit >= 0 && t() > lit + B.wind + B.t; });
+        if (lit < 0) { out.push('a salamander in reach never breathes fire'); break; }
+        if (early) out.push("a salamander's breath burns before its wind-up is out");
+        if (stay && !(h.hp < a2 && h.burn > t() - 0.5)) out.push("a salamander's breath does not burn the hero in its cone"); if (!stay && h.hp < a2) out.push("a salamander's breath burns a hero out of its cone"); }
+      put(); const a3 = h.hp; addFire(R, Z, h.x, h.y, { src: 0, who: 'salamander', r: 30, ry: 0.6, t: 2.4, dmg: 5, per: 1, kind: 'trail' }); steps(0.2);
+      if (!(h.hp < a3) || !(h.burn > t())) out.push("a salamander's fire on the floor does not burn the hero in it");
+      put(X(-5)); const s3 = mk('salamander', X(-1), Y, { fa: 0 }); s3.hp = Math.round(s3.max * 0.4); const hp0 = s3.hp; let soaked = 0;
+      steps(6, () => { h.x = X(-8); h.y = Y; if (s3.st === 'soak' && onLava(m, s3)) soaked = 1; return soaked && s3.hp > s3.max * 0.55; });
+      if (!soaked) out.push('a salamander under half its health does not go back into the lava'); else if (!(s3.hp > hp0)) out.push('a salamander in the lava does not heal');
+      if (soaked && s3.st === 'soak') { const v = s3.hp; hitEnemy(Z, R, s3, 1, false, s3.x, s3.y, 0); const v1 = s3.hp; steps(0.8, () => { h.x = X(-8); h.y = Y; }); if (s3.hp > v1 + 0.5) out.push('a salamander heals in the lava while it is being hit'); void v; } }
+    // the golem: its first blows only take its crust off, then blows land whole; the crust grows back with the hero away and no blow
+    // landing; its slam hurts the hero before it and spares one who stepped back; dead, its pool burns him
+    { put(X(-6)); const C = ENEMIES.golem.crust, g = mk('golem', X(-6) - 60, Y, { cdT: 1e9, hp: 400, max: 400 }), took = [];
+      for (let i = 0; i <= C.n; i++) { const v = g.hp; hitEnemy(Z, R, g, 40, false, h.x, h.y); took.push(v - g.hp); }
+      if (took.slice(0, C.n).some((d) => d !== Math.round(40 * C.k)) || took[C.n] !== 40) out.push(`a golem's blows through its crust took ${took.join('/')}, not ${Math.round(40 * C.k)} × ${C.n} then 40`);
+      // (calm at its post: one walking after the hero stepped on a spike plate, a blow all the same)
+      put(X(-6)); R.en = [g]; Object.assign(g, { x: X(-2), y: Y, hx: X(-2), hy: Y, st: 'idle', calmT: 1e9 }); g.hitT = g.blowT = t(); let grew = 0; steps(C.calm + 3 * C.regrow, () => { h.x = g.x + 340; h.y = g.y; if ((g.crust ?? C.n) > 0) grew = 1; return grew; });
+      if (!grew) out.push("a golem's crust never grows back with the hero away");
+      for (const stay of [1, 0]) { put(X(0)); const g2 = mk('golem', X(-2), Y, { cdT: 0 }); let w = -1, a = h.hp;
+        steps(3, () => { if (w < 0 && g2.st === 'wind') w = t(); if (!stay && w >= 0) { h.x = g2.x - 2 * TILE; h.y = g2.y - 3 * TILE; } else if (stay) { h.x = X(0); h.y = Y; } h.vx = h.vy = 0; return w >= 0 && g2.st === 'chase'; });
+        if (w < 0) { out.push('a golem beside the hero never slams'); break; } if (stay && !(h.hp < a)) out.push("a golem's slam does not hurt the hero before it"); if (!stay && h.hp < a) out.push("a golem's slam hurts a hero who stepped back"); }
+      put(X(-1)); const g3 = mk('golem', X(-1), Y, { cdT: 1e9, st: 'idle', calmT: 1e9 }); g3.hp = 1; g3.crust = 0; hitEnemy(Z, R, g3, 10, false, h.x - 30, h.y); const pool = (R.fires || []).find((p) => p.kind === 'pool');
+      if (!pool) out.push('a golem falls without a pool of lava'); else { const a = h.hp; steps(ENEMIES.golem.pool.arm * 0.8); if (h.hp < a) out.push("a golem's pool burns its killer before he can step out");
+        steps(ENEMIES.golem.pool.arm * 0.2 + 0.3); if (!(h.hp < a)) out.push("a golem's pool does not burn the hero in it");
+        steps(ENEMIES.golem.pool.t); if (R.fires.includes(pool)) out.push("a golem's pool never cools"); } }
+    // a burning hero beats the flames out with a dash (TASKS 463)
+    { put(); h.burn = t() + 3; h.cd.dash = 0; Z.ev = []; step(Z, { keys: ['Space'] }); if (h.burn > t() || !Z.ev.some((e) => e.k === 'snuff')) out.push('a dash does not put out a burning hero'); }
+    m.hazards = haz; h.base.agi = agi; return out;
+  }
+  const plainRun = (Z) => { for (let sd = 3; sd < 60; sd++) { Z.run = newRun(Z, 'magma', sd); for (let f = 2; f < D.RUNS.magma.floors; f++) { enterFloor(Z, Z.run, f); if (Z.run.map.ftype === 'plain') return Z.run; } } return Z.run; };
+  function hazardCheck() {
+    const out = [], HZ = D.HAZ, cnt = { vent: [0, 0, 0, 0], fall: [0, 0, 0, 0] };
+    // (counted on the plain plateaus: the floor types' figures leave each its own room for them)
+    for (const sd of [1, 77, 4242, 5, 12, 33]) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', ftype: 'plain' }), W = m.W, tag = `magma ${sd} f${f}`;
+      const keepOff = [[m.spawn.x, m.spawn.y], [m.exit.x, m.exit.y], ...m.chests.map((c) => [c.x, c.y]), ...m.enemies.map((e) => [e.x, e.y]), ...m.shrines.map((q) => [q.x, q.y])];
+      const st = m.rooms.find((r) => r.type === 'start'); keepOff.push([(st.cx + 0.5) * TILE, (st.cy + 0.5) * TILE + 6]);
+      for (const z of m.hazards || []) { cnt[z.k][f - 1]++; const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
+        if (keepOff.some(([x, y]) => Math.hypot(x - z.x, y - z.y) < HZ.clear * TILE)) out.push(`${tag}: a ${z.k} within ${HZ.clear} cells of the start, the spawn, the stairs, a chest, a monster or the altar at ${tx},${ty}`);
+        if (cell(m, tx, ty) !== 1) out.push(`${tag}: a ${z.k} off the floor at ${tx},${ty}`);
+        if (z.k === 'vent') for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) !== 1) { out.push(`${tag}: a vent without 3×3 of floor at ${tx},${ty}`); j = i = 9; }
+        if (z.k === 'vent') for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.max(Math.abs(i), Math.abs(j)) <= 2 && m.cells[(ty + j) * W + tx + i] === 3 && Math.max(Math.abs(i), Math.abs(j)) <= 1) out.push(`${tag}: a vent by the lava at ${tx},${ty}`); } }
+    for (const k of ['vent', 'fall']) { const c = cnt[k]; if (!(c[0] > 0 && c[0] < c[1] && c[1] < c[2] && c[3] < c[2])) out.push(`magma hazards: ${k}s by floor ${c.join('/')} (six seeds) do not grow to the 3rd`); }
+    // (TASKS 461) on every floor but the boss's two rings at least stand on the walk from the spawn to the stairs: laid at random
+    // a third of the floors had none on it
+    for (const sd of [1, 7, 33, 128]) for (const ft of ['plain', 'lake', 'river', 'terrace', 'chasm']) for (let f = 1; f < D.RUNS.magma.floors; f++) {
+      const m = DG.genFloor(sd * 37 + f * 1013, f, { mode: 'magma', ftype: ft }); if (!m || !m.hazards) continue; const W = m.W;
+      const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
+      for (let i = 0; i < q.length && from[e] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1) { from[n] = q[i]; q.push(n); } }
+      const way = []; for (let k = e; k >= 0 && from[e] !== -2; k = from[k]) way.push(k);
+      const on = m.hazards.filter((z) => way.some((k) => D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE))).length;
+      if (on < 2) out.push(`magma ${ft} ${sd} f${f}: ${on} hazard ring(s) on the walk to the stairs, 2 at least`); }
+    // the burst: the hero in the ring is hurt once (his regeneration over the run aside) and, by a vent, set alight; a monster in it
+    // is hurt, the hero out of it is not
+    for (const k of ['vent', 'fall']) { const Z = spawn(0, {}); plainRun(Z); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, H = HZ[k];
+      const z = (m.hazards || []).find((q) => q.k === k); if (!z) { out.push(`magma hazards: no ${k} on the first plain floor of seed 3`); continue; }
+      const at = (c) => (((c / z.per - z.ph) % 1 + 1) % 1 + Math.ceil(Z.t / z.per + 2)) * z.per, mob = { id: R2.nextId++, type: 'skeleton', x: z.x - 12, y: z.y + 4, vx: 0, vy: 0, hp: 999, max: 999, dmg: 0, elite: 0, room: -1, st: 'idle', t0: 0, face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: -9 };
+      const run = (hx, hy) => { R2.en = [Object.assign({}, mob, { haz: {} })]; h.x = hx; h.y = hy; h.haz = {}; h.ifr = 0; h.burn = 0; h.dashT = -9; const st0 = stats(h, Z.meta); h.hp = st0.maxHp;
+        Z.t = R2.t = at(z.per - H.warn - 0.1); Z.ev = []; const hp0 = h.hp; let warnT = -1, burstT = -1;
+        for (let i = 0; i < Math.round((H.warn + 0.6) * 120); i++) { h.x = hx; h.y = hy; h.vx = h.vy = 0; R2.en[0].x = mob.x; R2.en[0].y = mob.y; step(Z, { keys: [] });
+          for (const e of Z.ev) { if (e.k === 'hazwarn' && e.i === m.hazards.indexOf(z) && warnT < 0) warnT = e.t; if ((e.k === 'erupt' || e.k === 'rockfall') && e.i === m.hazards.indexOf(z) && burstT < 0) burstT = e.t; } Z.ev = []; }
+        return { lost: hp0 - h.hp, burn: h.burn > Z.t - 0.6, mob: 999 - R2.en[0].hp, lead: burstT - warnT }; };
+      // (the spot out of the ring is the first side of it on whole floor, two cells from any lava and out of every other hazard's
+      // reach: a fixed one fell in the lava once the plateaus' sizes varied, TASKS 432)
+      const clear = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (cell(m, tx + i, ty + j) !== 1) return false;
+        return m.hazards.every((q) => q === z || Math.hypot(q.x - x, q.y - y) > HZ[q.k].r + 60); };
+      // (further round it and further out when the four sides are not clear: the packs of TASKS 407 shifted the floor seed 3 draws)
+      const off = [40, 70, 100].flatMap((g) => Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4) * (H.r + g), Math.sin(i * Math.PI / 4) * (H.r * 0.6 + g)])).find(([dx, dy]) => clear(z.x + dx, z.y + dy)) || [H.r + 40, 0];
+      const inside = run(z.x + 8, z.y), outside = run(z.x + off[0], z.y + off[1]);
+      if (!(Math.abs(inside.lead - H.warn) < 0.05)) out.push(`magma hazards: a ${k}'s warning comes ${inside.lead.toFixed(2)} s before its burst, not ${H.warn}`);
+      if (inside.lost < stats(h, Z.meta).maxHp * H.hp * 0.75 || inside.lost > stats(h, Z.meta).maxHp * H.hp * 2.5) out.push(`magma hazards: a ${k} in its ring takes ${inside.lost} health from the hero`);
+      if (H.burn && !inside.burn) out.push(`magma hazards: a vent does not set the hero alight`);
+      if (inside.mob <= 0) out.push(`magma hazards: a ${k} does not hurt a monster in its ring`);
+      if (outside.lost > 0) out.push(`magma hazards: a ${k} hurts the hero out of its ring`); }
+    return out;
   }
   function meleeSpacingCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234); S.screen = 'play';
@@ -2931,26 +3748,27 @@
       if (R.freeze > 0 && Math.abs((S.t - p.t0) - up) > 1e-9) out.push('hit-stop: a bolt ages in the freeze');
       for (let i = 0; i < 8; i++) step(S, { keys: [], px: 960, py: 540 });
       if (h.hp <= 10) out.push('hit-stop: a potion pressed in the freeze is lost'); }
-    // the water caves as a run of their own (TASKS 300): the menu starts it on the hero screen with its level and kit, its floors
+    // the water caves and the magma caves as runs of their own (TASKS 300, 399): the menu starts each on the hero screen with its level and kit, its floors
     // carry their run's boss, guard and altars, the boss's death opens the way out, and the campaign's record is left alone
-    { const N = D.RUNS.cave, S = spawn(0, {}), r = UI.menu(false).find((q) => q.id === 'cave');
-      step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); const R = S.run, h = R && R.hero;
-      if (!R || R.mode !== 'cave' || S.screen !== 'inv') out.push('cave: the menu button does not start the cave run on the hero screen');
+    for (const RID of ['cave', 'magma']) { const N = D.RUNS[RID], S = spawn(0, {});
+      for (const [scr, id] of D.startPath(RID)) { const r = (scr === 'menu' ? UI.menu(false) : UI.tests(false)).find((q) => q.id === id); step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); }
+      const R = S.run, h = R && R.hero;
+      if (!R || R.mode !== RID || S.screen !== 'inv') out.push(RID + ': the menu button does not start the run on the hero screen');
       else {
-        if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`cave: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
-        if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push('cave: the kit is not worn');
-        if (ABILITIES.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push('cave: an ability of the hero\'s level is still locked');
+        if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`${RID}: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
+        if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push(RID + ': the kit is not worn');
+        if (ABILITIES.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push(RID + ': an ability of the hero\'s level is still locked');
         for (let f = 1; f <= N.floors; f++) { if (f > 1) enterFloor(S, R, f); const m = R.map, guards = m.enemies.filter((e) => e.guard).length;
-          if ((m.bossType || undefined) !== N.boss(f)) out.push(`cave f${f}: boss ${m.bossType} where the run has ${N.boss(f)}`);
-          if (!!N.guard[f] !== guards > 0 && !N.boss(f)) out.push(`cave f${f}: ${guards} exit guard(s)`);
-          if (m.shrines.length !== ((f % 2 === 0 || f === N.floors - 1) && !N.boss(f) ? 1 : 0)) out.push(`cave f${f}: ${m.shrines.length} altar(s)`);
-          if (f === 1 && R.en.some((e) => !D.BOSSES[e.type] && e.max < Math.round(D.ENEMIES[e.type].hp * BAL.hp * (1 + 0.5 * N.depth)))) out.push('cave f1: a monster weaker than the run\'s depth'); }
+          if ((m.bossType || undefined) !== N.boss(f)) out.push(`${RID} f${f}: boss ${m.bossType} where the run has ${N.boss(f)}`);
+          if (!!N.guard[f] !== guards > 0 && !N.boss(f)) out.push(`${RID} f${f}: ${guards} exit guard(s)`);
+          if (m.shrines.length !== ((f % 2 === 0 || f === N.floors - 1) && !N.boss(f) ? 1 : 0)) out.push(`${RID} f${f}: ${m.shrines.length} altar(s)`);
+          if (f === 1 && R.en.some((e) => !D.BOSSES[e.type] && e.max < Math.round(D.ENEMIES[e.type].hp * BAL.hp * (1 + 0.5 * N.depth)))) out.push(RID + ' f1: a monster weaker than the run\'s depth'); }
         const b = R.en.find((e) => D.BOSSES[e.type]); S.screen = 'play'; h.ifr = 1e9; h.x = R.map.exit.x; h.y = R.map.exit.y; interact(S, R);
-        if (!S.run) out.push('cave: the way out opens before the boss dies');
-        else { const best = S.meta.best; killEnemy(S, R, b); if (!R.bossDead) out.push('cave: the boss\'s death does not open the way out');
+        if (!S.run) out.push(RID + ': the way out opens before the boss dies');
+        else { const best = S.meta.best; killEnemy(S, R, b); if (!R.bossDead) out.push(RID + ': the boss\'s death does not open the way out');
           h.x = R.map.exit.x; h.y = R.map.exit.y; interact(S, R);
-          if (S.screen !== 'win' || (S.result || {}).mode !== 'cave') out.push('cave: leaving after the boss is not a win of the cave run');
-          if (S.meta.best !== best) out.push('cave: the cave run moved the campaign\'s floor record'); } }
+          if (S.screen !== 'win' || (S.result || {}).mode !== RID) out.push(RID + ': leaving after the boss is not a win of the run');
+          if (S.meta.best !== best) out.push(RID + ': the run moved the campaign\'s floor record'); } }
       // the cave's water on foot (TASKS 302): the hero wades the shallows slower and neither walks nor dashes into deep water, a
       // monster knocked at deep water stops on the shore, a bolt flies on over it, and the monsters' way round goes over no deep cell
       { const Z = spawn(0, {}); Z.run = newRun(Z, 'cave', 3); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, W = m.W, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -2972,6 +3790,85 @@
           const F = flow(m, k % W, Math.floor(k / W), 1); if (F.some((v, j) => v >= 0 && m.cells[j] === 6)) out.push('cave water: the monsters\' way runs over deep water'); }
         // shallows slow the hero as they do in the campaign's streams
         if (!m.water.length || !inWater(m, { x: (m.water[0] % W + 0.5) * TILE, y: (Math.floor(m.water[0] / W) + 0.5) * TILE })) out.push('cave water: its shallows are not wading water'); }
+      // the magma caves' lava on foot (TASKS 401): the hero neither walks nor is knocked into it, a monster knocked into it burns away
+      // and one knocked into the chasm falls, their loot lands on the bank; the crust bears the hero a while, cracks, melts under him
+      // (it burns) and sets again; the monsters' way round never goes over lava or crust
+      { const Z = spawn(0, {}); plainRun(Z); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, W = m.W, DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        const crustS = new Set(m.crust), lavaOn = (o) => cell(m, Math.floor(o.x / TILE), Math.floor(o.y / TILE)) === 3;
+        // (five cells of lava ahead: a narrower channel between two floors is flown over by the knock)
+        const bank = (pred, n = 3) => { for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 1) for (const [dx, dy] of DIRS) if (Array.from({ length: n }, (_, i) => i + 1).every((i) => pred(k + i * (dx + dy * W)))) return [k, dx, dy]; return null; };
+        const mob = (x, y) => ({ id: R2.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp: 999, max: 999, dmg: 0, elite: 0, room: -1, st: 'idle', t0: 0, face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 });
+        const L0 = bank((k) => m.cells[k] === 3 && !crustS.has(k), 5), C0 = bank((k) => !!m.cliff && m.cells[k] === 0 && Math.floor(k / W) >= m.cliff[k % W]);
+        if (!L0 || !C0) out.push('magma lava: no bank of lava or of the chasm on the first plain floor'); else {
+          for (const [what, [k, dx, dy]] of [['lava', L0], ['chasm', C0]]) { const x0 = (k % W + 0.5) * TILE, y0 = (Math.floor(k / W) + 0.5) * TILE;
+            R2.en = []; R2.msg = null; R2.drops = []; h.ifr = 1e9; h.x = x0; h.y = y0; h.kbx = h.kby = 0; let off = false;
+            const go = { right: dx > 0, left: dx < 0, down: dy > 0, up: dy < 0 };
+            for (let i = 0; i < 120; i++) { step(Z, Object.assign({}, go, { keys: i % 40 === 0 ? ['Space'] : [] })); if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1) off = true; }
+            if (off) out.push(`magma lava: the hero walks or dashes into the ${what}`);
+            h.x = x0; h.y = y0; hurtHero(Z, R2, 1, x0 - dx * 30, y0 - dy * 30); for (let i = 0; i < 60; i++) step(Z, { keys: [] });
+            if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1) out.push(`magma lava: a blow knocks the hero into the ${what}`);
+            const e = mob(x0, y0); h.x = x0 - dx * 6 * TILE - dy * 6 * TILE; h.y = y0 - dy * 6 * TILE + dx * 6 * TILE; R2.en = [e]; const k0 = R2.kills;
+            e.kbx = dx * 900; e.kby = dy * 900; for (let i = 0; i < 120 * 2.2; i++) step(Z, { keys: [] });
+            if (e.deadT < 0 || R2.kills !== k0 + 1) out.push(`magma lava: a monster knocked into the ${what} is not gone in ${what === 'lava' ? DOOM.sink : DOOM.fall} s`);
+            if (R2.drops.some((p) => cell(m, Math.floor(p.x / TILE), Math.floor(p.y / TILE)) !== 1)) out.push(`magma lava: a monster gone into the ${what} drops its loot off the floor`); } }
+        const ck = m.crust.find((k) => [1, -1, W, -W].some((o) => m.cells[k + o] === 1 && m.cells[k + 2 * o] === 1));
+        if (ck === undefined) out.push('magma lava: no crust by a wide bank on the first plain floor'); else {
+          const x0 = (ck % W + 0.5) * TILE, y0 = (Math.floor(ck / W) + 0.5) * TILE, t0 = Z.t, hp0 = h.hp; R2.en = []; h.ifr = 0; h.x = x0; h.y = y0; m.melt = {}; let crackT = -1, meltT = -1, setT = -1, hpMin = hp0;
+          for (let i = 0; i < 120 * 6; i++) { const q = m.melt[ck]; if (i < 120 * 1.7) { h.x = x0; h.y = y0; } else if (i === Math.round(120 * 1.7)) { const o = [1, -1, W, -W].find((d) => m.cells[ck + d] === 1); h.x = x0 + (o === 1 ? 2 : o === -1 ? -2 : 0) * TILE; h.y = y0 + (o === W ? 2 : o === -W ? -2 : 0) * TILE; }
+            step(Z, { keys: [] }); h.ifr = 0; hpMin = Math.min(hpMin, h.hp);
+            if (q && q.crackT !== undefined && crackT < 0) crackT = Z.t - t0; if (q && q.hot && meltT < 0) meltT = Z.t - t0; if (meltT > 0 && setT < 0 && !(m.melt[ck] && m.melt[ck].hot)) setT = Z.t - t0; }
+          if (Math.abs(crackT - CRUST.stand) > 0.05 || Math.abs(meltT - CRUST.stand - CRUST.crack) > 0.05 || Math.abs(setT - meltT - CRUST.hot) > 0.05) out.push(`magma lava: the crust cracks at ${crackT.toFixed(2)} s, melts at ${meltT.toFixed(2)}, sets ${(setT - meltT).toFixed(2)} s later`);
+          // (the lowest he comes to: a hero at full health with regeneration is back to it before the crust sets)
+          if (hpMin >= hp0) out.push('magma lava: the crust melting under the hero does not burn him');
+          if (!crustAt(m, ck)) out.push('magma lava: the crust does not bear the hero again once it sets'); }
+        const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), 1); if (F.some((v, j) => v >= 0 && m.cells[j] === 3)) out.push('magma lava: the monsters\' way runs over lava or crust'); }
+      // the magma colossus (TASKS 413): it lies hidden in its lake, rises and wades ashore once the hero is in; the ring round the
+      // lake is one way round for its body, before the 2nd phase's edge falls into lava and after; its pools keep their limits; the
+      // fists leave it stuck and open; no rock of the rain falls in a slab's shelter; its death takes everything it left on the floor
+      for (const sd of [3, 11, 23, 41]) { const Z = spawn(0, {}); Z.run = newRun(Z, 'magma', sd); Z.screen = 'play'; enterFloor(Z, Z.run, 4); const R2 = Z.run, m = R2.map, h = R2.hero, W = m.W, tag = `colossus seed ${sd}`;
+        const b = R2.en.find((e) => e.type === 'boss_colossus'), E = ENEMIES.boss_colossus, B = D.BOSSES.boss_colossus, r = m.rooms[b ? b.room : 0];
+        if (!b) { out.push(`${tag}: no colossus on the 4th`); continue; }
+        if (cell(m, Math.floor(b.x / TILE), Math.floor(b.y / TILE)) !== 3 || !under(b)) out.push(`${tag}: it does not lie hidden in its lake`);
+        const lake = (k) => Math.hypot(((k % W) + 0.5 - (r.cx + 0.5)) / D.ARCH.plateau.arena.lake[0], (Math.floor(k / W) + 0.5 - (r.cy + 0.5)) / D.ARCH.plateau.arena.lake[1]) < 1.15;
+        // its clear cells hold one ring round the lake: the biggest piece reaches past the lake on all four sides
+        const ring = () => { const a = wideClear(R2, b, E).a, seen = new Set(); let best = [];
+          for (let k = 0; k < a.length; k++) if (a[k] && !seen.has(k)) { const q = [k]; seen.add(k); for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (a[n] && !seen.has(n)) { seen.add(n); q.push(n); } } if (q.length > best.length) best = q; }
+          const xs = best.map((k) => k % W), ys = best.map((k) => Math.floor(k / W)), L = D.ARCH.plateau.arena.lake, cx = r.cx + 0.5, cy = r.cy + 0.5;
+          const side = (f) => best.some((k) => f(k % W + 0.5 - cx, Math.floor(k / W) + 0.5 - cy));
+          return side((x, y) => y < -L[1] && Math.abs(x) < 2) && side((x, y) => y > L[1] && Math.abs(x) < 2) && side((x, y) => x < -L[0] && Math.abs(y) < 2) && side((x, y) => x > L[0] && Math.abs(y) < 2) && xs.length > 0 && ys.length > 0; };
+        if (!ring()) out.push(`${tag}: its body has no way round the lake`);
+        h.ifr = 1e9; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 2.5) * TILE; R2.en = [b]; let t0 = -1, shore = -1;
+        for (let i = 0; i < 120 * 12 && shore < 0; i++) { step(Z, { keys: [] }); if (t0 < 0 && b.st === 'emerge') t0 = Z.t; if (b.st !== 'idle' && b.st !== 'emerge' && b.st !== 'wade') shore = Z.t; }
+        if (t0 < 0) out.push(`${tag}: it never rises when the hero walks into the arena`); else if (shore < 0 || shore - t0 > B.rise + 6) out.push(`${tag}: it does not come ashore (${shore < 0 ? 'never' : (shore - t0).toFixed(1) + ' s'})`);
+        else if (!wideClear(R2, b, E).a[Math.floor(b.y / TILE) * W + Math.floor(b.x / TILE)] || onLava(m, b)) out.push(`${tag}: it comes ashore where it does not fit`);
+        // the edge's fall keeps the ring whole, the ways in, the altar and the cover, and leaves the hero his way to the exit
+        b.phase = 1; beginBossMove(Z, R2, b, 'shatter'); b.cdT = 1e9; for (let i = 0; i < 120 * 4; i++) { step(Z, { keys: [] }); h.ifr = 1e9; h.hp = 1e6; }
+        if (!(m.arenaLava || []).length) out.push(`${tag}: the 2nd phase's edge does not fall into lava`);
+        if (!ring()) out.push(`${tag}: after the edge falls its body has no way round the lake`);
+        if (!arenaPath(m, b.room)) out.push(`${tag}: the edge's fall cuts the floor off from the exit`);
+        if ((m.arenaLava || []).some((k) => m.decor.some((d) => d.cover && Math.abs(Math.floor(d.x / TILE) - k % W) <= 1 && Math.abs(Math.floor(d.y / TILE) - Math.floor(k / W)) <= 1))) out.push(`${tag}: the edge falls under a slab of cover`);
+        if ((m.arenaLava || []).some(lake)) out.push(`${tag}: the edge's fall reaches the lake's shore`);
+        // pools: none by the lake's shore, the ways in or the crossing, never more than the cap at once
+        const M = B.moves.boulder; let near = 0;
+        for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 1 && DG.roomAt(m, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE) === b.room && poolOk(R2, b, M, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE)) {
+          if ([1, -1, W, -W].some((o) => m.cells[k + o] === 3 && !(m.arenaLava || []).includes(k + o) && lake(k + o))) near++; }
+        if (near) out.push(`${tag}: a pool may lie on the lake's shore (${near} cells)`);
+        R2.fires = []; b.st = 'chase'; for (let i = 0; i < 8; i++) { h.x = b.x + 120 + (i % 3) * 40; h.y = b.y + 60; colossusBoulder(Z, R2, b, M); for (let j = 0; j < 120; j++) { step(Z, { keys: [] }); h.ifr = 1e9; } b.cdT = 1e9; b.st = 'chase'; }
+        if (R2.fires.filter((p) => p.src === b.id && p.kind === 'pool').length > M.cap) out.push(`${tag}: more pools than ${M.cap} at once`);
+        // stuck after its fists and open to blows
+        R2.fires = []; R2.rocks = []; h.x = b.x + 100; h.y = b.y; beginBossMove(Z, R2, b, 'fists'); for (let i = 0; i < 120 * (B.moves.fists.wind + B.moves.fists.duration + 0.05); i++) { step(Z, { keys: [] }); h.ifr = 1e9; }
+        if (!(b.openUntil > Z.t)) out.push(`${tag}: its fists leave it no stuck window`); else { const x0 = b.x, y0 = b.y, hp0 = b.hp; h.x = b.x + 400; for (let i = 0; i < 60; i++) step(Z, { keys: [] });
+          if (Math.hypot(b.x - x0, b.y - y0) > 1) out.push(`${tag}: it walks while stuck`); hitEnemy(Z, R2, b, 100, false, b.x + 50, b.y); if (Math.abs(hp0 - b.hp - 100 * B.moves.fists.open) > 0.6) out.push(`${tag}: no extra damage while it is stuck`);
+          b.phase = 0; b.hp = b.max * 0.59; stepBossMove(Z, R2);
+          if (b.phase !== 0) out.push(`${tag}: phase interrupts stuck window`); }
+        // the rain: no rock in a slab's shelter
+        b.phase = 2; R2.rocks = []; colossusRain(Z, R2, b, B.moves.rain); h.x = -999; h.y = -999;
+        const cov = m.decor.filter((d) => d.cover); if (!cov.length) out.push(`${tag}: the arena has no slabs of cover`);
+        if (R2.rocks.some((q) => q.x !== undefined && cov.some((d) => Math.hypot(q.x - d.x, q.y - d.y) < B.moves.rain.shelter - 15))) out.push(`${tag}: a rock of the rain falls in a slab's shelter`);
+        // its death clears the floor
+        colossusBoulder(Z, R2, b, M); R2.cracks.push({ id: 1, owner: b.id, x: b.x, y: b.y, a: 0, len: 100, w: 30, speed: 900, linger: 1, t0: Z.t, dmg: 0, hit: 1 }); b.hp = 1; killEnemy(Z, R2, b);
+        if (!b.deathPose || b.deathPose.deadT >= 0 || b.deathPose.t0 !== b.t0 || b.deathPose.dist !== b.dist) out.push(`${tag}: death loses its live pose`);
+        if ((R2.rocks || []).length || (R2.cracks || []).length || (m.arenaLava || []).length || R2.fires.some((p) => p.src === b.id)) out.push(`${tag}: its death leaves rocks, cracks, pools or lava on the floor`); }
       // the caves as the campaign's 9th–12th (TASKS 339): the demon lord on the 8th pays as a finale but opens the stairs, the 9th is
       // the caves' 1st at the campaign's depth with the same hero (level, kit, gold, bag), the 11th keeps the caves' exit guard and the
       // 10th and 11th their altars, the serpent holds the 12th and only his death wins the campaign; a run saved in the caves goes on there
@@ -3020,14 +3917,136 @@
         if (c1.crab || c1.skel_archer) out.push('cave run: crabs or archers on its 1st floor');
         if (n9 < n1 * 1.3) out.push(`campaign f9: ${n9.toFixed(1)} monsters, the caves' 1st ${n1.toFixed(1)}: not denser`); }
       // a saved run is dropped only by a second press of the same button
-      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); const c = UI.menu(true).find((q) => q.id === 'campaign'), v = UI.menu(true).find((q) => q.id === 'cave');
-      step(T, { keys: [], click: 1, px: c.x + 10, py: c.y + 10 }); step(T, { keys: [] }); step(T, { keys: [], click: 1, px: v.x + 10, py: v.y + 10 });
-      if (T.run) out.push('cave: a press on another run\'s button drops the saved run'); }
+      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); const c = UI.menu(true).find((q) => q.id === 'campaign'), ts = UI.menu(true).find((q) => q.id === 'tests'), v = UI.tests(true).find((q) => q.id === 'cave');
+      const press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+      press(T, c); step(T, { keys: [] }); press(T, ts); press(T, v);
+      if (T.run) out.push('cave: a press on another run\'s button drops the saved run');
+      // the test runs' screen (TASKS 417): the main menu has no test run of its own, «Тесты» opens their screen, «Назад» and Escape go
+      // back, and over a saved run a test run's button asks again before it drops the save
+      const ids = UI.menu(true).map((b) => b.id); if (D.TEST_RUNS.some(([id]) => ids.includes(id)) || !ids.includes('tests')) out.push('tests: the main menu still holds the test runs or lacks «Тесты»');
+      if (D.TEST_RUNS.some(([id]) => (!D.RUNS[id] && id !== 'town') || !UI.tests(false).some((b) => b.id === id))) out.push('tests: a test run missing from its screen');
+      const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); press(U, ts); if (U.screen !== 'tests') out.push('tests: «Тесты» does not open the test runs');
+      press(U, UI.tests(true).find((b) => b.id === 'back')); if (U.screen !== 'menu') out.push('tests: «Назад» does not go back to the menu');
+      press(U, ts); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
+      press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
+      if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
+      press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck());
+    return out;
+  }
+  // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
+  // pauses and saves as on a floor, and whose stairs lead down to the 1st
+  // TASKS 1015: the townsfolk over two minutes of a town with the hero out of the way: the walkers make their whole rounds on open
+  // floor and never pass through each other, the porter lifts and sets down his crate, the anvil rings; walked up to, a townsperson
+  // speaks a pair of lines, turns to the hero and a walker stops; every role's lines are pairs
+  function folkCheck() {
+    const out = [];
+    for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 34))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
+    for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
+      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
+      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(); let close = 9, off = 0, rings = 0;
+      for (let i = 0; i < 120 * 120; i++) { const t0 = S.t; step(S, { keys: [] }); rings += S.ev.filter((e) => e.k === 'anvil' && e.t > t0).length;
+        for (const f of F) { if (!f.go && f.way >= 0) stops[f.i].add(f.way); if (f.role === 'porter') loads.add(f.load); if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
+          for (const o of F) if (o.i > f.i) close = Math.min(close, Math.hypot(o.x - f.x, (o.y - f.y) * 1.4) / (folkR(o) + folkR(f))); } }
+      for (const f of F) { const n = m.town.npcs[f.i]; if (n.route && stops[f.i].size < n.route.length) out.push(`folk ${sd}: the ${f.role} reaches ${stops[f.i].size} of ${n.route.length} stops in two minutes`); }
+      if (close < 0.8) out.push(`folk ${sd}: two townsfolk pass through each other (${close.toFixed(2)} of their radii)`);
+      if (off) out.push(`folk ${sd}: a walker steps off the open floor ${off} times`);
+      if (loads.size < 2) out.push(`folk ${sd}: the porter never lifts or sets down his crate`);
+      if (rings < 40) out.push(`folk ${sd}: the anvil rings ${rings} times in two minutes`);
+      const smith = F.find((f) => f.role === 'smith'); h.x = smith.x - 50; h.y = smith.y + 10; const t0 = S.t; step(S, { keys: [] });
+      if (smith.sayT !== t0 + DT && smith.sayT !== S.t || !S.ev.some((e) => e.k === 'say' && e.role === 'smith')) out.push(`folk ${sd}: the smith says nothing to the hero beside him`);
+      if (smith.face !== -1) out.push(`folk ${sd}: the smith does not turn to the hero`);
+      const P = F.find((f) => f.role === 'porter'); for (let i = 0; i < 2400 && !(P.go && P.spd > 20); i++) step(S, { keys: [] });
+      h.x = P.x + 40; h.y = P.y; for (let i = 0; i < 120; i++) step(S, { keys: [] }); const px = P.x; for (let i = 0; i < 120; i++) step(S, { keys: [] });
+      if (!P.near || Math.abs(P.x - px) > 0.5 || P.face !== 1) out.push(`folk ${sd}: the porter walks on past the hero who speaks to him`); }
+    return out;
+  }
+  // TASKS 1007, 1008, 1027: in a run through the town every floor has its stairs up in the start room, reachable from the spawn
+  // (and a run that is not through the town has none); a floor left and come back to is as it was left (a kill, an open chest, loot
+  // on the floor, the explored cells), the floor above is reached at the foot of its stairs down and the town from the 1st at its
+  // gate; a scroll read through takes the hero home and the town's portal back to the very spot, then closes; a step breaks the
+  // reading off and keeps the scroll; it is not read in the town; the save stays small and a saved run comes back on a kept floor
+  function climbCheck() {
+    const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    for (const sd of [5, 17]) for (let f = 1; f <= 12; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 });
+      if (!m.up) { out.push(`climb ${sd}/${f}: no stairs up`); continue; } const k = m.up.ty * m.W + m.up.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
+      if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`climb ${sd}/${f}: the stairs up are off the floor or far from the spawn`);
+      if (f === 3 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }).up) out.push('climb: stairs up in a run not through the town'); }
+    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
+    at(R.map.exit); E(S); if (R.floor !== 1) { out.push('climb: the crypt stairs do not lead down'); return out; }
+    for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
+    const e0 = R.en[0]; e0.hp = 0; e0.deadT = S.t; const c0 = R.chests[0]; c0.open = 1; R.seen[7] = 1; R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 77, id: R.nextId++ });
+    at(R.map.exit); E(S); if (R.floor !== 2) { out.push('climb: no way down from the 1st'); return out; }
+    at(R.map.up, 30); E(S); if (R.floor !== 1) { out.push('climb: the stairs up do not lead to the floor above'); return out; }
+    if (Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: back up, the hero is not at the foot of the stairs down');
+    const e1 = R.en.find((q) => q.id === e0.id), c1 = R.chests.find((q) => q.x === c0.x && q.y === c0.y);
+    if (!e1 || e1.deadT < 0 || !c1 || !c1.open || R.seen[7] !== 1 || !R.drops.some((q) => q.kind === 'gold' && q.n === 77)) out.push('climb: the floor above is not as it was left');
+    const T = spawn(1, JSON.parse(JSON.stringify(persist(S)))); T.run = T.saved; T.saved = null; T.screen = 'play'; at.call(null, T.run.map.exit);
+    { const Q = T.run; Q.hero.x = Q.map.exit.x; Q.hero.y = Q.map.exit.y; E(T); Q.hero.x = Q.map.up.x; Q.hero.y = Q.map.up.y + 30; E(T); if (Q.floor !== 1 || !Q.en.find((q) => q.id === e0.id && q.deadT >= 0)) out.push('climb: a kept floor is lost in a saved run'); }
+    h.bag[6] = { b: 'scroll', n: 2, id: R.nextId++ }; const px = h.x, py = h.y; step(S, { keys: [], click: 1, px: -999, py: -999 });
+    h.read = { t0: S.t, i: 6 }; for (let i = 0; i < 30; i++) step(S, { right: 1, keys: [] }); if (h.read || h.bag[6].n !== 2) out.push('climb: walking does not break off the reading or the scroll is spent');
+    h.read = { t0: S.t, i: 6 }; for (let i = 0; i < 240 && R.floor; i++) step(S, { keys: [] });
+    if (R.floor !== 0 || !R.portal || R.portal.f !== 1 || h.bag[6].n !== 1) { out.push('climb: a scroll read through does not take the hero home'); return out; } void px; void py;
+    if (R.shop.at !== R.deepest || R.deepest < 2) out.push(`climb: the town's shelf is not stocked for the deepest floor (${R.shop.at} of ${R.deepest})`);
+    const shelf0 = R.shop.goods.map((g) => g.it.id).join(), qx = R.portal.x, qy = R.portal.y; useItemCheck(S, R, 6, out);
+    at(R.map.town.svc.portal, 30); E(S); if (R.floor !== 1 || R.portal || Math.hypot(h.x - qx, h.y - qy) > 2) out.push(`climb: the town's portal does not lead back to the spot (and close): floor ${R.floor}, ${Math.round(h.x - qx)},${Math.round(h.y - qy)}`);
+    at(R.map.up, 30); E(S); if (R.floor !== 0 || !R.town || Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: the 1st floor\'s stairs up do not lead to the town\'s gate');
+    if (R.shop.goods.map((g) => g.it.id).join() !== shelf0) out.push('climb: the town shelf is re-rolled on a return with no deeper floor reached');
+    const size = JSON.stringify(persist(S)).length; if (size > 120000) out.push(`climb: a run with two kept floors saves ${size} bytes`);
+    return out;
+  }
+  function useItemCheck(S, R, i, out) { useItem(S, R, i); if (R.hero.read || !S.ev.some((e) => e.k === 'nope' && e.s === 'В городе свиток не нужен')) out.push('climb: a scroll is read in the town'); }
+  function townCheck() {
+    const out = [], press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+    for (let sd = 1; sd <= 8; sd++) { const m = DG.genTown(sd * 977), go = (k) => m.cells[k] === 1, at = (o) => Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE);
+      const seen = new Uint8Array(m.W * m.H), q = [at(m.spawn)]; seen[q[0]] = 1;
+      for (let i = 0; i < q.length; i++) for (const d of [1, -1, m.W, -m.W]) { const n = q[i] + d; if (!seen[n] && go(n)) { seen[n] = 1; q.push(n); } }
+      if (!go(at(m.spawn))) out.push(`town ${sd}: the hero spawns off the floor`);
+      if (!seen[at(m.exit)]) out.push(`town ${sd}: the stairs down are out of reach`);
+      if (m.enemies.length || m.traps.length || m.floor !== 0 || !m.town) out.push(`town ${sd}: not a safe floor 0`);
+      // TASKS 1003: every service on the plan, a body two cells wide walks from the spawn to where each is used, the rails keep
+      // off the square and the paths to the services (they run only along the bottom wall), every townsperson stands on open floor
+      const ok = DG.townWalk(m), wc = ok.map((v) => (v ? 1 : 0)), use = Object.entries(m.town.use);
+      for (const k of ['stairs', 'shop', 'altar', 'stash', 'anvil', 'lectern', 'board', 'portal', 'fire']) if (!m.town.use[k]) out.push(`town ${sd}: no ${k} on the plan`);
+      const far = DG.narrowTo(wc, m.W, m.H, at(m.spawn), use.map(([, [x, y]]) => y * m.W + x));
+      for (const k of far) out.push(`town ${sd}: ${use.find(([, [x, y]]) => y * m.W + x === k)[0]} out of a two-cell-wide walk from the spawn`);
+      if (m.town.rails.some((k) => m.cells[k] !== 1 || (Math.floor(k / m.W) < 26 && k % m.W < 42))) out.push(`town ${sd}: the rails leave the bottom wall or run into rock`);
+      for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
+      if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
+    const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'tests')); press(S, UI.tests(false).find((b) => b.id === 'town'));
+    const R = S.run; if (!R || R.floor !== 0 || !R.town || R.mode !== 'campaign' || S.screen !== 'play') { out.push('town: «Город» does not start the campaign in the town'); return out; }
+    const h = R.hero, hp = h.hp, x0 = h.x;
+    if (R.en.length || R.msg.s !== 'Город') out.push('town: monsters in the town or no title');
+    if (R.seen.some((v) => !v)) out.push('town: fog of war over the town');
+    hurtHero(S, R, 50, h.x, h.y); if (h.hp !== hp) out.push('town: the hero takes damage in the town');
+    for (let i = 0; i < 60; i++) step(S, { right: 1, keys: [] }); if (h.x < x0 + 40) out.push('town: the hero does not walk');
+    step(S, { press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { keys: [] }); if (h.atkN !== 1) out.push('town: the hero does not swing');
+    step(S, { keys: ['KeyI'] }); if (S.screen !== 'inv') out.push('town: the bag does not open'); step(S, { keys: ['Escape'] });
+    step(S, { keys: ['Escape'] }); if (S.screen !== 'pause') out.push('town: no pause');
+    press(S, UI.pause().find((b) => b.id === 'save')); const T = spawn(1, JSON.parse(JSON.stringify(persist(S))));
+    press(T, UI.menu(true).find((b) => b.id === 'continue'));
+    const R2 = T.run; if (!R2 || R2.floor !== 0 || !R2.town || !R2.map.town || T.screen !== 'play') { out.push('town: a run saved in the town does not go on there'); return out; }
+    for (let i = 0; i < 30; i++) step(T, { keys: [] });
+    R2.hero.x = R2.map.exit.x; R2.hero.y = R2.map.exit.y; interact(T, R2);
+    if (R2.floor !== 1 || R2.town || R2.map.town || !R2.en.length) out.push('town: the stairs do not lead down to the 1st floor');
+    if (runCompletion(R2).floors !== 1) out.push('town: the town counts as a floor of the run');
+    // TASKS 1006: down the stairs the hero is as he left the town; a death and a win show their results and lead back to the town
+    // with a new hero and the meta kept; a saved run in the town stays small
+    { const S2 = spawn(0, {}); S2.meta.shards = 40; startRun(S2, 'town'); const Q = S2.run, h2 = Q.hero; h2.gold = 321; h2.bag[5] = Object.assign(rollItem(Q, 1, 0, 'ring'), { id: Q.nextId++ });
+      const size = JSON.stringify(persist(S2)).length; if (size > 120000) out.push(`town: a run saved in the town takes ${size} bytes`);
+      const want = JSON.stringify([h2.lvl, h2.gold, h2.eq, h2.bag]); h2.x = Q.map.exit.x; h2.y = Q.map.exit.y; interact(S2, Q);
+      if (Q.floor !== 1 || JSON.stringify([h2.lvl, h2.gold, h2.eq, h2.bag]) !== want) out.push('town: the hero changes on the way down');
+      for (const how of ['dead', 'win']) { const shards = S2.meta.shards; if (how === 'win') { startRun(S2, 'town'); const Q2 = S2.run; Q2.hero.x = Q2.map.exit.x; Q2.hero.y = Q2.map.exit.y; interact(S2, Q2); }
+        endRun(S2, how); if (S2.screen !== how || !S2.result.town) { out.push(`town: no ${how} screen for a run through the town`); continue; }
+        const b = UI.end(S2.result.log, S2.result.town).find((q) => q.id === 'again'); if (b.label !== 'Вернуться в город') out.push(`town: the ${how} screen does not offer the town`);
+        press(S2, b); const Q3 = S2.run;
+        if (!Q3 || Q3.floor !== 0 || !Q3.town || S2.screen !== 'play' || Q3.hero.lvl !== 1 || Q3.hero.gold !== 0 || Q3.hero.bag.filter(Boolean).length !== 2) out.push(`town: after a ${how} the hero does not start anew in the town`);
+        if (S2.meta.shards < shards) out.push(`town: the meta loses shards after a ${how}`); } }
     return out;
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { serpentMouth, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush };
+  root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);

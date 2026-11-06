@@ -1,0 +1,88 @@
+[
+ {
+  "name": "town_smith",
+  "prompt": "art/prompts/town_smith.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_keeper",
+  "prompt": "art/prompts/town_keeper.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_guard",
+  "prompt": "art/prompts/town_guard.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_enchanter",
+  "prompt": "art/prompts/town_enchanter.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly",
+   "art/refs_npc/town_enchanter_x4.png=the concept's enchanter (purple hooded figure at the lectern): copy her look and colours, not the scene"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_porter",
+  "prompt": "art/prompts/town_porter.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly",
+   "art/refs_npc/town_porter_x4.png=the concept's porter: copy his clothes and colours, without the sack"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_sweeper",
+  "prompt": "art/prompts/town_sweeper.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly",
+   "art/refs_npc/town_sweeper_x4.png=the concept's sweeper: copy her clothes and colours, without the broom"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_child",
+  "prompt": "art/prompts/town_child.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly",
+   "art/refs_npc/town_chickens_x4.png=the concept's boy feeding hens: copy the boy's look and colours"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_hens_sheet",
+  "prompt": "art/prompts/town_hens_sheet.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly",
+   "art/refs_npc/town_chickens_x4.png=the concept's hens: copy their look and colours"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_tools_sheet",
+  "prompt": "art/prompts/town_tools_sheet.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto"
+ }
+]

@@ -1,0 +1,4 @@
+Use case: a seamless tileable material for the shore where the magma caves' ash ground meets lava, in a top-down 3/4 dungeon game (Image 1 is the style reference for pixel size and shading; Image 2 is the approved magma cave reference: take only the cooled crust plates by its lava and the palette).
+Subject: cooled lava crust seen from above: black glassy basalt plates of irregular angular shapes (5 to 16 art pixels), slightly ropy wrinkled surfaces, each plate with a small dull grey glint at its top-left, the seams between plates dark with a dull rust-red tint (#36120f, #4f150c), a little grey ash in some seams. Neutral black and charcoal (#0b0a0b, #1a1819, #2b2828, glints #4a4544).
+Composition: the whole canvas is crust, edge to edge, tiling seamlessly in both directions. Exactly 128x128 art pixels, every art pixel an 8x8 block of one colour.
+Constraints: flat even lighting, no vignette, no gradient, no glow, no bright orange, no liquid lava, no fire, no objects.
