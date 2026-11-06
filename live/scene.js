@@ -2563,7 +2563,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const e of R.en) { if (!e.elite || D.BOSSES[e.type] || e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
       const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), hh = SZ(EN_TEX[e.type])[1] * 1.3;
       for (let j = 0; j < 4; j++) { const q = (t * 0.45 + rnd(e.id, j)) % 1, an = rnd(e.id, j + 7) * 6.28;
-        L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); } }
+        L.star(x + Math.cos(an) * (E.r * 1.3 + 6) * (1 - 0.5 * q) + 6 * Math.sin(t * 2 + j), y - hh * (0.25 + 0.9 * q), 4 + 2 * (1 - q), modCol(e, j), Math.sin(Math.PI * q) * 0.6); }
+      // a warded elite's shield (TASKS 387): a half ring of light before it, as thick as what is left of it; its back is bare
+      if (e.ward > 0) { const W = D.ELITE_MODS.find((m) => m.id === 'ward'), k = Math.min(1, e.ward / (e.max * W.share)), fa = e.face > 0 ? 0 : Math.PI;
+        for (let j = 0; j <= 8; j++) { const an = fa + (j / 8 - 0.5) * Math.PI; L.star(x + Math.cos(an) * (E.r + 16), y - hh * 0.35 + Math.sin(an) * (E.r + 16) * 0.55, 5 + 3 * k, W.col, (0.35 + 0.45 * k) * (0.8 + 0.2 * Math.sin(t * 4 + j))); } } }
+    // a curse on the hero (TASKS 387): green motes sink round him while his blows are weak
+    { const h = R.hero, C = D.ELITE_MODS.find((m) => m.id === 'curse'); if (h && h.curseT > ST.t && h.deadT < 0) { const x = sx(h.x), y = sy(h.y), k = Math.min(1, (h.curseT - ST.t) / C.t);
+      for (let j = 0; j < 5; j++) { const q = (t * 0.6 + j / 5) % 1, an = j * 1.26 + t; L.star(x + Math.cos(an) * 22, y - 90 + 70 * q, 5, C.col, Math.sin(Math.PI * q) * 0.7 * (0.4 + 0.6 * k)); } } }
+    // a frost elite's chill on the hero (TASKS 477): pale frost at his feet and flakes about him while he is slowed
+    { const h = R.hero, F = D.ELITE_MODS.find((m) => m.id === 'frost'); if (h && h.chillT > ST.t && h.deadT < 0) { const x = sx(h.x), y = sy(h.y), k = Math.min(1, (h.chillT - ST.t) / F.t);
+      L.ring(x, y, 24, 11, F.col, 0.5 * k, 0.25); for (let j = 0; j < 6; j++) { const an = j * 1.05 + t * 0.7; L.star(x + Math.cos(an) * 20, y - 30 - 26 * Math.sin(an * 0.5 + t), 4, [0.85, 0.95, 1], 0.6 * k); } } }
     // the forge lord is charred dark, or his red skin vanished into his own red-lit arena; his heat shows as a breathing glow in the
     // chest and embers off the body (TASKS 232)
     for (const e of R.en) { if (e.type !== 'boss_forge' || e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
@@ -2712,6 +2721,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.star(ex + (sx(e.tx) - ex) * u, ey + (sy(e.ty) - ey) * u - 30 * Math.sin(Math.PI * u), 8, [0.95, 0.1, 0.18], 1 - u * 0.5); }
       // (the colossus's imps, TASKS 413, come up out of the ground in fire, not in the necromancer's green)
       if (e.k === 'summon' && a < 0.6) { const q = a / 0.6, c = e.fire ? [1, 0.5, 0.15] : [0.5, 1, 0.4]; L.ring(ex, ey, 20 + 30 * q, 10 + 15 * q, c, 1 - q, 0.2); L.glow(ex, ey - 20, 50, e.fire ? [1, 0.4, 0.1] : [0.4, 1, 0.3], 1 - q); }
+      // an elite's blink, its curse landing, its ward broken (TASKS 387)
+      if (e.k === 'blink' && a < 0.45) { const q = a / 0.45, c = [0.2, 0.95, 0.85], tx = sx(e.tx), ty = sy(e.ty); L.ring(ex, ey, 14 + 30 * q, 7 + 15 * q, c, 1 - q, 0.2); L.glow(ex, ey - 30, 50, c, 1 - q);
+        L.ring(tx, ty, 44 - 30 * q, 22 - 15 * q, c, 1 - q, 0.2); L.glow(tx, ty - 30, 60, c, 1.2 * (1 - q)); }
+      if (e.k === 'chill' && a < 0.5) { const q = a / 0.5; L.glow(ex, ey, 55, [0.55, 0.85, 1], 1 - q, 2.2); }
+      // a tugging elite's warning: a ring closing in on it; the tug itself: a streak from the hero to it
+      if (e.k === 'tug_warn' && a < e.d) { const q = a / e.d, c = [1, 0.5, 0.8]; L.ring(ex, ey, 90 * (1 - q) + 20, 45 * (1 - q) + 10, c, 0.4 + 0.5 * q, 0.12); L.glow(ex, ey - 30, 40, c, 0.5 * q); }
+      if (e.k === 'tug' && a < 0.4) { const q = a / 0.4, tx = sx(e.tx), ty = sy(e.ty); for (let j = 0; j < 8; j++) { const u = j / 7; L.star(ex + (tx - ex) * u, ey - 30 + (ty - ey) * u, 5, [1, 0.55, 0.85], (1 - q) * (0.4 + 0.6 * u)); } }
+      if (e.k === 'curse' && a < 0.6) { const q = a / 0.6; L.glow(ex, ey, 60, [0.5, 0.85, 0.2], 1 - q, 2.2); L.ring(ex, ey + 40, 40 - 20 * q, 20 - 10 * q, [0.5, 0.85, 0.2], 1 - q, 0.15); }
+      if (e.k === 'ward_break' && a < 0.5) { const q = a / 0.5; for (let j = 0; j < 8; j++) { const an = j * 0.785 + 0.3; L.star(ex + Math.cos(an) * (10 + 50 * q), ey + Math.sin(an) * (6 + 30 * q), 7 * (1 - q) + 2, [0.35, 0.6, 1.0], 1 - q); }
+        L.glow(ex, ey, 50, [0.4, 0.65, 1], 1 - q, 2.2); }
       if (e.k === 'bless' && a < 1.2) { const q = a / 1.2; L.glow(ex, ey - 30, 90, [0.5, 0.8, 1], 1.4 * (1 - q)); L.ring(ex, ey, 40 + 90 * q, 20 + 45 * q, [0.6, 0.85, 1], 1 - q, 0.1); }
       // an enemy bolt bursts where it dies; on the hero it splashes wider with a ring
       // the jet bursts into a spray that falls
@@ -3043,7 +3062,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       R.en.slice(0, 5).forEach((e, i) => { e.hp = Math.round(e.max * 0.6); if (R.map.torches.some((tc) => tc.kind !== 'wall' && Math.abs(tc.x - e.x) < 60 && e.y - tc.y > 0 && e.y - tc.y < 160)) return; S.ev.push({ k: 'hit', t: S.t - 0.1 - 0.08 * i, x: e.x, y: e.y - D.ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: 12, crit: i === 2 ? 1 : 0, id: e.id }); });
       return S; } })();
     states.push(['match', match]);
-    const brawl = (mods = ['vampire']) => play((S) => {
+    const brawl = (mods = ['vampire'], more) => play((S) => {
       const R = S.run, m = R.map, h = R.hero, rm = m.rooms.filter((r) => r.type === 'combat').sort((a, b) => b.w * b.h - a.w * a.h)[0];
       h.x = (rm.x + rm.w / 2) * TILE; h.y = (rm.y + rm.h / 2) * TILE; h.hp = 45; h.hurtT = S.t - 0.18; h.hurtX = -1;
       R.cam = [h.x - VW / 2, h.y - VH / 2]; R.seen.fill(1); R.rseen.fill(1); R.msg = null; R.drops = []; R.chests = []; R.pots = [];
@@ -3054,8 +3073,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       });
       S.ev = R.en.slice(0, 2).map((e, i) => ({ k: 'hit', t: S.t - 0.15 - i * 0.1, x: e.x, y: e.y - D.ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: 15 + i, id: e.id }));
       S.ev.push({ k: 'hurt', t: S.t - 0.18, x: h.x, y: h.y - 40, n: 8, side: -1 });
+      if (more) more(S);
     });
-    states.push(['elite_brawl', brawl()], ['elite_brawl_long', brawl(['explosive', 'fiery'])]);
+    // the descent's deep powers (TASKS 387): a warded, cursing elite with its shield up, the hero cursed, a blink landing; the whirl's hint (TASKS 390)
+    const deep = (S) => { const R = S.run, h = R.hero, e = R.en[0]; e.ward = Math.round(e.max * 0.2); h.curseT = S.t + 2; h.chillT = S.t + 1.5; R.en[1].elite = 1; R.en[1].mods = ['tug', 'frost'];
+      S.ev.push({ k: 'tug_warn', t: S.t - 0.35, x: R.en[1].x, y: R.en[1].y, id: R.en[1].id, d: 0.6 });
+      S.ev.push({ k: 'blink', t: S.t - 0.12, x: h.x + 240, y: h.y - 70, tx: e.x, ty: e.y, id: e.id }); R.msg = { s: D.TIPS.whirl.s, t: S.t - 1, d: 3, tip: 'whirl' }; };
+    states.push(['elite_brawl', brawl()], ['elite_brawl_long', brawl(['explosive', 'fiery'])], ['elite_deep', brawl(['ward', 'curse'], deep)]);
     for (const [name, age, fx] of [['early', 0.03, 'boom'], ['mid', 0.15, 'boom'], ['late', 0.35, 'boom'], ['bolt', 0.03, 'pop']]) {
       const S = brawl(); S.ev.push({ k: fx, t: S.t - age, x: S.run.hero.x, y: S.run.hero.y - 40, big: 1, hero: 1, c: 'fire' });
       states.push(['elite_brawl_' + name, S]);
