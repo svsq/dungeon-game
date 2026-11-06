@@ -2227,6 +2227,10 @@
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
       for (const e of m.enemies) { if (!reachH(e.x, e.y) && !(ENEMIES[e.type].deep && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 6) && !((ENEMIES[e.type].kind === 'salamander' || ENEMIES[e.type].lake) && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 3)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
+      // a boss hall is shut by its doors alone (TASKS 505): no floor or lava runs up to its box past them
+      { const b = m.rooms.find((q) => q.type === 'boss'), dc = new Set(m.doors.filter((d) => d.arena).flatMap((d) => d.cells.map(([x, y]) => y * m.W + x)));
+        if (b && !plat && ST.arch !== 'cave') for (const [a, bb, c, d] of DG.rectsOf(b)) for (let y = bb - 1; y <= bb + d; y++) for (let x = a - 1; x <= a + c; x++) {
+          if (DG.inRm(b, x, y) || ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([u, v]) => DG.inRm(b, x + u, y + v)) || dc.has(y * m.W + x)) continue; const v = cell(m, x, y); if (v === 1 || v === 3) { out.push(`seed ${seed} f${f}: the boss hall's wall is open at ${x},${y}`); break; } } }
       if (mode === 'campaign') {
         // the rooms' shapes (TASKS 374): a wing is floor joined to its room; a pit is deep cells inside its room's box with two cells
         // of floor round it (three at the top), nothing stands on it, and no stream runs through a shaped room

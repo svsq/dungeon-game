@@ -646,6 +646,9 @@
         if (part.length < 4) for (const [x, y] of part) { const nf = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at(x + dx, y + dy) === 1);
           set(x, y, nf || (at(x, y - 1) && at(x, y + 1)) ? 1 : 0); } } };
     const CROSS = ['combat', 'treasure'], roomOf = (x, y) => rooms.find((q) => inRm(q, x, y));
+    // the boss hall's wall stays rock two cells thick (TASKS 505): a river by it turned the one-cell wall to lava, a way out past its
+    // sealed doors, and a river kept off the wall alone left a strip of masonry one cell thick
+    const bossR = rooms.find((q) => q.type === 'boss'), arenaWall = (x, y) => !!bossR && inRm(bossR, x, y, 2) && !inRm(bossR, x, y);
     const river = (r, dir) => { const [dx, dy] = [[1, 0], [0, 1], [-1, 0], [0, -1]][dir], vert = dir % 2 === 1, px = vert ? 1 : 0, py = vert ? 0 : 1;
       if ((vert ? r.w : r.h) < 8) return false;
       // the spring lies 4–9 cells before the room's near wall, level with a spot inside it
@@ -660,6 +663,7 @@
           if (x < 3 || y < 4 || x > W - 4 || y > H - 4) break walk;
           const v = at(x, y), q = roomOf(x, y);
           if (v === 4) return undo();
+          if (arenaWall(x, y)) { if (i < back) return undo(); break walk; }
           if (v === 3) continue;
           if (v === 1 || v === 6) { if (!q) continue; if (!CROSS.includes(q.type) || q.zone || q.pit || q.tier) { if (i < back) return undo(); break walk; } if (isDoor(x, y)) continue; crossed.add(q); was.push([x, y, 1]); }
           set(x, y, 3); cut.push([x, y]); } }
@@ -668,7 +672,7 @@
       // cell's corner would pass blows: both become stream
       for (let pass = 0, n = 1; n && pass < 4; pass++) { n = 0;
         for (const [x0, y0] of cut.slice()) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const x = x0 + i, y = y0 + j;
-          if (x < 2 || y < 3 || x > W - 3 || y > H - 3 || at(x, y) !== 0) continue;
+          if (x < 2 || y < 3 || x > W - 3 || y > H - 3 || at(x, y) !== 0 || arenaWall(x, y)) continue;
           const up = at(x, y - 1), dn = at(x, y + 1);
           if (up && dn && (up === 3 || dn === 3) && up !== 4 && dn !== 4) { set(x, y, 3); cut.push([x, y]); n++; continue; }
           // a 2×2 of open and rock on the diagonals, either way round
@@ -1180,12 +1184,12 @@
       for (const [hor, u0r, v, n] of runs) { if (took.length >= nb) break; const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]), s0 = ri(3, 4), u0 = u0r + ((n - s0) >> 1), u1 = u0 + s0 - 1;
         if (took.some(([h2, a, b]) => Math.abs(a - u0) < 12 && Math.abs(b - v) < 12)) continue;
         const rift = []; let fine = true;
-        for (let u = u0; u <= u1; u++) for (const [side, base] of [[-1, v - 1], [1, v + 2]]) { const d = ri(2, 4); for (let k = 0; k < d; k++) { const [x, y] = c(u, base + side * k); if (at(x, y) !== 0) { if (k < 1) fine = false; break; } rift.push([x, y]); } }
+        for (let u = u0; u <= u1; u++) for (const [side, base] of [[-1, v - 1], [1, v + 2]]) { const d = ri(2, 4); for (let k = 0; k < d; k++) { const [x, y] = c(u, base + side * k); if (at(x, y) !== 0 || arenaWall(x, y)) { if (k < 1) fine = false; break; } rift.push([x, y]); } }
         if (!fine) continue;
         for (const [x, y] of rift) { set(x, y, 3); lava.push([x, y]); flow[y * W + x] = hor ? 1 : 0; }
         // (rock one cell thick between the rift and a floor would hang as a strip of masonry: it becomes rift, as by a river)
         for (let pass = 0; pass < 2; pass++) for (const [x0, y0] of rift.slice()) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) { const x = x0 + i, y = y0 + j;
-          if (at(x, y) === 0 && at(x, y - 1) && at(x, y + 1) && at(x, y - 1) !== 4 && at(x, y + 1) !== 4) { set(x, y, 3); lava.push([x, y]); flow[y * W + x] = hor ? 1 : 0; rift.push([x, y]); } }
+          if (at(x, y) === 0 && !arenaWall(x, y) && at(x, y - 1) && at(x, y + 1) && at(x, y - 1) !== 4 && at(x, y + 1) !== 4) { set(x, y, 3); lava.push([x, y]); flow[y * W + x] = hor ? 1 : 0; rift.push([x, y]); } }
         const deck = []; for (let u = u0; u <= u1; u++) for (const dv of [0, 1]) { const [x, y] = c(u, v + dv); deck.push(y * W + x); deckUsed.push([x, y]); }
         lavaUnder.push(...deck); const cr = { kind: 'bridge', cells: deck, axis: hor ? 'x' : 'y', clean: 1, lava: 1, span: [u0, u1, v], posts: [], rift: 1 };
         const lit = R() < 0.5 ? [] : [R() < 0.5 ? 0 : 1];
