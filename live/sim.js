@@ -399,12 +399,16 @@
   function enterFloor(S, R, f, gen, how = 'down') {
     if (R.map && R.viaTown) stashFloor(R);
     if (R.map && R.town && R.shop) R.townShop = R.shop;
-    R.floor = f; R.propHit = {};   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
+    R.floor = f; if (f > 0) R.deepest = Math.max(R.deepest || 0, f); R.propHit = {};   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { restoreFloor(R, f, M); R.town = 0; R.folk = null; }
     else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) BASE.set(R.memo[f], snapFloor(R)); }
-    if (f === 0 && R.townShop) { R.shop = R.townShop; R.townShop = null; }
+    // the town's shelf grows with the deepest floor reached and is restocked only when that has grown, so going back and forth is no free
+    // re-roll; the buy-back row goes on across a restock
+    if (f === 0) { const dd = R.deepest || 0, old = R.townShop; R.townShop = null;
+      if (old && (old.at || 0) === dd) R.shop = old;
+      else { if (dd > 0) R.shop = stockShop(R, STAGE(R, dd).depth); R.shop.at = dd; if (old) R.shop.back = old.back; } }
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
     const h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
@@ -3976,9 +3980,11 @@
     h.read = { t0: S.t, i: 6 }; for (let i = 0; i < 30; i++) step(S, { right: 1, keys: [] }); if (h.read || h.bag[6].n !== 2) out.push('climb: walking does not break off the reading or the scroll is spent');
     h.read = { t0: S.t, i: 6 }; for (let i = 0; i < 240 && R.floor; i++) step(S, { keys: [] });
     if (R.floor !== 0 || !R.portal || R.portal.f !== 1 || h.bag[6].n !== 1) { out.push('climb: a scroll read through does not take the hero home'); return out; } void px; void py;
-    const qx = R.portal.x, qy = R.portal.y; useItemCheck(S, R, 6, out);
+    if (R.shop.at !== R.deepest || R.deepest < 2) out.push(`climb: the town's shelf is not stocked for the deepest floor (${R.shop.at} of ${R.deepest})`);
+    const shelf0 = R.shop.goods.map((g) => g.it.id).join(), qx = R.portal.x, qy = R.portal.y; useItemCheck(S, R, 6, out);
     at(R.map.town.svc.portal, 30); E(S); if (R.floor !== 1 || R.portal || Math.hypot(h.x - qx, h.y - qy) > 2) out.push(`climb: the town's portal does not lead back to the spot (and close): floor ${R.floor}, ${Math.round(h.x - qx)},${Math.round(h.y - qy)}`);
     at(R.map.up, 30); E(S); if (R.floor !== 0 || !R.town || Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: the 1st floor\'s stairs up do not lead to the town\'s gate');
+    if (R.shop.goods.map((g) => g.it.id).join() !== shelf0) out.push('climb: the town shelf is re-rolled on a return with no deeper floor reached');
     const size = JSON.stringify(persist(S)).length; if (size > 120000) out.push(`climb: a run with two kept floors saves ${size} bytes`);
     return out;
   }
