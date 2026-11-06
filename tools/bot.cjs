@@ -287,6 +287,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     declined.add(T.role); return { keys: ['Escape'] }; }
   // in the town: turn in what is done, take what the profile wants, shop once a visit, then back down: through the open portal, else the crypt's stairs
   function townGoal(S, R, inp) { const h = R.hero, m = R.map, sv = m.town.svc, F = R.folk || [], dist = (o) => Math.hypot(o.x - h.x, o.y - h.y);
+    // before the first way down: the upgrades the bank can buy, at the Altar of Souls
+    if (!f0 && metaNext(S)) { walk(R, inp, sv.altar.x, sv.altar.y + 40); if (SIM.atSoulAltar(R)) inp.keys.push('KeyE'); goal = ['altar']; return; }
     const at = (f) => (f.role === 'smith' ? { x: sv.anvil.x, y: sv.anvil.y + 30 } : { x: f.x + 40, y: f.y + 10 });
     const who = !P.noTown && (F.find((f) => SIM.questMark(R, f.role) === '?') || (P.quests && F.find((f) => SIM.questMark(R, f.role) === '!' && !declined.has(f.role))));
     if (who) { const p = at(who); walk(R, inp, p.x, p.y); if (who.role === 'smith' ? SIM.atCraft(R) === 'forge' : SIM.folkNear(R) === who) inp.keys.push('KeyE'); goal = ['folk', who.role]; return; }
@@ -305,7 +307,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
       if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta().find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
-      if (S.screen === 'menu') { if (metaNext(S)) SIM.step(S, click(D.UI.menu(false).find((q) => q.id === 'meta'))); else startRun(S, mode); continue; }
+      // the upgrades are bought at the Altar of Souls in the town (TASKS 1026); a test run without the town still buys them from the menu's screen
+      if (S.screen === 'menu') { if (metaNext(S) && mode !== 'campaign' && mode !== 'town') { S.screen = 'meta'; S.metaRun = 0; } else startRun(S, mode); continue; }
       SIM.step(S, { keys: ['Escape'] }); continue;
     }
     const R = S.run, h = R.hero, m = R.map;
@@ -313,7 +316,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     cur.potLeft = held(h, 'hp_potion');
     // a visit to the town (TASKS 1024) is a pause of the floor it left: back through the portal, the floor's line goes on
     if (R.town && !inTown) { inTown = 1; declined.clear(); R.shopped = -1; if (f0) cur.town.visits++; } else if (!R.town) inTown = 0;
-    if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h));
+    if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h)); else cur.meta = Object.assign({}, S.meta.up);
       if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear(); holdT = 0;
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal] });
@@ -334,6 +337,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (h.gold < g) for (const it of h.bag) if (it && it.b && !had.has(it.id)) it.bought = 1; continue; }
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
     if (S.screen === 'talk') { SIM.step(S, talkStep(S, R)); continue; }
+    if (S.screen === 'meta') { const M = metaNext(S); SIM.step(S, click(D.UI.meta().find((q) => q.id === (M ? M.id : 'back')))); continue; }
     if (S.screen === 'gate') { const o = SIM.gateWays(R), i = o.findIndex((q) => q.k === 'portal'); SIM.step(S, i >= 0 ? click(D.UI.gate(o.length).r[i]) : { keys: ['Escape'] }); continue; }
     if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
