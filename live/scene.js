@@ -745,6 +745,165 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // the wall-top slate is painted dark (raw L≈14): lifted so unlit masses read as cold blue-grey stone, not a black hole
   // the fire biome's tops are dark basalt instead (its seams smoulder in LIT), so it no longer reads as the dungeon gone brown
   const TOP_LIFT = 1.45, topTint = (B) => (B.lava ? [0.8, 0.66, 0.62, 1] : [0.95, 0.97, 1.04, 1]);
+  // the town's floor (R-17, TASKS 1004): cobbles on the square and its paths fade into the earth over a ragged edge of 8 px steps,
+  // the rails lie along the bottom wall (a straight run, the diagonal up to the adit, the adit's short straight), the portal's
+  // carved disc inside its ring of stones and the enchanter's rune circle under his lectern
+  // the town's lights by kind (TASKS 1005): r, colour, strength, dy over the prop's foot, a hot core, and the glow on the art itself
+  // [dx, dy, r, alpha]; warm lanterns and the forge, the enchanter's and the altar's cold blue, the crypt's warm breath from below
+  // (a light's centre stays on open floor: inside a wall cell the light map's occlusion swallows it)
+  const TOWN_LIGHT = { lamp: { r: 220, col: [1, 0.8, 0.32], amt: 1.25, dy: -30, core: 60, glow: [6, -36, 16, 0.75] }, forge: { r: 170, col: [1, 0.55, 0.18], amt: 1.3, dy: 8, core: 60, glow: [0, -18, 17, 0.85] },
+    runes: { r: 190, col: [0.22, 0.45, 1], amt: 1.5, dy: 0, core: 70, glow: [0, 8, 22, 0.3] }, altar: { r: 170, col: [0.22, 0.48, 1], amt: 1.7, dy: 12, core: 70, glow: [0, -14, 30, 0.3] },
+    crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.8, 0.32], amt: 0.75, dy: -10, glow: [6, -48, 12, 0.7] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
+  // the setts are painted lighter than the earth round them: under the fire they read as a pink cross (fidelity r2), so a little darker
+  const PAVE_K = 0.78;
+  // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
+  const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
+  // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
+  const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', sweeper: 'fire' };
+  const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
+    const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
+  // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest
+  const FOLK0 = (m) => D.folkInit(m.town.npcs);
+  const lerp1 = (a, b, k) => a + (b - a) * k, lerp2 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], E01 = (q) => { q = Math.max(0, Math.min(1, q)); return q * q * (3 - 2 * q); };
+  const bump01 = (u, a, b) => (u <= a || u >= b ? 0 : Math.sin(Math.PI * (u - a) / (b - a)) ** 2);
+  const TOOL = (tex, grip, o) => Object.assign({ tex, len: SZ(tex)[1], grip }, o);
+  // one townsperson (TASKS 1015): a work loop on its own clock (DATA.folkClock, shared with the sim's events), the walk of a round,
+  // and the talk: turned to the hero, head up, the free hand gesturing, eased in and out of the work pose. Hands are placed by IK on
+  // screen points; the tool rides the hand. The loop's moments (the blow, the poke, the throw) leave their effects in RIM.folk
+  function drawFolk(f, n, m, R, GT, Y, sx, sy) {
+    const i = f.i, FD = D.FOLK[f.role], X = sx(f.x), Yg = sy(f.y), id = 'npc' + i;
+    if (f.role === 'hen') { const nm = ['town_hen_white', 'town_hen_red', 'town_hen_grey'][i % 3], RG = RIGS[nm]; if (!RG || !window.ASSETS[nm + '_w']) return;
+      const face = TOWN_FACE(m, n) >= n.x ? 1 : -1, [w, hh] = SZ(nm), ph = GT * 1.3 + i * 2.1, peck = Math.max(0, Math.sin(ph)) ** 6, neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i), tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7);
+      Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4);
+        L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(X, Yg), M.s(face, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+      return; }
+    const nm = 'town_' + f.role; if (!RIGS[nm] || !window.ASSETS[nm + '__body']) return;
+    const H = SZ(nm)[1], c = D.folkClock(f.role, i, GT), u = c.u, T = m.town.svc, route = n.route;
+    // the talk's weight: in over 0.35 s from the first line, out over 0.45 s when the pair is said or the hero walks off
+    const e0 = Math.min(f.sayT + D.FOLK_SAY, f.byeT > f.sayT ? f.byeT : 1e9), tw = SS(f.sayT, f.sayT + 0.35, GT) * (1 - SS(e0, e0 + 0.45, GT));
+    const talkNow = GT >= f.sayT && GT < e0 + 0.2, wf = TOWN_FACE(m, n) >= n.x ? 1 : -1;
+    // the child, stopped, turns to the nearest hen to throw it grain
+    const hen = f.role === 'child' && route && !f.go && !talkNow ? (R.folk || []).filter((q) => q.role === 'hen').sort((a, b) => Math.hypot(a.x - f.x, a.y - f.y) - Math.hypot(b.x - f.x, b.y - f.y))[0] : null;
+    const face = hen ? (hen.x >= f.x ? 1 : -1) : (route || talkNow) && f.face ? f.face : wf;
+    const P = (dx, dy) => [X + face * dx * H, Yg + dy * H], mir = (q) => [X + (q[0] - X) * face * wf, q[1]];
+    const talkR = P(0.27, -0.52 + 0.025 * Math.sin(GT * 5.3 + i)), talkL = P(0.08, -0.36);
+    const atStop = route && !f.go, pu = GT - f.t0, stop = route && f.way >= 0 ? route[f.way] : null, moving = Math.hypot(f.vx, f.vy) > 2;
+    let tg = {}, hold = null, lean = 0, headR = 0, crouch = 0, front = null, robe = null, fx = null;
+    if (f.role === 'smith') {
+      // a blow every loop, every 4th a breather (the hammer down, the piece turned in the tongs): up over the head, down faster and
+      // faster onto the anvil, a small rebound, back up to the start
+      const A = T.anvil, top = [sx(A.x) - wf * 4, sy(A.y) - 0.82 * SZ('anvil_tw')[1]], brk = c.n % FD.rest === FD.rest - 1, hit = FD.hit;
+      const imp = [top[0] - wf * 21, top[1] - 5], lift = [imp[0] - wf * 3, imp[1] - 10], cock = [X + wf * 0.08 * H, Yg - 0.96 * H];
+      // the hammer's angle (as if facing right) rides the same path: its handle back over the shoulder at the top, level on the blow
+      const UPA = -2.6, IMPA = 0.12, RESTA = 0.9;
+      let hr, ha;
+      if (brk) { const k = Math.sin(Math.PI * u) ** 2; hr = lerp2(lift, [X + wf * 0.22 * H, Yg - 0.36 * H], k); ha = lerp1(IMPA - 0.2, RESTA, k); }
+      else if (u < 0.42) { const k = E01(u / 0.42); hr = lerp2(lift, cock, k); ha = lerp1(IMPA - 0.2, UPA, k); }
+      else if (u < hit) { const x = (u - 0.42) / (hit - 0.42); hr = lerp2(cock, imp, x * x); ha = lerp1(UPA, IMPA, x * x); }
+      else if (u < hit + 0.1) { const b = Math.sin(Math.PI * (u - hit) / 0.1); hr = [imp[0], imp[1] - 5 * b]; ha = IMPA - 0.15 * b; }
+      else { const k = E01((u - hit - 0.1) / (0.9 - hit)); hr = lerp2(imp, lift, k); ha = lerp1(IMPA, IMPA - 0.2, k); }
+      const hl = [top[0] - wf * 9, top[1] + 3 - (brk ? 7 * Math.sin(Math.PI * u) ** 2 : 0)];
+      tg = { R: lerp2(mir(hr), talkR, tw), L: lerp2(mir(hl), talkL, tw) };
+      hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(ha, RESTA, tw) }), L: TOOL('town_tool_tongs', 0.7, { rel: -1.1 }) };
+      lean = face * (0.05 + 0.05 * (!brk && u > 0.45 && u < hit + 0.1 ? 1 : 0)) * (1 - tw); headR = 0.14 * (1 - tw) - 0.05 * tw;
+      if (!brk && u >= hit && (u - hit) * c.per < 0.45 && tw < 0.5) fx = { k: 'spark', x: top[0], y: top[1], a: (u - hit) * c.per, seed: c.n * 7 + i };
+    } else if (f.role === 'keeper') {
+      // leans on his staff and dozes off (the head sinks, jerks up), now and then pokes the fire: embers fly up on the poke
+      const Fp = [sx(T.fire.x), sy(T.fire.y)], poke = bump01(u, 0.12, 0.42), dz = SS(0.5, 0.9, u) * (1 - SS(0.93, 0.97, u));
+      const reachP = [X + (Fp[0] - X) * 0.42, Yg - 0.36 * H];
+      tg = { R: lerp2(lerp2(P(0.2, -0.5), mir(reachP), poke), talkR, tw * 0.6) };
+      hold = { R: TOOL('town_tool_staff', 0.5, { abs: -Math.PI / 2 + 0.06 * Math.sin(GT * 0.9 + i) - poke * 0.95 * (1 - tw) }) };
+      headR = (0.32 * dz + 0.1 * poke) * (1 - tw) - 0.05 * tw; lean = face * (0.04 * dz + 0.1 * poke) * (1 - tw);
+      if (u > 0.27 && u < 0.27 + 1.2 / c.per && tw < 0.5) fx = { k: 'embers', x: Fp[0], y: Fp[1] - 14, a: (u - 0.27) * c.per, seed: c.n * 5 + i };
+    } else if (f.role === 'guard') {
+      // shifts his weight, now and then looks back over the yard, the spear upright in his hand
+      const look = u > 0.52 && u < 0.7 && tw < 0.5;
+      tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i)), talkR, tw * 0.5) };
+      hold = { R: TOOL('town_tool_spear', 0.58, { abs: -Math.PI / 2 - 0.05 }) };
+      lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u);
+      if (look) return drawFolkRig(f, n, nm, X, Yg, H, -face, GT, Y, { hold, handTarget: (sd) => (sd === 'R' ? [X - face * 0.24 * H, Yg - 0.42 * H] : null), lean: -lean, headR });
+    } else if (f.role === 'porter') {
+      // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down
+      const cw = 0.3 * H, chest = P(0.2, -0.46), floor = P(0.33, -0.14), act = atStop && stop && stop.act;
+      let k = f.load ? 1 : 0, bend = 0;
+      if (act === 'take') { k = SS(0.3, 1.15, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); } else if (act === 'drop') { k = 1 - SS(0.35, 1.2, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); }
+      const hasCrate = f.load || act === 'drop', cp = lerp2(floor, chest, k);
+      if (hasCrate) { cp[1] -= moving ? 1.2 * Math.abs(Math.sin(f.dist / 14)) : 0; tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] };
+        front = () => L.sprite('town_tool_crate', cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
+      else if (act === 'take') { tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] }; front = () => L.sprite('town_tool_crate', cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
+      if (tw > 0 && !hasCrate) tg = { R: lerp2(P(0.1, -0.38), talkR, tw) };
+      crouch = 34 * bend; lean = face * 0.3 * bend; headR = 0.15 * bend;
+    } else if (f.role === 'child') {
+      // at each stop he scatters grain to the hens: a hand into the bag, a throw out in front, the grain falling ahead of him
+      const bag = P(0.3, -0.42), throwing = atStop && route && tw < 0.5, dip = P(0.22, -0.44), out = P(0.45, -0.66), rest = P(0.08, -0.33);
+      let hr = rest;
+      if (throwing) hr = u < 0.3 ? lerp2(rest, dip, E01(u / 0.3)) : u < 0.47 ? lerp2(dip, out, E01((u - 0.3) / 0.17)) : lerp2(out, rest, E01((u - 0.47) / 0.4));
+      tg = { L: bag, R: tw > 0 ? lerp2(hr, talkR, tw) : throwing ? hr : null };
+      hold = { L: TOOL('town_tool_grain', 0.45, { abs: -Math.PI / 2 }) };
+      if (throwing && u > 0.47 && (u - 0.47) * c.per < 1.4) fx = { k: 'grain', x: out[0], y: out[1], g: Yg, face, a: (u - 0.47) * c.per, seed: c.n * 3 + i };
+    } else if (f.role === 'sweeper') {
+      // sweeps at each stop: the near hand drives the broom to and fro, the far hand higher up the handle, the bristles on the floor
+      const sweeping = !moving && tw < 0.99, ph = 2 * Math.PI * u, L0 = SZ('town_tool_broom')[1], grip = 0.3;
+      const hr = sweeping ? P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)) : P(0.2, -0.45);
+      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = sweeping ? Math.asin(down) : 1.25;
+      const dir = [-face * Math.cos(th), -Math.sin(th)];   // up the handle, away from the bristles
+      const abs = Math.atan2(dir[1], dir[0] * face);
+      tg = { R: hr, L: [hr[0] + dir[0] * 0.24 * L0, hr[1] + dir[1] * 0.24 * L0] };
+      hold = { R: TOOL('town_tool_broom', grip, { abs }) };
+      robe = { lift: sweeping ? 4 : 1.5 * Math.abs(Math.sin(f.dist / 9)), headR: sweeping ? 0.16 : 0.05 };
+      if (tw > 0) { tg.L = lerp2(tg.L, talkR, tw); robe.headR = lerp1(robe.headR, -0.05, tw); }
+      if (sweeping) { const q = Math.sin(ph); if (Math.abs(q) > 0.7) fx = { k: 'dust', x: hr[0] - dir[0] * (1 - grip) * L0, y: hr[1] - dir[1] * (1 - grip) * L0, amt: (Math.abs(q) - 0.7) / 0.3, seed: c.n * 2 + (q > 0 ? 1 : 0) + i }; }
+    } else if (f.role === 'enchanter') {
+      // reads at the lectern, turns a page, then lifts a flask and burns it: a cold blue flame in the hand
+      const Lc = T.lectern, book = [sx(Lc.x) - wf * 2, sy(Lc.y) - 0.72 * SZ('lectern_tw')[1]], page = bump01(u, 0.1, 0.32), flask = bump01(u, 0.4, 0.85);
+      const hr = [book[0] - wf * (10 - 16 * page), book[1] - 4 * page];
+      tg = { R: lerp2(mir(hr), talkR, tw), L: flask > 0.01 && tw < 0.99 ? lerp2(P(0.05, -0.36), P(0.24, -0.8), flask * (1 - tw)) : null };
+      robe = { lift: 1, headR: lerp1(0.18 * (1 - flask) - 0.12 * flask, -0.05, tw) };
+      const burn = bump01(u, 0.5, 0.78) * (1 - tw); if (burn > 0.02) fx = { k: 'flame', hand: 'L', amt: burn, seed: c.n + i };
+    }
+    if (tw > 0 && !robe) headR = lerp1(headR, -0.06 + 0.04 * Math.sin(GT * 4.1 + i), tw);
+    drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, { hold, handTarget: (sd) => tg[sd] || null, lean, headR, crouch, front, robe, fx });
+    // the crate the porter set down by the merchant waits there until he brings the next
+    if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && stop && stop.act === 'drop';
+      if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); } }
+  }
+  function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
+    const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;
+    Y.push([f.y, () => { L.shadow(X, Yg + 2, 0.24 * H, 6, 0.45);
+      let hand = null;
+      L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, seed, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
+        : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, t: GT, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, Ufar: {}, hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, crouch: o.crouch, front: o.front });
+        if (r && fx && fx.hand) hand = r.hand ? r.hand(fx.hand) : r.R2U(r.arms[fx.hand].Hd[0], r.arms[fx.hand].Hd[1]); }, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+      if (fx) RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] } : {}));
+      if (fx && (fx.k === 'grain' || fx.k === 'dust')) folkDust(fx, GT); }]);
+  }
+  // the grain the child throws (it arcs out and falls ahead of him, lies a moment and is gone) and the sweeper's dust: drawn in the band
+  function folkDust(q, GT) {
+    if (q.k === 'dust') { L.puff(q.x, q.y - 3, 9 + 4 * q.amt, [0.5, 0.44, 0.36], 0.22 * q.amt, q.seed % 7); return; }
+    for (let j = 0; j < 9; j++) { const vx = q.face * (40 + 60 * rnd(q.seed, j)), vy = -30 - 40 * rnd(q.seed, j + 9), gy = q.g - 2 + 8 * rnd(q.seed, j + 19);
+      const T = (vy + Math.sqrt(vy * vy + 2 * 360 * (gy - q.y))) / 360, a = Math.min(q.a, T), x = q.x + vx * a, y = q.y + vy * a + 180 * a * a, k = 1 - SS(T + 0.4, T + 0.9, q.a);
+      if (k > 0) L.solid(Math.round(x), Math.round(y), 2, 2, [0.86, 0.74, 0.42], 0, 0, 0, k); } }
+  const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
+  function townFloor(m, B, c) {
+    const P = TOWN_PAVE(m), TS = 288, q = TILE / 4;
+    for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (c(x, y) !== 1 || P.has(y * m.W + x)) continue;
+      let any = false; for (let j = -1; j <= 1 && !any; j++) for (let i = -1; i <= 1; i++) if (P.has((y + j) * m.W + x + i)) { any = true; break; }
+      if (!any) continue;
+      for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const px = x + (i + 0.5) / 4, py = y + (j + 0.5) / 4; let d = 9;
+        for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if (P.has((y + v) * m.W + x + u)) d = Math.min(d, Math.hypot(Math.max(x + u - px, 0, px - x - u - 1), Math.max(y + v - py, 0, py - y - v - 1)));
+        if (d + 0.45 * rnd(x * 4 + i, y * 4 + j) > 0.55) continue;
+        const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
+        L.sprite(B.pave, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [1, PAVE_K, 0, 1] } }); } }
+    // the rails: one sleeper period of the straight piece (a gap's middle to the next, so it repeats without its end caps) laid
+    // edge to edge along the line through the rail cells' centres, turned to each stretch, at the piece's own proportions
+    const T = m.town, pts = T.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]), RH = 26, RP = RH * RAIL.per / RAIL.h;
+    let carry = 0;
+    for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, by - ay), a = Math.atan2(by - ay, bx - ax);
+      for (let d = carry; d < len; d += RP) { const x = ax + (bx - ax) * d / len, y = ay + (by - ay) * d / len;
+        L.sprite('rail_tw_h', 0, 0, { m: M.of(M.t(x, y), M.r(a)), w: RP + 0.5, h: RH, pivot: [RP / 2, RH / 2], src: [RAIL.u0, 0, RAIL.u0 + RAIL.per / RAIL.w, 1] }); carry = d + RP - len; } }
+    const disc = (n, o, w) => { const [w0, h0] = SZ(n), k = w / w0; L.puff(o.x, o.y + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite(n, o.x - w / 2, o.y - h0 * k / 2, { w, h: h0 * k }); };
+    disc('disc_tw', T.svc.portal, 2.6 * TILE); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y + 10 }, 2.2 * TILE);
+  }
   function bake(m) {
     const key = mapKey(m) + ':' + (m.secrets || []).map((q) => q.hp).join(''); if (BAKE.key === key) return; BAKE.key = key;
     const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome];
@@ -770,7 +929,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         const v = c(x, y);
         // an accent zone keeps its own stone, near grey and dark (as dark as the tint it lost made it): the colour proper is its hearths'
         // light and the fill, which fades out past the doorway
-        if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
+        if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : 0.96, 0, 1], tint: [1, 1, 1, 1] }); }
+        else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
         else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
         else if (v === 0 && RD[y * m.W + x] <= 3) tile(B.top, x, y, { grade: [0.55, TOP_LIFT, 0, 1], tint: topTint(B) }, TST);
       }
@@ -780,6 +940,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { const px = x + (i + 0.5) / 4, py = y + (j + 0.5) / 4, d = Math.hypot(Math.max(r.x - px, 0, px - r.x - r.w), Math.max(r.y - py, 0, py - r.y - r.h)), a = 1 - SS(0, 2.6, d);
             if (a < 0.03) continue; const X = x * TILE + i * q, Y = y * TILE + j * q, u0 = (X % TS) / TS, v0 = (Y % TS) / TS;
             L.sprite(Z.floor, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [0.25, 0.96 * 0.55 * (Z.dim || 1), 0, 1], tint: [...Z.tint, 0.35], alpha: a } }); } } }
+      if (m.town) townFloor(m, B, c);
       // contact darkening, rims, edges
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
         const v = c(x, y), X = x * TILE, Y = y * TILE;
@@ -795,6 +956,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           if (face) { dark(X, Y + TILE - 4, TILE, 4, 0.5); for (let k = 0; k < 4; k++) dark(X, Y + TILE - 14 + k * 2.5, TILE, 14 - k * 2.5, 0.06);
             if (c(x - 1, y) === 1 || c(x - 1, y + 1) === 1) dark(X, Y, 3, TILE, 0.7); if (c(x + 1, y) === 1 || c(x + 1, y + 1) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.7); }
           if (face2) { dark(X, Y, TILE, 3, 0.75); L.solid(X, Y + 3, TILE, 1, [0.5, 0.45, 0.42], 0, 0, 0, 0.35);
+            // the town's ruins catch the light on their top course (the concept's slate edge, #81676f)
+            if (m.town) { L.solid(X, Y + 3, TILE, 2, [0.51, 0.4, 0.44], 0, 0, 0, 0.85); L.solid(X, Y + 5, TILE, 2, [0.37, 0.29, 0.33], 0, 0, 0, 0.6); }
             if (c(x - 1, y + 1) === 1) dark(X, Y, 3, TILE, 0.7); if (c(x + 1, y + 1) === 1) dark(X + TILE - 3, Y, 3, TILE, 0.7); }
           if (!face && !face2 && near(x, y, 4)) {
             if (c(x, y + 1) === 1) dark(X, Y + TILE - 3, TILE, 3, 0.6);
@@ -1223,7 +1386,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // and the smouldering skeletons' fires (TASKS 411): skull, ribs, pelvis, hands
   // the fire priests' staff heads and hands, and the weapons a priest set alight (TASKS 410): [hand, tip or the other fist, blade]
   // and the imps' throwing hands with a spark in them (TASKS 407), the salamanders' mouths and headings (408)
-  const RIM = { col: [1, 0.75, 0.4], hands: {}, heads: {}, mages: {}, embers: {}, priests: {}, kindled: {}, imps: {}, salams: {} };
+  const RIM = { col: [1, 0.75, 0.4], hands: {}, heads: {}, mages: {}, embers: {}, priests: {}, kindled: {}, imps: {}, salams: {}, folk: [] };
   // how a body goes down, picked by its id: dl s on its feet first (the knees giving, a robe sinking), then dur s to the floor,
   // and a bounce on landing; a heavy body falls slower and the boss slowest
   function deathOf(e) { const v = e.id % 2, ty = e.type;
@@ -1609,7 +1772,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const ST = SC.state || SIM.at(t), GT = ST.t, R = ST.run;
     if (R && (R.zoom || D.ZOOM || 1) !== Z) views(R.zoom || D.ZOOM || 1);
     if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); return; }
-    const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.heads = {}, RIM.mages = {}, RIM.embers = {}, RIM.priests = {}, RIM.kindled = {}, RIM.imps = {}, RIM.salams = {}), st = SIM.stats(h, ST.meta);
+    const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.heads = {}, RIM.mages = {}, RIM.embers = {}, RIM.priests = {}, RIM.kindled = {}, RIM.imps = {}, RIM.salams = {}, RIM.folk = []), st = SIM.stats(h, ST.meta);
     // a fuse's ring and light stay on its body: a lit smouldering skeleton knocked back carries them with it (TASKS 411)
     const fuseAt = (q) => { const o = R.en.find((b) => b.id === q.id); return o ? [o.x, o.y] : [q.x, q.y]; };
     bake(m); const seen = seenTex(R);
@@ -1648,7 +1811,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
-    const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), f = flick(i) * (col[2] > col[0] ? 1.35 : 1), big = tc.kind === 'fire', gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
+    const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1), big = tc.kind === 'fire', gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
       const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * (B.cave && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
@@ -1866,9 +2029,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // stairs / boss portal
     // the stairs on past the serpent (TASKS 354), beside the portal: dark till it falls
     if (m.down && vis(m.down.x, m.down.y)) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.down.x) - w / 2, sy(m.down.y) - hh / 2 - 4, { w, h: hh, u: R.bossDead ? undefined : { grade: [0.6, 0.55, 0, 1] } }); }
-    if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.runOf(R.mode).floors) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
+    // the town's crypt gate is a dark mouth between its braziers, not a lit frame (fidelity r2)
+    if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.runOf(R.mode).floors) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh, u: m.town ? { grade: [0.8, 0.5, 0, 1.1] } : undefined }); } }
     // the start room's bonfire sits in a rune circle
-    if (window.ASSETS.sanct_circle && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
+    if (window.ASSETS.sanct_circle && !m.town && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
     // spike traps: a 2×2-cell plate on the ground; its spikes stand in the Y-sorted band (they have height)
     // on the magma's basalt the crypt's grey masonry plate read as a tile (TASKS 456): it goes dark and dull, a hot glint in each hole
     for (const tp of m.traps) if (vis(tp.x, tp.y)) { L.sprite('trap_plate', sx(tp.x - TILE), sy(tp.y - TILE), { w: 2 * TILE, h: 2 * TILE, u: m.cliff ? { grade: [0.35, 0.9, 0, 1.05] } : undefined });
@@ -1998,7 +2162,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.solid(X - PIX, px2(Y0 - 30), PIX * 4, 30, [0.02, 0.018, 0.02]); L.solid(X, px2(Y0 - 28), PIX * 2, 28, [0.2, 0.18, 0.17]); L.solid(X, px2(Y0 - 28), PIX, 28, [0.34, 0.31, 0.29]);
         L.solid(X - PIX, px2(Y0 - 34), PIX * 4, PIX * 2, [0.12, 0.11, 0.1]); } };
     for (const d of m.decor) if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d)]);
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] ? d.s || 1 : 1, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] || d.role === 'edge' ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
@@ -2090,8 +2254,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       else if (tc.kind === 'wall') Y.push([tc.y - 20, () => { drawProp('torch_sconce', sx(tc.x), sy(tc.y) + 16, { j }); if (lit) { halo(sx(tc.x) + 3 + (j ? j.dx + Math.sin(j.rot) * 40 : 0), sy(tc.y) - 4, col, i); flameB(sx(tc.x) + 3 + (j ? j.dx + Math.sin(j.rot) * 40 : 0), sy(tc.y) - 4, 20 * fl, 36 * fl, col, i, lean); } }]);
       else { const big = tc.kind === 'fire', up = big ? 44 : 32, bl = blown('t' + i, big ? 80 : 50);
         // the cave's camp fire burns in a ring of stones on the ground (TASKS 306), not in a brazier
-        const camp = big && B.cave, lo = camp ? 12 : up;
-        Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp(camp ? 'campfire_cv' : 'brazier', sx(tc.x), sy(tc.y), { k: big && !camp ? 1.35 : 1, dy: camp ? 10 : 4, j });
+        const camp = big && (B.cave || B.town), lo = camp ? 12 : up;
+        Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp(camp ? (B.town ? 'campfire_tw' : 'campfire_cv') : 'brazier', sx(tc.x), sy(tc.y), { k: big && !camp ? 1.35 : 1, dy: camp ? 10 : 4, j });
           if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * lo : 0), sy(tc.y) - lo, (big ? 44 : 26) * bl.fl, (big ? 64 : 40) * bl.fl, col, i, bl.lean); }]); } });
     for (const d of m.decor) { const t2 = d.n === 'candles' && d.lift && onTable(d); if (t2 && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames(TABLE_WICKS.map(([ox, oy]) => [sx(t2.x) + ox, sy(t2.y) + 4 - oy + 2, 7, 12, [1, 0.7, 0.35], d.x + ox]))]); }
     for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !(d.lift && onTable(d)) && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames([0, 1, 2].map((k) => [sx(d.x) + [-8, 0, 9][k], sy(d.y) - (d.lift || 0) - [16, 28, 18][k], 9, 15, [1, 0.7, 0.35], d.x + k]))]);
@@ -2102,10 +2266,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
       Y.push([sh.y, () => { L.shadow(sx(sh.x), sy(sh.y) + 2, 26, 6, 0.4);
-        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: R.shop.greetT, tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: Math.max(R.shop.greetT, R.town ? R.shop.callT ?? -9 : -9), tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
+    // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
+    if (m.up && vis(m.up.x, m.up.y)) { const [w, hh] = SZ('stairs_up'), u = m.up; Y.push([u.y + 14, () => L.inked(() => L.sprite('stairs_up', sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
+    // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
+    if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,
     // then the sheaves shoot up for the up phase the sim hurts in
@@ -2139,7 +2307,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     L.SNAP = 1; try { Y.sort((a, b) => a[0] - b[0]).forEach(([, d]) => d()); } finally { L.SNAP = 0; }
 
     // ===== light map =====
-    const ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], ak = B.ambK || 0.3, amb = AMB.map((v, i) => (1 - ak) * v + ak * B.amb[i] * ab); G.bind(LT.light, [...amb, 1]); G.blend('add');
+    const ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], ak = B.ambK || 0.3, amb = AMB.map((v, i) => ((1 - ak) * v + ak * B.amb[i] * ab) * (B.ambLvl || 1)); G.bind(LT.light, [...amb, 1]); G.blend('add');
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + VW + r || y < cy - r || y > cy + VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
@@ -2157,6 +2325,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) lt(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
     // the shop is lit warm and bright: lanterns by its ways in, a lamp over the counter
     if (m.shop) { for (const q of m.shop.lanterns) lt(q.x, q.y - 40, 190, [1, 0.78, 0.45], 0.85 * flick(q.x)); lt(m.shop.x, m.shop.y - 50, 260, [1, 0.82, 0.55], 0.75); }
+    // the town's lights (TASKS 1005): from its map's data, beating on the clock like every fire
+    if (m.town) for (const q of m.town.lights) { const L0 = TOWN_LIGHT[q.kind], b = q.kind === 'runes' || q.kind === 'altar' ? 0.88 + 0.12 * Math.sin(t * 1.3 + q.x) : flick(q.x + q.y);
+      lt(q.x, q.y + L0.dy, L0.r, L0.col, L0.amt * b); if (L0.core) lt(q.x, q.y + L0.dy, L0.core, L0.col.map((v) => 0.5 + 0.5 * v), L0.amt * b, 2.4); }
     // the magma caves' lava is their main light: wider, and its pools beat slowly instead of flickering like a fire (TASKS 404)
     for (const [x, y] of lavaCells) { if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, m.cliff ? 170 : 140, [1.0, 0.42, 0.12], m.cliff ? 0.5 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2, 1.6); }
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
@@ -2166,6 +2337,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const altarCol = m.cliff ? [1, 0.5, 0.22] : [0.4, 0.7, 1.0];
     for (const s of R.shrines) if (!s.used) lt(s.x, s.y - 20, 200, altarCol, 0.9);
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) lt(m.exit.x, m.exit.y - 20, 320, [0.5, 0.7, 1.0], 1.4);
+    // the town's end of an open portal (TASKS 1007) and a scroll being read: the same cold blue as the way out
+    const TP = R.town && R.portal && m.town ? m.town.svc.portal : null; if (TP) lt(TP.x, TP.y - 20, 260, [0.5, 0.7, 1.0], 1.3);
+    if (h.read) lt(h.x, h.y - 30, 200, [0.55, 0.75, 1], 1.2 * SS(0, 1.6, GT - h.read.t0));
     for (const p of R.proj) if (p.k !== 'arrow') lt(p.x, p.y + 20, p.own === 'hero' ? 140 : p.k === 'jet' || p.k === 'wave' ? 90 : p.k === 'orb' ? 120 : 150, p.k === 'orb' ? [0.35, 0.85, 0.95] : p.k === 'hex' ? [0.4, 1.0, 0.4] : p.k === 'jet' || p.k === 'wave' ? [0.5, 0.85, 1] : [1.0, 0.55, 0.2], p.own === 'hero' ? 0.65 : p.k === 'jet' ? 0.35 : 1.2);
     // every item on the floor carries a little white light of its own, so its colours read under any room's tint
     for (const p of R.drops) if (p.kind === 'key') lt(p.x, p.y - 14, 80, [1, 0.85, 0.5], 0.6);
@@ -2229,12 +2403,23 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     G.blend();
     G.blend('add');
     // shrine and portal
+    if (m.town) for (const q of m.town.lights) { const L0 = TOWN_LIGHT[q.kind]; if (!L0.glow || !vis(q.x, q.y)) continue; const [gx, gy, gr, ga] = L0.glow, b = q.kind === 'runes' ? 0.8 + 0.2 * Math.sin(t * 1.3 + q.x) : flick(q.x * 3 + q.y);
+      L.glow(sx(q.x) + gx, sy(q.y) + gy, gr, L0.col, ga * b); }
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
     // a mechanism catches the light now and then: a faint four-point glint for a third of a second every five or so, each on
     // its own beat, so it reads only to someone already looking at it
     (m.secrets || []).forEach((q, i) => { const P = q.trig; if (q.open || !P || inSecret(q)) return; const ph = (t + i * 1.73) % 5.2; if (ph > 0.35) return;
       const env = Math.sin(Math.PI * ph / 0.35), tc = P.k === 'sconce' ? m.torches[P.t] : null, x = tc ? tc.x - 8 : P.cx * TILE + 7, y = tc ? tc.y - 2 : P.cy * TILE + 6;
       if (vis(x, y) && known(x, y)) L.star(sx(x), sy(y), 12, [1, 0.94, 0.78], 0.5 * env); });
+    // the townsfolk's work (TASKS 1015): sparks off the anvil on the blow, embers up off the keeper's poke, the enchanter's blue flame
+    for (const q of RIM.folk) { const a = q.a || 0;
+      if (q.k === 'spark') for (let j = 0; j < 8; j++) { const an = -Math.PI / 2 + (rnd(q.seed, j) - 0.5) * 2.6, v = 70 + 90 * rnd(q.seed, j + 8), k = 1 - SS(0.15, 0.45, a);
+        L.star(q.x + Math.cos(an) * v * a, q.y + Math.sin(an) * v * a + 260 * a * a, 5, [1, 0.85, 0.5], k); }
+      if (q.k === 'spark' && a < 0.12) L.glow(q.x, q.y, 18, [1, 0.6, 0.25], 0.8 * (1 - a / 0.12));
+      if (q.k === 'embers') for (let j = 0; j < 9; j++) { const b = a - 0.1 * rnd(q.seed, j); if (b < 0) continue; const k = 1 - SS(0.5, 1.1, b), dx = (rnd(q.seed, j + 9) - 0.5) * 40 * b + 6 * Math.sin(b * 7 + j);
+        L.star(q.x + dx, q.y - (50 + 40 * rnd(q.seed, j + 3)) * b, 5, [1, 0.6, 0.22], k); }
+      if (q.k === 'flame') { const fl = 0.85 + 0.15 * Math.sin(t * 23 + q.seed); L.glow(q.x, q.y - 6, 22, [0.3, 0.55, 1], 0.9 * q.amt * fl); L.glow(q.x, q.y - 6, 7, [0.75, 0.9, 1], q.amt * fl, 4);
+        L.star(q.x, q.y - 10 - 3 * Math.sin(t * 9), 7, [0.6, 0.8, 1], 0.7 * q.amt); } }
     // the imps' sparks in hand, the salamanders' breath and their ripples in the lava (TASKS 407, 408)
     for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue; const E = D.ENEMIES[e.type];
       if (RIM.imps[e.id]) impSpark(e, E, RIM.imps[e.id], GT, t); if (RIM.salams[e.id] && e.br) breathFx(e, E, RIM.salams[e.id], GT, t); const sw = swimOf(e, GT); if (sw > 0.02) swimFx(e, E, sx(e.x), sy(e.y), sw, GT, t); }
@@ -2301,6 +2486,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         else for (const s of [-1, 1]) L.solid(Math.round((sx(q.x) + s * 7 * f) / PIX) * PIX, Math.round((sy(q.y) - 10 * Math.sin(Math.PI * Math.min(1, f * 1.6))) / PIX) * PIX, PIX, PIX, [0.5, 0.7, 0.75], 0, 0, 0, 0.6 * (1 - f)); }
       G.blend(); }
     if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
+    if (R.town && R.portal && m.town) { const P = m.town.svc.portal; G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(P.x) - 52, sy(P.y) - 86, 104, 104)); }
+    // a scroll being read (TASKS 1007): a ring of cold light closes in round the hero's feet, sparks rise and quicken
+    if (h.read) { const k = SS(0, 1.6, GT - h.read.t0), X = sx(h.x), Yh = sy(h.y);
+      L.ring(X, Yh, 44 - 22 * k, (44 - 22 * k) * 0.42, [0.55, 0.78, 1], 0.35 + 0.5 * k, 0.12); L.glow(X, Yh - 30, 40, [0.4, 0.65, 1], 0.5 * k);
+      for (let j = 0; j < 8; j++) { const u = ((GT * (0.8 + 0.6 * k) + j / 8) % 1), a = j * 2.4; L.star(X + Math.cos(a) * (26 - 10 * k), Yh - 4 - 70 * u, 5, [0.7, 0.85, 1], (0.3 + 0.7 * k) * Math.sin(Math.PI * u)); } }
     for (const e of R.en) { if (e.type !== 'boss_serpent' || e.deadT >= 0 || e.st !== 'bwind') continue;
       const Mv = D.bossMove(e), u = GT - e.t0; if (u > Mv.wind + (e.mv === 'tail' ? 0.5 : 0)) continue;
       const q = SS(0, Mv.wind, u), x = sx(e.x), y = sy(e.y), tele = (ox, oy, kind, reach, extra) => { const R0 = reach + 12;
@@ -2738,6 +2928,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       S.result.damage = name === 'dead_short' ? [] : [{ t: 1, src: 'lava', n: 28 }, { t: 2, src: 'boss снаряд', n: 75 },
         { t: 3, src: 'brute (элита) взрыв', n: 180, actor: { type: 'brute', elite: 1, mods: ['explosive', 'vampire'] } }];
     }
+    // a run through the town ends on «Вернуться в город» (TASKS 1006)
+    { const [, S0] = states.find(([n]) => n === 'dead'), S = Object.assign({}, S0, { result: Object.assign({}, S0.result, { town: 1 }) }); states.push(['dead_town', S]); }
     for (const [name, src, actor] of [['dead_caster', 'cultist (элита) снаряд', { type: 'cultist', elite: 1, mods: ['summoner', 'vampire'] }], ['dead_lava', 'lava', null],
       ['dead_ghost', 'ghost', { type: 'ghost', elite: 0 }], ['dead_boss', 'boss', { type: 'boss', elite: 1 }]]) {
       const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.damage[2] = { t: 3, src, n: 99, actor }; states.push([name, S]);
@@ -3192,6 +3384,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 2);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['zone_cave', S]); }
+    // the town (R-17, TASKS 1002): the hero where a town run puts him, by the campfire
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; R.msg = null; S.ev = [];
+      R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; states.push(['zone_town', S]); }
+    // the whole town in one frame (TASKS 1003): every service, the gate, the mine and the rails
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
+      const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; void h; states.push(['town_services', S]); }
+    // the townsfolk at their places (TASKS 1014), the hero out of the way at the unloading yard
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
+      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; states.push(['town_npc', S]); }
     // the magma caves' 2nd floor (TASKS 399; their own floor, rock and lava come in 400–404): its biggest hall, its monsters left in
     { const S = play(); plainMagma(S); S.screen = 'play';
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
@@ -3795,11 +3996,45 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let i = 0; i < 300; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.merchant_work = fr; }
     for (const [nm, k] of [['merchant_greet', 'greetT'], ['merchant_trade', 'tradeT'], ['merchant_hit', 'hitT']]) { const fr = []; let S = shopS((S) => { S.run.shop.greetT = -9; S.run.shop.tradeT = -9; S.run.shop[k] = S.t + 0.1; S.run.shop.away = 0; });
       for (let i = 0; i < 100; i++) { fr.push(S); S = structuredClone(S); for (let k2 = 0; k2 < 2; k2++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions[nm] = fr; }
+    // the townsfolk (TASKS 1015), subject npc<i>: each one's work loop over one loop, the walkers' strides (the porter with his crate,
+    // the child), the porter lifting his crate, a talk starting (as the hammer comes back up: the blow itself is faster than a pop);
+    // stills of a talk's first and second line and the merchant calling
+    const folkSubj = {}, folkCyc = {}, folkCycT = {}, folkSpr = {};
+    const folkS = (fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null;
+      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; SIM.step(S, { keys: [] }); S.ev = []; if (fn) fn(S, R, m, h); });
+    const folkAt = (R, role) => R.folk.find((q) => q.role === role), camOn = (R, f) => { R.cam = [f.x - VW / 2, f.y - 40 - VH / 2]; };
+    const atStop = (R, f, k) => { const st = R.map.town.npcs[f.i].route[k]; Object.assign(f, { x: st.x, y: st.y, way: k, go: 0, spd: 0, vx: 0, vy: 0 }); };
+    for (const role of ['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child']) { let i = 0, per = 1;
+      const base = folkS((S, R) => { const f = folkAt(R, role); i = f.i; per = D.folkClock(role, i, S.t).per; if (R.map.town.npcs[i].route) { atStop(R, f, 0); f.t0 = S.t; f.face = role === 'child' ? 1 : -1; } camOn(R, f); });
+      loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i; }
+    for (const [role, load] of [['porter', 1], ['child', 0]]) { const nm = 'town_' + role, H0 = SZ(nm)[1], RG = RIGS[nm], dd = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]), v = D.FOLK[role].v;
+      const st = 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * H0 / RG.h; let i = 0;
+      folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => folkS((S, R) => { const f = folkAt(R, role), d = k * st / 12; i = f.i; const n = R.map.town.npcs[f.i];
+        Object.assign(f, { x: n.x + d, dist: d, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - VW / 2, n.y - 40 - VH / 2]; }));
+      folkCycT['folk_' + role + '_right'] = st / v; folkSubj['folk_' + role + '_right'] = 'npc' + i; folkSpr['folk_' + role + '_right'] = Object.keys(ASSETS).filter((a) => a.startsWith(nm + '__')); }
+    { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'porter'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.face = 1; camOn(R, f); });
+      transitions.folk_porter_take = Array.from({ length: 110 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_porter_take = 'npc' + i; }
+    { let i = 0; const base = folkS((S, R, m, h) => { const f = folkAt(R, 'smith'); i = f.i; const c = D.folkClock('smith', i, S.t); S.t += ((0.72 - c.u + 1) % 1) * c.per; h.x = f.x + 46; h.y = f.y + 16; f.near = 1; f.sayT = S.t + 0.1; f.sayN = 0; f.face = 1; camOn(R, f); });
+      transitions.folk_talk = Array.from({ length: 60 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_talk = 'npc' + i; }
+    states.push(['town_talk', folkS((S, R, m, h) => { const f = folkAt(R, 'smith'); h.x = f.x - 46; h.y = f.y + 18; f.near = 1; f.sayT = S.t - 1; f.sayN = 1; f.face = -1; camOn(R, f); })]);
+    states.push(['town_talk_line2', folkS((S, R, m, h) => { const f = folkAt(R, 'porter'); Object.assign(f, { x: 22 * TILE, y: 12 * TILE + 16, load: 1, go: 1, way: 2, face: -1 }); h.x = f.x - 60; h.y = f.y - 4; f.near = 1; f.sayT = S.t - 3.4; f.sayN = 2; camOn(R, f); })]);
+    states.push(['town_folk_talk_all', folkS((S, R, m, h) => { for (const f of R.folk) if (D.FOLK[f.role].lines) { f.near = 1; f.sayT = S.t - 1; f.sayN = 0; f.face = 1; } const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - VW / 2, (r.y + r.h / 2) * TILE - VH / 2]; })]);
+    states.push(['merchant_call', folkS((S, R, m, h) => { R.shop.callT = S.t - 0.7; R.shop.callN = 3; h.x = m.shop.x + 300; h.y = m.shop.y + 200; R.cam = [m.shop.x + 150 - VW / 2, m.shop.y + 100 - VH / 2]; })]);
+    // a run through the town on its floors (TASKS 1007, 1027): at the stairs up on the 2nd and on the 1st (to the town), a scroll
+    // two thirds read, the town with a portal open and the hero at it, the floor above reached up the stairs
+    const climbS = (f, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; for (let k = 1; k <= f; k++) SIM.enterFloor(S, S.run, k);
+      const R = S.run, h = R.hero; R.msg = null; S.ev = []; for (const e of R.en) if (Math.hypot(e.x - R.map.spawn.x, e.y - R.map.spawn.y) < 400) e.x += 3000; fn(S, R, R.map, h); R.cam = [h.x - VW / 2, h.y - 30 - VH / 2]; });
+    states.push(['climb_up_prompt', climbS(2, (S, R, m, h) => { h.x = m.up.x; h.y = m.up.y + 30; })]);
+    states.push(['climb_town_prompt', climbS(1, (S, R, m, h) => { h.x = m.up.x + 20; h.y = m.up.y + 34; })]);
+    states.push(['scroll_read', climbS(1, (S, R, m, h) => { h.read = { t0: S.t - 1.1, i: 0 }; })]);
+    states.push(['climb_arrived', climbS(2, (S, R, m, h) => { SIM.enterFloor(S, R, 1, undefined, 'up'); S.ev = []; R.msg = null; })]);
+    states.push(['town_portal_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
     const box = (name, S) => Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, W, H];
       if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
+      if (folkSubj[name] && R.folk) { const f = R.folk[+folkSubj[name].slice(3)]; return [f.x - R.cam[0] - 70, f.y - R.cam[1] - 120, 140, 136]; }
       const e = (enCycles[name] || loops[name]) && R.en[0];
       if (e && e.type === 'crab') { const hh = SZ('en_crab')[1]; return [e.x - R.cam[0] - 2 * hh, e.y - R.cam[1] - 2 * hh, 4 * hh, 4 * hh]; }
       if (e) { const hh = SZ(EN_TEX[e.type])[1] * 1.15, ww = hh * 1.5; return [e.x - R.cam[0] - ww / 2, e.y - R.cam[1] - hh, ww, hh + 16]; }
@@ -3916,11 +4151,13 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (let i = 0; i < Math.ceil(span / SIM.DT); i++) SIM.step(S, { keys: [] });
       R.cam = [b.x - VW / 2, b.y - VH / 2]; R.msg = null;
     })]);
-    const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles),
+    const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles, folkCyc),
       sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, ['hero__cape', 'hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR', 'hero__body_nh', 'hero__body_back_nh', 'hero__head_kn', 'hero__head_back_kn', 'hero__farmL_pl', 'hero__farmR_pl', 'it_shield_t']])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
       subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_').slice(0, -1).join('_'); return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1)) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
       rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'eel', 'serpent', 'boss'], loops, attacks, swings, impacts, transitions, box };
+    Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);
+    out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter'].map((r) => 'folk_' + r));
     calm(out); return out;
   };
 })();

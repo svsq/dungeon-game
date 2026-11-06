@@ -1,0 +1,53 @@
+{
+  "name": "ref_town_01f",
+  "provider": "codex",
+  "status": "ok",
+  "started": "2026-11-05T21:56:34",
+  "model": "codex image_gen",
+  "size_requested": "1536x1024",
+  "size_sent": "1536x1024",
+  "quality": "high",
+  "seed": null,
+  "prompt_source": "/Users/svsq/projects/game-demo-start-location/art/prompts/ref_town_01f.txt",
+  "refs": [
+    {
+      "path": "/Users/svsq/projects/game-demo-start-location/ref.png",
+      "label": "style reference only: match its art style, rendering, palette and light; do not copy its composition"
+    },
+    {
+      "path": "/Users/svsq/projects/game-demo-start-location/art/gen/hero.png",
+      "label": "the game's hero: match him exactly, same scale as in Image 1"
+    },
+    {
+      "path": "/Users/svsq/projects/game-demo-start-location/art/gen/merchant.png",
+      "label": "the game's merchant: match him exactly, same scale as the hero, a little shorter and wider"
+    },
+    {
+      "path": "/Users/svsq/projects/game-demo-start-location/art/gen/altar.png",
+      "label": "the game's Altar of Souls prop: draw it exactly like this, at the game's scale"
+    },
+    {
+      "path": "/Users/svsq/projects/game-demo-start-location/study/refs/town/chosen/base_01c.png",
+      "label": "the chosen town: keep its plan, actors, crisp pixel detail and exact scale"
+    },
+    {
+      "path": "/Users/svsq/projects/game-demo-start-location/study/refs/town/chosen/raw/ref_town_01a.png",
+      "label": "palette reference and the mine adit (left wall, with the ore cart) to borrow; do not copy its layout"
+    }
+  ],
+  "prompt": "REFERENCE IMAGES (attached in this order):\nImage 1 = style reference only: match its art style, rendering, palette and light; do not copy its composition\nImage 2 = the game's hero: match him exactly, same scale as in Image 1\nImage 3 = the game's merchant: match him exactly, same scale as the hero, a little shorter and wider\nImage 4 = the game's Altar of Souls prop: draw it exactly like this, at the game's scale\nImage 5 = the chosen town: keep its plan, actors, crisp pixel detail and exact scale\nImage 6 = palette reference and the mine adit (left wall, with the ore cart) to borrow; do not copy its layout\n\nSTYLE: this is a CONCEPT FRAME of the safe starting town (the hub above the dungeon) of the same game as Image 1, not a game asset. Match Image 1 exactly in rendering: dark-fantasy dungeon pixel art, every pixel a hard square of one flat colour on one even grid, the same pixel size, no smoothing, no gradients inside a pixel, the same top-down 3/4 dungeon-crawler camera (floors seen from above and filling almost the whole frame, walls, buildings and props show only their front faces and a thin top edge), the same scale (the hero is about 70 pixels tall in a 1024-pixel-tall image), the same chunky stone blocks with dark mortar, a 1-pixel dark outline around characters and props.\nLight: lit exactly like Image 1 \u2014 warm pools of light around the campfire, forge, lamps and braziers, flames with white-hot cores, glowing emissive sources (the enchanter's runes, the altar's pale-blue glow), strong falloff into deep shadow; everything beyond the town's edge is pure black void; high contrast, low-key.\nPalette: low-key and muted like Image 1 \u2014 charcoal and slate stone, rust and leather browns, deep reds, bone, dark weathered wood; saturated colour only in light sources.\nSCALE IS CRITICAL \u2014 zoom out to exactly the scale of Image 1: the hero is about 70 pixels tall (60 to 80), about one fifteenth of the image height; one floor tile is about 28 pixels; a doorway is two tiles wide. The frame shows a WIDE area of the town, about 48 tiles across and 32 tiles down, so each service is small, with plenty of open floor between them, and there is room for more houses, yards and side streets around them. Images 2, 3 and 4 are shown enlarged only for their detail; draw them at the small game scale of Image 1, never at the size they are shown. The pixel grain is as fine as in Image 1 (an art pixel is 2 to 3 image pixels), not chunkier.\nHeight: every building, wall, fence and prop is at most two floor tiles tall (about 56 to 64 pixels in a 1024-pixel-tall image) and never hides the floor behind it; no towers, no tall facades, no tall statues, no pitched roofs seen from the side, no multi-storey houses. Buildings read as low stone or timber walls around open-roofed rooms, stalls under flat cloth awnings, or niches, exactly like the room walls of Image 1.\nActors: the hero from Image 2 (brown hair, red cape, steel breastplate, sword) stands on the open central floor near the fire, idle, at the scale of Image 1. The merchant from Image 3 (grey beard, red cap, leather apron, mustard shirt) stands behind his counter, the same scale, a little shorter and much wider than the hero. 3 to 5 townsfolk, each busy with a task (chopping wood, hammering at the anvil, sweeping, carrying a crate, haggling, sleeping by the fire), at the same scale, in muted greys, browns and dull greens.\nRequired in the frame: a campfire or hearth; the merchant's stall with a wooden counter and goods; a forge with an anvil and glowing coals; the enchanter's stand (a lectern with open books, shelves of flasks, softly glowing blue runes); a large iron-bound storage chest; the Altar of Souls drawn exactly like Image 4 (grey stone altar, skull, melted candles, red banner) with a faint pale-blue glow; a stone staircase going down into the crypt (a dark opening in the floor with a faint warm glow from below); a place for the portal (a ring of low standing stones or a low stone arch with an unlit rune circle on the floor); a notice board on a post. All of them stand on the walkable floor, connected by open paths at least two hero widths wide; a broad open safe area in the middle.\nSafe zone: no monsters, no combat, no weapons swinging, no blood, no corpses, no traps, no spikes.\nNo text, no letters, no numbers, no UI, no HUD, no panels, no minimap, no health bars, no logos, no watermark, no signs with writing.\n\nASSET:\nImage 5 is the chosen town: keep it exactly \u2014 its plan, walls, paths, services and their places, the big tree by the campfire, the portal stone ring, the herb beds, the trees at the edges, every townsperson and their task (porter with a sack, old woman sweeping leaves, worker pushing a cart, mason chiselling, gardener, child feeding chickens), the black void around. SCALE LOCK: keep EXACTLY the scale and framing of Image 5: the hero must stay the same height as in Image 5 (about 80 pixels); do NOT zoom in, do NOT crop, keep the whole courtyard and its outer ring of ruins in the frame.\nSHARPNESS: keep the crisp hard-edged pixel art of Image 5 \u2014 every art pixel a hard square, the same fine detail and texture, the same 1-pixel dark outlines. Do not soften, blur, smudge or repaint surfaces; change only what is listed below.\nTwo changes:\n1) A VISIBLE MINE at the right end of the rail line, where Image 5 has the quarry: the low timber-propped mine adit from Image 6 cut into the ruined wall and rock (at most two tiles tall), a lantern hanging on its frame, black darkness inside, a small iron cart full of grey ore at its mouth, a few ore heaps and a pick-axe rack beside it; a few quarry blocks may stay next to it, smaller. The rails come out of the adit and run ONLY along the bottom of the courtyard, along the lower wall, exactly where Image 5 has them, to the yard at the lower left where carts are unloaded (ore bin and stacked stone blocks); they never cross the central square, the campfire area or the paths to the services. One worker pushes a cart of ore along the bottom rails.\n2) Recolour slightly toward Image 6's palette, restrained: dark umber and grey-brown earth (not orange, not yellow), olive and muted green grass and moss (no yellow-green), slate stone with a faint violet-brown tint, warm firelight pools with deep shadow between them; overall no warmer and no more yellow than Image 6. The enchanter's runes and the altar keep their blue glow.\n\nCanvas: 1536x1024 px (3:2 landscape); if that exact size is unavailable, use the closest size with the same aspect ratio.",
+  "raw": "art/raw/ref_town_01f.png",
+  "out": "/Users/svsq/projects/game-demo-start-location/study/refs/town/ref_town_01f.png",
+  "request_id": "01a1ad48-d97f-7ed3-880d-05ec8309dc02",
+  "native_alpha_returned": false,
+  "size_raw": "1536x1024",
+  "size_final": "1536x1024",
+  "alpha": {
+    "requested": "none",
+    "plan": "none",
+    "method": "none",
+    "fit": "none"
+  },
+  "warnings": [],
+  "seconds": 262.6
+}

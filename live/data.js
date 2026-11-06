@@ -38,6 +38,11 @@
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
       from: { cultist: 2, skel_ember: 2, imp: 2, brute: 3, fire_priest: 3, salamander: 2, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
+    // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
+    // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
+    // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
+    town: { name: 'Город', rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.15, 0.14, 0.15], ambK: 0.65, ambLvl: 2.4, fireK: 0.85, torch: [1.0, 0.78, 0.26], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
+      tint: [1, 1, 1], roster: [], props: [], town: true },
   };
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
@@ -448,6 +453,8 @@
     lava: { w: 2, plan: [[['salamander'], [1, 2], 'lava'], [['skeleton', 'skel_archer', 'goblin'], [1, 2], 'any']] },
     rock: { w: 2, plan: [[['golem'], [1, 1], 'near'], [['fire_priest', 'cultist'], [1, 1], 'back'], [['imp'], [0, 2], 'bank']] },
   };
+  // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
+  const placeName = (f, mode, seed) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed));
   const floorName = (f, mode, seed) => { const M = runOf(mode), st = stageOf(mode, f, seed); return (M.names || {})[f] || st.N.title || BIOMES[st.biome].name; };
   const eliteName = (e) => [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
@@ -597,14 +604,41 @@
     lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
       'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
     hitLines: ['Эй! Я тут торгую, а не дерусь.', 'Осторожнее! Товар хрупкий.', 'Мечом скидку не выбьешь.'],
+    // in the town he calls the hero over from across the yard (TASKS 1015)
+    calls: ['Зелья! Свитки! Подходи!', 'Товар из самой крипты!', 'Эй, герой! Глянь, что есть!', 'Дёшево отдам, пока не передумал!'],
   };
+  // the townsfolk (R-17, TASKS 1015): a pair of lines when the hero comes up (the next pair the next time), the clock of the work
+  // loop (per s; hit: the loop's impact phase, rest: every rest-th loop is a breather) and, for those with a round, the walking
+  // speed and the pause at each stop. The sim's events (the anvil's ring, the keeper's sparks) and the render share one clock
+  const FOLK = {
+    smith: { name: 'Кузнец', per: 1.45, hit: 0.6, rest: 4, lines: [['Горн не любит ждать.', 'Принесёшь руды — скую и тебе.'],
+      ['Слышишь, как поёт железо?', 'Внизу оно только ржавеет.'], ['Не стой у наковальни.', 'Искры кусаются, проверено.']] },
+    enchanter: { name: 'Зачарователь', per: 7.5, hit: 0.55, lines: [['Тише. Руны не любят шума.', 'Эта колба — не для питья.'],
+      ['В крипте спят старые чары.', 'Найдёшь камень с узором — неси.'], ['Пламя синее — значит, верно.', 'Жёлтое — значит, беги.']] },
+    keeper: { name: 'Хранитель огня', per: 9, hit: 0.3, lines: [['Костёр горит, пока ты жив.', 'Вернёшься — согреет снова.'],
+      ['Я помню всех, кто спускался.', 'Возвращались не все.'], ['Посиди у огня, путник.', 'Тьма подождёт.']] },
+    guard: { name: 'Страж', per: 8, lines: [['Внизу крипта. Сам решай.', 'Назад дорога длиннее.'], ['Мертвецы там не спят.', 'Держи клинок наготове.'],
+      ['Стою тут двадцать лет.', 'Наверх лезут реже, чем ты думаешь.']] },
+    porter: { name: 'Носильщик', per: 1.7, v: 34, lines: [['Посторонись, ноша тяжёлая!', 'Торговцу всё мало товару.'],
+      ['Ящик туда, ящик сюда.', 'Так и живём.'], ['Говорят, внизу золото.', 'А я вот ящики таскаю.']] },
+    sweeper: { name: 'Метельщица', per: 1.25, pause: 7, v: 20, lines: [['Опять пепел нанесли!', 'Ноги вытирай, милок.'],
+      ['Подмету — и снова сажа.', 'Как у вас там внизу, чисто?'], ['Береги себя, сынок.', 'Метлой от мертвецов не отмашешься.']] },
+    child: { name: 'Мальчишка', per: 2.3, pause: 6, v: 42, lines: [['А ты правда был в крипте?', 'Я тоже пойду, когда вырасту!'],
+      ['Куры меня слушаются!', 'Почти всегда.'], ['А мечом дашь подержать?', 'Ну хоть чуть-чуть!']] },
+    hen: { per: 2.2 },
+  };
+  // how long a pair of lines shows (each line half of it)
+  const FOLK_SAY = 5;
+  // a townsperson's loop clock: its own rate and phase per instance, so no two move in sync
+  const folkClock = (role, i, t) => { const per = FOLK[role].per * (1 + 0.12 * (((i * 0.618) % 1) - 0.5)), x = (t + i * 1.37) / per, n = Math.floor(x); return { n, u: x - n, per }; };
   const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };
   const price = (it, f, rk) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((50 + 30 * it.lvl) * rk[it.rar] / 5) * 5);
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
   // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
-  const TEST_RUNS = [['cave', 'Затопленные пещеры', 'Пещеры заново (сброс)'], ['magma', 'Магмовые пещеры', 'Магма заново (сброс)'], ['endless', 'Бесконечный спуск', 'Спуск заново (сброс)']];
+  // the town (R-17, TASKS 1002): the campaign through the town, a test run until the town is done and the campaign starts there
+  const TEST_RUNS = [['town', 'Город → кампания', 'Город заново (сброс)'], ['cave', 'Затопленные пещеры', 'Пещеры заново (сброс)'], ['magma', 'Магмовые пещеры', 'Магма заново (сброс)'], ['endless', 'Бесконечный спуск', 'Спуск заново (сброс)']];
   // the buttons that start a run from the main menu, in the order pressed: a test run is behind «Тесты» (bots and checks press these)
   const startPath = (mode) => (mode === 'campaign' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]);
   const UI = {
@@ -621,7 +655,8 @@
       { id: 'dbg_loot', label: S && S.dbgLoot ? 'Убрать подсветку лута' : 'Подсветить лут', on: true, x: 970, y: 16, w: 430, h: 60 }],
     pause: (zoom) => [['resume', 'Продолжить'], ['zoom', 'Масштаб: ' + zoomName(zoom)], ['save', 'Сохранить и выйти в меню'], ['abandon', 'Сдаться (конец забега)']]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 430 + i * 92, w: 480, h: 72 })),
-    end: (hasLog) => [['menu', 'В главное меню', true], ['again', 'Новый забег', true], ['log', 'Сохранить журнал', !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
+    // a run through the town (R-17, TASKS 1006) goes back there: a new hero by the campfire
+    end: (hasLog, town) => [['menu', 'В главное меню', true], ['again', town ? 'Вернуться в город' : 'Новый забег', true], ['log', 'Сохранить журнал', !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
     meta: () => META.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / 5) * 800, y: 270 + (i % 5) * 112, w: 760, h: 96 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 870, w: 300, h: 70 }]),
     // a dungeon altar: its three gifts side by side, cheapest first
     altar: () => { const P = { x: 360, y: 150, w: 1200, h: 780 };
@@ -706,7 +741,8 @@
     const ankle = side ? 172.5 : 74.5, foot = side ? 175.18155197657393 : 70.64176829268293, narrow = (123.5 - ankle) * 0.15;
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
-  root.DATA = { colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
+  const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
+  root.DATA = { FOLK, FOLK_SAY, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
