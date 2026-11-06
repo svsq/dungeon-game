@@ -126,6 +126,7 @@
           const b0 = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
           if (b) {
             const cx = b.x + b.w / 2;
+            L.rrect(cx - hw, b.y - 2, hw * 2, 24, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.62);   // a plate: on lava the name's own colour was 1.1:1
             lab('el' + (e.id % 40), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c) });
             capsule(cx, b.y + 39, 80, e.hp / e.max, true);
             nameZones.push({ x: cx - hw - 20, y: b.y - 20, w: hw * 2 + 40, h: 70 });
@@ -148,8 +149,9 @@
         const E = D.ENEMIES[ev.type], side = ev.x < h.x ? -1 : 1, hx = ev.x + side * (E ? 14 : 0), hy = ev.y - (E ? E.h * 0.5 + 18 : 0);   // over the head and its HP bar, leaning away from the hero: the chest stays clear
         float('dn' + i, String(Math.round(ev.n)), V.sx(hx) + (L.rnd(ev.t, 1) - 0.5) * 12, V.sy(hy) - 40 * q - 10, ev.arm ? { size: Math.round(s * 0.85), col: '#aab6c2', out: '#141a20', a: 1 - L.SS(0.6, 0.8, a) }
           : { size: s, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
-      if (ev.k === 'hurt' && a < 0.8) {
-        const s = '-' + Math.round(ev.n), offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;
+      // a burn's ticks show as one number running up (TASKS 463): only its latest tick is drawn, with the burn's sum so far
+      if (ev.k === 'hurt' && a < 0.8 && !(ev.chain !== undefined && S.ev.some((o, j) => j > i && o.k === 'hurt' && o.chain === ev.chain))) {
+        const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;
         float('hu' + i, s, V.sx(ev.x) + (ev.side || h.hurtX || -1) * offset, V.sy(ev.y) - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 18;   // up off the head, then into the counter
@@ -313,7 +315,7 @@
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   // a small map's panel (the town, the endless descent's first floors) is still wide enough for the legend beside the compass
-  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%']]).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 110;
+  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%']]).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
   // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
   function mmBox(R) { const m = R.map, mw = m.W * MAP.k, mh = m.H * MAP.k, tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed).toUpperCase(), { size: 17 }),
       pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (LEGEND.length + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }

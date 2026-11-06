@@ -37,7 +37,7 @@
     magma: { name: 'Магмовые пещеры', rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, low: [1.05, 0.8, 0.74], floorK: 1.45, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
-      from: { cultist: 2, skel_ember: 2, brute: 3, fire_priest: 3, salamander: 2, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
+      from: { cultist: 2, skel_ember: 2, imp: 2, brute: 3, fire_priest: 3, salamander: 2, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
     // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
@@ -47,7 +47,7 @@
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
-    boss_serpent: { hp: 1650, dmg: 55, scale: 1, phases: [
+    boss_serpent: { hp: 2000, dmg: 55, scale: 1, phases: [
       { at: 1, moves: ['wave', 'fan', 'bite', 'tail'], rest: 1.35, speed: 0 },
       { at: 0.55, moves: ['fan', 'bite', 'wave', 'tail'], rest: 1.1, speed: 0 }
     ], swim: 1.1, warn: 1, rise: 0.65, dive: 0.6, moves: {
@@ -203,9 +203,9 @@
     // the magma golem (TASKS 409), big and slow in a stone crust: each of its first `crust.n` blows only takes a plate off (×`crust.k`,
     // sparks and a clang); a plate grows back every `crust.regrow` s once no blow has landed for `crust.calm` s and the hero is over
     // `crust.far` px off. It slams both fists on the floor `slam.at` px before it (`slam.r` round); dead, it falls apart into a pool of
-    // lava (`pool`) that burns whoever stands in it
+    // lava (`pool`) that burns whoever stands in it, once it has spread for `arm` s (TASKS 463: it burnt the one who killed it at once)
     golem: { name: 'Магмовый голем', hp: 140, dmg: 20, spd: 36, r: 24, reach: 48, wind: 1.0, cd: 2.4, xp: 34, kind: 'golem', h: 124, heavy: 1, rim: [1, 0.45, 0.15],
-      crust: { n: 4, k: 0.25, regrow: 1.4, calm: 3, far: 150 }, slam: { r: 82, at: 46 }, pool: { r: 52, ry: 0.6, t: 3.5, dmg: 0.3, per: 0.5 } },
+      crust: { n: 4, k: 0.25, regrow: 1.4, calm: 3, far: 150 }, slam: { r: 82, at: 46 }, pool: { r: 52, ry: 0.6, t: 3.5, dmg: 0.3, per: 0.5, arm: 0.5 } },
     brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
     boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
@@ -307,7 +307,7 @@
   // caves' mean on the same floor, 30 seeds). lava (TASKS 401): a lake per lakeCells map cells, its blob's radii [x, y], laid lakeOff
   // cells off the floor and lakeApart apart, kept from lakeMin cells; rivers river cells wide, a ridge cell costing them ridgeCost
   // (they cross one only where they must), the rock past `near` cells off the floor dearer, `dark` cells off it a river's last way out;
-  // falls down the top wall, fallApart apart, and vents; a lake joined down a river to its nearest with the chance join, if within
+  // falls down the top wall, fallApart apart, the wall over one fallDeep rows deeper, and vents; a lake joined down a river to its nearest with the chance join, if within
   // joinMax; isle: the noise over which basalt stands in a lake; bridge: the chance a crossing of three cells and more is tried as a
   // chain bridge; crust: the noise over which a bank's lava is crust; share: the band of lava in floor and lava (selfCheck)
   // mix (TASKS 432): the plateaus are of kinds, not one size grown to one cap: `arena` one or two broad fields (n, their box
@@ -348,7 +348,7 @@
       // ledges (TASKS 433): small pads past the rows' short ends and over the river, dead ends off the serpentine
       // (TASKS 432) a row may be a narrow ridge (`ridgeRow`: its chance, height, plateaus in it) or a broad field (`broadRow`, one
       // a floor at most: two left too few rows for the walk to the stairs); never one plateau a row, which cut the walk short
-      terrace: { pop: 0.49, fallAt: [0.18, 0.26], wall: 6, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 4], ridgeRow: { p: 0.3, h: [4, 5], per: [2, 3] }, broadRow: { p: 0.15, h: [11, 12], per: [2, 3] }, short: [0.12, 0.3], branch: [1, 2], ledges: [2, 3], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
+      terrace: { pop: 0.49, fallAt: [0.18, 0.26], wall: 7, w: [4, 5], rowH: [8, 11], step: [3, 5], per: [2, 4], ridgeRow: { p: 0.3, h: [4, 5], per: [2, 3] }, broadRow: { p: 0.15, h: [11, 12], per: [2, 3] }, short: [0.12, 0.3], branch: [1, 2], ledges: [2, 3], margin: 2, rag: 1.8, edge: [1, 4], path: [148, 168, 211, 0], share: [0.25, 0.68] },
       // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
       // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`;
       // pop: its halls are more than a floor's plateaus, each with its pack: as many monsters a floor as the plateaus'
@@ -363,7 +363,7 @@
         islet: 1, share: [0.4, 0.66],
         mix: { arena: { n: [1, 1], box: [[16, 20], [10, 13]], grow: [22, 15], pop: 1.4 }, ridge: { n: [2, 3], box: [[14, 20], [4, 5]], grow: [22, 6], tall: 0.3, edge: [0, 1.5], rag: 0.7, pop: 0.8 },
           ledge: { n: [3, 5], box: [[6, 7], [5, 6]], grow: [8, 7], edge: [0, 1.2], rag: 0.6, pop: 0.5 } } },
-      lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
+      lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, fallDeep: 3, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4] } },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
   // every `per` seconds (drawn from the range, each its own phase), a hot ring on the floor, bubbles and a rising glow `warn` s
@@ -371,18 +371,19 @@
   // before. Both hurt whoever stands within `r` px (the ring's half-width; its height is ry of it, the floor seen at 3/4) for `burst`
   // s: the hero `hp` of his health past armour (a dash leaps it, as spikes), a vent setting him alight for `burn` s, a monster `mon`
   // grown with depth, and knock him away. n: how many a floor of the magma caves, 1st to 4th (more each floor to the 3rd, the boss's
-  // fewer); apart: cells between two of a kind; clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
+  // fewer); apart: cells between two of a kind; aim: falling rocks laid first on the narrows of the walk to the stairs (TASKS 461);
+  // clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
   // stairs (selfCheck)
   const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8 },
-    fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6 }, clear: 3 };
+    fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2 }, clear: 3 };
   // where a hazard stands in its cycle at time t: 0 at the burst, the warning from per − warn to per
   const hazClock = (z, t) => ((t / z.per + z.ph) % 1 + 1) % 1 * z.per;
   const hazIn = (z, x, y) => { const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r; };
   const RUNS = {
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
-      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.3, 1, 1], elite: [0.10, 0.13, 0.07, 0.06], mob: 0.85, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
-    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3,
+      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.2], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
+    cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
     // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); laid out as plateaus
@@ -428,7 +429,7 @@
   const stageOf = (mode, f, seed = 0) => { if (runOf(mode).endless) return endlessStage(f, seed); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
     n = c ? N.floors : M.chapter || M.floors;
     return { N, lf, n, depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
-      elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || 1 }; };
+      elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1 }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
   // the caves' packs by role (TASKS 312), a hall's weight for each when it can hold it: line, a crab or two just inside the way the
   // hero comes in with the archers (and from the 3rd floor a mage) at the far end behind them; shore, drowned in the hall's shallows;
@@ -442,7 +443,7 @@
   const MAGMA_PACKS = {
     line: { w: 3, plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
     rush: { w: 1, plan: [[['goblin'], [2, 3], 'near'], [['skeleton'], [1, 1], 'any']] },
-    ember: { w: 3, plan: [[['skel_ember'], [3, 4], 'any'], [['skel_archer'], [0, 1], 'back']] },
+    ember: { w: 3, plan: [[['skel_ember'], [2, 3], 'any'], [['skel_archer'], [0, 1], 'back']] },
     cult: { w: 2, plan: [[['cultist'], [2, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [1, 2], 'near']] },
     pyre: { w: 3, plan: [[['fire_priest'], [1, 1], 'back'], [['skeleton', 'goblin', 'brute'], [2, 3], 'near']] },
     brute: { w: 2, plan: [[['brute'], [1, 1], 'near'], [['goblin'], [2, 3], 'any']] },

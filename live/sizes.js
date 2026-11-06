@@ -18,7 +18,7 @@
     anvil_tw: 40, forge_tw: 64, lectern_tw: 54, flasks_tw: 68, board_tw: 62, orebin_tw: 44, bench_tw: 28, logs_tw: 40, herbs_tw: 32, cart_tw: 40, picks_tw: 50,
     blocks_tw: 36, campfire_tw: 42, ore_tw: 22, tree_tw: 70, awning_tw: 84, stall_tw: 64, well_tw: 62, adit_tw: 70, stone_tw_a: 54, stone_tw_b: 40,
     dc_grass_tw: 20, dc_flowers_tw: 20, dc_leaves_tw: 16, disc_tw: 96, runes_tw: 72,
-    basalt_a: 60, basalt_b: 44, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 22,
+    basalt_a: 60, basalt_b: 44, slab_mg_a: 26, slab_mg_b: 26, slab_mg_c: 22, bridge_post_mg: 54, arch_mg: 120, boulder_mg_a: 44, boulder_mg_b: 32, obsidian_mg: 84, skel_mg: 44, banner_mg: 96, vent_mg: 22,
   };
   const S = (window.SIZES = window.SIZES || {}), A = window.ASSETS || {};
   for (const n in HEIGHT) if (A[n]) S[n] = [Math.round(HEIGHT[n] * A[n].w / A[n].h), HEIGHT[n]];
