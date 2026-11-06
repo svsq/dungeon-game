@@ -650,7 +650,8 @@
   // (TASKS 476) thin: the crust of a way out to a hoard's islet (m.thin) cracks after `thin` s standing, so it is crossed at a walk and
   // never stood on; fall: a hero the crust melts under falls into the lava, losing that share of his health past armour and set
   // alight for `burn` s, and climbs out where he last stood on firm ground
-  const CRUST = { stand: 1, crack: 0.5, hot: 3.5, set: 0.8, thin: 0.35, fall: 0.3, burn: 3 }, CRS = new WeakMap(), THIN = new WeakMap();
+  // (sink: how long a fallen hero is under before he climbs out, TASKS 484: at once he was moved back up to ~290 px in a frame)
+  const CRUST = { stand: 1, crack: 0.5, hot: 3.5, set: 0.8, thin: 0.35, fall: 0.3, burn: 3, sink: 0.6 }, CRS = new WeakMap(), THIN = new WeakMap();
   const thinSet = (m) => { let s = THIN.get(m); if (!s) THIN.set(m, s = new Set(m.thin || [])); return s; };
   const crustSet = (m) => { if (!m.crust || !m.crust.length) return null; let s = CRS.get(m); if (!s) CRS.set(m, s = new Set(m.crust)); return s; };
   const crustAt = (m, k) => { const s = crustSet(m); return !!s && s.has(k) && !(m.melt && m.melt[k] && m.melt[k].hot); };
@@ -895,9 +896,12 @@
       for (const n of [k, k + 1, k - 1, k + m.W, k - m.W]) if (cs.has(n) && (!M[n] || M[n].crackT === undefined)) M[n] = { on: CRUST.stand, crackT: t };
       ev(S, { k: 'crack', x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE }); }
     for (const key in M) { const q = M[key], k = +key, x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
-      if (q.crackT === undefined) { if (!on.has(k) && (q.on -= 2 * DT) <= 0) delete M[key]; continue; }
+      // (a thin crust keeps the time stood on it, TASKS 484: there and back at a walk it holds, a pause on it on either way does not)
+      if (q.crackT === undefined) { if (!on.has(k) && !thinSet(m).has(k) && (q.on -= 2 * DT) <= 0) delete M[key]; continue; }
       if (!q.hot && q.meltT === undefined && t >= q.crackT + CRUST.crack) { q.hot = 1; q.meltT = t; ev(S, { k: 'melt', x, y });
-        const h = R.hero; if (h.hp > 0 && Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE) === k) lavaFall(S, R, h); }
+        // (only a hoard's thin crust drops him in, TASKS 484: a bank's, looking a firm stone path, did in a fight 4 seeds out of 4 and
+        // the colossus's 3 times in 12 s; there it is lava again, burning as lava does, to be stepped off)
+        const h = R.hero; if (h.hp > 0 && thinSet(m).has(k) && Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE) === k) lavaFall(S, R, h); }
       else if (q.hot && t >= q.meltT + CRUST.hot) { q.hot = 0; q.setT = t; ev(S, { k: 'set', x, y }); }
       else if (!q.hot && q.setT !== undefined && t >= q.setT + CRUST.set) delete M[key]; }
   }
@@ -905,8 +909,8 @@
   function lavaFall(S, R, h) { const fx = h.x, fy = h.y, back = h.safe || landOf(R.map, h.x, h.y);
     hurtHero(S, R, heroSt(S).maxHp * CRUST.fall, fx, fy - 10, 'spike', 'lava'); if (h.hp <= 0) return;
     if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + CRUST.burn);
-    h.x = back[0]; h.y = back[1]; h.vx = h.vy = 0; h.ifr = Math.max(h.ifr || 0, S.t + 1); R.trauma = Math.min(1, R.trauma + 0.35);
-    ev(S, { k: 'lavafall', x: fx, y: fy, tx: h.x, ty: h.y }); }
+    h.sunk = { t: S.t, x: fx, y: fy, bx: back[0], by: back[1] }; h.vx = h.vy = 0; h.dashT = -9; h.ifr = Math.max(h.ifr || 0, S.t + CRUST.sink + 1); R.trauma = Math.min(1, R.trauma + 0.35);
+    ev(S, { k: 'lavafall', x: fx, y: fy, tx: back[0], ty: back[1] }); }
   // the floor nearest a spot off it (a monster gone into the lava or the chasm drops its loot on the bank)
   function landOf(m, x, y) { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); if (cell(m, tx, ty) === 1) return [x, y];
     for (let r = 1; r <= 8; r++) { let best = null; for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (Math.max(Math.abs(i), Math.abs(j)) === r && cell(m, tx + i, ty + j) === 1) { const d = i * i + j * j; if (!best || d < best[2]) best = [tx + i, ty + j, d]; }
@@ -1223,7 +1227,7 @@
     if (h.back !== wasBack) h.backT = t;
     if (h.face !== wasFace) h.faceT = t;
     // dash
-    if (keys.Space && h.cd.dash <= t) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
+    if (keys.Space && h.cd.dash <= t && !h.sunk) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
       h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY });
       // the dash beats the flames out (TASKS 463: burning took the most hits and nothing put it out away from water)
       if (h.burn > t) { h.burn = 0; ev(S, { k: 'snuff', x: h.x, y: h.y, hero: 1 }); } }
@@ -1231,7 +1235,9 @@
     const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t - h.dashT < K.DASH_T;
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
-    const mvx = dashing ? h.dashX * K.DASH : h.vx, mvy = dashing ? h.dashY * K.DASH : h.vy;
+    // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
+    if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
+    const mvx = h.sunk ? 0 : dashing ? h.dashX * K.DASH : h.vx, mvy = h.sunk ? 0 : dashing ? h.dashY * K.DASH : h.vy;
     const ox = h.x, oy = h.y; const [bx, by] = move(m, h, mvx * DT, mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     // a drowned's grab draws the hero a step toward it at an even pace
     if (h.pull) { const P = h.pull, sp = Math.min(P.n / P.T * DT, P.n - P.done); move(m, h, P.x * sp, P.y * sp, K.R); P.done += sp; if (P.done >= P.n - 0.01) h.pull = null; }
@@ -4307,14 +4313,24 @@
           // (the lowest he comes to: a hero at full health with regeneration is back to it before the crust sets)
           if (hpMin >= hp0) out.push('magma lava: the crust melting under the hero does not burn him');
           if (!crustAt(m, ck)) out.push('magma lava: the crust does not bear the hero again once it sets');
-          // (TASKS 476) the crust melting under him drops the hero into the lava: hurt by CRUST.fall of his health, alight, back on firm ground
-          { const o = [1, -1, W, -W].find((d) => m.cells[ck + d] === 1), sx0 = x0 + (o === 1 ? 1 : o === -1 ? -1 : 0) * TILE, sy0 = y0 + (o === W ? 1 : o === -W ? -1 : 0) * TILE;
-            m.melt = {}; h.hp = stats(h, Z.meta).maxHp; h.burn = 0; h.safe = [sx0, sy0]; Z.ev = []; let fell = null, hp1 = h.hp;
-            for (let i = 0; i < 120 * 2 && !fell; i++) { if (!fell) { h.x = x0; h.y = y0; h.vx = h.vy = 0; } hp1 = h.hp; step(Z, { keys: [] }); h.ifr = 0; fell = Z.ev.find((e) => e.k === 'lavafall'); }
-            if (!fell) out.push('magma lava: the hero does not fall through the crust melting under him');
-            else { const lost = hp1 - h.hp; if (lost < stats(h, Z.meta).maxHp * CRUST.fall * 0.7) out.push(`magma lava: a fall into the lava takes only ${Math.round(lost)} health`);
-              if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1 || Math.hypot(h.x - sx0, h.y - sy0) > 2) out.push('magma lava: after a fall the hero is not back on the firm ground he last stood on');
-              if (!(h.burn > Z.t)) out.push('magma lava: a fall into the lava does not set the hero alight'); } } }
+          // (TASKS 484) a bank's crust melting under him leaves him in the lava to step out of, it does not drop him in
+          if (Z.ev.some((e) => e.k === 'lavafall')) out.push('magma lava: a bank\'s crust drops the hero into the lava');
+          // (TASKS 476) a hoard's thin crust melting under him drops him in: hurt by CRUST.fall of his health, alight, under CRUST.sink s,
+          // then back on the firm ground he last stood on
+          let Y = null; for (let sd = 1; sd < 40 && !Y; sd++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', sd); Q.screen = 'play';
+            for (let f = 1; f <= 3 && !Y; f++) { enterFloor(Q, Q.run, f); const mq = Q.run.map, k = (mq.thin || []).find((n) => [1, -1, mq.W, -mq.W].some((o) => mq.cells[n + o] === 1)); if (k !== undefined) Y = [Q, k]; } }
+          if (!Y) out.push('magma lava: no thin crust by a bank in 39 runs'); else { const [Q, k] = Y, R3 = Q.run, m3 = R3.map, h3 = R3.hero, W3 = m3.W, o = [1, -1, W3, -W3].find((d) => m3.cells[k + d] === 1);
+            const x0 = (k % W3 + 0.5) * TILE, y0 = (Math.floor(k / W3) + 0.5) * TILE, sx0 = x0 + (o === 1 ? 1 : o === -1 ? -1 : 0) * TILE, sy0 = y0 + (o === W3 ? 1 : o === -W3 ? -1 : 0) * TILE;
+            R3.en = []; m3.melt = {}; h3.hp = stats(h3, Q.meta).maxHp; h3.burn = 0; h3.safe = [sx0, sy0]; Q.ev = []; let fell = null, hp1 = h3.hp;
+            for (let i = 0; i < 120 * 2 && !fell; i++) { h3.x = x0; h3.y = y0; h3.vx = h3.vy = 0; hp1 = h3.hp; step(Q, { keys: [] }); h3.ifr = 0; fell = Q.ev.find((e) => e.k === 'lavafall'); }
+            if (!fell) out.push('magma lava: the hero does not fall through a thin crust melting under him');
+            else { const lost = hp1 - h3.hp; if (lost < stats(h3, Q.meta).maxHp * CRUST.fall * 0.7) out.push(`magma lava: a fall into the lava takes only ${Math.round(lost)} health`);
+              if (Math.hypot(h3.x - x0, h3.y - y0) > 2) out.push('magma lava: a fallen hero is moved at once, not under the lava a while');
+              for (let i = 0; i < 120 * (CRUST.sink - 0.05); i++) step(Q, { keys: [], right: true });
+              if (Math.hypot(h3.x - x0, h3.y - y0) > 2) out.push('magma lava: a fallen hero walks off under the lava');
+              for (let i = 0; i < 120 * 0.1; i++) step(Q, { keys: [] });
+              if (cell(m3, Math.floor(h3.x / TILE), Math.floor(h3.y / TILE)) !== 1 || Math.hypot(h3.x - sx0, h3.y - sy0) > 2) out.push('magma lava: after a fall the hero is not back on the firm ground he last stood on');
+              if (!(h3.burn > Q.t)) out.push('magma lava: a fall into the lava does not set the hero alight'); } } }
         const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), 1); if (F.some((v, j) => v >= 0 && m.cells[j] === 3)) out.push('magma lava: the monsters\' way runs over lava or crust'); }
       // the magma colossus (TASKS 413): it lies hidden in its lake, rises and wades ashore once the hero is in; the ring round the
       // lake is one way round for its body, before the 2nd phase's edge falls into lava and after; its pools keep their limits; the

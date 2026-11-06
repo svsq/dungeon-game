@@ -1260,6 +1260,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // read as a pink-white blot, TASKS 197), a little less by a fire; HSAT keeps his steel from taking the fire's orange.
   // k: how lit the hero already is (0 dark .. 1 by a fire), which takes his key light back off
   const HERO = { lift: 0.85, k: 0 }, HSAT = 0.8;
+  // through a hoard's thin crust (TASKS 484): he goes down into the lava to the chest where he stood, then comes up over the bank's lip
+  // on the firm ground he climbs out onto, both cut at the surface
+  const sinkOf = (h, GT, Y) => { const e2 = (v) => Math.round(v / 2) * 2; if (h.sunk) return { dy: e2(34 * SS(0, 0.3, GT - h.sunk.t)), cut: [Y + 4, 3, 1] };
+    if (h.climbT !== undefined && GT - h.climbT < 0.4) return { dy: e2(26 * (1 - SS(0, 0.4, GT - h.climbT))), cut: [Y + 2, 2, 1] }; return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && h.castK !== 'whirl';
@@ -1291,6 +1295,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const fc = Math.cos(fallR), fs = Math.sin(fallR);
     const root = [hx, hy], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
     const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, ft = hurt || !HERO.fireTint ? [1, 1, 1, 0] : [...HERO.fireTint(h.x, h.y), 1], U = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [HSAT * dk, HERO.lift * dk, 0, 1] }, Ufar = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * HSAT * dk, 0.72 * HERO.lift * dk, 0, 1] };
+    if (o.cut) U.cut = Ufar.cut = o.cut;
     const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: [0, 1, 2].map((i) => (u.tint ? 1 + (u.tint[i] - 1) * u.tint[3] : 1) * (1 + (t[i] - 1) * t[3])).concat(1) }) : u);   // a piece's rarity over the fire's tint
     const part = (n, pivotRig, at, rot, u = U, k = 1, up = 0) => { const g = GR.part(n); return L.sprite(g.tex, 0, 0, { u: tinted(u, g.tint), m: M.of(M.t(at[0], at[1]), M.r(fallR + up), M.s(fX, 1), M.r(rot), M.s(1, k)), w: RG.w * s, h: RG.h * s, pivot: [pivotRig[0] * s, pivotRig[1] * s] }); };
     const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]);
@@ -2388,7 +2393,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // into it or the warm ground (TASKS 404); elsewhere as before
       const lv = m.cliff && h.deadT < 0 ? HERO.lavaAt(h.x, h.y) : null, hn = lv ? Math.hypot(lv.dx, lv.dy * 1.25) || 1 : 1;
       const heroRim = lv && lv.k > 0.15 ? { dx: Math.round(2 * lv.dx / hn), dy: Math.round(2 * lv.dy * 1.25 / hn), col: [1, 0.6, 0.22].map((v) => v * 0.75 * SS(0.15, 0.8, lv.k)) } : null;
-      if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y), GT, st), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
+      if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + sinkOf(h, GT, sy(h.y)).dy, GT, st, { cut: sinkOf(h, GT, sy(h.y)).cut }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
       const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);
       if (caveW && h.deadT < 0 && !dryCrossings.has(heroCell) && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(heroCell)) {
@@ -2495,7 +2500,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           const sub = E.lake ? submerged(e, E, GT) : 0, U = sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {};
           MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
         // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
-        if (!SC.hide.hero && h.deadT < 0 && h.fallT === undefined && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y), GT, st, { id: 'occ' }); }
+        if (!SC.hide.hero && h.deadT < 0 && h.fallT === undefined && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y) + sinkOf(h, GT, sy(h.y)).dy, GT, st, { id: 'occ', cut: sinkOf(h, GT, sy(h.y)).cut }); }
       finally { L.sp = null; L.joint = J0; } }
     G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_occ: LT.occ, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_heat: m.cliff ? lavaGlowTex(m) : waterTex(m), u_haze: m.cliff ? 1 : 0, u_face: m.cliff && BAKE.face ? BAKE.face : seen, u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_low: B.low || [0.86, 0.82, 0.78], u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
@@ -3797,11 +3802,15 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           const n0 = m.decor.length - 3; S.ev = [0, 1, 2].map((j) => ({ k: 'prop', t: S.t - 0.15, x: m.decor[n0 + j].n === 'fence_mg' ? x : m.decor[n0 + j].x, y: m.decor[n0 + j].y, i: 'd' + (n0 + j), n: m.decor[n0 + j].n, mat: D.PROP_MAT[m.decor[n0 + j].n], scale: 1, s: j ? 1 : -1 }));
           states.push(['magma_react', S]); } }
       // a hoard's islet (TASKS 476): the hero at the foot of its thin crust; and the moment he falls through it
-      for (const ph of ['islet', 'crustfall']) { const S = play(); let r = null;
+      // (TASKS 484: under the lava to the chest where he went in, and coming up over the bank's lip where he climbs out)
+      for (const ph of ['islet', 'crustfall', 'crustclimb']) { const S = play(); let r = null;
         for (let sd = 3; sd < 40 && !r; sd++) { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let f = 2; f <= 3 && !r; f++) { SIM.enterFloor(S, S.run, f); r = S.run.map.rooms.find((q) => q.islet); } }
         if (!r) continue; const R = S.run, m = R.map, W = m.W, th = m.thin || [], k = th.reduce((b, q) => (Math.hypot(q % W - r.cx, Math.floor(q / W) - r.cy) > Math.hypot(b % W - r.cx, Math.floor(b / W) - r.cy) ? q : b), th[0]);
         const x = (k % W + 0.5) * TILE, y = (Math.floor(k / W) + 0.5) * TILE, mx = (r.cx + 0.5) * TILE, my = (r.cy + 0.5) * TILE; view(S, (x + mx) / 2, (y + my) / 2, x, y);
-        if (ph === 'crustfall') { S.ev.push({ k: 'lavafall', t: S.t - 0.15, x, y, tx: x, ty: y }); } states.push(['magma_' + ph, S]); }
+        const o = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].find((d) => m.cells[k + d] === 1) ?? 1, bx = ((k + o) % W + 0.5) * TILE, by = (Math.floor((k + o) / W) + 0.5) * TILE + 6, h = R.hero;
+        if (ph === 'crustfall') { m.melt = { [k]: { on: 1, crackT: S.t - 0.7, hot: 1, meltT: S.t - 0.2 } }; h.x = x; h.y = y; h.sunk = { t: S.t - 0.2, x, y, bx, by }; S.ev.push({ k: 'lavafall', t: S.t - 0.2, x, y, tx: bx, ty: by }); }
+        if (ph === 'crustclimb') { h.x = bx; h.y = by; h.climbT = S.t - 0.15; S.ev.push({ k: 'lavafall', t: S.t - 0.75, x, y, tx: bx, ty: by }); }
+        states.push(['magma_' + ph, S]); }
       // the brink (TASKS 476): a skeleton a step off the lava, its edge lit, the hero two steps off it on the other side
       { const S = play(); const k0 = at(S, 2, (m) => { const W = m.W; if (m.ftype === 'cave') return null; for (let k = W * 4; k < W * (m.H - 4); k++) if (m.cells[k] === 1 && m.cells[k + 1] === 3 && m.cells[k + 2] === 3 && [-1, -2, -3, -4, -W, W, -W - 1, W - 1, -W - 2, W - 2].every((o) => m.cells[k + o] === 1)) return k; return null; });
         if (k0 !== null) { const R = S.run, W = R.map.W, x = (k0 % W + 0.75) * TILE, y = (Math.floor(k0 / W) + 0.5) * TILE; view(S, x, y, x - 90, y + 6);
