@@ -2672,6 +2672,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       G.draw(L.P.spill, u(0), xf); G.blend('add'); G.draw(L.P.spill, u(2), xf); G.blend(); }
     // a vent's warning (TASKS 406), from its clock: the ring it will throw lava over heats up and beats faster, its mouth bubbles
     for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn);
+      // (TASKS 462: and always lies in a ring of scorched ground as wide as its burst, which no dead crack has)
+      { const X = sx(z.x), Y0 = sy(z.y); L.shadow(X, Y0, H.r, H.r * H.ry, 0.5); L.ring(X, Y0, H.r * 0.96, H.r * H.ry * 0.96, [0.75, 0.22, 0.06], 0.5, 0.06);
+        for (let j = 0; j < 10; j++) { const an = j / 10 * 6.283 + rnd(z.x, j) * 0.5, f = 0.5 + 0.5 * Math.sin(GT * (1.5 + rnd(z.y, j)) + j * 2.1);
+          L.star(X + Math.cos(an) * H.r * 0.96, Y0 + Math.sin(an) * H.r * H.ry * 0.96, 3, [1, 0.45, 0.12], 0.35 + 0.4 * f); } }
       if (w < 0) { const X = sx(z.x), Y0 = sy(z.y), br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z.x);   // a live vent smoulders at rest, a dead crack doesn't
         L.ring(X, Y0, H.r * 0.4, H.r * H.ry * 0.4, [1, 0.35, 0.08], 0.28 * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], 0.3 * br, 2.4);
         for (let j = 0; j < 2; j++) { const b = (GT * 0.5 + rnd(z.x + z.y, j)) % 1; L.puff(X + (rnd(z.x, j + 3) - 0.5) * 14, Y0 - 4 - 26 * b, 3 + 3 * b, [0.5, 0.4, 0.34], 0.3 * (1 - b), j); } continue; }
@@ -3675,8 +3679,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           states.push(['magma_knock', S]); } }
       // the hazards (TASKS 406): a vent and a falling rock in the middle of their warning and just after their burst, the hero by them
       for (const k of ['vent', 'fall']) { const name = k === 'vent' ? 'magma_vent' : 'magma_rock';
-        for (const ph of ['warn', 'burst']) { const S = play(), z = at(S, 1, (m) => (m.hazards || []).find((q) => q.k === k)); if (!z) continue; const R = S.run, H = D.HAZ[k], i = R.map.hazards.indexOf(z);
-          view(S, z.x, z.y, z.x + H.r + 46, z.y + 10); const c = ph === 'warn' ? z.per - H.warn * 0.35 : 0.12, t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per; S.t = R.t = t; S.ev = [];
+        for (const ph of k === 'vent' ? ['rest', 'warn', 'burst'] : ['warn', 'burst']) { const S = play(), z = at(S, 1, (m) => (m.hazards || []).find((q) => q.k === k)); if (!z) continue; const R = S.run, H = D.HAZ[k], i = R.map.hazards.indexOf(z);
+          view(S, z.x, z.y, z.x + H.r + 46, z.y + 10); const c = ph === 'rest' ? z.per * 0.45 : ph === 'warn' ? z.per - H.warn * 0.35 : 0.12, t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per; S.t = R.t = t; S.ev = [];
           if (ph === 'burst') S.ev.push({ k: k === 'vent' ? 'erupt' : 'rockfall', t: t - c, x: z.x, y: z.y, i }); states.push([name + '_' + ph, S]); } }
       // a terrace's surge (TASKS 475): at rest, creeping up late in its warning, at its flood and ebbing back, the view on its ridge
       // down the steps, the hero waiting on the plateau above it
