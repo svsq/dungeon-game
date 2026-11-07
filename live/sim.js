@@ -6,7 +6,7 @@
   if (typeof module !== 'undefined') for (const f of require('./modules.js').parts.sim) require('./' + f);
   const SIMX = root.SIMX, {
     ARROW_Y, CRUST, D, DEMO_SEED, DOOM, DT, ENEMIES, FOLK_OUCH, HINT, K, L, LOOT, REWARD, RIG, TILE, UI, VIEW, atBoard, atCounter, atCraft,
-    atGate, atSoulAltar, atStash, boardOffers, brinkOf, canDonate, cell, chasm, completion, completionHints, craftCost, craftItem, crustAt,
+    atExitGate, atGate, atSoulAltar, atStash, boardOffers, brinkOf, canDonate, cell, chasm, completion, completionHints, craftCost, craftItem, crustAt,
     campaignDone, damageName, debugSecrets, dep, doorLock, exitKind, doorNear, enterFloor, ev, flightReach, flow, folkNear, fstat, gateNear, gateWays, gift,
     giveQuest, hand, hidden, hitProps, hitSecret, isCons, itemIcon, itemMods, itemName, journalOf, keeperPages, killEnemy, leverNear,
     lootAudit, losClear, newQuest, newRun, offerOf, offersOf, openChest, openDoor, openSecret, pullLever, questFloor, questIcon, questLine,
@@ -84,7 +84,7 @@
   // has already filled; at replays the attract demo into its own cache). The render takes nothing else from SIM but constants
   root.SIM.Q = {
     at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
-    atCraft, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
+    atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, stashOf, tradeDepth, typeMods };
   Object.assign(SIMX, {

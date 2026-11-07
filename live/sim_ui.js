@@ -135,6 +135,13 @@
     if (click && b && b.id.startsWith('go:') && o[b.i]) gateGo(S, R, o[b.i]);
     return;
   };
+  // the town's gate out (TASKS 1149): give up the run, or past the campaign's last boss end it won; only by its button or Enter
+  SCREEN.leave = (S, inp, keys, x, y, click) => {
+    const R = S.run, U = UI.leave(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'stay')) { S.screen = 'play'; return; }
+    if ((click && b && b.id === 'go') || keys.Enter) { if (campaignDone(R)) finishRun(S); else { if (R.log) R.log.abandon = 1; endRun(S, 'dead'); } }
+    return;
+  };
   SCREEN.altar = (S, inp, keys, x, y, click) => {
     const R = S.run, sh = R.shrines[R.altar], U = UI.altar(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!sh || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }

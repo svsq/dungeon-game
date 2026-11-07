@@ -63,6 +63,7 @@
     if (S.screen === 'shop' && R) shop(S, R, t);
     if (S.screen === 'altar' && R) altar(S, R, t);
     if (S.screen === 'gate' && R) gate(S, R, t);
+    if (S.screen === 'leave' && R) leave(S, R);
     if (S.screen === 'stash' && R) stash(S, R, t);
     if (S.screen === 'craft' && R) craft(S, R, t);
     if (S.screen === 'talk' && R && S.talk) talk(S, R, t);
@@ -208,6 +209,7 @@
     if (SIM.Q.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, TXT('hud.world.24')];
     if (m.town && SIM.Q.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, TXT('hud.world.25')];
     if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
+    if (SIM.Q.atExitGate(R)) pr = [m.town.svc.exitGate.x, m.town.svc.exitGate.y - 110, TXT('hud.world.gate')];
     if (SIM.Q.atGate(R)) { const o = SIM.Q.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? TXT('hud.world.27') : TXT('hud.world.28')) : o[0].k === 'portal' ? TXT('hud.world.29', { f: o[0].f }) : TXT('hud.world.30', { f: o[0].f })]; }
     if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name]; } }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
@@ -792,6 +794,16 @@
     if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? (SIM.Q.isCons(it) ? TXT('hud.stash.7') : TXT('hud.stash.8')) : TXT('hud.stash.9'), C.gold]);
   }
   // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------
+  // the town's gate out (TASKS 1149): give up, or end the run won past the campaign's last boss
+  function leave(S, R) {
+    const U = D.UI.leave(), P = U.P, done = SIM.Q.campaignDone(R);
+    dim(0.6); panel('leave', P.x, P.y, P.w, P.h, { r: 10, rim: done ? [0.62, 0.5, 0.22] : C.rim });
+    lab('lv_t', TXT('hud.leave'), P.x + 40, P.y + 56, { size: 40, col: C.gold });
+    wrapLab('lv_s', done ? TXT('hud.leave.done') : TXT('hud.leave.give'), P.x + 40, P.y + 110, P.w - 80, 28, C.text);
+    button('lv_go', Object.assign({}, U.r[0], { label: done ? TXT('hud.leave.goDone') : TXT('hud.leave.goGive') }), S.hover);
+    button('lv_stay', U.r[1], S.hover);
+    lab('lv_help', TXT('hud.leave.keys'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
   function gate(S, R, t) {
     const o = SIM.Q.gateWays(R), U = D.UI.gate(o.length), P = U.P;
     dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 380, [0.45, 0.55, 1], 0.16 + 0.04 * Math.sin(t * 2)); G.blend();
