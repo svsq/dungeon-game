@@ -1615,7 +1615,7 @@
         // a salamander with no lava by the hall gives its place to another
         if (ENEMIES[type].kind === 'salamander') { p = (where || anywhere)(); if (!p) type = oldOne(); }
         if (!p) p = (where || anywhere)() || anywhere(); if (!p) break; if (ENEMIES[type].lurk) used.add(key(p[0], p[1]));
-        addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && first && !(guard && depth <= 2)) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
+        addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && first && !(guard && depth <= 2)) || (depth >= 3 && R() < ST.elite && !(type === 'crab' && enemies.some((q) => q.room === r.id && q.type === 'crab' && q.elite))) ? 1 : 0);
         if (r.type === 'exit' && first) enemies[enemies.length - 1].exit = 1; first = false; }
       // an eel in the hall's deep water, out of the count
       if (has('eel') && R() < CP.eel[kf - 1]) { const q = deepIn(r); if (q) addEnemy('eel', q[0], q[1], r.id); } };
@@ -1828,7 +1828,7 @@
           // an eel in its deep water; a room with none takes another
           if (ENEMIES[type].deep) { const q = deepIn(r); if (q) { p[0] = q[0]; p[1] = q[1]; } else type = roster.find((o) => !ENEMIES[o].lurk && !ENEMIES[o].deep); }
           // on floors 1–2 the guard is the exit's only elite: two at once killed before a potion could help
-          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (r.courtElite && i === 0) || (depth >= 3 && R() < ST.elite) ? 1 : 0);
+          addEnemy(type, p[0], p[1], r.id, (r.type === 'exit' && i === 0 && !(guard && depth <= 2)) || (r.courtElite && i === 0) || (depth >= 3 && R() < ST.elite && !(type === 'crab' && enemies.some((q) => q.room === r.id && q.type === 'crab' && q.elite))) ? 1 : 0);
           if (r.type === 'exit' && i === 0) enemies[enemies.length - 1].exit = 1; }
         // a small exit room (the endless descent's first floors) may have no free cell two in from its walls: there (only there for now:
         // the campaign's 7th loses its guard the same way on ~4 seeds in 25, its balance measured so) one in, then any free cell, then any floor

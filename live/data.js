@@ -47,7 +47,7 @@
 
   // enemies: hp, dmg, spd (native px/s), r (body radius), reach (attack range from body edge), wind (telegraph s), cd, xp, kind
   const BOSSES = {
-    boss_serpent: { hp: 2000, dmg: 55, scale: 1, phases: [
+    boss_serpent: { hp: 2200, dmg: 60, scale: 1, phases: [
       { at: 1, moves: ['wave', 'fan', 'bite', 'tail'], rest: 1.35, speed: 0 },
       { at: 0.55, moves: ['fan', 'bite', 'wave', 'tail'], rest: 1.1, speed: 0 }
     ], swim: 1.1, warn: 1, rise: 0.65, dive: 0.6, moves: {
@@ -57,7 +57,7 @@
       tail: { wind: 1.05, dmg: 1, r: 155, duration: 0.55 }
     } },
     // the queen at 410, not 390: a fireball build burned her in 14 s (TASKS 245)
-    boss_spider: { floor: 2, hp: 410, dmg: 18, rig: 'spider', scale: 2.2, phases: [
+    boss_spider: { floor: 2, hp: 410, dmg: 21, rig: 'spider', scale: 2.2, phases: [
       { at: 1, moves: ['weave', 'eggs', 'slam'], rest: 0.85, speed: 1 }
     ], moves: {
       weave: { wind: 0.65, dmg: 0, n: 5, cap: 16, r: 150, size: 1.2, spacing: 45, vulnerable: 1.6, duration: 1.6 },
@@ -74,7 +74,7 @@
       barrier: { wind: 0.65, dmg: 0, hp: 0.18, time: 5, duration: 0.4 }
     } },
     // the forge lord at 21, not 20: the 6th has to cost more than the 5th (TASKS 222, 227)
-    boss_forge: { floor: 6, hp: 600, dmg: 21, rig: 'brute', scale: 1.7, phases: [
+    boss_forge: { floor: 6, hp: 600, dmg: 20, rig: 'brute', scale: 1.7, phases: [
       { at: 1, moves: ['lava', 'slam', 'charge'], rest: 0.85, speed: 1.1 },
       { at: 0.5, moves: ['lava', 'charge', 'slam'], rest: 0.6, speed: 1.3 }
     ], moves: {
@@ -110,7 +110,7 @@
     // (most reach the boss's cap), so each mistake costs up to half the health and two in a row kill: 28 killed 8.5 %, 31 killed 15 %
     // at 2.1 potions (the player let the finale cost up to 2.5, TASKS 227); 28 again once the fireball no longer burned it down and
     // the bot read its gear: 31 killed 18.5 % (TASKS 245, 246)
-    boss: { hp: 900, dmg: 28, phases: [
+    boss: { hp: 1000, dmg: 35, phases: [
       { at: 1, moves: ['slam', 'volley', 'charge'], rest: 1.2, speed: 1, finishMove: 1 },
       { at: 0.5, moves: ['volley', 'charge'], enter: 'roar', rest: 0.45, speed: 1.3, finishMove: 1,
         changes: { charge: { wind: 0.55, dmg: 1.1, next: 'slam', rest: 0.025 }, slam: { wind: 0.25, dmg: 1.15, r: 110 }, volley: { wind: 0.55, dmg: 1.3, n: 14, rings: 2, gap: 0.22, offset: 0.4 } } }
@@ -159,7 +159,7 @@
     // `armor.arc` of its front does `armor.k` of its damage. It pinches only what stands in front of it; a hero out to its side at
     // `rush.near`..`rush.reach` px is run down sideways, the shell still facing where it faced
     crab: { name: 'Панцирный краб', hp: 58, dmg: 11, spd: 46, r: 17, reach: 32, wind: 0.6, cd: 1.6, xp: 15, kind: 'crab', h: 46, blood: 'shell', rim: [0.95, 0.6, 0.45],
-      turn: 1.5, armor: { arc: 1.05, k: 0.2 }, rush: { near: 24, reach: 150, wind: 0.5, t: 0.42, spd: 380, dmg: 0.8, cd: 4.5 } },
+      turn: 1.5, armor: { arc: 1.05, k: 0.2, elite: 0.5 }, rush: { near: 24, reach: 150, wind: 0.5, t: 0.42, spd: 380, dmg: 0.8, cd: 4.5 } },
     // the eel from the deep (TASKS 310) lives in a hall's deep water (cell 6) and never leaves it. Under it ('deep') it can't be hurt;
     // with the hero within `sense` px of its water it shows where it will come up (bubbles and a shadow, 'stir', `warn` s), surfaces
     // there by the shore close to him ('rise'), bites (reach) or spits a jet (`spit`) at most `bites` times within `stay` s, and dives
@@ -241,13 +241,15 @@
   // plain elites from ever swinging). Fewer of them than before: each is a fight of its own. share: chance of a monster from floor 3
   // bolt: an elite caster's bolt,
   // else it took 34–36 % of the health (TASKS 201)
-  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } }, deepFrom: 12,
+  // crab: the armoured crab's own (TASKS 512): with the full ×8 and ×2.2 behind its shell an elite one cost the player 9 potions on
+  // the 10th and outlasted the serpent; its shell lets elite: 0.5 of a blow through, not 0.2, and it never drinks blood
+  const ELITE = { hp: 8, dmg: 2.2, spd: 1.3, wind: 0.75, minWind: 0.38, cd: 0.6, bolt: 0.8, share: 0.04, brute: { hp: 2.4, dmg: 1.25, spd: 1.1, wind: 0.85, cd: 1 }, crab: { hp: 4, dmg: 1.6, spd: 1.15, wind: 0.85, cd: 0.8 }, guards: [7], guard: { 7: { hp: 2.2, dmg: 1 } }, deepFrom: 12,
     // exit: the exit room's elite by floor (the 1st's is TASKS 180: the first floors were too easy); on the 1st, at hero level 2, the full elite took 13 % of all runs after 3-5 potions (TASKS 241)
     exit: { 1: { hp: 0.85, dmg: 0.85 } } };
   // the boss is an elite too but keeps its own pace. minWind: an elite's wind-up never ends sooner than this nor sooner than its
   // plain kin's, so every elite blow can be seen and dodged: the elite ghost's 0.34 s took half the deaths of the 3rd floor, the
   // elite skeleton's 0.39 s a fifth (TASKS 246)
-  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' || e.type === 'golem' ? ELITE.brute[k]
+  const eliteK = (e, k) => !e.elite ? 1 : BOSSES[e.type] ? ({ spd: 1.1, wind: 0.85 }[k] || 1) : e.type === 'brute' || e.type === 'golem' ? ELITE.brute[k] : e.type === 'crab' ? ELITE.crab[k]
     : k === 'wind' ? Math.max(ELITE.wind, Math.min(1, ELITE.minWind / ENEMIES[e.type].wind)) : ELITE[k];
   // a deep-water monster under the surface (TASKS 310): out of sight and out of reach
   const under = (e) => (!!ENEMIES[e.type].deep && (e.st === 'deep' || e.st === 'stir' || e.st === 'dive' || (e.type === 'boss_serpent' && e.st === 'idle'))) || (!!ENEMIES[e.type].lake && (e.st === 'idle' || e.st === 'emerge'));
@@ -255,7 +257,7 @@
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
     { id: 'fiery', name: 'Огненный', col: [1.0, 0.42, 0.08], burn: 3 },
-    { id: 'vampire', name: 'Кровожадный', col: [0.92, 0.08, 0.2], heal: 0.12 },
+    { id: 'vampire', name: 'Кровожадный', col: [0.92, 0.08, 0.2], heal: 0.12, not: ['crab'] },
     { id: 'summoner', name: 'Призывающий', col: [0.72, 0.4, 1.0], every: 8, n: 2, cap: 3 },
     { id: 'explosive', name: 'Взрывной', col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
     // deep: only in the endless descent past ELITE.deepFrom (TASKS 387, R-22): something new to meet below the campaign's depth.
@@ -272,7 +274,7 @@
     { id: 'tug', name: 'Притягивающий', col: [1.0, 0.5, 0.8], every: 7, min: 130, max: 320, warn: 0.6, n: 120, T: 0.35, deep: 1, melee: 1 },
   ];
   const eliteMods = (f) => (f >= 6 ? [2, 2] : f >= 4 ? [1, 2] : [1, 1]);
-  const modPool = (mode, f, kind) => ELITE_MODS.filter((m) => (!m.deep || (RUNS[mode] && RUNS[mode].endless && f > ELITE.deepFrom)) && !(m.melee && (kind === 'caster' || kind === 'archer'))).map((m) => m.id);
+  const modPool = (mode, f, kind) => ELITE_MODS.filter((m) => (!m.deep || (RUNS[mode] && RUNS[mode].endless && f > ELITE.deepFrom)) && !(m.melee && (kind === 'caster' || kind === 'archer')) && !(m.not && m.not.includes(kind))).map((m) => m.id);
   // a run (R.mode): its floors, each floor's biome and boss, its exit guards and the title of its last floor. depth: how many
   // campaign floors lie above its 1st, so a floor of the run is as strong as campaign floor f + depth in everything that grows
   // as floors climb (monsters, loot, gold, prices, traps); lvl and kit: the hero it starts with.
@@ -439,9 +441,10 @@
   const surgeLevel = (z, t) => { const H = HAZ.surge, c = hazClock(z, t); if (c < H.burst) return 1; if (c < H.burst + H.ebb) return 1 - (c - H.burst) / H.ebb;
     const w = c - (z.per - H.warn); return w >= 0 ? H.creep * w / H.warn : 0; };
   const RUNS = {
-    campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, size: [[56, 42], [56, 42], [64, 48], [64, 48], [72, 54], [72, 54], [80, 60], [84, 64]], rooms: [[9, 11], [9, 11], [12, 14], [12, 14], [14, 17], [14, 17], [18, 22], [18, 22]], biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
+    // pop: monsters a room by floor over the plain count (TASKS 505: the 2nd and 4th, the bosses' floors of 56×42 and 64×48, came easier than the floors before them); elite: the share of elites by floor (the 4th's nine rooms held half the 3rd's elites)
+    campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, pop: [1, 1.35, 1, 1.3, 1, 1, 1, 1], elite: [0.04, 0.04, 0.04, 0.08, 0.04, 0.04, 0.04, 0.04], size: [[56, 42], [56, 42], [64, 48], [64, 48], [72, 54], [72, 54], [80, 60], [84, 64]], rooms: [[9, 11], [9, 11], [12, 14], [12, 14], [14, 17], [14, 17], [18, 22], [18, 22]], biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
-      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.2], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
+      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
     cave: { name: 'Затопленные пещеры', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
@@ -589,6 +592,9 @@
   };
   // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
+  // the floor generator's version (R-18): a floor kept by a run through the town is a diff against its rebuild, so a save made by
+  // another generator cannot patch the floor it builds now; the version goes with each kept floor
+  const GEN_VERSION = 2;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {
     hp_potion: { name: 'Зелье здоровья', icon: 'it_hp', heal: 0.4, stack: 9 },
@@ -771,7 +777,7 @@
     // a run through the town starts with a scroll of return (TASKS 1024): without it the first way home was a chest's 25 %, and the
     // average bot past the 8th fell from 70 to 25 % of runs, the merchant's gear and potions out of reach
     townStart: { scroll: 1 },
-    townCons: (f) => [['hp_potion', 3 + Math.floor(f / 3)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 2 + Math.floor(f / 4)]],
+    townCons: (f) => [['hp_potion', 3 + Math.floor(f / 2)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 2 + Math.floor(f / 4)]],
     // the wandering merchant (TASKS 1010): in a run through the town a floor's merchant is a chance, from the 2nd floor on; his gear
     // is stocked `depth` floors deeper, a little better made, the showpiece a rarity up
     wander: { chance: 0.1, from: 2, depth: 2, q: 0.5, best: 1,
@@ -972,7 +978,7 @@
   // ran into the forge's corner, and the porter skipped his pick-up and walked to the merchant empty-handed (TASKS 1031)
   const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1;
     return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
-  root.DATA = { ROOM_SHAPES, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, NAMED, storyChain, plural, reqLvl, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, BRINK, surgeLevel, MAGMA_HALLS,
+  root.DATA = { ROOM_SHAPES, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, GEN_VERSION, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, NAMED, storyChain, plural, reqLvl, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, BRINK, surgeLevel, MAGMA_HALLS,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);

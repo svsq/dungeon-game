@@ -403,9 +403,39 @@
   function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1) return;
     const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
     M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
-  function restoreFloor(R, f, M) { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k];
+  // a floor kept by another generator (an old save): its diff fits a map no longer built, so the floor is built anew and only what
+  // can't come back carries over: as many of its monsters stay dead as died there, the nearest the way in first, and a slain
+  // boss stays slain with its hall's portal home; the goals of its quests in hand are placed anew; its loot on the floor and what
+  // was explored are lost
+  function migrateFloor(R, f, M) { const B = freshFloor(R, f, M), P = (M.d && M.d.p) || {}; BASE.set(M, snapFloor(B));
+    const slain = !!(P.bossDead && P.bossDead.v) || (R.slain || []).includes(f), up = B.map.up || B.map.spawn;
+    const far = (a, b) => Math.hypot(a.x - up.x, a.y - up.y) - Math.hypot(b.x - up.x, b.y - up.y), spare = new Set();
+    // a hunt or a lair in hand keeps a quarry alive, the farthest that fits, however few were left there
+    const qr = new Set(questRooms({ map: B.map }).map((r) => r.id));
+    for (const q of R.quests || []) { const T = q.st === 'taken' && q.f === f && D.QUESTS[q.key].type; if (T !== 'named' && T !== 'room') continue;
+      const e = B.en.filter((o) => !spare.has(o) && qr.has(o.room) && (T === 'named' ? plainFoe(o) : o.deadT < 0 && counted(o) && !D.BOSSES[o.type])).sort(far).pop(); if (e) spare.add(e); }
+    const mobs = B.en.filter((e) => !D.BOSSES[e.type] && !spare.has(e)).sort(far);
+    for (const e of mobs.slice(0, oldDead(R, f, M, P.en))) { e.hp = 0; e.deadT = 0; }
+    for (const k of FLOOR_KEYS) R[k] = B[k];
+    const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
+    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (!lastFloor(R) && R.viaTown) R.arena.gate = bossGate(R, boss); }
+    for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
+    M.gv = D.GEN_VERSION; M.d = null; M.drops = []; M.seen = null; M.rseen = null; }
+  // how many of an old floor's own monsters died there, from its diff: a floor built with ids from M.id on gives its i-th monster
+  // the id M.id + i, so an id skipped among the survivors is a body already cleared away (6 s after death); the summoned (summ) are
+  // not its own. Bodies cleared after the last survivor leave no gap: the floor's own kill count and the run's log count them
+  function oldDead(R, f, M, d) { if (!d || 'v' in d) return 0; const at = (i, k, z) => { const q = d.p[i]; if (!q) return z; if ('v' in q) return q.v ? q.v[k] : z; return q.p[k] ? q.p[k].v : z; };
+    let n = d.n; if (n === undefined) n = Math.max(0, ...Object.keys(d.p).map((i) => +i + 1));
+    let own = 0, deadNow = 0, last = -1;
+    for (let i = 0; i < n; i++) { if (at(i, 'summ', 0)) continue; own++; if (at(i, 'deadT', -1) >= 0) deadNow++; last = Math.max(last, at(i, 'id', M.id + i) - M.id); }
+    const gone = d.n === undefined ? 0 : Math.max(0, last + 1 - own);
+    const st = R.stats && R.stats[f], counted = st ? st.kills - ((R.slain || []).includes(f) ? 1 : 0) : 0;
+    const logged = ((R.log && R.log.fl) || []).filter((v) => v.f === f).reduce((s, v) => s + Object.entries(v.kills || {}).filter(([k]) => !D.BOSSES[k.split(' ')[0]]).reduce((a, [, c]) => a + c, 0), 0);
+    return Math.max(deadNow + gone, counted, logged); }
+  function restoreFloor(R, f, M) { const old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
+    else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
-    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); }
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); return old; }
   function standNear(R, x, y) { const m = R.map, sol = solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
@@ -415,15 +445,15 @@
     R.floor = f; if (f > 0) R.deepest = Math.max(R.deepest || 0, f); R.propHit = {};   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
-    if (M) { restoreFloor(R, f, M); R.town = 0; R.folk = null; }
-    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); questPlace(S, R); } }
+    if (M) { const mig = restoreFloor(R, f, M); R.town = 0; R.folk = null; if (mig) questPlace(S, R); }
+    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); questPlace(S, R); } }
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not
     // write the state (TASKS 1025)
     if (f === 0) { offersOf(R); R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
       const bn = R.bossN || 0, old = R.townShop; R.townShop = null;
-      if (old && (old.boss || 0) === bn) R.shop = old;
+      if (old && (old.boss || 0) === bn) { R.shop = old; if ((old.at || 0) < (R.deepest || 0)) { restock(R, R.shop, tradeDepth(R)); R.shop.at = R.deepest; } }
       else { R.shop = stockShop(R, tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
@@ -854,7 +884,7 @@
     if (R.map.bossType === e.type && !R.arena) { stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     if (D.BOSSES[e.type] && e.openUntil > S.t) dmg *= e.type === 'boss_serpent' ? 1.4 : D.BOSSES[e.type].moves.fists.open;
-    let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
+    let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ((e.elite && ENEMIES[e.type].armor.elite) || ENEMIES[e.type].armor.k))); e.armT = S.t; }
     // a golem's crust takes the blow and a plate of it comes off (TASKS 409); its fire doesn't
     const CR0 = ENEMIES[e.type].crust; if (CR0 && kind !== 'burn' && kind !== 'thorns' && crustOf(e, ENEMIES[e.type]) > 0) { dmg = Math.max(1, Math.round(dmg * CR0.k)); const n0 = crustOf(e, ENEMIES[e.type]); e.crust = n0 - 1; e.growT = S.t; e.armT = S.t; arm = true;
       (e.plateT = e.plateT || {})[n0] = S.t; (e.plateA = e.plateA || {})[n0] = Math.atan2(e.y - sy, e.x - sx); }   // (which plate went when, and which way: the render throws it off)
@@ -1660,6 +1690,10 @@
   // ---------------- the merchant ----------------
   // his shelf for this floor: the gear first (the showpiece at least SHOP.best rarity), then potions and scrolls in stacks
   // kind: 'town' — the town's shelf, more potions and scrolls; 'wander' — the wandering merchant of a floor, his gear from deeper down
+  // a deeper floor reached tops the town shelf's potions and scrolls up to its count there, its gear kept (TASKS 513: on the 10th–12th
+  // the player drank a stock a trip)
+  function restock(R, sh, f) { for (const [b, n] of D.SHOP.townCons(f)) { const g = sh.goods.find((q) => q.n && q.it.b === b), price = D.itemPrice({ b }, f);
+    if (g) { g.n = Math.max(g.n, n); g.price = price; } else sh.goods.push({ it: Object.assign(potion(b, 1), { id: R.nextId++ }), price, n }); } }
   function stockShop(R, f, kind) {
     const goods = [], SH = D.SHOP, WD = SH.wander, g = kind === 'wander' ? f + WD.depth : f, q = SH.q(g) + (kind === 'wander' ? WD.q : 0), best = Math.min(4, SH.best(g) + (kind === 'wander' ? WD.best : 0));
     for (let i = 0; i < SH.gear(g); i++) { let it = rollItem(R, g, q, i === 0 ? 'weapon' : undefined);
@@ -4007,6 +4041,8 @@
         for (const [nm, a, k] of [['front', 0, E.armor.k], ['front-side', E.armor.arc - 0.1, E.armor.k], ['side', Math.PI / 2, 1], ['back', Math.PI, 1]]) {
           const e = crab({}); hitEnemy(S, R, e, 100, false, x0 + Math.cos(a) * 40, y0 + Math.sin(a) * 40);
           if (Math.abs(1e4 - e.hp - 100 * k) > 1) out.push(`crab: a blow from its ${nm} does ${1e4 - e.hp}, not ${100 * k}`); }
+        { const e = crab({ elite: 1 }); hitEnemy(S, R, e, 100, false, x0 + 40, y0); if (Math.abs(1e4 - e.hp - 100 * E.armor.elite) > 1) out.push(`crab: an elite's shell lets ${1e4 - e.hp} of 100 through, not ${100 * E.armor.elite}`); }
+        if (D.modPool('campaign', 10, 'crab').includes('vampire') || D.eliteK({ elite: 1, type: 'crab' }, 'hp') !== D.ELITE.crab.hp) out.push('crab: an elite one drinks blood or takes the full elite health');
         for (const [nm, a, k] of [['front', 0, E.armor.k], ['back', Math.PI, 1]]) { const e = crab({ cdT: 99 }), v = 400;
           R.proj.push({ id: R.nextId++, k: 'fire', x: x0 + Math.cos(a) * 140, y: y0 - 20, vx: -Math.cos(a) * v, vy: 0, t0: S.t, life: 2, dmg: 100, own: 'hero', r: 6 });
           for (let i = 0; i < 120 && R.proj.length; i++) { step(S, quiet); h.hp = 1e4; }
@@ -4636,6 +4672,24 @@
     at(R.map.up, 30); E(S); if (R.floor !== 0 || !R.town || Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: the 1st floor\'s stairs up do not lead to the town\'s gate');
     if (R.shop.goods.map((g) => g.it.id).join() !== shelf0) out.push('climb: the town shelf is re-rolled on a return with no deeper floor reached');
     const size = JSON.stringify(persist(S)).length; if (size > 120000) out.push(`climb: a run with two kept floors saves ${size} bytes`);
+    // a floor kept by an older generator (a save from before R-18): its diff points past the monsters built now; the floor is built
+    // anew with as many dead as died there, and stays so when left again
+    // (two left of its own, ids M.id+2 and M.id+4: three bodies (ids M.id+0, 1, 3) cleared away and the first of the two lying dead: four; a hunt in hand there)
+    { const M = R.memo[1]; delete M.gv; M.d = { p: { en: { n: 3, p: { 0: { p: { id: { v: M.id + 2 }, deadT: { v: 5 }, hp: { v: 0 } } }, 1: { p: { id: { v: M.id + 4 } } }, 2: { p: { id: { v: 99999 }, summ: { v: 7 } } }, 999: { p: { hp: { v: 1 } } } } } } };
+      const q = newQuest(R, 'named', 1); (R.quests = R.quests || []).push(q); q.placed = 1;
+      const dead = () => R.en.filter((e) => e.deadT >= 0).length, hunt = () => R.en.filter((e) => e.quest === q.id && e.deadT < 0).length;
+      try { enterFloor(S, R, 1, undefined, 'up'); if (M.gv !== D.GEN_VERSION || dead() !== 4) out.push(`memo: an old generator's floor is not built anew with its dead, the cleared bodies too (${dead()}, not 4)`);
+        if (hunt() !== 1) out.push('memo: a hunt in hand on an old generator\'s floor gets no quarry anew');
+        enterFloor(S, R, 0, undefined, 'up'); enterFloor(S, R, 1); if (dead() !== 4 || hunt() !== 1) out.push('memo: an old generator\'s floor brings its dead back or loses its quarry once left again'); }
+      catch (err) { out.push('memo: an old generator\'s floor fails to load: ' + err.message); }
+      R.quests = R.quests.filter((o) => o !== q); }
+    // an almost cleared old floor (more dead than the floor built now holds) still keeps a quarry for a hunt in hand
+    { enterFloor(S, R, 0, undefined, 'up'); const M = R.memo[1]; delete M.gv; M.d = { p: { en: { n: 1, p: { 0: { p: { id: { v: M.id + 999 } } } } } } };
+      const q = newQuest(R, 'named', 1); R.quests.push(q); q.placed = 1;
+      try { enterFloor(S, R, 1); const live = R.en.filter((e) => e.deadT < 0 && !D.BOSSES[e.type]);
+        if (live.length !== 1 || live[0].quest !== q.id) out.push(`memo: an almost cleared old floor leaves a hunt no quarry (${live.length} alive)`); }
+      catch (err) { out.push('memo: an almost cleared old floor fails to load: ' + err.message); }
+      R.quests = R.quests.filter((o) => o !== q); }
     // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
     // town's portal brings him back beside it, and the stairs lead on
     for (const f of [2, 4, 6, 8]) { const T2 = spawn(0, {}); T2.run = newRun(T2, 'campaign', 31 + f, { town: 1 }); T2.screen = 'play'; const Q = T2.run, hq = Q.hero; enterFloor(T2, Q, f);
@@ -4701,6 +4755,9 @@
     for (let f = 1; f <= 6; f++) enterFloor(S, R, f); enterFloor(S, R, 0, undefined, 'up');
     if (R.shop.goods.map((g) => g.it.id).join() !== sh0) out.push('shop: the town shelf is restocked with no boss slain');
     if (D.sellPrice({ b: 'hp_potion' }, tradeDepth(R)) <= D.sellPrice({ b: 'hp_potion' }, dep(R, 1))) out.push('shop: in the town the merchant pays by the 1st floor, not the deepest');
+    { const hp = R.shop.goods.find((g) => g.n && g.it.b === 'hp_potion'); R.shop.goods = R.shop.goods.filter((g) => g !== hp); R.deepest = 7; enterFloor(S, R, 1); enterFloor(S, R, 0, undefined, 'up');
+      const nw = R.shop.goods.find((g) => g.n && g.it.b === 'hp_potion'); if (!nw || nw.n !== D.SHOP.townCons(dep(R, 7))[0][1] || R.shop.at !== 7) out.push('shop: a deeper floor reached does not top the town shelf\'s potions up');
+      R.deepest = 6; R.shop.at = 6; }
     R.bossN = 2; enterFloor(S, R, 1); enterFloor(S, R, 0, undefined, 'up');
     if (R.shop.goods.map((g) => g.it.id).join() === sh0 || R.shop.at !== 6 || R.shop.boss !== 2) out.push(`shop: a boss slain does not restock the town shelf for the deepest floor (${R.shop.at}, ${R.shop.boss})`);
     return out;
