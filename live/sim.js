@@ -858,11 +858,11 @@
         if (oval && m.cells[y * W + x] !== 1 && !nearFloor(x, y, r)) continue;
         if (opaque(x, y)) wall(x, y); else if (own || DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0) R.seen[y * W + x] = 1; } }
     // a lake's or a river's choice (dungeon.js m.choice, TASKS 486): every way over and the stairs show from the first bank
-    if (m.choice && !R.choiceShown) { let A = CHOICE.get(m); if (!A) CHOICE.set(m, A = new Set(m.choice.at));
+    if (m.choice && R.choiceShown !== R.floor) { let A = CHOICE.get(m); if (!A) CHOICE.set(m, A = new Set(m.choice.at));
       // (each way as a lane of the cells within two of it, TASKS 1037: its floor alone showed as crumbs scattered in the fog)
       // (TASKS 1048: grown out from what is seen, each lane joined to it; laid whole, a lane hung in the fog, a loose piece of lava;
       // the stairs' room shows apart, as the goal)
-      if (A.has(ty * W + tx)) { R.choiceShown = 1; const lane = new Set(), ex = m.exit.tx, ey = m.exit.ty;
+      if (A.has(ty * W + tx)) { R.choiceShown = R.floor; const lane = new Set(), ex = m.exit.tx, ey = m.exit.ty;
         for (const k of m.choice.show) { const x = k % W, y = Math.floor(k / W); if (Math.abs(x - ex) <= 5 && Math.abs(y - ey) <= 5) { R.seen[k] = 1; continue; }
           for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) if (u * u + v * v <= 2.5 + 5 * hh(x + u + 3, y + v + 61) && inMap(x + u, y + v)) lane.add((y + v) * W + x + u); }   // (ragged, TASKS 1056: an even lane ran straight beside a straight way)
         const q = [...lane].filter((k) => !R.seen[k] && [1, -1, W, -W].some((o) => R.seen[k + o] && !opaque((k + o) % W, Math.floor((k + o) / W))));
@@ -3603,7 +3603,12 @@
         if (keepOff.some(([x, y]) => Math.hypot(x - z.x, y - z.y) < HZ.clear * TILE)) out.push(`${tag}: a ${z.k} within ${HZ.clear} cells of the start, the spawn, the stairs, a chest, a monster or the altar at ${tx},${ty}`);
         if (cell(m, tx, ty) !== 1) out.push(`${tag}: a ${z.k} off the floor at ${tx},${ty}`);
         if (z.k === 'vent') for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) !== 1) { out.push(`${tag}: a vent without 3×3 of floor at ${tx},${ty}`); j = i = 9; }
-        if (z.k === 'vent') for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.max(Math.abs(i), Math.abs(j)) <= 2 && m.cells[(ty + j) * W + tx + i] === 3 && Math.max(Math.abs(i), Math.abs(j)) <= 1) out.push(`${tag}: a vent by the lava at ${tx},${ty}`); } }
+        if (z.k === 'vent') for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.max(Math.abs(i), Math.abs(j)) <= 2 && m.cells[(ty + j) * W + tx + i] === 3 && Math.max(Math.abs(i), Math.abs(j)) <= 1) out.push(`${tag}: a vent by the lava at ${tx},${ty}`); }
+      // an aimed run's rocks fall HZ.fall.gap apart on one clock (TASKS 485): its head's phase was moved first and the rest taken from it,
+      // 0.2 / 0.2 / 0.6 / 0.2 s (PR #26 review)
+      const runs = new Map(); for (const z of (m.hazards || []).filter((q) => q.k === 'fall' && q.aim)) runs.set(z.per, (runs.get(z.per) || []).concat(z));
+      for (const [per, l] of runs) { if (l.length < 2) continue; const t = l.map((z) => z.ph * per).sort((a, b) => a - b), d = t.map((v, i) => ((t[(i + 1) % t.length] - v) % per + per) % per);
+        if (d.filter((v) => Math.abs(v - HZ.fall.gap) < 1e-6).length < l.length - 1) out.push(`${tag}: an aimed rock run's rocks fall ${d.map((v) => v.toFixed(2)).join(' / ')} s apart, not ${HZ.fall.gap}`); } }
     for (const k of ['vent', 'fall']) { const c = cnt[k]; if (!(c[0] > 0 && c[0] < c[1] && c[1] < c[2] && c[3] < c[2])) out.push(`magma hazards: ${k}s by floor ${c.join('/')} (six seeds) do not grow to the 3rd`); }
     // (TASKS 461) on every floor but the boss's two rings at least stand on the walk from the spawn to the stairs: laid at random
     // a third of the floors had none on it
@@ -3676,6 +3681,13 @@
       if (R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor seen from the start`);
       const k = m3.choice.at[0]; R3.hero.x = (k % m3.W + 0.5) * TILE; R3.hero.y = (Math.floor(k / m3.W) + 0.5) * TILE; step(Y, { keys: [] });
       if (!R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor do not show from its first bank`); }
+    // (and on each such floor of a run, not the first alone: the flag was the run's, PR #26 review, seed 3's 3rd stayed dark after its 2nd)
+    { let Y = null; for (let sd = 1; sd < 30 && !Y; sd++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', sd); Q.screen = 'play'; let n = 0;
+        for (let f = 1; f <= 3; f++) { enterFloor(Q, Q.run, f); if (Q.run.map.choice) n++; } if (n >= 2) Y = [Q, sd]; }
+      if (!Y) out.push('magma choice: no run with two floors of a choice in 29'); else { const [Q, sd] = Y; Q.run = newRun(Q, 'magma', sd); Q.screen = 'play';
+        for (let f = 1; f <= 3; f++) { enterFloor(Q, Q.run, f); const R4 = Q.run, m4 = R4.map; if (!m4.choice) continue; const k = m4.choice.at[0];
+          R4.hero.x = (k % m4.W + 0.5) * TILE; R4.hero.y = (Math.floor(k / m4.W) + 0.5) * TILE; step(Q, { keys: [] });
+          if (!R4.seen[m4.exit.ty * m4.W + m4.exit.tx]) out.push(`magma choice: run seed ${sd} f${f}: the stairs do not show from its first bank after an earlier floor's choice`); } } }
     // (TASKS 1037) a walk of 60 cells toward the stairs leaves no closed pocket of unseen open cells by its way
     for (const [ft, sd] of [['lake', 2], ['terrace', 5], ['lake', 9]]) { let Y = null; for (let s2 = sd; s2 < sd + 20 && !Y; s2++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', s2); Q.screen = 'play';
         for (let f = 1; f <= 3 && !Y; f++) { enterFloor(Q, Q.run, f); if (Q.run.map.ftype === ft && !Q.run.map.ftype2) Y = Q; } }

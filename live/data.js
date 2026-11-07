@@ -606,8 +606,9 @@
   // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
   // the floor generator's version (R-18): a floor kept by a run through the town is a diff against its rebuild, so a save made by
-  // another generator cannot patch the floor it builds now; the version goes with each kept floor
-  const GEN_VERSION = 2;
+  // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
+  // and the endless descent's pool, TASKS 416, laid other floors from 13 on)
+  const GEN_VERSION = 3;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {
     hp_potion: { name: 'Зелье здоровья', icon: 'it_hp', heal: 0.4, stack: 9 },

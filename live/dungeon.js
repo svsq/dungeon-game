@@ -2348,7 +2348,7 @@
       // waited out or dashed through, not walked into
       for (const z of hazards.filter((q) => q.k === 'fall' && q.aim)) { const i0 = way.indexOf(Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE)); if (i0 < 0) continue;
         const dir = Z() < 0.5 ? 1 : -1, cs = []; for (let j = -HZ.fall.run; j <= HZ.fall.run; j++) { const k = way[i0 + j]; if (k === undefined || (j && (!clear(k % W, Math.floor(k / W)) || under.has(k) && !z.span))) continue; cs.push([k, (j + HZ.fall.run) * dir]); }
-        const o0 = Math.min(...cs.map((c) => c[1])); for (const [k, o] of cs) { const ph = ((z.ph - (o - o0) * HZ.fall.gap / z.per) % 1 + 1) % 1;
+        const o0 = Math.min(...cs.map((c) => c[1])), ph0 = z.ph; for (const [k, o] of cs) { const ph = ((ph0 - (o - o0) * HZ.fall.gap / z.per) % 1 + 1) % 1;
           if (k === Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE)) { z.ph = ph; continue; } hazards.push({ ...z, x: wx(k % W), y: wy(Math.floor(k / W)), ph, tail: 1 }); } }
       const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
       for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y))) vents.push([x, y]);
