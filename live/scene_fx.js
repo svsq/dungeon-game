@@ -149,7 +149,9 @@
         for (let j = 0; j < 5; j++) { const q = ((age * 2.2 + j / 5) % 1), d = r + 26 * q; L.solid(Math.round((x - ca * d + (rnd(p.id, j) - 0.5) * 8) / PIX) * PIX, Math.round((y - sa * d + 14 * q * q) / PIX) * PIX, PIX, PIX, [0.55, 0.9, 1], 0, 0, 0, 0.8 * (1 - q)); }
         continue; }
       // the mage's staff bolt (TASKS 1110): a cold violet star with a short tail of motes, small beside the fireball
-      if (p.k === 'bolt') { const age = GT - p.t0, ca = Math.cos(a), sa = Math.sin(a);
+      // (it leaves the drawn crystal: over its first 0.1 s it slides from the staff's tip onto the sim's line, TASKS 1115 critic r2)
+      if (p.k === 'bolt') { const age = GT - p.t0, ca = Math.cos(a), sa = Math.sin(a), T0 = SC.heroTip, q0 = T0 && GT - T0.t < 0.05 ? SS(0, 0.1, age) : 1;
+        const x = T0 && q0 < 1 ? T0.x + (sx(p.x) - T0.x) * q0 : sx(p.x), y = T0 && q0 < 1 ? T0.y + (sy(p.y) - T0.y) * q0 : sy(p.y);
         L.glow(x, y, 34, [0.45, 0.5, 1], 0.8, 2.2); L.glow(x, y, 12, [0.9, 0.9, 1], 1, 3.2); L.star(x, y, 14 + 3 * Math.sin(age * 40 + p.id), [0.92, 0.9, 1], 1);
         for (let j = 0; j < 7; j++) { const q = ((age * 5 + j / 7) % 1), d = 8 + 40 * q; L.star(x - ca * d + (rnd(p.id, j) - 0.5) * 8, y - sa * d + (rnd(p.id, j + 5) - 0.5) * 8, 5 + 3 * (1 - q), [0.62, 0.62, 1], 0.95 * (1 - q)); }
         continue; }
@@ -337,10 +339,11 @@
         }
       }
       // the ice wave (TASKS 1110): shards burst out through the cone and fall, a pale breath fans after them
-      if (e.k === 'frost' && a < 0.7) { const half = e.arc / 2 * Math.PI / 180, R0 = e.r, out = SS(0, 0.18, a), fade = 1 - SS(0.3, 0.7, a);
+      // (shown 0.1 s late, from the crystal: the staff is up by then, TASKS 1115 critic r2)
+      if (e.k === 'frost' && a >= 0.1 && a < 0.8) { const a0 = a, T0 = SC.heroTip; { const a = a0 - 0.1, ex = T0 && GT - T0.t < 0.05 ? T0.x : sx(e.x), ey = T0 && GT - T0.t < 0.05 ? T0.y + 18 : sy(e.y); const half = e.arc / 2 * Math.PI / 180, R0 = e.r, out = SS(0, 0.18, a), fade = 1 - SS(0.3, 0.7, a);
         for (let j = 0; j < 9; j++) { const an = e.a + (j / 8 * 2 - 1) * half, d = R0 * out; L.glow(ex + Math.cos(an) * d * 0.55, ey - 16 + Math.sin(an) * d * 0.55 / 1.3, 34, [0.5, 0.82, 1], 0.2 * fade, 2.2); }
         for (let j = 0; j < 40; j++) { const an = e.a + (rnd(e.t, j) * 2 - 1) * half, d = R0 * (0.2 + 0.8 * rnd(e.t, j + 30)) * out, x = ex + Math.cos(an) * d, y = ey - 20 + Math.sin(an) * d / 1.3 + 50 * a * a;
-          L.star(x, y, 8 + 7 * rnd(e.t, j + 60), [0.85, 0.96, 1], fade); } }
+          L.star(x, y, 8 + 7 * rnd(e.t, j + 60), [0.85, 0.96, 1], fade); } } }
       if (e.k === 'cast' && a < 0.25) L.glow(ex, ey, 30, [1, 0.6, 0.2], 0.4 * (1 - a / 0.25), 3);
       if (e.k === 'eshoot' && a < 0.3) L.glow(ex, ey, 26, [0.4, 1, 0.4], 1 - a / 0.3, 3);
       if (e.k === 'slam' && a < 4.6) L.cracks(ex, ey, e.big ? 130 : 70, a, e.id || 1, 1);

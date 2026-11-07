@@ -238,10 +238,10 @@
       h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
       ev(S, Object.assign({ k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face }, (D.clsOf(h).shoots || []).includes(st.wtype) ? { shot: 1 } : {}));
     }
-    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= K.HIT) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
+    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= ((D.clsOf(h).shoots || []).includes(st.wtype) ? D.BOLT.t : K.HIT)) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
       h.atkHit = 1; const arc = st.arc * Math.PI / 180, reach = st.reach, Cl = D.clsOf(h);
       // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
-      if ((Cl.shoots || []).includes(st.wtype)) { const [hx, hy] = hand(h), a = h.atkA, B = D.BOLT, c = rnd(R) * 100 < st.crit;
+      if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, B = D.BOLT, c = rnd(R) * 100 < st.crit, hx = hand(h)[0] + Math.cos(a) * B.tip, hy = hand(h)[1] + Math.sin(a) * B.tip;
         R.proj.push({ id: R.nextId++, k: 'bolt', x: hx, y: hy, vx: Math.cos(a) * B.spd, vy: Math.sin(a) * B.spd, t0: t, life: B.life, own: 'hero', r: B.r, crit: c ? 1 : 0,
           dmg: Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))) });
         ev(S, { k: 'bolt', x: hx, y: hy, a }); } else {
