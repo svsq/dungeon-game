@@ -65,9 +65,13 @@ if (only.includes('frames')) {
     await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
     await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
     const names = await page.evaluate(() => { window.__Q = SCENE.QA(); return __Q.states.map((s) => s[0]); });
-    for (const name of names) {
+    const base = save || !fs.existsSync(file) ? {} : JSON.parse(fs.readFileSync(file, 'utf8')), shot = async (name) => {
       await page.evaluate((name) => { const st = __Q.states.find((q) => q[0] === name)[1]; SCENE.state = st; SCENE.render(st.t + 0.01); }, name);
-      got['frame ' + name] = sha(await page.locator('#c').screenshot());
+      return sha(await page.locator('#c').screenshot()); };
+    // a frame that differs is drawn twice more: one in some 500 came out different once and the same on the next draw
+    for (const name of names) {
+      const k = 'frame ' + name; got[k] = await shot(name);
+      for (let i = 0; i < 2 && base[k] && got[k] !== base[k]; i++) { const again = await shot(name); if (again === base[k]) { console.log('unsteady: ' + k); got[k] = again; } }
     }
   } finally { await browser.close(); server.close(); }
   if (errors.length) got['frame errors'] = errors.slice(0, 5).join(' | ');
