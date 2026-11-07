@@ -474,7 +474,8 @@
     if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T;
       // the raise starts with no jerk either: a smoothstep's second derivative at 0 kicks the hand out of the walk's own swing;
       // it holds at 1 from h on (the top wait), so x clamps
-      if (u < tc) { const h = Math.max(0.05, tc - (o.top || 0)), x = Math.min(1, u / h), k = x * x * x * (10 + x * (-15 + 6 * x)); return { r1: lerp(base, RAISE, k), bend: lerp(o.bend0 ?? 0.18, o.bendUp ?? 0.9, k), k }; }
+      // (o.backWind: the raise goes round the back to the same top, TASKS 1054: an overhand throw's hand passed in front of the face)
+      if (u < tc) { const h = Math.max(0.05, tc - (o.top || 0)), x = Math.min(1, u / h), k = x * x * x * (10 + x * (-15 + 6 * x)), top = o.backWind && RAISE < base ? RAISE + TAU : RAISE; return { r1: lerp(base, top, k), bend: lerp(o.bend0 ?? 0.18, o.bendUp ?? 0.9, k), k }; }
       // from rest at the top to vEnd at the impact: a cubic with no jerk at its start
       if (u < w) { const x = (u - tc) / T, q = (3 - P) * x * x + (P - 2) * x * x * x; return { r1: lerp(RAISE, imp, q), bend: lerp(o.bendUp ?? 0.9, bh, q), k: 1 }; }
       return after(imp, u - w, base, o, vEnd); }
@@ -534,7 +535,7 @@
   // the imp (TASKS 407): a leap crouches, springs up with the legs tucked and the arms flung up and back, leaning into the flight,
   // and lands in a crouch; the spark is thrown overhand with the near arm, the claw rakes with it on a short swing
   // (back: the throwing hand winds back behind the head before it comes over, TASKS 489: 0.6 short of the release it never passed it)
-  const IMP_THROW = { raise: -2.7, back: 2.7, chopT: 0.2, recover: 0.24, over: 0.6, top: 0.02, bendUp: 0.4, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.2, recover: 0.24, over: 0.6, top: 0.02, bendUp: 0.4, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   const IMP_CLAW = { raise: -1.5, chopT: 0.12, recover: 0.2, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   MON.impArc = (e, E, GT) => { if (e.st !== 'leap') return 0; const L0 = E.leap, fl = Math.max(0, Math.min(1, (GT - e.t0 - L0.crouch) / e.ld)), d = Math.hypot(e.ltx - e.lx, e.lty - e.ly);
     const q = fl * fl * (3 - 2 * fl); return 4 * (18 + L0.h * d) * q * (1 - q); };
