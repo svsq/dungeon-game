@@ -795,12 +795,14 @@
     { const S = play(); SIM.enterFloor(S, S.run, 9); S.run.msg.t = S.t - 0.8; states.push(['campaign_f9_arrive', S]); }
     { const S = play(); SIM.enterFloor(S, S.run, 12); const R = S.run, r = R.map.rooms.find((q) => q.type === 'boss') || R.map.rooms[0], h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h - 2) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['campaign_f12_serpent', S]); }
-    // past the serpent (TASKS 354): the portal out and the stairs on beside it, shut while it lives and open after; the end of a run
-    // that won the campaign on the way down
-    for (const dead of [0, 1]) { const S = play(); SIM.enterFloor(S, S.run, 12); const R = S.run, m = R.map, h = R.hero; if (!m.down) continue;
-      if (dead) { R.bossDead = 1; R.en = R.en.filter((e) => e.type !== 'boss_serpent'); }
-      h.x = m.down.x + 10; h.y = m.down.y + 30; R.msg = null; S.ev = []; R.seen = R.seen.map(() => 1); R.cam = [(m.down.x + m.exit.x) / 2 - SCX.VW / 2, (m.down.y + m.exit.y) / 2 - SCX.VH / 2];
-      states.push([dead ? 'campaign_f12_down_open' : 'campaign_f12_down_shut', S]); }
+    // past the colossus (TASKS 354, 398, 514–515: the choice moved to the 16th; a run through the town): the stairs on, shut while it
+    // lives, and once it falls open beside its portal home; the end of a run that won the campaign on the way down
+    for (const dead of [0, 1]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); const F = DATA.RUNS.campaign.floors; SIM.enterFloor(S, S.run, F); const R = S.run, m = R.map, h = R.hero; if (!m.down) continue;
+      const b = R.en.find((e) => e.type === 'boss_colossus');
+      if (dead && b) { R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIM.killEnemy(S, R, b); R.en = R.en.filter((e) => e !== b); }
+      const g = R.arena && R.arena.gate, mid = g ? [(m.down.x + g.x) / 2, (m.down.y + g.y) / 2] : [m.down.x, m.down.y];
+      h.x = m.down.x + 46; h.y = m.down.y + 30; R.msg = null; S.ev = []; R.seen = R.seen.map(() => 1); R.cam = [mid[0] - SCX.VW / 2, mid[1] - SCX.VH / 2];
+      states.push([dead ? 'campaign_f16_down_open' : 'campaign_f16_down_shut', S]); }
     { const dead = states.find(([n]) => n === 'dead'); if (dead) { const S = structuredClone(dead[1]); Object.assign(S.result, { mode: 'endless', floor: 21, record: { best: 21, fresh: true }, campaignWon: 1 }); states.push(['endless_dead_campaign', S]); } }
     // the water caves' biggest hall and its winding ways (TASKS 301), the whole hall in view
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
