@@ -2093,6 +2093,13 @@
       const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); press(U, ts); if (U.screen !== 'tests') out.push('tests: «Тесты» does not open the test runs');
       press(U, UI.tests(true).find((b) => b.id === 'back')); if (U.screen !== 'menu') out.push('tests: «Назад» does not go back to the menu');
       press(U, ts); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
+      // «Что нового» (TASKS 1038): the changelog's top entry is the game's version, the screen scrolls to its end and no further, Escape leaves
+      { if (!D.CHANGES.length || D.CHANGES[0].v !== D.VERSION) out.push('news: the changelog\'s top entry is not DATA.VERSION');
+        const nb = UI.menu(true).find((b) => b.id === 'news'); press(U, nb); if (U.screen !== 'news') out.push('news: «Что нового» does not open its screen');
+        const mx = UI.news(0).max; step(U, { keys: ['End'] }); step(U, { keys: ['ArrowDown'], wheel: 1 }); if (U.newsTop !== mx) out.push(`news: End scrolls to ${U.newsTop}, not ${mx}`);
+        { const E = UI.news(mx); if (E.top + E.rows.length !== E.n) out.push('news: the end of the list does not show its last row'); }
+        step(U, { keys: ['Home'] }); if (U.newsTop !== 0) out.push('news: Home does not go back to the top');
+        step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }

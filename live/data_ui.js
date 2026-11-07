@@ -7,17 +7,37 @@
   // the town (R-17, TASKS 1002): the campaign through the town, a test run until the town is done and the campaign starts there
   const TEST_RUNS = [['cave', TXT('TEST_RUNS'), TXT('TEST_RUNS.2')], ['magma', TXT('TEST_RUNS.3'), TXT('TEST_RUNS.4')], ['endless', TXT('TEST_RUNS.5'), TXT('TEST_RUNS.6')]];
   // the buttons that start a run from the main menu, in the order pressed: a test run is behind «Тесты» (bots and checks press these)
+  const campaignLen = () => { const n = D.RUNS.campaign.floors; return { n, floors: TXT.n('UI.menu.floors', n) }; };
   const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]);
+  // «Что нового» (TASKS 1038): DATA.CHANGES, newest first, as rows of fixed heights; a point is wrapped by its length (the sim
+  // scrolls by whole rows, so it needs the rows without the HUD's text measure; the screen's qa check catches a line too long)
+  const NEWS = { P: { x: 300, y: 60, w: 1320, h: 960 }, top: 150, bottom: 120, wrap: 84, h: { ver: 70, group: 46, line: 34, gap: 8 } };
+  const wrapLine = (s, n) => { const out = []; let cur = '';
+    for (const w of s.split(' ')) { if (cur && cur.length + 1 + w.length > n) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; }
+    return cur ? out.concat([cur]) : out; };
+  let newsMemo = null;
+  const newsRows = () => { if (newsMemo && newsMemo.src === D.CHANGES) return newsMemo.rows; const rows = [];
+    for (const e of D.CHANGES || []) { rows.push({ k: 'ver', v: e.v, date: e.date, h: NEWS.h.ver });
+      for (const g of e.groups) { rows.push({ k: 'group', s: g.name, h: NEWS.h.group });
+        for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
+    newsMemo = { src: D.CHANGES, rows }; return rows; };
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save); «В город» (TASKS 1026, was «Алтарь
     // душ»: the upgrades are bought at the altar on the town's square) goes on with the saved run, or starts a campaign, in the town
-    menu: (hasRun, diff, arm, zoom, inTown) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2') : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
-      ['tests', TXT('UI.menu.5'), true], ['diff', TXT('UI.menu.6', { name: DIFF[diff || 'normal'].name }), true], ['zoom', TXT('UI.menu.7', { p1: zoomName(zoom) }), true], ['town', TXT('UI.menu.8'), !hasRun || !!inTown]]
-      .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 })),
+    menu: (hasRun, diff, arm, zoom, inTown) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
+      ['tests', TXT('UI.menu.5'), true], ['diff', TXT('UI.menu.6', { name: DIFF[diff || 'normal'].name }), true], ['zoom', TXT('UI.menu.7', { p1: zoomName(zoom) }), true], ['town', TXT('UI.menu.8'), !hasRun || !!inTown], ['news', TXT('UI.menu.9'), true]]
+      .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 })),
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
     tests: (hasRun, arm) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !hasRun ? fresh : arm === id ? TXT('UI.tests.label') : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
       .concat([{ id: 'back', label: TXT('UI.tests.back.label'), on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
+    // the rows that fit from row `top`, and the last top that still fills the view (the end of the list sits at its bottom)
+    news: (top) => { const P = NEWS.P, rows = newsRows(), vh = P.h - NEWS.top - NEWS.bottom; let max = rows.length, fill = 0;
+      while (max > 0 && fill + rows[max - 1].h <= vh) fill += rows[--max].h;
+      const t = Math.max(0, Math.min(max, top || 0)), shown = []; let y = P.y + NEWS.top;
+      for (let i = t; i < rows.length && y + rows[i].h <= P.y + NEWS.top + vh; i++) { shown.push(Object.assign({ y }, rows[i])); y += rows[i].h; }
+      return { P, rows: shown, top: t, max, n: rows.length, view: { x: P.x + 60, y: P.y + NEWS.top, w: P.w - 120, h: vh },
+        r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? TXT('UI.debug.dbg_secrets.label') : TXT('UI.debug.dbg_secrets.label.2'), on: true, x: 520, y: 16, w: 430, h: 60 },
       { id: 'dbg_loot', label: S && S.dbgLoot ? TXT('UI.debug.dbg_loot.label') : TXT('UI.debug.dbg_loot.label.2'), on: true, x: 970, y: 16, w: 430, h: 60 }],
@@ -84,5 +104,5 @@
     },
   };
 
-  Object.assign(D, { TEST_RUNS, startPath, UI });
+  Object.assign(D, { TEST_RUNS, startPath, campaignLen, newsRows, UI });
 })(typeof window !== 'undefined' ? window : globalThis);
