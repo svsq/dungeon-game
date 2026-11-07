@@ -3,7 +3,7 @@
 // forms), and the table holds no key the code never asks for. Exit 2 on failure.
 // sim_checks.js is the sim's self-check code (its messages are for the developer) and is not scanned.
 const fs = require('fs'), path = require('path');
-const LIVE = path.join(__dirname, '..', 'live'), SKIP = new Set(['text.js', 'sim_checks.js', 'assets.js', 'rigs.js', 'sizes.js', 'tune.cjs']);
+const LIVE = path.join(__dirname, '..', 'live'), SKIP = new Set(['text.js', 'sim_checks.js', 'assets.js', 'rigs.js', 'sizes.js', 'data_changes.js', 'tune.cjs']);
 require(path.join(LIVE, 'text_ru.js')); const RU = globalThis.TEXT.ru;
 const CY = /[А-Яа-яЁё]/, fails = [], used = new Map(), { code } = require('./jsscan.cjs');
 for (const f of fs.readdirSync(LIVE).filter((f) => f.endsWith('.js') && !SKIP.has(f) && !/^text_\w+\.js$/.test(f))) {

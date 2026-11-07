@@ -37,7 +37,9 @@ if [ $check = 1 ]; then
   node live/tune.cjs >/dev/null 2>&1 || { node live/tune.cjs 2>&1 | grep -E "FAIL|Error" >&2; echo "tune.cjs failed: fix it, use --head, or pass --no-check" >&2; exit 1; }
 fi
 
-echo "== pack ($rev)"
+ver="$(node -e "require('./live/data.js'); console.log(DATA.VERSION)")"
+node "$ROOT/tools/changelog.cjs" --check >/dev/null || { echo "CHANGELOG.md is out of step with the game: node tools/changelog.cjs --check" >&2; exit 1; }
+echo "== pack $ver ($rev)"
 python3 "$SKILL/scripts/pack.py" --name crypt --out "$DESK/.pack/out" | tail -1
 rm -rf "${DESK:?}/game"
 cp -R "$DESK/.pack/out/crypt/game" "$DESK/game"
@@ -48,10 +50,10 @@ cd "$DESK"
 
 if [ "${targets[0]}" = run ]; then exec npx electron .; fi
 
-export CRYPT_REV="$(date +%Y%m%d)-$rev"
+export CRYPT_REV="$ver-$rev"
 flags=()
 for t in "${targets[@]}"; do flags+=("--$t"); done
 echo "== build ${targets[*]}"
-npx electron-builder "${flags[@]}" --publish never
+npx electron-builder "${flags[@]}" -c.extraMetadata.version="$ver" --publish never
 echo "== done"
 ls -lh release/ | grep "crypt-$CRYPT_REV" || true
