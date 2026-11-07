@@ -714,8 +714,11 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   l = mix(l, min(l, u_amb * 1.3), smoothstep(0.3, 1.0, top) * 0.8 * (1.0 - 0.75 * smoothstep(0.14, 0.3, dot(c, vec3(0.3, 0.5, 0.2)))));
   // the lava lights the columns from below (TASKS 445): the tops stay the dark stone of the concept (the rim and the foot of a face
   // keep the glow); lit like the lava itself they came out tan. The crossings' basalt likewise (TASKS 448, the occluders' alpha)
-  vec4 oc = texture(u_occ, scr(v_px));
-  float bas = u_haze * max(textureLod(u_face, vec2(w.x, 1.0 - w.y), 0.0).b, oc.a * (1.0 - oc.r));
+  // (TASKS 1036: the cold light is the caps' and the crossings' only; a face keeps the lava's warm light, held under a dull ceiling as
+  // in 445, so it reads the concept's maroon lit from its foot, not grey)
+  vec4 oc = texture(u_occ, scr(v_px)); float fb = textureLod(u_face, vec2(w.x, 1.0 - w.y), 0.0).b, capB = step(0.95, fb);
+  if (u_haze > 0.5) l = mix(l, min(l, u_amb * 2.0 + vec3(0.22, 0.07, 0.03)), fb * (1.0 - capB) * 0.85);
+  float bas = u_haze * max(capB, oc.a * (1.0 - oc.r));
   // the water throws the light it catches back onto the rock over and beside it (TASKS 305): slow bright ripples on a cave's wet
   // rock and bank within two cells of the water, stronger where the light at the water is. Added, not multiplied: on the dark
   // rock a multiplied glint was lost
@@ -744,7 +747,7 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(1.6, 0.35, oc.r * nearL)));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
   // only the light's level, not its hue
-  l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * 2.0, 1.4), bas);
+  l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(2.0, 0.9, capB), 1.4), bas);   // (the caps darker: L 35 against the concept's 21)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
@@ -1852,7 +1855,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   const NO_INK = new Set(['bones', 'torch_sconce']);
+  // the basalt props drawn this frame (TASKS 1036): they take the basalt's cold light in the lit pass as the crossings do
+  const BAS_PROPS = new Set(['basalt_a', 'basalt_b', 'forge_mg']), PROP_BAS = [];
   function drawProp(n, x, y, o = {}) { const [w, h] = SZ(n), k = o.k || 1, j = o.j;
+    if (BAS_PROPS.has(n) && !j) PROP_BAS.push([n, x - w * k / 2, y - h * k + (o.dy || 0), w * k, h * k, !!o.flip]);
     const draw = () => { if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: o.u }); return; }
       const W = w * k, H = h * k * j.sy, u = j.fl > 0 ? Object.assign({}, o.u, { tint: [2.2, 2, 1.8, j.fl] }) : o.u;
       L.sprite(n, 0, 0, { m: M.of(M.t(x + j.dx, y + (o.dy || 0)), M.r(j.rot)), w: W, h: H, pivot: [W / 2, H], flip: o.flip, u }); };
@@ -2035,7 +2041,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // cell, a little off the grid, a hot line where the lava licks their foot; an arch over a narrow river flowing toward the camera
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
-    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03];
+    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0;
     const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       L.shadow(sx(x), foot + 3, w * 0.55, 4, 0.7); L.solid(ev2(sx(x) - w / 2), foot, ev2(w), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
@@ -2529,7 +2535,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // leave out. Without it a demon by a river came out see-through, the lava's plates showing through its body
     G.bind(LT.occ, [0, 0, 0, 0]); G.blend();
     if (m.cliff) { const J0 = L.joint; L.joint = () => {}; L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] };
-      try { for (const [n, x, y, w, hh, f] of basaltOcc) L.sprite(n, x, y, { w, h: hh, flip: f });
+      try { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f });
         L.sp.ink = [1, 1, 1];
         for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
