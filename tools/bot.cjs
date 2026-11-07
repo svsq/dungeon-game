@@ -312,6 +312,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const who = !P.noTown && (F.find((f) => SIM.questMark(R, f.role) === '?') || (P.quests && F.find((f) => SIM.questMark(R, f.role) === '!' && !declined.has(f.role))));
     if (who) { const p = at(who); walk(R, inp, p.x, p.y); if (who.role === 'smith' ? SIM.atCraft(R) === 'forge' : SIM.folkNear(R) === who) inp.keys.push('KeyE'); goal = ['folk', who.role]; return; }
     if (!P.noTown && m.shop && R.shopped !== 0) { walk(R, inp, m.shop.front.x, m.shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); goal = ['shop']; return; }
+    // past the campaign's last boss, unless it goes on down: the Keeper ends the run (TASKS 515, 1148)
+    const kp = !descend && SIM.campaignDone(R) && F.find((f) => f.role === 'keeper');
+    if (kp) { const p = at(kp); walk(R, inp, p.x, p.y); if (SIM.folkNear(R) === kp) inp.keys.push('KeyE'); goal = ['folk', 'keeper']; return; }
     const out = R.portal ? { x: sv.portal.x + 10, y: sv.portal.y + 44 } : m.exit; walk(R, inp, out.x, out.y); goal = [R.portal ? 'portal' : 'exit'];
     if (R.portal ? SIM.atGate(R) : dist(out) < 55) inp.keys.push('KeyE'); }
   function pray(S, R) {
@@ -410,6 +413,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (!near && shop && chase(R, shop) && aim('shop', shop.front)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
     // a sealed arena opens only on the boss's death: there is no running late past him to the stairs
     else if (live.length && (!late || (R.arena && R.arena.active)) && aim('fight', fightT)) fight(S, R, inp, live, st, walkD);
+    // the campaign's last floor in a run through the town has no way out (TASKS 515): its boss's portal home, the run ends at the Keeper
+    else if (!descend && R.bossDead && R.arena && R.arena.gate && SIM.exitKind(R) === null) { const g = R.arena.gate; aim('gate', g); walk(R, inp, g.x, g.y + 30); if (SIM.gateNear(R)) inp.keys.push('KeyE'); }
     else { const out = descend && m.down && R.bossDead ? m.down : m.exit; aim('exit', out); walk(R, inp, out.x, out.y); if (dist(out) < 55) inp.keys.push('KeyE'); }
     if (P.haz && R.arena && R.arena.active && rainOn(R, live)) { const c = shelter(R); if (c) { inp.left = inp.right = inp.up = inp.down = 0; walk(R, inp, c.x, c.y); } }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);

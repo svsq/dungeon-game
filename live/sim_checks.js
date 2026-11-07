@@ -2217,6 +2217,8 @@
     // with no second win
     try { const F = D.RUNS.campaign.floors, S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run, h2 = R2.hero; enterFloor(S2, R2, F);
       const b = R2.en.find((e) => e.type === 'boss_colossus'); R2.arena = { active: 1, room: b.room, t0: S2.t }; b.hp = 0; killEnemy(S2, R2, b); R2.en = R2.en.filter((e) => e === b);
+      // (TASKS 515: no way out to the surface there, before the colossus falls or after: the run ends in the town)
+      if (exitKind(R2) !== null) out.push('climb: the campaign\'s last floor of a run through the town has a way out'); else { h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; E(S2); if (!S2.run || R2.floor !== F) out.push('climb: E at the last floor\'s old way out ends the run or leaves the floor'); }
       if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus leaves no portal home');
       else if (R2.map.down && Math.hypot(R2.arena.gate.x - R2.map.down.x, R2.arena.gate.y - R2.map.down.y) < 100) out.push('climb: the colossus\'s portal home stands by the stairs on');
       descend(S2, R2); const w0 = S2.meta.wins;

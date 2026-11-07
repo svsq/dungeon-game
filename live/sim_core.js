@@ -30,11 +30,12 @@
   const sealOf = (R) => { const N = D.stageOf(R.mode, R.floor, R.seed, FROM(R)).N; return (N && N !== RUN(R) && N.seal) || RUN(R).seal; };
   const RUN = (R) => D.runOf(R.mode), STAGE = (R, f = R.floor) => D.stageOf(R.mode, f || 1, R.seed, FROM(R)), dep = (R, f = R.floor) => STAGE(R, f).depth, lastFloor = (R) => R.floor === RUN(R).floors;
   // the campaign's last floor stays its last past the descent (TASKS 514: the run's mode is then the descent's, which has none, and
-  // the 16th's portal out was drawn and taken as a second stairs down); its exit is the portal out, its own stairs on are m.down
+  // the 16th's portal out was drawn and taken as a second stairs down); its exit is the portal out, its own stairs on are m.down;
+  // in a run through the town it has none: that run ends in the town, at the Keeper (TASKS 515, 1148), its boss's portal leads there
   const finalFloor = (R, f = R.floor) => f === RUN(R).floors || (!!R.campaignWon && f === D.RUNS.campaign.floors);
   // a run through the town that has slain the campaign's last boss (TASKS 1148): it may end in the town, won, or go on down
   const campaignDone = (R) => !!R.viaTown && (!!R.campaignWon || (R.slain || []).includes(D.RUNS.campaign.floors));
-  const exitKind = (R, f = R.floor) => (finalFloor(R, f) ? 'portal' : 'stairs');
+  const exitKind = (R, f = R.floor) => (!finalFloor(R, f) ? 'stairs' : R.viaTown ? null : 'portal');
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? TXT('sim_core.who') : '') : '?';
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
