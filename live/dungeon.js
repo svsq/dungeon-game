@@ -2055,7 +2055,7 @@
     // the stairs. Their own random stream, so the rest of the floor is laid out as without them
     // a river's two ways over (TASKS 473) cost each its own: the shortest is guarded at its far landing (a golem; before the golems
     // come, a salamander in the lava by it, or an elite), the next falls under rocks (laid with the hazards below)
-    let riverFire = null;
+    let riverFire = null, riverGuard = null;
     if (riverWay) { const N4 = [1, -1, W, -W], s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx, Rw = riverWays(cells, W, H, fig, s0, (c) => c === 1), ws = riverAt(Rw, e0);
       if (ws.length >= 2) { const own = (p) => { const o = []; for (let k = 0; k < W * H; k++) if (Rw.lab[k] === p) o.push(k); return o; }, c1 = own(ws[0][1]);
         const dE = new Int32Array(W * H).fill(-1), q = [e0]; dE[e0] = 0; for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (dE[n] < 0 && cells[n] === 1) { dE[n] = dE[q[i]] + 1; q.push(n); } }
@@ -2071,7 +2071,7 @@
           // choice on the 2nd floor was none; it guards only a landing with no floor to stand an elite on)
           else if (near.length) { const [x, y] = near[0], t = ['skeleton', 'goblin'].find((o) => roster.includes(o)) || roster[0]; used.add(key(x, y)); addEnemy(t, x, y, roomAt(x, y), 1); enemies[enemies.length - 1].post = 'ford'; }
           else if (roster.includes('salamander') && pool.length) { const k = pool[Math.floor(R() * pool.length)]; addEnemy('salamander', k % W, Math.floor(k / W), roomAt(k % W, Math.floor(k / W))); enemies[enemies.length - 1].post = 'ford'; } }
-        riverFire = new Set(own(ws[1][1])); } }
+        riverFire = new Set(own(ws[1][1])); riverGuard = new Set(c1); } }
     // a lake's way round pays for its length (TASKS 1040: the islands were the one answer, shorter and no worse): a chest of the 2nd
     // tier half way along it, off the islands' chain
     if (lakeWay && plat) { const N4 = [1, -1, W, -W], s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx;
@@ -2124,7 +2124,9 @@
           run.sort((a, b) => (a[ax] - b[ax]) * dir); const i0 = run.findIndex((q) => q[0] === c[0] && q[1] === c[1]);
           run.forEach((q, i) => { const ph = ((z.ph - (i - i0) * HZ.fall.gap / z.per) % 1 + 1) % 1; if (i === i0) return; hazards.push({ ...z, x: wx(q[0]), y: wy(q[1]), ph, tail: 1 }); });
           z.ph = ((z.ph % 1) + 1) % 1; } }
-      for (const pass of [0, 1]) for (const [x, y] of narrows) { if (hazards.filter((z) => z.k === 'fall' && !z.ford && !z.span).length >= aim) break; const ii = isleOf(x, y); if (!pass && ii >= 0 && hit.has(ii)) continue;
+      // (none by a river's guarded way over, TASKS 1051: it carried the walk's rock runs on top of its guard, 1.4 against 0.6)
+      const byGuard = (x, y) => !!riverGuard && [...riverGuard].some((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) <= 3);
+      for (const pass of [0, 1]) for (const [x, y] of narrows) { if (hazards.filter((z) => z.k === 'fall' && !z.ford && !z.span).length >= aim) break; const ii = isleOf(x, y); if ((!pass && ii >= 0 && hit.has(ii)) || byGuard(x, y)) continue;
         if (!clear(x, y) || hazards.some((z) => Math.hypot(z.x - wx(x), z.y - wy(y)) < HZ.fall.apart * TILE)) continue;
         hazards.push({ k: 'fall', x: wx(x), y: wy(y), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1 }); if (ii >= 0) hit.add(ii); }
       // an aimed rock is a run of them down the walk (TASKS 485): HZ.fall.run cells either way of it fall one after another HZ.fall.gap
