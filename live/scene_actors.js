@@ -177,7 +177,7 @@
     if (e.openUntil > GT) for (let j = 0; j < 3; j++) L.star(x + (j - 1) * 17, y - 160 - 4 * Math.sin(t * 6 + j), 6, [0.85, 0.82, 0.5], 0.8);
     L.joint('en' + e.id, 'ground', [x, y]); L.joint('en' + e.id, 'head', at(mouth)); L.joint('en' + e.id, 'top', at(forward(RG.top)));
     if (bite > 0.999 && Math.abs(u - w) < 0.06) { const d = Math.hypot(e.tx - e.x, e.ty - e.y) || 1, k = Math.min(1, Mv.r / d); L.anchor('serpent_bite', [x + (e.tx - e.x) * k, y + (e.ty - e.y) * k - 38], at(mouth), 4); }
-    if (pin > 0.999 && Math.abs(u - w) < 0.06) { const [mx, my] = SIM.serpentMouth(e); L.anchor('serpent_mouth', [x + mx - e.x, y + my - e.y], at(mouth), 4); }
+    if (pin > 0.999 && Math.abs(u - w) < 0.06) { const [mx, my] = SIM.Q.serpentMouth(e); L.anchor('serpent_mouth', [x + mx - e.x, y + my - e.y], at(mouth), 4); }
     if (attacking && e.mv === 'wave' && Math.abs(u - w) < 0.06) L.anchor('serpent_wave', [x, y - 38], [x, y - 38], 2);
   }
   // the smouldering skeleton's fire (TASKS 411): tongues of flame on its skull, ribs, pelvis and hands, trailing its run, taller

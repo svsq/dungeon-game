@@ -39,6 +39,11 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return (texs[name] = { t, w: cv.width, h: cv.height });
   };
+  // the render's CPU-side drawing surface (a 2D canvas: masks, the minimap, text) and its re-upload into the texture made from it:
+  // with the page's address, the only ways the render reaches the page (ARCHITECTURE.md §8)
+  G.canvas = () => document.createElement('canvas');
+  G.params = new URLSearchParams(location.search);   // the render's dev switches (?fx=0, ?only=…)
+  G.canvasUpdate = (rec, cv) => { gl.bindTexture(gl.TEXTURE_2D, rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); };
   G.tex = (n) => { const t = texs[n]; if (!t) throw new Error('no texture ' + n); return t; };
 
   const VS = `#version 300 es

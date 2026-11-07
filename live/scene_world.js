@@ -22,7 +22,7 @@
       const u = warnOf(q); L.solid(sx(x - 16), sy(y - 16), TILE, TILE, [0.06, 0.03, 0.025], 0, 0, 0, 0.55 * u); L.cracks(sx(x), sy(y), 12 + 14 * u, 0.17 * u, q.cell, 0); }
     // lava (animated, also emissive later): the crust drifts
     const lavaCells = [];
-    if (m.lava) for (let y = Math.floor(cy / TILE) - 1; y <= Math.floor((cy + SCX.VH) / TILE) + 1; y++) for (let x = Math.floor(cx / TILE) - 1; x <= Math.floor((cx + SCX.VW) / TILE) + 1; x++) if (SIM.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x)) lavaCells.push([x, y]);
+    if (m.lava) for (let y = Math.floor(cy / TILE) - 1; y <= Math.floor((cy + SCX.VH) / TILE) + 1; y++) for (let x = Math.floor(cx / TILE) - 1; x <= Math.floor((cx + SCX.VW) / TILE) + 1; x++) if (SIM.Q.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x)) lavaCells.push([x, y]);
     // the magma caves' lava lights whoever stands by it from its side (TASKS 404): a lit edge on the actor toward the river, in
     // the lava's colour; one light every other cell, beating slowly as the lava's own light does
     const lavaBeat = (x, y) => 0.8 + 0.2 * Math.sin(t * 0.55 + x * 0.31 + y * 0.17);
@@ -74,7 +74,7 @@
       L.shadow(sx(x + jx), sy(y + hh / 2), w * 0.45, 4, 0.5); drawProp(n, sx(x + jx), sy(y) + hh / 2, { flip: rnd(k, 9) < 0.5, u: { grade: [0.85, 0.72, 0, 1] } }); }
     const wetSet = WET.get(m) || (WET.set(m, new Set(m.water)), WET.get(m));
     const dryCrossings = new Set((m.crossings || []).filter((c) => c.kind === 'bridge' || c.kind === 'ford').flatMap((c) => c.cells));
-    const inWet = (x, y) => { const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE); return SIM.cell(m, cx, cy) === 6 || wetSet.has(cy * m.W + cx); };
+    const inWet = (x, y) => { const cx = Math.floor(x / TILE), cy = Math.floor(y / TILE); return SIM.Q.cell(m, cx, cy) === 6 || wetSet.has(cy * m.W + cx); };
     const ev2 = (v) => Math.round(v / 2) * 2;
     // rings spreading slowly round whatever stands in the water
     const ripple = (x, y, r, sd, a = 0.28) => { for (let k = 0; k < 2; k++) { const ph = (t * 0.42 + k * 0.5 + rnd(sd, 3)) % 1, q = r * (0.55 + 0.9 * ph);
@@ -97,7 +97,7 @@
       L.shadow(sx(x), foot + 3, w * 0.55, 4, 0.7); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
       drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5 }); basaltOcc.push([n, sx(x) - w / 2, foot - hh, w, hh, rnd(k, 9) < 0.5]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
-      if (c.axis !== 'x' || SIM.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
+      if (c.axis !== 'x' || SIM.Q.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
       // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
@@ -113,7 +113,7 @@
       // under it and he dropped 9 px in a frame)
       const ha = hor ? R.hero.x : R.hero.y, hb = hor ? R.hero.y : R.hero.x, onW = bridge ? SS(B0 - 10, B0 + 6, hb) * (1 - SS(B0 + BW - 6, B0 + BW + 10, hb)) * SS(A0 - 8, A0 + 10, ha) * (1 - SS(A0 + len - 10, A0 + len + 8, ha)) : 0, on = onW > 0;
       // (TASKS 490: it trembled on a clock) each footfall of his jolts it and dies away, and a rock landing on the deck shakes it
-      const hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / SIM.stepLen(1)) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
+      const hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / SIM.Q.stepLen(1)) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
       const fallR = bridge ? (m.hazards || []).filter((z) => z.k === 'fall' && D.hazClock(z, GT) < 0.7 && c.cells.some((k) => Math.hypot((k % m.W + 0.5) * T - z.x, (Math.floor(k / m.W) + 0.5) * T - z.y) < 60)) : [];
       const shake = (a) => fallR.reduce((v, z) => { const q = D.hazClock(z, GT); return v + 7 * Math.exp(-6 * q) * Math.sin(q * 38) * Math.exp(-Math.abs(a - (hor ? z.x : z.y)) / 90); }, 0);
       const dip = (a) => (on ? onW * (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
@@ -242,7 +242,7 @@
     for (const e of ST.ev) { const a = GT - e.t; if (e.k !== 'rockfall' || a < 0 || a >= 2.4 || !vis(e.x, e.y)) continue; const [w0, h0] = SZ('dc_rubble'), k = 56 / Math.max(w0, h0);
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
-    for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && !SIM.hidden(m, d)) { const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0);
+    for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && !SIM.Q.hidden(m, d)) { const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0);
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
     for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y) && !hid(d)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
@@ -268,7 +268,7 @@
 
     // the only tell of a hidden opening: a faint draught, a few pale motes at its foot that only show from a step or two away
     // (a banner sways in it instead)
-    const inSecret = (q) => SIM.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0]);
+    const inSecret = (q) => SIM.Q.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0]);
     (m.secrets || []).forEach((q, i) => { if (q.open || q.kind === 'banner' || !vis(q.x, q.y) || inSecret(q)) return; const near = 1 - SS(70, 150, Math.hypot(h.x - q.x, h.y - q.y)); if (near <= 0) return;
       const X = sx(q.x), Yf = sy(q.y) + (q.kind === 'shelf' ? 24 : 0), ux = q.dx, uy = q.dy;
       for (let j = 0; j < 4; j++) { const ph = (t * 0.22 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * (q.kind === 'shelf' ? 110 : 40) * (0.5 + ph) + Math.sin(t * 1.6 + j * 2) * 4;
@@ -409,7 +409,7 @@
     // right; one painting each, never mirrored, so the light stays top-left). A top wall's door stands face-on in its arch and opens
     // edge-on along the corridor's left side; a bottom wall's the same without the arch. A side wall's stands edge-on in the gap
     // (the wall's own flat top is its jambs) and opens face-on, in shadow, against the corridor's back wall. The swing cross-fades
-    for (const d of m.doors || []) { if (!vis(d.x, d.y)) continue; const i = m.doors.indexOf(d), lock = SIM.doorLock(m, d);
+    for (const d of m.doors || []) { if (!vis(d.x, d.y)) continue; const i = m.doors.indexOf(d), lock = SIM.Q.doorLock(m, d);
       const a = d.open ? GT - (d.openT ?? -9) : -1, p = d.open ? 1 - Math.pow(1 - Math.min(1, a / (d.kick ? 0.16 : 0.32)), 3) : 0;
       const bump = ST.ev.find((e) => e.k === 'locked' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.3), jit = bump ? Math.sin((GT - bump.t) * 90) * 2 * (1 - (GT - bump.t) / 0.3) : 0;
       const side = d.dir === 'l' || d.dir === 'r', s = d.dir === 'r' ? 1 : -1, X = sx(d.x) + jit, un = ST.ev.find((e) => e.k === 'unlatch' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.7);
@@ -513,7 +513,7 @@
       if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
       const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);
-      if (caveW && h.deadT < 0 && !dryCrossings.has(heroCell) && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(heroCell)) {
+      if (caveW && h.deadT < 0 && !dryCrossings.has(heroCell) && SIM.Q.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(heroCell)) {
         const X = Math.round(sx(h.x) / PIX) * PIX, Y0 = Math.round(sy(h.y) / PIX) * PIX;
         for (let dy = -10; dy <= 6; dy += PIX) { const hw = Math.round(24 * Math.sqrt(Math.max(0, 1 - ((dy + 2) / 9) ** 2)) / PIX) * PIX; if (hw <= 0) continue;
           L.solid(X - hw, Y0 + dy, 2 * hw, PIX, dy < -8 ? [0.62, 0.84, 0.86] : [0.07, 0.3, 0.42], 0, 0, 0, dy < -8 ? 0.7 : 0.5); }

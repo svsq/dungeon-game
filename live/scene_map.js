@@ -56,7 +56,7 @@
     const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome];
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
       BAKE.tg = G.target(MW, MH, false);
-      const cv = document.createElement('canvas'); cv.width = cv.height = 1; const rec = G.canvasTex('map', cv); rec.t = BAKE.tg.t; rec.w = MW; rec.h = MH; }
+      const cv = G.canvas(); cv.width = cv.height = 1; const rec = G.canvasTex('map', cv); rec.t = BAKE.tg.t; rec.w = MW; rec.h = MH; }
     if (m.cliff) { if (!BAKE.face || BAKE.face.vw !== MW || BAKE.face.vh !== MH) { G.free(BAKE.face); BAKE.face = G.target(MW / 2, MH / 2, false, { view: [MW, MH], nearest: true }); }   // on the art grid: a quarter of the bake's memory
       BAKE.mg = { u_fk: B.floorK || 1, u_open: openTex(m), u_water: waterTex(m), u_wet: 0, u_lift: TOP_LIFT, u_map: [MW, MH], u_cliff: cliffTex(m), u_lava: lavaTex(m), u_far: lavaFarTex(m),
         u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_fall: fallU(m), u_step: m.ftype === 'terrace' && !m.ftype2 ? 1 : 0, u_stepm: stepTex(m), u_rows: terrRows(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
@@ -64,7 +64,7 @@
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
     // (a pit room's chasm, TASKS 374, is its own cell here, 7: deep water's cell in the sim, drawn as a hole in the floor)
     // (a two-level hall's drop, TASKS 375, is its own cell too, 8: the gallery's front face down to the floor below)
-    const PIT = new Set(m.pits || []), LEDGE = new Set(m.ledges || []), hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : LEDGE.has(y * m.W + x) ? 8 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
+    const PIT = new Set(m.pits || []), LEDGE = new Set(m.ledges || []), hid = SIM.Q.secretMask(m), c = (x, y) => { const v = SIM.Q.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : LEDGE.has(y * m.W + x) ? 8 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
@@ -153,7 +153,7 @@
       for (let a = 0; a < 6.283; a += 0.035) for (const [rx, ry, col] of [[58, 26, [0.32, 0.05, 0.03]], [48, 21, [0.22, 0.04, 0.03]]]) L.solid(Math.round((cx0 + Math.cos(a) * rx) / 2) * 2, Math.round((cy0 + Math.sin(a) * ry) / 2) * 2, 2, 2, col);
       for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283 + 0.4; L.solid(Math.round((cx0 + Math.cos(a) * 53) / 2) * 2 - 2, Math.round((cy0 + Math.sin(a) * 23.5) / 2) * 2 - 2, 4, 4, [0.4, 0.07, 0.04]); } }
     // painted floor decals: cracks, grime, moss, blood, coins, bones, webs…
-    for (const d of m.decals || []) { if (SIM.hidden(m, d)) continue; const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0); L.sprite(d.n, d.x - w0 * k / 2, d.y - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: d.n === 'dc_web' ? 0.7 : 0.92 } }); }
+    for (const d of m.decals || []) { if (SIM.Q.hidden(m, d)) continue; const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0); L.sprite(d.n, d.x - w0 * k / 2, d.y - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: d.n === 'dc_web' ? 0.7 : 0.92 } }); }
     // stains and scorch marks scattered on the floor
     for (let i = 0; i < m.W * m.H / 40; i++) { const x = Math.floor(rnd(i, m.seed % 97) * m.W), y = Math.floor(rnd(i + 0.5, m.seed % 89) * m.H);
       if (c(x, y) !== 1) continue; const wall = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([i2, j2]) => c(x + i2, y + j2) !== 1 && c(x + i2, y + j2) !== 3), r = Math.min(wall ? 12 : 99, 8 + 14 * rnd(i, 3));   // a stain by a wall stays off it
@@ -171,7 +171,7 @@
       if (hurt) { const hx = bx + ux * 24, hy = by + uy * 24; crack(hx, hy, a0 - 1.4, 3, 3, 21 + i, 1); crack(hx, hy, a0 + 1.4, 3, 3, 31 + i, 1); L.solid(hx - 7, hy - 5, 14, 10, [0.03, 0.02, 0.03], a0, 7, 5, 0.9); } });
     // wall decor: banners hang on the wall faces
     // (a plain banner hangs in the Y band: struck, it swings)
-    for (const d of m.decor) if (d.wall && d.n !== 'banner' && d.n !== 'shop_sign' && d.secret === undefined && !SIM.hidden(m, d)) { const [w, h] = SZ(d.n); L.sprite(d.n, d.x - w / 2, d.y - h + 8, { w, h }); }
+    for (const d of m.decor) if (d.wall && d.n !== 'banner' && d.n !== 'shop_sign' && d.secret === undefined && !SIM.Q.hidden(m, d)) { const [w, h] = SZ(d.n); L.sprite(d.n, d.x - w / 2, d.y - h + 8, { w, h }); }
     G.bind(null);
   }
   // the fog's edge fades over ~2 cells instead of cutting along the grid; the fade spreads into rock but never onto unseen floor,
@@ -191,26 +191,26 @@
     for (const a of [ch[0]]) for (let pass = 0; pass < passes; pass++) {
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * W + Math.min(W - 1, Math.max(0, x + d))]; b[y * W + x] = v / 5; }
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(H - 1, Math.max(0, y + d)) * W + x]; a[y * W + x] = v / 5; } }
-    const cv = M.cv || (M.cv = document.createElement('canvas')); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
+    const cv = M.cv || (M.cv = G.canvas()); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
     for (let i = 0; i < W * H; i++) { const v = Math.round(255 * ch[0][i]); im.data[i * 4] = v; im.data[i * 4 + 3] = 255;
       im.data[i * 4 + 1] = vec ? Math.round(255 * (0.5 + 0.5 * ch[1][i])) : v; im.data[i * 4 + 2] = vec ? Math.round(255 * (0.5 + 0.5 * ch[2][i])) : v; }
     g.putImageData(im, 0, 0);
     if (!M.rec) M.rec = G.canvasTex(name + 'mask', cv);
-    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, M.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
+    else { G.canvasUpdate(M.rec, cv); }
     return M.rec;
   }
   // a river's crust drifts its way (dungeon.js lavaFlow: 0 right, 1 down, 2 left, 3 up); a pool, or the staged field, lies still
   const FLOW = [[1, 0], [0, 1], [-1, 0], [0, -1]];
   // the magma caves' lava runs on under its slabs and bridges, not under a stone arch (TASKS 401)
   const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m); if (!u) { const arch = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => c.cells)); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !arch.has(k)))); } return u; };
-  const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x), (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
+  const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.Q.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x), (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
   // its glow (the emissive pass, drawn over everything) leaves out what lies under a crossing, or it shines through the slabs and planks
   const surgeTex = (m, z) => { const lv = new Map(z.cells.map((k, i) => [k, z.lv[i]])), F = fallsOf(m), f = F.length ? F.reduce((a, b) => (Math.hypot(b.x - z.x, b.y - z.y) < Math.hypot(a.x - z.x, a.y - z.y) ? b : a)) : z;
     const ds = z.cells.map((k) => Math.hypot((k % m.W + 0.5) * TILE - f.x, (Math.floor(k / m.W) + 0.5) * TILE - f.y)), d0 = Math.min(...ds), d1 = Math.max(...ds), dn = new Map(z.cells.map((k, i) => [k, (ds[i] - d0) / Math.max(1, d1 - d0)]));
     return maskTex(m, 'surge', (x, y) => lv.has(y * m.W + x), (x, y) => [2 * dn.get(y * m.W + x) - 1, 2 * lv.get(y * m.W + x) - 1], 0); };
   const SBOX = new WeakMap(), surgeBox = (z) => { let b = SBOX.get(z); if (!b) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const k of z.cells) { const x = k % z.W, y = Math.floor(k / z.W); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
     SBOX.set(z, b = [(x0 - 1) * TILE, (y0 - 1) * TILE, (x1 - x0 + 3) * TILE, (y1 - y0 + 3) * TILE]); } return b; };
-  const lavaGlowTex = (m) => maskTex(m, 'lavaglow', (x, y) => SIM.cell(m, x, y) === 3, (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);
+  const lavaGlowTex = (m) => maskTex(m, 'lavaglow', (x, y) => SIM.Q.cell(m, x, y) === 3, (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);
   // the plateaus' back wall (TASKS 402): the rock rows above m.cliff, the only rock drawn as rock; the rest is the chasm
   // (an unfound cache in it, TASKS 425, is the wall's rock: its fake wall and room stand in the wall rows)
   // a lavafall's face (TASKS 452): as tall as the rock over it allows under its pool (48 px) and the map's black top row, up to 140
@@ -229,42 +229,42 @@
     const ks = Object.keys(rows).map(Number).sort((a, b) => a - b), F = fallsOf(m), fy = F.length ? F[0].y : 0, f0 = ks.reduce((b, k) => (Math.abs((rows[k][0] + rows[k][1]) / 2 - fy) < Math.abs((rows[b][0] + rows[b][1]) / 2 - fy) ? k : b), ks[0]);
     ks.slice(0, 8).forEach((k, i) => { out[i * 4] = rows[k][0]; out[i * 4 + 1] = rows[k][1]; out[i * 4 + 2] = Math.max(0.45, 1 - 0.18 * Math.abs(k - f0)); }); return out; };
   const fallU = (m) => { const f = fallsOf(m), u = []; for (let i = 0; i < 6; i++) u.push(...(f[i] ? [f[i].x, f[i].y, f[i].z, f[i].h] : [0, 0, 0, 0])); return u; };
-  const cliffTex = (m) => { const hid = SIM.secretMask(m); return maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && (SIM.cell(m, x, y) === 0 || SIM.cell(m, x, y) === 4 || hid.has(y * m.W + x))), null, 1); };
+  const cliffTex = (m) => { const hid = SIM.Q.secretMask(m); return maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && (SIM.Q.cell(m, x, y) === 0 || SIM.Q.cell(m, x, y) === 4 || hid.has(y * m.W + x))), null, 1); };
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
-  const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.cell(m, x, y) === 3, null, 8);
+  const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.Q.cell(m, x, y) === 3, null, 8);
   // how near the lava a cell lies, as HERO.lavaNear weighs it (TASKS 1035): the lit pass holds the lava's light down within its reach only
-  const lavaNearTex = (m) => maskTex(m, 'lavanear', (x, y) => { let d = 9; for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.cell(m, x + i, y + j) === 3) d = Math.min(d, Math.hypot(i, j)); return SS(5.5, 2, d); }, null, 2);
+  const lavaNearTex = (m) => maskTex(m, 'lavanear', (x, y) => { let d = 9; for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.Q.cell(m, x + i, y + j) === 3) d = Math.min(d, Math.hypot(i, j)); return SS(5.5, 2, d); }, null, 2);
   // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
   // the chasm under a chain bridge (TASKS 429) is the dark: walked on, never ground
   const CHUND = new WeakMap(), chasmUnder = (m) => { let u = CHUND.get(m); if (!u) CHUND.set(m, u = new Set(m.chasmUnder || [])); return u; };
   const STEPS = new WeakMap(), stepTex = (m) => { let q = STEPS.get(m); if (!q) STEPS.set(m, q = new Set(m.steps || [])); return maskTex(m, 'steps', (x, y) => q.has(y * m.W + x), null, 1); };
-  const platTex = (m) => maskTex(m, 'plat', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 3 && v !== 4 && !chasmUnder(m).has(y * m.W + x); }, null, 1);
+  const platTex = (m) => maskTex(m, 'plat', (x, y) => { const v = SIM.Q.cell(m, x, y); return v !== 0 && v !== 3 && v !== 4 && !chasmUnder(m).has(y * m.W + x); }, null, 1);
   // deep in a lake, where a cluster of columns may stand (TASKS 418): the cell and those round it and two below it open lava, no
   // crust, crossing or source within a few cells
   const lakeTex = (m) => { const cr = new Set(m.crust || []), un = lavaUnder(m), src = m.lavaFeatures || [];
-    const hot = (x, y) => SIM.cell(m, x, y) === 3 && !cr.has(y * m.W + x) && !un.has(y * m.W + x);
+    const hot = (x, y) => SIM.Q.cell(m, x, y) === 3 && !cr.has(y * m.W + x) && !un.has(y * m.W + x);
     return maskTex(m, 'lake', (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 1; i++) if (!hot(x + i, y + j)) return false;
       return !src.some((q) => Math.abs(Math.floor(q.x / TILE) - x) <= 3 && Math.abs(Math.floor(q.y / TILE) - y) <= 3); }, null, 0); };
   // (G: thin crust, an islet's way, TASKS 476)
   const crustTex = (m) => { const c = new Set(m.crust || []), th = new Set(m.thin || []); return maskTex(m, 'crust', (x, y) => c.has(y * m.W + x), (x, y) => [th.has(y * m.W + x) ? 1 : -1, 0], 1); };
   // the plateaus' chasm is no rock top: the lava's light reaches down into it (TASKS 402)
-  const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] || SIM.chasm(m, x, y) ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
+  const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] || SIM.Q.chasm(m, x, y) ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
   // where the fire depths' abyss may glow: rock within a few cells of a floor or lava cell
   const veinTex = (m) => { const d = rockDist(m); return maskTex(m, 'veins', (x, y) => x >= 0 && y >= 0 && x < m.W && y < m.H && d[y * m.W + x] <= 5); };
   // the dry crossings are stepping stones laid in the stream: the water runs on under them (TASKS 230)
   // a cave's deep water (cell 6) and the bridges over it are water too, and deep water has a mask of its own (TASKS 302)
-  const waterTex = (m) => { const w = new Set((m.water || []).concat(m.waterBridges || [], (m.crossings || []).flatMap((c) => c.cells))); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x) || SIM.cell(m, x, y) === 6, (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };
-  const deepTex = (m) => maskTex(m, 'deep', (x, y) => SIM.cell(m, x, y) === 6, null, 1);
+  const waterTex = (m) => { const w = new Set((m.water || []).concat(m.waterBridges || [], (m.crossings || []).flatMap((c) => c.cells))); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x) || SIM.Q.cell(m, x, y) === 6, (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };
+  const deepTex = (m) => maskTex(m, 'deep', (x, y) => SIM.Q.cell(m, x, y) === 6, null, 1);
   const SRC_KIND = { waterfall: 0, breach: 1, spring: 2 }, SRC_DIR = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] };
   // a cave's open cells (floor, water, doors, found secrets) for its rock outline (CAVE)
-  const openTex = (m) => { const hid = SIM.secretMask(m), ch = chasmUnder(m); return maskTex(m, 'open', (x, y) => { const v = SIM.cell(m, x, y); return v !== 0 && v !== 4 && !hid.has(y * m.W + x) && !ch.has(y * m.W + x); }, null, 1); };
+  const openTex = (m) => { const hid = SIM.Q.secretMask(m), ch = chasmUnder(m); return maskTex(m, 'open', (x, y) => { const v = SIM.Q.cell(m, x, y); return v !== 0 && v !== 4 && !hid.has(y * m.W + x) && !ch.has(y * m.W + x); }, null, 1); };
   // 1 deep in the rock (3 to 6 cells from any floor, soft) and toward the map's edge, where a room may lie close: the abyss shows through
   // cells of rock from the nearest floor or wall face (a top wall's two face cells count as open): the masonry is a rim of two
   // cells around the rooms, the third fades, and the abyss shows past it, so rooms read by their silhouette as in the reference
   const RDIST = { key: '', d: null };
   function rockDist(m) {
     const key = mapKey(m); if (RDIST.key === key) return RDIST.d; RDIST.key = key;
-    const hid = SIM.secretMask(m), W = m.W, H = m.H, d = new Float32Array(W * H).fill(99), open = (x, y) => y < H && m.cells[y * W + x] !== 0 && m.cells[y * W + x] !== 4 && !hid.has(y * W + x);
+    const hid = SIM.Q.secretMask(m), W = m.W, H = m.H, d = new Float32Array(W * H).fill(99), open = (x, y) => y < H && m.cells[y * W + x] !== 0 && m.cells[y * W + x] !== 4 && !hid.has(y * W + x);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (open(x, y) || open(x, y + 1) || open(x, y + 2)) d[y * W + x] = 0;
     for (let pass = 0; pass < 8; pass++) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = d[y * W + x];
       for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const X = x + i, Y = y + j; if (X >= 0 && Y >= 0 && X < W && Y < H) v = Math.min(v, d[Y * W + X] + 1); } d[y * W + x] = v; }
@@ -273,20 +273,20 @@
   function voidTex(m) {
     const key = mapKey(m); if (VOID.key === key) return VOID.rec; VOID.key = key;
     const W = m.W, H = m.H, d = rockDist(m);
-    const cv = VOID.cv || (VOID.cv = document.createElement('canvas')); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
+    const cv = VOID.cv || (VOID.cv = G.canvas()); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
     // a lavafall's rock stays in sight up to the map's top row: its face and the pool it pours from stand there (TASKS 452)
     const fallRock = new Set(); if (m.cliff) for (const f of fallsOf(m)) if (f.h) for (let y = Math.max(1, Math.floor((f.y - f.h - 80) / TILE)); y <= f.wallY; y++) for (let x = Math.floor((f.x - f.z - 8) / TILE); x <= Math.floor((f.x + f.z + 8) / TILE); x++) fallRock.add(y * W + x);
     for (let i = 0; i < W * H; i++) { const x = i % W, y = Math.floor(i / W), e = Math.min(x, y, W - 1 - x, H - 1 - y), v = fallRock.has(i) ? 0 : Math.round(255 * Math.max(SS(1.25, 2.15, d[i]), 1 - SS(0, 2.5, e))); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!VOID.rec) VOID.rec = G.canvasTex('void', cv);
-    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, VOID.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
+    else { G.canvasUpdate(VOID.rec, cv); }
     return VOID.rec;
   }
   function seenTex(R) {
     const m = R.map; let n = 0; for (let i = 0; i < R.seen.length; i++) n = (Math.imul(n, 31) + R.seen[i]) | 0;
     const key = m.seed + ':' + m.floor + ':' + n + ':' + R.rseen.join('');
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
-    if (!SEEN.cv) { SEEN.cv = document.createElement('canvas'); }
+    if (!SEEN.cv) { SEEN.cv = G.canvas(); }
     const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H);
     const K = [1, 2, 3, 2, 1], W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + 2] * R.seen[y * W + u]; } a[y * W + x] = v / 9; }
@@ -295,7 +295,7 @@
       const v = Math.round(255 * f); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!SEEN.rec) SEEN.rec = G.canvasTex('seen', cv);
-    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, SEEN.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); }
+    else { G.canvasUpdate(SEEN.rec, cv); }
     return SEEN.rec;
   }
   const SPELL_FLOOR = { key: '', rec: null, cv: null }, SPELL_WATER = { key: '', rec: null, cv: null };
@@ -305,8 +305,8 @@
     const m = R.map; let hsh = 0; for (let i = 0; i < m.cells.length; i++) hsh = (Math.imul(hsh, 31) + m.cells[i] * 2 + (R.seen[i] ? 1 : 0)) | 0;
     const key = m.seed + ':' + m.floor + ':' + hsh + ':' + (m.secrets || []).filter((q) => q.open).length;
     if (cache.key === key) return cache.rec;
-    const cv = cache.cv || (cache.cv = document.createElement('canvas')); cv.width = m.W; cv.height = m.H;
-    const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H), hidden = SIM.secretMask(m);
+    const cv = cache.cv || (cache.cv = G.canvas()); cv.width = m.W; cv.height = m.H;
+    const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H), hidden = SIM.Q.secretMask(m);
     for (let i = 0; i < m.cells.length; i++) {
       im.data[i * 4] = (m.cells[i] === 1 || m.cells[i] === 3 || water && m.cells[i] === 6) && R.seen[i] && !hidden.has(i) ? 255 : 0;
       im.data[i * 4 + 3] = 255;
@@ -315,7 +315,7 @@
     if (!cache.rec) cache.rec = G.canvasTex(water ? 'spell_water' : 'spell_floor', cv);
     // the mips are rebuilt with every upload: a floor of another size left the old ones behind, the texture went incomplete and
     // read as all rock, so every spell on the cave's larger floors was masked away
-    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, cache.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
+    else { G.canvasUpdate(cache.rec, cv);
       cache.rec.w = cv.width; cache.rec.h = cv.height; }
     cache.key = key; return cache.rec;
   }

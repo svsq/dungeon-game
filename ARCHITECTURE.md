@@ -204,13 +204,14 @@
 
 ## 5. Контракт: кто что читает и пишет в `S`
 
-- **Пишет только логика** (`sim_*`). Отрисовка, HUD и звук читают.
-- **Отрисовка читает** `S.run` (карта `map`, `hero`, `en`, `drops`, `chests`, `proj`, `fires`, `folk`, `quests`, `cam`, `seen`/`rseen`,
-  `shop`, `arena`, `portal`, `ways` и ещё ≈30 полей забега), `S.t`, `S.screen`, `S.ev`, `S.hover`, `S.meta`, `S.result`, `S.saved`,
-  `S.talk`, `S.craft`, `S.jsel`, `S.drag`, `S.demo`, отладочные `S.debug`, `S.dbgLoot`. Полный список полей забега пишется в
-  504 при описании интерфейса.
-- **Запросы отрисовки к логике** — ≈60 функций чтения из `SIM` (§1). В 504 они собираются в отдельный объект `SIM.Q`, чтобы
-  было видно, что отрисовке можно, а что нельзя.
+- **Пишет только логика** (`sim_*`). Отрисовка, HUD и звук читают; `layercheck.cjs` (§8) держит отрисовку на `SIM.Q`.
+- **Отрисовка читает** (вне `scene_qa.js`) из `S`: `t`, `screen`, `run`, `ev`, `hover`, `meta`, `result`, `saved`, `talk`, `craft`,
+  `jsel`, `drag`, `demo`, `metaRun`, `resetT`, `resetM`, отладочные `debug`, `dbgLoot`; из забега `S.run`: `map`, `hero`, `en`,
+  `drops`, `chests`, `pots`, `proj`, `fires`, `pyres`, `rocks`, `eggs`, `cracks`, `scorches`, `lavaPending`, `folk`, `quests`, `ways`,
+  `portal`, `shop`, `shrines`, `altar`, `donations`, `arena`, `bossDead`, `cam`, `zoom`, `trauma`, `seen`, `rseen`, `msg`, `keys`, `floor`,
+  `mode`, `seed`, `town`, `viaTown`, `campaignWon`, `memo`, `grain`, `Hd`, `r`, `tx` (на 07.11.2026, `grep` по `R.` в файлах отрисовки).
+- **Запросы отрисовки к логике** — `SIM.Q` (44 функции чтения, `sim.js`) и константы `SIM.VIEW`, `DT`, `K`, `DOOM`, `CRUST`,
+  `FOLK_OUCH`, `REWARD`. `fstat` дописывает память `R.stats`, которую шаг уже заполнил; `at(t)` проигрывает заставку в свой кеш.
 - **Платформа** (`index.html`): ввод → `S` через `SIM.step(S, input)`, `S.saveN` → `SIM.persist` → `localStorage`, конец забега →
   журнал на скачивание.
 
@@ -239,3 +240,27 @@
    логики.
 
 `hud.js` и `monsters.js` (около 830 строк каждый) пока не делятся: по ним нет горячих мест. `hud.js` затрагивает 1141.
+
+## 8. Граница переносимости (504)
+
+Что нужно реализовать, чтобы перенести игру на другой движок. Логика (`data_*`, `text*`, `dungeon*`, `sim*`) переносится как есть:
+она уже работает в Node без страницы. Отрисовка (`scene*`, `hud.js`, `monsters.js`, `lib.js`) переносится, если есть то, что ниже.
+`tools/layercheck.cjs` (его зовёт `tune.cjs`) держит границы: логика не трогает страницу, отрисовку, часы и случайность;
+отрисовка не трогает страницу, кроме глобального реестра, не берёт сырой WebGL, не трогает часы и случайность и из логики
+берёт только `SIM.Q` и константы.
+
+**Платформа, которую заменяет другой движок:**
+
+| Что | Сейчас | Контракт |
+|---|---|---|
+| Цикл | `index.html` | шаг логики `SIM.step(S, input)` с `SIM.DT` (1/120 с) столько раз, сколько набежало времени; затем `SCENE.render(t)` с `SCENE.state = S`; `AUDIO.update(S)`; горячая перезагрузка и заставка до первого нажатия |
+| Ввод | `index.html` | объект шага: `left`, `right`, `up`, `down` (зажатые), `px`, `py` (указатель в пикселях вида 1920×1080), `press` (кнопка зажата), `click`, `rclick` (нажатия за шаг), `slot` (цифра 1–9, 0 → 10), `keys` (коды клавиш, нажатых за шаг, как `KeyboardEvent.code`); `index.html` кладёт ещё `wheel`, `jump`, `act`, логика их сейчас не читает |
+| Сохранения | `index.html` | `S.saveN` вырос — записать `SIM.persist(S)` (`{ meta, run }`, простой JSON); при старте — `SIM.spawn(t, сохранённое)`; журнал конца забега — `S.result.log` |
+| Графика | `gl.js` (133 строки) | `G.init`, `G.load` (текстуры по `ASSETS`), `G.tex(имя)` → `{ t, w, h }`, `G.target(w, h, …)`, `G.bind`, `G.blend(режим)`, `G.program(имя, исходник)`, `G.draw(программа, униформы, xf)`, `G.xf(x, y, w, h, …)`, `G.full`, `G.free`, `G.canvas()` (2D-холст: маски, миникарта, текст), `G.canvasTex(имя, холст)`, `G.canvasUpdate(rec, холст)`, `G.params` (отладочные `?fx=0`, `?only=…`), `G.W`, `G.H`, `G.COMMON`; шейдеры — GLSL ES 3.0 в `lib.js` и `scene_core.js` |
+| 2D-холст | браузер | то, что `G.canvas()` возвращает: `width`, `height`, `getContext('2d')` с `createImageData`/`putImageData`, `fillRect`, `clearRect`, `createLinearGradient`, `fillText`, `strokeText`, `measureText` и свойствами `font`, `fillStyle`, `strokeStyle`, `lineWidth`, `lineJoin`, `textBaseline` |
+| Звук | `audio.js` (359 строк) | `AUDIO.update(S)` каждый кадр: звук синтезируется по событиям `S.ev` (их время `e.t`) и по состоянию; читает из логики только `SIM.Q.stats` |
+| Глобальный реестр | `window` | `ASSETS`, `SIZES`, `RIGS` (данные из `prep.py` и риг-скриптов), `LIB`, `SCENE`, `SCX`, `MONSTERS`, `HUD`, `DATA`, `SIM`, `SIMX`, `DGX`, `TEXT`, `TXT`; на движке без `window` — `globalThis.window = globalThis` до загрузки |
+
+**Порядок загрузки** — `live/modules.js` (`page`): платформа и данные ассетов, затем тексты, данные, генерация, логика, монстры,
+сцена, HUD, звук. В Node точки входа (`data.js`, `dungeon.js`, `sim.js`) подтягивают свои части сами.
+

@@ -341,7 +341,7 @@
         else { for (let i = 0; i < 5; i++) noise(o, { t: now() + i * rr(0.02, 0.09), d: 0.02, v: 0.06, f0: rr(2000, 5000), q: 4 }); noise(o, { a: 0.3, d: 1.2, v: 0.08, type: 'lowpass', f0: 200 }); } }
       if (amb.one === 'chime') tone(o, { f0: [1047, 1319, 1568, 1976][Math.floor(rr(0, 4))], a: 0.02, d: 1.2, v: 0.03 }); }
     // a heartbeat while the hero is low on health
-    if (on && S.screen === 'play' && R.hero.deadT < 0) { const st = window.SIM && SIM.stats ? SIM.stats(R.hero, S.meta) : null, f = st ? R.hero.hp / st.maxHp : 1;
+    if (on && S.screen === 'play' && R.hero.deadT < 0) { const st = window.SIM && SIM.Q.stats ? SIM.Q.stats(R.hero, S.meta) : null, f = st ? R.hero.hp / st.maxHp : 1;
       if (f < 0.3 && now() > beatT) { beatT = now() + 0.55 + 0.6 * f / 0.3; const o = out(0, 0.8, 0.1); tone(o, { f0: 62, f1: 40, d: 0.12, v: 0.5 }); tone(o, { f0: 55, f1: 36, t: now() + 0.16, d: 0.14, v: 0.4 }); } }
   }
 

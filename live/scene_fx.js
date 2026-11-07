@@ -37,7 +37,7 @@
     // the imps' sparks in hand, the salamanders' breath and their ripples in the lava (TASKS 407, 408)
     for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue; const E = D.ENEMIES[e.type];
       if (RIM.imps[e.id]) impSpark(e, E, RIM.imps[e.id], GT, t); if (RIM.salams[e.id] && e.br) breathFx(e, E, RIM.salams[e.id], GT, t); const sw = swimOf(e, GT); if (sw > 0.02) { let bank = 1e9; const cx0 = Math.floor(e.x / TILE), cy0 = Math.floor(e.y / TILE);
-        for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (SIM.cell(m, cx0 + i, cy0 + j) !== 3) bank = Math.min(bank, Math.max(0, Math.hypot(Math.max(0, Math.abs((cx0 + i + 0.5) * TILE - e.x) - 16), Math.max(0, Math.abs((cy0 + j + 0.5) * TILE - e.y) - 16))));
+        for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (SIM.Q.cell(m, cx0 + i, cy0 + j) !== 3) bank = Math.min(bank, Math.max(0, Math.hypot(Math.max(0, Math.abs((cx0 + i + 0.5) * TILE - e.x) - 16), Math.max(0, Math.abs((cy0 + j + 0.5) * TILE - e.y) - 16))));
         swimFx(e, E, sx(e.x), sy(e.y), sw, GT, t, bank); } }
     // the cultist's free hand holds a green spark: the brightest point of the figure, as in the reference's enemy sheet
     // the fire priest's free hand holds a ball of fire, as in the reference (TASKS 410)
@@ -114,8 +114,8 @@
         G.draw(L.P.serptele, Object.assign({ u_t: t, u_kind: kind, u_q: q, u_r: reach, u_arc: 0, u_hw: 0, u_n: 1, u_fade: 1 - SS(Mv.wind, Mv.wind + 0.5, u), u_org: [R0, R0], u_sz: [2 * R0, 2 * R0], u_dir: [Math.cos(e.aimA), Math.sin(e.aimA)] }, extra), G.xf(ox - R0, oy - R0, 2 * R0, 2 * R0)); };
       if (e.mv === 'tail') tele(x, y, 0, Mv.r, { u_arc: Math.PI + 0.1 });
       else if (e.mv === 'bite') tele(x, y, 0, Mv.r, { u_arc: Mv.arc });
-      else if (e.mv === 'wave') { const L = SIM.flightReach(m, e.x, e.y - 38, e.aimA, Mv.speed, Mv.reach / Mv.speed, 28); tele(x, sy(e.y - 38 + 28), 1, Mv.reach, { u_hw: 34, u_len: [L, 0, 0, 0], u_len4: 0 }); }
-      else { const [mx, my] = SIM.serpentMouth(e), L = []; for (let i = 0; i < Mv.n; i++) L.push(SIM.flightReach(m, mx, my, e.aimA + (i / (Mv.n - 1) - 0.5) * Mv.spread * 2, Mv.speed, Mv.reach / Mv.speed, 82));
+      else if (e.mv === 'wave') { const L = SIM.Q.flightReach(m, e.x, e.y - 38, e.aimA, Mv.speed, Mv.reach / Mv.speed, 28); tele(x, sy(e.y - 38 + 28), 1, Mv.reach, { u_hw: 34, u_len: [L, 0, 0, 0], u_len4: 0 }); }
+      else { const [mx, my] = SIM.Q.serpentMouth(e), L = []; for (let i = 0; i < Mv.n; i++) L.push(SIM.Q.flightReach(m, mx, my, e.aimA + (i / (Mv.n - 1) - 0.5) * Mv.spread * 2, Mv.speed, Mv.reach / Mv.speed, 82));
         tele(sx(mx), sy(my + 82), 2, Mv.reach, { u_arc: Mv.spread, u_hw: 22, u_n: Mv.n, u_len: [L[0], L[1] || 0, L[2] || 0, L[3] || 0], u_len4: L[4] || 0 }); }
     }
     for (const e of R.en) if (e.type === 'boss_serpent' && e.floodAt > GT) {
@@ -210,7 +210,7 @@
         if (e.st !== 'bwind') continue; const Mv = D.bossMove(e), w = Mv.wind, q = SS(0, w, u), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * q));
         if (e.mv === 'fists' && u < w) { L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.4, 0.1], (0.3 + 0.55 * q) * beat, 0.05); L.ring(X, Y0, Mv.r * (1.5 - 0.5 * q), Mv.r * 0.75 * (1.5 - 0.5 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.04); }
         if (e.mv === 'crack' && u < w) { const p = D.colossusContact(e), c = Math.cos(e.aimA), sn = Math.sin(e.aimA);
-          for (let l = 0; l <= Mv.len; l += 18) { const px = p.x + c * l, py = p.y + sn * l, cl = SIM.cell(m, Math.floor(px / TILE), Math.floor(py / TILE)); if (cl !== 1 && cl !== 3) break; const fl = 0.7 + 0.3 * Math.sin(GT * 30 + l * 0.2);
+          for (let l = 0; l <= Mv.len; l += 18) { const px = p.x + c * l, py = p.y + sn * l, cl = SIM.Q.cell(m, Math.floor(px / TILE), Math.floor(py / TILE)); if (cl !== 1 && cl !== 3) break; const fl = 0.7 + 0.3 * Math.sin(GT * 30 + l * 0.2);
             L.glow(sx(px), sy(py), 9 + 6 * q, [1, 0.4, 0.1], (0.15 + 0.55 * q) * fl * SS(0, w * 0.5, u - l / Mv.len * w * 0.4), 2.4); } } }
       for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, front = Math.min(c.len, u * c.speed), cool = 1 - SS(run, run + c.linger, u), co = Math.cos(c.a), sn = Math.sin(c.a);
         for (let l = 0; l <= front; l += 12) { const px = c.x + co * l, py = c.y + sn * l, jig = (rnd(c.id, Math.floor(l / 12)) - 0.5) * 8, hot = l > front - 40 ? 1.4 : 1;
@@ -224,9 +224,9 @@
         if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.06); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
         else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.22, 0.08], (0.45 + 0.55 * f) * beat, 0.12); L.glow(X, Y0, q.r * 0.7, [1, 0.3, 0.1], 0.2 * f, 2); } }
     }
-    // the brink (TASKS 476): a monster the hero could drive off an edge (SIM.brinkOf) has a ring at its feet beating slowly and the
+    // the brink (TASKS 476): a monster the hero could drive off an edge (SIM.Q.brinkOf) has a ring at its feet beating slowly and the
     // edge by it lit, while the hero is near enough to make it a move
-    if (m.cliff) for (const e of R.en) { if (Math.hypot(e.x - R.hero.x, e.y - R.hero.y) > 420 || !known(e.x, e.y)) continue; const b = SIM.brinkOf(m, e); if (!b) continue;
+    if (m.cliff) for (const e of R.en) { if (Math.hypot(e.x - R.hero.x, e.y - R.hero.y) > 420 || !known(e.x, e.y)) continue; const b = SIM.Q.brinkOf(m, e); if (!b) continue;
       // (the ring at its feet, on the dark floor: on the lava's own glare a ring at the edge was lost)
       const X = sx(e.x), Y = sy(e.y), beat = 0.7 + 0.3 * Math.sin(GT * 5 + e.id), a = (1 - b.d / D.BRINK.near * 0.5) * beat;
       // (a gain: yellow-green chevrons at its feet running toward the edge it can be driven off, TASKS 487)
