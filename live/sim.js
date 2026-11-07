@@ -780,7 +780,7 @@
     // (a smooth noise over 3 cells, TASKS 1037: hashed cell by cell it left single cells revealed out in the fog, crumbs of lava)
     const hh = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
     const h01 = (x, y) => { const gx = x / 3, gy = y / 3, x0 = Math.floor(gx), y0 = Math.floor(gy), fx0 = gx - x0, fy0 = gy - y0, sx0 = fx0 * fx0 * (3 - 2 * fx0), sy0 = fy0 * fy0 * (3 - 2 * fy0);
-      return (hh(x0, y0) * (1 - sx0) + hh(x0 + 1, y0) * sx0) * (1 - sy0) + (hh(x0, y0 + 1) * (1 - sx0) + hh(x0 + 1, y0 + 1) * sx0) * sy0; };
+      return (hh(x0, y0) * (1 - sx0) + hh(x0 + 1, y0) * sx0) * (1 - sy0) + (hh(x0, y0 + 1) * (1 - sx0) + hh(x0 + 1, y0 + 1) * sx0) * sy0 + (hh(x + 31, y + 17) - 0.5) * 0.2; };   // (and a little cell by cell, TASKS 1048: smooth alone, the edge ran straight again)
     const rooms = new Set(), oval = !!m.cliff;
     for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > (0.72 + 0.28 * h01(x, y)) ** 2) || !sight(x, y)) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
@@ -800,8 +800,14 @@
     // a lake's or a river's choice (dungeon.js m.choice, TASKS 486): every way over and the stairs show from the first bank
     if (m.choice && !R.choiceShown) { let A = CHOICE.get(m); if (!A) CHOICE.set(m, A = new Set(m.choice.at));
       // (each way as a lane of the cells within two of it, TASKS 1037: its floor alone showed as crumbs scattered in the fog)
-      if (A.has(ty * W + tx)) { R.choiceShown = 1; for (const k of m.choice.show) { const x = k % W, y = Math.floor(k / W);
-        for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) { if (u * u + v * v > 5 || !inMap(x + u, y + v)) continue; if (opaque(x + u, y + v)) wall(x + u, y + v); else R.seen[(y + v) * W + x + u] = 1; } } } }
+      // (TASKS 1048: grown out from what is seen, each lane joined to it; laid whole, a lane hung in the fog, a loose piece of lava;
+      // the stairs' room shows apart, as the goal)
+      if (A.has(ty * W + tx)) { R.choiceShown = 1; const lane = new Set(), ex = m.exit.tx, ey = m.exit.ty;
+        for (const k of m.choice.show) { const x = k % W, y = Math.floor(k / W); if (Math.abs(x - ex) <= 5 && Math.abs(y - ey) <= 5) { R.seen[k] = 1; continue; }
+          for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) if (u * u + v * v <= 5 && inMap(x + u, y + v)) lane.add((y + v) * W + x + u); }
+        const q = [...lane].filter((k) => !R.seen[k] && [1, -1, W, -W].some((o) => R.seen[k + o] && !opaque((k + o) % W, Math.floor((k + o) / W))));
+        for (let i = 0; i < q.length; i++) { const k = q[i]; if (R.seen[k]) continue; const x = k % W, y = Math.floor(k / W); if (opaque(x, y)) { wall(x, y); continue; } R.seen[k] = 1;
+          for (const o of [1, -1, W, -W]) if (lane.has(k + o) && !R.seen[k + o]) q.push(k + o); } } }
     // an open cell the reveal's edges left unseen in the middle of seen ones shows (TASKS 482: black holes inside the open lava)
     if (oval) for (let y = ty - 14; y <= ty + 14; y++) for (let x = tx - 18; x <= tx + 18; x++) { if (!inMap(x, y) || R.seen[y * W + x] || opaque(x, y)) continue;
       let n = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if ((u || v) && inMap(x + u, y + v) && R.seen[(y + v) * W + x + u]) n++;
