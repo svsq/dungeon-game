@@ -1284,8 +1284,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const HERO = { lift: 0.85, k: 0 }, HSAT = 0.8;
   // through a hoard's thin crust (TASKS 484): he goes down into the lava to the chest where he stood, then comes up over the bank's lip
   // on the firm ground he climbs out onto, both cut at the surface
-  const sinkOf = (h, GT, Y) => { const e2 = (v) => Math.round(v / 2) * 2; if (h.sunk) return { dy: e2(34 * SS(0, 0.3, GT - h.sunk.t)), cut: [Y + 4, 3, 1] };
-    if (h.climbT !== undefined && GT - h.climbT < 0.4) return { dy: e2(26 * (1 - SS(0, 0.4, GT - h.climbT))), cut: [Y + 2, 2, 1] }; return { dy: 0 }; };
+  // (TASKS 1043: he went in to the chest and was moved half under; now wholly under before he is moved, arms flung up, and up over
+  // the bank's lip with them first)
+  const sinkOf = (h, GT, Y) => { const e2 = (v) => Math.round(v / 2) * 2; if (h.sunk) { const a = GT - h.sunk.t; return { dy: e2(120 * SS(0, 0.45, a) ** 1.5), cut: [Y + 4, 3, 1], arms: SS(0, 0.12, a) }; }
+    if (h.climbT !== undefined && GT - h.climbT < 0.45) { const a = GT - h.climbT; return { dy: e2(40 * (1 - SS(0, 0.45, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.15, 0.45, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && h.castK !== 'whirl';
@@ -1405,6 +1407,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (dashE > 0) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); }
     if (hurtE > 0 && swingK === 0) { pose(arms.L, -0.45, 0.5, hurtE); pose(arms.R, -0.3, 0.45, hurtE); }
     if (o.victory) { reach(arms.R, armLen(arms.R) * 0.32, -armLen(arms.R) * 0.88, 1); pose(arms.L, -0.25, 0.2, 1); bladeA = -Math.PI / 2 + 0.08; }
+    if (o.armsUp > 0) { reach(arms.R, armLen(arms.R) * 0.2, -armLen(arms.R) * 0.9, o.armsUp); reach(arms.L, -armLen(arms.L) * 0.1, -armLen(arms.L) * 0.9, o.armsUp); }
     if (buckle > 0) { const f = SS(0, 0.2, du); arms.L.r1 -= 0.9 * f; arms.L.r2 = arms.L.r1 + 0.35; arms.R.r1 -= 1.1 * f; arms.R.r2 = arms.R.r1 + 0.3; }
     // cape and hair are painted into the body, so they bend in the shader (soft bones, art/softbones.json). The render has no
     // springs: every event (swing, turn, hurt) rings out as a damped wave from its timestamp, the run trails them back
@@ -2451,7 +2454,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // into it or the warm ground (TASKS 404); elsewhere as before
       const lv = m.cliff && h.deadT < 0 ? HERO.lavaAt(h.x, h.y) : null, hn = lv ? Math.hypot(lv.dx, lv.dy * 1.25) || 1 : 1;
       const heroRim = lv && lv.k > 0.15 ? { dx: Math.round(2 * lv.dx / hn), dy: Math.round(2 * lv.dy * 1.25 / hn), col: [1, 0.6, 0.22].map((v) => v * 0.75 * SS(0.15, 0.8, lv.k)) } : null;
-      if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { cut: sinkOf(h, GT, sy(h.y)).cut }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
+      if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
       const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);
       if (caveW && h.deadT < 0 && !dryCrossings.has(heroCell) && SIM.cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 6 && wetSet.has(heroCell)) {
@@ -3080,6 +3083,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j + 3) * 6.283, v = 50 + 70 * rnd(e.t, j + 9); if (a > 0.6) break; L.solid(ex + Math.cos(an) * v * a, Math.min(ey + 4, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 520 * a * a), 4, 3, [0.18, 0.16, 0.17], an + a * 8, 2, 1.5, 1 - SS(0.4, 0.6, a)); } }
       // the hero through the crust (TASKS 476): a splash of lava where he went in, smoke and embers where he climbs out
       if (e.k === 'lavafall' && a < 1.2) { const q = a / 1.2, X2 = sx(e.tx), Y2 = sy(e.ty);
+        // (a pool of open lava where he went in, over the crust's net, while he is under: TASKS 1043, he sank into whole stone)
+        if (a < 0.85) { const k = 1 - SS(0.6, 0.85, a); L.glow(ex, ey - 2, 34, [1, 0.5, 0.12], 1.1 * k, 1.6); L.ring(ex, ey, 22 + 4 * Math.sin(a * 18), 13, [1, 0.85, 0.35], 1.2 * k, 0.25); }
         for (let j = 0; j < 14; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 90 + 160 * rnd(e.t, j + 3); if (a > 0.8) break;
           L.star(ex + Math.cos(an) * v * a, ey + Math.sin(an) * v * a + 420 * a * a, 5 + 3 * rnd(e.t, j + 5), [1, 0.5 + 0.4 * rnd(e.t, j + 7), 0.1], 1 - a / 0.8); }
         L.ring(ex, ey, 14 + 40 * q, (14 + 40 * q) * 0.6, [1, 0.6, 0.2], 0.9 * (1 - q), 0.1);
