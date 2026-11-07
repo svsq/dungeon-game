@@ -22,6 +22,8 @@
 //   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
 //               golem's ground point (the far one swung on past the body and lay behind it)
 //   crust     — golem_crust_off: the molten share of the golem's box grows by CRUST once its plates are knocked off
+//   leapSpacing, leapPose, throw — imp_leap, imp_attack (TASKS 489): an even flight, legs that push off, tuck and reach, and an
+//               overhand throw from behind the head
 //   breathBody — salamander_breath: drawing its breath, the snout leaves its rest by at least BREATH of the body's length (TASKS 460:
 //               the fire hung on a still head, 2 px)
 // Exit 2 when any check fails.
@@ -165,6 +167,23 @@ for (const [kind, nm] of [['transitions', 'folk_talk'], ['states', 'town_talk']]
   const side = Math.sign(r.hero.ground[0] - r.en.ground[0]), hand = r.en.handR[0] - r.en.ground[0];
   report('turn', nm, hand * side > 0, `the front hand ${hand.toFixed(0)} px off his ground point, the hero on the ${side > 0 ? 'right' : 'left'}`);
 }
+// the imp's leap and throw (TASKS 489). leapSpacing: over the middle half of its flight its step along the ground varies at most
+// LEAP_SPAN times (eased all along, it went 2.7× faster at the middle); leapPose: the feet travel against the hip, the ankle's height
+// under it ranging over at least LEAP_LEG of the leg (they hung the same, 8 %), and it lands lower than it flies (a crouch);
+// throw: on its wind the throwing hand passes over the head and behind it
+if (meta.tr.includes('imp_leap')) {
+  const LEAP_SPAN = 1.5, LEAP_LEG = 0.35;
+  const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.imp_leap; return Q.transitions.imp_leap.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, x: e.x, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
+  const fl = fr.filter((f) => f.st === 'leap' && f.en), xs = fl.map((f) => f.x), vs = xs.slice(1).map((x, i) => Math.abs(x - xs[i])).filter((v) => v > 0.01), mid = vs.slice(Math.floor(vs.length * 0.25), Math.ceil(vs.length * 0.75));
+  const span = mid.length ? Math.max(...mid) / Math.min(...mid) : 99; report('leapSpacing', 'imp_leap', span <= LEAP_SPAN, `its step over the middle of the flight varies ${span.toFixed(2)}× (≤ ${LEAP_SPAN})`);
+  const leg = Math.max(...fl.map((f) => Math.hypot(f.en.hipL[0] - f.en.kneeL[0], f.en.hipL[1] - f.en.kneeL[1]) + Math.hypot(f.en.kneeL[0] - f.en.ankleL[0], f.en.kneeL[1] - f.en.ankleL[1]))), dy = fl.map((f) => f.en.ankleL[1] - f.en.hip[1]);
+  const range = (Math.max(...dy) - Math.min(...dy)) / leg; report('leapPose', 'imp_leap', range >= LEAP_LEG, `the ankle's height under the hip ranges over ${(range * 100).toFixed(0)} % of the leg (≥ ${LEAP_LEG * 100} %)`); }
+if (meta.tr.includes('imp_attack')) {
+  const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.imp_attack; return Q.transitions.imp_attack.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, face: e.face, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
+  const w = fr.filter((f) => f.st === 'wind' && f.en && f.en.handR), best = Math.max(-99, ...w.filter((f) => f.en.handR[1] < f.en.head[1]).map((f) => (f.en.head[0] - f.en.handR[0]) * f.face));
+  report('throw', 'imp_attack', best > 0, `the throwing hand over the head reaches ${best.toFixed(0)} px behind it`); }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');
