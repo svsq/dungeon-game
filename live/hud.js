@@ -58,7 +58,7 @@
     if (S.screen === 'news') news(S, t);
     if (S.screen === 'meta') meta(S, t);
     if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
-    if (S.screen === 'pause') { dim(0.55); lab('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause(S.meta.zoom)) button('pb_' + b.id, b, S.hover); }
+    if (S.screen === 'pause') { dim(0.55); lab('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause(S.meta.zoom, !!S.run && SIM.Q.campaignDone(S.run))) button('pb_' + b.id, b, S.hover); }
     if (S.screen === 'inv' && R) inv(S, R, t);
     if (S.screen === 'shop' && R) shop(S, R, t);
     if (S.screen === 'altar' && R) altar(S, R, t);

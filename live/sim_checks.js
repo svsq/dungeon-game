@@ -7,7 +7,7 @@
     boxHit, brinkOf, castAbility, cell, colossusBoulder, colossusRain, completion, completionHints, counted, crustAt, damageName, deepBody,
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
     hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
-    exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
+    campaignDone, exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
     openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
@@ -2373,7 +2373,14 @@
         if (S.screen !== 'win' || S.run || S.meta.wins !== w0 + 1 || S.meta.shards - s0 !== Math.floor(1000 / REWARD.goldPer) + REWARD.win || S.meta.best < F) out.push(`talk: «Завершить поход» does not win the run with its reward (${S.screen}, ${S.meta.wins - w0}, ${S.meta.shards - s0})`); }
       R = run(35); R.slain = [F]; R.deepest = F + 3; R.campaignWon = 1; R.mode = 'endless'; R.goldTot = R.goldBanked = 800; R.goldTot += 300; const w1 = S.meta.wins || 0; talkTo(R, 'keeper');
       if (!S.talk || !S.talk.act || S.talk.act.k !== 'finish' || !S.talk.pages.includes(K.endDeep[0])) out.push('talk: after the descent the Keeper does not offer to end the run');
-      else { endAt(); if (S.screen !== 'win' || S.meta.wins !== w1 || S.result.base !== Math.floor(300 / REWARD.goldPer) || S.result.win || S.meta.bestEndless < F + 3) out.push('talk: a run ended at the Keeper after the descent wins the campaign twice or pays its gold again'); } R = run(36); }
+      else { endAt(); if (S.screen !== 'win' || S.meta.wins !== w1 || S.result.base !== Math.floor(300 / REWARD.goldPer) || S.result.win || S.meta.bestEndless < F + 3) out.push('talk: a run ended at the Keeper after the descent wins the campaign twice or pays its gold again'); }
+      // TASKS 1150: the pause menu's «Сдаться» is «Завершить поход» past the colossus, a win
+      R = run(36); const pz = () => UI.pause(S.meta.zoom, campaignDone(R)).map((b) => b.id);
+      if (!pz().includes('abandon') || pz().includes('finish')) out.push('pause: «Завершить поход» before the colossus falls');
+      R.slain = [F]; R.deepest = F; const w2 = S.meta.wins || 0, fb = UI.pause(S.meta.zoom, true).find((b) => b.id === 'finish');
+      if (!fb || pz().includes('abandon')) out.push('pause: past the colossus the menu still gives up the run');
+      else { S.screen = 'pause'; step(S, { keys: [], click: 1, px: fb.x + fb.w / 2, py: fb.y + fb.h / 2 }); if (S.screen !== 'win' || S.run || S.meta.wins !== w2 + 1 || S.result.abandoned) out.push('pause: «Завершить поход» does not end the run won'); }
+      R = run(37); }
     const sm = folkOf(R).find((q) => q.role === 'smith'); R.hero.x = R.map.town.svc.anvil.x; R.hero.y = R.map.town.svc.anvil.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); void sm;
     if (S.screen !== 'craft') out.push('talk: E at the anvil opens a dialogue, not the smith\'s workshop');
     return out;

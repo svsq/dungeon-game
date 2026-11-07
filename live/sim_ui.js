@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    ABILITIES, BASES, D, DT, FROM, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
+    ABILITIES, BASES, D, DT, FROM, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
     throwAway, useItem } = SIMX;
   // ---------------- run end / menus ----------------
@@ -83,10 +83,11 @@
     return;
   };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
-    const b = D.hitUI(UI.pause(S.meta.zoom), x, y); S.hover = b ? b.id : '';
+    const b = D.hitUI(UI.pause(S.meta.zoom, !!S.run && campaignDone(S.run)), x, y); S.hover = b ? b.id : '';
     if (click && b && b.id === 'zoom') { nextZoom(S); S.run.zoom = S.meta.zoom; ev(S, { k: 'ui', x, y }); return; }
     if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
     if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; return; }
+    if (click && b && b.id === 'finish') { finishRun(S); return; }
     if (click && b && b.id === 'abandon') { if (S.run.log) S.run.log.abandon = 1; endRun(S, 'dead'); return; }
     return;
   };
