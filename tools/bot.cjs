@@ -72,7 +72,7 @@ function startRun(S, mode) {
     if (id === 'tests') S.screen = 'tests'; else SIM.step(S, click(b)); }
 }
 
-function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false } = {}) {
+function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, rebuild = false, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false } = {}) {
   const P = Object.assign({}, PROFILES[profile], noTown ? { quests: 0, home: 0, scrolls: 0, noTown: 1 } : TOWN[profile]), rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
@@ -83,11 +83,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
-    [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0] = initial.vars;
-    rand.state(initial.rng); for (const event of S.ev) counted.add(event);
+    [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
+    rand.state(initial.rng); for (const event of S.ev) counted.add(event); if (cur) cur.resumed = 1;
+    // the floor built again by this version (TASKS 467): its monsters are this version's already
+    if (rebuild && !SIM.rebuildArrival(S)) throw new Error('checkpoint: the floor was not first built on this arrival');
     const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;
     const ST = D.stageOf(R.mode, R.floor, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1), depth = ST.depth, sc = D.BAL.hp * hpScale * D.hpAt(depth), dc = D.BAL.dmg * 1.35 * D.dmgAt(depth);
-    for (const e of R.en) {
+    if (!rebuild) for (const e of R.en) {
       const E = D.ENEMIES[e.type], boss = !!D.BOSSES[e.type], guard = e.guard && ST.guard, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, gh = (typeof guard === 'object' ? guard.hp : guard) || 1;
       const bk = (boss && ST.bossK) || { hp: 1, dmg: 1 }, health = e.hp / e.max; e.max = Math.round(E.hp * sc * (e.elite && !boss ? D.eliteK(e, 'hp') : 1) * gh * bk.hp); e.hp = e.max * health;
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(depth, 1) / D.dmgAt(depth) : 1) * (!e.elite ? ST.mob : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd * bk.dmg;
@@ -335,7 +337,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h)); else cur.meta = Object.assign({}, S.meta.up);
       if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
-        vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT, kills0, learned] });
+        vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT, kills0, learned, gearKey, unstick, homeF, readWant, inTown, townT] });
     }
     // stopAfter: a replay from a checkpoint that only wants a floor or two ends once past it, as 'stopped' (tuning, TASKS 354)
     if (stopAfter && R.floor > stopAfter) { stuck = { how: 'stopped', floor: R.floor }; break; }
@@ -365,9 +367,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
     const st = SIM.stats(h, S.meta), inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, px: 960, py: 540, keys: [], slot: 0 };
-    const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1).slice(), offsets = (o) => D.ENEMIES[o.type]?.deep ? [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => j * m.W + i)) : [0, 1, -1, m.W, -m.W];
+    const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1), offsets = (o) => D.ENEMIES[o.type]?.deep ? [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => j * m.W + i)) : [0, 1, -1, m.W, -m.W];
     const reach = (o) => offsets(o).some((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d] >= 0);
-    const walkD = (o) => T * Math.min(...offsets(o).map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9);
+    const WD = new Map(), walkD = (o) => { let v = WD.get(o); if (v === undefined) WD.set(o, v = T * Math.min(...offsets(o).map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9)); return v; };
     // near by the walk too: a foe close through a wall made the bot drop its loot for a fight with another, nearer by the walk, and
     // pick the loot up again once out of the first one's 260 px, back and forth for good (seed 281)
     // a monster behind a door still locked can't be fought, nor an eel under its water (TASKS 310)

@@ -1,4 +1,4 @@
-// node tools/playtest.cjs [seed] [--profile novice|average|expert|mage|builder] [--runs N] [--diff easy|normal|hard] [--mode campaign|town|cave|magma] [--no-town: in a run through the town, straight down, no shop, quests or trips home] [--json] [--descend: past the serpent, on down into the endless descent] [--stop-after N] [--snapshots dir] [--checkpoint file]
+// node tools/playtest.cjs [seed] [--profile novice|average|expert|mage|builder] [--runs N] [--diff easy|normal|hard] [--mode campaign|town|cave|magma] [--no-town: in a run through the town, straight down, no shop, quests or trips home] [--json] [--descend: past the serpent, on down into the endless descent] [--stop-after N] [--snapshots dir] [--snap-floors 9,13] [--checkpoint file] [--rebuild: the checkpoint's floor built again by this version]
 // the bot (tools/bot.cjs) plays N campaigns in a row with meta ranks bought in between; prints each floor and each run's end.
 // A floor it cannot finish in 400 s, or 120 s with no progress on it, ends as "stuck" (why: floor / idle): a bot defect, never a balance result.
 const { play } = require('./bot.cjs'), fs = require('fs'), path = require('path'), v8 = require('v8');
@@ -7,7 +7,8 @@ const seed = +(process.argv[2] && !process.argv[2].startsWith('--') ? process.ar
 const pct = (x) => Math.round(x * 100) + '%';
 const snapshots = arg('snapshots', ''), source = arg('checkpoint', ''), dump = arg('dump-state', '');
 if (snapshots) fs.mkdirSync(snapshots, { recursive: true });
-play({ seed, initial: source ? v8.deserialize(fs.readFileSync(source)) : null, checkpoint: snapshots ? (frame) => {
+const only = arg('snap-floors', '') ? arg('snap-floors', '').split(',').map(Number) : null;
+play({ seed, initial: source ? v8.deserialize(fs.readFileSync(source)) : null, rebuild: process.argv.includes('--rebuild'), checkpoint: snapshots ? (frame) => { if (only && !only.includes(frame.S.run.floor)) return;
   fs.writeFileSync(path.join(snapshots, `${frame.diff}_${frame.profile}_${seed}_f${frame.S.run.floor}.bin`), v8.serialize(frame));
 } : null, profile: arg('profile', 'average'), descend: process.argv.includes('--descend'), stopAfter: +arg('stop-after', 0), hours: +arg('hours', 1), runs: +arg('runs', 1), diff: arg('diff', 'normal'), mode: arg('mode', 'campaign'), noTown: process.argv.includes('--no-town'), log: (r, S) => {
   if (dump) fs.writeFileSync(dump, v8.serialize(S));

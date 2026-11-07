@@ -352,9 +352,17 @@
     e.st = 'wind'; e.t0 = S.t; e.fuse = S.t + d; e.aimA = Math.atan2(R.hero.y - e.y, R.hero.x - e.x); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d, id: e.id, lit: 1 }); }
   // a floor as it is first entered: the map from its seed, its monsters, chests, pots, altars and merchant rolled off the run's
   // RNG; deterministic from R.rs and R.nextId, so a floor kept as a diff (TASKS 1008) is rebuilt and patched, not stored whole
+  // a floor is generated anew on each trip home and back (stash and restore, TASKS 1008): the generator is a pure function of its
+  // arguments, so a few of its maps are kept and handed out as copies (TASKS 467)
+  const GEN = new Map();
+  function genKept(kind, seed, f, opts) {
+    const key = kind + ':' + seed + ':' + f + ':' + JSON.stringify(opts || null); let m = GEN.get(key);
+    if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= 8) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
+    return structuredClone(m);
+  }
   function buildFloor(R, f, gen) {
     R.bossDead = 0;
-    const m = f === 0 ? DG.genTown((R.seed * 31) >>> 0) : DG.genFloor((R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? D.folkInit(m.town.npcs) : null;
+    const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? D.folkInit(m.town.npcs) : null;
     R.map = m; R.arena = null; m.arenaBox = null; R.eggs = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.en = []; R.proj = []; R.pyres = []; R.fires = []; R.drops = []; R.scorches = []; m.goo = [];
     const stg = STAGE(R, f), d = stg.depth, sc = BAL.hp * dif(R, 'hp') * D.hpAt(d), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? stg.guard : e.exit && e.elite ? stg.exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk, bk = (D.BOSSES[e.type] && stg.bossK) || { hp: 1, dmg: 1 };
@@ -457,7 +465,11 @@
       else { R.shop = stockShop(R, tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
-    const h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
+    arrive(S, R, how); R.arrived = M ? '' : how;
+    ev(S, { k: 'floor', x: R.hero.x, y: R.hero.y, f });
+    S.saveN++;
+  }
+  function arrive(S, R, how) { const m = R.map, h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
     if (how === 'up') [hx, hy] = standNear(R, m.exit.x, m.exit.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
@@ -465,10 +477,15 @@
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
-    reveal(R); ev(S, { k: 'floor', x: h.x, y: h.y, f });
-    R.msg = { s: D.placeName(f, R.mode, R.seed, FROM(R), m), t: S.t };
-    S.saveN++;
+    reveal(R); R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t };
   }
+  // a run picked up on its arrival at a floor first built there (the bot's checkpoints, TASKS 467): the floor is built again by this
+  // version of the game from the RNG and ids it was first built with, so a change to the deep floors is measured without playing
+  // the floors before them again
+  function rebuildArrival(S) { const R = S.run, f = R.floor, M = R.memo && R.memo[f]; if (!M || !R.arrived) return false;
+    R.rs = M.rs; R.nextId = M.id; M.gv = D.GEN_VERSION; buildFloor(R, f, M.gen || undefined); BASE.set(M, snapFloor(R));
+    for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
+    questPlace(S, R); R.stats[f] = floorStat(R); arrive(S, R, R.arrived); return true; }
 
   // ---------------- completion: per floor, monsters (not summoned ones), loot, secrets ----------------
   // loot is items picked up out of all the items the floor has put out (its chests' contents from the start, then every drop as
@@ -743,7 +760,7 @@
   }
   // out of solid props (feet ellipse against each prop's circle), through move() so the push never lands in a wall
   function shove(m, o, r, mon, sol) {
-    for (const s of sol) { let dx = o.x - s.x, dy = (o.y - s.y) * 1.6, d = Math.hypot(dx, dy); const rr = s.r + r; if (d >= rr) continue;
+    for (const s of sol) { const rr = s.r + r; let dx = o.x - s.x; if (dx >= rr || dx <= -rr) continue; let dy = (o.y - s.y) * 1.6; if (dy >= rr || dy <= -rr) continue; let d = Math.hypot(dx, dy); if (d >= rr) continue;
       if (d < 0.01) { dx = 0; dy = d = 1; }
       move(m, o, s.x + dx / d * rr - o.x, s.y + dy / d * rr / 1.6 - o.y, r, mon); }
   }
@@ -760,21 +777,28 @@
   const doorLock = (m, d) => { const L = d.lock >= 0 && m.locks ? m.locks[d.lock] : null; return L && !L.open ? L : null; };
   const doorKey = (m) => (m.doors || []).map((d) => (d.open ? 'o' : doorLock(m, d) ? 'l' : 'c')).join('') + ':' + (m.geometry || 0);
   // flow field from a target tile over open floor: derived data, cached by key, never in the state
-  const FLOW = { key: '', d: null };
-  const FLOW2 = { key: '', d: null };
+  // a field per target, a few kept: the bot asks for its own fields between the monsters' each step, and one slot was rebuilt
+  // every time (TASKS 467); a secret opened changes the floor without the doors' key
+  const FLOW = new Map(), FLOW2 = new Map(), secKey = (m) => (m.secrets || []).map((q) => (q.open ? 1 : 0)).join('');
+  let BQ = new Int32Array(0);
   function bfs(m, tx, ty, lim, doors) {
-    const d = new Int16Array(m.W * m.H).fill(-1), q = new Int32Array(m.W * m.H); let qh = 0, qt = 0;
-    const blk = new Uint8Array(m.W * m.H); for (const i of m.block || []) blk[i] = 1;
-    const thru = new Uint8Array(m.W * m.H); if (doors) for (const o of m.doors || []) if (!o.open && !o.arena && !doorLock(m, o)) for (const [x, y] of o.cells) thru[y * m.W + x] = 1;
-    if (cell(m, tx, ty) === 1) { d[ty * m.W + tx] = 0; q[qt++] = ty * m.W + tx; }
-    while (qh < qt) { const i = q[qh++], x = i % m.W, y = (i / m.W) | 0, dv = d[i]; if (dv > lim) continue;
-      for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay, j = ny * m.W + nx;
-        if (nx < 0 || ny < 0 || nx >= m.W || ny >= m.H || d[j] >= 0 || (m.cells[j] !== 1 && !thru[j]) || blk[j]) continue; d[j] = dv + 1; q[qt++] = j; } }
+    const W = m.W, H = m.H, N = W * H, d = new Int16Array(N).fill(-1), cs = m.cells, pass = new Uint8Array(N); if (BQ.length < N) BQ = new Int32Array(N);
+    const q = BQ; let qh = 0, qt = 0;
+    for (let i = 0; i < N; i++) if (cs[i] === 1) pass[i] = 1;
+    if (doors) for (const o of m.doors || []) if (!o.open && !o.arena && !doorLock(m, o)) for (const [x, y] of o.cells) pass[y * W + x] = 1;
+    for (const i of m.block || []) pass[i] = 0;
+    if (cell(m, tx, ty) === 1) { d[ty * W + tx] = 0; q[qt++] = ty * W + tx; }
+    while (qh < qt) { const i = q[qh++], dv = d[i]; if (dv > lim) continue; const x = i % W, y = (i / W) | 0, nd = dv + 1; let j;
+      if (x + 1 < W) { j = i + 1; if (d[j] < 0 && pass[j]) { d[j] = nd; q[qt++] = j; } }
+      if (x > 0) { j = i - 1; if (d[j] < 0 && pass[j]) { d[j] = nd; q[qt++] = j; } }
+      if (y + 1 < H) { j = i + W; if (d[j] < 0 && pass[j]) { d[j] = nd; q[qt++] = j; } }
+      if (y > 0) { j = i - W; if (d[j] < 0 && pass[j]) { d[j] = nd; q[qt++] = j; } } }
     return d;
   }
   function flow(m, tx, ty, any) {
-    const C = any ? FLOW2 : FLOW, key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m); if (C.key === key) return C.d;
-    C.key = key; C.d = bfs(m, tx, ty, any ? 400 : 40, any); return C.d;
+    const C = any ? FLOW2 : FLOW, key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m) + ':' + secKey(m); let d = C.get(key);
+    if (d) { C.delete(key); C.set(key, d); return d; }
+    d = bfs(m, tx, ty, any ? 400 : 40, any); if (C.size >= 16) C.delete(C.keys().next().value); C.set(key, d); return d;
   }
   // a monster walking back to its post may be far from it: a whole-floor field per post, a few kept at once
   const HOME = new Map();
@@ -5036,7 +5060,7 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+  root.SIM = { rebuildArrival, FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
     stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);
