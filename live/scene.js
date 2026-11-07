@@ -440,8 +440,9 @@ vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx
   vec3 col = vec3(0.1, 0.092, 0.11) * t * (streak < 0.3 ? 0.55 : streak > 0.72 ? 1.25 : 1.0) * (1.0 + 0.25 * grain) * (1.1 - 0.4 * fq);
   if (hash(vec2(id, floor((w.y - c.y) / 2.0))) < 0.04 && xx < 0.82) col *= 0.3;
   if (c.w > 1.5) col *= 1.0 - 0.35 * smoothstep(0.55, 1.0, fq);   // a step's face stands on the lower row: only its foot is shaded
-  else if (c.w > 0.5) { float g = smoothstep(0.6, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);   // (only its foot red, TASKS 447: ref_cave_lava's faces stay dark)
-    col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.85, 0.3, 0.06), step(0.8, fq) * step(xx, 0.27)), g * 0.85); }
+  // (only its lower two fifths red, brightening to its foot, TASKS 447, 1053: ref_cave_lava's faces stay dark above; a fifth was too little)
+  else if (c.w > 0.5) { float g = smoothstep(0.5, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
+    col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.7, 1.0, fq) * step(xx, 0.5)), g * 0.9); }
   else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
   return col; }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
@@ -627,7 +628,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     // the fall down the face: a white-hot lip, the sheet widening a little to its foot, 3–5 runs of white-yellow an art pixel wide
     // racing down it in dashes
     // (its edges ragged and running down with it, TASKS 1038: a ruled curtain, σ 2.6 px against the concept's 11)
-    float hw0 = u_wide + 5.0 * (y - lip) / max(land - lip, 1.0), sx = dx - wob, hw = hw0 + (vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 14.0 * smoothstep(lip, lip + 12.0, y);
+    // (widening to its foot, TASKS 1053: it narrowed, 55 → 33 px against 77 → 105)
+    float hw0 = u_wide + 16.0 * (y - lip) / max(land - lip, 1.0), sx = dx - wob, hw = hw0 + (vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 14.0 * smoothstep(lip, lip + 12.0, y);
     if (y >= lip - 1.0 && y < land + 4.0 && abs(sx) < hw && (y >= lip + 1.0 || abs(sx) < u_wide)) {
       if (y < lip + 1.0) col = vec3(1.0, 0.92, 0.6);
       else { float s = vnoise(vec2(dx / 2.5, (y - u_t * 70.0) / 14.0)) + 0.1 * (1.0 - abs(sx) / hw) - 0.17;
