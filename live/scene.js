@@ -217,14 +217,17 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float cm = texture(u_crust, w / u_map).r, seamC = 0.0, crustOn = 0.0;
   if (cm > 0.3) { float ck = 0.0, mt = 0.0; crustOn = 1.0;
     for (int i = 0; i < 8; i++) { vec2 q = abs(w - u_melt[i].xy); float c = step(q.x, 18.0) * step(q.y, 18.0); ck = max(ck, c * u_melt[i].z); mt = max(mt, c * u_melt[i].w); }
-    vec2 hp = vec2(w.x, w.y * 1.4) / 17.0, hs = vec2(1.0, 1.7320508), ha = mod(hp, hs) - hs * 0.5, hb = mod(hp - hs * 0.5, hs) - hs * 0.5;
+    // (TASKS 490: an even honeycomb, the same kerb all round every bank) the net is warped by a slow noise, so the plates vary in
+    // size and lean, and toward the crust's edge some are gone, the lava showing between those left
+    vec2 hp = (vec2(w.x, w.y * 1.4) + (vec2(fbm(w / 46.0 + 3.7), fbm(w / 46.0 + 9.2)) - 0.5) * 12.0) / 17.0, hs = vec2(1.0, 1.7320508), ha = mod(hp, hs) - hs * 0.5, hb = mod(hp - hs * 0.5, hs) - hs * 0.5;
     vec2 gv = dot(ha, ha) < dot(hb, hb) ? ha : hb, hid = hp - gv; float hd = max(dot(abs(gv), vec2(0.5, 0.8660254)), abs(gv.x));
     // (thin crust, TASKS 476: its seams glow from the start, a way to cross quickly)
     float thin = step(0.75, texelFetch(u_crust, ivec2(w / u_map * vec2(textureSize(u_crust, 0))), 0).g), warn = max(smoothstep(0.35, 1.0, ck), 0.45 * thin), flash = step(0.5, fract(u_t * 5.0)) * step(0.75, ck);
-    vec3 cc = vec3(0.22, 0.2, 0.24) * (0.75 + 0.4 * hash(hid)) + vec3(0.25, 0.05, 0.02) * warn;
+    vec3 cc = vec3(0.22, 0.2, 0.24) * (0.6 + 0.65 * hash(hid)) + vec3(0.25, 0.05, 0.02) * warn;
     if (hd > 0.4) cc = gv.y < 0.0 && gv.x < 0.25 ? vec3(0.36, 0.33, 0.36) : vec3(0.04, 0.032, 0.036);
     if (hd > 0.47 - 0.08 * warn) { cc = mix(vec3(0.5, 0.09, 0.03), mix(YO, Y, flash), warn); seamC = 1.0; }
     if (cm < 0.38) { cc = vec3(0.02, 0.016, 0.02); seamC = 0.0; }
+    if (thin < 0.5 && hash(hid + 4.1) < 0.4 * (1.0 - smoothstep(0.4, 0.5, cm))) mt = 1.0;
     col = mix(cc, col, mt); seamC = max(seamC, mt); crustOn = 1.0 - mt; }
   // the glow over the lit frame is an even haze with no seams in it: it is added over whoever stands in front of the lava too,
   // and its pattern laid over the hero read as the lava showing through him
@@ -344,7 +347,7 @@ float faceHF(vec2 p){ float h = faceH(p.x);
   return h; }
 `;
   const MAGMA = EDGE_BITE + MAGMA_EDGE + `
-uniform sampler2D u_floor, u_wall, u_top, u_shore, u_far, u_hot, u_crust, u_plat, u_lake, u_stepm; uniform float u_lift, u_out, u_fk, u_step;
+uniform sampler2D u_floor, u_wall, u_top, u_shore, u_far, u_hot, u_crust, u_plat, u_lake, u_stepm; uniform float u_lift, u_out, u_fk, u_step; uniform vec4 u_rows[8];
 vec3 tx(sampler2D s, vec2 p){ return textureLod(s, p / 256.0, 0.0).rgb; }
 float lum(vec3 c){ return clamp((dot(c, vec3(0.3, 0.55, 0.15)) - 0.04) / 0.4, 0.0, 1.0); }
 // each generated texture's own black point and range (421), so the ramps keep the tone and spread 402 set them to
@@ -448,7 +451,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
   if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, on > 1.5 ? 0.9 * (1.0 - smoothstep(0.55, 0.95, f.y)) : on > 0.5 ? 1.0 : 0.0, 1.0); return; }
   float op = openAt(w), la = lavaAt(w), far = textureLod(u_far, w / u_map, 0.0).r; vec3 col; vec4 sc; vec2 sf; float sdim;
   if (op > 0.47 && la <= 0.5) {
-    col = gFloor(w);
+    col = gFloor(w); for (int i = 0; i < 8; i++) if (u_rows[i].z > 0.0 && w.y >= u_rows[i].x && w.y < u_rows[i].y) { col *= u_rows[i].z; break; }
     // soot and ash: the ground darkens toward a drop or the lava and greys with ash flecks there
     float edge = 1.0 - smoothstep(0.47, 0.72, op), hotEdge = smoothstep(0.18, 0.5, la), ash = hash(floor(w / 2.0) + 0.37);
     col *= 1.0 - 0.45 * max(edge, hotEdge) * (0.6 + 0.4 * fbm(w / 11.0));
@@ -465,7 +468,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     for (int k = 1; k <= 6; k++) if (isWall(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.7 + 0.3 * smoothstep(0.47, 0.9, op)) * (1.0 - 0.5 * under);
   } else if (op > 0.47 && la - edgeBite(w, u_map) > 0.5) col = gCrust(w + 53.0) * 0.6;
-  else if (op > 0.47) { float gl = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0)); col = vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl; }   // (the lava the map's edge bit off: the chasm's dark)
+  else if (op > 0.47) { float gl = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl; }   // (its glow too, TASKS 490: a straight red band ran along the map's edge)   // (the lava the map's edge bit off: the chasm's dark)
   else if (isWall(w)) {
     float hf = faceHF(w), fd = 99.0; bool down = false;
     for (int k = 1; k <= 72; k++) { float d = float(k) * 2.0; if (d > hf) break; vec2 q = w + vec2(0.0, d); if (!isWall(q)) { fd = d; down = !isOpen(q); break; } }
@@ -981,7 +984,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const cv = document.createElement('canvas'); cv.width = cv.height = 1; const rec = G.canvasTex('map', cv); rec.t = BAKE.tg.t; rec.w = MW; rec.h = MH; }
     if (m.cliff) { if (!BAKE.face || BAKE.face.vw !== MW || BAKE.face.vh !== MH) { G.free(BAKE.face); BAKE.face = G.target(MW / 2, MH / 2, false, { view: [MW, MH], nearest: true }); }   // on the art grid: a quarter of the bake's memory
       BAKE.mg = { u_fk: B.floorK || 1, u_open: openTex(m), u_water: waterTex(m), u_wet: 0, u_lift: TOP_LIFT, u_map: [MW, MH], u_cliff: cliffTex(m), u_lava: lavaTex(m), u_far: lavaFarTex(m),
-        u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_fall: fallU(m), u_step: m.ftype === 'terrace' && !m.ftype2 ? 1 : 0, u_stepm: stepTex(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
+        u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_fall: fallU(m), u_step: m.ftype === 'terrace' && !m.ftype2 ? 1 : 0, u_stepm: stepTex(m), u_rows: terrRows(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
       G.bind(BAKE.face, [0, 0, 0, 1]); G.blend('none'); G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 1 }), G.xf(0, 0, MW, MH)); }
     G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
     const hid = SIM.secretMask(m), c = (x, y) => { const v = SIM.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
@@ -1114,6 +1117,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       let top = bot; while (top >= 0 && m.cells[top * m.W + cx] === 0) top--; const h = Math.min(140, (bot - top) * TILE - 84);
       u.push({ x, y: (bot + 1) * TILE, z: Math.max(q.w * TILE * 0.36, 18) + 18, h: h >= 40 ? h : 0, wallY: bot }); }
     return (FALLS.u = u); };
+  // a terrace floor's rows (TASKS 490): their floor darker a row at a time away from the lavafall's row, the light it throws down
+  // the steps falling off (all rows came out one lightness, L 16–23); (top, bottom, factor, 0) a row, 8 at most
+  const terrRows = (m) => { const out = new Array(32).fill(0); if (m.ftype !== 'terrace' || m.ftype2) return out; const rows = {};
+    for (const r of m.rooms) if (r.row !== undefined) { const q = rows[r.row] || (rows[r.row] = [1e9, -1e9]); q[0] = Math.min(q[0], (r.y - 1) * TILE); q[1] = Math.max(q[1], (r.y + r.h + 1) * TILE); }
+    const ks = Object.keys(rows).map(Number).sort((a, b) => a - b), F = fallsOf(m), fy = F.length ? F[0].y : 0, f0 = ks.reduce((b, k) => (Math.abs((rows[k][0] + rows[k][1]) / 2 - fy) < Math.abs((rows[b][0] + rows[b][1]) / 2 - fy) ? k : b), ks[0]);
+    ks.slice(0, 8).forEach((k, i) => { out[i * 4] = rows[k][0]; out[i * 4 + 1] = rows[k][1]; out[i * 4 + 2] = Math.max(0.55, 1 - 0.12 * Math.abs(k - f0)); }); return out; };
   const fallU = (m) => { const f = fallsOf(m), u = []; for (let i = 0; i < 6; i++) u.push(...(f[i] ? [f[i].x, f[i].y, f[i].z, f[i].h] : [0, 0, 0, 0])); return u; };
   const cliffTex = (m) => { const hid = SIM.secretMask(m); return maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && (SIM.cell(m, x, y) === 0 || SIM.cell(m, x, y) === 4 || hid.has(y * m.W + x))), null, 1); };
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
@@ -1678,8 +1687,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.glow(X, Y0, 8 + 22 * q, [1, 0.75 - 0.45 * q, 0.25 - 0.18 * q], 0.85 * fade * (1 - 0.6 * q), 2.2); if (j % 3 === 0) L.star(X, Y0, 4 + 4 * (1 - q), [1, 0.9, 0.6], 0.8 * fade * (1 - q)); }
       void ca; void sa; } }
   // ripples round a salamander in the lava: rings of brighter lava spreading from its body, a wake behind it as it swims
-  function swimFx(e, E, x, y, sw, GT, t) { const fa = e.fa ?? 0, sp = Math.hypot(e.vx, e.vy), L0 = SZ('en_salamander')[1];
-    for (let j = 0; j < 3; j++) { const ph = ((t * 0.8 + j / 3 + rnd(e.id, j)) % 1), r = 0.25 * L0 + 0.35 * L0 * ph; L.ring(x, y, r, r * 0.55, [1, 0.6, 0.2], 0.45 * sw * (1 - ph), 0.12); }
+  // (bank: how far the floor is, TASKS 490: the rings ran on over the bank; they fade out before it)
+  function swimFx(e, E, x, y, sw, GT, t, bank = 1e9) { const fa = e.fa ?? 0, sp = Math.hypot(e.vx, e.vy), L0 = SZ('en_salamander')[1];
+    for (let j = 0; j < 3; j++) { const ph = ((t * 0.8 + j / 3 + rnd(e.id, j)) % 1), r = 0.25 * L0 + 0.35 * L0 * ph; if (r > bank) continue; L.ring(x, y, r, r * 0.55, [1, 0.6, 0.2], 0.45 * sw * (1 - ph) * (1 - SS(bank * 0.7, bank, r)), 0.12); }
     if (sp > 8) for (let j = 0; j < 6; j++) { const q = ((t * 1.6 + j / 6) % 1), side = j % 2 ? 1 : -1, d = 0.3 * L0 + 0.5 * L0 * q, w = 0.12 * L0 + 0.3 * L0 * q;
       L.star(x - Math.cos(fa) * d - Math.sin(fa) * side * w, y + (-Math.sin(fa) * d + Math.cos(fa) * side * w) * 0.8, 4 + 3 * (1 - q), [1, 0.65, 0.25], 0.6 * sw * (1 - q) * SS(8, 40, sp)); } }
   // the frame's lava mask and the map's box in target px, for a sunk salamander's clip (TASKS 460)
@@ -1712,7 +1722,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const edgeOf = () => { const lv = HERO.lavaAt ? HERO.lavaAt(e.x, e.y) : null, L0 = lv && lv.k > (lt ? lt.k : 0) ? lv : lt;
       if (dead >= 0 || hit || !L0 || L0.k < 0.15) return null; const n = Math.hypot(L0.dx, L0.dy * 1.25) || 1, a = 0.4 * SS(0.15, 0.8, L0.k);
       const dir = { dx: Math.round(2 * L0.dx / n), dy: Math.round(2 * L0.dy * 1.25 / n) };
-      if (L0 === lv) return { ...dir, col: [1, 0.6, 0.22].map((v) => v * 0.75 * SS(0.15, 0.8, lv.k)) };
+      // (a salamander lies low in the lava: its lit side brighter, TASKS 490: 1.15 of its dark side against 1.3 wanted)
+      if (L0 === lv) return { ...dir, col: [1, 0.6, 0.22].map((v) => v * (e.type === 'salamander' ? 1.05 : 0.75) * SS(0.15, 0.8, lv.k)) };
       const c = E.rim || L0.col, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
       return { ...dir, col: c.map((v) => (g + 0.5 * (v - g)) * a) }; };
     const INK = [0.024, 0.02, 0.024];
@@ -2034,7 +2045,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const A0 = u0 * T - 6, len = (u1 - u0 + 1) * T + 12, B0 = v0 * T, BW = 2 * T, n = Math.max(3, Math.round(len / BRIDGE.pitch)), pitch = len / n;
       // (a chain bridge gives under the hero, TASKS 466: the boards by him dip and tremble with his steps)
       const hc = Math.floor(R.hero.y / T) * m.W + Math.floor(R.hero.x / T), on = bridge && c.cells.includes(hc), ha = hor ? R.hero.x : R.hero.y;
-      const dip = (a) => (on ? (5 + 1.2 * Math.sin(GT * 9)) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0);
+      // (TASKS 490: it trembled on a clock) each footfall of his jolts it and dies away, and a rock landing on the deck shakes it
+      const hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / SIM.stepLen(1)) % 1 : 1, foot = 1.6 * Math.exp(-5 * hs) * Math.cos(hs * 22);
+      const fallR = bridge ? (m.hazards || []).filter((z) => z.k === 'fall' && D.hazClock(z, GT) < 0.7 && c.cells.some((k) => Math.hypot((k % m.W + 0.5) * T - z.x, (Math.floor(k / m.W) + 0.5) * T - z.y) < 60)) : [];
+      const shake = (a) => fallR.reduce((v, z) => { const q = D.hazClock(z, GT); return v + 4 * Math.exp(-6 * q) * Math.sin(q * 38) * Math.exp(-Math.abs(a - (hor ? z.x : z.y)) / 90); }, 0);
+      const dip = (a) => (on ? (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
       const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) - dip(a);
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
@@ -2438,7 +2453,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (m.town) for (const q of m.town.lights) { const L0 = TOWN_LIGHT[q.kind], b = q.kind === 'runes' || q.kind === 'altar' ? 0.88 + 0.12 * Math.sin(t * 1.3 + q.x) : flick(q.x + q.y);
       lt(q.x, q.y + L0.dy, L0.r, L0.col, L0.amt * b); if (L0.core) lt(q.x, q.y + L0.dy, L0.core, L0.col.map((v) => 0.5 + 0.5 * v), L0.amt * b, 2.4); }
     // the magma caves' lava is their main light: wider, and its pools beat slowly instead of flickering like a fire (TASKS 404)
-    for (const [x, y] of lavaCells) { if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, m.cliff ? 170 : 140, [1.0, 0.42, 0.12], m.cliff ? 0.5 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2, 1.6); }
+    // (a cell the map's edge bit off throws less, TASKS 490: their light lit a straight red band along the edge)
+    const edgeK = (x, y) => (m.cliff ? Math.min(1, Math.max(0, (Math.min(x, y, m.W - 1 - x, m.H - 1 - y) - 1.5) / 4)) : 1);
+    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, m.cliff ? 170 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.5 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     // a vent heats up over its warning (TASKS 406); its burst flashes from its event
     for (const z of m.hazards || []) { if (z.k !== 'vent') continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w >= 0) lt(z.x, z.y - 10, 110 + 90 * w / H.warn, [1, 0.45, 0.12], 0.25 + 0.95 * w / H.warn); }
@@ -2542,7 +2559,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
         L.star(q.x, q.y - 10 - 3 * Math.sin(t * 9), 7, [0.6, 0.8, 1], 0.7 * q.amt); } }
     // the imps' sparks in hand, the salamanders' breath and their ripples in the lava (TASKS 407, 408)
     for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue; const E = D.ENEMIES[e.type];
-      if (RIM.imps[e.id]) impSpark(e, E, RIM.imps[e.id], GT, t); if (RIM.salams[e.id] && e.br) breathFx(e, E, RIM.salams[e.id], GT, t); const sw = swimOf(e, GT); if (sw > 0.02) swimFx(e, E, sx(e.x), sy(e.y), sw, GT, t); }
+      if (RIM.imps[e.id]) impSpark(e, E, RIM.imps[e.id], GT, t); if (RIM.salams[e.id] && e.br) breathFx(e, E, RIM.salams[e.id], GT, t); const sw = swimOf(e, GT); if (sw > 0.02) { let bank = 1e9; const cx0 = Math.floor(e.x / TILE), cy0 = Math.floor(e.y / TILE);
+        for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (SIM.cell(m, cx0 + i, cy0 + j) !== 3) bank = Math.min(bank, Math.max(0, Math.hypot(Math.max(0, Math.abs((cx0 + i + 0.5) * TILE - e.x) - 16), Math.max(0, Math.abs((cy0 + j + 0.5) * TILE - e.y) - 16))));
+        swimFx(e, E, sx(e.x), sy(e.y), sw, GT, t, bank); } }
     // the cultist's free hand holds a green spark: the brightest point of the figure, as in the reference's enemy sheet
     // the fire priest's free hand holds a ball of fire, as in the reference (TASKS 410)
     for (const [id, [, hn]] of Object.entries(RIM.priests)) { L.glow(hn[0], hn[1], 20, [1, 0.45, 0.12], 0.9); L.glow(hn[0], hn[1], 7, [1, 0.9, 0.6], 0.9, 4); }
@@ -3754,7 +3773,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           mk(1303, 'imp', (fx + 1.8) * TILE - h.x, -40, { st: 'idle' })];
         R.proj = [{ id: 1310, src: 1303, who: 'imp', k: 'spark', kind: 'fire', x: h.x + 90, y: h.y - 26, vx: -290, vy: 0, t0: S.t - 0.4, life: 2, dmg: 1, own: 'en', r: 5, gz: 26 }]; });
       stage('magma_golem', (S, R, h, mk) => { const E = D.ENEMIES.golem;
-        R.en = [mk(1401, 'golem', -290, 40, { vx: E.spd, dist: 40, face: 1 }), mk(1402, 'golem', -130, -95, { st: 'wind', t0: S.t - E.wind * 0.7, crust: 2, tx: h.x, ty: h.y, face: 1, aimA: 0.4 })];   // (in the hall: the bank is three cells wide)
+        R.en = [mk(1401, 'golem', -290, 40, { vx: E.spd, dist: 40, face: 1, crust: 2, plateG: { 2: S.t - 0.12 } }), mk(1402, 'golem', -130, -95, { st: 'wind', t0: S.t - E.wind * 0.7, crust: 2, tx: h.x, ty: h.y, face: 1, aimA: 0.4 })];   // (in the hall: the bank is three cells wide)
         R.fires = [{ id: 1410, src: 1403, who: 'golem', x: h.x - 80, y: h.y + 90, t0: S.t - 0.8, r: E.pool.r, ry: E.pool.ry, t: E.pool.t, dmg: 0, per: E.pool.per, kind: 'pool' }]; });
       stage('magma_salamander', (S, R, h, mk, x) => { const B = D.ENEMIES.salamander.breath, sx0 = lavaX(x) - h.x;
         R.en = [mk(1501, 'salamander', sx0 + 40, 10, { st: 'idle', fa: Math.PI / 2, lv: 1, lvT: S.t - 2, vx: 0, vy: 30, dist: 30 }), mk(1502, 'salamander', sx0 - 3 * TILE, -70, { st: 'strike', t0: S.t - 0.3, br: 1, fa: Math.PI - 0.3, aimA: Math.PI - 0.3 }),
@@ -4073,7 +4092,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       imp_attack: enemyT('imp', 0, 'slam', 0, (e, h) => ({ x: h.x + 5 * TILE, claw: 0, tx: h.x, ty: h.y })), imp_claw: enemyT('imp', 0, 'slam', 0, { claw: 1 }),
       imp_leap: enemyT('imp', 0, 'slam', 0, (e, h) => ({ st: 'leap', x: h.x + 8 * TILE, lx: h.x + 8 * TILE, ly: h.y, ltx: h.x + 4 * TILE, lty: h.y + 30, ld: 0.16 + Math.hypot(4 * TILE, 30) / D.ENEMIES.imp.leap.spd, face: -1, leapT: 1e9, lookT: 1e9 })),
       // the golem (TASKS 409) slams both fists down before it; the salamander (408) snaps at the hero beside it and breathes fire at one four cells off
-      golem_attack: enemyT('golem', 0), salamander_attack: enemyT('salamander', 0, 'slam', 0, { fa: Math.PI, br: 0 }),
+      // (a row lower than the hero, TASKS 490: level with him he stood over its slam in every frame of it)
+      golem_attack: enemyT('golem', 0, 'slam', 0, (e, h) => ({ y: h.y + 26 })), salamander_attack: enemyT('salamander', 0, 'slam', 0, { fa: Math.PI, br: 0 }),
       salamander_breath: enemyT('salamander', 0, 'slam', 0, (e, h) => ({ x: h.x + 4 * TILE, fa: Math.PI, br: 1, brT: 0 })),
       fire_priest_attack: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kinT: 1e9 })), fire_priest_kindle: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kin: 1, kinT: 1e9 })) };
     transitions.crab_turning = enCycles.crab_turning; delete enCycles.crab_turning;

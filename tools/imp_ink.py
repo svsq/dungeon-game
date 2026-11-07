@@ -45,9 +45,16 @@ def disk(r):
     return x * x + y * y <= r * r + 1
 
 
+def hull(solid, r):
+    # opening drops hairs and specks; the eroded core keeps real limbs that the opening could thin out
+    core = nd.binary_erosion(solid, disk(3))
+    return nd.binary_opening(solid, disk(2)) | nd.binary_dilation(core, disk(3)) & solid
+
+
 def ink(a, r, others):
     solid = a[..., 3] > 128
-    ring = nd.binary_dilation(solid, disk(r)) & ~solid & ~others
+    ring = nd.binary_dilation(hull(solid, r), disk(r))
+    ring = nd.binary_closing(np.pad(ring, 8), disk(3))[8:-8, 8:-8] & ~solid & ~others
     a[ring, :3] = INK; a[ring, 3] = 255
     return a
 

@@ -526,10 +526,11 @@
     // it springs back from the hero facing him, its eyes on him; elsewhere it faces where it leaps
     const h = R.hero, back = Math.hypot(h.x - x, h.y - y) > Math.hypot(h.x - e.lx, h.y - e.ly) && Math.hypot(h.x - e.lx, h.y - e.ly) < E.flee + 20;
     e.face = back ? (h.x >= e.x ? 1 : -1) : x >= e.x ? 1 : -1; e.aimA = Math.atan2(y - e.y, x - e.x); ev(S, { k: 'leap', x: e.x, y: e.y, id: e.id }); }
-  // (a body in flight keeps its speed, TASKS 489: eased all along it, it went 2.7× faster at the middle than near the ends; a touch
-  // of ease is left for the push-off and the landing, which the render's pose takes up)
+  // (a body in flight keeps its speed, TASKS 489: eased all along it, it went 2.7× faster at the middle than near the ends; its speed
+  // ramps up over the first fifth and down over the last, so the take-off and the landing don't jolt)
   // (its first steps off the landing ease in from a standstill: spd0 0)
-  function leapStep(S, R, e, E) { const L0 = E.leap, u = S.t - e.t0, f = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), q = 0.85 * f + 0.15 * f * f * (3 - 2 * f);
+  const leapQ = (f) => (f < 0.2 ? 3.125 * f * f : f > 0.8 ? 1 - 3.125 * (1 - f) * (1 - f) : 0.125 + 1.25 * (f - 0.2));
+  function leapStep(S, R, e, E) { const L0 = E.leap, u = S.t - e.t0, f = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), q = leapQ(f);
     e.x = e.lx + (e.ltx - e.lx) * q; e.y = e.ly + (e.lty - e.ly) * q; e.vx = e.vy = e.kbx = e.kby = 0;
     if (q >= 1 && !e.landed) { e.landed = 1; ev(S, { k: 'land', x: e.x, y: e.y, id: e.id }); }
     if (u >= L0.crouch + e.ld + L0.land) { e.st = 'chase'; e.t0 = e.seenT = S.t; e.landed = 0; e.spd0 = 0; e.vxn0 = 1; e.vyn0 = 0; e.leapT = S.t + L0.cd * (0.8 + 0.4 * rnd(R)) / eliteK(e, 'spd'); } }
