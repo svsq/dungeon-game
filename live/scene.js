@@ -3094,7 +3094,10 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k }); return; }
     const it = p.item, ic = SIM.itemIcon(it), [w, hh] = SZ(ic), k = 0.62, col = D.RARITY[it.rar].col;
     if (it.rar >= 1) { G.blend('add'); L.glow(x, y - z - 14 - bob, 30, col, 0.55); if (it.rar >= 3) L.solid(x - 3, y - z - 110, 6, 100, col, 0, 0, 0, 0.18 + 0.05 * Math.sin(t * 4)); G.blend(); }
-    L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k });
+    // (on the magma's islets and banks the lava's glow and bloom wash over a dark common item, TASKS 490: it gets a pale glow of its
+    // own and a dark ink rim there)
+    const draw = () => L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k });
+    if (SC.state && SC.state.run && SC.state.run.map.cliff) { if (it.rar < 1) { G.blend('add'); L.glow(x, y - z - 14 - bob, 26, [1, 0.92, 0.75], 0.4); G.blend(); } L.inked(draw, { r: 2, n: 8, col: [0.02, 0.015, 0.015], dy: 0 }); } else draw();
   }
 
   // ---------------- QA hooks (scripts/qa.mjs) ----------------
