@@ -403,7 +403,20 @@
   function stashFloor(R) { const f = R.floor, M = R.memo && R.memo[f]; if (!M || f < 1) return;
     const fresh = BASE.has(M) ? JSON.parse(BASE.get(M)) : jclone(freshFloor(R, f, M)), cur = jclone(Object.fromEntries(FLOOR_KEYS.map((k) => [k, R[k]])));
     M.d = fdiff(fresh, cur) || null; M.drops = jclone(R.drops); M.seen = rle(R.seen); M.rseen = R.rseen.slice(); }
-  function restoreFloor(R, f, M) { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k];
+  // a floor kept by another generator (an old save): its diff fits a map no longer built, so the floor is built anew and only what
+  // can't come back carries over: as many of its monsters stay dead as died there, the nearest the way in first, and a slain
+  // boss stays slain with its hall's portal home; its loot on the floor and what was explored are lost
+  function migrateFloor(R, f, M) { const B = freshFloor(R, f, M), P = (M.d && M.d.p) || {}, E = (P.en && P.en.p) || {}; BASE.set(M, snapFloor(B));
+    const dead = Object.values(E).filter((q) => ('v' in q ? q.v && q.v.deadT >= 0 : q.p && q.p.deadT && q.p.deadT.v >= 0)).length;
+    const slain = !!(P.bossDead && P.bossDead.v) || (R.slain || []).includes(f), up = B.map.up || B.map.spawn;
+    const mobs = B.en.filter((e) => !D.BOSSES[e.type]).sort((a, b) => Math.hypot(a.x - up.x, a.y - up.y) - Math.hypot(b.x - up.x, b.y - up.y));
+    for (const e of mobs.slice(0, dead)) { e.hp = 0; e.deadT = 0; }
+    for (const k of FLOOR_KEYS) R[k] = B[k];
+    const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
+    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (!lastFloor(R) && R.viaTown) R.arena.gate = bossGate(R, boss); }
+    M.gv = D.GEN_VERSION; M.d = null; M.drops = []; M.seen = null; M.rseen = null; }
+  function restoreFloor(R, f, M) { if ((M.gv || 1) !== D.GEN_VERSION) migrateFloor(R, f, M);
+    else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
     R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); }
   function standNear(R, x, y) { const m = R.map, sol = solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
@@ -416,7 +429,7 @@
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { restoreFloor(R, f, M); R.town = 0; R.folk = null; }
-    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); questPlace(S, R); } }
+    else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); questPlace(S, R); } }
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not
@@ -4579,6 +4592,13 @@
     at(R.map.up, 30); E(S); if (R.floor !== 0 || !R.town || Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: the 1st floor\'s stairs up do not lead to the town\'s gate');
     if (R.shop.goods.map((g) => g.it.id).join() !== shelf0) out.push('climb: the town shelf is re-rolled on a return with no deeper floor reached');
     const size = JSON.stringify(persist(S)).length; if (size > 120000) out.push(`climb: a run with two kept floors saves ${size} bytes`);
+    // a floor kept by an older generator (a save from before R-18): its diff points past the monsters built now; the floor is built
+    // anew with as many dead as died there, and stays so when left again
+    { const M = R.memo[1]; delete M.gv; M.d = { p: { en: { p: { 0: { p: { deadT: { v: 5 }, hp: { v: 0 } } }, 999: { p: { hp: { v: 1 } } } } } } };
+      const dead = () => R.en.filter((e) => e.deadT >= 0).length;
+      try { enterFloor(S, R, 1, undefined, 'up'); if (M.gv !== D.GEN_VERSION || dead() !== 1) out.push(`memo: an old generator's floor is not built anew with its dead (${dead()})`);
+        enterFloor(S, R, 0, undefined, 'up'); enterFloor(S, R, 1); if (dead() !== 1) out.push('memo: an old generator\'s floor brings its dead back once left again'); }
+      catch (err) { out.push('memo: an old generator\'s floor fails to load: ' + err.message); } }
     // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
     // town's portal brings him back beside it, and the stairs lead on
     for (const f of [2, 4, 6, 8]) { const T2 = spawn(0, {}); T2.run = newRun(T2, 'campaign', 31 + f, { town: 1 }); T2.screen = 'play'; const Q = T2.run, hq = Q.hero; enterFloor(T2, Q, f);

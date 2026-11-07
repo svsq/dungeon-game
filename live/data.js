@@ -592,6 +592,9 @@
   };
   // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
+  // the floor generator's version (R-18): a floor kept by a run through the town is a diff against its rebuild, so a save made by
+  // another generator cannot patch the floor it builds now; the version goes with each kept floor
+  const GEN_VERSION = 2;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {
     hp_potion: { name: 'Зелье здоровья', icon: 'it_hp', heal: 0.4, stack: 9 },
@@ -965,7 +968,7 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
   const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
-  root.DATA = { ROOM_SHAPES, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, NAMED, storyChain, plural, reqLvl, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, BRINK, surgeLevel, MAGMA_HALLS,
+  root.DATA = { ROOM_SHAPES, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, GEN_VERSION, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, NAMED, storyChain, plural, reqLvl, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, BRINK, surgeLevel, MAGMA_HALLS,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
 })(typeof window !== 'undefined' ? window : globalThis);
