@@ -188,7 +188,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // (TASKS 446, measured on ref_cave_lava: plates 10–14 px, a seam a white-hot thread in yellow then orange, no blue in either;
   // the plates near one orange, a few dark red: the dark of the ref's field is the columns' shadow, not plates; a slow noise
   // dims the seams in patches, so the net is not even)
-  vec3 v = vor(p / 13.0 + wq * 1.4, u_t * 0.12);
+  vec3 v = vor(p / 13.0 + wq * 2.4, u_t * 0.12);   // (warped harder, TASKS 1047: the seams ran in straight 24–32 px runs)
   float dull = smoothstep(0.38, 0.58, fbm(p / 45.0 + 5.0));
   float seam = (v.y - v.x) * 6.5 * (0.85 + 0.6 * dull) * (0.8 + 2.2 * smoothstep(0.48, 0.62, fbm(p / 26.0 + 1.3))), id = v.z, beat = 0.5 + 0.5 * sin(u_t * 0.9 + id * 6.2831);
   vec3 W1 = vec3(1.0, 0.98, 0.08), Y = vec3(1.0, 0.8, 0.02), YO = vec3(1.0, 0.42, 0.02), O1 = vec3(0.99, 0.24, 0.03), O2 = vec3(0.97, 0.15, 0.02), Rd = vec3(0.5, 0.04, 0.01), Dk = vec3(0.17, 0.018, 0.008);
@@ -196,10 +196,11 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   if (still > 0.5 && hash(vec2(id, 4.1)) < 0.07) col = seam > 3.0 ? vec3(0.3, 0.04, 0.015) : col;
   // the concept's field has a large pattern (TASKS 481): slow dark-red backwaters up to ~130 px over a seventh of the lava, their
   // plates cooling to red and black and their net dimmed to orange; lone dark art pixels read as pepper, not as cooling lava
-  float pool = step(0.62 + (id - 0.5) * 0.08, fbm(p / 60.0 + 17.0) * 0.75 + vnoise(p / 22.0 + 3.0) * 0.25);   // (≈ 60 px backwaters, TASKS 1038: at 120 they lay as great blots mid-lake)
+  float pool = step(0.62 + (id - 0.5) * 0.08, fbm(p / 34.0 + 17.0) * 0.75 + vnoise(p / 14.0 + 3.0) * 0.25);   // (≈ 40 px backwaters, TASKS 1038, 1047: they lay as blots mid-lake)
   if (pool > 0.5) col = hash(vec2(id, 9.3)) < 0.45 ? Dk : Rd;
-  // (the seams 3–4 px with a white thread, TASKS 1038: 2 px and lemon at their core against the concept's)
-  col = seam < 0.3 + 0.15 * beat ? (pool > 0.5 ? YO : vec3(1.0, 1.0, 0.72)) : seam < 0.75 + 0.2 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.4 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 2.3 && pool < 0.5 ? mix(col, O1, 0.5) : col;
+  // (the seams 3–4 px with a thin lemon core, TASKS 1038, 1047: a cream thread washed the lava's colour out, 44 against 82)
+  float core = step(seam, 0.15 + 0.1 * beat) * (1.0 - pool);
+  col = seam < 0.15 + 0.1 * beat ? (pool > 0.5 ? YO : vec3(1.35, 1.35, 0.5)) : seam < 0.75 + 0.2 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.4 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 2.3 && pool < 0.5 ? mix(col, O1, 0.5) : col;
   col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;
   // at a column's foot: a hot line where it meets the lava, then its shadow, the lava dark red and cooling
   // past a short shadow the lava round a column's foot glows (TASKS 481: the concept's columns stand in a bright halo)
@@ -236,7 +237,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   else if (u_mode < 1.5) o = vec4(vec3(1.0, 0.36, 0.08) * 0.16 * smoothstep(0.0, 10.0, d) * (1.0 - crustOn) * texture(u_seen, w / u_map).r * (1.0 - texture(u_occ, scr(v_px)).a), 0.0);
   // a crust plate's top keeps most of its own dark neutral stone through the light (TASKS 448: lit by the lava round it, it came out tan)
   else if (crustOn > 0.5 && seamC < 0.5) o = vec4(col * 0.3 * 0.75, 0.75);
-  else o = vec4(col * inside * 0.56, inside); }`;
+  // (the seams' lemon core is the lava's own glow: lit by its orange light it could not come out lemon, TASKS 1047)
+  else o = vec4(col * inside * 0.56 * (1.0 + 1.4 * core), inside); }`;
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
   // gives nothing of the layout away. On the world's 2 px grid
