@@ -196,9 +196,10 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   if (still > 0.5 && hash(vec2(id, 4.1)) < 0.07) col = seam > 3.0 ? vec3(0.3, 0.04, 0.015) : col;
   // the concept's field has a large pattern (TASKS 481): slow dark-red backwaters up to ~130 px over a seventh of the lava, their
   // plates cooling to red and black and their net dimmed to orange; lone dark art pixels read as pepper, not as cooling lava
-  float pool = step(0.6 + (id - 0.5) * 0.08, fbm(p / 120.0 + 17.0) * 0.75 + vnoise(p / 40.0 + 3.0) * 0.25);
+  float pool = step(0.62 + (id - 0.5) * 0.08, fbm(p / 60.0 + 17.0) * 0.75 + vnoise(p / 22.0 + 3.0) * 0.25);   // (≈ 60 px backwaters, TASKS 1038: at 120 they lay as great blots mid-lake)
   if (pool > 0.5) col = hash(vec2(id, 9.3)) < 0.45 ? Dk : Rd;
-  col = seam < 0.2 + 0.15 * beat ? (pool > 0.5 ? YO : W1) : seam < 0.5 + 0.2 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.0 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 1.8 && pool < 0.5 ? mix(col, O1, 0.5) : col;
+  // (the seams 3–4 px with a white thread, TASKS 1038: 2 px and lemon at their core against the concept's)
+  col = seam < 0.3 + 0.15 * beat ? (pool > 0.5 ? YO : vec3(1.0, 1.0, 0.72)) : seam < 0.75 + 0.2 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.4 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 2.3 && pool < 0.5 ? mix(col, O1, 0.5) : col;
   col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;
   // at a column's foot: a hot line where it meets the lava, then its shadow, the lava dark red and cooling
   // past a short shadow the lava round a column's foot glows (TASKS 481: the concept's columns stand in a bright halo)
@@ -390,7 +391,8 @@ vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
 float colAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx / hw; f = vec2(xx, 0.0);
   if (c.y <= 0.0 || abs(xx) > hw) return 0.0;
   float ry = (w.y - c.y) / 8.0; if (ex * ex + ry * ry < 1.0) return 1.0;
-  if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z) { f.y = (w.y - c.y) / c.z; return 2.0; }
+  // (its foot curves as its cap does, TASKS 1038: cut straight, the glow under it ran as ruled bars a column wide)
+  if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z + 8.0 * sqrt(max(0.0, 1.0 - ex * ex))) { f.y = min(1.0, (w.y - c.y) / c.z); return 2.0; }
   return 0.0; }
 // a cluster of 3–8 columns standing in a lake or a river (TASKS 447: ref_cave_lava's field reads through its columns, 13–18 % basalt
 // against our 0–2), one in most cells of a 96×80 grid, packed close, of a height the cluster shares; each column its own width and
@@ -408,7 +410,7 @@ float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foo
       if (textureLod(u_lake, cj.xy / u_map, 0.0).r < 0.5 || textureLod(u_lake, vec2(cj.x, cj.y + h) / u_map, 0.0).r < 0.5) continue;
       vec2 ff; float k = colAt(w, cj, ff, hw);
       if (k > 0.5 && cj.y + cj.z > by) { by = cj.y + cj.z; on = k; c = cj; f = ff; hwo = hw; }
-      if (w.y >= cj.y + cj.z) foot = max(foot, clamp(1.0 - (w.y - cj.y - cj.z) / 20.0, 0.0, 1.0)); } }
+      { float fx = (w.x - cj.x) / (hw + 7.0), fy = (w.y - cj.y - cj.z) / 13.0, rr = sqrt(fx * fx + fy * fy); if (k < 0.5 && rr < 1.0) foot = max(foot, clamp((1.0 - rr) * 1.6, 0.0, 1.0)); } } }
   return on; }
 // columns standing up out of the dark under a plateau's edge over the chasm (TASKS 447; fidelity r1 p. 9: ref_cave_lava's edges have
 // tops 30–100 px down in the chasm, their faces fading into the dark): two rows a half column off the edge's own, a few missing,
@@ -622,7 +624,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
         a = 1.0; glow = 0.0; liquid = 0.0; } }
     // the fall down the face: a white-hot lip, the sheet widening a little to its foot, 3–5 runs of white-yellow an art pixel wide
     // racing down it in dashes
-    float hw = u_wide + 5.0 * (y - lip) / max(land - lip, 1.0), sx = dx - wob;
+    // (its edges ragged and running down with it, TASKS 1038: a ruled curtain, σ 2.6 px against the concept's 11)
+    float hw0 = u_wide + 5.0 * (y - lip) / max(land - lip, 1.0), sx = dx - wob, hw = hw0 + (vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 14.0 * smoothstep(lip, lip + 12.0, y);
     if (y >= lip - 1.0 && y < land + 4.0 && abs(sx) < hw && (y >= lip + 1.0 || abs(sx) < u_wide)) {
       if (y < lip + 1.0) col = vec3(1.0, 0.92, 0.6);
       else { float s = vnoise(vec2(dx / 2.5, (y - u_t * 70.0) / 14.0)) + 0.1 * (1.0 - abs(sx) / hw) - 0.17;
@@ -747,7 +750,7 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(1.6, 0.35, oc.r * nearL)));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
   // only the light's level, not its hue
-  l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(2.0, 0.9, capB), 1.4), bas);   // (the caps darker: L 35 against the concept's 21)
+  l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(1.5, 0.9, capB), 1.4), bas);   // (the caps darker: L 35 against the concept's 21)
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
