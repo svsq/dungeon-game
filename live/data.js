@@ -41,7 +41,7 @@
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
     // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
-    town: { name: 'Город', rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.15, 0.14, 0.15], ambK: 0.65, ambLvl: 2.4, fireK: 0.85, torch: [1.0, 0.78, 0.26], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
+    town: { name: 'Город', rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.15, 0.14, 0.15], ambK: 0.65, ambLvl: 1.0, fireK: 1.8, torch: [1.0, 0.64, 0.22], torchR: 0.55, spill: [1.1, 0.7], topLift: 1.3, floorG: 0.8, floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
       tint: [1, 1, 1], roster: [], props: [], town: true },
   };
 
@@ -680,13 +680,13 @@
   // of floor f cleared, or the room's event done (1021)), need(f), its words and its reward kinds; the reward grows with its floor.
   // `fresh`: the goal is put on floor f when it is first built, so f must be a floor not yet reached and no boss's (`noBoss`)
   const QUESTS = {
-    cull: { kind: 'side', type: 'kill', name: 'Прополка', need: (f) => 10 + 2 * f, text: (q) => 'Убей ' + q.need + ' ' + plural(q.need, 'чудовище', 'чудовища', 'чудовищ') + ' на ' + q.f + '-м этаже или глубже.', rw: ['gold', 'xp'] },
-    elites: { kind: 'side', type: 'kill', elite: 1, name: 'Сильнейшие', need: (f) => 2 + Math.floor(f / 4), text: (q) => 'Одолей ' + q.need + ' ' + plural(q.need, 'элитного врага', 'элитных врагов', 'элитных врагов') + ' на ' + q.f + '-м этаже или глубже.', rw: ['gold', 'item'] },
+    cull: { kind: 'side', type: 'kill', name: 'Прополка', need: (f) => 10 + 2 * f, text: (q) => 'Убей ' + q.need + ' ' + plural(q.need, 'чудовище', 'чудовища', 'чудовищ') + ' на ' + q.f + '-м этаже или глубже.', rw: ['scroll', 'xp'] },
+    elites: { kind: 'side', type: 'kill', elite: 1, name: 'Сильнейшие', need: (f) => 2 + Math.floor(f / 4), text: (q) => 'Одолей ' + q.need + ' ' + plural(q.need, 'элитного врага', 'элитных врагов', 'элитных врагов') + ' на ' + q.f + '-м этаже или глубже.', rw: ['scroll', 'item'] },
     sweep: { kind: 'side', type: 'clear', name: 'Тишина в залах', need: (f) => 3 + Math.floor(f / 4), text: (q) => 'Зачисти ' + q.need + ' ' + plural(q.need, 'комнату', 'комнаты', 'комнат') + ' до последнего врага на ' + q.f + '-м этаже или глубже.', rw: ['xp', 'shards'] },
-    descent: { kind: 'side', type: 'reach', name: 'Глубже', need: () => 1, ahead: 2, text: (q) => 'Спустись до ' + q.f + '-го этажа.', rw: ['gold', 'shards'] },
+    descent: { kind: 'side', type: 'reach', name: 'Глубже', need: () => 1, ahead: 2, text: (q) => 'Спустись до ' + q.f + '-го этажа.', rw: ['scroll', 'shards'] },
     // the named foe from the 3rd floor (TASKS 1024: on the 1st it killed the bot's level-1 hero on two seeds in six)
-    named: { kind: 'side', type: 'named', name: 'Охота', need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => 'На ' + q.f + '-м этаже бродит чудовище по прозвищу ' + q.title + '. Найди и убей его: оно отмечено на карте.', rw: ['gold', 'item'], item: 3 },
-    fetch: { kind: 'side', type: 'fetch', name: 'Пропажа', need: () => 1, fresh: 1, noBoss: 1, text: (q) => '«' + q.thing + '» лежит где-то на ' + q.f + '-м этаже: в комнате, в сундуке или в тайнике. Найди и принеси.', rw: ['gold', 'xp'] },
+    named: { kind: 'side', type: 'named', name: 'Охота', need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => 'На ' + q.f + '-м этаже бродит чудовище по прозвищу ' + q.title + '. Найди и убей его: оно отмечено на карте.', rw: ['scroll', 'item'], item: 3 },
+    fetch: { kind: 'side', type: 'fetch', name: 'Пропажа', need: () => 1, fresh: 1, noBoss: 1, text: (q) => '«' + q.thing + '» лежит где-то на ' + q.f + '-м этаже: в комнате, в сундуке или в тайнике. Найди и принеси.', rw: ['scroll', 'xp'] },
     room: { kind: 'side', type: 'room', name: 'Логово', need: () => 1, fresh: 1, noBoss: 1, text: (q) => 'На ' + q.f + '-м этаже есть логово — оно отмечено на карте. Зачисти его до последнего врага.', rw: ['xp', 'shards'] },
     chapter: { kind: 'story', type: 'boss', name: 'Хозяин главы', need: () => 1, text: (q) => 'Одолей хозяина главы на ' + q.f + '-м этаже.', rw: ['shards', 'item'] },
     depths: { kind: 'story', type: 'reach', name: 'Новая глава', need: () => 1, text: (q) => 'Спустись до ' + q.f + '-го этажа: там начинается новая глава.', rw: ['shards', 'item'] },
@@ -694,7 +694,10 @@
   // what a quest pointing at floor f gives on its turn-in (item: the reward piece's least rarity, 2 rare unless the template says)
   // (TASKS 1024: at 0.35 of a level's XP and 150 + 60·f gold the bot that turned in ~6 a run came to each floor a level up on the
   // campaign's hero, and the average went past the 8th in 83 % of runs against the campaign's 70 % on the same seeds)
-  const questReward = (rw, f) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 100 + 40 * f : k === 'xp' ? Math.round(0.15 * xpNeed(Math.max(1, f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
+  // (TASKS 1033) a reward is told by its kind, not its size: scrolls of return in place of gold (on the 1st floor 140 gold went to a
+  // hero with thousands and nothing to buy), and the experience of the hero's own level, not the floor's (10 on the 1st floor read as
+  // nothing): lvl is the hero's level when it is offered and again when it is turned in
+  const questReward = (rw, f, lvl) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 100 + 40 * f : k === 'scroll' ? 1 + (f >= 8 ? 1 : 0) : k === 'xp' ? Math.round(0.15 * xpNeed(Math.max(1, lvl || f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
   // who gives the side quests (TASKS 1018): a run draws QUEST_GIVE.n of them by its seed from the pool, each from a townsman of
   // its own; the floor a quest points at is set when it is taken, `ahead` floors past the deepest reached (one, unless the template
   // says). The Keeper gives the story chain (1022) and may give a side quest too
@@ -862,6 +865,10 @@
     talk: (T) => { const P = { x: 330, y: 640, w: 1260, h: 330 }, at = (i) => ({ x: P.x + P.w - 330 - i * 310, y: P.y + P.h - 92, w: 290, h: 64 }), last = T && T.p + 1 >= T.pages.length, r = [{ id: 'next', label: '', on: true, ...at(0) }];
       if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: 'Мастерская', on: true, ...at(r.length) }); return { P, r }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
+    // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
+    board: (n) => { const P = { x: 400, y: 90, w: 1120, h: 900 }, r = [];
+      for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     journal: (n) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
       for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
@@ -967,7 +974,10 @@
     const ankle = side ? 172.5 : 74.5, foot = side ? 175.18155197657393 : 70.64176829268293, narrow = (123.5 - ankle) * 0.15;
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
-  const folkInit = (npcs) => npcs.map((n, i) => ({ i, role: n.role, x: n.x, y: n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: -1, go: 0, t0: -i * 1.9, load: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }));
+  // a walker starts standing at a stop of its round (the one it is placed on, give or take the seed's nudge, else the round's last): a first leg from off the round
+  // ran into the forge's corner, and the porter skipped his pick-up and walked to the merchant empty-handed (TASKS 1031)
+  const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1;
+    return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
   root.DATA = { ROOM_SHAPES, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit, placeName, colossusStepAt, colossusContact, TILE, ZOOM, ZOOMS, BIOMES, ARCH, HAZ, hazClock, hazIn, RUNS, runOf, wayFloor, wanderAt, stageOf, rosterAt, CAVE_PACKS, MAGMA_PACKS, DIFF, DIFF_ORDER, floorName, ENEMIES, BOSSES, bossPhase, bossMove, BAL, dmgAt, hpAt, ELITE, eliteK, GEN_VERSION, windOf, under, ELITE_MODS, eliteMods, modPool, TIPS, eliteName, SLOTS, SLOT_NAME, BASES, ITEM_BAL, STASH, CRAFT, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, NAMED, storyChain, plural, reqLvl, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, BRINK, surgeLevel, MAGMA_HALLS,
     ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, META, metaLine, GIFTS, giftCost, xpNeed, SHOP, itemPrice, sellPrice, UI, TEST_RUNS, startPath, hitUI, PROP_MAT, PROP_W, PROP_H, ROOM_PLANS };
   if (typeof module !== 'undefined') module.exports = root.DATA;
