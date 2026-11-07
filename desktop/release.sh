@@ -26,7 +26,7 @@ src="$ROOT"
 rm -rf "${DESK:?}/.pack"; mkdir -p "$DESK/.pack"
 if [ $head = 1 ]; then
   src="$DESK/.pack/src"; mkdir -p "$src"
-  git -C "$ROOT" archive HEAD live | tar -x -C "$src"
+  git -C "$ROOT" archive HEAD live CHANGELOG.md tools/changelog.cjs | tar -x -C "$src"
 elif ! git -C "$ROOT" diff --quiet HEAD -- live || [ -n "$(git -C "$ROOT" ls-files --others --exclude-standard live)" ]; then
   rev="$rev-dirty"
 fi
@@ -38,7 +38,7 @@ if [ $check = 1 ]; then
 fi
 
 ver="$(node -e "require('./live/data.js'); console.log(DATA.VERSION)")"
-node "$ROOT/tools/changelog.cjs" --check >/dev/null || { echo "CHANGELOG.md is out of step with the game: node tools/changelog.cjs --check" >&2; exit 1; }
+node tools/changelog.cjs --check >/dev/null || { echo "CHANGELOG.md is out of step with the game: node tools/changelog.cjs --check" >&2; exit 1; }
 echo "== pack $ver ($rev)"
 python3 "$SKILL/scripts/pack.py" --name crypt --out "$DESK/.pack/out" | tail -1
 rm -rf "${DESK:?}/game"
