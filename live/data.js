@@ -12,7 +12,8 @@
     'ITEM_BAL', 'STASH', 'CRAFT', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'NAMED', 'storyChain', 'plural', 'reqLvl',
     'CONSUMABLES', 'RARITY', 'AFFIXES', 'LEGEND_NAMES', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'ABILITIES', 'AB_MAX', 'abRank', 'SHIELD_T',
     'shieldHp', 'fireDmg', 'STATS', 'META', 'metaLine', 'GIFTS', 'giftCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
-    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS' ];
+    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS', 'FLOOR_MOD',
+    'FLOOR_MODS' ];
   const lost = KEYS.filter((k) => !(k in D));
   if (lost.length) throw new Error('data.js: DATA lacks ' + lost.join(', '));
   if (typeof module !== 'undefined') module.exports = D;

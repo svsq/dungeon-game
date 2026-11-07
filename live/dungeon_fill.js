@@ -5,7 +5,7 @@
     D, ENEMIES, LIGHT_R, NO_SHOP, TILE, inRm, lakeOk, lakeWays, mul32, narrowTo, rectsOf, rewardsOf, riverAt, riverOk, riverWays } = DGX;
   DGX.fill = (GF) => {
     const {
-      AR, H, HL, LY, MIX, MX, R, ST, TY, W, arch, at, biome, boss, bossType, cave, cells, chasmUnder, circles, cliff, crossings, crust,
+      AR, FM, H, HL, LY, MIX, MX, R, ST, TY, W, arch, at, biome, boss, bossType, cave, cells, chasmUnder, circles, cliff, crossings, crust,
       deadEnd, deckUsed, depth, doors, edges, exitR, fig, figAt, fin, floodCells, floor, flow, ftype, ftype2, lakeWay, lastTry, lava,
       lavaBodies, lavaFeatures, lavaUnder, lc, ledges, lines, locks, merchant, opts, pathMin, pick, pits, plat, ri, ridgeLen, riverB,
       riverWay, riverY, roomOf, rooms, runFloor, secrets, secretsWanted, seed, serpentPools, shareOf, shopR, start, stepHold, streams,
@@ -184,7 +184,8 @@
     // no corner of a room is left in the dark: while some floor cell lies outside every light's reach, light the cell
     // nearest to it, preferring a sconce on the top wall, then on a side wall, then a brazier, then candles
     const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    const lightRoom = (r, extra, wallOnly) => {
+    // (a floor without light, TASKS 381, lights no dark corner: its rooms keep only a share of their own torches, cut below)
+    const lightRoom = (r, extra, wallOnly) => { if (FM.torch && r.type !== 'shop') return true;
       const inR = (o) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= (r.y - 1) * TILE && o.y < (r.y + r.h) * TILE;
       const lights = torches.filter((t) => t.r === r.id).map((t) => [t.x, t.y, LIGHT_R[t.kind]])
         .concat(decor.filter((d) => LIGHT_R[d.n] && inR(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.filter(inR).map((s) => [s.x, s.y, LIGHT_R.shrine]), extra);
@@ -377,7 +378,7 @@
         let n = Math.min(Math.floor(area / 9), 2 + Math.floor(depth / 2) + ri(0, 3) + (r.type === 'exit' ? 2 : 0) - (r.type === 'treasure' ? 1 : 0));
         // (a plateau's kind sets its share, TASKS 432: an arena holds more, a ledge with a hoard on it may hold none)
         const kp = r.kind && MX ? MX[r.kind].pop || 1 : 1;
-        n = Math.max(r.kind === 'ledge' ? 0 : 1, Math.round(n * D.BAL.pop * ST.pop * (plat ? TY.pop : 1) * (LY ? LY.pop : 1) * kp));
+        n = Math.max(r.kind === 'ledge' ? 0 : 1, Math.round(n * D.BAL.pop * ST.pop * (plat ? TY.pop : 1) * (LY ? LY.pop : 1) * kp * (FM.pop || 1)));
         if (r.islet) n = 0;   // (a hoard's islet, TASKS 476: no pack could reach it)
         const pack = pick(roster), guard = r.type === 'exit' && !!ST.guard;
         if (cave) { if (n > 0) cavePack(r, n + (r.hall ? HL.kinds[r.hall].extra : 0), guard); }
@@ -456,6 +457,16 @@
       lightRoom(r, []);
     }
     secOpen = false;
+    // a lair (TASKS 381): as many more plain monsters of the fighting rooms as `elites` turn elite, each in a room of its own while
+    // there are rooms, and the first one's room holds a chest of the top tier
+    if (FM.elites) { const pool = enemies.filter((e) => !e.elite && !D.BOSSES[e.type] && rooms[e.room] && rooms[e.room].type === 'combat'), took = [];
+      for (let i = 0; i < FM.elites && pool.length; i++) { const apart = pool.filter((e) => !took.some((q) => q.room === e.room)), e = pick(apart.length ? apart : pool);
+        e.elite = 1; took.push(e); pool.splice(pool.indexOf(e), 1); }
+      // (a shaped room may have no spot left for it: the next elite's room, then any fighting room)
+      for (const r of [...took.map((e) => rooms[e.room]), ...rooms.filter((q) => q.type === 'combat')]) { const p = wallSpot(r, 'chest') || spot(r, 1, 0, true);
+        if (p) { chests.push({ x: wx(p[0]), y: wy(p[1]), tier: FM.chest, open: 0, lair: 1 }); break; } } }
+    // a floor without light (TASKS 381): only `torch` of the wall torches stay, before a secret's sconce is picked out of them
+    if (FM.torch) for (let i = torches.length - 1; i >= 0; i--) if (torches[i].kind === 'wall' && R() >= FM.torch) torches.splice(i, 1);
     // a river's ways over (TASKS 428) and the chasm's bridges (429) are where packs wait: on the bank past each one, two to seven steps on from its end, two of the
     // floor's kinds stand where none of the plateau's own pack does yet
     if (riverY.length || ftype === 'chasm' || MIX) { const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]], dry = (x, y) => !N8.some(([i, j]) => at(x + i, y + j) === 3);
@@ -717,15 +728,20 @@
       // a trapped corridor (TASKS 377), a way of its own kind from the 3rd floor: the floor's longest straight stretch two cells wide
       // between rock (five cells and more, a cell off any room), a plate every third cell down all of it, their spikes rising in a wave
       // along it, so it is crossed in time, plate by plate
-      if (LY && depth >= 3 && R() < (LY.gauntlet ?? 0.7)) { let best = null;
+      // (a cursed floor, TASKS 381: such a row down every straight stretch of `FM.gauntlet` cells and more, the longest first)
+      if (LY && depth >= 3 && (FM.gauntlet || R() < (LY.gauntlet ?? 0.7))) { let best = null; const all = [];
         const ok = (x, y) => at(x, y) === 1 && !inAny(x, y, 1) && !used.has(key(x, y)) && !water.includes(y * W + x) && !doors.some((d) => d.cells.some(([dx, dy]) => Math.abs(dx - x) <= 2 && Math.abs(dy - y) <= 2));
+        const fits = (hor, u, v) => { const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]); return ok(...c(u, v)) && ok(...c(u, v + 1)) && at(...c(u, v - 1)) === 0 && at(...c(u, v + 2)) === 0; };
         for (const hor of [1, 0]) for (let v = 3; v < (hor ? H : W) - 4; v++) { let n = 0;
-          for (let u = 2; u < (hor ? W : H) - 2; u++) { const c = (uu, vv) => (hor ? [uu, vv] : [vv, uu]);
-            n = ok(...c(u, v)) && ok(...c(u, v + 1)) && at(...c(u, v - 1)) === 0 && at(...c(u, v + 2)) === 0 ? n + 1 : 0; if (n >= 5 && (!best || n > best[3])) best = [hor, u - n + 1, v, n]; } }
-        if (best) { const [hor, u0, v, n] = best, ph0 = R(), id = traps.length;
+          for (let u = 2; u < (hor ? W : H) - 2; u++) {
+            const was = n; n = fits(hor, u, v) ? n + 1 : 0; if (n >= 5 && (!best || n > best[3])) best = [hor, u - n + 1, v, n];
+            if (FM.gauntlet && (n === 0 || u === (hor ? W : H) - 3) && Math.max(n, was) >= FM.gauntlet) { const m = n || was; all.push([hor, (n ? u + 1 : u) - m, v, m]); } } }
+        const lay = ([hor, u0, v, n]) => { const ph0 = R(), id = traps.length;
           for (let o = (n - 1) % 3 >> 1, k = 0; o + 1 < n; o += 3, k++) { const [px, py] = hor ? [u0 + o, v] : [v, u0 + o];
             for (const [cx, cy] of [[px, py], [px + 1, py], [px, py + 1], [px + 1, py + 1]]) used.add(key(cx, cy));
-            traps.push({ x: (px + 1) * TILE, y: (py + 1) * TILE, ph: (ph0 + k * 0.2) % 1, cor: 1, run: id }); } } }
+            traps.push({ x: (px + 1) * TILE, y: (py + 1) * TILE, ph: (ph0 + k * 0.2) % 1, cor: 1, run: id }); } };
+        if (!FM.gauntlet) { if (best) lay(best); }
+        else for (const q of all.sort((a, b) => b[3] - a[3])) if (Array.from({ length: q[3] }, (_, i) => fits(q[0], q[1] + i, q[2])).every(Boolean)) lay(q); }
       for (let n = depth < 2 ? 0 : ri(0, 2) + (depth >= 5 ? 1 : 0), k = 0; n > 0 && k < 60 && cand.length; k++) { const [x, y] = cand[Math.floor(R() * cand.length)];
         if (traps.some((t) => Math.abs(t.x / TILE - (x + 1)) < 7 && Math.abs(t.y / TILE - (y + 1)) < 7)) continue;
         for (const [cx, cy] of [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]) used.add(key(cx, cy));
@@ -940,7 +956,7 @@
     // a floor's 4 arches read as no arch at all), and its span reaches 3 cells either side: by a bridge it stood on its boards (TASKS 480)
     const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
     if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
-    const map = { seed, floor: runFloor, biome, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
+    const map = { seed, floor: runFloor, biome, mod: ST.mod, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       ftype, ftype2, shareOf, ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, pits, ledges, lay: LY ? ST.lay || 'rooms' : undefined, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
     // the rare floor that misses is laid again)

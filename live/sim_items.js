@@ -121,7 +121,7 @@
       if (p.tossed) { if (d > 70) p.tossed = 0; continue; }
       if (p.kind !== 'item' && d < 90) { p.x += (h.x - p.x) * Math.min(1, 8 * DT); p.y += (h.y - p.y) * Math.min(1, 8 * DT); }
       if (d < 26) {
-        if (p.kind === 'gold') { const n = Math.round(p.n * SIMX.heroSt(S).gold); h.gold += n; R.goldTot += n; p.got = 1; ev(S, { k: 'gold', x: p.x, y: p.y, n }); }
+        if (p.kind === 'gold') { const n = Math.round(p.n * SIMX.heroSt(S).gold * ((D.FLOOR_MODS[R.map.mod] || {}).gold || 1)); h.gold += n; R.goldTot += n; p.got = 1; ev(S, { k: 'gold', x: p.x, y: p.y, n }); }
         else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
         else if (p.kind === 'qitem') { p.got = 1; const q = (R.quests || []).find((o) => o.id === p.quest); ev(S, { k: 'qitem', x: p.x, y: p.y, quest: p.quest }); if (q) R.msg = { s: TXT('sim_items.stepDrops.msg.s', { thing: q.thing }), t: S.t }; }
         else if (p.kind === 'key') { R.keys = (R.keys || 0) + 1; p.got = 1; ev(S, { k: 'key', x: p.x, y: p.y }); R.msg = { s: TXT('sim_items.stepDrops.msg.s.2'), t: S.t }; }
