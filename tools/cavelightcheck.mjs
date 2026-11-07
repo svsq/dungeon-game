@@ -10,7 +10,7 @@ const args = process.argv.slice(2), out = args.includes('--out') ? args[args.ind
 const server = http.createServer((q, r) => {
   const file = path.join(process.cwd(), decodeURIComponent(q.url.split('?')[0]));
   fs.readFile(file, (err, bytes) => { if (err) { r.writeHead(404); r.end(); return; }
-    if (q.headers['x-cave-density'] === 'before' && file.endsWith('/live/dungeon.js')) { let src = bytes.toString(); const a = src.indexOf('    if (cave) {\n      const mushrooms ='), b = src.indexOf('    if (cave) for (const d of decor)', a); if (a < 0 || b < 0) throw new Error('density baseline missing'); bytes = Buffer.from(src.slice(0, a) + src.slice(b)); }
+    if (q.headers['x-cave-density'] === 'before' && file.endsWith('/live/dungeon_fill.js')) { let src = bytes.toString(); const a = src.indexOf('    if (cave) {\n      const mushrooms ='), b = src.indexOf('    if (cave) for (const d of decor)', a); if (a < 0 || b < 0) throw new Error('density baseline missing'); bytes = Buffer.from(src.slice(0, a) + src.slice(b)); }
     r.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.png') ? 'image/png' : 'text/html'); r.end(bytes);
   });
 });
