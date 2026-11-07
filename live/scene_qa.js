@@ -183,8 +183,19 @@
       if (kind === 'fireball') { h.castT = S.t - age; h.castK = 'fireball'; const [hx, hy] = SIM.hand(h);
         R.proj = [{ id: 9900, k: 'fire', x: hx + 520 * age, y: hy, vx: 520, vy: 0, t0: S.t - age, life: 1.1, own: 'hero', r: 8 }]; }
       if (kind === 'boom') S.ev = [{ k: 'boom', x, y: y - 24, gx: x, gy: y, t: S.t - age }];
+      // the mage's ice wave and staff bolt (TASKS 1110): three monsters in the cone chilled, a bolt in flight and one bursting on a foe
+      const foe = (ty, dx, dy, o) => { const E = D.ENEMIES[ty]; return Object.assign({ id: 970 + R.en.length, type: ty, x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: rm.id, st: 'idle', t0: 0,
+        face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }, o); };
+      if (kind === 'frost') { h.cls = 'mage'; h.castT = S.t - age; h.castK = 'frost'; const r = D.abRank('frost', 1).r;
+        for (const [ty, dx, dy] of [['skeleton', 110, -50], ['goblin', 150, 30], ['skeleton', 70, 60]]) R.en.push(foe(ty, dx, dy, { chillT: S.t - age + D.FROST.t, slowK: D.FROST.slow, hitT: S.t - age }));
+        S.ev = [{ k: 'frost', x: h.x, y: h.y, a: 0, r, arc: D.FROST.arc, t: S.t - age }]; }
+      if (kind === 'bolt') { h.cls = 'mage'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'staff' }); h.atkT = S.t - age - SIM.K.HIT; h.atkA = 0; const [hx, hy] = SIM.hand(h);
+        R.en.push(foe('skeleton', 330, 0));
+        R.proj = [{ id: 9901, k: 'bolt', x: hx + D.BOLT.spd * age, y: hy, vx: D.BOLT.spd, vy: 0, t0: S.t - age, life: D.BOLT.life, own: 'hero', r: D.BOLT.r }];
+        S.ev = [{ k: 'pop', c: 'bolt', hit: 1, x: h.x + 300, y: hy, t: S.t - age * 0.5 }]; }
     });
-    for (const [kind, ages] of [['whirl', [0.025, 0.08, 0.16, 0.24, 0.32, 0.44]], ['fireball', [0.01, 0.04, 0.08, 0.12, 0.18, 0.24]], ['boom', [0.015, 0.06, 0.12, 0.24, 0.44, 1.5]]]) {
+    for (const [kind, ages] of [['whirl', [0.025, 0.08, 0.16, 0.24, 0.32, 0.44]], ['fireball', [0.01, 0.04, 0.08, 0.12, 0.18, 0.24]], ['boom', [0.015, 0.06, 0.12, 0.24, 0.44, 1.5]],
+      ['frost', [0.03, 0.1, 0.2, 0.4, 0.65, 2]], ['bolt', [0.02, 0.1, 0.2]]]) {
       ages.forEach((age, i) => states.push(['spell_' + kind + '_' + i, spellState(kind, age)]));
     }
     states.push(['spell_scar_end', spellState('boom', 3.9)], ['spell_scar_gone', spellState('boom', 4.1)], ['spell_whirl_wall', spellState('whirl', 0.16, true)]);

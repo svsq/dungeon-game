@@ -1894,7 +1894,7 @@
       else {
         if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`${RID}: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
         if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push(RID + ': the kit is not worn');
-        if (ABILITIES.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push(RID + ': an ability of the hero\'s level is still locked');
+        if (D.clsOf(h).abs.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push(RID + ': an ability of the hero\'s level is still locked');
         for (let f = 1; f <= N.floors; f++) { if (f > 1) enterFloor(S, R, f); const m = R.map, guards = m.enemies.filter((e) => e.guard).length;
           if ((m.bossType || undefined) !== N.boss(f)) out.push(`${RID} f${f}: boss ${m.bossType} where the run has ${N.boss(f)}`);
           if (!!N.guard[f] !== guards > 0 && !N.boss(f)) out.push(`${RID} f${f}: ${guards} exit guard(s)`);
@@ -2556,6 +2556,30 @@
       for (const h of [M, W]) h.lvl = 8; W.eq = M.eq; const m = stats(M, S.meta), w = stats(W, S.meta);
       if (M.eq.weapon.b !== 'staff' || M.eq.armor.b !== 'cloak') out.push('class mage: does not start with a staff and a cloak');
       if (!(m.maxMp > w.maxMp && m.spell > w.spell && m.spellBase > w.spellBase)) out.push('class mage: no more mana and spell power than a warrior'); }
+    // the mage's abilities (TASKS 1110): the ice wave hurts and chills the one before him, not the one behind, and the chill thaws;
+    // his staff hits a monster three reaches away with no mana at all, a warrior's staff does not
+    { const arena = (cls) => { const S = spawn(0, {}); S.meta.cls = cls; begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
+        const R = S.run, h = R.hero, m = R.map, type = Object.keys(ENEMIES).find((q) => ENEMIES[q].kind === 'melee' && !ENEMIES[q].ghost);
+        R.en = []; R.proj = []; R.pots = []; R.chests = []; R.drops = []; h.ifr = 1e9; h.vx = h.vy = 0; for (const k in h.cd) h.cd[k] = 0;
+        const foe = (dx) => { const e = { id: R.nextId++, type, x: h.x + dx, y: h.y, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S.t, kbx: 0, kby: 0 }; R.en.push(e); return e; };
+        const open = (x, y, dx) => cell(m, Math.floor((x + dx) / TILE), Math.floor(y / TILE)) === 1 && losClear(m, x, y, x + dx, y);
+        let ok = false; for (let k = 0; k < m.W * m.H && !ok; k++) { const x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
+          if (cell(m, k % m.W, Math.floor(k / m.W)) === 1 && open(x, y - TILE, 200) && open(x, y - TILE, -120) && open(x, y, 200) && open(x, y, -120)) { h.x = x; h.y = y; ok = true; } }
+        R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0];   // (steps without a pointer leave the camera NaN)
+        return { S, R, h, foe, ok }; };
+      { const { S, R, h, foe, ok } = arena('mage');
+        if (h.cls !== 'mage' || D.clsOf(h).abs.map((a) => a.id).join() !== 'fireball,shield,frost') out.push('class mage: not fireball, shield and ice wave');
+        if (!ok) out.push('class mage: no open floor beside the start to test the ice wave');
+        else { const a = foe(120), b = foe(-120); h.lvl = 4; h.ab.frost = 1; h.mp = 500; h.aim = 0; castAbility(S, R, 'frost', {});
+          if (!(a.hp < a.max && a.chillT > S.t) || b.hp < b.max || b.chillT) out.push('class mage: the ice wave misses the foe before him or hits the one behind');
+          if (h.mp !== 500 - D.ABILITIES.find((q) => q.id === 'frost').mp) out.push('class mage: the ice wave costs the wrong mana');
+          for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (a.slowK !== D.FROST.slow) out.push('class mage: a chilled foe is not slowed');
+          a.chillT = S.t; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (a.slowK !== 1) out.push('class mage: the chill does not thaw'); } }
+      for (const cls of ['mage', 'warrior']) { const { S, R, h, foe, ok } = arena(cls); if (!ok) continue;
+        if (cls === 'warrior') { h.eq.weapon.b = 'staff'; }
+        const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
+        if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
+        if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); } }
     // gear of another class (TASKS 1102): the staff made the mage's alone for the check, a warrior neither wears it nor finds it often
     { const keep = BASES.staff.cls; BASES.staff.cls = ['mage'];
       const S = spawn(0, {}), R = newRun(S, 'campaign', 82), h = R.hero, n = 4000; let st = 0, mg = 0;

@@ -148,6 +148,11 @@
         L.solid(x - r * 0.35, y - r * 0.45, PIX * 2, PIX, [0.95, 1, 1], 0, 0, 0, 0.9);
         for (let j = 0; j < 5; j++) { const q = ((age * 2.2 + j / 5) % 1), d = r + 26 * q; L.solid(Math.round((x - ca * d + (rnd(p.id, j) - 0.5) * 8) / PIX) * PIX, Math.round((y - sa * d + 14 * q * q) / PIX) * PIX, PIX, PIX, [0.55, 0.9, 1], 0, 0, 0, 0.8 * (1 - q)); }
         continue; }
+      // the mage's staff bolt (TASKS 1110): a cold violet star with a short tail of motes, small beside the fireball
+      if (p.k === 'bolt') { const age = GT - p.t0, ca = Math.cos(a), sa = Math.sin(a);
+        L.glow(x, y, 34, [0.45, 0.5, 1], 0.8, 2.2); L.glow(x, y, 12, [0.9, 0.9, 1], 1, 3.2); L.star(x, y, 14 + 3 * Math.sin(age * 40 + p.id), [0.92, 0.9, 1], 1);
+        for (let j = 0; j < 7; j++) { const q = ((age * 5 + j / 7) % 1), d = 8 + 40 * q; L.star(x - ca * d + (rnd(p.id, j) - 0.5) * 8, y - sa * d + (rnd(p.id, j + 5) - 0.5) * 8, 5 + 3 * (1 - q), [0.62, 0.62, 1], 0.95 * (1 - q)); }
+        continue; }
       // an imp's spark (TASKS 407): a small white-hot ember that crackles, shedding sparks that fall behind it
       if (p.k === 'spark') { const age = GT - p.t0, ca = Math.cos(a), sa = Math.sin(a); L.glow(x, y, 16, [1, 0.5, 0.12], 0.6, 2.2); L.star(x, y, 7 + 2 * Math.sin(age * 50 + p.id), [1, 0.9, 0.6], 1);
         for (let j = 0; j < 6; j++) { const q = ((age * 4 + j / 6) % 1), d = 6 + 34 * q; L.star(x - ca * d + (rnd(p.id, j) - 0.5) * 8, y - sa * d + 18 * q * q, 3 + 2 * (1 - q), [1, 0.6, 0.2], 0.9 * (1 - q)); }
@@ -168,6 +173,11 @@
     // a frost elite's chill on the hero (TASKS 477): pale frost at his feet and flakes about him while he is slowed
     { const h = R.hero, F = D.ELITE_MODS.find((m) => m.id === 'frost'); if (h && h.chillT > ST.t && h.deadT < 0) { const x = sx(h.x), y = sy(h.y), k = Math.min(1, (h.chillT - ST.t) / F.t);
       L.ring(x, y, 24, 11, F.col, 0.5 * k, 0.25); for (let j = 0; j < 6; j++) { const an = j * 1.05 + t * 0.7; L.star(x + Math.cos(an) * 20, y - 30 - 26 * Math.sin(an * 0.5 + t), 4, [0.85, 0.95, 1], 0.6 * k); } } }
+    // monsters chilled by the ice wave (TASKS 1110): frost at the feet and flakes about them while they are slowed
+    for (const e of R.en) { if (!(e.chillT > ST.t) || e.deadT >= 0 || D.under(e) || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
+      const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), k = Math.min(1, (e.chillT - ST.t) / D.FROST.t);
+      L.ring(x, y, E.r + 10, (E.r + 10) * 0.45, [0.6, 0.88, 1], 0.55 * k, 0.25);
+      for (let j = 0; j < 5; j++) { const an = j * 1.26 + t * 0.6 + e.id; L.star(x + Math.cos(an) * (E.r + 4), y - E.h * 0.4 - E.h * 0.3 * Math.sin(an * 0.5 + t), 4, [0.85, 0.95, 1], 0.6 * k); } }
     // the forge lord is charred dark, or his red skin vanished into his own red-lit arena; his heat shows as a breathing glow in the
     // chest and embers off the body (TASKS 232)
     for (const e of R.en) { if (e.type !== 'boss_forge' || e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
@@ -326,6 +336,11 @@
           spell('fireball', x, y, r * 1.5, r * 1.5, { u_center: [x, y], u_origin: [gx, gy], u_dir: [Math.cos(an), Math.sin(an)], u_radius: r, u_age: a, u_amt: 0.6 * (1 - a / 0.65), u_seed: j + e.t, u_mode: 1, u_lift: lift });
         }
       }
+      // the ice wave (TASKS 1110): shards burst out through the cone and fall, a pale breath fans after them
+      if (e.k === 'frost' && a < 0.7) { const half = e.arc / 2 * Math.PI / 180, R0 = e.r, out = SS(0, 0.18, a), fade = 1 - SS(0.3, 0.7, a);
+        for (let j = 0; j < 9; j++) { const an = e.a + (j / 8 * 2 - 1) * half, d = R0 * out; L.glow(ex + Math.cos(an) * d * 0.55, ey - 16 + Math.sin(an) * d * 0.55 / 1.3, 46, [0.5, 0.82, 1], 0.45 * fade, 2.2); }
+        for (let j = 0; j < 40; j++) { const an = e.a + (rnd(e.t, j) * 2 - 1) * half, d = R0 * (0.2 + 0.8 * rnd(e.t, j + 30)) * out, x = ex + Math.cos(an) * d, y = ey - 20 + Math.sin(an) * d / 1.3 + 50 * a * a;
+          L.star(x, y, 8 + 7 * rnd(e.t, j + 60), [0.85, 0.96, 1], fade); } }
       if (e.k === 'cast' && a < 0.25) L.glow(ex, ey, 30, [1, 0.6, 0.2], 0.4 * (1 - a / 0.25), 3);
       if (e.k === 'eshoot' && a < 0.3) L.glow(ex, ey, 26, [0.4, 1, 0.4], 1 - a / 0.3, 3);
       if (e.k === 'slam' && a < 4.6) L.cracks(ex, ey, e.big ? 130 : 70, a, e.id || 1, 1);
@@ -371,7 +386,9 @@
       // the jet bursts into a spray that falls
       if (e.k === 'orb' && a < 0.3) { const q = a / 0.3; L.glow(ex, ey, 22, [0.35, 0.85, 0.95], 0.9 * (1 - q), 3); L.ring(ex, ey, 6 + 16 * q, 4 + 10 * q, [0.7, 0.95, 1], 0.8 * (1 - q), 0.15); }
       if (e.k === 'soak' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey + 38, 12 + 30 * q, 5 + 12 * q, [0.6, 0.9, 1], 0.7 * (1 - q), 0.12); }
-      if (e.k === 'pop' && e.c === 'arrow') { /* splinters: below, not lit up */ }
+      if (e.k === 'pop' && e.c === 'bolt') { if (a < 0.28) { const q = a / 0.28; L.glow(ex, ey, 24 * (1 + 0.5 * q), [0.5, 0.55, 1], 0.5 * (1 - q), 2.6); L.ring(ex, ey, 6 + 18 * q, 5 + 12 * q, [0.75, 0.75, 1], 0.7 * (1 - q), 0.18);
+        for (let j = 0; j < 5; j++) { const an = rnd(e.t, j) * 6.28, d = 4 + 22 * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.8, 5, [0.8, 0.8, 1], 0.7 * (1 - q)); } } }
+      else if (e.k === 'pop' && e.c === 'arrow') { /* splinters: below, not lit up */ }
       else if (e.k === 'pop' && (e.c === 'jet' || e.c === 'orb' || e.c === 'wave') && a < 0.5) { const col = [0.62, 0.86, 0.94]; if (e.hero) L.ring(ex, ey + 30, 10 + 40 * a / 0.5, 6 + 16 * a / 0.5, col, 0.6 * (1 - a / 0.5), 0.15);
         for (let j = 0; j < (e.hero ? 12 : 7); j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 3, v = 60 + 90 * rnd(e.t, j + 4), u = Math.min(a, 0.45); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u - 30 * u + 420 * u * u, 3, 4, col, an, 1.5, 2, 1 - SS(0.3, 0.45, a)); } }
       else if (e.k === 'pop' && a < (e.hero ? 0.4 : 0.25)) { const q = a / (e.hero ? 0.4 : 0.25), col = e.c === 'hex' ? [0.45, 1, 0.4] : [1, 0.55, 0.18];

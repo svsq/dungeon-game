@@ -11,7 +11,7 @@
     'eliteK', 'GEN_VERSION', 'windOf', 'under', 'ELITE_MODS', 'eliteMods', 'modPool', 'TIPS', 'eliteName', 'SLOTS', 'SLOT_NAME', 'BASES',
     'ITEM_BAL', 'STASH', 'CRAFT', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'NAMED', 'storyChain', 'plural', 'reqLvl',
     'CONSUMABLES', 'RARITY', 'AFFIXES', 'LEGEND_NAMES', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'CLASSES', 'clsOf', 'CLASS_LOOT', 'wears', 'clsNames', 'ABILITIES', 'AB_MAX', 'abRank', 'SHIELD_T',
-    'shieldHp', 'fireDmg', 'STATS', 'META', 'metaLine', 'GIFTS', 'giftCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
+    'shieldHp', 'fireDmg', 'FROST', 'frostDmg', 'BOLT', 'STATS', 'META', 'metaLine', 'GIFTS', 'giftCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
     'startPath', 'hitUI', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS' ];
   const lost = KEYS.filter((k) => !(k in D));
   if (lost.length) throw new Error('data.js: DATA lacks ' + lost.join(', '));

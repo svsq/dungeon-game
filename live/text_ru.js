@@ -173,6 +173,8 @@
     'ABILITIES.fireball.desc': 'Огненный взрыв: {d} урона',
     'ABILITIES.shield.name': 'Магический щит',
     'ABILITIES.shield.desc': 'Барьер на 10 с: {d} урона',
+    'ABILITIES.frost.name': 'Ледяная волна',
+    'ABILITIES.frost.desc': 'Конус льда: {d} урона и замедление',
     'STATS.str.name': 'СИЛ',
     'STATS.str.full': 'Сила: урон в ближнем бою',
     'STATS.agi.name': 'ЛОВ',

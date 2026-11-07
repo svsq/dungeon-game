@@ -5,7 +5,7 @@
   const {
     BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
     dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroSt, hidden, isCons, losClear, pick,
-    potion, propBoxes, ri, rnd, rollItem, secretMask } = SIMX;
+    potion, propBoxes, ri, rnd, rollItem, secretMask, under } = SIMX;
   // ---------------- actions ----------------
   function usePotion(S, R, b) {
     const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? TXT('sim_world.usePotion.s') : TXT('sim_world.usePotion.s.2') }); return; }
@@ -56,6 +56,12 @@
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
+    // the ice wave (TASKS 1110): everyone in the cone before the mage, in his sight, is hurt and chilled (sim_enemies: slowK)
+    if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell);
+      for (const e of R.en) { if (e.deadT >= 0 || under(e)) continue; const dx = e.x - h.x, dy = (e.y - h.y) * 1.3, d = Math.hypot(dx, dy);
+        if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
+        e.chillT = S.t + F.t; e.slowK = F.slow; heroHit(S, R, e, dmg, false, h.x, h.y, 0.5, 'frost'); }
+      tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
   function breakPots(S, R, x, y, rad, ax, arc) {

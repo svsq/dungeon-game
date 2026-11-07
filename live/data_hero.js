@@ -8,11 +8,12 @@
     { id: 'whirl', name: TXT('ABILITIES.whirl.name'), icon: 'ab_whirl', key: '1', unlock: 1, mp: 0, cd: 6, desc: TXT('ABILITIES.whirl.desc') },
     { id: 'fireball', name: TXT('ABILITIES.fireball.name'), icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 2.5, desc: TXT('ABILITIES.fireball.desc') },
     { id: 'shield', name: TXT('ABILITIES.shield.name'), icon: 'ab_shield', key: '3', unlock: 4, mp: 30, cd: 16, desc: TXT('ABILITIES.shield.desc') },
+    { id: 'frost', name: TXT('ABILITIES.frost.name'), icon: 'ab_frost', key: '3', unlock: 4, mp: 20, cd: 8, desc: TXT('ABILITIES.frost.desc') },
   ];
   // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
   const AB_MAX = 10;
   const abRank = (id, r) => { const n = Math.max(0, r - 1);
-    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
+    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
   // about one elite's blow anywhere (TASKS 179), but slower to grow than the blows: INT, rank and floor all multiplied in made it
   // a second life bar, 688 on floor 8 against the hero's 588 (TASKS 199)
   const SHIELD_T = 10, shieldHp = (int, r, f) => Math.round((24 + int * 2) * abRank('shield', r).k * (1 + 0.2 * (f - 1)));
@@ -20,9 +21,15 @@
   // and a strength build keeps casting deep down (TASKS 203); its bonuses add up into one sum (stats: spell). INT counted twice,
   // fire %, rank and floor all multiplied in made one fireball take 1800 on the 8th on hard, seven swings (TASKS 245)
   const FIRE_K = 1.5;
+  // the mage's ice wave (TASKS 1110): a cone before him, `arc` degrees wide and `r` deep, that hurts everyone in it at `dmg` of a
+  // fireball's sum (it hits a crowd, the ball one) and slows them to `slow` of their pace for `t` s: room to step back and shoot
+  const FROST = { r: 190, arc: 80, dmg: 0.8, slow: 0.6, t: 3 };
+  const frostDmg = (base, k, spell) => Math.round(base * k * spell * FROST.dmg);
+  // the mage's staff shoots (TASKS 1110, R-24): a bolt at the swing's hit frame instead of the blade's arc, at the swing's damage, no mana
+  const BOLT = { spd: 620, life: 0.7, r: 7, kb: 0.6 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
-  // right click's ability, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
+  // right click's ability, `shoots`: the weapons it fires from instead of swinging, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
   // the class screen of 1103 lists only those); `borrow`: the classes whose gear it wears while it has none of its own (1102). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
@@ -30,7 +37,7 @@
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 5, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0.02, hp: 0 },
-      abilities: ['fireball', 'shield', 'whirl'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'staff', armor: 'cloak' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
+      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff'], rclick: 'fireball', start: { weapon: 'staff', armor: 'cloak' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
     archer: { name: TXT('CLASSES.archer.name'), base: { str: 4, agi: 6, int: 3, vit: 4 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
       abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
   };
@@ -100,5 +107,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);
