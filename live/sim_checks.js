@@ -7,7 +7,7 @@
     boxHit, brinkOf, castAbility, cell, colossusBoulder, colossusRain, completion, completionHints, counted, crustAt, damageName, deepBody,
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
     hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
-    killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
+    exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
     openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
@@ -2211,14 +2211,24 @@
       hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; E(T2);
       if (Q.floor !== f || Math.hypot(hq.x - g.x, hq.y - g.y) > 90 || !Q.arena || !Q.arena.gate) { out.push(`gate f${f}: the town's portal does not lead back beside the boss's`); continue; }
       hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
-    // back up from the descent's 13th to the serpent's 12th (a run through the town): the floor is the campaign's again, not the
-    // descent's, whose bag has no round before the 13th (PR 19 review: the stack overflowed)
-    try { const S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run; enterFloor(S2, R2, 12);
-      for (const e of R2.en) if (D.BOSSES[e.type]) { e.hp = 0; e.deadT = S2.t; } R2.bossDead = 1; descend(S2, R2);
-      if (R2.floor !== 13 || R2.mode !== 'endless') out.push('climb: the descent past the serpent does not start on the 13th');
-      else { R2.hero.x = R2.map.up.x; R2.hero.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] });
-        if (R2.floor !== 12 || STAGE(R2).boss !== 'boss_serpent' || D.placeName(12, R2.mode, R2.seed, FROM(R2)) !== D.placeName(12, 'campaign', R2.seed)) out.push('climb: back up from the 13th, the 12th is not the campaign\'s'); } }
-    catch (err) { out.push('climb: back up from the 13th fails: ' + err.message); }
+    // past the colossus (TASKS 514): its hall keeps the town's portal and one stairs down; down them, back up from the descent's
+    // 17th, the 16th is the campaign's again (PR 19 review: the descent's bag has no round before its first floor), the hero by the
+    // stairs on, still one way down (its portal out no second stairs) and the portal home, and the stairs on take him to the 17th
+    // with no second win
+    try { const F = D.RUNS.campaign.floors, S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run, h2 = R2.hero; enterFloor(S2, R2, F);
+      const b = R2.en.find((e) => e.type === 'boss_colossus'); R2.arena = { active: 1, room: b.room, t0: S2.t }; b.hp = 0; killEnemy(S2, R2, b); R2.en = R2.en.filter((e) => e === b);
+      if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus leaves no portal home');
+      else if (R2.map.down && Math.hypot(R2.arena.gate.x - R2.map.down.x, R2.arena.gate.y - R2.map.down.y) < 100) out.push('climb: the colossus\'s portal home stands by the stairs on');
+      descend(S2, R2); const w0 = S2.meta.wins;
+      if (R2.floor !== F + 1 || R2.mode !== 'endless') out.push(`climb: the descent past the colossus does not start on the ${F + 1}th`);
+      else { h2.x = R2.map.up.x; h2.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] }); const m2 = R2.map;
+        if (R2.floor !== F || STAGE(R2).boss !== 'boss_colossus' || D.placeName(F, R2.mode, R2.seed, FROM(R2)) !== D.placeName(F, 'campaign', R2.seed)) out.push(`climb: back up from the ${F + 1}th, the ${F}th is not the campaign's`);
+        else if (!m2.down || exitKind(R2) === 'stairs' || !R2.arena || !R2.arena.gate) out.push(`climb: back up on the ${F}th, not one stairs down and the portal home`);
+        else { if (Math.hypot(h2.x - m2.down.x, h2.y - m2.down.y) > 80) out.push(`climb: back up on the ${F}th, the hero is not by the stairs on`);
+          h2.x = R2.arena.gate.x; h2.y = R2.arena.gate.y + 30; E(S2); if (R2.floor !== 0) out.push(`climb: the ${F}th's portal home does not take the hero home after the descent`);
+          else { h2.x = R2.map.town.svc.portal.x; h2.y = R2.map.town.svc.portal.y + 30; E(S2); if (R2.floor !== F) out.push(`climb: the town's portal does not lead back to the ${F}th`); }
+          h2.x = m2.down.x; h2.y = m2.down.y + 20; E(S2); if (R2.floor !== F + 1 || S2.meta.wins !== w0) out.push(`climb: the ${F}th's stairs on, taken again, do not lead to the ${F + 1}th or win the campaign twice`); } } }
+    catch (err) { out.push('climb: back up from the descent fails: ' + err.stack); }
     return out;
   }
   // TASKS 1009: in a run through the town a waystone stands by the start of every D.wayFloor, reachable and clear of the stairs

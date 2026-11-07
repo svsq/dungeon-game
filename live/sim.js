@@ -7,7 +7,7 @@
   const SIMX = root.SIMX, {
     ARROW_Y, CRUST, D, DEMO_SEED, DOOM, DT, ENEMIES, FOLK_OUCH, HINT, K, L, LOOT, REWARD, RIG, TILE, UI, VIEW, atBoard, atCounter, atCraft,
     atGate, atSoulAltar, atStash, boardOffers, brinkOf, canDonate, cell, chasm, completion, completionHints, craftCost, craftItem, crustAt,
-    damageName, debugSecrets, dep, doorLock, doorNear, enterFloor, ev, flightReach, flow, folkNear, fstat, gateNear, gateWays, gift,
+    damageName, debugSecrets, dep, doorLock, exitKind, doorNear, enterFloor, ev, flightReach, flow, folkNear, fstat, gateNear, gateWays, gift,
     giveQuest, hand, hidden, hitProps, hitSecret, isCons, itemIcon, itemMods, itemName, journalOf, keeperPages, killEnemy, leverNear,
     lootAudit, losClear, newQuest, newRun, offerOf, offersOf, openChest, openDoor, openSecret, pullLever, questFloor, questIcon, questLine,
     questMark, questMarks, questOn, questPlace, questTalk, rebalanceRun, rebuildArrival, rollItem, runCompletion, runReward, rwLine,
@@ -85,7 +85,7 @@
   root.SIM.Q = {
     at, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
     atCraft, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
-    fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, lootAudit, questIcon, questLine, questMark, questMarks,
+    exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, stashOf, tradeDepth, typeMods };
   Object.assign(SIMX, {
     spawn, step, scriptInput, persist });

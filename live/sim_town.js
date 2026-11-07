@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
-    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, lastFloor, leverNear,
+    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, lastFloor, exitKind, leverNear,
     openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
@@ -100,10 +100,10 @@
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     const fk = folkNear(R); if (fk) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
-    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
+    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (arenaSealed(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s.2') }); return; }
-      if (lastFloor(R) && R.mode !== 'endless') { if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
+      if (exitKind(R) === 'portal') { if (R.campaignWon) return; if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) openAltar(S, R, used);

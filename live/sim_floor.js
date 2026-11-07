@@ -111,7 +111,7 @@
     for (const e of mobs.slice(0, oldDead(R, f, M, P.en))) { e.hp = 0; e.deadT = 0; }
     for (const k of FLOOR_KEYS) R[k] = B[k];
     const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
-    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (!lastFloor(R) && R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
+    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     M.gv = D.GEN_VERSION; M.d = null; M.drops = []; M.seen = null; M.rseen = null; }
   // how many of an old floor's own monsters died there, from its diff: a floor built with ids from M.id on gives its i-th monster
@@ -155,7 +155,8 @@
     S.saveN++;
   }
   function arrive(S, R, how) { const m = R.map, h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
-    if (how === 'up') [hx, hy] = standNear(R, m.exit.x, m.exit.y + 46);
+    // up from below the campaign's last floor: by its own stairs on (TASKS 514), not its portal out
+    if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.vx = h.vy = 0; h.bless = 0; h.pull = null; h.read = null;
