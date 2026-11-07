@@ -1131,7 +1131,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const terrRows = (m) => { const out = new Array(32).fill(0); if (m.ftype !== 'terrace' || m.ftype2) return out; const rows = {};
     for (const r of m.rooms) if (r.row !== undefined) { const q = rows[r.row] || (rows[r.row] = [1e9, -1e9]); q[0] = Math.min(q[0], (r.y - 1) * TILE); q[1] = Math.max(q[1], (r.y + r.h + 1) * TILE); }
     const ks = Object.keys(rows).map(Number).sort((a, b) => a - b), F = fallsOf(m), fy = F.length ? F[0].y : 0, f0 = ks.reduce((b, k) => (Math.abs((rows[k][0] + rows[k][1]) / 2 - fy) < Math.abs((rows[b][0] + rows[b][1]) / 2 - fy) ? k : b), ks[0]);
-    ks.slice(0, 8).forEach((k, i) => { out[i * 4] = rows[k][0]; out[i * 4 + 1] = rows[k][1]; out[i * 4 + 2] = Math.max(0.55, 1 - 0.12 * Math.abs(k - f0)); }); return out; };
+    ks.slice(0, 8).forEach((k, i) => { out[i * 4] = rows[k][0]; out[i * 4 + 1] = rows[k][1]; out[i * 4 + 2] = Math.max(0.45, 1 - 0.18 * Math.abs(k - f0));   // (0.18 a row, TASKS 1045: at 0.12 the step was not seen, L 13–17) }); return out; };
   const fallU = (m) => { const f = fallsOf(m), u = []; for (let i = 0; i < 6; i++) u.push(...(f[i] ? [f[i].x, f[i].y, f[i].z, f[i].h] : [0, 0, 0, 0])); return u; };
   const cliffTex = (m) => { const hid = SIM.secretMask(m); return maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && (SIM.cell(m, x, y) === 0 || SIM.cell(m, x, y) === 4 || hid.has(y * m.W + x))), null, 1); };
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm

@@ -420,7 +420,7 @@
     campaign: { name: 'Кампания', floors: 12, chapter: 8, depth: 0, lvl: 1, biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
       chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.2], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Глубинного змея', then: 'endless' },
-    cave: { name: 'Затопленные пещеры', won: 'Глубинный змей повержен', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
+    cave: { name: 'Затопленные пещеры', won: 'Глубинный змей повержен', wonText: 'Змей ушёл на дно. Вода успокоилась. Души павших вернутся вместе с вами.', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
     // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); laid out as plateaus
@@ -428,7 +428,7 @@
     // loot: +2 over the depth (13–16) puts its items at the hero's level, as the caves' +3 does (TASKS 424: +12 made them level 25–28,
     // a legendary of 25 on the 1st floor, and the run a walk)
     // (won: the victory's line, TASKS 490: the magma's win said the campaign's «Глубины покорены»)
-    magma: { name: 'Магмовые пещеры', won: 'Магмовый колосс повержен', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_colossus' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 2, pop: [1.15, 1.25, 1.35, 1], elite: [0.06, 0.08, 0.1, 0.06],
+    magma: { name: 'Магмовые пещеры', won: 'Магмовый колосс повержен', wonText: 'Колосс рассыпался в лаву. Жар стихает. Души павших вернутся вместе с вами.', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_colossus' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 2, pop: [1.15, 1.25, 1.35, 1], elite: [0.06, 0.08, 0.1, 0.06],
       kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: 'Сначала одолейте хозяина магмы' },
   };
   // the endless descent (R-05, TASKS 348–349; a test button in the menu for now, after the serpent later, TASKS 354): no last floor.
@@ -529,7 +529,9 @@
   // m: the floor's map, whose type (TASKS 471) names it in the magma caves
   const floorName = (f, mode, seed, from, m) => { const M = runOf(mode), st = stageOf(mode, f, seed, from), T = m && m.ftype && !m.bossType && ARCH.plateau.names[m.ftype];
     return (M.names || {})[f] || T || st.N.title || BIOMES[st.biome].name; };
-  const eliteName = (e) => e.title || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name), ENEMIES[e.type].name]
+  // (the powers agree with a feminine monster, TASKS 1045: «Кровожадный призывающий лавовая саламандра»)
+  const FEM = new Set(['salamander', 'boss_spider']), femAdj = (w) => w.replace(/(ый|ой|ий)$/, 'ая');
+  const eliteName = (e) => e.title || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name).map((w) => (FEM.has(e.type) ? femAdj(w) : w)), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
   // equipment slots and bases. lvl scales with the floor where the item drops.

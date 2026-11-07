@@ -784,7 +784,7 @@
         const src = SIM.damageName(d.src), size = Math.min(20, Math.floor(20 * 280 / Math.max(280, lw('e_src_m' + i, src, { size: 20 }))));
         lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + Math.round(d.n), 588, 724 + i * 38, { size: 21, al: 1, col: C.red });
       });
-    } else wrap('e_flavor', win ? 'Сталь выдержала. Тьма отступила. Души павших вернутся вместе с вами.' : 'Найденные осколки сохранены. Новый герой продолжит ваш путь.', 234, 674, 350, 25, C.dim);
+    } else wrap('e_flavor', win ? (D.runOf(r.mode).wonText || 'Сталь выдержала. Тьма отступила. Души павших вернутся вместе с вами.') : 'Найденные осколки сохранены. Новый герой продолжит ваш путь.', 234, 674, 350, 25, C.dim);
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
     const runRows = [r.record ? ['Глубина', r.floor + (r.record.fresh ? ' · новый рекорд!' : ' · рекорд ' + r.record.best)] : ['Этаж', r.floor], ...(r.campaignWon ? [['Кампания', 'пройдена']] : []), ['Уровень', r.lvl], ['Время', fmtT(r.time || 0)], ['Собрано золота', r.gold], ['Убито монстров', r.kills]];
     const doneRows = [['Монстры', C2.foes ? C2.kills + '/' + C2.foes + ' · ' + pc(C2.kills, C2.foes) : '—'], ['Предметы', C2.lootN ? C2.loot + '/' + C2.lootN + ' · ' + pc(C2.loot, C2.lootN) : '—'],
