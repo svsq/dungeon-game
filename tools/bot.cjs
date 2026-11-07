@@ -69,7 +69,7 @@ const power = (S, h) => { const f = (hh, meta) => { const st = SIM.stats(hh, met
 // a run from the main menu: a test run's button is behind «Тесты» (TASKS 417). The bot steps onto that screen without a sim step: the
 // run's seed counts the clock, and one step more there would give every test run other floors than the ones measured before
 function startRun(S, mode) {
-  for (const [screen, id] of D.startPath(mode)) { const b = (screen === 'menu' ? D.UI.menu(false) : D.UI.tests(false)).find((q) => q.id === id);
+  for (const [screen, id] of D.startPath(mode)) { const b = D.uiAt(screen).find((q) => q.id === id);
     if (id === 'tests') S.screen = 'tests'; else SIM.step(S, click(b)); }
 }
 
@@ -323,6 +323,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   for (let i = initial ? initial.i : 0; i < 120 * 60 * 60 * runs * hours && out.length < runs; i++) {
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
+      if (S.screen === 'classes') { SIM.step(S, click(D.UI.classes().find((q) => q.id === 'go'))); continue; }
       if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta().find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
       // the upgrades are bought at the Altar of Souls in the town (TASKS 1026); a test run without the town still buys them from the menu's screen
       if (S.screen === 'menu') { if (metaNext(S) && mode !== 'campaign' && mode !== 'town') { S.screen = 'meta'; S.metaRun = 0; } else startRun(S, mode); continue; }

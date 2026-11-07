@@ -7,7 +7,8 @@
   // the town (R-17, TASKS 1002): the campaign through the town, a test run until the town is done and the campaign starts there
   const TEST_RUNS = [['cave', TXT('TEST_RUNS'), TXT('TEST_RUNS.2')], ['magma', TXT('TEST_RUNS.3'), TXT('TEST_RUNS.4')], ['endless', TXT('TEST_RUNS.5'), TXT('TEST_RUNS.6')]];
   // the buttons that start a run from the main menu, in the order pressed: a test run is behind «Тесты» (bots and checks press these)
-  const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]);
+  // the buttons a new run of this mode is started by, screen by screen; with more than one class ready the class screen comes last (TASKS 1103)
+  const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]).concat(D.classesReady().length > 1 ? [['classes', 'go']] : []);
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save); «В город» (TASKS 1026, was «Алтарь
     // душ»: the upgrades are bought at the altar on the town's square) goes on with the saved run, or starts a campaign, in the town
@@ -16,6 +17,10 @@
       .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 })),
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
+    // the class screen (TASKS 1103): a card a ready class, side by side, the start and back buttons under them
+    classes: () => { const ids = D.classesReady(), W = 520, gap = 40, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2;
+      return ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 190, w: W, h: 640 }))
+        .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 980, y: 880, w: 380, h: 76 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 560, y: 880, w: 380, h: 76 }]); },
     tests: (hasRun, arm) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !hasRun ? fresh : arm === id ? TXT('UI.tests.label') : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
       .concat([{ id: 'back', label: TXT('UI.tests.back.label'), on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
@@ -84,5 +89,7 @@
     },
   };
 
-  Object.assign(D, { TEST_RUNS, startPath, UI });
+  // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
+  const uiAt = (scr) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes());
+  Object.assign(D, { TEST_RUNS, uiAt, startPath, UI });
 })(typeof window !== 'undefined' ? window : globalThis);

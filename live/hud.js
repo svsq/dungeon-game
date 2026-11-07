@@ -57,6 +57,7 @@
     if (R && V && S.screen === 'play') souls(S, R, V);
     if (S.screen === 'menu') menu(S, t);
     if (S.screen === 'tests') tests(S, t);
+    if (S.screen === 'classes') classes(S, t);
     if (S.screen === 'meta') meta(S, t);
     if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
     if (S.screen === 'pause') { dim(0.55); lab('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause(S.meta.zoom)) button('pb_' + b.id, b, S.hover); }
@@ -609,6 +610,26 @@
     lab('ts_s', TXT('hud.tests.2'), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
     for (const b of D.UI.tests(!!S.saved, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM)) button('tb_' + b.id, b, S.hover);
     if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
+  }
+  // the class screen (TASKS 1103): a card a ready class — its portrait, name, way of playing, three abilities and starting kit
+  function classes(S, t) {
+    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
+    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
+    lab('cl_t', TXT('UI.classes.title'), W / 2, 92, { size: 72, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('cl_s', TXT('UI.classes.hint'), W / 2, 156, { size: 26, al: 0.5, col: C.dim });
+    for (const b of D.UI.classes()) {
+      if (!b.cls) { button('cl_' + b.id, b, S.hover); continue; }
+      const Cl = D.CLASSES[b.cls], on = (S.meta.cls || 'warrior') === b.cls, hv = S.hover === b.id;
+      panel('cl_' + b.cls, b.x, b.y, b.w, b.h, { r: 10, rim: on ? [1, 0.78, 0.32] : hv ? C.rimHi : C.rim, c0: on ? [0.16, 0.12, 0.08] : [0.08, 0.07, 0.07] });
+      const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
+      L.sprite(por, b.x + (b.w - 220) / 2, b.y + 24, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
+      lab('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 252, { size: 44, al: 0.5, col: on ? C.gold : C.text });
+      lab('cl_y' + b.cls, Cl.style, b.x + b.w / 2, b.y + 300, { size: 21, al: 0.5, col: C.dim });
+      Cl.abs.forEach((A, i) => { const y = b.y + 340 + i * 74; panel('cl_a' + b.cls + i, b.x + 40, y, 60, 60, { r: 6, rim: C.rim }); icon(A.icon, b.x + 44, y + 4, 52);
+        lab('cl_an' + b.cls + i, A.name, b.x + 116, y + 22, { size: 23, col: C.text }); lab('cl_ak' + b.cls + i, TXT('hud.inv.14', { unlock: A.unlock }), b.x + 116, y + 48, { size: 18, col: C.dim }); });
+      lab('cl_k' + b.cls, TXT('UI.classes.start', { p1: Object.values(Cl.start).map((k) => D.BASES[k].name).join(', ') }), b.x + b.w / 2, b.y + 586, { size: 20, al: 0.5, col: C.dim });
+      if (on) lab('cl_on' + b.cls, TXT('UI.classes.chosen'), b.x + b.w - 20, b.y + 30, { size: 20, al: 1, col: C.gold });
+    }
   }
   function menu(S, t) {
     menuBack(t);
