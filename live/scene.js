@@ -751,7 +751,8 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   // (the occluders' mask: an actor is drawn into it white, a crossing's basalt black, TASKS 448: by the lava its tops came out tan)
   l = mix(l, min(l, vec3(1.2, 1.08, 1.0)), oc.r * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
   // (in the magma caves the light on an actor is bleached instead, TASKS 479: its own colours stay and the fire is a warm sheen)
-  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(1.6, 0.6, oc.r * nearL)));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
+  // (a monster's light is bleached everywhere, TASKS 1055: off the lava, boosted, a skeleton went salmon)
+  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(1.6, 0.6, oc.r * max(nearL, oc.b))));   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
   // only the light's level, not its hue
   l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(1.5, 0.9, capB), 1.4), bas);   // (the caps darker: L 35 against the concept's 21)
@@ -760,7 +761,7 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));
   // an actor in the magma caves never comes out greener than both its red and blue (TASKS 1046: the hero's highlights went mint on a
   // dry plateau, the scene all warm); a cool steel keeps its blue
-  vec3 lc = c * l + seam + glint; if (u_haze > 0.5 && oc.r > 0.5) lc.g = min(lc.g, max(lc.r, lc.b));
+  vec3 lc = c * l + seam + glint; if (u_haze > 0.5 && oc.r > 0.5 && oc.b < 0.5) lc.g = min(lc.g, max(lc.r, lc.b));   // (the hero only, TASKS 1055: a goblin lost its green)
   o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), mix(lc, c * 1.8, em), s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
@@ -2147,7 +2148,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
             // round; packed solid blocks at 5 px read as barbed wire, TASKS 480)
             if (iron) { const n = Math.max(1, Math.round(l / 9)); for (let j = 0; j < n; j++) { const px = ev2(x0 + (x1 - x0) * (j + 0.5) / n), py = ev2(y0 + (y1 - y0) * (j + 0.5) / n);
                 // (cool iron, lit warm by the lava it read pink-brown; along a deck running down the screen the links turn with the chain)
-                const R4 = (x, y, w, h, c) => { const a = hor ? [px + x, py + y, w, h] : [px + y, py + x, h, w]; L.solid(...a, c); OCC_SOLIDS.push(a); }, G1 = [0.36, 0.38, 0.46], G0 = [0.11, 0.12, 0.16], G2 = [0.22, 0.23, 0.29];
+                const R4 = (x, y, w, h, c) => { const a = hor ? [px + x, py + y, w, h] : [px + y, py + x, h, w]; L.solid(...a, c); OCC_SOLIDS.push(a); }, G1 = [0.26, 0.26, 0.28], G0 = [0.08, 0.08, 0.09], G2 = [0.16, 0.16, 0.17];   // (dark neutral iron, TASKS 1055: lavender in the basalt's light)
                 if ((k * n + j) % 2) { R4(-6, -4, 12, 4, INKC); R4(-4, -4, 8, 2, G1); }
                 else { for (const [x, y, w, h] of [[-4, -6, 8, 2], [-4, 2, 8, 2], [-6, -4, 2, 6], [4, -4, 2, 6]]) R4(x, y, w, h, INKC);
                   R4(-4, -4, 8, 2, G1); R4(-4, 0, 8, 2, G0); R4(-4, -2, 2, 2, G2); R4(2, -2, 2, 2, G2); } } }
@@ -2582,7 +2583,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           L.sp = SP0; SP0.ink = [1, HERO.lavaNear(e.x, e.y), 1];   // (green: how near the lava it stands, by its feet: TASKS 1035; a rig's own draw may clear L.sp)
           MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
         // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
-        L.sp = SP0; SP0.ink = [1, HERO.lavaNear(h.x, h.y), 1];
+        L.sp = SP0; SP0.ink = [1, HERO.lavaNear(h.x, h.y), 0];   // (blue: a monster, not the hero, TASKS 1055)
         if (!SC.hide.hero && h.deadT < 0 && h.fallT === undefined && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { id: 'occ', cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }); }
       finally { L.sp = null; L.joint = J0; } }
     G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_occ: LT.occ, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_heat: m.cliff ? lavaGlowTex(m) : waterTex(m), u_haze: m.cliff ? 1 : 0, u_face: m.cliff && BAKE.face ? BAKE.face : seen, u_far: m.cliff ? lavaNearTex(m) : seen, u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_low: B.low || [0.86, 0.82, 0.78], u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
