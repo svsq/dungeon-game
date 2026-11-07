@@ -31,6 +31,10 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('_w.png'))) {
   const mx = [0, 0, 0]; for (let i = 0; i < px.length; i += 4) for (let c = 0; c < 3; c++) mx[c] = Math.max(mx[c], px[i + c]);
   if (mx.some((m) => m !== 0 && m !== 255)) self.push(`${f}: weight channel max ${mx.join('/')}, must be 255 or 0`);
 }
+// the game's texts (TASKS 1141): no Cyrillic in code outside live/text_<lang>.js, every key in the table, none unused;
+// and the layers' borders (TASKS 504): tools/layercheck.cjs
+for (const t of ['textcheck.cjs', 'layercheck.cjs']) try { require('child_process').execFileSync('node', [pth.join(__dirname, '..', 'tools', t)], { stdio: 'pipe' }); }
+catch (e) { self.push(t + ': ' + String(e.stdout).trim().split('\n').slice(-4).join(' | ')); }
 for (const f of self) console.log('FAIL', f);
 if (SIM.selfCheck) console.log(`selfCheck ${self.length ? self.length + ' failure(s)' : 'ok'}`);
 process.exitCode = ok && !self.length ? 0 : 1;

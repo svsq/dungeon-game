@@ -16,15 +16,15 @@
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
   let MMB = null, TRK = null;
-  const WAY_LEG = ['way', 'Путевой камень'];
+  const WAY_LEG = ['way', TXT('WAY_LEG')];
   // the town's own legend (TASKS 1023): its services instead of the dungeon's rooms, bosses and altars
-  const TOWN_LEG = [['you', 'Вы'], ['exit', 'Спуск в крипту'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь душ'], ['stash', 'Хранилище'], ['craft', 'Мастерские'], ['way', 'Кольцо камней']];
+  const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')]];
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
-  const QUEST_LEG = ['quest', 'Цель задания'];
+  const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
   // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
-  const MAGMA_LEG = [['lava', 'Лава'], ['chasm', 'Пропасть']];
-  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.questMarks(R).length ? [QUEST_LEG] : []));
-  const LEGEND = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']];
+  const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
+  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
+  const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
   const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 410 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   function panel(id, x, y, w, h, o = {}) {
@@ -56,8 +56,8 @@
     if (S.screen === 'menu') menu(S, t);
     if (S.screen === 'tests') tests(S, t);
     if (S.screen === 'meta') meta(S, t);
-    if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', 'Отладка · `', W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
-    if (S.screen === 'pause') { dim(0.55); lab('p_title', 'Пауза', W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause(S.meta.zoom)) button('pb_' + b.id, b, S.hover); }
+    if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
+    if (S.screen === 'pause') { dim(0.55); lab('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 64, al: 0.5, col: C.gold }); for (const b of D.UI.pause(S.meta.zoom)) button('pb_' + b.id, b, S.hover); }
     if (S.screen === 'inv' && R) inv(S, R, t);
     if (S.screen === 'shop' && R) shop(S, R, t);
     if (S.screen === 'altar' && R) altar(S, R, t);
@@ -73,10 +73,10 @@
   // ---------------- attract title over the demo ----------------
   function title(S, t) {
     L.solid(0, 0, W, 200, [0, 0, 0], 0, 0, 0, 0.35);
-    lab('tt', 'ГЛУБИНЫ КРИПТЫ', W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('ts', 'двенадцать этажей тьмы · случайные подземелья · лут и прокачка', W / 2, 168, { size: 28, al: 0.5, col: C.dim });
+    lab('tt', TXT('hud.title'), W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('ts', TXT('hud.title.2'), W / 2, 168, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
-    lab('tp', 'Нажмите любую клавишу', W / 2, H - 90, { size: 34, al: 0.5, a });
+    lab('tp', TXT('hud.title.3'), W / 2, H - 90, { size: 34, al: 0.5, a });
   }
 
   // ---------------- world-space overlays: monster bars, damage numbers, prompts ----------------
@@ -128,8 +128,8 @@
     }
     // a townsman's quest business over his head (TASKS 1018): ! a quest to take, ? one to turn in; his lines keep above it
     // the one the hero stands by shows his prompt in its place (TASKS 1026: the prompt, pushed off his own mark, landed by the Keeper's)
-    const talkTo = S.screen === 'play' ? SIM.folkNear(R) : null;
-    if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.questMark(R, f.role); if (!mk || f === talkTo) continue;
+    const talkTo = S.screen === 'play' ? SIM.Q.folkNear(R) : null;
+    if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
       // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
       if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
       const x = Math.min(W - 20, Math.max(20, V.sx(f.x))), y = Math.max(26, V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i)), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
@@ -147,7 +147,7 @@
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
     const bars = [];
     // in rock a body is void: no label over nothing
-    for (const e of R.en) { if (e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ(D.ENEMIES[e.type].tex || 'en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
+    for (const e of R.en) { if (e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.Q.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ(D.ENEMIES[e.type].tex || 'en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
@@ -189,26 +189,26 @@
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 18;   // up off the head, then into the counter
         lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (164 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
-      if (ev.k === 'dodge' && a < 0.7) float('dg' + i, 'уклон', V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
-      if (ev.k === 'absorb' && a < 0.7) float('ab' + i, 'щит ' + Math.round(ev.n), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
+      if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
+      if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // interaction prompt
     let pr = null; HUD.promptBox = null;
-    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, 'E или удар — открыть сундук'];
-    const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? 'E — пожертвовать золото' : 'E — дары и пожертвования'];
-    if (SIM.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, 'E — торговать'];
-    const dr = SIM.doorNear(R, 64); if (dr) { const lk = SIM.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? 'E или удар — открыть дверь' : lk.kind === 'key' ? (R.keys > 0 ? 'E — отпереть ключом' : 'Заперто: нужен ключ') : 'Заперто: где-то есть рычаг']; }
-    const lv = SIM.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, 'E — потянуть рычаг'];
-    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) pr = [m.down.x, m.down.y - 66, R.bossDead ? 'E — спуститься глубже (бесконечный спуск)' : 'Спуск запечатан'];
-    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься на 1-й этаж' : 'E — спуститься на этаж ' + (m.floor + 1)];
-    { const g = SIM.gateNear(R); if (g) pr = [g.x, g.y - 80, 'E — портал в город']; }
+    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, TXT('hud.world.3')];
+    const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
+    if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, TXT('hud.world.6')];
+    const dr = SIM.Q.doorNear(R, 64); if (dr) { const lk = SIM.Q.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? TXT('hud.world.7') : lk.kind === 'key' ? (R.keys > 0 ? TXT('hud.world.8') : TXT('hud.world.9')) : TXT('hud.world.10')]; }
+    const lv = SIM.Q.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, TXT('hud.world.11')];
+    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) pr = [m.down.x, m.down.y - 66, R.bossDead ? TXT('hud.world.12') : TXT('hud.world.13')];
+    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? TXT('hud.world.14') : TXT('hud.world.15')) : m.town ? TXT('hud.world.16') : TXT('hud.world.17', { p1: m.floor + 1 })];
+    { const g = SIM.Q.gateNear(R); if (g) pr = [g.x, g.y - 80, TXT('hud.world.18')]; }
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
-    if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
-    { const cw = SIM.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? (SIM.questMark(R, 'smith') ? 'E — кузнец: задание и перековка' : 'E — кузнец: перековка') : 'E — зачарователь: зачарование']; } }
-    if (SIM.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, 'E — сундук-хранилище'];
-    if (m.town && SIM.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, 'E — доска заданий'];
-    if (SIM.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, 'E — Алтарь душ: улучшения предков'];
-    if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
-    if (!pr && S.screen === 'play') { const f = SIM.folkNear(R); if (f) { const mk = SIM.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? 'E — сдать задание: ' : mk === '!' ? 'E — задание: ' : 'E — говорить: ') + D.FOLK[f.role].name]; } }
+    if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? TXT('hud.world.19') : TXT('hud.world.20', { p1: m.floor - 1 })];
+    { const cw = SIM.Q.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? (SIM.Q.questMark(R, 'smith') ? TXT('hud.world.21') : TXT('hud.world.22')) : TXT('hud.world.23')]; } }
+    if (SIM.Q.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, TXT('hud.world.24')];
+    if (m.town && SIM.Q.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, TXT('hud.world.25')];
+    if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
+    if (SIM.Q.atGate(R)) { const o = SIM.Q.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? TXT('hud.world.27') : TXT('hud.world.28')) : o[0].k === 'portal' ? TXT('hud.world.29', { f: o[0].f }) : TXT('hud.world.30', { f: o[0].f })]; }
+    if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name]; } }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
     if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
@@ -222,11 +222,11 @@
 
   // ---------------- in-game HUD ----------------
   function hud(S, R, t) {
-    const h = R.hero, st = SIM.stats(h, S.meta), GT = S.t;
+    const h = R.hero, st = SIM.Q.stats(h, S.meta), GT = S.t;
     // portrait + level (sizes measured from the reference HUD, ~0.6 of the first pass)
     panel('portrait', 14, 12, 90, 104, { r: 5 });
     L.sprite('portrait', 18, 16, { w: 82, h: 70, src: [0.08, 0.02, 0.92, 0.74] });
-    lab('lvl', 'Ур. ' + h.lvl, 59, 100, { size: 19, al: 0.5 });
+    lab('lvl', TXT('hud.hud', { lvl: h.lvl }), 59, 100, { size: 19, al: 0.5 });
     if (h.pts > 0 || h.sp > 0) { const a = 0.6 + 0.4 * Math.sin(t * 5); L.rrect(86, 6, 24, 24, 12, [1, 0.75, 0.2], [0.8, 0.45, 0.1], a); L.uiBox('lvl_up_b', 83, 3, 30, 30, 0); lab('lvl_up', '+', 98, 18, { size: 20, al: 0.5, col: '#2a1606', out: '' }); }
     // bars
     bar('hpbar', 116, 12, 230, 28, h.hp / st.maxHp, [0.86, 0.12, 0.1], [0.5, 0.04, 0.04], Math.ceil(h.hp) + ' / ' + st.maxHp);
@@ -275,10 +275,10 @@
     // feed: pickups and refusals, newest at the bottom
     const feed = S.ev.filter((e) => (e.k === 'pickup' || e.k === 'nope' || e.k === 'lvl' || e.k === 'unlock' || e.k === 'trade') && S.t - e.t < 3).slice(-5);
     feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = H - 44 - (feed.length - 1 - i) * 34;
-      const s = e.k === 'trade' ? e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) + ' зол.' : e.k === 'pickup' ? (e.worn ? 'Надето: ' : 'Подобрано: ') + e.s : e.k === 'lvl' ? 'Новый уровень ' + e.lvl + '! Нажмите I' : e.k === 'unlock' ? 'Открыта способность: ' + D.ABILITIES.find((A) => A.id === e.id).name : e.s;
+      const s = e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 24;
       panel('feedbox' + i, 18, y - 15, w, 30, { r: 5, a: 0.7 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
-    if (S.screen === 'play') { const k = 'I — герой · J — задания · T — свиток · M — звук · Esc — пауза', kw = lw('keys', k, { size: 15 }) + 24;
+    if (S.screen === 'play') { const k = TXT('hud.hud.k'), kw = lw('keys', k, { size: 15 }) + 24;
       panel('keys_box', W - 12 - kw, H - 36, kw, 30, { r: 6, a: 0.7 }); lab('keys', k, W - 24, H - 20, { size: 15, al: 1, col: '#8a7d6c' }); }
   }
 
@@ -340,7 +340,7 @@
   // green where the hero can walk to it, violet behind an unfound secret, red where nothing can reach it; off screen, an arrow
   // at the edge points to it
   const LOOT_COL = { open: [0.35, 1, 0.45], secret: [0.8, 0.5, 1], stuck: [1, 0.22, 0.2] };
-  function lootMarks(R, t, V) { const A = SIM.lootAudit(R), pulse = 0.75 + 0.25 * Math.sin(t * 5);
+  function lootMarks(R, t, V) { const A = SIM.Q.lootAudit(R), pulse = 0.75 + 0.25 * Math.sin(t * 5);
     for (const o of A.list) { const col = LOOT_COL[o.at], x = V.sx(o.x), y = V.sy(o.y) - 12;
       if (underHud(x, y)) continue;   // under a HUD panel: the minimap shows it
       if (x > 30 && x < W - 30 && y > 30 && y < H - 30) {
@@ -350,33 +350,33 @@
       const cx = W / 2, cy = H / 2, dx = x - cx, dy = y - cy, k = Math.min((W / 2 - 40) / Math.abs(dx || 1e-6), (H / 2 - 40) / Math.abs(dy || 1e-6)), ex = cx + dx * k, ey = cy + dy * k, a = Math.atan2(dy, dx);
       L.solid(ex, ey, 26, 12, col, a, 13, 6, 0.9); L.solid(ex + Math.cos(a) * 10, ey + Math.sin(a) * 10, 12, 12, col, a + Math.PI / 4, 6, 6, 0.9); } }
   // debug: the floor's loot books under the debug buttons
-  function lootBooks(R) { const A = SIM.lootAudit(R), sec = A.list.filter((o) => o.at === 'secret').reduce((n, o) => n + o.n, 0);
-    const line = `Лут: подобрано ${A.got} из ${A.total} · на полу ${A.lying} · в сундуках ${A.boxed} · в тайниках ${sec} · недоступно ${A.stuck} · расхождение ${A.off}`;
+  function lootBooks(R) { const A = SIM.Q.lootAudit(R), sec = A.list.filter((o) => o.at === 'secret').reduce((n, o) => n + o.n, 0);
+    const line = TXT('hud.lootBooks.line', { got: A.got, total: A.total, lying: A.lying, boxed: A.boxed, sec, stuck: A.stuck, off: A.off });
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   // a small map's panel (the town, the endless descent's first floors) is still wide enough for the legend beside the compass
-  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%'], WAY_LEG, QUEST_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
+  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', TXT('hud.legendW')], WAY_LEG, QUEST_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
   // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
   // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
   function mmBox(R) { const m = R.map, mw = m.W * mapK(R), mh = m.H * mapK(R), tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), { size: 17 }),
-      pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (legendOf(R).length + (SIM.completionHints(R).length ? 1 : 0)) + 34]; }
+      pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (legendOf(R).length + (SIM.Q.completionHints(R).length ? 1 : 0)) + 34]; }
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands
   const trkRows = (R) => (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned').slice(0, 4);
   function trkBox(S, R) { const Q = trkRows(R); if (!Q.length || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(R);
-    const w = Math.max(280, ...Q.map((q, i) => Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.questLine(q, R), { size: 16 })))) + 32;
+    const w = Math.max(280, ...Q.map((q, i) => Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.Q.questLine(q, R), { size: 16 })))) + 32;
     return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50]; }
   function tracker(S, R) { const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B;
-    panel('qtrack', x0, y0, w, h, { r: 5, a: 0.84 }); lab('qt_t', 'Задания', x0 + 14, y0 + 20, { size: 16, col: C.dim });
+    panel('qtrack', x0, y0, w, h, { r: 5, a: 0.84 }); lab('qt_t', TXT('hud.tracker'), x0 + 14, y0 + 20, { size: 16, col: C.dim });
     trkRows(R).forEach((q, i) => { const y = y0 + 48 + i * 50, done = q.st === 'done', Q = D.QUESTS[q.key];
       lab('qt_n' + i, Q.name, x0 + 14, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
-      lab('qt_l' + i, SIM.questLine(q, R), x0 + 14, y + 22, { size: 16, col: done ? '#8fd98a' : C.text }); }); }
+      lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14, y + 22, { size: 16, col: done ? '#8fd98a' : C.text }); }); }
   function minimap(S, R, t) {
     const m = R.map, k = mapK(R), mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
-    const hid = SIM.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
-    if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = document.createElement('canvas')); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
+    const hid = SIM.Q.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
+    if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
-      const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
+      const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
       const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
       // rooms as stone slabs with a pale rim, as in the concept: the rim sits on the wall cells that border the floor
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y), X = x * k, Y = y * k;
@@ -388,36 +388,36 @@
           fill(X, Y, k, k, '#1b1719');
           if (d) fill(X, Y + k - 2, k, 2, '#a59a8e'); if (l) fill(X, Y, 2, k, '#a59a8e'); if (r) fill(X + k - 2, Y, 2, k, '#a59a8e');
           if (u) fill(X, Y, k, 2, '#3a3230'); } }
-      if (MAP.rec) { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, MAP.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); MAP.rec.w = mw; MAP.rec.h = mh; }
+      if (MAP.rec) { G.canvasUpdate(MAP.rec, cv); MAP.rec.w = mw; MAP.rec.h = mh; }
       else MAP.rec = G.canvasTex('minimap', cv); }
     const title = D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), tw = lw('mm_t', title, { size: 17 });
-    const hints = SIM.completionHints(R);
-    const legend = legendOf(R).concat(hints.length ? [['hint', 'Остатки до 100%']] : []);
+    const hints = SIM.Q.completionHints(R);
+    const legend = legendOf(R).concat(hints.length ? [['hint', TXT('hud.minimap.legend')]] : []);
     const pw = Math.max(mw + 24, tw + 24, legendW()), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
     panel('minimap', x0, 12, pw, ph, { r: 5, a: 0.86 });
     lab('mm_t', title, x0 + pw / 2, 31, { size: 17, al: 0.5 });
     L.sprite('minimap', px, py, { w: mw, h: mh });
     const mark = (x, y, id, s) => icon_(id, px + x / TILE * k, py + y / TILE * k, s);
-    for (const c of R.chests) if (!c.open && !SIM.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
+    for (const c of R.chests) if (!c.open && !SIM.Q.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
     for (const e of R.en) if (!!D.BOSSES[e.type] && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
     if (R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
     if (m.shop && R.rseen[m.shop.room]) mark(m.shop.x, m.shop.y, 'shop', 12);
     if (m.sanct && R.seen[Math.floor(m.sanct.y / TILE) * m.W + Math.floor(m.sanct.x / TILE)]) mark(m.sanct.x, m.sanct.y, 'camp', 12);
     if (m.way && R.seen[m.way.ty * m.W + m.way.tx]) mark(m.way.x, m.way.y, 'way', 13);
     if (m.town) { const V0 = m.town.svc; mark(V0.altar.x, V0.altar.y, 'altar', 12); mark(V0.stash.x, V0.stash.y, 'stash', 12); mark(V0.anvil.x, V0.anvil.y, 'craft', 12); mark(V0.lectern.x, V0.lectern.y, 'craft', 12); mark(V0.portal.x, V0.portal.y, 'way', 13); }
-    for (const q of R.shrines) if (!SIM.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
+    for (const q of R.shrines) if (!SIM.Q.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
     // the townsfolk with quest business (TASKS 1033): their ! and ? on the town's map, where they stand now
-    if (m.town && R.folk) R.folk.forEach((f, i) => { const mk = SIM.questMark(R, f.role); if (!mk) return; const x = px + f.x / TILE * k, y = py + f.y / TILE * k;
+    if (m.town && R.folk) R.folk.forEach((f, i) => { const mk = SIM.Q.questMark(R, f.role); if (!mk) return; const x = px + f.x / TILE * k, y = py + f.y / TILE * k;
       L.rrect(x - 8, y - 9, 16, 18, 5, [0.1, 0.07, 0.04], [0.1, 0.07, 0.04], 0.9); lab('mm_q' + i, mk, x, y + 1, { size: 16, al: 0.5, col: mk === '?' ? '#8fd98a' : '#ffc040' }); });
     for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
       const c = o.kind === 'foe' ? [1, 0.3, 0.2] : [1, 0.85, 0.3];
       L.rrect(x - 4, y - 4, 8, 8, 4, c, c, pulse); }
     // a quest's goal (TASKS 1019–1021), seen or not: the named foe, the room to clear (its outline), the keepsake once seen
-    for (const o of SIM.questMarks(R)) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.55 + 0.45 * Math.sin(t * 5);
+    for (const o of SIM.Q.questMarks(R)) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.55 + 0.45 * Math.sin(t * 5);
       if (o.kind === 'room') { const r = o.r, c = [1, 0.8, 0.3]; L.solid(px + r.x * k, py + r.y * k, r.w * k, 2, c, 0, 0, 0, pulse); L.solid(px + r.x * k, py + (r.y + r.h) * k - 2, r.w * k, 2, c, 0, 0, 0, pulse);
         L.solid(px + r.x * k, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); L.solid(px + (r.x + r.w) * k - 2, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); }
       icon_('quest', x, y, 14, pulse); }
-    if (S.debug && S.dbgLoot) for (const o of SIM.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + o.x / TILE * k - r, py + o.y / TILE * k - r, 2 * r, 2 * r, r, c, c); }
+    if (S.debug && S.dbgLoot) for (const o of SIM.Q.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + o.x / TILE * k - r, py + o.y / TILE * k - r, 2 * r, 2 * r, r, c, c); }
     const hs = 13 + 1.5 * Math.sin(t * 6), hx = Math.max(hs, Math.min(mw - hs, R.hero.x / TILE * k)), hy = Math.max(hs, Math.min(mh - hs, R.hero.y / TILE * k));
     icon_('you', px + hx, py + hy, hs);
     legend.forEach(([id, s], i) => { const y = lg0 + i * 26; icon_(id, x0 + 22, y, 16); lab('mm_l' + i, s, x0 + 38, y + 1, { size: 16, col: C.text }); });
@@ -453,11 +453,11 @@
     const ndl = (a, len, col) => { for (let i = 0; i < 6; i++) { const q = i / 6, w = (1 - q) * r * 0.16 + 1, d = q * len; L.solid(cx + Math.cos(a) * d - w / 2, cy + Math.sin(a) * d - w / 2, w, w, col, a + Math.PI / 4, w / 2, w / 2); } };
     for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 + Math.PI / 4, r * 0.45, [0.4, 0.34, 0.28]);
     for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 - Math.PI / 2, i === 0 ? r * 0.95 : r * 0.75, i === 0 ? [0.93, 0.88, 0.8] : [0.7, 0.64, 0.56]);
-    [['С', 0, -1], ['В', 1, 0], ['Ю', 0, 1], ['З', -1, 0]].forEach(([s, dx, dy]) => lab('mm_c' + s, s, cx + dx * (r + 10), cy + dy * (r + 10) + 1, { size: 14, al: 0.5, col: C.dim }));
+    [[TXT('hud.compass'), 0, -1], [TXT('hud.compass.2'), 1, 0], [TXT('hud.compass.3'), 0, 1], [TXT('hud.compass.4'), -1, 0]].forEach(([s, dx, dy]) => lab('mm_c' + s, s, cx + dx * (r + 10), cy + dy * (r + 10) + 1, { size: 14, al: 0.5, col: C.dim }));
   }
   // floor completion cells for the minimap: [id, icon, text, complete]
   function progress(R) {
-    const f = SIM.fstat(R), pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%', out = [];
+    const f = SIM.Q.fstat(R), pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%', out = [];
     if (f.foes) out.push(['foes', 'it_sword', pc(f.kills, f.foes), f.kills >= f.foes]);
     if (f.lootN) out.push(['loot', 'chest', pc(f.loot, f.lootN), f.loot >= f.lootN]);
     // secrets as a share only, and always shown: neither how many the floor hides nor whether it hides any is given away
@@ -467,46 +467,46 @@
 
   // ---------------- hero screen ----------------
   function inv(S, R, t) {
-    const h = R.hero, st = SIM.stats(h, S.meta), U = D.UI.inv(), P = U.P;
+    const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(), P = U.P;
     dim(0.35); panel('inv', P.x, P.y, P.w, P.h, { r: 10, a: 0.72 });
-    lab('inv_t', 'Герой', P.x + 40, P.y + 46, { size: 40, col: C.gold });
-    lab('inv_g', h.gold + ' золота', P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('inv_g', h.gold + ' золота', { size: 28 }) - 46, P.y + 28, 36);
-    lab('inv_souls', 'Осколки душ: ' + S.meta.shards, P.x + 310, P.y + 46, { size: 22, col: '#9cc8ff' });
+    lab('inv_t', TXT('hud.inv'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    lab('inv_g', TXT('hud.inv.2', { gold: h.gold }), P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('inv_g', TXT('hud.inv.3', { gold: h.gold }), { size: 28 }) - 46, P.y + 28, 36);
+    lab('inv_souls', TXT('hud.inv.4', { shards: S.meta.shards }), P.x + 310, P.y + 46, { size: 22, col: '#9cc8ff' });
     // portrait and level
     L.sprite('portrait', P.x + 40, P.y + 90, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] }); L.uiBox('inv_por', P.x + 40, P.y + 90, 220, 186);
-    lab('inv_lv', 'Уровень ' + h.lvl, P.x + 150, P.y + 300, { size: 28, al: 0.5 });
+    lab('inv_lv', TXT('hud.inv.5', { lvl: h.lvl }), P.x + 150, P.y + 300, { size: 28, al: 0.5 });
     bar('inv_xp', P.x + 40, P.y + 322, 220, 16, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
-    lab('inv_xpn', h.xp + ' / ' + D.xpNeed(h.lvl) + ' опыта', P.x + 150, P.y + 360, { size: 20, al: 0.5, col: C.dim });
+    lab('inv_xpn', TXT('hud.inv.6', { xp: h.xp, p2: D.xpNeed(h.lvl) }), P.x + 150, P.y + 360, { size: 20, al: 0.5, col: C.dim });
     // stats
-    lab('inv_pts', h.pts > 0 ? 'Очки характеристик: ' + h.pts : 'Характеристики', P.x + 40, P.y + 418, { size: 24, col: h.pts > 0 ? C.gold : C.text });
+    lab('inv_pts', h.pts > 0 ? TXT('hud.inv.7', { pts: h.pts }) : TXT('hud.inv.8'), P.x + 40, P.y + 418, { size: 24, col: h.pts > 0 ? C.gold : C.text });
     D.STATS.forEach((s, i) => { const b = U.r.find((q) => q.id === 'stat:' + s.k), y = b.y + 20;
       lab('st_n' + i, s.name, P.x + 40, y, { size: 26, col: C.dim }); lab('st_v' + i, h.base[s.k] + (st[s.k] - h.base[s.k] ? ' (+' + (st[s.k] - h.base[s.k]) + ')' : ''), P.x + 110, y, { size: 26 });
       if (h.pts > 0) { panel('st_b' + i, b.x, b.y, b.w, b.h, { r: 6, c0: S.hover === b.id ? [0.35, 0.25, 0.1] : [0.2, 0.15, 0.08] }); lab('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); } });
     // equipment, and under it what it all adds up to
-    lab('inv_eq', 'Снаряжение', P.x + 310, P.y + 90, { size: 24, col: C.dim });
+    lab('inv_eq', TXT('hud.inv.9'), P.x + 310, P.y + 90, { size: 24, col: C.dim });
     for (const b of U.r) if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot);
     const he = U.r.find((q) => q.id === S.hover && q.slot && !h.eq[q.slot]);
     const pct = (v) => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%', num = (v) => Math.round(v * 10) / 10;
-    const derived = [['Атака', st.atk], ['Защита', st.def], ['Здоровье', st.maxHp], ['Мана', st.maxMp], ['Крит', Math.round(st.crit) + '%'], ['Уклонение', num(st.dodge) + '%'], ['Ск. атаки', pct(st.aspd)],
-      ['Ск. бега', pct(st.mspd)], ['Вампиризм', st.leech ? num(st.leech) + '%' : '—'], ['Здоровье/с', st.regen ? '+' + num(st.regen) : '—'], ['За удар', st.onhit ? '+' + num(st.onhit) : '—']];
+    const derived = [[TXT('hud.inv.derived'), st.atk], [TXT('hud.inv.derived.2'), st.def], [TXT('hud.inv.derived.3'), st.maxHp], [TXT('hud.inv.derived.4'), st.maxMp], [TXT('hud.inv.derived.5'), Math.round(st.crit) + '%'], [TXT('hud.inv.derived.6'), num(st.dodge) + '%'], [TXT('hud.inv.derived.7'), pct(st.aspd)],
+      [TXT('hud.inv.derived.8'), pct(st.mspd)], [TXT('hud.inv.derived.9'), st.leech ? num(st.leech) + '%' : '—'], [TXT('hud.inv.derived.10'), st.regen ? '+' + num(st.regen) : '—'], [TXT('hud.inv.derived.11'), st.onhit ? '+' + num(st.onhit) : '—']];
     const dy0 = P.y + 446; // the rows share the height ten of them had at 24 px, so an eleventh (dodge) does not run into the hint under the window
     const rowH = Math.min(24, 240 / derived.length); L.rrect(P.x + 304, dy0 - 18, 286, derived.length * rowH + 18, 6, [0.07, 0.06, 0.07], [0.04, 0.035, 0.045], 0.8);
     derived.forEach(([n, v], i) => { const y = dy0 + 6 + i * rowH; lab('dv_n' + i, n, P.x + 318, y, { size: 19, col: C.dim }); lab('dv_v' + i, v, P.x + 576, y, { size: 20, al: 1 }); });
     L.uiBox('inv_der', P.x + 304, dy0 - 18, 286, derived.length * 24 + 18);
-    lab('inv_bag', 'Сумка', P.x + 640, P.y + 90, { size: 24, col: C.dim });
+    lab('inv_bag', TXT('hud.inv.10'), P.x + 640, P.y + 90, { size: 24, col: C.dim });
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]);
     // skills
-    lab('inv_sk', h.sp > 0 ? 'Очки навыков: ' + h.sp : 'Способности', P.x + 640, P.y + 448, { size: 24, col: h.sp > 0 ? C.gold : C.dim });
+    lab('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), P.x + 640, P.y + 448, { size: 24, col: h.sp > 0 ? C.gold : C.dim });
     D.ABILITIES.forEach((A, i) => { const b = U.r.find((q) => q.id === 'ab:' + A.id), r = h.ab[A.id] || 0, can = h.sp > 0 && h.lvl >= A.unlock && r < D.AB_MAX;
       panel('ab_' + i, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });
-      lab('ab_r' + i, r ? 'ранг ' + r + ' / ' + D.AB_MAX : 'с ' + A.unlock + ' уровня', b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
+      lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
       const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
-    lab('inv_help', 'ЛКМ — надеть / использовать · ПКМ — выбросить · I или Esc — закрыть', P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('inv_help', TXT('hud.inv.15'), P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     // close
     const cb = U.r.find((q) => q.id === 'close'); panel('inv_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('inv_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 24; panel('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 34, { r: 5, rim: C.rimHi });
@@ -516,35 +516,35 @@
   }
   // ---------------- the merchant's screen ----------------
   function shop(S, R, t) {
-    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = SIM.tradeDepth(R);
+    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); panel('shop', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('sh_t', sh.wander ? 'Странствующий торговец' : 'Лавка торговца', P.x + 40, P.y + 46, { size: 40, col: C.gold });
-    const gs = h.gold + ' золота'; lab('sh_g', gs, P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 28, 36);
+    lab('sh_t', sh.wander ? TXT('hud.shop') : TXT('hud.shop.2'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    const gs = TXT('hud.shop.gs', { gold: h.gold }); lab('sh_g', gs, P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 28, 36);
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 20 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 20, col: can ? C.gold : '#8a6a5a' }); };
-    lab('sh_buy', R.town ? 'Товары города' + (sh.at ? ' · с глубин до этажа ' + sh.at : '') : sh.wander ? 'Товары из глубин · этаж ' + R.floor : 'Товары · этаж ' + R.floor, P.x + 40, P.y + 100, { size: 24, col: C.dim });
+    lab('sh_buy', R.town ? TXT('hud.shop.3', { p1: sh.at ? TXT('hud.shop.4', { at: sh.at }) : '' }) : sh.wander ? TXT('hud.shop.5', { floor: R.floor }) : TXT('hud.shop.6', { floor: R.floor }), P.x + 40, P.y + 100, { size: 24, col: C.dim });
     sh.goods.forEach((g, i) => { const b = U.r.find((q) => q.id === 'buy:' + i); slot(S, b, g.n ? Object.assign({}, g.it, { n: g.n }) : g.it); price('shp_b' + i, b, g.price, h.gold >= g.price); });
-    lab('sh_back', 'Выкуп проданного', P.x + 40, P.y + 550, { size: 24, col: C.dim });
+    lab('sh_back', TXT('hud.shop.7'), P.x + 40, P.y + 550, { size: 24, col: C.dim });
     for (let i = 0; i < D.SHOP.buyback; i++) { const b = U.r.find((q) => q.id === 'back:' + i), g = sh.back[i]; slot(S, b, g && g.it); if (g) price('shp_k' + i, b, g.price, h.gold >= g.price); }
-    lab('sh_bag', 'Ваша сумка — продать', P.x + 620, P.y + 100, { size: 24, col: C.dim });
+    lab('sh_bag', TXT('hud.shop.8'), P.x + 620, P.y + 100, { size: 24, col: C.dim });
     for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'sell:' + i), it = h.bag[i]; slot(S, b, it); if (it) price('shp_s' + i, b, D.sellPrice(it, f), true); }
     // the merchant himself, his line for this visit
     const mx = P.x + 720, my = P.y + P.h - 64, [mw, mh] = SZ('merchant'), k = 2.1;
     L.sprite('merchant', mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
     const LN = sh.wander ? D.SHOP.wander.lines : D.SHOP.lines, line = '«' + LN[sh.line % LN.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 40;
     panel('sh_bubble', P.x + 620, P.y + 556, bw, 48, { r: 10 }); lab('sh_line', line, P.x + 640, P.y + 581, { size: lsz, col: '#fff2c8' });
-    lab('sh_help', 'ЛКМ по товару — купить · ЛКМ по вещи в сумке — продать · E или Esc — закрыть', P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('sh_help', TXT('hud.shop.9'), P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('sh_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('sh_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     const hb = U.r.find((q) => q.id === S.hover); if (!hb) return;
     const g = hb.id.startsWith('buy:') ? sh.goods[hb.i] : hb.id.startsWith('back:') ? sh.back[hb.i] : null, it = g ? g.it : hb.id.startsWith('sell:') ? h.bag[hb.i] : null;
     // the details sit in a fixed pane in the corner: a floating tip would cover the next slots' prices
-    if (it) tooltip(S, it, hb, h, g ? ['Купить за ' + g.price + ' золота', h.gold >= g.price ? C.gold : C.red] : ['Продать за ' + D.sellPrice(it, f) + ' золота', C.gold], [P.x + 1090, P.y + 556]);
+    if (it) tooltip(S, it, hb, h, g ? [TXT('hud.shop.10', { price: g.price }), h.gold >= g.price ? C.gold : C.red] : [TXT('hud.shop.11', { p1: D.sellPrice(it, f) }), C.gold], [P.x + 1090, P.y + 556]);
   }
   // an empty gear slot shows the outline of what goes in it, its name on hover
   const SLOT_SIL = { weapon: 'it_sword', offhand: 'it_shield', helm: 'it_helm_k', armor: 'it_armor_p', gloves: 'it_gloves', boots: 'it_boots', ring: 'it_ring', amulet: 'it_amulet' };
   function slot(S, b, it, empty) {
     const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null;
     panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: it && it.rar ? col : hv ? C.rimHi : [0.3, 0.25, 0.21], c0: hv ? [0.16, 0.12, 0.1] : [0.07, 0.06, 0.07], c1: [0.04, 0.035, 0.045] });
-    if (it) { if (it.rar >= 2) L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, col, [0, 0, 0], 0.18); icon(SIM.itemIcon(it), b.x + 8, b.y + 8, b.w - 16);
+    if (it) { if (it.rar >= 2) L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, col, [0, 0, 0], 0.18); icon(SIM.Q.itemIcon(it), b.x + 8, b.y + 8, b.w - 16);
       if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 });
       const hr = S.run && S.run.hero; if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 8, b.y + 18, { size: 18, al: 1, col: '#ff6a5a' }); } }
     else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
@@ -553,29 +553,29 @@
   // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
   const UP = '#8fd98a', DOWN = '#e0604f';
   function compare(S, it, slot, h, lines) {
-    const cur = h.eq[slot], of = (x) => { const o = { atk: (x && x.atk) || 0, def: (x && x.def) || 0 }; if (x) { const m = SIM.itemMods(x); for (const k in m) o[k] = (o[k] || 0) + m[k]; } return o; };
+    const cur = h.eq[slot], of = (x) => { const o = { atk: (x && x.atk) || 0, def: (x && x.def) || 0 }; if (x) { const m = SIM.Q.itemMods(x); for (const k in m) o[k] = (o[k] || 0) + m[k]; } return o; };
     const a = of(it), c = of(cur), num = (v) => String(Math.round(Math.abs(v) * 10) / 10);
-    lines.push([cur ? 'Против надетого: ' + SIM.itemName(cur) : 'Слот «' + D.SLOT_NAME[slot] + '» пуст', C.dim, 19]);
+    lines.push([cur ? TXT('hud.compare', { p1: SIM.Q.itemName(cur) }) : TXT('hud.compare.2', { p1: D.SLOT_NAME[slot] }), C.dim, 19]);
     for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05) continue;
       lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), d > 0 ? UP : DOWN, 19]); }
-    const s0 = SIM.stats(h, S.meta), s1 = SIM.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
-    const tot = [['здоровье', 'maxHp'], ['атака', 'atk'], ['защита', 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
-    if (tot.length) lines.push(['Итог: ' + tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · '),
+    const s0 = SIM.Q.stats(h, S.meta), s1 = SIM.Q.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
+    const tot = [[TXT('hud.compare.tot'), 'maxHp'], [TXT('hud.compare.tot.2'), 'atk'], [TXT('hud.compare.tot.3'), 'def']].filter(([, k]) => Math.round(s1[k]) !== Math.round(s0[k]));
+    if (tot.length) lines.push([TXT('hud.compare.3', { p1: tot.map(([n, k]) => n + ' ' + Math.round(s0[k]) + ' → ' + Math.round(s1[k])).join(' · ') }),
       tot.every(([, k]) => s1[k] >= s0[k]) ? UP : tot.every(([, k]) => s1[k] <= s0[k]) ? DOWN : C.gold, 20]);
   }
   function tooltip(S, it, b, h, deal, at) {
-    const lines = [], cons = SIM.isCons(it), B = cons ? null : D.BASES[it.b];
-    lines.push([SIM.itemName(it), hex(D.RARITY[it.rar].col), 28]);
-    if (!cons) { lines.push([D.RARITY[it.rar].name + ' · ' + D.SLOT_NAME[B.slot] + ' · ур. ' + it.lvl, C.dim, 20]);
-      const rq = D.reqLvl(it); if (rq > 1) lines.push(['Требуется уровень ' + rq, h.lvl < rq ? '#ff6a5a' : C.dim, 20]);
-      if (it.atk) lines.push(['Атака: ' + it.atk + (B.spell ? '  (+' + Math.round(B.spell * 100) + '% к магии)' : ''), C.text, 22]);
-      if (it.def) lines.push(['Защита: ' + it.def, C.text, 22]);
-      const typed = SIM.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
+    const lines = [], cons = SIM.Q.isCons(it), B = cons ? null : D.BASES[it.b];
+    lines.push([SIM.Q.itemName(it), hex(D.RARITY[it.rar].col), 28]);
+    if (!cons) { lines.push([TXT('hud.tooltip', { name: D.RARITY[it.rar].name, p2: D.SLOT_NAME[B.slot], lvl: it.lvl }), C.dim, 20]);
+      const rq = D.reqLvl(it); if (rq > 1) lines.push([TXT('hud.tooltip.2', { rq }), h.lvl < rq ? '#ff6a5a' : C.dim, 20]);
+      if (it.atk) lines.push([TXT('hud.tooltip.3', { atk: it.atk, p2: B.spell ? TXT('hud.tooltip.4', { p1: Math.round(B.spell * 100) }) : '' }), C.text, 22]);
+      if (it.def) lines.push([TXT('hud.tooltip.5', { def: it.def }), C.text, 22]);
+      const typed = SIM.Q.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');
-      for (const e of it.ench || []) lines.push([D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff', 22]);
+      for (const e of it.ench || []) lines.push([TXT('hud.tooltip.6', { p1: D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) }), '#9cc8ff', 22]);
       if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
-      if (!deal) lines.push([b.id.startsWith('eq:') ? 'ЛКМ — снять' : h.lvl < rq ? 'Пока не надеть: мал уровень' : 'ЛКМ — надеть', '#8a7d6c', 18]); }
-    else { lines.push([it.b === 'hp_potion' ? 'Восстанавливает 40% здоровья (Q)' : it.b === 'mp_potion' ? 'Восстанавливает 50% маны (R)' : S.run && S.run.viaTown ? 'Открывает портал в город (T)' : 'Возвращает в безопасную комнату (T)', C.text, 20]); if (!deal) lines.push(['ЛКМ — использовать', '#8a7d6c', 18]); }
+      if (!deal) lines.push([b.id.startsWith('eq:') ? TXT('hud.tooltip.7') : h.lvl < rq ? TXT('hud.tooltip.8') : TXT('hud.tooltip.9'), '#8a7d6c', 18]); }
+    else { lines.push([it.b === 'hp_potion' ? TXT('hud.tooltip.10') : it.b === 'mp_potion' ? TXT('hud.tooltip.11') : S.run && S.run.viaTown ? TXT('hud.tooltip.12') : TXT('hud.tooltip.13'), C.text, 20]); if (!deal) lines.push([TXT('hud.tooltip.14'), '#8a7d6c', 18]); }
     if (deal) lines.push([deal[0], deal[1], 22]);
     const w = Math.max(...lines.map(([s, , z], i) => lw('tt' + i, s, { size: z }))) + 36, hh = lines.reduce((a, l) => a + l[2] * 1.45, 0) + 24;
     let x = b.x + b.w + 12, y = b.y; if (x + w > W - 10) x = b.x - w - 12; if (y + hh > H - 10) y = H - 10 - hh;
@@ -593,34 +593,34 @@
     const [hw, hh] = SZ('hero'); L.sprite('hero', W / 2 - 520 - hw * 1.6, 340, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', W / 2 - 520 - hw * 1.6, 340, hw * 3.2, hh * 3.2);
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
   }
-  const savedLine = (S) => 'Сохранённый забег: ' + (S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ') + (S.saved.floor ? 'этаж ' + S.saved.floor : 'город') + ', уровень ' + S.saved.hero.lvl;
+  const savedLine = (S) => TXT('hud.savedLine', { p1: S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ', p2: S.saved.floor ? TXT('hud.savedLine.2', { floor: S.saved.floor }) : TXT('hud.savedLine.3'), lvl: S.saved.hero.lvl });
   // the test runs (TASKS 417): a press over a saved run asks again, as on the main menu, so the save is named here too
   function tests(S, t) {
     menuBack(t);
-    lab('ts_t', 'Тесты', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('ts_s', 'Отдельные забеги: биомы после кампании и бесконечный спуск', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
+    lab('ts_t', TXT('hud.tests'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('ts_s', TXT('hud.tests.2'), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
     for (const b of D.UI.tests(!!S.saved, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM)) button('tb_' + b.id, b, S.hover);
     if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
   }
   function menu(S, t) {
     menuBack(t);
-    lab('m_t', 'ГЛУБИНЫ КРИПТЫ', W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('m_s', 'Двенадцать этажей: от подземелья до Затопленных пещер', W / 2, 310, { size: 28, al: 0.5, col: C.dim });
+    lab('m_t', TXT('hud.menu'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('m_s', TXT('hud.menu.2'), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
     for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom, S.saved && S.saved.town)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
-      const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? 'Впервые? Начните с лёгкой' : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? '×1,5 — крупнее' : '';
+      const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? TXT('hud.menu.tip') : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? TXT('hud.menu.tip.2') : '';
       if (tip) lab('mb_tip_' + b.id, tip, b.x + b.w + 24, b.y + b.h / 2 + 1, { size: 21, al: 0, col: '#9fd08a' }); }
     if (S.saved) lab('m_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
-    const info = 'Осколки душ: ' + S.meta.shards + '   ·   Забегов: ' + (S.meta.runs || 0) + '   ·   Побед: ' + (S.meta.wins || 0) + '   ·   Рекорд: этаж ' + (S.meta.best || 0) + (S.meta.bestEndless ? '   ·   Спуск: этаж ' + S.meta.bestEndless : '');
+    const info = TXT('hud.menu.info', { shards: S.meta.shards, p2: S.meta.runs || 0, p3: S.meta.wins || 0, p4: S.meta.best || 0, p5: S.meta.bestEndless ? TXT('hud.menu.info.2', { bestEndless: S.meta.bestEndless }) : '' });
     lab('m_i', info, W / 2, H - 70, { size: 24, al: 0.5, col: C.dim });
   }
   function meta(S, t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1);
     G.blend('add'); L.glow(W / 2, 200, 500, [0.3, 0.5, 1], 0.25 + 0.05 * Math.sin(t * 2)); G.blend();
-    lab('mt_t', 'Алтарь душ', W / 2, 140, { size: 72, al: 0.5, col: '#9cc8ff' });
-    lab('mt_s', 'Осколки душ: ' + S.meta.shards + ' — их приносят элиты, боссы, тайники и этажи, пройденные полностью', W / 2, S.metaRun ? 204 : 220, { size: 26, al: 0.5, col: C.dim });
+    lab('mt_t', TXT('hud.meta'), W / 2, 140, { size: 72, al: 0.5, col: '#9cc8ff' });
+    lab('mt_s', TXT('hud.meta.2', { shards: S.meta.shards }), W / 2, S.metaRun ? 204 : 220, { size: 26, al: 0.5, col: C.dim });
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
-    if (S.metaRun) lab('mt_run', 'Сейчас действуют: здоровье, урон, золото, мана, восстановление, стойкость. Зелья, характеристики, снаряжение и умения — у следующего героя', W / 2, 242, { size: 19, al: 0.5, col: '#8a7d6c' });
+    if (S.metaRun) lab('mt_run', TXT('hud.meta.3'), W / 2, 242, { size: 19, al: 0.5, col: '#8a7d6c' });
     for (const b of D.UI.meta()) {
       if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
@@ -628,7 +628,7 @@
       lab('mt_n' + b.id, M.name, b.x + 24, b.y + 32, { size: 28 }); lab('mt_d' + b.id, D.metaLine(M, r), b.x + 24, b.y + 70, { size: 20, col: r ? '#9cc8ff' : C.dim });
       const px = b.x + 36 + lw('mt_n' + b.id, M.name, { size: 28 });
       for (let i = 0; i < M.max; i++) L.rrect(px + i * 26, b.y + 22, 18, 18, 4, i < r ? [0.45, 0.7, 1] : [0.15, 0.15, 0.2], i < r ? [0.25, 0.45, 0.9] : [0.08, 0.08, 0.1]);
-      lab('mt_c' + b.id, max ? 'Максимум' : 'Цена: ' + c, b.x + b.w - 24, b.y + b.h / 2, { size: 24, al: 1, col: max ? C.gold : can ? '#9cc8ff' : '#7a6e64' }); }
+      lab('mt_c' + b.id, max ? TXT('hud.meta.4') : TXT('hud.meta.5', { c }), b.x + b.w - 24, b.y + b.h / 2, { size: 24, al: 1, col: max ? C.gold : can ? '#9cc8ff' : '#7a6e64' }); }
     refusal(S, W / 2, 868);
   }
   // the latest refusal on a full-screen menu, where the in-game feed is hidden
@@ -642,9 +642,9 @@
     const U = D.UI.altar(), P = U.P, bank = S.meta.shards;
     dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 420, [0.3, 0.5, 1], 0.18 + 0.04 * Math.sin(t * 2)); G.blend();
     panel('altar', P.x, P.y, P.w, P.h, { r: 10, rim: [0.32, 0.42, 0.62] });
-    lab('al_t', 'Алтарь жертв', P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
+    lab('al_t', TXT('hud.altar'), P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
     const bs = String(bank); lab('al_b', bs, P.x + P.w - 40, P.y + 50, { size: 30, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 40 - lw('al_b', bs, { size: 30 }) - 44, P.y + 32, 36);
-    lab('al_s', sh.used ? 'Дар уже принят. Алтарь по-прежнему принимает золото за осколки душ.' : 'Один дар за осколки душ. Золото можно пожертвовать отдельно, до и после дара.', P.x + 40, P.y + 104, { size: 22, col: C.dim });
+    lab('al_s', sh.used ? TXT('hud.altar.2') : TXT('hud.altar.3'), P.x + 40, P.y + 104, { size: 22, col: C.dim });
     sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = !sh.used && bank >= o.cost, hv = S.hover === b.id;
       panel('al_g' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv && can ? C.rimHi : can ? [0.32, 0.42, 0.62] : C.rim, c0: hv && can ? [0.14, 0.14, 0.2] : C.panel0 });
       if (can) { G.blend('add'); L.glow(b.x + b.w / 2, b.y + 110, 90, [0.35, 0.6, 1], hv ? 0.35 : 0.15); G.blend(); }
@@ -652,16 +652,16 @@
       lab('al_n' + i, Gf.name, b.x + b.w / 2, b.y + 214, { size: 28, al: 0.5, col: can ? C.text : C.dim });
       const ds = Gf.desc, dz = Math.min(22, Math.floor(22 * (b.w - 32) / lw('al_dm' + i, ds, { size: 22 })));
       lab('al_d' + i, ds, b.x + b.w / 2, b.y + 256, { size: dz, al: 0.5, col: '#9cc8ff' });
-      lab('al_w' + i, o.id === 'bless' ? 'до конца этажа' : 'до конца забега', b.x + b.w / 2, b.y + 290, { size: 18, al: 0.5, col: C.dim });
+      lab('al_w' + i, o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5'), b.x + b.w / 2, b.y + 290, { size: 18, al: 0.5, col: C.dim });
       const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, cx = b.x + b.w / 2 - cw / 2;
       icon('crystal', cx, b.y + b.h - 62, 30); lab('al_c' + i, cs, cx + 40, b.y + b.h - 46, { size: 28, col: can ? '#9cc8ff' : '#8a6a5a' }); });
     button('al_leave', U.r[3], S.hover);
-    const left = 10 - (R.donations || 0), b = Object.assign({}, U.r[4], { on: left > 0 && R.hero.gold >= 1000, label: left ? U.r[4].label : 'Лимит пожертвований исчерпан' });
+    const left = 10 - (R.donations || 0), b = Object.assign({}, U.r[4], { on: left > 0 && R.hero.gold >= 1000, label: left ? U.r[4].label : TXT('hud.altar.b.label') });
     button('al_donate', b, S.hover);
-    lab('al_gold', 'Золото: ' + R.hero.gold, P.x + 640, b.y + 18, { size: 22, col: C.gold });
-    lab('al_limit', 'Осталось пожертвований: ' + left + ' из 10', P.x + 640, b.y + 48, { size: 21, col: C.dim });
+    lab('al_gold', TXT('hud.altar.6', { gold: R.hero.gold }), P.x + 640, b.y + 18, { size: 22, col: C.gold });
+    lab('al_limit', TXT('hud.altar.7', { left }), P.x + 640, b.y + 48, { size: 21, col: C.dim });
     refusal(S, W / 2, P.y + 674);
-    lab('al_help', sh.used ? 'ЛКМ — пожертвовать золото · E или Esc — уйти' : 'ЛКМ — дар или пожертвование · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('al_help', sh.used ? TXT('hud.altar.8') : TXT('hud.altar.9'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- a word with a townsman (TASKS 1016, 1023): his likeness, his name, a page of his words ----------------
   function talk(S, R, t) {
@@ -675,124 +675,124 @@
     const act = at('act');
     // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
     // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030)
-    if (act) { const rs = 'Награда: ' + SIM.rwLine(T.act.rw), ic = SIM.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
+    if (act) { const rs = TXT('hud.talk.rs', { p1: SIM.Q.rwLine(T.act.rw) }), ic = SIM.Q.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
       if (ic) { panel('tk_ic', P.x + 300, P.y + P.h - 160, 44, 44, { r: 6 }); icon(ic, P.x + 304, P.y + P.h - 156, 36); }
       lab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, { size: 22, col: C.gold }); }
     if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: C.dim });
-    button('tk_next', Object.assign({}, at('next'), { label: T.p + 1 < T.pages.length ? 'Дальше' : act && T.act.k === 'take' ? 'Не сейчас' : 'Уйти' }), S.hover);
-    if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? 'Взять задание' : 'Сдать задание' }), S.hover);
+    button('tk_next', Object.assign({}, at('next'), { label: T.p + 1 < T.pages.length ? TXT('hud.talk.label') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : TXT('hud.talk.label.3') }), S.hover);
+    if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? TXT('hud.talk.label.4') : TXT('hud.talk.label.5') }), S.hover);
     if (at('craft')) button('tk_craft', at('craft'), S.hover);
-    lab('tk_keys', act ? (T.act.k === 'take' ? 'E — взять задание' : 'E — сдать задание') + ' · Esc — уйти' : 'E, пробел или ЛКМ — дальше · Esc — уйти', W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('tk_keys', act ? TXT('hud.talk', { p1: T.act.k === 'take' ? TXT('hud.talk.2') : TXT('hud.talk.3') }) : TXT('hud.talk.4'), W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
   function board(S, R, t) {
-    const L0 = SIM.boardOffers(R), U = D.UI.board(L0.length), P = U.P;
+    const L0 = SIM.Q.boardOffers(R), U = D.UI.board(L0.length), P = U.P;
     dim(0.6); panel('board', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('bd_t', 'Доска заданий', P.x + 40, P.y + 50, { size: 40, col: C.gold });
+    lab('bd_t', TXT('hud.board'), P.x + 40, P.y + 50, { size: 40, col: C.gold });
     const cb = U.r.find((q) => q.id === 'close'); panel('bd_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('bd_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
-    lab('bd_keys', 'ЛКМ — взять задание · E или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
-    if (!L0.length) { wrapLab('bd_none', 'Новых заданий нет. Горожане дают новые после каждого побеждённого хозяина главы.', P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
+    lab('bd_keys', TXT('hud.board.2'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    if (!L0.length) { wrapLab('bd_none', TXT('hud.board.3'), P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
     L0.slice(0, 7).forEach(({ role, of }, i) => { const q = of.q, Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic;
       panel('bd_r' + i, P.x + 30, y, P.w - 60, 96, { r: 6 });
       if (ic) { panel('bd_ic' + i, P.x + 46, y + 18, 60, 60, { r: 6 }); icon(ic, P.x + 52, y + 24, 48); }
       const X = P.x + (ic ? 124 : 50);
       lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: Q.kind === 'story' ? '#ffc070' : C.gold });
-      lab('bd_f' + i, D.FOLK[role].name + ' · ' + q.f + '-й этаж', X, y + 56, { size: 17, col: C.dim });
-      lab('bd_w' + i, 'Награда: ' + SIM.rwLine(q.rw), X, y + 80, { size: 17, col: '#d8b870' });
-      button('bd_take' + i, Object.assign({}, b, { label: 'Взять' }), S.hover); });
+      lab('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 56, { size: 17, col: C.dim });
+      lab('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 80, { size: 17, col: '#d8b870' });
+      button('bd_take' + i, Object.assign({}, b, { label: TXT('hud.board.label') }), S.hover); });
   }
   // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
-  const QST = { done: ['Выполнено', '#8fd98a'], taken: ['В пути', '#e8c890'], turned: ['Сдано', '#8a7d6c'] };
+  const QST = { done: [TXT('QST.done'), '#8fd98a'], taken: [TXT('QST.taken'), '#e8c890'], turned: [TXT('QST.turned'), '#8a7d6c'] };
   function journal(S, R, t) {
-    const L0 = SIM.journalOf(R), U = D.UI.journal(L0.length), P = U.P, sel = L0.find((q) => q.id === S.jsel) || L0[0];
+    const L0 = SIM.Q.journalOf(R), U = D.UI.journal(L0.length), P = U.P, sel = L0.find((q) => q.id === S.jsel) || L0[0];
     dim(0.6); panel('journal', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('jr_t', 'Журнал заданий', P.x + 40, P.y + 50, { size: 40, col: C.gold });
+    lab('jr_t', TXT('hud.journal'), P.x + 40, P.y + 50, { size: 40, col: C.gold });
     const cb = U.r.find((q) => q.id === 'close'); panel('jr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('jr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
-    lab('jr_keys', 'ЛКМ — выбрать задание · J или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
-    if (!L0.length) { wrapLab('jr_none', R.viaTown ? 'Заданий пока нет. Их дают горожане в городе — ищите «!» над головой.' : 'Задания дают горожане в городе. В этом забеге города нет.', P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
+    lab('jr_keys', TXT('hud.journal.2'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    if (!L0.length) { wrapLab('jr_none', R.viaTown ? TXT('hud.journal.3') : TXT('hud.journal.4'), P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
     L0.slice(0, 10).forEach((q, i) => { const b = U.r[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
       panel('jr_r' + i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : hv ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined, a: q.st === 'turned' && !on ? 0.7 : undefined });
       lab('jr_n' + i, Q.name, b.x + 16, b.y + 20, { size: 22, col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('jr_s' + i, st, b.x + b.w - 16, b.y + 20, { size: 17, al: 1, col });
-      lab('jr_f' + i, (D.FOLK[q.from] ? D.FOLK[q.from].name : '') + ' · ' + q.f + '-й этаж', b.x + 16, b.y + 44, { size: 16, col: C.dim }); });
+      lab('jr_f' + i, TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }), b.x + 16, b.y + 44, { size: 16, col: C.dim }); });
     const Q = D.QUESTS[sel.key], X = P.x + 540, Wd = P.w - 580, [st, col] = QST[sel.st]; let y = P.y + 130;
     L.solid(X - 20, P.y + 110, 1, P.h - 180, C.rim, 0, 0, 0, 0.6);
     if (sel.ic) { panel('jr_ic', X, y - 30, 48, 48, { r: 6 }); icon(sel.ic, X + 4, y - 26, 40); }
     lab('jr_dn', Q.name, X + (sel.ic ? 60 : 0), y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
-    lab('jr_dk', (Q.kind === 'story' ? 'Сюжет · ' : '') + 'Дал: ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—'), X, y, { size: 20, col: C.dim }); y += 44;
+    lab('jr_dk', TXT('hud.journal.6', { p1: Q.kind === 'story' ? TXT('hud.journal.7') : '', p2: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—' }), X, y, { size: 20, col: C.dim }); y += 44;
     y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 24, C.text) + 18;
-    lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.questLine(sel, R) : sel.st === 'done' ? ' · сдать — ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '') + ' в городе' : ''), X, y, { size: 22, col }); y += 48;
-    lab('jr_rw0', sel.st === 'turned' ? 'Получено:' : 'Награда:', X, y, { size: 22, col: C.dim }); y += 32;
-    wrapLab('jr_rw', SIM.rwLine(sel.rw), X, y, Wd, 22, C.gold);
+    lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '' }) : ''), X, y, { size: 22, col }); y += 48;
+    lab('jr_rw0', sel.st === 'turned' ? TXT('hud.journal.9') : TXT('hud.journal.10'), X, y, { size: 22, col: C.dim }); y += 32;
+    wrapLab('jr_rw', SIM.Q.rwLine(sel.rw), X, y, Wd, 22, C.gold);
   }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
   function craft(S, R, t) {
-    const h = R.hero, U = D.UI.craft(), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);
+    const h = R.hero, U = D.UI.craft(), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.Q.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);
     dim(0.55); panel('craft', P.x, P.y, P.w, P.h, { r: 10, rim: forge ? C.rim : [0.32, 0.42, 0.62] });
     if (!forge) { G.blend('add'); L.glow(P.x + 1170, P.y + 90, 360, [0.3, 0.5, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend(); }
-    lab('cr_t', forge ? 'Кузнец · перековка' : 'Зачарователь · зачарование', P.x + 40, P.y + 46, { size: 40, col: forge ? C.gold : '#9cc8ff' });
-    const gs = h.gold + ' золота'; lab('cr_g', gs, P.x + P.w - 96, P.y + 46, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 30, 32);
+    lab('cr_t', forge ? TXT('hud.craft') : TXT('hud.craft.2'), P.x + 40, P.y + 46, { size: 40, col: forge ? C.gold : '#9cc8ff' });
+    const gs = TXT('hud.craft.gs', { gold: h.gold }); lab('cr_g', gs, P.x + P.w - 96, P.y + 46, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 30, 32);
     if (!forge) { const ss = String(S.meta.shards); lab('cr_sh', ss, P.x + P.w - 96, P.y + 86, { size: 24, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 96 - lw('cr_sh', ss, { size: 24 }) - 36, P.y + 70, 30); }
-    lab('cr_eq', 'Надето', P.x + 40, P.y + 126, { size: 22, col: C.dim }); lab('cr_bag', 'Сумка', P.x + 40, P.y + 292, { size: 22, col: C.dim });
+    lab('cr_eq', TXT('hud.craft.3'), P.x + 40, P.y + 126, { size: 22, col: C.dim }); lab('cr_bag', TXT('hud.craft.4'), P.x + 40, P.y + 292, { size: 22, col: C.dim });
     for (const b of U.r) { if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot); else if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]); else continue;
       if (b.id === c.sel) { const k = forge ? [1, 0.8, 0.4] : [0.55, 0.75, 1]; L.solid(b.x - 4, b.y - 4, b.w + 8, 3, k); L.solid(b.x - 4, b.y + b.h + 1, b.w + 8, 3, k); L.solid(b.x - 4, b.y - 4, 3, b.h + 8, k); L.solid(b.x + b.w + 1, b.y - 4, 3, b.h + 8, k); } }
-    const X = P.x + 860, help = forge ? 'Свойства вещи собираются заново: столько же, сколько даёт её редкость. Зачарования остаются.' : 'До трёх зачарований на вещь. Каждое следующее дороже и рискованнее: чары могут сорваться или испортить вещь.';
+    const X = P.x + 860, help = forge ? TXT('hud.craft.help') : TXT('hud.craft.help.2');
     wrapLab('cr_help', help, X, P.y + 126, 620, 21, C.dim);
-    if (!it) lab('cr_pick', 'Выберите вещь слева', X, P.y + 300, { size: 26, col: C.text });
+    if (!it) lab('cr_pick', TXT('hud.craft.5'), X, P.y + 300, { size: 26, col: C.text });
     else { const b = { id: 'cr_sel', x: X, y: P.y + 220, w: 110, h: 110 }; slot(S, b, it);
-      lab('cr_n', SIM.itemName(it), X + 130, P.y + 250, { size: 28, col: hex(D.RARITY[it.rar].col) }); lab('cr_r', D.RARITY[it.rar].name + ' · ур. ' + it.lvl, X + 130, P.y + 290, { size: 20, col: C.dim });
-      const rows = Object.entries(it.mods || {}).map(([k, v]) => [D.AFFIXES.find((a) => a.k === k).label.replace('{v}', v), '#8fd98a']).concat((it.ench || []).map((e) => [D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) + ' · чары', '#9cc8ff']));
-      if (!rows.length) rows.push(['Свойств нет', C.dim]);
+      lab('cr_n', SIM.Q.itemName(it), X + 130, P.y + 250, { size: 28, col: hex(D.RARITY[it.rar].col) }); lab('cr_r', TXT('hud.craft.6', { name: D.RARITY[it.rar].name, lvl: it.lvl }), X + 130, P.y + 290, { size: 20, col: C.dim });
+      const rows = Object.entries(it.mods || {}).map(([k, v]) => [D.AFFIXES.find((a) => a.k === k).label.replace('{v}', v), '#8fd98a']).concat((it.ench || []).map((e) => [TXT('hud.craft.rows', { p1: D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) }), '#9cc8ff']));
+      if (!rows.length) rows.push([TXT('hud.craft.7'), C.dim]);
       rows.forEach(([s0, col], i) => lab('cr_m' + i, s0, X, P.y + 360 + i * 32, { size: 22, col }));
-      const k = SIM.craftCost(S, R, it), btn = Object.assign({}, at('do'), { on: k.can && h.gold >= k.gold && S.meta.shards >= k.shards, label: !k.can ? k.why : (forge ? 'Перековать' : 'Зачаровать') + ' · ' + k.gold + ' золота' + (k.shards ? ' · ' + k.shards + ' осколков' : '') });
+      const k = SIM.Q.craftCost(S, R, it), btn = Object.assign({}, at('do'), { on: k.can && h.gold >= k.gold && S.meta.shards >= k.shards, label: !k.can ? k.why : TXT('hud.craft.btn.label', { p1: forge ? TXT('hud.craft.btn.label.2') : TXT('hud.craft.btn.label.3'), gold: k.gold, p3: k.shards ? TXT('hud.craft.btn.label.4', { shards: k.shards }) : '' }) });
       button('cr_do', btn, S.hover);
-      if (k.can && !forge) lab('cr_risk', k.fail ? 'Риск неудачи: ' + Math.round(k.fail * 100) + '%' : 'Первое зачарование — без риска', X + 310, btn.y - 26, { size: 21, al: 0.5, col: k.fail ? '#e0a070' : '#8fd98a' }); }
+      if (k.can && !forge) lab('cr_risk', k.fail ? TXT('hud.craft.8', { p1: Math.round(k.fail * 100) }) : TXT('hud.craft.9'), X + 310, btn.y - 26, { size: 21, al: 0.5, col: k.fail ? '#e0a070' : '#8fd98a' }); }
     if (c.res && S.t - c.res.t < 4) lab('cr_res', c.res.s, X + 310, P.y + P.h - 60, { size: 23, al: 0.5, col: c.res.ok ? '#8fd98a' : '#e0604f', a: 1 - L.SS(3.4, 4, S.t - c.res.t) });
     else refusal(S, X + 310, P.y + P.h - 60);
     const cb = at('close'); panel('cr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('cr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
-    lab('cr_keys', 'ЛКМ — выбрать вещь · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('cr_keys', TXT('hud.craft.10'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
     const hb = U.r.find((q) => q.id === S.hover), hi = hb && (hb.id.startsWith('eq:') ? h.eq[hb.slot] : hb.id.startsWith('bag:') ? h.bag[hb.i] : null);
-    if (hi) tooltip(S, hi, hb, h, ['ЛКМ — выбрать', C.gold]);
+    if (hi) tooltip(S, hi, hb, h, [TXT('hud.craft.11'), C.gold]);
   }
   // ---------------- the town's storage chest (R-33, TASKS 1012): gear left for the heroes to come ----------------
   function stash(S, R, t) {
-    const h = R.hero, U = D.UI.stash(), P = U.P, T = SIM.stashOf(S), n = D.STASH.cells(S.meta), dr = S.drag, held = (id) => dr && dr.from === id;
+    const h = R.hero, U = D.UI.stash(), P = U.P, T = SIM.Q.stashOf(S), n = D.STASH.cells(S.meta), dr = S.drag, held = (id) => dr && dr.from === id;
     dim(0.5); panel('stash', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('st_t', 'Сундук-хранилище', P.x + 40, P.y + 46, { size: 40, col: C.gold });
-    lab('st_s', 'Снаряжение здесь переживёт героя: следующий заберёт его в городе', P.x + 40, P.y + 100, { size: 22, col: C.dim });
+    lab('st_t', TXT('hud.stash'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    lab('st_s', TXT('hud.stash.2'), P.x + 40, P.y + 100, { size: 22, col: C.dim });
     for (let i = 0; i < D.STASH.max; i++) { const b = U.r.find((q) => q.id === 'stash:' + i);
       if (i < n) slot(S, b, held(b.id) ? null : T.items[i]);
       else { panel('st_lock' + i, b.x, b.y, b.w, b.h, { r: 6, rim: [0.22, 0.2, 0.2], c0: [0.04, 0.035, 0.04], c1: [0.03, 0.025, 0.03] }); lab('st_lk' + i, '×', b.x + b.w / 2, b.y + b.h / 2, { size: 40, al: 0.5, col: '#4a4038' }); } }
-    lab('st_cells', n < D.STASH.max ? 'Ячеек: ' + n + ' из ' + D.STASH.max + ' · ещё — «Сундук предков» на Алтаре душ' : 'Ячеек: ' + n, W / 2, P.y + 290, { size: 20, al: 0.5, col: C.dim });
-    lab('st_bag', 'Ваша сумка', P.x + 88, P.y + 344, { size: 24, col: C.dim });
+    lab('st_cells', n < D.STASH.max ? TXT('hud.stash.3', { n, max: D.STASH.max }) : TXT('hud.stash.4', { n }), W / 2, P.y + 290, { size: 20, al: 0.5, col: C.dim });
+    lab('st_bag', TXT('hud.stash.5'), P.x + 88, P.y + 344, { size: 24, col: C.dim });
     for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'bag:' + i); slot(S, b, held(b.id) ? null : h.bag[i]); }
-    lab('st_help', 'ЛКМ — переложить · перетащите вещь в нужную ячейку · E или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('st_help', TXT('hud.stash.6'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('st_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('st_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     refusal(S, W / 2, P.y + 326);
-    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.itemIcon(it), dr.x - 38, dr.y - 38, 76); return; }
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); return; }
     const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
-    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? (SIM.isCons(it) ? 'Расходники не хранятся' : 'ЛКМ — в хранилище') : 'ЛКМ — забрать в сумку', C.gold]);
+    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? (SIM.Q.isCons(it) ? TXT('hud.stash.7') : TXT('hud.stash.8')) : TXT('hud.stash.9'), C.gold]);
   }
   // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------
   function gate(S, R, t) {
-    const o = SIM.gateWays(R), U = D.UI.gate(o.length), P = U.P;
+    const o = SIM.Q.gateWays(R), U = D.UI.gate(o.length), P = U.P;
     dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 380, [0.45, 0.55, 1], 0.16 + 0.04 * Math.sin(t * 2)); G.blend();
     panel('gate', P.x, P.y, P.w, P.h, { r: 10, rim: [0.32, 0.42, 0.62] });
-    lab('gt_t', 'Кольцо камней', P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
-    lab('gt_s', 'Куда открыть путь?', P.x + 40, P.y + 104, { size: 22, col: C.dim });
+    lab('gt_t', TXT('hud.gate'), P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
+    lab('gt_s', TXT('hud.gate.2'), P.x + 40, P.y + 104, { size: 22, col: C.dim });
     o.forEach((q, i) => { const b = U.r[i], hv = S.hover === b.id;
       panel('gt_r' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv ? C.rimHi : [0.32, 0.42, 0.62], c0: hv ? [0.14, 0.14, 0.2] : C.panel0 });
       if (q.k === 'portal') icon('it_scroll', b.x + 16, b.y + 12, 48); else L.sprite('waystone', b.x + 18, b.y + 6, { h: 62 });
-      lab('gt_n' + i, q.k === 'portal' ? 'Портал — на этаж ' + q.f : 'Путевой камень — этаж ' + q.f, b.x + 84, b.y + 26, { size: 26, col: C.text });
-      lab('gt_d' + i, q.k === 'portal' ? 'туда, где прочитан свиток; портал закроется' : D.floorName(q.f, (R.memo && R.memo[q.f] || R).mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1), b.x + 84, b.y + 54, { size: 18, col: C.dim }); });
+      lab('gt_n' + i, q.k === 'portal' ? TXT('hud.gate.3', { f: q.f }) : TXT('hud.gate.4', { f: q.f }), b.x + 84, b.y + 26, { size: 26, col: C.text });
+      lab('gt_d' + i, q.k === 'portal' ? TXT('hud.gate.5') : D.floorName(q.f, (R.memo && R.memo[q.f] || R).mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1), b.x + 84, b.y + 54, { size: 18, col: C.dim }); });
     button('gt_leave', U.r[o.length], S.hover);
-    lab('gt_help', 'ЛКМ — выбрать путь · E или Esc — уйти', W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('gt_help', TXT('hud.gate.6'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.96);
-    lab('e_t', win ? 'ПОБЕДА' : r.abandoned ? 'ЗАБЕГ ЗАВЕРШЁН' : 'ВЫ ПОГИБЛИ', W / 2, 100, { size: 76, al: 0.5, col: win ? C.gold : '#d8402a' });
-    lab('e_s', win ? (r.mode === 'cave' ? 'Глубинный змей повержен. Путь из пещер свободен.' : r.mode === 'magma' ? D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name + ' повержен. Путь из магмовых пещер свободен.' : 'Повелитель Демонов и Глубинный змей повержены. Путь на поверхность свободен.') : 'Подземелье забрало ещё одного героя. Но души помнят…', W / 2, 164, { size: 26, al: 0.5, col: C.dim });
+    lab('e_t', win ? TXT('hud.end') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3'), W / 2, 100, { size: 76, al: 0.5, col: win ? C.gold : '#d8402a' });
+    lab('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : TXT('hud.end.7'), W / 2, 164, { size: 26, al: 0.5, col: C.dim });
     panel('e_story', 200, 220, 420, 650, { r: 10 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {
       const words = String(s).split(' '), lines = []; let line = '';
@@ -801,40 +801,40 @@
       if (line) lines.push(line);
       lines.forEach((v, i) => lab(id + i, v, x, y + i * (size + 7), { size, col, al })); return lines.length * (size + 7);
     };
-    lab('e_story_t', win ? 'ВЫ ВЫБРАЛИСЬ' : r.abandoned ? 'ОТСТУПЛЕНИЕ' : 'ПОСЛЕДНИЙ ПРОТИВНИК', 410, 258, { size: 23, al: 0.5, col: C.gold });
+    lab('e_story_t', win ? TXT('hud.end.8') : r.abandoned ? TXT('hud.end.9') : TXT('hud.end.10'), 410, 258, { size: 23, al: 0.5, col: C.gold });
     G.blend('add'); L.glow(410, 400, 180, win ? [0.75, 0.5, 0.2] : [0.55, 0.08, 0.06], 0.25); G.blend();
     if (!r.abandoned) SCENE.endActors(r, win, t, 410, 490);
     if (!win && (!last || !last.actor || r.abandoned)) icon(r.abandoned ? 'it_scroll' : last && last.src === 'spike' ? 'trap_spike' : 'bf_burn', 346, 340, 128);
-    const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || 'Глубины покорены') : r.abandoned ? 'Вы прервали поход' : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.damageName(last && last.src);
+    const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || TXT('hud.end.name')) : r.abandoned ? TXT('hud.end.name.2') : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.Q.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
-      lab('e_last', 'Последний удар: −' + Math.round(last.n) + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
-      lab('e_recent', 'Последние попадания', 234, 686, { size: 21, col: C.dim });
+      lab('e_last', TXT('hud.end.11', { p1: Math.round(last.n) }), 410, y + 12, { size: 24, al: 0.5, col: C.red });
+      lab('e_recent', TXT('hud.end.12'), 234, 686, { size: 21, col: C.dim });
       damage.slice().reverse().forEach((d, i) => {
-        const src = SIM.damageName(d.src), size = Math.min(20, Math.floor(20 * 280 / Math.max(280, lw('e_src_m' + i, src, { size: 20 }))));
+        const src = SIM.Q.damageName(d.src), size = Math.min(20, Math.floor(20 * 280 / Math.max(280, lw('e_src_m' + i, src, { size: 20 }))));
         lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + Math.round(d.n), 588, 724 + i * 38, { size: 21, al: 1, col: C.red });
       });
-    } else wrap('e_flavor', win ? (D.runOf(r.mode).wonText || 'Сталь выдержала. Тьма отступила. Души павших вернутся вместе с вами.') : 'Найденные осколки сохранены. Новый герой продолжит ваш путь.', 234, 674, 350, 25, C.dim);
+    } else wrap('e_flavor', win ? (D.runOf(r.mode).wonText || TXT('hud.end.13')) : TXT('hud.end.14'), 234, 674, 350, 25, C.dim);
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
-    const runRows = [r.record ? ['Глубина', r.floor + (r.record.fresh ? ' · новый рекорд!' : ' · рекорд ' + r.record.best)] : ['Этаж', r.floor], ...(r.campaignWon ? [['Кампания', 'пройдена']] : []), ['Уровень', r.lvl], ['Время', fmtT(r.time || 0)], ['Собрано золота', r.gold], ['Убито монстров', r.kills]];
-    const doneRows = [['Монстры', C2.foes ? C2.kills + '/' + C2.foes + ' · ' + pc(C2.kills, C2.foes) : '—'], ['Предметы', C2.lootN ? C2.loot + '/' + C2.lootN + ' · ' + pc(C2.loot, C2.lootN) : '—'],
-      ['Тайники', C2.secN ? C2.sec + '/' + C2.secN + ' · ' + pc(C2.sec, C2.secN) : '—'], ['Этажей пройдено', C2.floors], ['Полнота', Math.round(100 * C2.pct) + '%']];
+    const runRows = [r.record ? [TXT('hud.end.runRows'), r.floor + (r.record.fresh ? TXT('hud.end.runRows.2') : TXT('hud.end.runRows.3', { best: r.record.best }))] : [TXT('hud.end.runRows.4'), r.floor], ...(r.campaignWon ? [[TXT('hud.end.runRows.5'), TXT('hud.end.runRows.6')]] : []), [TXT('hud.end.runRows.7'), r.lvl], [TXT('hud.end.runRows.8'), fmtT(r.time || 0)], [TXT('hud.end.runRows.9'), r.gold], [TXT('hud.end.runRows.10'), r.kills]];
+    const doneRows = [[TXT('hud.end.doneRows'), C2.foes ? C2.kills + '/' + C2.foes + ' · ' + pc(C2.kills, C2.foes) : '—'], [TXT('hud.end.doneRows.2'), C2.lootN ? C2.loot + '/' + C2.lootN + ' · ' + pc(C2.loot, C2.lootN) : '—'],
+      [TXT('hud.end.doneRows.3'), C2.secN ? C2.sec + '/' + C2.secN + ' · ' + pc(C2.sec, C2.secN) : '—'], [TXT('hud.end.doneRows.4'), C2.floors], [TXT('hud.end.doneRows.5'), Math.round(100 * C2.pct) + '%']];
     const bx = 650, by = 220;
     panel('e_box', bx, by, 1070, 650, { r: 10 });
-    lab('e_h1', 'Забег', bx + 30, by + 38, { size: 26, col: C.gold }); lab('e_h2', 'Полнота прохождения', bx + 570, by + 38, { size: 26, col: C.gold });
+    lab('e_h1', TXT('hud.end.15'), bx + 30, by + 38, { size: 26, col: C.gold }); lab('e_h2', TXT('hud.end.16'), bx + 570, by + 38, { size: 26, col: C.gold });
     runRows.forEach(([n, v], i) => { lab('e_n' + i, n, bx + 30, by + 90 + i * 40, { size: 24, col: C.dim }); lab('e_v' + i, v, bx + 480, by + 90 + i * 40, { size: 24, al: 1 }); });
     doneRows.forEach(([n, v], i) => { lab('e_cn' + i, n, bx + 570, by + 90 + i * 40, { size: 24, col: C.dim }); lab('e_cv' + i, v, bx + 1040, by + 90 + i * 40, { size: 24, al: 1, col: C.gold }); });
     L.solid(bx + 30, by + 296, 1010, 1, C.rim, 0, 0, 0, 0.6);
     const base = r.base ?? r.bonus ?? 0, sb = r.statBonus || 0;
-    const rew = [['Найдено: элиты, босс, тайники, полнота этажей', '+' + (r.found ?? (r.shards - base - sb))],
-      ['Награда: золото ÷ ' + SIM.REWARD.goldPer + (r.win ? ' + ' + r.win + ' за победу' : ''), '+' + base]];
+    const rew = [[TXT('hud.end.rew'), '+' + (r.found ?? (r.shards - base - sb))],
+      [TXT('hud.end.rew.2', { goldPer: SIM.REWARD.goldPer, p2: r.win ? TXT('hud.end.rew.3', { win: r.win }) : '' }), '+' + base]];
     rew.forEach(([n, v], i) => { lab('e_rn' + i, n, bx + 30, by + 338 + i * 42, { size: 23, col: C.dim }); lab('e_rv' + i, v, bx + 1040, by + 338 + i * 42, { size: 24, al: 1, col: '#9cc8ff' }); });
-    if (r.donations) lab('e_donations', 'В найденном: ' + r.donations + ' за пожертвования золота', bx + 30, by + 424, { size: 21, col: C.dim });
+    if (r.donations) lab('e_donations', TXT('hud.end.17', { donations: r.donations }), bx + 30, by + 424, { size: 21, col: C.dim });
     L.solid(bx + 30, by + 456, 1010, 1, C.rim, 0, 0, 0, 0.6);
-    lab('e_tn', 'Итого осколков душ', bx + 30, by + 500, { size: 30 }); lab('e_tv', '+' + r.shards, bx + 1040, by + 500, { size: 30, al: 1, col: '#9cc8ff' });
+    lab('e_tn', TXT('hud.end.18'), bx + 30, by + 500, { size: 30 }); lab('e_tv', '+' + r.shards, bx + 1040, by + 500, { size: 30, al: 1, col: '#9cc8ff' });
     const up = S.meta.up || {}, available = D.META.filter((m) => (up[m.id] || 0) < m.max), affordable = available.find((m) => m.cost(up[m.id] || 0) <= S.meta.shards), next = affordable || available.slice().sort((a, b) => a.cost(up[a.id] || 0) - b.cost(up[b.id] || 0))[0];
     const rank = ['I', 'II', 'III', 'IV', 'V'], goal = next ? next.name + ' ' + rank[up[next.id] || 0] : '';
-    const line = affordable ? 'На осколки хватит: ' + goal : next ? 'До «' + goal + '» ещё ' + (next.cost(up[next.id] || 0) - S.meta.shards) + ' осколков' : 'Все улучшения предков открыты';
+    const line = affordable ? TXT('hud.end.line', { goal }) : next ? TXT('hud.end.line.2', { goal, p2: next.cost(up[next.id] || 0) - S.meta.shards }) : TXT('hud.end.line.3');
     wrap('e_goal', line, bx + 30, by + 566, 1000, 25, C.gold);
     for (const b of D.UI.end(r.log, r.town)) button('eb_' + b.id, b, S.hover);
   }
