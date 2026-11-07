@@ -773,7 +773,7 @@
     return d;
   }
   function flow(m, tx, ty, any) {
-    const C = any ? FLOW2 : FLOW, key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m); if (C.key === key) return C.d;
+    const C = any ? FLOW2 : FLOW, key = m.seed + ':' + m.floor + ':' + tx + ',' + ty + ':' + doorKey(m) + ':' + (m.secrets || []).map((q) => (q.open ? 1 : 0)).join(''); if (C.key === key) return C.d;
     C.key = key; C.d = bfs(m, tx, ty, any ? 400 : 40, any); return C.d;
   }
   // a monster walking back to its post may be far from it: a whole-floor field per post, a few kept at once
