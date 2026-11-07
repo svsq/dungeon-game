@@ -117,6 +117,14 @@ def forge(src):
     r, g, b = o[..., 0], o[..., 1], o[..., 2]
     hot = (r > 150) & (r > g * 1.2) & (r > b * 1.6)
     a[hot, :3] = o[hot, :3].astype(np.uint8)
+    H, W = r.shape; yy, xx = np.mgrid[0:H, 0:W]
+    lum = (r + g + b) / 3
+    bed = (xx > 100) & (xx < 335) & (yy > 172) & (yy < 255) & (b >= r - 3) & (o[..., 3] >= 128) & (lum > 20)
+    ramp = [(0x36, 0x12, 0x0f), (0x73, 0x14, 0x0d), (0x9f, 0x51, 0x16), (0xe2, 0x88, 0x1e), (0xf9, 0xce, 0x4a)]
+    cuts = np.quantile(lum[bed], [0.18, 0.5, 0.78, 0.93]) if bed.any() else []
+    idx = np.digitize(lum, cuts)
+    for k, c in enumerate(ramp):
+        a[bed & (idx == k), :3] = c
     return Image.fromarray(a)
 
 

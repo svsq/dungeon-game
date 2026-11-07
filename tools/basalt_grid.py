@@ -67,7 +67,13 @@ def build(name, ha):
     res[2:-2, 2:-2, :3] = np.round(rgb)
     res[mm] = np.concatenate([np.pad(np.round(rgb), ((2, 2), (2, 2), (0, 0)))[mm], np.full((mm.sum(), 1), 255)], 1)
     res[ring] = (*INK, 255)
-    res = np.pad(res, ((1, 1), (1, 1), (0, 0)))
+    res = np.pad(res, ((1, 1), (1, 2), (0, 0)))
+    ys, xs = np.where(res[..., 3] > 0)
+    if (xs.max() - xs.min() + 1) % 2:
+        res[:, xs.max() + 1] = res[:, xs.max()]
+    if (ys.max() - ys.min() + 1) % 2:
+        res = np.pad(res, ((0, 1), (0, 0), (0, 0)))
+        res[ys.max() + 1] = res[ys.max()]
     res = res.repeat(4, 0).repeat(4, 1)
     Image.fromarray(res, 'RGBA').save(f'art/gen/{name}.png')
     return res.shape[0] // 4, res.shape[1] // 4
