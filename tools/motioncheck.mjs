@@ -184,6 +184,21 @@ if (meta.tr.includes('imp_attack')) {
     const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, face: e.face, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
   const w = fr.filter((f) => f.st === 'wind' && f.en && f.en.handR), best = Math.max(-99, ...w.filter((f) => f.en.handR[1] < f.en.head[1]).map((f) => (f.en.head[0] - f.en.handR[0]) * f.face));
   report('throw', 'imp_attack', best > 0, `the throwing hand over the head reaches ${best.toFixed(0)} px behind it`); }
+// crustFall (TASKS 1058): climbing out of the lava after a fall through the crust, frame by frame over its 0.55 s, at most CLIMB_POP of
+// the hero's pixels show in one frame (half of him popped in at once); bridgeStep: walking down a chain bridge the hero's drop with the
+// deck changes at most STEP_POP px a frame (stepping on he fell 9 px in one)
+{ const CLIMB_POP = 400, STEP_POP = 4;
+  const climb = await p.evaluate(() => { const st0 = window.__QA.states.find((q) => q[0] === 'magma_crustclimb'); if (!st0) return null; const c = document.getElementById('c'), g = document.createElement('canvas'); g.width = 1920; g.height = 1080;
+    const gx = g.getContext('2d', { willReadFrequently: true }), out = [];
+    for (let i = 0; i <= 36; i++) { const S = structuredClone(st0[1]); S.run.hero.climbT = S.t - i / 60; const shot = () => { SCENE.state = S; SCENE.render(S.t + 0.01); gx.drawImage(c, 0, 0); return gx.getImageData(560, 240, 800, 600).data; };
+      const a = shot(); SCENE.hide.hero = true; const b = shot(); SCENE.hide.hero = false; let n = 0; for (let k = 0; k < a.length; k += 4) if (Math.abs(a[k] - b[k]) + Math.abs(a[k + 1] - b[k + 1]) + Math.abs(a[k + 2] - b[k + 2]) > 40) n++; out.push(n); }
+    return out; });
+  if (!climb) report('crustFall', 'magma_crustclimb', false, 'no state'); else { const jumps = climb.slice(1).map((v, i) => v - climb[i]), mx = Math.max(...jumps); report('crustFall', 'magma_crustclimb', mx <= CLIMB_POP, `at most ${mx} of the hero's pixels show in one frame of the climb (≤ ${CLIMB_POP}); first frame ${climb[0]}`); }
+  const deck = await p.evaluate(() => { const st0 = window.__QA.states.find((q) => q[0] === 'magma_chasm'); if (!st0) return null; const out = [];
+    for (let i = -40; i <= 40; i++) { const S = structuredClone(st0[1]), h = S.run.hero, m = S.run.map, c = m.crossings.filter((q) => q.chasm).sort((a, b) => b.cells.length - a.cells.length)[0], hor = c.axis === 'x';
+      if (hor) h.x += i * 4; else h.y += i * 4; h.vx = hor ? 175 : 0; h.vy = hor ? 0 : 175; h.dist = (h.dist || 0) + i * 4; SCENE.state = S; SCENE.render(S.t + 0.01); out.push(SCENE.deckDy()); }
+    return out; });
+  if (!deck) report('bridgeStep', 'magma_chasm', false, 'no state'); else { const d = deck.slice(1).map((v, i) => Math.abs(v - deck[i])), mx = Math.max(...d); report('bridgeStep', 'magma_chasm', mx <= STEP_POP, `the hero's drop with the deck changes at most ${mx} px a frame walking across it (≤ ${STEP_POP}); range ${Math.min(...deck)}–${Math.max(...deck)}`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

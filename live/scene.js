@@ -1296,8 +1296,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // (TASKS 1043: he went in to the chest and was moved half under; now wholly under before he is moved, arms flung up, and up over
   // the bank's lip with them first)
   const sinkOf = (h, GT, Y) => { const e2 = (v) => Math.round(v / 2) * 2; if (h.sunk) { const a = GT - h.sunk.t; return { dy: e2(120 * SS(0, 0.45, a) ** 1.5), cut: [Y + 4, 3, 1], arms: SS(0, 0.12, a) }; }
-    // (from below his whole height, TASKS 1049: half of him popped in in a frame; the raised hands come over the lip first)
-    if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(92 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
+    // (from below his whole height and his raised blade, TASKS 1049, 1058: half of him popped in in a frame, then his sword and shield;
+    // the raised hands come over the lip first)
+    if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(130 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && h.castK !== 'whirl';
@@ -1877,7 +1878,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // (and the boulders, and an iron rail's links and stakes as solids, TASKS 1052: brown and orange beside the grey basalt)
   const BAS_PROPS = new Set(['basalt_a', 'basalt_b', 'forge_mg', 'boulder_mg_a', 'boulder_mg_b']), PROP_BAS = [], OCC_SOLIDS = [];
   // how far the deck the hero walks sags under him this frame (TASKS 1042: his feet kept the ground's line while it bent 9 px)
-  const DECK = { dy: 0 };
+  const DECK = { dy: 0 }; SC.deckDy = () => DECK.dy;   // (read by tools/motioncheck.mjs bridgeStep)
   function drawProp(n, x, y, o = {}) { const [w, h] = SZ(n), k = o.k || 1, j = o.j;
     if (BAS_PROPS.has(n) && !j) PROP_BAS.push([n, x - w * k / 2, y - h * k + (o.dy || 0), w * k, h * k, !!o.flip]);
     const draw = () => { if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: o.u }); return; }
@@ -2092,7 +2093,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const shake = (a) => fallR.reduce((v, z) => { const q = D.hazClock(z, GT); return v + 7 * Math.exp(-6 * q) * Math.sin(q * 38) * Math.exp(-Math.abs(a - (hor ? z.x : z.y)) / 90); }, 0);
       const dip = (a) => (on ? onW * (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
       const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) - dip(a);
-      if (on) DECK.dy = ev2((lift - z(ha)) * onW);
+      // (the sag on the grid and the step's jolt a whole 2 px apart from it, TASKS 1058: rounded together the jolt was lost)
+      if (on) DECK.dy = ev2((lift - z(ha) - onW * foot * Math.sin(Math.PI * Math.max(0, Math.min(1, (ha - A0) / len)))) * onW) + (onW > 0.5 && hs < 0.09 ? 2 : 0);
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
         if (bridge && i > 1 && i < n - 2 && r(1) < 0.05) continue;
@@ -2118,7 +2120,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       for (const q of boards) board(q, q.z, (X, Y, rot) => { const st2 = stateOf(q);
         if (st2 === 1) { const w = (D.hazClock(under(q), GT) - (under(q).per - HF.warn)) / HF.warn, j = w > 0.2 && Math.sin(GT * 50 + q.a) > 0 ? -2 : 0;   // (whole 2 px, TASKS 1050: rounded it rattled not at all)
           L.sprite(q.n, X - q.l / 2, Y - 5 + j, { w: q.l, h: 10, rot: rot + 0.05 * w * Math.sin(GT * 37 + q.a), pivot: [q.l / 2, 5], flip: q.f, u: { grade: [0.7, 0.42 * q.tone, 0, 1] } });
-          L.solid(X - 1, Y - 5 + j, 2, 10, [1, 0.55, 0.2], rot, 1, 5, 0.3 + 0.7 * w); return; }   // (a hot light crack: a dark one sank in the rock's shadow)
+          // (a white-hot crack across the boards under the middle of its shadow, TASKS 1050, 1058: red-orange it read as the target
+          // ring's own ticks)
+          const [wx0, wy0] = hor ? [q.a, B0 + BW / 2] : [B0 + BW / 2, q.a], z0 = under(q);
+          if (Math.hypot(z0.x - wx0, (z0.y - wy0) / HF.ry) < HF.r * 0.5) { L.solid(X - 2, Y - 5 + j, 4, 10, [1, 0.95, 0.6], rot, 2, 5, 0.4 + 0.6 * w); L.solid(X - 2 + (q.f ? 2 : -2), Y - 1 + j, 4, 2, [1, 0.95, 0.6], rot, 2, 1, 0.4 + 0.6 * w); G.blend('add'); L.glow(X, Y + j, 12, [1, 0.8, 0.4], 0.8 * w, 2.4); G.blend(); }
+          return; }
         if (st2 === 2) { for (const sd of [-1, 1]) L.sprite(q.n, X + sd * q.l / 4 - q.l / 4, Y - 3, { w: q.l / 2 - 2, h: 10, rot: rot + sd * 0.35, pivot: [sd < 0 ? 0 : q.l / 2 - 2, 5], flip: q.f, u: { grade: [0.6, 0.45 * q.tone, 0, 1] } }); return; }
         L.sprite(q.n, X - q.l / 2, Y - 5, { w: q.l, h: 10, rot, pivot: [q.l / 2, 5], flip: q.f, u: { grade: iron ? [0.5, 0.42 * q.tone, 0, 1] : [0.9, q.tone, 0, 1] } });
         if (iron) { L.solid(X - q.l / 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, q.l / 2, 5); L.solid(X + q.l / 2 - 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, 2 - q.l / 2, 5); } });
@@ -2584,7 +2590,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
           MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
         // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
         L.sp = SP0; SP0.ink = [1, HERO.lavaNear(h.x, h.y), 0];   // (blue: a monster, not the hero, TASKS 1055)
-        if (!SC.hide.hero && h.deadT < 0 && h.fallT === undefined && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { id: 'occ', cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }); }
+        // (not while he is under the lava: his raised blade left a pale patch over it in the mask, TASKS 1058)
+        if (!SC.hide.hero && h.deadT < 0 && h.fallT === undefined && !h.sunk && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { id: 'occ', cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }); }
       finally { L.sp = null; L.joint = J0; } }
     G.bind(LT.lit); G.blend('none'); G.full(L.P.lit, { u_src: L.T.comp, u_light: LT.light, u_occ: LT.occ, u_seen: seen, u_void: voidTex(m), u_top: topTex(m), u_veins: veinTex(m), u_water: waterTex(m), u_heat: m.cliff ? lavaGlowTex(m) : waterTex(m), u_haze: m.cliff ? 1 : 0, u_face: m.cliff && BAKE.face ? BAKE.face : seen, u_far: m.cliff ? lavaNearTex(m) : seen, u_amb: amb, u_seam: B.seam || 0, u_cave: B.cave ? 1 : 0, u_low: B.low || [0.86, 0.82, 0.78], u_cam: [cx, cy], u_map: [MW, MH], u_t: t, u_rock: B.rock, u_vein: B.vein }); G.blend();
 
@@ -3103,7 +3110,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // the hero through the crust (TASKS 476): a splash of lava where he went in, smoke and embers where he climbs out
       if (e.k === 'lavafall' && a < 1.2) { const q = a / 1.2, X2 = sx(e.tx), Y2 = sy(e.ty);
         // (a pool of open lava where he went in, over the crust's net, while he is under: TASKS 1043, he sank into whole stone)
-        if (a < 0.85) { const k = SS(0.3, 0.42, a) * (1 - SS(0.6, 0.85, a)); L.glow(ex, ey - 2, 34, [1, 0.5, 0.12], 1.1 * k, 1.6); L.ring(ex, ey, 22 + 4 * Math.sin(a * 18), 13, [1, 0.85, 0.35], 1.2 * k, 0.25); }   // (once his head is under: over it, it lay on his face)
+        // (once his head is under: over it, it lay on his face; and gone before he climbs out, TASKS 1058)
+        if (a < 0.6) { const k = SS(0.3, 0.42, a) * (1 - SS(0.45, 0.6, a)); L.glow(ex, ey - 2, 34, [1, 0.5, 0.12], 1.1 * k, 1.6); L.ring(ex, ey, 22 + 4 * Math.sin(a * 18), 13, [1, 0.85, 0.35], 1.2 * k, 0.25); }
         for (let j = 0; j < 14; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 90 + 160 * rnd(e.t, j + 3); if (a > 0.8) break;
           L.star(ex + Math.cos(an) * v * a, ey + Math.sin(an) * v * a + 420 * a * a, 5 + 3 * rnd(e.t, j + 5), [1, 0.5 + 0.4 * rnd(e.t, j + 7), 0.1], 1 - a / 0.8); }
         L.ring(ex, ey, 14 + 40 * q, (14 + 40 * q) * 0.6, [1, 0.6, 0.2], 0.9 * (1 - q), 0.1);
