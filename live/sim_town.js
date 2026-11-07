@@ -198,7 +198,8 @@
     return { o, q }; }
   const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
   // the mark over a townsman's head: ? a quest to turn in, ! one to take
-  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) ? '!' : '');
+  // (past the campaign's last boss the Keeper's own offers wait behind the end of the run, PR 29 review: no «!» over him for them)
+  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
@@ -211,12 +212,15 @@
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
   // past the campaign's last boss the Keeper asks, after any quest's business, whether the run ends here, won, or goes on down (TASKS 1148)
   const keeperEnd = (R) => ({ pages: R.campaignWon ? D.KEEPER.endDeep.slice() : D.KEEPER.end.slice(), act: { k: 'finish', rw: { shards: SIMX.runReward(R, 'win').base } } });
+  // a quest to turn in comes first; a new offer does not hide the choice (PR 29 review: a side quest offered after the descent took
+  // its place on every talk until it was taken): the Keeper's offers wait, the notice board has them too
+  const talkOf = (R, role) => { const qt = questTalk(R, role); return role === 'keeper' && campaignDone(R) && (!qt || qt.act.k !== 'turn') ? keeperEnd(R) : qt; };
   // the talk's button: take the quest (the talk closes), or turn it in (the thanks, then whatever else the townsman has)
   function talkAct(S, R, T) { const a = T.act; if (!a) return;
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = questTalk(R, T.role) || (T.role === 'keeper' && campaignDone(R) ? keeperEnd(R) : null); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks, p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks, p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -272,9 +276,8 @@
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; the smith's talk keeps a button
   // into his workshop
-  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = questTalk(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
+  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
     if (qt) pages = pages.concat(qt.pages);
-    else if (f.role === 'keeper' && campaignDone(R)) { const e = keeperEnd(R); pages = pages.concat(e.pages); act = e.act; }
     else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
     S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
