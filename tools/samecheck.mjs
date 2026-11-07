@@ -45,6 +45,12 @@ if (only.includes('gen')) {
       got[`gen ${mode} ${runSeed}`] = sha(h.join());
     }
   }
+  // as the sim calls it (from, town), 8 run seeds a mode: a stage of tryGen cut wrong changed 1 floor in 288 and none of the above
+  for (const mode of ['campaign', 'cave', 'magma', 'endless']) for (let runSeed = 1; runSeed <= 8; runSeed++) {
+    const n = mode === 'campaign' ? 16 : mode === 'endless' ? 12 : 4, h = [];
+    for (let f = 1; f <= n; f++) h.push(sha(JSON.stringify(DG.genFloor((runSeed * 7919 + f * 104729) >>> 0, f, { mode, runSeed, from: 1, town: 0 }))));
+    got[`gen wide ${mode} ${runSeed}`] = sha(h.join());
+  }
   got['gen town'] = [1, 2, 3].map((s) => sha(JSON.stringify(DG.genTown(s)))).join(' ');
 }
 

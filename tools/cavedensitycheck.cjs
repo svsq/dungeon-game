@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const D=require('../live/data.js'),DG=require('../live/dungeon.js'),source=fs.readFileSync('live/dungeon.js','utf8');
+const D=require('../live/data.js'),DG=require('../live/dungeon.js'),M=require('../live/modules.js'),src=(f)=>fs.readFileSync('live/'+f,'utf8'),source=src('dungeon_fill.js');
 const a=source.indexOf('    if (cave) {\n      const mushrooms ='),b=source.indexOf('    if (cave) for (const d of decor)',a);assert.ok(a>=0&&b>a);
-const context={DATA:D,module:{exports:{}},require};vm.runInNewContext(source.slice(0,a)+source.slice(b),context);const baseline=context.module.exports;
+const context={DATA:D};vm.createContext(context);vm.runInContext(src('dungeon.js'),context);for(const f of M.parts.dungeon)vm.runInContext(f==='dungeon_fill.js'?source.slice(0,a)+source.slice(b):src(f),context);const baseline=context.DUNGEON;
 const report=[];let before=0,after=0;const sizes=new Set();
 for(const seed of [1,3,7,26837])for(let f=1;f<=4;f++) {
  const sd=(seed*31+f*1013)>>>0,A=baseline.genFloor(sd,f,{mode:'cave'}),B=DG.genFloor(sd,f,{mode:'cave'});
