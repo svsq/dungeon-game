@@ -427,6 +427,12 @@ float sunk(vec2 w, out vec4 c, out vec2 f, out float dim){ dim = 0.0; float best
     vec4 cj = vec4(cx, top, 90.0, 0.0); vec2 ff; float k = colAt(w, cj, ff, hw);
     if (k > 0.5 && top > by) { by = top; best = k; c = cj; f = ff; f.x = ff.x / hw * 15.0; dim = smoothstep(64.0, 140.0, top - ey); } }
   return best; }
+// where the chasm opens in the lava a rim of basalt stones breaks the lava's edge off into it (TASKS 1059: a black pool behind a
+// yellow line, 16 % basalt round it against the concept's 50)
+vec3 pitRim(vec2 w, float la, vec3 col){ if (smoothstep(0.02, 0.06, la + (fbm(w / 9.0) - 0.5) * 0.04) < 0.5) return col;
+  vec2 cq = floor(w / 6.0), fq = fract(w / 6.0); float sh = hash(cq);
+  col = gCrust(w + 53.0) * (0.9 + 0.6 * sh) * (fq.y < 0.34 ? 1.3 : fq.y > 0.67 ? 0.55 : 1.0);
+  return fq.x < 0.17 || fq.y > 0.84 ? vec3(0.03, 0.022, 0.026) : col; }
 vec3 capCol(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), xx = (w.x - c.x) / hw, yy = (w.y - c.y) / 8.0, r = xx * xx + yy * yy;
   vec3 col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * id) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + id * 9.0)));
   if (r > 0.64) col = yy < 0.2 && xx < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03);
@@ -473,7 +479,8 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     for (int k = 1; k <= 6; k++) if (isWall(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.7 + 0.3 * smoothstep(0.47, 0.9, op)) * (1.0 - 0.5 * under);
   } else if (op > 0.47 && la - edgeBite(w, u_map) > 0.5) col = gCrust(w + 53.0) * 0.6;
-  else if (op > 0.47) { float gl = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl; }   // (its glow too, TASKS 490: a straight red band ran along the map's edge)   // (the lava the map's edge bit off: the chasm's dark)
+  else if (op > 0.47) { float gl = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl;
+    col = pitRim(w, la, col); }   // (its glow too, TASKS 490: a straight red band ran along the map's edge)   // (the lava the map's edge bit off: the chasm's dark)
   else if (isWall(w)) {
     float hf = faceHF(w), fd = 99.0; bool down = false;
     for (int k = 1; k <= 72; k++) { float d = float(k) * 2.0; if (d > hf) break; vec2 q = w + vec2(0.0, d); if (!isWall(q)) { fd = d; down = !isOpen(q); break; } }
@@ -494,6 +501,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     col = vec3(0.006, 0.005, 0.006);
     float glow = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0));
     col += vec3(0.32, 0.06, 0.015) * glow * glow;
+    col = pitRim(w, la, col);
   }
   if (on > 1.5) col = faceCol(w, c, f, hw); else if (on > 0.5) col = capCol(w, c, hw);
   o = vec4(col, 1.0); }`;
