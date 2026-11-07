@@ -2896,7 +2896,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       if (e.k === 'kindle' && a < 0.4) L.glow(ex, ey - 30, 40, [1, 0.5, 0.15], 0.9 * (1 - a / 0.4), 2.4);
       // the fuse: the blast's true reach drawn on the floor, a second ring closing in on it as the time runs out
       if (e.k === 'fuse' && a < e.d) { const q = a / e.d, beat = 0.6 + 0.4 * Math.sin(a * (8 + 30 * q)), [fx, fy] = fuseAt(e), ex = sx(fx), ey = sy(fy);
-        L.ring(ex, ey, e.r, e.r, [1, 0.8, 0.35], (0.35 + 0.5 * q) * beat, 0.03); L.ring(ex, ey, e.r * q, e.r * q, [1, 0.6, 0.2], 0.5 * beat, 0.08);
+        // (a danger, red as the rocks' marks, TASKS 1041: gold it read apart from the marks of 487)
+        L.ring(ex, ey, e.r, e.r, [1, 0.22, 0.08], (0.45 + 0.5 * q) * beat, 0.05); L.ring(ex, ey, e.r * q, e.r * q, [1, 0.3, 0.1], 0.55 * beat, 0.08);
         L.glow(ex, ey - 20, 40 + 30 * q, [1, 0.75, 0.3], 0.4 * q * beat, 2.4); }
       // a vampire's blow: blood drawn off the hero into the elite
       if (e.k === 'drain' && a < 0.5) for (let j = 0; j < 7; j++) { const u = Math.min(1, Math.max(0, (a - j * 0.03) / 0.3)); if (u <= 0 || u >= 1) continue;

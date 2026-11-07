@@ -506,7 +506,8 @@
   //   prison: the cult's cages with its prisoners' things piled by them, a chest
   const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5,
     kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3 }, forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1 },
-      nest: { need: 'skel_ember', pack: 'nest', extra: 2, w: 2 }, prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 2 } } };
+      // (the nest its own pack alone, TASKS 1041: with 2 extra it held 5–7, their blasts a chain; the prison less often: 54 halls of 134)
+      nest: { need: 'skel_ember', pack: 'nest', extra: 0, w: 2 }, prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 1 } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
