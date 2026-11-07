@@ -41,6 +41,7 @@
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
       tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
+      if (o.foot) o.foot(side, tg[side]);   // (a pose that moves the feet off the gait: the imp's legs in its leap, TASKS 489)
     }
     const cr = o.crumble ? o.crumble.t : -1, dbl = 0.5 + 0.5 * Math.cos(2 * ph), breath = (1 - run) * (cr >= 0 ? 1 - SS(0, 0.2, cr) : 1) * Math.sin(o.t * 2.1 + (o.seed || 0));
     // the hip rides the stance leg: one formula for both legs (≈ step² / 2L on the average leg), so legs drawn at different
@@ -141,7 +142,8 @@
           if (k > 0.01) piece('plate' + i, hipS, () => L.sprite(o.n + 'E__corelit' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * k })))); return; }
         if (on) { const a = grew !== undefined ? P.GT - grew : 9, k = SS(0, 0.35, a);
           piece('plate' + i, hipS, () => { L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * k })));
-            if (k < 1) L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * 0.8 * (1 - k) * SS(0, 0.08, a), grade: [1, 2.6, 0, 1] }))); }); return; }
+            // (a new plate wells up red-hot and cools to stone, TASKS 490: brightened it was a pale pink blob)
+            if (k < 1) L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * 0.9 * (1 - k) * SS(0, 0.08, a), grade: [1.3, 1.9, 0, 1], tint: [1, 0.4, 0.1, 1] }))); }); return; }
         const a = lost === undefined ? 9 : P.GT - lost, q = a / 1.0; if (q >= 1) return;
         // (thrown clear of the body, up first and down on the floor, a little hop, then it fades: kept over the body it was lost on it)
         const c = R2U(C[0], C[1] + hipDy), an = (P.A || {})[i] ?? 0, fl = Math.min(1, q / 0.6), dx = Math.cos(an) * 0.95 * o.H * (1 - (1 - fl) ** 2) + Math.cos(an) * 0.08 * o.H * SS(0.6, 0.8, q),
@@ -486,11 +488,12 @@
     // a raise that stopped just short of it, the blow wound the arm round the shoulder
     // o.bendHit: the elbow's bend on the blow; a blade drawn cocked over the shoulder reaches the aim on a whipped forearm, not an arm thrown up
     const ew = DATA.windOf(e, E.wind), u = Math.max(0, GT - e.t0), T = o.chopT, P = 1.3, bh = o.bendHit ?? 0.15, i0 = aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - bh;   // blade = its angle in the drawing
-    const imp = o.raise + (((i0 - o.raise + Math.PI) % TAU + TAU) % TAU - Math.PI), RAISE = Math.min(o.raise, imp - 0.6), vEnd = P * (imp - RAISE) / T;
+    const imp = o.raise + (((i0 - o.raise + Math.PI) % TAU + TAU) % TAU - Math.PI), RAISE = Math.min(o.raise, imp - (o.back ?? 0.6)), vEnd = P * (imp - RAISE) / T;
     if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T;
       // the raise starts with no jerk either: a smoothstep's second derivative at 0 kicks the hand out of the walk's own swing;
       // it holds at 1 from h on (the top wait), so x clamps
-      if (u < tc) { const h = Math.max(0.05, tc - (o.top || 0)), x = Math.min(1, u / h), k = x * x * x * (10 + x * (-15 + 6 * x)); return { r1: lerp(base, RAISE, k), bend: lerp(o.bend0 ?? 0.18, o.bendUp ?? 0.9, k), k }; }
+      // (o.backWind: the raise goes round the back to the same top, TASKS 1054: an overhand throw's hand passed in front of the face)
+      if (u < tc) { const h = Math.max(0.05, tc - (o.top || 0)), x = Math.min(1, u / h), k = x * x * x * (10 + x * (-15 + 6 * x)), top = o.backWind && RAISE < base ? RAISE + TAU : RAISE; return { r1: lerp(base, top, k), bend: lerp(o.bend0 ?? 0.18, o.bendUp ?? 0.9, k), k }; }
       // from rest at the top to vEnd at the impact: a cubic with no jerk at its start
       if (u < w) { const x = (u - tc) / T, q = (3 - P) * x * x + (P - 2) * x * x * x; return { r1: lerp(RAISE, imp, q), bend: lerp(o.bendUp ?? 0.9, bh, q), k: 1 }; }
       return after(imp, u - w, base, o, vEnd); }
@@ -549,15 +552,22 @@
 
   // the imp (TASKS 407): a leap crouches, springs up with the legs tucked and the arms flung up and back, leaning into the flight,
   // and lands in a crouch; the spark is thrown overhand with the near arm, the claw rakes with it on a short swing
-  const IMP_THROW = { raise: -2.7, chopT: 0.14, recover: 0.24, over: 0.6, top: 0.1, bendUp: 1.4, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  // (back: the throwing hand winds back behind the head before it comes over, TASKS 489: 0.6 short of the release it never passed it)
+  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.2, recover: 0.24, over: 0.6, top: 0.02, bendUp: 0.4, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   const IMP_CLAW = { raise: -1.5, chopT: 0.12, recover: 0.2, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   MON.impArc = (e, E, GT) => { if (e.st !== 'leap') return 0; const L0 = E.leap, fl = Math.max(0, Math.min(1, (GT - e.t0 - L0.crouch) / e.ld)), d = Math.hypot(e.ltx - e.lx, e.lty - e.ly);
     const q = fl * fl * (3 - 2 * fl); return 4 * (18 + L0.h * d) * q * (1 - q); };
   function impPose(e, E, GT, face, H, base) {
     const RG = RIGS.imp, u = GT - e.t0;
     // (the crouch eases out over the take-off and back in before the landing: dropped in a frame, the whole body popped)
-    if (e.st === 'leap') { const L0 = E.leap, fl = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), SS(0.6, 1, fl)) : 1 - SS(0, L0.land, u - L0.crouch - e.ld);
-      const air = fl > 0 && fl < 1 ? SS(0, 0.25, fl) * (1 - SS(0.6, 1, fl)) : 0, tuck = 0.16 * RG.h * air * (1 - 0.45 * SS(0.5, 0.9, fl)), z = MON.impArc(e, E, GT);
+    // (TASKS 489: its feet hung the same through the flight, the legs 8 % longer or shorter at most) it pushes off with the legs
+    // thrown back and straight, tucks them up under it, reaches them forward and down to the ground, and the landing sinks it deep
+    // at once and lets it up slower
+    if (e.st === 'leap') { const L0 = E.leap, fl = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), tl = u - L0.crouch - e.ld;
+      const cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), 0.3 * SS(0.88, 1, fl)) : (0.3 + 1.0 * SS(0, 0.09, tl)) * (1 - SS(0.08, L0.land, tl));   // (the landing's crouch on the ground, deep, TASKS 1044: it began in the air and sank 3 px)
+      const air = fl > 0 && fl < 1 ? SS(0, 0.25, fl) * (1 - SS(0.6, 1, fl)) : 0, tuck = 0.08 * RG.h * air * (1 - 0.45 * SS(0.5, 0.9, fl)), z = MON.impArc(e, E, GT);
+      const push = fl > 0 && fl < 1 ? SS(0, 0.22, fl) * (1 - SS(0.22, 0.45, fl)) : 0, up = fl > 0 && fl < 1 ? SS(0.12, 0.32, fl) * (1 - SS(0.58, 0.8, fl)) : 0, reach = fl > 0 && fl < 1 ? SS(0.55, 0.78, fl) * (1 - SS(0.8, 1, fl)) : 0, fwd = Math.cos(e.aimA) * face >= 0 ? 1 : -1;
+      base.foot = (side, t) => { const k = side === 'L' ? 1 : 0.8; t.tx += fwd * RG.h * (-0.1 * push + 0.05 * up + 0.13 * reach) * k; t.ty += RG.h * (0.05 * push - 0.16 * up + 0.03 * reach) * k; };
       base.y -= z + tuck * H / RG.h; base.crouch += tuck + 0.14 * RG.h * cr; base.lean = (base.lean || 0) + face * (0.35 * air * (1 - 1.5 * SS(0.2, 0.85, fl)) * (Math.cos(e.aimA) * face >= 0 ? 1 : -0.6) - 0.12 * cr);   // (a spring back leans back)
       base.arm = (side, b) => { const r = lerp(lerp(b, b + 0.4, cr), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), air), k = Math.max(cr, air); return [r, r + lerp(0.18 - 0.4 * b, 0.3 + 0.4 * air, k)]; }; return; }
     if (e.st === 'wind' || e.st === 'strike') { const E2 = e.claw ? E : { wind: E.spark.wind }, CO = e.claw ? IMP_CLAW : IMP_THROW, pose = (b) => chop(e, E2, GT, face, H, b, CO), p0 = pose(0);
@@ -786,7 +796,9 @@
         // swung by the chop's angle alone the far one went on past the body and lay behind the golem
         const w = DATA.windOf(e, E.wind), O = GOLEM_SLAM, k = e.st === 'strike' ? 1 - SS(O.hold, O.dur, u) : SS(w - O.chopT, w, u);
         base.arm = (side, b) => { if (e.st === 'strike') return [b, b + 0.18 - 0.4 * b]; const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; };
-        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.1 : 0.1) * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - 0.05) * H, k]; }; }
+        // (the far fist a little nearer the body, by the way it faces, TASKS 490: set off by the screen's side, it reached out past its
+        // arm and hung 38–43 px over the floor)
+        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.1 : 0.06) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - 0.05) * H, k]; }; }
       base.plates = { n: e.crust ?? E.crust.n, T: e.plateT, A: e.plateA, G: e.plateG, GT };
       if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       base.lift = 0.04; base.narrow = 0.2; return biped(base); }

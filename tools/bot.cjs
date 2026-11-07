@@ -372,8 +372,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const WD = new Map(), walkD = (o) => { let v = WD.get(o); if (v === undefined) WD.set(o, v = T * Math.min(...offsets(o).map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9)); return v; };
     // near by the walk too: a foe close through a wall made the bot drop its loot for a fight with another, nearer by the walk, and
     // pick the loot up again once out of the first one's 260 px, back and forth for good (seed 281)
-    // a monster behind a door still locked can't be fought, nor an eel under its water (TASKS 310)
-    const live = R.en.filter((e) => e.deadT < 0 && !D.under(e) && reach(e)), awake = live.filter((e) => e.st !== 'idle' && e.st !== 'home');
+    // a monster behind a door still locked can't be fought, nor an eel under its water (TASKS 310), nor a salamander in its lava
+    // (TASKS 414): out of a blow's reach and too near for a fireball, it healed in the lava, and the bot stood on the bank for good
+    const swims = (e) => D.ENEMIES[e.type].kind === 'salamander' && SIM.cell(m, Math.floor(e.x / T), Math.floor(e.y / T)) === 3;
+    const live = R.en.filter((e) => e.deadT < 0 && !D.under(e) && !swims(e) && reach(e)), awake = live.filter((e) => e.st !== 'idle' && e.st !== 'home');
     const near = live.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 260 && walkD(e) < 520), late = R.floor < D.runOf(R.mode).floors && S.t - tF > 200;
     const room = h.bag.includes(null), takes = (p) => p.kind !== 'item' || room || SIM.isCons(p.item) || (!h.eq[D.BASES[p.item.b].slot] && wearable(h, p.item));
     const dist = (o) => Math.hypot(o.x - h.x, o.y - h.y), first = (list) => list.filter((o) => !given.has(o)).sort((a, b) => dist(a) - dist(b))[0];

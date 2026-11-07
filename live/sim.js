@@ -27,6 +27,8 @@
   // reads the depth, the run's own floor numbers only place its bosses, guards and end
   // the endless descent's first floor: past the serpent it goes on from the 13th (TASKS 386)
   const FROM = (R) => (R.campaignWon ? D.RUNS.campaign.floors + 1 : 1);
+  // what the stairs say before a floor's boss is beaten: its chapter's own words (TASKS 416), the run's for its own floors
+  const sealOf = (R) => { const N = D.stageOf(R.mode, R.floor, R.seed, FROM(R)).N; return (N && N !== RUN(R) && N.seal) || RUN(R).seal; };
   const RUN = (R) => D.runOf(R.mode), STAGE = (R, f = R.floor) => D.stageOf(R.mode, f || 1, R.seed, FROM(R)), dep = (R, f = R.floor) => STAGE(R, f).depth, lastFloor = (R) => R.floor === RUN(R).floors;
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' (элита)' : '') : '?';
@@ -342,14 +344,17 @@
   }
   // an explosive elite's corpse bursts once its fuse burns down: the hero and the monsters in reach are hit. A smouldering
   // skeleton's blast (TASKS 411) is its own: each monster in it loses a share of its own health, and another smouldering one in it lights up
-  function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0;
+  // (a fuse is set off no sooner than BOOM_GAP after the last one lit, its ring told its true length, TASKS 1057: held back at the burst,
+  // 36 % of blasts came after their ring was gone)
+  const BOOM_GAP = 0.35, fuseEnd = (R, want) => { const t = Math.max(want, (R.fuseLast ?? -9) + BOOM_GAP); R.fuseLast = t; return t; };
+  function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0; R.boomT = S.t;
     if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' взрыв', e);
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
       hitEnemy(S, R, o, Math.max(1, Math.round(B ? o.max * B.mon : e.max * 0.25)), false, e.x, e.y, 1.5); }
     breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
   // a smouldering skeleton lights its fuse: it stands hissing through the wind-up and bursts at its end (stepMonsters)
   function fuse(S, R, e) { const E = ENEMIES[e.type]; if (e.st === 'wind' || e.deadT >= 0) return; const d = windOf(e, E.wind);
-    e.st = 'wind'; e.t0 = S.t; e.fuse = S.t + d; e.aimA = Math.atan2(R.hero.y - e.y, R.hero.x - e.x); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d, id: e.id, lit: 1 }); }
+    e.st = 'wind'; e.t0 = S.t; e.fuse = fuseEnd(R, S.t + d); e.aimA = Math.atan2(R.hero.y - e.y, R.hero.x - e.x); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: e.fuse - S.t, id: e.id, lit: 1 }); }
   // a floor as it is first entered: the map from its seed, its monsters, chests, pots, altars and merchant rolled off the run's
   // RNG; deterministic from R.rs and R.nextId, so a floor kept as a diff (TASKS 1008) is rebuilt and patched, not stored whole
   // a floor is generated anew on each trip home and back (stash and restore, TASKS 1008): the generator is a pure function of its
@@ -573,9 +578,11 @@
     // it springs back from the hero facing him, its eyes on him; elsewhere it faces where it leaps
     const h = R.hero, back = Math.hypot(h.x - x, h.y - y) > Math.hypot(h.x - e.lx, h.y - e.ly) && Math.hypot(h.x - e.lx, h.y - e.ly) < E.flee + 20;
     e.face = back ? (h.x >= e.x ? 1 : -1) : x >= e.x ? 1 : -1; e.aimA = Math.atan2(y - e.y, x - e.x); ev(S, { k: 'leap', x: e.x, y: e.y, id: e.id }); }
-  // (eased along its line, as its arc is in the render: at full speed from the first frame the take-off and the landing jolted)
+  // (a body in flight keeps its speed, TASKS 489: eased all along it, it went 2.7× faster at the middle than near the ends; its speed
+  // ramps up over the first fifth and down over the last, so the take-off and the landing don't jolt)
   // (its first steps off the landing ease in from a standstill: spd0 0)
-  function leapStep(S, R, e, E) { const L0 = E.leap, u = S.t - e.t0, f = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), q = f * f * (3 - 2 * f);
+  const leapQ = (f) => (f < 0.2 ? 3.125 * f * f : f > 0.8 ? 1 - 3.125 * (1 - f) * (1 - f) : 0.125 + 1.25 * (f - 0.2));
+  function leapStep(S, R, e, E) { const L0 = E.leap, u = S.t - e.t0, f = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), q = leapQ(f);
     e.x = e.lx + (e.ltx - e.lx) * q; e.y = e.ly + (e.lty - e.ly) * q; e.vx = e.vy = e.kbx = e.kby = 0;
     if (q >= 1 && !e.landed) { e.landed = 1; ev(S, { k: 'land', x: e.x, y: e.y, id: e.id }); }
     if (u >= L0.crouch + e.ld + L0.land) { e.st = 'chase'; e.t0 = e.seenT = S.t; e.landed = 0; e.spd0 = 0; e.vxn0 = 1; e.vyn0 = 0; e.leapT = S.t + L0.cd * (0.8 + 0.4 * rnd(R)) / eliteK(e, 'spd'); } }
@@ -697,7 +704,8 @@
   // (TASKS 476) thin: the crust of a way out to a hoard's islet (m.thin) cracks after `thin` s standing, so it is crossed at a walk and
   // never stood on; fall: a hero the crust melts under falls into the lava, losing that share of his health past armour and set
   // alight for `burn` s, and climbs out where he last stood on firm ground
-  const CRUST = { stand: 1, crack: 0.5, hot: 3.5, set: 0.8, thin: 0.35, fall: 0.3, burn: 3 }, CRS = new WeakMap(), THIN = new WeakMap();
+  // (sink: how long a fallen hero is under before he climbs out, TASKS 484: at once he was moved back up to ~290 px in a frame)
+  const CRUST = { stand: 1, crack: 0.5, hot: 3.5, set: 0.8, thin: 0.35, fall: 0.3, burn: 3, sink: 0.6 }, CRS = new WeakMap(), THIN = new WeakMap();
   const thinSet = (m) => { let s = THIN.get(m); if (!s) THIN.set(m, s = new Set(m.thin || [])); return s; };
   const crustSet = (m) => { if (!m.crust || !m.crust.length) return null; let s = CRS.get(m); if (!s) CRS.set(m, s = new Set(m.crust)); return s; };
   const crustAt = (m, k) => { const s = crustSet(m); return !!s && s.has(k) && !(m.melt && m.melt[k] && m.melt[k].hot); };
@@ -813,6 +821,7 @@
   // the wall cells around what is seen open with it, and two more above each, so the 3/4 facades show whole. A room opens whole
   // as soon as any of its floor is in sight, its own ring of wall too, but never the floor of a room behind a thin wall (TASKS 104)
   const REV = { arr: null, k: '' };
+  const CHOICE = new WeakMap();
   function reveal(R) {
     const m = R.map, h = R.hero, W = m.W, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE), ri2 = DG.roomAt(m, h.x, h.y);
     const k = tx + ':' + ty + ':' + (m.secrets || []).map((q) => q.open).join('') + ':' + doorKey(m);
@@ -826,20 +835,53 @@
       for (let i = 1; i < n; i++) { const cx = Math.floor(fx + dx * i / n), cy = Math.floor(fy + dy * i / n); if (cx === x && cy === y) break; if (opaque(cx, cy)) return false; } return true; };
     // on the plateaus (TASKS 453) the window is an ellipse, not its 17×13 box: over open lava nothing stops the sight, and the box's
     // straight sides showed as a rectangle of lava in the dark
+    // (its rim varies cell by cell, TASKS 482: a walk along a straight way swept the ellipse's edge into a straight line)
+    // (a smooth noise over 3 cells, TASKS 1037: hashed cell by cell it left single cells revealed out in the fog, crumbs of lava)
+    // (and ±0.1 cell by cell on the rim, TASKS 1048, 1056: smooth alone, the edge ran straight along the lava again)
+    const hh = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
+    const h01 = (x, y) => { const gx = x / 3, gy = y / 3, x0 = Math.floor(gx), y0 = Math.floor(gy), fx0 = gx - x0, fy0 = gy - y0, sx0 = fx0 * fx0 * (3 - 2 * fx0), sy0 = fy0 * fy0 * (3 - 2 * fy0);
+      return (hh(x0, y0) * (1 - sx0) + hh(x0 + 1, y0) * sx0) * (1 - sy0) + (hh(x0, y0 + 1) * (1 - sx0) + hh(x0 + 1, y0 + 1) * sx0) * sy0; };
     const rooms = new Set(), oval = !!m.cliff;
-    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > 1) || !sight(x, y)) continue;
+    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > (0.72 + 0.28 * h01(x, y) + (hh(x + 31, y + 17) - 0.5) * 0.2) ** 2) || !sight(x, y)) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
       R.seen[y * W + x] = 1; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v);
       const ri = DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE); if (ri >= 0) rooms.add(ri); }
     // a room shows whole once seen; a plateau's box is mostly lava, so there only its floor and the lava within two cells of it
     // (TASKS 453: the whole box was a rectangle of lava cut out of the dark)
-    const nearFloor = (x, y, r) => { for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) { const X = x + u, Y = y + v;
-      if (X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
+    // (by distance, with a reach of 1.6–3.2 cells that varies cell by cell, TASKS 482: within a 5×5 square the edge ran ruler-straight
+    // along the floor's own rows for 6–18 cells)
+    const nearFloor = (x, y, r) => { const rr = 1.6 + 1.6 * h01(x, y) + (hh(x + 7, y + 91) - 0.5) * 1.4; for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const X = x + u, Y = y + v;
+      if (u * u + v * v <= rr * rr && X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
     for (const ri of rooms) { if (R.rseen[ri]) continue; R.rseen[ri] = 1; const r = m.rooms[ri];
       for (const [bx, by, bw, bh] of DG.rectsOf(r)) for (let y = by - 2; y <= by + bh + 1; y++) for (let x = bx - 2; x <= bx + bw + 1; x++) { if (!inMap(x, y)) continue;
         const own = DG.inRm(r, x, y);
         if (oval && m.cells[y * W + x] !== 1 && !nearFloor(x, y, r)) continue;
         if (opaque(x, y)) wall(x, y); else if (own || DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0) R.seen[y * W + x] = 1; } }
+    // a lake's or a river's choice (dungeon.js m.choice, TASKS 486): every way over and the stairs show from the first bank
+    if (m.choice && R.choiceShown !== R.floor) { let A = CHOICE.get(m); if (!A) CHOICE.set(m, A = new Set(m.choice.at));
+      // (each way as a lane of the cells within two of it, TASKS 1037: its floor alone showed as crumbs scattered in the fog)
+      // (TASKS 1048: grown out from what is seen, each lane joined to it; laid whole, a lane hung in the fog, a loose piece of lava;
+      // the stairs' room shows apart, as the goal)
+      if (A.has(ty * W + tx)) { R.choiceShown = R.floor; const lane = new Set(), ex = m.exit.tx, ey = m.exit.ty;
+        for (const k of m.choice.show) { const x = k % W, y = Math.floor(k / W); if (Math.abs(x - ex) <= 5 && Math.abs(y - ey) <= 5) { R.seen[k] = 1; continue; }
+          for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) if (u * u + v * v <= 2.5 + 5 * hh(x + u + 3, y + v + 61) && inMap(x + u, y + v)) lane.add((y + v) * W + x + u); }   // (ragged, TASKS 1056: an even lane ran straight beside a straight way)
+        const q = [...lane].filter((k) => !R.seen[k] && [1, -1, W, -W].some((o) => R.seen[k + o] && !opaque((k + o) % W, Math.floor((k + o) / W))));
+        for (let i = 0; i < q.length; i++) { const k = q[i]; if (R.seen[k]) continue; const x = k % W, y = Math.floor(k / W); if (opaque(x, y)) { wall(x, y); continue; } R.seen[k] = 1;
+          for (const o of [1, -1, W, -W]) if (lane.has(k + o) && !R.seen[k + o]) q.push(k + o); } } }
+    // an open cell the reveal's edges left unseen in the middle of seen ones shows (TASKS 482: black holes inside the open lava)
+    if (oval) for (let y = ty - 14; y <= ty + 14; y++) for (let x = tx - 18; x <= tx + 18; x++) { if (!inMap(x, y) || R.seen[y * W + x] || opaque(x, y)) continue;
+      let n = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if ((u || v) && inMap(x + u, y + v) && R.seen[(y + v) * W + x + u]) n++;
+      if (n >= 6) R.seen[y * W + x] = 1; }
+    // and a closed pocket of up to 40 unseen open cells, seen cells all round it and off the map's edge, shows whole (TASKS 1037: the
+    // rule above closed single cells only; pockets of 3–29 stayed black inside the open lava)
+    if (oval) { const got = new Set(); for (let y = ty - 12; y <= ty + 12; y++) for (let x = tx - 16; x <= tx + 16; x++) { const k0 = y * W + x; if (!inMap(x, y) || R.seen[k0] || opaque(x, y) || got.has(k0)) continue;
+        const q = [k0]; got.add(k0); let closed = true;
+        for (let i = 0; i < q.length && closed; i++) { const qx = q[i] % W, qy = Math.floor(q[i] / W); if (qx <= 0 || qy <= 0 || qx >= W - 1 || qy >= m.H - 1 || q.length > 40) { closed = false; break; }
+          for (const [u, v] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = qx + u, ny = qy + v, nk = ny * W + nx; if (R.seen[nk] || got.has(nk)) continue; if (opaque(nx, ny)) { closed = false; break; } got.add(nk); q.push(nk); } }
+        if (closed) for (const k of q) R.seen[k] = 1; } }
+    // (a lone cell of lava seen with nothing seen round it is a crumb in the fog, not a view: it goes back under it)
+    if (oval) for (let y = ty - 12; y <= ty + 12; y++) for (let x = tx - 16; x <= tx + 16; x++) { const k = y * W + x; if (!inMap(x, y) || !R.seen[k] || m.cells[k] !== 3) continue;
+      let n = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if ((u || v) && inMap(x + u, y + v) && R.seen[(y + v) * W + x + u]) n++; if (n === 0) R.seen[k] = 0; }
     // a door once seen shows whole: its leaf stands over the cells behind it (a top wall's over the corridor, a bottom wall's over the room)
     for (const d of m.doors || []) { if (!d.cells.some(([x, y]) => R.seen[y * W + x])) continue; const up = d.dir === 'u' ? [1, 2] : d.dir === 'd' ? [-1] : [];
       for (const [x, y] of d.cells) { R.seen[y * W + x] = 1; for (const k of up) if (inMap(x, y - k)) R.seen[(y - k) * W + x] = 1; } }
@@ -942,18 +984,22 @@
       for (const n of [k, k + 1, k - 1, k + m.W, k - m.W]) if (cs.has(n) && (!M[n] || M[n].crackT === undefined)) M[n] = { on: CRUST.stand, crackT: t };
       ev(S, { k: 'crack', x: (k % m.W + 0.5) * TILE, y: (Math.floor(k / m.W) + 0.5) * TILE }); }
     for (const key in M) { const q = M[key], k = +key, x = (k % m.W + 0.5) * TILE, y = (Math.floor(k / m.W) + 0.5) * TILE;
-      if (q.crackT === undefined) { if (!on.has(k) && (q.on -= 2 * DT) <= 0) delete M[key]; continue; }
+      // (a thin crust keeps the time stood on it, TASKS 484: there and back at a walk it holds, a pause on it on either way does not)
+      if (q.crackT === undefined) { if (!on.has(k) && !thinSet(m).has(k) && (q.on -= 2 * DT) <= 0) delete M[key]; continue; }
       if (!q.hot && q.meltT === undefined && t >= q.crackT + CRUST.crack) { q.hot = 1; q.meltT = t; ev(S, { k: 'melt', x, y });
-        const h = R.hero; if (h.hp > 0 && Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE) === k) lavaFall(S, R, h); }
+        // (only a hoard's thin crust drops him in, TASKS 484: a bank's, looking a firm stone path, did in a fight 4 seeds out of 4 and
+        // the colossus's 3 times in 12 s; there it is lava again, burning as lava does, to be stepped off)
+        const h = R.hero; if (h.hp > 0 && thinSet(m).has(k) && Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE) === k) lavaFall(S, R, h); }
       else if (q.hot && t >= q.meltT + CRUST.hot) { q.hot = 0; q.setT = t; ev(S, { k: 'set', x, y }); }
       else if (!q.hot && q.setT !== undefined && t >= q.setT + CRUST.set) delete M[key]; }
   }
   // the hero falls through the crust into the lava (TASKS 476): hurt and alight, he climbs out where he last stood on firm ground
   function lavaFall(S, R, h) { const fx = h.x, fy = h.y, back = h.safe || landOf(R.map, h.x, h.y);
-    hurtHero(S, R, heroSt(S).maxHp * CRUST.fall, fx, fy - 10, 'spike', 'lava'); if (h.hp <= 0) return;
+    // (a second fall straight after a first costs nothing more, TASKS 1057: the climb's hold put it past his grace, 70 % for two)
+    if (S.t - (h.lavaFallT ?? -9) > 3) hurtHero(S, R, heroSt(S).maxHp * CRUST.fall, fx, fy - 10, 'spike', 'lava'); h.lavaFallT = S.t; if (h.hp <= 0) return;
     if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + CRUST.burn);
-    h.x = back[0]; h.y = back[1]; h.vx = h.vy = 0; h.ifr = Math.max(h.ifr || 0, S.t + 1); R.trauma = Math.min(1, R.trauma + 0.35);
-    ev(S, { k: 'lavafall', x: fx, y: fy, tx: h.x, ty: h.y }); }
+    h.sunk = { t: S.t, x: fx, y: fy, bx: back[0], by: back[1] }; h.vx = h.vy = 0; h.dashT = -9; h.ifr = Math.max(h.ifr || 0, S.t + CRUST.sink + 1); R.trauma = Math.min(1, R.trauma + 0.35);
+    ev(S, { k: 'lavafall', x: fx, y: fy, tx: back[0], ty: back[1] }); }
   // the floor nearest a spot off it (a monster gone into the lava or the chasm drops its loot on the bank)
   function landOf(m, x, y) { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); if (cell(m, tx, ty) === 1) return [x, y];
     for (let r = 1; r <= 8; r++) { let best = null; for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (Math.max(Math.abs(i), Math.abs(j)) === r && cell(m, tx + i, ty + j) === 1) { const d = i * i + j * j; if (!best || d < best[2]) best = [tx + i, ty + j, d]; }
@@ -968,8 +1014,8 @@
     // a golem falls apart into a pool of lava (TASKS 409)
     if (E.pool && e.sinkT === undefined && e.fallT === undefined) { addFire(R, S, e.x, e.y, { src: e.id, who: who(e), r: E.pool.r, ry: E.pool.ry, t: E.pool.t, dmg: e.dmg * E.pool.dmg, per: E.pool.per, arm: E.pool.arm, kind: 'pool' }); ev(S, { k: 'pool', x: e.x, y: e.y, r: E.pool.r, d: E.pool.t, id: e.id }); }
     // a smouldering skeleton killed bursts too, unless it went off itself or into the lava or the chasm; one already lit keeps its fuse
-    if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = S.t + E.boom.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: E.boom.fuse, id: e.id }); } }
-    else if (has(e, 'explosive')) { e.fuse = S.t + MOD.explosive.fuse; ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: MOD.explosive.fuse, id: e.id }); }
+    if (E.boom) { if (e.blown || e.fallT !== undefined || e.sinkT !== undefined) e.fuse = 0; else if (!(e.fuse > S.t)) { e.fuse = fuseEnd(R, S.t + E.boom.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom.r, d: e.fuse - S.t, id: e.id }); } }
+    else if (has(e, 'explosive')) { e.fuse = fuseEnd(R, S.t + MOD.explosive.fuse); ev(S, { k: 'fuse', x: e.x, y: e.y, r: MOD.explosive.r, d: e.fuse - S.t, id: e.id }); }
     ev(S, Object.assign({ k: 'kill', x: e.x, y: e.y, type: e.type, id: e.id, elite: e.elite && !D.BOSSES[e.type] ? 1 : 0, boss: D.BOSSES[e.type] ? 1 : 0 }, e.quest ? { quest: e.quest } : {}, e.sinkT !== undefined || e.fallT !== undefined ? { gone: 1 } : {}));
     // the last monster of a room down: the room is cleared (TASKS 1017, a quest's goal)
     if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) ev(S, { k: 'clear', x: e.x, y: e.y, room: e.room });
@@ -1278,7 +1324,7 @@
     if (h.back !== wasBack) h.backT = t;
     if (h.face !== wasFace) h.faceT = t;
     // dash
-    if (keys.Space && h.cd.dash <= t) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
+    if (keys.Space && h.cd.dash <= t && !h.sunk) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
       h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY });
       // the dash beats the flames out (TASKS 463: burning took the most hits and nothing put it out away from water)
       if (h.burn > t) { h.burn = 0; ev(S, { k: 'snuff', x: h.x, y: h.y, hero: 1 }); } }
@@ -1286,7 +1332,10 @@
     const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t - h.dashT < K.DASH_T;
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
-    const mvx = dashing ? h.dashX * K.DASH : h.vx, mvy = dashing ? h.dashY * K.DASH : h.vy;
+    // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
+    if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
+    const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.5);   // (climbing out over the lip, TASKS 1049, 1058: let go at 0.35 he glided off still 23 px under)
+    const mvx = held ? 0 : dashing ? h.dashX * K.DASH : h.vx, mvy = held ? 0 : dashing ? h.dashY * K.DASH : h.vy;
     const ox = h.x, oy = h.y; const [bx, by] = move(m, h, mvx * DT, mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     // a drowned's grab draws the hero a step toward it at an even pace
     if (h.pull) { const P = h.pull, sp = Math.min(P.n / P.T * DT, P.n - P.done); move(m, h, P.x * sp, P.y * sp, K.R); P.done += sp; if (P.done >= P.n - 0.01) h.pull = null; }
@@ -1496,10 +1545,10 @@
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     const fk = folkNear(R); if (fk) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
-    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: RUN(R).seal }); return; }
+    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (arenaSealed(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте босса главы' }); return; }
-      if (lastFloor(R) && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: RUN(R).seal }); return; }
+      if (lastFloor(R) && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) openAltar(S, R, used);
@@ -1779,7 +1828,8 @@
     const m = R.map, h = R.hero, t = S.t, htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE), F = flow(m, htx, hty), heroOk = live && h.deadT < 0;
     for (const e of R.en) {
       const E = ENEMIES[e.type];
-      if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) blast(S, R, e); continue; }
+      // (one blast at least BOOM_GAP after the last, TASKS 1051: a neighbour's set off by it burst at once, 3 in 1.3 s, 2 on one tick)
+      if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: (ENEMIES[e.type].boom || MOD.explosive).r, d: e.fuse - t, id: e.id }); } else blast(S, R, e); } continue; }
       if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; hitEnemy(S, R, e, Math.max(1, Math.round(2 + dep(R))), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost && (m.cliff && !D.BOSSES[e.type] ? 2 : true)); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0;
@@ -1796,7 +1846,7 @@
       if (E.kind === 'eel') { eel(S, R, e, E, heroOk, d); continue; }
       if (E.kind === 'serpent') { serpent(S, R, e, heroOk); continue; }
       if (E.lake && (e.st === 'idle' || e.st === 'emerge' || e.st === 'wade')) { colossusRise(S, R, e); continue; }
-      if (E.kind === 'bomber' && e.st === 'wind') { skid(m, e, E); if (t >= e.fuse) { e.blown = 1; blast(S, R, e); killEnemy(S, R, e); } continue; }
+      if (E.kind === 'bomber' && e.st === 'wind') { skid(m, e, E); if (t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: E.boom ? E.boom.r : MOD.explosive.r, d: e.fuse - t, id: e.id, lit: 1 }); } else { e.blown = 1; blast(S, R, e); killEnemy(S, R, e); } } continue; }
       // (when it went into the lava or came out of it, for the render's ease between swimming and walking)
       if (E.kind === 'salamander') { const on = onLava(m, e) ? 1 : 0; if ((e.lv || 0) !== on) { e.lv = on; e.lvT = t; } }
       if (e.st === 'leap') { leapStep(S, R, e, E); continue; }
@@ -2854,7 +2904,7 @@
         for (const k of lost) out.push(`seed ${seed} f${f}: plateau or ledge at ${k % W},${Math.floor(k / W)} out of reach of a body two cells wide`);
         const d = new Int32Array(W * m.H).fill(-1), q = [s0]; d[s0] = 0;
         for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && m.cells[n] === 1) { d[n] = d[q[i]] + 1; q.push(n); } }
-        const pth = (((m.ftype && A[m.ftype]) || A).path || A.path).map((q) => q * (m.ftype2 ? A.blend.pathKeep : 1)), walk = d[m.exit.ty * W + m.exit.tx]; if (walk !== m.walk || walk < pth[lf - 1]) out.push(`seed ${seed} f${f}: the walk to the stairs is ${walk} cells (${m.walk} counted, ${pth[lf - 1]} at least)`);
+        const pth = (((m.ftype && A[m.ftype]) || A).path || A.path).map((q) => q * (m.ftype2 ? A.blend.pathKeep : 1)), walk = d[m.exit.ty * W + m.exit.tx]; if (walk !== m.walk || walk < pth[lf - 1] * (m.loose ? 0.9 : 1)) out.push(`seed ${seed} f${f}: the walk to the stairs is ${walk} cells (${m.walk} counted, ${pth[lf - 1]} at least)`);
         if (!m.cliff || m.cliff.length !== W) out.push(`seed ${seed} f${f}: a plateau floor without its wall rows`);
         else if (!lc) for (let x = 0; x < W; x++) for (let y = 0; y < m.cliff[x]; y++) if (m.cells[y * W + x] === 3) { out.push(`seed ${seed} f${f}: lava in the wall at ${x},${y}`); x = W; break; }
         if (!m.lava) out.push(`seed ${seed} f${f}: a plateau floor without lava`);
@@ -2878,8 +2928,10 @@
           const walk = (u) => { const d = new Uint8Array(W * m.H), q = [s0]; d[s0] = 1; for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const k = q[i] + o; if (!d[k] && (m.cells[k] === 1 || (u && thinS.has(k)))) { d[k] = 1; q.push(k); } } return d[r.cy * W + r.cx]; };
           if (!m.chests.some(inR)) out.push(`seed ${seed} f${f}: an islet without its hoard`); if (m.enemies.some((e) => e.room === r.id || inR(e))) out.push(`seed ${seed} f${f}: a monster on an islet`);
           if (walk(false) || !walk(true)) out.push(`seed ${seed} f${f}: an islet reached otherwise than over its thin crust`); }
-        // (the floor round each crust cell joins up on foot within a few steps: a crust cell never takes anyone over the lava)
-        for (const k of crustS) { const fl8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].map((o) => k + o).filter((n) => m.cells[n] === 1); if (fl8.length < 2) continue;
+        // (the floor round each crust cell joins up on foot within a few steps: a crust cell never takes anyone over the lava; an islet's
+        // thin crust, TASKS 476, is its one way on purpose)
+        const thinK = new Set(m.thin || []);
+        for (const k of crustS) { if (thinK.has(k)) continue; const fl8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].map((o) => k + o).filter((n) => m.cells[n] === 1); if (fl8.length < 2) continue;
           const dl = new Map([[fl8[0], 0]]), ql = [fl8[0]]; for (let i = 0; i < ql.length; i++) { const c = ql[i]; if (dl.get(c) >= 6) continue; for (const o of [1, -1, W, -W]) { const n = c + o; if (!dl.has(n) && m.cells[n] === 1) { dl.set(n, dl.get(c) + 1); ql.push(n); } } }
           if (fl8.some((n) => !dl.has(n))) { out.push(`seed ${seed} f${f}: the crust is a short cut at ${k % W},${Math.floor(k / W)}`); break; } }
         const hot = new Set(); for (let k = 0; k < W * m.H; k++) if (m.cells[k] === 3) for (const o of [0, 1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) hot.add(k + o);
@@ -3100,7 +3152,7 @@
         if (!(a2.fuse > S.t)) out.push('a smouldering skeleton killed lights no fuse');
         for (let i = 0; i < 120 * B.fuse * 0.8; i++) { step(S, { keys: [] }); h.x = a2.x - dx2; h.vx = h.vy = 0; } if (h.hp < a) out.push("a smouldering skeleton's bones burst before the fuse is out");
         for (let i = 0; i < 120 * 0.4; i++) { step(S, { keys: [] }); h.x = a2.x - dx2; h.vx = h.vy = 0; } if (!(h.hp < a)) out.push("a smouldering skeleton's bones never burst by the hero");
-        put(); h.ifr = 1e9; const a3 = sk(0, { st: 'wind', t0: S.t, fuse: S.t + 0.05 }), mk = (dy, type) => el([], 0, { type, elite: 0, hp: 200, max: 200, dmg: 1, y: h.y + dy, st: 'idle', cdT: 1e9 });
+        put(); h.ifr = 1e9; R.boomT = -9; const a3 = sk(0, { st: 'wind', t0: S.t, fuse: S.t + 0.05 }), mk = (dy, type) => el([], 0, { type, elite: 0, hp: 200, max: 200, dmg: 1, y: h.y + dy, st: 'idle', cdT: 1e9 });
         const nearM = mk(B.r - 20, 'goblin'), farM = mk(-(B.r + 40), 'goblin'), a4 = mk(-(B.r - 30), 'skel_ember');
         for (let i = 0; i < 12; i++) step(S, { keys: [] });
         if (a3.deadT < 0) out.push("a smouldering skeleton's lit fuse never runs out");
@@ -3418,11 +3470,13 @@
       for (let sd = 1; sd <= 10; sd++) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f}`, hs = m.rooms.filter((r) => r.hall);
         if (f === D.RUNS.magma.floors ? hs.length : hs.length < HL.n[0] || hs.length > HL.n[1] + 1) out.push(`${tag}: ${hs.length} halls`);
         for (const r of hs) { kinds[r.hall] = 1; const K = HL.kinds[r.hall], lead = D.MAGMA_PACKS[K.pack].plan[0][0];
-          const props = { sanctum: (m.circles || []).some((q) => q.r === r.id), forge: ['forge_tw', 'anvil_tw'].every((n) => m.decor.some((d) => d.n === n && inR(r, d))),
+          const props = { sanctum: (m.circles || []).some((q) => q.r === r.id), forge: ['forge_mg', 'anvil_tw'].every((n) => m.decor.some((d) => d.n === n && inR(r, d))),
             nest: m.decor.filter((d) => d.n === 'skel_mg' && inR(r, d)).length >= 3, prison: m.decor.filter((d) => d.n === 'cage' && inR(r, d)).length >= 2 }[r.hall];
           if (!props) out.push(`${tag}: the ${r.hall} hall without its props`);
           if (!m.chests.some((c) => inR(r, c))) out.push(`${tag}: the ${r.hall} hall without its chest`);
-          if (!m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`); } }
+          // (an early kind on the 1st floor, TASKS 488, has the floor's own pack: its monster comes later)
+          if (!(f === 1 && K.early) && !m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`);
+          if (f === 1 && K.early && !m.enemies.some((e) => e.room === r.id)) out.push(`${tag}: the ${r.hall} hall without a pack`); } }
       for (const k of Object.keys(HL.kinds)) if (!kinds[k]) out.push(`magma halls: no ${k} hall in 10 runs`); }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
     // the mix (TASKS 426): a lake, river or terrace floor over the chasm: it turns up in the runs, and on each figure a floor holds
@@ -3545,11 +3599,16 @@
     for (const sd of [1, 77, 4242, 5, 12, 33]) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', ftype: 'plain' }), W = m.W, tag = `magma ${sd} f${f}`;
       const keepOff = [[m.spawn.x, m.spawn.y], [m.exit.x, m.exit.y], ...m.chests.map((c) => [c.x, c.y]), ...m.enemies.map((e) => [e.x, e.y]), ...m.shrines.map((q) => [q.x, q.y])];
       const st = m.rooms.find((r) => r.type === 'start'); keepOff.push([(st.cx + 0.5) * TILE, (st.cy + 0.5) * TILE + 6]);
-      for (const z of m.hazards || []) { cnt[z.k][f - 1]++; const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
+      for (const z of m.hazards || []) { if (!z.tail) cnt[z.k][f - 1]++; const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
         if (keepOff.some(([x, y]) => Math.hypot(x - z.x, y - z.y) < HZ.clear * TILE)) out.push(`${tag}: a ${z.k} within ${HZ.clear} cells of the start, the spawn, the stairs, a chest, a monster or the altar at ${tx},${ty}`);
         if (cell(m, tx, ty) !== 1) out.push(`${tag}: a ${z.k} off the floor at ${tx},${ty}`);
         if (z.k === 'vent') for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) !== 1) { out.push(`${tag}: a vent without 3×3 of floor at ${tx},${ty}`); j = i = 9; }
-        if (z.k === 'vent') for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.max(Math.abs(i), Math.abs(j)) <= 2 && m.cells[(ty + j) * W + tx + i] === 3 && Math.max(Math.abs(i), Math.abs(j)) <= 1) out.push(`${tag}: a vent by the lava at ${tx},${ty}`); } }
+        if (z.k === 'vent') for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.max(Math.abs(i), Math.abs(j)) <= 2 && m.cells[(ty + j) * W + tx + i] === 3 && Math.max(Math.abs(i), Math.abs(j)) <= 1) out.push(`${tag}: a vent by the lava at ${tx},${ty}`); }
+      // an aimed run's rocks fall HZ.fall.gap apart on one clock (TASKS 485): its head's phase was moved first and the rest taken from it,
+      // 0.2 / 0.2 / 0.6 / 0.2 s (PR #26 review)
+      const runs = new Map(); for (const z of (m.hazards || []).filter((q) => q.k === 'fall' && q.aim)) runs.set(z.per, (runs.get(z.per) || []).concat(z));
+      for (const [per, l] of runs) { if (l.length < 2) continue; const t = l.map((z) => z.ph * per).sort((a, b) => a - b), d = t.map((v, i) => ((t[(i + 1) % t.length] - v) % per + per) % per);
+        if (d.filter((v) => Math.abs(v - HZ.fall.gap) < 1e-6).length < l.length - 1) out.push(`${tag}: an aimed rock run's rocks fall ${d.map((v) => v.toFixed(2)).join(' / ')} s apart, not ${HZ.fall.gap}`); } }
     for (const k of ['vent', 'fall']) { const c = cnt[k]; if (!(c[0] > 0 && c[0] < c[1] && c[1] < c[2] && c[3] < c[2])) out.push(`magma hazards: ${k}s by floor ${c.join('/')} (six seeds) do not grow to the 3rd`); }
     // (TASKS 461) on every floor but the boss's two rings at least stand on the walk from the spawn to the stairs: laid at random
     // a third of the floors had none on it
@@ -3614,6 +3673,36 @@
         const e1 = mk(), e2 = mk(); R2.en = [e1, e2]; if (!brinkOf(m, e1)) out.push('magma brink: a skeleton a step off the lava is not marked');
         hitEnemy(Z, R2, e1, 1, false, x - 40, y); hitEnemy(Z, R2, e2, 1, false, x + 40, y);
         if (!(Math.abs(e1.kbx) > Math.abs(e2.kbx) * D.BRINK.kb * 0.95)) out.push(`magma brink: a blow toward the lava drives ${Math.round(e1.kbx)} against ${Math.round(e2.kbx)} away from it`); } }
+    // (TASKS 486) on a lake's or a river's floor the stairs' room shows as the hero first stands by the water on his side of it
+    for (const ft of ['lake', 'river']) { let Y = null; for (let sd = 1; sd < 30 && !Y; sd++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', sd); Q.screen = 'play';
+        for (let f = 1; f <= 3 && !Y; f++) { enterFloor(Q, Q.run, f); if (Q.run.map.ftype === ft && !Q.run.map.ftype2) Y = Q; } }
+      if (!Y) { out.push(`magma choice: no ${ft} floor in 29 runs`); continue; } const R3 = Y.run, m3 = R3.map, e3 = m3.exit.ty * m3.W + m3.exit.tx;
+      if (!m3.choice) { out.push(`magma choice: a ${ft} floor without its choice shown`); continue; }
+      if (R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor seen from the start`);
+      const k = m3.choice.at[0]; R3.hero.x = (k % m3.W + 0.5) * TILE; R3.hero.y = (Math.floor(k / m3.W) + 0.5) * TILE; step(Y, { keys: [] });
+      if (!R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor do not show from its first bank`); }
+    // (and on each such floor of a run, not the first alone: the flag was the run's, PR #26 review, seed 3's 3rd stayed dark after its 2nd)
+    { let Y = null; for (let sd = 1; sd < 30 && !Y; sd++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', sd); Q.screen = 'play'; let n = 0;
+        for (let f = 1; f <= 3; f++) { enterFloor(Q, Q.run, f); if (Q.run.map.choice) n++; } if (n >= 2) Y = [Q, sd]; }
+      if (!Y) out.push('magma choice: no run with two floors of a choice in 29'); else { const [Q, sd] = Y; Q.run = newRun(Q, 'magma', sd); Q.screen = 'play';
+        for (let f = 1; f <= 3; f++) { enterFloor(Q, Q.run, f); const R4 = Q.run, m4 = R4.map; if (!m4.choice) continue; const k = m4.choice.at[0];
+          R4.hero.x = (k % m4.W + 0.5) * TILE; R4.hero.y = (Math.floor(k / m4.W) + 0.5) * TILE; step(Q, { keys: [] });
+          if (!R4.seen[m4.exit.ty * m4.W + m4.exit.tx]) out.push(`magma choice: run seed ${sd} f${f}: the stairs do not show from its first bank after an earlier floor's choice`); } } }
+    // (TASKS 1037) a walk of 60 cells toward the stairs leaves no closed pocket of unseen open cells by its way
+    for (const [ft, sd] of [['lake', 2], ['terrace', 5], ['lake', 9]]) { let Y = null; for (let s2 = sd; s2 < sd + 20 && !Y; s2++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', s2); Q.screen = 'play';
+        for (let f = 1; f <= 3 && !Y; f++) { enterFloor(Q, Q.run, f); if (Q.run.map.ftype === ft && !Q.run.map.ftype2) Y = Q; } }
+      if (!Y) continue; const R4 = Y.run, m4 = R4.map, W4 = m4.W, h4 = R4.hero, s4 = Math.floor(h4.y / TILE) * W4 + Math.floor(h4.x / TILE), e4 = m4.exit.ty * W4 + m4.exit.tx, prev = new Map([[s4, -1]]), qq = [s4];
+      for (let i = 0; i < qq.length && !prev.has(e4); i++) for (const o of [1, -1, W4, -W4]) { const n = qq[i] + o; if (!prev.has(n) && (m4.cells[n] === 1 || m4.cells[n] === 6)) { prev.set(n, qq[i]); qq.push(n); } }
+      const way = []; for (let k = prev.has(e4) ? e4 : -1; k >= 0; k = prev.get(k)) way.unshift(k); R4.en = [];
+      for (const k of way.slice(0, 60)) { h4.x = (k % W4 + 0.5) * TILE; h4.y = (Math.floor(k / W4) + 0.5) * TILE; step(Y, { keys: [] }); }
+      const near = new Set(); for (const k of way.slice(0, 60)) for (let j = -5; j <= 5; j++) for (let i = -5; i <= 5; i++) near.add(k + j * W4 + i);
+      const got = new Set(); let pockets = 0;
+      for (const k0 of near) { const x0 = k0 % W4, y0 = Math.floor(k0 / W4); if (x0 <= 0 || y0 <= 0 || x0 >= W4 - 1 || y0 >= m4.H - 1 || R4.seen[k0] || got.has(k0) || (m4.cells[k0] !== 1 && m4.cells[k0] !== 3)) continue;
+        const q = [k0]; got.add(k0); let closed = true;
+        for (let i = 0; i < q.length && closed; i++) { const qx = q[i] % W4, qy = Math.floor(q[i] / W4); if (qx <= 0 || qy <= 0 || qx >= W4 - 1 || qy >= m4.H - 1 || q.length > 40) { closed = false; break; }
+          for (const o of [1, -1, W4, -W4]) { const n = q[i] + o; if (R4.seen[n] || got.has(n)) continue; if (m4.cells[n] !== 1 && m4.cells[n] !== 3) { closed = false; break; } got.add(n); q.push(n); } }
+        if (closed) pockets++; }
+      if (pockets) out.push(`magma fog: ${pockets} closed unseen pocket(s) by the walk on a ${ft} floor`); }
     return out;
   }
   function meleeSpacingCheck() {
@@ -3667,12 +3756,13 @@
       for (const b of E.pool) if (!seen.has(b)) out.push(`endless: biome ${b} never comes up on 40 seeds`);
       // the bosses from their own bag (TASKS 386): all five in each round of five boss pairs, never the same twice running
       for (let sd = 1; sd <= 40; sd++) { const seq = []; for (let f = 4; f <= 84; f += 4) seq.push(D.stageOf('endless', f, sd).boss);
-        if (seq.some((b, i) => !b || b === seq[i - 1]) || [0, 5, 10, 15].some((i) => new Set(seq.slice(i, i + 5)).size !== 5)) { out.push(`endless seed ${sd}: a boss again before all five came up (${seq.join(' ')})`); break; }
+        const nb = E.pool.length, wins = Array.from({ length: Math.floor(seq.length / nb) }, (_, j) => j * nb);   // (six since the magma, TASKS 416)
+        if (seq.some((b, i) => !b || b === seq[i - 1]) || wins.some((i) => new Set(seq.slice(i, i + nb)).size !== nb)) { out.push(`endless seed ${sd}: a boss again before all ${nb} came up (${seq.join(' ')})`); break; }
         // past the serpent the descent's rounds start at its own first boss (the 16th)
         const from = D.RUNS.campaign.floors + 1, deep = []; for (let f = from + 3; f <= from + 83; f += 4) deep.push(D.stageOf('endless', f, sd, from).boss);
-        if (deep.some((b, i) => !b || b === deep[i - 1]) || [0, 5, 10, 15].some((i) => new Set(deep.slice(i, i + 5)).size !== 5)) { out.push(`descent seed ${sd}: a boss again before all five came up (${deep.join(' ')})`); break; } }
+        if (deep.some((b, i) => !b || b === deep[i - 1]) || wins.some((i) => new Set(deep.slice(i, i + nb)).size !== nb)) { out.push(`descent seed ${sd}: a boss again before all ${nb} came up (${deep.join(' ')})`); break; } }
       for (let sd = 1; sd <= 5; sd++) { let last = {};   // within each kind of map (rooms, caves) apart: a cave starts larger
-        for (let f = 1; f <= 40; f++) { const st = D.stageOf('endless', f, sd), k = st.arch || 'rooms', a = st.size[0] * st.size[1];
+        for (let f = 1; f <= 40; f++) { const st = D.stageOf('endless', f, sd), k = st.arch || 'rooms', a = st.size[0] * st.size[1]; if (k === 'plateau') continue;   // (the magma's plateaus keep their own run's sizes, TASKS 416)
           if (a < (last[k] || 0) || a > E.size.to[0] * E.size.to[1] || (f >= E.size.floors && a !== E.size.to[0] * E.size.to[1])) { out.push(`endless seed ${sd} f${f}: the map does not grow to its cap and stop`); break; } last[k] = a; } }
       for (const [sd, f] of [[3, 1], [3, 2], [3, 4], [5, 7], [5, 8], [11, 14], [2, 23], [7, 30]]) { const st = D.stageOf('endless', f, sd), m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'endless', runSeed: sd });
         if (m.W !== st.size[0] || cell(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE)) !== 1) out.push(`endless seed ${sd} f${f}: map size or spawn wrong`);
@@ -3684,18 +3774,18 @@
       { const T = spawn(0, { run: JSON.parse(JSON.stringify(R)) }); T.screen = 'menu'; { const b = UI.menu(true, T.meta.diff, 0, T.meta.zoom).find((q) => q.id === 'continue'); step(T, { px: b.x + b.w / 2, py: b.y + b.h / 2, click: 1, keys: [] }); }
         const Q = T.run; if (!Q || Q.mode !== 'endless' || Q.floor !== 13 || Q.map.W !== R.map.W || D.floorName(Q.floor, Q.mode, Q.seed) !== D.floorName(13, 'endless', 9)) out.push('endless: a saved run does not continue as it was');
         else { enterFloor(T, Q, 14); if (D.stageOf('endless', 14, Q.seed).biome !== D.stageOf('endless', 13, 9).biome) out.push('endless: a continued run loses its pair\'s biome'); } }
-      // past the serpent (TASKS 354): the stairs beside the portal stay shut while it lives; taken after, they win the campaign there
-      // (a win, the record 12, the win's shards and the gold's so far) and the same run, the hero as he was, goes on from the 13th;
+      // past the colossus (TASKS 354, 416: the serpent's choice moved to the 16th): the stairs beside the portal stay shut while it lives; taken after, they win the campaign there
+      // (a win, the record 16, the win's shards and the gold's so far) and the same run, the hero as he was, goes on from the 17th;
       // the gold paid at the stairs is not paid again at the end
-      { const T = spawn(0, {}); T.run = newRun(T, 'campaign', 21); T.screen = 'play'; const Q = T.run, hq = Q.hero; enterFloor(T, Q, 12); const md = Q.map, lvl = 17; hq.lvl = lvl; Q.goldTot = 4000;
-        if (!md.down) out.push('campaign f12: no stairs on past the serpent');
+      { const T = spawn(0, {}); T.run = newRun(T, 'campaign', 21); T.screen = 'play'; const Q = T.run, hq = Q.hero; enterFloor(T, Q, 16); const md = Q.map, lvl = 19; hq.lvl = lvl; Q.goldTot = 4000;
+        if (!md.down) out.push('campaign f16: no stairs on past the colossus');
         else { hq.x = md.down.x; hq.y = md.down.y + 20; interact(T, Q);
-          if (Q.floor !== 12) out.push('campaign f12: the stairs on open before the serpent falls');
-          const b = Q.en.find((e) => e.type === 'boss_serpent'); b.hp = 0; killEnemy(T, Q, b); const w0 = T.meta.wins || 0, s0 = T.meta.shards, id = hq.eq.weapon.id;
+          if (Q.floor !== 16) out.push('campaign f16: the stairs on open before the colossus falls');
+          const b = Q.en.find((e) => e.type === 'boss_colossus'); b.hp = 0; killEnemy(T, Q, b); const w0 = T.meta.wins || 0, s0 = T.meta.shards, id = hq.eq.weapon.id;
           hq.x = md.down.x; hq.y = md.down.y + 20; interact(T, Q);
-          if (Q.floor !== 13 || Q.mode !== 'endless' || T.meta.wins !== w0 + 1 || T.meta.best !== 12 || T.meta.shards - s0 !== Math.floor(4000 / REWARD.goldPer) + REWARD.win || hq.lvl !== lvl || hq.eq.weapon.id !== id)
-            out.push('campaign f12: the stairs on do not win the campaign and go on to the 13th with the same hero');
-          Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 13 || !T.result.campaignWon) out.push('campaign f12: the descent pays the campaign\'s gold twice or keeps no depth'); } }
+          if (Q.floor !== 17 || Q.mode !== 'endless' || T.meta.wins !== w0 + 1 || T.meta.best !== 16 || T.meta.shards - s0 !== Math.floor(4000 / REWARD.goldPer) + REWARD.win || hq.lvl !== lvl || hq.eq.weapon.id !== id)
+            out.push('campaign f16: the stairs on do not win the campaign and go on to the 17th with the same hero');
+          Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 17 || !T.result.campaignWon) out.push('campaign f16: the descent pays the campaign\'s gold twice or keeps no depth'); } }
       endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless' || !S.result.record || !S.result.record.fresh) out.push('endless: the record depth is not kept');
       // each of the five bosses at the end of an endless pair (TASKS 350): its arena seals when the hero walks in and opens at its
       // death; a chapter's end boss pays as the finale (20 shards, LOOT.boss), the others as a chapter boss (3 shards and an item);
@@ -4502,14 +4592,24 @@
           // (the lowest he comes to: a hero at full health with regeneration is back to it before the crust sets)
           if (hpMin >= hp0) out.push('magma lava: the crust melting under the hero does not burn him');
           if (!crustAt(m, ck)) out.push('magma lava: the crust does not bear the hero again once it sets');
-          // (TASKS 476) the crust melting under him drops the hero into the lava: hurt by CRUST.fall of his health, alight, back on firm ground
-          { const o = [1, -1, W, -W].find((d) => m.cells[ck + d] === 1), sx0 = x0 + (o === 1 ? 1 : o === -1 ? -1 : 0) * TILE, sy0 = y0 + (o === W ? 1 : o === -W ? -1 : 0) * TILE;
-            m.melt = {}; h.hp = stats(h, Z.meta).maxHp; h.burn = 0; h.safe = [sx0, sy0]; Z.ev = []; let fell = null, hp1 = h.hp;
-            for (let i = 0; i < 120 * 2 && !fell; i++) { if (!fell) { h.x = x0; h.y = y0; h.vx = h.vy = 0; } hp1 = h.hp; step(Z, { keys: [] }); h.ifr = 0; fell = Z.ev.find((e) => e.k === 'lavafall'); }
-            if (!fell) out.push('magma lava: the hero does not fall through the crust melting under him');
-            else { const lost = hp1 - h.hp; if (lost < stats(h, Z.meta).maxHp * CRUST.fall * 0.7) out.push(`magma lava: a fall into the lava takes only ${Math.round(lost)} health`);
-              if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1 || Math.hypot(h.x - sx0, h.y - sy0) > 2) out.push('magma lava: after a fall the hero is not back on the firm ground he last stood on');
-              if (!(h.burn > Z.t)) out.push('magma lava: a fall into the lava does not set the hero alight'); } } }
+          // (TASKS 484) a bank's crust melting under him leaves him in the lava to step out of, it does not drop him in
+          if (Z.ev.some((e) => e.k === 'lavafall')) out.push('magma lava: a bank\'s crust drops the hero into the lava');
+          // (TASKS 476) a hoard's thin crust melting under him drops him in: hurt by CRUST.fall of his health, alight, under CRUST.sink s,
+          // then back on the firm ground he last stood on
+          let Y = null; for (let sd = 1; sd < 40 && !Y; sd++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', sd); Q.screen = 'play';
+            for (let f = 1; f <= 3 && !Y; f++) { enterFloor(Q, Q.run, f); const mq = Q.run.map, k = (mq.thin || []).find((n) => [1, -1, mq.W, -mq.W].some((o) => mq.cells[n + o] === 1)); if (k !== undefined) Y = [Q, k]; } }
+          if (!Y) out.push('magma lava: no thin crust by a bank in 39 runs'); else { const [Q, k] = Y, R3 = Q.run, m3 = R3.map, h3 = R3.hero, W3 = m3.W, o = [1, -1, W3, -W3].find((d) => m3.cells[k + d] === 1);
+            const x0 = (k % W3 + 0.5) * TILE, y0 = (Math.floor(k / W3) + 0.5) * TILE, sx0 = x0 + (o === 1 ? 1 : o === -1 ? -1 : 0) * TILE, sy0 = y0 + (o === W3 ? 1 : o === -W3 ? -1 : 0) * TILE;
+            R3.en = []; m3.melt = {}; h3.hp = stats(h3, Q.meta).maxHp; h3.burn = 0; h3.safe = [sx0, sy0]; Q.ev = []; let fell = null, hp1 = h3.hp;
+            for (let i = 0; i < 120 * 2 && !fell; i++) { h3.x = x0; h3.y = y0; h3.vx = h3.vy = 0; hp1 = h3.hp; step(Q, { keys: [] }); h3.ifr = 0; fell = Q.ev.find((e) => e.k === 'lavafall'); }
+            if (!fell) out.push('magma lava: the hero does not fall through a thin crust melting under him');
+            else { const lost = hp1 - h3.hp; if (lost < stats(h3, Q.meta).maxHp * CRUST.fall * 0.7) out.push(`magma lava: a fall into the lava takes only ${Math.round(lost)} health`);
+              if (Math.hypot(h3.x - x0, h3.y - y0) > 2) out.push('magma lava: a fallen hero is moved at once, not under the lava a while');
+              for (let i = 0; i < 120 * (CRUST.sink - 0.05); i++) step(Q, { keys: [], right: true });
+              if (Math.hypot(h3.x - x0, h3.y - y0) > 2) out.push('magma lava: a fallen hero walks off under the lava');
+              for (let i = 0; i < 120 * 0.1; i++) step(Q, { keys: [] });
+              if (cell(m3, Math.floor(h3.x / TILE), Math.floor(h3.y / TILE)) !== 1 || Math.hypot(h3.x - sx0, h3.y - sy0) > 2) out.push('magma lava: after a fall the hero is not back on the firm ground he last stood on');
+              if (!(h3.burn > Q.t)) out.push('magma lava: a fall into the lava does not set the hero alight'); } } }
         const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE), 1); if (F.some((v, j) => v >= 0 && m.cells[j] === 3)) out.push('magma lava: the monsters\' way runs over lava or crust'); }
       // the magma colossus (TASKS 413): it lies hidden in its lake, rises and wades ashore once the hero is in; the ring round the
       // lake is one way round for its body, before the 2nd phase's edge falls into lava and after; its pools keep their limits; the
@@ -4582,22 +4682,32 @@
             for (let f = 10; f <= 12; f++) { enterFloor(S2, R2, f); const mf = R2.map, lf = f - 8;
               if ((mf.bossType || undefined) !== NC.boss(lf)) out.push(`campaign f${f}: boss ${mf.bossType}, the caves' ${lf}th has ${NC.boss(lf)}`);
               if (!NC.boss(lf) && !!NC.guard[lf] !== mf.enemies.some((e) => e.guard)) out.push(`campaign f${f}: exit guard does not match the caves' ${lf}th`);
-              if (mf.shrines.length !== (f === 10 || f === 11 ? 1 : 0)) out.push(`campaign f${f}: ${mf.shrines.length} altar(s)`);
+              if (mf.shrines.length !== 1) out.push(`campaign f${f}: ${mf.shrines.length} altar(s)`);   // (the 12th a chapter's end as the 8th since the magma, TASKS 416)
               if (f === 11) { // a run saved here, through the browser's storage, goes on in the caves
                 S2.saved = S2.run; S2.run = null; S2.screen = 'menu'; const S3 = spawn(1, JSON.parse(JSON.stringify(persist(S2)))), cb = UI.menu(true).find((q) => q.id === 'continue');
                 step(S3, { keys: [], click: 1, px: cb.x + 10, py: cb.y + 10 });
                 if (!S3.run || S3.run.floor !== 11 || S3.run.mode !== 'campaign' || S3.run.map.biome !== 'cave' || S3.screen !== 'play') out.push('campaign f11: a run saved in the caves does not go on there');
                 else { for (let i = 0; i < 30; i++) step(S3, { keys: [] }); if (!S3.run || dep(S3.run) !== 11) out.push('campaign f11: the continued run breaks'); }
                 S2.run = R2; S2.saved = null; S2.screen = 'play'; } }
-            const sp = R2.en.find((e) => e.type === 'boss_serpent'), best = S2.meta.best; h2.ifr = 1e9; h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
-            if (!S2.run) out.push('campaign f12: the way out opens before the serpent dies');
-            else if (!sp) out.push('campaign f12: no serpent');
-            else { killEnemy(S2, R2, sp); if (!R2.bossDead) out.push('campaign f12: the serpent\'s death does not open the way out');
+            // (TASKS 416) the serpent closes its chapter as the demon lord does: the finale's pay and the stairs on to the magma caves,
+            // the 13th their 1st at the campaign's depth with the same hero; the colossus holds the 16th and only its death wins
+            const sp = R2.en.find((e) => e.type === 'boss_serpent'), best = S2.meta.best; h2.ifr = 1e9;
+            if (!sp) out.push('campaign f12: no serpent');
+            else { killEnemy(S2, R2, sp); if (R2.bossDead) out.push('campaign f12: the serpent\'s death opens the way out of the campaign');
               if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f12: the serpent does not pay the finale\'s 20 shards');
               if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f12: the serpent does not drop the finale\'s loot');
-              h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
-              if (S2.screen !== 'win' || (S2.result || {}).mode !== 'campaign' || S2.result.floor !== 12) out.push('campaign: leaving after the serpent is not a campaign win');
-              if (S2.meta.best !== Math.max(best || 0, 12)) out.push('campaign: the win does not set the floor record to 12'); } } } }
+              R2.drops = []; const want2 = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+              if (!S2.run || R2.floor !== 13) out.push(`campaign: the stairs past the serpent lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 13th`);
+              else { const NM = D.RUNS.magma;
+                if (R2.map.biome !== 'magma' || R2.map.W !== NM.size[0][0] || dep(R2) !== 13 + (D.RUNS.campaign.chapters.find((c) => c.run === 'magma').shift || 0)) out.push(`campaign f13: not the magma caves' 1st at its depth (${R2.map.biome} ${R2.map.W} depth ${dep(R2)})`);
+                if (JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]) !== want2) out.push('campaign f13: the hero changed on the way down');
+                enterFloor(S2, R2, 16); const co = R2.en.find((e) => e.type === 'boss_colossus'); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+                if (!S2.run) out.push('campaign f16: the way out opens before the colossus dies');
+                else if (!co) out.push('campaign f16: no colossus');
+                else { killEnemy(S2, R2, co); if (!R2.bossDead) out.push('campaign f16: the colossus\'s death does not open the way out');
+                  h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+                  if (S2.screen !== 'win' || (S2.result || {}).mode !== 'campaign' || S2.result.floor !== 16) out.push('campaign: leaving after the colossus is not a campaign win');
+                  if (S2.meta.best !== Math.max(best || 0, 16)) out.push('campaign: the win does not set the floor record to 16'); } } } } } }
       // the campaign's caves bring their kinds a floor sooner and more monsters to their first two floors (data.js RUNS chapters);
       // the caves' own run keeps its floors as they were
       { const kinds = (mode, f) => { const c = {}; let n = 0; for (let sd = 1; sd <= 12; sd++) for (const e of DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode }).enemies) { c[e.type] = 1; n++; } return [c, n / 12]; };

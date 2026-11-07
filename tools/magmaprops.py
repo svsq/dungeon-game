@@ -5,6 +5,7 @@ decals are Codex art since 421.
   skel_mg         skel_cv charred: bone to ash grey, cloth and rock to near-black, a few dull embers in the dark
   obsidian_mg     crystal_cv re-shaded into black volcanic glass with violet-grey glints
   banner_mg       the cult banner hung from a crossbar between two iron posts (it stands on the plateau, no wall to hang on)
+  forge_mg        forge_tw's slate, brick and iron re-shaded into basalt, the fire (hot warm pixels) kept as drawn
   python3 tools/magmaprops.py
 """
 import sys
@@ -110,6 +111,23 @@ def charred(src):
     return Image.fromarray(out.astype(np.uint8))
 
 
+def forge(src):
+    im = reshade(src, [INK, BAS[1], BAS[2], BAS[3], BAS[4]], [0.08, 0.18, 0.3, 0.46])
+    o = np.asarray(Image.open(src).convert('RGBA')).astype(float); a = np.asarray(im).copy()
+    r, g, b = o[..., 0], o[..., 1], o[..., 2]
+    hot = (r > 150) & (r > g * 1.2) & (r > b * 1.6)
+    a[hot, :3] = o[hot, :3].astype(np.uint8)
+    H, W = r.shape; yy, xx = np.mgrid[0:H, 0:W]
+    lum = (r + g + b) / 3
+    bed = (xx > 100) & (xx < 335) & (yy > 172) & (yy < 255) & (b >= r - 3) & (o[..., 3] >= 128) & (lum > 20)
+    ramp = [(0x36, 0x12, 0x0f), (0x73, 0x14, 0x0d), (0x9f, 0x51, 0x16), (0xe2, 0x88, 0x1e), (0xf9, 0xce, 0x4a)]
+    cuts = np.quantile(lum[bed], [0.18, 0.5, 0.78, 0.93]) if bed.any() else []
+    idx = np.digitize(lum, cuts)
+    for k, c in enumerate(ramp):
+        a[bed & (idx == k), :3] = c
+    return Image.fromarray(a)
+
+
 def banner():
     b = Image.open('art/gen/banner.png').convert('RGBA')
     ap = b.height / 32.0
@@ -133,6 +151,7 @@ if __name__ == '__main__':
         'obsidian_mg': glass(reshade('art/gen/crystal_cv.png', [INK] + OBS[1:], [0.1, 0.3, 0.5, 0.72])),
         'skel_mg': charred('art/gen/skel_cv.png'),
         'banner_mg': banner(),
+        'forge_mg': forge('art/gen/forge_tw.png'),
     }
     only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(out)
     for n, im in ((k, out[k]) for k in only):
