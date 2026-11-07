@@ -2125,7 +2125,7 @@
           run.forEach((q, i) => { const ph = ((z.ph - (i - i0) * HZ.fall.gap / z.per) % 1 + 1) % 1; if (i === i0) return; hazards.push({ ...z, x: wx(q[0]), y: wy(q[1]), ph, tail: 1 }); });
           z.ph = ((z.ph % 1) + 1) % 1; } }
       // (none by a river's guarded way over, TASKS 1051: it carried the walk's rock runs on top of its guard, 1.4 against 0.6)
-      const byGuard = (x, y) => !!riverGuard && [...riverGuard].some((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) <= 3);
+      const byGuard = (x, y) => !!riverGuard && [...riverGuard].some((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) <= 6);   // (6 cells: at 3 the runs by its landings stayed, TASKS 1057)
       for (const pass of [0, 1]) for (const [x, y] of narrows) { if (hazards.filter((z) => z.k === 'fall' && !z.ford && !z.span).length >= aim) break; const ii = isleOf(x, y); if ((!pass && ii >= 0 && hit.has(ii)) || byGuard(x, y)) continue;
         if (!clear(x, y) || hazards.some((z) => Math.hypot(z.x - wx(x), z.y - wy(y)) < HZ.fall.apart * TILE)) continue;
         hazards.push({ k: 'fall', x: wx(x), y: wy(y), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1 }); if (ii >= 0) hit.add(ii); }
