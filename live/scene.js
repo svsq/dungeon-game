@@ -1871,7 +1871,8 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   const NO_INK = new Set(['bones', 'torch_sconce']);
   // the basalt props drawn this frame (TASKS 1036): they take the basalt's cold light in the lit pass as the crossings do
-  const BAS_PROPS = new Set(['basalt_a', 'basalt_b', 'forge_mg']), PROP_BAS = [];
+  // (and the boulders, and an iron rail's links and stakes as solids, TASKS 1052: brown and orange beside the grey basalt)
+  const BAS_PROPS = new Set(['basalt_a', 'basalt_b', 'forge_mg', 'boulder_mg_a', 'boulder_mg_b']), PROP_BAS = [], OCC_SOLIDS = [];
   // how far the deck the hero walks sags under him this frame (TASKS 1042: his feet kept the ground's line while it bent 9 px)
   const DECK = { dy: 0 };
   function drawProp(n, x, y, o = {}) { const [w, h] = SZ(n), k = o.k || 1, j = o.j;
@@ -2059,7 +2060,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // cell, a little off the grid, a hot line where the lava licks their foot; an arch over a narrow river flowing toward the camera
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
-    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; DECK.dy = 0;
+    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0;
     const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       // (the hot line only where the lava itself lies under its foot, shorter and off its middle, TASKS 1039: under every row of a
@@ -2130,7 +2131,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // the stakes over it, each with its pale cut top
       // over lava (TASKS 401) the stakes are iron and the rails chains, links alternately seen face-on and edge-on, sagging deeper
       // (an iron stake 3 art px thick with an inked side each, TASKS 480: 2 px it read as a wire's barb)
-      const sw = iron ? 6 : hor ? 4 : 6, stake = (X, Y) => { if (iron) L.solid(X - sw / 2 - 2, Y - sh - 2, sw + 4, sh + 2, INKC);
+      const sw = iron ? 6 : hor ? 4 : 6, stake = (X, Y) => { if (iron) { L.solid(X - sw / 2 - 2, Y - sh - 2, sw + 4, sh + 2, INKC); OCC_SOLIDS.push([X - sw / 2 - 2, Y - sh - 2, sw + 4, sh + 2]); }
         L.solid(X - sw / 2, Y - sh, sw, sh, iron ? [0.06, 0.06, 0.065] : [0.09, 0.05, 0.03]); L.solid(X - sw / 2, Y - sh, 2, sh, iron ? [0.22, 0.21, 0.22] : [0.26, 0.16, 0.09]);
         L.solid(X - sw / 2, Y - sh - 2, sw, 3, iron ? [0.32, 0.3, 0.3] : [0.5, 0.36, 0.21]); L.solid(X - sw / 2, Y - sh + 1, sw, 1, [0.05, 0.03, 0.02]); };
       const rail = (side) => { const b = side ? B0 + BW + 1 : B0 - 1, top = (q, hgt) => P(q.a, b, q.z + hgt);
@@ -2144,7 +2145,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
             // round; packed solid blocks at 5 px read as barbed wire, TASKS 480)
             if (iron) { const n = Math.max(1, Math.round(l / 9)); for (let j = 0; j < n; j++) { const px = ev2(x0 + (x1 - x0) * (j + 0.5) / n), py = ev2(y0 + (y1 - y0) * (j + 0.5) / n);
                 // (cool iron, lit warm by the lava it read pink-brown; along a deck running down the screen the links turn with the chain)
-                const R4 = (x, y, w, h, c) => (hor ? L.solid(px + x, py + y, w, h, c) : L.solid(px + y, py + x, h, w, c)), G1 = [0.36, 0.38, 0.46], G0 = [0.11, 0.12, 0.16], G2 = [0.22, 0.23, 0.29];
+                const R4 = (x, y, w, h, c) => { const a = hor ? [px + x, py + y, w, h] : [px + y, py + x, h, w]; L.solid(...a, c); OCC_SOLIDS.push(a); }, G1 = [0.36, 0.38, 0.46], G0 = [0.11, 0.12, 0.16], G2 = [0.22, 0.23, 0.29];
                 if ((k * n + j) % 2) { R4(-6, -4, 12, 4, INKC); R4(-4, -4, 8, 2, G1); }
                 else { for (const [x, y, w, h] of [[-4, -6, 8, 2], [-4, 2, 8, 2], [-6, -4, 2, 6], [4, -4, 2, 6]]) R4(x, y, w, h, INKC);
                   R4(-4, -4, 8, 2, G1); R4(-4, 0, 8, 2, G0); R4(-4, -2, 2, 2, G2); R4(2, -2, 2, 2, G2); } } }
@@ -2571,7 +2572,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // leave out. Without it a demon by a river came out see-through, the lava's plates showing through its body
     G.bind(LT.occ, [0, 0, 0, 0]); G.blend();
     if (m.cliff) { const J0 = L.joint; L.joint = () => {}; const SP0 = L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] };
-      try { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f });
+      try { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f }); for (const [x, y, w, hh] of OCC_SOLIDS) L.solid(x, y, w, hh, [0, 0, 0]);
         L.sp.ink = [1, 1, 1];
         for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;

@@ -40,6 +40,18 @@ def quantise(rgb, mask):
     return pal[d.argmin(-1)]
 
 
+def evenise(res):
+    """Odd width: widen the body by one art px on the side whose outer column has the fewest ink pixels, keeping the contour 1 px thick."""
+    xs = np.where(res[..., 3].any(0))[0]
+    x0, x1 = xs.min(), xs.max()
+    if (x1 - x0 + 1) % 2 == 0:
+        return res
+    ink = lambda c: int(((res[:, c, :3] == INK).all(-1) & (res[:, c, 3] > 0)).sum())
+    if ink(x1) <= ink(x0):
+        return np.concatenate([res[:, :x1], res[:, x1 - 1:x1], res[:, x1:]], 1)
+    return np.concatenate([res[:, :x0 + 1], res[:, x0 + 1:x0 + 2], res[:, x0 + 1:]], 1)
+
+
 def build(name, ha):
     a = src(name)
     ys, xs = np.where(a[..., 3] >= 128)
@@ -68,12 +80,7 @@ def build(name, ha):
     res[mm] = np.concatenate([np.pad(np.round(rgb), ((2, 2), (2, 2), (0, 0)))[mm], np.full((mm.sum(), 1), 255)], 1)
     res[ring] = (*INK, 255)
     res = np.pad(res, ((1, 1), (1, 2), (0, 0)))
-    ys, xs = np.where(res[..., 3] > 0)
-    if (xs.max() - xs.min() + 1) % 2:
-        res[:, xs.max() + 1] = res[:, xs.max()]
-    if (ys.max() - ys.min() + 1) % 2:
-        res = np.pad(res, ((0, 1), (0, 0), (0, 0)))
-        res[ys.max() + 1] = res[ys.max()]
+    res = evenise(evenise(res.transpose(1, 0, 2)).transpose(1, 0, 2))
     res = res.repeat(4, 0).repeat(4, 1)
     Image.fromarray(res, 'RGBA').save(f'art/gen/{name}.png')
     return res.shape[0] // 4, res.shape[1] // 4
