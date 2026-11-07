@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
-    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, lastFloor, exitKind, leverNear,
+    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, lastFloor, exitKind, campaignDone, leverNear,
     openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
@@ -208,11 +208,14 @@
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
+  // past the campaign's last boss the Keeper asks, after any quest's business, whether the run ends here, won, or goes on down (TASKS 1148)
+  const keeperEnd = (R) => ({ pages: R.campaignWon ? D.KEEPER.endDeep.slice() : D.KEEPER.end.slice(), act: { k: 'finish', rw: { shards: SIMX.runReward(R, 'win').base } } });
   // the talk's button: take the quest (the talk closes), or turn it in (the thanks, then whatever else the townsman has)
   function talkAct(S, R, T) { const a = T.act; if (!a) return;
+    if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = questTalk(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks, p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const nx = questTalk(R, T.role) || (T.role === 'keeper' && campaignDone(R) ? keeperEnd(R) : null); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks, p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -268,10 +271,11 @@
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; the smith's talk keeps a button
   // into his workshop
-  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = questTalk(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [];
+  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = questTalk(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
     if (qt) pages = pages.concat(qt.pages);
+    else if (f.role === 'keeper' && campaignDone(R)) { const e = keeperEnd(R); pages = pages.concat(e.pages); act = e.act; }
     else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act: qt ? qt.act : null }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // gear left in the town for the heroes to come: S.meta.stash, its cells D.STASH.cells(meta), its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)

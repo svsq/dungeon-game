@@ -251,8 +251,9 @@
   // so the altar's 1395 take some 20 runs
   const REWARD = { goldPer: 500, win: 30, full: 10, secret: 1 };
   function runReward(R, how) {
-    // the gold of a campaign won on the way down was paid at the stairs (descend): only the gold since counts at the end
-    const C = runCompletion(R), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' ? REWARD.win : 0);
+    // the gold of a campaign won on the way down was paid at the stairs (descend): only the gold since counts at the end, and its
+    // win is not paid again when the run is ended alive later (TASKS 1148)
+    const C = runCompletion(R), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' && !R.campaignWon ? REWARD.win : 0);
     return { base, bonus: 0, cap: 0, C };
   }
   const FULL = [['kills', 'foes', TXT('FULL')], ['loot', 'lootN', TXT('FULL.2')], ['sec', 'secN', TXT('FULL.3')]];

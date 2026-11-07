@@ -32,6 +32,8 @@
   // the campaign's last floor stays its last past the descent (TASKS 514: the run's mode is then the descent's, which has none, and
   // the 16th's portal out was drawn and taken as a second stairs down); its exit is the portal out, its own stairs on are m.down
   const finalFloor = (R, f = R.floor) => f === RUN(R).floors || (!!R.campaignWon && f === D.RUNS.campaign.floors);
+  // a run through the town that has slain the campaign's last boss (TASKS 1148): it may end in the town, won, or go on down
+  const campaignDone = (R) => !!R.viaTown && (!!R.campaignWon || (R.slain || []).includes(D.RUNS.campaign.floors));
   const exitKind = (R, f = R.floor) => (finalFloor(R, f) ? 'portal' : 'stairs');
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? TXT('sim_core.who') : '') : '?';
@@ -253,7 +255,7 @@
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW,
-    zoomOf, WIN, toPx, nextZoom, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, finalFloor, exitKind, dif, who,
+    zoomOf, WIN, toPx, nextZoom, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, finalFloor, exitKind, campaignDone, dif, who,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
     losClear, doorLock, doorKey, flow, homeFlow, reveal, clampCam });

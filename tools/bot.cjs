@@ -299,6 +299,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // a townsman's talk (TASKS 1024): pages turned with E; on the quest's page E takes it while the profile wants more (the Keeper's
   // chain always), turns a done one in; else «not now», and the townsman is left alone this visit
   function talkStep(S, R) { const T = S.talk; if (!T) return { keys: ['Escape'] }; if (T.p + 1 < T.pages.length) return { keys: ['KeyE'] };
+    // past the campaign's last boss (TASKS 1148): the Keeper's «Завершить поход», unless the bot goes on down
+    if (T.act && T.act.k === 'finish') { if (descend) { declined.add(T.role); return { keys: ['Escape'] }; } return { keys: ['Enter'] }; }
     const side = (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned' && D.QUESTS[q.key].kind === 'side').length;
     if (T.act && (T.act.k === 'turn' || (P.quests && (D.QUESTS[T.act.key].kind === 'story' || side < P.quests)))) return { keys: ['KeyE'] };
     declined.add(T.role); return { keys: ['Escape'] }; }
