@@ -2421,6 +2421,10 @@
       ['crate', 38, 30], ['crate', 50, 12], ['barrel', 50, 16], ['barrel', 29, 31], ['crate', 15, 11], ['barrel', 21, 9]],
     // what a niche keeps: its stores, and a small fire at the back
     store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
+  // a portal's ring of stones (TASKS 1037): the town's and a chapter boss's are one ring, eight stones round 240° with the gap
+  // facing the angle open (radians), where the way in comes from
+  const portalRing = (x, y, open) => [0, 1, 2, 3, 4, 5, 6, 7].map((i) => { const a = open + (60 + i * 240 / 7) * Math.PI / 180;
+    return { x: x + Math.cos(a) * 2.4 * TILE, y: y + Math.sin(a) * 1.9 * TILE, n: i % 2 ? 'stone_tw_a' : 'stone_tw_b', s: i % 2 ? 0.85 : 1 }; });
   function genTown(seed) {
     const T = TOWN, W = T.W, H = T.H, cells = new Array(W * H).fill(0), R = mul32(seed >>> 0), wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2;
     const fill = ([x0, y0, w, h], v) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) cells[y * W + x] = v; };
@@ -2444,8 +2448,8 @@
       { x: wx(sx), y: wy(sy - 1) + 12, n: 'awning_tw', role: 'stall' },
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
-      // eight stones in the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
-      ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => { const a = (60 + i * 240 / 7) * Math.PI / 180; return { x: wx(T.portal[0]) + Math.cos(a) * 2.4 * TILE, y: wy(T.portal[1]) + Math.sin(a) * 1.9 * TILE, n: i % 2 ? 'stone_tw_a' : 'stone_tw_b', role: 'portal_stone', solid: 1, s: i % 2 ? 0.85 : 1 }; }),
+      // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
+      ...portalRing(wx(T.portal[0]), wy(T.portal[1]), 0).map((q) => ({ ...q, role: 'portal_stone', solid: 1 })),
       ...[0, 1, 2, 3, 4, 5, 6].map((i) => { const a = Math.PI * (0.92 + i * 1.16 / 6); return { x: wx(T.forge[0]) + Math.cos(a) * 1.25 * TILE, y: wy(T.forge[1]) + 4 + Math.sin(a) * 0.8 * TILE, n: 'stone_tw_b', role: 'forge_stone', s: 0.42 + 0.06 * (i % 2) }; }),
       ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y]) => ({ ...at([x, y]), n: 'torch_stand', role: 'lamp', solid: 1 })),
             // three trees round the edge, not one six times (TASKS 1030)
@@ -2494,6 +2498,6 @@
     for (const r of map.rooms) if (r.type === 'secret' && inR(r)) return r.id;
     for (const r of map.rooms) if (inR(r)) return r.id; return -1; };
 
-  root.DUNGEON = { genFloor, genTown, townWalk, TOWN, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt };
+  root.DUNGEON = { genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt };
   if (typeof module !== 'undefined') module.exports = root.DUNGEON;
 })(typeof window !== 'undefined' ? window : globalThis);

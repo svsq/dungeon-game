@@ -1980,6 +1980,8 @@
     let best = null, bd = -1;
     for (let i = 0; i < 9; i++) { const [x, y] = standNear(R, cx + ((i % 3) - 1) * r.w * TILE / 4, cy + (Math.floor(i / 3) - 1) * r.h * TILE / 4), d = Math.min(...far.map((o) => Math.hypot(o.x - x, o.y - y)));
       if (d > bd) { bd = d; best = { x: Math.round(x), y: Math.round(y) }; } if (i === 4 && d >= 160) break; }
+    // its ring's gap faces the hall's middle, where the hero comes from (at the middle itself, east as the town's)
+    if (best) best.open = Math.hypot(cx - best.x, cy - best.y) > 20 ? Math.atan2(cy - best.y, cx - best.x) : 0;
     return best; }
   const gateNear = (R) => { const g = R.arena && R.arena.gate, h = R.hero; return g && !R.town && Math.hypot(g.x - h.x, g.y - h.y) < 64 ? g : null; };
   function bossWebs(S, R, e, M) {
@@ -4640,6 +4642,8 @@
       const b = Q.en.find((e) => D.BOSSES[e.type]); if (!b) { out.push(`gate f${f}: no boss`); continue; }
       Q.arena = { active: 1, room: b.room, t0: T2.t }; b.hp = 0; killEnemy(T2, Q, b); Q.en = Q.en.filter((e) => e === b); for (let i = 0; i < 200 && (Q.freeze > 0 || Q.inbuf); i++) step(T2, { keys: [] }); const g = Q.arena && Q.arena.gate;
       if (!g) { out.push(`gate f${f}: no portal home after the boss`); continue; }
+      // (TASKS 1037) the ring's gap opens on floor a body can walk from the disc out past the stones
+      for (let d = 0; d <= 2.6 * TILE; d += 8) if (boxHit(Q.map, g.x + Math.cos(g.open) * d, g.y + Math.sin(g.open) * d, K.R, false, false)) { out.push(`gate f${f}: the ring's gap is walled at ${d} px`); break; }
       if (Math.hypot(g.x - Q.map.exit.x, g.y - Q.map.exit.y) < 100) out.push(`gate f${f}: the portal stands by the stairs`);
       hq.x = g.x; hq.y = g.y + 30; E(T2); if (Q.floor !== 0 || !Q.portal || Q.portal.f !== f) { out.push(`gate f${f}: the portal does not take the hero home`); continue; }
       hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; E(T2);
