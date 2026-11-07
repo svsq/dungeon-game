@@ -1265,7 +1265,8 @@
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
     // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
     if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
-    const mvx = h.sunk ? 0 : dashing ? h.dashX * K.DASH : h.vx, mvy = h.sunk ? 0 : dashing ? h.dashY * K.DASH : h.vy;
+    const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.35);   // (climbing out over the lip, TASKS 1049)
+    const mvx = held ? 0 : dashing ? h.dashX * K.DASH : h.vx, mvy = held ? 0 : dashing ? h.dashY * K.DASH : h.vy;
     const ox = h.x, oy = h.y; const [bx, by] = move(m, h, mvx * DT, mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     // a drowned's grab draws the hero a step toward it at an even pace
     if (h.pull) { const P = h.pull, sp = Math.min(P.n / P.T * DT, P.n - P.done); move(m, h, P.x * sp, P.y * sp, K.R); P.done += sp; if (P.done >= P.n - 0.01) h.pull = null; }
