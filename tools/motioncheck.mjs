@@ -21,6 +21,7 @@
 //   turn      — folk_talk, town_talk: talking, the smith's front hand is toward the hero, on either side of him
 //   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
 //               golem's ground point (the far one swung on past the body and lay behind it)
+//   fists     — golem_attack: while the fists rest on the floor neither stands more than FIST px over the slam's line (the far one hung at 35)
 //   crust     — golem_crust_off: the molten share of the golem's box grows by CRUST once its plates are knocked off
 //   leapSpacing, leapPose, throw — imp_leap, imp_attack (TASKS 489): an even flight, legs that push off, tuck and reach, and an
 //               overhand throw from behind the head
@@ -133,7 +134,12 @@ if (meta.tr.includes('golem_attack')) {
   if (!f || !f.en.handL || !f.en.handR) report('slam', 'golem_attack', false, 'no strike frame with both hands');
   else { const s = Math.abs(f.hero.ground[0] - f.en.ground[0]) / Math.abs(f.hx - f.ex), c = [f.en.ground[0] + Math.cos(f.aim) * G0.at * s, f.en.ground[1] + Math.sin(f.aim) * G0.at * 0.8 * s], dir = Math.sign(Math.cos(f.aim)) || 1;
     const far = ['L', 'R'].map((k) => { const q = f.en['hand' + k]; return [k, Math.hypot(q[0] - c[0], (q[1] - c[1]) / 0.7) / s, (q[0] - f.en.ground[0]) * dir / s]; });
-    report('slam', 'golem_attack', far.every(([, d, fw]) => d <= G0.r && fw >= 0), far.map(([k, d, fw]) => `hand ${k} ${d.toFixed(0)} px from the slam's centre (r ${G0.r}), ${fw.toFixed(0)} px before the ground`).join(', ')); } }
+    report('slam', 'golem_attack', far.every(([, d, fw]) => d <= G0.r && fw >= 0), far.map(([k, d, fw]) => `hand ${k} ${d.toFixed(0)} px from the slam's centre (r ${G0.r}), ${fw.toFixed(0)} px before the ground`).join(', '));
+    // (TASKS 1054) while they rest on the floor (the strike's first GOLEM_SLAM.hold s, 1/60 s a frame) both fists lie no more than
+    // FIST px over the slam's line: the far one hung 35.5 px by this measure, 17.7 after 1054; the 12 asked takes a longer arm in the
+    // rig (TASKS 1147), so the line holds what the pose can do and stops it sliding back
+    const FIST = 20, held = fr.filter((q) => q.st === 'strike' && q.en && q.en.handL && q.en.handR).slice(0, 12), up = Math.max(...held.map((q) => Math.max(...['L', 'R'].map((k) => (q.en.ground[1] + Math.sin(q.aim) * G0.at * 0.8 * s - q.en['hand' + k][1]) / s))));
+    report('fists', 'golem_attack', up <= FIST, `the higher fist ${up.toFixed(1)} px over the slam's line while they rest (≤ ${FIST})`); } }
 // the golem's crust (TASKS 458): with its plates knocked off the molten core shows over at least CRUST of its body (it changed only
 // the cracks' glow before: the silhouette never told how much crust was left)
 if (meta.tr.includes('golem_crust_off')) {
