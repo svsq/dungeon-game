@@ -4687,7 +4687,7 @@
               R2.drops = []; const want2 = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
               if (!S2.run || R2.floor !== 13) out.push(`campaign: the stairs past the serpent lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 13th`);
               else { const NM = D.RUNS.magma;
-                if (R2.map.biome !== 'magma' || R2.map.W !== NM.size[0][0] || dep(R2) !== 13) out.push(`campaign f13: not the magma caves' 1st at depth 13 (${R2.map.biome} ${R2.map.W} depth ${dep(R2)})`);
+                if (R2.map.biome !== 'magma' || R2.map.W !== NM.size[0][0] || dep(R2) !== 13 + (D.RUNS.campaign.chapters.find((c) => c.run === 'magma').shift || 0)) out.push(`campaign f13: not the magma caves' 1st at its depth (${R2.map.biome} ${R2.map.W} depth ${dep(R2)})`);
                 if (JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]) !== want2) out.push('campaign f13: the hero changed on the way down');
                 enterFloor(S2, R2, 16); const co = R2.en.find((e) => e.type === 'boss_colossus'); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
                 if (!S2.run) out.push('campaign f16: the way out opens before the colossus dies');

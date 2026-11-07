@@ -981,9 +981,10 @@
         (n) => (n <= 2 ? 'arch' : n <= 5 && P() < 0.5 ? 'slabs' : 'bridge'), 'slabs', 'arch', crossings)) return false;
       // the crossings laid last may take all the lava round an earlier one: it joins the crossing beside it (a bridge keeps its deck,
       // so by a bridge it is plain ridge again); a vent a crossing was laid over moves to the lava next to it, or goes
-      for (let i = crossings.length - 1; i >= 0; i--) { const c = crossings[i]; if (c.cells.some((k) => D4.some((o) => cells[k + o] === 3))) continue;
+      const loneCross = () => { for (let i = crossings.length - 1; i >= 0; i--) { const c = crossings[i]; if (c.chasm || c.cells.some((k) => D4.some((o) => cells[k + o] === 3))) continue;
         const own = new Set(c.cells), to = crossings.find((e) => e !== c && e.kind !== 'bridge' && e.cells.some((k) => D4.some((o) => own.has(k + o))));
-        if (to) to.cells.push(...c.cells); else for (const k of c.cells) if (!crossings.some((e) => e !== c && e.cells.includes(k))) under.delete(k); crossings.splice(i, 1); }
+        if (to) to.cells.push(...c.cells); else for (const k of c.cells) if (!crossings.some((e) => e !== c && e.cells.includes(k))) under.delete(k); crossings.splice(i, 1); } };
+      loneCross();
       if (riverY.length) for (const c of crossings) if (c.cells.some((k) => fig[k])) c.river = 1;
       // (two to four places to cross the river, as selfCheck counts them: the ways laid over it may merge into one, 1 river floor in 13)
       if (riverY.length) { const xs = crossings.filter((c) => c.river).map((c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length).sort((a, b) => a - b); let n = 0, last = -99;
@@ -1023,7 +1024,9 @@
         while (st.length) { const k = st.pop(); for (const o of D4) { const n = k + o; if (!sv[n] && (cells[n] === 1 || cells[n] === 4)) { sv[n] = 1; st.push(n); } } }
         for (let k = 0; k < W * H; k++) if (cells[k] === 1 && !sv[k] && !hidden.has(k)) cells[k] = 0;
         // and a cell of it left between the lava over and under it goes to lava (no strip of rock a cell thick)
-        for (let k = W; k < W * (H - 1); k++) if (cells[k] === 0 && !held(k % W, Math.floor(k / W)) && cells[k - W] && cells[k + W] && (cells[k - W] === 3 || cells[k + W] === 3)) cells[k] = 3; }
+        for (let k = W; k < W * (H - 1); k++) if (cells[k] === 0 && !held(k % W, Math.floor(k / W)) && cells[k - W] && cells[k + W] && (cells[k - W] === 3 || cells[k + W] === 3)) cells[k] = 3;
+        // (a chain bridge's landing may take the last lava round a slab beside it, seed 4242's 14th of the campaign)
+        loneCross(); }
       // a bridge's deck spans its cells along the way and stands on a post at each corner (TASKS 306's layout), some with a fire
       // a crossing laid where no ridge was cut would be a short cut: the walk to the stairs keeps its least (AR.path)
       { const dd = new Int32Array(W * H).fill(-1), qq = [start.cy * W + start.cx]; dd[qq[0]] = 0;
