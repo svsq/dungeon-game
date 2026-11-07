@@ -2096,7 +2096,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck());
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -2532,6 +2532,25 @@
         press(S2, b); const Q3 = S2.run;
         if (!Q3 || Q3.floor !== 0 || !Q3.town || S2.screen !== 'play' || Q3.hero.lvl !== 1 || Q3.hero.gold !== 0 || Q3.hero.bag.filter(Boolean).length !== 3 || !Q3.hero.bag.some((it) => it && it.b === 'scroll')) out.push(`town: after a ${how} the hero does not start anew in the town`);
         if (S2.meta.shards < shards) out.push(`town: the meta loses shards after a ${how}`); } }
+    return out;
+  }
+
+  // the classes (TASKS 1100): every field, abilities and bases that exist, a new hero of each built from its class, an old save a warrior
+  function classCheck() {
+    const out = [], has = (o, ks) => ks.every((k) => typeof (o || {})[k] === 'number');
+    for (const [id, C] of Object.entries(D.CLASSES)) {
+      if (!C.name || !has(C.base, D.STATS.map((q) => q.k)) || !has(C.grow, ['hp', 'mp', 'pts', 'sp']) || !C.look || !C.look.rig) out.push(`class ${id}: a field is missing`);
+      if (C.abilities.length !== 3 || C.unlock.length !== 3 || C.abs.some((a) => !a.id || !a.name)) out.push(`class ${id}: not three abilities that exist`);
+      if (!C.unlock.includes(1)) out.push(`class ${id}: no ability at level 1`);
+      if (!ABILITIES.some((a) => a.id === C.rclick)) out.push(`class ${id}: the right click's ability does not exist`);
+      for (const [slot, b] of Object.entries(C.start)) if (!BASES[b] || BASES[b].slot !== slot) out.push(`class ${id}: starting ${slot} ${b} is no such base`);
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 81, { cls: id }), h = R.hero;
+      if (h.cls !== id || h.eq.weapon.b !== C.start.weapon || h.eq.armor.b !== C.start.armor) out.push(`class ${id}: a new hero is not of its class`);
+      if (Object.keys(h.ab).join() !== C.abilities.join() || C.abs.some((a, i) => (h.ab[a.id] > 0) !== (C.unlock[i] <= 1))) out.push(`class ${id}: a new hero's abilities are not its class's`);
+      if (D.STATS.some((q) => h.base[q.k] !== C.base[q.k])) out.push(`class ${id}: a new hero's base stats are not its class's`);
+    }
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 81), h = R.hero, H = JSON.parse(JSON.stringify(h)); delete H.cls; H.lvl = 5;
+      if (h.cls !== 'warrior' || D.clsOf(H) !== D.CLASSES.warrior || JSON.stringify(stats(H, S.meta)) !== JSON.stringify(stats(Object.assign({}, H, { cls: 'warrior' }), S.meta))) out.push('class: a hero saved without a class is not a warrior'); }
     return out;
   }
 

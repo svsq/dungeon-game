@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    ABILITIES, BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
+    BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
     dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroSt, hidden, isCons, losClear, pick,
     potion, propBoxes, ri, rnd, rollItem, secretMask } = SIMX;
   // ---------------- actions ----------------
@@ -43,7 +43,7 @@
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
   }
   function castAbility(S, R, id, inp) {
-    const h = R.hero, A = ABILITIES.find((a) => a.id === id), rank = h.ab[id] || 0;
+    const h = R.hero, A = D.clsOf(h).abs.find((a) => a.id === id), rank = h.ab[id] || 0;
     if (!rank) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s', { unlock: A.unlock }) }); return; }
     if (h.cd[id] > S.t) return;
     if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s.2') }); return; }

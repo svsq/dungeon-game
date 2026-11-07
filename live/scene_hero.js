@@ -14,18 +14,18 @@
   const SHIELD = { shield: ['it_shield', 30], buckler: ['it_buckler', 22], tower_shield: ['it_shield_t', 44] };
   const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', shin: 'boots', foot: 'boots' };
   function gearOf(h) {
-    const eq = h.eq || {}, b = (k) => (eq[k] ? eq[k].b : ''), tex = (n, sfx) => (sfx && window.ASSETS['hero__' + n + '_' + sfx] ? 'hero__' + n + '_' + sfx : 'hero__' + n);
+    const pn = D.clsOf(h).look.rig + '__', eq = h.eq || {}, b = (k) => (eq[k] ? eq[k].b : ''), tex = (n, sfx) => (sfx && window.ASSETS[pn + n + '_' + sfx] ? pn + n + '_' + sfx : pn + n);
     const sfx = { armor: GEAR.armor[b('armor')] ?? '', gloves: GEAR.gloves[b('gloves')] ?? '', boots: GEAR.boots[b('boots')] ?? '' }, helm = GEAR.helm[b('helm')];
     // a better piece is tinted toward its rarity: uncommon green .. legendary gold, just enough to tell at a glance
     const rar = (k) => { const it = eq[k]; return it && it.rar > 0 ? [...D.RARITY[it.rar].col, 0.12 + 0.06 * it.rar] : null; };
     const part = (n) => { const slot = SLOT_OF[n.slice(0, -1)]; return { tex: tex(n, sfx[slot]), tint: rar(slot) }; };
-    const nh = helm ? '_nh' : '', body = (v) => (window.ASSETS['hero__' + v + (sfx.armor ? '_' + sfx.armor : '') + nh] ? 'hero__' + v + (sfx.armor ? '_' + sfx.armor : '') + nh : 'hero__' + v);
+    const nh = helm ? '_nh' : '', body = (v) => (window.ASSETS[pn + v + (sfx.armor ? '_' + sfx.armor : '') + nh] ? pn + v + (sfx.armor ? '_' + sfx.armor : '') + nh : pn + v);
     const sh = SHIELD[b('offhand')];
-    return { part, body: body('body'), back: body('body_back'), helm: helm && window.ASSETS['hero__head_' + helm] ? helm : null, helmTint: rar('helm'), shield: sh, shieldTint: rar('offhand') };
+    return { part, body: body('body'), back: body('body_back'), helm: helm && window.ASSETS[pn + 'head_' + helm] ? helm : null, helmTint: rar('helm'), shield: sh, shieldTint: rar('offhand') };
   }
   SC.gearOf = gearOf;
   function heroPose(h, GT, st) {
-    const RG = RIGS.hero, s = HERO_H / RG.h, sp = Math.hypot(h.vx, h.vy), run = SS(10, 150, sp) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1);
+    const RG = RIGS[D.clsOf(h).look.rig], s = HERO_H / RG.h, sp = Math.hypot(h.vx, h.vy), run = SS(10, 150, sp) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1);
     const dirx = sp > 1 ? h.vx / sp : 0, diry = sp > 1 ? h.vy / sp : 0;
     const p = h.gp || 0, u0 = ((p / (2 * Math.PI)) % 1 + 1) % 1, sl = SIM.Q.stepLen(Math.abs(dirx));
     return { RG, s, run, dirx: dirx * h.face, diry, p, u0, sl };
@@ -71,7 +71,7 @@
     // the raised hands come over the lip first)
     if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(130 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
-    const P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
+    const pn = D.clsOf(h).look.rig + '__', P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
     const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && h.castK !== 'whirl';
     // whirl: the hand and blade sweep a ground ellipse at waist height around the body from the aim, behind it while pointing away;
     // eased in from the current pose and out of a crouch
@@ -238,14 +238,14 @@
       const bodyAt = { m: M.of(M.t(...hipS), M.r(fallR + bodyR), M.s(fX, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s] };
       if (!castFront) drawArm('L', Ufar);
       // seen from the front the cape's flap hangs over the far arm, as painted, but behind both legs
-      if (backK < 1 && window.ASSETS.hero__cape) L.sprite('hero__cape', 0, 0, Object.assign({ u: Object.assign({}, U, soft('hero__cape', capeA)) }, bodyAt));
+      if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(pn + 'cape', 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt));
       if (!castFront) shield(Ufar);
       drawLeg('L', Ufar); drawLeg('R', U);
       if (behind) { weapon(); drawArm('R', U); }
-      if (backK < 1) L.sprite(GR.body, 0, 0, Object.assign({ u: Object.assign({}, U, { snap: 2 * L.SNAP }, soft('hero__body', GR.helm ? 0 : hairA)) }, bodyAt));
-      if (backK < 1 && GR.helm) L.sprite('hero__head_' + GR.helm, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
-      if (backK > 0 && window.ASSETS.hero__body_back) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, U, { alpha: alpha * backK }, soft('hero__body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
-      if (backK > 0 && GR.helm) L.sprite('hero__head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, tinted(U, GR.helmTint), { alpha: alpha * backK }) }, bodyAt));
+      if (backK < 1) L.sprite(GR.body, 0, 0, Object.assign({ u: Object.assign({}, U, { snap: 2 * L.SNAP }, soft(pn + 'body', GR.helm ? 0 : hairA)) }, bodyAt));
+      if (backK < 1 && GR.helm) L.sprite(pn + 'head_' + GR.helm, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
+      if (backK > 0 && window.ASSETS[pn + 'body_back']) L.sprite(GR.back, 0, 0, Object.assign({ u: Object.assign({}, U, { alpha: alpha * backK }, soft(pn + 'body_back', capeB, GR.helm ? 0 : hairA)) }, bodyAt));
+      if (backK > 0 && GR.helm) L.sprite(pn + 'head_back_' + GR.helm, 0, 0, Object.assign({ u: Object.assign({}, tinted(U, GR.helmTint), { alpha: alpha * backK }) }, bodyAt));
       if (castFront) { drawArm('L', backK > 0.5 ? Ufar : U); shield(backK > 0.5 ? Ufar : U); if (readE > 0.3) scroll(); }
       if (!behind) { drawArm('R', U); weapon(); }
     };
@@ -257,8 +257,8 @@
     const tipJ = (n, b, a) => { const r = RIGS[n].bones[b], q = rotP(RIGS[n].tips[b], r, a), x = fX * (q[0] - Hc[0]) * s, y = (q[1] - Hc[1]) * s, c = Math.cos(fallR + bodyR), sn = Math.sin(fallR + bodyR);
       return [hipS[0] + x * c - y * sn, hipS[1] + x * sn + y * c]; };
     // one point per view while that view is drawn: the two views cross-fade, their hems are far apart and never travel between them
-    if (backK < 1 && RIGS.hero__cape) { J('cape', tipJ('hero__cape', 0, capeA)); J('hairTip', tipJ('hero__body', 0, hairA)); }
-    if (backK > 0 && RIGS.hero__body_back) { J('capeBack', tipJ('hero__body_back', 0, capeB)); J('hairTipBack', tipJ('hero__body_back', 1, hairA)); }
+    if (backK < 1 && RIGS[pn + 'cape']) { J('cape', tipJ(pn + 'cape', 0, capeA)); J('hairTip', tipJ(pn + 'body', 0, hairA)); }
+    if (backK > 0 && RIGS[pn + 'body_back']) { J('capeBack', tipJ(pn + 'body_back', 0, capeB)); J('hairTipBack', tipJ(pn + 'body_back', 1, hairA)); }
     J('ground', root); J('head', R2U(RG.head[0], RG.head[1], hipDy * s)); J('top', R2U(RG.top[0], RG.top[1], hipDy * s)); J('hip', R2S((RG.hipL[0] + RG.hipR[0]) / 2 + hipDx, RG.hipL[1], hipDy * s));
     for (const side of ['L', 'R']) { const g = legs[side]; J('hip' + side, R2S(g.Hp[0], g.Hp[1])); J('knee' + side, R2S(g.K[0], g.K[1])); J('ankle' + side, R2S(g.T[0], g.T[1]));
       const dT = [g.T[0] - g.A0[0], g.T[1] - g.A0[1]]; J('heel' + side, R2S(RG['heel' + side][0] + dT[0], RG['heel' + side][1] + dT[1])); J('toe' + side, R2S(RG['toe' + side][0] + dT[0], RG['toe' + side][1] + dT[1])); J('ground' + side, [root[0], root[1] + tg[side].dz * s]);

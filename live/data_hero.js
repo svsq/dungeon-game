@@ -1,4 +1,4 @@
-// live/data_hero.js — abilities, stats, the meta upgrades, the altars' gifts, experience.
+// live/data_hero.js — classes, abilities, stats, the meta upgrades, the altars' gifts, experience.
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data and pure helpers, no state; data.js checks the set.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
@@ -21,6 +21,20 @@
   // fire %, rank and floor all multiplied in made one fireball take 1800 on the 8th on hard, seven swings (TASKS 245)
   const FIRE_K = 1.5;
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
+  // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
+  // right click's ability, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
+  // the class screen of 1103 lists only those). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
+  const CLASSES = {
+    warrior: { name: TXT('CLASSES.warrior.name'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
+      abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1 } },
+    mage: { name: TXT('CLASSES.mage.name'), base: { str: 3, agi: 4, int: 6, vit: 4 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
+      abilities: ['fireball', 'shield', 'whirl'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'staff', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 } },
+    archer: { name: TXT('CLASSES.archer.name'), base: { str: 4, agi: 6, int: 3, vit: 4 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
+      abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 } },
+  };
+  for (const C of Object.values(CLASSES)) C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
+  const clsOf = (h) => CLASSES[(h && h.cls) || 'warrior'] || CLASSES.warrior;
+
   const STATS = [
     { k: 'str', name: TXT('STATS.str.name'), full: TXT('STATS.str.full') },
     { k: 'agi', name: TXT('STATS.agi.name'), full: TXT('STATS.agi.full') },
@@ -84,5 +98,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

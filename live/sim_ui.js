@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    ABILITIES, BASES, D, DT, FROM, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
+    BASES, D, DT, FROM, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
     throwAway, useItem } = SIMX;
   // ---------------- run end / menus ----------------
@@ -152,14 +152,14 @@
     return;
   };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
-    const R = S.run, h = R.hero, U = UI.inv(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (!b) return;
     if (click && b.id.startsWith('bag:')) useItem(S, R, b.i);
     if (click && b.id.startsWith('eq:')) { const it = h.eq[b.slot]; if (it && bagAdd(R, it)) { h.eq[b.slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot: b.slot, off: gearName(it) }); } }
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i]; h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); }
     if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); }
-    if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = ABILITIES.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; ev(S, { k: 'buy', x, y }); } }
+    if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; ev(S, { k: 'buy', x, y }); } }
   };
   function stepUI(S, inp, keys) {
     const f = SCREEN[S.screen];

@@ -234,7 +234,7 @@
     bar('xpbar', 116, 72, 230, 9, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
     if (h.shield > 0 && GT < h.shieldUntil) L.rrect(119, 15, 224 * Math.min(1, h.shield / st.maxHp), 6, 3, [0.6, 0.85, 1], [0.3, 0.55, 1], 0.9);
     // skill bar + potions
-    D.ABILITIES.forEach((A, i) => { const x = 116 + i * 54, y = 88, r = h.ab[A.id] || 0;
+    D.clsOf(h).abs.forEach((A, i) => { const x = 116 + i * 54, y = 88, r = h.ab[A.id] || 0;
       panel('sk_' + A.id, x, y, 48, 48, { r: 5, rim: r ? C.rimHi : C.rim });
       icon(A.icon, x + 3, y + 3, 42, { alpha: r ? 1 : 0.25, grade: r ? [1, 1, 0, 1] : [0, 0.5, 0, 1] });
       const cd = h.cd[A.id] - GT, full = A.cd; if (r && cd > 0) { L.solid(x + 3, y + 3 + 42 * (1 - cd / full), 42, 42 * cd / full, [0, 0, 0], 0, 0, 0, 0.6); lab('skc_' + A.id, cd.toFixed(1), x + 24, y + 25, { size: 16, al: 0.5 }); }
@@ -467,7 +467,7 @@
 
   // ---------------- hero screen ----------------
   function inv(S, R, t) {
-    const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(), P = U.P;
+    const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs), P = U.P;
     dim(0.35); panel('inv', P.x, P.y, P.w, P.h, { r: 10, a: 0.72 });
     lab('inv_t', TXT('hud.inv'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
     lab('inv_g', TXT('hud.inv.2', { gold: h.gold }), P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('inv_g', TXT('hud.inv.3', { gold: h.gold }), { size: 28 }) - 46, P.y + 28, 36);
@@ -497,7 +497,7 @@
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]);
     // skills
     lab('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), P.x + 640, P.y + 448, { size: 24, col: h.sp > 0 ? C.gold : C.dim });
-    D.ABILITIES.forEach((A, i) => { const b = U.r.find((q) => q.id === 'ab:' + A.id), r = h.ab[A.id] || 0, can = h.sp > 0 && h.lvl >= A.unlock && r < D.AB_MAX;
+    D.clsOf(h).abs.forEach((A, i) => { const b = U.r.find((q) => q.id === 'ab:' + A.id), r = h.ab[A.id] || 0, can = h.sp > 0 && h.lvl >= A.unlock && r < D.AB_MAX;
       panel('ab_' + i, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });

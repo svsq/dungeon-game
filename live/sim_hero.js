@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    ABILITIES, BAL, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
+    BAL, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
     armored, atBrink, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
     inWater, isCons, lastFloor, logFloor, losClear, move, onLava, onPlate, potion, pushable, reveal, ri, rise, rnd, rollItem, shove,
     soaked, split, stats, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
@@ -21,8 +21,8 @@
   }
   function gainXp(S, R, n) {
     const h = R.hero; n = Math.round(n * dif(R, 'xp')); h.xp += n; if (R.log) logFloor(R).xp += n;
-    while (h.xp >= D.xpNeed(h.lvl)) { h.xp -= D.xpNeed(h.lvl); h.lvl++; h.pts += 3; h.sp += 1;
-      for (const a of ABILITIES) if (a.unlock === h.lvl && !h.ab[a.id]) { h.ab[a.id] = 1; ev(S, { k: 'unlock', x: h.x, y: h.y, id: a.id }); }
+    while (h.xp >= D.xpNeed(h.lvl)) { h.xp -= D.xpNeed(h.lvl); h.lvl++; const C = D.clsOf(h); h.pts += C.grow.pts; h.sp += C.grow.sp;
+      for (const a of C.abs) if (a.unlock === h.lvl && !h.ab[a.id]) { h.ab[a.id] = 1; ev(S, { k: 'unlock', x: h.x, y: h.y, id: a.id }); }
       const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp; ev(S, { k: 'lvl', x: h.x, y: h.y, lvl: h.lvl }); }
   }
   // no invulnerability after a blow (the balance was tuned without it). A dash leaps spikes and lava; against a monster's blow, bolt
@@ -246,7 +246,7 @@
       SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc);
     }
     // ---- abilities / potions / interact ----
-    if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, ABILITIES[inp.slot - 1].id, inp);
+    if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, D.clsOf(h).abs[inp.slot - 1].id, inp);
     // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
     if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
       S.meta.tipScroll = 1; R.msg = { s: TXT('sim_hero.stepPlay.msg.s'), t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }
@@ -254,7 +254,7 @@
     { const W = D.TIPS.whirl; if (h.ab.whirl && h.cd.whirl <= S.t && (S.meta.whirls || 0) < W.until && S.t - (R.tipT ?? -1e9) > W.every && !(R.msg && S.t - R.msg.t < (R.msg.d || 3.5))) {
       const r = D.abRank('whirl', h.ab.whirl).r; if (R.en.filter((e) => e.deadT < 0 && !under(e) && e.st !== 'idle' && e.st !== 'home' && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < r + ENEMIES[e.type].r).length >= W.n) {
         R.tipT = S.t; R.msg = { s: W.s, t: S.t, d: 3, tip: 'whirl' }; ev(S, { k: 'tip', id: 'whirl', x: h.x, y: h.y }); } } }
-    if (inp.rclick) SIMX.castAbility(S, R, 'fireball', inp);
+    if (inp.rclick) SIMX.castAbility(S, R, D.clsOf(h).rclick, inp);
     if (keys.KeyQ) SIMX.usePotion(S, R, 'hp_potion');
     // T reads the scroll of return (TASKS 1026: behind the bag alone, a novice never found it)
     if (keys.KeyT) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); if (i >= 0) SIMX.useItem(S, R, i); else ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.stepPlay.s') }); }

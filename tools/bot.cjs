@@ -353,9 +353,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // the points a run starts with are laid out on the hero screen, where each point of VIT or INT comes with its health or mana
     if (R.floor === 1 && S.t - tF < 1 && h.pts > 0) { while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; } const s0 = SIM.stats(h, S.meta); h.hp = s0.maxHp; h.mp = s0.maxMp; }
     while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
-    if (P.skills) { const a = P.skills.map((id) => D.ABILITIES.find((q) => q.id === id)).find((q) => h.lvl >= q.unlock && (h.ab[q.id] || 0) < D.AB_MAX);
+    if (P.skills) { const a = P.skills.map((id) => D.clsOf(h).abs.find((q) => q.id === id)).filter(Boolean).find((q) => h.lvl >= q.unlock && (h.ab[q.id] || 0) < D.AB_MAX);
       if (a && h.sp > 0) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; } }
-    else for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
+    else for (const a of D.clsOf(h).abs) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
     // the gear is weighed again only when the bag, the worn set, the level or a rank changed
     const gk = h.bag.map((it) => it ? it.id : 0).join() + '|' + D.SLOTS.map((k) => h.eq[k] ? h.eq[k].id : 0).join() + '|' + h.lvl + '|' + h.ab.fireball + '|' + R.floor;
     if (gk !== gearKey) { gearKey = gk; h.bag.forEach((it, j) => { if (!gear(it) || !wearable(h, it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (worth(S, h, P, it) > worth(S, h, P, c, sl) + 1e-6) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } }); }

@@ -3,30 +3,31 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    ABILITIES, BAL, BASES, D, DG, DT, ENEMIES, FROM, K, RUN, STAGE, WIN, boxHit, clampCam, dep, dif, eliteK, ev, gearName, itemPower,
+    BAL, BASES, D, DG, DT, ENEMIES, FROM, K, RUN, STAGE, WIN, boxHit, clampCam, dep, dif, eliteK, ev, gearName, itemPower,
     lastFloor, potCount, potion, reveal, rnd, rollAffixes, rollItem, shove, stats, who } = SIMX;
   // ---------------- run & floor ----------------
-  function newHero(meta) {
-    const up = meta.up || {};
-    const h = { x: 0, y: 0, vx: 0, vy: 0, face: 1, faceT: -9, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
-      base: { str: 5, agi: 4, int: 3, vit: 5 }, gold: 0, eq: {}, bag: new Array(24).fill(null), ab: { whirl: 1, fireball: 0, shield: 0 },
-      cd: { whirl: 0, fireball: 0, shield: 0, dash: 0, atk: 0 }, atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
+  function newHero(meta, cls = 'warrior') {
+    const up = meta.up || {}, C = D.CLASSES[cls], ab = {}, cd = {};
+    for (const a of C.abs) { ab[a.id] = a.unlock <= 1 ? 1 : 0; cd[a.id] = 0; }
+    const h = { cls, x: 0, y: 0, vx: 0, vy: 0, face: 1, faceT: -9, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
+      base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(24).fill(null), ab,
+      cd: Object.assign(cd, { dash: 0, atk: 0 }), atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
       hurtT: -9, ifr: 0, shield: 0, shieldT: -9, shieldUntil: 0, poison: 0, burn: 0, burnT: -9, spikeT: -9, dist: 0, gp: 0, deadT: -1, regen: 0, bless: 0 };
     for (const k of D.SLOTS) h.eq[k] = null;
     return h;
   }
   function newRun(S, mode, seed, o = {}) {
-    const R = { mode, seed, diff: S.demo ? 'normal' : S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta), cam: [0, 0], camV: [0, 0],
+    const R = { mode, seed, diff: S.demo ? 'normal' : S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta, o.cls || S.meta.cls || 'warrior'), cam: [0, 0], camV: [0, 0],
       freeze: 0, trauma: 0, map: null, en: [], proj: [], drops: [], chests: [], pots: [], shrines: [], seen: [], rseen: [], bossDead: 0, won: 0, saveT: 0, msg: null };
     if (!S.demo) R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
-    const h = R.hero;
+    const h = R.hero, C = D.clsOf(h), G = C.grow, W = C.start.weapon, A = C.start.armor;
     const give = (it) => { it.id = R.nextId++; return it; };
-    h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: 'sword', rar: 0, mods: {}, atk: BASES.sword.atk }));
-    h.eq.armor = give({ b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: BASES.leather_armor.def });
+    h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: W, rar: 0, mods: {}, atk: BASES[W].atk }));
+    h.eq.armor = give({ b: A, rar: 0, lvl: 1, mods: {}, def: BASES[A].def });
     const gr = (S.meta.up || {}).gear || 0; if (gr) for (const it of [h.eq.weapon, h.eq.armor]) { it.rar = gr; rollAffixes(R, itemPower(it)); }
     h.bag[0] = give(potion('hp_potion', BAL.startHpPot + ((S.meta.up || {}).potion || 0))); h.bag[1] = give(potion('mp_potion', 1));
     // a run that starts deeper hands the hero its levels as points to lay out and its kit (data.js RUNS)
-    const N = RUN(R); if (N.lvl > 1) { h.lvl = N.lvl; h.pts += 3 * (N.lvl - 1); h.sp += N.lvl - 1; for (const a of ABILITIES) if (a.unlock <= h.lvl) h.ab[a.id] = Math.max(1, h.ab[a.id] || 0); }
+    const N = RUN(R); if (N.lvl > 1) { h.lvl = N.lvl; h.pts += G.pts * (N.lvl - 1); h.sp += G.sp * (N.lvl - 1); for (const a of C.abs) if (a.unlock <= h.lvl) h.ab[a.id] = Math.max(1, h.ab[a.id] || 0); }
     if (N.kit) { const K = N.kit; for (const [b, rar] of K.gear) h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} })));
       h.bag[0].n += K.hp - BAL.startHpPot; h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
