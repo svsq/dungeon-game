@@ -27,6 +27,8 @@
   // reads the depth, the run's own floor numbers only place its bosses, guards and end
   // the endless descent's first floor: past the serpent it goes on from the 13th (TASKS 386)
   const FROM = (R) => (R.campaignWon ? D.RUNS.campaign.floors + 1 : 1);
+  // what the stairs say before a floor's boss is beaten: its chapter's own words (TASKS 416), the run's for its own floors
+  const sealOf = (R) => { const N = D.stageOf(R.mode, R.floor, R.seed, FROM(R)).N; return (N && N !== RUN(R) && N.seal) || RUN(R).seal; };
   const RUN = (R) => D.runOf(R.mode), STAGE = (R, f = R.floor) => D.stageOf(R.mode, f || 1, R.seed, FROM(R)), dep = (R, f = R.floor) => STAGE(R, f).depth, lastFloor = (R) => R.floor === RUN(R).floors;
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
   const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' (элита)' : '') : '?';
@@ -1456,10 +1458,10 @@
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     const fk = folkNear(R); if (fk) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
-    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: RUN(R).seal }); return; }
+    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (arenaSealed(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Сначала одолейте босса главы' }); return; }
-      if (lastFloor(R) && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: RUN(R).seal }); return; }
+      if (lastFloor(R) && R.mode !== 'endless') { if (R.bossDead) { endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) openAltar(S, R, used);
@@ -3547,12 +3549,13 @@
       for (const b of E.pool) if (!seen.has(b)) out.push(`endless: biome ${b} never comes up on 40 seeds`);
       // the bosses from their own bag (TASKS 386): all five in each round of five boss pairs, never the same twice running
       for (let sd = 1; sd <= 40; sd++) { const seq = []; for (let f = 4; f <= 84; f += 4) seq.push(D.stageOf('endless', f, sd).boss);
-        if (seq.some((b, i) => !b || b === seq[i - 1]) || [0, 5, 10, 15].some((i) => new Set(seq.slice(i, i + 5)).size !== 5)) { out.push(`endless seed ${sd}: a boss again before all five came up (${seq.join(' ')})`); break; }
+        const nb = E.pool.length, wins = Array.from({ length: Math.floor(seq.length / nb) }, (_, j) => j * nb);   // (six since the magma, TASKS 416)
+        if (seq.some((b, i) => !b || b === seq[i - 1]) || wins.some((i) => new Set(seq.slice(i, i + nb)).size !== nb)) { out.push(`endless seed ${sd}: a boss again before all ${nb} came up (${seq.join(' ')})`); break; }
         // past the serpent the descent's rounds start at its own first boss (the 16th)
         const from = D.RUNS.campaign.floors + 1, deep = []; for (let f = from + 3; f <= from + 83; f += 4) deep.push(D.stageOf('endless', f, sd, from).boss);
-        if (deep.some((b, i) => !b || b === deep[i - 1]) || [0, 5, 10, 15].some((i) => new Set(deep.slice(i, i + 5)).size !== 5)) { out.push(`descent seed ${sd}: a boss again before all five came up (${deep.join(' ')})`); break; } }
+        if (deep.some((b, i) => !b || b === deep[i - 1]) || wins.some((i) => new Set(deep.slice(i, i + nb)).size !== nb)) { out.push(`descent seed ${sd}: a boss again before all ${nb} came up (${deep.join(' ')})`); break; } }
       for (let sd = 1; sd <= 5; sd++) { let last = {};   // within each kind of map (rooms, caves) apart: a cave starts larger
-        for (let f = 1; f <= 40; f++) { const st = D.stageOf('endless', f, sd), k = st.arch || 'rooms', a = st.size[0] * st.size[1];
+        for (let f = 1; f <= 40; f++) { const st = D.stageOf('endless', f, sd), k = st.arch || 'rooms', a = st.size[0] * st.size[1]; if (k === 'plateau') continue;   // (the magma's plateaus keep their own run's sizes, TASKS 416)
           if (a < (last[k] || 0) || a > E.size.to[0] * E.size.to[1] || (f >= E.size.floors && a !== E.size.to[0] * E.size.to[1])) { out.push(`endless seed ${sd} f${f}: the map does not grow to its cap and stop`); break; } last[k] = a; } }
       for (const [sd, f] of [[3, 1], [3, 2], [3, 4], [5, 7], [5, 8], [11, 14], [2, 23], [7, 30]]) { const st = D.stageOf('endless', f, sd), m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'endless', runSeed: sd });
         if (m.W !== st.size[0] || cell(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE)) !== 1) out.push(`endless seed ${sd} f${f}: map size or spawn wrong`);
@@ -3564,18 +3567,18 @@
       { const T = spawn(0, { run: JSON.parse(JSON.stringify(R)) }); T.screen = 'menu'; { const b = UI.menu(true, T.meta.diff, 0, T.meta.zoom).find((q) => q.id === 'continue'); step(T, { px: b.x + b.w / 2, py: b.y + b.h / 2, click: 1, keys: [] }); }
         const Q = T.run; if (!Q || Q.mode !== 'endless' || Q.floor !== 13 || Q.map.W !== R.map.W || D.floorName(Q.floor, Q.mode, Q.seed) !== D.floorName(13, 'endless', 9)) out.push('endless: a saved run does not continue as it was');
         else { enterFloor(T, Q, 14); if (D.stageOf('endless', 14, Q.seed).biome !== D.stageOf('endless', 13, 9).biome) out.push('endless: a continued run loses its pair\'s biome'); } }
-      // past the serpent (TASKS 354): the stairs beside the portal stay shut while it lives; taken after, they win the campaign there
-      // (a win, the record 12, the win's shards and the gold's so far) and the same run, the hero as he was, goes on from the 13th;
+      // past the colossus (TASKS 354, 416: the serpent's choice moved to the 16th): the stairs beside the portal stay shut while it lives; taken after, they win the campaign there
+      // (a win, the record 16, the win's shards and the gold's so far) and the same run, the hero as he was, goes on from the 17th;
       // the gold paid at the stairs is not paid again at the end
-      { const T = spawn(0, {}); T.run = newRun(T, 'campaign', 21); T.screen = 'play'; const Q = T.run, hq = Q.hero; enterFloor(T, Q, 12); const md = Q.map, lvl = 17; hq.lvl = lvl; Q.goldTot = 4000;
-        if (!md.down) out.push('campaign f12: no stairs on past the serpent');
+      { const T = spawn(0, {}); T.run = newRun(T, 'campaign', 21); T.screen = 'play'; const Q = T.run, hq = Q.hero; enterFloor(T, Q, 16); const md = Q.map, lvl = 19; hq.lvl = lvl; Q.goldTot = 4000;
+        if (!md.down) out.push('campaign f16: no stairs on past the colossus');
         else { hq.x = md.down.x; hq.y = md.down.y + 20; interact(T, Q);
-          if (Q.floor !== 12) out.push('campaign f12: the stairs on open before the serpent falls');
-          const b = Q.en.find((e) => e.type === 'boss_serpent'); b.hp = 0; killEnemy(T, Q, b); const w0 = T.meta.wins || 0, s0 = T.meta.shards, id = hq.eq.weapon.id;
+          if (Q.floor !== 16) out.push('campaign f16: the stairs on open before the colossus falls');
+          const b = Q.en.find((e) => e.type === 'boss_colossus'); b.hp = 0; killEnemy(T, Q, b); const w0 = T.meta.wins || 0, s0 = T.meta.shards, id = hq.eq.weapon.id;
           hq.x = md.down.x; hq.y = md.down.y + 20; interact(T, Q);
-          if (Q.floor !== 13 || Q.mode !== 'endless' || T.meta.wins !== w0 + 1 || T.meta.best !== 12 || T.meta.shards - s0 !== Math.floor(4000 / REWARD.goldPer) + REWARD.win || hq.lvl !== lvl || hq.eq.weapon.id !== id)
-            out.push('campaign f12: the stairs on do not win the campaign and go on to the 13th with the same hero');
-          Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 13 || !T.result.campaignWon) out.push('campaign f12: the descent pays the campaign\'s gold twice or keeps no depth'); } }
+          if (Q.floor !== 17 || Q.mode !== 'endless' || T.meta.wins !== w0 + 1 || T.meta.best !== 16 || T.meta.shards - s0 !== Math.floor(4000 / REWARD.goldPer) + REWARD.win || hq.lvl !== lvl || hq.eq.weapon.id !== id)
+            out.push('campaign f16: the stairs on do not win the campaign and go on to the 17th with the same hero');
+          Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 17 || !T.result.campaignWon) out.push('campaign f16: the descent pays the campaign\'s gold twice or keeps no depth'); } }
       endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless' || !S.result.record || !S.result.record.fresh) out.push('endless: the record depth is not kept');
       // each of the five bosses at the end of an endless pair (TASKS 350): its arena seals when the hero walks in and opens at its
       // death; a chapter's end boss pays as the finale (20 shards, LOOT.boss), the others as a chapter boss (3 shards and an item);
@@ -4463,22 +4466,32 @@
             for (let f = 10; f <= 12; f++) { enterFloor(S2, R2, f); const mf = R2.map, lf = f - 8;
               if ((mf.bossType || undefined) !== NC.boss(lf)) out.push(`campaign f${f}: boss ${mf.bossType}, the caves' ${lf}th has ${NC.boss(lf)}`);
               if (!NC.boss(lf) && !!NC.guard[lf] !== mf.enemies.some((e) => e.guard)) out.push(`campaign f${f}: exit guard does not match the caves' ${lf}th`);
-              if (mf.shrines.length !== (f === 10 || f === 11 ? 1 : 0)) out.push(`campaign f${f}: ${mf.shrines.length} altar(s)`);
+              if (mf.shrines.length !== 1) out.push(`campaign f${f}: ${mf.shrines.length} altar(s)`);   // (the 12th a chapter's end as the 8th since the magma, TASKS 416)
               if (f === 11) { // a run saved here, through the browser's storage, goes on in the caves
                 S2.saved = S2.run; S2.run = null; S2.screen = 'menu'; const S3 = spawn(1, JSON.parse(JSON.stringify(persist(S2)))), cb = UI.menu(true).find((q) => q.id === 'continue');
                 step(S3, { keys: [], click: 1, px: cb.x + 10, py: cb.y + 10 });
                 if (!S3.run || S3.run.floor !== 11 || S3.run.mode !== 'campaign' || S3.run.map.biome !== 'cave' || S3.screen !== 'play') out.push('campaign f11: a run saved in the caves does not go on there');
                 else { for (let i = 0; i < 30; i++) step(S3, { keys: [] }); if (!S3.run || dep(S3.run) !== 11) out.push('campaign f11: the continued run breaks'); }
                 S2.run = R2; S2.saved = null; S2.screen = 'play'; } }
-            const sp = R2.en.find((e) => e.type === 'boss_serpent'), best = S2.meta.best; h2.ifr = 1e9; h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
-            if (!S2.run) out.push('campaign f12: the way out opens before the serpent dies');
-            else if (!sp) out.push('campaign f12: no serpent');
-            else { killEnemy(S2, R2, sp); if (!R2.bossDead) out.push('campaign f12: the serpent\'s death does not open the way out');
+            // (TASKS 416) the serpent closes its chapter as the demon lord does: the finale's pay and the stairs on to the magma caves,
+            // the 13th their 1st at the campaign's depth with the same hero; the colossus holds the 16th and only its death wins
+            const sp = R2.en.find((e) => e.type === 'boss_serpent'), best = S2.meta.best; h2.ifr = 1e9;
+            if (!sp) out.push('campaign f12: no serpent');
+            else { killEnemy(S2, R2, sp); if (R2.bossDead) out.push('campaign f12: the serpent\'s death opens the way out of the campaign');
               if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f12: the serpent does not pay the finale\'s 20 shards');
               if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f12: the serpent does not drop the finale\'s loot');
-              h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
-              if (S2.screen !== 'win' || (S2.result || {}).mode !== 'campaign' || S2.result.floor !== 12) out.push('campaign: leaving after the serpent is not a campaign win');
-              if (S2.meta.best !== Math.max(best || 0, 12)) out.push('campaign: the win does not set the floor record to 12'); } } } }
+              R2.drops = []; const want2 = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+              if (!S2.run || R2.floor !== 13) out.push(`campaign: the stairs past the serpent lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 13th`);
+              else { const NM = D.RUNS.magma;
+                if (R2.map.biome !== 'magma' || R2.map.W !== NM.size[0][0] || dep(R2) !== 13) out.push(`campaign f13: not the magma caves' 1st at depth 13 (${R2.map.biome} ${R2.map.W} depth ${dep(R2)})`);
+                if (JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]) !== want2) out.push('campaign f13: the hero changed on the way down');
+                enterFloor(S2, R2, 16); const co = R2.en.find((e) => e.type === 'boss_colossus'); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+                if (!S2.run) out.push('campaign f16: the way out opens before the colossus dies');
+                else if (!co) out.push('campaign f16: no colossus');
+                else { killEnemy(S2, R2, co); if (!R2.bossDead) out.push('campaign f16: the colossus\'s death does not open the way out');
+                  h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+                  if (S2.screen !== 'win' || (S2.result || {}).mode !== 'campaign' || S2.result.floor !== 16) out.push('campaign: leaving after the colossus is not a campaign win');
+                  if (S2.meta.best !== Math.max(best || 0, 16)) out.push('campaign: the win does not set the floor record to 16'); } } } } } }
       // the campaign's caves bring their kinds a floor sooner and more monsters to their first two floors (data.js RUNS chapters);
       // the caves' own run keeps its floors as they were
       { const kinds = (mode, f) => { const c = {}; let n = 0; for (let sd = 1; sd <= 12; sd++) for (const e of DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode }).enemies) { c[e.type] = 1; n++; } return [c, n / 12]; };
