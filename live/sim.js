@@ -409,7 +409,12 @@
   // was explored are lost
   function migrateFloor(R, f, M) { const B = freshFloor(R, f, M), P = (M.d && M.d.p) || {}; BASE.set(M, snapFloor(B));
     const slain = !!(P.bossDead && P.bossDead.v) || (R.slain || []).includes(f), up = B.map.up || B.map.spawn;
-    const mobs = B.en.filter((e) => !D.BOSSES[e.type]).sort((a, b) => Math.hypot(a.x - up.x, a.y - up.y) - Math.hypot(b.x - up.x, b.y - up.y));
+    const far = (a, b) => Math.hypot(a.x - up.x, a.y - up.y) - Math.hypot(b.x - up.x, b.y - up.y), spare = new Set();
+    // a hunt or a lair in hand keeps a quarry alive, the farthest that fits, however few were left there
+    const qr = new Set(questRooms({ map: B.map }).map((r) => r.id));
+    for (const q of R.quests || []) { const T = q.st === 'taken' && q.f === f && D.QUESTS[q.key].type; if (T !== 'named' && T !== 'room') continue;
+      const e = B.en.filter((o) => !spare.has(o) && qr.has(o.room) && (T === 'named' ? plainFoe(o) : o.deadT < 0 && counted(o) && !D.BOSSES[o.type])).sort(far).pop(); if (e) spare.add(e); }
+    const mobs = B.en.filter((e) => !D.BOSSES[e.type] && !spare.has(e)).sort(far);
     for (const e of mobs.slice(0, oldDead(R, f, M, P.en))) { e.hp = 0; e.deadT = 0; }
     for (const k of FLOOR_KEYS) R[k] = B[k];
     const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
@@ -4614,6 +4619,13 @@
         if (hunt() !== 1) out.push('memo: a hunt in hand on an old generator\'s floor gets no quarry anew');
         enterFloor(S, R, 0, undefined, 'up'); enterFloor(S, R, 1); if (dead() !== 4 || hunt() !== 1) out.push('memo: an old generator\'s floor brings its dead back or loses its quarry once left again'); }
       catch (err) { out.push('memo: an old generator\'s floor fails to load: ' + err.message); }
+      R.quests = R.quests.filter((o) => o !== q); }
+    // an almost cleared old floor (more dead than the floor built now holds) still keeps a quarry for a hunt in hand
+    { enterFloor(S, R, 0, undefined, 'up'); const M = R.memo[1]; delete M.gv; M.d = { p: { en: { n: 1, p: { 0: { p: { id: { v: M.id + 999 } } } } } } };
+      const q = newQuest(R, 'named', 1); R.quests.push(q); q.placed = 1;
+      try { enterFloor(S, R, 1); const live = R.en.filter((e) => e.deadT < 0 && !D.BOSSES[e.type]);
+        if (live.length !== 1 || live[0].quest !== q.id) out.push(`memo: an almost cleared old floor leaves a hunt no quarry (${live.length} alive)`); }
+      catch (err) { out.push('memo: an almost cleared old floor fails to load: ' + err.message); }
       R.quests = R.quests.filter((o) => o !== q); }
     // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
     // town's portal brings him back beside it, and the stairs lead on
