@@ -2442,8 +2442,11 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       // (TASKS 485: a dark rock over the dark floor for 0.18 s was not seen; now longer, in a glowing rim, a dust trail over it)
       const p = (w - (H.warn - FALL_DROP)) / FALL_DROP, [rw, rh] = SZ('boulder_mg_b'); Y.push([z.y + 2, () => { const yy = sy(z.y) - rh + 8 - 360 * (1 - p * p);
         for (let j = 1; j <= 4; j++) L.puff(sx(z.x) + (rnd(z.x, j) - 0.5) * 8, yy - j * 14 * (0.4 + p), 5 + j * 2, [0.45, 0.38, 0.34], 0.32 * (1 - j / 5), j);
-        L.glow(sx(z.x), yy + rh / 2, rh * 1.1, [1, 0.62, 0.25], 0.35 + 0.4 * p, 2.4);
-        L.inked(() => L.sprite('boulder_mg_b', sx(z.x) - rw / 2, yy, { w: rw, h: rh }), { r: 2, n: 8, col: [1, 0.5, 0.15], dy: 0, emit: true }); }]); }
+        // (TASKS 1044: rimmed in orange and flat it read as a pit in the floor) a dark tumbling rock, a hot spot on its underside, its
+        // shadow under it darkening as it comes
+        L.shadow(sx(z.x), sy(z.y) + 2, H.r * (0.35 + 0.45 * p), H.r * H.ry * (0.35 + 0.45 * p), 0.5 + 0.4 * p);
+        L.glow(sx(z.x), yy + rh * 0.8, rh * 0.7, [1, 0.5, 0.15], 0.3 + 0.3 * p, 2.4);
+        L.inked(() => L.sprite('boulder_mg_b', 0, 0, { m: M.of(M.t(sx(z.x), yy + rh / 2), M.r((1 - p) * 4 + z.x)), w: rw, h: rh, pivot: [rw / 2, rh / 2] }), { r: 2, n: 8, col: [0.02, 0.015, 0.02], dy: 0 }); }]); }
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
     for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([e.y - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
     for (const p of R.drops) if (vis(p.x, p.y)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)

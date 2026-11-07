@@ -545,7 +545,7 @@
     // thrown back and straight, tucks them up under it, reaches them forward and down to the ground, and the landing sinks it deep
     // at once and lets it up slower
     if (e.st === 'leap') { const L0 = E.leap, fl = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), tl = u - L0.crouch - e.ld;
-      const cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), 0.6 * SS(0.8, 1, fl)) : (0.6 + 0.5 * SS(0, 0.1, tl)) * (1 - SS(0.06, L0.land, tl));
+      const cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), 0.3 * SS(0.88, 1, fl)) : (0.3 + 1.0 * SS(0, 0.09, tl)) * (1 - SS(0.08, L0.land, tl));   // (the landing's crouch on the ground, deep, TASKS 1044: it began in the air and sank 3 px)
       const air = fl > 0 && fl < 1 ? SS(0, 0.25, fl) * (1 - SS(0.6, 1, fl)) : 0, tuck = 0.08 * RG.h * air * (1 - 0.45 * SS(0.5, 0.9, fl)), z = MON.impArc(e, E, GT);
       const push = fl > 0 && fl < 1 ? SS(0, 0.22, fl) * (1 - SS(0.22, 0.45, fl)) : 0, up = fl > 0 && fl < 1 ? SS(0.12, 0.32, fl) * (1 - SS(0.58, 0.8, fl)) : 0, reach = fl > 0 && fl < 1 ? SS(0.55, 0.78, fl) * (1 - SS(0.8, 1, fl)) : 0, fwd = Math.cos(e.aimA) * face >= 0 ? 1 : -1;
       base.foot = (side, t) => { const k = side === 'L' ? 1 : 0.8; t.tx += fwd * RG.h * (-0.1 * push + 0.05 * up + 0.13 * reach) * k; t.ty += RG.h * (0.05 * push - 0.16 * up + 0.03 * reach) * k; };
