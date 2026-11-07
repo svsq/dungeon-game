@@ -16,7 +16,7 @@
   }
   // gear for an empty slot goes straight onto the hero instead of into the bag
   function wearIfFree(S, R, it) {
-    const h = R.hero, b = BASES[it.b]; if (isCons(it) || !b || !b.slot || h.eq[b.slot] || h.lvl < D.reqLvl(it)) return false;
+    const h = R.hero, b = BASES[it.b]; if (isCons(it) || !b || !b.slot || h.eq[b.slot] || h.lvl < D.reqLvl(it) || !D.wears(D.clsOf(h).id, it.b)) return false;
     h.eq[b.slot] = it; ev(S, { k: 'equip', x: h.x, y: h.y, slot: b.slot, on: gearName(it) }); return true;
   }
   const READ_T = 1.6, bossFight = (R) => !!(R.map.bossType && R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'));
@@ -39,6 +39,8 @@
     if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
     // gear above the hero's level stays in the bag (TASKS 1028)
     if (h.lvl < D.reqLvl(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.3', { p1: D.reqLvl(it) }) }); return; }
+    // another class's gear stays in the bag (TASKS 1102): sold, stashed or reforged, never worn
+    if (!D.wears(D.clsOf(h).id, it.b)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.cls', { p1: D.clsNames(it.b) }) }); return; }
     const slot = BASES[it.b].slot, old = h.eq[slot]; h.eq[slot] = it; h.bag[idx] = old || null; ev(S, { k: 'equip', x: h.x, y: h.y, slot, on: gearName(it), off: gearName(old) });
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
   }

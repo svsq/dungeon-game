@@ -23,16 +23,16 @@
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
   // right click's ability, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
-  // the class screen of 1103 lists only those). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
+  // the class screen of 1103 lists only those); `borrow`: the classes whose gear it wears while it has none of its own (1102). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
       abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1 } },
     mage: { name: TXT('CLASSES.mage.name'), base: { str: 3, agi: 4, int: 6, vit: 4 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
-      abilities: ['fireball', 'shield', 'whirl'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'staff', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 } },
+      abilities: ['fireball', 'shield', 'whirl'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'staff', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
     archer: { name: TXT('CLASSES.archer.name'), base: { str: 4, agi: 6, int: 3, vit: 4 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
-      abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 } },
+      abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
   };
-  for (const C of Object.values(CLASSES)) C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
+  for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
   const clsOf = (h) => CLASSES[(h && h.cls) || 'warrior'] || CLASSES.warrior;
 
   const STATS = [

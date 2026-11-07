@@ -541,12 +541,16 @@
   }
   // an empty gear slot shows the outline of what goes in it, its name on hover
   const SLOT_SIL = { weapon: 'it_sword', offhand: 'it_shield', helm: 'it_helm_k', armor: 'it_armor_p', gloves: 'it_gloves', boots: 'it_boots', ring: 'it_ring', amulet: 'it_amulet' };
-  function slot(S, b, it, empty) {
+  // tag: the item's classes written in the cell's corner (the stash, kept for a hero of any class, TASKS 1102)
+  function slot(S, b, it, empty, tag) {
     const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null;
     panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: it && it.rar ? col : hv ? C.rimHi : [0.3, 0.25, 0.21], c0: hv ? [0.16, 0.12, 0.1] : [0.07, 0.06, 0.07], c1: [0.04, 0.035, 0.045] });
     if (it) { if (it.rar >= 2) L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, col, [0, 0, 0], 0.18); icon(SIM.Q.itemIcon(it), b.x + 8, b.y + 8, b.w - 16);
       if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 });
-      const hr = S.run && S.run.hero; if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 8, b.y + 18, { size: 18, al: 1, col: '#ff6a5a' }); } }
+      const hr = S.run && S.run.hero, cons = SIM.Q.isCons(it);
+      if (tag && !cons && D.BASES[it.b].cls) lab('slc_' + b.id, D.BASES[it.b].cls.map((c) => D.CLASSES[c].name[0]).join(''), b.x + 8, b.y + b.h - 14, { size: 16, col: C.dim });
+      if (hr && !cons && !D.wears(D.clsOf(hr).id, it.b)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slx_' + b.id, '×', b.x + b.w - 14, b.y + 18, { size: 22, al: 0.5, col: '#ff6a5a' }); }
+      else if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 8, b.y + 18, { size: 18, al: 1, col: '#ff6a5a' }); } }
     else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
   }
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
@@ -567,6 +571,7 @@
     const lines = [], cons = SIM.Q.isCons(it), B = cons ? null : D.BASES[it.b];
     lines.push([SIM.Q.itemName(it), hex(D.RARITY[it.rar].col), 28]);
     if (!cons) { lines.push([TXT('hud.tooltip', { name: D.RARITY[it.rar].name, p2: D.SLOT_NAME[B.slot], lvl: it.lvl }), C.dim, 20]);
+      if (B.cls) lines.push([TXT('hud.tooltip.cls', { p1: D.clsNames(it.b) }), D.wears(D.clsOf(h).id, it.b) ? C.dim : '#ff6a5a', 20]);
       const rq = D.reqLvl(it); if (rq > 1) lines.push([TXT('hud.tooltip.2', { rq }), h.lvl < rq ? '#ff6a5a' : C.dim, 20]);
       if (it.atk) lines.push([TXT('hud.tooltip.3', { atk: it.atk, p2: B.spell ? TXT('hud.tooltip.4', { p1: Math.round(B.spell * 100) }) : '' }), C.text, 22]);
       if (it.def) lines.push([TXT('hud.tooltip.5', { def: it.def }), C.text, 22]);
@@ -761,7 +766,7 @@
     lab('st_t', TXT('hud.stash'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
     lab('st_s', TXT('hud.stash.2'), P.x + 40, P.y + 100, { size: 22, col: C.dim });
     for (let i = 0; i < D.STASH.max; i++) { const b = U.r.find((q) => q.id === 'stash:' + i);
-      if (i < n) slot(S, b, held(b.id) ? null : T.items[i]);
+      if (i < n) slot(S, b, held(b.id) ? null : T.items[i], undefined, 1);
       else { panel('st_lock' + i, b.x, b.y, b.w, b.h, { r: 6, rim: [0.22, 0.2, 0.2], c0: [0.04, 0.035, 0.04], c1: [0.03, 0.025, 0.03] }); lab('st_lk' + i, '×', b.x + b.w / 2, b.y + b.h / 2, { size: 40, al: 0.5, col: '#4a4038' }); } }
     lab('st_cells', n < D.STASH.max ? TXT('hud.stash.3', { n, max: D.STASH.max }) : TXT('hud.stash.4', { n }), W / 2, P.y + 290, { size: 20, al: 0.5, col: C.dim });
     lab('st_bag', TXT('hud.stash.5'), P.x + 88, P.y + 344, { size: 24, col: C.dim });

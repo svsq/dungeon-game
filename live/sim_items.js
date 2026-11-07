@@ -33,8 +33,12 @@
     const lo = o.min || 0, hi = o.max ?? 4, w = [60, 26, 10, 3.5, 0.5].map((v, i) => (i < lo || i > hi ? 0 : v * (i ? Math.pow(1 + 0.22 * floor + 0.6 * q, i * 0.9) : 1)));
     let s = w.reduce((a, b) => a + b, 0) * rnd(R), rar = lo; while (rar < hi && (s -= w[rar]) > 0) rar++;
     const keys = Object.keys(BASES).filter((k) => (!BASES[k].minF || floor >= BASES[k].minF) && (!slotOnly || BASES[k].slot === slotOnly));
-    let s2 = keys.reduce((a, k) => a + (BASES[k].w ?? 1), 0) * rnd(R), bk = keys[keys.length - 1];
-    for (const k of keys) if ((s2 -= BASES[k].w ?? 1) < 0) { bk = k; break; }
+    const pick = (ks) => { let s2 = ks.reduce((a, k) => a + (BASES[k].w ?? 1), 0) * rnd(R), bk = ks[ks.length - 1];
+      for (const k of ks) if ((s2 -= BASES[k].w ?? 1) < 0) { bk = k; break; } return bk; };
+    let bk = pick(keys);
+    // most of what a hero finds is of his class (TASKS 1102): a foreign base is kept at CLASS_LOOT.foreign, else rolled among his own
+    const cls = R.hero && D.clsOf(R.hero).id;
+    if (cls && !D.wears(cls, bk) && rnd(R) >= D.CLASS_LOOT.foreign) { const own = keys.filter((k) => D.wears(cls, k)); if (own.length) bk = pick(own); }
     return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor + (R.mode ? RUN(R).loot || 0 : 0), mods: {} }));
   }
   function rollAffixes(R, it) {

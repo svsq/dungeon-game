@@ -53,7 +53,7 @@ const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) 
   return Math.log(swing * (1 - c) + fire * c) + Math.log((st.maxHp + 20 * st.regen + 10 * st.onhit) * (KD + st.def) / KD / (1 - st.dodge / 100)); };
 const gear = (it) => it && !SIM.isCons(it);
 // gear the hero is too low to wear (TASKS 1028) is not bought for wearing, nor put on
-const wearable = (h, it) => h.lvl >= D.reqLvl(it);
+const wearable = (h, it) => h.lvl >= D.reqLvl(it) && D.wears(D.clsOf(h).id, it.b);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
 // a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
 const metaNext = (S) => D.META.filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))

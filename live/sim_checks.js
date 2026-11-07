@@ -2548,7 +2548,21 @@
       if (h.cls !== id || h.eq.weapon.b !== C.start.weapon || h.eq.armor.b !== C.start.armor) out.push(`class ${id}: a new hero is not of its class`);
       if (Object.keys(h.ab).join() !== C.abilities.join() || C.abs.some((a, i) => (h.ab[a.id] > 0) !== (C.unlock[i] <= 1))) out.push(`class ${id}: a new hero's abilities are not its class's`);
       if (D.STATS.some((q) => h.base[q.k] !== C.base[q.k])) out.push(`class ${id}: a new hero's base stats are not its class's`);
+      for (const slot of D.SLOTS) if (!Object.keys(BASES).some((k) => BASES[k].slot === slot && D.wears(id, k))) out.push(`class ${id}: nothing to wear in the ${slot} slot`);
+      for (const k of Object.keys(BASES)) for (const c of BASES[k].cls || []) if (!D.CLASSES[c]) out.push(`base ${k}: no class ${c}`);
     }
+    // gear of another class (TASKS 1102): the staff made the mage's alone for the check, a warrior neither wears it nor finds it often
+    { const keep = BASES.staff.cls; BASES.staff.cls = ['mage'];
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 82), h = R.hero, n = 4000; let st = 0, mg = 0;
+      for (let i = 0; i < n; i++) if (rollItem(R, 3, 0, 'weapon').b === 'staff') st++;
+      const S2 = spawn(0, {}), R2 = newRun(S2, 'campaign', 82, { cls: 'mage' }); for (let i = 0; i < n; i++) if (rollItem(R2, 3, 0, 'weapon').b === 'staff') mg++;
+      const fair = n / Object.keys(BASES).filter((k) => BASES[k].slot === 'weapon').length;
+      if (Math.abs(st / (fair * D.CLASS_LOOT.foreign) - 1) > 0.25) out.push(`class: a warrior finds the mage's staff ${st} times in ${n}, not about ${Math.round(fair * D.CLASS_LOOT.foreign)}`);
+      if (mg < fair * 0.8) out.push(`class: a mage finds his staff ${mg} times in ${n}, below ${Math.round(fair)}`);
+      const it = Object.assign(rollItem(R, 1, 0, 'weapon'), { b: 'staff', id: R.nextId++ }); h.eq.weapon = null; h.bag[5] = it; S.run = R; S.screen = 'play';
+      if (wearIfFree(S, R, it) || h.eq.weapon) out.push('class: a warrior puts on the mage\'s staff by picking it up');
+      useItem(S, R, 5); if (h.eq.weapon || h.bag[5] !== it) out.push('class: a warrior equips the mage\'s staff');
+      BASES.staff.cls = keep; }
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 81), h = R.hero, H = JSON.parse(JSON.stringify(h)); delete H.cls; H.lvl = 5;
       if (h.cls !== 'warrior' || D.clsOf(H) !== D.CLASSES.warrior || JSON.stringify(stats(H, S.meta)) !== JSON.stringify(stats(Object.assign({}, H, { cls: 'warrior' }), S.meta))) out.push('class: a hero saved without a class is not a warrior'); }
     return out;
