@@ -423,7 +423,7 @@
     // write the state (TASKS 1025)
     if (f === 0) { offersOf(R); R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
       const bn = R.bossN || 0, old = R.townShop; R.townShop = null;
-      if (old && (old.boss || 0) === bn) R.shop = old;
+      if (old && (old.boss || 0) === bn) { R.shop = old; if ((old.at || 0) < (R.deepest || 0)) { restock(R, R.shop, tradeDepth(R)); R.shop.at = R.deepest; } }
       else { R.shop = stockShop(R, tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
@@ -854,7 +854,7 @@
     if (R.map.bossType === e.type && !R.arena) { stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     if (D.BOSSES[e.type] && e.openUntil > S.t) dmg *= e.type === 'boss_serpent' ? 1.4 : D.BOSSES[e.type].moves.fists.open;
-    let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ENEMIES[e.type].armor.k)); e.armT = S.t; }
+    let arm = armored(e, ENEMIES[e.type], ax, ay); if (arm) { dmg = Math.max(1, Math.round(dmg * ((e.elite && ENEMIES[e.type].armor.elite) || ENEMIES[e.type].armor.k))); e.armT = S.t; }
     // a golem's crust takes the blow and a plate of it comes off (TASKS 409); its fire doesn't
     const CR0 = ENEMIES[e.type].crust; if (CR0 && kind !== 'burn' && kind !== 'thorns' && crustOf(e, ENEMIES[e.type]) > 0) { dmg = Math.max(1, Math.round(dmg * CR0.k)); const n0 = crustOf(e, ENEMIES[e.type]); e.crust = n0 - 1; e.growT = S.t; e.armT = S.t; arm = true;
       (e.plateT = e.plateT || {})[n0] = S.t; (e.plateA = e.plateA || {})[n0] = Math.atan2(e.y - sy, e.x - sx); }   // (which plate went when, and which way: the render throws it off)
@@ -1620,6 +1620,10 @@
   // ---------------- the merchant ----------------
   // his shelf for this floor: the gear first (the showpiece at least SHOP.best rarity), then potions and scrolls in stacks
   // kind: 'town' — the town's shelf, more potions and scrolls; 'wander' — the wandering merchant of a floor, his gear from deeper down
+  // a deeper floor reached tops the town shelf's potions and scrolls up to its count there, its gear kept (TASKS 513: on the 10th–12th
+  // the player drank a stock a trip)
+  function restock(R, sh, f) { for (const [b, n] of D.SHOP.townCons(f)) { const g = sh.goods.find((q) => q.n && q.it.b === b), price = D.itemPrice({ b }, f);
+    if (g) { g.n = Math.max(g.n, n); g.price = price; } else sh.goods.push({ it: Object.assign(potion(b, 1), { id: R.nextId++ }), price, n }); } }
   function stockShop(R, f, kind) {
     const goods = [], SH = D.SHOP, WD = SH.wander, g = kind === 'wander' ? f + WD.depth : f, q = SH.q(g) + (kind === 'wander' ? WD.q : 0), best = Math.min(4, SH.best(g) + (kind === 'wander' ? WD.best : 0));
     for (let i = 0; i < SH.gear(g); i++) { let it = rollItem(R, g, q, i === 0 ? 'weapon' : undefined);
@@ -3958,6 +3962,8 @@
         for (const [nm, a, k] of [['front', 0, E.armor.k], ['front-side', E.armor.arc - 0.1, E.armor.k], ['side', Math.PI / 2, 1], ['back', Math.PI, 1]]) {
           const e = crab({}); hitEnemy(S, R, e, 100, false, x0 + Math.cos(a) * 40, y0 + Math.sin(a) * 40);
           if (Math.abs(1e4 - e.hp - 100 * k) > 1) out.push(`crab: a blow from its ${nm} does ${1e4 - e.hp}, not ${100 * k}`); }
+        { const e = crab({ elite: 1 }); hitEnemy(S, R, e, 100, false, x0 + 40, y0); if (Math.abs(1e4 - e.hp - 100 * E.armor.elite) > 1) out.push(`crab: an elite's shell lets ${1e4 - e.hp} of 100 through, not ${100 * E.armor.elite}`); }
+        if (D.modPool('campaign', 10, 'crab').includes('vampire') || D.eliteK({ elite: 1, type: 'crab' }, 'hp') !== D.ELITE.crab.hp) out.push('crab: an elite one drinks blood or takes the full elite health');
         for (const [nm, a, k] of [['front', 0, E.armor.k], ['back', Math.PI, 1]]) { const e = crab({ cdT: 99 }), v = 400;
           R.proj.push({ id: R.nextId++, k: 'fire', x: x0 + Math.cos(a) * 140, y: y0 - 20, vx: -Math.cos(a) * v, vy: 0, t0: S.t, life: 2, dmg: 100, own: 'hero', r: 6 });
           for (let i = 0; i < 120 && R.proj.length; i++) { step(S, quiet); h.hp = 1e4; }
@@ -4636,6 +4642,9 @@
     for (let f = 1; f <= 6; f++) enterFloor(S, R, f); enterFloor(S, R, 0, undefined, 'up');
     if (R.shop.goods.map((g) => g.it.id).join() !== sh0) out.push('shop: the town shelf is restocked with no boss slain');
     if (D.sellPrice({ b: 'hp_potion' }, tradeDepth(R)) <= D.sellPrice({ b: 'hp_potion' }, dep(R, 1))) out.push('shop: in the town the merchant pays by the 1st floor, not the deepest');
+    { const hp = R.shop.goods.find((g) => g.n && g.it.b === 'hp_potion'); R.shop.goods = R.shop.goods.filter((g) => g !== hp); R.deepest = 7; enterFloor(S, R, 1); enterFloor(S, R, 0, undefined, 'up');
+      const nw = R.shop.goods.find((g) => g.n && g.it.b === 'hp_potion'); if (!nw || nw.n !== D.SHOP.townCons(dep(R, 7))[0][1] || R.shop.at !== 7) out.push('shop: a deeper floor reached does not top the town shelf\'s potions up');
+      R.deepest = 6; R.shop.at = 6; }
     R.bossN = 2; enterFloor(S, R, 1); enterFloor(S, R, 0, undefined, 'up');
     if (R.shop.goods.map((g) => g.it.id).join() === sh0 || R.shop.at !== 6 || R.shop.boss !== 2) out.push(`shop: a boss slain does not restock the town shelf for the deepest floor (${R.shop.at}, ${R.shop.boss})`);
     return out;
