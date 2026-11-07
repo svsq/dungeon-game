@@ -2,13 +2,14 @@
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
-// the third run, bought meta and all, to its band. By default it takes half the cores; --quiet (for the night) runs a bot per efficiency core at the lowest
-// priority, on macOS in the background QoS class (the efficiency cores): slower, but the laptop's fans stay quiet
+// the third run, bought meta and all, to its band. By default it takes half the cores; --quiet (for the night) runs 3 bots at the lowest
+// priority: slower, and the laptop's fans stay quieter
 const { execFile, execFileSync } = require('child_process'), os = require('os'), path = require('path');
-// --quiet takes the efficiency cores, all of them (TASKS 467: two left a night too short for the three difficulties)
-const effCores = () => { try { return Math.max(2, +execFileSync('sysctl', ['-n', 'hw.perflevel1.logicalcpu'], { encoding: 'utf8' }) || 2); } catch (e) { return 2; } };
+// --quiet: 3 bots at the lowest priority, free to use any core the rest of the machine leaves idle, the collector in each bot's own
+// thread (TASKS 467): on the efficiency cores alone (macOS background QoS), with the collectors' threads crowding the same cores,
+// a seed took ten times as long as in a normal run, 160 seeds well over an hour
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? effCores() : Math.max(1, Math.floor(os.cpus().length / 2)));
+const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? 3 : Math.max(1, Math.floor(os.cpus().length / 2)));
 const fs = require('fs');
 const DATA = require('../live/data.js'), mode = arg('--mode', 'campaign'), RUN = DATA.runOf(mode), DESCEND = process.argv.includes('--descend'), FLOORS = Number.isFinite(RUN.floors) && !DESCEND ? RUN.floors : +arg('--floors', 30), STAGE = (f) => DATA.stageOf(mode, f), BOSS_FLOORS = Array.from({ length: FLOORS }, (_, i) => i + 1).filter((f) => STAGE(f).boss);
 // past: of the runs, the share that got past floor f (won, or died deeper): the demon lord's 8th is the old campaign's finale (TASKS 339)
@@ -237,7 +238,7 @@ function next() {
   const file = snapDir && path.join(snapDir, `${diff}_${p}_${s}_f${replayFloor}.bin`);
   if (snapDir && !replayFloor) cmd.push('--snapshots', snapDir, '--snap-floors', chapterFloors().join(','));
   else if (snapDir && !whole && fs.existsSync(file)) cmd.push('--checkpoint', file, '--rebuild');
-  if (quiet && process.platform === 'darwin') cmd.unshift('taskpolicy', '-b');
+  if (quiet) cmd.splice(1, 0, '--single-threaded-gc');
   const child = execFile(cmd[0], cmd.slice(1), { maxBuffer: 1 << 26, timeout: jobMin * 60e3, killSignal: 'SIGKILL' }, (err, out) => {
     children.delete(child); if (stopped) return;
     if (err && err.killed) { hung.push(`${p} seed ${s}`); failed.push(`${s} ${p}`); console.error(`seed ${s} ${p}: hung, killed after ${jobMin} min`); }
