@@ -2079,14 +2079,16 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     const planks = (c, band) => { const hor = c.axis === 'x', [u0, u1, v0] = c.span, bridge = c.kind === 'bridge', T = TILE, sd = c.cells[0], iron = !!c.lava || !!c.chasm;
       const A0 = u0 * T - 6, len = (u1 - u0 + 1) * T + 12, B0 = v0 * T, BW = 2 * T, n = Math.max(3, Math.round(len / BRIDGE.pitch)), pitch = len / n;
       // (a chain bridge gives under the hero, TASKS 466: the boards by him dip and tremble with his steps)
-      const hc = Math.floor(R.hero.y / T) * m.W + Math.floor(R.hero.x / T), on = bridge && c.cells.includes(hc), ha = hor ? R.hero.x : R.hero.y;
+      // (how much he is on it, by where he stands across the deck and along it, TASKS 1050: decided by his cell, the deck already sagged
+      // under it and he dropped 9 px in a frame)
+      const ha = hor ? R.hero.x : R.hero.y, hb = hor ? R.hero.y : R.hero.x, onW = bridge ? SS(B0 - 10, B0 + 6, hb) * (1 - SS(B0 + BW - 6, B0 + BW + 10, hb)) * SS(A0 - 8, A0 + 10, ha) * (1 - SS(A0 + len - 10, A0 + len + 8, ha)) : 0, on = onW > 0;
       // (TASKS 490: it trembled on a clock) each footfall of his jolts it and dies away, and a rock landing on the deck shakes it
-      const hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / SIM.stepLen(1)) % 1 : 1, foot = 3 * Math.exp(-5 * hs) * Math.cos(hs * 22);
+      const hs = Math.hypot(R.hero.vx, R.hero.vy) > 20 ? (R.hero.dist / SIM.stepLen(1)) % 1 : 1, foot = 3 * Math.exp(-8 * hs);
       const fallR = bridge ? (m.hazards || []).filter((z) => z.k === 'fall' && D.hazClock(z, GT) < 0.7 && c.cells.some((k) => Math.hypot((k % m.W + 0.5) * T - z.x, (Math.floor(k / m.W) + 0.5) * T - z.y) < 60)) : [];
       const shake = (a) => fallR.reduce((v, z) => { const q = D.hazClock(z, GT); return v + 7 * Math.exp(-6 * q) * Math.sin(q * 38) * Math.exp(-Math.abs(a - (hor ? z.x : z.y)) / 90); }, 0);
-      const dip = (a) => (on ? (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
+      const dip = (a) => (on ? onW * (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
       const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) - dip(a);
-      if (on) DECK.dy = lift - z(ha);
+      if (on) DECK.dy = ev2((lift - z(ha)) * onW);
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
         if (bridge && i > 1 && i < n - 2 && r(1) < 0.05) continue;
@@ -2110,9 +2112,9 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const HF = D.HAZ.fall, under = (q) => { const [wx0, wy0] = hor ? [q.a, B0 + BW / 2] : [B0 + BW / 2, q.a]; return (m.hazards || []).find((z) => z.k === 'fall' && Math.hypot(z.x - wx0, (z.y - wy0) / HF.ry) < HF.r * 0.8); };
       const stateOf = (q) => { const z = bridge && under(q); if (!z) return 0; const c = D.hazClock(z, GT); return c < 0.6 ? 2 : c > z.per - HF.warn ? 1 : 0; };
       for (const q of boards) board(q, q.z, (X, Y, rot) => { const st2 = stateOf(q);
-        if (st2 === 1) { const w = (D.hazClock(under(q), GT) - (under(q).per - HF.warn)) / HF.warn, j = ev2(Math.sin(GT * 50 + q.a) * 2 * w);
+        if (st2 === 1) { const w = (D.hazClock(under(q), GT) - (under(q).per - HF.warn)) / HF.warn, j = w > 0.2 && Math.sin(GT * 50 + q.a) > 0 ? -2 : 0;   // (whole 2 px, TASKS 1050: rounded it rattled not at all)
           L.sprite(q.n, X - q.l / 2, Y - 5 + j, { w: q.l, h: 10, rot: rot + 0.05 * w * Math.sin(GT * 37 + q.a), pivot: [q.l / 2, 5], flip: q.f, u: { grade: [0.7, 0.42 * q.tone, 0, 1] } });
-          L.solid(X - 1, Y - 5 + j, 2, 10, [0.03, 0.02, 0.015], rot, 1, 5, 0.4 + 0.6 * w); return; }
+          L.solid(X - 1, Y - 5 + j, 2, 10, [1, 0.55, 0.2], rot, 1, 5, 0.3 + 0.7 * w); return; }   // (a hot light crack: a dark one sank in the rock's shadow)
         if (st2 === 2) { for (const sd of [-1, 1]) L.sprite(q.n, X + sd * q.l / 4 - q.l / 4, Y - 3, { w: q.l / 2 - 2, h: 10, rot: rot + sd * 0.35, pivot: [sd < 0 ? 0 : q.l / 2 - 2, 5], flip: q.f, u: { grade: [0.6, 0.45 * q.tone, 0, 1] } }); return; }
         L.sprite(q.n, X - q.l / 2, Y - 5, { w: q.l, h: 10, rot, pivot: [q.l / 2, 5], flip: q.f, u: { grade: iron ? [0.5, 0.42 * q.tone, 0, 1] : [0.9, q.tone, 0, 1] } });
         if (iron) { L.solid(X - q.l / 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, q.l / 2, 5); L.solid(X + q.l / 2 - 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, 2 - q.l / 2, 5); } });
@@ -3754,7 +3756,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
       const R = S.run, h = R.hero, W = m.W, c = m.crossings.filter((q) => q.chasm).sort((a, b) => b.cells.length - a.cells.length)[0]; if (!c) continue;
       const cx = c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, cy = c.cells.reduce((a, k) => a + Math.floor(k / W), 0) / c.cells.length;
       h.x = (cx + 0.5) * TILE; h.y = (cy + 0.5) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
-      R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_chasm', S]); break; }
+      R.cam = [h.x - VW / 2, h.y - VH / 2]; states.push(['magma_chasm', S]);
+      // (TASKS 1050: a rock in the last half of its warning over the bridge's middle, the hero off it at the near end: the boards crack)
+      { const B = structuredClone(S), RB = B.run, k0 = c.cells[Math.floor(c.cells.length / 2)], z = { k: 'fall', x: (k0 % W + 0.5) * TILE, y: (Math.floor(k0 / W) + 0.5) * TILE, per: 5, ph: 0, aim: 1 };
+        RB.map.hazards = (RB.map.hazards || []).concat([z]); const c0 = 5 - D.HAZ.fall.warn * 0.3; B.t = RB.t = (((c0 / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per;
+        RB.hero.y += c.axis === 'x' ? 3 * TILE : 0; RB.hero.x += c.axis === 'x' ? 0 : 3 * TILE; states.push(['magma_bridge_rock', B]); }
+      break; }
     // TASKS 426: a mixed floor (the lake over the chasm), the camera on its longest chain bridge
     for (let sd = 1; sd < 60; sd++) { const S = play(); S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; let m = null;
       for (let f = 1; f <= 3 && !m; f++) { SIM.enterFloor(S, S.run, f); if (S.run.map.ftype2 && S.run.map.ftype === 'lake') m = S.run.map; } if (!m) continue;
