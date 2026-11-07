@@ -13,7 +13,7 @@
   const nextZoom = (S) => { const o = D.ZOOMS, z = S.meta.zoom || D.ZOOM; S.meta.zoom = o[(o.indexOf(z) + 1) % o.length]; S.saveN++; };
   const HINT = 'WASD — движение · ЛКМ — атака · 1 2 3 — способности · Пробел — рывок · Q/R — зелья · E — действие · I — герой · Esc — пауза';
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 20 };
-  const DEMO_SEED = 4243;
+  const DEMO_SEED = 4247;
   const EEL_MOUTH = [44, 56];   // where the eel's mouth is when it is up: ahead of it and over the water (view px; the scene draws it there)
 
   // ---------------- rng (state lives in the run: deterministic replay) ----------------
@@ -782,8 +782,8 @@
     const nearFloor = (x, y, r) => { for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) { const X = x + u, Y = y + v;
       if (X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
     for (const ri of rooms) { if (R.rseen[ri]) continue; R.rseen[ri] = 1; const r = m.rooms[ri];
-      for (let y = r.y - 2; y <= r.y + r.h + 1; y++) for (let x = r.x - 2; x <= r.x + r.w + 1; x++) { if (!inMap(x, y)) continue;
-        const own = x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
+      for (const [bx, by, bw, bh] of DG.rectsOf(r)) for (let y = by - 2; y <= by + bh + 1; y++) for (let x = bx - 2; x <= bx + bw + 1; x++) { if (!inMap(x, y)) continue;
+        const own = DG.inRm(r, x, y);
         if (oval && m.cells[y * W + x] !== 1 && !nearFloor(x, y, r)) continue;
         if (opaque(x, y)) wall(x, y); else if (own || DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0) R.seen[y * W + x] = 1; } }
     // a door once seen shows whole: its leaf stands over the cells behind it (a top wall's over the corridor, a bottom wall's over the room)
@@ -999,7 +999,7 @@
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
-      breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
+      breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
@@ -1013,6 +1013,14 @@
       else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + dep(R) }); else if (rnd(R) < POT.pot) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
   }
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
+  // the townsfolk and hens in the way of a blow (TASKS 1033): it harms none of them, but each answers it: a townsman flinches and
+  // says so (f.hitT, f.ouch), a hen flicks its tail and runs (the hero is close, so it flees him anyway)
+  const FOLK_OUCH = ['Эй! Полегче!', 'Ты чего машешь?!', 'Осторожнее, герой!', 'Своих не бей!'];
+  function hitFolk(S, R, x, y, rad, ax, arc) { if (!R.town || !R.folk) return;
+    for (const f of R.folk) { const dx = f.x - x, dy = f.y - y, d = Math.hypot(dx, dy); if (d > rad + 12) continue;
+      if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (S.t - (f.hitT ?? -9) < 0.6) continue;
+      f.hitT = S.t; if (f.role === 'hen') { f.scareT = S.t; f.goal = null; ev(S, { k: 'hen', x: f.x, y: f.y }); continue; }
+      f.ouch = ((f.ouch ?? -1) + 1) % FOLK_OUCH.length; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role, ouch: 1 }); } }
   function hitProps(S, R, x, y, rad, ax, arc, bonesOnly = false) {
     const m = R.map, hit = R.propHit || (R.propHit = {});
     // things on a wall are struck at their foot on the floor (the wall cell blocks the line), the event stays at the thing
@@ -1258,10 +1266,13 @@
       for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
         if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
         const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
-      breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc);
+      breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc);
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) castAbility(S, R, ABILITIES[inp.slot - 1].id, inp);
+    // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
+    if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
+      S.meta.tipScroll = 1; R.msg = { s: 'Здоровья мало: T — свиток возвращения, портал в город', t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }
     // the whirl's hint (TASKS 390), over no other message
     { const W = D.TIPS.whirl; if (h.ab.whirl && h.cd.whirl <= S.t && (S.meta.whirls || 0) < W.until && S.t - (R.tipT ?? -1e9) > W.every && !(R.msg && S.t - R.msg.t < (R.msg.d || 3.5))) {
       const r = D.abRank('whirl', h.ab.whirl).r; if (R.en.filter((e) => e.deadT < 0 && !under(e) && e.st !== 'idle' && e.st !== 'home' && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < r + ENEMIES[e.type].r).length >= W.n) {
@@ -1347,6 +1358,19 @@
   // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
   const folkTalk = (f, t) => f.near && t - f.sayT < D.FOLK_SAY;
   const folkPause = (f, stop) => (f.role === 'porter' ? (stop && stop.act ? 1.8 : 0) : D.FOLK[f.role].pause || 0);
+  // a hen (TASKS 1032): scatters from the hero who comes close (and from a walker's feet), runs to the child's grain and pecks there, else wanders about its
+  // place a few steps at a time. f.goal { x, y, v, k: the grain it came for }; f.next: when it may pick its next spot
+  const henRnd = (a, b) => { const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return x - Math.floor(x); };
+  function henGoal(R, f, n, t) {
+    const h = R.hero, dh = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25), w = R.folk.find((q) => q.go && q.spd > 4 && Math.hypot(q.x - f.x, (q.y - f.y) * 1.25) < 34), sc = h.deadT < 0 && dh < 58 ? h : w;
+    if (sc) { const a = Math.atan2(f.y - sc.y, f.x - sc.x) + 0.6 * (henRnd(f.i, Math.floor(t)) - 0.5); f.next = t + 1 + henRnd(f.i, t); f.scareT = t;
+      return (f.goal = { x: f.x + Math.cos(a) * 44, y: f.y + Math.sin(a) * 30, v: 80 }); }
+    const gr = R.grain; if (gr && t - gr.t < 7 && Math.hypot(gr.x - f.x, gr.y - f.y) < 190 && (!f.goal || f.goal.k !== gr.t))
+      f.goal = { x: gr.x + 18 * (henRnd(f.i, gr.t) - 0.5), y: gr.y + 10 * (henRnd(gr.t, f.i) - 0.5), v: 42, k: gr.t };
+    if (f.goal && f.goal.k && t - f.goal.k > 7) f.goal = null;
+    if (!f.goal && t >= (f.next || 0)) { const a = 2 * Math.PI * henRnd(f.i, t), r = 10 + 26 * henRnd(t, f.i);
+      f.goal = { x: n.x + Math.cos(a) * r, y: n.y + Math.sin(a) * r * 0.6, v: 22 }; f.next = t + 2 + 3 * henRnd(f.i + 7, t); }
+    return f.goal; }
   function stepFolk(S, R) {
     const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0;
     for (const f of F) { const n = m.town.npcs[f.i], FD = D.FOLK[f.role], r = folkR(f);
@@ -1358,12 +1382,19 @@
         if ((a.n === b.n ? a.u < FD.hit && b.u >= FD.hit : b.u >= FD.hit) && b.n % FD.rest !== FD.rest - 1) ev(S, { k: 'anvil', x: f.x, y: f.y }); }
       const route = n.route;
       if (folkTalk(f, t)) f.face = h.x >= f.x ? 1 : -1;
-      if (!route) { f.spd = 0; continue; }
+      // the child's handful of grain lands ahead of him, toward the nearest hen: the hens come for it (TASKS 1032)
+      if (f.role === 'child' && route && !f.go && f.way >= 0 && !folkTalk(f, t)) { const a = D.folkClock('child', f.i, t - DT), b = D.folkClock('child', f.i, t);
+        if (a.n === b.n && a.u < 0.47 && b.u >= 0.47) { const hn = F.filter((q) => q.role === 'hen').sort((p, q) => Math.hypot(p.x - f.x, p.y - f.y) - Math.hypot(q.x - f.x, q.y - f.y))[0], dir = hn && hn.x < f.x ? -1 : 1;
+          R.grain = { x: f.x + dir * 55, y: f.y + 4, t }; } }
       let want = 0, ux = 0, uy = 0;
-      if (!folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way])) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; }
-      if (f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
+      if (f.role === 'hen') { const g = henGoal(R, f, n, t);
+        if (g) { const dx = g.x - f.x, dy = g.y - f.y, d = Math.hypot(dx, dy); if (d > 2.5) { want = Math.min(g.v, d * 4 + 6); ux = dx / d; uy = dy / d; } else if (!g.k) f.goal = null; } }
+      else if (!route) { f.spd = 0; continue; }
+      if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way])) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
+      if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
         if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
-          if (tg.act === 'take') f.load = 1; else if (tg.act === 'drop') f.load = 0; if (tg.act) ev(S, { k: 'toss', x: f.x, y: f.y }); }
+          // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
+          f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); } }
         else { want = Math.min(FD.v, d * 3 + 8); ux = dx / d; uy = dy / d; } }
       f.spd += (want - f.spd) * Math.min(1, 7 * DT);
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
@@ -1375,7 +1406,7 @@
       for (const a of [0, 0.6, -0.6, 1.2, -1.2]) { const c = Math.cos(a), sn = Math.sin(a), vx = ux * c - uy * sn, vy = ux * sn + uy * c, x = f.x + vx * step, y = f.y + vy * step;
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
         f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
-      if (!moved) { f.vx = f.vy = 0; f.spd = 0; if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
+      if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
       if (Math.abs(f.vx) > 3) f.face = f.vx > 0 ? 1 : -1; }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
@@ -1399,6 +1430,7 @@
     const dUp = m.up ? Math.hypot(m.up.x - h.x, m.up.y - h.y) : 1e9;
     if (dUp < 56 && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
+    const gt = gateNear(R); if (gt) { R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
     // out it is taken at once, with more a window to choose
     const cw = atCraft(R); if (cw === 'forge' && questMark(R, 'smith')) { const sm = folkOf(R).find((q) => q.role === 'smith'); if (sm) { openTalk(S, R, sm); return; } }
@@ -1406,6 +1438,7 @@
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
+    if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     const fk = folkNear(R); if (fk) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
@@ -1430,6 +1463,9 @@
   // ---------------- the town's workshops (R-32, TASKS 1013) ----------------
   // the smith at his anvil reforges, the enchanter at her lectern enchants; the piece is chosen from the worn gear or the bag
   const atCraft = (R) => (near(R, 'anvil', 80) ? 'forge' : near(R, 'lectern', 80) ? 'enchant' : null);
+  // the notice board (TASKS 1033): what every townsman has on offer, in one list; a quest is taken from it as from its giver
+  const atBoard = (R) => near(R, 'board', 64);
+  const boardOffers = (R) => D.QUEST_GIVE.from.map((role) => ({ role, of: offerOf(R, role) })).filter((o) => o.of);
   const craftItem = (S, R) => { const c = S.craft, h = R.hero; if (!c || !c.sel) return null; const [k, v] = c.sel.split(':'); const it = k === 'eq' ? h.eq[v] : h.bag[+v]; return it && BASES[it.b] ? it : null; };
   // what the work costs on this piece now: gold (and shards for an enchantment), the chance it fails
   function craftCost(S, R, it) { const C = D.CRAFT, p = D.itemPrice(it, tradeDepth(R));
@@ -1454,7 +1490,7 @@
   // a quest of the run: R.quests [{ id, key, f, need, n, st: taken | done | turned, from, rw, ... }]; its progress comes off the event
   // bus (ev → questOn), it is done when n reaches need, turned in in the town for its reward; it goes with the hero
   const QUEST_EV = new Set(['kill', 'clear', 'floor', 'qitem', 'qevent']);
-  function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f) }; }
+  function newQuest(R, key, f, from) { const Q = D.QUESTS[key]; return { id: R.nextId++, key, f, need: Q.need(f), n: 0, st: 'taken', from: from || null, rw: D.questReward(Q.rw, f, R.hero && R.hero.lvl) }; }
   function takeQuest(S, R, q) { (R.quests = R.quests || []).push(q); ev(S, { k: 'quest', x: R.hero.x, y: R.hero.y, s: 'take', id: q.id }); R.msg = { s: 'Новое задание: ' + D.QUESTS[q.key].name, t: S.t }; S.saveN++; questOn(S, R, { k: 'floor', f: R.floor }); return q; }
   // how much one event moves a quest on
   function questStep(R, q, e) { const Q = D.QUESTS[q.key], deep = R.floor >= q.f && !R.town;
@@ -1471,6 +1507,8 @@
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; R.msg = { s: 'Задание выполнено: ' + D.QUESTS[q.key].name + ' — награда ждёт в городе', t: S.t, d: 4 }; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
+    if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
+    if (W.scroll) { const sc = potion('scroll', W.scroll); if (!bagAdd(R, sc)) drop(R, h.x, h.y + 20, { kind: 'item', item: sc }); }
     if (W.gold) h.gold += W.gold; if (W.xp) gainXp(S, R, W.xp); if (W.shards) giveShards(S, R, W.shards, h.x, h.y, 'Награда за задание');
     if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
     q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: 'Задание сдано: ' + D.QUESTS[q.key].name, t: S.t }; S.saveN++; return true; }
@@ -1494,7 +1532,7 @@
   function offerOf(R, role) { if (!R.viaTown) return null; let o = null, key, f, story = 0;
     const st = role === 'keeper' && storyStep(R); if (st) { key = st.key; f = st.f; story = 1; }
     else { o = offersOf(R).find((q) => q.from === role && !q.q && questFloor(R, q.key)); if (!o) return null; key = o.key; f = questFloor(R, key); }
-    const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f), story },
+    const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f, R.hero.lvl), story },
       k = qhash((R.seed >>> 0) * 31 + f * 977 + key.length * 131 + role.length);
     if (Q.type === 'named') q.title = D.NAMED.titles[k % D.NAMED.titles.length];
     if (Q.type === 'fetch') { q.thing = D.QUEST_SAY[role].thing; q.ic = D.QUEST_SAY[role].ic; }
@@ -1504,11 +1542,14 @@
   const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
-  const rwLine = (W) => [W.gold && W.gold + ' золота', W.xp && W.xp + ' опыта', W.item && (W.got ? '«' + W.got + '»' : 'вещь'), W.shards && W.shards + ' ' + D.plural(W.shards, 'осколок', 'осколка', 'осколков')].filter(Boolean).join(' · ');
+  const rwLine = (W) => [W.scroll && W.scroll + ' ' + D.plural(W.scroll, 'свиток возвращения', 'свитка возвращения', 'свитков возвращения'), W.gold && W.gold + ' золота', W.xp && W.xp + ' опыта', W.item && (W.got ? '«' + W.got + '»' : 'вещь'), W.shards && W.shards + ' ' + D.plural(W.shards, 'осколок', 'осколка', 'осколков')].filter(Boolean).join(' · ');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
     const dn = questDone(R, role); if (dn) return { pages: ['«' + D.QUESTS[dn.key].name + '» — выполнено. ' + SAY.done], act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
     return { pages: [of.q.story ? D.QUESTS[of.q.key].name + '. ' + SAY.ask : SAY.ask, D.QUESTS[of.q.key].text(of.q)], act: { k: 'take', key: of.q.key, rw: of.q.rw, name: D.QUESTS[of.q.key].name } }; }
+  // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
+  function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
+    return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
   // the talk's button: take the quest (the talk closes), or turn it in (the thanks, then whatever else the townsman has)
   function talkAct(S, R, T) { const a = T.act; if (!a) return;
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
@@ -1884,6 +1925,9 @@
           if (v < 0 || (ax && ay && (F[ty * m.W + tx + ax] < 0 || F[(ty + ay) * m.W + tx] < 0))) continue;
           const score = want > 0 ? v : -v; if (!best || score < best[0]) best = [score, ax, ay]; }
         if (best) { const gx = (tx + best[1]) * TILE + TILE / 2 - e.x, gy = (ty + best[2]) * TILE + TILE / 2 + 4 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; } }
+      // (off the floor, in lava where the way field has no say: to the nearest bank first; straight at the hero it stuck on a knob of
+      // rock in the pool, TASKS 374)
+      else if (cell(m, tx, ty) === 3 && !E.lava && !E.ghost) { const [lx, ly] = landOf(m, e.x, e.y), gx = lx - e.x, gy = ly - 6 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; }
       else if (d > 0) { vx = dx / d * want; vy = dy / d * want; }
     }
     const sp = E.spd * eliteK(e, 'spd') * kv * (!E.ghost && inWater(m, e) ? WADE : 1) * (!E.ghost && !E.webImmune && webAt(m, e) ? WEB.mon : 1) * (!E.ghost && E.blood !== 'slime' && gooAt(m, e) ? GOO.mon : 1), k = 1 - Math.exp(-9 * DT);
@@ -1928,8 +1972,18 @@
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
     for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
-    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + ': победа! Алтарь и лестница открыты', t: S.t }; if (!chapterEnd(R, e)) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
+    if (!lastFloor(R) && R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
+    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? ': победа! Портал в город, алтарь и лестница открыты' : ': победа! Алтарь и лестница открыты'), t: S.t }; if (!chapterEnd(R, e)) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
   }
+  // the portal home a chapter boss leaves (TASKS 383): in its hall, kept clear of the stairs and the altar so E never picks the wrong one
+  function bossGate(R, e) { const r = R.map.rooms[e.room], cx = (r.x + r.w / 2) * TILE, cy = (r.y + r.h / 2) * TILE, far = [R.map.exit, ...R.shrines];
+    let best = null, bd = -1;
+    for (let i = 0; i < 9; i++) { const [x, y] = standNear(R, cx + ((i % 3) - 1) * r.w * TILE / 4, cy + (Math.floor(i / 3) - 1) * r.h * TILE / 4), d = Math.min(...far.map((o) => Math.hypot(o.x - x, o.y - y)));
+      if (d > bd) { bd = d; best = { x: Math.round(x), y: Math.round(y) }; } if (i === 4 && d >= 160) break; }
+    // its ring's gap faces the hall's middle, where the hero comes from (at the middle itself, east as the town's)
+    if (best) best.open = Math.hypot(cx - best.x, cy - best.y) > 20 ? Math.atan2(cy - best.y, cx - best.x) : 0;
+    return best; }
+  const gateNear = (R) => { const g = R.arena && R.arena.gate, h = R.hero; return g && !R.town && Math.hypot(g.x - h.x, g.y - h.y) < 64 ? g : null; };
   function bossWebs(S, R, e, M) {
     const m = R.map, r = m.rooms[e.room];
     for (let i = 0; i < M.n; i++) { const a = e.aimA + i / M.n * Math.PI * 2, x = Math.max((r.x + 1) * TILE, Math.min((r.x + r.w - 1) * TILE, e.x + Math.cos(a) * M.r)),
@@ -2395,6 +2449,13 @@
       if (b.id.startsWith('sell:')) sell(S, R, b.i);
       return;
     }
+    // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
+    if (S.screen === 'board') {
+      const R = S.run, L0 = R ? boardOffers(R) : [], U = UI.board(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+      if (!R || keys.Escape || keys.KeyE || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+      if (click && b && b.id.startsWith('take:') && L0[b.i]) giveQuest(S, R, L0[b.i].role);
+      return;
+    }
     // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
     if (S.screen === 'journal') {
       const R = S.run, L0 = R ? journalOf(R) : [], U = UI.journal(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
@@ -2525,20 +2586,78 @@
     }
     // the water caves' floors (TASKS 301) are held to the campaign's rules
     // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
-    const GEN = [1, 77, 4242, 90001].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
+    // (seed 7: its 3rd and 7th floors are tombs, TASKS 378)
+    const GEN = [1, 77, 4242, 90001, 7].flatMap((sd) => Array.from({ length: D.RUNS.campaign.floors }, (_, i) => ['campaign', sd, i + 1]))
       .concat([1, 77, 4242, 90001, 5, 12, 33, 2024].flatMap((sd) => Array.from({ length: D.RUNS.cave.floors }, (_, i) => ['cave', sd, i + 1])))
       // the magma caves' plateaus (TASKS 400): held to the caves' rules but the water's, and to their own
       .concat([1, 77, 4242, 5, 12, 33].flatMap((sd) => Array.from({ length: D.RUNS.magma.floors }, (_, i) => ['magma', sd, i + 1])))
       // a 5×5 cave pocket for a start room with no clear spot by the fire: the hero arrived inside the rock (run seed 93, TASKS 335)
       .concat([['campaign', 101, 9]]);
-    const caveKinds = {};
-    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' || ST.arch === 'plateau' ? 'cave' : 'campaign', plat = ST.arch === 'plateau', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run });
+    const caveKinds = {}, shapes = {};
+    for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' || ST.arch === 'plateau' ? 'cave' : 'campaign', plat = ST.arch === 'plateau', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run, ...(run === 'campaign' ? { runSeed: sd } : {}) });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
       const reachH = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); return cell(m, tx, ty) === 1; };
       if (!reachH(m.spawn.x, m.spawn.y)) out.push(`seed ${seed} f${f}: spawn blocked`);
       for (const e of m.enemies) { if (!reachH(e.x, e.y) && !(ENEMIES[e.type].deep && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 6) && !((ENEMIES[e.type].kind === 'salamander' || ENEMIES[e.type].lake) && cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE)) === 3)) out.push(`seed ${seed} f${f}: ${e.type} spawns in rock`); if (inStart(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) out.push(`seed ${seed} f${f}: ${e.type} in the start room`); }
       for (const c of m.chests) if (!reachH(c.x, c.y)) out.push(`seed ${seed} f${f}: chest in rock`);
+      // a boss hall is shut by its doors alone (TASKS 505): no floor or lava runs up to its box past them
+      { const b = m.rooms.find((q) => q.type === 'boss'), dc = new Set(m.doors.filter((d) => d.arena).flatMap((d) => d.cells.map(([x, y]) => y * m.W + x)));
+        if (b && !plat && ST.arch !== 'cave') for (const [a, bb, c, d] of DG.rectsOf(b)) for (let y = bb - 1; y <= bb + d; y++) for (let x = a - 1; x <= a + c; x++) {
+          if (DG.inRm(b, x, y) || ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([u, v]) => DG.inRm(b, x + u, y + v)) || dc.has(y * m.W + x)) continue; const v = cell(m, x, y); if (v === 1 || v === 3) { out.push(`seed ${seed} f${f}: the boss hall's wall is open at ${x},${y}`); break; } } }
       if (mode === 'campaign') {
+        // the rooms' shapes (TASKS 374): a wing is floor joined to its room; a pit is deep cells inside its room's box with two cells
+        // of floor round it (three at the top), nothing stands on it, and no stream runs through a shaped room
+        // a floor's layout (TASKS 379): all four come up over the floors checked; a catacomb's chambers are one size on its grid
+        if (m.lay) shapes['lay:' + m.lay] = 1;
+        // a bridge over a rift of lava and a trapped corridor (TASKS 377): the deck is floor with lava under it and beside it; the plates
+        // of a run go down one line three cells apart
+        for (const c of m.crossings.filter((q) => q.rift)) { shapes.rift = 1; const lu = new Set(m.lavaUnder), hor = c.axis === 'x';
+          if (c.cells.some((k) => m.cells[k] !== 1 || !lu.has(k))) out.push(`seed ${seed} f${f}: a rift bridge's deck is not floor over lava`);
+          if (!c.cells.some((k) => [hor ? -m.W : -1, hor ? m.W : 1].some((o) => m.cells[k + o] === 3))) out.push(`seed ${seed} f${f}: a rift bridge with no lava beside it`); }
+        const runs = {}; for (const t of m.traps) if (t.run !== undefined) (runs[t.run] = runs[t.run] || []).push(t);
+        for (const ps of Object.values(runs)) { shapes.gauntlet = 1; const xs = new Set(ps.map((t) => t.x)), ys = new Set(ps.map((t) => t.y)), st = (xs.size > 1 ? [...xs] : [...ys]).sort((a, b) => a - b);
+          if ((xs.size > 1) === (ys.size > 1) || ps.length < 2 || st.some((v, i) => i && v - st[i - 1] !== 3 * TILE)) out.push(`seed ${seed} f${f}: a trapped corridor's plates are not in a line three cells apart`); }
+        // a fortress (TASKS 380): the court is reached by its gates only, the start and the stairs lie outside its ring, and it holds
+        // the altar or an elite
+        // a tomb (TASKS 378) has no corridor: a floor cell outside every room is a way through a wall, a room a cell or two off it
+        // on two opposite sides (secret caches aside)
+        if (m.lay === 'tomb') { const rm = (x, y) => DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) >= 0, hid = secretMask(m); let loose = 0;
+          for (let y = 1; y < m.H - 1; y++) for (let x = 1; x < m.W - 1; x++) { const k = y * m.W + x; if (m.cells[k] !== 1 || rm(x, y) || hid.has(k) || m.secrets.some((q) => q.front.some(([fx, fy]) => fx === x && fy === y))) continue;
+            const two = (dx, dy) => [1, 2].some((d) => rm(x + dx * d, y + dy * d)) && [1, 2].some((d) => rm(x - dx * d, y - dy * d));
+            if (!two(1, 0) && !two(0, 1)) loose++; }
+          if (loose) out.push(`seed ${seed} f${f}: a tomb with ${loose} cells of corridor`); }
+        const ct = m.rooms.find((r) => r.court);
+        if (ct) { const [x0, y0, x1, y1] = ct.ring, inRing = (o) => { const x = Math.floor(o.x / TILE), y = Math.floor(o.y / TILE); return x >= x0 && x <= x1 && y >= y0 && y <= y1; };
+          const mouth = []; for (let y = ct.y - 1; y <= ct.y + ct.h; y++) for (let x = ct.x - 1; x <= ct.x + ct.w; x++) if (!DG.inRm(ct, x, y) && cell(m, x, y) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(ct, x + dx, y + dy))) mouth.push([x, y]);
+          let ways = 0; const seen = new Set(); for (const q of mouth) { if (seen.has(q.join())) continue; ways++; const st = [q]; seen.add(q.join()); while (st.length) { const [x, y] = st.pop(); for (const o of mouth) if (!seen.has(o.join()) && Math.abs(o[0] - x) <= 1 && Math.abs(o[1] - y) <= 1) { seen.add(o.join()); st.push(o); } } }
+          if (ways !== ct.gates.length) out.push(`seed ${seed} f${f}: the fortress's court has ${ways} ways in, not its ${ct.gates.length} gates`);
+          if (inRing(m.spawn) || inRing(m.exit)) out.push(`seed ${seed} f${f}: the start or the stairs inside the fortress's ring`);
+          if (ct.type !== 'shrine' && !m.enemies.some((e) => e.elite && e.room === ct.id)) out.push(`seed ${seed} f${f}: the fortress's court holds neither the altar nor an elite`); }
+        if (m.lay === 'catacomb') { const ch = m.rooms.filter((r) => !r.pocket && r.type !== 'secret'), [cw, cH] = D.ARCH.catacomb.grid.cell, [sx, sy] = D.ARCH.catacomb.grid.step;
+          if (ch.some((r) => r.w !== cw || r.h !== cH || (r.x - ch[0].x) % sx || (r.y - ch[0].y) % sy)) out.push(`seed ${seed} f${f}: a catacomb chamber off its grid or size`); }
+        for (const r of m.rooms) { if (r.shape) shapes[r.shape + (r.pit ? '*' : '')] = 1;
+          for (const [a, b, c, d] of r.wings || []) for (let y = b; y < b + d; y++) for (let x = a; x < a + c; x++) if (cell(m, x, y) !== 1 && cell(m, x, y) !== 3) out.push(`seed ${seed} f${f}: room ${r.id}'s wing is not floor at ${x},${y}`);
+          if (r.pit) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { const inner = x >= r.x + 2 && x < r.x + r.w - 2 && y >= r.y + 3 && y < r.y + r.h - 2;
+            if (inner !== (cell(m, x, y) === 6)) { out.push(`seed ${seed} f${f}: pit room ${r.id} is not a pit ringed with floor at ${x},${y}`); break; } } }
+        for (const k of m.pits) if (m.cells[k] !== 6) out.push(`seed ${seed} f${f}: a pit cell is not deep`);
+        // a two-level hall (TASKS 375): its drop two rows of deep cells the room's width but the steps' gap, the gap floor, both levels
+        // reached on foot from the spawn, a railing along the drop
+        for (const r of m.rooms) if (r.tier) { const { y: ly, sx } = r.tier;
+          for (let y = ly; y <= ly + 1; y++) for (let x = r.x; x < r.x + r.w; x++) if ((x === sx || x === sx + 1) !== (cell(m, x, y) === 1) || (x !== sx && x !== sx + 1 && cell(m, x, y) !== 6)) { out.push(`seed ${seed} f${f}: two-level room ${r.id}'s drop or steps broken at ${x},${y}`); y = 1e9; break; }
+          if (!m.__walk) { const d = new Uint8Array(m.W * m.H), q = [Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE)]; d[q[0]] = 1;
+            for (let i = 0; i < q.length; i++) for (const o of [1, -1, m.W, -m.W]) { const n = q[i] + o; if (!d[n] && m.cells[n] === 1) { d[n] = 1; q.push(n); } } m.__walk = d; }
+          const reach = (y) => { for (let x = r.x; x < r.x + r.w; x++) if (m.__walk[y * m.W + x]) return true; return false; };
+          if (!reach(ly - 1) || !reach(ly + 2)) out.push(`seed ${seed} f${f}: a level of two-level room ${r.id} is out of reach`);
+          if (!m.decor.some((d) => d.n === 'balustrade' && d.r === r.id) || !m.decor.some((d) => d.steps && d.r === r.id)) out.push(`seed ${seed} f${f}: two-level room ${r.id} without its railing or its steps`); }
+        // a nook (TASKS 376) is a dead end: one way in, no wider than a corridor; and some corridor runs three cells wide
+        for (const r of m.rooms) if (r.pocket) { const mouth = []; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (!DG.inRm(r, x, y) && cell(m, x, y) === 1 && DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(r, x + dx, y + dy))) mouth.push([x, y]);
+          // (one way: the cells by its mouth meet each other within six cells of it without passing through it)
+          const near = (x, y) => x >= r.x - 6 && x < r.x + r.w + 6 && y >= r.y - 6 && y < r.y + r.h + 6, got = new Set(mouth.length ? [mouth[0].join()] : []), st = mouth.slice(0, 1);
+          while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (!got.has(X + ',' + Y) && near(X, Y) && !DG.inRm(r, X, Y) && cell(m, X, Y) === 1) { got.add(X + ',' + Y); st.push([X, Y]); } } }
+          if (r.type === 'start' || r.type === 'exit' || !mouth.length || mouth.some((q) => !got.has(q.join())) || mouth.length > 6) out.push(`seed ${seed} f${f}: nook ${r.id} is no dead end (${r.type}, ${mouth.length} cells by it)`); }
+        for (let k = m.W; k < m.cells.length - 2 * m.W && !shapes.wide; k++) if ([0, 1, 2].every((j) => [0, 1, 2].every((i) => m.cells[k + j * m.W + i] === 1 && DG.roomAt(m, ((k + i) % m.W + 0.5) * TILE, (Math.floor(k / m.W) + j + 0.5) * TILE) < 0))) shapes.wide = 1;
+        for (const o of [...m.chests, ...m.pots, ...m.decor, ...m.torches.filter((q) => q.kind !== 'wall'), ...m.traps]) if (m.pits.includes(Math.floor(o.y / TILE) * m.W + Math.floor(o.x / TILE))) out.push(`seed ${seed} f${f}: a ${o.n || o.kind || 'thing'} in a pit`);
+        for (const q of m.waterFeatures) if (m.rooms[q.room].wings || m.rooms[q.room].pit) out.push(`seed ${seed} f${f}: a stream through a shaped room`);
         const wet = new Set(m.water), bridge = new Set(m.waterBridges);
         for (const k of wet) if (m.cells[k] !== 1 || !Number.isInteger(m.waterFlow[k]) || m.waterFlow[k] < 0 || m.waterFlow[k] > 3) out.push(`seed ${seed} f${f}: water off floor or without flow`);
         for (const k of bridge) if (m.cells[k] !== 1 || wet.has(k) || m.block.includes(k)) out.push(`seed ${seed} f${f}: water crossing is wet or blocked`);
@@ -2635,13 +2754,14 @@
         if (!r || !(r.type === 'combat' || r.type === 'exit' || r.locked) || cell(m, P.cx, P.cy) !== 1 || m.block.includes(k) || DG.roomAt(m, P.x, P.y) !== P.room) out.push(`seed ${seed} f${f}: an ambush off a fighting room's open floor`);
         if (m.traps.some((t) => Math.abs(t.x / TILE - P.cx - 0.5) < 1.5 && Math.abs(t.y / TILE - P.cy - 0.5) < 1.5)) out.push(`seed ${seed} f${f}: an ambush on a spike plate`); }
       // a corridor's plate (TASKS 76) fills a straight two-cell stretch with rock both sides, three cells and more from any room or door
-      { const roomNear = (x, y, pad) => m.rooms.some((q) => x >= q.x - pad && x < q.x + q.w + pad && y >= q.y - pad && y < q.y + q.h + pad);
-        for (const tr of m.traps) { if (!tr.cor) continue; const x0 = tr.x / TILE - 1, y0 = tr.y / TILE - 1, cs = [[x0, y0], [x0 + 1, y0], [x0, y0 + 1], [x0 + 1, y0 + 1]];
-          if (cs.some(([x, y]) => cell(m, x, y) !== 1 || roomNear(x, y, 3) || m.doors.some((d) => d.cells.some(([dx, dy]) => Math.abs(dx - x) <= 3 && Math.abs(dy - y) <= 3)))) out.push(`seed ${seed} f${f}: corridor spike plate near a room or a door`);
+      // (a trapped corridor's plates, TASKS 377, a cell off a room and two off a door)
+      { const roomNear = (x, y, pad) => m.rooms.some((q) => DG.inRm(q, x, y, pad));
+        for (const tr of m.traps) { if (!tr.cor) continue; const x0 = tr.x / TILE - 1, y0 = tr.y / TILE - 1, cs = [[x0, y0], [x0 + 1, y0], [x0, y0 + 1], [x0 + 1, y0 + 1]], pr = tr.run !== undefined ? 1 : 3, pd = tr.run !== undefined ? 2 : 3;
+          if (cs.some(([x, y]) => cell(m, x, y) !== 1 || roomNear(x, y, pr) || m.doors.some((d) => d.cells.some(([dx, dy]) => Math.abs(dx - x) <= pd && Math.abs(dy - y) <= pd)))) out.push(`seed ${seed} f${f}: corridor spike plate near a room or a door`);
           const runX = [0, 1].every((i) => cell(m, x0 + i, y0 - 1) === 0 && cell(m, x0 + i, y0 + 2) === 0), runY = [0, 1].every((j) => cell(m, x0 - 1, y0 + j) === 0 && cell(m, x0 + 2, y0 + j) === 0);
           if (!runX && !runY) out.push(`seed ${seed} f${f}: corridor spike plate off a straight stretch`); } }
       { const tc = new Set(); for (const tr of m.traps) if (!tr.cor) for (let j = -1; j <= 0; j++) for (let i = -1; i <= 0; i++) tc.add((Math.floor(tr.y / TILE) + j) * m.W + Math.floor(tr.x / TILE) + i);
-        const inR = (x, y) => m.rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
+        const inR = (x, y) => m.rooms.some((q) => DG.inRm(q, x, y));
         for (const k of tc) { const x = k % m.W, y = Math.floor(k / m.W); if (cell(m, x, y) !== 1) out.push(`seed ${seed} f${f}: spike plate off the floor`);
           for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, x + i, y + j) === 1 && !inR(x + i, y + j)) out.push(`seed ${seed} f${f}: spike plate at a corridor mouth`); }
         const fill = (skip) => { const seen = new Uint8Array(m.W * m.H), st = [Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE)]; seen[st[0]] = 1;
@@ -2782,10 +2902,16 @@
           m.shrines.map((s) => [s.x, s.y, LR.shrine]), m.shop.lanterns.map((q) => [q.x, q.y, LR.wall]), [[m.shop.x, m.shop.y, LR.fire]]);
         for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) lights.push([(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE + 6, LR.lava]);   // lava glows
         for (const r of m.rooms) { let dark = 0;
-          for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (cell(m, x, y) === 1 && !lights.some(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE - 6) / 0.8) <= lr * TILE)) dark++;
+          for (const [bx, by, bw, bh] of DG.rectsOf(r)) for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) if (cell(m, x, y) === 1 && !lights.some(([lx, ly, lr]) => Math.hypot(lx - (x + 0.5) * TILE, (ly - (y + 0.5) * TILE - 6) / 0.8) <= lr * TILE)) dark++;
           if (dark) out.push(`seed ${seed} f${f}: ${dark} dark cells in ${r.type} room ${r.id} (${r.w}×${r.h})`); } } }
     // the cave's water comes in every kind over the floors checked: falls, breaches, springs, isthmuses, fords and bridges
     for (const k of ['waterfall', 'breach', 'spring', 'neck', 'ford', 'bridge']) if (!caveKinds[k]) out.push(`cave: no ${k} on any of the floors checked`);
+    for (const k of Object.keys(D.ROOM_SHAPES)) if (!shapes[k] && !shapes[k + '*']) out.push(`rooms: no ${k} room on any of the floors checked`);
+    if (!shapes['pit*']) out.push('rooms: no pit dug on any of the floors checked');
+    if (!shapes.wide) out.push('rooms: no corridor three cells wide on any of the floors checked');
+    if (!shapes.rift) out.push('rooms: no bridge over a rift of lava on any of the floors checked');
+    if (!shapes.gauntlet) out.push('rooms: no trapped corridor on any of the floors checked');
+    for (const k of ['rooms', 'maze', 'hall', 'catacomb', 'fortress', 'tomb']) if (!shapes['lay:' + k]) out.push(`rooms: no ${k} layout on any of the floors checked`);
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
     { const S = spawn(0, {}); begin(S); let snap = null;   // the last save of a living hero: the demo hero may fall before 40 s
       for (let i = 0; i < 120 * 40; i++) { step(S, scriptInput(S.t, S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
@@ -2809,7 +2935,7 @@
       if (tr) { R.en = [mk(tr.x, tr.y)]; const e = R.en[0]; R.hero.x = tr.x + 400; for (let i = 0; i < 120 * 3; i++) { e.x = tr.x; e.y = tr.y; e.st = 'idle'; step(S, { keys: [] }); }
         if (e.hp >= 999) out.push('spikes never hurt a monster standing on them'); void E; } else out.push('hazard check: no spike trap on floors 1–6');
       enterFloor(S, R, 5);
-      const m = R.map, lv = []; for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) if (m.cells[y * m.W + x] === 3) lv.push([x, y]);
+      const m = R.map, lv = []; for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) if (m.cells[y * m.W + x] === 3 && [1, -1, m.W, -m.W].some((d) => m.cells[y * m.W + x + d] === 1)) lv.push([x, y]);
       if (lv.length) { const [lx, ly] = lv[Math.floor(lv.length / 2)], h = R.hero; R.en = []; h.x = lx * TILE + 16; h.y = ly * TILE + 16; h.ifr = 0; const hp0 = h.hp = 1e4;
         for (let i = 0; i < 120 * 2; i++) { h.x = lx * TILE + 16; h.y = ly * TILE + 16; step(S, { keys: [] }); }
         if (h.hp >= hp0) out.push('standing in lava does not hurt the hero');
@@ -2837,7 +2963,11 @@
     // elites: a blow never knocks one back; a fiery one's landed blow sets the hero burning and a vampire's heals it; a summoner
     // raises skeletons up to its cap and no further; an explosive corpse bursts once its fuse is out, hurting a hero in reach only
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run, h = R.hero, rm = R.map.rooms.find((q) => q.id !== R.map.start && !q.trap && q.w >= 10 && q.h >= 5), cx = (rm.x + rm.w / 2) * TILE, cy = (rm.y + rm.h / 2) * TILE;   // off the spike plates
+      const R = S.run, h = R.hero, rm = R.map.rooms.filter((q) => q.type === 'combat' && !q.trap).sort((a, b) => b.w - a.w)[0], cx = (rm.x + rm.w / 2) * TILE, cy = (rm.y + rm.h / 2) * TILE;   // off the spike plates
+      // (the 1st floor's rooms are 6–11 cells wide, TASKS 373: a fire priest 220 px off stood in the rock)
+      { const m = R.map, X = Math.floor(cx / TILE), Y = Math.floor(cy / TILE), near = (o) => Math.abs(o.x / TILE - X) < 10 && Math.abs(o.y / TILE - Y) < 5;
+        for (let y = Y - 4; y <= Y + 4; y++) for (let x = X - 9; x <= X + 9; x++) if (x > 1 && y > 2 && x < m.W - 2 && y < m.H - 2) m.cells[y * m.W + x] = 1;
+        m.decor = m.decor.filter((o) => !near(o)); m.torches = m.torches.filter((o) => o.kind === 'wall' || !near(o)); m.webs = m.webs.filter((o) => !near(o)); m.traps = m.traps.filter((o) => !near(o)); m.block = []; R.chests = R.chests.filter((o) => !near(o)); R.pots = R.pots.filter((o) => !near(o)); }
       const put = () => { R.en = []; R.proj = []; h.hp = heroSt(S).maxHp; h.deadT = -1; h.burn = 0; h.ifr = 0; h.x = cx; h.y = cy; h.vx = h.vy = 0; h.pull = null; h.chillT = h.curseT = -9; };
       const el = (mods, dx, o) => { const e = Object.assign({ id: R.nextId++, type: 'skeleton', x: h.x + dx, y: h.y, vx: 0, vy: 0, hp: 400, max: 400, dmg: 5, elite: 1, mods, room: rm.id, st: 'chase',
         t0: S.t, face: -1, aimA: Math.PI, cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: S.t }, o); R.en.push(e); return e; };
@@ -2959,7 +3089,7 @@
       if (w !== 2 && !S.ev.some((q) => q.k === 'dodge')) out.push(`bolts of two interleaved volleys wound the hero ${w} times, not twice`); }
     // the hero and a monster side by side against the same wall above them still reach each other
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run, m = R.map, h = R.hero, rm = m.rooms.find((q) => q.id !== m.start && q.w >= 6), y = rm.y * TILE + 5, x = (rm.x + 2) * TILE;
+      const R = S.run, m = R.map, h = R.hero, rm = m.rooms.find((q) => q.id !== m.start && q.w >= 6 && [1, 2, 3].every((d) => cell(m, q.x + 2, q.y - d) === 0)), y = rm.y * TILE + 5, x = (rm.x + 2) * TILE;
       if (!losClear(m, x, y, x + 40, y)) out.push('two actors against the same wall cannot reach each other along it');
       if (losClear(m, x, y, x, y - 3 * TILE)) out.push('a line straight up through the wall above a room is clear'); }
     // floors meeting only at a corner: the generator leaves none, and a line through such a corner is shut (TASKS 174)
@@ -3017,7 +3147,9 @@
     // fog of war across a thin wall: a hero against the wall between two rooms with no passage sees all of his own room and none
     // of the floor behind the wall (TASKS 104)
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run, h = R.hero; let tested = 0;
+      // (the smaller early floors, TASKS 373, leave a run's eight with no shut thin wall now and then: the next run's are tried)
+      let tested = 0;
+      for (let sd = 0; sd < 12 && tested < 3; sd++) { const R = sd ? (S.run = newRun(S, 'campaign', 7000 + sd)) : S.run, h = R.hero;
       for (let f = 1; f <= D.RUNS.campaign.chapter && tested < 3; f++) { enterFloor(S, R, f); const m = R.map;
         for (const A of m.rooms) for (const B of m.rooms) for (const vert of [0, 1]) { if (A === B || A.type === 'secret' || B.type === 'secret' || tested >= 3) continue;
           const a0 = vert ? A.y : A.x, aw = vert ? A.h : A.w, b0 = vert ? B.y : B.x, gap = b0 - (a0 + aw); if (gap < 1 || gap > 2) continue;
@@ -3030,7 +3162,7 @@
           let leak = 0, own = 0; for (let v = o0; v < o1; v++) for (let u = b0; u < b0 + 2; u++) { const x = vert ? v : u, y = vert ? u : v; if (cell(m, x, y) === 1 && R.seen[y * m.W + x]) leak++; }
           for (let y = A.y; y < A.y + A.h; y++) for (let x = A.x; x < A.x + A.w; x++) if (cell(m, x, y) === 1 && !R.seen[y * m.W + x]) own++;
           if (leak) out.push(`fog check floor ${f}: ${leak} floor cells of room ${B.id} show through the wall from room ${A.id}`);
-          if (own) out.push(`fog check floor ${f}: ${own} floor cells of the hero's own room ${A.id} stay dark`); } }
+          if (own) out.push(`fog check floor ${f}: ${own} floor cells of the hero's own room ${A.id} stay dark`); } } }
       if (!tested) out.push('fog check: no thin wall between two rooms found to test'); }
     // hero blows stop at walls: across a thin wall a monster takes no damage from a swing, the whirl or a fireball's blast,
     // and the same setup with the wall dug out does hit (so the check really reaches it)
@@ -3084,14 +3216,17 @@
     // a jam in a two-cell corridor (TASKS 151): monsters queued behind the ones at the hero don't stand still for long, they leave;
     // and the start room and the shop are open to a chasing monster (152)
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
-      const R = S.run, h = R.hero, m = R.map, corr = (x, y) => cell(m, x, y) === 1 && DG.roomAt(m, x * TILE + 16, y * TILE + 16) < 0;
-      let lane = null;   // a straight corridor two cells wide and 14 long, rock on both sides: the hero at one end, ten monsters down it
+      let R = S.run, h = R.hero, lane = null, m = R.map;   // a straight corridor two cells wide and 14 long, rock on both sides: the hero at one end, ten monsters down it
+      const corr = (x, y) => cell(m, x, y) === 1 && DG.roomAt(m, x * TILE + 16, y * TILE + 16) < 0;
+      // (the smaller floors' shorter corridors, TASKS 373, may have none in a run: its floors, then the next runs', are tried)
+      for (let sd = 0; sd < 12 && !lane; sd++) { if (sd) { R = S.run = newRun(S, 'campaign', 7100 + sd); h = R.hero; }
+      for (let f = 1; f <= D.RUNS.campaign.chapter && !lane; f++) { if (f > 1) enterFloor(S, R, f); m = R.map;
       for (let y = 1; y < m.H - 2 && !lane; y++) for (let x = 1; x < m.W - 14 && !lane; x++) for (const v of [0, 1]) {
         const at = (i, k) => v ? [x + k, y + i] : [x + i, y + k];
         if ([...Array(14)].every((_, i) => { const [ax, ay] = at(i, 0), [bx, by] = at(i, 1), [cx, cy] = at(i, -1), [dx, dy] = at(i, 2);
           return corr(ax, ay) && corr(bx, by) && cell(m, cx, cy) === 0 && cell(m, dx, dy) === 0; })) {
           const c = (i, k) => { const [px, py] = at(i, k); return py * m.W + px; };
-          lane = { at: c(0, 0), back: [...Array(10)].map((_, n) => c(4 + (n >> 1), n & 1)) }; break; } }
+          lane = { at: c(0, 0), back: [...Array(10)].map((_, n) => c(4 + (n >> 1), n & 1)) }; break; } } } }
       if (!lane) out.push('jam check: no straight corridor long enough');
       else { const sk = ENEMIES.brute, reach = sk.r + K.R + sk.reach;
         h.ifr = 1e9; h.x = (lane.at % m.W) * TILE + 16; h.y = ((lane.at / m.W) | 0) * TILE + 18;
@@ -3427,7 +3562,7 @@
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 1234); S.screen = 'play';
     const R = S.run, m = R.map, h = R.hero, rm = m.rooms.filter((r) => r.type === 'combat').sort((a, b) => b.w * b.h - a.w * a.h)[0];
     const x = (rm.x + rm.w / 2) * TILE, y = (rm.y + rm.h / 2) * TILE;
-    R.pots = []; R.chests = []; m.decor = []; m.block = []; m.traps = []; m.water = []; R.shrines = [];
+    R.pots = []; R.chests = []; m.decor = []; m.block = []; m.traps = []; m.water = []; R.shrines = []; m.webs = []; m.torches = m.torches.filter((t) => t.kind === 'wall');
     for (let ty = Math.floor(y / TILE) - 5; ty <= Math.floor(y / TILE) + 5; ty++) for (let tx = Math.floor(x / TILE) - 5; tx <= Math.floor(x / TILE) + 5; tx++) m.cells[ty * m.W + tx] = 1;
     const mob = (type, dx, dy, id = 9000) => ({ id, type, x: x + dx, y: y + dy, vx: 0, vy: 0, hp: 1e6, max: 1e6, dmg: 10, elite: 0, room: rm.id,
       st: 'chase', t0: S.t, face: -1, aimA: Math.PI, cdT: S.t, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 });
@@ -3586,9 +3721,10 @@
     // else opens them (E at a wall or a shelf, blows at a mechanism's wall). Each opens once and counts once; its chest's items
     // count as loot only once picked up, and an item thrown away and picked up again never counts twice
     const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5000 + sd); const q = S.run.map.secrets.find(f); if (q) return [S, q]; } return [null, null]; };
-    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['shelf', (o) => o.kind === 'shelf'], ['sconce', (o) => o.trig && o.trig.k === 'sconce'], ['plate', (o) => o.trig && o.trig.k === 'plate']]) {
+    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['shelf', (o) => o.kind === 'shelf'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u']]) {
       const [S, q] = find(f); if (!q) { out.push(`secret check: no ${name} secret in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9;
+      // (below the wall's foot: a mechanism's wall in a room's top wall, as the first seeds had it before TASKS 373 moved them)
       const stand = () => { h.x = q.x; h.y = q.y + (name === 'shelf' ? 70 : 34); h.vx = h.vy = 0; };
       const swing = () => { stand(); h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) { stand(); step(S, Object.assign({ keys: [] }, A)); } };
       const press = () => { step(S, { keys: ['KeyE'] }); for (let k = 0; k < 10; k++) step(S, { keys: [] }); };
@@ -3715,8 +3851,10 @@
         else { h.x = L.lever.x; h.y = L.lever.y + 50; step(S, { px: 960, py: 540, keys: ['KeyE'] });
           if (!L.open || m.doors.some((o) => o.lock === li && !o.open)) out.push(`${tag}: the lever does not open its doors`); } }
       // an unlocked door: E from in front of it opens it and frees its cells
-      { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, d = m.doors.find((o) => !doorLock(m, o));
-        if (!d) out.push('doors: no plain door on seed 5, floor 1'); else { const [cx, cy] = d.cells[0]; R.en = [];
+      // (the 1st floor's shaped rooms have no doors, TASKS 374: the first seed from 5 with a plain door there)
+      { let S = null; for (let sd = 5; sd < 40 && !(S && S.run.map.doors.some((o) => !doorLock(S.run.map, o))); sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); }
+        S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, d = m.doors.find((o) => !doorLock(m, o));
+        if (!d) out.push('doors: no plain door on the 1st floor of seeds 5–39'); else { const [cx, cy] = d.cells[0]; R.en = [];
           if (cell(m, cx, cy) !== 5 || losClear(m, d.x - 40 * (d.dir === 'l' ? -1 : d.dir === 'r' ? 1 : 0), d.y + 40 * (d.dir === 'u' ? 1 : d.dir === 'd' ? -1 : 0), d.x + 40 * (d.dir === 'l' ? -1 : d.dir === 'r' ? 1 : 0), d.y - 40 * (d.dir === 'u' ? 1 : d.dir === 'd' ? -1 : 0))) out.push('doors: a shut door is not solid or lets sight through');
           h.x = d.x; h.y = d.y + (d.dir === 'u' ? 40 : d.dir === 'd' ? -30 : 20); h.x += d.dir === 'l' ? 30 : d.dir === 'r' ? -30 : 0; step(S, { px: 960, py: 540, keys: ['KeyE'] });
           if (!d.open || cell(m, cx, cy) !== 1) out.push('doors: E does not open a door'); } } }
@@ -3744,7 +3882,9 @@
       if (!R) out.push('traps: no floor of 80 seeds with webs'); else { const m = R.map, h = R.hero; R.en = [];
         const run = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; const x0 = h.x; for (let i = 0; i < 30; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x0; };
         const free = run(w.x - 200, w.y), held = run(w.x - 12, w.y); if (!(held < free * 0.6)) out.push(`traps: a web does not hold the hero (${held.toFixed(0)} px against ${free.toFixed(0)})`);
-        h.x = w.x - 40; h.y = w.y + 8; h.atkT = -9; h.cd.atk = 0; step(S, { px: 960 + 60, py: 540 - 30, press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { px: 1020, py: 510, keys: [] });
+        // (aimed through the camera: on a small map, TASKS 373, it stops at the map's edge and the hero is off the screen's middle)
+        const aim = () => toPx(R, h.x + 60, h.y - 30);
+        h.x = w.x - 40; h.y = w.y + 8; h.atkT = -9; h.cd.atk = 0; step(S, { ...aim(), press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { ...aim(), keys: [] });
         if (!w.torn) out.push('traps: a blow does not tear a web');
         const w2 = m.webs.find((o) => !o.torn); if (w2) { tearWebs(S, R, w2.x, w2.y, 30, undefined, undefined, 1); if (!w2.torn || !S.ev.some((e) => e.k === 'webburn')) out.push('traps: fire does not burn a web'); }
       } }
@@ -4110,14 +4250,16 @@
       if (R.drops.some((d) => m.cells[Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE)] !== 1)) out.push('serpent: reward stranded in deep water');
       endRun(S, 'win'); if (S.screen !== 'win' || S.result.mode !== 'cave' || S.result.win !== REWARD.win) out.push('serpent: wrong victory screen or reward');
     }
-    // TASKS 470: a lava river through the wall of run 1's floor-6 arena; sealed, the hero's walkable cells stay in the room
+    // TASKS 470: a lava river through the wall of run 1's floor-6 arena; sealed, the hero's walkable cells stay in the room (the
+    // generator keeps lava off a boss hall's wall since TASKS 505, so the river is cut here: from the hall's side out into the rock)
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 1); S.screen = 'play'; const R = S.run; enterFloor(S, R, 6);
       const m = R.map, b = R.en.find((e) => e.type === 'boss_forge'), r = m.rooms[b.room], W = m.W, walk = (k) => !solidAt(m, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE, false, true);
       const flood = () => { const seen = new Set([Math.floor(b.y / TILE) * W + Math.floor(b.x / TILE)]), q = [...seen]; let out = 0;
         for (let i = 0; i < q.length; i++) { const k = q[i], x = k % W, y = Math.floor(k / W); if (x < r.x || y < r.y || x >= r.x + r.w || y >= r.y + r.h) out++;
           for (const n of [k + 1, k - 1, k + W, k - W]) if (!seen.has(n) && walk(n)) { seen.add(n); q.push(n); } } return out; };
       for (const d of m.doors) if (d.arena) for (const [x, y] of d.cells) m.cells[y * W + x] = 5;
-      if (!flood()) out.push('arena lava: run 1 floor 6 no longer has the river through the arena wall this check needs');
+      if (!flood()) { const y = r.y + (r.h >> 1); for (let x = r.x + r.w - 1; x <= r.x + r.w + 3; x++) { if (m.cells[y * W + x] !== 3) m.lava++; m.cells[y * W + x] = 3; } m.geometry = (m.geometry || 0) + 1; }
+      if (!flood()) out.push('arena lava: the river cut through run 1 floor 6\'s arena wall leads nowhere');
       R.hero.x = b.x; R.hero.y = b.y + 100; stepArena(S, R);
       if (flood()) out.push('arena lava: the hero walks out of the sealed arena over lava'); }
     for (const [type, f] of [['boss_spider', 2], ['boss_necro', 4], ['boss_forge', 6], ['boss', 8]]) {
@@ -4418,7 +4560,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck());
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -4431,14 +4573,28 @@
     for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 34))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
     for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
-      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(); let close = 9, off = 0, rings = 0;
+      const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0;
       for (let i = 0; i < 120 * 120; i++) { const t0 = S.t; step(S, { keys: [] }); rings += S.ev.filter((e) => e.k === 'anvil' && e.t > t0).length;
-        for (const f of F) { if (!f.go && f.way >= 0) stops[f.i].add(f.way); if (f.role === 'porter') loads.add(f.load); if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
+        for (const f of F) { if (!f.go && f.way >= 0) stops[f.i].add(f.way); stuck[f.i] = Math.max(stuck[f.i], f.stuck); henWalk[f.i] = f.dist;
+          if (f.role === 'hen' && R.grain && S.t - R.grain.t < 6 && Math.hypot(f.x - R.grain.x, f.y - R.grain.y) < 24) fed = 1;
+          if (f.role === 'porter') { loads.add(f.load); if (f.lift && lifts[lifts.length - 1]?.t !== f.t0) lifts.push({ k: f.lift, t: f.t0 });
+            const st = m.town.npcs[f.i].route[f.way]; if (!f.go && st.act && f.t0 === S.t && !f.lift) empty++; } if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
           for (const o of F) if (o.i > f.i) close = Math.min(close, Math.hypot(o.x - f.x, (o.y - f.y) * 1.4) / (folkR(o) + folkR(f))); } }
       for (const f of F) { const n = m.town.npcs[f.i]; if (n.route && stops[f.i].size < n.route.length) out.push(`folk ${sd}: the ${f.role} reaches ${stops[f.i].size} of ${n.route.length} stops in two minutes`); }
       if (close < 0.8) out.push(`folk ${sd}: two townsfolk pass through each other (${close.toFixed(2)} of their radii)`);
       if (off) out.push(`folk ${sd}: a walker steps off the open floor ${off} times`);
       if (loads.size < 2) out.push(`folk ${sd}: the porter never lifts or sets down his crate`);
+      // TASKS 1031: the porter's first round as every other: the crate taken up first and within his first leg, every set-down after
+      // a pick-up, no stop of his reached with nothing to do there; no walker stands blocked long enough to give up a stop
+      if (!lifts.length || lifts[0].k !== 'take' || lifts[0].t > 15) out.push(`folk ${sd}: the porter's first round does not start with the pick-up (${lifts[0] ? lifts[0].k + ' at ' + lifts[0].t.toFixed(1) + ' s' : 'none'})`);
+      if (lifts.some((q, j) => j && q.k === lifts[j - 1].k)) out.push(`folk ${sd}: the porter lifts or sets down twice running: a crate out of nowhere`);
+      if (empty) out.push(`folk ${sd}: the porter comes to a pick-up or a set-down with nothing to do ${empty} times`);
+      for (const f of F) if (stuck[f.i] > 2) out.push(`folk ${sd}: the ${f.role} stands blocked ${stuck[f.i].toFixed(1)} s`);
+      // TASKS 1032: the hens walk about, come to the child's grain and scatter from the hero
+      const hens = F.filter((f) => f.role === 'hen');
+      for (const f of hens) if (henWalk[f.i] < 40) out.push(`folk ${sd}: a hen walks ${henWalk[f.i].toFixed(0)} px in two minutes`);
+      if (!fed) out.push(`folk ${sd}: no hen comes to the child's grain`);
+      { const q = hens[0], R0 = q.x; h.x = q.x - 40; h.y = q.y; for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (q.x - R0 < 15) out.push(`folk ${sd}: a hen does not scatter from the hero`); h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; }
       if (rings < 40) out.push(`folk ${sd}: the anvil rings ${rings} times in two minutes`);
       const smith = F.find((f) => f.role === 'smith'); h.x = smith.x - 50; h.y = smith.y + 10; const t0 = S.t; step(S, { keys: [] });
       if (smith.sayT !== t0 + DT && smith.sayT !== S.t || !S.ev.some((e) => e.k === 'say' && e.role === 'smith')) out.push(`folk ${sd}: the smith says nothing to the hero beside him`);
@@ -4458,6 +4614,7 @@
     for (const sd of [5, 17]) for (let f = 1; f <= 12; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 });
       if (!m.up) { out.push(`climb ${sd}/${f}: no stairs up`); continue; } const k = m.up.ty * m.W + m.up.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
       if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`climb ${sd}/${f}: the stairs up are off the floor or far from the spawn`);
+      if (m.chests.some((c) => Math.hypot(c.x - m.up.x, c.y - m.up.y - 30) < 60)) out.push(`climb ${sd}/${f}: a chest by the stairs up takes the hero's E`);
       if (f === 3 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }).up) out.push('climb: stairs up in a run not through the town'); }
     const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
     at(R.map.exit); E(S); if (R.floor !== 1) { out.push('climb: the crypt stairs do not lead down'); return out; }
@@ -4479,6 +4636,19 @@
     at(R.map.up, 30); E(S); if (R.floor !== 0 || !R.town || Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: the 1st floor\'s stairs up do not lead to the town\'s gate');
     if (R.shop.goods.map((g) => g.it.id).join() !== shelf0) out.push('climb: the town shelf is re-rolled on a return with no deeper floor reached');
     const size = JSON.stringify(persist(S)).length; if (size > 120000) out.push(`climb: a run with two kept floors saves ${size} bytes`);
+    // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
+    // town's portal brings him back beside it, and the stairs lead on
+    for (const f of [2, 4, 6, 8]) { const T2 = spawn(0, {}); T2.run = newRun(T2, 'campaign', 31 + f, { town: 1 }); T2.screen = 'play'; const Q = T2.run, hq = Q.hero; enterFloor(T2, Q, f);
+      const b = Q.en.find((e) => D.BOSSES[e.type]); if (!b) { out.push(`gate f${f}: no boss`); continue; }
+      Q.arena = { active: 1, room: b.room, t0: T2.t }; b.hp = 0; killEnemy(T2, Q, b); Q.en = Q.en.filter((e) => e === b); for (let i = 0; i < 200 && (Q.freeze > 0 || Q.inbuf); i++) step(T2, { keys: [] }); const g = Q.arena && Q.arena.gate;
+      if (!g) { out.push(`gate f${f}: no portal home after the boss`); continue; }
+      // (TASKS 1037) the ring's gap opens on floor a body can walk from the disc out past the stones
+      for (let d = 0; d <= 2.6 * TILE; d += 8) if (boxHit(Q.map, g.x + Math.cos(g.open) * d, g.y + Math.sin(g.open) * d, K.R, false, false)) { out.push(`gate f${f}: the ring's gap is walled at ${d} px`); break; }
+      if (Math.hypot(g.x - Q.map.exit.x, g.y - Q.map.exit.y) < 100) out.push(`gate f${f}: the portal stands by the stairs`);
+      hq.x = g.x; hq.y = g.y + 30; E(T2); if (Q.floor !== 0 || !Q.portal || Q.portal.f !== f) { out.push(`gate f${f}: the portal does not take the hero home`); continue; }
+      hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; E(T2);
+      if (Q.floor !== f || Math.hypot(hq.x - g.x, hq.y - g.y) > 90 || !Q.arena || !Q.arena.gate) { out.push(`gate f${f}: the town's portal does not lead back beside the boss's`); continue; }
+      hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
     // back up from the descent's 13th to the serpent's 12th (a run through the town): the floor is the campaign's again, not the
     // descent's, whose bag has no round before the 13th (PR 19 review: the stack overflowed)
     try { const S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run; enterFloor(S2, R2, 12);
@@ -4667,8 +4837,8 @@
         if (!e2 || e2.max !== hp || R.en.filter((o) => o.quest === q.id).length !== 1) out.push('quest named: the foe is not kept on its floor (or comes twice)');
         if (e2) killEnemy(S, R, e2); if (q.st !== 'done') out.push('quest named: its death does not do the quest');
         enterFloor(S, R, 0, undefined, 'portal'); if (questMark(R, 'guard') !== '?') out.push('quest named: no ? over the giver once done');
-        const g0 = R.hero.gold, T = talkTo(R, 'guard'); if (!T || !T.act || T.act.k !== 'turn') out.push('quest named: the talk does not offer the turn-in');
-        finish(); if (q.st !== 'turned' || R.hero.gold !== g0 + q.rw.gold || !q.rw.got || q.rw.rar < 3) out.push('quest named: the turn-in does not pay (gold, an epic piece)'); } }
+        const g0 = scrolls(R.hero), T = talkTo(R, 'guard'); if (!T || !T.act || T.act.k !== 'turn') out.push('quest named: the talk does not offer the turn-in');
+        finish(); if (q.st !== 'turned' || scrolls(R.hero) !== g0 + q.rw.scroll || !q.rw.got || q.rw.rar < 3) out.push('quest named: the turn-in does not pay (scrolls of return, an epic piece)'); } }
     // the named foe never on a boss's floor
     R = run(52); R.deepest = 1; if (questFloor(R, 'named') !== 3 || questFloor(R, 'cull') !== 2) out.push('quest give: a goal on a floor points at a boss\'s floor, or a hunt skips one');
     // the keepsake: three seeds should between them put it in a chest or cache and on the floor
@@ -4712,6 +4882,28 @@
       step(S, { keys: ['KeyJ'] }); if (S.screen !== 'play') out.push('journal: J does not close it'); }
     return out;
   }
+  const scrolls = (h) => h.bag.reduce((n, it) => n + (it && it.b === 'scroll' ? it.n : 0), 0);
+  // TASKS 1033: the notice board lists what the townsfolk offer and a quest is taken from it; a blow at a townsman makes him answer
+  // and a hen run, harming neither; the scroll's hint comes once, the first time a town run's hero falls low with a scroll in the bag
+  function townLoopCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 5, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, m = R.map; step(S, { keys: [] });
+    const B = boardOffers(R); if (!B.length) out.push('board: nothing on offer on a new run');
+    h.x = m.town.svc.board.x; h.y = m.town.svc.board.y + 34; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+    if (S.screen !== 'board') out.push(`board: E at the notice board does not open it (${S.screen})`);
+    else { const U = UI.board(B.length), b = U.r.find((q) => q.id === 'take:0'), n0 = (R.quests || []).length; step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
+      if ((R.quests || []).length !== n0 + 1 || boardOffers(R).length !== B.length - 1) out.push('board: its button does not take the quest'); step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('board: Esc does not close it'); }
+    const F = folkOf(R), g = F.find((f) => f.role === 'guard'), hen = F.find((f) => f.role === 'hen');
+    for (const o of F) if (o !== g) o.x += 3000; h.x = g.x - 30; h.y = g.y; const hp0 = h.hp; S.ev = []; hitFolk(S, R, h.x, h.y, 60, 0, 2);
+    if (g.hitT !== S.t || !S.ev.some((e) => e.k === 'say' && e.ouch)) out.push('folk: a townsman struck does not answer the blow');
+    for (const o of F) if (o !== g) o.x -= 3000;
+    for (const o of F) if (o !== hen) o.x += 3000; h.x = hen.x - 20; h.y = hen.y; S.ev = []; hitFolk(S, R, h.x, h.y, 60, 0, 2); const x0 = hen.x, y0 = hen.y;
+    for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (hen.scareT === undefined || Math.hypot(hen.x - x0, hen.y - y0) < 10 || h.hp !== hp0) out.push('folk: a hen struck does not run');
+    for (const o of F) if (o !== hen) o.x -= 3000;
+    const T = spawn(0, {}); T.run = newRun(T, 'campaign', 5, { town: 1 }); T.screen = 'play'; const Q = T.run; enterFloor(T, Q, 1); Q.en = []; step(T, { keys: [] });
+    if (!Q.hero.bag.some((it) => it && it.b === 'scroll')) Q.hero.bag[5] = { b: 'scroll', n: 1, id: Q.nextId++ };
+    Q.hero.hp = 5; for (let i = 0; i < 30; i++) step(T, { keys: [] }); const tip = Q.msg && Q.msg.tip === 'scroll';
+    Q.msg = null; for (let i = 0; i < 30; i++) step(T, { keys: [] }); if (!tip || !T.meta.tipScroll || (Q.msg && Q.msg.tip === 'scroll')) out.push('scroll: the hint at low health does not come once');
+    return out; }
   function questCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 91, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero;
     const cull = takeQuest(S, R, newQuest(R, 'cull', 2, 'smith')), eli = takeQuest(S, R, newQuest(R, 'elites', 1, 'guard')), sw = takeQuest(S, R, newQuest(R, 'sweep', 1, 'keeper')), dsc = takeQuest(S, R, newQuest(R, 'descent', 3, 'keeper'));
@@ -4722,10 +4914,15 @@
     sw.n = 0; sw.st = 'taken'; const r0 = R.en.find((q) => q.deadT < 0 && counted(q) && q.room >= 0), s0 = sw.n; if (r0) for (const e of R.en.filter((q) => q.room === r0.room && q.deadT < 0 && counted(q))) killEnemy(S, R, e);
     if (r0 && sw.n !== s0 + 1) out.push('quest: a room cleared to the last foe does not count');
     enterFloor(S, R, 3); if (dsc.st !== 'done') out.push('quest: reaching the floor does not complete the descent');
-    const g0 = h.gold; if (turnIn(S, R, cull)) out.push('quest: turned in outside the town');
-    enterFloor(S, R, 0, undefined, 'up'); const x0 = h.xp, l0 = h.lvl, sh0 = S.meta.shards; if (!turnIn(S, R, cull) || h.gold !== g0 + cull.rw.gold || (h.xp === x0 && h.lvl === l0)) out.push('quest: the turn-in does not pay its gold and XP');
-    if (turnIn(S, R, cull) || h.gold !== g0 + cull.rw.gold) out.push('quest: a quest is turned in twice');
+    const g0 = scrolls(h); if (turnIn(S, R, cull)) out.push('quest: turned in outside the town');
+    // TASKS 1033: scrolls of return in place of gold, and the experience of the hero's level at the turn-in
+    enterFloor(S, R, 0, undefined, 'up'); const x0 = h.xp, l0 = h.lvl, sh0 = S.meta.shards; if (!turnIn(S, R, cull) || !cull.rw.scroll || scrolls(h) !== g0 + cull.rw.scroll || (h.xp === x0 && h.lvl === l0)) out.push('quest: the turn-in does not pay its scrolls and XP');
+    if (cull.rw.xp !== D.questReward(['xp'], cull.f, l0).xp) out.push(`quest: the turn-in's XP is not of the hero's level (${cull.rw.xp})`);
+    if (turnIn(S, R, cull) || scrolls(h) !== g0 + cull.rw.scroll) out.push('quest: a quest is turned in twice');
     if (!turnIn(S, R, dsc) || S.meta.shards !== sh0 + dsc.rw.shards) out.push('quest: the turn-in does not pay its shards');
+    // PR 23 review: with no stack left to join, the reward's scrolls are a whole bag item (its rarity read by the bag's frame)
+    h.bag = h.bag.map((b) => (b && b.b === 'scroll' ? null : b)); cull.st = 'done'; turnIn(S, R, cull);
+    { const sc = h.bag.find((b) => b && b.b === 'scroll'); if (!sc || !D.RARITY[sc.rar] || !sc.id || !sc.mods) out.push('quest: the reward\'s scrolls in an empty bag are not a whole item'); }
     enterFloor(S, R, 4); eli.n = eli.need - 1; const el = R.en.find((q) => q.deadT < 0 && !D.BOSSES[q.type] && counted(q)); if (el) { el.elite = 1; killEnemy(S, R, el); }
     const bag0 = h.bag.filter(Boolean).length; if (eli.st === 'done') { enterFloor(S, R, 0, undefined, 'up'); turnIn(S, R, eli); if (h.bag.filter(Boolean).length !== bag0 + 1 || !eli.rw.got) out.push('quest: the reward item does not reach the bag'); } else out.push('quest: no elite to hunt');
     const P = JSON.parse(JSON.stringify(persist(S))); if (!P.run.quests || P.run.quests.length !== 4 || JSON.stringify(P.run.quests).length > 2000) out.push('quest: the quests do not travel in the save, or bloat it');
@@ -4782,7 +4979,7 @@
   }
   const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
 
-  root.SIM = { serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf };
+  root.SIM = { FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, selfCheck, persist,
+    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
   if (typeof module !== 'undefined') module.exports = root.SIM;
 })(typeof window !== 'undefined' ? window : globalThis);
