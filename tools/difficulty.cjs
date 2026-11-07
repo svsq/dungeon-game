@@ -1,12 +1,15 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|town|cave|magma|endless] [--no-town: a run through the town played straight down] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--job-min M: a bot process killed as hung after M min]
+// node tools/difficulty.cjs [--seeds 1-40] [--no-cache] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|town|cave|magma|endless] [--no-town: a run through the town played straight down] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--full: no early stop] [--job-min M: a bot process killed as hung after M min] [--snapshots dir [--replay-floor 9]: the deep floors from the snapshots]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
-// the third run, bought meta and all, to its band. By default it takes half the cores; --quiet (for the night) runs 2 bots at the lowest
-// priority, on macOS in the background QoS class (the efficiency cores): slower, but the laptop's fans stay quiet
-const { execFile } = require('child_process'), os = require('os'), path = require('path');
+// the third run, bought meta and all, to its band. By default it takes half the cores; --quiet (for the night) runs 3 bots at the lowest
+// priority: slower, and the laptop's fans stay quieter
+const { execFile, execFileSync } = require('child_process'), os = require('os'), path = require('path');
+// --quiet: 3 bots at the lowest priority, free to use any core the rest of the machine leaves idle, the collector in each bot's own
+// thread (TASKS 467): on the efficiency cores alone (macOS background QoS), with the collectors' threads crowding the same cores,
+// a seed took ten times as long as in a normal run, 160 seeds well over an hour
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? 2 : Math.max(1, Math.floor(os.cpus().length / 2)));
+const [s0, s1] = arg('--seeds', '1-40').split('-').map(Number), runs = +arg('--runs', 1), diff = arg('--diff', 'normal'), quiet = process.argv.includes('--quiet'), jobs = +arg('-j', quiet ? 3 : Math.max(1, Math.floor(os.cpus().length / 2)));
 const fs = require('fs');
 const DATA = require('../live/data.js'), mode = arg('--mode', 'campaign'), RUN = DATA.runOf(mode), DESCEND = process.argv.includes('--descend'), FLOORS = Number.isFinite(RUN.floors) && !DESCEND ? RUN.floors : +arg('--floors', 30), STAGE = (f) => DATA.stageOf(mode, f), BOSS_FLOORS = Array.from({ length: FLOORS }, (_, i) => i + 1).filter((f) => STAGE(f).boss);
 // past: of the runs, the share that got past floor f (won, or died deeper): the demon lord's 8th is the old campaign's finale (TASKS 339)
@@ -20,7 +23,12 @@ const res = {}, failed = [], hung = [];
 // a bot process that has not finished in --job-min minutes is killed and listed as hung (TASKS 397): one hang held a whole run of
 // seeds for good. Gauged from a 1-run campaign's half a minute, the quiet mode's slow cores and the descent's hours
 const jobMin = +arg('--job-min', 15 * runs * (RUN.endless || DESCEND ? 4 * +arg('--hours', 1) : 1) * (quiet ? 4 : 1));
-const resume = arg('--resume', ''), replayFloor = +arg('--replay-floor', 0);
+// the deep floors measured without the floors before them (TASKS 467): a run with --snapshots keeps each seed's state on its arrival
+// at a chapter's first floor and its results beside them; --replay-floor F then plays every seed that got there from that state,
+// the floor built again by this version, and takes the rest from the results. A share of those seeds is played whole as well: a
+// floor before F that comes out otherwise means the snapshots are stale, and the run fails. For tuning only: --check refuses it
+const snapDir = arg('--snapshots', ''), replayFloor = +arg('--replay-floor', 0), resume = arg('--resume', '') || (replayFloor && snapDir ? path.join(snapDir, 'results.json') : '');
+const chapterFloors = () => Array.from({ length: FLOORS }, (_, i) => i + 1).filter((f) => f > 1 && STAGE(f).lf === 1);
 if (resume) for (const [p, rows] of Object.entries(JSON.parse(fs.readFileSync(resume, 'utf8')))) {
   res[p] = rows.filter((r) => r.length === runs && r.every((x) => x.seed === r[0].seed && ['win', 'dead'].includes(x.result?.how))
     && r[0].seed >= s0 && r[0].seed <= (s1 || s0) && (!replayFloor || r[0].result.floor < replayFloor));
@@ -28,7 +36,7 @@ if (resume) for (const [p, rows] of Object.entries(JSON.parse(fs.readFileSync(re
 const todo = []; for (const p of profiles) for (let s = s0; s <= (s1 || s0); s++) {
   if (!(res[p] || []).some((r) => r[0].seed === s && r.length >= runs)) todo.push([p, s]);
 }
-let left = todo.length;
+let left;
 const avg = (a, f) => a.reduce((n, r) => n + f(r), 0) / (a.length || 1);
 function report() {
   const head = ['profile', 'run', 'n', 'wins', 'stuck', 'deaths by floor ' + Array.from({ length: FLOORS }, (_, i) => i + 1).join(' '), 'minhp', 'hurt', 'dodges', 'hp pot', 'mp pot', 'minmp', 'time', 'lvl after floor ' + Array.from({ length: FLOORS }, (_, i) => i + 1).join(' ')];
@@ -197,30 +205,100 @@ function check() {
   if (miss.length) process.exitCode = 2;
 }
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
+const botCmd = (p, s) => ['--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode].concat(DESCEND ? ['--descend'] : [], process.argv.includes('--no-town') ? ['--no-town'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : []);
+// results kept by the version of the game and the bot, the bot's driver and node, with every flag the bot gets (TASKS 467): a --check
+// again on the same seeds reads them instead of playing. A share of them is played afresh beside the rest and must come out the same
+// to the byte, or the version's whole cache is thrown away and the run fails
+const noCache = ['--no-cache', '--from-json', '--snapshots', '--dump-state', '--replay-floor'].some((k) => process.argv.includes(k));
+const CACHE = (() => { const h = require('crypto').createHash('sha1'); h.update(fs.readFileSync(path.join(__dirname, 'playtest.cjs'))); h.update(process.version);
+  return path.join(__dirname, '..', 'frames', 'balance-cache', require('./bot.cjs').VERSION + '-' + h.digest('hex').slice(0, 8)); })();
+const cacheFile = (p, s) => path.join(CACHE, botCmd(p, s).join(' ').replace(/[^\w.-]+/g, '_') + '_seed' + s + '.jsonl');
+const cached = noCache ? [] : todo.filter(([p, s]) => fs.existsSync(cacheFile(p, s)));
+const verify = cached.filter((_, i) => i % Math.max(1, Math.floor(cached.length / Math.max(2, Math.ceil(cached.length * 0.05)))) === 0);
+const cacheBad = [];
+for (const [p, s] of cached) { const rows = fs.readFileSync(cacheFile(p, s), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  res[p] = (res[p] || []).filter((r) => r[0].seed !== s); res[p].push(rows); }
+todo.splice(0, todo.length, ...verify.map(([p, s]) => [p, s, 1]), ...todo.filter((j) => !cached.includes(j)));
+const staleSnap = [], prefix = {}; let prefixCheck = 0;
+if (replayFloor && snapDir) { const resumable = todo.filter(([p, s, again]) => !again && fs.existsSync(path.join(snapDir, `${diff}_${p}_${s}_f${replayFloor}.bin`)));
+  const n = Math.max(2, Math.ceil(resumable.length * 0.05)), step = Math.max(1, Math.floor(resumable.length / n)), pick = resumable.filter((_, i) => i % step === 0).slice(0, n);
+  for (const [p, rows] of Object.entries(JSON.parse(fs.readFileSync(resume, 'utf8')))) for (const r of rows) prefix[p + ' ' + r[0].seed] = r;
+  for (const j of pick) j[3] = 1; prefixCheck = pick.length; todo.sort((a, b) => (b[3] || 0) - (a[3] || 0));
+  console.error(`replay from floor ${replayFloor}: ${resumable.length} seed(s) from snapshots, ${pick.length} of them played whole to check the snapshots`); }
+left = todo.length;
+if (cached.length) console.error(`cache ${CACHE}: ${cached.length} result(s) read, ${verify.length} played again to check them`);
+function finish() {
+  if (staleSnap.length) { console.log(`\nsnapshots: ${staleSnap.length} of ${prefixCheck} seed(s) played whole differ before floor ${replayFloor} (${staleSnap.join(', ')}): the floors before it changed, take the snapshots again`); process.exitCode = 2; return; }
+  if (cacheBad.length) { fs.rmSync(CACHE, { recursive: true, force: true }); console.log(`\ncache: ${cacheBad.length} of ${verify.length} replayed result(s) differ (${cacheBad.join(', ')}): the cache ${CACHE} is removed, run again`); process.exitCode = 2; return; }
+  report(); if (process.argv.includes('--check')) check();
+}
 function next() {
-  const job = todo.shift(); if (!job) return; const [p, s] = job;
-  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s), '--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode, '--json'].concat(DESCEND ? ['--descend'] : [], process.argv.includes('--no-town') ? ['--no-town'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : []);
-  const snapshots = arg('--snapshots', ''), floor = arg('--replay-floor', '');
+  const job = todo.shift(); if (!job) return; const [p, s, again, whole] = job;
+  const cmd = ['node', path.join(__dirname, 'playtest.cjs'), String(s)].concat(botCmd(p, s), ['--json']);
   const dump = arg('--dump-state', ''); if (dump) cmd.push('--dump-state', dump);
-  if (snapshots) {
-    cmd.push('--snapshots', snapshots);
-    const file = path.join(snapshots, `${diff}_${p}_${s}_f${floor}.bin`);
-    if (floor && fs.existsSync(file)) cmd.push('--checkpoint', file);
-  }
-  if (quiet && process.platform === 'darwin') cmd.unshift('taskpolicy', '-b');
+  const file = snapDir && path.join(snapDir, `${diff}_${p}_${s}_f${replayFloor}.bin`);
+  if (snapDir && !replayFloor) cmd.push('--snapshots', snapDir, '--snap-floors', chapterFloors().join(','));
+  else if (snapDir && !whole && fs.existsSync(file)) cmd.push('--checkpoint', file, '--rebuild');
+  if (quiet) cmd.splice(1, 0, '--single-threaded-gc');
   const child = execFile(cmd[0], cmd.slice(1), { maxBuffer: 1 << 26, timeout: jobMin * 60e3, killSignal: 'SIGKILL' }, (err, out) => {
+    children.delete(child); if (stopped) return;
     if (err && err.killed) { hung.push(`${p} seed ${s}`); failed.push(`${s} ${p}`); console.error(`seed ${s} ${p}: hung, killed after ${jobMin} min`); }
     else if (err) { failed.push(`${s} ${p}`); console.error(`seed ${s} ${p}: ${err.message.split('\n')[0]}\n${(err.stderr || '').split('\n').slice(0, 7).join('\n')}`); }
-    else { res[p] = (res[p] || []).filter((r) => r[0].seed !== s); res[p].push(out.trim().split('\n').map((l) => JSON.parse(l))); }
+    else if (again) { if (out.trim() !== fs.readFileSync(cacheFile(p, s), 'utf8').trim()) cacheBad.push(`${p} seed ${s}`); }
+    else if (whole) { const fresh = out.trim().split('\n').map((l) => JSON.parse(l)), was = prefix[p + ' ' + s], cut = (r) => JSON.stringify(r.floors.filter((f) => f.floor < replayFloor));
+      if (!was || fresh.length !== was.length || fresh.some((r, k) => cut(r) !== cut(was[k]))) staleSnap.push(`${p} seed ${s}`);
+      res[p] = (res[p] || []).filter((r) => r[0].seed !== s); res[p].push(fresh); }
+    else { res[p] = (res[p] || []).filter((r) => r[0].seed !== s); res[p].push(out.trim().split('\n').map((l) => JSON.parse(l)));
+      if (!noCache) { fs.mkdirSync(CACHE, { recursive: true }); fs.writeFileSync(cacheFile(p, s), out.trim() + '\n'); } }
     const dest = arg('--json-out', ''); if (dest) fs.writeFileSync(dest, JSON.stringify(res));
-    if (--left === 0) { report(); if (process.argv.includes('--check')) check(); } else next(); });
+    if (snapDir && !replayFloor) fs.writeFileSync(path.join(snapDir, 'results.json'), JSON.stringify(res));
+    judge(); if (stopped) return;
+    if (--left === 0) finish(); else next(); });
+  children.add(child);
   if (quiet) try { os.setPriority(child.pid, 19); } catch (e) { /* the bot just runs at normal priority */ }
 }
+// --check over more than 40 seeds stops at a block of 40 once a band is missed beyond doubt: the 95 % interval of the share or the
+// mean wholly outside it (TASKS 467). A pass is still only read off all the seeds asked for (the player's call in TASKS 227)
+const early = process.argv.includes('--check') && !process.argv.includes('--full') && (s1 || s0) - s0 + 1 > 40;
+const children = new Set(); let stopped = 0, judged = 0;
+function clearMisses(n) {
+  const B = (BANDS[mode === 'town' ? 'campaign' : mode] || {})[diff] || {}, out = [], z = 1.96;
+  const share = (name, k, m, [a, b]) => { const [lo, hi] = wilson(k, m); if (m && (hi < a || lo > b)) out.push(`${name} ${Math.round(k / m * 100)}% (95% ${(lo * 100).toFixed(0)}–${(hi * 100).toFixed(0)}%), band ${a * 100}–${b * 100}%`); };
+  // a mean is judged on 30 values or more, its spread taken as no less than half the band's width: a few fights, or counts all
+  // alike (two boss fights without a potion), give an interval of no width that proves nothing
+  const mean = (name, l, [a, b], k = 1) => { if (l.length < 30) return; const m = avg(l, (v) => v), sd = Math.max((b - a) / 2, Math.sqrt(avg(l, (v) => (v - m) ** 2) * l.length / (l.length - 1))), w = z * sd / Math.sqrt(l.length);
+    if (m + w < a || m - w > b) out.push(`${name} ${(m * k).toFixed(1)} (95% ${((m - w) * k).toFixed(1)}–${((m + w) * k).toFixed(1)}), band ${a * k}–${b * k}`); };
+  for (const p in B) { if (!profiles.includes(p)) continue; const b = B[p], a = (res[p] || []).map((x) => x[0]).filter((r) => r && r.seed < s0 + n);
+    if (b.win) share(`${p}: wins`, a.filter((r) => r.result.how === 'win').length, a.length, b.win);
+    for (const f in b.past || {}) share(`${p}: past floor ${f}`, a.filter((r) => r.result.how === 'win' || r.result.floor > +f).length, a.length, b.past[f]);
+    for (let i = 0; i < FLOORS; i++) { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean), bf = Object.assign({}, b, (b.floor || {})[i + 1]);
+      if (bf.minhp) mean(`${p} f${i + 1}: min hp %`, l.map((f) => (f.minhp ?? 1) * 100), bf.minhp);
+      if (bf.hpPot) mean(`${p} f${i + 1}: hp potions`, l.map((f) => f.hpPot || 0), bf.hpPot); }
+    const bl = a.map((r) => (r.floors.find((f) => f.floor === (b.bossFloor || FLOORS)) || {}).boss).filter(Boolean);
+    if (b.bossLost) mean(`${p}: health the boss takes`, bl.map((q) => q.dmg), b.bossLost, 100);
+    if (b.bossPot) mean(`${p}: hp potions at the boss`, bl.map((q) => q.pot), b.bossPot); }
+  return out;
+}
+function judge() {
+  if (!early || stopped) return; const done = (s) => profiles.every((p) => (res[p] || []).some((r) => r[0].seed === s)) || failed.some((f) => f.split(' ')[0] === String(s));
+  let n = judged; while (n + 40 <= (s1 || s0) - s0 + 1 && Array.from({ length: 40 }, (_, i) => s0 + n + i).every(done)) n += 40;
+  if (n === judged || n >= (s1 || s0) - s0 + 1) return; judged = n; const miss = clearMisses(n); if (!miss.length) return;
+  stopped = 1; todo.length = 0; for (const c of children) c.kill('SIGKILL');
+  for (const p in res) res[p] = res[p].filter((r) => r[0].seed < s0 + n);
+  report(); console.log(`\nearly stop at seeds ${s0}–${s0 + n - 1} (TASKS 467): ${miss.length} band(s) missed beyond doubt\n  ` + miss.join('\n  ') + '\n(--full plays every seed)');
+  process.exitCode = 2;
+}
+// one such run at a time (TASKS 467): two side by side on the same cores each took twice as long, the quiet one three hours;
+// a later one, from any worktree, waits for the earlier ones to end
+function othersRunning() { try { return execFileSync('ps', ['-Ao', 'pid=,command='], { encoding: 'utf8' }).split('\n').map((l) => l.trim().match(/^(\d+)\s+(.*)$/)).filter(Boolean)
+  .filter(([, pid, c]) => +pid < process.pid && /^\S*node(\s+-\S+)*\s+\S*difficulty\.cjs(\s|$)/.test(c) && !/--from-json/.test(c)).map(([, pid]) => pid); } catch (e) { return []; } }
+function start() { const o = othersRunning(); if (o.length) { if (!start.said) console.error(`waiting for difficulty.cjs (pid ${o.join(', ')}) to finish`); start.said = 1; return setTimeout(start, 30e3); }
+  for (let i = 0; i < jobs; i++) next(); }
 const sources = arg('--from-json', '');
 if (sources) {
   for (const file of sources.split(',')) for (const [p, rows] of Object.entries(JSON.parse(fs.readFileSync(file, 'utf8')))) {
     res[p] = (res[p] || []).concat(rows.filter((r) => r[0].seed >= s0 && r[0].seed <= (s1 || s0)));
   }
   report(); if (process.argv.includes('--check')) check();
-} else if (!left) { report(); if (process.argv.includes('--check')) check(); }
-else for (let i = 0; i < jobs; i++) next();
+} else if (!left) finish();
+else start();

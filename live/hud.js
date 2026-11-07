@@ -25,7 +25,7 @@
   const MAGMA_LEG = [['lava', 'Лава'], ['chasm', 'Пропасть']];
   const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']];
-  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
+  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 410 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   function panel(id, x, y, w, h, o = {}) {
     L.rrect(x - 3, y - 3, w + 6, h + 6, (o.r || 8) + 3, o.rim || C.rim, o.rim2 || [0.2, 0.16, 0.13], o.a ?? 0.95);
@@ -66,6 +66,7 @@
     if (S.screen === 'craft' && R) craft(S, R, t);
     if (S.screen === 'talk' && R && S.talk) talk(S, R, t);
     if (S.screen === 'journal' && R) journal(S, R, t);
+    if (S.screen === 'board' && R) board(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
 
@@ -141,6 +142,8 @@
       if (b) { panel(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) { const FD = D.FOLK[f.role]; if (!FD.lines || !f.near || GT < f.sayT || GT - f.sayT >= D.FOLK_SAY) continue;
       bubble('folk' + f.i, FD.lines[f.sayN][GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 48); }
+    // a townsman struck by the hero's blow says so (TASKS 1033), over whatever he was saying
+    if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) if (f.role !== 'hen' && GT - (f.hitT ?? -9) < 1.6) bubble('ouch' + f.i, SIM.FOLK_OUCH[f.ouch || 0], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 92);
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
     const bars = [];
     // in rock a body is void: no label over nothing
@@ -196,11 +199,13 @@
     const dr = SIM.doorNear(R, 64); if (dr) { const lk = SIM.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? 'E или удар — открыть дверь' : lk.kind === 'key' ? (R.keys > 0 ? 'E — отпереть ключом' : 'Заперто: нужен ключ') : 'Заперто: где-то есть рычаг']; }
     const lv = SIM.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, 'E — потянуть рычаг'];
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) pr = [m.down.x, m.down.y - 66, R.bossDead ? 'E — спуститься глубже (бесконечный спуск)' : 'Спуск запечатан'];
-    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься в крипту' : 'E — спуститься на этаж ' + (m.floor + 1)];
+    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) pr = [m.exit.x, m.exit.y - 66, m.floor === D.runOf(R.mode).floors ? (R.bossDead ? 'E — выйти на поверхность' : 'Портал запечатан') : m.town ? 'E — спуститься на 1-й этаж' : 'E — спуститься на этаж ' + (m.floor + 1)];
+    { const g = SIM.gateNear(R); if (g) pr = [g.x, g.y - 80, 'E — портал в город']; }
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? 'E — подняться в город' : 'E — подняться на этаж ' + (m.floor - 1)];
     { const cw = SIM.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? (SIM.questMark(R, 'smith') ? 'E — кузнец: задание и перековка' : 'E — кузнец: перековка') : 'E — зачарователь: зачарование']; } }
     if (SIM.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, 'E — сундук-хранилище'];
+    if (m.town && SIM.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, 'E — доска заданий'];
     if (SIM.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, 'E — Алтарь душ: улучшения предков'];
     if (SIM.atGate(R)) { const o = SIM.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? 'E — врата: портал и путевые камни' : 'E — врата: путевые камни') : o[0].k === 'portal' ? 'E — портал на этаж ' + o[0].f : 'E — к путевому камню, этаж ' + o[0].f]; }
     if (!pr && S.screen === 'play') { const f = SIM.folkNear(R); if (f) { const mk = SIM.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? 'E — сдать задание: ' : mk === '!' ? 'E — задание: ' : 'E — говорить: ') + D.FOLK[f.role].name]; } }
@@ -236,7 +241,8 @@
       else if (r && h.mp < A.mp) L.solid(x + 3, y + 3, 42, 42, [0.05, 0.1, 0.4], 0, 0, 0, 0.5);
       lab('skk_' + A.id, A.key, x + 8, y + 11, { size: 14, col: C.gold }); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
-    [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].forEach(([b, ic, k], i) => { const x = 282 + i * 42, y = 90;
+    // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
+    [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].concat(R.viaTown ? [['scroll', 'it_scroll', 'T']] : []).forEach(([b, ic, k], i) => { const x = 282 + i * 42, y = 90;
       panel('pot_' + b, x, y, 38, 44, { r: 5 }); icon(ic, x + 4, y + 3, 30); lab('potn_' + b, pot(b), x + 33, y + 35, { size: 15, al: 1 }); lab('potk_' + b, k, x + 7, y + 10, { size: 12, col: C.gold }); });
     // stats column (no panel, like the reference: icons and numbers straight on the frame, with an ink outline)
     const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
@@ -400,6 +406,9 @@
     if (m.way && R.seen[m.way.ty * m.W + m.way.tx]) mark(m.way.x, m.way.y, 'way', 13);
     if (m.town) { const V0 = m.town.svc; mark(V0.altar.x, V0.altar.y, 'altar', 12); mark(V0.stash.x, V0.stash.y, 'stash', 12); mark(V0.anvil.x, V0.anvil.y, 'craft', 12); mark(V0.lectern.x, V0.lectern.y, 'craft', 12); mark(V0.portal.x, V0.portal.y, 'way', 13); }
     for (const q of R.shrines) if (!SIM.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
+    // the townsfolk with quest business (TASKS 1033): their ! and ? on the town's map, where they stand now
+    if (m.town && R.folk) R.folk.forEach((f, i) => { const mk = SIM.questMark(R, f.role); if (!mk) return; const x = px + f.x / TILE * k, y = py + f.y / TILE * k;
+      L.rrect(x - 8, y - 9, 16, 18, 5, [0.1, 0.07, 0.04], [0.1, 0.07, 0.04], 0.9); lab('mm_q' + i, mk, x, y + 1, { size: 16, al: 0.5, col: mk === '?' ? '#8fd98a' : '#ffc040' }); });
     for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
       const c = o.kind === 'foe' ? [1, 0.3, 0.2] : [1, 0.85, 0.3];
       L.rrect(x - 4, y - 4, 8, 8, 4, c, c, pulse); }
@@ -665,12 +674,32 @@
     wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 112, P.w - 360, 28, C.text);
     const act = at('act');
     // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
-    if (act) { const rs = 'Награда: ' + SIM.rwLine(T.act.rw); lab('tk_rw', rs, P.x + 300, P.y + P.h - 122, { size: 22, col: C.gold }); }
+    // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030)
+    if (act) { const rs = 'Награда: ' + SIM.rwLine(T.act.rw), ic = SIM.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
+      if (ic) { panel('tk_ic', P.x + 300, P.y + P.h - 160, 44, 44, { r: 6 }); icon(ic, P.x + 304, P.y + P.h - 156, 36); }
+      lab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, { size: 22, col: C.gold }); }
     if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: C.dim });
     button('tk_next', Object.assign({}, at('next'), { label: T.p + 1 < T.pages.length ? 'Дальше' : act && T.act.k === 'take' ? 'Не сейчас' : 'Уйти' }), S.hover);
     if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? 'Взять задание' : 'Сдать задание' }), S.hover);
     if (at('craft')) button('tk_craft', at('craft'), S.hover);
     lab('tk_keys', act ? (T.act.k === 'take' ? 'E — взять задание' : 'E — сдать задание') + ' · Esc — уйти' : 'E, пробел или ЛКМ — дальше · Esc — уйти', W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+  }
+  // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
+  function board(S, R, t) {
+    const L0 = SIM.boardOffers(R), U = D.UI.board(L0.length), P = U.P;
+    dim(0.6); panel('board', P.x, P.y, P.w, P.h, { r: 10 });
+    lab('bd_t', 'Доска заданий', P.x + 40, P.y + 50, { size: 40, col: C.gold });
+    const cb = U.r.find((q) => q.id === 'close'); panel('bd_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('bd_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    lab('bd_keys', 'ЛКМ — взять задание · E или Esc — закрыть', W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    if (!L0.length) { wrapLab('bd_none', 'Новых заданий нет. Горожане дают новые после каждого побеждённого хозяина главы.', P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
+    L0.slice(0, 7).forEach(({ role, of }, i) => { const q = of.q, Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic;
+      panel('bd_r' + i, P.x + 30, y, P.w - 60, 96, { r: 6 });
+      if (ic) { panel('bd_ic' + i, P.x + 46, y + 18, 60, 60, { r: 6 }); icon(ic, P.x + 52, y + 24, 48); }
+      const X = P.x + (ic ? 124 : 50);
+      lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('bd_f' + i, D.FOLK[role].name + ' · ' + q.f + '-й этаж', X, y + 56, { size: 17, col: C.dim });
+      lab('bd_w' + i, 'Награда: ' + SIM.rwLine(q.rw), X, y + 80, { size: 17, col: '#d8b870' });
+      button('bd_take' + i, Object.assign({}, b, { label: 'Взять' }), S.hover); });
   }
   // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
   const QST = { done: ['Выполнено', '#8fd98a'], taken: ['В пути', '#e8c890'], turned: ['Сдано', '#8a7d6c'] };
@@ -688,7 +717,8 @@
       lab('jr_f' + i, (D.FOLK[q.from] ? D.FOLK[q.from].name : '') + ' · ' + q.f + '-й этаж', b.x + 16, b.y + 44, { size: 16, col: C.dim }); });
     const Q = D.QUESTS[sel.key], X = P.x + 540, Wd = P.w - 580, [st, col] = QST[sel.st]; let y = P.y + 130;
     L.solid(X - 20, P.y + 110, 1, P.h - 180, C.rim, 0, 0, 0, 0.6);
-    lab('jr_dn', Q.name, X, y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
+    if (sel.ic) { panel('jr_ic', X, y - 30, 48, 48, { r: 6 }); icon(sel.ic, X + 4, y - 26, 40); }
+    lab('jr_dn', Q.name, X + (sel.ic ? 60 : 0), y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
     lab('jr_dk', (Q.kind === 'story' ? 'Сюжет · ' : '') + 'Дал: ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—'), X, y, { size: 20, col: C.dim }); y += 44;
     y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 24, C.text) + 18;
     lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.questLine(sel, R) : sel.st === 'done' ? ' · сдать — ' + (D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '') + ' в городе' : ''), X, y, { size: 22, col }); y += 48;
