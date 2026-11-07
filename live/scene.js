@@ -238,7 +238,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // a crust plate's top keeps most of its own dark neutral stone through the light (TASKS 448: lit by the lava round it, it came out tan)
   else if (crustOn > 0.5 && seamC < 0.5) o = vec4(col * 0.3 * 0.75, 0.75);
   // (the seams' lemon core is the lava's own glow: lit by its orange light it could not come out lemon, TASKS 1047)
-  else o = vec4(col * inside * 0.56 * (1.0 + 1.4 * core), inside); }`;
+  else o = vec4(col * inside * 0.56 * (1.0 + 1.4 * core * smoothstep(0.75, 1.0, texture(u_seen, w / u_map).r)), inside); }`;   // (the core's boost dies with the fog, TASKS 1056: it sparkled along every fog edge)
   // the fog of war and the rock deep past the walls are one dark stone seen far below, drifting slower than the camera: cracked
   // plates, veins faintly glowing in the biome's colour, a few motes. An unexplored room reads as that same stone, so the fog
   // gives nothing of the layout away. On the world's 2 px grid
