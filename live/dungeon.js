@@ -2381,43 +2381,44 @@
   const TOWN = { W: 56, H: 37,
     floor: [[4, 4, 48, 28]],
     // the outer ruins' ragged edge, the gate round the stairs, the services' back walls, the mine's rock and the wall over the rails
-    rock: [[4, 4, 48, 3], [4, 7, 2, 2], [50, 7, 2, 3], [4, 29, 3, 3], [4, 13, 1, 3], [51, 26, 1, 6],
-      [23, 4, 9, 4], [36, 11, 7, 2], [42, 11, 1, 5], [33, 19, 9, 2],
-      [44, 18, 8, 4], [4, 10, 4, 2], [4, 16, 4, 2], [4, 22, 4, 2], [12, 26, 5, 2], [18, 26, 6, 2], [31, 26, 4, 2], [36, 26, 5, 2], [36, 13, 1, 2]],
+    rock: [[4, 4, 48, 4], [4, 8, 2, 2], [50, 8, 2, 3], [4, 29, 3, 3], [4, 13, 1, 3], [51, 26, 1, 6],
+      [24, 8, 7, 3], [36, 14, 7, 2], [42, 14, 1, 5], [33, 21, 9, 2],
+      [44, 18, 8, 4], [4, 10, 4, 2], [4, 16, 4, 2], [4, 22, 4, 2], [12, 26, 5, 2], [18, 26, 6, 2], [31, 26, 4, 2], [36, 26, 5, 2], [36, 16, 1, 2]],
     // (TASKS 1029) the long walls over the rails are broken, as the reference's ruins are; the enchanter's niche is closed on its left.
-    // Niches carved out of the ruins' edge round the yard, each with its stores and a small fire (the left workshops are niches too)
-    niches: [[7, 5, 3, 2], [11, 5, 3, 2], [33, 5, 2, 2], [41, 5, 3, 2], [47, 5, 2, 2], [52, 11, 2, 2], [52, 14, 2, 2], [8, 32, 3, 2], [24, 32, 3, 2], [44, 32, 3, 2]],
+    // Niches carved out of the ruins' edge round the yard, each with its stores and a small fire (the left workshops are niches too);
+    // the top row of services stands three cells in from the edge with niches behind it, as the reference's does (TASKS 1035)
+    niches: [[7, 5, 3, 3], [11, 5, 3, 3], [16, 5, 3, 3], [23, 6, 9, 2], [33, 5, 2, 3], [37, 5, 3, 3], [42, 5, 3, 3], [47, 5, 2, 3], [52, 11, 2, 2], [52, 14, 2, 2], [8, 32, 3, 2], [24, 32, 3, 2], [44, 32, 3, 2]],
     // the cobbles (TASKS 1029): a round square about the fire and winding paths two or three cells wide off it to the services and the gate
-    plaza: [27, 17.4, 4.6, 3.7], paths: [[27, 8], [17, 10], [36, 9], [36, 22], [22, 22], [16, 22], [27, 31], [47, 23]],
-    stairs: [27, 8], fire: [27, 17], spawn: [24, 19], shop: [17, 8], anvil: [36, 8], forge: [38, 7], lectern: [39, 14], shelf: [37, 13],
-    altar: [36, 21], chest: [39, 21], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [15, 29], herbs: [44, 25],
+    plaza: [27, 17.4, 4.6, 3.7], paths: [[27, 11], [17, 13], [36, 12], [36, 24], [22, 22], [16, 22], [27, 31], [47, 23]],
+    stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [36, 11], forge: [38, 10], lectern: [39, 17], shelf: [37, 16],
+    altar: [36, 23], chest: [39, 23], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [15, 29], herbs: [44, 25],
     // the portal's ring is open toward the square (no stone east of it); where a body stands to use each service (the checks walk a two-cell-wide body there from the spawn)
-    use: { stairs: [27, 8], shop: [17, 10], altar: [36, 22], stash: [39, 22], anvil: [36, 9], lectern: [39, 15], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [16, 29] },
-    braziers: [[25, 8], [29, 8]],
+    use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [36, 12], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [16, 29] },
+    braziers: [[25, 11], [29, 11]],
     benches: [[25, 16], [29, 19], [25, 19]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
     // enchanter's runes, the Altar of Souls, the crypt's glow from below; the campfire and the gate's braziers are its torches
-    lights: [['forge', 38, 7], ['runes', 39, 15], ['candle', 40, 14], ['altar', 36, 21], ['crypt', 27, 8], ['adit', 47, 22]],
+    lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['crypt', 27, 11], ['adit', 47, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
-    lamps: [[8, 13], [8, 19], [9, 25], [48, 9], [11, 20], [21, 7], [19, 24], [14, 28], [31, 31], [39, 28], [12, 7], [42, 7], [45, 12]],
+    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [31, 31], [39, 28], [9, 8], [41, 8], [32, 8], [43, 15]],
     // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
-    edge: [[6, 8], [50, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
+    edge: [[6, 10], [49, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
     // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore;
     // the workshop niches on the left with a work table, sacks, a crate and burning candles
-    props: [['logs_tw', 43, 8], ['stall_tw', 46, 10], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['cart_tw', 49, 24], ['blocks_tw', 19, 29], ['ore_tw', 13, 30],
+    props: [['logs_tw', 44, 11], ['stall_tw', 47, 13], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['cart_tw', 49, 24], ['blocks_tw', 19, 29], ['ore_tw', 13, 30],
       ['table_candles', 6, 14], ['shop_sacks', 5, 21], ['shop_crate', 7, 24], ['candles', 5, 24]],
     rails: [[47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], ...Array.from({ length: 25 }, (_, i) => [41 - i, 30])],
     // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it; the cast is the player's (6 Nov 2026): no miner, mason or gardener
     // the rounds of those who walk (TASKS 1015): stops in cells, 'take' / 'drop' where the porter lifts and sets down his crate (from the
     // canvas stall to the merchant), the others pause at each stop to sweep or to scatter grain; the round loops back to the start
-    routes: { porter: [[45, 10, 'take'], [34, 10], [22, 12], [22, 10, 'drop'], [22, 12], [34, 10]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]] },
-    npcs: [['smith', 35, 8], ['enchanter', 40, 14], ['keeper', 29, 16], ['guard', 30, 10], ['porter', 32, 11], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18]],
+    routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]] },
+    npcs: [['smith', 35, 11], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 30, 13], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18]],
     // ruin stubs the seed picks some of, and spots for the small decor
-    stubs: [[9, 6], [44, 7], [10, 27], [45, 29], [5, 26], [49, 13], [12, 14]],
-    small: [['barrel', 13, 8], ['crate', 21, 8], ['barrel', 20, 11], ['crate', 33, 8], ['barrel', 41, 8], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
-      ['crate', 49, 9], ['barrel', 12, 30], ['barrel', 9, 9], ['crate', 35, 25], ['barrel', 47, 27], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17], ['barrel', 43, 30],
-      ['crate', 38, 30], ['crate', 50, 12], ['barrel', 50, 16], ['barrel', 29, 31], ['crate', 15, 8], ['barrel', 44, 9]],
+    stubs: [[14, 8], [45, 8], [10, 27], [45, 29], [5, 26], [49, 13], [12, 14]],
+    small: [['barrel', 13, 11], ['crate', 21, 11], ['barrel', 20, 14], ['crate', 33, 11], ['barrel', 41, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
+      ['crate', 49, 11], ['barrel', 12, 30], ['barrel', 9, 10], ['crate', 35, 25], ['barrel', 47, 27], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17], ['barrel', 43, 30],
+      ['crate', 38, 30], ['crate', 50, 12], ['barrel', 50, 16], ['barrel', 29, 31], ['crate', 15, 11], ['barrel', 21, 9]],
     // what a niche keeps: its stores, and a small fire at the back
     store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
   function genTown(seed) {
