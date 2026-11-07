@@ -84,7 +84,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
-    rand.state(initial.rng); for (const event of S.ev) counted.add(event);
+    rand.state(initial.rng); for (const event of S.ev) counted.add(event); if (cur) cur.resumed = 1;
     // the floor built again by this version (TASKS 467): its monsters are this version's already
     if (rebuild && !SIM.rebuildArrival(S)) throw new Error('checkpoint: the floor was not first built on this arrival');
     const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;

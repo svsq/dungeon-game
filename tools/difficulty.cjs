@@ -263,7 +263,9 @@ const children = new Set(); let stopped = 0, judged = 0;
 function clearMisses(n) {
   const B = (BANDS[mode === 'town' ? 'campaign' : mode] || {})[diff] || {}, out = [], z = 1.96;
   const share = (name, k, m, [a, b]) => { const [lo, hi] = wilson(k, m); if (m && (hi < a || lo > b)) out.push(`${name} ${Math.round(k / m * 100)}% (95% ${(lo * 100).toFixed(0)}–${(hi * 100).toFixed(0)}%), band ${a * 100}–${b * 100}%`); };
-  const mean = (name, l, [a, b], k = 1) => { if (l.length < 2) return; const m = avg(l, (v) => v), sd = Math.sqrt(avg(l, (v) => (v - m) ** 2) * l.length / (l.length - 1)), w = z * sd / Math.sqrt(l.length);
+  // a mean is judged on 30 values or more, its spread taken as no less than half the band's width: a few fights, or counts all
+  // alike (two boss fights without a potion), give an interval of no width that proves nothing
+  const mean = (name, l, [a, b], k = 1) => { if (l.length < 30) return; const m = avg(l, (v) => v), sd = Math.max((b - a) / 2, Math.sqrt(avg(l, (v) => (v - m) ** 2) * l.length / (l.length - 1))), w = z * sd / Math.sqrt(l.length);
     if (m + w < a || m - w > b) out.push(`${name} ${(m * k).toFixed(1)} (95% ${((m - w) * k).toFixed(1)}–${((m + w) * k).toFixed(1)}), band ${a * k}–${b * k}`); };
   for (const p in B) { if (!profiles.includes(p)) continue; const b = B[p], a = (res[p] || []).map((x) => x[0]).filter((r) => r && r.seed < s0 + n);
     if (b.win) share(`${p}: wins`, a.filter((r) => r.result.how === 'win').length, a.length, b.win);
