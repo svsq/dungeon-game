@@ -365,9 +365,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
     const st = SIM.stats(h, S.meta), inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, px: 960, py: 540, keys: [], slot: 0 };
-    const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1).slice(), offsets = (o) => D.ENEMIES[o.type]?.deep ? [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => j * m.W + i)) : [0, 1, -1, m.W, -m.W];
+    const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1), offsets = (o) => D.ENEMIES[o.type]?.deep ? [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => j * m.W + i)) : [0, 1, -1, m.W, -m.W];
     const reach = (o) => offsets(o).some((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d] >= 0);
-    const walkD = (o) => T * Math.min(...offsets(o).map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9);
+    const WD = new Map(), walkD = (o) => { let v = WD.get(o); if (v === undefined) WD.set(o, v = T * Math.min(...offsets(o).map((d) => FH[Math.floor(o.y / T) * m.W + Math.floor(o.x / T) + d]).filter((v) => v >= 0), 1e9)); return v; };
     // near by the walk too: a foe close through a wall made the bot drop its loot for a fight with another, nearer by the walk, and
     // pick the loot up again once out of the first one's 260 px, back and forth for good (seed 281)
     // a monster behind a door still locked can't be fought, nor an eel under its water (TASKS 310)
