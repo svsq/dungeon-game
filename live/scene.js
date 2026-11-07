@@ -1812,7 +1812,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   SC.endActors = (r, win, t, x, y) => {
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
     const enemy = (actor, px, py, dead) => {
-      const gt = t + 100, e = Object.assign({ id: 990, x: 0, y: 0, vx: 0, vy: 0, dist: 0, face: -1, st: 'idle', t0: -9, hitT: -9, hitP: -9, burn: 0, deadT: dead ? gt - (actor.type === 'boss_serpent' ? 0.6 : 2) : -1, dieA: 0 }, actor);
+      const gt = t + 100, e = Object.assign({ id: 990, x: 0, y: 0, vx: 0, vy: 0, dist: 0, face: -1, st: 'idle', t0: -9, hitT: -9, hitP: -9, burn: 0, deadT: dead ? gt - (actor.type === 'boss_serpent' ? 0.6 : actor.type === 'boss_colossus' ? 0.35 : 2) : -1, dieA: 0 }, actor);
       const k = dead ? 0.85 : 160 / (SZ(EN_TEX[e.type])[1] * (D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1));
       L.pre = M.of(M.t(px, py), M.s(k, k), M.t(-px, -py));
       try { drawEnemy(e, px, py, gt, t); } finally { L.pre = null; }

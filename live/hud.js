@@ -21,7 +21,9 @@
   const TOWN_LEG = [['you', 'Вы'], ['exit', 'Спуск в крипту'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь душ'], ['stash', 'Хранилище'], ['craft', 'Мастерские'], ['way', 'Кольцо камней']];
   // a quest's goal on this floor (TASKS 1019–1021) adds its own line
   const QUEST_LEG = ['quest', 'Цель задания'];
-  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.way ? [WAY_LEG] : [], SIM.questMarks(R).length ? [QUEST_LEG] : []));
+  // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
+  const MAGMA_LEG = [['lava', 'Лава'], ['chasm', 'Пропасть']];
+  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', 'Вы'], ['room', 'Комната'], ['gold', 'Сокровища'], ['boss', 'Босс'], ['exit', 'Выход'], ['shop', 'Торговец'], ['camp', 'Костёр'], ['altar', 'Алтарь'], ['altar_used', 'Использован']];
   const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 380 && y < 260) || (y < 150 && x > 500 && x < 1420);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
@@ -347,7 +349,7 @@
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   // a small map's panel (the town, the endless descent's first floors) is still wide enough for the legend beside the compass
-  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%'], WAY_LEG, QUEST_LEG], TOWN_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
+  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', 'Остатки до 100%'], WAY_LEG, QUEST_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 16 }))) + 112;
   // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
   // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
@@ -426,6 +428,8 @@
     if (id === 'way') { const c = [0.62, 0.7, 1]; L.solid(x - s / 2, y + s * 0.3, s, s * 0.2, [0.4, 0.38, 0.45]); L.solid(x - s * 0.22, y - s / 2, s * 0.44, s * 0.82, [0.5, 0.47, 0.56]); L.solid(x - s * 0.08, y - s * 0.32, s * 0.16, s * 0.5, c); return; }
     if (id === 'quest') { const a = a0; L.rrect(x - s / 2 - 2, y - s / 2 - 2, s + 4, s + 4, s / 2 + 2, [0.08, 0.05, 0.03], [0.08, 0.05, 0.03], a); L.solid(x, y, s * 0.62, s * 0.62, [1, 0.78, 0.25], Math.PI / 4, s * 0.31, s * 0.31, a); L.solid(x, y, s * 0.26, s * 0.26, [1, 0.97, 0.8], Math.PI / 4, s * 0.13, s * 0.13, a); return; }
     if (id === 'hint') { L.rrect(x - 4, y - 4, 8, 8, 4, [1, 0.85, 0.3], [1, 0.85, 0.3]); return; }
+    if (id === 'lava') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.77, 0.27, 0.1], [0.77, 0.27, 0.1]); return; }
+    if (id === 'chasm') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.4, 0.37, 0.38], [0.4, 0.37, 0.38]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.02, 0.015, 0.02], [0.02, 0.015, 0.02]); return; }
     if (id === 'exit') { icon('stairs', x - s / 2, y - s / 2, s); return; }
     if (id === 'room') { L.rrect(x - s / 2, y - s / 2, s, s, 2, [0.65, 0.6, 0.55], [0.65, 0.6, 0.55]); L.rrect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, 1, [0.49, 0.45, 0.42], [0.42, 0.39, 0.37]); return; }
     const [c0, c1] = GEM[id], r = s / 2;
@@ -771,7 +775,7 @@
     G.blend('add'); L.glow(410, 400, 180, win ? [0.75, 0.5, 0.2] : [0.55, 0.08, 0.06], 0.25); G.blend();
     if (!r.abandoned) SCENE.endActors(r, win, t, 410, 490);
     if (!win && (!last || !last.actor || r.abandoned)) icon(r.abandoned ? 'it_scroll' : last && last.src === 'spike' ? 'trap_spike' : 'bf_burn', 346, 340, 128);
-    const actor = last && last.actor, name = win ? 'Глубины покорены' : r.abandoned ? 'Вы прервали поход' : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.damageName(last && last.src);
+    const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || 'Глубины покорены') : r.abandoned ? 'Вы прервали поход' : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
       lab('e_last', 'Последний удар: −' + Math.round(last.n) + ' HP', 410, y + 12, { size: 24, al: 0.5, col: C.red });
