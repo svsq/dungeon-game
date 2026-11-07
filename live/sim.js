@@ -777,7 +777,11 @@
     // on the plateaus (TASKS 453) the window is an ellipse, not its 17×13 box: over open lava nothing stops the sight, and the box's
     // straight sides showed as a rectangle of lava in the dark
     // (its rim varies cell by cell, TASKS 482: a walk along a straight way swept the ellipse's edge into a straight line)
-    const rooms = new Set(), oval = !!m.cliff, h01 = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
+    // (a smooth noise over 3 cells, TASKS 1037: hashed cell by cell it left single cells revealed out in the fog, crumbs of lava)
+    const hh = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
+    const h01 = (x, y) => { const gx = x / 3, gy = y / 3, x0 = Math.floor(gx), y0 = Math.floor(gy), fx0 = gx - x0, fy0 = gy - y0, sx0 = fx0 * fx0 * (3 - 2 * fx0), sy0 = fy0 * fy0 * (3 - 2 * fy0);
+      return (hh(x0, y0) * (1 - sx0) + hh(x0 + 1, y0) * sx0) * (1 - sy0) + (hh(x0, y0 + 1) * (1 - sx0) + hh(x0 + 1, y0 + 1) * sx0) * sy0; };
+    const rooms = new Set(), oval = !!m.cliff;
     for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > (0.72 + 0.28 * h01(x, y)) ** 2) || !sight(x, y)) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
       R.seen[y * W + x] = 1; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v);
@@ -795,11 +799,23 @@
         if (opaque(x, y)) wall(x, y); else if (own || DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0) R.seen[y * W + x] = 1; } }
     // a lake's or a river's choice (dungeon.js m.choice, TASKS 486): every way over and the stairs show from the first bank
     if (m.choice && !R.choiceShown) { let A = CHOICE.get(m); if (!A) CHOICE.set(m, A = new Set(m.choice.at));
-      if (A.has(ty * W + tx)) { R.choiceShown = 1; for (const k of m.choice.show) { R.seen[k] = 1; const x = k % W, y = Math.floor(k / W); for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v); } } }
+      // (each way as a lane of the cells within two of it, TASKS 1037: its floor alone showed as crumbs scattered in the fog)
+      if (A.has(ty * W + tx)) { R.choiceShown = 1; for (const k of m.choice.show) { const x = k % W, y = Math.floor(k / W);
+        for (let v = -2; v <= 2; v++) for (let u = -2; u <= 2; u++) { if (u * u + v * v > 5 || !inMap(x + u, y + v)) continue; if (opaque(x + u, y + v)) wall(x + u, y + v); else R.seen[(y + v) * W + x + u] = 1; } } } }
     // an open cell the reveal's edges left unseen in the middle of seen ones shows (TASKS 482: black holes inside the open lava)
     if (oval) for (let y = ty - 14; y <= ty + 14; y++) for (let x = tx - 18; x <= tx + 18; x++) { if (!inMap(x, y) || R.seen[y * W + x] || opaque(x, y)) continue;
       let n = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if ((u || v) && inMap(x + u, y + v) && R.seen[(y + v) * W + x + u]) n++;
       if (n >= 6) R.seen[y * W + x] = 1; }
+    // and a closed pocket of up to 40 unseen open cells, seen cells all round it and off the map's edge, shows whole (TASKS 1037: the
+    // rule above closed single cells only; pockets of 3–29 stayed black inside the open lava)
+    if (oval) { const got = new Set(); for (let y = ty - 12; y <= ty + 12; y++) for (let x = tx - 16; x <= tx + 16; x++) { const k0 = y * W + x; if (!inMap(x, y) || R.seen[k0] || opaque(x, y) || got.has(k0)) continue;
+        const q = [k0]; got.add(k0); let closed = true;
+        for (let i = 0; i < q.length && closed; i++) { const qx = q[i] % W, qy = Math.floor(q[i] / W); if (qx <= 0 || qy <= 0 || qx >= W - 1 || qy >= m.H - 1 || q.length > 40) { closed = false; break; }
+          for (const [u, v] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = qx + u, ny = qy + v, nk = ny * W + nx; if (R.seen[nk] || got.has(nk)) continue; if (opaque(nx, ny)) { closed = false; break; } got.add(nk); q.push(nk); } }
+        if (closed) for (const k of q) R.seen[k] = 1; } }
+    // (a lone cell of lava seen with nothing seen round it is a crumb in the fog, not a view: it goes back under it)
+    if (oval) for (let y = ty - 12; y <= ty + 12; y++) for (let x = tx - 16; x <= tx + 16; x++) { const k = y * W + x; if (!inMap(x, y) || !R.seen[k] || m.cells[k] !== 3) continue;
+      let n = 0; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) if ((u || v) && inMap(x + u, y + v) && R.seen[(y + v) * W + x + u]) n++; if (n === 0) R.seen[k] = 0; }
     // a door once seen shows whole: its leaf stands over the cells behind it (a top wall's over the corridor, a bottom wall's over the room)
     for (const d of m.doors || []) { if (!d.cells.some(([x, y]) => R.seen[y * W + x])) continue; const up = d.dir === 'u' ? [1, 2] : d.dir === 'd' ? [-1] : [];
       for (const [x, y] of d.cells) { R.seen[y * W + x] = 1; for (const k of up) if (inMap(x, y - k)) R.seen[(y - k) * W + x] = 1; } }
@@ -3450,6 +3466,21 @@
       if (R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor seen from the start`);
       const k = m3.choice.at[0]; R3.hero.x = (k % m3.W + 0.5) * TILE; R3.hero.y = (Math.floor(k / m3.W) + 0.5) * TILE; step(Y, { keys: [] });
       if (!R3.seen[e3]) out.push(`magma choice: the stairs of a ${ft} floor do not show from its first bank`); }
+    // (TASKS 1037) a walk of 60 cells toward the stairs leaves no closed pocket of unseen open cells by its way
+    for (const [ft, sd] of [['lake', 2], ['terrace', 5], ['lake', 9]]) { let Y = null; for (let s2 = sd; s2 < sd + 20 && !Y; s2++) { const Q = spawn(0, {}); Q.run = newRun(Q, 'magma', s2); Q.screen = 'play';
+        for (let f = 1; f <= 3 && !Y; f++) { enterFloor(Q, Q.run, f); if (Q.run.map.ftype === ft && !Q.run.map.ftype2) Y = Q; } }
+      if (!Y) continue; const R4 = Y.run, m4 = R4.map, W4 = m4.W, h4 = R4.hero, s4 = Math.floor(h4.y / TILE) * W4 + Math.floor(h4.x / TILE), e4 = m4.exit.ty * W4 + m4.exit.tx, prev = new Map([[s4, -1]]), qq = [s4];
+      for (let i = 0; i < qq.length && !prev.has(e4); i++) for (const o of [1, -1, W4, -W4]) { const n = qq[i] + o; if (!prev.has(n) && (m4.cells[n] === 1 || m4.cells[n] === 6)) { prev.set(n, qq[i]); qq.push(n); } }
+      const way = []; for (let k = prev.has(e4) ? e4 : -1; k >= 0; k = prev.get(k)) way.unshift(k); R4.en = [];
+      for (const k of way.slice(0, 60)) { h4.x = (k % W4 + 0.5) * TILE; h4.y = (Math.floor(k / W4) + 0.5) * TILE; step(Y, { keys: [] }); }
+      const near = new Set(); for (const k of way.slice(0, 60)) for (let j = -5; j <= 5; j++) for (let i = -5; i <= 5; i++) near.add(k + j * W4 + i);
+      const got = new Set(); let pockets = 0;
+      for (const k0 of near) { const x0 = k0 % W4, y0 = Math.floor(k0 / W4); if (x0 <= 0 || y0 <= 0 || x0 >= W4 - 1 || y0 >= m4.H - 1 || R4.seen[k0] || got.has(k0) || (m4.cells[k0] !== 1 && m4.cells[k0] !== 3)) continue;
+        const q = [k0]; got.add(k0); let closed = true;
+        for (let i = 0; i < q.length && closed; i++) { const qx = q[i] % W4, qy = Math.floor(q[i] / W4); if (qx <= 0 || qy <= 0 || qx >= W4 - 1 || qy >= m4.H - 1 || q.length > 40) { closed = false; break; }
+          for (const o of [1, -1, W4, -W4]) { const n = q[i] + o; if (R4.seen[n] || got.has(n)) continue; if (m4.cells[n] !== 1 && m4.cells[n] !== 3) { closed = false; break; } got.add(n); q.push(n); } }
+        if (closed) pockets++; }
+      if (pockets) out.push(`magma fog: ${pockets} closed unseen pocket(s) by the walk on a ${ft} floor`); }
     return out;
   }
   function meleeSpacingCheck() {
