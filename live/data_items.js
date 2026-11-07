@@ -7,7 +7,7 @@
   const SLOT_NAME = { weapon: TXT('SLOT_NAME.weapon'), offhand: TXT('SLOT_NAME.offhand'), helm: TXT('SLOT_NAME.helm'), armor: TXT('SLOT_NAME.armor'), gloves: TXT('SLOT_NAME.gloves'), boots: TXT('SLOT_NAME.boots'), ring: TXT('SLOT_NAME.ring'), amulet: TXT('SLOT_NAME.amulet') };
   // a base's classes (R-03, TASKS 1102): only they wear it, no `cls` — anyone; leather, the cloak, rings and amulets are anyone's.
   // The staff stays the warrior's too until his own kit (1132)
-  const WR = ['warrior'];
+  const WR = ['warrior'], MG = ['mage'];
   const BASES = {
     sword: { slot: 'weapon', cls: WR, name: TXT('BASES.sword.name'), icon: 'it_sword', atk: 6, spd: 0.42, arc: 120, reach: 56 },
     longsword: { slot: 'weapon', cls: WR, name: TXT('BASES.longsword.name'), icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
@@ -28,6 +28,11 @@
     ring: { slot: 'ring', name: TXT('BASES.ring.name'), icon: 'it_ring' },
     amulet: { slot: 'amulet', name: TXT('BASES.amulet.name'), icon: 'it_amulet' },
     cloak: { slot: 'armor', name: TXT('BASES.cloak.name'), icon: 'it_cloak', def: 3, typed: { mp: 1.4 } },
+    // the mage's own (TASKS 1112): a wand quicker and lighter than the staff, an orb in the shield's hand, a robe and a circlet
+    wand: { slot: 'weapon', cls: MG, name: TXT('BASES.wand.name'), icon: 'it_wand', atk: 6, spd: 0.36, arc: 100, reach: 51, spell: 0.25 },
+    orb: { slot: 'offhand', cls: MG, name: TXT('BASES.orb.name'), icon: 'it_orb', def: 4, typed: { fire: 1 }, w: 1 / 3 },
+    robe: { slot: 'armor', cls: MG, name: TXT('BASES.robe.name'), icon: 'it_robe', def: 3, typed: { int: 0.8 } },
+    circlet: { slot: 'helm', cls: MG, name: TXT('BASES.circlet.name'), icon: 'it_circlet', def: 2, typed: { mp: 0.8 } },
   };
   // foreign: the share of drops, shelves and rewards that may be of another class; the rest is rolled again among the hero's own
   const CLASS_LOOT = { foreign: 0.15 };
@@ -65,7 +70,7 @@
     { k: 'regen', label: TXT('AFFIXES.regen.label'), a: 0.5, b: 0.15 }, { k: 'onhit', label: TXT('AFFIXES.onhit.label'), a: 0.5, b: 0.2 },
   ];
   // by base first: a legendary staff or axe must not be called a blade
-  const LEGEND_NAMES = { sword: TXT('LEGEND_NAMES.sword'), longsword: TXT('LEGEND_NAMES.longsword'), axe: TXT('LEGEND_NAMES.axe'), hammer: TXT('LEGEND_NAMES.hammer'), staff: TXT('LEGEND_NAMES.staff'),
+  const LEGEND_NAMES = { sword: TXT('LEGEND_NAMES.sword'), longsword: TXT('LEGEND_NAMES.longsword'), axe: TXT('LEGEND_NAMES.axe'), hammer: TXT('LEGEND_NAMES.hammer'), staff: TXT('LEGEND_NAMES.staff'), wand: TXT('LEGEND_NAMES.wand'), orb: TXT('LEGEND_NAMES.orb'), robe: TXT('LEGEND_NAMES.robe'), circlet: TXT('LEGEND_NAMES.circlet'),
     cloak: TXT('LEGEND_NAMES.cloak'), weapon: TXT('LEGEND_NAMES.weapon'), offhand: TXT('LEGEND_NAMES.offhand'), helm: TXT('LEGEND_NAMES.helm'), armor: TXT('LEGEND_NAMES.armor'), gloves: TXT('LEGEND_NAMES.gloves'),
     boots: TXT('LEGEND_NAMES.boots'), ring: TXT('LEGEND_NAMES.ring'), amulet: TXT('LEGEND_NAMES.amulet') };
 

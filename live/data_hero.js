@@ -37,7 +37,7 @@
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 5, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0.02, hp: 0 },
-      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff'], rclick: 'fireball', start: { weapon: 'staff', armor: 'cloak' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
+      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'hero', ready: 0 } },
     archer: { name: TXT('CLASSES.archer.name'), base: { str: 4, agi: 6, int: 3, vit: 4 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
       abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
   };

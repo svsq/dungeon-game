@@ -2551,10 +2551,10 @@
       for (const slot of D.SLOTS) if (!Object.keys(BASES).some((k) => BASES[k].slot === slot && D.wears(id, k))) out.push(`class ${id}: nothing to wear in the ${slot} slot`);
       for (const k of Object.keys(BASES)) for (const c of BASES[k].cls || []) if (!D.CLASSES[c]) out.push(`base ${k}: no class ${c}`);
     }
-    // the mage's start and growth (TASKS 1111): staff and cloak; at level 8 with the same gear more mana and spell power than a warrior
+    // the mage's start and growth (TASKS 1111, 1112): staff and robe; at level 8 with the same gear more mana and spell power than a warrior
     { const S = spawn(0, {}), M = newRun(S, 'campaign', 83, { cls: 'mage' }).hero, W = newRun(S, 'campaign', 83).hero;
       for (const h of [M, W]) h.lvl = 8; W.eq = M.eq; const m = stats(M, S.meta), w = stats(W, S.meta);
-      if (M.eq.weapon.b !== 'staff' || M.eq.armor.b !== 'cloak') out.push('class mage: does not start with a staff and a cloak');
+      if (M.eq.weapon.b !== 'staff' || M.eq.armor.b !== 'robe') out.push('class mage: does not start with a staff and a robe');
       if (!(m.maxMp > w.maxMp && m.spell > w.spell && m.spellBase > w.spellBase)) out.push('class mage: no more mana and spell power than a warrior'); }
     // the mage's abilities (TASKS 1110): the ice wave hurts and chills the one before him, not the one behind, and the chill thaws;
     // his staff hits a monster three reaches away with no mana at all, a warrior's staff does not

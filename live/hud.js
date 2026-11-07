@@ -578,8 +578,9 @@
       const typed = SIM.Q.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');
       for (const e of it.ench || []) lines.push([TXT('hud.tooltip.6', { p1: D.AFFIXES.find((a) => a.k === e.k).label.replace('{v}', e.v) }), '#9cc8ff', 22]);
-      if (h.eq[B.slot] !== it) compare(S, it, B.slot, h, lines);
-      if (!deal) lines.push([b.id.startsWith('eq:') ? TXT('hud.tooltip.7') : h.lvl < rq ? TXT('hud.tooltip.8') : TXT('hud.tooltip.9'), '#8a7d6c', 18]); }
+      const own = D.wears(D.clsOf(h).id, it.b);
+      if (h.eq[B.slot] !== it && own) compare(S, it, B.slot, h, lines);
+      if (!deal) lines.push([b.id.startsWith('eq:') ? TXT('hud.tooltip.7') : !own ? TXT('hud.tooltip.cls2') : h.lvl < rq ? TXT('hud.tooltip.8') : TXT('hud.tooltip.9'), '#8a7d6c', 18]); }
     else { lines.push([it.b === 'hp_potion' ? TXT('hud.tooltip.10') : it.b === 'mp_potion' ? TXT('hud.tooltip.11') : S.run && S.run.viaTown ? TXT('hud.tooltip.12') : TXT('hud.tooltip.13'), C.text, 20]); if (!deal) lines.push([TXT('hud.tooltip.14'), '#8a7d6c', 18]); }
     if (deal) lines.push([deal[0], deal[1], 22]);
     const w = Math.max(...lines.map(([s, , z], i) => lw('tt' + i, s, { size: z }))) + 36, hh = lines.reduce((a, l) => a + l[2] * 1.45, 0) + 24;
