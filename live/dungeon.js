@@ -2071,6 +2071,18 @@
           else if (near.length) { const [x, y] = near[0], t = ['skeleton', 'goblin'].find((o) => roster.includes(o)) || roster[0]; used.add(key(x, y)); addEnemy(t, x, y, roomAt(x, y), 1); enemies[enemies.length - 1].post = 'ford'; }
           else if (roster.includes('salamander') && pool.length) { const k = pool[Math.floor(R() * pool.length)]; addEnemy('salamander', k % W, Math.floor(k / W), roomAt(k % W, Math.floor(k / W))); enemies[enemies.length - 1].post = 'ford'; } }
         riverFire = new Set(own(ws[1][1])); } }
+    // a lake's way round pays for its length (TASKS 1040: the islands were the one answer, shorter and no worse): a chest of the 2nd
+    // tier half way along it, off the islands' chain
+    if (lakeWay && plat) { const N4 = [1, -1, W, -W], s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx;
+      const chain = new Uint8Array(W * H), q = rooms.filter((r) => r.isle).map((r) => r.cy * W + r.cx).filter((k) => cells[k] === 1); for (const k of q) chain[k] = 1;
+      for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!chain[n] && fig[n] && cells[n] === 1) { chain[n] = 1; q.push(n); } }
+      const from = new Int32Array(W * H).fill(-2), qq = [s0]; from[s0] = -1;
+      for (let i = 0; i < qq.length && from[e0] === -2; i++) for (const o of N4) { const n = qq[i] + o; if (from[n] === -2 && cells[n] === 1 && !chain[n]) { from[n] = qq[i]; qq.push(n); } }
+      const way = []; if (from[e0] !== -2) for (let k = e0; k >= 0; k = from[k]) way.push(k);
+      const cand = way.slice(Math.floor(way.length * 0.3), Math.ceil(way.length * 0.7)).flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), ok = (k, pad) => cells[k] === 1 && !chain[k] && free(k % W, Math.floor(k / W), pad) && ![...decor, ...pots, ...torches].some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 64) && !traps.some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 110) && !chests.some((c) => Math.hypot(c.x - wx(k % W), c.y - wy(Math.floor(k / W))) < 96) && !doorway(k % W, Math.floor(k / W));
+      const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
+      const mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k));
+      if (mid !== undefined) { const x = mid % W, y = Math.floor(mid / W); claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
     const hazards = [];
     if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y])];
       const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);
@@ -2103,7 +2115,14 @@
       // (a river's second way over, TASKS 473: a rock falls in its middle)
       if (riverFire) { const cs = [...riverFire], mx = cs.reduce((a, k) => a + k % W, 0) / cs.length, my = cs.reduce((a, k) => a + Math.floor(k / W), 0) / cs.length;
         const c = cs.map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => clear(x, y)).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))[0];
-        if (c) hazards.push({ k: 'fall', x: wx(c[0]), y: wy(c[1]), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, ford: 1 }); }
+        // (a run of them down its way over, as the walk's own aimed rocks are, TASKS 1040: off the walk to the stairs it stayed one rock
+        // and the second way cost less than the guarded first)
+        if (c) { const z = { k: 'fall', x: wx(c[0]), y: wy(c[1]), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, ford: 1 }; hazards.push(z);
+          const run = cs.map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => clear(x, y) && Math.hypot(x - c[0], y - c[1]) <= HZ.fall.run + 0.5).sort((a, b) => Math.hypot(a[0] - c[0], a[1] - c[1]) - Math.hypot(b[0] - c[0], b[1] - c[1])).slice(0, 2 * HZ.fall.run + 1);
+          const ax = Math.abs(Math.max(...run.map((q) => q[0])) - Math.min(...run.map((q) => q[0]))) >= Math.abs(Math.max(...run.map((q) => q[1])) - Math.min(...run.map((q) => q[1]))) ? 0 : 1, dir = Z() < 0.5 ? 1 : -1;
+          run.sort((a, b) => (a[ax] - b[ax]) * dir); const i0 = run.findIndex((q) => q[0] === c[0] && q[1] === c[1]);
+          run.forEach((q, i) => { const ph = ((z.ph - (i - i0) * HZ.fall.gap / z.per) % 1 + 1) % 1; if (i === i0) return; hazards.push({ ...z, x: wx(q[0]), y: wy(q[1]), ph, tail: 1 }); });
+          z.ph = ((z.ph % 1) + 1) % 1; } }
       for (const pass of [0, 1]) for (const [x, y] of narrows) { if (hazards.filter((z) => z.k === 'fall' && !z.ford && !z.span).length >= aim) break; const ii = isleOf(x, y); if (!pass && ii >= 0 && hit.has(ii)) continue;
         if (!clear(x, y) || hazards.some((z) => Math.hypot(z.x - wx(x), z.y - wy(y)) < HZ.fall.apart * TILE)) continue;
         hazards.push({ k: 'fall', x: wx(x), y: wy(y), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1 }); if (ii >= 0) hit.add(ii); }
