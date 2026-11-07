@@ -5,7 +5,8 @@ const SIM = require('../live/sim.js'), D = require('../live/data.js');
 // the version of the game and the bot a result was played on: --check refuses results of mixed versions or resumed from a
 // checkpoint, whose monsters were rescaled over a floor built by older data (TASKS 240)
 const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = require('fs'), path = require('path');
-  for (const f of ['live/data.js', 'live/sim.js', 'live/dungeon.js', 'tools/bot.cjs']) h.update(fs.readFileSync(path.join(__dirname, '..', f)));
+  const live = require('../live/modules.js').parts.data.concat(['data.js', 'sim.js', 'dungeon.js']).map((f) => 'live/' + f);
+  for (const f of [...live, 'tools/bot.cjs']) h.update(fs.readFileSync(path.join(__dirname, '..', f)));
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';

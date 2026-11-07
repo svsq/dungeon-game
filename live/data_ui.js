@@ -1,0 +1,88 @@
+// live/data_ui.js — UI layout in view px: the sim hit-tests these, the HUD draws them.
+// One of the DATA files (ARCHITECTURE.md §4.2): pure data and pure helpers, no state; data.js checks the set.
+(function (root) {
+  const D = root.DATA || (root.DATA = {});
+  const { ABILITIES, DIFF, META, SHOP, SLOTS, STASH, STATS, zoomName } = D;
+  // ---------------- UI layout (view px) — the sim hit-tests these, the HUD draws them ----------------
+  // the town (R-17, TASKS 1002): the campaign through the town, a test run until the town is done and the campaign starts there
+  const TEST_RUNS = [['cave', 'Затопленные пещеры', 'Пещеры заново (сброс)'], ['magma', 'Магмовые пещеры', 'Магма заново (сброс)'], ['endless', 'Бесконечный спуск', 'Спуск заново (сброс)']];
+  // the buttons that start a run from the main menu, in the order pressed: a test run is behind «Тесты» (bots and checks press these)
+  const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]);
+  const UI = {
+    // arm: the run whose button was pressed once over a saved run (a second press drops the save); «В город» (TASKS 1026, was «Алтарь
+    // душ»: the upgrades are bought at the altar on the town's square) goes on with the saved run, or starts a campaign, in the town
+    menu: (hasRun, diff, arm, zoom, inTown) => [['continue', 'Продолжить забег', hasRun], ['campaign', !hasRun ? 'Кампания — 12 этажей' : arm === 'campaign' ? 'Точно сбросить забег?' : 'Новая кампания (сброс)', true],
+      ['tests', 'Тесты', true], ['diff', 'Сложность: ' + DIFF[diff || 'normal'].name, true], ['zoom', 'Масштаб: ' + zoomName(zoom), true], ['town', 'В город', !hasRun || !!inTown]]
+      .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 86, w: 480, h: 72 })),
+    // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
+    // magma caves, then the endless descent past them), «Назад» last
+    tests: (hasRun, arm) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !hasRun ? fresh : arm === id ? 'Точно сбросить забег?' : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
+      .concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
+    // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
+    debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? 'Скрыть секреты' : 'Открыть все секреты', on: true, x: 520, y: 16, w: 430, h: 60 },
+      { id: 'dbg_loot', label: S && S.dbgLoot ? 'Убрать подсветку лута' : 'Подсветить лут', on: true, x: 970, y: 16, w: 430, h: 60 }],
+    pause: (zoom) => [['resume', 'Продолжить'], ['zoom', 'Масштаб: ' + zoomName(zoom)], ['save', 'Сохранить и выйти в меню'], ['abandon', 'Сдаться (конец забега)']]
+      .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 430 + i * 92, w: 480, h: 72 })),
+    // a run through the town (R-17, TASKS 1006) goes back there: a new hero by the campfire
+    end: (hasLog, town) => [['menu', 'В главное меню', true], ['again', town ? 'Вернуться в город' : 'Новый забег', true], ['log', 'Сохранить журнал', !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
+    meta: () => { const rows = Math.ceil(META.length / 2), step = Math.min(112, Math.floor(588 / rows));
+      return META.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 266 + (i % rows) * step, w: 760, h: step - 10 })).concat([{ id: 'back', label: 'Назад', on: true, x: 810, y: 890, w: 300, h: 70 }]); },
+    // a town workshop (TASKS 1013): the worn gear in a row and the bag under it on the left, the chosen piece, its affixes, the price
+    // and the work's button on the right
+    craft: () => { const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
+      SLOTS.forEach((sl, i) => r.push({ id: 'eq:' + sl, slot: sl, x: P.x + 40 + i * 96, y: P.y + 150, w: 84, h: 84 }));
+      for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 40 + (i % 8) * 96, y: P.y + 316 + Math.floor(i / 8) * 96, w: 84, h: 84 });
+      r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      return { P, r }; },
+    // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
+    // a quest's page (TASKS 1018) puts its take or turn-in button left of it; the smith's talk keeps a way into his workshop
+    talk: (T) => { const P = { x: 330, y: 640, w: 1260, h: 330 }, at = (i) => ({ x: P.x + P.w - 330 - i * 310, y: P.y + P.h - 92, w: 290, h: 64 }), last = T && T.p + 1 >= T.pages.length, r = [{ id: 'next', label: '', on: true, ...at(0) }];
+      if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: 'Мастерская', on: true, ...at(r.length) }); return { P, r }; },
+    // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
+    // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
+    board: (n) => { const P = { x: 400, y: 90, w: 1120, h: 900 }, r = [];
+      for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
+    journal: (n) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
+      for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
+    // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
+    stash: () => { const P = { x: 420, y: 150, w: 1080, h: 780 }, r = [];
+      for (let i = 0; i < STASH.max; i++) r.push({ id: 'stash:' + i, i, x: P.x + P.w / 2 - 170 + i * 120, y: P.y + 150, w: 100, h: 100 });
+      for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 88 + (i % 8) * 116, y: P.y + 372 + Math.floor(i / 8) * 104, w: 92, h: 92 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      return { P, r }; },
+    // the town's ring of stones (TASKS 1009): one row per way out, the open portal first, then the waystones by floor
+    gate: (n) => { const P = { x: 610, y: 190, w: 700, h: 200 + Math.max(1, n) * 84 + 90 };
+      return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'go:' + i, i, x: P.x + 40, y: P.y + 150 + i * 84, w: P.w - 80, h: 72 }))
+        .concat([{ id: 'leave', label: 'Уйти', on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 96, w: 300, h: 60 }]) }; },
+    // a dungeon altar: its three gifts side by side, cheapest first
+    altar: () => { const P = { x: 360, y: 150, w: 1200, h: 780 };
+      return { P, r: [0, 1, 2].map((i) => ({ id: 'gift:' + i, i, x: P.x + 40 + i * 380, y: P.y + 150, w: 340, h: 390 }))
+        .concat([{ id: 'leave', label: 'Уйти', on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 86, w: 300, h: 60 },
+          { id: 'donate', label: '1000 золота → 1 осколок', on: true, x: P.x + 40, y: P.y + 578, w: 560, h: 64 }]) }; },
+    // hero screen: equipment column, bag grid, stats and abilities
+    inv: () => {
+      const P = { x: 250, y: 170, w: 1420, h: 740 }, r = [];
+      const eq = [['helm', 0, 0], ['amulet', 1, 0], ['weapon', 0, 1], ['armor', 1, 1], ['offhand', 2, 1], ['gloves', 0, 2], ['ring', 1, 2], ['boots', 2, 2]];
+      for (const [s, cx, cy] of eq) r.push({ id: 'eq:' + s, slot: s, x: P.x + 310 + cx * 96, y: P.y + 110 + cy * 96, w: 84, h: 84 });
+      for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 640 + (i % 8) * 92, y: P.y + 110 + Math.floor(i / 8) * 92, w: 82, h: 82 });
+      STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: P.x + 40 + 196, y: P.y + 452 + i * 52, w: 40, h: 40 }));
+      ABILITIES.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: P.x + 640 + i * 258, y: P.y + 470, w: 250, h: 150 }));
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      return { P, r };
+    },
+    // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the
+    // right; every slot has its price line under it
+    shop: (nGoods) => {
+      const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
+      for (let i = 0; i < nGoods; i++) r.push({ id: 'buy:' + i, i, x: P.x + 40 + (i % 4) * 116, y: P.y + 130 + Math.floor(i / 4) * 140, w: 92, h: 92 });
+      for (let i = 0; i < SHOP.buyback; i++) r.push({ id: 'back:' + i, i, x: P.x + 40 + i * 116, y: P.y + 580, w: 92, h: 92 });
+      for (let i = 0; i < 24; i++) r.push({ id: 'sell:' + i, i, x: P.x + 620 + (i % 8) * 108, y: P.y + 130 + Math.floor(i / 8) * 140, w: 92, h: 92 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      return { P, r };
+    },
+  };
+
+  Object.assign(D, { TEST_RUNS, startPath, UI });
+})(typeof window !== 'undefined' ? window : globalThis);

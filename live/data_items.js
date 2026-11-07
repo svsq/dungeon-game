@@ -1,0 +1,111 @@
+// live/data_items.js — gear slots, bases, consumables, rarity, affixes, legendary names, level requirements, the merchant and prices.
+// One of the DATA files (ARCHITECTURE.md §4.2): pure data and pure helpers, no state; data.js checks the set.
+(function (root) {
+  const D = root.DATA || (root.DATA = {});
+  // equipment slots and bases. lvl scales with the floor where the item drops.
+  const SLOTS = ['weapon', 'offhand', 'helm', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
+  const SLOT_NAME = { weapon: 'Оружие', offhand: 'Щит', helm: 'Шлем', armor: 'Доспех', gloves: 'Перчатки', boots: 'Сапоги', ring: 'Кольцо', amulet: 'Амулет' };
+  const BASES = {
+    sword: { slot: 'weapon', name: 'Короткий меч', icon: 'it_sword', atk: 6, spd: 0.42, arc: 120, reach: 56 },
+    longsword: { slot: 'weapon', name: 'Длинный меч', icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
+    axe: { slot: 'weapon', name: 'Боевой топор', icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
+    hammer: { slot: 'weapon', name: 'Боевой молот', icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
+    staff: { slot: 'weapon', name: 'Посох мага', icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
+    shield: { slot: 'offhand', name: 'Круглый щит', icon: 'it_shield', def: 4, w: 1 / 3 },
+    buckler: { slot: 'offhand', name: 'Баклер', icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
+    tower_shield: { slot: 'offhand', name: 'Ростовой щит', icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },
+    leather_helm: { slot: 'helm', name: 'Кожаный шлем', icon: 'it_helm_l', def: 2, typed: { aspd: 0.6 } },
+    knight_helm: { slot: 'helm', name: 'Рыцарский шлем', icon: 'it_helm_k', def: 2, typed: { hp: 0.5 }, minF: 3 },
+    leather_armor: { slot: 'armor', name: 'Кожаная броня', icon: 'it_armor_l', def: 3, typed: { mspd: 0.8 } },
+    plate_armor: { slot: 'armor', name: 'Латный доспех', icon: 'it_armor_p', def: 3, typed: { hp: 1 }, minF: 3 },
+    gauntlets: { slot: 'gloves', name: 'Латные перчатки', icon: 'it_gloves', def: 1, typed: { hp: 0.5 }, w: 1 / 2 },
+    leather_gloves: { slot: 'gloves', name: 'Кожаные перчатки', icon: 'it_gloves_l', def: 1, typed: { aspd: 0.6 }, w: 1 / 2 },
+    boots: { slot: 'boots', name: 'Кожаные сапоги', icon: 'it_boots', def: 1, typed: { mspd: 0.8 }, w: 1 / 2 },
+    iron_boots: { slot: 'boots', name: 'Латные сапоги', icon: 'it_boots_i', def: 1, typed: { hp: 0.5 }, minF: 3, w: 1 / 2 },
+    ring: { slot: 'ring', name: 'Кольцо', icon: 'it_ring' },
+    amulet: { slot: 'amulet', name: 'Амулет', icon: 'it_amulet' },
+    cloak: { slot: 'armor', name: 'Плащ странника', icon: 'it_cloak', def: 3, typed: { mp: 1.4 } },
+  };
+  // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
+  // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
+  // the floor generator's version (R-18): a floor kept by a run through the town is a diff against its rebuild, so a save made by
+  // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
+  // and the endless descent's pool, TASKS 416, laid other floors from 13 on)
+  const GEN_VERSION = 3;
+  const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
+  const CONSUMABLES = {
+    hp_potion: { name: 'Зелье здоровья', icon: 'it_hp', heal: 0.4, stack: 9 },
+    mp_potion: { name: 'Зелье маны', icon: 'it_mp', mana: 0.5, stack: 9 },
+    scroll: { name: 'Свиток возвращения', icon: 'it_scroll', stack: 5 },
+  };
+  const RARITY = [
+    { id: 'common', name: 'Обычный', col: [0.78, 0.76, 0.72], affixes: 0 },
+    { id: 'uncommon', name: 'Необычный', col: [0.42, 0.86, 0.32], affixes: 1 },
+    { id: 'rare', name: 'Редкий', col: [0.36, 0.62, 1.0], affixes: 2 },
+    { id: 'epic', name: 'Эпический', col: [0.74, 0.38, 0.98], affixes: 3 },
+    { id: 'legendary', name: 'Легендарный', col: [1.0, 0.6, 0.14], affixes: 4 },
+  ];
+  // affix: stat key, label (with {v}), per-level value range
+  const AFFIXES = [
+    { k: 'str', label: '+{v} к силе', a: 1, b: 0.5 }, { k: 'agi', label: '+{v} к ловкости', a: 1, b: 0.5 },
+    { k: 'int', label: '+{v} к интеллекту', a: 1, b: 0.5 }, { k: 'vit', label: '+{v} к живучести', a: 1, b: 0.5 },
+    { k: 'atk', label: '+{v} к атаке', a: 2, b: 1.0 }, { k: 'def', label: '+{v} к защите', a: 1, b: 0.6 },
+    { k: 'crit', label: '+{v}% крит. шанса', a: 2, b: 0.4 }, { k: 'hp', label: '+{v} к здоровью', a: 8, b: 4 },
+    { k: 'mp', label: '+{v} к мане', a: 5, b: 2 }, { k: 'aspd', label: '+{v}% скорости атаки', a: 4, b: 0.8 },
+    { k: 'mspd', label: '+{v}% скорости бега', a: 3, b: 0.5 }, { k: 'leech', label: '+{v}% вампиризма', a: 1, b: 0.3 },
+    { k: 'fire', label: '+{v}% урона огнём', a: 6, b: 2 }, { k: 'dodge', label: '+{v}% уклонения', a: 1, b: 0.25 },
+    { k: 'regen', label: '+{v} здоровья в секунду', a: 0.5, b: 0.15 }, { k: 'onhit', label: '+{v} здоровья за удар', a: 0.5, b: 0.2 },
+  ];
+  // by base first: a legendary staff or axe must not be called a blade
+  const LEGEND_NAMES = { sword: 'Пламенный клинок', longsword: 'Меч Рассвета', axe: 'Секира Палача', hammer: 'Молот Грома', staff: 'Посох Вечного Пламени',
+    cloak: 'Плащ Ночи', weapon: 'Пламенный клинок', offhand: 'Эгида Зари', helm: 'Венец Короля', armor: 'Доспех Феникса', gloves: 'Длани Титана',
+    boots: 'Поступь Тени', ring: 'Кольцо Бездны', amulet: 'Сердце Дракона' };
+
+  // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
+  // build felled the bosses in 8–14 s (TASKS 245)
+  // a newcomer's hints (TASKS 390): the whirl, shown with `n` foes awake within its reach and it ready, at most every `every` s, until
+  // the player has whirled `until` times in all (the novice bot cast the fireball 34 times a run and the whirl once, and died to the
+  // crypt's packs on the 3rd)
+
+  // the hero's level a piece of gear asks (TASKS 1028): a little under its own, so a find of the floor the hero is on goes on at once
+  // (the novice and average bots come to floor f at level 1, 3, 3, 5, 6, 7, 8, 9, 11, 12, 13, 15; the magma run's 15th-level hero finds
+  // 15th–18th-level gear), while a piece kept in the town from a deep run waits: one of the 12th floor asks the 8th level
+  const reqLvl = (it) => (!it || CONSUMABLES[it.b] ? 0 : Math.max(1, it.lvl - 2 - Math.floor(it.lvl / 6)));
+
+  // the merchant: one per floor. A bot arrives at the 8th floor with ~6000 gold, so the showpiece (a rarity or two above what
+  // drops there) costs most of a run's takings; loot sells back for an eighth, or selling alone would fund the shelf
+  const SHOP = {
+    gear: (f) => 4 + (f >= 4 ? 1 : 0),
+    // the first piece on the shelf is the showpiece: at least this rarity
+    best: (f) => Math.min(4, 2 + Math.floor(f / 3)),
+    q: (f) => 1.4 + 0.15 * f,
+    cons: (f) => [['hp_potion', 1 + Math.floor(f / 3)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 1 + (f >= 5 ? 1 : 0)]],
+    // a legendary showpiece at 12× was bought on the 6th floor by every average run, and the 7th became the calmest floor (TASKS 216)
+    rarK: [1, 2, 4, 7, 20],
+    // selling keeps the old legendary 12×: a dearer showpiece must not make every legendary found worth more gold (209)
+    sellK: [1, 2, 4, 7, 12],
+    sell: 0.12, buyback: 4,
+    // the town's shelf (TASKS 1010): the only steady source of potions and return scrolls in a run through the town, so it keeps
+    // more of them than a floor's merchant did
+    // a run through the town starts with a scroll of return (TASKS 1024): without it the first way home was a chest's 25 %, and the
+    // average bot past the 8th fell from 70 to 25 % of runs, the merchant's gear and potions out of reach
+    townStart: { scroll: 1 },
+    townCons: (f) => [['hp_potion', 3 + Math.floor(f / 2)], ['mp_potion', 2 + Math.floor(f / 3)], ['scroll', 2 + Math.floor(f / 4)]],
+    // the wandering merchant (TASKS 1010): in a run through the town a floor's merchant is a chance, from the 2nd floor on; his gear
+    // is stocked `depth` floors deeper, a little better made, the showpiece a rarity up
+    wander: { chance: 0.1, from: 2, depth: 2, q: 0.5, best: 1,
+      lines: ['Брожу по крипте. Товар — под стать.', 'Не каждый день встретишь, а?', 'Это я добыл внизу. Сам. Почти.', 'Бери, пока я не ушёл глубже.'] },
+    lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
+      'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
+    hitLines: ['Эй! Я тут торгую, а не дерусь.', 'Осторожнее! Товар хрупкий.', 'Мечом скидку не выбьешь.'],
+    // in the town he calls the hero over from across the yard (TASKS 1015)
+    calls: ['Зелья! Свитки! Подходи!', 'Товар из самой крипты!', 'Эй, герой! Глянь, что есть!', 'Дёшево отдам, пока не передумал!'],
+  };
+
+  const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };
+  const price = (it, f, rk) => (CONSUMABLES[it.b] ? CONS_PRICE[it.b](f) : Math.round((50 + 30 * it.lvl) * rk[it.rar] / 5) * 5);
+  const itemPrice = (it, f) => price(it, f, SHOP.rarK);
+  const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
+
+  Object.assign(D, { SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, reqLvl, SHOP, itemPrice, sellPrice });
+})(typeof window !== 'undefined' ? window : globalThis);

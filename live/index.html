@@ -22,7 +22,7 @@ const V = Date.now(), STATIC = !!window.__STATIC__;          // STATIC: packed b
 const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src + '?v=' + V; s.onload = res; s.onerror = () => rej(new Error('failed ' + src)); document.head.appendChild(s); });
 (async () => {
   // sizes.js: window.SIZES (display size per sprite in view px, engine.md §7); audio.js: sound synthesised from the event bus
-  for (const f of ['assets.js', 'sizes.js', 'rigs.js', 'gl.js', 'lib.js', 'data.js', 'dungeon.js', 'sim.js', 'monsters.js', 'scene.js', 'hud.js', 'audio.js']) await load(f);
+  await load('modules.js'); for (const f of MODULES.page) await load(f);
   const q = new URLSearchParams(location.search), render = q.has('render');
   const VW = (SIM.VIEW || {}).W || 1920, VH = (SIM.VIEW || {}).H || 1080;             // view size and aspect come from the sim
   document.documentElement.style.setProperty('--ar', VW / VH); if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
@@ -104,7 +104,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   };
   loop();
   if (STATIC) { dev.style.display = 'none'; return; }
-  const WATCH = ['index.html', 'scene.js', 'monsters.js', 'hud.js', 'sim.js', 'data.js', 'dungeon.js', 'lib.js', 'gl.js', 'assets.js', 'sizes.js', 'rigs.js', 'audio.js'], stamp = {};
+  const WATCH = ['index.html', 'modules.js', ...MODULES.page], stamp = {};
   const poll = async () => {
     for (const f of WATCH) {
       try { const r = await fetch(f + '?poll=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified') + r.headers.get('content-length');
@@ -114,7 +114,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   };
   poll();
 })().catch((e) => { console.error(e); document.body.insertAdjacentHTML('beforeend', '<pre style="color:#f88;position:absolute;top:0;left:0;background:#000c;padding:12px;font:13px monospace;white-space:pre-wrap">' + e.stack + '</pre>');
-  const f = ['scene.js', 'sim.js', 'lib.js', 'gl.js', 'assets.js', 'index.html'], st = {};               // keep polling: fixing the error reloads by itself
+  const f = ['index.html', 'modules.js', ...((window.MODULES && MODULES.page) || [])], st = {};               // keep polling: fixing the error reloads by itself
   setInterval(async () => { for (const x of f) { try { const r = await fetch(x + '?p=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const m = r.headers.get('last-modified');
     if (st[x] && st[x] !== m) location.reload(); st[x] = m; } catch (e) {} } }, 800); });
 </script></body></html>
