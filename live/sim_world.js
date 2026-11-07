@@ -8,7 +8,7 @@
     potion, propBoxes, ri, rnd, rollItem, secretMask } = SIMX;
   // ---------------- actions ----------------
   function usePotion(S, R, b) {
-    const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? 'Нет зелий здоровья' : 'Нет зелий маны' }); return; }
+    const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? TXT('sim_world.usePotion.s') : TXT('sim_world.usePotion.s.2') }); return; }
     const st = heroSt(S), it = h.bag[i];
     const brew = 1 + gift(h, 'thrift') / 100;
     if (b === 'hp_potion') h.hp = Math.min(st.maxHp, h.hp + st.maxHp * CONSUMABLES.hp_potion.heal * brew); else h.mp = Math.min(st.maxMp, h.mp + st.maxMp * CONSUMABLES.mp_potion.mana * brew);
@@ -24,7 +24,7 @@
   // stands and takes him to the town's ring of stones; its pair in the town brings him back to that spot (and closes)
   // its flash only where he comes out: one where he left lit the new floor at the old one's coordinates (TASKS 1025)
   function readStep(S, R, moved, dashing) { const h = R.hero, q = h.read;
-    if (moved || dashing || h.deadT >= 0 || h.atkT > q.t0 || (h.castT ?? -9) > q.t0) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Чтение прервано' }); return; }
+    if (moved || dashing || h.deadT >= 0 || h.atkT > q.t0 || (h.castT ?? -9) > q.t0) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.readStep.s') }); return; }
     if (S.t - q.t0 < READ_T) return;
     const it = h.bag[q.i]; h.read = null; if (!it || it.b !== 'scroll') return; if (--it.n <= 0) h.bag[q.i] = null;
     R.portal = { f: R.floor, x: h.x, y: h.y }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
@@ -33,20 +33,20 @@
     if (it.b === 'hp_potion' || it.b === 'mp_potion') { usePotion(S, R, it.b); return; }
     // in a run through the town (TASKS 1007) the scroll is read on the spot, READ_T s standing still, and opens a portal home
     if (it.b === 'scroll' && R.viaTown) { S.screen = 'play';
-      if (R.town) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'В городе свиток не нужен' }); return; }
-      if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не посреди боя с боссом' }); return; }
+      if (R.town) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s') }); return; }
+      if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.2') }); return; }
       h.read = { t0: S.t, i: idx }; h.vx = h.vy = 0; ev(S, { k: 'read', x: h.x, y: h.y }); return; }
     if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
     // gear above the hero's level stays in the bag (TASKS 1028)
-    if (h.lvl < D.reqLvl(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Требуется уровень ' + D.reqLvl(it) }); return; }
+    if (h.lvl < D.reqLvl(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.3', { p1: D.reqLvl(it) }) }); return; }
     const slot = BASES[it.b].slot, old = h.eq[slot]; h.eq[slot] = it; h.bag[idx] = old || null; ev(S, { k: 'equip', x: h.x, y: h.y, slot, on: gearName(it), off: gearName(old) });
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
   }
   function castAbility(S, R, id, inp) {
     const h = R.hero, A = ABILITIES.find((a) => a.id === id), rank = h.ab[id] || 0;
-    if (!rank) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Откроется на ' + A.unlock + ' уровне' }); return; }
+    if (!rank) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s', { unlock: A.unlock }) }); return; }
     if (h.cd[id] > S.t) return;
-    if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: 'Не хватает маны' }); return; }
+    if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s.2') }); return; }
     const AR = D.abRank(id, rank); h.mp -= A.mp; h.cd[id] = S.t + A.cd * AR.cd; h.castT = S.t; h.castK = id;
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
@@ -67,7 +67,7 @@
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
   // the townsfolk and hens in the way of a blow (TASKS 1033): it harms none of them, but each answers it: a townsman flinches and
   // says so (f.hitT, f.ouch), a hen flicks its tail and runs (the hero is close, so it flees him anyway)
-  const FOLK_OUCH = ['Эй! Полегче!', 'Ты чего машешь?!', 'Осторожнее, герой!', 'Своих не бей!'];
+  const FOLK_OUCH = [TXT('FOLK_OUCH'), TXT('FOLK_OUCH.2'), TXT('FOLK_OUCH.3'), TXT('FOLK_OUCH.4')];
   function hitFolk(S, R, x, y, rad, ax, arc) { if (!R.town || !R.folk) return;
     for (const f of R.folk) { const dx = f.x - x, dy = f.y - y, d = Math.hypot(dx, dy); if (d > rad + 12) continue;
       if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (S.t - (f.hitT ?? -9) < 0.6) continue;
@@ -126,7 +126,7 @@
       for (let k = 0; k < 3; k++) m.decals.push({ x: q.x - 30 + k * 30, y: q.y + 24 + (k % 2) * 8, n: k === 1 ? 'dc_straw' : 'dc_rubble', f: k & 1, s: 0.9 }); R.trauma = Math.min(1, R.trauma + 0.35); }
     if (kind === 'lever') R.trauma = Math.min(1, R.trauma + 0.3);
     fstat(R).sec++;
-    ev(S, { k: 'secret', x: q.x, y: q.y - 20, i, kind }); R.msg = { s: 'Тайная комната!', t: S.t };
+    ev(S, { k: 'secret', x: q.x, y: q.y - 20, i, kind }); R.msg = { s: TXT('sim_world.openSecret.msg.s'), t: S.t };
     giveShards(S, R, REWARD.secret, q.x, q.y - 20); checkFull(S, R);
   }
   // a secret's bookshelf standing (it blocks its cell) or broken (it does not)
@@ -197,7 +197,7 @@
       ev(S, { k: 'summon', x, y });
     }
     P.downT = S.t; ev(S, { k: 'ambush', x: h.x, y: h.y });
-    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: 'Засада!', t: S.t, d: 2, room: P.room }; return true;
+    R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.springAmbush.msg.s'), t: S.t, d: 2, room: P.room }; return true;
   }
   // a door opens to a press of E or a blow (a kick, it flies open), unless it is locked: a key the hero carries opens the lock for
   // good, a lever opens every door of its lock at once
@@ -207,8 +207,8 @@
     const m = R.map, h = R.hero, L = doorLock(m, d), i = m.doors.indexOf(d);
     if (d.arena && R.arena && R.arena.active) return;
     if (L) { if (L.kind !== 'key' || !(R.keys > 0)) { if (S.t - (d.nopeT ?? -9) > 1) { d.nopeT = S.t; ev(S, { k: 'locked', x: d.x, y: d.y, i });
-          ev(S, { k: 'nope', x: h.x, y: h.y, s: L.kind === 'key' ? 'Заперто. Нужен ключ' : 'Заперто. Где-то должен быть рычаг' }); } return; }
-      R.keys--; L.open = 1; L.openT = S.t; ev(S, { k: 'unlatch', x: d.x, y: d.y, i }); R.msg = { s: 'Ключ подошёл', t: S.t }; }
+          ev(S, { k: 'nope', x: h.x, y: h.y, s: L.kind === 'key' ? TXT('sim_world.openDoor.s') : TXT('sim_world.openDoor.s.2') }); } return; }
+      R.keys--; L.open = 1; L.openT = S.t; ev(S, { k: 'unlatch', x: d.x, y: d.y, i }); R.msg = { s: TXT('sim_world.openDoor.msg.s'), t: S.t }; }
     d.open = 1; d.openT = S.t; d.kick = kick ? 1 : 0; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 1;
     if (kick) R.trauma = Math.min(1, R.trauma + 0.15);
     ev(S, { k: 'door', x: d.x, y: d.y, i, kick: d.kick });
@@ -222,7 +222,7 @@
     const m = R.map, li = m.locks.indexOf(L); L.open = 1; L.openT = S.t; R.trauma = Math.min(1, R.trauma + 0.25);
     ev(S, { k: 'lever', x: L.lever.x, y: L.lever.y, i: li });
     for (const d of m.doors) if (d.lock === li && !d.open) openDoor(S, R, d, 0);
-    R.msg = { s: 'Где-то с лязгом открылась дверь', t: S.t };
+    R.msg = { s: TXT('sim_world.pullLever.msg.s'), t: S.t };
   }
   // the secret a press of E works from where the hero stands: a banner to tear down, a sconce to pull
   function secretUnder(R) { const h = R.hero, m = R.map;

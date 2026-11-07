@@ -4,16 +4,16 @@
   const D = root.DATA || (root.DATA = {});
   const { plural, runOf, stageOf, xpNeed } = D;
   const QUESTS = {
-    cull: { kind: 'side', type: 'kill', name: 'Прополка', need: (f) => 10 + 2 * f, text: (q) => 'Убей ' + q.need + ' ' + plural(q.need, 'чудовище', 'чудовища', 'чудовищ') + ' на ' + q.f + '-м этаже или глубже.', rw: ['scroll', 'xp'] },
-    elites: { kind: 'side', type: 'kill', elite: 1, name: 'Сильнейшие', need: (f) => 2 + Math.floor(f / 4), text: (q) => 'Одолей ' + q.need + ' ' + plural(q.need, 'элитного врага', 'элитных врагов', 'элитных врагов') + ' на ' + q.f + '-м этаже или глубже.', rw: ['scroll', 'item'] },
-    sweep: { kind: 'side', type: 'clear', name: 'Тишина в залах', need: (f) => 3 + Math.floor(f / 4), text: (q) => 'Зачисти ' + q.need + ' ' + plural(q.need, 'комнату', 'комнаты', 'комнат') + ' до последнего врага на ' + q.f + '-м этаже или глубже.', rw: ['xp', 'shards'] },
-    descent: { kind: 'side', type: 'reach', name: 'Глубже', need: () => 1, ahead: 2, text: (q) => 'Спустись до ' + q.f + '-го этажа.', rw: ['scroll', 'shards'] },
+    cull: { kind: 'side', type: 'kill', name: TXT('QUESTS.cull.name'), need: (f) => 10 + 2 * f, text: (q) => TXT('QUESTS.cull.text', { need: q.need, p2: TXT.n('QUESTS.cull.text.2', q.need), f: q.f }), rw: ['scroll', 'xp'] },
+    elites: { kind: 'side', type: 'kill', elite: 1, name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item'] },
+    sweep: { kind: 'side', type: 'clear', name: TXT('QUESTS.sweep.name'), need: (f) => 3 + Math.floor(f / 4), text: (q) => TXT('QUESTS.sweep.text', { need: q.need, p2: TXT.n('QUESTS.sweep.text.2', q.need), f: q.f }), rw: ['xp', 'shards'] },
+    descent: { kind: 'side', type: 'reach', name: TXT('QUESTS.descent.name'), need: () => 1, ahead: 2, text: (q) => TXT('QUESTS.descent.text', { f: q.f }), rw: ['scroll', 'shards'] },
     // the named foe from the 3rd floor (TASKS 1024: on the 1st it killed the bot's level-1 hero on two seeds in six)
-    named: { kind: 'side', type: 'named', name: 'Охота', need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => 'На ' + q.f + '-м этаже бродит чудовище по прозвищу ' + q.title + '. Найди и убей его: оно отмечено на карте.', rw: ['scroll', 'item'], item: 3 },
-    fetch: { kind: 'side', type: 'fetch', name: 'Пропажа', need: () => 1, fresh: 1, noBoss: 1, text: (q) => '«' + q.thing + '» лежит где-то на ' + q.f + '-м этаже: в комнате, в сундуке или в тайнике. Найди и принеси.', rw: ['scroll', 'xp'] },
-    room: { kind: 'side', type: 'room', name: 'Логово', need: () => 1, fresh: 1, noBoss: 1, text: (q) => 'На ' + q.f + '-м этаже есть логово — оно отмечено на карте. Зачисти его до последнего врага.', rw: ['xp', 'shards'] },
-    chapter: { kind: 'story', type: 'boss', name: 'Хозяин главы', need: () => 1, text: (q) => 'Одолей хозяина главы на ' + q.f + '-м этаже.', rw: ['shards', 'item'] },
-    depths: { kind: 'story', type: 'reach', name: 'Новая глава', need: () => 1, text: (q) => 'Спустись до ' + q.f + '-го этажа: там начинается новая глава.', rw: ['shards', 'item'] },
+    named: { kind: 'side', type: 'named', name: TXT('QUESTS.named.name'), need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => TXT('QUESTS.named.text', { f: q.f, title: q.title }), rw: ['scroll', 'item'], item: 3 },
+    fetch: { kind: 'side', type: 'fetch', name: TXT('QUESTS.fetch.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.fetch.text', { thing: q.thing, f: q.f }), rw: ['scroll', 'xp'] },
+    room: { kind: 'side', type: 'room', name: TXT('QUESTS.room.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.room.text', { f: q.f }), rw: ['xp', 'shards'] },
+    chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f }), rw: ['shards', 'item'] },
+    depths: { kind: 'story', type: 'reach', name: TXT('QUESTS.depths.name'), need: () => 1, text: (q) => TXT('QUESTS.depths.text', { f: q.f }), rw: ['shards', 'item'] },
   };
   // what a quest pointing at floor f gives on its turn-in (item: the reward piece's least rarity, 2 rare unless the template says)
   // (TASKS 1024: at 0.35 of a level's XP and 150 + 60·f gold the bot that turned in ~6 a run came to each floor a level up on the
@@ -28,12 +28,12 @@
   const QUEST_GIVE = { n: [2, 3], from: ['smith', 'porter', 'sweeper', 'child', 'guard', 'keeper'], pool: ['named', 'fetch', 'room', 'cull', 'elites', 'sweep', 'descent'] };
   // the townsfolk's words around a quest: the ask, the thanks on the turn-in, and the keepsake each would have back (1020)
   const QUEST_SAY = {
-    smith: { done: 'Ну, показывай. Вижу — сделано.', ask: 'Раз уж ты вниз — есть дело. Заплачу честно.', thanks: 'Добрая работа. Держи, заслужил.', thing: 'Ларец с печатью', ic: 'qi_casket' },
-    porter: { done: 'Неужто управился? Вот это да!', ask: 'Слушай, раз уж ты туда идёшь… Мне самому никак — ящики.', thanks: 'Вот спасибо! Держи, от души.', thing: 'Ларец с печатью', ic: 'qi_casket' },
-    sweeper: { done: 'Вернулся, сынок! Живой, и дело сделал.', ask: 'Сынок, помоги старой. Внизу пропадает всё, что дорого.', thanks: 'Ох, уважил старуху. Возьми, не отказывайся.', thing: 'Серебряный медальон', ic: 'qi_locket' },
-    child: { done: 'Ты правда это сделал?! Покажи!', ask: 'Эй! Ты же герой? Тогда слушай, это важно!', thanks: 'Ух ты! Я всем расскажу! Это тебе!', thing: 'Деревянная лошадка', ic: 'qi_horse' },
-    guard: { done: 'Вижу по глазам — сделано.', ask: 'Пока стоишь тут — работа есть. Внизу кое-что не даёт мне спать.', thanks: 'Одной заботой меньше. Держи.', thing: 'Ларец с печатью', ic: 'qi_casket' },
-    keeper: { done: 'Огонь уже сказал мне. Ты справился.', ask: 'Огонь показал мне кое-что внизу. Послушай.', thanks: 'Огонь горит ровнее. Возьми, это твоё.', thing: 'Серебряный медальон', ic: 'qi_locket' },
+    smith: { done: TXT('QUEST_SAY.smith.done'), ask: TXT('QUEST_SAY.smith.ask'), thanks: TXT('QUEST_SAY.smith.thanks'), thing: TXT('QUEST_SAY.smith.thing'), ic: 'qi_casket' },
+    porter: { done: TXT('QUEST_SAY.porter.done'), ask: TXT('QUEST_SAY.porter.ask'), thanks: TXT('QUEST_SAY.porter.thanks'), thing: TXT('QUEST_SAY.porter.thing'), ic: 'qi_casket' },
+    sweeper: { done: TXT('QUEST_SAY.sweeper.done'), ask: TXT('QUEST_SAY.sweeper.ask'), thanks: TXT('QUEST_SAY.sweeper.thanks'), thing: TXT('QUEST_SAY.sweeper.thing'), ic: 'qi_locket' },
+    child: { done: TXT('QUEST_SAY.child.done'), ask: TXT('QUEST_SAY.child.ask'), thanks: TXT('QUEST_SAY.child.thanks'), thing: TXT('QUEST_SAY.child.thing'), ic: 'qi_horse' },
+    guard: { done: TXT('QUEST_SAY.guard.done'), ask: TXT('QUEST_SAY.guard.ask'), thanks: TXT('QUEST_SAY.guard.thanks'), thing: TXT('QUEST_SAY.guard.thing'), ic: 'qi_casket' },
+    keeper: { done: TXT('QUEST_SAY.keeper.done'), ask: TXT('QUEST_SAY.keeper.ask'), thanks: TXT('QUEST_SAY.keeper.thanks'), thing: TXT('QUEST_SAY.keeper.thing'), ic: 'qi_locket' },
   };
   // the named foes (1019): a name and what it is, drawn for the quest; it walks as a strong elite of its floor's kind
 
@@ -54,20 +54,20 @@
   // loop (per s; hit: the loop's impact phase, rest: every rest-th loop is a breather) and, for those with a round, the walking
   // speed and the pause at each stop. The sim's events (the anvil's ring, the keeper's sparks) and the render share one clock
   const FOLK = {
-    smith: { name: 'Кузнец', per: 1.45, hit: 0.6, rest: 4, lines: [['Горн не любит ждать.', 'Принесёшь руды — скую и тебе.'],
-      ['Слышишь, как поёт железо?', 'Внизу оно только ржавеет.'], ['Не стой у наковальни.', 'Искры кусаются, проверено.']] },
-    enchanter: { name: 'Зачарователь', per: 7.5, hit: 0.55, lines: [['Тише. Руны не любят шума.', 'Эта колба — не для питья.'],
-      ['В крипте спят старые чары.', 'Найдёшь камень с узором — неси.'], ['Пламя синее — значит, верно.', 'Жёлтое — значит, беги.']] },
-    keeper: { name: 'Хранитель огня', per: 9, hit: 0.3, lines: [['Костёр горит, пока ты жив.', 'Вернёшься — согреет снова.'],
-      ['Я помню всех, кто спускался.', 'Возвращались не все.'], ['Посиди у огня, путник.', 'Тьма подождёт.']] },
-    guard: { name: 'Страж', per: 8, lines: [['Внизу крипта. Сам решай.', 'Назад дорога длиннее.'], ['Мертвецы там не спят.', 'Держи клинок наготове.'],
-      ['Стою тут двадцать лет.', 'Наверх лезут реже, чем ты думаешь.']] },
-    porter: { name: 'Носильщик', per: 1.7, v: 34, lines: [['Посторонись, ноша тяжёлая!', 'Торговцу всё мало товару.'],
-      ['Ящик туда, ящик сюда.', 'Так и живём.'], ['Говорят, внизу золото.', 'А я вот ящики таскаю.']] },
-    sweeper: { name: 'Метельщица', per: 1.25, pause: 7, v: 20, lines: [['Опять пепел нанесли!', 'Ноги вытирай, милок.'],
-      ['Подмету — и снова сажа.', 'Как у вас там внизу, чисто?'], ['Береги себя, сынок.', 'Метлой от мертвецов не отмашешься.']] },
-    child: { name: 'Мальчишка', per: 2.3, pause: 6, v: 42, lines: [['А ты правда был в крипте?', 'Я тоже пойду, когда вырасту!'],
-      ['Куры меня слушаются!', 'Почти всегда.'], ['А мечом дашь подержать?', 'Ну хоть чуть-чуть!']] },
+    smith: { name: TXT('FOLK.smith.name'), per: 1.45, hit: 0.6, rest: 4, lines: [[TXT('FOLK.smith.lines'), TXT('FOLK.smith.lines.2')],
+      [TXT('FOLK.smith.lines.3'), TXT('FOLK.smith.lines.4')], [TXT('FOLK.smith.lines.5'), TXT('FOLK.smith.lines.6')]] },
+    enchanter: { name: TXT('FOLK.enchanter.name'), per: 7.5, hit: 0.55, lines: [[TXT('FOLK.enchanter.lines'), TXT('FOLK.enchanter.lines.2')],
+      [TXT('FOLK.enchanter.lines.3'), TXT('FOLK.enchanter.lines.4')], [TXT('FOLK.enchanter.lines.5'), TXT('FOLK.enchanter.lines.6')]] },
+    keeper: { name: TXT('FOLK.keeper.name'), per: 9, hit: 0.3, lines: [[TXT('FOLK.keeper.lines'), TXT('FOLK.keeper.lines.2')],
+      [TXT('FOLK.keeper.lines.3'), TXT('FOLK.keeper.lines.4')], [TXT('FOLK.keeper.lines.5'), TXT('FOLK.keeper.lines.6')]] },
+    guard: { name: TXT('FOLK.guard.name'), per: 8, lines: [[TXT('FOLK.guard.lines'), TXT('FOLK.guard.lines.2')], [TXT('FOLK.guard.lines.3'), TXT('FOLK.guard.lines.4')],
+      [TXT('FOLK.guard.lines.5'), TXT('FOLK.guard.lines.6')]] },
+    porter: { name: TXT('FOLK.porter.name'), per: 1.7, v: 34, lines: [[TXT('FOLK.porter.lines'), TXT('FOLK.porter.lines.2')],
+      [TXT('FOLK.porter.lines.3'), TXT('FOLK.porter.lines.4')], [TXT('FOLK.porter.lines.5'), TXT('FOLK.porter.lines.6')]] },
+    sweeper: { name: TXT('FOLK.sweeper.name'), per: 1.25, pause: 7, v: 20, lines: [[TXT('FOLK.sweeper.lines'), TXT('FOLK.sweeper.lines.2')],
+      [TXT('FOLK.sweeper.lines.3'), TXT('FOLK.sweeper.lines.4')], [TXT('FOLK.sweeper.lines.5'), TXT('FOLK.sweeper.lines.6')]] },
+    child: { name: TXT('FOLK.child.name'), per: 2.3, pause: 6, v: 42, lines: [[TXT('FOLK.child.lines'), TXT('FOLK.child.lines.2')],
+      [TXT('FOLK.child.lines.3'), TXT('FOLK.child.lines.4')], [TXT('FOLK.child.lines.5'), TXT('FOLK.child.lines.6')]] },
     hen: { per: 2.2 },
   };
   // how long a pair of lines shows (each line half of it)
@@ -75,14 +75,14 @@
   // the Keeper of the Fire (R-25, TASKS 1016): what he says when spoken to (E), by what has happened since he last spoke; each
   // event is a page of the dialogue, the most weighty first, each told once; with nothing new, a pair of his idle lines
   const KEEPER = {
-    first: ['Новое лицо у старого огня. Садись, грейся.', 'Внизу крипта. Кто спускается — тот меняется. Кто возвращается — тот рассказывает.',
-      'Прочти свиток возвращения (T) — и окажешься у кольца камней. Портал из кольца вернёт тебя туда, откуда ушёл. Свитки — у торговца и в сундуках.'],
-    death1: ['Первый из вас не вернулся. Я видел, как дрогнул огонь.', 'Не горюй о нём: осколки его души остались у алтаря. Ты пойдёшь дальше, чем он.'],
-    death: ['Ещё один огонёк погас внизу.', 'Каждый, кто падает, оставляет тропу короче для следующего.'],
-    win: ['Ты вернулся с самого дна. Огонь горит ровнее, когда ты рядом.', 'Об этом спуске будут рассказывать у костра. Я — первым.'],
-    boss: (name) => [name + ' больше не ходит по крипте. Я почувствовал это даже здесь.', 'Но тьма внизу не пустеет — она ждёт следующего.'],
-    rare: (name) => ['«' + name + '»… Такие вещи не падают в руки случайно.', 'Береги её. Или она сбережёт тебя.'],
-    away: ['Давно тебя не было. Я уж думал подбросить в огонь ещё одно имя.', 'Отдохни. Глубина никуда не денется.'],
+    first: [TXT('KEEPER.first'), TXT('KEEPER.first.2'),
+      TXT('KEEPER.first.3')],
+    death1: [TXT('KEEPER.death1'), TXT('KEEPER.death1.2')],
+    death: [TXT('KEEPER.death'), TXT('KEEPER.death.2')],
+    win: [TXT('KEEPER.win'), TXT('KEEPER.win.2')],
+    boss: (name) => [TXT('KEEPER.boss', { name }), TXT('KEEPER.boss.2')],
+    rare: (name) => [TXT('KEEPER.rare', { name }), TXT('KEEPER.rare.2')],
+    away: [TXT('KEEPER.away'), TXT('KEEPER.away.2')],
   };
   // a townsperson's loop clock: its own rate and phase per instance, so no two move in sync
   const folkClock = (role, i, t) => { const per = FOLK[role].per * (1 + 0.12 * (((i * 0.618) % 1) - 0.5)), x = (t + i * 1.37) / per, n = Math.floor(x); return { n, u: x - n, per }; };

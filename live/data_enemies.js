@@ -93,79 +93,79 @@
   const bossPhase = (e) => BOSSES[e.type].phases[e.phase || 0] || BOSSES[e.type].phases[0];
   const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
-    boss_serpent: { name: 'Глубинный змей', hp: BOSSES.boss_serpent.hp, dmg: BOSSES.boss_serpent.dmg, spd: 0, r: 28, reach: 60, wind: 0.85, cd: 1.35, xp: 300, kind: 'serpent', h: 154, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9] },
-    boss_colossus: { name: 'Магмовый колосс', hp: BOSSES.boss_colossus.hp, dmg: BOSSES.boss_colossus.dmg, spd: 44, r: 38, reach: 70, wind: 0.9, cd: 1.6, xp: 400, kind: 'boss', h: 230, val: 1.1, tint: [1.1, 1.04, 0.88, 1], lava: 1, lake: 1, heavy: 1, rim: [1, 0.42, 0.12] },
-    boss_forge: { name: 'Владыка горна', hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
-    boss_necro: { name: 'Верховный некромант', hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
-    boss_spider: { name: 'Королева пауков', hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
-    skeleton: { name: 'Скелет', hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76, blood: 'bone' },
-    goblin: { name: 'Гоблин', hp: 20, dmg: 6, spd: 104, r: 10, reach: 28, wind: 0.30, cd: 0.9, xp: 6, kind: 'melee', h: 72, tint: [0.55, 1.2, 0.6, 0.95] },
-    spider: { name: 'Паук', hp: 18, dmg: 5, spd: 92, r: 15, reach: 76, wind: 0.36, cd: 1.6, xp: 7, kind: 'lunge', h: 53, webImmune: 1, poison: 1, blood: 'ichor', rim: [0.45, 0.65, 1], tint: [0.45, 0.6, 1.35, 0.8] },
-    cultist: { name: 'Культист', hp: 26, dmg: 9, spd: 56, r: 13, reach: 305, wind: 0.55, cd: 2.0, xp: 10, kind: 'caster', h: 84, rim: [0.3, 1, 0.62], val: 0.55, tint: [0.3, 1.15, 0.85, 1] },
-    ghost: { name: 'Призрак', hp: 28, dmg: 7, spd: 60, r: 13, reach: 30, wind: 0.45, cd: 1.3, xp: 9, kind: 'melee', h: 74, ghost: 1, blood: 'ecto' },
+    boss_serpent: { name: TXT('ENEMIES.boss_serpent.name'), hp: BOSSES.boss_serpent.hp, dmg: BOSSES.boss_serpent.dmg, spd: 0, r: 28, reach: 60, wind: 0.85, cd: 1.35, xp: 300, kind: 'serpent', h: 154, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9] },
+    boss_colossus: { name: TXT('ENEMIES.boss_colossus.name'), hp: BOSSES.boss_colossus.hp, dmg: BOSSES.boss_colossus.dmg, spd: 44, r: 38, reach: 70, wind: 0.9, cd: 1.6, xp: 400, kind: 'boss', h: 230, val: 1.1, tint: [1.1, 1.04, 0.88, 1], lava: 1, lake: 1, heavy: 1, rim: [1, 0.42, 0.12] },
+    boss_forge: { name: TXT('ENEMIES.boss_forge.name'), hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
+    boss_necro: { name: TXT('ENEMIES.boss_necro.name'), hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
+    boss_spider: { name: TXT('ENEMIES.boss_spider.name'), hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
+    skeleton: { name: TXT('ENEMIES.skeleton.name'), hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76, blood: 'bone' },
+    goblin: { name: TXT('ENEMIES.goblin.name'), hp: 20, dmg: 6, spd: 104, r: 10, reach: 28, wind: 0.30, cd: 0.9, xp: 6, kind: 'melee', h: 72, tint: [0.55, 1.2, 0.6, 0.95] },
+    spider: { name: TXT('ENEMIES.spider.name'), hp: 18, dmg: 5, spd: 92, r: 15, reach: 76, wind: 0.36, cd: 1.6, xp: 7, kind: 'lunge', h: 53, webImmune: 1, poison: 1, blood: 'ichor', rim: [0.45, 0.65, 1], tint: [0.45, 0.6, 1.35, 0.8] },
+    cultist: { name: TXT('ENEMIES.cultist.name'), hp: 26, dmg: 9, spd: 56, r: 13, reach: 305, wind: 0.55, cd: 2.0, xp: 10, kind: 'caster', h: 84, rim: [0.3, 1, 0.62], val: 0.55, tint: [0.3, 1.15, 0.85, 1] },
+    ghost: { name: TXT('ENEMIES.ghost.name'), hp: 28, dmg: 7, spd: 60, r: 13, reach: 30, wind: 0.45, cd: 1.3, xp: 9, kind: 'melee', h: 74, ghost: 1, blood: 'ecto' },
     // the drowned (TASKS 307) lies under the shallows (lurk) until the hero comes within `sense`, then rises and wades in: slow, a heavy
     // blow on a long wind-up, and a grab that pulls the hero `grab.pull` px toward it from out of its reach, so the blow can follow
-    drowned: { name: 'Утопленник', hp: 52, dmg: 13, spd: 44, r: 14, reach: 38, wind: 0.8, cd: 1.9, xp: 14, kind: 'melee', h: 82, lurk: 1, sense: 84, rise: 0.9, blood: 'water', rim: [0.5, 0.85, 0.8],
+    drowned: { name: TXT('ENEMIES.drowned.name'), hp: 52, dmg: 13, spd: 44, r: 14, reach: 38, wind: 0.8, cd: 1.9, xp: 14, kind: 'melee', h: 82, lurk: 1, sense: 84, rise: 0.9, blood: 'water', rim: [0.5, 0.85, 0.8],
       grab: { reach: 118, wind: 0.55, strike: 0.6, pull: 40, t: 0.22, cd: 5, arc: 0.45 } },
     // the slime (TASKS 308) hops at the hero: a squash on the wind-up, `jump.t` s in the air to where the hero stood, the blow on
     // landing; it splits in two small ones on death (they never split again) and leaves a puddle that slows everyone but slimes.
     // The small ones are raised like a summoner's skeletons (summ): a little XP, no loot, no part in the floor's count
-    slime: { name: 'Слизень', hp: 30, dmg: 8, spd: 40, r: 15, reach: 105, wind: 0.5, cd: 1.5, xp: 9, kind: 'hop', h: 44, blood: 'slime', split: 'slime_s', jump: { t: 0.46, h: 46, land: 0.4 }, puddle: { r: 34, t: 10 } },
-    slime_s: { name: 'Малый слизень', hp: 10, dmg: 4, spd: 52, r: 10, reach: 80, wind: 0.4, cd: 1.3, xp: 2, kind: 'hop', h: 28, blood: 'slime', jump: { t: 0.38, h: 32, land: 0.34 }, puddle: { r: 20, t: 6 } },
+    slime: { name: TXT('ENEMIES.slime.name'), hp: 30, dmg: 8, spd: 40, r: 15, reach: 105, wind: 0.5, cd: 1.5, xp: 9, kind: 'hop', h: 44, blood: 'slime', split: 'slime_s', jump: { t: 0.46, h: 46, land: 0.4 }, puddle: { r: 34, t: 10 } },
+    slime_s: { name: TXT('ENEMIES.slime_s.name'), hp: 10, dmg: 4, spd: 52, r: 10, reach: 80, wind: 0.4, cd: 1.3, xp: 2, kind: 'hop', h: 28, blood: 'slime', jump: { t: 0.38, h: 32, land: 0.34 }, puddle: { r: 20, t: 6 } },
     // the armoured crab (TASKS 309) faces its way (fa, rad), turning toward the hero at only `turn` rad/s: a blow, bolt or blast from within
     // `armor.arc` of its front does `armor.k` of its damage. It pinches only what stands in front of it; a hero out to its side at
     // `rush.near`..`rush.reach` px is run down sideways, the shell still facing where it faced
-    crab: { name: 'Панцирный краб', hp: 58, dmg: 11, spd: 46, r: 17, reach: 32, wind: 0.6, cd: 1.6, xp: 15, kind: 'crab', h: 46, blood: 'shell', rim: [0.95, 0.6, 0.45],
+    crab: { name: TXT('ENEMIES.crab.name'), hp: 58, dmg: 11, spd: 46, r: 17, reach: 32, wind: 0.6, cd: 1.6, xp: 15, kind: 'crab', h: 46, blood: 'shell', rim: [0.95, 0.6, 0.45],
       turn: 1.5, armor: { arc: 1.05, k: 0.2, elite: 0.5 }, rush: { near: 24, reach: 150, wind: 0.5, t: 0.42, spd: 380, dmg: 0.8, cd: 4.5 } },
     // the eel from the deep (TASKS 310) lives in a hall's deep water (cell 6) and never leaves it. Under it ('deep') it can't be hurt;
     // with the hero within `sense` px of its water it shows where it will come up (bubbles and a shadow, 'stir', `warn` s), surfaces
     // there by the shore close to him ('rise'), bites (reach) or spits a jet (`spit`) at most `bites` times within `stay` s, and dives
     // ('dive') to come up `swim` s later at least `apart` cells from the last spot. It is no part of a hall's or a floor's count:
     // waiting for it would hold the hero up
-    eel: { name: 'Угорь из глубины', hp: 40, dmg: 12, spd: 0, r: 16, reach: 46, wind: 0.5, cd: 0.9, xp: 14, kind: 'eel', h: 100, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9],
+    eel: { name: TXT('ENEMIES.eel.name'), hp: 40, dmg: 12, spd: 0, r: 16, reach: 46, wind: 0.5, cd: 0.9, xp: 14, kind: 'eel', h: 100, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9],
       sense: 290, warn: 0.85, rise: 0.4, stay: 2.6, bites: 2, dive: 0.45, swim: [1.3, 2.3], apart: 3, spit: { reach: 270, wind: 0.6, spd: 330, dmg: 0.8 } },
     // the skeleton archer (TASKS 311) keeps `keep` px off the hero, backing away from one who closes in; it draws for `wind` s (no aim
     // line is drawn, TASKS 338: the draw pose reads the threat), follows the hero until `arrow.lock` s before the loose, and the arrow flies straight at `arrow.spd`
-    skel_archer: { name: 'Скелет-лучник', hp: 24, dmg: 9, spd: 74, r: 13, reach: 340, wind: 0.8, cd: 1.9, xp: 10, kind: 'archer', h: 76, blood: 'bone', rim: [0.6, 0.85, 0.45],
+    skel_archer: { name: TXT('ENEMIES.skel_archer.name'), hp: 24, dmg: 9, spd: 74, r: 13, reach: 340, wind: 0.8, cd: 1.9, xp: 10, kind: 'archer', h: 76, blood: 'bone', rim: [0.6, 0.85, 0.45],
       keep: [190, 290], arrow: { spd: 560, lock: 0.28, r: 4 } },
     // the skeleton water mage (TASKS 311) keeps behind another monster from the hero (`behind` px past it) and throws a slow ball of
     // water that slows the hero by `orb.slow` for `orb.t` s
-    skel_mage: { name: 'Скелет-маг', hp: 26, dmg: 8, spd: 58, r: 13, reach: 330, wind: 0.75, cd: 2.6, xp: 11, kind: 'caster', h: 76, blood: 'bone', rim: [0.45, 0.9, 0.95],
+    skel_mage: { name: TXT('ENEMIES.skel_mage.name'), hp: 26, dmg: 8, spd: 58, r: 13, reach: 330, wind: 0.75, cd: 2.6, xp: 11, kind: 'caster', h: 76, blood: 'bone', rim: [0.45, 0.9, 0.95],
       behind: 80, orb: { spd: 150, life: 2.6, r: 10, slow: 0.6, t: 2.5 } },
     // the smouldering skeleton (TASKS 411) runs at the hero alight; within `reach` it lights its fuse (the wind-up) and stands
     // hissing for `wind` s, then bursts. Killed first, its bones burst all the same once the fuse is out (a fuse already lit runs on).
     // The blast hurts the hero within boom.r for dmg × boom.dmg and every monster in it for boom.mon of its own health: a pack the
     // hero draws it into pays for it, and one that catches another sets it off
-    skel_ember: { name: 'Тлеющий скелет', hp: 18, dmg: 14, spd: 102, r: 13, reach: 24, wind: 0.8, cd: 9, xp: 9, kind: 'bomber', h: 76, blood: 'bone', tex: 'en_skeleton', rim: [1, 0.5, 0.15], tint: [0.85, 0.55, 0.4, 0.8], val: 0.9,
+    skel_ember: { name: TXT('ENEMIES.skel_ember.name'), hp: 18, dmg: 14, spd: 102, r: 13, reach: 24, wind: 0.8, cd: 9, xp: 9, kind: 'bomber', h: 76, blood: 'bone', tex: 'en_skeleton', rim: [1, 0.5, 0.15], tint: [0.85, 0.55, 0.4, 0.8], val: 0.9,
       boom: { r: 92, dmg: 1, mon: 0.35, fuse: 0.8 } },
     // the fire priest (TASKS 410), the summoner of R-22 in the reference's crimson hood at the altar: keeps behind another monster from
     // the hero (`behind`, as the skeleton mage) and works two ways. A ring of fire under the hero (`pyre`): the ring glows `warn` s
     // where he stood when it was cast, then a pillar of fire stands there `burst` s, hurting him once and setting him alight. Every
     // `kindle.every` s (the first `kindle.first` s into the fight) it sets alight the weapons of up to `n` allies within `r` for `t` s:
     // their blows ×`dmg` and set the hero burning
-    fire_priest: { name: 'Жрец пламени', hp: 36, dmg: 12, spd: 54, r: 13, reach: 380, wind: 0.6, cd: 3.4, xp: 16, kind: 'caster', h: 84, tex: 'en_cultist', rim: [1, 0.45, 0.15], val: 1, behind: 90,
+    fire_priest: { name: TXT('ENEMIES.fire_priest.name'), hp: 36, dmg: 12, spd: 54, r: 13, reach: 380, wind: 0.6, cd: 3.4, xp: 16, kind: 'caster', h: 84, tex: 'en_cultist', rim: [1, 0.45, 0.15], val: 1, behind: 90,
       pyre: { r: 54, ry: 0.62, warn: 1.0, burst: 0.45, dmg: 1.1 }, kindle: { every: 8, first: 2.5, r: 280, n: 3, t: 6, dmg: 1.3, wind: 0.7, kinds: ['melee', 'slam', 'lunge', 'crab'] } },
     // the imp (TASKS 407), small and quick, in a pack: the only one the lava never stops. It keeps `keep` px off the hero and throws
     // a spark (`spark`) from where he can't walk to it, leaps (`leap`) over lava and crust to a spot across from him (a cell whose way
     // round on foot is long or none), and leaps away from one who comes within `flee`; cornered with its leap not ready, it claws
-    imp: { name: 'Имп', hp: 14, dmg: 7, spd: 112, r: 9, reach: 18, wind: 0.32, cd: 1.6, xp: 7, kind: 'imp', h: 54, lava: 1, rim: [1, 0.5, 0.15], tint: [1.05, 0.85, 0.8, 0.5],
+    imp: { name: TXT('ENEMIES.imp.name'), hp: 14, dmg: 7, spd: 112, r: 9, reach: 18, wind: 0.32, cd: 1.6, xp: 7, kind: 'imp', h: 54, lava: 1, rim: [1, 0.5, 0.15], tint: [1.05, 0.85, 0.8, 0.5],
       keep: [150, 250], flee: 100, leap: { near: 56, far: 200, spd: 380, h: 0.32, crouch: 0.14, land: 0.2, cd: 1.4, look: 3 },
       spark: { reach: 300, wind: 0.5, lock: 0.12, spd: 290, r: 5, dmg: 0.8 } },
     // the lava salamander (TASKS 408) lives in the lava and hunts on land too, no farther than `tether` cells from it: it swims
     // (×`swim`, only its back and the ripples show), crawls out, bites one close and breathes fire in a cone at one farther off
     // (`breath`: the mouth glows through the wind-up), leaving a burning trail on land (`trail`); under `heal.at` of its health it
     // goes back into the lava and heals there (`heal.rate` of its health a second, not while hit) up to `heal.to`, unless killed first
-    salamander: { name: 'Лавовая саламандра', hp: 64, dmg: 12, spd: 60, r: 16, reach: 24, wind: 0.45, cd: 1.4, xp: 16, kind: 'salamander', h: 30, lava: 1, rim: [1, 0.5, 0.2],
+    salamander: { name: TXT('ENEMIES.salamander.name'), hp: 64, dmg: 12, spd: 60, r: 16, reach: 24, wind: 0.45, cd: 1.4, xp: 16, kind: 'salamander', h: 30, lava: 1, rim: [1, 0.5, 0.2],
       turn: 5, swim: 1.35, tether: 6, breath: { near: 34, reach: 150, arc: 0.42, wind: 0.8, t: 0.7, cd: 4.5, dmg: 0.9 },
       trail: { every: 30, t: 2.4, r: 15, ry: 0.6, dmg: 0.35, per: 1 }, heal: { at: 0.5, to: 0.9, rate: 0.12, calm: 1, cd: 14, most: 7 } },
     // the magma golem (TASKS 409), big and slow in a stone crust: each of its first `crust.n` blows only takes a plate off (×`crust.k`,
     // sparks and a clang); a plate grows back every `crust.regrow` s once no blow has landed for `crust.calm` s and the hero is over
     // `crust.far` px off. It slams both fists on the floor `slam.at` px before it (`slam.r` round); dead, it falls apart into a pool of
     // lava (`pool`) that burns whoever stands in it, once it has spread for `arm` s (TASKS 463: it burnt the one who killed it at once)
-    golem: { name: 'Магмовый голем', hp: 140, dmg: 20, spd: 36, r: 24, reach: 48, wind: 1.0, cd: 2.4, xp: 34, kind: 'golem', h: 124, heavy: 1, rim: [1, 0.45, 0.15],
+    golem: { name: TXT('ENEMIES.golem.name'), hp: 140, dmg: 20, spd: 36, r: 24, reach: 48, wind: 1.0, cd: 2.4, xp: 34, kind: 'golem', h: 124, heavy: 1, rim: [1, 0.45, 0.15],
       crust: { n: 4, k: 0.25, regrow: 1.4, calm: 3, far: 150 }, slam: { r: 82, at: 46 }, pool: { r: 52, ry: 0.6, t: 3.5, dmg: 0.3, per: 0.5, arm: 0.5 } },
-    brute: { name: 'Демон', hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
-    boss: { name: 'Повелитель Демонов', hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
+    brute: { name: TXT('ENEMIES.brute.name'), hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
+    boss: { name: TXT('ENEMIES.boss.name'), hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
 
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
@@ -188,22 +188,22 @@
   const windOf = (e, w) => w * eliteK(e, 'wind');
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
-    { id: 'fiery', name: 'Огненный', col: [1.0, 0.42, 0.08], burn: 3 },
-    { id: 'vampire', name: 'Кровожадный', col: [0.92, 0.08, 0.2], heal: 0.12, not: ['crab'] },
-    { id: 'summoner', name: 'Призывающий', col: [0.72, 0.4, 1.0], every: 8, n: 2, cap: 3 },
-    { id: 'explosive', name: 'Взрывной', col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
+    { id: 'fiery', name: TXT('ELITE_MODS.fiery.name'), col: [1.0, 0.42, 0.08], burn: 3 },
+    { id: 'vampire', name: TXT('ELITE_MODS.vampire.name'), col: [0.92, 0.08, 0.2], heal: 0.12, not: ['crab'] },
+    { id: 'summoner', name: TXT('ELITE_MODS.summoner.name'), col: [0.72, 0.4, 1.0], every: 8, n: 2, cap: 3 },
+    { id: 'explosive', name: TXT('ELITE_MODS.explosive.name'), col: [1.0, 0.86, 0.35], fuse: 1.0, r: 110, dmg: 1.0 },
     // deep: only in the endless descent past ELITE.deepFrom (TASKS 387, R-22): something new to meet below the campaign's depth.
     // reflect: a share of each of the hero's blows (not its fire's ticks) comes back to him, never the last of his health;
     // blink: every `every` s, `min`–`max` px off with a clear line, it steps to `gap` px before him and holds its blow `calm` s (melee only);
     // ward: a shield of `share` of its health takes the blows from before it, one from behind breaks it; curse: its blow cuts the hero's for `t` s
-    { id: 'reflect', name: 'Отражающий', col: [0.88, 0.92, 1.0], k: 0.1, deep: 1 },
-    { id: 'blink', name: 'Мерцающий', col: [0.2, 0.95, 0.85], every: 6, min: 150, max: 450, gap: 70, calm: 0.7, deep: 1, melee: 1 },
-    { id: 'ward', name: 'Щитоносный', col: [0.3, 0.42, 1.0], share: 0.25, deep: 1 },
-    { id: 'curse', name: 'Проклинающий', col: [0.5, 0.85, 0.2], k: 0.7, t: 3, deep: 1 },
+    { id: 'reflect', name: TXT('ELITE_MODS.reflect.name'), col: [0.88, 0.92, 1.0], k: 0.1, deep: 1 },
+    { id: 'blink', name: TXT('ELITE_MODS.blink.name'), col: [0.2, 0.95, 0.85], every: 6, min: 150, max: 450, gap: 70, calm: 0.7, deep: 1, melee: 1 },
+    { id: 'ward', name: TXT('ELITE_MODS.ward.name'), col: [0.3, 0.42, 1.0], share: 0.25, deep: 1 },
+    { id: 'curse', name: TXT('ELITE_MODS.curse.name'), col: [0.5, 0.85, 0.2], k: 0.7, t: 3, deep: 1 },
     // frost: its blow slows the hero to `slow` for `t` s (TASKS 477); tug: every `every` s, `min`–`max` px off with a clear line, it
     // warns `warn` s and then draws the hero `n` px toward it over `T` s, short of its own reach; a dash under way slips it (melee only)
-    { id: 'frost', name: 'Ледяной', col: [0.55, 0.85, 1.0], slow: 0.7, t: 2, deep: 1 },
-    { id: 'tug', name: 'Притягивающий', col: [1.0, 0.5, 0.8], every: 7, min: 130, max: 320, warn: 0.6, n: 120, T: 0.35, deep: 1, melee: 1 },
+    { id: 'frost', name: TXT('ELITE_MODS.frost.name'), col: [0.55, 0.85, 1.0], slow: 0.7, t: 2, deep: 1 },
+    { id: 'tug', name: TXT('ELITE_MODS.tug.name'), col: [1.0, 0.5, 0.8], every: 7, min: 130, max: 320, warn: 0.6, n: 120, T: 0.35, deep: 1, melee: 1 },
   ];
   const eliteMods = (f) => (f >= 6 ? [2, 2] : f >= 4 ? [1, 2] : [1, 1]);
   const modPool = (mode, f, kind) => ELITE_MODS.filter((m) => (!m.deep || (D.RUNS[mode] && D.RUNS[mode].endless && f > ELITE.deepFrom)) && !(m.melee && (kind === 'caster' || kind === 'archer')) && !(m.not && m.not.includes(kind))).map((m) => m.id);
@@ -264,11 +264,11 @@
   // grown up to `grow`. edge and rag: a kind's ragged edge (a ridge's noise of a cell would cut it through); pop: its monsters
   // against a plateau's
 
-  const FEM = new Set(['salamander', 'boss_spider']), femAdj = (w) => w.replace(/(ый|ой|ий)$/, 'ая');
+  const FEM = new Set(['salamander', 'boss_spider']), femAdj = (w) => TXT.fem(w);
   const eliteName = (e) => e.title || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name).map((w) => (FEM.has(e.type) ? femAdj(w) : w)), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
-  const NAMED = { hp: 1.3, titles: ['Гнилозуб', 'Костолом', 'Чёрный Ульф', 'Вдова Сажи', 'Старый Мор', 'Безглазый', 'Хромой Тарн', 'Ржавый Клык'] };
+  const NAMED = { hp: 1.3, titles: [TXT('NAMED.titles'), TXT('NAMED.titles.2'), TXT('NAMED.titles.3'), TXT('NAMED.titles.4'), TXT('NAMED.titles.5'), TXT('NAMED.titles.6'), TXT('NAMED.titles.7'), TXT('NAMED.titles.8')] };
 
   const colossusContact = (e, side = 'R') => ({ x: e.x + e.face * ENEMIES[e.type].h * (side === 'L' ? 0.02 : 0.45), y: e.y });
 

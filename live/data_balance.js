@@ -25,7 +25,7 @@
   const hpAt = (f) => (1 + 0.5 * (f - 1)) * deepK(f, 'hp');
   // difficulty presets, picked in the main menu for a new campaign: damage to the hero (monsters and traps), monster HP, experience
   // the balance is tuned on normal; easy and hard only scale the monsters' blows and health by one factor each (TASKS 154)
-  const DIFF = { easy: { name: 'Лёгкая', dmg: 0.75, hp: 0.75, xp: 1 }, normal: { name: 'Нормальная', dmg: 1, hp: 1, xp: 1 }, hard: { name: 'Тяжёлая', dmg: 1.3, hp: 1.25, xp: 1 } };
+  const DIFF = { easy: { name: TXT('DIFF.easy.name'), dmg: 0.75, hp: 0.75, xp: 1 }, normal: { name: TXT('DIFF.normal.name'), dmg: 1, hp: 1, xp: 1 }, hard: { name: TXT('DIFF.hard.name'), dmg: 1.3, hp: 1.25, xp: 1 } };
   const DIFF_ORDER = ['easy', 'normal', 'hard'];
 
   Object.assign(D, { BAL, dmgAt, hpAt, DIFF, DIFF_ORDER });

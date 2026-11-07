@@ -7,13 +7,13 @@
   // water: the colour of its shallow pools (scene.js WATER); seam: how much the wall tops' joints smoulder in the vein colour;
   // fill: the light an accent room of this biome is flooded with; dim: how much darker its pale floor stone is laid as an accent zone, so its light reads as pools
   const BIOMES = {
-    dungeon: { name: 'Подземелье', rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    dungeon: { name: TXT('BIOMES.dungeon.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
-    crypt: { name: 'Крипты', rock: [0.008, 0.005, 0.008], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0], amb: [0.07, 0.11, 0.09], torch: [0.35, 1.0, 0.4], fill: 0.08, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    crypt: { name: TXT('BIOMES.crypt.name'), rock: [0.008, 0.005, 0.008], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0], amb: [0.07, 0.11, 0.09], torch: [0.35, 1.0, 0.4], fill: 0.08, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.86, 0.98, 0.9], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
-    lava: { name: 'Огненные глубины', rock: [0.008, 0.005, 0.008], vein: [1.0, 0.38, 0.08, 0.02], seam: 1.4, amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    lava: { name: TXT('BIOMES.lava.name'), rock: [0.008, 0.005, 0.008], vein: [1.0, 0.38, 0.08, 0.02], seam: 1.4, amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
-    arcane: { name: 'Чертоги', rock: [0.008, 0.005, 0.008], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+    arcane: { name: TXT('BIOMES.arcane.name'), rock: [0.008, 0.005, 0.008], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.07, 0.08, 0.14], torch: [0.16, 0.38, 1.0], fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [0.68, 0.78, 1.12], roster: ['ghost', 'skeleton', 'cultist', 'brute'], props: ['crystal', 'statue', 'bookshelf', 'crystal', 'pillar'] },
     // cave: natural rock instead of masonry (scene.js caveBake, TASKS 303), lit cold (305): its own light is the mushrooms' (shroom)
     // and the crystals' (gem) glow, fire only by the camp and the merchant; ambK: how much of the dark's colour is the biome's
@@ -21,7 +21,7 @@
     // are the dungeon's with the drowned, the slime, the crab, the eel and the skeleton archer and mage (TASKS 307-311); from: the run's
     // first floor of a kind (TASKS 312), so each floor brings its own: the drowned and the slimes, then the crabs before the archers,
     // then the eels in the lakes and the mages
-    cave: { name: 'Затопленные пещеры', rock: [0.006, 0.006, 0.009], water: [0.06, 0.1, 0.12], vein: [0.3, 0.7, 0.8, 0], amb: [0.098, 0.095, 0.1], ambK: 0.9, torch: [1.0, 0.62, 0.26],
+    cave: { name: TXT('BIOMES.cave.name'), rock: [0.006, 0.006, 0.009], water: [0.06, 0.1, 0.12], vein: [0.3, 0.7, 0.8, 0], amb: [0.098, 0.095, 0.1], ambK: 0.9, torch: [1.0, 0.62, 0.26],
       shroom: [0.28, 0.72, 0.76], gem: [0.32, 0.62, 1.0], floor: 'floor_cv_tex', wall: 'wall_cv_tex', top: 'walltop_cv_tex', shore: 'shore_cv_tex',
       cave: true, tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider', 'drowned', 'slime', 'crab', 'eel', 'skel_archer', 'skel_mage'],
       from: { crab: 2, skel_archer: 2, eel: 3, skel_mage: 3 }, props: ['stalag_a', 'stalag_b', 'boulder_a', 'boulder_b', 'skel_cv', 'wreck_cv', 'tent_cv'] },
@@ -29,14 +29,14 @@
     // Their ash, basalt and crust are baked by scene.js MAGMA (TASKS 402); old: the kinds a cave pack fills its halls with
     // low and floorK lift the ground halfway to the concept's (TASKS 435, the player's choice): all the way, a priest's ring and
     // the other red telegraphs on the floor stop reading
-    magma: { name: 'Магмовые пещеры', rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, low: [1.05, 0.8, 0.74], floorK: 1.45, torch: [1.0, 0.45, 0.16],
+    magma: { name: TXT('BIOMES.magma.name'), rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, low: [1.05, 0.8, 0.74], floorK: 1.45, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
       from: { cultist: 2, skel_ember: 2, imp: 2, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
     // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
-    town: { name: 'Город', rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.15, 0.14, 0.15], ambK: 0.65, ambLvl: 1.0, fireK: 1.8, torch: [1.0, 0.64, 0.22], torchR: 0.55, spill: [1.1, 0.7], topLift: 1.3, floorG: 0.8, floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
+    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.15, 0.14, 0.15], ambK: 0.65, ambLvl: 1.0, fireK: 1.8, torch: [1.0, 0.64, 0.22], torchR: 0.55, spill: [1.1, 0.7], topLift: 1.3, floorG: 0.8, floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
       tint: [1, 1, 1], roster: [], props: [], town: true },
   };
 
@@ -88,7 +88,7 @@
       // much for the first floor)
       types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave',
       // a floor's title by its type (TASKS 471), so the player knows which question the floor asks; the boss's floor keeps its run's
-      names: { plain: 'Огненное плато', lake: 'Озеро огня', river: 'Река лавы', chasm: 'Мосты над бездной', terrace: 'Ступени лавопада', cave: 'Жаровые штольни' },
+      names: { plain: TXT('ARCH.plateau.names.plain'), lake: TXT('ARCH.plateau.names.lake'), river: TXT('ARCH.plateau.names.river'), chasm: TXT('ARCH.plateau.names.chasm'), terrace: TXT('ARCH.plateau.names.terrace'), cave: TXT('ARCH.plateau.names.cave') },
       // mix (TASKS 426): a floor of one of the figure types `over` takes the type `with` too, with the chance p, never on two floors running; riverBridges: the bridges over the chasm a river floor keeps at the least (its plateaus lie in two strips, the river on one side of each, so fewer face each other over the dark); gap: the plateaus' spacing then (the chasm's own left the ledges no room); pathKeep: the share of the figure's walk to the stairs kept (the bridges cut it)
       blend: { p: 0.35, over: ['lake', 'river', 'terrace'], with: 'chasm', gap: [4, 4], pathKeep: 0.75, riverBridges: 1 }, lake: { pop: 0.47, save: [0.3, 0.4], loose: [0.2, 0.5], path: [0, 60, 68, 0], axis: 'short', fig: [[0.3, 0.35], [0.26, 0.31]], at: [[0.46, 0.54], [0.52, 0.56]], isles: [2, 3],
         isle: [[[12, 15], [9, 11]], [[8, 10], [6, 8]], [[5, 7], [5, 6]]], margin: 2, plat: [[11, 16], [8, 11]], small: [[7, 10], [6, 8]], grow: [18, 13],
@@ -106,18 +106,18 @@
     // between rooms nearer than [0] cells, each with the chance [1]; nooks, dead-end nooks; pop, the monsters a room holds; grid, a
     // catacomb's chambers, all one size (cell) on a grid (step), joined to their neighbours only; minW, the narrowest map it is laid on; big, the first [0] rooms laid as plain
     // rooms of [1]×[2] (the merchant's and the stairs' room want one)
-    rooms: { name: 'Залы и коридоры', room: 1, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.28], nooks: [1, 2], pop: 1 },
-    maze: { name: 'Лабиринт', room: 1.3, rect: [[5, 8], [4, 6]], big: [2, [9, 11], [7, 8]], shapes: { rect: 50, L: 14, T: 10, cross: 6, closet: 14, gallery: 6 }, gap: [3, 4], bends: [8, 18], off: [2, 5], wide: 0, loops: [30, 0.45], nooks: [3, 5], pop: 0.8 },
-    hall: { name: 'Чертог', room: 0.45, min: 6, minW: 64, rect: [[12, 16], [9, 12]], shapes: { rect: 20, hall: 30, round: 16, colonnade: 16, pit: 12, cross: 6 }, gap: [3, 4], bends: [24, 40], off: [2, 3], wide: 0.7, loops: [34, 0.2], nooks: [0, 1], pop: 1.7 },
-    catacomb: { name: 'Катакомбы', room: 1.4, grid: { cell: [8, 6], step: [11, 9] }, gap: [2, 2], bends: [99, 99], off: [0, 0], wide: 0, loops: [12, 0.35], nooks: [1, 2], pop: 0.7 },
+    rooms: { name: TXT('ARCH.rooms.name'), room: 1, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.28], nooks: [1, 2], pop: 1 },
+    maze: { name: TXT('ARCH.maze.name'), room: 1.3, rect: [[5, 8], [4, 6]], big: [2, [9, 11], [7, 8]], shapes: { rect: 50, L: 14, T: 10, cross: 6, closet: 14, gallery: 6 }, gap: [3, 4], bends: [8, 18], off: [2, 5], wide: 0, loops: [30, 0.45], nooks: [3, 5], pop: 0.8 },
+    hall: { name: TXT('ARCH.hall.name'), room: 0.45, min: 6, minW: 64, rect: [[12, 16], [9, 12]], shapes: { rect: 20, hall: 30, round: 16, colonnade: 16, pit: 12, cross: 6 }, gap: [3, 4], bends: [24, 40], off: [2, 3], wide: 0.7, loops: [34, 0.2], nooks: [0, 1], pop: 1.7 },
+    catacomb: { name: TXT('ARCH.catacomb.name'), room: 1.4, grid: { cell: [8, 6], step: [11, 9] }, gap: [2, 2], bends: [99, 99], off: [0, 0], wide: 0, loops: [12, 0.35], nooks: [1, 2], pop: 0.7 },
     // a fortress (TASKS 380): a courtyard (court: w × h) in the middle of the map behind `moat` cells of rock and a ring of corridor
     // `ring` cells wide, `gates` ways from the ring into it; the other rooms stand outside the ring and join it, not the court; the
     // court holds the floor's altar (chance `altar`) or a pack round an elite; the start and the stairs lie outside
-    fortress: { name: 'Крепость', room: 0.85, min: 6, minW: 72, court: { w: [14, 18], h: [10, 12], moat: 3, ring: 2, gates: 2, altar: 0.4 }, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.2], nooks: [1, 2], pop: 1 },
+    fortress: { name: TXT('ARCH.fortress.name'), room: 0.85, min: 6, minW: 72, court: { w: [14, 18], h: [10, 12], moat: 3, ring: 2, gates: 2, altar: 0.4 }, gap: [2, 3], bends: [16, 30], off: [2, 4], wide: 0.25, loops: [26, 0.2], nooks: [1, 2], pop: 1 },
     // a tomb (TASKS 378): no corridors at all, the rooms wall to wall as in a crypt: the map cut in two again and again (bsp: a
     // room's size between min and max, walls of two cells between), a patch of the pieces kept, each joined to its neighbours only,
     // by a way two cells wide through the wall between them (the doors of 77 stand in them)
-    tomb: { name: 'Склеп', room: 1.15, minW: 56, bsp: { min: [6, 5], max: [12, 10] }, gap: [2, 2], bends: [99, 99], off: [0, 0], wide: 0, loops: [99, 0.3], nooks: [0, 0], pop: 0.9 },
+    tomb: { name: TXT('ARCH.tomb.name'), room: 1.15, minW: 56, bsp: { min: [6, 5], max: [12, 10] }, gap: [2, 2], bends: [99, 99], off: [0, 0], wide: 0, loops: [99, 0.3], nooks: [0, 0], pop: 0.9 },
     // which layout a floor takes (TASKS 379): by its biome's weights, from its own floor on (`from`), never the one of the floor before;
     // a run's 1st floor and a boss's floor keep the plain rooms
     lay: { dungeon: { rooms: 3, maze: 2 }, crypt: { rooms: 2, catacomb: 3, hall: 1, maze: 1, fortress: 1, tomb: 3 }, lava: { rooms: 2, hall: 2, maze: 2, fortress: 1 }, arcane: { rooms: 2, hall: 2, catacomb: 1, maze: 1, fortress: 2, tomb: 1 } },

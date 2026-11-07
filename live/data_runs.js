@@ -5,30 +5,30 @@
   const { ARCH, BAL, BIOMES, BOSSES, ELITE, SHOP, mix32 } = D;
   const RUNS = {
     // pop: monsters a room by floor over the plain count (TASKS 505: the 2nd and 4th, the bosses' floors of 56×42 and 64×48, came easier than the floors before them); elite: the share of elites by floor (the 4th's nine rooms held half the 3rd's elites)
-    campaign: { name: 'Кампания', floors: 16, chapter: 8, depth: 0, lvl: 1, pop: [1, 1.35, 1, 1.3, 1, 1, 1, 1], elite: [0.04, 0.04, 0.04, 0.08, 0.04, 0.04, 0.04, 0.04], size: [[56, 42], [56, 42], [64, 48], [64, 48], [72, 54], [72, 54], [80, 60], [84, 64]], rooms: [[9, 11], [9, 11], [12, 14], [12, 14], [14, 17], [14, 17], [18, 22], [18, 22]], biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
+    campaign: { name: TXT('RUNS.campaign.name'), floors: 16, chapter: 8, depth: 0, lvl: 1, pop: [1, 1.35, 1, 1.3, 1, 1, 1, 1], elite: [0.04, 0.04, 0.04, 0.08, 0.04, 0.04, 0.04, 0.04], size: [[56, 42], [56, 42], [64, 48], [64, 48], [72, 54], [72, 54], [80, 60], [84, 64]], rooms: [[9, 11], [9, 11], [12, 14], [12, 14], [14, 17], [14, 17], [18, 22], [18, 22]], biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
       boss: (f) => (f === 8 ? 'boss' : Object.keys(BOSSES).find((k) => BOSSES[k].floor === f)), guard: { 7: { hp: 2.2, dmg: 1 } }, exit: { 1: { hp: 0.85, dmg: 0.85 } },
       // (the magma caves' chapter, TASKS 416: their 1st–4th as the campaign's 13th–16th after the serpent, at their own depth 13–16,
       // with the packs and elites of their own run; the colossus closes the campaign; seal: a chapter's own, by its boss)
       // (shift 2, pops and elites over the magma's own run, TASKS 416: the hero comes down from the serpent at level 18, three over the
       // magma run's own kit, and the town's quests had dressed him; at depth 13–16 not one average bot of 95 died on the 13th–15th)
-      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }, { from: 13, run: 'magma', shift: 2, pop: [1.4, 1.7, 1.8, 1.2], elite: [0.14, 0.22, 0.26, 0.2] }], names: { 8: 'Трон Демона' }, seal: 'Сначала одолейте Повелителя Демонов', then: 'endless' },
-    cave: { name: 'Затопленные пещеры', won: 'Глубинный змей повержен', wonText: 'Змей ушёл на дно. Вода успокоилась. Души павших вернутся вместе с вами.', floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Затопленные пещеры', loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
-      kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: 'Сначала одолейте хозяина пещер' },
+      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }, { from: 13, run: 'magma', shift: 2, pop: [1.4, 1.7, 1.8, 1.2], elite: [0.14, 0.22, 0.26, 0.2] }], names: { 8: TXT('RUNS.campaign.names.8') }, seal: TXT('RUNS.campaign.seal'), then: 'endless' },
+    cave: { name: TXT('RUNS.cave.name'), won: TXT('RUNS.cave.won'), wonText: TXT('RUNS.cave.wonText'), floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: TXT('RUNS.cave.title'), loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
+      kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: TXT('RUNS.cave.seal') },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
     // with the gold and potions the average bot leaves the 12th with (40 seeds: level 15, 14–16; gold 8900–10200; 9 potions); laid out as plateaus
     // (TASKS 400) on maps a size up from the caves', the 4th a plateau floor of the 3rd caves' size with the forge lord until his arena (413)
     // loot: +2 over the depth (13–16) puts its items at the hero's level, as the caves' +3 does (TASKS 424: +12 made them level 25–28,
     // a legendary of 25 on the 1st floor, and the run a walk)
     // (won: the victory's line, TASKS 490: the magma's win said the campaign's «Глубины покорены»)
-    magma: { name: 'Магмовые пещеры', won: 'Магмовый колосс повержен', wonText: 'Колосс рассыпался в лаву. Жар стихает. Души павших вернутся вместе с вами.', floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_colossus' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: 'Магмовые пещеры', loot: 2, pop: [1.4, 1.7, 1.8, 1], elite: [0.14, 0.22, 0.26, 0.2],
-      kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: 'Сначала одолейте хозяина магмы' },
+    magma: { name: TXT('RUNS.magma.name'), won: TXT('RUNS.magma.won'), wonText: TXT('RUNS.magma.wonText'), floors: 4, depth: 12, lvl: 15, arch: 'plateau', size: [[88, 66], [96, 72], [104, 78], [88, 66]], biome: () => 'magma', boss: (f) => (f === 4 ? 'boss_colossus' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: TXT('RUNS.magma.title'), loot: 2, pop: [1.4, 1.7, 1.8, 1], elite: [0.14, 0.22, 0.26, 0.2],
+      kit: { lvl: 12, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 3], ['ring', 3], ['amulet', 3]], hp: 8, mp: 3, gold: 9000 }, seal: TXT('RUNS.magma.seal') },
   };
   // the endless descent (R-05, TASKS 348–349; a test button in the menu for now, after the serpent later, TASKS 354): no last floor.
   // Floors come in pairs, each pair one biome drawn from the run's seed (repeats allowed, the caves among them); the second floor of
   // a pair ends it, by turns with an elite brute guarding the exit (pairs 1, 3, …) and with the biome's boss (pairs 2, 4, …). A floor
   // is worth its own number in depth (monsters, loot, prices) and its map grows from `size.from` to `size.to` over `size.floors`
   // floors, then stays; rooms: one to `size.cells` cells of the map (13–17 on the campaign's 72×54). The hero starts as in the campaign
-  RUNS.endless = { name: 'Бесконечный спуск', floors: Infinity, depth: 0, lvl: 1, endless: 1, biome: () => 'dungeon', boss: () => undefined, guard: {}, exit: {},
+  RUNS.endless = { name: TXT('data_runs.endless.name'), floors: Infinity, depth: 0, lvl: 1, endless: 1, biome: () => 'dungeon', boss: () => undefined, guard: {}, exit: {},
     pool: ['dungeon', 'crypt', 'lava', 'arcane', 'cave', 'magma'], bosses: { dungeon: 'boss_spider', crypt: 'boss_necro', lava: 'boss_forge', arcane: 'boss', cave: 'boss_serpent', magma: 'boss_colossus' },
     pairGuard: { hp: 2.2, dmg: 1 }, big: ['boss', 'boss_serpent', 'boss_colossus'], bigFrom: 8, guardFrom: 6,
     // a boss past the campaign's last floor (the descent after the serpent): its health and blows over the depth's, so its fight holds
@@ -97,7 +97,7 @@
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
 
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
-  const placeName = (f, mode, seed, from, m) => (f === 0 ? 'Город' : 'Этаж ' + f + ' — ' + floorName(f, mode, seed, from, m));
+  const placeName = (f, mode, seed, from, m) => (f === 0 ? TXT('data_runs.placeName') : TXT('data_runs.placeName.2', { f, p2: floorName(f, mode, seed, from, m) }));
   // m: the floor's map, whose type (TASKS 471) names it in the magma caves
   const floorName = (f, mode, seed, from, m) => { const M = runOf(mode), st = stageOf(mode, f, seed, from), T = m && m.ftype && !m.bossType && ARCH.plateau.names[m.ftype];
     return (M.names || {})[f] || T || st.N.title || BIOMES[st.biome].name; };

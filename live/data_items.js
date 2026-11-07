@@ -4,27 +4,27 @@
   const D = root.DATA || (root.DATA = {});
   // equipment slots and bases. lvl scales with the floor where the item drops.
   const SLOTS = ['weapon', 'offhand', 'helm', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
-  const SLOT_NAME = { weapon: 'Оружие', offhand: 'Щит', helm: 'Шлем', armor: 'Доспех', gloves: 'Перчатки', boots: 'Сапоги', ring: 'Кольцо', amulet: 'Амулет' };
+  const SLOT_NAME = { weapon: TXT('SLOT_NAME.weapon'), offhand: TXT('SLOT_NAME.offhand'), helm: TXT('SLOT_NAME.helm'), armor: TXT('SLOT_NAME.armor'), gloves: TXT('SLOT_NAME.gloves'), boots: TXT('SLOT_NAME.boots'), ring: TXT('SLOT_NAME.ring'), amulet: TXT('SLOT_NAME.amulet') };
   const BASES = {
-    sword: { slot: 'weapon', name: 'Короткий меч', icon: 'it_sword', atk: 6, spd: 0.42, arc: 120, reach: 56 },
-    longsword: { slot: 'weapon', name: 'Длинный меч', icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
-    axe: { slot: 'weapon', name: 'Боевой топор', icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
-    hammer: { slot: 'weapon', name: 'Боевой молот', icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
-    staff: { slot: 'weapon', name: 'Посох мага', icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
-    shield: { slot: 'offhand', name: 'Круглый щит', icon: 'it_shield', def: 4, w: 1 / 3 },
-    buckler: { slot: 'offhand', name: 'Баклер', icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
-    tower_shield: { slot: 'offhand', name: 'Ростовой щит', icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },
-    leather_helm: { slot: 'helm', name: 'Кожаный шлем', icon: 'it_helm_l', def: 2, typed: { aspd: 0.6 } },
-    knight_helm: { slot: 'helm', name: 'Рыцарский шлем', icon: 'it_helm_k', def: 2, typed: { hp: 0.5 }, minF: 3 },
-    leather_armor: { slot: 'armor', name: 'Кожаная броня', icon: 'it_armor_l', def: 3, typed: { mspd: 0.8 } },
-    plate_armor: { slot: 'armor', name: 'Латный доспех', icon: 'it_armor_p', def: 3, typed: { hp: 1 }, minF: 3 },
-    gauntlets: { slot: 'gloves', name: 'Латные перчатки', icon: 'it_gloves', def: 1, typed: { hp: 0.5 }, w: 1 / 2 },
-    leather_gloves: { slot: 'gloves', name: 'Кожаные перчатки', icon: 'it_gloves_l', def: 1, typed: { aspd: 0.6 }, w: 1 / 2 },
-    boots: { slot: 'boots', name: 'Кожаные сапоги', icon: 'it_boots', def: 1, typed: { mspd: 0.8 }, w: 1 / 2 },
-    iron_boots: { slot: 'boots', name: 'Латные сапоги', icon: 'it_boots_i', def: 1, typed: { hp: 0.5 }, minF: 3, w: 1 / 2 },
-    ring: { slot: 'ring', name: 'Кольцо', icon: 'it_ring' },
-    amulet: { slot: 'amulet', name: 'Амулет', icon: 'it_amulet' },
-    cloak: { slot: 'armor', name: 'Плащ странника', icon: 'it_cloak', def: 3, typed: { mp: 1.4 } },
+    sword: { slot: 'weapon', name: TXT('BASES.sword.name'), icon: 'it_sword', atk: 6, spd: 0.42, arc: 120, reach: 56 },
+    longsword: { slot: 'weapon', name: TXT('BASES.longsword.name'), icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
+    axe: { slot: 'weapon', name: TXT('BASES.axe.name'), icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
+    hammer: { slot: 'weapon', name: TXT('BASES.hammer.name'), icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
+    staff: { slot: 'weapon', name: TXT('BASES.staff.name'), icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
+    shield: { slot: 'offhand', name: TXT('BASES.shield.name'), icon: 'it_shield', def: 4, w: 1 / 3 },
+    buckler: { slot: 'offhand', name: TXT('BASES.buckler.name'), icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
+    tower_shield: { slot: 'offhand', name: TXT('BASES.tower_shield.name'), icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },
+    leather_helm: { slot: 'helm', name: TXT('BASES.leather_helm.name'), icon: 'it_helm_l', def: 2, typed: { aspd: 0.6 } },
+    knight_helm: { slot: 'helm', name: TXT('BASES.knight_helm.name'), icon: 'it_helm_k', def: 2, typed: { hp: 0.5 }, minF: 3 },
+    leather_armor: { slot: 'armor', name: TXT('BASES.leather_armor.name'), icon: 'it_armor_l', def: 3, typed: { mspd: 0.8 } },
+    plate_armor: { slot: 'armor', name: TXT('BASES.plate_armor.name'), icon: 'it_armor_p', def: 3, typed: { hp: 1 }, minF: 3 },
+    gauntlets: { slot: 'gloves', name: TXT('BASES.gauntlets.name'), icon: 'it_gloves', def: 1, typed: { hp: 0.5 }, w: 1 / 2 },
+    leather_gloves: { slot: 'gloves', name: TXT('BASES.leather_gloves.name'), icon: 'it_gloves_l', def: 1, typed: { aspd: 0.6 }, w: 1 / 2 },
+    boots: { slot: 'boots', name: TXT('BASES.boots.name'), icon: 'it_boots', def: 1, typed: { mspd: 0.8 }, w: 1 / 2 },
+    iron_boots: { slot: 'boots', name: TXT('BASES.iron_boots.name'), icon: 'it_boots_i', def: 1, typed: { hp: 0.5 }, minF: 3, w: 1 / 2 },
+    ring: { slot: 'ring', name: TXT('BASES.ring.name'), icon: 'it_ring' },
+    amulet: { slot: 'amulet', name: TXT('BASES.amulet.name'), icon: 'it_amulet' },
+    cloak: { slot: 'armor', name: TXT('BASES.cloak.name'), icon: 'it_cloak', def: 3, typed: { mp: 1.4 } },
   };
   // BASES w: a base's share of the drops (default 1); the kinds of one slot split its share, so adding a kind does not make the slot drop more
   // BASES typed: the base's own bonus as a share of an average affix roll of that stat, so it grows with level and rarity like one
@@ -34,32 +34,32 @@
   const GEN_VERSION = 3;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {
-    hp_potion: { name: 'Зелье здоровья', icon: 'it_hp', heal: 0.4, stack: 9 },
-    mp_potion: { name: 'Зелье маны', icon: 'it_mp', mana: 0.5, stack: 9 },
-    scroll: { name: 'Свиток возвращения', icon: 'it_scroll', stack: 5 },
+    hp_potion: { name: TXT('CONSUMABLES.hp_potion.name'), icon: 'it_hp', heal: 0.4, stack: 9 },
+    mp_potion: { name: TXT('CONSUMABLES.mp_potion.name'), icon: 'it_mp', mana: 0.5, stack: 9 },
+    scroll: { name: TXT('CONSUMABLES.scroll.name'), icon: 'it_scroll', stack: 5 },
   };
   const RARITY = [
-    { id: 'common', name: 'Обычный', col: [0.78, 0.76, 0.72], affixes: 0 },
-    { id: 'uncommon', name: 'Необычный', col: [0.42, 0.86, 0.32], affixes: 1 },
-    { id: 'rare', name: 'Редкий', col: [0.36, 0.62, 1.0], affixes: 2 },
-    { id: 'epic', name: 'Эпический', col: [0.74, 0.38, 0.98], affixes: 3 },
-    { id: 'legendary', name: 'Легендарный', col: [1.0, 0.6, 0.14], affixes: 4 },
+    { id: 'common', name: TXT('RARITY.common.name'), col: [0.78, 0.76, 0.72], affixes: 0 },
+    { id: 'uncommon', name: TXT('RARITY.uncommon.name'), col: [0.42, 0.86, 0.32], affixes: 1 },
+    { id: 'rare', name: TXT('RARITY.rare.name'), col: [0.36, 0.62, 1.0], affixes: 2 },
+    { id: 'epic', name: TXT('RARITY.epic.name'), col: [0.74, 0.38, 0.98], affixes: 3 },
+    { id: 'legendary', name: TXT('RARITY.legendary.name'), col: [1.0, 0.6, 0.14], affixes: 4 },
   ];
   // affix: stat key, label (with {v}), per-level value range
   const AFFIXES = [
-    { k: 'str', label: '+{v} к силе', a: 1, b: 0.5 }, { k: 'agi', label: '+{v} к ловкости', a: 1, b: 0.5 },
-    { k: 'int', label: '+{v} к интеллекту', a: 1, b: 0.5 }, { k: 'vit', label: '+{v} к живучести', a: 1, b: 0.5 },
-    { k: 'atk', label: '+{v} к атаке', a: 2, b: 1.0 }, { k: 'def', label: '+{v} к защите', a: 1, b: 0.6 },
-    { k: 'crit', label: '+{v}% крит. шанса', a: 2, b: 0.4 }, { k: 'hp', label: '+{v} к здоровью', a: 8, b: 4 },
-    { k: 'mp', label: '+{v} к мане', a: 5, b: 2 }, { k: 'aspd', label: '+{v}% скорости атаки', a: 4, b: 0.8 },
-    { k: 'mspd', label: '+{v}% скорости бега', a: 3, b: 0.5 }, { k: 'leech', label: '+{v}% вампиризма', a: 1, b: 0.3 },
-    { k: 'fire', label: '+{v}% урона огнём', a: 6, b: 2 }, { k: 'dodge', label: '+{v}% уклонения', a: 1, b: 0.25 },
-    { k: 'regen', label: '+{v} здоровья в секунду', a: 0.5, b: 0.15 }, { k: 'onhit', label: '+{v} здоровья за удар', a: 0.5, b: 0.2 },
+    { k: 'str', label: TXT('AFFIXES.str.label'), a: 1, b: 0.5 }, { k: 'agi', label: TXT('AFFIXES.agi.label'), a: 1, b: 0.5 },
+    { k: 'int', label: TXT('AFFIXES.int.label'), a: 1, b: 0.5 }, { k: 'vit', label: TXT('AFFIXES.vit.label'), a: 1, b: 0.5 },
+    { k: 'atk', label: TXT('AFFIXES.atk.label'), a: 2, b: 1.0 }, { k: 'def', label: TXT('AFFIXES.def.label'), a: 1, b: 0.6 },
+    { k: 'crit', label: TXT('AFFIXES.crit.label'), a: 2, b: 0.4 }, { k: 'hp', label: TXT('AFFIXES.hp.label'), a: 8, b: 4 },
+    { k: 'mp', label: TXT('AFFIXES.mp.label'), a: 5, b: 2 }, { k: 'aspd', label: TXT('AFFIXES.aspd.label'), a: 4, b: 0.8 },
+    { k: 'mspd', label: TXT('AFFIXES.mspd.label'), a: 3, b: 0.5 }, { k: 'leech', label: TXT('AFFIXES.leech.label'), a: 1, b: 0.3 },
+    { k: 'fire', label: TXT('AFFIXES.fire.label'), a: 6, b: 2 }, { k: 'dodge', label: TXT('AFFIXES.dodge.label'), a: 1, b: 0.25 },
+    { k: 'regen', label: TXT('AFFIXES.regen.label'), a: 0.5, b: 0.15 }, { k: 'onhit', label: TXT('AFFIXES.onhit.label'), a: 0.5, b: 0.2 },
   ];
   // by base first: a legendary staff or axe must not be called a blade
-  const LEGEND_NAMES = { sword: 'Пламенный клинок', longsword: 'Меч Рассвета', axe: 'Секира Палача', hammer: 'Молот Грома', staff: 'Посох Вечного Пламени',
-    cloak: 'Плащ Ночи', weapon: 'Пламенный клинок', offhand: 'Эгида Зари', helm: 'Венец Короля', armor: 'Доспех Феникса', gloves: 'Длани Титана',
-    boots: 'Поступь Тени', ring: 'Кольцо Бездны', amulet: 'Сердце Дракона' };
+  const LEGEND_NAMES = { sword: TXT('LEGEND_NAMES.sword'), longsword: TXT('LEGEND_NAMES.longsword'), axe: TXT('LEGEND_NAMES.axe'), hammer: TXT('LEGEND_NAMES.hammer'), staff: TXT('LEGEND_NAMES.staff'),
+    cloak: TXT('LEGEND_NAMES.cloak'), weapon: TXT('LEGEND_NAMES.weapon'), offhand: TXT('LEGEND_NAMES.offhand'), helm: TXT('LEGEND_NAMES.helm'), armor: TXT('LEGEND_NAMES.armor'), gloves: TXT('LEGEND_NAMES.gloves'),
+    boots: TXT('LEGEND_NAMES.boots'), ring: TXT('LEGEND_NAMES.ring'), amulet: TXT('LEGEND_NAMES.amulet') };
 
   // the fireball every 2.5 s, not 0.5: thrown at every recharge it adds about a third to a fight's damage; at 0.5–1.2 s a fire
   // build felled the bosses in 8–14 s (TASKS 245)
@@ -94,12 +94,12 @@
     // the wandering merchant (TASKS 1010): in a run through the town a floor's merchant is a chance, from the 2nd floor on; his gear
     // is stocked `depth` floors deeper, a little better made, the showpiece a rarity up
     wander: { chance: 0.1, from: 2, depth: 2, q: 0.5, best: 1,
-      lines: ['Брожу по крипте. Товар — под стать.', 'Не каждый день встретишь, а?', 'Это я добыл внизу. Сам. Почти.', 'Бери, пока я не ушёл глубже.'] },
-    lines: ['Заходи, путник! Золото не пахнет.', 'Всё с прошлых героев. Почти не ношеное.', 'Торгуюсь честно. Почти всегда.',
-      'Глубже — дороже. Такова жизнь.', 'Продашь хлам? Возьму, не глядя.'],
-    hitLines: ['Эй! Я тут торгую, а не дерусь.', 'Осторожнее! Товар хрупкий.', 'Мечом скидку не выбьешь.'],
+      lines: [TXT('SHOP.wander.lines'), TXT('SHOP.wander.lines.2'), TXT('SHOP.wander.lines.3'), TXT('SHOP.wander.lines.4')] },
+    lines: [TXT('SHOP.lines'), TXT('SHOP.lines.2'), TXT('SHOP.lines.3'),
+      TXT('SHOP.lines.4'), TXT('SHOP.lines.5')],
+    hitLines: [TXT('SHOP.hitLines'), TXT('SHOP.hitLines.2'), TXT('SHOP.hitLines.3')],
     // in the town he calls the hero over from across the yard (TASKS 1015)
-    calls: ['Зелья! Свитки! Подходи!', 'Товар из самой крипты!', 'Эй, герой! Глянь, что есть!', 'Дёшево отдам, пока не передумал!'],
+    calls: [TXT('SHOP.calls'), TXT('SHOP.calls.2'), TXT('SHOP.calls.3'), TXT('SHOP.calls.4')],
   };
 
   const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };

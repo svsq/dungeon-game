@@ -225,7 +225,7 @@
   function stepPyres(S, R) { const h = R.hero, t = S.t, P = ENEMIES.fire_priest.pyre;
     for (const p of R.pyres) { const u = t - p.t0; if (u < P.warn) continue;
       if (!p.lit) { p.lit = 1; ev(S, { k: 'pillar', x: p.x, y: p.y, r: P.r, id: p.id }); R.trauma = Math.min(1, R.trauma + 0.15); }
-      if (!p.hit && h.deadT < 0 && Math.hypot(h.x - p.x, (h.y - p.y) / P.ry) < P.r) { p.hit = 1; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 10, 'fire', p.who + ' столб', R.en.find((o) => o.id === p.src)); } }
+      if (!p.hit && h.deadT < 0 && Math.hypot(h.x - p.x, (h.y - p.y) / P.ry) < P.r) { p.hit = 1; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 10, 'fire', TXT('sim_floor.stepPyres', { who: p.who }), R.en.find((o) => o.id === p.src)); } }
     R.pyres = R.pyres.filter((p) => t - p.t0 < P.warn + P.burst); }
   // a fire priest's cast: a ring under the hero, or (kin) fire on the weapons of the allies nearest it
   function pyre(S, R, e, E) { e.kinS = 0; const h = R.hero, p = { id: R.nextId++, src: e.id, who: who(e), x: h.x, y: h.y, t0: S.t, dmg: e.dmg * E.pyre.dmg * eliteK(e, 'bolt') };
@@ -242,8 +242,8 @@
     if (t - (e.growT ?? t) >= C.regrow) { e.crust = n + 1; e.growT = t; (e.plateG = e.plateG || {})[e.crust] = t; ev(S, { k: 'regrow', x: e.x, y: e.y - E.h * 0.55, id: e.id, n: e.crust }); } }
   function damageName(src) {
     const type = String(src || '').split(' ')[0], E = ENEMIES[type];
-    if (E) return E.name + (src.includes('элита') ? ' (элита)' : '') + (src.endsWith('снаряд') ? ' · снаряд' : src.endsWith('взрыв') ? ' · взрыв' : src.endsWith('столб') ? ' · столб огня' : '');
-    return ({ spike: 'Шипы', lava: 'Лава', burn: 'Горение', poison: 'Яд', fire: 'Огонь', vent: 'Жерло', rock: 'Обвал', surge: 'Волна лавы' })[src] || 'Неизвестный источник';
+    if (E) return E.name + (src.includes(TXT('sim_floor.damageName')) ? TXT('sim_floor.damageName.2') : '') + (src.endsWith(TXT('sim_floor.damageName.3')) ? TXT('sim_floor.damageName.4') : src.endsWith(TXT('sim_floor.damageName.5')) ? TXT('sim_floor.damageName.6') : src.endsWith(TXT('sim_floor.damageName.7')) ? TXT('sim_floor.damageName.8') : '');
+    return ({ spike: TXT('sim_floor.damageName.spike'), lava: TXT('sim_floor.damageName.lava'), burn: TXT('sim_floor.damageName.burn'), poison: TXT('sim_floor.damageName.poison'), fire: TXT('sim_floor.damageName.fire'), vent: TXT('sim_floor.damageName.vent'), rock: TXT('sim_floor.damageName.rock'), surge: TXT('sim_floor.damageName.surge') })[src] || TXT('sim_floor.damageName.9');
   }
   // the end-of-run reward: gold brought back and a win. Thoroughness is paid on the floor itself, 10 shards for each of its kills,
   // loot and secrets at 100 % and 1 per secret found (TASKS 175); with the elites and the boss a thorough win brings ~120 shards,
@@ -254,11 +254,11 @@
     const C = runCompletion(R), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' ? REWARD.win : 0);
     return { base, bonus: 0, cap: 0, C };
   }
-  const FULL = [['kills', 'foes', 'Все враги этажа повержены'], ['loot', 'lootN', 'Весь лут этажа собран'], ['sec', 'secN', 'Все тайники этажа найдены']];
+  const FULL = [['kills', 'foes', TXT('FULL')], ['loot', 'lootN', TXT('FULL.2')], ['sec', 'secN', TXT('FULL.3')]];
   function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
   // a floor's kills, loot or secrets brought to 100 % pay once, on the spot
   function checkFull(S, R) { const f = fstat(R), h = R.hero; f.full = f.full || {};
-    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, s + ' · +' + REWARD.full + ' осколков душ'); } }
+    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); } }
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
   const MASK = { key: '', set: null };
