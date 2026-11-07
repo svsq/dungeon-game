@@ -7,6 +7,7 @@
   // the town (R-17, TASKS 1002): the campaign through the town, a test run until the town is done and the campaign starts there
   const TEST_RUNS = [['cave', TXT('TEST_RUNS'), TXT('TEST_RUNS.2')], ['magma', TXT('TEST_RUNS.3'), TXT('TEST_RUNS.4')], ['endless', TXT('TEST_RUNS.5'), TXT('TEST_RUNS.6')]];
   // the buttons that start a run from the main menu, in the order pressed: a test run is behind «Тесты» (bots and checks press these)
+  const campaignLen = () => { const n = D.RUNS.campaign.floors; return { n, floors: TXT.n('UI.menu.floors', n) }; };
   const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]);
   // «Что нового» (TASKS 1038): DATA.CHANGES, newest first, as rows of fixed heights; a point is wrapped by its length (the sim
   // scrolls by whole rows, so it needs the rows without the HUD's text measure; the screen's qa check catches a line too long)
@@ -23,7 +24,7 @@
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save); «В город» (TASKS 1026, was «Алтарь
     // душ»: the upgrades are bought at the altar on the town's square) goes on with the saved run, or starts a campaign, in the town
-    menu: (hasRun, diff, arm, zoom, inTown) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2') : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
+    menu: (hasRun, diff, arm, zoom, inTown) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
       ['tests', TXT('UI.menu.5'), true], ['diff', TXT('UI.menu.6', { name: DIFF[diff || 'normal'].name }), true], ['zoom', TXT('UI.menu.7', { p1: zoomName(zoom) }), true], ['town', TXT('UI.menu.8'), !hasRun || !!inTown], ['news', TXT('UI.menu.9'), true]]
       .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 })),
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
@@ -103,5 +104,5 @@
     },
   };
 
-  Object.assign(D, { TEST_RUNS, startPath, newsRows, UI });
+  Object.assign(D, { TEST_RUNS, startPath, campaignLen, newsRows, UI });
 })(typeof window !== 'undefined' ? window : globalThis);
