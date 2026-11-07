@@ -87,9 +87,26 @@ def fit(out, orig):
                 if best is None or iou > best[0]: best = (iou, c)
     return best
 
-def clean(a, min_px=20):
+def clean(a, min_px=20, one=False):
     a[..., 3] = np.where(a[..., 3] > 110, 255, 0)
     lab, n = nd.label(a[..., 3] > 0); sz = np.bincount(lab.ravel()); sz[0] = 1 << 30; a[sz[lab] < min_px, 3] = 0
+    # one: a piece is one blob (a class's own parts, TASKS 1114): a neighbour's sliver caught in the cell goes, holes are filled
+    if one and n > 1: sz[0] = 0; a[lab != sz.argmax(), 3] = 0
+    if one:
+        m = a[..., 3] > 0; holes = nd.binary_fill_holes(m) & ~m
+        if holes.any(): _, (iy, ix) = nd.distance_transform_edt(~m, return_indices=True); a[holes] = a[iy[holes], ix[holes]]; a[holes, 3] = 255
+    return a
+
+# a class whose front torso was painted with its arms on it (the mage's sleeves, TASKS 1114 critic r2): below the shoulder capelet
+# and above the skirt those columns are the arm pieces' place, so they are cleared and the new flank gets its outline
+ARMLESS = {'mage': {'rows': (152, 205), 'x': (79, 139), 'hem': (205, 216, 62, 152)}}
+def armless(a, who):
+    A = ARMLESS.get(who)
+    if not A: return a
+    (y0, y1), (xl, xr) = A['rows'], A['x']; band = a[y0:y1]; band[:, :xl, 3] = 0; band[:, xr + 1:, 3] = 0
+    for x in (xl, xr):
+        col = band[:, x]; on = col[:, 3] > 0; col[on, :3] = (35, 16, 16)
+    if 'hem' in A: h0, h1, hl, hr = A['hem']; a[h0:h1, :hl, 3] = 0; a[h0:h1, hr + 1:, 3] = 0   # (the glove's tip over the skirt's top)
     return a
 
 def red(a): r, g, b = a[..., 0], a[..., 1], a[..., 2]; return (a[..., 3] > 0) & (r > 90) & (r > 1.7 * g) & (r > 1.7 * b)
@@ -123,9 +140,13 @@ def cut(names):
             orig = source(it['src'], who); out = np.zeros_like(orig); oy, ox = y0 - 10, x0 - 10
             o = np.array(sm).astype(float); ys, xs = slice(max(0, oy), min(orig.shape[0], oy + o.shape[0])), slice(max(0, ox), min(orig.shape[1], ox + o.shape[1]))
             out[ys, xs] = o[ys.start - oy:ys.stop - oy, xs.start - ox:xs.stop - ox]
-            # the sheet's background is not the piece: whatever matches it is cleared
-            bgd = np.abs(out[..., :3] - np.array(BG[:3])).sum(-1) < 30; out[bgd, 3] = 0
-            iou, a = fit(out, orig); a = clean(a); piece = it['piece']
+            # the sheet's background is not the piece: whatever matches it and reaches the cell's edge is cleared; a dark grey inside
+            # the piece (the mage's trousers, TASKS 1114) stays
+            bgd = np.abs(out[..., :3] - np.array(BG[:3])).sum(-1) < 30
+            lab, _ = nd.label(bgd | (out[..., 3] < 24)); edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
+            out[np.isin(lab, list(edge)), 3] = 0
+            iou, a = fit(out, orig); a = clean(a, one=out_ != 'hero'); piece = it['piece']
+            if piece == 'body': a = clean(armless(a, out_), one=out_ != 'hero')
             if piece in ('body', 'body_back') and not base:
                 full = load(f'{GEN}/{who}__{piece}.png'); keep = red(full) & ((np.arange(full.shape[0])[:, None] > 110) if sfx == 'hd' else True)
                 a[keep] = full[keep]
@@ -138,8 +159,9 @@ def cut(names):
             if piece.endswith('L'): save(near(a, piece[:-1], who), nm(piece[:-1] + 'R', sfx))
             if piece in ('body', 'body_back'):
                 nh = a.copy(); nh[:HEAD[piece]] = 0; save(nh, nm(piece, (sfx + '_nh') if sfx else 'nh'))
-    for v in ('body', 'body_back'):   # the plate armour (the hero as drawn) without its head, under a helmet
-        nh = load(f'{GEN}/hero__{v}.png'); nh[:HEAD[v]] = 0; save(nh, f'hero__{v}_nh')
+    if all(opt(n).get('out', 'hero') == 'hero' for n in names):   # (a class's sets leave the hero's parts alone)
+        for v in ('body', 'body_back'):   # the plate armour (the hero as drawn) without its head, under a helmet
+            nh = load(f'{GEN}/hero__{v}.png'); nh[:HEAD[v]] = 0; save(nh, f'hero__{v}_nh')
 
 if __name__ == '__main__':
     if sys.argv[1] == 'make': make(sys.argv[2:] or None)

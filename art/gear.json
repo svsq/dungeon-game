@@ -460,5 +460,163 @@
     ]
    }
   ]
+ },
+ "mage_leather": {
+  "sfx": "le",
+  "K": 3,
+  "items": [
+   {
+    "piece": "body",
+    "src": "body",
+    "box": [
+     47,
+     0,
+     164,
+     244
+    ],
+    "at": [
+     158,
+     146
+    ]
+   },
+   {
+    "piece": "body_back",
+    "src": "body_back",
+    "box": [
+     43,
+     0,
+     179,
+     299
+    ],
+    "at": [
+     667,
+     63
+    ]
+   },
+   {
+    "piece": "uarmL",
+    "src": "uarmL",
+    "box": [
+     23,
+     90,
+     71,
+     168
+    ],
+    "at": [
+     1233,
+     188
+    ]
+   },
+   {
+    "piece": "thighL",
+    "src": "thighL",
+    "box": [
+     27,
+     216,
+     72,
+     291
+    ],
+    "at": [
+     1233,
+     610
+    ]
+   }
+  ]
+ },
+ "mage_hood": {
+  "sfx": "hd",
+  "K": 3,
+  "items": [
+   {
+    "piece": "body",
+    "src": "body",
+    "box": [
+     47,
+     0,
+     164,
+     244
+    ],
+    "at": [
+     158,
+     146
+    ]
+   },
+   {
+    "piece": "body_back",
+    "src": "body_back",
+    "box": [
+     43,
+     0,
+     179,
+     299
+    ],
+    "at": [
+     667,
+     63
+    ]
+   },
+   {
+    "piece": "uarmL",
+    "src": "uarmL",
+    "box": [
+     23,
+     90,
+     71,
+     168
+    ],
+    "at": [
+     1233,
+     188
+    ]
+   },
+   {
+    "piece": "thighL",
+    "src": "thighL",
+    "box": [
+     27,
+     216,
+     72,
+     291
+    ],
+    "at": [
+     1233,
+     610
+    ]
+   }
+  ]
+ },
+ "mage_circlet": {
+  "sfx": "hci",
+  "K": 5,
+  "items": [
+   {
+    "piece": "head",
+    "src": "head:body",
+    "box": [
+     61,
+     0,
+     154,
+     90
+    ],
+    "at": [
+     207,
+     287
+    ]
+   },
+   {
+    "piece": "head_back",
+    "src": "head:body_back",
+    "box": [
+     70,
+     0,
+     160,
+     84
+    ],
+    "at": [
+     879,
+     302
+    ]
+   }
+  ]
  }
 }
