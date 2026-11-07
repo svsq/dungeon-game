@@ -19,6 +19,8 @@ W, H = 1536, 1024
 GEN = 'art/gen'
 HEAD = {'body': 76, 'body_back': 70}     # rows above this are the head (the collar and the cape start below)
 # set → (suffix, scale, pieces in columns: each column a list of [piece, source]); source: a part name or 'head:<view>'
+# a set's 4th field (TASKS 1113–1114): src — whose parts the sheet is made of, out — whose parts it writes (the mage is the hero
+# repainted: the same rig, a new face, no red cape restored), base — the set paints the class itself (no suffix)
 SETS = {
     'shirt': ('cl', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['farmL', 'farmL']], [['thighL', 'thighL'], ['shinL', 'shinL'], ['footL', 'footL']]]),
     'leather': ('le', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']], [['shinL', 'shinL'], ['footL', 'footL']]]),
@@ -26,35 +28,42 @@ SETS = {
     'gauntlet': ('pl', 6, [[['farmL', 'farmL']]]),
     'helm_le': ('hle', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]]),
     'helm_kn': ('hkn', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]]),
+    'mage': ('', 3, [[['body', 'body']], [['body_back', 'body_back']], [['cape', 'cape']], [['uarmL', 'uarmL'], ['farmL', 'farmL']], [['thighL', 'thighL'], ['shinL', 'shinL'], ['footL', 'footL']]],
+             {'src': 'hero', 'out': 'mage', 'base': 1}),
+    'mage_leather': ('le', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'mage', 'out': 'mage'}),
+    'mage_hood': ('hd', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'mage', 'out': 'mage'}),
+    'mage_circlet': ('hci', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]], {'src': 'mage', 'out': 'mage'}),
 }
+opt = lambda name: (SETS[name][3] if len(SETS[name]) > 3 else {})
 BG = (58, 58, 68, 255)
 
 load = lambda p: np.array(Image.open(p).convert('RGBA')).astype(float)
 def bbox(m):
     ys, xs = np.where(m); return ys.min(), xs.min(), ys.max() + 1, xs.max() + 1
 
-def source(src):
+def source(src, who='hero'):
     if src.startswith('head:'):
-        v = src[5:]; a = load(f'{GEN}/hero__{v}.png'); a[HEAD[v] + 14:] = 0; return a
-    return load(f'{GEN}/hero__{src}.png')
+        v = src[5:]; a = load(f'{GEN}/{who}__{v}.png'); a[HEAD[v] + 14:] = 0; return a
+    return load(f'{GEN}/{who}__{src}.png')
 
-def make():
-    lay = {}
-    for name, (sfx, K, cols) in SETS.items():
+def make(names=None):
+    lay = json.load(open('art/gear.json')) if names else {}
+    for name in names or SETS:
+        sfx, K, cols = SETS[name][:3]; who = opt(name).get('src', 'hero')
         sheet = Image.new('RGBA', (W, H), BG); items = []; widths = []
         for col in cols:
             ws = []; hs = 0
             for piece, src in col:
-                a = source(src); y0, x0, y1, x1 = bbox(a[..., 3] > 24); ws.append((x1 - x0) * K); hs += (y1 - y0) * K
+                a = source(src, who); y0, x0, y1, x1 = bbox(a[..., 3] > 24); ws.append((x1 - x0) * K); hs += (y1 - y0) * K
             widths.append(max(ws))
         gap = (W - sum(widths)) // (len(cols) + 1); x = gap
         for col, cw in zip(cols, widths):
             boxes = [];
             for piece, src in col:
-                a = source(src); boxes.append((piece, src, bbox(a[..., 3] > 24)))
+                a = source(src, who); boxes.append((piece, src, bbox(a[..., 3] > 24)))
             th = sum((b[2] - b[0]) * K for _, _, b in boxes); vg = (H - th) // (len(boxes) + 1); y = vg
             for piece, src, (y0, x0, y1, x1) in boxes:
-                a = source(src); crop = Image.fromarray(a[y0:y1, x0:x1].astype(np.uint8)).resize(((x1 - x0) * K, (y1 - y0) * K), Image.NEAREST)
+                a = source(src, who); crop = Image.fromarray(a[y0:y1, x0:x1].astype(np.uint8)).resize(((x1 - x0) * K, (y1 - y0) * K), Image.NEAREST)
                 sheet.alpha_composite(crop, (x, y)); items.append({'piece': piece, 'src': src, 'box': [int(x0), int(y0), int(x1), int(y1)], 'at': [int(x), int(y)]})
                 y += (y1 - y0) * K + vg
             x += cw + gap
@@ -91,9 +100,9 @@ def across(m):
         xs = np.where(m[y])[0]; x0, x1 = xs.min(), xs.max(); t[y, x0:x1 + 1] = (np.arange(x0, x1 + 1) - x0) / max(1, x1 - x0)
     return t
 ss = lambda a, b, x: (lambda q: q * q * (3 - 2 * q))(np.clip((x - a) / (b - a), 0, 1))
-def near(L, part):
+def near(L, part, who='hero'):
     """the near (R) twin of a far (L) limb: moved onto the R part's box and lit as nearer the camera (herofix.py)"""
-    R0 = load(f'{GEN}/hero__{part}R.png'); y0, x0, y1, x1 = bbox(L[..., 3] > 0); Y0, X0 = bbox(R0[..., 3] > 0)[:2]
+    R0 = load(f'{GEN}/{who}__{part}R.png'); y0, x0, y1, x1 = bbox(L[..., 3] > 0); Y0, X0 = bbox(R0[..., 3] > 0)[:2]
     src = np.zeros_like(L); hh, ww = min(y1 - y0, L.shape[0] - Y0), min(x1 - x0, L.shape[1] - X0); src[Y0:Y0 + hh, X0:X0 + ww] = L[y0:y0 + hh, x0:x0 + ww]
     m = src[..., 3] > 0; t = across(m); lit, shade = ss(0.5, 1, t), ss(0.45, 0, t)
     for c, k in zip(range(3), (1.2, 1.12, 1.0)): src[..., c] *= 1 + (k - 1) * lit
@@ -104,32 +113,34 @@ save = lambda a, n: Image.fromarray(a.clip(0, 255).astype(np.uint8)).save(f'{GEN
 def cut(names):
     lay = json.load(open('art/gear.json'))
     for name in names:
+        O = opt(name); who, out_, base = O.get('src', 'hero'), O.get('out', 'hero'), O.get('base', 0)
+        nm = lambda piece, sx: f'{out_}__{piece}' + (f'_{sx}' if sx else '')
         L = lay[name]; K, sfx = L['K'], L['sfx']; sheet = Image.open(f'{GEN}/gear_{name}.png').convert('RGBA').resize((W, H), Image.LANCZOS)
         for it in L['items']:
             x0, y0, x1, y1 = it['box']; ax, ay = it['at']; m = 10 * K
             reg = sheet.crop((ax - m, ay - m, ax + (x1 - x0) * K + m, ay + (y1 - y0) * K + m))
             sm = reg.resize((reg.width // K, reg.height // K), Image.LANCZOS)
-            orig = source(it['src']); out = np.zeros_like(orig); oy, ox = y0 - 10, x0 - 10
+            orig = source(it['src'], who); out = np.zeros_like(orig); oy, ox = y0 - 10, x0 - 10
             o = np.array(sm).astype(float); ys, xs = slice(max(0, oy), min(orig.shape[0], oy + o.shape[0])), slice(max(0, ox), min(orig.shape[1], ox + o.shape[1]))
             out[ys, xs] = o[ys.start - oy:ys.stop - oy, xs.start - ox:xs.stop - ox]
             # the sheet's background is not the piece: whatever matches it is cleared
             bgd = np.abs(out[..., :3] - np.array(BG[:3])).sum(-1) < 30; out[bgd, 3] = 0
             iou, a = fit(out, orig); a = clean(a); piece = it['piece']
-            if piece in ('body', 'body_back'):
-                full = load(f'{GEN}/hero__{piece}.png'); keep = red(full) & ((np.arange(full.shape[0])[:, None] > 110) if sfx == 'hd' else True)
+            if piece in ('body', 'body_back') and not base:
+                full = load(f'{GEN}/{who}__{piece}.png'); keep = red(full) & ((np.arange(full.shape[0])[:, None] > 110) if sfx == 'hd' else True)
                 a[keep] = full[keep]
                 if sfx != 'hd': hy = HEAD[piece]; a[:hy] = full[:hy]
             if piece.startswith('head'):
-                v = 'body' if piece == 'head' else 'body_back'; hy = HEAD[v]; full = load(f'{GEN}/hero__{v}.png')
+                v = 'body' if piece == 'head' else 'body_back'; hy = HEAD[v]; full = load(f'{GEN}/{who}__{v}.png')
                 a[hy + 6:] = 0; a[hy:hy + 6] = np.where(a[hy:hy + 6, :, 3:] > 0, a[hy:hy + 6], full[hy:hy + 6])   # the collar under the chin stays the body's
-                save(a, f'hero__{piece}_{sfx[1:]}'); print(f'{name}: {piece} fit {iou:.2f}'); continue
-            save(a, f'hero__{piece}_{sfx}'); print(f'{name}: {piece} fit {iou:.2f}')
-            if piece.endswith('L'): save(near(a, piece[:-1]), f'hero__{piece[:-1]}R_{sfx}')
+                save(a, nm(piece, sfx[1:])); print(f'{name}: {piece} fit {iou:.2f}'); continue
+            save(a, nm(piece, sfx)); print(f'{name}: {piece} fit {iou:.2f}')
+            if piece.endswith('L'): save(near(a, piece[:-1], who), nm(piece[:-1] + 'R', sfx))
             if piece in ('body', 'body_back'):
-                nh = a.copy(); nh[:HEAD[piece]] = 0; save(nh, f'hero__{piece}_{sfx}_nh')
+                nh = a.copy(); nh[:HEAD[piece]] = 0; save(nh, nm(piece, (sfx + '_nh') if sfx else 'nh'))
     for v in ('body', 'body_back'):   # the plate armour (the hero as drawn) without its head, under a helmet
         nh = load(f'{GEN}/hero__{v}.png'); nh[:HEAD[v]] = 0; save(nh, f'hero__{v}_nh')
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'make': make()
+    if sys.argv[1] == 'make': make(sys.argv[2:] or None)
     else: cut(sys.argv[2:] or [n for n in SETS])
