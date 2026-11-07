@@ -2551,6 +2551,11 @@
       for (const slot of D.SLOTS) if (!Object.keys(BASES).some((k) => BASES[k].slot === slot && D.wears(id, k))) out.push(`class ${id}: nothing to wear in the ${slot} slot`);
       for (const k of Object.keys(BASES)) for (const c of BASES[k].cls || []) if (!D.CLASSES[c]) out.push(`base ${k}: no class ${c}`);
     }
+    // the mage's start and growth (TASKS 1111): staff and cloak; at level 8 with the same gear more mana and spell power than a warrior
+    { const S = spawn(0, {}), M = newRun(S, 'campaign', 83, { cls: 'mage' }).hero, W = newRun(S, 'campaign', 83).hero;
+      for (const h of [M, W]) h.lvl = 8; W.eq = M.eq; const m = stats(M, S.meta), w = stats(W, S.meta);
+      if (M.eq.weapon.b !== 'staff' || M.eq.armor.b !== 'cloak') out.push('class mage: does not start with a staff and a cloak');
+      if (!(m.maxMp > w.maxMp && m.spell > w.spell && m.spellBase > w.spellBase)) out.push('class mage: no more mana and spell power than a warrior'); }
     // gear of another class (TASKS 1102): the staff made the mage's alone for the check, a warrior neither wears it nor finds it often
     { const keep = BASES.staff.cls; BASES.staff.cls = ['mage'];
       const S = spawn(0, {}), R = newRun(S, 'campaign', 82), h = R.hero, n = 4000; let st = 0, mg = 0;
