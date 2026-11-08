@@ -89,7 +89,7 @@
     // cell, a little off the grid, a hot line where the lava licks their foot; an arch over a narrow river flowing toward the camera
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
-    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0;
+    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
     const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       // (the hot line only where the lava itself lies under its foot, shorter and off its middle, TASKS 1039: under every row of a
@@ -119,7 +119,9 @@
       const dip = (a) => (on ? onW * (5 + foot) * Math.exp(-(((a - ha) / Math.max(40, len * 0.3)) ** 2)) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) : 0) + shake(a) * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len)));
       const sag = bridge ? Math.min(10, 3 + len / 45) : 0, lift = bridge ? 8 : 3, z = (a) => lift - sag * Math.sin(Math.PI * Math.max(0, Math.min(1, (a - A0) / len))) - dip(a);
       // (the sag on the grid and the step's jolt a whole 2 px apart from it, TASKS 1058: rounded together the jolt was lost)
-      if (on) DECK.dy = ev2((lift - z(ha) - onW * foot * Math.sin(Math.PI * Math.max(0, Math.min(1, (ha - A0) / len)))) * onW) + (onW > 0.5 && hs < 0.09 ? 2 : 0);
+      // (the jolt held two frames by the clock, TASKS 1162: as a share of the stride it lasted half a frame; and at most one 2 px step a frame, its end falling on a step of the sag made 4)
+      const stride = hs * SIM.Q.stepLen(1) / Math.max(1, Math.hypot(R.hero.vx, R.hero.vy));
+      if (on) { const tgt = ev2((lift - z(ha) - onW * foot * Math.sin(Math.PI * Math.max(0, Math.min(1, (ha - A0) / len)))) * onW) + (onW > 0.5 && stride < 2.5 / 60 ? 2 : 0); const dt = GT - (DECK.at ?? -9), same = onW > 0.5 && dt >= 0 && dt < 0.05 && Math.hypot(R.hero.x - DECK.hx, R.hero.y - DECK.hy) < 24; DECK.dy = same ? DECK.last + Math.max(-2, Math.min(2, tgt - DECK.last)) : tgt; Object.assign(DECK, { last: DECK.dy, tgt, at: GT, hx: R.hero.x, hy: R.hero.y }); }   // (the last frame's drop kept apart, TASKS 1164: dy is zeroed every frame and stepping from it held the hero 12 px over the deck)
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
         if (bridge && i > 1 && i < n - 2 && r(1) < 0.05) continue;
@@ -140,17 +142,18 @@
       // a falling rock that lands on a bridge's deck snaps the boards under it (TASKS 485): they hang split and askew a while
       // (TASKS 1042: they hung broken for 2.4 s after the blow, the safest window, a telegraph backwards) the boards under a rock's
       // shadow crack and rattle over its warning, then hang broken only a moment after it lands
-      const HF = D.HAZ.fall, under = (q) => { const [wx0, wy0] = hor ? [q.a, B0 + BW / 2] : [B0 + BW / 2, q.a]; return (m.hazards || []).find((z) => z.k === 'fall' && Math.hypot(z.x - wx0, (z.y - wy0) / HF.ry) < HF.r * 0.8); };
-      const stateOf = (q) => { const z = bridge && under(q); if (!z) return 0; const c = D.hazClock(z, GT); return c < 0.6 ? 2 : c > z.per - HF.warn ? 1 : 0; };
+      const HF = D.HAZ.fall, along = (z, q) => Math.abs((hor ? z.x : z.y) - q.a), under = (q) => { const near = (m.hazards || []).filter((z) => z.k === 'fall' && Math.abs((hor ? z.y : z.x) - (B0 + BW / 2)) < BW && along(z, q) < HF.r * 0.8), live = (z) => { const c = D.hazClock(z, GT); return c < 1 || c > z.per - HF.warn; }; return near.find(live) || near[0]; };   // (TASKS 1162: a run's rocks overlap, and the first one listed hid the warning of the one falling)
+      const stateOf = (q) => { const z = bridge && under(q); if (!z) return 0; const c = D.hazClock(z, GT); return c < 1 ? 2 : c > z.per - HF.warn ? 1 : 0; };
       for (const q of boards) board(q, q.z, (X, Y, rot) => { const st2 = stateOf(q);
         if (st2 === 1) { const w = (D.hazClock(under(q), GT) - (under(q).per - HF.warn)) / HF.warn, j = w > 0.2 && Math.sin(GT * 50 + q.a) > 0 ? -2 : 0;   // (whole 2 px, TASKS 1050: rounded it rattled not at all)
           L.sprite(q.n, X - q.l / 2, Y - 5 + j, { w: q.l, h: 10, rot: rot + 0.05 * w * Math.sin(GT * 37 + q.a), pivot: [q.l / 2, 5], flip: q.f, u: { grade: [0.7, 0.42 * q.tone, 0, 1] } });
           // (a white-hot crack across the boards under the middle of its shadow, TASKS 1050, 1058: red-orange it read as the target
           // ring's own ticks)
-          const [wx0, wy0] = hor ? [q.a, B0 + BW / 2] : [B0 + BW / 2, q.a], z0 = under(q);
-          if (Math.hypot(z0.x - wx0, (z0.y - wy0) / HF.ry) < HF.r * 0.5) { L.solid(X - 2, Y - 5 + j, 4, 10, [1, 0.95, 0.6], rot, 2, 5, 0.4 + 0.6 * w); L.solid(X - 2 + (q.f ? 2 : -2), Y - 1 + j, 4, 2, [1, 0.95, 0.6], rot, 2, 1, 0.4 + 0.6 * w); G.blend('add'); L.glow(X, Y + j, 12, [1, 0.8, 0.4], 0.8 * w, 2.4); G.blend(); }
+          const z0 = under(q);
+          if (along(z0, q) < HF.r * 0.5) (SC.crackFx ||= []).push({ X, Y: Y + j, rot, w, f: q.f, wx: hor ? q.a : B0 + BW / 2, wy: hor ? B0 + BW / 2 : q.a });   // (drawn in the emissive pass, TASKS 1162: the lit pass put it out on the dark boards)
           return; }
-        if (st2 === 2) { for (const sd of [-1, 1]) L.sprite(q.n, X + sd * q.l / 4 - q.l / 4, Y - 3, { w: q.l / 2 - 2, h: 10, rot: rot + sd * 0.35, pivot: [sd < 0 ? 0 : q.l / 2 - 2, 5], flip: q.f, u: { grade: [0.6, 0.45 * q.tone, 0, 1] } }); return; }
+        if (st2 === 2) { if (along(under(q), q) < HF.r * 0.45) return;   // (the boards the rock went through are gone a moment, TASKS 1162)
+          for (const sd of [-1, 1]) L.sprite(q.n, X + sd * q.l / 4 - q.l / 4, Y - 3, { w: q.l / 2 - 2, h: 10, rot: rot + sd * 0.35, pivot: [sd < 0 ? 0 : q.l / 2 - 2, 5], flip: q.f, u: { grade: [0.6, 0.45 * q.tone, 0, 1] } }); return; }
         L.sprite(q.n, X - q.l / 2, Y - 5, { w: q.l, h: 10, rot, pivot: [q.l / 2, 5], flip: q.f, u: { grade: iron ? [0.5, 0.42 * q.tone, 0, 1] : [0.9, q.tone, 0, 1] } });
         if (iron) { L.solid(X - q.l / 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, q.l / 2, 5); L.solid(X + q.l / 2 - 2, Y - 5, 2, 10, [0.03, 0.02, 0.015], rot, 2 - q.l / 2, 5); } });
       // a deck running down the screen is framed by its two stringers, logs along its sides over the boards' ends, and shows the

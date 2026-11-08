@@ -769,6 +769,8 @@
           // round it shorter, the shortest guarded at its far landing and a rock falling on the next
           const fig = new Uint8Array(W * m.H); if (m.riverBand) m.riverBand.forEach(([a, b], x) => { for (let y = Math.max(6, Math.floor(a)); y <= Math.min(m.H - 5, Math.ceil(b)); y++) if (y + 0.5 > a && y + 0.5 < b) fig[y * W + x] = 1; });
           const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, Rw = DG.riverWays(m.cells, W, m.H, fig, s0, (c) => c === 1), ws = DG.riverAt(Rw, e0);
+          // (TASKS 1160) the way with the guard has no aimed rocks of its own
+          if (m.riverGuard) { const g = new Set(m.riverGuard); for (const z of m.hazards) if (z.k === 'fall' && z.aim && !z.tail && g.has(Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE))) out.push(`${tag}: a run of rocks on the guarded crossing`); }
           if (!m.riverBand || !DG.riverOk(Rw, e0, AR.river.loose)) out.push(`${tag}: no choice of ways over the river (${ws.map((q) => q[0]).join('/')}, round its end ${Rw.dry[e0]})`);
           if (!m.enemies.some((e) => e.post === 'ford')) out.push(`${tag}: no guard at the river's shortest way over`);
           if (!m.hazards.some((z) => z.ford)) out.push(`${tag}: no rock falling on the river's second way over`); }
@@ -843,6 +845,8 @@
           // (each kind its own pay, TASKS 1054)
           else if (!m.chests.some((c) => inR(r, c) && c.tier === K.pay.tier && (!(K.pay.forge || K.pay.stash) || c.hall === r.hall))) out.push(`${tag}: the ${r.hall} hall's chest not its own pay`);
           if (K.pay.bless && !(m.circles || []).some((q) => q.r === r.id && q.bless)) out.push(`${tag}: the sanctum's circle gives no blessing`);
+          // (TASKS 1159) nothing that hurts or scars in the circle, and it blesses a floor still to be fought
+          for (const q of (m.circles || []).filter((q) => q.r === r.id)) { if (m.traps.some((t) => Math.hypot(t.x - q.x, t.y - q.y) < 2.6 * TILE)) out.push(`${tag}: spikes in the sanctum's circle`); if ((m.decals || []).some((d) => Math.hypot(d.x - q.x, d.y - q.y) < 2.6 * TILE)) out.push(`${tag}: a decal in the sanctum's circle`); if (q.bless && Math.hypot(m.exit.x - q.x, m.exit.y - q.y) < HL.blessOff * TILE) out.push(`${tag}: the sanctum by the stairs`); }
           // (an early kind on the 1st floor, TASKS 488, has the floor's own pack: its monster comes later)
           if (!(f === 1 && K.early) && !m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`);
           if (f === 1 && K.early && !m.enemies.some((e) => e.room === r.id)) out.push(`${tag}: the ${r.hall} hall without a pack`); } }
@@ -857,7 +861,9 @@
           if (!m.chests.some((c) => inR(c) && c.tier === 3)) out.push(`${tag}: the islet's hoard not of the 3rd tier`);
           if (!m.hazards.some((z) => z.islet && !z.tail)) out.push(`${tag}: no rocks down the islet's strip`); }
         if (m.ftype !== 'chasm' || m.ftype2) continue; n++; const way = walk(m, new Set());
-        if (m.crossings.some((c) => c.chasm && c.cells.some((k) => way.has(k)) && walk(m, new Set(c.cells)).size)) alt++; }
+        if (m.crossings.some((c) => c.chasm && c.cells.some((k) => way.has(k)) && walk(m, new Set(c.cells)).size)) alt++;
+        // (TASKS 1158) the second way is no twin of the first
+        for (const a of m.crossings.filter((c) => c.alt)) { const B = m.crossings.find((c) => !c.alt && c.cells.includes(a.of)); if (B && a.cells.some((k) => B.cells.some((j) => Math.max(Math.abs(k % m.W - j % m.W), Math.abs(Math.floor(k / m.W) - Math.floor(j / m.W))) < D.ARCH.plateau.chasm.alt.off))) out.push(`${tag}: the second bridge within ${D.ARCH.plateau.chasm.alt.off} cells of the first`); } }
       if (n && alt * 2 < n) out.push(`magma chasm: a way round a bridge of the walk on ${alt} of ${n} floors`);
       if (!isl) out.push('magma: no hoard\'s islet in 30 runs'); }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
@@ -894,7 +900,8 @@
     const out = [];
     for (let sd = 1; sd <= 10; sd++) for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f} (${m.ftype})`, q = DG.rewardsOf(m);
       const deg = m.rooms.map(() => 0); for (const [a, b] of m.edges) { deg[a]++; deg[b]++; }
-      if (q.ends.length < 2) out.push(`${tag}: ${q.ends.length} dead ends off the way`);
+      // (TASKS 1158: a chasm's second bridge joins up what were dead ends; its way round, with its chest, is the side way there)
+      if (q.ends.length < 2 && !m.crossings.some((c) => c.alt)) out.push(`${tag}: ${q.ends.length} dead ends off the way`);
       for (const r of q.bare) out.push(`${tag}: a dead end off the way with no reward (room ${r.id})`);
       for (const r of m.rooms) if (r.kind === 'ledge' && deg[r.id] !== 1) out.push(`${tag}: a ledge on ${deg[r.id]} ways (room ${r.id})`);
       if (q.onWay * 3 > q.list.length) out.push(`${tag}: ${q.onWay} of ${q.list.length} rewards on the way`);
@@ -1000,7 +1007,8 @@
     for (const sd of [1, 7, 33, 128]) for (const ft of ['plain', 'lake', 'river', 'terrace', 'chasm']) for (let f = 1; f < D.RUNS.magma.floors; f++) {
       const m = DG.genFloor(sd * 37 + f * 1013, f, { mode: 'magma', ftype: ft }); if (!m || !m.hazards) continue; const W = m.W;
       const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
-      for (let i = 0; i < q.length && from[e] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1) { from[n] = q[i]; q.push(n); } }
+      const guarded = new Set(m.riverGuard || []);   // (TASKS 1160: a river's rocks run down the way without the guard)
+      for (let i = 0; i < q.length && from[e] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1 && !guarded.has(n)) { from[n] = q[i]; q.push(n); } }
       const way = []; for (let k = e; k >= 0 && from[e] !== -2; k = from[k]) way.push(k);
       const on = m.hazards.filter((z) => way.some((k) => D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE))).length;
       if (on < 2) out.push(`magma ${ft} ${sd} f${f}: ${on} hazard ring(s) on the walk to the stairs, 2 at least`); }
@@ -2306,7 +2314,7 @@
         delete R2.arena.gate; enterFloor(S2, R2, F - 1, undefined, 'up'); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered again');
         delete R2.arena.gate; enterFloor(S2, R2, 0); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered from the town');
         void keep; void en; }
-      descend(S2, R2); const w0 = S2.meta.wins;
+      descend(S2, R2); const w0 = S2.meta.wins, s0 = S2.meta.shards;
       if (R2.floor !== F + 1 || R2.mode !== 'endless') out.push(`climb: the descent past the colossus does not start on the ${F + 1}th`);
       else { h2.x = R2.map.up.x; h2.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] }); const m2 = R2.map;
         if (R2.floor !== F || STAGE(R2).boss !== 'boss_colossus' || D.placeName(F, R2.mode, R2.seed, FROM(R2)) !== D.placeName(F, 'campaign', R2.seed)) out.push(`climb: back up from the ${F + 1}th, the ${F}th is not the campaign's`);
@@ -2314,7 +2322,7 @@
         else { if (Math.hypot(h2.x - m2.down.x, h2.y - m2.down.y) > 80) out.push(`climb: back up on the ${F}th, the hero is not by the stairs on`);
           h2.x = R2.arena.gate.x; h2.y = R2.arena.gate.y + 30; E(S2); if (R2.floor !== 0) out.push(`climb: the ${F}th's portal home does not take the hero home after the descent`);
           else { h2.x = R2.map.town.svc.portal.x; h2.y = R2.map.town.svc.portal.y + 30; E(S2); if (R2.floor !== F) out.push(`climb: the town's portal does not lead back to the ${F}th`); }
-          h2.x = m2.down.x; h2.y = m2.down.y + 20; E(S2); if (R2.floor !== F + 1 || S2.meta.wins !== w0) out.push(`climb: the ${F}th's stairs on, taken again, do not lead to the ${F + 1}th or win the campaign twice`); } } }
+          h2.x = m2.down.x; h2.y = m2.down.y + 20; E(S2); if (R2.floor !== F + 1 || S2.meta.wins !== w0 || S2.meta.shards !== s0) out.push(`climb: the ${F}th's stairs on, taken again, do not lead to the ${F + 1}th or win the campaign twice`); } } }
     catch (err) { out.push('climb: back up from the descent fails: ' + err.stack); }
     return out;
   }
