@@ -2663,7 +2663,13 @@
       h.x = e.x; h.y = e.y + 40; gd.x = h.x + 30; gd.y = h.y; step(G, { keys: ['KeyE'] }); if (G.screen === 'talk' || G.run.floor !== 1) out.push(`town: E at the stairs does not go down (${G.screen}, floor ${G.run.floor})`); }
     // TASKS 1151: the mason empties the cart stone by stone, the rope hauls it into the adit, and it comes back full
     { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, seen = new Set(), loads = new Set(); Q.hero.x = Q.map.town.svc.portal.x; Q.hero.y = Q.map.town.svc.portal.y;
-      for (let i = 0; i < 9000 && G.screen === 'play'; i++) { step(G, { keys: [] }); seen.add(Q.cart.st); loads.add(Q.cart.load); }
+      step(G, { keys: [] }); let ds = 0; for (let i = 0; i < 9000 && G.screen === 'play'; i++) { const s0 = Q.cart.s; step(G, { keys: [] }); ds = Math.max(ds, Math.abs(Q.cart.s - s0)); seen.add(Q.cart.st); loads.add(Q.cart.load); }
+      // TASKS 1216: the cart never leaps; the mason's stops reach what he takes from and drops into; no round runs through a standing torch
+      if (ds > 1) out.push(`town cart: moves ${ds.toFixed(1)} px in a tick`);
+      { const T = Q.map.town, M = T.npcs.find((n) => n.role === 'mason').route, e = T.rails[T.rails.length - 1], ex = (e % Q.map.W + 0.5) * TILE, ey = (Math.floor(e / Q.map.W) + 0.5) * TILE, tk = M.find((q) => q.act === 'take'), dp = M.find((q) => q.act === 'drop');
+        if (Math.hypot(tk.x - ex, tk.y - ey) > 60) out.push('town: the mason stands out of reach of the cart'); if (Math.hypot(dp.x - T.svc.bin.x, dp.y - T.svc.bin.y) > 60) out.push('town: the mason stands out of reach of the bin');
+        const torch = Q.map.decor.filter((d) => d.role === 'lamp'), off = (p, a, b) => { const dx = b.x - a.x, dy = b.y - a.y, k = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1))); return Math.hypot(p.x - a.x - dx * k, p.y - a.y - dy * k); };
+        for (const n of T.npcs) if (n.route) n.route.forEach((a, i) => { const b = n.route[(i + 1) % n.route.length]; for (const p of torch) if (off(p, a, b) < 22) out.push(`town: the ${n.role}'s round runs through the torch at ${Math.round(p.x)},${Math.round(p.y)}`); }); }
       for (const st of ['at', 'up', 'in', 'down']) if (!seen.has(st)) out.push(`town cart: never ${st}`);
       for (const n of [3, 2, 1, 0]) if (!loads.has(n)) out.push(`town cart: never holds ${n} stones`); }
     const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes().find((b) => b.id === 'go'));

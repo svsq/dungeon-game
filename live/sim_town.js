@@ -66,7 +66,7 @@
         if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
           // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
           f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take' && --C.load <= 0) C.t = t + 2.5; } }
-        else { want = Math.min(FD.v, d * 3 + 8); ux = dx / d; uy = dy / d; } }
+        else { want = Math.min(FD.v, d * 3 + 3); ux = dx / d; uy = dy / d; } }
       f.spd += (want - f.spd) * Math.min(1, 7 * DT);
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
       if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }

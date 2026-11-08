@@ -231,6 +231,8 @@
     npcs: [['smith', 35, 11], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 30, 13], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.7, 30.4]],
     // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1209)
     rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
+    // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1211, 1209)
+    grates: [[24.6, 27.4], [29.4, 27.4]], ivy: [[13, 27.6], [21, 27.6], [32.5, 27.6], [38, 27.6], [6, 11.6], [6, 23.6], [38, 15.6], [46, 21.6]],
     // ruin stubs the seed picks some of, and spots for the small decor
     stubs: [[14, 8], [45, 8], [10, 27], [5, 26], [49, 13], [12, 14]],
     small: [['barrel', 13, 11], ['crate', 21, 11], ['barrel', 20, 14], ['crate', 33, 11], ['barrel', 41, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
@@ -261,11 +263,12 @@
       { ...at(T.altar), n: 'altar', role: 'altar', solid: 1, s: 1.2 }, { ...at(T.chest), n: 'chest', role: 'stash', solid: 1, s: 1.25 }, { ...at(T.anvil), n: 'anvil_tw', role: 'anvil', solid: 1 },
       { ...at(T.forge), n: 'forge_tw', role: 'forge', solid: 1 }, { ...at(T.lectern), n: 'lectern_tw', role: 'lectern', solid: 1 }, { ...at(T.shelf), n: 'flasks_tw', role: 'shelf', solid: 1 },
       { ...at(T.board), n: 'board_tw', role: 'board', solid: 1 }, { ...at(T.tree), n: 'tree_tw', role: 'tree', solid: 1 }, { ...at(T.bin), n: 'orebin_tw', role: 'ore_bin', solid: 1 },
-      { ...at(T.herbs), n: 'herbs_tw', role: 'herbs', solid: 1 }, { x: wx(T.adit[0]), y: wy(T.adit[1]) + 6, n: 'adit_tw', role: 'adit', solid: 1, s: 1.35 },
+      { ...at(T.herbs), n: 'herbs_tw', role: 'herbs', solid: 1 }, { x: wx(T.adit[0]), y: wy(T.adit[1]) + 6, n: 'adit_tw', role: 'adit', solid: 1, s: 1.65 },
       { x: wx(sx), y: wy(sy - 1) + 12, n: 'awning_tw', role: 'stall' },
       { x: wx(T.exitGate[0]), y: T.exitGate[1] * TILE + 6, n: 'gate_tw', role: 'exit_gate', solid: 1 },
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
+      ...T.grates.map((p, i) => ({ ...at(p), n: 'grate_tw', role: 'grate', solid: 1, f: i ? -1 : 1 })), ...T.ivy.map((p, i) => ({ ...at(p), n: 'ivy_tw', role: 'ivy', s: 0.8 + 0.1 * (i % 3), f: i % 2 ? -1 : 1 })),
       ...T.rubble.map(([x, y], i) => ({ ...at([x, y]), n: 'blocks_tw', role: 'rubble', s: 0.6 + 0.1 * (i % 4), f: i % 2 ? -1 : 1 })),
       // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
       ...portalRing(wx(T.portal[0]), wy(T.portal[1]), 0).map((q) => ({ ...q, role: 'portal_stone', solid: 1 })),

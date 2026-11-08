@@ -82,7 +82,7 @@
       const look = (1 - SS(0, 0.5, tw)) * SS(0.52, 0.57, u) * (1 - SS(0.65, 0.7, u));
       // (and once a round lifts the spear and grounds it again, TASKS 1159 note: his arm stood stock still, a figure, not a man on watch)
       const ground = (1 - tw) * bump01(u, 0.12, 0.34);
-      tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i) - 0.14 * ground), talkR, tw * 0.5) };
+      tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i) - 0.14 * ground), talkR, tw * 0.5), L: P(-0.2 + 0.05 * Math.sin(2 * Math.PI * u), -0.4 - 0.1 * Math.sin(2 * Math.PI * u + 0.8) ** 2) };
       hold = { R: TOOL('town_tool_spear', 0.58, { abs: -Math.PI / 2 - 0.05 }) };
       lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look; headF = Math.cos(Math.PI * look);
     } else if (f.role === 'porter' || f.role === 'mason') {
@@ -97,10 +97,14 @@
       else if (act === 'take') { tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] }; front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
       if (act === 'take') { const rw = SS(0, 0.25, pu); tg = { L: lerp2(handAt('L'), tg.L, rw), R: lerp2(handAt('R'), tg.R, rw) }; }
       if (tw > 0 && !hasCrate) tg = { R: lerp2(P(0.1, -0.38), talkR, tw) };
+      // the mason's arms are always on IK: released at the first steps from the block, the elbow flipped to the rig's free pose in a frame (TASKS 1216)
+      if (mason && (!tg.L || !tg.R)) { const dd = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]), st = 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * s, sw = 7 * SS(14, 30, f.spd) * Math.sin(2 * Math.PI * f.dist / st), free = (sd, q) => [handAt(sd)[0] + face * q, handAt(sd)[1] - Math.abs(q) * 0.3];
+        tg = { L: tg.L || free('L', sw), R: tg.R || free('R', -sw) }; }
+      if (mason && act === 'drop' && pu > 0.95 && pu < 1.5) fx = { k: 'dust', x: floor[0], y: floor[1] + 8, amt: 1 - (pu - 0.95) / 0.55, seed: c.n * 2 + i };
       crouch = (mason ? 14 : 34) * bend; lean = face * 0.3 * bend; headR = 0.15 * bend;
       // between carts he dresses a block with the hammer
       if (mason && !f.load && pu >= 1.2 && tw < 0.99 && (atStop || (f.go && stop.act === 'take' && f.spd < 14))) { const w = Math.min(atStop ? 1 : 1 - SS(0, 14, f.spd), Math.max(0, Math.min(1, (pu - 1.2) / 0.4))), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
-        tg = { R: lerp2(lerp2(P(0.1, -0.38), P(0.42, -0.34 - 0.32 * up), w), talkR, tw), L: lerp2(P(-0.05, -0.36), P(0.3, -0.3), w) };
+        tg = { R: lerp2(lerp2(handAt('R'), P(0.42, -0.34 - 0.32 * up), w), talkR, tw), L: lerp2(handAt('L'), P(0.3, -0.3), w) };
         hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(0.9, 0.2 - 1.5 * up, w) }) }; lean = face * 0.08 * w;
         if (u >= FD.hit && (u - FD.hit) * c.per < 0.4 && tw < 0.5) fx = { k: 'spark', x: P(0.5, -0.3)[0], y: P(0.5, -0.3)[1], a: (u - FD.hit) * c.per, seed: c.n * 7 + i }; }
     } else if (f.role === 'child') {

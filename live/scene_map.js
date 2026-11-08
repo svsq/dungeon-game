@@ -81,8 +81,11 @@
     function townTop(x, y) {
       const k = 0.82 + 0.3 * rnd(x * 7 + 1, y * 13 + 2), moss = RD[y * m.W + x] <= 2 && rnd(x * 3 + 5, y * 5 + 9) < 0.45, X = x * TILE, Y = y * TILE;
       tile(B.top, x, y, { grade: [0.55, (B.topLift || TOP_LIFT) * k, 0, 1], tint: topTint(B) }, TST);
-      L.solid(X, Y, TILE, 2, [0.02, 0.015, 0.02], 0, 0, 0, 0.55); L.solid(X, Y, 2, TILE, [0.02, 0.015, 0.02], 0, 0, 0, 0.45);
+      // the top course is broken: its back edge eaten away block by block where a yard lies behind it (TASKS 1209)
+      const brk = c(x, y - 1) === 1 ? [0, 1, 2, 3].map((q) => (rnd(x * 11 + q, y * 3) < 0.45 ? 8 + 8 * Math.floor(rnd(x + q, y * 7) * 2) : 0)) : null;
+      L.solid(X, Y, TILE, 2, [0.02, 0.015, 0.02], 0, 0, 0, brk ? 0 : 0.55); L.solid(X, Y, 2, TILE, [0.02, 0.015, 0.02], 0, 0, 0, 0.45);
       if (rnd(x + 31, y + 17) < 0.5) L.solid(X + 2, Y + TILE / 2, TILE - 2, 1, [0.02, 0.015, 0.02], 0, 0, 0, 0.35);
+      if (brk) brk.forEach((h, q) => { if (!h) return; const X1 = X + q * 8, u0 = (X1 % 224) / 224, v0 = (Y % 224) / 224; L.sprite(B.floor, X1, Y, { w: 8, h, src: [u0, v0, u0 + 8 / 224, v0 + h / 224], u: { grade: [1, B.floorG, 0, 1] } }); });
       if (moss) for (let q = 0; q < 4; q++) L.puff(X + TILE * rnd(x + q, y + 3), Y + TILE * rnd(x + 2, y + q), 5 + 8 * rnd(x + 9, y + q), [0.14, 0.2, 0.05], 0.55, x * 5 + y + q); }
     function masonry() {
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {

@@ -1393,6 +1393,9 @@
     states.push(['town_stoneyard', folkS((S, R) => { const f = folkAt(R, 'mason'); atStop(R, f, 0); f.t0 = S.t; f.face = -1; R.offers = []; R.cam = [41 * TILE - SCX.VW / 2, 27 * TILE - SCX.VH / 2]; })]);
     { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'mason'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.lift = 'take'; f.face = -1; camOn(R, f); });
       transitions.folk_mason_take = Array.from({ length: 110 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_mason_take = 'npc' + i; }
+    // the mason's round from the real sim, not a staged pose: the turn with the stone, the walk, the drop (TASKS 1216)
+    { let i = 0, S = folkS((S, R) => { const f = folkAt(R, 'mason'); i = f.i; atStop(R, f, 1); f.t0 = S.t - 3; f.face = 1; camOn(R, f); R.cam = [43 * TILE - SCX.VW / 2, 29 * TILE - SCX.VH / 2]; }); const fr = [];
+      for (let k = 0; k < 360; k++) { fr.push(S); S = structuredClone(S); for (let q = 0; q < 2; q++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions.folk_mason_round = fr; folkSubj.folk_mason_round = 'npc' + i; }
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [44 * TILE - SCX.VW / 2, 26 * TILE - SCX.VH / 2]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [g.x - SCX.VW / 2, g.y - SCX.VH / 2 + 60]; })]);
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; })]);

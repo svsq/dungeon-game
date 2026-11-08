@@ -439,7 +439,7 @@
   // walked so a planted shoe holds the floor; the body rides up over each passing step, rocks a little and the hem swings after the
   // stepping leg. hem: the cut's row (a few rows of skirt go with the shoes, so a rising body leaves no gap); split: the column between
   // the shoes; step: a shoe's travel either side of the hem (rig px), one stride = 4 steps' travel
-  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 20 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
+  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 26 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
   MON.robeStride = (n, H) => { const q = ROBE[n]; return q && RIGS[n] ? 4 * q.step * H / RIGS[n].h : 0; };
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
