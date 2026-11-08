@@ -407,7 +407,7 @@
       // chests
       // a locked room pays for its key: one chest of the secret rooms' tier and another of the hoards', often a heap of gold
       const nc = Math.min(1 + Math.floor(r.w * r.h / 30), r.locked ? 2 : r.type === 'treasure' ? 1 + (r.w * r.h >= 70 && R() < 0.4 ? 1 : 0) : r.type === 'secret' ? 1 : r.type === 'boss' ? 0 : r.type === 'start' ? (runFloor === 1 ? 1 : 0) : r.pocket && !cave ? (R() < 0.55 ? 1 : 0) : R() < 0.2 && !way.has(r.id) ? 1 : 0);
-      for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : (r.type === 'secret' ? spot(r, 1, 0, true) : null) || wallSpot(r, 'chest') || spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' || (r.locked && i === 0) ? 3 : r.type === 'treasure' || r.locked || (r.pocket && !cave) ? 2 : 1, open: 0 }); }
+      for (let i = 0; i < nc; i++) { const p = i === 0 && first ? first : (r.type === 'secret' ? spot(r, 1, 0, true) : null) || wallSpot(r, 'chest') || spot(r, 1, 0, true); if (p) chests.push({ x: wx(p[0]), y: wy(p[1]), tier: r.type === 'secret' || r.islet || (r.locked && i === 0) ? 3 : r.type === 'treasure' || r.locked || (r.pocket && !cave) ? 2 : 1, open: 0 }); }
       // the hoard's dressing: a statue each side of the rug against the back wall, vases along the walls, now and then a small
       // pile of gold
       if (r.type === 'treasure') {
@@ -537,24 +537,26 @@
       const PK = plat ? 'magma' : 'cave', SKEL = plat ? 'skel_mg' : 'skel_cv', PB = D.BIOMES[plat ? 'magma' : 'cave'];
       const plans = Object.entries(D.ROOM_PLANS).filter(([, P]) => P[PK] && P.need.every((n) => PB.props.includes(n)));
       // a prop standing anywhere in the hall it can, the rock's edge first
-      const standIn = (r, n, k) => { for (let i = 0; i < k; i++) { const c = [...cellsOf(r, (x, y) => rockN(x, y) >= 1), ...cellsOf(r, () => true)].find(([x, y]) => canStand(x, y, n)); if (c) stand(...c, n, r.id); } };
+      // (a banner only against the back wall, TASKS 1054: stood out on the floor it hid the hero to the waist when he passed behind it)
+      const standIn = (r, n, k) => { const backOnly = n === 'banner_mg', backC = (x, y) => at(x, y - 1) === 0 && at(x, y - 2) === 0;
+        for (let i = 0; i < k; i++) { const c = (backOnly ? cellsOf(r, backC) : [...cellsOf(r, (x, y) => rockN(x, y) >= 1), ...cellsOf(r, () => true)]).find(([x, y]) => canStand(x, y, n)); if (c) stand(...c, n, r.id); } };
       // a hall's props and reward (TASKS 434): its centre the hoard's, its props round it and against the rock
       const near = (r, c, f) => cellsOf(r, f).sort((a, b) => Math.hypot(a[0] - c[0], a[1] - c[1]) - Math.hypot(b[0] - c[0], b[1] - c[1]));
-      const chestAt = (r, c, tier) => { const p = near(r, c, (x, y) => canStand(x, y, 'chest'))[0]; if (p) { claim(p[0], p[1], 'chest'); hardC.add(key(p[0], p[1])); chests.push({ x: wx(p[0]), y: wy(p[1]), tier, open: 0 }); } return p; };
+      const chestAt = (r, c) => { const Y = HL.kinds[r.hall].pay, p = near(r, c, (x, y) => canStand(x, y, 'chest'))[0]; if (p) { claim(p[0], p[1], 'chest'); hardC.add(key(p[0], p[1])); chests.push({ x: wx(p[0]), y: wy(p[1]), tier: Y.tier, open: 0, ...(Y.forge || Y.stash ? { hall: r.hall } : {}) }); } return p; };
       const goldAt = (r, c, k) => { for (const p of near(r, c, (x, y) => canStand(x, y, 'goldpile')).slice(0, 8)) { if (k <= 0) break; if (!canStand(p[0], p[1], 'goldpile')) continue; claim(p[0], p[1], 'goldpile'); hardC.add(key(p[0], p[1])); pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); k--; } };
       const brazierAt = (r, c) => { const p = near(r, c, (x, y) => canStand(x, y, 'brazier'))[0]; if (p) { claim(p[0], p[1], 'brazier'); hardC.add(key(p[0], p[1])); torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); } };
       const hallProps = (r) => { const c = [r.cx, r.cy], back = (x, y) => at(x, y - 1) === 0 && at(x, y - 2) === 0;
-        if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id }); chestAt(r, c, 2);
+        if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id, ...(HL.kinds.sanctum.pay.bless ? { bless: 1 } : {}) }); chestAt(r, [c[0], c[1] + 3]);
           for (const [dx, dy] of [[-2, -1], [2, -1], [-2, 1], [2, 1]]) { const x = c[0] + dx, y = c[1] + dy; if (free(x, y) && !doorway(x, y)) { used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: 'candles' }); } }
           brazierAt(r, [c[0] - 4, c[1]]); brazierAt(r, [c[0] + 4, c[1]]); standIn(r, 'banner_mg', 2); lie(r, 'bones', dri(2, 3)); }
         // (TASKS 488: the forge on the magma's basalt one, the town's slate came out pink; every hall reads as its kind in the frame and
         // pays as the forge and the sanctum do)
         else if (r.hall === 'forge') { const f = near(r, c, (x, y) => back(x, y) && canStand(x, y, 'forge_mg'))[0] || near(r, c, (x, y) => canStand(x, y, 'forge_mg'))[0]; if (f) stand(...f, 'forge_mg', r.id);
           const a = f && near(r, [f[0] + 3, f[1] + 2], (x, y) => canStand(x, y, 'anvil_tw'))[0]; if (a) stand(...a, 'anvil_tw', r.id);
-          if (f) { brazierAt(r, [f[0] - 3, f[1] + 1]); brazierAt(r, [f[0] + 4, f[1] - 1]); } standIn(r, 'rack', 2); stack(r); chestAt(r, a ? [a[0] + 2, a[1]] : c, 2); goldAt(r, a || c, 1); lie(r, 'bones', dri(1, 2)); }
+          if (f) { brazierAt(r, [f[0] - 3, f[1] + 1]); brazierAt(r, [f[0] + 4, f[1] - 1]); } standIn(r, 'rack', 2); stack(r); chestAt(r, a ? [a[0] + 2, a[1]] : c); goldAt(r, a || c, HL.kinds.forge.pay.gold); lie(r, 'bones', dri(1, 2)); }
         else if (r.hall === 'nest') { const lieOpen = (n, k) => { for (const [x, y] of cellsOf(r, (x, y) => dry(x, y) && free(x, y) && !doorway(x, y) && !N8.some(([dx, dy]) => at(x + dx, y + dy) === 3)).slice(0, k)) { used.add(key(x, y)); decor.push({ x: wx(x) + dri(-6, 6), y: wy(y), n, f: Dr() < 0.5 ? 1 : 0, r: r.id, ...(n === 'skel_mg' ? { ember: 1 } : {}) }); } };
-          lieOpen('skel_mg', dri(5, 6)); lieOpen('bones', dri(6, 8)); chestAt(r, c, 2); goldAt(r, c, 2); rocks(r, dri(2, 3), false); }
-        else if (r.hall === 'prison') { standIn(r, 'cage', dri(4, 5)); standIn(r, 'banner_mg', 1); stack(r); stack(r); chestAt(r, c, 2); goldAt(r, c, 1); lie(r, 'bones', dri(2, 4)); lie(r, 'skel_mg', 1); } };
+          lieOpen('skel_mg', dri(5, 6)); lieOpen('bones', dri(6, 8)); chestAt(r, c); goldAt(r, c, HL.kinds.nest.pay.gold); rocks(r, dri(2, 3), false); }
+        else if (r.hall === 'prison') { standIn(r, 'cage', dri(4, 5)); standIn(r, 'banner_mg', 1); stack(r); stack(r); chestAt(r, c); goldAt(r, c, HL.kinds.prison.pay.gold); lie(r, 'bones', dri(2, 4)); lie(r, 'skel_mg', 1); } };
       for (const r of rooms) {
         if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss') continue;
         if (plat && r.hall) { hallProps(r); continue; }
@@ -843,12 +845,19 @@
         riverFire = new Set(own(ws[1][1])); riverGuard = new Set(c1); } }
     // a lake's way round pays for its length (TASKS 1040: the islands were the one answer, shorter and no worse): a chest of the 2nd
     // tier half way along it, off the islands' chain
-    if (lakeWay && plat) { const N4 = [1, -1, W, -W], s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx;
-      const chain = new Uint8Array(W * H), q = rooms.filter((r) => r.isle).map((r) => r.cy * W + r.cx).filter((k) => cells[k] === 1); for (const k of q) chain[k] = 1;
-      for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!chain[n] && fig[n] && cells[n] === 1) { chain[n] = 1; q.push(n); } }
-      const from = new Int32Array(W * H).fill(-2), qq = [s0]; from[s0] = -1;
-      for (let i = 0; i < qq.length && from[e0] === -2; i++) for (const o of N4) { const n = qq[i] + o; if (from[n] === -2 && cells[n] === 1 && !chain[n]) { from[n] = qq[i]; qq.push(n); } }
-      const way = []; if (from[e0] !== -2) for (let k = e0; k >= 0; k = from[k]) way.push(k);
+    // a chasm's second way over (TASKS 1054, terrain's `alt` bridge) pays for its length as the lake's way round does: off the walk to
+    // the stairs, half way along the part of the other way the walk does not take
+    const altB = plat && ftype === 'chasm' ? crossings.find((c) => c.alt) : null;
+    if ((lakeWay || altB) && plat) { const N4 = [1, -1, W, -W], s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx;
+      const pathBy = (ban) => { const from = new Int32Array(W * H).fill(-2), qq = [s0]; from[s0] = -1;
+        for (let i = 0; i < qq.length && from[e0] === -2; i++) for (const o of N4) { const n = qq[i] + o; if (from[n] === -2 && cells[n] === 1 && !ban[n]) { from[n] = qq[i]; qq.push(n); } }
+        const out = []; if (from[e0] !== -2) for (let k = e0; k >= 0; k = from[k]) out.push(k); return out; };
+      const chain = new Uint8Array(W * H); let way = [];
+      if (lakeWay) { const q = rooms.filter((r) => r.isle).map((r) => r.cy * W + r.cx).filter((k) => cells[k] === 1); for (const k of q) chain[k] = 1;
+        for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!chain[n] && fig[n] && cells[n] === 1) { chain[n] = 1; q.push(n); } }
+        way = pathBy(chain); }
+      else { const w0 = pathBy(chain), on = new Set(w0), B = crossings.find((c) => c.chasm && !c.alt && c.cells.some((k) => on.has(k)) && pathBy(Uint8Array.from({ length: W * H }, (_, k) => +c.cells.includes(k))).length);
+        if (B) { for (const k of B.cells) chain[k] = 1; const w1 = pathBy(chain); way = w1.length > w0.length ? w1.filter((k) => !on.has(k)) : (() => { const o1 = new Set(w1); return w0.filter((k) => !o1.has(k)); })(); } }
       const cand = way.slice(Math.floor(way.length * 0.3), Math.ceil(way.length * 0.7)).flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), ok = (k, pad) => cells[k] === 1 && !chain[k] && free(k % W, Math.floor(k / W), pad) && ![...decor, ...pots, ...torches].some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 64 || (Math.abs(Math.floor(d.y / TILE) - Math.floor(k / W)) <= 1 && Math.abs(d.x - wx(k % W)) < (D.PROP_W.chest + (D.PROP_W[d.n] || 0)) / 2 + 4)) && !traps.some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 110) && !chests.some((c) => Math.hypot(c.x - wx(k % W), c.y - wy(Math.floor(k / W))) < 96) && !doorway(k % W, Math.floor(k / W));
       const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
       const mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k));
@@ -858,7 +867,7 @@
       const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);
       const under = new Set(lavaUnder), inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
       const shuf = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Z() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-      const lay = (k, cand, ordered) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1] - hazards.filter((z) => z.k === k && !z.tail).length;
+      const lay = (k, cand, ordered) => { const H = HZ[k]; let n = H.n[Math.min(floor, H.n.length) - 1] - hazards.filter((z) => z.k === k && !z.tail && !z.islet).length;
         for (const [x, y] of ordered ? cand : shuf(cand)) { if (n <= 0) break; if (!clear(x, y) || hazards.some((z) => z.k === k && Math.hypot(z.x - wx(x), z.y - wy(y)) < H.apart * TILE)) continue;
           const z = { k, x: wx(x), y: wy(y), per: H.per[0] + Z() * (H.per[1] - H.per[0]), ph: Z() }; hazards.push(z); n--;
           if (k === 'vent') { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); } } };
@@ -905,6 +914,13 @@
         const dir = Z() < 0.5 ? 1 : -1, cs = []; for (let j = -HZ.fall.run; j <= HZ.fall.run; j++) { const k = way[i0 + j]; if (k === undefined || (j && (!clear(k % W, Math.floor(k / W)) || under.has(k) && !z.span))) continue; cs.push([k, (j + HZ.fall.run) * dir]); }
         const o0 = Math.min(...cs.map((c) => c[1])), ph0 = z.ph; for (const [k, o] of cs) { const ph = ((ph0 - (o - o0) * HZ.fall.gap / z.per) % 1 + 1) % 1;
           if (k === Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE)) { z.ph = ph; continue; } hazards.push({ ...z, x: wx(k % W), y: wy(Math.floor(k / W)), ph, tail: 1 }); } }
+      // a hoard's islet (TASKS 1054: its strip of thin crust had no hazard and no monster, the risk only a stop on it) has a run of
+      // rocks down its strip: crossed in their window, waited out on the bank, never on the crust
+      for (const r of rooms.filter((q) => q.islet)) { const cs = thin.filter((k) => Math.max(Math.abs(k % W - r.cx), Math.abs(Math.floor(k / W) - r.cy)) <= AR.lava.islet.len[1] + 3);
+        if (cs.length < 4) continue; const xs = cs.map((k) => k % W), ys = cs.map((k) => Math.floor(k / W)), hor = Math.max(...xs) - Math.min(...xs) >= Math.max(...ys) - Math.min(...ys), a0 = hor ? Math.min(...ys) : Math.min(...xs);
+        const line = cs.filter((k) => (hor ? Math.floor(k / W) : k % W) === a0).sort((a, b) => (hor ? a % W - b % W : a - b)), dir = Z() < 0.5 ? 1 : -1, c = line[line.length >> 1];
+        const z = { k: 'fall', x: wx(c % W), y: wy(Math.floor(c / W)), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, islet: 1 }; hazards.push(z);
+        line.forEach((k, i) => { if (k === c) return; const ph = ((z.ph - (i - (line.length >> 1)) * dir * HZ.fall.gap / z.per) % 1 + 1) % 1; hazards.push({ ...z, x: wx(k % W), y: wy(Math.floor(k / W)), ph, tail: 1 }); }); }
       const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
       for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y))) vents.push([x, y]);
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);

@@ -246,6 +246,9 @@
     return maskTex(m, 'lake', (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 1; i++) if (!hot(x + i, y + j)) return false;
       return !src.some((q) => Math.abs(Math.floor(q.x / TILE) - x) <= 3 && Math.abs(Math.floor(q.y / TILE) - y) <= 3); }, null, 0); };
   // (G: thin crust, an islet's way, TASKS 476)
+  // a sunk salamander's clip (TASKS 1054): the open lava only, its crust left out (the bank's crust is drawn as basalt: clipped by
+  // the lava's mask, the sunk body lay over it as a grey see-through shape); no blur, the cut is at the cell's edge
+  const swimTex = (m) => { const c = new Set(m.crust || []); return maskTex(m, 'swim', (x, y) => SIM.Q.cell(m, x, y) === 3 && !c.has(y * m.W + x), null, 1); };
   const crustTex = (m) => { const c = new Set(m.crust || []), th = new Set(m.thin || []); return maskTex(m, 'crust', (x, y) => c.has(y * m.W + x), (x, y) => [th.has(y * m.W + x) ? 1 : -1, 0], 1); };
   // the plateaus' chasm is no rock top: the lava's light reaches down into it (TASKS 402)
   const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] || SIM.Q.chasm(m, x, y) ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
@@ -321,6 +324,6 @@
   }
 
   Object.assign(SCX, {
-    TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, bake, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, fallU, cliffTex, lavaNearTex,
+    TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, bake, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, swimTex, fallU, cliffTex, lavaNearTex,
     crustTex, topTex, veinTex, waterTex, deepTex, SRC_KIND, SRC_DIR, openTex, voidTex, seenTex, spellFloor });
 })(typeof window !== 'undefined' ? window : globalThis);

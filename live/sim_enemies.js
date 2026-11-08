@@ -277,7 +277,7 @@
   function salamThink(S, R, e, E, d, dx, dy) {
     const m = R.map, h = R.hero, t = S.t, B = E.breath, HL = E.heal, LD = lavaDist(m), here = LD[cellOf(m, e)], his = LD[cellOf(m, h)];
     crabTurn(e, E, Math.atan2(dy, dx), 1);
-    if (e.hp < HL.at * e.max && t >= (e.healT ?? 0)) { const p = lavaNear(m, e, 10); if (p) { Object.assign(e, { st: 'soak', t0: t, sx: p[0], sy: p[1], healT: t + HL.cd, soaked: 0 }); ev(S, { k: 'flee', x: e.x, y: e.y, id: e.id }); return true; } }
+    if (e.hp < HL.at * e.max && t >= (e.healT ?? 0) && (e.heals || 0) < HL.times) { const p = lavaNear(m, e, 10); if (p) { Object.assign(e, { st: 'soak', t0: t, sx: p[0], sy: p[1], healT: t + HL.cd, soaked: 0, heals: (e.heals || 0) + 1 }); ev(S, { k: 'flee', x: e.x, y: e.y, id: e.id }); return true; } }
     const front = Math.abs(angDiff(Math.atan2(dy, dx), faOf(e)));
     if (d < E.r + K.R + E.reach && t >= e.cdT && front < 0.6) { Object.assign(e, { st: 'wind', t0: t, br: 0, tx: h.x, ty: h.y, aimA: faOf(e) }); return true; }
     if (d > E.r + K.R + B.near && d < B.reach + K.R && front < 0.35 && t >= e.cdT && t >= (e.brT ?? 0) && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { Object.assign(e, { st: 'wind', t0: t, br: 1, tx: h.x, ty: h.y, aimA: faOf(e) }); return true; }

@@ -274,7 +274,8 @@
     if (sub > 0 && E.lurk) lurkFx(e, x, y, t, sub);
     if (sub > 0 && E.lake) lurkFx(e, x, y, t, sub, [1, 0.55, 0.18]);
     if (sub > 0.995) { L.joint('en' + e.id, 'ground', [x, y]); return; }
-    L.shadow(x, y + 2, w * 0.32 * (1 - sub), 7, 0.45 * alpha * (1 - sub));
+    // (none under a salamander sunk in the lava, TASKS 1054: over the bank by it the shadow read as its body, grey and see-through)
+    L.shadow(x, y + 2, w * 0.32 * (1 - sub), 7, 0.45 * alpha * (1 - sub) * (1 - swimOf(e, GT)));
     // a body topples (accelerating, slowed just before the floor), bounces once and lies for seconds before it fades; a ghost dissolves upward
     if (dead >= 0) { if (E.ghost) { const gy = y - flt - 40 * SS(0, 0.9, dead); L.joint('en' + e.id, 'ground', [x, y]); L.joint('en' + e.id, 'top', [x, gy - h * (1 + 0.3 * dead)]);
         if (dead < 0.9) L.sprite(tex, 0, 0, { m: M.of(M.t(x, y - flt - 40 * SS(0, 0.9, dead)), M.s(e.face * (1 - 0.2 * dead), 1 + 0.3 * dead)), w, h, pivot: [w / 2, h], u: { alpha, grade: [1.3, 1.3, 0, 1] } }); return; }
@@ -308,15 +309,17 @@
     if (E.blood === 'slime') return drawSlime();
     if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.08, hA) * (1 - SS(0.12, 0.32, hA)) : 0;   // a hit flinches the upper body away from the hero
       const Ur = Object.assign({ alpha, grade }, rim, cut), Uf = Object.assign({ alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] }, cut), dy = sub * h * 1.02;
-      const sw = swimOf(e, GT); if (sw > 0) { Ur.grade = [Ur.grade[0], Ur.grade[1] * (1 - 0.3 * sw), 0, Ur.grade[3]]; if (e.st === 'soak' && e.soaked) Ur.alpha = alpha * (1 - 0.5 * SS(0, 0.5, GT - e.soakT)); }
+      const sw = swimOf(e, GT); if (sw > 0) { Ur.grade = [Ur.grade[0], Ur.grade[1] * (1 - 0.3 * sw), 0, Ur.grade[3]]; if (e.st === 'soak' && e.soaked) Ur.alpha = alpha * (1 - 0.5 * SS(0, 0.5, GT - e.soakT) * SS(0.5, 0.9, sw)); }   // (solid again as it heaves out, TASKS 1054: it rose as a see-through pale fill)
       // (a salamander sunk in the lava shows only over the open lava, TASKS 460: not over a slab or the bank by it)
-      if (sw > 0 && e.type === 'salamander' && LAVA_CLIP) { const clip = Object.assign({ clipk: SS(0.2, 0.8, sw) }, LAVA_CLIP); Object.assign(Ur, clip); Object.assign(Uf, clip); }
+      // (the clip on or off within a few frames, TASKS 1054: eased over the whole swim, half way the body lay over the bank as a grey
+      // see-through shape; and its glow is clipped as its body is, else it lit the bank in a flat pale fill)
+      let clip = null; if (sw > 0 && e.type === 'salamander' && LAVA_CLIP) { clip = Object.assign({ clipk: SS(0.35, 0.5, sw) }, LAVA_CLIP); Object.assign(Ur, clip); Object.assign(Uf, clip); }
       const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
       const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub, swim: sw });
         if (r && r.head && E.lake) RIM.heads[e.id] = P(r.head);
         if (r && r.arms && e.type === 'imp' && e.st === 'wind' && !e.claw) RIM.imps[e.id] = P(r.R2U(r.arms.R.Hd[0], r.arms.R.Hd[1])); if (r && r.mouth) RIM.salams[e.id] = [r.mouth, r.fa]; if (r && r.priest) RIM.priests[e.id] = [r.staffHead, r.handR]; else if (r && r.handR) RIM.hands[e.id] = r.handR; if (e.fireT > GT && MONSTERS.wpn['en' + e.id]) RIM.kindled[e.id] = MONSTERS.wpn['en' + e.id]; if (r && r.palm) RIM.mages[e.id] = [r.pearl, r.palm, r.gather]; if (r && r.fire) RIM.embers[e.id] = r.fire; };
       halo(rig); if (edge) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: edgeOf() }); if (RIM.embers[e.id]) emberFire(e, E, RIM.embers[e.id], GT, t); if (RIM.priests[e.id]) priestFire(e, RIM.priests[e.id], t); if (RIM.kindled[e.id]) weaponFire(e, RIM.kindled[e.id], GT, t);
-      if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: { alpha: k * alpha }, Ufar: { alpha: k * alpha }, t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
+      if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Object.assign({ alpha: k * alpha }, clip), Ufar: Object.assign({ alpha: k * alpha }, clip), t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
       return; }
     // the slime (TASKS 308) is one painting on a soft bone (art/softbones.json) squashed and stretched about its foot in the shader
     // (u_jelly): it breathes and ripples as it creeps, squats through the wind-up, shoots up stretched and leans along the hop,
