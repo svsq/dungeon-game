@@ -57,7 +57,7 @@ def glass(im):
     return Image.fromarray(a)
 
 
-STAIR_RAMP = [INK, BAS[1], BAS[2], BAS[3], BAS[4]]
+STAIR_RAMP = [INK, BAS[0], BAS[1], BAS[2], BAS[3]]
 STAIR_CUTS = [0.07, 0.14, 0.24, 0.38]
 FERN_GROW, CLOSE = 5, 12
 
