@@ -2589,13 +2589,17 @@
           if (!(e.hp < e.max)) out.push('class archer: his bow does not hit a foe out of reach');
           if (!got) out.push('class archer: his arrows that hit give no mana');
           R.en = []; R.proj = []; h.lvl = 4; h.ab.trap = 1; h.ab.leap = 1; h.mp = 500; h.aim = 0; for (const k in h.cd) h.cd[k] = 0;
-          castAbility(S, R, 'volley', {}); if (R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
-          R.proj = []; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0); h.x -= 120; w.x = q.x + 60; w.y = q.y; w.st = 'idle'; w.calmT = 1e9;
+          h.mx = h.x + 400; h.my = h.y - 30; castAbility(S, R, 'volley', {}); if (R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
+          // (TASKS 1161) at a cursor far off the fan closes: the arrows' spread there is within VOLLEY.w
+          { const vs = R.proj.filter((p) => p.k === 'arrow'), ys = vs.map((p) => p.y + p.vy / p.vx * (h.x + 400 - p.x)); if (Math.max(...ys) - Math.min(...ys) > D.VOLLEY.w + 4) out.push('class archer: the volley does not close on a far cursor'); }
+          R.proj = []; h.mx = h.x + 150; h.my = h.y - 30; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0);
+          if (Math.abs(q.x - (h.x + 150)) > 10) out.push('class archer: the trap is not set at the cursor'); h.x -= 120; w.x = q.x + 60; w.y = q.y; w.st = 'idle'; w.calmT = 1e9;
           for (let i = 0; i < 120; i++) { step(S, { keys: [] }); if (w.rootT) break; if (i > 55) w.x -= 2; }
           if (!(w.rootT > S.t) || w.hp >= w.max) out.push('class archer: a trap does not hold the monster that walks onto it');
+          if (!(w.cdT >= w.rootT)) out.push('class archer: a trapped monster\'s blow is not held');
           w.rootT = S.t; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (w.slowK !== 1) out.push('class archer: a trapped monster is not let go');
           h.x += 120; const x0 = h.x; h.aim = 0; h.cd.leap = 0; castAbility(S, R, 'leap', {}); for (let i = 0; i < 30; i++) step(S, { keys: [], ...toPx(R, h.x + 300, h.y - 30) });
-          if (!(h.x < x0 - 40)) out.push('class archer: the leap does not carry him back from the aim'); }
+          if (!(h.x < x0 - D.LEAP.spd * 0.16 * 0.8)) out.push('class archer: the leap does not carry him back from the aim its length'); }
         const a0 = stats(h, S.meta).atk; h.base.agi += 10; const a1 = stats(h, S.meta).atk; h.base.agi -= 10; h.base.str += 10; const a2 = stats(h, S.meta).atk; h.base.str -= 10;
         if (!(a1 > a0) || a2 !== a0) out.push('class archer: AGI does not grow his bow\'s damage or STR does');
         if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword');

@@ -189,10 +189,10 @@
       if (kind === 'frost') { h.cls = 'mage'; h.castT = S.t - age; h.castK = 'frost'; const r = D.abRank('frost', 1).r;
         for (const [ty, dx, dy] of [['skeleton', 110, -50], ['goblin', 150, 30], ['skeleton', 70, 60]]) R.en.push(foe(ty, dx, dy, { chillT: S.t - age + D.FROST.t, slowK: D.FROST.slow, hitT: S.t - age }));
         S.ev = [{ k: 'frost', x: h.x, y: h.y, a: 0, r, arc: D.FROST.arc, t: S.t - age }]; }
-      // the archer's volley in flight and his traps: one set, one armed, one sprung on a skeleton (TASKS 1120)
+      // the archer's volley in flight and his traps: one set (thrown to the cursor, TASKS 1161), one armed, one sprung on a skeleton (TASKS 1120)
       if (kind === 'volley') { h.cls = 'archer'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'shortbow' }); const [hx, hy] = SIM.hand(h), A = D.SHOTS.arrow, V = D.VOLLEY;
         R.proj = [...Array(V.n).keys()].map((i) => { const a = (i / (V.n - 1) - 0.5) * V.arc * Math.PI / 180; return { id: 9910 + i, k: 'arrow', single: 1, x: hx + Math.cos(a) * (A.tip + A.spd * age), y: hy + Math.sin(a) * (A.tip + A.spd * age), vx: Math.cos(a) * A.spd, vy: Math.sin(a) * A.spd, t0: S.t - age, life: A.life, own: 'hero', r: A.r, gz: 20 }; }); }
-      if (kind === 'trap') { h.cls = 'archer'; R.htraps = [{ id: 9920, x: h.x + 70, y: h.y + 4, t0: S.t - age }, { id: 9921, x: h.x + 70, y: h.y + 70, t0: S.t - 5 }];
+      if (kind === 'trap') { h.cls = 'archer'; R.htraps = [{ id: 9920, x: h.x + 170, y: h.y + 4, fx: h.x, fy: h.y + 4, t0: S.t - age }, { id: 9921, x: h.x + 70, y: h.y + 70, t0: S.t - 5 }];
         if (age < 0.1) { R.en.push(foe('skeleton', 150, 4, { rootT: S.t + 1.5, slowK: 0, hitT: S.t - age })); S.ev = [{ k: 'snap', x: h.x + 150, y: h.y + 4, t: S.t - age }]; } }
       // the warrior's charge striking a skeleton and his war cry over three (TASKS 1130)
       if (kind === 'charge') { h.dashT = S.t - age; h.dashX = 1; h.dashY = 0; R.en.push(foe('skeleton', 130, 0, { rootT: S.t + 1, slowK: 0, hitT: S.t - Math.max(0, age - 0.12) }));
@@ -205,7 +205,7 @@
         S.ev = [{ k: 'pop', c: 'bolt', hit: 1, x: h.x + 300, y: hy, t: S.t - age * 0.5 }]; }
     });
     for (const [kind, ages] of [['whirl', [0.025, 0.08, 0.16, 0.24, 0.32, 0.44]], ['fireball', [0.01, 0.04, 0.08, 0.12, 0.18, 0.24]], ['boom', [0.015, 0.06, 0.12, 0.24, 0.44, 1.5]],
-      ['frost', [0.03, 0.1, 0.2, 0.4, 0.65, 2]], ['bolt', [0.02, 0.1, 0.2]], ['volley', [0.02, 0.08, 0.16]], ['trap', [0.2, 1, 0.05]], ['charge', [0.05, 0.15, 0.3]], ['cry', [0.05, 0.2, 0.45, 2]]]) {
+      ['frost', [0.03, 0.1, 0.2, 0.4, 0.65, 2]], ['bolt', [0.02, 0.1, 0.2]], ['volley', [0.02, 0.08, 0.16]], ['trap', [0.2, 1, 0.05, 0.12]], ['charge', [0.05, 0.15, 0.3]], ['cry', [0.05, 0.2, 0.45, 2]]]) {
       ages.forEach((age, i) => states.push(['spell_' + kind + '_' + i, spellState(kind, age)]));
     }
     states.push(['spell_scar_end', spellState('boom', 3.9)], ['spell_scar_gone', spellState('boom', 4.1)], ['spell_whirl_wall', spellState('whirl', 0.16, true)]);

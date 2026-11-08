@@ -196,7 +196,7 @@
     const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < (h.atkSlow ?? 0.2) ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1) * (soaked(S, h) ? ORB.slow : 1) * (S.t < (h.chillT ?? -9) ? MOD.frost.slow : 1);
     const app = (v, tg) => { const a = (Math.abs(tg) > Math.abs(v) ? K.ACC : K.DEC) * DT; return v < tg ? Math.min(tg, v + a) : Math.max(tg, v - a); };
     h.vx = app(h.vx, ix / il * spd); h.vy = app(h.vy, iy / il * spd);
-    h.aim = Math.atan2(my - (h.y - RIG.shoulder + 8), mx - h.x);
+    h.aim = Math.atan2(my - (h.y - RIG.shoulder + 8), mx - h.x); h.mx = mx; h.my = my;
     const busy = t - h.atkT < 0.22 || t - h.castT < 0.25;
     const wasBack = h.back, wasFace = h.face;
     if (busy) { h.face = Math.cos(h.aim) >= 0 ? 1 : -1; h.back = Math.sin(h.aim) < -0.5 ? 1 : 0; }
@@ -218,7 +218,7 @@
     if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
     const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.5);   // (climbing out over the lip, TASKS 1049, 1058: let go at 0.35 he glided off still 23 px under)
     // (a charge that struck stops on its monster, but its dash runs out, so the lean and the cape ease back, TASKS 1134 critic)
-    const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : K.DASH, mvx = held || (dashing && halted) ? 0 : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : dashing ? h.dashY * dashV : h.vy;
+    const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : h.leapV && h.leapV[0] === h.dashT ? h.leapV[1] : K.DASH, mvx = held || (dashing && halted) ? 0 : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : dashing ? h.dashY * dashV : h.vy;
     if (charging) { const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - h.x, (o.y - h.y) * 1.25) < ENEMIES[o.type].r + K.R + 18);
       if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.dashHalt = h.dashT; R.freeze = Math.max(R.freeze, 0.06); R.trauma = Math.min(1, R.trauma + 0.3);
         e.rootT = t + stun; e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }

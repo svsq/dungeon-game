@@ -301,12 +301,14 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const fr = D.abRank('frost', h.ab.frost).r, near = live.filter((e) => dist(e) < fr * 0.85 + D.ENEMIES[e.type].r && Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - h.y, e.x - h.x) - a), Math.cos(Math.atan2(e.y - h.y, e.x - h.x) - a))) < 0.6);
       if (near.length >= 2 || (td < SHOOT.near && near.includes(tg))) inp.slot = slot('frost'); }
     const tip = P.tips && R.msg && R.msg.tip === 'whirl' && S.t - R.msg.t >= P.react && S.t - R.msg.t < R.msg.d; if (tip) learned = 1;
-    // the archer (TASKS 1126): the volley on two or more in the fan before him or on a lone target in range; a trap at his feet when a
-    // foe closes in; the leap away from one at arm's length
+    // the archer (TASKS 1126): the volley on two or more in the fan before him or on a lone target in range; a trap when a foe closes
+    // in; the leap away from one at arm's length
     const ready = (id) => slot(id) && h.ab[id] && h.cd[id] <= S.t && h.mp >= D.ABILITIES.find((q) => q.id === id).mp;
     if (ready('volley') && td < SHOOT.far && SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10)) { const fan = live.filter((e) => dist(e) < SHOOT.far && Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - h.y, e.x - h.x) - a), Math.cos(Math.atan2(e.y - h.y, e.x - h.x) - a))) < 0.5);
       if (fan.length >= 2 || h.mp > st.maxMp * 0.7) inp.slot = slot('volley'); }
-    if (ready('trap') && td < SHOOT.near + 20 && !(R.htraps || []).some((q) => Math.hypot(q.x - h.x, q.y - h.y) < 60)) inp.slot = slot('trap');
+    // (the trap at the cursor, TASKS 1161: under a caster or an archer within its reach; partway to a monster that closes in)
+    if (ready('trap')) { const rng = E.kind === 'caster' || E.kind === 'archer', [qx, qy] = rng ? [tg.x, tg.y] : [h.x + (tg.x - h.x) * 0.4, h.y + (tg.y - h.y) * 0.4];
+      if ((rng ? td < D.TRAP.far && !D.BOSSES[tg.type] : td < SHOOT.near + 20) && !(R.htraps || []).some((q) => Math.hypot(q.x - qx, q.y - qy) < 60)) { inp.slot = slot('trap'); Object.assign(inp, toPx(R, qx, qy - 30)); } }
     if (ready('leap') && td < 70 && !E.ghost) inp.slot = slot('leap');
     // the warrior (TASKS 1135): the charge onto a target 90–200 px off in a clear line; the war cry on two or more close by, or an
     // elite or a boss

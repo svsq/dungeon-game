@@ -179,7 +179,10 @@
     for (const e of R.en) { if (!(e.weakT > ST.t) || e.deadT >= 0 || D.under(e) || !vis(e.x, e.y) || !known(e.x, e.y)) continue; const E = D.ENEMIES[e.type];
       L.glow(sx(e.x), sy(e.y) - E.h - 6, 14, [1, 0.25, 0.1], 0.6 + 0.2 * Math.sin(t * 4 + e.id), 2.4); L.ring(sx(e.x), sy(e.y), E.r + 8, (E.r + 8) * 0.45, [1, 0.3, 0.12], 0.45, 0.2); }
     // the archer's traps (TASKS 1120): iron jaws open on the floor, a faint glint once armed
-    for (const q of R.htraps || []) { if (q.done || !vis(q.x, q.y) || !known(q.x, q.y)) continue; const x = sx(q.x), y = sy(q.y), armed = ST.t - q.t0 >= D.TRAP.arm;
+    // (set at the cursor, TASKS 1161: thrown there in an arc from his hand, the jaws open as they land)
+    for (const q of R.htraps || []) { if (q.done || !vis(q.x, q.y) || !known(q.x, q.y)) continue; const x = sx(q.x), y = sy(q.y), armed = ST.t - q.t0 >= D.TRAP.arm, age = ST.t - q.t0;
+      if (q.fx !== undefined && age < D.TRAP.toss) { const f = age / D.TRAP.toss, gx = sx(q.fx + (q.x - q.fx) * f), gy = sy(q.fy + (q.y - q.fy) * f), lift = Math.sin(Math.PI * f) * (18 + 0.12 * Math.hypot(q.x - q.fx, q.y - q.fy)) + 30 * (1 - f) * (1 - f);
+        L.shadow(gx, gy + 2, 8, 4, 0.3 * f); L.solid(Math.round(gx - 5), Math.round(gy - lift - 3), 10, 5, [0.5, 0.48, 0.44], f * 6.283, 5, 2.5, 1); continue; }
       L.shadow(x, y + 2, 16, 7, 0.35); L.ring(x, y, 14, 6, [0.42, 0.4, 0.38], 0.95, 0.35);
       for (let j = 0; j < 8; j++) { const an = j / 8 * 6.283; L.solid(Math.round(x + Math.cos(an) * 11), Math.round(y + Math.sin(an) * 5 - 2), 2, 3, [0.7, 0.68, 0.62], 0, 1, 1.5, 0.95); }
       L.solid(x - 3, y - 1, 6, 3, [0.3, 0.2, 0.12], 0, 3, 1.5, 1); if (armed) L.star(x + 6, y - 3, 4, [1, 0.95, 0.8], 0.35 + 0.25 * Math.sin(t * 3 + q.id)); }
