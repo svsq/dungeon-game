@@ -39,7 +39,7 @@ for S in "LR":
             if part == "uarm":
                 out = np.concatenate([a[:top], mid, a[bot + 1:]], axis=0)
             else:
-                out = np.concatenate([a[:top], np.zeros((UA,) + a.shape[1:], a.dtype), mid, a[bot + 1:]], axis=0)
+                out = np.concatenate([np.zeros((UA,) + a.shape[1:], a.dtype), a[:top], mid, a[bot + 1:]], axis=0)
             extra = out[h:]
             if extra[..., 3].any():
                 rows = np.where(extra[..., 3].any(axis=(1, 2)) if extra.ndim > 3 else extra[..., 3].any(axis=1))[0].max() + 1
