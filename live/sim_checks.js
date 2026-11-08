@@ -859,7 +859,9 @@
           if (!m.chests.some((c) => inR(c) && c.tier === 3)) out.push(`${tag}: the islet's hoard not of the 3rd tier`);
           if (!m.hazards.some((z) => z.islet && !z.tail)) out.push(`${tag}: no rocks down the islet's strip`); }
         if (m.ftype !== 'chasm' || m.ftype2) continue; n++; const way = walk(m, new Set());
-        if (m.crossings.some((c) => c.chasm && c.cells.some((k) => way.has(k)) && walk(m, new Set(c.cells)).size)) alt++; }
+        if (m.crossings.some((c) => c.chasm && c.cells.some((k) => way.has(k)) && walk(m, new Set(c.cells)).size)) alt++;
+        // (TASKS 1158) the second way is no twin of the first
+        for (const a of m.crossings.filter((c) => c.alt)) { const B = m.crossings.find((c) => !c.alt && c.cells.includes(a.of)); if (B && a.cells.some((k) => B.cells.some((j) => Math.max(Math.abs(k % m.W - j % m.W), Math.abs(Math.floor(k / m.W) - Math.floor(j / m.W))) < D.ARCH.plateau.chasm.alt.off))) out.push(`${tag}: the second bridge within ${D.ARCH.plateau.chasm.alt.off} cells of the first`); } }
       if (n && alt * 2 < n) out.push(`magma chasm: a way round a bridge of the walk on ${alt} of ${n} floors`);
       if (!isl) out.push('magma: no hoard\'s islet in 30 runs'); }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);

@@ -850,7 +850,7 @@
     // tier half way along it, off the islands' chain
     // a chasm's second way over (TASKS 1054, terrain's `alt` bridge) pays for its length as the lake's way round does: off the walk to
     // the stairs, half way along the part of the other way the walk does not take
-    const altB = plat && ftype === 'chasm' ? crossings.find((c) => c.alt) : null;
+    const altC = plat && ftype === 'chasm' ? crossings.filter((c) => c.alt) : [], altB = altC[0] || null;
     if ((lakeWay || altB) && plat) { const N4 = [1, -1, W, -W], s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx;
       const pathBy = (ban) => { const from = new Int32Array(W * H).fill(-2), qq = [s0]; from[s0] = -1;
         for (let i = 0; i < qq.length && from[e0] === -2; i++) for (const o of N4) { const n = qq[i] + o; if (from[n] === -2 && cells[n] === 1 && !ban[n]) { from[n] = qq[i]; qq.push(n); } }
@@ -859,8 +859,8 @@
       if (lakeWay) { const q = rooms.filter((r) => r.isle).map((r) => r.cy * W + r.cx).filter((k) => cells[k] === 1); for (const k of q) chain[k] = 1;
         for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!chain[n] && fig[n] && cells[n] === 1) { chain[n] = 1; q.push(n); } }
         way = pathBy(chain); }
-      else { const w0 = pathBy(chain), on = new Set(w0), B = crossings.find((c) => c.chasm && !c.alt && c.cells.some((k) => on.has(k)) && pathBy(Uint8Array.from({ length: W * H }, (_, k) => +c.cells.includes(k))).length);
-        if (B) { for (const k of B.cells) chain[k] = 1; const w1 = pathBy(chain); way = w1.length > w0.length ? w1.filter((k) => !on.has(k)) : (() => { const o1 = new Set(w1); return w0.filter((k) => !o1.has(k)); })(); } }
+      else { const B = crossings.find((c) => !c.alt && c.cells.includes(altB.of)), noAlt = new Uint8Array(W * H); for (const c of altC) for (const k of c.cells) noAlt[k] = 1;
+        if (B) { const on = new Set(pathBy(noAlt)); for (const k of B.cells) chain[k] = 1; way = pathBy(chain).filter((k) => !on.has(k)); } }   // (TASKS 1158: told apart by the shortest walk, at equal length the chest went on the main way)
       const cand = way.slice(Math.floor(way.length * 0.3), Math.ceil(way.length * 0.7)).flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), ok = (k, pad) => cells[k] === 1 && !chain[k] && free(k % W, Math.floor(k / W), pad) && ![...decor, ...pots, ...torches].some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 64 || (Math.abs(Math.floor(d.y / TILE) - Math.floor(k / W)) <= 1 && Math.abs(d.x - wx(k % W)) < (D.PROP_W.chest + (D.PROP_W[d.n] || 0)) / 2 + 4)) && !traps.some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 110) && !chests.some((c) => Math.hypot(c.x - wx(k % W), c.y - wy(Math.floor(k / W))) < 96) && !doorway(k % W, Math.floor(k / W));
       const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
       const mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k));
@@ -925,7 +925,7 @@
         const z = { k: 'fall', x: wx(c % W), y: wy(Math.floor(c / W)), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, islet: 1 }; hazards.push(z);
         line.forEach((k, i) => { if (k === c) return; const ph = ((z.ph - (i - (line.length >> 1)) * dir * HZ.fall.gap / z.per) % 1 + 1) % 1; hazards.push({ ...z, x: wx(k % W), y: wy(Math.floor(k / W)), ph, tail: 1 }); }); }
       const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
-      for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y))) vents.push([x, y]);
+      for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y)) && !altC.some((c) => c.cells.some((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) <= 4))) vents.push([x, y]);
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
       lay('vent', shuf(vents).map((v) => [v, byChest(...v) ? 0 : 1]).sort((a, b) => a[1] - b[1]).map(([v]) => v), true);
       // (a plain terrace floor whose surge the walk to the stairs misses is laid again: its surge is the floor's question)
@@ -986,6 +986,14 @@
       const mine = new Int32Array(W * H).fill(-1), q = [s0]; mine[s0] = 0; for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (mine[n] < 0 && cells[n] === 1 && !fig[n]) { mine[n] = 1; q.push(n); } }
       const at = []; for (const k of q) { const x = k % W, y = Math.floor(k / W); let near = false; for (let j = -3; j <= 3 && !near; j++) for (let i = -3; i <= 3 && !near; i++) if (fig[(y + j) * W + x + i] && cells[(y + j) * W + x + i] === 3) near = true; if (near) at.push(k); }
       if (walk && at.length && show.size) map.choice = { at, show: [...show] }; }
+    // (TASKS 1158: a chasm's second way over is a choice like the lake's, and lay in the fog from where it is made)
+    if (altB && crossings.some((c) => !c.alt && c.cells.includes(altB.of))) { const s0 = Math.floor(spawn.y / TILE) * W + Math.floor(spawn.x / TILE), e0 = exit.ty * W + exit.tx, N4 = [1, -1, W, -W], B = crossings.find((c) => !c.alt && c.cells.includes(altB.of)), altS = new Set(altC.flatMap((c) => c.cells)), mainS = new Set(B.cells);
+      const pathBy = (ban) => { const from = new Int32Array(W * H).fill(-2), q = [s0]; from[s0] = -1; for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of N4) { const n = q[i] + o; if (from[n] === -2 && cells[n] === 1 && !ban.has(n)) { from[n] = q[i]; q.push(n); } } const out = []; if (from[e0] !== -2) for (let k = e0; k >= 0; k = from[k]) out.push(k); return out; };
+      const show = new Set(); for (const w of [pathBy(altS), pathBy(mainS)]) for (const k of w) for (const o of [0, ...N4]) if (cells[k + o] === 1) show.add(k + o);
+      for (let y = exitR.y - 1; y <= exitR.y + exitR.h; y++) for (let x = exitR.x - 1; x <= exitR.x + exitR.w; x++) if (cells[y * W + x] === 1) show.add(y * W + x);
+      const mine = new Uint8Array(W * H), q = [s0]; mine[s0] = 1; for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!mine[n] && cells[n] === 1 && !altS.has(n) && !mainS.has(n)) { mine[n] = 1; q.push(n); } }
+      const span = [...altS, ...mainS], at = q.filter((k) => span.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 3));
+      if (cells[s0] === 1 && at.length && show.size) map.choice = { at, show: [...show] }; }
     return map;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

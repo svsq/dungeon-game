@@ -487,12 +487,26 @@
               if (!near[y * W + x] || !near[(y + py) * W + x + px] || hidden.has(y * W + x)) continue; const deck = []; let u = 1, ok = true;
               for (; u <= A.len[1]; u++) { const ax = x + dx * u, ay = y + dy * u, bx = ax + px, by = ay + py;
                 if (cells[ay * W + ax] === 1 && cells[by * W + bx] === 1) break;
-                if (!dark(ax, ay) || !dark(bx, by) || !dark(ax - px, ay - py) || !dark(bx + px, by + py) || !off(ax, ay)) { ok = false; break; } deck.push(ay * W + ax, by * W + bx); }
+                if (!dark(ax, ay) || !dark(bx, by) || !dark(ax - px, ay - py) || !dark(bx + px, by + py) || !off(ax, ay) || !off(bx, by)) { ok = false; break; } deck.push(ay * W + ax, by * W + bx); }
               const ex = x + dx * u, ey = y + dy * u;
               if (!ok || u > A.len[1] || u - 1 < A.len[0] || near[ey * W + ex] || cells[ey * W + ex] !== 1 || cells[(ey + py) * W + ex + px] !== 1 || ban.has(ey * W + ex)) continue;
               if (!best || deck.length < best.deck.length) best = { deck, hor }; }
+            // (TASKS 1158: 12 cells off the first, a straight shot exists on one floor in three; failing it two decks meet on a pad of rock out in the dark)
+            let bent = null; const open = (x, y) => dark(x, y) && off(x, y);
+            if (!best) for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const px = dx ? 0 : 1, py = dx ? 1 : 0;
+              if (!near[y * W + x] || !near[(y + py) * W + x + px] || hidden.has(y * W + x)) continue; const leg = [];
+              for (let u = 1; u <= A.len[1]; u++) { const ax = x + dx * u, ay = y + dy * u, side = (j) => open(ax + px * j, ay + py * j); if (!side(-1) || !side(0) || !side(1) || !side(2)) break; leg.push(ay * W + ax, (ay + py) * W + ax + px);
+                if (u < 2) continue; const pad = []; let fit = true; for (let i = 1; i <= 4 && fit; i++) for (let j = -1; j <= 2; j++) { const qx = x + dx * (u + i) + px * j, qy = y + dy * (u + i) + py * j; if (!open(qx, qy)) { fit = false; break; } pad.push(qy * W + qx); }
+                if (!fit) continue;
+                for (const s of [1, -1]) { const leg2 = []; let v = 0, done = false; for (; v <= A.len[1]; v++) { const j = (s > 0 ? 3 : -2) + s * v, cx = x + dx * (u + 2) + px * j, cy = y + dy * (u + 2) + py * j, c2 = cy * W + cx, c3 = c2 + dy * W + dx;
+                    if (cells[c2] === 1 && cells[c3] === 1) { done = v >= 2 && !near[c2] && !ban.has(c2); break; }
+                    if (![-1, 0, 1, 2].every((w) => open(cx + dx * w, cy + dy * w))) break; leg2.push(c2, c3); }
+                  if (done && (!bent || leg.length + leg2.length < bent.size)) bent = { size: leg.length + leg2.length, leg: leg.slice(), pad, leg2, hor: dx !== 0 }; } } }
+            if (bent) { for (const k of bent.pad) cells[k] = 1; for (const k of [...bent.leg, ...bent.leg2]) { cells[k] = 1; chasmUnder.add(k); }
+              crossings.push({ kind: 'bridge', cells: bent.leg, axis: bent.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }, { kind: 'bridge', cells: bent.leg2, axis: bent.hor ? 'y' : 'x', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }); break; }
             if (!best) continue; for (const k of best.deck) { cells[k] = 1; chasmUnder.add(k); }
-            crossings.push({ kind: 'bridge', cells: best.deck, axis: best.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1 }); break; } }
+            crossings.push({ kind: 'bridge', cells: best.deck, axis: best.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }); break; }
+          if (strict && lone.length && !crossings.some((c) => c.alt)) return false; }
         // what a bridge left of its ridge off the way goes to the dark
         const sv = new Uint8Array(W * H), st = [start.cy * W + start.cx]; sv[st[0]] = 1;
         while (st.length) { const k = st.pop(); for (const o of D4) { const n = k + o; if (!sv[n] && (cells[n] === 1 || cells[n] === 4)) { sv[n] = 1; st.push(n); } } }
