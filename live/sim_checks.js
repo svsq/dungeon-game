@@ -846,7 +846,7 @@
           else if (!m.chests.some((c) => inR(r, c) && c.tier === K.pay.tier && (!(K.pay.forge || K.pay.stash) || c.hall === r.hall))) out.push(`${tag}: the ${r.hall} hall's chest not its own pay`);
           if (K.pay.bless && !(m.circles || []).some((q) => q.r === r.id && q.bless)) out.push(`${tag}: the sanctum's circle gives no blessing`);
           // (TASKS 1159) nothing that hurts or scars in the circle, and it blesses a floor still to be fought
-          for (const q of (m.circles || []).filter((q) => q.r === r.id)) { if (m.traps.some((t) => Math.hypot(t.x - q.x, t.y - q.y) < 2.6 * TILE)) out.push(`${tag}: spikes in the sanctum's circle`); if ((m.decals || []).some((d) => Math.hypot(d.x - q.x, d.y - q.y) < 2.6 * TILE)) out.push(`${tag}: a decal in the sanctum's circle`); if (q.bless && Math.hypot(m.exit.x - q.x, m.exit.y - q.y) < HL.blessOff * TILE) out.push(`${tag}: the sanctum by the stairs`); }
+          for (const q of (m.circles || []).filter((q) => q.r === r.id)) { if (m.traps.some((t) => Math.hypot(t.x - q.x, t.y - q.y) < 2.6 * TILE)) out.push(`${tag}: spikes in the sanctum's circle`); if ((m.decals || []).some((d) => Math.hypot(d.x - q.x, d.y - q.y) < 2.6 * TILE)) out.push(`${tag}: a decal in the sanctum's circle`); if (m.decor.some((d) => /^vent/.test(d.n) && Math.hypot(d.x - q.x, d.y - q.y) < 2.6 * TILE)) out.push(`${tag}: a vent in the sanctum's circle`); if (m.decor.some((d) => d.n === 'torch_stand' && Math.hypot(d.x - q.x, d.y - q.y) < 3.2 * TILE)) out.push(`${tag}: a torch in the sanctum's circle`); if (q.bless && Math.hypot(m.exit.x - q.x, m.exit.y - q.y) < HL.blessOff * TILE) out.push(`${tag}: the sanctum by the stairs`); }
           // (an early kind on the 1st floor, TASKS 488, has the floor's own pack: its monster comes later)
           if (!(f === 1 && K.early) && !m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`);
           if (f === 1 && K.early && !m.enemies.some((e) => e.room === r.id)) out.push(`${tag}: the ${r.hall} hall without a pack`); } }
@@ -862,6 +862,8 @@
           if (!m.hazards.some((z) => z.islet && !z.tail)) out.push(`${tag}: no rocks down the islet's strip`); }
         if (m.ftype !== 'chasm' || m.ftype2) continue; n++; const way = walk(m, new Set());
         if (m.crossings.some((c) => c.chasm && c.cells.some((k) => way.has(k)) && walk(m, new Set(c.cells)).size)) alt++;
+        // (TASKS 1169) a walker to the stairs does not pass the second way's chest
+        if (m.crossings.some((c) => c.alt)) for (const c of m.chests.filter((q) => q.round)) if (way.has(Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE))) out.push(`${tag}: the second way's chest on the shortest walk`);
         // (TASKS 1158) the second way is no twin of the first
         for (const a of m.crossings.filter((c) => c.alt)) { const B = m.crossings.find((c) => !c.alt && c.cells.includes(a.of)); if (B && a.cells.some((k) => B.cells.some((j) => Math.max(Math.abs(k % m.W - j % m.W), Math.abs(Math.floor(k / m.W) - Math.floor(j / m.W))) < D.ARCH.plateau.chasm.alt.off))) out.push(`${tag}: the second bridge within ${D.ARCH.plateau.chasm.alt.off} cells of the first`); } }
       if (n && alt * 2 < n) out.push(`magma chasm: a way round a bridge of the walk on ${alt} of ${n} floors`);
@@ -1025,7 +1027,7 @@
       // (the spot out of the ring is the first side of it on whole floor, two cells from any lava and out of every other hazard's
       // reach: a fixed one fell in the lava once the plateaus' sizes varied, TASKS 432)
       const clear = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (cell(m, tx + i, ty + j) !== 1) return false;
-        return m.hazards.every((q) => q === z || Math.hypot(q.x - x, q.y - y) > HZ[q.k].r + 60); };
+        return !m.traps.some((t) => Math.hypot(t.x - x, t.y - y) < 70) && m.hazards.every((q) => q === z || Math.hypot(q.x - x, q.y - y) > HZ[q.k].r + 60); };
       // (further round it and further out when the four sides are not clear: the packs of TASKS 407 shifted the floor seed 3 draws)
       const off = [40, 70, 100].flatMap((g) => Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4) * (H.r + g), Math.sin(i * Math.PI / 4) * (H.r * 0.6 + g)])).find(([dx, dy]) => clear(z.x + dx, z.y + dy)) || [H.r + 40, 0];
       const inside = run(z.x + 8, z.y), outside = run(z.x + off[0], z.y + off[1]);
@@ -2072,6 +2074,7 @@
           if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f8: the demon lord does not drop the finale\'s loot');
           if (!R2.map.shrines.length) out.push('campaign f8: no altar past the demon lord');
           R2.drops = []; want = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.bag, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+          if (R2.leaving > 0) { R2.leaving = 0; SIMX.enterFloor(S2, R2, R2.floor + 1); }
           if (!S2.run || R2.floor !== 9) out.push(`campaign: the stairs past the demon lord lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 9th`);
           else {
             const m = R2.map;
@@ -2098,6 +2101,8 @@
               if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f12: the serpent does not pay the finale\'s 20 shards');
               if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f12: the serpent does not drop the finale\'s loot');
               R2.drops = []; const want2 = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+              if (!(R2.leaving > 0)) out.push('campaign: no fade out on the stairs into the magma chapter'); R2.leaving = 0; SIMX.enterFloor(S2, R2, R2.floor + 1);
+              if (!R2.msg || R2.msg.chapter !== D.RUNS.magma.name) out.push('campaign: no chapter banner on the 13th');
               if (!S2.run || R2.floor !== 13) out.push(`campaign: the stairs past the serpent lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 13th`);
               else { const NM = D.RUNS.magma;
                 if (R2.map.biome !== 'magma' || R2.map.W !== NM.size[0][0] || dep(R2) !== 13 + (D.RUNS.campaign.chapters.find((c) => c.run === 'magma').shift || 0)) out.push(`campaign f13: not the magma caves' 1st at its depth (${R2.map.biome} ${R2.map.W} depth ${dep(R2)})`);
@@ -2296,7 +2301,7 @@
       hq.x = g.x; hq.y = g.y + 30; E(T2); if (Q.floor !== 0 || !Q.portal || Q.portal.f !== f) { out.push(`gate f${f}: the portal does not take the hero home`); continue; }
       hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; E(T2);
       if (Q.floor !== f || Math.hypot(hq.x - g.x, hq.y - g.y) > 90 || !Q.arena || !Q.arena.gate) { out.push(`gate f${f}: the town's portal does not lead back beside the boss's`); continue; }
-      hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
+      hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.leaving > 0) { Q.leaving = 0; SIMX.enterFloor(T2, Q, Q.floor + 1); } if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
     // past the colossus (TASKS 514): its hall keeps the town's portal and one stairs down; down them, back up from the descent's
     // 17th, the 16th is the campaign's again (PR 19 review: the descent's bag has no round before its first floor), the hero by the
     // stairs on, still one way down (its portal out no second stairs) and the portal home, and the stairs on take him to the 17th

@@ -773,6 +773,8 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   vec3 lit = mix(lc, c * 1.8, em);
   // (TASKS 1163: dimmed whole into the fog, the lava's yellow kept its ratio and read olive; the reference's edge goes through red)
   if (u_haze > 0.5 && s < 1.0 && lit.r > lit.b) lit.g *= mix(0.35, 1.0, smoothstep(0.1, 0.9, s));
+  // (TASKS 1175: past the light a seam keeps its yellow's ratio and reads olive; it stays yellow only where it burns bright)
+  if (u_haze > 0.5 && oc.r < 0.5 && lit.r > 2.5 * lit.b) lit.g = min(lit.g, lit.r * mix(0.5, 1.0, smoothstep(0.45, 0.75, lit.r)));
   o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), lit, s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;

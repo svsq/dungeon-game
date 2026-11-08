@@ -200,8 +200,8 @@
   // ---------------- the magma caves' new kinds (TASKS 407–409) ----------------
   // their glowing bits (tools/emitmask.py): drawn again in the pose over the body in the emissive mode
   const GLOWTEX = { imp: 'impE', golem: 'golemE', salamander: 'salamanderE', boss_colossus: 'colossusE' };
-  // the salamander swimming (1) or walking (0), eased over 0.35 s from when it went into the lava or came out of it
-  const swimOf = (e, GT) => e.type !== 'salamander' ? 0 : e.lv ? SS(0, 0.35, GT - (e.lvT ?? -9)) : 1 - SS(0, 0.35, GT - (e.lvT ?? -9));
+  // the salamander swimming (1) or walking (0), eased from when it went into the lava (0.35 s: any slower and it sinks over the bank) or came out of it (0.45 s, TASKS 1177)
+  const swimOf = (e, GT) => e.type !== 'salamander' ? 0 : e.lv ? SS(0, 0.35, GT - (e.lvT ?? -9)) : 1 - SS(0, 0.45, GT - (e.lvT ?? -9));
   // how bright: a golem's cracks blaze as its crust comes off and swell through its wind-up, then cool as it lies in its pool; an
   // imp's eyes; a salamander's spots, hotter as it draws breath
   function monGlow(e, E, GT, t) { const dead = e.deadT >= 0 ? GT - e.deadT : -1, u = GT - e.t0;
