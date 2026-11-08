@@ -69,9 +69,9 @@ def bow_hand(name, c):
         a[core, :3] = (86, 52, 34)
     m = a[..., 3] > 0
     v, s = hsv(a)
-    edge = m & ~ndi.binary_erosion(m, iterations=3)
-    dark = v < 0.28
-    a[edge & dark, :3] = (214, 170, 120)
+    wood = m & (v >= 0.28)
+    a[wood, :3] = np.clip(a[wood, :3].astype(float) * 1.18, 0, 255)
+    a[..., 3] = np.where(a[..., 3] >= 128, 255, 0)
     save(name + '_h', a)
     return c
 
@@ -178,7 +178,11 @@ def front_hem(name, back_w):
     H0, E = 220, KNEE - 243
     src_h = a.copy()
     out = a.copy(); out[H0:] = 0
-    prof = np.median(src_h[211:218].astype(float), axis=0).round().astype(np.uint8)
+    # rows 215-219 only: the book strap ends at 211-217, and blue-less pixels are masked in case it reaches further
+    rows = src_h[215:220].astype(float)
+    rows[rows[..., 2] < 1.5 * rows[..., 0]] = np.nan
+    prof = np.nanmedian(rows, axis=0)
+    prof = np.where(np.isnan(prof), np.median(src_h[215:220].astype(float), axis=0), prof).round().astype(np.uint8)
     lo0, hi0 = row_extent(src_h, H0)
     for r in range(H0, 244 + E):
         k = back_w[min(r, 298)] / back_w[H0]
@@ -187,6 +191,15 @@ def front_hem(name, back_w):
             y = r - E; e = row_extent(src_h, y)
             if not e: continue
             out[r] = fit_row(src_h[y], e[0], e[1], (e[0] + e[1]) / 2, (e[1] - e[0]) * k)
+    A = out[..., 3] > 0
+    holes = ndi.binary_fill_holes(A) & ~A
+    idx = ndi.distance_transform_edt(~A, return_indices=True)[1]
+    out[holes] = out[idx[0][holes], idx[1][holes]]
+    for y in range(150, 206):
+        e = row_extent(out, y)
+        if not e or e[0] <= 63: continue
+        out[y, 63:e[0]] = (*R_SRC[1], 255)
+        out[y, 63:65] = OUTLINE
     return out
 
 
@@ -260,17 +273,27 @@ def narrow_shoulder(a, left):
 def lengthen(a, rows):
     ys = np.where(a[..., 3].any(1))[0]
     bot = ys.max()
-    s = bot - 3
+    s = bot - 7
     out = a.copy()
     out[s + 1:s + 1 + rows] = a[s]
     out[s + 1 + rows:] = a[s + 1:a.shape[0] - rows]
     return out
 
 
+def trim_to_hem(thigh, body):
+    out = thigh.copy()
+    for y in range(220, thigh.shape[0]):
+        e = row_extent(body, min(y, KNEE - 1))
+        if e: out[y, :e[0]] = 0
+    return out
+
+
 def mage_all():
     bw = back_width(load('mage__body_back'))
+    hems = {}
     for n in MAGE_FRONT:
         a = front_hem('mage__' + n, bw)
+        hems[n] = a
         if '_le' in n: a = specks(a, 12)
         a = folds(a, 208, KNEE - 14)
         save('mage__' + n, recolor(a, 0 if '_nh' in n else 100))
@@ -283,7 +306,10 @@ def mage_all():
             a = lengthen(narrow_shoulder(load(f'mage__uarm{side}{sfx}'), side == 'L'), 4)
             save(f'mage__uarm{side}{sfx}', recolor(a, 0))
         for sfx in ('', '_hd'):
-            save(f'mage__thigh{side}{sfx}', lengthen(load(f'mage__thigh{side}{sfx}'), 4))
+            t = load(f'mage__thigh{side}{sfx}')
+            if side == 'L': t = trim_to_hem(t, hems['body'])
+            save(f'mage__thigh{side}{sfx}', lengthen(t, 4))
+        if side == 'L': save('mage__thighL_le', trim_to_hem(load('mage__thighL_le'), hems['body_le']))
         save(f'mage__farm{side}', recolor(load(f'mage__farm{side}'), 0))
     save('mage__cape', recolor(load('mage__cape'), 0))
     for n, front in (('mage__head_ci', True), ('mage__head_back_ci', False)):
@@ -299,10 +325,13 @@ ARCHER_BACK = ['body_back', 'body_back_nh', 'body_back_le', 'body_back_le_nh', '
 LEG_TARGET = 0.45
 
 
-def leg_factor(part):
-    a = load(f'archer__{part}L')
-    h, s, v = rgb2hsv(a)
-    return LEG_TARGET / np.median(v[(a[..., 3] > 0) & (v > 0.15)])
+def leg_factor(side):
+    vs = []
+    for part in ('thigh', 'shin'):
+        a = load(f'archer__{part}{side}')
+        h, s, v = rgb2hsv(a)
+        vs.append(v[(a[..., 3] > 0) & (v > 0.15)])
+    return LEG_TARGET / np.median(np.concatenate(vs))
 
 
 def lift_legs(a, f):
@@ -319,8 +348,8 @@ def neck_band(a):
         ys = np.where(scarf[70:125, x])[0]
         if not len(ys): continue
         y0 = 70 + ys[0]
-        for y in (y0 - 1, y0, y0 + 1):
-            if a[y, x, 3] and a[y, x, :3].max() > 60: a[y, x, :3] = np.clip(a[y, x, :3].astype(float) * 0.55, 0, 255)
+        for y in range(y0 - 4, y0 + 5):
+            if a[y, x, 3] and a[y, x, :3].max() > 60: a[y, x, :3] = np.clip(a[y, x, :3].astype(float) * (0.5, 0.55, 0.66), 0, 255)
     return a
 
 
@@ -365,11 +394,11 @@ def cape_edge(a):
 
 def archer_all():
     save('archer__cape', cape_edge(load('archer__cape')))
-    ft, fs = leg_factor('thigh'), leg_factor('shin')
     for side in 'LR':
+        f = leg_factor(side)
         for sfx in ('', '_hd', '_le'):
-            save(f'archer__thigh{side}{sfx}', lift_legs(load(f'archer__thigh{side}{sfx}'), ft))
-        save(f'archer__shin{side}', lift_legs(load(f'archer__shin{side}'), fs))
+            save(f'archer__thigh{side}{sfx}', lift_legs(load(f'archer__thigh{side}{sfx}'), f))
+        save(f'archer__shin{side}', lift_legs(load(f'archer__shin{side}'), f))
     save('archer__head_back_le', specks(load('archer__head_back_le'), 400))
     for n in ARCHER_BACK: save('archer__' + n, neck_band(load('archer__' + n)))
     for n in ARCHER_FRONT: save('archer__' + n, fletching(load('archer__' + n)))

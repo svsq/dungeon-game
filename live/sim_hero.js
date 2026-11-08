@@ -30,7 +30,7 @@
   // than BAL.cap of the health (the boss's more), so an unlucky stack of elite multipliers cannot kill through a potion
   function absorbShield(S, o, dmg, extra = {}) {
     if (!(o.shield > 0 && S.t < o.shieldUntil)) return dmg;
-    const n = Math.min(o.shield, dmg); o.shield -= n; ev(S, Object.assign({ k: 'absorb', x: o.x, y: o.y, n }, extra)); return dmg - n;
+    const n = Math.min(o.shield, dmg); o.shield -= n; ev(S, Object.assign({ k: 'absorb', x: o.x, y: o.y, n }, extra)); if (o.shield <= 0) ev(S, { k: 'shield_break', x: o.x, y: o.y }); return dmg - n;
   }
   function hurtHero(S, R, dmg, sx, sy, kind, src, actor) {
     const h = R.hero; if (h.deadT >= 0 || S.t < h.ifr || R.town) return;
@@ -202,7 +202,9 @@
     h.aim = Math.atan2(my - (h.y - RIG.shoulder + 8), mx - h.x); h.mx = mx; h.my = my;
     const busy = t - h.atkT < 0.22 || t - h.castT < 0.25;
     const wasBack = h.back, wasFace = h.face;
-    if (busy) { h.face = Math.cos(h.aim) >= 0 ? 1 : -1; h.back = Math.sin(h.aim) < -0.5 ? 1 : 0; }
+    // a shooter faces the shot being loosed: turned by the live pointer in the wind-up he fired over his own shoulder (critic r3)
+    const held0 = (D.clsOf(h).shoots || []).includes(st.wtype) && t - h.atkT < D.SHOTS[(BASES[st.wtype] || {}).shot || 'bolt'].t, aimF = held0 ? h.atkA : h.aim;
+    if (busy) { h.face = Math.cos(aimF) >= 0 ? 1 : -1; h.back = Math.sin(aimF) < -0.5 ? 1 : 0; }
     else if (ix || iy) { if (ix) h.face = ix; h.back = iy < 0 ? 1 : iy > 0 ? 0 : h.back; }
     if (h.back !== wasBack) h.backT = t;
     if (h.face !== wasFace) h.faceT = t;
@@ -213,6 +215,8 @@
       if (h.burn > t) { h.burn = 0; ev(S, { k: 'snuff', x: h.x, y: h.y, hero: 1 }); } }
     // a dash is a leap: spikes under it never bite, and one that would come down on a plate carries on until it is clear of it
     // the warrior's charge (TASKS 1130) is a longer, faster dash that strikes the first monster it meets and stops on it
+    if (h.cryJolt && t >= h.cryJolt) { h.cryJolt = 0; R.trauma = Math.min(1, R.trauma + 0.25); }
+    if (h.leapV && h.leapV[0] === h.dashT && !h.leapV[2] && t - h.dashT >= K.DASH_T) { h.leapV[2] = 1; ev(S, { k: 'hland', x: h.x, y: h.y }); }
     const CH = D.CHARGE, charging = h.charge && t >= h.dashT && t - h.dashT < CH.t;
     const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t >= h.dashT && t - h.dashT < (charging ? CH.t : K.DASH_T);
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
@@ -261,7 +265,7 @@
       if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, c = rnd(R) * 100 < st.crit;
         const p = SIMX.heroShot(R, h, a, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, BASES[st.wtype].shot || 'bolt', BASES[st.wtype]);
         if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
-        ev(S, { k: p.k === 'arrow' ? 'loose' : 'bolt', x: p.x, y: p.y, a });
+        ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
         // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
         // born past it): pots, props, doors, chests, secrets and webs, as a swing does; monsters only by the bolt
         SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {

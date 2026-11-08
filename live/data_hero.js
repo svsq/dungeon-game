@@ -66,7 +66,7 @@
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0, hp: 0 },
-      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1 } },
+      abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1, eye: [13.3, 5.9] } },
     // the archer's mana comes from his arrows (TASKS 1162: `hitMp` a hit, a crit; the pool held on potions); `slow` the share of his
     // shot's cycle he is slowed after it, so a quick bow does not keep him slow
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 3, sp: 1 },
@@ -74,7 +74,7 @@
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
   // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire
-  Object.assign(CLASSES.warrior, { note: TXT('CLASSES.warrior.note'), resWord: TXT('CLASSES.warrior.resWord'), dead: { gifts: ['wisdom', 'arcane'], meta: ['mana', 'regen'], mods: ['int', 'mp', 'fire'], cons: ['mp_potion'] } });
+  Object.assign(CLASSES.warrior, { note: TXT('CLASSES.warrior.note'), resWord: TXT('CLASSES.warrior.resWord'), dead: { gifts: ['wisdom', 'arcane'], meta: ['mana'], mods: ['int', 'mp', 'fire'], cons: ['mp_potion'] } });
   Object.assign(CLASSES.mage, { note: TXT('CLASSES.mage.note'), resWord: TXT('CLASSES.mage.resWord'), dead: { gifts: ['reach', 'cleave'], meta: [], mods: ['str'], cons: [] } });
   Object.assign(CLASSES.archer, { note: TXT('CLASSES.archer.note'), resWord: TXT('CLASSES.archer.resWord'), dead: { gifts: ['reach', 'cleave', 'arcane'], meta: [], mods: ['str', 'fire'], cons: [] } });
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
