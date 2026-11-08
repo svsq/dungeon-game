@@ -2116,10 +2116,17 @@
       const can = f >= D.FLOOR_MOD.from && !st.boss && !st.arch && f <= D.RUNS.campaign.chapter;
       if (st.mod && !can) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a floor that takes none`);
       if (st.mod && (D.FLOOR_MODS[st.mod].not || []).includes(st.biome)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» in ${st.biome}`);
+      if (st.mod && (D.FLOOR_MODS[st.mod].notLay || []).includes(st.lay)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a ${st.lay} floor`);
       if (can) { may++; if (st.mod) { on++; got[st.mod] = 1; } } }
     if (on < may * 0.4 || on > may * 0.6) out.push(`floor mod: ${on} of ${may} campaign floors drew one, not about half`);
     for (const k of ids) if (!got[k]) out.push(`floor mod: «${k}» never drawn on 200 campaign runs`);
     for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 24; f++) { const st = D.stageOf('endless', f, sd); if (st.mod && (st.boss || st.arch || f < D.FLOOR_MOD.from)) out.push(`floor mod: descent ${sd}/${f} has «${st.mod}» on a boss's, cave's or early floor`); }
+    // the banner never names a modifier its floor lacks (PR 30: campaign 24/3 drew «flood» and laid no stream), and few floors lose theirs
+    const held = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
+    { let drew = 0, lost = 0; for (let sd = 1; sd <= 60; sd++) for (const f of [3, 5, 7]) { const st = D.stageOf('campaign', f, sd); if (!st.mod) continue;
+        const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }); drew++; if (!m.mod) { lost++; continue; }
+        if (m.mod !== st.mod || (held[m.mod] && !held[m.mod](m))) out.push(`floor mod: campaign ${sd}/${f} names «${m.mod}» and does not have it`); }
+      if (lost > drew * 0.05) out.push(`floor mod: ${lost} of ${drew} campaign floors laid without their modifier`); }
     const gen = (sd, f, mod) => DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, stage: { mod } });
     const sum = (mod, fn) => { let n = 0; for (let sd = 1; sd <= 6; sd++) for (const f of [3, 7]) n += fn(gen(sd, f, mod), sd, f); return n; };
     const walls = (m) => m.torches.filter((t) => t.kind === 'wall').length, rows = (m) => new Set(m.traps.filter((t) => t.run !== undefined).map((t) => t.run)).size;

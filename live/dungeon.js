@@ -162,8 +162,12 @@
     if (DGX.rooms(GF) === null) return null;
     if (DGX.links(GF) === null) return null;
     if (DGX.terrain(GF) === null) return null;
-    return DGX.fill(GF);
+    const m = DGX.fill(GF);
+    // a modifier only raises a cap or a chance, so a floor may have no room for it; the banner must never name one the floor lacks
+    if (m && m.mod && MOD_HELD[m.mod] && !MOD_HELD[m.mod](m)) { if (strict) return null; m.mod = null; }
+    return m;
   }
+  const MOD_HELD = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
 
   // a magma floor's rewards (TASKS 433): its chests (a cache's own counted as the cache, on the plateau it is dug from), altars and
   // elites (not the stairs' own), each with its room; the rooms on the way from the start to the stairs, the dead ends off it, and

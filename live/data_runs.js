@@ -74,7 +74,7 @@
   const modOf = (seed, f, q) => { if (q.arch || q.boss || q.chap || f < FLOOR_MOD.from) return undefined;
     const a = mix32((mix32(seed >>> 0) + Math.imul(f, 0x2c1b3c6d) + 0x6a09e667) >>> 0);
     if (a / 4294967296 >= FLOOR_MOD.chance) return undefined;
-    const W = Object.entries(FLOOR_MODS).filter(([, o]) => !(o.not || []).includes(q.biome));
+    const W = Object.entries(FLOOR_MODS).filter(([, o]) => !(o.not || []).includes(q.biome) && !(o.notLay || []).includes(q.lay));
     let t = (mix32(a + 0x9e3779b9) / 4294967296) * W.reduce((s, [, o]) => s + o.w, 0);
     for (const [k, o] of W) { t -= o.w; if (t < 0) return k; } return W.length ? W[W.length - 1][0] : undefined; };
   // (its rooms floors take the layouts as the campaign's do, TASKS 379, the chain over the descent's own floors)
@@ -97,10 +97,11 @@
   // (a floor above the descent's start is the campaign's: back up the stairs from the 13th, a run through the town stands on the
   // serpent's 12th again, still in the descent's mode)
   const stageOf = (mode, f, seed = 0, from = 1) => { if (runOf(mode).endless) return f < from ? stageOf('campaign', f, seed) : endlessStage(f, seed, from); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
-    n = c ? N.floors : M.chapter || M.floors, biome = N.biome(lf), boss = N.boss(lf);
-    return { N, lf, n, mod: modOf(seed, f, { arch: N.arch, boss, chap: !!c, biome }), depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome, boss, arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
+    n = c ? N.floors : M.chapter || M.floors, biome = N.biome(lf), boss = N.boss(lf),
+    lay = N.arch ? undefined : layOf(seed, f, (g) => { const cg = (M.chapters || []).filter((q) => g >= q.from).pop(), Ng = cg ? RUNS[cg.run] : M, lg = cg ? g - cg.from + 1 : g; return { arch: Ng.arch, biome: Ng.biome(lg), boss: Ng.boss(lg), depth: g + M.depth, size: Ng.size && Ng.size[lg - 1] }; });
+    return { N, lf, n, mod: modOf(seed, f, { arch: N.arch, boss, chap: !!c, biome, lay }), depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome, boss, arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
       elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1,
-      lay: N.arch ? undefined : layOf(seed, f, (g) => { const cg = (M.chapters || []).filter((q) => g >= q.from).pop(), Ng = cg ? RUNS[cg.run] : M, lg = cg ? g - cg.from + 1 : g; return { arch: Ng.arch, biome: Ng.biome(lg), boss: Ng.boss(lg), depth: g + M.depth, size: Ng.size && Ng.size[lg - 1] }; }),
+      lay,
       ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}) }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
 

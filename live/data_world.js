@@ -128,14 +128,15 @@
   // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp;
   // elites: plain monsters made elite, the first one's room with a chest of tier `chest`; gauntlet: a plate row down every straight
   // two-cell stretch of corridor this long (a winding way has few long ones: ≈2 rows a floor, not 0.5); gold: gold picked up; pop:
-  // monsters a room; ambush: a hoard chest's ambush chance; not: biomes it skips (the fire floors have no streams). The vows (TASKS
-  // 370) are to draw from this pool too
+  // monsters a room; ambush: a hoard chest's ambush chance; not: biomes it skips (the fire floors have no streams);
+  // notLay: layouts it skips (a tomb has no corridors to curse, a hall's are short). A floor laid with no room for its modifier is
+  // laid again, and past the strict tries goes without it (dungeon.js MOD_HELD). The vows (TASKS 370) are to draw from this pool too
   const FLOOR_MOD = { from: 3, chance: 0.5 };
   const FLOOR_MODS = {
     flood: { name: TXT('FLOOR_MODS.flood'), w: 1, water: 3, not: ['lava'] },
     dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.3 },
     lair: { name: TXT('FLOOR_MODS.lair'), w: 1, elites: 2, chest: 3 },
-    cursed: { name: TXT('FLOOR_MODS.cursed'), w: 1, gauntlet: 5, gold: 1.5 },
+    cursed: { name: TXT('FLOOR_MODS.cursed'), w: 1, gauntlet: 5, gold: 1.5, notLay: ['tomb', 'hall'] },
     quiet: { name: TXT('FLOOR_MODS.quiet'), w: 1, pop: 0.7, ambush: 2 },
   };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
