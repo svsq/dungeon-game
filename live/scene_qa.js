@@ -1549,13 +1549,15 @@
     const mageSpr = Object.keys(ASSETS).filter((a) => a.startsWith('mage__')).concat(['it_staff']);
     for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = 'mage_' + k;
       out.cycles[n] = cyc(dx, dy, asMage); out.sprites[n] = mageSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asMage(S); if (dy < 0) S.run.hero.back = 1; }); }
-    const mageT = (a, fire, press) => { const fr = []; let S = play((S) => { clear(S); asMage(S); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
+    const mageT = (a0, fire, press, turn) => { const fr = []; let S = play((S) => { clear(S); asMage(S); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (fire) fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [5] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, keys: [] }); } return fr; };
     const frost = (S, h) => { h.castT = S.t; h.castK = 'frost'; S.ev.push({ k: 'frost', t: S.t, x: h.x, y: h.y, a: h.aim, r: D.abRank('frost', 1).r, arc: D.FROST.arc }); };
     for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) { transitions['hero_mage_shoot_' + n] = mageT(a, null, 1); transitions['hero_mage_frost_' + n] = mageT(a, frost); transitions['hero_mage_cast_' + n] = mageT(a, cast); }
     // two shots 0.47 s apart (the staff's own pace): the second raise carries on from the first
     transitions.hero_mage_shoot2_r = mageT(0, null, [5, 33]);
+    // (TASKS 1153: the pointer turned in the wind-up; a wand's shots 0.36 s apart with the aim flipped)
+    transitions.hero_mage_shoot_turn = mageT(0, null, 1, [7, 1.2]); transitions.hero_mage_wand_flip = mageT(0, (S, h) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'wand' }); }, [5, 16], [12, Math.PI]);
     transitions.hero_mage_hurt = mageT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; });
     transitions.hero_mage_death = mageT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     // the archer (TASKS 1125): the same sequences with his bow; the volley and the leap through the sim
@@ -1563,16 +1565,17 @@
     const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__')).concat(['it_bow_s', 'skel_arrow']);
     for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = 'archer_' + k;
       out.cycles[n] = cyc(dx, dy, asArcher); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S); if (dy < 0) S.run.hero.back = 1; }); }
-    const archerT = (a, fire, press) => { const fr = []; let S = play((S) => { clear(S); asArcher(S); S.run.hero.lvl = 4; S.run.hero.ab.volley = 1; S.run.hero.ab.trap = 1; S.run.hero.ab.leap = 1; S.run.hero.mp = 999; }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
+    const archerT = (a0, fire, press, turn) => { const fr = []; let S = play((S) => { clear(S); asArcher(S); S.run.hero.lvl = 4; S.run.hero.ab.volley = 1; S.run.hero.ab.trap = 1; S.run.hero.ab.leap = 1; S.run.hero.mp = 999; }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (typeof fire === 'function') fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [5] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, slot: fire === 'volley' && i === 5 && k === 0 ? 1 : fire === 'leap' && i === 5 && k === 0 ? 3 : 0, keys: [] }); } return fr; };
     for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) transitions['hero_archer_shoot_' + n] = archerT(a, null, 1);
+    transitions.hero_archer_shoot_l = archerT(Math.PI, null, 1); transitions.hero_archer_shoot_u = archerT(-Math.PI / 2, null, 1); transitions.hero_archer_shoot_turn = archerT(0, null, 1, [7, 1.2]); transitions.hero_archer_pair = archerT(0, null, [5, 14]);
     transitions.hero_archer_shoot2_r = archerT(0, null, [5, 30]); transitions.hero_archer_volley_r = archerT(0, 'volley'); transitions.hero_archer_leap_r = archerT(0, 'leap');
     // the warrior's charge and war cry (TASKS 1134), through the sim
-    const warT = (a, slot, foe) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
+    const warT = (a, slot, foe, press) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } } fr.push(S); S = structuredClone(S); h.mp = 100;
-      const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, slot: i === 5 && k === 0 ? slot : 0, keys: [] }); } return fr; };
-    transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_cry = warT(0, 3);
+      const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, slot: i === 5 && k === 0 ? slot : 0, press: press && i >= press && i < press + 2 ? 1 : 0, keys: [] }); } return fr; };
+    transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 16); transitions.hero_cry = warT(0, 3);
     transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);

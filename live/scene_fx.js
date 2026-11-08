@@ -366,7 +366,7 @@
       if (e.k === 'charge' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < 6; j++) { const d = 30 + j * 28 * Math.min(1, a / 0.22); L.glow(ex + e.dx * d, ey - 30 + e.dy * d * 0.8, 24, [1, 0.55, 0.2], 0.65 * (1 - q) * (1 - j / 7), 2.4); } }
       if (e.k === 'chargehit' && a < 0.4) { const q = a / 0.4; L.glow(ex, ey - 30, 64, [1, 0.6, 0.25], 0.8 * (1 - q), 2.4); L.ring(ex, ey, 18 + 50 * q, 9 + 20 * q, [1, 0.75, 0.4], 0.9 * (1 - q), 0.2);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28; L.star(ex + Math.cos(an) * 30 * q, ey - 30 + Math.sin(an) * 22 * q, 6, [1, 0.85, 0.5], 1 - q); } }
-      if (e.k === 'cry' && a < 0.6) { const q = SS(0, 0.5, a); for (const k of [1, 0.8]) L.ring(ex, ey, e.r * q * k, e.r * q * k * 0.5, [1, 0.3, 0.12], (k === 1 ? 1 : 0.6) * (1 - SS(0.2, 0.6, a)), 0.12); L.glow(ex, ey - 40, 60, [1, 0.35, 0.12], 0.6 * (1 - q), 2.2); }
+      if (e.k === 'cry' && a > 0.14 && a < 0.74) { const q = SS(0.14, 0.64, a); L.glow(ex, ey - 40, 60, [1, 0.35, 0.12], 0.6 * (1 - q), 2.2); }
       // a trap snapping shut (TASKS 1120): a burst of grit and a flash of iron
       if (e.k === 'snap' && a < 0.35) { const q = a / 0.35; L.ring(ex, ey, 10 + 20 * q, 5 + 9 * q, [0.85, 0.82, 0.75], 0.8 * (1 - q), 0.2);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28, d = 6 + 22 * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.5 - 6 * q, 4, [1, 0.92, 0.75], 0.7 * (1 - q)); } }
@@ -521,7 +521,7 @@
         for (let j = 0; j < n; j++) { const an = j / n * 6.28 + rnd(e.t, j), u = Math.min(a, 0.38), px = ex + Math.cos(an) * (45 + 20 * rnd(e.t, j + 7)) * u, py = ey + Math.sin(an) * 28 * u - 70 * u + 185 * u * u, rot = an + u * 8, al = 1 - SS(0.45, 0.7, a);
           L.solid(px, py, 9, 4, [0.23, 0.2, 0.17], rot, 4, 2, al); L.solid(px, py - 1, 7, 2, [0.73, 0.69, 0.57], rot, 3, 1, al);
           for (const side of [-1, 1]) L.solid(px + side * Math.cos(rot) * 3, py + side * Math.sin(rot) * 3 - 1, 3, 3, [0.73, 0.69, 0.57], rot, 1.5, 1.5, al); } }
-      if (e.k === 'dash' && a < 0.45) for (let j = 0; j < 5; j++) { const q = a / 0.45, s = rnd(e.t, j); L.puff(ex - e.dx * (10 + 60 * q * s), ey - e.dy * (10 + 60 * q * s) - 4, 7 + 12 * q, [0.35, 0.3, 0.27], 0.45 * (1 - q), e.t + j); }
+      if ((e.k === 'dash' || e.k === 'charge') && a < 0.45) for (let j = 0; j < 5; j++) { const q = a / 0.45, s = rnd(e.t, j); L.puff(ex - e.dx * (10 + 60 * q * s), ey - e.dy * (10 + 60 * q * s) - 4, 7 + 12 * q, [0.35, 0.3, 0.27], 0.45 * (1 - q), e.t + j); }
       // a skeleton chips: bone splinters thrown up, they bounce once on the floor at its feet and fade
       if (e.k === 'hit' && a < 0.7 && !e.fire && BLOOD(e.type) === 'bone') { const fl = ey + D.ENEMIES[e.type].h * 0.5 + 6;
         for (let j = 0; j < (e.crit ? 9 : 6); j++) { const an = -Math.PI / 2 + (rnd(e.t, j + 20) - 0.5) * 2.6, v = 50 + 80 * rnd(e.t, j + 7), long = rnd(e.t, j + 3) < 0.4;

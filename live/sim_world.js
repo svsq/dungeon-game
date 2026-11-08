@@ -71,8 +71,8 @@
       tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
     // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
     // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)
-    if (id === 'charge') { h.charge = 1; h.chargeK = D.CHARGE.k * AR.k; h.dashT = S.t; h.dashX = Math.cos(h.aim); h.dashY = Math.sin(h.aim); ev(S, { k: 'charge', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
-    if (id === 'cry') { const C = D.CRY; h.cryT = S.t + AR.t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < C.r + ENEMIES[e.type].r) e.weakT = S.t + AR.t;
+    if (id === 'charge') { h.charge = 1; h.chargeK = D.CHARGE.k * AR.k; h.dashT = S.t + D.CHARGE.prep; h.dashX = Math.cos(h.aim); h.dashY = Math.sin(h.aim); ev(S, { k: 'charge', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
+    if (id === 'cry') { const C = D.CRY; R.trauma = Math.min(1, R.trauma + 0.25); h.cryT = S.t + AR.t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < C.r + ENEMIES[e.type].r) e.weakT = S.t + AR.t;
       ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
     // the archer's (TASKS 1120, 1161): a fan of arrows closing on the cursor; a trap at the cursor (stepTraps springs it); a leap back
     // as a dash with a shot down the aim; each arrow, trap and leap shot may crit

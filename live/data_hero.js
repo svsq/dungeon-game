@@ -51,7 +51,7 @@
   const RAGE = { max: 100, hit: 6, hurt: 1.2, decay: 12, calm: 4, charge: 14, dmg: 0.015 };
   // the charge: a rush down the aim at `spd` for `t` s (~200 px) that strikes the first monster in its way at `k` of a swing, stuns it
   // `stun` s (a boss `boss` s); the war cry: monsters within `r` deal `weak` of their damage, the warrior `buff` more, for `t` s
-  const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4, miss: 3 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };
+  const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4, miss: 3, prep: 0.06 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };
   // the volley's fan closes on the cursor (TASKS 1161): `w` px across where it points, at most `arc`°, at least `min`°; the trap is set at
   // the cursor within `far` px and holds the monster's blow as well as its feet; the leap carries him `spd` × the dash's time
   const VOLLEY = { n: 5, arc: 50, min: 4, w: 36, k: 0.7 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30, far: 250, toss: 0.25 }, LEAP = { k: 2, spd: 1000 };

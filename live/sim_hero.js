@@ -212,8 +212,8 @@
       if (h.burn > t) { h.burn = 0; ev(S, { k: 'snuff', x: h.x, y: h.y, hero: 1 }); } }
     // a dash is a leap: spikes under it never bite, and one that would come down on a plate carries on until it is clear of it
     // the warrior's charge (TASKS 1130) is a longer, faster dash that strikes the first monster it meets and stops on it
-    const CH = D.CHARGE, charging = h.charge && t - h.dashT < CH.t;
-    const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t - h.dashT < (charging ? CH.t : K.DASH_T);
+    const CH = D.CHARGE, charging = h.charge && t >= h.dashT && t - h.dashT < CH.t;
+    const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t >= h.dashT && t - h.dashT < (charging ? CH.t : K.DASH_T);
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
     // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
