@@ -10,10 +10,9 @@
     'MAGMA_PACKS', 'DIFF', 'DIFF_ORDER', 'floorName', 'ENEMIES', 'BOSSES', 'bossPhase', 'bossMove', 'BAL', 'dmgAt', 'hpAt', 'ELITE',
     'eliteK', 'GEN_VERSION', 'windOf', 'under', 'ELITE_MODS', 'eliteMods', 'modPool', 'TIPS', 'eliteName', 'SLOTS', 'SLOT_NAME', 'BASES',
     'ITEM_BAL', 'STASH', 'CRAFT', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'NAMED', 'storyChain', 'plural', 'reqLvl',
-    'CONSUMABLES', 'RARITY', 'AFFIXES', 'LEGEND_NAMES', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'ABILITIES', 'AB_MAX', 'abRank', 'SHIELD_T',
-    'shieldHp', 'fireDmg', 'STATS', 'META', 'metaLine', 'GIFTS', 'giftCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
-    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS', 'FLOOR_MOD',
-    'FLOOR_MODS' ];
+    'CONSUMABLES', 'RARITY', 'AFFIXES', 'LEGEND_NAMES', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'CLASSES', 'clsOf', 'classesReady', 'uiAt', 'CLASS_LOOT', 'wears', 'clsNames', 'ABILITIES', 'AB_MAX', 'abRank', 'SHIELD_T',
+    'shieldHp', 'fireDmg', 'FROST', 'frostDmg', 'BOLT', 'SHOTS', 'VOLLEY', 'TRAP', 'LEAP', 'RAGE', 'CHARGE', 'CRY', 'STATS', 'META', 'metaLine', 'GIFTS', 'giftCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
+    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS' ];
   const lost = KEYS.filter((k) => !(k in D));
   if (lost.length) throw new Error('data.js: DATA lacks ' + lost.join(', '));
   if (typeof module !== 'undefined') module.exports = D;

@@ -10,7 +10,10 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
-const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
+// a shooting class's range (TASKS 1116): backs off inside `near`, walks in beyond `far` (a bolt flies 434 px)
+const SHOOT = { near: 150, far: 380, futile: 2.5 };
+const MAIN = { warrior: 'str', mage: 'int', archer: 'agi' };
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'frost', 'volley', 'snap', 'leap', 'charge', 'cry'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
@@ -53,10 +56,10 @@ const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) 
   return Math.log(swing * (1 - c) + fire * c) + Math.log((st.maxHp + 20 * st.regen + 10 * st.onhit) * (KD + st.def) / KD / (1 - st.dodge / 100)); };
 const gear = (it) => it && !SIM.isCons(it);
 // gear the hero is too low to wear (TASKS 1028) is not bought for wearing, nor put on
-const wearable = (h, it) => h.lvl >= D.reqLvl(it);
+const wearable = (h, it) => h.lvl >= D.reqLvl(it) && D.wears(D.clsOf(h).id, it.b);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
 // a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
-const metaNext = (S) => D.META.filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
+const metaNext = (S) => D.metaFor(S.meta.cls).filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
   .sort((a, b) => a.cost(S.meta.up[a.id] || 0) - b.cost(S.meta.up[b.id] || 0))[0];
 const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.meta.shards >= D.giftCost(tier, R.floor));
 
@@ -69,19 +72,22 @@ const power = (S, h) => { const f = (hh, meta) => { const st = SIM.stats(hh, met
 // a run from the main menu: a test run's button is behind «Тесты» (TASKS 417). The bot steps onto that screen without a sim step: the
 // run's seed counts the clock, and one step more there would give every test run other floors than the ones measured before
 function startRun(S, mode) {
-  for (const [screen, id] of D.startPath(mode)) { const b = (screen === 'menu' ? D.UI.menu(false) : D.UI.tests(false)).find((q) => q.id === id);
+  for (const [screen, id] of D.startPath(mode)) { const b = D.uiAt(screen).find((q) => q.id === id);
     if (id === 'tests') S.screen = 'tests'; else SIM.step(S, click(b)); }
 }
 
-function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, rebuild = false, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false } = {}) {
+function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, rebuild = false, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false, cls = 'warrior' } = {}) {
   const P = Object.assign({}, PROFILES[profile], noTown ? { quests: 0, home: 0, scrolls: 0, noTown: 1 } : TOWN[profile]), rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
-  if (!initial) { S.seedBase = seed; S.meta.diff = diff; startRun(S, mode); }
+  if (!initial) { S.seedBase = seed; S.meta.diff = diff; S.meta.cls = cls; startRun(S, mode); }
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), salNext = new Map(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
+  // a shooter's target that has not lost health for SHOOT.futile s (a sleeping boss before its arena wakes, a bolt stopped by cover)
+  // is walked up to as the melee does (TASKS 1116: the mage stood shooting at the spider queen's arena for good)
+  const shotWatch = new Map(); let shotOk = -1, bossHp = Infinity, bossProg = -99;
   let thinGo = null, thinT = 0, thinL = -9; const THN = new WeakMap(), pushed = new Map(), crusted = new Map();
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
@@ -97,7 +103,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(depth, 1) / D.dmgAt(depth) : 1) * (!e.elite ? ST.mob : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd * bk.dmg;
     }
   }
-  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, frost: 0, volley: 0, snap: 0, leap: 0, charge: 0, cry: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
@@ -120,8 +126,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     let gx = x - h.x, gy = y - h.y;
     if (round || Math.hypot(gx, gy) > 40) { let best = null;
       // standing in a prop's own cell (a chest against the wall), the way on may run straight through the prop: step out of the
-      // cell away from it first
-      let B = BLK.get(m); if (!B) BLK.set(m, B = new Set(m.block)); const inProp = B.has(ty * m.W + tx), ox = tx * T + 16 - h.x, oy = ty * T + 16 - h.y;
+      // cell away from it first; a broken prop's cell is no prop's (TASKS 1116: the mage's staff broke a bookshelf, the bot stepped out
+      // of its cell and back into it for good)
+      let B = BLK.get(m); if (!B) BLK.set(m, B = new Set(m.block)); const inProp = B.has(ty * m.W + tx) && !m.decor.some((d) => d.broken && Math.floor(d.x / T) === tx && Math.floor(d.y / T) === ty), ox = tx * T + 16 - h.x, oy = ty * T + 16 - h.y;
       for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!inProp || ax * ox + ay * oy <= 0) && (!best || v < best[0])) best = [v, ax, ay]; }
       // the only way on may lead past the prop's middle (a merchant's shelf in a pocket of shelves, seed 64): take it, aimed past the
       // prop on the side the hero stands (straight at it he pushes into the prop for good, seed 202)
@@ -163,6 +170,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
       // (TASKS 1157: backing off every swing, one each 1.4 s, the expert never struck back for 120 s and more)
       if (E.kind === 'salamander') { if (d > E.r + HR + E.reach + 6 || t < (salNext.get(e.id) || 0)) continue; salNext.set(e.id, t + 2.5); }
+      // the warrior holds the line (TASKS 1140): a rank-and-file swing is taken on the armour; his dash stays for what a tank can't soak
+      if (D.clsOf(h).id === 'warrior' && e.st === 'wind' && !e.elite && !e.chain && !e.rush && !E.boom && E.kind !== 'slam') continue;
       const range = e.st === 'bwind' ? (['bite', 'tail', 'fists'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : e.mv === 'crack' ? D.bossMove(e).len : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
@@ -287,6 +296,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const bad = (x, y) => lurk.some((o) => Math.hypot(o.x - x, o.y - y) < E.sense + 14);
     if (!bad(nx, ny)) { holdT = 0; return; } if (bad(h.x, h.y)) return;
     if ((holdT += SIM.DT) > HOLD) return; inp.left = inp.right = inp.up = inp.down = 0; }
+  // a shooter steps to the open floor farthest from every foe at its heels, not just straight back from its target (TASKS 1140: straight
+  // back ran it into walls and other monsters); penned in, it stands and shoots
+  function kiteOff(R, inp, live) { const h = R.hero, m = R.map, near = live.filter((e) => { const E = D.ENEMIES[e.type]; return !E.ghost && E.kind !== 'archer' && E.kind !== 'caster' && e.st !== 'lurk' && Math.hypot(e.x - h.x, e.y - h.y) < SHOOT.near + E.r; });
+    if (!near.length) return; const room = (x, y) => SIM.cell(m, Math.floor(x / T), Math.floor(y / T)) === 1, gap = (x, y) => Math.min(...near.map((e) => Math.hypot(e.x - x, e.y - y)));
+    let best = null, top = gap(h.x, h.y) + 8;
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, dx = Math.cos(a), dy = Math.sin(a); if (!room(h.x + dx * 32, h.y + dy * 32) || !room(h.x + dx * 64, h.y + dy * 64)) continue; const v = gap(h.x + dx * 64, h.y + dy * 64); if (v > top) { top = v; best = [dx, dy]; } }
+    if (best) steer(inp, best[0], best[1]); }
   function fight(S, R, inp, live, st, walkD) {
     const h = R.hero, dist = (e) => Math.hypot(e.x - h.x, e.y - h.y);
     // the nearest by the walk, not the crow: two foes about as far in a straight line but round a wall from each other swap
@@ -301,10 +317,20 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // a fire priest within reach is struck first by all but the novice: left alone it lights the whole pack's weapons (TASKS 410)
     if (P.haz) { const pr = live.filter((e) => e.type === 'fire_priest' && far(e) < 360).sort((a, b) => far(a) - far(b))[0]; if (pr) tg = pr; }
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
-    const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, a = Math.atan2(tg.y - 30 - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - 30 - oy, tg.x - ox);
+    const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, aimY = (D.clsOf(h).shoots || []).includes(st.wtype) ? E.h * 0.45 : 30, a = Math.atan2(tg.y - aimY - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - aimY - oy, tg.x - ox);
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
+    // the class's keys (TASKS 1116): an ability is pressed on its own slot of the hero's class, or not at all
+    const Cl = D.clsOf(h), slot = (id) => Cl.abilities.indexOf(id) + 1, shooter = (Cl.shoots || []).includes(st.wtype);
     if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
+    // a shooting class (the mage's staff, TASKS 1116) keeps its distance: in sight and within a bolt's flight it stands and shoots,
+    // backing off one that comes closer than SHOOT.near; blind or too far it walks in as the melee does
+    else if (shooter && !E.deep) { const los = SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10), round = !los || pathLen(R, tg.x, tg.y) > td + 64;
+      const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp || td > SHOOT.far) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); const futile = w && S.t - w.t > SHOOT.futile;
+      if (round || td > SHOOT.far || (futile && td > 70)) { walk(R, inp, tg.x, tg.y, round); if (futile) inp.press = 1; }
+      else { kiteOff(R, inp, live); inp.press = 1; if (!futile) shotOk = S.t; } }
+    // (a shooter stands off the serpent too, TASKS 1157: the walk to the bank put the mage and the archer within its bite)
+    else if (shooter && E.deep && SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10) && td < SHOOT.far) { const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); if (td < SHOOT.near) steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); inp.press = 1; if (w && S.t - w.t < 6) shotOk = S.t; }
     else if (E.deep) { if (toBank(R, inp, tg, st)) inp.press = 1; }
     // blind: rock between them (a corner) stops the blow; a drowned lying in its shallows round a corner never rises to meet it and
     // the bot swung at the rock for good (TASKS 339): walk round to a clear line
@@ -327,12 +353,29 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
         // (held at most FLANK s a foe too, TASKS 416: a spot it never got to kept the bot walking at it until the floor's 400 s ran out)
         const oc = P.haz && SIM.crustAt(m, k) && !(m.thin || []).includes(k) && (crusted.get(tg.id) || 0) <= FLANK ? offCrust(R, tg, st) : null; if (oc) crusted.set(tg.id, (crusted.get(tg.id) || 0) + SIM.DT);
         if (bs && Math.hypot(bs.x - h.x, bs.y - h.y) > 14) walk(R, inp, bs.x, bs.y); else if (oc && Math.hypot(oc.x - h.x, oc.y - h.y) > 10) walk(R, inp, oc.x, oc.y); else inp.press = 1; } }
-    if (h.ab.fireball && !armFront(tg) && td > (P.caster ? 0 : 140) && td < (P.caster ? 380 : 330) && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)
-      && (!P.caster || SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10))) inp.slot = 2;
+    if (slot('fireball') && h.ab.fireball && !armFront(tg) && td > (P.caster || shooter ? 0 : 140) && td < (P.caster || shooter ? 380 : 330) && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)
+      && (!(P.caster || shooter) || SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10))) inp.slot = slot('fireball');
+    // the ice wave (TASKS 1116): on a crowd before the mage, or on one that has come to arm's length
+    if (slot('frost') && h.ab.frost && h.cd.frost <= S.t && h.mp >= D.ABILITIES.find((q) => q.id === 'frost').mp) {
+      const fr = D.abRank('frost', h.ab.frost).r, near = live.filter((e) => dist(e) < fr * 0.85 + D.ENEMIES[e.type].r && Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - h.y, e.x - h.x) - a), Math.cos(Math.atan2(e.y - h.y, e.x - h.x) - a))) < 0.6);
+      if (near.length >= 2 || (td < SHOOT.near && near.includes(tg))) inp.slot = slot('frost'); }
     const tip = P.tips && R.msg && R.msg.tip === 'whirl' && S.t - R.msg.t >= P.react && S.t - R.msg.t < R.msg.d; if (tip) learned = 1;
-    if (h.cd.whirl <= S.t && (tip || live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= (learned ? Math.min(P.whirl, D.TIPS.whirl.n) : P.whirl))) inp.slot = 1;
-    if (P.shield && h.ab.shield && h.cd.shield <= S.t && h.mp >= D.ABILITIES.find((a) => a.id === 'shield').mp && h.hp < st.maxHp * P.shield) inp.slot = 3;
-    if (P.mp && h.mp < 12 && td < 330 && held(h, 'mp_potion')) inp.keys.push('KeyR');
+    // the archer (TASKS 1126): the volley on two or more in the fan before him or on a lone target in range; a trap when a foe closes
+    // in; the leap away from one at arm's length
+    const ready = (id) => slot(id) && h.ab[id] && h.cd[id] <= S.t && h.mp >= D.ABILITIES.find((q) => q.id === id).mp;
+    if (ready('volley') && td < SHOOT.far && SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10)) { const fan = live.filter((e) => dist(e) < SHOOT.far && Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - h.y, e.x - h.x) - a), Math.cos(Math.atan2(e.y - h.y, e.x - h.x) - a))) < 0.5);
+      if (fan.length >= 2 || h.mp > st.maxMp * 0.7) inp.slot = slot('volley'); }
+    // (the trap at the cursor, TASKS 1161: under a caster or an archer within its reach; partway to a monster that closes in)
+    if (ready('trap')) { const rng = E.kind === 'caster' || E.kind === 'archer', [qx, qy] = rng ? [tg.x, tg.y] : [h.x + (tg.x - h.x) * 0.4, h.y + (tg.y - h.y) * 0.4];
+      if ((rng ? td < D.TRAP.far && !D.BOSSES[tg.type] : td < SHOOT.near + 20) && !(R.htraps || []).some((q) => Math.hypot(q.x - qx, q.y - qy) < 60)) { inp.slot = slot('trap'); Object.assign(inp, toPx(R, qx, qy - 30)); } }
+    if (ready('leap') && td < 70 && !E.ghost) inp.slot = slot('leap');
+    // the warrior (TASKS 1135): the charge onto a target 90–200 px off in a clear line; the war cry on two or more close by, or an
+    // elite or a boss
+    if (ready('charge') && td > 90 && td < 200 && !E.ghost && !E.deep && SIM.losClear(R.map, h.x, h.y, tg.x, tg.y)) inp.slot = slot('charge');
+    if (ready('cry') && (live.filter((e) => dist(e) < D.CRY.r).length >= 2 || ((tg.elite || D.BOSSES[tg.type]) && td < D.CRY.r))) inp.slot = slot('cry');
+    if (slot('whirl') && h.ab.whirl && h.cd.whirl <= S.t && (tip || live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= (learned ? Math.min(P.whirl, D.TIPS.whirl.n) : P.whirl))) inp.slot = 1;
+    if (slot('shield') && P.shield && h.ab.shield && h.cd.shield <= S.t && h.mp >= D.ABILITIES.find((a) => a.id === 'shield').mp && h.hp < st.maxHp * P.shield) inp.slot = slot('shield');
+    if (P.mp && Cl.res !== 'rage' && h.mp < 12 && td < 330 && held(h, 'mp_potion')) inp.keys.push('KeyR');
   }
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
   function trade(S, R, h) {
@@ -340,7 +383,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const i = h.bag.findIndex(gear); if (i >= 0) { cur.sold++; return at('sell:' + i); }
     const room = h.bag.includes(null), buy = (g) => { cur.spent += g.price; return at('buy:' + R.shop.goods.indexOf(g)); };
     const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && wearable(h, g.it) && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
-    for (const [b, want] of [['hp_potion', 6], ['mp_potion', P.caster ? 6 : 3]].concat(R.viaTown ? [['scroll', P.scrolls]] : [])) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
+    for (const [b, want] of [['hp_potion', 6], ['mp_potion', D.clsOf(h).res === 'rage' ? 0 : P.caster ? 6 : 3]].concat(R.viaTown ? [['scroll', P.scrolls]] : [])) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
       if (g && held(h, b) < want && g.price <= h.gold && (room || h.bag.some((it) => it && it.b === b && it.n < D.CONSUMABLES[b].stack))) return buy(g); }
     R.shopped = R.floor; return { keys: ['Escape'] };
   }
@@ -376,7 +419,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   for (let i = initial ? initial.i : 0; i < 120 * 60 * 60 * runs * hours && out.length < runs; i++) {
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
-      if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta().find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
+      if (S.screen === 'classes') { SIM.step(S, click(D.UI.classes().find((q) => q.id === 'go'))); continue; }
+      if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta(S.meta.cls).find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
       // the upgrades are bought at the Altar of Souls in the town (TASKS 1026); a test run without the town still buys them from the menu's screen
       if (S.screen === 'menu') { if (metaNext(S) && mode !== 'campaign' && mode !== 'town') { S.screen = 'meta'; S.metaRun = 0; } else startRun(S, mode); continue; }
       SIM.step(S, { keys: ['Escape'] }); continue;
@@ -401,14 +445,20 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.kills !== kills0) { kills0 = R.kills; progT = S.t; }
     for (const e of R.en) if (e.deadT < 0 && e.hp < (low.get(e.id) ?? e.max)) { low.set(e.id, e.hp); progT = S.t; }
     // the town has a clock of its own (a visit takes 20–40 s): the floor's STUCK and the idle watch wait for the way back (PR #21 review)
-    const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
+    // (a boss still losing health is no stuck bot, TASKS 1140: a shooter's colossus outlasted the floor's clock with 8 % of its health left;
+    // nor is the walk out after the kill, the clock ran out the moment the serpent fell)
+    const arenaB = R.arena && R.arena.active && R.en.find((e) => e.deadT < 0 && D.BOSSES[e.type]); if (arenaB && arenaB.hp < bossHp) { bossHp = arenaB.hp; bossProg = S.t; } if (!arenaB) { if (bossHp !== Infinity) bossProg = S.t + 90; bossHp = Infinity; }
+    const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK && S.t - bossProg >= 30 ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
     if (why) { stuck = { how: 'stuck', why, floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
     // the points a run starts with are laid out on the hero screen, where each point of VIT or INT comes with its health or mana
-    if (R.floor === 1 && S.t - tF < 1 && h.pts > 0) { while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; } const s0 = SIM.stats(h, S.meta); h.hp = s0.maxHp; h.mp = s0.maxMp; }
-    while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
-    if (P.skills) { const a = P.skills.map((id) => D.ABILITIES.find((q) => q.id === id)).find((q) => h.lvl >= q.unlock && (h.ab[q.id] || 0) < D.AB_MAX);
+    // a profile's plan names STR for the class's main stat (TASKS 1140, critic archer_warrior_game_r1): the archer's AGI, the mage's INT,
+    // the warrior's own STR — the same plan for all three, or an archer put a third of his points into a stat that does nothing for him
+    const statK = (k) => (k === 'str' ? MAIN[D.clsOf(h).id] || 'str' : k);
+    if (R.floor === 1 && S.t - tF < 1 && h.pts > 0) { while (h.pts > 0) { const k = statK(P.stats[h.pts % P.stats.length]); h.base[k]++; h.pts--; } const s0 = SIM.stats(h, S.meta); h.hp = s0.maxHp; h.mp = s0.maxMp; }
+    while (h.pts > 0) { const k = statK(P.stats[h.pts % P.stats.length]); h.base[k]++; h.pts--; }
+    if (P.skills) { const a = P.skills.map((id) => D.clsOf(h).abs.find((q) => q.id === id)).filter(Boolean).find((q) => h.lvl >= q.unlock && (h.ab[q.id] || 0) < D.AB_MAX);
       if (a && h.sp > 0) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; } }
-    else for (const a of D.ABILITIES) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
+    else for (const a of D.clsOf(h).abs) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
     // the gear is weighed again only when the bag, the worn set, the level or a rank changed
     const gk = h.bag.map((it) => it ? it.id : 0).join() + '|' + D.SLOTS.map((k) => h.eq[k] ? h.eq[k].id : 0).join() + '|' + h.lvl + '|' + h.ab.fireball + '|' + R.floor;
     if (gk !== gearKey) { gearKey = gk; h.bag.forEach((it, j) => { if (!gear(it) || !wearable(h, it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (worth(S, h, P, it) > worth(S, h, P, c, sl) + 1e-6) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } }); }
@@ -416,7 +466,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (h.gold < g) for (const it of h.bag) if (it && it.b && !had.has(it.id)) it.bought = 1; continue; }
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
     if (S.screen === 'talk') { SIM.step(S, talkStep(S, R)); continue; }
-    if (S.screen === 'meta') { const M = metaNext(S); SIM.step(S, click(D.UI.meta().find((q) => q.id === (M ? M.id : 'back')))); continue; }
+    if (S.screen === 'meta') { const M = metaNext(S); SIM.step(S, click(D.UI.meta(S.meta.cls).find((q) => q.id === (M ? M.id : 'back')))); continue; }
     if (S.screen === 'gate') { const o = SIM.gateWays(R), i = o.findIndex((q) => q.k === 'portal'); SIM.step(S, i >= 0 ? click(D.UI.gate(o.length).r[i]) : { keys: ['Escape'] }); continue; }
     if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
@@ -478,9 +528,14 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (SIM.doorNear(R, 60) && !SIM.doorLock(m, SIM.doorNear(R, 60))) inp.keys.push('KeyE');
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
     if (Math.hypot(h.x - lx, h.y - ly) > 20) { lx = h.x; ly = h.y; lt = S.t; }
+    // (a shooter whose shots land is not stuck, TASKS 1157: this turned his aim off the target after a second, 80 % of the arrows at the serpent)
+    if (shotOk === S.t) lt = S.t;
     if (S.t - lt > 1) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); inp.press = 1;
       // in a fight the aim stays on the foe: held a pixel outside the bot's own margin of its reach, it swung the other way for good (TASKS 1153)
-      if (!(goal && goal[0] === 'fight')) Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
+      // (but a pot in the way is struck even so, TASKS 1140: a shooter's aim stayed on the foe round the corner, its sweep missed the pot in the passage, 7 of 11 stuck runs)
+      const pot = (dx || dy) && R.pots.find((q) => q.hp > 0 && Math.hypot(q.x - h.x, q.y - h.y) < 60 && (q.x - h.x) * dx + (q.y - h.y) * dy > 0);
+      if (pot) Object.assign(inp, toPx(R, pot.x, pot.y - SIM.RIG.shoulder + 8));
+      else if (!(goal && goal[0] === 'fight')) Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
       // still held after 3 s: a dash; walking into something, also a step each time in the next of the four ways, for a way the
       // cells do not show (a gap between the merchant's counter and his barrel led behind the counter, where the only way out the
       // field knows runs through it, seed 36). Not in a fight, where the hero stands and swings
