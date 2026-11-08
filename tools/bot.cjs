@@ -82,7 +82,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
-  let thinGo = null; const THN = new WeakMap(), pushed = new Map();
+  let thinGo = null; const THN = new WeakMap(), pushed = new Map(), crusted = new Map();
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
@@ -226,7 +226,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   }
   // a terrace's lavafall surge (TASKS 475, 414): its band is no ring, the rings above miss it. Out of the band once its warning shows,
   // to the nearest floor out of it; no step into it with the flood due within SURGE_GO s (a band two to four cells across)
-  const SURGE_GO = 1.4, BOSS_HP = 0.15;
+  const SURGE_GO = 1.4, BOSS_HP = 0.08;
   function avoidSurge(S, R, h, inp) {
     for (const z of R.map.hazards || []) { if (z.k !== 'surge') continue; const soon = hazSoon(S.t, z), H = D.HAZ.surge;
       if (D.hazIn(z, h.x, h.y) && soon < H.warn + 0.2) { const m = R.map, tx = Math.floor(h.x / T), ty = Math.floor(h.y / T); let best = null;
@@ -319,7 +319,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       else { const m = R.map, k = cellK(m, h.x, h.y), lone = !live.some((o) => o !== tg && dist(o) < 90);
         // (TASKS 414) a foe at the edge from its far side, a blow from the floor and not the bank's crust
         const bs = P.haz && lone && (pushed.get(tg.id) || 0) <= FLANK ? brinkSpot(R, tg, st) : null; if (bs) pushed.set(tg.id, (pushed.get(tg.id) || 0) + SIM.DT);
-        const oc = P.haz && SIM.crustAt(m, k) && !(m.thin || []).includes(k) ? offCrust(R, tg, st) : null;
+        // (held at most FLANK s a foe too, TASKS 416: a spot it never got to kept the bot walking at it until the floor's 400 s ran out)
+        const oc = P.haz && SIM.crustAt(m, k) && !(m.thin || []).includes(k) && (crusted.get(tg.id) || 0) <= FLANK ? offCrust(R, tg, st) : null; if (oc) crusted.set(tg.id, (crusted.get(tg.id) || 0) + SIM.DT);
         if (bs && Math.hypot(bs.x - h.x, bs.y - h.y) > 14) walk(R, inp, bs.x, bs.y); else if (oc && Math.hypot(oc.x - h.x, oc.y - h.y) > 10) walk(R, inp, oc.x, oc.y); else inp.press = 1; } }
     if (h.ab.fireball && !armFront(tg) && td > (P.caster ? 0 : 140) && td < (P.caster ? 380 : 330) && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)
       && (!P.caster || SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10))) inp.slot = 2;
@@ -378,7 +379,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.town && !inTown) { inTown = 1; townT = S.t; declined.clear(); R.shopped = -1; if (f0) cur.town.visits++; }
     else if (!R.town && inTown) { inTown = 0; if (f0 && R.floor === f0) { const d = S.t - townT; tF += d; progT += d; } }
     if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h)); else cur.meta = Object.assign({}, S.meta.up);
-      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); pushed.clear(); thinGo = null; seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
+      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); pushed.clear(); crusted.clear(); thinGo = null; seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT, kills0, learned, gearKey, unstick, homeF, readWant, inTown, townT] });
     }
