@@ -6,7 +6,7 @@
     wayRooms } = DGX;
   DGX.terrain = (GF) => {
     const {
-      AR, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
+      AR, FM, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
       figHit, floor, ftype, keep, lakeEnds, last, lastTry, lc, main, opts, pick, pl, plat, ri, riverY, rooms, runFloor, seed, set, side,
       strict, terr, tidy } = GF;
     // ---- roles: start at a leaf on the rim, exit farthest by hops then distance ----
@@ -846,7 +846,7 @@
       for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
       let n = 0;
       for (const r of candidates.concat(rooms.filter((q) => q.type === 'combat' && plain(q) && !candidates.includes(q) && !secrets.some((s) => s.front.some(([x, y]) => roomOf(x, y) === q))))) {
-        if (n >= 2) continue;
+        if (n >= 2 * (FM.water || 1)) continue;
         const w = wi(1, 3), xs = [];
         for (let x = r.x + 2; x + w <= r.x + r.w - 2; x++) if (Array.from({ length: w + 2 }, (_, i) => x + i - 1).every((cx) => at(cx, r.y - 1) === 0 && !isDoor(cx, r.y) && !secretFront.has(r.y * W + cx))) xs.push(x);
         if (!xs.length) continue;

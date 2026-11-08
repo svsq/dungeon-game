@@ -273,13 +273,16 @@
         R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); h.x = (best.x + 0.5) * TILE; h.y = (best.y + 4) * TILE;
         R.cam = [(best.x + 0.5) * TILE - SCX.VW / 2, (best.y + 0.5) * TILE - SCX.VH / 2]; })]); }
     // the fire depths' streams (TASKS 186): a lava hall with the hero on its island, and a river with the hero on its causeway
-    for (const kind of ['hall', 'river']) { let got = null;
+    // (lava_foe_*, TASKS 510: a monster on the lava and one before it, whom the lava's glow must not show through)
+    for (const [kind, foe] of [['hall'], ['river'], ['hall', 1]]) { let got = null;
       for (const seed of [1, 2, 3, 1234]) { if (got) break; const S = play(); S.run = SIM.newRun(S, 'campaign', seed); for (const f of [5, 6]) { SIM.enterFloor(S, S.run, f);
         const q = (S.run.map.streams || []).filter((o) => o.kind === kind).sort((a, b) => b.n - a.n)[0]; if (q) { got = { seed, f, room: q.room }; break; } } }
-      if (got) states.push(['lava_' + kind, play((S) => { S.run = SIM.newRun(S, 'campaign', got.seed); const R = S.run; SIM.enterFloor(S, R, got.f); const m = R.map, h = R.hero, r = m.rooms[got.room];
-        R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      if (got) states.push([(foe ? 'lava_foe_' : 'lava_') + kind, play((S) => { S.run = SIM.newRun(S, 'campaign', got.seed); const R = S.run; SIM.enterFloor(S, R, got.f); const m = R.map, h = R.hero, r = m.rooms[got.room];
+        const foes = R.en.filter((e) => !D.BOSSES[e.type]).slice(0, 2); R.en = foe ? foes : []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
         let at = null; for (let d = 0; d < 8 && !at; d++) for (let j = -d; j <= d && !at; j++) for (let i = -d; i <= d && !at; i++) if (SIM.cell(m, r.cx + i, r.cy + j) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => SIM.cell(m, r.cx + i + a, r.cy + j + b) === 3)) at = [r.cx + i, r.cy + j];
-        at = at || [r.cx, r.cy]; h.x = (at[0] + 0.5) * TILE; h.y = (at[1] + 0.6) * TILE; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]); }
+        at = at || [r.cx, r.cy]; h.x = (at[0] + 0.5) * TILE; h.y = (at[1] + 0.6) * TILE; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2];
+        if (foe && foes.length === 2) { let L = null; for (let d = 0; d < 12 && !L; d++) for (let j = -d; j <= d && !L; j++) for (let i = -d; i <= d && !L; i++) if (SIM.cell(m, r.cx + i, r.cy + j) === 3 && SIM.cell(m, r.cx + i, r.cy + j - 1) === 3 && SIM.cell(m, r.cx + i, r.cy + j + 1) === 1) L = [r.cx + i, r.cy + j];
+          if (L) { foes.forEach((e, k) => { e.st = 'idle'; e.elite = 1; e.x = e.hx = (L[0] + 0.5 + k * 2.5) * TILE; e.y = e.hy = (L[1] + (k ? 1.1 : 0.2)) * TILE; }); h.x = (L[0] + 5) * TILE; h.y = (L[1] + 3) * TILE; R.cam = [foes[0].x - SCX.VW / 2, foes[0].y - SCX.VH / 2]; } } })]); }
     for (const floor of [1, 3, 7]) for (const kind of ['fountain', 'stream']) {
       for (const seed of [1, 2, 3, 1234]) {
         const S = play(); S.run = SIM.newRun(S, 'campaign', seed); const R = S.run; SIM.enterFloor(S, R, floor);
@@ -1259,6 +1262,7 @@
     const climbS = (f, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; for (let k = 1; k <= f; k++) SIM.enterFloor(S, S.run, k);
       const R = S.run, h = R.hero; R.msg = null; S.ev = []; for (const e of R.en) if (Math.hypot(e.x - R.map.spawn.x, e.y - R.map.spawn.y) < 400) e.x += 3000; fn(S, R, R.map, h); R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; });
     states.push(['climb_up_prompt', climbS(2, (S, R, m, h) => { h.x = m.up.x; h.y = m.up.y + 30; })]);
+    states.push(['climb_up_wall', climbS(2, (S, R, m, h) => { h.x = m.up.x + 110; h.y = m.up.y + 120; })]);   // TASKS 511: the opening seen whole
     states.push(['climb_town_prompt', climbS(1, (S, R, m, h) => { h.x = m.up.x + 20; h.y = m.up.y + 34; })]);
     states.push(['scroll_read', climbS(1, (S, R, m, h) => { h.read = { t0: S.t - 1.1, i: 0 }; })]);
     states.push(['climb_arrived', climbS(2, (S, R, m, h) => { SIM.enterFloor(S, R, 1, undefined, 'up'); S.ev = []; R.msg = null; })]);

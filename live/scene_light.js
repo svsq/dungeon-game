@@ -14,7 +14,9 @@
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
     if (B.cave && !m.cliff) lt(h.x, h.y - 45, 75, [0.35, 0.6, 0.85], 0.18);
-    lt(h.x, h.y - 30, 250, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
+    // (a floor without light, TASKS 381, has the lamp reach `light` times as far)
+    const lk = (D.FLOOR_MODS[m.mod] || {}).light || 1;
+    lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
     for (const [id, [hd, hn]] of Object.entries(RIM.priests)) { lt(hd[0] + cx, hd[1] + cy, 120, [1, 0.5, 0.16], 0.55 + 0.1 * Math.sin(t * 9 + +id)); lt(hn[0] + cx, hn[1] + cy, 70, [1, 0.45, 0.12], 0.6); }
@@ -98,16 +100,17 @@
     // whoever stands before the lava keeps its glow and its shimmer off them (TASKS 407): the monsters' silhouettes in a mask both
     // leave out. Without it a demon by a river came out see-through, the lava's plates showing through its body
     G.bind(SCX.LT.occ, [0, 0, 0, 0]); G.blend();
-    if (m.cliff) { const J0 = L.joint; L.joint = () => {}; const SP0 = L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] };
-      try { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f }); for (const [x, y, w, hh] of OCC_SOLIDS) L.solid(x, y, w, hh, [0, 0, 0]);
-        L.sp.ink = [1, 1, 1];
+    // (the fire depths' lava too, TASKS 510: their actors go in black, alpha only, as the lit pass's colour channels are the magma's)
+    if (m.cliff || m.lava) { const J0 = L.joint; L.joint = () => {}; const SP0 = L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] }, ink = (c) => (m.cliff ? c : [0, 0, 0]);
+      try { if (m.cliff) { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f }); for (const [x, y, w, hh] of OCC_SOLIDS) L.solid(x, y, w, hh, [0, 0, 0]); }
+        L.sp.ink = ink([1, 1, 1]);
         for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
           const sub = E.lake ? submerged(e, E, GT) : 0, U = sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {};
-          L.sp = SP0; SP0.ink = [1, HERO.lavaNear(e.x, e.y), 1];   // (green: how near the lava it stands, by its feet: TASKS 1035; a rig's own draw may clear L.sp)
+          L.sp = SP0; SP0.ink = ink([1, HERO.lavaNear(e.x, e.y), 1]);   // (green: how near the lava it stands, by its feet: TASKS 1035; a rig's own draw may clear L.sp)
           MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
         // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
-        L.sp = SP0; SP0.ink = [1, HERO.lavaNear(h.x, h.y), 0];   // (blue: a monster, not the hero, TASKS 1055)
+        L.sp = SP0; SP0.ink = ink([1, HERO.lavaNear(h.x, h.y), 0]);   // (blue: a monster, not the hero, TASKS 1055)
         // (not while he is under the lava: his raised blade left a pale patch over it in the mask, TASKS 1058)
         if (!SC.hide.hero && h.deadT < 0 && h.fallT === undefined && !h.sunk && vis(h.x, h.y)) drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { id: 'occ', cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }); }
       finally { L.sp = null; L.joint = J0; } }

@@ -145,7 +145,7 @@
     // end, fin: the run's last floor (past any other boss an altar and the stairs wait)
     // (opts.stage: a staged view's own size and room count over its stage's, the QA match, TASKS 373)
     const ST = Object.assign({}, D.stageOf(opts.mode, runFloor, opts.runSeed, opts.from), opts.stage), N = ST.N, floor = ST.lf, depth = ST.depth, last = ST.last, fin = ST.fin;
-    const biome = ST.biome, bossType = ST.boss, boss = !!bossType;
+    const biome = ST.biome, bossType = ST.boss, boss = !!bossType, FM = (ST.mod && D.FLOOR_MODS[ST.mod]) || {};
     // the cave archetype (R-18, TASKS 301): the same rooms and links, but a room is a blob of floor inside its box round a core
     // where the start's fire or the stairs stand, a link is a winding tunnel 2–4 cells wide, and small dead-end pockets hang off
     // the rooms for a chest or an ambush; the map grows floor by floor and has no straight stretch of wall longer than four cells
@@ -157,13 +157,17 @@
     GF.moat = null;
     const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2 && !(GF.moat && v === 1 && GF.moat(x, y))) cells[y * W + x] = v; };
     Object.assign(GF, {
-      AR, H, R, ST, W, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
+      AR, FM, H, R, ST, W, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
       runFloor, seed, set, strict });
     if (DGX.rooms(GF) === null) return null;
     if (DGX.links(GF) === null) return null;
     if (DGX.terrain(GF) === null) return null;
-    return DGX.fill(GF);
+    const m = DGX.fill(GF);
+    // a modifier only raises a cap or a chance, so a floor may have no room for it; the banner must never name one the floor lacks
+    if (m && m.mod && MOD_HELD[m.mod] && !MOD_HELD[m.mod](m)) { if (strict) return null; m.mod = null; }
+    return m;
   }
+  const MOD_HELD = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
 
   // a magma floor's rewards (TASKS 433): its chests (a cache's own counted as the cache, on the plateau it is dug from), altars and
   // elites (not the stairs' own), each with its room; the rooms on the way from the start to the stairs, the dead ends off it, and

@@ -8,7 +8,7 @@
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
     hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
     campaignDone, exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
-    openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rollAffixes, rollItem, runCompletion,
+    openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rnd, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
@@ -2130,7 +2130,50 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...floorModCheck());
+    return out;
+  }
+  // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
+  // 2nd that are no boss's, about half of them, each of the five, no flood on the fire floors; each one does what it says over the
+  // same floor laid without it; the banner names it; gold and a hoard's ambush answer it in the sim
+  function floorModCheck() {
+    const out = [], ids = Object.keys(D.FLOOR_MODS), got = {}; let on = 0, may = 0;
+    for (let sd = 1; sd <= 200; sd++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const st = D.stageOf('campaign', f, sd);
+      if (st.mod !== D.stageOf('campaign', f, sd).mod) out.push(`floor mod: campaign ${sd}/${f} draws another modifier the second time`);
+      const can = f >= D.FLOOR_MOD.from && !st.boss && !st.arch && f <= D.RUNS.campaign.chapter;
+      if (st.mod && !can) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a floor that takes none`);
+      if (st.mod && (D.FLOOR_MODS[st.mod].not || []).includes(st.biome)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» in ${st.biome}`);
+      if (st.mod && (D.FLOOR_MODS[st.mod].notLay || []).includes(st.lay)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a ${st.lay} floor`);
+      if (can) { may++; if (st.mod) { on++; got[st.mod] = 1; } } }
+    if (on < may * 0.4 || on > may * 0.6) out.push(`floor mod: ${on} of ${may} campaign floors drew one, not about half`);
+    for (const k of ids) if (!got[k]) out.push(`floor mod: «${k}» never drawn on 200 campaign runs`);
+    for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 24; f++) { const st = D.stageOf('endless', f, sd); if (st.mod && (st.boss || st.arch || f < D.FLOOR_MOD.from)) out.push(`floor mod: descent ${sd}/${f} has «${st.mod}» on a boss's, cave's or early floor`); }
+    // the banner never names a modifier its floor lacks (PR 30: campaign 24/3 drew «flood» and laid no stream), and few floors lose theirs
+    const held = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
+    { let drew = 0, lost = 0; for (let sd = 1; sd <= 60; sd++) for (const f of [3, 5, 7]) { const st = D.stageOf('campaign', f, sd); if (!st.mod) continue;
+        const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }); drew++; if (!m.mod) { lost++; continue; }
+        if (m.mod !== st.mod || (held[m.mod] && !held[m.mod](m))) out.push(`floor mod: campaign ${sd}/${f} names «${m.mod}» and does not have it`); }
+      if (lost > drew * 0.05) out.push(`floor mod: ${lost} of ${drew} campaign floors laid without their modifier`); }
+    const gen = (sd, f, mod) => DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, stage: { mod } });
+    const sum = (mod, fn) => { let n = 0; for (let sd = 1; sd <= 6; sd++) for (const f of [3, 7]) n += fn(gen(sd, f, mod), sd, f); return n; };
+    const walls = (m) => m.torches.filter((t) => t.kind === 'wall').length, rows = (m) => new Set(m.traps.filter((t) => t.run !== undefined).map((t) => t.run)).size;
+    const elites = (m) => m.enemies.filter((e) => e.elite).length;
+    if (sum('flood', (m) => m.waterFeatures.length) < 1.5 * sum(undefined, (m) => m.waterFeatures.length)) out.push('floor mod: a flooded floor has not half as many streams again');
+    { const d = sum('dark', walls), b = sum(undefined, walls); if (d < 0.25 * b || d > 0.55 * b) out.push(`floor mod: a dark floor keeps ${d} of ${b} wall torches, not about 40 %`); }
+    sum('lair', (m, sd, f) => { const b = gen(sd, f, undefined); if (elites(m) !== elites(b) + D.FLOOR_MODS.lair.elites) out.push(`floor mod: lair ${sd}/${f} has ${elites(m)} elites over ${elites(b)}`);
+      if (!m.chests.some((c) => c.lair && c.tier === D.FLOOR_MODS.lair.chest)) out.push(`floor mod: lair ${sd}/${f} has no chest of the top tier`); return 0; });
+    if (sum('cursed', rows) < 2 * Math.max(1, sum(undefined, rows))) out.push('floor mod: a cursed floor has not the plate rows of all its long corridors');
+    if (sum('quiet', (m) => m.enemies.length) > 0.8 * sum(undefined, (m) => m.enemies.length)) out.push('floor mod: a quiet floor holds not about 30 % fewer monsters');
+    { const m = gen(1, 3, 'quiet'); if (m.mod !== 'quiet' || !D.placeName(3, 'campaign', 1, 1, m).includes(D.FLOOR_MODS.quiet.name)) out.push('floor mod: the banner does not name the modifier'); }
+    // gold picked up, and a hoard's chest springing its ambush on a draw between its plain chance and the doubled one
+    const run = (mod) => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77); S.screen = 'play'; const R = S.run; for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; } R.map.mod = mod; return [S, R]; };
+    for (const mod of [undefined, 'cursed']) { const [S, R] = run(mod), h = R.hero, g0 = h.gold, want = Math.round(100 * heroSt(S).gold * ((D.FLOOR_MODS[mod] || {}).gold || 1));
+      R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 100, id: R.nextId++ }); for (let i = 0; i < 5; i++) step(S, { keys: [] });
+      if (h.gold - g0 !== want) out.push(`floor mod: gold picked up on a ${mod || 'plain'} floor is ${h.gold - g0}, not ${want}`); }
+    for (const mod of [undefined, 'quiet']) { const [S, R] = run(mod), h = R.hero, room = DG.roomAt(R.map, h.x, h.y), was = R.map.rooms[room].type;
+      let rs = 1; for (; rs < 1e6; rs++) { const v = rnd({ rs }); if (v > 0.06 && v < 0.09) break; }
+      R.map.rooms[room].type = 'treasure'; R.rs = rs; S.ev = []; openChest(S, R, { x: h.x, y: h.y, tier: 1, open: 0, loot: [] }); R.map.rooms[room].type = was;
+      if (S.ev.some((e) => e.k === 'ambush') !== !!mod) out.push(`floor mod: a hoard's chest on a ${mod || 'plain'} floor ${mod ? 'does not spring' : 'springs'} an ambush on a draw of 0.06–0.09`); }
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -2181,8 +2224,16 @@
   // reading off and keeps the scroll; it is not read in the town; the save stays small and a saved run comes back on a kept floor
   function climbCheck() {
     const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    // the steps are where a hero coming down arrives: on floor reached from the start with the caches and locked doors shut (PR 30: seed 1's 7th put them in a cache)
+    for (const sd of [1, 4, 5, 7, 17, 32, 39]) for (let f = 1; f <= 16; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 }); if (!m.up) continue;
+      const W = m.W, shut = new Set(m.doors.filter((d) => d.lock >= 0).flatMap((d) => d.cells.map(([x, y]) => y * W + x))), r = m.rooms[m.start], open = new Uint8Array(W * m.H), go = [r.cy * W + r.cx]; open[go[0]] = 1;
+      while (go.length) { const k = go.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!open[n] && (m.cells[n] === 1 || m.cells[n] === 5) && !shut.has(n)) { open[n] = 1; go.push(n); } } }
+      if (!open[(m.up.ty + (m.up.free ? 0 : 1)) * W + m.up.tx]) out.push(`climb ${sd}/${f}: the stairs up are cut off from the start`); }
     for (const sd of [5, 17]) for (let f = 1; f <= 12; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 });
-      if (!m.up) { out.push(`climb ${sd}/${f}: no stairs up`); continue; } const k = m.up.ty * m.W + m.up.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
+      if (!m.up) { out.push(`climb ${sd}/${f}: no stairs up`); continue; } const k = (m.up.ty + (m.up.free ? 0 : 1)) * m.W + m.up.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
+      if (!m.up.free && [-1, 0, 1].some((i) => m.cells[m.up.ty * m.W + m.up.tx + i] !== 0)) out.push(`climb ${sd}/${f}: the stairs up are not in solid wall`);
+      if (!m.up.free && (m.doors || []).some((d) => d.cells.some(([x, y]) => Math.abs(x - m.up.tx) < 3 && Math.abs(y - m.up.ty) < 3))) out.push(`climb ${sd}/${f}: a door beside the stairs up`);
+      if (!m.up.free && f <= 8 && m.up.ty + 1 !== m.rooms[m.start].y && !m.rooms[m.start].wings) out.push(`climb ${sd}/${f}: the stairs up are not in the start room's top wall`);
       if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`climb ${sd}/${f}: the stairs up are off the floor or far from the spawn`);
       if (m.chests.some((c) => Math.hypot(c.x - m.up.x, c.y - m.up.y - 30) < 60)) out.push(`climb ${sd}/${f}: a chest by the stairs up takes the hero's E`);
       if (f === 3 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }).up) out.push('climb: stairs up in a run not through the town'); }
@@ -2191,6 +2242,7 @@
     for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
     const e0 = R.en[0]; e0.hp = 0; e0.deadT = S.t; const c0 = R.chests[0]; c0.open = 1; R.seen[7] = 1; R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 77, id: R.nextId++ });
     at(R.map.exit); E(S); if (R.floor !== 2) { out.push('climb: no way down from the 1st'); return out; }
+    if (Math.hypot(h.x - R.map.up.x, h.y - R.map.up.y) > 90) out.push('climb: down the stairs, the hero is not at the stairs up');
     at(R.map.up, 30); E(S); if (R.floor !== 1) { out.push('climb: the stairs up do not lead to the floor above'); return out; }
     if (Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: back up, the hero is not at the foot of the stairs down');
     const e1 = R.en.find((q) => q.id === e0.id), c1 = R.chests.find((q) => q.x === c0.x && q.y === c0.y);
