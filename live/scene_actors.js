@@ -233,6 +233,8 @@
       L.star(x - Math.cos(fa) * d - Math.sin(fa) * side * w, y + (-Math.sin(fa) * d + Math.cos(fa) * side * w) * 0.8, 4 + 3 * (1 - q), [1, 0.65, 0.25], 0.6 * sw * (1 - q) * SS(8, 40, sp)); } }
   // the frame's lava mask and the map's box in target px, for a sunk salamander's clip (TASKS 460)
   let LAVA_CLIP = null;
+  // (the mask's edge grows over the bank as it climbs out, TASKS 1171: fading the clip off dropped the whole body on the bank in a frame)
+  const swimClip = (sw) => Object.assign({ clipk: SS(0, 0.03, sw), clipr: 96 * Math.max(0, 1 - 2 * (0.5 - Math.sin(Math.asin(1 - 2 * sw) / 3))) }, LAVA_CLIP);
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
     const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3, hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
@@ -313,7 +315,7 @@
       // (a salamander sunk in the lava shows only over the open lava, TASKS 460: not over a slab or the bank by it)
       // (the clip on or off within a few frames, TASKS 1054: eased over the whole swim, half way the body lay over the bank as a grey
       // see-through shape; and its glow is clipped as its body is, else it lit the bank in a flat pale fill)
-      let clip = null; if (sw > 0 && e.type === 'salamander' && LAVA_CLIP) { clip = Object.assign({ clipk: SS(0.05, 0.2, sw) }, LAVA_CLIP); Object.assign(Ur, clip); Object.assign(Uf, clip); }
+      let clip = null; if (sw > 0 && e.type === 'salamander' && LAVA_CLIP) { clip = swimClip(sw); Object.assign(Ur, clip); Object.assign(Uf, clip); }
       const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
       const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub, swim: sw });
         if (r && r.head && E.lake) RIM.heads[e.id] = P(r.head);
@@ -414,7 +416,7 @@
   const knockOf = (e, T) => { const a = T - e.t; if (a < 0 || a >= 1.5 || !KNOCK[e.mat]) return null; const j = KNOCK[e.mat](a, e.s); j.fl = 0.6 * (1 - SS(0.03, 0.12, a)); return j; };
 
   Object.assign(SCX, {
-    modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
+    modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
     PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

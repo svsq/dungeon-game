@@ -103,7 +103,7 @@
         L.sp.ink = [1, 1, 1];
         for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
-          const sub = E.lake ? submerged(e, E, GT) : 0, sw0 = swimOf(e, GT), U = Object.assign(sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {}, sw0 > 0 && e.type === 'salamander' && SCX.LAVA_CLIP ? { clipk: SS(0.05, 0.2, sw0), ...SCX.LAVA_CLIP } : {});   // (clipped as its body is, TASKS 1156: unclipped here it bleached the bank in a grey veil)
+          const sub = E.lake ? submerged(e, E, GT) : 0, sw0 = swimOf(e, GT), U = Object.assign(sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {}, sw0 > 0 && e.type === 'salamander' && SCX.LAVA_CLIP ? SCX.swimClip(sw0) : {});   // (clipped as its body is, TASKS 1156: unclipped here it bleached the bank in a grey veil)
           L.sp = SP0; SP0.ink = [1, HERO.lavaNear(e.x, e.y), 1];   // (green: how near the lava it stands, by its feet: TASKS 1035; a rig's own draw may clear L.sp)
           MONSTERS.draw(e, E, sx(e.x), sy(e.y) + sub * h0 * k * 1.02, GT, { id: 'occ', H: h0 * k, face: e.face, lean: 0, fallR: 0, U, Ufar: U, t, swim: swimOf(e, GT) }); }
         // (the hero too: before the lava he took its whole glow and came out one orange figure, TASKS 450)
