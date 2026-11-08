@@ -567,7 +567,7 @@
       const goldAt = (r, c, k) => { for (const p of near(r, c, (x, y) => canStand(x, y, 'goldpile')).slice(0, 8)) { if (k <= 0) break; if (!canStand(p[0], p[1], 'goldpile')) continue; claim(p[0], p[1], 'goldpile'); hardC.add(key(p[0], p[1])); pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); k--; } };
       const brazierAt = (r, c) => { const p = near(r, c, (x, y) => canStand(x, y, 'brazier'))[0]; if (p) { claim(p[0], p[1], 'brazier'); hardC.add(key(p[0], p[1])); torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); } };
       const hallProps = (r) => { const c = [r.cx, r.cy], back = (x, y) => at(x, y - 1) === 0 && at(x, y - 2) === 0;
-        if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id, ...(HL.kinds.sanctum.pay.bless ? { bless: 1 } : {}) }); chestAt(r, [c[0], c[1] + 3]);
+        if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id, ...(HL.kinds.sanctum.pay.bless ? { bless: 1 } : {}) }); chestAt(r, [c[0], c[1] + 4]);
           for (const [dx, dy] of [[-2, -1], [2, -1], [-2, 1], [2, 1]]) { const x = c[0] + dx, y = c[1] + dy; if (free(x, y) && !doorway(x, y)) { used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: 'candles' }); } }
           // (TASKS 1159: spikes in the circle cost 80 HP for its blessing)
           for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.hypot(i, j) <= 2.5) used.add(key(c[0] + i, c[1] + j));
@@ -589,6 +589,7 @@
           const fire = [start.cx, start.cy], ring = (n) => cellsOf(r, (x, y) => Math.hypot(x - fire[0], y - fire[1]) >= 2.5 && Math.hypot(x - fire[0], y - fire[1]) <= 5.5).find(([x, y]) => canStand(x, y, n));
           for (let i = 0; i < 2; i++) { const c = ring('banner_mg'); if (c) stand(...c, 'banner_mg', r.id); }
           stack(r, fire); if (Dr() < 0.5) { const c = ring('cage'); if (c) stand(...c, 'cage', r.id); } lie(r, 'skel_mg', Dr() < 0.5 ? 1 : 0, fire); lie(r, 'bones', dri(1, 2)); r.camp = 1;
+          for (let i = 0; i < 3; i++) { const c = ring('vent_mg'); if (c) { used.add(key(c[0], c[1])); decor.push({ x: wx(c[0]), y: wy(c[1]), n: 'vent_mg', r: r.id }); } }
           continue; }
         if (r === start) {
           // the explorer's camp: the tent backed against the rock a few steps from the fire, a pile of his barrels and crates, now and
@@ -791,6 +792,7 @@
       const floor = rooms.flatMap((r) => {
         const out = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) out.push([wx(x), wy(y)]); return out;
       });
+      for (let i = decor.length - 1; i >= 0; i--) if (/^(vent|torch_stand)/.test(decor[i].n) && decor[i].haz === undefined && circles.some((q) => Math.hypot(decor[i].x - q.x, decor[i].y - q.y) < 3.2 * TILE)) decor.splice(i, 1);
       const fixed = torches.map((t) => [t.x, t.y, LIGHT_R[t.kind]]).concat(decor.filter((d) => LIGHT_R[d.n] && !mushrooms.includes(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.map((q) => [q.x, q.y, LIGHT_R.shrine]));
       for (const d of mushrooms) {
         const near = floor.filter(([x, y]) => Math.hypot(x - d.x, (y - d.y) / 0.8) <= LIGHT_R[d.n] * TILE);
@@ -886,13 +888,13 @@
         for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!chain[n] && fig[n] && cells[n] === 1) { chain[n] = 1; q.push(n); } }
         way = pathBy(chain); }
       else { const B = crossings.find((c) => !c.alt && c.cells.includes(altB.of)), noAlt = new Uint8Array(W * H); for (const c of altC) for (const k of c.cells) noAlt[k] = 1;
-        if (B) { const on = new Set(pathBy(noAlt)); for (const k of B.cells) chain[k] = 1; way = pathBy(chain).filter((k) => !on.has(k)); } }   // (TASKS 1158: told apart by the shortest walk, at equal length the chest went on the main way)
+        if (B) { const viaMain = pathBy(noAlt); for (const k of B.cells) chain[k] = 1; const viaAlt = pathBy(chain); if (viaAlt.length) { const altLong = viaAlt.length >= viaMain.length, short = altLong ? viaMain : viaAlt, on = new Set(short); way = (altLong ? viaAlt : viaMain).filter((k) => !on.has(k)); for (const c of altC) for (const k of c.cells) chain[k] = 1; for (const k of short) for (const o of [0, ...N4]) chain[k + o] = 1; } } }   // (TASKS 1169: the chest goes on the branch a walker to the stairs would not take)
       const cand = way.slice(Math.floor(way.length * 0.3), Math.ceil(way.length * 0.7)).flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), ok = (k, pad) => cells[k] === 1 && !chain[k] && free(k % W, Math.floor(k / W), pad) && ![...decor, ...pots, ...torches].some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 64 || (Math.abs(Math.floor(d.y / TILE) - Math.floor(k / W)) <= 1 && Math.abs(d.x - wx(k % W)) < (D.PROP_W.chest + (D.PROP_W[d.n] || 0)) / 2 + 4)) && !traps.some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 110) && !chests.some((c) => Math.hypot(c.x - wx(k % W), c.y - wy(Math.floor(k / W))) < 96) && !doorway(k % W, Math.floor(k / W));
       const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
       const all = way.flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k)) ?? all.find((k) => ok(k, 0) && roomy8(k));   // (TASKS 1161: props in its middle third cost a lake its chest)
       if (mid !== undefined) { const x = mid % W, y = Math.floor(mid / W); claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
     const hazards = [];
-    if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y])];
+    if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y]), ...circles.map((q) => [q.x, q.y])];
       const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);
       const under = new Set(lavaUnder), inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
       const shuf = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Z() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };

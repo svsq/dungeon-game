@@ -150,7 +150,7 @@
           // (a white-hot crack across the boards under the middle of its shadow, TASKS 1050, 1058: red-orange it read as the target
           // ring's own ticks)
           const z0 = under(q);
-          if (along(z0, q) < HF.r * 0.5) (SC.crackFx ||= []).push({ X, Y: Y + j, rot, w, f: q.f, wx: hor ? q.a : B0 + BW / 2, wy: hor ? B0 + BW / 2 : q.a });   // (drawn in the emissive pass, TASKS 1162: the lit pass put it out on the dark boards)
+          if (along(z0, q) < HF.r * 0.5) (SC.crackFx ||= []).push({ X, Y: Y + j, rot, w, f: q.f, s: Math.imul(Math.round(q.a), 40503) >>> 4, d: along(z0, q) / (HF.r * 0.5), wx: hor ? q.a : B0 + BW / 2, wy: hor ? B0 + BW / 2 : q.a });   // (drawn in the emissive pass, TASKS 1162: the lit pass put it out on the dark boards)
           return; }
         if (st2 === 2) { if (along(under(q), q) < HF.r * 0.45) return;   // (the boards the rock went through are gone a moment, TASKS 1162)
           for (const sd of [-1, 1]) L.sprite(q.n, X + sd * q.l / 4 - q.l / 4, Y - 3, { w: q.l / 2 - 2, h: 10, rot: rot + sd * 0.35, pivot: [sd < 0 ? 0 : q.l / 2 - 2, 5], flip: q.f, u: { grade: [0.6, 0.45 * q.tone, 0, 1] } }); return; }
@@ -226,9 +226,9 @@
     const GATE = !m.town && R.arena && R.arena.gate;
     if (GATE && vis(GATE.x, GATE.y) && known(GATE.x, GATE.y)) { const w = 2.6 * TILE, [w0, h0] = SZ('disc_tw'), k = w / w0; L.puff(sx(GATE.x), sy(GATE.y) + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite('disc_tw', sx(GATE.x) - w / 2, sy(GATE.y) - h0 * k / 2, { w, h: h0 * k }); }
     // the stairs on past the serpent (TASKS 354), beside the portal: dark till it falls
-    if (m.down && vis(m.down.x, m.down.y)) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.down.x) - w / 2, sy(m.down.y) - hh / 2 - 4, { w, h: hh, u: R.bossDead ? undefined : { grade: [0.6, 0.55, 0, 1] } }); }
+    if (m.down && vis(m.down.x, m.down.y)) { const st = m.biome === 'magma' ? 'stairs_mg' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.down.x) - w / 2, sy(m.down.y) - hh / 2 - 4, { w, h: hh, u: R.bossDead ? undefined : { grade: [0.6, 0.55, 0, 1] } }); }
     // the town's crypt gate is a dark mouth between its braziers, not a lit frame (fidelity r2)
-    if (vis(m.exit.x, m.exit.y)) { if (SIM.Q.exitKind(R, m.floor) === 'stairs') { const st = m.town ? 'stairs_tw' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
+    if (vis(m.exit.x, m.exit.y)) { if (SIM.Q.exitKind(R, m.floor) === 'stairs') { const st = m.town ? 'stairs_tw' : m.biome === 'magma' ? 'stairs_mg' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
     // the start room's bonfire sits in a rune circle
     if (window.ASSETS.sanct_circle && !m.town && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
     // a magma hall's ritual circle (TASKS 434), the fire priests' as on ref_cave_lava
@@ -477,7 +477,7 @@
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
-    if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = u.free ? 'stairs_up_free' : 'stairs_up', [w, hh] = SZ(st); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
+    if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = (u.free ? 'stairs_up_free' : 'stairs_up') + (m.biome === 'magma' ? '_mg' : ''), [w, hh] = SZ(st); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
     // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
     if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
       const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);
@@ -503,7 +503,7 @@
         // shadow under it darkening as it comes
         L.shadow(sx(z.x), sy(z.y) + 2, H.r * (0.35 + 0.45 * p), H.r * H.ry * (0.35 + 0.45 * p), 0.5 + 0.4 * p);
         L.glow(sx(z.x), yy + rh * 0.8, rh * 0.7, [1, 0.5, 0.15], 0.3 + 0.3 * p, 2.4);
-        L.inked(() => L.sprite('boulder_mg_b', 0, 0, { m: M.of(M.t(sx(z.x), yy + rh / 2), M.r((1 - p) * 4 + z.x)), w: rw, h: rh, pivot: [rw / 2, rh / 2] }), { r: 2, n: 8, col: [0.02, 0.015, 0.02], dy: 0 }); }]); }
+        L.inked(() => L.sprite('boulder_mg_b', 0, 0, { m: M.of(M.t(sx(z.x), yy + rh / 2), M.r((1 - p) * 4 + z.x)), w: rw, h: rh, pivot: [rw / 2, rh / 2], u: { grade: [0.1, 0.8, 0, 1] } }), { r: 2, n: 8, col: [0.02, 0.015, 0.02], dy: 0 }); }]); }
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
     for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([e.y - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
     for (const p of R.drops) if (vis(p.x, p.y)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)

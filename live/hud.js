@@ -156,7 +156,7 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
+      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
         if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py))) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const b0 = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
@@ -279,8 +279,10 @@
     }
     // floor banner
     if (R.msg && S.screen === 'play') { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
+      if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; panel('msg_box', W / 2 - w / 2, 142, w, 104, { a: 0.9 * al, rim: C.rimHi }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
+      else {
       const size = Math.max(18, Math.floor(30 * Math.min(1, 1000 / lw('msg_m', s, { size: 30 })))), w = lw('msg', s, { size }) + 60;
-      panel('msg_box', W / 2 - w / 2, 150, w, 52, { a: 0.85 * al }); lab('msg', s, W / 2, 177, { size, al: 0.5, col: C.gold, a: al }); } }
+      panel('msg_box', W / 2 - w / 2, 150, w, 52, { a: 0.85 * al }); lab('msg', s, W / 2, 177, { size, al: 0.5, col: C.gold, a: al }); } } }
     // feed: pickups and refusals, newest at the bottom
     const feed = S.ev.filter((e) => (e.k === 'pickup' || e.k === 'nope' || e.k === 'lvl' || e.k === 'unlock' || e.k === 'trade') && S.t - e.t < 3).slice(-5);
     feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = H - 44 - (feed.length - 1 - i) * 34;
