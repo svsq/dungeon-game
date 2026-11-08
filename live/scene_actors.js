@@ -395,7 +395,7 @@
   // (and the boulders, and an iron rail's links and stakes as solids, TASKS 1052: brown and orange beside the grey basalt)
   const BAS_PROPS = new Set(['basalt_a', 'basalt_b', 'forge_mg', 'boulder_mg_a', 'boulder_mg_b']), PROP_BAS = [], OCC_SOLIDS = [];
   // how far the deck the hero walks sags under him this frame (TASKS 1042: his feet kept the ground's line while it bent 9 px)
-  const DECK = { dy: 0 }; SC.deckDy = () => DECK.dy;   // (read by tools/motioncheck.mjs bridgeStep)
+  const DECK = { dy: 0 }; SC.deckDy = () => DECK.dy; SC.deckTgt = () => DECK.tgt;   // (read by tools/motioncheck.mjs bridgeStep)
   function drawProp(n, x, y, o = {}) { const [w, h] = SZ(n), k = o.k || 1, j = o.j;
     if (BAS_PROPS.has(n) && !j) PROP_BAS.push([n, x - w * k / 2, y - h * k + (o.dy || 0), w * k, h * k, !!o.flip]);
     const draw = () => { if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: o.u }); return; }

@@ -89,7 +89,7 @@
     // cell, a little off the grid, a hot line where the lava licks their foot; an arch over a narrow river flowing toward the camera
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
-    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0;
+    const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
     const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       // (the hot line only where the lava itself lies under its foot, shorter and off its middle, TASKS 1039: under every row of a
@@ -121,7 +121,7 @@
       // (the sag on the grid and the step's jolt a whole 2 px apart from it, TASKS 1058: rounded together the jolt was lost)
       // (the jolt held two frames by the clock, TASKS 1162: as a share of the stride it lasted half a frame; and at most one 2 px step a frame, its end falling on a step of the sag made 4)
       const stride = hs * SIM.Q.stepLen(1) / Math.max(1, Math.hypot(R.hero.vx, R.hero.vy));
-      if (on) { const tgt = ev2((lift - z(ha) - onW * foot * Math.sin(Math.PI * Math.max(0, Math.min(1, (ha - A0) / len)))) * onW) + (onW > 0.5 && stride < 2.5 / 60 ? 2 : 0); DECK.dy = onW > 0.5 && GT - (DECK.at ?? -9) < 0.05 ? DECK.dy + Math.max(-2, Math.min(2, tgt - DECK.dy)) : tgt; DECK.at = GT; }
+      if (on) { const tgt = ev2((lift - z(ha) - onW * foot * Math.sin(Math.PI * Math.max(0, Math.min(1, (ha - A0) / len)))) * onW) + (onW > 0.5 && stride < 2.5 / 60 ? 2 : 0); const dt = GT - (DECK.at ?? -9), same = onW > 0.5 && dt >= 0 && dt < 0.05 && Math.hypot(R.hero.x - DECK.hx, R.hero.y - DECK.hy) < 24; DECK.dy = same ? DECK.last + Math.max(-2, Math.min(2, tgt - DECK.last)) : tgt; Object.assign(DECK, { last: DECK.dy, tgt, at: GT, hx: R.hero.x, hy: R.hero.y }); }   // (the last frame's drop kept apart, TASKS 1164: dy is zeroed every frame and stepping from it held the hero 12 px over the deck)
       const P = (a, b, h = 0) => (hor ? [ev2(sx(a)), ev2(sy(b) - h)] : [ev2(sx(b)), ev2(sy(a) - h)]);
       const boards = []; for (let i = 0; i < n; i++) { const a = A0 + (i + 0.5) * pitch, r = (j) => rnd(sd + i * 7, j);
         if (bridge && i > 1 && i < n - 2 && r(1) < 0.05) continue;
