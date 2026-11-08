@@ -44,6 +44,11 @@
     const slot = BASES[it.b].slot, old = h.eq[slot]; h.eq[slot] = it; h.bag[idx] = old || null; ev(S, { k: 'equip', x: h.x, y: h.y, slot, on: gearName(it), off: gearName(old) });
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
   }
+  // a hero's single shot (the staff's bolt, a bow's arrow; TASKS 1110, 1120): from the weapon's tip down the aim, it strikes the one
+  // it touches (sim_enemies: single)
+  function heroShot(R, h, a, dmg, crit, kind = 'bolt') { const B = D.SHOTS[kind], [hx0, hy0] = hand(h), hx = hx0 + Math.cos(a) * B.tip, hy = hy0 + Math.sin(a) * B.tip;
+    const p = { id: R.nextId++, k: B.k, single: 1, x: hx, y: hy, vx: Math.cos(a) * B.spd, vy: Math.sin(a) * B.spd, t0: R.t, life: B.life, own: 'hero', r: B.r, kb: B.kb, crit: crit ? 1 : 0, dmg, gz: 20 };
+    R.proj.push(p); return p; }
   function castAbility(S, R, id, inp) {
     const h = R.hero, A = D.clsOf(h).abs.find((a) => a.id === id), rank = h.ab[id] || 0;
     if (!rank) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s', { unlock: A.unlock }) }); return; }
@@ -62,8 +67,23 @@
         if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
         e.chillT = S.t + F.t; e.slowK = F.slow; heroHit(S, R, e, dmg, false, h.x, h.y, 0.5, 'frost'); }
       tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
+    // the archer's (TASKS 1120): a fan of arrows; a trap at his feet (stepTraps springs it); a leap back as a dash with a shot down the aim
+    const shot = () => Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (h.bless ? 1.2 : 1)));
+    if (id === 'volley') { const V = D.VOLLEY; for (let i = 0; i < V.n; i++) heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * V.arc * Math.PI / 180, Math.round(shot() * V.k * AR.k), false, 'arrow');
+      ev(S, { k: 'volley', x: h.x, y: h.y, a: h.aim }); }
+    if (id === 'trap') { const T = D.TRAP, own = (R.htraps = (R.htraps || []).filter((q) => !q.done)); if (own.length >= T.max) own.shift();
+      own.push({ id: R.nextId++, x: h.x, y: h.y + 4, t0: S.t, dmg: Math.round(shot() * T.k * AR.k) }); ev(S, { k: 'trapset', x: h.x, y: h.y + 4 }); }
+    if (id === 'leap') { h.dashT = S.t; h.dashX = -Math.cos(h.aim); h.dashY = -Math.sin(h.aim); heroShot(R, h, h.aim, Math.round(shot() * D.LEAP.k * AR.k), false, 'arrow');
+      ev(S, { k: 'leap', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
+  // the archer's traps (TASKS 1120): armed after TRAP.arm s, the first monster on one is struck and held (sim_enemies: rootT → slowK 0),
+  // a boss briefly; gone after TRAP.life s
+  function stepTraps(S, R) { const T = D.TRAP, t = S.t;
+    for (const q of R.htraps) { if (q.done) continue; if (t - q.t0 > T.life) { q.done = 1; continue; } if (t - q.t0 < T.arm) continue;
+      const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - q.x, (o.y - q.y) * 1.3) < T.r + ENEMIES[o.type].r * 0.6); if (!e) continue;
+      q.done = 1; e.rootT = t + (D.BOSSES[e.type] ? T.boss : T.root); e.slowK = 0; heroHit(S, R, e, q.dmg, false, q.x, q.y, 0); ev(S, { k: 'snap', x: q.x, y: q.y, id: e.id }); }
+    R.htraps = R.htraps.filter((q) => !q.done); }
   function breakPots(S, R, x, y, rad, ax, arc) {
     for (const p of R.pots) { if (p.hp <= 0) continue; const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 10) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, p.x, p.y)) continue;
@@ -258,7 +278,7 @@
     for (const it of out) it.id = R.nextId++; return out; }
 
   Object.assign(SIMX, {
-    usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
+    usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
     hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
     leverNear, pullLever, secretUnder, openChest, chestLoot });
 })(typeof window !== 'undefined' ? window : globalThis);

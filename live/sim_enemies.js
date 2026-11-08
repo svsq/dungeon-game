@@ -289,7 +289,7 @@
   // back into the lava to heal: it swims to the spot, then lies under, mending while nothing hurts it
   function soak(S, R, e, E) { const m = R.map, t = S.t, HL = E.heal, dx = e.sx - e.x, dy = e.sy - e.y, d = Math.hypot(dx, dy);
     crabTurn(e, E, d > 6 ? Math.atan2(dy, dx) : faOf(e), d > 6 ? 1 : 0.3);
-    const sp = (d > 6 ? E.spd * (onLava(m, e) ? E.swim : 1) * eliteK(e, 'spd') * (e.slowK || 1) : 0) * SS01(Math.min(1, d / 24)), k = 1 - Math.exp(-9 * DT);
+    const sp = (d > 6 ? E.spd * (onLava(m, e) ? E.swim : 1) * eliteK(e, 'spd') * (e.slowK ?? 1) : 0) * SS01(Math.min(1, d / 24)), k = 1 - Math.exp(-9 * DT);
     e.vx += ((d > 0.01 ? dx / d : 0) * sp - e.vx) * k; e.vy += ((d > 0.01 ? dy / d : 0) * sp - e.vy) * k;
     move(m, e, e.vx * DT, e.vy * DT, E.r, true, true); e.dist += Math.hypot(e.vx, e.vy) * DT;
     if (!onLava(m, e)) { if (t - e.t0 > 5) { e.st = 'chase'; e.t0 = t; } return; }
@@ -331,10 +331,10 @@
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         // a staff's bolt (TASKS 1110) strikes the one it touched, no blast; at a wall it chips pots and props where it bursts
-        if (p.own === 'hero' && p.k === 'bolt') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
-          if (touched) SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+        if (p.own === 'hero' && p.single) { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
+          if (touched) SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
           else { SIMX.breakPots(S, R, bx, by, 24); SIMX.hitProps(S, R, bx, by, 24); }
-          ev(S, { k: 'pop', x: p.x, y: p.y, c: 'bolt', hit: touched ? 1 : 0 }); }
+          ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: touched ? 1 : 0, mine: 1 }); }
         else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
           for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, p.dmg, false, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
           SIMX.breakPots(S, R, bx, by, 50); SIMX.hitProps(S, R, bx, by, 50); SIMX.tearWebs(S, R, bx, by - 20, 66, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by }); R.trauma = Math.min(1, R.trauma + 0.2); }
@@ -348,7 +348,8 @@
       // (one blast at least BOOM_GAP after the last, TASKS 1051: a neighbour's set off by it burst at once, 3 in 1.3 s, 2 on one tick)
       if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: (ENEMIES[e.type].boom || MOD.explosive).r, d: e.fuse - t, id: e.id }); } else blast(S, R, e); } continue; }
       // the ice wave's chill (TASKS 1110) slows its walk and run (toward, steer, soak) until it thaws
-      if (e.chillT !== undefined) e.slowK = e.chillT > t ? D.FROST.slow : 1;
+      // and the archer's trap holds it where it stands (TASKS 1120)
+      if (e.chillT !== undefined || e.rootT !== undefined) e.slowK = e.rootT > t ? 0 : e.chillT > t ? D.FROST.slow : 1;
       if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; SIMX.hitEnemy(S, R, e, Math.max(1, Math.round(2 + dep(R))), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost && (m.cliff && !D.BOSSES[e.type] ? 2 : true)); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0;
@@ -540,7 +541,7 @@
   // walk straight to a spot in the open, slowing as it comes; false when a wall stands between
   function toward(e, E, m, gx, gy) { const dx = gx - e.x, dy = gy - e.y, d = Math.hypot(dx, dy);
     if (!losClear(m, e.x, e.y - 6, gx, gy - 6)) return false;
-    const sp = E.spd * eliteK(e, 'spd') * (e.slowK || 1) * (inWater(m, e) ? WADE : 1) * SS01(Math.max(0, Math.min(1, (d - 6) / 34))), k = 1 - Math.exp(-9 * DT); e.vx += (dx / (d || 1) * sp - e.vx) * k; e.vy += (dy / (d || 1) * sp - e.vy) * k; return true; }
+    const sp = E.spd * eliteK(e, 'spd') * (e.slowK ?? 1) * (inWater(m, e) ? WADE : 1) * SS01(Math.max(0, Math.min(1, (d - 6) / 34))), k = 1 - Math.exp(-9 * DT); e.vx += (dx / (d || 1) * sp - e.vx) * k; e.vy += (dy / (d || 1) * sp - e.vy) * k; return true; }
   function skid(m, e, E) { const k = Math.exp(-14 * DT); e.vx *= k; e.vy *= k; const v = Math.hypot(e.vx, e.vy); if (v < 1) { e.vx = e.vy = 0; return; } move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT; }
   function steer(e, E, m, F, want, dx, dy, d, kv = 1) {
     let vx = 0, vy = 0;
@@ -557,7 +558,7 @@
       else if (cell(m, tx, ty) === 3 && !E.lava && !E.ghost) { const [lx, ly] = SIMX.landOf(m, e.x, e.y), gx = lx - e.x, gy = ly - 6 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; }
       else if (d > 0) { vx = dx / d * want; vy = dy / d * want; }
     }
-    const sp = E.spd * eliteK(e, 'spd') * (e.slowK || 1) * kv * (!E.ghost && inWater(m, e) ? WADE : 1) * (!E.ghost && !E.webImmune && webAt(m, e) ? WEB.mon : 1) * (!E.ghost && E.blood !== 'slime' && gooAt(m, e) ? GOO.mon : 1), k = 1 - Math.exp(-9 * DT);
+    const sp = E.spd * eliteK(e, 'spd') * (e.slowK ?? 1) * kv * (!E.ghost && inWater(m, e) ? WADE : 1) * (!E.ghost && !E.webImmune && webAt(m, e) ? WEB.mon : 1) * (!E.ghost && E.blood !== 'slime' && gooAt(m, e) ? GOO.mon : 1), k = 1 - Math.exp(-9 * DT);
     e.vx += (vx * sp - e.vx) * k; e.vy += (vy * sp - e.vy) * k;
   }
 

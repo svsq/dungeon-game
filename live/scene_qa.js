@@ -189,13 +189,18 @@
       if (kind === 'frost') { h.cls = 'mage'; h.castT = S.t - age; h.castK = 'frost'; const r = D.abRank('frost', 1).r;
         for (const [ty, dx, dy] of [['skeleton', 110, -50], ['goblin', 150, 30], ['skeleton', 70, 60]]) R.en.push(foe(ty, dx, dy, { chillT: S.t - age + D.FROST.t, slowK: D.FROST.slow, hitT: S.t - age }));
         S.ev = [{ k: 'frost', x: h.x, y: h.y, a: 0, r, arc: D.FROST.arc, t: S.t - age }]; }
+      // the archer's volley in flight and his traps: one set, one armed, one sprung on a skeleton (TASKS 1120)
+      if (kind === 'volley') { h.cls = 'archer'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'shortbow' }); const [hx, hy] = SIM.hand(h), A = D.SHOTS.arrow, V = D.VOLLEY;
+        R.proj = [...Array(V.n).keys()].map((i) => { const a = (i / (V.n - 1) - 0.5) * V.arc * Math.PI / 180; return { id: 9910 + i, k: 'arrow', single: 1, x: hx + Math.cos(a) * (A.tip + A.spd * age), y: hy + Math.sin(a) * (A.tip + A.spd * age), vx: Math.cos(a) * A.spd, vy: Math.sin(a) * A.spd, t0: S.t - age, life: A.life, own: 'hero', r: A.r, gz: 20 }; }); }
+      if (kind === 'trap') { h.cls = 'archer'; R.htraps = [{ id: 9920, x: h.x + 70, y: h.y + 4, t0: S.t - age }, { id: 9921, x: h.x + 70, y: h.y + 70, t0: S.t - 5 }];
+        if (age < 0.1) { R.en.push(foe('skeleton', 150, 4, { rootT: S.t + 1.5, slowK: 0, hitT: S.t - age })); S.ev = [{ k: 'snap', x: h.x + 150, y: h.y + 4, t: S.t - age }]; } }
       if (kind === 'bolt') { h.cls = 'mage'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'staff' }); h.atkT = S.t - age - SIM.K.HIT; h.atkA = 0; const [hx, hy] = SIM.hand(h);
         R.en.push(foe('skeleton', 330, 0));
         R.proj = [{ id: 9901, k: 'bolt', x: hx + D.BOLT.spd * age, y: hy, vx: D.BOLT.spd, vy: 0, t0: S.t - age, life: D.BOLT.life, own: 'hero', r: D.BOLT.r }];
         S.ev = [{ k: 'pop', c: 'bolt', hit: 1, x: h.x + 300, y: hy, t: S.t - age * 0.5 }]; }
     });
     for (const [kind, ages] of [['whirl', [0.025, 0.08, 0.16, 0.24, 0.32, 0.44]], ['fireball', [0.01, 0.04, 0.08, 0.12, 0.18, 0.24]], ['boom', [0.015, 0.06, 0.12, 0.24, 0.44, 1.5]],
-      ['frost', [0.03, 0.1, 0.2, 0.4, 0.65, 2]], ['bolt', [0.02, 0.1, 0.2]]]) {
+      ['frost', [0.03, 0.1, 0.2, 0.4, 0.65, 2]], ['bolt', [0.02, 0.1, 0.2]], ['volley', [0.02, 0.08, 0.16]], ['trap', [0.2, 1, 0.05]]]) {
       ages.forEach((age, i) => states.push(['spell_' + kind + '_' + i, spellState(kind, age)]));
     }
     states.push(['spell_scar_end', spellState('boom', 3.9)], ['spell_scar_gone', spellState('boom', 4.1)], ['spell_whirl_wall', spellState('whirl', 0.16, true)]);
@@ -527,9 +532,11 @@
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['zone_' + zone, S]);
       // the mage on the same spot (TASKS 1114): his blue must part from the cold crypt and arcane stone
-      if (zone === 'crypt' || zone === 'arcane') { const S2 = play(); S2.run = SIM.newRun(S2, 'campaign', 3); SIM.enterFloor(S2, S2.run, f); const R2 = S2.run, h2 = R2.hero;
-        h2.x = h.x; h2.y = h.y; h2.cls = 'mage'; h2.eq.weapon = Object.assign({}, h2.eq.weapon, { b: 'staff' }); h2.eq.armor = Object.assign({}, h2.eq.armor, { b: 'robe' });
-        R2.en = []; R2.msg = null; R2.seen = R2.seen.map(() => 1); R2.cam = [h2.x - SCX.VW / 2, h2.y - SCX.VH / 2]; states.push(['zone_' + zone + '_mage', S2]); } }
+      // and the archer (TASKS 1124), in the crypt beside a skeleton archer
+      if (zone === 'crypt' || zone === 'arcane') for (const cls of ['mage', 'archer']) { const S2 = play(); S2.run = SIM.newRun(S2, 'campaign', 3); SIM.enterFloor(S2, S2.run, f); const R2 = S2.run, h2 = R2.hero;
+        h2.x = h.x; h2.y = h.y; h2.cls = cls; if (cls === 'mage') { h2.eq.weapon = Object.assign({}, h2.eq.weapon, { b: 'staff' }); h2.eq.armor = Object.assign({}, h2.eq.armor, { b: 'robe' }); } else h2.eq.armor = null;
+        R2.en = cls === 'archer' && zone === 'crypt' ? [{ id: 975, type: 'skel_archer', x: h2.x + 90, y: h2.y + 10, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 }] : [];
+        R2.msg = null; R2.seen = R2.seen.map(() => 1); R2.cam = [h2.x - SCX.VW / 2, h2.y - SCX.VH / 2]; states.push(['zone_' + zone + '_' + cls, S2]); } }
     // the cave's stone under real light (TASKS 303): the 2nd floor's biggest hall with its rock, banks and water
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 2);
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
@@ -1309,6 +1316,13 @@
       ['mage_circlet', mageS((S, R, h, gear) => { h.eq.helm = gear('circlet', 'helm'); })], ['mage_warrior', play((S) => { S.run.msg = null; })]);
     // the class screen (TASKS 1103): the mage picked, the pointer on the warrior's card
     states.push(['classes', mk((S) => { S.meta.cls = 'mage'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'cls:warrior'; })]);
+    // the archer's look (TASKS 1124): as the mage's, and on the green crypt floor beside the skeleton archer he must not be taken for
+    const archerS = (fn) => play((S) => { const R = S.run, h = R.hero, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ });
+      h.cls = 'archer'; h.eq.armor = null; R.msg = null; fn(S, R, h, gear); });
+    states.push(['archer_front', archerS(() => {})], ['archer_back', archerS((S, R, h) => { h.back = 1; })],
+      ['archer_leather', archerS((S, R, h, gear) => { h.eq.armor = gear('leather_armor', 'armor'); })],
+      ['archer_cloak', archerS((S, R, h, gear) => { h.eq.armor = gear('cloak', 'armor'); })],
+      ['archer_helm', archerS((S, R, h, gear) => { h.eq.helm = gear('leather_helm', 'helm'); })]);
     states.push(['town_mage', climbS(0, (S, R, m, h) => { h.cls = 'mage'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'staff' }); h.eq.armor = Object.assign({}, h.eq.armor, { b: 'robe' });
       h.x = m.town.svc.lectern.x - 70; h.y = m.town.svc.lectern.y + 60; })]);
     states.push(['town_enchant_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.lectern.x; h.y = m.town.svc.lectern.y + 30; })]);

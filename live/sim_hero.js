@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BAL, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
+    BAL, BASES, CONSUMABLES, CRUST, D, DT, ENEMIES, GIFT_V, GOO, K, LOOT, MOD, ORB, TILE, WADE, WEB, WIN, add, addFire, angDiff,
     armored, atBrink, cell, checkFull, clampCam, counted, crustOf, crustSet, dep, dif, ev, faOf, fstat, fuseEnd, gift, gooAt, has, hidden,
     inWater, isCons, lastFloor, logFloor, losClear, move, onLava, onPlate, potion, pushable, reveal, ri, rise, rnd, rollItem, shove,
     soaked, split, stats, stepDrops, stepFires, stepHazards, stepMonsters, stepProjectiles, stepPyres, thinSet, under, webAt, who, zoomOf } = SIMX;
@@ -238,13 +238,12 @@
       h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
       ev(S, Object.assign({ k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face }, (D.clsOf(h).shoots || []).includes(st.wtype) ? { shot: 1 } : {}));
     }
-    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= ((D.clsOf(h).shoots || []).includes(st.wtype) ? D.BOLT.t : K.HIT)) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
+    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= ((D.clsOf(h).shoots || []).includes(st.wtype) ? D.SHOTS[BASES[st.wtype].shot || 'bolt'].t : K.HIT)) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
       h.atkHit = 1; const arc = st.arc * Math.PI / 180, reach = st.reach, Cl = D.clsOf(h);
       // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
-      if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, B = D.BOLT, c = rnd(R) * 100 < st.crit, hx = hand(h)[0] + Math.cos(a) * B.tip, hy = hand(h)[1] + Math.sin(a) * B.tip;
-        R.proj.push({ id: R.nextId++, k: 'bolt', x: hx, y: hy, vx: Math.cos(a) * B.spd, vy: Math.sin(a) * B.spd, t0: t, life: B.life, own: 'hero', r: B.r, crit: c ? 1 : 0,
-          dmg: Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))) });
-        ev(S, { k: 'bolt', x: hx, y: hy, a });
+      if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, c = rnd(R) * 100 < st.crit;
+        const p = SIMX.heroShot(R, h, a, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, BASES[st.wtype].shot || 'bolt');
+        ev(S, { k: p.k === 'arrow' ? 'loose' : 'bolt', x: p.x, y: p.y, a });
         // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
         // born past it): pots, props, doors, chests, secrets and webs, as a swing does; monsters only by the bolt
         SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {
@@ -298,6 +297,7 @@
         e.spikeT = t; hitEnemy(S, R, e, Math.round(9 * (1 + 0.2 * (dep(R) - 1))), false, tr.x, tr.y, 0, 'spike'); ev(S, { k: 'spike', x: tr.x, y: tr.y }); } }
     if (m.hazards) stepHazards(S, R);
     if (R.pyres && R.pyres.length) stepPyres(S, R);
+    if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
     if (R.fires && R.fires.length) stepFires(S, R);
     // water puts the fire out
     if (h.burn > t && inWater(m, h)) { h.burn = 0; ev(S, { k: 'douse', x: h.x, y: h.y }); }

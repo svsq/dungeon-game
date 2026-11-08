@@ -101,6 +101,12 @@
     // the staff's bolt (TASKS 1110): a short glassy zip; the ice wave: a cold hiss under three high crystal notes falling
     bolt: (o) => { noise(o, { d: 0.12, v: 0.18, type: 'bandpass', f0: 3200, f1: 1400, q: 4 }); tone(o, { type: 'triangle', f0: 1400, f1: 700, d: 0.12, v: 0.05 }); },
     frost: (o) => { noise(o, { a: 0.02, d: 0.55, v: 0.35, type: 'highpass', f0: 5000, f1: 1800 }); [2637, 2093, 1568].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.04 + i * 0.06, d: 0.4, v: 0.04 })); },
+    // the archer (TASKS 1120): a bowstring's twang; a volley's quick ripple of them; a trap set (a click); its jaws snapping; the leap's rush
+    loose: (o) => { tone(o, { type: 'triangle', f0: 220, f1: 150, d: 0.12, v: 0.08 }); noise(o, { d: 0.06, v: 0.12, type: 'highpass', f0: 3000 }); },
+    volley: (o) => [0, 0.04, 0.08].forEach((dt, i) => tone(o, { type: 'triangle', f0: 230 - i * 15, f1: 150, t: now() + dt, d: 0.1, v: 0.06 })),
+    trapset: (o) => { tone(o, { type: 'square', f0: 1400, d: 0.03, v: 0.03 }); tone(o, { type: 'square', f0: 900, t: now() + 0.05, d: 0.03, v: 0.03 }); },
+    snap: (o) => { noise(o, { d: 0.08, v: 0.3, type: 'bandpass', f0: 2600, f1: 900, q: 2 }); tone(o, { type: 'square', f0: 500, f1: 180, d: 0.08, v: 0.06 }); },
+    leap: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.25, f0: 500, f1: 2200, q: 1.5 }),
     cast: (o) => { noise(o, { a: 0.02, d: 0.3, v: 0.3, type: 'bandpass', f0: 500, f1: 1800, q: 1 }); tone(o, { type: 'sawtooth', f0: 160, f1: 320, d: 0.2, v: 0.05 }); },
     // a fuse (an explosive corpse, a smouldering skeleton, TASKS 411): a hiss rising to the burst, sputtering ever faster
     fuse: (o, e) => { noise(o, { a: 0.05, d: e.d, v: 0.18, type: 'highpass', f0: 1400, f1: 4200 });

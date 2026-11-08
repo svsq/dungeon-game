@@ -9,11 +9,14 @@
     { id: 'fireball', name: TXT('ABILITIES.fireball.name'), icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 2.5, desc: TXT('ABILITIES.fireball.desc') },
     { id: 'shield', name: TXT('ABILITIES.shield.name'), icon: 'ab_shield', key: '3', unlock: 4, mp: 30, cd: 16, desc: TXT('ABILITIES.shield.desc') },
     { id: 'frost', name: TXT('ABILITIES.frost.name'), icon: 'ab_frost', key: '3', unlock: 4, mp: 20, cd: 8, desc: TXT('ABILITIES.frost.desc') },
+    { id: 'volley', name: TXT('ABILITIES.volley.name'), icon: 'ab_volley', key: '1', unlock: 1, mp: 10, cd: 4, desc: TXT('ABILITIES.volley.desc') },
+    { id: 'trap', name: TXT('ABILITIES.trap.name'), icon: 'ab_trap', key: '2', unlock: 2, mp: 15, cd: 8, desc: TXT('ABILITIES.trap.desc') },
+    { id: 'leap', name: TXT('ABILITIES.leap.name'), icon: 'ab_leap', key: '3', unlock: 4, mp: 12, cd: 7, desc: TXT('ABILITIES.leap.desc') },
   ];
   // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
   const AB_MAX = 10;
   const abRank = (id, r) => { const n = Math.max(0, r - 1);
-    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
+    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'volley' || id === 'trap' || id === 'leap' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
   // about one elite's blow anywhere (TASKS 179), but slower to grow than the blows: INT, rank and floor all multiplied in made it
   // a second life bar, 688 on floor 8 against the hero's 588 (TASKS 199)
   const SHIELD_T = 10, shieldHp = (int, r, f) => Math.round((24 + int * 2) * abRank('shield', r).k * (1 + 0.2 * (f - 1)));
@@ -29,6 +32,11 @@
   // t: it leaves when the staff points at the target (raised by 0.2 s, TASKS 1115 critic: at the swing's 0.13 s it left a staff still
   // pointing sideways); tip: from the crystal, this far along the aim past the hand
   const BOLT = { spd: 620, life: 0.7, r: 7, kb: 0.6, t: 0.2, tip: 34 };
+  // a weapon's shot by its base's `shot` (TASKS 1120): the staff's bolt, a bow's arrow (drawn at 0.18 s, quicker and lighter)
+  const SHOTS = { bolt: Object.assign({ k: 'bolt' }, BOLT), arrow: { k: 'arrow', spd: 760, life: 0.6, r: 6, kb: 0.4, t: 0.18, tip: 26 } };
+  // the archer's abilities (TASKS 1120): the volley's fan (n arrows over `arc` degrees at `k` of a shot each); the trap (`root` s held,
+  // a boss `boss` s, at `k` of a shot, armed after `arm` s, `max` set at once, gone after `life` s); the leap (back as a dash, a shot at `k`)
+  const VOLLEY = { n: 5, arc: 50, k: 0.6 }, TRAP = { r: 22, root: 2, boss: 0.6, k: 1.5, arm: 0.4, max: 2, life: 30 }, LEAP = { k: 2 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
   // right click's ability, `shoots`: the weapons it fires from instead of swinging, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
@@ -41,8 +49,8 @@
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 5, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0.02, hp: 0 },
       abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1 } },
-    archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 4, agi: 6, int: 3, vit: 4 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
-      abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 0 }, borrow: ['warrior'] },
+    archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 7, int: 3, vit: 4 }, grow: { hp: 5, mp: 3, pts: 3, sp: 1 },
+      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 0, sat: 0.85 } },
   };
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run
@@ -112,5 +120,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, VOLLEY, TRAP, LEAP, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -2558,7 +2558,7 @@
       if (!(m.maxMp > w.maxMp && m.spell > w.spell && m.spellBase > w.spellBase)) out.push('class mage: no more mana and spell power than a warrior'); }
     // the mage's abilities (TASKS 1110): the ice wave hurts and chills the one before him, not the one behind, and the chill thaws;
     // his staff hits a monster three reaches away with no mana at all, a warrior's staff does not
-    { const arena = (cls) => { const S = spawn(0, {}); S.meta.cls = cls; begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
+    { const arena = (cls) => { const S = spawn(0, {}); S.meta.cls = cls; begin(S); if (S.run.hero.cls !== cls) { S.run = newRun(S, 'campaign', S.run.seed, { cls }); S.screen = 'play'; } for (let i = 0; i < 30; i++) step(S, { keys: [] });
         const R = S.run, h = R.hero, m = R.map, type = Object.keys(ENEMIES).find((q) => ENEMIES[q].kind === 'melee' && !ENEMIES[q].ghost);
         R.en = []; R.proj = []; R.pots = []; R.chests = []; R.drops = []; h.ifr = 1e9; h.vx = h.vy = 0; for (const k in h.cd) h.cd[k] = 0;
         const foe = (dx) => { const e = { id: R.nextId++, type, x: h.x + dx, y: h.y, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S.t, kbx: 0, kby: 0 }; R.en.push(e); return e; };
@@ -2579,7 +2579,24 @@
         if (cls === 'warrior') { h.eq.weapon.b = 'staff'; }
         const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
         if (cls === 'mage' && !(e.hp < e.max)) out.push('class mage: his staff does not shoot a foe out of reach');
-        if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); } }
+        if (cls === 'warrior' && e.hp < e.max) out.push('class warrior: a staff shoots for a warrior'); }
+      // the archer (TASKS 1120–1122): his bow hits at range with no mana, the volley looses its fan, a trap holds a monster that walks
+      // onto it and lets it go, the leap carries him back from the aim, AGI (not STR) grows his bow's damage, a sword is not his
+      { const { S, R, h, foe, ok } = arena('archer');
+        if (h.eq.weapon.b !== 'shortbow' || h.eq.armor.b !== 'leather_armor' || D.clsOf(h).abs.map((a) => a.id).join() !== 'volley,trap,leap') out.push('class archer: not a short bow, leather and volley, trap, leap');
+        if (ok) { const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
+          if (!(e.hp < e.max)) out.push('class archer: his bow does not hit a foe out of reach');
+          R.en = []; R.proj = []; h.lvl = 4; h.ab.trap = 1; h.ab.leap = 1; h.mp = 500; h.aim = 0; for (const k in h.cd) h.cd[k] = 0;
+          castAbility(S, R, 'volley', {}); if (R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
+          R.proj = []; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0); h.x -= 120; w.x = q.x + 60; w.y = q.y; w.st = 'idle'; w.calmT = 1e9;
+          for (let i = 0; i < 120; i++) { step(S, { keys: [] }); if (w.rootT) break; if (i > 55) w.x -= 2; }
+          if (!(w.rootT > S.t) || w.hp >= w.max) out.push('class archer: a trap does not hold the monster that walks onto it');
+          w.rootT = S.t; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (w.slowK !== 1) out.push('class archer: a trapped monster is not let go');
+          h.x += 120; const x0 = h.x; h.aim = 0; h.cd.leap = 0; castAbility(S, R, 'leap', {}); for (let i = 0; i < 30; i++) step(S, { keys: [], ...toPx(R, h.x + 300, h.y - 30) });
+          if (!(h.x < x0 - 40)) out.push('class archer: the leap does not carry him back from the aim'); }
+        const a0 = stats(h, S.meta).atk; h.base.agi += 10; const a1 = stats(h, S.meta).atk; h.base.agi -= 10; h.base.str += 10; const a2 = stats(h, S.meta).atk; h.base.str -= 10;
+        if (!(a1 > a0) || a2 !== a0) out.push('class archer: AGI does not grow his bow\'s damage or STR does');
+        if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword'); } }
     // the class screen (TASKS 1103): «Кампания» asks for the class, a card picks it and the meta keeps it, «В путь» starts that hero,
     // Escape goes back; the Keeper names the last hero's class
     { const S = spawn(0, {}), at = (b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }), ready = D.classesReady();
