@@ -153,7 +153,7 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
+      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
         if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py))) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const b0 = place(x, ly - 15, Math.max(hw * 2, 92), 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
