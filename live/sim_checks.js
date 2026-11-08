@@ -462,18 +462,18 @@
       // the descent's deep powers (TASKS 387): a reflecting elite returns a tenth of the hero's blow and never his last point of
       // health; a warded one's shield takes a blow from before it and breaks under one from behind; a cursing one's blow cuts the
       // hero's blows for its time; a blinking one steps up to the hero from afar and holds its blow a moment
-      put(); const rf = el(['reflect'], 40, { cdT: 1e9, hp: 4000, max: 4000 }); let a0 = h.hp; heroHit(S, R, rf, 300, false, h.x, h.y);
+      put(); const rf = el(['reflect'], 40, { cdT: 1e9, hp: 4000, max: 4000 }); let a0 = h.hp; h.mp = 0, heroHit(S, R, rf, 300, false, h.x, h.y);
       if (a0 - h.hp !== Math.round(300 * MOD.reflect.k) || rf.hp !== 3700) out.push(`a reflecting elite returns ${a0 - h.hp} of a 300 blow`);
-      h.hp = 5; heroHit(S, R, rf, 1000, false, h.x, h.y); if (h.hp !== 1) out.push('a reflecting elite kills the hero');
+      h.hp = 5; h.mp = 0, heroHit(S, R, rf, 1000, false, h.x, h.y); if (h.hp !== 1) out.push('a reflecting elite kills the hero');
       put(); hitEnemy(S, R, el(['reflect'], 40, { cdT: 1e9, hp: 4000, max: 4000 }), 300, false, h.x, h.y); if (h.hp < heroSt(S).maxHp) out.push('a reflecting elite answers a blow that is not the hero\'s');
-      put(); const wd = el(['ward'], 40, { cdT: 1e9, face: -1, ward: 100 }); heroHit(S, R, wd, 60, false, h.x, h.y);
+      put(); const wd = el(['ward'], 40, { cdT: 1e9, face: -1, ward: 100 }); h.mp = 0, heroHit(S, R, wd, 60, false, h.x, h.y);
       if (wd.hp !== 400 || wd.ward !== 40) out.push(`a ward does not take a blow from before (hp ${wd.hp}, ward ${wd.ward})`);
-      heroHit(S, R, wd, 60, false, wd.x + 40, wd.y); if (wd.ward !== 0 || wd.hp !== 340) out.push(`a blow from behind does not break the ward (hp ${wd.hp}, ward ${wd.ward})`);
+      h.mp = 0, heroHit(S, R, wd, 60, false, wd.x + 40, wd.y); if (wd.ward !== 0 || wd.hp !== 340) out.push(`a blow from behind does not break the ward (hp ${wd.hp}, ward ${wd.ward})`);
       put(); const cu = el(['curse'], 30, { hp: 4000, max: 4000 }); let cursed = 0;
       for (let i = 0; i < 120 * 3 && !cursed; i++) { step(S, { keys: [] }); cursed = h.curseT > S.t; }
       if (!cursed) out.push("a cursing elite's blow does not curse the hero");
-      else { const c0 = cu.hp; cu.cdT = 1e9; heroHit(S, R, cu, 100, false, h.x, h.y); if (c0 - cu.hp !== Math.round(100 * MOD.curse.k)) out.push(`a cursed hero's blow of 100 does ${c0 - cu.hp}`);
-        S.t = h.curseT + 0.01; const c1 = cu.hp; heroHit(S, R, cu, 100, false, h.x, h.y); if (c1 - cu.hp !== 100) out.push('a curse outlasts its time'); }
+      else { const c0 = cu.hp; cu.cdT = 1e9; h.mp = 0, heroHit(S, R, cu, 100, false, h.x, h.y); if (c0 - cu.hp !== Math.round(100 * MOD.curse.k)) out.push(`a cursed hero's blow of 100 does ${c0 - cu.hp}`);
+        S.t = h.curseT + 0.01; const c1 = cu.hp; h.mp = 0, heroHit(S, R, cu, 100, false, h.x, h.y); if (c1 - cu.hp !== 100) out.push('a curse outlasts its time'); }
       put(); h.ifr = 1e9; const bd = [200, -200, 170, -170].find((dx) => losClear(R.map, h.x + dx, h.y - 10, h.x, h.y - 10)) || 200, bl = el(['blink'], bd, { cdT: 0, blinkT: S.t }); let jumped = 0;
       for (let i = 0; i < 120 * MOD.blink.every && !jumped; i++) { const bx = bl.x; step(S, { keys: [] }); jumped = Math.abs(bl.x - bx) > 40; }
       if (!jumped) out.push('a blinking elite never steps up to the hero');
@@ -2771,6 +2771,13 @@
           for (let i = 0; i < 40 && !(e.rootT > S.t); i++) step(S, { keys: [], ...toPx(R, e.x, e.y - 30) });
           if (!(e.rootT > S.t) || e.hp >= e.max) out.push('class warrior: the charge does not strike and stun the monster in its way');
           if (!(h.mp > 50 - D.ABILITIES.find((q) => q.id === 'charge').mp)) out.push('class warrior: his blow gives no rage');
+          // TASKS 1184: the charge is free and pays rage on a hit, a miss comes back soon; what is held hits harder; the cry's ranks last longer
+          if (D.ABILITIES.find((q) => q.id === 'charge').mp !== 0) out.push('class warrior: the charge costs rage');
+          { const hit = (mp) => { const q = foe(40); q.max = q.hp = 1e6; q.st = 'idle'; h.mp = mp; h.cryT = 0; heroHit(S, R, q, 1000, false, h.x, h.y); const v = 1e6 - q.hp; q.deadT = S.t; return v; }, a = hit(0), b = hit(100);
+            if (!(b > a * 1.1)) out.push(`class warrior: 100 rage hits for ${b} against ${a} at none`); }
+          { const keep = R.en; R.en = []; h.cd.charge = 0; h.mp = 0; castAbility(S, R, 'charge', {}); for (let i = 0; i < 40; i++) step(S, { keys: [], ...toPx(R, h.x + 100, h.y) });
+            if (!(h.cd.charge - S.t <= D.CHARGE.miss)) out.push('class warrior: a missed charge keeps its whole cooldown'); R.en = keep; h.charge = null; }
+          if (!(D.abRank('cry', 5).t > D.abRank('cry', 1).t)) out.push('class warrior: the cry\'s ranks add no time');
           h.mp = 60; h.cd.cry = 0; castAbility(S, R, 'cry', {}); if (!(e.weakT > S.t) || !(h.cryT > S.t)) out.push('class warrior: the war cry does not weaken the monster near him');
           R.en = []; h.fightT = S.t; const m0 = h.mp; for (let i = 0; i < 120 * (D.RAGE.calm + 1); i++) step(S, { keys: [], ...toPx(R, h.x + 100, h.y) });
           if (!(h.mp < m0)) out.push('class warrior: rage does not drain out of a fight'); }

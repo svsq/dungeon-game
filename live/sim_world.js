@@ -55,7 +55,7 @@
     const h = R.hero, A = D.clsOf(h).abs.find((a) => a.id === id), rank = h.ab[id] || 0;
     if (!rank) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s', { unlock: A.unlock }) }); return; }
     if (h.cd[id] > S.t) return;
-    if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s.2') }); return; }
+    if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.clsOf(h).res === 'rage' ? TXT('sim_world.castAbility.s.3') : TXT('sim_world.castAbility.s.2') }); return; }
     const AR = D.abRank(id, rank); h.mp -= A.mp; h.cd[id] = S.t + A.cd * AR.cd; h.castT = S.t; h.castK = id;
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
@@ -72,7 +72,7 @@
     // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
     // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)
     if (id === 'charge') { h.charge = 1; h.chargeK = D.CHARGE.k * AR.k; h.dashT = S.t; h.dashX = Math.cos(h.aim); h.dashY = Math.sin(h.aim); ev(S, { k: 'charge', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
-    if (id === 'cry') { const C = D.CRY; h.cryT = S.t + C.t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < C.r + ENEMIES[e.type].r) e.weakT = S.t + C.t;
+    if (id === 'cry') { const C = D.CRY; h.cryT = S.t + AR.t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < C.r + ENEMIES[e.type].r) e.weakT = S.t + AR.t;
       ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
     // the archer's (TASKS 1120, 1161): a fan of arrows closing on the cursor; a trap at the cursor (stepTraps springs it); a leap back
     // as a dash with a shot down the aim; each arrow, trap and leap shot may crit

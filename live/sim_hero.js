@@ -69,7 +69,7 @@
     if (fromHero && R.hero.curseT > S.t) dmg = Math.max(1, Math.round(dmg * MOD.curse.k));
     // the war cry's buff and a blow's rage (TASKS 1130)
     if (fromHero && R.hero.cryT > S.t) dmg = Math.round(dmg * D.CRY.buff);
-    if (fromHero && D.clsOf(R.hero).res === 'rage') { const h = R.hero; h.mp = Math.min(D.RAGE.max, h.mp + D.RAGE.hit); h.fightT = S.t; }
+    if (fromHero && D.clsOf(R.hero).res === 'rage') { const h = R.hero; dmg = Math.round(dmg * (1 + h.mp / 10 * D.RAGE.dmg)); h.mp = Math.min(D.RAGE.max, h.mp + D.RAGE.hit); h.fightT = S.t; }
     if (R.map.bossType === e.type && !R.arena) { SIMX.stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     if (D.BOSSES[e.type] && e.openUntil > S.t) dmg *= e.type === 'boss_serpent' ? 1.4 : D.BOSSES[e.type].moves.fists.open;
@@ -222,10 +222,10 @@
     // (a charge that struck stops on its monster, but its dash runs out, so the lean and the cape ease back, TASKS 1134 critic)
     const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : h.leapV && h.leapV[0] === h.dashT ? h.leapV[1] : K.DASH, mvx = held || (dashing && halted) ? 0 : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : dashing ? h.dashY * dashV : h.vy;
     if (charging) { const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - h.x, (o.y - h.y) * 1.25) < ENEMIES[o.type].r + K.R + 18);
-      if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.dashHalt = h.dashT; R.freeze = Math.max(R.freeze, 0.06); R.trauma = Math.min(1, R.trauma + 0.3);
+      if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.mp = Math.min(D.RAGE.max, h.mp + D.RAGE.charge); h.dashHalt = h.dashT; R.freeze = Math.max(R.freeze, 0.06); R.trauma = Math.min(1, R.trauma + 0.3);
         e.rootT = t + stun; e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
         heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); } }
-    else if (h.charge && t - h.dashT >= CH.t) h.charge = null;
+    else if (h.charge && t - h.dashT >= CH.t) { h.charge = null; h.cd.charge = Math.min(h.cd.charge, t + CH.miss); ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.charge.miss') }); }
     const ox = h.x, oy = h.y; const [bx, by] = move(m, h, mvx * DT, mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     // a drowned's grab draws the hero a step toward it at an even pace
     if (h.pull) { const P = h.pull, sp = Math.min(P.n / P.T * DT, P.n - P.done); move(m, h, P.x * sp, P.y * sp, K.R); P.done += sp; if (P.done >= P.n - 0.01) h.pull = null; }

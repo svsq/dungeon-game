@@ -511,7 +511,7 @@
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });
       lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
       const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor);
-      const ds = A.desc.replace('{d}', d), parts = ds.split(': ');
+      const ds = A.desc.replace('{d}', d).replace('{t}', String(D.abRank(A.id, r).t).replace('.', ',')).replace('{w}', Math.round((1 - D.CRY.weak) * 100)), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
     lab('inv_help', TXT('hud.inv.15'), P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
