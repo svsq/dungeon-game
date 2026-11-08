@@ -794,7 +794,7 @@
       biped(base); return true; }
     if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 0.5; return biped(base); }
     if (n === 'golem') { const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
-      if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 26 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);
+      if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 26 * (hit >= 0 ? (0.25 + 0.75 * SS(0, 0.07, hit)) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);   // (from the wind-up's own crouch, TASKS 1156: from 0 the longer arm's elbow popped 8.8 px)
         // the fists come down on the floor where the slam lands, side by side, rest there and come home to the walk's own hang (TASKS 458):
         // swung by the chop's angle alone the far one went on past the body and lay behind the golem
         const w = DATA.windOf(e, E.wind), O = GOLEM_SLAM, k = e.st === 'strike' ? 1 - SS(O.hold, O.dur, u) : SS(w - O.chopT, w, u);
