@@ -74,7 +74,7 @@
       str: s.str, agi: s.agi, int: s.int, vit: s.vit,
       maxHp: Math.round(80 + s.vit * 10 + (h.lvl - 1) * G.hp + s.int * IK.hp + s.hp + 12 * (up.hp || 0) + gift(h, 'vigor')),
       maxMp: D.clsOf(h).res === 'rage' ? D.RAGE.max : Math.round(40 + s.int * 6 + (h.lvl - 1) * G.mp + s.mp + 10 * (up.mana || 0) + gift(h, 'wisdom')),
-      atk: Math.round(((wpn ? wpn.atk : 3) + (W.dex ? s.agi : s.str) * 1.6 + s.atk + (W.spell ? s.int * 0.8 : 0)) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100)),
+      atk: Math.round(((wpn ? wpn.atk : 3) + (W.dex ? s.agi * W.dex : W.spell ? s.int : s.str) * 1.6 + s.atk) * (1 + 0.06 * (up.dmg || 0)) * (1 + gift(h, 'fury') / 100)),
       def: Math.round(s.def + s.vit * 0.3 + gift(h, 'ward')),
       crit: Math.min(60, 5 + s.agi * 0.5 + s.crit + gift(h, 'crit')), dodge: Math.min(BAL.dodge.cap, s.agi * BAL.dodge.agi + s.dodge + gift(h, 'alert')),
       aspd: s.agi * 1.2 + s.aspd + gift(h, 'haste'), mspd: Math.min(40, s.agi * 0.4 + s.mspd + gift(h, 'swift')), leech: s.leech + gift(h, 'leech'),

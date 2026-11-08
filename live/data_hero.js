@@ -44,7 +44,7 @@
   // the charge: a rush down the aim at `spd` for `t` s (~200 px) that strikes the first monster in its way at `k` of a swing, stuns it
   // `stun` s (a boss `boss` s); the war cry: monsters within `r` deal `weak` of their damage, the warrior `buff` more, for `t` s
   const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };
-  const VOLLEY = { n: 5, arc: 50, k: 0.6 }, TRAP = { r: 22, root: 2, boss: 0.6, k: 1.5, arm: 0.4, max: 2, life: 30 }, LEAP = { k: 2 };
+  const VOLLEY = { n: 5, arc: 50, k: 1 }, TRAP = { r: 22, root: 2, boss: 1, k: 1.5, arm: 0.4, max: 2, life: 30 }, LEAP = { k: 2 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
   // right click's ability, `shoots`: the weapons it fires from instead of swinging, the starting gear and the look (`look`: the rig's and the textures' name; `ready`: its own art is in,
@@ -57,7 +57,7 @@
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 5, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0.02, hp: 0 },
       abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1 } },
-    archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 7, int: 3, vit: 4 }, grow: { hp: 5, mp: 3, pts: 3, sp: 1 },
+    archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 3, sp: 1 },
       abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65 } },
   };
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));

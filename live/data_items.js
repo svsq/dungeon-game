@@ -34,9 +34,9 @@
     robe: { slot: 'armor', cls: MG, name: TXT('BASES.robe.name'), icon: 'it_robe', def: 3, typed: { int: 0.8 } },
     // the archer's own (TASKS 1122): bows shoot arrows (`shot`) and take their damage from AGI, not STR (`dex`); a quiver in the
     // shield's hand gives crit (the quiver on his back is his look whatever he holds)
-    shortbow: { slot: 'weapon', cls: AR, name: TXT('BASES.shortbow.name'), icon: 'it_bow_s', atk: 6, spd: 0.42, arc: 100, reach: 51, dex: 1, shot: 'arrow' },
-    longbow: { slot: 'weapon', cls: AR, name: TXT('BASES.longbow.name'), icon: 'it_bow_l', atk: 6.5, spd: 0.48, arc: 100, reach: 51, dex: 1, shot: 'arrow', minF: 3 },
-    crossbow: { slot: 'weapon', cls: AR, name: TXT('BASES.crossbow.name'), icon: 'it_crossbow', atk: 7.5, spd: 0.6, arc: 100, reach: 51, dex: 1, shot: 'arrow', minF: 5 },
+    shortbow: { slot: 'weapon', cls: AR, name: TXT('BASES.shortbow.name'), icon: 'it_bow_s', atk: 6, spd: 0.42, arc: 100, reach: 51, dex: 1.7, shot: 'arrow' },
+    longbow: { slot: 'weapon', cls: AR, name: TXT('BASES.longbow.name'), icon: 'it_bow_l', atk: 6.5, spd: 0.48, arc: 100, reach: 51, dex: 1.7, shot: 'arrow', minF: 3 },
+    crossbow: { slot: 'weapon', cls: AR, name: TXT('BASES.crossbow.name'), icon: 'it_crossbow', atk: 7.5, spd: 0.6, arc: 100, reach: 51, dex: 1.7, shot: 'arrow', minF: 5 },
     quiver: { slot: 'offhand', cls: AR, name: TXT('BASES.quiver.name'), icon: 'it_quiver', def: 4, typed: { crit: 1 }, w: 1 / 3 },
     circlet: { slot: 'helm', cls: MG, name: TXT('BASES.circlet.name'), icon: 'it_circlet', def: 2, typed: { mp: 0.8 } },
   };

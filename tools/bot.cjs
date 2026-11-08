@@ -12,6 +12,7 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
 // a shooting class's range (TASKS 1116): backs off inside `near`, walks in beyond `far` (a bolt flies 434 px)
 const SHOOT = { near: 150, far: 380, futile: 2.5 };
+const MAIN = { warrior: 'str', mage: 'int', archer: 'agi' };
 const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'frost', 'volley', 'snap', 'leap', 'charge', 'cry'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
@@ -381,8 +382,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
     if (why) { stuck = { how: 'stuck', why, floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
     // the points a run starts with are laid out on the hero screen, where each point of VIT or INT comes with its health or mana
-    if (R.floor === 1 && S.t - tF < 1 && h.pts > 0) { while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; } const s0 = SIM.stats(h, S.meta); h.hp = s0.maxHp; h.mp = s0.maxMp; }
-    while (h.pts > 0) { const k = P.stats[h.pts % P.stats.length]; h.base[k]++; h.pts--; }
+    // a profile's plan names STR for the class's main stat (TASKS 1140, critic archer_warrior_game_r1): the archer's AGI, the mage's INT,
+    // the warrior's own STR — the same plan for all three, or an archer put a third of his points into a stat that does nothing for him
+    const statK = (k) => (k === 'str' ? MAIN[D.clsOf(h).id] || 'str' : k);
+    if (R.floor === 1 && S.t - tF < 1 && h.pts > 0) { while (h.pts > 0) { const k = statK(P.stats[h.pts % P.stats.length]); h.base[k]++; h.pts--; } const s0 = SIM.stats(h, S.meta); h.hp = s0.maxHp; h.mp = s0.maxMp; }
+    while (h.pts > 0) { const k = statK(P.stats[h.pts % P.stats.length]); h.base[k]++; h.pts--; }
     if (P.skills) { const a = P.skills.map((id) => D.clsOf(h).abs.find((q) => q.id === id)).filter(Boolean).find((q) => h.lvl >= q.unlock && (h.ab[q.id] || 0) < D.AB_MAX);
       if (a && h.sp > 0) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; } }
     else for (const a of D.clsOf(h).abs) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
