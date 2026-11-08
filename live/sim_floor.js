@@ -150,7 +150,7 @@
       else { R.shop = SIMX.stockShop(R, SIMX.tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
-    arrive(S, R, how); R.arrived = M ? '' : how;
+    arrive(S, R, how); R.arrived = M ? '' : how; R.enteredT = S.t;
     ev(S, { k: 'floor', x: R.hero.x, y: R.hero.y, f });
     S.saveN++;
   }
@@ -167,7 +167,7 @@
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
     reveal(R); R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 };
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);
-    if (ch && !(R.chapSeen || {})[R.floor]) { (R.chapSeen ||= {})[R.floor] = 1; Object.assign(R.msg, { chapter: D.RUNS[ch.run].name, d: 4.5 }); }
+    if (ch && !(R.chapSeen || {})[R.floor]) { (R.chapSeen ||= {})[R.floor] = 1; const chapter = D.RUNS[ch.run].name; Object.assign(R.msg, { s: R.msg.s.replace(' — ' + chapter, ''), chapter, d: 4.5 }); }
   }
   // a run picked up on its arrival at a floor first built there (the bot's checkpoints, TASKS 467): the floor is built again by this
   // version of the game from the RNG and ids it was first built with, so a change to the deep floors is measured without playing

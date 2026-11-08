@@ -260,6 +260,7 @@
     // T reads the scroll of return (TASKS 1026: behind the bag alone, a novice never found it)
     if (keys.KeyT) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); if (i >= 0) SIMX.useItem(S, R, i); else ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.stepPlay.s') }); }
     if (keys.KeyR) SIMX.usePotion(S, R, 'mp_potion');
+    if (R.msgNext && S.t >= R.msgNext.t) { R.msg = R.msgNext; R.msgNext = null; }
     if (keys.KeyE) SIMX.interact(S, R);
     if (R.map !== m) return;
     if (h.read && R.hero === h) SIMX.readStep(S, R, ix || iy ? 1 : 0, dashing);
