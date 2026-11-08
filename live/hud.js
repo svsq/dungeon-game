@@ -239,6 +239,7 @@
     // the warrior's rage (TASKS 1130) on the mana's bar, in its own ember colour
     const rage = D.clsOf(h).res === 'rage';
     bar('mpbar', 116, 44, 230, 24, h.mp / st.maxMp, rage ? [0.95, 0.42, 0.1] : [0.18, 0.42, 0.95], rage ? [0.5, 0.14, 0.04] : [0.07, 0.18, 0.55], Math.floor(h.mp) + ' / ' + st.maxMp);
+    if (rage && h.mp >= st.maxMp) L.solid(116 + 230 - 4, 44, 4, 24, [1, 0.86, 0.45], 0, 0, 0, 1);
     bar('xpbar', 116, 72, 230, 9, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
     if (h.shield > 0 && GT < h.shieldUntil) L.rrect(119, 15, 224 * Math.min(1, h.shield / st.maxHp), 6, 3, [0.6, 0.85, 1], [0.3, 0.55, 1], 0.9);
     // skill bar + potions
@@ -246,7 +247,7 @@
       panel('sk_' + A.id, x, y, 48, 48, { r: 5, rim: r ? C.rimHi : C.rim });
       icon(A.icon, x + 3, y + 3, 42, { alpha: r ? 1 : 0.25, grade: r ? [1, 1, 0, 1] : [0, 0.5, 0, 1] });
       const cd = h.cd[A.id] - GT, full = A.cd; if (r && cd > 0) { L.solid(x + 3, y + 3 + 42 * (1 - cd / full), 42, 42 * cd / full, [0, 0, 0], 0, 0, 0, 0.6); lab('skc_' + A.id, cd.toFixed(1), x + 24, y + 25, { size: 16, al: 0.5 }); }
-      else if (r && h.mp < A.mp) L.solid(x + 3, y + 3, 42, 42, [0.05, 0.1, 0.4], 0, 0, 0, 0.5);
+      else if (r && h.mp < A.mp) L.solid(x + 3, y + 3, 42, 42, rage ? [0.4, 0.1, 0.02] : [0.05, 0.1, 0.4], 0, 0, 0, 0.5);
       lab('skk_' + A.id, A.key, x + 8, y + 11, { size: 14, col: C.gold }); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
@@ -510,6 +511,7 @@
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });
       lab('ab_n' + i, A.name, b.x + 84, b.y + 26, { size: 19, col: C.text });
       lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 84, b.y + 56, { size: 19, col: r ? C.gold : C.dim });
+      lab('ab_c' + i, abCost(D.clsOf(h), A, r), b.x + 84, b.y + 78, { size: 16, col: C.dim });
       const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d).replace('{t}', String(D.abRank(A.id, r).t).replace('.', ',')).replace('{w}', Math.round((1 - D.CRY.weak) * 100)), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
@@ -617,6 +619,7 @@
     if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
   }
   // the class screen (TASKS 1103): a card a ready class — its portrait, name, way of playing, three abilities and starting kit
+  const abCost = (Cl, A, r) => { const cd = String(Math.round(A.cd * D.abRank(A.id, Math.max(1, r)).cd * 10) / 10).replace('.', ','); return A.mp ? TXT('hud.ab.cost', { mp: A.mp, res: Cl.resWord, cd }) : TXT('hud.ab.free', { cd }); };
   function classes(S, t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
@@ -629,9 +632,10 @@
       const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
       L.sprite(por, b.x + (b.w - 220) / 2, b.y + 24, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
       lab('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 252, { size: 44, al: 0.5, col: on ? C.gold : C.text });
-      lab('cl_y' + b.cls, Cl.style, b.x + b.w / 2, b.y + 300, { size: 21, al: 0.5, col: C.dim });
+      lab('cl_y' + b.cls, Cl.style, b.x + b.w / 2, b.y + 298, { size: 21, al: 0.5, col: C.dim });
+      lab('cl_u' + b.cls, Cl.note, b.x + b.w / 2, b.y + 324, { size: 18, al: 0.5, col: '#8a7d6c' });
       Cl.abs.forEach((A, i) => { const y = b.y + 340 + i * 74; panel('cl_a' + b.cls + i, b.x + 40, y, 60, 60, { r: 6, rim: C.rim }); icon(A.icon, b.x + 44, y + 4, 52);
-        lab('cl_an' + b.cls + i, A.name, b.x + 116, y + 22, { size: 23, col: C.text }); lab('cl_ak' + b.cls + i, TXT('hud.inv.14', { unlock: A.unlock }), b.x + 116, y + 48, { size: 18, col: C.dim }); });
+        lab('cl_an' + b.cls + i, A.name, b.x + 116, y + 22, { size: 23, col: C.text }); lab('cl_ak' + b.cls + i, TXT('hud.inv.14', { unlock: A.unlock }) + ' · ' + abCost(Cl, A, 1), b.x + 116, y + 48, { size: 18, col: C.dim }); });
       lab('cl_k' + b.cls, TXT('UI.classes.start', { p1: Object.values(Cl.start).map((k) => D.BASES[k].name).join(', ') }), b.x + b.w / 2, b.y + 586, { size: 20, al: 0.5, col: C.dim });
       if (on) lab('cl_on' + b.cls, TXT('UI.classes.chosen'), b.x + b.w - 20, b.y + 30, { size: 20, al: 1, col: C.gold });
     }

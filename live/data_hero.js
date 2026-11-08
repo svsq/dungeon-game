@@ -74,9 +74,9 @@
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
   // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire
-  Object.assign(CLASSES.warrior, { dead: { gifts: ['wisdom', 'arcane'], meta: ['mana', 'regen'], mods: ['int', 'mp', 'fire'], cons: ['mp_potion'] } });
-  Object.assign(CLASSES.mage, { dead: { gifts: ['reach', 'cleave'], meta: [], mods: ['str'], cons: [] } });
-  Object.assign(CLASSES.archer, { dead: { gifts: ['reach', 'cleave', 'arcane'], meta: [], mods: ['str', 'fire'], cons: [] } });
+  Object.assign(CLASSES.warrior, { note: TXT('CLASSES.warrior.note'), resWord: TXT('CLASSES.warrior.resWord'), dead: { gifts: ['wisdom', 'arcane'], meta: ['mana', 'regen'], mods: ['int', 'mp', 'fire'], cons: ['mp_potion'] } });
+  Object.assign(CLASSES.mage, { note: TXT('CLASSES.mage.note'), resWord: TXT('CLASSES.mage.resWord'), dead: { gifts: ['reach', 'cleave'], meta: [], mods: ['str'], cons: [] } });
+  Object.assign(CLASSES.archer, { note: TXT('CLASSES.archer.note'), resWord: TXT('CLASSES.archer.resWord'), dead: { gifts: ['reach', 'cleave', 'arcane'], meta: [], mods: ['str', 'fire'], cons: [] } });
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run
   const classesReady = () => Object.keys(CLASSES).filter((k) => CLASSES[k].look.ready);
