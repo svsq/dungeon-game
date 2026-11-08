@@ -10,7 +10,7 @@ pixels come back from the original. Outfits that keep the head get the original 
 ones and lit as nearer the camera, as herofix.py does for the plain hero. A helmet is a whole head: the body under it is drawn
 without its own head (hero__body*_nh, written here for every armour), so no hair pokes out of the helmet.
 """
-import json, sys
+import colorsys, json, re, sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage as nd
@@ -132,10 +132,28 @@ def near(L, part, who='hero'):
 
 save = lambda a, n: Image.fromarray(a.clip(0, 255).astype(np.uint8)).save(f'{GEN}/{n}.png')
 
+def archer_tone(a, name, skip=None):
+    """the archer's colours (TASKS 1124): the generator drifted the cloth to hue ~31 where the brief asks for ochre at 40, the legs came out
+    near black and the cream scarf as light as the face. Legs: value x1.55 (the cloth rule darkened the trousers first); cloth: hue 40,
+    saturation x0.95, value x0.7 (under the hero's lantern ochre went pale yellow); scarf (saturation under 0.45): value x0.8.
+    Applied once, to a freshly cut part as it is saved, so a repeat cut never scales a colour twice; skip marks pixels restored from
+    the archer's own (already toned) body."""
+    a = a.clip(0, 255).astype(np.uint8).astype(float); leg = re.search(r'__(thigh|shin|foot)', name) is not None
+    todo = a[..., 3] > 0
+    if skip is not None: todo &= ~skip
+    for y, x in zip(*np.where(todo)):
+        h, s, v = colorsys.rgb_to_hsv(*(a[y, x, :3] / 255)); H = h * 360
+        if leg: v = min(1, v * 1.55) if v > 0.08 else v
+        elif 18 <= H <= 48 and s > 0.5 and v > 0.25: h, s, v = 40 / 360, min(1, s * 0.95), v * 0.7
+        elif 30 <= H <= 62 and s < 0.45 and v > 0.65: v *= 0.8
+        a[y, x, :3] = np.array(colorsys.hsv_to_rgb(h, s, v)) * 255
+    return a
+
 def cut(names):
     lay = json.load(open('art/gear.json'))
     for name in names:
         O = opt(name); who, out_, base = O.get('src', 'hero'), O.get('out', 'hero'), O.get('base', 0)
+        put = lambda a, n: save(archer_tone(a, n, skip) if out_ == 'archer' else a, n)
         nm = lambda piece, sx: f'{out_}__{piece}' + (f'_{sx}' if sx else '')
         L = lay[name]; K, sfx = L['K'], L['sfx']; sheet = Image.open(f'{GEN}/gear_{name}.png').convert('RGBA').resize((W, H), Image.LANCZOS)
         for it in L['items']:
@@ -150,20 +168,20 @@ def cut(names):
             bgd = np.abs(out[..., :3] - np.array(BG[:3])).sum(-1) < 30
             lab, _ = nd.label(bgd | (out[..., 3] < 24)); edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
             out[np.isin(lab, list(edge)), 3] = 0
-            iou, a = fit(out, orig); a = clean(a, one=out_ != 'hero'); piece = it['piece']
+            skip = None; iou, a = fit(out, orig); a = clean(a, one=out_ != 'hero'); piece = it['piece']
             if piece == 'body': a = clean(armless(a, out_), one=out_ != 'hero')
             if piece in ('body', 'body_back') and not base:
                 full = load(f'{GEN}/{who}__{piece}.png'); keep = red(full) & ((np.arange(full.shape[0])[:, None] > 110) if sfx == 'hd' else True)
-                a[keep] = full[keep]
-                if sfx != 'hd': hy = HEAD[piece]; a[:hy] = full[:hy]
+                a[keep] = full[keep]; skip = keep.copy()
+                if sfx != 'hd': hy = HEAD[piece]; a[:hy] = full[:hy]; skip[:hy] = True
             if piece.startswith('head'):
                 v = 'body' if piece == 'head' else 'body_back'; hy = HEAD[v]; full = load(f'{GEN}/{who}__{v}.png')
                 a[hy + 6:] = 0; a[hy:hy + 6] = np.where(a[hy:hy + 6, :, 3:] > 0, a[hy:hy + 6], full[hy:hy + 6])   # the collar under the chin stays the body's
-                save(a, nm(piece, sfx[1:])); print(f'{name}: {piece} fit {iou:.2f}'); continue
-            save(a, nm(piece, sfx)); print(f'{name}: {piece} fit {iou:.2f}')
-            if piece.endswith('L'): save(near(a, piece[:-1], who), nm(piece[:-1] + 'R', sfx))
+                put(a, nm(piece, sfx[1:])); print(f'{name}: {piece} fit {iou:.2f}'); continue
+            put(a, nm(piece, sfx)); print(f'{name}: {piece} fit {iou:.2f}')
+            if piece.endswith('L'): put(near(a, piece[:-1], who), nm(piece[:-1] + 'R', sfx))
             if piece in ('body', 'body_back'):
-                nh = a.copy(); nh[:HEAD[piece]] = 0; save(nh, nm(piece, (sfx + '_nh') if sfx else 'nh'))
+                nh = a.copy(); nh[:HEAD[piece]] = 0; put(nh, nm(piece, (sfx + '_nh') if sfx else 'nh'))
     if all(opt(n).get('out', 'hero') == 'hero' for n in names):   # (a class's sets leave the hero's parts alone)
         for v in ('body', 'body_back'):   # the plate armour (the hero as drawn) without its head, under a helmet
             nh = load(f'{GEN}/hero__{v}.png'); nh[:HEAD[v]] = 0; save(nh, f'hero__{v}_nh')

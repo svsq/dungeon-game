@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """classlook.py: class look fixes (TASKS 1150, 1159, 1180) applied to art/gen sources from a pristine backup, so a second run changes nothing.
 Run it, then `python3 tools/prep.py --only <names>` (prints the names) to refresh live/assets and live/assets.js.
-A new `gear.py cut` or `archertone.py` run rewrites the parts from the sheets; run this again afterwards."""
+After `gear.py cut archer*` (which also applies the archer's tone) this must be re-run: the cut rewrites the parts from the sheets, and
+PRISTINE no longer describes those parts if the cut changed them, so move PRISTINE to a commit that holds the new cut, and clear the backup dir."""
 import colorsys, os, shutil, sys
 import numpy as np
 from PIL import Image
@@ -340,7 +341,30 @@ def fletching(a):
     return out
 
 
+def cape_edge(a):
+    A = a[..., 3] > 0
+    ys = np.where(A[:, 0])[0]
+    if not len(ys): return a
+    edge = A & ~(ndi.binary_erosion(A, structure=np.ones((3, 3))))
+    edge[:, :12] = False
+    ol = np.median(a[edge][:, :3], axis=0)
+    cell = a.shape[0] / 42
+    rng = np.random.RandomState(7)
+    blocks = {}
+    for y in range(ys.min(), ys.max() + 1):
+        b = int(y / cell)
+        if b not in blocks: blocks[b] = int(rng.randint(2, 7))
+    first = int(ys.min() / cell); last = int(ys.max() / cell)
+    blocks[first] = min(blocks[first], 2); blocks[last] = min(blocks[last], 2)
+    for y in range(ys.min(), ys.max() + 1):
+        d = blocks[int(y / cell)]
+        a[y, :d] = 0
+        a[y, d, :3] = ol; a[y, d, 3] = 255
+    return a
+
+
 def archer_all():
+    save('archer__cape', cape_edge(load('archer__cape')))
     ft, fs = leg_factor('thigh'), leg_factor('shin')
     for side in 'LR':
         for sfx in ('', '_hd', '_le'):

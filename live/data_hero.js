@@ -70,7 +70,7 @@
     // the archer's mana comes from his arrows (TASKS 1162: `hitMp` a hit, a crit; the pool held on potions); `slow` the share of his
     // shot's cycle he is slowed after it, so a quick bow does not keep him slow
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 3, sp: 1 },
-      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65 } },
+      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65, cold: { sat: 0.8, lift: 0.8, red: 0.12 } } },
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
   // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire
