@@ -1307,7 +1307,7 @@
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
     // the storage chest (TASKS 1012): its prompt; its window with a piece in, a locked cell and a tip; a piece dragged over the bag
     const stashS = (fn) => climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x; h.y = m.town.svc.stash.y + 40; const T = SIM.stashOf(S);
-      T.items = [Object.assign(SIM.rollItem(R, 9, 3, 'weapon'), { id: 900 }), null]; h.bag[3] = Object.assign(SIM.rollItem(R, 6, 2, 'armor'), { id: 901 }); S.meta.up = Object.assign({}, S.meta.up, { vault: 1 }); S.screen = 'stash'; fn(S, R, h); });
+      T.items = [Object.assign(SIM.rollItem(R, 9, 3, 'weapon'), { id: 900 }), null]; h.bag[3] = Object.assign(SIM.rollItem(R, 6, 2, 'armor'), { id: 901 }); S.screen = 'stash'; fn(S, R, h); });
     states.push(['town_stash_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x + 6; h.y = m.town.svc.stash.y + 40; })]);
     states.push(['town_stash', stashS((S) => { S.hover = 'stash:0'; })]);
     // gear above the hero's level (TASKS 1028): a deep piece in the chest and in the bag, the red line in its tooltip and the bag's mark
@@ -1318,7 +1318,7 @@
     states.push(['inv_req', play((S) => { const R = S.run, h = R.hero; h.lvl = 3; for (let i = 0; i < 6; i++) h.bag[4 + i] = Object.assign(SIM.rollItem(R, 4 + 2 * i, 2), { id: 1500 + i }); S.screen = 'inv'; S.hover = 'bag:9'; })]);
     states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
     // the workshops (TASKS 1013): the prompts at the anvil and the lectern; the smith with a rare ring chosen; the enchanter after a
-    // failed enchantment; a piece with all three enchantments (the button's refusal, the longest)
+    // failed enchantment; a piece with all five enchantments (the button's refusal, the longest)
     const craftS = (kind, fn) => climbS(0, (S, R, m, h) => { const P = m.town.svc[kind === 'forge' ? 'anvil' : 'lectern']; h.x = P.x; h.y = P.y + 30; h.gold = 23456; S.meta.shards = 77;
       const it = Object.assign(SIM.rollItem(R, 7, 3, 'ring'), { id: 950, rar: 3 }); h.bag[4] = it; S.screen = 'craft'; S.craft = { kind, sel: 'bag:4' }; fn(S, R, h, it); });
     states.push(['town_forge_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.anvil.x; h.y = m.town.svc.anvil.y + 30; })]);
@@ -1345,7 +1345,7 @@
     states.push(['town_enchant_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.lectern.x; h.y = m.town.svc.lectern.y + 30; })]);
     states.push(['town_forge', craftS('forge', (S, R, h, it) => { it.ench = [{ k: 'crit', v: 4 }]; S.hover = 'do'; })]);
     states.push(['town_enchant', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }]; S.craft.res = { s: TXT('QA.res.s'), ok: 0, t: S.t - 0.5 }; S.hover = 'eq:weapon'; })]);
-    states.push(['town_enchant_full', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }, { k: 'leech', v: 3 }, { k: 'mspd', v: 6 }]; })]);
+    states.push(['town_enchant_full', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }, { k: 'leech', v: 3 }, { k: 'mspd', v: 6 }, { k: 'crit', v: 4 }, { k: 'atk', v: 5 }]; })]);
     // a word with the townsfolk (TASKS 1016, 1023): the prompt by the Keeper; his dialogue on its longest page; the guard's line
     const keeperS = (fn) => climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] });
       const k = S.run.folk.find((q) => q.role === 'keeper'); h.x = k.x + 44; h.y = k.y + 12; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; fn(S, R, h, k); });

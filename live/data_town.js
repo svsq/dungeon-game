@@ -46,9 +46,9 @@
   // the town's workshops (R-32, TASKS 1013), a sink for spare gold and shards (389): the smith reforges a piece's own affixes for a
   // share of its price; the enchanter lays on up to three more, each dearer and riskier: a failure strips every enchantment
   // (strip share of failures) or spoils the piece (it loses one affix of its own)
-  const CRAFT = { reforge: 0.35, ench: { max: 3, gold: [0.3, 0.6, 1.2], shards: [3, 6, 12], fail: [0.01, 0.02, 0.03] } };
-  // the storage chest (R-33, TASKS 1012): gear left for the heroes to come, kept in the meta save with the item balance it was made under
-  const STASH = { max: 3, cells: (meta) => 1 + ((meta && meta.up && meta.up.vault) || 0) };
+  const CRAFT = { reforge: 0.35, ench: { max: 5, gold: [0.3, 0.6, 1.2, 2.4, 4.8], shards: [3, 6, 12, 24, 48], fail: [0, 0.01, 0.02, 0.05, 0.1] } };
+  // the storage chest (R-33, TASKS 1012, 1217): anything left for the heroes to come, kept in the meta save with the item balance it was made under
+  const STASH = { cells: 24 };
 
   // the townsfolk (R-17, TASKS 1015): a pair of lines when the hero comes up (the next pair the next time), the clock of the work
   // loop (per s; hit: the loop's impact phase, rest: every rest-th loop is a breather) and, for those with a round, the walking

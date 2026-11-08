@@ -130,7 +130,7 @@
     return;
   };
   SCREEN.stash = (S, inp, keys, x, y, click) => {
-    const R = S.run, U = UI.stash(), b = D.hitUI(U.r, x, y), n = D.STASH.cells(S.meta); S.hover = b ? b.id : '';
+    const R = S.run, U = UI.stash(), b = D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
     const T = stashOf(S);
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };

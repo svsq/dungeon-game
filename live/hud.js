@@ -813,22 +813,20 @@
   }
   // ---------------- the town's storage chest (R-33, TASKS 1012): gear left for the heroes to come ----------------
   function stash(S, R, t) {
-    const h = R.hero, U = D.UI.stash(), P = U.P, T = SIM.Q.stashOf(S), n = D.STASH.cells(S.meta), dr = S.drag, held = (id) => dr && dr.from === id;
+    const h = R.hero, U = D.UI.stash(), P = U.P, T = SIM.Q.stashOf(S), n = D.STASH.cells, dr = S.drag, held = (id) => dr && dr.from === id;
     dim(0.5); panel('stash', P.x, P.y, P.w, P.h, { r: 10 });
     lab('st_t', TXT('hud.stash'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
     lab('st_s', TXT('hud.stash.2'), P.x + 40, P.y + 100, { size: 22, col: C.dim });
-    for (let i = 0; i < D.STASH.max; i++) { const b = U.r.find((q) => q.id === 'stash:' + i);
-      if (i < n) slot(S, b, held(b.id) ? null : T.items[i], undefined, 1);
-      else { panel('st_lock' + i, b.x, b.y, b.w, b.h, { r: 6, rim: [0.22, 0.2, 0.2], c0: [0.04, 0.035, 0.04], c1: [0.03, 0.025, 0.03] }); lab('st_lk' + i, '×', b.x + b.w / 2, b.y + b.h / 2, { size: 40, al: 0.5, col: '#4a4038' }); } }
-    lab('st_cells', n < D.STASH.max ? TXT('hud.stash.3', { n, max: D.STASH.max }) : TXT('hud.stash.4', { n }), W / 2, P.y + 290, { size: 20, al: 0.5, col: C.dim });
-    lab('st_bag', TXT('hud.stash.5'), P.x + 88, P.y + 344, { size: 24, col: C.dim });
+    for (let i = 0; i < n; i++) { const b = U.r.find((q) => q.id === 'stash:' + i); slot(S, b, held(b.id) ? null : T.items[i], undefined, 1); }
+    lab('st_cells', TXT('hud.stash.4', { n: T.items.filter(Boolean).length, max: n }), P.x + P.w - 88, P.y + 100, { size: 22, al: 1, col: C.dim });
+    lab('st_bag', TXT('hud.stash.5'), P.x + 88, P.y + 472, { size: 24, col: C.dim });
     for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'bag:' + i); slot(S, b, held(b.id) ? null : h.bag[i]); }
     lab('st_help', TXT('hud.stash.6'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('st_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('st_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
-    refusal(S, W / 2, P.y + 326);
+    refusal(S, W / 2, P.y + 456);
     if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); return; }
     const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
-    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? (SIM.Q.isCons(it) ? TXT('hud.stash.7') : TXT('hud.stash.8')) : TXT('hud.stash.9'), C.gold]);
+    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? TXT('hud.stash.8') : TXT('hud.stash.9'), C.gold]);
   }
   // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------
   // the town's gate out (TASKS 1149): give up, or end the run won past the campaign's last boss

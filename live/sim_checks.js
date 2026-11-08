@@ -2403,11 +2403,11 @@
     h.x = sv.altar.x; h.y = sv.altar.y + 40; step(S, { keys: ['KeyE'] }); if (S.screen !== 'meta') out.push('stash: the altar beside the chest no longer answers'); S.screen = 'play';
     h.x = sv.stash.x; h.y = sv.stash.y + 40; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen !== 'stash') { out.push('stash: E at the chest does not open it'); return out; }
     const g1 = rollItem(R, 6, 2), g2 = rollItem(R, 6, 2); g1.id = R.nextId++; g2.id = R.nextId++; h.bag[3] = g1; h.bag[4] = g2;
-    clickOn('bag:0'); if (!h.bag[0] || (S.meta.stash.items || []).some(Boolean)) out.push('stash: a potion goes into the chest');
+    { const p = h.bag[0]; clickOn('bag:0'); if (h.bag[0] || S.meta.stash.items[0] !== p) out.push('stash: a potion does not go into the chest'); clickOn('stash:0'); if (S.meta.stash.items[0]) out.push('stash: a potion does not come back out'); }
+    if (D.STASH.cells !== 24) out.push('stash: the chest is not 24 cells');
     clickOn('bag:3'); if (h.bag[3] || S.meta.stash.items[0] !== g1) out.push('stash: a click does not lay gear in');
-    clickOn('bag:4'); if (h.bag[4] !== g2) out.push('stash: a second piece fits with one cell');
-    S.meta.up.vault = 1; step(S, at('bag:4', { click: 1, press: 1 })); step(S, at('stash:1', { press: 1 })); step(S, at('stash:1'));
-    if (h.bag[4] || S.meta.stash.items[1] !== g2) out.push('stash: a drag onto a cell bought with «Сундук предков» does not land there');
+    step(S, at('bag:4', { click: 1, press: 1 })); step(S, at('stash:1', { press: 1 })); step(S, at('stash:1'));
+    if (h.bag[4] || S.meta.stash.items[1] !== g2) out.push('stash: a drag does not land on the cell under the pointer');
     step(S, at('stash:0', { click: 1, press: 1 })); step(S, at('bag:9', { press: 1 })); step(S, at('bag:9'));
     if (h.bag[9] !== g1 || S.meta.stash.items[0]) out.push('stash: a drag out does not land on the bag cell under the pointer');
     clickOn('bag:9'); step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('stash: Esc does not close the chest');
@@ -2420,7 +2420,7 @@
   }
   // TASKS 1013: E at the anvil opens the smith's reforging, at the lectern the enchanter's enchanting; a reforge re-rolls a piece's
   // own affixes for gold (not a common piece's, which has none), keeps its enchantments; the first enchantment never fails and
-  // reaches the hero's stats; a failed one strips the enchantments or takes an affix of the piece's own; a fourth is refused;
+  // reaches the hero's stats; a failed one takes everything off the piece; a sixth is refused;
   // each is paid in gold and shards
   function craftCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.craft(); noQuests(R);
@@ -2437,10 +2437,10 @@
     if (it.ench.length !== 1 || S.meta.shards !== sh0 - D.CRAFT.ench.shards[0]) out.push('craft: the first enchantment fails or is not paid in shards');
     else { const e = it.ench[0], st1 = heroSt(S), was = SIM_STAT[e.k]; if (was && st1[was] <= st0[was]) out.push(`craft: the enchantment (${e.k}) does not reach the hero`); }
     // TASKS 1218: a failure is rare and takes everything off the piece, its own affixes too
-    if (Math.max(...D.CRAFT.ench.fail) > 0.05) out.push('craft: the enchantment risks more than a few percent');
-    { const was = D.CRAFT.ench.fail; D.CRAFT.ench.fail = [1, 1, 1]; it.ench = [{ k: 'atk', v: 1 }]; rollAffixes(R, it); click('do'); D.CRAFT.ench.fail = was;
+    if (D.CRAFT.ench.max !== 5 || D.CRAFT.ench.fail.join() !== '0,0.01,0.02,0.05,0.1') out.push('craft: the enchantment is not 5 steps at 0, 1, 2, 5, 10 %');
+    { const was = D.CRAFT.ench.fail; D.CRAFT.ench.fail = [1, 1, 1, 1, 1]; it.ench = [{ k: 'atk', v: 1 }]; rollAffixes(R, it); click('do'); D.CRAFT.ench.fail = was;
       if (!S.craft.res || S.craft.res.ok || it.ench.length || Object.keys(it.mods).length) out.push('craft: a failure does not take everything off the piece'); rollAffixes(R, it); }
-    it.ench = [{ k: 'str', v: 1 }, { k: 'agi', v: 1 }, { k: 'int', v: 1 }]; const g2 = h.gold; click('do'); if (it.ench.length !== 3 || h.gold !== g2) out.push('craft: a fourth enchantment is laid on');
+    it.ench = D.AFFIXES.slice(0, 5).map((a) => ({ k: a.k, v: 1 })); const g2 = h.gold; click('do'); if (it.ench.length !== 5 || h.gold !== g2) out.push('craft: a fourth enchantment is laid on');
     return out;
   }
   const SIM_STAT = { str: 'atk', vit: 'maxHp', hp: 'maxHp', mp: 'maxMp', atk: 'atk', def: 'def', crit: 'crit', aspd: 'aspd', dodge: 'dodge', regen: 'regen', onhit: 'onhit' };

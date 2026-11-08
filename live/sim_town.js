@@ -295,17 +295,19 @@
     else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
     S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
-  // gear left in the town for the heroes to come: S.meta.stash, its cells D.STASH.cells(meta), its items under the item balance
+  // anything left in the town for the heroes to come: S.meta.stash, D.STASH.cells of it, its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)
   function stashOf(S) { const T = S.meta.stash || (S.meta.stash = { v: D.ITEM_BAL.version, items: [] });
+    // the «Сундук предков» upgrade is gone (TASKS 1217): what was paid for it comes back
+    if (S.meta.up && S.meta.up.vault) { S.meta.shards += [0, 40, 100][S.meta.up.vault] || 0; delete S.meta.up.vault; }
     if (T.v !== D.ITEM_BAL.version) { for (const it of T.items) if (it && BASES[it.b]) itemPower(it); T.v = D.ITEM_BAL.version; } return T; }
-  function stashPut(S, R, i, j) { const T = stashOf(S), h = R.hero, it = h.bag[i], n = D.STASH.cells(S.meta);
-    if (!it) return; if (isCons(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashPut.s') }); return; }
+  function stashPut(S, R, i, j) { const T = stashOf(S), h = R.hero, it = h.bag[i], n = D.STASH.cells;
+    if (!it) return;
     if (j === undefined) { j = 0; while (j < n && T.items[j]) j++; }
-    if (j >= n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: n < D.STASH.max ? TXT('sim_town.stashPut.s.2') : TXT('sim_town.stashPut.s.3') }); return; }
+    if (j >= n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashPut.s.3') }); return; }
     const was = T.items[j]; T.items[j] = it; h.bag[i] = was ? Object.assign(was, { id: R.nextId++ }) : null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }
   function stashTake(S, R, j, i) { const T = stashOf(S), h = R.hero, it = T.items[j]; if (!it) return;
-    if (i !== undefined && h.bag[i]) { if (isCons(h.bag[i])) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashTake.s') }); return; } const was = h.bag[i]; h.bag[i] = Object.assign(it, { id: R.nextId++ }); T.items[j] = was; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
+    if (i !== undefined && h.bag[i]) { const was = h.bag[i]; h.bag[i] = Object.assign(it, { id: R.nextId++ }); T.items[j] = was; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
     if (i !== undefined) h.bag[i] = it; else if (!bagAdd(R, it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashTake.s.2') }); return; }
     it.id = R.nextId++; T.items[j] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
