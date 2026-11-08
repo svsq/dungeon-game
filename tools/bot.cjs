@@ -82,7 +82,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const S = initial ? initial.S : SIM.spawn(0, {});
   if (!initial) { S.seedBase = seed; S.meta.diff = diff; S.meta.cls = cls; startRun(S, mode); }
 
-  const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet(), been = new Set(), low = new Map();
+  const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), salNext = new Map(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
   // a shooter's target that has not lost health for SHOOT.futile s (a sleeping boss before its arena wakes, a bolt stopped by cover)
@@ -168,6 +168,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
+      // (TASKS 1157: backing off every swing, one each 1.4 s, the expert never struck back for 120 s and more)
+      if (E.kind === 'salamander') { if (d > E.r + HR + E.reach + 6 || t < (salNext.get(e.id) || 0)) continue; salNext.set(e.id, t + 2.5); }
       // the warrior holds the line (TASKS 1140): a rank-and-file swing is taken on the armour; his dash stays for what a tank can't soak
       if (D.clsOf(h).id === 'warrior' && e.st === 'wind' && !e.elite && !e.chain && !e.rush && !E.boom && E.kind !== 'slam') continue;
       const range = e.st === 'bwind' ? (['bite', 'tail', 'fists'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : e.mv === 'crack' ? D.bossMove(e).len : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;

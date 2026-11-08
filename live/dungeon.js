@@ -20,7 +20,7 @@
 
   function genFloor(seed, floor, opts = {}) {
     // a floor without a secret room is rerolled a few times before one is accepted, unless it meant to have none
-    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, attempt < 16); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) return m; }
+    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, attempt < 16, false, attempt < 14); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) return m; }
     // (a floor no try above lays, which a magma floor's walk to the stairs left 1 seed in 300: a crash on entering it, never a
     // floor; reached only past them, so every floor they lay stays as it is; loose: their walk to the stairs may be nine tenths)
     for (let attempt = 20; attempt < 40; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, false, false, attempt >= 36); if (m) { m.loose = 1; return m; } }
@@ -137,7 +137,7 @@
   // the river's end (dry), if any, no shorter than `choice` of the best
   const riverAt = (R, b) => R.via.map((d, p) => [d[b], p]).filter((q) => q[0] > 0).sort((x, y) => x[0] - y[0]);
   const riverOk = (R, b, choice) => { const ws = riverAt(R, b), dry = R.dry[b]; return ws.length >= 2 && ws[1][0] <= ws[0][0] * choice && (dry < 0 || dry >= ws[0][0] * choice); };
-  function tryGen(seed, runFloor, opts, strict, mixed, lastTry) {
+  function tryGen(seed, runFloor, opts, strict, mixed, lastTry, altTry) {
     const GF = {};
     const R = mul32(seed), ri = (a, b) => a + Math.floor(R() * (b - a + 1)), pick = (arr) => arr[Math.floor(R() * arr.length)];
     // depth: the campaign floor this one is worth in monsters, elites, traps and ambushes; runFloor: its place in the run; floor: its
@@ -157,7 +157,7 @@
     GF.moat = null;
     const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2 && !(GF.moat && v === 1 && GF.moat(x, y))) cells[y * W + x] = v; };
     Object.assign(GF, {
-      AR, FM, H, R, ST, W, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
+      AR, FM, H, R, ST, W, altTry, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
       runFloor, seed, set, strict });
     if (DGX.rooms(GF) === null) return null;
     if (DGX.links(GF) === null) return null;

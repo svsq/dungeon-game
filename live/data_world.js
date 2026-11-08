@@ -70,7 +70,7 @@
       // bridges over the dark but a share `neck` of them left a neck of rock
       chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3],
         // alt (TASKS 1054): the second way over a bridge the walk can't go round: a deck `len` cells long, `off` cells and more off it
-        alt: { off: 4, len: [4, 14] } },
+        alt: { off: 12, len: [4, 20] } },
       // terrace (430): a lavafall down the top wall near one side of the map (`fallAt` of the width from it, the wall `wall` rows high
       // there) runs down to the bottom as a river `w` cells wide; on the wide side terraces step down, rows `rowH` high with `step`
       // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
@@ -100,7 +100,7 @@
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, fallDeep: 3, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4],
         // a hoard's islet (TASKS 476): a pad of floor (`pad` cells) out in the open lava, `ring` cells of it all round, its only way a
         // strip of thin crust two cells wide `len` cells long to the nearest plateau; `n` a floor
-        islet: { pad: [3, 3], ring: 1, len: [2, 9], n: 1 } } },
+        islet: { pad: [3, 3], ring: 1, len: [4, 9], n: 1 } } },
     // the rooms-and-corridors floors' layouts (TASKS 379), each a set of knobs on the one generator (dungeon.js): room, the room count
     // of the floor's range taken (min: fewest a floor is laid with); rect, a plain room's size (cells, else by the map); shapes, the
     // shapes' weights over ROOM_SHAPES; gap, the rock kept between rooms; bends, the corridor length (cells) past which it takes one
@@ -189,7 +189,7 @@
   // over that: the sanctum's circle blesses the hero once its priests are dead (GIFTS.bless for the floor), the forge's chest
   // `forge` arms of `min` rarity and up, the nest the most gold (`gold` heaps) for the deadliest hall, the prison the prisoners' stash
   // (`stash`: potions and a scroll with the one item)
-  const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5,
+  const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5, blessOff: 14,
     kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3, pay: { tier: 1, bless: 1 } },
       forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1, pay: { tier: 2, gold: 1, forge: { n: 2, min: 2, slots: ['weapon', 'armor', 'offhand'] } } },
       // (the nest its own pack alone, TASKS 1041: with 2 extra it held 5–7, their blasts a chain; the prison less often: 54 halls of 134)
