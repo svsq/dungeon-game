@@ -443,9 +443,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.kills !== kills0) { kills0 = R.kills; progT = S.t; }
     for (const e of R.en) if (e.deadT < 0 && e.hp < (low.get(e.id) ?? e.max)) { low.set(e.id, e.hp); progT = S.t; }
     // the town has a clock of its own (a visit takes 20–40 s): the floor's STUCK and the idle watch wait for the way back (PR #21 review)
-    // (a boss still losing health is no stuck bot, TASKS 1140: a shooter's colossus outlasted the floor's clock with 8 % of its health left)
-    const arenaB = R.arena && R.arena.active && R.en.find((e) => e.deadT < 0 && D.BOSSES[e.type]); if (arenaB && arenaB.hp < bossHp) { bossHp = arenaB.hp; bossProg = S.t; } if (!arenaB) bossHp = Infinity;
-    const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK && !(arenaB && S.t - bossProg < 30) ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
+    // (a boss still losing health is no stuck bot, TASKS 1140: a shooter's colossus outlasted the floor's clock with 8 % of its health left;
+    // nor is the walk out after the kill, the clock ran out the moment the serpent fell)
+    const arenaB = R.arena && R.arena.active && R.en.find((e) => e.deadT < 0 && D.BOSSES[e.type]); if (arenaB && arenaB.hp < bossHp) { bossHp = arenaB.hp; bossProg = S.t; } if (!arenaB) { if (bossHp !== Infinity) bossProg = S.t + 90; bossHp = Infinity; }
+    const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK && S.t - bossProg >= 30 ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
     if (why) { stuck = { how: 'stuck', why, floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
     // the points a run starts with are laid out on the hero screen, where each point of VIT or INT comes with its health or mana
     // a profile's plan names STR for the class's main stat (TASKS 1140, critic archer_warrior_game_r1): the archer's AGI, the mage's INT,
@@ -529,7 +530,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (shotOk === S.t) lt = S.t;
     if (S.t - lt > 1) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); inp.press = 1;
       // in a fight the aim stays on the foe: held a pixel outside the bot's own margin of its reach, it swung the other way for good (TASKS 1153)
-      if (!(goal && goal[0] === 'fight')) Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
+      // (but a pot in the way is struck even so, TASKS 1140: a shooter's aim stayed on the foe round the corner, its sweep missed the pot in the passage, 7 of 11 stuck runs)
+      const pot = (dx || dy) && R.pots.find((q) => q.hp > 0 && Math.hypot(q.x - h.x, q.y - h.y) < 60 && (q.x - h.x) * dx + (q.y - h.y) * dy > 0);
+      if (pot) Object.assign(inp, toPx(R, pot.x, pot.y - SIM.RIG.shoulder + 8));
+      else if (!(goal && goal[0] === 'fight')) Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
       // still held after 3 s: a dash; walking into something, also a step each time in the next of the four ways, for a way the
       // cells do not show (a gap between the merchant's counter and his barrel led behind the counter, where the only way out the
       // field knows runs through it, seed 36). Not in a fight, where the hero stands and swings
