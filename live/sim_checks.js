@@ -1113,6 +1113,13 @@
     // comes up; a pair ends by turns with the exit's elite guard and the biome's boss; maps grow to the cap and no further; floors
     // generate with the hero on open floor; a run goes on past the 12th and its depth is the record; no demon lord nor serpent before
     // the 8th
+    { const end = BAL.deep.end, top = [D.hpAt(end), D.dmgAt(end), D.dmgAt(end, 1)], st = (f) => D.stageOf('endless', f, 7, 17);
+      for (const f of [end + 1, end + 2, 100, 1000, 1e6, 1e12]) { if ([D.hpAt(f), D.dmgAt(f), D.dmgAt(f, 1)].some((v, i) => v !== top[i] || !Number.isFinite(v))) out.push(`deep f${f}: monsters grow past the end of the growth`);
+        if (f > 1000) continue; const a = st(f), b = st(end); if (a.elite !== b.elite || a.pop !== b.pop || a.cd !== b.cd || D.deepAxis(f, 'blow') !== D.deepAxis(end, 'blow')) out.push(`deep f${f}: an axis grows past the end of the growth`);
+        if (D.eliteMods(f).join() !== D.eliteMods(end).join()) out.push(`deep f${f}: elites gain modifiers past the end of the growth`); }
+      if (!(D.deepAxis(1e6, 'blow') < 0.5)) out.push('deep: two blows could kill from full health');
+      for (let f = BAL.deep.past + 1; f <= end; f++) if (!(D.hpAt(f) > D.hpAt(f - 1)) || !(D.dmgAt(f) > D.dmgAt(f - 1))) out.push(`deep f${f}: no growth`);
+      for (let d = 1; d <= BAL.deep.past; d++) { const old = (1 + 0.5 * (d - 1)) * Math.pow(1.1, Math.max(0, d - 12)); if (Math.abs(D.hpAt(d) - old) > 1e-9 || D.deepAxis(d, 'blow') !== BAL.cap.blow) out.push(`deep: the campaign's depth ${d} changed`); } }
     { const E = D.RUNS.endless, seen = new Set();
       for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 20; f++) { const a = D.stageOf('endless', f, sd), b = D.stageOf('endless', f, sd); seen.add(a.biome);
         if (a.biome !== b.biome || a.biome !== D.stageOf('endless', f % 2 ? f + 1 : f - 1, sd).biome) { out.push(`endless seed ${sd} f${f}: a pair's biome not fixed by the seed`); break; }
