@@ -244,7 +244,10 @@
       if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, B = D.BOLT, c = rnd(R) * 100 < st.crit, hx = hand(h)[0] + Math.cos(a) * B.tip, hy = hand(h)[1] + Math.sin(a) * B.tip;
         R.proj.push({ id: R.nextId++, k: 'bolt', x: hx, y: hy, vx: Math.cos(a) * B.spd, vy: Math.sin(a) * B.spd, t0: t, life: B.life, own: 'hero', r: B.r, crit: c ? 1 : 0,
           dmg: Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))) });
-        ev(S, { k: 'bolt', x: hx, y: hy, a }); } else {
+        ev(S, { k: 'bolt', x: hx, y: hy, a });
+        // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
+        // born past it): pots, props, doors, chests, secrets and webs, as a swing does; monsters only by the bolt
+        SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {
       for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
         if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
         const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }

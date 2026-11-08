@@ -10,7 +10,9 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
-const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield'];
+// a shooting class's range (TASKS 1116): backs off inside `near`, walks in beyond `far` (a bolt flies 434 px)
+const SHOOT = { near: 150, far: 380, futile: 2.5 };
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'frost'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
@@ -73,15 +75,18 @@ function startRun(S, mode) {
     if (id === 'tests') S.screen = 'tests'; else SIM.step(S, click(b)); }
 }
 
-function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, rebuild = false, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false } = {}) {
+function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, rebuild = false, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false, cls = 'warrior' } = {}) {
   const P = Object.assign({}, PROFILES[profile], noTown ? { quests: 0, home: 0, scrolls: 0, noTown: 1 } : TOWN[profile]), rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
-  if (!initial) { S.seedBase = seed; S.meta.diff = diff; startRun(S, mode); }
+  if (!initial) { S.seedBase = seed; S.meta.diff = diff; S.meta.cls = cls; startRun(S, mode); }
 
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
+  // a shooter's target that has not lost health for SHOOT.futile s (a sleeping boss before its arena wakes, a bolt stopped by cover)
+  // is walked up to as the melee does (TASKS 1116: the mage stood shooting at the spider queen's arena for good)
+  const shotWatch = new Map();
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
@@ -96,7 +101,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(depth, 1) / D.dmgAt(depth) : 1) * (!e.elite ? ST.mob : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd * bk.dmg;
     }
   }
-  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, frost: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
@@ -119,8 +124,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     let gx = x - h.x, gy = y - h.y;
     if (round || Math.hypot(gx, gy) > 40) { let best = null;
       // standing in a prop's own cell (a chest against the wall), the way on may run straight through the prop: step out of the
-      // cell away from it first
-      let B = BLK.get(m); if (!B) BLK.set(m, B = new Set(m.block)); const inProp = B.has(ty * m.W + tx), ox = tx * T + 16 - h.x, oy = ty * T + 16 - h.y;
+      // cell away from it first; a broken prop's cell is no prop's (TASKS 1116: the mage's staff broke a bookshelf, the bot stepped out
+      // of its cell and back into it for good)
+      let B = BLK.get(m); if (!B) BLK.set(m, B = new Set(m.block)); const inProp = B.has(ty * m.W + tx) && !m.decor.some((d) => d.broken && Math.floor(d.x / T) === tx && Math.floor(d.y / T) === ty), ox = tx * T + 16 - h.x, oy = ty * T + 16 - h.y;
       for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = F[(ty + ay) * m.W + tx + ax]; if (v >= 0 && (!inProp || ax * ox + ay * oy <= 0) && (!best || v < best[0])) best = [v, ax, ay]; }
       // the only way on may lead past the prop's middle (a merchant's shelf in a pocket of shelves, seed 64): take it, aimed past the
       // prop on the side the hero stands (straight at it he pushes into the prop for good, seed 202)
@@ -262,7 +268,15 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, a = Math.atan2(tg.y - 30 - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - 30 - oy, tg.x - ox);
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
+    // the class's keys (TASKS 1116): an ability is pressed on its own slot of the hero's class, or not at all
+    const Cl = D.clsOf(h), slot = (id) => Cl.abilities.indexOf(id) + 1, shooter = (Cl.shoots || []).includes(st.wtype);
     if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
+    // a shooting class (the mage's staff, TASKS 1116) keeps its distance: in sight and within a bolt's flight it stands and shoots,
+    // backing off one that comes closer than SHOOT.near; blind or too far it walks in as the melee does
+    else if (shooter && !E.deep) { const los = SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10), round = !los || pathLen(R, tg.x, tg.y) > td + 64;
+      const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp || td > SHOOT.far) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); const futile = w && S.t - w.t > SHOOT.futile;
+      if (round || td > SHOOT.far || (futile && td > 70)) { walk(R, inp, tg.x, tg.y, round); if (futile) inp.press = 1; }
+      else { if (td < SHOOT.near && !E.ghost) steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); inp.press = 1; } }
     else if (E.deep) { if (toBank(R, inp, tg, st)) inp.press = 1; }
     // blind: rock between them (a corner) stops the blow; a drowned lying in its shallows round a corner never rises to meet it and
     // the bot swung at the rock for good (TASKS 339): walk round to a clear line
@@ -279,11 +293,15 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (fr && !round && td < 260) { const [px, py] = sp;
         steer(inp, (px - h.x) / (Math.hypot(px - h.x, py - h.y) || 1), (py - h.y) / (Math.hypot(px - h.x, py - h.y) || 1)); }
       else if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round); else inp.press = 1; }
-    if (h.ab.fireball && !armFront(tg) && td > (P.caster ? 0 : 140) && td < (P.caster ? 380 : 330) && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)
-      && (!P.caster || SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10))) inp.slot = 2;
+    if (slot('fireball') && h.ab.fireball && !armFront(tg) && td > (P.caster || shooter ? 0 : 140) && td < (P.caster || shooter ? 380 : 330) && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)
+      && (!(P.caster || shooter) || SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10))) inp.slot = slot('fireball');
+    // the ice wave (TASKS 1116): on a crowd before the mage, or on one that has come to arm's length
+    if (slot('frost') && h.ab.frost && h.cd.frost <= S.t && h.mp >= D.ABILITIES.find((q) => q.id === 'frost').mp) {
+      const fr = D.abRank('frost', h.ab.frost).r, near = live.filter((e) => dist(e) < fr * 0.85 + D.ENEMIES[e.type].r && Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - h.y, e.x - h.x) - a), Math.cos(Math.atan2(e.y - h.y, e.x - h.x) - a))) < 0.6);
+      if (near.length >= 2 || (td < SHOOT.near && near.includes(tg))) inp.slot = slot('frost'); }
     const tip = P.tips && R.msg && R.msg.tip === 'whirl' && S.t - R.msg.t >= P.react && S.t - R.msg.t < R.msg.d; if (tip) learned = 1;
-    if (h.cd.whirl <= S.t && (tip || live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= (learned ? Math.min(P.whirl, D.TIPS.whirl.n) : P.whirl))) inp.slot = 1;
-    if (P.shield && h.ab.shield && h.cd.shield <= S.t && h.mp >= D.ABILITIES.find((a) => a.id === 'shield').mp && h.hp < st.maxHp * P.shield) inp.slot = 3;
+    if (slot('whirl') && h.ab.whirl && h.cd.whirl <= S.t && (tip || live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= (learned ? Math.min(P.whirl, D.TIPS.whirl.n) : P.whirl))) inp.slot = 1;
+    if (slot('shield') && P.shield && h.ab.shield && h.cd.shield <= S.t && h.mp >= D.ABILITIES.find((a) => a.id === 'shield').mp && h.hp < st.maxHp * P.shield) inp.slot = slot('shield');
     if (P.mp && h.mp < 12 && td < 330 && held(h, 'mp_potion')) inp.keys.push('KeyR');
   }
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
