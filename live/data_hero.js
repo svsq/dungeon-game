@@ -44,7 +44,9 @@
   // what shoots back; once per `every` s a monster, so a steady stream does not lock one in place
   const HUSH = { kinds: ['caster', 'archer'], cd: 0.5, every: 2.5 };
   // a staff's or wand's attack per INT against STR's or AGI's (TASKS 1140: at 1 the mage's range won 78 % against the warrior's 48 %)
-  const MAGE_ATK = 0.8;
+  // (TASKS 1156: `MAGE_SPELL` of the fire on his gear and the arcane gift reaches the bolt, so what he wears grows his main attack; INT's
+  // share is cut from 0.8 to 0.76 to hold his power level, which the player did not ask to raise)
+  const MAGE_ATK = 0.76, MAGE_SPELL = 0.5;
   // (TASKS 1184: the bar filled in seconds and only unlocked cooldowns: now what is held adds `dmg` of damage per 10 rage, so the cry's 40 is a price)
   const RAGE = { max: 100, hit: 6, hurt: 1.2, decay: 12, calm: 4, charge: 14, dmg: 0.015 };
   // the charge: a rush down the aim at `spd` for `t` s (~200 px) that strikes the first monster in its way at `k` of a swing, stuns it
@@ -145,5 +147,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

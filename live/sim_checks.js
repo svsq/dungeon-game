@@ -2803,6 +2803,12 @@
       const fair = n / Object.keys(BASES).filter((k) => BASES[k].slot === 'weapon').length;
       if (Math.abs(st / (fair * D.CLASS_LOOT.foreign) - 1) > 0.25) out.push(`class: a warrior finds the mage's staff ${st} times in ${n}, not about ${Math.round(fair * D.CLASS_LOOT.foreign)}`);
       if (mg < fair * 0.8) out.push(`class: a mage finds his staff ${mg} times in ${n}, below ${Math.round(fair)}`);
+      // TASKS 1156: the fire on a mage's gear and the arcane gift reach his bolt; TASKS 1154: the chill slows a monster's wind-up and its cooldown
+      { const S5 = spawn(0, {}), R5 = newRun(S5, 'campaign', 84, { cls: 'mage' }), h5 = R5.hero; S5.run = R5; S5.screen = 'play'; const a0 = stats(h5, S5.meta).atk; h5.perks = { arcane: 1 };
+        if (!(stats(h5, S5.meta).atk > a0)) out.push('class mage: the arcane gift does not reach the bolt'); h5.perks = {};
+        const e = { id: R5.nextId++, type: 'skeleton', x: h5.x + 800, y: h5.y, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S5.t, kbx: 0, kby: 0, cdT: S5.t + 9, chillT: S5.t + 3 }; R5.en = [e];
+        const cd0 = e.cdT, n5 = 60; for (let i = 0; i < n5; i++) step(S5, { keys: [], ...toPx(R5, h5.x + 100, h5.y) });
+        if (!(D.windOf(e, 1) > 1)) out.push('class mage: a chilled monster winds up as fast as ever'); if (!(e.cdT > cd0 + 0.1)) out.push('class mage: a chilled monster\'s cooldown runs as fast as ever'); }
       // TASKS 1185: what does nothing for a class is not offered to it
       for (const cl of ['warrior', 'mage', 'archer']) { const S4 = spawn(0, {}), R4 = newRun(S4, 'campaign', 83, { cls: cl }), no = D.CLASSES[cl].dead;
         for (const [k, list, key] of [['gifts', D.GIFTS, 'id'], ['meta', D.META, 'id'], ['mods', D.AFFIXES, 'k']]) for (const id of no[k]) if (!list.some((q) => q[key] === id)) out.push(`class: ${cl}'s dead ${k} names «${id}», no such thing`);

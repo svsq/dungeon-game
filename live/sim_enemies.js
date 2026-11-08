@@ -359,6 +359,8 @@
       // the ice wave's chill (TASKS 1110) slows its walk and run (toward, steer, soak) until it thaws
       // and the archer's trap holds it where it stands (TASKS 1120)
       if (e.chillT !== undefined || e.rootT !== undefined) e.slowK = e.rootT > t ? 0 : e.chillT > t ? D.FROST.slow : 1;
+      // (and its blows, TASKS 1154: the wave only slowed the walk, a monster already at arm's length struck as often; a boss keeps its moves)
+      if (e.chillT !== undefined && !D.BOSSES[e.type]) { e.cold = e.chillT > t ? 1 / D.FROST.slow : 0; if (e.cold && e.cdT > t) e.cdT += DT * (1 - D.FROST.slow); }
       if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; SIMX.hitEnemy(S, R, e, Math.max(1, Math.round(2 + dep(R))), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost && (m.cliff && !D.BOSSES[e.type] ? 2 : true)); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0;
