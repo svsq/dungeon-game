@@ -2224,6 +2224,11 @@
   // reading off and keeps the scroll; it is not read in the town; the save stays small and a saved run comes back on a kept floor
   function climbCheck() {
     const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    // the steps are where a hero coming down arrives: on floor reached from the start with the caches and locked doors shut (PR 30: seed 1's 7th put them in a cache)
+    for (const sd of [1, 4, 5, 7, 17, 32, 39]) for (let f = 1; f <= 16; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 }); if (!m.up) continue;
+      const W = m.W, shut = new Set(m.doors.filter((d) => d.lock >= 0).flatMap((d) => d.cells.map(([x, y]) => y * W + x))), r = m.rooms[m.start], open = new Uint8Array(W * m.H), go = [r.cy * W + r.cx]; open[go[0]] = 1;
+      while (go.length) { const k = go.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!open[n] && (m.cells[n] === 1 || m.cells[n] === 5) && !shut.has(n)) { open[n] = 1; go.push(n); } } }
+      if (!open[(m.up.ty + (m.up.free ? 0 : 1)) * W + m.up.tx]) out.push(`climb ${sd}/${f}: the stairs up are cut off from the start`); }
     for (const sd of [5, 17]) for (let f = 1; f <= 12; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 });
       if (!m.up) { out.push(`climb ${sd}/${f}: no stairs up`); continue; } const k = (m.up.ty + (m.up.free ? 0 : 1)) * m.W + m.up.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
       if (!m.up.free && [-1, 0, 1].some((i) => m.cells[m.up.ty * m.W + m.up.tx + i] !== 0)) out.push(`climb ${sd}/${f}: the stairs up are not in solid wall`);

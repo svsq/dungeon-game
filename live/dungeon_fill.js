@@ -89,7 +89,10 @@
     let up = null;
     for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // reserved before the steps so that their footprint cannot cover them
     if (opts.town) { const secretNear = (x, y) => secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4), mouth = (x, y, n) => doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < n && Math.abs(cy - y) < n));
-      const inS = (x, y) => x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h, clearAt = (x, y) => at(x, y) === 1 && !used.has(key(x, y)) && !wet.has(y * W + x);
+      const inS = (x, y) => x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h, clearAt = (x, y) => at(x, y) === 1 && !used.has(key(x, y)) && !wet.has(y * W + x) && open[y * W + x];
+      // (the hero arrives by the steps: only floor walked to from the start with the caches and locked doors shut will do)
+      const open = new Uint8Array(W * H), shut = new Set(doors.filter((d) => d.lock >= 0).flatMap((d) => d.cells.map(([x, y]) => y * W + x))), go = [start.cy * W + start.cx]; open[go[0]] = 1;
+      while (go.length) { const k = go.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!open[n] && (cells[n] === 1 || cells[n] === 5) && !shut.has(n)) { open[n] = 1; go.push(n); } } }
       for (const [rock, deep, wide, rows, far] of [[2, 2, 1, 2, 0], [1, 1, 1, 2, 0], [1, 1, 0, 2, 0], [1, 1, 1, 2, 8], [1, 1, 0, 2, 8]]) { if (up) break; const cand = [];
         for (let y = start.y - far; y < start.y + start.h + far; y++) for (let x = start.x - far; x < start.x + start.w + far; x++) cand.push([x, y, (y === start.y ? 0 : 30 + Math.abs(y - start.y)) + Math.abs(x - start.cx) + (inS(x, y) ? 0 : 40)]);
         for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = !(plat && y - 1 > AR.cliff) && !secretNear(x, y) && !mouth(x, y, rock + 2);
@@ -99,8 +102,8 @@
           if (ok) { for (let j = 0; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: (y - 1) * TILE + TILE / 2, tx: x, ty: y - 1 }; break; } } }
       // (a plateau far from its top wall, or no wall that will do: free-standing steps on three by three clear cells, as before 511)
       if (!up) { const cand = []; for (let y = start.y - 6; y < start.y + start.h + 6; y++) for (let x = start.x - 6; x < start.x + start.w + 6; x++) cand.push([x, y, (inS(x, y) ? 0 : 20) + (y - start.cy < 0 ? 0 : 4) + Math.hypot(x - start.cx, y - start.cy + 2.5)]);
-        for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) if (!clearAt(x + i, y + j)) ok = false;
-          if (ok) { for (let j = -2; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y, free: 1 }; break; } } } }
+        cand.sort((a, b) => a[2] - b[2]); for (const half of [1, 0]) for (const [x, y] of cand) { if (up) break; let ok = true; for (let j = -half; j <= half && ok; j++) for (let i = -half; i <= half && ok; i++) if (!clearAt(x + i, y + j)) ok = false;
+          if (ok) { for (let j = -2; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y, free: 1 }; } } } }
     // a waystone (TASKS 1009) by the start on every D.wayFloor: to one side of the bonfire, three or four cells out, on clear dry floor
     let wayStone = null;
     if (opts.town && D.wayFloor(runFloor)) { const cand = []; for (let y = start.y; y < start.y + start.h; y++) for (let x = start.x; x < start.x + start.w; x++) {
