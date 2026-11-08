@@ -108,6 +108,7 @@
     // the archer (TASKS 1120): a bowstring's twang; a volley's quick ripple of them; a trap set (a click); its jaws snapping; the leap's rush
     loose: (o) => { tone(o, { type: 'triangle', f0: 220, f1: 150, d: 0.12, v: 0.08 }); noise(o, { d: 0.06, v: 0.12, type: 'highpass', f0: 3000 }); },
     volley: (o) => [0, 0.04, 0.08].forEach((dt, i) => tone(o, { type: 'triangle', f0: 230 - i * 15, f1: 150, t: now() + dt, d: 0.1, v: 0.06 })),
+    hush: (o) => { tone(o, { type: 'square', f0: 700, f1: 320, d: 0.07, v: 0.04 }); },
     trapset: (o) => { tone(o, { type: 'square', f0: 1400, d: 0.03, v: 0.03 }); tone(o, { type: 'square', f0: 900, t: now() + 0.05, d: 0.03, v: 0.03 }); },
     snap: (o) => { noise(o, { d: 0.08, v: 0.3, type: 'bandpass', f0: 2600, f1: 900, q: 2 }); tone(o, { type: 'square', f0: 500, f1: 180, d: 0.08, v: 0.06 }); },
     leap: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.25, f0: 500, f1: 2200, q: 1.5 }),

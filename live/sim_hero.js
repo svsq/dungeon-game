@@ -193,7 +193,7 @@
     R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
     // ---- input: 8-way run with accel / decel ----
     const ix = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), iy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), il = Math.hypot(ix, iy) || 1;
-    const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < 0.2 ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1) * (soaked(S, h) ? ORB.slow : 1) * (S.t < (h.chillT ?? -9) ? MOD.frost.slow : 1);
+    const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < (h.atkSlow ?? 0.2) ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1) * (soaked(S, h) ? ORB.slow : 1) * (S.t < (h.chillT ?? -9) ? MOD.frost.slow : 1);
     const app = (v, tg) => { const a = (Math.abs(tg) > Math.abs(v) ? K.ACC : K.DEC) * DT; return v < tg ? Math.min(tg, v + a) : Math.max(tg, v - a); };
     h.vx = app(h.vx, ix / il * spd); h.vy = app(h.vy, iy / il * spd);
     h.aim = Math.atan2(my - (h.y - RIG.shoulder + 8), mx - h.x);
@@ -249,7 +249,7 @@
     if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     // ---- melee: hold LMB ----
     if (inp.press && h.cd.atk <= t) {
-      h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
+      h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); h.atkSlow = Math.min(0.2, (D.clsOf(h).slow || 1) * st.wcd / (1 + st.aspd / 100)); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
       ev(S, Object.assign({ k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face }, (D.clsOf(h).shoots || []).includes(st.wtype) ? { shot: 1 } : {}));
     }
     if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= ((D.clsOf(h).shoots || []).includes(st.wtype) ? D.SHOTS[BASES[st.wtype].shot || 'bolt'].t : K.HIT)) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
@@ -257,6 +257,7 @@
       // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
       if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, c = rnd(R) * 100 < st.crit;
         const p = SIMX.heroShot(R, h, a, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, BASES[st.wtype].shot || 'bolt');
+        if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
         ev(S, { k: p.k === 'arrow' ? 'loose' : 'bolt', x: p.x, y: p.y, a });
         // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
         // born past it): pots, props, doors, chests, secrets and webs, as a swing does; monsters only by the bolt

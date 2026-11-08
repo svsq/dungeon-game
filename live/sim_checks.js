@@ -11,7 +11,7 @@
     openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
-    turnIn, typeMods, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
+    turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function selfCheck() {
     const out = [];
@@ -2585,8 +2585,9 @@
       // onto it and lets it go, the leap carries him back from the aim, AGI (not STR) grows his bow's damage, a sword is not his
       { const { S, R, h, foe, ok } = arena('archer');
         if (h.eq.weapon.b !== 'shortbow' || h.eq.armor.b !== 'leather_armor' || D.clsOf(h).abs.map((a) => a.id).join() !== 'volley,trap,leap') out.push('class archer: not a short bow, leather and volley, trap, leap');
-        if (ok) { const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
+        if (ok) { const e = foe(200); let got = 0; h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); if (h.mp >= D.CLASSES.archer.hitMp.hit) got = 1; }
           if (!(e.hp < e.max)) out.push('class archer: his bow does not hit a foe out of reach');
+          if (!got) out.push('class archer: his arrows that hit give no mana');
           R.en = []; R.proj = []; h.lvl = 4; h.ab.trap = 1; h.ab.leap = 1; h.mp = 500; h.aim = 0; for (const k in h.cd) h.cd[k] = 0;
           castAbility(S, R, 'volley', {}); if (R.proj.filter((p) => p.k === 'arrow' && p.own === 'hero').length !== D.VOLLEY.n) out.push('class archer: the volley does not loose its fan');
           R.proj = []; castAbility(S, R, 'trap', {}); const q = R.htraps[0], w = foe(0); h.x -= 120; w.x = q.x + 60; w.y = q.y; w.st = 'idle'; w.calmT = 1e9;
@@ -2597,7 +2598,13 @@
           if (!(h.x < x0 - 40)) out.push('class archer: the leap does not carry him back from the aim'); }
         const a0 = stats(h, S.meta).atk; h.base.agi += 10; const a1 = stats(h, S.meta).atk; h.base.agi -= 10; h.base.str += 10; const a2 = stats(h, S.meta).atk; h.base.str -= 10;
         if (!(a1 > a0) || a2 !== a0) out.push('class archer: AGI does not grow his bow\'s damage or STR does');
-        if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword'); }
+        if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword');
+        // (TASKS 1155) an arrow into a cultist's wind-up breaks it off; a second at once does not
+        if (ok) { R.en = []; R.proj = []; const c = foe(150); Object.assign(c, { type: 'cultist', st: 'wind', t0: S.t, cdT: 0 }); h.aim = 0;
+          heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 40 && c.st === 'wind'; i++) step(S, { keys: [] });
+          if (c.st === 'wind' || !(c.hushT > S.t)) out.push('class archer: an arrow does not break off a caster\'s wind-up');
+          Object.assign(c, { st: 'wind', t0: S.t }); heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 30; i++) { step(S, { keys: [] }); c.t0 = S.t; }
+          if (c.st !== 'wind') out.push('class archer: a caster is broken off twice in a row'); } }
       // the warrior (TASKS 1130): rage from his blows and ones he takes, draining once the fight is over; the charge strikes and stuns a
       // monster in its way; the war cry weakens those about him and hardens his blows; mana potions are not his
       { const { S, R, h, foe, ok } = arena('warrior');

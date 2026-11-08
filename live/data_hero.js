@@ -40,6 +40,9 @@
   // a boss `boss` s, at `k` of a shot, armed after `arm` s, `max` set at once, gone after `life` s); the leap (back as a dash, a shot at `k`)
   // the warrior's rage (TASKS 1130, the player's decision 1101): his resource instead of mana, `max` at most; it grows `hit` a blow he
   // lands and `hurt` a share of his health a blow takes (×100), and drains `decay` a second once `calm` s pass with no blow either way
+  // a shot that strikes a caster or an archer in its wind-up breaks it off (TASKS 1155): the answer of both ranged classes to
+  // what shoots back; once per `every` s a monster, so a steady stream does not lock one in place
+  const HUSH = { kinds: ['caster', 'archer'], cd: 0.5, every: 2.5 };
   const RAGE = { max: 100, hit: 6, hurt: 1.2, decay: 12, calm: 4 };
   // the charge: a rush down the aim at `spd` for `t` s (~200 px) that strikes the first monster in its way at `k` of a swing, stuns it
   // `stun` s (a boss `boss` s); the war cry: monsters within `r` deal `weak` of their damage, the warrior `buff` more, for `t` s
@@ -57,8 +60,10 @@
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 5, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0.02, hp: 0 },
       abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1 } },
+    // the archer's mana comes from his arrows (TASKS 1162: `hitMp` a hit, a crit; the pool held on potions); `slow` the share of his
+    // shot's cycle he is slowed after it, so a quick bow does not keep him slow
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 3, sp: 1 },
-      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65 } },
+      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65 } },
   };
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run
@@ -128,5 +133,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -308,6 +308,8 @@
       // the imp (TASKS 407): sparks off its fingers as it throws; the salamander's jaws (408) glint as they snap; lava thrown up as it
       // goes under or comes out
       if (e.k === 'flick' && a < 0.2) { const k = 1 - a / 0.2; L.glow(ex, ey, 14, [1, 0.6, 0.2], 0.9 * k, 2.4); for (let j = 0; j < 5; j++) { const an = e.a + (rnd(e.t, j) - 0.5) * 1.6, d = 6 + 40 * a; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d + 60 * a * a, 4 * k + 2, [1, 0.75, 0.35], k); } }
+      // a wind-up broken off by a shot (TASKS 1155): a white burst over the head, a few sparks thrown up
+      if (e.k === 'hush' && a < 0.3) { const q = a / 0.3; L.star(ex, ey, 18 * (1 - q) + 5, [0.95, 0.97, 1], 0.9 * (1 - q)); for (let j = 0; j < 5; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.2, d = 8 + 26 * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d, 4, [0.9, 0.95, 1], 0.8 * (1 - q)); } }
       if (e.k === 'snap' && a < 0.15) { const k = 1 - a / 0.15; L.star(ex, ey - 6, 14 * k + 4, [1, 0.95, 0.8], 0.8 * k); }
       if ((e.k === 'submerge' || e.k === 'emerge' || e.k === 'flee') && e.k !== 'flee' && a < 0.7) { const q = a / 0.7; L.glow(ex, ey, 30 + 20 * q, [1, 0.5, 0.15], 0.8 * (1 - q), 2);
         for (let j = 0; j < 10; j++) { const an = rnd(e.t, j) * TAU, v = 50 + 90 * rnd(e.t, j + 3), life = 0.35 + 0.3 * rnd(e.t, j + 7); if (a > life) continue; const k = 1 - a / life;

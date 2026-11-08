@@ -333,6 +333,8 @@
         // a staff's bolt (TASKS 1110) strikes the one it touched, no blast; at a wall it chips pots and props where it bursts
         if (p.own === 'hero' && p.single) { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
           if (touched) SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+          if (touched && p.mpGain) R.hero.mp = Math.min(SIMX.heroSt(S).maxMp, R.hero.mp + p.mpGain);
+          if (touched && touched.deadT < 0) hush(S, R, touched);
           else { SIMX.breakPots(S, R, bx, by, 24); SIMX.hitProps(S, R, bx, by, 24); }
           ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: touched ? 1 : 0, mine: 1 }); }
         else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
@@ -341,6 +343,9 @@
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
     R.proj = R.proj.filter((p) => !p.dead);
   }
+  function hush(S, R, e) { const U = D.HUSH, t = S.t;
+    if (e.st !== 'wind' || e.kin || e.grab || D.BOSSES[e.type] || !U.kinds.includes(ENEMIES[e.type].kind) || t < (e.hushT ?? 0)) return;
+    e.st = 'chase'; e.t0 = t; e.cdT = Math.max(e.cdT || 0, t + U.cd); e.hushT = t + U.every; ev(S, { k: 'hush', x: e.x, y: e.y - ENEMIES[e.type].h * 0.8, id: e.id }); }
   function stepMonsters(S, R, live) {
     const m = R.map, h = R.hero, t = S.t, htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE), F = flow(m, htx, hty), heroOk = live && h.deadT < 0;
     for (const e of R.en) {
