@@ -98,12 +98,12 @@
       if (act === 'take') { const rw = SS(0, 0.25, pu); tg = { L: lerp2(handAt('L'), tg.L, rw), R: lerp2(handAt('R'), tg.R, rw) }; }
       if (tw > 0 && !hasCrate) tg = { R: lerp2(P(0.1, -0.38), talkR, tw) };
       // the mason's arms are always on IK: released at the first steps from the block, the elbow flipped to the rig's free pose in a frame (TASKS 1216)
-      if (mason && (!tg.L || !tg.R)) { const dd = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]), st = 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * s, sw = 7 * SS(14, 30, f.spd) * Math.sin(2 * Math.PI * f.dist / st), free = (sd, q) => [handAt(sd)[0] + face * q, handAt(sd)[1] - Math.abs(q) * 0.3];
+      if (mason && (!tg.L || !tg.R)) { const dd = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]), st = 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * s, from = route[(f.way + route.length - 1) % route.length], sw = 7 * (f.go ? SS(14, 54, Math.hypot(f.x - from.x, f.y - from.y)) * SS(0, 40, Math.hypot(f.x - stop.x, f.y - stop.y)) : 0) * Math.sin(2 * Math.PI * f.dist / st), free = (sd, q) => [handAt(sd)[0] + face * q, handAt(sd)[1] - Math.abs(q) * 0.3];
         tg = { L: tg.L || free('L', sw), R: tg.R || free('R', -sw) }; }
       if (mason && act === 'drop' && pu > 0.95 && pu < 1.5) fx = { k: 'dust', x: floor[0], y: floor[1] + 8, amt: 1 - (pu - 0.95) / 0.55, seed: c.n * 2 + i };
       crouch = (mason ? 14 : 34) * bend; lean = face * 0.3 * bend; headR = 0.15 * bend;
       // between carts he dresses a block with the hammer
-      if (mason && !f.load && pu >= 1.2 && tw < 0.99 && (atStop || (f.go && stop.act === 'take' && f.spd < 14))) { const w = Math.min(atStop ? 1 : 1 - SS(0, 14, f.spd), Math.max(0, Math.min(1, (pu - 1.2) / 0.4))), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
+      if (mason && !f.load && pu >= 1.2 && tw < 0.99 && (atStop || (f.go && stop.act === 'take' && f.spd < 24 && Math.hypot(f.x - route[1].x, f.y - route[1].y) < 40))) { const w = Math.min(atStop ? 1 : 1 - SS(0, 24, f.spd), Math.max(0, Math.min(1, (pu - 1.2) / 0.4))), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
         tg = { R: lerp2(lerp2(handAt('R'), P(0.42, -0.34 - 0.32 * up), w), talkR, tw), L: lerp2(handAt('L'), P(0.3, -0.3), w) };
         hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(0.9, 0.2 - 1.5 * up, w) }) }; lean = face * 0.08 * w;
         if (u >= FD.hit && (u - FD.hit) * c.per < 0.4 && tw < 0.5) fx = { k: 'spark', x: P(0.5, -0.3)[0], y: P(0.5, -0.3)[1], a: (u - FD.hit) * c.per, seed: c.n * 7 + i }; }
