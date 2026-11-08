@@ -66,7 +66,7 @@
       || decor.some((d) => HANG[d.n] && Math.abs(d.y - ry * TILE) < 2 * TILE && Math.abs(d.x - px) < hw + HANG[d.n]) || doorTop(px, ry, hw)
       || waterFeatures.some((q) => wallRow(q) === ry && Math.abs(q.x - px) < hw + 34);
     // a door in a top wall stands in a stone arch wider than its corridor
-    const doorTop = (px, ry, hw) => doors.some((d) => d.dir === 'u' && d.y === ry * TILE && Math.abs(d.x - px) < hw + 58);
+    const doorTop = (px, ry, hw) => doors.some((d) => d.dir === 'u' && d.y === ry * TILE && Math.abs(d.x - px) < hw + 58) || (up && !up.free && up.ty + 1 === ry && Math.abs(up.x - px) < hw + 58);
     const tallAt = (px, ry, hw) => decor.some((d) => d.solid && Math.abs(d.y - (ry * TILE + 22)) < 4 && Math.abs(d.x - px) < hw + half(d.n))
       || waterFeatures.some((q) => wallRow(q) === ry && Math.abs(q.x - px) < hw + 34);
     // the top wall a source is on: a campaign room's, or the row under a cave's fall (a breach or a spring hangs nothing)
@@ -83,17 +83,24 @@
       return c.sort((a, b) => a[2] - b[2]).map(([a, b]) => [a, b]); })())) {
       const x = sx + dx, y = sy + dy; let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j)) || wet.has((y + j) * W + x + i)) ok = false;
       if (ok) { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) used.add(key(x + i, y + j)); down = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y }; break; } }
-    // the stairs back up (R-19, TASKS 1027), only in a run through the town for now: in the start room, best just above the bonfire,
-    // on three by three clear dry cells (the steps on the upper two, the hero steps off them onto the lowest)
+    // the stairs back up (R-19, TASKS 1027, in the wall since 511), only in a run through the town for now: an opening in a top wall of
+    // the start room, as near its middle as a spot allows, solid rock either side so it never reads as a way in and the floor before it
+    // kept clear. (tx, ty) is the wall cell; the hero stands below it. Ragged cave walls and small rooms ask less of the spot, step by step
     let up = null;
-    for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // reserved before the steps so that their 3x3 footprint cannot cover them
-    // (a small start room may have no such spot: then the nearest one round it, a few cells out)
-    if (opts.town) { const cand = []; for (let y = start.y - 6; y < start.y + start.h + 6; y++) for (let x = start.x - 6; x < start.x + start.w + 6; x++) { const dx = x - start.cx, dy = y - start.cy;
-        const inside = x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h;
-        cand.push([x, y, (inside ? 0 : 20) + (dy < 0 ? 0 : 4) + Math.hypot(dx, dy + 2.5)]); }
-      for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) if (at(x + i, y + j) !== 1 || used.has(key(x + i, y + j)) || wet.has((y + j) * W + x + i)) ok = false;
-        // (and no chest a step off them: E by the steps opened it, not the way up, TASKS 373's small start rooms put them out among the rooms)
-        if (ok) { for (let j = -2; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y }; break; } } }
+    for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // reserved before the steps so that their footprint cannot cover them
+    if (opts.town) { const secretNear = (x, y) => secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4), mouth = (x, y, n) => doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < n && Math.abs(cy - y) < n));
+      const inS = (x, y) => x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h, clearAt = (x, y) => at(x, y) === 1 && !used.has(key(x, y)) && !wet.has(y * W + x);
+      for (const [rock, deep, wide, rows, far] of [[2, 2, 1, 2, 0], [1, 1, 1, 2, 0], [1, 1, 0, 2, 0], [1, 1, 1, 2, 8], [1, 1, 0, 2, 8]]) { if (up) break; const cand = [];
+        for (let y = start.y - far; y < start.y + start.h + far; y++) for (let x = start.x - far; x < start.x + start.w + far; x++) cand.push([x, y, (y === start.y ? 0 : 30 + Math.abs(y - start.y)) + Math.abs(x - start.cx) + (inS(x, y) ? 0 : 40)]);
+        for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = !(plat && y - 1 > AR.cliff) && !secretNear(x, y) && !mouth(x, y, rock + 2);
+          for (let i = -rock; i <= rock && ok; i++) for (let j = 1; j <= deep && ok; j++) if (at(x + i, y - j) !== 0) ok = false;
+          for (let j = 0; j < rows && ok; j++) for (let i = -wide; i <= wide && ok; i++) if (!clearAt(x + i, y + j)) ok = false;
+          // (and no chest a step off them: E by the steps opened it, not the way up, TASKS 373's small start rooms put them out among the rooms)
+          if (ok) { for (let j = 0; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: (y - 1) * TILE + TILE / 2, tx: x, ty: y - 1 }; break; } } }
+      // (a plateau far from its top wall, or no wall that will do: free-standing steps on three by three clear cells, as before 511)
+      if (!up) { const cand = []; for (let y = start.y - 6; y < start.y + start.h + 6; y++) for (let x = start.x - 6; x < start.x + start.w + 6; x++) cand.push([x, y, (inS(x, y) ? 0 : 20) + (y - start.cy < 0 ? 0 : 4) + Math.hypot(x - start.cx, y - start.cy + 2.5)]);
+        for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = true; for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1 && ok; i++) if (!clearAt(x + i, y + j)) ok = false;
+          if (ok) { for (let j = -2; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y, free: 1 }; break; } } } }
     // a waystone (TASKS 1009) by the start on every D.wayFloor: to one side of the bonfire, three or four cells out, on clear dry floor
     let wayStone = null;
     if (opts.town && D.wayFloor(runFloor)) { const cand = []; for (let y = start.y; y < start.y + start.h; y++) for (let x = start.x; x < start.x + start.w; x++) {

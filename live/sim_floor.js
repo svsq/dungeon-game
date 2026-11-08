@@ -156,6 +156,7 @@
   }
   function arrive(S, R, how) { const m = R.map, h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
     if (how === 'up') [hx, hy] = standNear(R, m.exit.x, m.exit.y + 46);
+    else if (how === 'down' && m.up) [hx, hy] = standNear(R, m.up.x, m.up.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.vx = h.vy = 0; h.bless = 0; h.pull = null; h.read = null;
