@@ -2243,7 +2243,8 @@
       for (const e of R2.en) if (D.BOSSES[e.type]) { e.hp = 0; e.deadT = S2.t; } R2.bossDead = 1; descend(S2, R2);
       if (R2.floor !== 13 || R2.mode !== 'endless') out.push('climb: the descent past the serpent does not start on the 13th');
       else { R2.hero.x = R2.map.up.x; R2.hero.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] });
-        if (R2.floor !== 12 || STAGE(R2).boss !== 'boss_serpent' || D.placeName(12, R2.mode, R2.seed, FROM(R2)) !== D.placeName(12, 'campaign', R2.seed)) out.push('climb: back up from the 13th, the 12th is not the campaign\'s'); } }
+        if (R2.floor !== 12 || STAGE(R2).boss !== 'boss_serpent' || D.placeName(12, R2.mode, R2.seed, FROM(R2)) !== D.placeName(12, 'campaign', R2.seed)) out.push('climb: back up from the 13th, the 12th is not the campaign\'s');
+        const { shards, wins } = S2.meta; descend(S2, R2); if (S2.meta.shards !== shards || S2.meta.wins !== wins || R2.floor !== 13 || R2.mode !== 'endless') out.push('climb: the stairs past the serpent pay the win a second time'); } }
     catch (err) { out.push('climb: back up from the 13th fails: ' + err.message); }
     return out;
   }
