@@ -175,6 +175,9 @@
     // a frost elite's chill on the hero (TASKS 477): pale frost at his feet and flakes about him while he is slowed
     { const h = R.hero, F = D.ELITE_MODS.find((m) => m.id === 'frost'); if (h && h.chillT > ST.t && h.deadT < 0) { const x = sx(h.x), y = sy(h.y), k = Math.min(1, (h.chillT - ST.t) / F.t);
       L.ring(x, y, 24, 11, F.col, 0.5 * k, 0.25); for (let j = 0; j < 6; j++) { const an = j * 1.05 + t * 0.7; L.star(x + Math.cos(an) * 20, y - 30 - 26 * Math.sin(an * 0.5 + t), 4, [0.85, 0.95, 1], 0.6 * k); } } }
+    // monsters the war cry shook (TASKS 1130): a dull red mark over the head while they hit softer
+    for (const e of R.en) { if (!(e.weakT > ST.t) || e.deadT >= 0 || D.under(e) || !vis(e.x, e.y) || !known(e.x, e.y)) continue; const E = D.ENEMIES[e.type];
+      L.glow(sx(e.x), sy(e.y) - E.h - 6, 14, [1, 0.25, 0.1], 0.6 + 0.2 * Math.sin(t * 4 + e.id), 2.4); L.ring(sx(e.x), sy(e.y), E.r + 8, (E.r + 8) * 0.45, [1, 0.3, 0.12], 0.45, 0.2); }
     // the archer's traps (TASKS 1120): iron jaws open on the floor, a faint glint once armed
     for (const q of R.htraps || []) { if (q.done || !vis(q.x, q.y) || !known(q.x, q.y)) continue; const x = sx(q.x), y = sy(q.y), armed = ST.t - q.t0 >= D.TRAP.arm;
       L.shadow(x, y + 2, 16, 7, 0.35); L.ring(x, y, 14, 6, [0.42, 0.4, 0.38], 0.95, 0.35);
@@ -349,6 +352,11 @@
         for (let j = 0; j < 9; j++) { const an = e.a + (j / 8 * 2 - 1) * half, d = R0 * out; L.glow(ex + Math.cos(an) * d * 0.55, ey - 16 + Math.sin(an) * d * 0.55 / 1.3, 34, [0.5, 0.82, 1], 0.2 * fade, 2.2); }
         for (let j = 0; j < 40; j++) { const an = e.a + (rnd(e.t, j) * 2 - 1) * half, d = R0 * (0.2 + 0.8 * rnd(e.t, j + 30)) * out, x = ex + Math.cos(an) * d, y = ey - 20 + Math.sin(an) * d / 1.3 + 50 * a * a;
           L.star(x, y, 8 + 7 * rnd(e.t, j + 60), [0.85, 0.96, 1], fade); } } }
+      // the warrior's charge (TASKS 1130): a hot streak along the rush, a burst where it strikes; the war cry: a red ring rolling out
+      if (e.k === 'charge' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < 6; j++) { const d = 30 + j * 28 * Math.min(1, a / 0.22); L.glow(ex + e.dx * d, ey - 30 + e.dy * d * 0.8, 22, [1, 0.55, 0.2], 0.35 * (1 - q) * (1 - j / 7), 2.4); } }
+      if (e.k === 'chargehit' && a < 0.35) { const q = a / 0.35; L.glow(ex, ey - 30, 40, [1, 0.6, 0.25], 0.6 * (1 - q), 2.4); L.ring(ex, ey, 14 + 34 * q, 7 + 14 * q, [1, 0.75, 0.4], 0.8 * (1 - q), 0.2);
+        for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28; L.star(ex + Math.cos(an) * 30 * q, ey - 30 + Math.sin(an) * 22 * q, 6, [1, 0.85, 0.5], 1 - q); } }
+      if (e.k === 'cry' && a < 0.6) { const q = SS(0, 0.5, a); for (const k of [1, 0.8]) L.ring(ex, ey, e.r * q * k, e.r * q * k * 0.5, [1, 0.3, 0.12], (k === 1 ? 1 : 0.6) * (1 - SS(0.2, 0.6, a)), 0.12); L.glow(ex, ey - 40, 60, [1, 0.35, 0.12], 0.6 * (1 - q), 2.2); }
       // a trap snapping shut (TASKS 1120): a burst of grit and a flash of iron
       if (e.k === 'snap' && a < 0.35) { const q = a / 0.35; L.ring(ex, ey, 10 + 20 * q, 5 + 9 * q, [0.85, 0.82, 0.75], 0.8 * (1 - q), 0.2);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28, d = 6 + 22 * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.5 - 6 * q, 4, [1, 0.92, 0.75], 0.7 * (1 - q)); } }

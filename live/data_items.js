@@ -6,14 +6,14 @@
   const SLOTS = ['weapon', 'offhand', 'helm', 'armor', 'gloves', 'boots', 'ring', 'amulet'];
   const SLOT_NAME = { weapon: TXT('SLOT_NAME.weapon'), offhand: TXT('SLOT_NAME.offhand'), helm: TXT('SLOT_NAME.helm'), armor: TXT('SLOT_NAME.armor'), gloves: TXT('SLOT_NAME.gloves'), boots: TXT('SLOT_NAME.boots'), ring: TXT('SLOT_NAME.ring'), amulet: TXT('SLOT_NAME.amulet') };
   // a base's classes (R-03, TASKS 1102): only they wear it, no `cls` — anyone; leather, the cloak, rings and amulets are anyone's.
-  // The staff stays the warrior's too until his own kit (1132)
+  // The staff is the mage's alone (the player's decision, 1132)
   const WR = ['warrior'], MG = ['mage'], AR = ['archer'];
   const BASES = {
     sword: { slot: 'weapon', cls: WR, name: TXT('BASES.sword.name'), icon: 'it_sword', atk: 6, spd: 0.42, arc: 120, reach: 56 },
     longsword: { slot: 'weapon', cls: WR, name: TXT('BASES.longsword.name'), icon: 'it_longsword', atk: 6.5, spd: 0.44, arc: 130, reach: 66 },
     axe: { slot: 'weapon', cls: WR, name: TXT('BASES.axe.name'), icon: 'it_axe', atk: 7, spd: 0.46, arc: 140, reach: 61 },
     hammer: { slot: 'weapon', cls: WR, name: TXT('BASES.hammer.name'), icon: 'it_hammer', atk: 7.5, spd: 0.48, arc: 150, reach: 61, kb: 2 },
-    staff: { slot: 'weapon', cls: ['mage', 'warrior'], name: TXT('BASES.staff.name'), icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
+    staff: { slot: 'weapon', cls: MG, name: TXT('BASES.staff.name'), icon: 'it_staff', atk: 6, spd: 0.45, arc: 110, reach: 61, spell: 0.35 },
     shield: { slot: 'offhand', cls: WR, name: TXT('BASES.shield.name'), icon: 'it_shield', def: 4, w: 1 / 3 },
     buckler: { slot: 'offhand', cls: WR, name: TXT('BASES.buckler.name'), icon: 'it_buckler', def: 4, typed: { aspd: 0.6 }, w: 1 / 3 },
     tower_shield: { slot: 'offhand', cls: WR, name: TXT('BASES.tower_shield.name'), icon: 'it_shield_t', def: 4, typed: { hp: 0.5 }, minF: 3, w: 1 / 3 },

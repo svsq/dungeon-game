@@ -23,7 +23,7 @@
     const h = R.hero; n = Math.round(n * dif(R, 'xp')); h.xp += n; if (R.log) logFloor(R).xp += n;
     while (h.xp >= D.xpNeed(h.lvl)) { h.xp -= D.xpNeed(h.lvl); h.lvl++; const C = D.clsOf(h); h.pts += C.grow.pts; h.sp += C.grow.sp;
       for (const a of C.abs) if (a.unlock === h.lvl && !h.ab[a.id]) { h.ab[a.id] = 1; ev(S, { k: 'unlock', x: h.x, y: h.y, id: a.id }); }
-      const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp; ev(S, { k: 'lvl', x: h.x, y: h.y, lvl: h.lvl }); }
+      const st = heroSt(S); h.hp = st.maxHp; if (C.res !== 'rage') h.mp = st.maxMp; ev(S, { k: 'lvl', x: h.x, y: h.y, lvl: h.lvl }); }
   }
   // no invulnerability after a blow (the balance was tuned without it). A dash leaps spikes and lava; against a monster's blow, bolt
   // or blast it only adds to the chance to dodge (BAL.dodge), it never makes the hero immune. No single monster blow takes more
@@ -39,11 +39,14 @@
     if (h.read) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.hurtHero.s') }); }
     // a weapon a fire priest set alight (TASKS 410): a harder blow that sets the hero burning
     if (actor && actor.fireT > S.t && kind === undefined && ![TXT('sim_floor.damageName.3'), TXT('sim_floor.damageName.5'), TXT('sim_floor.damageName.7')].some((w) => (src || '').endsWith(' ' + w))) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
+    // a monster the war cry shook hits softer (TASKS 1130)
+    if (actor && actor.weakT > S.t) dmg *= D.CRY.weak;
     const st = heroSt(S), KD = 20 + 12 * dep(R); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : BAL.cap.blow)));
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
     const blow = dmg;
     dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (dmg <= 0) return;
+    if (D.clsOf(h).res === 'rage') { h.mp = Math.min(D.RAGE.max, h.mp + dmg / st.maxHp * 100 * D.RAGE.hurt); h.fightT = S.t; }
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
     if (kind === 'poison') h.poison = S.t + 3;
@@ -64,6 +67,9 @@
     const fromHero = byHero; byHero = 0;
     if (e.deadT >= 0 || under(e) || R.town) return;
     if (fromHero && R.hero.curseT > S.t) dmg = Math.max(1, Math.round(dmg * MOD.curse.k));
+    // the war cry's buff and a blow's rage (TASKS 1130)
+    if (fromHero && R.hero.cryT > S.t) dmg = Math.round(dmg * D.CRY.buff);
+    if (fromHero && D.clsOf(R.hero).res === 'rage') { const h = R.hero; h.mp = Math.min(D.RAGE.max, h.mp + D.RAGE.hit); h.fightT = S.t; }
     if (R.map.bossType === e.type && !R.arena) { SIMX.stepArena(S, R); if (!R.arena) return; }
     if (D.BOSSES[e.type] && e.st === 'bwind') dmg *= D.bossMove(e).vulnerable || 1;
     if (D.BOSSES[e.type] && e.openUntil > S.t) dmg *= e.type === 'boss_serpent' ? 1.4 : D.BOSSES[e.type].moves.fists.open;
@@ -203,13 +209,20 @@
       // the dash beats the flames out (TASKS 463: burning took the most hits and nothing put it out away from water)
       if (h.burn > t) { h.burn = 0; ev(S, { k: 'snuff', x: h.x, y: h.y, hero: 1 }); } }
     // a dash is a leap: spikes under it never bite, and one that would come down on a plate carries on until it is clear of it
-    const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t - h.dashT < K.DASH_T;
+    // the warrior's charge (TASKS 1130) is a longer, faster dash that strikes the first monster it meets and stops on it
+    const CH = D.CHARGE, charging = h.charge && t - h.dashT < CH.t;
+    const onSpikes = m.traps.some((tr) => onPlate(h, tr)), leap = t - h.dashT < (charging ? CH.t : K.DASH_T);
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
     // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
     if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
     const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.5);   // (climbing out over the lip, TASKS 1049, 1058: let go at 0.35 he glided off still 23 px under)
-    const mvx = held ? 0 : dashing ? h.dashX * K.DASH : h.vx, mvy = held ? 0 : dashing ? h.dashY * K.DASH : h.vy;
+    const dashV = charging ? CH.spd : K.DASH, mvx = held ? 0 : dashing ? h.dashX * dashV : h.vx, mvy = held ? 0 : dashing ? h.dashY * dashV : h.vy;
+    if (charging) { const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - h.x, (o.y - h.y) * 1.25) < ENEMIES[o.type].r + K.R + 18);
+      if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.dashT = -9;
+        e.rootT = t + stun; e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
+        heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); } }
+    else if (h.charge && t - h.dashT >= CH.t) h.charge = null;
     const ox = h.x, oy = h.y; const [bx, by] = move(m, h, mvx * DT, mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     // a drowned's grab draws the hero a step toward it at an even pace
     if (h.pull) { const P = h.pull, sp = Math.min(P.n / P.T * DT, P.n - P.done); move(m, h, P.x * sp, P.y * sp, K.R); P.done += sp; if (P.done >= P.n - 0.01) h.pull = null; }
@@ -278,9 +291,10 @@
     if (m.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y); if (d < 230 && R.shop.away) { R.shop.away = 0; R.shop.greetT = t; } else if (d > 360) R.shop.away = 1; }
     if (R.town && m.town) SIMX.stepFolk(S, R);
     if (m.way && !(R.ways || []).includes(R.floor) && Math.hypot(h.x - m.way.x, h.y - m.way.y) < 60) SIMX.wake(S, R);
-    if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT);
     if (st.regen && h.hp > 0) h.hp = Math.min(st.maxHp, h.hp + st.regen * DT);
-    h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT);
+    // rage (TASKS 1130) is not mana: no refill in the start room, no regeneration; it drains once the fight is over
+    if (D.clsOf(h).res === 'rage') { if (t - (h.fightT ?? -9) > D.RAGE.calm) h.mp = Math.max(0, h.mp - D.RAGE.decay * DT); }
+    else { if (rIn === m.start) h.mp = Math.min(st.maxMp, h.mp + st.maxMp * 0.08 * DT); h.mp = Math.min(st.maxMp, h.mp + (1.2 + st.int * 0.12) * DT); }
     // the poison's drain is reported every half second like the burn's, so the balance tools and the death screen see it (TASKS 227)
     if (h.poison > t) { const n = 2.5 * st.resist * DT; h.hp -= n; if (h.hp <= 1) h.hp = 1; if (R.log) add(logFloor(R).dmg, 'poison', n);
       h.poisonAcc = (h.poisonAcc || 0) + n; if (t - (h.poisonT ?? -9) >= 0.5) { h.poisonT = t; const k = Math.round(h.poisonAcc); if (k > 0) { h.poisonAcc -= k; ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: k, src: 'poison' }); } } }

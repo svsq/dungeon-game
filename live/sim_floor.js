@@ -30,7 +30,7 @@
     const N = RUN(R); if (N.lvl > 1) { h.lvl = N.lvl; h.pts += G.pts * (N.lvl - 1); h.sp += G.sp * (N.lvl - 1); for (const a of C.abs) if (a.unlock <= h.lvl) h.ab[a.id] = Math.max(1, h.ab[a.id] || 0); }
     if (N.kit) { const K = N.kit; for (const [b, rar] of K.gear) h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} })));
       h.bag[0].n += K.hp - BAL.startHpPot; h.bag[1].n = K.mp; h.gold = K.gold; }
-    const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = st.maxMp;
+    const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = C.res === 'rage' ? 0 : st.maxMp;
     if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
     enterFloor(S, R, o.town ? 0 : 1);
     return R;

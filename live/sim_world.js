@@ -10,6 +10,7 @@
   function usePotion(S, R, b) {
     const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? TXT('sim_world.usePotion.s') : TXT('sim_world.usePotion.s.2') }); return; }
     const st = heroSt(S), it = h.bag[i];
+    if (b === 'mp_potion' && D.clsOf(h).res === 'rage') { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.usePotion.rage') }); return; }
     const brew = 1 + gift(h, 'thrift') / 100;
     if (b === 'hp_potion') h.hp = Math.min(st.maxHp, h.hp + st.maxHp * CONSUMABLES.hp_potion.heal * brew); else h.mp = Math.min(st.maxMp, h.mp + st.maxMp * CONSUMABLES.mp_potion.mana * brew);
     if (--it.n <= 0) h.bag[i] = null; ev(S, { k: 'drink', x: h.x, y: h.y, b });
@@ -67,6 +68,11 @@
         if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
         e.chillT = S.t + F.t; e.slowK = F.slow; heroHit(S, R, e, dmg, false, h.x, h.y, 0.5, 'frost'); }
       tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
+    // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
+    // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)
+    if (id === 'charge') { h.charge = 1; h.chargeK = D.CHARGE.k * AR.k; h.dashT = S.t; h.dashX = Math.cos(h.aim); h.dashY = Math.sin(h.aim); ev(S, { k: 'charge', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
+    if (id === 'cry') { const C = D.CRY; h.cryT = S.t + C.t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < C.r + ENEMIES[e.type].r) e.weakT = S.t + C.t;
+      ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
     // the archer's (TASKS 1120): a fan of arrows; a trap at his feet (stepTraps springs it); a leap back as a dash with a shot down the aim
     const shot = () => Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (h.bless ? 1.2 : 1)));
     if (id === 'volley') { const V = D.VOLLEY; for (let i = 0; i < V.n; i++) heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * V.arc * Math.PI / 180, Math.round(shot() * V.k * AR.k), false, 'arrow');

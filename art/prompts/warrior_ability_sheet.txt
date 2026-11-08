@@ -1,0 +1,5 @@
+Use case: two square ability icons for the HUD skill bar of the same dungeon RPG. Image 1 is the style reference only. Image 2 is the game's ability icon sheet (a whirlwind sword strike, a fireball, a crystal shield) and Image 3 the mage's ice wave icon: match those icons exactly in size, square format, framing, outline, palette and shading.
+Subject: two separate square icons in one row with a wide gap, each a full square tile with its own dark background inside the square:
+1) a charge: a steel-armoured shoulder and a sword thrust bursting forward from left to right with hot orange speed lines streaming behind, on a dark red-brown background;
+2) a war cry: a warrior's open shouting helmeted face in profile with red shockwave rings bursting from the mouth, on a dark crimson background.
+Constraints: exactly 2 square icons, no frames around them, no text.

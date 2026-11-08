@@ -653,7 +653,7 @@
         const type = Object.keys(ENEMIES).find((q) => ENEMIES[q].kind === 'melee' && !ENEMIES[q].ghost);
         const trial = (how, open) => { dig(open); R.proj = []; R.pots = []; R.chests = []; R.drops = [];
           const e = { id: R.nextId++, type, x: (spot.tx + 0.5) * TILE, y: spot.below * TILE + 6, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S.t, kbx: 0, kby: 0 };
-          R.en = [e]; h.x = (spot.tx + 0.5) * TILE; h.y = (spot.ty + 1) * TILE - 6; h.vx = h.vy = 0; h.mp = 999; h.ab.fireball = 1; h.ifr = 1e9;
+          R.en = [e]; h.x = (spot.tx + 0.5) * TILE; h.y = (spot.ty + 1) * TILE - 6; h.vx = h.vy = 0; h.mp = 999; h.ab.fireball = 1; h.ifr = 1e9; h.cls = how === 'fire' ? 'mage' : 'warrior';
           for (const k in h.cd) h.cd[k] = 0; h.atkT = -9; const aim = () => ({ keys: [], ...toPx(R, e.x, e.y - 30) });
           step(S, aim()); if (how === 'whirl') castAbility(S, R, 'whirl', {}); if (how === 'fire') step(S, Object.assign(aim(), { rclick: 1 }));
           for (let i = 0; i < 120; i++) { e.x = (spot.tx + 0.5) * TILE; e.y = spot.below * TILE + 6; e.st = 'idle'; h.x = (spot.tx + 0.5) * TILE; h.y = (spot.ty + 1) * TILE - 6; step(S, Object.assign(aim(), { press: how === 'swing' && i < 30 ? 1 : 0 })); }
@@ -1699,8 +1699,9 @@
       if (Math.abs(plain - d0) > 2 || Math.abs(dash - want) > 4 || dash >= 99) out.push(`dodge: ${plain}% standing (want ${d0}%), ${dash}% dashing (want ${want}%, never all)`);
       h.hp = 1e6; h.dashT = S.t; hurtHero(S, R, 50, h.x, h.y, undefined, 'lava'); if (h.hp !== 1e6) out.push('dodge: lava burns a dashing hero'); h.dashT = -9; }
     // the new meta perks reach a new hero: heirloom gear a rarity up with its affixes, skill points, mana, regeneration, resistance
-    { const up = { gear: 2, skill: 2, mana: 3, regen: 2, resist: 3 }, S = spawn(0, { meta: { shards: 0, up } }), R = newRun(S, 'campaign', 777), h = R.hero, st = stats(h, S.meta);
-      const R0 = newRun(spawn(0, {}), 'campaign', 777), st0 = stats(h, { up: {} });
+    // (on a mage: the warrior's rage has no mana for the perk, TASKS 1130)
+    { const up = { gear: 2, skill: 2, mana: 3, regen: 2, resist: 3 }, S = spawn(0, { meta: { shards: 0, up } }), R = newRun(S, 'campaign', 777, { cls: 'mage' }), h = R.hero, st = stats(h, S.meta);
+      const R0 = newRun(spawn(0, {}), 'campaign', 777, { cls: 'mage' }), st0 = stats(h, { up: {} });
       if (h.eq.weapon.rar !== 2 || h.eq.armor.rar !== 2 || h.eq.weapon.atk <= R0.hero.eq.weapon.atk || Object.keys(h.eq.armor.mods).length !== RARITY[2].affixes) out.push('meta: heirloom gear is not a rarity up');
       if (h.sp !== 2 || st.maxMp !== st0.maxMp + 30 || st.regen !== st0.regen + 1 || Math.abs(st.resist - 0.55) > 1e-9) out.push('meta: skill, mana, regen or resist perk does not apply'); }
     {
@@ -2596,7 +2597,20 @@
           if (!(h.x < x0 - 40)) out.push('class archer: the leap does not carry him back from the aim'); }
         const a0 = stats(h, S.meta).atk; h.base.agi += 10; const a1 = stats(h, S.meta).atk; h.base.agi -= 10; h.base.str += 10; const a2 = stats(h, S.meta).atk; h.base.str -= 10;
         if (!(a1 > a0) || a2 !== a0) out.push('class archer: AGI does not grow his bow\'s damage or STR does');
-        if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword'); } }
+        if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword'); }
+      // the warrior (TASKS 1130): rage from his blows and ones he takes, draining once the fight is over; the charge strikes and stuns a
+      // monster in its way; the war cry weakens those about him and hardens his blows; mana potions are not his
+      { const { S, R, h, foe, ok } = arena('warrior');
+        if (D.clsOf(h).abs.map((a) => a.id).join() !== 'whirl,charge,cry' || D.clsOf(h).res !== 'rage' || h.mp !== 0 || stats(h, S.meta).maxMp !== D.RAGE.max) out.push('class warrior: not whirl, charge, cry on rage from 0');
+        if (ok) { h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; for (const k in h.cd) h.cd[k] = 0;
+          const e = foe(150); e.st = 'idle'; e.calmT = 1e9; h.mp = 50; h.aim = 0; castAbility(S, R, 'charge', {});
+          for (let i = 0; i < 40 && !(e.rootT > S.t); i++) step(S, { keys: [], ...toPx(R, e.x, e.y - 30) });
+          if (!(e.rootT > S.t) || e.hp >= e.max) out.push('class warrior: the charge does not strike and stun the monster in its way');
+          if (!(h.mp > 50 - D.ABILITIES.find((q) => q.id === 'charge').mp)) out.push('class warrior: his blow gives no rage');
+          h.mp = 60; h.cd.cry = 0; castAbility(S, R, 'cry', {}); if (!(e.weakT > S.t) || !(h.cryT > S.t)) out.push('class warrior: the war cry does not weaken the monster near him');
+          R.en = []; h.fightT = S.t; const m0 = h.mp; for (let i = 0; i < 120 * (D.RAGE.calm + 1); i++) step(S, { keys: [], ...toPx(R, h.x + 100, h.y) });
+          if (!(h.mp < m0)) out.push('class warrior: rage does not drain out of a fight'); }
+        const b = h.bag.findIndex((it) => it && it.b === 'mp_potion'); if (b >= 0) { const n = h.bag[b].n; h.mp = 0; S.screen = 'play'; step(S, { keys: ['KeyR'] }); if (!h.bag[b] || h.bag[b].n !== n) out.push('class warrior: he drinks a mana potion'); } } }
     // the class screen (TASKS 1103): «Кампания» asks for the class, a card picks it and the meta keeps it, «В путь» starts that hero,
     // Escape goes back; the Keeper names the last hero's class
     { const S = spawn(0, {}), at = (b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }), ready = D.classesReady();

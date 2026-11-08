@@ -101,6 +101,10 @@
     // the staff's bolt (TASKS 1110): a short glassy zip; the ice wave: a cold hiss under three high crystal notes falling
     bolt: (o) => { noise(o, { d: 0.12, v: 0.18, type: 'bandpass', f0: 3200, f1: 1400, q: 4 }); tone(o, { type: 'triangle', f0: 1400, f1: 700, d: 0.12, v: 0.05 }); },
     frost: (o) => { noise(o, { a: 0.02, d: 0.55, v: 0.35, type: 'highpass', f0: 5000, f1: 1800 }); [2637, 2093, 1568].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.04 + i * 0.06, d: 0.4, v: 0.04 })); },
+    // the warrior (TASKS 1130): the charge's rush of air, its heavy blow, the war cry — a low brass shout under a rising roar
+    charge: (o) => noise(o, { a: 0.01, d: 0.25, v: 0.35, f0: 300, f1: 1400, q: 1.2 }),
+    chargehit: (o) => { noise(o, { d: 0.18, v: 0.45, type: 'lowpass', f0: 900, f1: 120 }); tone(o, { f0: 90, f1: 45, d: 0.25, v: 0.35 }); },
+    cry: (o) => { tone(o, { type: 'sawtooth', f0: 110, f1: 165, a: 0.05, d: 0.6, v: 0.12 }); tone(o, { type: 'sawtooth', f0: 165, f1: 247, a: 0.08, d: 0.55, v: 0.06 }); noise(o, { a: 0.1, d: 0.5, v: 0.12, type: 'bandpass', f0: 400, f1: 900, q: 1 }); },
     // the archer (TASKS 1120): a bowstring's twang; a volley's quick ripple of them; a trap set (a click); its jaws snapping; the leap's rush
     loose: (o) => { tone(o, { type: 'triangle', f0: 220, f1: 150, d: 0.12, v: 0.08 }); noise(o, { d: 0.06, v: 0.12, type: 'highpass', f0: 3000 }); },
     volley: (o) => [0, 0.04, 0.08].forEach((dt, i) => tone(o, { type: 'triangle', f0: 230 - i * 15, f1: 150, t: now() + dt, d: 0.1, v: 0.06 })),

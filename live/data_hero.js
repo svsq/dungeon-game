@@ -9,6 +9,8 @@
     { id: 'fireball', name: TXT('ABILITIES.fireball.name'), icon: 'ab_fire', key: '2', unlock: 2, mp: 12, cd: 2.5, desc: TXT('ABILITIES.fireball.desc') },
     { id: 'shield', name: TXT('ABILITIES.shield.name'), icon: 'ab_shield', key: '3', unlock: 4, mp: 30, cd: 16, desc: TXT('ABILITIES.shield.desc') },
     { id: 'frost', name: TXT('ABILITIES.frost.name'), icon: 'ab_frost', key: '3', unlock: 4, mp: 20, cd: 8, desc: TXT('ABILITIES.frost.desc') },
+    { id: 'charge', name: TXT('ABILITIES.charge.name'), icon: 'ab_charge', key: '2', unlock: 2, mp: 25, cd: 8, desc: TXT('ABILITIES.charge.desc') },
+    { id: 'cry', name: TXT('ABILITIES.cry.name'), icon: 'ab_cry', key: '3', unlock: 4, mp: 40, cd: 20, desc: TXT('ABILITIES.cry.desc') },
     { id: 'volley', name: TXT('ABILITIES.volley.name'), icon: 'ab_volley', key: '1', unlock: 1, mp: 10, cd: 4, desc: TXT('ABILITIES.volley.desc') },
     { id: 'trap', name: TXT('ABILITIES.trap.name'), icon: 'ab_trap', key: '2', unlock: 2, mp: 15, cd: 8, desc: TXT('ABILITIES.trap.desc') },
     { id: 'leap', name: TXT('ABILITIES.leap.name'), icon: 'ab_leap', key: '3', unlock: 4, mp: 12, cd: 7, desc: TXT('ABILITIES.leap.desc') },
@@ -16,7 +18,7 @@
   // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
   const AB_MAX = 10;
   const abRank = (id, r) => { const n = Math.max(0, r - 1);
-    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'volley' || id === 'trap' || id === 'leap' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
+    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'volley' || id === 'trap' || id === 'leap' || id === 'charge' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'cry' ? { k: 1 + 0.05 * n, cd: 1 - 0.03 * n } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
   // about one elite's blow anywhere (TASKS 179), but slower to grow than the blows: INT, rank and floor all multiplied in made it
   // a second life bar, 688 on floor 8 against the hero's 588 (TASKS 199)
   const SHIELD_T = 10, shieldHp = (int, r, f) => Math.round((24 + int * 2) * abRank('shield', r).k * (1 + 0.2 * (f - 1)));
@@ -36,6 +38,12 @@
   const SHOTS = { bolt: Object.assign({ k: 'bolt' }, BOLT), arrow: { k: 'arrow', spd: 760, life: 0.6, r: 6, kb: 0.4, t: 0.18, tip: 26 } };
   // the archer's abilities (TASKS 1120): the volley's fan (n arrows over `arc` degrees at `k` of a shot each); the trap (`root` s held,
   // a boss `boss` s, at `k` of a shot, armed after `arm` s, `max` set at once, gone after `life` s); the leap (back as a dash, a shot at `k`)
+  // the warrior's rage (TASKS 1130, the player's decision 1101): his resource instead of mana, `max` at most; it grows `hit` a blow he
+  // lands and `hurt` a share of his health a blow takes (×100), and drains `decay` a second once `calm` s pass with no blow either way
+  const RAGE = { max: 100, hit: 6, hurt: 1.2, decay: 12, calm: 4 };
+  // the charge: a rush down the aim at `spd` for `t` s (~200 px) that strikes the first monster in its way at `k` of a swing, stuns it
+  // `stun` s (a boss `boss` s); the war cry: monsters within `r` deal `weak` of their damage, the warrior `buff` more, for `t` s
+  const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };
   const VOLLEY = { n: 5, arc: 50, k: 0.6 }, TRAP = { r: 22, root: 2, boss: 0.6, k: 1.5, arm: 0.4, max: 2, life: 30 }, LEAP = { k: 2 };
   const fireDmg = (base, k, spell) => Math.round(base * k * spell * FIRE_K);
   // a class (R-03, TASKS 1100): base stats, the gain per level, its three abilities on keys 1–3 with their unlock levels, the
@@ -44,7 +52,7 @@
   // fire's orange and greyed the mage's blue); `borrow`: the classes whose gear it wears while it has none of its own (1102). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
   const CLASSES = {
     warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
-      abilities: ['whirl', 'fireball', 'shield'], unlock: [1, 2, 4], rclick: 'fireball', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1 } },
+      abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1 } },
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 5, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0.02, hp: 0 },
@@ -120,5 +128,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, VOLLEY, TRAP, LEAP, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);
