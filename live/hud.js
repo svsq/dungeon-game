@@ -76,7 +76,7 @@
   function title(S, t) {
     L.solid(0, 0, W, 200, [0, 0, 0], 0, 0, 0, 0.35);
     lab('tt', TXT('hud.title'), W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('ts', TXT('hud.title.2'), W / 2, 168, { size: 28, al: 0.5, col: C.dim });
+    lab('ts', TXT('hud.title.2', { n: D.RUNS.campaign.floors }), W / 2, 168, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
     lab('tp', TXT('hud.title.3'), W / 2, H - 90, { size: 34, al: 0.5, a });
   }
