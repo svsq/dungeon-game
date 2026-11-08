@@ -672,7 +672,7 @@
     lab('mt_s', TXT('hud.meta.2', { shards: S.meta.shards }), W / 2, S.metaRun ? 204 : 220, { size: 26, al: 0.5, col: C.dim });
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) lab('mt_run', TXT('hud.meta.3'), W / 2, 242, { size: 19, al: 0.5, col: '#8a7d6c' });
-    for (const b of D.UI.meta()) {
+    for (const b of D.UI.meta(S.meta.cls)) {
       if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
       panel('mt_' + b.id, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
@@ -893,7 +893,7 @@
     if (r.donations) lab('e_donations', TXT('hud.end.17', { donations: r.donations }), bx + 30, by + 424, { size: 21, col: C.dim });
     L.solid(bx + 30, by + 456, 1010, 1, C.rim, 0, 0, 0, 0.6);
     lab('e_tn', TXT('hud.end.18'), bx + 30, by + 500, { size: 30 }); lab('e_tv', '+' + r.shards, bx + 1040, by + 500, { size: 30, al: 1, col: '#9cc8ff' });
-    const up = S.meta.up || {}, available = D.META.filter((m) => (up[m.id] || 0) < m.max), affordable = available.find((m) => m.cost(up[m.id] || 0) <= S.meta.shards), next = affordable || available.slice().sort((a, b) => a.cost(up[a.id] || 0) - b.cost(up[b.id] || 0))[0];
+    const up = S.meta.up || {}, available = D.metaFor(S.meta.cls).filter((m) => (up[m.id] || 0) < m.max), affordable = available.find((m) => m.cost(up[m.id] || 0) <= S.meta.shards), next = affordable || available.slice().sort((a, b) => a.cost(up[a.id] || 0) - b.cost(up[b.id] || 0))[0];
     const rank = ['I', 'II', 'III', 'IV', 'V'], goal = next ? next.name + ' ' + rank[up[next.id] || 0] : '';
     const line = affordable ? TXT('hud.end.line', { goal }) : next ? TXT('hud.end.line.2', { goal, p2: next.cost(up[next.id] || 0) - S.meta.shards }) : TXT('hud.end.line.3');
     wrap('e_goal', line, bx + 30, by + 566, 1000, 25, C.gold);

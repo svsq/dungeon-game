@@ -69,10 +69,17 @@
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 3, sp: 1 },
       abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65 } },
   };
+  // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
+  // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire
+  Object.assign(CLASSES.warrior, { dead: { gifts: ['wisdom', 'arcane'], meta: ['mana', 'regen'], mods: ['int', 'mp', 'fire'], cons: ['mp_potion'] } });
+  Object.assign(CLASSES.mage, { dead: { gifts: ['reach', 'cleave'], meta: [], mods: ['str'], cons: [] } });
+  Object.assign(CLASSES.archer, { dead: { gifts: ['reach', 'cleave', 'arcane'], meta: [], mods: ['str', 'fire'], cons: [] } });
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run
   const classesReady = () => Object.keys(CLASSES).filter((k) => CLASSES[k].look.ready);
   const clsOf = (h) => CLASSES[(h && h.cls) || 'warrior'] || CLASSES.warrior;
+  const liveFor = (h, kind, list, key = (q) => q.id) => { const no = clsOf(h).dead[kind]; return list.filter((q) => !no.includes(key(q))); };
+  const metaFor = (cls) => liveFor({ cls }, 'meta', META);
 
   const STATS = [
     { k: 'str', name: TXT('STATS.str.name'), full: TXT('STATS.str.full') },
@@ -137,5 +144,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

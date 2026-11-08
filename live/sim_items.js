@@ -43,10 +43,11 @@
     return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor + (R.mode ? RUN(R).loot || 0 : 0), mods: {} }));
   }
   function rollAffixes(R, it) {
-    const pool = AFFIXES.slice(); for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { const a = pool.splice(Math.floor(rnd(R) * pool.length), 1)[0];
+    const pool = D.liveFor(R.hero, 'mods', AFFIXES, (a) => a.k); for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { const a = pool.splice(Math.floor(rnd(R) * pool.length), 1)[0];
       it.mods[a.k] = Math.max(1, Math.round((a.a + a.b * it.lvl) * (0.7 + 0.6 * rnd(R)) * (1 + 0.15 * it.rar))); }
     return it;
   }
+  const useless = (R, b) => D.clsOf(R.hero).dead.cons.includes(b);
   const potion = (b, n = 1) => ({ id: 0, b, n, rar: 0, lvl: 1, mods: {} });
   const isCons = (it) => !!CONSUMABLES[it.b];
   const itemName = (it) => (isCons(it) ? CONSUMABLES[it.b].name : it.rar === 4 ? (D.LEGEND_NAMES[it.b] || D.LEGEND_NAMES[BASES[it.b].slot]) : BASES[it.b].name);
@@ -138,6 +139,6 @@
   }
 
   Object.assign(SIMX, {
-    itemPower, typeMods, itemMods, rebalanceRun, rollItem, rollAffixes, potion, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
+    itemPower, typeMods, itemMods, rebalanceRun, rollItem, rollAffixes, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
     stats, propBoxes, behindProp, DROP_REST, stepDrops });
 })(typeof window !== 'undefined' ? window : globalThis);

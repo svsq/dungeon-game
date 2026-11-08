@@ -25,11 +25,11 @@
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: W, rar: 0, mods: {}, atk: BASES[W].atk }));
     h.eq.armor = give({ b: A, rar: 0, lvl: 1, mods: {}, def: BASES[A].def });
     const gr = (S.meta.up || {}).gear || 0; if (gr) for (const it of [h.eq.weapon, h.eq.armor]) { it.rar = gr; rollAffixes(R, itemPower(it)); }
-    h.bag[0] = give(potion('hp_potion', BAL.startHpPot + ((S.meta.up || {}).potion || 0))); h.bag[1] = give(potion('mp_potion', 1));
+    h.bag[0] = give(potion('hp_potion', BAL.startHpPot + ((S.meta.up || {}).potion || 0))); if (!C.dead.cons.includes('mp_potion')) h.bag[1] = give(potion('mp_potion', 1));
     // a run that starts deeper hands the hero its levels as points to lay out and its kit (data.js RUNS)
     const N = RUN(R); if (N.lvl > 1) { h.lvl = N.lvl; h.pts += G.pts * (N.lvl - 1); h.sp += G.sp * (N.lvl - 1); for (const a of C.abs) if (a.unlock <= h.lvl) h.ab[a.id] = Math.max(1, h.ab[a.id] || 0); }
     if (N.kit) { const K = N.kit; for (const [b, rar] of K.gear) h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} })));
-      h.bag[0].n += K.hp - BAL.startHpPot; h.bag[1].n = K.mp; h.gold = K.gold; }
+      h.bag[0].n += K.hp - BAL.startHpPot; if (h.bag[1]) h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = C.res === 'rage' ? 0 : st.maxMp;
     if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
     enterFloor(S, R, o.town ? 0 : 1);

@@ -59,7 +59,7 @@ const gear = (it) => it && !SIM.isCons(it);
 const wearable = (h, it) => h.lvl >= D.reqLvl(it) && D.wears(D.clsOf(h).id, it.b);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
 // a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
-const metaNext = (S) => D.META.filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
+const metaNext = (S) => D.metaFor(S.meta.cls).filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
   .sort((a, b) => a.cost(S.meta.up[a.id] || 0) - b.cost(S.meta.up[b.id] || 0))[0];
 const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.meta.shards >= D.giftCost(tier, R.floor));
 
@@ -420,7 +420,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
       if (S.screen === 'classes') { SIM.step(S, click(D.UI.classes().find((q) => q.id === 'go'))); continue; }
-      if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta().find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
+      if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta(S.meta.cls).find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
       // the upgrades are bought at the Altar of Souls in the town (TASKS 1026); a test run without the town still buys them from the menu's screen
       if (S.screen === 'menu') { if (metaNext(S) && mode !== 'campaign' && mode !== 'town') { S.screen = 'meta'; S.metaRun = 0; } else startRun(S, mode); continue; }
       SIM.step(S, { keys: ['Escape'] }); continue;
@@ -466,7 +466,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (h.gold < g) for (const it of h.bag) if (it && it.b && !had.has(it.id)) it.bought = 1; continue; }
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
     if (S.screen === 'talk') { SIM.step(S, talkStep(S, R)); continue; }
-    if (S.screen === 'meta') { const M = metaNext(S); SIM.step(S, click(D.UI.meta().find((q) => q.id === (M ? M.id : 'back')))); continue; }
+    if (S.screen === 'meta') { const M = metaNext(S); SIM.step(S, click(D.UI.meta(S.meta.cls).find((q) => q.id === (M ? M.id : 'back')))); continue; }
     if (S.screen === 'gate') { const o = SIM.gateWays(R), i = o.findIndex((q) => q.k === 'portal'); SIM.step(S, i >= 0 ? click(D.UI.gate(o.length).r[i]) : { keys: ['Escape'] }); continue; }
     if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
