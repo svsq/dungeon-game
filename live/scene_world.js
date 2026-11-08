@@ -150,7 +150,7 @@
           // (a white-hot crack across the boards under the middle of its shadow, TASKS 1050, 1058: red-orange it read as the target
           // ring's own ticks)
           const z0 = under(q);
-          if (along(z0, q) < HF.r * 0.5) (SC.crackFx ||= []).push({ X, Y: Y + j, rot, w, f: q.f, s: Math.imul(Math.round(q.a), 40503) >>> 4, d: along(z0, q) / (HF.r * 0.5), wx: hor ? q.a : B0 + BW / 2, wy: hor ? B0 + BW / 2 : q.a });   // (drawn in the emissive pass, TASKS 1162: the lit pass put it out on the dark boards)
+          if (along(z0, q) < HF.r * 0.9) (SC.crackFx ||= []).push({ X, Y: Y + j, rot, w, f: q.f, s: Math.imul(Math.round(q.a), 40503) >>> 4, d: along(z0, q) / (HF.r * 0.9), wx: hor ? q.a : B0 + BW / 2, wy: hor ? B0 + BW / 2 : q.a });   // (drawn in the emissive pass, TASKS 1162: the lit pass put it out on the dark boards)
           return; }
         if (st2 === 2) { if (along(under(q), q) < HF.r * 0.45) return;   // (the boards the rock went through are gone a moment, TASKS 1162)
           for (const sd of [-1, 1]) L.sprite(q.n, X + sd * q.l / 4 - q.l / 4, Y - 3, { w: q.l / 2 - 2, h: 10, rot: rot + sd * 0.35, pivot: [sd < 0 ? 0 : q.l / 2 - 2, 5], flip: q.f, u: { grade: [0.6, 0.45 * q.tone, 0, 1] } }); return; }
@@ -477,7 +477,7 @@
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
-    if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = (u.free ? 'stairs_up_free' : 'stairs_up') + (m.biome === 'magma' ? '_mg' : ''), [w, hh] = SZ(st); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
+    if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = (u.free ? 'stairs_up_free' : 'stairs_up') + (m.biome === 'magma' ? '_mg' : ''), [w, hh] = SZ(st); if (m.biome === 'magma') PROP_BAS.push([st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, w, hh, false]); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
     // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
     if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
       const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);
