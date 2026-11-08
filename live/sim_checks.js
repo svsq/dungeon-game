@@ -205,6 +205,7 @@
         const w2 = (n) => (D.PROP_W[n] || 0) / 2;
         for (let i = 0; i < big.length; i++) for (let j = i + 1; j < big.length; j++) { const [ax, ay, an, as] = big[i], [bx, by, bn, bs] = big[j]; if (an.startsWith('shop_') || bn.startsWith('shop_') || (as && as === bs)) continue;   // a corner stack of barrels and crates is one pile
           if (Math.abs(Math.floor(ay / TILE) - Math.floor(by / TILE)) <= 1 && Math.abs(ax - bx) < w2(an) + w2(bn) + 4) out.push(`seed ${seed} f${f}: ${an} draws over ${bn} at ${Math.round(ax)},${Math.round(ay)}`); }
+        for (const d of m.decor) if (d.n === 'bookshelf' && d.r !== undefined) { const cy = Math.floor(d.y / TILE) - 1, c0 = Math.floor((d.x - 51) / TILE), c1 = Math.floor((d.x + 51) / TILE); for (let cx = c0; cx <= c1; cx++) if (m.cells[cy * m.W + cx] !== 0) out.push(`seed ${seed} f${f}: a bookshelf sticks into the passage at ${cx},${cy}`); }
         // nothing hung on a top wall (torch, sconce, banner, sign) hides behind a tall prop standing against that wall
         const hung = m.torches.filter((t) => t.kind === 'wall' && !t.side).map((t) => [t.x, Math.round((t.y + 26) / TILE), 14, t.lever !== undefined ? 'sconce' : 'torch'])
           .concat(m.decor.filter((d) => d.n === 'banner' || d.n === 'shop_sign').map((d) => [d.x, Math.round((d.y + (d.n === 'banner' ? 2 : 34)) / TILE), d.n === 'banner' ? 18 : 22, d.n]));
