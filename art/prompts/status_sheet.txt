@@ -1,0 +1,6 @@
+Use case: three square status-effect icons for the HUD buff row of a dungeon RPG, in exactly the same style as the ability icons (Image 2: a glowing crystal shield icon) and the reference HUD (Image 1).
+Subject: three separate square icons in one row with wide gaps, each a full square tile with its own dark background inside the square:
+1) a holy blessing: a radiant pale-blue and white winged sun rune glowing over a dark blue background (a shrine's blessing, +damage);
+2) burning: bright orange and yellow flames licking upward over a dark red background;
+3) poison: a dripping green venom drop with a small skull shape in its bubbles over a dark green background.
+Constraints: exactly 3 square icons, no frames around them, no text, same painted pixel-art look and lighting as Image 2.

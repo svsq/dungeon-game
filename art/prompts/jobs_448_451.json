@@ -1,0 +1,47 @@
+[
+ {
+  "name": "slab_mg_a",
+  "prompt": "art/prompts/slab_mg_a.txt",
+  "size": "1024x1024",
+  "alpha": "auto",
+  "ref": [
+   "art/raw/refcrop_mg_slabs.png=magma cave concept crop: the stepping stones in the lava, design only, do not copy its lava or light"
+  ]
+ },
+ {
+  "name": "slab_mg_b",
+  "prompt": "art/prompts/slab_mg_b.txt",
+  "size": "1024x1024",
+  "alpha": "auto",
+  "ref": [
+   "art/raw/refcrop_mg_slabs.png=magma cave concept crop: the stepping stones in the lava, design only, do not copy its lava or light"
+  ]
+ },
+ {
+  "name": "slab_mg_c",
+  "prompt": "art/prompts/slab_mg_c.txt",
+  "size": "1024x1024",
+  "alpha": "auto",
+  "ref": [
+   "art/raw/refcrop_mg_slabs.png=magma cave concept crop: the stepping stones in the lava, design only, do not copy its lava or light"
+  ]
+ },
+ {
+  "name": "bridge_post_mg",
+  "prompt": "art/prompts/bridge_post_mg.txt",
+  "size": "1024x1024",
+  "alpha": "auto",
+  "ref": [
+   "art/raw/refcrop_mg_bridge.png=magma cave concept crop: the chain bridge, its basalt posts and iron chains, design only, do not copy its lava or light"
+  ]
+ },
+ {
+  "name": "arch_mg",
+  "prompt": "art/prompts/arch_mg.txt",
+  "size": "1536x1024",
+  "alpha": "auto",
+  "ref": [
+   "art/raw/refcrop_mg_arch.png=magma cave concept crop: the basalt arch over the lava river, design only, do not copy its lava or light"
+  ]
+ }
+]

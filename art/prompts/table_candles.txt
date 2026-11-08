@@ -1,0 +1,3 @@
+Use case: one prop for a top-down 3/4 dungeon game (Image 1 is the style reference only; Image 2 is the game's small wooden table and Image 3 its candles: match them exactly in style, outline and pixel density).
+Subject: the wooden table of Image 2, the same size, shape, planks and nails, with three short thick wax candles of Image 3 standing on its top near the back, on a small iron dish with melted wax dripping over its edge; the candles are small compared to the table (each about a fifth of the table's height), unlit, black wicks.
+Constraints: one object centred on an empty background, complete, no flames, no glow, no light, no shadow on the ground, no floor.

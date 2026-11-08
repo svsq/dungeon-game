@@ -1,0 +1,5 @@
+Use case: a prop sheet for a top-down 3/4 dungeon game (Image 1 is the style reference only: match its props, palette and pixel size).
+Subject: 3 separate treasure-room vases in the 3/4 view of Image 1, in one row with wide empty gaps, all on one shared ground line:
+a tall clay amphora with two handles and a dark painted band; a wide-bellied ceramic urn with a lid and a faded red-and-ochre pattern; an ornate bronze vase with a slim neck, dull gold trim and a little green patina.
+Scale: a barrel would be 14 art pixels tall and the hero 26; each vase is about as tall as a barrel, the amphora slightly taller.
+Constraints: every vase complete and separate, nothing touching, no flames, no glow, no light, no shadows on the ground, no floor.

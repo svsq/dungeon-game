@@ -39,6 +39,11 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return (texs[name] = { t, w: cv.width, h: cv.height });
   };
+  // the render's CPU-side drawing surface (a 2D canvas: masks, the minimap, text) and its re-upload into the texture made from it:
+  // with the page's address, the only ways the render reaches the page (ARCHITECTURE.md §8)
+  G.canvas = () => document.createElement('canvas');
+  G.params = new URLSearchParams(location.search);   // the render's dev switches (?fx=0, ?only=…)
+  G.canvasUpdate = (rec, cv) => { gl.bindTexture(gl.TEXTURE_2D, rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); };
   G.tex = (n) => { const t = texs[n]; if (!t) throw new Error('no texture ' + n); return t; };
 
   const VS = `#version 300 es
@@ -81,6 +86,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
     return { fb, t, w, h, vw: view[0], vh: view[1] };
   };
+  G.free = (tg) => { if (!tg) return; gl.deleteFramebuffer(tg.fb); gl.deleteTexture(tg.t); };
   G.bind = (tg, clear) => {
     cur = tg; gl.bindFramebuffer(gl.FRAMEBUFFER, tg ? tg.fb : null);
     gl.viewport(0, 0, tg ? tg.w : G.W, tg ? tg.h : G.H);
@@ -90,6 +96,8 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     gl.enable(gl.BLEND);
     if (mode === 'add') gl.blendFunc(gl.ONE, gl.ONE);
     else if (mode === 'screen') gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
+    // premultiplied over, but alpha drops by the source's: the lit pass reads 1 - alpha as "an emitter, don't multiply by the light"
+    else if (mode === 'emit') gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
     else if (mode === 'none') gl.disable(gl.BLEND);
     else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   };

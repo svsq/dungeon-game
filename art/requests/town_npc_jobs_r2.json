@@ -1,0 +1,21 @@
+[
+ {
+  "name": "town_smith",
+  "prompt": "art/prompts/town_smith.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "town_enchanter",
+  "prompt": "art/prompts/town_enchanter.txt",
+  "ref": [
+   "art/gen/hero.png=the game's hero: match his art style, outline, pixel density and scale exactly",
+   "art/refs_npc/town_enchanter_x4.png=the concept's enchanter (purple hooded figure at the lectern): copy her look and colours, not the scene"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto"
+ }
+]

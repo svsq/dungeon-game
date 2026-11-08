@@ -1,0 +1,5 @@
+Use case: one enemy sprite for a top-down 3/4 dungeon action game; a soft body that the game squashes and stretches in a shader. Image 1 is the style reference only. Image 2 is an approved monster of the same game: match its pixel density, outline and shading exactly.
+Subject: a cave slime: one dome-shaped blob of thick jelly, murky toxic green (#1a4135, #2c6a3f, #3f9a48, #52c04f), its body slightly see-through so a few small dark pebbles and a tiny bone show suspended inside, two small black beady eyes near the top of its front, a wide glossy cream highlight (#eed68a, never white) on its upper-left, a slightly lumpy base that spreads on the ground, one or two drips on its sides. Seen in the 3/4 top-down view of Image 1: the top of the dome and its front face both visible.
+Shape: symmetric and simple, about 1.4 times as wide as it is tall, the widest part just above the base; no limbs, no mouth.
+Scale: about 16 art pixels wide and 11 art pixels tall (the skeleton of Image 2 is 24 tall).
+Constraints: one blob only, centred with wide empty space around it, complete, no puddle, no shadow on the ground, no floor, no glow, no labels.

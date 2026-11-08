@@ -1,0 +1,5 @@
+Use case: a tree prop for the start town of a top-down 3/4 dungeon game, a second variant of the town's courtyard tree. Image 1 is the style reference: match its foliage and wood rendering. Image 2 is the approved town concept's edge tree crop: match its design and palette, NOT its light. Image 3 shows existing props of this game in their true sizes next to the hero, including the town's current tree: match its scale and pixel density, but draw a clearly DIFFERENT tree.
+Subject: a slender young tree with a single straight thin dark-brown trunk forking into two near the top, and a tall, narrow, ragged olive-green crown made of three or four separate leaf clumps with gaps of dark sky between them (#302b09, #473e0b, #675a0d, a few lighter leaf clusters), a few roots at the foot; the crown taller than wide.
+View and scale: the 3/4 view of Image 1; the tree is 28 art pixels tall and about 15 wide (the hero is 26, a barrel 14).
+Composition: one tree centred, complete, wide empty margin, transparent background.
+Constraints: painted UNLIT: even studio light, no light pools, no glow; no ground, no shadow, no grass at its foot, no other props, no text.

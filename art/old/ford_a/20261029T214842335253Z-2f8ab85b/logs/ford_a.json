@@ -1,0 +1,44 @@
+{
+  "name": "ford_a",
+  "provider": "codex",
+  "status": "ok",
+  "started": "2026-10-28T11:46:32",
+  "model": "codex image_gen",
+  "size_requested": "1024x1024",
+  "size_sent": "1024x1024",
+  "quality": "high",
+  "seed": null,
+  "prompt_source": "art/prompts/ford_a.txt",
+  "refs": [
+    {
+      "path": "ref.png",
+      "label": "style reference only: match its art style, rendering, palette and light; do not copy its composition"
+    },
+    {
+      "path": "art/raw/refcrop_cave_ford.png",
+      "label": "cave concept crop: stepping stone design only, do not copy its light"
+    }
+  ],
+  "prompt": "REFERENCE IMAGES (attached in this order):\nImage 1 = style reference only: match its art style, rendering, palette and light; do not copy its composition\nImage 2 = cave concept crop: stepping stone design only, do not copy its light\n\nSTYLE: dark-fantasy dungeon pixel art matching Image 1, 16x16-pixel tile scale, a hero about 26 pixels tall. Every pixel is a hard square of one flat colour on one even grid; no anti-aliasing, no blur, no gradients, no noise.\nShading: 3-4 flat tone steps per material, hard terminator, hue-shifted ramps: warm shadows go dark red-brown (#36120f, #231010), stone shadows go cold blue-grey (#252534, #141420); highlights warm cream (#eed68a), never pure white.\nPalette: low-key and muted like Image 1: charcoal and slate stone (#3e3234, #6b5c56), rust and leather browns (#552f25, #733a21, #934218), deep reds (#73140d, #4f150c), bone (#c8b89a), small accents of ember orange (#f03604, #c25d1a), toxic green (#52c04f) and arcane blue (#64bdea).\nMaterial accents: gold uses #9f5116 / #e2881e / #f9ce4a (the concept's coin ramp, as in chest_open_gold); dark green bronze and moss use #1a4135; spider chitin and silk use #2a202f / #51384e / #5f3d60 / #a47f84 / #895e54 / #1d131f; still water #0f2a2e. Keep blue, green and red gemstones distinct; gold should read yellow rather than copper.\nLine: a 1-pixel dark outline (#231010 or #060506) around characters, items and props; stone and floor read through dark mortar lines instead of outlines.\nDetail: chunky readable silhouettes, detail only on faces, weapons and focal props; big quiet stone areas.\nLight: even neutral studio light from the top-left, soft and moderately bright so the art can be relit in the game; no light sources lit, flames drawn unlit, no glow, no light rays, no cast shadows.\nView: top-down 3/4 dungeon-crawler view (floors seen from above, walls, props and characters show their front faces).\nNo text, no letters, no numbers, no logos, no watermark, no UI frames.\n\nBiome reference policy: ref.png remains the authority for camera, scale, character designs, outlines and overall rendering. The material and local-light references, their approval status and their allowed scope are recorded in study/refs/README.md. A biome concept does not override this asset's neutral studio lighting: paint flames unlit and omit baked glow and shadows even when a concept shows them lit. Never copy a concept's taller walls, smaller hero, recoloured monsters or whole-frame water/lava coverage. Natural cave materials belong to future cave biomes, not the existing masonry floors. Approve a biome reference before generating its assets.\nApproved biome materials: ref_dungeon \u2014 dark slate masonry, small cobblestones and warm local light; ref_crypt \u2014 cold stone, bone, sarcophagi, moss and green local light with warm candle areas; ref_lava \u2014 liquid orange lava, dark crust, hot fissures, channels, stone banks and crossings; ref_arcane \u2014 cold stone, blue light sources and crystals with warm side rooms. Local-light colours guide runtime lighting, not baked illumination in assets.\nApproved future cave references: ref_cave_water is the primary appearance reference for quiet blue-grey rock, dark teal water, gravel, moss, luminous mushrooms and crystals, waterfalls and a warm explorer camp; ref_cave_water_camera_v2 supplements it for broad connected floor and calm water only. ref_cave_lava supplies basalt, lava crust, lavafalls and natural stone arches. Keep all cave banks and walls low for the gameplay camera; do not copy the concepts' high cliffs or pillars.\n\nASSET:\nOne isolated sprite, seen from above at the top-down 3/4 view: a wide flat-topped stepping stone standing a little out of the water: a flat cracked brown-grey top (#5a4a40, #6b5c56, #3e3234) with a short dark rock side below it (#252534, #141420), a wet pale rim on the top's edge (#8a8fa0), a speck of moss (#1a4135). About as wide as the hero, much wider than tall. The design follows Image 2 (a crop of the approved cave concept, its ford of stepping stones). No water drawn, only the stone. Chunky pixel-art style of Image 1, 1-pixel dark outline (#060506), 3-4 hard tone steps per material, no gradients, no anti-aliasing. Painted UNLIT: even neutral light, no glow, no cast light. No floor, no shadow, no text. Transparent background with generous margins.\n\nCanvas: 1024x1024 px (1:1 square); if that exact size is unavailable, use the closest size with the same aspect ratio.\n\nBackground: fully transparent (real alpha channel, PNG) everywhere outside the ASSET, with clean anti-aliased edges; no ground or cast shadow beyond what the ASSET describes, no frame, no checkerboard pattern",
+  "raw": "art/raw/ford_a.png",
+  "out": "art/gen/ford_a.png",
+  "request_id": "01a181e7-76fe-79b0-b842-4f74e79ac53e",
+  "native_alpha_returned": true,
+  "size_raw": "1254x1254",
+  "size_final": "1024x1024",
+  "alpha": {
+    "requested": "auto",
+    "plan": "native",
+    "validation": {
+      "ok": true,
+      "kind": "ok",
+      "has_alpha_channel": true,
+      "clear_frac": 0.8278,
+      "soft_edge_ratio": 1.58
+    },
+    "method": "native",
+    "fit": "stretch"
+  },
+  "warnings": [],
+  "seconds": 125.2
+}

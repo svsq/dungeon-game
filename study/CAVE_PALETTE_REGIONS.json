@@ -1,0 +1,110 @@
+{
+  "ref1_water_still": {
+    "reference": "study/refs/ref_cave_water.png",
+    "roi": [
+      930,
+      360,
+      990,
+      405
+    ]
+  },
+  "ref1_water_lower": {
+    "reference": "study/refs/ref_cave_water.png",
+    "roi": [
+      1150,
+      680,
+      1200,
+      720
+    ]
+  },
+  "ref2_water_still": {
+    "reference": "study/refs/ref_cave_water_camera_v2.png",
+    "roi": [
+      600,
+      245,
+      660,
+      280
+    ]
+  },
+  "ref2_water_lower": {
+    "reference": "study/refs/ref_cave_water_camera_v2.png",
+    "roi": [
+      640,
+      775,
+      670,
+      800
+    ]
+  },
+  "ref2_floor_neutral": {
+    "reference": "study/refs/ref_cave_water_camera_v2.png",
+    "roi": [
+      870,
+      645,
+      930,
+      670
+    ]
+  },
+  "ref2_floor_warm": {
+    "reference": "study/refs/ref_cave_water_camera_v2.png",
+    "roi": [
+      330,
+      325,
+      370,
+      350
+    ]
+  },
+  "ref2_rock": {
+    "reference": "study/refs/ref_cave_water_camera_v2.png",
+    "roi": [
+      450,
+      875,
+      480,
+      900
+    ]
+  },
+  "game_water_still": {
+    "frame": "cave_water",
+    "roi": [
+      820,
+      260,
+      930,
+      300
+    ]
+  },
+  "game_water_lower": {
+    "frame": "cave_water",
+    "roi": [
+      955,
+      550,
+      980,
+      590
+    ]
+  },
+  "game_floor_neutral": {
+    "frame": "cave_water",
+    "roi": [
+      1380,
+      325,
+      1430,
+      355
+    ]
+  },
+  "game_floor_warm": {
+    "frame": "cave_water",
+    "roi": [
+      1250,
+      195,
+      1290,
+      225
+    ]
+  },
+  "game_rock": {
+    "frame": "cave_water",
+    "roi": [
+      687,
+      710,
+      700,
+      730
+    ]
+  }
+}

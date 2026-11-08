@@ -1,33 +1,14 @@
-# post-fixes for hero rig parts (BUGS 23–25); always rebuilds from art/old/herofix/ so it can be re-run
+# post-fixes for hero rig parts (TASKS 24, 30); always rebuilds from art/old/herofix/ so it can be re-run
 import numpy as np; from PIL import Image; from scipy import ndimage as nd
 SRC, DST = 'art/old/herofix', 'art/gen'
 load = lambda n: np.array(Image.open(f'{SRC}/{n}.png').convert('RGBA')).astype(float)
 save = lambda a, n: Image.fromarray(a.clip(0, 255).astype(np.uint8)).save(f'{DST}/{n}.png')
-lum = lambda a: a[..., :3] @ [0.3, 0.59, 0.11]
-
-def plug(a, box, thr=55, light=(1, -1)):
-    # fill the dark hollow of a pauldron with a steel dome ramp from that pauldron's own palette; the outline stays
-    x0, y0, x1, y1 = box; r = a[y0:y1, x0:x1]
-    solid = r[..., 3] > 128; dark = solid & (lum(r) < thr) & (r[..., 0] < r[..., 2] + 25)
-    lab, n = nd.label(dark)
-    if n == 0: return
-    hole = lab == np.argmax(np.bincount(lab.ravel())[1:]) + 1
-    steel = solid & ~hole & (lum(r) > 80) & (np.abs(r[..., 0] - r[..., 2]) < 30)
-    gold = solid & (lum(r) > 110) & (r[..., 0] > r[..., 2] + 40)
-    core = hole & (nd.distance_transform_edt(~(~solid | (solid & ~hole & ~steel & ~gold))) > 1.5)
-    sp = r[steel][:, :3]; sp = sp[np.argsort(lum(sp))]; pal = sp[[int(q * (len(sp) - 1)) for q in (0.2, 0.45, 0.7)]]
-    yy, xx = np.nonzero(core); t = (xx - xx.mean()) * light[0] + (yy - yy.mean()) * light[1]
-    t = (t - t.min()) / max(1e-6, np.ptp(t)); t = 0.1 + 0.8 * t
-    r[yy, xx, :3] = pal[(t * (len(pal) - 1)).round().astype(int)]
-    print('plugged', box, core.sum(), 'px')
 
 def specks(a, min_px=20):
     lab, n = nd.label(a[..., 3] > 0); sz = np.bincount(lab.ravel()); sz[0] = 1 << 30
     a[sz[lab] < min_px, 3] = 0; return a
 
-b = load('hero__body'); plug(b, (36, 92, 64, 130)); save(specks(b), 'hero__body')
-bb = load('hero__body_back'); plug(bb, (28, 88, 52, 118), light=(1, -1)); plug(bb, (132, 90, 158, 120), light=(-1, -1)); save(specks(bb), 'hero__body_back')
-h = load('hero'); plug(h, (36, 92, 64, 130)); save(specks(h), 'hero')
+for n in ('hero__body', 'hero__body_back', 'hero'): save(specks(load(n)), n)
 
 # near forearm: mirror the fist inside its own box so the two hands aren't the same drawing
 f = load('hero__farmR'); g = (f[..., 3] > 0) & (f[..., 0] > f[..., 2] + 30)
@@ -35,3 +16,25 @@ ys = np.where(g.any(1))[0]; y0 = ys[(ys > 215) & (g.sum(1)[ys] > 0.6 * g.sum(1).
 xs = np.where(f[rows][..., 3].any(0))[0]; x0, x1 = xs.min(), xs.max() + 1
 f[rows, x0:x1] = f[rows, x0:x1][:, ::-1]; save(f, 'hero__farmR')
 print('fist rows', y0, 'x', x0, x1)
+
+# the near (R) limbs were cut from the same drawing as the far ones: rebuild each from its L twin (the untouched source) moved onto
+# the R part's own box, then light it as the limb nearer the camera, its outer half warm and lit, the half toward the body in shade (TASKS 24)
+def across(m):   # 0 at a row's left (body) edge, 1 at its right (outer) edge: one world pixel is ~8 source px, so light has to span the limb
+    t = np.zeros(m.shape)
+    for y in np.where(m.any(1))[0]:
+        xs = np.where(m[y])[0]; x0, x1 = xs.min(), xs.max(); t[y, x0:x1 + 1] = (np.arange(x0, x1 + 1) - x0) / max(1, x1 - x0)
+    return t
+ss = lambda a, b, x: (lambda q: q * q * (3 - 2 * q))(np.clip((x - a) / (b - a), 0, 1))
+def bbox(a):
+    ys, xs = np.where(a[..., 3] > 0); return ys.min(), xs.min(), ys.max() + 1, xs.max() + 1
+for n in ('uarm', 'farm', 'thigh', 'shin', 'foot'):
+    cur = np.array(Image.open(f'{DST}/hero__{n}R.png').convert('RGBA')).astype(float)
+    if n == 'farm': src = cur   # the mirrored fist, rebuilt above
+    else:
+        L = np.array(Image.open(f'{DST}/hero__{n}L.png').convert('RGBA')).astype(float)
+        y0, x0, y1, x1 = bbox(L); Y0, X0, _, _ = bbox(cur); src = np.zeros_like(L); src[Y0:Y0 + y1 - y0, X0:X0 + x1 - x0] = L[y0:y1, x0:x1]
+    m = src[..., 3] > 0; t = across(m); lit, shade = ss(0.5, 1, t), ss(0.45, 0, t)
+    for c, k in zip(range(3), (1.2, 1.12, 1.0)): src[..., c] *= 1 + (k - 1) * lit
+    src[..., :3] *= (1 - 0.18 * shade)[..., None]
+    save(src, f'hero__{n}R')
+print('near limbs relit')

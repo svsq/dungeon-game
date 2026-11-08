@@ -1,0 +1,3 @@
+Use case: three quest item icons for the same dungeon RPG: keepsakes the townsfolk ask the hero to bring back from the crypt. Image 1 is the style reference only. Image 2 is the game's item icon sheet: match its icons exactly in style, size (about 16x16 art pixels), outline, palette and shading.
+Subject: 3 separate icons in one row with wide empty gaps, each centred in its cell: a small old reliquary casket of dark wood bound with tarnished brass corners and a wax seal on its lid; a carved wooden toy horse, worn and a little chipped, with a faded red saddle; a round silver locket on a short broken chain, its lid engraved, faintly tarnished.
+Constraints: icons separate and complete, nothing touching, transparent background, no panels, no frames, no glow, no text.

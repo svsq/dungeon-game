@@ -6,7 +6,7 @@
 // Pure function of its inputs: no Math.random, no Date. Query flags: ?fx=0 (no fog/rays), ?only=a,b (draw only those sprites).
 (function () {
   const L = (window.LIB = {});
-  const Q = new URLSearchParams(location.search);
+  const Q = G.params;
   L.NOFX = Q.get('fx') === '0';
   L.ONLY = (Q.get('only') || '').split(',').filter(Boolean);
 
@@ -20,6 +20,7 @@ uniform vec4 u_sway;           // amp (uv), spatial freq, phase, mode (1 rooted 
 uniform vec2 u_pad;            // quad padding (uv) so swayed pixels are not clipped
 uniform vec4 u_rim; uniform vec3 u_rimCol;   // strength, dir.xy (uv), width
 uniform vec4 u_tint;           // rgb, amount
+uniform float u_pale;          // how much the pale parts (bone, horn, eyes) lose their colour, before the tint
 uniform vec2 u_fade;           // soft left / right edge (uv) to hide strip cuts
 uniform float u_vfade;         // ragged bottom fade (uv of the drawn rect)
 uniform float u_tfade;         // soft top fade
@@ -27,6 +28,26 @@ uniform vec4 u_bulge;          // centre uv, radius (uv), amount — local infla
 uniform vec4 u_bend;           // amp (uv of height), load u, load width (uv), on — sag field: catenary dip + local dip
 uniform float u_disc;          // > 0: only a round disc of the drawn rect is kept (soft edge width, uv) — joint caps
 uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 rooted at the bottom / 1 hung from the top — pushed aside, leaned by wind
+uniform vec4 u_jelly;          // centre x, foot y (uv), height scale k, on — a soft body squashed (k < 1) or stretched about its foot: the foot
+                               // keeps its row, the height scales by k and the width by 1/√k, most at mid-height (the volume stays)
+uniform vec3 u_cut;            // y (target px), fade (px), on — whatever lies below the row is under water: gone, with a soft waterline
+// (TASKS 460) a body sunk in a pool seen from above is kept only over it: u_clipm a map mask (R), u_clipb the map's box in target px,
+// u_clipk how much (0 off)
+uniform sampler2D u_clipm; uniform vec4 u_clipb; uniform float u_clipk;
+// u_snap: the sprite is re-drawn on the target's pixel grid as pixel art, not as a downscaled photo: 4×4 samples per target
+// pixel (jx, jy: one target pixel in texture uv); kept only if half covered (by the mip average, which a squeezed sprite
+// keeps honest where the samples would sweep its whole length) and painted in its most common colour. No darkest-on-the-edge rule:
+// a rig is many parts, and each part's own edge would draw dark seams inside the figure; the ink pass gives the outer contour
+uniform float u_snap;           // 1: snap to the target's pixel grid, 2: the same from the full-size texture
+vec4 snapTex(vec2 tuv, vec2 jx, vec2 jy, float lod, float a0){
+  if (a0 < 0.5) return vec4(0.0);
+  vec4 tp[16]; float cov = 0.0;
+  for (int k = 0; k < 16; k++) { vec2 f = (vec2(float(k % 4), float(k / 4)) + 0.5) / 4.0 - 0.5; vec4 t = textureLod(u_tex, tuv + jx * f.x + jy * f.y, lod);
+    tp[k] = vec4(t.rgb / max(t.a, 1e-3), t.a); cov += step(0.5, t.a); }
+  vec3 best = vec3(0.0);
+  { float bn = -1.0; int bk = 0; for (int k = 0; k < 16; k++) { float n = 0.0; for (int j = 0; j < 16; j++) n += step(length(tp[k].rgb - tp[j].rgb), 0.13) * step(0.5, tp[j].a); if (tp[k].a >= 0.5 && n > bn) { bn = n; bk = k; } }
+    vec4 acc = vec4(0.0); for (int j = 0; j < 16; j++) { float w = step(length(tp[bk].rgb - tp[j].rgb), 0.13) * step(0.5, tp[j].a); acc += vec4(tp[j].rgb * w, w); } best = acc.rgb / max(acc.a, 1.0); }
+  return vec4(best, 1.0); }
 // soft bones in one painted sprite (an animal's neck and head, a tail): weight map u_wtex (R, G, B = bones 0..2,
 // tools/softbones.py), u_bone0..2 = root (uv), angle (rad), on; u_wsz = texture px. Every pixel turns about its bone's root by
 // angle × weight, so the bone bends with no cut. Bone 2 is a child of bone 0 (the head turns at the poll, then rides on the
@@ -55,6 +76,7 @@ void main(){
   // mip level from the undeformed mapping (a warped lookup has no usable derivatives across its seams)
   vec2 tsz = vec2(textureSize(u_tex, 0)) * (u_src.zw - u_src.xy), du = dFdx(uv) * tsz, dv = dFdy(uv) * tsz;
   float lod0 = max(0.0, 0.5 * log2(max(dot(du, du), dot(dv, dv))));
+  vec2 jx = dFdx(uv) * (u_src.zw - u_src.xy), jy = dFdy(uv) * (u_src.zw - u_src.xy);
   if (u_sway.w > 0.5) {
     float w = u_sway.w < 1.5 ? pow(clamp(1.0 - uv.y, 0.0, 1.0), 1.6) : pow(clamp(uv.y, 0.0, 1.0), 1.3);
     float s = sin(u_sway.z + uv.x * u_sway.y + uv.y * 2.0) + 0.45 * sin(u_sway.z * 1.73 + uv.x * u_sway.y * 2.3 + 1.7);
@@ -68,21 +90,32 @@ void main(){
   }
   if (u_lean.x != 0.0) { float r = clamp(u_lean.y > 0.5 ? uv.y : 1.0 - uv.y, 0.0, 1.0); uv.x -= u_lean.x * r * r; if (u_lean.y < 0.5) uv.y += abs(u_lean.x) * 0.18 * r * r; }
   if (u_bend.w > 0.0) uv.y -= u_bend.x * (0.6 * sin(3.14159 * clamp(uv.x, 0.0, 1.0)) + 0.4 * exp(-pow((uv.x - u_bend.y) / u_bend.z, 2.0)));
+  if (u_jelly.w > 0.0) { float hy = (u_jelly.y - uv.y) / u_jelly.z; uv.y = u_jelly.y - hy;
+    float sx = 1.0 + (inversesqrt(u_jelly.z) - 1.0) * (0.55 + 0.45 * sin(3.14159 * clamp(hy / max(u_jelly.y, 1e-3), 0.0, 1.0))); uv.x = u_jelly.x + (uv.x - u_jelly.x) / sx; }
   if (u_bulge.w > 0.0) { vec2 d = uv - u_bulge.xy; float r = length(d) / u_bulge.z; if (r < 1.0) uv = u_bulge.xy + d * (1.0 - u_bulge.w * (1.0 - r * r)); }
   float bErr = 0.0; if (u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0) { uv = boneInv(uv, bErr); if (bErr > 1.5) discard; }
   if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
   vec2 tuv = mix(u_src.xy, u_src.zw, uv);
-  vec4 c = (u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0) ? textureLod(u_tex, tuv, lod0 + u_lod) : texture(u_tex, tuv, u_lod);
+  bool boned = u_bone0.w > 0.0 || u_bone1.w > 0.0 || u_bone2.w > 0.0;
+  // a boned sprite snaps too (the hero's body and cape): averaged from the mip it melted its face and plate into one pink tone.
+  // Its coverage comes from an explicit lod, as a warped lookup has no usable derivatives
+  // u_snap 2: a sprite painted in flat cells on the target's grid (the hero's face) samples the full-size texture, or a one-cell eye
+  // averages into the skin around it in the mip and loses the vote
+  vec4 c = u_snap > 0.5 && u_lod == 0.0 ? snapTex(tuv, jx, jy, u_snap > 1.5 ? 0.0 : max(0.0, lod0 - 1.0), boned ? textureLod(u_tex, tuv, lod0).a : texture(u_tex, tuv).a)
+    : boned ? textureLod(u_tex, tuv, lod0 + u_lod) : texture(u_tex, tuv, u_lod);
   c *= smoothstep(0.0, max(u_fade.x, 1e-4), uv.x) * smoothstep(1.0, 1.0 - max(u_fade.y, 1e-4), uv.x) ;
   if (u_tfade > 0.0) c *= smoothstep(0.0, u_tfade, uv.y);
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
   if (u_vfade > 0.0) c *= smoothstep(1.0, 1.0 - u_vfade, uv.y + u_vfade * 0.8 * (fbm(vec2(uv.x * 60.0, 0.0)) - 0.3));
+  if (u_cut.z > 0.0) c *= smoothstep(u_cut.x, u_cut.x - u_cut.y, v_px.y);
+  if (u_clipk > 0.0) c *= mix(1.0, smoothstep(0.35, 0.65, texture(u_clipm, (v_px - u_clipb.xy) / u_clipb.zw).r), u_clipk);
   if (c.a < 0.002) discard;
   vec3 rgb = c.rgb / c.a;
   float l = dot(rgb, vec3(0.299, 0.587, 0.114));
   rgb = mix(vec3(l), rgb, u_grade.x) * u_grade.y;
   rgb = (rgb - 0.5) * u_grade.w + 0.5;
   rgb = mix(rgb, u_haze, u_grade.z);
+  if (u_pale > 0.0) { float lp = dot(rgb, vec3(0.299, 0.587, 0.114)); rgb = mix(rgb, vec3(lp * 0.65), u_pale * smoothstep(0.25, 0.5, lp)); }
   rgb = mix(rgb, rgb * u_tint.rgb, u_tint.a);
   if (u_rim.x > 0.0) {
     float a2 = texture(u_tex, mix(u_src.xy, u_src.zw, uv + u_rim.yz * u_rim.w), u_lod).a;
@@ -309,15 +342,18 @@ void main(){ vec2 uv = scr(v_px); vec2 d = u_dir / u_res; vec3 s = texture(u_src
   s += (texture(u_src, uv + d * 1.3846).rgb + texture(u_src, uv - d * 1.3846).rgb) * 0.3162;
   s += (texture(u_src, uv + d * 3.2308).rgb + texture(u_src, uv - d * 3.2308).rgb) * 0.0703; o = vec4(s, 1.0); }`;
   const FINAL = `
-uniform sampler2D u_src, u_bloom, u_bloom2; uniform vec2 u_bloomA; uniform float u_vig, u_warm, u_roll, u_dither;
+uniform sampler2D u_src, u_bloom, u_bloom2; uniform vec2 u_bloomA; uniform float u_vig, u_warm, u_roll, u_dither, u_desat, u_dark; uniform vec4 u_edge;
 void main(){ vec2 uv = scr(v_px); vec3 c = texture(u_src, uv).rgb;
   c += texture(u_bloom, uv).rgb * u_bloomA.x + texture(u_bloom2, uv).rgb * u_bloomA.y;
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   c += vec3(0.020, 0.010, -0.018) * (smoothstep(0.4, 1.0, l) * u_warm) + vec3(-0.012, 0.004, 0.016) * (smoothstep(0.5, 0.0, l) * u_warm);
   float mx = max(c.r, max(c.g, c.b));
-  if (mx > 0.8 && u_roll > 0.0) { float k = (0.8 + (1.0 - exp(-(mx - 0.8) * 3.0)) * 0.19) / mx; c *= u_roll < 1.0 ? mix(1.0, k, u_roll) : k; }
+  if (mx > 0.92 && u_roll > 0.0) { float k = (0.92 + (1.0 - exp(-(mx - 0.92) * 5.0)) * 0.08) / mx; c *= u_roll < 1.0 ? mix(1.0, k, u_roll) : k; }
   vec2 q = (v_px / u_res - 0.5) * vec2(1.0, 0.85);
   c *= mix(u_vig, 1.0, smoothstep(0.85, 0.3, length(q) * 1.25));
+  c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), u_desat);
+  c = mix(c, u_edge.rgb, u_edge.a * smoothstep(0.45, 0.95, length(q) * 1.25));
+  c *= 1.0 - u_dark;
   if (u_dither > 0.5) c += (hash(v_px + fract(u_t) * 100.0) - 0.5) / 255.0;
   o = vec4(c, 1.0); }`;
   const MOTE = `
@@ -334,11 +370,12 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
   // in W×H view px) that finish upscales with nearest: crisp pixel art (pair with SCENE.NEAREST, positions snapped to k px)
-  L.init = (w, h, extra = {}, { pixel = 1 } = {}) => {
+  L.init = (w, h, extra = {}, { pixel = 1, view = [w, h] } = {}) => {
     W = L.W = w; H = L.H = h; P = L.P = {}; L.PIXEL = Math.max(1, pixel);
     for (const k in SH) P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
     for (const k in extra) P[k] = G.program(k, extra[k]);
-    const px = L.PIXEL, lo = { view: [w, h], nearest: px > 1 };
+    const px = L.PIXEL, lo = { view, nearest: px > 1 };
+    for (const k in T) G.free(T[k]);
     T.bg = G.target(Math.round(w / px), Math.round(h / px), true, lo); T.comp = G.target(Math.round(w / px), Math.round(h / px), true, lo);
     T.mask = G.target(w / 2, h / 2, true); T.rays = G.target(w / 2, h / 2, true);
     T.b1 = G.target(w / 4, h / 4); T.b2 = G.target(w / 4, h / 4); T.c1 = G.target(w / 8, h / 8); T.c2 = G.target(w / 8, h / 8);
@@ -362,8 +399,9 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
 
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
-    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
+  L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
   // sprite(name, x, y, { w | h, src, pad, flip, rot, pivot, m, u: { uniforms without the u_ prefix } })
   //   x,y = top-left of the visible image. pad grows the quad (fraction of w/h) so deformed pixels are not clipped.
@@ -374,9 +412,9 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     const sw = tx.w * (src[2] - src[0]), sh = tx.h * (src[3] - src[1]);
     let w = o.w, h = o.h; if (w && !h) h = w * sh / sw; if (h && !w) w = h * sw / sh; if (!w) { w = sw; h = sh; }
     const pad = o.pad || 0, pw = w * pad, ph = h * pad;
-    const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx });
+    const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx }); if (U.snap === undefined) U.snap = L.SNAP;
     if (L.sp) { const sp = L.sp;
-      Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0] });
+      Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
       x += sp.dx; y += sp.dy; if (o.m) o = Object.assign({}, o, { m: M.mul(M.t(sp.dx, sp.dy), o.m) }); }
     const uni = {}; for (const k in U) uni[k.startsWith('u_') ? k : 'u_' + k] = U[k];
     uni.u_pad = [pad / (1 + 2 * pad), pad / (1 + 2 * pad)];
@@ -395,8 +433,13 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // soft contact shadow of a group of sprites cast onto what is behind (draw it before the group itself)
   L.dropShadow = (draw, sp = { dx: 16, dy: 30, a: 0.45, lod: 4.5 }) => { L.sp = sp; draw(); L.sp = null; };
   // one weighted ink silhouette around a whole puppet: n offset flat-ink copies, then the puppet itself
-  L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6 } = {}) => {
+  // emit: the ink is an emitter, so no light lifts it; rim { dx, dy, col }: one more flat copy shifted toward the light over the ink,
+  // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
+  L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
+    if (emit) G.blend('emit');
     for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; L.sp = { dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }; draw(); }
+    if (rim) { G.blend('emit'); L.sp = { dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }; draw(); }
+    if (emit || rim) G.blend();
     L.sp = null; draw(); };
 
   // ---------------- primitives ----------------
@@ -445,11 +488,13 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // ---------------- QA hooks (scripts/qa.mjs reads them after each render; reset by beginBG) ----------------
   // uiBox: a HUD container (panel, slot, backdrop) — every text must sit inside one, `pad` px from its edge.
   // uiText: a drawn text's box (L.text and L.label record themselves).
+  // uiCover: an opaque layer (a tooltip, a modal) drawn over earlier HUD: texts under it are hidden, boxes under it hold nothing drawn after.
   // anchor: where the SIM emits something (anything shot, thrown or shone) vs where the scene DRAWS what emits it (the held
   //   item's tip, a hand, a barrel), in view px. qa.mjs fails when they are more than tol apart (an effect leaving from the feet).
   L.UI = []; L.ANCH = [];
   L.uiBox = (id, x, y, w, h, pad = 6) => L.UI.push({ k: 'box', id, x, y, w, h, pad });
   L.uiText = (id, s, x, y, w, h) => L.UI.push({ k: 'text', id, s, x, y, w, h });
+  L.uiCover = (id, x, y, w, h) => L.UI.push({ k: 'cover', id, x, y, w, h });
   L.anchor = (name, sim, drawn, tol = 8) => L.ANCH.push({ name, sim, drawn, tol, d: Math.hypot(sim[0] - drawn[0], sim[1] - drawn[1]) });
   L.qaReset = () => { L.UI = window.__UI = []; L.ANCH = window.__ANCHORS = []; };
 
@@ -460,24 +505,27 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   const LBL = {};
   const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315', font = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif', weight = 'bold' } = {}) => {
     let r = LBL[slot]; const key = [str, size, col, out, font, weight].join('|'); if (r && r.key === key) return r;
-    const cv = document.createElement('canvas'), g = cv.getContext('2d'), f = `${weight} ${size}px ${font}`, pad = Math.ceil(size * 0.3);
+    const cv = G.canvas(), g = cv.getContext('2d'), f = `${weight} ${size}px ${font}`, pad = Math.ceil(size * 0.3);
     g.font = f; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(size * 1.3) + 2 * pad;
     cv.width = Math.max(1, w); cv.height = h; g.font = f; g.textBaseline = 'middle'; g.lineJoin = 'round';
     g.fillStyle = 'rgba(15,5,8,0.6)'; g.fillText(str, pad, h / 2 + Math.max(2, size * 0.09));
     if (out) { g.lineWidth = Math.max(3, size * 0.16); g.strokeStyle = out; g.strokeText(str, pad, h / 2); }
     g.fillStyle = col; g.fillText(str, pad, h / 2);
     if (!r) r = LBL[slot] = { rec: G.canvasTex('lbl_' + slot, cv) };
-    else { const gl = G.gl; gl.bindTexture(gl.TEXTURE_2D, r.rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); r.rec.w = w; r.rec.h = h; }
+    else { G.canvasUpdate(r.rec, cv); r.rec.w = w; r.rec.h = h; }
     Object.assign(r, { key, pad, tw }); return r; };
-  L.labelW = (slot, str, o = {}) => lblTex(slot, str, o).tw;
+  // measuring never touches the slot's texture: label() and labelW() on one slot with different styles would re-render and
+  // re-upload it twice a frame
+  let MEASURE = null;
+  L.labelW = (slot, str, { size = 30, font = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif', weight = 'bold' } = {}) => {
+    const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); g.font = `${weight} ${size}px ${font}`; return g.measureText(String(str)).width; };
   L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), size = o.size || 30, a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
     L.sprite('lbl_' + slot, x0 - r.pad, Math.round(y - r.rec.h / 2), { w: r.rec.w, h: r.rec.h, u: { alpha: a } });
     if (a > 0.05) L.uiText(slot, str, x0, y - size * 0.62, r.tw, size * 1.24); return r.tw; };
 
   // ---------------- HUD text: canvas glyph atlas → texture ----------------
   L.glyphs = (chars = '0123456789×+/:', { size = 76, font = '"Arial Rounded MT Bold", "Arial Black", sans-serif', stroke = '#2a1606', fill = ['#fffbe2', '#ffd76a', '#e89a22'] } = {}) => {
-    const cv = document.createElement('canvas'), g = cv.getContext('2d'), f = `900 ${size}px ${font}`; g.font = f;
+    const cv = G.canvas(), g = cv.getContext('2d'), f = `900 ${size}px ${font}`; g.font = f;
     const ws = [...chars].map((c) => Math.ceil(g.measureText(c).width) + 22); cv.width = ws.reduce((a, b) => a + b, 0); cv.height = size + 34;
     g.font = f; g.textBaseline = 'middle'; g.lineJoin = 'round'; let x = 0; L.GLYPH = {};
     const grd = g.createLinearGradient(0, 10, 0, size + 20); fill.forEach((c, i) => grd.addColorStop(i / (fill.length - 1), c));
@@ -514,13 +562,14 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     G.blend(); };
   // bloom (two radii) + final grade (warm highs, cool lows, hue-keeping roll-off, vignette, dither) → screen, then HUD-ready.
   // warm scales the warm-high/cool-low tint, roll the highlight roll-off (0 = none), dither 0/1. Pixel/flat/neon styles that
-  // need exact palette colours: { bloom: [0, 0], warm: 0, roll: 0, dither: 0 }
-  L.finish = (t, { bloom = [0.22, 0.20], vignette = 0.92, warm = 1, roll = 1, dither = 1 } = {}) => {
+  // need exact palette colours: { bloom: [0, 0], warm: 0, roll: 0, dither: 0 }. edge [r, g, b, amt] tints the screen's rim
+  // (pain), desat greys the frame, dark fades it to black
+  L.finish = (t, { bloom = [0.22, 0.20], vignette = 0.92, warm = 1, roll = 1, dither = 1, edge = [0, 0, 0, 0], desat = 0, dark = 0 } = {}) => {
     G.blend('none');
     G.bind(T.b1); G.full(P.bright, { u_src: T.comp });
     G.bind(T.b2); G.full(P.blur, { u_src: T.b1, u_dir: [1.5, 0] }); G.bind(T.b1); G.full(P.blur, { u_src: T.b2, u_dir: [0, 1.5] });
     G.bind(T.c1); G.full(P.copy, { u_src: T.b1 });
     G.bind(T.c2); G.full(P.blur, { u_src: T.c1, u_dir: [2, 0] }); G.bind(T.c1); G.full(P.blur, { u_src: T.c2, u_dir: [0, 2] });
-    G.bind(null); G.full(P.final, { u_src: T.comp, u_bloom: T.b1, u_bloom2: T.c1, u_t: t, u_bloomA: bloom, u_vig: vignette, u_warm: warm, u_roll: roll, u_dither: dither });
+    G.bind(null); G.full(P.final, { u_src: T.comp, u_bloom: T.b1, u_bloom2: T.c1, u_t: t, u_bloomA: bloom, u_vig: vignette, u_warm: warm, u_roll: roll, u_dither: dither, u_edge: edge, u_desat: desat, u_dark: dark });
     G.blend(); };
 })();

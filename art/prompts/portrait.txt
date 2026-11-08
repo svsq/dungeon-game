@@ -1,4 +1,5 @@
-Use case: the HUD portrait of the hero (Image 1 is the style reference: copy the hero portrait at the top left of its HUD). Image 2 is the approved hero: same face, hair and armor.
-Subject: head and shoulders of the SAME hero as Image 2, facing slightly right, determined expression, messy brown hair, steel shoulder plate with a red cape collar.
-Composition: a square bust portrait filling the canvas, a flat dark slate background (#1a1a24) behind him.
+Use case: the HUD portrait of the hero. Image 2 is the target: the two hero portraits cropped from the concept's HUD (left: the HUD portrait, right: the hero progression figure). Copy that face, its proportions and its pixel size, not an anime look. Image 3 shows the hero's armor and colours only; ignore its face.
+Subject: head and shoulders of a young but rugged western-fantasy warrior, facing slightly right, grim determined look: a squarish face with a strong jaw and chin, small narrow eyes under heavy dark brows, a straight nose, a thin closed mouth, messy short brown hair; steel pauldrons with red trim and a red cape collar, as in Image 2. Realistic adult proportions: the head is small relative to the broad shoulders, the eyes are small dark slits, not big shiny anime eyes, no large irises, no highlights in the eyes, no pointed chin.
+Pixel size: chunky like Image 2: the whole portrait is about 48 art pixels across, every art pixel drawn as a block of one colour; the eye is 2-3 art pixels tall.
+Composition: a square bust portrait, the head in the upper middle, shoulders filling the lower third, a flat dark slate background (#1a1a24) behind him.
 Constraints: no frame, no border, no text.
