@@ -927,7 +927,7 @@
       // (a kind marked `early` comes on the 1st floor before its monster does, with the floor's own pack, TASKS 488: the prison alone
       // could, and was there in 30 runs of 30)
       let n = HL.n[0] + (Hr() < HL.two ? 1 : 0); const kinds = Object.entries(HL.kinds).filter(([, K]) => have.includes(K.need) || (floor === 1 && K.early)), took = new Set();
-      for (const r of cand) { if (n <= 0 || !kinds.length) break; const pk = kinds.filter(([k]) => !took.has(k)); if (!pk.length) break;
+      for (const r of cand) { if (n <= 0 || !kinds.length) break; const pk = kinds.filter(([k]) => !took.has(k) && !(HL.kinds[k].pay.bless && Math.max(Math.abs(r.cx - exitR.cx), Math.abs(r.cy - exitR.cy)) < HL.blessOff)); if (!pk.length) continue;
         let roll = Hr() * pk.reduce((a, [, K]) => a + K.w, 0), pick = pk[0][0]; for (const [k, K] of pk) if ((roll -= K.w) < 0) { pick = k; break; } r.hall = pick; took.add(pick); n--; } }
     Object.assign(GF, {
       HL, chasmUnder, circles, cliff, crossings, crust, deadEnd, deckUsed, doors, exitR, floodCells, flow, lakeWay, lava, lavaBodies,

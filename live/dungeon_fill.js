@@ -548,6 +548,8 @@
       const hallProps = (r) => { const c = [r.cx, r.cy], back = (x, y) => at(x, y - 1) === 0 && at(x, y - 2) === 0;
         if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id, ...(HL.kinds.sanctum.pay.bless ? { bless: 1 } : {}) }); chestAt(r, [c[0], c[1] + 3]);
           for (const [dx, dy] of [[-2, -1], [2, -1], [-2, 1], [2, 1]]) { const x = c[0] + dx, y = c[1] + dy; if (free(x, y) && !doorway(x, y)) { used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: 'candles' }); } }
+          // (TASKS 1159: spikes in the circle cost 80 HP for its blessing)
+          for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.hypot(i, j) <= 2.5) used.add(key(c[0] + i, c[1] + j));
           brazierAt(r, [c[0] - 4, c[1]]); brazierAt(r, [c[0] + 4, c[1]]); standIn(r, 'banner_mg', 2); lie(r, 'bones', dri(2, 3)); }
         // (TASKS 488: the forge on the magma's basalt one, the town's slate came out pink; every hall reads as its kind in the frame and
         // pays as the forge and the sanctum do)
@@ -687,9 +689,10 @@
     const bigC = new Set(chests.concat(torches.filter((t) => t.kind === 'brazier'), shrines, decor.filter((d) => (d.solid || d.n === 'table') && !d.wall)).map((p) => key(Math.floor(p.x / TILE), Math.floor(p.y / TILE))));
     const crowded = (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) if (bigC.has(key(x + i, y + j))) return true; return false; };
     // (no plates in a nest, TASKS 1041: its ≈ 17 read as a minefield under the smouldering dead)
+    const inCircle = (px, py) => circles.some((q) => Math.hypot(px - q.x, py - q.y) < 2.6 * TILE);   // (a foe's post is `used` too, and `ok` lets plates onto those)
     const plate = (r, x, y, ph) => { if (r.hall === 'nest' || x < r.x || y < r.y + 1 || x + 1 >= r.x + r.w || y + 1 >= r.y + r.h || nearDoor(x, y) || crowded(x, y)) return false;
       if (traps.some((t) => Math.abs(t.x / TILE - (x + 1)) < 3 && Math.abs(t.y / TILE - (y + 1)) < 3)) return false;   // plates never touch: no strips
-      const cs = [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]; if (cs.some(([cx, cy]) => !ok(cx, cy))) return false;
+      const cs = [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]; if (cs.some(([cx, cy]) => !ok(cx, cy) || inCircle(wx(cx), wy(cy)))) return false;
       for (const [cx, cy] of cs) solid.add(key(cx, cy));
       if (cutOff() > cut0) { for (const [cx, cy] of cs) solid.delete(key(cx, cy)); return false; }
       for (const [cx, cy] of cs) used.add(key(cx, cy)); traps.push({ x: (x + 1) * TILE, y: (y + 1) * TILE, ph }); return true; };
@@ -794,7 +797,7 @@
     // a decal is drawn up to 40·s px across (scene.js bake, over the walls already painted): it shrinks until that square lies on
     // open floor, so no stone, rubbish or stain climbs a wall or spills onto the rock; one that would have to shrink past half is left out
     const decals = [], onFloor = (px, py, h) => { for (let y = Math.floor((py - h) / TILE); y <= Math.floor((py + h - 0.01) / TILE); y++) for (let x = Math.floor((px - h) / TILE); x <= Math.floor((px + h - 0.01) / TILE); x++) if (at(x, y) !== 1) return false; return true; };
-    const fitDecal = (d) => { for (let s = d.s; s >= 0.5; s -= 0.05) if (onFloor(d.x, d.y, 20 * s)) { d.s = s; decals.push(d); return; } };
+    const fitDecal = (d) => { if (inCircle(d.x, d.y)) return; for (let s = d.s; s >= 0.5; s -= 0.05) if (onFloor(d.x, d.y, 20 * s)) { d.s = s; decals.push(d); return; } };
     for (const r of rooms) { const zb = r.zone || biome, n = Math.round(r.w * r.h / (plat ? 4 : 6));
       for (let i = 0; i < n; i++) { const x = r.x + R() * r.w, y = r.y + 0.5 + R() * (r.h - 0.5); if (at(Math.floor(x), Math.floor(y)) !== 1) continue;
         const fight = r.type === 'combat' || r.type === 'exit' || r.type === 'boss';

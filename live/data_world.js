@@ -173,7 +173,7 @@
   // over that: the sanctum's circle blesses the hero once its priests are dead (GIFTS.bless for the floor), the forge's chest
   // `forge` arms of `min` rarity and up, the nest the most gold (`gold` heaps) for the deadliest hall, the prison the prisoners' stash
   // (`stash`: potions and a scroll with the one item)
-  const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5,
+  const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5, blessOff: 14,
     kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3, pay: { tier: 1, bless: 1 } },
       forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1, pay: { tier: 2, gold: 1, forge: { n: 2, min: 2, slots: ['weapon', 'armor', 'offhand'] } } },
       // (the nest its own pack alone, TASKS 1041: with 2 extra it held 5–7, their blasts a chain; the prison less often: 54 halls of 134)

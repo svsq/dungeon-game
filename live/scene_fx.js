@@ -54,8 +54,8 @@
     m.torches.forEach((tc, i) => { const col = torchCol(m, tc); if (hid(tc) || !vis(tc.x, tc.y) || !known(tc.x, tc.y)) return;
       if (col[2] > col[0]) L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2); });
     for (const s of R.shrines) if (!s.used && vis(s.x, s.y) && known(s.x, s.y)) { L.glow(sx(s.x), sy(s.y) - 34, 30, altarCol, 0.5 + 0.2 * Math.sin(t * 3)); }
-    // a sanctum's circle whose priests are dead (TASKS 1054) glows as an altar does: step in for its blessing
-    for (const q of m.circles || []) if (q.bless && !q.used && vis(q.x, q.y) && known(q.x, q.y) && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) L.glow(sx(q.x), sy(q.y), 70, altarCol, 0.45 + 0.2 * Math.sin(t * 3));
+    // a sanctum's circle whose priests are dead (TASKS 1054) glows along its rim in a white gold of its own (TASKS 1159: lava, vents and braziers all burn the altar's orange): step in for its blessing
+    for (const q of m.circles || []) if (q.bless && !q.used && vis(q.x, q.y) && known(q.x, q.y) && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) for (let j = 0; j < 14; j++) { const an = j * 2 * Math.PI / 14 + t * 0.35; L.glow(sx(q.x) + Math.cos(an) * 1.85 * TILE, sy(q.y) + Math.sin(an) * 1.85 * TILE, 20, [1, 0.93, 0.7], 0.5 + 0.2 * Math.sin(t * 3 + j)); }
     // gold catches the light: loose coins, heaps and spilt coins keep a yellow sheen the fire's orange can't take, and twinkle pale
     // yellow, each on its own beat (TASKS 167)
     const glint = (x, y, n, k, sheen = true) => { if (sheen) L.glow(sx(x), sy(y) + 2, 6 + 3 * n, [0.9, 0.95, 0.3], 0.7, 3); for (let j = 0; j < n; j++) { const ph = (t * (0.7 + 0.3 * rnd(k, j)) + rnd(k, j + 5)) % 1.6; if (ph > 0.5) continue;
