@@ -50,7 +50,7 @@
     mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 5, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0.02, hp: 0 },
       abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1 } },
     archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 7, int: 3, vit: 4 }, grow: { hp: 5, mp: 3, pts: 3, sp: 1 },
-      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 0, sat: 0.85 } },
+      abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65 } },
   };
   for (const [id, C] of Object.entries(CLASSES)) C.id = id, C.abs = C.abilities.map((id, i) => Object.assign({}, ABILITIES.find((a) => a.id === id), { key: String(i + 1), unlock: C.unlock[i] }));
   // the classes whose own look is in (TASKS 1103): only they are offered at a new run

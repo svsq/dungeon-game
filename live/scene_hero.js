@@ -13,7 +13,8 @@
     boots: { '': 'cl', boots: 'le', iron_boots: '' }, helm: { leather_helm: 'le', knight_helm: 'kn' } };
   // a class drawn on its own parts has its own table (TASKS 1114): the mage's robe is his parts as drawn, a cloak his hooded set
   const GEARS = { hero: GEAR, mage: { armor: { robe: '', leather_armor: 'le', cloak: 'hd' }, gloves: {}, boots: {}, helm: { circlet: 'ci' } },
-    archer: { armor: { leather_armor: 'le', cloak: 'hd' }, gloves: {}, boots: {}, helm: { leather_helm: 'le' } } };
+    // (the archer starts in leather: it is his jacket as drawn, so his own look is the first seen, TASKS 1124 critic)
+    archer: { armor: { leather_armor: '', cloak: 'hd' }, gloves: {}, boots: {}, helm: { leather_helm: 'le' } } };
   const SHIELD = { shield: ['it_shield', 30], buckler: ['it_buckler', 22], tower_shield: ['it_shield_t', 44], orb: ['it_orb', 26] };
   const SLOT_OF = { uarm: 'armor', thigh: 'armor', farm: 'gloves', shin: 'boots', foot: 'boots' };
   function gearOf(h) {
@@ -92,7 +93,8 @@
     const dA = GT - h.dashT, dashE = SS(0, 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
     const hA = GT - h.hurtT, hurtE = h.deadT >= 0 ? 0 : SS(0, 0.07, hA) * (1 - SS(0.12, 0.3, hA));
     // standing, the upper body sways slowly about the hip (two slow waves, so it never reads as a metronome)
-    const swE = atkT >= 0 ? SS(0, 0.06, atkT) * (1 - SS(SWING.end - 0.1, SWING.end, atkT)) : 0;
+    // (a blow follows the last one's weight: a new one 0.47 s after the last dropped it to the idle pose for a frame, TASKS 1125)
+    const swOf = (T) => (T >= 0 && T < SWING.end ? SS(0, 0.06, T) * (1 - SS(SWING.end - 0.1, SWING.end, T)) : 0), swE = Math.max(swOf(atkT), h.patkT < h.atkT ? swOf(GT - h.patkT) : 0);
     const idle = (1 - run) * (1 - dashE) * (1 - hurtE) * (1 - swE) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1), sway = idle * (0.022 * Math.sin(GT * 0.83) + 0.01 * Math.sin(GT * 1.37 + 1));
     // every 4–5 s the weight moves onto the other leg: the hip slides toward it and the free heel lifts
     const wsh = 2 * SS(-0.35, 0.35, Math.sin(GT * 1.43) + 0.3 * Math.sin(GT * 0.61)) - 1, hipDx = 10 * wsh * idle;
@@ -211,10 +213,11 @@
     // springs: every event (swing, turn, hurt) rings out as a damped wave from its timestamp, the run trails them back
     const ring = (x, f, k) => x > 0 ? Math.exp(-k * x) * Math.sin(TAU * f * x) : 0, fwd = Math.abs(P.dirx);
     const wave = (1 - run) * (0.06 * Math.sin(GT * 1.1 + 0.4) + 0.035 * Math.sin(GT * 1.9));
-    const capeA = Math.max(-0.04, wave + run * (0.12 + 0.12 * fwd + 0.08 * Math.sin(2 * P.p)) + 0.35 * dashE * (dashF > 0 ? 1 : 0) + 0.12 * ring(atkT - 0.08, 2.2, 5)
+    const capeA = Math.max(-0.04, wave + run * (0.12 + 0.12 * fwd + 0.08 * Math.sin(2 * P.p)) + 0.35 * dashE * (dashF > 0 ? 1 : 0) + 0.12 * (ring(atkT - 0.08, 2.2, 5) + (shooter ? ring(GT - h.patkT - 0.08, 2.2, 5) : 0))
       + 0.25 * ring(GT - (h.faceT ?? -9), 1.6, 4) + 0.15 * hurtE + 0.25 * buckle);
-    const capeB = wave + run * (0.1 * P.dirx + 0.05 * Math.sin(P.p)) + 0.08 * ring(atkT - 0.08, 2.2, 5) + 0.1 * ring(GT - (h.backT ?? -9) - 0.05, 1.6, 4);
-    const hairA = 1.5 * wave - run * (0.1 + 0.08 * fwd - 0.08 * Math.sin(2 * P.p + 0.8)) - 0.2 * dashE + 0.15 * ring(atkT - 0.05, 3, 6) + 0.12 * hurtE;
+    const capeB = wave + run * (0.1 * P.dirx + 0.05 * Math.sin(P.p)) + 0.08 * (ring(atkT - 0.08, 2.2, 5) + (shooter ? ring(GT - h.patkT - 0.08, 2.2, 5) : 0)) + 0.1 * ring(GT - (h.backT ?? -9) - 0.05, 1.6, 4);
+    // (a shooter fires again inside the ring: the last shot's ring rings on, or the hair snapped back, TASKS 1125)
+    const hairA = 1.5 * wave - run * (0.1 + 0.08 * fwd - 0.08 * Math.sin(2 * P.p + 0.8)) - 0.2 * dashE + 0.15 * (ring(atkT - 0.05, 3, 6) + (shooter ? ring(GT - h.patkT - 0.05, 3, 6) : 0)) + 0.12 * hurtE;
     const soft = (n, ...a) => window.ASSETS[n + '_w'] ? Object.assign({ wtex: G.tex(n + '_w'), wsz: [RG.w, RG.h] }, ...a.map((v, b) => ({ ['bone' + b]: [RIGS[n].bones[b][0] / RG.w, RIGS[n].bones[b][1] / RG.h, v, 1] }))) : {};
     // positions of the near arm's joints in rig px (for the weapon and the trace)
     const rotP = (p, c, a) => { const dx = p[0] - c[0], dy = p[1] - c[1]; return [c[0] + dx * Math.cos(a) - dy * Math.sin(a), c[1] + dx * Math.sin(a) + dy * Math.cos(a)]; };
@@ -231,17 +234,20 @@
       L.sprite(tex, 0, 0, { m: M.of(M.t(c[0], c[1]), M.r(fallR + bodyR + 0.25 * (A.r2 - 0.18)), M.s(fX, 1)), w: ww, h: hh, pivot: [ww / 2, hh / 2], u: back ? Object.assign({}, u, { grade: [0.35, 0.45, 0, 1] }) : tinted(u, GR.shieldTint) }); };
     const scroll = () => { const Hd = R2U(jL.Hd[0], jL.Hd[1]), w = 22, hh = w * 177 / 228;
       L.sprite('it_scroll', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(fallR + bodyR - 0.35 * fX), M.s(fX, 1)), w, h: hh, pivot: [w * 0.45, hh * 0.55], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.5, readE) }) }); };
-    const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), b0 = (shooter ? -1.3 : -0.95) + arms.R.r1 * 0.5, ba0 = bladeA !== null ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
+    const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), b0 = (shooter ? (W && D.BASES[st.wtype] && D.BASES[st.wtype].dex ? -1.0 : -1.3) : -0.95) + arms.R.r1 * 0.5, ba0 = bladeA !== null ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
         pk = Math.max(shootE, shooter ? castE : 0), rise = shooter ? 0.15 * SS(BT - 0.01, BT + 0.05, atkT) * (1 - SS(BT + 0.05, BT + 0.25, atkT)) : 0,
-        ba = pk > 0 ? ba0 + wrapPi(aimL - rise - ba0) * pk : ba0;
+        bow = shooter && !!(D.BASES[st.wtype] || {}).dex, ba = pk > 0 ? ba0 + wrapPi(aimL - (bow ? Math.PI / 2 : 0) - rise - ba0) * pk : ba0;
       let sa = Math.atan2(Math.sin(ba), fX * Math.cos(ba)) + fallR + bodyR;           // screen angle of the blade, squeezed with the rig
       // a slash sweeps flat around the body: on the floor plane the camera squeezes depth to DEPTH_K, so a blade pointing up or down
       // the screen points away from or at the camera and projects shorter (by the screen angle of a flat blade)
       let fsD = bladeFs * (1 + (DEPTH_K / Math.hypot(DEPTH_K * Math.cos(sa), Math.sin(sa)) - 1) * swingK) * Math.hypot(fX * Math.cos(ba), Math.sin(ba));
       if (whirlE > 0) { const c = Math.cos(whirlTh), d = Math.sin(whirlTh) * DEPTH_K; sa += wrapPi(Math.atan2(d, c) - sa) * whirlE; fsD += (Math.hypot(c, d) - fsD) * whirlE; }
       const tw = len, th = len * G.tex(tex).h / G.tex(tex).w;
-      L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: [tw * 0.22, th * 0.78], u: U });
-      const tip = [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
+      // a bow is held by the middle of its stave and turned across the shot (TASKS 1125); until the loose an arrow lies on it along the aim
+      L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: bow ? [tw * 0.5, th * 0.5] : [tw * 0.22, th * 0.78], u: U });
+      if (bow && shootE > 0.3 && atkT < BT) { const as = Math.atan2(Math.sin(aimL), fX * Math.cos(aimL)) + fallR + bodyR, ah = 30, aw = ah * G.tex('skel_arrow').w / G.tex('skel_arrow').h;
+        L.sprite('skel_arrow', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(as + Math.PI / 2)), w: aw, h: ah, pivot: [aw / 2, ah * 0.75], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.6, shootE) }) }); }
+      const tip = bow ? [Hd[0] + Math.cos(sa + Math.PI / 2 * fX) * 12, Hd[1] + Math.sin(sa + Math.PI / 2 * fX) * 12] : [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
       L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; };
     // from behind the resting blade points away from the camera, so it sits behind the body unless it swings down
     const backK = h.back ? SS(0, 0.08, GT - (h.backT ?? -9)) : 1 - SS(0, 0.08, GT - (h.backT ?? -9));
