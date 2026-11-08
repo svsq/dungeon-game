@@ -29,6 +29,7 @@
     for (const it of items) if (it && BASES[it.b]) itemPower(it);
     R.itemBalance = D.ITEM_BAL.version;
   }
+  // o.own: only the hero's class, for what he is sold or handed (TASKS 1158); a find keeps the foreign share
   function rollItem(R, floor, q = 0, slotOnly, o = {}) {
     const lo = o.min || 0, hi = o.max ?? 4, w = [60, 26, 10, 3.5, 0.5].map((v, i) => (i < lo || i > hi ? 0 : v * (i ? Math.pow(1 + 0.22 * floor + 0.6 * q, i * 0.9) : 1)));
     let s = w.reduce((a, b) => a + b, 0) * rnd(R), rar = lo; while (rar < hi && (s -= w[rar]) > 0) rar++;
@@ -38,7 +39,7 @@
     let bk = pick(keys);
     // most of what a hero finds is of his class (TASKS 1102): a foreign base is kept at CLASS_LOOT.foreign, else rolled among his own
     const cls = R.hero && D.clsOf(R.hero).id;
-    if (cls && !D.wears(cls, bk) && rnd(R) >= D.CLASS_LOOT.foreign) { const own = keys.filter((k) => D.wears(cls, k)); if (own.length) bk = pick(own); }
+    if (cls && !D.wears(cls, bk) && (o.own || rnd(R) >= D.CLASS_LOOT.foreign)) { const own = keys.filter((k) => D.wears(cls, k)); if (own.length) bk = pick(own); }
     return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor + (R.mode ? RUN(R).loot || 0 : 0), mods: {} }));
   }
   function rollAffixes(R, it) {

@@ -2796,6 +2796,10 @@
       const fair = n / Object.keys(BASES).filter((k) => BASES[k].slot === 'weapon').length;
       if (Math.abs(st / (fair * D.CLASS_LOOT.foreign) - 1) > 0.25) out.push(`class: a warrior finds the mage's staff ${st} times in ${n}, not about ${Math.round(fair * D.CLASS_LOOT.foreign)}`);
       if (mg < fair * 0.8) out.push(`class: a mage finds his staff ${mg} times in ${n}, below ${Math.round(fair)}`);
+      for (const cl of ['warrior', 'mage', 'archer']) { const S3 = spawn(0, {}), R3 = newRun(S3, 'campaign', 82, { cls: cl }), bad = (it) => BASES[it.b] && !D.wears(cl, it.b); let got = 0;
+        for (let f = 1; f <= 16; f++) for (const kind of ['town', 'wander']) got += stockShop(R3, f, kind).goods.filter((g) => bad(g.it)).length;
+        for (let i = 0; i < 800; i++) if (bad(rollItem(R3, 5, 2, undefined, { own: 1 }))) got++;
+        if (got) out.push(`class: ${got} foreign pieces on a ${cl}'s shelves and quest rewards`); }
       const it = Object.assign(rollItem(R, 1, 0, 'weapon'), { b: 'staff', id: R.nextId++ }); h.eq.weapon = null; h.bag[5] = it; S.run = R; S.screen = 'play';
       if (wearIfFree(S, R, it) || h.eq.weapon) out.push('class: a warrior puts on the mage\'s staff by picking it up');
       useItem(S, R, 5); if (h.eq.weapon || h.bag[5] !== it) out.push('class: a warrior equips the mage\'s staff');

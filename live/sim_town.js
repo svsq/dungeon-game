@@ -169,7 +169,7 @@
     if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
     if (W.scroll) { const sc = potion('scroll', W.scroll); if (!bagAdd(R, sc)) drop(R, h.x, h.y + 20, { kind: 'item', item: sc }); }
     if (W.gold) h.gold += W.gold; if (W.xp) gainXp(S, R, W.xp); if (W.shards) giveShards(S, R, W.shards, h.x, h.y, TXT('sim_town.turnIn'));
-    if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
+    if (W.item) { const it = rollItem(R, Math.max(1, q.f), 2, undefined, { min: D.QUESTS[q.key].item || 2, own: 1 }); it.id = R.nextId++; if (!bagAdd(R, it)) drop(R, h.x, h.y + 20, { kind: 'item', item: it }); W.got = itemName(it); W.rar = it.rar; }
     q.st = 'turned'; ev(S, { k: 'quest', x: h.x, y: h.y, s: 'turn', id: q.id }); R.msg = { s: TXT('sim_town.turnIn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; S.saveN++; return true; }
   // ---- giving (TASKS 1018): the run's offers, drawn by its seed (not its RNG: looking does not change the run) ----
   const qhash = (a) => { a = Math.imul(a ^ (a >>> 16), 2246822519) >>> 0; a = Math.imul(a ^ (a >>> 13), 3266489917) >>> 0; return (a ^ (a >>> 16)) >>> 0; };
@@ -334,8 +334,8 @@
     if (g) { g.n = Math.max(g.n, n); g.price = price; } else sh.goods.push({ it: Object.assign(potion(b, 1), { id: R.nextId++ }), price, n }); } }
   function stockShop(R, f, kind) {
     const goods = [], SH = D.SHOP, WD = SH.wander, g = kind === 'wander' ? f + WD.depth : f, q = SH.q(g) + (kind === 'wander' ? WD.q : 0), best = Math.min(4, SH.best(g) + (kind === 'wander' ? WD.best : 0));
-    for (let i = 0; i < SH.gear(g); i++) { let it = rollItem(R, g, q, i === 0 ? 'weapon' : undefined);
-      for (let k = 0; i === 0 && it.rar < best && k < 60; k++) it = rollItem(R, g, q + 1, 'weapon');
+    for (let i = 0; i < SH.gear(g); i++) { let it = rollItem(R, g, q, i === 0 ? 'weapon' : undefined, { own: 1 });
+      for (let k = 0; i === 0 && it.rar < best && k < 60; k++) it = rollItem(R, g, q + 1, 'weapon', { own: 1 });
       it.id = R.nextId++; goods.push({ it, price: D.itemPrice(it, g) }); }
     for (const [b, n] of (kind === 'town' ? SH.townCons : SH.cons)(f)) goods.push({ it: Object.assign(potion(b, 1), { id: R.nextId++ }), price: D.itemPrice({ b }, f), n });
     return Object.assign({ goods, back: [], greetT: -9, tradeT: -9, away: 1, line: 0 }, kind === 'wander' ? { wander: 1 } : {});
