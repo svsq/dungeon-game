@@ -229,7 +229,8 @@
     // the start room's bonfire sits in a rune circle
     if (window.ASSETS.sanct_circle && !m.town && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
     // a magma hall's ritual circle (TASKS 434), the fire priests' as on ref_cave_lava
-    if (window.ASSETS.sanct_circle) for (const q of m.circles || []) if (vis(q.x, q.y)) { const d = 4.2 * TILE; L.sprite('sanct_circle', sx(q.x) - d / 2, sy(q.y) - d / 2, { w: d, h: d }); }
+    // (its blessing taken, TASKS 1054, it goes dull as a used altar does)
+    if (window.ASSETS.sanct_circle) for (const q of m.circles || []) if (vis(q.x, q.y)) { const d = 4.2 * TILE; L.sprite('sanct_circle', sx(q.x) - d / 2, sy(q.y) - d / 2, { w: d, h: d, u: q.used ? { grade: [0.5, 0.7, 0, 1] } : undefined }); }
     // spike traps: a 2×2-cell plate on the ground; its spikes stand in the Y-sorted band (they have height)
     // on the magma's basalt the crypt's grey masonry plate read as a tile (TASKS 456): it goes dark and dull, a hot glint in each hole
     for (const tp of m.traps) if (vis(tp.x, tp.y)) { L.sprite('trap_plate', sx(tp.x - TILE), sy(tp.y - TILE), { w: 2 * TILE, h: 2 * TILE, u: m.cliff ? { grade: [0.35, 0.9, 0, 1.05] } : undefined });

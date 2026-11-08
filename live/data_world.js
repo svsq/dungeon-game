@@ -68,7 +68,9 @@
       // chasm (429): the plateaus stand `gap` cells apart over the black chasm, no lava along their edges or in the gaps between (a
       // lake of it deep down, `lakes`), joined by narrow ridges bent less than the plain floor's (`ridge`), their straight runs chain
       // bridges over the dark but a share `neck` of them left a neck of rock
-      chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3] },
+      chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3],
+        // alt (TASKS 1054): the second way over a bridge the walk can't go round: a deck `len` cells long, `off` cells and more off it
+        alt: { off: 4, len: [4, 14] } },
       // terrace (430): a lavafall down the top wall near one side of the map (`fallAt` of the width from it, the wall `wall` rows high
       // there) runs down to the bottom as a river `w` cells wide; on the wide side terraces step down, rows `rowH` high with `step`
       // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
@@ -167,10 +169,16 @@
   //   forge: the cult's forge and anvil against the rock, a weapon rack, the hoard by the anvil and a heap of gold
   //   nest: the smouldering dead's nest strewn with the charred and their bones, heaps of gold and a chest
   //   prison: the cult's cages with its prisoners' things piled by them, a chest
+  // pay (TASKS 1054: every hall paid one chest of the 2nd tier, as the lake's way round does): the hall's chest tier, and what it holds
+  // over that: the sanctum's circle blesses the hero once its priests are dead (GIFTS.bless for the floor), the forge's chest
+  // `forge` arms of `min` rarity and up, the nest the most gold (`gold` heaps) for the deadliest hall, the prison the prisoners' stash
+  // (`stash`: potions and a scroll with the one item)
   const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5,
-    kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3 }, forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1 },
+    kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3, pay: { tier: 1, bless: 1 } },
+      forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1, pay: { tier: 2, gold: 1, forge: { n: 2, min: 2, slots: ['weapon', 'armor', 'offhand'] } } },
       // (the nest its own pack alone, TASKS 1041: with 2 extra it held 5–7, their blasts a chain; the prison less often: 54 halls of 134)
-      nest: { need: 'skel_ember', pack: 'nest', extra: 0, w: 2 }, prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 1 } } };
+      nest: { need: 'skel_ember', pack: 'nest', extra: 0, w: 2, pay: { tier: 3, gold: 3 } },
+      prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 1, pay: { tier: 2, gold: 1, stash: { hp_potion: 3, mp_potion: 1, scroll: 1 } } } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },

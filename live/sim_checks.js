@@ -840,10 +840,26 @@
             nest: m.decor.filter((d) => d.n === 'skel_mg' && inR(r, d)).length >= 3, prison: m.decor.filter((d) => d.n === 'cage' && inR(r, d)).length >= 2 }[r.hall];
           if (!props) out.push(`${tag}: the ${r.hall} hall without its props`);
           if (!m.chests.some((c) => inR(r, c))) out.push(`${tag}: the ${r.hall} hall without its chest`);
+          // (each kind its own pay, TASKS 1054)
+          else if (!m.chests.some((c) => inR(r, c) && c.tier === K.pay.tier && (!(K.pay.forge || K.pay.stash) || c.hall === r.hall))) out.push(`${tag}: the ${r.hall} hall's chest not its own pay`);
+          if (K.pay.bless && !(m.circles || []).some((q) => q.r === r.id && q.bless)) out.push(`${tag}: the sanctum's circle gives no blessing`);
           // (an early kind on the 1st floor, TASKS 488, has the floor's own pack: its monster comes later)
           if (!(f === 1 && K.early) && !m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`);
           if (f === 1 && K.early && !m.enemies.some((e) => e.room === r.id)) out.push(`${tag}: the ${r.hall} hall without a pack`); } }
       for (const k of Object.keys(HL.kinds)) if (!kinds[k]) out.push(`magma halls: no ${k} hall in 10 runs`); }
+    // (TASKS 1054) a chasm floor's way over has another on half of them and more; a hoard's islet is a chest of the 3rd tier past a run of
+    // rocks down its strip of crust
+    { let n = 0, alt = 0, isl = 0; const walk = (m, ban) => { const W = m.W, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
+        for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of [1, -1, W, -W]) { const k = q[i] + o; if (from[k] === -2 && m.cells[k] === 1 && !ban.has(k)) { from[k] = q[i]; q.push(k); } }
+        const way = new Set(); for (let k = e0; k >= 0 && from[e0] !== -2; k = from[k]) way.add(k); return way; };
+      for (let sd = 1; sd <= 30; sd++) for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f}`;
+        for (const r of m.rooms.filter((q) => q.islet)) { isl++; const inR = (o) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= r.y * TILE && o.y < (r.y + r.h) * TILE;
+          if (!m.chests.some((c) => inR(c) && c.tier === 3)) out.push(`${tag}: the islet's hoard not of the 3rd tier`);
+          if (!m.hazards.some((z) => z.islet && !z.tail)) out.push(`${tag}: no rocks down the islet's strip`); }
+        if (m.ftype !== 'chasm' || m.ftype2) continue; n++; const way = walk(m, new Set());
+        if (m.crossings.some((c) => c.chasm && c.cells.some((k) => way.has(k)) && walk(m, new Set(c.cells)).size)) alt++; }
+      if (n && alt * 2 < n) out.push(`magma chasm: a way round a bridge of the walk on ${alt} of ${n} floors`);
+      if (!isl) out.push('magma: no hoard\'s islet in 30 runs'); }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
     // the mix (TASKS 426): a lake, river or terrace floor over the chasm: it turns up in the runs, and on each figure a floor holds
     // the figure's own checks that the chasm could break (a walk to the stairs, a lava share, two bridges, every plateau in reach, the lake's islands)
@@ -965,7 +981,10 @@
     for (const sd of [1, 77, 4242, 5, 12, 33]) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', ftype: 'plain' }), W = m.W, tag = `magma ${sd} f${f}`;
       const keepOff = [[m.spawn.x, m.spawn.y], [m.exit.x, m.exit.y], ...m.chests.map((c) => [c.x, c.y]), ...m.enemies.map((e) => [e.x, e.y]), ...m.shrines.map((q) => [q.x, q.y])];
       const st = m.rooms.find((r) => r.type === 'start'); keepOff.push([(st.cx + 0.5) * TILE, (st.cy + 0.5) * TILE + 6]);
-      for (const z of m.hazards || []) { if (!z.tail) cnt[z.k][f - 1]++; const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
+      for (const z of m.hazards || []) { const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
+        // (a hoard islet's rocks fall on its strip of thin crust, by its chest by design, TASKS 1054)
+        if (z.islet) { if (!(m.thin || []).includes(ty * W + tx)) out.push(`${tag}: an islet's rock off its strip at ${tx},${ty}`); continue; }
+        if (!z.tail) cnt[z.k][f - 1]++;
         if (keepOff.some(([x, y]) => Math.hypot(x - z.x, y - z.y) < HZ.clear * TILE)) out.push(`${tag}: a ${z.k} within ${HZ.clear} cells of the start, the spawn, the stairs, a chest, a monster or the altar at ${tx},${ty}`);
         if (cell(m, tx, ty) !== 1) out.push(`${tag}: a ${z.k} off the floor at ${tx},${ty}`);
         if (z.k === 'vent') for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) !== 1) { out.push(`${tag}: a vent without 3×3 of floor at ${tx},${ty}`); j = i = 9; }
