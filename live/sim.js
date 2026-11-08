@@ -31,7 +31,8 @@
   const outOfPlay = () => false;
 
   function step(S, inp = {}) {
-    if (!inp.press) S.eatPress = 0; else if (S.screen !== 'play') S.eatPress = 1;
+    if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
+    S.pressWas = !!inp.press;
     rebalanceRun(S.run); rebalanceRun(S.saved); if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
