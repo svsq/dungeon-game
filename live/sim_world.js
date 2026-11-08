@@ -47,8 +47,9 @@
   }
   // a hero's single shot (the staff's bolt, a bow's arrow; TASKS 1110, 1120): from the weapon's tip down the aim, it strikes the one
   // it touches (sim_enemies: single)
-  function heroShot(R, h, a, dmg, crit, kind = 'bolt') { const B = D.SHOTS[kind], [hx0, hy0] = hand(h), hx = hx0 + Math.cos(a) * B.tip, hy = hy0 + Math.sin(a) * B.tip;
-    const p = { id: R.nextId++, k: B.k, single: 1, x: hx, y: hy, vx: Math.cos(a) * B.spd, vy: Math.sin(a) * B.spd, t0: R.t, life: B.life, own: 'hero', r: B.r, kb: B.kb, crit: crit ? 1 : 0, dmg, gz: 20 };
+  // (W: the weapon's base, its own arrow, TASKS 1163)
+  function heroShot(R, h, a, dmg, crit, kind = 'bolt', W = {}) { const B = D.SHOTS[kind], [hx0, hy0] = hand(h), hx = hx0 + Math.cos(a) * B.tip, hy = hy0 + Math.sin(a) * B.tip, v = B.spd * (W.shotV || 1);
+    const p = { id: R.nextId++, k: B.k, single: 1, x: hx, y: hy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: R.t, life: B.life * (W.shotL || 1), own: 'hero', r: B.r, kb: B.kb * (W.shotKb || 1), crit: crit ? 1 : 0, dmg, gz: 20, pierce: W.pierce || 0 };
     R.proj.push(p); return p; }
   function castAbility(S, R, id, inp) {
     const h = R.hero, A = D.clsOf(h).abs.find((a) => a.id === id), rank = h.ab[id] || 0;
@@ -78,13 +79,13 @@
     const shot = () => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c]; };
     const [ox, oy] = hand(h), far = Math.hypot((h.mx ?? ox + Math.cos(h.aim) * 200) - ox, (h.my ?? oy + Math.sin(h.aim) * 200) - oy);
     if (id === 'volley') { const V = D.VOLLEY, arc = Math.max(V.min, Math.min(V.arc, 2 * Math.atan2(V.w / 2, far) * 180 / Math.PI));
-      for (let i = 0; i < V.n; i++) { const [d, c] = shot(); heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * AR.k), c, 'arrow'); }
+      for (let i = 0; i < V.n; i++) { const [d, c] = shot(); heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * AR.k), c, 'arrow', BASES[st.wtype]); }
       ev(S, { k: 'volley', x: h.x, y: h.y, a: h.aim }); }
     if (id === 'trap') { const T = D.TRAP, own = (R.htraps = (R.htraps || []).filter((q) => !q.done)); if (own.length >= T.max) own.shift();
       const gx = h.mx ?? h.x, gy = (h.my ?? h.y) + 30, n = Math.min(T.far, Math.hypot(gx - h.x, gy - h.y)), ux = (gx - h.x) / (Math.hypot(gx - h.x, gy - h.y) || 1), uy = (gy - h.y) / (Math.hypot(gx - h.x, gy - h.y) || 1);
       let tx = h.x, ty = h.y + 4; for (let d = n; d > 0; d -= 8) { const x = h.x + ux * d, y = h.y + uy * d; if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) === 1 && losClear(R.map, h.x, h.y, x, y)) { tx = x; ty = y; break; } }
       const [d, c] = shot(); own.push({ id: R.nextId++, x: tx, y: ty, fx: h.x, fy: h.y + 4, t0: S.t, dmg: Math.round(d * T.k * AR.k), crit: c }); ev(S, { k: 'trapset', x: tx, y: ty }); }
-    if (id === 'leap') { h.dashT = S.t; h.leapV = [S.t, D.LEAP.spd]; h.dashX = -Math.cos(h.aim); h.dashY = -Math.sin(h.aim); const [d, c] = shot(); heroShot(R, h, h.aim, Math.round(d * D.LEAP.k * AR.k), c, 'arrow');
+    if (id === 'leap') { h.dashT = S.t; h.leapV = [S.t, D.LEAP.spd]; h.dashX = -Math.cos(h.aim); h.dashY = -Math.sin(h.aim); const [d, c] = shot(); heroShot(R, h, h.aim, Math.round(d * D.LEAP.k * AR.k), c, 'arrow', BASES[st.wtype]);
       ev(S, { k: 'leap', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }

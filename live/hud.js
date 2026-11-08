@@ -578,7 +578,7 @@
     if (!cons) { lines.push([TXT('hud.tooltip', { name: D.RARITY[it.rar].name, p2: D.SLOT_NAME[B.slot], lvl: it.lvl }), C.dim, 20]);
       if (B.cls) lines.push([TXT('hud.tooltip.cls', { p1: D.clsNames(it.b) }), D.wears(D.clsOf(h).id, it.b) ? C.dim : '#ff6a5a', 20]);
       const rq = D.reqLvl(it); if (rq > 1) lines.push([TXT('hud.tooltip.2', { rq }), h.lvl < rq ? '#ff6a5a' : C.dim, 20]);
-      if (it.atk) lines.push([TXT('hud.tooltip.3', { atk: it.atk, p2: B.spell ? TXT('hud.tooltip.4', { p1: Math.round(B.spell * 100) }) : '' }), C.text, 22]);
+      if (it.atk) lines.push([TXT('hud.tooltip.3', { atk: it.atk, p2: B.spell ? TXT('hud.tooltip.4', { p1: Math.round(B.spell * 100) }) : B.pierce ? TXT('hud.tooltip.pierce') : B.shotV ? TXT('hud.tooltip.far') : '' }), C.text, 22]);
       if (it.def) lines.push([TXT('hud.tooltip.5', { def: it.def }), C.text, 22]);
       const typed = SIM.Q.typeMods(it), mod = (m, col) => { for (const k in m) lines.push([D.AFFIXES.find((a) => a.k === k).label.replace('{v}', m[k]), col, 22]); };
       mod(typed, C.text); mod(it.mods, '#8fd98a');

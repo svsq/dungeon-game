@@ -326,8 +326,12 @@
       if (pc === 5 && p.own === 'hero') { const d = SIMX.doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) SIMX.openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || projCover(m, p.x, p.y);
       let touched = null;
-      if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; touched = e; break; } }
+      if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && !(p.past && p.past.includes(e.id)) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; touched = e; break; } }
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, TXT('sim_enemies.stepProjectiles', { p1: p.who || '?' }), R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      // a crossbow's bolt (TASKS 1163) goes through the first it strikes and on to the next
+      if (touched && p.pierce > 0 && !wall && age <= p.life) { p.pierce--; (p.past = p.past || []).push(touched.id);
+        SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+        if (p.mpGain) R.hero.mp = Math.min(SIMX.heroSt(S).maxMp, R.hero.mp + p.mpGain); if (touched.deadT < 0) hush(S, R, touched); ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: 1, mine: 1, thru: 1 }); touched = null; boom = projCover(m, p.x, p.y); }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
         // a staff's bolt (TASKS 1110) strikes the one it touched, no blast; at a wall it chips pots and props where it bursts

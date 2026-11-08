@@ -2604,11 +2604,19 @@
         if (!(a1 > a0) || a2 !== a0) out.push('class archer: AGI does not grow his bow\'s damage or STR does');
         if (D.wears('archer', 'sword')) out.push('class archer: he wears a sword');
         // (TASKS 1155) an arrow into a cultist's wind-up breaks it off; a second at once does not
-        if (ok) { R.en = []; R.proj = []; const c = foe(150); Object.assign(c, { type: 'cultist', st: 'wind', t0: S.t, cdT: 0 }); h.aim = 0;
-          heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 40 && c.st === 'wind'; i++) step(S, { keys: [] });
+        if (ok) { R.en = []; R.proj = []; R.cam = [h.x - 600, h.y - 340]; R.camV = [0, 0]; h.vx = h.vy = 0; const aimed = () => ({ keys: [], ...toPx(R, h.x + 300, h.y - 30) }); const c = foe(150); Object.assign(c, { type: 'cultist', st: 'wind', t0: S.t, cdT: 0 }); h.aim = 0;
+          heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 40 && c.st === 'wind'; i++) step(S, aimed());
           if (c.st === 'wind' || !(c.hushT > S.t)) out.push('class archer: an arrow does not break off a caster\'s wind-up');
-          Object.assign(c, { st: 'wind', t0: S.t }); heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 30; i++) { step(S, { keys: [] }); c.t0 = S.t; }
-          if (c.st !== 'wind') out.push('class archer: a caster is broken off twice in a row'); } }
+          Object.assign(c, { st: 'wind', t0: S.t }); heroShot(R, h, Math.atan2(c.y - ENEMIES.cultist.h * 0.45 - root.SIMX.hand(h)[1], c.x - root.SIMX.hand(h)[0]), 1, false, 'arrow'); for (let i = 0; i < 30; i++) { step(S, aimed()); c.t0 = S.t; }
+          if (c.st !== 'wind') out.push('class archer: a caster is broken off twice in a row');
+          // (TASKS 1163) a crossbow's bolt strikes two in a line, a short bow's arrow one; the long bow's flies farther
+          for (const b of ['crossbow', 'shortbow']) { R.en = []; R.proj = []; const f1 = foe(120), f2 = foe(180); const [hx, hy] = root.SIMX.hand(h);
+            heroShot(R, h, Math.atan2(f1.y - ENEMIES[f1.type].h * 0.45 - hy, f1.x - hx), 5, false, 'arrow', BASES[b]); for (let i = 0; i < 60; i++) { step(S, aimed()); f1.x = h.x + 120; f2.x = h.x + 180; f1.y = f2.y = h.y; }
+            if ((f2.hp < f2.max) !== (b === 'crossbow') || !(f1.hp < f1.max)) out.push(`class archer: a ${b}'s arrow strikes ${f2.hp < f2.max ? 'two' : 'one'} in a line`); }
+          { R.en = []; R.proj = []; const lo = heroShot(R, h, 0, 1, false, 'arrow', BASES.longbow), sh = heroShot(R, h, 0, 1, false, 'arrow', BASES.shortbow);
+            if (!(Math.hypot(lo.vx, lo.vy) * lo.life > Math.hypot(sh.vx, sh.vy) * sh.life * 1.2)) out.push('class archer: the long bow\'s arrow does not fly farther'); R.proj = []; }
+          { const dps = (b) => { h.eq.weapon = Object.assign({}, h.eq.weapon, { b, atk: BASES[b].atk }); h.base.agi = 30; const q = stats(h, S.meta); return q.atk / q.wcd; }, d0 = dps('shortbow');
+            for (const b of ['longbow', 'crossbow']) if (dps(b) < d0 * 0.97) out.push(`class archer: a ${b} is weaker than a short bow at AGI 30`); } } }
       // the warrior (TASKS 1130): rage from his blows and ones he takes, draining once the fight is over; the charge strikes and stuns a
       // monster in its way; the war cry weakens those about him and hardens his blows; mana potions are not his
       { const { S, R, h, foe, ok } = arena('warrior');

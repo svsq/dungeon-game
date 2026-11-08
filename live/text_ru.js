@@ -661,6 +661,8 @@
     'hud.tooltip.cls': 'Класс: {p1}',
     'hud.tooltip.4': '  (+{p1}% к магии)',
     'hud.tooltip.3': 'Атака: {atk}{p2}',
+    'hud.tooltip.pierce': '  (болт пробивает первого)',
+    'hud.tooltip.far': '  (стрела дальше и быстрее)',
     'hud.tooltip.5': 'Защита: {def}',
     'hud.tooltip.6': '{p1} · чары',
     'hud.tooltip.7': 'ЛКМ — снять',
