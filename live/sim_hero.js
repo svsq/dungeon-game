@@ -292,7 +292,7 @@
     // a magma sanctum's circle (TASKS 1054, MAGMA_HALLS.pay.bless): once none of its hall's monsters lives, the hero stepping into it
     // is blessed for the floor, as by the altar's gift, and the circle goes dark
     for (const q of m.circles || []) if (q.bless && !q.used && h.hp > 0 && Math.hypot(h.x - q.x, (h.y - q.y) * 1.6) < 1.6 * TILE && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) {
-      q.used = 1; h.bless = 1; ev(S, { k: 'bless', x: q.x, y: q.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); R.msg = { s: TXT('sim_hero.sanctum.msg'), t: S.t }; }
+      q.used = 1; h.bless = 1; h.blessTo = R.floor + 1; ev(S, { k: 'bless', x: q.x, y: q.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); R.msg = { s: TXT('sim_hero.sanctum.msg'), t: S.t }; }
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.fires && R.fires.length) stepFires(S, R);
     // water puts the fire out

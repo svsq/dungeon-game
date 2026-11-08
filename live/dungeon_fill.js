@@ -567,7 +567,7 @@
       const goldAt = (r, c, k) => { for (const p of near(r, c, (x, y) => canStand(x, y, 'goldpile')).slice(0, 8)) { if (k <= 0) break; if (!canStand(p[0], p[1], 'goldpile')) continue; claim(p[0], p[1], 'goldpile'); hardC.add(key(p[0], p[1])); pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); k--; } };
       const brazierAt = (r, c) => { const p = near(r, c, (x, y) => canStand(x, y, 'brazier'))[0]; if (p) { claim(p[0], p[1], 'brazier'); hardC.add(key(p[0], p[1])); torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); } };
       const hallProps = (r) => { const c = [r.cx, r.cy], back = (x, y) => at(x, y - 1) === 0 && at(x, y - 2) === 0;
-        if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id, ...(HL.kinds.sanctum.pay.bless ? { bless: 1 } : {}) }); chestAt(r, [c[0], c[1] + 3]);
+        if (r.hall === 'sanctum') { circles.push({ x: wx(c[0]), y: wy(c[1]) - 6, r: r.id, ...(HL.kinds.sanctum.pay.bless ? { bless: 1 } : {}) }); chestAt(r, [c[0], c[1] + 4]);
           for (const [dx, dy] of [[-2, -1], [2, -1], [-2, 1], [2, 1]]) { const x = c[0] + dx, y = c[1] + dy; if (free(x, y) && !doorway(x, y)) { used.add(key(x, y)); decor.push({ x: wx(x), y: wy(y), n: 'candles' }); } }
           // (TASKS 1159: spikes in the circle cost 80 HP for its blessing)
           for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (Math.hypot(i, j) <= 2.5) used.add(key(c[0] + i, c[1] + j));
@@ -892,7 +892,7 @@
       const all = way.flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k)) ?? all.find((k) => ok(k, 0) && roomy8(k));   // (TASKS 1161: props in its middle third cost a lake its chest)
       if (mid !== undefined) { const x = mid % W, y = Math.floor(mid / W); claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
     const hazards = [];
-    if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y])];
+    if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y]), ...circles.map((q) => [q.x, q.y])];
       const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);
       const under = new Set(lavaUnder), inBox = (x, y) => rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h);
       const shuf = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Z() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -987,6 +987,7 @@
     // a floor's 4 arches read as no arch at all), and its span reaches 3 cells either side: by a bridge it stood on its boards (TASKS 480)
     const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
     if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
+    for (let i = decor.length - 1; i >= 0; i--) if (/^vent/.test(decor[i].n) && decor[i].haz === undefined && circles.some((q) => Math.hypot(decor[i].x - q.x, decor[i].y - q.y) < 2.6 * TILE)) decor.splice(i, 1);
     const map = { seed, floor: runFloor, biome, mod: ST.mod, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       ftype, ftype2, shareOf, ...(riverGuard ? { riverGuard: [...riverGuard], riverFire: [...riverFire] } : {}), ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, pits, ledges, lay: LY ? ST.lay || 'rooms' : undefined, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
