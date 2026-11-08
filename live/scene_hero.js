@@ -162,6 +162,7 @@
     // crystal first, over the bolt's frame (raised in the 0.13 s to it, the hand jumped 7 % of the height a frame), holds it a moment and lowers it; at rest it stands more upright than a blade
     // a shot follows the last one's envelope (the wand fires every 0.36 s: the new shot's raise starting at 0 dropped the staff in a frame)
     const shooter = (D.clsOf(h).shoots || []).includes(st.wtype), BT = D.SHOTS[(D.BASES[st.wtype] || {}).shot || 'bolt'].t, shotEnv = (T) => (T >= 0 && T < SWING.end ? SS(0, BT, T) * (1 - SS(BT + 0.06, SWING.end - 0.02, T)) : 0);
+    const bowArm = shooter && !!(D.BASES[st.wtype] || {}).dex, drawE = bowArm && swinging ? SS(0.02, BT, atkT) * (1 - SS(BT, BT + 0.08, atkT)) : 0;
     const shootE = shooter && swinging ? Math.max(shotEnv(atkT), h.patkT < h.atkT ? shotEnv(GT - h.patkT) : 0, atkT < BT ? Math.min(1, shotEnv(GT - h.patkT) + shotEnv(atkT)) : 0) : 0;
     if (whirlE === 0 && swinging && !shooter) { const arcR = st.arc * Math.PI / 180, pT = GT - (h.patkT === undefined ? -9 : h.patkT);
       const prev = pT < SWING.end && h.patkT < h.atkT ? swingPose(pT, swAim(h.patkA), arcR, -0.95) : null;
@@ -195,8 +196,12 @@
       pose(arms.L, 0.8, -0.5, whirlE);
     } else if (shootE > 0 || (shooter && castE > 0)) {   // (a mage casts through his staff too: no free-hand push, no lowered blade)
       const l = armLen(arms.R), pe = Math.max(shootE, castE), kick = 0.1 * l * SS(BT - 0.01, BT + 0.05, atkT) * (1 - SS(BT + 0.05, BT + 0.25, atkT));
-      reach(arms.R, 0.15 * l + Math.cos(aimL) * (0.72 * l - kick), Math.sin(aimL) * (0.72 * l - kick) - 0.12 * l, pe);
-      pose(arms.L, -0.15, 0.3, pe);
+      const tx = 0.15 * l + Math.cos(aimL) * (0.72 * l - kick), ty = Math.sin(aimL) * (0.72 * l - kick) - 0.12 * l;
+      reach(arms.R, tx, ty, pe);
+      // a bow is drawn (TASKS 1125 critic): the far hand takes the string at the stave and pulls it back along the aim through the
+      // wind-up, lets it snap home on the loose
+      if (bowArm) { const dl = 0.55 * l * drawE; reach(arms.L, RG.shR[0] - RG.shL[0] + tx - Math.cos(aimL) * dl, RG.shR[1] - RG.shL[1] + ty - Math.sin(aimL) * dl, pe); }
+      else pose(arms.L, -0.15, 0.3, pe);
     } else if (castE > 0) {             // the free hand pushes the spell toward the aim; the sword arm lowers its blade
       const l = armLen(arms.L); reach(arms.L, 0.25 * l + Math.cos(aimL) * 0.6 * l, Math.sin(aimL) * 0.6 * l, castE);
       pose(arms.R, -0.25, 0.35, castE);
@@ -204,7 +209,7 @@
     // reading a scroll (TASKS 1032): the free hand holds it out before the chest, the sword arm lowered
     const readE = h.read && swingK === 0 && whirlE === 0 && castE === 0 ? SS(0, 0.3, GT - h.read.t0) : 0;
     if (readE > 0) { const l = armLen(arms.L); reach(arms.L, 0.6 * l, 0.12 * l, readE); pose(arms.R, -0.2, 0.3, readE); }
-    if (dashE > 0) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); }
+    if (dashE > 0 && shootE < 0.05) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); }   // (a leap's shot keeps its bow arm, TASKS 1125)
     if (hurtE > 0 && swingK === 0) { pose(arms.L, -0.45, 0.5, hurtE); pose(arms.R, -0.3, 0.45, hurtE); }
     if (o.victory) { reach(arms.R, armLen(arms.R) * 0.32, -armLen(arms.R) * 0.88, 1); pose(arms.L, -0.25, 0.2, 1); bladeA = -Math.PI / 2 + 0.08; }
     if (o.armsUp > 0) { reach(arms.R, armLen(arms.R) * 0.2, -armLen(arms.R) * 0.9, o.armsUp); reach(arms.L, -armLen(arms.L) * 0.1, -armLen(arms.L) * 0.9, o.armsUp); }
@@ -244,9 +249,16 @@
       if (whirlE > 0) { const c = Math.cos(whirlTh), d = Math.sin(whirlTh) * DEPTH_K; sa += wrapPi(Math.atan2(d, c) - sa) * whirlE; fsD += (Math.hypot(c, d) - fsD) * whirlE; }
       const tw = len, th = len * G.tex(tex).h / G.tex(tex).w;
       // a bow is held by the middle of its stave and turned across the shot (TASKS 1125); until the loose an arrow lies on it along the aim
-      L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: bow ? [tw * 0.5, th * 0.5] : [tw * 0.22, th * 0.78], u: U });
-      if (bow && shootE > 0.3 && atkT < BT) { const as = Math.atan2(Math.sin(aimL), fX * Math.cos(aimL)) + fallR + bodyR, ah = 30, aw = ah * G.tex('skel_arrow').w / G.tex('skel_arrow').h;
-        L.sprite('skel_arrow', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(as + Math.PI / 2)), w: aw, h: ah, pivot: [aw / 2, ah * 0.75], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.6, shootE) }) }); }
+      // (mirrored across its stave facing right, so its string faces the archer, not the target; turned over on the raise it went
+      // edge-on twice and vanished for a frame, TASKS 1125 critic r2)
+      L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, bow && fX > 0 ? -1 : 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: bow ? [tw * 0.5, th * 0.5] : [tw * 0.22, th * 0.78], u: U });
+      if (bow && drawE > 0.05) { const Hs = R2U(jL.Hd[0], jL.Hd[1]), e1 = [Hd[0] + Math.cos(sa) * len * 0.4 * fsD, Hd[1] + Math.sin(sa) * len * 0.4 * fsD], e2 = [Hd[0] - Math.cos(sa) * len * 0.4 * fsD, Hd[1] - Math.sin(sa) * len * 0.4 * fsD];
+        for (const E of [e1, e2]) L.solid(E[0], E[1], Math.hypot(Hs[0] - E[0], Hs[1] - E[1]), 1.5, [0.86, 0.8, 0.68], Math.atan2(Hs[1] - E[1], Hs[0] - E[0]), 0, 0.75, alpha);
+        // the nocked arrow drawn in code, light on the dark bow and brick: a pale shaft from the string hand along the aim, a steel head,
+        // cream fletching at the nock (the painted arrow sprite was lost against them)
+        const as = Math.atan2(Math.sin(aimL), fX * Math.cos(aimL)) + fallR + bodyR, ca = Math.cos(as), sa2 = Math.sin(as), AL = 36;
+        L.solid(Hs[0], Hs[1], AL, 3, [0.16, 0.1, 0.06], as, 0, 1.5, alpha); L.solid(Hs[0], Hs[1], AL, 1.5, [0.92, 0.8, 0.58], as, 0, 0.75, alpha);
+        L.solid(Hs[0] + ca * AL, Hs[1] + sa2 * AL, 6, 4, [0.8, 0.82, 0.86], as, 0, 2, alpha); L.solid(Hs[0], Hs[1], 7, 4, [0.95, 0.9, 0.78], as, 0, 2, alpha); }
       const tip = bow ? [Hd[0] + Math.cos(sa + Math.PI / 2 * fX) * 12, Hd[1] + Math.sin(sa + Math.PI / 2 * fX) * 12] : [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
       L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; };
     // from behind the resting blade points away from the camera, so it sits behind the body unless it swings down
