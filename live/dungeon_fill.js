@@ -542,7 +542,7 @@
         for (let i = 0; i < k; i++) { const c = (backOnly ? cellsOf(r, backC) : [...cellsOf(r, (x, y) => rockN(x, y) >= 1), ...cellsOf(r, () => true)]).find(([x, y]) => canStand(x, y, n)); if (c) stand(...c, n, r.id); } };
       // a hall's props and reward (TASKS 434): its centre the hoard's, its props round it and against the rock
       const near = (r, c, f) => cellsOf(r, f).sort((a, b) => Math.hypot(a[0] - c[0], a[1] - c[1]) - Math.hypot(b[0] - c[0], b[1] - c[1]));
-      const chestAt = (r, c) => { const Y = HL.kinds[r.hall].pay, p = near(r, c, (x, y) => canStand(x, y, 'chest'))[0]; if (p) { claim(p[0], p[1], 'chest'); hardC.add(key(p[0], p[1])); chests.push({ x: wx(p[0]), y: wy(p[1]), tier: Y.tier, open: 0, ...(Y.forge || Y.stash ? { hall: r.hall } : {}) }); } return p; };
+      const chestAt = (r, c) => { const Y = HL.kinds[r.hall].pay, p = near(r, c, (x, y) => canStand(x, y, 'chest'))[0] || near(r, c, (x, y) => free(x, y) && !doorway(x, y))[0]; if (p) { claim(p[0], p[1], 'chest'); hardC.add(key(p[0], p[1])); chests.push({ x: wx(p[0]), y: wy(p[1]), tier: Y.tier, open: 0, ...(Y.forge || Y.stash ? { hall: r.hall } : {}) }); } return p; };
       const goldAt = (r, c, k) => { for (const p of near(r, c, (x, y) => canStand(x, y, 'goldpile')).slice(0, 8)) { if (k <= 0) break; if (!canStand(p[0], p[1], 'goldpile')) continue; claim(p[0], p[1], 'goldpile'); hardC.add(key(p[0], p[1])); pots.push({ x: wx(p[0]), y: wy(p[1]), kind: 'goldpile', hp: 1 }); k--; } };
       const brazierAt = (r, c) => { const p = near(r, c, (x, y) => canStand(x, y, 'brazier'))[0]; if (p) { claim(p[0], p[1], 'brazier'); hardC.add(key(p[0], p[1])); torches.push({ x: wx(p[0]), y: wy(p[1]), kind: 'brazier', r: r.id }); } };
       const hallProps = (r) => { const c = [r.cx, r.cy], back = (x, y) => at(x, y - 1) === 0 && at(x, y - 2) === 0;
@@ -996,6 +996,7 @@
       const mine = new Uint8Array(W * H), q = [s0]; mine[s0] = 1; for (let i = 0; i < q.length; i++) for (const o of N4) { const n = q[i] + o; if (!mine[n] && cells[n] === 1 && !altS.has(n) && !mainS.has(n)) { mine[n] = 1; q.push(n); } }
       const span = [...altS, ...mainS], at = q.filter((k) => span.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 3));
       if (cells[s0] === 1 && at.length && show.size) map.choice = { at, show: [...show] }; }
+    if (strict && rooms.some((r) => r.hall && !chests.some((c) => inRm(r, Math.floor(c.x / TILE), Math.floor(c.y / TILE))))) return null;
     return map;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

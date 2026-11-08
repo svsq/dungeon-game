@@ -8,7 +8,7 @@
     const {
       AR, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
       figHit, floor, ftype, keep, lakeEnds, last, lastTry, lc, main, opts, pick, pl, plat, ri, riverY, rooms, runFloor, seed, set, side,
-      strict, terr, tidy } = GF;
+      altTry, strict, terr, tidy } = GF;
     // ---- roles: start at a leaf on the rim, exit farthest by hops then distance ----
     const hops = (from) => { const h = rooms.map(() => 99), q = [from.id]; h[from.id] = 0;
       while (q.length) { const a = q.shift(); for (const b of adj[a]) if (h[b] > h[a] + 1) { h[b] = h[a] + 1; q.push(b); } } return h; };
@@ -506,7 +506,7 @@
               crossings.push({ kind: 'bridge', cells: bent.leg, axis: bent.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }, { kind: 'bridge', cells: bent.leg2, axis: bent.hor ? 'y' : 'x', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }); break; }
             if (!best) continue; for (const k of best.deck) { cells[k] = 1; chasmUnder.add(k); }
             crossings.push({ kind: 'bridge', cells: best.deck, axis: best.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }); break; }
-          if (strict && lone.length && !crossings.some((c) => c.alt)) return false; }
+          if (altTry && lone.length && !crossings.some((c) => c.alt)) return false; }   // (only the first tries: past them the floor's other rules are short of tries)
         // what a bridge left of its ridge off the way goes to the dark
         const sv = new Uint8Array(W * H), st = [start.cy * W + start.cx]; sv[st[0]] = 1;
         while (st.length) { const k = st.pop(); for (const o of D4) { const n = k + o; if (!sv[n] && (cells[n] === 1 || cells[n] === 4)) { sv[n] = 1; st.push(n); } } }
