@@ -33,6 +33,11 @@ SETS = {
     'mage_leather': ('le', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'mage', 'out': 'mage'}),
     'mage_hood': ('hd', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'mage', 'out': 'mage'}),
     'mage_circlet': ('hci', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]], {'src': 'mage', 'out': 'mage'}),
+    'archer': ('', 3, [[['body', 'body']], [['body_back', 'body_back']], [['cape', 'cape']], [['uarmL', 'uarmL'], ['farmL', 'farmL']], [['thighL', 'thighL'], ['shinL', 'shinL'], ['footL', 'footL']]],
+               {'src': 'hero', 'out': 'archer', 'base': 1}),
+    'archer_leather': ('le', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'archer', 'out': 'archer'}),
+    'archer_hood': ('hd', 3, [[['body', 'body']], [['body_back', 'body_back']], [['uarmL', 'uarmL'], ['thighL', 'thighL']]], {'src': 'archer', 'out': 'archer'}),
+    'archer_helm_le': ('hle', 5, [[['head', 'head:body']], [['head_back', 'head:body_back']]], {'src': 'archer', 'out': 'archer'}),
 }
 opt = lambda name: (SETS[name][3] if len(SETS[name]) > 3 else {})
 BG = (58, 58, 68, 255)
