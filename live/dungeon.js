@@ -188,8 +188,8 @@
   // after the accepted reference (study/refs/ref_town.png, a tile ≈ 31 px of it; study/refs/README.md): the stairs down in the
   // gate at the top, the campfire and its tree in the middle of the square, the merchant top left, the forge and the enchanter
   // (one workshop, TASKS 1013) top right, the Altar of Souls and the storage chest right of the square, the notice board and the
-  // portal's ring of stones below left, the mine on the right with its rails along the bottom wall only to the unloading yard
-  // (an ore bin) at the left; the seed moves only the small things: decor, ruin stubs, ground decals, where the townsfolk stand
+  // portal's ring of stones below left, the mine on the right with its short rails to the mason's yard in the lower right corner,
+  // clear of the way to the gate (TASKS 1151); the seed moves only the small things: decor, ruin stubs, ground decals, where the townsfolk stand
   const TOWN = { W: 56, H: 37,
     floor: [[4, 4, 48, 28]],
     // the outer ruins' ragged edge, the gate round the stairs, the services' back walls, the mine's rock and the wall over the rails
@@ -203,11 +203,11 @@
     // the cobbles (TASKS 1029): a round square about the fire and winding paths two or three cells wide off it to the services and the gate
     plaza: [27, 17.4, 4.6, 3.7], paths: [[27, 11], [17, 13], [36, 12], [36, 24], [22, 22], [16, 22], [27, 31], [47, 23]],
     stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [36, 11], forge: [38, 10], lectern: [39, 17], shelf: [37, 16],
-    altar: [36, 23], chest: [39, 23], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [15, 29], herbs: [44, 25],
+    altar: [36, 23], chest: [39, 23], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [46.6, 31], herbs: [44, 25],
     // the town's gate out (TASKS 1149): shut, in the bottom wall where the cobbled way off the square ends, as on the reference
     exitGate: [29, 32.9],
     // the portal's ring is open toward the square (no stone east of it); where a body stands to use each service (the checks walk a two-cell-wide body there from the spawn)
-    use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [36, 12], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [16, 29], exitGate: [29, 29] },
+    use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [36, 12], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [45, 31], exitGate: [29, 29] },
     braziers: [[25, 11], [29, 11]],
     benches: [[25, 16], [29, 19], [25, 19]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
@@ -215,24 +215,25 @@
     lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['crypt', 27, 11], ['adit', 47, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
-    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [32, 31], [39, 28], [9, 8], [41, 8], [32, 8], [43, 15]],
+    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [32, 31], [39, 28], [44, 31], [9, 8], [41, 8], [32, 8], [43, 15]],
     // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
     edge: [[6, 10], [49, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
     // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore;
     // the workshop niches on the left with a work table, sacks, a crate and burning candles
-    props: [['logs_tw', 44, 11], ['stall_tw', 47, 13], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['cart_tw', 49, 24], ['blocks_tw', 19, 29], ['ore_tw', 13, 30],
+    props: [['logs_tw', 44, 11], ['stall_tw', 47, 13], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['stoneyard_tw', 37, 30], ['blocks_tw', 47.2, 29.5], ['ore_tw', 48.5, 31],
       ['table_candles', 6, 14], ['shop_sacks', 5, 21], ['shop_crate', 7, 24], ['candles', 5, 24]],
-    rails: [[47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], ...Array.from({ length: 25 }, (_, i) => [41 - i, 30])],
-    // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it; the cast is the player's (6 Nov 2026): no miner, mason or gardener
+    rails: [[47, 22], [47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], [41, 30], [40, 30]],
+    yardSolid: [[35, 29], [36, 29], [37, 29], [38, 29], [39, 29], [35, 30], [36, 30], [38, 30], [39, 30]],
+    // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it; the cast is the player's (6 Nov 2026: no miner or gardener; 8 Nov 2026: a mason at the rails' end)
     // the rounds of those who walk (TASKS 1015): stops in cells, 'take' / 'drop' where the porter lifts and sets down his crate (from the
     // canvas stall to the merchant), the others pause at each stop to sweep or to scatter grain; the round loops back to the start
-    routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]] },
-    npcs: [['smith', 35, 11], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 30, 13], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18]],
+    routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]], mason: [[41.3, 30, 'take'], [45.7, 30.4, 'drop']] },
+    npcs: [['smith', 35, 11], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 30, 13], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.7, 30.4]],
     // ruin stubs the seed picks some of, and spots for the small decor
-    stubs: [[14, 8], [45, 8], [10, 27], [45, 29], [5, 26], [49, 13], [12, 14]],
+    stubs: [[14, 8], [45, 8], [10, 27], [5, 26], [49, 13], [12, 14]],
     small: [['barrel', 13, 11], ['crate', 21, 11], ['barrel', 20, 14], ['crate', 33, 11], ['barrel', 41, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
-      ['crate', 49, 11], ['barrel', 12, 30], ['barrel', 9, 10], ['crate', 35, 25], ['barrel', 47, 27], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17], ['barrel', 43, 30],
-      ['crate', 38, 30], ['crate', 50, 12], ['barrel', 50, 16], ['barrel', 29, 31], ['crate', 15, 11], ['barrel', 21, 9]],
+      ['crate', 49, 11], ['barrel', 12, 30], ['barrel', 9, 10], ['crate', 35, 25], ['barrel', 47, 27], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
+      ['crate', 50, 12], ['barrel', 50, 16], ['barrel', 29, 31], ['crate', 15, 11], ['barrel', 21, 9]],
     // what a niche keeps: its stores, and a small fire at the back
     store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
   // a portal's ring of stones (TASKS 1037): the town's and a chapter boss's are one ring, eight stones round 240° with the gap
@@ -297,15 +298,15 @@
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
     // merchant's counter, and it stood behind it for good on seed 52)
     const block = []; const bk = (x, y) => { const k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (!block.includes(k)) block.push(k); };
-    for (const d of decor) if (d.solid) bk(d.x, d.y); for (const t of torches) if (t.kind !== 'wall') bk(t.x, t.y); for (const [x, y] of shop.solid) bk(x, y);
-    return { seed, floor: 0, town: { svc, use: T.use, rails, pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block, decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
+    for (const d of decor) if (d.solid) bk(d.x, d.y); for (const t of torches) if (t.kind !== 'wall') bk(t.x, t.y); for (const [x, y] of shop.solid) bk(x, y); for (const [x, y] of T.yardSolid) bk(wx(x), wy(y));
+    return { seed, floor: 0, town: { svc, use: T.use, rails, yardSolid: T.yardSolid.map(at), pave, npcs, lights: T.lights.map(([kind, x, y]) => ({ kind, ...at([x, y]) })) }, biome: 'town', arch: 'town', cliff: null, W, H, cells, rooms: [room], block, decals, edges: [], start: 0, exitRoom: 0, exit, spawn, sanct,
       ftype: null, ftype2: null, shareOf: null, bossType: undefined, walk: cells.filter((c) => c === 1).length, down: null, enemies: [], chests: [], pots: [], traps: [], torches,
       decor, shrines: [], rugs: [], shop, secrets: [], secretsWanted: 0, pits: [], ledges: [], lava: 0, lavaFlow: {}, crust: [], lavaUnder: [], chasmUnder: [], lavaFeatures: [], lavaBodies: [], streams: [],
       water: [], waterFlow: {}, waterFeatures: [], waterBridges: [], deep: 0, crossings: [], doors: [], locks: [], webs: [], ambush: [], drips: [], flora: [], serpentPools: [], floodCells: [] };
   }
   // where a body can stand in the town (TASKS 1003): open floor clear of its solid props (Node checks walk to every service over it)
   function townWalk(m) { const ok = m.cells.map((c) => c === 1), off = (x, y) => { const k = Math.floor(y / TILE) * m.W + Math.floor(x / TILE); ok[k] = false; };
-    for (const d of m.decor) if (d.solid) off(d.x, d.y); for (const t of m.torches) if (t.kind !== 'wall') off(t.x, t.y); if (m.shop) for (const [x, y] of m.shop.solid) off(x, y);
+    for (const d of m.decor) if (d.solid) off(d.x, d.y); for (const t of m.torches) if (t.kind !== 'wall') off(t.x, t.y); if (m.shop) for (const [x, y] of m.shop.solid) off(x, y); for (const p of m.town.yardSolid) off(p.x, p.y);
     return ok; }
 
   // room index of a world point (or -1 in a corridor); a secret room first: a plateau's box may hold one (TASKS 422)

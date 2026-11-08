@@ -9,7 +9,7 @@
   // the fire biome's tops are dark basalt instead (its seams smoulder in LIT), so it no longer reads as the dungeon gone brown
   const TOP_LIFT = 1.45, topTint = (B) => (B.lava ? [0.8, 0.66, 0.62, 1] : [0.95, 0.97, 1.04, 1]);
   // the town's floor (R-17, TASKS 1004): cobbles on the square and its paths fade into the earth over a ragged edge of 8 px steps,
-  // the rails lie along the bottom wall (a straight run, the diagonal up to the adit, the adit's short straight), the portal's
+  // the rails run from under the adit to the mason's yard (the adit's short straight, the diagonal, a short end), the portal's
   // carved disc inside its ring of stones and the enchanter's rune circle under his lectern
   // the town's lights by kind (TASKS 1005): r, colour, strength, dy over the prop's foot, a hot core, and the glow on the art itself
   // [dx, dy, r, alpha]; warm lanterns and the forge, the enchanter's and the altar's cold blue, the crypt's warm breath from below
@@ -23,7 +23,7 @@
   // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
   const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
   // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
-  const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', sweeper: 'fire' };
+  const TOWN_WORK = { smith: 'anvil', enchanter: 'lectern', keeper: 'fire', guard: 'stairs', porter: 'bin', mason: 'bin', sweeper: 'fire' };
   const TOWN_FACE = (m, n) => { const T = m.town, k = TOWN_WORK[n.role]; if (k) return T.svc[k].x;
     const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
   // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest

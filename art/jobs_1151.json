@@ -1,0 +1,5 @@
+[{"name":"stoneyard_tw","prompt":"art/prompts/stoneyard_tw.txt","ref":["study/refcrops/town_stoneyard.png=the approved town concept's crop of the unloading yard","art/refs_town_scale.png=existing props of this game in their true sizes next to the hero"],"size":"1536x1024","alpha":"auto","pixel":true},
+{"name":"town_mason","prompt":"art/prompts/town_mason.txt","ref":["art/gen/town_porter.png=this game's porter, the pose and body to keep"],"size":"1024x1536","alpha":"auto","pixel":true},
+{"name":"cart_tw_half","prompt":"art/prompts/cart_tw_half.txt","ref":["live/assets/cart_tw.png=this game's mine cart"],"size":"1024x1024","alpha":"auto","pixel":true},
+{"name":"cart_tw_empty","prompt":"art/prompts/cart_tw_empty.txt","ref":["live/assets/cart_tw.png=this game's mine cart"],"size":"1024x1024","alpha":"auto","pixel":true},
+{"name":"town_tool_stone","prompt":"art/prompts/town_tool_stone.txt","ref":["live/assets/cart_tw.png=this game's cart of stone"],"size":"1024x1024","alpha":"auto","pixel":true}]

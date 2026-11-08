@@ -559,7 +559,7 @@
       const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; void h; states.push(['town_services', S]); }
     // the townsfolk at their places (TASKS 1014), the hero out of the way at the unloading yard
     { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
-      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; states.push(['town_npc', S]); }
+      h.x = m.town.svc.portal.x + 3 * TILE; h.y = m.town.svc.portal.y; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; states.push(['town_npc', S]); }
     // the magma caves' 2nd floor (TASKS 399; their own floor, rock and lava come in 400–404): its biggest hall, its monsters left in
     { const S = play(); plainMagma(S); S.screen = 'play';
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
@@ -1248,11 +1248,11 @@
     // stills of a talk's first and second line and the merchant calling
     const folkSubj = {}, folkCyc = {}, folkCycT = {}, folkSpr = {};
     const folkS = (fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null;
-      h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y; SIM.step(S, { keys: [] }); S.ev = []; if (fn) fn(S, R, m, h); });
+      h.x = m.town.svc.portal.x + 3 * TILE; h.y = m.town.svc.portal.y; SIM.step(S, { keys: [] }); S.ev = []; if (fn) fn(S, R, m, h); });
     const folkAt = (R, role) => R.folk.find((q) => q.role === role), camOn = (R, f) => { R.cam = [f.x - SCX.VW / 2, f.y - 40 - SCX.VH / 2]; };
     const atStop = (R, f, k) => { const st = R.map.town.npcs[f.i].route[k]; Object.assign(f, { x: st.x, y: st.y, way: k, go: 0, spd: 0, vx: 0, vy: 0 }); };
-    for (const role of ['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child']) { let i = 0, per = 1;
-      const base = folkS((S, R) => { const f = folkAt(R, role); i = f.i; per = D.folkClock(role, i, S.t).per; if (R.map.town.npcs[i].route) { atStop(R, f, 0); f.t0 = S.t; f.face = role === 'child' ? 1 : -1; } camOn(R, f); });
+    for (const role of ['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'mason']) { let i = 0, per = 1;
+      const base = folkS((S, R) => { const f = folkAt(R, role); i = f.i; per = D.folkClock(role, i, S.t).per; if (R.map.town.npcs[i].route) { atStop(R, f, role === 'mason' ? 1 : 0); f.t0 = S.t - (role === 'mason' ? 3 : 0); f.face = role === 'child' || role === 'mason' ? 1 : -1; } camOn(R, f); });
       loops['folk_' + role + '_work'] = Array.from({ length: 48 }, (_, k) => { const S = structuredClone(base); S.t += k * per / 48; return S; }); folkSubj['folk_' + role + '_work'] = 'npc' + i; }
     // every townsperson with a round has a walk (TASKS 1031): the cycles come from the town's rounds, and a rig with no gait fails here
     const walkers = Object.keys(DUNGEON.TOWN.routes);
@@ -1390,6 +1390,10 @@
       const r = R.map.rooms.find((o) => o.type === 'start'); h.x = r.cx * TILE; h.y = r.cy * TILE; R.drops.push({ id: 9999, kind: 'qitem', quest: q.id, ic: q.ic, x: h.x + 90, y: h.y + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }); R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); })]);
     states.push(['quest_room', questS('room', (S, R, q, h) => { const r = R.map.rooms[q.room]; h.x = r.cx * TILE - 200; h.y = r.cy * TILE; qFull(R); })]);
     // the town's gate out (TASKS 1149): its prompt in view of the square's bottom, its window to give up, and past the colossus to end the run won
+    states.push(['town_stoneyard', folkS((S, R) => { const f = folkAt(R, 'mason'); atStop(R, f, 0); f.t0 = S.t; f.face = -1; R.offers = []; R.cam = [41 * TILE - SCX.VW / 2, 27 * TILE - SCX.VH / 2]; })]);
+    { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'mason'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.lift = 'take'; f.face = -1; camOn(R, f); });
+      transitions.folk_mason_take = Array.from({ length: 110 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_mason_take = 'npc' + i; }
+    states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [44 * TILE - SCX.VW / 2, 26 * TILE - SCX.VH / 2]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [g.x - SCX.VW / 2, g.y - SCX.VH / 2 + 60]; })]);
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; })]);
     states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; })]);
@@ -1579,7 +1583,7 @@
     transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);
-    out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter'].map((r) => 'folk_' + r));
+    out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter', 'mason'].map((r) => 'folk_' + r));
     calm(out); return out;
   };
 })();

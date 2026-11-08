@@ -1,0 +1,5 @@
+Use case: a townsman of the start town of a top-down 3/4 dungeon game, the mason who unloads stone from the mine cart. Image 1 is the style reference. Image 2 is this game's porter: keep EXACTLY his pose, proportions, body size, stance, arm and leg positions, facing, outline weight and pixel size, so the same rig cuts fit; change only who he is.
+Subject: a stocky older workman, full figure standing. Bald head with a short grey beard, bare forearms, no cap. A grey-blue linen shirt with rolled sleeves, a heavy leather mason's apron from chest to knees with stone dust on it, dark brown trousers, wrapped shins, worn boots. Empty hands.
+Materials: linen #4a5560 / #6c7a84 / #9aa3a4, leather apron #3f261c / #6a3f26 / #8a5a38, stone dust #b0a596, skin as in Image 2, beard #8f8a80.
+Composition: one figure, centred, complete, arms clear of the body as in Image 2, transparent background.
+Constraints: painted UNLIT: no glow, no tools, no cast shadow, no ground, no text.

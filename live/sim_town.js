@@ -15,7 +15,7 @@
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
   // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
   const folkTalk = (f, t) => f.near && t - f.sayT < D.FOLK_SAY;
-  const folkPause = (f, stop) => (f.role === 'porter' ? (stop && stop.act ? 1.8 : 0) : D.FOLK[f.role].pause || 0);
+  const folkPause = (f, stop) => (f.role === 'porter' || f.role === 'mason' ? (stop && stop.act ? 1.8 : 0) : D.FOLK[f.role].pause || 0);
   // a hen (TASKS 1032): scatters from the hero who comes close (and from a walker's feet), runs to the child's grain and pecks there, else wanders about its
   // place a few steps at a time. f.goal { x, y, v, k: the grain it came for }; f.next: when it may pick its next spot
   const henRnd = (a, b) => { const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return x - Math.floor(x); };
@@ -29,8 +29,18 @@
     if (!f.goal && t >= (f.next || 0)) { const a = 2 * Math.PI * henRnd(f.i, t), r = 10 + 26 * henRnd(t, f.i);
       f.goal = { x: n.x + Math.cos(a) * r, y: n.y + Math.sin(a) * r * 0.6, v: 22 }; f.next = t + 2 + 3 * henRnd(f.i + 7, t); }
     return f.goal; }
+  // the mine's cart comes down the rails on the winch's rope to the mason and is hauled back once he has emptied it
+  const CART_V = 52, CART_LOAD = 3, railLen = (m) => { const T = m.town; if (T.railLen) return T.railLen; let d = 0; T.rails.forEach((k, i) => { if (i) { const p = T.rails[i - 1]; d += Math.hypot(k % m.W - p % m.W, Math.floor(k / m.W) - Math.floor(p / m.W)) * TILE; } });
+    Object.defineProperty(T, 'railLen', { value: d, enumerable: false }); return d; };
+  const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
+  function stepCart(R, C, t) { const L = railLen(R.map);
+    if (C.st === 'down') { C.s = Math.min(L, C.s + CART_V * DT); if (C.s >= L) C.st = 'at'; }
+    else if (C.st === 'at') { if (C.load <= 0 && t >= C.t) C.st = 'up'; }
+    else if (C.st === 'up') { C.s = Math.max(0, C.s - CART_V * DT); if (C.s <= 0) { C.st = 'in'; C.t = t + 6; C.load = CART_LOAD; } }
+    else if (t >= C.t) C.st = 'down'; }
   function stepFolk(S, R) {
-    const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0;
+    const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0, C = cartOf(R);
+    stepCart(R, C, t);
     for (const f of F) { const n = m.town.npcs[f.i], FD = D.FOLK[f.role], r = folkR(f);
       if (FD.lines) { const d = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25);
         if (!f.near && alive && d < 72) { f.near = 1; f.sayT = t; f.sayN = (f.sayN + 1) % FD.lines.length; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
@@ -48,11 +58,11 @@
       if (f.role === 'hen') { const g = henGoal(R, f, n, t);
         if (g) { const dx = g.x - f.x, dy = g.y - f.y, d = Math.hypot(dx, dy); if (d > 2.5) { want = Math.min(g.v, d * 4 + 6); ux = dx / d; uy = dy / d; } else if (!g.k) f.goal = null; } }
       else if (!route) { f.spd = 0; continue; }
-      if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way])) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
+      if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0))) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
       if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
         if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
           // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
-          f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); } }
+          f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take' && --C.load <= 0) C.t = t + 2.5; } }
         else { want = Math.min(FD.v, d * 3 + 8); ux = dx / d; uy = dy / d; } }
       f.spd += (want - f.spd) * Math.min(1, 7 * DT);
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
@@ -72,6 +82,7 @@
   }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
+    if (R.map.town) for (const p of R.map.town.yardSolid || []) out.push({ x: p.x, y: p.y, r: 18 });
     if (R.map.way) out.push({ x: R.map.way.x, y: R.map.way.y, r: 16 });
     for (const q of R.map.waterFeatures || []) if (q.kind === 'fountain') out.push({ x: q.x, y: q.y - 2, r: 34 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 });
