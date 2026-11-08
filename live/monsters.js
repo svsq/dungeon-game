@@ -801,7 +801,7 @@
         base.arm = (side, b) => { if (e.st === 'strike') return [b, b + 0.18 - 0.4 * b]; const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; };
         // (the far fist a little nearer the body, by the way it faces, TASKS 490: set off by the screen's side, it reached out past its
         // arm and hung 38–43 px over the floor)
-        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.3 : 0.24) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - (side === 'L' ? -0.08 : 0.05)) * H, k]; };
+        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.18 : 0.14) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - (side === 'L' ? -0.08 : 0.04)) * H, k]; };
         // (the far fist drawn in under the body and the knees bent deeper while they rest, TASKS 1054: it fell short and hung 29 px up)
         base.crouch += 18 * k; base.lean = (base.lean || 0) + face * 0.09 * k; }
       base.plates = { n: e.crust ?? E.crust.n, T: e.plateT, A: e.plateA, G: e.plateG, GT };
