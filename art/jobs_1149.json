@@ -1,0 +1,3 @@
+[
+ {"name": "gate_tw", "prompt": "art/prompts/gate_tw.txt", "ref": ["study/refcrops/town_gate_arch.png=the approved town concept's ruined arch crop", "art/refs_town_scale.png=existing props of this game in their true sizes next to the hero (hero, barrel, well, tree, stairs, anvil)"], "size": "1536x1024", "alpha": "auto", "pixel": true}
+]

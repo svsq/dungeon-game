@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     AFFIXES, BASES, D, DG, DT, ENEMIES, K, MOD, RARITY, RUN, STAGE, TILE, arenaSealed, bagAdd, bossFight, counted, dep, doorNear, drop,
-    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, lastFloor, leverNear,
+    eliteK, enterFloor, ev, gainXp, gateNear, giveShards, has, heroSt, hidden, isCons, itemName, itemPower, lastFloor, exitKind, campaignDone, leverNear,
     openChest, openDoor, openSecret, pick, potion, pullLever, rnd, rollAffixes, rollItem, rollMods, sealOf, secretUnder, standNear } = SIMX;
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
@@ -95,15 +95,16 @@
     if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
+    if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
     const fk = folkNear(R); if (fk) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
-    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
-    if (Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
+    if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
+    if (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (arenaSealed(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s.2') }); return; }
-      if (lastFloor(R) && R.mode !== 'endless') { if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
+      if (exitKind(R) === 'portal') { if (R.campaignWon) return; if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) openAltar(S, R, used);
@@ -197,7 +198,8 @@
     return { o, q }; }
   const questDone = (R, role) => (R.quests || []).find((q) => q.st === 'done' && q.from === role);
   // the mark over a townsman's head: ? a quest to turn in, ! one to take
-  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) ? '!' : '');
+  // (past the campaign's last boss the Keeper's own offers wait behind the end of the run, PR 29 review: no «!» over him for them)
+  const questMark = (R, role) => (!R.town ? '' : questDone(R, role) ? '?' : offerOf(R, role) && !(role === 'keeper' && campaignDone(R)) ? '!' : '');
   function giveQuest(S, R, role) { const of = offerOf(R, role); if (!of) return null; const q = Object.assign(of.q, { id: R.nextId++ }); delete q.story; if (of.o) of.o.q = q.id; return takeQuest(S, R, q); }
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
@@ -208,11 +210,17 @@
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
+  // past the campaign's last boss the Keeper asks, after any quest's business, whether the run ends here, won, or goes on down (TASKS 1148)
+  const keeperEnd = (R) => ({ pages: R.campaignWon ? D.KEEPER.endDeep.slice() : D.KEEPER.end.slice(), act: { k: 'finish', rw: { shards: SIMX.runReward(R, 'win').base } } });
+  // a quest to turn in comes first; a new offer does not hide the choice (PR 29 review: a side quest offered after the descent took
+  // its place on every talk until it was taken): the Keeper's offers wait, the notice board has them too
+  const talkOf = (R, role) => { const qt = questTalk(R, role); return role === 'keeper' && campaignDone(R) && (!qt || qt.act.k !== 'turn') ? keeperEnd(R) : qt; };
   // the talk's button: take the quest (the talk closes), or turn it in (the thanks, then whatever else the townsman has)
   function talkAct(S, R, T) { const a = T.act; if (!a) return;
+    if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = questTalk(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks, p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks, p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -268,10 +276,10 @@
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; the smith's talk keeps a button
   // into his workshop
-  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = questTalk(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [];
+  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
     if (qt) pages = pages.concat(qt.pages);
     else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act: qt ? qt.act : null }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // gear left in the town for the heroes to come: S.meta.stash, its cells D.STASH.cells(meta), its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)
@@ -286,6 +294,8 @@
     if (i !== undefined && h.bag[i]) { if (isCons(h.bag[i])) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashTake.s') }); return; } const was = h.bag[i]; h.bag[i] = Object.assign(it, { id: R.nextId++ }); T.items[j] = was; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
     if (i !== undefined) h.bag[i] = it; else if (!bagAdd(R, it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashTake.s.2') }); return; }
     it.id = R.nextId++; T.items[j] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }
+  // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
+  const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
   const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
   const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []).concat((R.ways || []).map((f) => ({ k: 'way', f })));
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
@@ -353,7 +363,7 @@
   }
 
   Object.assign(SIMX, {
-    folkR, folkOf, folkFree, stepFolk, solids, interact, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
+    folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     questTalk, questIcon, talkAct, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,

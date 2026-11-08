@@ -41,7 +41,8 @@
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? TXT('UI.debug.dbg_secrets.label') : TXT('UI.debug.dbg_secrets.label.2'), on: true, x: 520, y: 16, w: 430, h: 60 },
       { id: 'dbg_loot', label: S && S.dbgLoot ? TXT('UI.debug.dbg_loot.label') : TXT('UI.debug.dbg_loot.label.2'), on: true, x: 970, y: 16, w: 430, h: 60 }],
-    pause: (zoom) => [['resume', TXT('UI.pause')], ['zoom', TXT('UI.pause.2', { p1: zoomName(zoom) })], ['save', TXT('UI.pause.3')], ['abandon', TXT('UI.pause.4')]]
+    // past the campaign's last boss (TASKS 1150) the run is no longer given up but ended, won
+    pause: (zoom, done) => [['resume', TXT('UI.pause')], ['zoom', TXT('UI.pause.2', { p1: zoomName(zoom) })], ['save', TXT('UI.pause.3')], done ? ['finish', TXT('UI.pause.5')] : ['abandon', TXT('UI.pause.4')]]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 430 + i * 92, w: 480, h: 72 })),
     // a run through the town (R-17, TASKS 1006) goes back there: a new hero by the campfire
     end: (hasLog, town) => [['menu', TXT('UI.end'), true], ['again', town ? TXT('UI.end.2') : TXT('UI.end.3'), true], ['log', TXT('UI.end.4'), !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
@@ -73,6 +74,9 @@
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
       return { P, r }; },
     // the town's ring of stones (TASKS 1009): one row per way out, the open portal first, then the waystones by floor
+    // the town's gate out (TASKS 1149): its question and two buttons, the way out on the left
+    leave: () => { const P = { x: 610, y: 330, w: 700, h: 330 };
+      return { P, r: [{ id: 'go', label: '', on: true, x: P.x + 40, y: P.y + P.h - 100, w: 300, h: 64 }, { id: 'stay', label: TXT('UI.leave.stay'), on: true, x: P.x + P.w - 340, y: P.y + P.h - 100, w: 300, h: 64 }] }; },
     gate: (n) => { const P = { x: 610, y: 190, w: 700, h: 200 + Math.max(1, n) * 84 + 90 };
       return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'go:' + i, i, x: P.x + 40, y: P.y + 150 + i * 84, w: P.w - 80, h: 72 }))
         .concat([{ id: 'leave', label: TXT('UI.gate.r.leave.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 96, w: 300, h: 60 }]) }; },

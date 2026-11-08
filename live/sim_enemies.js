@@ -469,7 +469,7 @@
         if (E.kind === 'hop') hop(S, R, e, E);
         if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : e.br ? E.breath.t : E.kind === 'golem' ? 0.55 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
           if (e.rush) { e.st = 'chase'; e.rush = 0; e.hitDone = 0; e.rushT = t + E.rush.cd; e.cdT = t + 0.5; continue; }
-          if (e.br) { e.br = 0; e.brT = t + E.breath.cd * (0.8 + 0.4 * rnd(R)); } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
+          if (e.br) { e.br = 0; e.brT = t + E.breath.cd * (0.8 + 0.4 * rnd(R)); } e.st = 'chase'; e.cdT = t + E.cd * (e.elite && !D.BOSSES[e.type] && e.type !== 'brute' && dep(R) <= BAL.early ? BAL.earlyCd : eliteK(e, 'cd')) * (D.BOSSES[e.type] ? 1 : STAGE(R).cd || 1) * (0.8 + 0.4 * rnd(R)); e.hitDone = 0; }
       }
     }
     // separation: monsters don't stack

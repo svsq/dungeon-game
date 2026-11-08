@@ -111,7 +111,7 @@
     for (const e of mobs.slice(0, oldDead(R, f, M, P.en))) { e.hp = 0; e.deadT = 0; }
     for (const k of FLOOR_KEYS) R[k] = B[k];
     const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
-    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (!lastFloor(R) && R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
+    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     M.gv = D.GEN_VERSION; M.d = null; M.drops = []; M.seen = null; M.rseen = null; }
   // how many of an old floor's own monsters died there, from its diff: a floor built with ids from M.id on gives its i-th monster
@@ -138,7 +138,7 @@
     R.floor = f; if (f > 0) R.deepest = Math.max(R.deepest || 0, f); R.propHit = {};   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
-    if (M) { const mig = restoreFloor(R, f, M); R.town = 0; R.folk = null; if (mig) SIMX.questPlace(S, R); }
+    if (M) { const mig = restoreFloor(R, f, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
     else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); SIMX.questPlace(S, R); } }
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
@@ -155,7 +155,8 @@
     S.saveN++;
   }
   function arrive(S, R, how) { const m = R.map, h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
-    if (how === 'up') [hx, hy] = standNear(R, m.exit.x, m.exit.y + 46);
+    // up from below the campaign's last floor: by its own stairs on (TASKS 514), not its portal out
+    if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
     else if (how === 'down' && m.up) [hx, hy] = standNear(R, m.up.x, m.up.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
@@ -252,8 +253,9 @@
   // so the altar's 1395 take some 20 runs
   const REWARD = { goldPer: 500, win: 30, full: 10, secret: 1 };
   function runReward(R, how) {
-    // the gold of a campaign won on the way down was paid at the stairs (descend): only the gold since counts at the end
-    const C = runCompletion(R), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' ? REWARD.win : 0);
+    // the gold of a campaign won on the way down was paid at the stairs (descend): only the gold since counts at the end, and its
+    // win is not paid again when the run is ended alive later (TASKS 1148)
+    const C = runCompletion(R), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' && !R.campaignWon ? REWARD.win : 0);
     return { base, bonus: 0, cap: 0, C };
   }
   const FULL = [['kills', 'foes', TXT('FULL')], ['loot', 'lootN', TXT('FULL.2')], ['sec', 'secN', TXT('FULL.3')]];

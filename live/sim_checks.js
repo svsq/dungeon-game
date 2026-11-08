@@ -7,7 +7,7 @@
     boxHit, brinkOf, castAbility, cell, colossusBoulder, colossusRain, completion, completionHints, counted, crustAt, damageName, deepBody,
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
     hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
-    killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
+    campaignDone, exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
     openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rnd, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
@@ -1132,6 +1132,13 @@
     // comes up; a pair ends by turns with the exit's elite guard and the biome's boss; maps grow to the cap and no further; floors
     // generate with the hero on open floor; a run goes on past the 12th and its depth is the record; no demon lord nor serpent before
     // the 8th
+    { const end = BAL.deep.end, top = [D.hpAt(end), D.dmgAt(end), D.dmgAt(end, 1)], st = (f) => D.stageOf('endless', f, 7, 17);
+      for (const f of [end + 1, end + 2, 100, 1000, 1e6, 1e12]) { if ([D.hpAt(f), D.dmgAt(f), D.dmgAt(f, 1)].some((v, i) => v !== top[i] || !Number.isFinite(v))) out.push(`deep f${f}: monsters grow past the end of the growth`);
+        if (f > 1000) continue; const a = st(f), b = st(end); if (a.elite !== b.elite || a.pop !== b.pop || a.cd !== b.cd || D.deepAxis(f, 'blow') !== D.deepAxis(end, 'blow')) out.push(`deep f${f}: an axis grows past the end of the growth`);
+        if (D.eliteMods(f).join() !== D.eliteMods(end).join()) out.push(`deep f${f}: elites gain modifiers past the end of the growth`); }
+      if (!(D.deepAxis(1e6, 'blow') < 0.5)) out.push('deep: two blows could kill from full health');
+      for (let f = BAL.deep.past + 1; f <= end; f++) if (!(D.hpAt(f) > D.hpAt(f - 1)) || !(D.dmgAt(f) > D.dmgAt(f - 1))) out.push(`deep f${f}: no growth`);
+      for (let d = 1; d <= BAL.deep.past; d++) { const old = (1 + 0.5 * (d - 1)) * Math.pow(1.1, Math.max(0, d - 12)); if (Math.abs(D.hpAt(d) - old) > 1e-9 || D.deepAxis(d, 'blow') !== BAL.cap.blow) out.push(`deep: the campaign's depth ${d} changed`); } }
     { const E = D.RUNS.endless, seen = new Set();
       for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 20; f++) { const a = D.stageOf('endless', f, sd), b = D.stageOf('endless', f, sd); seen.add(a.biome);
         if (a.biome !== b.biome || a.biome !== D.stageOf('endless', f % 2 ? f + 1 : f - 1, sd).biome) { out.push(`endless seed ${sd} f${f}: a pair's biome not fixed by the seed`); break; }
@@ -1170,7 +1177,8 @@
           hq.x = md.down.x; hq.y = md.down.y + 20; interact(T, Q);
           if (Q.floor !== 17 || Q.mode !== 'endless' || T.meta.wins !== w0 + 1 || T.meta.best !== 16 || T.meta.shards - s0 !== Math.floor(4000 / REWARD.goldPer) + REWARD.win || hq.lvl !== lvl || hq.eq.weapon.id !== id)
             out.push('campaign f16: the stairs on do not win the campaign and go on to the 17th with the same hero');
-          Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 17 || !T.result.campaignWon) out.push('campaign f16: the descent pays the campaign\'s gold twice or keeps no depth'); } }
+          // (back up to the 16th and given up there, TASKS 516: the record is the 17th reached, not the 16th left on)
+          enterFloor(T, Q, 16, undefined, 'up'); Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 17 || !T.result.record.fresh || T.result.deepest !== 17 || !T.result.campaignWon) out.push('campaign f16: the descent pays the campaign\'s gold twice or keeps no depth, or the record takes the floor left on'); } }
       endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless' || !S.result.record || !S.result.record.fresh) out.push('endless: the record depth is not kept');
       // each of the five bosses at the end of an endless pair (TASKS 350): its arena seals when the hero walks in and opens at its
       // death; a chapter's end boss pays as the finale (20 shards, LOOT.boss), the others as a chapter boss (3 shards and an item);
@@ -2276,14 +2284,33 @@
       hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; E(T2);
       if (Q.floor !== f || Math.hypot(hq.x - g.x, hq.y - g.y) > 90 || !Q.arena || !Q.arena.gate) { out.push(`gate f${f}: the town's portal does not lead back beside the boss's`); continue; }
       hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
-    // back up from the descent's 13th to the serpent's 12th (a run through the town): the floor is the campaign's again, not the
-    // descent's, whose bag has no round before the 13th (PR 19 review: the stack overflowed)
-    try { const S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run; enterFloor(S2, R2, 12);
-      for (const e of R2.en) if (D.BOSSES[e.type]) { e.hp = 0; e.deadT = S2.t; } R2.bossDead = 1; descend(S2, R2);
-      if (R2.floor !== 13 || R2.mode !== 'endless') out.push('climb: the descent past the serpent does not start on the 13th');
-      else { R2.hero.x = R2.map.up.x; R2.hero.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] });
-        if (R2.floor !== 12 || STAGE(R2).boss !== 'boss_serpent' || D.placeName(12, R2.mode, R2.seed, FROM(R2)) !== D.placeName(12, 'campaign', R2.seed)) out.push('climb: back up from the 13th, the 12th is not the campaign\'s'); } }
-    catch (err) { out.push('climb: back up from the 13th fails: ' + err.message); }
+    // past the colossus (TASKS 514): its hall keeps the town's portal and one stairs down; down them, back up from the descent's
+    // 17th, the 16th is the campaign's again (PR 19 review: the descent's bag has no round before its first floor), the hero by the
+    // stairs on, still one way down (its portal out no second stairs) and the portal home, and the stairs on take him to the 17th
+    // with no second win
+    try { const F = D.RUNS.campaign.floors, S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run, h2 = R2.hero; enterFloor(S2, R2, F);
+      const b = R2.en.find((e) => e.type === 'boss_colossus'); R2.arena = { active: 1, room: b.room, t0: S2.t }; b.hp = 0; killEnemy(S2, R2, b); R2.en = R2.en.filter((e) => e === b);
+      // (TASKS 515: no way out to the surface there, before the colossus falls or after: the run ends in the town)
+      if (exitKind(R2) !== null) out.push('climb: the campaign\'s last floor of a run through the town has a way out'); else { h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; E(S2); if (!S2.run || R2.floor !== F) out.push('climb: E at the last floor\'s old way out ends the run or leaves the floor'); }
+      if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus leaves no portal home');
+      else if (R2.map.down && Math.hypot(R2.arena.gate.x - R2.map.down.x, R2.arena.gate.y - R2.map.down.y) < 100) out.push('climb: the colossus\'s portal home stands by the stairs on');
+      // (PR 29 review) a run saved with the colossus slain before it left a portal, its body cleared away: the portal is set on load
+      // and when the floor is entered again
+      { const keep = R2.arena.gate, en = R2.en; delete R2.arena.gate; R2.en = []; const T3 = spawn(1, JSON.parse(JSON.stringify(persist(S2))));
+        if (!T3.saved || !T3.saved.arena || !T3.saved.arena.gate) out.push('climb: a save with the colossus slain and no portal home gets none on load');
+        delete R2.arena.gate; enterFloor(S2, R2, F - 1, undefined, 'up'); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered again');
+        delete R2.arena.gate; enterFloor(S2, R2, 0); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered from the town');
+        void keep; void en; }
+      descend(S2, R2); const w0 = S2.meta.wins;
+      if (R2.floor !== F + 1 || R2.mode !== 'endless') out.push(`climb: the descent past the colossus does not start on the ${F + 1}th`);
+      else { h2.x = R2.map.up.x; h2.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] }); const m2 = R2.map;
+        if (R2.floor !== F || STAGE(R2).boss !== 'boss_colossus' || D.placeName(F, R2.mode, R2.seed, FROM(R2)) !== D.placeName(F, 'campaign', R2.seed)) out.push(`climb: back up from the ${F + 1}th, the ${F}th is not the campaign's`);
+        else if (!m2.down || exitKind(R2) === 'stairs' || !R2.arena || !R2.arena.gate) out.push(`climb: back up on the ${F}th, not one stairs down and the portal home`);
+        else { if (Math.hypot(h2.x - m2.down.x, h2.y - m2.down.y) > 80) out.push(`climb: back up on the ${F}th, the hero is not by the stairs on`);
+          h2.x = R2.arena.gate.x; h2.y = R2.arena.gate.y + 30; E(S2); if (R2.floor !== 0) out.push(`climb: the ${F}th's portal home does not take the hero home after the descent`);
+          else { h2.x = R2.map.town.svc.portal.x; h2.y = R2.map.town.svc.portal.y + 30; E(S2); if (R2.floor !== F) out.push(`climb: the town's portal does not lead back to the ${F}th`); }
+          h2.x = m2.down.x; h2.y = m2.down.y + 20; E(S2); if (R2.floor !== F + 1 || S2.meta.wins !== w0) out.push(`climb: the ${F}th's stairs on, taken again, do not lead to the ${F + 1}th or win the campaign twice`); } } }
+    catch (err) { out.push('climb: back up from the descent fails: ' + err.stack); }
     return out;
   }
   // TASKS 1009: in a run through the town a waystone stands by the start of every D.wayFloor, reachable and clear of the stairs
@@ -2415,6 +2442,29 @@
     talkTo(R, 'keeper'); const p5 = read(); if (p5.includes(K.away[0]) || p5.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: the Keeper tells the same news twice');
     endRun(S, 'dead'); R = run(33); talkTo(R, 'keeper'); const p6 = read(); if (p6[0] !== K.death[0]) out.push('talk: a later death is told as the first');
     for (const f of folkOf(R)) if (f.role !== 'guard') f.x += 2000; talkTo(R, 'guard'); const p7 = read(); for (const f of folkOf(R)) if (f.role !== 'guard') f.x -= 2000; if (!D.FOLK.guard.lines.some((l) => l[0] === p7[0])) out.push('talk: the guard does not speak his lines');
+    // TASKS 1148: past the colossus the Keeper asks whether the run ends: «Завершить поход» wins it with its reward, «Продолжить»
+    // (Esc) leaves it going; after the descent past it the win is not counted again
+    { const F = D.RUNS.campaign.floors, endAt = () => { for (let i = 0; i < 12 && S.talk && S.talk.p + 1 < S.talk.pages.length; i++) step(S, { keys: ['KeyE'] }); step(S, { keys: ['Enter'] }); }; R = run(34); talkTo(R, 'keeper'); const a0 = S.talk && S.talk.act; read(); if (a0 && a0.k === 'finish') out.push('talk: the Keeper offers to end the run before the colossus');
+      R.slain = [F]; R.deepest = F; R.goldTot = 1000; talkTo(R, 'keeper'); const a1 = S.talk && S.talk.act;
+      if (!a1 || a1.k !== 'finish' || S.talk.pages[S.talk.pages.length - 1] !== K.end[0]) out.push('talk: past the colossus the Keeper does not offer to end the run');
+      else { step(S, { keys: ['Escape'] }); if (S.screen !== 'play' || S.run !== R) out.push('talk: «Продолжить» does not leave the run going');
+        talkTo(R, 'keeper'); read(); if (S.screen !== 'play' || S.run !== R) out.push('talk: E run through the Keeper\'s pages ends the run');
+        const w0 = S.meta.wins || 0, s0 = S.meta.shards; talkTo(R, 'keeper'); endAt();
+        if (S.screen !== 'win' || S.run || S.meta.wins !== w0 + 1 || S.meta.shards - s0 !== Math.floor(1000 / REWARD.goldPer) + REWARD.win || S.meta.best < F) out.push(`talk: «Завершить поход» does not win the run with its reward (${S.screen}, ${S.meta.wins - w0}, ${S.meta.shards - s0})`); }
+      R = run(35); R.slain = [F]; R.deepest = F + 3; R.campaignWon = 1; R.mode = 'endless'; R.goldTot = R.goldBanked = 800; R.goldTot += 300; const w1 = S.meta.wins || 0; talkTo(R, 'keeper');
+      if (!S.talk || !S.talk.act || S.talk.act.k !== 'finish' || !S.talk.pages.includes(K.endDeep[0])) out.push('talk: after the descent the Keeper does not offer to end the run');
+      else { endAt(); if (S.screen !== 'win' || S.meta.wins !== w1 || S.result.base !== Math.floor(300 / REWARD.goldPer) || S.result.win || S.meta.bestEndless < F + 3) out.push('talk: a run ended at the Keeper after the descent wins the campaign twice or pays its gold again'); }
+      // (PR 29 review) a side quest the Keeper offers after the descent does not hide the end of the run, nor shows its «!» over him
+      R = run(38); R.slain = [F]; R.campaignWon = 1; R.mode = 'endless'; R.deepest = F + 2; R.offers = [{ key: 'cull', from: 'keeper' }];
+      if (!offerOf(R, 'keeper')) out.push('talk: no side quest of the Keeper\'s to check the end of the run against');
+      else { talkTo(R, 'keeper'); if (!S.talk || !S.talk.act || S.talk.act.k !== 'finish' || questMark(R, 'keeper') === '!') out.push('talk: a side quest on offer hides the Keeper\'s end of the run'); step(S, { keys: ['Escape'] }); }
+      // TASKS 1150: the pause menu's «Сдаться» is «Завершить поход» past the colossus, a win
+      R = run(36); const pz = () => UI.pause(S.meta.zoom, campaignDone(R)).map((b) => b.id);
+      if (!pz().includes('abandon') || pz().includes('finish')) out.push('pause: «Завершить поход» before the colossus falls');
+      R.slain = [F]; R.deepest = F; const w2 = S.meta.wins || 0, fb = UI.pause(S.meta.zoom, true).find((b) => b.id === 'finish');
+      if (!fb || pz().includes('abandon')) out.push('pause: past the colossus the menu still gives up the run');
+      else { S.screen = 'pause'; step(S, { keys: [], click: 1, px: fb.x + fb.w / 2, py: fb.y + fb.h / 2 }); if (S.screen !== 'win' || S.run || S.meta.wins !== w2 + 1 || S.result.abandoned) out.push('pause: «Завершить поход» does not end the run won'); }
+      R = run(37); }
     const sm = folkOf(R).find((q) => q.role === 'smith'); R.hero.x = R.map.town.svc.anvil.x; R.hero.y = R.map.town.svc.anvil.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); void sm;
     if (S.screen !== 'craft') out.push('talk: E at the anvil opens a dialogue, not the smith\'s workshop');
     return out;
@@ -2570,12 +2620,21 @@
       // TASKS 1003: every service on the plan, a body two cells wide walks from the spawn to where each is used, the rails keep
       // off the square and the paths to the services (they run only along the bottom wall), every townsperson stands on open floor
       const ok = DG.townWalk(m), wc = ok.map((v) => (v ? 1 : 0)), use = Object.entries(m.town.use);
-      for (const k of ['stairs', 'shop', 'altar', 'stash', 'anvil', 'lectern', 'board', 'portal', 'fire']) if (!m.town.use[k]) out.push(`town ${sd}: no ${k} on the plan`);
+      for (const k of ['stairs', 'shop', 'altar', 'stash', 'anvil', 'lectern', 'board', 'portal', 'fire', 'exitGate']) if (!m.town.use[k]) out.push(`town ${sd}: no ${k} on the plan`);
       const far = DG.narrowTo(wc, m.W, m.H, at(m.spawn), use.map(([, [x, y]]) => y * m.W + x));
       for (const k of far) out.push(`town ${sd}: ${use.find(([, [x, y]]) => y * m.W + x === k)[0]} out of a two-cell-wide walk from the spawn`);
       if (m.town.rails.some((k) => m.cells[k] !== 1 || (Math.floor(k / m.W) < 26 && k % m.W < 42))) out.push(`town ${sd}: the rails leave the bottom wall or run into rock`);
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
+    // TASKS 1149: the town's gate out asks first (E and Esc stay), then gives the run up; past the colossus it ends it won
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
+      const ask = () => { Q.hero.x = g.x; Q.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); return G.screen === 'leave'; };
+      if (!ask()) out.push('town gate: E at the gate opens no window');
+      else { step(G, { keys: ['KeyE'] }); if (G.screen !== 'play' || G.run !== Q) out.push('town gate: E in its window ends the run');
+        ask(); step(G, { keys: [], click: 1, px: go.x + 10, py: go.y + 10 }); if (G.screen !== 'dead' || !G.result.abandoned) out.push('town gate: «Сдаться» does not give the run up'); }
+      press(G, UI.end()[0]); if (G.screen === 'dead') G.screen = 'menu'; press(G, UI.menu(false).find((b) => b.id === 'campaign')); const Q2 = G.run;
+      if (Q2) { Q2.slain = [D.RUNS.campaign.floors]; Q2.deepest = D.RUNS.campaign.floors; const w0 = G.meta.wins || 0; Q2.hero.x = g.x; Q2.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); step(G, { keys: ['Enter'] });
+        if (G.screen !== 'win' || G.meta.wins !== w0 + 1) out.push('town gate: past the colossus the gate does not end the run won'); } }
     const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign'));
     const R = S.run; if (!R || R.floor !== 0 || !R.town || R.mode !== 'campaign' || S.screen !== 'play') { out.push('town: «Кампания» does not start in the town'); return out; }
     const h = R.hero, hp = h.hp, x0 = h.x;
