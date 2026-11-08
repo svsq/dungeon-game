@@ -247,7 +247,7 @@
       L.glow(sx(b.x), sy(b.y), 18, [0.75, 1, 0.4], 0.5 * a, 2.4); }
     // a terrace's surge (TASKS 475), over the bridges' decks too: over its warning its band glows and beats faster, sparks jump off
     // the lava by it and the lava creeps up its edges; then it floods it and ebbs back
-    for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0) continue;
+    for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0 || !z.cells.some((c) => R.seen[c])) continue;
       if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(GT * (8 + 14 * k));
         z.cells.forEach((c, i) => { if (i % 2 || !R.seen[c]) return; const wx0 = (c % z.W + 0.5) * TILE, wy0 = (Math.floor(c / z.W) + 0.5) * TILE; if (!vis(wx0, wy0)) return; const X = sx(wx0), Y = sy(wy0);
           L.glow(X, Y, 22 + 10 * k, [1, 0.45, 0.1], (0.12 + 0.45 * k) * beat, 2.2);
