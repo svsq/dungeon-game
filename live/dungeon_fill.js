@@ -608,7 +608,7 @@
         // chain fences on iron posts along some of the plateaus' front edges, over the lava or the chasm, 3 to 6 cells: a railing on the
         // very edge, so not held a cell off the lava as the props are (186); it is not solid and hides nothing
         for (const r of rooms) { if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss' || Dr() > 0.55) continue;
-          const runs = []; for (let y = r.y; y < r.y + r.h; y++) { let x0 = -1; for (let x = r.x; x <= r.x + r.w; x++) { const ok = x < r.x + r.w && at(x, y) === 1 && (at(x, y + 1) === 0 || at(x, y + 1) === 3) && at(x, y + 2) !== 1 && !over.has((y + 1) * W + x) && !hardC.has(key(x, y));
+          const runs = []; for (let y = r.y; y < r.y + r.h; y++) { let x0 = -1; for (let x = r.x; x <= r.x + r.w; x++) { const ok = x < r.x + r.w && at(x, y) === 1 && (at(x, y + 1) === 0 || at(x, y + 1) === 3) && at(x, y + 2) !== 1 && !over.has((y + 1) * W + x) && !thin.includes((y + 1) * W + x) && !hardC.has(key(x, y));
             if (ok && x0 < 0) x0 = x; if (!ok && x0 >= 0) { if (x - x0 >= 3) runs.push([x0, x, y]); x0 = -1; } } }
           if (!runs.length) continue; const [x0, x1, y] = runs[Math.floor(Dr() * runs.length)], n = Math.min(x1 - x0, dri(3, 6)), a = x0 + Math.floor(Dr() * (x1 - x0 - n + 1));
           decor.push({ x: a * TILE + 6, y: (y + 1) * TILE - 6, n: 'fence_mg', len: n * TILE - 12, r: r.id }); } }
@@ -863,7 +863,7 @@
         if (B) { const on = new Set(pathBy(noAlt)); for (const k of B.cells) chain[k] = 1; way = pathBy(chain).filter((k) => !on.has(k)); } }   // (TASKS 1158: told apart by the shortest walk, at equal length the chest went on the main way)
       const cand = way.slice(Math.floor(way.length * 0.3), Math.ceil(way.length * 0.7)).flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), ok = (k, pad) => cells[k] === 1 && !chain[k] && free(k % W, Math.floor(k / W), pad) && ![...decor, ...pots, ...torches].some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 64 || (Math.abs(Math.floor(d.y / TILE) - Math.floor(k / W)) <= 1 && Math.abs(d.x - wx(k % W)) < (D.PROP_W.chest + (D.PROP_W[d.n] || 0)) / 2 + 4)) && !traps.some((d) => Math.hypot(d.x - wx(k % W), d.y - wy(Math.floor(k / W))) < 110) && !chests.some((c) => Math.hypot(c.x - wx(k % W), c.y - wy(Math.floor(k / W))) < 96) && !doorway(k % W, Math.floor(k / W));
       const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
-      const mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k));
+      const all = way.flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k)) ?? all.find((k) => ok(k, 0) && roomy8(k));   // (TASKS 1161: props in its middle third cost a lake its chest)
       if (mid !== undefined) { const x = mid % W, y = Math.floor(mid / W); claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
     const hazards = [];
     if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y])];

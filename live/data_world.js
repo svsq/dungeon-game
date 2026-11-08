@@ -100,7 +100,7 @@
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, fallDeep: 3, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4],
         // a hoard's islet (TASKS 476): a pad of floor (`pad` cells) out in the open lava, `ring` cells of it all round, its only way a
         // strip of thin crust two cells wide `len` cells long to the nearest plateau; `n` a floor
-        islet: { pad: [3, 3], ring: 1, len: [2, 9], n: 1 } } },
+        islet: { pad: [3, 3], ring: 1, len: [4, 9], n: 1 } } },
     // the rooms-and-corridors floors' layouts (TASKS 379), each a set of knobs on the one generator (dungeon.js): room, the room count
     // of the floor's range taken (min: fewest a floor is laid with); rect, a plain room's size (cells, else by the map); shapes, the
     // shapes' weights over ROOM_SHAPES; gap, the rock kept between rooms; bends, the corridor length (cells) past which it takes one

@@ -770,7 +770,7 @@
           const fig = new Uint8Array(W * m.H); if (m.riverBand) m.riverBand.forEach(([a, b], x) => { for (let y = Math.max(6, Math.floor(a)); y <= Math.min(m.H - 5, Math.ceil(b)); y++) if (y + 0.5 > a && y + 0.5 < b) fig[y * W + x] = 1; });
           const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, Rw = DG.riverWays(m.cells, W, m.H, fig, s0, (c) => c === 1), ws = DG.riverAt(Rw, e0);
           // (TASKS 1160) the way with the guard has no aimed rocks of its own
-          if (m.riverGuard) { const fs = new Set(m.riverFire), g = new Set(m.riverGuard); for (const z of m.hazards) if (z.k === 'fall' && z.aim && !z.tail && g.has(Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE)) && !fs.size) out.push(`${tag}: a run of rocks on the guarded crossing`); }
+          if (m.riverGuard) { const g = new Set(m.riverGuard); for (const z of m.hazards) if (z.k === 'fall' && z.aim && !z.tail && g.has(Math.floor(z.y / TILE) * W + Math.floor(z.x / TILE))) out.push(`${tag}: a run of rocks on the guarded crossing`); }
           if (!m.riverBand || !DG.riverOk(Rw, e0, AR.river.loose)) out.push(`${tag}: no choice of ways over the river (${ws.map((q) => q[0]).join('/')}, round its end ${Rw.dry[e0]})`);
           if (!m.enemies.some((e) => e.post === 'ford')) out.push(`${tag}: no guard at the river's shortest way over`);
           if (!m.hazards.some((z) => z.ford)) out.push(`${tag}: no rock falling on the river's second way over`); }

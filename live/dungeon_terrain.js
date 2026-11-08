@@ -551,7 +551,7 @@
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const hor = dx !== 0, a0 = hor ? y + ((ph - 2) >> 1) : x + ((pw - 2) >> 1), strip = [];
             let u = hor ? (dx > 0 ? x + pw : x - 1) : (dy > 0 ? y + ph : y - 1), len = 0, land = false;
             for (; len <= IS.len[1]; len++, u += hor ? dx : dy) { const c2 = [0, 1].map((o) => (hor ? [u, a0 + o] : [a0 + o, u]));
-              if (c2.every(([cx2, cy2]) => at(cx2, cy2) === 1 && !under.has(cy2 * W + cx2) && rooms.some((r) => !r.pocket && !r.isle && cx2 >= r.x - 2 && cx2 < r.x + r.w + 2 && cy2 >= r.y - 2 && cy2 < r.y + r.h + 2) && !rooms.some((r) => (r.type === 'start' || r.type === 'shop' || r.type === 'boss') && cx2 >= r.x && cx2 < r.x + r.w && cy2 >= r.y && cy2 < r.y + r.h))) { land = true; break; }
+              if (c2.every(([cx2, cy2]) => at(cx2, cy2) === 1 && !under.has(cy2 * W + cx2) && rooms.some((r) => !r.pocket && !r.isle && cx2 >= r.x - 2 && cx2 < r.x + r.w + 2 && cy2 >= r.y - 2 && cy2 < r.y + r.h + 2) && !rooms.some((r) => (r.type === 'start' || r.type === 'shop' || r.type === 'boss') && cx2 >= r.x && cx2 < r.x + r.w && cy2 >= r.y && cy2 < r.y + r.h))) { land = [1, 2].every((s) => c2.every(([cx2, cy2]) => { const qx = cx2 + (hor ? dx * s : 0), qy = cy2 + (hor ? 0 : dy * s); return at(qx, qy) === 1 && !cr.has(qy * W + qx); })) && c2.every(([cx2, cy2]) => !cr.has(cy2 * W + cx2)); break; }   // (TASKS 1161: where one waits out the rocks is firm floor, not the bank's crust)
               if (!c2.every(([cx2, cy2]) => openL(cx2, cy2))) break; strip.push(...c2.map(([cx2, cy2]) => cy2 * W + cx2)); }
             if (!land || len < IS.len[0]) continue;
             for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) cells[(y + j) * W + x + i] = 1;
