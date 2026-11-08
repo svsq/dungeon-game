@@ -2226,6 +2226,7 @@
       { const keep = R2.arena.gate, en = R2.en; delete R2.arena.gate; R2.en = []; const T3 = spawn(1, JSON.parse(JSON.stringify(persist(S2))));
         if (!T3.saved || !T3.saved.arena || !T3.saved.arena.gate) out.push('climb: a save with the colossus slain and no portal home gets none on load');
         delete R2.arena.gate; enterFloor(S2, R2, F - 1, undefined, 'up'); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered again');
+        delete R2.arena.gate; enterFloor(S2, R2, 0); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered from the town');
         void keep; void en; }
       descend(S2, R2); const w0 = S2.meta.wins;
       if (R2.floor !== F + 1 || R2.mode !== 'endless') out.push(`climb: the descent past the colossus does not start on the ${F + 1}th`);
