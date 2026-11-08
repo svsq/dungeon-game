@@ -32,7 +32,7 @@
   // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
-  const GEN_VERSION = 9;
+  const GEN_VERSION = 10;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {
     hp_potion: { name: TXT('CONSUMABLES.hp_potion.name'), icon: 'it_hp', heal: 0.4, stack: 9 },
