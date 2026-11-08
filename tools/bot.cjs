@@ -82,7 +82,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
-  let thinGo = null; const THN = new WeakMap(), pushed = new Map(), crusted = new Map();
+  let thinGo = null, thinT = 0, thinL = -9; const THN = new WeakMap(), pushed = new Map(), crusted = new Map();
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
@@ -248,7 +248,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     thinGo = null; if (!dx && !dy || !thin.has(cellK(m, h.x + dx * 24, h.y + dy * 24))) return;
     const onStrip = (z) => (z.islet || z.k === 'fall') && m.thin.some((c) => Math.hypot((c % m.W + 0.5) * T - z.x, (Math.floor(c / m.W) + 0.5) * T - z.y) < D.HAZ.fall.r + 12);
     const due = (m.hazards || []).filter(onStrip).some((z) => hazSoon(S.t, z) < THIN_GO);
-    if (due || awake.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 220)) { inp.left = inp.right = inp.up = inp.down = 0; return; }
+    // (a wait of CHASE s at most: a foe on the far shore that can never reach the hero kept it at the strip for good, TASKS 1153)
+    if (due || awake.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 220)) { if (S.t - thinL > 0.5) thinT = S.t; thinL = S.t; if (S.t - thinT < CHASE) { inp.left = inp.right = inp.up = inp.down = 0; return; } }
     thinGo = [dx, dy]; }
   // the floor beside the bank's crust to strike a foe from: the nearest cell within a blow of it that is no crust (null: none)
   function offCrust(R, tg, st) { const m = R.map, h = R.hero, E = D.ENEMIES[tg.type], hx = Math.floor(h.x / T), hy = Math.floor(h.y / T); let o = null, best = null;
@@ -476,7 +477,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
     if (Math.hypot(h.x - lx, h.y - ly) > 20) { lx = h.x; ly = h.y; lt = S.t; }
     if (S.t - lt > 1) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); inp.press = 1;
-      Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
+      // in a fight the aim stays on the foe: held a pixel outside the bot's own margin of its reach, it swung the other way for good (TASKS 1153)
+      if (!(goal && goal[0] === 'fight')) Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
       // still held after 3 s: a dash; walking into something, also a step each time in the next of the four ways, for a way the
       // cells do not show (a gap between the merchant's counter and his barrel led behind the counter, where the only way out the
       // field knows runs through it, seed 36). Not in a fight, where the hero stands and swings
