@@ -183,6 +183,7 @@
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
     // Keys pressed in it are kept for the first step after it (TASKS 227)
+    if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R); if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
     if (R.freeze > 0) { R.freeze -= DT; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R); R.inbuf = Object.assign(R.inbuf || {}, keys); return; }
     R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
     // ---- input: 8-way run with accel / decel ----

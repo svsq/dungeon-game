@@ -273,8 +273,10 @@
     }
     // floor banner
     if (R.msg && S.screen === 'play') { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
+      if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; panel('msg_box', W / 2 - w / 2, 142, w, 104, { a: 0.9 * al, rim: C.rimHi }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
+      else {
       const size = Math.max(18, Math.floor(30 * Math.min(1, 1000 / lw('msg_m', s, { size: 30 })))), w = lw('msg', s, { size }) + 60;
-      panel('msg_box', W / 2 - w / 2, 150, w, 52, { a: 0.85 * al }); lab('msg', s, W / 2, 177, { size, al: 0.5, col: C.gold, a: al }); } }
+      panel('msg_box', W / 2 - w / 2, 150, w, 52, { a: 0.85 * al }); lab('msg', s, W / 2, 177, { size, al: 0.5, col: C.gold, a: al }); } } }
     // feed: pickups and refusals, newest at the bottom
     const feed = S.ev.filter((e) => (e.k === 'pickup' || e.k === 'nope' || e.k === 'lvl' || e.k === 'unlock' || e.k === 'trade') && S.t - e.t < 3).slice(-5);
     feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = H - 44 - (feed.length - 1 - i) * 34;

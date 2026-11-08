@@ -105,7 +105,7 @@
     if (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
       if (arenaSealed(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s.2') }); return; }
       if (exitKind(R) === 'portal') { if (R.campaignWon) return; if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
-      ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); return; }
+      ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); if ((RUN(R).chapters || []).some((c) => c.from === R.floor + 1) && !(R.chapSeen || {})[R.floor + 1]) R.leaving = 0.45; else enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (used && canDonate(R)) openAltar(S, R, used);
   }

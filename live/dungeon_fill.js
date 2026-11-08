@@ -589,6 +589,7 @@
           const fire = [start.cx, start.cy], ring = (n) => cellsOf(r, (x, y) => Math.hypot(x - fire[0], y - fire[1]) >= 2.5 && Math.hypot(x - fire[0], y - fire[1]) <= 5.5).find(([x, y]) => canStand(x, y, n));
           for (let i = 0; i < 2; i++) { const c = ring('banner_mg'); if (c) stand(...c, 'banner_mg', r.id); }
           stack(r, fire); if (Dr() < 0.5) { const c = ring('cage'); if (c) stand(...c, 'cage', r.id); } lie(r, 'skel_mg', Dr() < 0.5 ? 1 : 0, fire); lie(r, 'bones', dri(1, 2)); r.camp = 1;
+          for (let i = 0; i < 3; i++) { const c = ring('vent_mg'); if (c) { used.add(key(c[0], c[1])); decor.push({ x: wx(c[0]), y: wy(c[1]), n: 'vent_mg', r: r.id }); } }
           continue; }
         if (r === start) {
           // the explorer's camp: the tent backed against the rock a few steps from the fire, a pile of his barrels and crates, now and

@@ -1027,7 +1027,7 @@
       // (the spot out of the ring is the first side of it on whole floor, two cells from any lava and out of every other hazard's
       // reach: a fixed one fell in the lava once the plateaus' sizes varied, TASKS 432)
       const clear = (x, y) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE); for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) if (cell(m, tx + i, ty + j) !== 1) return false;
-        return m.hazards.every((q) => q === z || Math.hypot(q.x - x, q.y - y) > HZ[q.k].r + 60); };
+        return !m.traps.some((t) => Math.hypot(t.x - x, t.y - y) < 70) && m.hazards.every((q) => q === z || Math.hypot(q.x - x, q.y - y) > HZ[q.k].r + 60); };
       // (further round it and further out when the four sides are not clear: the packs of TASKS 407 shifted the floor seed 3 draws)
       const off = [40, 70, 100].flatMap((g) => Array.from({ length: 8 }, (_, i) => [Math.cos(i * Math.PI / 4) * (H.r + g), Math.sin(i * Math.PI / 4) * (H.r * 0.6 + g)])).find(([dx, dy]) => clear(z.x + dx, z.y + dy)) || [H.r + 40, 0];
       const inside = run(z.x + 8, z.y), outside = run(z.x + off[0], z.y + off[1]);
@@ -2074,6 +2074,7 @@
           if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f8: the demon lord does not drop the finale\'s loot');
           if (!R2.map.shrines.length) out.push('campaign f8: no altar past the demon lord');
           R2.drops = []; want = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.bag, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+          if (R2.leaving > 0) { R2.leaving = 0; SIMX.enterFloor(S2, R2, R2.floor + 1); }
           if (!S2.run || R2.floor !== 9) out.push(`campaign: the stairs past the demon lord lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 9th`);
           else {
             const m = R2.map;
@@ -2100,6 +2101,8 @@
               if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f12: the serpent does not pay the finale\'s 20 shards');
               if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f12: the serpent does not drop the finale\'s loot');
               R2.drops = []; const want2 = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
+              if (!(R2.leaving > 0)) out.push('campaign: no fade out on the stairs into the magma chapter'); R2.leaving = 0; SIMX.enterFloor(S2, R2, R2.floor + 1);
+              if (!R2.msg || R2.msg.chapter !== D.RUNS.magma.name) out.push('campaign: no chapter banner on the 13th');
               if (!S2.run || R2.floor !== 13) out.push(`campaign: the stairs past the serpent lead to ${S2.run ? 'floor ' + R2.floor : 'the end of the run'}, not the 13th`);
               else { const NM = D.RUNS.magma;
                 if (R2.map.biome !== 'magma' || R2.map.W !== NM.size[0][0] || dep(R2) !== 13 + (D.RUNS.campaign.chapters.find((c) => c.run === 'magma').shift || 0)) out.push(`campaign f13: not the magma caves' 1st at its depth (${R2.map.biome} ${R2.map.W} depth ${dep(R2)})`);
@@ -2298,7 +2301,7 @@
       hq.x = g.x; hq.y = g.y + 30; E(T2); if (Q.floor !== 0 || !Q.portal || Q.portal.f !== f) { out.push(`gate f${f}: the portal does not take the hero home`); continue; }
       hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; E(T2);
       if (Q.floor !== f || Math.hypot(hq.x - g.x, hq.y - g.y) > 90 || !Q.arena || !Q.arena.gate) { out.push(`gate f${f}: the town's portal does not lead back beside the boss's`); continue; }
-      hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
+      hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.leaving > 0) { Q.leaving = 0; SIMX.enterFloor(T2, Q, Q.floor + 1); } if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
     // past the colossus (TASKS 514): its hall keeps the town's portal and one stairs down; down them, back up from the descent's
     // 17th, the 16th is the campaign's again (PR 19 review: the descent's bag has no round before its first floor), the hero by the
     // stairs on, still one way down (its portal out no second stairs) and the portal home, and the stairs on take him to the 17th

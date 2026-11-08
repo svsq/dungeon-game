@@ -166,6 +166,8 @@
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - 30 - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
     reveal(R); R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 };
+    const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);
+    if (ch && !(R.chapSeen || {})[R.floor]) { (R.chapSeen ||= {})[R.floor] = 1; Object.assign(R.msg, { chapter: D.RUNS[ch.run].name, d: 4.5 }); }
   }
   // a run picked up on its arrival at a floor first built there (the bot's checkpoints, TASKS 467): the floor is built again by this
   // version of the game from the RNG and ids it was first built with, so a change to the deep floors is measured without playing
