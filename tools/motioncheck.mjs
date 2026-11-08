@@ -137,7 +137,7 @@ if (meta.tr.includes('golem_attack')) {
     report('slam', 'golem_attack', far.every(([, d, fw]) => d <= G0.r && fw >= 0), far.map(([k, d, fw]) => `hand ${k} ${d.toFixed(0)} px from the slam's centre (r ${G0.r}), ${fw.toFixed(0)} px before the ground`).join(', '));
     // (TASKS 1054) while they rest on the floor (the strike's first GOLEM_SLAM.hold s, 1/60 s a frame) both fists lie no more than
     // FIST px over the slam's line: the far one hung 35.5 px by this measure, 17.7 after 1054; the 12 asked takes a longer arm in the
-    // rig (TASKS 1147), so the line holds what the pose can do and stops it sliding back
+    // rig (TASKS 1156), so the line holds what the pose can do and stops it sliding back
     const FIST = 20, held = fr.filter((q) => q.st === 'strike' && q.en && q.en.handL && q.en.handR).slice(0, 12), up = Math.max(...held.map((q) => Math.max(...['L', 'R'].map((k) => (q.en.ground[1] + Math.sin(q.aim) * G0.at * 0.8 * s - q.en['hand' + k][1]) / s))));
     report('fists', 'golem_attack', up <= FIST, `the higher fist ${up.toFixed(1)} px over the slam's line while they rest (≤ ${FIST})`); } }
 // the golem's crust (TASKS 458): with its plates knocked off the molten core shows over at least CRUST of its body (it changed only
