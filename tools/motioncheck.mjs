@@ -193,7 +193,7 @@ if (meta.tr.includes('imp_attack')) {
 // crustFall (TASKS 1058): climbing out of the lava after a fall through the crust, frame by frame over its 0.55 s, at most CLIMB_POP of
 // the hero's pixels show in one frame (half of him popped in at once); bridgeStep: walking down a chain bridge the hero's drop with the
 // deck changes at most STEP_POP px a frame (stepping on he fell 9 px in one)
-{ const CLIMB_POP = 400, STEP_POP = 4;
+{ const CLIMB_POP = 400, STEP_POP = 3;
   const climb = await p.evaluate(() => { const st0 = window.__QA.states.find((q) => q[0] === 'magma_crustclimb'); if (!st0) return null; const c = document.getElementById('c'), g = document.createElement('canvas'); g.width = 1920; g.height = 1080;
     const gx = g.getContext('2d', { willReadFrequently: true }), out = [];
     for (let i = 0; i <= 36; i++) { const S = structuredClone(st0[1]); S.run.hero.climbT = S.t - i / 60; const shot = () => { SCENE.state = S; SCENE.render(S.t + 0.01); gx.drawImage(c, 0, 0); return gx.getImageData(560, 240, 800, 600).data; };
