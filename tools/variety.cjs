@@ -22,7 +22,7 @@ const ways = (m, r) => { const out = []; for (const [bx, by, bw, bh] of rectsOf(
   for (const p of out) { if (seen.has(p.join())) continue; n++; const st = [p]; seen.add(p.join());
     while (st.length) { const [x, y] = st.pop(); for (const q of out) if (!seen.has(q.join()) && Math.abs(q[0] - x) <= 1 && Math.abs(q[1] - y) <= 1) { seen.add(q.join()); st.push(q); } } }
   return n; };
-const rows = Array.from({ length: F }, () => ({ rooms: [], shapes: [], dead: 0, all: 0, short: 0, n: 0, walk: [], kinds: {}, size: {}, boss: 0 }));
+const rows = Array.from({ length: F }, () => ({ rooms: [], shapes: [], dead: 0, all: 0, short: 0, n: 0, walk: [], kinds: {}, mods: {}, size: {}, boss: 0 }));
 const seqs = new Map(); let alike = 0, pairs = 0; const alikeAt = [];
 for (let s = 1; s <= N; s++) { let prev = null; const seq = [];
   for (let f = 1; f <= F; f++) { const st = D.stageOf(mode, f, s), m = G.genFloor((s * 31 + f * 1013) >>> 0, f, { mode, runSeed: s }), q = rows[f - 1], k = kind(st);
@@ -30,13 +30,13 @@ for (let s = 1; s <= N; s++) { let prev = null; const seq = [];
     q.shapes.push(new Set(real.map((r) => r.shape || (r.pocket ? 'nook' : 'rect'))).size); if (!(D.ARCH[k] && (D.ARCH[k].grid || D.ARCH[k].bsp))) (q.mixed = q.mixed || []).push(q.shapes[q.shapes.length - 1]);
     for (const r of real) { q.all++; if (ways(m, r) === 1) q.dead++; }
     q.walk.push(m.walk); if (m.walk >= 0 && m.walk < BAND.shortK * (m.W + m.H)) q.short++;
-    q.kinds[k] = (q.kinds[k] || 0) + 1; if (st.boss) q.boss++; q.size[m.W + '×' + m.H] = 1; seq.push(st.biome + ':' + k);
+    q.kinds[k] = (q.kinds[k] || 0) + 1; if (m.mod) q.mods[m.mod] = (q.mods[m.mod] || 0) + 1; if (st.boss) q.boss++; q.size[m.W + '×' + m.H] = 1; seq.push(st.biome + ':' + k);
     const cur = { k, size: m.W + '×' + m.H, boss: !!st.boss };
     if (prev) { pairs++; if (prev.k === cur.k && prev.size === cur.size && !prev.boss && !cur.boss && !(RUN.endless && cur.k === 'cave' && f % 2 === 0)) { alike++; alikeAt.push(`seed ${s} f${f - 1}–${f}`); } }
     prev = cur; }
   seqs.set(seq.join(' '), (seqs.get(seq.join(' ')) || 0) + 1); }
 const avg = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1), fails = [];
-const table = rows.map((q, i) => ({ floor: i + 1 + (q.boss * 2 > q.n ? ' (boss)' : ''), kinds: Object.entries(q.kinds).map(([k, v]) => `${k} ${v}`).join(', '), size: Object.keys(q.size).join(' '),
+const table = rows.map((q, i) => ({ floor: i + 1 + (q.boss * 2 > q.n ? ' (boss)' : ''), kinds: Object.entries(q.kinds).map(([k, v]) => `${k} ${v}`).join(', '), mods: Object.entries(q.mods).map(([k, v]) => `${k} ${v}`).join(', ') || '—', size: Object.keys(q.size).join(' '),
   rooms: `${Math.min(...q.rooms)}–${Math.max(...q.rooms)} (${avg(q.rooms).toFixed(1)})`, spread: Math.max(...q.rooms) - Math.min(...q.rooms), shapes: +avg(q.shapes).toFixed(1), shapesMixed: q.mixed ? +avg(q.mixed).toFixed(1) : null,
   dead: +(q.dead / (q.all || 1)).toFixed(2), walk: `${Math.min(...q.walk)}–${Math.max(...q.walk)} (${avg(q.walk).toFixed(0)})`, short: +(q.short / q.n).toFixed(2), rooms0: q }));
 if (seqs.size < BAND.seqs) fails.push(`${seqs.size} different sequences of biome and layout over ${N} seeds (band ≥ ${BAND.seqs})`);
@@ -51,9 +51,9 @@ for (const t of table) { const caves = Object.keys(t.rooms0.kinds).every((k) => 
 if (json) console.log(JSON.stringify({ mode, seeds: N, seqs: seqs.size, alike, pairs, table: table.map(({ rooms0, ...t }) => t), fails }));
 else {
   console.log(`${mode}, ${N} seeds × ${F} floors: ${seqs.size} different sequences of biome and layout, ${alike} of ${pairs} floors running alike`);
-  const H = ['floor', 'layouts', 'map', 'rooms', 'shapes', 'dead ends', 'walk to stairs', 'short'];
+  const H = ['floor', 'layouts', 'modifiers (TASKS 381)', 'map', 'rooms', 'shapes', 'dead ends', 'walk to stairs', 'short'];
   console.log(H.join(' | ')); console.log(H.map(() => '---').join(' | '));
-  for (const t of table) console.log([t.floor, t.kinds, t.size, t.rooms, t.shapes, t.dead, t.walk, t.short].join(' | '));
+  for (const t of table) console.log([t.floor, t.kinds, t.mods, t.size, t.rooms, t.shapes, t.dead, t.walk, t.short].join(' | '));
   const top = [...seqs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
   for (const [k, v] of top) console.log(`  ${v}× ${k.split(' ').map((x) => x.split(':')[1]).join(' ')}`);
   for (const f of fails) console.log('FAIL ' + f);

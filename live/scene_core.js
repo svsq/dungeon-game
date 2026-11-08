@@ -118,7 +118,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; if (u_hard > 0.5) q = (floor(v_uv * u_sz
   // still lava creeps. All in world px, flat steps, no smooth ramp. u_mode 0 draws the
   // ground, 1 the glow for the emissive pass, 2 itself again as an emitter so the fires' light can't tint it
   const LAVA = `
-uniform sampler2D u_mask, u_seen, u_crust; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode, u_scorch; uniform vec4 u_melt[8];
+uniform sampler2D u_mask, u_seen, u_crust, u_occ; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode, u_scorch; uniform vec4 u_melt[8];
 vec3 vor(vec2 p){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0, id = 0.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(x, y), o = vec2(hash(i + g), hash(i + g + 7.7));
     o = 0.5 + 0.4 * sin(u_t * 0.25 + 6.2831 * o); float dd = length(g + o - f);
@@ -150,7 +150,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   float heat = clamp(col.r + col.g - 0.5, 0.0, 1.4);
   if (u_mode < 0.5) { float scorch = smoothstep(-10.0, -1.0, d) * (1.0 - inside) * u_scorch;   // the plateaus' bake draws its own bank (MAGMA)
     o = vec4(col * inside * 0.7 + vec3(0.035, 0.02, 0.015) * scorch, max(inside, scorch * 0.7)); }   // its own lights brighten it
-  else if (u_mode < 1.5) o = vec4(col * heat * inside * 0.33 * texture(u_seen, w / u_map).r, 0.0);
+  else if (u_mode < 1.5) o = vec4(col * heat * inside * 0.33 * texture(u_seen, w / u_map).r * (1.0 - texture(u_occ, scr(v_px)).a), 0.0);
   else o = vec4(col * inside * 0.56, inside); }`;
   // the map's edge bites the lava (TASKS 456): the generator keeps it two cells off the edge, so its bank there ran dead straight
   // along a column or row of cells, beside the plateaus' ragged banks; eaten back up to three cells by a slow noise it is ragged too
@@ -428,9 +428,11 @@ float sunk(vec2 w, out vec4 c, out vec2 f, out float dim){ dim = 0.0; float best
 // where the chasm opens in the lava a rim of basalt stones breaks the lava's edge off into it (TASKS 1059: a black pool behind a
 // yellow line, 16 % basalt round it against the concept's 50)
 vec3 pitRim(vec2 w, float la, vec3 col){ if (smoothstep(0.02, 0.06, la + (fbm(w / 9.0) - 0.5) * 0.04) < 0.5) return col;
-  vec2 cq = floor(w / 6.0), fq = fract(w / 6.0); float sh = hash(cq);
-  col = gCrust(w + 53.0) * (0.9 + 0.6 * sh) * (fq.y < 0.34 ? 1.3 : fq.y > 0.67 ? 0.55 : 1.0);
-  return fq.x < 0.17 || fq.y > 0.84 ? vec3(0.03, 0.022, 0.026) : col; }
+  // (rubble of uneven stones, TASKS 1163: a 6 px grid read as a row of black squares; L p90 11–15 against the reference's 24)
+  vec2 p = w / 7.0 + 0.9 * vec2(vnoise(w / 11.0), vnoise(w / 11.0 + 7.3)), id = floor(p), f = fract(p), nid = id, off = vec2(0.0); float d1 = 9.0, d2 = 9.0;
+  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y)), c = g + vec2(hash(id + g), hash(id + g + 3.1)) - f; float d = length(c); if (d < d1) { d2 = d1; d1 = d; nid = id + g; off = c; } else if (d < d2) d2 = d; }
+  col = gCrust(w + 53.0) * (1.1 + 1.3 * hash(nid)) * (off.y > 0.12 ? 1.5 : off.y < -0.2 ? 0.6 : 1.0);
+  return d2 - d1 < 0.1 ? vec3(0.03, 0.022, 0.026) : col; }
 vec3 capCol(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), xx = (w.x - c.x) / hw, yy = (w.y - c.y) / 8.0, r = xx * xx + yy * yy;
   vec3 col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * id) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + id * 9.0)));
   if (r > 0.64) col = yy < 0.2 && xx < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03);
@@ -768,7 +770,12 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   // an actor in the magma caves never comes out greener than both its red and blue (TASKS 1046: the hero's highlights went mint on a
   // dry plateau, the scene all warm); a cool steel keeps its blue
   vec3 lc = c * l + seam + glint; if (u_haze > 0.5 && oc.r > 0.5 && oc.b < 0.5) lc.g = min(lc.g, max(lc.r, lc.b));   // (the hero only, TASKS 1055: a goblin lost its green)
-  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), mix(lc, c * 1.8, em), s), 1.0); }`;
+  vec3 lit = mix(lc, c * 1.8, em);
+  // (TASKS 1163: dimmed whole into the fog, the lava's yellow kept its ratio and read olive; the reference's edge goes through red)
+  if (u_haze > 0.5 && s < 1.0 && lit.r > lit.b) lit.g *= mix(0.35, 1.0, smoothstep(0.1, 0.9, s));
+  // (TASKS 1175: past the light a seam keeps its yellow's ratio and reads olive; it stays yellow only where it burns bright)
+  if (u_haze > 0.5 && oc.r < 0.5 && lit.r > 2.5 * lit.b) lit.g = min(lit.g, lit.r * mix(0.5, 1.0, smoothstep(0.45, 0.75, lit.r)));
+  o = vec4(mix(abyss(floor(v_px / 2.0) * 2.0 + u_cam * 0.55, w), lit, s), 1.0); }`;
   const PORTAL = `
 uniform float u_amt;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);

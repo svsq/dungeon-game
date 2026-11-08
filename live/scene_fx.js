@@ -54,6 +54,16 @@
     m.torches.forEach((tc, i) => { const col = torchCol(m, tc); if (hid(tc) || !vis(tc.x, tc.y) || !known(tc.x, tc.y)) return;
       if (col[2] > col[0]) L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2); });
     for (const s of R.shrines) if (!s.used && vis(s.x, s.y) && known(s.x, s.y)) { L.glow(sx(s.x), sy(s.y) - 34, 30, altarCol, 0.5 + 0.2 * Math.sin(t * 3)); }
+    // a sanctum's circle whose priests are dead (TASKS 1054) rings its rim in the blessing's own blue (TASKS 1168: lava, vents and braziers burn every warm hue): step in for its blessing
+    for (const q of m.circles || []) if (q.bless && !q.used && vis(q.x, q.y) && known(q.x, q.y) && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) for (let j = 0; j < 56; j++) { if (j % 7 === 6) continue; const an = j * 2 * Math.PI / 56 + t * 0.2; L.solid(Math.round((sx(q.x) + Math.cos(an) * 1.85 * TILE) / 2) * 2 - 2, Math.round((sy(q.y) + Math.sin(an) * 1.85 * TILE) / 2) * 2 - 2, 4, 4, [0.72, 0.87, 1], 0, 2, 2, 0.8 + 0.2 * Math.sin(t * 3 + j / 7)); }
+    // (TASKS 1161: on the islet's dark crust the rock's shadow has nothing to darken, contrast 7 against the floor's 23)
+    for (const z of m.hazards || []) { if (z.k !== 'fall' || !z.islet || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.fall, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue; const q = w / H.warn, k = 0.3 + 0.7 * q; for (let j = 0; j < 12; j++) { const an = j * Math.PI / 6; L.glow(sx(z.x) + Math.cos(an) * H.r * k, sy(z.y) + 2 + Math.sin(an) * H.r * H.ry * k, 8, [1, 0.72, 0.3], 0.35 + 0.5 * q); } }
+    for (const c of SC.crackFx || []) { if (!known(c.wx, c.wy)) continue; const k = Math.min(1, (c.w - 0.55 * c.d) / 0.45); if (k <= 0) continue;
+      const hot = [1, 0.95, 0.6], A = 0.4 + 0.6 * c.w, H = Math.max(2, Math.round(5 * k) * 2), piece = (x, y, w, h) => L.solid(c.X + x, c.Y + y, w, h, hot, c.rot, -x, -y, A);
+      let x = ((c.s & 3) - 2) * 2;
+      for (let y = -H / 2, i = 0; y < H / 2; i++) { const l = Math.min(H / 2 - y, (c.s >> i) & 1 ? 4 : 2); piece(x, y, 2, l); y += l; x += (c.s >> (i + 3)) & 1 ? 2 : -2; if (Math.abs(x) > 6) x = 0; }
+      if (k > 0.6) piece(((c.s & 3) - 2) * 2 + (c.f ? 2 : -4), (c.s & 4) ? -2 : 0, 4, 2);
+      L.glow(c.X, c.Y, 12, [1, 0.8, 0.4], 0.27 * c.w, 2.4); } SC.crackFx = [];
     // gold catches the light: loose coins, heaps and spilt coins keep a yellow sheen the fire's orange can't take, and twinkle pale
     // yellow, each on its own beat (TASKS 167)
     const glint = (x, y, n, k, sheen = true) => { if (sheen) L.glow(sx(x), sy(y) + 2, 6 + 3 * n, [0.9, 0.95, 0.3], 0.7, 3); for (let j = 0; j < n; j++) { const ph = (t * (0.7 + 0.3 * rnd(k, j)) + rnd(k, j + 5)) % 1.6; if (ph > 0.5) continue;
@@ -101,7 +111,7 @@
         if (q.wet) L.ring(sx(q.x), sy(q.y), 3 + 14 * f, (3 + 14 * f) * 0.45, [0.55, 0.78, 0.82], 0.5 * (1 - f), 0.25);
         else for (const s of [-1, 1]) L.solid(Math.round((sx(q.x) + s * 7 * f) / PIX) * PIX, Math.round((sy(q.y) - 10 * Math.sin(Math.PI * Math.min(1, f * 1.6))) / PIX) * PIX, PIX, PIX, [0.5, 0.7, 0.75], 0, 0, 0, 0.6 * (1 - f)); }
       G.blend(); }
-    if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
+    if (SIM.Q.exitKind(R, m.floor) === 'portal' && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     { const g = !m.town && R.arena && R.arena.gate; if (g && vis(g.x, g.y) && known(g.x, g.y)) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(g.x) - 52, sy(g.y) - 86, 104, 104)); }
     if (R.town && R.portal && m.town) { const P = m.town.svc.portal; G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(P.x) - 52, sy(P.y) - 86, 104, 104)); }
     // a scroll being read (TASKS 1007): a ring of cold light closes in round the hero's feet, sparks rise and quicken

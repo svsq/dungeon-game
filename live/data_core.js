@@ -3,7 +3,7 @@
 (function (root) {
   const D = root.DATA || (root.DATA = {});
   // the game's version (TASKS 1038): the main menu's corner, the desktop build and the changelog's top entry read this one
-  const VERSION = '0.1.0';
+  const VERSION = '0.2.0';
   const TILE = 32;                         // world units are view px; HD-pixel art drawn at display size (styles.md §1)
   // the camera's zoom: the world fills the 1920×1080 screen from a 1920/ZOOM × 1080/ZOOM window. Only whole art-pixel steps keep
   // the pixel grid whole: 1 (one art pixel = 2 screen px, the reference's scale), 1.5 (3 px) or 2 (4 px); the player picks one in

@@ -378,7 +378,9 @@
       const u = (u0 + (LZ.set[i] ? 0.5 : 0)) % 1, Am = sl / 2 * run; let off, up = 0;
       if (u < 0.5) off = Am * (1 - 4 * u); else { const w = (u - 0.5) * 2; off = -Am + 2 * Am * SS(0.1, 0.9, w); up = Math.sin(Math.PI * w) * 0.05 * o.H * run; }
       let F = [Sk[0] + LZ.fwd[j] * (l1 + l2) + off, Sk[1] + side * LZ.out[j] * (l1 + l2) * 0.82];
-      const tuck = Math.max(sw, curl); if (tuck > 0) F = [lerp(F[0], Sk[0] + (j ? -0.3 : 0.3) * l1, tuck), lerp(F[1], Sk[1] + side * 0.35 * l1, tuck)];
+      if (sw > 0) F = [lerp(F[0], Sk[0] + (j ? -0.3 : 0.3) * l1, sw), lerp(F[1], Sk[1] + side * 0.35 * l1, sw)];
+      // (dying it sprawls, its legs flung out wide, TASKS 1054: tucked under the body as in the lava, they read as nothing)
+      if (curl > 0) F = [lerp(F[0], Sk[0] + (j ? -0.35 : 0.45) * (l1 + l2), curl), lerp(F[1], Sk[1] + side * 0.98 * (l1 + l2), curl)];
       // in the floor's plane: the elbow (front) bends back, the knee (hind) forward; then the joint rises off the floor a little
       const dx = F[0] - Sk[0], dy = F[1] - Sk[1], dm = Math.min(Math.hypot(dx, dy), (l1 + l2) * 0.98), base = Math.atan2(dy, dx);
       const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dm * dm - l2 * l2) / (2 * l1 * dm)))), ka = base + a * side * (j ? 1 : -1);
@@ -543,10 +545,11 @@
   function emberPose(e, E, GT, face, base) {
     const live = e.deadT < 0, u = GT - e.t0, w = DATA.windOf(e, E.wind), lit = e.st === 'wind' ? SS(0, 0.22, u) : 0, q = e.st === 'wind' ? Math.min(1, u / w) : 0;
     const run = SS(10, 60, Math.hypot(base.vx, base.vy)) * (1 - lit), still = live ? 1 : 1 - SS(0, 0.1, GT - e.deadT);
-    // (TASKS 460: the fuse burning down shakes it whole, arms and body, three times as hard at the end, and it ducks just before)
-    const end = 1 - SS(w - 0.06, w, u), tremble = still * lit * (0.01 + 0.025 * q * q) * end * Math.sin(GT * (22 + 10 * q) + 0.6);
+    // (TASKS 460: the fuse burning down shakes it whole, arms and body, three times as hard at the end, and it ducks just before;
+    // TASKS 1054: from the fuse's first quarter, where it reads, the end measured half again as hard, its floor lowered)
+    const end = 1 - SS(w - 0.06, w, u), tremble = still * lit * (0.006 + 0.034 * q * q) * end * Math.sin(GT * (22 + 10 * q) + 0.6);
     base.lean = (base.lean || 0) + face * 0.16 * run + tremble; base.crouch += 5 * run + 4 * lit + 7 * (e.st === 'wind' ? lit * SS(w - 0.15, w, u) : e.st === 'strike' || !live ? 1 : 0);
-    base.arm = (side, b) => { const sg = side === 'L' ? 1 : -1, shake = still * lit * (0.05 + 0.12 * q * q) * end * Math.sin(GT * (18 + 12 * q) + (side === 'L' ? 0 : 1.7));
+    base.arm = (side, b) => { const sg = side === 'L' ? 1 : -1, shake = still * lit * (0.035 + 0.17 * q * q) * end * Math.sin(GT * (18 + 12 * q) + (side === 'L' ? 0 : 1.7));
       const r1 = lerp(lerp(b, 1.5 * b - 0.3, run), -2.55 + 0.25 * sg, lit) + shake; return [r1, r1 + lerp(lerp(0.18, 0.1 - 0.4 * b, run), 0.5, lit) + shake * 0.6]; };
   }
 
@@ -791,14 +794,16 @@
       biped(base); return true; }
     if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 0.5; return biped(base); }
     if (n === 'golem') { const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
-      if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 26 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);
+      if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 16 * (hit >= 0 ? (0.25 + 0.75 * SS(0, 0.07, hit)) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);   // (from the wind-up's own crouch, TASKS 1156: from 0 the longer arm's elbow popped 8.8 px)
         // the fists come down on the floor where the slam lands, side by side, rest there and come home to the walk's own hang (TASKS 458):
         // swung by the chop's angle alone the far one went on past the body and lay behind the golem
         const w = DATA.windOf(e, E.wind), O = GOLEM_SLAM, k = e.st === 'strike' ? 1 - SS(O.hold, O.dur, u) : SS(w - O.chopT, w, u);
         base.arm = (side, b) => { if (e.st === 'strike') return [b, b + 0.18 - 0.4 * b]; const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; };
         // (the far fist a little nearer the body, by the way it faces, TASKS 490: set off by the screen's side, it reached out past its
         // arm and hung 38–43 px over the floor)
-        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.1 : 0.06) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - 0.05) * H, k]; }; }
+        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.22 : 0.06) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - (side === 'L' ? -0.08 : 0.05)) * H, k]; };
+        // (the far fist drawn in under the body and the knees bent deeper while they rest, TASKS 1054: it fell short and hung 29 px up)
+        base.crouch += 18 * k; }
       base.plates = { n: e.crust ?? E.crust.n, T: e.plateT, A: e.plateA, G: e.plateG, GT };
       if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       base.lift = 0.04; base.narrow = 0.2; return biped(base); }

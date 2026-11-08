@@ -6,7 +6,8 @@ decals are Codex art since 421.
   obsidian_mg     crystal_cv re-shaded into black volcanic glass with violet-grey glints
   banner_mg       the cult banner hung from a crossbar between two iron posts (it stands on the plateau, no wall to hang on)
   forge_mg        forge_tw's slate, brick and iron re-shaded into basalt, the fire (hot warm pixels) kept as drawn
-  python3 tools/magmaprops.py
+  stairs_mg, stairs_up_mg, stairs_up_free_mg  stairs, stairs_up and stairs_up_free re-shaded into basalt, the treads keeping their light and dark steps
+  python3 tools/magmaprops.py [--only name1,name2]
 """
 import sys
 
@@ -56,6 +57,8 @@ def glass(im):
     return Image.fromarray(a)
 
 
+STAIR_RAMP = [INK, BAS[1], BAS[2], BAS[3], BAS[4]]
+STAIR_CUTS = [0.07, 0.14, 0.24, 0.38]
 FERN_GROW, CLOSE = 5, 12
 
 
@@ -152,6 +155,9 @@ if __name__ == '__main__':
         'skel_mg': charred('art/gen/skel_cv.png'),
         'banner_mg': banner(),
         'forge_mg': forge('art/gen/forge_tw.png'),
+        'stairs_mg': reshade('art/gen/stairs.png', STAIR_RAMP, STAIR_CUTS),
+        'stairs_up_mg': reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS),
+        'stairs_up_free_mg': reshade('art/gen/stairs_up_free.png', STAIR_RAMP, STAIR_CUTS),
     }
     only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(out)
     for n, im in ((k, out[k]) for k in only):

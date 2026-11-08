@@ -6,9 +6,9 @@
     wayRooms } = DGX;
   DGX.terrain = (GF) => {
     const {
-      AR, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
+      AR, FM, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
       figHit, floor, ftype, keep, lakeEnds, last, lastTry, lc, main, opts, pick, pl, plat, ri, riverY, rooms, runFloor, seed, set, side,
-      strict, terr, tidy } = GF;
+      altTry, strict, terr, tidy } = GF;
     // ---- roles: start at a leaf on the rim, exit farthest by hops then distance ----
     const hops = (from) => { const h = rooms.map(() => 99), q = [from.id]; h[from.id] = 0;
       while (q.length) { const a = q.shift(); for (const b of adj[a]) if (h[b] > h[a] + 1) { h[b] = h[a] + 1; q.push(b); } } return h; };
@@ -471,6 +471,42 @@
           if (narrowTo(cells, W, H, start.cy * W + start.cx, rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx)).length) { for (let k = 0; k < W * H; k++) cells[k] = c0[k]; continue; }
           for (const k of deck) chasmUnder.add(k); crossings.push({ kind: 'bridge', cells: deck, axis: hor ? 'x' : 'y', clean: 1, chasm: 1 }); }
         if (crossings.filter((c) => c.chasm).length < (MIX && ftype === 'river' ? AR.blend.riverBridges : 2)) return false;
+        // a chasm floor's way over has another (TASKS 1054: its bridges stood in series on 8 floors of 10, the one choice "wait or run"
+        // under the rocks): the walk's longest bridge with no way round it gets a second straight deck over the dark from the
+        // plateaus on its near side to those on its far side, at least `alt.off` cells off it, `alt.len` cells long
+        if (ftype === 'chasm' && TY.alt) { const A = TY.alt, s0 = start.cy * W + start.cx, e0 = exitR.cy * W + exitR.cx;
+          const walk = (ban) => { const from = new Int32Array(W * H).fill(-2), q = [s0]; from[s0] = -1;
+            for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of D4) { const n = q[i] + o; if (from[n] === -2 && cells[n] === 1 && !ban.has(n)) { from[n] = q[i]; q.push(n); } }
+            const out = []; if (from[e0] !== -2) for (let k = e0; k >= 0; k = from[k]) out.push(k); return out; };
+          const way = new Set(walk(new Set())), lone = crossings.filter((c) => c.chasm && c.cells.some((k) => way.has(k)) && !walk(new Set(c.cells)).length).sort((a, b) => b.cells.length - a.cells.length);
+          for (const B of lone) { const ban = new Set(B.cells), near = new Uint8Array(W * H), q = [s0]; near[s0] = 1;
+            for (let i = 0; i < q.length; i++) for (const o of D4) { const n = q[i] + o; if (!near[n] && cells[n] === 1 && !ban.has(n)) { near[n] = 1; q.push(n); } }
+            const dark = (x, y) => x > 1 && y > 1 && x < W - 2 && y < H - 2 && lowC(y * W + x), off = (x, y) => B.cells.every((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) >= A.off);
+            let best = null;
+            for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const hor = dx !== 0, px = hor ? 0 : 1, py = hor ? 1 : 0;
+              if (!near[y * W + x] || !near[(y + py) * W + x + px] || hidden.has(y * W + x)) continue; const deck = []; let u = 1, ok = true;
+              for (; u <= A.len[1]; u++) { const ax = x + dx * u, ay = y + dy * u, bx = ax + px, by = ay + py;
+                if (cells[ay * W + ax] === 1 && cells[by * W + bx] === 1) break;
+                if (!dark(ax, ay) || !dark(bx, by) || !dark(ax - px, ay - py) || !dark(bx + px, by + py) || !off(ax, ay) || !off(bx, by)) { ok = false; break; } deck.push(ay * W + ax, by * W + bx); }
+              const ex = x + dx * u, ey = y + dy * u;
+              if (!ok || u > A.len[1] || u - 1 < A.len[0] || near[ey * W + ex] || cells[ey * W + ex] !== 1 || cells[(ey + py) * W + ex + px] !== 1 || ban.has(ey * W + ex)) continue;
+              if (!best || deck.length < best.deck.length) best = { deck, hor }; }
+            // (TASKS 1158: 12 cells off the first, a straight shot exists on one floor in three; failing it two decks meet on a pad of rock out in the dark)
+            let bent = null; const open = (x, y) => dark(x, y) && off(x, y);
+            if (!best) for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const px = dx ? 0 : 1, py = dx ? 1 : 0;
+              if (!near[y * W + x] || !near[(y + py) * W + x + px] || hidden.has(y * W + x)) continue; const leg = [];
+              for (let u = 1; u <= A.len[1]; u++) { const ax = x + dx * u, ay = y + dy * u, side = (j) => open(ax + px * j, ay + py * j); if (!side(-1) || !side(0) || !side(1) || !side(2)) break; leg.push(ay * W + ax, (ay + py) * W + ax + px);
+                if (u < 2) continue; const pad = []; let fit = true; for (let i = 1; i <= 4 && fit; i++) for (let j = -1; j <= 2; j++) { const qx = x + dx * (u + i) + px * j, qy = y + dy * (u + i) + py * j; if (!open(qx, qy)) { fit = false; break; } pad.push(qy * W + qx); }
+                if (!fit) continue;
+                for (const s of [1, -1]) { const leg2 = []; let v = 0, done = false; for (; v <= A.len[1]; v++) { const j = (s > 0 ? 3 : -2) + s * v, cx = x + dx * (u + 2) + px * j, cy = y + dy * (u + 2) + py * j, c2 = cy * W + cx, c3 = c2 + dy * W + dx;
+                    if (cells[c2] === 1 && cells[c3] === 1) { done = v >= 2 && !near[c2] && !ban.has(c2); break; }
+                    if (![-1, 0, 1, 2].every((w) => open(cx + dx * w, cy + dy * w))) break; leg2.push(c2, c3); }
+                  if (done && (!bent || leg.length + leg2.length < bent.size)) bent = { size: leg.length + leg2.length, leg: leg.slice(), pad, leg2, hor: dx !== 0 }; } } }
+            if (bent) { for (const k of bent.pad) cells[k] = 1; for (const k of [...bent.leg, ...bent.leg2]) { cells[k] = 1; chasmUnder.add(k); }
+              crossings.push({ kind: 'bridge', cells: bent.leg, axis: bent.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }, { kind: 'bridge', cells: bent.leg2, axis: bent.hor ? 'y' : 'x', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }); break; }
+            if (!best) continue; for (const k of best.deck) { cells[k] = 1; chasmUnder.add(k); }
+            crossings.push({ kind: 'bridge', cells: best.deck, axis: best.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1, of: B.cells[0] }); break; }
+          if (altTry && lone.length && !crossings.some((c) => c.alt)) return false; }   // (only the first tries: past them the floor's other rules are short of tries)
         // what a bridge left of its ridge off the way goes to the dark
         const sv = new Uint8Array(W * H), st = [start.cy * W + start.cx]; sv[st[0]] = 1;
         while (st.length) { const k = st.pop(); for (const o of D4) { const n = k + o; if (!sv[n] && (cells[n] === 1 || cells[n] === 4)) { sv[n] = 1; st.push(n); } } }
@@ -515,7 +551,7 @@
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const hor = dx !== 0, a0 = hor ? y + ((ph - 2) >> 1) : x + ((pw - 2) >> 1), strip = [];
             let u = hor ? (dx > 0 ? x + pw : x - 1) : (dy > 0 ? y + ph : y - 1), len = 0, land = false;
             for (; len <= IS.len[1]; len++, u += hor ? dx : dy) { const c2 = [0, 1].map((o) => (hor ? [u, a0 + o] : [a0 + o, u]));
-              if (c2.every(([cx2, cy2]) => at(cx2, cy2) === 1 && !under.has(cy2 * W + cx2) && rooms.some((r) => !r.pocket && !r.isle && cx2 >= r.x - 2 && cx2 < r.x + r.w + 2 && cy2 >= r.y - 2 && cy2 < r.y + r.h + 2) && !rooms.some((r) => (r.type === 'start' || r.type === 'shop' || r.type === 'boss') && cx2 >= r.x && cx2 < r.x + r.w && cy2 >= r.y && cy2 < r.y + r.h))) { land = true; break; }
+              if (c2.every(([cx2, cy2]) => at(cx2, cy2) === 1 && !under.has(cy2 * W + cx2) && rooms.some((r) => !r.pocket && !r.isle && cx2 >= r.x - 2 && cx2 < r.x + r.w + 2 && cy2 >= r.y - 2 && cy2 < r.y + r.h + 2) && !rooms.some((r) => (r.type === 'start' || r.type === 'shop' || r.type === 'boss') && cx2 >= r.x && cx2 < r.x + r.w && cy2 >= r.y && cy2 < r.y + r.h))) { land = [1, 2].every((s) => c2.every(([cx2, cy2]) => { const qx = cx2 + (hor ? dx * s : 0), qy = cy2 + (hor ? 0 : dy * s); return at(qx, qy) === 1 && !cr.has(qy * W + qx); })) && c2.every(([cx2, cy2]) => !cr.has(cy2 * W + cx2)); break; }   // (TASKS 1161: where one waits out the rocks is firm floor, not the bank's crust)
               if (!c2.every(([cx2, cy2]) => openL(cx2, cy2))) break; strip.push(...c2.map(([cx2, cy2]) => cy2 * W + cx2)); }
             if (!land || len < IS.len[0]) continue;
             for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) cells[(y + j) * W + x + i] = 1;
@@ -523,6 +559,8 @@
             const c2 = cells.slice(); for (const k of strip) c2[k] = 1;
             if (narrowTo(c2, W, H, start.cy * W + start.cx, [(y + (ph >> 1)) * W + x + (pw >> 1)]).length) { for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) cells[(y + j) * W + x + i] = 3; continue; }
             for (const k of strip) { crust.push(k); thin.push(k); }
+            const shore = strip.slice(-2);   // (TASKS 1170: the bank's crust by the strip's foot is where one waits out the rocks, and it gives under a standing hero)
+            for (let i = crust.length - 1; i >= 0; i--) { const k = crust[i]; if (!strip.includes(k) && shore.some((q) => Math.max(Math.abs(q % W - k % W), Math.abs(Math.floor(q / W) - Math.floor(k / W))) <= 2)) { crust.splice(i, 1); cr.delete(k); } }
             rooms.push({ x, y, w: pw, h: ph, cx: x + (pw >> 1), cy: y + (ph >> 1), type: 'treasure', id: rooms.length, islet: 1 }); made++; break; } } }
       // a straight edge left along rock laid after the walls were broken (a cache's block, an arena's rim; TASKS 422) gets a notch of
       // lava in its middle, where the rock behind it stays two cells thick (the merchant's corner and the caches keep theirs)
@@ -824,7 +862,7 @@
       for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
       let n = 0;
       for (const r of candidates.concat(rooms.filter((q) => q.type === 'combat' && plain(q) && !candidates.includes(q) && !secrets.some((s) => s.front.some(([x, y]) => roomOf(x, y) === q))))) {
-        if (n >= 2) continue;
+        if (n >= 2 * (FM.water || 1)) continue;
         const w = wi(1, 3), xs = [];
         for (let x = r.x + 2; x + w <= r.x + r.w - 2; x++) if (Array.from({ length: w + 2 }, (_, i) => x + i - 1).every((cx) => at(cx, r.y - 1) === 0 && !isDoor(cx, r.y) && !secretFront.has(r.y * W + cx))) xs.push(x);
         if (!xs.length) continue;
@@ -905,7 +943,7 @@
       // (a kind marked `early` comes on the 1st floor before its monster does, with the floor's own pack, TASKS 488: the prison alone
       // could, and was there in 30 runs of 30)
       let n = HL.n[0] + (Hr() < HL.two ? 1 : 0); const kinds = Object.entries(HL.kinds).filter(([, K]) => have.includes(K.need) || (floor === 1 && K.early)), took = new Set();
-      for (const r of cand) { if (n <= 0 || !kinds.length) break; const pk = kinds.filter(([k]) => !took.has(k)); if (!pk.length) break;
+      for (const r of cand) { if (n <= 0 || !kinds.length) break; const pk = kinds.filter(([k]) => !took.has(k) && !(HL.kinds[k].pay.bless && Math.max(Math.abs(r.cx - exitR.cx), Math.abs(r.cy - exitR.cy)) < HL.blessOff)); if (!pk.length) continue;
         let roll = Hr() * pk.reduce((a, [, K]) => a + K.w, 0), pick = pk[0][0]; for (const [k, K] of pk) if ((roll -= K.w) < 0) { pick = k; break; } r.hall = pick; took.add(pick); n--; } }
     Object.assign(GF, {
       HL, chasmUnder, circles, cliff, crossings, crust, deadEnd, deckUsed, doors, exitR, floodCells, flow, lakeWay, lava, lavaBodies,

@@ -83,6 +83,7 @@
     boss: (name) => [TXT('KEEPER.boss', { name }), TXT('KEEPER.boss.2')],
     rare: (name) => [TXT('KEEPER.rare', { name }), TXT('KEEPER.rare.2')],
     away: [TXT('KEEPER.away'), TXT('KEEPER.away.2')],
+    end: [TXT('KEEPER.end')], endDeep: [TXT('KEEPER.endDeep')],
   };
   // a townsperson's loop clock: its own rate and phase per instance, so no two move in sync
   const folkClock = (role, i, t) => { const per = FOLK[role].per * (1 + 0.12 * (((i * 0.618) % 1) - 0.5)), x = (t + i * 1.37) / per, n = Math.floor(x); return { n, u: x - n, per }; };

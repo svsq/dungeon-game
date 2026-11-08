@@ -79,9 +79,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const S = initial ? initial.S : SIM.spawn(0, {});
   if (!initial) { S.seedBase = seed; S.meta.diff = diff; startRun(S, mode); }
 
-  const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), counted = new WeakSet(), been = new Set(), low = new Map();
+  const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), salNext = new Map(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
+  let thinGo = null, thinT = 0, thinL = -9; const THN = new WeakMap(), pushed = new Map(), crusted = new Map();
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
@@ -160,6 +161,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
+      // (TASKS 1157: backing off every swing, one each 1.4 s, the expert never struck back for 120 s and more)
+      if (E.kind === 'salamander') { if (d > E.r + HR + E.reach + 6 || t < (salNext.get(e.id) || 0)) continue; salNext.set(e.id, t + 2.5); }
       const range = e.st === 'bwind' ? (['bite', 'tail', 'fists'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : e.mv === 'crack' ? D.bossMove(e).len : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
@@ -223,6 +226,45 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const nx = h.x + dx * 30, ny = h.y + dy * 30;
     const stop = hz.find((z) => hazNear(z, nx, ny, 12) && !hazNear(z, h.x, h.y, 12) && z.soon < 0.9); if (stop) { inp.left = inp.right = inp.up = inp.down = 0; if (stop.pool) poolHeld = 1; }
   }
+  // a terrace's lavafall surge (TASKS 475, 414): its band is no ring, the rings above miss it. Out of the band once its warning shows,
+  // to the nearest floor out of it; no step into it with the flood due within SURGE_GO s (a band two to four cells across)
+  const SURGE_GO = 1.4, BOSS_HP = 0.08;
+  function avoidSurge(S, R, h, inp) {
+    for (const z of R.map.hazards || []) { if (z.k !== 'surge') continue; const soon = hazSoon(S.t, z), H = D.HAZ.surge;
+      if (D.hazIn(z, h.x, h.y) && soon < H.warn + 0.2) { const m = R.map, tx = Math.floor(h.x / T), ty = Math.floor(h.y / T); let best = null;
+        for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) { const x = (tx + i + 0.5) * T, y = (ty + j + 0.5) * T; if (SIM.cell(m, tx + i, ty + j) !== 1 || D.hazIn(z, x, y)) continue;
+          const d = Math.hypot(i, j); if (!best || d < best[0]) best = [d, x, y]; }
+        if (best) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; walk(R, inp, best[1], best[2]); } return; }
+      const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
+      if ((dx || dy) && !D.hazIn(z, h.x, h.y) && D.hazIn(z, h.x + dx * 30, h.y + dy * 30) && soon < SURGE_GO) inp.left = inp.right = inp.up = inp.down = 0; } }
+  // the magma's crust (TASKS 476, 484, 414): a strip of thin crust out to a hoard's islet gives under a pause of CRUST.thin s, so on it
+  // the bot never stops (the way it stepped on holds while nothing else moves it) nor swings; it steps on only with no awake foe near and
+  // none of the strip's rocks due before it is over (THIN_GO s). The bank's crust gives under a stand of CRUST.stand s: a blow is struck
+  // from the floor beside it
+  const THIN_GO = 2.2, cellK = (m, x, y) => Math.floor(y / T) * m.W + Math.floor(x / T);
+  function thinWalk(S, R, h, inp, awake) {
+    const m = R.map; if (!m.thin || !m.thin.length) { thinGo = null; return; } const thin = THN.get(m) || (THN.set(m, new Set(m.thin)), THN.get(m)), k = cellK(m, h.x, h.y);
+    let dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0);
+    if (thin.has(k)) { if (!dx && !dy && thinGo) { [dx, dy] = thinGo; steer(inp, dx, dy); } else if (dx || dy) thinGo = [dx, dy];
+      inp.press = 0; inp.slot = 0; inp.keys = inp.keys.filter((q) => q !== 'Space'); return; }
+    thinGo = null; if (!dx && !dy || !thin.has(cellK(m, h.x + dx * 24, h.y + dy * 24))) return;
+    const onStrip = (z) => (z.islet || z.k === 'fall') && m.thin.some((c) => Math.hypot((c % m.W + 0.5) * T - z.x, (Math.floor(c / m.W) + 0.5) * T - z.y) < D.HAZ.fall.r + 12);
+    const due = (m.hazards || []).filter(onStrip).some((z) => hazSoon(S.t, z) < THIN_GO);
+    // (a wait of CHASE s at most: a foe on the far shore that can never reach the hero kept it at the strip for good, TASKS 1153)
+    if (due || awake.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 220)) { if (S.t - thinL > 0.5) thinT = S.t; thinL = S.t; if (S.t - thinT < CHASE) { inp.left = inp.right = inp.up = inp.down = 0; return; } }
+    thinGo = [dx, dy]; }
+  // the floor beside the bank's crust to strike a foe from: the nearest cell within a blow of it that is no crust (null: none)
+  function offCrust(R, tg, st) { const m = R.map, h = R.hero, E = D.ENEMIES[tg.type], hx = Math.floor(h.x / T), hy = Math.floor(h.y / T); let o = null, best = null;
+    for (let j = -1; j <= 1 && !o; j++) for (let i = -1; i <= 1 && !o; i++) if (m.cells[(hy + j) * m.W + hx + i] === 1 && !SIM.crustAt(m, (hy + j) * m.W + hx + i)) o = [hx + i, hy + j];
+    if (!o) return null; const F = SIM.flow(m, o[0], o[1], 1);
+    for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = (Math.floor(tg.x / T) + i + 0.5) * T, y = (Math.floor(tg.y / T) + j + 0.5) * T, k = cellK(m, x, y);
+      if (F[k] < 0 || m.cells[k] !== 1 || Math.hypot(x - tg.x, (y - tg.y) * 1.25) > st.reach + E.r + HR - 12) continue;
+      if (!best || F[k] < best.d) best = { x, y, d: F[k] }; }
+    return best; }
+  // a foe a step off the lava or the chasm (TASKS 476, BRINK): struck from its far side, the blow throws it over the edge. The spot
+  // a blow's reach from it opposite the edge, on floor; held at most FLANK s a foe, and not with another foe at arm's length
+  function brinkSpot(R, tg, st) { const m = R.map, b = SIM.brinkOf(m, tg); if (!b) return null; const E = D.ENEMIES[tg.type], d = Math.hypot(b.x - tg.x, b.y - tg.y) || 1, r = E.r + HR + st.reach * 0.6;
+    const x = tg.x - (b.x - tg.x) / d * r, y = tg.y - (b.y - tg.y) / d * r / 1.25, k = cellK(m, x, y); return m.cells[k] === 1 && !SIM.crustAt(m, k) ? { x, y } : null; }
   // which way round a crab to go (+1 / −1) while the hero stands within its armour's arc (a little wider, it turns as he goes), else 0
   // a warded elite of the deep descent (TASKS 387) the same way: its shield takes the blows from its front half, one from behind breaks it
   const armFront = (e) => { const E = D.ENEMIES[e.type], arc = E.armor ? E.armor.arc : e.ward > 0 ? Math.PI / 2 : 0; if (!arc || !(P.flank > 0) || ((Math.imul(e.id + 1, 2654435761) ^ seed) >>> 0) % 1000 / 1000 >= P.flank) return 0;
@@ -278,7 +320,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (fr && !round && td < 260) { const ft = (flanked.get(tg.id) || 0) + SIM.DT; flanked.set(tg.id, ft); sp = ft <= FLANK && (spot(fr) || spot(-fr)); if (!sp) fr = 0; }
       if (fr && !round && td < 260) { const [px, py] = sp;
         steer(inp, (px - h.x) / (Math.hypot(px - h.x, py - h.y) || 1), (py - h.y) / (Math.hypot(px - h.x, py - h.y) || 1)); }
-      else if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round); else inp.press = 1; }
+      else if (round || Math.hypot(tg.x - h.x, (tg.y - h.y) * 1.25) > st.reach + E.r + HR - 8) walk(R, inp, tg.x, tg.y, round);
+      else { const m = R.map, k = cellK(m, h.x, h.y), lone = !live.some((o) => o !== tg && dist(o) < 90);
+        // (TASKS 414) a foe at the edge from its far side, a blow from the floor and not the bank's crust
+        const bs = P.haz && lone && (pushed.get(tg.id) || 0) <= FLANK ? brinkSpot(R, tg, st) : null; if (bs) pushed.set(tg.id, (pushed.get(tg.id) || 0) + SIM.DT);
+        // (held at most FLANK s a foe too, TASKS 416: a spot it never got to kept the bot walking at it until the floor's 400 s ran out)
+        const oc = P.haz && SIM.crustAt(m, k) && !(m.thin || []).includes(k) && (crusted.get(tg.id) || 0) <= FLANK ? offCrust(R, tg, st) : null; if (oc) crusted.set(tg.id, (crusted.get(tg.id) || 0) + SIM.DT);
+        if (bs && Math.hypot(bs.x - h.x, bs.y - h.y) > 14) walk(R, inp, bs.x, bs.y); else if (oc && Math.hypot(oc.x - h.x, oc.y - h.y) > 10) walk(R, inp, oc.x, oc.y); else inp.press = 1; } }
     if (h.ab.fireball && !armFront(tg) && td > (P.caster ? 0 : 140) && td < (P.caster ? 380 : 330) && h.cd.fireball <= S.t && h.mp >= Math.max(P.fire, 12)
       && (!P.caster || SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10))) inp.slot = 2;
     const tip = P.tips && R.msg && R.msg.tip === 'whirl' && S.t - R.msg.t >= P.react && S.t - R.msg.t < R.msg.d; if (tip) learned = 1;
@@ -299,6 +347,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // a townsman's talk (TASKS 1024): pages turned with E; on the quest's page E takes it while the profile wants more (the Keeper's
   // chain always), turns a done one in; else «not now», and the townsman is left alone this visit
   function talkStep(S, R) { const T = S.talk; if (!T) return { keys: ['Escape'] }; if (T.p + 1 < T.pages.length) return { keys: ['KeyE'] };
+    // past the campaign's last boss (TASKS 1148): the Keeper's «Завершить поход», unless the bot goes on down
+    if (T.act && T.act.k === 'finish') { if (descend) { declined.add(T.role); return { keys: ['Escape'] }; } return { keys: ['Enter'] }; }
     const side = (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned' && D.QUESTS[q.key].kind === 'side').length;
     if (T.act && (T.act.k === 'turn' || (P.quests && (D.QUESTS[T.act.key].kind === 'story' || side < P.quests)))) return { keys: ['KeyE'] };
     declined.add(T.role); return { keys: ['Escape'] }; }
@@ -310,6 +360,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const who = !P.noTown && (F.find((f) => SIM.questMark(R, f.role) === '?') || (P.quests && F.find((f) => SIM.questMark(R, f.role) === '!' && !declined.has(f.role))));
     if (who) { const p = at(who); walk(R, inp, p.x, p.y); if (who.role === 'smith' ? SIM.atCraft(R) === 'forge' : SIM.folkNear(R) === who) inp.keys.push('KeyE'); goal = ['folk', who.role]; return; }
     if (!P.noTown && m.shop && R.shopped !== 0) { walk(R, inp, m.shop.front.x, m.shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); goal = ['shop']; return; }
+    // past the campaign's last boss, unless it goes on down: the Keeper ends the run (TASKS 515, 1148)
+    const kp = !descend && SIM.campaignDone(R) && F.find((f) => f.role === 'keeper');
+    if (kp) { const p = at(kp); walk(R, inp, p.x, p.y); if (SIM.folkNear(R) === kp) inp.keys.push('KeyE'); goal = ['folk', 'keeper']; return; }
     const out = R.portal ? { x: sv.portal.x + 10, y: sv.portal.y + 44 } : m.exit; walk(R, inp, out.x, out.y); goal = [R.portal ? 'portal' : 'exit'];
     if (R.portal ? SIM.atGate(R) : dist(out) < 55) inp.keys.push('KeyE'); }
   function pray(S, R) {
@@ -336,7 +389,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.town && !inTown) { inTown = 1; townT = S.t; declined.clear(); R.shopped = -1; if (f0) cur.town.visits++; }
     else if (!R.town && inTown) { inTown = 0; if (f0 && R.floor === f0) { const d = S.t - townT; tF += d; progT += d; } }
     if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h)); else cur.meta = Object.assign({}, S.meta.up);
-      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
+      if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); pushed.clear(); crusted.clear(); thinGo = null; seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
       if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT, kills0, learned, gearKey, unstick, homeF, readWant, inTown, townT] });
     }
@@ -386,6 +439,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const locked = R.keys > 0 ? first((m.doors || []).filter((d) => { const L = SIM.doorLock(m, d); return L && L.kind === 'key'; })) : null;
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
     const shrine = first(R.shrines.filter((s) => !s.used && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
+    const circle = P.haz ? first((m.circles || []).filter((q) => q.bless && !q.used && !R.en.some((e) => e.deadT < 0 && e.room === q.r) && reach(q))) : null;
     const shop = m.shop && R.shopped !== R.floor && (h.bag.some(gear) || h.gold >= 60) && !given.has(m.shop) ? m.shop : null;
     const aim = (k, o) => { goal = o ? [k, Math.floor(o.x / T), Math.floor(o.y / T)] : [k]; return true; };
     // the cave's water (TASKS 468): an eel stirring by the hero is met on the bank with nothing else at arm's length; a drowned lying
@@ -401,6 +455,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (eel && aim('eel', eel)) toBank(R, inp, eel, st);
     else if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
     else if (!near && !late && chest && chase(R, chest) && aim('chest', chest)) { walk(R, inp, chest.x, chest.y + 20); if (dist(chest) < 50) inp.keys.push('KeyE'); }
+    // a magma sanctum's circle, its priests dead (TASKS 1054, 414): stepped into for its blessing
+    else if (!near && !late && circle && chase(R, circle) && aim('circle', circle)) walk(R, inp, circle.x, circle.y);
     else if (!near && !late && shrine && chase(R, shrine) && aim('shrine', shrine)) { walk(R, inp, shrine.x, shrine.y + 30); if (dist(shrine) < 55) inp.keys.push('KeyE'); }
     else if (!near && !late && locked && chase(R, locked) && aim('door', locked)) { const dx = locked.dir === 'l' ? -1 : locked.dir === 'r' ? 1 : 0, dy = locked.dir === 'u' ? -1 : locked.dir === 'd' ? 1 : 0;
       walk(R, inp, locked.x + dx * 40, locked.y + dy * 40); if (Math.hypot(locked.x - h.x, locked.y - h.y + 10) < 60) inp.keys.push('KeyE'); }
@@ -408,19 +464,23 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (!near && shop && chase(R, shop) && aim('shop', shop.front)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
     // a sealed arena opens only on the boss's death: there is no running late past him to the stairs
     else if (live.length && (!late || (R.arena && R.arena.active)) && aim('fight', fightT)) fight(S, R, inp, live, st, walkD);
+    // the campaign's last floor in a run through the town has no way out (TASKS 515): its boss's portal home, the run ends at the Keeper
+    else if (!descend && R.bossDead && R.arena && R.arena.gate && SIM.exitKind(R) === null) { const g = R.arena.gate; aim('gate', g); walk(R, inp, g.x, g.y + 30); if (SIM.gateNear(R)) inp.keys.push('KeyE'); }
     else { const out = descend && m.down && R.bossDead ? m.down : m.exit; aim('exit', out); walk(R, inp, out.x, out.y); if (dist(out) < 55) inp.keys.push('KeyE'); }
     if (P.haz && R.arena && R.arena.active && rainOn(R, live)) { const c = shelter(R); if (c) { inp.left = inp.right = inp.up = inp.down = 0; walk(R, inp, c.x, c.y); } }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
     if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }
     if (P.traps) avoidSpikes(S, R, h, inp);
     poolHeld = 0; if (P.haz) avoidHazards(S, R, h, inp);
+    if (P.haz) { avoidSurge(S, R, h, inp); thinWalk(S, R, h, inp, awake); }
     if (lurk.length && fightT && fightT.st !== 'lurk' && dist(fightT) > 120) keepOff(S, R, h, inp, lurk);
     // a shut door in the way: open it (a locked one only with the key, above)
     if (SIM.doorNear(R, 60) && !SIM.doorLock(m, SIM.doorNear(R, 60))) inp.keys.push('KeyE');
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
     if (Math.hypot(h.x - lx, h.y - ly) > 20) { lx = h.x; ly = h.y; lt = S.t; }
     if (S.t - lt > 1) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); inp.press = 1;
-      Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
+      // in a fight the aim stays on the foe: held a pixel outside the bot's own margin of its reach, it swung the other way for good (TASKS 1153)
+      if (!(goal && goal[0] === 'fight')) Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
       // still held after 3 s: a dash; walking into something, also a step each time in the next of the four ways, for a way the
       // cells do not show (a gap between the merchant's counter and his barrel led behind the counter, where the only way out the
       // field knows runs through it, seed 36). Not in a fight, where the hero stands and swings
@@ -428,7 +488,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // reading the scroll (1.6 s): a step or a blow breaks it off
     if (h.read) { inp.left = inp.right = inp.up = inp.down = inp.press = 0; inp.slot = 0; inp.keys = inp.keys.filter((k) => k === 'KeyQ'); }
     // a potion once HP has sat under the line for the time it takes to notice
-    if (h.hp < st.maxHp * P.hp) { if (lowT < 0) lowT = S.t; if (S.t - lowT >= P.react && held(h, 'hp_potion')) { inp.keys.push('KeyQ'); lowT = -1; } } else lowT = -1;
+    // (against the colossus, TASKS 416: drinks BOSS_HP sooner, as a player does against a heavy hitter: at its line the 216 % of the
+    // hero's health it took cost 1.1 potions, a third under its band; the other chapters' bosses keep the line their bands were set by)
+    const hpLine = P.hp + (P.haz && R.en.some((e) => e.type === 'boss_colossus' && e.deadT < 0 && e.st !== 'idle') ? BOSS_HP : 0);
+    if (h.hp < st.maxHp * hpLine) { if (lowT < 0) lowT = S.t; if (S.t - lowT >= P.react && held(h, 'hp_potion')) { inp.keys.push('KeyQ'); lowT = -1; } } else lowT = -1;
     cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); fl.minhp = Math.min(fl.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
     const B = R.en.find((e) => D.BOSSES[e.type]);
     SIM.step(S, inp);

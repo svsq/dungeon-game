@@ -21,6 +21,7 @@
 //   turn      — folk_talk, town_talk: talking, the smith's front hand is toward the hero, on either side of him
 //   slam      — golem_attack: on the strike's first frame both fists lie within the slam's radius of its centre and before the
 //               golem's ground point (the far one swung on past the body and lay behind it)
+//   fists     — golem_attack: while the fists rest on the floor neither stands more than FIST px over the slam's line (the far one hung at 35)
 //   crust     — golem_crust_off: the molten share of the golem's box grows by CRUST once its plates are knocked off
 //   leapSpacing, leapPose, throw — imp_leap, imp_attack (TASKS 489): an even flight, legs that push off, tuck and reach, and an
 //               overhand throw from behind the head
@@ -125,6 +126,12 @@ for (const nm of await p.evaluate(() => Object.keys(window.__QA.attacks || {})))
     if (d > AIM) bad.push(`${(Math.atan2(tg[1], tg[0]) * 180 / Math.PI).toFixed(0)}°→${d.toFixed(0)}°`); }
   report('aim', nm, !bad.length, `${n} far targets, worst blade error ${worst.toFixed(0)}°${bad.length ? ', off: ' + bad.join(' ') : ''}`);
 }
+// (TASKS 1156) submergedClip: a salamander under the lava changes the bank by no more than 40 px, and by no more than 400 from a frame to the next
+for (const nm of ['salamander_emerge', 'salamander_submerge']) { if (!meta.tr.includes(nm)) continue;
+  const r = await p.evaluate((nm) => { const Q = window.__QA, c = document.getElementById('c'), g = c.getContext('webgl2'), W = c.width, H = c.height, grab = (st) => { SCENE.state = st; SCENE.render(st.t + 0.01); const a = new Uint8Array(W * H * 4); g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, a); return a; };
+    return Q.transitions[nm].map((st) => { const e = st.run.en[0], m = st.run.map; if (!e) return null; const ss = (a, b, v) => { const q = Math.max(0, Math.min(1, (v - a) / (b - a))); return q * q * (3 - 2 * q); }, u0 = st.t - (e.lvT ?? -9), sw = e.lv ? ss(0, 0.35, u0) : 1 - ss(0, 0.35, u0); const a = grab(st), s0 = structuredClone(st); s0.run.en = []; const b = grab(s0); let n = 0; const k = W / 1920, cam = st.run.cam;
+      for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) { const i = (H - 1 - y) * W * 4 + x * 4; if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) <= 40) continue; const wx = cam[0] + x / k, wy = cam[1] + y / k; if (Math.abs(wx - e.x) < 140 && Math.abs(wy - e.y) < 70 && m.cells[Math.floor(wy / 32) * m.W + Math.floor(wx / 32)] !== 3) n++; } return { sw, n, st: e.st }; }).filter(Boolean); }, nm);
+  const sunk = Math.max(0, ...r.filter((q) => q.sw >= 0.5).map((q) => q.n)), pop = Math.max(0, ...r.slice(1).map((q, i) => Math.abs(q.n - r[i].n))); report('submergedClip', nm, sunk <= 40 && pop <= 400, `the bank changes by ${sunk} px while it is sunk (≤ 40), by at most ${pop} px from a frame to the next (≤ 400)`); }
 // the golem's slam (TASKS 458): on the first frame of its strike both fists lie in the slam's zone and before its ground point
 if (meta.tr.includes('golem_attack')) {
   const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.golem_attack; return Q.transitions.golem_attack.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
@@ -133,7 +140,12 @@ if (meta.tr.includes('golem_attack')) {
   if (!f || !f.en.handL || !f.en.handR) report('slam', 'golem_attack', false, 'no strike frame with both hands');
   else { const s = Math.abs(f.hero.ground[0] - f.en.ground[0]) / Math.abs(f.hx - f.ex), c = [f.en.ground[0] + Math.cos(f.aim) * G0.at * s, f.en.ground[1] + Math.sin(f.aim) * G0.at * 0.8 * s], dir = Math.sign(Math.cos(f.aim)) || 1;
     const far = ['L', 'R'].map((k) => { const q = f.en['hand' + k]; return [k, Math.hypot(q[0] - c[0], (q[1] - c[1]) / 0.7) / s, (q[0] - f.en.ground[0]) * dir / s]; });
-    report('slam', 'golem_attack', far.every(([, d, fw]) => d <= G0.r && fw >= 0), far.map(([k, d, fw]) => `hand ${k} ${d.toFixed(0)} px from the slam's centre (r ${G0.r}), ${fw.toFixed(0)} px before the ground`).join(', ')); } }
+    report('slam', 'golem_attack', far.every(([, d, fw]) => d <= G0.r && fw >= 0), far.map(([k, d, fw]) => `hand ${k} ${d.toFixed(0)} px from the slam's centre (r ${G0.r}), ${fw.toFixed(0)} px before the ground`).join(', '));
+    // (TASKS 1054) while they rest on the floor (the strike's first GOLEM_SLAM.hold s, 1/60 s a frame) both fists lie no more than
+    // FIST px over the slam's line: the far one hung 35.5 px by this measure, 17.7 after 1054; the 12 asked takes a longer arm in the
+    // rig (TASKS 1156), so the line holds what the pose can do and stops it sliding back
+    const FIST = 12, held = fr.filter((q) => q.st === 'strike' && q.en && q.en.handL && q.en.handR).slice(0, 12), up = Math.max(...held.map((q) => Math.max(...['L', 'R'].map((k) => (q.en.ground[1] + Math.sin(q.aim) * G0.at * 0.8 * s - q.en['hand' + k][1]) / s))));
+    report('fists', 'golem_attack', up <= FIST, `the higher fist ${up.toFixed(1)} px over the slam's line while they rest (≤ ${FIST})`); } }
 // the golem's crust (TASKS 458): with its plates knocked off the molten core shows over at least CRUST of its body (it changed only
 // the cracks' glow before: the silhouette never told how much crust was left)
 if (meta.tr.includes('golem_crust_off')) {
@@ -187,7 +199,7 @@ if (meta.tr.includes('imp_attack')) {
 // crustFall (TASKS 1058): climbing out of the lava after a fall through the crust, frame by frame over its 0.55 s, at most CLIMB_POP of
 // the hero's pixels show in one frame (half of him popped in at once); bridgeStep: walking down a chain bridge the hero's drop with the
 // deck changes at most STEP_POP px a frame (stepping on he fell 9 px in one)
-{ const CLIMB_POP = 400, STEP_POP = 4;
+{ const CLIMB_POP = 400, STEP_POP = 3, STEP_LAG = 4;
   const climb = await p.evaluate(() => { const st0 = window.__QA.states.find((q) => q[0] === 'magma_crustclimb'); if (!st0) return null; const c = document.getElementById('c'), g = document.createElement('canvas'); g.width = 1920; g.height = 1080;
     const gx = g.getContext('2d', { willReadFrequently: true }), out = [];
     for (let i = 0; i <= 36; i++) { const S = structuredClone(st0[1]); S.run.hero.climbT = S.t - i / 60; const shot = () => { SCENE.state = S; SCENE.render(S.t + 0.01); gx.drawImage(c, 0, 0); return gx.getImageData(560, 240, 800, 600).data; };
@@ -196,9 +208,9 @@ if (meta.tr.includes('imp_attack')) {
   if (!climb) report('crustFall', 'magma_crustclimb', false, 'no state'); else { const jumps = climb.slice(1).map((v, i) => v - climb[i]), mx = Math.max(...jumps); report('crustFall', 'magma_crustclimb', mx <= CLIMB_POP, `at most ${mx} of the hero's pixels show in one frame of the climb (≤ ${CLIMB_POP}); first frame ${climb[0]}`); }
   const deck = await p.evaluate(() => { const st0 = window.__QA.states.find((q) => q[0] === 'magma_chasm'); if (!st0) return null; const out = [];
     for (let i = -40; i <= 40; i++) { const S = structuredClone(st0[1]), h = S.run.hero, m = S.run.map, c = m.crossings.filter((q) => q.chasm).sort((a, b) => b.cells.length - a.cells.length)[0], hor = c.axis === 'x';
-      if (hor) h.x += i * 4; else h.y += i * 4; h.vx = hor ? 175 : 0; h.vy = hor ? 0 : 175; h.dist = (h.dist || 0) + i * 4; SCENE.state = S; SCENE.render(S.t + 0.01); out.push(SCENE.deckDy()); }
+      if (hor) h.x += i * 4; else h.y += i * 4; h.vx = hor ? 175 : 0; h.vy = hor ? 0 : 175; h.dist = (h.dist || 0) + i * 4; SCENE.state = S; SCENE.render(S.t + 0.01); out.push([SCENE.deckDy(), SCENE.deckTgt()]); }
     return out; });
-  if (!deck) report('bridgeStep', 'magma_chasm', false, 'no state'); else { const d = deck.slice(1).map((v, i) => Math.abs(v - deck[i])), mx = Math.max(...d); report('bridgeStep', 'magma_chasm', mx <= STEP_POP, `the hero's drop with the deck changes at most ${mx} px a frame walking across it (≤ ${STEP_POP}); range ${Math.min(...deck)}–${Math.max(...deck)}`); } }
+  if (!deck) report('bridgeStep', 'magma_chasm', false, 'no state'); else { const dy = deck.map((q) => q[0]), d = dy.slice(1).map((v, i) => Math.abs(v - dy[i])), mx = Math.max(...d), lag = Math.max(...deck.map((q) => Math.abs(q[0] - q[1]))); report('bridgeStep', 'magma_chasm', mx <= STEP_POP && lag <= STEP_LAG, `the hero's drop with the deck changes at most ${mx} px a frame walking across it (≤ ${STEP_POP}), stays within ${lag} px of the deck's sag (≤ ${STEP_LAG}); range ${Math.min(...dy)}–${Math.max(...dy)}`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');
