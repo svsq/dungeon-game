@@ -102,7 +102,7 @@
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
       basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
-      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht) }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
+      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.72, 0.52, 0.42, 0.22] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
@@ -242,7 +242,7 @@
     // the magma caves' falling rocks (TASKS 406): the rock's shadow grows on the floor over its warning (the rock drops in the Y band),
     // the rubble it leaves lies a moment after
     for (const z of m.hazards || []) { if (z.k !== 'fall' || !vis(z.x, z.y)) continue; const H = D.HAZ.fall, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue;
-      const q = w / H.warn, k = 0.3 + 0.7 * q; L.shadow(sx(z.x), sy(z.y) + 2, H.r * k, H.r * H.ry * k, 0.35 + 0.6 * q); }
+      const q = w / H.warn, k = 0.3 + 0.7 * q; L.shadow(sx(z.x), sy(z.y) + 2, H.r * k, H.r * H.ry * k, 0.12 + 0.2 * q); for (let ring = 1; ring <= 3; ring++) for (let j = 0, n = 6 + 6 * ring; j < n; j++) { const an = j / n * 6.283 + ring, rr = H.r * k * ring / 3; L.solid(ev2(sx(z.x) + Math.cos(an) * rr) - 2, ev2(sy(z.y) + 2 + Math.sin(an) * rr * H.ry) - 1, 4, 2, [0, 0, 0], 0, 0, 0, 0.35 + 0.5 * q); } }
     for (const e of ST.ev) { const a = GT - e.t; if (e.k !== 'rockfall' || a < 0 || a >= 2.4 || !vis(e.x, e.y)) continue; const [w0, h0] = SZ('dc_rubble'), k = 56 / Math.max(w0, h0);
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
@@ -476,6 +476,8 @@
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
+    // the merchant's back on a lava floor stands against basalt, not the black the rock leaves behind it (TASKS 1163)
+    if (m.biome === 'magma' && m.shop) { const r = m.rooms.find((q) => q.type === 'shop'); if (r) for (let i = -1; i <= r.w; i++) { const x = (r.x + i + 0.5) * TILE, n = rnd(r.x + i, 3) < 0.5 ? 'basalt_a' : 'basalt_b', y = (r.y + 0.3) * TILE + (rnd(r.x + i, 4) - 0.5) * 8; if (vis(x, y) && known(x, y)) Y.push([y - 40, () => drawProp(n, sx(x), sy(y), { flip: rnd(r.x + i, 5) < 0.5 })]); } }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
     if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = (u.free ? 'stairs_up_free' : 'stairs_up') + (m.biome === 'magma' ? '_mg' : ''), [w, hh] = SZ(st); if (m.biome === 'magma') PROP_BAS.push([st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, w, hh, false]); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
     // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched

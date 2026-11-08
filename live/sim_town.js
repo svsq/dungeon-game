@@ -78,7 +78,7 @@
     for (const f of R.folk || []) out.push({ x: f.x, y: f.y, r: folkR(f) }); return out; };
   function interact(S, R) {
     const h = R.hero, m = R.map;
-    const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56)); if (c) { openChest(S, R, c); return; }
+    const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56) && !SIMX.overLava(m, h.x, h.y, c2.x, c2.y)); if (c) { openChest(S, R, c); return; }
     if (atCounter(R)) { openShop(S, R); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (sh && !arenaSealed(R)) { openAltar(S, R, sh); return; }

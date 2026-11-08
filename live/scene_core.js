@@ -173,7 +173,7 @@ vec3 vor(vec2 p, float wob){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2
   return vec3(d1, d2, id); }
 float mAt(vec2 p){ return textureLod(u_mask, p / u_map, 0.0).r - edgeBite(p, u_map); }
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
-  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2;
+  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2 + (fbm(w / 64.0 + 3.1) - 0.5) * 0.5;
   if (e < 0.2) discard;
   vec2 fc = textureLod(u_face, vec2(w.x / u_map.x, 1.0 - w.y / u_map.y), 0.0).rg;   // the bake's columns stand here (TASKS 418)
   if (fc.r > 0.5) discard;
@@ -283,7 +283,7 @@ uniform sampler2D u_open, u_water; uniform vec2 u_map; uniform float u_wet;
 float openAt(vec2 p){ return textureLod(u_open, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12; }
 bool isOpen(vec2 p){ return openAt(p) > 0.47; }
 float waterAt(vec2 p){ return u_wet * (textureLod(u_water, p / u_map, 0.0).r + (vnoise(p / 6.0) - 0.5) * 0.32); }
-float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)); }
+float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)) + 2.0 * floor(3.0 * vnoise(vec2(x / 6.0, 9.0))); }
 `;
   const CAVE = CAVE_EDGE + `
 uniform sampler2D u_floor, u_wall, u_top, u_shore; uniform float u_lift;
@@ -337,7 +337,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   // own bank (LAVA), so the two meet
   const MAGMA_EDGE = CAVE_EDGE + `
 uniform sampler2D u_cliff, u_lava;
-float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2; }
+float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + (fbm(p / 64.0 + 3.1) - 0.5) * 0.5; }
 bool isWall(vec2 p){ return textureLod(u_cliff, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.5 > 0.5; }
 // a lavafall's face (TASKS 452), u_fall: (x, its foot, half its width, the face's height): as tall as the rock over it leaves room
 // for, back down to the plain face over 26 px either side, raggedly
@@ -479,7 +479,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     for (int k = 1; k <= 6; k++) if (isWall(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.7 + 0.3 * smoothstep(0.47, 0.9, op)) * (1.0 - 0.5 * under);
   } else if (op > 0.47 && la - edgeBite(w, u_map) > 0.5) col = gCrust(w + 53.0) * 0.6;
-  else if (op > 0.47) { float gl = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl;
+  else if (op > 0.47) { float far2 = 0.0; for (int i = 0; i < 8; i++) { float an = float(i) * 0.785 + fbm(w / 19.0) * 3.0; far2 += textureLod(u_far, (w + vec2(cos(an), sin(an)) * 26.0) / u_map, 0.0).r / 8.0; } float gl = smoothstep(0.05, 0.6, far2) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl;
     col = pitRim(w, la, col); }   // (its glow too, TASKS 490: a straight red band ran along the map's edge)   // (the lava the map's edge bit off: the chasm's dark)
   else if (isWall(w)) {
     float hf = faceHF(w), fd = 99.0; bool down = false;
@@ -720,7 +720,7 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
       dk = max(step(blk - 2.0, pb.y) * rimAt(bq + vec2(0.0, blk)), step(blk - 2.0, pb.x) * rimAt(bq + vec2(blk, 0.0)));
     c = lit > 0.5 ? c * 1.4 + 0.05 : dk > 0.5 ? c * 0.3 : c; }
   // (and sampled through a slow warp of up to half a cell, TASKS 482: the cells' grid still showed as straight runs on long edges)
-  vec2 ws = u_haze > 0.5 ? w + (vec2(fbm(wp / 52.0 + 2.9), fbm(wp / 52.0 + 11.3)) - 0.5) * 36.0 / u_map : w;
+  vec2 ws = u_haze > 0.5 ? w + (vec2(fbm(wp / 52.0 + 2.9), fbm(wp / 52.0 + 11.3)) - 0.5) * 56.0 / u_map : w;
   float s = texture(u_seen, ws).r * (1.0 - vd) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
   // the magma's fog edge (TASKS 453) is broken by a noise on the art grid: smooth, it ran ruler-straight along the cells' rows
   if (u_haze > 0.5) s = clamp(s + (fbm(wp / 26.0 + 7.3) - 0.5) * 2.2 * s * (1.0 - s), 0.0, 1.0);
