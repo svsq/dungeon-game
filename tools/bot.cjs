@@ -251,7 +251,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (due || awake.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 220)) { inp.left = inp.right = inp.up = inp.down = 0; return; }
     thinGo = [dx, dy]; }
   // the floor beside the bank's crust to strike a foe from: the nearest cell within a blow of it that is no crust (null: none)
-  function offCrust(R, tg, st) { const m = R.map, h = R.hero, E = D.ENEMIES[tg.type], F = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1); let best = null;
+  function offCrust(R, tg, st) { const m = R.map, h = R.hero, E = D.ENEMIES[tg.type], hx = Math.floor(h.x / T), hy = Math.floor(h.y / T); let o = null, best = null;
+    for (let j = -1; j <= 1 && !o; j++) for (let i = -1; i <= 1 && !o; i++) if (m.cells[(hy + j) * m.W + hx + i] === 1 && !SIM.crustAt(m, (hy + j) * m.W + hx + i)) o = [hx + i, hy + j];
+    if (!o) return null; const F = SIM.flow(m, o[0], o[1], 1);
     for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const x = (Math.floor(tg.x / T) + i + 0.5) * T, y = (Math.floor(tg.y / T) + j + 0.5) * T, k = cellK(m, x, y);
       if (F[k] < 0 || m.cells[k] !== 1 || Math.hypot(x - tg.x, (y - tg.y) * 1.25) > st.reach + E.r + HR - 12) continue;
       if (!best || F[k] < best.d) best = { x, y, d: F[k] }; }
