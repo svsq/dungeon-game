@@ -150,7 +150,7 @@
           // (a white-hot crack across the boards under the middle of its shadow, TASKS 1050, 1058: red-orange it read as the target
           // ring's own ticks)
           const z0 = under(q);
-          if (along(z0, q) < HF.r * 0.5) (SC.crackFx ||= []).push({ X, Y: Y + j, rot, w, f: q.f });   // (drawn in the emissive pass, TASKS 1162: the lit pass put it out on the dark boards)
+          if (along(z0, q) < HF.r * 0.5) (SC.crackFx ||= []).push({ X, Y: Y + j, rot, w, f: q.f, wx: hor ? q.a : B0 + BW / 2, wy: hor ? B0 + BW / 2 : q.a });   // (drawn in the emissive pass, TASKS 1162: the lit pass put it out on the dark boards)
           return; }
         if (st2 === 2) { if (along(under(q), q) < HF.r * 0.45) return;   // (the boards the rock went through are gone a moment, TASKS 1162)
           for (const sd of [-1, 1]) L.sprite(q.n, X + sd * q.l / 4 - q.l / 4, Y - 3, { w: q.l / 2 - 2, h: 10, rot: rot + sd * 0.35, pivot: [sd < 0 ? 0 : q.l / 2 - 2, 5], flip: q.f, u: { grade: [0.6, 0.45 * q.tone, 0, 1] } }); return; }
