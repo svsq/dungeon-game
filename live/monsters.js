@@ -439,13 +439,13 @@
   // walked so a planted shoe holds the floor; the body rides up over each passing step, rocks a little and the hem swings after the
   // stepping leg. hem: the cut's row (a few rows of skirt go with the shoes, so a rising body leaves no gap); split: the column between
   // the shoes; step: a shoe's travel either side of the hem (rig px), one stride = 4 steps' travel
-  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 26 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
+  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 26, k: 2.4 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
   MON.robeStride = (n, H) => { const q = ROBE[n]; return q && RIGS[n] ? 4 * q.step * H / RIGS[n].h : 0; };
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
     const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, Q = ROBE[o.n];
     const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? (o.dist || 0) / MON.robeStride(o.n, o.H) * TAU : 0;
-    const bob = run * 1.5 * Math.sin(ph) ** 2, rot = f * run * 0.022 * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
+    const gk = (Q && Q.k) || 1, bob = run * 1.5 * gk * Math.sin(ph) ** 2, rot = f * run * 0.022 * gk * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
     const S2 = (px, py) => { const x = f * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);
     // o.handTarget(side) → a screen point the hand reaches for (two-bone IK), or null to keep o.arms' angles
@@ -466,7 +466,7 @@
       // the far shoe (the drawing's right one, standing higher) first
       shoe(Q.split, RG.w, 1); shoe(0, Q.split, 0);
       L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...S2(gx, gy)), M.r(rot), M.s(f, 1)), w: RG.w * s, h: (Q.hem + 8) * s, src: [0, 0, 1, (Q.hem + 8) / RG.h], pivot: [gx * s, gy * s], pad: 0.04,
-        u: Object.assign({}, o.U, { lean: [-0.03 * run * Math.cos(ph), 1] }) }); }
+        u: Object.assign({}, o.U, { lean: [-0.03 * gk * run * Math.cos(ph), 1] }) }); }
     else L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...root), M.s(f, 1)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
     const hd = o.headD || [0, 0], hy = lift * 0.8 + hd[1];
     part('head', RG.neck, [RG.neck[0] + hd[0], RG.neck[1] + hy], o.headR || 0);

@@ -34,16 +34,17 @@
     Object.defineProperty(T, 'railLen', { value: d, enumerable: false }); return d; };
   const railAt = (m, s) => { const T = m.town, c = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; let d = s; for (let i = 1; i < T.rails.length; i++) { const [ax, ay] = c(T.rails[i - 1]), [bx, by] = c(T.rails[i]), l = Math.hypot(bx - ax, by - ay); if (d <= l) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } return c(T.rails[T.rails.length - 1]); };
   const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
-  function stepCart(R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, block = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44;
+  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, block = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44;
     // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard
+    if (block && !C.held) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.cart') });
     C.held = block ? (C.held || 0) + DT : 0; const v = block && C.held < 3 ? 0 : CART_V * Math.min(1, 0.2 + Math.min(C.s, L - C.s) / 44);
-    if (C.st === 'down') { C.s = Math.min(L, C.s + v * DT); if (C.s >= L) C.st = 'at'; }
+    if (C.st === 'down') { C.s = Math.min(L, C.s + v * DT); if (C.s >= L) { C.st = 'at'; C.atT = t; } }
     else if (C.st === 'at') { if (C.load <= 0 && t >= C.t) C.st = 'up'; }
     else if (C.st === 'up') { C.s = Math.max(0, C.s - v * DT); if (C.s <= 0) { C.st = 'in'; C.t = t + 6; C.load = CART_LOAD; } }
     else if (t >= C.t) C.st = 'down'; }
   function stepFolk(S, R) {
     const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0, C = cartOf(R);
-    stepCart(R, C, t);
+    stepCart(S, R, C, t);
     for (const f of F) { const n = m.town.npcs[f.i], FD = D.FOLK[f.role], r = folkR(f);
       if (FD.lines) { const d = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25);
         if (!f.near && alive && d < 72) { f.near = 1; f.sayT = t; f.sayN = (f.sayN + 1) % FD.lines.length; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
@@ -61,7 +62,7 @@
       if (f.role === 'hen') { const g = henGoal(R, f, n, t);
         if (g) { const dx = g.x - f.x, dy = g.y - f.y, d = Math.hypot(dx, dy); if (d > 2.5) { want = Math.min(g.v, d * 4 + 6); ux = dx / d; uy = dy / d; } else if (!g.k) f.goal = null; } }
       else if (!route) { f.spd = 0; continue; }
-      if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0))) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
+      if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0 && t >= (C.atT ?? -9) + 0.6))) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
       if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
         if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
           // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
@@ -156,7 +157,7 @@
     if (S.craft.kind === 'forge') { it.mods = {}; rollAffixes(R, it); res = TXT('sim_town.craft'); }
     else if (rnd(R) < c.fail) { ok = 0;
       it.ench = []; it.mods = {}; res = TXT('sim_town.craft.2'); }
-    else { const used = new Set((it.ench || []).map((e) => e.k)), pool = AFFIXES.filter((a) => !used.has(a.k)), a = pool[Math.floor(rnd(R) * pool.length)];
+    else { const used = new Set((it.ench || []).map((e) => e.k)), pool = D.liveFor(h, 'mods', AFFIXES, (q) => q.k).filter((a) => !used.has(a.k)), a = pool[Math.floor(rnd(R) * pool.length)];
       const v = Math.max(1, Math.round((a.a + a.b * it.lvl) * (0.7 + 0.6 * rnd(R)) * (1 + 0.15 * it.rar)));
       it.ench = (it.ench || []).concat({ k: a.k, v }); res = TXT('sim_town.craft.4', { p1: a.label.replace('{v}', v) }); }
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);

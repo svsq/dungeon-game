@@ -103,10 +103,10 @@
       if (mason && act === 'drop' && pu > 0.95 && pu < 1.5) fx = { k: 'dust', x: floor[0], y: floor[1] + 8, amt: 1 - (pu - 0.95) / 0.55, seed: c.n * 2 + i };
       crouch = (mason ? 14 : 34) * bend; lean = face * 0.3 * bend; headR = 0.15 * bend;
       // between carts he dresses a block with the hammer
-      if (mason && !f.load && pu >= 1.2 && tw < 0.99 && (atStop || (f.go && stop.act === 'take' && f.spd < 24 && Math.hypot(f.x - route[1].x, f.y - route[1].y) < 40))) { const w = Math.min(atStop ? 1 : 1 - SS(0, 24, f.spd), Math.max(0, Math.min(1, (pu - 1.2) / 0.4))), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
+      if (mason && atStop && act !== 'take' && !f.load && pu >= 1.2 && tw < 0.99) { const Cr = R.cart || {}, ready = Cr.st === 'at' && Cr.load > 0, w = Math.min(ready ? 1 - SS(Cr.atT ?? -9, (Cr.atT ?? -9) + 0.5, GT) : 1, Math.max(0, Math.min(1, (pu - 1.2) / 0.4))), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
         tg = { R: lerp2(lerp2(handAt('R'), P(0.42, -0.34 - 0.32 * up), w), talkR, tw), L: lerp2(handAt('L'), P(0.3, -0.3), w) };
         hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(0.9, 0.2 - 1.5 * up, w) }) }; lean = face * 0.08 * w;
-        if (u >= FD.hit && (u - FD.hit) * c.per < 0.4 && tw < 0.5) fx = { k: 'spark', x: P(0.5, -0.3)[0], y: P(0.5, -0.3)[1], a: (u - FD.hit) * c.per, seed: c.n * 7 + i }; }
+        const strike = FD.hit + (1 - FD.hit) / 4; if (w > 0.5 && u >= strike && (u - strike) * c.per < 0.4 && tw < 0.5) fx = { k: 'spark', x: P(0.52, -0.45)[0], y: P(0.52, -0.45)[1], a: (u - strike) * c.per, seed: c.n * 7 + i }; }
     } else if (f.role === 'child') {
       // at each stop he scatters grain to the hens: a hand into the bag, a throw out in front, the grain falling ahead of him
       const bag = P(0.3, -0.42), throwing = atStop && route && tw < 0.5, dip = P(0.22, -0.44), out = P(0.45, -0.66), rest = P(0.08, -0.33);
@@ -119,7 +119,7 @@
       // sweeps at each stop: the near hand drives the broom to and fro, the far hand higher up the handle, the bristles on the floor
       const sweeping = !moving && tw < 0.99, ph = 2 * Math.PI * u, L0 = SZ('town_tool_broom')[1], grip = 0.3;
       const hr = sweeping ? P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)) : P(0.2, -0.45);
-      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = sweeping ? Math.asin(down) : 1.25;
+      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = sweeping ? Math.asin(down) : 0.8 + 0.09 * Math.sin(f.dist / 9);
       const dir = [-face * Math.cos(th), -Math.sin(th)];   // up the handle, away from the bristles
       const abs = Math.atan2(dir[1], dir[0] * face);
       tg = { R: hr, L: [hr[0] + dir[0] * 0.24 * L0, hr[1] + dir[1] * 0.24 * L0] };
