@@ -6,6 +6,7 @@
     D, L, M, SC, SS } = SCX;
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
   const WEAPON = { sword: ['it_sword', 46], longsword: ['it_longsword', 53], axe: ['it_axe', 48], hammer: ['it_hammer', 51], staff: ['it_staff', 58], wand: ['it_wand', 40], shortbow: ['it_bow_s', 48], longbow: ['it_bow_l', 58], crossbow: ['it_crossbow', 50], fist: null };
+  const NOCKS = { it_bow_s: [[0.894, 0.174], [0.255, 0.863]], it_bow_l: [[0.882, 0.142], [0.196, 0.882]] };
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
   // what the hero wears (TASKS 155): each slot picks the rig parts painted for its base (tools/gear.py), '' = the hero as first drawn
   // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield rides the far forearm
@@ -272,7 +273,7 @@
       // edge-on twice and vanished for a frame, TASKS 1125 critic r2)
       L.sprite(tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa), M.s(fsD, bow && fX > 0 ? -1 : 1), M.r(Math.PI / 4)), w: tw, h: th, pivot: bow ? [tw * 0.5, th * 0.5] : [tw * 0.22, th * 0.78], u: U });
       if (!bow && drop === 0 && backK < 0.5) L.solid(Hd[0] - 3, Hd[1] - 1, 6, 2, [0.85, 0.62, 0.48], 0, 0, 0, alpha);
-      if (bow && (bowH || drawE > 0.05)) { const Hs = R2U(jL.Hd[0], jL.Hd[1]), e1 = [Hd[0] + Math.cos(sa) * len * 0.4 * fsD, Hd[1] + Math.sin(sa) * len * 0.4 * fsD], e2 = [Hd[0] - Math.cos(sa) * len * 0.4 * fsD, Hd[1] - Math.sin(sa) * len * 0.4 * fsD];
+      if (bow && (bowH || drawE > 0.05)) { const Hs = R2U(jL.Hd[0], jL.Hd[1]), flip = fX > 0 ? -1 : 1, nock = ([fx, fy]) => { const lx = (fx - 0.5) * tw, ly = (fy - 0.5) * th * 1, c = Math.SQRT1_2, ux = (lx - ly) * c * fsD, uy = (lx + ly) * c * flip; return [Hd[0] + ux * Math.cos(sa) - uy * Math.sin(sa), Hd[1] + ux * Math.sin(sa) + uy * Math.cos(sa)]; }, [n1, n2] = NOCKS[tex0] || [[0.9, 0.15], [0.2, 0.87]], e1 = nock(n1), e2 = nock(n2);
         // the string is always drawn (TASKS 1160): straight at rest, a wedge to the hand on the draw, a shiver for three frames at the loose
         const quiver = atkT > BT && atkT < BT + 0.05 ? 2 * Math.sin(atkT * 190) : 0, Mid = drawE > 0.05 ? Hs : [(e1[0] + e2[0]) / 2 - Math.sin(sa) * quiver, (e1[1] + e2[1]) / 2 + Math.cos(sa) * quiver];
         for (const E of [e1, e2]) L.solid(E[0], E[1], Math.hypot(Mid[0] - E[0], Mid[1] - E[1]), 1.5, [0.86, 0.8, 0.68], Math.atan2(Mid[1] - E[1], Mid[0] - E[0]), 0, 0.75, alpha);
