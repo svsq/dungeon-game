@@ -1,11 +1,11 @@
 // node tools/plateaucheck.cjs [--seeds 30] [--out frames/plateau] [--maps 4]
 // The magma caves' plateau archetype (TASKS 400) against the water caves on the same floor numbers: the walk from the spawn to the
-// stairs (mean, median, range; the plateau's least is held to 1.4 × the caves' mean, data.js ARCH.plateau.path), genFloor time,
+// stairs (mean, median, range; a plain plateau's least is held to data.js ARCH.plateau.path, 0.9 of it loose), genFloor time,
 // ridge lengths (edge to edge), loops, ledges, lava share and how much of the map is floor; the lava's lakes, sources, crossings by
 // kind and crust (TASKS 401). Writes an overview of the first --maps seeds' floors (floor grey, lava orange — a river's brighter —,
 // crust brown, crossings: a bridge wood, slabs slate, an arch pale grey; sources white, vents yellow; chasm black, wall rows
-// grey-blue, rooms framed by role). Exit 2 when a plateau floor
-// walks less than 1.4 × the caves' mean, or the frame's shares are off their bands (TASKS 422).
+// grey-blue, rooms framed by role). Exit 2 when a plain plateau floor
+// walks less than its least, or the frame's shares are off their bands (TASKS 422). The floor types (426–431) are listed after.
 const fs = require('fs'), path = require('path'), zlib = require('zlib');
 const DG = require('../live/dungeon.js'), D = require('../live/data.js');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
@@ -15,7 +15,10 @@ fs.mkdirSync(out, { recursive: true });
 const walkOf = (m) => { const W = m.W, s = Math.floor(m.spawn.y / 32) * W + Math.floor(m.spawn.x / 32), e = m.exit.ty * W + m.exit.tx, d = new Int32Array(W * m.H).fill(-1), q = [s]; d[s] = 0;
   for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && m.cells[n] === 1) { d[n] = d[q[i]] + 1; q.push(n); } } return d[e]; };
 const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length, med = (a) => a.slice().sort((x, y) => x - y)[a.length >> 1], pct = (a, p) => a.slice().sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(a.length * p))];
-const gen = (mode, f, sd) => { const t0 = process.hrtime.bigint(), m = DG.genFloor(sd * 31 + f * 1013, f, { mode }); return [m, Number(process.hrtime.bigint() - t0) / 1e6]; };
+// (the magma's floors held to the walk and the frame are its plain plateaus, TASKS 1146: since the floor types (426–431) a lake's
+// walk is cut short by its islands on purpose, a chasm's frame is a third dark, and over all types 4 of the checks failed on a
+// game as designed; the types are listed after, measured and not held)
+const gen = (mode, f, sd, ftype) => { const t0 = process.hrtime.bigint(), m = DG.genFloor(sd * 31 + f * 1013, f, { mode, ...(ftype ? { ftype } : {}) }); return [m, Number(process.hrtime.bigint() - t0) / 1e6]; };
 
 // a PNG of an RGB buffer, no dependencies
 const png = (file, w, h, rgb) => { const crcT = new Int32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c; });
@@ -49,19 +52,26 @@ const caveMean = [], rows = []; let bad = 0; const SH = [];
 for (let f = 1; f <= 3; f++) { const P = [], T = []; for (let sd = 1; sd <= N; sd++) { const [m, t] = gen('cave', f, sd); P.push(walkOf(m)); T.push(t); } caveMean[f] = mean(P);
   rows.push(`cave    f${f} ${D.RUNS.cave.size[f - 1].join('×')}: walk mean ${mean(P).toFixed(0)} med ${med(P)} ${Math.min(...P)}–${Math.max(...P)} | gen ${mean(T).toFixed(0)} ms (max ${Math.max(...T).toFixed(0)})`); }
 for (let f = 1; f <= D.RUNS.magma.floors; f++) { const P = [], T = [], L = [], LV = [], FL = [], LP = [], LG = [], SC = [], X = {}, LK = [], SR = [], CR = [];
-  for (let sd = 1; sd <= N; sd++) { const [m, t] = gen('magma', f, sd); P.push(walkOf(m)); T.push(t); L.push(...m.ridges);
+  for (let sd = 1; sd <= N; sd++) { const [m, t] = gen('magma', f, sd, f < D.RUNS.magma.floors ? 'plain' : undefined); P.push(walkOf(m)); T.push(t); L.push(...m.ridges);
     const fl = m.cells.filter((c) => c === 1).length, lv = m.cells.filter((c) => c === 3).length, main = m.rooms.filter((r) => !r.pocket && r.type !== 'secret').length;
     LV.push(lv / (fl + lv)); FL.push(fl / (m.W * m.H)); LP.push(m.ridges.length - (main - 1)); LG.push(m.rooms.filter((r) => r.pocket).length); SC.push(m.secrets.length);
     for (const c of m.crossings) X[c.kind] = (X[c.kind] || 0) + 1; LK.push(m.lavaBodies.filter((b) => b.kind === 'lake').length); SR.push(m.lavaFeatures.length); CR.push(m.crust.length);
     SH.push(shareOf(m)); if (sd <= nMaps) overview(m, path.join(out, `magma_f${f}_s${sd}.png`)); }
   const ratio = caveMean[f] ? ` = ${(mean(P) / caveMean[f]).toFixed(2)}× the caves' mean (least ${(Math.min(...P) / caveMean[f]).toFixed(2)}×)` : '';
-  if (caveMean[f] && Math.min(...P) < 1.4 * caveMean[f]) bad++;
+  // (held to the generator's own least, TASKS 1146: ARCH.plateau.path, 0.9 of it on a floor laid loose after the strict tries; 1.4 × the
+  // caves' mean, that least's source in 400, now asks 148.4 on the 1st of a rule that keeps 148, and 133 when laid loose)
+  const least = D.ARCH.plateau.path[f - 1] * 0.9; if (caveMean[f] && Math.min(...P) < least) { bad++; rows.push(`        f${f}: a walk of ${Math.min(...P)} under the generator's least ${least.toFixed(0)}`); }
   rows.push(`plateau f${f} ${D.RUNS.magma.size[f - 1].join('×')}: walk mean ${mean(P).toFixed(0)} med ${med(P)} ${Math.min(...P)}–${Math.max(...P)}${ratio} | gen ${mean(T).toFixed(0)} ms (max ${Math.max(...T).toFixed(0)})`);
   rows.push(`        ridges ${L.length}: p10 ${pct(L, 0.1)} med ${med(L)} p90 ${pct(L, 0.9)} cells (under 15: ${(L.filter((v) => v < 15).length / L.length * 100).toFixed(0)} %, over 30: ${(L.filter((v) => v > 30).length / L.length * 100).toFixed(0)} %) | loops ${mean(LP).toFixed(1)} (${Math.min(...LP)}–${Math.max(...LP)}) | ledges ${mean(LG).toFixed(1)} | secrets ${mean(SC).toFixed(1)} | lava ${(mean(LV) * 100).toFixed(0)} % of floor+lava (${(Math.min(...LV) * 100).toFixed(0)}–${(Math.max(...LV) * 100).toFixed(0)}) | floor ${(mean(FL) * 100).toFixed(0)} % of the map`);
   rows.push(`        lakes ${mean(LK).toFixed(1)} | sources ${mean(SR).toFixed(1)} | crossings ${Object.entries(X).map(([k, v]) => k + ' ' + (v / N).toFixed(1)).join(', ')} a floor | crust ${mean(CR).toFixed(0)} cells`); }
 { const P = SH.map((s) => s[0]), L = SH.map((s) => s[1]), C = SH.map((s) => s[2]), r = (a) => `${(mean(a) * 100).toFixed(0)} % (${(Math.min(...a) * 100).toFixed(0)}–${(Math.max(...a) * 100).toFixed(0)})`;
   rows.push(`in the frame (all floors): plateau ${r(P)} | lava ${r(L)} | chasm ${r(C)}`);
-  if (mean(P) < 0.5 || mean(L) < 0.2 || mean(L) > 0.3 || mean(C) > 0.15) { bad++; rows.push('        the frame is off the bands (plateau ≥ 50 %, lava 20–30 %, chasm ≤ 15 %)'); } }
+  // (lava to 35 %, TASKS 1146: since 432 a plain plateau's lava is held to 0.2–0.4 of its floor, ARCH.plateau.lava.share; the frame's 30 %
+  // sat on the old line)
+  if (mean(P) < 0.5 || mean(L) < 0.2 || mean(L) > 0.35 || mean(C) > 0.15) { bad++; rows.push('        the frame is off the bands (plateau ≥ 50 %, lava 20–35 %, chasm ≤ 15 %)'); } }
+{ const by = {}; for (let f = 1; f < D.RUNS.magma.floors; f++) for (let sd = 1; sd <= N; sd++) { const [m] = gen('magma', f, sd), k = m.ftype + (m.ftype2 ? '+' + m.ftype2 : ''), q = by[k] || (by[k] = { P: [], S: [] }); q.P.push(walkOf(m)); q.S.push(shareOf(m)); }
+  rows.push('the floor types as the runs draw them (measured, not held):');
+  for (const [k, q] of Object.entries(by)) rows.push(`        ${k.padEnd(14)} ${String(q.P.length).padStart(3)} floors: walk mean ${mean(q.P).toFixed(0)} ${Math.min(...q.P)}–${Math.max(...q.P)} | frame plateau ${(mean(q.S.map((v) => v[0])) * 100).toFixed(0)} %, lava ${(mean(q.S.map((v) => v[1])) * 100).toFixed(0)} %, chasm ${(mean(q.S.map((v) => v[2])) * 100).toFixed(0)} %`); }
 console.log(rows.join('\n'));
-console.log(bad ? `plateaucheck: ${bad} failure(s) (a floor's walk under 1.4 × the caves' mean, or the frame off its bands)` : `plateaucheck: ok (${N} seeds, overviews in ${out})`);
+console.log(bad ? `plateaucheck: ${bad} failure(s) (a plain floor's walk under the generator's least, or the frame off its bands)` : `plateaucheck: ok (${N} seeds, overviews in ${out})`);
 if (bad) process.exitCode = 2;

@@ -7,8 +7,8 @@
     boxHit, brinkOf, castAbility, cell, colossusBoulder, colossusRain, completion, completionHints, counted, crustAt, damageName, deepBody,
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
     hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
-    killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
-    openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rollAffixes, rollItem, runCompletion,
+    campaignDone, exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
+    openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rnd, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
@@ -840,10 +840,26 @@
             nest: m.decor.filter((d) => d.n === 'skel_mg' && inR(r, d)).length >= 3, prison: m.decor.filter((d) => d.n === 'cage' && inR(r, d)).length >= 2 }[r.hall];
           if (!props) out.push(`${tag}: the ${r.hall} hall without its props`);
           if (!m.chests.some((c) => inR(r, c))) out.push(`${tag}: the ${r.hall} hall without its chest`);
+          // (each kind its own pay, TASKS 1054)
+          else if (!m.chests.some((c) => inR(r, c) && c.tier === K.pay.tier && (!(K.pay.forge || K.pay.stash) || c.hall === r.hall))) out.push(`${tag}: the ${r.hall} hall's chest not its own pay`);
+          if (K.pay.bless && !(m.circles || []).some((q) => q.r === r.id && q.bless)) out.push(`${tag}: the sanctum's circle gives no blessing`);
           // (an early kind on the 1st floor, TASKS 488, has the floor's own pack: its monster comes later)
           if (!(f === 1 && K.early) && !m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`);
           if (f === 1 && K.early && !m.enemies.some((e) => e.room === r.id)) out.push(`${tag}: the ${r.hall} hall without a pack`); } }
       for (const k of Object.keys(HL.kinds)) if (!kinds[k]) out.push(`magma halls: no ${k} hall in 10 runs`); }
+    // (TASKS 1054) a chasm floor's way over has another on half of them and more; a hoard's islet is a chest of the 3rd tier past a run of
+    // rocks down its strip of crust
+    { let n = 0, alt = 0, isl = 0; const walk = (m, ban) => { const W = m.W, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
+        for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of [1, -1, W, -W]) { const k = q[i] + o; if (from[k] === -2 && m.cells[k] === 1 && !ban.has(k)) { from[k] = q[i]; q.push(k); } }
+        const way = new Set(); for (let k = e0; k >= 0 && from[e0] !== -2; k = from[k]) way.add(k); return way; };
+      for (let sd = 1; sd <= 30; sd++) for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd }), tag = `magma run ${sd} f${f}`;
+        for (const r of m.rooms.filter((q) => q.islet)) { isl++; const inR = (o) => o.x >= r.x * TILE && o.x < (r.x + r.w) * TILE && o.y >= r.y * TILE && o.y < (r.y + r.h) * TILE;
+          if (!m.chests.some((c) => inR(c) && c.tier === 3)) out.push(`${tag}: the islet's hoard not of the 3rd tier`);
+          if (!m.hazards.some((z) => z.islet && !z.tail)) out.push(`${tag}: no rocks down the islet's strip`); }
+        if (m.ftype !== 'chasm' || m.ftype2) continue; n++; const way = walk(m, new Set());
+        if (m.crossings.some((c) => c.chasm && c.cells.some((k) => way.has(k)) && walk(m, new Set(c.cells)).size)) alt++; }
+      if (n && alt * 2 < n) out.push(`magma chasm: a way round a bridge of the walk on ${alt} of ${n} floors`);
+      if (!isl) out.push('magma: no hoard\'s islet in 30 runs'); }
     for (const t of AR.types) if (!seen[t]) out.push(`floor type ${t} never turns up in 10 magma runs`);
     // the mix (TASKS 426): a lake, river or terrace floor over the chasm: it turns up in the runs, and on each figure a floor holds
     // the figure's own checks that the chasm could break (a walk to the stairs, a lava share, two bridges, every plateau in reach, the lake's islands)
@@ -965,7 +981,10 @@
     for (const sd of [1, 77, 4242, 5, 12, 33]) for (let f = 1; f <= D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', ftype: 'plain' }), W = m.W, tag = `magma ${sd} f${f}`;
       const keepOff = [[m.spawn.x, m.spawn.y], [m.exit.x, m.exit.y], ...m.chests.map((c) => [c.x, c.y]), ...m.enemies.map((e) => [e.x, e.y]), ...m.shrines.map((q) => [q.x, q.y])];
       const st = m.rooms.find((r) => r.type === 'start'); keepOff.push([(st.cx + 0.5) * TILE, (st.cy + 0.5) * TILE + 6]);
-      for (const z of m.hazards || []) { if (!z.tail) cnt[z.k][f - 1]++; const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
+      for (const z of m.hazards || []) { const tx = Math.floor(z.x / TILE), ty = Math.floor(z.y / TILE);
+        // (a hoard islet's rocks fall on its strip of thin crust, by its chest by design, TASKS 1054)
+        if (z.islet) { if (!(m.thin || []).includes(ty * W + tx)) out.push(`${tag}: an islet's rock off its strip at ${tx},${ty}`); continue; }
+        if (!z.tail) cnt[z.k][f - 1]++;
         if (keepOff.some(([x, y]) => Math.hypot(x - z.x, y - z.y) < HZ.clear * TILE)) out.push(`${tag}: a ${z.k} within ${HZ.clear} cells of the start, the spawn, the stairs, a chest, a monster or the altar at ${tx},${ty}`);
         if (cell(m, tx, ty) !== 1) out.push(`${tag}: a ${z.k} off the floor at ${tx},${ty}`);
         if (z.k === 'vent') for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (cell(m, tx + i, ty + j) !== 1) { out.push(`${tag}: a vent without 3×3 of floor at ${tx},${ty}`); j = i = 9; }
@@ -1113,6 +1132,13 @@
     // comes up; a pair ends by turns with the exit's elite guard and the biome's boss; maps grow to the cap and no further; floors
     // generate with the hero on open floor; a run goes on past the 12th and its depth is the record; no demon lord nor serpent before
     // the 8th
+    { const end = BAL.deep.end, top = [D.hpAt(end), D.dmgAt(end), D.dmgAt(end, 1)], st = (f) => D.stageOf('endless', f, 7, 17);
+      for (const f of [end + 1, end + 2, 100, 1000, 1e6, 1e12]) { if ([D.hpAt(f), D.dmgAt(f), D.dmgAt(f, 1)].some((v, i) => v !== top[i] || !Number.isFinite(v))) out.push(`deep f${f}: monsters grow past the end of the growth`);
+        if (f > 1000) continue; const a = st(f), b = st(end); if (a.elite !== b.elite || a.pop !== b.pop || a.cd !== b.cd || D.deepAxis(f, 'blow') !== D.deepAxis(end, 'blow')) out.push(`deep f${f}: an axis grows past the end of the growth`);
+        if (D.eliteMods(f).join() !== D.eliteMods(end).join()) out.push(`deep f${f}: elites gain modifiers past the end of the growth`); }
+      if (!(D.deepAxis(1e6, 'blow') < 0.5)) out.push('deep: two blows could kill from full health');
+      for (let f = BAL.deep.past + 1; f <= end; f++) if (!(D.hpAt(f) > D.hpAt(f - 1)) || !(D.dmgAt(f) > D.dmgAt(f - 1))) out.push(`deep f${f}: no growth`);
+      for (let d = 1; d <= BAL.deep.past; d++) { const old = (1 + 0.5 * (d - 1)) * Math.pow(1.1, Math.max(0, d - 12)); if (Math.abs(D.hpAt(d) - old) > 1e-9 || D.deepAxis(d, 'blow') !== BAL.cap.blow) out.push(`deep: the campaign's depth ${d} changed`); } }
     { const E = D.RUNS.endless, seen = new Set();
       for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 20; f++) { const a = D.stageOf('endless', f, sd), b = D.stageOf('endless', f, sd); seen.add(a.biome);
         if (a.biome !== b.biome || a.biome !== D.stageOf('endless', f % 2 ? f + 1 : f - 1, sd).biome) { out.push(`endless seed ${sd} f${f}: a pair's biome not fixed by the seed`); break; }
@@ -1151,7 +1177,8 @@
           hq.x = md.down.x; hq.y = md.down.y + 20; interact(T, Q);
           if (Q.floor !== 17 || Q.mode !== 'endless' || T.meta.wins !== w0 + 1 || T.meta.best !== 16 || T.meta.shards - s0 !== Math.floor(4000 / REWARD.goldPer) + REWARD.win || hq.lvl !== lvl || hq.eq.weapon.id !== id)
             out.push('campaign f16: the stairs on do not win the campaign and go on to the 17th with the same hero');
-          Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 17 || !T.result.campaignWon) out.push('campaign f16: the descent pays the campaign\'s gold twice or keeps no depth'); } }
+          // (back up to the 16th and given up there, TASKS 516: the record is the 17th reached, not the 16th left on)
+          enterFloor(T, Q, 16, undefined, 'up'); Q.goldTot += 500; endRun(T, 'dead'); if (T.result.base !== Math.floor(500 / REWARD.goldPer) || T.meta.bestEndless !== 17 || !T.result.record.fresh || T.result.deepest !== 17 || !T.result.campaignWon) out.push('campaign f16: the descent pays the campaign\'s gold twice or keeps no depth, or the record takes the floor left on'); } }
       endRun(S, 'dead'); if (S.meta.bestEndless !== 13 || S.result.mode !== 'endless' || !S.result.record || !S.result.record.fresh) out.push('endless: the record depth is not kept');
       // each of the five bosses at the end of an endless pair (TASKS 350): its arena seals when the hero walks in and opens at its
       // death; a chapter's end boss pays as the finale (20 shards, LOOT.boss), the others as a chapter boss (3 shards and an item);
@@ -2094,10 +2121,60 @@
       const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); press(U, ts); if (U.screen !== 'tests') out.push('tests: «Тесты» does not open the test runs');
       press(U, UI.tests(true).find((b) => b.id === 'back')); if (U.screen !== 'menu') out.push('tests: «Назад» does not go back to the menu');
       press(U, ts); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
+      // «Что нового» (TASKS 1038): the changelog's top entry is the game's version, the screen scrolls to its end and no further, Escape leaves
+      { if (!D.CHANGES.length || D.CHANGES[0].v !== D.VERSION) out.push('news: the changelog\'s top entry is not DATA.VERSION');
+        const nb = UI.menu(true).find((b) => b.id === 'news'); press(U, nb); if (U.screen !== 'news') out.push('news: «Что нового» does not open its screen');
+        const mx = UI.news(0).max; step(U, { keys: ['End'] }); step(U, { keys: ['ArrowDown'], wheel: 1 }); if (U.newsTop !== mx) out.push(`news: End scrolls to ${U.newsTop}, not ${mx}`);
+        { const E = UI.news(mx); if (E.top + E.rows.length !== E.n) out.push('news: the end of the list does not show its last row'); }
+        step(U, { keys: ['Home'] }); if (U.newsTop !== 0) out.push('news: Home does not go back to the top');
+        step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
+    return out;
+  }
+  // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
+  // 2nd that are no boss's, about half of them, each of the five, no flood on the fire floors; each one does what it says over the
+  // same floor laid without it; the banner names it; gold and a hoard's ambush answer it in the sim
+  function floorModCheck() {
+    const out = [], ids = Object.keys(D.FLOOR_MODS), got = {}; let on = 0, may = 0;
+    for (let sd = 1; sd <= 200; sd++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const st = D.stageOf('campaign', f, sd);
+      if (st.mod !== D.stageOf('campaign', f, sd).mod) out.push(`floor mod: campaign ${sd}/${f} draws another modifier the second time`);
+      const can = f >= D.FLOOR_MOD.from && !st.boss && !st.arch && f <= D.RUNS.campaign.chapter;
+      if (st.mod && !can) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a floor that takes none`);
+      if (st.mod && (D.FLOOR_MODS[st.mod].not || []).includes(st.biome)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» in ${st.biome}`);
+      if (st.mod && (D.FLOOR_MODS[st.mod].notLay || []).includes(st.lay)) out.push(`floor mod: campaign ${sd}/${f} has «${st.mod}» on a ${st.lay} floor`);
+      if (can) { may++; if (st.mod) { on++; got[st.mod] = 1; } } }
+    if (on < may * 0.4 || on > may * 0.6) out.push(`floor mod: ${on} of ${may} campaign floors drew one, not about half`);
+    for (const k of ids) if (!got[k]) out.push(`floor mod: «${k}» never drawn on 200 campaign runs`);
+    for (let sd = 1; sd <= 40; sd++) for (let f = 1; f <= 24; f++) { const st = D.stageOf('endless', f, sd); if (st.mod && (st.boss || st.arch || f < D.FLOOR_MOD.from)) out.push(`floor mod: descent ${sd}/${f} has «${st.mod}» on a boss's, cave's or early floor`); }
+    // the banner never names a modifier its floor lacks (PR 30: campaign 24/3 drew «flood» and laid no stream), and few floors lose theirs
+    const held = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
+    { let drew = 0, lost = 0; for (let sd = 1; sd <= 60; sd++) for (const f of [3, 5, 7]) { const st = D.stageOf('campaign', f, sd); if (!st.mod) continue;
+        const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }); drew++; if (!m.mod) { lost++; continue; }
+        if (m.mod !== st.mod || (held[m.mod] && !held[m.mod](m))) out.push(`floor mod: campaign ${sd}/${f} names «${m.mod}» and does not have it`); }
+      if (lost > drew * 0.05) out.push(`floor mod: ${lost} of ${drew} campaign floors laid without their modifier`); }
+    const gen = (sd, f, mod) => DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, stage: { mod } });
+    const sum = (mod, fn) => { let n = 0; for (let sd = 1; sd <= 6; sd++) for (const f of [3, 7]) n += fn(gen(sd, f, mod), sd, f); return n; };
+    const walls = (m) => m.torches.filter((t) => t.kind === 'wall').length, rows = (m) => new Set(m.traps.filter((t) => t.run !== undefined).map((t) => t.run)).size;
+    const elites = (m) => m.enemies.filter((e) => e.elite).length;
+    if (sum('flood', (m) => m.waterFeatures.length) < 1.5 * sum(undefined, (m) => m.waterFeatures.length)) out.push('floor mod: a flooded floor has not half as many streams again');
+    { const d = sum('dark', walls), b = sum(undefined, walls); if (d < 0.25 * b || d > 0.55 * b) out.push(`floor mod: a dark floor keeps ${d} of ${b} wall torches, not about 40 %`); }
+    sum('lair', (m, sd, f) => { const b = gen(sd, f, undefined); if (elites(m) !== elites(b) + D.FLOOR_MODS.lair.elites) out.push(`floor mod: lair ${sd}/${f} has ${elites(m)} elites over ${elites(b)}`);
+      if (!m.chests.some((c) => c.lair && c.tier === D.FLOOR_MODS.lair.chest)) out.push(`floor mod: lair ${sd}/${f} has no chest of the top tier`); return 0; });
+    if (sum('cursed', rows) < 2 * Math.max(1, sum(undefined, rows))) out.push('floor mod: a cursed floor has not the plate rows of all its long corridors');
+    if (sum('quiet', (m) => m.enemies.length) > 0.8 * sum(undefined, (m) => m.enemies.length)) out.push('floor mod: a quiet floor holds not about 30 % fewer monsters');
+    { const m = gen(1, 3, 'quiet'); if (m.mod !== 'quiet' || !D.placeName(3, 'campaign', 1, 1, m).includes(D.FLOOR_MODS.quiet.name)) out.push('floor mod: the banner does not name the modifier'); }
+    // gold picked up, and a hoard's chest springing its ambush on a draw between its plain chance and the doubled one
+    const run = (mod) => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77); S.screen = 'play'; const R = S.run; for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; } R.map.mod = mod; return [S, R]; };
+    for (const mod of [undefined, 'cursed']) { const [S, R] = run(mod), h = R.hero, g0 = h.gold, want = Math.round(100 * heroSt(S).gold * ((D.FLOOR_MODS[mod] || {}).gold || 1));
+      R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 100, id: R.nextId++ }); for (let i = 0; i < 5; i++) step(S, { keys: [] });
+      if (h.gold - g0 !== want) out.push(`floor mod: gold picked up on a ${mod || 'plain'} floor is ${h.gold - g0}, not ${want}`); }
+    for (const mod of [undefined, 'quiet']) { const [S, R] = run(mod), h = R.hero, room = DG.roomAt(R.map, h.x, h.y), was = R.map.rooms[room].type;
+      let rs = 1; for (; rs < 1e6; rs++) { const v = rnd({ rs }); if (v > 0.06 && v < 0.09) break; }
+      R.map.rooms[room].type = 'treasure'; R.rs = rs; S.ev = []; openChest(S, R, { x: h.x, y: h.y, tier: 1, open: 0, loot: [] }); R.map.rooms[room].type = was;
+      if (S.ev.some((e) => e.k === 'ambush') !== !!mod) out.push(`floor mod: a hoard's chest on a ${mod || 'plain'} floor ${mod ? 'does not spring' : 'springs'} an ambush on a draw of 0.06–0.09`); }
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -2148,8 +2225,16 @@
   // reading off and keeps the scroll; it is not read in the town; the save stays small and a saved run comes back on a kept floor
   function climbCheck() {
     const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    // the steps are where a hero coming down arrives: on floor reached from the start with the caches and locked doors shut (PR 30: seed 1's 7th put them in a cache)
+    for (const sd of [1, 4, 5, 7, 17, 32, 39]) for (let f = 1; f <= 16; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 }); if (!m.up) continue;
+      const W = m.W, shut = new Set(m.doors.filter((d) => d.lock >= 0).flatMap((d) => d.cells.map(([x, y]) => y * W + x))), r = m.rooms[m.start], open = new Uint8Array(W * m.H), go = [r.cy * W + r.cx]; open[go[0]] = 1;
+      while (go.length) { const k = go.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!open[n] && (m.cells[n] === 1 || m.cells[n] === 5) && !shut.has(n)) { open[n] = 1; go.push(n); } } }
+      if (!open[(m.up.ty + (m.up.free ? 0 : 1)) * W + m.up.tx]) out.push(`climb ${sd}/${f}: the stairs up are cut off from the start`); }
     for (const sd of [5, 17]) for (let f = 1; f <= 12; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 });
-      if (!m.up) { out.push(`climb ${sd}/${f}: no stairs up`); continue; } const k = m.up.ty * m.W + m.up.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
+      if (!m.up) { out.push(`climb ${sd}/${f}: no stairs up`); continue; } const k = (m.up.ty + (m.up.free ? 0 : 1)) * m.W + m.up.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
+      if (!m.up.free && [-1, 0, 1].some((i) => m.cells[m.up.ty * m.W + m.up.tx + i] !== 0)) out.push(`climb ${sd}/${f}: the stairs up are not in solid wall`);
+      if (!m.up.free && (m.doors || []).some((d) => d.cells.some(([x, y]) => Math.abs(x - m.up.tx) < 3 && Math.abs(y - m.up.ty) < 3))) out.push(`climb ${sd}/${f}: a door beside the stairs up`);
+      if (!m.up.free && f <= 8 && m.up.ty + 1 !== m.rooms[m.start].y && !m.rooms[m.start].wings) out.push(`climb ${sd}/${f}: the stairs up are not in the start room's top wall`);
       if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`climb ${sd}/${f}: the stairs up are off the floor or far from the spawn`);
       if (m.chests.some((c) => Math.hypot(c.x - m.up.x, c.y - m.up.y - 30) < 60)) out.push(`climb ${sd}/${f}: a chest by the stairs up takes the hero's E`);
       if (f === 3 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }).up) out.push('climb: stairs up in a run not through the town'); }
@@ -2158,6 +2243,7 @@
     for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
     const e0 = R.en[0]; e0.hp = 0; e0.deadT = S.t; const c0 = R.chests[0]; c0.open = 1; R.seen[7] = 1; R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 77, id: R.nextId++ });
     at(R.map.exit); E(S); if (R.floor !== 2) { out.push('climb: no way down from the 1st'); return out; }
+    if (Math.hypot(h.x - R.map.up.x, h.y - R.map.up.y) > 90) out.push('climb: down the stairs, the hero is not at the stairs up');
     at(R.map.up, 30); E(S); if (R.floor !== 1) { out.push('climb: the stairs up do not lead to the floor above'); return out; }
     if (Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: back up, the hero is not at the foot of the stairs down');
     const e1 = R.en.find((q) => q.id === e0.id), c1 = R.chests.find((q) => q.x === c0.x && q.y === c0.y);
@@ -2204,14 +2290,33 @@
       hq.x = Q.map.town.svc.portal.x; hq.y = Q.map.town.svc.portal.y + 30; E(T2);
       if (Q.floor !== f || Math.hypot(hq.x - g.x, hq.y - g.y) > 90 || !Q.arena || !Q.arena.gate) { out.push(`gate f${f}: the town's portal does not lead back beside the boss's`); continue; }
       hq.x = Q.map.exit.x; hq.y = Q.map.exit.y; E(T2); if (Q.floor !== f + 1) out.push(`gate f${f}: the stairs do not lead on after the portal`); }
-    // back up from the descent's 13th to the serpent's 12th (a run through the town): the floor is the campaign's again, not the
-    // descent's, whose bag has no round before the 13th (PR 19 review: the stack overflowed)
-    try { const S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run; enterFloor(S2, R2, 12);
-      for (const e of R2.en) if (D.BOSSES[e.type]) { e.hp = 0; e.deadT = S2.t; } R2.bossDead = 1; descend(S2, R2);
-      if (R2.floor !== 13 || R2.mode !== 'endless') out.push('climb: the descent past the serpent does not start on the 13th');
-      else { R2.hero.x = R2.map.up.x; R2.hero.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] });
-        if (R2.floor !== 12 || STAGE(R2).boss !== 'boss_serpent' || D.placeName(12, R2.mode, R2.seed, FROM(R2)) !== D.placeName(12, 'campaign', R2.seed)) out.push('climb: back up from the 13th, the 12th is not the campaign\'s'); } }
-    catch (err) { out.push('climb: back up from the 13th fails: ' + err.message); }
+    // past the colossus (TASKS 514): its hall keeps the town's portal and one stairs down; down them, back up from the descent's
+    // 17th, the 16th is the campaign's again (PR 19 review: the descent's bag has no round before its first floor), the hero by the
+    // stairs on, still one way down (its portal out no second stairs) and the portal home, and the stairs on take him to the 17th
+    // with no second win
+    try { const F = D.RUNS.campaign.floors, S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run, h2 = R2.hero; enterFloor(S2, R2, F);
+      const b = R2.en.find((e) => e.type === 'boss_colossus'); R2.arena = { active: 1, room: b.room, t0: S2.t }; b.hp = 0; killEnemy(S2, R2, b); R2.en = R2.en.filter((e) => e === b);
+      // (TASKS 515: no way out to the surface there, before the colossus falls or after: the run ends in the town)
+      if (exitKind(R2) !== null) out.push('climb: the campaign\'s last floor of a run through the town has a way out'); else { h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; E(S2); if (!S2.run || R2.floor !== F) out.push('climb: E at the last floor\'s old way out ends the run or leaves the floor'); }
+      if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus leaves no portal home');
+      else if (R2.map.down && Math.hypot(R2.arena.gate.x - R2.map.down.x, R2.arena.gate.y - R2.map.down.y) < 100) out.push('climb: the colossus\'s portal home stands by the stairs on');
+      // (PR 29 review) a run saved with the colossus slain before it left a portal, its body cleared away: the portal is set on load
+      // and when the floor is entered again
+      { const keep = R2.arena.gate, en = R2.en; delete R2.arena.gate; R2.en = []; const T3 = spawn(1, JSON.parse(JSON.stringify(persist(S2))));
+        if (!T3.saved || !T3.saved.arena || !T3.saved.arena.gate) out.push('climb: a save with the colossus slain and no portal home gets none on load');
+        delete R2.arena.gate; enterFloor(S2, R2, F - 1, undefined, 'up'); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered again');
+        delete R2.arena.gate; enterFloor(S2, R2, 0); enterFloor(S2, R2, F); if (!R2.arena || !R2.arena.gate) out.push('climb: the colossus\'s floor kept with no portal home gets none when entered from the town');
+        void keep; void en; }
+      descend(S2, R2); const w0 = S2.meta.wins;
+      if (R2.floor !== F + 1 || R2.mode !== 'endless') out.push(`climb: the descent past the colossus does not start on the ${F + 1}th`);
+      else { h2.x = R2.map.up.x; h2.y = R2.map.up.y + 30; E(S2); for (let i = 0; i < 60; i++) step(S2, { keys: [] }); const m2 = R2.map;
+        if (R2.floor !== F || STAGE(R2).boss !== 'boss_colossus' || D.placeName(F, R2.mode, R2.seed, FROM(R2)) !== D.placeName(F, 'campaign', R2.seed)) out.push(`climb: back up from the ${F + 1}th, the ${F}th is not the campaign's`);
+        else if (!m2.down || exitKind(R2) === 'stairs' || !R2.arena || !R2.arena.gate) out.push(`climb: back up on the ${F}th, not one stairs down and the portal home`);
+        else { if (Math.hypot(h2.x - m2.down.x, h2.y - m2.down.y) > 80) out.push(`climb: back up on the ${F}th, the hero is not by the stairs on`);
+          h2.x = R2.arena.gate.x; h2.y = R2.arena.gate.y + 30; E(S2); if (R2.floor !== 0) out.push(`climb: the ${F}th's portal home does not take the hero home after the descent`);
+          else { h2.x = R2.map.town.svc.portal.x; h2.y = R2.map.town.svc.portal.y + 30; E(S2); if (R2.floor !== F) out.push(`climb: the town's portal does not lead back to the ${F}th`); }
+          h2.x = m2.down.x; h2.y = m2.down.y + 20; E(S2); if (R2.floor !== F + 1 || S2.meta.wins !== w0) out.push(`climb: the ${F}th's stairs on, taken again, do not lead to the ${F + 1}th or win the campaign twice`); } } }
+    catch (err) { out.push('climb: back up from the descent fails: ' + err.stack); }
     return out;
   }
   // TASKS 1009: in a run through the town a waystone stands by the start of every D.wayFloor, reachable and clear of the stairs
@@ -2343,6 +2448,29 @@
     talkTo(R, 'keeper'); const p5 = read(); if (p5.includes(K.away[0]) || p5.includes(K.rare('Кольцо Бездны')[0])) out.push('talk: the Keeper tells the same news twice');
     endRun(S, 'dead'); R = run(33); talkTo(R, 'keeper'); const p6 = read(); if (p6[0] !== K.death[0]) out.push('talk: a later death is told as the first');
     for (const f of folkOf(R)) if (f.role !== 'guard') f.x += 2000; talkTo(R, 'guard'); const p7 = read(); for (const f of folkOf(R)) if (f.role !== 'guard') f.x -= 2000; if (!D.FOLK.guard.lines.some((l) => l[0] === p7[0])) out.push('talk: the guard does not speak his lines');
+    // TASKS 1148: past the colossus the Keeper asks whether the run ends: «Завершить поход» wins it with its reward, «Продолжить»
+    // (Esc) leaves it going; after the descent past it the win is not counted again
+    { const F = D.RUNS.campaign.floors, endAt = () => { for (let i = 0; i < 12 && S.talk && S.talk.p + 1 < S.talk.pages.length; i++) step(S, { keys: ['KeyE'] }); step(S, { keys: ['Enter'] }); }; R = run(34); talkTo(R, 'keeper'); const a0 = S.talk && S.talk.act; read(); if (a0 && a0.k === 'finish') out.push('talk: the Keeper offers to end the run before the colossus');
+      R.slain = [F]; R.deepest = F; R.goldTot = 1000; talkTo(R, 'keeper'); const a1 = S.talk && S.talk.act;
+      if (!a1 || a1.k !== 'finish' || S.talk.pages[S.talk.pages.length - 1] !== K.end[0]) out.push('talk: past the colossus the Keeper does not offer to end the run');
+      else { step(S, { keys: ['Escape'] }); if (S.screen !== 'play' || S.run !== R) out.push('talk: «Продолжить» does not leave the run going');
+        talkTo(R, 'keeper'); read(); if (S.screen !== 'play' || S.run !== R) out.push('talk: E run through the Keeper\'s pages ends the run');
+        const w0 = S.meta.wins || 0, s0 = S.meta.shards; talkTo(R, 'keeper'); endAt();
+        if (S.screen !== 'win' || S.run || S.meta.wins !== w0 + 1 || S.meta.shards - s0 !== Math.floor(1000 / REWARD.goldPer) + REWARD.win || S.meta.best < F) out.push(`talk: «Завершить поход» does not win the run with its reward (${S.screen}, ${S.meta.wins - w0}, ${S.meta.shards - s0})`); }
+      R = run(35); R.slain = [F]; R.deepest = F + 3; R.campaignWon = 1; R.mode = 'endless'; R.goldTot = R.goldBanked = 800; R.goldTot += 300; const w1 = S.meta.wins || 0; talkTo(R, 'keeper');
+      if (!S.talk || !S.talk.act || S.talk.act.k !== 'finish' || !S.talk.pages.includes(K.endDeep[0])) out.push('talk: after the descent the Keeper does not offer to end the run');
+      else { endAt(); if (S.screen !== 'win' || S.meta.wins !== w1 || S.result.base !== Math.floor(300 / REWARD.goldPer) || S.result.win || S.meta.bestEndless < F + 3) out.push('talk: a run ended at the Keeper after the descent wins the campaign twice or pays its gold again'); }
+      // (PR 29 review) a side quest the Keeper offers after the descent does not hide the end of the run, nor shows its «!» over him
+      R = run(38); R.slain = [F]; R.campaignWon = 1; R.mode = 'endless'; R.deepest = F + 2; R.offers = [{ key: 'cull', from: 'keeper' }];
+      if (!offerOf(R, 'keeper')) out.push('talk: no side quest of the Keeper\'s to check the end of the run against');
+      else { talkTo(R, 'keeper'); if (!S.talk || !S.talk.act || S.talk.act.k !== 'finish' || questMark(R, 'keeper') === '!') out.push('talk: a side quest on offer hides the Keeper\'s end of the run'); step(S, { keys: ['Escape'] }); }
+      // TASKS 1150: the pause menu's «Сдаться» is «Завершить поход» past the colossus, a win
+      R = run(36); const pz = () => UI.pause(S.meta.zoom, campaignDone(R)).map((b) => b.id);
+      if (!pz().includes('abandon') || pz().includes('finish')) out.push('pause: «Завершить поход» before the colossus falls');
+      R.slain = [F]; R.deepest = F; const w2 = S.meta.wins || 0, fb = UI.pause(S.meta.zoom, true).find((b) => b.id === 'finish');
+      if (!fb || pz().includes('abandon')) out.push('pause: past the colossus the menu still gives up the run');
+      else { S.screen = 'pause'; step(S, { keys: [], click: 1, px: fb.x + fb.w / 2, py: fb.y + fb.h / 2 }); if (S.screen !== 'win' || S.run || S.meta.wins !== w2 + 1 || S.result.abandoned) out.push('pause: «Завершить поход» does not end the run won'); }
+      R = run(37); }
     const sm = folkOf(R).find((q) => q.role === 'smith'); R.hero.x = R.map.town.svc.anvil.x; R.hero.y = R.map.town.svc.anvil.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); void sm;
     if (S.screen !== 'craft') out.push('talk: E at the anvil opens a dialogue, not the smith\'s workshop');
     return out;
@@ -2498,12 +2626,21 @@
       // TASKS 1003: every service on the plan, a body two cells wide walks from the spawn to where each is used, the rails keep
       // off the square and the paths to the services (they run only along the bottom wall), every townsperson stands on open floor
       const ok = DG.townWalk(m), wc = ok.map((v) => (v ? 1 : 0)), use = Object.entries(m.town.use);
-      for (const k of ['stairs', 'shop', 'altar', 'stash', 'anvil', 'lectern', 'board', 'portal', 'fire']) if (!m.town.use[k]) out.push(`town ${sd}: no ${k} on the plan`);
+      for (const k of ['stairs', 'shop', 'altar', 'stash', 'anvil', 'lectern', 'board', 'portal', 'fire', 'exitGate']) if (!m.town.use[k]) out.push(`town ${sd}: no ${k} on the plan`);
       const far = DG.narrowTo(wc, m.W, m.H, at(m.spawn), use.map(([, [x, y]]) => y * m.W + x));
       for (const k of far) out.push(`town ${sd}: ${use.find(([, [x, y]]) => y * m.W + x === k)[0]} out of a two-cell-wide walk from the spawn`);
       if (m.town.rails.some((k) => m.cells[k] !== 1 || (Math.floor(k / m.W) < 26 && k % m.W < 42))) out.push(`town ${sd}: the rails leave the bottom wall or run into rock`);
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
+    // TASKS 1149: the town's gate out asks first (E and Esc stay), then gives the run up; past the colossus it ends it won
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
+      const ask = () => { Q.hero.x = g.x; Q.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); return G.screen === 'leave'; };
+      if (!ask()) out.push('town gate: E at the gate opens no window');
+      else { step(G, { keys: ['KeyE'] }); if (G.screen !== 'play' || G.run !== Q) out.push('town gate: E in its window ends the run');
+        ask(); step(G, { keys: [], click: 1, px: go.x + 10, py: go.y + 10 }); if (G.screen !== 'dead' || !G.result.abandoned) out.push('town gate: «Сдаться» does not give the run up'); }
+      press(G, UI.end()[0]); if (G.screen === 'dead') G.screen = 'menu'; press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q2 = G.run;
+      if (Q2) { Q2.slain = [D.RUNS.campaign.floors]; Q2.deepest = D.RUNS.campaign.floors; const w0 = G.meta.wins || 0; Q2.hero.x = g.x; Q2.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); step(G, { keys: ['Enter'] });
+        if (G.screen !== 'win' || G.meta.wins !== w0 + 1) out.push('town gate: past the colossus the gate does not end the run won'); } }
     const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes().find((b) => b.id === 'go'));
     const R = S.run; if (!R || R.floor !== 0 || !R.town || R.mode !== 'campaign' || S.screen !== 'play') { out.push('town: «Кампания» does not start in the town'); return out; }
     const h = R.hero, hp = h.hp, x0 = h.x;

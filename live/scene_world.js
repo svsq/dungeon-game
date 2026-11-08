@@ -225,11 +225,12 @@
     // the stairs on past the serpent (TASKS 354), beside the portal: dark till it falls
     if (m.down && vis(m.down.x, m.down.y)) { const [w, hh] = SZ('stairs'); L.sprite('stairs', sx(m.down.x) - w / 2, sy(m.down.y) - hh / 2 - 4, { w, h: hh, u: R.bossDead ? undefined : { grade: [0.6, 0.55, 0, 1] } }); }
     // the town's crypt gate is a dark mouth between its braziers, not a lit frame (fidelity r2)
-    if (vis(m.exit.x, m.exit.y)) { if (m.floor < D.runOf(R.mode).floors) { const st = m.town ? 'stairs_tw' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
+    if (vis(m.exit.x, m.exit.y)) { if (SIM.Q.exitKind(R, m.floor) === 'stairs') { const st = m.town ? 'stairs_tw' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
     // the start room's bonfire sits in a rune circle
     if (window.ASSETS.sanct_circle && !m.town && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
     // a magma hall's ritual circle (TASKS 434), the fire priests' as on ref_cave_lava
-    if (window.ASSETS.sanct_circle) for (const q of m.circles || []) if (vis(q.x, q.y)) { const d = 4.2 * TILE; L.sprite('sanct_circle', sx(q.x) - d / 2, sy(q.y) - d / 2, { w: d, h: d }); }
+    // (its blessing taken, TASKS 1054, it goes dull as a used altar does)
+    if (window.ASSETS.sanct_circle) for (const q of m.circles || []) if (vis(q.x, q.y)) { const d = 4.2 * TILE; L.sprite('sanct_circle', sx(q.x) - d / 2, sy(q.y) - d / 2, { w: d, h: d, u: q.used ? { grade: [0.5, 0.7, 0, 1] } : undefined }); }
     // spike traps: a 2×2-cell plate on the ground; its spikes stand in the Y-sorted band (they have height)
     // on the magma's basalt the crypt's grey masonry plate read as a tile (TASKS 456): it goes dark and dull, a hot glint in each hole
     for (const tp of m.traps) if (vis(tp.x, tp.y)) { L.sprite('trap_plate', sx(tp.x - TILE), sy(tp.y - TILE), { w: 2 * TILE, h: 2 * TILE, u: m.cliff ? { grade: [0.35, 0.9, 0, 1.05] } : undefined });
@@ -473,7 +474,7 @@
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
-    if (m.up && vis(m.up.x, m.up.y)) { const [w, hh] = SZ('stairs_up'), u = m.up; Y.push([u.y + 14, () => L.inked(() => L.sprite('stairs_up', sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
+    if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = u.free ? 'stairs_up_free' : 'stairs_up', [w, hh] = SZ(st); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
     // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
     if (m.way && vis(m.way.x, m.way.y)) { const [w, hh] = SZ('waystone'), u = m.way, on = (R.ways || []).includes(m.floor), woke = ST.ev.find((e) => e.k === 'waystone');
       const k = !on ? 0 : woke && GT - woke.t < 0.8 ? SS(0, 0.8, GT - woke.t) : 0.8 + 0.2 * Math.sin(t * 1.7);

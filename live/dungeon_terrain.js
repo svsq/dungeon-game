@@ -6,7 +6,7 @@
     wayRooms } = DGX;
   DGX.terrain = (GF) => {
     const {
-      AR, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
+      AR, FM, H, LY, MIX, MX, R, ST, TY, W, adj, at, biome, boss, bossType, breakRuns, cave, cells, court, depth, dist, edges, fig, figAt,
       figHit, floor, ftype, keep, lakeEnds, last, lastTry, lc, main, opts, pick, pl, plat, ri, riverY, rooms, runFloor, seed, set, side,
       strict, terr, tidy } = GF;
     // ---- roles: start at a leaf on the rim, exit farthest by hops then distance ----
@@ -471,6 +471,28 @@
           if (narrowTo(cells, W, H, start.cy * W + start.cx, rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx)).length) { for (let k = 0; k < W * H; k++) cells[k] = c0[k]; continue; }
           for (const k of deck) chasmUnder.add(k); crossings.push({ kind: 'bridge', cells: deck, axis: hor ? 'x' : 'y', clean: 1, chasm: 1 }); }
         if (crossings.filter((c) => c.chasm).length < (MIX && ftype === 'river' ? AR.blend.riverBridges : 2)) return false;
+        // a chasm floor's way over has another (TASKS 1054: its bridges stood in series on 8 floors of 10, the one choice "wait or run"
+        // under the rocks): the walk's longest bridge with no way round it gets a second straight deck over the dark from the
+        // plateaus on its near side to those on its far side, at least `alt.off` cells off it, `alt.len` cells long
+        if (ftype === 'chasm' && TY.alt) { const A = TY.alt, s0 = start.cy * W + start.cx, e0 = exitR.cy * W + exitR.cx;
+          const walk = (ban) => { const from = new Int32Array(W * H).fill(-2), q = [s0]; from[s0] = -1;
+            for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of D4) { const n = q[i] + o; if (from[n] === -2 && cells[n] === 1 && !ban.has(n)) { from[n] = q[i]; q.push(n); } }
+            const out = []; if (from[e0] !== -2) for (let k = e0; k >= 0; k = from[k]) out.push(k); return out; };
+          const way = new Set(walk(new Set())), lone = crossings.filter((c) => c.chasm && c.cells.some((k) => way.has(k)) && !walk(new Set(c.cells)).length).sort((a, b) => b.cells.length - a.cells.length);
+          for (const B of lone) { const ban = new Set(B.cells), near = new Uint8Array(W * H), q = [s0]; near[s0] = 1;
+            for (let i = 0; i < q.length; i++) for (const o of D4) { const n = q[i] + o; if (!near[n] && cells[n] === 1 && !ban.has(n)) { near[n] = 1; q.push(n); } }
+            const dark = (x, y) => x > 1 && y > 1 && x < W - 2 && y < H - 2 && lowC(y * W + x), off = (x, y) => B.cells.every((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) >= A.off);
+            let best = null;
+            for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const hor = dx !== 0, px = hor ? 0 : 1, py = hor ? 1 : 0;
+              if (!near[y * W + x] || !near[(y + py) * W + x + px] || hidden.has(y * W + x)) continue; const deck = []; let u = 1, ok = true;
+              for (; u <= A.len[1]; u++) { const ax = x + dx * u, ay = y + dy * u, bx = ax + px, by = ay + py;
+                if (cells[ay * W + ax] === 1 && cells[by * W + bx] === 1) break;
+                if (!dark(ax, ay) || !dark(bx, by) || !dark(ax - px, ay - py) || !dark(bx + px, by + py) || !off(ax, ay)) { ok = false; break; } deck.push(ay * W + ax, by * W + bx); }
+              const ex = x + dx * u, ey = y + dy * u;
+              if (!ok || u > A.len[1] || u - 1 < A.len[0] || near[ey * W + ex] || cells[ey * W + ex] !== 1 || cells[(ey + py) * W + ex + px] !== 1 || ban.has(ey * W + ex)) continue;
+              if (!best || deck.length < best.deck.length) best = { deck, hor }; }
+            if (!best) continue; for (const k of best.deck) { cells[k] = 1; chasmUnder.add(k); }
+            crossings.push({ kind: 'bridge', cells: best.deck, axis: best.hor ? 'x' : 'y', clean: 1, chasm: 1, alt: 1 }); break; } }
         // what a bridge left of its ridge off the way goes to the dark
         const sv = new Uint8Array(W * H), st = [start.cy * W + start.cx]; sv[st[0]] = 1;
         while (st.length) { const k = st.pop(); for (const o of D4) { const n = k + o; if (!sv[n] && (cells[n] === 1 || cells[n] === 4)) { sv[n] = 1; st.push(n); } } }
@@ -824,7 +846,7 @@
       for (let i = candidates.length - 1; i > 0; i--) { const j = wi(0, i); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
       let n = 0;
       for (const r of candidates.concat(rooms.filter((q) => q.type === 'combat' && plain(q) && !candidates.includes(q) && !secrets.some((s) => s.front.some(([x, y]) => roomOf(x, y) === q))))) {
-        if (n >= 2) continue;
+        if (n >= 2 * (FM.water || 1)) continue;
         const w = wi(1, 3), xs = [];
         for (let x = r.x + 2; x + w <= r.x + r.w - 2; x++) if (Array.from({ length: w + 2 }, (_, i) => x + i - 1).every((cx) => at(cx, r.y - 1) === 0 && !isDoor(cx, r.y) && !secretFront.has(r.y * W + cx))) xs.push(x);
         if (!xs.length) continue;

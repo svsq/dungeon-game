@@ -3,26 +3,30 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BASES, D, DT, FROM, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
+    BASES, D, DT, FROM, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
     throwAway, useItem } = SIMX;
   // ---------------- run end / menus ----------------
   function endRun(S, how) {
     const R = S.run; if (!R) return;
     const W2 = runReward(R, how), bonus = W2.base + W2.bonus;
-    S.meta.shards += bonus; S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win') S.meta.wins = (S.meta.wins || 0) + 1;
+    S.meta.shards += bonus; S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win' && !R.campaignWon) S.meta.wins = (S.meta.wins || 0) + 1;
     // what the Keeper of the Fire will speak of to the next hero (TASKS 1016)
     if (how === 'dead' && !(R.log && R.log.abandon)) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id;
-    if (RUN(R) === D.RUNS.campaign) S.meta.best = Math.max(S.meta.best || 0, R.floor);
-    // the endless descent's record depth (TASKS 348): the deepest floor reached
-    const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless) S.meta.bestEndless = Math.max(deepBest, R.floor);
-    S.result = { how, mode: R.mode, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
-      C: W2.C, win: how === 'win' ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
-      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: R.floor > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
+    // the records are the deepest floor reached, not the one the run ended on (TASKS 516: down to the 17th, back up to the 16th)
+    const deep = Math.max(R.deepest || 0, R.floor);
+    if (RUN(R) === D.RUNS.campaign) S.meta.best = Math.max(S.meta.best || 0, deep);
+    // the endless descent's record depth (TASKS 348)
+    const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless) S.meta.bestEndless = Math.max(deepBest, deep);
+    S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
+      C: W2.C, win: how === 'win' && !R.campaignWon ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
+      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; S.screen = how; S.saveN++;
   }
+  // the run ended alive past the campaign's last boss (TASKS 1148): a win, the campaign's if not won yet at the stairs on
+  function finishRun(S) { S.talk = null; S.screen = 'play'; endRun(S, 'win'); }
   // a hero who starts above level 1 opens on the hero screen, his points still to lay out
   // past the serpent, down the stairs (TASKS 354): the campaign is won on the spot — its reward (gold and the win's shards), a win,
   // its record — and the same run goes on as the endless descent from the 13th, the hero as he is; the descent's depth is its record
@@ -33,7 +37,7 @@
     R.msg = { s: TXT('sim_ui.descend.msg.s', { base: W2.base, floor: R.floor, p3: D.floorName(R.floor, R.mode, R.seed, FROM(R)) }), t: S.t, d: 5 }; }
   // the checks of the dungeon's own workings start from the menu as before and play its 1st floor laid out without the town (a
   // merchant on the floor, no stairs up), the run's seed kept (TASKS 1026: the campaign itself now starts in the town)
-  const begin = (S) => { SIMX.step(S, { keys: [], px: 960, py: 598, click: 1 }); if (S.screen === 'classes') startRun(S, S.pendingMode); if (S.run && S.run.town) { S.run = newRun(S, 'campaign', S.run.seed); S.screen = 'play'; } };
+  const begin = (S) => { const c = UI.menu(!!S.saved).find((b) => b.id === 'campaign'); SIMX.step(S, { keys: [], px: c.x + c.w / 2, py: c.y + c.h / 2, click: 1 }); if (S.screen === 'classes') startRun(S, S.pendingMode); if (S.run && S.run.town) { S.run = newRun(S, 'campaign', S.run.seed); S.screen = 'play'; } };
   // the campaign starts in the town (TASKS 1026); the test runs (the caves, the magma caves, the endless descent) as before
   function startRun(S, mode = 'campaign') { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
@@ -50,6 +54,7 @@
       if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed, FROM(S.run), S.run.map), t: S.t }; }
       if (D.RUNS[b.id]) pressRun(S, b.id, arm);
       if (b.id === 'tests') S.screen = 'tests';
+      if (b.id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
       if (b.id === 'zoom') nextZoom(S);
       if (b.id === 'town') { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed, FROM(S.run), S.run.map), t: S.t }; } else chooseRun(S); }
@@ -74,6 +79,13 @@
     if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); }
     return;
   };
+  // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back
+  SCREEN.news = (S, inp, keys, x, y, click) => {
+    const N = UI.news(S.newsTop), b = D.hitUI(N.r, x, y), page = Math.max(1, N.rows.length - 2); S.hover = b ? b.id : '';
+    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
+    const d = (inp.wheel || 0) + (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0) + (keys.PageDown ? page : 0) - (keys.PageUp ? page : 0) + (keys.End ? N.n : 0) - (keys.Home ? N.n : 0);
+    if (d) S.newsTop = Math.max(0, Math.min(N.max, N.top + d));
+  };
   SCREEN.meta = (S, inp, keys, x, y, click) => {
     const bs = UI.meta(), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
     if ((click && b && b.id === 'back') || keys.Escape || (S.metaRun && keys.KeyE)) { S.screen = S.metaRun && S.run ? 'play' : 'menu'; S.metaRun = 0; return; }
@@ -82,10 +94,11 @@
     return;
   };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
-    const b = D.hitUI(UI.pause(S.meta.zoom), x, y); S.hover = b ? b.id : '';
+    const b = D.hitUI(UI.pause(S.meta.zoom, !!S.run && campaignDone(S.run)), x, y); S.hover = b ? b.id : '';
     if (click && b && b.id === 'zoom') { nextZoom(S); S.run.zoom = S.meta.zoom; ev(S, { k: 'ui', x, y }); return; }
     if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
     if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; return; }
+    if (click && b && b.id === 'finish') { finishRun(S); return; }
     if (click && b && b.id === 'abandon') { if (S.run.log) S.run.log.abandon = 1; endRun(S, 'dead'); return; }
     return;
   };
@@ -103,7 +116,8 @@
     if (click && b && b.id === 'craft') { S.talk = null; S.screen = 'craft'; S.craft = { kind: 'forge', sel: S.craft && S.craft.kind === 'forge' ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     // on a quest's last page E, the space or Enter press its button; «Дальше» / «Не сейчас» leave it
     const last = T.p + 1 >= T.pages.length;
-    if (T.act && last && ((click && b && b.id === 'act') || keys.KeyE || keys.Space || keys.Enter)) { talkAct(S, S.run, T); return; }
+    // (the end of the run, TASKS 1148, only by its button or Enter: E run through the Keeper's pages must not end it)
+    if (T.act && last && ((click && b && b.id === 'act') || ((keys.KeyE || keys.Space) && T.act.k !== 'finish') || keys.Enter)) { talkAct(S, S.run, T); return; }
     if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { S.screen = 'play'; S.talk = null; } else ev(S, { k: 'ui', x, y }); }
     return;
   };
@@ -130,6 +144,13 @@
     const R = S.run, o = gateWays(R), U = UI.gate(o.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!o.length || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }
     if (click && b && b.id.startsWith('go:') && o[b.i]) gateGo(S, R, o[b.i]);
+    return;
+  };
+  // the town's gate out (TASKS 1149): give up the run, or past the campaign's last boss end it won; only by its button or Enter
+  SCREEN.leave = (S, inp, keys, x, y, click) => {
+    const R = S.run, U = UI.leave(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'stay')) { S.screen = 'play'; return; }
+    if ((click && b && b.id === 'go') || keys.Enter) { if (campaignDone(R)) finishRun(S); else { if (R.log) R.log.abandon = 1; endRun(S, 'dead'); } }
     return;
   };
   SCREEN.altar = (S, inp, keys, x, y, click) => {
@@ -178,5 +199,5 @@
   }
 
   Object.assign(SIMX, {
-    endRun, descend, begin, startRun, stepUI });
+    endRun, finishRun, descend, begin, startRun, stepUI });
 })(typeof window !== 'undefined' ? window : globalThis);

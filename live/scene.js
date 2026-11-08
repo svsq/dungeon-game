@@ -6,7 +6,7 @@
 (function () {
   const SCX = window.SCX, {
     BRIDGE, CANDLE, D, DEPTH_K, GLOW_COL, GOLD_TINT, HERO, L, PIX, RIM, SC, SS, STAND, SZ, TILE, bake, emitted, glowBeat, glowOf,
-    lavaGlowTex, rnd, seenTex, spellFloor, torchCol, views, whirlP } = SCX;
+    swimTex, rnd, seenTex, spellFloor, torchCol, views, whirlP } = SCX;
   // ---------------- render ----------------
   SC.render = (t) => {
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
@@ -18,7 +18,7 @@
     bake(m); const seen = seenTex(R);
     const tr = R.trauma * R.trauma, shx = 16 * tr * (L.rnd(Math.floor(GT * 30), 1) - 0.5) * 2, shy = 12 * tr * (L.rnd(Math.floor(GT * 30), 2) - 0.5) * 2;
     const cx = Math.round((R.cam[0] + shx) / PIX) * PIX, cy = Math.round((R.cam[1] + shy) / PIX) * PIX, sx = (x) => x - cx, sy = (y) => y - cy;
-    SCX.LAVA_CLIP = m.cliff ? { clipm: lavaGlowTex(m), clipb: [-cx, -cy, m.W * TILE, m.H * TILE] } : null;   // (drawEnemy's sunk salamander, TASKS 460)
+    SCX.LAVA_CLIP = m.cliff ? { clipm: swimTex(m), clipb: [-cx, -cy, m.W * TILE, m.H * TILE] } : null;   // (drawEnemy's sunk salamander, TASKS 460)
     const vis = (x, y, pad = 120) => x > cx - pad && x < cx + SCX.VW + pad && y > cy - pad && y < cy + SCX.VH + pad * 1.5;
     const MW = m.W * TILE, MH = m.H * TILE;
     const known = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)] || R.seen[Math.floor((y + 40) / TILE) * m.W + Math.floor(x / TILE)];

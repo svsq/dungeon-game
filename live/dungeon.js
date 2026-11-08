@@ -145,7 +145,7 @@
     // end, fin: the run's last floor (past any other boss an altar and the stairs wait)
     // (opts.stage: a staged view's own size and room count over its stage's, the QA match, TASKS 373)
     const ST = Object.assign({}, D.stageOf(opts.mode, runFloor, opts.runSeed, opts.from), opts.stage), N = ST.N, floor = ST.lf, depth = ST.depth, last = ST.last, fin = ST.fin;
-    const biome = ST.biome, bossType = ST.boss, boss = !!bossType;
+    const biome = ST.biome, bossType = ST.boss, boss = !!bossType, FM = (ST.mod && D.FLOOR_MODS[ST.mod]) || {};
     // the cave archetype (R-18, TASKS 301): the same rooms and links, but a room is a blob of floor inside its box round a core
     // where the start's fire or the stairs stand, a link is a winding tunnel 2–4 cells wide, and small dead-end pockets hang off
     // the rooms for a chest or an ambush; the map grows floor by floor and has no straight stretch of wall longer than four cells
@@ -157,13 +157,17 @@
     GF.moat = null;
     const set = (x, y, v) => { if (x > 1 && y > 2 && x < W - 2 && y < H - 2 && !(GF.moat && v === 1 && GF.moat(x, y))) cells[y * W + x] = v; };
     Object.assign(GF, {
-      AR, H, R, ST, W, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
+      AR, FM, H, R, ST, W, arch, at, biome, boss, bossType, cave, cells, depth, fin, floor, last, lastTry, mixed, opts, pick, plat, ri,
       runFloor, seed, set, strict });
     if (DGX.rooms(GF) === null) return null;
     if (DGX.links(GF) === null) return null;
     if (DGX.terrain(GF) === null) return null;
-    return DGX.fill(GF);
+    const m = DGX.fill(GF);
+    // a modifier only raises a cap or a chance, so a floor may have no room for it; the banner must never name one the floor lacks
+    if (m && m.mod && MOD_HELD[m.mod] && !MOD_HELD[m.mod](m)) { if (strict) return null; m.mod = null; }
+    return m;
   }
+  const MOD_HELD = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
 
   // a magma floor's rewards (TASKS 433): its chests (a cache's own counted as the cache, on the plateau it is dug from), altars and
   // elites (not the stairs' own), each with its room; the rooms on the way from the start to the stairs, the dead ends off it, and
@@ -200,8 +204,10 @@
     plaza: [27, 17.4, 4.6, 3.7], paths: [[27, 11], [17, 13], [36, 12], [36, 24], [22, 22], [16, 22], [27, 31], [47, 23]],
     stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [36, 11], forge: [38, 10], lectern: [39, 17], shelf: [37, 16],
     altar: [36, 23], chest: [39, 23], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [15, 29], herbs: [44, 25],
+    // the town's gate out (TASKS 1149): shut, in the bottom wall where the cobbled way off the square ends, as on the reference
+    exitGate: [29, 32.9],
     // the portal's ring is open toward the square (no stone east of it); where a body stands to use each service (the checks walk a two-cell-wide body there from the spawn)
-    use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [36, 12], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [16, 29] },
+    use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [36, 12], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [16, 29], exitGate: [29, 29] },
     braziers: [[25, 11], [29, 11]],
     benches: [[25, 16], [29, 19], [25, 19]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
@@ -209,7 +215,7 @@
     lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['crypt', 27, 11], ['adit', 47, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
-    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [31, 31], [39, 28], [9, 8], [41, 8], [32, 8], [43, 15]],
+    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [32, 31], [39, 28], [9, 8], [41, 8], [32, 8], [43, 15]],
     // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
     edge: [[6, 10], [49, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
     // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore;
@@ -254,6 +260,7 @@
       { ...at(T.board), n: 'board_tw', role: 'board', solid: 1 }, { ...at(T.tree), n: 'tree_tw', role: 'tree', solid: 1 }, { ...at(T.bin), n: 'orebin_tw', role: 'ore_bin', solid: 1 },
       { ...at(T.herbs), n: 'herbs_tw', role: 'herbs', solid: 1 }, { x: wx(T.adit[0]), y: wy(T.adit[1]) + 6, n: 'adit_tw', role: 'adit', solid: 1, s: 1.35 },
       { x: wx(sx), y: wy(sy - 1) + 12, n: 'awning_tw', role: 'stall' },
+      { x: wx(T.exitGate[0]), y: T.exitGate[1] * TILE + 6, n: 'gate_tw', role: 'exit_gate', solid: 1 },
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
       // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
@@ -286,7 +293,7 @@
     // separate tufts over the earth (TASKS 1030: its texture keeps only fine grain, so the tile's repeat does not show)
     for (let i = 0; i < 150; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
       decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_grass_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.7 + R() * 0.5 }); }
-    const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin) };
+    const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin), exitGate: at(T.use.exitGate) };
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
     // merchant's counter, and it stood behind it for good on seed 52)
     const block = []; const bk = (x, y) => { const k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (!block.includes(k)) block.push(k); };

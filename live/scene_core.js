@@ -118,7 +118,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; if (u_hard > 0.5) q = (floor(v_uv * u_sz
   // still lava creeps. All in world px, flat steps, no smooth ramp. u_mode 0 draws the
   // ground, 1 the glow for the emissive pass, 2 itself again as an emitter so the fires' light can't tint it
   const LAVA = `
-uniform sampler2D u_mask, u_seen, u_crust; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode, u_scorch; uniform vec4 u_melt[8];
+uniform sampler2D u_mask, u_seen, u_crust, u_occ; uniform vec4 u_box; uniform vec2 u_map; uniform float u_mode, u_scorch; uniform vec4 u_melt[8];
 vec3 vor(vec2 p){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2 = 8.0, id = 0.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(x, y), o = vec2(hash(i + g), hash(i + g + 7.7));
     o = 0.5 + 0.4 * sin(u_t * 0.25 + 6.2831 * o); float dd = length(g + o - f);
@@ -150,7 +150,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   float heat = clamp(col.r + col.g - 0.5, 0.0, 1.4);
   if (u_mode < 0.5) { float scorch = smoothstep(-10.0, -1.0, d) * (1.0 - inside) * u_scorch;   // the plateaus' bake draws its own bank (MAGMA)
     o = vec4(col * inside * 0.7 + vec3(0.035, 0.02, 0.015) * scorch, max(inside, scorch * 0.7)); }   // its own lights brighten it
-  else if (u_mode < 1.5) o = vec4(col * heat * inside * 0.33 * texture(u_seen, w / u_map).r, 0.0);
+  else if (u_mode < 1.5) o = vec4(col * heat * inside * 0.33 * texture(u_seen, w / u_map).r * (1.0 - texture(u_occ, scr(v_px)).a), 0.0);
   else o = vec4(col * inside * 0.56, inside); }`;
   // the map's edge bites the lava (TASKS 456): the generator keeps it two cells off the edge, so its bank there ran dead straight
   // along a column or row of cells, beside the plateaus' ragged banks; eaten back up to three cells by a slow noise it is ragged too

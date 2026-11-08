@@ -68,7 +68,9 @@
       // chasm (429): the plateaus stand `gap` cells apart over the black chasm, no lava along their edges or in the gaps between (a
       // lake of it deep down, `lakes`), joined by narrow ridges bent less than the plain floor's (`ridge`), their straight runs chain
       // bridges over the dark but a share `neck` of them left a neck of rock
-      chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3] },
+      chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3],
+        // alt (TASKS 1054): the second way over a bridge the walk can't go round: a deck `len` cells long, `off` cells and more off it
+        alt: { off: 4, len: [4, 14] } },
       // terrace (430): a lavafall down the top wall near one side of the map (`fallAt` of the width from it, the wall `wall` rows high
       // there) runs down to the bottom as a river `w` cells wide; on the wide side terraces step down, rows `rowH` high with `step`
       // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
@@ -123,6 +125,22 @@
     lay: { dungeon: { rooms: 3, maze: 2 }, crypt: { rooms: 2, catacomb: 3, hall: 1, maze: 1, fortress: 1, tomb: 3 }, lava: { rooms: 2, hall: 2, maze: 2, fortress: 1 }, arcane: { rooms: 2, hall: 2, catacomb: 1, maze: 1, fortress: 2, tomb: 1 } },
     layFrom: { maze: 2, hall: 3, catacomb: 3, fortress: 3, tomb: 3 },
   };
+  // a floor's modifier (R-18, TASKS 381), drawn with `chance` from the `from`th floor on a rooms floor that is no boss's, shown on
+  // the banner and the minimap. water: the streams' cap over the plain two (≈×2 laid: a stream wants a plain fighting room); torch:
+  // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp;
+  // elites: plain monsters made elite, the first one's room with a chest of tier `chest`; gauntlet: a plate row down every straight
+  // two-cell stretch of corridor this long (a winding way has few long ones: ≈2 rows a floor, not 0.5); gold: gold picked up; pop:
+  // monsters a room; ambush: a hoard chest's ambush chance; not: biomes it skips (the fire floors have no streams);
+  // notLay: layouts it skips (a tomb has no corridors to curse, a hall's are short). A floor laid with no room for its modifier is
+  // laid again, and past the strict tries goes without it (dungeon.js MOD_HELD). The vows (TASKS 370) are to draw from this pool too
+  const FLOOR_MOD = { from: 3, chance: 0.5 };
+  const FLOOR_MODS = {
+    flood: { name: TXT('FLOOR_MODS.flood'), w: 1, water: 3, not: ['lava'] },
+    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.3 },
+    lair: { name: TXT('FLOOR_MODS.lair'), w: 1, elites: 2, chest: 3 },
+    cursed: { name: TXT('FLOOR_MODS.cursed'), w: 1, gauntlet: 5, gold: 1.5, notLay: ['tomb', 'hall'] },
+    quiet: { name: TXT('FLOOR_MODS.quiet'), w: 1, pop: 0.7, ambush: 2 },
+  };
   // the magma caves' hazards (TASKS 406), the first of what makes them harder than the water caves: a vent throws lava round it
   // every `per` seconds (drawn from the range, each its own phase), a hot ring on the floor, bubbles and a rising glow `warn` s
   // before; a rock drops from above on a pass between the plateaus or at the foot of the top wall, its shadow growing `warn` s
@@ -167,10 +185,16 @@
   //   forge: the cult's forge and anvil against the rock, a weapon rack, the hoard by the anvil and a heap of gold
   //   nest: the smouldering dead's nest strewn with the charred and their bones, heaps of gold and a chest
   //   prison: the cult's cages with its prisoners' things piled by them, a chest
+  // pay (TASKS 1054: every hall paid one chest of the 2nd tier, as the lake's way round does): the hall's chest tier, and what it holds
+  // over that: the sanctum's circle blesses the hero once its priests are dead (GIFTS.bless for the floor), the forge's chest
+  // `forge` arms of `min` rarity and up, the nest the most gold (`gold` heaps) for the deadliest hall, the prison the prisoners' stash
+  // (`stash`: potions and a scroll with the one item)
   const MAGMA_HALLS = { area: 80, n: [1, 1], two: 0.5,
-    kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3 }, forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1 },
+    kinds: { sanctum: { need: 'fire_priest', pack: 'pyre', extra: 1, w: 3, pay: { tier: 1, bless: 1 } },
+      forge: { need: 'golem', pack: 'rock', extra: 1, w: 3, early: 1, pay: { tier: 2, gold: 1, forge: { n: 2, min: 2, slots: ['weapon', 'armor', 'offhand'] } } },
       // (the nest its own pack alone, TASKS 1041: with 2 extra it held 5–7, their blasts a chain; the prison less often: 54 halls of 134)
-      nest: { need: 'skel_ember', pack: 'nest', extra: 0, w: 2 }, prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 1 } } };
+      nest: { need: 'skel_ember', pack: 'nest', extra: 0, w: 2, pay: { tier: 3, gold: 3 } },
+      prison: { need: 'skeleton', pack: 'rush', extra: 1, w: 1, pay: { tier: 2, gold: 1, stash: { hp_potion: 3, mp_potion: 1, scroll: 1 } } } } };
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
@@ -245,5 +269,5 @@
     skel_mg: 'bone', fence_mg: 'chain', vent_mg: 'ember', anvil_tw: 'metal', forge_tw: 'stone', forge_mg: 'stone',
     basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', skel_mg: 'bone', banner_mg: 'cloth' };
 
-  Object.assign(D, { BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT });
+  Object.assign(D, { BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);
