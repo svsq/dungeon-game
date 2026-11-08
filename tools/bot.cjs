@@ -87,7 +87,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
   // a shooter's target that has not lost health for SHOOT.futile s (a sleeping boss before its arena wakes, a bolt stopped by cover)
   // is walked up to as the melee does (TASKS 1116: the mage stood shooting at the spider queen's arena for good)
-  const shotWatch = new Map();
+  const shotWatch = new Map(); let shotOk = -1;
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
@@ -266,7 +266,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // a fire priest within reach is struck first by all but the novice: left alone it lights the whole pack's weapons (TASKS 410)
     if (P.haz) { const pr = live.filter((e) => e.type === 'fire_priest' && far(e) < 360).sort((a, b) => far(a) - far(b))[0]; if (pr) tg = pr; }
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
-    const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, a = Math.atan2(tg.y - 30 - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - 30 - oy, tg.x - ox);
+    const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, aimY = (D.clsOf(h).shoots || []).includes(st.wtype) ? E.h * 0.45 : 30, a = Math.atan2(tg.y - aimY - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - aimY - oy, tg.x - ox);
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
     // the class's keys (TASKS 1116): an ability is pressed on its own slot of the hero's class, or not at all
@@ -277,7 +277,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (shooter && !E.deep) { const los = SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10), round = !los || pathLen(R, tg.x, tg.y) > td + 64;
       const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp || td > SHOOT.far) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); const futile = w && S.t - w.t > SHOOT.futile;
       if (round || td > SHOOT.far || (futile && td > 70)) { walk(R, inp, tg.x, tg.y, round); if (futile) inp.press = 1; }
-      else { if (td < SHOOT.near && !E.ghost) steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); inp.press = 1; } }
+      else { if (td < SHOOT.near && !E.ghost) steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); inp.press = 1; if (!futile) shotOk = S.t; } }
+    // (a shooter stands off the serpent too, TASKS 1157: the walk to the bank put the mage and the archer within its bite)
+    else if (shooter && E.deep && SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10) && td < SHOOT.far) { const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); if (td < SHOOT.near) steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); inp.press = 1; if (w && S.t - w.t < 6) shotOk = S.t; }
     else if (E.deep) { if (toBank(R, inp, tg, st)) inp.press = 1; }
     // blind: rock between them (a corner) stops the blow; a drowned lying in its shallows round a corner never rises to meet it and
     // the bot swung at the rock for good (TASKS 339): walk round to a clear line
@@ -455,6 +457,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (SIM.doorNear(R, 60) && !SIM.doorLock(m, SIM.doorNear(R, 60))) inp.keys.push('KeyE');
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
     if (Math.hypot(h.x - lx, h.y - ly) > 20) { lx = h.x; ly = h.y; lt = S.t; }
+    // (a shooter whose shots land is not stuck, TASKS 1157: this turned his aim off the target after a second, 80 % of the arrows at the serpent)
+    if (shotOk === S.t) lt = S.t;
     if (S.t - lt > 1) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); inp.press = 1;
       Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
       // still held after 3 s: a dash; walking into something, also a step each time in the next of the four ways, for a way the
