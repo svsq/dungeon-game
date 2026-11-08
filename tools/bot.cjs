@@ -87,7 +87,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
   // a shooter's target that has not lost health for SHOOT.futile s (a sleeping boss before its arena wakes, a bolt stopped by cover)
   // is walked up to as the melee does (TASKS 1116: the mage stood shooting at the spider queen's arena for good)
-  const shotWatch = new Map(); let shotOk = -1;
+  const shotWatch = new Map(); let shotOk = -1, bossHp = Infinity, bossProg = -99;
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
@@ -383,7 +383,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.kills !== kills0) { kills0 = R.kills; progT = S.t; }
     for (const e of R.en) if (e.deadT < 0 && e.hp < (low.get(e.id) ?? e.max)) { low.set(e.id, e.hp); progT = S.t; }
     // the town has a clock of its own (a visit takes 20–40 s): the floor's STUCK and the idle watch wait for the way back (PR #21 review)
-    const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
+    // (a boss still losing health is no stuck bot, TASKS 1140: a shooter's colossus outlasted the floor's clock with 8 % of its health left)
+    const arenaB = R.arena && R.arena.active && R.en.find((e) => e.deadT < 0 && D.BOSSES[e.type]); if (arenaB && arenaB.hp < bossHp) { bossHp = arenaB.hp; bossProg = S.t; } if (!arenaB) bossHp = Infinity;
+    const why = R.town ? (S.t - townT > TOWN_STUCK ? 'town' : '') : S.t - tF > STUCK && !(arenaB && S.t - bossProg < 30) ? 'floor' : S.t - progT > IDLE ? 'idle' : '';
     if (why) { stuck = { how: 'stuck', why, floor: R.floor, at: [Math.floor(h.x / T), Math.floor(h.y / T)], goal }; break; }
     // the points a run starts with are laid out on the hero screen, where each point of VIT or INT comes with its health or mana
     // a profile's plan names STR for the class's main stat (TASKS 1140, critic archer_warrior_game_r1): the archer's AGI, the mage's INT,
