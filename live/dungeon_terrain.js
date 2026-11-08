@@ -559,6 +559,8 @@
             const c2 = cells.slice(); for (const k of strip) c2[k] = 1;
             if (narrowTo(c2, W, H, start.cy * W + start.cx, [(y + (ph >> 1)) * W + x + (pw >> 1)]).length) { for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) cells[(y + j) * W + x + i] = 3; continue; }
             for (const k of strip) { crust.push(k); thin.push(k); }
+            const shore = strip.slice(-2);   // (TASKS 1170: the bank's crust by the strip's foot is where one waits out the rocks, and it gives under a standing hero)
+            for (let i = crust.length - 1; i >= 0; i--) { const k = crust[i]; if (!strip.includes(k) && shore.some((q) => Math.max(Math.abs(q % W - k % W), Math.abs(Math.floor(q / W) - Math.floor(k / W))) <= 2)) { crust.splice(i, 1); cr.delete(k); } }
             rooms.push({ x, y, w: pw, h: ph, cx: x + (pw >> 1), cy: y + (ph >> 1), type: 'treasure', id: rooms.length, islet: 1 }); made++; break; } } }
       // a straight edge left along rock laid after the walls were broken (a cache's block, an arena's rim; TASKS 422) gets a notch of
       // lava in its middle, where the rock behind it stays two cells thick (the merchant's corner and the caches keep theirs)
