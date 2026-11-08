@@ -803,7 +803,7 @@
         // arm and hung 38–43 px over the floor)
         if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.22 : 0.06) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - (side === 'L' ? -0.08 : 0.05)) * H, k]; };
         // (the far fist drawn in under the body and the knees bent deeper while they rest, TASKS 1054: it fell short and hung 29 px up)
-        base.crouch += 30 * k; }
+        base.crouch += 18 * k; }
       base.plates = { n: e.crust ?? E.crust.n, T: e.plateT, A: e.plateA, G: e.plateG, GT };
       if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       base.lift = 0.04; base.narrow = 0.2; return biped(base); }

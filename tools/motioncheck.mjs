@@ -126,6 +126,12 @@ for (const nm of await p.evaluate(() => Object.keys(window.__QA.attacks || {})))
     if (d > AIM) bad.push(`${(Math.atan2(tg[1], tg[0]) * 180 / Math.PI).toFixed(0)}°→${d.toFixed(0)}°`); }
   report('aim', nm, !bad.length, `${n} far targets, worst blade error ${worst.toFixed(0)}°${bad.length ? ', off: ' + bad.join(' ') : ''}`);
 }
+// (TASKS 1156) submergedClip: a salamander under the lava changes the bank by no more than 40 px, by 300 on the frame it comes out
+for (const nm of ['salamander_emerge', 'salamander_submerge']) { if (!meta.tr.includes(nm)) continue;
+  const r = await p.evaluate((nm) => { const Q = window.__QA, c = document.getElementById('c'), g = c.getContext('webgl2'), W = c.width, H = c.height, grab = (st) => { SCENE.state = st; SCENE.render(st.t + 0.01); const a = new Uint8Array(W * H * 4); g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, a); return a; };
+    return Q.transitions[nm].filter((_, i) => i % 3 === 0).map((st) => { const e = st.run.en[0], m = st.run.map; if (!e) return null; const ss = (a, b, v) => { const q = Math.max(0, Math.min(1, (v - a) / (b - a))); return q * q * (3 - 2 * q); }, u0 = st.t + 0.01 - (e.lvT ?? -9), sw = e.lv ? ss(0, 0.35, u0) : 1 - ss(0, 0.35, u0); const a = grab(st), s0 = structuredClone(st); s0.run.en = []; const b = grab(s0); let n = 0; const k = W / 1920, cam = st.run.cam;
+      for (let y = 0; y < H; y += 1) for (let x = 0; x < W; x += 1) { const i = (H - 1 - y) * W * 4 + x * 4; if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) <= 40) continue; const wx = cam[0] + x / k, wy = cam[1] + y / k; if (Math.abs(wx - e.x) < 140 && Math.abs(wy - e.y) < 70 && m.cells[Math.floor(wy / 32) * m.W + Math.floor(wx / 32)] !== 3) n++; } return { sw, n, st: e.st }; }).filter(Boolean); }, nm);
+  const sunk = Math.max(0, ...r.filter((q) => q.sw >= 0.5).map((q) => q.n)), all = Math.max(0, ...r.filter((q) => q.sw > 0.2).map((q) => q.n)); report('submergedClip', nm, sunk <= 40 && all <= 300, `the bank changes by ${sunk} px while it is sunk (≤ 40), ${all} at most (≤ 300)`); }
 // the golem's slam (TASKS 458): on the first frame of its strike both fists lie in the slam's zone and before its ground point
 if (meta.tr.includes('golem_attack')) {
   const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.golem_attack; return Q.transitions.golem_attack.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
@@ -138,7 +144,7 @@ if (meta.tr.includes('golem_attack')) {
     // (TASKS 1054) while they rest on the floor (the strike's first GOLEM_SLAM.hold s, 1/60 s a frame) both fists lie no more than
     // FIST px over the slam's line: the far one hung 35.5 px by this measure, 17.7 after 1054; the 12 asked takes a longer arm in the
     // rig (TASKS 1156), so the line holds what the pose can do and stops it sliding back
-    const FIST = 20, held = fr.filter((q) => q.st === 'strike' && q.en && q.en.handL && q.en.handR).slice(0, 12), up = Math.max(...held.map((q) => Math.max(...['L', 'R'].map((k) => (q.en.ground[1] + Math.sin(q.aim) * G0.at * 0.8 * s - q.en['hand' + k][1]) / s))));
+    const FIST = 12, held = fr.filter((q) => q.st === 'strike' && q.en && q.en.handL && q.en.handR).slice(0, 12), up = Math.max(...held.map((q) => Math.max(...['L', 'R'].map((k) => (q.en.ground[1] + Math.sin(q.aim) * G0.at * 0.8 * s - q.en['hand' + k][1]) / s))));
     report('fists', 'golem_attack', up <= FIST, `the higher fist ${up.toFixed(1)} px over the slam's line while they rest (≤ ${FIST})`); } }
 // the golem's crust (TASKS 458): with its plates knocked off the molten core shows over at least CRUST of its body (it changed only
 // the cracks' glow before: the silhouette never told how much crust was left)
