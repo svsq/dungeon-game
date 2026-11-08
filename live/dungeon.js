@@ -215,7 +215,7 @@
     lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['crypt', 27, 11], ['adit', 47, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
-    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [32, 31], [39, 28], [42, 27], [9, 8], [41, 8], [32, 8], [43, 15]],
+    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [31, 28], [22, 8], [23, 28], [14, 28], [32, 31], [39, 28], [42, 27], [9, 8], [41, 8], [32, 8], [43, 15]],
     // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
     edge: [[6, 10], [49, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
     // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore;
@@ -229,6 +229,8 @@
     // canvas stall to the merchant), the others pause at each stop to sweep or to scatter grain; the round loops back to the start
     routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]], mason: [[41.3, 30, 'take'], [45.7, 30.4, 'drop']] },
     npcs: [['smith', 35, 11], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 30, 13], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.7, 30.4]],
+    // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1209)
+    rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
     // ruin stubs the seed picks some of, and spots for the small decor
     stubs: [[14, 8], [45, 8], [10, 27], [5, 26], [49, 13], [12, 14]],
     small: [['barrel', 13, 11], ['crate', 21, 11], ['barrel', 20, 14], ['crate', 33, 11], ['barrel', 41, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
@@ -264,9 +266,10 @@
       { x: wx(T.exitGate[0]), y: T.exitGate[1] * TILE + 6, n: 'gate_tw', role: 'exit_gate', solid: 1 },
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
+      ...T.rubble.map(([x, y], i) => ({ ...at([x, y]), n: 'blocks_tw', role: 'rubble', s: 0.6 + 0.1 * (i % 4), f: i % 2 ? -1 : 1 })),
       // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
       ...portalRing(wx(T.portal[0]), wy(T.portal[1]), 0).map((q) => ({ ...q, role: 'portal_stone', solid: 1 })),
-      ...[0, 1, 2, 3, 4, 5, 6].map((i) => { const a = Math.PI * (0.92 + i * 1.16 / 6); return { x: wx(T.forge[0]) + Math.cos(a) * 1.25 * TILE, y: wy(T.forge[1]) + 4 + Math.sin(a) * 0.8 * TILE, n: 'stone_tw_b', role: 'forge_stone', s: 0.42 + 0.06 * (i % 2) }; }),
+      ...[0, 1, 2, 3, 4, 5, 6].map((i) => { const a = Math.PI * (0.92 + i * 1.16 / 6); return { x: wx(T.forge[0]) + Math.cos(a) * 1.6 * TILE, y: wy(T.forge[1]) + 4 + Math.sin(a) * 1.05 * TILE, n: 'stone_tw_b', role: 'forge_stone', s: 0.7 + 0.08 * (i % 2) }; }),
       ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y]) => ({ ...at([x, y]), n: 'torch_stand', role: 'lamp', solid: 1 })),
             // three trees round the edge, not one six times (TASKS 1030)
       ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: ['tree_tw_b', 'tree_tw_c', 'tree_tw'][i % 3], role: 'edge', solid: 1, s: 0.85 + 0.1 * ((i >> 1) % 3), f: (i >> 1) % 2 })),
@@ -294,6 +297,10 @@
     // separate tufts over the earth (TASKS 1030: its texture keeps only fine grain, so the tile's repeat does not show)
     for (let i = 0; i < 150; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
       decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_grass_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.7 + R() * 0.5 }); }
+    // moss in patches round the yard, thicker by the ruins, none on the cobbles (TASKS 1208)
+    for (let i = 0; i < 90; i++) { const cx = (4 + R() * 48) * TILE, cy = (4 + R() * 28) * TILE, n = 3 + Math.floor(R() * 4);
+      for (let j = 0; j < n; j++) { const x = cx + (R() - 0.5) * 90, y = cy + (R() - 0.5) * 60, k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (cells[k] !== 1 || pv.has(k) || near(x, y, 24)) continue;
+        decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_moss_tw_a', 'dc_flowers_tw'][Math.floor(R() * 5)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin), exitGate: at(T.use.exitGate) };
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
     // merchant's counter, and it stood behind it for good on seed 52)

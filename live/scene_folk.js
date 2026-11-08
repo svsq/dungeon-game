@@ -100,7 +100,7 @@
       crouch = (mason ? 14 : 34) * bend; lean = face * 0.3 * bend; headR = 0.15 * bend;
       // between carts he dresses a block with the hammer
       if (mason && !f.load && pu >= 1.2 && tw < 0.99 && (atStop || (f.go && stop.act === 'take' && f.spd < 14))) { const w = Math.min(atStop ? 1 : 1 - SS(0, 14, f.spd), Math.max(0, Math.min(1, (pu - 1.2) / 0.4))), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
-        tg = { R: lerp2(lerp2(P(0.1, -0.38), P(0.42, -0.34 - 0.2 * up), w), talkR, tw), L: lerp2(P(-0.05, -0.36), P(0.3, -0.3), w) };
+        tg = { R: lerp2(lerp2(P(0.1, -0.38), P(0.42, -0.34 - 0.32 * up), w), talkR, tw), L: lerp2(P(-0.05, -0.36), P(0.3, -0.3), w) };
         hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(0.9, 0.2 - 1.5 * up, w) }) }; lean = face * 0.08 * w;
         if (u >= FD.hit && (u - FD.hit) * c.per < 0.4 && tw < 0.5) fx = { k: 'spark', x: P(0.5, -0.3)[0], y: P(0.5, -0.3)[1], a: (u - FD.hit) * c.per, seed: c.n * 7 + i }; }
     } else if (f.role === 'child') {
@@ -148,7 +148,7 @@
   }
   // the mine's cart on its rope (the sim's R.cart): full, part-emptied or empty by what the mason has left in it; it goes dark as it enters the adit
   function drawCart(R, m, GT, Y, sx, sy) {
-    const T = m.town, pts = T.rails.map((k) => [(k % m.W + 0.5) * D.TILE, (Math.floor(k / m.W) + 0.5) * D.TILE]), C = R.cart || { s: 1e9, st: 'at', load: 3 };
+    const T = m.town, pts = SCX.railPts(m), C = R.cart || { s: 1e9, st: 'at', load: 3 };
     if (C.st === 'in') return;
     let d = C.s, x = pts[pts.length - 1][0], y = pts[pts.length - 1][1];
     for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l) { x = ax + (bx - ax) * d / l; y = ay + (by - ay) * d / l; break; } d -= l; }

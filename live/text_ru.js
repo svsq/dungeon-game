@@ -552,6 +552,7 @@
     'sim_town.questLine.5': '{p1} · {f}-й этаж',
     'sim_town.questLine.8': 'Хозяин {f}-го этажа',
     'sim_town.questLine.9': 'До {f}-го этажа',
+    'sim_town.broke': 'Пока карманы пусты: золото и осколки найдутся внизу',
     'sim_town.stashPut.s.3': 'Хранилище полно',
     'sim_town.stashTake.s.2': 'Инвентарь полон',
     'sim_hero.sanctum.msg': 'Круг жрецов благословил вас: +20% урона до конца следующего этажа',

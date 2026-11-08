@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's empty mine cart: redraw it EXACTLY, same size, angle, planks, iron and wheels, pixel for pixel, changing only its load: heaped full, above the rim, of sharp ANGULAR broken lumps of grey slate stone with flat faces (never round balls). Transparent background, no shadow, no ground, no glow, no text.

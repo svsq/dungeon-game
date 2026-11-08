@@ -228,7 +228,7 @@
     // the stairs on past the serpent (TASKS 354), beside the portal: dark till it falls
     if (m.down && vis(m.down.x, m.down.y)) { const st = m.biome === 'magma' ? 'stairs_mg' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.down.x) - w / 2, sy(m.down.y) - hh / 2 - 4, { w, h: hh, u: R.bossDead ? undefined : { grade: [0.6, 0.55, 0, 1] } }); }
     // the town's crypt gate is a dark mouth between its braziers, not a lit frame (fidelity r2)
-    if (vis(m.exit.x, m.exit.y)) { if (SIM.Q.exitKind(R, m.floor) === 'stairs') { const st = m.town ? 'stairs_tw' : m.biome === 'magma' ? 'stairs_mg' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.exit.x) - w / 2, sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
+    if (vis(m.exit.x, m.exit.y)) { if (SIM.Q.exitKind(R, m.floor) === 'stairs') { const st = m.town ? 'stairs_tw' : m.biome === 'magma' ? 'stairs_mg' : 'stairs', [w, hh] = SZ(st); L.sprite(st, sx(m.exit.x) - w / 2, m.town ? sy(m.exit.y) + 18 - hh : sy(m.exit.y) - hh / 2 - 4, { w, h: hh }); } }
     // the start room's bonfire sits in a rune circle
     if (window.ASSETS.sanct_circle && !m.town && vis(m.sanct.x, m.sanct.y)) { const d = 3.4 * TILE; L.sprite('sanct_circle', sx(m.sanct.x) - d / 2, sy(m.sanct.y - 6) - d / 2, { w: d, h: d }); }
     // a magma hall's ritual circle (TASKS 434), the fire priests' as on ref_cave_lava
