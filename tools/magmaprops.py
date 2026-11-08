@@ -62,6 +62,16 @@ STAIR_CUTS = [0.07, 0.14, 0.24, 0.38]
 FERN_GROW, CLOSE = 5, 12
 
 
+def darken_jamb(im):
+    a = np.asarray(im).copy(); H, W = a.shape[:2]
+    m = np.zeros((H, W), bool)
+    m[365:905, :275] = m[365:905, 745:] = True
+    m[905:, :245] = m[905:, 775:] = True
+    for hi, lo in ((BAS[3], BAS[2]), (BAS[2], BAS[1])):
+        a[m & (a[..., :3] == hi).all(-1), :3] = lo
+    return Image.fromarray(a)
+
+
 def defern(im, src):
     """the fern leaf left from boulder_b's greenery: its pixels outside the stone mass go clear, over stone they take the median of the stone around"""
     from scipy import ndimage as nd
@@ -156,7 +166,7 @@ if __name__ == '__main__':
         'banner_mg': banner(),
         'forge_mg': forge('art/gen/forge_tw.png'),
         'stairs_mg': reshade('art/gen/stairs.png', STAIR_RAMP, STAIR_CUTS),
-        'stairs_up_mg': reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS),
+        'stairs_up_mg': darken_jamb(reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS)),
         'stairs_up_free_mg': reshade('art/gen/stairs_up_free.png', STAIR_RAMP, STAIR_CUTS),
     }
     only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(out)
