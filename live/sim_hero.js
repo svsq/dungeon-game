@@ -183,7 +183,9 @@
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
     // Keys pressed in it are kept for the first step after it (TASKS 227)
-    if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R); if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
+    if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R);
+      { const q = R.map.exit, dx = q.x - h.x, dy = q.y - h.y, d = Math.hypot(dx, dy), go = Math.min(Math.max(0, d - 24), 150 * DT); h.vx = go > 0 ? 150 * dx / d : 0; h.vy = go > 0 ? 150 * dy / d : 0; if (go > 0) { h.x += dx / d * go; h.y += dy / d * go; h.dist += go; h.gp = (h.gp || 0) + go / stepLen(Math.abs(dx) / d) * Math.PI; if (dx) h.face = dx > 0 ? 1 : -1; } }
+      if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
     if (R.freeze > 0) { R.freeze -= DT; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R); R.inbuf = Object.assign(R.inbuf || {}, keys); return; }
     R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
     // ---- input: 8-way run with accel / decel ----
@@ -329,7 +331,7 @@
     R.trauma = Math.max(0, R.trauma - 1.6 * DT);
     if (t - R.saveT > 30) { R.saveT = t; S.saveN++; }
   }
-  function camera(R, h, lx, ly) { const w = WIN(R), tg = [h.x - w.W / 2 + lx, h.y - 30 - w.H / 2 + ly]; clampCam(R, tg);
+  function camera(R, h, lx, ly) { R.camLook = [lx, ly]; const w = WIN(R), tg = [h.x - w.W / 2 + lx, h.y - 30 - w.H / 2 + ly]; clampCam(R, tg);
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
 
   Object.assign(SIMX, {

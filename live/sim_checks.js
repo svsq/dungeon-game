@@ -644,7 +644,7 @@
     // and the same setup with the wall dug out does hit (so the check really reaches it)
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero; let spot = null;
-      for (let f = 1; f <= D.RUNS.campaign.chapter && !spot; f++) { enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.chapter && !spot; f++) { R.camLook = null; enterFloor(S, R, f); const m = R.map;
         for (let ty = 1; ty < m.H - 4 && !spot; ty++) for (let tx = 1; tx < m.W - 1 && !spot; tx++) for (const k of [1, 2]) {
           const below = ty + k + 1, ok = (x, y) => cell(m, x, y) === 1 && !inStart(m, x, y);
           if (ok(tx, ty) && ok(tx - 1, ty) && ok(tx + 1, ty) && ok(tx, below) && ok(tx - 1, below) && ok(tx + 1, below) && [...Array(k)].every((_, i) => cell(m, tx, ty + 1 + i) === 0)) { spot = { tx, ty, k, below }; break; } } }

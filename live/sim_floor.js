@@ -163,7 +163,7 @@
     h.x = hx; h.y = hy; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
-    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - 30 - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
+    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; { const lk = R.camLook || [0, 0]; R.cam = [h.x - WIN(R).W / 2 + lk[0], h.y - 30 - WIN(R).H / 2 + lk[1]]; } R.camV = [0, 0]; clampCam(R, R.cam);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
     reveal(R); R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 };
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);
