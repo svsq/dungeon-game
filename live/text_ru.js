@@ -490,6 +490,7 @@
     'sim_town.stashPut.s.3': 'Хранилище полно',
     'sim_town.stashTake.s': 'В хранилище — только снаряжение',
     'sim_town.stashTake.s.2': 'Инвентарь полон',
+    'sim_hero.sanctum.msg': 'Круг жрецов благословил вас: +20% урона до конца этажа',
     'sim_town.takeGift.s': 'Не хватает осколков душ',
     'sim_town.takeGift.msg.s': ' до конца этажа',
     'sim_town.takeGift.msg.s.2': ' до конца забега',
