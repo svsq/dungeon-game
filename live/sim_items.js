@@ -22,7 +22,14 @@
     for (const e of it.ench || []) mods[e.k] = (mods[e.k] || 0) + e.v;
     return mods;
   }
+  // a run saved before the classes (TASKS 1100): its hero is a warrior holding the old fireball and shield ranks. What he put into abilities
+  // he no longer has comes back as points, and his own open at the level he has reached (PR 36 review: a level-up would never give them)
+  function migrateAbilities(R) { const h = R && R.hero; if (!h || !h.ab) return; const C = D.clsOf(h), own = new Set(C.abs.map((a) => a.id));
+    for (const id of Object.keys(h.ab)) if (!own.has(id)) { h.sp = (h.sp || 0) + Math.max(0, h.ab[id] - 1); delete h.ab[id]; }
+    for (const a of C.abs) if (a.unlock <= h.lvl && !h.ab[a.id]) h.ab[a.id] = 1;
+    if (C.res === 'rage') h.mp = Math.min(h.mp || 0, D.RAGE.max); }
   function rebalanceRun(R) {
+    migrateAbilities(R);
     if (!R || R.itemBalance === D.ITEM_BAL.version) return;
     const items = Object.values(R.hero.eq).concat(R.hero.bag, (R.drops || []).map((d) => d.item),
       R.shop ? R.shop.goods.concat(R.shop.back).map((g) => g.it) : []);
@@ -139,6 +146,6 @@
   }
 
   Object.assign(SIMX, {
-    itemPower, typeMods, itemMods, rebalanceRun, rollItem, rollAffixes, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
+    itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
     stats, propBoxes, behindProp, DROP_REST, stepDrops });
 })(typeof window !== 'undefined' ? window : globalThis);

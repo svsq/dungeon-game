@@ -2814,6 +2814,13 @@
         const e = { id: R5.nextId++, type: 'skeleton', x: h5.x + 800, y: h5.y, hp: 1e6, max: 1e6, dmg: 0, st: 'idle', deadT: -1, room: -1, t0: S5.t, kbx: 0, kby: 0, cdT: S5.t + 9, chillT: S5.t + 3 }; R5.en = [e];
         const cd0 = e.cdT, n5 = 60; for (let i = 0; i < n5; i++) step(S5, { keys: [], ...toPx(R5, h5.x + 100, h5.y) });
         if (!(D.windOf(e, 1) > 1)) out.push('class mage: a chilled monster winds up as fast as ever'); if (!(e.cdT > cd0 + 0.1)) out.push('class mage: a chilled monster\'s cooldown runs as fast as ever'); }
+      // PR 36 review: a deep run's kit is the class's own; a save from before the classes is given its abilities back; a set trap stays on its floor
+      for (const mode of ['cave', 'magma']) for (const cl of ['warrior', 'mage', 'archer']) { const S6 = spawn(0, {}), R6 = newRun(S6, mode, 85, { cls: cl }), w = Object.values(R6.hero.eq).filter((it) => it && BASES[it.b] && !D.wears(cl, it.b)).map((it) => it.b);
+        if (w.length) out.push(`class: a ${cl} starts the ${mode} run in ${w}`); if (cl !== 'warrior' && !(D.CLASSES[cl].shoots || []).includes(R6.hero.eq.weapon.b)) out.push(`class: a ${cl}'s ${mode} kit has no weapon of his`); }
+      { const S7 = spawn(0, {}), R7 = newRun(S7, 'campaign', 86), h7 = R7.hero; delete h7.cls; h7.lvl = 5; h7.sp = 1; h7.ab = { whirl: 2, fireball: 3, shield: 2 }; SIMX.migrateAbilities(R7);
+        if (h7.ab.fireball || h7.ab.shield || !(h7.ab.charge >= 1) || !(h7.ab.cry >= 1) || h7.ab.whirl !== 2 || h7.sp !== 4) out.push(`class: an old save migrates to ${JSON.stringify(h7.ab)}, ${h7.sp} points`);
+        const sp0 = h7.sp; SIMX.migrateAbilities(R7); if (h7.sp !== sp0) out.push('class: migrating an old save twice pays twice');
+        R7.htraps = [{ x: 1, y: 1, t0: S7.t }]; enterFloor(S7, R7, 2); if (R7.htraps.length) out.push('class: a set trap follows the hero to the next floor'); }
       // TASKS 1185: what does nothing for a class is not offered to it
       for (const cl of ['warrior', 'mage', 'archer']) { const S4 = spawn(0, {}), R4 = newRun(S4, 'campaign', 83, { cls: cl }), no = D.CLASSES[cl].dead;
         for (const [k, list, key] of [['gifts', D.GIFTS, 'id'], ['meta', D.META, 'id'], ['mods', D.AFFIXES, 'k']]) for (const id of no[k]) if (!list.some((q) => q[key] === id)) out.push(`class: ${cl}'s dead ${k} names «${id}», no such thing`);

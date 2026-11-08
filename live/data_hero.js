@@ -74,6 +74,9 @@
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
   // the archer's sweep only breaks pots, so a blow's reach and arc are dead for them; the warrior's rage has no use for mana, INT or fire
+  // a deep test run's kit is written in the warrior's gear (data_runs RUNS kit): each class wears its own of the same slot and rarity (PR 36 review)
+  CLASSES.mage.kit = { longsword: 'staff', shield: 'orb', knight_helm: 'circlet', plate_armor: 'robe', gauntlets: 'leather_gloves', iron_boots: 'boots' };
+  CLASSES.archer.kit = { longsword: 'shortbow', shield: 'quiver', knight_helm: 'leather_helm', plate_armor: 'leather_armor', gauntlets: 'leather_gloves', iron_boots: 'boots' };
   Object.assign(CLASSES.warrior, { note: TXT('CLASSES.warrior.note'), resWord: TXT('CLASSES.warrior.resWord'), dead: { gifts: ['wisdom', 'arcane'], meta: ['mana'], mods: ['int', 'mp', 'fire'], cons: ['mp_potion'] } });
   Object.assign(CLASSES.mage, { note: TXT('CLASSES.mage.note'), resWord: TXT('CLASSES.mage.resWord'), dead: { gifts: ['reach', 'cleave'], meta: [], mods: ['str'], cons: [] } });
   Object.assign(CLASSES.archer, { note: TXT('CLASSES.archer.note'), resWord: TXT('CLASSES.archer.resWord'), dead: { gifts: ['reach', 'cleave', 'arcane'], meta: [], mods: ['str', 'fire'], cons: [] } });
