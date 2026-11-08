@@ -32,11 +32,14 @@
   // the mine's cart comes down the rails on the winch's rope to the mason and is hauled back once he has emptied it
   const CART_V = 52, CART_LOAD = 3, railLen = (m) => { const T = m.town; if (T.railLen) return T.railLen; let d = 0; T.rails.forEach((k, i) => { if (i) { const p = T.rails[i - 1]; d += Math.hypot(k % m.W - p % m.W, Math.floor(k / m.W) - Math.floor(p / m.W)) * TILE; } });
     Object.defineProperty(T, 'railLen', { value: d, enumerable: false }); return d; };
+  const railAt = (m, s) => { const T = m.town, c = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; let d = s; for (let i = 1; i < T.rails.length; i++) { const [ax, ay] = c(T.rails[i - 1]), [bx, by] = c(T.rails[i]), l = Math.hypot(bx - ax, by - ay); if (d <= l) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } return c(T.rails[T.rails.length - 1]); };
   const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
-  function stepCart(R, C, t) { const L = railLen(R.map);
-    if (C.st === 'down') { C.s = Math.min(L, C.s + CART_V * DT); if (C.s >= L) C.st = 'at'; }
+  function stepCart(R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, block = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44;
+    // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard
+    C.held = block ? (C.held || 0) + DT : 0; const v = block && C.held < 3 ? 0 : CART_V * Math.min(1, 0.2 + Math.min(C.s, L - C.s) / 44);
+    if (C.st === 'down') { C.s = Math.min(L, C.s + v * DT); if (C.s >= L) C.st = 'at'; }
     else if (C.st === 'at') { if (C.load <= 0 && t >= C.t) C.st = 'up'; }
-    else if (C.st === 'up') { C.s = Math.max(0, C.s - CART_V * DT); if (C.s <= 0) { C.st = 'in'; C.t = t + 6; C.load = CART_LOAD; } }
+    else if (C.st === 'up') { C.s = Math.max(0, C.s - v * DT); if (C.s <= 0) { C.st = 'in'; C.t = t + 6; C.load = CART_LOAD; } }
     else if (t >= C.t) C.st = 'down'; }
   function stepFolk(S, R) {
     const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0, C = cartOf(R);
@@ -75,7 +78,7 @@
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
         f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
       if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
-      if (Math.abs(f.vx) > 3) f.face = f.vx > 0 ? 1 : -1; }
+      if (Math.abs(f.vx) > 3) { const nf = f.vx > 0 ? 1 : -1; if (nf !== f.face) f.turnT = t; f.face = nf; } }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
       if (alive && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 11) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
@@ -110,7 +113,8 @@
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
-    const fk = folkNear(R); if (fk) { openTalk(S, R, fk); return; }
+    // the prompt shows the way out when one is in reach, so E takes it (TASKS 1200)
+    const fk = folkNear(R), way = (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) || (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60); if (fk && !way) { openTalk(S, R, fk); return; }
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
@@ -148,9 +152,8 @@
     if (S.meta.shards < c.shards) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.craft.s.3') }); return; }
     h.gold -= c.gold; S.meta.shards -= c.shards; let res, ok = 1;
     if (S.craft.kind === 'forge') { it.mods = {}; rollAffixes(R, it); res = TXT('sim_town.craft'); }
-    else if (rnd(R) < c.fail) { ok = 0; const own = Object.keys(it.mods || {});
-      if (rnd(R) < D.CRAFT.ench.strip || !own.length) { it.ench = []; res = TXT('sim_town.craft.2'); }
-      else { const k = own[Math.floor(rnd(R) * own.length)]; delete it.mods[k]; res = TXT('sim_town.craft.3', { p1: AFFIXES.find((a) => a.k === k).label.replace('{v}', '').replace(/^\+\s*/, '').trim() }); } }
+    else if (rnd(R) < c.fail) { ok = 0;
+      it.ench = []; it.mods = {}; res = TXT('sim_town.craft.2'); }
     else { const used = new Set((it.ench || []).map((e) => e.k)), pool = AFFIXES.filter((a) => !used.has(a.k)), a = pool[Math.floor(rnd(R) * pool.length)];
       const v = Math.max(1, Math.round((a.a + a.b * it.lvl) * (0.7 + 0.6 * rnd(R)) * (1 + 0.15 * it.rar)));
       it.ench = (it.ench || []).concat({ k: a.k, v }); res = TXT('sim_town.craft.4', { p1: a.label.replace('{v}', v) }); }

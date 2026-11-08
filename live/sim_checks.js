@@ -2436,11 +2436,10 @@
     it.ench = []; h.eq.ring = it; h.bag[5] = null; S.meta.shards = 1000; click('eq:ring'); const st0 = heroSt(S), sh0 = S.meta.shards; click('do');
     if (it.ench.length !== 1 || S.meta.shards !== sh0 - D.CRAFT.ench.shards[0]) out.push('craft: the first enchantment fails or is not paid in shards');
     else { const e = it.ench[0], st1 = heroSt(S), was = SIM_STAT[e.k]; if (was && st1[was] <= st0[was]) out.push(`craft: the enchantment (${e.k}) does not reach the hero`); }
-    let fails = 0, strips = 0, spoils = 0;
-    for (let i = 0; i < 300; i++) { const n = it.ench.length, own = Object.keys(it.mods).length; if (n >= 3) { it.ench = []; continue; } click('do');
-      if (!S.craft.res || S.craft.res.ok) continue; fails++; if (!it.ench.length && Object.keys(it.mods).length === own) strips++; else if (it.ench.length === n && Object.keys(it.mods).length === own - 1) spoils++;
-      if (!Object.keys(it.mods).length) rollAffixes(R, it); }
-    if (!fails || fails !== strips + spoils || !spoils || !strips) out.push(`craft: a failure neither strips nor spoils as it should (${fails} = ${strips} + ${spoils})`);
+    // TASKS 1218: a failure is rare and takes everything off the piece, its own affixes too
+    if (Math.max(...D.CRAFT.ench.fail) > 0.05) out.push('craft: the enchantment risks more than a few percent');
+    { const was = D.CRAFT.ench.fail; D.CRAFT.ench.fail = [1, 1, 1]; it.ench = [{ k: 'atk', v: 1 }]; rollAffixes(R, it); click('do'); D.CRAFT.ench.fail = was;
+      if (!S.craft.res || S.craft.res.ok || it.ench.length || Object.keys(it.mods).length) out.push('craft: a failure does not take everything off the piece'); rollAffixes(R, it); }
     it.ench = [{ k: 'str', v: 1 }, { k: 'agi', v: 1 }, { k: 'int', v: 1 }]; const g2 = h.gold; click('do'); if (it.ench.length !== 3 || h.gold !== g2) out.push('craft: a fourth enchantment is laid on');
     return out;
   }
@@ -2658,6 +2657,10 @@
       press(G, UI.end()[0]); if (G.screen === 'dead') G.screen = 'menu'; press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q2 = G.run;
       if (Q2) { Q2.slain = [D.RUNS.campaign.floors]; Q2.deepest = D.RUNS.campaign.floors; const w0 = G.meta.wins || 0; Q2.hero.x = g.x; Q2.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); step(G, { keys: ['Enter'] });
         if (G.screen !== 'win' || G.meta.wins !== w0 + 1) out.push('town gate: past the colossus the gate does not end the run won'); } }
+    // TASKS 1200, 1201: E at the stairs takes them with a townsman in earshot; a shot draws a townsman's reaction
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, h = Q.hero, e = Q.map.exit; step(G, { keys: [] }); const gd = Q.folk.find((f) => f.role === 'guard');
+      h.x = gd.x - 100; h.y = gd.y; heroShot(Q, h, 0, 1, false, 'bolt'); for (let i = 0; i < 60 && (gd.hitT ?? -9) < 0; i++) step(G, { keys: [] }); if ((gd.hitT ?? -9) < 0) out.push('town: a shot goes through a townsman with no reaction');
+      h.x = e.x; h.y = e.y + 40; gd.x = h.x + 30; gd.y = h.y; step(G, { keys: ['KeyE'] }); if (G.screen === 'talk' || G.run.floor !== 1) out.push(`town: E at the stairs does not go down (${G.screen}, floor ${G.run.floor})`); }
     // TASKS 1151: the mason empties the cart stone by stone, the rope hauls it into the adit, and it comes back full
     { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, seen = new Set(), loads = new Set(); Q.hero.x = Q.map.town.svc.portal.x; Q.hero.y = Q.map.town.svc.portal.y;
       for (let i = 0; i < 9000 && G.screen === 'play'; i++) { step(G, { keys: [] }); seen.add(Q.cart.st); loads.add(Q.cart.load); }

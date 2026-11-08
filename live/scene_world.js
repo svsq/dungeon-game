@@ -487,7 +487,7 @@
         if (k > 0.01) { G.blend('emit'); for (let j = 0; j < 2; j++) L.sprite('waystone_runes', X, Yt, { w, h: hh, u: { alpha: k } }); G.blend();
           G.blend('add'); L.glow(X + 0.455 * w, Yt + 0.48 * hh, 0.3 * hh, [0.45, 0.65, 1], 0.22 * k, 2.4); G.blend(); } }]); }
     // the townsfolk (TASKS 1014–1015) at their work, on their rounds, turned to the hero who speaks to them
-    if (m.town) drawCart(R, m, Y, sx, sy);
+    if (m.town) drawCart(R, m, GT, Y, sx, sy);
     if (m.town) (R.folk || FOLK0(m)).forEach((f) => { const n = m.town.npcs[f.i]; if (vis(f.x, f.y)) drawFolk(f, n, m, R, GT, Y, sx, sy); });
     for (const s of R.shrines) if (vis(s.x, s.y)) Y.push([s.y, () => { L.shadow(sx(s.x), sy(s.y) + 2, 26, 7, 0.5); drawProp('altar', sx(s.x), sy(s.y), { dy: 6, u: { grade: s.used ? [0.5, 0.7, 0, 1] : [1, 1, 0, 1] } }); }]);
     // each spike slides out of its hole (only the part above the lip shows): tips peek and rattle just before the strike,

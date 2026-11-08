@@ -88,17 +88,18 @@
     } else if (f.role === 'porter' || f.role === 'mason') {
       // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
       // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
-      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, chest = P(0.2, -0.46), floor = mason ? P(0.33, -0.42) : P(0.33, -0.14), act = atStop && f.lift;
+      const mason = f.role === 'mason', load = mason ? 'town_tool_stone' : 'town_tool_crate', cw = 0.3 * H, kt = SS(0, 0.22, GT - (f.turnT ?? -9)), chest = [X + face * (2 * kt - 1) * 0.2 * H, Yg - 0.46 * H], act = atStop && f.lift, floor = mason ? (act === 'drop' ? [sx(T.bin.x), sy(T.bin.y) - 30] : P(0.5, -0.5)) : P(0.33, -0.14);
       let k = f.load ? 1 : 0, bend = 0;
       if (act === 'take') { k = SS(0.3, 1.15, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); } else if (act === 'drop') { k = 1 - SS(0.35, 1.2, pu); bend = bump01(Math.min(pu, 1.6), 0, 1.6); }
       const hasCrate = f.load || (act === 'drop' && (!mason || pu < 1.2)), cp = lerp2(floor, chest, k);
       if (hasCrate) { cp[1] -= moving ? 1.2 * Math.abs(Math.sin(f.dist / 14)) : 0; tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] };
         front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
       else if (act === 'take') { tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] }; front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
+      if (act === 'take') { const rw = SS(0, 0.25, pu); tg = { L: lerp2(handAt('L'), tg.L, rw), R: lerp2(handAt('R'), tg.R, rw) }; }
       if (tw > 0 && !hasCrate) tg = { R: lerp2(P(0.1, -0.38), talkR, tw) };
       crouch = (mason ? 14 : 34) * bend; lean = face * 0.3 * bend; headR = 0.15 * bend;
       // between carts he dresses a block with the hammer
-      if (mason && atStop && !f.load && pu >= 1.2 && tw < 0.99) { const w = Math.max(0, Math.min(1, (pu - 1.2) / 0.4)), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
+      if (mason && !f.load && pu >= 1.2 && tw < 0.99 && (atStop || (f.go && stop.act === 'take' && f.spd < 14))) { const w = Math.min(atStop ? 1 : 1 - SS(0, 14, f.spd), Math.max(0, Math.min(1, (pu - 1.2) / 0.4))), up = u < FD.hit ? E01(u / FD.hit) : 1 - E01((u - FD.hit) / (1 - FD.hit) * 4);
         tg = { R: lerp2(lerp2(P(0.1, -0.38), P(0.42, -0.34 - 0.2 * up), w), talkR, tw), L: lerp2(P(-0.05, -0.36), P(0.3, -0.3), w) };
         hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(0.9, 0.2 - 1.5 * up, w) }) }; lean = face * 0.08 * w;
         if (u >= FD.hit && (u - FD.hit) * c.per < 0.4 && tw < 0.5) fx = { k: 'spark', x: P(0.5, -0.3)[0], y: P(0.5, -0.3)[1], a: (u - FD.hit) * c.per, seed: c.n * 7 + i }; }
@@ -146,16 +147,16 @@
       if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); } }
   }
   // the mine's cart on its rope (the sim's R.cart): full, part-emptied or empty by what the mason has left in it; it goes dark as it enters the adit
-  function drawCart(R, m, Y, sx, sy) {
+  function drawCart(R, m, GT, Y, sx, sy) {
     const T = m.town, pts = T.rails.map((k) => [(k % m.W + 0.5) * D.TILE, (Math.floor(k / m.W) + 0.5) * D.TILE]), C = R.cart || { s: 1e9, st: 'at', load: 3 };
     if (C.st === 'in') return;
     let d = C.s, x = pts[pts.length - 1][0], y = pts[pts.length - 1][1];
     for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l) { x = ax + (bx - ax) * d / l; y = ay + (by - ay) * d / l; break; } d -= l; }
-    const nm = C.load >= 3 ? 'cart_tw' : C.load > 0 ? 'cart_tw_half' : 'cart_tw_empty', [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(0, 44, C.s), X = sx(x), Yg = sy(y) + 8;
+    const ms = (R.folk || []).find((q) => q.role === 'mason'), justTook = ms && !ms.go && ms.lift === 'take' && GT - ms.t0 < 0.55, shown = C.load + (justTook ? 1 : 0), nm = shown >= 3 ? 'cart_tw' : shown > 0 ? 'cart_tw_half' : 'cart_tw_empty', [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(0, 44, C.s), X = sx(x), Yg = sy(y) + 8;
     const rope = [];
     { let left = C.s; for (let i = 1; i < pts.length && left > 0; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); for (let q = 0; q < Math.min(l, left); q += 4) rope.push([ax + (bx - ax) * q / l, ay + (by - ay) * q / l]); left -= l; } }
-    Y.push([y - 40, () => { for (const [px, py] of rope) L.solid(Math.round(sx(px)), Math.round(sy(py) - 8), 2, 2, [0.24, 0.18, 0.12], 0, 0, 0, 1); }]);
-    Y.push([y + 8, () => { L.shadow(X, Yg, 0.42 * w, 5, 0.45); L.sprite(nm, X - w / 2, Yg - h + bob, { w, h, u: { tint: [k, k, k, 1] } }); }]);
+    Y.push([y - 40, () => { for (const [px, py] of rope) L.solid(Math.round(sx(px)), Math.round(sy(py) - 8), 2, 2, [0.6, 0.46, 0.3], 0, 0, 0, 1); }]);
+    Y.push([y + 8, () => { L.shadow(X, Yg, 0.42 * w, 5, 0.45); L.inked(() => L.sprite(nm, X - w / 2, Yg - h + bob, { w, h, u: { tint: [k, k, k, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
   }
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;

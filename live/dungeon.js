@@ -215,12 +215,12 @@
     lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['crypt', 27, 11], ['adit', 47, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
-    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [32, 31], [39, 28], [44, 31], [9, 8], [41, 8], [32, 8], [43, 15]],
+    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [11, 20], [22, 8], [19, 24], [14, 28], [32, 31], [39, 28], [42, 27], [9, 8], [41, 8], [32, 8], [43, 15]],
     // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
     edge: [[6, 10], [49, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
     // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore;
     // the workshop niches on the left with a work table, sacks, a crate and burning candles
-    props: [['logs_tw', 44, 11], ['stall_tw', 47, 13], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['stoneyard_tw', 37, 30], ['blocks_tw', 47.2, 29.5], ['ore_tw', 48.5, 31],
+    props: [['logs_tw', 44, 11], ['stall_tw', 47, 13], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['stoneyard_tw', 36.6, 30], ['blocks_tw', 47.2, 29.5], ['ore_tw', 48.5, 31],
       ['table_candles', 6, 14], ['shop_sacks', 5, 21], ['shop_crate', 7, 24], ['candles', 5, 24]],
     rails: [[47, 22], [47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], [41, 30], [40, 30]],
     yardSolid: [[35, 29], [36, 29], [37, 29], [38, 29], [39, 29], [35, 30], [36, 30], [38, 30], [39, 30]],

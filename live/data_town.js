@@ -21,7 +21,7 @@
   // (TASKS 1033) a reward is told by its kind, not its size: scrolls of return in place of gold (on the 1st floor 140 gold went to a
   // hero with thousands and nothing to buy), and the experience of the hero's own level, not the floor's (10 on the 1st floor read as
   // nothing): lvl is the hero's level when it is offered and again when it is turned in
-  const questReward = (rw, f, lvl) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 100 + 40 * f : k === 'scroll' ? 1 + (f >= 8 ? 1 : 0) : k === 'xp' ? Math.round(0.15 * xpNeed(Math.max(1, lvl || f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
+  const questReward = (rw, f, lvl) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 100 + 40 * f : k === 'scroll' ? 1 + (f >= 8 ? 1 : 0) : k === 'xp' ? Math.round(0.3 * xpNeed(Math.max(1, lvl || f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
   // who gives the side quests (TASKS 1018): a run draws QUEST_GIVE.n of them by its seed from the pool, each from a townsman of
   // its own; the floor a quest points at is set when it is taken, `ahead` floors past the deepest reached (one, unless the template
   // says). The Keeper gives the story chain (1022) and may give a side quest too
@@ -46,7 +46,7 @@
   // the town's workshops (R-32, TASKS 1013), a sink for spare gold and shards (389): the smith reforges a piece's own affixes for a
   // share of its price; the enchanter lays on up to three more, each dearer and riskier: a failure strips every enchantment
   // (strip share of failures) or spoils the piece (it loses one affix of its own)
-  const CRAFT = { reforge: 0.35, ench: { max: 3, gold: [0.3, 0.6, 1.2], shards: [3, 6, 12], fail: [0, 0.2, 0.4], strip: 0.6 } };
+  const CRAFT = { reforge: 0.35, ench: { max: 3, gold: [0.3, 0.6, 1.2], shards: [3, 6, 12], fail: [0.01, 0.02, 0.03] } };
   // the storage chest (R-33, TASKS 1012): gear left for the heroes to come, kept in the meta save with the item balance it was made under
   const STASH = { max: 3, cells: (meta) => 1 + ((meta && meta.up && meta.up.vault) || 0) };
 
