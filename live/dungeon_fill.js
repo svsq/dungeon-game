@@ -791,6 +791,7 @@
       const floor = rooms.flatMap((r) => {
         const out = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (at(x, y) === 1) out.push([wx(x), wy(y)]); return out;
       });
+      for (let i = decor.length - 1; i >= 0; i--) if (/^(vent|torch_stand)/.test(decor[i].n) && decor[i].haz === undefined && circles.some((q) => Math.hypot(decor[i].x - q.x, decor[i].y - q.y) < 3.2 * TILE)) decor.splice(i, 1);
       const fixed = torches.map((t) => [t.x, t.y, LIGHT_R[t.kind]]).concat(decor.filter((d) => LIGHT_R[d.n] && !mushrooms.includes(d)).map((d) => [d.x, d.y, LIGHT_R[d.n]]), shrines.map((q) => [q.x, q.y, LIGHT_R.shrine]));
       for (const d of mushrooms) {
         const near = floor.filter(([x, y]) => Math.hypot(x - d.x, (y - d.y) / 0.8) <= LIGHT_R[d.n] * TILE);
@@ -987,7 +988,6 @@
     // a floor's 4 arches read as no arch at all), and its span reaches 3 cells either side: by a bridge it stood on its boards (TASKS 480)
     const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
     if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
-    for (let i = decor.length - 1; i >= 0; i--) if (/^vent/.test(decor[i].n) && decor[i].haz === undefined && circles.some((q) => Math.hypot(decor[i].x - q.x, decor[i].y - q.y) < 2.6 * TILE)) decor.splice(i, 1);
     const map = { seed, floor: runFloor, biome, mod: ST.mod, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       ftype, ftype2, shareOf, ...(riverGuard ? { riverGuard: [...riverGuard], riverFire: [...riverFire] } : {}), ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, pits, ledges, lay: LY ? ST.lay || 'rooms' : undefined, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
