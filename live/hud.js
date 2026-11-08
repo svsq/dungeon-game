@@ -619,7 +619,7 @@
     lab('cl_s', TXT('UI.classes.hint'), W / 2, 156, { size: 26, al: 0.5, col: C.dim });
     for (const b of D.UI.classes()) {
       if (!b.cls) { button('cl_' + b.id, b, S.hover); continue; }
-      const Cl = D.CLASSES[b.cls], on = (S.meta.cls || 'warrior') === b.cls, hv = S.hover === b.id;
+      const Cl = D.CLASSES[b.cls], on = (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior') === b.cls, hv = S.hover === b.id;
       panel('cl_' + b.cls, b.x, b.y, b.w, b.h, { r: 10, rim: on ? [1, 0.78, 0.32] : hv ? C.rimHi : C.rim, c0: on ? [0.16, 0.12, 0.08] : [0.08, 0.07, 0.07] });
       const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
       L.sprite(por, b.x + (b.w - 220) / 2, b.y + 24, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });

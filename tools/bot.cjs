@@ -12,7 +12,7 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
 const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
 // a shooting class's range (TASKS 1116): backs off inside `near`, walks in beyond `far` (a bolt flies 434 px)
 const SHOOT = { near: 150, far: 380, futile: 2.5 };
-const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'frost'];
+const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, TOWN_STUCK = 120, CHASE = 10, FLANK = 8, HOLD = 3, HR = 12, COUNT = ['whirl', 'cast', 'shield', 'frost', 'volley', 'snap', 'leap'];
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
@@ -101,7 +101,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(depth, 1) / D.dmgAt(depth) : 1) * (!e.elite ? ST.mob : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd * bk.dmg;
     }
   }
-  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, frost: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, frost: 0, volley: 0, snap: 0, leap: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
@@ -300,6 +300,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const fr = D.abRank('frost', h.ab.frost).r, near = live.filter((e) => dist(e) < fr * 0.85 + D.ENEMIES[e.type].r && Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - h.y, e.x - h.x) - a), Math.cos(Math.atan2(e.y - h.y, e.x - h.x) - a))) < 0.6);
       if (near.length >= 2 || (td < SHOOT.near && near.includes(tg))) inp.slot = slot('frost'); }
     const tip = P.tips && R.msg && R.msg.tip === 'whirl' && S.t - R.msg.t >= P.react && S.t - R.msg.t < R.msg.d; if (tip) learned = 1;
+    // the archer (TASKS 1126): the volley on two or more in the fan before him or on a lone target in range; a trap at his feet when a
+    // foe closes in; the leap away from one at arm's length
+    const ready = (id) => slot(id) && h.ab[id] && h.cd[id] <= S.t && h.mp >= D.ABILITIES.find((q) => q.id === id).mp;
+    if (ready('volley') && td < SHOOT.far && SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10)) { const fan = live.filter((e) => dist(e) < SHOOT.far && Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - h.y, e.x - h.x) - a), Math.cos(Math.atan2(e.y - h.y, e.x - h.x) - a))) < 0.5);
+      if (fan.length >= 2 || h.mp > st.maxMp * 0.7) inp.slot = slot('volley'); }
+    if (ready('trap') && td < SHOOT.near + 20 && !(R.htraps || []).some((q) => Math.hypot(q.x - h.x, q.y - h.y) < 60)) inp.slot = slot('trap');
+    if (ready('leap') && td < 70 && !E.ghost) inp.slot = slot('leap');
     if (slot('whirl') && h.ab.whirl && h.cd.whirl <= S.t && (tip || live.filter((e) => dist(e) < 90 + D.ENEMIES[e.type].r).length >= (learned ? Math.min(P.whirl, D.TIPS.whirl.n) : P.whirl))) inp.slot = 1;
     if (slot('shield') && P.shield && h.ab.shield && h.cd.shield <= S.t && h.mp >= D.ABILITIES.find((a) => a.id === 'shield').mp && h.hp < st.maxHp * P.shield) inp.slot = slot('shield');
     if (P.mp && h.mp < 12 && td < 330 && held(h, 'mp_potion')) inp.keys.push('KeyR');

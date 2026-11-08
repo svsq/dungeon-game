@@ -18,5 +18,5 @@ play({ seed, initial: source ? v8.deserialize(fs.readFileSync(source)) : null, r
   console.log(`end ${R.how} f${R.floor}${R.time ? ' ' + Math.round(R.time) + 's' : ''} lvl ${R.lvl || '-'} shards ${R.shards ?? '-'} meta ${meta}${R.why ? ` (${R.why} at ${R.at} goal ${R.goal})` : ''}`);
   if (r.town && (r.town.visits || r.town.taken)) console.log(`  town: trips home ${r.town.visits}, scrolls read ${r.town.scrolls}, quests taken ${r.town.taken}, turned in ${r.town.turned}`);
   console.log(`  minhp ${pct(r.minhp)} minmp ${pct(r.minmp)} hurt ${r.hurt} dodges ${r.dodges} potions hp ${r.hp_potion} mp ${r.mp_potion}` +
-    ` whirl ${r.whirl} fireball ${r.cast} shield ${r.shield}${r.frost ? ` frost ${r.frost}` : ''} gifts ${r.gifts} sold ${r.sold} spent ${r.spent} gear ${r.ups}`);
+    ` whirl ${r.whirl} fireball ${r.cast} shield ${r.shield}${r.frost ? ` frost ${r.frost}` : ''}${r.volley || r.snap || r.leap ? ` volley ${r.volley} trapped ${r.snap} leap ${r.leap}` : ''} gifts ${r.gifts} sold ${r.sold} spent ${r.spent} gear ${r.ups}`);
 } });

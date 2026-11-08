@@ -39,7 +39,7 @@
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103): with more than one class ready the class screen comes first, its run waiting in pendingMode
-  const chooseRun = (S, mode = 'campaign') => { if (D.classesReady().length > 1) { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; if (!D.classesReady().includes(S.meta.cls)) S.meta.cls = 'warrior'; } else startRun(S, mode); };
+  const chooseRun = (S, mode = 'campaign') => { if (D.classesReady().length > 1) { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; } else startRun(S, mode); };
   // a saved run is dropped only on a second press of the same run's button
   const pressRun = (S, id, arm) => { if (!S.saved || arm === id) { S.resetT = undefined; chooseRun(S, id); } else { S.resetT = S.t; S.resetM = id; } };
   // each screen's input, by S.screen: one function a screen (dead and win share one)
