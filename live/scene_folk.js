@@ -97,7 +97,7 @@
       else if (act === 'take') { tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] }; front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
       if (act === 'take') { const rw = SS(0, 0.25, pu); tg = { L: lerp2(handAt('L'), tg.L, rw), R: lerp2(handAt('R'), tg.R, rw) }; }
       if (tw > 0 && !hasCrate) tg = { R: lerp2(P(0.1, -0.38), talkR, tw) };
-      // the mason's arms are always on IK: released at the first steps from the block, the elbow flipped to the rig's free pose in a frame (TASKS 1216)
+      // the mason's arms are always on IK: released at the first steps from the block, the elbow flipped to the rig's free pose in a frame (TASKS 1616)
       if (mason && (!tg.L || !tg.R)) { const dd = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]), st = 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * s, from = route[(f.way + route.length - 1) % route.length], sw = 7 * (f.go ? SS(14, 54, Math.hypot(f.x - from.x, f.y - from.y)) * SS(0, 40, Math.hypot(f.x - stop.x, f.y - stop.y)) : 0) * Math.sin(2 * Math.PI * f.dist / st), free = (sd, q) => [handAt(sd)[0] + face * q, handAt(sd)[1] - Math.abs(q) * 0.3];
         tg = { L: tg.L || free('L', sw), R: tg.R || free('R', -sw) }; }
       if (mason && act === 'drop' && pu > 0.95 && pu < 1.5) fx = { k: 'dust', x: floor[0], y: floor[1] + 8, amt: 1 - (pu - 0.95) / 0.55, seed: c.n * 2 + i };

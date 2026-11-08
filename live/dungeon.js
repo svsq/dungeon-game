@@ -229,9 +229,9 @@
     // canvas stall to the merchant), the others pause at each stop to sweep or to scatter grain; the round loops back to the start
     routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]], mason: [[41.3, 30, 'take'], [45.7, 30.4, 'drop']] },
     npcs: [['smith', 35, 11], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 30, 13], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.7, 30.4]],
-    // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1209)
+    // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1609)
     rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
-    // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1211, 1209)
+    // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1611, 1609)
     grates: [[24.6, 27.4], [29.4, 27.4]], ivy: [[13, 27.6], [21, 27.6], [32.5, 27.6], [38, 27.6], [6, 11.6], [6, 23.6], [38, 15.6], [46, 21.6]],
     // ruin stubs the seed picks some of, and spots for the small decor
     stubs: [[14, 8], [45, 8], [10, 27], [5, 26], [49, 13], [12, 14]],
@@ -300,7 +300,7 @@
     // separate tufts over the earth (TASKS 1030: its texture keeps only fine grain, so the tile's repeat does not show)
     for (let i = 0; i < 150; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
       decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_grass_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.7 + R() * 0.5 }); }
-    // moss in patches round the yard, thicker by the ruins, none on the cobbles (TASKS 1208)
+    // moss in patches round the yard, thicker by the ruins, none on the cobbles (TASKS 1608)
     for (let i = 0; i < 90; i++) { const cx = (4 + R() * 48) * TILE, cy = (4 + R() * 28) * TILE, n = 3 + Math.floor(R() * 4);
       for (let j = 0; j < n; j++) { const x = cx + (R() - 0.5) * 90, y = cy + (R() - 0.5) * 60, k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (cells[k] !== 1 || pv.has(k) || near(x, y, 24)) continue;
         decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_moss_tw_a', 'dc_flowers_tw'][Math.floor(R() * 5)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }

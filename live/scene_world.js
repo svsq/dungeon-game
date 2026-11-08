@@ -463,7 +463,7 @@
         // the cave's camp fire burns in a ring of stones on the ground (TASKS 306), not in a brazier
         const camp = big && (B.cave || B.town), lo = camp ? 12 : up;
         Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp(camp ? (B.town ? 'campfire_tw' : 'campfire_cv') : 'brazier', sx(tc.x), sy(tc.y), { k: big && !camp ? 1.35 : 1, dy: camp ? 10 : 4, j });
-          // the campfire burns in separate tongues of their own height and phase (TASKS 1211: one flame read as a teardrop)
+          // the campfire burns in separate tongues of their own height and phase (TASKS 1611: one flame read as a teardrop)
           if (lit && B.town && camp) flames([[-13, 0.72, 0.66], [12, 0.8, 0.62], [0, 1, 0.9]].map(([ox, hk, wk], q) => [sx(tc.x) + ox, sy(tc.y) - lo, 44 * wk * bl.fl, 64 * hk * bl.fl * (0.88 + 0.12 * Math.sin(GT * (5 + q * 1.7) + q * 2.1)), col, i + q * 11, bl.lean + ox * 0.012]));
           else if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * lo : 0), sy(tc.y) - lo, (big ? 44 : 26) * bl.fl, (big ? 64 : 40) * bl.fl, col, i, bl.lean); }]); } });
     for (const d of m.decor) { const t2 = d.n === 'candles' && d.lift && onTable(d); if (t2 && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) Y.push([d.y + 1, () => flames(TABLE_WICKS.map(([ox, oy]) => [sx(t2.x) + ox, sy(t2.y) + 4 - oy + 2, 7, 12, [1, 0.7, 0.35], d.x + ox]))]); }

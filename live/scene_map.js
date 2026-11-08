@@ -28,7 +28,7 @@
     const other = T.npcs.filter((q) => q.role === (n.role === 'hen' ? 'child' : 'hen')).sort((a, b) => Math.abs(a.x - n.x) - Math.abs(b.x - n.x))[0]; return other ? other.x : n.x + 1; };
   // the townsfolk before the sim's first step (a QA state made by hand): each at its place, at rest
 
-  // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1206)
+  // the rails' line through their cells, its corners rounded (two passes of corner-cutting, the ends kept): cut straight the stretches met with a kink (TASKS 1606)
   const railPts = (m) => { let p = m.town.rails.map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]);
     for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
@@ -81,7 +81,7 @@
     function townTop(x, y) {
       const k = 0.82 + 0.3 * rnd(x * 7 + 1, y * 13 + 2), moss = RD[y * m.W + x] <= 2 && rnd(x * 3 + 5, y * 5 + 9) < 0.45, X = x * TILE, Y = y * TILE;
       tile(B.top, x, y, { grade: [0.55, (B.topLift || TOP_LIFT) * k, 0, 1], tint: topTint(B) }, TST);
-      // the top course is broken: its back edge eaten away block by block where a yard lies behind it (TASKS 1209)
+      // the top course is broken: its back edge eaten away block by block where a yard lies behind it (TASKS 1609)
       const brk = c(x, y - 1) === 1 ? [0, 1, 2, 3].map((q) => (rnd(x * 11 + q, y * 3) < 0.45 ? 8 + 8 * Math.floor(rnd(x + q, y * 7) * 2) : 0)) : null;
       L.solid(X, Y, TILE, 2, [0.02, 0.015, 0.02], 0, 0, 0, brk ? 0 : 0.55); L.solid(X, Y, 2, TILE, [0.02, 0.015, 0.02], 0, 0, 0, 0.45);
       if (rnd(x + 31, y + 17) < 0.5) L.solid(X + 2, Y + TILE / 2, TILE - 2, 1, [0.02, 0.015, 0.02], 0, 0, 0, 0.35);
