@@ -366,7 +366,13 @@ void main(){ float d = length(v_uv * 2.0 - 1.0); float g = exp(-d * d * 5.0) * s
   const RRECT = `uniform vec2 u_sz; uniform float u_r, u_a; uniform vec3 u_c0, u_c1;
 void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r); float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - u_r;
   float m = 1.0 - smoothstep(-0.7, 0.7, d); vec3 c = mix(u_c0, u_c1, v_uv.y); o = vec4(c * m * u_a, m * u_a); }`;
-  const SH = { SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
+  // a ray on toward the light that meets the body again is a gap between its limbs, not its outer edge
+  const RIMOUT = `
+uniform sampler2D u_src; uniform vec2 u_dir; uniform vec3 u_col;
+float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }
+void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1; k <= 3; k++) if (at(-u_dir * float(k)) > 0.5) edge = true; if (!edge) discard;
+  for (int k = 1; k <= 24; k++) if (at(u_dir * float(k)) > 0.5) discard; o = vec4(u_col, 1.0); }`;
+  const SH = { RIMOUT, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
   L.SH = SH;
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
@@ -380,6 +386,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     T.bg = G.target(Math.round(w / px), Math.round(h / px), true, lo); T.comp = G.target(Math.round(w / px), Math.round(h / px), true, lo);
     T.mask = G.target(w / 2, h / 2, true); T.rays = G.target(w / 2, h / 2, true);
     T.b1 = G.target(w / 4, h / 4); T.b2 = G.target(w / 4, h / 4); T.c1 = G.target(w / 8, h / 8); T.c2 = G.target(w / 8, h / 8);
+    T.rim = G.target(Math.round(w / px), Math.round(h / px), false, { view, nearest: true });
     L.T = T; L.SUN = [w * 0.31, h * 0.25];
   };
 
@@ -437,7 +444,10 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // emit: the ink is an emitter, so no light lifts it; rim { dx, dy, col }: one more flat copy shifted toward the light over the ink,
   // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
-    if (rim) { G.blend('emit'); L.sp = { dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }; draw(); if (!emit) G.blend(); }
+    if (rim && !rim.box) { G.blend('emit'); L.sp = { dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }; draw(); if (!emit) G.blend(); }
+    if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim, [0, 0, 0, 0]); G.blend();
+      for (let i = 0; i <= n; i++) { const an = i * 2 * Math.PI / n, q = i < n ? r : 0; L.sp = { dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }; draw(); }
+      G.bind(back); G.blend('emit'); G.draw(P.rimout, { u_src: T.rim, u_dir: [rim.dx / len, rim.dy / len], u_col: rim.col }, G.xf(bx, by, bw, bh)); if (!emit) G.blend(); }
     if (emit) G.blend('emit');
     for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; L.sp = { dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }; draw(); }
     if (emit) G.blend();

@@ -92,6 +92,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     gl.viewport(0, 0, tg ? tg.w : G.W, tg ? tg.h : G.H);
     if (clear) { gl.clearColor(clear[0], clear[1], clear[2], clear[3]); gl.clear(gl.COLOR_BUFFER_BIT); }
   };
+  G.cur = () => cur;
   G.blend = (mode) => {
     gl.enable(gl.BLEND);
     if (mode === 'add') gl.blendFunc(gl.ONE, gl.ONE);
