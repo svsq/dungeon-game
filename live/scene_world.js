@@ -477,7 +477,9 @@
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
     // the merchant's back on a lava floor stands against basalt, not the black the rock leaves behind it (TASKS 1163)
-    if (m.biome === 'magma' && m.shop) { const r = m.rooms.find((q) => q.type === 'shop'); if (r) for (let i = -1; i <= r.w; i++) { const x = (r.x + i + 0.5) * TILE, n = rnd(r.x + i, 3) < 0.5 ? 'basalt_a' : 'basalt_b', y = (r.y + 0.3) * TILE + (rnd(r.x + i, 4) - 0.5) * 8; if (vis(x, y) && known(x, y)) Y.push([y - 40, () => drawProp(n, sx(x), sy(y), { flip: rnd(r.x + i, 5) < 0.5 })]); } }
+    if (m.biome === 'magma' && m.shop) { const r = m.rooms.find((q) => q.type === 'shop'); if (r) { const low = new Set(m.lavaUnder || []), rock = (cx, cy) => SIM.Q.cell(m, cx, cy) === 0 && !low.has(cy * m.W + cx);
+      for (let i = -1; i <= r.w; i++) { const c = r.x + i, inside = i >= 0 && i < r.w, back = rock(c - 1, r.y - 1) && rock(c, r.y - 1) && rock(c + 1, r.y - 1) && (inside ? SIM.Q.cell(m, c, r.y) === 1 : rock(c, r.y)); if (!back || rnd(c, 6) < 0.2) continue;
+        const x = (c + 0.5) * TILE + (rnd(c, 7) - 0.5) * 20, n = rnd(c, 3) < 0.5 ? 'basalt_a' : 'basalt_b', y = (r.y + 0.3) * TILE + (rnd(c, 4) - 0.5) * 24, k = 0.82 + rnd(c, 8) * 0.26; if (vis(x, y) && known(x, y)) Y.push([y - 40, () => drawProp(n, sx(x), sy(y), { flip: rnd(c, 5) < 0.5, k })]); } } }
     // the stairs back up (TASKS 1027): a flight rising into a dark arch, the hero walks up to its lowest step
     if (m.up && vis(m.up.x, m.up.y)) { const u = m.up, st = (u.free ? 'stairs_up_free' : 'stairs_up') + (m.biome === 'magma' ? '_mg' : ''), [w, hh] = SZ(st); if (m.biome === 'magma') PROP_BAS.push([st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, w, hh, false]); Y.push([u.y + 14, () => L.inked(() => L.sprite(st, sx(u.x) - w / 2, sy(u.y) + 18 - hh, { w, h: hh }), { r: 2, n: 8, col: [0.06, 0.04, 0.05], dy: 0 })]); }
     // a waystone (TASKS 1009): a rune obelisk by the start; its runes light once it is touched
