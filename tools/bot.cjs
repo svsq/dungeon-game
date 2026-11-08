@@ -168,6 +168,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
+      // the warrior holds the line (TASKS 1140): a rank-and-file swing is taken on the armour; his dash stays for what a tank can't soak
+      if (D.clsOf(h).id === 'warrior' && e.st === 'wind' && !e.elite && !e.chain && !e.rush && !E.boom && E.kind !== 'slam') continue;
       const range = e.st === 'bwind' ? (['bite', 'tail', 'fists'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : e.mv === 'crack' ? D.bossMove(e).len : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
@@ -292,6 +294,13 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const bad = (x, y) => lurk.some((o) => Math.hypot(o.x - x, o.y - y) < E.sense + 14);
     if (!bad(nx, ny)) { holdT = 0; return; } if (bad(h.x, h.y)) return;
     if ((holdT += SIM.DT) > HOLD) return; inp.left = inp.right = inp.up = inp.down = 0; }
+  // a shooter steps to the open floor farthest from every foe at its heels, not just straight back from its target (TASKS 1140: straight
+  // back ran it into walls and other monsters); penned in, it stands and shoots
+  function kiteOff(R, inp, live) { const h = R.hero, m = R.map, near = live.filter((e) => { const E = D.ENEMIES[e.type]; return !E.ghost && E.kind !== 'archer' && E.kind !== 'caster' && e.st !== 'lurk' && Math.hypot(e.x - h.x, e.y - h.y) < SHOOT.near + E.r; });
+    if (!near.length) return; const room = (x, y) => SIM.cell(m, Math.floor(x / T), Math.floor(y / T)) === 1, gap = (x, y) => Math.min(...near.map((e) => Math.hypot(e.x - x, e.y - y)));
+    let best = null, top = gap(h.x, h.y) + 8;
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, dx = Math.cos(a), dy = Math.sin(a); if (!room(h.x + dx * 32, h.y + dy * 32) || !room(h.x + dx * 64, h.y + dy * 64)) continue; const v = gap(h.x + dx * 64, h.y + dy * 64); if (v > top) { top = v; best = [dx, dy]; } }
+    if (best) steer(inp, best[0], best[1]); }
   function fight(S, R, inp, live, st, walkD) {
     const h = R.hero, dist = (e) => Math.hypot(e.x - h.x, e.y - h.y);
     // the nearest by the walk, not the crow: two foes about as far in a straight line but round a wall from each other swap
@@ -317,7 +326,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (shooter && !E.deep) { const los = SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10), round = !los || pathLen(R, tg.x, tg.y) > td + 64;
       const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp || td > SHOOT.far) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); const futile = w && S.t - w.t > SHOOT.futile;
       if (round || td > SHOOT.far || (futile && td > 70)) { walk(R, inp, tg.x, tg.y, round); if (futile) inp.press = 1; }
-      else { if (td < SHOOT.near && !E.ghost) steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); inp.press = 1; if (!futile) shotOk = S.t; } }
+      else { kiteOff(R, inp, live); inp.press = 1; if (!futile) shotOk = S.t; } }
     // (a shooter stands off the serpent too, TASKS 1157: the walk to the bank put the mage and the archer within its bite)
     else if (shooter && E.deep && SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10) && td < SHOOT.far) { const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); if (td < SHOOT.near) steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); inp.press = 1; if (w && S.t - w.t < 6) shotOk = S.t; }
     else if (E.deep) { if (toBank(R, inp, tg, st)) inp.press = 1; }
