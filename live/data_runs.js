@@ -2,7 +2,7 @@
 // One of the DATA files (ARCHITECTURE.md §4.2): pure data and pure helpers, no state; data.js checks the set.
 (function (root) {
   const D = root.DATA || (root.DATA = {});
-  const { ARCH, BAL, BIOMES, BOSSES, ELITE, SHOP, mix32 } = D;
+  const { ARCH, BAL, BIOMES, BOSSES, ELITE, FLOOR_MOD, FLOOR_MODS, SHOP, mix32 } = D;
   const RUNS = {
     // pop: monsters a room by floor over the plain count (TASKS 505: the 2nd and 4th, the bosses' floors of 56×42 and 64×48, came easier than the floors before them); elite: the share of elites by floor (the 4th's nine rooms held half the 3rd's elites)
     campaign: { name: TXT('RUNS.campaign.name'), floors: 16, chapter: 8, depth: 0, lvl: 1, pop: [1, 1.35, 1, 1.3, 1, 1, 1, 1], elite: [0.04, 0.04, 0.04, 0.08, 0.04, 0.04, 0.04, 0.04], size: [[56, 42], [56, 42], [64, 48], [64, 48], [72, 54], [72, 54], [80, 60], [84, 64]], rooms: [[9, 11], [9, 11], [12, 14], [12, 14], [14, 17], [14, 17], [18, 22], [18, 22]], biome: (f) => (f <= 2 ? 'dungeon' : f <= 4 ? 'crypt' : f <= 6 ? 'lava' : 'arcane'),
@@ -70,10 +70,18 @@
     // (the magma's own sizes: its 3rd floor's plateaus want 104×78)
     const Z = M.size, k = Math.min(1, (f - 1) / (Z.floors - 1)), from = cave ? Z.cave : Z.from, size = magma ? RUNS.magma.size[2 + pos] : [0, 1].map((i) => 2 * Math.round((from[i] + (Z.to[i] - from[i]) * k) / 2));
     return { N: sub || M, lf: sub ? 3 + pos : 1 + pos, n: sub ? 4 : 2, depth: f, last: end, fin: false, biome, boss: bossPair && end ? M.bosses[biome] : undefined, arch: sub ? sub.arch : undefined,
-      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: 1, early: 0, elite: ELITE.share, mob: 1, size, rooms: sub ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > BAL.deep.from ? M.deepBoss : undefined }; };
+      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: D.deepAxis(f, 'pop'), early: 0, elite: D.deepAxis(f, 'elite'), cd: D.deepAxis(f, 'cd'), mob: 1, size, rooms: sub ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > BAL.deep.from ? M.deepBoss : undefined }; };
+  // floor f's modifier (TASKS 381), by the run's seed, so a floor kept or climbed back to has the one it had: none on a boss's floor,
+  // a cave's or a plateau's, or a campaign chapter's past its first
+  const modOf = (seed, f, q) => { if (q.arch || q.boss || q.chap || f < FLOOR_MOD.from) return undefined;
+    const a = mix32((mix32(seed >>> 0) + Math.imul(f, 0x2c1b3c6d) + 0x6a09e667) >>> 0);
+    if (a / 4294967296 >= FLOOR_MOD.chance) return undefined;
+    const W = Object.entries(FLOOR_MODS).filter(([, o]) => !(o.not || []).includes(q.biome) && !(o.notLay || []).includes(q.lay));
+    let t = (mix32(a + 0x9e3779b9) / 4294967296) * W.reduce((s, [, o]) => s + o.w, 0);
+    for (const [k, o] of W) { t -= o.w; if (t < 0) return k; } return W.length ? W[W.length - 1][0] : undefined; };
   // (its rooms floors take the layouts as the campaign's do, TASKS 379, the chain over the descent's own floors)
   // (a floor above the descent's start is no link of its chain: the campaign's, laid by its own)
-  const endlessStage = (f, seed, start = 1) => { const o = endlessBase(f, seed, start); if (!o.arch) o.lay = layOf(seed, f, (g) => (g === f ? o : g < start ? null : endlessBase(g, seed, start))); return o; };
+  const endlessStage = (f, seed, start = 1) => { const o = endlessBase(f, seed, start); if (!o.arch) o.lay = layOf(seed, f, (g) => (g === f ? o : g < start ? null : endlessBase(g, seed, start))); o.mod = modOf(seed, f, o); return o; };
   // floor f of a run: N, the description that lays it out (the run's own or its chapter's), lf, its place among N's floors, n, how
   // many floors N lays out, depth, the campaign floor it is worth; last: the end of its chapter (layout: no river, no altar before
   // the boss), fin: the run's own last floor (the way out, the victory); biome and boss: its biome and its boss, if any; pop and
@@ -91,15 +99,18 @@
   // (a floor above the descent's start is the campaign's: back up the stairs from the 13th, a run through the town stands on the
   // serpent's 12th again, still in the descent's mode)
   const stageOf = (mode, f, seed = 0, from = 1) => { if (runOf(mode).endless) return f < from ? stageOf('campaign', f, seed) : endlessStage(f, seed, from); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
-    n = c ? N.floors : M.chapter || M.floors;
-    return { N, lf, n, depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome: N.biome(lf), boss: N.boss(lf), arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
+    n = c ? N.floors : M.chapter || M.floors, biome = N.biome(lf), boss = N.boss(lf),
+    lay = N.arch ? undefined : layOf(seed, f, (g) => { const cg = (M.chapters || []).filter((q) => g >= q.from).pop(), Ng = cg ? RUNS[cg.run] : M, lg = cg ? g - cg.from + 1 : g; return { arch: Ng.arch, biome: Ng.biome(lg), boss: Ng.boss(lg), depth: g + M.depth, size: Ng.size && Ng.size[lg - 1] }; });
+    return { N, lf, n, mod: modOf(seed, f, { arch: N.arch, boss, chap: !!c, biome, lay }), depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome, boss, arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
       elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1,
-      lay: N.arch ? undefined : layOf(seed, f, (g) => { const cg = (M.chapters || []).filter((q) => g >= q.from).pop(), Ng = cg ? RUNS[cg.run] : M, lg = cg ? g - cg.from + 1 : g; return { arch: Ng.arch, biome: Ng.biome(lg), boss: Ng.boss(lg), depth: g + M.depth, size: Ng.size && Ng.size[lg - 1] }; }),
+      lay,
       ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}) }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
 
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor
-  const placeName = (f, mode, seed, from, m) => (f === 0 ? TXT('data_runs.placeName') : TXT('data_runs.placeName.2', { f, p2: floorName(f, mode, seed, from, m) }));
+  // (a floor's modifier, TASKS 381, after its name: «Этаж 3 — Крипты · Затопленный»)
+  const placeName = (f, mode, seed, from, m) => (f === 0 ? TXT('data_runs.placeName') : m && m.mod && FLOOR_MODS[m.mod] ? TXT('data_runs.placeName.3', { f, p2: floorName(f, mode, seed, from, m), mod: FLOOR_MODS[m.mod].name })
+    : TXT('data_runs.placeName.2', { f, p2: floorName(f, mode, seed, from, m) }));
   // m: the floor's map, whose type (TASKS 471) names it in the magma caves
   const floorName = (f, mode, seed, from, m) => { const M = runOf(mode), st = stageOf(mode, f, seed, from), T = m && m.ftype && !m.bossType && ARCH.plateau.names[m.ftype];
     return (M.names || {})[f] || T || st.N.title || BIOMES[st.biome].name; };

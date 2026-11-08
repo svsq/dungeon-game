@@ -273,13 +273,16 @@
         R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); h.x = (best.x + 0.5) * TILE; h.y = (best.y + 4) * TILE;
         R.cam = [(best.x + 0.5) * TILE - SCX.VW / 2, (best.y + 0.5) * TILE - SCX.VH / 2]; })]); }
     // the fire depths' streams (TASKS 186): a lava hall with the hero on its island, and a river with the hero on its causeway
-    for (const kind of ['hall', 'river']) { let got = null;
+    // (lava_foe_*, TASKS 510: a monster on the lava and one before it, whom the lava's glow must not show through)
+    for (const [kind, foe] of [['hall'], ['river'], ['hall', 1]]) { let got = null;
       for (const seed of [1, 2, 3, 1234]) { if (got) break; const S = play(); S.run = SIM.newRun(S, 'campaign', seed); for (const f of [5, 6]) { SIM.enterFloor(S, S.run, f);
         const q = (S.run.map.streams || []).filter((o) => o.kind === kind).sort((a, b) => b.n - a.n)[0]; if (q) { got = { seed, f, room: q.room }; break; } } }
-      if (got) states.push(['lava_' + kind, play((S) => { S.run = SIM.newRun(S, 'campaign', got.seed); const R = S.run; SIM.enterFloor(S, R, got.f); const m = R.map, h = R.hero, r = m.rooms[got.room];
-        R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
+      if (got) states.push([(foe ? 'lava_foe_' : 'lava_') + kind, play((S) => { S.run = SIM.newRun(S, 'campaign', got.seed); const R = S.run; SIM.enterFloor(S, R, got.f); const m = R.map, h = R.hero, r = m.rooms[got.room];
+        const foes = R.en.filter((e) => !D.BOSSES[e.type]).slice(0, 2); R.en = foe ? foes : []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
         let at = null; for (let d = 0; d < 8 && !at; d++) for (let j = -d; j <= d && !at; j++) for (let i = -d; i <= d && !at; i++) if (SIM.cell(m, r.cx + i, r.cy + j) === 1 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => SIM.cell(m, r.cx + i + a, r.cy + j + b) === 3)) at = [r.cx + i, r.cy + j];
-        at = at || [r.cx, r.cy]; h.x = (at[0] + 0.5) * TILE; h.y = (at[1] + 0.6) * TILE; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]); }
+        at = at || [r.cx, r.cy]; h.x = (at[0] + 0.5) * TILE; h.y = (at[1] + 0.6) * TILE; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2];
+        if (foe && foes.length === 2) { let L = null; for (let d = 0; d < 12 && !L; d++) for (let j = -d; j <= d && !L; j++) for (let i = -d; i <= d && !L; i++) if (SIM.cell(m, r.cx + i, r.cy + j) === 3 && SIM.cell(m, r.cx + i, r.cy + j - 1) === 3 && SIM.cell(m, r.cx + i, r.cy + j + 1) === 1) L = [r.cx + i, r.cy + j];
+          if (L) { foes.forEach((e, k) => { e.st = 'idle'; e.elite = 1; e.x = e.hx = (L[0] + 0.5 + k * 2.5) * TILE; e.y = e.hy = (L[1] + (k ? 1.1 : 0.2)) * TILE; }); h.x = (L[0] + 5) * TILE; h.y = (L[1] + 3) * TILE; R.cam = [foes[0].x - SCX.VW / 2, foes[0].y - SCX.VH / 2]; } } })]); }
     for (const floor of [1, 3, 7]) for (const kind of ['fountain', 'stream']) {
       for (const seed of [1, 2, 3, 1234]) {
         const S = play(); S.run = SIM.newRun(S, 'campaign', seed); const R = S.run; SIM.enterFloor(S, R, floor);
@@ -795,12 +798,14 @@
     { const S = play(); SIM.enterFloor(S, S.run, 9); S.run.msg.t = S.t - 0.8; states.push(['campaign_f9_arrive', S]); }
     { const S = play(); SIM.enterFloor(S, S.run, 12); const R = S.run, r = R.map.rooms.find((q) => q.type === 'boss') || R.map.rooms[0], h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h - 2) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['campaign_f12_serpent', S]); }
-    // past the serpent (TASKS 354): the portal out and the stairs on beside it, shut while it lives and open after; the end of a run
-    // that won the campaign on the way down
-    for (const dead of [0, 1]) { const S = play(); SIM.enterFloor(S, S.run, 12); const R = S.run, m = R.map, h = R.hero; if (!m.down) continue;
-      if (dead) { R.bossDead = 1; R.en = R.en.filter((e) => e.type !== 'boss_serpent'); }
-      h.x = m.down.x + 10; h.y = m.down.y + 30; R.msg = null; S.ev = []; R.seen = R.seen.map(() => 1); R.cam = [(m.down.x + m.exit.x) / 2 - SCX.VW / 2, (m.down.y + m.exit.y) / 2 - SCX.VH / 2];
-      states.push([dead ? 'campaign_f12_down_open' : 'campaign_f12_down_shut', S]); }
+    // past the colossus (TASKS 354, 398, 514–515: the choice moved to the 16th; a run through the town): the stairs on, shut while it
+    // lives, and once it falls open beside its portal home; the end of a run that won the campaign on the way down
+    for (const dead of [0, 1]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); const F = DATA.RUNS.campaign.floors; SIM.enterFloor(S, S.run, F); const R = S.run, m = R.map, h = R.hero; if (!m.down) continue;
+      const b = R.en.find((e) => e.type === 'boss_colossus');
+      if (dead && b) { R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIM.killEnemy(S, R, b); R.en = R.en.filter((e) => e !== b); }
+      const g = R.arena && R.arena.gate, mid = g ? [(m.down.x + g.x) / 2, (m.down.y + g.y) / 2] : [m.down.x, m.down.y];
+      h.x = m.down.x + 46; h.y = m.down.y + 30; R.msg = null; S.ev = []; R.seen = R.seen.map(() => 1); R.cam = [mid[0] - SCX.VW / 2, mid[1] - SCX.VH / 2];
+      states.push([dead ? 'campaign_f16_down_open' : 'campaign_f16_down_shut', S]); }
     { const dead = states.find(([n]) => n === 'dead'); if (dead) { const S = structuredClone(dead[1]); Object.assign(S.result, { mode: 'endless', floor: 21, record: { best: 21, fresh: true }, campaignWon: 1 }); states.push(['endless_dead_campaign', S]); } }
     // the water caves' biggest hall and its winding ways (TASKS 301), the whole hall in view
     { const S = play(); S.run = SIM.newRun(S, 'cave', 3); S.screen = 'play'; SIM.enterFloor(S, S.run, 3);
@@ -1257,6 +1262,7 @@
     const climbS = (f, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; for (let k = 1; k <= f; k++) SIM.enterFloor(S, S.run, k);
       const R = S.run, h = R.hero; R.msg = null; S.ev = []; for (const e of R.en) if (Math.hypot(e.x - R.map.spawn.x, e.y - R.map.spawn.y) < 400) e.x += 3000; fn(S, R, R.map, h); R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; });
     states.push(['climb_up_prompt', climbS(2, (S, R, m, h) => { h.x = m.up.x; h.y = m.up.y + 30; })]);
+    states.push(['climb_up_wall', climbS(2, (S, R, m, h) => { h.x = m.up.x + 110; h.y = m.up.y + 120; })]);   // TASKS 511: the opening seen whole
     states.push(['climb_town_prompt', climbS(1, (S, R, m, h) => { h.x = m.up.x + 20; h.y = m.up.y + 34; })]);
     states.push(['scroll_read', climbS(1, (S, R, m, h) => { h.read = { t0: S.t - 1.1, i: 0 }; })]);
     states.push(['climb_arrived', climbS(2, (S, R, m, h) => { SIM.enterFloor(S, R, 1, undefined, 'up'); S.ev = []; R.msg = null; })]);
@@ -1333,6 +1339,10 @@
     states.push(['quest_keepsake', questS('fetch', (S, R, q, h) => { for (const c of R.chests) if (c.quest) delete c.quest; R.drops = R.drops.filter((d) => d.kind !== 'qitem');
       const r = R.map.rooms.find((o) => o.type === 'start'); h.x = r.cx * TILE; h.y = r.cy * TILE; R.drops.push({ id: 9999, kind: 'qitem', quest: q.id, ic: q.ic, x: h.x + 90, y: h.y + 10, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }); R.en = R.en.filter((e) => Math.hypot(e.x - h.x, e.y - h.y) > 500); })]);
     states.push(['quest_room', questS('room', (S, R, q, h) => { const r = R.map.rooms[q.room]; h.x = r.cx * TILE - 200; h.y = r.cy * TILE; qFull(R); })]);
+    // the town's gate out (TASKS 1149): its prompt in view of the square's bottom, its window to give up, and past the colossus to end the run won
+    states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [g.x - SCX.VW / 2, g.y - SCX.VH / 2 + 60]; })]);
+    states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; })]);
+    states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; })]);
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // past the campaign (PR #21 review): the waystones of the descent are named by the descent's biomes, not the campaign's
     states.push(['town_gate_descent', climbS(0, (S, R, m, h) => { R.campaignWon = 1; R.memo = Object.assign({}, R.memo, { 14: { mode: 'endless' }, 15: { mode: 'endless' }, 16: { mode: 'endless' } }); R.portal = { f: 15, x: 0, y: 0 }; R.ways = [4, 8, 12, 14, 16]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; })]);

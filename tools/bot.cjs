@@ -82,7 +82,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   const out = [], chased = new Map(), flanked = new Map(), given = new Set(), seen = new Set(), salNext = new Map(), counted = new WeakSet(), been = new Set(), low = new Map();
   // the town: the roles that were told «not now» this visit, the floor last left for the town, a scroll wanted from the bag
   const declined = new Set(); let homeF = -1, readWant = 0, inTown = 0, townT = 0;
-  let thinGo = null; const THN = new WeakMap(), pushed = new Map(), crusted = new Map();
+  let thinGo = null, thinT = 0, thinL = -9; const THN = new WeakMap(), pushed = new Map(), crusted = new Map();
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
@@ -250,7 +250,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     thinGo = null; if (!dx && !dy || !thin.has(cellK(m, h.x + dx * 24, h.y + dy * 24))) return;
     const onStrip = (z) => (z.islet || z.k === 'fall') && m.thin.some((c) => Math.hypot((c % m.W + 0.5) * T - z.x, (Math.floor(c / m.W) + 0.5) * T - z.y) < D.HAZ.fall.r + 12);
     const due = (m.hazards || []).filter(onStrip).some((z) => hazSoon(S.t, z) < THIN_GO);
-    if (due || awake.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 220)) { inp.left = inp.right = inp.up = inp.down = 0; return; }
+    // (a wait of CHASE s at most: a foe on the far shore that can never reach the hero kept it at the strip for good, TASKS 1153)
+    if (due || awake.some((e) => Math.hypot(e.x - h.x, e.y - h.y) < 220)) { if (S.t - thinL > 0.5) thinT = S.t; thinL = S.t; if (S.t - thinT < CHASE) { inp.left = inp.right = inp.up = inp.down = 0; return; } }
     thinGo = [dx, dy]; }
   // the floor beside the bank's crust to strike a foe from: the nearest cell within a blow of it that is no crust (null: none)
   function offCrust(R, tg, st) { const m = R.map, h = R.hero, E = D.ENEMIES[tg.type], hx = Math.floor(h.x / T), hy = Math.floor(h.y / T); let o = null, best = null;
@@ -346,6 +347,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // a townsman's talk (TASKS 1024): pages turned with E; on the quest's page E takes it while the profile wants more (the Keeper's
   // chain always), turns a done one in; else «not now», and the townsman is left alone this visit
   function talkStep(S, R) { const T = S.talk; if (!T) return { keys: ['Escape'] }; if (T.p + 1 < T.pages.length) return { keys: ['KeyE'] };
+    // past the campaign's last boss (TASKS 1148): the Keeper's «Завершить поход», unless the bot goes on down
+    if (T.act && T.act.k === 'finish') { if (descend) { declined.add(T.role); return { keys: ['Escape'] }; } return { keys: ['Enter'] }; }
     const side = (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned' && D.QUESTS[q.key].kind === 'side').length;
     if (T.act && (T.act.k === 'turn' || (P.quests && (D.QUESTS[T.act.key].kind === 'story' || side < P.quests)))) return { keys: ['KeyE'] };
     declined.add(T.role); return { keys: ['Escape'] }; }
@@ -357,6 +360,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const who = !P.noTown && (F.find((f) => SIM.questMark(R, f.role) === '?') || (P.quests && F.find((f) => SIM.questMark(R, f.role) === '!' && !declined.has(f.role))));
     if (who) { const p = at(who); walk(R, inp, p.x, p.y); if (who.role === 'smith' ? SIM.atCraft(R) === 'forge' : SIM.folkNear(R) === who) inp.keys.push('KeyE'); goal = ['folk', who.role]; return; }
     if (!P.noTown && m.shop && R.shopped !== 0) { walk(R, inp, m.shop.front.x, m.shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); goal = ['shop']; return; }
+    // past the campaign's last boss, unless it goes on down: the Keeper ends the run (TASKS 515, 1148)
+    const kp = !descend && SIM.campaignDone(R) && F.find((f) => f.role === 'keeper');
+    if (kp) { const p = at(kp); walk(R, inp, p.x, p.y); if (SIM.folkNear(R) === kp) inp.keys.push('KeyE'); goal = ['folk', 'keeper']; return; }
     const out = R.portal ? { x: sv.portal.x + 10, y: sv.portal.y + 44 } : m.exit; walk(R, inp, out.x, out.y); goal = [R.portal ? 'portal' : 'exit'];
     if (R.portal ? SIM.atGate(R) : dist(out) < 55) inp.keys.push('KeyE'); }
   function pray(S, R) {
@@ -458,6 +464,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (!near && shop && chase(R, shop) && aim('shop', shop.front)) { walk(R, inp, shop.front.x, shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); }
     // a sealed arena opens only on the boss's death: there is no running late past him to the stairs
     else if (live.length && (!late || (R.arena && R.arena.active)) && aim('fight', fightT)) fight(S, R, inp, live, st, walkD);
+    // the campaign's last floor in a run through the town has no way out (TASKS 515): its boss's portal home, the run ends at the Keeper
+    else if (!descend && R.bossDead && R.arena && R.arena.gate && SIM.exitKind(R) === null) { const g = R.arena.gate; aim('gate', g); walk(R, inp, g.x, g.y + 30); if (SIM.gateNear(R)) inp.keys.push('KeyE'); }
     else { const out = descend && m.down && R.bossDead ? m.down : m.exit; aim('exit', out); walk(R, inp, out.x, out.y); if (dist(out) < 55) inp.keys.push('KeyE'); }
     if (P.haz && R.arena && R.arena.active && rainOn(R, live)) { const c = shelter(R); if (c) { inp.left = inp.right = inp.up = inp.down = 0; walk(R, inp, c.x, c.y); } }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
@@ -471,7 +479,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // stuck against a prop for a second: swing in the walking direction (breaks barrels and pots)
     if (Math.hypot(h.x - lx, h.y - ly) > 20) { lx = h.x; ly = h.y; lt = S.t; }
     if (S.t - lt > 1) { const dx = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), dy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0); inp.press = 1;
-      Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
+      // in a fight the aim stays on the foe: held a pixel outside the bot's own margin of its reach, it swung the other way for good (TASKS 1153)
+      if (!(goal && goal[0] === 'fight')) Object.assign(inp, toPx(R, h.x + dx * 40, h.y - SIM.RIG.shoulder + 8 + dy * 40));
       // still held after 3 s: a dash; walking into something, also a step each time in the next of the four ways, for a way the
       // cells do not show (a gap between the merchant's counter and his barrel led behind the counter, where the only way out the
       // field knows runs through it, seed 36). Not in a fight, where the hero stands and swings

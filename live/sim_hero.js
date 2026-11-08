@@ -39,8 +39,8 @@
     if (h.read) { h.read = null; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.hurtHero.s') }); }
     // a weapon a fire priest set alight (TASKS 410): a harder blow that sets the hero burning
     if (actor && actor.fireT > S.t && kind === undefined && ![TXT('sim_floor.damageName.3'), TXT('sim_floor.damageName.5'), TXT('sim_floor.damageName.7')].some((w) => (src || '').endsWith(' ' + w))) { dmg *= ENEMIES.fire_priest.kindle.dmg; kind = 'fire'; }
-    const st = heroSt(S), KD = 20 + 12 * dep(R); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
-    if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : BAL.cap.blow)));
+    const st = heroSt(S), KD = 20 + 12 * D.deepEnd(dep(R)); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
+    if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : D.deepAxis(dep(R), 'blow'))));
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
     const blow = dmg;
     dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (dmg <= 0) return;

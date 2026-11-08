@@ -44,17 +44,24 @@
     for (const d of R.map.doors || []) if (d.arena && !d.open) openDoor(S, R, d, 0);
     for (const o of R.en) if (o.summ === e.id && o.deadT < 0) { o.deadT = S.t; o.hp = 0; }
     for (const o of R.eggs || []) if (o.owner === e.id) o.hp = 0;
-    if (!lastFloor(R) && R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
+    // the campaign's last boss leaves one too (TASKS 514): a run through the town ends in the town
+    if (R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
+    if (lastFloor(R) && R.arena && R.arena.gate) R.msg = { s: ENEMIES[e.type].name + TXT('sim_bosses.finishArena.msg.s'), t: S.t };
     if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e)) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
   }
   // the portal home a chapter boss leaves (TASKS 383): in its hall, kept clear of the stairs and the altar so E never picks the wrong one
-  function bossGate(R, e) { const r = R.map.rooms[e.room], cx = (r.x + r.w / 2) * TILE, cy = (r.y + r.h / 2) * TILE, far = [R.map.exit, ...R.shrines];
+  function bossGate(R, e) { const r = R.map.rooms[e.room], cx = (r.x + r.w / 2) * TILE, cy = (r.y + r.h / 2) * TILE, far = [R.map.exit, ...(R.map.down ? [R.map.down] : []), ...R.shrines];
     let best = null, bd = -1;
     for (let i = 0; i < 9; i++) { const [x, y] = standNear(R, cx + ((i % 3) - 1) * r.w * TILE / 4, cy + (Math.floor(i / 3) - 1) * r.h * TILE / 4), d = Math.min(...far.map((o) => Math.hypot(o.x - x, o.y - y)));
       if (d > bd) { bd = d; best = { x: Math.round(x), y: Math.round(y) }; } if (i === 4 && d >= 160) break; }
     // its ring's gap faces the hall's middle, where the hero comes from (at the middle itself, east as the town's)
     if (best) best.open = Math.hypot(cx - best.x, cy - best.y) > 20 ? Math.atan2(cy - best.y, cx - best.x) : 0;
     return best; }
+  // a run through the town saved with its last boss slain before the colossus left a portal home (PR 29 review, TASKS 514): the
+  // portal is set on load and when its floor is entered again; its old way out is gone (exitKind)
+  function regate(R) { if (!R || !R.viaTown || R.town || !R.map || !R.bossDead || (R.arena && R.arena.gate)) return;
+    // (its body may be cleared away: then its hall from the map)
+    const k = R.map.rooms.findIndex((q) => q.type === 'boss'), b = (R.en || []).find((e) => D.BOSSES[e.type]) || (k >= 0 ? { room: k } : null); if (!b) return; R.arena = Object.assign(R.arena || { active: 0, room: b.room, t0: 0 }, { active: 0 }); R.arena.gate = bossGate(R, b); }
   const gateNear = (R) => { const g = R.arena && R.arena.gate, h = R.hero; return g && !R.town && Math.hypot(g.x - h.x, g.y - h.y) < 64 ? g : null; };
   function bossWebs(S, R, e, M) {
     const m = R.map, r = m.rooms[e.room];
@@ -343,6 +350,6 @@
   // foot, so the prop draws after it) inside its box cannot be seen, so it hops to the nearest open spot instead
 
   Object.assign(SIMX, {
-    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, bossGate, gateNear, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
+    holdClocks, chapterEnd, arenaSealed, stepArena, finishArena, bossGate, regate, gateNear, bossWebs, arenaPath, bossLava, bossRaise, bossEggs,
     beginBossMove, bossThink, roar, bossSummon, wideClear, colossusRise, colossusStep, poolOk, colossusBoulder, colossusRain, stepBossMove });
 })(typeof window !== 'undefined' ? window : globalThis);

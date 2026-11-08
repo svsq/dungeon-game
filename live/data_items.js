@@ -31,7 +31,7 @@
   // the floor generator's version (R-18): a floor kept by a run through the town is a diff against its rebuild, so a save made by
   // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
-  // islet's rocks, TASKS 1054, other floors and chests from 13 on)
+  // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   const GEN_VERSION = 6;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
   const CONSUMABLES = {

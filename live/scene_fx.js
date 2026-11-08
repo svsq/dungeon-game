@@ -106,7 +106,7 @@
         if (q.wet) L.ring(sx(q.x), sy(q.y), 3 + 14 * f, (3 + 14 * f) * 0.45, [0.55, 0.78, 0.82], 0.5 * (1 - f), 0.25);
         else for (const s of [-1, 1]) L.solid(Math.round((sx(q.x) + s * 7 * f) / PIX) * PIX, Math.round((sy(q.y) - 10 * Math.sin(Math.PI * Math.min(1, f * 1.6))) / PIX) * PIX, PIX, PIX, [0.5, 0.7, 0.75], 0, 0, 0, 0.6 * (1 - f)); }
       G.blend(); }
-    if (m.floor === D.runOf(R.mode).floors && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
+    if (SIM.Q.exitKind(R, m.floor) === 'portal' && R.bossDead) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(m.exit.x) - 46, sy(m.exit.y) - 80, 92, 92));
     { const g = !m.town && R.arena && R.arena.gate; if (g && vis(g.x, g.y) && known(g.x, g.y)) G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(g.x) - 52, sy(g.y) - 86, 104, 104)); }
     if (R.town && R.portal && m.town) { const P = m.town.svc.portal; G.draw(L.P.portal, { u_t: t, u_amt: 1 }, G.xf(sx(P.x) - 52, sy(P.y) - 86, 104, 104)); }
     // a scroll being read (TASKS 1007): a ring of cold light closes in round the hero's feet, sparks rise and quicken
