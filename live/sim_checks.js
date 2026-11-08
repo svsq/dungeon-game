@@ -2236,7 +2236,7 @@
   // gate; a scroll read through takes the hero home and the town's portal back to the very spot, then closes; a step breaks the
   // reading off and keeps the scroll; it is not read in the town; the save stays small and a saved run comes back on a kept floor
   function climbCheck() {
-    const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    const out = [], E = (S) => { if (S.run) S.run.enteredT = -9; step(S, { keys: ['KeyE'] }); };
     // the steps are where a hero coming down arrives: on floor reached from the start with the caches and locked doors shut (PR 30: seed 1's 7th put them in a cache)
     for (const sd of [1, 4, 5, 7, 17, 32, 39]) for (let f = 1; f <= 16; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 }); if (!m.up) continue;
       const W = m.W, shut = new Set(m.doors.filter((d) => d.lock >= 0).flatMap((d) => d.cells.map(([x, y]) => y * W + x))), r = m.rooms[m.start], open = new Uint8Array(W * m.H), go = [r.cy * W + r.cx]; open[go[0]] = 1;
@@ -2256,7 +2256,7 @@
     const e0 = R.en[0]; e0.hp = 0; e0.deadT = S.t; const c0 = R.chests[0]; c0.open = 1; R.seen[7] = 1; R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 77, id: R.nextId++ });
     at(R.map.exit); E(S); if (R.floor !== 2) { out.push('climb: no way down from the 1st'); return out; }
     if (Math.hypot(h.x - R.map.up.x, h.y - R.map.up.y) > 90) out.push('climb: down the stairs, the hero is not at the stairs up');
-    at(R.map.up, 30); { const f0 = R.floor; E(S); if (R.floor !== f0) out.push('climb: a tap of E right after arriving goes back up'); } R.enteredT = -9; E(S); if (R.floor !== 1) { out.push('climb: the stairs up do not lead to the floor above'); return out; }
+    at(R.map.up, 30); { const f0 = R.floor; R.enteredT = S.t; step(S, { keys: ['KeyE'] }); if (R.floor !== f0) out.push('climb: a tap of E right after arriving goes back up'); } E(S); if (R.floor !== 1) { out.push('climb: the stairs up do not lead to the floor above'); return out; }
     if (Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: back up, the hero is not at the foot of the stairs down');
     const e1 = R.en.find((q) => q.id === e0.id), c1 = R.chests.find((q) => q.x === c0.x && q.y === c0.y);
     if (!e1 || e1.deadT < 0 || !c1 || !c1.open || R.seen[7] !== 1 || !R.drops.some((q) => q.kind === 'gold' && q.n === 77)) out.push('climb: the floor above is not as it was left');
@@ -2335,7 +2335,7 @@
   // up (and nowhere else, nor in a run not through the town); touched, it wakes; the town's ring of stones then takes the hero to
   // it at once, or, with a portal open too, offers both in a window; the portal stays open when a waystone is taken
   function wayCheck() {
-    const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    const out = [], E = (S) => { if (S.run) S.run.enteredT = -9; step(S, { keys: ['KeyE'] }); };
     for (const sd of [5, 17]) for (let f = 1; f <= 16; f++) { const mode = f > D.RUNS.campaign.floors ? 'endless' : 'campaign', m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, town: 1 });
       if (!!m.way !== D.wayFloor(f)) { out.push(`way ${sd}/${f}: ${m.way ? 'a waystone off its floors' : 'no waystone'}`); continue; } if (!m.way) continue;
       const k = m.way.ty * m.W + m.way.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);
