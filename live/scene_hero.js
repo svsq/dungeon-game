@@ -77,7 +77,7 @@
     if (h.climbT !== undefined && GT - h.climbT < 0.55) { const a = GT - h.climbT; return { dy: e2(130 * (1 - SS(0, 0.55, a))), cut: [Y + 2, 2, 1], arms: 1 - SS(0.3, 0.55, a) }; } return { dy: 0 }; };
   function drawHero(h, hx, hy, GT, st, o = {}) {
     const pn = D.clsOf(h).look.rig + '__', P = heroPose(h, GT, st), { RG, s, run } = P, gx = RG.gap, gy = RG.footL[1];
-    const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && h.castK !== 'whirl';
+    const atkT = GT - h.atkT, swinging = atkT >= 0 && atkT < SWING.end, castT = GT - h.castT, casting = castT < 0.5 && !['whirl', 'charge', 'cry'].includes(h.castK);
     // whirl: the hand and blade sweep a ground ellipse at waist height around the body from the aim, behind it while pointing away;
     // eased in from the current pose and out of a crouch
     const wt = GT - h.whirlT, whirlE = wt >= 0 ? SS(0, 0.14, wt) * (1 - SS(WHIRL_T, WHIRL_T + 0.14, wt)) : 0, wa0 = h.whirlA ?? h.aim;
@@ -90,7 +90,7 @@
     const dbl = 0.5 + 0.5 * Math.cos(4 * Math.PI * P.u0), breath = (1 - run) * Math.sin(GT * 2.1) * 0.9;
     const bodyDy = run * (2.6 - 0.9 * Math.abs(pdx)) * dbl;
     // dash and hurt lean the upper body about the hip (the feet stay planted): eased in and out, never a one-frame switch
-    const dA = GT - h.dashT, dashE = SS(0, 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
+    const dA = GT - h.dashT, dashE = SS(0, h.castK === 'charge' && GT - h.castT < 0.5 ? 0.15 : 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
     const hA = GT - h.hurtT, hurtE = h.deadT >= 0 ? 0 : SS(0, 0.07, hA) * (1 - SS(0.12, 0.3, hA));
     // standing, the upper body sways slowly about the hip (two slow waves, so it never reads as a metronome)
     // (a blow follows the last one's weight: a new one 0.47 s after the last dropped it to the idle pose for a frame, TASKS 1125)
@@ -162,6 +162,7 @@
     // crystal first, over the bolt's frame (raised in the 0.13 s to it, the hand jumped 7 % of the height a frame), holds it a moment and lowers it; at rest it stands more upright than a blade
     // a shot follows the last one's envelope (the wand fires every 0.36 s: the new shot's raise starting at 0 dropped the staff in a frame)
     const shooter = (D.clsOf(h).shoots || []).includes(st.wtype), BT = D.SHOTS[(D.BASES[st.wtype] || {}).shot || 'bolt'].t, shotEnv = (T) => (T >= 0 && T < SWING.end ? SS(0, BT, T) * (1 - SS(BT + 0.06, SWING.end - 0.02, T)) : 0);
+    const chargeE = h.castK === 'charge' ? SS(0, 0.16, castT) * (1 - SS(0.3, 0.55, castT)) : 0, cryE = h.castK === 'cry' ? SS(0, 0.2, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
     const bowArm = shooter && !!(D.BASES[st.wtype] || {}).dex, drawE = bowArm && swinging ? SS(0.02, BT, atkT) * (1 - SS(BT, BT + 0.08, atkT)) : 0;
     const shootE = shooter && swinging ? Math.max(shotEnv(atkT), h.patkT < h.atkT ? shotEnv(GT - h.patkT) : 0, atkT < BT ? Math.min(1, shotEnv(GT - h.patkT) + shotEnv(atkT)) : 0) : 0;
     if (whirlE === 0 && swinging && !shooter) { const arcR = st.arc * Math.PI / 180, pT = GT - (h.patkT === undefined ? -9 : h.patkT);
@@ -194,6 +195,12 @@
       const l = armLen(arms.R), wx = Math.cos(whirlTh) * face, tx = -0.3 * l + 0.4 * l * wx, ty = 0.6 * l + 0.25 * l * Math.sin(whirlTh);
       armR = arms.R; reach(arms.R, tx, ty, whirlE);
       pose(arms.L, 0.8, -0.5, whirlE);
+    } else if (chargeE > 0 || cryE > 0) {
+      // the warrior's charge (TASKS 1134): the blade thrust out down the aim, the free arm flung back; the war cry: blade and fist
+      // thrown up over the head
+      const l = armLen(arms.R);
+      if (chargeE > 0) { reach(arms.R, 0.2 * l + Math.cos(aimL) * 0.8 * l, Math.sin(aimL) * 0.8 * l - 0.05 * l, chargeE); pose(arms.L, 0.6, 0.3, chargeE); }
+      if (cryE > 0) { reach(arms.R, 0.25 * l, -0.9 * l, cryE); reach(arms.L, -0.15 * l, -0.85 * l, cryE); }
     } else if (shootE > 0 || (shooter && castE > 0)) {   // (a mage casts through his staff too: no free-hand push, no lowered blade)
       const l = armLen(arms.R), pe = Math.max(shootE, castE), kick = 0.1 * l * SS(BT - 0.01, BT + 0.05, atkT) * (1 - SS(BT + 0.05, BT + 0.25, atkT));
       const tx = 0.15 * l + Math.cos(aimL) * (0.72 * l - kick), ty = Math.sin(aimL) * (0.72 * l - kick) - 0.12 * l;
@@ -241,7 +248,7 @@
       L.sprite('it_scroll', 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(fallR + bodyR - 0.35 * fX), M.s(fX, 1)), w, h: hh, pivot: [w * 0.45, hh * 0.55], u: Object.assign({}, U, { alpha: alpha * SS(0.3, 0.5, readE) }) }); };
     const weapon = () => { if (!W || SC.hide.weapon) return; const [tex, len] = W, Hd = R2U(jR.Hd[0], jR.Hd[1]), b0 = (shooter ? (W && D.BASES[st.wtype] && D.BASES[st.wtype].dex ? -1.0 : -1.3) : -0.95) + arms.R.r1 * 0.5, ba0 = bladeA !== null ? bladeA : b0 + (0.9 - b0) * (shooter ? 0 : castE),
         pk = Math.max(shootE, shooter ? castE : 0), rise = shooter ? 0.15 * SS(BT - 0.01, BT + 0.05, atkT) * (1 - SS(BT + 0.05, BT + 0.25, atkT)) : 0,
-        bow = shooter && !!(D.BASES[st.wtype] || {}).dex, ba = pk > 0 ? ba0 + wrapPi(aimL - (bow ? Math.PI / 2 : 0) - rise - ba0) * pk : ba0;
+        bow = shooter && !!(D.BASES[st.wtype] || {}).dex, ba1 = pk > 0 ? ba0 + wrapPi(aimL - (bow ? Math.PI / 2 : 0) - rise - ba0) * pk : ba0, ba2 = chargeE > 0 ? ba1 + wrapPi(aimL - ba1) * chargeE : ba1, ba = cryE > 0 ? ba2 + wrapPi(-1.45 - ba2) * cryE : ba2;
       let sa = Math.atan2(Math.sin(ba), fX * Math.cos(ba)) + fallR + bodyR;           // screen angle of the blade, squeezed with the rig
       // a slash sweeps flat around the body: on the floor plane the camera squeezes depth to DEPTH_K, so a blade pointing up or down
       // the screen points away from or at the camera and projects shorter (by the screen angle of a flat blade)

@@ -353,8 +353,8 @@
         for (let j = 0; j < 40; j++) { const an = e.a + (rnd(e.t, j) * 2 - 1) * half, d = R0 * (0.2 + 0.8 * rnd(e.t, j + 30)) * out, x = ex + Math.cos(an) * d, y = ey - 20 + Math.sin(an) * d / 1.3 + 50 * a * a;
           L.star(x, y, 8 + 7 * rnd(e.t, j + 60), [0.85, 0.96, 1], fade); } } }
       // the warrior's charge (TASKS 1130): a hot streak along the rush, a burst where it strikes; the war cry: a red ring rolling out
-      if (e.k === 'charge' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < 6; j++) { const d = 30 + j * 28 * Math.min(1, a / 0.22); L.glow(ex + e.dx * d, ey - 30 + e.dy * d * 0.8, 22, [1, 0.55, 0.2], 0.35 * (1 - q) * (1 - j / 7), 2.4); } }
-      if (e.k === 'chargehit' && a < 0.35) { const q = a / 0.35; L.glow(ex, ey - 30, 40, [1, 0.6, 0.25], 0.6 * (1 - q), 2.4); L.ring(ex, ey, 14 + 34 * q, 7 + 14 * q, [1, 0.75, 0.4], 0.8 * (1 - q), 0.2);
+      if (e.k === 'charge' && a < 0.3) { const q = a / 0.3; for (let j = 0; j < 6; j++) { const d = 30 + j * 28 * Math.min(1, a / 0.22); L.glow(ex + e.dx * d, ey - 30 + e.dy * d * 0.8, 24, [1, 0.55, 0.2], 0.65 * (1 - q) * (1 - j / 7), 2.4); } }
+      if (e.k === 'chargehit' && a < 0.4) { const q = a / 0.4; L.glow(ex, ey - 30, 64, [1, 0.6, 0.25], 0.8 * (1 - q), 2.4); L.ring(ex, ey, 18 + 50 * q, 9 + 20 * q, [1, 0.75, 0.4], 0.9 * (1 - q), 0.2);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28; L.star(ex + Math.cos(an) * 30 * q, ey - 30 + Math.sin(an) * 22 * q, 6, [1, 0.85, 0.5], 1 - q); } }
       if (e.k === 'cry' && a < 0.6) { const q = SS(0, 0.5, a); for (const k of [1, 0.8]) L.ring(ex, ey, e.r * q * k, e.r * q * k * 0.5, [1, 0.3, 0.12], (k === 1 ? 1 : 0.6) * (1 - SS(0.2, 0.6, a)), 0.12); L.glow(ex, ey - 40, 60, [1, 0.35, 0.12], 0.6 * (1 - q), 2.2); }
       // a trap snapping shut (TASKS 1120): a burst of grit and a flash of iron

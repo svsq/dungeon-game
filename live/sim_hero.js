@@ -217,9 +217,10 @@
     // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
     if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
     const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.5);   // (climbing out over the lip, TASKS 1049, 1058: let go at 0.35 he glided off still 23 px under)
-    const dashV = charging ? CH.spd : K.DASH, mvx = held ? 0 : dashing ? h.dashX * dashV : h.vx, mvy = held ? 0 : dashing ? h.dashY * dashV : h.vy;
+    // (a charge that struck stops on its monster, but its dash runs out, so the lean and the cape ease back, TASKS 1134 critic)
+    const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : K.DASH, mvx = held || (dashing && halted) ? 0 : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : dashing ? h.dashY * dashV : h.vy;
     if (charging) { const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - h.x, (o.y - h.y) * 1.25) < ENEMIES[o.type].r + K.R + 18);
-      if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.dashT = -9;
+      if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.dashHalt = h.dashT; R.freeze = Math.max(R.freeze, 0.06); R.trauma = Math.min(1, R.trauma + 0.3);
         e.rootT = t + stun; e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
         heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); } }
     else if (h.charge && t - h.dashT >= CH.t) h.charge = null;
