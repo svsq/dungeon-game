@@ -483,8 +483,9 @@
     const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs), P = U.P;
     dim(0.35); panel('inv', P.x, P.y, P.w, P.h, { r: 10, a: 0.72 });
     lab('inv_t', TXT('hud.inv'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
-    lab('inv_g', TXT('hud.inv.2', { gold: h.gold }), P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('inv_g', TXT('hud.inv.3', { gold: h.gold }), { size: 28 }) - 46, P.y + 28, 36);
-    lab('inv_souls', TXT('hud.inv.4', { shards: S.meta.shards }), P.x + 310, P.y + 46, { size: 22, col: '#9cc8ff' });
+    { const gs = String(h.gold), ss = String(S.meta.shards), ex = P.x + P.w - 96, gx = ex - lw('inv_g', gs, { size: 28 }) - 46, sx = gx - 36 - lw('inv_souls', ss, { size: 28 }) - 46;
+      lab('inv_g', gs, ex, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', gx, P.y + 28, 36);
+      lab('inv_souls', ss, gx - 36, P.y + 46, { size: 28, al: 1, col: '#9cc8ff' }); icon('crystal', sx, P.y + 28, 36); }
     // portrait and level
     L.sprite(portraitOf(h), P.x + 40, P.y + 90, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] }); L.uiBox('inv_por', P.x + 40, P.y + 90, 220, 186);
     lab('inv_lv', TXT('hud.inv.5', { lvl: h.lvl }), P.x + 150, P.y + 300, { size: 28, al: 0.5 });
