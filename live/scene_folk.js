@@ -89,7 +89,7 @@
       const ground = (1 - tw) * bump01(u, 0.12, 0.34);
       tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i) - 0.14 * ground), talkR, tw * 0.5), L: lerp2(P(-0.2 + 0.05 * Math.sin(2 * Math.PI * u), -0.4 - 0.1 * Math.sin(2 * Math.PI * u + 0.8) ** 2), P(0.1, -0.5), hitch) };
       hold = { R: TOOL('town_tool_spear', 0.58, { abs: -Math.PI / 2 - 0.05 }) };
-      lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look; headF = Math.cos(Math.PI * look);
+      lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look; { const hc = Math.cos(Math.PI * look); headF = (hc < 0 ? -1 : 1) * Math.max(0.55, Math.abs(hc)); }
     } else if (f.role === 'porter' || f.role === 'mason') {
       // the crate: in both hands in front of the chest while he carries it; at a stop he bends, lifts it off the floor or sets it down,
       // only what the sim says he did there (f.lift): a crate is never drawn into or out of hands that did not hold it
@@ -129,13 +129,15 @@
     } else if (f.role === 'sweeper') {
       // sweeps at each stop: the near hand drives the broom to and fro, the far hand higher up the handle, the bristles on the floor
       const sweeping = !moving && tw < 0.99, ph = 2 * Math.PI * u, L0 = SZ('town_tool_broom')[1], grip = 0.3;
-      const hr = sweeping ? P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)) : P(0.2, -0.45);
-      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = sweeping ? Math.asin(down) : 0.8 + 0.09 * Math.sin(f.dist / 9);
+      // the broom eases out of the sweep near the stops, or the hands jumped between the two poses on arriving and setting off (TASKS 1433)
+      const away = !route || !f.go ? 0 : Math.min(SS(0, 30, Math.hypot(f.x - route[(f.way + route.length - 1) % route.length].x, f.y - route[(f.way + route.length - 1) % route.length].y)), SS(0, 30, Math.hypot(f.x - stop.x, f.y - stop.y))), carry = Math.max(away, SS(0.6, 0.99, tw));
+      const hr = lerp2(P(0.2 + 0.09 * Math.sin(ph), -0.42 + 0.015 * Math.cos(ph)), P(0.2, -0.45), carry);
+      const down = Math.min(0.98, (Yg + 1 - hr[1]) / ((1 - grip) * L0)), th = lerp1(Math.asin(down), 0.8 + 0.09 * Math.sin(f.dist / 9), carry);
       const dir = [-face * Math.cos(th), -Math.sin(th)];   // up the handle, away from the bristles
       const abs = Math.atan2(dir[1], dir[0] * face);
       tg = { R: hr, L: [hr[0] + dir[0] * 0.24 * L0, hr[1] + dir[1] * 0.24 * L0] };
       hold = { R: TOOL('town_tool_broom', grip, { abs }) };
-      robe = { lift: sweeping ? 4 : 0, headR: sweeping ? 0.16 : 0.05 };
+      robe = { lift: 4 * (1 - carry), headR: lerp1(0.05, 0.16 + 0.05 * Math.sin(2 * ph), 1 - carry) };
       if (tw > 0) { tg.L = lerp2(tg.L, talkR, tw); robe.headR = lerp1(robe.headR, -0.05, tw); }
       if (sweeping) { const q = Math.sin(ph); if (Math.abs(q) > 0.7) fx = { k: 'dust', x: hr[0] - dir[0] * (1 - grip) * L0, y: hr[1] - dir[1] * (1 - grip) * L0, amt: (Math.abs(q) - 0.7) / 0.3, seed: c.n * 2 + (q > 0 ? 1 : 0) + i }; }
     } else if (f.role === 'enchanter') {
@@ -147,7 +149,8 @@
       tg = { R: lerp2(mir(hr), talkR, tw), L: lerp2(handAt('L', 1, lf), P(0.24, -0.8), flask * (1 - tw)) };
       hold = { L: TOOL('it_mp', 0.3, { abs: -Math.PI / 2 + 0.25 * flask * (1 - tw), len: 0.15 * H }) };
       robe = { lift: 1, headR: lerp1(0.18 * (1 - flask) - 0.12 * flask, -0.05, tw) };
-      const burn = bump01(u, 0.5, 0.78) * (1 - tw); if (burn > 0.02) fx = { k: 'flame', hand: 'L', amt: burn, seed: c.n + i };
+      const burn = bump01(u, 0.5, 0.78) * (1 - tw); if (burn > 0.02) fx = { k: 'flame', hand: 'L', amt: burn, seed: c.n + i, up: 0.1 * H };
+      if (page > 0.02 && tw < 0.5) { const q = Math.cos(Math.PI * page), pw = 9 * Math.abs(q), px = book[0] + (q * wf >= 0 ? 0 : -pw), py = book[1] - 3 - 3 * Math.sin(Math.PI * page); Y.push([Lc.y + 1, () => L.solid(Math.round(px), Math.round(py), Math.max(1, pw), 5, [0.84, 0.78, 0.62])]); }
     }
     if (rk > 0) { for (const sd of ['L', 'R']) tg[sd] = lerp2(tg[sd] || handAt(sd), handAt(sd, 0.35), rk);
       if (hold) hold = Object.fromEntries(Object.entries(hold).map(([sd, q]) => [sd, q.abs === undefined ? q : Object.assign({}, q, { abs: lerp1(q.abs, -Math.PI / 2, rk) })]));
@@ -195,7 +198,7 @@
       L.inked(() => { const r = RIGS[nm].neck ? MONSTERS.robed({ id, n: nm, x: X, y: Yg, H, t: GT, face, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, hold: o.hold, handTarget: o.handTarget, lift: o.robe && o.robe.lift, headR: o.robe && o.robe.headR })
         : MONSTERS.biped({ id, n: nm, x: X, y: Yg, H, face, t: GT, seed, dist: f.dist, vx: f.vx, vy: f.vy, U: {}, Ufar: {}, hold: o.hold, handTarget: o.handTarget, lean: o.lean, headR: o.headR, headF: o.headF, crouch: o.crouch, front: o.front });
         if (r && fx && fx.hand) hand = r.hand ? r.hand(fx.hand) : r.R2U(r.arms[fx.hand].Hd[0], r.arms[fx.hand].Hd[1]); }, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
-      if (fx) SCX.RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] } : {}));
+      if (fx) SCX.RIM.folk.push(Object.assign({}, fx, hand ? { x: hand[0], y: hand[1] - (fx.up || 0) } : {}));
       if (fx && (fx.k === 'grain' || fx.k === 'dust')) folkDust(fx, GT); }]);
   }
   // the grain the child throws (it arcs out and falls ahead of him, lies a moment and is gone) and the sweeper's dust: drawn in the band
