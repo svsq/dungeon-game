@@ -39,7 +39,7 @@
   }
   // o.own: only the hero's class, for what he is sold or handed (TASKS 1158); a find keeps the foreign share
   function rollItem(R, floor, q = 0, slotOnly, o = {}) {
-    const lo = o.min || 0, hi = o.max ?? 4, w = [60, 26, 10, 3.5, 0.5].map((v, i) => (i < lo || i > hi ? 0 : v * (i ? Math.pow(1 + 0.22 * floor + 0.6 * q, i * 0.9) : 1)));
+    const lo = o.min || 0, hi = o.max ?? 4, w = [60, 26, 10, 3.5, 0.5].map((v, i) => (i < lo || i > hi ? 0 : v * (i ? Math.pow(1 + 0.22 * floor + 0.6 * q, i * 0.9) : 1) * (i === 4 ? o.leg ?? 1 : 1)));
     let s = w.reduce((a, b) => a + b, 0) * rnd(R), rar = lo; while (rar < hi && (s -= w[rar]) > 0) rar++;
     const keys = Object.keys(BASES).filter((k) => (!BASES[k].minF || floor >= BASES[k].minF) && (!slotOnly || BASES[k].slot === slotOnly));
     const pick = (ks) => { let s2 = ks.reduce((a, k) => a + (BASES[k].w ?? 1), 0) * rnd(R), bk = ks[ks.length - 1];
@@ -75,11 +75,14 @@
   // the good gear comes from the strong: common monsters drop little and never a legendary; elites, the exit room's brute and
   // the boss drop better; a chest's roll is open, but a secret room's chest rolls with a far higher epic/legendary chance
   const LOOT = {
-    mob: { p: 0.07, q: 0, max: 3, lo: 2, hi: 1, lag: 3 },
-    elite: { q: 1.6, min: 1, lo: 1, hi: 2, lag: 2 },
-    brute: { q: 2.5, min: 2, extra: 0.5, lo: 1, hi: 2, lag: 2 },
+    // fewer finds and better ones (the player's notes 5.9, 5.10, TASKS 1346): `thin` lowers a common monster's chance with depth, where the bag filled
+    // fastest; p: an elite's chance of any drop; leg: the legendary's odds at this source, an elite's below a secret room's. Plain chests stop at epic
+    thin: (f) => Math.max(0.6, 1 - 0.02 * (f - 1)),
+    mob: { p: 0.05, q: 0.3, max: 3, lo: 2, hi: 1, lag: 3 },
+    elite: { p: 0.75, q: 2, min: 1, leg: 0.35, lo: 1, hi: 2, lag: 2 },
+    brute: { q: 2.8, min: 2, extra: 0.3, leg: 0.5, lo: 1, hi: 2, lag: 2 },
     boss: [{ q: 3, min: 4, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 3, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 2, lo: 0, hi: 3, lag: 1 }],
-    chest: [null, { q: 0.4, n: 1, lo: 1, hi: 2, lag: 2 }, { q: 1, n: 2, lo: 1, hi: 2, lag: 2 }, { q: 3, n: 1, lo: 0, hi: 3, lag: 1 }],
+    chest: [null, { q: 0.6, n: 1, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 1.3, n: 2, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 3, n: 1, lo: 0, hi: 3, lag: 1 }],
   };
 
   // ---------------- hero stats (base + gear + meta + the altars' gifts) ----------------
