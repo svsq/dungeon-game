@@ -177,7 +177,7 @@
     if (C.st === 'in') return;
     let d = C.s, x = pts[pts.length - 1][0], y = pts[pts.length - 1][1];
     for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d <= l) { x = ax + (bx - ax) * d / l; y = ay + (by - ay) * d / l; break; } d -= l; }
-    const justTook = ms && !ms.go && ms.lift === 'take' && GT - ms.t0 < 0.45, shown = C.load + (justTook ? 1 : 0), nm = shown >= 3 ? 'cart_tw' : shown === 2 ? 'cart_tw_half' : 'cart_tw_empty', [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(0, 44, C.s), X = sx(x), Yg = sy(y) + 8;
+    const justTook = ms && !ms.go && ms.lift === 'take' && GT - ms.t0 < 0.45, shown = C.load + (justTook ? 1 : 0), front = (() => { let d0 = C.s; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d0 <= l || i === pts.length - 1) return Math.abs(by - ay) > 0.85 * l; d0 -= l; } return false; })(), nm = (front ? ['cart_tw_f', 'cart_tw_f_half', 'cart_tw_f_empty'] : ['cart_tw', 'cart_tw_half', 'cart_tw_empty'])[shown >= 3 ? 0 : shown === 2 ? 1 : 2], [w, h] = SZ(nm), rolling = C.st === 'down' || C.st === 'up', bob = rolling ? 0.8 * Math.sin(C.s / 6) : 0, k = SS(0, 44, C.s), X = sx(x), Yg = sy(y) + 8;
     const rope = [];
     { let left = C.s; for (let i = 1; i < pts.length && left > 0; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); for (let q = 0; q < Math.min(l, left); q += 2) rope.push([ax + (bx - ax) * q / l, ay + (by - ay) * q / l]); left -= l; } }
     Y.push([y - 40, () => { for (const [px, py] of rope) L.solid(Math.round(sx(px)), Math.round(sy(py) - 8), 2, 2, [0.34, 0.26, 0.18], 0, 0, 0, 1); }]);
@@ -187,7 +187,7 @@
     // the sprites' own wheels cannot turn: two studs on each hub circle it by the distance rolled (town_motion_r6 5)
     const hubs = [[nm === 'cart_tw' ? 0.54 : 0.532, nm === 'cart_tw' ? 0.825 : 0.815], [nm === 'cart_tw' ? 0.83 : 0.815, nm === 'cart_tw' ? 0.714 : 0.69]], wr = 0.11 * w, spin = C.s / wr;
     Y.push([y + 8, () => { L.shadow(Xc, Yg, 0.42 * w, 5, 0.45); L.inked(() => L.sprite(nm, 0, 0, { m: L.M.of(L.M.t(Xc, Yc), L.M.r(tilt1)), pivot: [w / 2, h], w, h, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
-      for (const [hu, hv] of hubs) for (const q of [0, 1]) { const a = spin + q * Math.PI; L.solid(Math.round(Xc + (hu - 0.5) * w + Math.cos(a) * 0.5 * wr * 0.85) - 1, Math.round(Yc + (hv - 1) * h + Math.sin(a) * 0.5 * wr) - 1, 2, 2, [0.72 * k, 0.62 * k, 0.5 * k]); }
+      if (!front) for (const [hu, hv] of hubs) for (const q of [0, 1]) { const a = spin + q * Math.PI; L.solid(Math.round(Xc + (hu - 0.5) * w + Math.cos(a) * 0.5 * wr * 0.85) - 1, Math.round(Yc + (hv - 1) * h + Math.sin(a) * 0.5 * wr) - 1, 2, 2, [0.72 * k, 0.62 * k, 0.5 * k]); }
       if (shown === 1) L.sprite('town_tool_stone', Xc + 0.04 * w - 7, Yc - 0.71 * h - 7, { w: 14, h: 14, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }); }]);
   }
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {

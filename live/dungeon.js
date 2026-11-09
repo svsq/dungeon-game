@@ -232,11 +232,11 @@
     // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1609)
     rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
     // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1611, 1609)
-    grates: [[24.6, 27.4], [29.4, 27.4]], ivy: [[13, 27.6], [21, 27.6], [32.5, 27.6], [38, 27.6], [6, 11.6], [6, 23.6], [38, 15.6], [46, 21.6]],
+    grates: [[24.6, 27.4], [29.4, 27.4], [35.4, 27.4]], ivy: [[13, 27.6], [21, 27.6], [32.5, 27.6], [38, 27.6], [6, 11.6], [6, 23.6], [38, 15.6], [46, 21.6]],
     // ruin stubs the seed picks some of, and spots for the small decor
     stubs: [[14, 8], [45, 8], [10, 27], [5, 26], [49, 13], [12, 14]],
-    small: [['barrel', 13, 11], ['crate', 21, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
-      ['crate', 49, 11], ['barrel', 12, 30], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
+    small: [['barrel', 13, 11], ['crate', 21, 11], ['basket_tw', 20, 14], ['bucket_tw', 41, 11], ['hay_tw', 33, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
+      ['crate', 49, 11], ['barrel', 12, 30], ['wheel_tw', 47, 27], ['beam_tw', 35, 25], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
       ['crate', 50, 12], ['barrel', 50, 16]],
     // what a niche keeps: its stores, and a small fire at the back
     store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
@@ -268,7 +268,7 @@
       { x: wx(T.exitGate[0]), y: T.exitGate[1] * TILE + 6, n: 'gate_tw', role: 'exit_gate', solid: 1 },
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
-      ...T.grates.map((p, i) => ({ ...at(p), n: i ? 'grate_tw_b' : 'grate_tw', role: 'grate', solid: 1 })), ...T.ivy.map((p, i) => ({ ...at(p), n: i % 3 === 1 ? 'ivy_tw_b' : 'ivy_tw', role: 'ivy', s: 0.75 + 0.15 * (i % 3), f: i % 2 ? -1 : 1 })),
+      ...T.grates.map((p, i) => ({ ...at(p), n: ['grate_tw', 'grate_tw_b', 'grate_tw_c'][i], role: 'grate', solid: 1 })), ...T.ivy.map((p, i) => ({ ...at(p), n: i % 3 === 1 ? 'ivy_tw_b' : 'ivy_tw', role: 'ivy', s: 0.75 + 0.15 * (i % 3), f: i % 2 ? -1 : 1 })),
       // a hash, not R(): the decals after this list keep the layouts of saved towns
       ...Array.from({ length: W * H }, (_, k) => k).flatMap((k) => { const x = k % W, y = Math.floor(k / W), h = (x * 73 + y * 37) % 100; if (cells[k] !== 0 || cells[k + W] !== 1 || y < 2 || x < 2 || x > W - 3) return [];
         const px = (x + 0.5) * TILE, py = (y - 1) * TILE + 8, opR = cells[k + 1] === 1 || cells[k + 1 + W] === 0, opL = cells[k - 1] === 1 || cells[k - 1 + W] === 0;
@@ -279,7 +279,7 @@
       ...T.rubble.map(([x, y], i) => ({ ...at([x, y]), n: 'blocks_tw', role: 'rubble', s: 0.6 + 0.1 * (i % 4), f: i % 2 ? -1 : 1 })),
       // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
       ...portalRing(wx(T.portal[0]), wy(T.portal[1]), 0).map((q) => ({ ...q, role: 'portal_stone', solid: 1 })),
-      ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y]) => ({ ...at([x, y]), n: 'torch_stand', role: 'lamp', solid: 1 })),
+      ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y], i) => ({ ...at([x, y]), n: 'torch_stand', alt: i % 3 === 1 ? 'torch_stand_b' : undefined, role: 'lamp', solid: 1 })),
             // three trees round the edge, not one six times (TASKS 1030)
       ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: ['tree_tw_b', 'tree_tw_c', 'tree_tw'][i % 3], role: 'edge', solid: 1, s: (100 + (i * 7) % 21) / [76, 60, 70][i % 3], f: (i >> 1) % 2 })),
       // the rim beyond the walls is ruin and overgrowth, not a tiled floor (TASKS 1431, 1623)
