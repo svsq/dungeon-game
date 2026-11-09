@@ -103,7 +103,7 @@
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
       basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
-      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.72, 0.52, 0.42, 0.22] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
+      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.95, 0.5, 0.32, 0.55] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
