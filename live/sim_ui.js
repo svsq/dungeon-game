@@ -189,11 +189,17 @@
   SCREEN.journal = (S, inp, keys, x, y, click) => {
     const R = S.run, L0 = R ? journalOf(R) : [], sel = L0.find((q) => q.id === S.jsel) || L0[0], U = UI.journal(L0.length, sel && sel.st === 'taken'), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyJ || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (click && b && b.id === 'notes') { S.screen = 'notes'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; S.jdrop = 0; ev(S, { k: 'ui', x, y }); }
     // given up only on a second press, as a saved run is dropped: nothing brings a quest back but its giver (TASKS 1633)
     if (click && b && b.id === 'drop' && sel) { if (S.jdrop === sel.id && S.t - S.jdropT < 3) { S.jdrop = 0; abandonQuest(S, R, sel); } else { S.jdrop = sel.id; S.jdropT = S.t; ev(S, { k: 'ui', x, y }); } }
     return;
   };
+  SCREEN.note = (S, inp, keys, x, y, click) => { if (keys.KeyE || keys.Escape || keys.Enter || keys.Space || click) { S.screen = 'play'; ev(S, { k: 'ui', x, y }); } };
+  SCREEN.notes = (S, inp, keys, x, y, click) => { const L0 = S.meta.notes || [], pg = S.notesPage || 0, U = UI.notes(L0.length, pg), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'journal'; S.hover = ''; return; }
+    if (click && b && b.id === 'prev' && b.on) S.notesPage = pg - 1; if (click && b && b.id === 'next' && b.on) S.notesPage = pg + 1;
+    if (click && b && b.id.startsWith('n:')) S.noteSel = L0[b.i]; if (click && b) ev(S, { k: 'ui', x, y }); };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
     const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }

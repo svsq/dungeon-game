@@ -71,6 +71,8 @@
     if (S.screen === 'craft' && R) craft(S, R, t);
     if (S.screen === 'talk' && R && S.talk) talk(S, R, t);
     if (S.screen === 'journal' && R) journal(S, R, t);
+    if (S.screen === 'note' && S.note) note(S);
+    if (S.screen === 'notes') notes(S);
     if (S.screen === 'board' && R) board(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   };
@@ -201,6 +203,7 @@
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56 && !SIM.Q.overLava(m, h.x, h.y, c.x, c.y)); if (ch) pr = [ch.x, ch.y - 74, TXT('hud.world.3')];
     const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
     if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, SIM.Q.shopShut(R) ? TXT('hud.world.shut') : TXT('hud.world.6')];
+    const noteP = SIM.Q.noteNear(R); if (noteP) pr = [noteP.x, noteP.y - 40, TXT('hud.world.note')];
     if (SIM.Q.captiveNear(R)) pr = [R.captive.x, R.captive.y - 122, TXT('hud.world.captive')];
     const dr = SIM.Q.doorNear(R, 64); if (dr) { const lk = SIM.Q.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? TXT('hud.world.7') : lk.kind === 'key' ? (R.keys > 0 ? TXT('hud.world.8') : TXT('hud.world.9')) : TXT('hud.world.10')]; }
     const lv = SIM.Q.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, TXT('hud.world.11')];
@@ -215,17 +218,17 @@
     if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
     if (SIM.Q.atExitGate(R)) pr = [m.town.svc.exitGate.x, m.town.svc.exitGate.y - 110, TXT('hud.world.gate')];
     if (SIM.Q.atGate(R)) { const o = SIM.Q.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? TXT('hud.world.27') : TXT('hud.world.28')) : o[0].k === 'portal' ? TXT('hud.world.29', { f: o[0].f }) : TXT('hud.world.30', { f: o[0].f })]; }
-    if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name]; } }
+    if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
-    if (pr && S.screen === 'play' && !(R.leaving > 0) && !S.ev.some((e) => e.k === 'floor' && S.t - e.t < 0.5)) { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
+    if (pr && S.screen === 'play' && !(R.leaving > 0) && !S.ev.some((e) => e.k === 'floor' && S.t - e.t < 0.5)) { const s = pr[2], sub = pr[3], bh = sub ? 64 : 40, w = Math.max(lw('prompt', s, { size: 24 }), sub ? lw('prompt_j', sub, { size: 17 }) : 0) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
       const hx0 = V.sx(h.x - 30), hx1 = V.sx(h.x + 30), hy0 = V.sy(h.y - 92), hy1 = V.sy(h.y + 6);
       if (x < hx1 && x + w > hx0 && y < hy1 && y + 40 > hy0) y = Math.min(y, hy0 - 48);
       // nor an elite's name over its head (the exit's guard by the stairs down a hero has just come up): then under his feet
       if (nameZones.some((z) => x < z.x + z.w && x + w > z.x && y < z.y + z.h && y + 40 > z.y)) y = V.sy(h.y) + 18;
       if (y < 120) { x = (W - w) / 2; y = H - 150; }
-      HUD.promptBox = [x, y, w, 40]; panel('prompt_box', x, y, w, 40, { r: 6 }); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); }
+      HUD.promptBox = [x, y, w, bh]; panel('prompt_box', x, y, w, bh, { r: 6 }); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); if (sub) lab('prompt_j', sub, x + 14, y + 47, { size: 17, col: C.dim }); }
   }
 
   // ---------------- in-game HUD ----------------
@@ -272,7 +275,8 @@
     const boss = R.en.find((e) => !!D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
     if (boss) {
       const max = Number.isFinite(boss.max) && boss.max > 0 ? boss.max : 1, hp = Math.max(0, Number.isFinite(boss.hp) ? boss.hp : 0);
-      lab('bossn', D.ENEMIES[boss.type].name, W / 2, 46, { size: 30, al: 0.5, col: '#ff8a5a' });
+      lab('bossn', D.ENEMIES[boss.type].name, W / 2, 24, { size: 30, al: 0.5, col: '#ff8a5a' });
+      if (D.ENEMIES[boss.type].title) lab('bosst', D.ENEMIES[boss.type].title, W / 2, 52, { size: 18, al: 0.5, col: '#d9b39c' });
       bar('bossbar', W / 2 - 400, 66, 800, 26, hp / max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02], Math.ceil(hp) + ' / ' + Math.ceil(max));
       for (const phase of D.BOSSES[boss.type].phases || []) if (phase.at > 0 && phase.at < 1) {
         const x = W / 2 - 397 + 794 * phase.at;
@@ -533,7 +537,7 @@
   function shop(S, R, t) {
     const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); panel('shop', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('sh_t', sh.wander ? TXT('hud.shop') : TXT('hud.shop.2'), P.x + 40, P.y + 46, { size: 40, col: C.gold });
+    lab('sh_t', sh.wander ? TXT('hud.shop') : TXT('hud.shop.2'), P.x + 40, P.y + (sh.wander ? 46 : 36), { size: sh.wander ? 40 : 34, col: C.gold }); if (!sh.wander) lab('sh_j', TXT('hud.shop.job'), P.x + 40, P.y + 68, { size: 19, col: C.dim });
     const gs = TXT('hud.shop.gs', { gold: h.gold }); lab('sh_g', gs, P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 28, 36);
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 20 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 20, col: can ? C.gold : '#8a6a5a' }); };
     lab('sh_buy', R.town ? TXT('hud.shop.3', { p1: sh.at ? TXT('hud.shop.4', { at: sh.at }) : '' }) : sh.wander ? TXT('hud.shop.5', { floor: R.floor }) : TXT('hud.shop.6', { floor: R.floor }), P.x + 40, P.y + 100, { size: 24, col: C.dim });
@@ -731,8 +735,9 @@
     panel('talk', P.x, P.y, P.w, P.h, { r: 10, rim: keeper ? [0.62, 0.42, 0.22] : C.rim });
     if (keeper) { G.blend('add'); L.glow(P.x + 150, P.y + P.h - 60, 200, [1, 0.6, 0.25], 0.16 + 0.04 * Math.sin(t * 3.1)); G.blend(); }
     const [sw, sh] = SZ(nm), k = 230 / sh; L.sprite(nm, P.x + 150 - sw * k / 2, P.y + P.h - 30 - sh * k, { w: sw * k, h: sh * k });
-    lab('tk_n', FD.name, P.x + 300, P.y + 52, { size: 32, col: keeper ? '#ffc070' : C.gold });
-    wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 112, P.w - 360, 28, C.text);
+    lab('tk_n', FD.name, P.x + 300, P.y + 46, { size: 32, col: keeper ? '#ffc070' : C.gold });
+    lab('tk_j', FD.job, P.x + 300, P.y + 82, { size: 19, col: C.dim });
+    wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 122, P.w - 360, 28, C.text);
     const act = at('act');
     // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
     // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030)
@@ -770,6 +775,7 @@
     dim(0.6); panel('journal', P.x, P.y, P.w, P.h, { r: 10 });
     lab('jr_t', TXT('hud.journal'), P.x + 40, P.y + 50, { size: 40, col: C.gold });
     const cb = U.r.find((q) => q.id === 'close'); panel('jr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('jr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    const nb = U.r.find((q) => q.id === 'notes'); button('jr_notes', Object.assign({}, nb, { label: TXT('hud.journal.notes', { n: (S.meta.notes || []).length }) }), S.hover);
     lab('jr_keys', TXT('hud.journal.2'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     if (!L0.length) { wrapLab('jr_none', R.viaTown ? TXT('hud.journal.3') : TXT('hud.journal.4'), P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
     L0.slice(0, 10).forEach((q, i) => { const b = U.r[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
@@ -783,11 +789,20 @@
     lab('jr_dn', Q.name, X + (sel.ic ? 60 : 0), y, { size: 32, col: Q.kind === 'story' ? '#ffc070' : C.gold }); y += 40;
     lab('jr_dk', TXT('hud.journal.6', { p1: Q.kind === 'story' ? TXT('hud.journal.7') : '', p2: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '—' }), X, y, { size: 20, col: C.dim }); y += 44;
     y += wrapLab('jr_dt', Q.text(sel), X, y, Wd, 24, C.text) + 18;
-    lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '' }) : ''), X, y, { size: 22, col }); y += 48;
+    lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name : '' }) : ''), X, y, { size: 22, col }); y += 48;
     lab('jr_rw0', sel.st === 'turned' ? TXT('hud.journal.9') : TXT('hud.journal.10'), X, y, { size: 22, col: C.dim }); y += 32;
     wrapLab('jr_rw', SIM.Q.rwLine(sel.rw), X, y, Wd, 22, C.gold);
     const dr = U.r.find((q) => q.id === 'drop'); if (dr) button('jr_drop', Object.assign({}, dr, { label: S.jdrop === sel.id && S.t - S.jdropT < 3 ? TXT('hud.journal.drop2') : TXT('hud.journal.drop') }), S.hover);
   }
+  function note(S) { const N = D.NOTES.byId[S.note.id], P = { x: 460, y: 240, w: 1000, h: 500 }; if (!N) return; dim(0.6); panel('note', P.x, P.y, P.w, P.h, { r: 10, rim: [0.62, 0.48, 0.28] });
+    lab('nt_t', N.title, P.x + 50, P.y + 56, { size: 34, col: C.gold }); wrapLab('nt_s', N.text, P.x + 50, P.y + 120, P.w - 100, 28, C.text); lab('nt_k', TXT('hud.note.keys'), W / 2, P.y + P.h - 34, { size: 20, al: 0.5, col: '#8a7d6c' }); }
+  function notes(S) { const L0 = S.meta.notes || [], pg = S.notesPage || 0, U = D.UI.notes(L0.length, pg), P = U.P, at = (id) => U.r.find((q) => q.id === id); dim(0.6); panel('notes', P.x, P.y, P.w, P.h, { r: 10 });
+    lab('ns_t', TXT('hud.notes'), P.x + 40, P.y + 50, { size: 40, col: C.gold }); const cb = at('close'); panel('ns_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('ns_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    if (!L0.length) { wrapLab('ns_none', TXT('hud.notes.none'), P.x + 40, P.y + 130, P.w - 80, 26, C.text); return; }
+    const sel = D.NOTES.byId[S.noteSel] || D.NOTES.byId[L0[0]];
+    U.r.filter((q) => q.id.startsWith('n:')).forEach((b) => { const N = D.NOTES.byId[L0[b.i]], on = N === sel; if (!N) return; panel('ns_r' + b.i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : S.hover === b.id ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined }); lab('ns_n' + b.i, N.title, b.x + 16, b.y + 23, { size: 22, col: N.kind === 'secret' ? '#9cc8ff' : N.kind === 'boss' ? '#ffc070' : C.gold }); });
+    const X = P.x + 540, Wd = P.w - 580; L.solid(X - 20, P.y + 110, 1, P.h - 180, C.rim, 0, 0, 0, 0.6); if (sel) { lab('ns_dn', sel.title, X, P.y + 130, { size: 32, col: C.gold }); wrapLab('ns_dt', sel.text, X, P.y + 190, Wd, 26, C.text); }
+    button('ns_p', Object.assign({}, at('prev'), { label: TXT('hud.notes.prev') }), S.hover); button('ns_nx', Object.assign({}, at('next'), { label: TXT('hud.notes.next') }), S.hover); lab('ns_pg', TXT('hud.notes.page', { p: pg + 1, n: Math.max(1, Math.ceil(L0.length / U.per)) }), P.x + 265, P.y + P.h - 74, { size: 22, al: 0.5, col: C.dim }); }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
   function craft(S, R, t) {
     const h = R.hero, U = D.UI.craft(), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.Q.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);

@@ -13,7 +13,7 @@
     fetch: { kind: 'side', type: 'fetch', name: TXT('QUESTS.fetch.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.fetch.text', { thing: q.thing, f: q.f }), rw: ['scroll', 'xp'] },
     room: { kind: 'side', type: 'room', name: TXT('QUESTS.room.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.room.text', { f: q.f }), rw: ['xp', 'shards'] },
     rescue: { kind: 'story', type: 'free', name: TXT('QUESTS.rescue.name'), ask: TXT('QUESTS.rescue.ask'), need: () => 1, text: (q) => TXT('QUESTS.rescue.text', { f: q.f }), rw: ['xp', 'scroll'] },
-    chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f }), rw: ['shards', 'item'] },
+    chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f, boss: D.ENEMIES[stageOf('campaign', q.f).boss].name }), rw: ['shards', 'item'] },
     depths: { kind: 'story', type: 'reach', name: TXT('QUESTS.depths.name'), need: () => 1, text: (q) => TXT('QUESTS.depths.text', { f: q.f }), rw: ['shards', 'item'] },
   };
   // what a quest pointing at floor f gives on its turn-in (item: the reward piece's least rarity, 2 rare unless the template says)
@@ -56,21 +56,21 @@
   // loop (per s; hit: the loop's impact phase, rest: every rest-th loop is a breather) and, for those with a round, the walking
   // speed and the pause at each stop. The sim's events (the anvil's ring, the keeper's sparks) and the render share one clock
   const FOLK = {
-    smith: { name: TXT('FOLK.smith.name'), per: 1.45, hit: 0.6, rest: 4, lines: [[TXT('FOLK.smith.lines'), TXT('FOLK.smith.lines.2')],
+    smith: { name: TXT('FOLK.smith.name'), job: TXT('FOLK.smith.job'), per: 1.45, hit: 0.6, rest: 4, lines: [[TXT('FOLK.smith.lines'), TXT('FOLK.smith.lines.2')],
       [TXT('FOLK.smith.lines.3'), TXT('FOLK.smith.lines.4')], [TXT('FOLK.smith.lines.5'), TXT('FOLK.smith.lines.6')]] },
-    enchanter: { name: TXT('FOLK.enchanter.name'), per: 7.5, hit: 0.55, lines: [[TXT('FOLK.enchanter.lines'), TXT('FOLK.enchanter.lines.2')],
+    enchanter: { name: TXT('FOLK.enchanter.name'), job: TXT('FOLK.enchanter.job'), per: 7.5, hit: 0.55, lines: [[TXT('FOLK.enchanter.lines'), TXT('FOLK.enchanter.lines.2')],
       [TXT('FOLK.enchanter.lines.3'), TXT('FOLK.enchanter.lines.4')], [TXT('FOLK.enchanter.lines.5'), TXT('FOLK.enchanter.lines.6')]] },
-    keeper: { name: TXT('FOLK.keeper.name'), per: 9, hit: 0.3, lines: [[TXT('FOLK.keeper.lines'), TXT('FOLK.keeper.lines.2')],
+    keeper: { name: TXT('FOLK.keeper.name'), job: TXT('FOLK.keeper.job'), per: 9, hit: 0.3, lines: [[TXT('FOLK.keeper.lines'), TXT('FOLK.keeper.lines.2')],
       [TXT('FOLK.keeper.lines.3'), TXT('FOLK.keeper.lines.4')], [TXT('FOLK.keeper.lines.5'), TXT('FOLK.keeper.lines.6')]] },
-    guard: { name: TXT('FOLK.guard.name'), per: 8, lines: [[TXT('FOLK.guard.lines'), TXT('FOLK.guard.lines.2')], [TXT('FOLK.guard.lines.3'), TXT('FOLK.guard.lines.4')],
+    guard: { name: TXT('FOLK.guard.name'), job: TXT('FOLK.guard.job'), per: 8, lines: [[TXT('FOLK.guard.lines'), TXT('FOLK.guard.lines.2')], [TXT('FOLK.guard.lines.3'), TXT('FOLK.guard.lines.4')],
       [TXT('FOLK.guard.lines.5'), TXT('FOLK.guard.lines.6')]] },
-    porter: { name: TXT('FOLK.porter.name'), per: 1.7, v: 34, lines: [[TXT('FOLK.porter.lines'), TXT('FOLK.porter.lines.2')],
+    porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, lines: [[TXT('FOLK.porter.lines'), TXT('FOLK.porter.lines.2')],
       [TXT('FOLK.porter.lines.3'), TXT('FOLK.porter.lines.4')], [TXT('FOLK.porter.lines.5'), TXT('FOLK.porter.lines.6')]] },
-    sweeper: { name: TXT('FOLK.sweeper.name'), per: 1.25, pause: 7, v: 26, lines: [[TXT('FOLK.sweeper.lines'), TXT('FOLK.sweeper.lines.2')],
+    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, lines: [[TXT('FOLK.sweeper.lines'), TXT('FOLK.sweeper.lines.2')],
       [TXT('FOLK.sweeper.lines.3'), TXT('FOLK.sweeper.lines.4')], [TXT('FOLK.sweeper.lines.5'), TXT('FOLK.sweeper.lines.6')]] },
-    child: { name: TXT('FOLK.child.name'), per: 2.3, pause: 6, v: 42, lines: [[TXT('FOLK.child.lines'), TXT('FOLK.child.lines.2')],
+    child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, lines: [[TXT('FOLK.child.lines'), TXT('FOLK.child.lines.2')],
       [TXT('FOLK.child.lines.3'), TXT('FOLK.child.lines.4')], [TXT('FOLK.child.lines.5'), TXT('FOLK.child.lines.6')]] },
-    mason: { name: TXT('FOLK.mason.name'), per: 1.3, hit: 0.7, v: 34, lines: [[TXT('FOLK.mason.lines'), TXT('FOLK.mason.lines.2')],
+    mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, lines: [[TXT('FOLK.mason.lines'), TXT('FOLK.mason.lines.2')],
       [TXT('FOLK.mason.lines.3'), TXT('FOLK.mason.lines.4')], [TXT('FOLK.mason.lines.5'), TXT('FOLK.mason.lines.6')]] },
     hen: { per: 2.2 },
   };
@@ -97,5 +97,7 @@
   const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1;
     return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
 
-  Object.assign(D, { QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
+  const NOTE_LIST = (globalThis.TEXT || {}).notes || [];
+  const NOTES = { n: [3, 5], era: { dungeon: 'cellar', crypt: 'crypt', lava: 'forge', arcane: 'halls', cave: 'flooded', magma: 'magma' }, list: NOTE_LIST, byId: Object.fromEntries(NOTE_LIST.map((n) => [n.id, n])) };
+  Object.assign(D, { NOTES, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
 })(typeof window !== 'undefined' ? window : globalThis);

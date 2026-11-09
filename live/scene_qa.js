@@ -1349,6 +1349,11 @@
     // a word with the townsfolk (TASKS 1016, 1023): the prompt by the Keeper; his dialogue on its longest page; the guard's line
     states.push(['captive_cage', climbS(1, (S, R, m, h) => { h.x = R.captive.x + 50; h.y = R.captive.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['captive_freed', climbS(1, (S, R, m, h) => { h.x = R.captive.x + 50; h.y = R.captive.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); R.freed = { merchant: 1 }; R.msg = { s: TXT('sim_town.captive.free'), t: S.t - 1, d: 5 }; })]);
+    const noteWorst = () => D.NOTES.list.reduce((a, n) => (n.text.length > a.text.length ? n : a));
+    states.push(['note_floor', climbS(1, (S, R, m, h) => { const p = R.drops.find((d) => d.kind === 'note' && d.sec === undefined); h.x = p.x + 30; h.y = p.y + 24; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
+    states.push(['note_read', climbS(1, (S, R) => { S.note = { id: noteWorst().id }; S.screen = 'note'; })]);
+    states.push(['notes_list', climbS(1, (S, R) => { S.meta.notes = D.NOTES.list.slice(0, 30).map((n) => n.id); S.noteSel = noteWorst().id; S.meta.notes.push(S.noteSel); S.screen = 'notes'; })]);
+    states.push(['notes_empty', climbS(1, (S, R) => { S.meta.notes = []; S.screen = 'notes'; })]);
     states.push(['town_shop_shut', climbS(0, (S, R, m, h) => { h.x = m.shop.front.x; h.y = m.shop.front.y + 20; })]);
     const keeperS = (fn) => climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] });
       const k = S.run.folk.find((q) => q.role === 'keeper'); h.x = k.x + 44; h.y = k.y + 12; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; fn(S, R, h, k); });

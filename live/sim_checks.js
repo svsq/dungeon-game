@@ -2570,6 +2570,9 @@
       else if (Z.map.decor.some((d) => Math.abs(d.x - C.x) < 40 && d.y < C.y + 8 && d.y > C.y - 60)) out.push('rescue: the cage stands on a prop');
       else { Z.hero.x = C.x + 40; Z.hero.y = C.y + 30; X.interact(S, Z); if (!Z.freed || !Z.freed.merchant) out.push('rescue: E at the cage does not free the merchant');
         enterFloor(S, Z, 0); if (X.shopShut(Z)) out.push('rescue: the town shop is shut after the merchant is freed'); } }
+    { const Z = run(83), plain = () => Z.drops.filter((p) => p.kind === 'note' && p.sec === undefined);
+      for (const f of [1, 3, 5, 7, 9, 13]) { enterFloor(S, Z, f); const P = plain(); if (P.length < 3 || P.length > 5) out.push('notes: floor ' + f + ' has ' + P.length); for (const p of P) { const n = D.NOTES.byId[p.note]; if (n.kind === 'boss' && (f < n.floors[0] || f > n.floors[1])) out.push('notes: ' + n.id + ' off its floors on ' + f); } }
+      if (new Set(Z.notesUsed).size !== Z.notesUsed.length) out.push('notes: one repeated in a run'); }
     R = run(81); R.freed = { merchant: 1 }; R.offers = []; let T = talkTo(R, 'keeper'); const st0 = T && T.act && T.act.k === 'take' ? T.act : null; finish();
     const sq = R.quests.find((o) => D.QUESTS[o.key].kind === 'story');
     if (!st0 || !sq || sq.key !== 'chapter' || sq.f !== 2 || sq.from !== 'keeper') out.push('quest story: the Keeper does not open the chain with the second floor\'s boss');
@@ -2697,7 +2700,7 @@
     const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes().find((b) => b.id === 'go'));
     const R = S.run; if (!R || R.floor !== 0 || !R.town || R.mode !== 'campaign' || S.screen !== 'play') { out.push('town: «Кампания» does not start in the town'); return out; }
     const h = R.hero, hp = h.hp, x0 = h.x;
-    if (R.en.length || R.msg.s !== 'Город') out.push('town: monsters in the town or no title');
+    if (R.en.length || R.msg.s !== TXT('data_runs.placeName')) out.push('town: monsters in the town or no title');
     if (R.seen.some((v) => !v)) out.push('town: fog of war over the town');
     hurtHero(S, R, 50, h.x, h.y); if (h.hp !== hp) out.push('town: the hero takes damage in the town');
     for (let i = 0; i < 60; i++) step(S, { right: 1, keys: [] }); if (h.x < x0 + 40) out.push('town: the hero does not walk');

@@ -132,6 +132,7 @@
       if (p.rest !== DROP_REST && !p.vz && !(p.z > 0) && !(p.fly > 0)) settleDrop(R, p);
       if (!live || h.deadT >= 0 || R.t - p.t0 < 0.45) continue;
       const d = Math.hypot(h.x - p.x, h.y - p.y);
+      if (p.kind === 'note') continue;
       if (p.tossed) { if (d > 70) p.tossed = 0; continue; }
       if (p.kind !== 'item' && d < 90) { p.x += (h.x - p.x) * Math.min(1, 8 * DT); p.y += (h.y - p.y) * Math.min(1, 8 * DT); }
       if (d < 26) {

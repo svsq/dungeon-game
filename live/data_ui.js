@@ -72,7 +72,12 @@
     journal: (n, canDrop) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
       for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
       if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
+      r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 310, y: P.y + 16, w: 230, h: 48 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
+    notes: (n, page) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [], per = 12, on = Math.min(per, Math.max(0, n - page * per));
+      for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: P.x + 30, y: P.y + 110 + i * 52, w: 470, h: 46 });
+      r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 100, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 100, w: 150, h: 52 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r, per }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 90, w: 1080, h: 900 }, r = [];
       for (let i = 0; i < STASH.cells; i++) r.push({ id: 'stash:' + i, i, x: P.x + 88 + (i % 8) * 116, y: P.y + 130 + Math.floor(i / 8) * 104, w: 92, h: 92 });

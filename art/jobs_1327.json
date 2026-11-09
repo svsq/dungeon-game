@@ -1,0 +1,12 @@
+[
+{
+"name": "note_scrap",
+"prompt": "art/prompts/note_scrap.txt",
+"ref": [
+"art/gen/it_scroll.png=the game's scroll icon, for parchment colours and outline"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+}
+]

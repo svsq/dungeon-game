@@ -101,6 +101,7 @@
   function interact(S, R) {
     const h = R.hero, m = R.map;
     if (captiveNear(R)) { freeCaptive(S, R); return; }
+    const nt = noteNear(R); if (nt) { openNote(S, R, nt); return; }
     const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56) && !SIMX.overLava(m, h.x, h.y, c2.x, c2.y)); if (c) { openChest(S, R, c); return; }
     if (atCounter(R)) { if (shopShut(R)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.shopShut') }); else openShop(S, R); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
@@ -215,6 +216,17 @@
   function questFloor(R, key) { const Q = D.QUESTS[key], top = RUN(R).floors, d = R.deepest || 0;
     for (let f = Math.max(Q.from || 1, d + (Q.ahead || 1)); f <= top; f++) { if (Q.noBoss && STAGE(R, f).boss) continue; if (Q.fresh && R.memo && R.memo[f]) continue; return f; } return 0; }
   // the Keeper's chain (1022): its first step not yet behind the hero, while none of the chain is in hand
+  // a note's series is told in order, a boss's notes only on its floors; picked by the run's seed so the sim's own random is untouched
+  function notePlace(R) { const f = R.floor, m = R.map, done = R.notesDone || (R.notesDone = {}), era = D.NOTES.era[m.biome]; if (!R.viaTown || R.mode !== 'campaign' || R.town || done[f] || !era) return; done[f] = 1;
+    let a = qhash((R.seed >>> 0) * 131 + f * 7877); const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, shuffle = (L) => { const o = L.slice(); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
+    const used = R.notesUsed || (R.notesUsed = []), step = R.noteChain || (R.noteChain = {}), fits = (n) => !used.includes(n.id) && (!n.chain || (step[n.chain] || 0) === n.part - 1), ofEra = (n) => n.id.split('_')[0] === era || (n.id.startsWith('pilot') && era === 'cellar');
+    const put = (n, rm, sec) => { used.push(n.id); if (n.chain) step[n.chain] = n.part; const [x, y] = standNear(R, rm.cx * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 90) - 45 : 22), rm.cy * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 70) - 20 : 26)); R.drops.push(Object.assign({ id: R.nextId++, kind: 'note', note: n.id, x, y, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }, sec === undefined ? {} : { sec })); };
+    const rooms = shuffle(questRooms(R)), n = Math.max(D.NOTES.n[0], Math.min(D.NOTES.n[1], Math.round(rooms.length / 3))), L = shuffle(D.NOTES.list), boss = L.find((o) => o.kind === 'boss' && f >= o.floors[0] && f <= o.floors[1] && fits(o)), out = boss ? [boss] : [];
+    for (const o of L) { if (out.length >= n) break; if (o.kind === 'note' && ofEra(o) && fits(o)) out.push(o); }
+    out.forEach((o, i) => { if (rooms.length) put(o, rooms[i % rooms.length]); });
+    (m.secrets || []).forEach((q, i) => { const o = L.find((v) => v.kind === 'secret' && ofEra(v) && fits(v)); if (o) put(o, m.rooms[q.room], i); }); }
+  const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
+  function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
   const merchantFree = (R) => !!(R.freed && R.freed.merchant);
   const shopShut = (R) => !!R.town && !!R.captive && !merchantFree(R);
   const captiveNear = (R) => { const C = R.captive; return !!C && C.x !== undefined && R.floor === 1 && !R.town && !merchantFree(R) && Math.hypot(C.x - R.hero.x, C.y - R.hero.y) < 100; };
@@ -301,13 +313,13 @@
     return out; }
   // a quest's state in a few words, for the HUD's tracker
   function questLine(q, R) { const Q = D.QUESTS[q.key];
-    if (q.st === 'done') return D.FOLK[q.from] ? TXT('sim_town.questLine.who', { p1: D.FOLK[q.from].name.toLowerCase() }) : TXT('sim_town.questLine');
+    if (q.st === 'done') return D.FOLK[q.from] ? TXT('sim_town.questLine.who', { p1: D.FOLK[q.from].name }) : TXT('sim_town.questLine');
     if (Q.type === 'kill' || Q.type === 'clear') return TXT('sim_town.questLine.2', { n: q.n, need: q.need, f: q.f });
     if (Q.type === 'named') return TXT('sim_town.questLine.3', { title: q.title, f: q.f });
     if (Q.type === 'fetch') return TXT('sim_town.questLine.4', { thing: q.thing, f: q.f }) + (q.where === 'chest' ? TXT('sim_town.questLine.chest') : q.where === 'secret' ? TXT('sim_town.questLine.secret') : q.where === 'floor' ? TXT('sim_town.questLine.floor') : '');
     if (Q.type === 'free') return TXT('sim_town.questLine.free', { f: q.f });
     if (Q.type === 'room') { const n = R && R.floor === q.f && q.room !== undefined ? R.en.filter((e) => e.room === q.room && e.deadT < 0 && counted(e)).length : 0; return TXT('sim_town.questLine.5', { p1: n ? TXT('sim_town.questLine.6', { n }) : TXT('sim_town.questLine.7'), f: q.f }); }
-    if (Q.type === 'boss') return TXT('sim_town.questLine.8', { f: q.f });
+    if (Q.type === 'boss') return TXT('sim_town.questLine.8', { f: q.f, boss: ENEMIES[D.stageOf('campaign', q.f).boss].name });
     return TXT('sim_town.questLine.9', { f: q.f }); }
   // ---------------- a word with the townsfolk (TASKS 1016, 1023) ----------------
   // E by a townsman with something to say (not the smith or the enchanter, whose E is their workshop) opens the dialogue window
@@ -422,7 +434,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    captivePlace, captiveNear, shopShut, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    notePlace, noteNear, captivePlace, captiveNear, shopShut, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);
