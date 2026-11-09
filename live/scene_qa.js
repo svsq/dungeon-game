@@ -1362,6 +1362,8 @@
     states.push(['inv_drag', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 1210, y: 400 }; })]);
     // TASKS 1340: the bag at its start, 12 cells open and the rest shut, the hero screen and the merchant's sell grid
     states.push(['inv_cap', play((S) => { const R = S.run, h = R.hero; for (let i = 0; i < 9; i++) h.bag[2 + i] = Object.assign(SIM.rollItem(R, 4 + i, i % 4), { id: 1600 + i }); S.screen = 'inv'; S.hover = 'bag:13'; })]);
+    // TASKS 1349: every rank full at 15, the points past them shown as mastery
+    states.push(['inv_mastery', play((S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; })]);
     states.push(['inv_sort', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'sort:rar'; })]);
     states.push(['town_stash_sort', stashS((S) => { S.hover = 'sortS:type'; })]);
     // TASKS 1348: a find well above the hero: the card names the level it waits for

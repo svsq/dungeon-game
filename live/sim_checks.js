@@ -2254,7 +2254,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...bagCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
     return out;
   }
   // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
@@ -2532,6 +2532,26 @@
   // TASKS 1331, 1340: the bag opens with 12 cells and the «bag» upgrade adds 3 a rank up to the grid's 24; a hero from an older save keeps
   // every cell; a drag moves a piece between open cells only, a click on the piece's own cell still uses it; the sort buttons order
   // the open cells and pack them to the front; the chest sorts too
+  // TASKS 1349: ranks stop at AB_MAX, the points past every full rank turn into mastery and leave nothing in h.sp, a hero with a rank to
+  // buy keeps his points, a save without the field loads as no mastery, and the rank-15 numbers stay sane
+  function masteryCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 88); S.screen = 'inv'; const R = S.run, h = R.hero, abs = D.clsOf(h).abs, U = UI.inv(abs);
+    const click = (id) => { const b = U.r.find((q) => q.id === id); for (const o of [{ click: 1 }, {}]) step(S, Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o)); };
+    if (D.AB_MAX !== 15) out.push('mastery: the rank ceiling is not 15');
+    h.lvl = 60; const A = abs[0]; h.ab[A.id] = D.AB_MAX; h.sp = 1; click('ab:' + A.id); if (h.ab[A.id] !== D.AB_MAX) out.push('mastery: a rank went past the ceiling');
+    if (h.sp !== 1 || h.mast) out.push('mastery: a point was taken while other ranks are open');
+    for (const a of abs) h.ab[a.id] = D.AB_MAX; const st0 = stats(h, S.meta); h.ab[abs[2].id] = D.AB_MAX - 1; h.sp = 2; click('ab:' + abs[2].id);
+    if (h.ab[abs[2].id] !== D.AB_MAX || h.sp !== 0 || h.mast !== 1) out.push(`mastery: the last rank left sp ${h.sp}, mastery ${h.mast}`);
+    h.sp = 0; SIMX.gainXp(S, R, D.xpNeed(h.lvl) / 0.5); if (h.sp !== 0 || !(h.mast > 1)) out.push(`mastery: a level past the ceiling left sp ${h.sp}, mastery ${h.mast}`);
+    h.mast = 40; h.lvl = 60; const st = stats(h, S.meta), lim = 1.21;
+    if (!(st.atk > st0.atk) || !(st.maxHp > st0.maxHp) || st.atk > st0.atk * lim + 1 || st.maxHp > st0.maxHp * lim + 1) out.push(`mastery: 40 points turn atk ${st0.atk} into ${st.atk}, hp ${st0.maxHp} into ${st.maxHp}`);
+    const old = JSON.parse(JSON.stringify(R)); delete old.hero.mast; old.hero.ab = Object.fromEntries(abs.map((a) => [a.id, 10])); old.hero.sp = 3;
+    const T = spawn(1, JSON.parse(JSON.stringify(persist(Object.assign(spawn(0, {}), { run: old })))));
+    if (!T.saved || T.saved.hero.sp !== 3 || T.saved.hero.mast) out.push('mastery: an old save at the old ceiling lost its points or gained mastery');
+    for (const id of ['whirl', 'frost', 'cry', 'fireball', 'shield', 'volley']) { const a = D.abRank(id, 10), b = D.abRank(id, 15); if (!(b.cd >= 0.5) || b.cd > a.cd || (id !== 'cry' && !(b.k > a.k)) || (a.r && b.r !== a.r)) out.push(`mastery: ${id} at rank 15 is off`); }
+    { const a = D.abRank('cry', 15); if (!(a.t < D.ABILITIES.find((q) => q.id === 'cry').cd * a.cd)) out.push('mastery: the cry at rank 15 outlasts its cooldown'); }
+    return out;
+  }
   function bagCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77); S.screen = 'inv'; const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs);
     const at = (id, o = {}) => { const b = U.r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o); };

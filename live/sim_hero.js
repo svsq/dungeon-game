@@ -25,6 +25,7 @@
     while (h.xp >= D.xpNeed(h.lvl)) { h.xp -= D.xpNeed(h.lvl); h.lvl++; const C = D.clsOf(h); h.pts += C.grow.pts; h.sp += C.grow.sp;
       for (const a of C.abs) if (a.unlock === h.lvl && !h.ab[a.id]) { h.ab[a.id] = 1; ev(S, { k: 'unlock', x: h.x, y: h.y, id: a.id }); }
       const st = heroSt(S); h.hp = st.maxHp; if (C.res !== 'rage') h.mp = st.maxMp; ev(S, { k: 'lvl', x: h.x, y: h.y, lvl: h.lvl }); }
+    const had = h.mast; D.masteryTake(h); if (!had && h.mast) R.msg = { s: TXT('sim_hero.mastery.msg.s'), t: S.t, d: 4.5 };
   }
   // no invulnerability after a blow (the balance was tuned without it). A dash leaps spikes and lava; against a monster's blow, bolt
   // or blast it only adds to the chance to dodge (BAL.dodge), it never makes the hero immune. No single monster blow takes more

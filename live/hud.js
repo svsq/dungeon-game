@@ -518,6 +518,7 @@
     sortBtns('inv_', U, S);
     // skills
     lab('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), P.x + 640, P.y + 448, { size: 24, col: h.sp > 0 ? C.gold : C.dim });
+    if (h.mast) lab('inv_mst', TXT('hud.inv.mastery', { n: h.mast, pct: String(h.mast * D.MASTERY.pct).replace('.', ',') }), P.x + 1394, P.y + 448, { size: 22, al: 1, col: C.gold });
     D.clsOf(h).abs.forEach((A, i) => { const b = U.r.find((q) => q.id === 'ab:' + A.id), r = h.ab[A.id] || 0, can = h.sp > 0 && h.lvl >= A.unlock && r < D.AB_MAX;
       panel('ab_' + i, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
       icon(A.icon, b.x + 10, b.y + 10, 64, { alpha: r ? 1 : 0.3 });

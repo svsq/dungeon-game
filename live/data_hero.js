@@ -15,14 +15,20 @@
     { id: 'trap', name: TXT('ABILITIES.trap.name'), icon: 'ab_trap', key: '2', unlock: 2, mp: 15, cd: 8, desc: TXT('ABILITIES.trap.desc') },
     { id: 'leap', name: TXT('ABILITIES.leap.name'), icon: 'ab_leap', key: '3', unlock: 4, mp: 12, cd: 7, desc: TXT('ABILITIES.leap.desc') },
   ];
-  // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
+  // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it. Ranks 11–15 (TASKS 1349)
+  // add damage only: the whirl's cooldown and both radii stop at rank 10, as 15 ranks of them made a 2.6 s whirl 200 px wide; the cry
+  // keeps a quarter of its time gain, as its full gain outlasted its own cooldown
   // a critical blow (TASKS 1342): `k` times the damage, the crit-damage property adds to it up to `cap`, so stacking it on every slot stays bounded
   const CRIT = { k: 1.75, cap: 3 };
-  const AB_MAX = 10;
-  const abRank = (id, r) => { const n = Math.max(0, r - 1);
-    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'volley' || id === 'trap' || id === 'leap' || id === 'charge' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'cry' ? { k: 1, cd: 1 - 0.03 * n, t: CRY.t + 0.5 * n } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
+  const AB_MAX = 15;
+  const abRank = (id, r) => { const n = Math.max(0, r - 1), m = Math.min(n, 9);
+    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * m, r: 118 + 6 * m } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * m } : id === 'volley' || id === 'trap' || id === 'leap' || id === 'charge' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'cry' ? { k: 1, cd: 1 - 0.03 * m, t: CRY.t + 0.5 * m + 0.25 * (n - m) } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
   // about one elite's blow anywhere (TASKS 179), but slower to grow than the blows: INT, rank and floor all multiplied in made it
   // a second life bar, 688 on floor 8 against the hero's 588 (TASKS 199)
+  // skill points past the last rank (TASKS 1349) turn into mastery by themselves, so none wait for a spend that can never come; 0.5% a point
+  // keeps a dozen points under one rank of the altar's «dmg» (6%), as the endless descent has no last level to stop it
+  const MASTERY = { pct: 0.5 }, ranksFull = (h) => clsOf(h).abs.every((a) => (h.ab[a.id] || 0) >= AB_MAX), masteryK = (h) => (h.mast || 0) * MASTERY.pct / 100;
+  const masteryTake = (h) => { if (h.sp > 0 && ranksFull(h)) { h.mast = (h.mast || 0) + h.sp; h.sp = 0; } };
   const SHIELD_T = 10, shieldHp = (int, r, f) => Math.round((24 + int * 2) * abRank('shield', r).k * (1 + 0.2 * (f - 1)));
   // a swing with INT for STR: the weapon in hand plus 1.6 per INT (stats: spellBase), so it grows with the gear as a swing does
   // and a strength build keeps casting deep down (TASKS 203); its bonuses add up into one sum (stats: spell). INT counted twice,
@@ -155,5 +161,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagCap, bagOpen, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagCap, bagOpen, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);
