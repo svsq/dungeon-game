@@ -66,7 +66,9 @@
       // the magma caves' plateaus (TASKS 400): held to the caves' rules but the water's, and to their own
       .concat([1, 77, 4242, 5, 12, 33].flatMap((sd) => Array.from({ length: D.RUNS.magma.floors }, (_, i) => ['magma', sd, i + 1])))
       // a 5×5 cave pocket for a start room with no clear spot by the fire: the hero arrived inside the rock (run seed 93, TASKS 335)
-      .concat([['campaign', 101, 9]]);
+      .concat([['campaign', 101, 9]])
+      // a two-level hall is rare since its gallery opens only onto a dead end raised with it (TASKS 1358): the seeds known to lay one
+      .concat([['campaign', 22, 6], ['campaign', 18, 8], ['campaign', 33, 6]]);
     const caveKinds = {}, shapes = {};
     for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' || ST.arch === 'plateau' ? 'cave' : 'campaign', plat = ST.arch === 'plateau', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run, ...(run === 'campaign' ? { runSeed: sd } : {}) });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
@@ -123,6 +125,16 @@
           const reach = (y) => { for (let x = r.x; x < r.x + r.w; x++) if (m.__walk[y * m.W + x]) return true; return false; };
           if (!reach(ly - 1) || !reach(ly + 2)) out.push(`seed ${seed} f${f}: a level of two-level room ${r.id} is out of reach`);
           if (!m.decor.some((d) => d.n === 'balustrade' && d.r === r.id) || !m.decor.some((d) => d.steps && d.r === r.id)) out.push(`seed ${seed} f${f}: two-level room ${r.id} without its railing or its steps`); }
+        // (TASKS 1358) its gallery is raised, and the raised level meets the ground only by the steps: every way in at the gallery's level
+        // lies on a raised cell and ends in a raised dead end, whose own ways in are raised too, and the lower floor is not raised
+        { const raised = new Set(m.raised || []), ring = (q, from, to) => { const o = []; for (let y = from; y < to; y++) for (let x = q.x - 1; x <= q.x + q.w; x++) if (!DG.inRm(q, x, y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(q, x + dx, y + dy)) && cell(m, x, y) === 1) o.push([x, y]); return o; };
+          for (const r of m.rooms) { if (r.tier) { const ly = r.tier.y;
+              for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (raised.has(y * m.W + x) !== (y < ly)) { out.push(`seed ${seed} f${f}: two-level room ${r.id}'s raised level is wrong at ${x},${y}`); y = 1e9; break; }
+              for (const [x, y] of ring(r, r.y - 1, ly)) if (!raised.has(y * m.W + x) && (y < r.y || x < r.x || x >= r.x + r.w)) out.push(`seed ${seed} f${f}: two-level room ${r.id} opens at its gallery's level onto ground at ${x},${y}`); }
+            if (r.raised !== undefined) { const t = m.rooms[r.raised];
+              if (!t || !t.tier || m.edges.filter((e) => e.includes(r.id)).length !== 1 || !['combat', 'treasure', 'shrine'].includes(r.type)) out.push(`seed ${seed} f${f}: room ${r.id} is raised off a hall without a gallery, or is not a dead end`);
+              for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (DG.inRm(r, x, y) && cell(m, x, y) === 1 && !raised.has(y * m.W + x)) { out.push(`seed ${seed} f${f}: raised room ${r.id} has ground at ${x},${y}`); y = 1e9; break; }
+              for (const [x, y] of ring(r, r.y - 1, r.y + r.h + 1)) if (!raised.has(y * m.W + x)) out.push(`seed ${seed} f${f}: raised room ${r.id} opens onto ground at ${x},${y}`); } } }
         // a nook (TASKS 376) is a dead end: one way in, no wider than a corridor; and some corridor runs three cells wide
         for (const r of m.rooms) if (r.pocket) { const mouth = []; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (!DG.inRm(r, x, y) && cell(m, x, y) === 1 && DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(r, x + dx, y + dy))) mouth.push([x, y]);
           // (one way: the cells by its mouth meet each other within six cells of it without passing through it)
@@ -1410,18 +1422,6 @@
           if (cell(m, cx, cy) !== 5 || losClear(m, d.x - 40 * (d.dir === 'l' ? -1 : d.dir === 'r' ? 1 : 0), d.y + 40 * (d.dir === 'u' ? 1 : d.dir === 'd' ? -1 : 0), d.x + 40 * (d.dir === 'l' ? -1 : d.dir === 'r' ? 1 : 0), d.y - 40 * (d.dir === 'u' ? 1 : d.dir === 'd' ? -1 : 0))) out.push('doors: a shut door is not solid or lets sight through');
           h.x = d.x; h.y = d.y + (d.dir === 'u' ? 40 : d.dir === 'd' ? -30 : 20); h.x += d.dir === 'l' ? 30 : d.dir === 'r' ? -30 : 0; step(S, { px: 960, py: 540, keys: ['KeyE'] });
           if (!d.open || cell(m, cx, cy) !== 1) out.push('doors: E does not open a door'); } } }
-    // loot thrown out of a chest against a wall lands on the room's floor, never in the rock behind it (a potion out of the start
-    // room's chest sailed over the wall)
-    { let bad = 0; for (let sd = 1; sd <= 25 && !bad; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; const R = S.run, m = R.map; R.en = [];
-        for (const c of R.chests) if (c.sec === undefined) openChest(S, R, c); for (let i = 0; i < 240; i++) stepDrops(S, R, false);
-        for (const p of R.drops) if (m.cells[Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE)] !== 1) { bad++; out.push(`loot: seed ${sd} drops a ${p.kind} into the rock at ${Math.round(p.x)},${Math.round(p.y)}`); break; } } }
-    // a dash is a leap over spikes: dashed across a plate with its spikes up, or ending on one, the hero takes nothing; walking
-    // onto it he is hurt
-    { let S = null, R = null, m = null, h = null, tr = null;
-      for (let sd = 1; sd < 40 && !tr; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; R = S.run; m = R.map; h = R.hero; tr = m.traps.find((o) => !o.cor && [-90, -40, 40, 90].every((d) => cell(m, Math.floor((o.x + d) / TILE), Math.floor(o.y / TILE)) === 1) && !m.traps.some((q) => q !== o && Math.hypot(q.x - o.x, q.y - o.y) < 200)); }
-      if (!tr) out.push('dash: no lone spike plate on floor 1 of 40 seeds'); else { R.en = []; const up = (dt = 0) => { tr.ph = ((1 - (S.t / 2.4) % 1) + 0.02 - dt / 2.4 + 1) % 1; };
-        const go = (x0, keys, dt) => { h.x = x0; h.y = tr.y; h.vx = h.vy = 0; h.ifr = 0; h.spikeT = -9; h.cd.dash = 0; h.hp = 1e4; up(dt); step(S, { right: 1, px: 960, py: 540, keys }); for (let i = 0; i < 60; i++) step(S, { px: 960, py: 540, keys: [] }); return 1e4 - h.hp; };
-        if (go(tr.x - 70, ['Space'])) out.push('dash: a dash across raised spikes hurts');
     // TASKS 1351: an open door's leaf keeps the cells it is drawn over (the hinge side's): nobody stands or walks behind it, the paths route round it,
     // and the other lane of the doorway still carries the hero through
     { const V = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }, seenDir = new Set();
@@ -1437,6 +1437,18 @@
             if (inside) out.push(`${tag}: the hero stands behind the leaf (lane ${lane})`);
             if (lane === 1 && along < 1.5 * TILE) out.push(`${tag}: the free lane does not carry the hero through (${along.toFixed(0)} px)`); } } }
       for (const dir of ['u', 'd', 'l', 'r']) if (!seenDir.has(dir)) out.push(`doors: no plain ${dir} door on floors 1–4 of 85 seeds`); }
+    // loot thrown out of a chest against a wall lands on the room's floor, never in the rock behind it (a potion out of the start
+    // room's chest sailed over the wall)
+    { let bad = 0; for (let sd = 1; sd <= 25 && !bad; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; const R = S.run, m = R.map; R.en = [];
+        for (const c of R.chests) if (c.sec === undefined) openChest(S, R, c); for (let i = 0; i < 240; i++) stepDrops(S, R, false);
+        for (const p of R.drops) if (m.cells[Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE)] !== 1) { bad++; out.push(`loot: seed ${sd} drops a ${p.kind} into the rock at ${Math.round(p.x)},${Math.round(p.y)}`); break; } } }
+    // a dash is a leap over spikes: dashed across a plate with its spikes up, or ending on one, the hero takes nothing; walking
+    // onto it he is hurt
+    { let S = null, R = null, m = null, h = null, tr = null;
+      for (let sd = 1; sd < 40 && !tr; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; R = S.run; m = R.map; h = R.hero; tr = m.traps.find((o) => !o.cor && [-90, -40, 40, 90].every((d) => cell(m, Math.floor((o.x + d) / TILE), Math.floor(o.y / TILE)) === 1) && !m.traps.some((q) => q !== o && Math.hypot(q.x - o.x, q.y - o.y) < 200)); }
+      if (!tr) out.push('dash: no lone spike plate on floor 1 of 40 seeds'); else { R.en = []; const up = (dt = 0) => { tr.ph = ((1 - (S.t / 2.4) % 1) + 0.02 - dt / 2.4 + 1) % 1; };
+        const go = (x0, keys, dt) => { h.x = x0; h.y = tr.y; h.vx = h.vy = 0; h.ifr = 0; h.spikeT = -9; h.cd.dash = 0; h.hp = 1e4; up(dt); step(S, { right: 1, px: 960, py: 540, keys }); for (let i = 0; i < 60; i++) step(S, { px: 960, py: 540, keys: [] }); return 1e4 - h.hp; };
+        if (go(tr.x - 70, ['Space'])) out.push('dash: a dash across raised spikes hurts');
         if (go(tr.x - 86, ['Space'], 0.3)) out.push('dash: a dash that would come down on a plate is hurt by the spikes rising under it');
         if (!go(tr.x - 4, [])) out.push('dash: standing on raised spikes does not hurt'); } }
     // traps (TASKS 71): a web holds the hero to WEB.k of his pace until a blow tears it; fire burns it; an ambush's flagstone calls

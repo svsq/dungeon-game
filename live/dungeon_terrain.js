@@ -128,13 +128,32 @@
     // a two-level hall (TASKS 375): the gallery its top rows (4–5), then a drop two cells high (deep water's cell: no walking, sight and
     // blows pass), the floor below; the steps down a gap two cells wide in the drop; the drop's rows are ones no corridor comes in
     // at from the side (it would end at the drop); a room with none, or another role, keeps its floor whole
-    const ledges = [], tierDecor = [];
+    // (the gallery is raised: a way in at its level is allowed only into a dead end, which is raised with it, the corridor between too;
+    // any other room would meet the gallery at the wrong height, so a hall whose gallery opens elsewhere keeps its floor whole, TASKS 1358)
+    const ledges = [], tierDecor = [], raised = [];
+    const galleryWays = (r, ly) => { const mouths = [], D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], rmAt = (x, y) => rooms.find((q) => inRm(q, x, y));
+      for (let x = r.x; x < r.x + r.w; x++) if (at(x, r.y - 1) === 1) mouths.push([x, r.y - 1]);
+      for (let y = r.y; y < ly; y++) for (const x of [r.x - 1, r.x + r.w]) if (at(x, y) === 1) mouths.push([x, y]);
+      const seen = new Set(), rooms2 = new Set(), lane = []; let low = false;
+      for (const m0 of mouths) { const st = [m0]; seen.add(m0[1] * W + m0[0]);
+        while (st.length) { const [x, y] = st.pop(); lane.push(y * W + x);
+          for (const [dx, dy] of D4) { const nx = x + dx, ny = y + dy; if (at(nx, ny) !== 1) continue; const q = rmAt(nx, ny);
+            if (q) { if (q !== r) rooms2.add(q); else if (ny >= ly) low = true; continue; }
+            if (!seen.has(ny * W + nx)) { seen.add(ny * W + nx); st.push([nx, ny]); } } } }
+      if (!mouths.length) return { to: [], lane: [] };
+      const n = [...rooms2][0];
+      if (low || rooms2.size !== 1 || adj[n.id].length !== 1 || !['combat', 'treasure', 'shrine'].includes(n.type) || n.shape === 'tier' || n.pit || n.zone || n.locked || n.doors) return null;
+      return { to: [n], lane }; };
     if (!cave) for (const r of rooms) if (r.shape === 'tier') { const side = (y) => [r.x - 1, r.x + r.w].some((x) => at(x, y) === 1);
       const rows = [4, 5, 6].filter((t) => r.h - t - 2 >= 5 && !side(r.y + t) && !side(r.y + t + 1)), t = rows.length ? rows[Math.floor(R() * rows.length)] : 0;
       const mouthAt = (x) => [r.y - 1, r.y + r.h].some((y) => at(x, y) === 1 || at(x + 1, y) === 1);
       const gaps = []; for (let x = r.x + 2; x <= r.x + r.w - 4; x++) if (!mouthAt(x)) gaps.push(x);
-      if (r.type !== 'combat' || r.zone || !t || !gaps.length) { r.shape = 'rect'; continue; }
+      const up = r.type === 'combat' && !r.zone && t && gaps.length ? galleryWays(r, r.y + t) : null;
+      if (!up) { r.shape = 'rect'; continue; }
       const sx = gaps[Math.floor(R() * gaps.length)], ly = r.y + t; r.tier = { y: ly, sx };
+      for (let y = r.y; y < ly; y++) for (let x = r.x; x < r.x + r.w; x++) raised.push(y * W + x);
+      for (const n of up.to) { n.raised = r.id; for (let y = n.y; y < n.y + n.h; y++) for (let x = n.x; x < n.x + n.w; x++) if (inRm(n, x, y)) raised.push(y * W + x); }
+      raised.push(...up.lane);
       for (let y = ly; y <= ly + 1; y++) for (let x = r.x; x < r.x + r.w; x++) if (x !== sx && x !== sx + 1) { set(x, y, 6); ledges.push(y * W + x); }
       // the railing: sections along the drop's top, the gap at the steps left open
       // (a section is three cells wide: a run shorter than one keeps its end flush with the steps and runs on into the side wall)
@@ -956,7 +975,7 @@
         let roll = Hr() * pk.reduce((a, [, K]) => a + K.w, 0), pick = pk[0][0]; for (const [k, K] of pk) if ((roll -= K.w) < 0) { pick = k; break; } r.hall = pick; took.add(pick); n--; } }
     Object.assign(GF, {
       HL, chasmUnder, circles, cliff, crossings, crust, deadEnd, deckUsed, doors, exitR, floodCells, flow, lakeWay, lava, lavaBodies,
-      lavaFeatures, lavaUnder, ledges, locks, merchant, pathMin, pits, riverWay, roomOf, secrets, secretsWanted, serpentPools, shopR,
+      lavaFeatures, lavaUnder, ledges, locks, merchant, pathMin, pits, raised, riverWay, roomOf, secrets, secretsWanted, serpentPools, shopR,
       start, stepHold, streams, thin, tierDecor, wander, water, waterBridges, waterFeatures, waterFlow, way, wet });
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -761,6 +761,10 @@
       if (!r) continue; void R; const Q = S.run, h = Q.hero, x = (r.x + r.w / 2) * TILE, y = (r.y + r.h / 2) * TILE;
       h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1) * TILE; Q.en = Q.en.filter((e) => e.room === r.id).slice(0, 2); Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - SCX.VW / 2, y - SCX.VH / 2];
       states.push(['room_' + shape, S]); }
+    // a two-level hall (TASKS 1358, 375): the whole hall in view with the hero on its gallery and on the floor below, on the floors that have one
+    [[22, 6], [18, 8], [33, 6]].forEach(([sd, f], i) => { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, r = m.rooms.find((q) => q.tier); if (!r) return;
+      R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2];
+      for (const [n, hx, hy] of [['gallery', r.x + 3, r.tier.y - 1], ['floor', r.x + 3, r.tier.y + 4]]) { const T = structuredClone(S); Object.assign(T.run.hero, { x: (hx + 0.5) * TILE, y: hy * TILE + 8, vx: 0, vy: 0 }); states.push(['tier_' + i + '_' + n, T]); } });
     // the rooms floors' layouts (TASKS 379): the first campaign floor of each, the view on its middle, the whole floor explored
     for (const lay of ['maze', 'hall', 'catacomb', 'fortress', 'tomb']) { let S = null;
       for (let sd = 1; sd < 40 && !S; sd++) for (const f of [3, 5, 7]) if (D.stageOf('campaign', f, sd).lay === lay) { S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); break; }

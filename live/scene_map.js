@@ -68,6 +68,7 @@
     // (a pit room's chasm, TASKS 374, is its own cell here, 7: deep water's cell in the sim, drawn as a hole in the floor)
     // (a two-level hall's drop, TASKS 375, is its own cell too, 8: the gallery's front face down to the floor below)
     const PIT = new Set(m.pits || []), LEDGE = new Set(m.ledges || []), hid = SIM.Q.secretMask(m), c = (x, y) => { const v = SIM.Q.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : LEDGE.has(y * m.W + x) ? 8 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
+    const RAISED = new Set(m.raised || []), RAISED_FLOOR = D.BIOMES[m.biome === 'arcane' ? 'dungeon' : 'arcane'];
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
@@ -95,6 +96,7 @@
         // light and the fill, which fades out past the doorway
         // the town's earth repeats every 7 cells: its art pixel ≈2 px like the hero's (TASKS 1030; the old texture's was 4.5)
         if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224); }
+        else if (v === 1 && RAISED.has(y * m.W + x)) tile(RAISED_FLOOR.floor, x, y, { grade: [1, 0.96, 0, 1], tint: [...RAISED_FLOOR.tint, 1] });
         else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
         else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: m.town ? [0.9, B.wallG[1] * (0.78 + 0.42 * rnd(x * 5 + 1, y * 9 + 4)), 0, 1.05] : [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
         else if (v === 0 && RD[y * m.W + x] <= 10 && m.town) townTop(x, y);
@@ -111,12 +113,15 @@
         if (c(x, y + 1) !== 7) lip(X, Y + TILE, TILE, 4, 0.02, 0.55);
         if (c(x - 1, y) !== 7) lip(X - 2, Y, 2, TILE, 0.02, 0.5);
         if (c(x + 1, y) !== 7) lip(X + TILE, Y, 2, TILE, 0.02, 0.5); }
-      // a two-level hall's drop (TASKS 375): the gallery's front face, the room's own masonry, a pale lip along the gallery's edge,
-      // darker down its second row; the face's shadow on the floor at its foot
+      // a two-level hall's drop (TASKS 375): the gallery's front face, the room's own masonry; TASKS 1358: a pale cornice over the face with
+      // its shade under it, a buttress every fourth cell, the face darkening down its second row, a long shadow at its foot on the floor
+      // below; the raised level (the gallery, a dead end raised with it, the corridor between) has another biome's floor, a paler stone than the ground
       for (const k of LEDGE) { const x = k % m.W, y = Math.floor(k / m.W), X = x * TILE, Y = y * TILE, top = c(x, y - 1) !== 8;
         tile(B.wall, x, y, { grade: B.wallG || [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
-        if (top) L.solid(X, Y, TILE, 2, [0.62, 0.58, 0.52], 0, 0, 0, 0.55); else for (let q = 0; q < 8; q++) dark(X, Y + q * 4, TILE, 4, 0.08 + q * 0.05);
-        if (c(x, y + 1) === 1) for (let q = 0; q < 5; q++) dark(X, Y + TILE + q * 3, TILE, 3, 0.32 - q * 0.06); }
+        if (top) { L.solid(X, Y, TILE, 4, [0.8, 0.73, 0.62], 0, 0, 0, 0.8); for (let q = 0; q < 4; q++) dark(X, Y + 4 + q * 3, TILE, 3, 0.55 - q * 0.12); }
+        else for (let q = 0; q < 8; q++) dark(X, Y + q * 4, TILE, 4, 0.08 + q * 0.05);
+        if (x % 4 === 0) { L.solid(X + 11, Y + (top ? 4 : 0), 10, TILE - (top ? 4 : 0), [0.72, 0.64, 0.54], 0, 0, 0, 0.2); dark(X + 10, Y + (top ? 4 : 0), 1, TILE - (top ? 4 : 0), 0.5); dark(X + 21, Y + (top ? 4 : 0), 1, TILE - (top ? 4 : 0), 0.5); }
+        if (c(x, y + 1) === 1) for (let q = 0; q < 8; q++) dark(X, Y + TILE + q * 3, TILE, 3, 0.44 - q * 0.05); }
       // an accent zone's stone thins out over the cells past its doorway in 8 px steps, so the threshold has no hard line
       for (const r of m.rooms) if (r.zone) { const Z = D.BIOMES[r.zone], q = TILE / 4;
         for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (c(x, y) !== 1 || zoneAt(m, x, y) !== m.biome) continue;
