@@ -70,7 +70,8 @@
     // (a pit room's chasm, TASKS 374, is its own cell here, 7: deep water's cell in the sim, drawn as a hole in the floor)
     // (a two-level hall's drop, TASKS 375, is its own cell too, 8: the gallery's front face down to the floor below)
     const PIT = new Set(m.pits || []), LEDGE = new Set(m.ledges || []), hid = SIM.Q.secretMask(m), c = (x, y) => { const v = SIM.Q.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : LEDGE.has(y * m.W + x) ? 8 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
-    const RAISED = new Set(m.raised || []), RAISED_FLOOR = D.BIOMES[m.biome === 'arcane' ? 'dungeon' : 'arcane'];
+    const GALLERY = new Set(); for (const r of m.rooms) if (r.tier) for (let y = r.y; y < r.tier.y; y++) for (let x = r.x; x < r.x + r.w; x++) GALLERY.add(y * m.W + x);
+    const GALLERY_FLOOR = D.BIOMES[m.biome === 'arcane' ? 'dungeon' : 'arcane'];
     const RD = rockDist(m);
     const near = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (c(x + i, y + j) === 1 || c(x + i, y + j) === 3) return true; return false; };
     const tile = (tex, x, y, u, ts = TS) => { const u0 = ((x * TILE) % ts) / ts, v0 = ((y * TILE) % ts) / ts; L.sprite(tex, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + TILE / ts, v0 + TILE / ts], u }); };
@@ -98,7 +99,7 @@
         // light and the fill, which fades out past the doorway
         // the town's earth repeats every 7 cells: its art pixel ≈2 px like the hero's (TASKS 1030; the old texture's was 4.5)
         if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224); }
-        else if (v === 1 && RAISED.has(y * m.W + x)) tile(RAISED_FLOOR.floor, x, y, { grade: [1, 0.96, 0, 1], tint: [...RAISED_FLOOR.tint, 1] });
+        else if (v === 1 && GALLERY.has(y * m.W + x)) tile(GALLERY_FLOOR.floor, x, y, { grade: [1, 1.02, 0, 1], tint: [...GALLERY_FLOOR.tint, 1] }, 192);   // on the wall bricks' scale: at the floor's own 288 the slabs read 1.5 times too big (TASKS 1680)
         else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
         else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: m.town ? [0.9, B.wallG[1] * (0.78 + 0.42 * rnd(x * 5 + 1, y * 9 + 4)), 0, 1.05] : [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
         else if (v === 0 && RD[y * m.W + x] <= 10 && m.town) townTop(x, y);
@@ -115,15 +116,6 @@
         if (c(x, y + 1) !== 7) lip(X, Y + TILE, TILE, 4, 0.02, 0.55);
         if (c(x - 1, y) !== 7) lip(X - 2, Y, 2, TILE, 0.02, 0.5);
         if (c(x + 1, y) !== 7) lip(X + TILE, Y, 2, TILE, 0.02, 0.5); }
-      // a two-level hall's drop (TASKS 375): the gallery's front face, the room's own masonry; TASKS 1358: a pale cornice over the face with
-      // its shade under it, a buttress every fourth cell, the face darkening down its second row, a long shadow at its foot on the floor
-      // below; the raised level (the gallery, a dead end raised with it, the corridor between) has another biome's floor, a paler stone than the ground
-      for (const k of LEDGE) { const x = k % m.W, y = Math.floor(k / m.W), X = x * TILE, Y = y * TILE, top = c(x, y - 1) !== 8;
-        tile(B.wall, x, y, { grade: B.wallG || [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
-        if (top) { L.solid(X, Y, TILE, 4, [0.8, 0.73, 0.62], 0, 0, 0, 0.8); for (let q = 0; q < 4; q++) dark(X, Y + 4 + q * 3, TILE, 3, 0.55 - q * 0.12); }
-        else for (let q = 0; q < 8; q++) dark(X, Y + q * 4, TILE, 4, 0.08 + q * 0.05);
-        if (x % 4 === 0) { L.solid(X + 11, Y + (top ? 4 : 0), 10, TILE - (top ? 4 : 0), [0.72, 0.64, 0.54], 0, 0, 0, 0.2); dark(X + 10, Y + (top ? 4 : 0), 1, TILE - (top ? 4 : 0), 0.5); dark(X + 21, Y + (top ? 4 : 0), 1, TILE - (top ? 4 : 0), 0.5); }
-        if (c(x, y + 1) === 1) for (let q = 0; q < 8; q++) dark(X, Y + TILE + q * 3, TILE, 3, 0.44 - q * 0.05); }
       // an accent zone's stone thins out over the cells past its doorway in 8 px steps, so the threshold has no hard line
       for (const r of m.rooms) if (r.zone) { const Z = D.BIOMES[r.zone], q = TILE / 4;
         for (let y = r.y - 3; y < r.y + r.h + 3; y++) for (let x = r.x - 3; x < r.x + r.w + 3; x++) { if (c(x, y) !== 1 || zoneAt(m, x, y) !== m.biome) continue;
@@ -172,6 +164,28 @@
     for (let i = 0; i < m.W * m.H / 40; i++) { const x = Math.floor(rnd(i, m.seed % 97) * m.W), y = Math.floor(rnd(i + 0.5, m.seed % 89) * m.H);
       if (c(x, y) !== 1) continue; const wall = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([i2, j2]) => c(x + i2, y + j2) !== 1 && c(x + i2, y + j2) !== 3), r = Math.min(wall ? 12 : 99, 8 + 14 * rnd(i, 3));   // a stain by a wall stays off it
       L.puff(x * TILE + 16, y * TILE + 16, r, rnd(i, 4) < 0.35 ? [0.22, 0.03, 0.02] : [0.04, 0.03, 0.03], 0.35 + 0.25 * rnd(i, 5), i); }
+    tierFaces();
+    // a two-level hall's drop (TASKS 375, 1358, 1680): only two cells are out of bounds, 64 px, less than the hero's height, so the face
+    // starts over the gallery's edge and ends on the floor below, on the strips feet barely reach: 98 px from the cornice to the plinth's foot.
+    // Drawn after the floor's stains and decals so none lies across the masonry
+    function tierFaces() {
+      const UP = 10, DOWN = 24, FACE = 64 + UP + DOWN, wallU = { grade: B.wallG || [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] };
+      const pale = (x, y, w, h, a, v = 0.82) => L.solid(x, y, w, h, [v, v * 0.92, v * 0.78], 0, 0, 0, a);
+      const brick = (X, Y0, w, Y1) => { for (let y = Y0; y < Y1;) { const y1 = Math.min(Y1, (Math.floor(y / TILE) + 1) * TILE), u0 = (X % TSW) / TSW, v0 = (y % TSW) / TSW; L.sprite(B.wall, X, y, { w, h: y1 - y, src: [u0, v0, u0 + w / TSW, v0 + (y1 - y) / TSW], u: wallU }); y = y1; } };
+      for (const k of LEDGE) { const x = k % m.W, ly = Math.floor(k / m.W); if (c(x, ly - 1) === 8) continue;
+        const X = x * TILE, top = ly * TILE - UP, foot = top + FACE, body = top + 12, plinth = foot - 24;
+        brick(X, top, TILE, foot);
+        // flat steps down the face, as the walls' shading has: the top reads lit, the foot sinks into the dark
+        dark(X, top, TILE, FACE, 0.26); dark(X, body + 22, TILE, plinth - body - 22, 0.14); dark(X, body + 46, TILE, plinth - body - 46, 0.16);
+        pale(X, top, TILE, 4, 0.92); pale(X, top + 4, TILE, 6, 0.42, 0.6); dark(X, top + 10, TILE, 2, 0.85); dark(X, top + 12, TILE, 8, 0.52);
+        pale(X, plinth, TILE, 2, 0.34, 0.6); dark(X, plinth + 2, TILE, 2, 0.5); dark(X, plinth + 4, TILE, 10, 0.18); pale(X, foot - 12, TILE, 2, 0.22, 0.6); dark(X, foot - 10, TILE, 10, 0.36);
+        const leftEnd = c(x - 1, ly) === 0, rightEnd = c(x + 1, ly) === 0;
+        for (const bx of (x % 4 === 0 && !leftEnd && !rightEnd ? [X + 9] : [])) { pale(bx, top + 12, 14, foot - top - 12, 0.14, 0.7); pale(bx - 2, plinth - 4, 18, 4, 0.5, 0.7); pale(bx, top + 12, 2, plinth - top - 16, 0.5, 0.75); dark(bx + 10, top + 12, 4, plinth - top - 16, 0.5); dark(bx + 14, top + 12, 2, plinth - top - 16, 0.7); pale(bx - 2, top + 4, 18, 6, 0.6, 0.7); dark(bx - 2, top + 10, 18, 2, 0.7); }
+        // the end walls: where the gallery runs into the room's side wall its face turns back, a pier lit on the left, in shade on the right
+        if (leftEnd) { brick(X - 16, top, 16, foot); dark(X - 16, top, 16, FACE, 0.62); dark(X - 16, top, 16, 4, 0.5); dark(X - 2, top + 4, 2, FACE - 4, 0.8); pale(X, top + 4, 2, FACE - 4, 0.2, 0.7); }
+        if (rightEnd) { brick(X + TILE, top, 16, foot); dark(X + TILE, top, 16, FACE, 0.3); pale(X + TILE, top, 16, 4, 0.45, 0.7); pale(X + TILE, top + 4, 4, FACE - 4, 0.16, 0.75); dark(X + TILE - 2, top + 4, 2, FACE - 4, 0.8); }
+        // the shadow it throws on the floor below, hard-edged steps the width of a course
+        for (let q = 0; q < 5; q++) { const y0 = foot + q * 8; if (c(x, Math.floor(y0 / TILE)) === 0) break; dark(X, y0, TILE, 8, [0.72, 0.52, 0.36, 0.22, 0.1][q]); } } }
     // a breakable fake wall looks like any other stretch of the (already cracked) masonry until it is struck: then a crack runs
     // from the opening's edge into the wall (up the face of a top wall, across the rock of the other sides) and branches
     (m.secrets || []).forEach((q, i) => { if (q.open || (q.kind || 'crack') !== 'crack' || q.hp >= 2) return; const hurt = true, a0 = Math.atan2(q.dy, q.dx), ux = Math.cos(a0), uy = Math.sin(a0);

@@ -66,9 +66,7 @@
       // the magma caves' plateaus (TASKS 400): held to the caves' rules but the water's, and to their own
       .concat([1, 77, 4242, 5, 12, 33].flatMap((sd) => Array.from({ length: D.RUNS.magma.floors }, (_, i) => ['magma', sd, i + 1])))
       // a 5×5 cave pocket for a start room with no clear spot by the fire: the hero arrived inside the rock (run seed 93, TASKS 335)
-      .concat([['campaign', 101, 9]])
-      // a two-level hall is rare since its gallery opens only onto a dead end raised with it (TASKS 1358): the seeds known to lay one
-      .concat([['campaign', 22, 6], ['campaign', 18, 8], ['campaign', 33, 6]]);
+      .concat([['campaign', 101, 9]]);
     const caveKinds = {}, shapes = {};
     for (const [run, sd, f] of GEN) { const ST = D.stageOf(run, f), mode = ST.arch === 'cave' || ST.arch === 'plateau' ? 'cave' : 'campaign', plat = ST.arch === 'plateau', lf = ST.lf, seed = (run === 'campaign' ? '' : run + ' ') + sd, m = DG.genFloor(sd * 31 + f * 1013, f, { mode: run, ...(run === 'campaign' ? { runSeed: sd } : {}) });
       const F = flow(m, Math.floor(m.spawn.x / TILE), Math.floor(m.spawn.y / TILE));
@@ -125,16 +123,6 @@
           const reach = (y) => { for (let x = r.x; x < r.x + r.w; x++) if (m.__walk[y * m.W + x]) return true; return false; };
           if (!reach(ly - 1) || !reach(ly + 2)) out.push(`seed ${seed} f${f}: a level of two-level room ${r.id} is out of reach`);
           if (!m.decor.some((d) => d.n === 'balustrade' && d.r === r.id) || !m.decor.some((d) => d.steps && d.r === r.id)) out.push(`seed ${seed} f${f}: two-level room ${r.id} without its railing or its steps`); }
-        // (TASKS 1358) its gallery is raised, and the raised level meets the ground only by the steps: every way in at the gallery's level
-        // lies on a raised cell and ends in a raised dead end, whose own ways in are raised too, and the lower floor is not raised
-        { const raised = new Set(m.raised || []), ring = (q, from, to) => { const o = []; for (let y = from; y < to; y++) for (let x = q.x - 1; x <= q.x + q.w; x++) if (!DG.inRm(q, x, y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(q, x + dx, y + dy)) && cell(m, x, y) === 1) o.push([x, y]); return o; };
-          for (const r of m.rooms) { if (r.tier) { const ly = r.tier.y;
-              for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (raised.has(y * m.W + x) !== (y < ly)) { out.push(`seed ${seed} f${f}: two-level room ${r.id}'s raised level is wrong at ${x},${y}`); y = 1e9; break; }
-              for (const [x, y] of ring(r, r.y - 1, ly)) if (!raised.has(y * m.W + x) && (y < r.y || x < r.x || x >= r.x + r.w)) out.push(`seed ${seed} f${f}: two-level room ${r.id} opens at its gallery's level onto ground at ${x},${y}`); }
-            if (r.raised !== undefined) { const t = m.rooms[r.raised];
-              if (!t || !t.tier || m.edges.filter((e) => e.includes(r.id)).length !== 1 || !['combat', 'treasure', 'shrine'].includes(r.type)) out.push(`seed ${seed} f${f}: room ${r.id} is raised off a hall without a gallery, or is not a dead end`);
-              for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (DG.inRm(r, x, y) && cell(m, x, y) === 1 && !raised.has(y * m.W + x)) { out.push(`seed ${seed} f${f}: raised room ${r.id} has ground at ${x},${y}`); y = 1e9; break; }
-              for (const [x, y] of ring(r, r.y - 1, r.y + r.h + 1)) if (!raised.has(y * m.W + x)) out.push(`seed ${seed} f${f}: raised room ${r.id} opens onto ground at ${x},${y}`); } } }
         // a nook (TASKS 376) is a dead end: one way in, no wider than a corridor; and some corridor runs three cells wide
         for (const r of m.rooms) if (r.pocket) { const mouth = []; for (let y = r.y - 1; y <= r.y + r.h; y++) for (let x = r.x - 1; x <= r.x + r.w; x++) if (!DG.inRm(r, x, y) && cell(m, x, y) === 1 && DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE) < 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => DG.inRm(r, x + dx, y + dy))) mouth.push([x, y]);
           // (one way: the cells by its mouth meet each other within six cells of it without passing through it)
