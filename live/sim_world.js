@@ -328,7 +328,7 @@
     drop(R, e.x, e.y, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * 3) }); }
   // a trapped chest's blast, its fuse lit by the opening: it hurts, but it does not end a run on its own
   function stepChestTraps(S, R) { const h = R.hero, T = D.CHEST_TRAP;
-    for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.3);
+    for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; c.bangT = S.t; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); ev(S, { k: 'boom', x: c.x, y: c.y - 20, big: 1, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.5);
       if (Math.hypot(h.x - c.x, h.y - c.y) < T.r && h.hp > 1) { SIMX.hurtHero(S, R, Math.min(SIMX.heroSt(S).maxHp * T.hp, h.hp - 1), c.x, c.y - 10, 'spike'); if (S.t === h.hurtT) R.msg = { s: TXT('sim_world.chestTrap.msg'), t: S.t }; } } }
   // a boss's own chest holds what the boss used to drop (TASKS 1356): the same items in a better place, no new loot
   // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
