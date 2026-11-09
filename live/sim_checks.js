@@ -2528,7 +2528,7 @@
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 88); S.screen = 'inv'; const R = S.run, h = R.hero, abs = D.clsOf(h).abs, U = UI.inv(abs);
     const click = (id) => { const b = U.r.find((q) => q.id === id); for (const o of [{ click: 1 }, {}]) step(S, Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o)); };
     if (D.AB_MAX !== 15) out.push('mastery: the rank ceiling is not 15');
-    h.lvl = 60; const A = abs[0]; h.ab[A.id] = D.AB_MAX; h.sp = 1; click('ab:' + A.id); if (h.ab[A.id] !== D.AB_MAX) out.push('mastery: a rank went past the ceiling');
+    h.lvl = 60; h.forks = {}; for (const a of abs) for (const r of D.FORK_RANKS) h.forks[D.forkKey(a.id, r)] = 0; const A = abs[0]; h.ab[A.id] = D.AB_MAX; h.sp = 1; click('ab:' + A.id); if (h.ab[A.id] !== D.AB_MAX) out.push('mastery: a rank went past the ceiling');
     if (h.sp !== 1 || h.mast) out.push('mastery: a point was taken while other ranks are open');
     for (const a of abs) h.ab[a.id] = D.AB_MAX; const st0 = stats(h, S.meta); h.ab[abs[2].id] = D.AB_MAX - 1; h.sp = 2; click('ab:' + abs[2].id);
     if (h.ab[abs[2].id] !== D.AB_MAX || h.sp !== 0 || h.mast !== 1) out.push(`mastery: the last rank left sp ${h.sp}, mastery ${h.mast}`);

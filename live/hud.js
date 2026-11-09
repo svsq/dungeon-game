@@ -754,7 +754,8 @@
       const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, String(Math.round(Gf.v * (rank + 1) * 10) / 10)) : Gf.desc, wide = lw('al_dm' + i, ds, { size: 21 }) > b.w - 32; let cut = -1; if (wide) for (let k = 0; k < ds.length; k++) if (ds[k] === ' ' && (cut < 0 || Math.abs(k - ds.length / 2) < Math.abs(cut - ds.length / 2))) cut = k;
       const lines = wide && cut > 0 ? [ds.slice(0, cut), ds.slice(cut + 1)] : [ds], dz = Math.min(...lines.map((q) => L.sizeToFit(q, b.w - 32, 21)));
       lines.forEach((q, k) => lab('al_d' + i + (k || ''), q, b.x + b.w / 2, b.y + 252 + k * 26, { size: dz, al: 0.5, col: '#9cc8ff' }));
-      lab('al_w' + i, rank ? TXT('hud.altar.rank', { p1: rank, p2: rank + 1 }) : Gf.relic ? TXT('hud.altar.relic') : Gf.evo ? TXT('hud.altar.evo') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5'), b.x + b.w / 2, b.y + 296 + (lines.length - 1) * 16, { size: 18, al: 0.5, col: Gf.relic || Gf.evo ? '#e0b860' : C.dim });
+      const wn = rank ? TXT('hud.altar.rank', { p1: rank, p2: rank + 1 }) : Gf.relic ? TXT('hud.altar.relic') : Gf.evo ? TXT('hud.altar.evo') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5');
+      lab('al_w' + i, wn, b.x + b.w / 2, b.y + 296 + (lines.length - 1) * 16, { size: L.sizeToFit(wn, b.w - 16, 18), al: 0.5, col: Gf.relic || Gf.evo ? '#e0b860' : C.dim });
       const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, cx = b.x + b.w / 2 - cw / 2;
       icon('crystal', cx, b.y + b.h - 62, 30); lab('al_c' + i, cs, cx + 40, b.y + b.h - 46, { size: 28, col: can ? '#9cc8ff' : '#8a6a5a' }); });
     button('al_leave', byId('leave'), S.hover);
