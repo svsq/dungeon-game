@@ -6,10 +6,10 @@
     aggroRoom, angDiff, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
     boxHit, brinkOf, castAbility, cell, colossusBoulder, colossusRain, completion, completionHints, counted, crustAt, damageName, deepBody,
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
-    hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
-    campaignDone, exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
+    hitEnemy, hitFolk, hitProps, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
+    campaignDone, exitKind, killEnemy, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
     openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rnd, rollAffixes, rollItem, runCompletion,
-    runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
+    runReward, scriptInput, secretMask, serpent, serpentMouth, secretUnder, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
@@ -357,23 +357,14 @@
         m.secrets.forEach((q, i) => { const r = m.rooms[q.room], ch = m.chests.filter((c) => c.sec === i);
           if (q.wall.length !== 4 || q.wall.some(([x, y]) => cell(m, x, y) !== 4)) out.push(`seed ${seed} f${f}: secret ${i} has no fake wall`);
           if (q.front.some(([x, y]) => inRoom1(m.rooms[m.shop.room], x, y))) out.push(`seed ${seed} f${f}: secret off the shop`);
-          if (ch.length !== 1 || ch[0].tier !== 3) out.push(`seed ${seed} f${f}: secret ${i} holds ${ch.length} chests`);
+          if (ch.length !== 1 || ch[0].tier !== (q.pz || q.inner ? 5 : 4)) out.push(`seed ${seed} f${f}: secret ${i} holds ${ch.length} chests`);
           for (const c of ch) { const k = Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE), nb = [1, -1, m.W, -m.W].map((d) => k + d);
             if (nb.some((n) => shut[n])) out.push(`seed ${seed} f${f}: secret ${i} reachable without breaking the wall`);
             if (!nb.some((n) => open[n])) out.push(`seed ${seed} f${f}: secret ${i} chest unreachable after the wall breaks`); }
           if (m.enemies.some((e) => e.room === r.id)) out.push(`seed ${seed} f${f}: monsters in secret ${i}`);
           if (m.torches.some((t) => t.r === r.id && t.sec !== i)) out.push(`seed ${seed} f${f}: a torch lights secret ${i} before it is found`);
           // each secret has its cover or its mechanism, and a mechanism is found and worked from the open floor
-          const tag = `seed ${seed} f${f}: secret ${i} (${q.kind})`;
-          if (!['crack', 'banner', 'shelf', 'lever'].includes(q.kind)) out.push(`${tag} has no kind`);
-          if ((q.kind === 'banner' || q.kind === 'shelf') && q.dir !== 'u') out.push(`${tag} is not on a top wall`);
-          if (q.kind === 'banner' && !m.decor.some((d) => d.secret === i && d.n === 'banner' && d.wall)) out.push(`${tag} has no banner`);
-          if (q.kind === 'shelf' && !m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid)) out.push(`${tag} has no bookshelf`);
-          if (q.kind !== 'lever' && q.trig) out.push(`${tag} has a mechanism`);
-          if (q.kind === 'lever') { const P = q.trig;
-            if (!P) out.push(`${tag} has no mechanism`);
-            else if (P.k === 'plate') { const k = P.cy * m.W + P.cx; if (!shut[k] || m.traps.some((tp) => Math.abs(tp.x / TILE - P.cx - 0.5) < 1.5 && Math.abs(tp.y / TILE - P.cy - 0.5) < 1.5)) out.push(`${tag}: its flagstone is out of reach or on a spike plate`); }
-            else { const t = m.torches[P.t]; if (!t || t.kind !== 'wall' || t.side || t.lever !== i || t.sec !== undefined) out.push(`${tag}: its sconce is missing or hidden`); } } }); }
+          for (const e of cacheIssues(m, q, i, shut)) out.push(`seed ${seed} f${f}: secret ${i} (${q.kind}) ${e}`); }); }
       // every floor cell of every room lies within reach of a light: a torch, a brazier, candles, a crystal, an altar, the bonfire or a shop lamp
       { const LR = DG.LIGHT_R, lights = m.torches.map((t) => [t.x, t.y, LR[t.kind]]).concat(m.decor.filter((d) => LR[d.n]).map((d) => [d.x, d.y, LR[d.n]]),
           m.shrines.map((s) => [s.x, s.y, LR.shrine]), m.shop.lanterns.map((q) => [q.x, q.y, LR.wall]), [[m.shop.x, m.shop.y, LR.fire]]);
@@ -665,8 +656,8 @@
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, m = R.map, inside = (e) => !ENEMIES[e.type].ghost && e.deadT < 0 && solids(R).some((o) => Math.hypot(e.x - o.x, (e.y - o.y) * 1.6) < o.r + ENEMIES[e.type].r - 1);
       for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { enterFloor(S, R, f); const e = R.en.find(inside); if (e) { out.push(`floor ${f}: a ${e.type} is posted inside a prop`); break; } }
-      enterFloor(S, R, 1); const c = R.chests.find((q) => cell(m, Math.floor((q.x - 64) / TILE), Math.floor(q.y / TILE)) === 1 && cell(R.map, Math.floor((q.x + 64) / TILE), Math.floor(q.y / TILE)) === 1);
-      if (!c) out.push('prop check: no chest with floor on both sides on floor 1');
+      let c = null; for (let f = 1; f <= D.RUNS.campaign.chapter && !c; f++) { enterFloor(S, R, f); c = R.chests.find((q) => cell(R.map, Math.floor((q.x - 64) / TILE), Math.floor(q.y / TILE)) === 1 && cell(R.map, Math.floor((q.x + 64) / TILE), Math.floor(q.y / TILE)) === 1 && q.sec === undefined); }
+      if (!c) out.push('prop check: no chest with floor on both sides in the chapter');
       else { const e = R.en.find((o) => !ENEMIES[o.type].ghost && ENEMIES[o.type].kind === 'melee'); R.en = [e]; Object.assign(e, { x: c.x - 40, y: c.y, kbx: 900, kby: 0, hp: 1e4, max: 1e4, dmg: 0, st: 'idle' });
         h.x = c.x + 300; h.y = c.y + 300; let hit = 0; for (let i = 0; i < 60; i++) { step(S, { keys: [] }); hit |= inside(e); }
         if (hit) out.push('a monster knocked into a chest passes through it');
@@ -732,7 +723,7 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck(), magmaKindsCheck());
+    return out.concat(secretCheck(), cacheGenCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck(), magmaKindsCheck());
   }
   // a run of its own (the caves, the magma caves) finds, is sold and is given items at about its hero's level on its first floor:
   // the magma caves' loot over their depth once made them 10 levels over him and the run a walk (TASKS 424)
@@ -757,9 +748,9 @@
         if (f === 1 && AR.first && m.ftype !== AR.first) out.push(`${tag}: the first floor is not ${AR.first}`);
         if (f > 1 && AR.first && m.ftype === AR.first) out.push(`${tag}: ${AR.first} again past the first floor`);
         if (f < D.RUNS.magma.floors && D.floorName(f, 'magma', sd, undefined, m) !== AR.names[m.ftype]) out.push(`${tag}: the title does not name the floor's type`);
-        // a river (TASKS 428): one island, the hoard on it; two to four places to cross, a pack waiting at them
+        // a river (TASKS 428): one island; two to four places to cross, a pack waiting at them
         if (m.ftype === 'river') { const W = m.W, isles = m.rooms.filter((r) => r.isle), rc = m.crossings.filter((c) => c.river);
-          if (isles.length !== 1 || isles[0].type !== 'treasure') out.push(`${tag}: the river's island holds no hoard`);
+          if (isles.length !== 1) out.push(`${tag}: ${isles.length} islands on the river`);
           const xs = rc.map((c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length).sort((a, b) => a - b); let places = 0, last = -99; for (const x of xs) { if (x - last > 8) places++; last = x; }
           if (places < 2 || places > 4) out.push(`${tag}: ${places} places to cross the river`);
           const mx = (c) => c.cells.reduce((a, k) => a + (k % W), 0) / c.cells.length, held = rc.filter((c) => { const own = new Set(c.cells), ends = c.cells.flatMap((k) => [1, -1, W, -W].map((o) => k + o)).filter((k) => m.cells[k] === 1 && !own.has(k));
@@ -801,7 +792,6 @@
         if (m.ftype !== 'lake') continue; const isles = m.rooms.filter((r) => r.isle);
         if (isles.length < 2) out.push(`${tag}: ${isles.length} islands in the lake`);
         if (isles.some((r) => ['start', 'exit', 'boss', 'shop'].includes(r.type))) out.push(`${tag}: the start, the stairs or the merchant on an island`);
-        if (!isles.some((r) => r.type === 'treasure')) out.push(`${tag}: no hoard on an island`);
         // the lake's choice (TASKS 472), walked on the floor as laid: over the islands, and round them (their chain shut: the floor
         // reached from their middles within the lake's figure, its noise allowed for)
         if (!m.lakeAt) out.push(`${tag}: a lake without its figure`);
@@ -813,7 +803,6 @@
           if (b < 0) out.push(`${tag}: no way round the lake`); else if (1 - a / b < L[0] || 1 - a / b > L[1]) out.push(`${tag}: the islands save ${Math.round(100 * (1 - a / b))} % of the way round (${a} against ${b})`); }
         // the lake is the floor's figure (the player's note on 427): a big island with the hoard and smaller ones, the plateaus on its
         // shore no bigger than the lake's own sizes, and no hole into the dark left in its lava
-        if (!isles.some((r) => r.isle === 2 && r.type === 'treasure')) out.push(`${tag}: the hoard is not on the big island`);
         if (new Set(isles.map((r) => r.w * r.h > 90 ? 'big' : r.w * r.h > 40 ? 'mid' : 'small')).size < 2) out.push(`${tag}: the islands are all of a size`);
         for (const r of m.rooms) if (!r.isle && !r.pocket && r.type !== 'secret' && r.type !== 'shop' && (r.w > (r.g || AR.lake.grow)[0] || r.h > (r.g || AR.lake.grow)[1])) out.push(`${tag}: a shore plateau of ${r.w}×${r.h}`);
         { const W = m.W, seen = new Uint8Array(W * m.H), wallAt = (k) => Math.floor(k / W) < m.cliff[k % W];
@@ -883,7 +872,7 @@
       const br = m.crossings.filter((c) => c.chasm).length, need = ft === 'river' ? AR.blend.riverBridges : 2; if (br < need) out.push(`${tag}: ${br} bridges over the chasm`);
       if (!m.cells.some((c, k) => c === 0 && Math.floor(k / W) >= m.cliff[k % W] && [1, -1, W, -W].some((o) => m.cells[k + o] === 1))) out.push(`${tag}: no chasm by the plateaus`);
       if (ft === 'lake' && m.rooms.filter((r) => r.isle).length < 2) out.push(`${tag}: fewer than two islands in the lake`);
-      if (!m.rooms.some((r) => r.type === 'treasure')) out.push(`${tag}: no hoard`); }
+}
     // taking the stairs from every floor of a run onto the next, whatever its type (a step that read the floor it left crashed on a
     // floor with no crust)
     for (let sd = 1; sd <= 6; sd++) { const Z = spawn(0, {}); Z.run = newRun(Z, 'magma', sd); Z.screen = 'play'; const R2 = Z.run;
@@ -929,7 +918,7 @@
         if ([-2, -1, 0].every((i) => [-1, 0, 1].every((j) => fl(x + i, y + j))) && Array.from({ length: k }, (_, i) => i + 1).every((i) => [-1, 0, 1].every((j) => lav(x + i, y + j))) && [k + 1, k + 2].every((i) => [-1, 0, 1].every((j) => fl(x + i, y + j))) && !bankOf(m, x, y).has(y * W + x + k + 1)) { sp = [x, y]; LW = k; } } }
     if (!sp) return ['magma kinds: no river two or three cells wide with banks on any magma floor'];
     const R = Z.run, m = R.map, h = R.hero, W = m.W, t = () => Z.t, lav = (x, y) => cell(m, x, y) === 3 && !crustAt(m, y * W + x); R.msg = null;
-    const haz = m.hazards; m.hazards = [];   // (no vent or rock in the way of what is measured, and no blow dodged)
+    const haz = m.hazards; m.hazards = []; m.traps = [];   // (no vent, rock or spike in the way of what is measured, and no blow dodged)
     const agi = h.base.agi; h.base.agi = 0; h.eq = Object.fromEntries(Object.keys(h.eq).map((k) => [k, null]));
     const X = (i) => (sp[0] + i + 0.5) * TILE, Y = (sp[1] + 0.5) * TILE + 4, steps = (s, f) => { for (let i = 0; i < 120 * s; i++) { step(Z, { keys: [] }); if (f && f()) return true; } return false; };
     const put = (hx = X(-1)) => { R.en = []; R.proj = []; R.fires = []; h.hp = heroSt(Z).maxHp; h.deadT = -1; h.burn = 0; h.ifr = 0; h.x = hx; h.y = Y; h.vx = h.vy = 0; h.dashT = -9; };
@@ -1257,56 +1246,83 @@
     const aim = toPx(R, sh.x, sh.y - 35); step(S, { press: 1, keys: [], ...aim });
     for (let i = 0; i < 35; i++) step(S, { keys: [], ...aim });
     if (!S.ev.some((e) => e.k === 'merchantHit') || R.shop.hitLine !== 0) out.push('reaction check: merchant does not react to melee over his counter');
-    m.secrets = [{ kind: 'lever', x: x + 64, y, hp: 2, open: 0, wall: [] }]; S.t += 1; S.ev = []; hitSecrets(S, R, x, y, 80, 0, 1);
-    if (!S.ev.some((e) => e.k === 'hollow') || m.secrets[0].hp !== 2 || m.secrets[0].open) out.push('reaction check: mechanism wall must answer without breaking');
-    for (const ty of [Math.floor(y / TILE), Math.floor((y - 8) / TILE)]) m.cells[ty * m.W + Math.floor((x + 32) / TILE)] = 0;
-    S.t += 1; S.ev = []; hitSecrets(S, R, x, y, 80, 0, 1);
-    if (S.ev.some((e) => e.k === 'hollow')) out.push('reaction check: hollow sound gives away a secret through rock');
     return out;
   }
   // a run snapshot for localStorage (the whole run is plain JSON)
   // secrets, loot tables and completion stats, played through the sim
+  // how each cache is opened, checked on the floor as laid: no way that needs a blow, every mechanism reached from the open floor (the outer floor, or the parent cache for one inside another)
+  function cacheIssues(m, q, i, shut) { const out = [], W = m.W, reachC = (x, y) => shut[y * W + x] || (q.parent !== undefined && inRoom1(m.rooms[m.secrets[q.parent].room], x, y));
+    if (!['banner', 'shelf', 'statue', 'lever', 'puzzle'].includes(q.kind) || q.hp !== undefined) out.push('has an old or missing kind');
+    if (['banner', 'shelf', 'statue'].includes(q.kind) && q.dir !== 'u') out.push('is not on a top wall');
+    if (q.kind === 'banner' && !m.decor.some((d) => d.secret === i && d.n === 'banner' && d.wall)) out.push('has no banner');
+    if (q.kind === 'shelf' && !m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid)) out.push('has no bookshelf');
+    if (q.kind === 'statue') { const d = m.decor.find((o) => o.secret === i && o.n === 'statue' && o.solid); if (!d || !q.slide || ![1, 2].includes(q.slide.n) || ![1, -1].includes(q.slide.s)) out.push('has no statue or slide');
+      else { const fy = Math.floor(d.y / TILE), fc = Math.floor(q.x / TILE), tc = fc + q.slide.s * q.slide.n, tk = fy * W + tc, o0 = fy * W + fc, blk = new Set(m.block), flood = (b) => { const sv = new Set(), st = [Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE)]; sv.add(st[0]); while (st.length) { const k = st.pop(); for (const v of [1, -1, W, -W]) { const n = k + v; if (!sv.has(n) && m.cells[n] === 1 && !b.has(n)) { sv.add(n); st.push(n); } } } return sv; };
+        for (let c = fc + q.slide.s; c !== tc + q.slide.s; c += q.slide.s) if (m.cells[fy * W + c] !== 1) out.push('slides into rock');
+        const sA = flood(blk); blk.delete(o0); blk.add(tk); const sB = flood(blk); if (sB.size < sA.size) out.push('statue shuts a passage when moved'); } }
+    if (q.kind !== 'lever' && q.trig) out.push('has a mechanism it should not');
+    if (q.kind === 'lever') { const P = q.trig; if (!P) out.push('has no mechanism');
+      else if (P.k === 'plate') { if (!reachC(P.cx, P.cy) || m.traps.some((t) => Math.abs(t.x / TILE - P.cx - 0.5) < 1.5 && Math.abs(t.y / TILE - P.cy - 0.5) < 1.5)) out.push('its flagstone is out of reach or on spikes'); }
+      else if (P.k === 'sconce') { const t = m.torches[P.t]; if (!t || t.kind !== 'wall' || t.side || t.lever !== i || t.sec !== undefined) out.push('its sconce is missing or hidden'); }
+      else if (P.k === 'lever') { const x = Math.floor(P.x / TILE), y = Math.floor((P.y + 48) / TILE); if (!reachC(x, y)) out.push('its lever is out of reach'); }
+      else out.push('has an unknown mechanism'); }
+    if (q.kind === 'puzzle') { const Z = q.pz, ns = (Z && Z.items || []).map((it) => it.n).sort(); if (!Z || ns.join() !== '1,2,3') out.push('has a broken puzzle');
+      else for (const it of Z.items) { const x = Math.floor(it.x / TILE), y = Z.k === 'levers' ? Math.floor((it.y + 48) / TILE) : Math.floor(it.y / TILE); if (!reachC(x, y)) out.push(`a ${Z.k} piece is out of reach`); }
+      if (Z && Z.k === 'candles' && m.decor.filter((d) => d.pz === i && d.n === 'candles').length !== 3) out.push('is missing its candles'); }
+    return out; }
+  // over many floors: caches open by honest means only, the floors keep no hoards, and the planned rooms and puzzles do turn up
+  function cacheGenCheck() { const out = [], seen = {};
+    for (let seed = 1; seed <= 30; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const s0 = (seed * 811 + f * 1303) >>> 0; let m; try { m = DG.genFloor(s0, f); } catch (e) { out.push(`gen ${s0} f${f}: ${e.message}`); continue; }
+      if (m.rooms.some((r) => r.type === 'treasure')) out.push(`gen ${s0} f${f}: a treasure room`);
+      if (m.secrets.some((q) => q.kind === 'crack')) out.push(`gen ${s0} f${f}: a crack secret`);
+      const W = m.W, walk = (() => { const sv = new Uint8Array(W * m.H), st = [Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE)]; sv[st[0]] = 1; while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!sv[n] && m.cells[n] === 1 && !m.block.includes(n)) { sv[n] = 1; st.push(n); } } } return sv; })();
+      m.secrets.forEach((q, i) => { for (const e of cacheIssues(m, q, i, walk)) out.push(`gen ${s0} f${f}: secret ${i} (${q.kind}) ${e}`); seen[q.kind] = 1; if (q.trig) seen[q.trig.k] = 1; if (q.pz) seen[q.pz.k] = 1; if (q.parent !== undefined) seen.inner = 1;
+        const h = m.rooms[q.host]; if (h && h.plan && (q.kind === 'statue' || q.kind === 'shelf')) seen.planned = 1; }); }
+    for (const k of ['banner', 'shelf', 'statue', 'sconce', 'plate', 'lever', 'levers', 'candles', 'inner', 'planned']) if (!seen[k]) out.push(`cache check: no ${k} cache on any of the floors checked`);
+    return out; }
   function secretCheck() {
     const out = [];
-    // every way a secret opens, played from the floor in front of it: a breakable wall on each side takes two blows, a banner
-    // tears at E or a blow, a bookshelf breaks at the second blow, a sconce pulls at E, a flagstone sinks underfoot; nothing
-    // else opens them (E at a wall or a shelf, blows at a mechanism's wall). Each opens once and counts once; its chest's items
-    // count as loot only once picked up, and an item thrown away and picked up again never counts twice
+    // every kind of cover and mechanism, played from the floor: blows at it open nothing; E (a flagstone: a step) opens it, and it counts once
     const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5000 + sd); const q = S.run.map.secrets.find(f); if (q) return [S, q]; } return [null, null]; };
-    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['shelf', (o) => o.kind === 'shelf'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u']]) {
+    const standAt = (R, q) => { const h = R.hero, P = q.trig, tc = P && P.k === 'sconce' ? R.map.torches[P.t] : null; Object.assign(h, { vx: 0, vy: 0 });
+      if (q.kind === 'banner') { h.x = q.x; h.y = q.y + 34; } if (q.kind === 'shelf' || q.kind === 'statue') { h.x = q.x; h.y = q.y + 70; } if (tc) { h.x = tc.x; h.y = tc.y + 50; } if (P && P.k === 'lever') { h.x = P.x; h.y = P.y + 50; } if (P && P.k === 'plate') { h.x = P.x; h.y = P.y; } };
+    const pressE = (S) => { step(S, { keys: ['KeyE'], px: 960, py: 540 }); for (let k = 0; k < 6; k++) step(S, { keys: [], px: 960, py: 540 }); };
+    const playItem = (S, R, q, j) => { const it = q.pz.items[j], h = R.hero, st0 = q.pz.step; for (let k = 0; k < 3 && !it.on && q.pz.step === st0 && !q.open; k++) { if (q.pz.k === 'levers') { h.x = it.x; h.y = it.y + 50; } else { h.x = it.x + 20; h.y = it.y + 6; } h.vx = h.vy = 0; pressE(S); } };
+    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['shelf', (o) => o.kind === 'shelf'], ['statue', (o) => o.kind === 'statue'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u' && o.parent === undefined], ['lever', (o) => o.trig && o.trig.k === 'lever']]) {
       const [S, q] = find(f); if (!q) { out.push(`secret check: no ${name} secret in 120 seeds`); continue; }
-      S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9;
-      // (below the wall's foot: a mechanism's wall in a room's top wall, as the first seeds had it before TASKS 373 moved them)
-      const stand = () => { h.x = q.x; h.y = q.y + (name === 'shelf' ? 70 : 34); h.vx = h.vy = 0; };
-      const swing = () => { stand(); h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) { stand(); step(S, Object.assign({ keys: [] }, A)); } };
-      const press = () => { step(S, { keys: ['KeyE'] }); for (let k = 0; k < 10; k++) step(S, { keys: [] }); };
-      if (name === 'banner') { stand(); press(); if (!q.open) out.push('secret check banner: E under it does not tear it'); }
-      if (name === 'shelf') { stand(); press(); if (q.open) out.push('secret check shelf: E opens a bookshelf'); swing(); if (q.open) out.push('secret check shelf: one blow breaks it');
-        swing(); if (!q.open) out.push('secret check shelf: two blows do not break it');
-        const d = m.decor.find((o) => o.secret === m.secrets.indexOf(q)); if (!d || d.solid || m.block.includes(Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE))) out.push('secret check shelf: the broken shelf still blocks the way'); }
-      if (name === 'sconce') { swing(); swing(); if (q.open) out.push('secret check sconce: blows open a mechanism\'s wall'); if (!S.ev.some((e) => e.k === 'hollow')) out.push('secret check: mechanism wall does not sound hollow'); const t2 = m.torches[q.trig.t]; h.x = t2.x; h.y = t2.y + 50; press(); if (!q.open) out.push('secret check sconce: E under the sconce does not open it'); }
-      if (name === 'plate') { swing(); swing(); if (q.open) out.push('secret check plate: blows open a mechanism\'s wall'); h.x = q.trig.x; h.y = q.trig.y; step(S, { keys: [] }); if (!q.open) out.push('secret check plate: stepping on the flagstone does not open it'); }
+      S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, qi = m.secrets.indexOf(q); R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9;
+      const k0 = name === 'statue' ? Math.floor((q.y + 22) / TILE) * m.W + Math.floor(q.x / TILE) : -1, d0 = name === 'statue' ? m.decor.find((o) => o.secret === qi).x : 0;
+      for (let k = 0; k < 2; k++) { h.x = q.x; h.y = q.y + 34; h.vx = h.vy = 0; h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let j = 0; j < 40; j++) step(S, Object.assign({ keys: [] }, A)); }
+      if (q.open) out.push(`secret check ${name}: blows open it`);
+      if (S.ev.some((e) => e.k === 'wallhit' || e.k === 'hollow')) out.push(`secret check ${name}: a wall still answers a blow`);
+      standAt(R, q); if (name === 'plate') step(S, { keys: [] }); else for (let k = 0; k < 3 && !q.open; k++) { standAt(R, q); pressE(S); }
+      if (!q.open) out.push(`secret check ${name}: its way does not open it`);
       if (q.wall.some(([x, y]) => cell(m, x, y) !== 1)) out.push(`secret check ${name}: the opened wall is still solid`);
-      if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted`);
-      press(); swing(); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
-    // every secret of a few whole campaigns, one by one: the hero is put where its tell is (in front of a wall, under a banner
-    // or a sconce, below a shelf, on a flagstone), the collisions settle, and the action meant for it opens it
+      if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted (${R.stats[1].sec})`);
+      if (name === 'statue') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n; if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push('secret check statue: it has not moved, or its block has not');
+        if (Math.abs(d.x - d0) !== q.slide.n * TILE || ![1, 2].includes(q.slide.n)) out.push('secret check statue: it slid the wrong distance'); }
+      if (name === 'shelf') { const d = m.decor.find((o) => o.secret === qi); if (!d || d.solid || m.block.includes(Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE))) out.push('secret check shelf: the opened shelf still blocks the way'); }
+      standAt(R, q); pressE(S); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
+    // a statue never closes on the hero: with him on its way it stays put
+    { const [S, q] = find((o) => o.kind === 'statue'); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
+        if (secretUnder(R) !== q) out.push('secret check statue: the hero beside it cannot reach it'); else { interact(S, R); if (q.open) out.push('secret check statue: it slid onto the hero'); } } }
+    // puzzles (TASKS 1671): the right order opens the cache, any wrong piece puts everything back and hurts nobody
+    for (const k of ['levers', 'candles']) { const [S, q] = find((o) => o.pz && o.pz.k === k); if (!q) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
+      S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9; const hp0 = h.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);
+      playItem(S, R, q, ord[1]); if (q.pz.step || q.pz.items.some((it) => it.on) || q.open) out.push(`puzzle ${k}: a wrong start does not reset`);
+      playItem(S, R, q, ord[0]); if (q.pz.step !== 1 || q.open) out.push(`puzzle ${k}: the first piece does not hold`);
+      playItem(S, R, q, ord[2]); if (q.pz.step || q.open) out.push(`puzzle ${k}: a wrong piece does not reset`);
+      if (h.hp !== hp0) out.push(`puzzle ${k}: a wrong try costs health`);
+      for (const j of ord) { playItem(S, R, q, j); } if (!q.open) out.push(`puzzle ${k}: the right order does not open it`);
+      if (R.stats[1].sec !== 1) out.push(`puzzle ${k}: a solved puzzle is not counted`);
+      if (k === 'candles' && m.decor.filter((d) => d.pz === m.secrets.indexOf(q)).some((d) => (d.outUntil || 0) > S.t)) out.push('puzzle candles: a solved puzzle left a candle dark'); }
+    // every secret of two whole campaigns, opened by the way the game offers it; a cache behind another is reached once its parent is open
     for (const sd of [11, 222]) for (let f = 1; f <= D.RUNS.campaign.chapter; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
-      const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9; const cells0 = m.cells.slice();
-      m.secrets.forEach((q, i) => { const base = m.secrets.map((o) => o.open);
-        if (secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) { m.secrets.forEach((o) => { if (o !== q && !o.open) openSecret(S, R, o, true); }); }
-        const settle = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; for (let k = 0; k < 20; k++) step(S, { keys: [], px: 960, py: 540 }); };
-        const swing = (tx, ty) => { const A = { ...toPx(R, tx, ty - 30) }; h.cd.atk = 0; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) step(S, Object.assign({ keys: [] }, A)); };
-        const P = q.trig, tc = P && P.k === 'sconce' ? m.torches[P.t] : null;
-        if (q.kind === 'crack') { settle(q.x - q.dx * 40, q.y - q.dy * 40); swing(q.x, q.y); swing(q.x, q.y); }
-        if (q.kind === 'shelf') { settle(q.x, q.y + 70); swing(q.x, q.y + 22); swing(q.x, q.y + 22); }
-        if (q.kind === 'banner') { settle(q.x, q.y + 34); step(S, { keys: ['KeyE'] }); }
-        if (tc) { settle(tc.x, tc.y + 50); step(S, { keys: ['KeyE'] }); }
-        if (P && P.k === 'plate') settle(P.x, P.y);
-        if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${P ? ' ' + P.k : ''}, ${q.dir}) does not open from its tell`);
-        m.secrets.forEach((o, j) => { if (o.open && !base[j]) { o.open = 0; o.hp = 2; o.hitT = -9; if (kindOf(o) === 'shelf') shelfOf(m, j, true); } });
-        for (let k = 0; k < cells0.length; k++) m.cells[k] = cells0[k];
-        for (const c of R.chests) c.open = 0; }); }
+      const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9;
+      m.secrets.forEach((q, i) => { if (q.parent !== undefined && !m.secrets[q.parent].open) openSecret(S, R, m.secrets[q.parent], true);
+        if (q.pz) { for (const j of [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n)) playItem(S, R, q, j); }
+        else for (let k = 0; k < 4 && !q.open; k++) { standAt(R, q); if (q.trig && q.trig.k === 'plate') step(S, { keys: [], px: 960, py: 540 }); else pressE(S); }
+        if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${q.trig ? ' ' + q.trig.k : ''}, ${q.dir}) does not open by its way`); }); }
     // loot: open every chest of a few floors (secret ones too), let the items fall and pick up half of them; the floor's books
     // balance at every stage and no item comes to rest where the hero cannot get to it
     for (const sd of [11, 222]) for (const f of [1, 4, 8]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
@@ -1322,19 +1338,8 @@
       if (S.ev.some((e) => e.k === 'swing')) out.push('debug: clicking the button swings the sword');
       click(); if (m.secrets.some((q) => q.open) || m.cells.join('') !== cells0 || m.block.slice().sort().join() !== block0) out.push('debug: the second press does not seal the secrets as they were');
       step(S, { keys: ['Backquote'] }); if (S.debug) out.push('debug: ` does not turn debug mode off'); }
-    for (const dir of ['u', 'd', 'l', 'r']) { const [S, q] = find((o) => o.dir === dir && o.kind === 'crack');
-      if (!q) { out.push(`secret check: no breakable secret on the ${dir} side in 120 seeds`); continue; }
-      S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, qi = m.secrets.indexOf(q), hp = q.hp; R.en = []; R.stats[1] = floorStat(R);
-      const at0 = () => { h.x = q.x - q.dx * 40; h.y = q.y - q.dy * 40 + (q.dx ? 0 : 0); h.vx = h.vy = 0; }, aim = { ...toPx(R, q.x + q.dx * 30, q.y + q.dy * 30 - 30) };
-      h.ifr = 1e9; const swing = () => { at0(); h.cd.atk = 0; const A = { ...toPx(R, q.x + q.dx * 30, q.y + q.dy * 30 - 30) };
-        step(S, Object.assign({ press: 1, keys: [] }, A)); for (let k = 0; k < 40; k++) { at0(); step(S, Object.assign({ keys: [] }, { ...toPx(R, q.x + q.dx * 30, q.y + q.dy * 30 - 30) })); } };
-      void aim; swing(); if (q.hp !== hp - 1 || q.open) out.push(`secret check ${dir}: a swing at the fake wall does not crack it`);
-      if (!S.ev.some((e) => e.k === 'wallhit')) out.push(`secret check ${dir}: no wallhit event`);
-      swing(); if (!q.open) out.push(`secret check ${dir}: two swings do not open the secret`);
-      if (q.wall.some(([x, y]) => cell(m, x, y) !== 1)) out.push(`secret check ${dir}: the broken wall is still solid`);
-      if (R.stats[1].sec !== 1) out.push(`secret check ${dir}: a found secret is not counted`);
-      swing(); if (R.stats[1].sec !== 1) out.push(`secret check ${dir}: a found secret counts twice`);
-      if (dir !== 'u') continue;
+    { const [S, q] = find((o) => o.kind === 'banner'); if (!q) out.push('secret check: no banner cache for the loot check'); else {
+      S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, qi = m.secrets.indexOf(q); R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9; standAt(R, q); pressE(S); void m;
       const c = R.chests.find((o) => o.sec === qi), n0 = R.stats[1].lootN, items = c.loot.length; h.x = c.x; h.y = c.y + 40; step(S, { keys: ['KeyE'] });
       if (!c.open || R.stats[1].lootN !== n0 || R.drops.filter((d) => d.kind === 'item').length !== items) out.push('loot check: a chest\'s items are not the ones counted on entering the floor');
       if (R.stats[1].loot !== 0) out.push('loot check: opening a chest counts as picking up');
@@ -1346,8 +1351,7 @@
         for (let k = 0; k < 120; k++) { const d = R.drops.find((o) => o.item === it); if (d) { h.x = d.x; h.y = d.y; } step(S, { keys: [] }); } }
       if (R.stats[1].loot !== items || R.stats[1].lootN !== n0) out.push('loot check: an item thrown away and picked up again changed the loot count');
       const e = { id: 9e6, type: 'skeleton', x: h.x + 30, y: h.y, deadT: -1, hp: 1, elite: 1, st: 'idle', room: 0, kbx: 0, kby: 0 }; R.en.push(e); hitEnemy(S, R, e, 1e6, false, h.x, h.y);
-      if (R.stats[1].lootN !== n0 + R.drops.filter((d) => d.loot && d.kind === 'item').length) out.push('loot check: a monster\'s drop is not added to the floor\'s loot');
-    }
+      if (R.stats[1].lootN !== n0 + R.drops.filter((d) => d.loot && d.kind === 'item').length) out.push('loot check: a monster\'s drop is not added to the floor\'s loot'); } }
     { const R = { rs: 99 }, n = 4000, roll = (o) => { let top = 0, epic = 0; for (let i = 0; i < n; i++) { const it = rollItem(R, 5, o.q || 0, undefined, o); top = Math.max(top, it.rar); epic += it.rar >= 3; if (it.rar < (o.min || 0)) top = -9; } return { top, epic: epic / n }; };
       const mob = roll(LOOT.mob), elite = roll(LOOT.elite), chest = roll(LOOT.chest[1]), hoard = roll(LOOT.chest[2]), sec = roll(LOOT.chest[3]), lg = roll(LOOT.boss[0]);
       if (mob.top > 3) out.push('loot: a common monster dropped a legendary');
@@ -1432,7 +1436,7 @@
       for (let sd = 1; sd < 80 && !R; sd++) { S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play';
         for (let f = 1; f <= 4; f++) { if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; w = m.webs.find((o) => clear(m, o)); if (w) { R = S.run; break; } } }
       if (!R) out.push('traps: no floor of 80 seeds with webs'); else { const m = R.map, h = R.hero; R.en = [];
-        const run = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; const x0 = h.x; for (let i = 0; i < 30; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x0; };
+        const run = (x, y) => { h.x = x; h.y = y; h.vx = h.vy = 0; const x0 = h.x; for (let i = 0; i < 60; i++) step(S, { right: 1, px: 960, py: 540, keys: [] }); return h.x - x0; };
         const free = run(w.x - 200, w.y), held = run(w.x - 12, w.y); if (!(held < free * 0.6)) out.push(`traps: a web does not hold the hero (${held.toFixed(0)} px against ${free.toFixed(0)})`);
         // (aimed through the camera: on a small map, TASKS 373, it stops at the map's edge and the hero is off the screen's middle)
         const aim = () => toPx(R, h.x + 60, h.y - 30);
@@ -1443,8 +1447,8 @@
     {
       const S = spawn(0, {}); S.run = newRun(S, 'cave', 26837); S.screen = 'play'; const R = S.run, m = R.map;
       if (m.ambush.length) out.push('ambush: generated pressure plate');
-      const room = m.rooms.filter((r) => r.type === 'treasure').sort((a, b) => b.w * b.h - a.w * a.h)[0];
-      if (!room) out.push('ambush: no treasure fixture'); else {
+      const room = m.rooms.filter((r) => r.type === 'combat').sort((a, b) => b.w * b.h - a.w * a.h)[0];
+      if (!room) out.push('ambush: no room to spring it in'); else {
         R.hero.x = (room.cx + 0.5) * TILE; R.hero.y = (room.cy + 0.5) * TILE;
         const before = R.en.length; S.ev = []; const P = { room: room.id, n: 4 };
         const ok = springAmbush(S, R, P), got = R.en.slice(before);
@@ -1464,10 +1468,10 @@
     { const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run, h = R.hero, quiet = { px: 960, py: 540, keys: [] };
       let nDr = 0, nSl = 0; for (let f = 1; f <= 3; f++) { enterFloor(S, R, f); nDr += R.en.filter((e) => e.type === 'drowned').length; nSl += R.en.filter((e) => e.type === 'slime').length; }
       if (!nDr || !nSl) out.push(`cave monsters: ${nDr} drowned and ${nSl} slimes on floors 1-3 of seed 3`);
-      enterFloor(S, R, 1); const m = R.map, sol = solids(R), wet = new Set(m.water);
+      let m, sol, wet, spot = null; for (let fl = 1; fl <= 4 && !spot; fl++) { enterFloor(S, R, fl); m = R.map; sol = solids(R); wet = new Set(m.water);
       const open = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -6; i <= 6; i++) { const k = (y + j) * m.W + x + i; if (m.cells[k] !== 1 || wet.has(k)) return false; }
         return !sol.some((o) => Math.abs(o.x - (x + 0.5) * TILE) < 7 * TILE && Math.abs(o.y - (y + 0.5) * TILE) < 2 * TILE); };
-      let spot = null; for (let k = 0; k < m.W * m.H && !spot; k++) if (open(k % m.W, Math.floor(k / m.W))) spot = [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
+      for (let k = 0; k < m.W * m.H && !spot; k++) if (open(k % m.W, Math.floor(k / m.W))) spot = [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; }
       const mob = (type, x, y, o) => { const E = ENEMIES[type]; const e = Object.assign({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 5, elite: 0, room: -1, st: 'chase', t0: S.t, face: -1, aimA: Math.PI,
         cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, hx: x, hy: y, seenT: S.t, ft: -9 }, o); R.en.push(e); return e; };
       if (!spot) out.push('cave monsters: no open dry floor on floor 1 of seed 3'); else { const [x0, y0] = spot, E = ENEMIES.drowned, reset = () => { R.en = []; h.x = x0; h.y = y0; h.vx = h.vy = 0; h.hp = 1e4; h.ifr = 0; h.pull = null; h.dashT = -9; };
@@ -1513,11 +1517,10 @@
     // the skeleton archer and mage (TASKS 311): the archer backs off from a hero who comes close; its aim follows him until the lock
     // and then holds; the arrow flies straight down it and hits a hero who stood still, not one who stepped aside after the lock.
     // The mage's ball flies at orb.spd and slows the hero it soaks; with a monster between it and the hero it keeps behind that one
-    { const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run, h = R.hero, quiet = { px: 960, py: 540, keys: [] }; enterFloor(S, R, 1);
-      const m = R.map, sol = solids(R), wet = new Set(m.water);
+    { const S = spawn(0, {}); S.run = newRun(S, 'cave', 3); S.screen = 'play'; const R = S.run, h = R.hero, quiet = { px: 960, py: 540, keys: [] }; let m, sol, wet, spot = null; for (let fl = 1; fl <= 4 && !spot; fl++) { enterFloor(S, R, fl); m = R.map; sol = solids(R); wet = new Set(m.water);
       const open = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -6; i <= 6; i++) { const k = (y + j) * m.W + x + i; if (m.cells[k] !== 1 || wet.has(k)) return false; }
         return !sol.some((o) => Math.abs(o.x - (x + 0.5) * TILE) < 7 * TILE && Math.abs(o.y - (y + 0.5) * TILE) < 2 * TILE); };
-      let spot = null; for (let k = 0; k < m.W * m.H && !spot; k++) if (open(k % m.W, Math.floor(k / m.W))) spot = [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE];
+      for (let k = 0; k < m.W * m.H && !spot; k++) if (open(k % m.W, Math.floor(k / m.W))) spot = [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; }
       const mob = (type, x, y, o) => { const E = ENEMIES[type]; const e = Object.assign({ id: R.nextId++, type, x, y, vx: 0, vy: 0, hp: 1e4, max: 1e4, dmg: 5, elite: 0, room: -1, st: 'chase', t0: S.t, face: -1, aimA: Math.PI,
         cdT: 0, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, hx: x, hy: y, seenT: S.t, ft: -9 }, o); R.en.push(e); return e; };
       if (!spot) out.push('skeleton archer: no open dry floor on floor 1 of seed 3'); else { const [x0, y0] = spot, A = ENEMIES.skel_archer, O = ENEMIES.skel_mage.orb;
@@ -1609,6 +1612,7 @@
         for (let i = 1; i < ups.length; i++) if (Math.hypot(ups[i][0] - ups[i - 1][0], ups[i][1] - ups[i - 1][1]) < E.apart * TILE - 0.01) out.push(`eel: comes up ${(Math.hypot(ups[i][0] - ups[i - 1][0], ups[i][1] - ups[i - 1][1]) / TILE).toFixed(1)} cells from its last spot`);
         if (!hurt) out.push('eel: never hurts a hero on its shore'); if (hitUp !== 10) out.push(`eel: a blow while it is up does ${hitUp}, not 10`);
         // the jet: a hero on the shore out of its bite (spit) — it shows up in the hunt from a spot farther off, or from a fresh one here
+        if (!jet) { const cc = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE], sees = ([sx0, sy0]) => [...body].map(cc).some(([x, y]) => { const d = Math.hypot(x - sx0, y - sy0); return d > E.r + K.R + E.reach + 20 && d < E.spit.reach - 40 && losClear(m, x, y - 30, sx0, sy0 - 30); }), alt = [...body].flatMap((k) => [k - m.W, k + m.W, k - 1, k + 1].filter((j) => m.cells[j] === 1)).map(cc).find(sees); if (alt) { spot.x = alt[0]; spot.y = alt[1]; } }
         if (!jet) { reset(spot.x, spot.y); Object.assign(e, { st: 'chase', t0: S.t, upT: S.t, cdT: 0, bit: 0 }); const far = [...body].map((k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE])
             .find(([x, y]) => Math.hypot(x - h.x, y - h.y) > E.r + K.R + E.reach + 20 && Math.hypot(x - h.x, y - h.y) < E.spit.reach - 40 && losClear(m, x, y - 30, h.x, h.y - 30));
           if (far) { e.x = far[0]; e.y = far[1]; for (let i = 0; i < 240 && !jet; i++) { step(S, quiet); h.x = spot.x; h.y = spot.y; if (R.proj.some((p) => p.k === 'jet')) jet = 1; } } }
@@ -2054,7 +2058,8 @@
         // stuck after its fists and open to blows
         R2.fires = []; R2.rocks = []; h.x = b.x + 100; h.y = b.y; beginBossMove(Z, R2, b, 'fists'); for (let i = 0; i < 120 * (B.moves.fists.wind + B.moves.fists.duration + 0.05); i++) { step(Z, { keys: [] }); h.ifr = 1e9; }
         if (!(b.openUntil > Z.t)) out.push(`${tag}: its fists leave it no stuck window`); else { const x0 = b.x, y0 = b.y, hp0 = b.hp; h.x = b.x + 400; for (let i = 0; i < 60; i++) step(Z, { keys: [] });
-          if (Math.hypot(b.x - x0, b.y - y0) > 1) out.push(`${tag}: it walks while stuck`); hitEnemy(Z, R2, b, 100, false, b.x + 50, b.y); if (Math.abs(hp0 - b.hp - 100 * B.moves.fists.open) > 0.6) out.push(`${tag}: no extra damage while it is stuck`);
+          if (Math.hypot(b.x - x0, b.y - y0) > 3) out.push(`${tag}: it walks while stuck`);   // (a couple of pixels is its body settling off a wall, not a step)
+          hitEnemy(Z, R2, b, 100, false, b.x + 50, b.y); if (Math.abs(hp0 - b.hp - 100 * B.moves.fists.open) > 0.6) out.push(`${tag}: no extra damage while it is stuck`);
           b.phase = 0; b.hp = b.max * 0.59; stepBossMove(Z, R2);
           if (b.phase !== 0) out.push(`${tag}: phase interrupts stuck window`); }
         // the rain: no rock in a slab's shelter
@@ -2189,8 +2194,8 @@
       if (h.gold - g0 !== want) out.push(`floor mod: gold picked up on a ${mod || 'plain'} floor is ${h.gold - g0}, not ${want}`); }
     for (const mod of [undefined, 'quiet']) { const [S, R] = run(mod), h = R.hero, room = DG.roomAt(R.map, h.x, h.y), was = R.map.rooms[room].type;
       let rs = 1; for (; rs < 1e6; rs++) { const v = rnd({ rs }); if (v > 0.06 && v < 0.09) break; }
-      R.map.rooms[room].type = 'treasure'; R.rs = rs; S.ev = []; openChest(S, R, { x: h.x, y: h.y, tier: 1, open: 0, loot: [] }); R.map.rooms[room].type = was;
-      if (S.ev.some((e) => e.k === 'ambush') !== !!mod) out.push(`floor mod: a hoard's chest on a ${mod || 'plain'} floor ${mod ? 'does not spring' : 'springs'} an ambush on a draw of 0.06–0.09`); }
+      R.map.rooms[room].type = 'secret'; R.rs = rs; S.ev = []; openChest(S, R, { x: h.x, y: h.y, tier: 1, open: 0, loot: [] }); R.map.rooms[room].type = was;
+      if (S.ev.some((e) => e.k === 'ambush') !== !!mod) out.push(`floor mod: a cache's chest on a ${mod || 'plain'} floor ${mod ? 'does not spring' : 'springs'} an ambush on a draw of 0.06–0.09`); }
     return out;
   }
   // the town (R-17, TASKS 1002): floor 0 of a run started from «Тесты», a safe zone where the hero walks, swings, opens the bag,
@@ -2571,7 +2576,7 @@
         if (Z.map.decor.some((d) => Math.abs(d.x - C.x) < 40 && d.y < C.y + 8 && d.y > C.y - 60)) out.push('rescue: the cage stands on a prop');
         Z.en = []; Z.hero.x = C.x + 40; Z.hero.y = C.y + 30; X.interact(S, Z); S.screen = 'play'; if (!Z.freed || !Z.freed[who]) out.push('rescue: E at the cage does not free the ' + who); }
       enterFloor(S, Z, 0); if (X.shopShut(Z)) out.push('rescue: the town shop is shut after the merchant is freed'); if (!Z.folk.some((f) => f.role === 'smith')) out.push('rescue: the freed smith is not in town'); if (Z.folk.some((f) => f.role === 'enchanter')) out.push('rescue: the enchanter is in town though still caged'); }
-    { const Z = run(83), plain = () => Z.drops.filter((p) => p.kind === 'note' && p.sec === undefined);
+    { const Z = run(83), plain = () => Z.drops.filter((p) => p.kind === 'note' && p.sec === undefined && D.NOTES.byId[p.note].kind !== 'hint');
       for (const f of [1, 3, 5, 7, 9, 13]) { enterFloor(S, Z, f); const P = plain(); if (P.length < 3 || P.length > 5) out.push('notes: floor ' + f + ' has ' + P.length); for (const p of P) { const n = D.NOTES.byId[p.note]; if (n.kind === 'boss' && (f < n.floors[0] || f > n.floors[1])) out.push('notes: ' + n.id + ' off its floors on ' + f); } }
       if (new Set(Z.notesUsed).size !== Z.notesUsed.length) out.push('notes: one repeated in a run'); }
     R = run(81); R.freed = { merchant: 1 }; R.offers = []; let T = talkTo(R, 'keeper'); const st0 = T && T.act && T.act.k === 'take' ? T.act : null; finish();

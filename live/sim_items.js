@@ -69,7 +69,7 @@
     elite: { q: 1.6, min: 1 },
     brute: { q: 2.5, min: 2, extra: 0.5 },
     boss: [{ q: 3, min: 4 }, { q: 3, min: 3 }, { q: 3, min: 2 }],
-    chest: [null, { q: 0.4, n: 1 }, { q: 1, n: 2 }, { q: 3, n: 1 }],
+    chest: [null, { q: 0.4, n: 1 }, { q: 1, n: 2 }, { q: 3, n: 1 }, { q: 3.2, n: 2 }, { q: 4.2, n: 3 }],
   };
 
   // ---------------- hero stats (base + gear + meta + the altars' gifts) ----------------

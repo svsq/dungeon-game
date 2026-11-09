@@ -280,6 +280,8 @@
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
   const MASK = { key: '', set: null };
+  // a cache saved before the walls stopped breaking (TASKS 1670): a flagstone in front of it, so it stays openable
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, cx: x, cy: y }; } }
   function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
     if (MASK.key === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];
@@ -290,5 +292,5 @@
 
   Object.assign(SIMX, {
     migrateTown, newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden });
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

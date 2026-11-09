@@ -77,7 +77,6 @@
     goo: (o) => noise(o, { a: 0.02, d: 0.2, v: 0.14, f0: 520, f1: 260, q: 4 }),
     douse: (o) => noise(o, { a: 0.02, d: 0.58, v: 0.28, type: 'highpass', f0: 4000, f1: 1200 }),
     snuff: (o) => noise(o, { d: 0.18, v: 0.1, type: 'highpass', f0: 3200, f1: 1500 }),
-    hollow: (o) => { tone(o, { f0: 85, f1: 65, d: 0.28, v: 0.35 }); noise(o, { d: 0.25, v: 0.2, f0: 240, q: 6 }); },
     merchantHit: (o) => { tone(o, { type: 'triangle', f0: 170, f1: 250, d: 0.12, v: 0.18 }); noise(o, { d: 0.09, v: 0.12, type: 'lowpass', f0: 700 }); },
     // a blow off the crab's armour (TASKS 309) rings like struck iron, with no thud of flesh under it: the player hears it is wasted
     clang: (o, e) => { noise(o, { d: 0.03, v: 0.35, type: 'highpass', f0: 3500 }); for (const [f, v, d] of [[1180, 0.13, 0.5], [1730, 0.09, 0.38], [2610, 0.06, 0.3], [3390, 0.04, 0.22]]) tone(o, { type: 'triangle', f0: f * (e.crit ? 1.06 : 1), f1: f * 0.985, a: 0.003, d, v });
@@ -199,8 +198,7 @@
       if (e.n === 'shop_gold') SFX.gold(o); },
     // a mechanism catches: a click, then the grind of stone starting to move
     click: (o) => { tone(o, { f0: 700, f1: 420, d: 0.06, v: 0.3 }); noise(o, { d: 0.05, v: 0.25, type: 'highpass', f0: 1800 }); tone(o, { f0: 90, f1: 60, a: 0.12, d: 0.5, v: 0.25 }); },
-    // a fake wall sounds hollow: a knock with a resonant body behind it; breaking it is a rumble, falling stones and a chime
-    wallhit: (o) => { tone(o, { f0: 120, f1: 80, d: 0.18, v: 0.45 }); noise(o, { d: 0.35, v: 0.3, f0: 320, q: 8 }); noise(o, { d: 0.08, v: 0.2, type: 'highpass', f0: 2000 }); },
+    // a cache opening: a rumble, falling stones and a chime
     secret: (o) => { noise(o, { a: 0.01, d: 1.1, v: 0.6, type: 'lowpass', f0: 1200, f1: 80 }); tone(o, { f0: 70, f1: 32, d: 0.9, v: 0.6 });
       for (let i = 0; i < 8; i++) noise(o, { t: now() + 0.1 + i * rr(0.05, 0.1), d: 0.05, v: 0.18, type: 'lowpass', f0: rr(600, 1400) });
       [659, 880, 1319].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.45 + i * 0.12, d: 1.1, v: 0.08 })); },

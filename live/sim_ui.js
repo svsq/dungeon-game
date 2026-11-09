@@ -121,6 +121,7 @@
     const take = T.act && T.act.k === 'take', ready = keys.KeyE && (!take || S.t - T.pt >= 0.25);
     if (take && last && keys.KeyE && !ready) return;
     if (T.act && last && ((click && b && b.id === 'act') || (ready && T.act.k !== 'finish') || keys.Enter)) { talkAct(S, S.run, T); delete T.pt; return; }
+    if (click && b && b.id === 'origin' && T.origin) { T.pages = T.origin; T.origin = null; T.p = 0; T.act = null; T.craft = 0; delete T.pt; ev(S, { k: 'ui', x, y }); return; }
     if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { S.screen = 'play'; S.talk = null; } else ev(S, { k: 'ui', x, y }); }
     return;
   };
@@ -173,6 +174,7 @@
     const R = S.run, sh = R.shop, U = UI.shop(sh.goods.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (!click || !b) return;
+    if (b.id === 'origin' && !sh.wander) { S.talk = { role: 'merchant', i: 0, pages: D.FOLK.merchant.origin.slice(), p: 0, act: null }; S.screen = 'talk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (b.id.startsWith('buy:') && sh.goods[b.i]) buy(S, R, sh.goods[b.i], 0);
     if (b.id.startsWith('back:') && sh.back[b.i]) buy(S, R, sh.back[b.i], 1);
     if (b.id.startsWith('sell:')) sell(S, R, b.i);

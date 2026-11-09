@@ -63,21 +63,21 @@
     // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
     // a quest's page (TASKS 1018) puts its take or turn-in button left of it; the smith's talk keeps a way into his workshop
     talk: (T) => { const P = { x: 330, y: 540, w: 1260, h: 430 }, at = (i) => ({ x: P.x + P.w - 330 - i * 310, y: P.y + P.h - 92, w: 290, h: 64 }), last = T && T.p + 1 >= T.pages.length, r = [{ id: 'next', label: '', on: true, ...at(0) }];
-      if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: TXT('UI.talk.label'), on: true, ...at(r.length) }); return { P, r }; },
+      if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: TXT('UI.talk.label'), on: true, ...at(r.length) }); if (T && T.origin && last && r.length < 3) r.push({ id: 'origin', label: TXT('UI.talk.origin'), on: true, ...at(r.length) }); return { P, r }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
     board: (n) => { const P = { x: 230, y: 90, w: 1460, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
+      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     journal: (n, canDrop) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
       for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
       if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
-      r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 310, y: P.y + 16, w: 230, h: 48 });
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
+      r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 346, y: P.y + 16, w: 230, h: 48 });
+      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     notes: (n, page) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [], per = 12, on = Math.min(per, Math.max(0, n - page * per));
       for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: P.x + 30, y: P.y + 110 + i * 52, w: 470, h: 46 });
       r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 100, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 100, w: 150, h: 52 });
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r, per }; },
+      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r, per }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 90, w: 1080, h: 900 }, r = [];
       for (let i = 0; i < STASH.cells; i++) r.push({ id: 'stash:' + i, i, x: P.x + 88 + (i % 8) * 116, y: P.y + 130 + Math.floor(i / 8) * 104, w: 92, h: 92 });
@@ -114,6 +114,7 @@
       for (let i = 0; i < nGoods; i++) r.push({ id: 'buy:' + i, i, x: P.x + 40 + (i % 4) * 116, y: P.y + 130 + Math.floor(i / 4) * 140, w: 92, h: 92 });
       for (let i = 0; i < SHOP.buyback; i++) r.push({ id: 'back:' + i, i, x: P.x + 40 + i * 116, y: P.y + 580, w: 92, h: 92 });
       for (let i = 0; i < 24; i++) r.push({ id: 'sell:' + i, i, x: P.x + 620 + (i % 8) * 108, y: P.y + 130 + Math.floor(i / 8) * 140, w: 92, h: 92 });
+      r.push({ id: 'origin', on: true, label: TXT('UI.talk.origin'), x: P.x + 830, y: P.y + P.h - 170, w: 290, h: 56 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
       return { P, r };
     },
