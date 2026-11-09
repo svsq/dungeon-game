@@ -32,6 +32,12 @@
         h.eq.amulet = { id: 3010, b: 'amulet', lvl: 5, rar: 3, mods: { hp: 64, vit: 4, crit: 3, regen: 1.5 } };
         h.bag[23] = { id: 3011, b: 'amulet', lvl: 7, rar: 4, mods: { def: 6, int: 5, mp: 40, fire: 18, leech: 2 } };
       })],
+      // TASKS 1674: both pieces at their longest (five affixes each, enchantments on the card), the card inside the hero window
+      ['item_compare_long', play((S) => {
+        worst(S); S.screen = 'inv'; S.hover = 'bag:7'; const h = S.run.hero;
+        h.eq.amulet = { id: 3012, b: 'amulet', lvl: 9, rar: 4, mods: { hp: 64, vit: 4, crit: 3, regen: 1.5, mspd: 4, leech: 2 } };
+        h.bag[7] = { id: 3013, b: 'amulet', lvl: 12, rar: 4, mods: { def: 6, int: 5, mp: 40, fire: 18, leech: 3, hp: 90, crit: 5 }, ench: [{ k: 'atk', v: 4 }, { k: 'aspd', v: 6 }, { k: 'dodge', v: 3 }, { k: 'mspd', v: 5 }, { k: 'critd', v: 12 }] };
+      })],
       ['debug', play((S) => { S.debug = 1; SIM.debugSecrets(S, S.run); S.hover = 'dbg_secrets'; S.run.msg = null; })],
       ['debug_loot', play((S) => { S.debug = 1; S.dbgLoot = 1; S.hover = 'dbg_loot'; const R = S.run; R.msg = null; R.seen = R.seen.map(() => 1); SIM.fstat(R).loot = 999; SIM.fstat(R).lootN = 99999; })],
       ['pause', play((S) => { S.screen = 'pause'; S.run.msg = { s: TXT('QA.states.msg.s.2'), t: S.t - 1 }; })],

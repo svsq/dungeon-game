@@ -34,7 +34,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   window.__duration = SIM.L;
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
   window.__ready = true;
-  if (render) return;
+  if (render) { document.getElementById('hint').style.opacity = 0; return; }
 
   const keys = {}, hint = document.getElementById('hint'), dev = document.getElementById('dev'), flash = document.getElementById('flash');
   const SPEEDS = [0.1, 0.25, 0.5, 1];
