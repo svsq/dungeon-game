@@ -136,7 +136,7 @@
   const FLOOR_MOD = { from: 3, chance: 0.5 };
   const FLOOR_MODS = {
     flood: { name: TXT('FLOOR_MODS.flood'), w: 1, water: 3, not: ['lava'] },
-    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.4, dim: 0.3, lit: 0.35 },
+    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.4, dim: 0.3, lit: 0.35, flame: 0.3, glint: 0.35 },
     lair: { name: TXT('FLOOR_MODS.lair'), w: 1, elites: 2, chest: 3 },
     cursed: { name: TXT('FLOOR_MODS.cursed'), w: 1, gauntlet: 5, gold: 1.5, notLay: ['tomb', 'hall'] },
     quiet: { name: TXT('FLOOR_MODS.quiet'), w: 1, pop: 0.7, ambush: 2 },

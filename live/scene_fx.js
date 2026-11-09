@@ -56,7 +56,7 @@
       if (g > 0) { L.glow(pa[0], pa[1], 6 + 12 * g, [0.35, 0.85, 0.95], 0.9 * g, 3);
         for (let j = 0; j < 5; j++) { const an = t * 7 + j * 1.256, rr = 13 * (1 - 0.6 * g); L.solid(Math.round((pa[0] + Math.cos(an) * rr) / PIX) * PIX, Math.round((pa[1] + Math.sin(an) * rr * 0.6) / PIX) * PIX, PIX, PIX, [0.6, 0.95, 1], 0, 0, 0, 0.9 * g); } } }
     // crystals and cold-fire torches carry a halo of their own, so the arcane blue is a light source, not a tint
-    for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x));
+    for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x) * ((D.FLOOR_MODS[m.mod] || {}).flame || 1));
     // a cold fire carries a halo of its own over everything (a warm sconce's is painted on the wall behind it, `halo`)
     m.torches.forEach((tc, i) => { const col = torchCol(m, tc); if (hid(tc) || !vis(tc.x, tc.y) || !known(tc.x, tc.y)) return;
       if (col[2] > col[0]) L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2); });

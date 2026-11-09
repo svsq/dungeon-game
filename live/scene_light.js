@@ -18,6 +18,8 @@
     const lk = FM.light || 1, ltS = (x, y, r, col, amt, k) => lt(x, y, r, col, amt * (FM.lit || 1), k);
     lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
+    // (TASKS 1681: a foe in view keeps a pale glint of its own on a floor without light, else one beyond the lamp's reach is lost)
+    if (FM.glint) for (const e of R.en) if (e.deadT < 0 && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 36, 64, [0.78, 0.84, 1], FM.glint);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
     for (const [id, [hd, hn]] of Object.entries(RIM.priests)) { lt(hd[0] + cx, hd[1] + cy, 120, [1, 0.5, 0.16], 0.55 + 0.1 * Math.sin(t * 9 + +id)); lt(hn[0] + cx, hn[1] + cy, 70, [1, 0.45, 0.12], 0.6); }
     for (const [id, [p0, p1]] of Object.entries(RIM.kindled)) lt((p0[0] + p1[0]) / 2 + cx, (p0[1] + p1[1]) / 2 + cy, 90, [1, 0.5, 0.15], 0.5 + 0.1 * Math.sin(t * 13 + +id));

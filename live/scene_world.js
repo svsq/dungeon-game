@@ -395,8 +395,10 @@
       if (p.kind === 'gold' || p.kind === 'goldpile') emitted((a) => drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4, u: { alpha: a, tint: GOLD_TINT } })); }]); }
     // lean: the flame's tip shifted sideways (px), its base stays on the wick
     // fires [x, y, w, hh, col, seed, lean]: emissive, they replace what is behind them and the light map leaves them unlit
+    // (TASKS 1681: on a floor without light every fixed flame burns at `flame` of its strength, not as bright as in a lit hall)
+    const FM = D.FLOOR_MODS[m.mod] || {};
     const flames = (fs) => { const xf = ([x, y, w, hh, , , lean = 0]) => [w, 0, 0, -lean, hh, 0, x - w / 2 + lean, y - hh, 1];
-      G.blend('emit'); for (const f of fs) G.draw(L.P.flame, { u_t: t, u_seed: f[5], u_amt: 1, u_col: f[4] }, xf(f)); G.blend(); };
+      G.blend('emit'); for (const f of fs) G.draw(L.P.flame, { u_t: t, u_seed: f[5], u_amt: FM.flame || 1, u_col: f[4] }, xf(f)); G.blend(); };
     const flameB = (...f) => flames([f]);
     // a sconce's fire warms the stone round it: painted onto the wall before the flame, so the flame's core stays clean
     const halo = (x, y, col, i) => { if (col[0] >= col[2]) L.glow(x, y - 16, 52, col, 0.2 * flick(i), 3.0); };
