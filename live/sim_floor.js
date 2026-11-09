@@ -232,7 +232,7 @@
   function stepPyres(S, R) { const h = R.hero, t = S.t, P = ENEMIES.fire_priest.pyre;
     for (const p of R.pyres) { const u = t - p.t0; if (u < P.warn) continue;
       if (!p.lit) { p.lit = 1; ev(S, { k: 'pillar', x: p.x, y: p.y, r: P.r, id: p.id }); R.trauma = Math.min(1, R.trauma + 0.15); }
-      if (!p.hit && h.deadT < 0 && Math.hypot(h.x - p.x, (h.y - p.y) / P.ry) < P.r) { p.hit = 1; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 10, 'fire', TXT('sim_floor.stepPyres', { who: p.who }), R.en.find((o) => o.id === p.src)); } }
+      if (!p.hit && h.deadT < 0 && Math.hypot(h.x - p.x, (h.y - p.y) / P.ry) < P.r) { p.hit = 1; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 10, 'fire', p.who + ' pillar', R.en.find((o) => o.id === p.src)); } }
     R.pyres = R.pyres.filter((p) => t - p.t0 < P.warn + P.burst); }
   // a fire priest's cast: a ring under the hero, or (kin) fire on the weapons of the allies nearest it
   function pyre(S, R, e, E) { e.kinS = 0; const h = R.hero, p = { id: R.nextId++, src: e.id, who: who(e), x: h.x, y: h.y, t0: S.t, dmg: e.dmg * E.pyre.dmg * eliteK(e, 'bolt') };
@@ -247,9 +247,11 @@
   function golemCrust(S, R, e, E, d) { const C = E.crust, t = S.t, n = crustOf(e, E);
     if (n >= C.n || t - (e.blowT ?? -9) < C.calm || d < C.far) { e.growT = t; return; }
     if (t - (e.growT ?? t) >= C.regrow) { e.crust = n + 1; e.growT = t; (e.plateG = e.plateG || {})[e.crust] = t; ev(S, { k: 'regrow', x: e.x, y: e.y - E.h * 0.55, id: e.id, n: e.crust }); } }
+  // a save or a journal from before TASKS 1145 still holds the Russian words: the oldSrc texts must stay as they are in every language
+  const srcIs = (src, code, old) => src.endsWith(' ' + code) || src.endsWith(' ' + old);
   function damageName(src) {
     const type = String(src || '').split(' ')[0], E = ENEMIES[type];
-    if (E) return E.name + (src.includes(TXT('sim_floor.damageName')) ? TXT('sim_floor.damageName.2') : '') + (src.endsWith(TXT('sim_floor.damageName.3')) ? TXT('sim_floor.damageName.4') : src.endsWith(TXT('sim_floor.damageName.5')) ? TXT('sim_floor.damageName.6') : src.endsWith(TXT('sim_floor.damageName.7')) ? TXT('sim_floor.damageName.8') : '');
+    if (E) return E.name + (src.includes(' elite') || src.includes(TXT('sim_floor.oldSrc.elite')) ? TXT('sim_floor.damageName.2') : '') + (srcIs(src, 'bolt', TXT('sim_floor.oldSrc.bolt')) ? TXT('sim_floor.damageName.4') : srcIs(src, 'blast', TXT('sim_floor.oldSrc.blast')) ? TXT('sim_floor.damageName.6') : srcIs(src, 'pillar', TXT('sim_floor.oldSrc.pillar')) ? TXT('sim_floor.damageName.8') : '');
     return ({ spike: TXT('sim_floor.damageName.spike'), lava: TXT('sim_floor.damageName.lava'), burn: TXT('sim_floor.damageName.burn'), poison: TXT('sim_floor.damageName.poison'), fire: TXT('sim_floor.damageName.fire'), vent: TXT('sim_floor.damageName.vent'), rock: TXT('sim_floor.damageName.rock'), surge: TXT('sim_floor.damageName.surge') })[src] || TXT('sim_floor.damageName.9');
   }
   // the end-of-run reward: gold brought back and a win. Thoroughness is paid on the floor itself, 10 shards for each of its kills,
