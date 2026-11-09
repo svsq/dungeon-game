@@ -279,7 +279,7 @@
     c.loot = [];
     if (!c.ambushRolled) {
       c.ambushRolled = 1;
-      if (role && (role.type === 'treasure' || role.type === 'secret') && rnd(R) < 0.05 * ((D.FLOOR_MODS[R.map.mod] || {}).ambush || 1)) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
+      if (role && (role.type === 'treasure' || role.type === 'secret') && fstat(R).kills < fstat(R).foes && rnd(R) < 0.05 * ((D.FLOOR_MODS[R.map.mod] || {}).ambush || 1)) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
     }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
     if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
