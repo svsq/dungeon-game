@@ -132,6 +132,7 @@
         if (knock('d' + i, d, d.n, 'wax')) { d.outUntil = S.t + 3; ev(S, { k: 'snuff', x: d.x, y: d.y }); } }
       else if (/^shroom_[ab]$/.test(d.n)) knock('d' + i, d, d.n, 'fungus');
       else if (d.wall && d.n === 'shop_sign') knock('d' + i, d, d.n, 'wood', { x: d.x, y: d.y + 30 });
+      else if (d.n === 'wreck_cv') { if (!d.broken && knock('d' + i, d, d.n)) hitWreck(S, R, d); }
       else if (d.solid && !d.wall) knock('d' + i, d, d.n);
       else if (d.wall && d.n === 'banner' && d.secret === undefined && !hidden(m, d)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
     if (bonesOnly) return;
@@ -141,6 +142,13 @@
     m.torches.forEach((t2, i) => { if (hidden(m, t2)) return; if (t2.kind !== 'wall') knock('t' + i, t2, 'brazier', D.PROP_MAT[t2.kind] || D.PROP_MAT.brazier);
       else knock('t' + i, t2, 'torch_sconce', 'metal', t2.side ? t2 : { x: t2.x, y: t2.y + 30 }); });
   }
+  // a wreck gives way to its third blow (TASKS 1361): what was left aboard, or who was
+  function hitWreck(S, R, d) { const m = R.map, W0 = D.WRECK; d.hits = (d.hits || 0) + 1; if (d.hits < W0.hp) return;
+    d.broken = 1; d.brokeT = S.t; d.solid = 0; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); m.block = m.block.filter((b) => b !== k); ev(S, { k: 'break', x: d.x, y: d.y, kind: 'crate' }); R.trauma = Math.min(1, R.trauma + 0.3);
+    if (rnd(R) < W0.loot) { drop(R, d.x, d.y + 10, { kind: 'item', item: rollItem(R, dep(R), W0.q) }); drop(R, d.x, d.y + 10, { kind: 'gold', n: ri(R, 8, 16) + dep(R) * 2 }); return; }
+    const E = ENEMIES.ghost, f = dep(R), n = ri(R, W0.ghosts[0], W0.ghosts[1]), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), room = DG.roomAt(m, d.x, d.y);
+    for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), x = d.x + Math.cos(a) * 56, y = d.y + 10 + Math.sin(a) * 40; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
+    R.msg = { s: TXT('sim_world.wreck.msg'), t: S.t, d: 2 }; }
   function hitChests(S, R, x, y, rad, ax, arc) {
     for (const c of R.chests) { if (c.open || c.sealed) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 16) continue; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, c.x, c.y)) continue; openChest(S, R, c); } }
@@ -315,5 +323,5 @@
   Object.assign(SIMX, {
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
     hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
-    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, mimicLoot });
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, mimicLoot, hitWreck });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -58,6 +58,8 @@
       ['mimic_shut', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.chests.push({ x: h.x + 90, y: h.y - 20, tier: 2, open: 0, mimic: 1 }); })],
       // broken pots, vases, crates and barrels: in the air, and lying a while later (TASKS 1352)
       ...[['debris_air', 0.15], ['debris_rest', 5]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); ['pot', 'vase_a', 'vase_b', 'crate', 'barrel'].forEach((kind, i) => { const p = { x: h.x + (i - 2) * 66, y: h.y - 46 + (i % 2) * 22, kind, hp: 0, brokeT: S.t - a }; R.pots.push(p); S.ev.push({ k: 'break', x: p.x, y: p.y, kind, t: p.brokeT }); }); })]),
+      // a smashed wreck's planks on the shore (TASKS 1361)
+      ['wreck_broken', play((S) => { for (let sd = 1; sd < 200; sd++) { const R0 = SIM.newRun(S, 'cave', 1361 + sd), d = R0.map.decor.find((o) => o.n === 'wreck_cv'); if (!d) continue; S.run = R0; const h = R0.hero; h.x = d.x + 90; h.y = d.y + 40; d.broken = 1; d.brokeT = S.t - 5; d.solid = 0; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; break; } })],
       ['prompt_exit', play((S) => { const R = S.run, h = R.hero; R.map.exit = { x: h.x, y: h.y + 40 }; })],
       ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],

@@ -273,5 +273,7 @@
   // the blast, time to step or dash away; r: the blast's reach; hp: share of max health, never the killing blow
   const CHEST_TRAP = { from: 2, p: 0.1, max: 2, fuse: 0.55, r: 96, hp: 0.2 };
   const MIMIC = { from: 3, p: 0.08 };
-  Object.assign(D, { MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
+  const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4] };
+  Object.assign(D, { WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);
