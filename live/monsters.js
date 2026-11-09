@@ -141,7 +141,7 @@
         if (glowPass) { const k = on ? (grew !== undefined ? 1 - SS(0, 0.35, P.GT - grew) : 0) : (lost !== undefined ? SS(0, 0.15, P.GT - lost) : 1);
           if (k > 0.01) piece('plate' + i, hipS, () => L.sprite(o.n + 'E__corelit' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * k })))); return; }
         // (grown in from the plate's edge to its middle over 8–10 frames, then a click, TASKS 1641: a 13–25 frame alpha fade)
-        if (on) { const a = grew !== undefined ? P.GT - grew : 9, k = SS(0, 0.16, a), cool = SS(0.16, 0.35, a), click = a >= 0.16 && a < 0.2 ? 1 : 0, rv = [C[0] / RG.w, C[1] / RG.h, k];
+        if (on) { const a = grew !== undefined ? P.GT - grew : 9, k = SS(0, 0.16, a), cool = SS(0.16, 0.35, a), click = a >= 0.16 && a < 0.2 ? 1 : 0, rv = [C[0] / RG.w, C[1] / RG.h, Math.max(k, 1e-3)];
           piece('plate' + i, hipS, () => { L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al, reveal: rv })));
             // (a new plate wells up red-hot and cools to stone, TASKS 490: brightened it was a pale pink blob)
             if (cool < 1) L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * (click ? 1 : 0.9 * (1 - cool)) * SS(0, 0.04, a), reveal: rv, grade: click ? [1.6, 2.4, 0, 1] : [1.3, 1.9, 0, 1], tint: [1, click ? 0.75 : 0.4, click ? 0.3 : 0.1, 1] })));
