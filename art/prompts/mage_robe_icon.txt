@@ -1,0 +1,3 @@
+Use case: one inventory item icon for the same dungeon RPG, replacing the mage robe icon. Image 1 is the style reference only. Image 2 is the game's item icon sheet: match its icons exactly in style, size (about 16x16 art pixels), outline, palette and shading. Image 3 is the current robe icon: keep its shape and size.
+Subject: one icon: the mage's cobalt-blue wool robe (main tone #3f6aa8, light #5b86c8, shade #2a4a86, never grey or violet) with the hood DOWN folded on the shoulders, a light blue hood lining, a thin yellow-gold trim on the sleeves and a bold light arcane-blue stole (#64bdea) running down the front to the hem, a brown leather belt.
+Constraints: one icon centred with a wide empty margin, transparent background, no frame, no glow, no text.

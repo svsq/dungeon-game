@@ -3,20 +3,21 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    ABILITIES, BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
+    BAL, BASES, CONSUMABLES, D, DG, DROP_REST, ENEMIES, LOOT, POT, REWARD, STAGE, TILE, angDiff, behindProp, cell, checkFull,
     dep, dif, doorLock, drop, enterFloor, ev, fstat, gearName, gift, giveShards, hand, heroHit, heroSt, hidden, isCons, losClear, pick,
-    potion, propBoxes, ri, rnd, rollItem, secretMask } = SIMX;
+    potion, propBoxes, ri, rnd, rollItem, secretMask, under } = SIMX;
   // ---------------- actions ----------------
   function usePotion(S, R, b) {
     const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? TXT('sim_world.usePotion.s') : TXT('sim_world.usePotion.s.2') }); return; }
     const st = heroSt(S), it = h.bag[i];
+    if (b === 'mp_potion' && D.clsOf(h).res === 'rage') { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.usePotion.rage') }); return; }
     const brew = 1 + gift(h, 'thrift') / 100;
     if (b === 'hp_potion') h.hp = Math.min(st.maxHp, h.hp + st.maxHp * CONSUMABLES.hp_potion.heal * brew); else h.mp = Math.min(st.maxMp, h.mp + st.maxMp * CONSUMABLES.mp_potion.mana * brew);
     if (--it.n <= 0) h.bag[i] = null; ev(S, { k: 'drink', x: h.x, y: h.y, b });
   }
   // gear for an empty slot goes straight onto the hero instead of into the bag
   function wearIfFree(S, R, it) {
-    const h = R.hero, b = BASES[it.b]; if (isCons(it) || !b || !b.slot || h.eq[b.slot] || h.lvl < D.reqLvl(it)) return false;
+    const h = R.hero, b = BASES[it.b]; if (isCons(it) || !b || !b.slot || h.eq[b.slot] || h.lvl < D.reqLvl(it) || !D.wears(D.clsOf(h).id, it.b)) return false;
     h.eq[b.slot] = it; ev(S, { k: 'equip', x: h.x, y: h.y, slot: b.slot, on: gearName(it) }); return true;
   }
   const READ_T = 1.6, bossFight = (R) => !!(R.map.bossType && R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle'));
@@ -39,14 +40,22 @@
     if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
     // gear above the hero's level stays in the bag (TASKS 1028)
     if (h.lvl < D.reqLvl(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.3', { p1: D.reqLvl(it) }) }); return; }
+    // another class's gear stays in the bag (TASKS 1102): sold, stashed or reforged, never worn
+    if (!D.wears(D.clsOf(h).id, it.b)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.cls', { p1: D.clsNames(it.b) }) }); return; }
     const slot = BASES[it.b].slot, old = h.eq[slot]; h.eq[slot] = it; h.bag[idx] = old || null; ev(S, { k: 'equip', x: h.x, y: h.y, slot, on: gearName(it), off: gearName(old) });
     const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp);
   }
+  // a hero's single shot (the staff's bolt, a bow's arrow; TASKS 1110, 1120): from the weapon's tip down the aim, it strikes the one
+  // it touches (sim_enemies: single)
+  // (W: the weapon's base, its own arrow, TASKS 1163)
+  function heroShot(R, h, a, dmg, crit, kind = 'bolt', W = {}) { const B = D.SHOTS[kind], [hx0, hy0] = hand(h), hx = hx0 + Math.cos(a) * B.tip, hy = hy0 + Math.sin(a) * B.tip, v = B.spd * (W.shotV || 1);
+    const p = { id: R.nextId++, k: B.k, single: 1, x: hx, y: hy, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: R.t, life: B.life * (W.shotL || 1), own: 'hero', r: B.r, kb: B.kb * (W.shotKb || 1), crit: crit ? 1 : 0, dmg, gz: 20, pierce: W.pierce || 0 };
+    R.proj.push(p); return p; }
   function castAbility(S, R, id, inp) {
-    const h = R.hero, A = ABILITIES.find((a) => a.id === id), rank = h.ab[id] || 0;
+    const h = R.hero, A = D.clsOf(h).abs.find((a) => a.id === id), rank = h.ab[id] || 0;
     if (!rank) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s', { unlock: A.unlock }) }); return; }
     if (h.cd[id] > S.t) return;
-    if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.castAbility.s.2') }); return; }
+    if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.clsOf(h).res === 'rage' ? TXT('sim_world.castAbility.s.3') : TXT('sim_world.castAbility.s.2') }); return; }
     const AR = D.abRank(id, rank); h.mp -= A.mp; h.cd[id] = S.t + A.cd * AR.cd; h.castT = S.t; h.castK = id;
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
@@ -54,15 +63,47 @@
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
+    // the ice wave (TASKS 1110): everyone in the cone before the mage, in his sight, is hurt and chilled (sim_enemies: slowK)
+    if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell);
+      for (const e of R.en) { if (e.deadT >= 0 || under(e)) continue; const dx = e.x - h.x, dy = (e.y - h.y) * 1.3, d = Math.hypot(dx, dy);
+        if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
+        e.chillT = S.t + F.t; e.slowK = F.slow; heroHit(S, R, e, dmg, false, h.x, h.y, 0.5, 'frost'); }
+      tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
+    // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
+    // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)
+    if (id === 'charge') { h.charge = 1; h.chargeK = D.CHARGE.k * AR.k; h.dashT = S.t + D.CHARGE.prep; h.dashX = Math.cos(h.aim); h.dashY = Math.sin(h.aim); ev(S, { k: 'charge', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
+    if (id === 'cry') { const C = D.CRY; h.cryJolt = S.t + 0.15; h.cryT = S.t + AR.t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < C.r + ENEMIES[e.type].r) e.weakT = S.t + AR.t;
+      ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
+    // the archer's (TASKS 1120, 1161): a fan of arrows closing on the cursor; a trap at the cursor (stepTraps springs it); a leap back
+    // as a dash with a shot down the aim; each arrow, trap and leap shot may crit
+    const shot = () => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c]; };
+    const [ox, oy] = hand(h), far = Math.hypot((h.mx ?? ox + Math.cos(h.aim) * 200) - ox, (h.my ?? oy + Math.sin(h.aim) * 200) - oy);
+    if (id === 'volley') { const V = D.VOLLEY, arc = Math.max(V.min, Math.min(V.arc, 2 * Math.atan2(V.w / 2, far) * 180 / Math.PI));
+      for (let i = 0; i < V.n; i++) { const [d, c] = shot(); heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * AR.k), c, 'arrow', BASES[st.wtype]); }
+      ev(S, { k: 'volley', x: h.x, y: h.y, a: h.aim }); }
+    if (id === 'trap') { const T = D.TRAP, own = (R.htraps = (R.htraps || []).filter((q) => !q.done)); if (own.length >= T.max) own.shift();
+      const gx = h.mx ?? h.x, gy = (h.my ?? h.y) + 30, n = Math.min(T.far, Math.hypot(gx - h.x, gy - h.y)), ux = (gx - h.x) / (Math.hypot(gx - h.x, gy - h.y) || 1), uy = (gy - h.y) / (Math.hypot(gx - h.x, gy - h.y) || 1);
+      let tx = h.x, ty = h.y + 4; for (let d = n; d > 0; d -= 8) { const x = h.x + ux * d, y = h.y + uy * d; if (cell(R.map, Math.floor(x / TILE), Math.floor(y / TILE)) === 1 && losClear(R.map, h.x, h.y, x, y)) { tx = x; ty = y; break; } }
+      const [d, c] = shot(); own.push({ id: R.nextId++, x: tx, y: ty, fx: h.x, fy: h.y + 4, t0: S.t, dmg: Math.round(d * T.k * AR.k), crit: c }); ev(S, { k: 'trapset', x: tx, y: ty }); }
+    if (id === 'leap') { h.dashT = S.t; h.leapV = [S.t, D.LEAP.spd]; h.dashX = -Math.cos(h.aim); h.dashY = -Math.sin(h.aim); const [d, c] = shot(); heroShot(R, h, h.aim, Math.round(d * D.LEAP.k * AR.k), c, 'arrow', BASES[st.wtype]);
+      ev(S, { k: 'hleap', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY }); }
     if (id === 'shield') { h.shield = D.shieldHp(st.int, rank, dep(R)); h.shieldUntil = S.t + D.SHIELD_T; h.shieldT = S.t; ev(S, { k: 'shield', x: h.x, y: h.y }); }
   }
+  // the archer's traps (TASKS 1120, 1161): armed after TRAP.arm s, the first monster on one is struck and held, its blow put off as
+  // the charge's stun (sim_enemies: rootT → slowK 0), a boss briefly; gone after TRAP.life s
+  function stepTraps(S, R) { const T = D.TRAP, t = S.t;
+    for (const q of R.htraps) { if (q.done) continue; if (t - q.t0 > T.life) { q.done = 1; continue; } if (t - q.t0 < T.arm) continue;
+      const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - q.x, (o.y - q.y) * 1.3) < T.r + ENEMIES[o.type].r * 0.6); if (!e) continue;
+      const hold = D.BOSSES[e.type] ? T.boss : T.root; q.done = 1; e.rootT = t + hold; e.slowK = 0; e.cdT = Math.max(e.cdT || 0, t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
+      heroHit(S, R, e, q.dmg, !!q.crit, q.x, q.y, 0); ev(S, { k: 'trapsnap', x: q.x, y: q.y, id: e.id }); }
+    R.htraps = R.htraps.filter((q) => !q.done); }
   function breakPots(S, R, x, y, rad, ax, arc) {
     for (const p of R.pots) { if (p.hp <= 0) continue; const dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 10) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, p.x, p.y)) continue;
       p.hp = 0; p.brokeT = S.t; ev(S, { k: 'break', x: p.x, y: p.y, kind: p.kind });
       if (p.kind === 'gold' || p.kind === 'goldpile') { for (let k = 0; k < (p.rich ? 6 : p.kind === 'goldpile' ? 2 : 3); k++) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 8) + dep(R) * 2 }); }
-      else if (p.kind.startsWith('vase')) { drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 9) + dep(R) * 2 }); if (rnd(R) < POT.vase) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
-      else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + dep(R) }); else if (rnd(R) < POT.pot) drop(R, p.x, p.y, { kind: 'item', item: potion(rnd(R) < 0.7 ? 'hp_potion' : 'mp_potion') }); }
+      else if (p.kind.startsWith('vase')) { drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 4, 9) + dep(R) * 2 }); if (rnd(R) < POT.vase) SIMX.dropPotion(R, p.x, p.y, 0.7); }
+      else if (rnd(R) < 0.6) drop(R, p.x, p.y, { kind: 'gold', n: ri(R, 2, 5) + dep(R) }); else if (rnd(R) < POT.pot) SIMX.dropPotion(R, p.x, p.y, 0.7); }
   }
   // big props don't break: each blow rocks, rings or chips them (scene.js), with a pause per prop so one swing is one knock
   // the townsfolk and hens in the way of a blow (TASKS 1033): it harms none of them, but each answers it: a townsman flinches and
@@ -248,12 +289,12 @@
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)
     if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], { min: Y.forge.min }));
     else for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q));
-    if (Y.stash) for (const [b, n] of Object.entries(Y.stash)) out.push(potion(b, n));
+    if (Y.stash) for (const [b, n] of Object.entries(Y.stash)) if (!SIMX.useless(R, b)) out.push(potion(b, n));
     if (rnd(R) < POT.chest) out.push(potion('hp_potion')); if (rnd(R) < (R.viaTown ? POT.scrollTown : POT.scroll)) out.push(potion('scroll'));
     for (const it of out) it.id = R.nextId++; return out; }
 
   Object.assign(SIMX, {
-    usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
+    usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
     hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
     leverNear, pullLever, secretUnder, openChest, chestLoot });
 })(typeof window !== 'undefined' ? window : globalThis);

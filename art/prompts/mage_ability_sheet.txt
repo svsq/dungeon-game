@@ -1,0 +1,3 @@
+Use case: one more square ability icon for the HUD skill bar of the same dungeon RPG. Image 1 is the style reference only. Image 2 is the game's ability icon sheet (a whirlwind sword strike, a fireball, a crystal shield): match those icons exactly in size, square format, framing, outline, palette and shading, so the new icon sits beside them on the bar.
+Subject: one single square icon: an ice wave — a fan of jagged pale-blue ice shards bursting outward from the lower left toward the upper right, frost crystals and a cold white crest along the front of the wave, on a dark cold-blue background filling the square.
+Constraints: exactly 1 square icon centred in the image with wide empty space round it, no frame round it, no text.

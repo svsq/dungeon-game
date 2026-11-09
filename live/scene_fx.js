@@ -158,6 +158,13 @@
         L.solid(x - r * 0.35, y - r * 0.45, PIX * 2, PIX, [0.95, 1, 1], 0, 0, 0, 0.9);
         for (let j = 0; j < 5; j++) { const q = ((age * 2.2 + j / 5) % 1), d = r + 26 * q; L.solid(Math.round((x - ca * d + (rnd(p.id, j) - 0.5) * 8) / PIX) * PIX, Math.round((y - sa * d + 14 * q * q) / PIX) * PIX, PIX, PIX, [0.55, 0.9, 1], 0, 0, 0, 0.8 * (1 - q)); }
         continue; }
+      // the mage's staff bolt (TASKS 1110): a cold violet star with a short tail of motes, small beside the fireball
+      // (it leaves the drawn crystal: over its first 0.1 s it slides from the staff's tip onto the sim's line, TASKS 1115 critic r2)
+      if (p.k === 'bolt') { const age = GT - p.t0, ca = Math.cos(a), sa = Math.sin(a), T0 = SC.heroTip, q0 = T0 && GT - T0.t < 0.05 ? SS(0, 0.1, age) : 1;
+        const x = T0 && q0 < 1 ? T0.x + (sx(p.x) - T0.x) * q0 : sx(p.x), y = T0 && q0 < 1 ? T0.y + (sy(p.y) - T0.y) * q0 : sy(p.y);
+        L.glow(x, y, 34, [0.45, 0.5, 1], 0.8, 2.2); L.glow(x, y, 12, [0.9, 0.9, 1], 1, 3.2); L.star(x, y, 14 + 3 * Math.sin(age * 40 + p.id), [0.92, 0.9, 1], 1);
+        for (let j = 0; j < 7; j++) { const q = ((age * 5 + j / 7) % 1), d = 8 + 40 * q; L.star(x - ca * d + (rnd(p.id, j) - 0.5) * 8, y - sa * d + (rnd(p.id, j + 5) - 0.5) * 8, 5 + 3 * (1 - q), [0.62, 0.62, 1], 0.95 * (1 - q)); }
+        continue; }
       // an imp's spark (TASKS 407): a small white-hot ember that crackles, shedding sparks that fall behind it
       if (p.k === 'spark') { const age = GT - p.t0, ca = Math.cos(a), sa = Math.sin(a); L.glow(x, y, 16, [1, 0.5, 0.12], 0.6, 2.2); L.star(x, y, 7 + 2 * Math.sin(age * 50 + p.id), [1, 0.9, 0.6], 1);
         for (let j = 0; j < 6; j++) { const q = ((age * 4 + j / 6) % 1), d = 6 + 34 * q; L.star(x - ca * d + (rnd(p.id, j) - 0.5) * 8, y - sa * d + 18 * q * q, 3 + 2 * (1 - q), [1, 0.6, 0.2], 0.9 * (1 - q)); }
@@ -178,6 +185,22 @@
     // a frost elite's chill on the hero (TASKS 477): pale frost at his feet and flakes about him while he is slowed
     { const h = R.hero, F = D.ELITE_MODS.find((m) => m.id === 'frost'); if (h && h.chillT > ST.t && h.deadT < 0) { const x = sx(h.x), y = sy(h.y), k = Math.min(1, (h.chillT - ST.t) / F.t);
       L.ring(x, y, 24, 11, F.col, 0.5 * k, 0.25); for (let j = 0; j < 6; j++) { const an = j * 1.05 + t * 0.7; L.star(x + Math.cos(an) * 20, y - 30 - 26 * Math.sin(an * 0.5 + t), 4, [0.85, 0.95, 1], 0.6 * k); } } }
+    // monsters the war cry shook (TASKS 1130): a dull red mark over the head while they hit softer
+    for (const e of R.en) { if (!(e.weakT > ST.t) || e.deadT >= 0 || D.under(e) || !vis(e.x, e.y) || !known(e.x, e.y)) continue; const E = D.ENEMIES[e.type];
+      L.glow(sx(e.x), sy(e.y) - E.h - 6, 14, [1, 0.25, 0.1], 0.6 + 0.2 * Math.sin(t * 4 + e.id), 2.4); L.ring(sx(e.x), sy(e.y), E.r + 8, (E.r + 8) * 0.45, [1, 0.3, 0.12], 0.45, 0.2); }
+    // the archer's traps (TASKS 1120): iron jaws open on the floor, a faint glint once armed
+    // (set at the cursor, TASKS 1161: thrown there in an arc from his hand, the jaws open as they land)
+    for (const q of R.htraps || []) { if (q.done || !vis(q.x, q.y) || !known(q.x, q.y)) continue; const x = sx(q.x), y = sy(q.y), armed = ST.t - q.t0 >= D.TRAP.arm, age = ST.t - q.t0;
+      if (q.fx !== undefined && age < D.TRAP.toss) { const f = age / D.TRAP.toss, gx = sx(q.fx + (q.x - q.fx) * f), gy = sy(q.fy + (q.y - q.fy) * f), lift = Math.sin(Math.PI * f) * (18 + 0.12 * Math.hypot(q.x - q.fx, q.y - q.fy)) + 30 * (1 - f) * (1 - f);
+        L.shadow(gx, gy + 2, 8, 4, 0.3 * f); L.solid(Math.round(gx - 5), Math.round(gy - lift - 3), 10, 5, [0.5, 0.48, 0.44], f * 6.283, 5, 2.5, 1); continue; }
+      L.shadow(x, y + 2, 16, 7, 0.35); L.ring(x, y, 14, 6, [0.42, 0.4, 0.38], 0.95, 0.35);
+      for (let j = 0; j < 8; j++) { const an = j / 8 * 6.283; L.solid(Math.round(x + Math.cos(an) * 11), Math.round(y + Math.sin(an) * 5 - 2), 2, 3, [0.7, 0.68, 0.62], 0, 1, 1.5, 0.95); }
+      L.solid(x - 3, y - 1, 6, 3, [0.3, 0.2, 0.12], 0, 3, 1.5, 1); if (armed) L.star(x + 6, y - 3, 4, [1, 0.95, 0.8], 0.35 + 0.25 * Math.sin(t * 3 + q.id)); }
+    // monsters chilled by the ice wave (TASKS 1110): frost at the feet and flakes about them while they are slowed
+    for (const e of R.en) { if (!(e.chillT > ST.t) || e.deadT >= 0 || D.under(e) || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
+      const E = D.ENEMIES[e.type], x = sx(e.x), y = sy(e.y), k = Math.min(1, (e.chillT - ST.t) / D.FROST.t);
+      L.ring(x, y, E.r + 10, (E.r + 10) * 0.45, [0.6, 0.88, 1], 0.55 * k, 0.25);
+      for (let j = 0; j < 5; j++) { const an = j * 1.26 + t * 0.6 + e.id; L.star(x + Math.cos(an) * (E.r + 4), y - E.h * 0.4 - E.h * 0.3 * Math.sin(an * 0.5 + t), 4, [0.85, 0.95, 1], 0.6 * k); } }
     // the forge lord is charred dark, or his red skin vanished into his own red-lit arena; his heat shows as a breathing glow in the
     // chest and embers off the body (TASKS 232)
     for (const e of R.en) { if (e.type !== 'boss_forge' || e.deadT >= 0 || !vis(e.x, e.y) || !known(e.x, e.y)) continue;
@@ -273,7 +296,7 @@
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       // the crescent is a vertical C on the chest, ±ARC_HALF about the aim, drawn in the blade's turning direction over the strike so
       // it stands whole on the damage frame (the concept's slash); after the hit it fades and its tail runs after the head
-      if (e.k === 'swing' && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, RG = RIGS.hero, s = HERO_H / RG.h;
+      if (e.k === 'swing' && !e.shot && a >= SWING.pull && a < SWING.end) { const f = e.f < 0 ? -1 : 1, RG = RIGS.hero, s = HERO_H / RG.h;
         const shx = ex + f * (RG.shR[0] - RG.gap) * s, shy = ey + (RG.shR[1] - RG.footL[1]) * s, tx = ex + Math.cos(e.a) * st.reach * 0.8, ty = ey + Math.sin(e.a) * st.reach * 0.8 - 34;
         const sw = swingPose(a, f > 0 ? Math.atan2(ty - shy, tx - shx) : Math.PI - Math.atan2(ty - shy, tx - shx), st.arc * Math.PI / 180, -0.95);
         const cx = 2 * Math.round(ex / 2), cy = 2 * Math.round((ey - 0.5 * HERO_H) / 2), g = Math.atan2(ty - cy, tx - cx), Rr = 2 * Math.round(0.62 * HERO_H / 0.8 / 2);
@@ -298,6 +321,8 @@
       // the imp (TASKS 407): sparks off its fingers as it throws; the salamander's jaws (408) glint as they snap; lava thrown up as it
       // goes under or comes out
       if (e.k === 'flick' && a < 0.2) { const k = 1 - a / 0.2; L.glow(ex, ey, 14, [1, 0.6, 0.2], 0.9 * k, 2.4); for (let j = 0; j < 5; j++) { const an = e.a + (rnd(e.t, j) - 0.5) * 1.6, d = 6 + 40 * a; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d + 60 * a * a, 4 * k + 2, [1, 0.75, 0.35], k); } }
+      // a wind-up broken off by a shot (TASKS 1155): a white burst over the head, a few sparks thrown up
+      if (e.k === 'hush' && a < 0.3) { const q = a / 0.3; L.star(ex, ey, 18 * (1 - q) + 5, [0.95, 0.97, 1], 0.9 * (1 - q)); for (let j = 0; j < 5; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.2, d = 8 + 26 * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d, 4, [0.9, 0.95, 1], 0.8 * (1 - q)); } }
       if (e.k === 'snap' && a < 0.15) { const k = 1 - a / 0.15; L.star(ex, ey - 6, 14 * k + 4, [1, 0.95, 0.8], 0.8 * k); }
       if ((e.k === 'submerge' || e.k === 'emerge' || e.k === 'flee') && e.k !== 'flee' && a < 0.7) { const q = a / 0.7; L.glow(ex, ey, 30 + 20 * q, [1, 0.5, 0.15], 0.8 * (1 - q), 2);
         for (let j = 0; j < 10; j++) { const an = rnd(e.t, j) * TAU, v = 50 + 90 * rnd(e.t, j + 3), life = 0.35 + 0.3 * rnd(e.t, j + 7); if (a > life) continue; const k = 1 - a / life;
@@ -336,6 +361,22 @@
           spell('fireball', x, y, r * 1.5, r * 1.5, { u_center: [x, y], u_origin: [gx, gy], u_dir: [Math.cos(an), Math.sin(an)], u_radius: r, u_age: a, u_amt: 0.6 * (1 - a / 0.65), u_seed: j + e.t, u_mode: 1, u_lift: lift });
         }
       }
+      // the ice wave (TASKS 1110): shards burst out through the cone and fall, a pale breath fans after them
+      // (shown 0.1 s late, from the crystal: the staff is up by then, TASKS 1115 critic r2)
+      if (e.k === 'frost' && a >= 0.1 && a < 0.8) { const a0 = a, T0 = SC.heroTip; { const a = a0 - 0.1, ex = T0 && GT - T0.t < 0.05 ? T0.x : sx(e.x), ey = T0 && GT - T0.t < 0.05 ? T0.y + 18 : sy(e.y); const half = e.arc / 2 * Math.PI / 180, R0 = e.r, out = SS(0, 0.18, a), fade = 1 - SS(0.3, 0.7, a);
+        for (let j = 0; j < 9; j++) { const an = e.a + (j / 8 * 2 - 1) * half, d = R0 * out; L.glow(ex + Math.cos(an) * d * 0.55, ey - 16 + Math.sin(an) * d * 0.55 / 1.3, 34, [0.5, 0.82, 1], 0.2 * fade * out * out, 2.2); }
+        for (let j = 0; j < 40; j++) { const an = e.a + (rnd(e.t, j) * 2 - 1) * half, d = Math.max(40, R0 * (0.2 + 0.8 * rnd(e.t, j + 30)) * out), x = ex + Math.cos(an) * d, y = ey - 20 + Math.sin(an) * d / 1.3 + 50 * a * a;
+          L.star(x, y, 8 + 7 * rnd(e.t, j + 60), [0.85, 0.96, 1], fade); } } }
+      // the warrior's charge (TASKS 1130): a hot streak along the rush, a burst where it strikes; the war cry: a red ring rolling out
+      if (e.k === 'charge' && a >= 0.06 && a < 0.3) { const q = (a - 0.06) / 0.24; for (let j = 1; j < 6; j++) L.glow(sx(h.x) - e.dx * j * 22, sy(h.y) - 30 - e.dy * j * 18, 18, [1, 0.55, 0.2], 0.35 * (1 - q) * (1 - j / 7), 2.4); }
+      if (e.k === 'volley' && a < 0.1) for (let j = -2; j <= 2; j++) L.solid(ex + Math.cos(e.a) * 30, ey - 30 + Math.sin(e.a) * 24, 32, 2, [0.98, 0.9, 0.68], e.a + j * 0.18, 0, 1, 0.6 * (1 - a / 0.1));
+      if (e.k === 'shield_break' && a < 0.3) for (let j = 0; j < 8; j++) { const q = a / 0.3, an = j / 8 * TAU; L.star(ex + Math.cos(an) * (24 + 34 * q), ey - 32 + Math.sin(an) * (28 + 34 * q), 6, [0.65, 0.85, 1], 1 - q); }
+      if (e.k === 'chargehit' && a < 0.4) { const q = a / 0.4; L.glow(ex, ey - 30, 44, [1, 0.6, 0.25], 0.45 * (1 - Math.min(1, a / 0.2)), 2.4); L.ring(ex, ey, 18 + 50 * q, 9 + 20 * q, [1, 0.75, 0.4], 0.9 * (1 - q), 0.2);
+        for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28; L.star(ex + Math.cos(an) * 30 * q, ey - 30 + Math.sin(an) * 22 * q, 6, [1, 0.85, 0.5], 1 - q); } }
+      if (e.k === 'cry' && a > 0.14 && a < 0.74) { const q = SS(0.14, 0.64, a); L.glow(ex, ey - 40, 60, [1, 0.35, 0.12], 0.3 * (1 - q), 1.2); }
+      // a trap snapping shut (TASKS 1120): a burst of grit and a flash of iron
+      if (e.k === 'trapsnap' && a < 0.35) { const q = a / 0.35; L.ring(ex, ey, 10 + 20 * q, 5 + 9 * q, [0.85, 0.82, 0.75], 0.8 * (1 - q), 0.2);
+        for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28, d = 6 + 22 * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.5 - 6 * q, 4, [1, 0.92, 0.75], 0.7 * (1 - q)); } }
       if (e.k === 'cast' && a < 0.25) L.glow(ex, ey, 30, [1, 0.6, 0.2], 0.4 * (1 - a / 0.25), 3);
       if (e.k === 'eshoot' && a < 0.3) L.glow(ex, ey, 26, [0.4, 1, 0.4], 1 - a / 0.3, 3);
       if (e.k === 'slam' && a < 4.6) L.cracks(ex, ey, e.big ? 130 : 70, a, e.id || 1, 1);
@@ -381,7 +422,9 @@
       // the jet bursts into a spray that falls
       if (e.k === 'orb' && a < 0.3) { const q = a / 0.3; L.glow(ex, ey, 22, [0.35, 0.85, 0.95], 0.9 * (1 - q), 3); L.ring(ex, ey, 6 + 16 * q, 4 + 10 * q, [0.7, 0.95, 1], 0.8 * (1 - q), 0.15); }
       if (e.k === 'soak' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey + 38, 12 + 30 * q, 5 + 12 * q, [0.6, 0.9, 1], 0.7 * (1 - q), 0.12); }
-      if (e.k === 'pop' && e.c === 'arrow') { /* splinters: below, not lit up */ }
+      if (e.k === 'pop' && e.c === 'bolt') { if (a < 0.28) { const q = a / 0.28; L.glow(ex, ey, 24 * (1 + 0.5 * q), [0.5, 0.55, 1], 0.5 * (1 - q), 2.6); L.ring(ex, ey, 6 + 18 * q, 5 + 12 * q, [0.75, 0.75, 1], 0.7 * (1 - q), 0.18);
+        for (let j = 0; j < 5; j++) { const an = rnd(e.t, j) * 6.28, d = 4 + 22 * q; L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d * 0.8, 5, [0.8, 0.8, 1], 0.7 * (1 - q)); } } }
+      else if (e.k === 'pop' && e.c === 'arrow') { /* splinters: below, not lit up */ }
       else if (e.k === 'pop' && (e.c === 'jet' || e.c === 'orb' || e.c === 'wave') && a < 0.5) { const col = [0.62, 0.86, 0.94]; if (e.hero) L.ring(ex, ey + 30, 10 + 40 * a / 0.5, 6 + 16 * a / 0.5, col, 0.6 * (1 - a / 0.5), 0.15);
         for (let j = 0; j < (e.hero ? 12 : 7); j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 3, v = 60 + 90 * rnd(e.t, j + 4), u = Math.min(a, 0.45); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u - 30 * u + 420 * u * u, 3, 4, col, an, 1.5, 2, 1 - SS(0.3, 0.45, a)); } }
       else if (e.k === 'pop' && a < (e.hero ? 0.4 : 0.25)) { const q = a / (e.hero ? 0.4 : 0.25), col = e.c === 'hex' ? [0.45, 1, 0.4] : [1, 0.55, 0.18];
@@ -439,7 +482,7 @@
         L.puff(px, sy(z.y) - 150 + 150 * b, 5 + 4 * b, [0.62, 0.56, 0.5], 0.6 * q * (1 - b * b), j); } }
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       // an arrow breaks on the rock: splinters of its shaft and a puff of grit (TASKS 311)
-      if (e.k === 'pop' && e.c === 'arrow' && !e.hero && a < 0.4) { const u = Math.min(a, 0.3); L.puff(ex, ey + 4, 4 + 10 * a / 0.4, [0.35, 0.3, 0.27], 0.35 * (1 - a / 0.4), e.t * 10);
+      if (e.k === 'pop' && e.c === 'arrow' && !e.hero && !e.hit && a < 0.4) { const u = Math.min(a, 0.3); L.puff(ex, ey + 4, 4 + 10 * a / 0.4, [0.35, 0.3, 0.27], 0.35 * (1 - a / 0.4), e.t * 10);
         for (let j = 0; j < 4; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 50 + 70 * rnd(e.t, j + 4); L.solid(ex + Math.cos(an) * v * u, ey + Math.sin(an) * v * u + 300 * u * u, 4, 2, [0.55, 0.36, 0.2], an + 8 * u * (j - 1.5), 2, 1, 1 - SS(0.25, 0.4, a)); } }
       if (e.k === 'colstep' && a < 0.65) { const q = a / 0.65;
         for (let i = 0; i < 3; i++) L.puff(ex + (i - 1) * (6 + 12 * q), ey - 3 - 9 * q, 8 + 15 * q, [0.3, 0.28, 0.27], 0.32 * (1 - q), e.t * 10 + i);
@@ -485,7 +528,7 @@
         for (let j = 0; j < n; j++) { const an = j / n * 6.28 + rnd(e.t, j), u = Math.min(a, 0.38), px = ex + Math.cos(an) * (45 + 20 * rnd(e.t, j + 7)) * u, py = ey + Math.sin(an) * 28 * u - 70 * u + 185 * u * u, rot = an + u * 8, al = 1 - SS(0.45, 0.7, a);
           L.solid(px, py, 9, 4, [0.23, 0.2, 0.17], rot, 4, 2, al); L.solid(px, py - 1, 7, 2, [0.73, 0.69, 0.57], rot, 3, 1, al);
           for (const side of [-1, 1]) L.solid(px + side * Math.cos(rot) * 3, py + side * Math.sin(rot) * 3 - 1, 3, 3, [0.73, 0.69, 0.57], rot, 1.5, 1.5, al); } }
-      if (e.k === 'dash' && a < 0.45) for (let j = 0; j < 5; j++) { const q = a / 0.45, s = rnd(e.t, j); L.puff(ex - e.dx * (10 + 60 * q * s), ey - e.dy * (10 + 60 * q * s) - 4, 7 + 12 * q, [0.35, 0.3, 0.27], 0.45 * (1 - q), e.t + j); }
+      if ((e.k === 'dash' || e.k === 'charge') && a < 0.45) for (let j = 0; j < 5; j++) { const q = a / 0.45, s = rnd(e.t, j); L.puff(ex - e.dx * (10 + 60 * q * s), ey - e.dy * (10 + 60 * q * s) - 4, 7 + 12 * q, [0.35, 0.3, 0.27], 0.45 * (1 - q), e.t + j); }
       // a skeleton chips: bone splinters thrown up, they bounce once on the floor at its feet and fade
       if (e.k === 'hit' && a < 0.7 && !e.fire && BLOOD(e.type) === 'bone') { const fl = ey + D.ENEMIES[e.type].h * 0.5 + 6;
         for (let j = 0; j < (e.crit ? 9 : 6); j++) { const an = -Math.PI / 2 + (rnd(e.t, j + 20) - 0.5) * 2.6, v = 50 + 80 * rnd(e.t, j + 7), long = rnd(e.t, j + 3) < 0.4;
@@ -498,7 +541,7 @@
       // the rush kicks up grit off the floor behind it
       if (e.k === 'rush' && a < 0.6) for (let j = 0; j < 5; j++) { const q = a / 0.6, s2 = rnd(e.t, j); L.puff(ex - Math.cos(e.a) * (10 + 50 * q * s2) + (s2 - 0.5) * 20, ey - Math.sin(e.a) * (10 + 50 * q * s2) * 0.8 - 3, 6 + 10 * q, [0.35, 0.33, 0.3], 0.4 * (1 - q), e.t + j); }
       // an imp's take-off and landing (TASKS 407) puff ash off the floor; a golem's plate of crust growing back (409) sheds grit
-      if ((e.k === 'leap' || e.k === 'land') && a < 0.45) for (let j = 0; j < 4; j++) { const q = a / 0.45, an = (j / 4 + rnd(e.t, j) * 0.2) * TAU; L.puff(ex + Math.cos(an) * (6 + 18 * q), ey + Math.sin(an) * (3 + 8 * q) - 2, 5 + 7 * q, [0.34, 0.32, 0.3], 0.38 * (1 - q), e.t + j); }
+      if ((e.k === 'leap' || e.k === 'hleap' || e.k === 'land' || e.k === 'hland') && a < 0.45) for (let j = 0; j < 4; j++) { const q = a / 0.45, an = (j / 4 + rnd(e.t, j) * 0.2) * TAU; L.puff(ex + Math.cos(an) * (6 + 18 * q), ey + Math.sin(an) * (3 + 8 * q) - 2, 5 + 7 * q, [0.34, 0.32, 0.3], 0.38 * (1 - q), e.t + j); }
       if (e.k === 'regrow' && a < 0.5) for (let j = 0; j < 5; j++) { const q = a / 0.5, an = rnd(e.t, j) * TAU; L.solid(ex + Math.cos(an) * 26 * (1 - q), ey + Math.sin(an) * 30 * (1 - q), 3, 3, [0.3, 0.28, 0.28], 0, 1.5, 1.5, 0.9 * (1 - q)); }
       // red blood; a spider's ichor is a sick green
       if (e.k === 'hit' && a < 0.45 && !e.fire && (!BLOOD(e.type) || BLOOD(e.type) === 'ichor')) for (let j = 0; j < 5; j++) { const q = a / 0.45, an = rnd(e.t, j + 20) * 6.28, d = 6 + 30 * q;

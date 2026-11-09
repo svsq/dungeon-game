@@ -80,8 +80,10 @@
       // shifts his weight, now and then looks back over the yard, the spear upright in his hand
       // the look back is the head's alone (TASKS 1032): mirroring the whole guard swung his arm 39 px and the spear across
       const look = (1 - SS(0, 0.5, tw)) * SS(0.52, 0.57, u) * (1 - SS(0.65, 0.7, u));
+      // (and once a round lifts the spear and grounds it again, TASKS 1159 note: his arm stood stock still, a figure, not a man on watch)
       const hitch = bump01(u, 0.08, 0.4) * (1 - tw);
-      tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i)), talkR, tw * 0.5), L: lerp2(handAt('L', 1, 1.5 * Math.sin(GT * 1.1 + i)), P(0.1, -0.5), hitch) };
+      const ground = (1 - tw) * bump01(u, 0.12, 0.34);
+      tg = { R: lerp2(P(0.24, -0.42 - 0.01 * Math.sin(GT * 0.7 + i) - 0.14 * ground), talkR, tw * 0.5), L: lerp2(handAt('L', 1, 1.5 * Math.sin(GT * 1.1 + i)), P(0.1, -0.5), hitch) };
       hold = { R: TOOL('town_tool_spear', 0.58, { abs: -Math.PI / 2 - 0.05 }) };
       lean = 0.025 * Math.sin(2 * Math.PI * u) * face; headR = -0.03 + 0.05 * Math.sin(4 * Math.PI * u) * (1 - look) - 0.06 * look; headF = Math.cos(Math.PI * look);
     } else if (f.role === 'porter') {

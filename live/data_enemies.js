@@ -185,7 +185,7 @@
     : k === 'wind' ? Math.max(ELITE.wind, Math.min(1, ELITE.minWind / ENEMIES[e.type].wind)) : ELITE[k];
   // a deep-water monster under the surface (TASKS 310): out of sight and out of reach
   const under = (e) => (!!ENEMIES[e.type].deep && (e.st === 'deep' || e.st === 'stir' || e.st === 'dive' || (e.type === 'boss_serpent' && e.st === 'idle'))) || (!!ENEMIES[e.type].lake && (e.st === 'idle' || e.st === 'emerge'));
-  const windOf = (e, w) => w * eliteK(e, 'wind');
+  const windOf = (e, w) => w * eliteK(e, 'wind') * (e.cold || 1);
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
     { id: 'fiery', name: TXT('ELITE_MODS.fiery.name'), col: [1.0, 0.42, 0.08], burn: 3 },

@@ -24,6 +24,8 @@
    "bg_*",
    "*_tex",
    "hero__*",
+   "mage__*",
+   "archer__*",
    "hero",
    "skeleton__*",
    "goblin__*",

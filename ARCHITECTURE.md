@@ -140,7 +140,7 @@
 | `data_world.js` | `BIOMES`, `ARCH`, `HAZ`, `BRINK`, `ROOM_SHAPES/PLANS`, `PROP_W/H/MAT`, `CAVE_PACKS`, `MAGMA_*` | core, enemies |
 | `data_runs.js` | `RUNS`, `stageOf`, бесконечный спуск, `layOf`, `rosterAt`, `wayFloor`, `placeName`, `floorName` | world, enemies |
 | `data_items.js` | `SLOTS`, `BASES`, `CONSUMABLES`, `RARITY`, `AFFIXES`, `ITEM_BAL`, `GEN_VERSION`, `reqLvl`, цены | core, balance |
-| `data_hero.js` | `ABILITIES`, `abRank`, `STATS`, `TIPS`, `xpNeed`, `META`, `metaLine`, `GIFTS` | core, items |
+| `data_hero.js` | `CLASSES`, `clsOf`, `ABILITIES`, `abRank`, `STATS`, `TIPS`, `xpNeed`, `META`, `metaLine`, `GIFTS` | core, items |
 | `data_town.js` | `FOLK`, `KEEPER`, `QUESTS`, `QUEST_*`, `CRAFT`, `STASH`, `SHOP`, `folkInit`, `storyChain` | runs, items |
 | `data_ui.js` | `UI`, `TEST_RUNS`, `startPath` | все |
 | `data.js` | в Node подтягивает части; в браузере проверяет, что весь прежний набор имён `DATA` на месте | — |

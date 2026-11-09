@@ -48,7 +48,7 @@
 
   // ---- one recipe per event kind ----
   const SFX = {
-    swing: (o) => noise(o, { d: 0.16, v: 0.35, f0: 2400, f1: 500, q: 1.4 }),
+    swing: (o, e) => { if (!e.shot) noise(o, { d: 0.16, v: 0.35, f0: 2400, f1: 500, q: 1.4 }); },
     whirl: (o) => { noise(o, { a: 0.05, d: 0.38, v: 0.4, f0: 600, f1: 2600, q: 2 }); noise(o, { t: now() + 0.12, d: 0.25, v: 0.25, f0: 2200, f1: 700, q: 2 }); },
     eswing: (o) => noise(o, { d: 0.14, v: 0.22, f0: 1500, f1: 400, q: 1.2 }),
     dash: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.3, type: 'lowpass', f0: 2500, f1: 400 }),
@@ -98,6 +98,22 @@
       else noise(o, { d: 0.18, v: 0.2, type: 'lowpass', f0: 900, f1: 200 }); },
     hurt: (o) => { tone(o, { f0: 120, f1: 50, d: 0.16, v: 0.55 }); tone(o, { type: 'sawtooth', f0: 210, f1: 150, a: 0.01, d: 0.14, v: 0.06 }); noise(o, { d: 0.08, v: 0.2, f0: 700, q: 2 }); },
     die: (o) => { tone(o, { f0: 90, f1: 28, a: 0.02, d: 1.4, v: 0.6 }); tone(o, { type: 'triangle', f0: 440, f1: 110, a: 0.3, d: 1.4, v: 0.12 }); noise(o, { a: 0.2, d: 1.2, v: 0.15, type: 'lowpass', f0: 800, f1: 100 }); },
+    // the staff's bolt (TASKS 1110): a short glassy zip; the ice wave: a cold hiss under three high crystal notes falling
+    bolt: (o) => { noise(o, { d: 0.12, v: 0.18, type: 'bandpass', f0: 3200, f1: 1400, q: 4 }); tone(o, { type: 'triangle', f0: 1400, f1: 700, d: 0.12, v: 0.05 }); },
+    frost: (o) => { noise(o, { a: 0.02, d: 0.55, v: 0.35, type: 'highpass', f0: 5000, f1: 1800 }); [2637, 2093, 1568].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.04 + i * 0.06, d: 0.4, v: 0.04 })); },
+    // the warrior (TASKS 1130): the charge's rush of air, its heavy blow, the war cry — a low brass shout under a rising roar
+    charge: (o) => noise(o, { a: 0.01, d: 0.25, v: 0.35, f0: 300, f1: 1400, q: 1.2 }),
+    chargehit: (o) => { noise(o, { d: 0.18, v: 0.45, type: 'lowpass', f0: 900, f1: 120 }); tone(o, { f0: 90, f1: 45, d: 0.25, v: 0.35 }); },
+    cry: (o) => { tone(o, { type: 'sawtooth', f0: 110, f1: 165, a: 0.05, d: 0.6, v: 0.12 }); tone(o, { type: 'sawtooth', f0: 165, f1: 247, a: 0.08, d: 0.55, v: 0.06 }); noise(o, { a: 0.1, d: 0.5, v: 0.12, type: 'bandpass', f0: 400, f1: 900, q: 1 }); },
+    // the archer (TASKS 1120): a bowstring's twang; a volley's quick ripple of them; a trap set (a click); its jaws snapping; the leap's rush
+    hloose: (o) => { tone(o, { type: 'triangle', f0: 220, f1: 150, d: 0.12, v: 0.08 }); noise(o, { d: 0.06, v: 0.12, type: 'highpass', f0: 3000 }); },
+    volley: (o) => { [0, 0.03, 0.06, 0.09, 0.12].forEach((dt, i) => tone(o, { type: 'triangle', f0: 260 - i * 12, f1: 150, t: now() + dt, d: 0.1, v: 0.1 })); noise(o, { d: 0.2, v: 0.12, type: 'highpass', f0: 2600 }); },
+    hush: (o) => { tone(o, { type: 'square', f0: 700, f1: 320, t: now() + 0.03, d: 0.07, v: 0.1 }); },
+    trapset: (o) => { tone(o, { type: 'square', f0: 1400, d: 0.03, v: 0.03 }); tone(o, { type: 'square', f0: 900, t: now() + 0.05, d: 0.03, v: 0.03 }); },
+    trapsnap: (o) => { noise(o, { d: 0.08, v: 0.3, type: 'bandpass', f0: 2600, f1: 900, q: 2 }); tone(o, { type: 'square', f0: 500, f1: 180, d: 0.08, v: 0.06 }); },
+    hleap: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.25, f0: 500, f1: 2200, q: 1.5 }),
+    hland: (o) => noise(o, { d: 0.05, v: 0.14, type: 'lowpass', f0: 900, f1: 300 }),
+    shield_break: (o) => { tone(o, { type: 'triangle', f0: 1800, f1: 500, d: 0.14, v: 0.14 }); noise(o, { d: 0.12, v: 0.16, f0: 4000, f1: 1500, q: 1 }); },
     cast: (o) => { noise(o, { a: 0.02, d: 0.3, v: 0.3, type: 'bandpass', f0: 500, f1: 1800, q: 1 }); tone(o, { type: 'sawtooth', f0: 160, f1: 320, d: 0.2, v: 0.05 }); },
     // a fuse (an explosive corpse, a smouldering skeleton, TASKS 411): a hiss rising to the burst, sputtering ever faster
     fuse: (o, e) => { noise(o, { a: 0.05, d: e.d, v: 0.18, type: 'highpass', f0: 1400, f1: 4200 });
@@ -128,7 +144,7 @@
     orb: (o) => { tone(o, { f0: 220, f1: 520, a: 0.02, d: 0.16, v: 0.1 }); noise(o, { a: 0.03, d: 0.25, v: 0.16, f0: 600, f1: 1300, q: 2.5 }); for (let i = 0; i < 4; i++) tone(o, { t: now() + 0.05 + i * rr(0.03, 0.06), f0: rr(500, 900), f1: rr(900, 1400), a: 0.003, d: 0.04, v: 0.05 }); },
     soak: (o) => { SFX.splash(o); noise(o, { t: now() + 0.03, a: 0.01, d: 0.4, v: 0.18, type: 'highpass', f0: 3000, f1: 1600 }); },
     eshoot: (o) => tone(o, { type: 'triangle', f0: 500, f1: 900, a: 0.02, d: 0.2, v: 0.12 }),
-    pop: (o, e) => { if (e.c === 'arrow') { if (!e.hero) { noise(o, { d: 0.05, v: 0.25, type: 'lowpass', f0: 1400, f1: 400 }); tone(o, { f0: 240, f1: 160, d: 0.05, v: 0.08 }); } return; }
+    pop: (o, e) => { if (e.c === 'bolt') { tone(o, { type: 'triangle', f0: 900, f1: 500, d: 0.08, v: e.hit ? 0.06 : 0.03 }); return; } if (e.c === 'arrow') { if (!e.hero && !e.hit) { noise(o, { d: 0.05, v: 0.25, type: 'lowpass', f0: 1400, f1: 400 }); tone(o, { f0: 240, f1: 160, d: 0.05, v: 0.08 }); } return; }
       if (e.c === 'orb') { SFX.splash(o); noise(o, { d: 0.2, v: 0.2, f0: 1200, f1: 500, q: 0.8 }); return; }
       if (e.c === 'jet') { SFX.splash(o); if (e.hero) noise(o, { d: 0.2, v: 0.25, f0: 1800, f1: 600, q: 0.7 }); return; } if (e.c === 'hex') tone(o, { type: 'square', f0: 900, f1: 300, d: 0.12, v: e.hero ? 0.12 : 0.05 }); noise(o, { d: e.hero ? 0.3 : 0.15, v: e.hero ? 0.35 : 0.15, type: 'lowpass', f0: 1800, f1: 200 }); },
     spike: (o) => { noise(o, { d: 0.12, v: 0.3, type: 'highpass', f0: 3500 }); tone(o, { type: 'triangle', f0: 1650, d: 0.3, v: 0.08 }); tone(o, { type: 'triangle', f0: 2470, d: 0.22, v: 0.05 }); },
