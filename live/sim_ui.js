@@ -167,6 +167,7 @@
     if (!sh || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }
     if (click && b && b.id.startsWith('gift:')) takeGift(S, R, sh, b.i, x, y);
     if (click && b && b.id === 'donate') donate(S, R, x, y);
+    if (click && b && b.id === 'reroll') SIMX.rerollAltar(S, R, sh, x, y);
     return;
   };
   SCREEN.shop = (S, inp, keys, x, y, click) => {

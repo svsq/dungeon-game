@@ -358,6 +358,9 @@
     S.screen = 'play'; S.saveN++;
   }
   // a spent altar only answers while a donation can go through (TASKS 242)
+  function rerollAltar(S, R, sh, x, y) { if (sh.used || !sh.gifts) return; const n = sh.rolls || 0, cost = D.rerollCost(n, dep(R));
+    if (S.meta.shards < cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
+    S.meta.shards -= cost; sh.rolls = n + 1; sh.gifts = rollGifts(R); ev(S, { k: 'ui', x, y }); S.saveN++; }
   const canDonate = (R) => (R.donations || 0) < 10 && R.hero.gold >= 1000;
   function donate(S, R, x, y) {
     if ((R.donations || 0) >= 10) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s') }); return; }
@@ -406,6 +409,6 @@
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
-    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
+    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

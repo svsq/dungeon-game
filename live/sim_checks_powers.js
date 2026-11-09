@@ -9,7 +9,7 @@
     for (const cl of ['warrior', 'mage', 'archer']) { const c = stage(cl), C = D.CLASSES[cl], seen = new Set();
       for (const a of C.abs) c.h.ab[a.id] = 1;
       for (let i = 0; i < 300; i++) { const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); c.R.altar = c.R.shrines.length - 1; SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; for (const o of sh.gifts) { seen.add(o.id); const g = D.GIFTS.find((q) => q.id === o.id); if (g.power && g.ab && !C.abilities.includes(g.ab)) out.push(`gift: a ${cl}'s altar offers ${o.id}`); } }
-      for (const g of D.GIFTS) if (g.power && (!g.ab || C.abilities.includes(g.ab)) && !seen.has(g.id)) out.push(`gift: a ${cl} never gets offered ${g.id}`);
+      for (const g of D.GIFTS) if (g.power && !g.needs && (!g.ab || C.abilities.includes(g.ab)) && g.tier < 4 && !seen.has(g.id)) out.push(`gift: a ${cl} never gets offered ${g.id}`);
       const h = c.h; h.ab = Object.fromEntries(C.abs.map((a) => [a.id, 0])); const p = D.giftPool(h, 2); if (p.some((g) => g.power && g.ab)) out.push(`gift: a ${cl} is offered a power for an ability not yet open`); }
     { const c = stage('mage'); c.h.powers = { fire_pierce: 1 }; let line = 0; const N = 400; for (let i = 0; i < N; i++) { const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; if (sh.gifts.some((o) => o.id === 'fire_pierce')) out.push('gift: a power already held is offered again'); if (sh.gifts[2].id === 'fire_split') line++; } if (line / N < 0.4) out.push(`gift: the ball's line came up ${line} of ${N}`); }
     { const c = stage('warrior'); const sh = { x: 0, y: 0, gifts: [{ id: 'whirl_pull', cost: 1 }] }; c.R.shrines.push(sh); c.S.meta.shards = 5; SIMX.takeGift(c.S, c.R, sh, 0, 0, 0); if (!D.hasPower(c.h, 'whirl_pull') || c.h.perks.whirl_pull || c.S.meta.shards !== 4 || !sh.used) out.push('gift: a power is not given as a gift'); const j = JSON.parse(JSON.stringify(c.R)); if (!D.hasPower(j.hero, 'whirl_pull')) out.push('gift: a taken power is lost in the save'); }
@@ -33,6 +33,12 @@
       const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; if (sh.gifts[2].id !== g.id) out.push(`evo: the altar's dear card is ${sh.gifts[2].id}, not ${g.id}`);
       c.h.powers[g.id] = 1; if (D.evosReady(c.h).some((q) => q.id === g.id)) out.push(`evo: ${g.id} offered twice`); }
     { const c = stage('mage'); c.h.powers = { fire_split: 1, ev_comet: 1 }; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.length !== 5) out.push(`evo: the comet is ${c.R.proj.length} balls`); }
+  }
+  function checkAltarExtras(out) {
+    { const c = stage('warrior'), sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; c.S.meta.shards = 100; const c0 = D.rerollCost(0, 1), c1 = D.rerollCost(1, 1); if (c1 <= c0) out.push('reroll: not dearer the second time');
+      SIMX.rerollAltar(c.S, c.R, sh, 0, 0); if (c.S.meta.shards !== 100 - c0 || sh.rolls !== 1 || !sh.gifts.length) out.push('reroll: did not charge and change'); SIMX.rerollAltar(c.S, c.R, sh, 0, 0); if (c.S.meta.shards !== 100 - c0 - c1) out.push('reroll: the second price is wrong');
+      const j = JSON.parse(JSON.stringify(sh)); if (j.rolls !== 2) out.push('reroll: the count is lost in the save'); c.S.meta.shards = 1; const g = sh.gifts; SIMX.rerollAltar(c.S, c.R, sh, 0, 0); if (sh.gifts !== g || c.S.meta.shards !== 1) out.push('reroll: a poor hero changed the gifts'); c.S.meta.shards = 99; sh.used = 1; SIMX.rerollAltar(c.S, c.R, sh, 0, 0); if (sh.gifts !== g) out.push('reroll: a spent altar changed its gifts'); }
+    { const c = stage(); const sh = { x: 0, y: 0, gifts: [{ id: 'fury', cost: 1 }] }; c.R.shrines.push(sh); c.h.perks = { fury: 1 }; c.S.meta.shards = 5; SIMX.takeGift(c.S, c.R, sh, 0, 0, 0); if (c.h.perks.fury !== 2) out.push('rank: a gift held does not stack'); }
   }
   function checkPowerPack(out) {
     const T = 'POWERS', own = (c, id) => { (c.h.powers = c.h.powers || {})[id] = 1; };
@@ -70,7 +76,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

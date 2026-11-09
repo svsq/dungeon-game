@@ -330,6 +330,8 @@
     'POWERS.rl_quiver.name': 'Четвёртая стрела',
     'POWERS.rl_quiver.desc': 'Каждая четвёртая стрела зовёт ещё одну. Та сама ищет цель.',
     'hud.altar.relic': 'реликвия до конца забега',
+    'hud.altar.rank': 'ранг {p1} → {p2}',
+    'hud.altar.reroll': 'Сменить дары: {cost}',
     'POWERS.ev_storm.name': 'Огненный смерч',
     'POWERS.ev_storm.desc': 'Вихрь ещё и взрывается огнём.',
     'POWERS.ev_comet.name': 'Звездопад',

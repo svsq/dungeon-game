@@ -85,7 +85,7 @@
   // what the render may ask the sim (ARCHITECTURE.md §8): reads of the state, never a change to it (fstat fills a memo the step
   // has already filled; at replays the attract demo into its own cache). The render takes nothing else from SIM but constants
   root.SIM.Q = {
-    at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
+    depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
     overLava, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, stashOf, tradeDepth, typeMods };
