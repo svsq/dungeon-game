@@ -313,7 +313,7 @@
     }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
     if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
-    if (!c.boss) drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
+    const pay = c.boss ? c.pay || 0 : c.tier; if (pay) drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * pay) });
   }
   // a mimic gets up off its chest's place; the chest stays in the list, loot and all, until the mimic dies
   function wakeMimic(S, R, c) { const E = ENEMIES.mimic, f = dep(R), h = R.hero, hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), id = R.nextId++;
@@ -329,7 +329,7 @@
       if (Math.hypot(h.x - c.x, h.y - c.y) < T.r && h.hp > 1) { SIMX.hurtHero(S, R, Math.min(SIMX.heroSt(S).maxHp * T.hp, h.hp - 1), c.x, c.y - 10, 'spike'); if (S.t === h.hurtT) R.msg = { s: TXT('sim_world.chestTrap.msg'), t: S.t }; } } }
   // a boss's own chest holds what the boss used to drop (TASKS 1356): the same items in a better place, no new loot
   // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
-  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : [rollItem(R, dep(R), 2)]; for (const it of its) it.id = R.nextId++; return its; }
+  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : LOOT.mini.items.map((o) => rollItem(R, dep(R), o.q, undefined, o)); for (const it of its) it.id = R.nextId++; return its; }
   function chestLoot(R, c) { if (c.boss) return [];
     const LT = c.mimic ? { q: LOOT.chest[3].q, n: LOOT.chest[c.tier].n } : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)

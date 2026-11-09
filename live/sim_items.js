@@ -84,6 +84,8 @@
     elite: { p: 0.75, q: 2, min: 1, leg: 0.35, lo: 1, hi: 2, lag: 2 },
     brute: { q: 2.8, min: 2, extra: 0.3, leg: 0.5, lo: 1, hi: 2, lag: 2 },
     boss: [{ q: 3, min: 4, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 3, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 2, lo: 0, hi: 3, lag: 1 }],
+    // a mid-chapter boss's chest (TASKS 1672): richer than the top plain tier, short of the finale's three, its legendary rarer; `gold` times a plain chest's pay
+    mini: { items: [{ q: 3, min: 3, leg: 0.5, lo: 0, hi: 3, lag: 1 }, { q: 2.4, min: 2, max: 3, lo: 0, hi: 3, lag: 1 }], gold: 4 },
     // chest p (TASKS 1671): a plain or hoard chest may hold only its gold, so with the monsters' drops a floor fills the 24 cells at most about once;
     // the top tier always pays, as a secret room or a key was its price
     chest: [null, { q: 0.6, n: 1, p: 0.2, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 1.3, n: 1, p: 0.4, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 3, n: 1, lo: 0, hi: 3, lag: 1 }],
