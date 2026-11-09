@@ -556,7 +556,7 @@
   // the imp (TASKS 407): a leap crouches, springs up with the legs tucked and the arms flung up and back, leaning into the flight,
   // and lands in a crouch; the spark is thrown overhand with the near arm, the claw rakes with it on a short swing
   // (back: the throwing hand winds back behind the head before it comes over, TASKS 489: 0.6 short of the release it never passed it)
-  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.2, recover: 0.24, over: 0.6, top: 0.02, bendUp: 0.4, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.2, recover: 0.24, over: 0.6, top: 0.02, bendUp: -0.7, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   const IMP_CLAW = { raise: -1.5, chopT: 0.12, recover: 0.2, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   MON.impArc = (e, E, GT) => { if (e.st !== 'leap') return 0; const L0 = E.leap, fl = Math.max(0, Math.min(1, (GT - e.t0 - L0.crouch) / e.ld)), d = Math.hypot(e.ltx - e.lx, e.lty - e.ly);
     const q = fl * fl * (3 - 2 * fl); return 4 * (18 + L0.h * d) * q * (1 - q); };
