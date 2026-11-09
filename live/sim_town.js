@@ -34,9 +34,9 @@
     Object.defineProperty(T, 'railLen', { value: d, enumerable: false }); return d; };
   const railAt = (m, s) => { const T = m.town, c = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; let d = s; for (let i = 1; i < T.rails.length; i++) { const [ax, ay] = c(T.rails[i - 1]), [bx, by] = c(T.rails[i]), l = Math.hypot(bx - ax, by - ay); if (d <= l) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } return c(T.rails[T.rails.length - 1]); };
   const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
-  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, near = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44, rolling = t < (C.pushT || 0), block = near && !rolling;
+  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, sgn = C.st === 'down' ? 1 : -1, [nx, ny] = railAt(R.map, Math.max(0, Math.min(L, C.s + sgn * 4))), dl = Math.hypot(nx - cx, ny - cy) || 1, dx = (nx - cx) / dl, dy = (ny - cy) / dl, ahead = (h.x - cx) * dx + (h.y - cy) * dy, off = (h.y - cy) * dx - (h.x - cx) * dy, near = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && ahead >= 0 && ahead <= 48 && Math.abs(off) < 18, rolling = t < (C.pushT || 0), block = near && !rolling;
     // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard, and once it has made up its mind it rolls on
-    if (near && rolling) { const a = Math.atan2(h.y - cy, h.x - cx); SIMX.move(R.map, h, Math.cos(a) * 120 * DT, Math.sin(a) * 120 * DT, K.R); }
+    if (near && rolling) { const side = off >= 0 ? 1 : -1; SIMX.move(R.map, h, -dy * side * 120 * DT, dx * side * 120 * DT, K.R); }
     if (block && !C.held) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.cart') });
     C.held = block ? (C.held || 0) + DT : 0; if (C.held >= 3) { C.held = 0; C.pushT = t + 5; }
     const v = block ? 0 : CART_V * Math.min(1, 0.2 + Math.min(C.s, L - C.s) / 44);
@@ -89,6 +89,7 @@
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
     if (R.map.town) for (const p of R.map.town.yardSolid || []) out.push({ x: p.x, y: p.y, r: 18 });
+    if (R.map.town && R.cart && R.cart.st !== 'in') { const [x, y] = railAt(R.map, R.cart.s); out.push({ x, y, r: 16 }); }
     if (R.map.way) out.push({ x: R.map.way.x, y: R.map.way.y, r: 16 });
     for (const q of R.map.waterFeatures || []) if (q.kind === 'fountain') out.push({ x: q.x, y: q.y - 2, r: 34 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 });
