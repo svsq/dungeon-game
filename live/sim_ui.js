@@ -5,7 +5,7 @@
   const {
     BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
-    sortItems, throwAway, useItem } = SIMX;
+    sortItems, throwAway, useItem, isCons } = SIMX;
   // ---------------- run end / menus ----------------
   function endRun(S, how) {
     const R = S.run; if (!R) return;
@@ -212,12 +212,13 @@
     if (i === undefined ? bagAdd(R, it) : !h.bag[i]) { if (i !== undefined) { it.id = it.id || R.nextId++; h.bag[i] = it; } h.eq[slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot, off: gearName(it) }); } };
   // a press on a bag or worn piece picks it up; letting go over its own cell is the click (use / unequip), over another bag cell
   // moves it there (a swap with what lies there), off any cell drops nothing
+  const fitsSlot = (it, slot) => !!it && !isCons(it) && BASES[it.b].slot === slot;
   const dropInv = (S, R, h, b) => { const dr = S.drag, f = dr.from, eq = f.startsWith('eq:'), k = eq ? f.slice(3) : +f.split(':')[1]; S.drag = null;
-    const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length;
+    const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length, nope = (s) => ev(S, { k: 'nope', x: dr.x, y: dr.y, s });
     if (b && b.id === f) { if (eq) unequip(S, R, h, k); else useItem(S, R, k); }
     else if (bagTo && !eq) { [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
-    else if (bagTo && eq) unequip(S, R, h, k, b.i);
-    else if (b && b.id.startsWith('eq:') && !eq) useItem(S, R, k); };
+    else if (bagTo && eq) { const o = h.bag[b.i]; if (!o) unequip(S, R, h, k, b.i); else if (fitsSlot(o, k)) useItem(S, R, b.i); else nope(TXT('sim_ui.inv.swap', { p1: D.SLOT_NAME[k] })); }
+    else if (b && b.id.startsWith('eq:') && !eq) { const it = h.bag[k]; if (it && isCons(it)) nope(TXT('sim_ui.inv.cons')); else if (!fitsSlot(it, b.slot)) nope(TXT('sim_ui.inv.slot', { p1: D.SLOT_NAME[b.slot] })); else useItem(S, R, k); } };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
     const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }

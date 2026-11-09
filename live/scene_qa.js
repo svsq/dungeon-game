@@ -1383,11 +1383,26 @@
       h.bag[5] = Object.assign(SIM.rollItem(R, 2, 2, 'weapon'), { id: 1511, b: 'wand' }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['inv_req', play((S) => { const R = S.run, h = R.hero; h.lvl = 3; for (let i = 0; i < 6; i++) h.bag[4 + i] = Object.assign(SIM.rollItem(R, 4 + 2 * i, 2), { id: 1500 + i }); S.screen = 'inv'; S.hover = 'bag:9'; })]);
     // TASKS 1331: a piece lifted from the hero screen's bag over another cell, and a sort button under the pointer
-    states.push(['inv_drag', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 1210, y: 400 }; })]);
+    // TASKS 1684: the bag scattered over its cells, so a sort has something to show; the held piece over a cell it would swap into, over
+    // a slot it would be worn in, over a slot that refuses it; the refusals after the drop
+    const scatter = (S) => { worst(S); const R = S.run, h = R.hero; S.screen = 'inv';
+      [[2, 3, 1, 'armor'], [5, 9, 3, 'weapon'], [8, 6, 2, 'ring'], [11, 12, 4, 'boots'], [14, 2, 0, 'helm'], [17, 7, 3, 'amulet'], [20, 5, 2, 'weapon']].forEach(([i, lv, rar, sl]) => { h.bag[i] = Object.assign(SIM.rollItem(R, lv, rar, sl, { own: 1 }), { id: 1600 + i }); }); };
+    const invAt = (S, id, o = {}) => { const b = DATA.UI.inv(DATA.clsOf(S.run.hero).abs).r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 }, o); };
+    const hold = (S, from, over) => { const a = invAt(S, over); S.hover = over; S.drag = { from, x: a.px, y: a.py }; };
+    const drop = (S, from, over) => { S.drag = { from, x: 0, y: 0 }; SIM.step(S, invAt(S, over)); };
+    states.push(['inv_drag', play((S) => { scatter(S); hold(S, 'bag:5', 'bag:8'); })]);
+    states.push(['inv_drag_wear', play((S) => { scatter(S); hold(S, 'bag:5', 'eq:weapon'); })]);
+    states.push(['inv_drag_worn_swap', play((S) => { scatter(S); hold(S, 'eq:armor', 'bag:2'); })]);
+    states.push(['inv_drag_refused', play((S) => { scatter(S); hold(S, 'bag:0', 'eq:ring'); })]);
+    states.push(['inv_drop_potion', play((S) => { scatter(S); drop(S, 'bag:0', 'eq:ring'); })]);
+    states.push(['inv_drop_worn_refused', play((S) => { scatter(S); drop(S, 'eq:armor', 'bag:0'); })]);
     // TASKS 1349: every rank full at 15, the points past them shown as mastery
     states.push(['inv_mastery', play((S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; })]);
-    states.push(['inv_sort', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'sort:rar'; })]);
-    states.push(['town_stash_sort', stashS((S) => { S.hover = 'sortS:type'; })]);
+    states.push(['inv_sort', play((S) => { scatter(S); S.hover = 'sort:rar'; })]);
+    states.push(['inv_sort_after', play((S) => { scatter(S); const a = invAt(S, 'sort:rar'); SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sort:rar'; })]);
+    const stashMix = (S, R, h) => { const T = SIM.stashOf(S); T.items = [[3, 1, 'armor'], [9, 3, 'weapon'], null, [5, 2, 'ring'], [12, 4, 'boots'], null, [7, 3, 'amulet']].map((q, i) => q && Object.assign(SIM.rollItem(R, q[0], q[1], q[2], { own: 1 }), { id: 910 + i })); };
+    states.push(['town_stash_sort', stashS((S, R, h) => { stashMix(S, R, h); S.hover = 'sortS:rar'; })]);
+    states.push(['town_stash_sort_after', stashS((S, R, h) => { stashMix(S, R, h); const b = DATA.UI.stash().r.find((q) => q.id === 'sortS:rar'), a = { keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 }; SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sortS:rar'; })]);
     // TASKS 1348: a find well above the hero: the card names the level it waits for
     states.push(['inv_over_lvl', play((S) => { const R = S.run, h = R.hero; h.lvl = 5; h.bag[4] = Object.assign(SIM.rollItem(R, 18, 2, 'weapon', { own: 1 }), { id: 1520 }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);

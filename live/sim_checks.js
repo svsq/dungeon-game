@@ -2580,6 +2580,15 @@
       step(S, at('bag:2', { click: 1, press: 1 })); step(S, at('bag:2')); if (h.eq.weapon !== w || h.bag[2] !== old) out.push('bag: a click on the piece no longer wears it'); }
     { h.bag.fill(null); const e = h.eq.armor; step(S, at('eq:armor', { click: 1, press: 1 })); step(S, at('bag:7', { press: 1 })); step(S, at('bag:7'));
       if (h.eq.armor || h.bag[7] !== e) out.push('bag: a worn piece dragged to a cell does not come off into it'); }
+    { const nopes = () => S.ev.filter((e) => e.k === 'nope').length, drag = (from, to, ev0 = {}) => { step(S, at(from, { click: 1, press: 1 })); step(S, at(to, { press: 1 })); step(S, at(to)); };
+      h.bag.fill(null); h.eq.ring = null; const pot = potion('hp_potion', 3); pot.id = 6100; h.bag[1] = pot; let n0 = nopes(); drag('bag:1', 'eq:ring');
+      if (h.bag[1] !== pot || pot.n !== 3 || h.eq.ring || nopes() !== n0 + 1) out.push('bag: a potion dropped on a worn slot is drunk, worn or goes unrefused');
+      const bt = Object.assign(rollItem(R, 1, 0, 'boots'), { id: 6101 }); h.bag[2] = bt; n0 = nopes(); const wp = h.eq.weapon; drag('bag:2', 'eq:weapon');
+      if (h.bag[2] !== bt || h.eq.weapon !== wp || nopes() !== n0 + 1) out.push('bag: a piece dropped on another piece\'s slot is worn or goes unrefused');
+      const w2 = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 6102 }); h.bag.fill(null); h.bag[4] = w2; const w1 = h.eq.weapon; drag('eq:weapon', 'bag:4');
+      if (h.eq.weapon !== w2 || h.bag[4] !== w1) out.push('bag: a worn piece dropped on a bag piece of its slot does not swap');
+      h.bag.fill(null); const pot2 = potion('hp_potion', 2); pot2.id = 6103; h.bag[6] = pot2; n0 = nopes(); const w3 = h.eq.weapon; drag('eq:weapon', 'bag:6');
+      if (h.eq.weapon !== w3 || h.bag[6] !== pot2 || pot2.n !== 2 || nopes() !== n0 + 1) out.push('bag: a worn piece dropped on a cell holding another slot\'s piece is not refused whole'); }
     h.bag.fill(null); const mix = [rollItem(R, 2, 1), rollItem(R, 9, 3), rollItem(R, 5, 3), rollItem(R, 7, 0), potion('hp_potion', 3)]; mix.forEach((it, i) => { it.id = 7000 + i; h.bag[i * 2] = it; });
     step(S, at('sort:rar', { click: 1 })); step(S, at('sort:rar'));
     const rs = h.bag.filter(Boolean); if (rs.length !== 5 || h.bag.slice(5).some(Boolean) || rs.some((it, i) => i && (rs[i - 1].rar || 0) < (it.rar || 0))) out.push('bag: the rarity sort does not order the cells or pack them to the front');

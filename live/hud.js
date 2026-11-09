@@ -510,12 +510,12 @@
     for (const b of U.r) if (b.id.startsWith('eq:')) slot(S, b, held(b.id) ? null : h.eq[b.slot], b.slot);
     const he = U.r.find((q) => q.id === S.hover && q.slot && !h.eq[q.slot]);
     const pct = (v) => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%', num = (v) => Math.round(v * 10) / 10;
-    const derived = [[TXT('hud.inv.derived'), st.atk], [TXT('hud.inv.derived.2'), st.def], [TXT('hud.inv.derived.3'), st.maxHp], [TXT('hud.inv.derived.4'), st.maxMp], [TXT('hud.inv.derived.5'), Math.round(st.crit) + '%'], [TXT('hud.inv.derived.6'), num(st.dodge) + '%'], [TXT('hud.inv.derived.7'), pct(st.aspd)],
+    const derived = [[TXT('hud.inv.derived'), st.atk], [TXT('hud.inv.derived.2'), st.def], [TXT('hud.inv.derived.3'), st.maxHp], [TXT('hud.inv.derived.4'), st.maxMp], [TXT('hud.inv.derived.5'), Math.round(st.crit) + '%'], [TXT('hud.inv.derived.12'), '×' + String(Math.round(st.critK * 100) / 100).replace('.', ',')], [TXT('hud.inv.derived.6'), num(st.dodge) + '%'], [TXT('hud.inv.derived.7'), pct(st.aspd)],
       [TXT('hud.inv.derived.8'), pct(st.mspd)], [TXT('hud.inv.derived.9'), st.leech ? num(st.leech) + '%' : '—'], [TXT('hud.inv.derived.10'), st.regen ? '+' + num(st.regen) : '—'], [TXT('hud.inv.derived.11'), st.onhit ? '+' + num(st.onhit) : '—']];
-    const dy0 = P.y + 446; // the rows share the height ten of them had at 24 px, so an eleventh (dodge) does not run into the hint under the window
-    const rowH = Math.min(24, 240 / derived.length); L.rrect(P.x + 304, dy0 - 18, 286, derived.length * rowH + 18, 6, [0.07, 0.06, 0.07], [0.04, 0.035, 0.045], 0.8);
+    const dy0 = P.y + 430; // the rows share a fixed height, so a twelfth (crit damage) does not run into the hint under the window
+    const rowH = Math.min(24, 252 / derived.length); L.rrect(P.x + 304, dy0 - 18, 286, derived.length * rowH + 18, 6, [0.07, 0.06, 0.07], [0.04, 0.035, 0.045], 0.8);
     derived.forEach(([n, v], i) => { const y = dy0 + 6 + i * rowH; lab('dv_n' + i, n, P.x + 318, y, { size: 19, col: C.dim }); lab('dv_v' + i, v, P.x + 576, y, { size: 20, al: 1 }); });
-    L.uiBox('inv_der', P.x + 304, dy0 - 18, 286, derived.length * 24 + 18);
+    L.uiBox('inv_der', P.x + 304, dy0 - 18, 286, derived.length * rowH + 18);
     lab('inv_bag', TXT('hud.inv.10'), P.x + 640, P.y + 90, { size: 24, col: C.dim });
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
     sortBtns('inv_', U, S);
@@ -540,7 +540,8 @@
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 24; panel('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 34, { r: 5, rim: C.rimHi });
       lab('sle', s, he.x + he.w / 2, he.y + he.h + 24, { size: 20, al: 0.5 }); }
     // tooltip
-    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : h.eq[dr.from.slice(3)]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); return; }
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : h.eq[dr.from.slice(3)]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); dropChip(S, U); refusal(S, P.x + 1020, P.y + P.h - 62); return; }
+    refusal(S, P.x + 1020, P.y + P.h - 62);
     const hb = U.r.find((q) => q.id === S.hover); if (hb) { const it = hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('eq:') ? h.eq[hb.slot] : null; if (it) tooltip(S, it, hb, h, null, null, [10, P.y + 8, P.x + P.w - 8, P.y + P.h - 8]); }
   }
   // ---------------- the merchant's screen ----------------
@@ -572,16 +573,37 @@
   // an empty gear slot shows the outline of what goes in it, its name on hover
   const SLOT_SIL = { weapon: 'it_sword', offhand: 'it_shield', helm: 'it_helm_k', armor: 'it_armor_p', gloves: 'it_gloves', boots: 'it_boots', ring: 'it_ring', amulet: 'it_amulet' };
   // tag: the item's classes written in the cell's corner (the stash, kept for a hero of any class, TASKS 1102)
+  // what letting go of the held piece over this cell does: 1 swaps with what lies there (or moves in), 2 wears it, -1 is refused
+  function dropKind(S, b) {
+    const dr = S.drag, h = S.run && S.run.hero; if (!dr || !h || b.id === dr.from) return 0;
+    const f = dr.from, fb = f.startsWith('bag:') ? h.bag[+f.slice(4)] : f.startsWith('eq:') ? h.eq[f.slice(3)] : null, fits = (it, sl) => !!it && !SIM.Q.isCons(it) && D.BASES[it.b].slot === sl;
+    if (b.id.startsWith('eq:')) return f.startsWith('bag:') ? (fits(fb, b.slot) ? 2 : -1) : 0;
+    if (b.id.startsWith('stash:')) return 1;
+    if (!b.id.startsWith('bag:')) return 0;
+    if (!f.startsWith('eq:')) return 1;
+    const o = h.bag[b.i]; return !o || fits(o, f.slice(3)) ? 1 : -1;
+  }
+  // a small plate behind a corner mark, so the mark reads as a badge and not as writing on the item's picture
+  function chip(id, s, x, y, o) {
+    const sz = o.size || 16, w = lw(id, s, { size: sz }) + 10, cx = o.mid ? x - w / 2 : o.right ? x - w : x;
+    L.rrect(cx, y, w, sz + 6, 4, [0.1, 0.05, 0.05], [0.04, 0.02, 0.02], 0.9); lab(id, s, cx + w / 2, y + (sz + 6) / 2 + 1, { size: sz, al: 0.5, col: o.col });
+  }
+  // over the held piece's picture, on the cell it would swap into or be worn in
+  function dropChip(S, U) {
+    const b = S.drag && U.r.find((q) => q.id === S.hover); if (!b || dropKind(S, b) < 1) return;
+    const h = S.run.hero, it = b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') ? h.eq[b.slot] : b.id.startsWith('stash:') ? SIM.Q.stashOf(S).items[b.i] : null;
+    if (it || b.id.startsWith('eq:')) chip('slt_' + b.id, (b.id.startsWith('eq:') ? TXT('hud.inv.target.wear') : TXT('hud.inv.target.swap')), b.x + b.w / 2, b.y + b.h - 26, { size: 16, col: '#ffe9a8', mid: 1 });
+  }
   function slot(S, b, it, empty, tag) {
-    const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null;
-    panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: it && it.rar ? col : hv ? C.rimHi : [0.3, 0.25, 0.21], c0: hv ? [0.16, 0.12, 0.1] : [0.07, 0.06, 0.07], c1: [0.04, 0.035, 0.045] });
+    const hv = S.hover === b.id, col = it ? D.RARITY[it.rar].col : null, dk = hv ? dropKind(S, b) : 0;
+    panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: dk > 0 ? [1, 0.82, 0.35] : dk < 0 ? [0.9, 0.25, 0.2] : it && it.rar ? col : hv ? C.rimHi : [0.3, 0.25, 0.21], c0: dk > 0 ? [0.3, 0.22, 0.08] : dk < 0 ? [0.28, 0.08, 0.07] : hv ? [0.16, 0.12, 0.1] : [0.07, 0.06, 0.07], c1: [0.04, 0.035, 0.045] });
     if (it) { if (it.rar >= 2) L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, col, [0, 0, 0], 0.18); icon(SIM.Q.itemIcon(it), b.x + 8, b.y + 8, b.w - 16);
       if (it.n > 1) lab('sln_' + b.id, it.n, b.x + b.w - 8, b.y + b.h - 14, { size: 20, al: 1 });
       const hr = S.run && S.run.hero, cons = SIM.Q.isCons(it);
-      if (tag && !cons && D.BASES[it.b].cls) lab('slc_' + b.id, D.BASES[it.b].cls.map((c) => D.CLASSES[c].name[0]).join(''), b.x + 8, b.y + b.h - 14, { size: 16, col: C.dim });
-      if (hr && !cons && !D.wears(D.clsOf(hr).id, it.b)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slx_' + b.id, '×', b.x + b.w - 14, b.y + 18, { size: 22, al: 0.5, col: '#ff6a5a' }); }
-      else if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 8, b.y + 18, { size: 18, al: 1, col: '#ff6a5a' }); } }
-    else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
+      if (tag && !cons && D.BASES[it.b].cls) chip('slc_' + b.id, D.BASES[it.b].cls.map((c) => D.CLASSES[c].name[0]).join(''), b.x + 4, b.y + b.h - 26, { col: '#b8aa98' });
+      if (hr && !cons && !D.wears(D.clsOf(hr).id, it.b)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); chip('slx_' + b.id, '×', b.x + b.w - 4, b.y + 4, { right: 1, size: 18, col: '#ff6a5a' }); }
+      else if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); chip('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 4, b.y + 4, { right: 1, size: 18, col: '#ff6a5a' }); } }
+    if (!it && empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
   }
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
   // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
@@ -880,7 +902,7 @@
     sortBtns('st_', U, S);
     lab('st_help', TXT('hud.stash.6'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('st_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('st_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
-    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); refusal(S, W / 2, P.y + 456); return; }
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); dropChip(S, U); refusal(S, W / 2, P.y + 456); return; }
     const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
     if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? TXT('hud.stash.8') : TXT('hud.stash.9'), C.gold]);
     refusal(S, W / 2, P.y + 456);

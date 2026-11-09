@@ -24,7 +24,7 @@
     newsMemo = { src: D.CHANGES, rows }; return rows; };
   // the sort buttons over a grid: by type, rarity, level, right-aligned to `right`
   const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
-  const sortRow = (pre, right, y) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x: right - 150 * (3 - i) - 8 * (2 - i), y, w: 150, h: 40 }));
+  const sortRow = (pre, right, y, h = 40) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x: right - 150 * (3 - i) - 8 * (2 - i), y, w: 150, h }));
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save)
     menu: (hasRun, diff, arm, zoom) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
@@ -113,7 +113,7 @@
       for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 640 + (i % 8) * 92, y: P.y + 110 + Math.floor(i / 8) * 92, w: 82, h: 82 });
       STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: P.x + 40 + 196, y: P.y + 452 + i * 52, w: 40, h: 40 }));
       abs.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: P.x + 640 + i * 258, y: P.y + 470, w: 250, h: 150 }));
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, ...sortRow('sort', P.x + 640 + 8 * 92 - 10, P.y + 62));
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, ...sortRow('sort', P.x + 640 + 8 * 92 - 10, P.y + 70, 30));
       return { P, r };
     },
     // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the
