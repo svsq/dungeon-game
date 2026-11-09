@@ -551,8 +551,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     g.font = font; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
     cv.width = Math.max(1, w); cv.height = h; g.font = font; g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
     const stamp = (dx, dy, c) => { g.fillStyle = c; g.fillText(str, pad + dx * unit, base + dy * unit); };
-    stamp(0, 2, 'rgba(15,5,8,0.6)');
-    if (out) for (const [dx, dy] of AROUND) stamp(dx, dy, out);
+    // ink on parchment has no outline: a dark shadow two grid pixels under dark glyphs read as a second, blurred line
+    if (out) { stamp(0, 2, 'rgba(15,5,8,0.6)'); for (const [dx, dy] of AROUND) stamp(dx, dy, out); }
     stamp(0, 0, col);
     if (!r) r = LBL[slot] = { rec: G.canvasTex('lbl_' + slot, cv) };
     else { G.canvasUpdate(r.rec, cv); r.rec.w = w; r.rec.h = h; }

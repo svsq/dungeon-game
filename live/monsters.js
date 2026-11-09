@@ -71,7 +71,7 @@
     const vxn = sp > 1 ? vxE / sp : 1, vyn = sp > 1 ? vyE / sp : 0;
     for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = (Hd0[0] - S0[0]) * vyn - face * (Hd0[1] - S0[1]) * vxn, sg = Jt > 0 ? 1 : -1;
       const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + (o.breathK ? (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0) - 0.7) : breath) * 0.04 * (o.breathK || 1) * (side === 'L' ? 1 : -1);
-      // o.armLag: the forearm follows the upper arm a beat late, so the hand whips through instead of the arm swinging stiff (TASKS 1698)
+      // o.armLag: the forearm follows the upper arm a beat late, so the hand whips through instead of the arm swinging stiff (TASKS 1718)
       const lagged = o.armLag ? rs[0] + sg * (side === 'L' ? -1 : 1) * Math.cos(ph - o.armLag) * 0.4 * run * (o.swingK ?? 1) * 0.8 : base;
       let r = o.arm ? o.arm(side, base) : [base, lagged + rs[1] - rs[0] + (lagged - rs[0]) * -0.4];
       if (o.handTarget) {
@@ -497,7 +497,7 @@
     // o.bendHit: the elbow's bend on the blow; a blade drawn cocked over the shoulder reaches the aim on a whipped forearm, not an arm thrown up
     const ew = DATA.windOf(e, E.wind), u = Math.max(0, GT - e.t0), T = o.chopT, P = 1.3, bh = o.bendHit ?? 0.15, i0 = aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - bh;   // blade = its angle in the drawing
     const imp = o.raise + (((i0 - o.raise + Math.PI) % TAU + TAU) % TAU - Math.PI), RAISE = Math.min(o.raise, imp - (o.back ?? 0.6)), vEnd = P * (imp - RAISE) / T;
-    // o.late: the blow runs on into the strike's first frames, so the strike is the fastest part of the swing (TASKS 1696: a claw lifted
+    // o.late: the blow runs on into the strike's first frames, so the strike is the fastest part of the swing (TASKS 1716: a claw lifted
     // fast and struck slow, its peak on the wind's last frame)
     const late = o.late || 0;
     if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T + late;

@@ -266,7 +266,7 @@
       if (dead >= 0 || hit || !L0 || L0.k < 0.15) return null; const n = Math.hypot(L0.dx, L0.dy * 1.25) || 1, a = 0.4 * SS(0.15, 0.8, L0.k);
       const dir = { dx: Math.round(2 * L0.dx / n), dy: Math.round(2 * L0.dy * 1.25 / n) };
       // (a salamander lies low in the lava: its lit side brighter, TASKS 490: 1.15 of its dark side against 1.3 wanted)
-      // (an imp over the lava takes the hero's one-pixel outline pass, TASKS 1697: the silhouette stamped 2 px off broke into dashes along its thin limbs)
+      // (an imp over the lava takes the hero's one-pixel outline pass, TASKS 1717: the silhouette stamped 2 px off broke into dashes along its thin limbs)
       if (L0 === lv) return { ...dir, col: [1, 0.6, 0.22].map((v) => v * (e.type === 'salamander' ? 1.05 : 0.75) * SS(0.15, 0.8, lv.k)), box: e.type === 'imp' ? [2 * Math.round((x - 70) / 2), 2 * Math.round((y - 150) / 2), 140, 170] : undefined };
       const c = E.rim || L0.col, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
       return { ...dir, col: c.map((v) => (g + 0.5 * (v - g)) * a) }; };
@@ -418,7 +418,7 @@
   // a mimic that is still a chest shivers now and then: a careful eye can tell it from the real thing
   const mimicTwitch = (c, t) => { const ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1; return ph < 0.5 ? { rot: 0.035 * Math.sin(ph * 42) * (1 - ph / 0.5), dx: 0, sy: 1, fl: 0 } : undefined; };
   const CHEST_BOSS = { tex: 'chest_boss', k: 1.35, u: { grade: [1, 0.85, 0, 1.25], tint: [1, 0.32, 0.3, 0.7] } };
-  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
+  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[Math.min(3, c.tier)] || CHEST_LOOK[1]);
   // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
   // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
   const DEBRIS_T = 0.42;

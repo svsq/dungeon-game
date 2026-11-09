@@ -31,6 +31,7 @@
     if (N.kit) { const K = N.kit; for (const [b0, rar] of K.gear) { const b = (C.kit || {})[b0] || b0; h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} }))); }
       h.bag[0].n += K.hp - BAL.startHpPot; if (h.bag[1]) h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = C.res === 'rage' ? 0 : st.maxMp;
+    if (o.town && mode === 'campaign' && !o.allFree) R.captives = { merchant: { who: 'merchant' }, smith: { who: 'smith' }, enchanter: { who: 'enchanter' } };
     if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
     enterFloor(S, R, o.town ? 0 : 1);
     return R;
@@ -52,7 +53,7 @@
     if (h && !ok[Math.floor(h.y / D.TILE) * m.W + Math.floor(h.x / D.TILE)]) { h.x = m.spawn.x; h.y = m.spawn.y; } }
   function buildFloor(R, f, gen) {
     R.bossDead = 0;
-    const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? D.folkInit(m.town.npcs) : null;
+    const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? SIMX.folkHere(R, D.folkInit(m.town.npcs)) : null;
     R.map = m; R.arena = null; m.arenaBox = null; R.eggs = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.en = []; R.proj = []; R.pyres = []; R.fires = []; R.drops = []; R.scorches = []; m.goo = [];
     const stg = STAGE(R, f), d = stg.depth, sc = BAL.hp * dif(R, 'hp') * D.hpAt(d), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? stg.guard : e.exit && e.elite ? stg.exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk, bk = (D.BOSSES[e.type] && stg.bossK) || { hp: 1, dmg: 1 };
@@ -146,6 +147,9 @@
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { const mig = restoreFloor(R, f, M); SIMX.dropMarks(R, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
     else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); SIMX.questPlace(S, R); } }
+    if (f > 0) SIMX.captivePlace(S, R);
+    if (f > 0) SIMX.notePlace(S, R);
+    if (f > 0) SIMX.nameElites(R);
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not
@@ -226,7 +230,7 @@
       if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : z.k === 'surge' ? 'surge' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420 || (z.k === 'surge' && D.hazIn(z, h.x, h.y))) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : z.k === 'surge' ? 0.2 : 0.15)); }
       if (c >= H.burst) return;
       if (h.hp > 0 && D.hazIn(z, h.x, h.y) && !dashing && (h.haz || (h.haz = {}))[tag] !== n) { h.haz[tag] = n;
-        // a gate costs time, not health (TASKS 1690, the player's decision on 1645): thrown back the way he came and stunned a moment
+        // a gate costs time, not health (TASKS 1710, the player's decision on 1645): thrown back the way he came and stunned a moment
         if (z.gate) { const G = H.gate, along = h.vx * z.ax + h.vy * z.ay, s = Math.abs(along) > 20 ? -Math.sign(along) : Math.sign((h.x - z.x) * z.ax + (h.y - z.y) * z.ay) || -1;
           h.stag = { t0: t, t: t + G.stun, vx: s * z.ax * 2 * G.kb / G.stun, vy: s * z.ay * 2 * G.kb / G.stun }; }
         SIMX.hurtHero(S, R, SIMX.heroSt(S).maxHp * H.hp * (z.gate ? H.gate.hp : 1), z.k === 'surge' ? h.x : z.x, (z.k === 'surge' ? h.y : z.y) - 10, 'spike', z.k === 'vent' ? 'vent' : z.k === 'surge' ? 'surge' : 'rock');
@@ -279,6 +283,9 @@
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
   const MASK = { key: '', set: null };
+  // a cache saved before the walls stopped breaking (TASKS 1691): a flagstone in front of it, so it stays openable; a statue saved
+  // with its slide as a distance in px takes this branch's side and cell count
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / TILE) }; if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, cx: x, cy: y }; } }
   function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
     if (MASK.key === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];
@@ -289,5 +296,5 @@
 
   Object.assign(SIMX, {
     migrateTown, newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden });
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

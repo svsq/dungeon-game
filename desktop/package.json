@@ -1,8 +1,8 @@
 {
   "name": "crypt-depths",
-  "productName": "Глубины Крипты",
+  "productName": "The Elder Deep",
   "version": "0.1.0",
-  "description": "Глубины Крипты — desktop test build",
+  "description": "The Elder Deep: Below the Ages, desktop test build",
   "main": "main.js",
   "private": true,
   "author": "Slava Bilokur",
@@ -16,7 +16,7 @@
   },
   "build": {
     "appId": "com.svsq.cryptdepths",
-    "productName": "Crypt Depths",
+    "productName": "The Elder Deep",
     "directories": { "output": "release" },
     "files": ["main.js", "package.json", "game/**/*"],
     "asar": true,

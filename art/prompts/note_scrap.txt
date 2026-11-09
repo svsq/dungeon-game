@@ -1,0 +1,4 @@
+Use case: one small floor pickup sprite for a top-down 3/4 dungeon action game: a scrap of old paper lying on the ground. Image 1 is the style reference only. Image 2 is the game's scroll icon: match its parchment colours, outline and pixel density.
+Subject: a single torn sheet of aged parchment lying flat on the floor, seen from the same 3/4 camera, slightly crumpled with one corner curled up, the torn edge ragged, a few short lines of dark brown handwriting on it. Warm bone and tan paper, darker brown creases, a thick dark outline as in the game's other small items.
+Composition: one object centred, filling about 70% of the canvas, wider than tall, wide empty margin. The sheet reads clearly at a very small size, so keep it simple with big flat shapes.
+Constraints: one object only, no scroll roller, no seal, no ribbon, no text that reads as real letters, no ground, no cast shadow, no glow.

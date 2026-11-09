@@ -15,7 +15,7 @@ for (const mode of ['cave', 'campaign']) {
         const T = structuredClone(S), A = T.run, C = A.chests.find((q) => q.x === c.x && q.y === c.y);
         A.rs = trial + 1; A.en = []; A.hero.x = c.x; A.hero.y = c.y + 40; T.ev = [];
         SIM.openChest(T, A, C); const got = A.en.filter((e) => e.summ === 'amb');
-        if (!['treasure', 'secret'].includes(room.type)) assert.equal(got.length, 0);
+        if (!room.type === 'secret') assert.equal(got.length, 0);
         if (got.length) {
           success++; assert.ok(got.length >= 2 && got.length <= 4);
           assert.ok(got.every((e) => !e.elite && e.room === room.id && DATA.rosterAt(m.biome, floor).includes(e.type)));

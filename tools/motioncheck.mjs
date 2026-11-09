@@ -196,7 +196,7 @@ if (meta.tr.includes('imp_attack')) {
     const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, face: e.face, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
   const w = fr.filter((f) => f.st === 'wind' && f.en && f.en.handR), best = Math.max(-99, ...w.filter((f) => f.en.handR[1] < f.en.head[1]).map((f) => (f.en.head[0] - f.en.handR[0]) * f.face));
   report('throw', 'imp_attack', best > 0, `the throwing hand over the head reaches ${best.toFixed(0)} px behind it`); }
-// strikePeak (TASKS 1696, 1699): a claw is fastest on its blow, not on its lift: the hand's fastest frame falls in the strike
+// strikePeak (TASKS 1716, 1719): a claw is fastest on its blow, not on its lift: the hand's fastest frame falls in the strike
 if (meta.tr.includes('imp_claw')) {
   const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.imp_claw; return Q.transitions.imp_claw.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
     const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
