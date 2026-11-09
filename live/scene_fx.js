@@ -290,16 +290,23 @@
       const u = (mode) => ({ u_t: GT, u_q: q, u_fr: fr, u_mask: surgeTex(m, z), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0, u_face: BAKE.face || seen, u_occ: SCX.LT.occ });
       G.draw(L.P.spill, u(0), xf); G.blend('add'); G.draw(L.P.spill, u(2), xf); G.blend(); }
     // a vent's warning (TASKS 406), from its clock: the ring it will throw lava over heats up and beats faster, its mouth bubbles
-    for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.vent, Hr = H.r * (z.s || 1), w = D.hazClock(z, GT) - (z.per - H.warn);
+    // a gate's vents glow through the fog in time with their clock once in sight (TASKS 1692: its rings showed 6 cells off, under one cycle's walk); no cell is revealed
+    // (a gate's ring shows once its whole rim is explored, TASKS 1693: from its centre alone it hung over the black)
+    const rimKnown = (z) => { const r = D.HAZ.vent.r * (z.s || 1), ry = r * D.HAZ.vent.ry; return [[r, 0], [-r, 0], [0, ry], [0, -ry]].every(([dx, dy]) => known(z.x + dx, z.y + dy)); };
+    for (const z of m.hazards || []) { if (!z.gate || !vis(z.x, z.y) || (known(z.x, z.y) && rimKnown(z))) continue; const H = D.HAZ.vent, h = R.hero;
+      if (Math.hypot(h.x - z.x, h.y - z.y) > H.gate.see * TILE || !SIM.Q.losClear(m, h.x, h.y - 10, z.x, z.y - 10)) continue;
+      const w = D.hazClock(z, GT) - (z.per - H.warn), c = D.hazClock(z, GT), q = w >= 0 ? w / H.warn : 0, burst = c < H.burst ? 1 - c / H.burst : 0, X = sx(z.x), Y0 = sy(z.y);
+      L.glow(X, Y0 - 4, 12 + 26 * q + 30 * burst, [1, 0.5, 0.12], 0.3 + 0.6 * q * (0.7 + 0.3 * Math.sin(GT * (9 + 16 * q))) + 0.8 * burst, 2.4); }
+    for (const z of m.hazards || []) { if (z.k !== 'vent' || !vis(z.x, z.y) || !known(z.x, z.y) || (z.gate && !rimKnown(z))) continue; const H = D.HAZ.vent, Hr = H.r * (z.s || 1), w = D.hazClock(z, GT) - (z.per - H.warn);
       // (TASKS 462: and always lies in a ring of scorched ground as wide as its burst, which no dead crack has)
-      { const X = sx(z.x), Y0 = sy(z.y); L.shadow(X, Y0, Hr, Hr * Hry, 0.5); L.ring(X, Y0, Hr * 0.96, Hr * Hry * 0.96, [0.75, 0.22, 0.06], 0.5, 0.06);
+      { const X = sx(z.x), Y0 = sy(z.y); L.shadow(X, Y0, Hr, Hr * H.ry, 0.5); L.ring(X, Y0, Hr * 0.96, Hr * H.ry * 0.96, [0.75, 0.22, 0.06], 0.5, 0.06);
         for (let j = 0; j < 10; j++) { const an = j / 10 * 6.283 + rnd(z.x, j) * 0.5, f = 0.5 + 0.5 * Math.sin(GT * (1.5 + rnd(z.y, j)) + j * 2.1);
-          L.star(X + Math.cos(an) * Hr * 0.96, Y0 + Math.sin(an) * Hr * Hry * 0.96, 3, [1, 0.45, 0.12], 0.35 + 0.4 * f); } }
+          L.star(X + Math.cos(an) * Hr * 0.96, Y0 + Math.sin(an) * Hr * H.ry * 0.96, 3, [1, 0.45, 0.12], 0.35 + 0.4 * f); } }
       if (w < 0) { const X = sx(z.x), Y0 = sy(z.y), br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z.x);   // a live vent smoulders at rest, a dead crack doesn't
-        L.ring(X, Y0, Hr * 0.4, Hr * Hry * 0.4, [1, 0.35, 0.08], 0.28 * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], 0.3 * br, 2.4);
+        L.ring(X, Y0, Hr * 0.4, Hr * H.ry * 0.4, [1, 0.35, 0.08], 0.28 * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], 0.3 * br, 2.4);
         for (let j = 0; j < 2; j++) { const b = (GT * 0.5 + rnd(z.x + z.y, j)) % 1; L.puff(X + (rnd(z.x, j + 3) - 0.5) * 14, Y0 - 4 - 26 * b, 3 + 3 * b, [0.5, 0.4, 0.34], 0.3 * (1 - b), j); } continue; }
       const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(GT * (9 + 16 * q));
-      L.ring(X, Y0, Hr, Hr * Hry, [1, 0.4, 0.1], (0.18 + 0.7 * q) * beat, 0.06); L.ring(X, Y0, Hr * 0.55, Hr * Hry * 0.55, [1, 0.5, 0.15], 0.35 * q * beat, 0.1);
+      L.ring(X, Y0, Hr, Hr * H.ry, [1, 0.4, 0.1], (0.18 + 0.7 * q) * beat, 0.06); L.ring(X, Y0, Hr * 0.55, Hr * H.ry * 0.55, [1, 0.5, 0.15], 0.35 * q * beat, 0.1);
       L.glow(X, Y0 - 4, 18 + 30 * q, [1, 0.55, 0.15], 0.2 + 0.7 * q, 2.4);
       for (let j = 0; j < 7; j++) { const b = (GT * (1.2 + 2.4 * q) + rnd(z.x + z.y, j)) % 1, px = X + (rnd(z.x, j + 3) - 0.5) * 26, py = Y0 - 2 - 22 * b;
         L.star(px, py, 2 + 4 * q * (1 - b), [1, 0.55 + 0.3 * (1 - b), 0.15], q * (1 - b)); } }
@@ -355,14 +362,14 @@
           if (py < ey + 6) L.star(px, py, 5, [1, 0.6 + 0.3 * (1 - q), 0.2], 1 - q); } }
       // a vent's burst (TASKS 406): a flash, a ring of heat running out to the edge of its reach, lava thrown over it
       if (e.k === 'erupt' && a < 0.9) { const H = D.HAZ.vent, Hr = H.r * (((m.hazards || [])[e.i] || {}).s || 1), q = Math.min(1, a / 0.3);
-        L.glow(ex, ey - 10, 30 + 40 * q, [1, 0.55, 0.15], 0.75 * (1 - a / 0.9), 2.2); L.ring(ex, ey, Hr * (0.25 + 0.75 * q), Hr * Hry * (0.25 + 0.75 * q), [1, 0.6, 0.2], 0.9 * (1 - SS(0.15, 0.6, a)), 0.12);
+        L.glow(ex, ey - 10, 30 + 40 * q, [1, 0.55, 0.15], 0.75 * (1 - a / 0.9), 2.2); L.ring(ex, ey, Hr * (0.25 + 0.75 * q), Hr * H.ry * (0.25 + 0.75 * q), [1, 0.6, 0.2], 0.9 * (1 - SS(0.15, 0.6, a)), 0.12);
         // (TASKS 485: it read as a soft disc) a jet of lava stands up out of the mouth, and each gout thrown lands with a splash
         const jh = 110 * SS(0, 0.12, a) * (1 - SS(0.25, 0.55, a)); for (let k = 0; k * 6 < jh; k++) { const f = k * 6 / Math.max(1, jh), jx = ex + Math.sin(a * 30 + k * 0.7) * 2;
           L.glow(jx, ey - 6 - k * 6, 14 - 7 * f, [1, 0.6 - 0.25 * f, 0.12], 1.1, 2.6); L.star(jx, ey - 6 - k * 6, 7 - 3 * f, [1, 0.92 - 0.3 * f, 0.45], 1); }
         for (let j = 0; j < 24; j++) { const life = 0.45 + 0.4 * rnd(e.t, j + 7), an = rnd(e.t, j) * 6.283, d1 = Hr * (0.5 + 0.55 * rnd(e.t, j + 40));
-          if (a > life && a < life + 0.3) { const sq = (a - life) / 0.3; L.ring(ex + Math.cos(an) * d1, ey + Math.sin(an) * d1 * Hry, 3 + 9 * sq, 2 + 5 * sq, [1, 0.5, 0.15], 0.8 * (1 - sq), 0.3); }
+          if (a > life && a < life + 0.3) { const sq = (a - life) / 0.3; L.ring(ex + Math.cos(an) * d1, ey + Math.sin(an) * d1 * H.ry, 3 + 9 * sq, 2 + 5 * sq, [1, 0.5, 0.15], 0.8 * (1 - sq), 0.3); }
           if (a > life) continue; const k = 1 - a / life, d = d1 * Math.min(1, a / 0.35);
-          const px = ex + Math.cos(an) * d, py = ey + Math.sin(an) * d * Hry - Math.max(0, (150 + 120 * rnd(e.t, j + 20)) * a - 520 * a * a); L.star(px, py, 4 + 5 * k, [1, 0.5 + 0.4 * k, 0.12 + 0.3 * k], k); } }
+          const px = ex + Math.cos(an) * d, py = ey + Math.sin(an) * d * H.ry - Math.max(0, (150 + 120 * rnd(e.t, j + 20)) * a - 520 * a * a); L.star(px, py, 4 + 5 * k, [1, 0.5 + 0.4 * k, 0.12 + 0.3 * k], k); } }
       if (e.k === 'scorch' && a < 0.4) { const q = a / 0.4; L.glow(ex, ey - 6, 34, [1, 0.5, 0.15], 0.3 * (1 - q), 2.4); L.ring(ex, ey, 10 + 22 * q, 6 + 10 * q, [1, 0.55, 0.2], 0.6 * (1 - q), 0.2); }
       if (e.k === 'boom' && a < 0.65) {
         const gx = e.gx ?? e.x, gy = e.gy ?? e.y + 24, k = e.big ? 1.4 : 1;
