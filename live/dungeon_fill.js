@@ -696,7 +696,9 @@
       const seen = new Map([[key(fx, fy), 0]]), st = secCells.has(fy * W + fx) ? [] : [[fx, fy]], plates = [];
       while (st.length) { const [x, y] = st.shift(), d0 = seen.get(key(x, y)); if (d0 >= 3 && free(x, y) && !doorway(x, y) && !inR(start, x, y) && !inR(sh, x, y)) plates.push([x, y]); if (d0 >= 8) continue;
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay; if (at(nx, ny) === 1 && !secCells.has(ny * W + nx) && !seen.has(key(nx, ny))) { seen.set(key(nx, ny), d0 + 1); st.push([nx, ny]); } } }
-      if (near.length && (!plates.length || R() < 0.5)) { const [t, k] = pick(near); t.lever = i; q.trig = { k: 'sconce', t: k }; }
+      // a sconce counts only if the walk from it to the wall it opens is short: one behind the wall, a floor's walk away, read as a bug (TASKS 1360)
+      const nearW = near.filter(([t]) => seen.has(key(Math.floor(t.x / TILE), Math.floor((t.y + 40) / TILE))));
+      if (nearW.length && (!plates.length || R() < 0.5)) { const [t, k] = pick(nearW); t.lever = i; q.trig = { k: 'sconce', t: k }; }
       else if (plates.length) { const [x, y] = pick(plates); used.add(key(x, y)); q.trig = { k: 'plate', x: wx(x), y: y * TILE + TILE / 2, cx: x, cy: y }; }
       else q.kind = 'crack'; });
     // a locked room's key lies on this side of its doors, in a chest or on an elite, or a lever on a top wall works them; with
