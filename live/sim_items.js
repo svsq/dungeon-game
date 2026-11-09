@@ -48,8 +48,12 @@
     // most of what a hero finds is of his class (TASKS 1102): a foreign base is kept at CLASS_LOOT.foreign, else rolled among his own
     const cls = R.hero && D.clsOf(R.hero).id;
     if (cls && !D.wears(cls, bk) && (o.own || rnd(R) >= D.CLASS_LOOT.foreign)) { const own = keys.filter((k) => D.wears(cls, k)); if (own.length) bk = pick(own); }
-    return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor + (R.mode ? RUN(R).loot || 0 : 0), mods: {} }));
+    return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: lootLvl(R, floor + (R.mode ? RUN(R).loot || 0 : 0), o), mods: {} }));
   }
+  // a find's level (the player's note 5.10, TASKS 1345): half way from the floor to a hero who has outgrown it, spread by the source's lo/hi,
+  // and never more than the source's `lag` under him; shop stock and rewards name no spread and stay at the floor's own level
+  function lootLvl(R, base, o) { if (o.hi === undefined) return base; const h = R.hero, a = base + (h ? Math.round(0.5 * Math.max(0, h.lvl - base)) : 0);
+    return Math.max(1, a - o.lo + Math.floor(rnd(R) * (o.lo + o.hi + 1)), h ? h.lvl - o.lag : 1); }
   function rollAffixes(R, it) {
     const pool = D.liveFor(R.hero, 'mods', AFFIXES, (a) => a.k), W = D.AFFIX_W[BASES[it.b].slot] || {}, wt = (a) => W[a.k] ?? 1;
     for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { let s = pool.reduce((n, a) => n + wt(a), 0) * rnd(R), j = pool.length - 1;
@@ -68,11 +72,11 @@
   // the good gear comes from the strong: common monsters drop little and never a legendary; elites, the exit room's brute and
   // the boss drop better; a chest's roll is open, but a secret room's chest rolls with a far higher epic/legendary chance
   const LOOT = {
-    mob: { p: 0.07, q: 0, max: 3 },
-    elite: { q: 1.6, min: 1 },
-    brute: { q: 2.5, min: 2, extra: 0.5 },
-    boss: [{ q: 3, min: 4 }, { q: 3, min: 3 }, { q: 3, min: 2 }],
-    chest: [null, { q: 0.4, n: 1 }, { q: 1, n: 2 }, { q: 3, n: 1 }],
+    mob: { p: 0.07, q: 0, max: 3, lo: 2, hi: 1, lag: 3 },
+    elite: { q: 1.6, min: 1, lo: 1, hi: 2, lag: 2 },
+    brute: { q: 2.5, min: 2, extra: 0.5, lo: 1, hi: 2, lag: 2 },
+    boss: [{ q: 3, min: 4, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 3, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 2, lo: 0, hi: 3, lag: 1 }],
+    chest: [null, { q: 0.4, n: 1, lo: 1, hi: 2, lag: 2 }, { q: 1, n: 2, lo: 1, hi: 2, lag: 2 }, { q: 3, n: 1, lo: 0, hi: 3, lag: 1 }],
   };
 
   // ---------------- hero stats (base + gear + meta + the altars' gifts) ----------------
