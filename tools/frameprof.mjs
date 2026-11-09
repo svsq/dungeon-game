@@ -15,34 +15,41 @@ await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--expose-gc', '--enable-precise-memory-info'] });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
+// hooked on the prototype before the page runs: the assets and first targets are created before __ready and would go uncounted
+await page.addInitScript(() => {
+  const P = WebGL2RenderingContext.prototype, C = window.__gpu = { live: new Map(), fbs: 0, bound: null, onDraw: null };
+  const bytesOf = (gl, a) => { const big = a.length >= 9, w = big ? a[3] : a[5].naturalWidth || a[5].width, h = big ? a[4] : a[5].naturalHeight || a[5].height; return w * h * (a[2] === gl.RGBA16F ? 8 : 4); };
+  const hook = (name, f) => { const o = P[name]; P[name] = function (...a) { return f.call(this, o, a); }; };
+  hook('createTexture', function (o, a) { const t = o.apply(this, a); C.live.set(t, 0); return t; });
+  hook('deleteTexture', function (o, a) { C.live.delete(a[0]); return o.apply(this, a); });
+  hook('bindTexture', function (o, a) { C.bound = a[1]; return o.apply(this, a); });
+  hook('texImage2D', function (o, a) { if (C.live.has(C.bound)) C.live.set(C.bound, bytesOf(this, a)); return o.apply(this, a); });
+  hook('generateMipmap', function (o, a) { if (C.live.has(C.bound)) C.live.set(C.bound, C.live.get(C.bound) * 4 / 3); return o.apply(this, a); });
+  hook('createFramebuffer', function (o, a) { C.fbs++; return o.apply(this, a); });
+  hook('deleteFramebuffer', function (o, a) { C.fbs--; return o.apply(this, a); });
+  hook('drawArrays', function (o, a) { if (C.onDraw) C.onDraw(); return o.apply(this, a); });
+});
 let result;
 try {
   await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
   await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
   result = await page.evaluate(([seed, frames]) => {
     const gl = G.gl, X = window.SCX, base = SCENE.QA().states.find(([n]) => n === 'zone_magma')[1];
-    const live = new Map(); let bound = null, fbs = 0, cur = 'other', tg = null, fin = false;
-    const bytesOf = (a) => { const big = a.length >= 9, w = big ? a[3] : a[5].width, h = big ? a[4] : a[5].height; return w * h * (a[2] === gl.RGBA16F ? 8 : 4); };
-    const hook = (name, f) => { const o = gl[name].bind(gl); gl[name] = (...a) => f(o, a); };
-    hook('createTexture', (o) => { const t = o(); live.set(t, 0); return t; });
-    hook('deleteTexture', (o, a) => { live.delete(a[0]); o(...a); });
-    hook('bindTexture', (o, a) => { bound = a[1]; o(...a); });
-    hook('texImage2D', (o, a) => { if (live.has(bound)) live.set(bound, bytesOf(a)); o(...a); });
-    hook('createFramebuffer', (o) => { fbs++; return o(); });
-    hook('deleteFramebuffer', (o, a) => { fbs--; o(...a); });
+    const C = window.__gpu, live = C.live; let cur = 'other', tg = null, fin = false, drawP = null, drawXf = null;
     const gBind = G.bind; G.bind = (t, c) => { tg = t; gBind(t, c); };
     let pass = {}, prog = {};
-    const gDraw = G.draw; G.draw = (P, U, xf, flip) => {
+    const gDraw = G.draw; G.draw = (P, U, xf, flip) => { drawP = P; drawXf = xf; gDraw(P, U, xf, flip); };
+    C.onDraw = () => { const P = drawP, xf = drawXf; if (!P) return;
       const vw = tg ? tg.vw : G.W, vh = tg ? tg.vh : G.H, k = tg ? tg.w * tg.h / (tg.vw * tg.vh) : 1;
       const xs = [xf[6], xf[6] + xf[0], xf[6] + xf[3], xf[6] + xf[0] + xf[3]], ys = [xf[7], xf[7] + xf[1], xf[7] + xf[4], xf[7] + xf[1] + xf[4]];
       const area = Math.abs(xf[0] * xf[4] - xf[1] * xf[3]), box = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)) || 1;
       const cw = Math.max(0, Math.min(vw, Math.max(...xs)) - Math.max(0, Math.min(...xs))), ch = Math.max(0, Math.min(vh, Math.max(...ys)) - Math.max(0, Math.min(...ys)));
-      const px = area * (cw * ch / box) * k, q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 }); q.n++; q.px += px;
-      (pass[cur] || (pass[cur] = { ms: 0, n: 0 })).n++; gDraw(P, U, xf, flip); };
+      const q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 }); q.n++; q.px += area * (cw * ch / box) * k;
+      (pass[cur] || (pass[cur] = { ms: 0, n: 0 })).n++; };
     const wrap = (obj, k, name) => { const f = obj[k]; obj[k] = (...a) => { const was = cur; cur = name; if (fin) gl.finish(); const t0 = performance.now(); try { return f(...a); } finally { if (fin) gl.finish(); (pass[name] || (pass[name] = { ms: 0, n: 0 })).ms += performance.now() - t0; cur = was; } }; };
     wrap(X, 'worldPass', 'world'); wrap(X, 'lightPass', 'light'); wrap(X, 'fxPass', 'fx'); wrap(X.L, 'finish', 'post'); wrap(window.HUD, 'draw', 'hud');
     const VW = SIM.VIEW.W, VH = SIM.VIEW.H, T = DATA.TILE, round = (v, d = 2) => +v.toFixed(d);
-    const mem = () => { if (window.gc) gc(); return { tex: live.size, texMB: round([...live.values()].reduce((a, b) => a + b, 0) / 1048576, 1), fbs, heapMB: round(performance.memory.usedJSHeapSize / 1048576, 1) }; };
+    const mem = () => { if (window.gc) gc(); return { tex: live.size, texMB: round([...live.values()].reduce((a, b) => a + b, 0) / 1048576, 1), fbs: C.fbs, heapMB: round(performance.memory.usedJSHeapSize / 1048576, 1) }; };
     const pct = (a, q) => a.slice().sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(a.length * q))];
     const setup = (S, R) => { R.seen = R.seen.map(() => 1); if (R.rseen) R.rseen = R.rseen.map(() => 1); R.msg = null; S.ev = []; R.leaving = 0; R.hero.hp = 1e7; SCENE.state = S; };
     const lookAt = (S, R) => { const m = R.map, h = R.hero, Z = R.zoom || DATA.ZOOM || 1, r = (m.rooms || []).filter((q) => q.type === 'boss')[0] || (m.rooms || []).slice().sort((a, b) => b.w * b.h - a.w * a.h)[0];
@@ -77,8 +84,8 @@ try {
 fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify(result, null, 1));
 const P = ['world', 'light', 'fx', 'post', 'hud'];
 console.log(`${result.renderer} ${result.canvas.join('×')}`);
-console.log('scene | biome | size | foes | enter | 1st | cpu p95 | full p95 | ' + P.join(' ') + ' | sim max | top shaders Mpx');
-for (const r of result.rows) console.log(`${r.label} | ${r.biome} | ${r.size} | ${r.foes} | ${r.enterMs} | ${r.firstMs} | ${r.cpuMs} ${r.cpuP95} | ${r.fullMs} ${r.fullP95} | ${P.map((k) => r.passes[k]?.ms ?? '-').join(' ')} | ${r.simMs} ${r.simMax}${r.simErr ? ' ERR ' + r.simErr : ''} | ${r.shaders.slice(0, 4).map((s) => `${s.name}:${s.mpx}`).join(' ')}`);
+console.log('scene | biome | size | foes | enter | 1st | cpu p95 | full p95 | ' + P.join(' ') + ' | GPU draws | sim max | top shaders Mpx');
+for (const r of result.rows) console.log(`${r.label} | ${r.biome} | ${r.size} | ${r.foes} | ${r.enterMs} | ${r.firstMs} | ${r.cpuMs} ${r.cpuP95} | ${r.fullMs} ${r.fullP95} | ${P.map((k) => r.passes[k]?.ms ?? '-').join(' ')} | ${P.reduce((a, k) => a + (r.passes[k]?.draws || 0), 0)} | ${r.simMs} ${r.simMax}${r.simErr ? ' ERR ' + r.simErr : ''} | ${r.shaders.slice(0, 4).map((s) => `${s.name}:${s.mpx}`).join(' ')}`);
 console.log('\nmemory: at | textures | tex MB | framebuffers | heap MB');
 for (const m of result.mems) console.log(`${m.at} | ${m.tex} | ${m.texMB} | ${m.fbs} | ${m.heapMB}`);
 if (errors.length) { console.log('page errors:\n' + errors.slice(0, 5).join('\n')); process.exitCode = 2; }
