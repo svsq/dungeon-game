@@ -190,11 +190,13 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float dull = smoothstep(0.38, 0.58, fbm(p / 45.0 + 5.0));
   float seam = (v.y - v.x) * 6.5 * (0.85 + 0.6 * dull) * (0.8 + 2.2 * smoothstep(0.48, 0.62, fbm(p / 26.0 + 1.3))), id = v.z, beat = 0.5 + 0.5 * sin(u_t * 0.9 + id * 6.2831);
   vec3 W1 = vec3(1.0, 0.98, 0.08), Y = vec3(1.0, 0.8, 0.02), YO = vec3(1.0, 0.42, 0.02), O1 = vec3(0.99, 0.24, 0.03), O2 = vec3(0.97, 0.15, 0.02), Rd = vec3(0.5, 0.04, 0.01), Dk = vec3(0.17, 0.018, 0.008);
-  vec3 col = id < 0.06 ? Rd : id < 0.55 ? O2 : O1;
+  // (dimmer in slow fields, TASKS 1628: the lake 76 % lit against 30–45 and one bright plate net)
+  float cool = smoothstep(0.38, 0.54, fbm(p / 58.0 + 31.0));
+  vec3 col = id < 0.05 + 0.42 * cool ? Rd : id < 0.55 - 0.1 * cool ? O2 : O1;
   if (still > 0.5 && hash(vec2(id, 4.1)) < 0.07) col = seam > 3.0 ? vec3(0.3, 0.04, 0.015) : col;
   // the concept's field has a large pattern (TASKS 481): slow dark-red backwaters up to ~130 px over a seventh of the lava, their
   // plates cooling to red and black and their net dimmed to orange; lone dark art pixels read as pepper, not as cooling lava
-  float pool = step(0.62 + (id - 0.5) * 0.08, fbm(p / 34.0 + 17.0) * 0.75 + vnoise(p / 14.0 + 3.0) * 0.25);   // (≈ 40 px backwaters, TASKS 1038, 1047: they lay as blots mid-lake)
+  float pool = step(0.6 + (id - 0.5) * 0.08, fbm(p / 18.0 + 17.0) * 0.6 + vnoise(p / 7.0 + 3.0) * 0.4);   // (≈ 40 px backwaters, TASKS 1038, 1047: they lay as blots mid-lake)
   if (pool > 0.5) col = hash(vec2(id, 9.3)) < 0.45 ? Dk : Rd;
   // (the seams 3–4 px with a thin lemon core, TASKS 1038, 1047: a cream thread washed the lava's colour out, 44 against 82)
   float core = step(seam, 0.15 + 0.1 * beat) * (1.0 - pool);
