@@ -422,7 +422,7 @@
     // gear for an empty slot is worn on pickup; for a taken slot it goes to the bag; potions always go to the bag
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 60; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, drop = (it) => R.drops.push({ id: R.nextId++, kind: 'item', item: it, x: h.x, y: h.y, vx: 0, vy: 0, z: 0, vz: 0, t0: R.t - 1 });
-      const helm = Object.assign(rollItem(R, 1, 0, 'helm'), { id: 88801 }), sword = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 88802 }), pot = { id: 88803, b: 'hp_potion', n: 1, rar: 0, lvl: 1, mods: {} };
+      const helm = Object.assign(rollItem(R, 1, 0, 'helm', { own: 1 }), { id: 88801 }), sword = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 88802 }), pot = { id: 88803, b: 'hp_potion', n: 1, rar: 0, lvl: 1, mods: {} };
       h.eq.helm = null; drop(helm); drop(sword); drop(pot); for (let i = 0; i < 5; i++) step(S, { keys: [] });
       if (!h.eq.helm || h.eq.helm.id !== 88801) out.push('an item for an empty slot was not worn on pickup');
       if (h.eq.weapon.id === 88802 || !h.bag.some((b) => b && b.id === 88802)) out.push('an item for a taken slot did not go to the bag');
@@ -1374,6 +1374,10 @@
       if (new Set(mob).size < 2 || new Set(boss).size < 2) out.push('loot level: no spread');
       if (rollItem(R, 21, 0).lvl !== 21) out.push('loot level: a roll that names no source left the floor\'s level');
       const seq = (sd) => { const Q = { rs: sd, hero: R.hero }; return Array.from({ length: 50 }, () => rollItem(Q, 21, 0, undefined, LOOT.mob).lvl).join(); }; if (seq(5) !== seq(5)) out.push('loot level: the seed does not repeat it'); }
+    // TASKS 1347: a find above the usual range is likelier for a hero ahead of his level, and its bonus is capped
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1347), top = 15 + LOOT.mob.hi, roll = (lvl) => { R.hero.lvl = lvl; return Array.from({ length: 3000 }, () => rollItem(R, 15, 0, undefined, LOOT.mob).lvl); }, over = (a) => a.filter((v) => v > top).length;
+      const ahead = roll(5), even = roll(15); if (!(over(ahead) > 2 * over(even))) out.push(`over-level: ahead ${over(ahead)}, even ${over(even)}`); if (!over(even)) out.push('over-level: a hero at the floor\'s level never finds one');
+      if (Math.max(...ahead) > top + D.LOOT_OVER.up) out.push(`over-level: a bonus past the cap, ${Math.max(...ahead)}`); }
     // TASKS 1342: the crit-damage property raises the one multiplier, up to its cap
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 1342), h = R.hero, ring = (v) => { h.eq.ring = { id: 1, b: 'ring', rar: 1, lvl: 1, mods: { critd: v } }; return stats(h, S.meta).critK; }; h.eq.ring = null;
       if (stats(h, S.meta).critK !== D.CRIT.k) out.push('crit: the base multiplier is not CRIT.k');

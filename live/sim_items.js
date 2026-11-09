@@ -53,7 +53,10 @@
   // a find's level (the player's note 5.10, TASKS 1345): half way from the floor to a hero who has outgrown it, spread by the source's lo/hi,
   // and never more than the source's `lag` under him; shop stock and rewards name no spread and stay at the floor's own level
   function lootLvl(R, base, o) { if (o.hi === undefined) return base; const h = R.hero, a = base + (h ? Math.round(0.5 * Math.max(0, h.lvl - base)) : 0);
-    return Math.max(1, a - o.lo + Math.floor(rnd(R) * (o.lo + o.hi + 1)), h ? h.lvl - o.lag : 1); }
+    const lvl = Math.max(1, a - o.lo + Math.floor(rnd(R) * (o.lo + o.hi + 1)), h ? h.lvl - o.lag : 1); if (!h) return lvl;
+    // a find above the hero (the player's note 5.7, TASKS 1347): likelier the further he runs ahead of his level, its bonus capped at `up`
+    const O = D.LOOT_OVER, gap = Math.max(0, base - h.lvl); if (rnd(R) >= Math.min(O.cap, O.base + O.per * gap)) return lvl;
+    return Math.max(lvl, h.lvl) + 1 + Math.floor(rnd(R) * Math.min(O.up, 2 + gap)); }
   function rollAffixes(R, it) {
     const pool = D.liveFor(R.hero, 'mods', AFFIXES, (a) => a.k), W = D.AFFIX_W[BASES[it.b].slot] || {}, wt = (a) => W[a.k] ?? 1;
     for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { let s = pool.reduce((n, a) => n + wt(a), 0) * rnd(R), j = pool.length - 1;

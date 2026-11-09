@@ -55,6 +55,8 @@
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
   const GEN_VERSION = 11;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
+  // the chance of a find above the hero's level: `base`, `per` more for each floor he is ahead of it, at most `cap`; at most `up` levels above
+  const LOOT_OVER = { base: 0.04, per: 0.06, cap: 0.3, up: 4 };
   const CONSUMABLES = {
     hp_potion: { name: TXT('CONSUMABLES.hp_potion.name'), icon: 'it_hp', heal: 0.4, stack: 9 },
     mp_potion: { name: TXT('CONSUMABLES.mp_potion.name'), icon: 'it_mp', mana: 0.5, stack: 9 },
@@ -140,5 +142,5 @@
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
-  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LEGEND_NAMES, reqLvl, SHOP, itemPrice, sellPrice });
+  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, reqLvl, SHOP, itemPrice, sellPrice });
 })(typeof window !== 'undefined' ? window : globalThis);
