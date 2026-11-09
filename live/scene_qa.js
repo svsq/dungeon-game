@@ -1428,7 +1428,10 @@
     states.push(['archer_front', archerS(() => {})], ['archer_back', archerS((S, R, h) => { h.back = 1; })],
       ['archer_leather', archerS((S, R, h, gear) => { h.eq.armor = gear('leather_armor', 'armor'); })],
       ['archer_cloak', archerS((S, R, h, gear) => { h.eq.armor = gear('cloak', 'armor'); })],
-      ['archer_helm', archerS((S, R, h, gear) => { h.eq.helm = gear('leather_helm', 'helm'); })]);
+      ['archer_helm', archerS((S, R, h, gear) => { h.eq.helm = gear('leather_helm', 'helm'); })],
+      ['archer_bows_inv', archerS((S, R, h, gear) => { h.eq.weapon = gear('longbow', 'weapon'); h.bag[0] = gear('shortbow', 'weapon'); h.bag[1] = gear('crossbow', 'weapon'); h.bag[2] = gear('longbow', 'weapon'); S.screen = 'inv'; S.hover = 'eq:weapon'; })],
+      ['archer_bows_floor', archerS((S, R, h, gear) => { ['shortbow', 'longbow', 'crossbow'].forEach((b, i) => R.drops.push({ id: R.nextId++, kind: 'item', loot: 1, item: Object.assign(gear(b, 'weapon'), { rar: 0 }), x: h.x - 50 + 50 * i, y: h.y + 50, vx: 0, vy: 0, z: 0, vz: 0, t0: S.t - 5 })); })],
+      ...['longbow', 'crossbow'].flatMap((b) => [['archer_' + b, archerS((S, R, h, gear) => { h.eq.weapon = gear(b, 'weapon'); })], ['archer_' + b + '_back', archerS((S, R, h, gear) => { h.eq.weapon = gear(b, 'weapon'); h.back = 1; })]]));
     states.push(['town_archer', climbS(0, (S, R, m, h) => { h.cls = 'archer'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'shortbow' }); h.x = m.town.svc.lectern.x - 70; h.y = m.town.svc.lectern.y + 60; })]);
     states.push(['town_mage', climbS(0, (S, R, m, h) => { h.cls = 'mage'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'staff' }); h.eq.armor = Object.assign({}, h.eq.armor, { b: 'robe' });
       h.x = m.town.svc.lectern.x - 70; h.y = m.town.svc.lectern.y + 60; })]);
@@ -1659,15 +1662,21 @@
     transitions.hero_mage_hurt = mageT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; });
     transitions.hero_mage_death = mageT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     // the archer (TASKS 1125): the same sequences with his bow; the volley and the leap through the sim
-    const asArcher = (S) => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b: 'shortbow', rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
+    const asArcher = (S, b = 'shortbow') => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
     const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__')).concat(['it_bow_s', 'skel_arrow']);
     for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = 'archer_' + k;
       out.cycles[n] = cyc(dx, dy, asArcher); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S); if (dy < 0) S.run.hero.back = 1; }); }
-    const archerT = (a0, fire, press, turn) => { const fr = []; let S = play((S) => { clear(S); asArcher(S); S.run.hero.lvl = 4; S.run.hero.ab.volley = 1; S.run.hero.ab.trap = 1; S.run.hero.ab.leap = 1; S.run.hero.mp = 999; }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
+    const archerT = (a0, fire, press, turn, b) => { const fr = []; let S = play((S) => { clear(S); asArcher(S, b); S.run.hero.lvl = 4; S.run.hero.ab.volley = 1; S.run.hero.ab.trap = 1; S.run.hero.ab.leap = 1; S.run.hero.mp = 999; }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (typeof fire === 'function') fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [5] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, slot: fire === 'volley' && i === 5 && k === 0 ? 1 : fire === 'leap' && i === 5 && k === 0 ? 3 : 0, keys: [] }); } return fr; };
     for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) transitions['hero_archer_shoot_' + n] = archerT(a, null, 1);
     transitions.hero_archer_shoot_l = archerT(Math.PI, null, 1); transitions.hero_archer_shoot_u = archerT(-Math.PI / 2, null, 1); transitions.hero_archer_shoot_turn = archerT(0, null, 1, [7, 1.2]); transitions.hero_archer_pair = archerT(0, null, [5, 34]);
+    // each bow and the crossbow at rest, walking and shooting all round (TASKS 1697, 1698)
+    const AIM8 = [['r', 0], ['dr', Math.PI / 4], ['d', Math.PI / 2], ['dl', 3 * Math.PI / 4], ['l', Math.PI], ['ul', -3 * Math.PI / 4], ['u', -Math.PI / 2], ['ur', -Math.PI / 4]];
+    for (const b of ['longbow', 'crossbow']) {
+      for (const [n, a] of AIM8) transitions['hero_' + b + '_shoot_' + n] = archerT(a, null, 1, null, b);
+      for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = b + '_' + k;
+        out.cycles[n] = cyc(dx, dy, (S) => asArcher(S, b)); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S, b); if (dy < 0) S.run.hero.back = 1; }); } }
     transitions.hero_archer_shoot2_r = archerT(0, null, [5, 30]); transitions.hero_archer_volley_r = archerT(0, 'volley'); transitions.hero_archer_leap_r = archerT(0, 'leap');
     // the warrior's charge and war cry (TASKS 1134), through the sim
     const warT = (a, slot, foe, press) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;

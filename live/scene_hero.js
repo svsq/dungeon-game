@@ -5,8 +5,8 @@
   const {
     D, L, M, SC, SS } = SCX;
   // ---------------- the hero: cut-out rig (partrig.py) with planted foot paths, IK knees, swinging arms, a held weapon ----------------
-  const WEAPON = { sword: ['it_sword', 46], longsword: ['it_longsword', 53], axe: ['it_axe', 48], hammer: ['it_hammer', 51], staff: ['it_staff', 58], wand: ['it_wand', 40], shortbow: ['it_bow_s', 48], longbow: ['it_bow_l', 58], crossbow: ['it_crossbow', 50], fist: null };
-  const NOCKS = { it_bow_s: [[0.894, 0.174], [0.255, 0.863]], it_bow_l: [[0.882, 0.142], [0.196, 0.882]] };
+  const WEAPON = { sword: ['it_sword', 46], longsword: ['it_longsword', 53], axe: ['it_axe', 48], hammer: ['it_hammer', 51], staff: ['it_staff', 58], wand: ['it_wand', 40], shortbow: ['it_bow_s', 48], longbow: ['it_bow_l', 36], crossbow: ['it_crossbow', 50], fist: null };
+  const NOCKS = { it_bow_s: [[0.894, 0.174], [0.255, 0.863]], it_bow_l: [[0.937, 0.072], [0.096, 0.941]] };
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
   // what the hero wears (TASKS 155): each slot picks the rig parts painted for its base (tools/gear.py), '' = the hero as first drawn
   // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield rides the far forearm

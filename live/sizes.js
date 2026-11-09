@@ -25,5 +25,7 @@
   // a small slime is the slime's painting drawn smaller: its own name, so everything sized by 'en_' + type finds it
   const ALIAS = { en_slime_s: ['en_slime', 28], en_mimic: ['chest', 50] };
   for (const n in ALIAS) { const [src, h] = ALIAS[n]; if (A[src]) S[n] = [Math.round(h * A[src].w / A[src].h), h]; }
-  for (const n in A) if (n.startsWith('it_') || n.startsWith('ab_') || n.startsWith('qi_')) S[n] = [Math.round(56 * A[n].w / Math.max(A[n].w, A[n].h)), Math.round(56 * A[n].h / Math.max(A[n].w, A[n].h))];
+  // (TASKS 1697) the long bow is a thin stave: at the common 56 it read as a hairline on the floor
+  const ICON = { it_bow_l: 66 };
+  for (const n in A) if (n.startsWith('it_') || n.startsWith('ab_') || n.startsWith('qi_')) { const m = ICON[n] || 56; S[n] = [Math.round(m * A[n].w / Math.max(A[n].w, A[n].h)), Math.round(m * A[n].h / Math.max(A[n].w, A[n].h))]; }
 })();
