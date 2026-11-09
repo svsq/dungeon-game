@@ -88,7 +88,7 @@
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
       if (alive && h.gold > 0 && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 30 && !(R.msg && t < R.msg.t + (R.msg.d || 3.5))) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
   }
-  const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
+  const solids = (R) => { const out = []; for (const c of R.chests) if (!c.woke) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid || d.role === 'bench') out.push({ x: d.x, y: d.y, r: 18 });
     if (R.map.town) for (const p of R.map.town.yardSolid || []) out.push({ x: p.x, y: p.y, r: 18 });
     if (R.map.town && R.cart && R.cart.st !== 'in') { const [x, y] = railAt(R.map, R.cart.s); out.push({ x, y, r: 16 }); }
@@ -262,7 +262,7 @@
         e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
         if (!r) { q.lost = 1; continue; } q.room = r.id; }
-      else if (Q.type === 'fetch') { const roomOf = (c) => m.rooms[DG.roomAt(m, c.x, c.y)] || {}, free = R.chests.filter((c) => !c.open && !c.quest);
+      else if (Q.type === 'fetch') { const roomOf = (c) => m.rooms[DG.roomAt(m, c.x, c.y)] || {}, free = R.chests.filter((c) => !c.open && !c.quest && !c.mimic);
         const secret = free.filter((c) => roomOf(c).type === 'secret'), plain = free.filter((c) => roomOf(c).type !== 'secret'), u = qhash((R.seed >>> 0) * 7919 + f * 104729 + q.id) / 4294967296;
         const c = u < 0.35 && secret.length ? pick(R, secret) : u < 0.7 && plain.length ? pick(R, plain) : null;
         if (c) { c.quest = q.id; c.qic = q.ic; q.where = roomOf(c).type === 'secret' ? 'secret' : 'chest'; continue; }

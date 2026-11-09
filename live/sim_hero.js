@@ -143,6 +143,7 @@
     // the last monster of a room down: the room is cleared (TASKS 1017, a quest's goal)
     if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) ev(S, { k: 'clear', x: e.x, y: e.y, room: e.room });
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
+    if (e.type === 'mimic') SIMX.mimicLoot(S, R, e);
     if (e.summ) return;
     const [lx, ly] = landOf(R.map, e.x, e.y), ox = e.x, oy = e.y; e.x = lx; e.y = ly;
     if (e.key !== undefined) drop(R, e.x, e.y, { kind: 'key', lock: e.key });

@@ -189,7 +189,7 @@
     const near = (x, y) => { const k = Math.floor(y / TILE) * m.W + Math.floor(x / TILE); return [k, k + 1, k - 1, k + m.W, k - m.W].some((n) => seen[n]); };
     const B = propBoxes(R), where = (x, y, item) => { const k = Math.floor(y / TILE) * m.W + Math.floor(x / TILE); return !near(x, y) || (item && behindProp(B, x, y)) ? 'stuck' : hid.has(k) || m.cells[k] === 4 ? 'secret' : 'open'; };
     const items = R.drops.filter((d) => d.loot && !d.got && d.kind === 'item').map((d) => ({ x: d.x, y: d.y, n: 1, at: where(d.x, d.y, d.rest === DROP_REST && !(d.fly > 0)), chest: 0 }));
-    const chests = R.chests.filter((c) => !c.open && c.loot && c.loot.length).map((c) => ({ x: c.x, y: c.y, n: c.loot.length, at: where(c.x, c.y), chest: 1 }));
+    const chests = R.chests.filter((c) => (!c.open || c.woke) && c.loot && c.loot.length).map((c) => ({ x: c.x, y: c.y, n: c.loot.length, at: where(c.x, c.y), chest: 1 }));
     const lying = items.length, boxed = chests.reduce((n, c) => n + c.n, 0);
     // a quest's keepsake (TASKS 1020) must be reachable as any loot, though it is no part of the floor's books
     const keeps = R.drops.filter((d) => d.kind === 'qitem' && !d.got).map((d) => ({ x: d.x, y: d.y, n: 1, at: where(d.x, d.y, d.rest === DROP_REST && !(d.fly > 0)), chest: 0, quest: 1 }))
@@ -272,6 +272,7 @@
       if (q.trig && q.trig.k === 'sconce') { const t = m.torches[q.trig.t]; return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; } return false; }); }
   function openChest(S, R, c) {
     if (c.open) return;
+    if (c.mimic) { wakeMimic(S, R, c); return; }
     if (c.sealed) { if (S.t - (c.nopeT ?? -9) > 1) { c.nopeT = S.t; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.openChest.sealed') }); } return; }
     const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
     c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier });
@@ -287,6 +288,14 @@
     if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
     if (!c.boss) drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
+  // a mimic gets up off its chest's place; the chest stays in the list, loot and all, until the mimic dies
+  function wakeMimic(S, R, c) { const E = ENEMIES.mimic, f = dep(R), h = R.hero, hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), id = R.nextId++;
+    c.open = 1; c.openT = S.t; c.woke = id; c.ambushRolled = 1;
+    R.en.push({ id, type: 'mimic', x: c.x, y: c.y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room: DG.roomAt(R.map, c.x, c.y), st: 'rise', t0: S.t, face: h.x >= c.x ? 1 : -1, aimA: 0, cdT: S.t + E.rise + 0.25, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'mimic', spawnT: S.t, seenT: S.t, hx: c.x, hy: c.y, ft: -9 });
+    ev(S, { k: 'mimicwake', x: c.x, y: c.y, id }); R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.mimic.msg'), t: S.t, d: 2 }; }
+  function mimicLoot(S, R, e) { const c = R.chests.find((o) => o.woke === e.id); if (!c) return;
+    for (const it of c.loot || []) drop(R, e.x, e.y, { kind: 'item', item: it, pre: true }); c.loot = [];
+    drop(R, e.x, e.y, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * 3) }); }
   // a trapped chest's blast, its fuse lit by the opening: it hurts, but it does not end a run on its own
   function stepChestTraps(S, R) { const h = R.hero, T = D.CHEST_TRAP;
     for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.3);
@@ -295,7 +304,7 @@
   // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
   function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : [rollItem(R, dep(R), 2)]; for (const it of its) it.id = R.nextId++; return its; }
   function chestLoot(R, c) { if (c.boss) return [];
-    const LT = LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
+    const LT = c.mimic ? { q: LOOT.chest[3].q, n: LOOT.chest[c.tier].n } : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)
     if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], { min: Y.forge.min }));
     else for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q));
@@ -306,5 +315,5 @@
   Object.assign(SIMX, {
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
     hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
-    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps });
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, mimicLoot });
 })(typeof window !== 'undefined' ? window : globalThis);

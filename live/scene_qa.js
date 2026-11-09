@@ -53,6 +53,9 @@
       // a trapped chest giving itself away, its fuse burning and its blast (TASKS 1357)
       ...[['chest_trap_shut', 0], ['chest_trap_fuse', 0.3], ['chest_trap_bang', 0.7]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); const c = { x: h.x + 60, y: h.y - 30, tier: 2, open: a ? 1 : 0, trap: 1, openT: S.t - a }; R.chests.push(c);
         if (a) S.ev.push({ k: a > 0.55 ? 'trapbang' : 'trapfuse', t: S.t - (a > 0.55 ? a - 0.55 : a), x: c.x, y: c.y, d: 0.55, r: 96 }); })]),
+      // a mimic getting up, gaping, in the air and biting (TASKS 367)
+      ...[['mimic_wake', 'rise', 0.3], ['mimic_wind', 'wind', 0.45], ['mimic_air', 'strike', 0.2], ['mimic_bite', 'strike', 0.5]].map(([id, st, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); const c = { x: h.x + 90, y: h.y - 20, tier: 2, open: 0, mimic: 1, loot: [] }; R.chests.push(c); SIM.openChest(S, R, c); const e = R.en[0]; e.st = st; e.t0 = S.t - a; e.jx = e.x; e.jy = e.y; e.jtx = e.x - 40; e.jty = e.y; e.hitDone = a > 0.42 ? 1 : 0; e.aimA = Math.PI; e.face = -1; })]),
+      ['mimic_shut', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.chests.push({ x: h.x + 90, y: h.y - 20, tier: 2, open: 0, mimic: 1 }); })],
       ['prompt_exit', play((S) => { const R = S.run, h = R.hero; R.map.exit = { x: h.x, y: h.y + 40 }; })],
       ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
@@ -1122,7 +1125,7 @@
     // a smouldering skeleton struck down: its bones lie with the fuse burning, then burst
     const emberKill = (S) => { kill(S); const e = S.run.en[0], B = D.ENEMIES.skel_ember.boom; e.fuse = S.t + B.fuse; S.ev.push({ k: 'fuse', t: S.t, x: e.x, y: e.y, r: B.r, d: B.fuse, id: e.id }); };
     transitions.skel_ember_death = eventT(lone('skel_ember'), emberKill, 'skel_ember'); transitions.skel_ember_death_topple = eventT(lone('skel_ember', 992), emberKill, 'skel_ember');
-    for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
+    for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander', 'mimic']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
     // a golem's pool of lava where it fell apart, through its whole life (TASKS 409)
     transitions.golem_pool = eventT(lone('golem'), (S) => { kill(S); const e = S.run.en[0], P = D.ENEMIES.golem.pool; S.run.fires = [{ id: 995, src: e.id, who: 'golem', x: e.x, y: e.y, t0: S.t, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; S.ev.push({ k: 'pool', t: S.t, x: e.x, y: e.y, r: P.r, d: P.t, id: e.id }); }, 'golem');
     // a blow on a golem's crust takes a plate off: sparks off the stone, a clang; with its crust gone its cracks blaze
@@ -1226,7 +1229,7 @@
     { const S = structuredClone(states.find(([name]) => name === 'win_cave')[1]), R = SIM.newRun(S, 'magma', 71);
       S.result.mode = 'magma'; S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta); S.result.lvl = 17; states.push(['win_magma', S]); }
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
-    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', ...MG]) { const fr = []; let S = playOf(ty)((S) => { const R = S.run, h = R.hero; R.msg = null;
+    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', 'mimic', ...MG]) { const fr = []; let S = playOf(ty)((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - SCX.VW / 2, h.y - SCX.VH / 2]; });
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }

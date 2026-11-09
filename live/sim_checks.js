@@ -1281,6 +1281,13 @@
       for (let k = 0; k < 90; k++) step(S, { keys: [] }); if (h.hp >= hp0) out.push('trap chest: the blast did not hurt the hero beside it'); if (c.fuseT) out.push('trap chest: fuse never ends');
       c.fuseT = S.t - 1; h.hp = 1; h.ifr = 0; h.x = c.x; h.y = c.y + 20; for (let k = 0; k < 4; k++) step(S, { keys: [] }); if (h.deadT >= 0) out.push('trap chest: killed the hero'); }
     if (!traps) out.push('trap chest: none on 40 seeds');
+    let mims = 0;
+    for (let sd = 1; sd <= 80 && !mims; sd++) for (let f = 3; f <= 8 && !mims; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 3670 + sd); enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, c = R.chests.find((o) => o.mimic); if (!c) continue; mims++;
+      R.en = []; const h = R.hero, spot = [[0, 80], [80, 0], [-80, 0], [0, -80], [60, 60], [-60, 60]].find(([dx, dy]) => cell(R.map, Math.floor((c.x + dx) / TILE), Math.floor((c.y + dy) / TILE)) === 1 && losClear(R.map, c.x, c.y - 6, c.x + dx, c.y + dy - 6)); if (!spot) { mims--; continue; } h.x = c.x + spot[0]; h.y = c.y + spot[1]; h.ifr = 1e9; const items = c.loot.length, n0 = R.drops.length, A0 = lootAudit(R).off; openChest(S, R, c); const e = R.en.find((o) => o.type === 'mimic');
+      if (!e || e.st !== 'rise' || R.drops.length !== n0 || c.loot.length !== items) out.push('mimic: did not wake holding its loot'); if (solids(R).some((o) => o.x === c.x && o.y === c.y)) out.push('mimic: its chest still stands in the way');
+      if (lootAudit(R).off !== A0) out.push('mimic: loot books off while it lives'); for (let k = 0; k < 300 && !R.en.some((o) => o.st === 'strike' && o.type === 'mimic'); k++) step(S, { keys: [] }); if (!R.en.some((o) => o.st === 'strike')) out.push('mimic: never bites');
+      e.hp = 0; killEnemy(S, R, e); if (R.drops.filter((d) => d.kind === 'item').length < items || c.loot.length) out.push('mimic: its loot did not fall'); if (lootAudit(R).off !== A0) out.push('mimic: loot books off after it dies'); if (R.stats[f] && R.stats[f].kills > R.stats[f].foes + 1) out.push('mimic: counted among the floor\'s monsters'); }
+    if (!mims) out.push('mimic: none on 80 seeds');
     return out; }
   // secrets, loot tables and completion stats, played through the sim
   function secretCheck() {
