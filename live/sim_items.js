@@ -139,8 +139,8 @@
         else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
         else if (p.kind === 'qitem') { p.got = 1; const q = (R.quests || []).find((o) => o.id === p.quest); ev(S, { k: 'qitem', x: p.x, y: p.y, quest: p.quest }); if (q) R.msg = { s: TXT('sim_items.stepDrops.msg.s', { thing: q.thing }), t: S.t }; }
         else if (p.kind === 'key') { R.keys = (R.keys || 0) + 1; p.got = 1; ev(S, { k: 'key', x: p.x, y: p.y }); R.msg = { s: TXT('sim_items.stepDrops.msg.s.2'), t: S.t }; }
-        else if (SIMX.wearIfFree(S, R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); } ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }
-        else if (SIMX.bagAdd(R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); } ev(S, { k: 'pickup', x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }); }
+        else if (SIMX.wearIfFree(S, R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); } ev(S, { k: 'pickup', b: p.item.b, x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }
+        else if (SIMX.bagAdd(R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); } ev(S, { k: 'pickup', b: p.item.b, x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }); }
         else if (S.t - (R.fullT || -9) > 2.5) { R.fullT = S.t; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_items.stepDrops.s') }); }
       } }
     R.drops = R.drops.filter((p) => !p.got);

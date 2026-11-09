@@ -89,11 +89,19 @@
   };
   SCREEN.meta = (S, inp, keys, x, y, click) => {
     const bs = UI.meta(S.meta.cls, S.metaTab), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
+    if (click && b && b.id === 'codex') { S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && b.id === 'tab') { S.metaTab = S.metaTab === 'open' ? 'up' : 'open'; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && b.un !== undefined) { SIMX.buyUnlock(S, D.UNLOCKS[b.un], x, y); return; }
     if ((click && b && b.id === 'back') || keys.Escape || (S.metaRun && keys.KeyE)) { S.screen = S.metaRun && S.run ? 'play' : 'menu'; S.metaRun = 0; return; }
     if (click && b) { const M = META.find((q) => q.id === b.id); if (M) { const r = S.meta.up[M.id] || 0, c = M.cost(r);
       if (r < M.max && S.meta.shards >= c) { S.meta.shards -= c; S.meta.up[M.id] = r + 1; S.saveN++; ev(S, { k: 'buy', x, y, id: M.id }); } else ev(S, { k: 'nope', x, y, s: r >= M.max ? TXT('sim_ui.meta.s') : TXT('sim_ui.meta.s.2') }); } }
+    return;
+  };
+  SCREEN.codex = (S, inp, keys, x, y, click) => { const U = UI.codex(S.codexTab || 'm', S.codexPage), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'meta'; S.hover = ''; return; }
+    if (click && b && b.tab) { S.codexTab = b.tab; S.codexPage = 0; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.id === 'prev' && U.page > 0) S.codexPage = U.page - 1;
+    if (click && b && b.id === 'next' && U.page < U.pages - 1) S.codexPage = U.page + 1;
     return;
   };
   SCREEN.pause = (S, inp, keys, x, y, click) => {

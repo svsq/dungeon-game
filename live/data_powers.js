@@ -76,5 +76,8 @@
   const isOpen = (meta, kind, ref) => { const U = UNLOCKS.find((q) => q.kind === kind && q.ref === ref); return !U || !!((meta || {}).open || {})[U.id]; };
   const kitsOf = (cls, meta) => KITS.filter((k) => k.cls === cls && (meta === undefined || isOpen(meta, 'kit', k.id)));
   const kitOf = (meta, cls) => { const list = kitsOf(cls, meta || {}), id = ((meta || {}).kit || {})[cls]; return list.find((k) => k.id === id) || list[0]; };
-  Object.assign(D, { ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
+  // the codex (TASKS 395): what a page of it lists; an entry opens on first meeting (sim_unlocks)
+  const CODEX_TABS = ['m', 'it', 'p'], CODEX_PAGE = 36;
+  const codexList = (tab) => (tab === 'm' ? Object.keys(D.ENEMIES).map((k) => ({ k, name: D.ENEMIES[k].name })) : tab === 'it' ? Object.keys(D.BASES).map((k) => ({ k, name: D.BASES[k].name, icon: D.BASES[k].icon })) : D.GIFTS.filter((g) => g.power).map((g) => ({ k: g.id, name: g.name, icon: g.icon })));
+  Object.assign(D, { CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);

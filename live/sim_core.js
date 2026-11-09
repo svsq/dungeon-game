@@ -54,7 +54,7 @@
     else if (e.k === 'cast' || e.k === 'whirl' || e.k === 'shield') add(L.ab, e.k === 'cast' ? 'fireball' : e.k);
     if (e.k === 'equip' || e.k === 'unequip') { const st = SIMX.heroSt(S); (L.gear = L.gear || []).push({ t: +e.t.toFixed(2), slot: e.slot, on: e.on || null, off: e.off || null, maxHp: st.maxHp, def: st.def, atk: st.atk }); }
     if (e.k === 'bless') { const st = SIMX.heroSt(S); (L.gifts = L.gifts || []).push(e.cost == null ? { t: +e.t.toFixed(2), id: e.id, revive: 1 } : { t: +e.t.toFixed(2), id: e.id, name: e.s, cost: e.cost, maxHp: st.maxHp, def: st.def, atk: st.atk }); } }
-  SIMX.META_EV = new Set(['kill']);
+  SIMX.META_EV = new Set(['kill', 'hit', 'pickup', 'bless']);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 

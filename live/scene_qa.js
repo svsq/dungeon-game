@@ -1308,6 +1308,8 @@
     states.push(['shop_wander', climbS(5, (S, R, m, h) => { R.shop = SIM.stockShopFor(R, 5, 'wander'); R.shop.line = 3; S.screen = 'shop'; S.hover = 'buy:0'; })]);
     // the Altar of Souls on the square (TASKS 1011): its prompt, and its screen opened there mid-run
     states.push(['town_altar_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; })]);
+    states.push(['codex', mk((S) => { S.meta.codex = { m: Object.fromEntries(Object.keys(D.ENEMIES).filter((_, i) => i % 3).map((k) => [k, 1])) }; S.meta.best = 12; S.meta.bestEndless = 34; S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = 'next'; })]);
+    states.push(['codex_items', mk((S) => { S.meta.codex = { it: Object.fromEntries(Object.keys(D.BASES).map((k) => [k, 1])) }; S.screen = 'codex'; S.codexTab = 'it'; })]);
     states.push(['meta_unlocks', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 55; S.meta.open = { g_whirl_ring: 1, k_w_axe: 1 }; S.meta.ach = { a_elites: 13 }; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:1'; })]);
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
     // the storage chest (TASKS 1012): its prompt; its window with a piece in, a locked cell and a tip; a piece dragged over the bag

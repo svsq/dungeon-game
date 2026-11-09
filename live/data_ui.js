@@ -54,8 +54,14 @@
     end: (hasLog, town) => [['menu', TXT('UI.end'), true], ['again', town ? TXT('UI.end.2') : TXT('UI.end.3'), true], ['log', TXT('UI.end.4'), !!hasLog]].map(([id, label, on], i) => ({ id, label, on, x: 410 + i * 380, y: 920, w: 340, h: 72 })),
     // the discoveries tab (TASKS 394): two columns of rows under the same tab button
     unlocks: () => D.UNLOCKS.map((U, i) => ({ id: 'un:' + i, un: i, on: true, x: 200 + (i % 2) * 770, y: 268 + Math.floor(i / 2) * 76, w: 750, h: 68 })),
-    meta: (cls, tab) => { const back = { id: 'back', label: TXT('UI.meta.back.label'), on: true, x: 810, y: 890, w: 300, h: 70 }, tb = { id: 'tab', label: tab === 'open' ? TXT('UI.meta.tab.up') : TXT('UI.meta.tab.open'), on: true, x: 1480, y: 120, w: 260, h: 60 }; if (tab === 'open') return UI.unlocks().concat([back, tb]); const list = D.metaFor(cls), rows = Math.ceil(list.length / 2), step = Math.min(112, Math.floor(588 / rows));
-      return list.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 266 + (i % rows) * step, w: 760, h: step - 10 })).concat([back, tb]); },
+    meta: (cls, tab) => { const back = { id: 'back', label: TXT('UI.meta.back.label'), on: true, x: 810, y: 890, w: 300, h: 70 }, cx = { id: 'codex', label: TXT('UI.codex.open'), on: true, x: 180, y: 120, w: 260, h: 60 }, tb = { id: 'tab', label: tab === 'open' ? TXT('UI.meta.tab.up') : TXT('UI.meta.tab.open'), on: true, x: 1480, y: 120, w: 260, h: 60 }; if (tab === 'open') return UI.unlocks().concat([back, tb, cx]); const list = D.metaFor(cls), rows = Math.ceil(list.length / 2), step = Math.min(112, Math.floor(588 / rows));
+      return list.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 266 + (i % rows) * step, w: 760, h: step - 10 })).concat([back, tb, cx]); },
+    // the codex (TASKS 395): its pages' entries in three columns, tabs over them, the pager and the way back under them
+    codex: (tab, page) => { const list = D.codexList(tab), pages = Math.max(1, Math.ceil(list.length / D.CODEX_PAGE)), p = Math.min(page || 0, pages - 1);
+      return { list, pages, page: p, r: list.slice(p * D.CODEX_PAGE, (p + 1) * D.CODEX_PAGE).map((q, i) => ({ id: 'cx:' + q.k, q, x: 120 + Math.floor(i / 12) * 580, y: 268 + (i % 12) * 48, w: 560, h: 44 }))
+        .concat(D.CODEX_TABS.map((t, i) => ({ id: 'tab:' + t, tab: t, label: { m: TXT('UI.codex.m'), it: TXT('UI.codex.it'), p: TXT('UI.codex.p') }[t], on: true, x: 590 + i * 250, y: 190, w: 240, h: 60 })))
+        .concat([{ id: 'back', label: TXT('UI.codex.back'), on: true, x: 810, y: 890, w: 300, h: 70 }])
+        .concat(pages > 1 ? [{ id: 'prev', label: TXT('UI.codex.prev'), on: p > 0, x: 660, y: 890, w: 130, h: 70 }, { id: 'next', label: TXT('UI.codex.next'), on: p < pages - 1, x: 1130, y: 890, w: 130, h: 70 }] : []) }; },
     // a town workshop (TASKS 1013): the worn gear in a row and the bag under it on the left, the chosen piece, its affixes, the price
     // and the work's button on the right
     craft: () => { const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];

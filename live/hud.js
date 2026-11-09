@@ -58,6 +58,7 @@
     if (S.screen === 'menu') menu(S, t);
     if (S.screen === 'tests') tests(S, t);
     if (S.screen === 'classes') classes(S, t);
+    if (S.screen === 'codex') codex(S, t);
     if (S.screen === 'news') news(S, t);
     if (S.screen === 'meta') meta(S, t);
     if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
@@ -678,6 +679,14 @@
       lab('nw_k', TXT('hud.news.keys'), P.x + 40, P.y + P.h - 60, { size: 19, col: '#6d6258' }); }
     for (const b of N.r) button('nw_' + b.id, b, S.hover);
   }
+  function codex(S, t) { const tab = S.codexTab || 'm', U = D.UI.codex(tab, S.codexPage), seen = (S.meta.codex || {})[tab] || {}, n = U.list.filter((q) => seen[q.k]).length;
+    L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1); G.blend('add'); L.glow(W / 2, 180, 460, [0.5, 0.4, 0.2], 0.2 + 0.04 * Math.sin(t * 2)); G.blend();
+    lab('cx_t', TXT('UI.codex.title'), W / 2, 110, { size: 64, al: 0.5, col: C.gold });
+    lab('cx_c', TXT('hud.codex.count', { n, m: U.list.length }), 120, 226, { size: 24, col: C.dim });
+    lab('cx_b', TXT('hud.codex.best', { p1: S.meta.best || 0, p2: S.meta.bestEndless || 0 }), W - 120, 226, { size: 22, al: 1, col: C.dim });
+    for (const b of U.r) { if (b.q) { const on = !!seen[b.q.k]; panel('cx_' + b.q.k, b.x, b.y, b.w, b.h, { r: 6, rim: C.rim }); if (b.q.icon && on) icon(b.q.icon, b.x + 6, b.y + 4, 36); lab('cx_n' + b.q.k, on ? b.q.name : TXT('hud.codex.unknown'), b.x + (b.q.icon ? 52 : 16), b.y + b.h / 2, { size: 22, col: on ? C.text : '#5c5650' }); continue; }
+      button('cx_b' + b.id, b, b.tab === tab ? b.id : S.hover); }
+  }
   function meta(S, t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1);
     G.blend('add'); L.glow(W / 2, 200, 500, [0.3, 0.5, 1], 0.25 + 0.05 * Math.sin(t * 2)); G.blend();
@@ -686,7 +695,7 @@
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) lab('mt_run', TXT('hud.meta.3'), W / 2, 242, { size: 19, al: 0.5, col: '#8a7d6c' });
     for (const b of D.UI.meta(S.meta.cls, S.metaTab)) {
-      if (b.id === 'back' || b.id === 'tab') { button('mt_' + b.id, b, S.hover); continue; }
+      if (b.id === 'back' || b.id === 'tab' || b.id === 'codex') { button('mt_' + b.id, b, S.hover); continue; }
       if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), can = !open && !U.ach && S.meta.shards >= U.cost;
         panel('un_' + b.un, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
         lab('un_n' + b.un, Th.name, b.x + 20, b.y + 26, { size: 24, col: open ? C.gold : C.text });

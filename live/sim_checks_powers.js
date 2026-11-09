@@ -56,6 +56,13 @@
     { const c = stage('warrior'); c.S.meta.open = { g_rl_pyre: 1 }; const j = JSON.parse(JSON.stringify(SIMX.persist(c.S))); if (!j.meta.open.g_rl_pyre) out.push('unlock: not in the save'); }
     { const c = stage('warrior'); c.S.meta.open = {}; const n = D.UI.meta('warrior', 'open').filter((b) => b.un !== undefined).length; if (n !== D.UNLOCKS.length) out.push(`unlock: ${n} rows of ${D.UNLOCKS.length}`); for (const b of D.UI.unlocks()) if (b.y + b.h > 890 || b.x + b.w > 1920) out.push('unlock: a row runs off the screen'); }
   }
+  function checkCodex(out) {
+    for (const t of D.CODEX_TABS) { if (!D.codexList(t).length) out.push(`codex: tab ${t} is empty`); for (let p = 0; ; p++) { const U = D.UI.codex(t, p); for (const b of U.r) if (b.x + b.w > 1920 || b.y + b.h > 1080) out.push('codex: a row runs off the screen'); if (U.page !== p || p >= U.pages - 1) break; } }
+    const c = stage('warrior'); c.S.meta.codex = {}; c.S.demo = 0; SIMX.metaEvent(c.S, { k: 'hit', type: 'skeleton', id: 1, x: 0, y: 0 }); SIMX.metaEvent(c.S, { k: 'pickup', b: 'sword' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'whirl_pull' }); SIMX.metaEvent(c.S, { k: 'bless', id: 'fury' });
+    if (!c.S.meta.codex.m.skeleton || !c.S.meta.codex.it.sword || !c.S.meta.codex.p.whirl_pull || c.S.meta.codex.p.fury) out.push('codex: meetings are not written down');
+    { const S = spawn(0, {}); S.demo = 1; S.ev = []; SIMX.ev(S, { k: 'kill', type: 'skeleton', x: 0, y: 0 }); if (S.meta.codex) out.push('codex: the attract demo writes in it'); }
+    { const S = spawn(0, {}); S.screen = 'meta'; const b = D.UI.meta('warrior').find((q) => q.id === 'codex'); SIMX.step(S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (S.screen !== 'codex') out.push('codex: the button does not open it'); SIMX.step(S, { keys: ['Escape'] }); if (S.screen !== 'meta') out.push('codex: Escape does not lead back'); }
+  }
   function checkPowerPack(out) {
     const T = 'POWERS', own = (c, id) => { (c.h.powers = c.h.powers || {})[id] = 1; };
     for (const [id, P] of Object.entries(D.POWERS)) { if (!id.startsWith('kit_') && (!P.name || !P.desc || P.name.startsWith(T) || P.desc.startsWith(T))) out.push(`power: ${id} has no words`);
@@ -92,7 +99,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);
