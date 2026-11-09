@@ -147,8 +147,8 @@
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { const mig = restoreFloor(R, f, M); SIMX.dropMarks(R, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
     else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); SIMX.questPlace(S, R); } }
-    if (f > 0) SIMX.captivePlace(R);
-    if (f > 0) SIMX.notePlace(R);
+    if (f > 0) SIMX.captivePlace(S, R);
+    if (f > 0) SIMX.notePlace(S, R);
     if (f > 0) SIMX.nameElites(R);
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock

@@ -1409,7 +1409,7 @@
     states.push(['captive_freed', climbS(1, (S, R, m, h) => { h.x = R.captives.merchant.x + 50; h.y = R.captives.merchant.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); R.freed = { merchant: 1 }; R.msg = { s: TXT('sim_town.captive.free'), t: S.t - 1, d: 5 }; })]);
     const noteWorst = () => D.NOTES.list.reduce((a, n) => (n.text.length > a.text.length ? n : a));
     states.push(['captive_smith', climbS(3, (S, R, m, h) => { const C = R.captives.smith; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
-    states.push(['captive_enchanter', climbS(4, (S, R, m, h) => { const b = R.en.find((e) => D.BOSSES[e.type]); SIMX.captiveBoss(R, b); const C = R.captives.enchanter; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
+    states.push(['captive_enchanter', climbS(4, (S, R, m, h) => { const b = R.en.find((e) => D.BOSSES[e.type]); SIMX.captiveBoss(S, R, b); const C = R.captives.enchanter; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['note_floor', climbS(1, (S, R, m, h) => { const p = R.drops.find((d) => d.kind === 'note' && d.sec === undefined); h.x = p.x + 30; h.y = p.y + 24; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['note_read', climbS(1, (S, R) => { S.note = { id: noteWorst().id }; S.screen = 'note'; })]);
     states.push(['notes_list', climbS(1, (S, R) => { S.meta.notes = D.NOTES.list.slice(0, 30).map((n) => n.id); S.noteSel = noteWorst().id; S.meta.notes.push(S.noteSel); S.screen = 'notes'; })]);
@@ -1425,6 +1425,19 @@
     states.push(['town_talk_menu', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.keeper.topics, menu: 1 }; S.screen = 'talk'; S.hover = 'topic:1'; })]);
     states.push(['town_talk_topic', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: D.FOLK.keeper.topics[0].a, p: 0, act: null, topics: D.FOLK.keeper.topics, inTopic: 1 }; S.screen = 'talk'; })]);
     states.push(['town_guard_talk', keeperS((S) => { S.talk = { role: 'guard', i: 0, pages: D.FOLK.guard.lines[2].slice(), p: 0 }; S.screen = 'talk'; })]);
+    // PR 49 review: E at the anvil and at the lectern opens the master's talk with «Поговорить» and the workshop's button (the smith's
+    // with a quest on its last page: the full row of four); the Keeper's end of the campaign, its longest page and its last with the
+    // choice; Kip's words for it
+    const noQ = (R) => { R.offers = []; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; };
+    const eNear = (S, R, h, x, y) => { h.x = x; h.y = y; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; SIM.step(S, { keys: [] }); SIM.step(S, { keys: ['KeyE'] }); };
+    const masterS = (role, quest) => keeperS((S, R, h) => { const at = R.map.town.svc[role === 'smith' ? 'anvil' : 'lectern']; noQ(R); if (quest) R.offers = [{ key: 'cull', from: role, q: 0 }];
+      eNear(S, R, h, at.x, at.y + 30); if (S.talk) S.talk.p = S.talk.pages.length - 1; S.hover = 'talk'; });
+    states.push(['town_smith_talk', masterS('smith', 0)], ['town_smith_talk_quest', masterS('smith', 1)], ['town_enchanter_talk', masterS('enchanter', 0)]);
+    const endS = (pick) => keeperS((S, R, h, k) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; R.goldTot = 1000; S.meta.keeperMet = 1; S.meta.endTold = 1;
+      eNear(S, R, h, k.x + 44, k.y + 12); if (S.talk) { S.talk.p = pick(S.talk.pages); S.hover = 'act'; } });
+    states.push(['town_keeper_end', endS((P) => P.length - 1)], ['town_keeper_end_long', endS((P) => P.indexOf(P.reduce((a, q) => (q.length > a.length ? q : a))))]);
+    states.push(['town_kip_won', keeperS((S, R, h) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; const c = R.folk.find((q) => q.role === 'child');
+      for (const f of R.folk) if (f !== c) f.x += 2000; eNear(S, R, h, c.x + 44, c.y + 12); for (const f of R.folk) if (f !== c) f.x -= 2000; if (S.talk) S.talk.p = 0; })]);
     // quests (TASKS 1018–1022): the marks over the givers (! and ?), the offer on its page (the longest text: a keepsake), the smith's
     // offer with his workshop's button, the turn-in and its thanks with the longest reward; on the floor the named foe, the keepsake
     // in the open, the marked room; the tracker full (four quests, the longest lines)
@@ -1435,7 +1448,7 @@
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
-      const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = 'act'; });
+      const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge', topics: D.FOLK.smith.topics } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);
     states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
     states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];

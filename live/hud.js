@@ -227,7 +227,7 @@
     { const g = SIM.Q.gateNear(R); if (g) pr = [g.x, g.y - 80, TXT('hud.world.18')]; }
     // back up the stairs (TASKS 1027) and the town's portal back down (1007)
     if (m.up && Math.hypot(m.up.x - h.x, m.up.y - h.y) < 56) pr = [m.up.x, m.up.y - 70, m.floor === 1 ? TXT('hud.world.19') : TXT('hud.world.20', { p1: m.floor - 1 })];
-    { const cw = SIM.Q.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern']; pr = [P.x, P.y - 96, cw === 'forge' ? (SIM.Q.questMark(R, 'smith') ? TXT('hud.world.21') : TXT('hud.world.22')) : TXT('hud.world.23')]; } }
+    { const cw = SIM.Q.atCraft(R); if (cw) { const P = m.town.svc[cw === 'forge' ? 'anvil' : 'lectern'], who = cw === 'forge' ? 'smith' : 'enchanter', mk = SIM.Q.questMark(R, who); pr = [P.x, P.y - 96, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[who].name, cw === 'forge' ? TXT('hud.world.22') : TXT('hud.world.23')]; } }
     if (SIM.Q.atStash(R)) pr = [m.town.svc.stash.x, m.town.svc.stash.y - 74, TXT('hud.world.24')];
     if (m.town && SIM.Q.atBoard(R)) pr = [m.town.svc.board.x, m.town.svc.board.y - 86, TXT('hud.world.25')];
     if (SIM.Q.atSoulAltar(R)) pr = [m.town.svc.altar.x, m.town.svc.altar.y - 84, TXT('hud.world.26')];
@@ -805,7 +805,7 @@
     if (at('craft')) button('tk_craft', at('craft'), S.hover);
     if (at('talk')) button('tk_orig', at('talk'), S.hover);
     U.r.filter((q) => q.id.startsWith('topic:')).forEach((q) => button('tk_t' + q.i, q, S.hover));
-    lab('tk_keys', act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : act ? TXT('hud.talk', { p1: T.act.k === 'take' ? TXT('hud.talk.2') : TXT('hud.talk.3') }) : TXT('hud.talk.4'), W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('tk_keys', act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : at('craft') && !act && T.p + 1 >= T.pages.length && !T.inTopic ? TXT('hud.talk.craftKeys') : act ? TXT('hud.talk', { p1: T.act.k === 'take' ? TXT('hud.talk.2') : TXT('hud.talk.3') }) : TXT('hud.talk.4'), W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
   function board(S, R, t) {
@@ -884,7 +884,7 @@
       if (k.can && !forge) lab('cr_risk', k.fail ? TXT('hud.craft.8', { p1: Math.round(k.fail * 100) }) : TXT('hud.craft.9'), X + 310, btn.y - 26, { size: 21, al: 0.5, col: k.fail ? '#e0a070' : '#8fd98a' }); }
     if (c.res && S.t - c.res.t < 4) lab('cr_res', c.res.s, X + 310, P.y + P.h - 60, { size: 23, al: 0.5, col: c.res.ok ? '#8fd98a' : '#e0604f', a: 1 - L.SS(3.4, 4, S.t - c.res.t) });
     else refusal(S, X + 310, P.y + P.h - 60);
-    if (forge && SIM.Q.questMark(R, 'smith')) button('cr_talk', at('talk'), S.hover);
+    button('cr_talk', at('talk'), S.hover);
     const cb = at('close'); panel('cr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('cr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     lab('cr_keys', TXT('hud.craft.10'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
     const hb = U.r.find((q) => q.id === S.hover), hi = hb && (hb.id.startsWith('eq:') ? h.eq[hb.slot] : hb.id.startsWith('bag:') ? h.bag[hb.i] : null);

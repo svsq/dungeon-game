@@ -2252,7 +2252,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...craftCheck(), ...talkCheck(), ...noteChainCheck(), ...captiveFallbackCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
     return out;
   }
   // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
@@ -2586,14 +2586,15 @@
   function craftCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.craft(); noQuests(R);
     const click = (id) => { const b = U.r.find((q) => q.id === id); step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }); };
-    h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: ['KeyE'] }); if (S.screen !== 'craft' || S.craft.kind !== 'forge') { out.push('craft: E at the anvil does not open the smith'); return out; }
+    const throughTalk = () => { for (let i = 0; i < 12 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); };
+    h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: ['KeyE'] }); throughTalk(); if (S.screen !== 'craft' || S.craft.kind !== 'forge') { out.push('craft: E through the smith\'s talk does not open his workshop'); return out; }
     const it = Object.assign(rollItem(R, 6, 2, 'ring'), { id: R.nextId++, rar: 3 }); it.mods = {}; rollAffixes(R, it); h.bag[5] = it; h.gold = 100000;
     click('bag:0'); if (S.craft.sel) out.push('craft: a potion is chosen for the workshop');
     click('bag:5'); const m0 = JSON.stringify(it.mods), g0 = h.gold; it.ench = [{ k: 'str', v: 3 }]; click('do');
     if (h.gold >= g0 || JSON.stringify(it.mods) === m0 || Object.keys(it.mods).length !== RARITY[it.rar].affixes || it.ench.length !== 1) out.push('craft: a reforge does not re-roll the affixes for gold, or loses the enchantment');
     h.eq.weapon.rar = 0; h.eq.weapon.mods = {}; click('eq:weapon'); const g1 = h.gold; click('do'); if (h.gold !== g1) out.push('craft: a common piece is reforged');
     step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('craft: Esc does not leave the workshop');
-    h.x = sv.lectern.x; h.y = sv.lectern.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen !== 'craft' || S.craft.kind !== 'enchant') { out.push('craft: E at the lectern does not open the enchanter'); return out; }
+    h.x = sv.lectern.x; h.y = sv.lectern.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); throughTalk(); if (S.screen !== 'craft' || S.craft.kind !== 'enchant') { out.push('craft: E through the enchanter\'s talk does not open her workshop'); return out; }
     it.ench = []; h.eq.ring = it; h.bag[5] = null; S.meta.shards = 1000; click('eq:ring'); const st0 = heroSt(S), sh0 = S.meta.shards; click('do');
     if (it.ench.length !== 1 || S.meta.shards !== sh0 - D.CRAFT.ench.shards[0]) out.push('craft: the first enchantment fails or is not paid in shards');
     else { const e = it.ench[0], st1 = heroSt(S), was = SIM_STAT[e.k]; if (was && st1[was] <= st0[was]) out.push(`craft: the enchantment (${e.k}) does not reach the hero`); }
@@ -2625,7 +2626,7 @@
     // (Esc) leaves it going; after the descent past it the win is not counted again
     { const F = D.RUNS.campaign.floors, endAt = () => { for (let i = 0; i < 12 && S.talk && S.talk.p + 1 < S.talk.pages.length; i++) step(S, { keys: ['KeyE'] }); step(S, { keys: ['Enter'] }); }; R = run(34); talkTo(R, 'keeper'); const a0 = S.talk && S.talk.act; read(); if (a0 && a0.k === 'finish') out.push('talk: the Keeper offers to end the run before the colossus');
       R.slain = [F]; R.deepest = F; R.goldTot = 1000; talkTo(R, 'keeper'); const a1 = S.talk && S.talk.act;
-      if (!a1 || a1.k !== 'finish' || S.talk.pages[S.talk.pages.length - 1] !== K.end[0]) out.push('talk: past the colossus the Keeper does not offer to end the run');
+      if (!a1 || a1.k !== 'finish' || S.talk.pages.slice(-K.end.length).join() !== K.end.join()) out.push('talk: past the colossus the Keeper does not tell the end and offer to end the run');
       else { step(S, { keys: ['Escape'] }); if (S.screen !== 'play' || S.run !== R) out.push('talk: «Продолжить» does not leave the run going');
         talkTo(R, 'keeper'); read(); if (S.screen !== 'play' || S.run !== R) out.push('talk: E run through the Keeper\'s pages ends the run');
         const w0 = S.meta.wins || 0, s0 = S.meta.shards; talkTo(R, 'keeper'); endAt();
@@ -2638,14 +2639,75 @@
       if (!offerOf(R, 'keeper')) out.push('talk: no side quest of the Keeper\'s to check the end of the run against');
       else { talkTo(R, 'keeper'); if (!S.talk || !S.talk.act || S.talk.act.k !== 'finish' || questMark(R, 'keeper') === '!') out.push('talk: a side quest on offer hides the Keeper\'s end of the run'); step(S, { keys: ['Escape'] }); }
       // TASKS 1150: the pause menu's «Сдаться» is «Завершить поход» past the colossus, a win
+      // PR 49 review: the colossus slain is told by the end alone, not by the boss news that someone must go down again; Kip has his
+      // words for it once a run, then his own lines again
+      R = run(39); R.slain = [F]; R.deepest = F; R.bossN = 6; R.lastBoss = D.stageOf('campaign', F).boss; talkTo(R, 'keeper');
+      if (!S.talk || S.talk.pages.includes(K.boss(ENEMIES[R.lastBoss].name)[0]) || !S.talk.pages.includes(K.end[0])) out.push('talk: the colossus slain is told by the boss news, or the end is not told'); step(S, { keys: ['Escape'] });
+      for (const f of folkOf(R)) if (f.role !== 'child') f.x += 2000; talkTo(R, 'child'); const k1 = S.talk && S.talk.pages.slice(); read(); talkTo(R, 'child'); const k2 = S.talk && S.talk.pages.slice(); read(); for (const f of folkOf(R)) if (f.role !== 'child') f.x -= 2000;
+      if (!k1 || k1.slice(0, D.FOLK.child.won.length).join() !== D.FOLK.child.won.join() || !k2 || k2.includes(D.FOLK.child.won[0])) out.push('talk: past the colossus Kip does not have his words once');
       R = run(36); const pz = () => UI.pause(S.meta.zoom, campaignDone(R)).map((b) => b.id);
       if (!pz().includes('abandon') || pz().includes('finish')) out.push('pause: «Завершить поход» before the colossus falls');
       R.slain = [F]; R.deepest = F; const w2 = S.meta.wins || 0, fb = UI.pause(S.meta.zoom, true).find((b) => b.id === 'finish');
       if (!fb || pz().includes('abandon')) out.push('pause: past the colossus the menu still gives up the run');
       else { S.screen = 'pause'; step(S, { keys: [], click: 1, px: fb.x + fb.w / 2, py: fb.y + fb.h / 2 }); if (S.screen !== 'win' || S.run || S.meta.wins !== w2 + 1 || S.result.abandoned) out.push('pause: «Завершить поход» does not end the run won'); }
       R = run(37); }
-    const sm = folkOf(R).find((q) => q.role === 'smith'); R.hero.x = R.map.town.svc.anvil.x; R.hero.y = R.map.town.svc.anvil.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); void sm;
-    if (S.screen !== 'craft') out.push('talk: E at the anvil opens a dialogue, not the smith\'s workshop');
+    out.push(...masterTalkCheck(S, R));
+    return out;
+  }
+  // PR 49 review: every townsman can be talked to. E at the anvil or the lectern, or by the smith or the enchanter, opens their talk
+  // with «Поговорить» and the button into their workshop, which leads in; the workshop's «Поговорить» leads back; with a quest on
+  // the last page every button (Дальше, the quest's, Мастерская, Поговорить) still fits the row, none on another or on the likeness
+  function masterTalkCheck(S, R) {
+    const out = [], sv = R.map.town.svc, h = R.hero, click = (U, id) => { const b = U.r.find((q) => q.id === id); if (b) step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }); return !!b; };
+    for (const [role, kind, at] of [['smith', 'forge', sv.anvil], ['enchanter', 'enchant', sv.lectern]]) {
+      S.screen = 'play'; S.talk = null; h.x = at.x; h.y = at.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+      if (S.screen !== 'talk' || S.talk.role !== role || S.talk.craft !== kind) { out.push(`talk: E at the ${role}'s workshop opens no talk with ${role}`); continue; }
+      const ids = UI.talk(S.talk).r.map((b) => b.id); if (!ids.includes('talk') || !ids.includes('craft')) out.push(`talk: the ${role}'s first page has no «Поговорить» or no workshop button (${ids})`);
+      click(UI.talk(S.talk), 'talk'); if (S.screen !== 'talk' || !S.talk.menu || S.talk.topics !== D.FOLK[role].topics) out.push(`talk: «Поговорить» does not open the ${role}'s topics`);
+      step(S, { keys: ['Digit1'] }); if (S.talk.pages !== D.FOLK[role].topics[0].a) out.push(`talk: the ${role}'s first topic does not open`);
+      step(S, { keys: ['Escape'] }); h.x = at.x; h.y = at.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); click(UI.talk(S.talk), 'craft');
+      if (S.screen !== 'craft' || S.craft.kind !== kind) { out.push(`talk: the ${role}'s workshop button does not lead in`); continue; }
+      click(UI.craft(), 'talk'); if (S.screen !== 'talk' || S.talk.role !== role) out.push(`talk: the ${role}'s workshop «Поговорить» does not lead back`);
+      S.screen = 'play'; S.talk = null; }
+    for (const role of ['smith', 'enchanter']) { const f = folkOf(R).find((q) => q.role === role), x0 = f.x, y0 = f.y; f.x += 2600; h.x = f.x + 44; h.y = f.y + 12; S.screen = 'play'; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+      if (S.screen !== 'talk' || S.talk.role !== role) out.push(`talk: E by the ${role} away from the workshop opens no talk`); f.x = x0; f.y = y0; S.screen = 'play'; S.talk = null; }
+    const T = { role: 'smith', i: 0, pages: ['a', 'b'], p: 1, act: { k: 'take', key: 'cull', rw: {} }, topics: D.FOLK.smith.topics, craft: 'forge' }, U = UI.talk(T), row = U.r.filter((b) => !b.id.startsWith('topic:'));
+    if (row.map((b) => b.id).sort().join() !== 'act,craft,next,talk') out.push('talk: a quest\'s last page by the smith lacks a button: ' + row.map((b) => b.id));
+    if (row.some((b, i) => b.x < U.P.x + 300 || b.x + b.w > U.P.x + U.P.w || row.some((o, j) => j !== i && b.x < o.x + o.w && o.x < b.x + b.w))) out.push('talk: the buttons of a full row overlap or leave the window');
+    T.p = 0; if (!UI.talk(T).r.some((b) => b.id === 'talk')) out.push('talk: «Поговорить» is missing before the last page');
+    return out;
+  }
+  // PR 49 review: a captive sent home for want of room for its cage does its rescue quest in hand as freeing does, and the Keeper's
+  // chain goes on past it
+  function captiveFallbackCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 87, { town: 1 }); S.screen = 'play'; const R = S.run; R.offers = [];
+    const st = SIMX.storyStep(R); if (!st || st.key !== 'rescue') { out.push('rescue: the Keeper\'s chain does not open with the merchant'); return out; }
+    const q = takeQuest(S, R, newQuest(R, 'rescue', 1, 'keeper')); enterFloor(S, R, 1); const C = R.captives.merchant; for (const k of ['x', 'y', 'room', 'lv']) delete C[k];
+    SIMX.captivePut(S, R, C, []); if (!R.freed || !R.freed.merchant || q.st !== 'done') out.push(`rescue: the merchant sent home without a cage leaves his quest ${q.st}`);
+    enterFloor(S, R, 0, undefined, 'portal'); if (questMark(R, 'keeper') !== '?') out.push('rescue: no ? over the Keeper after the merchant came home without a cage');
+    turnIn(S, R, q); const nx = SIMX.storyStep(R); if (!nx || nx.key === 'rescue') out.push('rescue: the Keeper\'s chain does not go on past a rescue without a cage');
+    return out;
+  }
+  // PR 49 review: a note's series follows what the player has read, across runs. With nothing read only first parts lie about; a
+  // part read brings the next one on the next floor of its era, a part left unread comes again; a new run goes on from the last
+  // part read; no part ever lies about before the one ahead of it is read; reading every note of the cellars, each series ends
+  // within a few runs of its start
+  function noteChainCheck() {
+    const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; return S.run; };
+    const placed = (R) => R.drops.filter((p) => p.kind === 'note').map((p) => D.NOTES.byId[p.note]), ids = D.NOTES.chains['cellar:chalk_line'];
+    const go = (R, f) => { const read = new Set(S.meta.notes); enterFloor(S, R, f); if (placed(R).some((n) => n.chain && D.NOTES.chains[D.NOTES.chainOf(n)].slice(0, n.part - 1).some((id) => !read.has(id)))) out.push(`notes: on floor ${f} a part lies before the one ahead of it is read`); return placed(R); };
+    const readAll = (R) => { for (const p of R.drops) if (p.kind === 'note') SIMX.openNote(S, R, p); S.screen = 'play'; };
+    S.meta.notes = []; let R = run(83); if (go(R, 1).some((n) => n.chain && n.part !== 1)) out.push('notes: a later part lies about with nothing read');
+    S.meta.notes = [ids[0]]; R = run(84); if (!go(R, 1).some((n) => n.id === ids[1])) out.push('notes: the part after one read does not come on the next floor');
+    if (!go(R, 2).some((n) => n.id === ids[1])) out.push('notes: a part left unread does not come again on the next floor of its era');
+    readAll(R); R = run(85); if (!go(R, 1).some((n) => n.id === ids[2])) out.push('notes: a new run does not go on from the last part read');
+    readAll(R); if (!go(R, 2).some((n) => n.id === ids[3])) out.push('notes: the part after one read on an earlier floor does not come later in the run');
+    readAll(R); R = run(86); if (go(R, 1).some((n) => ids.includes(n.id))) out.push('notes: a series read to the end comes again');
+    S.meta.notes = []; const start = {}, end = {}, cellar = Object.keys(D.NOTES.chains).filter((k) => k.startsWith('cellar:') || k.startsWith('pilot:'));
+    for (let i = 0; i < 16; i++) { R = run(200 + i); for (const f of [1, 2]) { go(R, f); readAll(R); }
+      for (const k of cellar) { const got = D.NOTES.chains[k].filter((id) => S.meta.notes.includes(id)).length; if (got && start[k] === undefined) start[k] = i; if (got === D.NOTES.chains[k].length && end[k] === undefined) end[k] = i; } }
+    for (const k of Object.keys(start)) if (end[k] === undefined || end[k] - start[k] > Math.ceil(D.NOTES.chains[k].length / 2) + 1) out.push(`notes: the series ${k} begun on run ${start[k]} ${end[k] === undefined ? 'is not done in 16 runs' : 'takes till run ' + end[k]}`);
+    if (Object.keys(start).length < 3) out.push('notes: in 16 runs fewer than three series of the cellars are begun');
     return out;
   }
   // TASKS 1017: a quest taken in the town counts only what its goal names, from its floor down: monsters (not in the town nor

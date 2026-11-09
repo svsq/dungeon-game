@@ -128,7 +128,7 @@
   SCREEN.talk = (S, inp, keys, x, y, click) => {
     const T = S.talk, b = T && D.hitUI(UI.talk(T).r, x, y); S.hover = b ? b.id : '';
     if (!T || !S.run || keys.Escape) { S.screen = 'play'; S.talk = null; return; }
-    if (click && b && b.id === 'craft') { S.talk = null; S.screen = 'craft'; S.craft = { kind: 'forge', sel: S.craft && S.craft.kind === 'forge' ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.id === 'craft') { SIMX.openCraft(S, S.run, T.craft); return; }
     // in the topics menu a number or a click opens a topic; «Дальше» / «Не сейчас», E, the space or Enter leave it
     if (T.menu) { const pick = T.topics.findIndex((q, i) => keys['Digit' + (i + 1)]), n = click && b && b.id.startsWith('topic:') ? b.i : pick; if (n >= 0) { T.pages = T.topics[n].a; T.p = 0; T.menu = 0; T.inTopic = 1; ev(S, { k: 'ui', x, y }); return; } if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { S.screen = 'play'; S.talk = null; } return; }
     const last = T.p + 1 >= T.pages.length;
@@ -136,14 +136,16 @@
     const byE = keys.KeyE && T.act && T.act.k !== 'finish' && T.act.k !== 'take';
     if (T.act && last && ((click && b && b.id === 'act') || byE || keys.Enter)) { talkAct(S, S.run, T); return; }
     if (click && b && b.id === 'talk' && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; ev(S, { k: 'ui', x, y }); return; }
+    // a master's last page with no quest on it: E goes on into the workshop, so E, E still reaches the forge (TASKS 1635)
+    if (T.craft && last && !T.act && !T.inTopic && keys.KeyE) { SIMX.openCraft(S, S.run, T.craft); return; }
     if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { if (T.inTopic) { T.inTopic = 0; T.menu = 1; T.pages = ['']; T.p = 0; ev(S, { k: 'ui', x, y }); } else { S.screen = 'play'; S.talk = null; } } else ev(S, { k: 'ui', x, y }); }
     return;
   };
   SCREEN.craft = (S, inp, keys, x, y, click) => {
     const R = S.run, U = UI.craft(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!R || !S.craft || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
-    // the smith's quest business, kept off E so that E always reaches the forge (TASKS 1635)
-    if (S.craft.kind === 'forge' && SIMX.questMark(R, 'smith') && (keys.Enter || (click && b && b.id === 'talk'))) { const sm = SIMX.folkOf(R).find((q) => q.role === 'smith'); if (sm) { SIMX.openTalk(S, R, sm); ev(S, { k: 'ui', x, y }); return; } }
+    // back to the master's talk, kept off E so that E only leaves the workshop
+    if (keys.Enter || (click && b && b.id === 'talk')) { const sm = SIMX.folkOf(R).find((q) => q.role === SIMX.CRAFT_OF[S.craft.kind]); if (sm) { SIMX.openTalk(S, R, sm); ev(S, { k: 'ui', x, y }); return; } }
     if (click && b && (b.id.startsWith('eq:') || b.id.startsWith('bag:'))) { const it = b.id.startsWith('eq:') ? R.hero.eq[b.slot] : R.hero.bag[b.i];
       if (it && BASES[it.b]) { S.craft.sel = b.id; S.craft.res = null; ev(S, { k: 'ui', x, y }); } else if (it) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.craft.s') }); }
     if (click && b && b.id === 'do') craft(S, R);

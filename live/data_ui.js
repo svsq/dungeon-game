@@ -74,9 +74,13 @@
       r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, { id: 'talk', on: true, label: TXT('UI.craft.talk'), x: P.x + 40, y: P.y + 720, w: 620, h: 64 });
       return { P, r }; },
     // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
-    // a quest's page (TASKS 1018) puts its take or turn-in button left of it; the smith's talk keeps a way into his workshop
-    talk: (T) => { const P = { x: 330, y: 540, w: 1260, h: 430 }, at = (i) => ({ x: P.x + P.w - 330 - i * 310, y: P.y + P.h - 92, w: 290, h: 64 }), last = T && T.p + 1 >= T.pages.length, r = [{ id: 'next', label: '', on: true, ...at(0) }];
-      if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: TXT('UI.talk.label'), on: true, ...at(r.length) }); if (T && T.topics && !T.menu && !T.inTopic && last && r.length < 3) r.push({ id: 'talk', label: TXT('UI.talk.talk'), on: true, ...at(r.length) }); if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 })); return { P, r }; },
+    // a quest's page (TASKS 1018) puts its take or turn-in button left of it; a master's talk keeps a way into his workshop; «Поговорить»
+    // is on every page outside the topics: the row narrows to fit them all right of the likeness (PR 49 review: it was pushed out)
+    talk: (T) => { const P = { x: 330, y: 540, w: 1260, h: 430 }, last = T && T.p + 1 >= T.pages.length, ids = ['next'];
+      if (T && T.act && last) ids.push('act'); if (T && T.craft && !T.menu && !T.inTopic) ids.push('craft'); if (T && T.topics && !T.menu && !T.inTopic) ids.push('talk');
+      const gap = 20, w = Math.min(290, Math.floor((P.w - 340 - gap * (ids.length - 1)) / ids.length)), label = { craft: TXT('UI.talk.label'), talk: TXT('UI.talk.talk') };
+      const r = ids.map((id, i) => ({ id, label: label[id] || '', on: true, x: P.x + P.w - 40 - w - i * (w + gap), y: P.y + P.h - 92, w, h: 64 }));
+      if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 })); return { P, r }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
     board: (n) => { const P = { x: 230, y: 90, w: 1460, h: 900 }, r = [];

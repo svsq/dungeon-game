@@ -123,8 +123,10 @@
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
     // out it is taken at once, with more a window to choose
     const cs = craftShut(R); if (cs) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.CAPTIVES[cs].shut }); return; }
-    const cw = atCraft(R);
-    if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; broke(S, R); ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
+    // the workshop's master answers first, his talk has the button into the workshop (PR 49 review: the enchanter could not be talked to at all)
+    const cw = atCraft(R), master = cw && folkOf(R).find((f) => f.role === CRAFT_OF[cw]);
+    if (master) { openTalk(S, R, master); return; }
+    if (cw) { openCraft(S, R, cw); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; if (!S.meta.shards) broke(S, R); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
@@ -154,6 +156,8 @@
   const atStash = (R) => near(R, 'stash', 64) && !atSoulAltar(R);
   // ---------------- the town's workshops (R-32, TASKS 1013) ----------------
   // the smith at his anvil reforges, the enchanter at her lectern enchants; the piece is chosen from the worn gear or the bag
+  const CRAFT_OF = { forge: 'smith', enchant: 'enchanter' }, CRAFT_AT = { smith: 'forge', enchanter: 'enchant' };
+  function openCraft(S, R, kind) { S.screen = 'craft'; S.talk = null; S.craft = { kind, sel: S.craft && S.craft.kind === kind ? S.craft.sel : null }; S.hover = ''; broke(S, R); ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); }
   const atCraft = (R) => (craftShut(R) ? null : near(R, 'anvil', 80) ? 'forge' : near(R, 'lectern', 80) ? 'enchant' : null);
   // the notice board (TASKS 1033): what every townsman has on offer, in one list; a quest is taken from it as from its giver
   const atBoard = (R) => near(R, 'board', 64);
@@ -227,20 +231,26 @@
   function questFloor(R, key) { const Q = D.QUESTS[key], top = RUN(R).floors, d = R.deepest || 0;
     for (let f = Math.max(Q.from || 1, d + (Q.ahead || 1)); f <= top; f++) { if (Q.noBoss && STAGE(R, f).boss) continue; if (Q.fresh && R.memo && R.memo[f]) continue; return f; } return 0; }
   // the Keeper's chain (1022): its first step not yet behind the hero, while none of the chain is in hand
-  // a note's series is told in order, a boss's notes only on its floors; picked by the run's seed so the sim's own random is untouched
-  function notePlace(R) { const f = R.floor, m = R.map, done = R.notesDone || (R.notesDone = {}), era = D.NOTES.era[m.biome]; if (!R.viaTown || R.mode !== 'campaign' || R.town || done[f] || !era) return; done[f] = 1;
+  // a note's series is told in the order the player reads it, across runs (S.meta.notes): only the first part not yet read is ever
+  // put down, again on each later floor of its era until it is read, and a series begun goes before fresh notes (PR 49 review: the
+  // part was counted as told when it was put down, one part a floor and the count lost with the run, so 26 series never ended);
+  // a one-off note comes once a run; a boss's notes only on its floors; picked by the run's seed so the sim's own random is untouched
+  function notePlace(S, R) { const f = R.floor, m = R.map, done = R.notesDone || (R.notesDone = {}), era = D.NOTES.era[m.biome]; if (!R.viaTown || R.mode !== 'campaign' || R.town || done[f] || !era) return; done[f] = 1;
     let a = qhash((R.seed >>> 0) * 131 + f * 7877); const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, shuffle = (L) => { const o = L.slice(); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
-    const used = R.notesUsed || (R.notesUsed = []), step = R.noteChain || (R.noteChain = {}), fits = (n) => !used.includes(n.id) && (!n.chain || (step[n.chain] || 0) === n.part - 1), ofEra = (n) => n.id.split('_')[0] === era || (n.id.startsWith('pilot') && era === 'cellar');
-    const put = (n, rm, sec) => { used.push(n.id); if (n.chain) step[n.chain] = n.part; const clear = (x, y) => !R.drops.some((p) => p.kind === 'note' && Math.hypot(p.x - x, p.y - y) < 90), inRm = (d) => d.x >= rm.x * TILE && d.x < (rm.x + rm.w) * TILE && d.y >= rm.y * TILE && d.y < (rm.y + rm.h + 1) * TILE;
+    const read = new Set(S.meta.notes || []), next = (n) => D.NOTES.chains[D.NOTES.chainOf(n)].findIndex((id) => !read.has(id)) + 1, here = new Set();
+    const used = R.notesUsed || (R.notesUsed = []), fits = (n) => !here.has(n.id) && (n.chain ? n.part === next(n) : !used.includes(n.id)), begun = (n) => !!n.chain && n.part > 1, ofEra = (n) => n.id.split('_')[0] === era || (n.id.startsWith('pilot') && era === 'cellar');
+    const put = (n, rm, sec) => { here.add(n.id); if (!n.chain) used.push(n.id); const clear = (x, y) => !R.drops.some((p) => p.kind === 'note' && Math.hypot(p.x - x, p.y - y) < 90), inRm = (d) => d.x >= rm.x * TILE && d.x < (rm.x + rm.w) * TILE && d.y >= rm.y * TILE && d.y < (rm.y + rm.h + 1) * TILE;
       const seat = m.decor.filter((d) => D.NOTES.lift[d.n] && d.secret === undefined && d.sec === sec && inRm(d) && clear(d.x, d.y + 1)); let x, y, lift = 0;
       if (seat.length && r() < 0.6) { const d = seat[Math.floor(r() * seat.length)]; x = d.x; y = d.y + 1; lift = D.NOTES.lift[d.n]; }
       else for (let k = 0; k < 10 && (x === undefined || !clear(x, y)); k++) [x, y] = standNear(R, rm.cx * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 150) - 75 : 22 + Math.floor(r() * 50) - 25), rm.cy * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 110) - 40 : 26 + Math.floor(r() * 30) - 15));
       R.drops.push(Object.assign({ id: R.nextId++, kind: 'note', note: n.id, x, y, lift, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }, sec === undefined ? {} : { sec })); };
-    const rooms = shuffle(questRooms(R)), n = Math.max(D.NOTES.n[0], Math.min(D.NOTES.n[1], Math.round(rooms.length / 3))), L = shuffle(D.NOTES.list), boss = L.find((o) => o.kind === 'boss' && f >= o.floors[0] && f <= o.floors[1] && fits(o)), out = boss ? [boss] : [];
-    for (const o of L) { if (out.length >= n) break; if (o.kind === 'note' && ofEra(o) && fits(o)) out.push(o); }
+    // one place a floor stays for a fresh note, so a player deep in many series still meets new ones
+    const L = shuffle(D.NOTES.list), first = (q) => L.filter((o) => q(o) && fits(o)).sort((p, o) => begun(o) - begun(p))[0], rooms = shuffle(questRooms(R)), n = Math.max(D.NOTES.n[0], Math.min(D.NOTES.n[1], Math.round(rooms.length / 3)));
+    const boss = first((o) => o.kind === 'boss' && f >= o.floors[0] && f <= o.floors[1]), out = boss ? [boss] : [], plain = L.filter((o) => o.kind === 'note' && ofEra(o) && fits(o));
+    for (const o of plain.filter(begun).slice(0, n - 1 - out.length).concat(plain.filter((o) => !begun(o)))) { if (out.length >= n) break; out.push(o); }
     out.forEach((o, i) => { if (rooms.length) put(o, rooms[i % rooms.length]); });
-    (m.secrets || []).forEach((q, i) => { const o = L.find((v) => v.kind === 'secret' && ofEra(v) && fits(v)); if (o && r() < 0.6) put(o, m.rooms[q.room], i); });
-    const hosted = (m.secrets || []).filter((q) => m.rooms[q.host]), hq = hosted.length && r() < 0.7 ? hosted[Math.floor(r() * hosted.length)] : null, hn = hq && L.find((v) => v.kind === 'hint' && v.how === SIMX.secretHow(hq) && fits(v)); if (hn) put(hn, m.rooms[hq.host], hq.parent); }
+    (m.secrets || []).forEach((q, i) => { const o = first((v) => v.kind === 'secret' && ofEra(v)); if (o && r() < 0.6) put(o, m.rooms[q.room], i); });
+    const hosted = (m.secrets || []).filter((q) => m.rooms[q.host]), hq = hosted.length && r() < 0.7 ? hosted[Math.floor(r() * hosted.length)] : null, hn = hq && first((v) => v.kind === 'hint' && v.how === SIMX.secretHow(hq)); if (hn) put(hn, m.rooms[hq.host], hq.parent); }
   function nameElites(R) { for (const e of R.en) { const G = D.ELITE_NAMES[D.ELITE_GROUP[e.type]]; if (!e.elite || e.title || e.nm || D.BOSSES[e.type] || !G) continue; let a = qhash((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811); const n = G.names[a % G.names.length]; a = qhash(a + 0x9e3779b9); const w = G.adj[a % G.adj.length]; e.nm = n[0] + ' ' + w[n[1] === 'f' ? 1 : 0]; } }
   const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
   function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
@@ -257,10 +267,11 @@
     for (let lv = 0; lv < 3; lv++) for (const r of rooms0 || questRooms(R)) { const spots = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (clear(x, y, lv)) spots.push([x, y, Math.hypot(x - r.cx, y - r.cy)]);
       if (spots.length) { spots.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]); const [x, y] = spots[0]; return { x: x * TILE + TILE / 2, y: y * TILE + TILE - 2, room: r.id, lv }; } }
     return null; }
-  // no room for the cage must not leave the shop shut for the whole run
-  function captivePut(R, C, rooms) { const at = cageSpot(R, rooms); if (!at) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); return; } Object.assign(C, at); }
-  function captivePlace(R) { const m = R.map; for (const C of Object.values(R.captives || {})) { const D0 = D.CAPTIVES[C.who]; if (D0.f !== R.floor || isFree(R, C.who)) continue; if (C.x === undefined && !D0.boss) captivePut(R, C); if (C.x !== undefined) for (const k of cageCells(m, C)) if (!m.block.includes(k)) m.block.push(k); } }
-  function captiveBoss(R, e) { for (const C of Object.values(R.captives || {})) if (D.CAPTIVES[C.who].boss && D.CAPTIVES[C.who].f === R.floor && C.x === undefined && !isFree(R, C.who)) { captivePut(R, C, [R.map.rooms[e.room]]); captivePlace(R); } }
+  // no room for the cage must not leave the shop shut for the whole run; the captive goes home free, and a rescue quest in hand is
+  // done as by the cage (PR 49 review: it stayed taken, and the Keeper's chain never went on)
+  function captivePut(S, R, C, rooms) { const at = cageSpot(R, rooms); if (!at) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'qevent', free: C.who, x: R.hero.x, y: R.hero.y }); return; } Object.assign(C, at); }
+  function captivePlace(S, R) { const m = R.map; for (const C of Object.values(R.captives || {})) { const D0 = D.CAPTIVES[C.who]; if (D0.f !== R.floor || isFree(R, C.who)) continue; if (C.x === undefined && !D0.boss) captivePut(S, R, C); if (C.x !== undefined) for (const k of cageCells(m, C)) if (!m.block.includes(k)) m.block.push(k); } }
+  function captiveBoss(S, R, e) { for (const C of Object.values(R.captives || {})) if (D.CAPTIVES[C.who].boss && D.CAPTIVES[C.who].f === R.floor && C.x === undefined && !isFree(R, C.who)) { captivePut(S, R, C, [R.map.rooms[e.room]]); captivePlace(S, R); } }
   function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y }); const was = R.msg; ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y }); if (R.msg !== was) { R.msg.t = S.t + 5; R.msgNext = R.msg; } R.msg = { s: D.CAPTIVES[C.who].free, t: S.t, d: 5 }; S.saveN++; }
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
     return D.storyChain(R.mode).find((s) => (D.QUESTS[s.key].type === 'free' ? !!capOf(R, D.QUESTS[s.key].who) && !isFree(R, D.QUESTS[s.key].who) : s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
@@ -342,9 +353,9 @@
     if (Q.type === 'boss') return TXT('sim_town.questLine.8', { f: q.f, boss: ENEMIES[D.stageOf('campaign', q.f).boss].name });
     return TXT('sim_town.questLine.9', { f: q.f }); }
   // ---------------- a word with the townsfolk (TASKS 1016, 1023) ----------------
-  // E by a townsman with something to say (not the smith or the enchanter, whose E is their workshop) opens the dialogue window
+  // E by a townsman with something to say opens the dialogue window
   const folkNear = (R) => { if (!R.town || !R.map.town) return null; let best = null, bd = 76;
-    for (const f of folkOf(R)) { const FD = D.FOLK[f.role]; if (!FD.lines || f.role === 'smith' || f.role === 'enchanter') continue; const d = Math.hypot(f.x - R.hero.x, f.y - R.hero.y); if (d < bd) { bd = d; best = f; } }
+    for (const f of folkOf(R)) { const FD = D.FOLK[f.role]; if (!FD.lines) continue; const d = Math.hypot(f.x - R.hero.x, f.y - R.hero.y); if (d < bd) { bd = d; best = f; } }
     return best; };
   // the Keeper's pages: the end of the last hero (a first death, a death, a win), a chapter's boss slain, a legendary found, a long
   // time below; each told once; nothing new, his idle pair
@@ -352,16 +363,18 @@
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
     if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
-    if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; out.push(...K.boss(ENEMIES[R.lastBoss].name)); }
+    // the campaign's last boss is told by the end of the run, whose words his generic «someone must go down again» would contradict
+    if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; if (R.lastBoss !== D.stageOf('campaign', D.RUNS.campaign.floors).boss) out.push(...K.boss(ENEMIES[R.lastBoss].name)); }
     if (R.legend && T.legend !== R.legend) { T.legend = R.legend; out.push(...K.rare(R.legend)); }
     if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; out.push(...K.away); }
     return out; }
-  // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; the smith's talk keeps a button
-  // into his workshop
-  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
+  // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; a master's talk keeps a button
+  // into his workshop; past the campaign's end a townsman with words for it says them once a run
+  function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role), told = R.wonTold || (R.wonTold = {}); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
+    if (FD.won && campaignDone(R) && !told[f.role]) { told[f.role] = 1; pages = pages.concat(FD.won); }
     if (qt) pages = pages.concat(qt.pages);
     else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act, topics: FD.topics }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act, topics: FD.topics }, CRAFT_AT[f.role] ? { craft: CRAFT_AT[f.role] } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // anything left in the town for the heroes to come: S.meta.stash, D.STASH.cells of it, its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)
@@ -459,9 +472,9 @@
   }
 
   Object.assign(SIMX, {
-    folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
+    folkR, folkOf, folkFree, stepFolk, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    nameElites, notePlace, noteNear, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    nameElites, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);
