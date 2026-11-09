@@ -390,6 +390,10 @@
       const last = (r.damage || []).slice(-1)[0]; if (last && last.actor) enemy(last.actor, x, y, false);
     }
   };
+  // a chest's rank at a glance (TASKS 1356): its own painting once generated, until then the plain chest recoloured
+  const CHEST_LOOK = { 1: { k: 1, u: { grade: [0.8, 0.88, 0, 1] } }, 2: { tex: 'chest_iron', k: 1.15, u: { grade: [0.45, 1.02, 0, 1.15], tint: [0.8, 0.92, 1.2, 0.55] } }, 3: { tex: 'chest_gold', k: 1.2, u: { grade: [1.35, 1.2, 0, 1.12], tint: [1.3, 1.02, 0.45, 0.6] } } };
+  const CHEST_BOSS = { tex: 'chest_boss', k: 1.35, u: { grade: [1, 0.85, 0, 1.25], tint: [1, 0.32, 0.3, 0.7] } };
+  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   const NO_INK = new Set(['bones', 'torch_sconce']);
@@ -417,6 +421,6 @@
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

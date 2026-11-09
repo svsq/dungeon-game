@@ -116,7 +116,7 @@
     for (const e of mobs.slice(0, oldDead(R, f, M, P.en))) { e.hp = 0; e.deadT = 0; }
     for (const k of FLOOR_KEYS) R[k] = B[k];
     const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
-    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
+    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.open = 1; c.openT = -9; } R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     M.gv = D.GEN_VERSION; M.d = null; M.drops = []; M.seen = null; M.rseen = null; }
   // how many of an old floor's own monsters died there, from its diff: a floor built with ids from M.id on gives its i-th monster

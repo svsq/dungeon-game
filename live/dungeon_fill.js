@@ -477,6 +477,9 @@
       lightRoom(r, []);
     }
     secOpen = false;
+    // a boss's chest (TASKS 1356), from a stream of its own: the rest of the floor stays as it was
+    for (const r of rooms) { if (r.type !== 'boss') continue; const Bc = mul32(seed ^ 0x1356), c = []; for (let y = r.y + (cave ? 0 : 2); y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { if (cave ? at(x - 1, y) !== 0 && at(x + 1, y) !== 0 && at(x, y + 1) !== 0 : !(x === r.x && at(x - 1, y) === 0) && !(x === r.x + r.w - 1 && at(x + 1, y) === 0) && !(y === r.y + r.h - 1 && at(x, y + 1) === 0)) continue; if (free(x, y) && !doorway(x, y) && roomy(x, y, 'chest')) c.push([x, y]); }
+      if (c.length) { const p = c[Math.floor(Bc() * c.length)]; claim(...p, 'chest'); chests.push({ x: wx(p[0]), y: wy(p[1]), tier: 3, open: 0, boss: 1, sealed: 1 }); } }
     // a lair (TASKS 381): as many more plain monsters of the fighting rooms as `elites` turn elite, each in a room of its own while
     // there are rooms, and the first one's room holds a chest of the top tier
     if (FM.elites) { const pool = enemies.filter((e) => !e.elite && !D.BOSSES[e.type] && rooms[e.room] && rooms[e.room].type === 'combat'), took = [];

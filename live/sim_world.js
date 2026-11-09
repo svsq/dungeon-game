@@ -142,7 +142,7 @@
       else knock('t' + i, t2, 'torch_sconce', 'metal', t2.side ? t2 : { x: t2.x, y: t2.y + 30 }); });
   }
   function hitChests(S, R, x, y, rad, ax, arc) {
-    for (const c of R.chests) { if (c.open) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
+    for (const c of R.chests) { if (c.open || c.sealed) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 16) continue; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, c.x, c.y)) continue; openChest(S, R, c); } }
   // a secret's fake wall: its foot (q.x, q.y) is the middle of the opening on the host side. Blows land on a breakable wall,
   // a banner or a bookshelf in front of it if it is in reach and in the arc; a mechanism has to be found and worked instead
@@ -272,6 +272,7 @@
       if (q.trig && q.trig.k === 'sconce') { const t = m.torches[q.trig.t]; return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; } return false; }); }
   function openChest(S, R, c) {
     if (c.open) return;
+    if (c.sealed) { if (S.t - (c.nopeT ?? -9) > 1) { c.nopeT = S.t; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.openChest.sealed') }); } return; }
     const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
     c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier });
     // its items were rolled on entering the floor (they count toward the floor's loot from the start); a chest from an older save rolls now
@@ -283,9 +284,13 @@
     }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
     if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
-    drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
+    if (!c.boss) drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
-  function chestLoot(R, c) { const LT = LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
+  // a boss's own chest holds what the boss used to drop (TASKS 1356): the same items in a better place, no new loot
+  // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
+  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : [rollItem(R, dep(R), 2)]; for (const it of its) it.id = R.nextId++; return its; }
+  function chestLoot(R, c) { if (c.boss) return [];
+    const LT = LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)
     if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], { min: Y.forge.min }));
     else for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q));
@@ -296,5 +301,5 @@
   Object.assign(SIMX, {
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
     hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
-    leverNear, pullLever, secretUnder, openChest, chestLoot });
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot });
 })(typeof window !== 'undefined' ? window : globalThis);
