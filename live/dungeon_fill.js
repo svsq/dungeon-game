@@ -989,7 +989,7 @@
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
       // a gate of vents across the walk, bursting together on a short visible clock: pass in the window between bursts, not round a ring
       // (TASKS 1645: every hazard was solved by one move, stepping round a circle); it takes vents off the floor's count, so the rest thin out
-      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * 0.35), Math.floor(way.length * 0.65)), deck = new Set(crossings.flatMap((c) => c.cells));
+      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * G.from), Math.floor(way.length * G.to)), deck = new Set(crossings.flatMap((c) => c.cells));
         const open = (n) => cells[n] === 1 || cells[n] === 6 || deck.has(n);
         // (a gate is only a question if no way runs outside its rings, however long)
         const seals = (zs) => { const seen = new Uint8Array(W * H), q = [way[0]], end = way[way.length - 1]; seen[way[0]] = 1;
