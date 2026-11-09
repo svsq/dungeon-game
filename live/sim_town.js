@@ -262,10 +262,11 @@
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
-    const dn = questDone(R, role); if (dn) return { pages: [TXT('sim_town.questTalk.pages', { name: D.QUESTS[dn.key].name, done: SAY.done })], act: { k: 'turn', id: dn.id, rw: dn.rw } };
+    const dn = questDone(R, role); if (dn) return { pages: [TXT('sim_town.questTalk.pages', { name: D.QUESTS[dn.key].name, done: SAY.done[(dn.id || 0) % SAY.done.length] })], act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
-    const say = D.QUESTS[of.q.key].ask || (R.bossN && R.lastBoss && of.q.f % 2 === 0 ? SAY.boss.replace('{boss}', ENEMIES[R.lastBoss].name) : SAY.asks[of.q.f % 2]);
-    return { pages: [of.q.story ? D.QUESTS[of.q.key].name + '. ' + say : say, D.QUESTS[of.q.key].text(of.q)], act: { k: 'take', key: of.q.key, rw: of.q.rw, name: D.QUESTS[of.q.key].name } }; }
+    const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (q.key === 'rescue' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
+    const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
+    return { pages: [...say, Q.text(q)], act: { k: 'take', key: q.key, rw: q.rw, name: Q.name } }; }
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
@@ -279,7 +280,7 @@
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks[(q.id || 0) % 2], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: q.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUEST_SAY[T.role].thanks[(q.id || 0) % D.QUEST_SAY[T.role].thanks.length], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -330,7 +331,7 @@
   // time below; each told once; nothing new, his idle pair
   function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = [];
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
-    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(TXT('KEEPER.cls', { cls: D.CLASSES[M.lastCls].name.toLowerCase() })); }
+    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(K.cls(D.CLASSES[M.lastCls].name.toLowerCase())); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; out.push(...K.boss(ENEMIES[R.lastBoss].name)); }
     if (R.legend && T.legend !== R.legend) { T.legend = R.legend; out.push(...K.rare(R.legend)); }

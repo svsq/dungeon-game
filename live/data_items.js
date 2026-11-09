@@ -117,11 +117,10 @@
     // is stocked `depth` floors deeper, a little better made, the showpiece a rarity up
     wander: { chance: 0.1, from: 2, depth: 2, q: 0.5, best: 1,
       lines: [TXT('SHOP.wander.lines'), TXT('SHOP.wander.lines.2'), TXT('SHOP.wander.lines.3'), TXT('SHOP.wander.lines.4')] },
-    lines: [TXT('SHOP.lines'), TXT('SHOP.lines.2'), TXT('SHOP.lines.3'),
-      TXT('SHOP.lines.4'), TXT('SHOP.lines.5')],
-    hitLines: [TXT('SHOP.hitLines'), TXT('SHOP.hitLines.2'), TXT('SHOP.hitLines.3')],
+    lines: TXT.talk('merchant').lines,
+    hitLines: TXT.talk('merchant').hit,
     // in the town he calls the hero over from across the yard (TASKS 1015)
-    calls: [TXT('SHOP.calls'), TXT('SHOP.calls.2'), TXT('SHOP.calls.3'), TXT('SHOP.calls.4')],
+    calls: TXT.talk('merchant').calls,
   };
 
   const CONS_PRICE = { hp_potion: (f) => 60 + 15 * f, mp_potion: (f) => 50 + 12 * f, scroll: (f) => 100 + 20 * f };

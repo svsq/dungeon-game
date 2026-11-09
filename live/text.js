@@ -9,6 +9,8 @@
   const get = (key) => { const L = TEXT[TEXT.lang], s = L && key in L ? L[key] : TEXT.ru[key]; if (s === undefined) throw new Error('text.js: no text ' + key); return typeof s === 'string' ? s.replace(/\{@(\w+)\}/g, (m, k) => get('NAME.' + k)) : s; };
   const TXT = (key, p) => { const s = get(key); return p ? s.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)) : s; };
   TXT.n = (key, n) => get(key)[(RULES[TEXT.lang] || RULES.ru)(n)];
+  const fill = (v) => (typeof v === 'string' ? v.replace(/\{@(\w+)\}/g, (m, k) => get('NAME.' + k)) : Array.isArray(v) ? v.map(fill) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fill(x)])) : v);
+  TXT.talk = (role) => fill((TEXT.talk || {})[role] || {});
   TXT.fem = (w) => (FEM[TEXT.lang] || ((x) => x))(w);
   root.TXT = TXT;
   if (typeof module !== 'undefined') module.exports = TXT;

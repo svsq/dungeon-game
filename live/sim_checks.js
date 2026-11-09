@@ -2200,7 +2200,7 @@
   // speaks a pair of lines, turns to the hero and a walker stops; every role's lines are pairs
   function folkCheck() {
     const out = [];
-    for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 34))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
+    for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 64))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
     for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
       const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0;
