@@ -110,8 +110,6 @@
     { id: 'gear', name: TXT('META.gear.name'), v: (r) => r, unit: () => TXT('META.gear.unit'), max: 2, cost: (r) => 80 + r * 30 },
     { id: 'skill', name: TXT('META.skill.name'), v: (r) => r, unit: (n) => TXT('META.skill.unit', { p1: TXT.n('META.skill.unit.2', n) }), max: 2, cost: (r) => 60 + r * 22 },
     { id: 'resist', name: TXT('META.resist.name'), v: (r) => 15 * r, pct: 1, neg: 1, unit: () => TXT('META.resist.unit'), max: 3, cost: (r) => 40 + r * 15 },
-    // the town's storage chest (TASKS 1012): one cell of its own, a cell more per rank
-    { id: 'vault', name: TXT('META.vault.name'), town: 1, v: (r) => r, unit: (n) => TXT('META.vault.unit', { p1: TXT.n('META.vault.unit.2', n) }), max: 2, cost: (r) => 40 + r * 20 },
   ];
   // quests (R-17, TASKS 1017): a run's tasks, taken and turned in in the town, gone with the hero. A template: kind (side: a
   // townsman's; story: the Keeper's chain, 1022), type (what counts: kill — monsters slain on floor f or deeper, `elite` only

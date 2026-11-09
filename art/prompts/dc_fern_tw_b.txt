@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is the approved town concept's ground crop: take its plants, NOT its warm light. Subject, seen from the 3/4 view: a low wide fern with drooping fronds, 30 art pixels wide, 14 tall, darker greens (#1a4135, #302b09, #473e0b, #5d500d). Centred, wide empty margin, transparent background. No earth, no shadow, no glow, no text.
