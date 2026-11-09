@@ -212,7 +212,7 @@
     benches: [[25, 16], [29, 19], [25, 19]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
     // enchanter's runes, the Altar of Souls, the crypt's glow from below; the campfire and the gate's braziers are its torches
-    lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['crypt', 27, 11], ['adit', 47, 22]],
+    lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['stash', 39, 23], ['crypt', 27, 11], ['adit', 47, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
     lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [31, 28], [22, 8], [23, 28], [14, 28], [32, 31], [39, 28], [42, 27], [48, 29], [9, 8], [41, 8], [32, 8], [43, 15]],

@@ -42,6 +42,7 @@
     const talkR = P(0.27, -0.52 + 0.025 * Math.sin(GT * 5.3 + i)), talkL = P(0.08, -0.36);
     const atStop = route && !f.go, pu = GT - f.t0, stop = route && f.way >= 0 ? route[f.way] : null, moving = Math.hypot(f.vx, f.vy) > 2;
     let tg = {}, hold = null, lean = 0, headR = 0, headF = 1, crouch = 0, front = null, robe = null, fx = null;
+    let turnAbout = X;
     if (f.role === 'smith') {
       // a blow every loop, every 4th a breather (the hammer down, the piece turned in the tongs): up over the head, down faster and
       // faster onto the anvil, a small rebound, back up to the start
@@ -95,6 +96,8 @@
       if (hasCrate) { cp[1] -= moving ? 1.2 * Math.abs(Math.sin(f.dist / 14)) : 0; tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] };
         front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
       else if (act === 'take') { tg = { L: [cp[0] - face * cw * 0.42, cp[1] + 2], R: [cp[0] + face * cw * 0.42, cp[1] + 2] }; front = () => L.sprite(load, cp[0] - cw / 2, cp[1] - cw / 2, { w: cw, h: cw }); }
+      // hands on a load turn about the load, which crosses the body on its own (TASKS 1636)
+      if (hasCrate || act === 'take') turnAbout = cp[0];
       if (act === 'take') { const rw = SS(0, 0.25, pu); tg = { L: lerp2(handAt('L'), tg.L, rw), R: lerp2(handAt('R'), tg.R, rw) }; }
       if (tw > 0 && !hasCrate) tg = { R: lerp2(P(0.1, -0.38), talkR, tw) };
       // the stone gone into the bin, his hands come back from it over half a second (TASKS 1418)
@@ -150,7 +153,7 @@
       if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
     // a walker turns like a paper figure, over 0.14 s: mirrored in one tick the whole rig jumped by its own width (TASKS 1409)
     const turnK = route && f.turnT !== undefined ? SS(0, 0.14, GT - f.turnT) : 1, rigFace = turnK < 1 ? face * Math.sign(turnK * 2 - 1 || 1) * Math.max(0.25, Math.abs(turnK * 2 - 1)) : face;
-    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd) => { const q = tg[sd]; return q ? [X + (q[0] - X) * rigFace / face, q[1]] : null; }, lean, headR, headF, crouch, front, robe, fx });
+    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd) => { const q = tg[sd]; return q ? [turnAbout + (q[0] - turnAbout) * rigFace / face, q[1]] : null; }, lean, headR, headF, crouch, front, robe, fx });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
       if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); } }
@@ -165,7 +168,7 @@
     const rope = [];
     { let left = C.s; for (let i = 1; i < pts.length && left > 0; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); for (let q = 0; q < Math.min(l, left); q += 4) rope.push([ax + (bx - ax) * q / l, ay + (by - ay) * q / l]); left -= l; } }
     Y.push([y - 40, () => { for (const [px, py] of rope) L.solid(Math.round(sx(px)), Math.round(sy(py) - 8), 2, 2, [0.6, 0.46, 0.3], 0, 0, 0, 1); }]);
-    { const gone = ms && (ms.load || justTook || (ms.lift === 'drop' && !ms.go && GT - ms.t0 < 1.2)) ? 1 : 0, n = C.st === 'at' ? Math.max(0, 3 - C.load - gone) : C.st === 'up' ? 3 : 0, cw = 14;
+    { const gone = ms && (ms.load || justTook || (ms.lift === 'drop' && !ms.go && GT - ms.t0 < 1.2)) ? 1 : 0, n = C.st === 'at' || C.st === 'up' ? Math.max(0, 3 - C.load - gone) : 0, cw = 14;
       if (n) Y.push([T.svc.bin.y + 1, () => { for (let q = 0; q < n; q++) L.sprite('town_tool_stone', sx(T.svc.bin.x) - 15 + q * 11 - cw / 2, sy(T.svc.bin.y) - 34 - (q % 2) * 4, { w: cw, h: cw }); }]); }
     const tilt = (() => { let d0 = C.s; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); if (d0 <= l || i === pts.length - 1) { const a = Math.atan2(by - ay, bx - ax), s = Math.abs(Math.cos(a)) * Math.sin(a) * Math.sign(Math.cos(a) || 1); return Math.max(-0.2, Math.min(0.2, s * 0.4)); } d0 -= l; } return 0; })();
     Y.push([y + 8, () => { L.shadow(X, Yg, 0.42 * w, 5, 0.45); L.inked(() => L.sprite(nm, 0, 0, { m: L.M.of(L.M.t(X, Yg + bob), L.M.r(tilt)), pivot: [w / 2, h], w, h, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); if (shown === 2) L.sprite('town_tool_stone', X - 7, Yg - h * 0.86 + bob, { w: 14, h: 14, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }); }]);

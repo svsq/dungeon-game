@@ -17,7 +17,7 @@
   // (TASKS 1029: the lanterns became torches, lit by the torches' own code; the forge's glow on its art no longer whitens it)
   const TOWN_LIGHT = { forge: { r: 120, col: [1, 0.55, 0.18], amt: 1.7, dy: 8, core: 60, glow: [0, -18, 17, 0.35] },
     runes: { r: 170, col: [0.36, 0.54, 0.95], amt: 1.2, dy: 0, core: 70, glow: [0, 8, 22, 0.3] }, altar: { r: 130, col: [0.64, 0.72, 0.94], amt: 2.1, dy: 12, core: 60, glow: [0, -14, 30, 0.3] },
-    crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 8, 0.9] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
+    stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 8, 0.9] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
   const PAVE_K = 1, PAVE_TS = 160;
   // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
   const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
