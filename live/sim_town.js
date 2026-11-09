@@ -191,13 +191,12 @@
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
   const unmarkFoe = (e) => { delete e.quest; if (!e.was) return; const k = e.max ? e.hp / e.max : 1; Object.assign(e, e.was); e.hp = Math.max(1, Math.round(e.max * k)); delete e.was; delete e.title; delete e.elite; if (e.ward === undefined) delete e.ward; };
-  // a kept floor holds its quest marks as patches over a floor rebuilt fresh: without them the foe or chest is its plain self again
-  const QUEST_PATCH = ['quest', 'qic', 'elite', 'mods', 'hp', 'max', 'dmg', 'ward', 'title', 'was'];
-  const scrubQuest = (d, id) => { if (!d || typeof d !== 'object') return; if (d.p && d.p.quest && d.p.quest.v === id) for (const k of QUEST_PATCH) delete d.p[k]; for (const v of Object.values(d.p || {})) scrubQuest(v, id); };
+  // a kept floor's diff patches its foes by index, and the dead shift them: a mark is taken off on the way back in, on the live foe
+  const dropMarks = (R, M) => { for (const id of M.dropQ || []) { for (const c of R.chests) if (c.quest === id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === id) unmarkFoe(e); } delete M.dropQ; };
   // a quest given up in the journal (TASKS 1633): its offer waits on the board again, its keepsake is gone from wherever it lay
   function abandonQuest(S, R, q) { if (!q || q.st !== 'taken') return; R.quests.splice(R.quests.indexOf(q), 1); const o = (R.offers || []).find((v) => v.q === q.id); if (o) o.q = 0;
     const left = (d) => !(d.kind === 'qitem' && d.quest === q.id); for (const c of R.chests) if (c.quest === q.id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === q.id) unmarkFoe(e);
-    for (const M of Object.values(R.memo || {})) if (M.d) scrubQuest(M.d, q.id);
+    for (const M of Object.values(R.memo || {})) if (M.d) (M.dropQ = M.dropQ || []).push(q.id);
     R.drops = R.drops.filter(left); for (const M of Object.values(R.memo || {})) if (M.drops) M.drops = M.drops.filter(left);
     R.msg = { s: TXT('sim_town.abandon.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); S.saveN++; }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
@@ -409,7 +408,7 @@
 
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
-    craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
+    craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
