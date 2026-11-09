@@ -1000,11 +1000,11 @@
         const fit = (k, side) => { let a = 0, b = 0; while (a < 16 && open(k - side * (a + 1))) a++; while (b < 16 && open(k + side * (b + 1))) b++; if (a + b + 1 < G.minCells) return null;
           const span = (a + b + 1) * TILE - 6, along = side === 1, full = 2 * HZ.vent.r * (along ? 1 : HZ.vent.ry); let n = 1; while (n < 6 && span / (1 + G.pitch * (n - 1)) > full) n++; if (n === 6) return null;
           const E = span / (1 + G.pitch * (n - 1)), s = E / full, mid = (b - a) / 2 * TILE; return Array.from({ length: n }, (_, i) => { const off = mid + (i - (n - 1) / 2) * G.pitch * E; return { k: 'vent', gate: 1, s, x: along ? wx(k % W) + off : wx(k % W), y: along ? wy(Math.floor(k / W)) : wy(Math.floor(k / W)) + off }; }); };
-        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = fit(k, side); if (!row) continue;
+        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = fit(k, side), on = Math.sign(w[i + 1] - w[i - 1]); if (!row) continue;
           const cellOf = (z) => [Math.floor(z.x / TILE), Math.floor(z.y / TILE)];
           if (!row.every((z) => [-1, 0, 1].every((j) => [-1, 0, 1].every((i2) => { const [x0, y0] = cellOf(z), c = (y0 + j) * W + x0 + i2; return cells[c] === 1 && !under.has(c) && (i2 || j || (clear(x0, y0) && !used.has(key(x0, y0)))); })))) continue;
           if (!row.every(onFloor) || !seals(row)) continue;
-          const per = G.per, ph = Z(); for (const z of row) { const [x, y] = cellOf(z); z.per = per; z.ph = ph; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
+          const per = G.per, ph = Z(); for (const z of row) { const [x, y] = cellOf(z); z.per = per; z.ph = ph; z.ax = d === 1 ? on : 0; z.ay = d === 1 ? 0 : on; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
           // (and a share of the walk's rock tails goes, the player's decision on 1645: the gate is not to raise the floor's damage)
           // (from a run's far ends only: a hole in its middle broke its even step)
           { const gone = new Set(); for (const z0 of hazards) { if (z0.k !== 'fall' || !z0.aim || z0.tail) continue; const run = hazards.map((z, j) => [z, j]).filter(([z]) => z.k === 'fall' && z.tail && z.per === z0.per), off = ([z]) => Math.abs((((z.ph - z0.ph) % 1 + 1.5) % 1) - 0.5);

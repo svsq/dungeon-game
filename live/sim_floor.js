@@ -221,11 +221,14 @@
   // them onto a vent. The hero's hit is a share of his health past armour, as spikes, and a dash leaps it
   function stepHazards(S, R) {
     const m = R.map, h = R.hero, t = S.t, dashing = t - h.dashT < BAL.dodge.t;
-    m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(t / z.per + z.ph), tag = R.floor + ':' + i;
+    m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(t / z.per + z.ph), tag = R.floor + ':' + (z.gate ? 'g' + z.ph : i);
       if (c0 < z.per - H.warn && c >= z.per - H.warn) ev(S, { k: 'hazwarn', x: z.x, y: z.y, h: z.k, i });
       if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : z.k === 'surge' ? 'surge' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420 || (z.k === 'surge' && D.hazIn(z, h.x, h.y))) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : z.k === 'surge' ? 0.2 : 0.15)); }
       if (c >= H.burst) return;
       if (h.hp > 0 && D.hazIn(z, h.x, h.y) && !dashing && (h.haz || (h.haz = {}))[tag] !== n) { h.haz[tag] = n;
+        // a gate costs time, not health (TASKS 1690, the player's decision on 1645): thrown back the way he came and stunned a moment
+        if (z.gate) { const G = H.gate, along = h.vx * z.ax + h.vy * z.ay, s = Math.abs(along) > 20 ? -Math.sign(along) : Math.sign((h.x - z.x) * z.ax + (h.y - z.y) * z.ay) || -1;
+          h.stag = { t0: t, t: t + G.stun, vx: s * z.ax * 2 * G.kb / G.stun, vy: s * z.ay * 2 * G.kb / G.stun }; }
         SIMX.hurtHero(S, R, SIMX.heroSt(S).maxHp * H.hp * (z.gate ? H.gate.hp : 1), z.k === 'surge' ? h.x : z.x, (z.k === 'surge' ? h.y : z.y) - 10, 'spike', z.k === 'vent' ? 'vent' : z.k === 'surge' ? 'surge' : 'rock');
         if (H.burn && h.hp > 0) { if (h.burn <= t) { h.burnT = t - 0.5; ev(S, { k: 'ignite', x: h.x, y: h.y }); } h.burn = Math.max(h.burn, t + H.burn); } }
       for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !D.BOSSES[e.type] && D.hazIn(z, e.x, e.y) && (e.haz || (e.haz = {}))[tag] !== n) { e.haz[tag] = n;

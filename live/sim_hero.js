@@ -217,7 +217,7 @@
     if (h.face !== wasFace) h.faceT = t;
     // dash
     const spareDash = D.clsOf(h).id === 'archer' && st.agi >= D.THRESHOLD.archer[1] && (h.cd.dash2 ?? 0) <= t;
-    if (keys.Space && (h.cd.dash <= t || spareDash) && !h.sunk) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
+    if (keys.Space && (h.cd.dash <= t || spareDash) && !h.sunk && !(h.stag && t < h.stag.t)) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
       h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; if (h.cd.dash <= t) h.cd.dash = t + K.DASH_CD; else h.cd.dash2 = t + K.DASH_CD * 2; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY });
       SIMX.firePowers(S, R, 'dash', { x: h.x, y: h.y, dx: h.dashX, dy: h.dashY, len: K.DASH * K.DASH_T });
       // the dash beats the flames out (TASKS 463: burning took the most hits and nothing put it out away from water)
@@ -232,16 +232,18 @@
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
     // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
     if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
-    const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.5);   // (climbing out over the lip, TASKS 1049, 1058: let go at 0.35 he glided off still 23 px under)
+    const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.5), stag = h.stag && t < h.stag.t ? h.stag : null;   // (climbing out over the lip, TASKS 1049, 1058: let go at 0.35 he glided off still 23 px under)
     // (a charge that struck stops on its monster, but its dash runs out, so the lean and the cape ease back, TASKS 1134 critic)
-    const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : h.leapV && h.leapV[0] === h.dashT ? h.leapV[1] : K.DASH, mvx = held || (dashing && halted) ? 0 : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : dashing ? h.dashY * dashV : h.vy;
+    const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : h.leapV && h.leapV[0] === h.dashT ? h.leapV[1] : K.DASH, slide = stag ? 1 - (t - stag.t0) / (stag.t - stag.t0) : 0, mvx = held || (dashing && halted) ? 0 : stag ? stag.vx * slide : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : stag ? stag.vy * slide : dashing ? h.dashY * dashV : h.vy;
     if (charging) { const e = R.en.find((o) => o.deadT < 0 && !under(o) && !ENEMIES[o.type].ghost && Math.hypot(o.x - h.x, (o.y - h.y) * 1.25) < ENEMIES[o.type].r + K.R + 18);
       if (e) { const boss = !!D.BOSSES[e.type], stun = boss ? CH.boss : CH.stun; h.charge = null; h.mp = Math.min(D.RAGE.max, h.mp + D.RAGE.charge); h.dashHalt = h.dashT; R.freeze = Math.max(R.freeze, 0.06); R.trauma = Math.min(1, R.trauma + 0.3);
         e.rootT = t + stun; e.cdT = Math.max(e.cdT || 0, t + stun); if (e.st === 'wind') { e.st = 'chase'; e.t0 = t; }
         heroHit(S, R, e, Math.max(1, Math.round(st.atk * h.chargeK)), false, h.x, h.y, 1.5); ev(S, { k: 'chargehit', x: e.x, y: e.y, id: e.id }); } }
     else if (h.charge && t - h.dashT >= CH.t) { h.charge = null; h.cd.charge = Math.min(h.cd.charge, t + CH.miss); ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.charge.miss') }); }
     if (leap && h.powers) SIMX.dashTouch(S, R);
-    const ox = h.x, oy = h.y; const [bx, by] = move(m, h, mvx * DT, mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
+    // (the throw never carries him onto the lava: a knock-back shoves monsters in, the hero never, TASKS 406)
+    if (stag && onLava(m, { x: h.x + mvx * DT * 3, y: h.y + mvy * DT * 3 })) stag.vx = stag.vy = 0;
+    const stop = stag && !stag.vx && !stag.vy, ox = h.x, oy = h.y; const [bx, by] = move(m, h, stop ? 0 : mvx * DT, stop ? 0 : mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     // a drowned's grab draws the hero a step toward it at an even pace
     if (h.pull) { const P = h.pull, sp = Math.min(P.n / P.T * DT, P.n - P.done); move(m, h, P.x * sp, P.y * sp, K.R); P.done += sp; if (P.done >= P.n - 0.01) h.pull = null; }
     shove(m, h, K.R, false, SIMX.solids(R));
