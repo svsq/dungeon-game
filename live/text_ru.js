@@ -483,7 +483,6 @@
     'sim_enemies.serpent.msg.s': 'Вода поднимается! Утопленники идут со дна',
     'sim_hero.hurtHero.s': 'Чтение прервано',
     'sim_hero.hurtHero.msg.s': 'Второй шанс!',
-    'sim_hero.hitEnemy.src': '{type} отражение',
     'sim_hero.killEnemy.msg.s': '{name} повержен! Портал наружу открыт',
     'sim_hero.stepPlay.msg.s': 'Здоровья мало: T — свиток возвращения, портал в город',
     'sim_hero.stepPlay.s': 'Нет свитков возвращения',
