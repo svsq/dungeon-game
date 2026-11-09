@@ -244,6 +244,10 @@
   // good, a lever opens every door of its lock at once
   const doorAt = (m, tx, ty) => (m.doors || []).find((d) => !d.open && d.cells.some(([x, y]) => x === tx && y === ty));
   const doorNear = (R, reach) => { const h = R.hero; return (R.map.doors || []).find((d) => !d.open && Math.hypot(d.x - h.x, d.y - h.y + 10) < reach); };
+  // an open door's leaf stands on its hinge side and keeps the cells it is drawn over: a top or bottom wall's, edge-on, the left one of the two
+  // door cells; a side wall's, ajar at ~60° from the gap's upper end, the upper cell of the door and the corridor cell beyond it
+  // (the boss arena's doors stand open from the start and have no leaf)
+  const leafCells = (d) => { if (d.arena) return []; const [x, y] = d.cells[0]; return d.dir === 'l' ? [[x, y], [x - 1, y]] : d.dir === 'r' ? [[x, y], [x + 1, y]] : [[x, y]]; };
   function openDoor(S, R, d, kick) {
     const m = R.map, h = R.hero, L = doorLock(m, d), i = m.doors.indexOf(d);
     if (d.arena && R.arena && R.arena.active) return;
@@ -251,6 +255,7 @@
           ev(S, { k: 'nope', x: h.x, y: h.y, s: L.kind === 'key' ? TXT('sim_world.openDoor.s') : TXT('sim_world.openDoor.s.2') }); } return; }
       R.keys--; L.open = 1; L.openT = S.t; ev(S, { k: 'unlatch', x: d.x, y: d.y, i }); R.msg = { s: TXT('sim_world.openDoor.msg.s'), t: S.t }; }
     d.open = 1; d.openT = S.t; d.kick = kick ? 1 : 0; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 1;
+    for (const [x, y] of leafCells(d)) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x);
     if (kick) R.trauma = Math.min(1, R.trauma + 0.15);
     ev(S, { k: 'door', x: d.x, y: d.y, i, kick: d.kick });
   }
@@ -295,6 +300,6 @@
 
   Object.assign(SIMX, {
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
-    hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
+    hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells,
     leverNear, pullLever, secretUnder, openChest, chestLoot });
 })(typeof window !== 'undefined' ? window : globalThis);

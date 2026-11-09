@@ -1422,6 +1422,21 @@
       if (!tr) out.push('dash: no lone spike plate on floor 1 of 40 seeds'); else { R.en = []; const up = (dt = 0) => { tr.ph = ((1 - (S.t / 2.4) % 1) + 0.02 - dt / 2.4 + 1) % 1; };
         const go = (x0, keys, dt) => { h.x = x0; h.y = tr.y; h.vx = h.vy = 0; h.ifr = 0; h.spikeT = -9; h.cd.dash = 0; h.hp = 1e4; up(dt); step(S, { right: 1, px: 960, py: 540, keys }); for (let i = 0; i < 60; i++) step(S, { px: 960, py: 540, keys: [] }); return 1e4 - h.hp; };
         if (go(tr.x - 70, ['Space'])) out.push('dash: a dash across raised spikes hurts');
+    // TASKS 1351: an open door's leaf keeps the cells it is drawn over (the hinge side's): nobody stands or walks behind it, the paths route round it,
+    // and the other lane of the doorway still carries the hero through
+    { const V = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }, seenDir = new Set();
+      for (let sd = 5; sd < 90 && seenDir.size < 4; sd++) for (let f = 1; f <= 4 && seenDir.size < 4; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; if (f > 1) enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero;
+        for (const d of m.doors) { if (d.arena || doorLock(m, d) || seenDir.has(d.dir)) continue; seenDir.add(d.dir); const [vx, vy] = V[d.dir], tag = `doors: ${d.dir} door of seed ${sd} f${f}`; R.en = []; R.pots = []; R.chests = [];
+          openDoor(S, R, d, 0); const leaf = SIMX.leafCells(d), centre = ([x, y]) => [(x + 0.5) * TILE, (y + 0.5) * TILE];
+          if (!leaf.length || leaf.some(([x, y]) => !m.block.includes(y * m.W + x) || cell(m, x, y) !== 1)) out.push(`${tag}: its leaf's cells are not kept`);
+          if (!leaf.every((c) => solids(R).some((o) => Math.hypot(o.x - centre(c)[0], o.y - centre(c)[1]) < 1))) out.push(`${tag}: its leaf is not solid`);
+          for (const lane of [0, 1]) { const [cx, cy] = centre(d.cells[lane]), p0 = [cx - vx * 2.5 * TILE, cy - vy * 2.5 * TILE]; let inside = false;
+            h.x = p0[0]; h.y = p0[1]; h.vx = h.vy = 0; if (boxHit(m, h.x, h.y, 10, false, false)) continue;
+            for (let i = 0; i < 160; i++) { step(S, { left: vx < 0, right: vx > 0, up: vy < 0, down: vy > 0, px: 960, py: 540, keys: [] }); if (leaf.some((c) => Math.abs(h.x - centre(c)[0]) < 12 && Math.abs(h.y - centre(c)[1]) < 12)) inside = true; }
+            const along = (h.x - d.x) * vx + (h.y - d.y) * vy;
+            if (inside) out.push(`${tag}: the hero stands behind the leaf (lane ${lane})`);
+            if (lane === 1 && along < 1.5 * TILE) out.push(`${tag}: the free lane does not carry the hero through (${along.toFixed(0)} px)`); } } }
+      for (const dir of ['u', 'd', 'l', 'r']) if (!seenDir.has(dir)) out.push(`doors: no plain ${dir} door on floors 1–4 of 85 seeds`); }
         if (go(tr.x - 86, ['Space'], 0.3)) out.push('dash: a dash that would come down on a plate is hurt by the spikes rising under it');
         if (!go(tr.x - 4, [])) out.push('dash: standing on raised spikes does not hurt'); } }
     // traps (TASKS 71): a web holds the hero to WEB.k of his pace until a blow tears it; fire burns it; an ambush's flagstone calls

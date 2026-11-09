@@ -435,6 +435,11 @@
     // the hero right beside a shut side door, in the room: the leaf's far end goes behind him, its near end in front
     for (const dir of ['l', 'r']) { const S = doorS(dir, 0); if (!S) continue; const R = S.run, d = R.map.doors.find((o) => o.dir === dir && !SIM.doorLock(R.map, o));
       Object.assign(R.hero, { x: d.x + (dir === 'l' ? 18 : -18), y: d.y + 8 }); states.push(['door_' + dir + '_beside', S]); }
+    // an open door's leaf keeps its hinge side (TASKS 1351): the hero pressed along the hinge lane into the opening stops short of the leaf
+    for (const dir of ['u', 'd', 'l', 'r']) { const S = doorS(dir, 2); if (!S) continue; const R = S.run, d = R.map.doors.find((o) => o.dir === dir && !SIM.doorLock(R.map, o)), h = R.hero, [vx, vy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[dir];
+      h.x = (d.cells[0][0] + 0.5) * TILE - vx * 2 * TILE; h.y = (d.cells[0][1] + 0.5) * TILE - vy * 2 * TILE; h.vx = h.vy = 0; R.en = [];
+      for (let i = 0; i < 90; i++) SIM.step(S, { left: vx < 0, right: vx > 0, up: vy < 0, down: vy > 0, px: 960, py: 540, keys: [] });
+      R.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2 - 30]; R.msg = null; states.push(['door_' + dir + '_open_pressed', S]); }
     { const S = play(); for (let sd = 1; sd < 160; sd++) { S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, L0 = m.locks.find((q) => q.kind === 'lever'); if (!L0) continue;
         const h = R.hero; h.x = L0.lever.x + 60; h.y = L0.lever.y + 70; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.cam = [L0.lever.x - SCX.VW / 2, L0.lever.y - SCX.VH / 2]; states.push(['lever', S]);
         const S2 = play(); S2.run = SIM.newRun(S2, 'campaign', sd); const R2 = S2.run, L2 = R2.map.locks[m.locks.indexOf(L0)]; Object.assign(R2.hero, { x: h.x, y: h.y }); R2.en = []; R2.msg = null; R2.seen.fill(1); R2.rseen.fill(1); R2.cam = R.cam.slice();
