@@ -361,10 +361,10 @@
     const sl = LZ.sl * o.H, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU, breath = Math.sin(o.t * 1.6 + (o.seed || 0));
     const inh = o.inhale || 0, ex = o.exhale ?? -1, kick = ex >= 0 ? 0.03 * Math.sin(ex * TAU * 3) * (1 - ex) * SS(0, 0.15, ex) : 0, heave = sw > 0 && sw < 1 ? Math.sin(Math.PI * sw) : 0;
     const back = lunge * 0.08 - fl * 0.07 - inh * 0.12 - kick;
-    const root = [o.x + cf * back * o.H, o.y + sf * back * o.H * qy];
+    const shove = Number.isFinite(o.away) ? 0.55 * o.H * curl : 0, root = [o.x + cf * back * o.H + (shove && Math.cos(o.away) * shove), o.y + sf * back * o.H * qy + (shove && Math.sin(o.away) * shove * qy)];   // (the corpse shoved off the hero, as the golem's, TASKS 1639)
     // the body's S: the tail swings against the head over each stride, idles in a slow sway, curls as it dies
     const tail = (0.32 * run * Math.sin(ph) + 0.1 * (1 - run) * Math.sin(o.t * 1.3 + (o.seed || 0)) + 0.08 * sw * Math.sin(o.t * 2.2)) * (1 - curl) + 0.9 * curl + 0.25 * fl + 0.35 * inh;
-    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - Math.max(0, lunge)) * (1 - curl) - 0.3 * curl - 0.2 * fl - 0.18 * inh + (ex >= 0 ? 0.14 * Math.sin(ex * TAU) : 0);
+    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - Math.max(0, lunge)) * (1 - curl) - 0.3 * curl - 0.2 * fl - 0.18 * inh + (ex >= 0 ? 0.42 * Math.sin(ex * TAU) : 0);
     // body px → floor (u ahead, v to its right) about its middle, with the soft bones turned as the shader turns them; floor → screen
     const bend = (px, py) => { let p = [px, py]; const [b0, b1, b2] = RG.bones;
       if (py > b2[1]) p = rotP(p, b2, tip); if (py > b0[1]) p = rotP(p, b0, tail); if (py < b1[1]) p = rotP(p, b1, neck); return p; };
@@ -380,7 +380,7 @@
       let F = [Sk[0] + LZ.fwd[j] * (l1 + l2) + off, Sk[1] + side * LZ.out[j] * (l1 + l2) * 0.82];
       if (sw > 0) F = [lerp(F[0], Sk[0] + (j ? -0.3 : 0.3) * l1, sw), lerp(F[1], Sk[1] + side * 0.35 * l1, sw)];
       // (dying it sprawls, its legs flung out wide, TASKS 1054: tucked under the body as in the lava, they read as nothing)
-      if (curl > 0) F = [lerp(F[0], Sk[0] + (j ? -0.35 : 0.45) * (l1 + l2), curl), lerp(F[1], Sk[1] + side * 0.98 * (l1 + l2), curl)];
+      if (curl > 0) F = [lerp(F[0], Sk[0] + (j ? -0.35 : 0.45) * (l1 + l2), curl), lerp(F[1], Sk[1] + side * (side * cf < 0 ? 0.45 : 0.98) * (l1 + l2), curl)];
       // in the floor's plane: the elbow (front) bends back, the knee (hind) forward; then the joint rises off the floor a little
       const dx = F[0] - Sk[0], dy = F[1] - Sk[1], dm = Math.min(Math.hypot(dx, dy), (l1 + l2) * 0.98), base = Math.atan2(dy, dx);
       const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dm * dm - l2 * l2) / (2 * l1 * dm)))), ka = base + a * side * (j ? 1 : -1);
@@ -830,7 +830,7 @@
     if (n === 'salamander') { const u = GT - e.t0, B = E.breath, bw = DATA.windOf(e, e.br ? B.wind : E.wind), w = live && e.st === 'wind' ? SS(0, bw, u) : 0, str = live && e.st === 'strike';
       const sw = !live ? 0 : o.swim || 0, dd = live ? -1 : GT - e.deadT;
       return lizard({ id: o.id, x, y, H, fa: e.fa ?? (face > 0 ? 0 : Math.PI), dist: e.dist, vx: base.vx, vy: base.vy, t: o.t, seed: e.id, U: o.U, Ufar: o.Ufar, tex: o.tex, swim: sw,
-        lunge: e.br ? (str ? 0.35 * SS(0, 0.08, u) * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0, flinch: live ? hitFl(GT - (e.hitT ?? -9)) : 0,
+        lunge: e.br ? (str ? 0.35 * SS(0, 0.08, u) * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0, away: dd >= 0 ? e.dieA ?? (e.fa ?? (face > 0 ? 0 : Math.PI)) + Math.PI : undefined, flinch: live ? hitFl(GT - (e.hitT ?? -9)) : 0,
         inhale: e.br ? (str ? 1 - SS(0, 0.25, u) : w) : 0, exhale: e.br && str ? Math.min(1, u / B.t) : -1 }); }   // (the breath let go over 0.25 s, not in a frame)
     return false;
   };
