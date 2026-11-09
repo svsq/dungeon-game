@@ -1001,8 +1001,8 @@
           const span = (a + b + 1) * TILE - 6, along = side === 1, full = 2 * HZ.vent.r * (along ? 1 : HZ.vent.ry); let n = 1; while (n < 6 && span / (1 + G.pitch * (n - 1)) > full) n++; if (n === 6) return null;
           const E = span / (1 + G.pitch * (n - 1)), s = E / full, mid = (b - a) / 2 * TILE; return Array.from({ length: n }, (_, i) => { const off = mid + (i - (n - 1) / 2) * G.pitch * E; return { k: 'vent', gate: 1, s, x: along ? wx(k % W) + off : wx(k % W), y: along ? wy(Math.floor(k / W)) : wy(Math.floor(k / W)) + off }; }); };
         for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = fit(k, side); if (!row) continue;
-          const cellOf = (z) => [Math.floor(z.x / TILE), Math.floor((z.y - 6) / TILE)];
-          if (!row.every((z) => { const [x, y] = cellOf(z), c = y * W + x; return cells[c] === 1 && clear(x, y) && !under.has(c) && !used.has(key(x, y)); })) continue;
+          const cellOf = (z) => [Math.floor(z.x / TILE), Math.floor(z.y / TILE)];
+          if (!row.every((z) => [-1, 0, 1].every((j) => [-1, 0, 1].every((i2) => { const [x0, y0] = cellOf(z), c = (y0 + j) * W + x0 + i2; return cells[c] === 1 && !under.has(c) && (i2 || j || (clear(x0, y0) && !used.has(key(x0, y0)))); })))) continue;
           if (!row.every(onFloor) || !seals(row)) continue;
           const per = G.per, ph = Z(); for (const z of row) { const [x, y] = cellOf(z); z.per = per; z.ph = ph; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
           // (and a share of the walk's rock tails goes, the player's decision on 1645: the gate is not to raise the floor's damage)
