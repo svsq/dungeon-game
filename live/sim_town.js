@@ -346,22 +346,29 @@
     enterFloor(S, R, o.f, undefined, o.k); if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
+  // a line (TASKS 391): half the time the tier's offer continues the ability a power already taken belongs to
+  function rollGifts(S, R) { const held = new Set(Object.keys(R.hero.powers || {}).map((id) => (D.POWERS[id] || {}).ab).filter(Boolean));
+    return [1, 2, 3].concat(D.relicsOf(R.hero) < D.RELIC_MAX && D.giftPool(R.hero, 4, S.meta).length ? [4] : []).map((tier) => { const evo = tier === 3 ? D.evosReady(R.hero) : [], pool = D.giftPool(R.hero, tier, S.meta), line = pool.filter((g) => g.power && held.has(g.ab)); return { id: pick(R, evo.length ? evo : line.length && rnd(R) < 0.5 ? line : pool).id, cost: D.giftCost(tier, dep(R)) }; }); }
   function openAltar(S, R, sh) {
-    if (!sh.gifts) sh.gifts = [1, 2, 3].map((tier) => ({ id: pick(R, D.liveFor(R.hero, 'gifts', D.GIFTS).filter((g) => g.tier === tier)).id, cost: D.giftCost(tier, dep(R)) }));
+    if (!sh.gifts) sh.gifts = rollGifts(S, R);
     for (const g of sh.gifts) if (g.id === 'greed') g.id = 'alert';
     R.altar = R.shrines.indexOf(sh); S.screen = 'altar'; S.hover = ''; ev(S, { k: 'altar', x: sh.x, y: sh.y });
   }
   function takeGift(S, R, sh, i, x, y) {
     if (sh.used) return;
     const o = sh.gifts[i], G = D.GIFTS.find((q) => q.id === o.id), h = R.hero;
+    { const no = D.giftBlocked(h, G); if (no) { ev(S, { k: 'nope', x, y, s: no === 'relics' ? TXT('sim_town.takeGift.relics') : TXT('sim_town.takeGift.held') }); return; } }
     if (S.meta.shards < o.cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
     S.meta.shards -= o.cost; sh.used = 1; sh.took = o.id;
-    if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
+    if (G.power) (h.powers = h.powers || {})[o.id] = 1; else if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
     const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp;
     ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? TXT('sim_town.takeGift.msg.s') : TXT('sim_town.takeGift.msg.s.2')), t: S.t };
     S.screen = 'play'; S.saveN++;
   }
   // a spent altar only answers while a donation can go through (TASKS 242)
+  function rerollAltar(S, R, sh, x, y) { if (sh.used || !sh.gifts) return; const n = sh.rolls || 0, cost = D.rerollCost(n, dep(R));
+    if (S.meta.shards < cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
+    S.meta.shards -= cost; sh.rolls = n + 1; sh.gifts = rollGifts(S, R); ev(S, { k: 'ui', x, y }); S.saveN++; }
   const canDonate = (R) => (R.donations || 0) < 10 && R.hero.gold >= 1000;
   function donate(S, R, x, y) {
     if ((R.donations || 0) >= 10) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s') }); return; }
@@ -410,6 +417,6 @@
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
-    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
+    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

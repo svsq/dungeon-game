@@ -72,8 +72,9 @@
   // the class screen (TASKS 1103): a card picks the class (kept in the meta for the next time), «В путь» or Enter starts the run the
   // menu asked for, «Назад» or Escape go back to the menu
   SCREEN.classes = (S, inp, keys, x, y, click) => {
-    const b = D.hitUI(UI.classes(), x, y); S.hover = b ? b.id : '';
+    const b = D.hitUI(UI.classes(S.meta), x, y); S.hover = b ? b.id : '';
     if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.kit) { const list = D.kitsOf(b.kit, S.meta), i = list.indexOf(D.kitOf(S.meta, b.kit)); S.meta.kit = S.meta.kit || {}; S.meta.kit[b.kit] = list[(i + 1) % list.length].id; S.meta.cls = b.kit; S.saveN++; ev(S, { k: 'ui', x, y }); }
     if (click && b && b.cls) { if (S.meta.cls !== b.cls) { S.meta.cls = b.cls; S.saveN++; } ev(S, { k: 'ui', x, y }); }
     if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); }
     return;
@@ -86,10 +87,25 @@
     if (d) S.newsTop = Math.max(0, Math.min(N.max, N.top + d));
   };
   SCREEN.meta = (S, inp, keys, x, y, click) => {
-    const bs = UI.meta(S.meta.cls), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
+    const bs = UI.meta(S.meta.cls, S.metaTab), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
+    if (click && b && b.id === 'codex') { S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.id === 'tab') { S.metaTab = S.metaTab === 'open' ? 'up' : 'open'; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.un !== undefined) { SIMX.buyUnlock(S, D.UNLOCKS[b.un], x, y); return; }
     if ((click && b && b.id === 'back') || keys.Escape || (S.metaRun && keys.KeyE)) { S.screen = S.metaRun && S.run ? 'play' : 'menu'; S.metaRun = 0; return; }
     if (click && b) { const M = META.find((q) => q.id === b.id); if (M) { const r = S.meta.up[M.id] || 0, c = M.cost(r);
       if (r < M.max && S.meta.shards >= c) { S.meta.shards -= c; S.meta.up[M.id] = r + 1; S.saveN++; ev(S, { k: 'buy', x, y, id: M.id }); } else ev(S, { k: 'nope', x, y, s: r >= M.max ? TXT('sim_ui.meta.s') : TXT('sim_ui.meta.s.2') }); } }
+    return;
+  };
+  SCREEN.fork = (S, inp, keys, x, y, click) => { const R = S.run, b = D.hitUI(UI.fork(), x, y); S.hover = b ? b.id : '';
+    if (keys.Escape) { S.screen = 'inv'; S.hover = ''; return; }
+    if (click && b) { SIMX.chooseFork(S, R, b.i); ev(S, { k: 'buy', x, y }); if (!D.forkPending(R.hero)) S.screen = 'inv'; S.hover = ''; }
+    return;
+  };
+  SCREEN.codex = (S, inp, keys, x, y, click) => { const U = UI.codex(S.codexTab || 'm', S.codexPage), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'meta'; S.hover = ''; return; }
+    if (click && b && b.tab) { S.codexTab = b.tab; S.codexPage = 0; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.id === 'prev' && U.page > 0) S.codexPage = U.page - 1;
+    if (click && b && b.id === 'next' && U.page < U.pages - 1) S.codexPage = U.page + 1;
     return;
   };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
@@ -159,10 +175,11 @@
     return;
   };
   SCREEN.altar = (S, inp, keys, x, y, click) => {
-    const R = S.run, sh = R.shrines[R.altar], U = UI.altar(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, sh = R.shrines[R.altar], U = UI.altar(sh && sh.gifts ? sh.gifts.length : 3), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!sh || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }
     if (click && b && b.id.startsWith('gift:')) takeGift(S, R, sh, b.i, x, y);
     if (click && b && b.id === 'donate') donate(S, R, x, y);
+    if (click && b && b.id === 'reroll') SIMX.rerollAltar(S, R, sh, x, y);
     return;
   };
   SCREEN.shop = (S, inp, keys, x, y, click) => {
@@ -197,8 +214,9 @@
     if (click && b.id.startsWith('bag:')) useItem(S, R, b.i);
     if (click && b.id.startsWith('eq:')) { const it = h.eq[b.slot]; if (it && bagAdd(R, it)) { h.eq[b.slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot: b.slot, off: gearName(it) }); } }
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i]; h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); }
-    if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); }
-    if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; ev(S, { k: 'buy', x, y }); } }
+    if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); SIMX.thresholdTip(S, R); }
+    if (click && b.id.startsWith('ab:') && D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; return; }
+    if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; ev(S, { k: 'buy', x, y }); if (D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; } } }
   };
   function stepUI(S, inp, keys) {
     const f = SCREEN[S.screen];

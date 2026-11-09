@@ -419,6 +419,7 @@
       if (e.k === 'curse' && a < 0.6) { const q = a / 0.6; L.glow(ex, ey, 60, [0.5, 0.85, 0.2], 1 - q, 2.2); L.ring(ex, ey + 40, 40 - 20 * q, 20 - 10 * q, [0.5, 0.85, 0.2], 1 - q, 0.15); }
       if (e.k === 'ward_break' && a < 0.5) { const q = a / 0.5; for (let j = 0; j < 8; j++) { const an = j * 0.785 + 0.3; L.star(ex + Math.cos(an) * (10 + 50 * q), ey + Math.sin(an) * (6 + 30 * q), 7 * (1 - q) + 2, [0.35, 0.6, 1.0], 1 - q); }
         L.glow(ex, ey, 50, [0.4, 0.65, 1], 1 - q, 2.2); }
+      if (e.k === 'power' && a < 0.35) { const q = a / 0.35; L.ring(ex, ey - 8, 22 + 46 * q, 12 + 26 * q, e.fx === 'pull' ? [0.6, 0.8, 1] : [1, 0.7, 0.3], 0.8 * (1 - q), 0.12); }
       if (e.k === 'bless' && a < 1.2) { const q = a / 1.2; L.glow(ex, ey - 30, 90, [0.5, 0.8, 1], 1.4 * (1 - q)); L.ring(ex, ey, 40 + 90 * q, 20 + 45 * q, [0.6, 0.85, 1], 1 - q, 0.1); }
       // an enemy bolt bursts where it dies; on the hero it splashes wider with a ring
       // the jet bursts into a spray that falls

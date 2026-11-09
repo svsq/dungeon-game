@@ -298,9 +298,12 @@
     if (e.hp >= HL.to * e.max || t - e.soakT > HL.most) { e.st = 'chase'; e.t0 = e.seenT = t; e.soaked = 0; e.cdT = t + 0.4; ev(S, { k: 'emerge', x: e.x, y: e.y, id: e.id }); } }
   // its fire on the floor: the trail of its belly on land and the patches its breath leaves, a golem's pool of lava (TASKS 409).
   // Each burns a hero in it once it is `arm` s old (at once by default) and again every `per` s, and sets him alight
+  // a chill already on keeps the harder of the two and the later end: a light one must not thin the frost that is holding a monster
+  function chill(S, e, T, k) { const on = e.chillT > S.t; e.chillK = on ? Math.min(e.chillK ?? D.FROST.slow, k) : k; e.chillT = Math.max(on ? e.chillT : 0, S.t + T); e.slowK = e.chillK; }
   function addFire(R, S, x, y, o) { (R.fires = R.fires || []).push(Object.assign({ id: R.nextId++, x, y, t0: S.t }, o)); }
   function stepFires(S, R) { const h = R.hero, t = S.t;
-    for (const p of R.fires) { if (t - p.t0 >= p.t || t - p.t0 < (p.arm || 0) || h.deadT >= 0 || Math.hypot(h.x - p.x, (h.y - p.y) / p.ry) >= p.r + K.R * 0.5 || t < (p.hitT ?? -9) + p.per) continue;
+    for (const p of R.fires) { if (p.own === 'hero') { if (t - p.t0 < p.t && t >= (p.hitT ?? -9) + p.per) { p.hitT = t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, (e.y - p.y) / p.ry) < p.r + ENEMIES[e.type].r * 0.6) SIMX.hitEnemy(S, R, e, p.dmg, false, p.x, p.y, 0, 'burn'); } continue; }
+      if (t - p.t0 >= p.t || t - p.t0 < (p.arm || 0) || h.deadT >= 0 || Math.hypot(h.x - p.x, (h.y - p.y) / p.ry) >= p.r + K.R * 0.5 || t < (p.hitT ?? -9) + p.per) continue;
       if (t - h.dashT < BAL.dodge.t && p.kind !== 'pool') continue;
       p.hitT = t; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 6, 'fire', p.who + (p.kind === 'pool' ? ' pool' : ' fire'), R.en.find((o) => o.id === p.src)); }
     R.fires = R.fires.filter((p) => t - p.t0 < p.t); }
@@ -331,7 +334,7 @@
       else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' bolt', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       // a crossbow's bolt (TASKS 1163) goes through the first it strikes and on to the next
       if (touched && p.pierce > 0 && !wall && age <= p.life) { p.pierce--; (p.past = p.past || []).push(touched.id);
-        SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+        SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, p.k === 'fire' ? 'fire' : undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
         if (p.mpGain) R.hero.mp = Math.min(SIMX.heroSt(S).maxMp, R.hero.mp + p.mpGain); if (touched.deadT < 0) hush(S, R, touched); ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: 1, mine: 1, thru: 1 }); touched = null; boom = projCover(m, p.x, p.y); }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
@@ -359,9 +362,9 @@
       if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: (ENEMIES[e.type].boom || MOD.explosive).r, d: e.fuse - t, id: e.id }); } else blast(S, R, e); } continue; }
       // the ice wave's chill (TASKS 1110) slows its walk and run (toward, steer, soak) until it thaws
       // and the archer's trap holds it where it stands (TASKS 1120)
-      if (e.chillT !== undefined || e.rootT !== undefined) e.slowK = e.rootT > t ? 0 : e.chillT > t ? D.FROST.slow : 1;
+      if (e.chillT !== undefined || e.rootT !== undefined) e.slowK = e.rootT > t ? 0 : e.chillT > t ? e.chillK ?? D.FROST.slow : 1;
       // (and its blows, TASKS 1154: the wave only slowed the walk, a monster already at arm's length struck as often; a boss keeps its moves)
-      if (e.chillT !== undefined && !D.BOSSES[e.type]) { e.cold = e.chillT > t ? 1 / D.FROST.slow : 0; if (e.cold && e.cdT > t) e.cdT += DT * (1 - D.FROST.slow); }
+      if (e.chillT !== undefined && !D.BOSSES[e.type]) { const ck = e.chillK ?? D.FROST.slow; e.cold = e.chillT > t ? 1 / ck : 0; if (e.cold && e.cdT > t) e.cdT += DT * (1 - ck); }
       if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; SIMX.hitEnemy(S, R, e, Math.max(1, Math.round(2 + dep(R))), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost && (m.cliff && !D.BOSSES[e.type] ? 2 : true)); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0;
@@ -575,6 +578,6 @@
   }
 
   Object.assign(SIMX, {
-    MOD, has, rollMods, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, addFire, stepFires, flightReach,
+    MOD, has, rollMods, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, chill, addFire, stepFires, flightReach,
     stepProjectiles, stepMonsters, ARROW_Y, steer });
 })(typeof window !== 'undefined' ? window : globalThis);
