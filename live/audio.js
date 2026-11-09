@@ -262,6 +262,7 @@
     say: (o, e) => { const b = e.role === 'child' ? 330 : e.role === 'sweeper' || e.role === 'enchanter' ? 250 : 150; for (let i = 0; i < 3; i++) tone(o, { type: 'triangle', f0: b * rr(0.9, 1.15), f1: b * rr(0.8, 1), t: now() + i * 0.09, d: 0.08, v: 0.035 }); },
     shop: (o) => [1568, 2093].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.14, d: 0.5, v: 0.07 })),
     // a hen startled by a blow (TASKS 1033): two quick rising squawks
+    power: (o) => { tone(o, { f0: 330, f1: 520, d: 0.16, v: 0.05 }); },
     hen: (o) => [0, 0.11].forEach((dt, i) => tone(o, { type: 'square', f0: 700 + 120 * i, f1: 1100 + 160 * i, t: now() + dt, d: 0.07, v: 0.03 })),
   };
   // events heard everywhere on the floor (not attenuated by distance)

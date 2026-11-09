@@ -1,0 +1,91 @@
+[
+{
+"name": "basket_tw",
+"prompt": "art/prompts/basket_tw.txt",
+"ref": [
+"study/refcrops/town_unload_yard.png=the approved town concept's yard crop"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "bucket_tw",
+"prompt": "art/prompts/bucket_tw.txt",
+"ref": [
+"study/refcrops/town_unload_yard.png=the approved town concept's yard crop"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "hay_tw",
+"prompt": "art/prompts/hay_tw.txt",
+"ref": [
+"study/refcrops/town_unload_yard.png=the approved town concept's yard crop"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "beam_tw",
+"prompt": "art/prompts/beam_tw.txt",
+"ref": [
+"study/refcrops/town_unload_yard.png=the approved town concept's yard crop"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "wheel_tw",
+"prompt": "art/prompts/wheel_tw.txt",
+"ref": [
+"study/refcrops/town_unload_yard.png=the approved town concept's yard crop"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "torch_stand_b",
+"prompt": "art/prompts/torch_stand_b.txt",
+"ref": [
+"art/gen/torch_stand.png=this game's standing torch post"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "grate_tw_c",
+"prompt": "art/prompts/grate_tw_c.txt",
+"ref": [
+"art/gen/grate_tw.png=this game's iron railing"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "cart_tw_f",
+"prompt": "art/prompts/cart_tw_f.txt",
+"ref": [
+"art/gen/cart_tw.png=this game's mine cart"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "wall_tw_tex_b",
+"prompt": "art/prompts/wall_tw_tex_b.txt",
+"ref": [
+"art/gen/wall_tw_tex.png=this game's wall material"
+],
+"size": "1024x1024",
+"pixel": true
+}
+]

@@ -9,7 +9,7 @@
   // ---------------- the townsfolk (R-17, TASKS 1015) ----------------
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
   // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
-  const FOLK_R = { child: 9, hen: 6 }, folkR = (f) => FOLK_R[f.role] || 12;
+  const FOLK_R = { child: 9, hen: 8 }, folkR = (f) => FOLK_R[f.role] || 12;
   const folkOf = (R) => R.folk || (R.folk = D.folkInit(R.map.town.npcs));
   const townOk = (m) => m.town.walkOk || Object.defineProperty(m.town, 'walkOk', { value: DG.townWalk(m), enumerable: false }).walkOk;
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
@@ -56,6 +56,7 @@
         if ((a.n === b.n ? a.u < FD.hit && b.u >= FD.hit : b.u >= FD.hit) && b.n % FD.rest !== FD.rest - 1) ev(S, { k: 'anvil', x: f.x, y: f.y }); }
       const route = n.route;
       if (folkTalk(f, t)) { const nf = h.x >= f.x ? 1 : -1; if (route && f.face && nf !== f.face) f.turnT = t; f.face = nf; }
+      if (f.role === 'child' && route && !f.go && !folkTalk(f, t)) { const hn = F.filter((q) => q.role === 'hen').sort((p, q) => Math.hypot(p.x - f.x, p.y - f.y) - Math.hypot(q.x - f.x, q.y - f.y))[0], nf = hn && Math.abs(hn.x - f.x) > 6 ? (hn.x > f.x ? 1 : -1) : f.face; if (nf !== f.face) { f.turnT = t; f.face = nf; } }
       // the child's handful of grain lands ahead of him, toward the nearest hen: the hens come for it (TASKS 1032)
       if (f.role === 'child' && route && !f.go && f.way >= 0 && !folkTalk(f, t)) { const a = D.folkClock('child', f.i, t - DT), b = D.folkClock('child', f.i, t);
         if (a.n === b.n && a.u < 0.47 && b.u >= 0.47) { const hn = F.filter((q) => q.role === 'hen').sort((p, q) => Math.hypot(p.x - f.x, p.y - f.y) - Math.hypot(q.x - f.x, q.y - f.y))[0], dir = hn && hn.x < f.x ? -1 : 1;
@@ -68,10 +69,12 @@
       else if (!route) { f.spd = 0; continue; }
       if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0 && t >= (C.atT ?? -9) + 0.6))) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
       if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
-        if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
+        const pass = f.role === 'porter' && !tg.act;
+        if (pass && d < 3) { f.way = (f.way + 1) % route.length; f.stuck = 0; const t2 = route[f.way], d2 = Math.hypot(t2.x - f.x, t2.y - f.y) || 1; want = FD.v; ux = (t2.x - f.x) / d2; uy = (t2.y - f.y) / d2; }
+        else if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
           // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
           f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take') { C.takeT = t; if (--C.load <= 0) C.t = t + 2.5; } if (f.role === 'mason' && f.lift === 'drop') C.bin = (C.bin || 0) + 1; } }
-        else { want = Math.min(FD.v, d * 3 + 3); ux = dx / d; uy = dy / d; } }
+        else { want = pass ? FD.v : Math.min(FD.v, d * 3 + 3); ux = dx / d; uy = dy / d; } }
       f.spd += (want - f.spd) * Math.min(1, 7 * DT);
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
       if (!want) { ux = f.vx / (Math.hypot(f.vx, f.vy) || 1); uy = f.vy / (Math.hypot(f.vx, f.vy) || 1); }
@@ -188,11 +191,15 @@
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
+  const unmarkFoe = (e) => { delete e.quest; if (!e.was) return; const k = e.max ? e.hp / e.max : 1, w = e.was; delete e.mods; delete e.ward; Object.assign(e, w); for (const q of ['mods', 'ward']) if (w[q] === undefined) delete e[q]; e.hp = Math.max(1, Math.round(e.max * k)); delete e.was; delete e.title; delete e.elite; };
+  // a kept floor's diff patches its foes by index, and the dead shift them: a mark is taken off on the way back in, on the live foe
+  const dropMarks = (R, M) => { for (const id of M.dropQ || []) { for (const c of R.chests) if (c.quest === id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === id) unmarkFoe(e); } delete M.dropQ; };
   // a quest given up in the journal (TASKS 1633): its offer waits on the board again, its keepsake is gone from wherever it lay
   function abandonQuest(S, R, q) { if (!q || q.st !== 'taken') return; R.quests.splice(R.quests.indexOf(q), 1); const o = (R.offers || []).find((v) => v.q === q.id); if (o) o.q = 0;
-    const left = (d) => !(d.kind === 'qitem' && d.quest === q.id); for (const c of R.chests) if (c.quest === q.id) delete c.quest; for (const e of R.en) if (e.quest === q.id) delete e.quest;
+    const left = (d) => !(d.kind === 'qitem' && d.quest === q.id); for (const c of R.chests) if (c.quest === q.id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === q.id) unmarkFoe(e);
+    for (const M of Object.values(R.memo || {})) if (M.d) (M.dropQ = M.dropQ || []).push(q.id);
     R.drops = R.drops.filter(left); for (const M of Object.values(R.memo || {})) if (M.drops) M.drops = M.drops.filter(left);
-    ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); S.saveN++; }
+    R.msg = { s: TXT('sim_town.abandon.msg.s', { name: D.QUESTS[q.key].name }), t: S.t }; ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); S.saveN++; }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
     if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
@@ -260,7 +267,7 @@
     for (const q of R.quests || []) { const Q = D.QUESTS[q.key]; if (q.st !== 'taken' || q.f !== f || !Q.fresh || q.placed) continue; q.placed = 1; const rooms = questRooms(R);
       if (Q.type === 'named') { const r = rooms.find((r2) => R.en.some((e) => plainFoe(e) && e.room === r2.id)), e = r && R.en.find((o) => plainFoe(o) && o.room === r.id);
         if (!e) { q.lost = 1; continue; } const stg = STAGE(R, f), mob = stg.mob || 1;
-        e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
+        e.was = { hp: e.hp, max: e.max, dmg: e.dmg, mods: e.mods, ward: e.ward }; e.elite = 1; e.mods = rollMods(R, dep(R), e); e.hp = e.max = Math.round(e.max * eliteK(e, 'hp') * D.NAMED.hp); e.dmg = e.dmg / mob * eliteK(e, 'dmg'); if (has(e, 'ward')) e.ward = Math.round(e.max * MOD.ward.share); e.quest = q.id; e.title = q.title; q.room = e.room; }
       else if (Q.type === 'room') { const r = rooms.find((r2) => R.en.filter((e) => e.deadT < 0 && counted(e) && e.room === r2.id).length >= 3) || rooms.find((r2) => R.en.some((e) => e.deadT < 0 && counted(e) && e.room === r2.id));
         if (!r) { q.lost = 1; continue; } q.room = r.id; }
       else if (Q.type === 'fetch') { const roomOf = (c) => m.rooms[DG.roomAt(m, c.x, c.y)] || {}, free = R.chests.filter((c) => !c.open && !c.quest && !c.mimic);
@@ -340,22 +347,29 @@
     enterFloor(S, R, o.f, undefined, o.k); if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
+  // a line (TASKS 391): half the time the tier's offer continues the ability a power already taken belongs to
+  function rollGifts(S, R) { const held = new Set(Object.keys(R.hero.powers || {}).map((id) => (D.POWERS[id] || {}).ab).filter(Boolean));
+    return [1, 2, 3].concat(D.relicsOf(R.hero) < D.RELIC_MAX && D.giftPool(R.hero, 4, S.meta).length ? [4] : []).map((tier) => { const evo = tier === 3 ? D.evosReady(R.hero) : [], pool = D.giftPool(R.hero, tier, S.meta), line = pool.filter((g) => g.power && held.has(g.ab)); return { id: pick(R, evo.length ? evo : line.length && rnd(R) < 0.5 ? line : pool).id, cost: D.giftCost(tier, dep(R)) }; }); }
   function openAltar(S, R, sh) {
-    if (!sh.gifts) sh.gifts = [1, 2, 3].map((tier) => ({ id: pick(R, D.liveFor(R.hero, 'gifts', D.GIFTS).filter((g) => g.tier === tier)).id, cost: D.giftCost(tier, dep(R)) }));
+    if (!sh.gifts) sh.gifts = rollGifts(S, R);
     for (const g of sh.gifts) if (g.id === 'greed') g.id = 'alert';
     R.altar = R.shrines.indexOf(sh); S.screen = 'altar'; S.hover = ''; ev(S, { k: 'altar', x: sh.x, y: sh.y });
   }
   function takeGift(S, R, sh, i, x, y) {
     if (sh.used) return;
     const o = sh.gifts[i], G = D.GIFTS.find((q) => q.id === o.id), h = R.hero;
+    { const no = D.giftBlocked(h, G); if (no) { ev(S, { k: 'nope', x, y, s: no === 'relics' ? TXT('sim_town.takeGift.relics') : TXT('sim_town.takeGift.held') }); return; } }
     if (S.meta.shards < o.cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
     S.meta.shards -= o.cost; sh.used = 1; sh.took = o.id;
-    if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
+    if (G.power) (h.powers = h.powers || {})[o.id] = 1; else if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
     const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp;
     ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? TXT('sim_town.takeGift.msg.s') : TXT('sim_town.takeGift.msg.s.2')), t: S.t };
     S.screen = 'play'; S.saveN++;
   }
   // a spent altar only answers while a donation can go through (TASKS 242)
+  function rerollAltar(S, R, sh, x, y) { if (sh.used || !sh.gifts) return; const n = sh.rolls || 0, cost = D.rerollCost(n, dep(R));
+    if (S.meta.shards < cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
+    S.meta.shards -= cost; sh.rolls = n + 1; sh.gifts = rollGifts(S, R); ev(S, { k: 'ui', x, y }); S.saveN++; }
   const canDonate = (R) => (R.donations || 0) < 10 && R.hero.gold >= 1000;
   function donate(S, R, x, y) {
     if ((R.donations || 0) >= 10) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.donate.s') }); return; }
@@ -402,8 +416,8 @@
 
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
-    craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
+    craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
-    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
+    stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);
