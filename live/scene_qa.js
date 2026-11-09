@@ -284,6 +284,15 @@
     // a cobweb in a room's top-left and top-right corner: spun across the corner, mirrored on the right
     for (const f of [0, 1]) states.push(['web_' + (f ? 'r' : 'l'), play((S) => { S.run = SIM.newRun(S, 'campaign', 1); const R = S.run, d = R.map.decals.find((o) => o.n === 'dc_web' && o.f === f), h = R.hero;
       if (!d) return; h.x = d.x + (f ? -90 : 90); h.y = d.y + 90; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; })]);
+    // a floor without light (TASKS 1364): the hero in a room's west end, three foes east of him, near and at the edge of the lamp's reach;
+    // dark_plain is the same floor with its modifier off
+    for (const plain of [0, 1]) { let found = null;
+      for (let sd = 1; sd < 300 && !found; sd++) for (let f = 3; f <= 4 && !found; f++) if (D.stageOf('campaign', f, sd).mod === 'dark') found = [sd, f];
+      if (found) states.push([plain ? 'dark_plain' : 'dark_floor', play((S) => { S.run = SIM.newRun(S, 'campaign', found[0]); SIM.enterFloor(S, S.run, found[1]); const R = S.run, m = R.map, h = R.hero; if (plain) m.mod = null;
+        const r = m.rooms.find((q) => q.type === 'combat' && !q.zone), foes = R.en.filter((e) => !D.BOSSES[e.type]).slice(0, 3); R.msg = null; S.ev = [];
+        h.x = (r.x + 1.2) * TILE; h.y = (r.y + r.h / 2) * TILE; h.vx = h.vy = 0;
+        foes.forEach((e, i) => { e.x = h.x + [80, 140, 195][i]; e.y = h.y + [-50, 30, -20][i]; });
+        R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [h.x + 100 - SCX.VW / 2, h.y - SCX.VH / 2]; })]); }
     // the floor's worst-lit room: the one whose farthest cell is farthest from any light
     // the largest lava pool on the fire floors, close: its straight shores and its outer and inner corners (TASKS 105)
     { let best = null; for (const seed of [1234, 1, 2, 3]) { const S = play(); S.run = SIM.newRun(S, 'campaign', seed); for (const f of [5, 6]) { SIM.enterFloor(S, S.run, f); const m = S.run.map, seen = new Set();

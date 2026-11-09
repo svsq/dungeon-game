@@ -127,7 +127,7 @@
   };
   // a floor's modifier (R-18, TASKS 381), drawn with `chance` from the `from`th floor on a rooms floor that is no boss's, shown on
   // the banner and the minimap. water: the streams' cap over the plain two (≈×2 laid: a stream wants a plain fighting room); torch:
-  // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp;
+  // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp; dim, lit: the share of a plain floor's ambient light and of its fixed fires' and glows' light (TASKS 1364);
   // elites: plain monsters made elite, the first one's room with a chest of tier `chest`; gauntlet: a plate row down every straight
   // two-cell stretch of corridor this long (a winding way has few long ones: ≈2 rows a floor, not 0.5); gold: gold picked up; pop:
   // monsters a room; ambush: a hoard chest's ambush chance; not: biomes it skips (the fire floors have no streams);
@@ -136,7 +136,7 @@
   const FLOOR_MOD = { from: 3, chance: 0.5 };
   const FLOOR_MODS = {
     flood: { name: TXT('FLOOR_MODS.flood'), w: 1, water: 3, not: ['lava'] },
-    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.3 },
+    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.4, dim: 0.3, lit: 0.35 },
     lair: { name: TXT('FLOOR_MODS.lair'), w: 1, elites: 2, chest: 3 },
     cursed: { name: TXT('FLOOR_MODS.cursed'), w: 1, gauntlet: 5, gold: 1.5, notLay: ['tomb', 'hall'] },
     quiet: { name: TXT('FLOOR_MODS.quiet'), w: 1, pop: 0.7, ambush: 2 },
