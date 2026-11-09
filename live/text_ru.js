@@ -565,6 +565,7 @@
     'sim_world.chestTrap.msg': 'Крышка щёлкнула. Сундук тоже умеет шутить',
     'sim_world.mimic.msg': 'Сундук передумал быть сундуком',
     'sim_world.wreck.msg': 'Команда не покинула судно',
+    'sim_world.coffin.msg': 'Кто-то не любит, когда стучат',
     'sim_town.questLine.chest': ' · в сундуке',
     'sim_town.questLine.secret': ' · в тайной комнате',
     'sim_town.questLine.floor': ' · лежит на виду',
