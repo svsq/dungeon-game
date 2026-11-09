@@ -330,6 +330,8 @@
       if (r.shape === 'colonnade' && !['boss', 'shrine', 'start'].includes(r.type) && has(D.ROOM_PLANS.colonnade.need).length) fit = ['colonnade'];
       if (!fit.length) return;
       let roll = R() * fit.reduce((a, k) => a + D.ROOM_PLANS[k].w, 0), plan = fit[0]; for (const k of fit) { roll -= D.ROOM_PLANS[k].w; if (roll < 0) { plan = k; break; } }
+      // a room dressed all alike reads as one with nothing behind its walls (TASKS 1355): a room that hosts a top-wall secret tends to take such a dressing
+      if (secrets.some((q) => q.dir === 'u' && q.host === r.id)) { const Bp = mul32(seed ^ 0x1355 ^ r.id), alike = fit.filter((k) => D.STATUE_SECRET.plans.includes(k)); if (alike.length && Bp() < D.STATUE_SECRET.hostP) plan = alike[Math.floor(Bp() * alike.length)]; }
       const P = r.type === 'boss' && bossType === 'boss_necro' ? Object.assign({}, D.ROOM_PLANS[plan], { floor: { n: ['pillar'], mode: 'pair' } }) : D.ROOM_PLANS[plan], busy = r.type === 'boss' || r.type === 'shrine' || r.type === 'start', c2 = 2 * r.x + r.w - 1;
       r.plan = plan;
       // the back wall: one kind of tall prop, evenly spaced or mirrored about the room's axis
@@ -477,6 +479,9 @@
       lightRoom(r, []);
     }
     secOpen = false;
+    // a boss's chest (TASKS 1356), from a stream of its own: the rest of the floor stays as it was
+    for (const r of rooms) { if (r.type !== 'boss') continue; const Bc = mul32(seed ^ 0x1356), c = []; for (let y = r.y + (cave ? 0 : 2); y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { if (cave ? at(x - 1, y) !== 0 && at(x + 1, y) !== 0 && at(x, y + 1) !== 0 : !(x === r.x && at(x - 1, y) === 0) && !(x === r.x + r.w - 1 && at(x + 1, y) === 0) && !(y === r.y + r.h - 1 && at(x, y + 1) === 0)) continue; if (free(x, y) && !doorway(x, y) && roomy(x, y, 'chest')) c.push([x, y]); }
+      if (c.length) { const p = c[Math.floor(Bc() * c.length)]; claim(...p, 'chest'); chests.push({ x: wx(p[0]), y: wy(p[1]), tier: 3, open: 0, boss: 1, sealed: 1 }); } }
     // a lair (TASKS 381): as many more plain monsters of the fighting rooms as `elites` turn elite, each in a room of its own while
     // there are rooms, and the first one's room holds a chest of the top tier
     if (FM.elites) { const pool = enemies.filter((e) => !e.elite && !D.BOSSES[e.type] && rooms[e.room] && rooms[e.room].type === 'combat'), took = [];
@@ -676,6 +681,11 @@
     secrets.forEach((q, i) => { const [fx, fy] = q.front[5], sh = rooms.find((o) => o.type === 'shop') || NO_SHOP, inR = (o, x, y) => x >= o.x - 1 && x <= o.x + o.w && y >= o.y - 1 && y <= o.y + o.h;
       const torchNear = torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - q.x) < 2 * TILE && Math.abs(t.y - fy * TILE) < TILE);
       if (q.kind === 'banner' && torchNear) q.kind = 'shelf';
+      const hostPlan = (rooms.find((o) => o.id === q.host) || {}).plan;
+      if (!cave && q.dir === 'u' && hostPlan === 'library' && (q.kind === 'crack' || q.kind === 'lever') && mul32(seed ^ 0x1355 ^ i)() < D.STATUE_SECRET.planned) q.kind = 'shelf';
+      // a statue that slides along the wall (TASKS 1354): two free cells beside the opening under solid wall, the row in front open
+      const slides = [1, -1].filter((s) => { const xs = s > 0 ? [fx + 2, fx + 3] : [fx - 2, fx - 1]; return xs.every((x) => (free(x, fy) || q.front.some(([a, b]) => a === x && b === fy)) && !doorway(x, fy) && at(x, fy - 1) === 0 && at(x, fy + 1) === 1 && !secCells.has(fy * W + x)) && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.y - fy * TILE) < TILE * 1.5 && Math.abs(t.x - (q.x + s * 2 * TILE)) < 24); });
+      if (!cave && q.dir === 'u' && (q.kind === 'crack' || q.kind === 'lever') && slides.length && roomy(fx, fy, 'statue', q.x) && !hungAt(q.x, fy, half('statue')) && mul32(seed ^ 0x1354 ^ i)() < (D.STATUE_SECRET.plans.includes(hostPlan) ? D.STATUE_SECRET.planned : D.STATUE_SECRET.p)) { q.kind = 'statue'; q.slide = slides[0] * 2 * TILE; claim(fx, fy, 'statue', q.x); const xs = slides[0] > 0 ? [fx + 2, fx + 3] : [fx - 2, fx - 1]; for (const x of xs) used.add(key(x, fy)); decor.push({ x: q.x, y: fy * TILE + 22, n: 'statue', solid: 1, secret: i }); }
       if (q.kind === 'shelf' && (!roomy(fx, fy, 'bookshelf', q.x) || hungAt(q.x, fy, half('bookshelf')))) q.kind = torchNear ? 'crack' : 'banner';
       if (q.kind === 'banner' && (tallAt(q.x, fy, HANG.banner) || doorTop(q.x, fy, HANG.banner))) q.kind = 'crack';
       if (q.kind === 'banner') { for (let k = decor.length - 1; k >= 0; k--) if (decor[k].n === 'banner' && Math.abs(decor[k].x - q.x) < 3 * TILE && Math.abs(decor[k].y - (fy * TILE - 2)) < TILE) decor.splice(k, 1);
@@ -686,7 +696,9 @@
       const seen = new Map([[key(fx, fy), 0]]), st = secCells.has(fy * W + fx) ? [] : [[fx, fy]], plates = [];
       while (st.length) { const [x, y] = st.shift(), d0 = seen.get(key(x, y)); if (d0 >= 3 && free(x, y) && !doorway(x, y) && !inR(start, x, y) && !inR(sh, x, y)) plates.push([x, y]); if (d0 >= 8) continue;
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay; if (at(nx, ny) === 1 && !secCells.has(ny * W + nx) && !seen.has(key(nx, ny))) { seen.set(key(nx, ny), d0 + 1); st.push([nx, ny]); } } }
-      if (near.length && (!plates.length || R() < 0.5)) { const [t, k] = pick(near); t.lever = i; q.trig = { k: 'sconce', t: k }; }
+      // a sconce counts only if the walk from it to the wall it opens is short: one behind the wall, a floor's walk away, read as a bug (TASKS 1360)
+      const nearW = near.filter(([t]) => seen.has(key(Math.floor(t.x / TILE), Math.floor((t.y + 40) / TILE))));
+      if (nearW.length && (!plates.length || R() < 0.5)) { const [t, k] = pick(nearW); t.lever = i; q.trig = { k: 'sconce', t: k }; }
       else if (plates.length) { const [x, y] = pick(plates); used.add(key(x, y)); q.trig = { k: 'plate', x: wx(x), y: y * TILE + TILE / 2, cx: x, cy: y }; }
       else q.kind = 'crack'; });
     // a locked room's key lies on this side of its doors, in a chest or on an elite, or a lever on a top wall works them; with
@@ -1005,6 +1017,9 @@
     if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     if ((D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    // a stream of its own: which chests are trapped must not move anything else on the floor (TASKS 1357)
+    if (runFloor >= D.CHEST_TRAP.from) { const Tc = mul32(seed ^ 0x1357), T = D.CHEST_TRAP; let n = 0; for (const c of chests) { const v = Tc(); if (n < T.max && !c.boss && !c.lair && c.key === undefined && v < T.p) { c.trap = 1; n++; } } }
+    if (runFloor >= D.MIMIC.from) { const Mc = mul32(seed ^ 0x367), st = rooms.find((r) => r.type === 'start'), inSt = (c) => st && c.x >= st.x * TILE && c.x < (st.x + st.w) * TILE && c.y >= st.y * TILE && c.y < (st.y + st.h) * TILE; for (const c of chests) { const v = Mc(); if (v < D.MIMIC.p && !c.boss && !c.lair && !c.trap && !c.hall && c.sec === undefined && c.key === undefined && !inSt(c)) { c.mimic = 1; break; } } }
     const map = { seed, floor: runFloor, biome, mod: ST.mod, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       ftype, ftype2, shareOf, ...(riverGuard ? { riverGuard: [...riverGuard], riverFire: [...riverFire] } : {}), ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, pits, ledges, ...(raised.length ? { raised } : {}), lay: LY ? ST.lay || 'rooms' : undefined, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;

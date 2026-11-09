@@ -8,7 +8,7 @@
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
   const modCol = (e, j = 0) => e.mods && e.mods.length ? D.ELITE_MODS.find((m) => m.id === e.mods[j % e.mods.length]).col : ELITE;
-  const EN_TEX = { boss_serpent: 'serpent__body', boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', boss_colossus: 'en_colossus', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage', skel_ember: 'en_skeleton', fire_priest: 'en_cultist', imp: 'en_imp', golem: 'en_golem', salamander: 'en_salamander' };
+  const EN_TEX = { boss_serpent: 'serpent__body', boss_spider: 'en_spider', boss_necro: 'en_cultist', boss_forge: 'en_brute', boss_colossus: 'en_colossus', skeleton: 'en_skeleton', goblin: 'en_goblin', spider: 'en_spider', cultist: 'en_cultist', ghost: 'en_ghost', brute: 'en_brute', boss: 'en_brute', drowned: 'en_drowned', slime: 'en_slime', slime_s: 'en_slime', crab: 'en_crab', eel: 'en_eel', skel_archer: 'en_skel_archer', skel_mage: 'en_skel_mage', skel_ember: 'en_skeleton', fire_priest: 'en_cultist', imp: 'en_imp', golem: 'en_golem', salamander: 'en_salamander', mimic: 'chest' };
   // per frame: the rim colour of the floor's fire, and the cultists' free hands (view px) for their glow
   const ARROW_H = 32;
   // and the skeleton mages' pearls and gathering hands (TASKS 311): [pearl, palm, gather 0..1]
@@ -26,7 +26,7 @@
     return { v, dl: 0, dur: 0.35, bounce: 0.025, buckle: 0 }; }
   // a drowned under the shallows (TASKS 307): 1 lying under, 0 standing; it sinks back over 0.9 s when it comes home
   // a monster knocked off a plateau (TASKS 401) goes under the same way: down into the lava as it burns, or dropping into the chasm
-  const submerged = (e, E, GT) => E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
+  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0, D.COFFIN.rise, GT - e.coffinT) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
   // what shows of it then: a dark shape swaying under the surface and bubbles that rise and pop in small rings
   function lurkFx(e, x, y, t, sub, col = [0.42, 0.62, 0.66]) { const k = SS(0.3, 0.9, sub);
     L.shadow(x + 3 * Math.sin(t * 0.7 + e.id), y - 3, 25, 8, 0.4 * k);
@@ -308,6 +308,7 @@
     // hero keeps hacking hides its own wind-up
     function rimFlash(draw) { const sps = []; for (let i = 0; i < 8; i++) { const an = i * Math.PI / 4; sps.push({ dx: Math.cos(an) * 3.5, dy: Math.sin(an) * 3.5, a: 0.85 * (1 - hA0 / 0.08), lod: 0, ink: [1, 0.95, 0.85] }); } L.stamp(draw, sps); }
     function drawLive() {
+    if (E.mimic) return drawMimic();
     if (E.blood === 'slime') return drawSlime();
     if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.08, hA) * (1 - SS(0.12, 0.32, hA)) : 0;   // a hit flinches the upper body away from the hero
       const Ur = Object.assign({ alpha, grade }, rim, cut), Uf = Object.assign({ alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] }, cut), dy = sub * h * 1.02;
@@ -323,6 +324,27 @@
       halo(rig); if (edge && !(sw > 0)) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: sw > 0 ? null : edgeOf() }); if (RIM.embers[e.id]) emberFire(e, E, RIM.embers[e.id], GT, t); if (RIM.priests[e.id]) priestFire(e, RIM.priests[e.id], t); if (RIM.kindled[e.id]) weaponFire(e, RIM.kindled[e.id], GT, t);
       if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Object.assign({ alpha: k * alpha }, clip), Ufar: Object.assign({ alpha: k * alpha }, clip), t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
       return; }
+    // the mimic (TASKS 367): the chest cut at its lid line (its own parts once generated) on a hinge at the back, a body, a jaw, teeth and
+    // a tongue. It squats and gapes through the wind-up, flies with its mouth open and bites shut as it lands
+    function drawMimic() {
+      const J = E.jump, u = GT - e.t0, ewM = D.windOf(e, E.wind), lerp = (a, b, q) => a + (b - a) * q, crawl = SS(4, 30, sp), LID = 0.46;
+      const own = window.ASSETS.mimic__lid && window.ASSETS.mimic__base, lidT = own ? 'mimic__lid' : tex, baseT = own ? 'mimic__base' : tex;
+      let a = 0.14 + 0.05 * Math.sin(t * 3.1 + e.id), z = 0, sq = 1 + 0.02 * Math.sin(t * 2.3 + e.id), tilt = 0.06 * crawl * Math.sin(e.dist / 7);
+      if (e.st === 'rise') { const q = SS(0, E.rise, u); a = lerp(0, 0.95, SS(0.1, 0.55, q)) * (1 - SS(0.7, 1, q)) + 0.14 * SS(0.7, 1, q); z = 14 * Math.sin(Math.PI * SS(0.2, 0.9, q)); sq = lerp(0.85, 1, q); tilt = 0.1 * Math.sin(u * 38) * (1 - q); }
+      else if (e.st === 'wind') { const q = SS(0, ewM, u); a = lerp(a, 1, q); sq = lerp(sq, 0.78, q); tilt = lerp(tilt, -0.14, q); }
+      else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * Math.sin(Math.PI * q); a = lerp(1, 1.15, SS(0, 0.5, q)) * (1 - SS(0.72, 0.98, q)); sq = 0.78 + 0.4 * SS(0, 0.6, q) - 0.12 * SS(0.6, 1, q); tilt = lerp(-0.14, 0.2, q); }
+      else if (e.st === 'strike') { const v = u - J.t; a = 0.14 * SS(0, J.land, v); sq = 1 - 0.18 * Math.exp(-v / 0.07) * Math.cos(30 * v); tilt = 0.2 * (1 - SS(0, 0.16, v)); }
+      const hA = GT - e.hitT; if (hA >= 0 && hA < 0.3) { tilt -= 0.1 * (1 - hA / 0.3); a += 0.2 * (1 - hA / 0.3); }
+      const sy2 = sq, sx2 = 1 / Math.sqrt(sq), B = M.of(M.t(x, y - z), M.s(e.face * sx2, sy2), M.r(tilt)), bh = h * (1 - LID), lh = h * LID, hx = -w / 2 + 3, hy = -bh + 1, Lm = M.of(B, M.t(hx, hy), M.r(-a));
+      const Hs = M.ap(B, [hx, hy]), tipL = M.ap(Lm, [w - 4, 0]), Bm = M.ap(B, [w / 2 - 3, hy]), A = Math.atan2(tipL[1] - Hs[1] + Bm[1] - Hs[1], tipL[0] - Hs[0] + Bm[0] - Hs[0]), th = Math.max(2, Math.hypot(tipL[0] - Bm[0], tipL[1] - Bm[1]));
+      if (a > 0.06) { L.solid(Hs[0], Hs[1] - th / 2, w * 0.94, th, [0.16, 0.03, 0.04], A, 0, th / 2);
+        const wag = Math.sin(t * 7 + e.id) * 0.25, tl = w * 0.48 * SS(0.1, 0.7, a); L.solid(Hs[0], Hs[1] - 3, tl, 6, [0.62, 0.14, 0.16], A + 0.1 * e.face + wag * e.face, 0, 3); L.joint('en' + e.id, 'tongue', [Hs[0] + Math.cos(A + 0.1 * e.face + wag * e.face) * tl, Hs[1] + Math.sin(A + 0.1 * e.face + wag * e.face) * tl]); }
+      const parts = () => { L.sprite(baseT, 0, 0, { m: B, w, h: bh, pivot: [w / 2, bh], src: own ? undefined : [0, LID, 1, 1], u: Object.assign({ alpha, grade }, rim) }); L.sprite(lidT, 0, 0, { m: Lm, w, h: lh, pivot: [3, lh - 1], src: own ? undefined : [0, 0, 1, LID], u: Object.assign({ alpha, grade }, rim) }); };
+      halo(parts); if (edge) rimFlash(parts); L.inked(parts, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: edgeOf() });
+      if (a > 0.08) for (let i = 0; i < 5; i++) { const f = (i + 0.7) / 5.4, lo = M.ap(B, [hx + f * (w - 6), hy]), up = M.ap(Lm, [f * (w - 6), -1]), c = [0.86, 0.8, 0.62]; L.solid(lo[0] - 1.5, lo[1] - 5, 3, 5, c); L.solid(up[0] - 1.5, up[1], 3, 5, c); }
+      if (a > 0.3 && !L.sp) { G.blend('add'); for (const sd of [0.3, 0.55]) { const p = M.ap(Lm, [w * sd, lh * 0.5]); L.glow(p[0], p[1], 7, [1, 0.8, 0.25], 0.7); } G.blend(); }
+      const J2 = (n, p) => L.joint('en' + e.id, n, p); J2('ground', [x, y]); J2('top', M.ap(B, [0, -h])); J2('head', M.ap(Lm, [w * 0.55, lh * 0.5])); J2('hip', M.ap(B, [0, -bh * 0.5])); J2('jaw', Hs); J2('lidTip', tipL); J2('baseTip', Bm);
+    }
     // the slime (TASKS 308) is one painting on a soft bone (art/softbones.json) squashed and stretched about its foot in the shader
     // (u_jelly): it breathes and ripples as it creeps, squats through the wind-up, shoots up stretched and leans along the hop,
     // lands squashed and wobbles out; a blow dents it
@@ -390,6 +412,19 @@
       const last = (r.damage || []).slice(-1)[0]; if (last && last.actor) enemy(last.actor, x, y, false);
     }
   };
+  // a chest's rank at a glance (TASKS 1356): its own painting once generated, until then the plain chest recoloured
+  const CHEST_LOOK = { 1: { k: 1, u: { grade: [0.8, 0.88, 0, 1] } }, 2: { tex: 'chest_iron', k: 1.15, u: { grade: [0.45, 1.02, 0, 1.15], tint: [0.8, 0.92, 1.2, 0.55] } }, 3: { tex: 'chest_gold', k: 1.2, u: { grade: [1.35, 1.2, 0, 1.12], tint: [1.3, 1.02, 0.45, 0.6] } } };
+  // a mimic that is still a chest shivers now and then: a careful eye can tell it from the real thing
+  const mimicTwitch = (c, t) => { const ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1; return ph < 0.5 ? { rot: 0.035 * Math.sin(ph * 42) * (1 - ph / 0.5), dx: 0, sy: 1, fl: 0 } : undefined; };
+  const CHEST_BOSS = { tex: 'chest_boss', k: 1.35, u: { grade: [1, 0.85, 0, 1.25], tint: [1, 0.32, 0.3, 0.7] } };
+  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
+  // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
+  // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
+  const DEBRIS_T = 0.42;
+  function debris(x, y, seed, a, wood, tex, n, sp = 1) { for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, lx = x + Math.cos(an) * far, ly = y + 3 + Math.sin(an) * far * 0.62;
+      const q = Math.min(1, Math.max(0, a) / DEBRIS_T), arc = 4 * q * (1 - q) * (26 + 22 * rnd(seed, i + 7)), px = x + (lx - x) * q, py = y - 10 * (1 - q) + (ly - y) * q - arc, rest = (rnd(seed, i + 13) - 0.5) * (wood ? 1.1 : 3.1), rot = rest + (1 - q) * (rnd(seed, i + 19) - 0.5) * 16, tone = 0.72 + 0.22 * rnd(seed, i + 23);
+      if (wood) { const small = i >= 5, w = (small ? 8 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)), h = w * 210 / 952 * (small ? 1.5 : 1.15); L.sprite(i % 2 ? 'plank_b' : 'plank_a', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h, pivot: [w / 2, h / 2], u: { grade: [0.9, tone, 0, 1] } }); }
+      else { const c = 4, u0 = i % c / c, v0 = Math.floor(rnd(seed, i + 5) * c) / c, S0 = 12 + 7 * rnd(seed, i + 9); L.sprite(tex, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: S0, h: S0, pivot: [S0 / 2, S0 / 2], src: [u0, v0, u0 + 1 / c, v0 + 1 / c], u: { grade: [0.95, tone, 0, 1] } }); } } }
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   const NO_INK = new Set(['bones', 'torch_sconce']);
@@ -417,6 +452,6 @@
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, mimicTwitch, debris, DEBRIS_T, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

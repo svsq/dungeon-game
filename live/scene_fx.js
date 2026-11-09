@@ -22,6 +22,8 @@
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
     // a mechanism catches the light now and then: a faint four-point glint for a third of a second every five or so, each on
     // its own beat, so it reads only to someone already looking at it
+    // a trapped chest gives itself away to a careful eye: now and then a thread of dust from under the lid (TASKS 1357)
+    for (const c of R.chests) { if (!c.trap || c.open || !vis(c.x, c.y) || !known(c.x, c.y)) continue; const ph = (t + c.x * 0.013 + c.y * 0.007) % 5.3; if (ph < 0.8) L.puff(sx(c.x) + 4, sy(c.y) - 26 - 16 * ph, 5 + 6 * ph, [0.42, 0.4, 0.3], 0.3 * (1 - ph / 0.8), c.x * 3); }
     (m.secrets || []).forEach((q, i) => { const P = q.trig; if (q.open || !P || inSecret(q)) return; const ph = (t + i * 1.73) % 5.2; if (ph > 0.35) return;
       const env = Math.sin(Math.PI * ph / 0.35), tc = P.k === 'sconce' ? m.torches[P.t] : null, x = tc ? tc.x - 8 : P.cx * TILE + 7, y = tc ? tc.y - 2 : P.cy * TILE + 6;
       if (vis(x, y) && known(x, y)) L.star(sx(x), sy(y), 12, [1, 0.94, 0.78], 0.5 * env); });
@@ -384,6 +386,8 @@
           L.star(ex + Math.cos(an) * (20 + 30 * q), ey - 20 - 90 * q * (0.5 + rnd(j, 2)), 9, [1, 0.85, 0.4], 1 - q); } }
       if ((e.k === 'pickup' || e.k === 'gold' || e.k === 'shard' || e.k === 'chest') && a < 0.5) { const q = a / 0.5, col = e.k === 'shard' ? [0.4, 0.7, 1] : e.k === 'pickup' ? D.RARITY[e.rar || 0].col : [1, 0.85, 0.3];
         for (let j = 0; j < 6; j++) { const an = j / 6 * 6.28 + e.t; L.star(ex + Math.cos(an) * 26 * q, ey - 10 + Math.sin(an) * 18 * q - 20 * q, 9, col, 1 - q); } }
+      if (e.k === 'trapfuse' && a < e.d) { const q = a / e.d; for (let j = 0; j < 5; j++) L.star(ex + (rnd(e.t, j) - 0.5) * 30, ey - 26 - 34 * ((q + rnd(e.t, j + 9)) % 1), 7 + 6 * q, [1, 0.75, 0.3], 0.9); L.ring(ex, ey, D.CHEST_TRAP.r * q, D.CHEST_TRAP.r * 0.6 * q, [0.9, 0.3, 0.15], 0.35, 0.06); }
+      if (e.k === 'trapbang' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey, e.r * (0.4 + 0.6 * q), e.r * 0.6 * (0.4 + 0.6 * q), [1, 0.5, 0.2], 1 - q, 0.16); for (let j = 0; j < 14; j++) { const an = j / 14 * 6.28 + rnd(e.t, j), rr = e.r * q * (0.5 + 0.5 * rnd(e.t, j + 3)); L.puff(ex + Math.cos(an) * rr, ey + Math.sin(an) * rr * 0.6 - 12 - 26 * q, 6 + 8 * q, [0.35, 0.3, 0.26], 0.7 * (1 - q), e.t + j); } }
       if ((e.k === 'shield' || e.k === 'barrier') && a < 0.4) L.ring(ex, ey - 30, 30 + 30 * (a / 0.4), 40 + 30 * (a / 0.4), [0.5, 0.8, 1], 1 - a / 0.4, 0.15);
       if (e.k === 'drink' && a < 0.6) for (let j = 0; j < 8; j++) { const q = a / 0.6, an = j / 8 * 6.28 + a * 6; L.star(ex + Math.cos(an) * 20, ey - 10 - 60 * q * (0.4 + rnd(j, 1)), 7, e.b === 'hp_potion' ? [1, 0.35, 0.35] : [0.4, 0.6, 1], 1 - q); }
       // a fire priest's pillar (TASKS 410): flames standing in the ring for its burst, a white-hot core, then dying down
@@ -546,9 +550,11 @@
       // red blood; a spider's ichor is a sick green
       if (e.k === 'hit' && a < 0.45 && !e.fire && (!BLOOD(e.type) || BLOOD(e.type) === 'ichor')) for (let j = 0; j < 5; j++) { const q = a / 0.45, an = rnd(e.t, j + 20) * 6.28, d = 6 + 30 * q;
         L.puff(ex + Math.cos(an) * d, ey + Math.sin(an) * d + 50 * q * q, 3 + 2 * rnd(e.t, j), BLOOD(e.type) === 'ichor' ? [0.36, 0.46, 0.08] : [0.45, 0.04, 0.04], 0.9 * (1 - q), j); }
+      if (e.k === 'break' && a < 0.35 && e.kind !== 'gold' && e.kind !== 'goldpile') { const q = a / 0.35; L.ring(ex, ey - 8, 10 + 34 * q, 6 + 18 * q, [0.8, 0.72, 0.6], 0.5 * (1 - q), 0.2); for (let j = 0; j < 4; j++) L.puff(ex + (j - 1.5) * 8, ey - 14 - 22 * q, 10 + 12 * q, [0.42, 0.36, 0.3], 0.55 * (1 - q), e.t * 5 + j); }
       if (e.k === 'break' && a < 0.7) for (let j = 0; j < 7; j++) { const q = a / 0.7, an = rnd(e.t, j) * 6.28, v = 40 + 60 * rnd(e.t, j + 7);
         L.solid(ex + Math.cos(an) * v * a, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 300 * a * a, 5, 4, e.kind === 'pot' || e.kind.startsWith('vase') ? [0.5, 0.24, 0.14] : e.kind === 'gold' || e.kind === 'goldpile' ? [1, 0.78, 0.25] : [0.4, 0.26, 0.14], an, 2, 2, 1 - SS(0.5, 0.7, a)); }
       // a blow on a fake wall knocks out chips and a breath of dust; the break blows the stretch of wall into the room
+      if (e.k === 'secret' && e.kind === 'statue' && a < 0.8) for (let j = 0; j < 8; j++) L.puff(ex + (j - 3.5) * 11, ey + 34 - 12 * a, 10 + 14 * a, [0.5, 0.46, 0.4], 0.5 * (1 - a / 0.8), e.t * 3 + j);
       if (e.k === 'secret' && e.kind === 'shelf' && a < 1.2) { for (let j = 0; j < 18; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 80 + 140 * rnd(e.t, j + 7), px = ex + (rnd(e.t, j + 3) - 0.5) * 90 + Math.cos(an) * v * a * 0.6;
           const py = ey + 30 + Math.min(20 + 16 * rnd(e.t, j + 11), -Math.abs(Math.sin(an)) * v * a + 520 * a * a) - 30, book = j % 3 === 0, col = book ? [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12]][j % 9 / 3 | 0] : [0.4, 0.26, 0.14];
           L.solid(px, py, book ? 7 : 12, book ? 5 : 3, col, an + a * (book ? 4 : 7), 4, 2, 1 - SS(0.85, 1.2, a)); }
