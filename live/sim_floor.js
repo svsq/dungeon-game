@@ -46,6 +46,10 @@
     if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= 8) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
     return structuredClone(m);
   }
+  // a run saved in the town before the mason's yard (TASKS 1151): its map is rebuilt from the run's seed; the townsfolk and the cart start over on it
+  function migrateTown(R) { if (!R.map || !R.map.town || R.map.town.yardSolid) return;
+    const m = genKept('t', (R.seed * 31) >>> 0), h = R.hero, ok = DG.townWalk(m); m.goo = []; R.map = m; R.folk = null; R.cart = null; R.seen = new Array(m.W * m.H).fill(1);
+    if (h && !ok[Math.floor(h.y / D.TILE) * m.W + Math.floor(h.x / D.TILE)]) { h.x = m.spawn.x; h.y = m.spawn.y; } }
   function buildFloor(R, f, gen) {
     R.bossDead = 0;
     const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? D.folkInit(m.town.npcs) : null;
@@ -281,6 +285,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden });
 })(typeof window !== 'undefined' ? window : globalThis);
