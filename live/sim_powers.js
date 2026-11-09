@@ -27,7 +27,7 @@
     pull(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of targets(R, x, y, P.r)) { if (heavy(e)) continue; const dx = x - e.x, dy = y - e.y, d = Math.hypot(dx, dy) || 1, go = Math.max(0, d - P.to); e.kbx = dx / d * go * 10; e.kby = dy / d * go * 10; } },
     heal(S, R, P) { const h = R.hero, st = heroSt(S); h.hp = Math.min(st.maxHp, h.hp + st.maxHp * P.v); },
     mana(S, R, P) { const h = R.hero, st = heroSt(S); h.mp = Math.min(st.maxMp, h.mp + st.maxMp * P.v); },
-    slow(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) { e.chillT = S.t + P.t; e.slowK = P.slow; } },
+    slow(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) SIMX.chill(S, e, P.t, P.slow); },
     stun(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) { const hold = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = S.t + hold; e.cdT = Math.max(e.cdT || 0, S.t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } } },
     shieldBurst(S, R, P, ctx) { const [x, y] = pos(R, ctx); if (P.k) burst(S, R, x, y, P.r, Math.max(1, Math.round((ctx.left || 0) * P.k)), P.kb ?? 1, 'thorns'); else for (const e of targets(R, x, y, P.r)) { if (heavy(e)) continue; const d = Math.hypot(e.x - x, e.y - y) || 1; e.kbx = (e.x - x) / d * 300 * P.kb; e.kby = (e.y - y) / d * 300 * P.kb; } boom(S, R, x, y); },
     shieldMore(S, R, P) { R.hero.shieldUntil += P.t; },
@@ -39,10 +39,12 @@
   const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25 };
   const onOf = (P) => (P.trig.startsWith('every:') ? 'hit' : P.trig);
   const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.each || 0);
+  // what changes a shot goes before what copies it, so the side balls of a split carry every change whatever order the powers were taken in
+  const order = (own, trig) => { const ids = Object.keys(own).filter((id) => D.POWERS[id] && onOf(D.POWERS[id]) === trig); return ids.filter((id) => D.POWERS[id].fx !== 'split').concat(ids.filter((id) => D.POWERS[id].fx === 'split')); };
   let depth = 0;
   function firePowers(S, R, trig, ctx = {}) { const h = R.hero, own = h.powers;
     if (!own || R.town || depth > (trig === 'kill' ? 2 : 0)) return;
-    for (const id in own) { const P = D.POWERS[id]; if (!P || onOf(P) !== trig || (P.if && !IFS[P.if](S, h))) continue;
+    for (const id of order(own, trig)) { const P = D.POWERS[id]; if (P.if && !IFS[P.if](S, h)) continue;
       const N = every(P); if (N && ((h.powerN = h.powerN || {})[id] = (h.powerN[id] || 0) + 1) % N) continue;
       if (P.icd && S.t < ((h.powerT || {})[id] ?? -1e9) + P.icd) continue;
       if (P.p !== undefined && rnd(R) >= P.p) continue;

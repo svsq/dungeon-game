@@ -21,7 +21,7 @@
     f_fireball_6b: { id: 'f_fireball_6b', ab: 'fireball', name: TXT('POWERS.f_fireball_6b.name'), desc: TXT('POWERS.f_fireball_6b.desc'), trig: 'cast:fireball', fx: 'heal', v: 0.02 },
     f_shield_3a: { id: 'f_shield_3a', ab: 'shield', name: TXT('POWERS.f_shield_3a.name'), desc: TXT('POWERS.f_shield_3a.desc'), trig: 'cast:shield', fx: 'shieldAdd', k: 0.3 },
     f_shield_3b: { id: 'f_shield_3b', ab: 'shield', name: TXT('POWERS.f_shield_3b.name'), desc: TXT('POWERS.f_shield_3b.desc'), trig: 'cast:shield', fx: 'shieldMore', t: 3 },
-    f_shield_6a: { id: 'f_shield_6a', ab: 'shield', name: TXT('POWERS.f_shield_6a.name'), desc: TXT('POWERS.f_shield_6a.desc'), trig: 'hurt', if: 'shield', fx: 'nova', k: 0.3, r: 80, kb: 0.5, icd: 1 },
+    f_shield_6a: { id: 'f_shield_6a', ab: 'shield', name: TXT('POWERS.f_shield_6a.name'), desc: TXT('POWERS.f_shield_6a.desc'), trig: 'shieldHit', fx: 'nova', k: 0.3, r: 80, kb: 0.5, icd: 1 },
     f_shield_6b: { id: 'f_shield_6b', ab: 'shield', name: TXT('POWERS.f_shield_6b.name'), desc: TXT('POWERS.f_shield_6b.desc'), trig: 'cast:shield', fx: 'slow', r: 200, t: 2, slow: 0.6 },
     f_frost_3a: { id: 'f_frost_3a', ab: 'frost', name: TXT('POWERS.f_frost_3a.name'), desc: TXT('POWERS.f_frost_3a.desc'), trig: 'cast:frost', fx: 'slow', r: 200, t: 4, slow: 0.45 },
     f_frost_3b: { id: 'f_frost_3b', ab: 'frost', name: TXT('POWERS.f_frost_3b.name'), desc: TXT('POWERS.f_frost_3b.desc'), trig: 'cast:frost', fx: 'nova', k: 0.3, r: 130, kb: 0.3 },

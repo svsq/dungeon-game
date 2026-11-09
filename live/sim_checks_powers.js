@@ -74,6 +74,18 @@
     { const c = stage('archer'), h = c.h; h.base.agi = 1; h.cd.dash = 1e9; h.dashT = -9; SIMX.step(c.S, { keys: ['Space'], px: 960, py: 540 }); if (h.dashT >= 0) out.push('threshold: a second dash below AGI 20'); }
     { const c = stage('warrior'); c.h.base.str = 30; c.h.thTip = 0; SIMX.thresholdTip(c.S, c.R); if (!c.R.msg || !c.h.thTip) out.push('threshold: no word of it'); }
   }
+  function checkPr48(out) {
+    const hit = (c, n) => { c.h.ifr = 0; c.h.dashT = -9; c.S.ev = []; for (let i = 0; i < 80 && !c.S.ev.some((e) => e.k === 'absorb'); i++) hurtHero(c.S, c.R, n, c.h.x + 9, c.h.y); };
+    { const c = stage('mage'); c.h.powers = { f_shield_6a: 1 }; const e = foe(c.R, c.h, 40), hp = e.hp; c.h.shield = 1e4; c.h.shieldUntil = c.S.t + 9; hit(c, 5); if (!(e.hp < hp)) out.push('shield hit: a blow the shield took whole gets no answer'); }
+    { const c = stage('mage'); c.h.powers = { f_shield_6a: 1 }; const e = foe(c.R, c.h, 40), hp = e.hp; c.h.shield = 1; c.h.shieldUntil = c.S.t + 9; hit(c, 500); if (!(e.hp < hp)) out.push('shield hit: the blow that breaks the shield gets no answer'); }
+    { const c = stage('mage'); c.h.powers = { f_shield_6a: 1 }; const e = foe(c.R, c.h, 40), hp = e.hp; c.h.ifr = 0; c.h.dashT = -9; for (let i = 0; i < 20; i++) hurtHero(c.S, c.R, 1, c.h.x + 9, c.h.y); if (e.hp !== hp) out.push('shield hit: answered with no shield up'); }
+    { const c = stage('mage'), e = foe(c.R, c.h, 200); c.h.powers = { f_frost_3a: 1, kit_long: 1 }; e.cdT = 1e9; SIMX.firePowers(c.S, c.R, 'cast:frost', { x: e.x, y: e.y }); for (let i = 0; i < 5; i++) SIMX.step(c.S, { keys: [], px: 960, py: 540 }); if (e.slowK !== 0.45) out.push(`slow: the deep frost slows to ${e.slowK} a step on`);
+      SIMX.POWER_FX.slow(c.S, c.R, D.POWERS.kit_long, { e }); for (let i = 0; i < 5; i++) SIMX.step(c.S, { keys: [], px: 960, py: 540 }); if (e.slowK !== 0.45) out.push(`slow: a weaker chill thinned a stronger one to ${e.slowK}`);
+      e.chillT = c.S.t; for (let i = 0; i < 5; i++) SIMX.step(c.S, { keys: [], px: 960, py: 540 }); if (e.slowK !== 1) out.push(`slow: the chill does not thaw (${e.slowK})`); }
+    const cast = (ids) => { const c = stage('mage'); c.h.powers = Object.fromEntries(ids.map((i) => [i, 1])); castAbility(c.S, c.R, 'fireball', {}); return c.R.proj.map((p) => [p.dmg, p.pierce || 0, Math.round(p.vx * 1e3), Math.round(p.vy * 1e3), Math.round(p.life * 1e3)].join()).sort().join(' '); };
+    for (const pair of [['fire_split', 'fire_pierce'], ['fire_split', 'f_fireball_3a'], ['ev_comet', 'f_fireball_3b'], ['fire_split', 'ev_comet']]) { const A = cast(pair), B = cast(pair.slice().reverse()); if (A !== B) out.push(`order: ${pair} gives ${A}, the other way ${B}`); }
+    { const c = stage('mage'); c.h.powers = { fire_split: 1, fire_pierce: 1 }; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.some((p) => p.pierce !== 1)) out.push('order: a side ball does not pierce'); }
+  }
   function checkPowerPack(out) {
     const T = 'POWERS', own = (c, id) => { (c.h.powers = c.h.powers || {})[id] = 1; };
     for (const [id, P] of Object.entries(D.POWERS)) { if (!/^(kit|th)_/.test(id) && (!P.name || !P.desc || P.name.startsWith(T) || P.desc.startsWith(T))) out.push(`power: ${id} has no words`);
@@ -110,7 +122,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);
