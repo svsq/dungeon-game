@@ -17,6 +17,10 @@ for (const f of fs.readdirSync(LIVE).filter((f) => f.endsWith('.js') && !SKIP.ha
     else if (!plural && typeof v !== 'string') fails.push(`${f}: ${k} is a plural used as a text`);
   }
 }
+for (const [k, v] of Object.entries(RU)) for (const m of JSON.stringify(v).matchAll(/\{@(\w+)\}/g)) {
+  const n = 'NAME.' + m[1];
+  if (RU[n] === undefined) fails.push(`text_ru.js: ${k} refers to ${n}, which the table lacks`); else used.set(n, 1);
+}
 for (const k of Object.keys(RU)) if (!used.has(k)) fails.push(`text_ru.js: ${k} is never used`);
 for (const f of fails) console.log('FAIL', f);
 console.log(`textcheck: ${Object.keys(RU).length} texts, ${fails.length ? fails.length + ' failure(s)' : 'ok'}`);

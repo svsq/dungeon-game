@@ -31,6 +31,7 @@
     if (N.kit) { const K = N.kit; for (const [b0, rar] of K.gear) { const b = (C.kit || {})[b0] || b0; h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} }))); }
       h.bag[0].n += K.hp - BAL.startHpPot; if (h.bag[1]) h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = C.res === 'rage' ? 0 : st.maxMp;
+    if (o.town && mode === 'campaign') R.captive = {};
     if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
     enterFloor(S, R, o.town ? 0 : 1);
     return R;
@@ -146,6 +147,7 @@
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { const mig = restoreFloor(R, f, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
     else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); SIMX.questPlace(S, R); } }
+    if (f === 1) SIMX.captivePlace(R);
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not

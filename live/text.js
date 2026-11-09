@@ -6,7 +6,7 @@
   TEXT.lang = TEXT.lang || 'ru';
   const RULES = { ru: (n) => (n % 10 === 1 && n % 100 !== 11 ? 0 : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : 2) };
   const FEM = { ru: (w) => w.replace(/(ый|ой|ий)$/, 'ая') };
-  const get = (key) => { const L = TEXT[TEXT.lang], s = L && key in L ? L[key] : TEXT.ru[key]; if (s === undefined) throw new Error('text.js: no text ' + key); return s; };
+  const get = (key) => { const L = TEXT[TEXT.lang], s = L && key in L ? L[key] : TEXT.ru[key]; if (s === undefined) throw new Error('text.js: no text ' + key); return typeof s === 'string' ? s.replace(/\{@(\w+)\}/g, (m, k) => get('NAME.' + k)) : s; };
   const TXT = (key, p) => { const s = get(key); return p ? s.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)) : s; };
   TXT.n = (key, n) => get(key)[(RULES[TEXT.lang] || RULES.ru)(n)];
   TXT.fem = (w) => (FEM[TEXT.lang] || ((x) => x))(w);

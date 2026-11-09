@@ -2562,7 +2562,15 @@
         R.stats[1].kills = Math.ceil(R.stats[1].foes * 0.9); if (completionHints(R).some((o) => DG.roomAt(R.map, o.x, o.y) === q.room)) out.push('quest room: the completion hints mark the quest\'s room again');
         for (const e of R.en.filter((o) => o.room === q.room && o.deadT < 0 && counted(o))) killEnemy(S, R, e); if (q.st !== 'done') out.push('quest room: clearing the marked room does not do it'); } }
     // the Keeper's chain: the spider's floor first; the necromancer's after it; a boss slain before it is offered is skipped
-    R = run(81); R.offers = []; let T = talkTo(R, 'keeper'); const st0 = T && T.act && T.act.k === 'take' ? T.act : null; finish();
+    { const Z = run(82), X = root.SIMX, Y = Object.assign({}, Z); delete Y.captive;
+      if (!X.shopShut(Z)) out.push('rescue: the town shop is open before the merchant is freed');
+      if (X.shopShut(Y)) out.push('rescue: a saved run from before the cage has its shop shut');
+      enterFloor(S, Z, 1); const C = Z.captive;
+      if (C.x === undefined) out.push('rescue: no cage on the first floor');
+      else if (Z.map.decor.some((d) => Math.abs(d.x - C.x) < 40 && d.y < C.y + 8 && d.y > C.y - 60)) out.push('rescue: the cage stands on a prop');
+      else { Z.hero.x = C.x + 40; Z.hero.y = C.y + 30; X.interact(S, Z); if (!Z.freed || !Z.freed.merchant) out.push('rescue: E at the cage does not free the merchant');
+        enterFloor(S, Z, 0); if (X.shopShut(Z)) out.push('rescue: the town shop is shut after the merchant is freed'); } }
+    R = run(81); R.freed = { merchant: 1 }; R.offers = []; let T = talkTo(R, 'keeper'); const st0 = T && T.act && T.act.k === 'take' ? T.act : null; finish();
     const sq = R.quests.find((o) => D.QUESTS[o.key].kind === 'story');
     if (!st0 || !sq || sq.key !== 'chapter' || sq.f !== 2 || sq.from !== 'keeper') out.push('quest story: the Keeper does not open the chain with the second floor\'s boss');
     else { enterFloor(S, R, 1); enterFloor(S, R, 2); const b = R.en.find((e) => D.BOSSES[e.type]); if (b) killEnemy(S, R, b); if (sq.st !== 'done') out.push('quest story: the boss slain does not do the step');
