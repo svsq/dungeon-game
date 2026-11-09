@@ -45,6 +45,9 @@
     panel(id, b.x, b.y, b.w, b.h, { c0: hv ? [0.24, 0.16, 0.1] : [0.13, 0.1, 0.11], c1: hv ? [0.13, 0.08, 0.06] : [0.06, 0.05, 0.06], rim: hv ? C.rimHi : C.rim });
     lab(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: 30, al: 0.5, col: on ? (hv ? '#fff2c8' : C.text) : '#6d6258' });
   }
+  const sortBtns = (id, U, S) => { for (const b of U.r) if (b.id.startsWith('sort')) { const hv = S.hover === b.id;
+    panel(id + b.id, b.x, b.y, b.w, b.h, { r: 6, c0: hv ? [0.24, 0.16, 0.1] : [0.13, 0.1, 0.11], c1: hv ? [0.13, 0.08, 0.06] : [0.06, 0.05, 0.06], rim: hv ? C.rimHi : C.rim });
+    lab(id + b.id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: 20, al: 0.5, col: hv ? '#fff2c8' : C.text }); } };
   const dim = (a = 0.62) => L.solid(0, 0, W, H, [0, 0, 0], 0, 0, 0, a);
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
@@ -498,7 +501,8 @@
       if (h.pts > 0) { panel('st_b' + i, b.x, b.y, b.w, b.h, { r: 6, c0: S.hover === b.id ? [0.35, 0.25, 0.1] : [0.2, 0.15, 0.08] }); lab('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); } });
     // equipment, and under it what it all adds up to
     lab('inv_eq', TXT('hud.inv.9'), P.x + 310, P.y + 90, { size: 24, col: C.dim });
-    for (const b of U.r) if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot);
+    const dr = S.drag, held = (id) => dr && dr.from === id;
+    for (const b of U.r) if (b.id.startsWith('eq:')) slot(S, b, held(b.id) ? null : h.eq[b.slot], b.slot);
     const he = U.r.find((q) => q.id === S.hover && q.slot && !h.eq[q.slot]);
     const pct = (v) => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%', num = (v) => Math.round(v * 10) / 10;
     const derived = [[TXT('hud.inv.derived'), st.atk], [TXT('hud.inv.derived.2'), st.def], [TXT('hud.inv.derived.3'), st.maxHp], [TXT('hud.inv.derived.4'), st.maxMp], [TXT('hud.inv.derived.5'), Math.round(st.crit) + '%'], [TXT('hud.inv.derived.6'), num(st.dodge) + '%'], [TXT('hud.inv.derived.7'), pct(st.aspd)],
@@ -508,7 +512,8 @@
     derived.forEach(([n, v], i) => { const y = dy0 + 6 + i * rowH; lab('dv_n' + i, n, P.x + 318, y, { size: 19, col: C.dim }); lab('dv_v' + i, v, P.x + 576, y, { size: 20, al: 1 }); });
     L.uiBox('inv_der', P.x + 304, dy0 - 18, 286, derived.length * 24 + 18);
     lab('inv_bag', TXT('hud.inv.10'), P.x + 640, P.y + 90, { size: 24, col: C.dim });
-    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]);
+    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
+    sortBtns('inv_', U, S);
     // skills
     lab('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), P.x + 640, P.y + 448, { size: 24, col: h.sp > 0 ? C.gold : C.dim });
     D.clsOf(h).abs.forEach((A, i) => { const b = U.r.find((q) => q.id === 'ab:' + A.id), r = h.ab[A.id] || 0, can = h.sp > 0 && h.lvl >= A.unlock && r < D.AB_MAX;
@@ -521,12 +526,13 @@
       const ds = A.desc.replace('{d}', d).replace('{t}', String(D.abRank(A.id, r).t).replace('.', ',')).replace('{w}', Math.round((1 - D.CRY.weak) * 100)), parts = ds.split(': ');
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
-    lab('inv_help', TXT('hud.inv.15'), P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
+    lab('inv_help', TXT('hud.inv.drag'), P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     // close
     const cb = U.r.find((q) => q.id === 'close'); panel('inv_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('inv_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 24; panel('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 34, { r: 5, rim: C.rimHi });
       lab('sle', s, he.x + he.w / 2, he.y + he.h + 24, { size: 20, al: 0.5 }); }
     // tooltip
+    if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : h.eq[dr.from.slice(3)]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); return; }
     const hb = U.r.find((q) => q.id === S.hover); if (hb) { const it = hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('eq:') ? h.eq[hb.slot] : null; if (it) tooltip(S, it, hb, h); }
   }
   // ---------------- the merchant's screen ----------------
@@ -829,6 +835,7 @@
     lab('st_cells', TXT('hud.stash.4', { n: T.items.filter(Boolean).length, max: n }), P.x + P.w - 88, P.y + 100, { size: 22, al: 1, col: C.dim });
     lab('st_bag', TXT('hud.stash.5'), P.x + 88, P.y + 472, { size: 24, col: C.dim });
     for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'bag:' + i); slot(S, b, held(b.id) ? null : h.bag[i]); }
+    sortBtns('st_', U, S);
     lab('st_help', TXT('hud.stash.6'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('st_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('st_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 38, dr.y - 38, 76); refusal(S, W / 2, P.y + 456); return; }

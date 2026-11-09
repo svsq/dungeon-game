@@ -146,7 +146,18 @@
     R.drops = R.drops.filter((p) => !p.got);
   }
 
+  // the first n cells of a list put in order and packed to its front: gear by slot (consumables ahead of it), then rarity, then level;
+  // the other two orders lead with rarity or level. pad: the freed cells stay as null cells (the bag), else the list just shortens
+  function sortItems(arr, n, mode, pad) {
+    const slot = (it) => (isCons(it) ? -1 : D.SLOTS.indexOf(BASES[it.b].slot)), r = (it) => -(it.rar || 0), l = (it) => -(it.lvl || 0), key = {
+      type: (it) => [slot(it), r(it), l(it)], rar: (it) => [r(it), slot(it), l(it)], lvl: (it) => [l(it), r(it), slot(it)] }[mode];
+    if (!key) return;
+    const out = arr.slice(0, n).filter(Boolean).map((it) => [key(it).concat(it.b), it]).sort((a, b) => { for (let i = 0; i < a[0].length; i++) { if (a[0][i] < b[0][i]) return -1; if (a[0][i] > b[0][i]) return 1; } return 0; }).map((q) => q[1]);
+    if (pad) while (out.length < n) out.push(null);
+    arr.splice(0, n, ...out);
+  }
+
   Object.assign(SIMX, {
-    itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
+    sortItems, itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
     stats, propBoxes, behindProp, DROP_REST, stepDrops });
 })(typeof window !== 'undefined' ? window : globalThis);

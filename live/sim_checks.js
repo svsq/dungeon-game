@@ -3,14 +3,14 @@
 (function (root) {
   const {
     ABILITIES, ARROW_Y, BAL, BASES, CRUST, D, DG, DOOM, DT, ENEMIES, FROM, K, LOOT, MOD, RARITY, REWARD, STAGE, TILE, UI, WADE, addFire,
-    aggroRoom, angDiff, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
+    aggroRoom, angDiff, bagAdd, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
     boxHit, brinkOf, castAbility, cell, colossusBoulder, colossusRain, completion, completionHints, counted, crustAt, damageName, deepBody,
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
     hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
     campaignDone, exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
     openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rnd, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
-    steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
+    stashOf, steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function selfCheck() {
@@ -1620,7 +1620,7 @@
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; enterFloor(S, R, 2); R.en = []; h.bag[0] = { b: 'scroll', n: 2 }; S.screen = 'inv'; const b = UI.inv().r.find((q) => q.id === 'bag:0'), inp = { px: b.x + 5, py: b.y + 5, press: 1, keys: [] }, n0 = h.atkN;
-      step(S, Object.assign({ click: 1 }, inp)); if (!h.read) out.push('scroll: a click in the bag does not start reading'); for (let i = 0; i < 10; i++) step(S, inp); if (h.atkN !== n0) out.push('scroll: the click that reads it also swings the weapon'); if (!h.read) out.push('scroll: the held click breaks the reading'); }
+      step(S, Object.assign({ click: 1 }, inp)); step(S, Object.assign({}, inp, { press: 0 })); if (!h.read) out.push('scroll: a click in the bag does not start reading'); for (let i = 0; i < 10; i++) step(S, Object.assign({}, inp, { press: 0 })); if (h.atkN !== n0) out.push('scroll: the click that reads it also swings the weapon'); if (!h.read) out.push('scroll: the click breaks the reading'); }
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
       for (let f = 1; !R.shrines.length && f < D.RUNS.campaign.chapter; ) enterFloor(S, R, ++f);
       if (!R.shrines.length) out.push('altar: no altar on any floor of seed 777');
@@ -2147,7 +2147,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...bagCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
     return out;
   }
   // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
@@ -2420,6 +2420,30 @@
     if (T.meta.stash.v !== D.ITEM_BAL.version || T.meta.stash.items.filter(Boolean).length !== 2) out.push('stash: the chest does not outlive the run or is not brought to the item balance');
     const b0 = U.r.find((q) => q.id === 'stash:0'); step(T, { keys: [], click: 1, px: b0.x + 10, py: b0.y + 10 }); step(T, { keys: [], px: b0.x + 10, py: b0.y + 10 });
     const got = Q.hero.bag.find((it) => it && it.b === g1.b && it.lvl === g1.lvl && !isCons(it)); if (!got || got.id < Q.nextId - 1 || T.meta.stash.items[0]) out.push('stash: the next hero does not take the piece out with an id of his own');
+    return out;
+  }
+  // TASKS 1331: a drag moves a piece between cells, a click on the piece's own cell still uses it; the sort buttons order the
+  // cells and pack them to the front; the chest sorts too
+  function bagCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77); S.screen = 'inv'; const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs);
+    const at = (id, o = {}) => { const b = U.r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o); };
+    for (let i = 0; i < 12; i++) h.bag[i] = h.bag[i] || Object.assign(rollItem(R, 3 + (i % 5), i % 4), { id: 5000 + i });
+    const A = h.bag[3], B = h.bag[5];
+    step(S, at('bag:3', { click: 1, press: 1 })); step(S, at('bag:5', { press: 1 })); step(S, at('bag:5'));
+    if (h.bag[3] !== B || h.bag[5] !== A) out.push('bag: a drag does not swap two cells');
+    { const w = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 6000 }); h.bag.fill(null); h.bag[2] = w; const old = h.eq.weapon;
+      step(S, at('bag:2', { click: 1, press: 1 })); step(S, at('bag:2')); if (h.eq.weapon !== w || h.bag[2] !== old) out.push('bag: a click on the piece no longer wears it'); }
+    { h.bag.fill(null); const e = h.eq.armor; step(S, at('eq:armor', { click: 1, press: 1 })); step(S, at('bag:7', { press: 1 })); step(S, at('bag:7'));
+      if (h.eq.armor || h.bag[7] !== e) out.push('bag: a worn piece dragged to a cell does not come off into it'); }
+    h.bag.fill(null); const mix = [rollItem(R, 2, 1), rollItem(R, 9, 3), rollItem(R, 5, 3), rollItem(R, 7, 0), potion('hp_potion', 3)]; mix.forEach((it, i) => { it.id = 7000 + i; h.bag[i * 2] = it; });
+    step(S, at('sort:rar', { click: 1 })); step(S, at('sort:rar'));
+    const rs = h.bag.filter(Boolean); if (rs.length !== 5 || h.bag.slice(5).some(Boolean) || rs.some((it, i) => i && (rs[i - 1].rar || 0) < (it.rar || 0))) out.push('bag: the rarity sort does not order the cells or pack them to the front');
+    step(S, at('sort:type', { click: 1 })); step(S, at('sort:type')); if (!isCons(h.bag[0])) out.push('bag: the type sort does not put consumables first');
+    step(S, at('sort:lvl', { click: 1 })); step(S, at('sort:lvl')); { const ls = h.bag.filter(Boolean); if (ls.some((it, i) => i && (ls[i - 1].lvl || 0) < (it.lvl || 0))) out.push('bag: the level sort does not order the cells'); }
+    const V = spawn(0, {}); V.run = newRun(V, 'campaign', 78, { town: 1 }); V.screen = 'stash'; const Hh = V.run.hero, Us = UI.stash(), T2 = stashOf(V);
+    Hh.bag.fill(null); T2.items = [rollItem(V.run, 2, 1), rollItem(V.run, 8, 3), null, rollItem(V.run, 5, 2)]; for (const it of T2.items) if (it) it.id = V.run.nextId++;
+    { const b = Us.r.find((q) => q.id === 'sortS:rar'); step(V, { keys: [], px: b.x + 10, py: b.y + 10, click: 1 }); step(V, { keys: [], px: b.x + 10, py: b.y + 10 }); }
+    if (T2.items.length !== 3 || T2.items.some((it, i) => !it || (i && (T2.items[i - 1].rar || 0) < (it.rar || 0)))) out.push('bag: the chest sort does not order and pack its pieces');
     return out;
   }
   // TASKS 1013: E at the anvil opens the smith's reforging, at the lectern the enchanter's enchanting; a reforge re-rolls a piece's

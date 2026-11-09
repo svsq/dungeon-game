@@ -5,7 +5,7 @@
   const {
     BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
-    throwAway, useItem } = SIMX;
+    sortItems, throwAway, useItem } = SIMX;
   // ---------------- run end / menus ----------------
   function endRun(S, how) {
     const R = S.run; if (!R) return;
@@ -138,6 +138,7 @@
     const R = S.run, U = UI.stash(), b = D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
     const T = stashOf(S);
+    if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortItems(R.hero.bag, R.hero.bag.length, b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; }
     else if (S.drag) { const from = S.drag.from, k = +from.split(':')[1], to = b && b.id !== from ? b : null; S.drag = null;
@@ -194,12 +195,24 @@
     if (click && b && b.id === 'drop' && sel) { if (S.jdrop === sel.id && S.t - S.jdropT < 3) { S.jdrop = 0; abandonQuest(S, R, sel); } else { S.jdrop = sel.id; S.jdropT = S.t; ev(S, { k: 'ui', x, y }); } }
     return;
   };
+  const unequip = (S, R, h, slot, i) => { const it = h.eq[slot]; if (!it) return;
+    if (i === undefined ? bagAdd(R, it) : !h.bag[i]) { if (i !== undefined) { it.id = it.id || R.nextId++; h.bag[i] = it; } h.eq[slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot, off: gearName(it) }); } };
+  // a press on a bag or worn piece picks it up; letting go over its own cell is the click (use / unequip), over another bag cell
+  // moves it there (a swap with what lies there), off any cell drops nothing
+  const dropInv = (S, R, h, b) => { const dr = S.drag, f = dr.from, eq = f.startsWith('eq:'), k = eq ? f.slice(3) : +f.split(':')[1]; S.drag = null;
+    const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length;
+    if (b && b.id === f) { if (eq) unequip(S, R, h, k); else useItem(S, R, k); }
+    else if (bagTo && !eq) { [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
+    else if (bagTo && eq) unequip(S, R, h, k, b.i);
+    else if (b && b.id.startsWith('eq:') && !eq) useItem(S, R, k); };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
     const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
+    if (click && b && (b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') && h.eq[b.slot])) S.drag = { from: b.id, x, y };
+    if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; return; }
+    if (S.drag) { dropInv(S, R, h, b); return; }
     if (!b) return;
-    if (click && b.id.startsWith('bag:')) useItem(S, R, b.i);
-    if (click && b.id.startsWith('eq:')) { const it = h.eq[b.slot]; if (it && bagAdd(R, it)) { h.eq[b.slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot: b.slot, off: gearName(it) }); } }
+    if (click && b.id.startsWith('sort:')) { sortItems(h.bag, h.bag.length, b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); }
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i]; h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); }
     if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); }
     if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; ev(S, { k: 'buy', x, y }); } }

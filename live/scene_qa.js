@@ -1316,6 +1316,10 @@
     states.push(['inv_foreign', play((S) => { const R = S.run, h = R.hero; h.bag[4] = Object.assign(SIM.rollItem(R, 2, 1, 'armor'), { id: 1510, b: 'robe' });
       h.bag[5] = Object.assign(SIM.rollItem(R, 2, 2, 'weapon'), { id: 1511, b: 'wand' }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['inv_req', play((S) => { const R = S.run, h = R.hero; h.lvl = 3; for (let i = 0; i < 6; i++) h.bag[4 + i] = Object.assign(SIM.rollItem(R, 4 + 2 * i, 2), { id: 1500 + i }); S.screen = 'inv'; S.hover = 'bag:9'; })]);
+    // TASKS 1331: a piece lifted from the hero screen's bag over another cell, and a sort button under the pointer
+    states.push(['inv_drag', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 1210, y: 400 }; })]);
+    states.push(['inv_sort', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'sort:rar'; })]);
+    states.push(['town_stash_sort', stashS((S) => { S.hover = 'sortS:type'; })]);
     states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
     // the workshops (TASKS 1013): the prompts at the anvil and the lectern; the smith with a rare ring chosen; the enchanter after a
     // failed enchantment; a piece with all five enchantments (the button's refusal, the longest)

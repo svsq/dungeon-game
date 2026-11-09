@@ -22,6 +22,9 @@
       for (const g of e.groups) { rows.push({ k: 'group', s: g.name, h: NEWS.h.group });
         for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
     newsMemo = { src: D.CHANGES, rows }; return rows; };
+  // the sort buttons over a grid: by type, rarity, level, right-aligned to `right`
+  const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
+  const sortRow = (pre, right, y) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x: right - 150 * (3 - i) - 8 * (2 - i), y, w: 150, h: 40 }));
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save); «В город» (TASKS 1026, was «Алтарь
     // душ»: the upgrades are bought at the altar on the town's square) goes on with the saved run, or starts a campaign, in the town
@@ -78,7 +81,7 @@
     stash: () => { const P = { x: 420, y: 90, w: 1080, h: 900 }, r = [];
       for (let i = 0; i < STASH.cells; i++) r.push({ id: 'stash:' + i, i, x: P.x + 88 + (i % 8) * 116, y: P.y + 130 + Math.floor(i / 8) * 104, w: 92, h: 92 });
       for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 88 + (i % 8) * 116, y: P.y + 500 + Math.floor(i / 8) * 104, w: 92, h: 92 });
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, ...sortRow('sortS', P.x + P.w - 88, P.y + 22), ...sortRow('sort', P.x + P.w - 88, P.y + 442));
       return { P, r }; },
     // the town's ring of stones (TASKS 1009): one row per way out, the open portal first, then the waystones by floor
     // the town's gate out (TASKS 1149): its question and two buttons, the way out on the left
@@ -100,7 +103,7 @@
       for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 640 + (i % 8) * 92, y: P.y + 110 + Math.floor(i / 8) * 92, w: 82, h: 82 });
       STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: P.x + 40 + 196, y: P.y + 452 + i * 52, w: 40, h: 40 }));
       abs.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: P.x + 640 + i * 258, y: P.y + 470, w: 250, h: 150 }));
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, ...sortRow('sort', P.x + 640 + 8 * 92 - 10, P.y + 62));
       return { P, r };
     },
     // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the
