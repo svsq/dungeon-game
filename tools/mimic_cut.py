@@ -1,8 +1,8 @@
 from PIL import Image, ImageDraw
 
 # (the chest's front band top, in its bounding box): keep in step with MIMIC_LINE in live/scene_actors.js
-LINES = {'chest': ((0, .36), (.70, .56), (1, .34)), 'chest_iron': ((0, .40), (.70, .52), (1, .36)), 'chest_gold': ((0, .40), (.70, .52), (1, .33))}
-for rank, (name, line) in zip(('wood', 'iron', 'gold'), LINES.items()):
+LINES = {'chest': ((0, .36), (.70, .56), (1, .34)), 'chest_iron': ((0, .44), (.66, .54), (1, .35)), 'chest_gold': ((0, .44), (.69, .56), (1, .38)), 'chest_boss': ((0, .54), (.70, .54), (1, .30))}
+for rank, (name, line) in zip(('wood', 'iron', 'gold', 'boss'), LINES.items()):
     im = Image.open(f'art/gen/{name}.png').convert('RGBA')
     x0, y0, x1, y1 = im.getbbox()
     w, h = x1 - x0, y1 - y0

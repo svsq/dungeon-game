@@ -409,12 +409,12 @@
     }
   };
   // a chest's rank at a glance (TASKS 1356): its own painting once generated, until then the plain chest recoloured
-  const CHEST_LOOK = { 1: { k: 1, u: { grade: [0.8, 0.88, 0, 1] } }, 2: { tex: 'chest_iron', k: 1.15, u: { grade: [0.45, 1.02, 0, 1.15], tint: [0.8, 0.92, 1.2, 0.55] } }, 3: { tex: 'chest_gold', k: 1.2, u: { grade: [1.35, 1.2, 0, 1.12], tint: [1.3, 1.02, 0.45, 0.6] } } };
+  const CHEST_LOOK = { 1: { u: { grade: [0.8, 0.88, 0, 1] } }, 2: { tex: 'chest_iron', dx: 1.2 }, 3: { tex: 'chest_gold', dx: 2.2 } };
   // a chest's mimic (TASKS 1670): base and lid are the chest's own painting cut at its lid line, the mouth between them shared by all ranks. Keep MIMIC_LINE in step with tools/mimic_cut.py
-  const MIMIC_LINE = { wood: [[0, 0.36], [0.70, 0.56], [1, 0.34]], iron: [[0, 0.40], [0.70, 0.52], [1, 0.36]], gold: [[0, 0.40], [0.70, 0.52], [1, 0.33]] };
+  const MIMIC_LINE = { wood: [[0, 0.36], [0.70, 0.56], [1, 0.34]], iron: [[0, 0.44], [0.66, 0.54], [1, 0.35]], gold: [[0, 0.44], [0.69, 0.56], [1, 0.38]], boss: [[0, 0.54], [0.70, 0.54], [1, 0.30]] };
   const MIMIC_INK = [0.09, 0.04, 0.04];
-  const MIMIC_CANVAS = { wood: [303, 246], iron: [711, 651], gold: [719, 640] };
-  const mimicLook = (tier) => { const cl = CHEST_LOOK[tier] || CHEST_LOOK[1], rank = tier === 2 ? 'iron' : tier === 3 ? 'gold' : 'wood', [w, h] = SZ(cl.tex || 'chest'); return { rank, W: w * cl.k, H: h * cl.k, line: MIMIC_LINE[rank], grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }; };
+  const MIMIC_CANVAS = { wood: [303, 246], iron: [708, 642], gold: [712, 626], boss: [1250, 1006] };
+  const mimicLook = (tier) => { const cl = CHEST_LOOK[tier] || CHEST_LOOK[1], rank = tier === 2 ? 'iron' : tier === 3 ? 'gold' : 'wood', [w, h] = SZ(cl.tex || 'chest'); return { rank, W: w, H: h, line: MIMIC_LINE[rank], grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }; };
   function mimicBody(o) { const { look, x, y, a, face, z, tilt, sq, wag, tongue, eyes, u, id, frame, peek } = o, { W, H, line, rank } = look, P = (q) => [(q[0] - 0.5) * W, (q[1] - 1) * H], [pL, pC, pR] = line.map(P), hinge = face < 0 ? pR : pL, tip = face < 0 ? pL : pR, th = face < 0 ? a : -a;
     const sx2 = 1 / Math.sqrt(sq), B = M.of(M.t(x, y - z), M.s(sx2, sq), M.r(tilt)), Lb = M.of(M.t(hinge[0], hinge[1]), M.r(th), M.t(-hinge[0], -hinge[1])), Lm = M.of(B, Lb);
     const lerp2 = (p, q, f) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f], at = (m, p) => M.ap(m, p), lidTip = at(Lb, tip), mids = lerp2(lerp2(pL, pR, 0.5), lerp2(at(Lb, pL), at(Lb, pR), 0.5), 0.5), chord = Math.hypot(tip[0] - hinge[0], tip[1] - hinge[1]), uT = [(tip[0] - hinge[0]) / chord, (tip[1] - hinge[1]) / chord], gap = Math.hypot(lidTip[0] - tip[0], lidTip[1] - tip[1]), gape = SS(0.02, 0.32, a), ang = Math.atan2(pC[1] - pL[1], pC[0] - pL[0]), seg = Math.hypot(pC[0] - pL[0], pC[1] - pL[1]), tH = 11 * gape, TG = (m, tex, w2, h2, pv, extra) => L.sprite(tex, 0, 0, Object.assign({ m, w: w2, h: h2, pivot: pv }, extra || {}, { u }));
@@ -432,7 +432,7 @@
   // a sleeping mimic is its chest but for one fang left out over the rim, and a lid that lifts a finger's width now and then to breathe
   const mimicShut = (c, x, y, t) => { const look = mimicLook(c.tier), ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1, a = ph < 0.8 ? 0.055 * Math.sin(Math.PI * ph / 0.8) ** 2 : 0, peek = 0.2 + 0.22 * ((c.x * 0.037 + c.y * 0.019) % 1);
     mimicBody({ look, x, y: y + 4, a, face: 1, z: 0, tilt: 0, sq: 1, wag: 0, tongue: 0, eyes: a > 0.02, peek, u: { grade: look.grade }, id: 'mimic_shut', frame: (parts) => L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }) }); };
-  const CHEST_BOSS = { tex: 'chest_boss', k: 1.35, u: { grade: [1, 0.85, 0, 1.25], tint: [1, 0.32, 0.3, 0.7] } };
+  const CHEST_BOSS = { tex: 'chest_boss', dx: 0.8 };
   const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
   // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
   // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
