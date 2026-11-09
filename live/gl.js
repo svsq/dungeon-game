@@ -94,6 +94,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (clear) { gl.clearColor(clear[0], clear[1], clear[2], clear[3]); gl.clear(gl.COLOR_BUFFER_BIT); }
   };
   G.blend = (mode) => {
+    if (G.rec) { G.rec.push(mode || ''); return; }
     gl.enable(gl.BLEND);
     if (mode === 'add') gl.blendFunc(gl.ONE, gl.ONE);
     else if (mode === 'screen') gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
@@ -132,6 +133,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     else if (u.type === T.INT) { if (!sameNum(u, v)) gl.uniform1i(u.l, v); }
   };
   G.draw = (P, U, xf, flip = [0, 0]) => {
+    if (G.rec) { G.rec.push([P, U, xf, flip]); return; }
     if (G.outside(xf)) return;
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
