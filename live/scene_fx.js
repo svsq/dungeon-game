@@ -5,9 +5,7 @@
     ARC_HALF, ARC_MID, BAKE, BLOOD, D, DRIP_FALL, EN_TEX, GLOW_COL, HERO_H, L, PILLAR_T, PIX, RIM, SC, SS, STAND, SWING, SZ, TAU, TILE,
     TOWN_LIGHT, breathFx, chestOpenD, crustTex, dripAge, flameAt, glowBeat, glowOf, impSpark, modCol, rnd, surgeBox, surgeTex, swimFx, swimOf,
     swingPose, torchCol } = SCX;
-  // a beat that quickens over a warning: its phase is the integral of the rate from the warning's start. The clock times a rising
-  // rate raced at (clock × rate of change), thousands of rad/s deep into a run, and the colossus's warnings strobed (TASKS 1362)
-  const chirp = (u, T, w0, w1, smooth) => { const s = Math.max(0, Math.min(1, u / T)); return w0 * Math.max(0, u) + w1 * T * (smooth ? s * s * s - s * s * s * s / 2 : s * s / 2); };
+  const chirp = L.chirp;
   SCX.fxPass = (F) => {
     const {
       B, GT, MH, MW, R, ST, altarCol, cx, cy, flick, fuseAt, h, hid, inSecret, known, lavaCells, lavaP, lavaU, lavaXf, m, melt, seen,
@@ -225,7 +223,7 @@
     // a fire priest's ring (TASKS 410): a circle of fire on the floor where the hero stood, its runes running round it and a second
     // ring closing in on it as the warning runs out; then the pillar (event FX)
     for (const p of R.pyres || []) { const P = D.ENEMIES.fire_priest.pyre, u = GT - p.t0; if (u >= P.warn || !vis(p.x, p.y)) continue;
-      const q = u / P.warn, X = sx(p.x), Y0 = sy(p.y), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * q)), rx = P.r, ry = P.r * P.ry, in0 = SS(0, 0.15, u);
+      const q = u / P.warn, X = sx(p.x), Y0 = sy(p.y), beat = 0.75 + 0.25 * Math.sin(chirp(u, P.warn, 10, 18)), rx = P.r, ry = P.r * P.ry, in0 = SS(0, 0.15, u);
       L.glow(X, Y0, rx * 1.1, [1, 0.3, 0.08], (0.15 + 0.45 * q) * in0, 2.2);
       L.ring(X, Y0, rx, ry, [1, 0.35, 0.1], (0.45 + 0.5 * q) * beat * in0, 0.07); L.ring(X, Y0, rx * (1.6 - 0.6 * q), ry * (1.6 - 0.6 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.05);
       for (let j = 0; j < 6; j++) { const an = j / 6 * TAU + GT * 1.6; L.star(X + Math.cos(an) * rx * 0.72, Y0 + Math.sin(an) * ry * 0.72, 6 + 3 * q, [1, 0.5, 0.15], (0.4 + 0.5 * q) * in0); } }
@@ -278,10 +276,10 @@
     // a terrace's surge (TASKS 475), over the bridges' decks too: over its warning its band glows and beats faster, sparks jump off
     // the lava by it and the lava creeps up its edges; then it floods it and ebbs back
     for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0 || !z.cells.some((c) => R.seen[c])) continue;
-      if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(GT * (8 + 14 * k));
+      if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(chirp(w, H.warn, 8, 14));
         z.cells.forEach((c, i) => { if (i % 2 || !R.seen[c]) return; const wx0 = (c % z.W + 0.5) * TILE, wy0 = (Math.floor(c / z.W) + 0.5) * TILE; if (!vis(wx0, wy0)) return; const X = sx(wx0), Y = sy(wy0);
           L.glow(X, Y, 22 + 10 * k, [1, 0.45, 0.1], (0.12 + 0.45 * k) * beat, 2.2);
-          if (i % 6 === 0) { const b = (GT * (1.1 + 2 * k) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
+          if (i % 6 === 0) { const b = (chirp(w, H.warn, 1.1, 2) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
       const box = surgeBox(z), xf = G.xf(sx(box[0]), sy(box[1]), box[2], box[3]);
       const FR = 0.4, fr = w >= H.warn - FR ? (w - (H.warn - FR)) / FR * 1.1 : -1;
       const u = (mode) => ({ u_t: GT, u_q: q, u_fr: fr, u_mask: surgeTex(m, z), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0, u_face: BAKE.face || seen, u_occ: SCX.LT.occ });
@@ -295,10 +293,10 @@
       if (w < 0) { const X = sx(z.x), Y0 = sy(z.y), br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z.x);   // a live vent smoulders at rest, a dead crack doesn't
         L.ring(X, Y0, H.r * 0.4, H.r * H.ry * 0.4, [1, 0.35, 0.08], 0.28 * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], 0.3 * br, 2.4);
         for (let j = 0; j < 2; j++) { const b = (GT * 0.5 + rnd(z.x + z.y, j)) % 1; L.puff(X + (rnd(z.x, j + 3) - 0.5) * 14, Y0 - 4 - 26 * b, 3 + 3 * b, [0.5, 0.4, 0.34], 0.3 * (1 - b), j); } continue; }
-      const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(GT * (9 + 16 * q));
+      const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(chirp(w, H.warn, 9, 16));
       L.ring(X, Y0, H.r, H.r * H.ry, [1, 0.4, 0.1], (0.18 + 0.7 * q) * beat, 0.06); L.ring(X, Y0, H.r * 0.55, H.r * H.ry * 0.55, [1, 0.5, 0.15], 0.35 * q * beat, 0.1);
       L.glow(X, Y0 - 4, 18 + 30 * q, [1, 0.55, 0.15], 0.2 + 0.7 * q, 2.4);
-      for (let j = 0; j < 7; j++) { const b = (GT * (1.2 + 2.4 * q) + rnd(z.x + z.y, j)) % 1, px = X + (rnd(z.x, j + 3) - 0.5) * 26, py = Y0 - 2 - 22 * b;
+      for (let j = 0; j < 7; j++) { const b = (chirp(w, H.warn, 1.2, 2.4) + rnd(z.x + z.y, j)) % 1, px = X + (rnd(z.x, j + 3) - 0.5) * 26, py = Y0 - 2 - 22 * b;
         L.star(px, py, 2 + 4 * q * (1 - b), [1, 0.55 + 0.3 * (1 - b), 0.15], q * (1 - b)); } }
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       // the crescent is a vertical C on the chest, ±ARC_HALF about the aim, drawn in the blade's turning direction over the strike so

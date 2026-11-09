@@ -27,6 +27,8 @@
 //               overhand throw from behind the head
 //   breathBody — salamander_breath: drawing its breath, the snout leaves its rest by at least BREATH of the body's length (TASKS 460:
 //               the fire hung on a still head, 2 px)
+//   flicker   — the fire priest's ring, a vent's and a surge's warning, and the smouldering skeleton's flames and arms: no jump in alpha, width or
+//               hand from one frame to the next, deep into a run (TASKS 1688)
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
@@ -211,6 +213,26 @@ if (meta.tr.includes('imp_attack')) {
       if (hor) h.x += i * 4; else h.y += i * 4; h.vx = hor ? 175 : 0; h.vy = hor ? 0 : 175; h.dist = (h.dist || 0) + i * 4; SCENE.state = S; SCENE.render(S.t + 0.01); out.push([SCENE.deckDy(), SCENE.deckTgt()]); }
     return out; });
   if (!deck) report('bridgeStep', 'magma_chasm', false, 'no state'); else { const dy = deck.map((q) => q[0]), d = dy.slice(1).map((v, i) => Math.abs(v - dy[i])), mx = Math.max(...d), lag = Math.max(...deck.map((q) => Math.abs(q[0] - q[1]))); report('bridgeStep', 'magma_chasm', mx <= STEP_POP && lag <= STEP_LAG, `the hero's drop with the deck changes at most ${mx} px a frame walking across it (≤ ${STEP_POP}), stays within ${lag} px of the deck's sag (≤ ${STEP_LAG}); range ${Math.min(...dy)}–${Math.max(...dy)}`); } }
+// flicker (TASKS 1688): a beat that quickens over a warning takes its phase from the integral of the rate. Built as the clock times the rate it
+// raced thousands of rad/s deep into a run and the ring, the sparks and the flames strobed. In QA states set 40-200 s into a run, the
+// alpha (or the flame's width) of the fire priest's ring, a vent's and a surge's warning, and the smouldering skeleton's tongues, and its
+// hand against its shoulder, may change only a little from one frame to the next
+{ const ALPHA = 0.2, WIDE = 0.1, HAND = 7, FRAMES = 20;
+  const r = await p.evaluate(([FRAMES]) => { const hot = new Set(['1,0.35,0.1', '1,0.4,0.1', '1,0.45,0.1']), ring = LIB.ring, glow = LIB.glow, draw = G.draw, out = {};
+    try { for (const [name, mode] of [['magma_priest', 'alpha'], ['magma_vent_warn', 'alpha'], ['magma_surge_warn', 'alpha'], ['magma_ember', 'flame']]) { const st0 = window.__QA.states.find((q) => q[0] === name); if (!st0) { out[name] = null; continue; }
+        const S = structuredClone(st0[1]), R = S.run; let calls = [], prev = null, jump = 0, frames = 0, draws = 0, hand = 0, ph = null;
+        LIB.ring = (x, y, rx, ry, col, amt, w) => { if (mode === 'alpha' && hot.has(col.join())) calls.push(amt); return ring(x, y, rx, ry, col, amt, w); };
+        LIB.glow = (x, y, rr, col, amt, soft) => { if (mode === 'alpha' && hot.has(col.join())) calls.push(amt); return glow(x, y, rr, col, amt, soft); };
+        G.draw = function (prog, u, xf) { if (mode === 'flame' && prog === LIB.P.flame && xf && xf[0] > 0) calls.push(xf[0]); return draw.apply(this, arguments); };
+        const t0 = S.t, wind = R.en.find((e) => e.st === 'wind' && e.type === 'skel_ember');
+        for (let i = 0; i < FRAMES; i++) { S.t = R.t = t0 + i / 60; calls = []; LIB.TRACE = {}; SCENE.state = S; SCENE.render(S.t + 0.01);
+          if (prev && prev.length === calls.length) { frames++; for (let k = 0; k < calls.length; k++) jump = Math.max(jump, mode === 'flame' ? Math.abs(calls[k] - prev[k]) / Math.max(1, prev[k]) : Math.abs(calls[k] - prev[k])); }
+          prev = calls; draws = Math.max(draws, calls.length);
+          if (wind) { const j = LIB.TRACE['en' + wind.id]; if (j && j.handL && j.shL) { const v = [j.handL[0] - j.shL[0], j.handL[1] - j.shL[1]]; if (ph) hand = Math.max(hand, Math.hypot(v[0] - ph[0], v[1] - ph[1])); ph = v; } } }
+        out[name] = { frames, draws, jump, hand }; } } finally { LIB.ring = ring; LIB.glow = glow; G.draw = draw; LIB.TRACE = null; }
+    return out; }, [FRAMES]);
+  for (const [name, o] of Object.entries(r)) { if (!o) { report('flicker', name, false, 'no state'); continue; } const lim = name === 'magma_ember' ? WIDE : ALPHA;
+    report('flicker', name, o.frames >= 8 && o.draws > 0 && o.jump <= lim && o.hand <= HAND, `${o.draws} draws, ${o.frames} frames, largest ${name === 'magma_ember' ? 'width' : 'alpha'} jump ${o.jump.toFixed(3)} (≤ ${lim})${name === 'magma_ember' ? `, hand against shoulder ${o.hand.toFixed(1)} px a frame (≤ ${HAND})` : ''}`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

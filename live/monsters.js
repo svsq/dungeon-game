@@ -548,9 +548,9 @@
     const run = SS(10, 60, Math.hypot(base.vx, base.vy)) * (1 - lit), still = live ? 1 : 1 - SS(0, 0.1, GT - e.deadT);
     // (TASKS 460: the fuse burning down shakes it whole, arms and body, three times as hard at the end, and it ducks just before;
     // TASKS 1054: from the fuse's first quarter, where it reads, the end measured half again as hard, its floor lowered)
-    const end = 1 - SS(w - 0.06, w, u), tremble = still * lit * (0.006 + 0.034 * q * q) * end * Math.sin(GT * (22 + 10 * q) + 0.6);
+    const end = 1 - SS(w - 0.06, w, u), tremble = still * lit * (0.006 + 0.034 * q * q) * end * Math.sin(L.chirp(u, w, 22, 10) + 0.6);
     base.lean = (base.lean || 0) + face * 0.16 * run + tremble; base.crouch += 5 * run + 4 * lit + 7 * (e.st === 'wind' ? lit * SS(w - 0.15, w, u) : e.st === 'strike' || !live ? 1 : 0);
-    base.arm = (side, b) => { const sg = side === 'L' ? 1 : -1, shake = still * lit * (0.035 + 0.17 * q * q) * end * Math.sin(GT * (18 + 12 * q) + (side === 'L' ? 0 : 1.7));
+    base.arm = (side, b) => { const sg = side === 'L' ? 1 : -1, shake = still * lit * (0.035 + 0.17 * q * q) * end * Math.sin(L.chirp(u, w, 18, 12) + (side === 'L' ? 0 : 1.7));
       const r1 = lerp(lerp(b, 1.5 * b - 0.3, run), -2.55 + 0.25 * sg, lit) + shake; return [r1, r1 + lerp(lerp(0.18, 0.1 - 0.4 * b, run), 0.5, lit) + shake * 0.6]; };
   }
 

@@ -399,6 +399,9 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     of: (...Ls) => Ls.reduce((a, b) => M.mul(a, b)),
   };
   L.D2R = Math.PI / 180;
+  // the phase of a beat whose rate climbs from w0 to w0 + w1 over T seconds (linear, or smoothstep): the integral of the rate from u = 0.
+  // The clock times a rising rate races at (clock × rate of change), thousands of rad/s deep into a run, and the beat strobes (TASKS 1362, 1688)
+  L.chirp = (u, T, w0, w1, smooth) => { const s = Math.max(0, Math.min(1, u / T)); return w0 * Math.max(0, u) + w1 * T * (smooth ? s * s * s - s * s * s * s / 2 : s * s / 2); };
   L.SS = (e0, e1, x) => { const q = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return q * q * (3 - 2 * q); };
   L.rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };   // deterministic hash → [0,1)
   L.lerpP = (a, b, w) => a.map((v, i) => v + (b[i] - v) * w);

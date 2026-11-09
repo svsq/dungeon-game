@@ -184,10 +184,10 @@
   // and quicker as its fuse burns down
   const EMBER_FIRE = [[10, 17], [13, 19], [8, 12], [6, 10], [6, 10]];
   function emberFire(e, E, pts, GT, t) {
-    const q = e.st === 'wind' ? Math.min(1, (GT - e.t0) / D.windOf(e, E.wind)) : 0, trail = -0.12 * e.vx;
-    G.blend('emit'); pts.forEach((p, i) => { const fk = (1 + 0.9 * q) * (0.9 + 0.1 * Math.sin(t * (9 + 12 * q) + i * 2 + e.id)), w = EMBER_FIRE[i][0] * fk, hh = EMBER_FIRE[i][1] * fk;
+    const W = e.st === 'wind' ? D.windOf(e, E.wind) : 1, u = e.st === 'wind' ? GT - e.t0 : 0, q = Math.min(1, u / W), trail = -0.12 * e.vx, tq = t + L.chirp(u, W, 0, 1);
+    G.blend('emit'); pts.forEach((p, i) => { const fk = (1 + 0.9 * q) * (0.9 + 0.1 * Math.sin(L.chirp(u, W, 9, 12) + i * 2 + e.id)), w = EMBER_FIRE[i][0] * fk, hh = EMBER_FIRE[i][1] * fk;
       const ln = trail * (0.6 + 0.2 * i) + 2 * Math.sin(t * 3 + i), y0 = p[1] + hh * 0.3;
-      G.draw(L.P.flame, { u_t: t * (1 + q), u_seed: e.id * 7 + i, u_amt: 1, u_col: [1, 0.5 + 0.2 * q, 0.15 + 0.2 * q] }, [w, 0, 0, -ln, hh, 0, p[0] - w / 2 + ln, y0 - hh, 1]); }); G.blend(); }
+      G.draw(L.P.flame, { u_t: tq, u_seed: e.id * 7 + i, u_amt: 1, u_col: [1, 0.5 + 0.2 * q, 0.15 + 0.2 * q] }, [w, 0, 0, -ln, hh, 0, p[0] - w / 2 + ln, y0 - hh, 1]); }); G.blend(); }
   const PILLAR_T = D.ENEMIES.fire_priest.pyre.burst + 0.3;
   const flameAt = (x, y, w, hh, col, seed, lean, t) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col }, [w, 0, 0, -lean, hh, 0, x - w / 2 + lean, y - hh, 1]);
   // the fire priest's staff burns in its forked head (TASKS 410)
