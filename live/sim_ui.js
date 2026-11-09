@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BASES, D, DT, FROM, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
+    BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
     throwAway, useItem } = SIMX;
   // ---------------- run end / menus ----------------
@@ -115,15 +115,20 @@
     if (!T || !S.run || keys.Escape) { S.screen = 'play'; S.talk = null; return; }
     if (click && b && b.id === 'craft') { S.talk = null; S.screen = 'craft'; S.craft = { kind: 'forge', sel: S.craft && S.craft.kind === 'forge' ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     // on a quest's last page E, the space or Enter press its button; «Дальше» / «Не сейчас» leave it
-    const last = T.p + 1 >= T.pages.length;
+    const last = T.p + 1 >= T.pages.length; if (last && T.pt === undefined) T.pt = S.t;
     // (the end of the run, TASKS 1148, only by its button or Enter: E run through the Keeper's pages must not end it)
-    if (T.act && last && ((click && b && b.id === 'act') || ((keys.KeyE || keys.Space) && T.act.k !== 'finish') || keys.Enter)) { talkAct(S, S.run, T); return; }
+    // a quest's taking waits a moment after its last page opens: E run through the pages must not take it (TASKS 1635); the space only turns pages and closes
+    const take = T.act && T.act.k === 'take', ready = keys.KeyE && (!take || S.t - T.pt >= 0.25);
+    if (take && last && keys.KeyE && !ready) return;
+    if (T.act && last && ((click && b && b.id === 'act') || (ready && T.act.k !== 'finish') || keys.Enter)) { talkAct(S, S.run, T); delete T.pt; return; }
     if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { S.screen = 'play'; S.talk = null; } else ev(S, { k: 'ui', x, y }); }
     return;
   };
   SCREEN.craft = (S, inp, keys, x, y, click) => {
     const R = S.run, U = UI.craft(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!R || !S.craft || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    // the smith's quest business, kept off E so that E always reaches the forge (TASKS 1635)
+    if (S.craft.kind === 'forge' && SIMX.questMark(R, 'smith') && (keys.Enter || (click && b && b.id === 'talk'))) { const sm = SIMX.folkOf(R).find((q) => q.role === 'smith'); if (sm) { SIMX.openTalk(S, R, sm); ev(S, { k: 'ui', x, y }); return; } }
     if (click && b && (b.id.startsWith('eq:') || b.id.startsWith('bag:'))) { const it = b.id.startsWith('eq:') ? R.hero.eq[b.slot] : R.hero.bag[b.i];
       if (it && BASES[it.b]) { S.craft.sel = b.id; S.craft.res = null; ev(S, { k: 'ui', x, y }); } else if (it) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.craft.s') }); }
     if (click && b && b.id === 'do') craft(S, R);
@@ -182,9 +187,11 @@
   };
   // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
   SCREEN.journal = (S, inp, keys, x, y, click) => {
-    const R = S.run, L0 = R ? journalOf(R) : [], U = UI.journal(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, L0 = R ? journalOf(R) : [], sel = L0.find((q) => q.id === S.jsel) || L0[0], U = UI.journal(L0.length, sel && sel.st === 'taken'), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyJ || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
-    if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; S.jdrop = 0; ev(S, { k: 'ui', x, y }); }
+    // given up only on a second press, as a saved run is dropped: nothing brings a quest back but its giver (TASKS 1633)
+    if (click && b && b.id === 'drop' && sel) { if (S.jdrop === sel.id && S.t - S.jdropT < 3) { S.jdrop = 0; abandonQuest(S, R, sel); } else { S.jdrop = sel.id; S.jdropT = S.t; ev(S, { k: 'ui', x, y }); } }
     return;
   };
   SCREEN.inv = (S, inp, keys, x, y, click) => {

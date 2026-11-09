@@ -27,6 +27,7 @@ const townRun = (seed) => { const S = SIM.spawn(0, {}); S.run = SIM.newRun(S, 'c
 // keeps to the open; the goal is any cell whose centre already satisfies the predicate (tested with the hero put there and back)
 function route(R, goal, banned) {
   const m = R.map, h = R.hero, W = m.W, ok = m.town ? DG.townWalk(m) : m.cells.map((c) => c === 1), hx = h.x, hy = h.y, folk = R.folk || [];
+  if (m.town) for (const d of m.decor) if (d.role === 'bench') ok[Math.floor(d.y / TILE) * W + Math.floor(d.x / TILE)] = false;
   const free = (k) => ok[k] && !banned.has(k), at = (k) => { h.x = (k % W + 0.5) * TILE; h.y = (Math.floor(k / W) + 0.5) * TILE; return goal(R); };
   const near = (k) => { let n = 0; for (const d of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) if (!ok[k + d]) n++; return n; };
   const by = (k) => folk.some((f) => Math.hypot(f.x - (k % W + 0.5) * TILE, f.y - (Math.floor(k / W) + 0.5) * TILE) < 30);

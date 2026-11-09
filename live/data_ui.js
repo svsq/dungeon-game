@@ -58,7 +58,7 @@
     craft: () => { const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
       SLOTS.forEach((sl, i) => r.push({ id: 'eq:' + sl, slot: sl, x: P.x + 40 + i * 96, y: P.y + 150, w: 84, h: 84 }));
       for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 40 + (i % 8) * 96, y: P.y + 316 + Math.floor(i / 8) * 96, w: 84, h: 84 });
-      r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, { id: 'talk', on: true, label: TXT('UI.craft.talk'), x: P.x + 40, y: P.y + 720, w: 620, h: 64 });
       return { P, r }; },
     // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
     // a quest's page (TASKS 1018) puts its take or turn-in button left of it; the smith's talk keeps a way into his workshop
@@ -69,8 +69,9 @@
     board: (n) => { const P = { x: 400, y: 90, w: 1120, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
-    journal: (n) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
+    journal: (n, canDrop) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
       for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
+      if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 90, w: 1080, h: 900 }, r = [];

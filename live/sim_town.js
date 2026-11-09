@@ -21,10 +21,10 @@
   const henRnd = (a, b) => { const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return x - Math.floor(x); };
   function henGoal(R, f, n, t) {
     const h = R.hero, dh = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25), w = R.folk.find((q) => q.go && q.spd > 4 && Math.hypot(q.x - f.x, (q.y - f.y) * 1.25) < 34), sc = h.deadT < 0 && dh < 58 ? h : w;
-    if (sc) { const a = Math.atan2(f.y - sc.y, f.x - sc.x) + 0.6 * (henRnd(f.i, Math.floor(t)) - 0.5); f.next = t + 1 + henRnd(f.i, t); f.scareT = t;
+    if (sc) { const a = Math.atan2(f.y - sc.y, f.x - sc.x) + 0.6 * (henRnd(f.i, Math.floor(t)) - 0.5); f.next = t + 1 + henRnd(f.i, t); if (t - (f.scareL ?? -9) > 0.6) f.scareT = t; f.scareL = t;
       return (f.goal = { x: f.x + Math.cos(a) * 44, y: f.y + Math.sin(a) * 30, v: 80 }); }
     const gr = R.grain; if (gr && t - gr.t < 7 && Math.hypot(gr.x - f.x, gr.y - f.y) < 190 && (!f.goal || f.goal.k !== gr.t))
-      f.goal = { x: gr.x + 18 * (henRnd(f.i, gr.t) - 0.5), y: gr.y + 10 * (henRnd(gr.t, f.i) - 0.5), v: 42, k: gr.t };
+      f.goal = { x: gr.x + 16 * Math.cos(f.i * 2.1), y: gr.y + 9 * Math.sin(f.i * 2.1), v: 42, k: gr.t };
     if (f.goal && f.goal.k && t - f.goal.k > 7) f.goal = null;
     if (!f.goal && t >= (f.next || 0)) { const a = 2 * Math.PI * henRnd(f.i, t), r = 10 + 26 * henRnd(t, f.i);
       f.goal = { x: n.x + Math.cos(a) * r, y: n.y + Math.sin(a) * r * 0.6, v: 22 }; f.next = t + 2 + 3 * henRnd(f.i + 7, t); }
@@ -34,9 +34,9 @@
     Object.defineProperty(T, 'railLen', { value: d, enumerable: false }); return d; };
   const railAt = (m, s) => { const T = m.town, c = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; let d = s; for (let i = 1; i < T.rails.length; i++) { const [ax, ay] = c(T.rails[i - 1]), [bx, by] = c(T.rails[i]), l = Math.hypot(bx - ax, by - ay); if (d <= l) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } return c(T.rails[T.rails.length - 1]); };
   const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
-  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, near = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44, rolling = t < (C.pushT || 0), block = near && !rolling;
+  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, sgn = C.st === 'down' ? 1 : -1, [nx, ny] = railAt(R.map, Math.max(0, Math.min(L, C.s + sgn * 4))), dl = Math.hypot(nx - cx, ny - cy) || 1, dx = (nx - cx) / dl, dy = (ny - cy) / dl, ahead = (h.x - cx) * dx + (h.y - cy) * dy, off = (h.y - cy) * dx - (h.x - cx) * dy, near = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && ahead >= 0 && ahead <= 48 && Math.abs(off) < 18, rolling = t < (C.pushT || 0), block = near && !rolling;
     // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard, and once it has made up its mind it rolls on
-    if (near && rolling) { const a = Math.atan2(h.y - cy, h.x - cx); SIMX.move(R.map, h, Math.cos(a) * 120 * DT, Math.sin(a) * 120 * DT, K.R); }
+    if (near && rolling) { const side = off >= 0 ? 1 : -1; SIMX.move(R.map, h, -dy * side * 120 * DT, dx * side * 120 * DT, K.R); }
     if (block && !C.held) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.cart') });
     C.held = block ? (C.held || 0) + DT : 0; if (C.held >= 3) { C.held = 0; C.pushT = t + 5; }
     const v = block ? 0 : CART_V * Math.min(1, 0.2 + Math.min(C.s, L - C.s) / 44);
@@ -55,11 +55,13 @@
       if (f.role === 'smith' && !folkTalk(f, t)) { const a = D.folkClock('smith', f.i, t - DT), b = D.folkClock('smith', f.i, t);
         if ((a.n === b.n ? a.u < FD.hit && b.u >= FD.hit : b.u >= FD.hit) && b.n % FD.rest !== FD.rest - 1) ev(S, { k: 'anvil', x: f.x, y: f.y }); }
       const route = n.route;
-      if (folkTalk(f, t)) f.face = h.x >= f.x ? 1 : -1;
+      if (folkTalk(f, t)) { const nf = h.x >= f.x ? 1 : -1; if (route && f.face && nf !== f.face) f.turnT = t; f.face = nf; }
       // the child's handful of grain lands ahead of him, toward the nearest hen: the hens come for it (TASKS 1032)
       if (f.role === 'child' && route && !f.go && f.way >= 0 && !folkTalk(f, t)) { const a = D.folkClock('child', f.i, t - DT), b = D.folkClock('child', f.i, t);
         if (a.n === b.n && a.u < 0.47 && b.u >= 0.47) { const hn = F.filter((q) => q.role === 'hen').sort((p, q) => Math.hypot(p.x - f.x, p.y - f.y) - Math.hypot(q.x - f.x, q.y - f.y))[0], dir = hn && hn.x < f.x ? -1 : 1;
           R.grain = { x: f.x + dir * 55, y: f.y + 4, t }; } }
+      // the block he dresses uses up the bin one stone at a time: nothing else ever empties it (town_motion_r6 2)
+      if (f.role === 'mason' && route && !f.go && !f.load && f.lift !== 'take' && C.bin > 0 && t - f.t0 >= 1.7 && !folkTalk(f, t)) { const a = D.folkClock('mason', f.i, t - DT), b = D.folkClock('mason', f.i, t); if (a.n !== b.n && b.n % 5 === 0) { C.bin--; C.binT = t; } }
       let want = 0, ux = 0, uy = 0;
       if (f.role === 'hen') { const g = henGoal(R, f, n, t);
         if (g) { const dx = g.x - f.x, dy = g.y - f.y, d = Math.hypot(dx, dy); if (d > 2.5) { want = Math.min(g.v, d * 4 + 6); ux = dx / d; uy = dy / d; } else if (!g.k) f.goal = null; } }
@@ -68,7 +70,7 @@
       if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
         if (d < 1.5) { f.go = 0; f.t0 = t; f.x = tg.x; f.y = tg.y; f.spd = 0;
           // f.lift: what he did at this stop, for the render's bend; a pick-up with the crate in hand (a stop skipped) is no lift
-          f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take' && --C.load <= 0) C.t = t + 2.5; } }
+          f.lift = tg.act === 'take' && !f.load || tg.act === 'drop' && f.load ? tg.act : 0; if (f.lift) { f.load = f.lift === 'take' ? 1 : 0; ev(S, { k: 'toss', x: f.x, y: f.y }); if (f.role === 'mason' && f.lift === 'take') { C.takeT = t; if (--C.load <= 0) C.t = t + 2.5; } if (f.role === 'mason' && f.lift === 'drop') C.bin = (C.bin || 0) + 1; } }
         else { want = Math.min(FD.v, d * 3 + 3); ux = dx / d; uy = dy / d; } }
       f.spd += (want - f.spd) * Math.min(1, 7 * DT);
       if (f.spd < 0.5 && !want) { f.spd = 0; f.vx = f.vy = 0; continue; }
@@ -81,20 +83,21 @@
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
         f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
       if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
-      if (Math.abs(f.vx) > 3) { const nf = f.vx > 0 ? 1 : -1; if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } }
+      if (Math.abs(f.vx) > (f.role === 'hen' ? 12 : 3)) { const nf = f.vx > 0 ? 1 : -1; if (f.role !== 'hen' || nf === f.face || t - (f.turnT ?? -9) > 1.1) { if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } } }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
-      if (alive && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 11) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
+      if (alive && h.gold > 0 && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 30 && !(R.msg && t < R.msg.t + (R.msg.d || 3.5))) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
   }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
-    for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
+    for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid || d.role === 'bench') out.push({ x: d.x, y: d.y, r: 18 });
     if (R.map.town) for (const p of R.map.town.yardSolid || []) out.push({ x: p.x, y: p.y, r: 18 });
+    if (R.map.town && R.cart && R.cart.st !== 'in') { const [x, y] = railAt(R.map, R.cart.s); out.push({ x, y, r: 16 }); }
     if (R.map.way) out.push({ x: R.map.way.x, y: R.map.way.y, r: 16 });
     for (const q of R.map.waterFeatures || []) if (q.kind === 'fountain') out.push({ x: q.x, y: q.y - 2, r: 34 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 });
     for (const f of R.folk || []) out.push({ x: f.x, y: f.y, r: folkR(f) }); return out; };
   // a first visit with empty pockets: the service says what it wants, instead of a page of prices the hero cannot pay (TASKS 1613)
-  const broke = (S, R) => { const h = R.hero; if (!h.gold && !S.meta.shards) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.broke') }); };
+  const broke = (S, R) => { const h = R.hero; if (!h.gold) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.broke') }); };
   function interact(S, R) {
     const h = R.hero, m = R.map;
     const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56) && !SIMX.overLava(m, h.x, h.y, c2.x, c2.y)); if (c) { openChest(S, R, c); return; }
@@ -111,10 +114,10 @@
     const gt = gateNear(R); if (gt) { R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
     // out it is taken at once, with more a window to choose
-    const cw = atCraft(R); if (cw === 'forge' && questMark(R, 'smith')) { const sm = folkOf(R).find((q) => q.role === 'smith'); if (sm) { openTalk(S, R, sm); return; } }
+    const cw = atCraft(R);
     if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; broke(S, R); ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
-    if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; broke(S, R); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
+    if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; if (!S.meta.shards) broke(S, R); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
@@ -184,6 +187,11 @@
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
+  // a quest given up in the journal (TASKS 1633): its offer waits on the board again, its keepsake is gone from wherever it lay
+  function abandonQuest(S, R, q) { if (!q || q.st !== 'taken') return; R.quests.splice(R.quests.indexOf(q), 1); const o = (R.offers || []).find((v) => v.q === q.id); if (o) o.q = 0;
+    const left = (d) => !(d.kind === 'qitem' && d.quest === q.id); for (const c of R.chests) if (c.quest === q.id) delete c.quest; for (const e of R.en) if (e.quest === q.id) delete e.quest;
+    R.drops = R.drops.filter(left); for (const M of Object.values(R.memo || {})) if (M.drops) M.drops = M.drops.filter(left);
+    ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); S.saveN++; }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
     if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
@@ -269,14 +277,15 @@
     for (const q of R.quests || []) { if (q.st !== 'taken' || q.f !== R.floor) continue; const Q = D.QUESTS[q.key];
       if (Q.type === 'named') { const e = R.en.find((o) => o.quest === q.id && o.deadT < 0); if (e) out.push({ kind: 'named', x: e.x, y: e.y, q }); }
       if (Q.type === 'room' && q.room !== undefined) { const r = R.map.rooms[q.room]; out.push({ kind: 'room', x: r.cx * TILE + TILE / 2, y: r.cy * TILE + TILE / 2, r, q }); }
-      if (Q.type === 'fetch') { const d = R.drops.find((o) => o.kind === 'qitem' && o.quest === q.id && !o.got); if (d && !hidden(R.map, d) && R.seen[Math.floor(d.y / TILE) * R.map.W + Math.floor(d.x / TILE)]) out.push({ kind: 'fetch', x: d.x, y: d.y, q }); } }
+      if (Q.type === 'fetch') { const seenAt = (o) => !hidden(R.map, o) && R.seen[Math.floor(o.y / TILE) * R.map.W + Math.floor(o.x / TILE)], d = R.drops.find((o) => o.kind === 'qitem' && o.quest === q.id && !o.got), c = R.chests.find((o) => o.quest === q.id && !o.open);
+        if (d && seenAt(d)) out.push({ kind: 'fetch', x: d.x, y: d.y, q }); else if (c && seenAt(c)) out.push({ kind: 'fetch', x: c.x, y: c.y, q }); } }
     return out; }
   // a quest's state in a few words, for the HUD's tracker
   function questLine(q, R) { const Q = D.QUESTS[q.key];
-    if (q.st === 'done') return TXT('sim_town.questLine');
+    if (q.st === 'done') return D.FOLK[q.from] ? TXT('sim_town.questLine.who', { p1: D.FOLK[q.from].name.toLowerCase() }) : TXT('sim_town.questLine');
     if (Q.type === 'kill' || Q.type === 'clear') return TXT('sim_town.questLine.2', { n: q.n, need: q.need, f: q.f });
     if (Q.type === 'named') return TXT('sim_town.questLine.3', { title: q.title, f: q.f });
-    if (Q.type === 'fetch') return TXT('sim_town.questLine.4', { thing: q.thing, f: q.f });
+    if (Q.type === 'fetch') return TXT('sim_town.questLine.4', { thing: q.thing, f: q.f }) + (q.where === 'chest' ? TXT('sim_town.questLine.chest') : q.where === 'secret' ? TXT('sim_town.questLine.secret') : q.where === 'floor' ? TXT('sim_town.questLine.floor') : '');
     if (Q.type === 'room') { const n = R && R.floor === q.f && q.room !== undefined ? R.en.filter((e) => e.room === q.room && e.deadT < 0 && counted(e)).length : 0; return TXT('sim_town.questLine.5', { p1: n ? TXT('sim_town.questLine.6', { n }) : TXT('sim_town.questLine.7'), f: q.f }); }
     if (Q.type === 'boss') return TXT('sim_town.questLine.8', { f: q.f });
     return TXT('sim_town.questLine.9', { f: q.f }); }
@@ -289,7 +298,7 @@
   // time below; each told once; nothing new, his idle pair
   function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = [];
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
-    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'win') out.push(...K.win); else if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(TXT('KEEPER.cls', { cls: D.CLASSES[M.lastCls].name.toLowerCase() })); }
+    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(TXT('KEEPER.cls', { cls: D.CLASSES[M.lastCls].name.toLowerCase() })); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; out.push(...K.boss(ENEMIES[R.lastBoss].name)); }
     if (R.legend && T.legend !== R.legend) { T.legend = R.legend; out.push(...K.rare(R.legend)); }
@@ -392,8 +401,8 @@
 
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
-    craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    questTalk, questIcon, talkAct, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
+    questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);
