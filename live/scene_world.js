@@ -3,7 +3,7 @@
 (function () {
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
-    PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
+    PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
     deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   SCX.worldPass = (F) => {
@@ -282,6 +282,16 @@
       const X = sx(q.x), Yf = sy(q.y) + (q.kind === 'shelf' ? 24 : 0), ux = q.dx, uy = q.dy;
       for (let j = 0; j < 4; j++) { const ph = (t * 0.22 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * (q.kind === 'shelf' ? 110 : 40) * (0.5 + ph) + Math.sin(t * 1.6 + j * 2) * 4;
         L.solid(X - ux * (ph * 30 - 4) - uy * sp, Yf - uy * (ph * 30 - 4) + ux * sp + (q.dy ? 0 : ph * ph * 10), 2, 2, [0.8, 0.84, 0.92], 0, 0, 0, 0.35 * near * Math.sin(ph * Math.PI)); } });
+    // a top wall's found opening is a way cut through the masonry (TASKS 1682): the stone of its jambs on either side, a worn sill
+    // at its foot and the way darkening as it goes in, not a hole with the room's floor running on through it
+    (m.secrets || []).forEach((q) => { if (!q.open || q.dir !== 'u' || !vis(q.x, q.y)) return; const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), ink = [0.02, 0.015, 0.02];
+      const x0 = sx(Math.min(...xs) * TILE), x1 = sx((Math.max(...xs) + 1) * TILE), y0 = sy(Math.min(...ys) * TILE), y1 = sy((Math.max(...ys) + 1) * TILE), w = x1 - x0, hh = y1 - y0, TSW = 224;
+      for (let k = 0; k < 8; k++) L.solid(x0, y0 + k * hh / 8, w, hh / 8, ink, 0, 0, 0, 0.42 * (1 - k / 8));
+      for (const [jx, lit] of [[x0, 0], [x1 - 8, 1]]) { const u0 = ((jx - sx(0)) % TSW) / TSW;
+        L.sprite(B.wall, jx, y0, { w: 8, h: hh, src: [u0, 0, u0 + 8 / TSW, hh / TSW], u: { grade: [0.9, lit ? 1.3 : 0.45, 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } });
+        L.solid(lit ? jx - 2 : jx + 8, y0, 2, hh, ink, 0, 0, 0, 0.7); if (lit) L.solid(jx, y0, 2, hh, [0.95, 0.85, 0.7], 0, 0, 0, 0.2); }
+      const u1 = ((x0 - sx(0)) % 96) / 96; L.sprite(B.top, x0 - 2, y1 - 6, { w: w + 4, h: 6, src: [u1, 0, u1 + (w + 4) / 96, 6 / 96], u: { grade: [0.55, TOP_LIFT * 0.9, 0, 1], tint: topTint(B) } });
+      L.solid(x0 - 2, y1 - 6, w + 4, 2, [0.9, 0.8, 0.65], 0, 0, 0, 0.18); L.solid(x0 - 2, y1, w + 4, 2, ink, 0, 0, 0, 0.5); });
     // a secret's loose flagstone: the floor's own stone standing a hair proud of its neighbours; it sinks when stepped on
     // (ambush plates are gone, TASKS 320; only secrets use it now)
     const flagstone = (P, down, crack) => { const z = zoneAt(m, P.cx, P.cy), Z = D.BIOMES[z], TS = 288, X = P.cx * TILE, Yw = P.cy * TILE, u0 = (X % TS) / TS, v0 = (Yw % TS) / TS, lift = 1.5 * (1 - down) - down;
@@ -417,7 +427,13 @@
           Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x), sy(top)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); }
         else if (a < 0.5) { const p = a / 0.5; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x) + 10 * p, sy(top) + 30 * p * p), M.r(0.5 * p * p)), w, h: hh * (1 - 0.5 * p * p), pivot: [w / 2, 0] })]); }
         else Y.push([q.y - 60, () => L.sprite('banner', sx(q.x) - w * 0.55 + 10, sy(q.y) + 4, { w: w * 1.1, h: hh * 0.32, u: { grade: [0.8, 0.75, 0, 1] } })]); }
-      if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0, 0.55, a) : 1, dx = q.open ? (p - 1) * q.slide : 0; Y.push([d.y, () => drawProp('statue', sx(d.x + dx) + (q.open && a < 0.55 ? Math.sin(GT * 60) * 1.2 : 0), sy(d.y), { dy: 4, j: jig('d' + k) })]); return; }
+      if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 };
+        Y.push([d.y, () => drawProp('statue', sx(d.x + sl.x), sy(d.y), { dy: 4, j: jig('d' + k) })]);
+        // the masonry stays where the stone has not yet moved off it, so the way opens only as fast as the statue uncovers it
+        if (sl.p < 1) { const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), X0 = Math.min(...xs) * TILE, X1 = (Math.max(...xs) + 1) * TILE, Y0 = Math.min(...ys) * TILE, Y1 = (Math.max(...ys) + 1) * TILE, TSW = 224;
+          const cw = Math.round((X1 - X0) * (1 - sl.p) / 2) * 2, cx0 = q.slide > 0 ? X1 - cw : X0, u0 = (cx0 % TSW) / TSW, v0 = (Y0 % TSW) / TSW;
+          if (cw > 0) Y.push([q.y - 1, () => L.sprite(B.wall, sx(cx0), sy(Y0), { w: cw, h: Y1 - Y0, src: [u0, v0, u0 + cw / TSW, v0 + (Y1 - Y0) / TSW], u: { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } })]); }
+        return; }
       if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d || d.broken) return;
         Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]); }
       if (kind === 'lever' && q.open && a < 1.8) { const p = SS(0.15, 1.6, a), xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), jit = Math.sin(GT * 70) * 1.5 * (1 - p);

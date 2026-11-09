@@ -182,7 +182,7 @@
   function openSecret(S, R, q, quiet) {
     const m = R.map, i = m.secrets.indexOf(q), kind = kindOf(q); q.open = 1; q.openT = S.t; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1;
     if (quiet) { if (kind === 'shelf') shelfOf(m, i, false); if (kind === 'statue') statueOf(m, i, q, false); return; }
-    if (kind === 'statue') { statueOf(m, i, q, false); R.trauma = Math.min(1, R.trauma + 0.25); }
+    if (kind === 'statue') { statueOf(m, i, q, false, 1); R.trauma = Math.min(1, R.trauma + 0.25); }
     if (kind === 'crack') { for (let k = 0; k < 4; k++) m.decals.push({ x: q.x - 22 + k * 15, y: q.y - 6 - (k % 2) * 22, n: 'dc_rubble', f: k & 1, s: 0.8 + 0.1 * k }); R.trauma = Math.min(1, R.trauma + 0.45); R.freeze = Math.max(R.freeze, 0.06); }
     if (kind === 'shelf') { shelfOf(m, i, false);
       for (let k = 0; k < 3; k++) m.decals.push({ x: q.x - 30 + k * 30, y: q.y + 24 + (k % 2) * 8, n: k === 1 ? 'dc_straw' : 'dc_rubble', f: k & 1, s: 0.9 }); R.trauma = Math.min(1, R.trauma + 0.35); }
@@ -195,8 +195,11 @@
   function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
     d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
   // a secret's statue on its plinth over the opening or slid aside: only ever one of the two cells is blocked
-  function statueOf(m, i, q, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const cellOf = (o) => Math.floor(d.y / TILE) * m.W + Math.floor(o / TILE), at0 = stand ? q.x + q.slide : q.x, at1 = stand ? q.x : q.x + q.slide;
-    m.block = m.block.filter((b) => b !== cellOf(at0)); d.x = at1; if (!m.block.includes(cellOf(at1))) m.block.push(cellOf(at1)); }
+  // (hold: the stone is still on its way, the cell it leaves is freed by stepStatues once the slide is over)
+  function statueOf(m, i, q, stand, hold) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const cellOf = (o) => Math.floor(d.y / TILE) * m.W + Math.floor(o / TILE), at0 = stand ? q.x + q.slide : q.x, at1 = stand ? q.x : q.x + q.slide;
+    q.held = hold ? 1 : 0; if (!hold) m.block = m.block.filter((b) => b !== cellOf(at0)); d.x = at1; if (!m.block.includes(cellOf(at1))) m.block.push(cellOf(at1)); }
+  function stepStatues(S, R) { const m = R.map;
+    (m.secrets || []).forEach((q, i) => { if (!q.held || S.t - q.openT < D.STATUE_SECRET.slide) return; const d = m.decor.find((o) => o.secret === i), k = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE); q.held = 0; m.block = m.block.filter((b) => b !== k); }); }
   // debug: open every secret of the floor without counting it; again, seal the ones it opened (a hero inside is put back in front)
   function debugSecrets(S, R) { const m = R.map, h = R.hero;
     if (!R.dbgOpen) { R.dbgOpen = []; m.secrets.forEach((q, i) => { if (!q.open) { openSecret(S, R, q, true); R.dbgOpen.push(i); } }); return; }
@@ -349,5 +352,5 @@
   Object.assign(SIMX, { setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
     hitSecrets, hitSecret, openSecret, shelfOf, statueOf, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells,
-    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, mimicLoot, hitWreck, coffinWakes });
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

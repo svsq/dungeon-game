@@ -484,11 +484,16 @@
     stone: (a, s) => ({ rot: s * 0.015 * Math.exp(-8 * a) * Math.sin(40 * a), dx: s * 2.5 * Math.exp(-12 * a) * Math.sin(70 * a), sy: 1 }),
     crystal: (a, s) => ({ rot: s * 0.03 * Math.exp(-4 * a) * Math.sin(26 * a), dx: 0, sy: 1 + 0.04 * Math.exp(-6 * a) * Math.sin(30 * a) }),
     cloth: (a, s) => ({ rot: s * 0.04 * Math.exp(-6 * a) * Math.sin(16 * a), dx: 0, sy: 1 - 0.1 * Math.exp(-6 * a) * Math.sin(16 * a) }) };
+  // a secret's statue grinding aside (TASKS 1682): slow to start, still moving when it meets its stop, so it knocks and rocks back
+  // a hair; x: its offset from where the sim already put it, p: how far along it is
+  const statueSlide = (q, a) => { const SL = D.STATUE_SECRET.slide, u = Math.min(1, Math.max(0, a / SL)), p = u * u * (2 - u), b = a - SL, s = Math.sign(q.slide);
+    const grind = a < SL ? Math.sin(a * 47) * 0.8 * SS(0, 0.1, a) : 0, knock = b >= 0 && b < 0.14 ? Math.sin(b * 110) * 1.6 * (1 - b / 0.14) : 0, rock = b >= 0 && b < 0.3 ? -s * 2 * Math.sin(Math.PI * b / 0.3) : 0;
+    return { p, x: (p - 1) * q.slide + grind + knock + rock, end: b }; };
   const BLOOD = (type) => (D.ENEMIES[type] || {}).blood;
   const knockOf = (e, T) => { const a = T - e.t; if (a < 0 || a >= 1.5 || !KNOCK[e.mat]) return null; const j = KNOCK[e.mat](a, e.s); j.fl = 0.6 * (1 - SS(0.03, 0.12, a)); return j; };
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);
