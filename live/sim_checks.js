@@ -1424,6 +1424,9 @@
       const mob = lv(LOOT.mob), chest = lv(LOOT.chest[1]), boss = lv(LOOT.boss[2]);
       if (low(mob) < 22 || low(chest) < 23 || low(boss) < 24) out.push(`loot level: under the floor: mob ${low(mob)} chest ${low(chest)} boss ${low(boss)}`);
       if (new Set(mob).size < 2 || new Set(boss).size < 2) out.push('loot level: no spread');
+      // TASKS 1673: the mimic's chest, a wreck and a mid-chapter boss's chest spread as the rest do
+      const mim = Array.from({ length: 300 }, () => root.SIMX.chestLoot(R, { mimic: 1, tier: 2 })).flat().filter((it) => !isCons(it)).map((it) => it.lvl);
+      if (new Set(mim).size < 2 || new Set(lv(D.WRECK)).size < 2 || LOOT.mini.items.some((o) => new Set(lv(o)).size < 2)) out.push('loot level: a mimic, a wreck or a mid-chapter boss chest has no spread');
       if (rollItem(R, 21, 0).lvl !== 21) out.push('loot level: a roll that names no source left the floor\'s level');
       const seq = (sd) => { const Q = { rs: sd, hero: R.hero }; return Array.from({ length: 50 }, () => rollItem(Q, 21, 0, undefined, LOOT.mob).lvl).join(); }; if (seq(5) !== seq(5)) out.push('loot level: the seed does not repeat it'); }
     // TASKS 1347: a find above the usual range is likelier for a hero ahead of his level, and its bonus is capped
