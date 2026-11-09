@@ -17,7 +17,7 @@
     // thorns: a share of a blow taken at close quarters goes back into whoever struck it (not into a caster's bolt)
     if (gift(h, 'thorns') && e.deadT < 0 && Math.hypot(e.x - h.x, e.y - h.y) < 150) SIMX.hitEnemy(S, R, e, Math.max(1, Math.round(h.lastHit * gift(h, 'thorns') / 100)), 0, h.x, h.y, 0, 'thorns');
     if (!e.mods) return;
-    if (has(e, 'fiery')) { if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); }   // a fresh blow only extends the fire, the ticks keep their pace
+    if (has(e, 'fiery')) { if (h.burn <= S.t) { h.burnT = S.t - 0.5; ev(S, { k: 'ignite', x: h.x, y: h.y }); } h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); }   // a fresh blow only extends the fire, the ticks keep their pace
     if (has(e, 'frost')) { h.chillT = S.t + MOD.frost.t; ev(S, { k: 'chill', x: h.x, y: h.y - 40, id: e.id }); }
     if (has(e, 'curse')) { h.curseT = S.t + MOD.curse.t; ev(S, { k: 'curse', x: h.x, y: h.y - 40, id: e.id }); }
     if (has(e, 'vampire') && e.deadT < 0) { const n = Math.round(e.max * MOD.vampire.heal); e.hp = Math.min(e.max, e.hp + n);

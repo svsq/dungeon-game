@@ -174,6 +174,10 @@
     stuck: (o) => { noise(o, { t: now() + 0.6, a: 0.2, d: 0.6, v: 0.2, type: 'bandpass', f0: 300, f1: 700, q: 2 }); },
     rockfall: (o) => { tone(o, { f0: 90, f1: 40, a: 0.005, d: 0.35, v: 0.6 }); noise(o, { a: 0.005, d: 0.4, v: 0.4, type: 'lowpass', f0: 1400, f1: 250 });
       for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.06 + i * 0.07, d: 0.05, v: 0.15, type: 'bandpass', f0: rr(1500, 3000), q: 3 }); },
+    // (placeholders until the real audio, TASKS 1646: the magma's actions that had no sound)
+    lavafall: (o) => { noise(o, { d: 0.25, v: 0.35, type: 'lowpass', f0: 1000, f1: 160 }); tone(o, { f0: 130, f1: 50, d: 0.3, v: 0.3 }); },
+    ignite: (o) => noise(o, { a: 0.01, d: 0.28, v: 0.2, type: 'highpass', f0: 2000, f1: 900 }),
+    bossphase: (o) => tone(o, { f0: 60, f1: 30, a: 0.02, d: 0.7, v: 0.4 }),
     sink: (o) => { noise(o, { a: 0.01, d: 1.2, v: 0.28, type: 'highpass', f0: 1800, f1: 700 }); tone(o, { f0: 140, f1: 55, a: 0.02, d: 0.6, v: 0.3 }); },
     fall: (o) => { tone(o, { type: 'triangle', f0: 420, f1: 120, a: 0.02, d: 0.8, v: 0.08 }); noise(o, { a: 0.05, d: 0.7, v: 0.12, type: 'lowpass', f0: 900, f1: 200 }); },
     gold: (o) => { for (let i = 0; i < 4; i++) tone(o, { type: 'triangle', f0: rr(2200, 3600), t: now() + i * rr(0.03, 0.07), d: 0.18, v: 0.08 }); },
@@ -266,7 +270,7 @@
   const LIMIT = { rock: 0.07, step: 0.08, hit: 0.03, gold: 0.05, alert: 0.15, kill: 0.04, scorch: 0.12, pop: 0.05, spike: 0.1 };
 
   function play(e, S) {
-    const f = SFX[e.k]; if (!f) return;
+    const f = SFX[e.k]; if (!f || ((e.k === 'bossphase' || e.k === 'ignite') && !S.run?.map?.cliff)) return;
     const gap = LIMIT[e.k] ?? 0.02, tn = now(); if (recent[e.k] && tn - recent[e.k] < gap) return; recent[e.k] = tn;
     let pan = 0, vol = 1;
     const R = S.run; if (R && R.cam && e.x !== undefined && !GLOBAL.has(e.k)) { const dx = e.x - (R.cam[0] + W / 2), dy = e.y - (R.cam[1] + H / 2);
