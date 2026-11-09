@@ -51,7 +51,10 @@
     return rollAffixes(R, itemPower({ id: 0, b: bk, rar, lvl: floor + (R.mode ? RUN(R).loot || 0 : 0), mods: {} }));
   }
   function rollAffixes(R, it) {
-    const pool = D.liveFor(R.hero, 'mods', AFFIXES, (a) => a.k); for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { const a = pool.splice(Math.floor(rnd(R) * pool.length), 1)[0];
+    const pool = D.liveFor(R.hero, 'mods', AFFIXES, (a) => a.k), W = D.AFFIX_W[BASES[it.b].slot] || {}, wt = (a) => W[a.k] ?? 1;
+    for (let i = 0; i < RARITY[it.rar].affixes && pool.length; i++) { let s = pool.reduce((n, a) => n + wt(a), 0) * rnd(R), j = pool.length - 1;
+      for (let q = 0; q < pool.length; q++) if ((s -= wt(pool[q])) < 0) { j = q; break; }
+      const a = pool.splice(j, 1)[0];
       it.mods[a.k] = Math.max(1, Math.round((a.a + a.b * it.lvl) * (0.7 + 0.6 * rnd(R)) * (1 + 0.15 * it.rar))); }
     return it;
   }
