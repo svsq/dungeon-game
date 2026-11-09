@@ -831,6 +831,10 @@
         for (const ph of k === 'vent' ? ['rest', 'warn', 'burst'] : ['warn', 'drop', 'burst']) { const S = play(), z = at(S, 1, (m) => (m.hazards || []).find((q) => q.k === k && (k === 'vent' || (q.aim && !q.tail)))); if (!z) continue; const R = S.run, H = D.HAZ[k], i = R.map.hazards.indexOf(z);
           view(S, z.x, z.y, z.x + H.r + 46, z.y + 10); const c = ph === 'rest' ? z.per * 0.45 : ph === 'warn' ? z.per - H.warn * 0.35 : ph === 'drop' ? z.per - 0.2 : 0.12, t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per; S.t = R.t = t; S.ev = [];
           if (ph === 'burst') S.ev.push({ k: k === 'vent' ? 'erupt' : 'rockfall', t: t - c, x: z.x, y: z.y, i }); states.push([name + '_' + ph, S]); } }
+      // a vent gate (TASKS 1699, 1645): at rest, as its warning begins, late in it and just after the burst, the hero four cells off
+      for (const ph of ['rest', 'warn0', 'warn', 'burst']) { const S = play(), z = at(S, 1, (m) => (m.hazards || []).find((q) => q.gate)); if (!z) continue; const R = S.run, H = D.HAZ.vent, set = R.map.hazards.filter((q) => q.gate && q.ph === z.ph);
+        view(S, z.x, z.y, z.x - z.ax * 4 * TILE, z.y - z.ay * 4 * TILE); const c = ph === 'rest' ? z.per * 0.45 : ph === 'warn0' ? z.per - H.warn + 0.1 : ph === 'warn' ? z.per - H.warn * 0.35 : 0.12, t = (((c / z.per - z.ph) % 1 + 1) % 1 + 20) * z.per; S.t = R.t = t; S.ev = [];
+        if (ph === 'burst') for (const q of set) S.ev.push({ k: 'erupt', t: t - c, x: q.x, y: q.y, i: R.map.hazards.indexOf(q) }); states.push(['magma_gate_' + ph, S]); }
       // a terrace's surge (TASKS 475): at rest, creeping up late in its warning, at its flood and ebbing back, the view on its ridge
       // down the steps, the hero waiting on the plateau above it
       for (const [ph, c0] of [['rest', 0.5], ['warn', -0.15], ['front', -0.06], ['flood', 0.35], ['ebb', 0.95]]) { const S = play(); let z = null;
@@ -1171,6 +1175,8 @@
     transitions.golem_crust_off = roll(playMg(lone('golem')), 150, (S, i) => { if (i < 5 || (i - 5) % 25 || i > 80) return; const e = S.run.en[0], h = S.run.hero;
       const n0 = e.crust ?? D.ENEMIES.golem.crust.n; e.crust = n0 - 1; e.hitT = e.armT = e.blowT = e.growT = S.t; (e.plateT = e.plateT || {})[n0] = S.t; (e.plateA = e.plateA || {})[n0] = Math.atan2(e.y - h.y, e.x - h.x);
       S.ev.push({ k: 'hit', t: S.t, x: e.x, y: e.y - D.ENEMIES.golem.h * 0.5 - 6, type: 'golem', n: 3, crit: 0, id: e.id, arm: 1, a: Math.atan2(h.y - e.y, h.x - e.x) }); });
+    // (TASKS 1699: the hero stood over the claw's and the plates' contact; the same frames again with him hidden)
+    for (const k of ['imp_claw', 'golem_crust_off']) if (transitions[k]) transitions[k + '_clear'] = transitions[k].map((S) => { const C = structuredClone(S); C.run.hero.qaHide = 1; return C; });
     transitions.golem_crust_regrow = roll(playMg((S) => { lone('golem')(S); const h = S.run.hero, e = S.run.en[0], C = D.ENEMIES.golem.crust; h.x -= 400; S.run.cam = [h.x + 400 - SCX.VW / 2, h.y - SCX.VH / 2];
       Object.assign(e, { crust: 0, blowT: S.t - C.calm - 1, growT: S.t - C.regrow + 0.2 }); }), 300);
     // the salamander at the lava's bank of magma_salamander: down into the lava to heal, and up out of it once mended (TASKS 454)
