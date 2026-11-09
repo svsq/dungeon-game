@@ -1681,7 +1681,8 @@
         { const e = crab({ rushT: 99 }); h.x = x0 - E.r - K.R - 14; let hurt = 0; for (let i = 0; i < 120; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 - E.r - K.R - 14; h.y = y0; e.x = x0; e.y = y0; }
           if (hurt) out.push('crab: pinches a hero behind it'); }
         // the rush: a hero 100 px off its side; it runs at him and hurts him, still facing its way
-        { const e = crab({ rushT: 0 }); h.x = x0; h.y = y0 + 100; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; if (!hurt) { h.x = x0; h.y = y0 + 100; } }
+        // (no dodge: a dodged blow, a roll of the run's stream, would read as no rush at all)
+        { const e = crab({ rushT: 0 }); h.base.agi = 0; for (const k in h.eq) h.eq[k] = null; h.x = x0; h.y = y0 + 100; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; if (!hurt) { h.x = x0; h.y = y0 + 100; } }
           if (!hurt || !S.ev.some((v) => v.k === 'rush' && v.id === e.id)) out.push('crab: never rushes a hero at its side');
           if (Math.abs(angDiff(e.fa, 0)) > 0.6) out.push(`crab: the rush turned its shell to ${e.fa.toFixed(2)}`);
           if (e.y - y0 < 40) out.push(`crab: the rush carries it only ${(e.y - y0).toFixed(0)} px sideways`); } } }
@@ -2529,9 +2530,8 @@
     const got = Q.hero.bag.find((it) => it && it.b === g1.b && it.lvl === g1.lvl && !isCons(it)); if (!got || got.id < Q.nextId - 1 || T.meta.stash.items[0]) out.push('stash: the next hero does not take the piece out with an id of his own');
     return out;
   }
-  // TASKS 1331, 1340: the bag opens with 12 cells and the «bag» upgrade adds 3 a rank up to the grid's 24; a hero from an older save keeps
-  // every cell; a drag moves a piece between open cells only, a click on the piece's own cell still uses it; the sort buttons order
-  // the open cells and pack them to the front; the chest sorts too
+  // TASKS 1331, 1671: the bag is 24 cells with no altar upgrade, a hero from a save that had the 12-cell cap fills them all; a drag moves a piece
+  // between cells, a click on the piece's own cell still uses it; the sort buttons order the cells and pack them to the front; the chest sorts too
   // TASKS 1349: ranks stop at AB_MAX, the points past every full rank turn into mastery and leave nothing in h.sp, a hero with a rank to
   // buy keeps his points, a save without the field loads as no mastery, and the rank-15 numbers stay sane
   function masteryCheck() {
@@ -2555,14 +2555,12 @@
   function bagCheck() {
     const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77); S.screen = 'inv'; const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs);
     const at = (id, o = {}) => { const b = U.r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o); };
-    if (D.bagCap({}) !== 12 || h.cap !== 12) out.push('bag: a fresh hero does not open 12 cells');
+    if (D.BAG.start !== 24 || h.bag.length !== 24 || UI.meta(S.meta.cls).some((q) => q.id === 'bag')) out.push('bag: a fresh hero does not have 24 cells, or the altar still sells the bag');
     const had = h.bag.filter(Boolean).length; let added = 0; for (let i = 0; i < 30; i++) if (bagAdd(R, Object.assign(rollItem(R, 3 + (i % 5), i % 4), { id: 5000 + i }))) added++;
-    if (h.bag.filter(Boolean).length !== 12 || added !== 12 - had || h.bag.slice(12).some(Boolean)) out.push('bag: the bag takes more or fewer than its open cells');
+    if (h.bag.filter(Boolean).length !== 24 || added !== 24 - had) out.push('bag: the bag takes more or fewer than its 24 cells');
     const A = h.bag[3], B = h.bag[5];
     step(S, at('bag:3', { click: 1, press: 1 })); step(S, at('bag:5', { press: 1 })); step(S, at('bag:5'));
     if (h.bag[3] !== B || h.bag[5] !== A) out.push('bag: a drag does not swap two cells');
-    step(S, at('bag:3', { click: 1, press: 1 })); step(S, at('bag:20', { press: 1 })); step(S, at('bag:20'));
-    if (h.bag[3] !== B || h.bag[20]) out.push('bag: a drag lands on a shut cell');
     { const w = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 6000 }); h.bag.fill(null); h.bag[2] = w; const old = h.eq.weapon;
       step(S, at('bag:2', { click: 1, press: 1 })); step(S, at('bag:2')); if (h.eq.weapon !== w || h.bag[2] !== old) out.push('bag: a click on the piece no longer wears it'); }
     { h.bag.fill(null); const e = h.eq.armor; step(S, at('eq:armor', { click: 1, press: 1 })); step(S, at('bag:7', { press: 1 })); step(S, at('bag:7'));
@@ -2572,12 +2570,12 @@
     const rs = h.bag.filter(Boolean); if (rs.length !== 5 || h.bag.slice(5).some(Boolean) || rs.some((it, i) => i && (rs[i - 1].rar || 0) < (it.rar || 0))) out.push('bag: the rarity sort does not order the cells or pack them to the front');
     step(S, at('sort:type', { click: 1 })); step(S, at('sort:type')); if (!isCons(h.bag[0])) out.push('bag: the type sort does not put consumables first');
     step(S, at('sort:lvl', { click: 1 })); step(S, at('sort:lvl')); { const ls = h.bag.filter(Boolean); if (ls.some((it, i) => i && (ls[i - 1].lvl || 0) < (it.lvl || 0))) out.push('bag: the level sort does not order the cells'); }
-    S.screen = 'meta'; S.meta.shards = 1000; const M = UI.meta(S.meta.cls).find((q) => q.id === 'bag'); if (!M) { out.push('bag: the altar has no bag upgrade'); return out; }
-    const press = (b) => { step(S, { keys: [], px: b.x + 10, py: b.y + 10, click: 1 }); step(S, { keys: [], px: b.x + 10, py: b.y + 10 }); }, cost = [30, 50, 70, 90];
-    for (let r = 0; r < 4; r++) { const sh = S.meta.shards; press(M); if (sh - S.meta.shards !== cost[r] || h.cap !== 12 + 3 * (r + 1)) out.push(`bag: rank ${r + 1} of the bag upgrade costs ${sh - S.meta.shards} or leaves the hero at ${h.cap} cells`); }
-    { const sh = S.meta.shards; press(M); if (S.meta.shards !== sh || h.cap !== 24) out.push('bag: the bag upgrade goes past 24 cells'); }
-    const old = JSON.parse(JSON.stringify(R)); delete old.hero.cap; old.hero.bag.fill(null); old.hero.bag[20] = Object.assign(rollItem(R, 3, 1), { id: 8000 });
-    const T = spawn(1, JSON.parse(JSON.stringify(persist(Object.assign(spawn(0, {}), { run: old }))))); if (!T.saved || D.bagOpen(T.saved.hero) !== 24 || !T.saved.hero.bag[20]) out.push('bag: a run saved before the cap loses its cells');
+    const old = JSON.parse(JSON.stringify(R)); old.hero.cap = 12; old.hero.bag.fill(null); old.hero.bag[20] = Object.assign(rollItem(R, 3, 1), { id: 8000 });
+    const T = spawn(1, JSON.parse(JSON.stringify(persist(Object.assign(spawn(0, {}), { run: old })))));
+    if (!T.saved || !T.saved.hero.bag[20] || T.saved.hero.bag.length !== 24) out.push('bag: a run saved with the 12-cell cap loses its cells');
+    else { let n = 0; while (n < 30 && bagAdd(T.saved, Object.assign(rollItem(T.saved, 3, 1), { id: 8100 + n }))) n++; if (n !== 23) out.push(`bag: a hero saved with the 12-cell cap fills ${n + 1} of 24 cells`); }
+    { const Q = { rs: 71, hero: h, nextId: 1 }; let t1 = 0, t3 = 0, boss = 0; for (let i = 0; i < 400; i++) { const c = SIMX.chestLoot(Object.assign(Q, { floor: 5 }), { tier: 1 }); if (c.some((it) => !isCons(it))) t1++; if (SIMX.chestLoot(Q, { tier: 3 }).some((it) => !isCons(it))) t3++; }
+      if (t1 < 40 || t1 > 130 || t3 !== 400) out.push(`chest loot: a plain chest holds gear in ${t1}/400, a top-tier one in ${t3}/400`); }
     const V = spawn(0, {}); V.run = newRun(V, 'campaign', 78, { town: 1 }); V.screen = 'stash'; const Hh = V.run.hero, Us = UI.stash(), T2 = stashOf(V);
     Hh.bag.fill(null); T2.items = [rollItem(V.run, 2, 1), rollItem(V.run, 8, 3), null, rollItem(V.run, 5, 2)]; for (const it of T2.items) if (it) it.id = V.run.nextId++;
     { const b = Us.r.find((q) => q.id === 'sortS:rar'); step(V, { keys: [], px: b.x + 10, py: b.y + 10, click: 1 }); step(V, { keys: [], px: b.x + 10, py: b.y + 10 }); }

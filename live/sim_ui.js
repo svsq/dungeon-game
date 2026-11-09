@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, bagCap, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
+    BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
     sortItems, throwAway, useItem } = SIMX;
   // ---------------- run end / menus ----------------
@@ -90,7 +90,7 @@
     const bs = UI.meta(S.meta.cls), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
     if ((click && b && b.id === 'back') || keys.Escape || (S.metaRun && keys.KeyE)) { S.screen = S.metaRun && S.run ? 'play' : 'menu'; S.metaRun = 0; return; }
     if (click && b) { const M = META.find((q) => q.id === b.id); if (M) { const r = S.meta.up[M.id] || 0, c = M.cost(r);
-      if (r < M.max && S.meta.shards >= c) { S.meta.shards -= c; S.meta.up[M.id] = r + 1; if (M.id === 'bag') for (const q of [S.run, S.saved]) if (q) q.hero.cap = Math.max(bagCap(q.hero), D.bagCap(S.meta.up)); S.saveN++; ev(S, { k: 'buy', x, y, id: M.id }); } else ev(S, { k: 'nope', x, y, s: r >= M.max ? TXT('sim_ui.meta.s') : TXT('sim_ui.meta.s.2') }); } }
+      if (r < M.max && S.meta.shards >= c) { S.meta.shards -= c; S.meta.up[M.id] = r + 1; S.saveN++; ev(S, { k: 'buy', x, y, id: M.id }); } else ev(S, { k: 'nope', x, y, s: r >= M.max ? TXT('sim_ui.meta.s') : TXT('sim_ui.meta.s.2') }); } }
     return;
   };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
@@ -137,12 +137,11 @@
   SCREEN.stash = (S, inp, keys, x, y, click) => {
     const R = S.run, U = UI.stash(), b = D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
-    const T = stashOf(S), cap = bagCap(R.hero);
-    if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortItems(R.hero.bag, cap, b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
+    const T = stashOf(S);
+    if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortItems(R.hero.bag, R.hero.bag.length, b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; }
     else if (S.drag) { const from = S.drag.from, k = +from.split(':')[1], to = b && b.id !== from ? b : null; S.drag = null;
-      if (to && to.id.startsWith('bag:') && to.i >= cap) return;
       const same = to && to.id.split(':')[0] === from.split(':')[0];
       // a drag within one grid moves the piece there, as the window's own line says (TASKS 1413)
       if (same && from.startsWith('bag:')) { const B = R.hero.bag; [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
@@ -201,7 +200,7 @@
   // a press on a bag or worn piece picks it up; letting go over its own cell is the click (use / unequip), over another bag cell
   // moves it there (a swap with what lies there), off any cell drops nothing
   const dropInv = (S, R, h, b) => { const dr = S.drag, f = dr.from, eq = f.startsWith('eq:'), k = eq ? f.slice(3) : +f.split(':')[1]; S.drag = null;
-    const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < bagCap(h);
+    const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length;
     if (b && b.id === f) { if (eq) unequip(S, R, h, k); else useItem(S, R, k); }
     else if (bagTo && !eq) { [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
     else if (bagTo && eq) unequip(S, R, h, k, b.i);
@@ -213,7 +212,7 @@
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; return; }
     if (S.drag) { dropInv(S, R, h, b); return; }
     if (!b) return;
-    if (click && b.id.startsWith('sort:')) { sortItems(h.bag, bagCap(h), b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); }
+    if (click && b.id.startsWith('sort:')) { sortItems(h.bag, h.bag.length, b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); }
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i]; h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); }
     if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); }
     if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; D.masteryTake(h); ev(S, { k: 'buy', x, y }); } }
