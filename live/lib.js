@@ -474,6 +474,9 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     if (emit || (rim && !rim.box)) G.blend();
     L.sp = null; draw(); };
 
+  // a telegraph's beat, quickening as its wind-up fills: the phase counts from the telegraph's own start (TASKS 1362: multiplied by the
+  // game clock, the rising rate threw the phase about wildly and the rings flickered at random)
+  L.teleBeat = (u, q) => 0.75 + 0.25 * Math.sin(u * (10 + 9 * q));
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));

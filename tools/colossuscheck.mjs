@@ -177,6 +177,8 @@ try {
       results['stun_' + face] = { frames, anchorError: +error.toFixed(2), radius: +radius.toFixed(2), travel: +travel.toFixed(2) };
     }
     LIB.TRACE = null;
+    { let worst = 0; for (let f = 0, w = 1.2, prev = LIB.teleBeat(0, 0); f < 1.2; f += 1 / 120) { const q = Math.min(1, f / w), b = LIB.teleBeat(f, q * q * (3 - 2 * q)); worst = Math.max(worst, Math.abs(b - prev)); prev = b; }
+      results.teleBeatStep = worst; if (worst > 0.1) failures.push('telegraph beat jumps ' + worst.toFixed(3) + ' a frame'); }
     return { results, failures };
   });
   fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 2));
