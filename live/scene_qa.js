@@ -55,12 +55,12 @@
     for (const [name, S] of states.filter(([n]) => ['dead', 'win', 'dead_short'].includes(n))) {
       const R = SIM.newRun(S, 'campaign', 1234); S.result.hero = R.hero; S.result.heroStats = SIM.stats(R.hero, S.meta);
       if (name !== 'dead_short') S.meta.shards = 99999;
-      S.result.damage = name === 'dead_short' ? [] : [{ t: 1, src: 'lava', n: 28 }, { t: 2, src: TXT('QA.damage.src'), n: 75 },
-        { t: 3, src: TXT('QA.damage.src.2'), n: 180, actor: { type: 'brute', elite: 1, mods: ['explosive', 'vampire'] } }];
+      S.result.damage = name === 'dead_short' ? [] : [{ t: 1, src: 'lava', n: 28 }, { t: 2, src: 'boss bolt', n: 75 },
+        { t: 3, src: 'brute elite blast', n: 180, actor: { type: 'brute', elite: 1, mods: ['explosive', 'vampire'] } }];
     }
     // a run through the town ends on «Вернуться в город» (TASKS 1006)
     { const [, S0] = states.find(([n]) => n === 'dead'), S = Object.assign({}, S0, { result: Object.assign({}, S0.result, { town: 1 }) }); states.push(['dead_town', S]); }
-    for (const [name, src, actor] of [['dead_caster', TXT('QA'), { type: 'cultist', elite: 1, mods: ['summoner', 'vampire'] }], ['dead_lava', 'lava', null],
+    for (const [name, src, actor] of [['dead_caster', 'cultist elite bolt', { type: 'cultist', elite: 1, mods: ['summoner', 'vampire'] }], ['dead_lava', 'lava', null],
       ['dead_ghost', 'ghost', { type: 'ghost', elite: 0 }], ['dead_boss', 'boss', { type: 'boss', elite: 1 }]]) {
       const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.damage[2] = { t: 3, src, n: 99, actor }; states.push([name, S]);
     }

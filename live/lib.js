@@ -401,6 +401,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
     rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+  const UNAME = {};
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
@@ -413,20 +414,35 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     const sw = tx.w * (src[2] - src[0]), sh = tx.h * (src[3] - src[1]);
     let w = o.w, h = o.h; if (w && !h) h = w * sh / sw; if (h && !w) w = h * sw / sh; if (!w) { w = sw; h = sh; }
     const pad = o.pad || 0, pw = w * pad, ph = h * pad;
+    const sp = L.sp;
+    if (sp) { x += sp.dx; y += sp.dy; if (o.m) o = Object.assign({}, o, { m: M.mul(M.t(sp.dx, sp.dy), o.m) }); }
+    const rot = o.rot || 0, piv = o.pivot || [0, 0];
+    let X;
+    if (o.m) { const F = M.mul(L.pre ? M.mul(L.pre, o.m) : o.m, [w + 2 * pw, 0, 0, h + 2 * ph, -pw - piv[0], -ph - piv[1]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; }
+    else { X = G.xf(x - pw, y - ph, w + 2 * pw, h + 2 * ph, rot, piv[0] + pw, piv[1] + ph);
+      if (L.pre) { const F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; } }
+    if (!G.rec && G.outside(X)) return { w, h };
     const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx }); if (U.snap === undefined) U.snap = L.SNAP;
-    if (L.sp) { const sp = L.sp;
-      Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
-      x += sp.dx; y += sp.dy; if (o.m) o = Object.assign({}, o, { m: M.mul(M.t(sp.dx, sp.dy), o.m) }); }
-    const uni = {}; for (const k in U) uni[k.startsWith('u_') ? k : 'u_' + k] = U[k];
+    if (sp) Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
+    const uni = {}; for (const k in U) uni[UNAME[k] || (UNAME[k] = k.startsWith('u_') ? k : 'u_' + k)] = U[k];
     uni.u_pad = [pad / (1 + 2 * pad), pad / (1 + 2 * pad)];
     uni.u_src = src;
-    const rot = o.rot || 0, piv = o.pivot || [0, 0];
-    if (o.m) { const F = M.mul(L.pre ? M.mul(L.pre, o.m) : o.m, [w + 2 * pw, 0, 0, h + 2 * ph, -pw - piv[0], -ph - piv[1]]);
-      G.draw(P.sprite, uni, [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1], [o.flip ? 1 : 0, 0]); return { w, h }; }
-    let X = G.xf(x - pw, y - ph, w + 2 * pw, h + 2 * ph, rot, piv[0] + pw, piv[1] + ph);
-    if (L.pre) { const F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; }
+    if (G.rec && sp === REC_SP) { const pr = L.pre || M_ID; G.rec.push({ U: uni, X, flip: [o.flip ? 1 : 0, 0], x: X[6], y: X[7], al: uni.u_alpha, pre: pr }); return { w, h }; }
     G.draw(P.sprite, uni, X, [o.flip ? 1 : 0, 0]);
     return { w, h };
+  };
+  // A rig is posed once and its silhouette replayed per copy: the pose was 9–40 runs of the same JS per actor per frame.
+  // A copy differs only by offset, alpha, lod and ink colour, and the shift goes through L.pre as it did when each copy was posed.
+  const M_ID = [1, 0, 0, 1, 0, 0], REC_SP = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] };
+  const replay = (list, sp) => { for (const e of list) {
+    if (typeof e === 'string') G.blend(e || undefined);
+    else if (Array.isArray(e)) G.draw(e[0], e[1], e[2], e[3]);
+    else { e.U.u_haze = sp.ink; e.U.u_alpha = sp.a * e.al; e.U.u_lod = sp.lod || 0; e.X[6] = e.x + e.pre[0] * sp.dx + e.pre[2] * sp.dy; e.X[7] = e.y + e.pre[1] * sp.dx + e.pre[3] * sp.dy; G.draw(P.sprite, e.U, e.X, e.flip); } } };
+  L.stamp = (draw, sps) => {
+    if (G.rec) { for (const sp of sps) { L.sp = sp; draw(); } L.sp = null; return; }
+    const list = G.rec = []; L.sp = REC_SP;
+    try { draw(); } finally { G.rec = null; L.sp = null; }
+    for (const sp of sps) replay(list, sp);
   };
   // rig joint trace for qa.mjs (animation.md §14): while L.TRACE is an object, rigs report screen points per actor instance
   L.TRACE = null;
@@ -438,8 +454,9 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
     if (emit) G.blend('emit');
-    for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; L.sp = { dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }; draw(); }
-    if (rim) { G.blend('emit'); L.sp = { dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }; draw(); }
+    const sps = []; for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; sps.push({ dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }); }
+    L.stamp(draw, sps);
+    if (rim) { G.blend('emit'); L.stamp(draw, [{ dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }]); }
     if (emit || rim) G.blend();
     L.sp = null; draw(); };
 

@@ -4,6 +4,7 @@
   const G = (window.G = {});
   let gl, quadBuf, cur = null;
   const progs = {}, texs = {};
+  let dropBinds = () => {};
 
   G.init = (canvas, W, H) => {
     canvas.width = W; canvas.height = H;
@@ -19,7 +20,7 @@
   G.load = (name, url, { repeat = false, nearest = false } = {}) => new Promise((res, rej) => {
     const im = new Image();
     im.onload = () => {
-      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
       if (!nearest) gl.generateMipmap(gl.TEXTURE_2D);
@@ -32,7 +33,7 @@
     im.onerror = () => rej(new Error('failed to load ' + url)); im.src = url;
   });
   G.canvasTex = (name, cv) => {
-    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    dropBinds(); const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -43,7 +44,7 @@
   // with the page's address, the only ways the render reaches the page (ARCHITECTURE.md §8)
   G.canvas = () => document.createElement('canvas');
   G.params = new URLSearchParams(location.search);   // the render's dev switches (?fx=0, ?only=…)
-  G.canvasUpdate = (rec, cv) => { gl.bindTexture(gl.TEXTURE_2D, rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); };
+  G.canvasUpdate = (rec, cv) => { dropBinds(); gl.bindTexture(gl.TEXTURE_2D, rec.t); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv); gl.generateMipmap(gl.TEXTURE_2D); };
   G.tex = (n) => { const t = texs[n]; if (!t) throw new Error('no texture ' + n); return t; };
 
   const VS = `#version 300 es
@@ -77,7 +78,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
 
   // view: the coordinate space draws use (default w×h), e.g. a W/k × H/k target drawn in W×H view px; nearest: sample it crisp
   G.target = (w, h, float = false, { view = [w, h], nearest = false } = {}) => {
-    const t = gl.createTexture(), f = nearest ? gl.NEAREST : gl.LINEAR; gl.bindTexture(gl.TEXTURE_2D, t);
+    dropBinds(); const t = gl.createTexture(), f = nearest ? gl.NEAREST : gl.LINEAR; gl.bindTexture(gl.TEXTURE_2D, t);
     if (float) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
     else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f);
@@ -93,6 +94,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (clear) { gl.clearColor(clear[0], clear[1], clear[2], clear[3]); gl.clear(gl.COLOR_BUFFER_BIT); }
   };
   G.blend = (mode) => {
+    if (G.rec) { G.rec.push(mode || ''); return; }
     gl.enable(gl.BLEND);
     if (mode === 'add') gl.blendFunc(gl.ONE, gl.ONE);
     else if (mode === 'screen') gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
@@ -109,24 +111,36 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     return [w * c, w * s, 0, -h * s, h * c, 0, x + px - (px * c - py * s), y + py - (px * s + py * c), 1];
   };
 
-  let unit = 0;
+  // the quad's corners decide coverage alone: the one vertex shader only applies u_xf, so a quad outside the target can't touch a pixel
+  G.outside = (xf) => {
+    const vw = cur ? cur.vw : G.W, vh = cur ? cur.vh : G.H, x0 = xf[6], y0 = xf[7], x1 = x0 + xf[0], y1 = y0 + xf[1], x2 = x0 + xf[3], y2 = y0 + xf[4], x3 = x1 + xf[3], y3 = y1 + xf[4];
+    return (x0 <= 0 && x1 <= 0 && x2 <= 0 && x3 <= 0) || (x0 >= vw && x1 >= vw && x2 >= vw && x3 >= vw) || (y0 <= 0 && y1 <= 0 && y2 <= 0 && y3 <= 0) || (y0 >= vh && y1 >= vh && y2 >= vh && y3 >= vh);
+  };
+  let unit = 0, lastProg = null, attrSet = false;
+  const unitTex = [];
+  dropBinds = () => { unitTex.length = 0; };
+  const sameVec = (u, v) => { const l = u.last; if (!l || l.length !== v.length) { u.last = new Float64Array(v); return false; } let eq = true; for (let i = 0; i < v.length; i++) if (l[i] !== v[i]) { l[i] = v[i]; eq = false; } return eq; };
+  const sameNum = (u, v) => { if (u.last === v) return true; u.last = v; return false; };
   const setU = (P, k, v) => {
     const u = P.loc[k]; if (!u) return;
     const T = gl;
-    if (u.type === T.SAMPLER_2D) { const tx = v.t || v; gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tx); gl.uniform1i(u.l, unit++); }
-    else if (u.type === T.FLOAT) gl.uniform1f(u.l, v);
-    else if (u.type === T.FLOAT_VEC2) gl.uniform2fv(u.l, v);
-    else if (u.type === T.FLOAT_VEC3) gl.uniform3fv(u.l, v);
-    else if (u.type === T.FLOAT_VEC4) gl.uniform4fv(u.l, v);
-    else if (u.type === T.FLOAT_MAT3) gl.uniformMatrix3fv(u.l, false, v);
-    else if (u.type === T.INT) gl.uniform1i(u.l, v);
+    if (u.type === T.SAMPLER_2D) { const tx = v.t || v, n = unit++; if (unitTex[n] !== tx) { unitTex[n] = tx; gl.activeTexture(gl.TEXTURE0 + n); gl.bindTexture(gl.TEXTURE_2D, tx); } if (!sameNum(u, n)) gl.uniform1i(u.l, n); }
+    else if (u.type === T.FLOAT) { if (!sameNum(u, v)) gl.uniform1f(u.l, v); }
+    else if (u.type === T.FLOAT_VEC2) { if (!sameVec(u, v)) gl.uniform2fv(u.l, v); }
+    else if (u.type === T.FLOAT_VEC3) { if (!sameVec(u, v)) gl.uniform3fv(u.l, v); }
+    else if (u.type === T.FLOAT_VEC4) { if (!sameVec(u, v)) gl.uniform4fv(u.l, v); }
+    else if (u.type === T.FLOAT_MAT3) { if (!sameVec(u, v)) gl.uniformMatrix3fv(u.l, false, v); }
+    else if (u.type === T.INT) { if (!sameNum(u, v)) gl.uniform1i(u.l, v); }
   };
   G.draw = (P, U, xf, flip = [0, 0]) => {
-    gl.useProgram(P.p); unit = 0;
+    if (G.rec) { G.rec.push([P, U, xf, flip]); return; }
+    if (G.outside(xf)) return;
+    if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
+    unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
     setU(P, 'u_res', res); setU(P, 'u_xf', xf); setU(P, 'u_flip', flip);
     for (const k in U) setU(P, k, U[k]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    if (!attrSet) { attrSet = true; gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
   G.full = (P, U) => { const res = cur ? [cur.vw, cur.vh] : [G.W, G.H]; G.draw(P, U, G.xf(0, 0, res[0], res[1])); };

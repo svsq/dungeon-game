@@ -37,7 +37,7 @@
   const campaignDone = (R) => !!R.viaTown && (!!R.campaignWon || (R.slain || []).includes(D.RUNS.campaign.floors));
   const exitKind = (R, f = R.floor) => (!finalFloor(R, f) ? 'stairs' : R.viaTown ? null : 'portal');
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
-  const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? TXT('sim_core.who') : '') : '?';
+  const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' elite' : '') : '?';
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
   const logFloor = (R) => R.log.fl[R.log.fl.length - 1];
   const add = (o, k, n = 1) => { o[k] = (o[k] || 0) + n; };
