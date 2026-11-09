@@ -25,6 +25,15 @@
     { const c = stage('archer'); c.h.powers = { rl_quiver: 1 }; const e = foe(c.R, c.h, 100); for (let i = 0; i < 4; i++) heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); if (!c.R.proj.some((p) => p.k === 'arrow')) out.push('relic: the fourth arrow called no other'); }
     if (D.giftCost(4, 1) <= 2 * D.giftCost(3, 1)) out.push('relic: not dear');
   }
+  function checkEvolutions(out) {
+    for (const g of D.GIFTS.filter((q) => q.needs)) { const c = stage('warrior'); if (D.giftPool(c.h, 3).some((q) => q.id === g.id)) out.push(`evo: ${g.id} is in the plain pool`); for (const n of g.needs) if (!D.POWERS[n]) out.push(`evo: ${g.id} needs ${n}, no such power`);
+      const ab = D.POWERS[g.needs[0]].ab; if (ab && g.needs.some((n) => D.POWERS[n].ab && !Object.values(D.CLASSES).find((C) => C.abilities.includes(ab)).abilities.includes(D.POWERS[n].ab))) out.push(`evo: ${g.id} needs two classes' powers`);
+      if (g.ab !== undefined && !Object.values(D.CLASSES).some((C) => C.abilities.includes(g.ab))) out.push(`evo: ${g.id} has no class`);
+      c.h.powers = { [g.needs[0]]: 1 }; if (D.evosReady(c.h).some((q) => q.id === g.id)) out.push(`evo: ${g.id} ready with one of two`); c.h.powers[g.needs[1]] = 1; if (!D.evosReady(c.h).some((q) => q.id === g.id)) out.push(`evo: ${g.id} not ready with both`);
+      const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; if (sh.gifts[2].id !== g.id) out.push(`evo: the altar's dear card is ${sh.gifts[2].id}, not ${g.id}`);
+      c.h.powers[g.id] = 1; if (D.evosReady(c.h).some((q) => q.id === g.id)) out.push(`evo: ${g.id} offered twice`); }
+    { const c = stage('mage'); c.h.powers = { fire_split: 1, ev_comet: 1 }; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj.length !== 5) out.push(`evo: the comet is ${c.R.proj.length} balls`); }
+  }
   function checkPowerPack(out) {
     const T = 'POWERS', own = (c, id) => { (c.h.powers = c.h.powers || {})[id] = 1; };
     for (const [id, P] of Object.entries(D.POWERS)) { if (!P.name || !P.desc || P.name.startsWith(T) || P.desc.startsWith(T)) out.push(`power: ${id} has no words`);
@@ -61,7 +70,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

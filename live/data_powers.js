@@ -18,6 +18,12 @@
     leap_trap: { id: 'leap_trap', name: TXT('POWERS.leap_trap.name'), desc: TXT('POWERS.leap_trap.desc'), ab: 'leap', trig: 'cast:leap', fx: 'dropTrap', k: 1.5 },
     dash_trail: { id: 'dash_trail', name: TXT('POWERS.dash_trail.name'), desc: TXT('POWERS.dash_trail.desc'), trig: 'dash', fx: 'burnGround', shape: 'line', gap: 40, k: 0.15, t: 1.5, per: 0.4, icd: 0.5 },
     dash_strike: { id: 'dash_strike', name: TXT('POWERS.dash_strike.name'), desc: TXT('POWERS.dash_strike.desc'), trig: 'dashTouch', fx: 'strike', k: 0.5 },
+    // the evolutions (TASKS 392): two powers held, the altar's dear card is this one
+    ev_storm: { id: 'ev_storm', name: TXT('POWERS.ev_storm.name'), desc: TXT('POWERS.ev_storm.desc'), ab: 'whirl', trig: 'cast:whirl', fx: 'nova', k: 0.8, r: 150, fire: 1 },
+    ev_comet: { id: 'ev_comet', name: TXT('POWERS.ev_comet.name'), desc: TXT('POWERS.ev_comet.desc'), ab: 'fireball', trig: 'cast:fireball', fx: 'split', a: 0.55, k: 0.4 },
+    ev_bulwark: { id: 'ev_bulwark', name: TXT('POWERS.ev_bulwark.name'), desc: TXT('POWERS.ev_bulwark.desc'), ab: 'shield', trig: 'shieldBreak', fx: 'nova', k: 1, spell: 1, r: 130, fire: 1 },
+    ev_mines: { id: 'ev_mines', name: TXT('POWERS.ev_mines.name'), desc: TXT('POWERS.ev_mines.desc'), ab: 'trap', trig: 'trapsnap', fx: 'dropTrap', k: 1, icd: 2 },
+    ev_shoulder: { id: 'ev_shoulder', name: TXT('POWERS.ev_shoulder.name'), desc: TXT('POWERS.ev_shoulder.desc'), trig: 'dashTouch', fx: 'nova', k: 0.5, r: 70, fire: 1 },
     // the relics (TASKS 1178): a dear tier of its own, a rule of the run changed
     rl_fifth: { id: 'rl_fifth', name: TXT('POWERS.rl_fifth.name'), desc: TXT('POWERS.rl_fifth.desc'), trig: 'kill', each: 5, fx: 'nova', k: 1.5, r: 130, kb: 1, fire: 1 },
     rl_scroll: { id: 'rl_scroll', name: TXT('POWERS.rl_scroll.name'), desc: TXT('POWERS.rl_scroll.desc'), trig: 'scroll', fx: 'heal', v: 1 },
@@ -31,9 +37,11 @@
     volley_pierce: [2, 'ab_volley'], trap_burst: [2, 'ab_trap'], leap_trap: [3, 'ab_leap'], dash_trail: [3, 'it_boots'], dash_strike: [2, 'ab_charge'] };
   for (const [id, [tier, icon]] of Object.entries(GIFT_OF)) { const P = POWERS[id]; D.GIFTS.push({ id, tier, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
   for (const [id, icon] of Object.entries({ rl_fifth: 'bf_burn', rl_scroll: 'it_hp', rl_pyre: 'bf_burn', rl_maelstrom: 'ab_whirl', rl_phalanx: 'ab_shield', rl_quiver: 'ab_volley' })) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 4, relic: 1, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
+  for (const [id, needs, icon] of [['ev_storm', ['whirl_pull', 'whirl_ring'], 'ab_whirl'], ['ev_comet', ['fire_split', 'fire_pierce'], 'ab_fire'], ['ev_bulwark', ['shield_burst', 'shield_feed'], 'ab_shield'], ['ev_mines', ['trap_burst', 'leap_trap'], 'ab_trap'], ['ev_shoulder', ['dash_trail', 'dash_strike'], 'bf_burn']]) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 3, evo: 1, needs, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
   const RELIC_MAX = 3, relicsOf = (h) => Object.keys(h.powers || {}).filter((id) => (D.GIFTS.find((g) => g.id === id) || {}).relic).length;
   const hasPower = (h, id) => !!(h.powers || {})[id];
   // what an altar may offer this hero of a tier: not another class's power, not one for an ability not yet open, not one already held
-  const giftPool = (h, tier) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
-  Object.assign(D, { POWERS, giftPool, hasPower, RELIC_MAX, relicsOf });
+  const giftPool = (h, tier) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && !g.needs && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
+  const evosReady = (h) => D.GIFTS.filter((g) => g.needs && !hasPower(h, g.id) && g.needs.every((id) => hasPower(h, id)));
+  Object.assign(D, { POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);
