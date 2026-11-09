@@ -10,7 +10,7 @@
     const up = meta.up || {}, C = D.CLASSES[cls], ab = {}, cd = {};
     for (const a of C.abs) { ab[a.id] = a.unlock <= 1 ? 1 : 0; cd[a.id] = 0; }
     const h = { cls, x: 0, y: 0, vx: 0, vy: 0, face: 1, faceT: -9, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
-      base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(24).fill(null), ab,
+      base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(D.BAG.start).fill(null), ab,
       cd: Object.assign(cd, { dash: 0, atk: 0 }), atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
       hurtT: -9, ifr: 0, shield: 0, shieldT: -9, shieldUntil: 0, poison: 0, burn: 0, burnT: -9, spikeT: -9, dist: 0, gp: 0, deadT: -1, regen: 0, bless: 0 };
     for (const k of D.SLOTS) h.eq[k] = null;
@@ -20,7 +20,7 @@
     const R = { mode, seed, diff: S.demo ? 'normal' : S.meta.diff || 'normal', itemBalance: D.ITEM_BAL.version, rs: seed | 0, floor: 1, t: 0, nextId: 1, kills: 0, goldTot: 0, shards: 0, hero: newHero(S.meta, o.cls || S.meta.cls || 'warrior'), cam: [0, 0], camV: [0, 0],
       freeze: 0, trauma: 0, map: null, en: [], proj: [], drops: [], chests: [], pots: [], shrines: [], seen: [], rseen: [], bossDead: 0, won: 0, saveT: 0, msg: null };
     if (!S.demo) R.log = { v: 1, diff: R.diff, seed, meta: Object.assign({}, S.meta.up), runs: S.meta.runs || 0, fl: [] };
-    const h = R.hero, C = D.clsOf(h), G = C.grow, W = C.start.weapon, A = C.start.armor;
+    const h = R.hero, C = D.clsOf(h), G = C.grow, KT = D.kitOf(S.demo ? {} : S.meta, C.id), W = KT.weapon, A = C.start.armor; h.kit = KT.id; if (KT.power) h.powers = { [KT.power]: 1 }; if (D.STAT_POWER[C.id]) (h.powers = h.powers || {})[D.STAT_POWER[C.id]] = 1;
     const give = (it) => { it.id = R.nextId++; return it; };
     h.eq.weapon = give(Object.assign(rollItem(R, 1, 0, 'weapon'), { b: W, rar: 0, mods: {}, atk: BASES[W].atk }));
     h.eq.armor = give({ b: A, rar: 0, lvl: 1, mods: {}, def: BASES[A].def });
@@ -116,7 +116,7 @@
     for (const e of mobs.slice(0, oldDead(R, f, M, P.en))) { e.hp = 0; e.deadT = 0; }
     for (const k of FLOOR_KEYS) R[k] = B[k];
     const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
-    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
+    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.open = 1; c.openT = -9; } R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     M.gv = D.GEN_VERSION; M.d = null; M.drops = []; M.seen = null; M.rseen = null; }
   // how many of an old floor's own monsters died there, from its diff: a floor built with ids from M.id on gives its i-th monster
@@ -144,7 +144,7 @@
     R.floor = f; if (f > 0) R.deepest = Math.max(R.deepest || 0, f); R.propHit = {};   // only the last floor's boss opens the way out: a save from when the 8th was the last carries the lord's
     if (R.log) R.log.fl.push({ f, bag: potCount(R.hero), eq: Object.fromEntries(Object.entries(R.hero.eq).filter(([, it]) => it).map(([k, it]) => [k, gearName(it)])), perks: Object.assign({}, R.hero.perks), time: 0, lvlIn: R.hero.lvl, lvl: R.hero.lvl, xp: 0, minHp: 1, minMp: 1, kills: {}, dmg: {}, hits: {}, pot: {}, ab: {}, gold: 0, buy: 0, sell: 0, buys: [] });
     const M = f > 0 && R.memo && R.memo[f];
-    if (M) { const mig = restoreFloor(R, f, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
+    if (M) { const mig = restoreFloor(R, f, M); SIMX.dropMarks(R, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
     else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); SIMX.questPlace(S, R); } }
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock

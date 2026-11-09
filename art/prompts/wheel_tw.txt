@@ -1,0 +1,4 @@
+Use case: one small prop for the start town, a ruined fortress courtyard, of a top-down 3/4 dungeon game. Image 1 is the style reference. Image 2 is the approved town concept's crop: match its materials, NOT its light.
+Subject: a broken wooden cart wheel leaning at an angle, two spokes missing, a rusty iron tyre, 22 art pixels wide, 22 tall.
+Composition: one prop centred, complete, wide empty margin, transparent background.
+Constraints: painted unlit in even neutral light, no glow, no shadow on the ground, no floor, no text.

@@ -1,0 +1,8 @@
+PIECE: one brass book clasp mounted on the edge of a cover, seen flat from above: a small rectangular strap end of dark leather with a brass plate and two rivets on it and a brass hook part, simple and sturdy, dark outline.
+SHAPE: a single horizontal sprite drawn as if 48x32 art pixels, the strap meets the book at the left side of the image, the brass part points to the right.
+USE CASE: one reusable piece of the user interface of the dark-fantasy pixel-art dungeon game of Image 1, direction "codex and leather": a hand-made book, aged parchment, dark stitched leather, brass fittings, oxblood wax and ribbon. This image is that single piece, nothing else: no screen, no scene, no character, no second copy of the piece.
+VIEW: perfectly flat and straight-on, as if scanned, no perspective, no tilt, no 3/4 view. For this image the style bible's "top-down 3/4 view" and "no UI frames" do not apply; everything else in it does.
+PIXEL ART: every pixel a hard square of one flat colour on one even grid, 3-4 flat tone steps per material, hard edges, no anti-aliasing, no blur, no gradient, no glow, no cast shadow. Even neutral studio light from the top-left.
+PALETTE: parchment #c8b89a, parchment shadow #a08a62, stains #6b5a3e, ink #231010, red ink and wax #73140d / #4f150c, leather #552f25, leather highlight #733a21, leather shadow #36120f, brass #9f5116 / #e2881e / #f9ce4a, outline #060506.
+ABSOLUTELY NO text, no letters, no numbers, no runes, no glyph marks, no logo, no watermark.
+BACKGROUND: the piece lies on a flat, even pure magenta background (#ff00ff) with nothing else on it, no shadow on the magenta, at least 40 image pixels of clear magenta on every side unless the piece is told to touch the edge. No magenta inside the piece unless told so.

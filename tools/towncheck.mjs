@@ -27,6 +27,7 @@ const townRun = (seed) => { const S = SIM.spawn(0, {}); S.run = SIM.newRun(S, 'c
 // keeps to the open; the goal is any cell whose centre already satisfies the predicate (tested with the hero put there and back)
 function route(R, goal, banned) {
   const m = R.map, h = R.hero, W = m.W, ok = m.town ? DG.townWalk(m) : m.cells.map((c) => c === 1), hx = h.x, hy = h.y, folk = R.folk || [];
+  if (m.town) for (const d of m.decor) if (d.role === 'bench') ok[Math.floor(d.y / TILE) * W + Math.floor(d.x / TILE)] = false;
   const free = (k) => ok[k] && !banned.has(k), at = (k) => { h.x = (k % W + 0.5) * TILE; h.y = (Math.floor(k / W) + 0.5) * TILE; return goal(R); };
   const near = (k) => { let n = 0; for (const d of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) if (!ok[k + d]) n++; return n; };
   const by = (k) => folk.some((f) => Math.hypot(f.x - (k % W + 0.5) * TILE, f.y - (Math.floor(k / W) + 0.5) * TILE) < 30);
@@ -105,7 +106,7 @@ for (const seed of seeds) for (const N of floors) {
   R.map.traps = R.map.traps.filter((q) => Math.hypot(q.x - h.x, q.y - h.y) > 120);
   const c = R.chests.find((q) => !q.open); if (c) SIM.openChest(S, R, c);
   R.drops.push({ id: R.nextId++, kind: 'gold', x: h.x + 40, y: h.y, vx: 0, vy: 0, z: 0, vz: 0, n: 77, t0: S.t, rest: 4 });
-  for (let i = 0; i < 120; i++) stepIn(S); h.ifr = 0;
+  for (let i = 0; i < 120; i++) stepIn(S); for (const e of R.en) if (e.summ === 'amb') { e.hp = 0; e.deadT = S.t; } h.ifr = 0;
   h.bag[6] = { b: 'scroll', n: 2, id: R.nextId++ }; const gold = h.gold, P0 = [h.x, h.y];
   stepIn(S, { keys: ['KeyI'] }); const b = D.UI.inv().r.find((q) => q.id === 'bag:6'); stepIn(S, { click: 1, px: b.x + 10, py: b.y + 10 });
   if (!h.read || S.screen !== 'play') { errors.push(`${tag}: a click on the scroll in the bag does not start the reading (${S.screen})`); continue; }

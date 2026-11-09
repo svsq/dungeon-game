@@ -78,7 +78,7 @@
         if (T) {
           const origin = R2U(0, hipDy), ax = R2U(1, hipDy), ay = R2U(0, hipDy + 1), dx = T[0] - origin[0], dy = T[1] - origin[1];
           const a = ax[0] - origin[0], b = ax[1] - origin[1], c = ay[0] - origin[0], d = ay[1] - origin[1], det = a * d - b * c;
-          const ik = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], side === 'L' ? 1 : -1);
+          const ik = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], (o.bend && o.bend[side]) || (side === 'L' ? 1 : -1));
           // a third value blends the joints' angles to the reach by it, not the hand's target: the reach may bend the elbow the other
           // way than the pose it takes over from, and a target slid in from that pose flipped the elbow in a frame (the golem's slam)
           const wrap = (v) => v - TAU * Math.round(v / TAU);
@@ -131,7 +131,7 @@
         const [w0, h0] = [G.tex(o.n + '_shield').w, G.tex(o.n + '_shield').h], sw = RG.shieldW * s, sh = sw * h0 / w0;
         L.sprite(o.n + '_shield', 0, 0, { m: M.of(M.t(Hd[0] + face * 4 * s, Hd[1] - 6 * s), M.r(fallR + lean * 0.5), M.s(face * 0.8, 1)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }); } }); };
     // far arm (+ its item) → far leg → near leg → body → near arm (+ its item)
-    drawArm('L', o.Ufar); held('L', o.Ufar); drawLeg('L', o.Ufar); drawLeg('R', o.U);
+    if (!o.farOver) { drawArm('L', o.Ufar); held('L', o.Ufar); } drawLeg('L', o.Ufar); drawLeg('R', o.U);
     const glowPass = tx !== o.n, crust = RG.plates && o.plates;
     piece('body', hipS, () => L.sprite(tx + (crust && !glowPass ? '__core' : '__body'), 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U }));
     // the golem's crust (TASKS 458): its plates over the bare core, as many as it has left; one knocked off is thrown away from the
@@ -165,6 +165,7 @@
     for (const nm of ['sword', 'head']) if (RG[nm] && RG.parts && RG.parts.includes(nm)) part(nm, RG[nm], R2U(RG[nm][0], RG[nm][1] + hipDy), nm === 'head' ? o.headR || 0 : -lean * 0.6 + 0.02 * breath, o.U, 1, lean, nm === 'head' ? o.headF ?? 1 : 1);
     // what the near arm holds in front of the body (the porter's crate)
     if (o.front) o.front((sd) => R2U(arms[sd].Hd[0], arms[sd].Hd[1]));
+    if (o.farOver) { drawArm('L', o.Ufar); held('L', o.Ufar); }
     drawArm('R', o.U); held('R', o.U);
     if (RG.mantleL) for (const side of ['L', 'R']) part('mantle' + side, Hc, hipS, 0, o.U, 1, lean);
     // the far foot stands higher in 3/4: each foot has its own ground

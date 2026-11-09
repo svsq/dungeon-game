@@ -19,7 +19,7 @@
   const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; let t = Math.imul(R.rs ^ (R.rs >>> 15), 1 | R.rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const ri = (R, a, b) => a + Math.floor(rnd(R) * (b - a + 1));
   const pick = (R, arr) => arr[Math.floor(rnd(R) * arr.length)];
-  const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
+  const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (!S.demo && SIMX.META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log && !S.demo) note(S, e); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
@@ -54,6 +54,7 @@
     else if (e.k === 'cast' || e.k === 'whirl' || e.k === 'shield') add(L.ab, e.k === 'cast' ? 'fireball' : e.k);
     if (e.k === 'equip' || e.k === 'unequip') { const st = SIMX.heroSt(S); (L.gear = L.gear || []).push({ t: +e.t.toFixed(2), slot: e.slot, on: e.on || null, off: e.off || null, maxHp: st.maxHp, def: st.def, atk: st.atk }); }
     if (e.k === 'bless') { const st = SIMX.heroSt(S); (L.gifts = L.gifts || []).push(e.cost == null ? { t: +e.t.toFixed(2), id: e.id, revive: 1 } : { t: +e.t.toFixed(2), id: e.id, name: e.s, cost: e.cost, maxHp: st.maxHp, def: st.def, atk: st.atk }); } }
+  SIMX.META_EV = new Set(['kill', 'hit', 'pickup', 'bless']);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 
@@ -80,8 +81,15 @@
   // a sealed arena's lava is no way out for the hero: a river of the fire biome runs through its wall in about one floor-6 arena in
   // five, and out by it he was shut out of the room with the stairs (TASKS 470); m.arenaBox is the room's box while sealed
   const sealedOut = (m, tx, ty) => { const A = m.arenaBox; return !!A && (tx < A[0] || ty < A[1] || tx >= A[2] || ty >= A[3]); };
+  // a lava bridge's rope rails stand on the lava cells along both sides of its deck: nobody walks off the deck into the fire (derived from m.crossings, cached)
+  const RAIL = new WeakMap();
+  const railed = (m, k) => { let r = RAIL.get(m);
+    if (!r) { RAIL.set(m, r = new Set());
+      for (const c of m.crossings || []) { if (c.kind !== 'bridge' || !c.span) continue; const [u0, u1, v0] = c.span, hor = c.axis === 'x';
+        for (let u = u0; u <= u1; u++) for (const v of [v0 - 1, v0 + 2]) { const q = (hor ? v : u) * m.W + (hor ? u : v); if (m.cells[q] === 3) r.add(q); } } }
+    return r.has(k); };
   const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty);
-    if (c === 3) { const k = ty * m.W + tx; if (!mon && sealedOut(m, tx, ty)) return true; if (crustAt(m, k)) return !!mon && !lavaOk; return !lavaOk && !(!mon && m.arenaLava && m.arenaLava.includes(k)); } if (c === 0 && lavaOk === 2 && chasm(m, tx, ty)) return false; return c !== 1; };
+    if (c === 3) { const k = ty * m.W + tx; if (railed(m, k)) return true; if (!mon && sealedOut(m, tx, ty)) return true; if (crustAt(m, k)) return !!mon && !lavaOk; return !lavaOk && !(!mon && m.arenaLava && m.arenaLava.includes(k)); } if (c === 0 && lavaOk === 2 && chasm(m, tx, ty)) return false; return c !== 1; };
   // the brink (TASKS 476, data.js BRINK): a cell a monster sinks or falls in; whether one can be pushed off at all; the drop cell
   // within `near` of it, if any (nearest first); whether a blow from (sx, sy) drives it at a drop
   const dropCell = (m, tx, ty) => (cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx)) || chasm(m, tx, ty);

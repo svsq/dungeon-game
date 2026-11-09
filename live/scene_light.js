@@ -9,13 +9,13 @@
       B, GL, GT, MH, MW, R, ST, TL, basaltOcc, cx, cy, flick, fuseAt, h, hid, known, lavaBeat, lavaCells, lavaSrc, m, seen, st, sx, sy, t,
       vis, warnOf, weaponCol } = F;
     // ===== light map =====
-    const ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], ak = B.ambK || 0.3, amb = AMB.map((v, i) => ((1 - ak) * v + ak * B.amb[i] * ab) * (B.ambLvl || 1)); G.bind(SCX.LT.light, [...amb, 1]); G.blend('add');
+    const FM = D.FLOOR_MODS[m.mod] || {}, ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], ak = B.ambK || 0.3, amb = AMB.map((v, i) => ((1 - ak) * v + ak * B.amb[i] * ab) * (B.ambLvl || 1) * (FM.dim || 1)); G.bind(SCX.LT.light, [...amb, 1]); G.blend('add');
     const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + SCX.VW + r || y < cy - r || y > cy + SCX.VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
     if (B.cave && !m.cliff) lt(h.x, h.y - 45, 75, [0.35, 0.6, 0.85], 0.18);
-    // (a floor without light, TASKS 381, has the lamp reach `light` times as far)
-    const lk = (D.FLOOR_MODS[m.mod] || {}).light || 1;
+    // (a floor without light, TASKS 381, has the lamp reach `light` times as far; TASKS 1364: its ambient is `dim` of a plain floor's and its fixed fires and glows `lit` of theirs)
+    const lk = FM.light || 1, ltS = (x, y, r, col, amt, k) => lt(x, y, r, col, amt * (FM.lit || 1), k);
     lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
@@ -23,19 +23,19 @@
     for (const [id, [p0, p1]] of Object.entries(RIM.kindled)) lt((p0[0] + p1[0]) / 2 + cx, (p0[1] + p1[1]) / 2 + cy, 90, [1, 0.5, 0.15], 0.5 + 0.1 * Math.sin(t * 13 + +id));
     for (const [id, f] of Object.entries(RIM.embers)) lt(f[1][0] + cx, f[1][1] + cy + 20, 150, [1, 0.5, 0.15], 0.55 + 0.12 * Math.sin(t * 11 + +id) + 0.08 * Math.sin(t * 23 + 2 * id));
     for (const [id, [pe, pa, g]] of Object.entries(RIM.mages)) { if (pe) lt(pe[0] + cx, pe[1] + cy, 70, [0.35, 0.85, 0.95], 0.5); if (g > 0) lt(pa[0] + cx, pa[1] + cy, 50 + 40 * g, [0.35, 0.85, 0.95], 0.8 * g); }
-    TL.forEach((q) => lt(...q)); GL.forEach((q) => lt(...q));
+    TL.forEach((q) => ltS(...q)); GL.forEach((q) => ltS(...q));
     for (const r of m.rooms) if (r.zone) { const col = D.BIOMES[r.zone].torch, nx = Math.max(1, Math.round((r.w - 2) / 8)), ny = Math.max(1, Math.round((r.h - 2) / 8));
-      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) lt((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 150, col, D.BIOMES[r.zone].fill || 0.32, 1.8); }
-    for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) lt(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) ltS((r.x + 1 + (r.w - 2) * (i + 0.5) / nx) * TILE, (r.y + 1 + (r.h - 2) * (j + 0.5) / ny) * TILE, 150, col, D.BIOMES[r.zone].fill || 0.32, 1.8); }
+    for (const d of m.decor) if (d.n === 'crystal' && !hid(d)) ltS(d.x, d.y - 30, 220, [0.35, 0.6, 1.0], 0.9 * flick(d.x));
     // the shop is lit warm and bright: lanterns by its ways in, a lamp over the counter
-    if (m.shop) { for (const q of m.shop.lanterns) lt(q.x, q.y - 40, 190, [1, 0.78, 0.45], 0.85 * flick(q.x)); lt(m.shop.x, m.shop.y - 50, 260, [1, 0.82, 0.55], 0.75); }
+    if (m.shop) { for (const q of m.shop.lanterns) ltS(q.x, q.y - 40, 190, [1, 0.78, 0.45], 0.85 * flick(q.x)); ltS(m.shop.x, m.shop.y - 50, 260, [1, 0.82, 0.55], 0.75); }
     // the town's lights (TASKS 1005): from its map's data, beating on the clock like every fire
     if (m.town) for (const q of m.town.lights) { const L0 = TOWN_LIGHT[q.kind]; if (!L0) continue; const b = q.kind === 'runes' || q.kind === 'altar' ? 0.88 + 0.12 * Math.sin(t * 1.3 + q.x) : flick(q.x + q.y);
       lt(q.x, q.y + L0.dy, L0.r, L0.col, L0.amt * b); if (L0.core) lt(q.x, q.y + L0.dy, L0.core, L0.col.map((v) => 0.5 + 0.5 * v), L0.amt * b, 2.4); }
     // the magma caves' lava is their main light: wider, and its pools beat slowly instead of flickering like a fire (TASKS 404)
     // (a cell the map's edge bit off throws less, TASKS 490: their light lit a straight red band along the edge)
     const edgeK = (x, y) => (m.cliff ? Math.min(1, Math.max(0, (Math.min(x, y, m.W - 1 - x, m.H - 1 - y) - 1.5) / 4)) : 1);
-    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) lt(x * TILE + 16, y * TILE + 16, m.cliff ? 112 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.86 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); lt(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
+    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) ltS(x * TILE + 16, y * TILE + 16, m.cliff ? 112 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.86 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); ltS(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     // a vent heats up over its warning (TASKS 406); its burst flashes from its event
     for (const z of m.hazards || []) { if (z.k !== 'vent') continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w >= 0) lt(z.x, z.y - 10, 110 + 90 * w / H.warn, [1, 0.45, 0.12], 0.25 + 0.95 * w / H.warn); }
