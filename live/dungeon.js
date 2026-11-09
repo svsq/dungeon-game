@@ -212,7 +212,7 @@
     benches: [[25, 16], [29, 19], [26, 20]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
     // enchanter's runes, the Altar of Souls, the crypt's glow from below; the campfire and the gate's braziers are its torches
-    lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['stash', 39, 23], ['crypt', 27, 11], ['adit', 47, 22], ['portal', 16, 22]],
+    lights: [['forge', 38, 10], ['runes', 39, 17], ['candle', 40, 17], ['altar', 36, 23], ['stash', 39, 23], ['crypt', 27, 11], ['adit', 47, 22], ['portal', 16, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
     lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [31, 28], [22, 8], [23, 28], [14, 28], [32, 31], [39, 28], [42, 27], [48, 29], [9, 8], [41, 8], [32, 8], [43, 15]],
@@ -312,6 +312,7 @@
     for (let y = 2; y < H - 1; y++) for (let x = 2; x < W - 2; x++) { const k = y * W + x; if (cells[k] !== 1 || pv.has(k)) continue; const wallBy = cells[k - W] === 0 || cells[k - 1] === 0 || cells[k + 1] === 0, paveBy = pv.has(k - W) || pv.has(k + W) || pv.has(k - 1) || pv.has(k + 1);
       if (!wallBy && !paveBy) continue; for (let j = 0, n = wallBy ? 2 : 1; j < n; j++) { const px = (x + R()) * TILE, py = (y + R()) * TILE; if (R() < (wallBy ? 0.2 : 0.45) || near(px, py, 22)) continue;
         decals.push({ x: px, y: py, n: wallBy ? ['dc_fern_tw', 'dc_fern_tw_b', 'dc_grass_tw_b', 'dc_grass_tw', 'dc_bush_tw', 'dc_flowers_tw_a', 'dc_flowers_tw_b', 'dc_moss_tw_a'][Math.floor(R() * 8)] : ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw'][Math.floor(R() * 3)], f: R() < 0.5 ? 1 : -1, s: 0.75 + R() * 0.55 }); } }
+    for (const [k, r] of [[T.lectern, 2.2], [T.portal, 2]]) for (let i = decals.length - 1; i >= 0; i--) if (Math.hypot(decals[i].x - wx(k[0]), decals[i].y - wy(k[1])) < r * TILE) decals.splice(i, 1);
     for (const d of decals) { d.x = Math.round(d.x); d.y = Math.round(d.y); d.s = Math.round(d.s * 100) / 100; }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin), exitGate: at(T.use.exitGate) };
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
