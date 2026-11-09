@@ -418,6 +418,13 @@
   const mimicTwitch = (c, t) => { const ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1; return ph < 0.5 ? { rot: 0.035 * Math.sin(ph * 42) * (1 - ph / 0.5), dx: 0, sy: 1, fl: 0 } : undefined; };
   const CHEST_BOSS = { tex: 'chest_boss', k: 1.35, u: { grade: [1, 0.85, 0, 1.25], tint: [1, 0.32, 0.3, 0.7] } };
   const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
+  // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
+  // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
+  const DEBRIS_T = 0.42;
+  function debris(x, y, seed, a, wood, tex, n, sp = 1) { for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, lx = x + Math.cos(an) * far, ly = y + 3 + Math.sin(an) * far * 0.62;
+      const q = Math.min(1, Math.max(0, a) / DEBRIS_T), arc = 4 * q * (1 - q) * (26 + 22 * rnd(seed, i + 7)), px = x + (lx - x) * q, py = y - 10 * (1 - q) + (ly - y) * q - arc, rest = (rnd(seed, i + 13) - 0.5) * (wood ? 1.1 : 3.1), rot = rest + (1 - q) * (rnd(seed, i + 19) - 0.5) * 16, tone = 0.72 + 0.22 * rnd(seed, i + 23);
+      if (wood) { const small = i >= 5, w = (small ? 8 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)), h = w * 210 / 952 * (small ? 1.5 : 1.15); L.sprite(i % 2 ? 'plank_b' : 'plank_a', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h, pivot: [w / 2, h / 2], u: { grade: [0.9, tone, 0, 1] } }); }
+      else { const c = 4, u0 = i % c / c, v0 = Math.floor(rnd(seed, i + 5) * c) / c, S0 = 12 + 7 * rnd(seed, i + 9); L.sprite(tex, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: S0, h: S0, pivot: [S0 / 2, S0 / 2], src: [u0, v0, u0 + 1 / c, v0 + 1 / c], u: { grade: [0.95, tone, 0, 1] } }); } } }
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   const NO_INK = new Set(['bones', 'torch_sconce']);
@@ -445,6 +452,6 @@
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    chestLook, mimicTwitch, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, mimicTwitch, debris, DEBRIS_T, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);
