@@ -406,7 +406,7 @@
   // o: { id, x, y, H, t, look (−1..1, where the hero stands), near (0..1), greetT, tradeT, U }
   // L is the screen-left arm (it works the scales on the counter's left), R strokes the beard and waves
   MON.merchant = (o) => {
-    const RG = RIGS.merchant; if (!RG || !window.ASSETS.merchant__body) return false;
+    const rig = o.rig || 'merchant', RG = RIGS[rig]; if (!RG || !window.ASSETS[rig + '__body']) return false;
     const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y];
     const S2 = (px, py) => [root[0] + (px - gx) * s, root[1] + (py - gy) * s];
     const bump = (u, a, b) => (u <= a || u >= b ? 0 : Math.pow(Math.sin(Math.PI * (u - a) / (b - a)), 2));
@@ -422,8 +422,8 @@
     const arm = (side, r) => { const S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
       const E = rotP([E0[0], E0[1] + lift], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + lift], Sp, r[0]), E, r[1] - r[0]); return { S0, E0, Sp, E, Hd, r }; };
     const A = { L: arm('L', rL), R: arm('R', rR) };
-    const part = (nm, pv, at, rot) => L.sprite('merchant__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
-    L.sprite('merchant__body', 0, 0, { m: M.of(M.t(...root)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    const part = (nm, pv, at, rot) => L.sprite(rig + '__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
+    L.sprite(rig + '__body', 0, 0, { m: M.of(M.t(...root)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
     const look = (o.look || 0) * (o.near || 0), hr = 0.09 * look - 0.07 * peek - 0.18 * recoil, hx = 5 * look - 4 * peek, hy = lift + 8 * peek + 6 * nod - 14 * recoil;
     part('head', RG.neck, [RG.neck[0] + hx, RG.neck[1] + hy], hr);
     for (const sd of ['L', 'R']) { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]); }

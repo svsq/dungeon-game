@@ -129,7 +129,7 @@
       if (b) lab(id, s, b.x + w / 2, b.y + hh / 2, { ...o, al: 0.5 });
     };
     if (m.shop && R.shop && GT >= R.shop.hitT && GT - R.shop.hitT < 2.5 && seen(m.shop.x, m.shop.y) && S.screen === 'play') {
-      const s = D.SHOP.hitLines[R.shop.hitLine || 0], size = 22, w = lw('merchant_hit', s, { size }) + 28;
+      const s = (R.shop.wander ? D.SHOP.wander.hit : D.SHOP.hitLines)[R.shop.hitLine || 0], size = 22, w = lw('merchant_hit', s, { size }) + 28;
       const b = place(V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60, w, 42, actorZones);
       if (b) { panel('merchant_bubble', b.x, b.y, w, 42); lab('merchant_hit', s, b.x + w / 2, b.y + 22, { size, al: 0.5, col: C.gold }); }
     }
@@ -539,7 +539,7 @@
   function shop(S, R, t) {
     const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); panel('shop', P.x, P.y, P.w, P.h, { r: 10 });
-    lab('sh_t', sh.wander ? TXT('hud.shop') : TXT('hud.shop.2'), P.x + 40, P.y + (sh.wander ? 46 : 36), { size: sh.wander ? 40 : 34, col: C.gold }); if (!sh.wander) lab('sh_j', TXT('hud.shop.job'), P.x + 40, P.y + 68, { size: 19, col: C.dim });
+    lab('sh_t', sh.wander ? TXT('hud.shop') : TXT('hud.shop.2'), P.x + 40, P.y + 36, { size: 34, col: C.gold }); lab('sh_j', sh.wander ? TXT('hud.shop.job.w') : TXT('hud.shop.job'), P.x + 40, P.y + 68, { size: 19, col: C.dim });
     const gs = TXT('hud.shop.gs', { gold: h.gold }); lab('sh_g', gs, P.x + P.w - 96, P.y + 46, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 28, 36);
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 20 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 20, col: can ? C.gold : '#8a6a5a' }); };
     lab('sh_buy', R.town ? TXT('hud.shop.3', { p1: sh.at ? TXT('hud.shop.4', { at: sh.at }) : '' }) : sh.wander ? TXT('hud.shop.5', { floor: R.floor }) : TXT('hud.shop.6', { floor: R.floor }), P.x + 40, P.y + 100, { size: 24, col: C.dim });
@@ -549,8 +549,8 @@
     lab('sh_bag', TXT('hud.shop.8'), P.x + 620, P.y + 100, { size: 24, col: C.dim });
     for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'sell:' + i), it = h.bag[i]; slot(S, b, it); if (it) price('shp_s' + i, b, D.sellPrice(it, f), true); }
     // the merchant himself, his line for this visit
-    const mx = P.x + 720, my = P.y + P.h - 64, [mw, mh] = SZ('merchant'), k = 2.1;
-    L.sprite('merchant', mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
+    const mx = P.x + 720, my = P.y + P.h - 64, mn = sh.wander ? 'wanderer' : 'merchant', [mw, mh] = SZ(mn), k = 2.1;
+    L.sprite(mn, mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
     const LN = sh.wander ? D.SHOP.wander.lines : D.SHOP.lines, line = '«' + LN[sh.line % LN.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 40;
     panel('sh_bubble', P.x + 620, P.y + 556, bw, 48, { r: 10 }); lab('sh_line', line, P.x + 640, P.y + 581, { size: lsz, col: '#fff2c8' });
     refusal(S, P.x + P.w / 2, P.y + P.h - 62);

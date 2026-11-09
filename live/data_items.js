@@ -116,7 +116,7 @@
     // the wandering merchant (TASKS 1010): in a run through the town a floor's merchant is a chance, from the 2nd floor on; his gear
     // is stocked `depth` floors deeper, a little better made, the showpiece a rarity up
     wander: { chance: 0.1, from: 2, depth: 2, q: 0.5, best: 1,
-      lines: [TXT('SHOP.wander.lines'), TXT('SHOP.wander.lines.2'), TXT('SHOP.wander.lines.3'), TXT('SHOP.wander.lines.4')] },
+      lines: TXT.talk('wanderer').lines, hit: TXT.talk('wanderer').hit },
     lines: TXT.talk('merchant').lines,
     hitLines: TXT.talk('merchant').hit,
     // in the town he calls the hero over from across the yard (TASKS 1015)

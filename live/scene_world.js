@@ -479,7 +479,7 @@
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
       if (!SIM.Q.shopShut(R)) Y.push([sh.y, () => { L.shadow(sx(sh.x), sy(sh.y) + 2, 26, 6, 0.4);
-        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: Math.max(R.shop.greetT, R.town ? R.shop.callT ?? -9 : -9), tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+        L.inked(() => MONSTERS.merchant({ id: 'merchant', rig: R.shop.wander ? 'wanderer' : undefined, x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: Math.max(R.shop.greetT, R.town ? R.shop.callT ?? -9 : -9), tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
