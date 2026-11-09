@@ -226,6 +226,7 @@
     for (const o of L) { if (out.length >= n) break; if (o.kind === 'note' && ofEra(o) && fits(o)) out.push(o); }
     out.forEach((o, i) => { if (rooms.length) put(o, rooms[i % rooms.length]); });
     (m.secrets || []).forEach((q, i) => { const o = L.find((v) => v.kind === 'secret' && ofEra(v) && fits(v)); if (o) put(o, m.rooms[q.room], i); }); }
+  function nameElites(R) { for (const e of R.en) { const G = D.ELITE_NAMES[D.ELITE_GROUP[e.type]]; if (!e.elite || e.title || e.nm || D.BOSSES[e.type] || !G) continue; let a = qhash((R.seed >>> 0) * 257 + (e.id || 0) * 2654435 + R.floor * 811); const n = G.names[a % G.names.length]; a = qhash(a + 0x9e3779b9); const w = G.adj[a % G.adj.length]; e.nm = n[0] + ' ' + w[n[1] === 'f' ? 1 : 0]; } }
   const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
   function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
   const isFree = (R, w) => !!(R.freed && R.freed[w]), capOf = (R, w) => (R.captives || {})[w];
@@ -438,7 +439,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    notePlace, noteNear, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    nameElites, notePlace, noteNear, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

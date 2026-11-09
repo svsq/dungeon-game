@@ -22,6 +22,10 @@ for (const [k, v] of Object.entries(RU)) for (const m of JSON.stringify(v).match
   if (RU[n] === undefined) fails.push(`text_ru.js: ${k} refers to ${n}, which the table lacks`); else used.set(n, 1);
 }
 for (const k of Object.keys(RU)) if (!used.has(k)) fails.push(`text_ru.js: ${k} is never used`);
+require(path.join(LIVE, 'text_names_ru.js'));
+const BAD = /хуй|хуе|пизд|ебан|ебат|бляд|сука|мудак|жоп|говн|дерьм|ублюд/i, NAMES = globalThis.TEXT.names || {};
+for (const [g, v] of Object.entries(NAMES)) for (const [k, L] of [['name', v.names.map((n) => n[0])], ['epithet', v.adj.map((a) => a[0])]]) {
+  const seen = new Set(); for (const w of L) { if (seen.has(w)) fails.push(`names ${g}: duplicate ${k} ${w}`); seen.add(w); if (BAD.test(w)) fails.push(`names ${g}: crude ${k} ${w}`); } }
 for (const f of fails) console.log('FAIL', f);
 console.log(`textcheck: ${Object.keys(RU).length} texts, ${fails.length ? fails.length + ' failure(s)' : 'ok'}`);
 process.exitCode = fails.length ? 2 : 0;

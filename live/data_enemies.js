@@ -265,7 +265,9 @@
   // against a plateau's
 
   const FEM = new Set(['salamander', 'boss_spider']), femAdj = (w) => TXT.fem(w);
-  const eliteName = (e) => e.title || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name).map((w) => (FEM.has(e.type) ? femAdj(w) : w)), ENEMIES[e.type].name]
+  const ELITE_GROUP = { skeleton: 'bones', skel_archer: 'bones', skel_mage: 'bones', skel_ember: 'bones', ghost: 'ghost', cultist: 'cult', fire_priest: 'cult', drowned: 'drowned', spider: 'spider', crab: 'crab', eel: 'eel', slime: 'slime', slime_s: 'slime', salamander: 'salamander', goblin: 'goblin', imp: 'imp', brute: 'demon', golem: 'golem' };
+  const ELITE_NAMES = (globalThis.TEXT || {}).names || {};
+  const eliteName = (e) => e.title || e.nm || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name).map((w) => (FEM.has(e.type) ? femAdj(w) : w)), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
   const NAMED = { hp: 1.3, titles: [TXT('NAMED.titles'), TXT('NAMED.titles.2'), TXT('NAMED.titles.3'), TXT('NAMED.titles.4'), TXT('NAMED.titles.5'), TXT('NAMED.titles.6'), TXT('NAMED.titles.7'), TXT('NAMED.titles.8')] };
@@ -278,5 +280,5 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
 
-  Object.assign(D, { BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt });
+  Object.assign(D, { ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt });
 })(typeof window !== 'undefined' ? window : globalThis);
