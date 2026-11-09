@@ -365,7 +365,8 @@
           if (m.torches.some((t) => t.r === r.id && t.sec !== i)) out.push(`seed ${seed} f${f}: a torch lights secret ${i} before it is found`);
           // each secret has its cover or its mechanism, and a mechanism is found and worked from the open floor
           const tag = `seed ${seed} f${f}: secret ${i} (${q.kind})`;
-          if (!['crack', 'banner', 'shelf', 'lever'].includes(q.kind)) out.push(`${tag} has no kind`);
+          if (!['crack', 'banner', 'shelf', 'lever', 'statue'].includes(q.kind)) out.push(`${tag} has no kind`);
+          if (q.kind === 'statue') { const d = m.decor.find((o) => o.secret === i && o.n === 'statue' && o.solid); if (!d || !q.slide || q.dir !== 'u') out.push(`${tag} has no statue or no room to slide`); const row = Math.floor(d.y / TILE), x1 = Math.floor((q.x + q.slide) / TILE); if (cell(m, x1, row) !== 1 || cell(m, x1, row - 1) !== 0 || cell(m, x1, row + 1) !== 1) out.push(`${tag} would slide onto a way or off the wall`); }
           if ((q.kind === 'banner' || q.kind === 'shelf') && q.dir !== 'u') out.push(`${tag} is not on a top wall`);
           if (q.kind === 'banner' && !m.decor.some((d) => d.secret === i && d.n === 'banner' && d.wall)) out.push(`${tag} has no banner`);
           if (q.kind === 'shelf' && !m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid)) out.push(`${tag} has no bookshelf`);
@@ -1286,6 +1287,9 @@
         const pair = Object.values(byR).find((l) => l.length >= 2); if (!pair) continue; coffins++; R.en = []; for (const d of pair) { S.t += 1; root.SIMX.coffinWakes(S, R, d); root.SIMX.coffinWakes(S, R, d); }
         if (R.en.length !== 1 || R.en[0].st !== 'rise' || R.en[0].type !== 'skeleton') out.push(`coffin: ${R.en.length} skeletons from one room`); const e = R.en[0]; if (e) { for (let k = 0; k < 150; k++) step(S, { keys: [] }); if (e.st === 'rise') out.push('coffin: its skeleton never finished rising'); } }
       D.COFFIN.p = p0; if (!coffins) out.push('coffin: no room with two on 80 seeds'); }
+    { let st = 0; for (let sd = 1; sd <= 200 && !st; sd++) for (const f of [1, 3, 5]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 13540 + sd); if (f > 1) enterFloor(S, S.run, f); const R = S.run, m = R.map, i = m.secrets.findIndex((o) => o.kind === 'statue'); if (i < 0) continue; st = 1; S.screen = 'play'; const q = m.secrets[i], d = m.decor.find((o) => o.secret === i), x0 = d.x, h = R.hero; R.en = []; h.x = q.x; h.y = q.y + 70; h.vx = h.vy = 0; for (let k = 0; k < 10; k++) step(S, { keys: [] });
+        step(S, { keys: ['KeyE'] }); if (!q.open || d.x !== x0 + q.slide) out.push('statue: E does not slide it off its secret'); const to = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE), from = Math.floor(d.y / TILE) * m.W + Math.floor(x0 / TILE); if (!m.block.includes(to) || m.block.includes(from)) out.push('statue: the block did not move with it'); break; }
+      if (!st) out.push('statue: no statue secret on 200 seeds'); }
     let wrecks = 0;
     for (let sd = 1; sd <= 60 && !wrecks; sd++) for (let f = 1; f <= 4 && !wrecks; f++) { const S = spawn(0, {}); S.run = newRun(S, 'cave', 1361 + sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, m = R.map, d = m.decor.find((o) => o.n === 'wreck_cv' && o.solid); if (!d) continue; wrecks++;
       R.en = []; R.drops = []; const n0 = R.en.length, k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); for (let i = 0; i < D.WRECK.hp; i++) { S.t += 1; root.SIMX.hitWreck(S, R, d); }
@@ -1336,10 +1340,11 @@
         if (q.kind === 'crack') { settle(q.x - q.dx * 40, q.y - q.dy * 40); swing(q.x, q.y); swing(q.x, q.y); }
         if (q.kind === 'shelf') { settle(q.x, q.y + 70); swing(q.x, q.y + 22); swing(q.x, q.y + 22); }
         if (q.kind === 'banner') { settle(q.x, q.y + 34); step(S, { keys: ['KeyE'] }); }
+        if (q.kind === 'statue') { settle(q.x, q.y + 70); step(S, { keys: ['KeyE'] }); }
         if (tc) { settle(tc.x, tc.y + 50); step(S, { keys: ['KeyE'] }); }
         if (P && P.k === 'plate') settle(P.x, P.y);
         if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${P ? ' ' + P.k : ''}, ${q.dir}) does not open from its tell`);
-        m.secrets.forEach((o, j) => { if (o.open && !base[j]) { o.open = 0; o.hp = 2; o.hitT = -9; if (kindOf(o) === 'shelf') shelfOf(m, j, true); } });
+        m.secrets.forEach((o, j) => { if (o.open && !base[j]) { o.open = 0; o.hp = 2; o.hitT = -9; if (kindOf(o) === 'shelf') shelfOf(m, j, true); if (kindOf(o) === 'statue') root.SIMX.statueOf(m, j, o, true); } });
         for (let k = 0; k < cells0.length; k++) m.cells[k] = cells0[k];
         for (const c of R.chests) c.open = 0; }); }
     // loot: open every chest of a few floors (secret ones too), let the items fall and pick up half of them; the floor's books

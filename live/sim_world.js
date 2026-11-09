@@ -163,19 +163,21 @@
   const secretAt = (m, tx, ty) => (m.secrets || []).find((q) => !q.open && q.wall.some(([x, y]) => x === tx && y === ty));
   const kindOf = (q) => q.kind || 'crack';
   function hitSecrets(S, R, x, y, rad, ax, arc) {
-    for (const q of R.map.secrets || []) { if (q.open) continue; const fy = q.y + (kindOf(q) === 'shelf' ? 22 : 0), dx = q.x - x, dy = fy - (y - 10), d = Math.hypot(dx, dy);
+    for (const q of R.map.secrets || []) { if (q.open) continue; const fy = q.y + (kindOf(q) === 'shelf' || kindOf(q) === 'statue' ? 22 : 0), dx = q.x - x, dy = fy - (y - 10), d = Math.hypot(dx, dy);
       if (d > rad + 26) continue; if (arc !== undefined && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) continue; if (!losClear(R.map, x, y, q.x, fy)) continue; hitSecret(S, R, q); } }
   function hitSecret(S, R, q) {
     if (S.t - (q.hitT ?? -9) < 0.2) return;
     q.hitT = S.t; if (kindOf(q) === 'lever') { ev(S, { k: 'hollow', x: q.x, y: q.y - 20 }); return; }
     if (kindOf(q) === 'banner') { openSecret(S, R, q); return; }
+    if (kindOf(q) === 'statue') { ev(S, { k: 'hollow', x: q.x, y: q.y - 20 }); return; }
     q.hp--; R.trauma = Math.min(1, R.trauma + 0.2);
     if (q.hp > 0) { if (kindOf(q) === 'crack') ev(S, { k: 'wallhit', x: q.x, y: q.y - 20, i: R.map.secrets.indexOf(q) }); return; }
     openSecret(S, R, q);
   }
   function openSecret(S, R, q, quiet) {
     const m = R.map, i = m.secrets.indexOf(q), kind = kindOf(q); q.open = 1; q.openT = S.t; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1;
-    if (quiet) { if (kind === 'shelf') shelfOf(m, i, false); return; }
+    if (quiet) { if (kind === 'shelf') shelfOf(m, i, false); if (kind === 'statue') statueOf(m, i, q, false); return; }
+    if (kind === 'statue') { statueOf(m, i, q, false); R.trauma = Math.min(1, R.trauma + 0.25); }
     if (kind === 'crack') { for (let k = 0; k < 4; k++) m.decals.push({ x: q.x - 22 + k * 15, y: q.y - 6 - (k % 2) * 22, n: 'dc_rubble', f: k & 1, s: 0.8 + 0.1 * k }); R.trauma = Math.min(1, R.trauma + 0.45); R.freeze = Math.max(R.freeze, 0.06); }
     if (kind === 'shelf') { shelfOf(m, i, false);
       for (let k = 0; k < 3; k++) m.decals.push({ x: q.x - 30 + k * 30, y: q.y + 24 + (k % 2) * 8, n: k === 1 ? 'dc_straw' : 'dc_rubble', f: k & 1, s: 0.9 }); R.trauma = Math.min(1, R.trauma + 0.35); }
@@ -187,12 +189,15 @@
   // a secret's bookshelf standing (it blocks its cell) or broken (it does not)
   function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
     d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
+  // a secret's statue on its plinth over the opening or slid aside: only ever one of the two cells is blocked
+  function statueOf(m, i, q, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const cellOf = (o) => Math.floor(d.y / TILE) * m.W + Math.floor(o / TILE), at0 = stand ? q.x + q.slide : q.x, at1 = stand ? q.x : q.x + q.slide;
+    m.block = m.block.filter((b) => b !== cellOf(at0)); d.x = at1; if (!m.block.includes(cellOf(at1))) m.block.push(cellOf(at1)); }
   // debug: open every secret of the floor without counting it; again, seal the ones it opened (a hero inside is put back in front)
   function debugSecrets(S, R) { const m = R.map, h = R.hero;
     if (!R.dbgOpen) { R.dbgOpen = []; m.secrets.forEach((q, i) => { if (!q.open) { openSecret(S, R, q, true); R.dbgOpen.push(i); } }); return; }
     const htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE);
     for (const i of R.dbgOpen) { const q = m.secrets[i], r = m.rooms[q.room]; q.open = 0; q.hp = 2; q.hitT = -9; delete q.openT; if (q.trig) delete q.trig.downT;
-      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (kindOf(q) === 'shelf') shelfOf(m, i, true);
+      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (kindOf(q) === 'shelf') shelfOf(m, i, true); if (kindOf(q) === 'statue') statueOf(m, i, q, true);
       if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (kindOf(q) === 'shelf' ? 40 : 0); h.vx = h.vy = 0; } }
     R.dbgOpen = null; }
   // debug: every item of loot this floor still holds, where it is and whether the hero can get to it, and the books: what the
@@ -283,6 +288,7 @@
   function secretUnder(R) { const h = R.hero, m = R.map;
     return (m.secrets || []).find((q) => { if (q.open) return false;
       if (kindOf(q) === 'banner') return Math.abs(h.x - q.x) < 40 && h.y > q.y && h.y - q.y < 64;
+      if (kindOf(q) === 'statue') return Math.abs(h.x - q.x) < 56 && h.y > q.y && h.y - q.y < 104;
       if (q.trig && q.trig.k === 'sconce') { const t = m.torches[q.trig.t]; return t && Math.abs(h.x - t.x) < 36 && h.y > t.y && h.y - t.y < 90; } return false; }); }
   function openChest(S, R, c) {
     if (c.open) return;
@@ -328,6 +334,6 @@
 
   Object.assign(SIMX, {
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
-    hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
+    hitSecrets, hitSecret, openSecret, shelfOf, statueOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
     leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

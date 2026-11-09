@@ -679,6 +679,9 @@
     secrets.forEach((q, i) => { const [fx, fy] = q.front[5], sh = rooms.find((o) => o.type === 'shop') || NO_SHOP, inR = (o, x, y) => x >= o.x - 1 && x <= o.x + o.w && y >= o.y - 1 && y <= o.y + o.h;
       const torchNear = torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - q.x) < 2 * TILE && Math.abs(t.y - fy * TILE) < TILE);
       if (q.kind === 'banner' && torchNear) q.kind = 'shelf';
+      // a statue that slides along the wall (TASKS 1354): two free cells beside the opening under solid wall, the row in front open
+      const slides = [1, -1].filter((s) => { const xs = s > 0 ? [fx + 2, fx + 3] : [fx - 2, fx - 1]; return xs.every((x) => (free(x, fy) || q.front.some(([a, b]) => a === x && b === fy)) && !doorway(x, fy) && at(x, fy - 1) === 0 && at(x, fy + 1) === 1 && !secCells.has(fy * W + x)) && !torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.y - fy * TILE) < TILE * 1.5 && Math.abs(t.x - (q.x + s * 2 * TILE)) < 24); });
+      if (!cave && q.dir === 'u' && (q.kind === 'crack' || q.kind === 'lever') && slides.length && roomy(fx, fy, 'statue', q.x) && !hungAt(q.x, fy, half('statue')) && mul32(seed ^ 0x1354 ^ i)() < D.STATUE_SECRET.p) { q.kind = 'statue'; q.slide = slides[0] * 2 * TILE; claim(fx, fy, 'statue', q.x); const xs = slides[0] > 0 ? [fx + 2, fx + 3] : [fx - 2, fx - 1]; for (const x of xs) used.add(key(x, fy)); decor.push({ x: q.x, y: fy * TILE + 22, n: 'statue', solid: 1, secret: i }); }
       if (q.kind === 'shelf' && (!roomy(fx, fy, 'bookshelf', q.x) || hungAt(q.x, fy, half('bookshelf')))) q.kind = torchNear ? 'crack' : 'banner';
       if (q.kind === 'banner' && (tallAt(q.x, fy, HANG.banner) || doorTop(q.x, fy, HANG.banner))) q.kind = 'crack';
       if (q.kind === 'banner') { for (let k = decor.length - 1; k >= 0; k--) if (decor[k].n === 'banner' && Math.abs(decor[k].x - q.x) < 3 * TILE && Math.abs(decor[k].y - (fy * TILE - 2)) < TILE) decor.splice(k, 1);
