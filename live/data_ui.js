@@ -63,7 +63,7 @@
     // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
     // a quest's page (TASKS 1018) puts its take or turn-in button left of it; the smith's talk keeps a way into his workshop
     talk: (T) => { const P = { x: 330, y: 540, w: 1260, h: 430 }, at = (i) => ({ x: P.x + P.w - 330 - i * 310, y: P.y + P.h - 92, w: 290, h: 64 }), last = T && T.p + 1 >= T.pages.length, r = [{ id: 'next', label: '', on: true, ...at(0) }];
-      if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: TXT('UI.talk.label'), on: true, ...at(r.length) }); if (T && T.origin && last && r.length < 3) r.push({ id: 'origin', label: TXT('UI.talk.origin'), on: true, ...at(r.length) }); return { P, r }; },
+      if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: TXT('UI.talk.label'), on: true, ...at(r.length) }); if (T && T.topics && !T.menu && !T.inTopic && last && r.length < 3) r.push({ id: 'talk', label: TXT('UI.talk.talk'), on: true, ...at(r.length) }); if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 })); return { P, r }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
     board: (n) => { const P = { x: 230, y: 90, w: 1460, h: 900 }, r = [];
@@ -114,7 +114,7 @@
       for (let i = 0; i < nGoods; i++) r.push({ id: 'buy:' + i, i, x: P.x + 40 + (i % 4) * 116, y: P.y + 130 + Math.floor(i / 4) * 140, w: 92, h: 92 });
       for (let i = 0; i < SHOP.buyback; i++) r.push({ id: 'back:' + i, i, x: P.x + 40 + i * 116, y: P.y + 580, w: 92, h: 92 });
       for (let i = 0; i < 24; i++) r.push({ id: 'sell:' + i, i, x: P.x + 620 + (i % 8) * 108, y: P.y + 130 + Math.floor(i / 8) * 140, w: 92, h: 92 });
-      r.push({ id: 'origin', on: true, label: TXT('UI.talk.origin'), x: P.x + 830, y: P.y + P.h - 170, w: 290, h: 56 });
+      r.push({ id: 'talk', on: true, label: TXT('UI.talk.talk'), x: P.x + 830, y: P.y + P.h - 170, w: 290, h: 56 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
       return { P, r };
     },

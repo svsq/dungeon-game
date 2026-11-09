@@ -115,14 +115,15 @@
     if (!T || !S.run || keys.Escape) { S.screen = 'play'; S.talk = null; return; }
     if (click && b && b.id === 'craft') { S.talk = null; S.screen = 'craft'; S.craft = { kind: 'forge', sel: S.craft && S.craft.kind === 'forge' ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     // on a quest's last page E, the space or Enter press its button; «Дальше» / «Не сейчас» leave it
+    if (T.menu) { const pick = T.topics.findIndex((q, i) => keys['Digit' + (i + 1)]), n = click && b && b.id.startsWith('topic:') ? b.i : pick; if (n >= 0) { T.pages = T.topics[n].a; T.p = 0; T.menu = 0; T.inTopic = 1; ev(S, { k: 'ui', x, y }); return; } if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { S.screen = 'play'; S.talk = null; } return; }
     const last = T.p + 1 >= T.pages.length; if (last && T.pt === undefined) T.pt = S.t;
     // (the end of the run, TASKS 1148, only by its button or Enter: E run through the Keeper's pages must not end it)
     // a quest's taking waits a moment after its last page opens: E run through the pages must not take it (TASKS 1635); the space only turns pages and closes
     const take = T.act && T.act.k === 'take', ready = keys.KeyE && (!take || S.t - T.pt >= 0.25);
     if (take && last && keys.KeyE && !ready) return;
     if (T.act && last && ((click && b && b.id === 'act') || (ready && T.act.k !== 'finish') || keys.Enter)) { talkAct(S, S.run, T); delete T.pt; return; }
-    if (click && b && b.id === 'origin' && T.origin) { T.pages = T.origin; T.origin = null; T.p = 0; T.act = null; T.craft = 0; delete T.pt; ev(S, { k: 'ui', x, y }); return; }
-    if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { S.screen = 'play'; S.talk = null; } else ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.id === 'talk' && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; delete T.pt; ev(S, { k: 'ui', x, y }); return; }
+    if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { if (T.inTopic) { T.inTopic = 0; T.menu = 1; T.pages = ['']; T.p = 0; ev(S, { k: 'ui', x, y }); } else { S.screen = 'play'; S.talk = null; } } else ev(S, { k: 'ui', x, y }); }
     return;
   };
   SCREEN.craft = (S, inp, keys, x, y, click) => {
@@ -174,7 +175,7 @@
     const R = S.run, sh = R.shop, U = UI.shop(sh.goods.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (!click || !b) return;
-    if (b.id === 'origin' && !sh.wander) { S.talk = { role: 'merchant', i: 0, pages: D.FOLK.merchant.origin.slice(), p: 0, act: null }; S.screen = 'talk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
+    if (b.id === 'talk' && !sh.wander) { S.talk = { role: 'merchant', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.merchant.topics, menu: 1 }; S.screen = 'talk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (b.id.startsWith('buy:') && sh.goods[b.i]) buy(S, R, sh.goods[b.i], 0);
     if (b.id.startsWith('back:') && sh.back[b.i]) buy(S, R, sh.back[b.i], 1);
     if (b.id.startsWith('sell:')) sell(S, R, b.i);

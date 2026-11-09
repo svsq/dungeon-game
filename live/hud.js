@@ -561,7 +561,7 @@
     const LN = sh.wander ? D.SHOP.wander.lines : D.SHOP.lines, line = '«' + LN[sh.line % LN.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 40;
     panel('sh_bubble', P.x + 620, P.y + 556, bw, 48, { r: 10 }); lab('sh_line', line, P.x + 640, P.y + 581, { size: lsz, col: '#fff2c8' });
     refusal(S, P.x + P.w / 2, P.y + P.h - 62);
-    if (!sh.wander) button('sh_orig', U.r.find((q) => q.id === 'origin'), S.hover);
+    if (!sh.wander) button('sh_orig', U.r.find((q) => q.id === 'talk'), S.hover);
     lab('sh_help', TXT('hud.shop.9'), P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('sh_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('sh_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     const hb = U.r.find((q) => q.id === S.hover); if (!hb) return;
@@ -757,10 +757,11 @@
       if (ic) { panel('tk_ic', P.x + 300, P.y + P.h - 160, 44, 44, { r: 6 }); icon(ic, P.x + 304, P.y + P.h - 156, 36); }
       if (SIM.Q.rwLine(T.act.rw)) lab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, { size: 22, col: INK.g }); }
     if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: INK.d });
-    button('tk_next', Object.assign({}, at('next'), { label: T.p + 1 < T.pages.length ? TXT('hud.talk.label') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3') }), S.hover);
+    button('tk_next', Object.assign({}, at('next'), { label: T.menu ? TXT('hud.talk.label.3') : T.p + 1 < T.pages.length ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3') }), S.hover);
     if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5') }), S.hover);
     if (at('craft')) button('tk_craft', at('craft'), S.hover);
-    if (at('origin')) button('tk_orig', at('origin'), S.hover);
+    if (at('talk')) button('tk_orig', at('talk'), S.hover);
+    U.r.filter((q) => q.id.startsWith('topic:')).forEach((q) => button('tk_t' + q.i, q, S.hover));
     lab('tk_keys', act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : act ? TXT('hud.talk', { p1: T.act.k === 'take' ? TXT('hud.talk.2') : TXT('hud.talk.3') }) : TXT('hud.talk.4'), W / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------

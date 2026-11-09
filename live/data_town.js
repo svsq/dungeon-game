@@ -55,15 +55,15 @@
   // loop (per s; hit: the loop's impact phase, rest: every rest-th loop is a breather) and, for those with a round, the walking
   // speed and the pause at each stop. The sim's events (the anvil's ring, the keeper's sparks) and the render share one clock
   const FOLK = {
-    smith: { name: TXT('FOLK.smith.name'), job: TXT('FOLK.smith.job'), per: 1.45, hit: 0.6, rest: 4, lines: TXT.talk('smith').lines, origin: TXT.talk('smith').origin },
-    enchanter: { name: TXT('FOLK.enchanter.name'), job: TXT('FOLK.enchanter.job'), per: 7.5, hit: 0.55, lines: TXT.talk('enchanter').lines, origin: TXT.talk('enchanter').origin },
-    keeper: { name: TXT('FOLK.keeper.name'), job: TXT('FOLK.keeper.job'), per: 9, hit: 0.3, lines: TXT.talk('keeper').lines, origin: TXT.talk('keeper').origin },
-    guard: { name: TXT('FOLK.guard.name'), job: TXT('FOLK.guard.job'), per: 8, lines: TXT.talk('guard').lines, origin: TXT.talk('guard').origin },
-    porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, lines: TXT.talk('porter').lines, origin: TXT.talk('porter').origin },
-    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, lines: TXT.talk('sweeper').lines, origin: TXT.talk('sweeper').origin },
-    child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, lines: TXT.talk('child').lines, origin: TXT.talk('child').origin },
-    mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, lines: TXT.talk('mason').lines, origin: TXT.talk('mason').origin },
-    merchant: { name: TXT('FOLK.merchant.name'), job: TXT('hud.shop.job'), origin: TXT.talk('merchant').origin },
+    smith: { name: TXT('FOLK.smith.name'), job: TXT('FOLK.smith.job'), per: 1.45, hit: 0.6, rest: 4, lines: TXT.talk('smith').lines, topics: TXT.talk('smith').topics },
+    enchanter: { name: TXT('FOLK.enchanter.name'), job: TXT('FOLK.enchanter.job'), per: 7.5, hit: 0.55, lines: TXT.talk('enchanter').lines, topics: TXT.talk('enchanter').topics },
+    keeper: { name: TXT('FOLK.keeper.name'), job: TXT('FOLK.keeper.job'), per: 9, hit: 0.3, lines: TXT.talk('keeper').lines, topics: TXT.talk('keeper').topics },
+    guard: { name: TXT('FOLK.guard.name'), job: TXT('FOLK.guard.job'), per: 8, lines: TXT.talk('guard').lines, topics: TXT.talk('guard').topics },
+    porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, lines: TXT.talk('porter').lines, topics: TXT.talk('porter').topics },
+    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, lines: TXT.talk('sweeper').lines, topics: TXT.talk('sweeper').topics },
+    child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, lines: TXT.talk('child').lines, topics: TXT.talk('child').topics },
+    mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, lines: TXT.talk('mason').lines, topics: TXT.talk('mason').topics },
+    merchant: { name: TXT('FOLK.merchant.name'), job: TXT('hud.shop.job'), topics: TXT.talk('merchant').topics },
     hen: { per: 2.2 },
   };
   // how long a pair of lines shows (each line half of it)
@@ -82,6 +82,6 @@
     return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
 
   const NOTE_LIST = (globalThis.TEXT || {}).notes || [];
-  const NOTES = { n: [3, 5], era: { dungeon: 'cellar', crypt: 'crypt', lava: 'forge', arcane: 'halls', cave: 'flooded', magma: 'magma' }, list: NOTE_LIST, byId: Object.fromEntries(NOTE_LIST.map((n) => [n.id, n])) };
+  const NOTES = { lift: { table: 36, bookshelf: 58 }, n: [3, 5], era: { dungeon: 'cellar', crypt: 'crypt', lava: 'forge', arcane: 'halls', cave: 'flooded', magma: 'magma' }, list: NOTE_LIST, byId: Object.fromEntries(NOTE_LIST.map((n) => [n.id, n])) };
   Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
 })(typeof window !== 'undefined' ? window : globalThis);

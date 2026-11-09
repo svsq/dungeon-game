@@ -1361,6 +1361,8 @@
     states.push(['town_porter_prompt', keeperS((S, R, h, k) => { R.offers = [{ key: 'fetch', from: 'porter', q: 0 }]; const p = R.folk.find((q) => q.role === 'porter');
       Object.assign(p, { x: k.x + 110, y: k.y + 40, go: 0, spd: 0 }); h.x = p.x + 40; h.y = p.y + 10; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
     states.push(['town_keeper_talk', keeperS((S, R) => { const P = D.KEEPER.rare(TXT('QA.P')); S.talk = { role: 'keeper', i: 0, pages: [P[0], D.KEEPER.win[0], D.KEEPER.away[0]], p: 2 }; S.screen = 'talk'; S.hover = 'next'; })]);
+    states.push(['town_talk_menu', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.keeper.topics, menu: 1 }; S.screen = 'talk'; S.hover = 'topic:1'; })]);
+    states.push(['town_talk_topic', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: D.FOLK.keeper.topics[0].a, p: 0, act: null, topics: D.FOLK.keeper.topics, inTopic: 1 }; S.screen = 'talk'; })]);
     states.push(['town_guard_talk', keeperS((S) => { S.talk = { role: 'guard', i: 0, pages: D.FOLK.guard.lines[2].slice(), p: 0 }; S.screen = 'talk'; })]);
     // quests (TASKS 1018–1022): the marks over the givers (! and ?), the offer on its page (the longest text: a keepsake), the smith's
     // offer with his workshop's button, the turn-in and its thanks with the longest reward; on the floor the named foe, the keepsake

@@ -2574,11 +2574,13 @@
       for (const [who, f] of [['merchant', 1], ['smith', 3]]) { enterFloor(S, Z, f); const C = Z.captives[who];
         if (C.x === undefined) { out.push('rescue: no cage for the ' + who); continue; }
         if (Z.map.decor.some((d) => Math.abs(d.x - C.x) < 40 && d.y < C.y + 8 && d.y > C.y - 60)) out.push('rescue: the cage stands on a prop');
+        Z.en = []; Z.hero.x = C.x; Z.hero.y = C.y + 60; for (let i = 0; i < 120; i++) step(S, { up: 1, px: 960, py: 540, keys: [] }); if (Z.hero.y < C.y - 14) out.push('rescue: the hero walks through the cage of the ' + who);
         Z.en = []; Z.hero.x = C.x + 40; Z.hero.y = C.y + 30; X.interact(S, Z); S.screen = 'play'; if (!Z.freed || !Z.freed[who]) out.push('rescue: E at the cage does not free the ' + who); }
       enterFloor(S, Z, 0); if (X.shopShut(Z)) out.push('rescue: the town shop is shut after the merchant is freed'); if (!Z.folk.some((f) => f.role === 'smith')) out.push('rescue: the freed smith is not in town'); if (Z.folk.some((f) => f.role === 'enchanter')) out.push('rescue: the enchanter is in town though still caged'); }
     { const Z = run(83), plain = () => Z.drops.filter((p) => p.kind === 'note' && p.sec === undefined && D.NOTES.byId[p.note].kind !== 'hint');
       for (const f of [1, 3, 5, 7, 9, 13]) { enterFloor(S, Z, f); const P = plain(); if (P.length < 3 || P.length > 5) out.push('notes: floor ' + f + ' has ' + P.length); for (const p of P) { const n = D.NOTES.byId[p.note]; if (n.kind === 'boss' && (f < n.floors[0] || f > n.floors[1])) out.push('notes: ' + n.id + ' off its floors on ' + f); } }
-      if (new Set(Z.notesUsed).size !== Z.notesUsed.length) out.push('notes: one repeated in a run'); }
+      if (new Set(Z.notesUsed).size !== Z.notesUsed.length) out.push('notes: one repeated in a run');
+      const P9 = Z.drops.filter((p) => p.kind === 'note'); if (P9.some((p, i) => P9.some((o, j) => j > i && Math.hypot(p.x - o.x, p.y - o.y) < 40))) out.push('notes: two lie on top of each other'); }
     R = run(81); R.freed = { merchant: 1 }; R.offers = []; let T = talkTo(R, 'keeper'); const st0 = T && T.act && T.act.k === 'take' ? T.act : null; finish();
     const sq = R.quests.find((o) => D.QUESTS[o.key].kind === 'story');
     if (!st0 || !sq || sq.key !== 'chapter' || sq.f !== 2 || sq.from !== 'keeper') out.push('quest story: the Keeper does not open the chain with the second floor\'s boss');

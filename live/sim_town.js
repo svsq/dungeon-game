@@ -223,7 +223,11 @@
   function notePlace(R) { const f = R.floor, m = R.map, done = R.notesDone || (R.notesDone = {}), era = D.NOTES.era[m.biome]; if (!R.viaTown || R.mode !== 'campaign' || R.town || done[f] || !era) return; done[f] = 1;
     let a = qhash((R.seed >>> 0) * 131 + f * 7877); const r = () => (a = qhash(a + 0x9e3779b9)) / 4294967296, shuffle = (L) => { const o = L.slice(); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } return o; };
     const used = R.notesUsed || (R.notesUsed = []), step = R.noteChain || (R.noteChain = {}), fits = (n) => !used.includes(n.id) && (!n.chain || (step[n.chain] || 0) === n.part - 1), ofEra = (n) => n.id.split('_')[0] === era || (n.id.startsWith('pilot') && era === 'cellar');
-    const put = (n, rm, sec) => { used.push(n.id); if (n.chain) step[n.chain] = n.part; const [x, y] = standNear(R, rm.cx * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 90) - 45 : 22), rm.cy * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 70) - 20 : 26)); R.drops.push(Object.assign({ id: R.nextId++, kind: 'note', note: n.id, x, y, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }, sec === undefined ? {} : { sec })); };
+    const put = (n, rm, sec) => { used.push(n.id); if (n.chain) step[n.chain] = n.part; const clear = (x, y) => !R.drops.some((p) => p.kind === 'note' && Math.hypot(p.x - x, p.y - y) < 90), inRm = (d) => d.x >= rm.x * TILE && d.x < (rm.x + rm.w) * TILE && d.y >= rm.y * TILE && d.y < (rm.y + rm.h + 1) * TILE;
+      const seat = m.decor.filter((d) => D.NOTES.lift[d.n] && d.secret === undefined && d.sec === sec && inRm(d) && clear(d.x, d.y + 1)); let x, y, lift = 0;
+      if (seat.length && r() < 0.6) { const d = seat[Math.floor(r() * seat.length)]; x = d.x; y = d.y + 1; lift = D.NOTES.lift[d.n]; }
+      else for (let k = 0; k < 10 && (x === undefined || !clear(x, y)); k++) [x, y] = standNear(R, rm.cx * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 150) - 75 : 22 + Math.floor(r() * 50) - 25), rm.cy * TILE + TILE / 2 + (sec === undefined ? Math.floor(r() * 110) - 40 : 26 + Math.floor(r() * 30) - 15));
+      R.drops.push(Object.assign({ id: R.nextId++, kind: 'note', note: n.id, x, y, lift, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, rest: 4 }, sec === undefined ? {} : { sec })); };
     const rooms = shuffle(questRooms(R)), n = Math.max(D.NOTES.n[0], Math.min(D.NOTES.n[1], Math.round(rooms.length / 3))), L = shuffle(D.NOTES.list), boss = L.find((o) => o.kind === 'boss' && f >= o.floors[0] && f <= o.floors[1] && fits(o)), out = boss ? [boss] : [];
     for (const o of L) { if (out.length >= n) break; if (o.kind === 'note' && ofEra(o) && fits(o)) out.push(o); }
     out.forEach((o, i) => { if (rooms.length) put(o, rooms[i % rooms.length]); });
@@ -349,7 +353,7 @@
   function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
     if (qt) pages = pages.concat(qt.pages);
     else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act, origin: FD.origin }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act, topics: FD.topics }, f.role === 'smith' ? { craft: 1 } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // anything left in the town for the heroes to come: S.meta.stash, D.STASH.cells of it, its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)
