@@ -42,6 +42,7 @@
         const R = S.run, h = R.hero, long = (tier) => D.GIFTS.filter((g) => g.tier === tier).sort((a, b) => b.desc.length + b.name.length - a.desc.length - a.name.length)[0].id;
         R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [1, 2, 3].map((tier) => ({ id: long(tier), cost: bank > 999 ? 999 : D.giftCost(tier, 8) })) }]; R.altar = 0;
         S.meta.shards = bank; S.screen = 'altar'; S.hover = hv; if (bank < 999) S.ev.push({ k: 'nope', s: TXT('QA.states.s.2'), t: S.t - 0.2 }); })]),
+      ['altar_powers', play((S) => { const R = S.run, h = R.hero; h.powers = { whirl_pull: 1, dash_trail: 1, dash_strike: 1 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:1'; })],
       ['altar_prompt', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 50, y: h.y - 20, used: 0 }]; })],
       // the interaction plate with its target on each side of the hero and the stairs right under him: it never covers him
       ...[['s', 0, 36], ['n', 0, -40], ['e', 44, 0], ['se', 30, 30]].map(([d, dx, dy]) => ['prompt_chest_' + d, play((S) => { const R = S.run, h = R.hero; R.chests.push({ x: h.x + dx, y: h.y + dy, tier: 1, open: 0 }); })]),

@@ -339,8 +339,11 @@
     enterFloor(S, R, o.f, undefined, o.k); if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------
   // the offer is rolled when the altar is first opened, so a run saved before altars had gifts still gets one
+  // a line (TASKS 391): half the time the tier's offer continues the ability a power already taken belongs to
+  function rollGifts(R) { const held = new Set(Object.keys(R.hero.powers || {}).map((id) => (D.POWERS[id] || {}).ab).filter(Boolean));
+    return [1, 2, 3].map((tier) => { const pool = D.giftPool(R.hero, tier), line = pool.filter((g) => g.power && held.has(g.ab)); return { id: pick(R, line.length && rnd(R) < 0.5 ? line : pool).id, cost: D.giftCost(tier, dep(R)) }; }); }
   function openAltar(S, R, sh) {
-    if (!sh.gifts) sh.gifts = [1, 2, 3].map((tier) => ({ id: pick(R, D.liveFor(R.hero, 'gifts', D.GIFTS).filter((g) => g.tier === tier)).id, cost: D.giftCost(tier, dep(R)) }));
+    if (!sh.gifts) sh.gifts = rollGifts(R);
     for (const g of sh.gifts) if (g.id === 'greed') g.id = 'alert';
     R.altar = R.shrines.indexOf(sh); S.screen = 'altar'; S.hover = ''; ev(S, { k: 'altar', x: sh.x, y: sh.y });
   }
@@ -349,7 +352,7 @@
     const o = sh.gifts[i], G = D.GIFTS.find((q) => q.id === o.id), h = R.hero;
     if (S.meta.shards < o.cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
     S.meta.shards -= o.cost; sh.used = 1; sh.took = o.id;
-    if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
+    if (G.power) (h.powers = h.powers || {})[o.id] = 1; else if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
     const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp;
     ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? TXT('sim_town.takeGift.msg.s') : TXT('sim_town.takeGift.msg.s.2')), t: S.t };
     S.screen = 'play'; S.saveN++;

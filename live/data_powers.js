@@ -19,5 +19,12 @@
     dash_trail: { id: 'dash_trail', name: TXT('POWERS.dash_trail.name'), desc: TXT('POWERS.dash_trail.desc'), trig: 'dash', fx: 'burnGround', shape: 'line', gap: 40, k: 0.15, t: 1.5, per: 0.4, icd: 0.5 },
     dash_strike: { id: 'dash_strike', name: TXT('POWERS.dash_strike.name'), desc: TXT('POWERS.dash_strike.desc'), trig: 'dashTouch', fx: 'strike', k: 0.5 },
   };
-  Object.assign(D, { POWERS });
+  // a power is taken at an altar as a gift of its tier; `ab` keeps it to the class that has the ability (TASKS 391)
+  const GIFT_OF = { whirl_pull: [2, 'ab_whirl'], whirl_ring: [3, 'ab_whirl'], fire_split: [3, 'ab_fire'], fire_pierce: [2, 'ab_fire'], shield_burst: [2, 'ab_shield'], shield_feed: [2, 'ab_shield'],
+    volley_pierce: [2, 'ab_volley'], trap_burst: [2, 'ab_trap'], leap_trap: [3, 'ab_leap'], dash_trail: [3, 'it_boots'], dash_strike: [2, 'ab_charge'] };
+  for (const [id, [tier, icon]] of Object.entries(GIFT_OF)) { const P = POWERS[id]; D.GIFTS.push({ id, tier, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
+  const hasPower = (h, id) => !!(h.powers || {})[id];
+  // what an altar may offer this hero of a tier: not another class's power, not one for an ability not yet open, not one already held
+  const giftPool = (h, tier) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
+  Object.assign(D, { POWERS, giftPool, hasPower });
 })(typeof window !== 'undefined' ? window : globalThis);

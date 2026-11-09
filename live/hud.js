@@ -301,7 +301,8 @@
     if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff' });
     if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff' });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
-    for (const G of D.GIFTS) { const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', String(Math.round(G.v * n * 10) / 10)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff' }); }
+    for (const G of D.GIFTS) if (G.power && D.hasPower(h, G.id)) list.push({ id: 'g_' + G.id, ic: G.icon, v: '', col: '#ffd27a' });
+    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', String(Math.round(G.v * n * 10) / 10)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff' }); }
     if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1 });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1 });
