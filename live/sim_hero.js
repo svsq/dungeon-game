@@ -214,8 +214,9 @@
     if (h.back !== wasBack) h.backT = t;
     if (h.face !== wasFace) h.faceT = t;
     // dash
-    if (keys.Space && h.cd.dash <= t && !h.sunk) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
-      h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; h.cd.dash = t + K.DASH_CD; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY });
+    const spareDash = D.clsOf(h).id === 'archer' && st.agi >= D.THRESHOLD.archer[1] && (h.cd.dash2 ?? 0) <= t;
+    if (keys.Space && (h.cd.dash <= t || spareDash) && !h.sunk) { const dx = ix || Math.cos(h.aim), dy = ix || iy ? iy : Math.sin(h.aim), d = Math.hypot(dx, dy) || 1;
+      h.dashT = t; h.dashX = dx / d; h.dashY = dy / d; if (h.cd.dash <= t) h.cd.dash = t + K.DASH_CD; else h.cd.dash2 = t + K.DASH_CD * 2; ev(S, { k: 'dash', x: h.x, y: h.y, dx: h.dashX, dy: h.dashY });
       SIMX.firePowers(S, R, 'dash', { x: h.x, y: h.y, dx: h.dashX, dy: h.dashY, len: K.DASH * K.DASH_T });
       // the dash beats the flames out (TASKS 463: burning took the most hits and nothing put it out away from water)
       if (h.burn > t) { h.burn = 0; ev(S, { k: 'snuff', x: h.x, y: h.y, hero: 1 }); } }

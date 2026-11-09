@@ -59,6 +59,7 @@
     if (S.screen === 'tests') tests(S, t);
     if (S.screen === 'classes') classes(S, t);
     if (S.screen === 'codex') codex(S, t);
+    if (S.screen === 'fork' && R) fork(S, R, t);
     if (S.screen === 'news') news(S, t);
     if (S.screen === 'meta') meta(S, t);
     if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
@@ -520,6 +521,8 @@
       lab('ab_c' + i, abCost(D.clsOf(h), A, r), b.x + 84, b.y + 78, { size: 16, col: C.dim });
       const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d).replace('{t}', String(D.abRank(A.id, r).t).replace('.', ',')).replace('{w}', Math.round((1 - D.CRY.weak) * 100)), parts = ds.split(': ');
+      const chosen = D.FORK_RANKS.map((q) => { const n = (h.forks || {})[D.forkKey(A.id, q)]; return n >= 0 ? D.POWERS[D.FORKS[A.id][q][n]].name : ''; }).filter(Boolean).join(', ');
+      if (chosen) { const z = Math.min(15, Math.floor(15 * (b.w - 24) / lw('ab_fm' + i, chosen, { size: 15 }))); lab('ab_f' + i, chosen, b.x + 12, b.y + 140, { size: z, col: C.gold }); } else if (D.forkPending(h) && D.forkPending(h).ab === A.id) lab('ab_f' + i, TXT('hud.fork.pending'), b.x + 12, b.y + 140, { size: 15, col: '#ffb060' });
       lab('ab_d' + i, parts[0] + ':', b.x + 12, b.y + 96, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 12, b.y + 122, { size: 17, col: C.dim });
       if (can) { L.rrect(b.x + b.w - 40, b.y + 40, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 24, b.y + 56, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
     lab('inv_help', TXT('hud.inv.15'), P.x + P.w / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
@@ -678,6 +681,12 @@
       L.rrect(P.x + P.w - 30, V.y, 8, V.h, 4, [0.1, 0.08, 0.08], [0.1, 0.08, 0.08], 0.9); L.rrect(P.x + P.w - 30, V.y + (V.h - th) * k, 8, th, 4, C.rimHi, C.rim, 1);
       lab('nw_k', TXT('hud.news.keys'), P.x + 40, P.y + P.h - 60, { size: 19, col: '#6d6258' }); }
     for (const b of N.r) button('nw_' + b.id, b, S.hover);
+  }
+  function fork(S, R, t) { const P = D.forkPending(R.hero); if (!P) return; const Ab = D.clsOf(R.hero).abs.find((a) => a.id === P.ab);
+    dim(0.7); lab('fk_t', TXT('hud.fork.title', { p1: Ab.name }), W / 2, 250, { size: 52, al: 0.5, col: C.gold }); lab('fk_h', TXT('hud.fork.hint'), W / 2, 306, { size: 22, al: 0.5, col: C.dim });
+    for (const b of D.UI.fork()) { const Pw = D.POWERS[D.FORKS[P.ab][P.rank][b.i]], hv = S.hover === b.id;
+      panel('fk_' + b.i, b.x, b.y, b.w, b.h, { r: 10, rim: hv ? C.rimHi : C.rim, c0: hv ? [0.16, 0.12, 0.08] : C.panel0 }); icon(Ab.icon, b.x + b.w / 2 - 44, b.y + 30, 88);
+      lab('fk_n' + b.i, Pw.name, b.x + b.w / 2, b.y + 170, { size: 32, al: 0.5, col: C.text }); const dz = Math.min(23, Math.floor(23 * (b.w - 32) / lw('fk_dm' + b.i, Pw.desc, { size: 23 }))); lab('fk_d' + b.i, Pw.desc, b.x + b.w / 2, b.y + 226, { size: dz, al: 0.5, col: '#9cc8ff' }); }
   }
   function codex(S, t) { const tab = S.codexTab || 'm', U = D.UI.codex(tab, S.codexPage), seen = (S.meta.codex || {})[tab] || {}, n = U.list.filter((q) => seen[q.k]).length;
     L.solid(0, 0, W, H, [0.02, 0.015, 0.03], 0, 0, 0, 1); G.blend('add'); L.glow(W / 2, 180, 460, [0.5, 0.4, 0.2], 0.2 + 0.04 * Math.sin(t * 2)); G.blend();

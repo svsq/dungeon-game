@@ -31,10 +31,12 @@
     stun(S, R, P, ctx) { const [x, y] = pos(R, ctx); for (const e of ctx.e && !P.r ? [ctx.e] : targets(R, x, y, P.r)) { const hold = D.BOSSES[e.type] ? P.boss : P.t; e.rootT = S.t + hold; e.cdT = Math.max(e.cdT || 0, S.t + hold); if (e.st === 'wind') { e.st = 'chase'; e.t0 = S.t; } } },
     shieldBurst(S, R, P, ctx) { const [x, y] = pos(R, ctx); if (P.k) burst(S, R, x, y, P.r, Math.max(1, Math.round((ctx.left || 0) * P.k)), P.kb ?? 1, 'thorns'); else for (const e of targets(R, x, y, P.r)) { if (heavy(e)) continue; const d = Math.hypot(e.x - x, e.y - y) || 1; e.kbx = (e.x - x) / d * 300 * P.kb; e.kby = (e.y - y) / d * 300 * P.kb; } boom(S, R, x, y); },
     shieldMore(S, R, P) { R.hero.shieldUntil += P.t; },
+    shieldAdd(S, R, P) { R.hero.shield = Math.round(R.hero.shield * (1 + P.k)); },
+    proj(S, R, P, ctx) { for (const p of ctx.projs || []) { if (P.dmg) p.dmg = Math.max(1, Math.round(p.dmg * P.dmg)); if (P.spd) { p.vx *= P.spd; p.vy *= P.spd; p.life /= P.spd; } if (P.kb) p.kb = (p.kb ?? 1) * P.kb; } },
     strike(S, R, P, ctx) { if (ctx.e) hitEnemy(S, R, ctx.e, atk(S, P, ctx), false, R.hero.x, R.hero.y, P.kb ?? 0.5, 'thorns'); },
     dropTrap(S, R, P, ctx) { const [x, y] = pos(R, ctx); SIMX.setTrap(S, R, x, y + 4, x, y + 4, atk(S, P, ctx), false); },
   };
-  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil };
+  const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil, str25: (S) => heroSt(S).str >= 25, int25: (S) => heroSt(S).int >= 25 };
   const onOf = (P) => (P.trig.startsWith('every:') ? 'hit' : P.trig);
   const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.each || 0);
   let depth = 0;
@@ -50,5 +52,7 @@
   function powersHurt(S, R, dmg, maxHp) { const h = R.hero; firePowers(S, R, 'hurt', { x: h.x, y: h.y, dmg }); const low = h.hp < maxHp * 0.35; if (low && !h.lowOn) firePowers(S, R, 'lowHp', { x: h.x, y: h.y }); h.lowOn = low; }
   function dashTouch(S, R) { const h = R.hero; if (!hasOn(h, 'dashTouch')) return; if (!h.dashHit || h.dashHit.t !== h.dashT) h.dashHit = { t: h.dashT, ids: [] };
     for (const e of R.en) if (e.deadT < 0 && !under(e) && !h.dashHit.ids.includes(e.id) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.25) < ENEMIES[e.type].r + K.R + 10) { h.dashHit.ids.push(e.id); firePowers(S, R, 'dashTouch', { e, x: e.x, y: e.y }); } }
-  Object.assign(SIMX, { firePowers, powersHurt, dashTouch, POWER_FX: FX });
+  function chooseFork(S, R, i) { const h = R.hero, P = D.forkPending(h); if (!P) return; (h.forks = h.forks || {})[D.forkKey(P.ab, P.rank)] = i; (h.powers = h.powers || {})[D.FORKS[P.ab][P.rank][i]] = 1; S.saveN++; }
+  function thresholdTip(S, R) { const h = R.hero, T = D.THRESHOLD[D.clsOf(h).id]; if (T && !h.thTip && heroSt(S)[T[0]] >= T[1]) { h.thTip = 1; R.msg = { s: T[2], t: S.t, d: 4 }; } }
+  Object.assign(SIMX, { chooseFork, thresholdTip, firePowers, powersHurt, dashTouch, POWER_FX: FX });
 })(typeof window !== 'undefined' ? window : globalThis);
