@@ -934,9 +934,10 @@
       // (a chasm's bridges, TASKS 474: on its floor a rock falls on the longest bridge the walk to the stairs takes, over and above
       // the aimed ones: crossing it is a matter of the moment)
       if (ftype === 'chasm' || MIX) { const cand = crossings.filter((c) => c.chasm && c.cells.some((k) => onWay.has(k))).sort((a, b) => b.cells.length - a.cells.length);
-        for (const c of cand) { const cs = c.cells, mx = cs.reduce((a, k) => a + k % W, 0) / cs.length, my = cs.reduce((a, k) => a + Math.floor(k / W), 0) / cs.length;
-          const p = cs.filter((k) => onWay.has(k)).map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => clear(x, y)).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))[0];
-          if (p) { hazards.push({ k: 'fall', x: wx(p[0]), y: wy(p[1]), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, span: 1 }); break; } } }
+        // (a second pass past `clear`, TASKS 1644: with second ways over, the walk's only bridge can stand by a landing's pack)
+        span: for (const free of [true, false]) for (const c of cand) { const cs = c.cells, mx = cs.reduce((a, k) => a + k % W, 0) / cs.length, my = cs.reduce((a, k) => a + Math.floor(k / W), 0) / cs.length;
+          const p = cs.filter((k) => onWay.has(k)).map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => !free || clear(x, y)).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))[0];
+          if (p) { hazards.push({ k: 'fall', x: wx(p[0]), y: wy(p[1]), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, span: 1 }); break span; } } }
       // (a river's second way over, TASKS 473: a rock falls in its middle)
       if (riverFire) { const cs = [...riverFire], mx = cs.reduce((a, k) => a + k % W, 0) / cs.length, my = cs.reduce((a, k) => a + Math.floor(k / W), 0) / cs.length;
         const c = cs.map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => clear(x, y)).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))[0];
