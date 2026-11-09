@@ -5,7 +5,7 @@
     sim: ['sim_core.js', 'sim_items.js', 'sim_floor.js', 'sim_enemies.js', 'sim_hero.js', 'sim_world.js', 'sim_bosses.js', 'sim_town.js', 'sim_ui.js'],
     dungeon: ['dungeon_rooms.js', 'dungeon_links.js', 'dungeon_terrain.js', 'dungeon_fill.js'],
     scene: ['scene_core.js', 'scene_map.js', 'scene_folk.js', 'scene_hero.js', 'scene_actors.js'] };
-  const page = ['assets.js', 'sizes.js', 'rigs.js', 'gl.js', 'lib.js', ...parts.data, 'data.js', 'dungeon.js', ...parts.dungeon, ...parts.sim, 'sim.js', 'monsters.js', ...parts.scene, 'scene.js', 'scene_world.js', 'scene_light.js', 'scene_fx.js', 'scene_qa.js', 'hud.js', 'audio.js'];
+  const page = ['assets.js', 'sizes.js', 'rigs.js', 'gl.js', 'font_data.js', 'lib.js', ...parts.data, 'data.js', 'dungeon.js', ...parts.dungeon, ...parts.sim, 'sim.js', 'monsters.js', ...parts.scene, 'scene.js', 'scene_world.js', 'scene_light.js', 'scene_fx.js', 'scene_qa.js', 'hud.js', 'audio.js'];
   root.MODULES = { parts, page };
   if (typeof module !== 'undefined') module.exports = root.MODULES;
 })(typeof window !== 'undefined' ? window : globalThis);
