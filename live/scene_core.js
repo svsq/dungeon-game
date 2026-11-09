@@ -615,10 +615,12 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     for (int k = 0; k < 40; k++) { float y = u_src.y - 60.0 + float(k) * 2.0; if (!isWall(vec2(x0, y))) { foot = y; break; } }
     float land = foot + 8.0; for (int k = 0; k < 30; k++) { float y = foot + float(k) * 2.0; if (lavaAt(vec2(x0, y)) > 0.5) { land = y; break; } }
     float lip = foot - faceHF(vec2(x0, foot - 2.0)), dx = w.x - u_src.x, y = w.y, wob = (vnoise(vec2(y / 7.0 - u_t * 1.5, u_seed)) - 0.5) * 3.0;
+    // (a tall face takes a broad sheet, TASKS 1632: 55 → 45 px against the concept's 77 → 105; a short one stays narrow)
+    float uw = max(u_wide, mix(18.0, 36.0, smoothstep(50.0, 110.0, land - lip)));
     // the pool it pours from on the rock's top (ref_cave_lava: a lake ringed by column tops, not a stream out of the dark): as deep
     // as the rock over the lip goes, up to 48 px, its lava drifting to the lip faster as it nears it
     float ph = 0.0; for (int k = 1; k <= 34; k++) { if (!isWall(vec2(x0, lip - float(k) * 2.0))) break; ph = float(k) * 2.0; }
-    float pw = max(u_wide + 16.0, 40.0); ph = min(ph - 10.0, min(48.0, pw * 0.75)); vec2 pc = vec2(u_src.x, lip - ph * 0.5 + 2.0);
+    float pw = max(uw + 16.0, 40.0); ph = min(ph - 10.0, min(48.0, pw * 0.75)); vec2 pc = vec2(u_src.x, lip - ph * 0.5 + 2.0);
     vec2 pq = (w - pc) / vec2(pw, max(ph * 0.5, 1.0)); float pr = length(pq) + (vnoise(w / 6.0 + u_seed) - 0.5) * 0.1, rim = 6.0 / min(pw, max(ph * 0.5, 1.0));
     if (ph > 12.0 && y < lip - 1.0 && pr < 1.0 + rim) {
       if (pr < 1.0) { vec2 fp = w - vec2(0.0, u_t * 6.0 * (1.0 + 2.5 * smoothstep(-0.3, 1.0, pq.y)));
@@ -628,7 +630,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     // column tops ring its far side and stand at either side of the lip, the fall pouring between them
     if (ph > 12.0) for (int j = 0; j < 5; j++) { float fj = float(j), an = 3.14159 * (1.1 + 0.8 * fj / 2.0); vec2 cc = pc + vec2(cos(an) * (pw + 3.0), sin(an) * (ph * 0.5 + 3.0));
       if (j == 1 && pw < 50.0) continue;
-      if (j > 2) cc = vec2(u_src.x + (fj < 3.5 ? -1.0 : 1.0) * (u_wide + 9.0), lip - 4.0);
+      if (j > 2) cc = vec2(u_src.x + (fj < 3.5 ? -1.0 : 1.0) * (uw + 9.0), lip - 4.0);
       vec2 cq = (w - floor(cc / 2.0) * 2.0 - 1.0) / vec2(10.0 + 3.0 * hash(vec2(fj, u_seed)), 7.0); float cr = dot(cq, cq);
       if (cr < 1.0) { col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * hash(vec2(fj, u_seed + 3.0))) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + fj * 9.0)));
         if (cr > 0.62) col = cq.y < 0.2 && cq.x < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03); else if (cq.y > 0.15 && cq.x > 0.05) col *= 0.72;
@@ -637,8 +639,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     // racing down it in dashes
     // (its edges ragged and running down with it, TASKS 1038: a ruled curtain, σ 2.6 px against the concept's 11)
     // (widening to its foot, TASKS 1053: it narrowed, 55 → 33 px against 77 → 105)
-    float hw0 = u_wide + 16.0 * (y - lip) / max(land - lip, 1.0), sx = dx - wob, hw = hw0 + (vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 14.0 * smoothstep(lip, lip + 12.0, y);
-    if (y >= lip - 1.0 && y < land + 4.0 && abs(sx) < hw && (y >= lip + 1.0 || abs(sx) < u_wide)) {
+    float hw0 = uw * (1.0 + 0.6 * clamp((y - lip) / max(land - lip, 1.0), 0.0, 1.0)), sx = dx - wob, hw = hw0 + ((vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 18.0 + (vnoise(vec2(sign(sx) * 3.0 + u_seed, (y - u_t * 22.0) / 26.0)) - 0.5) * 22.0) * smoothstep(lip, lip + 12.0, y);
+    if (y >= lip - 1.0 && y < land + 4.0 && abs(sx) < hw && (y >= lip + 1.0 || abs(sx) < uw) && (y < foot + vnoise(vec2(w.x / 5.0, u_seed)) * 10.0 || lavaAt(w) > 0.5)) {
       if (y < lip + 1.0) col = vec3(1.0, 0.92, 0.6);
       else { float s = vnoise(vec2(dx / 2.5, (y - u_t * 70.0) / 14.0)) + 0.1 * (1.0 - abs(sx) / hw) - 0.17;
         col = hot(s); if (abs(sx) > hw - 2.0) col *= 0.6;
