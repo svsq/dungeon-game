@@ -227,7 +227,11 @@
 
     (R.map.webs || []).forEach((w, i) => { if (w.torn) return; const dx = w.x - x, dy = w.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 20 * w.s) return; if (arc !== undefined && d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) return;
-      w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); }); }
+      tearWeb(S, w, i, fire); }); }
+  const tearWeb = (S, w, i, fire) => { w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); };
+  // an arrow tears every web its flight crosses, over the web's own ellipse (the shot's step is shorter than the web, so the point
+  // under it each step is enough), and flies on (TASKS 1693)
+  function arrowWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
   function springAmbush(S, R, P) {
     const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
     if (!room || P.fired) return false;
@@ -344,6 +348,6 @@
 
   Object.assign(SIMX, { setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
-    hitSecrets, hitSecret, openSecret, shelfOf, statueOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells,
+    hitSecrets, hitSecret, openSecret, shelfOf, statueOf, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells,
     leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

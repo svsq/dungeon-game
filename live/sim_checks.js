@@ -1544,6 +1544,12 @@
         h.x = w.x - 40; h.y = w.y + 8; h.atkT = -9; h.cd.atk = 0; step(S, { ...aim(), press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { ...aim(), keys: [] });
         if (!w.torn) out.push('traps: a blow does not tear a web');
         const w2 = m.webs.find((o) => !o.torn); if (w2) { tearWebs(S, R, w2.x, w2.y, 30, undefined, undefined, 1); if (!w2.torn || !S.ev.some((e) => e.k === 'webburn')) out.push('traps: fire does not burn a web'); }
+        // (TASKS 1693) a player's arrow, a shot or one of a volley's, tears the webs across its flight and flies on at its own speed with its damage
+        { const cy = (Math.floor(w.y / TILE) + 0.5) * TILE, mk = (x) => { const q = { ...w, x, y: cy, torn: 0 }; delete q.tornT; m.webs.push(q); return q; }, webs = [mk(w.x - 160), mk(w.x - 110), mk(w.x - 60)], sh = (a, y) => ({ id: R.nextId++, k: 'arrow', single: 1, own: 'hero', x: w.x - 200, y: y - 20, vx: Math.cos(a) * 760, vy: Math.sin(a) * 760, t0: S.t, life: 0.6, r: 6, kb: 0.4, dmg: 7, gz: 20, pierce: 0 });
+          for (const [name, arrows] of [['a shot', [sh(0, cy)]], ['a volley', [sh(0, cy - 4), sh(0, cy), sh(0, cy + 4)]]]) { for (const q of webs) { q.torn = 0; delete q.tornT; } R.en = []; R.proj = arrows; const x0 = arrows.map((p) => p.x); S.ev = [];
+            for (let i = 0; i < 30; i++) step(S, { keys: [] });
+            if (webs.some((q) => !q.torn) || S.ev.filter((e) => e.k === 'webtear').length !== 3) out.push(`traps: ${name} does not tear every web across its flight`);
+            if (arrows.some((p, k) => p.dead || p.dmg !== 7 || Math.abs(Math.hypot(p.vx, p.vy) - 760) > 1e-6 || Math.abs(p.x - x0[k] - p.vx * 30 / 120) > 0.01)) out.push(`traps: ${name} is held or slowed by a web`); } }
       } }
     {
       const S = spawn(0, {}); S.run = newRun(S, 'cave', 26837); S.screen = 'play'; const R = S.run, m = R.map;

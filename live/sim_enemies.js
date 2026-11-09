@@ -326,6 +326,7 @@
       p.x += p.vx * DT; p.y += p.vy * DT; const age = S.t - p.t0;
       const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = projWall(m, x0, y0, p.x, p.y, gz);
       if (pc === 4 && p.own === 'hero') { const q = SIMX.secretAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (q && SIMX.kindOf(q) === 'crack') SIMX.hitSecret(S, R, q); }
+      if (p.own === 'hero' && p.k === 'arrow') SIMX.arrowWebs(S, R, p.x, p.y + gz);
       if (pc === 5 && p.own === 'hero') { const d = SIMX.doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) SIMX.openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || projCover(m, p.x, p.y);
       let touched = null;
