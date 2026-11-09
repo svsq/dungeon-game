@@ -93,6 +93,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (clear) { gl.clearColor(clear[0], clear[1], clear[2], clear[3]); gl.clear(gl.COLOR_BUFFER_BIT); }
   };
   G.cur = () => cur;
+  G.clearBox = (x, y, w, h) => { const k = cur.w / cur.vw; gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.floor(x * k), Math.floor((cur.vh - y - h) * k), Math.ceil(w * k), Math.ceil(h * k)); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST); };
   G.blend = (mode) => {
     gl.enable(gl.BLEND);
     if (mode === 'add') gl.blendFunc(gl.ONE, gl.ONE);

@@ -173,7 +173,7 @@ vec3 vor(vec2 p, float wob){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2
   return vec3(d1, d2, id); }
 float mAt(vec2 p){ return textureLod(u_mask, p / u_map, 0.0).r - edgeBite(p, u_map); }
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
-  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2 + (fbm(w / 64.0 + 3.1) - 0.5) * 0.5;
+  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2 + (fbm(w / 64.0 + 3.1) - 0.5) * 1.2;
   if (e < 0.2) discard;
   vec2 fc = textureLod(u_face, vec2(w.x / u_map.x, 1.0 - w.y / u_map.y), 0.0).rg;   // the bake's columns stand here (TASKS 418)
   if (fc.r > 0.5) discard;
@@ -279,8 +279,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   // lit bevel where it faces up or left. By the water: wet pebbles, a low bank face where the floor stands over the water, the
   // pebbled bed under the shallows. waterAt is the pool shader's own bank (WATER), so the two meet
   const CAVE_EDGE = `
-uniform sampler2D u_open, u_water; uniform vec2 u_map; uniform float u_wet, u_rag;
-float openAt(vec2 p){ return textureLod(u_open, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12 + u_rag * (fbm(p / 64.0 + 7.7) - 0.5) * 0.5; }
+uniform sampler2D u_open, u_water; uniform vec2 u_map; uniform float u_wet;
+float openAt(vec2 p){ return textureLod(u_open, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.7 + (vnoise(p / 7.0) - 0.5) * 0.12; }
 bool isOpen(vec2 p){ return openAt(p) > 0.47; }
 float waterAt(vec2 p){ return u_wet * (textureLod(u_water, p / u_map, 0.0).r + (vnoise(p / 6.0) - 0.5) * 0.32); }
 float faceH(float x){ return 26.0 + 14.0 * vnoise(vec2(x / 31.0, 3.0)); }
@@ -337,7 +337,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   // own bank (LAVA), so the two meet
   const MAGMA_EDGE = CAVE_EDGE + `
 uniform sampler2D u_cliff, u_lava;
-float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + (fbm(p / 64.0 + 3.1) - 0.5) * 0.5; }
+float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + (fbm(p / 64.0 + 3.1) - 0.5) * 1.2; }
 bool isWall(vec2 p){ return textureLod(u_cliff, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.5 > 0.5; }
 // a lavafall's face (TASKS 452), u_fall: (x, its foot, half its width, the face's height): as tall as the rock over it leaves room
 // for, back down to the plain face over 26 px either side, raggedly
@@ -364,7 +364,7 @@ const float CW = 30.0;
 bool plat(vec2 p){ return isOpen(p) && lavaAt(p) <= 0.5 && textureLod(u_plat, p / u_map, 0.0).r > 0.3; }   // not the sliver the open mask's noise leaves past a lava cell
 // what a column may stand over: the open lava (not the crust, not under a crossing) or the chasm
 bool drop(vec2 p){ if (isWall(p)) return false; if (!isOpen(p)) return true;
-  return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + (fbm(p / 64.0 + 3.1) - 0.5) * 0.5 > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
+  return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + (fbm(p / 64.0 + 3.1) - 0.5) * 1.2 > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
 bool dropRaw(vec2 p){ return textureLod(u_plat, p / u_map, 0.0).r < 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3 && textureLod(u_cliff, p / u_map, 0.0).r < 0.5; }
 // the south-edge column over w's x: (its centre x, its top's centre y, its face's height, 1 over the lava); y 0 when there is none
 vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y + 12.0;
@@ -378,7 +378,7 @@ vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y
   float run = 0.0; for (int k = 1; k <= 90; k++) { if (float(k) * 2.0 > cap || !dropRaw(vec2(cx, ey + float(k) * 2.0 - 1.0))) break; run = float(k) * 2.0; }
   float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 40.0 + floor(hash(vec2(i, 3.1)) * 13.0) * 2.0 + (1.0 - lava) * 24.0;
   if (u_step > 0.5) hgt = stp > 0.5 ? 999.0 : 64.0 + floor(hash(vec2(i, 3.1)) * 17.0) * 2.0;
-  float h = min(hgt, run - (lava > 0.5 ? 16.0 + 2.0 * floor(hash(vec2(i, 9.1)) * 4.0) : stp > 0.5 ? 0.0 : 4.0)); if (h < 8.0) h = 0.0;
+  float h = min(hgt, run - (lava > 0.5 ? 16.0 : stp > 0.5 ? 0.0 : 4.0)) - lava * 2.0 * floor(hash(vec2(i, 9.1)) * 4.0); if (h < 8.0) h = 0.0;
   float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0;
   return vec4(cx, ty, h, stp > 0.5 ? 2.0 : step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava; 2: a step's, on the floor
 // the north-edge column's top over w's x (the edge's far side shows only the tops)

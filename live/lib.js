@@ -109,7 +109,7 @@ void main(){
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
   if (u_vfade > 0.0) c *= smoothstep(1.0, 1.0 - u_vfade, uv.y + u_vfade * 0.8 * (fbm(vec2(uv.x * 60.0, 0.0)) - 0.3));
   if (u_cut.z > 0.0) c *= smoothstep(u_cut.x, u_cut.x - u_cut.y, v_px.y);
-  if (u_clipk > 0.0) { vec2 q = (v_px - u_clipb.xy) / u_clipb.zw; float m = texture(u_clipm, q).r; if (u_clipr > 0.0) for (int i = 0; i < 8; i++) { vec2 d = vec2(cos(float(i) * 0.7854), sin(float(i) * 0.7854)) * u_clipr / u_clipb.zw; m = max(m, max(texture(u_clipm, q + d).r, texture(u_clipm, q + 0.5 * d).r)); } { vec2 wp = q * u_clipb.zw; m += (fbm(wp / 20.0) - 0.5) * 0.2 + (fbm(wp / 64.0 + 3.1) - 0.5) * 0.5; } c *= mix(1.0, smoothstep(0.46, 0.54, m), u_clipk); }
+  if (u_clipk > 0.0) { vec2 q = (v_px - u_clipb.xy) / u_clipb.zw; float m = texture(u_clipm, q).r; if (u_clipr > 0.0) for (int i = 0; i < 8; i++) { vec2 d = vec2(cos(float(i) * 0.7854), sin(float(i) * 0.7854)) * u_clipr / u_clipb.zw; m = max(m, max(texture(u_clipm, q + d).r, texture(u_clipm, q + 0.5 * d).r)); } { vec2 wp = q * u_clipb.zw; m += (fbm(wp / 20.0) - 0.5) * 0.2 + (fbm(wp / 64.0 + 3.1) - 0.5) * 1.2; } c *= mix(1.0, smoothstep(0.46, 0.54, m), u_clipk); }
   if (c.a < 0.002) discard;
   vec3 rgb = c.rgb / c.a;
   float l = dot(rgb, vec3(0.299, 0.587, 0.114));
@@ -443,9 +443,10 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // one weighted ink silhouette around a whole puppet: n offset flat-ink copies, then the puppet itself
   // emit: the ink is an emitter, so no light lifts it; rim { dx, dy, col }: one more flat copy shifted toward the light over the ink,
   // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
+  let rimLast = null;
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
     if (rim && !rim.box) { G.blend('emit'); L.sp = { dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }; draw(); if (!emit) G.blend(); }
-    if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim, [0, 0, 0, 0]); G.blend();
+    if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(bx, by, bw, bh); rimLast = rim.box; G.blend();
       for (let i = 0; i <= n; i++) { const an = i * 2 * Math.PI / n, q = i < n ? r : 0; L.sp = { dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }; draw(); }
       G.bind(back); G.blend('emit'); G.draw(P.rimout, { u_src: T.rim, u_dir: [rim.dx / len, rim.dy / len], u_col: rim.col }, G.xf(bx, by, bw, bh)); if (!emit) G.blend(); }
     if (emit) G.blend('emit');
