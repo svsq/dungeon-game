@@ -127,7 +127,7 @@
   };
   // a floor's modifier (R-18, TASKS 381), drawn with `chance` from the `from`th floor on a rooms floor that is no boss's, shown on
   // the banner and the minimap. water: the streams' cap over the plain two (≈×2 laid: a stream wants a plain fighting room); torch:
-  // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp;
+  // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp; dim, lit: the share of a plain floor's ambient light and of its fixed fires' and glows' light (TASKS 1364);
   // elites: plain monsters made elite, the first one's room with a chest of tier `chest`; gauntlet: a plate row down every straight
   // two-cell stretch of corridor this long (a winding way has few long ones: ≈2 rows a floor, not 0.5); gold: gold picked up; pop:
   // monsters a room; ambush: a hoard chest's ambush chance; not: biomes it skips (the fire floors have no streams);
@@ -136,7 +136,7 @@
   const FLOOR_MOD = { from: 3, chance: 0.5 };
   const FLOOR_MODS = {
     flood: { name: TXT('FLOOR_MODS.flood'), w: 1, water: 3, not: ['lava'] },
-    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.3 },
+    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.4, dim: 0.3, lit: 0.35 },
     lair: { name: TXT('FLOOR_MODS.lair'), w: 1, elites: 2, chest: 3 },
     cursed: { name: TXT('FLOOR_MODS.cursed'), w: 1, gauntlet: 5, gold: 1.5, notLay: ['tomb', 'hall'] },
     quiet: { name: TXT('FLOOR_MODS.quiet'), w: 1, pop: 0.7, ambush: 2 },
@@ -269,5 +269,16 @@
     skel_mg: 'bone', fence_mg: 'chain', vent_mg: 'ember', anvil_tw: 'metal', forge_tw: 'stone', forge_mg: 'stone',
     basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', skel_mg: 'bone', banner_mg: 'cloth' };
 
-  Object.assign(D, { BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  // a trapped chest (TASKS 1357): from: first floor it appears on; p: chance per chest, max per floor; fuse: seconds from the click to
+  // the blast, time to step or dash away; r: the blast's reach; hp: share of max health, never the killing blow
+  const CHEST_TRAP = { from: 2, p: 0.1, max: 2, fuse: 0.55, r: 96, hp: 0.2 };
+  const MIMIC = { from: 3, p: 0.08 };
+  // a statue that slides aside off a secret (TASKS 1354): p: chance a top-wall secret takes this cover where the statue fits
+  // planned: the same chance in a room dressed to a matching plan, plans: those rooms (TASKS 1355); hostP: chance a room hosting a secret takes one of the plans
+  const STATUE_SECRET = { p: 0.35, planned: 0.85, plans: ['gallery', 'hall', 'crypt', 'sanctum', 'library'], hostP: 0.6 };
+  // a struck coffin may let out what lies in it (TASKS 1353): rolled once per coffin, one per room at most; rise: seconds it takes to climb out
+  const COFFIN = { p: (f) => Math.min(0.35, 0.12 + 0.03 * f), rise: 1 };
+  // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
+  const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4] };
+  Object.assign(D, { STATUE_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -51,12 +51,14 @@ const val = (x) => x ? (x.atk || 0) * 2 + (x.def || 0) * 2 + x.rar * 3 + x.lvl :
 // armour and dodge, with what regeneration and blows that heal add over a fight. Their product, so neither is given up for the other
 const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) return val(it);
   const st = SIM.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it || null }) }), S.meta), KD = 20 + 12 * (S.run ? S.run.floor : 1);
-  const swing = st.atk * (1 + st.crit / 100 * 0.75) * (1 + st.aspd / 100) / st.wcd, F = D.ABILITIES.find((a) => a.id === 'fireball');
+  const swing = st.atk * (1 + st.crit / 100 * (st.critK - 1)) * (1 + st.aspd / 100) / st.wcd, F = D.ABILITIES.find((a) => a.id === 'fireball');
   const fire = D.fireDmg(st.spellBase, D.abRank('fireball', Math.max(1, h.ab.fireball || 0)).k, st.spell) / F.cd * Math.min(1, st.maxMp / 200), c = P.cast || 0.15;
   return Math.log(swing * (1 - c) + fire * c) + Math.log((st.maxHp + 20 * st.regen + 10 * st.onhit) * (KD + st.def) / KD / (1 - st.dodge / 100)); };
 const gear = (it) => it && !SIM.isCons(it);
 // gear the hero is too low to wear (TASKS 1028) is not bought for wearing, nor put on
 const wearable = (h, it) => h.lvl >= D.reqLvl(it) && D.wears(D.clsOf(h).id, it.b);
+// gear of his own class he is still too low for is kept for later (TASKS 1348), two pieces at most so the bag stays open for finds
+const waits = (h, it) => gear(it) && D.wears(D.clsOf(h).id, it.b) && h.lvl < D.reqLvl(it);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
 // a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
 // the next thing the bank buys at the Altar of Souls, the cheapest first: a rank, or a discovery this class can use (TASKS 1669)
@@ -389,7 +391,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
   function trade(S, R, h) {
     const U = D.UI.shop(R.shop.goods.length), at = (id) => click(U.r.find((q) => q.id === id));
-    const i = h.bag.findIndex(gear); if (i >= 0) { cur.sold++; return at('sell:' + i); }
+    let kept = 0; const i = h.bag.findIndex((it) => gear(it) && !(waits(h, it) && kept++ < 2)); if (i >= 0) { cur.sold++; return at('sell:' + i); }
     const room = h.bag.includes(null), buy = (g) => { cur.spent += g.price; return at('buy:' + R.shop.goods.indexOf(g)); };
     const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && wearable(h, g.it) && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
     for (const [b, want] of [['hp_potion', 6], ['mp_potion', D.clsOf(h).res === 'rage' ? 0 : P.caster ? 6 : 3]].concat(R.viaTown ? [['scroll', P.scrolls]] : [])) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
@@ -498,7 +500,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const dist = (o) => Math.hypot(o.x - h.x, o.y - h.y), first = (list) => list.filter((o) => !given.has(o)).sort((a, b) => dist(a) - dist(b))[0];
     // what lies behind a door still locked is out of reach until its key or lever is found
     const drop = first(R.drops.filter((p) => !p.got && !p.tossed && !(p.fly > 0) && takes(p) && reach(p)));
-    const chest = first(R.chests.filter((c) => !c.open && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
+    const chest = first(R.chests.filter((c) => !c.open && !c.sealed && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
     const locked = R.keys > 0 ? first((m.doors || []).filter((d) => { const L = SIM.doorLock(m, d); return L && L.kind === 'key'; })) : null;
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
     const shrine = first(R.shrines.filter((s) => !s.used && !s.skip && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));

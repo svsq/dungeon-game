@@ -48,6 +48,25 @@
       ['altar_prompt', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 50, y: h.y - 20, used: 0 }]; })],
       // the interaction plate with its target on each side of the hero and the stairs right under him: it never covers him
       ...[['s', 0, 36], ['n', 0, -40], ['e', 44, 0], ['se', 30, 30]].map(([d, dx, dy]) => ['prompt_chest_' + d, play((S) => { const R = S.run, h = R.hero; R.chests.push({ x: h.x + dx, y: h.y + dy, tier: 1, open: 0 }); })]),
+      // a chest of every rank, shut and open, and a boss's sealed chest with its plate (TASKS 1356)
+      ['chest_tiers', play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); h.y += 20; const tl = TILE * 2.2;
+        [[1, 0], [2, 0], [3, 0], [1, 1], [2, 1], [3, 1]].forEach(([tier, op], i) => R.chests.push({ x: h.x + (i % 3 - 1) * tl, y: h.y - (op ? 40 : 110), tier, open: op, openT: S.t - 2 }));
+        R.chests.push({ x: h.x + 2 * tl, y: h.y - 60, tier: 3, boss: 1, sealed: 1, open: 0 }); R.chests.push({ x: h.x - 2 * tl, y: h.y - 60, tier: 3, boss: 1, open: 1, openT: S.t - 2 }); })],
+      ['prompt_chest_sealed', play((S) => { const R = S.run, h = R.hero; R.en = []; R.chests.push({ x: h.x + 44, y: h.y, tier: 3, boss: 1, sealed: 1, open: 0 }); })],
+      // a trapped chest giving itself away, its fuse burning and its blast (TASKS 1357)
+      ...[['chest_trap_shut', 0], ['chest_trap_fuse', 0.3], ['chest_trap_bang', 0.7]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); const c = { x: h.x + 60, y: h.y - 30, tier: 2, open: a ? 1 : 0, trap: 1, openT: S.t - a }; R.chests.push(c);
+        if (a) S.ev.push({ k: a > 0.55 ? 'trapbang' : 'trapfuse', t: S.t - (a > 0.55 ? a - 0.55 : a), x: c.x, y: c.y, d: 0.55, r: 96 }); })]),
+      // a mimic getting up, gaping, in the air and biting (TASKS 367)
+      ...[['mimic_wake', 'rise', 0.3], ['mimic_wind', 'wind', 0.45], ['mimic_air', 'strike', 0.2], ['mimic_bite', 'strike', 0.5]].map(([id, st, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); const c = { x: h.x + 90, y: h.y - 20, tier: 2, open: 0, mimic: 1, loot: [] }; R.chests.push(c); SIM.openChest(S, R, c); const e = R.en[0]; e.st = st; e.t0 = S.t - a; e.jx = e.x; e.jy = e.y; e.jtx = e.x - 40; e.jty = e.y; e.hitDone = a > 0.42 ? 1 : 0; e.aimA = Math.PI; e.face = -1; })]),
+      ['mimic_shut', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.chests.push({ x: h.x + 90, y: h.y - 20, tier: 2, open: 0, mimic: 1 }); })],
+      // broken pots, vases, crates and barrels: in the air, and lying a while later (TASKS 1352)
+      ...[['debris_air', 0.15], ['debris_rest', 5]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); ['pot', 'vase_a', 'vase_b', 'crate', 'barrel'].forEach((kind, i) => { const p = { x: h.x + (i - 2) * 66, y: h.y - 46 + (i % 2) * 22, kind, hp: 0, brokeT: S.t - a }; R.pots.push(p); S.ev.push({ k: 'break', x: p.x, y: p.y, kind, t: p.brokeT }); }); })]),
+      // a smashed wreck's planks on the shore (TASKS 1361)
+      ['wreck_broken', play((S) => { for (let sd = 1; sd < 200; sd++) { const R0 = SIM.newRun(S, 'cave', 1361 + sd), d = R0.map.decor.find((o) => o.n === 'wreck_cv'); if (!d) continue; S.run = R0; const h = R0.hero; h.x = d.x + 90; h.y = d.y + 40; d.broken = 1; d.brokeT = S.t - 5; d.solid = 0; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; break; } })],
+      // a skeleton climbing out of a struck coffin (TASKS 1353)
+      ['coffin_rise', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.map.decor.push({ x: h.x + 80, y: h.y - 40, n: 'coffin', solid: 1, rolled: 1 }); const E = D.ENEMIES.skeleton; R.en.push({ id: 991, type: 'skeleton', x: h.x + 80, y: h.y - 10, vx: 0, vy: 0, hp: 9, max: 9, dmg: 1, elite: 0, room: 0, st: 'rise', t0: S.t - 0.5, riseD: 1, coffinT: S.t - 0.5, face: -1, aimA: 0, cdT: S.t + 2, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: h.x, hy: h.y, ft: -9 }); })],
+      // a secret's statue: the plate that offers to move it (TASKS 1354)
+      ['prompt_statue', play((S) => { for (let sd = 1; sd < 220; sd++) { const R0 = SIM.newRun(S, 'campaign', 13540 + sd), q = (R0.map.secrets || []).find((o) => o.kind === 'statue'); if (!q) continue; S.run = R0; const h = R0.hero; h.x = q.x; h.y = q.y + 80; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2]; break; } })],
       ['prompt_exit', play((S) => { const R = S.run, h = R.hero; R.map.exit = { x: h.x, y: h.y + 40 }; })],
       ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
@@ -230,6 +249,10 @@
         st: 'idle', t0: 0, face: -1, aimA: 0, cdT: 99, hitT: S.t - age, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 }; });
       R.en.forEach((e) => S.ev.push({ k: 'hit', t: S.t - age, x: e.x, y: e.y - D.ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: 12, crit: 0, id: e.id }));
       ['skeleton', 'ghost', 'goblin', 'spider'].forEach((ty, i) => S.ev.push({ k: 'kill', t: S.t - 2, x: h.x + 100 + i * 120, y: h.y + 90, type: ty, id: 950 + i })); })]);
+    // TASKS 1342: a critical blow against a plain one: the word, the bigger white number, the flash
+    states.push(['crit_hit', play((S) => { const R = S.run, m = R.map, h = R.hero, rm = m.rooms.filter((r) => r.type === 'combat').sort((p, q) => q.w * q.h - p.w * p.h)[0]; h.x = (rm.cx + 0.5) * TILE - 200; h.y = (rm.cy + 0.5) * TILE + 20; R.cam = [h.x + 200 - SCX.VW / 2, h.y - SCX.VH / 2]; R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
+      R.en = ['skeleton', 'goblin'].map((ty, i) => { const E = D.ENEMIES[ty]; return { id: 930 + i, type: ty, x: h.x + 120 + i * 180, y: h.y - 60, vx: 0, vy: 0, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: rm.id, st: 'idle', t0: 0, face: -1, aimA: 0, cdT: 99, hitT: S.t - 0.06, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, calmT: 1e9 }; });
+      R.en.forEach((e, i) => S.ev.push({ k: 'hit', t: S.t - 0.06, x: e.x, y: e.y - D.ENEMIES[e.type].h * 0.5 - 6, type: e.type, n: i ? 12 : 38, crit: i ? 0 : 1, id: e.id })); })]);
     // elites next to plain monsters of the same kind: the aura and the size must tell them apart at a glance
     states.push(['elite', play((S) => { const R = S.run, h = R.hero, rm = R.map.rooms.find((r) => r.type === 'combat') || R.map.rooms[0]; h.x = (rm.x + 1.5) * TILE; h.y = (rm.y + rm.h / 2) * TILE;
       R.cam = [h.x - 260, h.y - SCX.VH / 2 - 30]; R.rseen = R.rseen.map(() => 1); R.seen = R.seen.map(() => 1); R.msg = null;
@@ -287,6 +310,15 @@
     // a cobweb in a room's top-left and top-right corner: spun across the corner, mirrored on the right
     for (const f of [0, 1]) states.push(['web_' + (f ? 'r' : 'l'), play((S) => { S.run = SIM.newRun(S, 'campaign', 1); const R = S.run, d = R.map.decals.find((o) => o.n === 'dc_web' && o.f === f), h = R.hero;
       if (!d) return; h.x = d.x + (f ? -90 : 90); h.y = d.y + 90; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; })]);
+    // a floor without light (TASKS 1364): the hero in a room's west end, three foes east of him, near and at the edge of the lamp's reach;
+    // dark_plain is the same floor with its modifier off
+    for (const plain of [0, 1]) { let found = null;
+      for (let sd = 1; sd < 300 && !found; sd++) for (let f = 3; f <= 4 && !found; f++) if (D.stageOf('campaign', f, sd).mod === 'dark') found = [sd, f];
+      if (found) states.push([plain ? 'dark_plain' : 'dark_floor', play((S) => { S.run = SIM.newRun(S, 'campaign', found[0]); SIM.enterFloor(S, S.run, found[1]); const R = S.run, m = R.map, h = R.hero; if (plain) m.mod = null;
+        const r = m.rooms.find((q) => q.type === 'combat' && !q.zone), foes = R.en.filter((e) => !D.BOSSES[e.type]).slice(0, 3); R.msg = null; S.ev = [];
+        h.x = (r.x + 1.2) * TILE; h.y = (r.y + r.h / 2) * TILE; h.vx = h.vy = 0;
+        foes.forEach((e, i) => { e.x = h.x + [80, 140, 195][i]; e.y = h.y + [-50, 30, -20][i]; });
+        R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [h.x + 100 - SCX.VW / 2, h.y - SCX.VH / 2]; })]); }
     // the floor's worst-lit room: the one whose farthest cell is farthest from any light
     // the largest lava pool on the fire floors, close: its straight shores and its outer and inner corners (TASKS 105)
     { let best = null; for (const seed of [1234, 1, 2, 3]) { const S = play(); S.run = SIM.newRun(S, 'campaign', seed); for (const f of [5, 6]) { SIM.enterFloor(S, S.run, f); const m = S.run.map, seen = new Set();
@@ -429,6 +461,11 @@
     // the hero right beside a shut side door, in the room: the leaf's far end goes behind him, its near end in front
     for (const dir of ['l', 'r']) { const S = doorS(dir, 0); if (!S) continue; const R = S.run, d = R.map.doors.find((o) => o.dir === dir && !SIM.doorLock(R.map, o));
       Object.assign(R.hero, { x: d.x + (dir === 'l' ? 18 : -18), y: d.y + 8 }); states.push(['door_' + dir + '_beside', S]); }
+    // an open door's leaf keeps its hinge side (TASKS 1351): the hero pressed along the hinge lane into the opening stops short of the leaf
+    for (const dir of ['u', 'd', 'l', 'r']) { const S = doorS(dir, 2); if (!S) continue; const R = S.run, d = R.map.doors.find((o) => o.dir === dir && !SIM.doorLock(R.map, o)), h = R.hero, [vx, vy] = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[dir];
+      h.x = (d.cells[0][0] + 0.5) * TILE - vx * 2 * TILE; h.y = (d.cells[0][1] + 0.5) * TILE - vy * 2 * TILE; h.vx = h.vy = 0; R.en = [];
+      for (let i = 0; i < 90; i++) SIM.step(S, { left: vx < 0, right: vx > 0, up: vy < 0, down: vy > 0, px: 960, py: 540, keys: [] });
+      R.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2 - 30]; R.msg = null; states.push(['door_' + dir + '_open_pressed', S]); }
     { const S = play(); for (let sd = 1; sd < 160; sd++) { S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, L0 = m.locks.find((q) => q.kind === 'lever'); if (!L0) continue;
         const h = R.hero; h.x = L0.lever.x + 60; h.y = L0.lever.y + 70; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); R.cam = [L0.lever.x - SCX.VW / 2, L0.lever.y - SCX.VH / 2]; states.push(['lever', S]);
         const S2 = play(); S2.run = SIM.newRun(S2, 'campaign', sd); const R2 = S2.run, L2 = R2.map.locks[m.locks.indexOf(L0)]; Object.assign(R2.hero, { x: h.x, y: h.y }); R2.en = []; R2.msg = null; R2.seen.fill(1); R2.rseen.fill(1); R2.cam = R.cam.slice();
@@ -445,6 +482,7 @@
     for (const [n, f, stage, age] of [['secret_crack', crack('u'), 0], ['secret_crack_hit', crack('u'), 1], ['secret_crack_break', crack('u'), 2, 0.25], ['secret_room', crack('u'), 3],
       ['secret_crack_d', crack('d'), 0], ['secret_crack_hit_d', crack('d'), 1], ['secret_crack_l', crack('l'), 0], ['secret_crack_hit_l', crack('l'), 1], ['secret_crack_r', crack('r'), 0], ['secret_crack_hit_r', crack('r'), 1],
       ['secret_banner', (o) => o.kind === 'banner', 0], ['secret_banner_fall', (o) => o.kind === 'banner', 2, 0.25], ['secret_banner_down', (o) => o.kind === 'banner', 3],
+      ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.3], ['secret_statue_open', (o) => o.kind === 'statue', 3],
       ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_break', (o) => o.kind === 'shelf', 2, 0.2], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
       ['secret_sconce', sconce, 0], ['secret_sconce_sink', sconce, 2, 0.8], ['secret_sconce_open', sconce, 3],
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
@@ -751,6 +789,10 @@
       if (!r) continue; void R; const Q = S.run, h = Q.hero, x = (r.x + r.w / 2) * TILE, y = (r.y + r.h / 2) * TILE;
       h.x = (r.x + 1.5) * TILE; h.y = (r.y + r.h - 1) * TILE; Q.en = Q.en.filter((e) => e.room === r.id).slice(0, 2); Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - SCX.VW / 2, y - SCX.VH / 2];
       states.push(['room_' + shape, S]); }
+    // a two-level hall (TASKS 1358, 375): the whole hall in view with the hero on its gallery and on the floor below, on the floors that have one
+    [[22, 6], [18, 8], [33, 6]].forEach(([sd, f], i) => { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, r = m.rooms.find((q) => q.tier); if (!r) return;
+      R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2];
+      for (const [n, hx, hy] of [['gallery', r.x + 3, r.tier.y - 1], ['floor', r.x + 3, r.tier.y + 4]]) { const T = structuredClone(S); Object.assign(T.run.hero, { x: (hx + 0.5) * TILE, y: hy * TILE + 8, vx: 0, vy: 0 }); states.push(['tier_' + i + '_' + n, T]); } });
     // the rooms floors' layouts (TASKS 379): the first campaign floor of each, the view on its middle, the whole floor explored
     for (const lay of ['maze', 'hall', 'catacomb', 'fortress', 'tomb']) { let S = null;
       for (let sd = 1; sd < 40 && !S; sd++) for (const f of [3, 5, 7]) if (D.stageOf('campaign', f, sd).lay === lay) { S = play(); S.run = SIM.newRun(S, 'campaign', sd); S.screen = 'play'; SIM.enterFloor(S, S.run, f); break; }
@@ -1118,7 +1160,7 @@
     // a smouldering skeleton struck down: its bones lie with the fuse burning, then burst
     const emberKill = (S) => { kill(S); const e = S.run.en[0], B = D.ENEMIES.skel_ember.boom; e.fuse = S.t + B.fuse; S.ev.push({ k: 'fuse', t: S.t, x: e.x, y: e.y, r: B.r, d: B.fuse, id: e.id }); };
     transitions.skel_ember_death = eventT(lone('skel_ember'), emberKill, 'skel_ember'); transitions.skel_ember_death_topple = eventT(lone('skel_ember', 992), emberKill, 'skel_ember');
-    for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
+    for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander', 'mimic']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
     // a golem's pool of lava where it fell apart, through its whole life (TASKS 409)
     transitions.golem_pool = eventT(lone('golem'), (S) => { kill(S); const e = S.run.en[0], P = D.ENEMIES.golem.pool; S.run.fires = [{ id: 995, src: e.id, who: 'golem', x: e.x, y: e.y, t0: S.t, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; S.ev.push({ k: 'pool', t: S.t, x: e.x, y: e.y, r: P.r, d: P.t, id: e.id }); }, 'golem');
     // a blow on a golem's crust takes a plate off: sparks off the stone, a clang; with its crust gone its cracks blaze
@@ -1222,7 +1264,7 @@
     { const S = structuredClone(states.find(([name]) => name === 'win_cave')[1]), R = SIM.newRun(S, 'magma', 71);
       S.result.mode = 'magma'; S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta); S.result.lvl = 17; states.push(['win_magma', S]); }
     { const fr = []; let S = play((S) => { S.run.en = []; S.run.msg = null; }); for (let i = 0; i < 180; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } loops.hero_idle = fr; }
-    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', ...MG]) { const fr = []; let S = playOf(ty)((S) => { const R = S.run, h = R.hero; R.msg = null;
+    for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', 'mimic', ...MG]) { const fr = []; let S = playOf(ty)((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - SCX.VW / 2, h.y - SCX.VH / 2]; });
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }
@@ -1326,6 +1368,14 @@
     states.push(['inv_foreign', play((S) => { const R = S.run, h = R.hero; h.bag[4] = Object.assign(SIM.rollItem(R, 2, 1, 'armor'), { id: 1510, b: 'robe' });
       h.bag[5] = Object.assign(SIM.rollItem(R, 2, 2, 'weapon'), { id: 1511, b: 'wand' }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['inv_req', play((S) => { const R = S.run, h = R.hero; h.lvl = 3; for (let i = 0; i < 6; i++) h.bag[4 + i] = Object.assign(SIM.rollItem(R, 4 + 2 * i, 2), { id: 1500 + i }); S.screen = 'inv'; S.hover = 'bag:9'; })]);
+    // TASKS 1331: a piece lifted from the hero screen's bag over another cell, and a sort button under the pointer
+    states.push(['inv_drag', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 1210, y: 400 }; })]);
+    // TASKS 1349: every rank full at 15, the points past them shown as mastery
+    states.push(['inv_mastery', play((S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; })]);
+    states.push(['inv_sort', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'sort:rar'; })]);
+    states.push(['town_stash_sort', stashS((S) => { S.hover = 'sortS:type'; })]);
+    // TASKS 1348: a find well above the hero: the card names the level it waits for
+    states.push(['inv_over_lvl', play((S) => { const R = S.run, h = R.hero; h.lvl = 5; h.bag[4] = Object.assign(SIM.rollItem(R, 18, 2, 'weapon', { own: 1 }), { id: 1520 }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
     // the workshops (TASKS 1013): the prompts at the anvil and the lectern; the smith with a rare ring chosen; the enchanter after a
     // failed enchantment; a piece with all five enchantments (the button's refusal, the longest)

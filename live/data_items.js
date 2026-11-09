@@ -53,8 +53,10 @@
   // another generator cannot patch the floor it builds now; the version goes with each kept floor (3: the magma caves in the campaign
   // and the endless descent's pool, TASKS 416, laid other floors from 13 on; 4: the chasm's second bridge, the halls' pay and the
   // islet's rocks, TASKS 1054, other floors and chests from 13 on; 5: the floor modifiers, TASKS 381, the stairs up in the wall, 511; 6: the islet's strip, TASKS 1170)
-  const GEN_VERSION = 11;
+  const GEN_VERSION = 13;
   const ITEM_BAL = { version: 2, atkLevel: 0.3, defLevel: 0.25, rarity: [1, 1.3, 1.7, 2.2, 2.9] };
+  // the chance of a find above the hero's level: `base`, `per` more for each floor he is ahead of it, at most `cap`; at most `up` levels above
+  const LOOT_OVER = { base: 0.04, per: 0.06, cap: 0.3, up: 4 };
   const CONSUMABLES = {
     hp_potion: { name: TXT('CONSUMABLES.hp_potion.name'), icon: 'it_hp', heal: 0.4, stack: 9 },
     mp_potion: { name: TXT('CONSUMABLES.mp_potion.name'), icon: 'it_mp', mana: 0.5, stack: 9 },
@@ -72,12 +74,23 @@
     { k: 'str', label: TXT('AFFIXES.str.label'), a: 1, b: 0.5 }, { k: 'agi', label: TXT('AFFIXES.agi.label'), a: 1, b: 0.5 },
     { k: 'int', label: TXT('AFFIXES.int.label'), a: 1, b: 0.5 }, { k: 'vit', label: TXT('AFFIXES.vit.label'), a: 1, b: 0.5 },
     { k: 'atk', label: TXT('AFFIXES.atk.label'), a: 2, b: 1.0 }, { k: 'def', label: TXT('AFFIXES.def.label'), a: 1, b: 0.6 },
-    { k: 'crit', label: TXT('AFFIXES.crit.label'), a: 2, b: 0.4 }, { k: 'hp', label: TXT('AFFIXES.hp.label'), a: 8, b: 4 },
+    { k: 'crit', label: TXT('AFFIXES.crit.label'), a: 2, b: 0.4 }, { k: 'critd', label: TXT('AFFIXES.critd.label'), a: 5, b: 1 }, { k: 'hp', label: TXT('AFFIXES.hp.label'), a: 8, b: 4 },
     { k: 'mp', label: TXT('AFFIXES.mp.label'), a: 5, b: 2 }, { k: 'aspd', label: TXT('AFFIXES.aspd.label'), a: 4, b: 0.8 },
     { k: 'mspd', label: TXT('AFFIXES.mspd.label'), a: 3, b: 0.5 }, { k: 'leech', label: TXT('AFFIXES.leech.label'), a: 1, b: 0.3 },
     { k: 'fire', label: TXT('AFFIXES.fire.label'), a: 6, b: 2 }, { k: 'dodge', label: TXT('AFFIXES.dodge.label'), a: 1, b: 0.25 },
     { k: 'regen', label: TXT('AFFIXES.regen.label'), a: 0.5, b: 0.15 }, { k: 'onhit', label: TXT('AFFIXES.onhit.label'), a: 0.5, b: 0.2 },
   ];
+  // a slot's odds for each property (the player's note 5.2, TASKS 1341), 1 when not named: rare off-type rolls stay, so a find can still surprise
+  const AFFIX_W = {
+    weapon: { atk: 5, crit: 3, critd: 2.5, aspd: 2, fire: 2, leech: 2, onhit: 1.5, str: 1.5, agi: 1.5, int: 1.5, def: 0.2, dodge: 0.2, mspd: 0.2, hp: 0.3, vit: 0.3, regen: 0.3, mp: 0.5 },
+    offhand: { critd: 0.3, def: 4, hp: 3, vit: 2, dodge: 2, regen: 1.5, atk: 0.3, crit: 0.5, aspd: 0.5, leech: 0.3, mspd: 0.3 },
+    helm: { critd: 0.3, def: 3, hp: 3, vit: 2, mp: 2, int: 1.5, regen: 1.5, atk: 0.3, aspd: 0.3, leech: 0.3, mspd: 0.2 },
+    armor: { critd: 0.2, def: 5, hp: 4, vit: 3, regen: 2, atk: 0.2, crit: 0.2, aspd: 0.2, leech: 0.3, onhit: 0.3, fire: 0.3 },
+    gloves: { aspd: 3, crit: 3, critd: 2.5, atk: 2, str: 1.5, agi: 1.5, leech: 1.5, onhit: 1.5, hp: 0.5, mspd: 0.2 },
+    boots: { critd: 0.2, mspd: 5, dodge: 3, agi: 2, def: 2, atk: 0.2, crit: 0.2, leech: 0.2, aspd: 0.5, fire: 0.3 },
+    ring: { crit: 2, critd: 2, atk: 1.5, leech: 1.5, fire: 1.5, int: 1.5, str: 1.5, agi: 1.5, def: 0.5 },
+    amulet: { hp: 2, mp: 2, regen: 2, vit: 1.5, int: 1.5, fire: 1.5, def: 0.5 },
+  };
   // by base first: a legendary staff or axe must not be called a blade
   const LEGEND_NAMES = { sword: TXT('LEGEND_NAMES.sword'), longsword: TXT('LEGEND_NAMES.longsword'), axe: TXT('LEGEND_NAMES.axe'), hammer: TXT('LEGEND_NAMES.hammer'), staff: TXT('LEGEND_NAMES.staff'), wand: TXT('LEGEND_NAMES.wand'), shortbow: TXT('LEGEND_NAMES.shortbow'), longbow: TXT('LEGEND_NAMES.longbow'), crossbow: TXT('LEGEND_NAMES.crossbow'), quiver: TXT('LEGEND_NAMES.quiver'), orb: TXT('LEGEND_NAMES.orb'), robe: TXT('LEGEND_NAMES.robe'), circlet: TXT('LEGEND_NAMES.circlet'),
     cloak: TXT('LEGEND_NAMES.cloak'), weapon: TXT('LEGEND_NAMES.weapon'), offhand: TXT('LEGEND_NAMES.offhand'), helm: TXT('LEGEND_NAMES.helm'), armor: TXT('LEGEND_NAMES.armor'), gloves: TXT('LEGEND_NAMES.gloves'),
@@ -129,5 +142,5 @@
   const itemPrice = (it, f) => price(it, f, SHOP.rarK);
   const sellPrice = (it, f) => Math.max(1, Math.floor(price(it, f, SHOP.sellK) * SHOP.sell));
 
-  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, LEGEND_NAMES, reqLvl, SHOP, itemPrice, sellPrice });
+  Object.assign(D, { CLASS_LOOT, wears, clsNames, SLOTS, SLOT_NAME, BASES, GEN_VERSION, ITEM_BAL, CONSUMABLES, RARITY, AFFIXES, AFFIX_W, LOOT_OVER, LEGEND_NAMES, reqLvl, SHOP, itemPrice, sellPrice });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -15,12 +15,20 @@
     { id: 'trap', name: TXT('ABILITIES.trap.name'), icon: 'ab_trap', key: '2', unlock: 2, mp: 15, cd: 8, desc: TXT('ABILITIES.trap.desc') },
     { id: 'leap', name: TXT('ABILITIES.leap.name'), icon: 'ab_leap', key: '3', unlock: 4, mp: 12, cd: 7, desc: TXT('ABILITIES.leap.desc') },
   ];
-  // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
-  const AB_MAX = 10;
-  const abRank = (id, r) => { const n = Math.max(0, r - 1);
-    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'volley' || id === 'trap' || id === 'leap' || id === 'charge' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'cry' ? { k: 1, cd: 1 - 0.03 * n, t: CRY.t + 0.5 * n } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
+  // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it. Ranks 11–15 (TASKS 1349)
+  // add damage only: the whirl's cooldown and both radii stop at rank 10, as 15 ranks of them made a 2.6 s whirl 200 px wide; the cry
+  // keeps a quarter of its time gain, as its full gain outlasted its own cooldown
+  // a critical blow (TASKS 1342): `k` times the damage, the crit-damage property adds to it up to `cap`, so stacking it on every slot stays bounded
+  const CRIT = { k: 1.75, cap: 3 };
+  const AB_MAX = 15;
+  const abRank = (id, r) => { const n = Math.max(0, r - 1), m = Math.min(n, 9);
+    return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * m, r: 118 + 6 * m } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * m } : id === 'volley' || id === 'trap' || id === 'leap' || id === 'charge' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'cry' ? { k: 1, cd: 1 - 0.03 * m, t: CRY.t + 0.5 * m + 0.25 * (n - m) } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
   // about one elite's blow anywhere (TASKS 179), but slower to grow than the blows: INT, rank and floor all multiplied in made it
   // a second life bar, 688 on floor 8 against the hero's 588 (TASKS 199)
+  // skill points past the last rank (TASKS 1349) turn into mastery by themselves, so none wait for a spend that can never come; 0.5% a point
+  // keeps a dozen points under one rank of the altar's «dmg» (6%), as the endless descent has no last level to stop it
+  const MASTERY = { pct: 0.5 }, ranksFull = (h) => clsOf(h).abs.every((a) => (h.ab[a.id] || 0) >= AB_MAX), masteryK = (h) => (h.mast || 0) * MASTERY.pct / 100;
+  const masteryTake = (h) => { if (h.sp > 0 && ranksFull(h)) { h.mast = (h.mast || 0) + h.sp; h.sp = 0; } };
   const SHIELD_T = 10, shieldHp = (int, r, f) => Math.round((24 + int * 2) * abRank('shield', r).k * (1 + 0.2 * (f - 1)));
   // a swing with INT for STR: the weapon in hand plus 1.6 per INT (stats: spellBase), so it grows with the gear as a swing does
   // and a strength build keeps casting deep down (TASKS 203); its bonuses add up into one sum (stats: spell). INT counted twice,
@@ -61,15 +69,15 @@
   // the class screen of 1103 lists only those; `sat`: the paint's saturation under the light, the warrior's 0.8 kept his steel off the
   // fire's orange and greyed the mage's blue); `borrow`: the classes whose gear it wears while it has none of its own (1102). Mage and archer hold the warrior's kit until their tasks (1110–1124) give them theirs
   const CLASSES = {
-    warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 3, sp: 1 },
+    warrior: { name: TXT('CLASSES.warrior.name'), style: TXT('CLASSES.warrior.style'), base: { str: 5, agi: 4, int: 3, vit: 5 }, grow: { hp: 6, mp: 2, pts: 5, sp: 1 },
       abilities: ['whirl', 'charge', 'cry'], unlock: [1, 2, 4], rclick: 'charge', res: 'rage', start: { weapon: 'sword', armor: 'leather_armor' }, look: { rig: 'hero', ready: 1 } },
     // the mage (1111): INT for STR, less health and more mana a level; two knobs on INT for the round-2 lag (TASKS 217: the INT bot
     // won 30 % against 57 %), `intK.spell` (spell power per INT) or `intK.hp` (health per INT), the one to keep chosen by 1140's runs
-    mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 3, sp: 1 }, intK: { spell: 0, hp: 0 },
+    mage: { name: TXT('CLASSES.mage.name'), style: TXT('CLASSES.mage.style'), base: { str: 3, agi: 4, int: 7, vit: 3 }, grow: { hp: 4, mp: 4, pts: 5, sp: 1 }, intK: { spell: 0, hp: 0 },
       abilities: ['fireball', 'shield', 'frost'], unlock: [1, 2, 4], shoots: ['staff', 'wand'], rclick: 'fireball', start: { weapon: 'staff', armor: 'robe' }, look: { rig: 'mage', ready: 1, sat: 1, eye: [13.3, 5.9] } },
     // the archer's mana comes from his arrows (TASKS 1162: `hitMp` a hit, a crit; the pool held on potions); `slow` the share of his
     // shot's cycle he is slowed after it, so a quick bow does not keep him slow
-    archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 3, sp: 1 },
+    archer: { name: TXT('CLASSES.archer.name'), style: TXT('CLASSES.archer.style'), base: { str: 3, agi: 6, int: 3, vit: 5 }, grow: { hp: 7, mp: 3, pts: 5, sp: 1 },
       abilities: ['volley', 'trap', 'leap'], unlock: [1, 2, 4], shoots: ['shortbow', 'longbow', 'crossbow'], rclick: 'volley', hitMp: { hit: 1, crit: 3 }, slow: 0.4, start: { weapon: 'shortbow', armor: 'leather_armor' }, look: { rig: 'archer', ready: 1, sat: 0.65, cold: { sat: 0.8, lift: 0.8, red: 0.12 } } },
   };
   // what does nothing for a class is not offered to it (TASKS 1185): altar gifts and ranks, item properties, consumables. The mage's and
@@ -98,6 +106,7 @@
     return (r && r < M.max ? f(r) + '  →  ' : '') + f(n) + ' ' + M.unit(M.v(n)); };
   // first ranks twice the old price, each step after three quarters of it: at 10–25 shards a won run bought five first ranks and
   // the next run was won before the rest of the ~1400 mattered (TASKS 202)
+  const BAG = { start: 24 };
   const META = [
     // v(r): the total bonus at rank r, so the altar shows what is owned and what the next rank brings; unit(n) agrees with n
     { id: 'hp', name: TXT('META.hp.name'), v: (r) => 12 * r, unit: () => TXT('META.hp.unit'), max: 5, cost: (r) => 30 + r * 11 },
@@ -151,5 +160,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, rerollCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, GIFTS, giftCost, rerollCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

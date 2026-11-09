@@ -5,14 +5,14 @@
   if (typeof module !== 'undefined') require('./sim_checks_powers.js');
   const {
     ABILITIES, ARROW_Y, BAL, BASES, CRUST, D, DG, DOOM, DT, ENEMIES, FROM, K, LOOT, MOD, RARITY, REWARD, STAGE, TILE, UI, WADE, addFire,
-    aggroRoom, angDiff, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
+    aggroRoom, angDiff, bagAdd, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
     boxHit, brinkOf, castAbility, cell, colossusBoulder, colossusRain, completion, completionHints, counted, crustAt, damageName, deepBody,
     dep, descend, doorLock, dropCell, endRun, enterFloor, floorStat, flow, folkFree, folkOf, folkR, fstat, heroHit, heroSt, hidden,
     hitEnemy, hitFolk, hitProps, hitSecrets, hurtHero, inRoom1, inStart, inWater, interact, isCons, itemMods, itemPower, journalOf,
     campaignDone, exitKind, killEnemy, kindOf, lastFloor, lootAudit, losClear, move, newQuest, newRun, offerOf, offersOf, onLava, openAltar, openChest, openDoor,
     openSecret, persist, poolOk, potion, questFloor, questMark, questMarks, rebalanceRun, reveal, rnd, rollAffixes, rollItem, runCompletion,
     runReward, scriptInput, secretMask, serpent, serpentMouth, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
-    steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
+    stashOf, steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function selfCheck() {
@@ -215,9 +215,9 @@
           for (const [hx, hy, hw, hn] of hung) if (hy === ry && Math.abs(hx - d.x) < hw + (D.PROP_W[d.n] || 53) / 2) out.push(`seed ${seed} f${f}: ${d.n} hides a ${hn} on the wall at ${Math.round(hx)},${hy * TILE}`); }
         for (const p of m.pots) { const r = m.rooms[DG.roomAt(m, p.x, p.y)] || {}; if (p.kind === 'gold' && r.type !== 'secret' && !r.locked) out.push(`seed ${seed} f${f}: a heap of gold outside a secret or locked room`); }
         for (const r of m.rooms) { const n = m.chests.filter((c) => DG.roomAt(m, c.x, c.y) === r.id).length; if (n > Math.min(2, 1 + Math.floor(r.w * r.h / 30))) out.push(`seed ${seed} f${f}: ${n} chests in a ${r.w}×${r.h} room`); } }
-      // a cobweb hangs only in a room's top corner, its spun corner against the two walls (mirrored on the right)
-      for (const d of m.decals) if (d.n === 'dc_web') { const w = 40 * d.s, cx = d.f ? d.x + w / 2 : d.x - w / 2, cy = d.y - w / 2, tx = Math.round(cx / TILE) - (d.f ? 1 : 0), ty = Math.round(cy / TILE);
-        if (cell(m, tx, ty) !== 1 || cell(m, tx + (d.f ? 1 : -1), ty) !== 0 || cell(m, tx, ty - 1) !== 0 || Math.abs(cx - Math.round(cx / TILE) * TILE) > 1 || Math.abs(cy - ty * TILE) > 1) out.push(`seed ${seed} f${f}: a cobweb away from a corner at ${Math.round(d.x)},${Math.round(d.y)}`); }
+      // a cobweb hangs on the back wall's upper face in a room's top corner, its spun corner at the wall's top edge against the side wall (mirrored on the right)
+      for (const d of m.decals) if (d.n === 'dc_web') { const w = 40 * d.s, cx = d.f ? d.x + w / 2 : d.x - w / 2, tx = Math.round(cx / TILE) - (d.f ? 1 : 0), ty = Math.round((d.y - w / 2 - 4) / TILE) + 2, ox = d.f ? -1 : 1, sx = d.f ? 1 : -1;
+        if (cell(m, tx, ty) !== 1 || cell(m, tx + sx, ty) !== 0 || [0, ox].some((o) => cell(m, tx + o, ty - 1) !== 0 || cell(m, tx + o, ty - 2) !== 0) || Math.abs(cx - Math.round(cx / TILE) * TILE) > 1 || Math.abs(d.y - w / 2 - 4 - (ty - 2) * TILE) > 1) out.push(`seed ${seed} f${f}: a cobweb away from a corner at ${Math.round(d.x)},${Math.round(d.y)}`); }
       // a floor decal's drawn square (40·s px) lies on open floor: nothing climbs a wall (the corner cobwebs hang there on purpose)
       for (const d of m.decals) { if (d.n === 'dc_web') continue; const h = 20 * d.s;
         for (const [px, py] of [[d.x - h, d.y - h], [d.x + h - 0.01, d.y - h], [d.x - h, d.y + h - 0.01], [d.x + h - 0.01, d.y + h - 0.01]]) if (cell(m, Math.floor(px / TILE), Math.floor(py / TILE)) !== 1) { out.push(`seed ${seed} f${f}: decal ${d.n} on a wall at ${Math.round(d.x)},${Math.round(d.y)}`); break; } }
@@ -367,7 +367,8 @@
           if (m.torches.some((t) => t.r === r.id && t.sec !== i)) out.push(`seed ${seed} f${f}: a torch lights secret ${i} before it is found`);
           // each secret has its cover or its mechanism, and a mechanism is found and worked from the open floor
           const tag = `seed ${seed} f${f}: secret ${i} (${q.kind})`;
-          if (!['crack', 'banner', 'shelf', 'lever'].includes(q.kind)) out.push(`${tag} has no kind`);
+          if (!['crack', 'banner', 'shelf', 'lever', 'statue'].includes(q.kind)) out.push(`${tag} has no kind`);
+          if (q.kind === 'statue') { const d = m.decor.find((o) => o.secret === i && o.n === 'statue' && o.solid); if (!d || !q.slide || q.dir !== 'u') out.push(`${tag} has no statue or no room to slide`); const row = Math.floor(d.y / TILE), x1 = Math.floor((q.x + q.slide) / TILE); if (cell(m, x1, row) !== 1 || cell(m, x1, row - 1) !== 0 || cell(m, x1, row + 1) !== 1) out.push(`${tag} would slide onto a way or off the wall`); }
           if ((q.kind === 'banner' || q.kind === 'shelf') && q.dir !== 'u') out.push(`${tag} is not on a top wall`);
           if (q.kind === 'banner' && !m.decor.some((d) => d.secret === i && d.n === 'banner' && d.wall)) out.push(`${tag} has no banner`);
           if (q.kind === 'shelf' && !m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid)) out.push(`${tag} has no bookshelf`);
@@ -424,7 +425,7 @@
     // gear for an empty slot is worn on pickup; for a taken slot it goes to the bag; potions always go to the bag
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 60; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, drop = (it) => R.drops.push({ id: R.nextId++, kind: 'item', item: it, x: h.x, y: h.y, vx: 0, vy: 0, z: 0, vz: 0, t0: R.t - 1 });
-      const helm = Object.assign(rollItem(R, 1, 0, 'helm'), { id: 88801 }), sword = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 88802 }), pot = { id: 88803, b: 'hp_potion', n: 1, rar: 0, lvl: 1, mods: {} };
+      const helm = Object.assign(rollItem(R, 1, 0, 'helm', { own: 1 }), { id: 88801 }), sword = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 88802 }), pot = { id: 88803, b: 'hp_potion', n: 1, rar: 0, lvl: 1, mods: {} };
       h.eq.helm = null; drop(helm); drop(sword); drop(pot); for (let i = 0; i < 5; i++) step(S, { keys: [] });
       if (!h.eq.helm || h.eq.helm.id !== 88801) out.push('an item for an empty slot was not worn on pickup');
       if (h.eq.weapon.id === 88802 || !h.bag.some((b) => b && b.id === 88802)) out.push('an item for a taken slot did not go to the bag');
@@ -734,7 +735,7 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck(), magmaKindsCheck());
+    return out.concat(secretCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck(), magmaKindsCheck(), chestCheck());
   }
   // a run of its own (the caves, the magma caves) finds, is sold and is given items at about its hero's level on its first floor:
   // the magma caves' loot over their depth once made them 10 levels over him and the run a walk (TASKS 424)
@@ -1202,7 +1203,7 @@
         const T = spawn(0, {}); T.run = newRun(T, 'endless', found[0]); T.screen = 'play'; const Q = T.run; enterFloor(T, Q, found[1]); const m2 = Q.map, b = Q.en.find((e) => e.type === type), r = m2.rooms[b.room];
         Q.hero.x = (r.x + r.w / 2) * TILE; Q.hero.y = (r.y + r.h / 2) * TILE; stepArena(T, Q);
         if (!Q.arena || !Q.arena.active || !arenaSealed(Q)) { out.push(`endless ${type}: the arena does not seal`); continue; }
-        Q.drops = []; b.hp = 0; killEnemy(T, Q, b); const big = E.big.includes(type), shards = Q.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0), items = Q.drops.filter((d) => d.kind === 'item' && !isCons(d.item)).length;
+        Q.drops = []; b.hp = 0; killEnemy(T, Q, b); const big = E.big.includes(type), shards = Q.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0), items = Q.drops.filter((d) => d.kind === 'item' && !isCons(d.item)).length + Q.chests.filter((c) => c.boss).reduce((n, c) => n + c.loot.length, 0);
         if (arenaSealed(Q) || Q.arena.active || (m2.doors || []).some((d) => d.arena && !d.open)) out.push(`endless ${type}: the arena stays shut after its death`);
         if (shards !== (big ? 20 : 3) || items < (big ? LOOT.boss.length : 1) || (!big && items > 1)) out.push(`endless ${type}: pays ${shards} shards and ${items} items`);
         if (!m2.shrines.some((q) => q.boss)) out.push(`endless ${type}: no altar on its floor`);
@@ -1267,6 +1268,50 @@
     return out;
   }
   // a run snapshot for localStorage (the whole run is plain JSON)
+  function chestCheck() { const out = [], { chapterEnd, finishArena } = root.SIMX; let bosses = 0;
+    for (const sd of [31, 77]) for (let f = 1; f <= 8; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
+      const R = S.run, c = R.chests.find((o) => o.boss), b = R.en.find((e) => D.BOSSES[e.type]); if (!b || !c) continue; bosses++;
+      if (!c.sealed) out.push(`boss chest ${sd}/${f}: not sealed`);
+      openChest(S, R, c); if (c.open) out.push(`boss chest ${sd}/${f}: opens with its boss alive`);
+      const n = R.drops.length; finishArena(S, R, b); if (c.sealed) out.push(`boss chest ${sd}/${f}: still sealed after the win`); if (R.drops.length !== n) out.push(`boss chest ${sd}/${f}: the boss dropped its loot as well`);
+      if (c.loot.length !== (chapterEnd(R, b) ? LOOT.boss.length : 1)) out.push(`boss chest ${sd}/${f}: holds ${c.loot.length} items`);
+      openChest(S, R, c); if (!c.open) out.push(`boss chest ${sd}/${f}: does not open after the win`); }
+    if (bosses < 4) out.push(`boss chest: only ${bosses} boss floors had one`);
+    let traps = 0;
+    for (let sd = 1; sd <= 40 && !traps; sd++) for (let f = 2; f <= 8 && !traps; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 1357 + sd); enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, c = R.chests.find((o) => o.trap && o.sec === undefined); if (!c) continue; traps++;
+      R.en = []; const h = R.hero, n = R.drops.length; h.x = c.x; h.y = c.y + 30; h.vx = h.vy = 0; h.ifr = 0; const hp0 = h.hp; openChest(S, R, c);
+      if (!c.fuseT || R.drops.length === n) out.push('trap chest: no fuse or no loot on opening'); if (h.hp !== hp0) out.push('trap chest: hurts before its fuse');
+      for (let k = 0; k < 90; k++) step(S, { keys: [] }); if (h.hp >= hp0) out.push('trap chest: the blast did not hurt the hero beside it'); if (c.fuseT) out.push('trap chest: fuse never ends');
+      c.fuseT = S.t - 1; h.hp = 1; h.ifr = 0; h.x = c.x; h.y = c.y + 20; for (let k = 0; k < 4; k++) step(S, { keys: [] }); if (h.deadT >= 0) out.push('trap chest: killed the hero'); }
+    if (!traps) out.push('trap chest: none on 40 seeds');
+    { let coffins = 0; const p0 = D.COFFIN.p; D.COFFIN.p = () => 1;
+      for (let sd = 1; sd <= 80 && !coffins; sd++) for (let f = 1; f <= 8 && !coffins; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 1353 + sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, m = R.map, byR = {}; for (const d of m.decor) if (d.n === 'coffin' && d.r !== undefined) (byR[d.r] = byR[d.r] || []).push(d);
+        const pair = Object.values(byR).find((l) => l.length >= 2); if (!pair) continue; coffins++; R.en = []; for (const d of pair) { S.t += 1; root.SIMX.coffinWakes(S, R, d); root.SIMX.coffinWakes(S, R, d); }
+        if (R.en.length !== 1 || R.en[0].st !== 'rise' || R.en[0].type !== 'skeleton') out.push(`coffin: ${R.en.length} skeletons from one room`); const e = R.en[0]; if (e) { for (let k = 0; k < 150; k++) step(S, { keys: [] }); if (e.st === 'rise') out.push('coffin: its skeleton never finished rising'); } }
+      D.COFFIN.p = p0; if (!coffins) out.push('coffin: no room with two on 80 seeds'); }
+    { let st = 0; for (let sd = 1; sd <= 200 && !st; sd++) for (const f of [1, 3, 5]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 13540 + sd); if (f > 1) enterFloor(S, S.run, f); const R = S.run, m = R.map, i = m.secrets.findIndex((o) => o.kind === 'statue'); if (i < 0) continue; st = 1; S.screen = 'play'; const q = m.secrets[i], d = m.decor.find((o) => o.secret === i), x0 = d.x, h = R.hero; R.en = []; h.x = q.x; h.y = q.y + 70; h.vx = h.vy = 0; for (let k = 0; k < 10; k++) step(S, { keys: [] });
+        step(S, { keys: ['KeyE'] }); if (!q.open || d.x !== x0 + q.slide) out.push('statue: E does not slide it off its secret'); const to = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE), from = Math.floor(d.y / TILE) * m.W + Math.floor(x0 / TILE); if (!m.block.includes(to) || m.block.includes(from)) out.push('statue: the block did not move with it'); break; }
+      if (!st) out.push('statue: no statue secret on 200 seeds'); }
+    { let hosted = 0, alike = 0; for (let sd = 1; sd <= 16; sd++) for (const f of [1, 3, 5, 7]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 13550 + sd); if (f > 1) enterFloor(S, S.run, f); const m = S.run.map; for (const q of m.secrets) { if (q.dir !== 'u') continue; const r = m.rooms.find((o) => o.id === q.host); if (!r) continue; hosted++; if (D.STATUE_SECRET.plans.includes(r.plan)) alike++; } }
+      if (hosted && alike < hosted * 0.25) out.push(`dressed rooms: only ${alike} of ${hosted} top-wall secrets are in rooms dressed alike`); }
+    for (const mode of ['campaign', 'cave']) for (let sd = 1; sd <= 16; sd++) for (const f of [1, 2, 4]) { const S = spawn(0, {}); S.run = newRun(S, mode, 13600 + sd); if (f > 1) enterFloor(S, S.run, f); const m = S.run.map;
+      m.secrets.forEach((q, i) => { const P = q.trig; if (!P) return; const t = P.k === 'sconce' ? m.torches[P.t] : null, foot = t ? [Math.floor(t.x / TILE), Math.floor((t.y + 40) / TILE)] : [P.cx, P.cy], [fx, fy] = q.front[5], seen = new Map([[fy * m.W + fx, 0]]), st = [[fx, fy]]; let d = -1;
+        while (st.length && d < 0) { const [x, y] = st.shift(), g = seen.get(y * m.W + x); if (x === foot[0] && y === foot[1]) { d = g; break; } if (g >= 12) continue; for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (y + b) * m.W + x + a, c = cell(m, x + a, y + b); if ((c === 1 || c === 5) && !seen.has(k)) { seen.set(k, g + 1); st.push([x + a, y + b]); } } }
+        if (d < 0) out.push(`secret ${mode} ${13600 + sd} f${f}#${i}: its ${P.k} is more than 12 steps from the wall it opens`); }); }
+    let wrecks = 0;
+    for (let sd = 1; sd <= 60 && !wrecks; sd++) for (let f = 1; f <= 4 && !wrecks; f++) { const S = spawn(0, {}); S.run = newRun(S, 'cave', 1361 + sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, m = R.map, d = m.decor.find((o) => o.n === 'wreck_cv' && o.solid); if (!d) continue; wrecks++;
+      R.en = []; R.drops = []; const n0 = R.en.length, k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); for (let i = 0; i < D.WRECK.hp; i++) { S.t += 1; root.SIMX.hitWreck(S, R, d); }
+      if (!d.broken || d.solid) out.push('wreck: did not break on its last blow'); if (m.block.includes(k)) out.push('wreck: still blocks its cell');
+      const items = R.drops.filter((o) => o.kind === 'item').length, ghosts = R.en.slice(n0).filter((e) => e.type === 'ghost'); if (!items && (ghosts.length < D.WRECK.ghosts[0] || ghosts.some((e) => e.elite))) out.push('wreck: gave neither loot nor a plain pack of ghosts'); }
+    if (!wrecks) out.push('wreck: none on 60 seeds');
+    let mims = 0;
+    for (let sd = 1; sd <= 80 && !mims; sd++) for (let f = 3; f <= 8 && !mims; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 3670 + sd); enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, c = R.chests.find((o) => o.mimic); if (!c) continue; mims++;
+      R.en = []; const h = R.hero, spot = [[0, 80], [80, 0], [-80, 0], [0, -80], [60, 60], [-60, 60]].find(([dx, dy]) => cell(R.map, Math.floor((c.x + dx) / TILE), Math.floor((c.y + dy) / TILE)) === 1 && losClear(R.map, c.x, c.y - 6, c.x + dx, c.y + dy - 6)); if (!spot) { mims--; continue; } h.x = c.x + spot[0]; h.y = c.y + spot[1]; h.ifr = 1e9; const items = c.loot.length, n0 = R.drops.length, A0 = lootAudit(R).off; openChest(S, R, c); const e = R.en.find((o) => o.type === 'mimic');
+      if (!e || e.st !== 'rise' || R.drops.length !== n0 || c.loot.length !== items) out.push('mimic: did not wake holding its loot'); if (solids(R).some((o) => o.x === c.x && o.y === c.y)) out.push('mimic: its chest still stands in the way');
+      if (lootAudit(R).off !== A0) out.push('mimic: loot books off while it lives'); for (let k = 0; k < 300 && !R.en.some((o) => o.st === 'strike' && o.type === 'mimic'); k++) step(S, { keys: [] }); if (!R.en.some((o) => o.st === 'strike')) out.push('mimic: never bites');
+      e.hp = 0; killEnemy(S, R, e); if (R.drops.filter((d) => d.kind === 'item').length < items || c.loot.length) out.push('mimic: its loot did not fall'); if (lootAudit(R).off !== A0) out.push('mimic: loot books off after it dies'); if (R.stats[f] && R.stats[f].kills > R.stats[f].foes + 1) out.push('mimic: counted among the floor\'s monsters'); }
+    if (!mims) out.push('mimic: none on 80 seeds');
+    return out; }
   // secrets, loot tables and completion stats, played through the sim
   function secretCheck() {
     const out = [];
@@ -1303,10 +1348,11 @@
         if (q.kind === 'crack') { settle(q.x - q.dx * 40, q.y - q.dy * 40); swing(q.x, q.y); swing(q.x, q.y); }
         if (q.kind === 'shelf') { settle(q.x, q.y + 70); swing(q.x, q.y + 22); swing(q.x, q.y + 22); }
         if (q.kind === 'banner') { settle(q.x, q.y + 34); step(S, { keys: ['KeyE'] }); }
+        if (q.kind === 'statue') { settle(q.x, q.y + 70); step(S, { keys: ['KeyE'] }); }
         if (tc) { settle(tc.x, tc.y + 50); step(S, { keys: ['KeyE'] }); }
         if (P && P.k === 'plate') settle(P.x, P.y);
         if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${P ? ' ' + P.k : ''}, ${q.dir}) does not open from its tell`);
-        m.secrets.forEach((o, j) => { if (o.open && !base[j]) { o.open = 0; o.hp = 2; o.hitT = -9; if (kindOf(o) === 'shelf') shelfOf(m, j, true); } });
+        m.secrets.forEach((o, j) => { if (o.open && !base[j]) { o.open = 0; o.hp = 2; o.hitT = -9; if (kindOf(o) === 'shelf') shelfOf(m, j, true); if (kindOf(o) === 'statue') root.SIMX.statueOf(m, j, o, true); } });
         for (let k = 0; k < cells0.length; k++) m.cells[k] = cells0[k];
         for (const c of R.chests) c.open = 0; }); }
     // loot: open every chest of a few floors (secret ones too), let the items fall and pick up half of them; the floor's books
@@ -1350,13 +1396,47 @@
       const e = { id: 9e6, type: 'skeleton', x: h.x + 30, y: h.y, deadT: -1, hp: 1, elite: 1, st: 'idle', room: 0, kbx: 0, kby: 0 }; R.en.push(e); hitEnemy(S, R, e, 1e6, false, h.x, h.y);
       if (R.stats[1].lootN !== n0 + R.drops.filter((d) => d.loot && d.kind === 'item').length) out.push('loot check: a monster\'s drop is not added to the floor\'s loot');
     }
-    { const R = { rs: 99 }, n = 4000, roll = (o) => { let top = 0, epic = 0; for (let i = 0; i < n; i++) { const it = rollItem(R, 5, o.q || 0, undefined, o); top = Math.max(top, it.rar); epic += it.rar >= 3; if (it.rar < (o.min || 0)) top = -9; } return { top, epic: epic / n }; };
-      const mob = roll(LOOT.mob), elite = roll(LOOT.elite), chest = roll(LOOT.chest[1]), hoard = roll(LOOT.chest[2]), sec = roll(LOOT.chest[3]), lg = roll(LOOT.boss[0]);
+    { const R = { rs: 99 }, n = 4000, roll = (o) => { let top = 0, epic = 0, leg = 0; for (let i = 0; i < n; i++) { const it = rollItem(R, 5, o.q || 0, undefined, o); top = Math.max(top, it.rar); epic += it.rar >= 3; if (it.rar < (o.min || 0)) top = -9; leg += it.rar === 4; } return { top, epic: epic / n, leg: leg / n }; };
+      const mob = roll(LOOT.mob), elite = roll(LOOT.elite), chest = roll(LOOT.chest[1]), hoard = roll(LOOT.chest[2]), sec = roll(LOOT.chest[3]), lg = roll(LOOT.boss[0]), brute = roll(LOOT.brute);
       if (mob.top > 3) out.push('loot: a common monster dropped a legendary');
       if (elite.top < 0) out.push('loot: a minimum rarity was not kept');
       if (lg.top !== 4) out.push('loot: the boss has no guaranteed legendary');
-      if (chest.top !== 4 || sec.top !== 4) out.push('loot: a chest roll is capped');
+      if (chest.top > 3 || hoard.top > 3) out.push('loot: a plain chest held a legendary');
+      if (sec.top !== 4) out.push('loot: a secret room\'s chest is capped');
+      if (!(elite.leg > 0 && brute.leg > 0 && elite.leg < sec.leg)) out.push(`loot: legendary share elite ${elite.leg} brute ${brute.leg} secret ${sec.leg}`);
+      if (!(LOOT.thin(21) < LOOT.thin(1) && LOOT.thin(99) >= 0.6)) out.push('loot: a common monster\'s chance does not thin with depth');
       if (!(mob.epic < chest.epic && chest.epic < hoard.epic && hoard.epic * 1.4 < sec.epic)) out.push(`loot: epic+ share mob ${mob.epic} chest ${chest.epic} treasure ${hoard.epic} secret ${sec.epic}`); }
+    // TASKS 1344: a floor with every counted monster dead springs no chest ambush
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 411); S.run = R; S.screen = 'play'; const m = R.map, rm = m.rooms.filter((r) => r.type === 'combat').sort((p, q) => q.w * q.h - p.w * p.h)[0], mod = m.mod; rm.type = 'treasure'; R.en = [];
+      D.FLOOR_MODS.__t = { ambush: 1e3 }; m.mod = '__t'; R.hero.x = (rm.x + 1.5) * TILE; R.hero.y = (rm.y + 1.5) * TILE;
+      const open = () => { const c = { x: (rm.x + rm.w / 2) * TILE, y: (rm.y + rm.h / 2) * TILE, tier: 1, open: 0, loot: [] }, n = R.en.length; R.chests.push(c); openChest(S, R, c); return R.en.length - n; }, f = fstat(R);
+      f.foes = 10; f.kills = 9; if (open() <= 0) out.push('ambush: a chest does not spring it while monsters live');
+      f.kills = 10; R.en = []; if (open() > 0) out.push('ambush: a chest springs it on a cleared floor');
+      delete D.FLOOR_MODS.__t; m.mod = mod; }
+    // TASKS 1341: a slot's own properties come up more often than the others, the number of them stays the rarity's
+    { const R = { rs: 1341 }, n = 3000, share = (b, k) => { let c = 0; for (let i = 0; i < n; i++) { const it = rollAffixes(R, { b, rar: 2, lvl: 8, mods: {} }); if (Object.keys(it.mods).length !== RARITY[2].affixes) out.push(`affix: ${b} rolled the wrong number`); c += k in it.mods; } return c / n; };
+      if (!(share('sword', 'atk') > 2 * share('sword', 'def'))) out.push('affix: a weapon does not favour attack over defence');
+      if (!(share('plate_armor', 'def') > 2 * share('plate_armor', 'atk'))) out.push('affix: armour does not favour defence over attack');
+      if (!(share('boots', 'mspd') > 2 * share('boots', 'crit'))) out.push('affix: boots do not favour speed'); }
+    // TASKS 1345: a find's level follows a hero who has outgrown the floor, spreads, keeps to the source's floor under him; the seed repeats it
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1345); R.hero.lvl = 25; const lv = (o) => Array.from({ length: 600 }, () => rollItem(R, 21, 0, undefined, o).lvl), low = (a) => Math.min(...a);
+      const mob = lv(LOOT.mob), chest = lv(LOOT.chest[1]), boss = lv(LOOT.boss[2]);
+      if (low(mob) < 22 || low(chest) < 23 || low(boss) < 24) out.push(`loot level: under the floor: mob ${low(mob)} chest ${low(chest)} boss ${low(boss)}`);
+      if (new Set(mob).size < 2 || new Set(boss).size < 2) out.push('loot level: no spread');
+      if (rollItem(R, 21, 0).lvl !== 21) out.push('loot level: a roll that names no source left the floor\'s level');
+      const seq = (sd) => { const Q = { rs: sd, hero: R.hero }; return Array.from({ length: 50 }, () => rollItem(Q, 21, 0, undefined, LOOT.mob).lvl).join(); }; if (seq(5) !== seq(5)) out.push('loot level: the seed does not repeat it'); }
+    // TASKS 1347: a find above the usual range is likelier for a hero ahead of his level, and its bonus is capped
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1347), top = 15 + LOOT.mob.hi, roll = (lvl) => { R.hero.lvl = lvl; return Array.from({ length: 3000 }, () => rollItem(R, 15, 0, undefined, LOOT.mob).lvl); }, over = (a) => a.filter((v) => v > top).length;
+      const ahead = roll(5), even = roll(15); if (!(over(ahead) > 2 * over(even))) out.push(`over-level: ahead ${over(ahead)}, even ${over(even)}`); if (!over(even)) out.push('over-level: a hero at the floor\'s level never finds one');
+      if (Math.max(...ahead) > top + D.LOOT_OVER.up) out.push(`over-level: a bonus past the cap, ${Math.max(...ahead)}`); }
+    // TASKS 1348: a piece above the hero's level is not put on by itself and still sells
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1348), h = R.hero; S.run = R; h.lvl = 3; h.eq.helm = null; const it = { id: R.nextId++, b: 'knight_helm', rar: 1, lvl: 20, mods: {}, def: 5 };
+      if (wearIfFree(S, R, it) || h.eq.helm) out.push('over-level: a piece above the hero goes on an empty slot'); if (!(D.sellPrice(it, 1) > 0)) out.push('over-level: a piece above the hero does not sell'); }
+    // TASKS 1342: the crit-damage property raises the one multiplier, up to its cap
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1342), h = R.hero, ring = (v) => { h.eq.ring = { id: 1, b: 'ring', rar: 1, lvl: 1, mods: { critd: v } }; return stats(h, S.meta).critK; }; h.eq.ring = null;
+      if (stats(h, S.meta).critK !== D.CRIT.k) out.push('crit: the base multiplier is not CRIT.k');
+      if (Math.abs(ring(50) - (D.CRIT.k + 0.5)) > 1e-9) out.push('crit: the property does not add to the multiplier');
+      if (ring(1000) !== D.CRIT.cap) out.push('crit: the multiplier passes its cap'); h.eq.ring = null; }
     // completion: empty categories are left out, partial and full runs, a floor change, save/load, a one-time bonus
     { const C0 = completion([{ foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0 }]); if (C0.pct !== 0) out.push('completion: an empty floor is not 0');
       const C1 = completion([{ foes: 10, kills: 5, lootN: 4, loot: 4, secN: 0, sec: 0 }]); if (Math.abs(C1.pct - 0.75) > 1e-9) out.push('completion: a floor without secrets counts them as 0%');
@@ -1412,6 +1492,21 @@
           if (cell(m, cx, cy) !== 5 || losClear(m, d.x - 40 * (d.dir === 'l' ? -1 : d.dir === 'r' ? 1 : 0), d.y + 40 * (d.dir === 'u' ? 1 : d.dir === 'd' ? -1 : 0), d.x + 40 * (d.dir === 'l' ? -1 : d.dir === 'r' ? 1 : 0), d.y - 40 * (d.dir === 'u' ? 1 : d.dir === 'd' ? -1 : 0))) out.push('doors: a shut door is not solid or lets sight through');
           h.x = d.x; h.y = d.y + (d.dir === 'u' ? 40 : d.dir === 'd' ? -30 : 20); h.x += d.dir === 'l' ? 30 : d.dir === 'r' ? -30 : 0; step(S, { px: 960, py: 540, keys: ['KeyE'] });
           if (!d.open || cell(m, cx, cy) !== 1) out.push('doors: E does not open a door'); } } }
+    // TASKS 1351: an open door's leaf keeps the cells it is drawn over (the hinge side's): nobody stands or walks behind it, the paths route round it,
+    // and the other lane of the doorway still carries the hero through
+    { const V = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }, seenDir = new Set();
+      for (let sd = 5; sd < 90 && seenDir.size < 4; sd++) for (let f = 1; f <= 4 && seenDir.size < 4; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; if (f > 1) enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero;
+        for (const d of m.doors) { if (d.arena || doorLock(m, d) || seenDir.has(d.dir)) continue; seenDir.add(d.dir); const [vx, vy] = V[d.dir], tag = `doors: ${d.dir} door of seed ${sd} f${f}`; R.en = []; R.pots = []; R.chests = [];
+          openDoor(S, R, d, 0); const leaf = SIMX.leafCells(d), centre = ([x, y]) => [(x + 0.5) * TILE, (y + 0.5) * TILE];
+          if (!leaf.length || leaf.some(([x, y]) => !m.block.includes(y * m.W + x) || cell(m, x, y) !== 1)) out.push(`${tag}: its leaf's cells are not kept`);
+          if (!leaf.every((c) => solids(R).some((o) => Math.hypot(o.x - centre(c)[0], o.y - centre(c)[1]) < 1))) out.push(`${tag}: its leaf is not solid`);
+          for (const lane of [0, 1]) { const [cx, cy] = centre(d.cells[lane]), p0 = [cx - vx * 2.5 * TILE, cy - vy * 2.5 * TILE]; let inside = false;
+            h.x = p0[0]; h.y = p0[1]; h.vx = h.vy = 0; if (boxHit(m, h.x, h.y, 10, false, false)) continue;
+            for (let i = 0; i < 160; i++) { step(S, { left: vx < 0, right: vx > 0, up: vy < 0, down: vy > 0, px: 960, py: 540, keys: [] }); if (leaf.some((c) => Math.abs(h.x - centre(c)[0]) < 12 && Math.abs(h.y - centre(c)[1]) < 12)) inside = true; }
+            const along = (h.x - d.x) * vx + (h.y - d.y) * vy;
+            if (inside) out.push(`${tag}: the hero stands behind the leaf (lane ${lane})`);
+            if (lane === 1 && along < 1.5 * TILE) out.push(`${tag}: the free lane does not carry the hero through (${along.toFixed(0)} px)`); } } }
+      for (const dir of ['u', 'd', 'l', 'r']) if (!seenDir.has(dir)) out.push(`doors: no plain ${dir} door on floors 1–4 of 85 seeds`); }
     // loot thrown out of a chest against a wall lands on the room's floor, never in the rock behind it (a potion out of the start
     // room's chest sailed over the wall)
     { let bad = 0; for (let sd = 1; sd <= 25 && !bad; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; const R = S.run, m = R.map; R.en = [];
@@ -1576,7 +1671,8 @@
         { const e = crab({ rushT: 99 }); h.x = x0 - E.r - K.R - 14; let hurt = 0; for (let i = 0; i < 120; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; h.x = x0 - E.r - K.R - 14; h.y = y0; e.x = x0; e.y = y0; }
           if (hurt) out.push('crab: pinches a hero behind it'); }
         // the rush: a hero 100 px off its side; it runs at him and hurts him, still facing its way
-        { const e = crab({ rushT: 0 }); h.x = x0; h.y = y0 + 100; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; if (!hurt) { h.x = x0; h.y = y0 + 100; } }
+        // (no dodge: a dodged blow, a roll of the run's stream, would read as no rush at all)
+        { const e = crab({ rushT: 0 }); h.base.agi = 0; for (const k in h.eq) h.eq[k] = null; h.x = x0; h.y = y0 + 100; let hurt = 0; for (let i = 0; i < 240 && !hurt; i++) { step(S, quiet); if (S.ev.some((v) => v.k === 'hurt' && v.t === S.t)) hurt = 1; h.hp = 1e4; if (!hurt) { h.x = x0; h.y = y0 + 100; } }
           if (!hurt || !S.ev.some((v) => v.k === 'rush' && v.id === e.id)) out.push('crab: never rushes a hero at its side');
           if (Math.abs(angDiff(e.fa, 0)) > 0.6) out.push(`crab: the rush turned its shell to ${e.fa.toFixed(2)}`);
           if (e.y - y0 < 40) out.push(`crab: the rush carries it only ${(e.y - y0).toFixed(0)} px sideways`); } } }
@@ -1622,7 +1718,7 @@
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; enterFloor(S, R, 2); R.en = []; h.bag[0] = { b: 'scroll', n: 2 }; S.screen = 'inv'; const b = UI.inv().r.find((q) => q.id === 'bag:0'), inp = { px: b.x + 5, py: b.y + 5, press: 1, keys: [] }, n0 = h.atkN;
-      step(S, Object.assign({ click: 1 }, inp)); if (!h.read) out.push('scroll: a click in the bag does not start reading'); for (let i = 0; i < 10; i++) step(S, inp); if (h.atkN !== n0) out.push('scroll: the click that reads it also swings the weapon'); if (!h.read) out.push('scroll: the held click breaks the reading'); }
+      step(S, Object.assign({ click: 1 }, inp)); step(S, Object.assign({}, inp, { press: 0 })); if (!h.read) out.push('scroll: a click in the bag does not start reading'); for (let i = 0; i < 10; i++) step(S, Object.assign({}, inp, { press: 0 })); if (h.atkN !== n0) out.push('scroll: the click that reads it also swings the weapon'); if (!h.read) out.push('scroll: the click breaks the reading'); }
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
       for (let f = 1; !R.shrines.length && f < D.RUNS.campaign.chapter; ) enterFloor(S, R, ++f);
       if (!R.shrines.length) out.push('altar: no altar on any floor of seed 777');
@@ -1935,7 +2031,7 @@
       const R = S.run, h = R && R.hero;
       if (!R || R.mode !== RID || S.screen !== 'inv') out.push(RID + ': the menu button does not start the run on the hero screen');
       else {
-        if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`${RID}: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
+        if (h.lvl !== N.lvl || h.pts !== D.clsOf(h).grow.pts * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`${RID}: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
         if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push(RID + ': the kit is not worn');
         if (D.clsOf(h).abs.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push(RID + ': an ability of the hero\'s level is still locked');
         for (let f = 1; f <= N.floors; f++) { if (f > 1) enterFloor(S, R, f); const m = R.map, guards = m.enemies.filter((e) => e.guard).length;
@@ -2077,7 +2173,7 @@
           killEnemy(S2, R2, lord);
           if (R2.bossDead) out.push('campaign f8: the demon lord\'s death opens the way out of the campaign');
           if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f8: the demon lord does not pay the finale\'s 20 shards');
-          if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f8: the demon lord does not drop the finale\'s loot');
+          if (R2.drops.filter((d) => d.kind === 'item').length + R2.chests.filter((c) => c.boss).reduce((n, c) => n + c.loot.length, 0) < LOOT.boss.length) out.push('campaign f8: the demon lord does not drop the finale\'s loot');
           if (!R2.map.shrines.length) out.push('campaign f8: no altar past the demon lord');
           R2.drops = []; want = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.bag, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
           if (R2.leaving > 0) { R2.leaving = 0; SIMX.enterFloor(S2, R2, R2.floor + 1); }
@@ -2105,7 +2201,7 @@
             if (!sp) out.push('campaign f12: no serpent');
             else { killEnemy(S2, R2, sp); if (R2.bossDead) out.push('campaign f12: the serpent\'s death opens the way out of the campaign');
               if (R2.drops.filter((d) => d.kind === 'shard').reduce((n, d) => n + d.n, 0) !== 20) out.push('campaign f12: the serpent does not pay the finale\'s 20 shards');
-              if (R2.drops.filter((d) => d.kind === 'item').length < LOOT.boss.length) out.push('campaign f12: the serpent does not drop the finale\'s loot');
+              if (R2.drops.filter((d) => d.kind === 'item').length + R2.chests.filter((c) => c.boss).reduce((n, c) => n + c.loot.length, 0) < LOOT.boss.length) out.push('campaign f12: the serpent does not drop the finale\'s loot');
               R2.drops = []; const want2 = JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.perks, h2.ab]); h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; interact(S2, R2);
               if (!(R2.leaving > 0)) out.push('campaign: no fade out on the stairs into the magma chapter'); R2.leaving = 0; SIMX.enterFloor(S2, R2, R2.floor + 1);
               if (!R2.msg || R2.msg.chapter !== D.RUNS.magma.name) out.push('campaign: no chapter banner on the 13th');
@@ -2149,7 +2245,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...craftCheck(), ...talkCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
     return out;
   }
   // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
@@ -2422,6 +2518,58 @@
     if (T.meta.stash.v !== D.ITEM_BAL.version || T.meta.stash.items.filter(Boolean).length !== 2) out.push('stash: the chest does not outlive the run or is not brought to the item balance');
     const b0 = U.r.find((q) => q.id === 'stash:0'); step(T, { keys: [], click: 1, px: b0.x + 10, py: b0.y + 10 }); step(T, { keys: [], px: b0.x + 10, py: b0.y + 10 });
     const got = Q.hero.bag.find((it) => it && it.b === g1.b && it.lvl === g1.lvl && !isCons(it)); if (!got || got.id < Q.nextId - 1 || T.meta.stash.items[0]) out.push('stash: the next hero does not take the piece out with an id of his own');
+    return out;
+  }
+  // TASKS 1331, 1671: the bag is 24 cells with no altar upgrade, a hero from a save that had the 12-cell cap fills them all; a drag moves a piece
+  // between cells, a click on the piece's own cell still uses it; the sort buttons order the cells and pack them to the front; the chest sorts too
+  // TASKS 1349: ranks stop at AB_MAX, the points past every full rank turn into mastery and leave nothing in h.sp, a hero with a rank to
+  // buy keeps his points, a save without the field loads as no mastery, and the rank-15 numbers stay sane
+  function masteryCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 88); S.screen = 'inv'; const R = S.run, h = R.hero, abs = D.clsOf(h).abs, U = UI.inv(abs);
+    const click = (id) => { const b = U.r.find((q) => q.id === id); for (const o of [{ click: 1 }, {}]) step(S, Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o)); };
+    if (D.AB_MAX !== 15) out.push('mastery: the rank ceiling is not 15');
+    h.lvl = 60; h.forks = {}; for (const a of abs) for (const r of D.FORK_RANKS) h.forks[D.forkKey(a.id, r)] = 0; const A = abs[0]; h.ab[A.id] = D.AB_MAX; h.sp = 1; click('ab:' + A.id); if (h.ab[A.id] !== D.AB_MAX) out.push('mastery: a rank went past the ceiling');
+    if (h.sp !== 1 || h.mast) out.push('mastery: a point was taken while other ranks are open');
+    for (const a of abs) h.ab[a.id] = D.AB_MAX; const st0 = stats(h, S.meta); h.ab[abs[2].id] = D.AB_MAX - 1; h.sp = 2; click('ab:' + abs[2].id);
+    if (h.ab[abs[2].id] !== D.AB_MAX || h.sp !== 0 || h.mast !== 1) out.push(`mastery: the last rank left sp ${h.sp}, mastery ${h.mast}`);
+    h.sp = 0; SIMX.gainXp(S, R, D.xpNeed(h.lvl) / 0.5); if (h.sp !== 0 || !(h.mast > 1)) out.push(`mastery: a level past the ceiling left sp ${h.sp}, mastery ${h.mast}`);
+    h.mast = 40; h.lvl = 60; const st = stats(h, S.meta), lim = 1.21;
+    if (!(st.atk > st0.atk) || !(st.maxHp > st0.maxHp) || st.atk > st0.atk * lim + 1 || st.maxHp > st0.maxHp * lim + 1) out.push(`mastery: 40 points turn atk ${st0.atk} into ${st.atk}, hp ${st0.maxHp} into ${st.maxHp}`);
+    const old = JSON.parse(JSON.stringify(R)); delete old.hero.mast; old.hero.ab = Object.fromEntries(abs.map((a) => [a.id, 10])); old.hero.sp = 3;
+    const T = spawn(1, JSON.parse(JSON.stringify(persist(Object.assign(spawn(0, {}), { run: old })))));
+    if (!T.saved || T.saved.hero.sp !== 3 || T.saved.hero.mast) out.push('mastery: an old save at the old ceiling lost its points or gained mastery');
+    for (const id of ['whirl', 'frost', 'cry', 'fireball', 'shield', 'volley']) { const a = D.abRank(id, 10), b = D.abRank(id, 15); if (!(b.cd >= 0.5) || b.cd > a.cd || (id !== 'cry' && !(b.k > a.k)) || (a.r && b.r !== a.r)) out.push(`mastery: ${id} at rank 15 is off`); }
+    { const a = D.abRank('cry', 15); if (!(a.t < D.ABILITIES.find((q) => q.id === 'cry').cd * a.cd)) out.push('mastery: the cry at rank 15 outlasts its cooldown'); }
+    return out;
+  }
+  function bagCheck() {
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77); S.screen = 'inv'; const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs);
+    const at = (id, o = {}) => { const b = U.r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o); };
+    if (D.BAG.start !== 24 || h.bag.length !== 24 || UI.meta(S.meta.cls).some((q) => q.id === 'bag')) out.push('bag: a fresh hero does not have 24 cells, or the altar still sells the bag');
+    const had = h.bag.filter(Boolean).length; let added = 0; for (let i = 0; i < 30; i++) if (bagAdd(R, Object.assign(rollItem(R, 3 + (i % 5), i % 4), { id: 5000 + i }))) added++;
+    if (h.bag.filter(Boolean).length !== 24 || added !== 24 - had) out.push('bag: the bag takes more or fewer than its 24 cells');
+    const A = h.bag[3], B = h.bag[5];
+    step(S, at('bag:3', { click: 1, press: 1 })); step(S, at('bag:5', { press: 1 })); step(S, at('bag:5'));
+    if (h.bag[3] !== B || h.bag[5] !== A) out.push('bag: a drag does not swap two cells');
+    { const w = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 6000 }); h.bag.fill(null); h.bag[2] = w; const old = h.eq.weapon;
+      step(S, at('bag:2', { click: 1, press: 1 })); step(S, at('bag:2')); if (h.eq.weapon !== w || h.bag[2] !== old) out.push('bag: a click on the piece no longer wears it'); }
+    { h.bag.fill(null); const e = h.eq.armor; step(S, at('eq:armor', { click: 1, press: 1 })); step(S, at('bag:7', { press: 1 })); step(S, at('bag:7'));
+      if (h.eq.armor || h.bag[7] !== e) out.push('bag: a worn piece dragged to a cell does not come off into it'); }
+    h.bag.fill(null); const mix = [rollItem(R, 2, 1), rollItem(R, 9, 3), rollItem(R, 5, 3), rollItem(R, 7, 0), potion('hp_potion', 3)]; mix.forEach((it, i) => { it.id = 7000 + i; h.bag[i * 2] = it; });
+    step(S, at('sort:rar', { click: 1 })); step(S, at('sort:rar'));
+    const rs = h.bag.filter(Boolean); if (rs.length !== 5 || h.bag.slice(5).some(Boolean) || rs.some((it, i) => i && (rs[i - 1].rar || 0) < (it.rar || 0))) out.push('bag: the rarity sort does not order the cells or pack them to the front');
+    step(S, at('sort:type', { click: 1 })); step(S, at('sort:type')); if (!isCons(h.bag[0])) out.push('bag: the type sort does not put consumables first');
+    step(S, at('sort:lvl', { click: 1 })); step(S, at('sort:lvl')); { const ls = h.bag.filter(Boolean); if (ls.some((it, i) => i && (ls[i - 1].lvl || 0) < (it.lvl || 0))) out.push('bag: the level sort does not order the cells'); }
+    const old = JSON.parse(JSON.stringify(R)); old.hero.cap = 12; old.hero.bag.fill(null); old.hero.bag[20] = Object.assign(rollItem(R, 3, 1), { id: 8000 });
+    const T = spawn(1, JSON.parse(JSON.stringify(persist(Object.assign(spawn(0, {}), { run: old })))));
+    if (!T.saved || !T.saved.hero.bag[20] || T.saved.hero.bag.length !== 24) out.push('bag: a run saved with the 12-cell cap loses its cells');
+    else { let n = 0; while (n < 30 && bagAdd(T.saved, Object.assign(rollItem(T.saved, 3, 1), { id: 8100 + n }))) n++; if (n !== 23) out.push(`bag: a hero saved with the 12-cell cap fills ${n + 1} of 24 cells`); }
+    { const Q = { rs: 71, hero: h, nextId: 1 }; let t1 = 0, t3 = 0, boss = 0; for (let i = 0; i < 400; i++) { const c = SIMX.chestLoot(Object.assign(Q, { floor: 5 }), { tier: 1 }); if (c.some((it) => !isCons(it))) t1++; if (SIMX.chestLoot(Q, { tier: 3 }).some((it) => !isCons(it))) t3++; }
+      if (t1 < 40 || t1 > 130 || t3 !== 400) out.push(`chest loot: a plain chest holds gear in ${t1}/400, a top-tier one in ${t3}/400`); }
+    const V = spawn(0, {}); V.run = newRun(V, 'campaign', 78, { town: 1 }); V.screen = 'stash'; const Hh = V.run.hero, Us = UI.stash(), T2 = stashOf(V);
+    Hh.bag.fill(null); T2.items = [rollItem(V.run, 2, 1), rollItem(V.run, 8, 3), null, rollItem(V.run, 5, 2)]; for (const it of T2.items) if (it) it.id = V.run.nextId++;
+    { const b = Us.r.find((q) => q.id === 'sortS:rar'); step(V, { keys: [], px: b.x + 10, py: b.y + 10, click: 1 }); step(V, { keys: [], px: b.x + 10, py: b.y + 10 }); }
+    if (T2.items.length !== 3 || T2.items.some((it, i) => !it || (i && (T2.items[i - 1].rar || 0) < (it.rar || 0)))) out.push('bag: the chest sort does not order and pack its pieces');
     return out;
   }
   // TASKS 1013: E at the anvil opens the smith's reforging, at the lectern the enchanter's enchanting; a reforge re-rolls a piece's
@@ -2880,6 +3028,16 @@
       BASES.staff.cls = keep; }
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 81), h = R.hero, H = JSON.parse(JSON.stringify(h)); delete H.cls; H.lvl = 5;
       if (h.cls !== 'warrior' || D.clsOf(H) !== D.CLASSES.warrior || JSON.stringify(stats(H, S.meta)) !== JSON.stringify(stats(Object.assign({}, H, { cls: 'warrior' }), S.meta))) out.push('class: a hero saved without a class is not a warrior'); }
+    // TASKS 1363: a lava bridge's rope rails hold: pressed against either side of the deck the hero stays on it, and the deck still carries him bank to bank
+    { let n = 0; for (let sd = 1; sd <= 14 && n < 6; sd++) for (const f of [5, 6]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero; R.en = [];
+        for (const c of m.crossings.filter((q) => q.kind === 'bridge' && q.lava && !q.chasm)) { n++; const [u0, u1, v0] = c.span, hor = c.axis === 'x', P = (u, v) => [(hor ? u : v) * TILE, (hor ? v : u) * TILE], tag = `rails: seed ${sd} f${f} bridge at ${u0},${v0}`;
+          for (const side of [-1, 1]) { const [x, y] = P((u0 + u1 + 1) / 2, v0 + 1); h.x = x; h.y = y; h.vx = h.vy = 0;
+            for (let i = 0; i < 90; i++) step(S, hor ? { up: side < 0, down: side > 0, px: 960, py: 540, keys: [] } : { left: side < 0, right: side > 0, px: 960, py: 540, keys: [] });
+            const v = hor ? h.y : h.x; if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1 || v < v0 * TILE || v > (v0 + 2) * TILE) out.push(`${tag}: the hero walks off its ${side < 0 ? 'near' : 'far'} side`); }
+          for (const dir of [-1, 1]) { const [x, y] = P(dir < 0 ? u1 + 1.5 : u0 - 0.5, v0 + 1); h.x = x; h.y = y; h.vx = h.vy = 0;
+            for (let i = 0; i < 400; i++) step(S, hor ? { left: dir < 0, right: dir > 0, px: 960, py: 540, keys: [] } : { up: dir < 0, down: dir > 0, px: 960, py: 540, keys: [] });
+            const a = hor ? h.x : h.y; if (dir < 0 ? a > u0 * TILE : a < (u1 + 1) * TILE) out.push(`${tag}: the deck does not carry the hero across`); } } }
+      if (n < 4) out.push(`rails: only ${n} lava bridges in 14 seeds`); }
     SIMX.checkPowers(out);
     return out;
   }

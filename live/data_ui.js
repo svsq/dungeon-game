@@ -22,15 +22,19 @@
       for (const g of e.groups) { rows.push({ k: 'group', s: g.name, h: NEWS.h.group });
         for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
     newsMemo = { src: D.CHANGES, rows }; return rows; };
+  // the sort buttons over a grid: by type, rarity, level, right-aligned to `right`
+  const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
+  const sortRow = (pre, right, y) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x: right - 150 * (3 - i) - 8 * (2 - i), y, w: 150, h: 40 }));
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save)
     menu: (hasRun, diff, arm, zoom) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
       ['tests', TXT('UI.menu.5'), true], ['diff', TXT('UI.menu.6', { name: DIFF[diff || 'normal'].name }), true], ['zoom', TXT('UI.menu.7', { p1: zoomName(zoom) }), true], ['news', TXT('UI.menu.9'), true]]
+      .filter(([id]) => id !== 'continue' || hasRun)
       .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 })),
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
     // the class screen (TASKS 1103): a card a ready class, side by side, the start and back buttons under them
-    classes: (meta) => { const ids = D.classesReady(), W = 520, gap = 40, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2;
+    classes: (meta) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2;
       return ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 40, y: 742, w: W - 80, h: 42 }))
         .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 190, w: W, h: 640 })))
         .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 980, y: 880, w: 380, h: 76 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 560, y: 880, w: 380, h: 76 }]); },
@@ -86,7 +90,7 @@
     stash: () => { const P = { x: 420, y: 90, w: 1080, h: 900 }, r = [];
       for (let i = 0; i < STASH.cells; i++) r.push({ id: 'stash:' + i, i, x: P.x + 88 + (i % 8) * 116, y: P.y + 130 + Math.floor(i / 8) * 104, w: 92, h: 92 });
       for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 88 + (i % 8) * 116, y: P.y + 500 + Math.floor(i / 8) * 104, w: 92, h: 92 });
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, ...sortRow('sortS', P.x + P.w - 88, P.y + 22), ...sortRow('sort', P.x + P.w - 88, P.y + 442));
       return { P, r }; },
     // the town's ring of stones (TASKS 1009): one row per way out, the open portal first, then the waystones by floor
     // the town's gate out (TASKS 1149): its question and two buttons, the way out on the left
@@ -96,7 +100,7 @@
       return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'go:' + i, i, x: P.x + 40, y: P.y + 150 + i * 84, w: P.w - 80, h: 72 }))
         .concat([{ id: 'leave', label: TXT('UI.gate.r.leave.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 96, w: 300, h: 60 }]) }; },
     // a dungeon altar: its three gifts side by side, cheapest first
-    altar: (n = 3) => { const P = { x: 360, y: 150, w: 1200, h: 780 }, step = n > 3 ? 288 : 380, cw = n > 3 ? 264 : 340;
+    altar: (n = 3) => { const P = { x: 360, y: 150, w: 1200, h: 780 }, step = n > 3 ? 288 : 380, cw = n > 3 ? 264 : 360;
       return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'gift:' + i, i, x: P.x + 40 + i * step, y: P.y + 150, w: cw, h: 390 }))
         .concat([{ id: 'leave', label: TXT('UI.altar.r.leave.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 86, w: 300, h: 60 },
           { id: 'reroll', label: '', on: true, x: P.x + 40, y: P.y + P.h - 86, w: 340, h: 60 },
@@ -109,7 +113,7 @@
       for (let i = 0; i < 24; i++) r.push({ id: 'bag:' + i, i, x: P.x + 640 + (i % 8) * 92, y: P.y + 110 + Math.floor(i / 8) * 92, w: 82, h: 82 });
       STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: P.x + 40 + 196, y: P.y + 452 + i * 52, w: 40, h: 40 }));
       abs.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: P.x + 640 + i * 258, y: P.y + 470, w: 250, h: 150 }));
-      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 });
+      r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }, ...sortRow('sort', P.x + 640 + 8 * 92 - 10, P.y + 62));
       return { P, r };
     },
     // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the

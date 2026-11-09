@@ -24,6 +24,7 @@
     while (h.xp >= D.xpNeed(h.lvl)) { h.xp -= D.xpNeed(h.lvl); h.lvl++; const C = D.clsOf(h); h.pts += C.grow.pts; h.sp += C.grow.sp;
       for (const a of C.abs) if (a.unlock === h.lvl && !h.ab[a.id]) { h.ab[a.id] = 1; ev(S, { k: 'unlock', x: h.x, y: h.y, id: a.id }); }
       const st = heroSt(S); h.hp = st.maxHp; if (C.res !== 'rage') h.mp = st.maxMp; ev(S, { k: 'lvl', x: h.x, y: h.y, lvl: h.lvl }); }
+    const had = h.mast; D.masteryTake(h); if (!had && h.mast) R.msg = { s: TXT('sim_hero.mastery.msg.s'), t: S.t, d: 4.5 };
   }
   // no invulnerability after a blow (the balance was tuned without it). A dash leaps spikes and lava; against a monster's blow, bolt
   // or blast it only adds to the chance to dodge (BAL.dodge), it never makes the hero immune. No single monster blow takes more
@@ -146,19 +147,20 @@
     if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) ev(S, { k: 'clear', x: e.x, y: e.y, room: e.room });
     if (R.hero.powers && R.hero.deadT < 0) { SIMX.firePowers(S, R, 'kill', { e, x: e.x, y: e.y }); if (counted(e) && e.room !== undefined && e.room >= 0 && !R.en.some((o) => o !== e && o.room === e.room && o.deadT < 0 && counted(o))) SIMX.firePowers(S, R, 'roomClear', { x: e.x, y: e.y }); }
     // a raised skeleton pays its XP but carries nothing: a summoner is not a gold mine
+    if (e.type === 'mimic') SIMX.mimicLoot(S, R, e);
     if (e.summ) return;
     const [lx, ly] = landOf(R.map, e.x, e.y), ox = e.x, oy = e.y; e.x = lx; e.y = ly;
     if (e.key !== undefined) drop(R, e.x, e.y, { kind: 'key', lock: e.key });
     const gb = 1 + 0.15 * ((S.meta.up || {}).gold || 0);
     if (rnd(R) < 0.55 || e.elite) drop(R, e.x, e.y, { kind: 'gold', n: Math.round((3 + ri(R, 0, 6) + dep(R) * 2) * (e.elite ? 4 + 2 * nm : 1) * gb * BAL.reward) });
     const LT = e.type === 'brute' && e.elite ? LOOT.brute : e.elite ? LOOT.elite : LOOT.mob;
-    if (!D.BOSSES[e.type] && (e.elite || rnd(R) < LT.p * BAL.reward)) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
+    if (!D.BOSSES[e.type] && (e.elite ? rnd(R) < (LT.p ?? 1) : rnd(R) < LT.p * BAL.reward * LOOT.thin(dep(R)))) for (let i = 0, n = 1 + (rnd(R) < (LT.extra || 0) ? 1 : 0); i < n; i++) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), LT.q, undefined, LT) });
     if (rnd(R) < POT.kill * BAL.reward) dropPotion(R, e.x, e.y, 0.65);
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
     const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || SIMX.chapterEnd(R, e)), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
     if (D.BOSSES[e.type]) { SIMX.finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); } }
-    if (big) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
+    if (big && !R.chests.some((c) => c.boss)) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
     if (fin) { R.bossDead = 1; R.msg = { s: TXT('sim_hero.killEnemy.msg.s', { name: ENEMIES[e.type].name }), t: S.t }; }
     e.x = ox; e.y = oy;
   }
@@ -271,7 +273,7 @@
       h.atkHit = 1; const arc = st.arc * Math.PI / 180, reach = st.reach, Cl = D.clsOf(h);
       // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
       if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, c = rnd(R) * 100 < st.crit;
-        const p = SIMX.heroShot(R, h, a, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, BASES[st.wtype].shot || 'bolt', BASES[st.wtype]);
+        const p = SIMX.heroShot(R, h, a, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c, BASES[st.wtype].shot || 'bolt', BASES[st.wtype]);
         if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
         ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
         // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
@@ -279,7 +281,7 @@
         SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {
       for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
         if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
-        const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
+        const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
       SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); }
     }
     // ---- abilities / potions / interact ----
@@ -334,6 +336,7 @@
       q.used = 1; h.bless = 1; h.blessTo = R.floor + 1; ev(S, { k: 'bless', x: q.x, y: q.y, id: 'bless', s: D.GIFTS.find((g) => g.id === 'bless').name, cost: 0 }); R.msg = { s: TXT('sim_hero.sanctum.msg'), t: S.t }; }
     if (R.pyres && R.pyres.length) stepPyres(S, R);
     if (R.htraps && R.htraps.length) SIMX.stepTraps(S, R);
+    if (R.chests.length) SIMX.stepChestTraps(S, R);
     if (R.fires && R.fires.length) stepFires(S, R);
     // water puts the fire out
     if (h.burn > t && inWater(m, h)) { h.burn = 0; ev(S, { k: 'douse', x: h.x, y: h.y }); }

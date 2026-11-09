@@ -10,7 +10,7 @@
     const up = meta.up || {}, C = D.CLASSES[cls], ab = {}, cd = {};
     for (const a of C.abs) { ab[a.id] = a.unlock <= 1 ? 1 : 0; cd[a.id] = 0; }
     const h = { cls, x: 0, y: 0, vx: 0, vy: 0, face: 1, faceT: -9, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
-      base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(24).fill(null), ab,
+      base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(D.BAG.start).fill(null), ab,
       cd: Object.assign(cd, { dash: 0, atk: 0 }), atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
       hurtT: -9, ifr: 0, shield: 0, shieldT: -9, shieldUntil: 0, poison: 0, burn: 0, burnT: -9, spikeT: -9, dist: 0, gp: 0, deadT: -1, regen: 0, bless: 0 };
     for (const k of D.SLOTS) h.eq[k] = null;
@@ -116,7 +116,7 @@
     for (const e of mobs.slice(0, oldDead(R, f, M, P.en))) { e.hp = 0; e.deadT = 0; }
     for (const k of FLOOR_KEYS) R[k] = B[k];
     const boss = slain && R.en.find((e) => D.BOSSES[e.type]);
-    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
+    if (boss) { boss.hp = 0; boss.deadT = 0; R.bossDead = 1; for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.open = 1; c.openT = -9; } R.arena = { active: 0, room: boss.room, t0: 0 }; if (R.viaTown) R.arena.gate = SIMX.bossGate(R, boss); }
     for (const q of R.quests || []) if (q.st === 'taken' && q.f === f && D.QUESTS[q.key].fresh) { q.placed = 0; delete q.lost; delete q.room; delete q.where; }
     M.gv = D.GEN_VERSION; M.d = null; M.drops = []; M.seen = null; M.rseen = null; }
   // how many of an old floor's own monsters died there, from its diff: a floor built with ids from M.id on gives its i-th monster
