@@ -59,7 +59,7 @@
         { t: 3, src: 'brute elite blast', n: 180, actor: { type: 'brute', elite: 1, mods: ['explosive', 'vampire'] } }];
     }
     // a run through the town ends on «Вернуться в город» (TASKS 1006)
-    { const [, S0] = states.find(([n]) => n === 'dead'), S = Object.assign({}, S0, { result: Object.assign({}, S0.result, { town: 1 }) }); states.push(['dead_town', S]); }
+    { const [, S0] = states.find(([n]) => n === 'dead'), S = Object.assign({}, S0, { result: Object.assign({}, S0.result, { town: 1, allFree: 1 }) }); states.push(['dead_town', S]); }
     for (const [name, src, actor] of [['dead_caster', 'cultist elite bolt', { type: 'cultist', elite: 1, mods: ['summoner', 'vampire'] }], ['dead_lava', 'lava', null],
       ['dead_ghost', 'ghost', { type: 'ghost', elite: 0 }], ['dead_boss', 'boss', { type: 'boss', elite: 1 }]]) {
       const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.damage[2] = { t: 3, src, n: 99, actor }; states.push([name, S]);
@@ -552,13 +552,13 @@
       const R = S.run, r = R.map.rooms.filter((q) => q.type !== 'start' && q.type !== 'secret').reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), h = R.hero;
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h / 2) * TILE; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['zone_cave', S]); }
     // the town (R-17, TASKS 1002): the hero where a town run puts him, by the campfire
-    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; R.msg = null; S.ev = [];
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; R.msg = null; S.ev = [];
       R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; states.push(['zone_town', S]); }
     // the whole town in one frame (TASKS 1003): every service, the gate, the mine and the rails
-    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
       const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; void h; states.push(['town_services', S]); }
     // the townsfolk at their places (TASKS 1014), the hero out of the way at the unloading yard
-    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
+    { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; S.ev = [];
       h.x = m.town.svc.portal.x + 3 * TILE; h.y = m.town.svc.portal.y; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; states.push(['town_npc', S]); }
     // the magma caves' 2nd floor (TASKS 399; their own floor, rock and lava come in 400–404): its biggest hall, its monsters left in
     { const S = play(); plainMagma(S); S.screen = 'play';
@@ -827,7 +827,7 @@
       h.x = (r.x + r.w / 2) * TILE; h.y = (r.y + r.h - 2) * TILE; R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; states.push(['campaign_f12_serpent', S]); }
     // past the colossus (TASKS 354, 398, 514–515: the choice moved to the 16th; a run through the town): the stairs on, shut while it
     // lives, and once it falls open beside its portal home; the end of a run that won the campaign on the way down
-    for (const dead of [0, 1]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); const F = DATA.RUNS.campaign.floors; SIM.enterFloor(S, S.run, F); const R = S.run, m = R.map, h = R.hero; if (!m.down) continue;
+    for (const dead of [0, 1]) { const S = play(); S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); const F = DATA.RUNS.campaign.floors; SIM.enterFloor(S, S.run, F); const R = S.run, m = R.map, h = R.hero; if (!m.down) continue;
       const b = R.en.find((e) => e.type === 'boss_colossus');
       if (dead && b) { R.arena = { active: 1, room: b.room, t0: S.t }; b.hp = 0; SIM.killEnemy(S, R, b); R.en = R.en.filter((e) => e !== b); }
       const g = R.arena && R.arena.gate, mid = g ? [(m.down.x + g.x) / 2, (m.down.y + g.y) / 2] : [m.down.x, m.down.y];
@@ -1247,7 +1247,7 @@
     // the child), the porter lifting his crate, a talk starting (as the hammer comes back up: the blow itself is faster than a pop);
     // stills of a talk's first and second line and the merchant calling
     const folkSubj = {}, folkCyc = {}, folkCycT = {}, folkSpr = {};
-    const folkS = (fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; R.captive = null;
+    const folkS = (fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.msg = null; R.captives = null; R.folk = D.folkInit(m.town.npcs);
       h.x = m.town.svc.portal.x + 3 * TILE; h.y = m.town.svc.portal.y; SIM.step(S, { keys: [] }); S.ev = []; if (fn) fn(S, R, m, h); });
     const folkAt = (R, role) => R.folk.find((q) => q.role === role), camOn = (R, f) => { R.cam = [f.x - SCX.VW / 2, f.y - 40 - SCX.VH / 2]; };
     const atStop = (R, f, k) => { const st = R.map.town.npcs[f.i].route[k]; Object.assign(f, { x: st.x, y: st.y, way: k, go: 0, spd: 0, vx: 0, vy: 0 }); };
@@ -1348,15 +1348,17 @@
     states.push(['town_enchant', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }]; S.craft.res = { s: TXT('QA.res.s'), ok: 0, t: S.t - 0.5 }; S.hover = 'eq:weapon'; })]);
     states.push(['town_enchant_full', craftS('enchant', (S, R, h, it) => { it.ench = [{ k: 'hp', v: 40 }, { k: 'leech', v: 3 }, { k: 'mspd', v: 6 }, { k: 'crit', v: 4 }, { k: 'atk', v: 5 }]; })]);
     // a word with the townsfolk (TASKS 1016, 1023): the prompt by the Keeper; his dialogue on its longest page; the guard's line
-    states.push(['captive_cage', climbS(1, (S, R, m, h) => { h.x = R.captive.x + 50; h.y = R.captive.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
-    states.push(['captive_freed', climbS(1, (S, R, m, h) => { h.x = R.captive.x + 50; h.y = R.captive.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); R.freed = { merchant: 1 }; R.msg = { s: TXT('sim_town.captive.free'), t: S.t - 1, d: 5 }; })]);
+    states.push(['captive_cage', climbS(1, (S, R, m, h) => { h.x = R.captives.merchant.x + 50; h.y = R.captives.merchant.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
+    states.push(['captive_freed', climbS(1, (S, R, m, h) => { h.x = R.captives.merchant.x + 50; h.y = R.captives.merchant.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); R.freed = { merchant: 1 }; R.msg = { s: TXT('sim_town.captive.free'), t: S.t - 1, d: 5 }; })]);
     const noteWorst = () => D.NOTES.list.reduce((a, n) => (n.text.length > a.text.length ? n : a));
+    states.push(['captive_smith', climbS(3, (S, R, m, h) => { const C = R.captives.smith; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
+    states.push(['captive_enchanter', climbS(4, (S, R, m, h) => { const b = R.en.find((e) => D.BOSSES[e.type]); SIMX.captiveBoss(R, b); const C = R.captives.enchanter; h.x = C.x + 50; h.y = C.y + 30; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['note_floor', climbS(1, (S, R, m, h) => { const p = R.drops.find((d) => d.kind === 'note' && d.sec === undefined); h.x = p.x + 30; h.y = p.y + 24; R.en = []; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['note_read', climbS(1, (S, R) => { S.note = { id: noteWorst().id }; S.screen = 'note'; })]);
     states.push(['notes_list', climbS(1, (S, R) => { S.meta.notes = D.NOTES.list.slice(0, 30).map((n) => n.id); S.noteSel = noteWorst().id; S.meta.notes.push(S.noteSel); S.screen = 'notes'; })]);
     states.push(['notes_empty', climbS(1, (S, R) => { S.meta.notes = []; S.screen = 'notes'; })]);
     states.push(['town_shop_shut', climbS(0, (S, R, m, h) => { h.x = m.shop.front.x; h.y = m.shop.front.y + 20; })]);
-    const keeperS = (fn) => climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] });
+    const keeperS = (fn) => climbS(0, (S, R, m, h) => { R.captives = null; R.folk = D.folkInit(m.town.npcs); SIM.step(S, { keys: [] });
       const k = S.run.folk.find((q) => q.role === 'keeper'); h.x = k.x + 44; h.y = k.y + 12; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; fn(S, R, h, k); });
     states.push(['town_keeper_prompt', keeperS(() => {})]);
     // a giver's prompt with his own mark and the Keeper's near: the prompt stands in place of his own mark (TASKS 1026)
@@ -1369,7 +1371,7 @@
     // in the open, the marked room; the tracker full (four quests, the longest lines)
     const qFull = (R) => { const mk = (key, f, o) => Object.assign({ id: 900 + R.quests.length, key, f, need: D.QUESTS[key].need(f), n: 0, st: 'taken', from: 'porter', rw: D.questReward(D.QUESTS[key].rw, f) }, o);
       R.quests.push(mk('cull', 12, { n: 30 }), mk('fetch', 11, { thing: TXT('QA.qFull.thing'), ic: 'qi_horse' }), mk('chapter', 12, { st: 'done', from: 'keeper' })); };
-    const questS = (key, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run; R.offers = [{ key, from: 'guard', q: 0 }]; R.quests = [];
+    const questS = (key, fn) => play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run; R.offers = [{ key, from: 'guard', q: 0 }]; R.quests = [];
       SIM.giveQuest(S, R, 'guard'); const q = R.quests[0], h = R.hero; for (let f = 1; f <= q.f; f++) SIM.enterFloor(S, R, f); R.msg = null; R.seen = R.seen.map(() => 1); fn(S, R, q, h); R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; S.ev = []; });
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
@@ -1430,7 +1432,7 @@
     states.push(['town_portal_back', portalS(1)]);
     // the town with quests going (TASKS 1025): the first offer taken and done (? over its giver), the Keeper's chapter taken, the
     // other givers' ! left, the tracker with both
-    states.push(['town_quests', play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map; SIM.step(S, { keys: [] });
+    states.push(['town_quests', play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map; SIM.step(S, { keys: [] });
       const q = SIM.giveQuest(S, R, SIM.offersOf(R)[0].from); q.n = q.need; q.st = 'done'; SIM.giveQuest(S, R, 'keeper'); S.ev = []; R.msg = null;
       const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     // every monster caught mid-turn (a third of the way through)

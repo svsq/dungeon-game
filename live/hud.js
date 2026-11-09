@@ -204,7 +204,8 @@
     const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
     if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, SIM.Q.shopShut(R) ? TXT('hud.world.shut') : TXT('hud.world.6')];
     const noteP = SIM.Q.noteNear(R); if (noteP) pr = [noteP.x, noteP.y - 40, TXT('hud.world.note')];
-    if (SIM.Q.captiveNear(R)) pr = [R.captive.x, R.captive.y - 122, TXT('hud.world.captive')];
+    const capP = SIM.Q.captiveNear(R); if (capP) pr = [capP.x, capP.y - 122, TXT('hud.world.captive')];
+    if (SIM.Q.craftShut(R)) pr = [h.x, h.y - 110, TXT('hud.world.note')];
     const dr = SIM.Q.doorNear(R, 64); if (dr) { const lk = SIM.Q.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? TXT('hud.world.7') : lk.kind === 'key' ? (R.keys > 0 ? TXT('hud.world.8') : TXT('hud.world.9')) : TXT('hud.world.10')]; }
     const lv = SIM.Q.leverNear(R); if (lv) pr = [lv.lever.x, lv.lever.y - 30, TXT('hud.world.11')];
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) pr = [m.down.x, m.down.y - 66, R.campaignWon ? TXT('hud.world.17', { p1: m.floor + 1 }) : R.bossDead ? TXT('hud.world.12') : TXT('hud.world.13')];
@@ -764,7 +765,7 @@
       const X = P.x + (ic ? 124 : 50);
       lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 56, { size: 17, col: C.dim });
-      wrapLab('bd_x' + i, Q.text(q), X + 215, y + 18, P.x + P.w - 266 - X - 215, 17, C.text);
+      wrapLab('bd_x' + i, Q.text(q), P.x + 470, y + 18, P.w - 736, 17, C.text);
       lab('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 80, { size: 17, col: '#d8b870' });
       button('bd_take' + i, Object.assign({}, b, { label: TXT('hud.board.label') }), S.hover); });
   }

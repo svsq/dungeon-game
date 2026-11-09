@@ -12,7 +12,9 @@
     named: { kind: 'side', type: 'named', name: TXT('QUESTS.named.name'), need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => TXT('QUESTS.named.text', { f: q.f, title: q.title }), rw: ['scroll', 'item', 'xp'], item: 3 },
     fetch: { kind: 'side', type: 'fetch', name: TXT('QUESTS.fetch.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.fetch.text', { thing: q.thing, f: q.f }), rw: ['scroll', 'xp'] },
     room: { kind: 'side', type: 'room', name: TXT('QUESTS.room.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.room.text', { f: q.f }), rw: ['xp', 'shards'] },
-    rescue: { kind: 'story', type: 'free', name: TXT('QUESTS.rescue.name'), ask: TXT('QUESTS.rescue.ask'), need: () => 1, text: (q) => TXT('QUESTS.rescue.text', { f: q.f }), rw: ['xp', 'scroll'] },
+    rescue_smith: { kind: 'story', type: 'free', who: 'smith', name: TXT('QUESTS.rescue_smith.name'), ask: TXT('QUESTS.rescue_smith.ask'), thanks: TXT('QUESTS.rescue_smith.thanks'), need: () => 1, text: (q) => TXT('QUESTS.rescue_smith.text', { f: q.f }), rw: ['xp', 'scroll'] },
+    rescue_enchanter: { kind: 'story', type: 'free', who: 'enchanter', name: TXT('QUESTS.rescue_enchanter.name'), ask: TXT('QUESTS.rescue_enchanter.ask'), thanks: TXT('QUESTS.rescue_enchanter.thanks'), need: () => 1, text: (q) => TXT('QUESTS.rescue_enchanter.text', { f: q.f }), rw: ['xp', 'scroll'] },
+    rescue: { kind: 'story', type: 'free', who: 'merchant', name: TXT('QUESTS.rescue.name'), ask: TXT('QUESTS.rescue.ask'), need: () => 1, text: (q) => TXT('QUESTS.rescue.text', { f: q.f }), rw: ['xp', 'scroll'] },
     chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f, boss: D.ENEMIES[stageOf('campaign', q.f).boss].name }), rw: ['shards', 'item'] },
     depths: { kind: 'story', type: 'reach', name: TXT('QUESTS.depths.name'), need: () => 1, text: (q) => TXT('QUESTS.depths.text', { f: q.f }), rw: ['shards', 'item'] },
   };
@@ -34,9 +36,12 @@
 
   // the Keeper's story chain (TASKS 1022, a stub for R-04): a run's chapters as quests in order — each boss of the run's floors
   // (`chapter`), and the first floor of each of its later chapters (`depths`); R-04 will give the steps their own words
-  const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out;
-    if (mode === 'campaign') out.push({ key: 'rescue', f: 1 });
-    for (let f = 1; f <= M.floors; f++) { if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); }
+  // who sits caged on which floor (TASKS 1328); boss: the cage stands in that floor's hall once its boss has fallen
+  const CAPTIVES = { merchant: { f: 1, quest: 'rescue', free: TXT('sim_town.captive.free'), shut: TXT('sim_town.shopShut') },
+    smith: { f: 3, quest: 'rescue_smith', free: TXT('sim_town.captive.smith.free'), shut: TXT('sim_town.captive.smith.shut') },
+    enchanter: { f: 4, boss: 1, quest: 'rescue_enchanter', free: TXT('sim_town.captive.enchanter.free'), shut: TXT('sim_town.captive.enchanter.shut') } };
+  const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out; const caged = (f, late) => { if (mode === 'campaign') for (const c of Object.values(CAPTIVES)) if (c.f === f && !!c.boss === late) out.push({ key: c.quest, f }); };
+    for (let f = 1; f <= M.floors; f++) { caged(f, false); if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); caged(f, true); }
     return out; };
 
   // the town's workshops (R-32, TASKS 1013), a sink for spare gold and shards (389): the smith reforges a piece's own affixes for a
@@ -77,5 +82,5 @@
 
   const NOTE_LIST = (globalThis.TEXT || {}).notes || [];
   const NOTES = { n: [3, 5], era: { dungeon: 'cellar', crypt: 'crypt', lava: 'forge', arcane: 'halls', cave: 'flooded', magma: 'magma' }, list: NOTE_LIST, byId: Object.fromEntries(NOTE_LIST.map((n) => [n.id, n])) };
-  Object.assign(D, { NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
 })(typeof window !== 'undefined' ? window : globalThis);

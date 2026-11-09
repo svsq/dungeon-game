@@ -10,7 +10,7 @@
   // each townsperson's state: where it stands, its round (the walkers), the crate the porter carries, what it says. Walkers ease
   // in and out of their pace, step round each other and the hero (or wait), and stop to talk; a stop that stays blocked is skipped
   const FOLK_R = { child: 9, hen: 6 }, folkR = (f) => FOLK_R[f.role] || 12;
-  const folkOf = (R) => R.folk || (R.folk = D.folkInit(R.map.town.npcs));
+  const folkOf = (R) => R.folk || (R.folk = folkHere(R, D.folkInit(R.map.town.npcs)));
   const townOk = (m) => m.town.walkOk || Object.defineProperty(m.town, 'walkOk', { value: DG.townWalk(m), enumerable: false }).walkOk;
   const folkFree = (m, x, y, r) => { const ok = townOk(m); return [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[Math.floor((y + dy) / TILE) * m.W + Math.floor((x + dx) / TILE)]); };
   // a talk lasts FOLK_SAY s from its start, or ends when the hero walks off
@@ -100,7 +100,7 @@
   const broke = (S, R) => { const h = R.hero; if (!h.gold) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.broke') }); };
   function interact(S, R) {
     const h = R.hero, m = R.map;
-    if (captiveNear(R)) { freeCaptive(S, R); return; }
+    const capN = captiveNear(R); if (capN) { freeCaptive(S, R, capN); return; }
     const nt = noteNear(R); if (nt) { openNote(S, R, nt); return; }
     const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56) && !SIMX.overLava(m, h.x, h.y, c2.x, c2.y)); if (c) { openChest(S, R, c); return; }
     if (atCounter(R)) { if (shopShut(R)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.shopShut') }); else openShop(S, R); return; }
@@ -116,6 +116,7 @@
     const gt = gateNear(R); if (gt) { R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
     // out it is taken at once, with more a window to choose
+    const cs = craftShut(R); if (cs) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.CAPTIVES[cs].shut }); return; }
     const cw = atCraft(R);
     if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; broke(S, R); ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
@@ -147,7 +148,7 @@
   const atStash = (R) => near(R, 'stash', 64) && !atSoulAltar(R);
   // ---------------- the town's workshops (R-32, TASKS 1013) ----------------
   // the smith at his anvil reforges, the enchanter at her lectern enchants; the piece is chosen from the worn gear or the bag
-  const atCraft = (R) => (near(R, 'anvil', 80) ? 'forge' : near(R, 'lectern', 80) ? 'enchant' : null);
+  const atCraft = (R) => (craftShut(R) ? null : near(R, 'anvil', 80) ? 'forge' : near(R, 'lectern', 80) ? 'enchant' : null);
   // the notice board (TASKS 1033): what every townsman has on offer, in one list; a quest is taken from it as from its giver
   const atBoard = (R) => near(R, 'board', 64);
   const boardOffers = (R) => D.QUEST_GIVE.from.map((role) => ({ role, of: offerOf(R, role) })).filter((o) => o.of);
@@ -183,7 +184,7 @@
     if (Q.type === 'reach') return e.k === 'floor' && (R.deepest || 0) >= q.f ? q.need : 0;
     if (Q.type === 'boss') return e.k === 'kill' && e.boss && R.floor === q.f ? 1 : 0;
     if (Q.type === 'named') return e.k === 'kill' && e.quest === q.id ? 1 : 0;
-    if (Q.type === 'free') return e.k === 'qevent' && e.free === 'merchant' ? 1 : 0;
+    if (Q.type === 'free') return e.k === 'qevent' && e.free === Q.who ? 1 : 0;
     if (Q.type === 'fetch') return e.k === 'qitem' && e.quest === q.id ? 1 : 0;
     // the marked room cleared, or (362, 363, 366, when they come) the room's event done: an event of the bus `qevent` with the room
     if (Q.type === 'room') return (e.k === 'clear' || e.k === 'qevent') && R.floor === q.f && !R.town && e.room === q.room ? 1 : 0;
@@ -227,26 +228,28 @@
     (m.secrets || []).forEach((q, i) => { const o = L.find((v) => v.kind === 'secret' && ofEra(v) && fits(v)); if (o) put(o, m.rooms[q.room], i); }); }
   const noteNear = (R) => (R.town ? null : R.drops.find((p) => p.kind === 'note' && !p.got && !hidden(R.map, p) && Math.hypot(p.x - R.hero.x, p.y - R.hero.y) < 56) || null);
   function openNote(S, R, p) { p.got = 1; const M = S.meta.notes || (S.meta.notes = []); if (!M.includes(p.note)) M.push(p.note); S.note = { id: p.note }; S.screen = 'note'; S.hover = ''; S.saveN++; ev(S, { k: 'ui', x: p.x, y: p.y }); }
-  const merchantFree = (R) => !!(R.freed && R.freed.merchant);
-  const shopShut = (R) => !!R.town && !!R.captive && !merchantFree(R);
-  const captiveNear = (R) => { const C = R.captive; return !!C && C.x !== undefined && R.floor === 1 && !R.town && !merchantFree(R) && Math.hypot(C.x - R.hero.x, C.y - R.hero.y) < 100; };
+  const isFree = (R, w) => !!(R.freed && R.freed[w]), capOf = (R, w) => (R.captives || {})[w];
+  const townShut = (R, w) => !!R.town && !!capOf(R, w) && !isFree(R, w), shopShut = (R) => townShut(R, 'merchant');
+  const folkHere = (R, list) => list.filter((f) => !capOf(R, f.role) || isFree(R, f.role));
+  const craftShut = (R) => (!R.town ? null : near(R, 'anvil', 80) && townShut(R, 'smith') ? 'smith' : near(R, 'lectern', 80) && townShut(R, 'enchanter') ? 'enchanter' : null);
+  const captiveNear = (R) => { if (R.town) return null; for (const C of Object.values(R.captives || {})) if (C.x !== undefined && D.CAPTIVES[C.who].f === R.floor && !isFree(R, C.who) && Math.hypot(C.x - R.hero.x, C.y - R.hero.y) < 100) return C; return null; };
   const cageCells = (m, C) => { const tx = Math.floor(C.x / TILE), ty = Math.floor(C.y / TILE), out = []; for (let y = ty - 1; y <= ty; y++) for (let x = tx - 1; x <= tx + 1; x++) out.push(y * m.W + x); return out; };
   // the cage is three cells wide: a spot with a clear cell all round it, so it stands on open floor and never shuts a way through
-  function cageSpot(R) { const m = R.map, blk = new Set(m.block), wet = new Set(m.water || []), bad = [...m.decor, ...R.chests, ...R.shrines, ...R.pots, ...R.drops].map((d) => [Math.floor(d.x / TILE), Math.floor(d.y / TILE)]);
+  function cageSpot(R, rooms0) { const m = R.map, blk = new Set(m.block), wet = new Set(m.water || []), bad = [...m.decor, ...R.chests, ...R.shrines, ...R.pots, ...R.drops].map((d) => [Math.floor(d.x / TILE), Math.floor(d.y / TILE)]);
     // the strictest test that any room passes: clear of traps too, then a clear cell round it, then just its own cells
     const clear = (tx, ty, lv) => { if (lv < 1 && (m.traps || []).some((t) => Math.abs(t.x / TILE - tx) < 5 && Math.abs(t.y / TILE - ty) < 5)) return false; const a = lv < 2 ? 2 : 1, b = lv < 2 ? 1 : 0; for (let y = ty - a; y <= ty + b; y++) for (let x = tx - a; x <= tx + a; x++) { const k = y * m.W + x; if (x < 0 || y < 0 || x >= m.W || y >= m.H || m.cells[k] !== 1 || blk.has(k) || wet.has(k) || bad.some(([bx, by]) => bx === x && by === y)) return false; } return true; };
-    for (let lv = 0; lv < 3; lv++) for (const r of questRooms(R)) { const spots = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (clear(x, y, lv)) spots.push([x, y, Math.hypot(x - r.cx, y - r.cy)]);
+    for (let lv = 0; lv < 3; lv++) for (const r of rooms0 || questRooms(R)) { const spots = []; for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (clear(x, y, lv)) spots.push([x, y, Math.hypot(x - r.cx, y - r.cy)]);
       if (spots.length) { spots.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]); const [x, y] = spots[0]; return { x: x * TILE + TILE / 2, y: y * TILE + TILE - 2, room: r.id, lv }; } }
     return null; }
   // no room for the cage must not leave the shop shut for the whole run
-  function captivePlace(R) { const C = R.captive; if (!C) return; const m = R.map;
-    if (C.x === undefined) { const at = cageSpot(R); if (!at) { R.freed = Object.assign(R.freed || {}, { merchant: 1 }); return; } Object.assign(C, at); }
-    for (const k of cageCells(m, C)) if (!m.block.includes(k)) m.block.push(k); }
-  function freeCaptive(S, R) { const C = R.captive; R.freed = Object.assign(R.freed || {}, { merchant: 1 }); ev(S, { k: 'click', x: C.x, y: C.y }); const was = R.msg; ev(S, { k: 'qevent', free: 'merchant', x: C.x, y: C.y }); if (R.msg !== was) { R.msg.t = S.t + 5; R.msgNext = R.msg; } R.msg = { s: TXT('sim_town.captive.free'), t: S.t, d: 5 }; S.saveN++; }
+  function captivePut(R, C, rooms) { const at = cageSpot(R, rooms); if (!at) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); return; } Object.assign(C, at); }
+  function captivePlace(R) { const m = R.map; for (const C of Object.values(R.captives || {})) { const D0 = D.CAPTIVES[C.who]; if (D0.f !== R.floor || isFree(R, C.who)) continue; if (C.x === undefined && !D0.boss) captivePut(R, C); if (C.x !== undefined) for (const k of cageCells(m, C)) if (!m.block.includes(k)) m.block.push(k); } }
+  function captiveBoss(R, e) { for (const C of Object.values(R.captives || {})) if (D.CAPTIVES[C.who].boss && D.CAPTIVES[C.who].f === R.floor && C.x === undefined && !isFree(R, C.who)) { captivePut(R, C, [R.map.rooms[e.room]]); captivePlace(R); } }
+  function freeCaptive(S, R, C) { R.freed = Object.assign(R.freed || {}, { [C.who]: 1 }); ev(S, { k: 'click', x: C.x, y: C.y }); const was = R.msg; ev(S, { k: 'qevent', free: C.who, x: C.x, y: C.y }); if (R.msg !== was) { R.msg.t = S.t + 5; R.msgNext = R.msg; } R.msg = { s: D.CAPTIVES[C.who].free, t: S.t, d: 5 }; S.saveN++; }
   function storyStep(R) { if (!R.viaTown || (R.quests || []).some((q) => D.QUESTS[q.key].kind === 'story' && q.st !== 'turned')) return null;
-    return D.storyChain(R.mode).find((s) => (s.key === 'rescue' ? !!R.captive && !merchantFree(R) : s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
+    return D.storyChain(R.mode).find((s) => (D.QUESTS[s.key].type === 'free' ? !!capOf(R, D.QUESTS[s.key].who) && !isFree(R, D.QUESTS[s.key].who) : s.key === 'chapter' ? !(R.slain || []).includes(s.f) : (R.deepest || 0) < s.f)) || null; }
   // what a townsman offers now: the quest as it would be taken (its floor set, its foe's name or its keepsake drawn), or null
-  function offerOf(R, role) { if (!R.viaTown) return null; let o = null, key, f, story = 0;
+  function offerOf(R, role) { if (!R.viaTown || (capOf(R, role) && !isFree(R, role))) return null; let o = null, key, f, story = 0;
     const st = role === 'keeper' && storyStep(R); if (st) { key = st.key; f = st.f; story = 1; }
     else { o = offersOf(R).find((q) => q.from === role && !q.q && questFloor(R, q.key)); if (!o) return null; key = o.key; f = questFloor(R, key); }
     const Q = D.QUESTS[key], q = { id: 0, key, f, need: Q.need(f), n: 0, st: 'taken', from: role, rw: D.questReward(Q.rw, f, R.hero.lvl), story },
@@ -264,7 +267,7 @@
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
     const dn = questDone(R, role); if (dn) return { pages: [TXT('sim_town.questTalk.pages', { name: D.QUESTS[dn.key].name, done: SAY.done[(dn.id || 0) % SAY.done.length] })], act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
-    const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (q.key === 'rescue' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
+    const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
     return { pages: [...say, Q.text(q)], act: { k: 'take', key: q.key, rw: q.rw, name: Q.name } }; }
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
@@ -280,7 +283,7 @@
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: q.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUEST_SAY[T.role].thanks[(q.id || 0) % D.QUEST_SAY[T.role].thanks.length], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: q.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[q.key].thanks ? D.QUESTS[q.key].thanks : D.QUEST_SAY[T.role].thanks[(q.id || 0) % D.QUEST_SAY[T.role].thanks.length], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -307,7 +310,7 @@
   function questMarks(R) { const out = []; if (R.town) return out;
     for (const q of R.quests || []) { if (q.st !== 'taken' || q.f !== R.floor) continue; const Q = D.QUESTS[q.key];
       if (Q.type === 'named') { const e = R.en.find((o) => o.quest === q.id && o.deadT < 0); if (e) out.push({ kind: 'named', x: e.x, y: e.y, q }); }
-      if (Q.type === 'free' && R.captive && R.captive.room !== undefined && R.floor === q.f) { const r = R.map.rooms[R.captive.room]; out.push({ kind: 'room', x: r.cx * TILE + TILE / 2, y: r.cy * TILE + TILE / 2, r, q }); }
+      if (Q.type === 'free' && capOf(R, Q.who) && capOf(R, Q.who).room !== undefined && R.floor === q.f) { const r = R.map.rooms[capOf(R, Q.who).room]; out.push({ kind: 'room', x: r.cx * TILE + TILE / 2, y: r.cy * TILE + TILE / 2, r, q }); }
       if (Q.type === 'room' && q.room !== undefined) { const r = R.map.rooms[q.room]; out.push({ kind: 'room', x: r.cx * TILE + TILE / 2, y: r.cy * TILE + TILE / 2, r, q }); }
       if (Q.type === 'fetch') { const seenAt = (o) => !hidden(R.map, o) && R.seen[Math.floor(o.y / TILE) * R.map.W + Math.floor(o.x / TILE)], d = R.drops.find((o) => o.kind === 'qitem' && o.quest === q.id && !o.got), c = R.chests.find((o) => o.quest === q.id && !o.open);
         if (d && seenAt(d)) out.push({ kind: 'fetch', x: d.x, y: d.y, q }); else if (c && seenAt(c)) out.push({ kind: 'fetch', x: c.x, y: c.y, q }); } }
@@ -435,7 +438,7 @@
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
-    notePlace, noteNear, captivePlace, captiveNear, shopShut, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
+    notePlace, noteNear, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });
 })(typeof window !== 'undefined' ? window : globalThis);

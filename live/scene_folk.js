@@ -209,5 +209,5 @@
       if (k > 0) L.solid(Math.round(x), Math.round(y), 2, 2, [0.86, 0.74, 0.42], 0, 0, 0, k); } }
 
   Object.assign(SCX, {
-    FOLK0, drawFolk, drawCart });
+    FOLK0, drawFolk, drawFolkRig, drawCart });
 })(typeof window !== 'undefined' ? window : globalThis);

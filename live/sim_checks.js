@@ -1619,7 +1619,7 @@
         for (let i = 0; i < 120 * E.dive + 2; i++) step(S, quiet); const hp = e.hp; hitEnemy(S, R, e, 10, false, h.x, h.y); if (e.st !== 'deep' || e.hp !== hp) out.push(`eel: a blow after its dive does ${hp - e.hp} (${e.st})`); } }
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
-    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; enterFloor(S, R, 2); R.en = []; h.bag[0] = { b: 'scroll', n: 2 }; S.screen = 'inv'; const b = UI.inv().r.find((q) => q.id === 'bag:0'), inp = { px: b.x + 5, py: b.y + 5, press: 1, keys: [] }, n0 = h.atkN;
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; enterFloor(S, R, 2); R.en = []; h.bag[0] = { b: 'scroll', n: 2 }; S.screen = 'inv'; const b = UI.inv().r.find((q) => q.id === 'bag:0'), inp = { px: b.x + 5, py: b.y + 5, press: 1, keys: [] }, n0 = h.atkN;
       step(S, Object.assign({ click: 1 }, inp)); if (!h.read) out.push('scroll: a click in the bag does not start reading'); for (let i = 0; i < 10; i++) step(S, inp); if (h.atkN !== n0) out.push('scroll: the click that reads it also swings the weapon'); if (!h.read) out.push('scroll: the held click breaks the reading'); }
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
       for (let f = 1; !R.shrines.length && f < D.RUNS.campaign.chapter; ) enterFloor(S, R, ++f);
@@ -2201,7 +2201,7 @@
   function folkCheck() {
     const out = [];
     for (const [role, F] of Object.entries(D.FOLK)) if (F.lines && !F.lines.every((p) => p.length === 2 && p.every((q) => typeof q === 'string' && q.length > 3 && q.length <= 64))) out.push(`folk: the ${role}'s lines are not pairs of short lines`);
-    for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
+    for (const sd of [3, 11, 29]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
       h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
       const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0;
       for (let i = 0; i < 120 * 120; i++) { const t0 = S.t; step(S, { keys: [] }); rings += S.ev.filter((e) => e.k === 'anvil' && e.t > t0).length;
@@ -2254,7 +2254,7 @@
       if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`climb ${sd}/${f}: the stairs up are off the floor or far from the spawn`);
       if (m.chests.some((c) => Math.hypot(c.x - m.up.x, c.y - m.up.y - 30) < 60)) out.push(`climb ${sd}/${f}: a chest by the stairs up takes the hero's E`);
       if (f === 3 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd }).up) out.push('climb: stairs up in a run not through the town'); }
-    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
+    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
     at(R.map.exit); E(S); if (R.floor !== 1) { out.push('climb: the crypt stairs do not lead down'); return out; }
     for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
     const e0 = R.en[0]; e0.hp = 0; e0.deadT = S.t; const c0 = R.chests[0]; c0.open = 1; R.seen[7] = 1; R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 77, id: R.nextId++ });
@@ -2295,7 +2295,7 @@
       R.quests = R.quests.filter((o) => o !== q); }
     // TASKS 383: a chapter boss falls and leaves the town's portal in its hall, clear of the stairs; it takes the hero home, the
     // town's portal brings him back beside it, and the stairs lead on
-    for (const f of [2, 4, 6, 8]) { const T2 = spawn(0, {}); T2.run = newRun(T2, 'campaign', 31 + f, { town: 1 }); T2.screen = 'play'; const Q = T2.run, hq = Q.hero; enterFloor(T2, Q, f);
+    for (const f of [2, 4, 6, 8]) { const T2 = spawn(0, {}); T2.run = newRun(T2, 'campaign', 31 + f, { town: 1, allFree: 1 }); T2.screen = 'play'; const Q = T2.run, hq = Q.hero; enterFloor(T2, Q, f);
       const b = Q.en.find((e) => D.BOSSES[e.type]); if (!b) { out.push(`gate f${f}: no boss`); continue; }
       Q.arena = { active: 1, room: b.room, t0: T2.t }; b.hp = 0; killEnemy(T2, Q, b); Q.en = Q.en.filter((e) => e === b); for (let i = 0; i < 200 && (Q.freeze > 0 || Q.inbuf); i++) step(T2, { keys: [] }); const g = Q.arena && Q.arena.gate;
       if (!g) { out.push(`gate f${f}: no portal home after the boss`); continue; }
@@ -2310,7 +2310,7 @@
     // 17th, the 16th is the campaign's again (PR 19 review: the descent's bag has no round before its first floor), the hero by the
     // stairs on, still one way down (its portal out no second stairs) and the portal home, and the stairs on take him to the 17th
     // with no second win
-    try { const F = D.RUNS.campaign.floors, S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1 }); S2.screen = 'play'; const R2 = S2.run, h2 = R2.hero; enterFloor(S2, R2, F);
+    try { const F = D.RUNS.campaign.floors, S2 = spawn(0, {}); S2.run = newRun(S2, 'campaign', 1, { town: 1, allFree: 1 }); S2.screen = 'play'; const R2 = S2.run, h2 = R2.hero; enterFloor(S2, R2, F);
       const b = R2.en.find((e) => e.type === 'boss_colossus'); R2.arena = { active: 1, room: b.room, t0: S2.t }; b.hp = 0; killEnemy(S2, R2, b); R2.en = R2.en.filter((e) => e === b);
       // (TASKS 515: no way out to the surface there, before the colossus falls or after: the run ends in the town)
       if (exitKind(R2) !== null) out.push('climb: the campaign\'s last floor of a run through the town has a way out'); else { h2.x = R2.map.exit.x; h2.y = R2.map.exit.y; E(S2); if (!S2.run || R2.floor !== F) out.push('climb: E at the last floor\'s old way out ends the run or leaves the floor'); }
@@ -2347,7 +2347,7 @@
       if (m.up && Math.max(Math.abs(m.up.tx - m.way.tx), Math.abs(m.up.ty - m.way.ty)) < 3) out.push(`way ${sd}/${f}: the waystone stands on the stairs up`);
       if (f === 4 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd }).way) out.push('way: a waystone in a run not through the town'); }
     if (!D.wayFloor(4)) return out;
-    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
+    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
     for (let f = 1; f <= 4; f++) enterFloor(S, R, f);
     for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
     for (let i = 0; i < 4; i++) step(S, { keys: [] }); if ((R.ways || []).length) out.push('way: the waystone wakes untouched');
@@ -2372,7 +2372,7 @@
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 7), lv = (sh) => sh.goods.filter((g) => BASES[g.it.b]).reduce((a, g) => a + g.it.lvl, 0) / sh.goods.filter((g) => BASES[g.it.b]).length;
       let a = 0, b = 0, ra = 0, rb = 0; for (let i = 0; i < 30; i++) { const n = stockShop(R, 5), w = stockShop(R, 5, 'wander'); a += lv(n); b += lv(w); ra += n.goods[0].it.rar; rb += w.goods[0].it.rar; }
       if (b <= a + 1 || rb <= ra) out.push(`shop: the wandering merchant's gear is no better (level ${(a / 30).toFixed(1)} → ${(b / 30).toFixed(1)}, showpiece ${(ra / 30).toFixed(1)} → ${(rb / 30).toFixed(1)})`); }
-    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, n = (b) => (R.shop.goods.find((g) => g.it.b === b) || {}).n || 0;
+    const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, n = (b) => (R.shop.goods.find((g) => g.it.b === b) || {}).n || 0;
     if (n('hp_potion') < 3 || n('scroll') < 2) out.push('shop: the town shelf is not the town\'s');
     const sh0 = R.shop.goods.map((g) => g.it.id).join();
     for (let f = 1; f <= 6; f++) enterFloor(S, R, f); enterFloor(S, R, 0, undefined, 'up');
@@ -2388,7 +2388,7 @@
   // TASKS 1011: E at the town's Altar of Souls opens the meta upgrades mid-run; a rank bought there is paid from the bank and
   // reaches the hero at once (health), E or Esc goes back to the town, not the menu; from the menu the screen still goes back to it
   function soulAltarCheck() {
-    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, A = R.map.town.svc.altar;
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, A = R.map.town.svc.altar;
     h.x = A.x; h.y = A.y + 40; step(S, { keys: ['KeyE'] }); if (S.screen !== 'meta') { out.push('altar: E at the town\'s Altar of Souls does not open the upgrades'); return out; }
     S.meta.shards = 1000; const hp0 = heroSt(S).maxHp, b = UI.meta().find((q) => q.id === 'hp'); step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
     if ((S.meta.up.hp || 0) !== 1 || S.meta.shards >= 1000 || heroSt(S).maxHp <= hp0) out.push('altar: a rank bought in the town is not paid or does not reach the hero');
@@ -2401,7 +2401,7 @@
   // one cell till «Сундук предков» adds more; a drag lands on the cell under the pointer; the stash outlives the run and the save,
   // the next hero takes the piece with an id of his own; a stash from an older item balance is re-powered
   function stashCheck() {
-    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.stash();
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.stash();
     const at = (id, o = {}) => { const b = U.r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + 10, py: b.y + 10 }, o); };
     const clickOn = (id) => { step(S, at(id, { click: 1 })); step(S, at(id)); };
     h.x = sv.altar.x; h.y = sv.altar.y + 40; step(S, { keys: ['KeyE'] }); if (S.screen !== 'meta') out.push('stash: the altar beside the chest no longer answers'); S.screen = 'play';
@@ -2416,7 +2416,7 @@
     if (h.bag[9] !== g1 || S.meta.stash.items[0]) out.push('stash: a drag out does not land on the bag cell under the pointer');
     clickOn('bag:9'); step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('stash: Esc does not close the chest');
     const P = JSON.parse(JSON.stringify(persist(S))), T = spawn(1, P); if (JSON.stringify(P.meta.stash).length > 4000) out.push('stash: the chest bloats the save');
-    T.meta.stash.v = 0; T.run = newRun(T, 'campaign', 78, { town: 1 }); T.screen = 'play'; const Q = T.run; Q.hero.x = sv.stash.x; Q.hero.y = sv.stash.y + 40; step(T, { keys: [] }); step(T, { keys: ['KeyE'] });
+    T.meta.stash.v = 0; T.run = newRun(T, 'campaign', 78, { town: 1, allFree: 1 }); T.screen = 'play'; const Q = T.run; Q.hero.x = sv.stash.x; Q.hero.y = sv.stash.y + 40; step(T, { keys: [] }); step(T, { keys: ['KeyE'] });
     if (T.meta.stash.v !== D.ITEM_BAL.version || T.meta.stash.items.filter(Boolean).length !== 2) out.push('stash: the chest does not outlive the run or is not brought to the item balance');
     const b0 = U.r.find((q) => q.id === 'stash:0'); step(T, { keys: [], click: 1, px: b0.x + 10, py: b0.y + 10 }); step(T, { keys: [], px: b0.x + 10, py: b0.y + 10 });
     const got = Q.hero.bag.find((it) => it && it.b === g1.b && it.lvl === g1.lvl && !isCons(it)); if (!got || got.id < Q.nextId - 1 || T.meta.stash.items[0]) out.push('stash: the next hero does not take the piece out with an id of his own');
@@ -2427,7 +2427,7 @@
   // reaches the hero's stats; a failed one takes everything off the piece; a sixth is refused;
   // each is paid in gold and shards
   function craftCheck() {
-    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.craft(); noQuests(R);
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, sv = R.map.town.svc, U = UI.craft(); noQuests(R);
     const click = (id) => { const b = U.r.find((q) => q.id === id); step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }); };
     h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: ['KeyE'] }); if (S.screen !== 'craft' || S.craft.kind !== 'forge') { out.push('craft: E at the anvil does not open the smith'); return out; }
     const it = Object.assign(rollItem(R, 6, 2, 'ring'), { id: R.nextId++, rar: 3 }); it.mods = {}; rollAffixes(R, it); h.bag[5] = it; h.gold = 100000;
@@ -2452,7 +2452,7 @@
   // hero's death (the first death its own words), a chapter's boss by name, a legendary by name, a long time below; with nothing
   // new his idle pair; E or a click turns the page, the last closes; a guard talks his own lines; the smith's E stays his workshop
   function talkCheck() {
-    const out = [], S = spawn(0, {}), K = D.KEEPER, run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; noQuests(S.run); return S.run; };
+    const out = [], S = spawn(0, {}), K = D.KEEPER, run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; noQuests(S.run); return S.run; };
     const talkTo = (R, role) => { const f = folkOf(R).find((q) => q.role === role); R.hero.x = f.x + 44; R.hero.y = f.y + 12; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); return S.talk; };
     const read = () => { const p = S.talk ? S.talk.pages.slice() : []; for (let i = 0; i < 60 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); return p; };
     let R = run(31); talkTo(R, 'keeper'); if (S.screen !== 'talk') { out.push('talk: E by the Keeper opens no dialogue'); return out; }
@@ -2517,7 +2517,7 @@
   // room (another room cleared does not count) each do their quest; ? over the giver, the talk turns it in and pays; the Keeper's
   // chain goes boss by boss and skips a boss slain before
   function questGiveCheck() {
-    const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; return S.run; };
+    const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1, allFree: 1 }); S.screen = 'play'; return S.run; };
     const talkTo = (R, role) => { const f = folkOf(R).find((q) => q.role === role); for (const o of folkOf(R)) if (o !== f) o.x += 3000; R.hero.x = f.x + 44; R.hero.y = f.y + 12; for (let i = 0; i < 20; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); for (const o of folkOf(R)) if (o !== f) o.x -= 3000; return S.talk; };
     const finish = () => { for (let i = 0; i < 60 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); };
     let R = run(41); const of = offersOf(R).map((o) => o.key + ':' + o.from).join();
@@ -2562,14 +2562,15 @@
         R.stats[1].kills = Math.ceil(R.stats[1].foes * 0.9); if (completionHints(R).some((o) => DG.roomAt(R.map, o.x, o.y) === q.room)) out.push('quest room: the completion hints mark the quest\'s room again');
         for (const e of R.en.filter((o) => o.room === q.room && o.deadT < 0 && counted(o))) killEnemy(S, R, e); if (q.st !== 'done') out.push('quest room: clearing the marked room does not do it'); } }
     // the Keeper's chain: the spider's floor first; the necromancer's after it; a boss slain before it is offered is skipped
-    { const Z = run(82), X = root.SIMX, Y = Object.assign({}, Z); delete Y.captive;
+    { const Z = S.run = newRun(S, 'campaign', 82, { town: 1 }), X = root.SIMX, Y = Object.assign({}, Z); S.screen = 'play'; delete Y.captives;
       if (!X.shopShut(Z)) out.push('rescue: the town shop is open before the merchant is freed');
       if (X.shopShut(Y)) out.push('rescue: a saved run from before the cage has its shop shut');
-      enterFloor(S, Z, 1); const C = Z.captive;
-      if (C.x === undefined) out.push('rescue: no cage on the first floor');
-      else if (Z.map.decor.some((d) => Math.abs(d.x - C.x) < 40 && d.y < C.y + 8 && d.y > C.y - 60)) out.push('rescue: the cage stands on a prop');
-      else { Z.hero.x = C.x + 40; Z.hero.y = C.y + 30; X.interact(S, Z); if (!Z.freed || !Z.freed.merchant) out.push('rescue: E at the cage does not free the merchant');
-        enterFloor(S, Z, 0); if (X.shopShut(Z)) out.push('rescue: the town shop is shut after the merchant is freed'); } }
+      if (Z.folk.some((f) => f.role === 'smith' || f.role === 'enchanter')) out.push('rescue: the smith or the enchanter stands in town before being freed');
+      for (const [who, f] of [['merchant', 1], ['smith', 3]]) { enterFloor(S, Z, f); const C = Z.captives[who];
+        if (C.x === undefined) { out.push('rescue: no cage for the ' + who); continue; }
+        if (Z.map.decor.some((d) => Math.abs(d.x - C.x) < 40 && d.y < C.y + 8 && d.y > C.y - 60)) out.push('rescue: the cage stands on a prop');
+        Z.en = []; Z.hero.x = C.x + 40; Z.hero.y = C.y + 30; X.interact(S, Z); S.screen = 'play'; if (!Z.freed || !Z.freed[who]) out.push('rescue: E at the cage does not free the ' + who); }
+      enterFloor(S, Z, 0); if (X.shopShut(Z)) out.push('rescue: the town shop is shut after the merchant is freed'); if (!Z.folk.some((f) => f.role === 'smith')) out.push('rescue: the freed smith is not in town'); if (Z.folk.some((f) => f.role === 'enchanter')) out.push('rescue: the enchanter is in town though still caged'); }
     { const Z = run(83), plain = () => Z.drops.filter((p) => p.kind === 'note' && p.sec === undefined);
       for (const f of [1, 3, 5, 7, 9, 13]) { enterFloor(S, Z, f); const P = plain(); if (P.length < 3 || P.length > 5) out.push('notes: floor ' + f + ' has ' + P.length); for (const p of P) { const n = D.NOTES.byId[p.note]; if (n.kind === 'boss' && (f < n.floors[0] || f > n.floors[1])) out.push('notes: ' + n.id + ' off its floors on ' + f); } }
       if (new Set(Z.notesUsed).size !== Z.notesUsed.length) out.push('notes: one repeated in a run'); }
@@ -2599,7 +2600,7 @@
   // TASKS 1033: the notice board lists what the townsfolk offer and a quest is taken from it; a blow at a townsman makes him answer
   // and a hen run, harming neither; the scroll's hint comes once, the first time a town run's hero falls low with a scroll in the bag
   function townLoopCheck() {
-    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 5, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, m = R.map; step(S, { keys: [] });
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 5, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, m = R.map; step(S, { keys: [] });
     const B = boardOffers(R); if (!B.length) out.push('board: nothing on offer on a new run');
     h.x = m.town.svc.board.x; h.y = m.town.svc.board.y + 34; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
     if (S.screen !== 'board') out.push(`board: E at the notice board does not open it (${S.screen})`);
@@ -2612,13 +2613,13 @@
     for (const o of F) if (o !== hen) o.x += 3000; h.x = hen.x - 20; h.y = hen.y; S.ev = []; hitFolk(S, R, h.x, h.y, 60, 0, 2); const x0 = hen.x, y0 = hen.y;
     for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (hen.scareT === undefined || Math.hypot(hen.x - x0, hen.y - y0) < 10 || h.hp !== hp0) out.push('folk: a hen struck does not run');
     for (const o of F) if (o !== hen) o.x -= 3000;
-    const T = spawn(0, {}); T.run = newRun(T, 'campaign', 5, { town: 1 }); T.screen = 'play'; const Q = T.run; enterFloor(T, Q, 1); Q.en = []; step(T, { keys: [] });
+    const T = spawn(0, {}); T.run = newRun(T, 'campaign', 5, { town: 1, allFree: 1 }); T.screen = 'play'; const Q = T.run; enterFloor(T, Q, 1); Q.en = []; step(T, { keys: [] });
     if (!Q.hero.bag.some((it) => it && it.b === 'scroll')) Q.hero.bag[5] = { b: 'scroll', n: 1, id: Q.nextId++ };
     Q.hero.hp = 5; for (let i = 0; i < 30; i++) step(T, { keys: [] }); const tip = Q.msg && Q.msg.tip === 'scroll';
     Q.msg = null; for (let i = 0; i < 30; i++) step(T, { keys: [] }); if (!tip || !T.meta.tipScroll || (Q.msg && Q.msg.tip === 'scroll')) out.push('scroll: the hint at low health does not come once');
     return out; }
   function questCheck() {
-    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 91, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero;
+    const out = [], S = spawn(0, {}); S.run = newRun(S, 'campaign', 91, { town: 1, allFree: 1 }); S.screen = 'play'; const R = S.run, h = R.hero;
     const cull = takeQuest(S, R, newQuest(R, 'cull', 2, 'smith')), eli = takeQuest(S, R, newQuest(R, 'elites', 1, 'guard')), sw = takeQuest(S, R, newQuest(R, 'sweep', 1, 'keeper')), dsc = takeQuest(S, R, newQuest(R, 'descent', 3, 'keeper'));
     enterFloor(S, R, 1); const foe = (o = {}) => { const e = R.en.find((q) => q.deadT < 0 && !D.BOSSES[q.type] && counted(q) && (o.elite === undefined || !!q.elite === o.elite)); if (e) killEnemy(S, R, e); return e; };
     foe(); if (cull.n) out.push('quest: a kill above the quest\'s floor counts');

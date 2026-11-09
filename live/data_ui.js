@@ -66,7 +66,7 @@
       if (T && T.act && last) r.push({ id: 'act', label: '', on: true, ...at(1) }); if (T && T.craft) r.push({ id: 'craft', label: TXT('UI.talk.label'), on: true, ...at(r.length) }); return { P, r }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
-    board: (n) => { const P = { x: 400, y: 90, w: 1120, h: 900 }, r = [];
+    board: (n) => { const P = { x: 230, y: 90, w: 1460, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     journal: (n, canDrop) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];

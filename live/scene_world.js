@@ -4,7 +4,7 @@
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
     PROP_H, SC, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
-    deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
+    deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   SCX.worldPass = (F) => {
     const {
@@ -471,10 +471,10 @@
     // standing lights (TASKS 194): their fires ride the prop when it is knocked
     m.decor.forEach((d, i) => { const S0 = STAND[d.n]; if (!S0 || !vis(d.x, d.y) || !known(d.x, d.y) || hid(d)) return; const j = jig('d' + i), col = d.n === 'torch_stand' ? torchCol(m, d) : CANDLE;
       Y.push([d.y + 1, () => flames(S0.map(([ox, up, w, hh], k) => [sx(d.x) + ox + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(d.y) + 4 - up, w, hh, col, d.x + 7 * k]))]); });
-    const cap = R.captive;
-    if (cap && cap.x !== undefined && R.floor === 1 && !R.town && vis(cap.x, cap.y)) Y.push([cap.y, () => { const X = sx(cap.x), Y0 = sy(cap.y), out = !!(R.freed && R.freed.merchant); L.shadow(X, Y0 + 2, 58, 12, 0.45);
-      if (!out) L.inked(() => MONSTERS.merchant({ id: 'captive', x: X + 5, y: Y0 - 6, H: 64, t: GT, look: Math.max(-1, Math.min(1, (h.x - cap.x) / 120)), near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
-      drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]);
+    for (const cap of Object.values(R.captives || {})) { if (cap.x === undefined || R.floor !== D.CAPTIVES[cap.who].f || R.town || !vis(cap.x, cap.y)) continue; const X = sx(cap.x), Y0 = sy(cap.y), out = !!(R.freed && R.freed[cap.who]), look = Math.max(-1, Math.min(1, (h.x - cap.x) / 120));
+      if (!out && cap.who !== 'merchant') drawFolkRig({ i: 90 + cap.who.length, y: cap.y - 1, dist: 0, vx: 0, vy: 0 }, null, 'town_' + cap.who, X + 5, Y0 - 6, 64, look < 0 ? -1 : 1, GT, Y, {});
+      Y.push([cap.y, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); if (!out && cap.who === 'merchant') L.inked(() => MONSTERS.merchant({ id: 'captive', x: X + 5, y: Y0 - 6, H: 64, t: GT, look, near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+        drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]); }
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));

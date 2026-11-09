@@ -31,7 +31,7 @@
     if (N.kit) { const K = N.kit; for (const [b0, rar] of K.gear) { const b = (C.kit || {})[b0] || b0; h.eq[BASES[b].slot] = give(rollAffixes(R, itemPower({ id: 0, b, rar: Math.max(rar, gr), lvl: K.lvl, mods: {} }))); }
       h.bag[0].n += K.hp - BAL.startHpPot; if (h.bag[1]) h.bag[1].n = K.mp; h.gold = K.gold; }
     const st = stats(h, S.meta); h.hp = st.maxHp; h.mp = C.res === 'rage' ? 0 : st.maxMp;
-    if (o.town && mode === 'campaign') R.captive = {};
+    if (o.town && mode === 'campaign' && !o.allFree) R.captives = { merchant: { who: 'merchant' }, smith: { who: 'smith' }, enchanter: { who: 'enchanter' } };
     if (o.town) { R.viaTown = 1; h.bag[2] = give(potion('scroll', D.SHOP.townStart.scroll)); }
     enterFloor(S, R, o.town ? 0 : 1);
     return R;
@@ -53,7 +53,7 @@
     if (h && !ok[Math.floor(h.y / D.TILE) * m.W + Math.floor(h.x / D.TILE)]) { h.x = m.spawn.x; h.y = m.spawn.y; } }
   function buildFloor(R, f, gen) {
     R.bossDead = 0;
-    const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? D.folkInit(m.town.npcs) : null;
+    const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? SIMX.folkHere(R, D.folkInit(m.town.npcs)) : null;
     R.map = m; R.arena = null; m.arenaBox = null; R.eggs = []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.en = []; R.proj = []; R.pyres = []; R.fires = []; R.drops = []; R.scorches = []; m.goo = [];
     const stg = STAGE(R, f), d = stg.depth, sc = BAL.hp * dif(R, 'hp') * D.hpAt(d), dc = BAL.dmg * 1.35 * D.dmgAt(d);
     for (const e of m.enemies) { const E = ENEMIES[e.type], guard = e.guard ? stg.guard : e.exit && e.elite ? stg.exit : undefined, gk = (typeof guard === 'object' ? guard.hp : guard) || 1, gd = (typeof guard === 'object' ? guard.dmg : guard) || 1, el = (e.elite && !D.BOSSES[e.type] ? eliteK(e, 'hp') : 1) * gk, bk = (D.BOSSES[e.type] && stg.bossK) || { hp: 1, dmg: 1 };
@@ -147,7 +147,7 @@
     const M = f > 0 && R.memo && R.memo[f];
     if (M) { const mig = restoreFloor(R, f, M); R.town = 0; R.folk = null; SIMX.regate(R); if (mig) SIMX.questPlace(S, R); }
     else { if (f > 0 && R.viaTown) (R.memo = R.memo || {})[f] = { rs: R.rs, id: R.nextId, mode: R.mode, gen: gen || null, gv: D.GEN_VERSION }; buildFloor(R, f, gen); if (f > 0 && R.viaTown) { BASE.set(R.memo[f], snapFloor(R)); SIMX.questPlace(S, R); } }
-    if (f === 1) SIMX.captivePlace(R);
+    if (f > 0) SIMX.captivePlace(R);
     if (f > 0) SIMX.notePlace(R);
     // the town's shelf (TASKS 1010) is stocked once a run and again after each boss slain, for the deepest floor reached by then, so
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
