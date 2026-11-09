@@ -1045,7 +1045,8 @@
     const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
     if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
-    if ((D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    // (and on every magma floor, TASKS 1701: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
+    if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
     // a stream of its own: which chests are trapped must not move anything else on the floor (TASKS 1357)
     if (runFloor >= D.CHEST_TRAP.from) { const Tc = mul32(seed ^ 0x1357), T = D.CHEST_TRAP; let n = 0; for (const c of chests) { const v = Tc(); if (n < T.max && !c.boss && !c.lair && c.key === undefined && v < T.p) { c.trap = 1; n++; } } }
     if (runFloor >= D.MIMIC.from) { const Mc = mul32(seed ^ 0x367), st = rooms.find((r) => r.type === 'start'), inSt = (c) => st && c.x >= st.x * TILE && c.x < (st.x + st.w) * TILE && c.y >= st.y * TILE && c.y < (st.y + st.h) * TILE; for (const c of chests) { const v = Mc(); if (v < D.MIMIC.p && !c.boss && !c.lair && !c.trap && !c.hall && c.sec === undefined && c.key === undefined && !inSt(c)) { c.mimic = 1; break; } } }
