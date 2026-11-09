@@ -14,10 +14,11 @@
   // one step's travel: shorter when walking toward / away from the camera, so planted feet keep pace with the ground
   const stepLen = (ux) => K.STEP * (0.82 + 0.18 * Math.min(1, ux));
   const hand = (h) => [h.x + Math.cos(h.aim) * 23, h.y - RIG.shoulder + 8 + Math.sin(h.aim) * 15];
+  const bagCap = D.bagOpen;
   function bagAdd(R, it) {
     const h = R.hero;
     if (isCons(it)) { let n = it.n || 1; const cap = CONSUMABLES[it.b].stack; for (const st of h.bag) { if (!st || st.b !== it.b || st.n >= cap) continue; const q = Math.min(n, cap - st.n); st.n += q; n -= q; if (!n) return true; } it.n = n; }
-    const i = h.bag.indexOf(null); if (i < 0) return false; if (!it.id) it.id = R.nextId++; h.bag[i] = it; return true;
+    const i = h.bag.findIndex((q, j) => !q && j < bagCap(h)); if (i < 0) return false; if (!it.id) it.id = R.nextId++; h.bag[i] = it; return true;
   }
   function gainXp(S, R, n) {
     const h = R.hero; n = Math.round(n * dif(R, 'xp')); h.xp += n; if (R.log) logFloor(R).xp += n;
@@ -365,6 +366,6 @@
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
 
   Object.assign(SIMX, {
-    heroSt, RIG, stepLen, hand, bagAdd, gainXp, hurtHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
+    heroSt, RIG, stepLen, hand, bagAdd, bagCap, gainXp, hurtHero, heroHit, hitEnemy, aggroRoom, DOOM, landOf, killEnemy, throwAway, POT, drop, dropPotion,
     stepPlay });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -512,7 +512,7 @@
     derived.forEach(([n, v], i) => { const y = dy0 + 6 + i * rowH; lab('dv_n' + i, n, P.x + 318, y, { size: 19, col: C.dim }); lab('dv_v' + i, v, P.x + 576, y, { size: 20, al: 1 }); });
     L.uiBox('inv_der', P.x + 304, dy0 - 18, 286, derived.length * 24 + 18);
     lab('inv_bag', TXT('hud.inv.10'), P.x + 640, P.y + 90, { size: 24, col: C.dim });
-    for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
+    for (const b of U.r) if (b.id.startsWith('bag:')) bslot(S, b, h, held(b.id) ? null : h.bag[b.i]);
     sortBtns('inv_', U, S);
     // skills
     lab('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), P.x + 640, P.y + 448, { size: 24, col: h.sp > 0 ? C.gold : C.dim });
@@ -547,7 +547,7 @@
     lab('sh_back', TXT('hud.shop.7'), P.x + 40, P.y + 550, { size: 24, col: C.dim });
     for (let i = 0; i < D.SHOP.buyback; i++) { const b = U.r.find((q) => q.id === 'back:' + i), g = sh.back[i]; slot(S, b, g && g.it); if (g) price('shp_k' + i, b, g.price, h.gold >= g.price); }
     lab('sh_bag', TXT('hud.shop.8'), P.x + 620, P.y + 100, { size: 24, col: C.dim });
-    for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'sell:' + i), it = h.bag[i]; slot(S, b, it); if (it) price('shp_s' + i, b, D.sellPrice(it, f), true); }
+    for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'sell:' + i), it = h.bag[i]; bslot(S, Object.assign({ i }, b), h, it); if (it) price('shp_s' + i, b, D.sellPrice(it, f), true); }
     // the merchant himself, his line for this visit
     const mx = P.x + 720, my = P.y + P.h - 64, [mw, mh] = SZ('merchant'), k = 2.1;
     L.sprite('merchant', mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
@@ -574,6 +574,12 @@
       if (hr && !cons && !D.wears(D.clsOf(hr).id, it.b)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slx_' + b.id, '×', b.x + b.w - 14, b.y + 18, { size: 22, al: 0.5, col: '#ff6a5a' }); }
       else if (hr && hr.lvl < D.reqLvl(it)) { L.rrect(b.x + 3, b.y + 3, b.w - 6, b.h - 6, 5, [0.9, 0.15, 0.1], [0.4, 0.02, 0.02], 0.22); lab('slr_' + b.id, String(D.reqLvl(it)), b.x + b.w - 8, b.y + 18, { size: 18, al: 1, col: '#ff6a5a' }); } }
     else if (empty) icon(SLOT_SIL[empty], b.x + 12, b.y + 12, b.w - 24, { grade: [0, hv ? 0.7 : 0.5, 0.6, 1], haze: hv ? [0.3, 0.26, 0.22] : [0.17, 0.15, 0.14], alpha: 0.8 });
+  }
+  // a bag cell: the cells past the hero's open ones are shown shut, a dark cell with a lock mark
+  function bslot(S, b, h, it) {
+    if (b.i < D.bagOpen(h)) { slot(S, b, it); return; }
+    panel('sl_' + b.id, b.x, b.y, b.w, b.h, { r: 6, rim: [0.2, 0.17, 0.15], c0: [0.035, 0.03, 0.035], c1: [0.02, 0.018, 0.022] });
+    lab('slk_' + b.id, '×', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: '#3d352f' });
   }
   // against the piece worn in the same slot: every stat it adds or takes away, the worn piece's own affixes included, then the
   // hero's max health, attack and defence before and after the swap, so an "upgrade" can't quietly cost health (TASKS 182)
@@ -804,7 +810,7 @@
     const gs = TXT('hud.craft.gs', { gold: h.gold }); lab('cr_g', gs, P.x + P.w - 96, P.y + 46, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 96 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 30, 32);
     if (!forge) { const ss = String(S.meta.shards); lab('cr_sh', ss, P.x + P.w - 96, P.y + 86, { size: 24, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 96 - lw('cr_sh', ss, { size: 24 }) - 36, P.y + 70, 30); }
     lab('cr_eq', TXT('hud.craft.3'), P.x + 40, P.y + 126, { size: 22, col: C.dim }); lab('cr_bag', TXT('hud.craft.4'), P.x + 40, P.y + 292, { size: 22, col: C.dim });
-    for (const b of U.r) { if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot); else if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]); else continue;
+    for (const b of U.r) { if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot); else if (b.id.startsWith('bag:')) bslot(S, b, h, h.bag[b.i]); else continue;
       if (b.id === c.sel) { const k = forge ? [1, 0.8, 0.4] : [0.55, 0.75, 1]; L.solid(b.x - 4, b.y - 4, b.w + 8, 3, k); L.solid(b.x - 4, b.y + b.h + 1, b.w + 8, 3, k); L.solid(b.x - 4, b.y - 4, 3, b.h + 8, k); L.solid(b.x + b.w + 1, b.y - 4, 3, b.h + 8, k); } }
     const X = P.x + 860, help = forge ? TXT('hud.craft.help') : TXT('hud.craft.help.2');
     wrapLab('cr_help', help, X, P.y + 126, 620, 21, C.dim);
@@ -834,7 +840,7 @@
     for (let i = 0; i < n; i++) { const b = U.r.find((q) => q.id === 'stash:' + i); slot(S, b, held(b.id) ? null : T.items[i], undefined, 1); }
     lab('st_cells', TXT('hud.stash.4', { n: T.items.filter(Boolean).length, max: n }), P.x + P.w - 88, P.y + 100, { size: 22, al: 1, col: C.dim });
     lab('st_bag', TXT('hud.stash.5'), P.x + 88, P.y + 472, { size: 24, col: C.dim });
-    for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'bag:' + i); slot(S, b, held(b.id) ? null : h.bag[i]); }
+    for (let i = 0; i < 24; i++) { const b = U.r.find((q) => q.id === 'bag:' + i); bslot(S, b, h, held(b.id) ? null : h.bag[i]); }
     sortBtns('st_', U, S);
     lab('st_help', TXT('hud.stash.6'), W / 2, P.y + P.h - 30, { size: 20, al: 0.5, col: '#8a7d6c' });
     const cb = U.r.find((q) => q.id === 'close'); panel('st_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('st_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });

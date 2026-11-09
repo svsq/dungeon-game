@@ -5,7 +5,7 @@
   SC.QA = () => {
     const mk = (fn) => { const S = SIM.spawn(0, {}); fn(S); return S; };
     const play = (fn) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); if (fn) fn(S); });
-    const worst = (S) => { const h = S.run.hero; h.lvl = 99; h.gold = 999999; h.xp = 1; h.pts = 99; h.sp = 99; S.meta.shards = 99999; h.ab = { whirl: 5, fireball: 5, shield: 5 };
+    const worst = (S) => { const h = S.run.hero; h.lvl = 99; h.gold = 999999; h.xp = 1; h.pts = 99; h.sp = 99; S.meta.shards = 99999; h.ab = { whirl: 5, fireball: 5, shield: 5 }; h.cap = 24;
       for (let i = 0; i < 24; i++) h.bag[i] = Object.assign(SIM.rollItem(S.run, 8, 4), { id: 1000 + i }); h.bag[0] = { id: 2000, b: 'hp_potion', n: 9, rar: 0, lvl: 1, mods: {} }; };
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
@@ -1318,6 +1318,8 @@
     states.push(['inv_req', play((S) => { const R = S.run, h = R.hero; h.lvl = 3; for (let i = 0; i < 6; i++) h.bag[4 + i] = Object.assign(SIM.rollItem(R, 4 + 2 * i, 2), { id: 1500 + i }); S.screen = 'inv'; S.hover = 'bag:9'; })]);
     // TASKS 1331: a piece lifted from the hero screen's bag over another cell, and a sort button under the pointer
     states.push(['inv_drag', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 1210, y: 400 }; })]);
+    // TASKS 1340: the bag at its start, 12 cells open and the rest shut, the hero screen and the merchant's sell grid
+    states.push(['inv_cap', play((S) => { const R = S.run, h = R.hero; for (let i = 0; i < 9; i++) h.bag[2 + i] = Object.assign(SIM.rollItem(R, 4 + i, i % 4), { id: 1600 + i }); S.screen = 'inv'; S.hover = 'bag:13'; })]);
     states.push(['inv_sort', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'sort:rar'; })]);
     states.push(['town_stash_sort', stashS((S) => { S.hover = 'sortS:type'; })]);
     states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
