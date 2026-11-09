@@ -205,6 +205,7 @@
         const w2 = (n) => (D.PROP_W[n] || 0) / 2;
         for (let i = 0; i < big.length; i++) for (let j = i + 1; j < big.length; j++) { const [ax, ay, an, as] = big[i], [bx, by, bn, bs] = big[j]; if (an.startsWith('shop_') || bn.startsWith('shop_') || (as && as === bs)) continue;   // a corner stack of barrels and crates is one pile
           if (Math.abs(Math.floor(ay / TILE) - Math.floor(by / TILE)) <= 1 && Math.abs(ax - bx) < w2(an) + w2(bn) + 4) out.push(`seed ${seed} f${f}: ${an} draws over ${bn} at ${Math.round(ax)},${Math.round(ay)}`); }
+        for (const d of m.decor) if (d.n === 'bookshelf' && d.r !== undefined) { const cy = Math.floor(d.y / TILE) - 1, c0 = Math.floor((d.x - 51) / TILE), c1 = Math.floor((d.x + 51) / TILE); for (let cx = c0; cx <= c1; cx++) if (m.cells[cy * m.W + cx] !== 0) out.push(`seed ${seed} f${f}: a bookshelf sticks into the passage at ${cx},${cy}`); }
         // nothing hung on a top wall (torch, sconce, banner, sign) hides behind a tall prop standing against that wall
         const hung = m.torches.filter((t) => t.kind === 'wall' && !t.side).map((t) => [t.x, Math.round((t.y + 26) / TILE), 14, t.lever !== undefined ? 'sconce' : 'torch'])
           .concat(m.decor.filter((d) => d.n === 'banner' || d.n === 'shop_sign').map((d) => [d.x, Math.round((d.y + (d.n === 'banner' ? 2 : 34)) / TILE), d.n === 'banner' ? 18 : 22, d.n]));
@@ -644,7 +645,7 @@
     // and the same setup with the wall dug out does hit (so the check really reaches it)
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero; let spot = null;
-      for (let f = 1; f <= D.RUNS.campaign.chapter && !spot; f++) { enterFloor(S, R, f); const m = R.map;
+      for (let f = 1; f <= D.RUNS.campaign.chapter && !spot; f++) { R.camLook = null; enterFloor(S, R, f); const m = R.map;
         for (let ty = 1; ty < m.H - 4 && !spot; ty++) for (let tx = 1; tx < m.W - 1 && !spot; tx++) for (const k of [1, 2]) {
           const below = ty + k + 1, ok = (x, y) => cell(m, x, y) === 1 && !inStart(m, x, y);
           if (ok(tx, ty) && ok(tx - 1, ty) && ok(tx + 1, ty) && ok(tx, below) && ok(tx - 1, below) && ok(tx + 1, below) && [...Array(k)].every((_, i) => cell(m, tx, ty + 1 + i) === 0)) { spot = { tx, ty, k, below }; break; } } }
@@ -1618,6 +1619,8 @@
         for (let i = 0; i < 120 * E.dive + 2; i++) step(S, quiet); const hp = e.hp; hitEnemy(S, R, e, 10, false, h.x, h.y); if (e.st !== 'deep' || e.hp !== hp) out.push(`eel: a blow after its dive does ${hp - e.hp} (${e.st})`); } }
     // altars: E offers one gift per tier at rising prices; too few shards refuse and take nothing; a gift takes its price, lands
     // on the hero, heals, closes the screen and darkens the altar for good, and survives save/load
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero; enterFloor(S, R, 2); R.en = []; h.bag[0] = { b: 'scroll', n: 2 }; S.screen = 'inv'; const b = UI.inv().r.find((q) => q.id === 'bag:0'), inp = { px: b.x + 5, py: b.y + 5, press: 1, keys: [] }, n0 = h.atkN;
+      step(S, Object.assign({ click: 1 }, inp)); if (!h.read) out.push('scroll: a click in the bag does not start reading'); for (let i = 0; i < 10; i++) step(S, inp); if (h.atkN !== n0) out.push('scroll: the click that reads it also swings the weapon'); if (!h.read) out.push('scroll: the held click breaks the reading'); }
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero;
       for (let f = 1; !R.shrines.length && f < D.RUNS.campaign.chapter; ) enterFloor(S, R, ++f);
       if (!R.shrines.length) out.push('altar: no altar on any floor of seed 777');
@@ -2083,7 +2086,7 @@
             if (JSON.stringify([h2.lvl, h2.xp, h2.gold, h2.eq, h2.bag, h2.perks, h2.ab]) !== want) out.push('campaign f9: the hero changed on the way down');
             if (dep(R2) !== 9) out.push(`campaign f9: depth ${dep(R2)}, not 9`);
             if (R2.en.some((e) => !D.BOSSES[e.type] && e.max < Math.round(D.ENEMIES[e.type].hp * BAL.hp * (1 + 0.5 * 8)))) out.push('campaign f9: a monster weaker than the 9th floor');
-            if (!R2.msg || !R2.msg.s.includes('Этаж 9') || !R2.msg.s.includes(NC.title)) out.push(`campaign f9: the floor's title is "${R2.msg && R2.msg.s}"`);
+            if (!R2.msg || !R2.msg.s.includes('Этаж 9') || !(R2.msg.s + (R2.msg.chapter || '')).includes(NC.title)) out.push(`campaign f9: the floor's title is "${R2.msg && R2.msg.s}"`);
             for (let f = 10; f <= 12; f++) { enterFloor(S2, R2, f); const mf = R2.map, lf = f - 8;
               if ((mf.bossType || undefined) !== NC.boss(lf)) out.push(`campaign f${f}: boss ${mf.bossType}, the caves' ${lf}th has ${NC.boss(lf)}`);
               if (!NC.boss(lf) && !!NC.guard[lf] !== mf.enemies.some((e) => e.guard)) out.push(`campaign f${f}: exit guard does not match the caves' ${lf}th`);
@@ -2237,7 +2240,7 @@
   // gate; a scroll read through takes the hero home and the town's portal back to the very spot, then closes; a step breaks the
   // reading off and keeps the scroll; it is not read in the town; the save stays small and a saved run comes back on a kept floor
   function climbCheck() {
-    const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    const out = [], E = (S) => { if (S.run) S.run.enteredT = -9; step(S, { keys: ['KeyE'] }); };
     // the steps are where a hero coming down arrives: on floor reached from the start with the caches and locked doors shut (PR 30: seed 1's 7th put them in a cache)
     for (const sd of [1, 4, 5, 7, 17, 32, 39]) for (let f = 1; f <= 16; f++) { const m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'campaign', runSeed: sd, town: 1 }); if (!m.up) continue;
       const W = m.W, shut = new Set(m.doors.filter((d) => d.lock >= 0).flatMap((d) => d.cells.map(([x, y]) => y * W + x))), r = m.rooms[m.start], open = new Uint8Array(W * m.H), go = [r.cy * W + r.cx]; open[go[0]] = 1;
@@ -2257,7 +2260,7 @@
     const e0 = R.en[0]; e0.hp = 0; e0.deadT = S.t; const c0 = R.chests[0]; c0.open = 1; R.seen[7] = 1; R.drops.push({ kind: 'gold', x: h.x, y: h.y, n: 77, id: R.nextId++ });
     at(R.map.exit); E(S); if (R.floor !== 2) { out.push('climb: no way down from the 1st'); return out; }
     if (Math.hypot(h.x - R.map.up.x, h.y - R.map.up.y) > 90) out.push('climb: down the stairs, the hero is not at the stairs up');
-    at(R.map.up, 30); E(S); if (R.floor !== 1) { out.push('climb: the stairs up do not lead to the floor above'); return out; }
+    at(R.map.up, 30); { const f0 = R.floor; R.enteredT = S.t; step(S, { keys: ['KeyE'] }); if (R.floor !== f0) out.push('climb: a tap of E right after arriving goes back up'); } E(S); if (R.floor !== 1) { out.push('climb: the stairs up do not lead to the floor above'); return out; }
     if (Math.hypot(h.x - R.map.exit.x, h.y - R.map.exit.y) > 80) out.push('climb: back up, the hero is not at the foot of the stairs down');
     const e1 = R.en.find((q) => q.id === e0.id), c1 = R.chests.find((q) => q.x === c0.x && q.y === c0.y);
     if (!e1 || e1.deadT < 0 || !c1 || !c1.open || R.seen[7] !== 1 || !R.drops.some((q) => q.kind === 'gold' && q.n === 77)) out.push('climb: the floor above is not as it was left');
@@ -2336,7 +2339,7 @@
   // up (and nowhere else, nor in a run not through the town); touched, it wakes; the town's ring of stones then takes the hero to
   // it at once, or, with a portal open too, offers both in a window; the portal stays open when a waystone is taken
   function wayCheck() {
-    const out = [], E = (S) => step(S, { keys: ['KeyE'] });
+    const out = [], E = (S) => { if (S.run) S.run.enteredT = -9; step(S, { keys: ['KeyE'] }); };
     for (const sd of [5, 17]) for (let f = 1; f <= 16; f++) { const mode = f > D.RUNS.campaign.floors ? 'endless' : 'campaign', m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd, town: 1 });
       if (!!m.way !== D.wayFloor(f)) { out.push(`way ${sd}/${f}: ${m.way ? 'a waystone off its floors' : 'no waystone'}`); continue; } if (!m.way) continue;
       const k = m.way.ty * m.W + m.way.tx, s0 = Math.floor(m.spawn.y / TILE) * m.W + Math.floor(m.spawn.x / TILE);

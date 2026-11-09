@@ -57,7 +57,7 @@
     // a sanctum's circle whose priests are dead (TASKS 1054) rings its rim in the blessing's own blue (TASKS 1168: lava, vents and braziers burn every warm hue): step in for its blessing
     for (const q of m.circles || []) if (q.bless && !q.used && vis(q.x, q.y) && known(q.x, q.y) && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) for (let j = 0; j < 56; j++) { if (j % 7 === 6) continue; const an = j * 2 * Math.PI / 56 + t * 0.2; L.solid(Math.round((sx(q.x) + Math.cos(an) * 1.85 * TILE) / 2) * 2 - 2, Math.round((sy(q.y) + Math.sin(an) * 1.85 * TILE) / 2) * 2 - 2, 4, 4, [0.72, 0.87, 1], 0, 2, 2, 0.8 + 0.2 * Math.sin(t * 3 + j / 7)); }
     // (TASKS 1161: on the islet's dark crust the rock's shadow has nothing to darken, contrast 7 against the floor's 23)
-    for (const z of m.hazards || []) { if (z.k !== 'fall' || !z.islet || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.fall, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue; const q = w / H.warn, k = 0.3 + 0.7 * q; for (let j = 0; j < 12; j++) { const an = j * Math.PI / 6; L.glow(sx(z.x) + Math.cos(an) * H.r * k, sy(z.y) + 2 + Math.sin(an) * H.r * H.ry * k, 8, [1, 0.72, 0.3], 0.35 + 0.5 * q); } }
+    for (const z of m.hazards || []) { if (z.k !== 'fall' || !z.islet || !vis(z.x, z.y) || !known(z.x, z.y)) continue; const H = D.HAZ.fall, w = D.hazClock(z, GT) - (z.per - H.warn); if (w < 0) continue; const q = w / H.warn, k = 0.3 + 0.7 * q; for (let j = 0; j < 12; j++) { const an = j * Math.PI / 6; L.solid(2 * Math.round((sx(z.x) + Math.cos(an) * H.r * k) / 2) - 2, 2 * Math.round((sy(z.y) + 2 + Math.sin(an) * H.r * H.ry * k) / 2) - 2, 4, 4, [1, 0.72, 0.3], 0, 0, 0, 0.55 + 0.45 * q); } }
     for (const c of SC.crackFx || []) { if (!known(c.wx, c.wy)) continue; const k = Math.min(1, (c.w - 0.55 * c.d) / 0.45); if (k <= 0) continue;
       const hot = [1, 0.95, 0.6], A = 0.4 + 0.6 * c.w, H = Math.max(2, Math.round(5 * k) * 2), piece = (x, y, w, h) => L.solid(c.X + x, c.Y + y, w, h, hot, c.rot, -x, -y, A);
       let x = ((c.s & 3) - 2) * 2;
@@ -270,7 +270,7 @@
       L.glow(sx(b.x), sy(b.y), 18, [0.75, 1, 0.4], 0.5 * a, 2.4); }
     // a terrace's surge (TASKS 475), over the bridges' decks too: over its warning its band glows and beats faster, sparks jump off
     // the lava by it and the lava creeps up its edges; then it floods it and ebbs back
-    for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0) continue;
+    for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0 || !z.cells.some((c) => R.seen[c])) continue;
       if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(GT * (8 + 14 * k));
         z.cells.forEach((c, i) => { if (i % 2 || !R.seen[c]) return; const wx0 = (c % z.W + 0.5) * TILE, wy0 = (Math.floor(c / z.W) + 0.5) * TILE; if (!vis(wx0, wy0)) return; const X = sx(wx0), Y = sy(wy0);
           L.glow(X, Y, 22 + 10 * k, [1, 0.45, 0.1], (0.12 + 0.45 * k) * beat, 2.2);
@@ -572,7 +572,7 @@
           L.solid(px, py, long ? 9 : 5, long ? 3 : 4, col, an + a * 9 * (rnd(e.t, j + 4) - 0.5), long ? 3.5 : 2, 1.5, 1 - SS(0.6, 0.9, a)); }
         if ((col || mat === 'cloth') && a < 0.7) for (let j = 0; j < 3; j++) { const q = a / 0.7; L.puff(ix + (j - 1) * 9 - e.s * 14 * q, iy + 10 * q, 7 + 10 * q, [0.4, 0.36, 0.33], 0.35 * (1 - q), e.t * 7 + j); } }
       // a rock's fall (TASKS 406): a ring of dust and chips of basalt bouncing off; a vent's burst leaves a column of smoke
-      if (e.k === 'rockfall' && a < 1) { const q = a / 1; for (let j = 0; j < 8; j++) { const an = j / 8 * 6.283 + rnd(e.t, j); L.puff(ex + Math.cos(an) * (10 + 46 * q), ey + 4 + Math.sin(an) * (6 + 26 * q) - 12 * q, 10 + 16 * q, [0.6, 0.54, 0.48], 0.75 * (1 - q), j); }
+      if (e.k === 'rockfall' && a < 1) { const q = a / 1, cell = Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE), deck = (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(cell)), r0 = deck ? D.HAZ.fall.r * 0.45 + 12 : 10; for (let j = 0; j < 8; j++) { const an = j / 8 * 6.283 + rnd(e.t, j); L.puff(ex + Math.cos(an) * (r0 + 46 * q), ey + 4 + Math.sin(an) * ((deck ? r0 * 0.6 : 6) + 26 * q) - 12 * q, 10 + 16 * q, [0.6, 0.54, 0.48], (deck ? 0.45 : 0.75) * (1 - q), j); }
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j + 3) * 6.283, v = 50 + 70 * rnd(e.t, j + 9); if (a > 0.6) break; L.solid(ex + Math.cos(an) * v * a, Math.min(ey + 4, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 520 * a * a), 4, 3, [0.18, 0.16, 0.17], an + a * 8, 2, 1.5, 1 - SS(0.4, 0.6, a)); } }
       // the hero through the crust (TASKS 476): a splash of lava where he went in, smoke and embers where he climbs out
       if (e.k === 'lavafall' && a < 1.2) { const q = a / 1.2, X2 = sx(e.tx), Y2 = sy(e.ty);

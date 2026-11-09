@@ -96,7 +96,7 @@
   const broke = (S, R) => { const h = R.hero; if (!h.gold && !S.meta.shards) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.broke') }); };
   function interact(S, R) {
     const h = R.hero, m = R.map;
-    const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56)); if (c) { openChest(S, R, c); return; }
+    const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56) && !SIMX.overLava(m, h.x, h.y, c2.x, c2.y)); if (c) { openChest(S, R, c); return; }
     if (atCounter(R)) { openShop(S, R); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (sh && !arenaSealed(R)) { openAltar(S, R, sh); return; }
@@ -104,7 +104,8 @@
     const lv = leverNear(R); if (lv) { pullLever(S, R, lv); return; }
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
     const dUp = m.up ? Math.hypot(m.up.x - h.x, m.up.y - h.y) : 1e9;
-    if (dUp < 56 && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s') }); return; }
+    const fresh = S.t - (R.enteredT ?? -9) < 0.3;
+    if (dUp < 56 && !fresh && dUp <= Math.hypot(m.exit.x - h.x, m.exit.y - h.y) && (!m.down || dUp <= Math.hypot(m.down.x - h.x, m.down.y - h.y))) { if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s') }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor, up: 1 }); enterFloor(S, R, R.floor - 1, undefined, 'up'); return; }
     const gt = gateNear(R); if (gt) { R.portal = { f: R.floor, x: gt.x, y: gt.y + 40 }; enterFloor(S, R, 0, undefined, 'portal'); ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); return; }
     // the town's ring of stones: the end of a portal (TASKS 1007) and the gate to the waystones woken this run (1009); with one way
@@ -181,7 +182,7 @@
     if (Q.type === 'room') return (e.k === 'clear' || e.k === 'qevent') && R.floor === q.f && !R.town && e.room === q.room ? 1 : 0;
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
-      q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; R.msg = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
+      q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
     if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;

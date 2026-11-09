@@ -847,6 +847,14 @@
         const kind = pick(dir === 'u' && !cave ? ['crack', 'banner', 'banner', 'shelf', 'shelf', 'lever', 'lever'] : ['crack', 'crack', 'lever', 'lever', 'lever']);
         secrets.push({ room: sr.id, dir, dx, dy, x: ex, y: ey, wall, hide, front, hp: 2, open: 0, kind, host: (roomOf(hx, hy) || {}).id }); } }
     // the arena's lake (TASKS 413), dug once the floor's shape and roles are set: an ellipse of rock in the ring's middle that the
+    // a chapter opens on its lava (TASKS 1187): a pool cut from the rock beside the start room, in the first frame's view
+      if (!boss && biome === 'magma' && (runFloor === 1 || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor))) { const Fp = mul32(seed ^ 0x1187), N4 = [1, -1, W, -W], floorBy = (k) => N4.some((o) => at(k % W + (o === 1 ? 1 : o === -1 ? -1 : 0), Math.floor(k / W) + (o === W ? 1 : o === -W ? -1 : 0)) === 1), inMap = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3, seeds = [], ax = start.cx, ay = opts.town ? start.y + 1 : start.cy, stairsWall = (x, y) => !!opts.town && y < start.y && Math.abs(x - start.cx) <= 4;
+        for (let y = ay - 6; y <= ay + 6; y++) for (let x = ax - 11; x <= ax + 11; x++) { const d = Math.max(Math.abs(x - ax), Math.abs(y - ay)); if (d >= 3 && inMap(x, y) && at(x, y) === 0 && !stairsWall(x, y) && floorBy(y * W + x)) seeds.push([(y > ay ? 0 : 3) + Math.abs(d - 5) + Fp() * 0.5 + ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => { const u = x + a, v = y + b; return at(u, v) === 1 && u >= start.x && u < start.x + start.w && v >= start.y && v < start.y + start.h; }) ? 0 : 8), y * W + x]); }
+        seeds.sort((a, b) => a[0] - b[0]);
+        if (seeds.length) { const got = [seeds[0][1]], has = new Set(got); for (let i = 0; i < got.length && got.length < 14; i++) for (const o of N4) { const n = got[i] + o, x = n % W, y = Math.floor(n / W); if (!has.has(n) && inMap(x, y) && at(x, y) === 0 && !stairsWall(x, y) && Math.max(Math.abs(x - ax), Math.abs(y - ay)) <= 8 && got.length < 14) { has.add(n); got.push(n); } }
+          for (const k of got) set(k % W, Math.floor(k / W), 3);
+          // (a sliver of rock left between the pool and the floor is taken with it: selfCheck allows no one-cell walls)
+          for (let pass = 0; pass < 4; pass++) for (const k of got.slice()) for (const o of N4) { const n = k + o, x = n % W, y = Math.floor(n / W), open = (u, v) => at(u, v) !== 0; if (at(x, y) === 0 && inMap(x, y) && ((open(x - 1, y) && open(x + 1, y)) || (open(x, y - 1) && open(x, y + 1)))) { set(x, y, 3); got.push(n); } } } }
     // lava fills (platLava), a few basalt columns left standing in it and a row of slabs over it the short way
     const arenaLake = new Set(), arenaSlabs = [];
     if (plat && boss) { const r = rooms[0], L = AR.arena, cx = r.cx + 0.5, cy = r.cy + 0.5;
@@ -926,6 +934,7 @@
         if (mate && !mate.used && mate.dir === p.dir) { mate.used = 1; cs.push([mate.x, mate.y]); }
         doors.push({ room: exitR.id, arena: 1, dir: p.dir, cells: cs, x: side ? (p.dir === 'l' ? exitR.x : exitR.x + exitR.w) * TILE : (p.x + cs.length / 2) * TILE,
           y: side ? (p.y + cs.length / 2) * TILE : (p.dir === 'u' ? exitR.y : exitR.y + exitR.h) * TILE, lock: -1, open: 1 });
+        { const A = doors[doors.length - 1], twin = doors.find((d) => d.lock >= 0 && Math.hypot(d.x - A.x, d.y - A.y) < 70); if (twin) A.twin = 1; }
       }
       exitR.doors = 1;
       // a way into the arena wider than one door (a broad corridor, a room flush with it) takes a row of leaves side by side, read as

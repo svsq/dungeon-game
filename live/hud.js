@@ -79,7 +79,7 @@
   function title(S, t) {
     L.solid(0, 0, W, 200, [0, 0, 0], 0, 0, 0, 0.35);
     lab('tt', TXT('hud.title'), W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('ts', TXT('hud.title.2'), W / 2, 168, { size: 28, al: 0.5, col: C.dim });
+    lab('ts', TXT('hud.title.2', { n: D.RUNS.campaign.floors }), W / 2, 168, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
     lab('tp', TXT('hud.title.3'), W / 2, H - 90, { size: 34, al: 0.5, a });
   }
@@ -198,7 +198,7 @@
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // interaction prompt
     let pr = null; HUD.promptBox = null;
-    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56); if (ch) pr = [ch.x, ch.y - 74, TXT('hud.world.3')];
+    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56 && !SIM.Q.overLava(m, h.x, h.y, c.x, c.y)); if (ch) pr = [ch.x, ch.y - 74, TXT('hud.world.3')];
     const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
     if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, TXT('hud.world.6')];
     const dr = SIM.Q.doorNear(R, 64); if (dr) { const lk = SIM.Q.doorLock(m, dr); pr = [dr.x, dr.y - (dr.dir === 'u' ? 110 : dr.dir === 'd' ? 60 : 130), !lk ? TXT('hud.world.7') : lk.kind === 'key' ? (R.keys > 0 ? TXT('hud.world.8') : TXT('hud.world.9')) : TXT('hud.world.10')]; }
@@ -217,7 +217,7 @@
     if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name]; } }
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
-    if (pr && S.screen === 'play') { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
+    if (pr && S.screen === 'play' && !(R.leaving > 0) && !S.ev.some((e) => e.k === 'floor' && S.t - e.t < 0.5)) { const s = pr[2], w = lw('prompt', s, { size: 24 }) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
       const hx0 = V.sx(h.x - 30), hx1 = V.sx(h.x + 30), hy0 = V.sy(h.y - 92), hy1 = V.sy(h.y + 6);
       if (x < hx1 && x + w > hx0 && y < hy1 && y + 40 > hy0) y = Math.min(y, hy0 - 48);
       // nor an elite's name over its head (the exit's guard by the stairs down a hero has just come up): then under his feet
@@ -855,6 +855,7 @@
     button('gt_leave', U.r[o.length], S.hover);
     lab('gt_help', TXT('hud.gate.6'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
+  let endErr = null;
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.96);
@@ -870,7 +871,8 @@
     };
     lab('e_story_t', win ? TXT('hud.end.8') : r.abandoned ? TXT('hud.end.9') : TXT('hud.end.10'), 410, 258, { size: 23, al: 0.5, col: C.gold });
     G.blend('add'); L.glow(410, 400, 180, win ? [0.75, 0.5, 0.2] : [0.55, 0.08, 0.06], 0.25); G.blend();
-    if (!r.abandoned) SCENE.endActors(r, win, t, 410, 490);
+    // a portrait that fails must not take the rest of the screen with it: the buttons are the only way to save the run's log (TASKS 1335)
+    if (!r.abandoned) try { SCENE.endActors(r, win, t, 410, 490); } catch (e) { if (!endErr) { endErr = e; console.error(e); } L.pre = L.sp = null; G.blend(); }
     if (!win && (!last || !last.actor || r.abandoned)) icon(r.abandoned ? 'it_scroll' : last && last.src === 'spike' ? 'trap_spike' : 'bf_burn', 346, 340, 128);
     const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || TXT('hud.end.name')) : r.abandoned ? TXT('hud.end.name.2') : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.Q.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);

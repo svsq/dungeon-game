@@ -63,7 +63,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
     if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
-    keys[c] = 1; if (play) pend.keys.push(c);
+    keys[c] = 1; if (play && !(e.repeat && c === 'KeyE')) pend.keys.push(c);
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay();
     e.preventDefault();

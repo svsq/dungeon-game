@@ -191,7 +191,9 @@
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
     // Keys pressed in it are kept for the first step after it (TASKS 227)
-    if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R); if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
+    if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R);
+      { const q = R.map.exit, dx = q.x - h.x, dy = q.y - h.y, d = Math.hypot(dx, dy) || 1, sp = Math.max(0, d - 24) / Math.max(DT, R.leaving + DT), go = sp * DT; h.vx = sp * dx / d; h.vy = sp * dy / d; if (go > 0) { h.x += dx / d * go; h.y += dy / d * go; h.dist += go; h.gp = (h.gp || 0) + go / stepLen(Math.abs(dx) / d) * Math.PI; if (dx) h.face = dx > 0 ? 1 : -1; } }
+      if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
     if (R.freeze > 0) { R.freeze -= DT; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R); R.inbuf = Object.assign(R.inbuf || {}, keys); return; }
     R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
     // ---- input: 8-way run with accel / decel ----
@@ -255,7 +257,7 @@
     }
     if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     // ---- melee: hold LMB ----
-    if (inp.press && h.cd.atk <= t) {
+    if (inp.press && !S.eatPress && h.cd.atk <= t) {
       h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); h.atkSlow = Math.min(0.2, (D.clsOf(h).slow || 1) * st.wcd / (1 + st.aspd / 100)); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
       ev(S, Object.assign({ k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face }, (D.clsOf(h).shoots || []).includes(st.wtype) ? { shot: 1 } : {}));
     }
@@ -288,6 +290,7 @@
     // T reads the scroll of return (TASKS 1026: behind the bag alone, a novice never found it)
     if (keys.KeyT) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); if (i >= 0) SIMX.useItem(S, R, i); else ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_hero.stepPlay.s') }); }
     if (keys.KeyR) SIMX.usePotion(S, R, 'mp_potion');
+    if (R.msgNext && S.t >= R.msgNext.t) { R.msg = R.msgNext; R.msgNext = null; }
     if (keys.KeyE) SIMX.interact(S, R);
     if (R.map !== m) return;
     if (h.read && R.hero === h) SIMX.readStep(S, R, ix || iy ? 1 : 0, dashing);
@@ -358,7 +361,7 @@
     R.trauma = Math.max(0, R.trauma - 1.6 * DT);
     if (t - R.saveT > 30) { R.saveT = t; S.saveN++; }
   }
-  function camera(R, h, lx, ly) { const w = WIN(R), tg = [h.x - w.W / 2 + lx, h.y - 30 - w.H / 2 + ly]; clampCam(R, tg);
+  function camera(R, h, lx, ly) { R.camLook = [lx, ly]; const w = WIN(R), tg = [h.x - w.W / 2 + lx, h.y - 30 - w.H / 2 + ly]; clampCam(R, tg);
     for (const i of [0, 1]) { R.camV[i] += (36 * (tg[i] - R.cam[i]) - 12 * R.camV[i]) * DT; R.cam[i] += R.camV[i] * DT; } }
 
   Object.assign(SIMX, {

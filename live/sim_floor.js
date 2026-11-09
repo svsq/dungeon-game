@@ -156,7 +156,7 @@
       else { R.shop = SIMX.stockShop(R, SIMX.tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
-    arrive(S, R, how); R.arrived = M ? '' : how;
+    arrive(S, R, how); R.arrived = M ? '' : how; R.enteredT = S.t;
     ev(S, { k: 'floor', x: R.hero.x, y: R.hero.y, f });
     S.saveN++;
   }
@@ -169,11 +169,11 @@
     h.x = hx; h.y = hy; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
-    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - 30 - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
+    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; { const lk = R.camLook || [0, 0]; R.cam = [h.x - WIN(R).W / 2 + lk[0], h.y - 30 - WIN(R).H / 2 + lk[1]]; } R.camV = [0, 0]; clampCam(R, R.cam);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
     reveal(R); R.msg = R.town && R.newOffers ? { s: TXT('sim_floor.newOffers'), t: S.t, d: 3.5 } : { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 }; R.newOffers = 0;
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);
-    if (ch && !(R.chapSeen || {})[R.floor]) { (R.chapSeen ||= {})[R.floor] = 1; Object.assign(R.msg, { chapter: D.RUNS[ch.run].name, d: 4.5 }); }
+    if (ch && !(R.chapSeen || {})[R.floor]) { (R.chapSeen ||= {})[R.floor] = 1; const chapter = D.RUNS[ch.run].name; Object.assign(R.msg, { s: R.msg.s.replace(' — ' + chapter, ''), chapter, d: 4.5 }); }
   }
   // a run picked up on its arrival at a floor first built there (the bot's checkpoints, TASKS 467): the floor is built again by this
   // version of the game from the RNG and ids it was first built with, so a change to the deep floors is measured without playing
