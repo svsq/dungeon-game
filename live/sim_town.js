@@ -185,6 +185,11 @@
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
+  // a quest given up in the journal (TASKS 1633): its offer waits on the board again, its keepsake is gone from wherever it lay
+  function abandonQuest(S, R, q) { if (!q || q.st !== 'taken') return; R.quests.splice(R.quests.indexOf(q), 1); const o = (R.offers || []).find((v) => v.q === q.id); if (o) o.q = 0;
+    const left = (d) => !(d.kind === 'qitem' && d.quest === q.id); for (const c of R.chests) if (c.quest === q.id) delete c.quest; for (const e of R.en) if (e.quest === q.id) delete e.quest;
+    R.drops = R.drops.filter(left); for (const M of Object.values(R.memo || {})) if (M.drops) M.drops = M.drops.filter(left);
+    ev(S, { k: 'ui', x: R.hero.x, y: R.hero.y }); S.saveN++; }
   // the turn-in, in the town: gold, experience and the item go to the hero, the shards to the bank
   function turnIn(S, R, q) { if (!q || q.st !== 'done' || !R.town) return false; const h = R.hero, W = q.rw;
     if (W.xp) W.xp = D.questReward(['xp'], q.f, h.lvl).xp;
@@ -270,14 +275,15 @@
     for (const q of R.quests || []) { if (q.st !== 'taken' || q.f !== R.floor) continue; const Q = D.QUESTS[q.key];
       if (Q.type === 'named') { const e = R.en.find((o) => o.quest === q.id && o.deadT < 0); if (e) out.push({ kind: 'named', x: e.x, y: e.y, q }); }
       if (Q.type === 'room' && q.room !== undefined) { const r = R.map.rooms[q.room]; out.push({ kind: 'room', x: r.cx * TILE + TILE / 2, y: r.cy * TILE + TILE / 2, r, q }); }
-      if (Q.type === 'fetch') { const d = R.drops.find((o) => o.kind === 'qitem' && o.quest === q.id && !o.got); if (d && !hidden(R.map, d) && R.seen[Math.floor(d.y / TILE) * R.map.W + Math.floor(d.x / TILE)]) out.push({ kind: 'fetch', x: d.x, y: d.y, q }); } }
+      if (Q.type === 'fetch') { const seenAt = (o) => !hidden(R.map, o) && R.seen[Math.floor(o.y / TILE) * R.map.W + Math.floor(o.x / TILE)], d = R.drops.find((o) => o.kind === 'qitem' && o.quest === q.id && !o.got), c = R.chests.find((o) => o.quest === q.id && !o.open);
+        if (d && seenAt(d)) out.push({ kind: 'fetch', x: d.x, y: d.y, q }); else if (c && seenAt(c)) out.push({ kind: 'fetch', x: c.x, y: c.y, q }); } }
     return out; }
   // a quest's state in a few words, for the HUD's tracker
   function questLine(q, R) { const Q = D.QUESTS[q.key];
     if (q.st === 'done') return TXT('sim_town.questLine');
     if (Q.type === 'kill' || Q.type === 'clear') return TXT('sim_town.questLine.2', { n: q.n, need: q.need, f: q.f });
     if (Q.type === 'named') return TXT('sim_town.questLine.3', { title: q.title, f: q.f });
-    if (Q.type === 'fetch') return TXT('sim_town.questLine.4', { thing: q.thing, f: q.f });
+    if (Q.type === 'fetch') return TXT('sim_town.questLine.4', { thing: q.thing, f: q.f }) + (q.where === 'chest' ? TXT('sim_town.questLine.chest') : q.where === 'secret' ? TXT('sim_town.questLine.secret') : q.where === 'floor' ? TXT('sim_town.questLine.floor') : '');
     if (Q.type === 'room') { const n = R && R.floor === q.f && q.room !== undefined ? R.en.filter((e) => e.room === q.room && e.deadT < 0 && counted(e)).length : 0; return TXT('sim_town.questLine.5', { p1: n ? TXT('sim_town.questLine.6', { n }) : TXT('sim_town.questLine.7'), f: q.f }); }
     if (Q.type === 'boss') return TXT('sim_town.questLine.8', { f: q.f });
     return TXT('sim_town.questLine.9', { f: q.f }); }
@@ -393,7 +399,7 @@
 
   Object.assign(SIMX, {
     folkR, folkOf, folkFree, stepFolk, solids, interact, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
-    craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
+    craft, QUEST_EV, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,
     sell });

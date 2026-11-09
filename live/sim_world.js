@@ -282,7 +282,7 @@
       if (role && (role.type === 'treasure' || role.type === 'secret') && rnd(R) < 0.05 * ((D.FLOOR_MODS[R.map.mod] || {}).ambush || 1)) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
     }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
-    if (c.quest) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
+    if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
     drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
   function chestLoot(R, c) { const LT = LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};

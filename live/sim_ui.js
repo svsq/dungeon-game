@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BASES, D, DT, FROM, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
+    BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
     throwAway, useItem } = SIMX;
   // ---------------- run end / menus ----------------
@@ -187,9 +187,11 @@
   };
   // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
   SCREEN.journal = (S, inp, keys, x, y, click) => {
-    const R = S.run, L0 = R ? journalOf(R) : [], U = UI.journal(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, L0 = R ? journalOf(R) : [], sel = L0.find((q) => q.id === S.jsel) || L0[0], U = UI.journal(L0.length, sel && sel.st === 'taken'), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyJ || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
-    if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; S.jdrop = 0; ev(S, { k: 'ui', x, y }); }
+    // given up only on a second press, as a saved run is dropped: nothing brings a quest back but its giver (TASKS 1633)
+    if (click && b && b.id === 'drop' && sel) { if (S.jdrop === sel.id && S.t - S.jdropT < 3) { S.jdrop = 0; abandonQuest(S, R, sel); } else { S.jdrop = sel.id; S.jdropT = S.t; ev(S, { k: 'ui', x, y }); } }
     return;
   };
   SCREEN.inv = (S, inp, keys, x, y, click) => {

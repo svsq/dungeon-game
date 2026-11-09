@@ -763,7 +763,7 @@
   // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
   const QST = { done: [TXT('QST.done'), '#8fd98a'], taken: [TXT('QST.taken'), '#e8c890'], turned: [TXT('QST.turned'), '#8a7d6c'] };
   function journal(S, R, t) {
-    const L0 = SIM.Q.journalOf(R), U = D.UI.journal(L0.length), P = U.P, sel = L0.find((q) => q.id === S.jsel) || L0[0];
+    const L0 = SIM.Q.journalOf(R), sel = L0.find((q) => q.id === S.jsel) || L0[0], U = D.UI.journal(L0.length, sel && sel.st === 'taken'), P = U.P;
     dim(0.6); panel('journal', P.x, P.y, P.w, P.h, { r: 10 });
     lab('jr_t', TXT('hud.journal'), P.x + 40, P.y + 50, { size: 40, col: C.gold });
     const cb = U.r.find((q) => q.id === 'close'); panel('jr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('jr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
@@ -783,6 +783,7 @@
     lab('jr_ds', st + (sel.st === 'taken' ? ' · ' + SIM.Q.questLine(sel, R) : sel.st === 'done' ? TXT('hud.journal.8', { p1: D.FOLK[sel.from] ? D.FOLK[sel.from].name.toLowerCase() : '' }) : ''), X, y, { size: 22, col }); y += 48;
     lab('jr_rw0', sel.st === 'turned' ? TXT('hud.journal.9') : TXT('hud.journal.10'), X, y, { size: 22, col: C.dim }); y += 32;
     wrapLab('jr_rw', SIM.Q.rwLine(sel.rw), X, y, Wd, 22, C.gold);
+    const dr = U.r.find((q) => q.id === 'drop'); if (dr) button('jr_drop', Object.assign({}, dr, { label: S.jdrop === sel.id && S.t - S.jdropT < 3 ? TXT('hud.journal.drop2') : TXT('hud.journal.drop') }), S.hover);
   }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
   function craft(S, R, t) {

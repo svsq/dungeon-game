@@ -69,8 +69,9 @@
     board: (n) => { const P = { x: 400, y: 90, w: 1120, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
-    journal: (n) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
+    journal: (n, canDrop) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
       for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
+      if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 350, y: P.y + P.h - 116, w: 310, h: 58 });
       r.push({ id: 'close', x: P.x + P.w - 64, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: () => { const P = { x: 420, y: 90, w: 1080, h: 900 }, r = [];
