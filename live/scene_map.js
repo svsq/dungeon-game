@@ -16,8 +16,8 @@
   // (a light's centre stays on open floor: inside a wall cell the light map's occlusion swallows it)
   // (TASKS 1029: the lanterns became torches, lit by the torches' own code; the forge's glow on its art no longer whitens it)
   const TOWN_LIGHT = { forge: { r: 170, col: [1, 0.55, 0.18], amt: 1.7, dy: 8, core: 60, glow: [0, -18, 17, 0.35] },
-    runes: { r: 190, col: [0.22, 0.45, 1], amt: 1.5, dy: 0, core: 70, glow: [0, 8, 22, 0.3] }, altar: { r: 120, col: [0.3, 0.5, 1], amt: 1.0, dy: 12, core: 40, glow: [0, -14, 30, 0.3] },
-    crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [7, -59, 8, 0.9] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
+    runes: { r: 190, col: [0.22, 0.45, 1], amt: 1.5, dy: 0, core: 70, glow: [0, 8, 22, 0.3] }, altar: { r: 100, col: [0.52, 0.66, 1], amt: 1.5, dy: 12, core: 60, glow: [0, -14, 30, 0.3] },
+    crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 8, 0.9] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
   // the setts are painted lighter than the earth round them: under the fire they read as a pink cross (fidelity r2), so a little darker
   const PAVE_K = 0.78, PAVE_TS = 160;
   // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
@@ -95,7 +95,7 @@
         // the town's earth repeats every 7 cells: its art pixel ≈2 px like the hero's (TASKS 1030; the old texture's was 4.5)
         if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224); }
         else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
-        else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: B.wallG || [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
+        else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: m.town ? [0.9, B.wallG[1] * (0.78 + 0.42 * rnd(x * 5 + 1, y * 9 + 4)), 0, 1.05] : [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
         else if (v === 0 && RD[y * m.W + x] <= 10 && m.town) townTop(x, y);
         else if (v === 0 && RD[y * m.W + x] <= 3) tile(B.top, x, y, { grade: [0.55, TOP_LIFT, 0, 1], tint: topTint(B) }, TST);
       }
@@ -285,7 +285,7 @@
     const cv = VOID.cv || (VOID.cv = G.canvas()); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
     // a lavafall's rock stays in sight up to the map's top row: its face and the pool it pours from stand there (TASKS 452)
     const fallRock = new Set(); if (m.cliff) for (const f of fallsOf(m)) if (f.h) for (let y = Math.max(1, Math.floor((f.y - f.h - 80) / TILE)); y <= f.wallY; y++) for (let x = Math.floor((f.x - f.z - 8) / TILE); x <= Math.floor((f.x + f.z + 8) / TILE); x++) fallRock.add(y * W + x);
-    for (let i = 0; i < W * H; i++) { const x = i % W, y = Math.floor(i / W), e = Math.min(x, y, W - 1 - x, H - 1 - y), v = fallRock.has(i) ? 0 : Math.round(255 * Math.max(SS(1.25, 2.15, d[i]), 1 - SS(0, 2.5, e))); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    for (let i = 0; i < W * H; i++) { const x = i % W, y = Math.floor(i / W), e = Math.min(x, y, W - 1 - x, H - 1 - y), v = fallRock.has(i) ? 0 : Math.round(255 * Math.max(m.town ? SS(5.25, 7.15, d[i]) : SS(1.25, 2.15, d[i]), 1 - SS(0, 2.5, e))); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!VOID.rec) VOID.rec = G.canvasTex('void', cv);
     else { G.canvasUpdate(VOID.rec, cv); }

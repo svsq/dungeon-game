@@ -756,6 +756,7 @@
       const X = P.x + (ic ? 124 : 50);
       lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 56, { size: 17, col: C.dim });
+      { const s0 = Q.text(q); lab('bd_x' + i, s0.length > 62 ? s0.slice(0, 61) + '…' : s0, X + 190, y + 30, { size: 17, col: C.text }); }
       lab('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 80, { size: 17, col: '#d8b870' });
       button('bd_take' + i, Object.assign({}, b, { label: TXT('hud.board.label') }), S.hover); });
   }

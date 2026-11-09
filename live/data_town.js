@@ -64,11 +64,11 @@
       [TXT('FOLK.guard.lines.5'), TXT('FOLK.guard.lines.6')]] },
     porter: { name: TXT('FOLK.porter.name'), per: 1.7, v: 34, lines: [[TXT('FOLK.porter.lines'), TXT('FOLK.porter.lines.2')],
       [TXT('FOLK.porter.lines.3'), TXT('FOLK.porter.lines.4')], [TXT('FOLK.porter.lines.5'), TXT('FOLK.porter.lines.6')]] },
-    sweeper: { name: TXT('FOLK.sweeper.name'), per: 1.25, pause: 7, v: 20, lines: [[TXT('FOLK.sweeper.lines'), TXT('FOLK.sweeper.lines.2')],
+    sweeper: { name: TXT('FOLK.sweeper.name'), per: 1.25, pause: 7, v: 26, lines: [[TXT('FOLK.sweeper.lines'), TXT('FOLK.sweeper.lines.2')],
       [TXT('FOLK.sweeper.lines.3'), TXT('FOLK.sweeper.lines.4')], [TXT('FOLK.sweeper.lines.5'), TXT('FOLK.sweeper.lines.6')]] },
     child: { name: TXT('FOLK.child.name'), per: 2.3, pause: 6, v: 42, lines: [[TXT('FOLK.child.lines'), TXT('FOLK.child.lines.2')],
       [TXT('FOLK.child.lines.3'), TXT('FOLK.child.lines.4')], [TXT('FOLK.child.lines.5'), TXT('FOLK.child.lines.6')]] },
-    mason: { name: TXT('FOLK.mason.name'), per: 1.3, hit: 0.55, v: 34, lines: [[TXT('FOLK.mason.lines'), TXT('FOLK.mason.lines.2')],
+    mason: { name: TXT('FOLK.mason.name'), per: 1.3, hit: 0.7, v: 34, lines: [[TXT('FOLK.mason.lines'), TXT('FOLK.mason.lines.2')],
       [TXT('FOLK.mason.lines.3'), TXT('FOLK.mason.lines.4')], [TXT('FOLK.mason.lines.5'), TXT('FOLK.mason.lines.6')]] },
     hen: { per: 2.2 },
   };

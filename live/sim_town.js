@@ -36,6 +36,7 @@
   const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
   function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, block = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44;
     // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard
+    if (block && C.held >= 3) { const a = Math.atan2(h.y - cy, h.x - cx); h.x += Math.cos(a) * 120 * DT; h.y += Math.sin(a) * 120 * DT; }
     if (block && !C.held) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.cart') });
     C.held = block ? (C.held || 0) + DT : 0; const v = block && C.held < 3 ? 0 : CART_V * Math.min(1, 0.2 + Math.min(C.s, L - C.s) / 44);
     if (C.st === 'down') { C.s = Math.min(L, C.s + v * DT); if (C.s >= L) { C.st = 'at'; C.atT = t; } }
@@ -306,6 +307,8 @@
     if (T.v !== D.ITEM_BAL.version) { for (const it of T.items) if (it && BASES[it.b]) itemPower(it); T.v = D.ITEM_BAL.version; } return T; }
   function stashPut(S, R, i, j) { const T = stashOf(S), h = R.hero, it = h.bag[i], n = D.STASH.cells;
     if (!it) return;
+    // a stack joins the stacks already in the chest (TASKS 1423)
+    if (j === undefined && isCons(it)) { const cap = D.CONSUMABLES[it.b].stack; for (const q of T.items) { if (!q || q.b !== it.b || q.n >= cap) continue; const m1 = Math.min(it.n, cap - q.n); q.n += m1; it.n -= m1; if (!it.n) { h.bag[i] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; } } }
     if (j === undefined) { j = 0; while (j < n && T.items[j]) j++; }
     if (j >= n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashPut.s.3') }); return; }
     const was = T.items[j]; T.items[j] = it; h.bag[i] = was ? Object.assign(was, { id: R.nextId++ }) : null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }

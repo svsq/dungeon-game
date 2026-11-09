@@ -146,7 +146,7 @@
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not
     // write the state (TASKS 1025)
-    if (f === 0) { SIMX.offersOf(R); R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
+    if (f === 0) { const o0 = (R.offers || []).length, oL = SIMX.offersOf(R).length; R.newOffers = oL > o0 && (R.deepest || 0) > (R.townDeep || 0) ? 1 : 0; R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
       const bn = R.bossN || 0, old = R.townShop; R.townShop = null;
       if (old && (old.boss || 0) === bn) { R.shop = old; if ((old.at || 0) < (R.deepest || 0)) { SIMX.restock(R, R.shop, SIMX.tradeDepth(R)); R.shop.at = R.deepest; } }
       else { R.shop = SIMX.stockShop(R, SIMX.tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }
@@ -167,7 +167,7 @@
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; R.cam = [h.x - WIN(R).W / 2, h.y - 30 - WIN(R).H / 2]; R.camV = [0, 0]; clampCam(R, R.cam);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
-    reveal(R); R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 };
+    reveal(R); R.msg = R.town && R.newOffers ? { s: TXT('sim_floor.newOffers'), t: S.t, d: 3.5 } : { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 }; R.newOffers = 0;
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);
     if (ch && !(R.chapSeen || {})[R.floor]) { (R.chapSeen ||= {})[R.floor] = 1; Object.assign(R.msg, { chapter: D.RUNS[ch.run].name, d: 4.5 }); }
   }

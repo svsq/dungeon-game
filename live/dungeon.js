@@ -202,12 +202,12 @@
     niches: [[7, 5, 3, 3], [11, 5, 3, 3], [16, 5, 3, 3], [23, 6, 9, 2], [33, 5, 2, 3], [37, 5, 3, 3], [42, 5, 3, 3], [47, 5, 2, 3], [52, 11, 2, 2], [52, 14, 2, 2], [8, 32, 3, 2], [24, 32, 3, 2], [44, 32, 3, 2]],
     // the cobbles (TASKS 1029): a round square about the fire and winding paths two or three cells wide off it to the services and the gate
     plaza: [27, 17.4, 4.6, 3.7], paths: [[27, 11], [17, 13], [36, 12], [36, 24], [22, 22], [16, 22], [27, 31], [47, 23]],
-    stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [36, 11], forge: [38, 10], lectern: [39, 17], shelf: [37, 16],
+    stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [38, 11.4], forge: [38, 10], lectern: [39, 17], shelf: [37, 16],
     altar: [36, 23], chest: [39, 23], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [46.6, 31], herbs: [44, 25],
     // the town's gate out (TASKS 1149): shut, in the bottom wall where the cobbled way off the square ends, as on the reference
-    exitGate: [29, 32.6],
+    exitGate: [29, 31.8],
     // the portal's ring is open toward the square (no stone east of it); where a body stands to use each service (the checks walk a two-cell-wide body there from the spawn)
-    use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [36, 12], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [45, 31], exitGate: [29, 29] },
+    use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [38, 13], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [45, 31], exitGate: [29, 29] },
     braziers: [[25, 11], [29, 11]],
     benches: [[25, 16], [29, 19], [25, 19]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
@@ -223,12 +223,12 @@
     props: [['logs_tw', 44, 11], ['stall_tw', 47, 13], ['well_tw', 9, 19], ['picks_tw', 45, 23], ['stoneyard_tw', 36.6, 30], ['blocks_tw', 47.2, 29.5], ['ore_tw', 48.5, 31],
       ['table_candles', 6, 14], ['shop_sacks', 5, 21], ['shop_crate', 7, 24], ['candles', 5, 24]],
     rails: [[47, 22], [47, 23], [47, 24], [46, 25], [45, 26], [44, 27], [43, 28], [42, 29], [41, 30], [40, 30]],
-    yardSolid: [[35, 29], [36, 29], [37, 29], [38, 29], [39, 29], [35, 30], [36, 30], [38, 30], [39, 30]],
+    yardSolid: [[27, 30], [28, 30], [29, 30], [30, 30], [31, 30], [27, 31], [28, 31], [29, 31], [30, 31], [31, 31], [35, 29], [36, 29], [37, 29], [38, 29], [39, 29], [35, 30], [36, 30], [38, 30], [39, 30]],
     // the townsfolk's places (TASKS 1014–1015 put them there): each at its work, facing it; the cast is the player's (6 Nov 2026: no miner or gardener; 8 Nov 2026: a mason at the rails' end)
     // the rounds of those who walk (TASKS 1015): stops in cells, 'take' / 'drop' where the porter lifts and sets down his crate (from the
     // canvas stall to the merchant), the others pause at each stop to sweep or to scatter grain; the round loops back to the start
     routes: { porter: [[46, 15, 'take'], [44, 13], [34, 13], [22, 15], [22, 13, 'drop'], [22, 15], [34, 13], [44, 13]], sweeper: [[30, 21], [24, 23], [32, 24]], child: [[13, 18], [17, 18], [11, 16]], mason: [[41.3, 30, 'take'], [45.7, 30.4, 'drop']] },
-    npcs: [['smith', 35, 11], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 30, 13], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.7, 30.4]],
+    npcs: [['smith', 36.6, 11.2], ['enchanter', 40, 17], ['keeper', 29, 16], ['guard', 32, 12], ['porter', 32, 14], ['sweeper', 30, 21], ['child', 13, 18], ['hen', 12, 20], ['hen', 14, 20], ['hen', 11, 18], ['mason', 45.7, 30.4]],
     // heaps of fallen blocks at the broken ends of the ruins' walls (TASKS 1609)
     rubble: [[12, 28], [16.4, 28], [18, 28], [24, 28.6], [30.2, 28.6], [34.6, 28], [8, 11.6], [8, 17.6], [8, 23.6], [42.4, 22.4], [35.4, 24], [31, 11]],
     // the iron railings by the road south, and ivy down the ruins' faces (TASKS 1611, 1609)
@@ -237,7 +237,7 @@
     stubs: [[14, 8], [45, 8], [10, 27], [5, 26], [49, 13], [12, 14]],
     small: [['barrel', 13, 11], ['crate', 21, 11], ['barrel', 20, 14], ['crate', 33, 11], ['barrel', 41, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
       ['crate', 49, 11], ['barrel', 12, 30], ['barrel', 9, 10], ['crate', 35, 25], ['barrel', 47, 27], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
-      ['crate', 50, 12], ['barrel', 50, 16], ['barrel', 29, 31], ['crate', 15, 11], ['barrel', 21, 9]],
+      ['crate', 50, 12], ['barrel', 50, 16], ['crate', 15, 11], ['barrel', 21, 9]],
     // what a niche keeps: its stores, and a small fire at the back
     store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
   // a portal's ring of stones (TASKS 1037): the town's and a chapter boss's are one ring, eight stones round 240° with the gap
@@ -302,7 +302,7 @@
     // moss in patches round the yard, thicker by the ruins, none on the cobbles (TASKS 1608)
     for (let i = 0; i < 150; i++) { const cx = (4 + R() * 48) * TILE, cy = (4 + R() * 28) * TILE, n = 3 + Math.floor(R() * 4);
       for (let j = 0; j < n; j++) { const x = cx + (R() - 0.5) * 90, y = cy + (R() - 0.5) * 60, k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (cells[k] !== 1 || pv.has(k) || near(x, y, 24)) continue;
-        decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_fern_tw', 'dc_bush_tw', 'dc_flowers_tw', 'dc_fern_tw'][Math.floor(R() * 7)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }
+        decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_grass_tw_b', 'dc_fern_tw', 'dc_fern_tw_b', 'dc_bush_tw', 'dc_flowers_tw_a', 'dc_flowers_tw_b'][Math.floor(R() * 9)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin), exitGate: at(T.use.exitGate) };
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
     // merchant's counter, and it stood behind it for good on seed 52)
