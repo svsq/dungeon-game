@@ -1,0 +1,3 @@
+Use case: one prop for a top-down 3/4 dungeon game, a smith's anvil. Image 1 is the style reference. Image 2 is the approved town concept's forge crop: match the anvil's design, NOT its light.
+Subject: a heavy black iron anvil with a clear horn and flat face (#1c1a1c, #33302f, top edge #6f6a6a) sitting on a short thick dark tree stump (#281510, #3f261c, sparse edge #743f1d), 26 art pixels wide and 24 tall, the anvil taking the upper two thirds of the height. A hammer and tongs lean on the stump.
+Constraints: centred, complete, transparent background. Painted UNLIT: no glowing metal, no orange, no glow, no shadow on the ground, no text.

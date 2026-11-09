@@ -269,6 +269,11 @@
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
       ...T.grates.map((p, i) => ({ ...at(p), n: i ? 'grate_tw_b' : 'grate_tw', role: 'grate', solid: 1 })), ...T.ivy.map((p, i) => ({ ...at(p), n: i % 3 === 1 ? 'ivy_tw_b' : 'ivy_tw', role: 'ivy', s: 0.75 + 0.15 * (i % 3), f: i % 2 ? -1 : 1 })),
+      // a hash, not R(): the decals after this list keep the layouts of saved towns
+      ...Array.from({ length: W * H }, (_, k) => k).flatMap((k) => { const x = k % W, y = Math.floor(k / W), h = (x * 73 + y * 37) % 100; if (cells[k] !== 0 || cells[k + W] !== 1 || y < 2 || x < 2 || x > W - 3) return [];
+        const px = (x + 0.5) * TILE, py = (y - 1) * TILE + 8, opR = cells[k + 1] === 1 || cells[k + 1 + W] === 0, opL = cells[k - 1] === 1 || cells[k - 1 + W] === 0;
+        if (opR && !opL) return [{ x: px + 2, y: py, n: 'wall_end_tw_a', role: 'wall_end' }]; if (opL && !opR) return [{ x: px - 2, y: py, n: 'wall_end_tw_b', role: 'wall_end' }];
+        return h < 22 ? [{ x: px, y: py, n: h % 2 ? 'wall_end_tw_c' : 'wall_end_tw_d', role: 'wall_end', f: h % 3 ? 1 : -1 }] : []; }),
       ...T.rubble.map(([x, y], i) => ({ ...at([x, y]), n: 'blocks_tw', role: 'rubble', s: 0.6 + 0.1 * (i % 4), f: i % 2 ? -1 : 1 })),
       // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
       ...portalRing(wx(T.portal[0]), wy(T.portal[1]), 0).map((q) => ({ ...q, role: 'portal_stone', solid: 1 })),
@@ -298,11 +303,11 @@
     const decals = [];
     // separate tufts over the earth (TASKS 1030: its texture keeps only fine grain, so the tile's repeat does not show)
     for (let i = 0; i < 150; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
-      decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_grass_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.7 + R() * 0.5 }); }
+      decals.push({ x, y, n: ['dc_grass_tw', 'dc_grass_tw_b', 'dc_leaves_tw', 'dc_grass_tw', 'dc_grass_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.7 + R() * 0.5 }); }
     // moss in patches round the yard, thicker by the ruins, none on the cobbles (TASKS 1608)
     for (let i = 0; i < 240; i++) { const cx = (4 + R() * 48) * TILE, cy = (4 + R() * 28) * TILE, n = 3 + Math.floor(R() * 4);
       for (let j = 0; j < n; j++) { const x = cx + (R() - 0.5) * 90, y = cy + (R() - 0.5) * 60, k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (cells[k] !== 1 || pv.has(k) || near(x, y, 24)) continue;
-        decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_grass_tw_b', 'dc_fern_tw', 'dc_fern_tw_b', 'dc_bush_tw', 'dc_flowers_tw_a', 'dc_flowers_tw_b'][Math.floor(R() * 9)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }
+        decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_grass_tw_b', 'dc_fern_tw', 'dc_fern_tw_b', 'dc_bush_tw', 'dc_grass_tw', 'dc_moss_tw_b'][Math.floor(R() * 9)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }
     // greenery gathers where ground meets stone (TASKS 1432, 1429): a thick fringe at the foot of the walls and moss crumbling over the paving's edge
     for (let y = 2; y < H - 1; y++) for (let x = 2; x < W - 2; x++) { const k = y * W + x; if (cells[k] !== 1 || pv.has(k)) continue; const wallBy = cells[k - W] === 0 || cells[k - 1] === 0 || cells[k + 1] === 0, paveBy = pv.has(k - W) || pv.has(k + W) || pv.has(k - 1) || pv.has(k + 1);
       if (!wallBy && !paveBy) continue; for (let j = 0, n = wallBy ? 2 : 1; j < n; j++) { const px = (x + R()) * TILE, py = (y + R()) * TILE; if (R() < (wallBy ? 0.2 : 0.45) || near(px, py, 22)) continue;

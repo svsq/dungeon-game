@@ -462,7 +462,7 @@
       else { const big = tc.kind === 'fire', up = big ? 44 : 32, bl = blown('t' + i, big ? 80 : 50);
         // the cave's camp fire burns in a ring of stones on the ground (TASKS 306), not in a brazier
         const camp = big && (B.cave || B.town), lo = camp ? 12 : up;
-        Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp(camp ? (B.town ? 'campfire_tw' : 'campfire_cv') : 'brazier', sx(tc.x), sy(tc.y), { k: big && !camp ? 1.35 : 1, dy: camp ? 10 : 4, j });
+        Y.push([tc.y, () => { L.shadow(sx(tc.x), sy(tc.y) + 2, big ? 30 : 18, 6, 0.5); drawProp(camp ? (B.town ? 'campfire_tw' : 'campfire_cv') : 'brazier', sx(tc.x), sy(tc.y), { k: big && !camp ? 1.35 : 1, dy: camp ? 10 : 4, j, u: camp && B.town ? { grade: [1, 0.55, 0, 1] } : undefined });
           // the campfire burns in separate tongues of their own height and phase (TASKS 1611: one flame read as a teardrop)
           if (lit && B.town && camp) flames([[-13, 0.72, 0.66], [12, 0.8, 0.62], [0, 1, 0.9]].map(([ox, hk, wk], q) => [sx(tc.x) + ox, sy(tc.y) - lo, 44 * wk * bl.fl, 64 * hk * bl.fl * (0.88 + 0.12 * Math.sin(GT * (5 + q * 1.7) + q * 2.1)), col, i + q * 11, bl.lean + ox * 0.012]));
           else if (lit) flameB(sx(tc.x) + (j ? j.dx + Math.sin(j.rot) * lo : 0), sy(tc.y) - lo, (big ? 44 : 26) * bl.fl, (big ? 64 : 40) * bl.fl, col, i, bl.lean); }]); } });
