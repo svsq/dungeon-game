@@ -495,7 +495,10 @@
     // o.bendHit: the elbow's bend on the blow; a blade drawn cocked over the shoulder reaches the aim on a whipped forearm, not an arm thrown up
     const ew = DATA.windOf(e, E.wind), u = Math.max(0, GT - e.t0), T = o.chopT, P = 1.3, bh = o.bendHit ?? 0.15, i0 = aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - bh;   // blade = its angle in the drawing
     const imp = o.raise + (((i0 - o.raise + Math.PI) % TAU + TAU) % TAU - Math.PI), RAISE = Math.min(o.raise, imp - (o.back ?? 0.6)), vEnd = P * (imp - RAISE) / T;
-    if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T;
+    // o.late: the blow runs on into the strike's first frames, so the strike is the fastest part of the swing (TASKS 1696: a claw lifted
+    // fast and struck slow, its peak on the wind's last frame)
+    const late = o.late || 0;
+    if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T + late;
       // the raise starts with no jerk either: a smoothstep's second derivative at 0 kicks the hand out of the walk's own swing;
       // it holds at 1 from h on (the top wait), so x clamps
       // (o.backWind: the raise goes round the back to the same top, TASKS 1054: an overhand throw's hand passed in front of the face)
@@ -503,7 +506,7 @@
       // from rest at the top to vEnd at the impact: a cubic with no jerk at its start
       if (u < w) { const x = (u - tc) / T, q = (3 - P) * x * x + (P - 2) * x * x * x; return { r1: lerp(RAISE, imp, q), bend: lerp(o.bendUp ?? 0.9, bh, q), k: 1 }; }
       return after(imp, u - w, base, o, vEnd); }
-    if (e.st === 'strike') return after(imp, u, base, o, vEnd);
+    if (e.st === 'strike') { if (u < late) { const x = (u + T - late) / T, q = (3 - P) * x * x + (P - 2) * x * x * x; return { r1: lerp(RAISE, imp, q), bend: lerp(o.bendUp ?? 0.9, bh, q), k: 1 }; } return after(imp, u - late, base, o, vEnd); }
     return null;
   }
   // the follow-through leaves the impact at the chop's own speed and bleeds it off over `over` rad: no one-frame stop;
@@ -512,7 +515,7 @@
   function after(imp, v, base, o, vEnd) {
     // a very fast swing (a compressed arc, vEnd > 11 rad/s) would stop within a frame: bleed it off over ~2 frames, overshoot
     // deeper to keep the arrival speed, and give the come-back the same extra time
-    const over = o.over || 2.2, dec = vEnd > 11 ? 0.024 : over / vEnd, A = vEnd * dec;
+    const over = o.over || 2.2, dec = vEnd > 11 ? (o.dec ?? 0.024) : over / vEnd, A = vEnd * dec;
     // the come-back must still finish inside the blow's own length (o.dur) with a beat to spare, or the state change snaps the arms
     const fol = imp + A * (1 - Math.exp(-v / dec)), rest = above(base, imp + over - 1.2);
     const k = SS(0.12 + (o.hold || 0), Math.min(o.recover + Math.max(0, A - over) * 0.6, (o.dur || 1) - 0.08), v);
@@ -561,7 +564,7 @@
   // and lands in a crouch; the spark is thrown overhand with the near arm, the claw rakes with it on a short swing
   // (back: the throwing hand winds back behind the head before it comes over, TASKS 489: 0.6 short of the release it never passed it)
   const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.32, recover: 0.24, over: 0.6, top: 0.02, bendUp: -0.7, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
-  const IMP_CLAW = { raise: -1.3, chopT: 0.16, recover: 0.27, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_CLAW = { raise: -2.3, chopT: 0.12, recover: 0.27, over: 1.3, top: 0, late: 0.075, dec: 0.07, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   MON.impArc = (e, E, GT) => { if (e.st !== 'leap') return 0; const L0 = E.leap, fl = Math.max(0, Math.min(1, (GT - e.t0 - L0.crouch) / e.ld)), d = Math.hypot(e.ltx - e.lx, e.lty - e.ly);
     const q = fl * fl * (3 - 2 * fl); return 4 * (18 + L0.h * d) * q * (1 - q); };
   function impPose(e, E, GT, face, H, base) {
