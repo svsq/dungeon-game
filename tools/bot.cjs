@@ -9,7 +9,7 @@ const VERSION = (() => { const h = require('crypto').createHash('sha1'), fs = re
   for (const f of [...live, 'tools/bot.cjs']) h.update(fs.readFileSync(path.join(__dirname, '..', f)));
   return h.digest('hex').slice(0, 12); })();
 // what hurt the hero, in the groups the balance pass weighs against each other
-const SRC = (k) => /снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : /элита|boss/.test(k) ? 'elite' : 'mob';
+const SRC = (k) => / bolt$|снаряд/.test(k) ? 'bolt' : k === 'spike' || k === 'lava' ? 'trap' : k === 'burn' || k === 'poison' ? 'dot' : / elite\b|элита|boss/.test(k) ? 'elite' : 'mob';
 // a shooting class's range (TASKS 1116): backs off inside `near`, walks in beyond `far` (a bolt flies 434 px)
 const SHOOT = { near: 150, far: 380, futile: 2.5 };
 const MAIN = { warrior: 'str', mage: 'int', archer: 'agi' };
@@ -556,7 +556,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     for (const e of S.ev) if (!counted.has(e)) { counted.add(e); if (e.k === 'drink') { cur[e.b]++; fl[e.b]++; } else if (e.k === 'quest' && e.s !== 'done') cur.town[e.s === 'take' ? 'taken' : 'turned']++; else if (e.k === 'pickup' && e.s === D.CONSUMABLES.scroll.name) cur.town.found = (cur.town.found || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.scroll.name) cur.town.bought = (cur.town.bought || 0) + 1; else if (e.k === 'pickup' && e.s === D.CONSUMABLES.hp_potion.name) cur.potFound = (cur.potFound || 0) + 1; else if (e.k === 'trade' && e.n < 0 && e.s === 'Куплено: ' + D.CONSUMABLES.hp_potion.name) cur.potBought = (cur.potBought || 0) + 1; else if (e.k === 'hurt') { const g = SRC(e.src || ''), ty = (e.src || '?').split(' ')[0]; fl.dmg[g] = (fl.dmg[g] || 0) + e.n; fl.by[ty] = +((fl.by[ty] || 0) + e.n / st.maxHp).toFixed(3); if (h.hp <= 0 || h.deadT >= 0) cur.killer = e.src; fl.hits++; fl.dmgHp += e.n / st.maxHp; cur.hurt++; } else if (COUNT.includes(e.k)) cur[e.k]++; }
     if (B && !fl.boss && (B.hp < B.max || (R.arena && R.arena.active))) fl.boss = { t0: S.t, t: 0, dmg: 0, pot: 0, hp0: +(h.hp / st.maxHp).toFixed(3), bag: held(h, 'hp_potion'), minhp: 1, by: {} };
     if (fl.boss && !fl.boss.done) { const b = fl.boss; b.t = +(S.t - b.t0).toFixed(1);
-      for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') { b.dmg += e.n / st.maxHp; const g = / снаряд$/.test(e.src || '') ? 'volley' : D.BOSSES[(e.src || '').split(' ')[0]] ? B && B.mv || 'boss' : (e.src || '?').split(' ')[0]; b.by[g] = +((b.by[g] || 0) + e.n / st.maxHp).toFixed(3); } else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
+      for (const e of S.ev) if (e.t === S.t) { if (e.k === 'hurt') { b.dmg += e.n / st.maxHp; const g = / (bolt|снаряд)$/.test(e.src || '') ? 'volley' : D.BOSSES[(e.src || '').split(' ')[0]] ? B && B.mv || 'boss' : (e.src || '?').split(' ')[0]; b.by[g] = +((b.by[g] || 0) + e.n / st.maxHp).toFixed(3); } else if (e.k === 'drink' && e.b === 'hp_potion') b.pot++; }
       b.minhp = +Math.min(b.minhp, h.hp / st.maxHp).toFixed(3);
       // held back by the colossus's pools of lava (TASKS 413): the seconds the bot wanted a way they shut
       if (poolHeld) b.cut = +((b.cut || 0) + SIM.DT).toFixed(3);
