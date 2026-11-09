@@ -187,7 +187,7 @@
   // as soon as any of its floor is in sight, its own ring of wall too, but never the floor of a room behind a thin wall (TASKS 104)
   const REV = { arr: null, k: '' };
   const CHOICE = new WeakMap();
-  function reveal(R) {
+  function reveal(R, arrive) {
     const m = R.map, h = R.hero, W = m.W, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE), ri2 = DG.roomAt(m, h.x, h.y);
     const k = tx + ':' + ty + ':' + (m.secrets || []).map((q) => q.open).join('') + ':' + doorKey(m);
     if (REV.arr === R.seen && REV.k === k) return ri2;
@@ -204,8 +204,9 @@
     // (a smooth noise over 3 cells, TASKS 1037: hashed cell by cell it left single cells revealed out in the fog, crumbs of lava)
     // (and ±0.1 cell by cell on the rim, TASKS 1048, 1056: smooth alone, the edge ran straight along the lava again)
     const { fogHash: hh, fogNoise: h01 } = DG;
-    const rooms = new Set(), oval = !!m.cliff;
-    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && !DG.inFogOval(x, y, fx, fy)) || !sight(x, y)) continue;
+    // (arriving on a magma floor the oval opens past the rock too, the player's decision on 1636; never onto a secret)
+    const rooms = new Set(), oval = !!m.cliff, wide = oval && arrive ? DG.FOG_ARRIVE : 1, ry = Math.ceil(6 * wide), rx = Math.ceil(8 * wide);
+    for (let y = ty - ry; y <= ty + ry; y++) for (let x = tx - rx; x <= tx + rx; x++) { if (!inMap(x, y) || (oval && !DG.inFogOval(x, y, fx, fy, wide)) || (wide > 1 ? hid.has(y * W + x) : !sight(x, y))) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
       R.seen[y * W + x] = 1; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v);
       const ri = DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE); if (ri >= 0) rooms.add(ri); }

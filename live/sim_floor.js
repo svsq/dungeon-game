@@ -171,7 +171,7 @@
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; { const lk = R.camLook || [0, 0]; R.cam = [h.x - WIN(R).W / 2 + lk[0], h.y - 30 - WIN(R).H / 2 + lk[1]]; } R.camV = [0, 0]; clampCam(R, R.cam);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
-    reveal(R); R.msg = R.town && R.newOffers ? { s: TXT('sim_floor.newOffers'), t: S.t, d: 3.5 } : { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 }; R.newOffers = 0;
+    reveal(R, 1); R.msg = R.town && R.newOffers ? { s: TXT('sim_floor.newOffers'), t: S.t, d: 3.5 } : { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 }; R.newOffers = 0;
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);
     if (ch && !(R.chapSeen || {})[R.floor]) { (R.chapSeen ||= {})[R.floor] = 1; const chapter = D.RUNS[ch.run].name; Object.assign(R.msg, { s: R.msg.s.replace(' — ' + chapter, ''), chapter, d: 4.5 }); }
   }
