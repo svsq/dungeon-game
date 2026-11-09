@@ -26,7 +26,7 @@
     return { v, dl: 0, dur: 0.35, bounce: 0.025, buckle: 0 }; }
   // a drowned under the shallows (TASKS 307): 1 lying under, 0 standing; it sinks back over 0.9 s when it comes home
   // a monster knocked off a plateau (TASKS 401) goes under the same way: down into the lava as it burns, or dropping into the chasm
-  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0, D.COFFIN.rise, GT - e.coffinT) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
+  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0.14, 0.62, (GT - e.coffinT) / D.COFFIN.rise) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
   // what shows of it then: a dark shape swaying under the surface and bubbles that rise and pop in small rings
   function lurkFx(e, x, y, t, sub, col = [0.42, 0.62, 0.66]) { const k = SS(0.3, 0.9, sub);
     L.shadow(x + 3 * Math.sin(t * 0.7 + e.id), y - 3, 25, 8, 0.4 * k);
@@ -254,7 +254,8 @@
     // the fire's colour falls on a monster half bleached, and without the lit pass's 1.6 saturation: the concept's demon stays red, its
     // spider blue and its cultist green in the torchlight (TASKS 185). The tint takes the boosted light to the bleached one
     const sat = e.type === 'skeleton' ? 0.4 : e.type === 'skel_archer' || e.type === 'skel_mage' || e.type === 'skel_ember' ? 0.7 : 0.95, val = (E.val || 1) * (1 - 0.3 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
-    const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat, val, 0, 1.05];
+    const fresh = e.coffinT !== undefined && e.deadT < 0 ? 1 - SS(D.COFFIN.rise, D.COFFIN.rise + 0.6, GT - e.coffinT) : 0;
+    const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat + 0.2 * fresh, val * (1 + 0.4 * fresh), 0, 1.05];
     const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
     // (in the magma caves a monster keeps its own colour, TASKS 1046: the caves' and crypt's take-back turned a priest's skull lilac
     // and a golem's torso blue-grey away from the lava; the lit pass holds the light on it)
@@ -272,6 +273,7 @@
     const INK = [0.024, 0.02, 0.024];
     if (E.kind === 'serpent') return drawSerpent(e, E, x, y, GT, t, { alpha, grade, rim, INK, edgeOf });
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
+    if (e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise) { const q = SS(0.62, 1, (GT - e.coffinT) / D.COFFIN.rise), bx = x + e.coffX - e.x, by = y + e.coffY - e.y - 16; x = bx + (x - bx) * q; y = by + (y - by) * q - 16 * Math.sin(Math.PI * q); }
     const sub = submerged(e, E, GT), cut = sub > 0 ? { cut: [y + 3, 5, 1] } : {};
     if (sub > 0 && E.lurk) lurkFx(e, x, y, t, sub);
     if (sub > 0 && E.lake) lurkFx(e, x, y, t, sub, [1, 0.55, 0.18]);
@@ -459,6 +461,9 @@
       L.inked(() => L.sprite(wood ? (i % 2 ? 'plank_b' : 'plank_a') : N, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }), { r: 2, n: 4, col: [0.09, 0.04, 0.04], dy: 0 }); } }
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
+  // a coffin that let its tenant out: the box bared, its lid shoved off to one side and left hanging over the edge
+  function coffinOpen(d, x, y, a, j) { drawProp('coffin_open', x, y, { dy: 4, j }); const [w, h] = SZ('coffin'), LID = 100 / 241, lh = h * LID, side = (d.x + d.y) % 64 < 32 ? 1 : -1, p = SS(0.08, 0.5, a), shake = a < 0.14 ? Math.sin(a * 90) * 1.5 : 0, px = x + shake + side * w * 0.56 * p, py = y + 4 - h + lh - 5 * Math.sin(Math.PI * Math.min(1, p * 1.2)) + 7 * p, rot = side * 0.2 * p;
+    L.inked(() => L.sprite('coffin', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h: lh, pivot: [w / 2, lh], src: [0, 0, 1, LID] }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }
   const NO_INK = new Set(['bones', 'torch_sconce']);
   // the basalt props drawn this frame (TASKS 1036): they take the basalt's cold light in the lit pass as the crossings do
   // (and the boulders, and an iron rail's links and stakes as solids, TASKS 1052: brown and orange beside the grey basalt)
@@ -484,6 +489,6 @@
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

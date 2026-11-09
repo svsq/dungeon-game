@@ -150,8 +150,8 @@
   // the first blow on a coffin rolls for its tenant; a room lets out one at most (TASKS 1353)
   function coffinWakes(S, R, d) { const m = R.map; if (d.rolled) return; d.rolled = 1; if (cleared(R)) return; m.coffinR = m.coffinR || {}; const room = d.r ?? DG.roomAt(m, d.x, d.y); if (m.coffinR[room] || rnd(R) >= D.COFFIN.p(dep(R))) return;
     const x = d.x, y = [d.y + 30, d.y - 26, d.y + 42].find((v) => !SIMX.solidAt(m, x, v, true)); if (y === undefined) return; m.coffinR[room] = 1; const E = ENEMIES.skeleton, f = dep(R), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f));
-    R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'rise', t0: S.t, riseD: D.COFFIN.rise, coffinT: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + D.COFFIN.rise + 0.3, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
-    ev(S, { k: 'summon', x, y }); R.msg = { s: TXT('sim_world.coffin.msg'), t: S.t, d: 2 }; }
+    R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'rise', t0: S.t, riseD: D.COFFIN.rise, coffinT: S.t, coffX: d.x, coffY: d.y, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + D.COFFIN.rise + 0.3, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
+    d.openT = S.t; ev(S, { k: 'summon', x: d.x, y: d.y - 14 }); R.msg = { s: TXT('sim_world.coffin.msg'), t: S.t, d: 2 }; }
   // a wreck gives way to its third blow (TASKS 1361): what was left aboard, or who was
   function hitWreck(S, R, d) { const m = R.map, W0 = D.WRECK; d.hits = (d.hits || 0) + 1; if (d.hits < W0.hp) return;
     d.broken = 1; d.brokeT = S.t; d.solid = 0; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); m.block = m.block.filter((b) => b !== k); ev(S, { k: 'break', x: d.x, y: d.y, kind: 'crate' }); R.trauma = Math.min(1, R.trauma + 0.3);
