@@ -148,14 +148,17 @@
     { id: 'leech', tier: 3, name: TXT('GIFTS.leech.name'), icon: 'it_amulet', v: 4, desc: TXT('GIFTS.leech.desc') },
     { id: 'arcane', tier: 3, name: TXT('GIFTS.arcane.name'), icon: 'ab_fire', v: 25, desc: TXT('GIFTS.arcane.desc') },
     { id: 'life', tier: 3, name: TXT('GIFTS.life.name'), icon: 'crystal', v: 1.5, desc: TXT('GIFTS.life.desc') },
-    { id: 'phoenix', tier: 3, name: TXT('GIFTS.phoenix.name'), icon: 'bf_burn', v: 50, desc: TXT('GIFTS.phoenix.desc'), tag: '×{n}' },
+    { id: 'phoenix', flat: 1, tier: 3, name: TXT('GIFTS.phoenix.name'), icon: 'bf_burn', v: 50, desc: TXT('GIFTS.phoenix.desc'), tag: '×{n}' },
     { id: 'execute', tier: 3, name: TXT('GIFTS.execute.name'), icon: 'it_hammer', v: 60, desc: TXT('GIFTS.execute.desc') },
   ];
   // an altar stands on every second floor, so it is paid from two floors' takings: a bot reaches the floor-2 altar with ~12 shards,
   // so the middle gift is within reach at every altar (TASKS 183), the dear one takes three floors or more
-  const giftCost = (tier, f) => Math.round([0, 4, 9, 16][tier] * (1 + 0.15 * (f - 1)));
+  const giftCost = (tier, f) => Math.round([0, 4, 9, 16, 40][tier] * (1 + 0.15 * (f - 1)));
+
+  // (TASKS 389) each change within one visit dearer than the last: a way to look for a build, not to shop the whole pool
+  const rerollCost = (n, f) => Math.round((3 + 2 * n) * (1 + 0.15 * (f - 1)));
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, GIFTS, giftCost, rerollCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

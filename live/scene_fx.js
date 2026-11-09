@@ -21,7 +21,9 @@
     G.blend('add');
     // shrine and portal
     if (m.town) for (const q of m.town.lights) { const L0 = TOWN_LIGHT[q.kind]; if (!L0 || !L0.glow || !vis(q.x, q.y)) continue; const [gx, gy, gr, ga] = L0.glow, b = q.kind === 'runes' ? 0.8 + 0.2 * Math.sin(t * 1.3 + q.x) : flick(q.x * 3 + q.y);
+      if (q.kind === 'adit') { const px = Math.round(sx(q.x) + gx), py = Math.round(sy(q.y) + gy); for (const [r, a] of [[14, 0.14], [10, 0.2], [6, 0.34]]) { L.solid(px - r, py - Math.round(r * 0.6), 2 * r, 2 * Math.round(r * 0.6), L0.col, 0, 0, 0, a * b); L.solid(px - Math.round(r * 0.6), py - r, 2 * Math.round(r * 0.6), 2 * r, L0.col, 0, 0, 0, a * b); } continue; }
       L.glow(sx(q.x) + gx, sy(q.y) + gy, gr, L0.col, ga * b); }
+    if (m.town && vis(m.town.svc.altar.x, m.town.svc.altar.y)) { G.blend('emit'); const A = m.town.svc.altar; [-21, -12, 16, 26].forEach((dx, i) => flameAt(sx(A.x) + dx, sy(A.y) - 53, 7, 13, [1, 0.72, 0.3], i * 7 + 3, Math.sin(t * 2.3 + i), t)); G.blend('add'); }
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
     // a mechanism catches the light now and then: a faint four-point glint for a third of a second every five or so, each on
     // its own beat, so it reads only to someone already looking at it
@@ -425,6 +427,7 @@
       if (e.k === 'curse' && a < 0.6) { const q = a / 0.6; L.glow(ex, ey, 60, [0.5, 0.85, 0.2], 1 - q, 2.2); L.ring(ex, ey + 40, 40 - 20 * q, 20 - 10 * q, [0.5, 0.85, 0.2], 1 - q, 0.15); }
       if (e.k === 'ward_break' && a < 0.5) { const q = a / 0.5; for (let j = 0; j < 8; j++) { const an = j * 0.785 + 0.3; L.star(ex + Math.cos(an) * (10 + 50 * q), ey + Math.sin(an) * (6 + 30 * q), 7 * (1 - q) + 2, [0.35, 0.6, 1.0], 1 - q); }
         L.glow(ex, ey, 50, [0.4, 0.65, 1], 1 - q, 2.2); }
+      if (e.k === 'power' && a < 0.35) { const q = a / 0.35; L.ring(ex, ey - 8, 22 + 46 * q, 12 + 26 * q, e.fx === 'pull' ? [0.6, 0.8, 1] : [1, 0.7, 0.3], 0.8 * (1 - q), 0.12); }
       if (e.k === 'bless' && a < 1.2) { const q = a / 1.2; L.glow(ex, ey - 30, 90, [0.5, 0.8, 1], 1.4 * (1 - q)); L.ring(ex, ey, 40 + 90 * q, 20 + 45 * q, [0.6, 0.85, 1], 1 - q, 0.1); }
       // an enemy bolt bursts where it dies; on the hero it splashes wider with a ring
       // the jet bursts into a spray that falls
