@@ -235,9 +235,9 @@
     grates: [[24.6, 27.4], [29.4, 27.4]], ivy: [[13, 27.6], [21, 27.6], [32.5, 27.6], [38, 27.6], [6, 11.6], [6, 23.6], [38, 15.6], [46, 21.6]],
     // ruin stubs the seed picks some of, and spots for the small decor
     stubs: [[14, 8], [45, 8], [10, 27], [5, 26], [49, 13], [12, 14]],
-    small: [['barrel', 13, 11], ['crate', 21, 11], ['barrel', 20, 14], ['crate', 33, 11], ['barrel', 41, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
-      ['crate', 49, 11], ['barrel', 12, 30], ['barrel', 9, 10], ['crate', 35, 25], ['barrel', 47, 27], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
-      ['crate', 50, 12], ['barrel', 50, 16], ['crate', 15, 11], ['barrel', 21, 9]],
+    small: [['barrel', 13, 11], ['crate', 21, 11], ['rack', 5, 12], ['table', 5, 18], ['crate', 6, 20], ['barrel', 6, 25],
+      ['crate', 49, 11], ['barrel', 12, 30], ['crate', 6, 27], ['barrel', 7, 12], ['crate', 6, 17],
+      ['crate', 50, 12], ['barrel', 50, 16]],
     // what a niche keeps: its stores, and a small fire at the back
     store: ['barrel', 'crate', 'shop_sacks', 'shop_crate', 'barrel', 'crate'] };
   // a portal's ring of stones (TASKS 1037): the town's and a chapter boss's are one ring, eight stones round 240° with the gap
@@ -272,14 +272,16 @@
       // a hash, not R(): the decals after this list keep the layouts of saved towns
       ...Array.from({ length: W * H }, (_, k) => k).flatMap((k) => { const x = k % W, y = Math.floor(k / W), h = (x * 73 + y * 37) % 100; if (cells[k] !== 0 || cells[k + W] !== 1 || y < 2 || x < 2 || x > W - 3) return [];
         const px = (x + 0.5) * TILE, py = (y - 1) * TILE + 8, opR = cells[k + 1] === 1 || cells[k + 1 + W] === 0, opL = cells[k - 1] === 1 || cells[k - 1 + W] === 0;
-        if (opR && !opL) return [{ x: px + 2, y: py, n: 'wall_end_tw_a', role: 'wall_end' }]; if (opL && !opR) return [{ x: px - 2, y: py, n: 'wall_end_tw_b', role: 'wall_end' }];
-        return h < 22 ? [{ x: px, y: py, n: h % 2 ? 'wall_end_tw_c' : 'wall_end_tw_d', role: 'wall_end', f: h % 3 ? 1 : -1 }] : []; }),
+        const v = (x * 11 + y * 5) % 7, big = v === 3;
+        if (opR && !opL) return v % 3 === 0 && !big ? [] : [{ x: px + 2 - v, y: py + (v % 2) * 3, n: big ? 'wall_end_tw_c' : 'wall_end_tw_a', role: 'wall_end', s: 0.8 + 0.06 * v }];
+        if (opL && !opR) return v % 3 === 1 ? [] : [{ x: px - 2 + v, y: py + (v % 2) * 3, n: big ? 'wall_end_tw_d' : 'wall_end_tw_b', role: 'wall_end', s: 0.8 + 0.06 * v }];
+        return h < 12 ? [{ x: px + (h % 5) * 3 - 6, y: py + (h % 3) * 2, n: ['wall_end_tw_d', 'wall_end_tw_c', 'wall_end_tw_a', 'wall_end_tw_b'][h % 4], role: 'wall_end', f: h % 3 ? 1 : -1, s: 0.7 + 0.05 * (h % 5) }] : []; }),
       ...T.rubble.map(([x, y], i) => ({ ...at([x, y]), n: 'blocks_tw', role: 'rubble', s: 0.6 + 0.1 * (i % 4), f: i % 2 ? -1 : 1 })),
       // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
       ...portalRing(wx(T.portal[0]), wy(T.portal[1]), 0).map((q) => ({ ...q, role: 'portal_stone', solid: 1 })),
       ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y]) => ({ ...at([x, y]), n: 'torch_stand', role: 'lamp', solid: 1 })),
             // three trees round the edge, not one six times (TASKS 1030)
-      ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: ['tree_tw_b', 'tree_tw_c', 'tree_tw'][i % 3], role: 'edge', solid: 1, s: 0.85 + 0.1 * ((i >> 1) % 3), f: (i >> 1) % 2 })),
+      ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: ['tree_tw_b', 'tree_tw_c', 'tree_tw'][i % 3], role: 'edge', solid: 1, s: (100 + (i * 7) % 21) / [76, 60, 70][i % 3], f: (i >> 1) % 2 })),
       ...T.small.filter(() => R() < 0.9).map(([n, x, y]) => ({ x: wx(x) + Math.round((R() - 0.5) * 10), y: wy(y) + Math.round((R() - 0.5) * 6), n, solid: 1 })),
       // each niche: its stores along the back and a few candles burning among them
       ...T.niches.flatMap(([x0, y0, w, h], k) => { const out = [], back = y0 < 10 ? y0 : y0 + h - 1, side = x0 > 50;
