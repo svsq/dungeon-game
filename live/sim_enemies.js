@@ -196,7 +196,7 @@
   // 36 % of blasts came after their ring was gone)
   const BOOM_GAP = 0.35, fuseEnd = (R, want) => { const t = Math.max(want, (R.fuseLast ?? -9) + BOOM_GAP); R.fuseLast = t; return t; };
   function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0; R.boomT = S.t;
-    if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) SIMX.hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, TXT('sim_enemies.blast', { p1: who(e) }), e);
+    if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) SIMX.hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' blast', e);
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
       SIMX.hitEnemy(S, R, o, Math.max(1, Math.round(B ? o.max * B.mon : e.max * 0.25)), false, e.x, e.y, 1.5); }
     SIMX.breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
@@ -302,7 +302,7 @@
   function stepFires(S, R) { const h = R.hero, t = S.t;
     for (const p of R.fires) { if (t - p.t0 >= p.t || t - p.t0 < (p.arm || 0) || h.deadT >= 0 || Math.hypot(h.x - p.x, (h.y - p.y) / p.ry) >= p.r + K.R * 0.5 || t < (p.hitT ?? -9) + p.per) continue;
       if (t - h.dashT < BAL.dodge.t && p.kind !== 'pool') continue;
-      p.hitT = t; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 6, 'fire', p.who + (p.kind === 'pool' ? TXT('sim_enemies.stepFires') : TXT('sim_enemies.stepFires.2')), R.en.find((o) => o.id === p.src)); }
+      p.hitT = t; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 6, 'fire', p.who + (p.kind === 'pool' ? ' pool' : ' fire'), R.en.find((o) => o.id === p.src)); }
     R.fires = R.fires.filter((p) => t - p.t0 < p.t); }
   function breathFire(S, R, e, E) { const B = E.breath, a = e.aimA;
     for (const q of [0.35, 0.65, 0.95]) { const x = e.x + Math.cos(a) * (E.r + B.reach * q), y = e.y + Math.sin(a) * (E.r + B.reach * q) * 0.8;
@@ -327,7 +327,7 @@
       let boom = wall || age > p.life || projCover(m, p.x, p.y);
       let touched = null;
       if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && !(p.past && p.past.includes(e.id)) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; touched = e; break; } }
-      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, TXT('sim_enemies.stepProjectiles', { p1: p.who || '?' }), R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' bolt', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
       // a crossbow's bolt (TASKS 1163) goes through the first it strikes and on to the next
       if (touched && p.pierce > 0 && !wall && age <= p.life) { p.pierce--; (p.past = p.past || []).push(touched.id);
         SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
@@ -484,7 +484,7 @@
           if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; SIMX.hurtHero(S, R, e.dmg * E.rush.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } }
         // the breath: a hero in its cone at any moment of it is burnt once
         else if (E.kind === 'salamander' && e.br) { skid(m, e, E); const B = E.breath;
-          if (!e.hitDone && t - e.t0 < B.t && d < E.r + B.reach + K.R && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < B.arc && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.hitDone = 1; SIMX.hurtHero(S, R, e.dmg * B.dmg, e.x, e.y, 'fire', TXT('sim_enemies.stepMonsters', { p1: who(e) }), e); struck(S, R, e); } }
+          if (!e.hitDone && t - e.t0 < B.t && d < E.r + B.reach + K.R && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < B.arc && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.hitDone = 1; SIMX.hurtHero(S, R, e.dmg * B.dmg, e.x, e.y, 'fire', who(e) + ' flame', e); struck(S, R, e); } }
         else if (E.kind !== 'hop') skid(m, e, E);
         if (E.kind === 'hop') hop(S, R, e, E);
         if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : e.br ? E.breath.t : E.kind === 'golem' ? 0.55 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
