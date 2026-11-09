@@ -190,7 +190,7 @@
     return 0; }
   function questOn(S, R, e) { for (const q of R.quests) { if (q.st !== 'taken') continue; const d = questStep(R, q, e); if (!d) continue;
       q.n = Math.min(q.need, q.n + d); if (q.n >= q.need) { q.st = 'done'; const M = { s: TXT('sim_town.questOn.msg.s', { name: D.QUESTS[q.key].name }), t: S.t, d: 4 }; if (R.msg && R.msg.chapter && S.t < R.msg.t + R.msg.d) M.t = R.msg.t + R.msg.d, R.msgNext = M; else R.msg = M; S.ev.push({ k: 'quest', x: R.hero.x, y: R.hero.y, s: 'done', id: q.id, t: S.t }); } } }
-  const unmarkFoe = (e) => { delete e.quest; if (!e.was) return; const k = e.max ? e.hp / e.max : 1; Object.assign(e, e.was); e.hp = Math.max(1, Math.round(e.max * k)); delete e.was; delete e.title; delete e.elite; if (e.ward === undefined) delete e.ward; };
+  const unmarkFoe = (e) => { delete e.quest; if (!e.was) return; const k = e.max ? e.hp / e.max : 1, w = e.was; delete e.mods; delete e.ward; Object.assign(e, w); for (const q of ['mods', 'ward']) if (w[q] === undefined) delete e[q]; e.hp = Math.max(1, Math.round(e.max * k)); delete e.was; delete e.title; delete e.elite; };
   // a kept floor's diff patches its foes by index, and the dead shift them: a mark is taken off on the way back in, on the live foe
   const dropMarks = (R, M) => { for (const id of M.dropQ || []) { for (const c of R.chests) if (c.quest === id) { delete c.quest; delete c.qic; } for (const e of R.en) if (e.quest === id) unmarkFoe(e); } delete M.dropQ; };
   // a quest given up in the journal (TASKS 1633): its offer waits on the board again, its keepsake is gone from wherever it lay
