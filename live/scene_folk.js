@@ -20,7 +20,7 @@
       const st = f.dist / 5, hop = run * 1.6 * Math.abs(Math.sin(st)), rock = run * 0.09 * Math.sin(st), scare = GT - (f.scareT ?? -9);
       const neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i) - 0.22 * run, tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7) - (scare >= 0 ? 0.5 * SS(0, 0.08, scare) * (1 - SS(0.3, 0.9, scare)) : 0);
       const fT = f.turnT === undefined ? 1 : SS(0, 0.12, GT - f.turnT), fs = face * (fT < 1 ? Math.sign(fT * 2 - 1 || 1) * Math.max(0.1, Math.abs(fT * 2 - 1)) : 1), LEG = 3.5;
-      Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4);
+      Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4); L.joint(id, 'ground', [X, Yg]); L.joint(id, 'body', [X, Yg - hop - LEG]); L.joint(id, 'head', [X + face * 7, Yg - hop - LEG - 12 + 7 * peck]); L.joint(id, 'tail', [X - face * 7, Yg - hop - LEG - 8 + 6 * tail]);
         for (const q of [0, 1]) { const a = st + q * Math.PI, hx = X + (q ? 2.5 : -2.5), hy = Yg - hop - LEG - 1, fx = hx + face * run * 3.2 * Math.sin(a), fy = Yg - run * 2 * Math.max(0, Math.cos(a)); L.solid(hx, hy, Math.hypot(fx - hx, fy - hy), 1.6, [0.82, 0.58, 0.2], Math.atan2(fy - hy, fx - hx), 0, 0.8, 1); }
         L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(X, Yg - hop - LEG), M.r(rock), M.s(fs, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       return; }
@@ -186,7 +186,7 @@
     const Xc = X + back * 3 * stopK, Yc = Yg + bob + 2.5 * sag + 1.2 * stopK, tilt1 = tilt + 0.05 * sag - back * 0.03 * stopK;
     // the sprites' own wheels cannot turn: two studs on each hub circle it by the distance rolled (town_motion_r6 5)
     const hubs = [[nm === 'cart_tw' ? 0.54 : 0.532, nm === 'cart_tw' ? 0.825 : 0.815], [nm === 'cart_tw' ? 0.83 : 0.815, nm === 'cart_tw' ? 0.714 : 0.69]], wr = 0.11 * w, spin = C.s / wr;
-    Y.push([y + 8, () => { L.shadow(Xc, Yg, 0.42 * w, 5, 0.45); L.inked(() => L.sprite(nm, 0, 0, { m: L.M.of(L.M.t(Xc, Yc), L.M.r(tilt1)), pivot: [w / 2, h], w, h, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+    Y.push([y + 8, () => { L.shadow(Xc, Yg, 0.42 * w, 5, 0.45); L.joint('cart', 'ground', [Xc, Yg]); L.joint('cart', 'top', [Xc, Yc - h]); L.joint('cart', 'body', [Xc, Yc]); hubs.forEach(([hu, hv], q) => L.joint('cart', 'stud' + q, [Xc + (hu - 0.5) * w + Math.cos(spin) * 0.42 * wr, Yc + (hv - 1) * h + Math.sin(spin) * 0.5 * wr])); L.inked(() => L.sprite(nm, 0, 0, { m: L.M.of(L.M.t(Xc, Yc), L.M.r(tilt1)), pivot: [w / 2, h], w, h, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
       if (!front) for (const [hu, hv] of hubs) for (const q of [0, 1]) { const a = spin + q * Math.PI; L.solid(Math.round(Xc + (hu - 0.5) * w + Math.cos(a) * 0.5 * wr * 0.85) - 1, Math.round(Yc + (hv - 1) * h + Math.sin(a) * 0.5 * wr) - 1, 2, 2, [0.72 * k, 0.62 * k, 0.5 * k]); }
       if (shown === 1) L.sprite('town_tool_stone', Xc + 0.04 * w - 7, Yc - 0.71 * h - 7, { w: 14, h: 14, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }); }]);
   }
