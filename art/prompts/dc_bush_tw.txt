@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is the approved town concept's ground crop. Subject: one low leafy bush with a few tiny white and violet flowers, seen from the 3/4 view, greens (#1a4135, #473e0b, #5d500d, #7f6e0f), flowers #d8d0b0 and #8a6fb0. 32 art pixels wide, 22 tall. Centred, wide empty margin, transparent background. No earth, no shadow, no glow, no text.

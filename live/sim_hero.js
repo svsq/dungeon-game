@@ -16,7 +16,7 @@
   const hand = (h) => [h.x + Math.cos(h.aim) * 23, h.y - RIG.shoulder + 8 + Math.sin(h.aim) * 15];
   function bagAdd(R, it) {
     const h = R.hero;
-    if (isCons(it)) { const st = h.bag.find((b) => b && b.b === it.b && b.n < CONSUMABLES[it.b].stack); if (st) { st.n += it.n || 1; return true; } }
+    if (isCons(it)) { let n = it.n || 1; const cap = CONSUMABLES[it.b].stack; for (const st of h.bag) { if (!st || st.b !== it.b || st.n >= cap) continue; const q = Math.min(n, cap - st.n); st.n += q; n -= q; if (!n) return true; } it.n = n; }
     const i = h.bag.indexOf(null); if (i < 0) return false; if (!it.id) it.id = R.nextId++; h.bag[i] = it; return true;
   }
   function gainXp(S, R, n) {

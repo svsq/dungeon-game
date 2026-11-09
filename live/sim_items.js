@@ -29,6 +29,7 @@
     for (const a of C.abs) if (a.unlock <= h.lvl && !h.ab[a.id]) h.ab[a.id] = 1;
     if (C.res === 'rage') h.mp = Math.min(h.mp || 0, D.RAGE.max); }
   function rebalanceRun(R) {
+    if (R) SIMX.migrateTown(R);
     migrateAbilities(R);
     if (!R || R.itemBalance === D.ITEM_BAL.version) return;
     const items = Object.values(R.hero.eq).concat(R.hero.bag, (R.drops || []).map((d) => d.item),

@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's iron railing: same iron and stone, a DIFFERENT panel: broken, two bars bent and one missing, the top rail sagging at one end. Same size and base. Centred, wide empty margin, transparent background. No ground, no shadow, no glow, no text.

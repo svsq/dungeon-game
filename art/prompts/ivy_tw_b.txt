@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's ivy: same leaves and colours, a DIFFERENT shape: one long strand and a wide short mat to one side, 34 art pixels wide, 18 tall, hanging from a top edge. Centred, wide empty margin, transparent background. No wall, no shadow, no glow, no text.
