@@ -410,9 +410,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.portal ? SIM.atGate(R) : dist(out) < 55) inp.keys.push('KeyE'); }
   function pray(S, R) {
     if (R.shrines[R.altar] && R.shrines[R.altar].used) return { keys: ['Escape'] };
-    const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), i = sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
+    const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), relic = sh && sh.gifts && P.gift >= 3 && sh.gifts[3] && S.meta.shards >= sh.gifts[3].cost ? 3 : -1, i = relic >= 0 ? relic : sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
     if (sh && sh.gifts && !sh.seen) { sh.seen = 1; cur.altars.push({ f: R.floor, bank: S.meta.shards, c2: sh.gifts[1].cost }); }
-    if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
+    if (i >= 0) { cur.gifts++; return click(D.UI.altar(sh.gifts.length).r[i]); } return { keys: ['Escape'] };
   }
   const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), maxHp: SIM.stats(h, S.meta).maxHp, kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, by: fl.by, dmgHp: fl.dmgHp, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, bt: fl.bt, pw: fl.pw, blows: fl.blows }; };
   const freshFl = () => ({ dmg: {}, by: {}, dmgHp: 0, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0, blows: {} });

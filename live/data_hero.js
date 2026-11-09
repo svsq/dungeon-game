@@ -144,7 +144,7 @@
   ];
   // an altar stands on every second floor, so it is paid from two floors' takings: a bot reaches the floor-2 altar with ~12 shards,
   // so the middle gift is within reach at every altar (TASKS 183), the dear one takes three floors or more
-  const giftCost = (tier, f) => Math.round([0, 4, 9, 16][tier] * (1 + 0.15 * (f - 1)));
+  const giftCost = (tier, f) => Math.round([0, 4, 9, 16, 40][tier] * (1 + 0.15 * (f - 1)));
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 

@@ -700,24 +700,27 @@
   // ---------------- a dungeon altar: three gifts for shards ----------------
   function altar(S, R, t) {
     const sh = R.shrines[R.altar]; if (!sh || !sh.gifts) return;
-    const U = D.UI.altar(), P = U.P, bank = S.meta.shards;
+    const U = D.UI.altar(sh.gifts.length), P = U.P, bank = S.meta.shards, byId = (id) => U.r.find((q) => q.id === id);
     dim(0.6); G.blend('add'); L.glow(W / 2, P.y + 60, 420, [0.3, 0.5, 1], 0.18 + 0.04 * Math.sin(t * 2)); G.blend();
     panel('altar', P.x, P.y, P.w, P.h, { r: 10, rim: [0.32, 0.42, 0.62] });
     lab('al_t', TXT('hud.altar'), P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
     const bs = String(bank); lab('al_b', bs, P.x + P.w - 40, P.y + 50, { size: 30, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 40 - lw('al_b', bs, { size: 30 }) - 44, P.y + 32, 36);
     lab('al_s', sh.used ? TXT('hud.altar.2') : TXT('hud.altar.3'), P.x + 40, P.y + 104, { size: 22, col: C.dim });
     sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = !sh.used && bank >= o.cost, hv = S.hover === b.id;
-      panel('al_g' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv && can ? C.rimHi : can ? [0.32, 0.42, 0.62] : C.rim, c0: hv && can ? [0.14, 0.14, 0.2] : C.panel0 });
+      panel('al_g' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv && can ? C.rimHi : Gf.relic ? [0.72, 0.56, 0.24] : can ? [0.32, 0.42, 0.62] : C.rim, c0: hv && can ? [0.14, 0.14, 0.2] : C.panel0 });
       if (can) { G.blend('add'); L.glow(b.x + b.w / 2, b.y + 110, 90, [0.35, 0.6, 1], hv ? 0.35 : 0.15); G.blend(); }
       icon(Gf.icon, b.x + b.w / 2 - 56, b.y + 52, 112, can ? undefined : { alpha: 0.45 });
-      lab('al_n' + i, Gf.name, b.x + b.w / 2, b.y + 214, { size: 28, al: 0.5, col: can ? C.text : C.dim });
-      const ds = Gf.desc, dz = Math.min(22, Math.floor(22 * (b.w - 32) / lw('al_dm' + i, ds, { size: 22 })));
-      lab('al_d' + i, ds, b.x + b.w / 2, b.y + 256, { size: dz, al: 0.5, col: '#9cc8ff' });
-      lab('al_w' + i, o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5'), b.x + b.w / 2, b.y + 290, { size: 18, al: 0.5, col: C.dim });
+      const nz = Math.min(28, Math.floor(28 * (b.w - 24) / lw('al_nm' + i, Gf.name, { size: 28 })));
+      lab('al_n' + i, Gf.name, b.x + b.w / 2, b.y + 214, { size: nz, al: 0.5, col: can ? C.text : C.dim });
+      // a sentence that would shrink past reading goes on two lines, broken at the space nearest its middle
+      const ds = Gf.desc, wide = lw('al_dm' + i, ds, { size: 21 }) > b.w - 32; let cut = -1; if (wide) for (let k = 0; k < ds.length; k++) if (ds[k] === ' ' && (cut < 0 || Math.abs(k - ds.length / 2) < Math.abs(cut - ds.length / 2))) cut = k;
+      const lines = wide && cut > 0 ? [ds.slice(0, cut), ds.slice(cut + 1)] : [ds], dz = Math.min(21, ...lines.map((q, k) => Math.floor(21 * (b.w - 32) / lw('al_dm' + i + k, q, { size: 21 }))));
+      lines.forEach((q, k) => lab('al_d' + i + (k || ''), q, b.x + b.w / 2, b.y + 252 + k * 26, { size: dz, al: 0.5, col: '#9cc8ff' }));
+      lab('al_w' + i, Gf.relic ? TXT('hud.altar.relic') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5'), b.x + b.w / 2, b.y + 296 + (lines.length - 1) * 16, { size: 18, al: 0.5, col: Gf.relic ? '#e0b860' : C.dim });
       const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, cx = b.x + b.w / 2 - cw / 2;
       icon('crystal', cx, b.y + b.h - 62, 30); lab('al_c' + i, cs, cx + 40, b.y + b.h - 46, { size: 28, col: can ? '#9cc8ff' : '#8a6a5a' }); });
-    button('al_leave', U.r[3], S.hover);
-    const left = 10 - (R.donations || 0), b = Object.assign({}, U.r[4], { on: left > 0 && R.hero.gold >= 1000, label: left ? U.r[4].label : TXT('hud.altar.b.label') });
+    button('al_leave', byId('leave'), S.hover);
+    const left = 10 - (R.donations || 0), b = Object.assign({}, byId('donate'), { on: left > 0 && R.hero.gold >= 1000, label: left ? byId('donate').label : TXT('hud.altar.b.label') });
     button('al_donate', b, S.hover);
     lab('al_gold', TXT('hud.altar.6', { gold: R.hero.gold }), P.x + 640, b.y + 18, { size: 22, col: C.gold });
     lab('al_limit', TXT('hud.altar.7', { left }), P.x + 640, b.y + 48, { size: 21, col: C.dim });

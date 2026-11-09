@@ -14,6 +14,17 @@
     { const c = stage('mage'); c.h.powers = { fire_pierce: 1 }; let line = 0; const N = 400; for (let i = 0; i < N; i++) { const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; if (sh.gifts.some((o) => o.id === 'fire_pierce')) out.push('gift: a power already held is offered again'); if (sh.gifts[2].id === 'fire_split') line++; } if (line / N < 0.4) out.push(`gift: the ball's line came up ${line} of ${N}`); }
     { const c = stage('warrior'); const sh = { x: 0, y: 0, gifts: [{ id: 'whirl_pull', cost: 1 }] }; c.R.shrines.push(sh); c.S.meta.shards = 5; SIMX.takeGift(c.S, c.R, sh, 0, 0, 0); if (!D.hasPower(c.h, 'whirl_pull') || c.h.perks.whirl_pull || c.S.meta.shards !== 4 || !sh.used) out.push('gift: a power is not given as a gift'); const j = JSON.parse(JSON.stringify(c.R)); if (!D.hasPower(j.hero, 'whirl_pull')) out.push('gift: a taken power is lost in the save'); }
   }
+  function checkRelics(out) {
+    for (const cl of ['warrior', 'mage', 'archer']) { const c = stage(cl), C = D.CLASSES[cl]; for (const a of C.abs) c.h.ab[a.id] = 1; const seen = new Set();
+      for (let i = 0; i < 200; i++) { const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; if (sh.gifts.length !== 4) { out.push(`relic: a ${cl}'s altar has ${sh.gifts.length} offers`); break; } seen.add(sh.gifts[3].id); }
+      const want = D.GIFTS.filter((g) => g.relic && (!g.ab || C.abilities.includes(g.ab))); if (want.length < 4 || want.some((g) => !seen.has(g.id))) out.push(`relic: a ${cl} gets ${[...seen]} of ${want.map((g) => g.id)}`);
+      c.h.powers = Object.fromEntries(want.slice(0, D.RELIC_MAX).map((g) => [g.id, 1])); const sh = { x: 0, y: 0 }; c.R.shrines.push(sh); SIMX.openAltar(c.S, c.R, sh); c.S.screen = 'play'; if (sh.gifts.length !== 3) out.push(`relic: a ${cl} with ${D.RELIC_MAX} relics is offered another`); }
+    { const c = stage(); c.h.powers = { rl_fifth: 1 }; const b = foe(c.R, c.h, 80), hp = b.hp; for (let i = 0; i < 4; i++) { const e = foe(c.R, c.h, 30); killEnemy(c.S, c.R, e); } if (b.hp !== hp) out.push('relic: the fifth death came early'); killEnemy(c.S, c.R, foe(c.R, c.h, 30)); if (!(b.hp < hp)) out.push('relic: the fifth death did not blow'); }
+    { const c = stage(); c.h.powers = { rl_scroll: 1 }; c.h.hp = 1; SIMX.firePowers(c.S, c.R, 'scroll', {}); if (c.h.hp !== SIMX.heroSt(c.S).maxHp) out.push(`relic: the scroll healed to ${c.h.hp}`); }
+    { const c = stage('mage'); c.h.powers = { rl_phalanx: 1 }; const e = foe(c.R, c.h, 60); c.h.shield = 1; c.h.shieldUntil = c.S.t + 5; c.h.ifr = 0; c.h.dashT = -9; for (let i = 0; i < 40 && c.h.shield > 0; i++) hurtHero(c.S, c.R, 50, c.h.x + 9, c.h.y); if (!(e.kbx > 0)) out.push('relic: the broken shield threw no one'); }
+    { const c = stage('archer'); c.h.powers = { rl_quiver: 1 }; const e = foe(c.R, c.h, 100); for (let i = 0; i < 4; i++) heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); if (!c.R.proj.some((p) => p.k === 'arrow')) out.push('relic: the fourth arrow called no other'); }
+    if (D.giftCost(4, 1) <= 2 * D.giftCost(3, 1)) out.push('relic: not dear');
+  }
   function checkPowerPack(out) {
     const T = 'POWERS', own = (c, id) => { (c.h.powers = c.h.powers || {})[id] = 1; };
     for (const [id, P] of Object.entries(D.POWERS)) { if (!P.name || !P.desc || P.name.startsWith(T) || P.desc.startsWith(T)) out.push(`power: ${id} has no words`);
@@ -50,7 +61,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

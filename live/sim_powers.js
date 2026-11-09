@@ -14,7 +14,7 @@
   const FX = {
     nova(S, R, P, ctx) { const [x, y] = pos(R, ctx); burst(S, R, x, y, P.r, atk(S, P, ctx), P.kb ?? 0.8, P.fire ? 'fire' : 'thorns'); boom(S, R, x, y); },
     bolt(S, R, P, ctx) { const [x, y] = pos(R, ctx), e = targets(R, x, y, P.r).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]; if (!e) return;
-      const a = Math.atan2(e.y - y, e.x - x), B = D.SHOTS.bolt; R.proj.push({ id: R.nextId++, k: 'bolt', single: 1, x, y: y - 40, vx: Math.cos(a) * B.spd, vy: Math.sin(a) * B.spd, t0: S.t, life: B.life, own: 'hero', r: B.r, kb: B.kb, crit: 0, dmg: atk(S, P, ctx), gz: 20, pierce: 0 }); },
+      const a = Math.atan2(e.y - y, e.x - x), B = D.SHOTS[P.shot || 'bolt']; R.proj.push({ id: R.nextId++, k: B.k, single: 1, x, y: y - 40, vx: Math.cos(a) * B.spd, vy: Math.sin(a) * B.spd, t0: S.t, life: B.life, own: 'hero', r: B.r, kb: B.kb, crit: 0, dmg: atk(S, P, ctx), gz: 20, pierce: 0 }); },
     split(S, R, P, ctx) { for (const p of (ctx.projs || []).slice()) for (const s of [-1, 1]) { const a = Math.atan2(p.vy, p.vx) + s * P.a, v = Math.hypot(p.vx, p.vy);
       R.proj.push(Object.assign({}, p, { id: R.nextId++, vx: Math.cos(a) * v, vy: Math.sin(a) * v, dmg: Math.max(1, Math.round(p.dmg * P.k)) })); } },
     pierce(S, R, P, ctx) { for (const p of ctx.projs || []) p.pierce = (p.pierce || 0) + P.n; },

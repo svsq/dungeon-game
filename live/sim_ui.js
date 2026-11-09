@@ -163,7 +163,7 @@
     return;
   };
   SCREEN.altar = (S, inp, keys, x, y, click) => {
-    const R = S.run, sh = R.shrines[R.altar], U = UI.altar(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, sh = R.shrines[R.altar], U = UI.altar(sh && sh.gifts ? sh.gifts.length : 3), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!sh || keys.Escape || keys.KeyE || (click && b && b.id === 'leave')) { S.screen = 'play'; return; }
     if (click && b && b.id.startsWith('gift:')) takeGift(S, R, sh, b.i, x, y);
     if (click && b && b.id === 'donate') donate(S, R, x, y);
