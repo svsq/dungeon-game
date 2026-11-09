@@ -21,10 +21,10 @@
   const henRnd = (a, b) => { const x = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return x - Math.floor(x); };
   function henGoal(R, f, n, t) {
     const h = R.hero, dh = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25), w = R.folk.find((q) => q.go && q.spd > 4 && Math.hypot(q.x - f.x, (q.y - f.y) * 1.25) < 34), sc = h.deadT < 0 && dh < 58 ? h : w;
-    if (sc) { const a = Math.atan2(f.y - sc.y, f.x - sc.x) + 0.6 * (henRnd(f.i, Math.floor(t)) - 0.5); f.next = t + 1 + henRnd(f.i, t); f.scareT = t;
+    if (sc) { const a = Math.atan2(f.y - sc.y, f.x - sc.x) + 0.6 * (henRnd(f.i, Math.floor(t)) - 0.5); f.next = t + 1 + henRnd(f.i, t); if (t - (f.scareL ?? -9) > 0.6) f.scareT = t; f.scareL = t;
       return (f.goal = { x: f.x + Math.cos(a) * 44, y: f.y + Math.sin(a) * 30, v: 80 }); }
     const gr = R.grain; if (gr && t - gr.t < 7 && Math.hypot(gr.x - f.x, gr.y - f.y) < 190 && (!f.goal || f.goal.k !== gr.t))
-      f.goal = { x: gr.x + 18 * (henRnd(f.i, gr.t) - 0.5), y: gr.y + 10 * (henRnd(gr.t, f.i) - 0.5), v: 42, k: gr.t };
+      f.goal = { x: gr.x + 16 * Math.cos(f.i * 2.1), y: gr.y + 9 * Math.sin(f.i * 2.1), v: 42, k: gr.t };
     if (f.goal && f.goal.k && t - f.goal.k > 7) f.goal = null;
     if (!f.goal && t >= (f.next || 0)) { const a = 2 * Math.PI * henRnd(f.i, t), r = 10 + 26 * henRnd(t, f.i);
       f.goal = { x: n.x + Math.cos(a) * r, y: n.y + Math.sin(a) * r * 0.6, v: 22 }; f.next = t + 2 + 3 * henRnd(f.i + 7, t); }
@@ -55,7 +55,7 @@
       if (f.role === 'smith' && !folkTalk(f, t)) { const a = D.folkClock('smith', f.i, t - DT), b = D.folkClock('smith', f.i, t);
         if ((a.n === b.n ? a.u < FD.hit && b.u >= FD.hit : b.u >= FD.hit) && b.n % FD.rest !== FD.rest - 1) ev(S, { k: 'anvil', x: f.x, y: f.y }); }
       const route = n.route;
-      if (folkTalk(f, t)) f.face = h.x >= f.x ? 1 : -1;
+      if (folkTalk(f, t)) { const nf = h.x >= f.x ? 1 : -1; if (route && f.face && nf !== f.face) f.turnT = t; f.face = nf; }
       // the child's handful of grain lands ahead of him, toward the nearest hen: the hens come for it (TASKS 1032)
       if (f.role === 'child' && route && !f.go && f.way >= 0 && !folkTalk(f, t)) { const a = D.folkClock('child', f.i, t - DT), b = D.folkClock('child', f.i, t);
         if (a.n === b.n && a.u < 0.47 && b.u >= 0.47) { const hn = F.filter((q) => q.role === 'hen').sort((p, q) => Math.hypot(p.x - f.x, p.y - f.y) - Math.hypot(q.x - f.x, q.y - f.y))[0], dir = hn && hn.x < f.x ? -1 : 1;
@@ -83,7 +83,7 @@
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
         f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
       if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
-      if (Math.abs(f.vx) > 3) { const nf = f.vx > 0 ? 1 : -1; if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } }
+      if (Math.abs(f.vx) > (f.role === 'hen' ? 12 : 3)) { const nf = f.vx > 0 ? 1 : -1; if (f.role !== 'hen' || nf === f.face || t - (f.turnT ?? -9) > 1.1) { if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } } }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
       if (alive && h.gold > 0 && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 30 && !(R.msg && t < R.msg.t + (R.msg.d || 3.5))) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }

@@ -17,10 +17,12 @@
       // (TASKS 1032) a hen walks with a bob and a rock, its neck out; at the grain it pecks quicker; startled, the tail flicks up
       const run = SS(2, 24, Math.hypot(f.vx, f.vy)), fed = R.grain && GT - R.grain.t < 7 && Math.hypot(f.x - R.grain.x, f.y - R.grain.y) < 26;
       const face = f.face || (TOWN_FACE(m, n) >= n.x ? 1 : -1), [w, hh] = SZ(nm), ph = GT * (fed ? 3.4 : 1.3) + i * 2.1, peck = (1 - run) * Math.max(0, Math.sin(ph)) ** (fed ? 3 : 6);
-      const st = f.dist / 5, hop = run * 2.2 * Math.abs(Math.sin(st)), rock = run * 0.09 * Math.sin(st), scare = GT - (f.scareT ?? -9);
+      const st = f.dist / 5, hop = run * 1.6 * Math.abs(Math.sin(st)), rock = run * 0.09 * Math.sin(st), scare = GT - (f.scareT ?? -9);
       const neck = 0.9 * peck + 0.06 * Math.sin(GT * 3.1 + i) - 0.22 * run, tail = 0.08 * Math.sin(GT * 2.3 + i * 1.7) - (scare >= 0 ? 0.5 * SS(0, 0.08, scare) * (1 - SS(0.3, 0.9, scare)) : 0);
+      const fT = f.turnT === undefined ? 1 : SS(0, 0.12, GT - f.turnT), fs = face * (fT < 1 ? Math.sign(fT * 2 - 1 || 1) * Math.max(0.4, Math.abs(fT * 2 - 1)) : 1), LEG = 3.5;
       Y.push([f.y, () => { L.shadow(X, Yg + 1, 9, 3, 0.4);
-        L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(X, Yg - hop), M.r(rock), M.s(face, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+        for (const q of [0, 1]) { const a = st + q * Math.PI, hx = X + (q ? 2.5 : -2.5), hy = Yg - hop - LEG - 1, fx = hx + face * run * 3.2 * Math.sin(a), fy = Yg - run * 2 * Math.max(0, Math.cos(a)); L.solid(hx, hy, Math.hypot(fx - hx, fy - hy), 1.6, [0.82, 0.58, 0.2], Math.atan2(fy - hy, fx - hx), 0, 0.8, 1); }
+        L.inked(() => L.sprite(nm, 0, 0, { m: M.of(M.t(X, Yg - hop - LEG), M.r(rock), M.s(fs, 1)), w, h: hh, pivot: [w / 2, hh], u: { wtex: G.tex(nm + '_w'), wsz: [RG.w, RG.h], bone0: [RG.bones[0][0] / RG.w, RG.bones[0][1] / RG.h, neck, 1], bone1: [RG.bones[1][0] / RG.w, RG.bones[1][1] / RG.h, tail, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       return; }
     const nm = 'town_' + f.role; if (!RIGS[nm] || !window.ASSETS[nm + '__body']) return;
     const H = SZ(nm)[1], c = D.folkClock(f.role, i, GT), u = c.u, T = m.town.svc, route = n.route;
@@ -75,7 +77,7 @@
       const lean0 = 0.2 + 0.05 * Math.sin(GT * 0.9 + i), stand = P(0.32, -0.47), out = [X + (Fp[0] - X) * 0.5, Yg - 0.3 * H], hand = lerp2(stand, mir(out), poke);
       const ember = [Fp[0], Fp[1] - 6], dn = Math.atan2(ember[1] - hand[1], ember[0] - hand[0]), aim0 = face > 0 ? dn + Math.PI : -dn, aim = -Math.PI / 2 + lean0 + SCX.wrapPi(aim0 + Math.PI / 2 - lean0);
       tg = { R: lerp2(hand, talkR, tw * 0.6) };
-      hold = { R: TOOL('town_tool_staff', 0.5, { abs: lerp1(-Math.PI / 2 + lean0, aim, poke) }) };
+      hold = { R: TOOL('town_tool_staff', lerp1(0.5, 0.62, poke), { abs: lerp1(-Math.PI / 2 + lean0, aim, poke) }) };
       headR = (0.32 * dz + 0.1 * poke) * (1 - tw) - 0.05 * tw; lean = face * (0.04 * dz + 0.16 * poke) * (1 - tw); crouch = 14 * poke;
       if (u > 0.27 && u < 0.27 + 1.2 / c.per && tw < 0.5) fx = { k: 'embers', x: Fp[0], y: Fp[1] - 14, a: (u - 0.27) * c.per, seed: c.n * 5 + i };
     } else if (f.role === 'guard') {
@@ -155,8 +157,8 @@
     { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
       if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
     // a walker turns like a paper figure, over 0.14 s: mirrored in one tick the whole rig jumped by its own width (TASKS 1409)
-    const turnK = route && f.turnT !== undefined ? SS(0, 0.14, GT - f.turnT) : 1, rigFace = turnK < 1 ? face * Math.sign(turnK * 2 - 1 || 1) * Math.max(0.25, Math.abs(turnK * 2 - 1)) : face;
-    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd) => { const q = tg[sd]; return q ? [turnAbout + (q[0] - turnAbout) * rigFace / face, q[1]] : null; }, lean, headR, headF, crouch, front, robe, fx });
+    const tT = route ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, 0.14, GT - tT) : 1, rigFace = turnK < 1 ? face * Math.sign(turnK * 2 - 1 || 1) * Math.max(0.4, Math.abs(turnK * 2 - 1)) : face;
+    drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd, free) => { const q = tg[sd]; if (!q) return null; const q1 = free && freeK < 1 ? lerp2(free, q, freeK) : q; return [turnAbout + (q1[0] - turnAbout) * rigFace / face, q1[1]]; }, lean, headR, headF, crouch, front, robe, fx });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';
       if (dp && !atDrop) { const cw = 0.3 * H, x = sx(dp.x) - 0.33 * H, y = sy(dp.y) - 0.14 * H; Y.push([dp.y - 1, () => L.inked(() => L.sprite('town_tool_crate', x - cw / 2, y - cw / 2, { w: cw, h: cw }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 })]); }
