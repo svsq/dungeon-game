@@ -202,7 +202,7 @@
     niches: [[7, 5, 3, 3], [11, 5, 3, 3], [16, 5, 3, 3], [23, 6, 9, 2], [33, 5, 2, 3], [37, 5, 3, 3], [42, 5, 3, 3], [47, 5, 2, 3], [52, 11, 2, 2], [52, 14, 2, 2], [8, 32, 3, 2], [24, 32, 3, 2], [44, 32, 3, 2]],
     // the cobbles (TASKS 1029): a round square about the fire and winding paths two or three cells wide off it to the services and the gate
     plaza: [27, 17.4, 4.6, 3.7], paths: [[27, 11], [17, 13], [36, 12], [36, 24], [22, 22], [16, 22], [27, 31], [47, 23]],
-    stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [38, 11.4], forge: [38, 10], lectern: [39, 17], shelf: [37, 16],
+    stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [38, 11.4], forge: [39.3, 10], lectern: [39, 17], shelf: [37, 16],
     altar: [36, 23], chest: [39, 23], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [46.6, 31], herbs: [44, 25],
     // the town's gate out (TASKS 1149): shut, in the bottom wall where the cobbled way off the square ends, as on the reference
     exitGate: [29, 31.8],
@@ -212,7 +212,7 @@
     benches: [[25, 16], [29, 19], [26, 20]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
     // enchanter's runes, the Altar of Souls, the crypt's glow from below; the campfire and the gate's braziers are its torches
-    lights: [['forge', 38, 10], ['runes', 39, 17], ['candle', 40, 17], ['altar', 36, 23], ['stash', 39, 23], ['crypt', 27, 11], ['adit', 47, 22], ['portal', 16, 22]],
+    lights: [['forge', 39, 10], ['runes', 39, 17], ['candle', 40, 17], ['altar', 36, 23], ['stash', 39, 23], ['crypt', 27, 11], ['adit', 47, 22], ['portal', 16, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
     lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [31, 28], [22, 8], [23, 28], [14, 28], [32, 31], [39, 28], [42, 27], [48, 29], [9, 8], [41, 8], [32, 8], [43, 15]],
@@ -282,6 +282,8 @@
       ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y]) => ({ ...at([x, y]), n: 'torch_stand', role: 'lamp', solid: 1 })),
             // three trees round the edge, not one six times (TASKS 1030)
       ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: ['tree_tw_b', 'tree_tw_c', 'tree_tw'][i % 3], role: 'edge', solid: 1, s: (100 + (i * 7) % 21) / [76, 60, 70][i % 3], f: (i >> 1) % 2 })),
+      // the rim beyond the walls is ruin and overgrowth, not a tiled floor (TASKS 1431, 1623)
+      ...Array.from({ length: 24 }, (_, i) => { const u = ((i * 61 + 17) % 97) / 97, dp = 1 + (i * 13 % 3), sd = i % 4, x = sd === 2 ? dp : sd === 3 ? W - 1 - dp : 3 + u * (W - 6), y = sd === 0 ? dp : sd === 1 ? H - 1 - dp : 3 + u * (H - 6), n = ['blocks_tw', 'tree_tw_c', 'blocks_tw', 'tree_tw_b', 'stone_tw_a', 'blocks_tw'][i % 6]; return cells[Math.floor(y) * W + Math.floor(x)] === 0 ? { x: Math.round(x * TILE), y: Math.round(y * TILE), n, role: 'edge', s: n.startsWith('tree') ? 1.2 : 0.8 + 0.1 * (i % 4), f: i % 2 } : null; }).filter(Boolean),
       ...T.small.filter(() => R() < 0.9).map(([n, x, y]) => ({ x: wx(x) + Math.round((R() - 0.5) * 10), y: wy(y) + Math.round((R() - 0.5) * 6), n, solid: 1 })),
       // each niche: its stores along the back and a few candles burning among them
       ...T.niches.flatMap(([x0, y0, w, h], k) => { const out = [], back = y0 < 10 ? y0 : y0 + h - 1, side = x0 > 50;
@@ -298,6 +300,7 @@
       for (const [tx, ty] of T.paths) { const a = Math.atan2(ty + 0.5 - fy, tx + 0.5 - fx), sx0 = fx + Math.cos(a) * rx * 0.8, sy0 = fy + Math.sin(a) * ry * 0.8, ex = tx + 0.5, ey = ty + 0.5;
         const L0 = Math.hypot(ex - sx0, ey - sy0), nx = -(ey - sy0) / L0, ny = (ex - sx0) / L0, amp = Math.min(1.6, L0 * 0.14) * (R() < 0.5 ? -1 : 1), k2 = 0.35 * (R() - 0.5), r = R() < 0.5 ? 1.05 : 1.45;
         for (let q = 0; q <= 1; q += 0.5 / L0) { const o = amp * Math.sin(Math.PI * q) + k2 * L0 * 0.1 * Math.sin(2 * Math.PI * q); dab(sx0 + (ex - sx0) * q + nx * o, sy0 + (ey - sy0) * q + ny * o, r); } } }
+    dab(T.portal[0] + 0.5, T.portal[1] + 0.5, 1.7);
     const pave = [...pv];
     const npcs = T.npcs.map(([role, x, y]) => Object.assign({ role, x: wx(x) + Math.round((R() - 0.5) * 10), y: wy(y) + Math.round((R() - 0.5) * 6) },
       T.routes[role] ? { route: T.routes[role].map(([x, y, act]) => Object.assign({ x: wx(x), y: wy(y) }, act ? { act } : {})) } : {}));
@@ -315,6 +318,7 @@
       if (!wallBy && !paveBy) continue; for (let j = 0, n = wallBy ? 2 : 1; j < n; j++) { const px = (x + R()) * TILE, py = (y + R()) * TILE; if (R() < (wallBy ? 0.2 : 0.45) || near(px, py, 22)) continue;
         decals.push({ x: px, y: py, n: wallBy ? ['dc_fern_tw', 'dc_fern_tw_b', 'dc_grass_tw_b', 'dc_grass_tw', 'dc_bush_tw', 'dc_flowers_tw_a', 'dc_flowers_tw_b', 'dc_moss_tw_a'][Math.floor(R() * 8)] : ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw'][Math.floor(R() * 3)], f: R() < 0.5 ? 1 : -1, s: 0.75 + R() * 0.55 }); } }
     for (const [k, r] of [[T.lectern, 2.2], [T.portal, 2]]) for (let i = decals.length - 1; i >= 0; i--) if (Math.hypot(decals[i].x - wx(k[0]), decals[i].y - wy(k[1])) < r * TILE) decals.splice(i, 1);
+    for (let i = 0; i < 12; i++) { const a = i * 2.4, r = (2.7 + 0.08 * (i * 7 % 9)) * TILE, x = wx(T.portal[0]) + Math.cos(a) * r, y = wy(T.portal[1]) + Math.sin(a) * r * 0.8; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] === 1) decals.push({ x, y, n: ['dc_flowers_tw_a', 'dc_grass_tw', 'dc_flowers_tw_b', 'dc_grass_tw_b'][i % 4], f: i % 2 ? 1 : -1, s: 0.8 + 0.05 * (i % 5) }); }
     for (const d of decals) { d.x = Math.round(d.x); d.y = Math.round(d.y); d.s = Math.round(d.s * 100) / 100; }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin), exitGate: at(T.use.exitGate) };
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
