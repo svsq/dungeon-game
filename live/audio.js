@@ -177,6 +177,7 @@
     // (placeholders until the real audio, TASKS 1646: the magma's actions that had no sound)
     lavafall: (o) => { noise(o, { d: 0.25, v: 0.35, type: 'lowpass', f0: 1000, f1: 160 }); tone(o, { f0: 130, f1: 50, d: 0.3, v: 0.3 }); },
     ignite: (o) => noise(o, { a: 0.01, d: 0.28, v: 0.2, type: 'highpass', f0: 2000, f1: 900 }),
+    surge: (o) => { noise(o, { a: 0.05, d: 0.5, v: 0.3, type: 'lowpass', f0: 800, f1: 240 }); tone(o, { f0: 75, f1: 45, d: 0.45, v: 0.28 }); },
     bossphase: (o) => tone(o, { f0: 60, f1: 30, a: 0.02, d: 0.7, v: 0.4 }),
     sink: (o) => { noise(o, { a: 0.01, d: 1.2, v: 0.28, type: 'highpass', f0: 1800, f1: 700 }); tone(o, { f0: 140, f1: 55, a: 0.02, d: 0.6, v: 0.3 }); },
     fall: (o) => { tone(o, { type: 'triangle', f0: 420, f1: 120, a: 0.02, d: 0.8, v: 0.08 }); noise(o, { a: 0.05, d: 0.7, v: 0.12, type: 'lowpass', f0: 900, f1: 200 }); },
