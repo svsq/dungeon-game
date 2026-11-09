@@ -55,7 +55,9 @@
   }
   function bake(m) {
     const key = mapKey(m) + ':' + (m.secrets || []).map((q) => q.hp).join(''); if (BAKE.key === key) return; BAKE.key = key;
-    const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome];
+    const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome], changed = cellsChanged(m, BAKE), box = changed && BAKE.tg && BAKE.tg.w === MW && BAKE.tg.h === MH ? changed : null;
+    // the shaders read the masks a few cells around each pixel: the falling cells' neighbours repaint, the rest of the map stands
+    const clip = (tg) => { if (!box) { G.clip(null); return; } const x = Math.max(0, (box[0] - 8) * TILE), y = Math.max(0, (box[1] - 8) * TILE); G.clip(tg, x, y, Math.min(MW, (box[2] + 9) * TILE) - x, Math.min(MH, (box[3] + 9) * TILE) - y); };
     if (!BAKE.tg || BAKE.tg.w !== MW || BAKE.tg.h !== MH) {
       G.free(BAKE.tg); BAKE.tg = G.target(MW, MH, false);
       if (!BAKE.rec) { const cv = G.canvas(); cv.width = cv.height = 1; BAKE.rec = G.canvasTex('map', cv); }
@@ -63,8 +65,8 @@
     if (m.cliff) { if (!BAKE.face || BAKE.face.vw !== MW || BAKE.face.vh !== MH) { G.free(BAKE.face); BAKE.face = G.target(MW / 2, MH / 2, false, { view: [MW, MH], nearest: true }); }   // on the art grid: a quarter of the bake's memory
       BAKE.mg = { u_fk: B.floorK || 1, u_open: openTex(m), u_water: waterTex(m), u_wet: 0, u_lift: TOP_LIFT, u_map: [MW, MH], u_cliff: cliffTex(m), u_lava: lavaTex(m), u_far: lavaFarTex(m),
         u_hot: lavaGlowTex(m), u_crust: crustTex(m), u_plat: platTex(m), u_lake: lakeTex(m), u_fall: fallU(m), u_step: m.ftype === 'terrace' && !m.ftype2 ? 1 : 0, u_stepm: stepTex(m), u_rows: terrRows(m), u_floor: G.tex(B.floor), u_wall: G.tex(B.wall), u_top: G.tex(B.top), u_shore: G.tex(B.shore) };
-      G.bind(BAKE.face, [0, 0, 0, 1]); G.blend('none'); G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 1 }), G.xf(0, 0, MW, MH)); }
-    G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
+      clip(BAKE.face); G.bind(BAKE.face, [0, 0, 0, 1]); G.blend('none'); G.draw(L.P.magma, Object.assign({}, BAKE.mg, { u_out: 1 }), G.xf(0, 0, MW, MH)); }
+    clip(BAKE.tg); G.bind(BAKE.tg, [0, 0, 0, 1]); G.blend();
     // (a pit room's chasm, TASKS 374, is its own cell here, 7: deep water's cell in the sim, drawn as a hole in the floor)
     // (a two-level hall's drop, TASKS 375, is its own cell too, 8: the gallery's front face down to the floor below)
     const PIT = new Set(m.pits || []), LEDGE = new Set(m.ledges || []), hid = SIM.Q.secretMask(m), c = (x, y) => { const v = SIM.Q.cell(m, x, y); return v === 4 || hid.has(y * m.W + x) ? 0 : PIT.has(y * m.W + x) ? 7 : LEDGE.has(y * m.W + x) ? 8 : v === 5 || v === 6 ? 1 : v; }, TS = 288, TSW = 224, TST = 96;   // repeat periods must be whole tiles, or a cell straddles the texture edge and smears it              // texture repeat = 256 world px (1024 src px)
@@ -179,7 +181,7 @@
     // wall decor: banners hang on the wall faces
     // (a plain banner hangs in the Y band: struck, it swings)
     for (const d of m.decor) if (d.wall && d.n !== 'banner' && d.n !== 'shop_sign' && d.secret === undefined && !SIM.Q.hidden(m, d)) { const [w, h] = SZ(d.n); L.sprite(d.n, d.x - w / 2, d.y - h + 8, { w, h }); }
-    G.bind(null);
+    G.clip(null); G.bind(null);
   }
   // the fog's edge fades over ~2 cells instead of cutting along the grid; the fade spreads into rock but never onto unseen floor,
   // so nothing behind a wall shows through it
@@ -188,20 +190,35 @@
   const MASKS = {};
   // a map's key with its secrets' state: an unfound secret room is rock to the masonry and the abyss, found it gets its rim
   const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + (m.geometry || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
+  // the box [x0, y0, x1, y1] of cells that differ from what `rec` last saw on this same map, null if it must be rebuilt whole: another
+  // map, or a key that moved with no cell changing (a flood grows m.water, which the cells don't show)
+  const cellsChanged = (m, rec) => { const stable = m.seed + ':' + m.floor + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-') + q.hp).join('') + ':' + (m.water || []).length; let box = null;
+    if (rec.stable === stable && rec.cells && rec.cells.length === m.cells.length) for (let i = 0; i < m.cells.length; i++) if (rec.cells[i] !== m.cells[i]) { const x = i % m.W, y = Math.floor(i / m.W);
+      if (!box) box = [x, y, x, y]; else { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); } }
+    rec.stable = stable; rec.cells = Uint8Array.from(m.cells); return box; };
   // R: the soft mask; G, B (vec, optional): a direction per cell (x, y in -1..1) around 0.5, not blurred: the shader reads its cell's
   // own with texelFetch
-  function maskTex(m, name, has, vec, passes = 2) {
-    const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null }), key = mapKey(m); if (M.key === key) return M.rec; M.key = key;
-    const K = 4, W = m.W * K, H = m.H * K, ch = [0, 1, 2].map(() => new Float32Array(W * H)), b = new Float32Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const cx = Math.floor(x / K), cy = Math.floor(y / K), v = +has(cx, cy), f = v && vec ? vec(cx, cy) : null;
-      ch[0][y * W + x] = v; if (f) { ch[1][y * W + x] = f[0]; ch[2][y * W + x] = f[1]; } }
+  // reach: how many cells away `has` looks. Only the cells that changed are redone, out to what the blur can carry: an arena's edge
+  // falling a cell at a time rebuilt every mask whole on each of some 60 frames, up to 490 ms apiece (TASKS 1362)
+  function maskTex(m, name, has, vec, passes = 2, reach = 0) {
+    const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null, im: null, stable: '', cells: null }), key = mapKey(m); if (M.key === key) return M.rec; M.key = key;
+    const K = 4, W = m.W * K, H = m.H * K, pad = 2 * passes, changed = cellsChanged(m, M), box = changed && M.im && M.im.width === W && M.im.height === H ? changed : null;
+    const x0 = box ? Math.max(0, (box[0] - reach) * K - pad) : 0, y0 = box ? Math.max(0, (box[1] - reach) * K - pad) : 0, x1 = box ? Math.min(W, (box[2] + 1 + reach) * K + pad) : W, y1 = box ? Math.min(H, (box[3] + 1 + reach) * K + pad) : H;
+    // the output's every texel reads this far at each pass, so a window `pad` wider blurs them exactly as the whole map would
+    const ax0 = Math.max(0, x0 - pad), ay0 = Math.max(0, y0 - pad), AW = Math.min(W, x1 + pad) - ax0, AH = Math.min(H, y1 + pad) - ay0;
+    const ch = [0, 1, 2].map(() => new Float32Array(AW * AH)), b = new Float32Array(AW * AH);
+    // `has` and `vec` run per cell, not per texel
+    const cx0 = Math.floor(ax0 / K), cy0 = Math.floor(ay0 / K), CW = Math.floor((ax0 + AW - 1) / K) - cx0 + 1, CH = Math.floor((ay0 + AH - 1) / K) - cy0 + 1, cv0 = new Float32Array(CW * CH), cf = new Array(CW * CH);
+    for (let j = 0; j < CH; j++) for (let i = 0; i < CW; i++) { const v = +has(cx0 + i, cy0 + j); cv0[j * CW + i] = v; cf[j * CW + i] = v && vec ? vec(cx0 + i, cy0 + j) : null; }
+    for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { const c = (Math.floor((ay0 + y) / K) - cy0) * CW + Math.floor((ax0 + x) / K) - cx0, f = cf[c];
+      ch[0][y * AW + x] = cv0[c]; if (f) { ch[1][y * AW + x] = f[0]; ch[2][y * AW + x] = f[1]; } }
     for (const a of [ch[0]]) for (let pass = 0; pass < passes; pass++) {
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * W + Math.min(W - 1, Math.max(0, x + d))]; b[y * W + x] = v / 5; }
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(H - 1, Math.max(0, y + d)) * W + x]; a[y * W + x] = v / 5; } }
-    const cv = M.cv || (M.cv = G.canvas()); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
-    for (let i = 0; i < W * H; i++) { const v = Math.round(255 * ch[0][i]); im.data[i * 4] = v; im.data[i * 4 + 3] = 255;
-      im.data[i * 4 + 1] = vec ? Math.round(255 * (0.5 + 0.5 * ch[1][i])) : v; im.data[i * 4 + 2] = vec ? Math.round(255 * (0.5 + 0.5 * ch[2][i])) : v; }
-    g.putImageData(im, 0, 0);
+      for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * AW + Math.min(AW - 1, Math.max(0, x + d))]; b[y * AW + x] = v / 5; }
+      for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(AH - 1, Math.max(0, y + d)) * AW + x]; a[y * AW + x] = v / 5; } }
+    const cv = M.cv || (M.cv = G.canvas()); if (!box) { cv.width = W; cv.height = H; } const g = cv.getContext('2d'), im = box ? M.im : (M.im = g.createImageData(W, H));
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * W + x, s = (y - ay0) * AW + x - ax0, v = Math.round(255 * ch[0][s]); im.data[i * 4] = v; im.data[i * 4 + 3] = 255;
+      im.data[i * 4 + 1] = vec ? Math.round(255 * (0.5 + 0.5 * ch[1][s])) : v; im.data[i * 4 + 2] = vec ? Math.round(255 * (0.5 + 0.5 * ch[2][s])) : v; }
+    g.putImageData(im, 0, 0, x0, y0, x1 - x0, y1 - y0);
     if (!M.rec) M.rec = G.canvasTex(name + 'mask', cv);
     else { G.canvasUpdate(M.rec, cv); }
     return M.rec;
@@ -240,7 +257,7 @@
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
   const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.Q.cell(m, x, y) === 3, null, 8);
   // how near the lava a cell lies, as HERO.lavaNear weighs it (TASKS 1035): the lit pass holds the lava's light down within its reach only
-  const lavaNearTex = (m) => maskTex(m, 'lavanear', (x, y) => { let d = 9; for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.Q.cell(m, x + i, y + j) === 3) d = Math.min(d, Math.hypot(i, j)); return SS(5.5, 2, d); }, null, 2);
+  const lavaNearTex = (m) => maskTex(m, 'lavanear', (x, y) => { let d = 9; for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.Q.cell(m, x + i, y + j) === 3) d = Math.min(d, Math.hypot(i, j)); return SS(5.5, 2, d); }, null, 2, 6);
   // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
   // the chasm under a chain bridge (TASKS 429) is the dark: walked on, never ground
   const CHUND = new WeakMap(), chasmUnder = (m) => { let u = CHUND.get(m); if (!u) CHUND.set(m, u = new Set(m.chasmUnder || [])); return u; };
@@ -251,16 +268,16 @@
   const lakeTex = (m) => { const cr = new Set(m.crust || []), un = lavaUnder(m), src = m.lavaFeatures || [];
     const hot = (x, y) => SIM.Q.cell(m, x, y) === 3 && !cr.has(y * m.W + x) && !un.has(y * m.W + x);
     return maskTex(m, 'lake', (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 1; i++) if (!hot(x + i, y + j)) return false;
-      return !src.some((q) => Math.abs(Math.floor(q.x / TILE) - x) <= 3 && Math.abs(Math.floor(q.y / TILE) - y) <= 3); }, null, 0); };
+      return !src.some((q) => Math.abs(Math.floor(q.x / TILE) - x) <= 3 && Math.abs(Math.floor(q.y / TILE) - y) <= 3); }, null, 0, 2); };
   // (G: thin crust, an islet's way, TASKS 476)
   // a sunk salamander's clip (TASKS 1054): the open lava only, its crust left out (the bank's crust is drawn as basalt: clipped by
   // the lava's mask, the sunk body lay over it as a grey see-through shape); no blur, the cut is at the cell's edge
   const swimTex = (m) => { const c = new Set(m.crust || []); return maskTex(m, 'swim', (x, y) => SIM.Q.cell(m, x, y) === 3 && !c.has(y * m.W + x), null, 1); };
   const crustTex = (m) => { const c = new Set(m.crust || []), th = new Set(m.thin || []); return maskTex(m, 'crust', (x, y) => c.has(y * m.W + x), (x, y) => [th.has(y * m.W + x) ? 1 : -1, 0], 1); };
   // the plateaus' chasm is no rock top: the lava's light reaches down into it (TASKS 402)
-  const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] || SIM.Q.chasm(m, x, y) ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1)); };
+  const topTex = (m) => { const d = rockDist(m); return maskTex(m, 'top', (x, y) => (x < 0 || y < 0 || x >= m.W || y >= m.H || !d[y * m.W + x] || SIM.Q.chasm(m, x, y) ? 0 : d[y * m.W + x] === 1 ? 0.4 : 1), null, 2, 11); };
   // where the fire depths' abyss may glow: rock within a few cells of a floor or lava cell
-  const veinTex = (m) => { const d = rockDist(m); return maskTex(m, 'veins', (x, y) => x >= 0 && y >= 0 && x < m.W && y < m.H && d[y * m.W + x] <= 5); };
+  const veinTex = (m) => { const d = rockDist(m); return maskTex(m, 'veins', (x, y) => x >= 0 && y >= 0 && x < m.W && y < m.H && d[y * m.W + x] <= 5, null, 2, 11); };
   // the dry crossings are stepping stones laid in the stream: the water runs on under them (TASKS 230)
   // a cave's deep water (cell 6) and the bridges over it are water too, and deep water has a mask of its own (TASKS 302)
   const waterTex = (m) => { const w = new Set((m.water || []).concat(m.waterBridges || [], (m.crossings || []).flatMap((c) => c.cells))); return maskTex(m, 'water', (x, y) => w.has(y * m.W + x) || SIM.Q.cell(m, x, y) === 6, (x, y) => FLOW[m.waterFlow?.[y * m.W + x]] || [0, 0], 1); };

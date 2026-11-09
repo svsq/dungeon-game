@@ -176,6 +176,29 @@ try {
       if (frames < 60 || error > 1 || radius > 0.13 * h || travel < 30) failures.push('stun orbit detached or static for face ' + face);
       results['stun_' + face] = { frames, anchorError: +error.toFixed(2), radius: +radius.toFixed(2), travel: +travel.toFixed(2) };
     }
+    {
+      // far into a run: a beat's phase built on absolute time only shows its chaos once the clock is large
+      const shift = 3000, hot = new Set(['1,0.4,0.1', '1,0.55,0.2', '1,0.22,0.08', '1,0.42,0.1']), ring = LIB.ring, glow = LIB.glow;
+      try {
+        for (const name of ['colossus_fists', 'colossus_boulder', 'colossus_rain', 'colossus_shatter']) {
+          const S = structuredClone(__Q.states.find((q) => q[0] === name)[1]), R = S.run, e = R.en.find((e) => e.type === 'boss_colossus');
+          S.t += shift; R.t += shift; e.t0 += shift;
+          for (const q of [...(R.rocks || []), ...(R.lavaPending || [])]) { q.t += shift; if (q.t0 !== undefined) q.t0 += shift; }
+          for (const q of R.fires || []) q.t0 += shift;
+          let calls = [], prev = null, jump = 0, frames = 0, draws = 0;
+          LIB.ring = (x, y, rx, ry, col, amt, w) => { if (hot.has(col.join())) calls.push(amt); return ring(x, y, rx, ry, col, amt, w); };
+          LIB.glow = (x, y, r, col, amt, soft) => { if (hot.has(col.join())) calls.push(amt); return glow(x, y, r, col, amt, soft); };
+          const t0 = S.t;
+          for (let i = 0; i < 30; i++) {
+            S.t = R.t = t0 + i / 60; calls = []; SCENE.state = S; SCENE.render(S.t + 0.01);
+            if (prev && prev.length === calls.length) { frames++; for (let k = 0; k < calls.length; k++) jump = Math.max(jump, Math.abs(calls[k] - prev[k])); }
+            prev = calls; draws = Math.max(draws, calls.length);
+          }
+          if (frames < 8 || !draws || jump > 0.15) failures.push(name + ': warning flickers, alpha jump ' + jump.toFixed(3) + ' over ' + frames + ' frames');
+          results['flicker_' + name] = { frames, draws, jump: +jump.toFixed(3) };
+        }
+      } finally { LIB.ring = ring; LIB.glow = glow; }
+    }
     LIB.TRACE = null;
     return { results, failures };
   });

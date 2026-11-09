@@ -33,6 +33,24 @@ let result;
 try {
   await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
   await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
+  if (args.includes('--colossus')) {
+    const rows = await page.evaluate(() => {
+      const gl = G.gl, base = SCENE.QA().states.find(([n]) => n === 'colossus_basalt')[1], round = (v) => +v.toFixed(1), pct = (a, q) => a.slice().sort((x, y) => x - y)[Math.floor(a.length * q)];
+      const frame = (S, m, out) => { const g0 = m.geometry || 0, a = performance.now(); for (let i = 0; i < 2; i++) SIM.step(S, { keys: [], px: 0, py: 0 }); const b = performance.now(); SCENE.state = S; SCENE.render(S.t + 0.01); gl.finish(); const c = performance.now(); out.sim.push(b - a); out.draw.push(c - b); out.geo += (m.geometry || 0) - g0; };
+      return [['idle', 0], ['fists', 0], ['crack', 0], ['charge', 0], ['boulder', 1], ['imps', 1], ['shatter', 1], ['erupt', 2]].map(([mv, ph]) => {
+        const S = structuredClone(base), R = S.run, b = R.en[0], out = { sim: [], draw: [], geo: 0 }; SCENE.state = S;
+        for (let i = 0; i < 5; i++) SCENE.render(S.t + 0.01 + i / 60);
+        if (mv !== 'idle') { b.phase = ph; SIMX.beginBossMove(S, R, b, mv); }
+        let left = 60; for (let i = 0; i < 480 && left > 0; i++) { frame(S, R.map, out); if (mv === 'idle' || (b.st !== 'bwind' && !(R.rocks || []).length && !(R.lavaPending || []).length && !(R.cracks || []).length)) left--; }
+        const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+        return { mv, frames: out.sim.length, geo: out.geo, simMean: round(mean(out.sim)), simMax: round(Math.max(...out.sim)), drawMean: round(mean(out.draw)), drawP95: round(pct(out.draw, 0.95)), drawMax: round(Math.max(...out.draw)), over: out.draw.filter((v, i) => v + out.sim[i] > 16.6).length };
+      });
+    });
+    console.log('move | frames | geometry changes | sim mean max | draw mean p95 max | frames over 16.6 ms');
+    for (const r of rows) console.log(`${r.mv} | ${r.frames} | ${r.geo} | ${r.simMean} ${r.simMax} | ${r.drawMean} ${r.drawP95} ${r.drawMax} | ${r.over}`);
+    if (errors.length) { console.log('page errors:\n' + errors.slice(0, 5).join('\n')); process.exitCode = 2; }
+    await browser.close(); server.close(); process.exit(process.exitCode || 0);
+  }
   result = await page.evaluate(([seed, frames]) => {
     const gl = G.gl, X = window.SCX, base = SCENE.QA().states.find(([n]) => n === 'zone_magma')[1];
     const C = window.__gpu, live = C.live; let cur = 'other', tg = null, fin = false, drawP = null, drawXf = null;
