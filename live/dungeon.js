@@ -212,7 +212,7 @@
     benches: [[25, 16], [29, 19], [26, 20]],
     // the town's own lights (TASKS 1005): lanterns in the workshop niches, at the canvas stall, the well, the merchant, the portal and the rails' yard, the forge's coals, the
     // enchanter's runes, the Altar of Souls, the crypt's glow from below; the campfire and the gate's braziers are its torches
-    lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['stash', 39, 23], ['crypt', 27, 11], ['adit', 47, 22]],
+    lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['stash', 39, 23], ['crypt', 27, 11], ['adit', 47, 22], ['portal', 16, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
     lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [31, 28], [22, 8], [23, 28], [14, 28], [32, 31], [39, 28], [42, 27], [48, 29], [9, 8], [41, 8], [32, 8], [43, 15]],
@@ -263,7 +263,7 @@
       { ...at(T.altar), n: 'altar', role: 'altar', solid: 1, s: 1.2 }, { ...at(T.chest), n: 'chest', role: 'stash', solid: 1, s: 1.25 }, { ...at(T.anvil), n: 'anvil_tw', role: 'anvil', solid: 1 },
       { ...at(T.forge), n: 'forge_tw', role: 'forge', solid: 1 }, { ...at(T.lectern), n: 'lectern_tw', role: 'lectern', solid: 1 }, { ...at(T.shelf), n: 'flasks_tw', role: 'shelf', solid: 1 },
       { ...at(T.board), n: 'board_tw', role: 'board', solid: 1 }, { ...at(T.tree), n: 'tree_tw', role: 'tree', solid: 1 }, { ...at(T.bin), n: 'orebin_tw', role: 'ore_bin', solid: 1 },
-      { ...at(T.herbs), n: 'herbs_tw', role: 'herbs', solid: 1 }, { x: wx(T.adit[0]), y: wy(T.adit[1]) + 6, n: 'adit_tw', role: 'adit', solid: 1, s: 1.65 },
+      { ...at(T.herbs), n: 'herbs_tw', role: 'herbs', solid: 1 }, { x: wx(T.adit[0]), y: wy(T.adit[1]) + 1, n: 'adit_tw', role: 'adit', solid: 1, s: 1.65 },
       { x: wx(sx), y: wy(sy - 1) + 12, n: 'awning_tw', role: 'stall' },
       { x: wx(T.exitGate[0]), y: T.exitGate[1] * TILE + 6, n: 'gate_tw', role: 'exit_gate', solid: 1 },
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
