@@ -47,6 +47,8 @@
   for (const [id, needs, icon] of [['ev_storm', ['whirl_pull', 'whirl_ring'], 'ab_whirl'], ['ev_comet', ['fire_split', 'fire_pierce'], 'ab_fire'], ['ev_bulwark', ['shield_burst', 'shield_feed'], 'ab_shield'], ['ev_mines', ['trap_burst', 'leap_trap'], 'ab_trap'], ['ev_shoulder', ['dash_trail', 'dash_strike'], 'bf_burn']]) { const P = POWERS[id]; D.GIFTS.push({ id, tier: 3, evo: 1, needs, name: P.name, icon, desc: P.desc, power: 1, ab: P.ab }); }
   const RELIC_MAX = 3, relicsOf = (h) => Object.keys(h.powers || {}).filter((id) => (D.GIFTS.find((g) => g.id === id) || {}).relic).length;
   const hasPower = (h, id) => !!(h.powers || {})[id];
+  // an offer is rolled when its altar is first opened, the hero may have changed by the time he comes back to it
+  const giftBlocked = (h, g) => (!g.power ? '' : hasPower(h, g.id) ? 'held' : g.relic && relicsOf(h) >= RELIC_MAX ? 'relics' : '');
   // what an altar may offer this hero of a tier: not another class's power, not one for an ability not yet open, not one already held
   const giftPool = (h, tier, meta) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && isOpen(meta, 'gift', g.id) && !g.needs && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
   const evosReady = (h) => D.GIFTS.filter((g) => g.needs && !hasPower(h, g.id) && g.needs.every((id) => hasPower(h, id)));
@@ -79,5 +81,5 @@
   // the codex (TASKS 395): what a page of it lists; an entry opens on first meeting (sim_unlocks)
   const CODEX_TABS = ['m', 'it', 'p'], CODEX_PAGE = 36;
   const codexList = (tab) => (tab === 'm' ? Object.keys(D.ENEMIES).map((k) => ({ k, name: D.ENEMIES[k].name })) : tab === 'it' ? Object.keys(D.BASES).map((k) => ({ k, name: D.BASES[k].name, icon: D.BASES[k].icon })) : D.GIFTS.filter((g) => g.power).map((g) => ({ k: g.id, name: g.name, icon: g.icon })));
-  Object.assign(D, { CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
+  Object.assign(D, { CODEX_TABS, CODEX_PAGE, codexList, ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, giftBlocked, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -74,6 +74,14 @@
     { const c = stage('archer'), h = c.h; h.base.agi = 1; h.cd.dash = 1e9; h.dashT = -9; SIMX.step(c.S, { keys: ['Space'], px: 960, py: 540 }); if (h.dashT >= 0) out.push('threshold: a second dash below AGI 20'); }
     { const c = stage('warrior'); c.h.base.str = 30; c.h.thTip = 0; SIMX.thresholdTip(c.S, c.R); if (!c.R.msg || !c.h.thTip) out.push('threshold: no word of it'); }
   }
+  function checkStale(out) {
+    const buy = (c, id) => { const sh = { x: 0, y: 0, gifts: [{ id, cost: 1 }] }; c.R.shrines.push(sh); c.S.meta.shards = 5; c.S.ev = []; SIMX.takeGift(c.S, c.R, sh, 0, 0, 0); return sh; };
+    { const c = stage('warrior'); c.h.powers = { rl_fifth: 1, rl_scroll: 1, rl_pyre: 1 }; const sh = buy(c, 'rl_maelstrom'); if (D.relicsOf(c.h) !== D.RELIC_MAX || sh.used || c.S.meta.shards !== 5 || !c.S.ev.some((e) => e.k === 'nope')) out.push(`stale: an altar opened early gave relic ${D.relicsOf(c.h)}`); }
+    { const c = stage('warrior'); c.h.powers = { whirl_pull: 1 }; const sh = buy(c, 'whirl_pull'); if (sh.used || c.S.meta.shards !== 5) out.push('stale: shards taken for a power already held'); }
+    { const c = stage('warrior'); c.h.powers = { rl_fifth: 1, rl_scroll: 1 }; const sh = buy(c, 'rl_pyre'); if (!sh.used || !D.hasPower(c.h, 'rl_pyre')) out.push('stale: the third relic is refused'); }
+    for (const [cl, id] of [['warrior', 'th_warrior'], ['mage', 'th_mage']]) { const S = spawn(0, {}), R = newRun(S, 'campaign', 94, { cls: cl }); delete R.hero.powers; const J = JSON.parse(JSON.stringify(R)); SIMX.migrateAbilities(J); if (!D.hasPower(J.hero, id)) out.push(`save: an old ${cl} gets no threshold power`); J.hero.powers.whirl_pull = 1; const n = JSON.stringify(J.hero.powers); SIMX.migrateAbilities(J); if (JSON.stringify(J.hero.powers) !== n) out.push(`save: migrating an old ${cl} twice changes the powers`); }
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 95, { cls: 'archer' }); SIMX.migrateAbilities(R); if (R.hero.powers) out.push('save: an archer gets a power from the threshold migration'); }
+  }
   function checkPr48(out) {
     const hit = (c, n) => { c.h.ifr = 0; c.h.dashT = -9; c.S.ev = []; for (let i = 0; i < 80 && !c.S.ev.some((e) => e.k === 'absorb'); i++) hurtHero(c.S, c.R, n, c.h.x + 9, c.h.y); };
     { const c = stage('mage'); c.h.powers = { f_shield_6a: 1 }; const e = foe(c.R, c.h, 40), hp = e.hp; c.h.shield = 1e4; c.h.shieldUntil = c.S.t + 9; hit(c, 5); if (!(e.hp < hp)) out.push('shield hit: a blow the shield took whole gets no answer'); }
@@ -122,7 +130,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out); checkUnlocks(out); checkCodex(out); checkForks(out); checkPr48(out); checkStale(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

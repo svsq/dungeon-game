@@ -419,10 +419,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.portal ? SIM.atGate(R) : dist(out) < 55) inp.keys.push('KeyE'); }
   function pray(S, R) {
     if (R.shrines[R.altar] && R.shrines[R.altar].used) return { keys: ['Escape'] };
-    const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), relic = sh && sh.gifts && P.gift >= 3 && sh.gifts[3] && S.meta.shards >= sh.gifts[3].cost ? 3 : -1, i = relic >= 0 ? relic : sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
+    const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), free = (g) => !D.giftBlocked(R.hero, D.GIFTS.find((q) => q.id === g.id)), relic = sh && sh.gifts && P.gift >= 3 && sh.gifts[3] && free(sh.gifts[3]) && S.meta.shards >= sh.gifts[3].cost ? 3 : -1, i = relic >= 0 ? relic : sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && free(g) && S.meta.shards >= g.cost) : -1;
     if (sh && sh.gifts && !sh.seen) { sh.seen = 1; cur.altars.push({ f: R.floor, bank: S.meta.shards, c2: sh.gifts[1].cost }); }
     if (sh && sh.gifts && !sh.used && !sh.rolls && P.gift >= 3 && !sh.gifts.some((g) => D.GIFTS.find((q) => q.id === g.id).power) && S.meta.shards >= D.giftCost(3, R.floor) + D.rerollCost(0, R.floor)) return click(D.UI.altar(sh.gifts.length).r.find((q) => q.id === 'reroll'));
-    if (i >= 0) { cur.gifts++; return click(D.UI.altar(sh.gifts.length).r[i]); } return { keys: ['Escape'] };
+    if (i >= 0) { cur.gifts++; return click(D.UI.altar(sh.gifts.length).r[i]); } if (sh) sh.skip = 1; return { keys: ['Escape'] };
   }
   const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), maxHp: SIM.stats(h, S.meta).maxHp, kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, by: fl.by, dmgHp: fl.dmgHp, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, bt: fl.bt, pw: fl.pw, blows: fl.blows }; };
   const freshFl = () => ({ dmg: {}, by: {}, dmgHp: 0, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0, blows: {} });
@@ -501,7 +501,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const chest = first(R.chests.filter((c) => !c.open && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
     const locked = R.keys > 0 ? first((m.doors || []).filter((d) => { const L = SIM.doorLock(m, d); return L && L.kind === 'key'; })) : null;
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
-    const shrine = first(R.shrines.filter((s) => !s.used && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
+    const shrine = first(R.shrines.filter((s) => !s.used && !s.skip && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
     const circle = P.haz ? first((m.circles || []).filter((q) => q.bless && !q.used && !R.en.some((e) => e.deadT < 0 && e.room === q.r) && reach(q))) : null;
     const shop = m.shop && R.shopped !== R.floor && (h.bag.some(gear) || h.gold >= 60) && !given.has(m.shop) ? m.shop : null;
     const aim = (k, o) => { goal = o ? [k, Math.floor(o.x / T), Math.floor(o.y / T)] : [k]; return true; };

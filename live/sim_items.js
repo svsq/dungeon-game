@@ -27,7 +27,8 @@
   function migrateAbilities(R) { const h = R && R.hero; if (!h || !h.ab) return; const C = D.clsOf(h), own = new Set(C.abs.map((a) => a.id));
     for (const id of Object.keys(h.ab)) if (!own.has(id)) { h.sp = (h.sp || 0) + Math.max(0, h.ab[id] - 1); delete h.ab[id]; }
     for (const a of C.abs) if (a.unlock <= h.lvl && !h.ab[a.id]) h.ab[a.id] = 1;
-    if (C.res === 'rage') h.mp = Math.min(h.mp || 0, D.RAGE.max); }
+    if (C.res === 'rage') h.mp = Math.min(h.mp || 0, D.RAGE.max);
+    const th = D.STAT_POWER[C.id]; if (th && !(h.powers || {})[th]) (h.powers = h.powers || {})[th] = 1; }
   function rebalanceRun(R) {
     if (R) SIMX.migrateTown(R);
     migrateAbilities(R);

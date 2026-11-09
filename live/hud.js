@@ -732,7 +732,7 @@
     lab('al_t', TXT('hud.altar'), P.x + 40, P.y + 50, { size: 40, col: '#9cc8ff' });
     const bs = String(bank); lab('al_b', bs, P.x + P.w - 40, P.y + 50, { size: 30, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 40 - lw('al_b', bs, { size: 30 }) - 44, P.y + 32, 36);
     lab('al_s', sh.used ? TXT('hud.altar.2') : TXT('hud.altar.3'), P.x + 40, P.y + 104, { size: 22, col: C.dim });
-    sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = !sh.used && bank >= o.cost, hv = S.hover === b.id;
+    sh.gifts.forEach((o, i) => { const b = U.r[i], Gf = D.GIFTS.find((q) => q.id === o.id), can = !sh.used && bank >= o.cost && !D.giftBlocked(R.hero, Gf), hv = S.hover === b.id;
       panel('al_g' + i, b.x, b.y, b.w, b.h, { r: 8, rim: hv && can ? C.rimHi : Gf.relic || Gf.evo ? [0.72, 0.56, 0.24] : can ? [0.32, 0.42, 0.62] : C.rim, c0: hv && can ? [0.14, 0.14, 0.2] : C.panel0 });
       if (can) { G.blend('add'); L.glow(b.x + b.w / 2, b.y + 110, 90, [0.35, 0.6, 1], hv ? 0.35 : 0.15); G.blend(); }
       icon(Gf.icon, b.x + b.w / 2 - 56, b.y + 52, 112, can ? undefined : { alpha: 0.45 });

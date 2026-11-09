@@ -350,6 +350,7 @@
   function takeGift(S, R, sh, i, x, y) {
     if (sh.used) return;
     const o = sh.gifts[i], G = D.GIFTS.find((q) => q.id === o.id), h = R.hero;
+    { const no = D.giftBlocked(h, G); if (no) { ev(S, { k: 'nope', x, y, s: no === 'relics' ? TXT('sim_town.takeGift.relics') : TXT('sim_town.takeGift.held') }); return; } }
     if (S.meta.shards < o.cost) { ev(S, { k: 'nope', x, y, s: TXT('sim_town.takeGift.s') }); return; }
     S.meta.shards -= o.cost; sh.used = 1; sh.took = o.id;
     if (G.power) (h.powers = h.powers || {})[o.id] = 1; else if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
