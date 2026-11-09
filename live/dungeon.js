@@ -328,9 +328,14 @@
     for (const r of map.rooms) if (r.type === 'secret' && inR(r)) return r.id;
     for (const r of map.rooms) if (inR(r)) return r.id; return -1; };
 
-  root.DUNGEON = { genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt };
+  const fogHash = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
+  const fogNoise = (x, y) => { const gx = x / 3, gy = y / 3, x0 = Math.floor(gx), y0 = Math.floor(gy), fx0 = gx - x0, fy0 = gy - y0, sx0 = fx0 * fx0 * (3 - 2 * fx0), sy0 = fy0 * fy0 * (3 - 2 * fy0);
+    return (fogHash(x0, y0) * (1 - sx0) + fogHash(x0 + 1, y0) * sx0) * (1 - sy0) + (fogHash(x0, y0 + 1) * (1 - sx0) + fogHash(x0 + 1, y0 + 1) * sx0) * sy0; };
+  const inFogOval = (x, y, fx, fy) => ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 <= (0.72 + 0.28 * fogNoise(x, y) + (fogHash(x + 31, y + 17) - 0.5) * 0.2) ** 2;
+  const fogReach = (x, y) => 1.6 + 1.6 * fogNoise(x, y) + (fogHash(x + 7, y + 91) - 0.5) * 1.4;
+  root.DUNGEON = { fogHash, fogNoise, inFogOval, fogReach, genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
-  Object.assign(DGX, { D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
+  Object.assign(DGX, { fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
   if (typeof module !== 'undefined') { for (const f of require('./modules.js').parts.dungeon) require('./' + f); module.exports = root.DUNGEON; }
 })(typeof window !== 'undefined' ? window : globalThis);

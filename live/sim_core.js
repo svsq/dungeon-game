@@ -203,11 +203,9 @@
     // (its rim varies cell by cell, TASKS 482: a walk along a straight way swept the ellipse's edge into a straight line)
     // (a smooth noise over 3 cells, TASKS 1037: hashed cell by cell it left single cells revealed out in the fog, crumbs of lava)
     // (and ±0.1 cell by cell on the rim, TASKS 1048, 1056: smooth alone, the edge ran straight along the lava again)
-    const hh = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
-    const h01 = (x, y) => { const gx = x / 3, gy = y / 3, x0 = Math.floor(gx), y0 = Math.floor(gy), fx0 = gx - x0, fy0 = gy - y0, sx0 = fx0 * fx0 * (3 - 2 * fx0), sy0 = fy0 * fy0 * (3 - 2 * fy0);
-      return (hh(x0, y0) * (1 - sx0) + hh(x0 + 1, y0) * sx0) * (1 - sy0) + (hh(x0, y0 + 1) * (1 - sx0) + hh(x0 + 1, y0 + 1) * sx0) * sy0; };
+    const { fogHash: hh, fogNoise: h01 } = DG;
     const rooms = new Set(), oval = !!m.cliff;
-    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > (0.72 + 0.28 * h01(x, y) + (hh(x + 31, y + 17) - 0.5) * 0.2) ** 2) || !sight(x, y)) continue;
+    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && !DG.inFogOval(x, y, fx, fy)) || !sight(x, y)) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
       R.seen[y * W + x] = 1; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v);
       const ri = DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE); if (ri >= 0) rooms.add(ri); }
@@ -215,7 +213,7 @@
     // (TASKS 453: the whole box was a rectangle of lava cut out of the dark)
     // (by distance, with a reach of 1.6–3.2 cells that varies cell by cell, TASKS 482: within a 5×5 square the edge ran ruler-straight
     // along the floor's own rows for 6–18 cells)
-    const nearFloor = (x, y, r) => { const rr = 1.6 + 1.6 * h01(x, y) + (hh(x + 7, y + 91) - 0.5) * 1.4; for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const X = x + u, Y = y + v;
+    const nearFloor = (x, y, r) => { const rr = DG.fogReach(x, y); for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const X = x + u, Y = y + v;
       if (u * u + v * v <= rr * rr && X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
     for (const ri of rooms) { if (R.rseen[ri]) continue; R.rseen[ri] = 1; const r = m.rooms[ri];
       for (const [bx, by, bw, bh] of DG.rectsOf(r)) for (let y = by - 2; y <= by + bh + 1; y++) for (let x = bx - 2; x <= bx + bw + 1; x++) { if (!inMap(x, y)) continue;
