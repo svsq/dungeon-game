@@ -12,8 +12,8 @@ from scipy import ndimage as nd
 INK = (18, 12, 14)
 R = 5
 STRAY = {
-    'imp__body': [(152, 153, 105, 106), (156, 159, 253, 258), (122, 126, 228, 232), (155, 169, 89, 102), (237, 241, 255, 265)],
-    'imp__farmR': [(188, 192, 233, 237)],
+    'imp__body': [(152, 153, 125, 126), (156, 159, 273, 278), (122, 126, 248, 252), (155, 169, 109, 122), (237, 241, 275, 285)],
+    'imp__farmR': [(188, 192, 253, 257)],
 }
 
 
@@ -56,6 +56,8 @@ def ink(a, r, others):
     ring = nd.binary_dilation(hull(solid, r), disk(r))
     ring = nd.binary_closing(np.pad(ring, 8), disk(3))[8:-8, 8:-8] & ~solid & ~others
     a[ring, :3] = INK; a[ring, 3] = 255
+    lab, _ = nd.label(a[..., 3] > 0, np.ones((3, 3)))
+    a[np.isin(lab, np.flatnonzero(np.bincount(lab.ravel()) < 100))] = 0
     return a
 
 

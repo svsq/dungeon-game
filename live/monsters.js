@@ -559,8 +559,8 @@
   // the imp (TASKS 407): a leap crouches, springs up with the legs tucked and the arms flung up and back, leaning into the flight,
   // and lands in a crouch; the spark is thrown overhand with the near arm, the claw rakes with it on a short swing
   // (back: the throwing hand winds back behind the head before it comes over, TASKS 489: 0.6 short of the release it never passed it)
-  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.2, recover: 0.24, over: 0.6, top: 0.02, bendUp: -0.7, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
-  const IMP_CLAW = { raise: -1.5, chopT: 0.12, recover: 0.2, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.32, recover: 0.24, over: 0.6, top: 0.02, bendUp: -0.7, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_CLAW = { raise: -1.3, chopT: 0.16, recover: 0.27, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   MON.impArc = (e, E, GT) => { if (e.st !== 'leap') return 0; const L0 = E.leap, fl = Math.max(0, Math.min(1, (GT - e.t0 - L0.crouch) / e.ld)), d = Math.hypot(e.ltx - e.lx, e.lty - e.ly);
     const q = fl * fl * (3 - 2 * fl); return 4 * (18 + L0.h * d) * q * (1 - q); };
   function impPose(e, E, GT, face, H, base) {
@@ -570,12 +570,12 @@
     // thrown back and straight, tucks them up under it, reaches them forward and down to the ground, and the landing sinks it deep
     // at once and lets it up slower
     if (e.st === 'leap') { const L0 = E.leap, fl = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), tl = u - L0.crouch - e.ld;
-      const cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), 0.3 * SS(0.88, 1, fl)) : (0.3 + 1.0 * SS(0, 0.09, tl)) * (1 - SS(0.08, L0.land, tl));   // (the landing's crouch on the ground, deep, TASKS 1044: it began in the air and sank 3 px)
+      const cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), 0.3 * SS(0.88, 1, fl)) : (0.3 + 1.0 * SS(0, 0.14, tl)) * (1 - SS(0.08, L0.land, tl));   // (the landing's crouch on the ground, deep, TASKS 1044: it began in the air and sank 3 px)
       const air = fl > 0 && fl < 1 ? SS(0, 0.25, fl) * (1 - SS(0.6, 1, fl)) : 0, tuck = 0.08 * RG.h * air * (1 - 0.45 * SS(0.5, 0.9, fl)), z = MON.impArc(e, E, GT);
       const push = fl > 0 && fl < 1 ? SS(0, 0.22, fl) * (1 - SS(0.22, 0.45, fl)) : 0, up = fl > 0 && fl < 1 ? SS(0.12, 0.32, fl) * (1 - SS(0.58, 0.8, fl)) : 0, reach = fl > 0 && fl < 1 ? SS(0.55, 0.78, fl) * (1 - SS(0.8, 1, fl)) : 0, fwd = Math.cos(e.aimA) * face >= 0 ? 1 : -1;
       base.foot = (side, t) => { const k = side === 'L' ? 1 : 0.8; t.tx += fwd * RG.h * (-0.1 * push + 0.05 * up + 0.13 * reach) * k; t.ty += RG.h * (0.05 * push - 0.16 * up + 0.03 * reach) * k; };
       base.y -= z + tuck * H / RG.h; base.crouch += tuck + 0.14 * RG.h * cr; base.lean = (base.lean || 0) + face * (0.35 * air * (1 - 1.5 * SS(0.2, 0.85, fl)) * (Math.cos(e.aimA) * face >= 0 ? 1 : -0.6) - 0.12 * cr);   // (a spring back leans back)
-      base.arm = (side, b) => { const r = lerp(lerp(b, b + 0.4, cr), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), air), k = Math.max(cr, air); return [r, r + lerp(0.18 - 0.4 * b, 0.3 + 0.4 * air, k)]; }; return; }
+      base.arm = (side, b) => { const armAir = SS(0, 0.42, fl) * (1 - SS(0.35, 1, fl)), r = lerp(lerp(b, b + 0.22, Math.min(1, cr)), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), armAir), k = Math.min(1, Math.max(cr, armAir)); return [r, r + lerp(0.18, 0.3 + 0.4 * armAir, k)]; }; return; }
     if (e.st === 'wind' || e.st === 'strike') { const E2 = e.claw ? E : { wind: E.spark.wind }, CO = e.claw ? IMP_CLAW : IMP_THROW, pose = (b) => chop(e, E2, GT, face, H, b, CO), p0 = pose(0);
       if (p0) { base.crouch += 12 * p0.k; base.arm = (side, b) => { if (side === 'R') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } return [b + 0.5 * p0.k, b + 0.2 + 0.3 * p0.k]; }; } }
   }
