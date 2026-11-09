@@ -212,7 +212,7 @@
     for (let j = 0; j < CH; j++) for (let i = 0; i < CW; i++) { const v = +has(cx0 + i, cy0 + j); cv0[j * CW + i] = v; cf[j * CW + i] = v && vec ? vec(cx0 + i, cy0 + j) : null; }
     for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { const c = (Math.floor((ay0 + y) / K) - cy0) * CW + Math.floor((ax0 + x) / K) - cx0, f = cf[c];
       ch[0][y * AW + x] = cv0[c]; if (f) { ch[1][y * AW + x] = f[0]; ch[2][y * AW + x] = f[1]; } }
-    for (const a of [ch[0]]) for (let pass = 0; pass < passes; pass++) {
+    for (const a of cv0.some((v) => v) ? [ch[0]] : []) for (let pass = 0; pass < passes; pass++) {
       for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * AW + Math.min(AW - 1, Math.max(0, x + d))]; b[y * AW + x] = v / 5; }
       for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(AH - 1, Math.max(0, y + d)) * AW + x]; a[y * AW + x] = v / 5; } }
     const cv = M.cv || (M.cv = G.canvas()); if (!box) { cv.width = W; cv.height = H; } const g = cv.getContext('2d'), im = box ? M.im : (M.im = g.createImageData(W, H));
@@ -257,7 +257,10 @@
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
   const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.Q.cell(m, x, y) === 3, null, 8);
   // how near the lava a cell lies, as HERO.lavaNear weighs it (TASKS 1035): the lit pass holds the lava's light down within its reach only
-  const lavaNearTex = (m) => maskTex(m, 'lavanear', (x, y) => { let d = 9; for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.Q.cell(m, x + i, y + j) === 3) d = Math.min(d, Math.hypot(i, j)); return SS(5.5, 2, d); }, null, 2, 6);
+  // each lava cell stamps its reach: asking every cell about its 169 neighbours was most of a magma floor's first frame (TASKS 1374)
+  const lavaNearTex = (m) => { let near = null; return maskTex(m, 'lavanear', (x, y) => { if (!near) { near = new Float64Array(m.W * m.H).fill(9);
+    for (let k = 0; k < m.cells.length; k++) if (m.cells[k] === 3) { const cx = k % m.W, cy = Math.floor(k / m.W); for (let j = Math.max(-6, -cy); j <= Math.min(6, m.H - 1 - cy); j++) for (let i = Math.max(-6, -cx); i <= Math.min(6, m.W - 1 - cx); i++) { const n = (cy + j) * m.W + cx + i, d = Math.hypot(i, j); if (d < near[n]) near[n] = d; } } }
+    return SS(5.5, 2, near[y * m.W + x]); }, null, 2, 6); };
   // a plateau's ground, crossings included: where the columns of its edge may stand (TASKS 418)
   // the chasm under a chain bridge (TASKS 429) is the dark: walked on, never ground
   const CHUND = new WeakMap(), chasmUnder = (m) => { let u = CHUND.get(m); if (!u) CHUND.set(m, u = new Set(m.chasmUnder || [])); return u; };
