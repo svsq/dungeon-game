@@ -192,8 +192,9 @@
   function maskTex(m, name, has, vec, passes = 2) {
     const M = MASKS[name] || (MASKS[name] = { key: '', rec: null, cv: null }), key = mapKey(m); if (M.key === key) return M.rec; M.key = key;
     const K = 4, W = m.W * K, H = m.H * K, ch = [0, 1, 2].map(() => new Float32Array(W * H)), b = new Float32Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const cx = Math.floor(x / K), cy = Math.floor(y / K), v = +has(cx, cy), f = v && vec ? vec(cx, cy) : null;
-      ch[0][y * W + x] = v; if (f) { ch[1][y * W + x] = f[0]; ch[2][y * W + x] = f[1]; } }
+    // (asked once a cell, not a texel, TASKS 1374: 16 calls of a predicate that may scan 13×13 cells, the entry's first frame)
+    for (let cy = 0; cy < m.H; cy++) for (let cx = 0; cx < m.W; cx++) { const v = +has(cx, cy), f = v && vec ? vec(cx, cy) : null;
+      for (let y = cy * K; y < (cy + 1) * K; y++) for (let x = cx * K; x < (cx + 1) * K; x++) { ch[0][y * W + x] = v; if (f) { ch[1][y * W + x] = f[0]; ch[2][y * W + x] = f[1]; } } }
     for (const a of [ch[0]]) for (let pass = 0; pass < passes; pass++) {
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * W + Math.min(W - 1, Math.max(0, x + d))]; b[y * W + x] = v / 5; }
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(H - 1, Math.max(0, y + d)) * W + x]; a[y * W + x] = v / 5; } }
