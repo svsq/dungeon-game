@@ -1371,7 +1371,7 @@
     states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });
-      S.talk = { role: 'keeper', i: 0, pages: [TXT('QA.talk.pages', { thanks: D.QUEST_SAY.keeper.thanks, p2: SIM.rwLine(rw) })], p: 0, act: null }; S.screen = 'talk'; })]);
+      S.talk = { role: 'keeper', i: 0, pages: [TXT('QA.talk.pages', { thanks: D.QUEST_SAY.keeper.thanks[0], p2: SIM.rwLine(rw) })], p: 0, act: null }; S.screen = 'talk'; })]);
     // the quest journal (TASKS 1023): every quest a run can hold (three side, the Keeper's six steps) with the longest words, a turned-in
     // one chosen with its longest reward; empty in the town
     states.push(['journal', keeperS((S, R) => { R.offers = []; const mk = (key, f, from, o) => Object.assign({ id: 900 + R.quests.length, key, f, need: D.QUESTS[key].need(f), n: 0, st: 'taken', from, rw: D.questReward(D.QUESTS[key].rw, f) }, o);

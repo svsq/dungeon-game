@@ -41,7 +41,8 @@
   // whether the wandering merchant (TASKS 1010) is on floor f of a run through the town: fixed by the run's seed
   const wanderAt = (runSeed, f) => f >= SHOP.wander.from && mix32((Math.imul(runSeed >>> 0, 2654435761) + f * 40503) >>> 0) / 4294967296 < SHOP.wander.chance;
   // waystones (TASKS 1009) in a run through the town: every fourth floor of the campaign, every second of the descent past it
-  const wayFloor = (f) => f > 0 && (f <= RUNS.campaign.floors ? f % 4 === 0 : (f - RUNS.campaign.floors) % 2 === 0);
+  // off by the player's call (TASKS 1359): the arena portals are enough for now
+  const WAYSTONES = false, wayFloor = (f) => WAYSTONES && f > 0 && (f <= RUNS.campaign.floors ? f % 4 === 0 : (f - RUNS.campaign.floors) % 2 === 0);
 
   // two bags, each shuffled per block of pool-length draws and never the same twice across a block's seam (TASKS 386): the boss pairs
   // (1, 3, …) draw their boss, each of the five once a round, and take its biome (a single bag repeated the spider on the 20th and the

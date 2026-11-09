@@ -2343,6 +2343,7 @@
       if (m.cells[k] !== 1 || m.walk[k] < 0 || Math.abs(m.walk[k] - m.walk[s0]) > 12) out.push(`way ${sd}/${f}: the waystone is off the floor or far from the spawn`);
       if (m.up && Math.max(Math.abs(m.up.tx - m.way.tx), Math.abs(m.up.ty - m.way.ty)) < 3) out.push(`way ${sd}/${f}: the waystone stands on the stairs up`);
       if (f === 4 && DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode, runSeed: sd }).way) out.push('way: a waystone in a run not through the town'); }
+    if (!D.wayFloor(4)) return out;
     const S = spawn(0, {}); S.run = newRun(S, 'campaign', 77, { town: 1 }); S.screen = 'play'; const R = S.run, h = R.hero, at = (p, dy = 0) => { h.x = p.x; h.y = p.y + dy; };
     for (let f = 1; f <= 4; f++) enterFloor(S, R, f);
     for (const e of R.en) { e.st = 'idle'; e.x += 5000; e.hx = e.x; }
@@ -2566,7 +2567,7 @@
       for (let i = 0; i < 12 && S.screen === 'talk' && sq.st !== 'turned'; i++) step(S, { keys: ['KeyE'] });
       if (sq.st !== 'turned' || S.meta.shards <= sh) out.push('quest story: the step is not turned in for shards');
       // the thanks, then the next step's offer in the same talk
-      const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !S.talk.pages[0].startsWith(D.QUEST_SAY.keeper.thanks)) out.push('quest story: no thanks and next offer after the turn-in');
+      const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !D.QUEST_SAY.keeper.thanks.some((v) => S.talk.pages[0].startsWith(v))) out.push('quest story: no thanks and next offer after the turn-in');
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
     // TASKS 1026: a boss slain deals a batch of offers more, to townsmen with none waiting; T reads the scroll on a floor
@@ -2666,6 +2667,11 @@
       const P = JSON.parse(JSON.stringify(persist(G))); delete P.run.map.town.yardSolid; delete P.run.cart; const O = spawn(1, P), Q = O.saved; O.run = Q; O.saved = null; O.screen = 'play'; let threw = null;
       try { for (let i = 0; i < 30; i++) step(O, { keys: [] }); } catch (e) { threw = e; }
       if (threw) out.push(`town: an old save breaks on load (${threw.message})`); else if (!O.run.map.town.yardSolid || !O.run.folk.some((f) => f.role === 'mason')) out.push('town: an old save keeps the old town'); }
+    // TASKS 1425, 1426: a hero on the rails is pushed once the wait is over and the cart keeps rolling; stacks dropped on a stack join it
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, h = Q.hero; step(G, { keys: [] }); Object.assign(Q.cart, { s: 200, st: 'down', load: 3 }); let s0 = Q.cart.s;
+      for (let i = 0; i < 2400; i++) { const [x, y] = [h.x, h.y]; step(G, { keys: [] }); if (i < 500) { const T = Q.map.town, c = (k) => [(k % Q.map.W + 0.5) * TILE, (Math.floor(k / Q.map.W) + 0.5) * TILE]; let d = Q.cart.s, p = c(T.rails[0]); for (let j = 1; j < T.rails.length; j++) { const A = c(T.rails[j - 1]), B = c(T.rails[j]), l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d <= l) { p = [A[0] + (B[0] - A[0]) * d / l, A[1] + (B[1] - A[1]) * d / l]; break; } d -= l; p = B; } h.x = p[0] + 10; h.y = p[1]; } else { h.x = x; h.y = y; } if (Q.map.cells[Math.floor(h.y / TILE) * Q.map.W + Math.floor(h.x / TILE)] === 0) { out.push('town cart: pushed the hero into a wall'); break; } }
+      if (Q.cart.st === 'down' && Q.cart.s - s0 < 150) out.push(`town cart: rolled only ${(Q.cart.s - s0).toFixed(0)} px past a hero on the rails`);
+      const T = SIMX.stashOf(G), cap = D.CONSUMABLES.potion ? 'potion' : Object.keys(D.CONSUMABLES)[0], st = D.CONSUMABLES[cap].stack; T.items = Array(D.STASH.cells).fill(null); T.items[0] = { b: cap, n: 1, id: 900 }; h.bag[0] = { b: cap, n: 1, id: 901 }; SIMX.stashPut(G, Q, 0, 0); if (T.items[0].n !== 2 || h.bag[0]) out.push('stash: a stack dropped on a stack did not join it'); T.items = T.items.map((q, i) => ({ b: cap, n: st, id: 902 + i })); T.items[3].n = st - 1; h.bag[1] = { b: cap, n: 3, id: 903 }; G.ev = []; SIMX.stashPut(G, Q, 1); if (h.bag[1].n !== 2 || G.ev.some((e) => e.k === 'nope')) out.push('stash: a partial move reads as a full chest'); }
     // TASKS 1151: the mason empties the cart stone by stone, the rope hauls it into the adit, and it comes back full
     { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, seen = new Set(), loads = new Set(); Q.hero.x = Q.map.town.svc.portal.x; Q.hero.y = Q.map.town.svc.portal.y;
       step(G, { keys: [] }); let ds = 0; for (let i = 0; i < 9000 && G.screen === 'play'; i++) { const s0 = Q.cart.s; step(G, { keys: [] }); ds = Math.max(ds, Math.abs(Q.cart.s - s0)); seen.add(Q.cart.st); loads.add(Q.cart.load); }
