@@ -226,7 +226,7 @@
       if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : z.k === 'surge' ? 'surge' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420 || (z.k === 'surge' && D.hazIn(z, h.x, h.y))) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : z.k === 'surge' ? 0.2 : 0.15)); }
       if (c >= H.burst) return;
       if (h.hp > 0 && D.hazIn(z, h.x, h.y) && !dashing && (h.haz || (h.haz = {}))[tag] !== n) { h.haz[tag] = n;
-        SIMX.hurtHero(S, R, SIMX.heroSt(S).maxHp * H.hp, z.k === 'surge' ? h.x : z.x, (z.k === 'surge' ? h.y : z.y) - 10, 'spike', z.k === 'vent' ? 'vent' : z.k === 'surge' ? 'surge' : 'rock');
+        SIMX.hurtHero(S, R, SIMX.heroSt(S).maxHp * H.hp * (z.gate ? H.gate.hp : 1), z.k === 'surge' ? h.x : z.x, (z.k === 'surge' ? h.y : z.y) - 10, 'spike', z.k === 'vent' ? 'vent' : z.k === 'surge' ? 'surge' : 'rock');
         if (H.burn && h.hp > 0) { if (h.burn <= t) { h.burnT = t - 0.5; ev(S, { k: 'ignite', x: h.x, y: h.y }); } h.burn = Math.max(h.burn, t + H.burn); } }
       for (const e of R.en) if (e.deadT < 0 && !ENEMIES[e.type].ghost && !D.BOSSES[e.type] && D.hazIn(z, e.x, e.y) && (e.haz || (e.haz = {}))[tag] !== n) { e.haz[tag] = n;
         SIMX.hitEnemy(S, R, e, Math.round(H.mon * (1 + 0.2 * (dep(R) - 1))), false, z.x, z.y, H.kb, H.burn ? 'fire' : undefined); } });

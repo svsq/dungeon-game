@@ -971,6 +971,13 @@
       const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
       for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y)) && !altC.some((c) => c.cells.some((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) <= 4))) vents.push([x, y]);
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
+      // a gate of vents across the walk, bursting together on a short visible clock: pass in the window between bursts, not round a ring
+      // (TASKS 1645: every hazard was solved by one move, stepping round a circle); it takes vents off the floor's count, so the rest thin out
+      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * 0.35), Math.floor(way.length * 0.65));
+        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = [-2, 0, 2].map((j) => k + side * j * 1), x0 = k % W, y0 = Math.floor(k / W);
+          if (!row.every((c) => cells[c] === 1 && clear(c % W, Math.floor(c / W)) && !under.has(c) && !used.has(key(c % W, Math.floor(c / W))))) continue;
+          const per = G.per, ph = Z(); for (const c of row) { const x = c % W, y = Math.floor(c / W), z = { k: 'vent', gate: 1, x: wx(x), y: wy(y), per, ph }; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
+          break; } }
       lay('vent', shuf(vents).map((v) => [v, byChest(...v) ? 0 : 1]).sort((a, b) => a[1] - b[1]).map(([v]) => v), true);
       // (a plain terrace floor whose surge the walk to the stairs misses is laid again: its surge is the floor's question)
       if (terr && !MIX && strict && !surge.cells.some((k) => onWay.has(k))) return null;
