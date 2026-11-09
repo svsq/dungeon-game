@@ -3,7 +3,7 @@
 (function () {
   const SCX = window.SCX, {
     ARC_HALF, ARC_MID, BAKE, BLOOD, D, DRIP_FALL, EN_TEX, GLOW_COL, HERO_H, L, PILLAR_T, PIX, RIM, SC, SS, STAND, SWING, SZ, TAU, TILE,
-    TOWN_LIGHT, breathFx, crustTex, dripAge, flameAt, glowBeat, glowOf, impSpark, modCol, rnd, surgeBox, surgeTex, swimFx, swimOf,
+    TOWN_LIGHT, breathFx, chestOpenD, crustTex, dripAge, flameAt, glowBeat, glowOf, impSpark, modCol, rnd, surgeBox, surgeTex, swimFx, swimOf,
     swingPose, torchCol } = SCX;
   // a beat that quickens over a warning: its phase is the integral of the rate from the warning's start. The clock times a rising
   // rate raced at (clock × rate of change), thousands of rad/s deep into a run, and the colossus's warnings strobed (TASKS 1362)
@@ -391,7 +391,11 @@
       if (e.k === 'slam' && a < 4.6) L.cracks(ex, ey, e.big ? 130 : 70, a, e.id || 1, 1);
       if (e.k === 'lvl' && a < 1.6) { const q = a / 1.6; L.ring(ex, ey, 30 + 80 * q, 14 + 36 * q, [1, 0.85, 0.4], 1 - q, 0.1); for (let j = 0; j < 14; j++) { const an = j / 14 * 6.28;
           L.star(ex + Math.cos(an) * (20 + 30 * q), ey - 20 - 90 * q * (0.5 + rnd(j, 2)), 9, [1, 0.85, 0.4], 1 - q); } }
-      if ((e.k === 'pickup' || e.k === 'gold' || e.k === 'shard' || e.k === 'chest') && a < 0.5) { const q = a / 0.5, col = e.k === 'shard' ? [0.4, 0.7, 1] : e.k === 'pickup' ? D.RARITY[e.rar || 0].col : [1, 0.85, 0.3];
+      if (e.k === 'chest' && a < 1.1) { const rank = e.boss ? 3 : (e.tier || 1) - 1, D0 = chestOpenD(e), col = [[1, 0.84, 0.55], [0.75, 0.88, 1], [1, 0.78, 0.3], [1, 0.3, 0.2]][rank], burst = a - D0 * 0.85, n = [5, 7, 10, 18][rank], reach = [28, 34, 44, 70][rank];
+        if (burst >= -0.04 && burst < 0.16) { const fl = 1 - Math.abs(burst - 0.02) / 0.14; G.blend('add'); L.glow(ex, ey - 22, [30, 36, 46, 70][rank], col, Math.max(0, fl) * [0.42, 0.45, 0.55, 0.7][rank], 2.8); G.blend(); }
+        if (burst >= 0 && burst < 0.6) { const q = burst / 0.6; for (let j = 0; j < n; j++) { const an = -1.57 + (rnd(e.t, j) - 0.5) * (rank === 3 ? 2.4 : 1.6), d = reach * q * (0.6 + 0.4 * rnd(e.t, j + 3)); L.star(ex + Math.cos(an) * d, ey - 22 + Math.sin(an) * d * 1.2, 7 + 5 * rank * (1 - q), j % 3 === 0 && rank === 3 ? [1, 0.82, 0.35] : col, (1 - q) * 0.9); } L.star(ex - 12, ey - 30, 14 + 7 * rank, [1, 0.97, 0.85], 1 - q); }
+        if (rank === 3 && burst >= 0 && burst < 0.5) { const q = burst / 0.5; L.ring(ex, ey - 4, 26 + 70 * q, 12 + 36 * q, col, 0.8 * (1 - q), 0.14); } }
+      if ((e.k === 'pickup' || e.k === 'gold' || e.k === 'shard') && a < 0.5) { const q = a / 0.5, col = e.k === 'shard' ? [0.4, 0.7, 1] : e.k === 'pickup' ? D.RARITY[e.rar || 0].col : [1, 0.85, 0.3];
         for (let j = 0; j < 6; j++) { const an = j / 6 * 6.28 + e.t; L.star(ex + Math.cos(an) * 26 * q, ey - 10 + Math.sin(an) * 18 * q - 20 * q, 9, col, 1 - q); } }
       if (e.k === 'trapfuse' && a < e.d) { const q = a / e.d; for (let j = 0; j < 5; j++) L.star(ex + (rnd(e.t, j) - 0.5) * 30, ey - 26 - 34 * ((q + rnd(e.t, j + 9)) % 1), 7 + 6 * q, [1, 0.75, 0.3], 0.9); L.ring(ex, ey, D.CHEST_TRAP.r * q, D.CHEST_TRAP.r * 0.6 * q, [0.9, 0.3, 0.15], 0.35, 0.06); }
       if (e.k === 'trapbang' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey, e.r * (0.4 + 0.6 * q), e.r * 0.6 * (0.4 + 0.6 * q), [1, 0.5, 0.2], 1 - q, 0.16); for (let j = 0; j < 14; j++) { const an = j / 14 * 6.28 + rnd(e.t, j), rr = e.r * q * (0.5 + 0.5 * rnd(e.t, j + 3)); L.puff(ex + Math.cos(an) * rr, ey + Math.sin(an) * rr * 0.6 - 12 - 26 * q, 6 + 8 * q, [0.35, 0.3, 0.26], 0.7 * (1 - q), e.t + j); } }

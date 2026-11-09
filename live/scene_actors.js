@@ -434,6 +434,16 @@
     mimicBody({ look, x, y: y + 4, a, face: 1, z: 0, tilt: 0, sq: 1, wag: 0, tongue: 0, eyes: a > 0.02, peek, u: { grade: look.grade }, id: 'mimic_shut', frame: (parts) => L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }) }); };
   const CHEST_BOSS = { tex: 'chest_boss', dx: 0.8 };
   const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
+  // the lid swings on each chest's own cut (TASKS 1676), hiding the swap to the open painting under the opening flash; rank is felt in the time it takes
+  const CHEST_OPEN = { wood: { D: 0.22, sq: 0.05, jit: 0.6 }, iron: { D: 0.28, sq: 0.07, jit: 0.8 }, gold: { D: 0.34, sq: 0.09, jit: 1 }, boss: { D: 0.55, sq: 0.14, jit: 2 } };
+  const chestRank = (c) => (c.boss ? 'boss' : c.tier === 2 ? 'iron' : c.tier === 3 ? 'gold' : 'wood');
+  const chestOpenT = (c) => CHEST_OPEN[chestRank(c)].D, chestOpenD = (e) => CHEST_OPEN[e.boss ? 'boss' : ['wood', 'iron', 'gold'][(e.tier || 1) - 1]].D;
+  const chestRecoil = (c, a) => { const P = CHEST_OPEN[chestRank(c)], b = a - P.D; return b >= 0 && b < 0.4 ? { dx: 0, rot: 0, sy: 1 - P.sq * Math.exp(-9 * b) * Math.cos(20 * b), fl: 0.25 * (1 - SS(0, 0.08, b)) } : null; };
+  function chestOpening(c, x, y, a) { const rank = chestRank(c), cl = chestLook(c), P = CHEST_OPEN[rank], n = cl.tex || 'chest', [W, H] = SZ(n), Ho = SZ(cl.tex ? n + '_open' : 'chest_open')[1], line = MIMIC_LINE[rank], [cw, ch] = MIMIC_CANVAS[rank], q = a / P.D, r = 1 - (1 - SS(0.12, 1, q)) ** 2.2, jx = Math.sin(a * 90) * P.jit * (1 - SS(0, 0.25, q)), X = x + jx, Y = y + 4, u = { grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }, lift = r * (Ho - H) * 0.9;
+    const piece = (name, m) => { const A = window.ASSETS[name], [X0, Y0, X1, Y1] = A.crop; L.sprite(name, 0, 0, { m, w: (X1 - X0) / cw * W, h: (Y1 - Y0) / ch * H, pivot: [-(X0 / cw - 0.5) * W, -(Y0 / ch - 1) * H], u }); };
+    const yAt = H * (1 - (line[0][1] + line[2][1]) / 2), gap = lift + 3 * r;
+    L.inked(() => { L.solid(X - W * 0.42, Y - yAt - gap, W * 0.84, gap + 4, [0.05, 0.03, 0.03]); piece('mimic_' + rank + '__base', M.t(X, Y)); piece('mimic_' + rank + '__lid', M.of(M.t(X, Y - lift), M.t(0, -H), M.s(1, 1 - 0.32 * r), M.t(0, H))); }, { r: 2, n: 8, col: MIMIC_INK, dy: 0 });
+    if (r > 0.08) { G.blend('add'); const col = rank === 'boss' ? [1, 0.25, 0.18] : rank === 'iron' ? [0.7, 0.85, 1] : [1, 0.75, 0.3]; L.glow(X, Y - yAt - gap * 0.6, W * 0.36, col, 0.38 * r, 3); G.blend(); } }
   // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
   // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
   const DEBRIS_T = 0.42;
@@ -468,6 +478,6 @@
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    chestLook, mimicShut, debris, DEBRIS_T, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_T, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

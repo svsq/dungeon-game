@@ -52,6 +52,8 @@
       ['chest_tiers', play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); h.y += 20; const tl = TILE * 2.2;
         [[1, 0], [2, 0], [3, 0], [1, 1], [2, 1], [3, 1]].forEach(([tier, op], i) => R.chests.push({ x: h.x + (i % 3 - 1) * tl, y: h.y - (op ? 40 : 110), tier, open: op, openT: S.t - 2 }));
         R.chests.push({ x: h.x + 2 * tl, y: h.y - 60, tier: 3, boss: 1, sealed: 1, open: 0 }); R.chests.push({ x: h.x - 2 * tl, y: h.y - 60, tier: 3, boss: 1, open: 1, openT: S.t - 2 }); })],
+      // the lid coming up, the recoil and the glint of every rank (TASKS 1676); D = 0.22 / 0.28 / 0.34 / 0.55
+      ...[[1, 0], [2, 0], [3, 0], [3, 1]].flatMap(([tier, boss]) => [['a', 0.08], ['b', 0.5], ['c', 0.92], ['d', 1.15]].map(([p, f]) => ['chest_open_' + (boss ? 'boss' : 't' + tier) + '_' + p, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); const D = boss ? 0.55 : [0.22, 0.28, 0.34][tier - 1], a = D * f, c = { x: h.x + 70, y: h.y - 10, tier, boss, open: 1, openT: S.t - a, loot: [] }; R.chests.push(c); S.ev.push({ k: 'chest', t: S.t - a, x: c.x, y: c.y, tier, boss }); })])),
       ['prompt_chest_sealed', play((S) => { const R = S.run, h = R.hero; R.en = []; R.chests.push({ x: h.x + 44, y: h.y, tier: 3, boss: 1, sealed: 1, open: 0 }); })],
       // a trapped chest giving itself away, its fuse burning and its blast (TASKS 1357)
       ...[['chest_trap_shut', 0], ['chest_trap_fuse', 0.3], ['chest_trap_bang', 0.7]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); const c = { x: h.x + 60, y: h.y - 30, tier: 2, open: a ? 1 : 0, trap: 1, openT: S.t - a }; R.chests.push(c);

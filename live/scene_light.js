@@ -96,6 +96,7 @@
     if (h.shield > 0 && GT < h.shieldUntil) lt(h.x, h.y - 30, 160, [0.4, 0.7, 1], 0.7);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], ((e.kind || 'crack') === 'crack' ? 1.4 : 0.7) * (1 - a / 1.2)); }
     for (const e of R.en) if (e.elite && e.type !== 'boss' && e.deadT < 0 && e.st !== 'lurk' && !D.under(e)) lt(e.x, e.y + 4, 110, modCol(e), 0.3 + 0.1 * Math.sin(t * 3 + e.id));
+    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'chest' && a >= 0 && a < 0.9) { const rank = e.boss ? 3 : (e.tier || 1) - 1, q = SS(0, 0.1, a) * (1 - SS(0.2, 0.9, a)); lt(e.x, e.y - 8, [80, 95, 120, 170][rank], [[1, 0.75, 0.45], [0.7, 0.82, 1], [1, 0.72, 0.28], [1, 0.3, 0.18]][rank], q * [0.4, 0.45, 0.6, 0.8][rank]); } }
     // an explosive corpse's fuse: its light swells and beats faster until the burst
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d, [fx, fy] = fuseAt(e); lt(fx, fy, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();

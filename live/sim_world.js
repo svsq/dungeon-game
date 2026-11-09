@@ -305,7 +305,7 @@
     if (c.mimic) { wakeMimic(S, R, c); return; }
     if (c.sealed) { if (S.t - (c.nopeT ?? -9) > 1) { c.nopeT = S.t; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.openChest.sealed') }); } return; }
     const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
-    c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier });
+    c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier, boss: c.boss ? 1 : 0 }); R.trauma = Math.min(1, R.trauma + (c.boss ? 0.3 : c.tier === 3 ? 0.12 : 0));
     if (c.trap) { c.fuseT = S.t + D.CHEST_TRAP.fuse; ev(S, { k: 'trapfuse', x: c.x, y: c.y, d: D.CHEST_TRAP.fuse }); }
     // its items were rolled on entering the floor (they count toward the floor's loot from the start); a chest from an older save rolls now
     const pre = !!c.loot; for (const it of c.loot || chestLoot(R, c)) drop(R, c.x, c.y + 10, { kind: 'item', item: it, pre });
