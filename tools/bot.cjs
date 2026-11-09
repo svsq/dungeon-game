@@ -51,7 +51,7 @@ const val = (x) => x ? (x.atk || 0) * 2 + (x.def || 0) * 2 + x.rar * 3 + x.lvl :
 // armour and dodge, with what regeneration and blows that heal add over a fight. Their product, so neither is given up for the other
 const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) return val(it);
   const st = SIM.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it || null }) }), S.meta), KD = 20 + 12 * (S.run ? S.run.floor : 1);
-  const swing = st.atk * (1 + st.crit / 100 * 0.75) * (1 + st.aspd / 100) / st.wcd, F = D.ABILITIES.find((a) => a.id === 'fireball');
+  const swing = st.atk * (1 + st.crit / 100 * (st.critK - 1)) * (1 + st.aspd / 100) / st.wcd, F = D.ABILITIES.find((a) => a.id === 'fireball');
   const fire = D.fireDmg(st.spellBase, D.abRank('fireball', Math.max(1, h.ab.fireball || 0)).k, st.spell) / F.cd * Math.min(1, st.maxMp / 200), c = P.cast || 0.15;
   return Math.log(swing * (1 - c) + fire * c) + Math.log((st.maxHp + 20 * st.regen + 10 * st.onhit) * (KD + st.def) / KD / (1 - st.dodge / 100)); };
 const gear = (it) => it && !SIM.isCons(it);

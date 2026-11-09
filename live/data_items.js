@@ -72,7 +72,7 @@
     { k: 'str', label: TXT('AFFIXES.str.label'), a: 1, b: 0.5 }, { k: 'agi', label: TXT('AFFIXES.agi.label'), a: 1, b: 0.5 },
     { k: 'int', label: TXT('AFFIXES.int.label'), a: 1, b: 0.5 }, { k: 'vit', label: TXT('AFFIXES.vit.label'), a: 1, b: 0.5 },
     { k: 'atk', label: TXT('AFFIXES.atk.label'), a: 2, b: 1.0 }, { k: 'def', label: TXT('AFFIXES.def.label'), a: 1, b: 0.6 },
-    { k: 'crit', label: TXT('AFFIXES.crit.label'), a: 2, b: 0.4 }, { k: 'hp', label: TXT('AFFIXES.hp.label'), a: 8, b: 4 },
+    { k: 'crit', label: TXT('AFFIXES.crit.label'), a: 2, b: 0.4 }, { k: 'critd', label: TXT('AFFIXES.critd.label'), a: 5, b: 1 }, { k: 'hp', label: TXT('AFFIXES.hp.label'), a: 8, b: 4 },
     { k: 'mp', label: TXT('AFFIXES.mp.label'), a: 5, b: 2 }, { k: 'aspd', label: TXT('AFFIXES.aspd.label'), a: 4, b: 0.8 },
     { k: 'mspd', label: TXT('AFFIXES.mspd.label'), a: 3, b: 0.5 }, { k: 'leech', label: TXT('AFFIXES.leech.label'), a: 1, b: 0.3 },
     { k: 'fire', label: TXT('AFFIXES.fire.label'), a: 6, b: 2 }, { k: 'dodge', label: TXT('AFFIXES.dodge.label'), a: 1, b: 0.25 },
@@ -80,13 +80,13 @@
   ];
   // a slot's odds for each property (the player's note 5.2, TASKS 1341), 1 when not named: rare off-type rolls stay, so a find can still surprise
   const AFFIX_W = {
-    weapon: { atk: 5, crit: 3, aspd: 2, fire: 2, leech: 2, onhit: 1.5, str: 1.5, agi: 1.5, int: 1.5, def: 0.2, dodge: 0.2, mspd: 0.2, hp: 0.3, vit: 0.3, regen: 0.3, mp: 0.5 },
-    offhand: { def: 4, hp: 3, vit: 2, dodge: 2, regen: 1.5, atk: 0.3, crit: 0.5, aspd: 0.5, leech: 0.3, mspd: 0.3 },
-    helm: { def: 3, hp: 3, vit: 2, mp: 2, int: 1.5, regen: 1.5, atk: 0.3, aspd: 0.3, leech: 0.3, mspd: 0.2 },
-    armor: { def: 5, hp: 4, vit: 3, regen: 2, atk: 0.2, crit: 0.2, aspd: 0.2, leech: 0.3, onhit: 0.3, fire: 0.3 },
-    gloves: { aspd: 3, crit: 3, atk: 2, str: 1.5, agi: 1.5, leech: 1.5, onhit: 1.5, hp: 0.5, mspd: 0.2 },
-    boots: { mspd: 5, dodge: 3, agi: 2, def: 2, atk: 0.2, crit: 0.2, leech: 0.2, aspd: 0.5, fire: 0.3 },
-    ring: { crit: 2, atk: 1.5, leech: 1.5, fire: 1.5, int: 1.5, str: 1.5, agi: 1.5, def: 0.5 },
+    weapon: { atk: 5, crit: 3, critd: 2.5, aspd: 2, fire: 2, leech: 2, onhit: 1.5, str: 1.5, agi: 1.5, int: 1.5, def: 0.2, dodge: 0.2, mspd: 0.2, hp: 0.3, vit: 0.3, regen: 0.3, mp: 0.5 },
+    offhand: { critd: 0.3, def: 4, hp: 3, vit: 2, dodge: 2, regen: 1.5, atk: 0.3, crit: 0.5, aspd: 0.5, leech: 0.3, mspd: 0.3 },
+    helm: { critd: 0.3, def: 3, hp: 3, vit: 2, mp: 2, int: 1.5, regen: 1.5, atk: 0.3, aspd: 0.3, leech: 0.3, mspd: 0.2 },
+    armor: { critd: 0.2, def: 5, hp: 4, vit: 3, regen: 2, atk: 0.2, crit: 0.2, aspd: 0.2, leech: 0.3, onhit: 0.3, fire: 0.3 },
+    gloves: { aspd: 3, crit: 3, critd: 2.5, atk: 2, str: 1.5, agi: 1.5, leech: 1.5, onhit: 1.5, hp: 0.5, mspd: 0.2 },
+    boots: { critd: 0.2, mspd: 5, dodge: 3, agi: 2, def: 2, atk: 0.2, crit: 0.2, leech: 0.2, aspd: 0.5, fire: 0.3 },
+    ring: { crit: 2, critd: 2, atk: 1.5, leech: 1.5, fire: 1.5, int: 1.5, str: 1.5, agi: 1.5, def: 0.5 },
     amulet: { hp: 2, mp: 2, regen: 2, vit: 1.5, int: 1.5, fire: 1.5, def: 0.5 },
   };
   // by base first: a legendary staff or axe must not be called a blade

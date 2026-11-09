@@ -337,6 +337,7 @@
       if (e.k === 'pinch' && a < 0.15) { const k = 1 - a / 0.15; L.star(ex, ey - 12, 16 * k + 4, [1, 0.95, 0.8], 0.9 * k); }
       if (e.k === 'hit' && !e.arm && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
           L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d, e.crit ? 12 : 8, e.fire ? [1, 0.6, 0.2] : [1, 0.85, 0.6], (e.fire ? 0.6 : 1) * (1 - q)); } }
+      if (e.k === 'hit' && e.crit && !e.arm && a < 0.18) { const q = a / 0.18, r = 20 + 54 * q; L.glow(ex, ey, 74, [1, 0.9, 0.65], 0.85 * (1 - q), 2.5); L.ring(ex, ey, r, r * 0.75, [1, 0.95, 0.8], 0.7 * (1 - q), 0.15); }
       // the crust (TASKS 401): a flash of heat through the cracks as it gives, a splash of lava as it melts or as a monster goes in
       if (e.k === 'crack' && a < 0.5) { const q = a / 0.5; L.glow(ex, ey, 40, [1, 0.45, 0.1], 0.5 * (1 - q), 2.2); }
       if ((e.k === 'melt' || e.k === 'sink') && a < 0.7) { const q = a / 0.7; L.glow(ex, ey - 4, 46, [1, 0.5, 0.12], 0.45 * (1 - q), 2.4);

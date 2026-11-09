@@ -265,7 +265,7 @@
       h.atkHit = 1; const arc = st.arc * Math.PI / 180, reach = st.reach, Cl = D.clsOf(h);
       // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
       if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, c = rnd(R) * 100 < st.crit;
-        const p = SIMX.heroShot(R, h, a, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, BASES[st.wtype].shot || 'bolt', BASES[st.wtype]);
+        const p = SIMX.heroShot(R, h, a, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c, BASES[st.wtype].shot || 'bolt', BASES[st.wtype]);
         if (Cl.hitMp) p.mpGain = c ? Cl.hitMp.crit : Cl.hitMp.hit;
         ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
         // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
@@ -273,7 +273,7 @@
         SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {
       for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
         if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
-        const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
+        const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
       SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); }
     }
     // ---- abilities / potions / interact ----

@@ -183,10 +183,11 @@
     // the "!" when a monster notices the hero
     for (const [i, ev] of S.ev.entries()) { const a = GT - ev.t; if (a < 0 || !seen(ev.x, ev.y) || V.sx(ev.x) < -50 || V.sx(ev.x) > W + 50 || V.sy(ev.y) < -50 || V.sy(ev.y) > H + 150) continue;
       if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) float('al' + i, '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
-      if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 24 : 19) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
+      if (ev.k === 'hit' && a < 0.8) { const q = a / 0.8, s = Math.round((ev.crit ? 32 : 19) * (1 + 0.3 * L.SS(0, 0.08, a) - 0.3 * L.SS(0.08, 0.2, a)));
         const E = D.ENEMIES[ev.type], side = ev.x < h.x ? -1 : 1, hx = ev.x + side * (E ? 14 : 0), hy = ev.y - (E ? E.h * 0.5 + 18 : 0);   // over the head and its HP bar, leaning away from the hero: the chest stays clear
         float('dn' + i, String(Math.round(ev.n)), V.sx(hx) + (L.rnd(ev.t, 1) - 0.5) * 12, V.sy(hy) - 40 * q - 10, ev.arm ? { size: Math.round(s * 0.85), col: '#aab6c2', out: '#141a20', a: 1 - L.SS(0.6, 0.8, a) }
-          : { size: s, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
+          : { size: s, col: ev.crit ? '#f4ead2' : ev.fire ? '#ffa05a' : '#e5281c', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) });
+        if (ev.crit && !ev.arm) float('cr' + i, TXT('hud.crit'), V.sx(hx), V.sy(hy) - 40 * q - 46, { size: 24, col: '#ffd040', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
       // a burn's ticks show as one number running up (TASKS 463): only its latest tick is drawn, with the burn's sum so far
       if (ev.k === 'hurt' && a < 0.8 && !(ev.chain !== undefined && S.ev.some((o, j) => j > i && o.k === 'hurt' && o.chain === ev.chain))) {
         const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;

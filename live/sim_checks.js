@@ -1367,6 +1367,11 @@
       if (!(share('sword', 'atk') > 2 * share('sword', 'def'))) out.push('affix: a weapon does not favour attack over defence');
       if (!(share('plate_armor', 'def') > 2 * share('plate_armor', 'atk'))) out.push('affix: armour does not favour defence over attack');
       if (!(share('boots', 'mspd') > 2 * share('boots', 'crit'))) out.push('affix: boots do not favour speed'); }
+    // TASKS 1342: the crit-damage property raises the one multiplier, up to its cap
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1342), h = R.hero, ring = (v) => { h.eq.ring = { id: 1, b: 'ring', rar: 1, lvl: 1, mods: { critd: v } }; return stats(h, S.meta).critK; }; h.eq.ring = null;
+      if (stats(h, S.meta).critK !== D.CRIT.k) out.push('crit: the base multiplier is not CRIT.k');
+      if (Math.abs(ring(50) - (D.CRIT.k + 0.5)) > 1e-9) out.push('crit: the property does not add to the multiplier');
+      if (ring(1000) !== D.CRIT.cap) out.push('crit: the multiplier passes its cap'); h.eq.ring = null; }
     // completion: empty categories are left out, partial and full runs, a floor change, save/load, a one-time bonus
     { const C0 = completion([{ foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0 }]); if (C0.pct !== 0) out.push('completion: an empty floor is not 0');
       const C1 = completion([{ foes: 10, kills: 5, lootN: 4, loot: 4, secN: 0, sec: 0 }]); if (Math.abs(C1.pct - 0.75) > 1e-9) out.push('completion: a floor without secrets counts them as 0%');

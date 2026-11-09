@@ -16,6 +16,8 @@
     { id: 'leap', name: TXT('ABILITIES.leap.name'), icon: 'ab_leap', key: '3', unlock: 4, mp: 12, cd: 7, desc: TXT('ABILITIES.leap.desc') },
   ];
   // ten ranks at half the old per-rank gain: rank 10 lands a little past the old rank-5 cap instead of 1.7× it
+  // a critical blow (TASKS 1342): `k` times the damage, the crit-damage property adds to it up to `cap`, so stacking it on every slot stays bounded
+  const CRIT = { k: 1.75, cap: 3 };
   const AB_MAX = 10;
   const abRank = (id, r) => { const n = Math.max(0, r - 1);
     return id === 'whirl' ? { k: 1.6 + 0.125 * n, cd: 1 - 0.04 * n, r: 118 + 6 * n } : id === 'frost' ? { k: 1 + 0.125 * n, cd: 1, r: FROST.r + 5 * n } : id === 'volley' || id === 'trap' || id === 'leap' || id === 'charge' ? { k: 1 + 0.125 * n, cd: 1 } : id === 'cry' ? { k: 1, cd: 1 - 0.03 * n, t: CRY.t + 0.5 * n } : id === 'fireball' ? { k: 1 + 0.125 * n, cd: 1 } : { k: 1 + 0.15 * n, cd: 1 }; };
@@ -148,5 +150,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, GIFTS, giftCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);
