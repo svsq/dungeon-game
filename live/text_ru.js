@@ -561,6 +561,7 @@
     'sim_town.questLine.4': '«{thing}» · {f}-й этаж',
     'sim_world.openChest.sealed': 'Хозяин ещё не передал ключ. Спросите его как следует',
     'hud.world.3s': 'Запечатан, хозяин рядом',
+    'sim_world.chestTrap.msg': 'Крышка щёлкнула. Сундук тоже умеет шутить',
     'sim_town.questLine.chest': ' · в сундуке',
     'sim_town.questLine.secret': ' · в тайной комнате',
     'sim_town.questLine.floor': ' · лежит на виду',

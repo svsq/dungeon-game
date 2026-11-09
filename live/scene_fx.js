@@ -22,6 +22,8 @@
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
     // a mechanism catches the light now and then: a faint four-point glint for a third of a second every five or so, each on
     // its own beat, so it reads only to someone already looking at it
+    // a trapped chest gives itself away to a careful eye: now and then a thread of dust from under the lid (TASKS 1357)
+    for (const c of R.chests) { if (!c.trap || c.open || !vis(c.x, c.y) || !known(c.x, c.y)) continue; const ph = (t + c.x * 0.013 + c.y * 0.007) % 5.3; if (ph < 0.8) L.puff(sx(c.x) + 4, sy(c.y) - 26 - 16 * ph, 5 + 6 * ph, [0.42, 0.4, 0.3], 0.3 * (1 - ph / 0.8), c.x * 3); }
     (m.secrets || []).forEach((q, i) => { const P = q.trig; if (q.open || !P || inSecret(q)) return; const ph = (t + i * 1.73) % 5.2; if (ph > 0.35) return;
       const env = Math.sin(Math.PI * ph / 0.35), tc = P.k === 'sconce' ? m.torches[P.t] : null, x = tc ? tc.x - 8 : P.cx * TILE + 7, y = tc ? tc.y - 2 : P.cy * TILE + 6;
       if (vis(x, y) && known(x, y)) L.star(sx(x), sy(y), 12, [1, 0.94, 0.78], 0.5 * env); });
@@ -384,6 +386,8 @@
           L.star(ex + Math.cos(an) * (20 + 30 * q), ey - 20 - 90 * q * (0.5 + rnd(j, 2)), 9, [1, 0.85, 0.4], 1 - q); } }
       if ((e.k === 'pickup' || e.k === 'gold' || e.k === 'shard' || e.k === 'chest') && a < 0.5) { const q = a / 0.5, col = e.k === 'shard' ? [0.4, 0.7, 1] : e.k === 'pickup' ? D.RARITY[e.rar || 0].col : [1, 0.85, 0.3];
         for (let j = 0; j < 6; j++) { const an = j / 6 * 6.28 + e.t; L.star(ex + Math.cos(an) * 26 * q, ey - 10 + Math.sin(an) * 18 * q - 20 * q, 9, col, 1 - q); } }
+      if (e.k === 'trapfuse' && a < e.d) { const q = a / e.d; for (let j = 0; j < 5; j++) L.star(ex + (rnd(e.t, j) - 0.5) * 30, ey - 26 - 34 * ((q + rnd(e.t, j + 9)) % 1), 7 + 6 * q, [1, 0.75, 0.3], 0.9); L.ring(ex, ey, D.CHEST_TRAP.r * q, D.CHEST_TRAP.r * 0.6 * q, [0.9, 0.3, 0.15], 0.35, 0.06); }
+      if (e.k === 'trapbang' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey, e.r * (0.4 + 0.6 * q), e.r * 0.6 * (0.4 + 0.6 * q), [1, 0.5, 0.2], 1 - q, 0.16); for (let j = 0; j < 14; j++) { const an = j / 14 * 6.28 + rnd(e.t, j), rr = e.r * q * (0.5 + 0.5 * rnd(e.t, j + 3)); L.puff(ex + Math.cos(an) * rr, ey + Math.sin(an) * rr * 0.6 - 12 - 26 * q, 6 + 8 * q, [0.35, 0.3, 0.26], 0.7 * (1 - q), e.t + j); } }
       if ((e.k === 'shield' || e.k === 'barrier') && a < 0.4) L.ring(ex, ey - 30, 30 + 30 * (a / 0.4), 40 + 30 * (a / 0.4), [0.5, 0.8, 1], 1 - a / 0.4, 0.15);
       if (e.k === 'drink' && a < 0.6) for (let j = 0; j < 8; j++) { const q = a / 0.6, an = j / 8 * 6.28 + a * 6; L.star(ex + Math.cos(an) * 20, ey - 10 - 60 * q * (0.4 + rnd(j, 1)), 7, e.b === 'hp_potion' ? [1, 0.35, 0.35] : [0.4, 0.6, 1], 1 - q); }
       // a fire priest's pillar (TASKS 410): flames standing in the ring for its burst, a white-hot core, then dying down

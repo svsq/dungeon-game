@@ -1274,6 +1274,13 @@
       if (c.loot.length !== (chapterEnd(R, b) ? LOOT.boss.length : 1)) out.push(`boss chest ${sd}/${f}: holds ${c.loot.length} items`);
       openChest(S, R, c); if (!c.open) out.push(`boss chest ${sd}/${f}: does not open after the win`); }
     if (bosses < 4) out.push(`boss chest: only ${bosses} boss floors had one`);
+    let traps = 0;
+    for (let sd = 1; sd <= 40 && !traps; sd++) for (let f = 2; f <= 8 && !traps; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 1357 + sd); enterFloor(S, S.run, f); S.screen = 'play'; const R = S.run, c = R.chests.find((o) => o.trap && o.sec === undefined); if (!c) continue; traps++;
+      R.en = []; const h = R.hero, n = R.drops.length; h.x = c.x; h.y = c.y + 30; h.vx = h.vy = 0; h.ifr = 0; const hp0 = h.hp; openChest(S, R, c);
+      if (!c.fuseT || R.drops.length === n) out.push('trap chest: no fuse or no loot on opening'); if (h.hp !== hp0) out.push('trap chest: hurts before its fuse');
+      for (let k = 0; k < 90; k++) step(S, { keys: [] }); if (h.hp >= hp0) out.push('trap chest: the blast did not hurt the hero beside it'); if (c.fuseT) out.push('trap chest: fuse never ends');
+      c.fuseT = S.t - 1; h.hp = 1; h.ifr = 0; h.x = c.x; h.y = c.y + 20; for (let k = 0; k < 4; k++) step(S, { keys: [] }); if (h.deadT >= 0) out.push('trap chest: killed the hero'); }
+    if (!traps) out.push('trap chest: none on 40 seeds');
     return out; }
   // secrets, loot tables and completion stats, played through the sim
   function secretCheck() {

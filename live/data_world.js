@@ -269,5 +269,8 @@
     skel_mg: 'bone', fence_mg: 'chain', vent_mg: 'ember', anvil_tw: 'metal', forge_tw: 'stone', forge_mg: 'stone',
     basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', skel_mg: 'bone', banner_mg: 'cloth' };
 
-  Object.assign(D, { BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  // a trapped chest (TASKS 1357): from: first floor it appears on; p: chance per chest, max per floor; fuse: seconds from the click to
+  // the blast, time to step or dash away; r: the blast's reach; hp: share of max health, never the killing blow
+  const CHEST_TRAP = { from: 2, p: 0.1, max: 2, fuse: 0.55, r: 96, hp: 0.2 };
+  Object.assign(D, { CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

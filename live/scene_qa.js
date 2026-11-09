@@ -50,6 +50,9 @@
         [[1, 0], [2, 0], [3, 0], [1, 1], [2, 1], [3, 1]].forEach(([tier, op], i) => R.chests.push({ x: h.x + (i % 3 - 1) * tl, y: h.y - (op ? 40 : 110), tier, open: op, openT: S.t - 2 }));
         R.chests.push({ x: h.x + 2 * tl, y: h.y - 60, tier: 3, boss: 1, sealed: 1, open: 0 }); R.chests.push({ x: h.x - 2 * tl, y: h.y - 60, tier: 3, boss: 1, open: 1, openT: S.t - 2 }); })],
       ['prompt_chest_sealed', play((S) => { const R = S.run, h = R.hero; R.en = []; R.chests.push({ x: h.x + 44, y: h.y, tier: 3, boss: 1, sealed: 1, open: 0 }); })],
+      // a trapped chest giving itself away, its fuse burning and its blast (TASKS 1357)
+      ...[['chest_trap_shut', 0], ['chest_trap_fuse', 0.3], ['chest_trap_bang', 0.7]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); const c = { x: h.x + 60, y: h.y - 30, tier: 2, open: a ? 1 : 0, trap: 1, openT: S.t - a }; R.chests.push(c);
+        if (a) S.ev.push({ k: a > 0.55 ? 'trapbang' : 'trapfuse', t: S.t - (a > 0.55 ? a - 0.55 : a), x: c.x, y: c.y, d: 0.55, r: 96 }); })]),
       ['prompt_exit', play((S) => { const R = S.run, h = R.hero; R.map.exit = { x: h.x, y: h.y + 40 }; })],
       ['gifts_hud', play((S) => { const h = S.run.hero; h.bless = 1; h.shield = 999; h.shieldUntil = S.t + 3; h.burn = h.poison = S.t + 2;
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],

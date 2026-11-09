@@ -275,6 +275,7 @@
     if (c.sealed) { if (S.t - (c.nopeT ?? -9) > 1) { c.nopeT = S.t; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.openChest.sealed') }); } return; }
     const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
     c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier });
+    if (c.trap) { c.fuseT = S.t + D.CHEST_TRAP.fuse; ev(S, { k: 'trapfuse', x: c.x, y: c.y, d: D.CHEST_TRAP.fuse }); }
     // its items were rolled on entering the floor (they count toward the floor's loot from the start); a chest from an older save rolls now
     const pre = !!c.loot; for (const it of c.loot || chestLoot(R, c)) drop(R, c.x, c.y + 10, { kind: 'item', item: it, pre });
     c.loot = [];
@@ -286,6 +287,10 @@
     if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
     if (!c.boss) drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
   }
+  // a trapped chest's blast, its fuse lit by the opening: it hurts, but it does not end a run on its own
+  function stepChestTraps(S, R) { const h = R.hero, T = D.CHEST_TRAP;
+    for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.3);
+      if (Math.hypot(h.x - c.x, h.y - c.y) < T.r && h.hp > 1) { SIMX.hurtHero(S, R, Math.min(SIMX.heroSt(S).maxHp * T.hp, h.hp - 1), c.x, c.y - 10, 'spike'); if (S.t === h.hurtT) R.msg = { s: TXT('sim_world.chestTrap.msg'), t: S.t }; } } }
   // a boss's own chest holds what the boss used to drop (TASKS 1356): the same items in a better place, no new loot
   // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
   function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : [rollItem(R, dep(R), 2)]; for (const it of its) it.id = R.nextId++; return its; }
@@ -301,5 +306,5 @@
   Object.assign(SIMX, {
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
     hitSecrets, hitSecret, openSecret, shelfOf, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors,
-    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot });
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps });
 })(typeof window !== 'undefined' ? window : globalThis);
