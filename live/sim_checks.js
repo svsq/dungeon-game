@@ -1378,6 +1378,9 @@
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 1347), top = 15 + LOOT.mob.hi, roll = (lvl) => { R.hero.lvl = lvl; return Array.from({ length: 3000 }, () => rollItem(R, 15, 0, undefined, LOOT.mob).lvl); }, over = (a) => a.filter((v) => v > top).length;
       const ahead = roll(5), even = roll(15); if (!(over(ahead) > 2 * over(even))) out.push(`over-level: ahead ${over(ahead)}, even ${over(even)}`); if (!over(even)) out.push('over-level: a hero at the floor\'s level never finds one');
       if (Math.max(...ahead) > top + D.LOOT_OVER.up) out.push(`over-level: a bonus past the cap, ${Math.max(...ahead)}`); }
+    // TASKS 1348: a piece above the hero's level is not put on by itself and still sells
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1348), h = R.hero; S.run = R; h.lvl = 3; h.eq.helm = null; const it = { id: R.nextId++, b: 'knight_helm', rar: 1, lvl: 20, mods: {}, def: 5 };
+      if (wearIfFree(S, R, it) || h.eq.helm) out.push('over-level: a piece above the hero goes on an empty slot'); if (!(D.sellPrice(it, 1) > 0)) out.push('over-level: a piece above the hero does not sell'); }
     // TASKS 1342: the crit-damage property raises the one multiplier, up to its cap
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 1342), h = R.hero, ring = (v) => { h.eq.ring = { id: 1, b: 'ring', rar: 1, lvl: 1, mods: { critd: v } }; return stats(h, S.meta).critK; }; h.eq.ring = null;
       if (stats(h, S.meta).critK !== D.CRIT.k) out.push('crit: the base multiplier is not CRIT.k');

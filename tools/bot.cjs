@@ -57,6 +57,8 @@ const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) 
 const gear = (it) => it && !SIM.isCons(it);
 // gear the hero is too low to wear (TASKS 1028) is not bought for wearing, nor put on
 const wearable = (h, it) => h.lvl >= D.reqLvl(it) && D.wears(D.clsOf(h).id, it.b);
+// gear of his own class he is still too low for is kept for later (TASKS 1348), two pieces at most so the bag stays open for finds
+const waits = (h, it) => gear(it) && D.wears(D.clsOf(h).id, it.b) && h.lvl < D.reqLvl(it);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
 // a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
 const metaNext = (S) => D.metaFor(S.meta.cls).filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
@@ -380,7 +382,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
   function trade(S, R, h) {
     const U = D.UI.shop(R.shop.goods.length), at = (id) => click(U.r.find((q) => q.id === id));
-    const i = h.bag.findIndex(gear); if (i >= 0) { cur.sold++; return at('sell:' + i); }
+    let kept = 0; const i = h.bag.findIndex((it) => gear(it) && !(waits(h, it) && kept++ < 2)); if (i >= 0) { cur.sold++; return at('sell:' + i); }
     const room = h.bag.includes(null), buy = (g) => { cur.spent += g.price; return at('buy:' + R.shop.goods.indexOf(g)); };
     const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && wearable(h, g.it) && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
     for (const [b, want] of [['hp_potion', 6], ['mp_potion', D.clsOf(h).res === 'rage' ? 0 : P.caster ? 6 : 3]].concat(R.viaTown ? [['scroll', P.scrolls]] : [])) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
