@@ -700,6 +700,7 @@
     'hud.shop.11': 'Продать за {p1} золота',
     'hud.compare': 'Против надетого: {p1}',
     'hud.compare.2': 'Слот «{p1}» пуст',
+    'hud.compare.lvl': 'Уровень: {p1} (надето — {p2})',
     'hud.compare.tot': 'здоровье',
     'hud.compare.tot.2': 'атака',
     'hud.compare.tot.3': 'защита',

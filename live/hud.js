@@ -576,6 +576,7 @@
     const cur = h.eq[slot], of = (x) => { const o = { atk: (x && x.atk) || 0, def: (x && x.def) || 0 }; if (x) { const m = SIM.Q.itemMods(x); for (const k in m) o[k] = (o[k] || 0) + m[k]; } return o; };
     const a = of(it), c = of(cur), num = (v) => String(Math.round(Math.abs(v) * 10) / 10);
     lines.push([cur ? TXT('hud.compare', { p1: SIM.Q.itemName(cur) }) : TXT('hud.compare.2', { p1: D.SLOT_NAME[slot] }), C.dim, 19]);
+    if (cur) lines.push(['   ' + TXT('hud.compare.lvl', { p1: it.lvl, p2: cur.lvl }), it.lvl > cur.lvl ? UP : it.lvl < cur.lvl ? DOWN : C.dim, 19]);
     for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05) continue;
       lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), d > 0 ? UP : DOWN, 19]); }
     const s0 = SIM.Q.stats(h, S.meta), s1 = SIM.Q.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it }) }), S.meta);
