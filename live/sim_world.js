@@ -279,6 +279,12 @@
   // door cells; a side wall's, ajar at ~60° from the gap's upper end, the upper cell of the door and the corridor cell beyond it
   // (the boss arena's doors stand open from the start and have no leaf)
   const leafCells = (d) => { if (d.arena) return []; const [x, y] = d.cells[0]; return d.dir === 'l' ? [[x, y], [x - 1, y]] : d.dir === 'r' ? [[x, y], [x + 1, y]] : [[x, y]]; };
+  // (TASKS 1683) a leaf cell the hero stands in when the door opens takes hold only once he has stepped off it, or the leaf
+  // would shove him a step through the doorway
+  const inLeaf = (h, [x, y]) => Math.hypot(h.x - (x + 0.5) * TILE, (h.y - (y + 0.5) * TILE) * 1.6) < 31;
+  const leafHeld = (d) => leafCells(d).filter(([x, y]) => !(d.wait || []).some(([a, b]) => a === x && b === y));
+  function stepLeaves(S, R) { const m = R.map, h = R.hero;
+    for (const d of m.doors || []) { if (!d.wait || !d.wait.length) continue; for (const [x, y] of d.wait) if (!inLeaf(h, [x, y]) && !m.block.includes(y * m.W + x)) m.block.push(y * m.W + x); d.wait = d.wait.filter((c) => inLeaf(h, c)); } }
   function openDoor(S, R, d, kick) {
     const m = R.map, h = R.hero, L = doorLock(m, d), i = m.doors.indexOf(d);
     if (d.arena && R.arena && R.arena.active) return;
@@ -286,7 +292,7 @@
           ev(S, { k: 'nope', x: h.x, y: h.y, s: L.kind === 'key' ? TXT('sim_world.openDoor.s') : TXT('sim_world.openDoor.s.2') }); } return; }
       R.keys--; L.open = 1; L.openT = S.t; ev(S, { k: 'unlatch', x: d.x, y: d.y, i }); R.msg = { s: TXT('sim_world.openDoor.msg.s'), t: S.t }; }
     d.open = 1; d.openT = S.t; d.kick = kick ? 1 : 0; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 1;
-    for (const [x, y] of leafCells(d)) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x);
+    d.wait = leafCells(d).filter((c) => inLeaf(h, c)); for (const [x, y] of leafHeld(d)) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x);
     if (kick) R.trauma = Math.min(1, R.trauma + 0.15);
     ev(S, { k: 'door', x: d.x, y: d.y, i, kick: d.kick });
   }
@@ -351,6 +357,6 @@
 
   Object.assign(SIMX, { setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests, secretAt, kindOf,
-    hitSecrets, hitSecret, openSecret, shelfOf, statueOf, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells,
+    hitSecrets, hitSecret, openSecret, shelfOf, statueOf, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
     leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1111,6 +1111,8 @@
       golem_attack: enemyT('golem', 0, 'slam', 0, (e, h) => ({ y: h.y + 26 })), salamander_attack: enemyT('salamander', 0, 'slam', 0, { fa: Math.PI, br: 0 }),
       salamander_breath: enemyT('salamander', 0, 'slam', 0, (e, h) => ({ x: h.x + 4 * TILE, fa: Math.PI, br: 1, brT: 0 })),
       fire_priest_attack: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kinT: 1e9 })), fire_priest_kindle: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kin: 1, kinT: 1e9 })) };
+    // a door's leaf turning on its hinge (TASKS 1683), from shut to open over half a second
+    for (const dir of ['u', 'l', 'r']) { const S0 = doorS(dir, 1, 0); if (!S0) continue; for (const d of S0.run.map.doors) if (d.open && !d.arena && d.dir === dir && d.kick) { d.kick = 0; d.openT = S0.t - 0.01; } transitions['door_' + dir + '_turn'] = Array.from({ length: 16 }, (_, k) => { const S = structuredClone(S0); S.t += k / 30; S.run.t = S.t; return S; }); }
     transitions.crab_turning = enCycles.crab_turning; delete enCycles.crab_turning;
     // deaths: a few live frames, then the kill, through the fall and the bounce (the hero mid-stride and at rest, a skeleton)
     {

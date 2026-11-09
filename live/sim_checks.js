@@ -1516,6 +1516,16 @@
             if (inside) out.push(`${tag}: the hero stands behind the leaf (lane ${lane})`);
             if (lane === 1 && along < 1.5 * TILE) out.push(`${tag}: the free lane does not carry the hero through (${along.toFixed(0)} px)`); } } }
       for (const dir of ['u', 'd', 'l', 'r']) if (!seenDir.has(dir)) out.push(`doors: no plain ${dir} door on floors 1–4 of 85 seeds`); }
+    // TASKS 1683: a side door opened by a hero standing in the corridor in its leaf's row does not shove him; the cell takes hold once he is off it
+    { let got = 0; for (let sd = 5; sd < 90 && got < 2; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
+        const d = m.doors.find((o) => !o.arena && !doorLock(m, o) && (o.dir === 'l' || o.dir === 'r') && (got ? o.dir === 'r' : o.dir === 'l')); if (!d) continue; got++; R.en = []; R.pots = []; R.chests = [];
+        const c = SIMX.leafCells(d)[1], vx = d.dir === 'l' ? -1 : 1; h.x = (c[0] + 0.5) * TILE; h.y = (c[1] + 0.5) * TILE; h.vx = h.vy = 0;
+        if (boxHit(m, h.x, h.y, 10, false, false)) { got--; continue; } step(S, { px: 960, py: 540, keys: ['KeyE'] }); if (!d.open) { out.push(`doors: E from the corridor does not open the ${d.dir} door of seed ${sd}`); continue; }
+        const x0 = h.x, y0 = h.y; for (let i = 0; i < 20; i++) step(S, { px: 960, py: 540, keys: [] });
+        if (Math.hypot(h.x - x0, h.y - y0) > 3) out.push(`doors: opening the ${d.dir} door of seed ${sd} from the corridor shoves the hero ${Math.hypot(h.x - x0, h.y - y0).toFixed(0)} px`);
+        for (let i = 0; i < 60; i++) step(S, { left: vx < 0, right: vx > 0, px: 960, py: 540, keys: [] });
+        if (!m.block.includes(c[1] * m.W + c[0]) || (d.wait || []).length) out.push(`doors: the ${d.dir} door's leaf of seed ${sd} never takes its corridor cell once the hero is off it`); }
+      if (got < 2) out.push('doors: no plain l and r doors to open from the corridor on seeds 5–89'); }
     // loot thrown out of a chest against a wall lands on the room's floor, never in the rock behind it (a potion out of the start
     // room's chest sailed over the wall)
     { let bad = 0; for (let sd = 1; sd <= 25 && !bad; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; const R = S.run, m = R.map; R.en = [];

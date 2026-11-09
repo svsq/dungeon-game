@@ -445,13 +445,16 @@
     // doors (TASKS 77, 78). Two views of one leaf: face-on (door_leaf) and edge-on (door_edge_a seen from the left, _b from the
     // right; one painting each, never mirrored, so the light stays top-left). A top wall's door stands face-on in its arch and opens
     // edge-on along the corridor's left side; a bottom wall's the same without the arch. A side wall's stands edge-on in the gap
-    // (the wall's own flat top is its jambs) and opens face-on, in shadow, against the corridor's back wall. The swing cross-fades
+    // (the wall's own flat top is its jambs) and opens face-on, in shadow, against the corridor's back wall. A top wall's leaf and a
+    // side wall's turn on the hinge as one picture (TASKS 1683: two views cross-fading read as a dissolve); a bottom wall's cross-fades
     for (const d of m.doors || []) { if (!vis(d.x, d.y) || (d.twin && d.open)) continue; const i = m.doors.indexOf(d), lock = SIM.Q.doorLock(m, d);
       const a = d.open ? GT - (d.openT ?? -9) : -1, p = d.open ? 1 - Math.pow(1 - Math.min(1, a / (d.kick ? 0.16 : 0.32)), 3) : 0;
       const bump = ST.ev.find((e) => e.k === 'locked' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.3), jit = bump ? Math.sin((GT - bump.t) * 90) * 2 * (1 - (GT - bump.t) / 0.3) : 0;
       const side = d.dir === 'l' || d.dir === 'r', s = d.dir === 'r' ? 1 : -1, X = sx(d.x) + jit, un = ST.ev.find((e) => e.k === 'unlatch' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.7);
       const fa = 1 - SS(0.15, 0.55, p), ea = SS(0.35, 0.8, p);   // the two views overlap only briefly mid-swing
       const E = DEDGE, k = E.k, ew = ASSETS.door_edge_a.w * k, eh = ASSETS.door_edge_a.h * k;
+      // (TASKS 1683) a leaf drawn in front of the hero thins where it hides him, so he never vanishes behind an open door
+      const thin = (x0, x1, keyW) => { const hx = sx(h.x), ox = Math.min(hx + 16, x1) - Math.max(hx - 16, x0); return 1 - 0.55 * SS(0, 12, ox) * SS(0, 8, keyW - h.y); };
       // the lock on the leaf: a padlock, or the iron bar along its bands (face-on level, edge-on on the bands' slope)
       const locks = (cx, cy, ang, len, al) => { if (!lock && !un) return;
         if (lock && lock.kind === 'lever') { const bh = Math.max(9, len * ASSETS.door_bar.h / ASSETS.door_bar.w); L.sprite('door_bar', 0, 0, { m: [Math.cos(ang), Math.sin(ang), 0, 1, cx - Math.cos(ang) * len / 2, cy - Math.sin(ang) * len / 2 - bh / 2], w: len / Math.cos(ang), h: bh, u: { alpha: al, grade: [1.35, 0.6, 0, 1] } }); }
@@ -462,25 +465,32 @@
       // beside the door, the near end in front of them
       const edge = (n, left, topW, al, lk) => { const farW = topW + E.far * k, nearW = topW + E.near * k, H0 = ASSETS[n].h;
         for (let j = 0; j < 4; j++) { const r0 = H0 * j / 4, r1 = H0 * (j + 1) / 4, key = Math.max(farW, Math.min(nearW, topW + r1 * k));
-          Y.push([key, () => { L.sprite(n, left, sy(topW) + r0 * k, { w: ew, h: (r1 - r0) * k, src: [0, r0 / H0, 1, r1 / H0], u: { alpha: al } });
+          Y.push([key, () => { L.sprite(n, left, sy(topW) + r0 * k, { w: ew, h: (r1 - r0) * k, src: [0, r0 / H0, 1, r1 / H0], u: { alpha: al * (lk ? 1 : thin(left, left + ew, key)) } });
             if (lk && j === 2) { const a0 = n === 'door_edge_a' ? E.band : -E.band, cx = left + (n === 'door_edge_a' ? E.lock[0] : ASSETS[n].w - E.lock[0]) * k; locks(cx, sy(topW) + E.lock[1] * k, a0, ew * 0.95, al); } }]); } };
       if (side) {
         const nearW = d.y + TILE, topW = nearW - E.near * k, n = s > 0 ? 'door_edge_a' : 'door_edge_b';
-        if (p < 1) edge(n, X - ew / 2 + s * ew * 0.45, topW, fa, true);   // in the door's own cells: the room's fog never dims it
-        // open, it stands ajar at ~60°, hinged at the gap's far end, its free edge clearly nearer the camera and in shadow (≤ 0.7 of a
-        // shut leaf's brightness, doors_r2): it reads as swung back, never as a door in the corridor's wall
-        if (p > 0) { const fy = sy(d.y - TILE) + 4, ux = s * Math.sin(1.05) * DOOR.w, uy = Math.cos(1.05) * DOOR.w;
-          Y.push([d.y - TILE + 4 + uy, () => { for (let j = 0; j < 4; j++) L.shadow(X + ux * (j + 0.5) / 4, fy + uy * (j + 0.5) / 4 + 2, DOOR.w / 7, 4, 0.5 * p);
-            L.sprite('door_leaf', 0, 0, { m: [ux / DOOR.w, uy / DOOR.w, 0, 1, X, fy - DOOR.h], w: DOOR.w, h: DOOR.h, flip: s < 0, u: { alpha: ea, grade: [0.45, 0.7, 0, 1] } }); }]); }
+        // shut, it stands edge-on in the gap; turning, the painted edge gives way to the face within the first few degrees, where the
+        // two are one thin line, and the face swings on to ~60°, hinged at the gap's far end, its free edge nearer the camera.
+        // Open it is a shade darker than a shut leaf, no more (TASKS 1683: at 0.7 it read as another door's wood, not this one's in shadow)
+        const ef = 1 - SS(0.03, 0.2, p), lf = SS(0.02, 0.16, p);
+        if (ef > 0) edge(n, X - ew / 2 + s * ew * 0.45, topW, ef, true);   // in the door's own cells: the room's fog never dims it
+        if (lf > 0) { const fy = sy(d.y - TILE) + 4, ph = 1.05 * p, ux = s * Math.sin(ph) * DOOR.w, uy = Math.cos(ph) * DOOR.w, gl = 1 - 0.18 * p;
+          // in strips along its length, each sorted by its own foot: the hinge end goes behind whoever stands beside it
+          for (let j = 0; j < 4; j++) { const keyW = d.y - TILE + 4 + uy * (j + 1) / 4, x0 = X + ux * j / 4, x1 = X + ux * (j + 1) / 4, src = s > 0 ? [j / 4, 0, (j + 1) / 4, 1] : [1 - (j + 1) / 4, 0, 1 - j / 4, 1];
+            Y.push([keyW, () => { L.shadow(X + ux * (j + 0.5) / 4, fy + uy * (j + 0.5) / 4 + 2, DOOR.w / 7, 4, 0.5 * p);
+              L.sprite('door_leaf', 0, 0, { m: [ux / DOOR.w, uy / DOOR.w, 0, 1, x0, fy + uy * j / 4 - DOOR.h], w: DOOR.w / 4, h: DOOR.h, src, flip: s < 0, u: { alpha: lf * thin(Math.min(x0, x1), Math.max(x0, x1), keyW), grade: [0.8, gl, 0, 1] } }); }]); } }
         continue; }
       const foot = sy(d.y) + (d.dir === 'd' ? TILE : 0), footW = d.y + (d.dir === 'd' ? TILE : 0);
-      if (p < 1) Y.push([footW, () => { if (d.dir === 'd') L.shadow(X, foot + 1, DOOR.w / 2 + 2, 4, 0.5 * (1 - p));
-        L.sprite('door_leaf', X - DOOR.w / 2, foot - DOOR.h, { w: DOOR.w, h: DOOR.h, u: { alpha: fa, grade: d.dir === 'd' ? [0.8, 0.9, 0, 1] : [1, 1, 0, 1] } });
-        locks(X - DOOR.w * 0.04, foot - DOOR.h * 0.36, 0, d.dir === 'u' ? DOOR.fw * 0.78 : DOOR.w + 6, fa); }]);
-      // open: hinged at the left jamb, the leaf runs off into the corridor, up from a top wall (seen from the right, its near end
-      // at the hinge) or down from a bottom wall (seen from the left, its far end at the hinge)
-      if (p > 0) { if (d.dir === 'u') edge('door_edge_b', X - DOOR.w / 2 - E.nearX * k, d.y - E.near * k, ea);
-        else edge('door_edge_a', X - DOOR.w / 2 - E.farX * k, d.y + 4 - E.far * k, ea); }
+      // a top wall's leaf turns away on its left hinge, through the arch and into the corridor: narrower and higher at its free
+      // edge as it goes, turned from the light, and still a door's face when open, not a sliver of its edge (TASKS 1683)
+      if (d.dir === 'u') { const th = 1.25 * p, ux = DOOR.w * Math.cos(th), uy = -DOOR.w * Math.sin(th) * 0.5;
+        Y.push([footW, () => { L.sprite('door_leaf', 0, 0, { m: [ux / DOOR.w, uy / DOOR.w, 0, 1, X - DOOR.w / 2, foot - DOOR.h], w: DOOR.w, h: DOOR.h, u: { grade: [1, 1 - 0.25 * Math.sin(th), 0, 1] } });
+          if (p < 1) locks(X - DOOR.w * 0.04, foot - DOOR.h * 0.36, 0, DOOR.fw * 0.78, 1 - SS(0, 0.3, p)); }]); }
+      else { if (p < 1) Y.push([footW, () => { L.shadow(X, foot + 1, DOOR.w / 2 + 2, 4, 0.5 * (1 - p));
+          L.sprite('door_leaf', X - DOOR.w / 2, foot - DOOR.h, { w: DOOR.w, h: DOOR.h, u: { alpha: fa * thin(X - DOOR.w / 2, X + DOOR.w / 2, footW), grade: [0.8, 0.9, 0, 1] } });
+          locks(X - DOOR.w * 0.04, foot - DOOR.h * 0.36, 0, DOOR.w + 6, fa); }]);
+        // open: hinged at the left jamb, the leaf runs down the corridor from the bottom wall, seen from the left, its far end at the hinge
+        if (p > 0) edge('door_edge_a', X - DOOR.w / 2 - E.farX * k, d.y + 4 - E.far * k, ea); }
       if (d.dir === 'u' && !B.cave) Y.push([d.y + 0.5, () => L.sprite('door_frame', X - DOOR.fw / 2, foot - DOOR.fh + 3, { w: DOOR.fw, h: DOOR.fh })]); }
     // a locked room's lever on a top wall: up until pulled, then down for good
     for (const Lk of m.locks || []) { const lv = Lk.lever; if (Lk.kind !== 'lever' || !lv || !vis(lv.x, lv.y)) continue;
