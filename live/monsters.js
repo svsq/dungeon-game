@@ -71,7 +71,9 @@
     const vxn = sp > 1 ? vxE / sp : 1, vyn = sp > 1 ? vyE / sp : 0;
     for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = (Hd0[0] - S0[0]) * vyn - face * (Hd0[1] - S0[1]) * vxn, sg = Jt > 0 ? 1 : -1;
       const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + (o.breathK ? (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0) - 0.7) : breath) * 0.04 * (o.breathK || 1) * (side === 'L' ? 1 : -1);
-      let r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
+      // o.armLag: the forearm follows the upper arm a beat late, so the hand whips through instead of the arm swinging stiff (TASKS 1698)
+      const lagged = o.armLag ? rs[0] + sg * (side === 'L' ? -1 : 1) * Math.cos(ph - o.armLag) * 0.4 * run * (o.swingK ?? 1) * 0.8 : base;
+      let r = o.arm ? o.arm(side, base) : [base, lagged + rs[1] - rs[0] + (lagged - rs[0]) * -0.4];
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
         const rest = R2U(Hd[0], Hd[1] + hipDy), T = o.handTarget(side, rest);
@@ -799,7 +801,7 @@
       if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.12 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       biped(base); return true; }
-    if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.rest = { L: [-0.42, -0.24], R: [0.42, 0.6] }; return biped(base); }
+    if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.armLag = 0.55; base.rest = { L: [-0.6, -0.42], R: [0.6, 0.78] }; return biped(base); }
     if (n === 'golem') { base.breathK = 1.9;   // (a statue at 1.43 %, TASKS 1640: its shoulders follow the chest, later)
       const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
       if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 16 * (hit >= 0 ? (0.25 + 0.75 * SS(0, 0.07, hit)) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);   // (from the wind-up's own crouch, TASKS 1156: from 0 the longer arm's elbow popped 8.8 px)
