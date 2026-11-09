@@ -7,7 +7,7 @@
     const {
       AR, FM, H, HL, LY, MIX, MX, R, ST, TY, W, arch, at, biome, boss, bossType, cave, cells, chasmUnder, circles, cliff, crossings, crust,
       deadEnd, deckUsed, depth, doors, edges, exitR, fig, figAt, fin, floodCells, floor, flow, ftype, ftype2, lakeWay, lastTry, lava,
-      lavaBodies, lavaFeatures, lavaUnder, lc, ledges, lines, locks, merchant, opts, pathMin, pick, pits, plat, ri, ridgeLen, riverB,
+      lavaBodies, lavaFeatures, lavaUnder, lc, ledges, lines, locks, merchant, opts, pathMin, pick, pits, plat, raised, ri, ridgeLen, riverB,
       riverWay, riverY, roomOf, rooms, runFloor, secrets, secretsWanted, seed, serpentPools, shareOf, shopR, start, stepHold, streams,
       strict, terr, thin, tierDecor, wander, water, waterBridges, waterFeatures, waterFlow, way, wet } = GF;
     // ---- contents ----
@@ -849,12 +849,15 @@
     const underS = new Set(lavaUnder);
     if (plat) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !underS.has(y * W + x) && [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => at(x + dx, y + dy) === 0 || at(x + dx, y + dy) === 3)) && R() < 0.35)
       fitDecal({ x: (x + 0.2 + 0.6 * R()) * TILE, y: (y + 0.2 + 0.6 * R()) * TILE, n: ['dc_rubble', 'dc_ash_mg', 'dc_pebbles', 'dc_soot'][Math.floor(R() * 4)], f: R() < 0.5 ? 1 : 0, s: 0.6 + 0.4 * R() });
-    // cobwebs: the sprite is spun across a top-left corner, so a web only ever hangs in a room's top corner where the back wall
-    // meets a side wall (mirrored for the right one), more of them in the crypt and the halls than in the fire depths
+    // cobwebs: the sprite is spun across a top-left corner, so a web hangs where the back wall's upper face meets a side wall
+    // (mirrored for the right one), its spun corner at the wall's top edge, not on the floor below; more of them in the crypt
+    // and the halls than in the fire depths
     const WEB = { crypt: 0.6, arcane: 0.6, dungeon: 0.35, cave: 0.35, lava: 0.15 };
     for (const r of rooms) { const p = WEB[r.zone || biome] || 0.3;
       for (const [x, s, f] of [[r.x, -1, 0], [r.x + r.w - 1, 1, 1]]) { if (at(x, r.y) !== 1 || at(x + s, r.y) !== 0 || at(x, r.y - 1) !== 0 || R() > p) continue;
-        const k = 0.95 + 0.35 * R(), w = 40 * k; decals.push({ x: f ? (x + 1) * TILE - w / 2 : x * TILE + w / 2, y: r.y * TILE + w / 2, n: 'dc_web', f, s: k }); } }
+        const k = 0.95 + 0.35 * R(), w = 40 * k, cx = f ? (x + 1) * TILE - w / 2 : x * TILE + w / 2, x2 = f ? x - 1 : x + 1;
+        if ([x, x2].some((q) => at(q, r.y - 1) !== 0 || at(q, r.y - 2) !== 0) || hungAt(cx, r.y, w / 2) || tallAt(cx, r.y, w / 2)) continue;
+        decals.push({ x: cx, y: (r.y - 2) * TILE + 4 + w / 2, n: 'dc_web', f, s: k }); } }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === 1 && !rooms.some((q) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h) && R() < 0.06)
       fitDecal({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, n: DEC[biome][Math.floor(R() * DEC[biome].length)], f: R() < 0.5 ? 1 : 0, s: 0.7 + 0.3 * R() });
     // (a plateau's merchant has a whole plateau, TASKS 422: lit again with the rest, his lamps and fire counted)
@@ -1003,7 +1006,7 @@
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     if ((D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
     const map = { seed, floor: runFloor, biome, mod: ST.mod, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
-      ftype, ftype2, shareOf, ...(riverGuard ? { riverGuard: [...riverGuard], riverFire: [...riverFire] } : {}), ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, pits, ledges, lay: LY ? ST.lay || 'rooms' : undefined, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
+      ftype, ftype2, shareOf, ...(riverGuard ? { riverGuard: [...riverGuard], riverFire: [...riverFire] } : {}), ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, pits, ledges, ...(raised.length ? { raised } : {}), lay: LY ? ST.lay || 'rooms' : undefined, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
     // the rare floor that misses is laid again)
     if (plat && !boss && strict) { const q = rewardsOf(map); if (q.onWay * 3 > q.list.length || q.bare.length) return null; }
