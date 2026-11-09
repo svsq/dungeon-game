@@ -156,7 +156,7 @@
       if (more) more(S);
     });
     // the descent's deep powers (TASKS 387): a warded, cursing elite with its shield up, the hero cursed, a blink landing; the whirl's hint (TASKS 390)
-    const deep = (S) => { const R = S.run, h = R.hero, e = R.en[0]; e.ward = Math.round(e.max * 0.2); h.curseT = S.t + 2; h.chillT = S.t + 1.5; R.en[1].elite = 1; R.en[1].mods = ['tug', 'frost'];
+    const deep = (S) => { const R = S.run, h = R.hero, e = R.en[0]; e.ward = Math.round(e.max * 0.2); h.curseT = S.t + 2; h.chillT = S.t + 1.5; R.en[1].nm = D.ELITE_NAMES.bones.names[0][0] + ' ' + D.ELITE_NAMES.bones.adj[0][0]; R.en[1].elite = 1; R.en[1].mods = ['tug', 'frost'];
       S.ev.push({ k: 'tug_warn', t: S.t - 0.35, x: R.en[1].x, y: R.en[1].y, id: R.en[1].id, d: 0.6 });
       S.ev.push({ k: 'blink', t: S.t - 0.12, x: h.x + 240, y: h.y - 70, tx: e.x, ty: e.y, id: e.id }); R.msg = { s: D.TIPS.whirl.s, t: S.t - 1, d: 3, tip: 'whirl' }; };
     states.push(['elite_brawl', brawl()], ['elite_brawl_long', brawl(['explosive', 'fiery'])], ['elite_deep', brawl(['ward', 'curse'], deep)]);
