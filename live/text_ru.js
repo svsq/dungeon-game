@@ -122,6 +122,8 @@
     'AFFIXES.atk.label': '+{v} к атаке',
     'AFFIXES.def.label': '+{v} к защите',
     'AFFIXES.crit.label': '+{v}% крит. шанса',
+    'AFFIXES.critd.label': '+{v}% крит. урона',
+    'hud.crit': 'Крит!',
     'AFFIXES.hp.label': '+{v} к здоровью',
     'AFFIXES.mp.label': '+{v} к мане',
     'AFFIXES.aspd.label': '+{v}% скорости атаки',

@@ -435,7 +435,7 @@
     // gear for an empty slot is worn on pickup; for a taken slot it goes to the bag; potions always go to the bag
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 60; i++) step(S, { keys: [] });
       const R = S.run, h = R.hero, drop = (it) => R.drops.push({ id: R.nextId++, kind: 'item', item: it, x: h.x, y: h.y, vx: 0, vy: 0, z: 0, vz: 0, t0: R.t - 1 });
-      const helm = Object.assign(rollItem(R, 1, 0, 'helm'), { id: 88801 }), sword = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 88802 }), pot = { id: 88803, b: 'hp_potion', n: 1, rar: 0, lvl: 1, mods: {} };
+      const helm = Object.assign(rollItem(R, 1, 0, 'helm', { own: 1 }), { id: 88801 }), sword = Object.assign(rollItem(R, 1, 0, 'weapon'), { id: 88802 }), pot = { id: 88803, b: 'hp_potion', n: 1, rar: 0, lvl: 1, mods: {} };
       h.eq.helm = null; drop(helm); drop(sword); drop(pot); for (let i = 0; i < 5; i++) step(S, { keys: [] });
       if (!h.eq.helm || h.eq.helm.id !== 88801) out.push('an item for an empty slot was not worn on pickup');
       if (h.eq.weapon.id === 88802 || !h.bag.some((b) => b && b.id === 88802)) out.push('an item for a taken slot did not go to the bag');
@@ -1406,13 +1406,47 @@
       const e = { id: 9e6, type: 'skeleton', x: h.x + 30, y: h.y, deadT: -1, hp: 1, elite: 1, st: 'idle', room: 0, kbx: 0, kby: 0 }; R.en.push(e); hitEnemy(S, R, e, 1e6, false, h.x, h.y);
       if (R.stats[1].lootN !== n0 + R.drops.filter((d) => d.loot && d.kind === 'item').length) out.push('loot check: a monster\'s drop is not added to the floor\'s loot');
     }
-    { const R = { rs: 99 }, n = 4000, roll = (o) => { let top = 0, epic = 0; for (let i = 0; i < n; i++) { const it = rollItem(R, 5, o.q || 0, undefined, o); top = Math.max(top, it.rar); epic += it.rar >= 3; if (it.rar < (o.min || 0)) top = -9; } return { top, epic: epic / n }; };
-      const mob = roll(LOOT.mob), elite = roll(LOOT.elite), chest = roll(LOOT.chest[1]), hoard = roll(LOOT.chest[2]), sec = roll(LOOT.chest[3]), lg = roll(LOOT.boss[0]);
+    { const R = { rs: 99 }, n = 4000, roll = (o) => { let top = 0, epic = 0, leg = 0; for (let i = 0; i < n; i++) { const it = rollItem(R, 5, o.q || 0, undefined, o); top = Math.max(top, it.rar); epic += it.rar >= 3; if (it.rar < (o.min || 0)) top = -9; leg += it.rar === 4; } return { top, epic: epic / n, leg: leg / n }; };
+      const mob = roll(LOOT.mob), elite = roll(LOOT.elite), chest = roll(LOOT.chest[1]), hoard = roll(LOOT.chest[2]), sec = roll(LOOT.chest[3]), lg = roll(LOOT.boss[0]), brute = roll(LOOT.brute);
       if (mob.top > 3) out.push('loot: a common monster dropped a legendary');
       if (elite.top < 0) out.push('loot: a minimum rarity was not kept');
       if (lg.top !== 4) out.push('loot: the boss has no guaranteed legendary');
-      if (chest.top !== 4 || sec.top !== 4) out.push('loot: a chest roll is capped');
+      if (chest.top > 3 || hoard.top > 3) out.push('loot: a plain chest held a legendary');
+      if (sec.top !== 4) out.push('loot: a secret room\'s chest is capped');
+      if (!(elite.leg > 0 && brute.leg > 0 && elite.leg < sec.leg)) out.push(`loot: legendary share elite ${elite.leg} brute ${brute.leg} secret ${sec.leg}`);
+      if (!(LOOT.thin(21) < LOOT.thin(1) && LOOT.thin(99) >= 0.6)) out.push('loot: a common monster\'s chance does not thin with depth');
       if (!(mob.epic < chest.epic && chest.epic < hoard.epic && hoard.epic * 1.4 < sec.epic)) out.push(`loot: epic+ share mob ${mob.epic} chest ${chest.epic} treasure ${hoard.epic} secret ${sec.epic}`); }
+    // TASKS 1344: a floor with every counted monster dead springs no chest ambush
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 411); S.run = R; S.screen = 'play'; const m = R.map, rm = m.rooms.filter((r) => r.type === 'combat').sort((p, q) => q.w * q.h - p.w * p.h)[0], mod = m.mod; rm.type = 'treasure'; R.en = [];
+      D.FLOOR_MODS.__t = { ambush: 1e3 }; m.mod = '__t'; R.hero.x = (rm.x + 1.5) * TILE; R.hero.y = (rm.y + 1.5) * TILE;
+      const open = () => { const c = { x: (rm.x + rm.w / 2) * TILE, y: (rm.y + rm.h / 2) * TILE, tier: 1, open: 0, loot: [] }, n = R.en.length; R.chests.push(c); openChest(S, R, c); return R.en.length - n; }, f = fstat(R);
+      f.foes = 10; f.kills = 9; if (open() <= 0) out.push('ambush: a chest does not spring it while monsters live');
+      f.kills = 10; R.en = []; if (open() > 0) out.push('ambush: a chest springs it on a cleared floor');
+      delete D.FLOOR_MODS.__t; m.mod = mod; }
+    // TASKS 1341: a slot's own properties come up more often than the others, the number of them stays the rarity's
+    { const R = { rs: 1341 }, n = 3000, share = (b, k) => { let c = 0; for (let i = 0; i < n; i++) { const it = rollAffixes(R, { b, rar: 2, lvl: 8, mods: {} }); if (Object.keys(it.mods).length !== RARITY[2].affixes) out.push(`affix: ${b} rolled the wrong number`); c += k in it.mods; } return c / n; };
+      if (!(share('sword', 'atk') > 2 * share('sword', 'def'))) out.push('affix: a weapon does not favour attack over defence');
+      if (!(share('plate_armor', 'def') > 2 * share('plate_armor', 'atk'))) out.push('affix: armour does not favour defence over attack');
+      if (!(share('boots', 'mspd') > 2 * share('boots', 'crit'))) out.push('affix: boots do not favour speed'); }
+    // TASKS 1345: a find's level follows a hero who has outgrown the floor, spreads, keeps to the source's floor under him; the seed repeats it
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1345); R.hero.lvl = 25; const lv = (o) => Array.from({ length: 600 }, () => rollItem(R, 21, 0, undefined, o).lvl), low = (a) => Math.min(...a);
+      const mob = lv(LOOT.mob), chest = lv(LOOT.chest[1]), boss = lv(LOOT.boss[2]);
+      if (low(mob) < 22 || low(chest) < 23 || low(boss) < 24) out.push(`loot level: under the floor: mob ${low(mob)} chest ${low(chest)} boss ${low(boss)}`);
+      if (new Set(mob).size < 2 || new Set(boss).size < 2) out.push('loot level: no spread');
+      if (rollItem(R, 21, 0).lvl !== 21) out.push('loot level: a roll that names no source left the floor\'s level');
+      const seq = (sd) => { const Q = { rs: sd, hero: R.hero }; return Array.from({ length: 50 }, () => rollItem(Q, 21, 0, undefined, LOOT.mob).lvl).join(); }; if (seq(5) !== seq(5)) out.push('loot level: the seed does not repeat it'); }
+    // TASKS 1347: a find above the usual range is likelier for a hero ahead of his level, and its bonus is capped
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1347), top = 15 + LOOT.mob.hi, roll = (lvl) => { R.hero.lvl = lvl; return Array.from({ length: 3000 }, () => rollItem(R, 15, 0, undefined, LOOT.mob).lvl); }, over = (a) => a.filter((v) => v > top).length;
+      const ahead = roll(5), even = roll(15); if (!(over(ahead) > 2 * over(even))) out.push(`over-level: ahead ${over(ahead)}, even ${over(even)}`); if (!over(even)) out.push('over-level: a hero at the floor\'s level never finds one');
+      if (Math.max(...ahead) > top + D.LOOT_OVER.up) out.push(`over-level: a bonus past the cap, ${Math.max(...ahead)}`); }
+    // TASKS 1348: a piece above the hero's level is not put on by itself and still sells
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1348), h = R.hero; S.run = R; h.lvl = 3; h.eq.helm = null; const it = { id: R.nextId++, b: 'knight_helm', rar: 1, lvl: 20, mods: {}, def: 5 };
+      if (wearIfFree(S, R, it) || h.eq.helm) out.push('over-level: a piece above the hero goes on an empty slot'); if (!(D.sellPrice(it, 1) > 0)) out.push('over-level: a piece above the hero does not sell'); }
+    // TASKS 1342: the crit-damage property raises the one multiplier, up to its cap
+    { const S = spawn(0, {}), R = newRun(S, 'campaign', 1342), h = R.hero, ring = (v) => { h.eq.ring = { id: 1, b: 'ring', rar: 1, lvl: 1, mods: { critd: v } }; return stats(h, S.meta).critK; }; h.eq.ring = null;
+      if (stats(h, S.meta).critK !== D.CRIT.k) out.push('crit: the base multiplier is not CRIT.k');
+      if (Math.abs(ring(50) - (D.CRIT.k + 0.5)) > 1e-9) out.push('crit: the property does not add to the multiplier');
+      if (ring(1000) !== D.CRIT.cap) out.push('crit: the multiplier passes its cap'); h.eq.ring = null; }
     // completion: empty categories are left out, partial and full runs, a floor change, save/load, a one-time bonus
     { const C0 = completion([{ foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0 }]); if (C0.pct !== 0) out.push('completion: an empty floor is not 0');
       const C1 = completion([{ foes: 10, kills: 5, lootN: 4, loot: 4, secN: 0, sec: 0 }]); if (Math.abs(C1.pct - 0.75) > 1e-9) out.push('completion: a floor without secrets counts them as 0%');
@@ -2006,7 +2040,7 @@
       const R = S.run, h = R && R.hero;
       if (!R || R.mode !== RID || S.screen !== 'inv') out.push(RID + ': the menu button does not start the run on the hero screen');
       else {
-        if (h.lvl !== N.lvl || h.pts !== 3 * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`${RID}: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
+        if (h.lvl !== N.lvl || h.pts !== D.clsOf(h).grow.pts * (N.lvl - 1) || h.sp !== N.lvl - 1) out.push(`${RID}: the hero starts at level ${h.lvl} with ${h.pts} points and ${h.sp} skill points`);
         if (N.kit.gear.some(([b]) => !h.eq[BASES[b].slot] || h.eq[BASES[b].slot].b !== b)) out.push(RID + ': the kit is not worn');
         if (D.clsOf(h).abs.some((a) => a.unlock <= h.lvl && !h.ab[a.id])) out.push(RID + ': an ability of the hero\'s level is still locked');
         for (let f = 1; f <= N.floors; f++) { if (f > 1) enterFloor(S, R, f); const m = R.map, guards = m.enemies.filter((e) => e.guard).length;

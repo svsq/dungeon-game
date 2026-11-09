@@ -59,7 +59,7 @@
     const AR = D.abRank(id, rank); h.mp -= A.mp; h.cd[id] = S.t + A.cd * AR.cd; h.castT = S.t; h.castK = id;
     const st = heroSt(S);
     if (id === 'whirl') { h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
-      const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.round(st.atk * dmgK * (c ? 1.75 : 1)), c, h.x, h.y, 1.6); } }
+      const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.round(st.atk * dmgK * (c ? st.critK : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
       R.proj.push({ id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }); ev(S, { k: 'cast', x: hx, y: hy, a }); }
@@ -76,7 +76,7 @@
       ev(S, { k: 'cry', x: h.x, y: h.y, r: C.r }); }
     // the archer's (TASKS 1120, 1161): a fan of arrows closing on the cursor; a trap at the cursor (stepTraps springs it); a leap back
     // as a dash with a shot down the aim; each arrow, trap and leap shot may crit
-    const shot = () => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? 1.75 : 1) * (h.bless ? 1.2 : 1))), c]; };
+    const shot = () => { const c = rnd(R) * 100 < st.crit; return [Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c]; };
     const [ox, oy] = hand(h), far = Math.hypot((h.mx ?? ox + Math.cos(h.aim) * 200) - ox, (h.my ?? oy + Math.sin(h.aim) * 200) - oy);
     if (id === 'volley') { const V = D.VOLLEY, arc = Math.max(V.min, Math.min(V.arc, 2 * Math.atan2(V.w / 2, far) * 180 / Math.PI));
       for (let i = 0; i < V.n; i++) { const [d, c] = shot(); heroShot(R, h, h.aim + (i / (V.n - 1) - 0.5) * arc * Math.PI / 180, Math.round(d * V.k * AR.k), c, 'arrow', BASES[st.wtype]); }
@@ -307,7 +307,7 @@
     c.loot = [];
     if (!c.ambushRolled) {
       c.ambushRolled = 1;
-      if (role && (role.type === 'treasure' || role.type === 'secret') && rnd(R) < 0.05 * ((D.FLOOR_MODS[R.map.mod] || {}).ambush || 1)) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
+      if (role && (role.type === 'treasure' || role.type === 'secret') && fstat(R).kills < fstat(R).foes && rnd(R) < 0.05 * ((D.FLOOR_MODS[R.map.mod] || {}).ambush || 1)) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
     }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
     if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
@@ -331,8 +331,8 @@
   function chestLoot(R, c) { if (c.boss) return [];
     const LT = c.mimic ? { q: LOOT.chest[3].q, n: LOOT.chest[c.tier].n } : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)
-    if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], { min: Y.forge.min }));
-    else for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q));
+    if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], Object.assign({}, LT, { min: Y.forge.min })));
+    else for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q, undefined, LT));
     if (Y.stash) for (const [b, n] of Object.entries(Y.stash)) if (!SIMX.useless(R, b)) out.push(potion(b, n));
     if (rnd(R) < POT.chest) out.push(potion('hp_potion')); if (rnd(R) < (R.viaTown ? POT.scrollTown : POT.scroll)) out.push(potion('scroll'));
     for (const it of out) it.id = R.nextId++; return out; }
