@@ -1,0 +1,13 @@
+[
+{
+"name": "cage_big",
+"prompt": "art/prompts/cage_big.txt",
+"ref": [
+"art/gen/cage.png=the game's small hanging cage, for its iron and pixel density",
+"art/gen/merchant.png=the man who will stand inside, for scale only, do not draw him"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+}
+]

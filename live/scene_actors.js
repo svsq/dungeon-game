@@ -417,7 +417,7 @@
   // a mimic that is still a chest shivers now and then: a careful eye can tell it from the real thing
   const mimicTwitch = (c, t) => { const ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1; return ph < 0.5 ? { rot: 0.035 * Math.sin(ph * 42) * (1 - ph / 0.5), dx: 0, sy: 1, fl: 0 } : undefined; };
   const CHEST_BOSS = { tex: 'chest_boss', k: 1.35, u: { grade: [1, 0.85, 0, 1.25], tint: [1, 0.32, 0.3, 0.7] } };
-  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
+  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[Math.min(3, c.tier)] || CHEST_LOOK[1]);
   // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
   // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
   const DEBRIS_T = 0.42;

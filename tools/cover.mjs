@@ -29,7 +29,7 @@ try {
     document.body.innerHTML = '<main id="cover"></main>';
     const cover = document.getElementById('cover'); cover.appendChild(G.gl.canvas);
     const title = document.createElement('header');
-    title.innerHTML = '<h1>ГЛУБИНЫ КРИПТЫ</h1><p>Спуститесь на шестнадцать этажей и одолейте Магмового колосса</p>';
+    title.innerHTML = '<h1>The Elder Deep</h1><p>Below the Ages</p>';
     cover.appendChild(title);
     const style = document.createElement('style');
     style.textContent = `

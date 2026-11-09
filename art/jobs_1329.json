@@ -1,0 +1,32 @@
+[
+{
+"name": "ref_parchment_a",
+"prompt": "art/prompts/ref_parchment_a.txt",
+"ref": [
+"frames/qa/town_quest_offer.png=the current dialogue window to restyle"
+],
+"size": "1536x1024",
+"alpha": "none",
+"pixel": false
+},
+{
+"name": "ref_parchment_b",
+"prompt": "art/prompts/ref_parchment_b.txt",
+"ref": [
+"frames/qa/town_quest_offer.png=the current dialogue window to restyle"
+],
+"size": "1536x1024",
+"alpha": "none",
+"pixel": false
+},
+{
+"name": "ref_parchment_c",
+"prompt": "art/prompts/ref_parchment_c.txt",
+"ref": [
+"frames/qa/town_quest_offer.png=the current dialogue window to restyle"
+],
+"size": "1536x1024",
+"alpha": "none",
+"pixel": false
+}
+]

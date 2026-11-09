@@ -1,0 +1,72 @@
+[
+{
+"name": "npc_dealer",
+"prompt": "art/prompts/npc_dealer.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "npc_sage",
+"prompt": "art/prompts/npc_sage.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "npc_seeker",
+"prompt": "art/prompts/npc_seeker.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "npc_digger",
+"prompt": "art/prompts/npc_digger.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "npc_runaway",
+"prompt": "art/prompts/npc_runaway.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "npc_boatwoman",
+"prompt": "art/prompts/npc_boatwoman.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "npc_hermit",
+"prompt": "art/prompts/npc_hermit.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+}
+]

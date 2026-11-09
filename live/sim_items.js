@@ -86,7 +86,8 @@
     boss: [{ q: 3, min: 4, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 3, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 2, lo: 0, hi: 3, lag: 1 }],
     // chest p (TASKS 1671): a plain or hoard chest may hold only its gold, so with the monsters' drops a floor fills the 24 cells at most about once;
     // the top tier always pays, as a secret room or a key was its price
-    chest: [null, { q: 0.6, n: 1, p: 0.2, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 1.3, n: 1, p: 0.4, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 3, n: 1, lo: 0, hi: 3, lag: 1 }],
+    chest: [null, { q: 0.6, n: 1, p: 0.2, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 1.3, n: 1, p: 0.4, max: 3, lo: 1, hi: 2, lag: 2 }, { q: 3, n: 1, lo: 0, hi: 3, lag: 1 },
+      { q: 3.2, n: 2, lo: 0, hi: 3, lag: 1 }, { q: 4.2, n: 3, lo: 0, hi: 3, lag: 1 }],
   };
 
   // ---------------- hero stats (base + gear + meta + the altars' gifts) ----------------
@@ -149,6 +150,7 @@
       if (p.rest !== DROP_REST && !p.vz && !(p.z > 0) && !(p.fly > 0)) settleDrop(R, p);
       if (!live || h.deadT >= 0 || R.t - p.t0 < 0.45) continue;
       const d = Math.hypot(h.x - p.x, h.y - p.y);
+      if (p.kind === 'note') continue;
       if (p.tossed) { if (d > 70) p.tossed = 0; continue; }
       if (p.kind !== 'item' && d < 90) { p.x += (h.x - p.x) * Math.min(1, 8 * DT); p.y += (h.y - p.y) * Math.min(1, 8 * DT); }
       if (d < 26) {

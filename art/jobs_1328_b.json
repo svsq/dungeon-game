@@ -1,0 +1,12 @@
+[
+{
+"name": "cage_big_open",
+"prompt": "art/prompts/cage_big_open.txt",
+"ref": [
+"art/gen/cage_big.png=the exact cage to reproduce with its door open"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+}
+]

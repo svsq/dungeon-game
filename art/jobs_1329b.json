@@ -1,0 +1,22 @@
+[
+{
+"name": "ui_parchment_w",
+"prompt": "art/prompts/ui_parchment_w.txt",
+"ref": [
+"art/gen/ref_parchment_c.png=the approved dark parchment window concept, copy the sheet"
+],
+"size": "1536x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "ui_parchment_t",
+"prompt": "art/prompts/ui_parchment_t.txt",
+"ref": [
+"art/gen/ref_parchment_c.png=the approved dark parchment window concept, copy the sheet"
+],
+"size": "1536x1024",
+"alpha": "auto",
+"pixel": true
+}
+]
