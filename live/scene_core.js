@@ -431,13 +431,14 @@ float sunk(vec2 w, out vec4 c, out vec2 f, out float dim){ dim = 0.0; float best
 // yellow line, 16 % basalt round it against the concept's 50)
 // (dark red glints and grain over the void's upper lip, TASKS 1631: L p90 15/27/14/18 and σL 3.4–4.5 against 24 and 6.4)
 vec3 pitGrain(vec2 w, float g, vec3 col){ float n = hash(floor(w / 2.0) * 0.73), m = fbm(w / 13.0);
-  return col + (n > 0.8 ? vec3(0.13, 0.03, 0.016) : n > 0.5 ? vec3(0.05, 0.016, 0.012) : vec3(0.0)) * g * (0.45 + 0.9 * m); }
+  float lum = dot(col, vec3(0.3, 0.55, 0.15)), dimK = 2.3 - 1.75 * smoothstep(0.04, 0.2, lum);
+  return min(col, vec3(0.27)) + (n > 0.8 ? vec3(0.13, 0.03, 0.016) : n > 0.5 ? vec3(0.05, 0.016, 0.012) : vec3(0.0)) * g * dimK * (0.45 + 0.9 * m); }
 vec3 pitRim(vec2 w, float la, vec3 col){ if (smoothstep(0.02, 0.06, la + (fbm(w / 9.0) - 0.5) * 0.04) < 0.5) return col;
   // (rubble of uneven stones, TASKS 1163: a 6 px grid read as a row of black squares; L p90 11–15 against the reference's 24)
   vec2 p = w / 7.0 + 0.9 * vec2(vnoise(w / 11.0), vnoise(w / 11.0 + 7.3)), id = floor(p), f = fract(p), nid = id, off = vec2(0.0); float d1 = 9.0, d2 = 9.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y)), c = g + vec2(hash(id + g), hash(id + g + 3.1)) - f; float d = length(c); if (d < d1) { d2 = d1; d1 = d; nid = id + g; off = c; } else if (d < d2) d2 = d; }
   col = gCrust(w + 53.0) * (1.05 + 1.0 * hash(nid)) * (off.y > 0.12 ? 1.5 : off.y < -0.2 ? 0.6 : 1.0);
-  return d2 - d1 < 0.1 ? vec3(0.03, 0.022, 0.026) : pitGrain(w, 0.85, col); }
+  return d2 - d1 < 0.1 ? vec3(0.03, 0.022, 0.026) : pitGrain(w, 0.9, col); }
 vec3 capCol(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), xx = (w.x - c.x) / hw, yy = (w.y - c.y) / 8.0, r = xx * xx + yy * yy;
   vec3 col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * id) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + id * 9.0)));
   if (r > 0.64) col = yy < 0.2 && xx < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03);
