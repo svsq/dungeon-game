@@ -84,10 +84,10 @@
       if (Math.abs(f.vx) > 3) { const nf = f.vx > 0 ? 1 : -1; if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
-      if (alive && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 11) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
+      if (alive && h.gold > 0 && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 30) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
   }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
-    for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid) out.push({ x: d.x, y: d.y, r: 18 });
+    for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid || d.role === 'bench') out.push({ x: d.x, y: d.y, r: 18 });
     if (R.map.town) for (const p of R.map.town.yardSolid || []) out.push({ x: p.x, y: p.y, r: 18 });
     if (R.map.town && R.cart && R.cart.st !== 'in') { const [x, y] = railAt(R.map, R.cart.s); out.push({ x, y, r: 16 }); }
     if (R.map.way) out.push({ x: R.map.way.x, y: R.map.way.y, r: 16 });
@@ -280,7 +280,7 @@
     return out; }
   // a quest's state in a few words, for the HUD's tracker
   function questLine(q, R) { const Q = D.QUESTS[q.key];
-    if (q.st === 'done') return TXT('sim_town.questLine');
+    if (q.st === 'done') return D.FOLK[q.from] ? TXT('sim_town.questLine.who', { p1: D.FOLK[q.from].name.toLowerCase() }) : TXT('sim_town.questLine');
     if (Q.type === 'kill' || Q.type === 'clear') return TXT('sim_town.questLine.2', { n: q.n, need: q.need, f: q.f });
     if (Q.type === 'named') return TXT('sim_town.questLine.3', { title: q.title, f: q.f });
     if (Q.type === 'fetch') return TXT('sim_town.questLine.4', { thing: q.thing, f: q.f }) + (q.where === 'chest' ? TXT('sim_town.questLine.chest') : q.where === 'secret' ? TXT('sim_town.questLine.secret') : q.where === 'floor' ? TXT('sim_town.questLine.floor') : '');
@@ -296,7 +296,7 @@
   // time below; each told once; nothing new, his idle pair
   function keeperPages(S, R) { const K = D.KEEPER, T = R.keeperT || (R.keeperT = {}), M = S.meta, out = [];
     if (!M.keeperMet) { M.keeperMet = 1; out.push(...K.first); }
-    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'win') out.push(...K.win); else if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(TXT('KEEPER.cls', { cls: D.CLASSES[M.lastCls].name.toLowerCase() })); }
+    if (!M.endTold && M.lastEnd) { M.endTold = 1; if (M.lastEnd === 'dead') out.push(...(M.deaths === 1 ? K.death1 : K.death)); if (M.lastCls && D.CLASSES[M.lastCls] && (M.lastEnd === 'win' || M.lastEnd === 'dead')) out.push(TXT('KEEPER.cls', { cls: D.CLASSES[M.lastCls].name.toLowerCase() })); }
     if (R.campaignWon && !T.won) { T.won = 1; out.push(...K.win); }
     if ((R.bossN || 0) > (T.boss || 0) && R.lastBoss) { T.boss = R.bossN; out.push(...K.boss(ENEMIES[R.lastBoss].name)); }
     if (R.legend && T.legend !== R.legend) { T.legend = R.legend; out.push(...K.rare(R.legend)); }
