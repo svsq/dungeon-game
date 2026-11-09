@@ -19,7 +19,7 @@
   const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; let t = Math.imul(R.rs ^ (R.rs >>> 15), 1 | R.rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const ri = (R, a, b) => a + Math.floor(rnd(R) * (b - a + 1));
   const pick = (R, arr) => arr[Math.floor(rnd(R) * arr.length)];
-  const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
+  const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (!S.demo && SIMX.META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log && !S.demo) note(S, e); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
@@ -37,7 +37,7 @@
   const campaignDone = (R) => !!R.viaTown && (!!R.campaignWon || (R.slain || []).includes(D.RUNS.campaign.floors));
   const exitKind = (R, f = R.floor) => (!finalFloor(R, f) ? 'stairs' : R.viaTown ? null : 'portal');
   const dif = (R, k) => { const v = (D.DIFF[R.diff] || D.DIFF.normal)[k]; return v > 1 && (k === 'dmg' || k === 'hp') ? 1 + (v - 1) * Math.min(1, dep(R) / 3) : v; };
-  const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? TXT('sim_core.who') : '') : '?';
+  const who = (e) => e ? e.type + (e.elite && !D.BOSSES[e.type] ? ' elite' : '') : '?';
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
   const logFloor = (R) => R.log.fl[R.log.fl.length - 1];
   const add = (o, k, n = 1) => { o[k] = (o[k] || 0) + n; };
@@ -54,6 +54,7 @@
     else if (e.k === 'cast' || e.k === 'whirl' || e.k === 'shield') add(L.ab, e.k === 'cast' ? 'fireball' : e.k);
     if (e.k === 'equip' || e.k === 'unequip') { const st = SIMX.heroSt(S); (L.gear = L.gear || []).push({ t: +e.t.toFixed(2), slot: e.slot, on: e.on || null, off: e.off || null, maxHp: st.maxHp, def: st.def, atk: st.atk }); }
     if (e.k === 'bless') { const st = SIMX.heroSt(S); (L.gifts = L.gifts || []).push(e.cost == null ? { t: +e.t.toFixed(2), id: e.id, revive: 1 } : { t: +e.t.toFixed(2), id: e.id, name: e.s, cost: e.cost, maxHp: st.maxHp, def: st.def, atk: st.atk }); } }
+  SIMX.META_EV = new Set(['kill', 'hit', 'pickup', 'bless']);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
 
@@ -80,8 +81,15 @@
   // a sealed arena's lava is no way out for the hero: a river of the fire biome runs through its wall in about one floor-6 arena in
   // five, and out by it he was shut out of the room with the stairs (TASKS 470); m.arenaBox is the room's box while sealed
   const sealedOut = (m, tx, ty) => { const A = m.arenaBox; return !!A && (tx < A[0] || ty < A[1] || tx >= A[2] || ty >= A[3]); };
+  // a lava bridge's rope rails stand on the lava cells along both sides of its deck: nobody walks off the deck into the fire (derived from m.crossings, cached)
+  const RAIL = new WeakMap();
+  const railed = (m, k) => { let r = RAIL.get(m);
+    if (!r) { RAIL.set(m, r = new Set());
+      for (const c of m.crossings || []) { if (c.kind !== 'bridge' || !c.span) continue; const [u0, u1, v0] = c.span, hor = c.axis === 'x';
+        for (let u = u0; u <= u1; u++) for (const v of [v0 - 1, v0 + 2]) { const q = (hor ? v : u) * m.W + (hor ? u : v); if (m.cells[q] === 3) r.add(q); } } }
+    return r.has(k); };
   const solidAt = (m, x, y, mon, lavaOk) => { const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE), c = cell(m, tx, ty);
-    if (c === 3) { const k = ty * m.W + tx; if (!mon && sealedOut(m, tx, ty)) return true; if (crustAt(m, k)) return !!mon && !lavaOk; return !lavaOk && !(!mon && m.arenaLava && m.arenaLava.includes(k)); } if (c === 0 && lavaOk === 2 && chasm(m, tx, ty)) return false; return c !== 1; };
+    if (c === 3) { const k = ty * m.W + tx; if (railed(m, k)) return true; if (!mon && sealedOut(m, tx, ty)) return true; if (crustAt(m, k)) return !!mon && !lavaOk; return !lavaOk && !(!mon && m.arenaLava && m.arenaLava.includes(k)); } if (c === 0 && lavaOk === 2 && chasm(m, tx, ty)) return false; return c !== 1; };
   // the brink (TASKS 476, data.js BRINK): a cell a monster sinks or falls in; whether one can be pushed off at all; the drop cell
   // within `near` of it, if any (nearest first); whether a blow from (sx, sy) drives it at a drop
   const dropCell = (m, tx, ty) => (cell(m, tx, ty) === 3 && !crustAt(m, ty * m.W + tx)) || chasm(m, tx, ty);
@@ -141,6 +149,7 @@
   // a step from one cell to its diagonal neighbour between two walls slips through their shared corner: that corner is shut too
   const solidC = (m, tx, ty) => { const c = cell(m, tx, ty); return c === 0 || c === 4 || c === 5; };
   const pinch = (m, cx, cy, nx, ny) => cx !== nx && cy !== ny && solidC(m, nx, cy) && solidC(m, cx, ny);
+  const overLava = (m, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 8); for (let i = 0; i <= n; i++) { const x = Math.floor((x0 + (x1 - x0) * i / n) / TILE), y = Math.floor((y0 + (y1 - y0) * i / n) / TILE), k = y * m.W + x; if (m.cells[k] === 3 && !crustAt(m, k)) return true; } return false; };
   const losClear = (m, x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 10), wall = (x, y) => solidC(m, Math.floor(x / TILE), Math.floor(y / TILE));
     let cx = Math.floor(x0 / TILE), cy = Math.floor(y0 / TILE);
     for (let i = 1; i <= n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, nx = Math.floor(x / TILE), ny = Math.floor(y / TILE);
@@ -186,7 +195,7 @@
   // as soon as any of its floor is in sight, its own ring of wall too, but never the floor of a room behind a thin wall (TASKS 104)
   const REV = { arr: null, k: '' };
   const CHOICE = new WeakMap();
-  function reveal(R) {
+  function reveal(R, arrive) {
     const m = R.map, h = R.hero, W = m.W, tx = Math.floor(h.x / TILE), ty = Math.floor(h.y / TILE), ri2 = DG.roomAt(m, h.x, h.y);
     const k = tx + ':' + ty + ':' + (m.secrets || []).map((q) => q.open).join('') + ':' + doorKey(m);
     if (REV.arr === R.seen && REV.k === k) return ri2;
@@ -202,11 +211,10 @@
     // (its rim varies cell by cell, TASKS 482: a walk along a straight way swept the ellipse's edge into a straight line)
     // (a smooth noise over 3 cells, TASKS 1037: hashed cell by cell it left single cells revealed out in the fog, crumbs of lava)
     // (and ±0.1 cell by cell on the rim, TASKS 1048, 1056: smooth alone, the edge ran straight along the lava again)
-    const hh = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
-    const h01 = (x, y) => { const gx = x / 3, gy = y / 3, x0 = Math.floor(gx), y0 = Math.floor(gy), fx0 = gx - x0, fy0 = gy - y0, sx0 = fx0 * fx0 * (3 - 2 * fx0), sy0 = fy0 * fy0 * (3 - 2 * fy0);
-      return (hh(x0, y0) * (1 - sx0) + hh(x0 + 1, y0) * sx0) * (1 - sy0) + (hh(x0, y0 + 1) * (1 - sx0) + hh(x0 + 1, y0 + 1) * sx0) * sy0; };
-    const rooms = new Set(), oval = !!m.cliff;
-    for (let y = ty - 6; y <= ty + 6; y++) for (let x = tx - 8; x <= tx + 8; x++) { if (!inMap(x, y) || (oval && ((x + 0.5 - fx) / 8.5) ** 2 + ((y + 0.5 - fy) / 6.5) ** 2 > (0.72 + 0.28 * h01(x, y) + (hh(x + 31, y + 17) - 0.5) * 0.2) ** 2) || !sight(x, y)) continue;
+    const { fogHash: hh, fogNoise: h01 } = DG;
+    // (arriving on a magma floor the oval opens past the rock too, the player's decision on 1636; never onto a secret)
+    const rooms = new Set(), oval = !!m.cliff, wide = oval && arrive ? DG.FOG_ARRIVE : 1, ry = Math.ceil(6 * wide), rx = Math.ceil(8 * wide);
+    for (let y = ty - ry; y <= ty + ry; y++) for (let x = tx - rx; x <= tx + rx; x++) { if (!inMap(x, y) || (oval && !DG.inFogOval(x, y, fx, fy, wide)) || (wide > 1 ? hid.has(y * W + x) : !sight(x, y))) continue;
       if (opaque(x, y)) { wall(x, y); continue; }
       R.seen[y * W + x] = 1; for (let v = -1; v <= 1; v++) for (let u = -1; u <= 1; u++) wall(x + u, y + v);
       const ri = DG.roomAt(m, (x + 0.5) * TILE, (y + 0.5) * TILE); if (ri >= 0) rooms.add(ri); }
@@ -214,7 +222,7 @@
     // (TASKS 453: the whole box was a rectangle of lava cut out of the dark)
     // (by distance, with a reach of 1.6–3.2 cells that varies cell by cell, TASKS 482: within a 5×5 square the edge ran ruler-straight
     // along the floor's own rows for 6–18 cells)
-    const nearFloor = (x, y, r) => { const rr = 1.6 + 1.6 * h01(x, y) + (hh(x + 7, y + 91) - 0.5) * 1.4; for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const X = x + u, Y = y + v;
+    const nearFloor = (x, y, r) => { const rr = DG.fogReach(x, y); for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) { const X = x + u, Y = y + v;
       if (u * u + v * v <= rr * rr && X >= r.x - 1 && X <= r.x + r.w && Y >= r.y - 1 && Y <= r.y + r.h && inMap(X, Y) && m.cells[Y * W + X] === 1) return true; } return false; };
     for (const ri of rooms) { if (R.rseen[ri]) continue; R.rseen[ri] = 1; const r = m.rooms[ri];
       for (const [bx, by, bw, bh] of DG.rectsOf(r)) for (let y = by - 2; y <= by + bh + 1; y++) for (let x = bx - 2; x <= bx + bw + 1; x++) { if (!inMap(x, y)) continue;
@@ -252,12 +260,15 @@
     return ri2;
   }
   // the camera may leave the map by more than the HUD's width, so a room at the edge never sits under the minimap or the bars
-  function clampCam(R, c) { const m = R.map, w = WIN(R); c[0] = clamp(c[0], -620, m.W * TILE - w.W + 620); c[1] = clamp(c[1], -380, m.H * TILE - w.H + 300); }
+  function clampCam(R, c) { const m = R.map, w = WIN(R);
+    // the town is one fixed courtyard: past its ruins there is only void, so the view stays on it (TASKS 1612)
+    if (m.town) { const fit = (v, a, b, s) => (b - a <= s ? (a + b - s) / 2 : clamp(v, a, b - s)); c[0] = fit(c[0], 2 * TILE, 54 * TILE, w.W); c[1] = fit(c[1], 2 * TILE, 35 * TILE, w.H); return; }
+    c[0] = clamp(c[0], -620, m.W * TILE - w.W + 620); c[1] = clamp(c[1], -380, m.H * TILE - w.H + 300); }
 
   Object.assign(SIMX, {
     D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW,
     zoomOf, WIN, toPx, nextZoom, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, finalFloor, exitKind, campaignDone, dif, who,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, doorLock, doorKey, flow, homeFlow, reveal, clampCam });
+    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam });
 })(typeof window !== 'undefined' ? window : globalThis);

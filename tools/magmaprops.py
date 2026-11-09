@@ -57,9 +57,24 @@ def glass(im):
     return Image.fromarray(a)
 
 
-STAIR_RAMP = [INK, BAS[1], BAS[2], BAS[3], BAS[4]]
+STAIR_RAMP = [INK, BAS[0], BAS[1], BAS[2], BAS[3]]
 STAIR_CUTS = [0.07, 0.14, 0.24, 0.38]
 FERN_GROW, CLOSE = 5, 12
+
+
+UP_JAMB = [(365, 905, 0, 275), (365, 905, 745, 1024), (905, 1024, 0, 245), (905, 1024, 775, 1024)]
+UP_FREE_JAMB = [(215, 455, 0, 260), (455, 705, 0, 250), (705, 940, 0, 195),
+                (215, 455, 770, 1024), (455, 705, 775, 1024), (705, 940, 825, 1024)]
+
+
+def darken_jamb(im, rects=UP_JAMB):
+    a = np.asarray(im).copy(); H, W = a.shape[:2]
+    m = np.zeros((H, W), bool)
+    for y0, y1, x0, x1 in rects:
+        m[y0:y1, x0:x1] = True
+    for hi, lo in ((BAS[3], BAS[2]), (BAS[2], BAS[1])):
+        a[m & (a[..., :3] == hi).all(-1), :3] = lo
+    return Image.fromarray(a)
 
 
 def defern(im, src):
@@ -156,8 +171,8 @@ if __name__ == '__main__':
         'banner_mg': banner(),
         'forge_mg': forge('art/gen/forge_tw.png'),
         'stairs_mg': reshade('art/gen/stairs.png', STAIR_RAMP, STAIR_CUTS),
-        'stairs_up_mg': reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS),
-        'stairs_up_free_mg': reshade('art/gen/stairs_up_free.png', STAIR_RAMP, STAIR_CUTS),
+        'stairs_up_mg': darken_jamb(reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS)),
+        'stairs_up_free_mg': darken_jamb(reshade('art/gen/stairs_up_free.png', STAIR_RAMP, STAIR_CUTS), UP_FREE_JAMB),
     }
     only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(out)
     for n, im in ((k, out[k]) for k in only):

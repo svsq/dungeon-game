@@ -4,5 +4,6 @@ __pycache__/
 node_modules/
 
 frames/
-study/critique/
+study/critique/*
+!study/critique/*.md
 art/logs/

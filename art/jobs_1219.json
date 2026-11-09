@@ -1,0 +1,65 @@
+[
+{
+"name": "stairs_tw",
+"prompt": "art/prompts/stairs_tw.txt",
+"ref": [
+"study/refcrops/town_crypt_stairs.png=the approved town concept's crypt stairs crop",
+"live/assets/wall_tw_tex.png=this game's own wall texture"
+],
+"size": "1536x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "cart_tw",
+"prompt": "art/prompts/cart_tw.txt",
+"ref": [
+"live/assets/cart_tw_empty.png=this game's empty mine cart"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "stoneyard_tw",
+"prompt": "art/prompts/stoneyard_tw.txt",
+"ref": [
+"study/refcrops/town_stoneyard.png=the approved town concept's crop of the unloading yard",
+"art/refs_town_scale.png=existing props of this game in their true sizes next to the hero"
+],
+"size": "1536x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "forge_tw",
+"prompt": "art/prompts/forge_tw.txt",
+"ref": [
+"study/refcrops/town_forge.png=the approved town concept's forge crop",
+"art/refs_town_scale.png=existing props of this game in their true sizes next to the hero"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "dc_moss_tw_a",
+"prompt": "art/prompts/dc_moss_tw_a.txt",
+"ref": [
+"study/refcrops/town_ground_grass.png=the approved town concept's ground crop"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+},
+{
+"name": "dc_moss_tw_b",
+"prompt": "art/prompts/dc_moss_tw_b.txt",
+"ref": [
+"study/refcrops/town_ground_grass.png=the approved town concept's ground crop"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+}
+]

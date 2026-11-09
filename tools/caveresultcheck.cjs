@@ -27,7 +27,7 @@ for (const seed of [1, 7, 26837]) for (const mode of ['cave', 'campaign']) for (
   const R = S.run, h = R.hero; let expected = before;
   R.freeze = 0;
   if (how === 'win') {
-    const b = R.en.find((e) => e.type === (mode === 'cave' ? 'boss_serpent' : 'boss'));
+    const b = R.en.find((e) => DATA.BOSSES[e.type]);
     assert.ok(b);
     const room = R.map.rooms[b.room], T = DATA.TILE;
     const shore = R.map.cells.flatMap((c, k) => c === 1 ? [{ x: (k % R.map.W + 0.5) * T, y: (Math.floor(k / R.map.W) + 0.5) * T }] : [])
@@ -35,8 +35,8 @@ for (const seed of [1, 7, 26837]) for (const mode of ['cave', 'campaign']) for (
       .sort((a, c) => Math.abs(Math.hypot(a.x - b.x, a.y - b.y) - 150) - Math.abs(Math.hypot(c.x - b.x, c.y - b.y) - 150))[0];
     assert.ok(shore); h.x = shore.x; h.y = shore.y; SIM.step(S, { keys: [] });
     assert.ok(R.arena && R.arena.active);
-    b.hp = 1; b.st = mode === 'cave' ? 'chase' : 'idle'; b.t0 = S.t;
-    R.en = [b]; R.proj = [{ id: R.nextId++, own: 'hero', k: 'fire', x: b.x, y: b.y - 20, gz: 20, vx: 0, vy: 0, life: 0, t0: S.t, dmg: 1e6, r: 6 }];
+    b.hp = 1; b.st = 'chase'; b.t0 = S.t;
+    R.en = [b]; R.proj = [{ id: R.nextId++, own: 'hero', k: 'fire', x: b.x, y: b.y - DATA.ENEMIES[b.type].h * 0.45, gz: DATA.ENEMIES[b.type].h * 0.45, vx: 0, vy: 0, life: 0, t0: S.t, dmg: 1e6, r: 6 }];
     for (let i = 0; i < 3; i++) SIM.step(S, { keys: [] });
     assert.equal(R.bossDead, 1, mode + ': actual projectile did not kill boss');
     expected = SIM.runCompletion(R);
@@ -67,4 +67,4 @@ for (const seed of [1, 7, 26837]) for (const mode of ['cave', 'campaign']) for (
 }
 fs.writeFileSync(out + '/simulation.json', JSON.stringify(report, null, 2));
 fs.writeFileSync(out + '/states.json', JSON.stringify(states));
-console.log('caveresultcheck: ok (18 endings after save/continue, actual boss kills, cave 4/campaign 8 floors)');
+console.log('caveresultcheck: ok (18 endings after save/continue, actual boss kills, cave 4/campaign 16 floors)');

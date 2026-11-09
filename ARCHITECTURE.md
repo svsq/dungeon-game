@@ -1,4 +1,4 @@
-# Архитектура «Глубин Крипты»
+# Архитектура The Elder Deep: Below the Ages
 
 Разбор для R-38 (задача 500, 07.11.2026): что за что отвечает сейчас, где фичи сталкиваются, целевая раскладка модулей и
 порядок этапов. Код этим документом не переносится. Номера строк даны по `dev` 4fcbdd3.
@@ -140,7 +140,7 @@
 | `data_world.js` | `BIOMES`, `ARCH`, `HAZ`, `BRINK`, `ROOM_SHAPES/PLANS`, `PROP_W/H/MAT`, `CAVE_PACKS`, `MAGMA_*` | core, enemies |
 | `data_runs.js` | `RUNS`, `stageOf`, бесконечный спуск, `layOf`, `rosterAt`, `wayFloor`, `placeName`, `floorName` | world, enemies |
 | `data_items.js` | `SLOTS`, `BASES`, `CONSUMABLES`, `RARITY`, `AFFIXES`, `ITEM_BAL`, `GEN_VERSION`, `reqLvl`, цены | core, balance |
-| `data_hero.js` | `ABILITIES`, `abRank`, `STATS`, `TIPS`, `xpNeed`, `META`, `metaLine`, `GIFTS` | core, items |
+| `data_hero.js` | `CLASSES`, `clsOf`, `ABILITIES`, `abRank`, `STATS`, `TIPS`, `xpNeed`, `META`, `metaLine`, `GIFTS` | core, items |
 | `data_town.js` | `FOLK`, `KEEPER`, `QUESTS`, `QUEST_*`, `CRAFT`, `STASH`, `SHOP`, `folkInit`, `storyChain` | runs, items |
 | `data_ui.js` | `UI`, `TEST_RUNS`, `startPath` | все |
 | `data.js` | в Node подтягивает части; в браузере проверяет, что весь прежний набор имён `DATA` на месте | — |
@@ -223,7 +223,7 @@
 - генерация: хеш `genFloor` для сидов × этажей × режимов;
 - отрисовка: кадры всех состояний `SCENE.QA()` из `render.mjs`, PNG побайтно.
 
-Эталон снят на c948560 (до первого переноса) в `frames/samecheck/base.json`: `node tools/samecheck.mjs` сравнивает с ним, `--only sim,gen,frames` выбирает части (около 6 минут на всё). Каждый прогон бота идёт в своём процессе: подряд в одном процессе прогоны не повторяются (1143). Итог бота хешируется без `ver` — хеша исходников, который меняется при любом переносе. Эталон сравнивается после каждого коммита. Любое расхождение — ошибка переноса, а не
+Эталон снят на c948560 (до первого переноса) в `frames/samecheck/base.json`: `node tools/samecheck.mjs` сравнивает с ним, `--only sim,gen,frames` выбирает части (около 6 минут на всё). Состояние хешируется как JSON: `v8.serialize` даёт разные байты для равных чисел (1143). Итог бота хешируется без `ver` — хеша исходников, который меняется при любом переносе. Эталон сравнивается после каждого коммита. Любое расхождение — ошибка переноса, а не
 «ожидаемое изменение».
 
 ## 7. Порядок этапов

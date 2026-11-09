@@ -48,7 +48,7 @@
 
   // ---- one recipe per event kind ----
   const SFX = {
-    swing: (o) => noise(o, { d: 0.16, v: 0.35, f0: 2400, f1: 500, q: 1.4 }),
+    swing: (o, e) => { if (!e.shot) noise(o, { d: 0.16, v: 0.35, f0: 2400, f1: 500, q: 1.4 }); },
     whirl: (o) => { noise(o, { a: 0.05, d: 0.38, v: 0.4, f0: 600, f1: 2600, q: 2 }); noise(o, { t: now() + 0.12, d: 0.25, v: 0.25, f0: 2200, f1: 700, q: 2 }); },
     eswing: (o) => noise(o, { d: 0.14, v: 0.22, f0: 1500, f1: 400, q: 1.2 }),
     dash: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.3, type: 'lowpass', f0: 2500, f1: 400 }),
@@ -77,7 +77,6 @@
     goo: (o) => noise(o, { a: 0.02, d: 0.2, v: 0.14, f0: 520, f1: 260, q: 4 }),
     douse: (o) => noise(o, { a: 0.02, d: 0.58, v: 0.28, type: 'highpass', f0: 4000, f1: 1200 }),
     snuff: (o) => noise(o, { d: 0.18, v: 0.1, type: 'highpass', f0: 3200, f1: 1500 }),
-    hollow: (o) => { tone(o, { f0: 85, f1: 65, d: 0.28, v: 0.35 }); noise(o, { d: 0.25, v: 0.2, f0: 240, q: 6 }); },
     merchantHit: (o) => { tone(o, { type: 'triangle', f0: 170, f1: 250, d: 0.12, v: 0.18 }); noise(o, { d: 0.09, v: 0.12, type: 'lowpass', f0: 700 }); },
     // a blow off the crab's armour (TASKS 309) rings like struck iron, with no thud of flesh under it: the player hears it is wasted
     clang: (o, e) => { noise(o, { d: 0.03, v: 0.35, type: 'highpass', f0: 3500 }); for (const [f, v, d] of [[1180, 0.13, 0.5], [1730, 0.09, 0.38], [2610, 0.06, 0.3], [3390, 0.04, 0.22]]) tone(o, { type: 'triangle', f0: f * (e.crit ? 1.06 : 1), f1: f * 0.985, a: 0.003, d, v });
@@ -98,6 +97,22 @@
       else noise(o, { d: 0.18, v: 0.2, type: 'lowpass', f0: 900, f1: 200 }); },
     hurt: (o) => { tone(o, { f0: 120, f1: 50, d: 0.16, v: 0.55 }); tone(o, { type: 'sawtooth', f0: 210, f1: 150, a: 0.01, d: 0.14, v: 0.06 }); noise(o, { d: 0.08, v: 0.2, f0: 700, q: 2 }); },
     die: (o) => { tone(o, { f0: 90, f1: 28, a: 0.02, d: 1.4, v: 0.6 }); tone(o, { type: 'triangle', f0: 440, f1: 110, a: 0.3, d: 1.4, v: 0.12 }); noise(o, { a: 0.2, d: 1.2, v: 0.15, type: 'lowpass', f0: 800, f1: 100 }); },
+    // the staff's bolt (TASKS 1110): a short glassy zip; the ice wave: a cold hiss under three high crystal notes falling
+    bolt: (o) => { noise(o, { d: 0.12, v: 0.18, type: 'bandpass', f0: 3200, f1: 1400, q: 4 }); tone(o, { type: 'triangle', f0: 1400, f1: 700, d: 0.12, v: 0.05 }); },
+    frost: (o) => { noise(o, { a: 0.02, d: 0.55, v: 0.35, type: 'highpass', f0: 5000, f1: 1800 }); [2637, 2093, 1568].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.04 + i * 0.06, d: 0.4, v: 0.04 })); },
+    // the warrior (TASKS 1130): the charge's rush of air, its heavy blow, the war cry — a low brass shout under a rising roar
+    charge: (o) => noise(o, { a: 0.01, d: 0.25, v: 0.35, f0: 300, f1: 1400, q: 1.2 }),
+    chargehit: (o) => { noise(o, { d: 0.18, v: 0.45, type: 'lowpass', f0: 900, f1: 120 }); tone(o, { f0: 90, f1: 45, d: 0.25, v: 0.35 }); },
+    cry: (o) => { tone(o, { type: 'sawtooth', f0: 110, f1: 165, a: 0.05, d: 0.6, v: 0.12 }); tone(o, { type: 'sawtooth', f0: 165, f1: 247, a: 0.08, d: 0.55, v: 0.06 }); noise(o, { a: 0.1, d: 0.5, v: 0.12, type: 'bandpass', f0: 400, f1: 900, q: 1 }); },
+    // the archer (TASKS 1120): a bowstring's twang; a volley's quick ripple of them; a trap set (a click); its jaws snapping; the leap's rush
+    hloose: (o) => { tone(o, { type: 'triangle', f0: 220, f1: 150, d: 0.12, v: 0.08 }); noise(o, { d: 0.06, v: 0.12, type: 'highpass', f0: 3000 }); },
+    volley: (o) => { [0, 0.03, 0.06, 0.09, 0.12].forEach((dt, i) => tone(o, { type: 'triangle', f0: 260 - i * 12, f1: 150, t: now() + dt, d: 0.1, v: 0.1 })); noise(o, { d: 0.2, v: 0.12, type: 'highpass', f0: 2600 }); },
+    hush: (o) => { tone(o, { type: 'square', f0: 700, f1: 320, t: now() + 0.03, d: 0.07, v: 0.1 }); },
+    trapset: (o) => { tone(o, { type: 'square', f0: 1400, d: 0.03, v: 0.03 }); tone(o, { type: 'square', f0: 900, t: now() + 0.05, d: 0.03, v: 0.03 }); },
+    trapsnap: (o) => { noise(o, { d: 0.08, v: 0.3, type: 'bandpass', f0: 2600, f1: 900, q: 2 }); tone(o, { type: 'square', f0: 500, f1: 180, d: 0.08, v: 0.06 }); },
+    hleap: (o) => noise(o, { a: 0.02, d: 0.22, v: 0.25, f0: 500, f1: 2200, q: 1.5 }),
+    hland: (o) => noise(o, { d: 0.05, v: 0.14, type: 'lowpass', f0: 900, f1: 300 }),
+    shield_break: (o) => { tone(o, { type: 'triangle', f0: 1800, f1: 500, d: 0.14, v: 0.14 }); noise(o, { d: 0.12, v: 0.16, f0: 4000, f1: 1500, q: 1 }); },
     cast: (o) => { noise(o, { a: 0.02, d: 0.3, v: 0.3, type: 'bandpass', f0: 500, f1: 1800, q: 1 }); tone(o, { type: 'sawtooth', f0: 160, f1: 320, d: 0.2, v: 0.05 }); },
     // a fuse (an explosive corpse, a smouldering skeleton, TASKS 411): a hiss rising to the burst, sputtering ever faster
     fuse: (o, e) => { noise(o, { a: 0.05, d: e.d, v: 0.18, type: 'highpass', f0: 1400, f1: 4200 });
@@ -128,7 +143,7 @@
     orb: (o) => { tone(o, { f0: 220, f1: 520, a: 0.02, d: 0.16, v: 0.1 }); noise(o, { a: 0.03, d: 0.25, v: 0.16, f0: 600, f1: 1300, q: 2.5 }); for (let i = 0; i < 4; i++) tone(o, { t: now() + 0.05 + i * rr(0.03, 0.06), f0: rr(500, 900), f1: rr(900, 1400), a: 0.003, d: 0.04, v: 0.05 }); },
     soak: (o) => { SFX.splash(o); noise(o, { t: now() + 0.03, a: 0.01, d: 0.4, v: 0.18, type: 'highpass', f0: 3000, f1: 1600 }); },
     eshoot: (o) => tone(o, { type: 'triangle', f0: 500, f1: 900, a: 0.02, d: 0.2, v: 0.12 }),
-    pop: (o, e) => { if (e.c === 'arrow') { if (!e.hero) { noise(o, { d: 0.05, v: 0.25, type: 'lowpass', f0: 1400, f1: 400 }); tone(o, { f0: 240, f1: 160, d: 0.05, v: 0.08 }); } return; }
+    pop: (o, e) => { if (e.c === 'bolt') { tone(o, { type: 'triangle', f0: 900, f1: 500, d: 0.08, v: e.hit ? 0.06 : 0.03 }); return; } if (e.c === 'arrow') { if (!e.hero && !e.hit) { noise(o, { d: 0.05, v: 0.25, type: 'lowpass', f0: 1400, f1: 400 }); tone(o, { f0: 240, f1: 160, d: 0.05, v: 0.08 }); } return; }
       if (e.c === 'orb') { SFX.splash(o); noise(o, { d: 0.2, v: 0.2, f0: 1200, f1: 500, q: 0.8 }); return; }
       if (e.c === 'jet') { SFX.splash(o); if (e.hero) noise(o, { d: 0.2, v: 0.25, f0: 1800, f1: 600, q: 0.7 }); return; } if (e.c === 'hex') tone(o, { type: 'square', f0: 900, f1: 300, d: 0.12, v: e.hero ? 0.12 : 0.05 }); noise(o, { d: e.hero ? 0.3 : 0.15, v: e.hero ? 0.35 : 0.15, type: 'lowpass', f0: 1800, f1: 200 }); },
     spike: (o) => { noise(o, { d: 0.12, v: 0.3, type: 'highpass', f0: 3500 }); tone(o, { type: 'triangle', f0: 1650, d: 0.3, v: 0.08 }); tone(o, { type: 'triangle', f0: 2470, d: 0.22, v: 0.05 }); },
@@ -158,11 +173,19 @@
     stuck: (o) => { noise(o, { t: now() + 0.6, a: 0.2, d: 0.6, v: 0.2, type: 'bandpass', f0: 300, f1: 700, q: 2 }); },
     rockfall: (o) => { tone(o, { f0: 90, f1: 40, a: 0.005, d: 0.35, v: 0.6 }); noise(o, { a: 0.005, d: 0.4, v: 0.4, type: 'lowpass', f0: 1400, f1: 250 });
       for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.06 + i * 0.07, d: 0.05, v: 0.15, type: 'bandpass', f0: rr(1500, 3000), q: 3 }); },
+    // (placeholders until the real audio, TASKS 1646: the magma's actions that had no sound)
+    lavafall: (o) => { noise(o, { d: 0.25, v: 0.35, type: 'lowpass', f0: 1000, f1: 160 }); tone(o, { f0: 130, f1: 50, d: 0.3, v: 0.3 }); },
+    ignite: (o) => noise(o, { a: 0.01, d: 0.28, v: 0.2, type: 'highpass', f0: 2000, f1: 900 }),
+    surge: (o) => { noise(o, { a: 0.05, d: 0.5, v: 0.3, type: 'lowpass', f0: 800, f1: 240 }); tone(o, { f0: 75, f1: 45, d: 0.45, v: 0.28 }); },
+    bossphase: (o) => tone(o, { f0: 60, f1: 30, a: 0.02, d: 0.7, v: 0.4 }),
     sink: (o) => { noise(o, { a: 0.01, d: 1.2, v: 0.28, type: 'highpass', f0: 1800, f1: 700 }); tone(o, { f0: 140, f1: 55, a: 0.02, d: 0.6, v: 0.3 }); },
     fall: (o) => { tone(o, { type: 'triangle', f0: 420, f1: 120, a: 0.02, d: 0.8, v: 0.08 }); noise(o, { a: 0.05, d: 0.7, v: 0.12, type: 'lowpass', f0: 900, f1: 200 }); },
     gold: (o) => { for (let i = 0; i < 4; i++) tone(o, { type: 'triangle', f0: rr(2200, 3600), t: now() + i * rr(0.03, 0.07), d: 0.18, v: 0.08 }); },
     pickup: (o, e) => { tone(o, { type: 'triangle', f0: 660, f1: 990, d: 0.12, v: 0.12 }); if ((e.rar || 0) >= 2) tone(o, { f0: 1320, t: now() + 0.08, d: 0.4, v: 0.1 }); },
     shard: (o) => { tone(o, { f0: 1245, d: 0.7, v: 0.12 }); tone(o, { f0: 1865, t: now() + 0.06, d: 0.6, v: 0.08 }); },
+    mimicwake: (o) => { noise(o, { d: 0.2, v: 0.3, type: 'lowpass', f0: 900 }); tone(o, { type: 'sawtooth', f0: 70, f1: 240, d: 0.3, v: 0.12 }); },
+    trapfuse: (o) => { noise(o, { d: 0.5, v: 0.12, type: 'highpass', f0: 3000 }); tone(o, { type: 'square', f0: 1100, d: 0.05, v: 0.08 }); },
+    trapbang: (o) => { noise(o, { d: 0.3, v: 0.45, type: 'lowpass', f0: 1600, f1: 300 }); tone(o, { f0: 90, f1: 40, d: 0.25, v: 0.5 }); },
     chest: (o) => { tone(o, { type: 'sawtooth', f0: 85, f1: 120, a: 0.05, d: 0.3, v: 0.05 }); noise(o, { d: 0.12, v: 0.25, type: 'lowpass', f0: 600 }); SFX.gold(o); },
     break: (o, e) => { if (e.kind === 'pot' || e.kind.startsWith('vase')) { noise(o, { d: 0.25, v: 0.35, f0: 2200, q: 1.5 }); for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.05 + i * 0.04, d: 0.03, v: 0.12, f0: rr(2500, 4500), q: 5 }); }
       else if (e.kind === 'gold' || e.kind === 'goldpile') SFX.gold(o); else { noise(o, { d: 0.2, v: 0.35, type: 'lowpass', f0: 900, f1: 250 }); tone(o, { f0: 140, f1: 70, d: 0.12, v: 0.3 }); } },
@@ -183,8 +206,7 @@
       if (e.n === 'shop_gold') SFX.gold(o); },
     // a mechanism catches: a click, then the grind of stone starting to move
     click: (o) => { tone(o, { f0: 700, f1: 420, d: 0.06, v: 0.3 }); noise(o, { d: 0.05, v: 0.25, type: 'highpass', f0: 1800 }); tone(o, { f0: 90, f1: 60, a: 0.12, d: 0.5, v: 0.25 }); },
-    // a fake wall sounds hollow: a knock with a resonant body behind it; breaking it is a rumble, falling stones and a chime
-    wallhit: (o) => { tone(o, { f0: 120, f1: 80, d: 0.18, v: 0.45 }); noise(o, { d: 0.35, v: 0.3, f0: 320, q: 8 }); noise(o, { d: 0.08, v: 0.2, type: 'highpass', f0: 2000 }); },
+    // a cache opening: a rumble, falling stones and a chime
     secret: (o) => { noise(o, { a: 0.01, d: 1.1, v: 0.6, type: 'lowpass', f0: 1200, f1: 80 }); tone(o, { f0: 70, f1: 32, d: 0.9, v: 0.6 });
       for (let i = 0; i < 8; i++) noise(o, { t: now() + 0.1 + i * rr(0.05, 0.1), d: 0.05, v: 0.18, type: 'lowpass', f0: rr(600, 1400) });
       [659, 880, 1319].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.45 + i * 0.12, d: 1.1, v: 0.08 })); },
@@ -243,6 +265,7 @@
     say: (o, e) => { const b = e.role === 'child' ? 330 : e.role === 'sweeper' || e.role === 'enchanter' ? 250 : 150; for (let i = 0; i < 3; i++) tone(o, { type: 'triangle', f0: b * rr(0.9, 1.15), f1: b * rr(0.8, 1), t: now() + i * 0.09, d: 0.08, v: 0.035 }); },
     shop: (o) => [1568, 2093].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.14, d: 0.5, v: 0.07 })),
     // a hen startled by a blow (TASKS 1033): two quick rising squawks
+    power: (o) => { tone(o, { f0: 330, f1: 520, d: 0.16, v: 0.05 }); },
     hen: (o) => [0, 0.11].forEach((dt, i) => tone(o, { type: 'square', f0: 700 + 120 * i, f1: 1100 + 160 * i, t: now() + dt, d: 0.07, v: 0.03 })),
   };
   // events heard everywhere on the floor (not attenuated by distance)
@@ -250,7 +273,7 @@
   const LIMIT = { rock: 0.07, step: 0.08, hit: 0.03, gold: 0.05, alert: 0.15, kill: 0.04, scorch: 0.12, pop: 0.05, spike: 0.1 };
 
   function play(e, S) {
-    const f = SFX[e.k]; if (!f) return;
+    const f = SFX[e.k]; if (!f || ((e.k === 'bossphase' || e.k === 'ignite') && !S.run?.map?.cliff)) return;
     const gap = LIMIT[e.k] ?? 0.02, tn = now(); if (recent[e.k] && tn - recent[e.k] < gap) return; recent[e.k] = tn;
     let pan = 0, vol = 1;
     const R = S.run; if (R && R.cam && e.x !== undefined && !GLOBAL.has(e.k)) { const dx = e.x - (R.cam[0] + W / 2), dy = e.y - (R.cam[1] + H / 2);

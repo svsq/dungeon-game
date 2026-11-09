@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's mine cart: redraw it EXACTLY, same size, angle, planks, iron and wheels, pixel for pixel, changing only its load: the cart is EMPTY, its dark plank floor and far inner boards visible, a little stone grit on the floor. Transparent background, no shadow, no ground, no glow, no text.

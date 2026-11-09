@@ -17,7 +17,7 @@
     // thorns: a share of a blow taken at close quarters goes back into whoever struck it (not into a caster's bolt)
     if (gift(h, 'thorns') && e.deadT < 0 && Math.hypot(e.x - h.x, e.y - h.y) < 150) SIMX.hitEnemy(S, R, e, Math.max(1, Math.round(h.lastHit * gift(h, 'thorns') / 100)), 0, h.x, h.y, 0, 'thorns');
     if (!e.mods) return;
-    if (has(e, 'fiery')) { if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); }   // a fresh blow only extends the fire, the ticks keep their pace
+    if (has(e, 'fiery')) { if (h.burn <= S.t) { h.burnT = S.t - 0.5; ev(S, { k: 'ignite', x: h.x, y: h.y }); } h.burn = Math.max(h.burn, S.t + MOD.fiery.burn); }   // a fresh blow only extends the fire, the ticks keep their pace
     if (has(e, 'frost')) { h.chillT = S.t + MOD.frost.t; ev(S, { k: 'chill', x: h.x, y: h.y - 40, id: e.id }); }
     if (has(e, 'curse')) { h.curseT = S.t + MOD.curse.t; ev(S, { k: 'curse', x: h.x, y: h.y - 40, id: e.id }); }
     if (has(e, 'vampire') && e.deadT < 0) { const n = Math.round(e.max * MOD.vampire.heal); e.hp = Math.min(e.max, e.hp + n);
@@ -196,7 +196,7 @@
   // 36 % of blasts came after their ring was gone)
   const BOOM_GAP = 0.35, fuseEnd = (R, want) => { const t = Math.max(want, (R.fuseLast ?? -9) + BOOM_GAP); R.fuseLast = t; return t; };
   function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0; R.boomT = S.t;
-    if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) SIMX.hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, TXT('sim_enemies.blast', { p1: who(e) }), e);
+    if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) SIMX.hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' blast', e);
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
       SIMX.hitEnemy(S, R, o, Math.max(1, Math.round(B ? o.max * B.mon : e.max * 0.25)), false, e.x, e.y, 1.5); }
     SIMX.breakPots(S, R, e.x, e.y, M.r); ev(S, { k: 'boom', x: e.x, y: e.y - 20, big: 1, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.5); }
@@ -289,7 +289,7 @@
   // back into the lava to heal: it swims to the spot, then lies under, mending while nothing hurts it
   function soak(S, R, e, E) { const m = R.map, t = S.t, HL = E.heal, dx = e.sx - e.x, dy = e.sy - e.y, d = Math.hypot(dx, dy);
     crabTurn(e, E, d > 6 ? Math.atan2(dy, dx) : faOf(e), d > 6 ? 1 : 0.3);
-    const sp = (d > 6 ? E.spd * (onLava(m, e) ? E.swim : 1) * eliteK(e, 'spd') : 0) * SS01(Math.min(1, d / 24)), k = 1 - Math.exp(-9 * DT);
+    const sp = (d > 6 ? E.spd * (onLava(m, e) ? E.swim : 1) * eliteK(e, 'spd') * (e.slowK ?? 1) : 0) * SS01(Math.min(1, d / 24)), k = 1 - Math.exp(-9 * DT);
     e.vx += ((d > 0.01 ? dx / d : 0) * sp - e.vx) * k; e.vy += ((d > 0.01 ? dy / d : 0) * sp - e.vy) * k;
     move(m, e, e.vx * DT, e.vy * DT, E.r, true, true); e.dist += Math.hypot(e.vx, e.vy) * DT;
     if (!onLava(m, e)) { if (t - e.t0 > 5) { e.st = 'chase'; e.t0 = t; } return; }
@@ -298,11 +298,14 @@
     if (e.hp >= HL.to * e.max || t - e.soakT > HL.most) { e.st = 'chase'; e.t0 = e.seenT = t; e.soaked = 0; e.cdT = t + 0.4; ev(S, { k: 'emerge', x: e.x, y: e.y, id: e.id }); } }
   // its fire on the floor: the trail of its belly on land and the patches its breath leaves, a golem's pool of lava (TASKS 409).
   // Each burns a hero in it once it is `arm` s old (at once by default) and again every `per` s, and sets him alight
+  // a chill already on keeps the harder of the two and the later end: a light one must not thin the frost that is holding a monster
+  function chill(S, e, T, k) { const on = e.chillT > S.t; e.chillK = on ? Math.min(e.chillK ?? D.FROST.slow, k) : k; e.chillT = Math.max(on ? e.chillT : 0, S.t + T); e.slowK = e.chillK; }
   function addFire(R, S, x, y, o) { (R.fires = R.fires || []).push(Object.assign({ id: R.nextId++, x, y, t0: S.t }, o)); }
   function stepFires(S, R) { const h = R.hero, t = S.t;
-    for (const p of R.fires) { if (t - p.t0 >= p.t || t - p.t0 < (p.arm || 0) || h.deadT >= 0 || Math.hypot(h.x - p.x, (h.y - p.y) / p.ry) >= p.r + K.R * 0.5 || t < (p.hitT ?? -9) + p.per) continue;
+    for (const p of R.fires) { if (p.own === 'hero') { if (t - p.t0 < p.t && t >= (p.hitT ?? -9) + p.per) { p.hitT = t; for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, (e.y - p.y) / p.ry) < p.r + ENEMIES[e.type].r * 0.6) SIMX.hitEnemy(S, R, e, p.dmg, false, p.x, p.y, 0, 'burn'); } continue; }
+      if (t - p.t0 >= p.t || t - p.t0 < (p.arm || 0) || h.deadT >= 0 || Math.hypot(h.x - p.x, (h.y - p.y) / p.ry) >= p.r + K.R * 0.5 || t < (p.hitT ?? -9) + p.per) continue;
       if (t - h.dashT < BAL.dodge.t && p.kind !== 'pool') continue;
-      p.hitT = t; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 6, 'fire', p.who + (p.kind === 'pool' ? TXT('sim_enemies.stepFires') : TXT('sim_enemies.stepFires.2')), R.en.find((o) => o.id === p.src)); }
+      p.hitT = t; SIMX.hurtHero(S, R, p.dmg, p.x, p.y - 6, 'fire', p.who + (p.kind === 'pool' ? ' pool' : ' fire'), R.en.find((o) => o.id === p.src)); }
     R.fires = R.fires.filter((p) => t - p.t0 < p.t); }
   function breathFire(S, R, e, E) { const B = E.breath, a = e.aimA;
     for (const q of [0.35, 0.65, 0.95]) { const x = e.x + Math.cos(a) * (E.r + B.reach * q), y = e.y + Math.sin(a) * (E.r + B.reach * q) * 0.8;
@@ -322,25 +325,45 @@
       const gz = p.gz ?? 20, x0 = p.x, y0 = p.y;
       p.x += p.vx * DT; p.y += p.vy * DT; const age = S.t - p.t0;
       const pc = cell(m, Math.floor(p.x / TILE), Math.floor((p.y + gz) / TILE)), wall = projWall(m, x0, y0, p.x, p.y, gz);
-      if (pc === 4 && p.own === 'hero') { const q = SIMX.secretAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (q && SIMX.kindOf(q) === 'crack') SIMX.hitSecret(S, R, q); }
       if (pc === 5 && p.own === 'hero') { const d = SIMX.doorAt(m, Math.floor(p.x / TILE), Math.floor((p.y + 20) / TILE)); if (d) SIMX.openDoor(S, R, d, 1); }
       let boom = wall || age > p.life || projCover(m, p.x, p.y);
-      if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; break; } }
-      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, TXT('sim_enemies.stepProjectiles', { p1: p.who || '?' }), R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      let touched = null;
+      if (p.own === 'hero' && R.town) SIMX.hitFolk(S, R, p.x, p.y + gz, p.r + 6);
+      if (p.own === 'hero') { for (const e of R.en) if (e.deadT < 0 && !under(e) && !(p.past && p.past.includes(e.id)) && Math.hypot(e.x - p.x, e.y - ENEMIES[e.type].h * 0.45 - p.y) < ENEMIES[e.type].r + p.r + 6) { boom = true; touched = e; break; } }
+      else if (h.deadT < 0 && Math.hypot(h.x - p.x, h.y - 38 - p.y) < (p.hitR || 20)) { if (!p.spent) SIMX.hurtHero(S, R, p.dmg, p.x, p.y, p.kind || p.k, (p.who || '?') + ' bolt', R.en.find((o) => o.id === (p.src || p.actorId))); if (p.vol) { R.volHit = p.vol; for (const q of R.proj) if (q.vol === p.vol) q.spent = 1; } struck(S, R, p.src && R.en.find((o) => o.id === p.src)); boom = true; p.onHero = 1; }
+      // a crossbow's bolt (TASKS 1163) goes through the first it strikes and on to the next
+      if (touched && p.pierce > 0 && !wall && age <= p.life) { p.pierce--; (p.past = p.past || []).push(touched.id);
+        SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, p.k === 'fire' ? 'fire' : undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+        if (p.mpGain) R.hero.mp = Math.min(SIMX.heroSt(S).maxMp, R.hero.mp + p.mpGain); if (touched.deadT < 0) hush(S, R, touched); ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: 1, mine: 1, thru: 1 }); touched = null; boom = projCover(m, p.x, p.y); }
       if (boom) { p.dead = 1;
         // the blast spreads from the last open cell: the one it flew into may be the wall itself
-        if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
+        // a staff's bolt (TASKS 1110) strikes the one it touched, no blast; at a wall it chips pots and props where it bursts
+        if (p.own === 'hero' && p.single) { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
+          if (touched) SIMX.heroHit(S, R, touched, p.dmg, !!p.crit, p.x, p.y, p.kb ?? D.BOLT.kb, undefined, p.x, p.y + ENEMIES[touched.type].h * 0.45);
+          if (touched && p.mpGain) R.hero.mp = Math.min(SIMX.heroSt(S).maxMp, R.hero.mp + p.mpGain);
+          if (touched && touched.deadT < 0) hush(S, R, touched);
+          else { SIMX.breakPots(S, R, bx, by, 24); SIMX.hitProps(S, R, bx, by, 24); }
+          ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: touched ? 1 : 0, mine: 1 }); }
+        else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
           for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, p.dmg, false, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
           SIMX.breakPots(S, R, bx, by, 50); SIMX.hitProps(S, R, bx, by, 50); SIMX.tearWebs(S, R, bx, by - 20, 66, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by }); R.trauma = Math.min(1, R.trauma + 0.2); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
     R.proj = R.proj.filter((p) => !p.dead);
   }
+  function hush(S, R, e) { const U = D.HUSH, t = S.t;
+    if (e.st !== 'wind' || e.kin || e.grab || D.BOSSES[e.type] || !U.kinds.includes(ENEMIES[e.type].kind) || t < (e.hushT ?? 0)) return;
+    e.st = 'chase'; e.t0 = t; e.cdT = Math.max(e.cdT || 0, t + U.cd); e.hushT = t + U.every; ev(S, { k: 'hush', x: e.x, y: e.y - ENEMIES[e.type].h * 0.8, id: e.id }); }
   function stepMonsters(S, R, live) {
     const m = R.map, h = R.hero, t = S.t, htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE), F = flow(m, htx, hty), heroOk = live && h.deadT < 0;
     for (const e of R.en) {
       const E = ENEMIES[e.type];
       // (one blast at least BOOM_GAP after the last, TASKS 1051: a neighbour's set off by it burst at once, 3 in 1.3 s, 2 on one tick)
       if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: (ENEMIES[e.type].boom || MOD.explosive).r, d: e.fuse - t, id: e.id }); } else blast(S, R, e); } continue; }
+      // the ice wave's chill (TASKS 1110) slows its walk and run (toward, steer, soak) until it thaws
+      // and the archer's trap holds it where it stands (TASKS 1120)
+      if (e.chillT !== undefined || e.rootT !== undefined) e.slowK = e.rootT > t ? 0 : e.chillT > t ? e.chillK ?? D.FROST.slow : 1;
+      // (and its blows, TASKS 1154: the wave only slowed the walk, a monster already at arm's length struck as often; a boss keeps its moves)
+      if (e.chillT !== undefined && !D.BOSSES[e.type]) { const ck = e.chillK ?? D.FROST.slow; e.cold = e.chillT > t ? 1 / ck : 0; if (e.cold && e.cdT > t) e.cdT += DT * (1 - ck); }
       if (e.burn > t && t - e.burnT >= 0.5) { e.burnT = t; SIMX.hitEnemy(S, R, e, Math.max(1, Math.round(2 + dep(R))), false, e.x, e.y, 0, 'burn'); if (e.deadT >= 0) continue; }
       // knockback decays
       if (e.kbx || e.kby) { move(m, e, e.kbx * DT, e.kby * DT, E.r, true, !E.ghost && (m.cliff && !D.BOSSES[e.type] ? 2 : true)); e.kbx *= Math.exp(-10 * DT); e.kby *= Math.exp(-10 * DT); if (Math.abs(e.kbx) + Math.abs(e.kby) < 4) e.kbx = e.kby = 0;
@@ -365,7 +388,7 @@
       if (E.crust) golemCrust(S, R, e, E, d);   // (at its post too: a hero who walked away finds it whole again)
       // a drowned under the shallows stirs only for a hero close by; it stands up out of the water before it can do anything
       if (e.st === 'lurk') { e.vx = e.vy = 0; if (heroOk && d < E.sense && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) rise(S, R, e); continue; }
-      if (e.st === 'rise') { e.vx = e.vy = 0; if (t - e.t0 < E.rise) continue; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = Math.max(e.cdT, t + 0.25); }
+      if (e.st === 'rise') { e.vx = e.vy = 0; if (t - e.t0 < (e.riseD ?? E.rise)) continue; e.st = 'chase'; e.t0 = e.seenT = t; e.cdT = Math.max(e.cdT, t + 0.25); }
       if (e.st === 'idle' || e.st === 'home') {
         if (heroOk && (!D.BOSSES[e.type] || !m.bossType || R.arena) && !(e.calmT > t) && d < 330 && (DG.roomAt(m, h.x, h.y) === e.room || d < 170) && losClear(m, e.x, e.y - 10, h.x, h.y - 10)) { SIMX.aggroRoom(R, e); ev(S, { k: 'alert', x: e.x, y: e.y - E.h - 8, id: e.id }); if (e.type === 'boss') SIMX.roar(S, R, e); }
         else { if (e.st === 'idle') idle(m, e, E, t); else goHome(m, e, E, t);
@@ -464,7 +487,7 @@
           if (!e.hitDone && d < E.r + K.R + 8) { e.hitDone = 1; SIMX.hurtHero(S, R, e.dmg * E.rush.dmg, e.x, e.y, undefined, who(e), e); struck(S, R, e); } }
         // the breath: a hero in its cone at any moment of it is burnt once
         else if (E.kind === 'salamander' && e.br) { skid(m, e, E); const B = E.breath;
-          if (!e.hitDone && t - e.t0 < B.t && d < E.r + B.reach + K.R && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < B.arc && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.hitDone = 1; SIMX.hurtHero(S, R, e.dmg * B.dmg, e.x, e.y, 'fire', TXT('sim_enemies.stepMonsters', { p1: who(e) }), e); struck(S, R, e); } }
+          if (!e.hitDone && t - e.t0 < B.t && d < E.r + B.reach + K.R && Math.abs(angDiff(Math.atan2(dy, dx), e.aimA)) < B.arc && losClear(m, e.x, e.y - 6, h.x, h.y - 6)) { e.hitDone = 1; SIMX.hurtHero(S, R, e.dmg * B.dmg, e.x, e.y, 'fire', who(e) + ' flame', e); struck(S, R, e); } }
         else if (E.kind !== 'hop') skid(m, e, E);
         if (E.kind === 'hop') hop(S, R, e, E);
         if (t - e.t0 > (E.kind === 'lunge' ? 0.45 : E.kind === 'hop' ? E.jump.t + E.jump.land : e.grab ? E.grab.strike : e.rush ? E.rush.t + 0.2 : e.br ? E.breath.t : E.kind === 'golem' ? 0.55 : 0.32)) { if (e.grab) { e.st = 'chase'; e.grab = 0; e.cdT = t + 0.15; continue; }
@@ -532,7 +555,7 @@
   // walk straight to a spot in the open, slowing as it comes; false when a wall stands between
   function toward(e, E, m, gx, gy) { const dx = gx - e.x, dy = gy - e.y, d = Math.hypot(dx, dy);
     if (!losClear(m, e.x, e.y - 6, gx, gy - 6)) return false;
-    const sp = E.spd * eliteK(e, 'spd') * (inWater(m, e) ? WADE : 1) * SS01(Math.max(0, Math.min(1, (d - 6) / 34))), k = 1 - Math.exp(-9 * DT); e.vx += (dx / (d || 1) * sp - e.vx) * k; e.vy += (dy / (d || 1) * sp - e.vy) * k; return true; }
+    const sp = E.spd * eliteK(e, 'spd') * (e.slowK ?? 1) * (inWater(m, e) ? WADE : 1) * SS01(Math.max(0, Math.min(1, (d - 6) / 34))), k = 1 - Math.exp(-9 * DT); e.vx += (dx / (d || 1) * sp - e.vx) * k; e.vy += (dy / (d || 1) * sp - e.vy) * k; return true; }
   function skid(m, e, E) { const k = Math.exp(-14 * DT); e.vx *= k; e.vy *= k; const v = Math.hypot(e.vx, e.vy); if (v < 1) { e.vx = e.vy = 0; return; } move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += v * DT; }
   function steer(e, E, m, F, want, dx, dy, d, kv = 1) {
     let vx = 0, vy = 0;
@@ -549,11 +572,11 @@
       else if (cell(m, tx, ty) === 3 && !E.lava && !E.ghost) { const [lx, ly] = SIMX.landOf(m, e.x, e.y), gx = lx - e.x, gy = ly - 6 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; }
       else if (d > 0) { vx = dx / d * want; vy = dy / d * want; }
     }
-    const sp = E.spd * eliteK(e, 'spd') * kv * (!E.ghost && inWater(m, e) ? WADE : 1) * (!E.ghost && !E.webImmune && webAt(m, e) ? WEB.mon : 1) * (!E.ghost && E.blood !== 'slime' && gooAt(m, e) ? GOO.mon : 1), k = 1 - Math.exp(-9 * DT);
+    const sp = E.spd * eliteK(e, 'spd') * (e.slowK ?? 1) * kv * (!E.ghost && inWater(m, e) ? WADE : 1) * (!E.ghost && !E.webImmune && webAt(m, e) ? WEB.mon : 1) * (!E.ghost && E.blood !== 'slime' && gooAt(m, e) ? GOO.mon : 1), k = 1 - Math.exp(-9 * DT);
     e.vx += (vx * sp - e.vx) * k; e.vy += (vy * sp - e.vy) * k;
   }
 
   Object.assign(SIMX, {
-    MOD, has, rollMods, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, addFire, stepFires, flightReach,
+    MOD, has, rollMods, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, chill, addFire, stepFires, flightReach,
     stepProjectiles, stepMonsters, ARROW_Y, steer });
 })(typeof window !== 'undefined' ? window : globalThis);

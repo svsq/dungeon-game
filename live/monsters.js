@@ -12,7 +12,7 @@
   const lerp = (a, b, k) => a + (b - a) * k;
   // a townsperson's tool in its hand (TASKS 1015): T = { tex, len: view px, grip: from the top, rel: turn off the forearm or abs: an
   // angle, both as if facing right }; drawn upright the tool's head is at the top. Reports grip and tip (the head)
-  MON.tool = (id, T, E, Hd, face, u) => { if (!T || !window.ASSETS[T.tex]) return;
+  MON.tool = (id, T, E, Hd, face, u) => { if (!T || !window.ASSETS[T.tex] || T.len <= 0) return;
     const sa = T.abs !== undefined ? (face > 0 ? T.abs : Math.PI - T.abs) : ang(E, Hd) + face * (T.rel || 0), th = T.len, tw = th * G.tex(T.tex).w / G.tex(T.tex).h;
     L.sprite(T.tex, 0, 0, { m: M.of(M.t(Hd[0], Hd[1]), M.r(sa + Math.PI / 2), M.s(face, 1)), w: tw, h: th, pivot: [tw / 2, th * T.grip], u });
     const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
@@ -53,7 +53,7 @@
       crouch0 = Math.max(crouch0, A0[1] - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx0 * dx0))); }
     // the breath at least 0.75 % of the height: a fixed 0.8 view px was lost on the boss
     const stepPhase = (u0 * 2) % 1, settle = (o.settle || 0) / s * run * SS(0, 0.1, stepPhase) * (1 - SS(0.1, 0.45, stepPhase));
-    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h), drop) + crouch0 + (o.crouch || 0) + settle;
+    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h) * (o.breathK || 1), drop) + crouch0 + (o.crouch || 0) + settle;
     const legs = {};
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty } = tg[side], Hp = [H0[0], H0[1] + hipDy];
@@ -70,7 +70,7 @@
     // arms swing against the same-side leg along the travel: the sign comes from where the drawn hand sits relative to its shoulder
     const vxn = sp > 1 ? vxE / sp : 1, vyn = sp > 1 ? vyE / sp : 0;
     for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = (Hd0[0] - S0[0]) * vyn - face * (Hd0[1] - S0[1]) * vxn, sg = Jt > 0 ? 1 : -1;
-      const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + breath * 0.04 * (side === 'L' ? 1 : -1);
+      const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + (o.breathK ? (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0) - 0.7) : breath) * 0.04 * (o.breathK || 1) * (side === 'L' ? 1 : -1);
       let r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
@@ -78,7 +78,7 @@
         if (T) {
           const origin = R2U(0, hipDy), ax = R2U(1, hipDy), ay = R2U(0, hipDy + 1), dx = T[0] - origin[0], dy = T[1] - origin[1];
           const a = ax[0] - origin[0], b = ax[1] - origin[1], c = ay[0] - origin[0], d = ay[1] - origin[1], det = a * d - b * c;
-          const ik = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], side === 'L' ? 1 : -1);
+          const ik = reach(RG, side, [(d * dx - c * dy) / det, (a * dy - b * dx) / det], (o.bend && o.bend[side]) || (side === 'L' ? 1 : -1));
           // a third value blends the joints' angles to the reach by it, not the hand's target: the reach may bend the elbow the other
           // way than the pose it takes over from, and a target slid in from that pose flipped the elbow in a frame (the golem's slam)
           const wrap = (v) => v - TAU * Math.round(v / TAU);
@@ -131,7 +131,7 @@
         const [w0, h0] = [G.tex(o.n + '_shield').w, G.tex(o.n + '_shield').h], sw = RG.shieldW * s, sh = sw * h0 / w0;
         L.sprite(o.n + '_shield', 0, 0, { m: M.of(M.t(Hd[0] + face * 4 * s, Hd[1] - 6 * s), M.r(fallR + lean * 0.5), M.s(face * 0.8, 1)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }); } }); };
     // far arm (+ its item) → far leg → near leg → body → near arm (+ its item)
-    drawArm('L', o.Ufar); held('L', o.Ufar); drawLeg('L', o.Ufar); drawLeg('R', o.U);
+    if (!o.farOver) { drawArm('L', o.Ufar); held('L', o.Ufar); } drawLeg('L', o.Ufar); drawLeg('R', o.U);
     const glowPass = tx !== o.n, crust = RG.plates && o.plates;
     piece('body', hipS, () => L.sprite(tx + (crust && !glowPass ? '__core' : '__body'), 0, 0, { m: M.of(M.t(...hipS), M.r(fallR + lean), M.s(face, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s], u: o.U }));
     // the golem's crust (TASKS 458): its plates over the bare core, as many as it has left; one knocked off is thrown away from the
@@ -140,10 +140,12 @@
       RG.plates.forEach((C, j) => { const i = j + 1, on = i <= P.n, lost = (P.T || {})[i], grew = (P.G || {})[i];
         if (glowPass) { const k = on ? (grew !== undefined ? 1 - SS(0, 0.35, P.GT - grew) : 0) : (lost !== undefined ? SS(0, 0.15, P.GT - lost) : 1);
           if (k > 0.01) piece('plate' + i, hipS, () => L.sprite(o.n + 'E__corelit' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * k })))); return; }
-        if (on) { const a = grew !== undefined ? P.GT - grew : 9, k = SS(0, 0.35, a);
-          piece('plate' + i, hipS, () => { L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * k })));
+        // (grown in from the plate's edge to its middle over 8–10 frames, then a click, TASKS 1641: a 13–25 frame alpha fade)
+        if (on) { const a = grew !== undefined ? P.GT - grew : 9, k = SS(0, 0.16, a), cool = SS(0.16, 0.35, a), click = a >= 0.16 && a < 0.2 ? 1 : 0, rv = [C[0] / RG.w, C[1] / RG.h, Math.max(k, 1e-3)];
+          piece('plate' + i, hipS, () => { L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al, reveal: rv })));
             // (a new plate wells up red-hot and cools to stone, TASKS 490: brightened it was a pale pink blob)
-            if (k < 1) L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * 0.9 * (1 - k) * SS(0, 0.08, a), grade: [1.3, 1.9, 0, 1], tint: [1, 0.4, 0.1, 1] }))); }); return; }
+            if (cool < 1) L.sprite(o.n + '__plate' + i, 0, 0, opt(Object.assign({}, o.U, { alpha: al * (click ? 1 : 0.9 * (1 - cool)) * SS(0, 0.04, a), reveal: rv, grade: click ? [1.6, 2.4, 0, 1] : [1.3, 1.9, 0, 1], tint: [1, click ? 0.75 : 0.4, click ? 0.3 : 0.1, 1] })));
+            if (a >= 0.16 && a < 0.42) { const c = R2U(C[0], C[1] + hipDy), g = SS(0.16, 0.42, a); for (const d of [-1, 1]) L.solid(c[0] + d * 0.1 * o.H * g, c[1] - 0.12 * o.H * Math.sin(Math.PI * g), 2, 2, [1, 0.6, 0.2], 0, 0, 0, 1 - g); } }); return; }
         const a = lost === undefined ? 9 : P.GT - lost, q = a / 1.0; if (q >= 1) return;
         // (thrown clear of the body, up first and down on the floor, a little hop, then it fades: kept over the body it was lost on it)
         const c = R2U(C[0], C[1] + hipDy), an = (P.A || {})[i] ?? 0, fl = Math.min(1, q / 0.6), dx = Math.cos(an) * 0.95 * o.H * (1 - (1 - fl) ** 2) + Math.cos(an) * 0.08 * o.H * SS(0.6, 0.8, q),
@@ -163,6 +165,7 @@
     for (const nm of ['sword', 'head']) if (RG[nm] && RG.parts && RG.parts.includes(nm)) part(nm, RG[nm], R2U(RG[nm][0], RG[nm][1] + hipDy), nm === 'head' ? o.headR || 0 : -lean * 0.6 + 0.02 * breath, o.U, 1, lean, nm === 'head' ? o.headF ?? 1 : 1);
     // what the near arm holds in front of the body (the porter's crate)
     if (o.front) o.front((sd) => R2U(arms[sd].Hd[0], arms[sd].Hd[1]));
+    if (o.farOver) { drawArm('L', o.Ufar); held('L', o.Ufar); }
     drawArm('R', o.U); held('R', o.U);
     if (RG.mantleL) for (const side of ['L', 'R']) part('mantle' + side, Hc, hipS, 0, o.U, 1, lean);
     // the far foot stands higher in 3/4: each foot has its own ground
@@ -197,7 +200,8 @@
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.foot, fallR = o.fallR || 0, root = [o.x, o.y];
     const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), ph = o.dist / (0.28 * RG.h * s) * TAU;
     const breath = (1 - run) * Math.sin(o.t * 1.7 + (o.seed || 0)), sway = run * 0.045 * Math.sin(ph) + 0.015 * breath, bob = run * 1.6 * Math.abs(Math.sin(ph)) + 1.4 * breath;
-    const lean = (o.lean || 0) + sway, rot = fallR + lean, rc = Math.cos(rot), rs = Math.sin(rot), ky = 1 - (o.sink || 0);
+    // (the fire priest's hem swings with the step and it leans into the walk, TASKS 1643: a robe sliding, no step under it)
+    const hemX = o.hem ? o.hem * o.H * run * Math.sin(ph + 1) : 0, lean = (o.lean || 0) + sway + (o.hem ? face * 0.07 * run : 0), rot = fallR + lean, rc = Math.cos(rot), rs = Math.sin(rot), ky = 1 - (o.sink || 0);
     // the robe pivots at the hem's centre: everything above leans with it
     const R2U = (px, py) => { const x = face * (px - gx) * s, y = ((py - gy) * s - bob) * ky; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const tx = o.tex || o.n, part = (nm, pv, at, r, u) => L.sprite(tx + '__' + nm, 0, 0, { m: M.of(M.t(at[0], at[1]), M.r(rot), M.s(face, ky), M.r(r)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u });
@@ -205,10 +209,10 @@
     const push = o.push || 0, r1 = -swing - 0.06 * breath + lerp(0, (o.aimR ?? 0) - 0.4, push), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push);
     const E = rotP(RG.elbowR, RG.shR, r1), Hd = rotP(rotP(RG.handR, RG.shR, r1), E, r2 - r1), HdL = rotP(RG.handL, RG.shL, staffR);
     part('farmL', RG.shL, R2U(...RG.shL), staffR, o.Ufar);
-    L.sprite(tx + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, ky)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    L.sprite(tx + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, ky)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: hemX ? Object.assign({}, o.U, { lean: [hemX / (RG.w * s), 1] }) : o.U });
     part('uarmR', RG.shR, R2U(...RG.shR), r1, o.U); part('farmR', RG.elbowR, R2U(...E), r2, o.U);
     const J = (nm, p) => L.joint(o.id, nm, p);
-    J('ground', root); J('top', R2U(...RG.top)); J('head', R2U(RG.top[0], RG.top[1] + 0.12 * RG.h)); J('hip', R2U(gx, gy - 0.45 * RG.h));
+    J('ground', root); J('top', R2U(...RG.top)); J('head', R2U(RG.top[0], RG.top[1] + 0.12 * RG.h)); J('hip', R2U(gx, gy - 0.45 * RG.h)); if (o.hem) J('hem', [root[0] + hemX * 0.72, root[1]]);
     J('shL', R2U(...RG.shL)); J('handL', R2U(...HdL)); J('shR', R2U(...RG.shR)); J('elbowR', R2U(...E)); J('handR', R2U(...Hd));
     // the ring in the staff's forked head (drawing px of the cultist's staff), where the fire priest's flame burns
     const head = R2U(...rotP(STAFF_HEAD, RG.shL, staffR)); J('staffHead', head);
@@ -361,10 +365,10 @@
     const sl = LZ.sl * o.H, u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU, breath = Math.sin(o.t * 1.6 + (o.seed || 0));
     const inh = o.inhale || 0, ex = o.exhale ?? -1, kick = ex >= 0 ? 0.03 * Math.sin(ex * TAU * 3) * (1 - ex) * SS(0, 0.15, ex) : 0, heave = sw > 0 && sw < 1 ? Math.sin(Math.PI * sw) : 0;
     const back = lunge * 0.08 - fl * 0.07 - inh * 0.12 - kick;
-    const root = [o.x + cf * back * o.H, o.y + sf * back * o.H * qy];
+    const shove = Number.isFinite(o.away) ? 0.55 * o.H * curl : 0, root = [o.x + cf * back * o.H + (shove && Math.cos(o.away) * shove), o.y + sf * back * o.H * qy + (shove && Math.sin(o.away) * shove * qy)];   // (the corpse shoved off the hero, as the golem's, TASKS 1639)
     // the body's S: the tail swings against the head over each stride, idles in a slow sway, curls as it dies
     const tail = (0.32 * run * Math.sin(ph) + 0.1 * (1 - run) * Math.sin(o.t * 1.3 + (o.seed || 0)) + 0.08 * sw * Math.sin(o.t * 2.2)) * (1 - curl) + 0.9 * curl + 0.25 * fl + 0.35 * inh;
-    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - Math.max(0, lunge)) * (1 - curl) - 0.3 * curl - 0.2 * fl - 0.18 * inh + (ex >= 0 ? 0.14 * Math.sin(ex * TAU) : 0);
+    const tip = (0.4 * run * Math.sin(ph - 1.1) + 0.14 * (1 - run) * Math.sin(o.t * 1.9 + 1 + (o.seed || 0))) * (1 - curl) + 0.7 * curl, neck = (-0.16 * run * Math.sin(ph) + 0.05 * breath * (1 - run)) * (1 - Math.max(0, lunge)) * (1 - curl) - 0.3 * curl - 0.2 * fl - 0.18 * inh + (ex >= 0 ? 0.42 * Math.sin(ex * TAU) : 0);
     // body px → floor (u ahead, v to its right) about its middle, with the soft bones turned as the shader turns them; floor → screen
     const bend = (px, py) => { let p = [px, py]; const [b0, b1, b2] = RG.bones;
       if (py > b2[1]) p = rotP(p, b2, tip); if (py > b0[1]) p = rotP(p, b0, tail); if (py < b1[1]) p = rotP(p, b1, neck); return p; };
@@ -380,7 +384,7 @@
       let F = [Sk[0] + LZ.fwd[j] * (l1 + l2) + off, Sk[1] + side * LZ.out[j] * (l1 + l2) * 0.82];
       if (sw > 0) F = [lerp(F[0], Sk[0] + (j ? -0.3 : 0.3) * l1, sw), lerp(F[1], Sk[1] + side * 0.35 * l1, sw)];
       // (dying it sprawls, its legs flung out wide, TASKS 1054: tucked under the body as in the lava, they read as nothing)
-      if (curl > 0) F = [lerp(F[0], Sk[0] + (j ? -0.35 : 0.45) * (l1 + l2), curl), lerp(F[1], Sk[1] + side * 0.98 * (l1 + l2), curl)];
+      if (curl > 0) F = [lerp(F[0], Sk[0] + (j ? -0.35 : 0.45) * (l1 + l2), curl), lerp(F[1], Sk[1] + side * (side * cf < 0 ? 0.45 : 0.98) * (l1 + l2), curl)];
       // in the floor's plane: the elbow (front) bends back, the knee (hind) forward; then the joint rises off the floor a little
       const dx = F[0] - Sk[0], dy = F[1] - Sk[1], dm = Math.min(Math.hypot(dx, dy), (l1 + l2) * 0.98), base = Math.atan2(dy, dx);
       const a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dm * dm - l2 * l2) / (2 * l1 * dm)))), ka = base + a * side * (j ? 1 : -1);
@@ -406,7 +410,7 @@
   // o: { id, x, y, H, t, look (−1..1, where the hero stands), near (0..1), greetT, tradeT, U }
   // L is the screen-left arm (it works the scales on the counter's left), R strokes the beard and waves
   MON.merchant = (o) => {
-    const RG = RIGS.merchant; if (!RG || !window.ASSETS.merchant__body) return false;
+    const rig = o.rig || 'merchant', RG = RIGS[rig]; if (!RG || !window.ASSETS[rig + '__body']) return false;
     const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y];
     const S2 = (px, py) => [root[0] + (px - gx) * s, root[1] + (py - gy) * s];
     const bump = (u, a, b) => (u <= a || u >= b ? 0 : Math.pow(Math.sin(Math.PI * (u - a) / (b - a)), 2));
@@ -422,8 +426,8 @@
     const arm = (side, r) => { const S0 = RG['sh' + side], E0 = RG['elbow' + side], Hd0 = RG['hand' + side], Sp = [S0[0], S0[1] + lift];
       const E = rotP([E0[0], E0[1] + lift], Sp, r[0]), Hd = rotP(rotP([Hd0[0], Hd0[1] + lift], Sp, r[0]), E, r[1] - r[0]); return { S0, E0, Sp, E, Hd, r }; };
     const A = { L: arm('L', rL), R: arm('R', rR) };
-    const part = (nm, pv, at, rot) => L.sprite('merchant__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
-    L.sprite('merchant__body', 0, 0, { m: M.of(M.t(...root)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
+    const part = (nm, pv, at, rot) => L.sprite(rig + '__' + nm, 0, 0, { m: M.of(M.t(...S2(...at)), M.r(rot)), w: RG.w * s, h: RG.h * s, pivot: [pv[0] * s, pv[1] * s], u: o.U });
+    L.sprite(rig + '__body', 0, 0, { m: M.of(M.t(...root)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
     const look = (o.look || 0) * (o.near || 0), hr = 0.09 * look - 0.07 * peek - 0.18 * recoil, hx = 5 * look - 4 * peek, hy = lift + 8 * peek + 6 * nod - 14 * recoil;
     part('head', RG.neck, [RG.neck[0] + hx, RG.neck[1] + hy], hr);
     for (const sd of ['L', 'R']) { const a = A[sd]; part('uarm' + sd, a.S0, a.Sp, a.r[0]); part('farm' + sd, a.E0, a.E, a.r[1]); }
@@ -439,13 +443,13 @@
   // walked so a planted shoe holds the floor; the body rides up over each passing step, rocks a little and the hem swings after the
   // stepping leg. hem: the cut's row (a few rows of skirt go with the shoes, so a rising body leaves no gap); split: the column between
   // the shoes; step: a shoe's travel either side of the hem (rig px), one stride = 4 steps' travel
-  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 20 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
+  const ROBE = { town_sweeper: { hem: 286, split: 76, step: 26, k: 2.4 }, town_enchanter: { hem: 298, split: 83, step: 18 } };
   MON.robeStride = (n, H) => { const q = ROBE[n]; return q && RIGS[n] ? 4 * q.step * H / RIGS[n].h : 0; };
   MON.robed = (o) => {
     const RG = RIGS[o.n]; if (!RG || !window.ASSETS[o.n + '__body']) return false;
     const s = o.H / RG.h, t = o.t, gx = RG.gap, gy = RG.foot, root = [o.x, o.y], f = o.face || 1, Q = ROBE[o.n];
     const run = Q ? SS(2, 12, Math.hypot(o.vx || 0, o.vy || 0)) : 0, ph = Q ? (o.dist || 0) / MON.robeStride(o.n, o.H) * TAU : 0;
-    const bob = run * 1.5 * Math.sin(ph) ** 2, rot = f * run * 0.022 * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
+    const gk = (Q && Q.k) || 1, bob = run * 1.5 * gk * Math.sin(ph) ** 2, rot = f * run * 0.022 * gk * Math.sin(ph), rc = Math.cos(rot), rs = Math.sin(rot);
     const S2 = (px, py) => { const x = f * (px - gx) * s, y = (py - gy) * s - bob; return [root[0] + x * rc - y * rs, root[1] + x * rs + y * rc]; };
     const breath = Math.sin(t * 1.7 + (o.seed || 0)), lift = breath * 2.5 + (o.lift || 0);
     // o.handTarget(side) → a screen point the hand reaches for (two-bone IK), or null to keep o.arms' angles
@@ -466,7 +470,7 @@
       // the far shoe (the drawing's right one, standing higher) first
       shoe(Q.split, RG.w, 1); shoe(0, Q.split, 0);
       L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...S2(gx, gy)), M.r(rot), M.s(f, 1)), w: RG.w * s, h: (Q.hem + 8) * s, src: [0, 0, 1, (Q.hem + 8) / RG.h], pivot: [gx * s, gy * s], pad: 0.04,
-        u: Object.assign({}, o.U, { lean: [-0.03 * run * Math.cos(ph), 1] }) }); }
+        u: Object.assign({}, o.U, { lean: [-0.03 * gk * run * Math.cos(ph), 1] }) }); }
     else L.sprite(o.n + '__body', 0, 0, { m: M.of(M.t(...root), M.s(f, 1)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: o.U });
     const hd = o.headD || [0, 0], hy = lift * 0.8 + hd[1];
     part('head', RG.neck, [RG.neck[0] + hd[0], RG.neck[1] + hy], o.headR || 0);
@@ -556,8 +560,8 @@
   // the imp (TASKS 407): a leap crouches, springs up with the legs tucked and the arms flung up and back, leaning into the flight,
   // and lands in a crouch; the spark is thrown overhand with the near arm, the claw rakes with it on a short swing
   // (back: the throwing hand winds back behind the head before it comes over, TASKS 489: 0.6 short of the release it never passed it)
-  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.2, recover: 0.24, over: 0.6, top: 0.02, bendUp: 0.4, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
-  const IMP_CLAW = { raise: -1.5, chopT: 0.12, recover: 0.2, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.32, recover: 0.24, over: 0.6, top: 0.02, bendUp: -0.7, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_CLAW = { raise: -1.3, chopT: 0.16, recover: 0.27, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   MON.impArc = (e, E, GT) => { if (e.st !== 'leap') return 0; const L0 = E.leap, fl = Math.max(0, Math.min(1, (GT - e.t0 - L0.crouch) / e.ld)), d = Math.hypot(e.ltx - e.lx, e.lty - e.ly);
     const q = fl * fl * (3 - 2 * fl); return 4 * (18 + L0.h * d) * q * (1 - q); };
   function impPose(e, E, GT, face, H, base) {
@@ -567,12 +571,12 @@
     // thrown back and straight, tucks them up under it, reaches them forward and down to the ground, and the landing sinks it deep
     // at once and lets it up slower
     if (e.st === 'leap') { const L0 = E.leap, fl = Math.max(0, Math.min(1, (u - L0.crouch) / e.ld)), tl = u - L0.crouch - e.ld;
-      const cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), 0.3 * SS(0.88, 1, fl)) : (0.3 + 1.0 * SS(0, 0.09, tl)) * (1 - SS(0.08, L0.land, tl));   // (the landing's crouch on the ground, deep, TASKS 1044: it began in the air and sank 3 px)
+      const cr = u < L0.crouch ? SS(0, L0.crouch, u) : fl < 1 ? Math.max(1 - SS(0, 0.25, fl), 0.3 * SS(0.88, 1, fl)) : (0.3 + 1.0 * SS(0, 0.14, tl)) * (1 - SS(0.08, L0.land, tl));   // (the landing's crouch on the ground, deep, TASKS 1044: it began in the air and sank 3 px)
       const air = fl > 0 && fl < 1 ? SS(0, 0.25, fl) * (1 - SS(0.6, 1, fl)) : 0, tuck = 0.08 * RG.h * air * (1 - 0.45 * SS(0.5, 0.9, fl)), z = MON.impArc(e, E, GT);
       const push = fl > 0 && fl < 1 ? SS(0, 0.22, fl) * (1 - SS(0.22, 0.45, fl)) : 0, up = fl > 0 && fl < 1 ? SS(0.12, 0.32, fl) * (1 - SS(0.58, 0.8, fl)) : 0, reach = fl > 0 && fl < 1 ? SS(0.55, 0.78, fl) * (1 - SS(0.8, 1, fl)) : 0, fwd = Math.cos(e.aimA) * face >= 0 ? 1 : -1;
       base.foot = (side, t) => { const k = side === 'L' ? 1 : 0.8; t.tx += fwd * RG.h * (-0.1 * push + 0.05 * up + 0.13 * reach) * k; t.ty += RG.h * (0.05 * push - 0.16 * up + 0.03 * reach) * k; };
       base.y -= z + tuck * H / RG.h; base.crouch += tuck + 0.14 * RG.h * cr; base.lean = (base.lean || 0) + face * (0.35 * air * (1 - 1.5 * SS(0.2, 0.85, fl)) * (Math.cos(e.aimA) * face >= 0 ? 1 : -0.6) - 0.12 * cr);   // (a spring back leans back)
-      base.arm = (side, b) => { const r = lerp(lerp(b, b + 0.4, cr), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), air), k = Math.max(cr, air); return [r, r + lerp(0.18 - 0.4 * b, 0.3 + 0.4 * air, k)]; }; return; }
+      base.arm = (side, b) => { const armAir = SS(0, 0.42, fl) * (1 - SS(0.35, 1, fl)), r = lerp(lerp(b, b + 0.22, Math.min(1, cr)), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), armAir), k = Math.min(1, Math.max(cr, armAir)); return [r, r + lerp(0.18, 0.3 + 0.4 * armAir, k)]; }; return; }
     if (e.st === 'wind' || e.st === 'strike') { const E2 = e.claw ? E : { wind: E.spark.wind }, CO = e.claw ? IMP_CLAW : IMP_THROW, pose = (b) => chop(e, E2, GT, face, H, b, CO), p0 = pose(0);
       if (p0) { base.crouch += 12 * p0.k; base.arm = (side, b) => { if (side === 'R') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } return [b + 0.5 * p0.k, b + 0.2 + 0.3 * p0.k]; }; } }
   }
@@ -767,7 +771,7 @@
         if (kin > 0) { base.staff = lerp(base.staff, -0.55, kin); base.push = Math.max(base.push, kin); base.aimR = lerp(base.aimR, -Math.PI / 2 - 0.3, kin); } }
       // the robe sinks onto the hem first (dl s), then the body lies down, half filling out again
       if (!live && o.death && o.death.sink) { const dd = GT - e.deadT, D0 = o.death; base.sink = 0.55 * SS(0, D0.dl, dd) * (1 - 0.5 * SS(D0.dl, D0.dl + D0.dur, dd)); }
-      const r = robed(base); if (e.type === 'fire_priest' && live) r.priest = 1; return r; }
+      if (e.type === 'fire_priest') base.hem = 0.06; const r = robed(base); if (e.type === 'fire_priest' && live) r.priest = 1; return r; }
     if (n === 'brute') {
       const boss = !!DATA.BOSSES[e.type], move = boss ? DATA.bossMove(e) : null, w = move ? move.wind : 0;
       const linked = boss && e.mv === 'charge' && move.next === 'slam';
@@ -792,8 +796,9 @@
       if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.12 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       biped(base); return true; }
-    if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 0.5; return biped(base); }
-    if (n === 'golem') { const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
+    if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.rest = { L: [-0.42, -0.24], R: [0.42, 0.6] }; return biped(base); }
+    if (n === 'golem') { base.breathK = 1.9;   // (a statue at 1.43 %, TASKS 1640: its shoulders follow the chest, later)
+      const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
       if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 16 * (hit >= 0 ? (0.25 + 0.75 * SS(0, 0.07, hit)) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);   // (from the wind-up's own crouch, TASKS 1156: from 0 the longer arm's elbow popped 8.8 px)
         // the fists come down on the floor where the slam lands, side by side, rest there and come home to the walk's own hang (TASKS 458):
         // swung by the chop's angle alone the far one went on past the body and lay behind the golem
@@ -801,9 +806,9 @@
         base.arm = (side, b) => { if (e.st === 'strike') return [b, b + 0.18 - 0.4 * b]; const q = pose(b), d = side === 'L' ? 0.1 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; };
         // (the far fist a little nearer the body, by the way it faces, TASKS 490: set off by the screen's side, it reached out past its
         // arm and hung 38–43 px over the floor)
-        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.22 : 0.06) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - (side === 'L' ? -0.08 : 0.05)) * H, k]; };
+        if (k > 0) base.handTarget = (side) => { const at = E.slam.at; return [base.x + Math.cos(e.aimA) * at / E.h * H + (side === 'L' ? -0.15 : 0.14) * face * H, base.y + (Math.sin(e.aimA) * at * 0.8 / E.h - (side === 'L' ? -0.08 : 0.04)) * H, k]; };
         // (the far fist drawn in under the body and the knees bent deeper while they rest, TASKS 1054: it fell short and hung 29 px up)
-        base.crouch += 18 * k; }
+        base.crouch += 23 * k; base.lean = (base.lean || 0) + face * 0.09 * k; }
       base.plates = { n: e.crust ?? E.crust.n, T: e.plateT, A: e.plateA, G: e.plateG, GT };
       if (!live) { base.crumble = { t: GT - e.deadT, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       base.lift = 0.04; base.narrow = 0.2; return biped(base); }
@@ -830,7 +835,7 @@
     if (n === 'salamander') { const u = GT - e.t0, B = E.breath, bw = DATA.windOf(e, e.br ? B.wind : E.wind), w = live && e.st === 'wind' ? SS(0, bw, u) : 0, str = live && e.st === 'strike';
       const sw = !live ? 0 : o.swim || 0, dd = live ? -1 : GT - e.deadT;
       return lizard({ id: o.id, x, y, H, fa: e.fa ?? (face > 0 ? 0 : Math.PI), dist: e.dist, vx: base.vx, vy: base.vy, t: o.t, seed: e.id, U: o.U, Ufar: o.Ufar, tex: o.tex, swim: sw,
-        lunge: e.br ? (str ? 0.35 * SS(0, 0.08, u) * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0, flinch: live ? hitFl(GT - (e.hitT ?? -9)) : 0,
+        lunge: e.br ? (str ? 0.35 * SS(0, 0.08, u) * (1 - SS(B.t - 0.15, B.t, u)) : 0) : -0.4 * w + (str ? -0.4 * (1 - SS(0, 0.08, u)) + 1.2 * SS(0, 0.1, u) * (1 - SS(0.15, 0.32, u)) : 0), curl: dd >= 0 ? SS(0, 0.5, dd) : 0, away: dd >= 0 ? e.dieA ?? (e.fa ?? (face > 0 ? 0 : Math.PI)) + Math.PI : undefined, flinch: live ? hitFl(GT - (e.hitT ?? -9)) : 0,
         inhale: e.br ? (str ? 1 - SS(0, 0.25, u) : w) : 0, exhale: e.br && str ? Math.min(1, u / B.t) : -1 }); }   // (the breath let go over 0.25 s, not in a frame)
     return false;
   };

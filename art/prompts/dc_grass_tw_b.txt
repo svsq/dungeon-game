@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is the approved town concept's ground crop: take its plants, NOT its warm light. Subject, seen from the 3/4 view: a tall tuft of thin grass blades of uneven height, 20 art pixels wide, 22 tall (#302b09, #473e0b, #675a0d, #8a7a22). Centred, wide empty margin, transparent background. No earth, no shadow, no glow, no text.

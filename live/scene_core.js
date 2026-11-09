@@ -173,7 +173,7 @@ vec3 vor(vec2 p, float wob){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2
   return vec3(d1, d2, id); }
 float mAt(vec2 p){ return textureLod(u_mask, p / u_map, 0.0).r - edgeBite(p, u_map); }
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
-  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2;
+  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2 + min((fbm(w / 64.0 + 3.1) - 0.5) * 0.5, (fbm(w / 64.0 + 3.1) - 0.5) * 1.2);
   if (e < 0.2) discard;
   vec2 fc = textureLod(u_face, vec2(w.x / u_map.x, 1.0 - w.y / u_map.y), 0.0).rg;   // the bake's columns stand here (TASKS 418)
   if (fc.r > 0.5) discard;
@@ -190,11 +190,13 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float dull = smoothstep(0.38, 0.58, fbm(p / 45.0 + 5.0));
   float seam = (v.y - v.x) * 6.5 * (0.85 + 0.6 * dull) * (0.8 + 2.2 * smoothstep(0.48, 0.62, fbm(p / 26.0 + 1.3))), id = v.z, beat = 0.5 + 0.5 * sin(u_t * 0.9 + id * 6.2831);
   vec3 W1 = vec3(1.0, 0.98, 0.08), Y = vec3(1.0, 0.8, 0.02), YO = vec3(1.0, 0.42, 0.02), O1 = vec3(0.99, 0.24, 0.03), O2 = vec3(0.97, 0.15, 0.02), Rd = vec3(0.5, 0.04, 0.01), Dk = vec3(0.17, 0.018, 0.008);
-  vec3 col = id < 0.06 ? Rd : id < 0.55 ? O2 : O1;
+  // (dimmer in slow fields, TASKS 1628: the lake 76 % lit against 30–45 and one bright plate net)
+  float cool = smoothstep(0.38, 0.54, fbm(p / 58.0 + 31.0));
+  vec3 col = id < 0.05 + 0.42 * cool ? Rd : id < 0.55 - 0.1 * cool ? O2 : O1;
   if (still > 0.5 && hash(vec2(id, 4.1)) < 0.07) col = seam > 3.0 ? vec3(0.3, 0.04, 0.015) : col;
   // the concept's field has a large pattern (TASKS 481): slow dark-red backwaters up to ~130 px over a seventh of the lava, their
   // plates cooling to red and black and their net dimmed to orange; lone dark art pixels read as pepper, not as cooling lava
-  float pool = step(0.62 + (id - 0.5) * 0.08, fbm(p / 34.0 + 17.0) * 0.75 + vnoise(p / 14.0 + 3.0) * 0.25);   // (≈ 40 px backwaters, TASKS 1038, 1047: they lay as blots mid-lake)
+  float pool = step(0.6 + (id - 0.5) * 0.08, fbm(p / 18.0 + 17.0) * 0.6 + vnoise(p / 7.0 + 3.0) * 0.4);   // (≈ 40 px backwaters, TASKS 1038, 1047: they lay as blots mid-lake)
   if (pool > 0.5) col = hash(vec2(id, 9.3)) < 0.45 ? Dk : Rd;
   // (the seams 3–4 px with a thin lemon core, TASKS 1038, 1047: a cream thread washed the lava's colour out, 44 against 82)
   float core = step(seam, 0.15 + 0.1 * beat) * (1.0 - pool);
@@ -337,7 +339,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   // own bank (LAVA), so the two meet
   const MAGMA_EDGE = CAVE_EDGE + `
 uniform sampler2D u_cliff, u_lava;
-float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2; }
+float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + min((fbm(p / 64.0 + 3.1) - 0.5) * 0.5, (fbm(p / 64.0 + 3.1) - 0.5) * 1.2); }
 bool isWall(vec2 p){ return textureLod(u_cliff, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.5 > 0.5; }
 // a lavafall's face (TASKS 452), u_fall: (x, its foot, half its width, the face's height): as tall as the rock over it leaves room
 // for, back down to the plain face over 26 px either side, raggedly
@@ -364,7 +366,7 @@ const float CW = 30.0;
 bool plat(vec2 p){ return isOpen(p) && lavaAt(p) <= 0.5 && textureLod(u_plat, p / u_map, 0.0).r > 0.3; }   // not the sliver the open mask's noise leaves past a lava cell
 // what a column may stand over: the open lava (not the crust, not under a crossing) or the chasm
 bool drop(vec2 p){ if (isWall(p)) return false; if (!isOpen(p)) return true;
-  return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
+  return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + min((fbm(p / 64.0 + 3.1) - 0.5) * 0.5, (fbm(p / 64.0 + 3.1) - 0.5) * 1.2) > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
 bool dropRaw(vec2 p){ return textureLod(u_plat, p / u_map, 0.0).r < 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3 && textureLod(u_cliff, p / u_map, 0.0).r < 0.5; }
 // the south-edge column over w's x: (its centre x, its top's centre y, its face's height, 1 over the lava); y 0 when there is none
 vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y + 12.0;
@@ -378,7 +380,7 @@ vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y
   float run = 0.0; for (int k = 1; k <= 90; k++) { if (float(k) * 2.0 > cap || !dropRaw(vec2(cx, ey + float(k) * 2.0 - 1.0))) break; run = float(k) * 2.0; }
   float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 40.0 + floor(hash(vec2(i, 3.1)) * 13.0) * 2.0 + (1.0 - lava) * 24.0;
   if (u_step > 0.5) hgt = stp > 0.5 ? 999.0 : 64.0 + floor(hash(vec2(i, 3.1)) * 17.0) * 2.0;
-  float h = min(hgt, run - (lava > 0.5 ? 16.0 : stp > 0.5 ? 0.0 : 4.0)); if (h < 8.0) h = 0.0;
+  float h = min(hgt, run - (lava > 0.5 ? 16.0 : stp > 0.5 ? 0.0 : 4.0)) - lava * 2.0 * floor(hash(vec2(i, 9.1)) * 4.0); if (h < 8.0) h = 0.0;
   float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0;
   return vec4(cx, ty, h, stp > 0.5 ? 2.0 : step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava; 2: a step's, on the floor
 // the north-edge column's top over w's x (the edge's far side shows only the tops)
@@ -401,10 +403,10 @@ float colAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx
 // its cell's edge, so w looks into the cells round it; the front-most column under w wins; foot: w is in the lava just under one
 float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foot = 0.0; hwo = 13.0;
   vec2 G = vec2(96.0, 80.0), g0 = floor(w / G); float on = 0.0, by = -1e9;
-  for (int gy = -2; gy <= 0; gy++) for (int gx = -1; gx <= 1; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > 0.95 * smoothstep(0.3, 0.6, vnoise(g * 0.45 + 7.0))) continue;   // (in thickets and open reaches)
+  for (int gy = -2; gy <= 0; gy++) for (int gx = -1; gx <= 1; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > smoothstep(0.16, 0.42, vnoise(g * 0.45 + 7.0))) continue;   // (TASKS 1628, the player's decision: more of them, the lake 75 % lit against 30–45)   // (in thickets and open reaches)
     vec2 ctr = g * G + vec2(30.0 + 36.0 * hash(g + 2.2), 20.0 + 24.0 * hash(g + 3.3)); float n = 3.0 + floor(hash(g + 4.4) * 6.0), h0 = 24.0 + floor(hash(g + 7.7) * 19.0) * 2.0;
     for (int j = 0; j < 8; j++) { if (float(j) >= n) break; float fj = float(j), hw = 15.0 + floor(hash(g + fj * 4.7 + 9.1) * 8.0);   // (30–44 px wide as the concept's, TASKS 481)
-      float h = max(14.0, h0 + floor((hash(g + fj * 3.1) - 0.5) * 16.0) * 2.0 + (hash(g + fj * 5.3 + 1.9) < 0.15 ? 30.0 : 0.0));
+      float h = max(14.0, h0 + floor((hash(g + fj * 3.1) - 0.5) * 16.0) * 2.0 + (hash(g + fj * 5.3 + 1.9) < 0.15 ? 30.0 : 0.0)) + floor(hash(g + fj * 6.1 + 3.7) * 4.0) * 2.0;
       vec4 cj = vec4(floor((ctr.x + (hash(g + fj * 1.7 + 5.5) - 0.5) * 46.0) / 2.0) * 2.0 + 1.0, floor((ctr.y + (hash(g + fj * 2.3 + 6.6) - 0.5) * 22.0) / 2.0) * 2.0 + 1.0, h, 1.0);
       if (abs(w.x - cj.x) > hw || w.y < cj.y - 10.0 || w.y > cj.y + h + 14.0) continue;
       if (textureLod(u_lake, cj.xy / u_map, 0.0).r < 0.5 || textureLod(u_lake, vec2(cj.x, cj.y + h) / u_map, 0.0).r < 0.5) continue;
@@ -427,12 +429,16 @@ float sunk(vec2 w, out vec4 c, out vec2 f, out float dim){ dim = 0.0; float best
   return best; }
 // where the chasm opens in the lava a rim of basalt stones breaks the lava's edge off into it (TASKS 1059: a black pool behind a
 // yellow line, 16 % basalt round it against the concept's 50)
+// (dark red glints and grain over the void's upper lip, TASKS 1631: L p90 15/27/14/18 and σL 3.4–4.5 against 24 and 6.4)
+vec3 pitGrain(vec2 w, float g, vec3 col){ float n = hash(floor(w / 2.0) * 0.73), m = fbm(w / 13.0);
+  float lum = dot(col, vec3(0.3, 0.55, 0.15)), dimK = 3.0 - 2.55 * smoothstep(0.03, 0.15, lum);
+  return min(col, vec3(0.27)) + (n > 0.8 ? vec3(0.13, 0.03, 0.016) : n > 0.5 ? vec3(0.05, 0.016, 0.012) : vec3(0.0)) * g * dimK * (0.45 + 0.9 * m); }
 vec3 pitRim(vec2 w, float la, vec3 col){ if (smoothstep(0.02, 0.06, la + (fbm(w / 9.0) - 0.5) * 0.04) < 0.5) return col;
   // (rubble of uneven stones, TASKS 1163: a 6 px grid read as a row of black squares; L p90 11–15 against the reference's 24)
   vec2 p = w / 7.0 + 0.9 * vec2(vnoise(w / 11.0), vnoise(w / 11.0 + 7.3)), id = floor(p), f = fract(p), nid = id, off = vec2(0.0); float d1 = 9.0, d2 = 9.0;
   for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) { vec2 g = vec2(float(x), float(y)), c = g + vec2(hash(id + g), hash(id + g + 3.1)) - f; float d = length(c); if (d < d1) { d2 = d1; d1 = d; nid = id + g; off = c; } else if (d < d2) d2 = d; }
-  col = gCrust(w + 53.0) * (1.1 + 1.3 * hash(nid)) * (off.y > 0.12 ? 1.5 : off.y < -0.2 ? 0.6 : 1.0);
-  return d2 - d1 < 0.1 ? vec3(0.03, 0.022, 0.026) : col; }
+  col = gCrust(w + 53.0) * (1.0 + 0.72 * hash(nid)) * (off.y > 0.12 ? 1.5 : off.y < -0.2 ? 0.6 : 1.0);
+  return d2 - d1 < 0.1 ? vec3(0.03, 0.022, 0.026) : pitGrain(w, 0.9, col); }
 vec3 capCol(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), xx = (w.x - c.x) / hw, yy = (w.y - c.y) / 8.0, r = xx * xx + yy * yy;
   vec3 col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * id) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + id * 9.0)));
   if (r > 0.64) col = yy < 0.2 && xx < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03);
@@ -478,8 +484,11 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     float under = 0.0;
     for (int k = 1; k <= 6; k++) if (isWall(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.7 + 0.3 * smoothstep(0.47, 0.9, op)) * (1.0 - 0.5 * under);
+    // a low dark rock kerb along the lava's north banks (TASKS 1635: the concept's dark wall, here a flat floor runs to the lava)
+    float kh = 20.0 + 14.0 * step(0.4, vnoise(vec2(w.x / 10.0, 3.7)));
+    if (lavaAt(w + vec2(0.0, kh)) > 0.5) { float tp = lavaAt(w + vec2(0.0, kh - 2.0)); col = tp > 0.5 ? vec3(0.1, 0.075, 0.075) : vec3(0.012, 0.009, 0.01) * (0.9 + 0.4 * hash(floor(w / 2.0))); }
   } else if (op > 0.47 && la - edgeBite(w, u_map) > 0.5) col = gCrust(w + 53.0) * 0.6;
-  else if (op > 0.47) { float gl = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl;
+  else if (op > 0.47) { float far2 = 0.0; for (int i = 0; i < 8; i++) { float an = float(i) * 0.785 + fbm(w / 19.0) * 3.0; far2 += textureLod(u_far, (w + vec2(cos(an), sin(an)) * 26.0) / u_map, 0.0).r / 8.0; } float gl = smoothstep(0.05, 0.6, far2) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = pitGrain(w, smoothstep(0.22, 0.6, far2), vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl);
     col = pitRim(w, la, col); }   // (its glow too, TASKS 490: a straight red band ran along the map's edge)   // (the lava the map's edge bit off: the chasm's dark)
   else if (isWall(w)) {
     float hf = faceHF(w), fd = 99.0; bool down = false;
@@ -501,7 +510,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     col = vec3(0.006, 0.005, 0.006);
     float glow = smoothstep(0.05, 0.6, far) * (0.55 + 0.45 * fbm(w / 24.0));
     col += vec3(0.32, 0.06, 0.015) * glow * glow;
-    col = pitRim(w, la, col);
+    col = pitRim(w, la, pitGrain(w, smoothstep(0.22, 0.6, far), col));
   }
   if (on > 1.5) col = faceCol(w, c, f, hw); else if (on > 0.5) col = capCol(w, c, hw);
   o = vec4(col, 1.0); }`;
@@ -615,10 +624,12 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     for (int k = 0; k < 40; k++) { float y = u_src.y - 60.0 + float(k) * 2.0; if (!isWall(vec2(x0, y))) { foot = y; break; } }
     float land = foot + 8.0; for (int k = 0; k < 30; k++) { float y = foot + float(k) * 2.0; if (lavaAt(vec2(x0, y)) > 0.5) { land = y; break; } }
     float lip = foot - faceHF(vec2(x0, foot - 2.0)), dx = w.x - u_src.x, y = w.y, wob = (vnoise(vec2(y / 7.0 - u_t * 1.5, u_seed)) - 0.5) * 3.0;
+    // (a tall face takes a broad sheet, TASKS 1632: 55 → 45 px against the concept's 77 → 105; a short one stays narrow)
+    float uw = max(u_wide, mix(18.0, 36.0, smoothstep(50.0, 110.0, land - lip)));
     // the pool it pours from on the rock's top (ref_cave_lava: a lake ringed by column tops, not a stream out of the dark): as deep
     // as the rock over the lip goes, up to 48 px, its lava drifting to the lip faster as it nears it
     float ph = 0.0; for (int k = 1; k <= 34; k++) { if (!isWall(vec2(x0, lip - float(k) * 2.0))) break; ph = float(k) * 2.0; }
-    float pw = max(u_wide + 16.0, 40.0); ph = min(ph - 10.0, min(48.0, pw * 0.75)); vec2 pc = vec2(u_src.x, lip - ph * 0.5 + 2.0);
+    float pw = max(uw + 16.0, 40.0); ph = min(ph - 10.0, min(48.0, pw * 0.75)); vec2 pc = vec2(u_src.x, lip - ph * 0.5 + 2.0);
     vec2 pq = (w - pc) / vec2(pw, max(ph * 0.5, 1.0)); float pr = length(pq) + (vnoise(w / 6.0 + u_seed) - 0.5) * 0.1, rim = 6.0 / min(pw, max(ph * 0.5, 1.0));
     if (ph > 12.0 && y < lip - 1.0 && pr < 1.0 + rim) {
       if (pr < 1.0) { vec2 fp = w - vec2(0.0, u_t * 6.0 * (1.0 + 2.5 * smoothstep(-0.3, 1.0, pq.y)));
@@ -628,7 +639,7 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     // column tops ring its far side and stand at either side of the lip, the fall pouring between them
     if (ph > 12.0) for (int j = 0; j < 5; j++) { float fj = float(j), an = 3.14159 * (1.1 + 0.8 * fj / 2.0); vec2 cc = pc + vec2(cos(an) * (pw + 3.0), sin(an) * (ph * 0.5 + 3.0));
       if (j == 1 && pw < 50.0) continue;
-      if (j > 2) cc = vec2(u_src.x + (fj < 3.5 ? -1.0 : 1.0) * (u_wide + 9.0), lip - 4.0);
+      if (j > 2) cc = vec2(u_src.x + (fj < 3.5 ? -1.0 : 1.0) * (uw + 9.0), lip - 4.0);
       vec2 cq = (w - floor(cc / 2.0) * 2.0 - 1.0) / vec2(10.0 + 3.0 * hash(vec2(fj, u_seed)), 7.0); float cr = dot(cq, cq);
       if (cr < 1.0) { col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * hash(vec2(fj, u_seed + 3.0))) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + fj * 9.0)));
         if (cr > 0.62) col = cq.y < 0.2 && cq.x < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03); else if (cq.y > 0.15 && cq.x > 0.05) col *= 0.72;
@@ -637,8 +648,8 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0; vec
     // racing down it in dashes
     // (its edges ragged and running down with it, TASKS 1038: a ruled curtain, σ 2.6 px against the concept's 11)
     // (widening to its foot, TASKS 1053: it narrowed, 55 → 33 px against 77 → 105)
-    float hw0 = u_wide + 16.0 * (y - lip) / max(land - lip, 1.0), sx = dx - wob, hw = hw0 + (vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 14.0 * smoothstep(lip, lip + 12.0, y);
-    if (y >= lip - 1.0 && y < land + 4.0 && abs(sx) < hw && (y >= lip + 1.0 || abs(sx) < u_wide)) {
+    float hw0 = uw * (1.0 + 0.6 * clamp((y - lip) / max(land - lip, 1.0), 0.0, 1.0)), sx = dx - wob, hw = hw0 + ((vnoise(vec2(sign(sx) * 7.0 + u_seed, (y - u_t * 60.0) / 9.0)) - 0.5) * 18.0 + (vnoise(vec2(sign(sx) * 3.0 + u_seed, (y - u_t * 22.0) / 26.0)) - 0.5) * 22.0) * smoothstep(lip, lip + 12.0, y);
+    if (y >= lip - 1.0 && y < land + 4.0 && abs(sx) < hw && (y >= lip + 1.0 || abs(sx) < uw) && (y < foot + vnoise(vec2(w.x / 5.0, u_seed)) * 10.0 || lavaAt(w) > 0.5)) {
       if (y < lip + 1.0) col = vec3(1.0, 0.92, 0.6);
       else { float s = vnoise(vec2(dx / 2.5, (y - u_t * 70.0) / 14.0)) + 0.1 * (1.0 - abs(sx) / hw) - 0.17;
         col = hot(s); if (abs(sx) > hw - 2.0) col *= 0.6;
@@ -720,7 +731,7 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
       dk = max(step(blk - 2.0, pb.y) * rimAt(bq + vec2(0.0, blk)), step(blk - 2.0, pb.x) * rimAt(bq + vec2(blk, 0.0)));
     c = lit > 0.5 ? c * 1.4 + 0.05 : dk > 0.5 ? c * 0.3 : c; }
   // (and sampled through a slow warp of up to half a cell, TASKS 482: the cells' grid still showed as straight runs on long edges)
-  vec2 ws = u_haze > 0.5 ? w + (vec2(fbm(wp / 52.0 + 2.9), fbm(wp / 52.0 + 11.3)) - 0.5) * 36.0 / u_map : w;
+  vec2 ws = u_haze > 0.5 ? w + (vec2(fbm(wp / 52.0 + 2.9), fbm(wp / 52.0 + 11.3)) - 0.5) * 56.0 / u_map : w;
   float s = texture(u_seen, ws).r * (1.0 - vd) * step(0.0, w.x) * step(w.x, 1.0) * step(0.0, w.y) * step(w.y, 1.0);
   // the magma's fog edge (TASKS 453) is broken by a noise on the art grid: smooth, it ran ruler-straight along the cells' rows
   if (u_haze > 0.5) s = clamp(s + (fbm(wp / 26.0 + 7.3) - 0.5) * 2.2 * s * (1.0 - s), 0.0, 1.0);

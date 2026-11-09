@@ -1,4 +1,4 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--no-cache] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|town|cave|magma|endless] [--no-town: a run through the town played straight down] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--full: no early stop] [--job-min M: a bot process killed as hung after M min] [--snapshots dir [--replay-floor 9]: the deep floors from the snapshots]
+// node tools/difficulty.cjs [--seeds 1-40] [--no-cache] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|town|cave|magma|endless] [--cls warrior|mage: the hero's class (TASKS 1116)] [--no-town: a run through the town played straight down] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--full: no early stop] [--job-min M: a bot process killed as hung after M min] [--snapshots dir [--replay-floor 9]: the deep floors from the snapshots]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
@@ -207,7 +207,7 @@ function check() {
   if (miss.length) process.exitCode = 2;
 }
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
-const botCmd = (p, s) => ['--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode].concat(DESCEND ? ['--descend'] : [], process.argv.includes('--no-town') ? ['--no-town'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : []);
+const botCmd = (p, s) => ['--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode].concat(DESCEND ? ['--descend'] : [], process.argv.includes('--no-town') ? ['--no-town'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : [], arg('--cls', '') ? ['--cls', arg('--cls', '')] : []);
 // results kept by the version of the game and the bot, the bot's driver and node, with every flag the bot gets (TASKS 467): a --check
 // again on the same seeds reads them instead of playing. A share of them is played afresh beside the rest and must come out the same
 // to the byte, or the version's whole cache is thrown away and the run fails

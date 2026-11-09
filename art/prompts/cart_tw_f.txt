@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's mine cart seen from the side: the SAME cart, same planks, iron and heaped grey slate load, but now seen head-on from its front end at the same 3/4 top-down angle, moving toward the viewer: a narrower box with two wheels visible side by side under it, symmetric. Transparent background, no shadow, no ground, no glow, no text.

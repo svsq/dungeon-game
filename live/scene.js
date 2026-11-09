@@ -52,8 +52,8 @@
     const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
-    const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1), big = tc.kind === 'fire', gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
-      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * (B.cave && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
+    const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), big = tc.kind === 'fire', f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1) * (big ? B.bigK || 1 : B.town ? 0.72 + 0.056 * (i * 37 % 11) : 1), gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
+      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * ((B.cave || B.town) && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
       const tr = tc.kind === 'wall' ? B.torchR || 1 : 1;   // the town's torches light pools ≈115 px across (TASKS 1029), its fire stays wide
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr * tr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
@@ -63,7 +63,7 @@
       if (B.spill) TL.push([tc.x, tc.y - (big ? 60 : 30), (big ? 380 : 190) * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * f / (B.fireK || 1) * (big ? 0.7 : 1), 1.4]); });
     for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
-      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) : d.n === 'candelabra' ? 150 : 125), col, (tp ? 1.0 : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
+      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) : d.n === 'candelabra' ? 150 : 125), col, (tp ? (B.town ? 0.7 + 0.06 * Math.floor(d.x * 37 / 32 % 11) : 1.0) : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]);
       if (tp && B.spill) TL.push([d.x, d.y - up, 190 * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * flick(d.x), 1.4]); }
     // a cave bridge's fire posts (TASKS 306): the crossing's warm light, on the deck and in the water under it
@@ -77,7 +77,7 @@
     const GL = []; for (const d of m.decor) { const g = glowOf(d); if (!g || hid(d)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
       GL.push([d.x, d.y - g.up, g.r, col, g.amt * b, 2.6]); GL.push([d.x, d.y - g.up, g.r * 0.4, col, g.amt * 1.8 * b, 2.4]); }
     for (const p of R.pots) if ((p.kind === 'gold' || p.kind === 'goldpile') && p.hp > 0 && !hid(p)) TL.push([p.x, p.y - 10, 110, [1, 0.78, 0.4], 0.35]);
-    for (const c of R.chests) if (c.tier === 3 && !c.open && !hid(c)) TL.push([c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
+    for (const c of R.chests) if (c.tier >= 3 && !c.open && !hid(c)) TL.push([c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
     // how deep a point of the floor stands in the fires' light, 0 in the dark to 1 in a brazier's pool
     HERO.kAt = (px, py) => { let l = 0; for (const [x, y, r, col, amt, k = 2.2] of TL) { const d = Math.hypot((px - x) / r, (py - 40 - y) / (0.8 * r)); if (d < 1) l += amt * Math.exp(-d * d * k) * SS(1, 0.7, d) * (col[0] + col[1] + col[2]) / 3; }
       return SS(0.4, 1.2, l); };
@@ -95,8 +95,10 @@
     const lavaD = (px, py) => { if (!m.cliff) return 9; const cx0 = Math.floor(px / TILE), cy0 = Math.floor(py / TILE); let d = 9;
       for (let j = -6; j <= 6; j++) for (let i = -6; i <= 6; i++) if (SIM.Q.cell(m, cx0 + i, cy0 + j) === 3) d = Math.min(d, Math.hypot(i, j)); return d; };
     HERO.lavaNear = (px, py) => SS(5.5, 2, lavaD(px, py));   // (as far as the lava's own light reaches, 170 px)
+    // (the take-back is held to 0.75–1.3 a channel: up to 1.8 under the crypt's green torch it pushed red ~1.7× and every warm paint went
+    // flat orange, the archer's ochre whole, TASKS 1124 critic)
     HERO.fireTint = (px, py, own = [1, 1, 1]) => { const lt = HERO.lightAt(px, py); if (!lt) return own; const c = lt.all, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2], wl = HERO.lavaNear(px, py);
-      const t = c.map((v, i) => { const q = own[i] * Math.max(0.5, Math.min(1.8, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g)))); return q + (own[i] - q) * wl; });
+      const t = c.map((v, i) => { const q = own[i] * Math.max(0.75, Math.min(1.3, (g + 0.5 * (v - g)) / Math.max(0.02, g + 1.6 * (v - g)))); return q + (own[i] - q) * wl; });
       return t; };
     HERO.k = HERO.kAt(h.x, h.y); HERO.lift = 0.85 + 0.1 * HERO.k;
     const F = {
@@ -135,6 +137,7 @@
       coin(); emitted(coin); return; }
     if (p.kind === 'key') { G.blend('add'); L.glow(x, y - z - 14 - bob, 30, [1, 0.8, 0.4], 0.7); G.blend(); const [w, hh] = SZ('it_key'); L.sprite('it_key', x - w * 0.3, y - z - hh * 0.6 - 4 - bob, { w: w * 0.6, h: hh * 0.6 }); return; }
     if (p.kind === 'shard') { G.blend('add'); L.glow(x, y - z - 14 - bob, 24, [0.4, 0.7, 1], 0.8); G.blend(); const [w, hh] = SZ('crystal'); L.sprite('crystal', x - w * 0.15, y - z - hh * 0.3 - bob, { w: w * 0.3, h: hh * 0.3 }); return; }
+    if (p.kind === 'note') { const [w, hh] = SZ('note_scrap'), up = p.lift || 0; if (!up) L.shadow(x, y + 2, w * 0.5, 5, 0.45); G.blend('add'); L.glow(x, y - z - up - 8, 22, [1, 0.9, 0.65], 0.3); G.blend(); L.sprite('note_scrap', x - w / 2, y - z - up - hh + 2, { w, h: hh }); return; }
     // a quest's keepsake (TASKS 1020): its own icon in a warm gold light and a beam, so it reads as nobody's loot
     if (p.kind === 'qitem') { const ic = p.ic || 'qi_casket', [w, hh] = SZ(ic), k = 0.7, col = [1, 0.93, 0.7]; L.shadow(x, y + 2, 16, 6, 0.6); G.blend('add'); L.glow(x, y - z - 16 - bob, 34, col, 0.5); L.solid(x - 3, y - z - 120, 6, 108, col, 0, 0, 0, 0.22 + 0.06 * Math.sin(t * 4)); G.blend();
       L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k }); return; }

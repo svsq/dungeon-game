@@ -1,0 +1,4 @@
+Use case: a ground decal of the start town of a top-down 3/4 dungeon game. Image 1 is the style reference. Image 2 is the approved town concept's ground crop: take its low overgrowth and palette, NOT its warm light.
+Subject: seen from above, one irregular ragged patch of low moss and short grass, roundish with a torn edge and two small separate tufts beside it, olive greens (#302b09, #473e0b, #675a0d, a few pale tips #8a7a22), broken up by many tiny gaps so the edge fades out in single pixels.
+Scale: 40 art pixels wide. Composition: centred, wide empty margin, transparent background.
+Constraints: no outline, no earth under it, no stones, no flowers, no shadow, no glow, no text.

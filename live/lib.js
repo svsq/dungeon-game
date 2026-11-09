@@ -26,6 +26,7 @@ uniform float u_vfade;         // ragged bottom fade (uv of the drawn rect)
 uniform float u_tfade;         // soft top fade
 uniform vec4 u_bulge;          // centre uv, radius (uv), amount — local inflate (breathing, swelling)
 uniform vec4 u_bend;           // amp (uv of height), load u, load width (uv), on — sag field: catenary dip + local dip
+uniform vec3 u_reveal;         // (x, y uv, k): grows in from the outside toward (x, y); k 1 whole, 0 off
 uniform float u_disc;          // > 0: only a round disc of the drawn rect is kept (soft edge width, uv) — joint caps
 uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 rooted at the bottom / 1 hung from the top — pushed aside, leaned by wind
 uniform vec4 u_jelly;          // centre x, foot y (uv), height scale k, on — a soft body squashed (k < 1) or stretched about its foot: the foot
@@ -106,10 +107,11 @@ void main(){
     : boned ? textureLod(u_tex, tuv, lod0 + u_lod) : texture(u_tex, tuv, u_lod);
   c *= smoothstep(0.0, max(u_fade.x, 1e-4), uv.x) * smoothstep(1.0, 1.0 - max(u_fade.y, 1e-4), uv.x) ;
   if (u_tfade > 0.0) c *= smoothstep(0.0, u_tfade, uv.y);
+  if (u_reveal.z > 0.0) c *= step((1.0 - u_reveal.z) * 0.25, length(uv - u_reveal.xy));
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
   if (u_vfade > 0.0) c *= smoothstep(1.0, 1.0 - u_vfade, uv.y + u_vfade * 0.8 * (fbm(vec2(uv.x * 60.0, 0.0)) - 0.3));
   if (u_cut.z > 0.0) c *= smoothstep(u_cut.x, u_cut.x - u_cut.y, v_px.y);
-  if (u_clipk > 0.0) { vec2 q = (v_px - u_clipb.xy) / u_clipb.zw; float m = texture(u_clipm, q).r; if (u_clipr > 0.0) for (int i = 0; i < 8; i++) { vec2 d = vec2(cos(float(i) * 0.7854), sin(float(i) * 0.7854)) * u_clipr / u_clipb.zw; m = max(m, max(texture(u_clipm, q + d).r, texture(u_clipm, q + 0.5 * d).r)); } c *= mix(1.0, smoothstep(0.46, 0.54, m), u_clipk); }
+  if (u_clipk > 0.0) { vec2 q = (v_px - u_clipb.xy) / u_clipb.zw; float m = texture(u_clipm, q).r; if (u_clipr > 0.0) for (int i = 0; i < 8; i++) { vec2 d = vec2(cos(float(i) * 0.7854), sin(float(i) * 0.7854)) * u_clipr / u_clipb.zw; m = max(m, max(texture(u_clipm, q + d).r, texture(u_clipm, q + 0.5 * d).r)); } { vec2 wp = q * u_clipb.zw; m += (fbm(wp / 20.0) - 0.5) * 0.2 + (fbm(wp / 64.0 + 3.1) - 0.5) * 1.2; } c *= mix(1.0, smoothstep(0.46, 0.54, m), u_clipk); }
   if (c.a < 0.002) discard;
   vec3 rgb = c.rgb / c.a;
   float l = dot(rgb, vec3(0.299, 0.587, 0.114));
@@ -366,7 +368,13 @@ void main(){ float d = length(v_uv * 2.0 - 1.0); float g = exp(-d * d * 5.0) * s
   const RRECT = `uniform vec2 u_sz; uniform float u_r, u_a; uniform vec3 u_c0, u_c1;
 void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r); float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - u_r;
   float m = 1.0 - smoothstep(-0.7, 0.7, d); vec3 c = mix(u_c0, u_c1, v_uv.y); o = vec4(c * m * u_a, m * u_a); }`;
-  const SH = { SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
+  // a ray on toward the light that meets the body again is a gap between its limbs, not its outer edge
+  const RIMOUT = `
+uniform sampler2D u_src; uniform vec2 u_dir; uniform vec3 u_col;
+float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }
+void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1; k <= 3; k++) if (at(-u_dir * float(k)) > 0.5) edge = true; if (!edge) discard;
+  for (int k = 1; k <= 24; k++) if (at(u_dir * float(k)) > 0.5) discard; o = vec4(u_col, 1.0); }`;
+  const SH = { RIMOUT, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
   L.SH = SH;
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
@@ -380,6 +388,7 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     T.bg = G.target(Math.round(w / px), Math.round(h / px), true, lo); T.comp = G.target(Math.round(w / px), Math.round(h / px), true, lo);
     T.mask = G.target(w / 2, h / 2, true); T.rays = G.target(w / 2, h / 2, true);
     T.b1 = G.target(w / 4, h / 4); T.b2 = G.target(w / 4, h / 4); T.c1 = G.target(w / 8, h / 8); T.c2 = G.target(w / 8, h / 8);
+    T.rim = G.target(Math.round(w / px), Math.round(h / px), false, { view, nearest: true });
     L.T = T; L.SUN = [w * 0.31, h * 0.25];
   };
 
@@ -400,7 +409,8 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
 
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
-    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, reveal: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+  const UNAME = {};
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
@@ -413,20 +423,35 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
     const sw = tx.w * (src[2] - src[0]), sh = tx.h * (src[3] - src[1]);
     let w = o.w, h = o.h; if (w && !h) h = w * sh / sw; if (h && !w) w = h * sw / sh; if (!w) { w = sw; h = sh; }
     const pad = o.pad || 0, pw = w * pad, ph = h * pad;
+    const sp = L.sp;
+    if (sp) { x += sp.dx; y += sp.dy; if (o.m) o = Object.assign({}, o, { m: M.mul(M.t(sp.dx, sp.dy), o.m) }); }
+    const rot = o.rot || 0, piv = o.pivot || [0, 0];
+    let X;
+    if (o.m) { const F = M.mul(L.pre ? M.mul(L.pre, o.m) : o.m, [w + 2 * pw, 0, 0, h + 2 * ph, -pw - piv[0], -ph - piv[1]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; }
+    else { X = G.xf(x - pw, y - ph, w + 2 * pw, h + 2 * ph, rot, piv[0] + pw, piv[1] + ph);
+      if (L.pre) { const F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; } }
+    if (!G.rec && G.outside(X)) return { w, h };
     const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx }); if (U.snap === undefined) U.snap = L.SNAP;
-    if (L.sp) { const sp = L.sp;
-      Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
-      x += sp.dx; y += sp.dy; if (o.m) o = Object.assign({}, o, { m: M.mul(M.t(sp.dx, sp.dy), o.m) }); }
-    const uni = {}; for (const k in U) uni[k.startsWith('u_') ? k : 'u_' + k] = U[k];
+    if (sp) Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
+    const uni = {}; for (const k in U) uni[UNAME[k] || (UNAME[k] = k.startsWith('u_') ? k : 'u_' + k)] = U[k];
     uni.u_pad = [pad / (1 + 2 * pad), pad / (1 + 2 * pad)];
     uni.u_src = src;
-    const rot = o.rot || 0, piv = o.pivot || [0, 0];
-    if (o.m) { const F = M.mul(L.pre ? M.mul(L.pre, o.m) : o.m, [w + 2 * pw, 0, 0, h + 2 * ph, -pw - piv[0], -ph - piv[1]]);
-      G.draw(P.sprite, uni, [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1], [o.flip ? 1 : 0, 0]); return { w, h }; }
-    let X = G.xf(x - pw, y - ph, w + 2 * pw, h + 2 * ph, rot, piv[0] + pw, piv[1] + ph);
-    if (L.pre) { const F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; }
+    if (G.rec && sp === REC_SP) { const pr = L.pre || M_ID; G.rec.push({ U: uni, X, flip: [o.flip ? 1 : 0, 0], x: X[6], y: X[7], al: uni.u_alpha, pre: pr }); return { w, h }; }
     G.draw(P.sprite, uni, X, [o.flip ? 1 : 0, 0]);
     return { w, h };
+  };
+  // A rig is posed once and its silhouette replayed per copy: the pose was 9–40 runs of the same JS per actor per frame.
+  // A copy differs only by offset, alpha, lod and ink colour, and the shift goes through L.pre as it did when each copy was posed.
+  const M_ID = [1, 0, 0, 1, 0, 0], REC_SP = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] };
+  const replay = (list, sp) => { for (const e of list) {
+    if (typeof e === 'string') G.blend(e || undefined);
+    else if (Array.isArray(e)) G.draw(e[0], e[1], e[2], e[3]);
+    else { e.U.u_haze = sp.ink; e.U.u_alpha = sp.a * e.al; e.U.u_lod = sp.lod || 0; e.X[6] = e.x + e.pre[0] * sp.dx + e.pre[2] * sp.dy; e.X[7] = e.y + e.pre[1] * sp.dx + e.pre[3] * sp.dy; G.draw(P.sprite, e.U, e.X, e.flip); } } };
+  L.stamp = (draw, sps) => {
+    if (G.rec) { for (const sp of sps) { L.sp = sp; draw(); } L.sp = null; return; }
+    const list = G.rec = []; L.sp = REC_SP;
+    try { draw(); } finally { G.rec = null; L.sp = null; }
+    for (const sp of sps) replay(list, sp);
   };
   // rig joint trace for qa.mjs (animation.md §14): while L.TRACE is an object, rigs report screen points per actor instance
   L.TRACE = null;
@@ -436,13 +461,21 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   // one weighted ink silhouette around a whole puppet: n offset flat-ink copies, then the puppet itself
   // emit: the ink is an emitter, so no light lifts it; rim { dx, dy, col }: one more flat copy shifted toward the light over the ink,
   // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
+  let rimLast = null;
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
+    if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(bx, by, bw, bh); rimLast = rim.box; G.blend();
+      const nr = 4, rs = []; for (let i = 0; i <= nr; i++) { const an = i * 2 * Math.PI / nr + Math.PI / 4, q = i < nr ? r * 1.25 : 0; rs.push({ dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }); }
+      L.stamp(draw, rs);
+      G.bind(back); G.blend('emit'); G.draw(P.rimout, { u_src: T.rim, u_dir: [rim.dx / len, rim.dy / len], u_col: rim.col }, G.xf(bx, by, bw, bh)); if (!emit) G.blend(); }
     if (emit) G.blend('emit');
-    for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; L.sp = { dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }; draw(); }
-    if (rim) { G.blend('emit'); L.sp = { dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }; draw(); }
-    if (emit || rim) G.blend();
+    const sps = []; for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; sps.push({ dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }); }
+    L.stamp(draw, sps);
+    if (rim && !rim.box) { G.blend('emit'); L.stamp(draw, [{ dx: rim.dx, dy: rim.dy + dy, a: 1, lod: 0, ink: rim.col }]); }
+    if (emit || (rim && !rim.box)) G.blend();
     L.sp = null; draw(); };
 
+  // a telegraph's beat, quickening as its wind-up fills: the phase counts from the telegraph's own start (TASKS 1362: multiplied by the
+  // game clock, the rising rate threw the phase about wildly and the rings flickered at random)
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
@@ -499,30 +532,41 @@ void main(){ vec2 p = (v_uv - 0.5) * u_sz; vec2 q = abs(p) - (u_sz * 0.5 - u_r);
   L.anchor = (name, sim, drawn, tol = 8) => L.ANCH.push({ name, sim, drawn, tol, d: Math.hypot(sim[0] - drawn[0], sim[1] - drawn[1]) });
   L.qaReset = () => { L.UI = window.__UI = []; L.ANCH = window.__ANCHORS = []; };
 
-  // ---------------- smooth HUD labels: any string (Cyrillic, CJK…) in a system font, one texture per slot ----------------
-  // label(slot, str, x, y, { size, col, out, al, a, font, weight }) draws at 1:1 (crisp, anti-aliased) with an ink outline
-  // and a soft drop shadow; the texture is re-rendered only when the string or style changes. Returns the text width.
+  // ---------------- HUD labels: pixel font, one texture per slot ----------------
+  // label(slot, str, x, y, { size, col, out, al, a }) draws at 1:1 with a one-grid-pixel ink outline and a hard drop shadow;
+  // the texture is re-rendered only when the string or style changes. Returns the text width.
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
+  // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
+  // two faces of one family (em 10 and 12) give the steps 12, 20, 24, 30, 36, 40... and each size takes the step whose
+  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for.
+  const FACES = [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], TREBUCHET_W = 0.547, FIT = new Map();
+  const fit = (size) => { const n = Math.round(size); let r = FIT.get(n); if (r) return r; let best = Infinity;
+    for (const [font, em, adv] of FACES) for (let unit = 1; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
+    FIT.set(n, r); return r; };
+  const AROUND = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
   const LBL = {};
-  const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315', font = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif', weight = 'bold' } = {}) => {
-    let r = LBL[slot]; const key = [str, size, col, out, font, weight].join('|'); if (r && r.key === key) return r;
-    const cv = G.canvas(), g = cv.getContext('2d'), f = `${weight} ${size}px ${font}`, pad = Math.ceil(size * 0.3);
-    g.font = f; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(size * 1.3) + 2 * pad;
-    cv.width = Math.max(1, w); cv.height = h; g.font = f; g.textBaseline = 'middle'; g.lineJoin = 'round';
-    g.fillStyle = 'rgba(15,5,8,0.6)'; g.fillText(str, pad, h / 2 + Math.max(2, size * 0.09));
-    if (out) { g.lineWidth = Math.max(3, size * 0.16); g.strokeStyle = out; g.strokeText(str, pad, h / 2); }
-    g.fillStyle = col; g.fillText(str, pad, h / 2);
+  const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315' } = {}) => {
+    const { font, px, unit } = fit(size); let r = LBL[slot]; const key = [str, font, col, out].join('|'); if (r && r.key === key) return r;
+    const cv = G.canvas(), g = cv.getContext('2d'), pad = Math.ceil(px * 0.3) + unit;
+    g.font = font; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
+    cv.width = Math.max(1, w); cv.height = h; g.font = font; g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
+    const stamp = (dx, dy, c) => { g.fillStyle = c; g.fillText(str, pad + dx * unit, base + dy * unit); };
+    // ink on parchment has no outline: a dark shadow two grid pixels under dark glyphs read as a second, blurred line
+    if (out) { stamp(0, 2, 'rgba(15,5,8,0.6)'); for (const [dx, dy] of AROUND) stamp(dx, dy, out); }
+    stamp(0, 0, col);
     if (!r) r = LBL[slot] = { rec: G.canvasTex('lbl_' + slot, cv) };
     else { G.canvasUpdate(r.rec, cv); r.rec.w = w; r.rec.h = h; }
-    Object.assign(r, { key, pad, tw }); return r; };
+    Object.assign(r, { key, pad, tw, px }); return r; };
   // measuring never touches the slot's texture: label() and labelW() on one slot with different styles would re-render and
   // re-upload it twice a frame
   let MEASURE = null;
-  L.labelW = (slot, str, { size = 30, font = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif', weight = 'bold' } = {}) => {
-    const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); g.font = `${weight} ${size}px ${font}`; return g.measureText(String(str)).width; };
-  L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), size = o.size || 30, a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
+  L.labelW = (slot, str, { size = 30 } = {}) => {
+    const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); g.font = fit(size).font; return g.measureText(String(str)).width; };
+  // a label that must stay inside a box steps down the font's grid sizes; scaling a size by a width ratio can land on a step that is still too wide
+  L.sizeToFit = (str, maxW, size) => { let s = size; while (s > 12 && L.labelW(0, str, { size: s }) > maxW) s -= 1; return s; };
+  L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
     L.sprite('lbl_' + slot, x0 - r.pad, Math.round(y - r.rec.h / 2), { w: r.rec.w, h: r.rec.h, u: { alpha: a } });
-    if (a > 0.05) L.uiText(slot, str, x0, y - size * 0.62, r.tw, size * 1.24); return r.tw; };
+    if (a > 0.05) L.uiText(slot, str, x0, y - r.px * 0.62, r.tw, r.px * 1.24); return r.tw; };
 
   // ---------------- HUD text: canvas glyph atlas → texture ----------------
   L.glyphs = (chars = '0123456789×+/:', { size = 76, font = '"Arial Rounded MT Bold", "Arial Black", sans-serif', stroke = '#2a1606', fill = ['#fffbe2', '#ffd76a', '#e89a22'] } = {}) => {

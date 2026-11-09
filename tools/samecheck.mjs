@@ -8,7 +8,6 @@ import path from 'node:path';
 import os from 'node:os';
 import http from 'node:http';
 import crypto from 'node:crypto';
-import v8 from 'node:v8';
 import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 
@@ -16,17 +15,18 @@ const require = createRequire(import.meta.url);
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const save = args.includes('--save'), only = opt('only', 'sim,gen,frames').split(','), file = opt('file', 'frames/samecheck/base.json');
 const sha = (b) => crypto.createHash('sha1').update(b).digest('hex').slice(0, 16);
+// v8.serialize writes one number differently as V8's own storage of it changes, so equal states hashed apart between runs (TASKS 1143)
+const stateJson = (S) => JSON.stringify(S, (k, v) => (v instanceof Set ? [...v] : v instanceof Map ? [...v.entries()] : ArrayBuffer.isView(v) ? [...v] : v));
 const got = {};
 
 if (process.argv[2] === '--run') {
   const { play } = require('./bot.cjs'), [mode, seed] = [process.argv[3], +process.argv[4]], marks = [];
-  play({ seed, mode, profile: 'average', stopAfter: 3, checkpoint: (fr) => marks.push(`f${fr.S.run.floor}:${sha(v8.serialize(fr.S))}`),
-    log: (r, S) => { marks.push('end:' + sha(v8.serialize(S))); marks.push('res:' + sha(JSON.stringify({ ...r, ver: 0 }))); } });
+  play({ seed, mode, profile: 'average', stopAfter: 3, checkpoint: (fr) => marks.push(`f${fr.S.run.floor}:${sha(stateJson(fr.S))}`),
+    log: (r, S) => { marks.push('end:' + sha(stateJson(S))); marks.push('res:' + sha(JSON.stringify({ ...r, ver: 0 }))); } });
   console.log(marks.join(' '));
   process.exit(0);
 }
 
-// each run in a process of its own: a run after another in the same process may differ (module caches carried over)
 if (only.includes('sim')) {
   const RUNS = [['town', 1], ['town', 2], ['campaign', 3], ['cave', 4], ['magma', 5], ['endless', 6]];
   const one = (cmd, a) => new Promise((res, rej) => execFile('node', a, { encoding: 'utf8', maxBuffer: 1 << 26 }, (e, out) => (e ? rej(e) : res(out))));

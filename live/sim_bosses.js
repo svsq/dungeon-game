@@ -25,7 +25,7 @@
         R.arena = { active: 1, room: b.room, t0: S.t }; b.st = b.type === 'boss_serpent' ? 'deep' : ENEMIES[b.type].lake ? 'emerge' : 'chase'; b.cdT = S.t + 1; b.seenT = S.t; b.t0 = S.t;
         for (const d of m.doors) if (d.arena) { d.open = 0; d.openT = -9; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5; }
         m.arenaBox = [r.x, r.y, r.x + r.w, r.y + r.h];
-        R.msg = { s: ENEMIES[b.type].name, t: S.t, d: 3 }; roar(S, R, b);
+        R.msg = { chapter: ENEMIES[b.type].name, s: ENEMIES[b.type].title, t: S.t, d: 3 }; roar(S, R, b);
       }
     }
     for (const q of R.lavaPending || []) if (S.t >= q.t && m.cells[q.cell] === 1) { m.cells[q.cell] = 3; m.arenaLava = m.arenaLava || []; m.arenaLava.push(q.cell); m.lava++; m.geometry = (m.geometry || 0) + 1; }
@@ -37,6 +37,7 @@
   }
   function finishArena(S, R, e) {
     if (R.arena) R.arena.active = 0;
+    for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.loot = SIMX.bossLoot(R, e); SIMX.fstat(R).lootN += c.loot.length; ev(S, { k: 'unseal', x: c.x, y: c.y }); }
     R.map.flood = null; R.map.arenaBox = null;
     if (R.map.arenaWater?.length) { const wet = new Set(R.map.arenaWater); R.map.water = R.map.water.filter((k) => !wet.has(k)); R.map.arenaWater = []; WET.delete(R.map); }
     for (const k of R.map.arenaLava || []) if (R.map.cells[k] === 3) { R.map.cells[k] = 1; R.map.lava--; }
@@ -47,7 +48,7 @@
     // the campaign's last boss leaves one too (TASKS 514): a run through the town ends in the town
     if (R.viaTown && R.arena) R.arena.gate = bossGate(R, e);
     if (lastFloor(R) && R.arena && R.arena.gate) R.msg = { s: ENEMIES[e.type].name + TXT('sim_bosses.finishArena.msg.s'), t: S.t };
-    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e)) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
+    if (!lastFloor(R)) { R.msg = { s: ENEMIES[e.type].name + (R.arena && R.arena.gate ? TXT('sim_bosses.finishArena.msg.s') : TXT('sim_bosses.finishArena.msg.s.2')), t: S.t }; if (!chapterEnd(R, e) && !R.chests.some((c) => c.boss)) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), 2) }); }
   }
   // the portal home a chapter boss leaves (TASKS 383): in its hall, kept clear of the stairs and the altar so E never picks the wrong one
   function bossGate(R, e) { const r = R.map.rooms[e.room], cx = (r.x + r.w / 2) * TILE, cy = (r.y + r.h / 2) * TILE, far = [R.map.exit, ...(R.map.down ? [R.map.down] : []), ...R.shrines];
