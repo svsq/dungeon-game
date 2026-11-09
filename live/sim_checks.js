@@ -1017,7 +1017,11 @@
       for (let i = 0; i < q.length && from[e] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1 && !guarded.has(n)) { from[n] = q[i]; q.push(n); } }
       const way = []; for (let k = e; k >= 0 && from[e] !== -2; k = from[k]) way.push(k);
       const on = m.hazards.filter((z) => way.some((k) => D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE))).length;
-      if (on < 2) out.push(`magma ${ft} ${sd} f${f}: ${on} hazard ring(s) on the walk to the stairs, 2 at least`); }
+      if (on < 2) out.push(`magma ${ft} ${sd} f${f}: ${on} hazard ring(s) on the walk to the stairs, 2 at least`);
+      const gate = m.hazards.filter((z) => z.gate);
+      if (gate.length) { const deck = new Set((m.crossings || []).flatMap((c) => c.cells)), s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), seen = new Uint8Array(W * m.H), g = [s0]; seen[s0] = 1;
+        for (let i = 0; i < g.length; i++) for (const o of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) { const n = g[i] + o; if (n >= 0 && n < W * m.H && !seen[n] && (m.cells[n] === 1 || m.cells[n] === 6 || deck.has(n)) && !gate.some((z) => D.hazIn(z, (n % W + 0.5) * TILE, (Math.floor(n / W) + 0.5) * TILE))) { seen[n] = 1; g.push(n); } }
+        if (seen[e]) out.push(`magma ${ft} ${sd} f${f}: a way round the vent gate to the stairs`); } }
     // the burst: the hero in the ring is hurt once (his regeneration over the run aside) and, by a vent, set alight; a monster in it
     // is hurt, the hero out of it is not
     for (const k of ['vent', 'fall']) { const Z = spawn(0, {}); plainRun(Z); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, H = HZ[k];

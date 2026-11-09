@@ -989,9 +989,14 @@
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
       // a gate of vents across the walk, bursting together on a short visible clock: pass in the window between bursts, not round a ring
       // (TASKS 1645: every hazard was solved by one move, stepping round a circle); it takes vents off the floor's count, so the rest thin out
-      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * 0.35), Math.floor(way.length * 0.65));
+      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * 0.35), Math.floor(way.length * 0.65)), deck = new Set(crossings.flatMap((c) => c.cells));
+        // (a gate is only a question if no way runs outside its rings, however long)
+        const seals = (row) => { const zs = row.map((c) => ({ k: 'vent', x: wx(c % W), y: wy(Math.floor(c / W)) })), seen = new Uint8Array(W * H), q = [way[0]], end = way[way.length - 1]; seen[way[0]] = 1;
+          for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) { const n = q[i] + o; if (n < 0 || n >= W * H || seen[n] || !(cells[n] === 1 || cells[n] === 6 || deck.has(n)) || zs.some((z) => D.hazIn(z, wx(n % W), wy(Math.floor(n / W))))) continue; if (n === end) return false; seen[n] = 1; q.push(n); }
+          return true; };
         for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = [-2, 0, 2].map((j) => k + side * j * 1), x0 = k % W, y0 = Math.floor(k / W);
           if (!row.every((c) => cells[c] === 1 && clear(c % W, Math.floor(c / W)) && !under.has(c) && !used.has(key(c % W, Math.floor(c / W))))) continue;
+          if (!seals(row)) continue;
           const per = G.per, ph = Z(); for (const c of row) { const x = c % W, y = Math.floor(c / W), z = { k: 'vent', gate: 1, x: wx(x), y: wy(y), per, ph }; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
           // (and a share of the walk's rock tails goes, the player's decision on 1645: the gate is not to raise the floor's damage)
           // (from a run's far ends only: a hole in its middle broke its even step)
