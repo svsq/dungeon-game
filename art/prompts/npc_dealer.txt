@@ -1,0 +1,5 @@
+Use case: an NPC sprite (anchor drawing for a cut-out rig) for a top-down 3/4 dungeon action game. Image 1 is the style reference only. Image 2 is the game's town merchant: copy his exact pose, proportions, outline thickness and pixel density, and keep the head, shoulders, arms, hands, hips and feet at exactly the same places on the canvas, so that the same cut lines fit this new drawing.
+Subject: a secret dealer in legendary goods: an elegant pale man in a long black-and-crimson velvet coat with gold trim and many rings, a neat silver goatee, a thin smile, a small round monocle, a chain of old keys at the belt. Same stout build and same neutral pose as Image 2.
+Pose: identical to Image 2: standing straight facing the camera, feet apart under the hips, both arms hanging away from the body with a clear gap between arms and torso, elbows a little bent, empty open hands, nothing held.
+Composition: exactly the framing of Image 2.
+Constraints: one character only, nothing in the hands, nothing sticking out past the shoulders, no ground, no cast shadow, no glow.
