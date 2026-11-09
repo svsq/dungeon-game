@@ -173,7 +173,7 @@ vec3 vor(vec2 p, float wob){ vec2 i = floor(p), f = fract(p); float d1 = 8.0, d2
   return vec3(d1, d2, id); }
 float mAt(vec2 p){ return textureLod(u_mask, p / u_map, 0.0).r - edgeBite(p, u_map); }
 void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
-  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2 + (fbm(w / 64.0 + 3.1) - 0.5) * 1.2;
+  float mk = mAt(w), e = mk + (fbm(w / 20.0) - 0.5) * 0.2 + min((fbm(w / 64.0 + 3.1) - 0.5) * 0.5, (fbm(w / 64.0 + 3.1) - 0.5) * 1.2);
   if (e < 0.2) discard;
   vec2 fc = textureLod(u_face, vec2(w.x / u_map.x, 1.0 - w.y / u_map.y), 0.0).rg;   // the bake's columns stand here (TASKS 418)
   if (fc.r > 0.5) discard;
@@ -337,7 +337,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0; float op = openAt(w); vec3 
   // own bank (LAVA), so the two meet
   const MAGMA_EDGE = CAVE_EDGE + `
 uniform sampler2D u_cliff, u_lava;
-float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + (fbm(p / 64.0 + 3.1) - 0.5) * 1.2; }
+float lavaAt(vec2 p){ return textureLod(u_lava, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + min((fbm(p / 64.0 + 3.1) - 0.5) * 0.5, (fbm(p / 64.0 + 3.1) - 0.5) * 1.2); }
 bool isWall(vec2 p){ return textureLod(u_cliff, p / u_map, 0.0).r + (fbm(p / 40.0) - 0.5) * 0.5 > 0.5; }
 // a lavafall's face (TASKS 452), u_fall: (x, its foot, half its width, the face's height): as tall as the rock over it leaves room
 // for, back down to the plain face over 26 px either side, raggedly
@@ -364,7 +364,7 @@ const float CW = 30.0;
 bool plat(vec2 p){ return isOpen(p) && lavaAt(p) <= 0.5 && textureLod(u_plat, p / u_map, 0.0).r > 0.3; }   // not the sliver the open mask's noise leaves past a lava cell
 // what a column may stand over: the open lava (not the crust, not under a crossing) or the chasm
 bool drop(vec2 p){ if (isWall(p)) return false; if (!isOpen(p)) return true;
-  return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + (fbm(p / 64.0 + 3.1) - 0.5) * 1.2 > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
+  return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + min((fbm(p / 64.0 + 3.1) - 0.5) * 0.5, (fbm(p / 64.0 + 3.1) - 0.5) * 1.2) > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
 bool dropRaw(vec2 p){ return textureLod(u_plat, p / u_map, 0.0).r < 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3 && textureLod(u_cliff, p / u_map, 0.0).r < 0.5; }
 // the south-edge column over w's x: (its centre x, its top's centre y, its face's height, 1 over the lava); y 0 when there is none
 vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y + 12.0;
