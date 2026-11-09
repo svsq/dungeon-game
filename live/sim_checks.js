@@ -784,7 +784,7 @@
           { const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;
             for (let i = 0; i < q.length && from[e0] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1) { from[n] = q[i]; q.push(n); } }
             const way = new Set(); for (let k = e0; k >= 0 && from[e0] !== -2; k = from[k]) way.add(k);
-            if (!m.hazards.some((z) => z.span && br.some((c) => c.cells.some((k) => way.has(k) && D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE))))) out.push(`${tag}: no rock falling on a bridge of the walk to the stairs`); }
+            if (br.some((c) => c.cells.some((k) => way.has(k))) && !m.hazards.some((z) => z.span && br.some((c) => c.cells.some((k) => way.has(k) && D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE))))) out.push(`${tag}: no rock falling on a bridge of the walk to the stairs`); }
           if (br.length < 2) out.push(`${tag}: ${br.length} bridges over the chasm`);
           const held = br.filter((c) => m.enemies.some((e) => c.cells.some((k) => Math.hypot(e.x / TILE - 0.5 - (k % W), e.y / TILE - 0.5 - Math.floor(k / W)) < 9))).length;
           if (held < br.length / 2) out.push(`${tag}: ${held} of ${br.length} bridges with a pack by them`);
@@ -1017,11 +1017,15 @@
       for (let i = 0; i < q.length && from[e] === -2; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (from[n] === -2 && m.cells[n] === 1 && !guarded.has(n)) { from[n] = q[i]; q.push(n); } }
       const way = []; for (let k = e; k >= 0 && from[e] !== -2; k = from[k]) way.push(k);
       const on = m.hazards.filter((z) => way.some((k) => D.hazIn(z, (k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE))).length;
-      if (on < 2) out.push(`magma ${ft} ${sd} f${f}: ${on} hazard ring(s) on the walk to the stairs, 2 at least`); }
+      if (on < 2) out.push(`magma ${ft} ${sd} f${f}: ${on} hazard ring(s) on the walk to the stairs, 2 at least`);
+      const gate = m.hazards.filter((z) => z.gate);
+      if (gate.length) { const deck = new Set((m.crossings || []).flatMap((c) => c.cells)), s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), seen = new Uint8Array(W * m.H), g = [s0]; seen[s0] = 1;
+        for (let i = 0; i < g.length; i++) for (const o of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) { const n = g[i] + o; if (n >= 0 && n < W * m.H && !seen[n] && (m.cells[n] === 1 || m.cells[n] === 6 || deck.has(n)) && !gate.some((z) => D.hazIn(z, (n % W + 0.5) * TILE, (Math.floor(n / W) + 0.5) * TILE))) { seen[n] = 1; g.push(n); } }
+        if (seen[e]) out.push(`magma ${ft} ${sd} f${f}: a way round the vent gate to the stairs`); } }
     // the burst: the hero in the ring is hurt once (his regeneration over the run aside) and, by a vent, set alight; a monster in it
     // is hurt, the hero out of it is not
     for (const k of ['vent', 'fall']) { const Z = spawn(0, {}); plainRun(Z); Z.screen = 'play'; const R2 = Z.run, m = R2.map, h = R2.hero, H = HZ[k];
-      const z = (m.hazards || []).find((q) => q.k === k); if (!z) { out.push(`magma hazards: no ${k} on the first plain floor of seed 3`); continue; }
+      const z = (m.hazards || []).find((q) => q.k === k && !q.gate); if (!z) { out.push(`magma hazards: no ${k} on the first plain floor of seed 3`); continue; }
       const at = (c) => (((c / z.per - z.ph) % 1 + 1) % 1 + Math.ceil(Z.t / z.per + 2)) * z.per, mob = { id: R2.nextId++, type: 'skeleton', x: z.x - 12, y: z.y + 4, vx: 0, vy: 0, hp: 999, max: 999, dmg: 0, elite: 0, room: -1, st: 'idle', t0: 0, face: 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: -9 };
       const run = (hx, hy) => { R2.en = [Object.assign({}, mob, { haz: {} })]; h.x = hx; h.y = hy; h.haz = {}; h.ifr = 0; h.burn = 0; h.dashT = -9; const st0 = stats(h, Z.meta); h.hp = st0.maxHp;
         Z.t = R2.t = at(z.per - H.warn - 0.1); Z.ev = []; const hp0 = h.hp; let warnT = -1, burstT = -1;

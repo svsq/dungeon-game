@@ -106,10 +106,13 @@
           if (ok) { for (let j = -2; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y, free: 1 }; } } } }
     // a free-standing stair can sit away from the start room the terrain's pool was dug beside (TASKS 1507)
     if (up && !boss && biome === 'magma' && (runFloor === 1 || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor))) { const ax = up.tx, ay = up.ty + 1, inMap = (x, y) => x > 2 && y > 2 && x < W - 3 && y < H - 3, O4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      const sees = (x, y) => { const n = Math.ceil(Math.hypot(x - ax, y - ay) * 3); for (let i = 1; i < n; i++) { const u = Math.floor(ax + 0.5 + (x - ax) * i / n), v = Math.floor(ay + 0.5 + (y - ay) * i / n), c = at(u, v); if (u === x && v === y) break; if (c !== 1 && c !== 3) return false; } return true; };
+      const sees = (x, y) => { const n = Math.ceil(Math.hypot(x - ax, y - ay) * 3); for (let i = 1; i < n; i++) { const u = Math.floor(ax + 0.5 + (x - ax) * i / n), v = Math.floor(ay + 0.5 + (y - ay) * i / n), c = at(u, v); if (u === x && v === y) break; if (c !== 1 && c !== 3 && c !== 6) return false; } return true; };
+      const K = DGX.FOG_ARRIVE, RX = Math.ceil(8 * K), RY = Math.ceil(6 * K), shows = (x, y) => DGX.inFogOval(x, y, ax + 0.5, ay + 0.5, K);
+      const roomShown = rectsOf(start).some(([bx, by, bw, bh]) => { for (let y = by; y < by + bh; y++) for (let x = bx; x < bx + bw; x++) if (Math.abs(x - ax) <= RX && Math.abs(y - ay) <= RY && shows(x, y)) return true; return false; });
+      const byRoom = (x, y) => { if (!roomShown || !rectsOf(start).some(([bx, by, bw, bh]) => x >= bx - 2 && x <= bx + bw + 1 && y >= by - 2 && y <= by + bh + 1)) return false; const rr = DGX.fogReach(x, y); for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) if (u * u + v * v <= rr * rr && at(x + u, y + v) === 1 && inRm(start, x + u, y + v)) return true; return false; };
       const keepOff = (x, y) => (Math.abs(x - ax) <= 3 && y < ay + 2 && y > ay - 5) || used.has(key(x, y)) || doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < 3 && Math.abs(cy - y) < 3)) || secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4);
-      let shown = 0; for (let y = ay - 5; y <= ay + 5; y++) for (let x = ax - 9; x <= ax + 9; x++) if (at(x, y) === 3 && sees(x, y)) shown++;
-      if (shown < 8) { const seeds = []; for (let y = ay - 5; y <= ay + 5; y++) for (let x = ax - 9; x <= ax + 9; x++) { const d = Math.max(Math.abs(x - ax), Math.abs(y - ay)); if (d >= 3 && inMap(x, y) && at(x, y) === 0 && !keepOff(x, y) && O4.some(([a, b]) => at(x + a, y + b) === 1) && sees(x, y)) seeds.push([Math.abs(d - 5) + ((x * 7 + y * 13) % 5) / 10, x, y]); }
+      let shown = 0; for (let y = ay - RY - 3; y <= ay + RY + 3; y++) for (let x = ax - RX - 4; x <= ax + RX + 4; x++) if (at(x, y) === 3 && ((Math.abs(x - ax) <= RX && Math.abs(y - ay) <= RY && shows(x, y)) || byRoom(x, y))) shown++;
+      if (shown < 8) { const seeds = []; for (let y = ay - 5; y <= ay + 5; y++) for (let x = ax - 9; x <= ax + 9; x++) { const d = Math.max(Math.abs(x - ax), Math.abs(y - ay)); if (d >= 3 && inMap(x, y) && at(x, y) === 0 && !keepOff(x, y) && O4.some(([a, b]) => at(x + a, y + b) === 1) && shows(x, y)) seeds.push([Math.abs(d - 5) + ((x * 7 + y * 13) % 5) / 10, x, y]); }
         seeds.sort((p, q) => p[0] - q[0]);
         if (seeds.length) { const got = [[seeds[0][1], seeds[0][2]]], has = new Set([key(seeds[0][1], seeds[0][2])]); for (let i = 0; i < got.length && got.length < 14; i++) for (const [a, b] of O4) { const x = got[i][0] + a, y = got[i][1] + b; if (got.length < 14 && !has.has(key(x, y)) && inMap(x, y) && at(x, y) === 0 && !keepOff(x, y) && Math.abs(x - ax) <= 9 && Math.abs(y - ay) <= 5) { has.add(key(x, y)); got.push([x, y]); } }
           for (const [x, y] of got) cells[y * W + x] = 3;
@@ -946,9 +949,10 @@
       // (a chasm's bridges, TASKS 474: on its floor a rock falls on the longest bridge the walk to the stairs takes, over and above
       // the aimed ones: crossing it is a matter of the moment)
       if (ftype === 'chasm' || MIX) { const cand = crossings.filter((c) => c.chasm && c.cells.some((k) => onWay.has(k))).sort((a, b) => b.cells.length - a.cells.length);
-        for (const c of cand) { const cs = c.cells, mx = cs.reduce((a, k) => a + k % W, 0) / cs.length, my = cs.reduce((a, k) => a + Math.floor(k / W), 0) / cs.length;
-          const p = cs.filter((k) => onWay.has(k)).map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => clear(x, y)).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))[0];
-          if (p) { hazards.push({ k: 'fall', x: wx(p[0]), y: wy(p[1]), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, span: 1 }); break; } } }
+        // (a second pass past `clear`, TASKS 1644: with second ways over, the walk's only bridge can stand by a landing's pack)
+        span: for (const free of [true, false]) for (const c of cand) { const cs = c.cells, mx = cs.reduce((a, k) => a + k % W, 0) / cs.length, my = cs.reduce((a, k) => a + Math.floor(k / W), 0) / cs.length;
+          const p = cs.filter((k) => onWay.has(k)).map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => !free || clear(x, y)).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))[0];
+          if (p) { hazards.push({ k: 'fall', x: wx(p[0]), y: wy(p[1]), per: HZ.fall.per[0] + Z() * (HZ.fall.per[1] - HZ.fall.per[0]), ph: Z(), aim: 1, span: 1 }); break span; } } }
       // (a river's second way over, TASKS 473: a rock falls in its middle)
       if (riverFire) { const cs = [...riverFire], mx = cs.reduce((a, k) => a + k % W, 0) / cs.length, my = cs.reduce((a, k) => a + Math.floor(k / W), 0) / cs.length;
         const c = cs.map((k) => [k % W, Math.floor(k / W)]).filter(([x, y]) => clear(x, y)).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))[0];
@@ -983,6 +987,24 @@
       const halls = rooms.filter((r) => !r.pocket && ['combat', 'exit', 'treasure'].includes(r.type)), vents = [];
       for (const r of halls) for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++) if (free(x, y, 1) && !doorway(x, y) && !shore.has(key(x, y)) && !altC.some((c) => c.cells.some((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) <= 4))) vents.push([x, y]);
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
+      // a gate of vents across the walk, bursting together on a short visible clock: pass in the window between bursts, not round a ring
+      // (TASKS 1645: every hazard was solved by one move, stepping round a circle); it takes vents off the floor's count, so the rest thin out
+      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * 0.35), Math.floor(way.length * 0.65)), deck = new Set(crossings.flatMap((c) => c.cells));
+        // (a gate is only a question if no way runs outside its rings, however long)
+        const seals = (row) => { const zs = row.map((c) => ({ k: 'vent', x: wx(c % W), y: wy(Math.floor(c / W)) })), seen = new Uint8Array(W * H), q = [way[0]], end = way[way.length - 1]; seen[way[0]] = 1;
+          for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) { const n = q[i] + o; if (n < 0 || n >= W * H || seen[n] || !(cells[n] === 1 || cells[n] === 6 || deck.has(n)) || zs.some((z) => D.hazIn(z, wx(n % W), wy(Math.floor(n / W))))) continue; if (n === end) return false; seen[n] = 1; q.push(n); }
+          return true; };
+        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = [-2, 0, 2].map((j) => k + side * j * 1), x0 = k % W, y0 = Math.floor(k / W);
+          if (!row.every((c) => cells[c] === 1 && clear(c % W, Math.floor(c / W)) && !under.has(c) && !used.has(key(c % W, Math.floor(c / W))))) continue;
+          if (!seals(row)) continue;
+          const per = G.per, ph = Z(); for (const c of row) { const x = c % W, y = Math.floor(c / W), z = { k: 'vent', gate: 1, x: wx(x), y: wy(y), per, ph }; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
+          // (and a share of the walk's rock tails goes, the player's decision on 1645: the gate is not to raise the floor's damage)
+          // (from a run's far ends only: a hole in its middle broke its even step)
+          { const gone = new Set(); for (const z0 of hazards) { if (z0.k !== 'fall' || !z0.aim || z0.tail) continue; const run = hazards.map((z, j) => [z, j]).filter(([z]) => z.k === 'fall' && z.tail && z.per === z0.per), off = ([z]) => Math.abs((((z.ph - z0.ph) % 1 + 1.5) % 1) - 0.5);
+              run.sort((a, b) => off(b) - off(a)).slice(0, G.tails).forEach(([, j]) => gone.add(j)); }
+            for (const d of decor) if (d.haz !== undefined) d.haz -= [...gone].filter((j) => j < d.haz).length;
+            for (const j of [...gone].sort((p, q) => q - p)) hazards.splice(j, 1); }
+          break; } }
       lay('vent', shuf(vents).map((v) => [v, byChest(...v) ? 0 : 1]).sort((a, b) => a[1] - b[1]).map(([v]) => v), true);
       // (a plain terrace floor whose surge the walk to the stairs misses is laid again: its surge is the floor's question)
       if (terr && !MIX && strict && !surge.cells.some((k) => onWay.has(k))) return null;

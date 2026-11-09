@@ -339,10 +339,11 @@
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = G.canvas(); }
     const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H);
-    const K = [1, 2, 3, 2, 1], W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + 2] * R.seen[y * W + u]; } a[y * W + x] = v / 9; }
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + 2] * a[u * W + x]; } b[y * W + x] = v / 9; }
-    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? 0.35 + 0.65 * Math.min(1, b[i] * 1.6) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
+    // (the magma's fog deepens over two seen cells, TASKS 1636: the lit patch on the black was cut out, its edge 13 px)
+    const K = m.cliff ? [1, 2, 3, 4, 5, 4, 3, 2, 1] : [1, 2, 3, 2, 1], KR = (K.length - 1) / 2, KS = K.reduce((p, v) => p + v, 0), W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + KR] * R.seen[y * W + u]; } a[y * W + x] = v / KS; }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + KR] * a[u * W + x]; } b[y * W + x] = v / KS; }
+    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? (m.cliff ? 0.05 + 0.95 * Math.min(1, Math.max(0, b[i] - 0.28) * 1.85) : 0.35 + 0.65 * Math.min(1, b[i] * 1.6)) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
       const v = Math.round(255 * f); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!SEEN.rec) SEEN.rec = G.canvasTex('seen', cv);
