@@ -855,6 +855,7 @@
     button('gt_leave', U.r[o.length], S.hover);
     lab('gt_help', TXT('hud.gate.6'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
   }
+  let endErr = null;
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.96);
@@ -870,7 +871,8 @@
     };
     lab('e_story_t', win ? TXT('hud.end.8') : r.abandoned ? TXT('hud.end.9') : TXT('hud.end.10'), 410, 258, { size: 23, al: 0.5, col: C.gold });
     G.blend('add'); L.glow(410, 400, 180, win ? [0.75, 0.5, 0.2] : [0.55, 0.08, 0.06], 0.25); G.blend();
-    if (!r.abandoned) SCENE.endActors(r, win, t, 410, 490);
+    // a portrait that fails must not take the rest of the screen with it: the buttons are the only way to save the run's log (TASKS 1335)
+    if (!r.abandoned) try { SCENE.endActors(r, win, t, 410, 490); } catch (e) { if (!endErr) { endErr = e; console.error(e); } L.pre = L.sp = null; G.blend(); }
     if (!win && (!last || !last.actor || r.abandoned)) icon(r.abandoned ? 'it_scroll' : last && last.src === 'spike' ? 'trap_spike' : 'bf_burn', 346, 340, 128);
     const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || TXT('hud.end.name')) : r.abandoned ? TXT('hud.end.name.2') : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.Q.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
