@@ -47,24 +47,25 @@
       // a blow every loop, every 4th a breather (the hammer down, the piece turned in the tongs): up over the head, down faster and
       // faster onto the anvil, a small rebound, back up to the start
       const A = T.anvil, top = [sx(A.x) - wf * 4, sy(A.y) - 0.82 * SZ('anvil_tw')[1]], brk = c.n % FD.rest === FD.rest - 1, hit = FD.hit;
-      const imp = [top[0] - wf * 21, top[1] - 5], cock = [X + wf * 0.08 * H, Yg - 0.96 * H];
+      const imp = [top[0] - wf * 21, top[1] - 5], Sh = [X + wf * 0.2 * H, Yg - 0.655 * H], cock = [X + wf * 0.02 * H, Yg - 0.87 * H];
+      // the hand travels round the shoulder, over and out in front: a straight line from the top to the anvil runs through the shoulder itself, folding the arm shut (town_motion_r6 3)
+      const polar = (p) => [Math.atan2(p[1] - Sh[1], (p[0] - Sh[0]) * wf), Math.hypot(p[0] - Sh[0], p[1] - Sh[1])], [aI, rI] = polar(imp), [aC, rC] = polar(cock), arc = (k) => { const a = lerp1(aI, aC, k), r = lerp1(rI, rC, k) + Math.sin(Math.PI * k); return [Sh[0] + wf * Math.cos(a) * r, Sh[1] + Math.sin(a) * r]; };
       // the hammer's angle (as if facing right) rides the same path: its handle back over the shoulder at the top, level on the blow.
       // Off the rebound it goes straight back up, over the loop's turn to the top (TASKS 1032: it lay on the anvil 0.55 s)
       const UPA = -2.6, IMPA = 0.12, RESTA = 0.9, R0 = hit + 0.1, span = 1 - R0 + 0.42, x0 = (1 - R0) / span;
-      const raise = (x) => { const k = E01(x); return [lerp2(imp, cock, k), lerp1(IMPA, UPA, k)]; };
-      let hr, ha;
-      if (brk) { const k = Math.sin(Math.PI * u) ** 2, [p0, a0] = raise(x0); hr = lerp2(p0, [X + wf * 0.22 * H, Yg - 0.36 * H], k); ha = lerp1(a0, RESTA, k); }
-      else if (u < 0.42 || u >= R0) [hr, ha] = raise(((u - R0 + 1) % 1) / span);
+      const raise = (x) => { const k = E01(x); return [arc(k), lerp1(IMPA, UPA, k), k]; };
+      let hr, ha, hk, brkK = 0;
+      if (brk) { const k = Math.sin(Math.PI * u) ** 2, [p0, a0, h0] = raise(x0); hr = lerp2(p0, [X + wf * 0.22 * H, Yg - 0.42 * H], k); ha = lerp1(a0, RESTA, k); hk = h0 * (1 - k); brkK = k; }
+      else if (u < 0.42 || u >= R0) [hr, ha, hk] = raise(((u - R0 + 1) % 1) / span);
       // down faster and faster, meeting the anvil at a little over its mean speed (a squared ease met it at twice that: the hand broke
       // 6 px in a frame), then a rebound that starts from rest
-      else if (u < hit) { const x = (u - 0.42) / (hit - 0.42), q = 1.9 * x * x - 0.9 * x * x * x; hr = lerp2(cock, imp, q); ha = lerp1(UPA, IMPA, q); }
-      else { const b = Math.sin(Math.PI * (u - hit) / 0.1) ** 2; hr = [imp[0], imp[1] - 5 * b]; ha = IMPA - 0.15 * b; }
-      const hl = [top[0] - wf * 9, top[1] + 3 - (brk ? 7 * Math.sin(Math.PI * u) ** 2 : 0)];
+      else if (u < hit) { const x = (u - 0.42) / (hit - 0.42), q = 0.4 * (1.9 * x * x - 0.9 * x * x * x) + 0.6 * E01(x); hr = arc(1 - q); ha = lerp1(UPA, IMPA, q); hk = 1 - q; }
+      else { const b = Math.sin(Math.PI * (u - hit) / 0.1) ** 2; hr = [imp[0], imp[1] - 5 * b]; ha = IMPA - 0.15 * b; hk = 0; }
+      const hl = [X, Yg - 0.5 * H - (brk ? 7 * Math.sin(Math.PI * u) ** 2 : 0)], tongA = Math.atan2(top[1] - 6 - hl[1], (top[0] - wf * 8 - hl[0]) * wf);
       tg = { R: lerp2(mir(hr), talkR, tw), L: lerp2(mir(hl), talkL, tw) };
-      hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(ha, RESTA, tw) }), L: TOOL('town_tool_tongs', 0.7, { rel: -1.1 }) };
+      hold = { R: TOOL('town_tool_hammer', 0.84, { abs: lerp1(ha, RESTA, tw) }), L: TOOL('town_tool_tongs', 0.7, { abs: lerp1(tongA, 0.3, tw) }) };
       // he leans into the blow and his knees give on it, eased: the lean switched on in a frame
-      const into = brk ? 0 : SS(0.38, 0.5, u) * (1 - SS(hit + 0.05, hit + 0.3, u));
-      lean = face * (0.05 + 0.05 * into) * (1 - tw); crouch = 9 * (brk ? 0 : bump01(u, 0.45, hit + 0.3)) * (1 - tw); headR = 0.14 * (1 - tw) - 0.05 * tw;
+      lean = face * (0.12 - 0.2 * hk - 0.07 * brkK) * (1 - tw); crouch = (6 + 20 * (1 - hk) ** 2 * (1 - brkK)) * (1 - tw); headR = 0.14 * (1 - tw) - 0.05 * tw;
       if (!brk && u >= hit && (u - hit) * c.per < 0.45 && tw < 0.5) fx = { k: 'spark', x: top[0], y: top[1], a: (u - hit) * c.per, seed: c.n * 7 + i };
     } else if (f.role === 'keeper') {
       // leans on his staff and dozes off (the head sinks, jerks up), now and then pokes the fire: embers fly up on the poke
