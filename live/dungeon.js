@@ -205,7 +205,7 @@
     stairs: [27, 11], fire: [27, 17], spawn: [24, 19], shop: [17, 11], anvil: [36, 11], forge: [38, 10], lectern: [39, 17], shelf: [37, 16],
     altar: [36, 23], chest: [39, 23], board: [22, 21], portal: [16, 22], tree: [31, 15], adit: [47, 22], bin: [46.6, 31], herbs: [44, 25],
     // the town's gate out (TASKS 1149): shut, in the bottom wall where the cobbled way off the square ends, as on the reference
-    exitGate: [29, 32.9],
+    exitGate: [29, 32.6],
     // the portal's ring is open toward the square (no stone east of it); where a body stands to use each service (the checks walk a two-cell-wide body there from the spawn)
     use: { stairs: [27, 11], shop: [17, 13], altar: [36, 24], stash: [39, 24], anvil: [36, 12], lectern: [39, 18], board: [22, 22], portal: [16, 22], fire: [27, 19], adit: [47, 23], bin: [45, 31], exitGate: [29, 29] },
     braziers: [[25, 11], [29, 11]],
@@ -215,7 +215,7 @@
     lights: [['forge', 38, 10], ['runes', 39, 18], ['candle', 40, 17], ['altar', 36, 23], ['crypt', 27, 11], ['adit', 47, 22]],
     // its torches (TASKS 1029: lanterns on posts read as a street, the reference lights the ruins with torches): on the wall where
     // there is one right behind, else standing
-    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [31, 28], [22, 8], [23, 28], [14, 28], [32, 31], [39, 28], [42, 27], [9, 8], [41, 8], [32, 8], [43, 15]],
+    lamps: [[8, 13], [8, 19], [9, 25], [48, 11], [31, 28], [22, 8], [23, 28], [14, 28], [32, 31], [39, 28], [42, 27], [48, 29], [9, 8], [41, 8], [32, 8], [43, 15]],
     // trees in the courtyard's corners against the ruins, as round the reference's edge (beyond the walls the void swallows anything)
     edge: [[6, 10], [49, 8], [51, 14], [5, 14], [5, 27], [50, 30], [8, 30]],
     // the yard's own props after the reference: the log pile, the canvas stall, the well, the mine's pick rack and cart, the yard's stone and ore;
@@ -268,11 +268,10 @@
       { x: wx(T.exitGate[0]), y: T.exitGate[1] * TILE + 6, n: 'gate_tw', role: 'exit_gate', solid: 1 },
       ...T.benches.map((p) => ({ ...at(p), n: 'bench_tw', role: 'bench' })),
       ...T.props.map(([n, x, y]) => ({ ...at([x, y]), n, solid: 1 })),
-      ...T.grates.map((p, i) => ({ ...at(p), n: 'grate_tw', role: 'grate', solid: 1, f: i ? -1 : 1 })), ...T.ivy.map((p, i) => ({ ...at(p), n: 'ivy_tw', role: 'ivy', s: 0.8 + 0.1 * (i % 3), f: i % 2 ? -1 : 1 })),
+      ...T.grates.map((p, i) => ({ ...at(p), n: i ? 'grate_tw_b' : 'grate_tw', role: 'grate', solid: 1 })), ...T.ivy.map((p, i) => ({ ...at(p), n: i % 3 === 1 ? 'ivy_tw_b' : 'ivy_tw', role: 'ivy', s: 0.75 + 0.15 * (i % 3), f: i % 2 ? -1 : 1 })),
       ...T.rubble.map(([x, y], i) => ({ ...at([x, y]), n: 'blocks_tw', role: 'rubble', s: 0.6 + 0.1 * (i % 4), f: i % 2 ? -1 : 1 })),
       // the portal's ring, open toward the square; a horseshoe of small stones round the forge's back
       ...portalRing(wx(T.portal[0]), wy(T.portal[1]), 0).map((q) => ({ ...q, role: 'portal_stone', solid: 1 })),
-      ...[0, 1, 2, 3, 4, 5, 6].map((i) => { const a = Math.PI * (0.92 + i * 1.16 / 6); return { x: wx(T.forge[0]) + Math.cos(a) * 1.6 * TILE, y: wy(T.forge[1]) + 4 + Math.sin(a) * 1.05 * TILE, n: 'stone_tw_b', role: 'forge_stone', s: 0.7 + 0.08 * (i % 2) }; }),
       ...T.lamps.filter(([x, y]) => cells[(y - 1) * W + x] === 1).map(([x, y]) => ({ ...at([x, y]), n: 'torch_stand', role: 'lamp', solid: 1 })),
             // three trees round the edge, not one six times (TASKS 1030)
       ...T.edge.map(([x, y], i) => ({ ...at([x, y]), n: ['tree_tw_b', 'tree_tw_c', 'tree_tw'][i % 3], role: 'edge', solid: 1, s: 0.85 + 0.1 * ((i >> 1) % 3), f: (i >> 1) % 2 })),
@@ -301,9 +300,9 @@
     for (let i = 0; i < 150; i++) { const x = (4 + R() * 48) * TILE, y = (4 + R() * 28) * TILE; if (cells[Math.floor(y / TILE) * W + Math.floor(x / TILE)] !== 1 || near(x, y, 30)) continue;
       decals.push({ x, y, n: ['dc_grass_tw', 'dc_flowers_tw', 'dc_leaves_tw', 'dc_grass_tw', 'dc_grass_tw', 'dc_leaves_tw'][Math.floor(R() * 6)], f: R() < 0.5 ? 1 : -1, s: 0.7 + R() * 0.5 }); }
     // moss in patches round the yard, thicker by the ruins, none on the cobbles (TASKS 1608)
-    for (let i = 0; i < 90; i++) { const cx = (4 + R() * 48) * TILE, cy = (4 + R() * 28) * TILE, n = 3 + Math.floor(R() * 4);
+    for (let i = 0; i < 150; i++) { const cx = (4 + R() * 48) * TILE, cy = (4 + R() * 28) * TILE, n = 3 + Math.floor(R() * 4);
       for (let j = 0; j < n; j++) { const x = cx + (R() - 0.5) * 90, y = cy + (R() - 0.5) * 60, k = Math.floor(y / TILE) * W + Math.floor(x / TILE); if (cells[k] !== 1 || pv.has(k) || near(x, y, 24)) continue;
-        decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_moss_tw_a', 'dc_flowers_tw'][Math.floor(R() * 5)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }
+        decals.push({ x, y, n: ['dc_moss_tw_a', 'dc_moss_tw_b', 'dc_grass_tw', 'dc_fern_tw', 'dc_bush_tw', 'dc_flowers_tw', 'dc_fern_tw'][Math.floor(R() * 7)], f: R() < 0.5 ? 1 : -1, s: 0.8 + R() * 0.6 }); } }
     const svc = { stairs: exit, fire: sanct, shop: shop.front, altar: at(T.altar), stash: at(T.chest), anvil: at(T.anvil), lectern: at(T.lectern), board: at(T.board), portal: at(T.portal), adit: at(T.adit), bin: at(T.bin), exitGate: at(T.use.exitGate) };
     // the town's solid props on the block, as on a floor (TASKS 1024: with it empty the bot's way to the ring of stones ran through the
     // merchant's counter, and it stood behind it for good on seed 52)

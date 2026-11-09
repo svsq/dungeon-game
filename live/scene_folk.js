@@ -160,7 +160,7 @@
     const rope = [];
     { let left = C.s; for (let i = 1; i < pts.length && left > 0; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], l = Math.hypot(bx - ax, by - ay); for (let q = 0; q < Math.min(l, left); q += 4) rope.push([ax + (bx - ax) * q / l, ay + (by - ay) * q / l]); left -= l; } }
     Y.push([y - 40, () => { for (const [px, py] of rope) L.solid(Math.round(sx(px)), Math.round(sy(py) - 8), 2, 2, [0.6, 0.46, 0.3], 0, 0, 0, 1); }]);
-    Y.push([y + 8, () => { L.shadow(X, Yg, 0.42 * w, 5, 0.45); L.inked(() => L.sprite(nm, X - w / 2, Yg - h + bob, { w, h, u: { tint: [k, k, k, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+    Y.push([y + 8, () => { L.shadow(X, Yg, 0.42 * w, 5, 0.45); L.inked(() => L.sprite(nm, X - w / 2, Yg - h + bob, { w, h, u: { tint: [k * 0.82, k * 0.82, k * 0.82, 1] } }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
   }
   function drawFolkRig(f, n, nm, X, Yg, H, face, GT, Y, o) {
     const id = 'npc' + f.i, seed = f.i * 1.7, fx = o.fx;

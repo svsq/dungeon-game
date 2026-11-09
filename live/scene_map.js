@@ -16,10 +16,10 @@
   // (a light's centre stays on open floor: inside a wall cell the light map's occlusion swallows it)
   // (TASKS 1029: the lanterns became torches, lit by the torches' own code; the forge's glow on its art no longer whitens it)
   const TOWN_LIGHT = { forge: { r: 170, col: [1, 0.55, 0.18], amt: 1.7, dy: 8, core: 60, glow: [0, -18, 17, 0.35] },
-    runes: { r: 190, col: [0.22, 0.45, 1], amt: 1.5, dy: 0, core: 70, glow: [0, 8, 22, 0.3] }, altar: { r: 170, col: [0.22, 0.48, 1], amt: 1.7, dy: 12, core: 70, glow: [0, -14, 30, 0.3] },
-    crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [6, -48, 8, 0.9] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
+    runes: { r: 190, col: [0.22, 0.45, 1], amt: 1.5, dy: 0, core: 70, glow: [0, 8, 22, 0.3] }, altar: { r: 120, col: [0.3, 0.5, 1], amt: 1.0, dy: 12, core: 40, glow: [0, -14, 30, 0.3] },
+    crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [7, -59, 8, 0.9] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
   // the setts are painted lighter than the earth round them: under the fire they read as a pink cross (fidelity r2), so a little darker
-  const PAVE_K = 0.78;
+  const PAVE_K = 0.78, PAVE_TS = 160;
   // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
   const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
   // the x of what each townsperson works at, to face it: the child minds the hens, the hens the child
@@ -33,7 +33,7 @@
     for (let n = 0; n < 2; n++) { const q = [p[0]]; for (let i = 1; i < p.length; i++) { const [ax, ay] = p[i - 1], [bx, by] = p[i]; q.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } q.push(p[p.length - 1]); p = q; } return p; };
   const TOWN_PAVE = (m) => m.town.paveSet || Object.defineProperty(m.town, 'paveSet', { value: new Set(m.town.pave), enumerable: false }).paveSet;
   function townFloor(m, B, c) {
-    const P = TOWN_PAVE(m), TS = 288, q = TILE / 4;
+    const P = TOWN_PAVE(m), TS = PAVE_TS, q = TILE / 4;
     for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (c(x, y) !== 1 || P.has(y * m.W + x)) continue;
       let any = false; for (let j = -1; j <= 1 && !any; j++) for (let i = -1; i <= 1; i++) if (P.has((y + j) * m.W + x + i)) { any = true; break; }
       if (!any) continue;
@@ -52,7 +52,7 @@
     // the portal's disc and the rune ring lie flat on the floor: squashed to the view's depth (TASKS 1030: drawn round they stood up)
     const disc = (n, o, w, u) => { const [w0, h0] = SZ(n), k = w / w0, h = h0 * k * 0.68; L.puff(o.x, o.y + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite(n, o.x - w / 2, o.y - h / 2, { w, h, u }); };
     // the rune ring's grooves are thin: lifted, so the enchanter's blue light finds them
-    disc('disc_tw', T.svc.portal, 2.6 * TILE); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y + 10 }, 2.3 * TILE, { grade: [1, 3, 0, 1] });
+    disc('disc_tw', T.svc.portal, 2.6 * TILE); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y - 2 }, 3 * TILE, { grade: [1, 1.15, 0, 1] });
   }
   function bake(m) {
     const key = mapKey(m) + ':' + (m.secrets || []).map((q) => q.hp).join(''); if (BAKE.key === key) return; BAKE.key = key;
@@ -93,10 +93,10 @@
         // an accent zone keeps its own stone, near grey and dark (as dark as the tint it lost made it): the colour proper is its hearths'
         // light and the fill, which fades out past the doorway
         // the town's earth repeats every 7 cells: its art pixel ≈2 px like the hero's (TASKS 1030; the old texture's was 4.5)
-        if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? TS : 224); }
+        if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224); }
         else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
         else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: B.wallG || [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
-        else if (v === 0 && RD[y * m.W + x] <= 6 && m.town) townTop(x, y);
+        else if (v === 0 && RD[y * m.W + x] <= 10 && m.town) townTop(x, y);
         else if (v === 0 && RD[y * m.W + x] <= 3) tile(B.top, x, y, { grade: [0.55, TOP_LIFT, 0, 1], tint: topTint(B) }, TST);
       }
       // a pit (TASKS 374): black below the floor; along its far edge the wall it drops down, the room's own masonry darkening into
