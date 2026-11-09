@@ -808,6 +808,7 @@
       if (k.can && !forge) lab('cr_risk', k.fail ? TXT('hud.craft.8', { p1: Math.round(k.fail * 100) }) : TXT('hud.craft.9'), X + 310, btn.y - 26, { size: 21, al: 0.5, col: k.fail ? '#e0a070' : '#8fd98a' }); }
     if (c.res && S.t - c.res.t < 4) lab('cr_res', c.res.s, X + 310, P.y + P.h - 60, { size: 23, al: 0.5, col: c.res.ok ? '#8fd98a' : '#e0604f', a: 1 - L.SS(3.4, 4, S.t - c.res.t) });
     else refusal(S, X + 310, P.y + P.h - 60);
+    if (forge && SIM.Q.questMark(R, 'smith')) button('cr_talk', at('talk'), S.hover);
     const cb = at('close'); panel('cr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('cr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     lab('cr_keys', TXT('hud.craft.10'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#8a7d6c' });
     const hb = U.r.find((q) => q.id === S.hover), hi = hb && (hb.id.startsWith('eq:') ? h.eq[hb.slot] : hb.id.startsWith('bag:') ? h.bag[hb.i] : null);

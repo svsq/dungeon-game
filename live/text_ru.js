@@ -473,6 +473,7 @@
     'UI.end.4': 'Сохранить журнал',
     'UI.meta.back.label': 'Назад',
     'UI.talk.label': 'Мастерская',
+    'UI.craft.talk': 'Поговорить о задании (Enter)',
     'UI.gate.r.leave.label': 'Уйти',
     'UI.altar.r.leave.label': 'Уйти',
     'UI.altar.r.donate.label': '1000 золота → 1 осколок',
