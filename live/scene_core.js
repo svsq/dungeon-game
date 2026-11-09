@@ -483,6 +483,9 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     float under = 0.0;
     for (int k = 1; k <= 6; k++) if (isWall(w - vec2(0.0, float(k) * 2.0))) { under = 1.0 - float(k) / 7.0; break; }
     col *= (0.7 + 0.3 * smoothstep(0.47, 0.9, op)) * (1.0 - 0.5 * under);
+    // a low dark rock kerb along the lava's north banks (TASKS 1635: the concept's dark wall, here a flat floor runs to the lava)
+    float kh = 10.0 + 10.0 * step(0.5, vnoise(vec2(w.x / 10.0, 3.7)));
+    if (lavaAt(w + vec2(0.0, kh)) > 0.5 && vnoise(vec2(w.x / 26.0, 1.9)) > 0.2) { float tp = lavaAt(w + vec2(0.0, kh - 2.0)); col = tp > 0.5 ? vec3(0.1, 0.075, 0.075) : vec3(0.032, 0.026, 0.028) * (0.9 + 0.4 * hash(floor(w / 2.0))); }
   } else if (op > 0.47 && la - edgeBite(w, u_map) > 0.5) col = gCrust(w + 53.0) * 0.6;
   else if (op > 0.47) { float far2 = 0.0; for (int i = 0; i < 8; i++) { float an = float(i) * 0.785 + fbm(w / 19.0) * 3.0; far2 += textureLod(u_far, (w + vec2(cos(an), sin(an)) * 26.0) / u_map, 0.0).r / 8.0; } float gl = smoothstep(0.05, 0.6, far2) * (0.55 + 0.45 * fbm(w / 24.0)) * (1.0 - edgeBite(w, u_map) / 0.7); col = pitGrain(w, smoothstep(0.22, 0.6, far2), vec3(0.006, 0.005, 0.006) + vec3(0.32, 0.06, 0.015) * gl * gl);
     col = pitRim(w, la, col); }   // (its glow too, TASKS 490: a straight red band ran along the map's edge)   // (the lava the map's edge bit off: the chasm's dark)
