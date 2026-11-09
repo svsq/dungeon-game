@@ -1,0 +1,4 @@
+Use case: a UI panel texture for a pixel-art dungeon game. Image 1 is the style reference. Image 2 is the approved concept: copy the dark burnt-edged parchment sheet from it, the same deep tan and brown paper, burnt ragged edges, stains, and the four iron nails at its corners.
+Subject: only the empty sheet of paper, very wide (about 3 times as wide as tall), filling the canvas width, seen straight on. Completely blank: no text, no lines of writing, no portrait, no frame, no buttons, no icons, no seal.
+The paper's middle must be even and calm, with low contrast, so dark text stays readable on it; keep stains and darker tones to the outer edges.
+Hard square pixels, no gradients. Fully transparent outside the paper. No cast shadow, nothing else.
