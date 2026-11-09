@@ -53,7 +53,7 @@
       crouch0 = Math.max(crouch0, A0[1] - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx0 * dx0))); }
     // the breath at least 0.75 % of the height: a fixed 0.8 view px was lost on the boss
     const stepPhase = (u0 * 2) % 1, settle = (o.settle || 0) / s * run * SS(0, 0.1, stepPhase) * (1 - SS(0.1, 0.45, stepPhase));
-    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h), drop) + crouch0 + (o.crouch || 0) + settle;
+    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h) * (o.breathK || 1), drop) + crouch0 + (o.crouch || 0) + settle;
     const legs = {};
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty } = tg[side], Hp = [H0[0], H0[1] + hipDy];
@@ -70,7 +70,7 @@
     // arms swing against the same-side leg along the travel: the sign comes from where the drawn hand sits relative to its shoulder
     const vxn = sp > 1 ? vxE / sp : 1, vyn = sp > 1 ? vyE / sp : 0;
     for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = (Hd0[0] - S0[0]) * vyn - face * (Hd0[1] - S0[1]) * vxn, sg = Jt > 0 ? 1 : -1;
-      const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + breath * 0.04 * (side === 'L' ? 1 : -1);
+      const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + (o.breathK ? (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0) - 0.7) : breath) * 0.04 * (o.breathK || 1) * (side === 'L' ? 1 : -1);
       let r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
@@ -793,7 +793,8 @@
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.12 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       biped(base); return true; }
     if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.rest = { L: [-0.42, -0.24], R: [0.42, 0.6] }; return biped(base); }
-    if (n === 'golem') { const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
+    if (n === 'golem') { base.breathK = 1.9;   // (a statue at 1.43 %, TASKS 1640: its shoulders follow the chest, later)
+      const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
       if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 16 * (hit >= 0 ? (0.25 + 0.75 * SS(0, 0.07, hit)) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);   // (from the wind-up's own crouch, TASKS 1156: from 0 the longer arm's elbow popped 8.8 px)
         // the fists come down on the floor where the slam lands, side by side, rest there and come home to the walk's own hang (TASKS 458):
         // swung by the chop's angle alone the far one went on past the body and lay behind the golem
