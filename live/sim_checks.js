@@ -2871,6 +2871,16 @@
       BASES.staff.cls = keep; }
     { const S = spawn(0, {}), R = newRun(S, 'campaign', 81), h = R.hero, H = JSON.parse(JSON.stringify(h)); delete H.cls; H.lvl = 5;
       if (h.cls !== 'warrior' || D.clsOf(H) !== D.CLASSES.warrior || JSON.stringify(stats(H, S.meta)) !== JSON.stringify(stats(Object.assign({}, H, { cls: 'warrior' }), S.meta))) out.push('class: a hero saved without a class is not a warrior'); }
+    // TASKS 1363: a lava bridge's rope rails hold: pressed against either side of the deck the hero stays on it, and the deck still carries him bank to bank
+    { let n = 0; for (let sd = 1; sd <= 14 && n < 6; sd++) for (const f of [5, 6]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero; R.en = [];
+        for (const c of m.crossings.filter((q) => q.kind === 'bridge' && q.lava && !q.chasm)) { n++; const [u0, u1, v0] = c.span, hor = c.axis === 'x', P = (u, v) => [(hor ? u : v) * TILE, (hor ? v : u) * TILE], tag = `rails: seed ${sd} f${f} bridge at ${u0},${v0}`;
+          for (const side of [-1, 1]) { const [x, y] = P((u0 + u1 + 1) / 2, v0 + 1); h.x = x; h.y = y; h.vx = h.vy = 0;
+            for (let i = 0; i < 90; i++) step(S, hor ? { up: side < 0, down: side > 0, px: 960, py: 540, keys: [] } : { left: side < 0, right: side > 0, px: 960, py: 540, keys: [] });
+            const v = hor ? h.y : h.x; if (cell(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) !== 1 || v < v0 * TILE || v > (v0 + 2) * TILE) out.push(`${tag}: the hero walks off its ${side < 0 ? 'near' : 'far'} side`); }
+          for (const dir of [-1, 1]) { const [x, y] = P(dir < 0 ? u1 + 1.5 : u0 - 0.5, v0 + 1); h.x = x; h.y = y; h.vx = h.vy = 0;
+            for (let i = 0; i < 400; i++) step(S, hor ? { left: dir < 0, right: dir > 0, px: 960, py: 540, keys: [] } : { up: dir < 0, down: dir > 0, px: 960, py: 540, keys: [] });
+            const a = hor ? h.x : h.y; if (dir < 0 ? a > u0 * TILE : a < (u1 + 1) * TILE) out.push(`${tag}: the deck does not carry the hero across`); } } }
+      if (n < 4) out.push(`rails: only ${n} lava bridges in 14 seeds`); }
     return out;
   }
 
