@@ -106,7 +106,7 @@ for (const seed of seeds) for (const N of floors) {
   R.map.traps = R.map.traps.filter((q) => Math.hypot(q.x - h.x, q.y - h.y) > 120);
   const c = R.chests.find((q) => !q.open); if (c) SIM.openChest(S, R, c);
   R.drops.push({ id: R.nextId++, kind: 'gold', x: h.x + 40, y: h.y, vx: 0, vy: 0, z: 0, vz: 0, n: 77, t0: S.t, rest: 4 });
-  for (let i = 0; i < 120; i++) stepIn(S); h.ifr = 0;
+  for (let i = 0; i < 120; i++) stepIn(S); for (const e of R.en) if (e.summ === 'amb') { e.hp = 0; e.deadT = S.t; } h.ifr = 0;
   h.bag[6] = { b: 'scroll', n: 2, id: R.nextId++ }; const gold = h.gold, P0 = [h.x, h.y];
   stepIn(S, { keys: ['KeyI'] }); const b = D.UI.inv().r.find((q) => q.id === 'bag:6'); stepIn(S, { click: 1, px: b.x + 10, py: b.y + 10 });
   if (!h.read || S.screen !== 'play') { errors.push(`${tag}: a click on the scroll in the bag does not start the reading (${S.screen})`); continue; }

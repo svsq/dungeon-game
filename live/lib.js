@@ -26,6 +26,7 @@ uniform float u_vfade;         // ragged bottom fade (uv of the drawn rect)
 uniform float u_tfade;         // soft top fade
 uniform vec4 u_bulge;          // centre uv, radius (uv), amount — local inflate (breathing, swelling)
 uniform vec4 u_bend;           // amp (uv of height), load u, load width (uv), on — sag field: catenary dip + local dip
+uniform vec3 u_reveal;         // (x, y uv, k): grows in from the outside toward (x, y); k 1 whole, 0 off
 uniform float u_disc;          // > 0: only a round disc of the drawn rect is kept (soft edge width, uv) — joint caps
 uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 rooted at the bottom / 1 hung from the top — pushed aside, leaned by wind
 uniform vec4 u_jelly;          // centre x, foot y (uv), height scale k, on — a soft body squashed (k < 1) or stretched about its foot: the foot
@@ -106,6 +107,7 @@ void main(){
     : boned ? textureLod(u_tex, tuv, lod0 + u_lod) : texture(u_tex, tuv, u_lod);
   c *= smoothstep(0.0, max(u_fade.x, 1e-4), uv.x) * smoothstep(1.0, 1.0 - max(u_fade.y, 1e-4), uv.x) ;
   if (u_tfade > 0.0) c *= smoothstep(0.0, u_tfade, uv.y);
+  if (u_reveal.z > 0.0) c *= step((1.0 - u_reveal.z) * 0.25, length(uv - u_reveal.xy));
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
   if (u_vfade > 0.0) c *= smoothstep(1.0, 1.0 - u_vfade, uv.y + u_vfade * 0.8 * (fbm(vec2(uv.x * 60.0, 0.0)) - 0.3));
   if (u_cut.z > 0.0) c *= smoothstep(u_cut.x, u_cut.x - u_cut.y, v_px.y);
@@ -407,7 +409,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
 
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
-    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, reveal: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   const UNAME = {};
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
@@ -462,7 +464,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   let rimLast = null;
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
     if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(bx, by, bw, bh); rimLast = rim.box; G.blend();
-      for (let i = 0; i <= n; i++) { const an = i * 2 * Math.PI / n, q = i < n ? r : 0; L.sp = { dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }; draw(); }
+      const nr = 4, rs = []; for (let i = 0; i <= nr; i++) { const an = i * 2 * Math.PI / nr + Math.PI / 4, q = i < nr ? r * 1.25 : 0; rs.push({ dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }); }
+      L.stamp(draw, rs);
       G.bind(back); G.blend('emit'); G.draw(P.rimout, { u_src: T.rim, u_dir: [rim.dx / len, rim.dy / len], u_col: rim.col }, G.xf(bx, by, bw, bh)); if (!emit) G.blend(); }
     if (emit) G.blend('emit');
     const sps = []; for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; sps.push({ dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }); }
@@ -471,6 +474,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     if (emit || (rim && !rim.box)) G.blend();
     L.sp = null; draw(); };
 
+  // a telegraph's beat, quickening as its wind-up fills: the phase counts from the telegraph's own start (TASKS 1362: multiplied by the
+  // game clock, the rising rate threw the phase about wildly and the rings flickered at random)
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
@@ -527,30 +532,41 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   L.anchor = (name, sim, drawn, tol = 8) => L.ANCH.push({ name, sim, drawn, tol, d: Math.hypot(sim[0] - drawn[0], sim[1] - drawn[1]) });
   L.qaReset = () => { L.UI = window.__UI = []; L.ANCH = window.__ANCHORS = []; };
 
-  // ---------------- smooth HUD labels: any string (Cyrillic, CJK…) in a system font, one texture per slot ----------------
-  // label(slot, str, x, y, { size, col, out, al, a, font, weight }) draws at 1:1 (crisp, anti-aliased) with an ink outline
-  // and a soft drop shadow; the texture is re-rendered only when the string or style changes. Returns the text width.
+  // ---------------- HUD labels: pixel font, one texture per slot ----------------
+  // label(slot, str, x, y, { size, col, out, al, a }) draws at 1:1 with a one-grid-pixel ink outline and a hard drop shadow;
+  // the texture is re-rendered only when the string or style changes. Returns the text width.
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
+  // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
+  // two faces of one family (em 10 and 12) give the steps 12, 20, 24, 30, 36, 40... and each size takes the step whose
+  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for.
+  const FACES = [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], TREBUCHET_W = 0.547, FIT = new Map();
+  const fit = (size) => { const n = Math.round(size); let r = FIT.get(n); if (r) return r; let best = Infinity;
+    for (const [font, em, adv] of FACES) for (let unit = 1; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
+    FIT.set(n, r); return r; };
+  const AROUND = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
   const LBL = {};
-  const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315', font = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif', weight = 'bold' } = {}) => {
-    let r = LBL[slot]; const key = [str, size, col, out, font, weight].join('|'); if (r && r.key === key) return r;
-    const cv = G.canvas(), g = cv.getContext('2d'), f = `${weight} ${size}px ${font}`, pad = Math.ceil(size * 0.3);
-    g.font = f; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(size * 1.3) + 2 * pad;
-    cv.width = Math.max(1, w); cv.height = h; g.font = f; g.textBaseline = 'middle'; g.lineJoin = 'round';
-    g.fillStyle = 'rgba(15,5,8,0.6)'; g.fillText(str, pad, h / 2 + Math.max(2, size * 0.09));
-    if (out) { g.lineWidth = Math.max(3, size * 0.16); g.strokeStyle = out; g.strokeText(str, pad, h / 2); }
-    g.fillStyle = col; g.fillText(str, pad, h / 2);
+  const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315' } = {}) => {
+    const { font, px, unit } = fit(size); let r = LBL[slot]; const key = [str, font, col, out].join('|'); if (r && r.key === key) return r;
+    const cv = G.canvas(), g = cv.getContext('2d'), pad = Math.ceil(px * 0.3) + unit;
+    g.font = font; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
+    cv.width = Math.max(1, w); cv.height = h; g.font = font; g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
+    const stamp = (dx, dy, c) => { g.fillStyle = c; g.fillText(str, pad + dx * unit, base + dy * unit); };
+    stamp(0, 2, 'rgba(15,5,8,0.6)');
+    if (out) for (const [dx, dy] of AROUND) stamp(dx, dy, out);
+    stamp(0, 0, col);
     if (!r) r = LBL[slot] = { rec: G.canvasTex('lbl_' + slot, cv) };
     else { G.canvasUpdate(r.rec, cv); r.rec.w = w; r.rec.h = h; }
-    Object.assign(r, { key, pad, tw }); return r; };
+    Object.assign(r, { key, pad, tw, px }); return r; };
   // measuring never touches the slot's texture: label() and labelW() on one slot with different styles would re-render and
   // re-upload it twice a frame
   let MEASURE = null;
-  L.labelW = (slot, str, { size = 30, font = '"Trebuchet MS", "Segoe UI", Verdana, sans-serif', weight = 'bold' } = {}) => {
-    const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); g.font = `${weight} ${size}px ${font}`; return g.measureText(String(str)).width; };
-  L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), size = o.size || 30, a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
+  L.labelW = (slot, str, { size = 30 } = {}) => {
+    const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); g.font = fit(size).font; return g.measureText(String(str)).width; };
+  // a label that must stay inside a box steps down the font's grid sizes; scaling a size by a width ratio can land on a step that is still too wide
+  L.sizeToFit = (str, maxW, size) => { let s = size; while (s > 12 && L.labelW(0, str, { size: s }) > maxW) s -= 1; return s; };
+  L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
     L.sprite('lbl_' + slot, x0 - r.pad, Math.round(y - r.rec.h / 2), { w: r.rec.w, h: r.rec.h, u: { alpha: a } });
-    if (a > 0.05) L.uiText(slot, str, x0, y - size * 0.62, r.tw, size * 1.24); return r.tw; };
+    if (a > 0.05) L.uiText(slot, str, x0, y - r.px * 0.62, r.tw, r.px * 1.24); return r.tw; };
 
   // ---------------- HUD text: canvas glyph atlas → texture ----------------
   L.glyphs = (chars = '0123456789×+/:', { size = 76, font = '"Arial Rounded MT Bold", "Arial Black", sans-serif', stroke = '#2a1606', fill = ['#fffbe2', '#ffd76a', '#e89a22'] } = {}) => {

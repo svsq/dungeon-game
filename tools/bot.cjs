@@ -51,16 +51,27 @@ const val = (x) => x ? (x.atk || 0) * 2 + (x.def || 0) * 2 + x.rar * 3 + x.lvl :
 // armour and dodge, with what regeneration and blows that heal add over a fight. Their product, so neither is given up for the other
 const worth = (S, h, P, it, slot = it && D.BASES[it.b].slot) => { if (P.simple) return val(it);
   const st = SIM.stats(Object.assign({}, h, { eq: Object.assign({}, h.eq, { [slot]: it || null }) }), S.meta), KD = 20 + 12 * (S.run ? S.run.floor : 1);
-  const swing = st.atk * (1 + st.crit / 100 * 0.75) * (1 + st.aspd / 100) / st.wcd, F = D.ABILITIES.find((a) => a.id === 'fireball');
+  const swing = st.atk * (1 + st.crit / 100 * (st.critK - 1)) * (1 + st.aspd / 100) / st.wcd, F = D.ABILITIES.find((a) => a.id === 'fireball');
   const fire = D.fireDmg(st.spellBase, D.abRank('fireball', Math.max(1, h.ab.fireball || 0)).k, st.spell) / F.cd * Math.min(1, st.maxMp / 200), c = P.cast || 0.15;
   return Math.log(swing * (1 - c) + fire * c) + Math.log((st.maxHp + 20 * st.regen + 10 * st.onhit) * (KD + st.def) / KD / (1 - st.dodge / 100)); };
 const gear = (it) => it && !SIM.isCons(it);
 // gear the hero is too low to wear (TASKS 1028) is not bought for wearing, nor put on
 const wearable = (h, it) => h.lvl >= D.reqLvl(it) && D.wears(D.clsOf(h).id, it.b);
+// gear of his own class he is still too low for is kept for later (TASKS 1348), two pieces at most so the bag stays open for finds
+const waits = (h, it) => gear(it) && D.wears(D.clsOf(h).id, it.b) && h.lvl < D.reqLvl(it);
 const held = (h, b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n || 1 : 0), 0);
 // a town-only rank (the storage chest's cells) buys nothing in a run the bot plays
-const metaNext = (S) => D.metaFor(S.meta.cls).filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0))
-  .sort((a, b) => a.cost(S.meta.up[a.id] || 0) - b.cost(S.meta.up[b.id] || 0))[0];
+// the next thing the bank buys at the Altar of Souls, the cheapest first: a rank, or a discovery this class can use (TASKS 1669)
+const unlockUse = (S, U) => { const C = D.clsOf({ cls: S.meta.cls }); if (U.kind === 'kit') return D.KITS.find((k) => k.id === U.ref).cls === C.id; const g = D.GIFTS.find((q) => q.id === U.ref); return !g.ab || C.abilities.includes(g.ab); };
+const metaNext = (S) => { const ranks = D.metaFor(S.meta.cls).filter((M) => !M.town && (S.meta.up[M.id] || 0) < M.max && S.meta.shards >= M.cost(S.meta.up[M.id] || 0)).map((M) => ({ id: M.id, cost: M.cost(S.meta.up[M.id] || 0) })),
+    open = D.UNLOCKS.map((U, un) => ({ U, un, cost: U.cost })).filter((q) => q.cost && S.meta.shards >= q.cost && !(S.meta.open || {})[q.U.id] && unlockUse(S, q.U));
+  return ranks.concat(open).sort((a, b) => a.cost - b.cost)[0]; };
+// the button of the Altar of Souls for what comes next: its tab first when the wanted row is on the other one; a kit bought is the kit worn
+const metaButton = (S) => { const N = metaNext(S), tab = S.metaTab === 'open', list = D.UI.meta(S.meta.cls, S.metaTab), find = (f) => list.find(f);
+  if (!N) return find((q) => q.id === 'back'); if ((N.un !== undefined) !== tab) return find((q) => q.id === 'tab');
+  if (N.un === undefined) return find((q) => q.id === N.id);
+  if (N.U.kind === 'kit') (S.meta.kit = S.meta.kit || {})[D.clsOf({ cls: S.meta.cls }).id] = N.U.ref;
+  return find((q) => q.un === N.un); };
 const shrineGift = (S, R, P) => [3, 2, 1].find((tier) => tier <= P.gift && S.meta.shards >= D.giftCost(tier, R.floor));
 
 // the hero's health, attack and armour on a floor's arrival, and without each source in turn: all gear, bought gear, altar gifts,
@@ -380,7 +391,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
   function trade(S, R, h) {
     const U = D.UI.shop(R.shop.goods.length), at = (id) => click(U.r.find((q) => q.id === id));
-    const i = h.bag.findIndex(gear); if (i >= 0) { cur.sold++; return at('sell:' + i); }
+    let kept = 0; const i = h.bag.findIndex((it) => gear(it) && !(waits(h, it) && kept++ < 2)); if (i >= 0) { cur.sold++; return at('sell:' + i); }
     const room = h.bag.includes(null), buy = (g) => { cur.spent += g.price; return at('buy:' + R.shop.goods.indexOf(g)); };
     const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && wearable(h, g.it) && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
     for (const [b, want] of [['hp_potion', 6], ['mp_potion', D.clsOf(h).res === 'rage' ? 0 : P.caster ? 6 : 3]].concat(R.viaTown ? [['scroll', P.scrolls]] : [])) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
@@ -410,9 +421,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (R.portal ? SIM.atGate(R) : dist(out) < 55) inp.keys.push('KeyE'); }
   function pray(S, R) {
     if (R.shrines[R.altar] && R.shrines[R.altar].used) return { keys: ['Escape'] };
-    const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), i = sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && S.meta.shards >= g.cost) : -1;
+    const sh = R.shrines[R.altar], tier = shrineGift(S, R, P), free = (g) => !D.giftBlocked(R.hero, D.GIFTS.find((q) => q.id === g.id)), relic = sh && sh.gifts && P.gift >= 3 && sh.gifts[3] && free(sh.gifts[3]) && S.meta.shards >= sh.gifts[3].cost ? 3 : -1, i = relic >= 0 ? relic : sh && sh.gifts ? sh.gifts.findIndex((g, j) => j + 1 === tier && free(g) && S.meta.shards >= g.cost) : -1;
     if (sh && sh.gifts && !sh.seen) { sh.seen = 1; cur.altars.push({ f: R.floor, bank: S.meta.shards, c2: sh.gifts[1].cost }); }
-    if (i >= 0) { cur.gifts++; return click(D.UI.altar().r[i]); } return { keys: ['Escape'] };
+    if (sh && sh.gifts && !sh.used && !sh.rolls && P.gift >= 3 && !sh.gifts.some((g) => D.GIFTS.find((q) => q.id === g.id).power) && S.meta.shards >= D.giftCost(3, R.floor) + D.rerollCost(0, R.floor)) return click(D.UI.altar(sh.gifts.length).r.find((q) => q.id === 'reroll'));
+    if (i >= 0) { cur.gifts++; return click(D.UI.altar(sh.gifts.length).r[i]); } if (sh) sh.skip = 1; return { keys: ['Escape'] };
   }
   const floorLine = (R, h) => { const s = R.stats[f0] || {}; return { floor: f0, time: Math.round(S.t - tF), full: [[s.kills, s.foes], [s.loot, s.lootN], [s.sec, s.secN]].filter(([k, n]) => n > 0 && k >= n).length, sec: s.sec || 0, secN: s.secN || 0, foes: s.foes || 0, killed: s.kills || 0, lvl: h.lvl, hp: Math.round(h.hp), maxHp: SIM.stats(h, S.meta).maxHp, kills: R.kills, gold: h.gold, loot: s.loot || 0, lootN: s.lootN || 0, shards: R.shards, bank: S.meta.shards, dodge: Math.round(SIM.stats(h, S.meta).dodge), dmg: fl.dmg, by: fl.by, dmgHp: fl.dmgHp, hits: fl.hits, minhp: fl.minhp, hpPot: fl.hp_potion, mpPot: fl.mp_potion, boss: fl.boss, bt: fl.bt, pw: fl.pw, blows: fl.blows }; };
   const freshFl = () => ({ dmg: {}, by: {}, dmgHp: 0, hits: 0, minhp: 1, hp_potion: 0, mp_potion: 0, blows: {} });
@@ -420,7 +432,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
       if (S.screen === 'classes') { SIM.step(S, click(D.UI.classes().find((q) => q.id === 'go'))); continue; }
-      if (S.screen === 'meta') { const M = metaNext(S), r = D.UI.meta(S.meta.cls).find((q) => q.id === (M ? M.id : 'back')); SIM.step(S, click(r)); continue; }
+      if (S.screen === 'meta') { SIM.step(S, click(metaButton(S))); continue; }
       // the upgrades are bought at the Altar of Souls in the town (TASKS 1026); a test run without the town still buys them from the menu's screen
       if (S.screen === 'menu') { if (metaNext(S) && mode !== 'campaign' && mode !== 'town') { S.screen = 'meta'; S.metaRun = 0; } else startRun(S, mode); continue; }
       SIM.step(S, { keys: ['Escape'] }); continue;
@@ -459,6 +471,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (P.skills) { const a = P.skills.map((id) => D.clsOf(h).abs.find((q) => q.id === id)).filter(Boolean).find((q) => h.lvl >= q.unlock && (h.ab[q.id] || 0) < D.AB_MAX);
       if (a && h.sp > 0) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; } }
     else for (const a of D.clsOf(h).abs) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
+    while (D.forkPending(h)) SIM.chooseFork(S, R, 0);
     // the gear is weighed again only when the bag, the worn set, the level or a rank changed
     const gk = h.bag.map((it) => it ? it.id : 0).join() + '|' + D.SLOTS.map((k) => h.eq[k] ? h.eq[k].id : 0).join() + '|' + h.lvl + '|' + h.ab.fireball + '|' + R.floor;
     if (gk !== gearKey) { gearKey = gk; h.bag.forEach((it, j) => { if (!gear(it) || !wearable(h, it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (worth(S, h, P, it) > worth(S, h, P, c, sl) + 1e-6) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } }); }
@@ -466,7 +479,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (h.gold < g) for (const it of h.bag) if (it && it.b && !had.has(it.id)) it.bought = 1; continue; }
     if (S.screen === 'altar') { SIM.step(S, pray(S, R)); continue; }
     if (S.screen === 'talk') { SIM.step(S, talkStep(S, R)); continue; }
-    if (S.screen === 'meta') { const M = metaNext(S); SIM.step(S, click(D.UI.meta(S.meta.cls).find((q) => q.id === (M ? M.id : 'back')))); continue; }
+    if (S.screen === 'meta') { SIM.step(S, click(metaButton(S))); continue; }
+    // the smith's E opens his forge (the quest talk is a button in it): the bot has no use for the forge but the talk
+    if (S.screen === 'craft') { SIM.step(S, { keys: [S.craft.kind === 'forge' && SIM.questMark(R, 'smith') ? 'Enter' : 'Escape'] }); continue; }
     if (S.screen === 'gate') { const o = SIM.gateWays(R), i = o.findIndex((q) => q.k === 'portal'); SIM.step(S, i >= 0 ? click(D.UI.gate(o.length).r[i]) : { keys: ['Escape'] }); continue; }
     if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
@@ -485,10 +500,10 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const dist = (o) => Math.hypot(o.x - h.x, o.y - h.y), first = (list) => list.filter((o) => !given.has(o)).sort((a, b) => dist(a) - dist(b))[0];
     // what lies behind a door still locked is out of reach until its key or lever is found
     const drop = first(R.drops.filter((p) => !p.got && !p.tossed && !(p.fly > 0) && takes(p) && reach(p)));
-    const chest = first(R.chests.filter((c) => !c.open && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
+    const chest = first(R.chests.filter((c) => !c.open && !c.sealed && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
     const locked = R.keys > 0 ? first((m.doors || []).filter((d) => { const L = SIM.doorLock(m, d); return L && L.kind === 'key'; })) : null;
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
-    const shrine = first(R.shrines.filter((s) => !s.used && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
+    const shrine = first(R.shrines.filter((s) => !s.used && !s.skip && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
     const circle = P.haz ? first((m.circles || []).filter((q) => q.bless && !q.used && !R.en.some((e) => e.deadT < 0 && e.room === q.r) && reach(q))) : null;
     const shop = m.shop && R.shopped !== R.floor && (h.bag.some(gear) || h.gold >= 60) && !given.has(m.shop) ? m.shop : null;
     const aim = (k, o) => { goal = o ? [k, Math.floor(o.x / T), Math.floor(o.y / T)] : [k]; return true; };

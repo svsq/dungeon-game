@@ -110,6 +110,10 @@
     // the slime (TASKS 308) hops at the hero: a squash on the wind-up, `jump.t` s in the air to where the hero stood, the blow on
     // landing; it splits in two small ones on death (they never split again) and leaves a puddle that slows everyone but slimes.
     // The small ones are raised like a summoner's skeletons (summ): a little XP, no loot, no part in the floor's count
+    // the mimic (TASKS 367) wakes when its chest is opened or struck (a chest of the floor, flag `mimic`, dungeon_fill), rises in `rise` s,
+    // then bites in hops as the slime does; raised like a summoner's skeleton (summ), so it is no part of the floor's count; its
+    // chest's loot falls where it dies
+    mimic: { name: TXT('ENEMIES.mimic.name'), hp: 62, dmg: 12, spd: 26, r: 16, reach: 150, wind: 0.55, cd: 0.95, xp: 18, kind: 'hop', h: 56, blood: 'shell', mimic: 1, rise: 0.7, jump: { t: 0.42, h: 52, land: 0.36 } },
     slime: { name: TXT('ENEMIES.slime.name'), hp: 30, dmg: 8, spd: 40, r: 15, reach: 105, wind: 0.5, cd: 1.5, xp: 9, kind: 'hop', h: 44, blood: 'slime', split: 'slime_s', jump: { t: 0.46, h: 46, land: 0.4 }, puddle: { r: 34, t: 10 } },
     slime_s: { name: TXT('ENEMIES.slime_s.name'), hp: 10, dmg: 4, spd: 52, r: 10, reach: 80, wind: 0.4, cd: 1.3, xp: 2, kind: 'hop', h: 28, blood: 'slime', jump: { t: 0.38, h: 32, land: 0.34 }, puddle: { r: 20, t: 6 } },
     // the armoured crab (TASKS 309) faces its way (fa, rad), turning toward the hero at only `turn` rad/s: a blow, bolt or blast from within

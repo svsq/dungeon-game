@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's iron railing: same iron and stone, same size and base, a DIFFERENT panel: only the left half of the bars still stands, the right half is torn away leaving short stumps, ivy climbs the stumps. Centred, wide empty margin, transparent background. No ground, no shadow, no glow, no text.

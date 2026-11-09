@@ -3,9 +3,10 @@
 (function () {
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
-    PROP_H, SC, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
+    PROP_H, SC, chestLook, mimicTwitch, debris, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
     deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
+  const HERO_RIM = { x: 0, y: 0 };
   SCX.worldPass = (F) => {
     const {
       B, GT, MH, MW, R, ST, TL, blastFx, cx, cy, fireFx, flick, h, hid, known, m, seen, st, sx, sy, t, vis, whirlFx } = F;
@@ -90,11 +91,12 @@
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
     const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
-    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { if ((k % m.W + 2 * Math.floor(k / m.W)) % 5 === 0 && [1, -1, m.W, -m.W].every((o) => cells.includes(k + o))) continue; const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
+    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       // (the hot line only where the lava itself lies under its foot, shorter and off its middle, TASKS 1039: under every row of a
       // wide crossing it ruled the slabs into a cobbled road)
-      L.shadow(sx(x), foot + 3, w * 0.55, 4, 0.7); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
+      // (the slab stands on the lava, TASKS 1629: flat on it without a lower face or a dark line under it)
+      L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: rnd(k, 9) < 0.5, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
       drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5, k: 0.92 }); basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, rnd(k, 9) < 0.5]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
       if (c.axis !== 'x' || SIM.Q.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
@@ -102,7 +104,7 @@
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
       basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
-      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.72, 0.52, 0.42, 0.22] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
+      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.95, 0.5, 0.32, 0.55] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
@@ -246,12 +248,14 @@
     for (const e of ST.ev) { const a = GT - e.t; if (e.k !== 'rockfall' || a < 0 || a >= 2.4 || !vis(e.x, e.y)) continue; const [w0, h0] = SZ('dc_rubble'), k = 56 / Math.max(w0, h0);
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
+    for (const p of R.pots) { if (p.hp > 0 || p.kind === 'gold' || p.kind === 'goldpile' || !vis(p.x, p.y) || SIM.Q.hidden(m, p)) continue; const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, PROP_H[p.kind], wood ? 8 : 6); }
+    for (const d of m.decor) if (d.n === 'wreck_cv' && d.broken && vis(d.x, d.y)) debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, null, 14, 1.8);
     for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && !SIM.Q.hidden(m, d)) { const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0);
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
     for (const d of m.decor) if (!d.wall && d.n === 'bones' && vis(d.x, d.y) && !hid(d)) drawProp('bones', sx(d.x), sy(d.y), { dy: 6 });
     // a two-level hall's steps (TASKS 375) lie on the ground: whoever walks them is drawn over them
-    for (const d of m.decor) if (d.steps && vis(d.x, d.y) && !hid(d)) drawProp(d.n, sx(d.x), sy(d.y), { dy: 0 });
+    for (const d of m.decor) if (d.steps && vis(d.x, d.y) && !hid(d)) drawProp(d.n, sx(d.x), sy(d.y), { dy: 26 });   // down to the foot of the face's plinth (TASKS 1680)
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0) continue;
       // what a kill leaves on the floor by what it bled: a pool, a skeleton's bone dust, nothing of a ghost
       if (e.k === 'kill' && a < 12 && !e.gone) { const bl = BLOOD(e.type); if (bl === 'bone') { if (a < 6) L.puff(sx(e.x), sy(e.y) + 2, 14 + 6 * SS(0, 0.3, a), [0.5, 0.47, 0.4], 0.3 * (1 - SS(3, 6, a)), e.id); }
@@ -314,7 +318,7 @@
         L.anchor('water_source', [sx(q.x), sy(mouth)], [xf[6] + xf[0] * 0.5, xf[7]], 2);
       }]); }
     // the magma caves' sources: a fall down the back wall, a breach at its foot, a vent in the lava (MAGMA_SRC)
-    const lavaSrc = (q) => { const kind = { fall: 0, breach: 1, vent: 2 }[q.kind], cx = q.x + (q.w - 1) * TILE / 2, bw = Math.max(72, q.w * TILE * 0.36 + 44), box = [cx - bw, q.y - 270, bw * 2, 330];
+    const lavaSrc = (q) => { const kind = { fall: 0, breach: 1, vent: 2 }[q.kind], cx = q.x + (q.w - 1) * TILE / 2, bw = Math.max(96, q.w * TILE * 0.36 + 44), box = [cx - bw, q.y - 270, bw * 2, 330];
       return kind === undefined || !vis(q.x, q.y) ? null : { box, xf: G.xf(sx(box[0]), sy(box[1]), box[2], box[3]),
         U: { u_t: t, u_open: openTex(m), u_cliff: cliffTex(m), u_lava: lavaTex(m), u_map: [MW, MH], u_box: box, u_src: [cx, q.y], u_kind: kind, u_seed: q.cell % 97, u_wide: Math.max(q.w * TILE * 0.36, kind ? 0 : 18), u_fall: fallU(m) } }; };
     for (const q of m.lavaFeatures || []) { const got = lavaSrc(q); if (!got) continue; const { box, xf, U } = got;
@@ -363,15 +367,17 @@
         L.solid(X - PIX, px2(Y0 - 34), PIX * 4, PIX * 2, [0.12, 0.11, 0.1]); } };
     m.decor.forEach((d, i) => { if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d, i)]); });
     if (GATE) for (const q of DUNGEON.portalRing(GATE.x, GATE.y, GATE.open || 0)) if (vis(q.x, q.y) && known(q.x, q.y)) Y.push([q.y, () => drawProp(q.n, sx(q.x), sy(q.y), { dy: 4, k: q.s })]);
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : undefined })]); });   // lift: candles standing on a table
+    const TOWN_TONE = { forge_tw: { tint: [0.74, 0.7, 0.9, 1] }, gate_tw: { tint: [0.86, 0.82, 0.95, 1] }, blocks_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_b: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_c: { tint: [0.86, 0.82, 0.95, 1] }, stone_tw_a: { grade: [1, 1.3, 0, 1] }, stone_tw_b: { grade: [1, 1.3, 0, 1] } };
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
       Y.push([d.y - 38, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(d.x), sy(d.y + 8 - hh)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); });
-    for (const c of R.chests) if (vis(c.x, c.y) && !hid(c)) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, 22, 6, 0.5);
+    for (const c of R.chests) if (vis(c.x, c.y) && !hid(c) && !c.woke) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, c.boss ? 28 : 22, 6, 0.5);
       // the gold chest's coins are painted in their own flat golds: the tier's lift would melt them into one orange heap
-      const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold;
-      drawProp(gold ? 'chest_open_gold' : op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: c.tier >= 2 ? 1.15 : 1, u: { grade: gold ? [1, 1, 0, 1] : c.tier >= 3 ? [1.2, 1.12, 0, 1.1] : c.tier === 2 ? [1.15, 1.08, 0, 1.05] : [1, 1, 0, 1] } }); }]);
+      const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold, cl = chestLook(c), ownN = cl.tex && cl.tex + (op > 0.5 ? '_open' : ''), own = ownN && window.ASSETS[ownN];
+      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: cl.k, j: c.mimic && !c.open ? mimicTwitch(c, t) : undefined, u: gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
+      if (c.sealed) { const [pw, ph] = SZ('padlock'), a = 0.5 + 0.5 * Math.sin(t * 2.4); G.blend('add'); L.glow(sx(c.x), sy(c.y) - 20, 34, [1, 0.25, 0.15], 0.25 + 0.2 * a); G.blend(); L.sprite('padlock', sx(c.x) - pw / 2, sy(c.y) - ph - 4, { w: pw, h: ph }); } }]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 });
       if (p.kind === 'gold' || p.kind === 'goldpile') emitted((a) => drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4, u: { alpha: a, tint: GOLD_TINT } })); }]); }
     // lean: the flame's tip shifted sideways (px), its base stays on the wick
@@ -528,7 +534,9 @@
       // on the magma caves the hero keeps a dark outline the lava's light can't lift and a lit edge toward the lava, so he never melts
       // into it or the warm ground (TASKS 404); elsewhere as before
       const lv = m.cliff && h.deadT < 0 ? HERO.lavaAt(h.x, h.y) : null, hn = lv ? Math.hypot(lv.dx, lv.dy * 1.25) || 1 : 1;
-      const heroRim = lv && lv.k > 0.05 ? { dx: 2 * Math.round(2 * lv.dx / hn), dy: 2 * Math.round(2 * lv.dy * 1.25 / hn), col: [1, 0.6, 0.22].map((v) => v * SS(0.05, 0.28, lv.k)), box: [2 * Math.round((sx(h.x) - 130) / 2), 2 * Math.round((sy(h.y) - 160) / 2), 260, 210] } : null;
+      // (the rounding has a dead band, TASKS 1624: a direction hovering at a step's edge flipped the offset every other frame, 336 ↔ 432 px of rim)
+      const rimStep = (v, last) => (Math.abs(2 * v - last) < 1.4 ? last : 2 * Math.round(v)), rimX = (HERO_RIM.x = rimStep(lv ? 2 * lv.dx / hn : 0, HERO_RIM.x)), rimY = (HERO_RIM.y = rimStep(lv ? 2 * lv.dy * 1.25 / hn : 0, HERO_RIM.y));
+      const heroRim = lv && lv.k > 0.05 ? { dx: rimX, dy: rimY, col: [1, 0.6, 0.22].map((v) => v * SS(0.05, 0.28, lv.k)), box: [2 * Math.round((sx(h.x) - 130) / 2), 2 * Math.round((sy(h.y) - 160) / 2), 260, 210] } : null;
       if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
       const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);

@@ -173,11 +173,19 @@
     stuck: (o) => { noise(o, { t: now() + 0.6, a: 0.2, d: 0.6, v: 0.2, type: 'bandpass', f0: 300, f1: 700, q: 2 }); },
     rockfall: (o) => { tone(o, { f0: 90, f1: 40, a: 0.005, d: 0.35, v: 0.6 }); noise(o, { a: 0.005, d: 0.4, v: 0.4, type: 'lowpass', f0: 1400, f1: 250 });
       for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.06 + i * 0.07, d: 0.05, v: 0.15, type: 'bandpass', f0: rr(1500, 3000), q: 3 }); },
+    // (placeholders until the real audio, TASKS 1646: the magma's actions that had no sound)
+    lavafall: (o) => { noise(o, { d: 0.25, v: 0.35, type: 'lowpass', f0: 1000, f1: 160 }); tone(o, { f0: 130, f1: 50, d: 0.3, v: 0.3 }); },
+    ignite: (o) => noise(o, { a: 0.01, d: 0.28, v: 0.2, type: 'highpass', f0: 2000, f1: 900 }),
+    surge: (o) => { noise(o, { a: 0.05, d: 0.5, v: 0.3, type: 'lowpass', f0: 800, f1: 240 }); tone(o, { f0: 75, f1: 45, d: 0.45, v: 0.28 }); },
+    bossphase: (o) => tone(o, { f0: 60, f1: 30, a: 0.02, d: 0.7, v: 0.4 }),
     sink: (o) => { noise(o, { a: 0.01, d: 1.2, v: 0.28, type: 'highpass', f0: 1800, f1: 700 }); tone(o, { f0: 140, f1: 55, a: 0.02, d: 0.6, v: 0.3 }); },
     fall: (o) => { tone(o, { type: 'triangle', f0: 420, f1: 120, a: 0.02, d: 0.8, v: 0.08 }); noise(o, { a: 0.05, d: 0.7, v: 0.12, type: 'lowpass', f0: 900, f1: 200 }); },
     gold: (o) => { for (let i = 0; i < 4; i++) tone(o, { type: 'triangle', f0: rr(2200, 3600), t: now() + i * rr(0.03, 0.07), d: 0.18, v: 0.08 }); },
     pickup: (o, e) => { tone(o, { type: 'triangle', f0: 660, f1: 990, d: 0.12, v: 0.12 }); if ((e.rar || 0) >= 2) tone(o, { f0: 1320, t: now() + 0.08, d: 0.4, v: 0.1 }); },
     shard: (o) => { tone(o, { f0: 1245, d: 0.7, v: 0.12 }); tone(o, { f0: 1865, t: now() + 0.06, d: 0.6, v: 0.08 }); },
+    mimicwake: (o) => { noise(o, { d: 0.2, v: 0.3, type: 'lowpass', f0: 900 }); tone(o, { type: 'sawtooth', f0: 70, f1: 240, d: 0.3, v: 0.12 }); },
+    trapfuse: (o) => { noise(o, { d: 0.5, v: 0.12, type: 'highpass', f0: 3000 }); tone(o, { type: 'square', f0: 1100, d: 0.05, v: 0.08 }); },
+    trapbang: (o) => { noise(o, { d: 0.3, v: 0.45, type: 'lowpass', f0: 1600, f1: 300 }); tone(o, { f0: 90, f1: 40, d: 0.25, v: 0.5 }); },
     chest: (o) => { tone(o, { type: 'sawtooth', f0: 85, f1: 120, a: 0.05, d: 0.3, v: 0.05 }); noise(o, { d: 0.12, v: 0.25, type: 'lowpass', f0: 600 }); SFX.gold(o); },
     break: (o, e) => { if (e.kind === 'pot' || e.kind.startsWith('vase')) { noise(o, { d: 0.25, v: 0.35, f0: 2200, q: 1.5 }); for (let i = 0; i < 4; i++) noise(o, { t: now() + 0.05 + i * 0.04, d: 0.03, v: 0.12, f0: rr(2500, 4500), q: 5 }); }
       else if (e.kind === 'gold' || e.kind === 'goldpile') SFX.gold(o); else { noise(o, { d: 0.2, v: 0.35, type: 'lowpass', f0: 900, f1: 250 }); tone(o, { f0: 140, f1: 70, d: 0.12, v: 0.3 }); } },
@@ -257,6 +265,7 @@
     say: (o, e) => { const b = e.role === 'child' ? 330 : e.role === 'sweeper' || e.role === 'enchanter' ? 250 : 150; for (let i = 0; i < 3; i++) tone(o, { type: 'triangle', f0: b * rr(0.9, 1.15), f1: b * rr(0.8, 1), t: now() + i * 0.09, d: 0.08, v: 0.035 }); },
     shop: (o) => [1568, 2093].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.14, d: 0.5, v: 0.07 })),
     // a hen startled by a blow (TASKS 1033): two quick rising squawks
+    power: (o) => { tone(o, { f0: 330, f1: 520, d: 0.16, v: 0.05 }); },
     hen: (o) => [0, 0.11].forEach((dt, i) => tone(o, { type: 'square', f0: 700 + 120 * i, f1: 1100 + 160 * i, t: now() + dt, d: 0.07, v: 0.03 })),
   };
   // events heard everywhere on the floor (not attenuated by distance)
@@ -264,7 +273,7 @@
   const LIMIT = { rock: 0.07, step: 0.08, hit: 0.03, gold: 0.05, alert: 0.15, kill: 0.04, scorch: 0.12, pop: 0.05, spike: 0.1 };
 
   function play(e, S) {
-    const f = SFX[e.k]; if (!f) return;
+    const f = SFX[e.k]; if (!f || ((e.k === 'bossphase' || e.k === 'ignite') && !S.run?.map?.cliff)) return;
     const gap = LIMIT[e.k] ?? 0.02, tn = now(); if (recent[e.k] && tn - recent[e.k] < gap) return; recent[e.k] = tn;
     let pan = 0, vol = 1;
     const R = S.run; if (R && R.cam && e.x !== undefined && !GLOBAL.has(e.k)) { const dx = e.x - (R.cam[0] + W / 2), dy = e.y - (R.cam[1] + H / 2);

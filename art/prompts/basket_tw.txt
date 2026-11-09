@@ -1,0 +1,4 @@
+Use case: one small prop for the start town, a ruined fortress courtyard, of a top-down 3/4 dungeon game. Image 1 is the style reference. Image 2 is the approved town concept's crop: match its materials, NOT its light.
+Subject: a low round wicker basket of worn straw-brown weave (#552f25, #733a21, #934218) holding a few grey-brown turnips, 18 art pixels wide, 14 tall.
+Composition: one prop centred, complete, wide empty margin, transparent background.
+Constraints: painted unlit in even neutral light, no glow, no shadow on the ground, no floor, no text.

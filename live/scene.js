@@ -52,7 +52,7 @@
     const flick = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3);
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
-    const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1), big = tc.kind === 'fire', gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
+    const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), big = tc.kind === 'fire', f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1) * (big ? B.bigK || 1 : B.town ? 0.72 + 0.056 * (i * 37 % 11) : 1), gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
       const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * ((B.cave || B.town) && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
       const tr = tc.kind === 'wall' ? B.torchR || 1 : 1;   // the town's torches light pools ≈115 px across (TASKS 1029), its fire stays wide
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr * tr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
@@ -63,7 +63,7 @@
       if (B.spill) TL.push([tc.x, tc.y - (big ? 60 : 30), (big ? 380 : 190) * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * f / (B.fireK || 1) * (big ? 0.7 : 1), 1.4]); });
     for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
-      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) : d.n === 'candelabra' ? 150 : 125), col, (tp ? 1.0 : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
+      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) : d.n === 'candelabra' ? 150 : 125), col, (tp ? (B.town ? 0.7 + 0.06 * Math.floor(d.x * 37 / 32 % 11) : 1.0) : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]);
       if (tp && B.spill) TL.push([d.x, d.y - up, 190 * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * flick(d.x), 1.4]); }
     // a cave bridge's fire posts (TASKS 306): the crossing's warm light, on the deck and in the water under it
