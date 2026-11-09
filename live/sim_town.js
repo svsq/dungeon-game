@@ -84,7 +84,7 @@
       if (Math.abs(f.vx) > 3) { const nf = f.vx > 0 ? 1 : -1; if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
-      if (alive && h.gold > 0 && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 30) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
+      if (alive && h.gold > 0 && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 30 && !(R.msg && t < R.msg.t + (R.msg.d || 3.5))) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
   }
   const solids = (R) => { const out = []; for (const c of R.chests) out.push({ x: c.x, y: c.y, r: 16 }); for (const p of R.pots) if (p.hp > 0) out.push({ x: p.x, y: p.y, r: 11 });
     for (const t2 of R.map.torches) if (t2.kind !== 'wall') out.push({ x: t2.x, y: t2.y, r: t2.kind === 'fire' ? 20 : 12 }); for (const s of R.shrines) out.push({ x: s.x, y: s.y, r: 18 }); for (const d of R.map.decor) if (d.solid || d.role === 'bench') out.push({ x: d.x, y: d.y, r: 18 });
@@ -95,7 +95,7 @@
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 });
     for (const f of R.folk || []) out.push({ x: f.x, y: f.y, r: folkR(f) }); return out; };
   // a first visit with empty pockets: the service says what it wants, instead of a page of prices the hero cannot pay (TASKS 1613)
-  const broke = (S, R) => { const h = R.hero; if (!h.gold && !S.meta.shards) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.broke') }); };
+  const broke = (S, R) => { const h = R.hero; if (!h.gold) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.broke') }); };
   function interact(S, R) {
     const h = R.hero, m = R.map;
     const sq0 = secretUnder(R), c = R.chests.find((c2) => !c2.open && Math.hypot(c2.x - h.x, c2.y - h.y) < (sq0 ? 30 : 56) && !SIMX.overLava(m, h.x, h.y, c2.x, c2.y)); if (c) { openChest(S, R, c); return; }
@@ -115,7 +115,7 @@
     const cw = atCraft(R);
     if (cw) { S.screen = 'craft'; S.craft = { kind: cw, sel: S.craft && S.craft.kind === cw ? S.craft.sel : null }; S.hover = ''; broke(S, R); ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
-    if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; broke(S, R); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
+    if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; if (!S.meta.shards) broke(S, R); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
     if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
