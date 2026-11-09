@@ -73,9 +73,9 @@
   // the class screen (TASKS 1103): a card picks the class (kept in the meta for the next time), «В путь» or Enter starts the run the
   // menu asked for, «Назад» or Escape go back to the menu
   SCREEN.classes = (S, inp, keys, x, y, click) => {
-    const b = D.hitUI(UI.classes(), x, y); S.hover = b ? b.id : '';
+    const b = D.hitUI(UI.classes(S.meta), x, y); S.hover = b ? b.id : '';
     if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
-    if (click && b && b.kit) { const list = D.kitsOf(b.kit), i = list.indexOf(D.kitOf(S.meta, b.kit)); S.meta.kit = S.meta.kit || {}; S.meta.kit[b.kit] = list[(i + 1) % list.length].id; S.meta.cls = b.kit; S.saveN++; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.kit) { const list = D.kitsOf(b.kit, S.meta), i = list.indexOf(D.kitOf(S.meta, b.kit)); S.meta.kit = S.meta.kit || {}; S.meta.kit[b.kit] = list[(i + 1) % list.length].id; S.meta.cls = b.kit; S.saveN++; ev(S, { k: 'ui', x, y }); }
     if (click && b && b.cls) { if (S.meta.cls !== b.cls) { S.meta.cls = b.cls; S.saveN++; } ev(S, { k: 'ui', x, y }); }
     if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); }
     return;
@@ -88,7 +88,9 @@
     if (d) S.newsTop = Math.max(0, Math.min(N.max, N.top + d));
   };
   SCREEN.meta = (S, inp, keys, x, y, click) => {
-    const bs = UI.meta(S.meta.cls), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
+    const bs = UI.meta(S.meta.cls, S.metaTab), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
+    if (click && b && b.id === 'tab') { S.metaTab = S.metaTab === 'open' ? 'up' : 'open'; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.un !== undefined) { SIMX.buyUnlock(S, D.UNLOCKS[b.un], x, y); return; }
     if ((click && b && b.id === 'back') || keys.Escape || (S.metaRun && keys.KeyE)) { S.screen = S.metaRun && S.run ? 'play' : 'menu'; S.metaRun = 0; return; }
     if (click && b) { const M = META.find((q) => q.id === b.id); if (M) { const r = S.meta.up[M.id] || 0, c = M.cost(r);
       if (r < M.max && S.meta.shards >= c) { S.meta.shards -= c; S.meta.up[M.id] = r + 1; S.saveN++; ev(S, { k: 'buy', x, y, id: M.id }); } else ev(S, { k: 'nope', x, y, s: r >= M.max ? TXT('sim_ui.meta.s') : TXT('sim_ui.meta.s.2') }); } }

@@ -48,7 +48,7 @@
   const RELIC_MAX = 3, relicsOf = (h) => Object.keys(h.powers || {}).filter((id) => (D.GIFTS.find((g) => g.id === id) || {}).relic).length;
   const hasPower = (h, id) => !!(h.powers || {})[id];
   // what an altar may offer this hero of a tier: not another class's power, not one for an ability not yet open, not one already held
-  const giftPool = (h, tier) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && !g.needs && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
+  const giftPool = (h, tier, meta) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && isOpen(meta, 'gift', g.id) && !g.needs && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
   const evosReady = (h) => D.GIFTS.filter((g) => g.needs && !hasPower(h, g.id) && g.needs.every((id) => hasPower(h, id)));
   // a class's starting kits (TASKS 393): the first is the plain start, a weapon of its own class and a passive for the others
   const KITS = [
@@ -62,7 +62,19 @@
     { id: 'a_long', cls: 'archer', weapon: 'longbow', power: 'kit_long', name: TXT('KITS.a_long.name'), desc: TXT('KITS.a_long.desc') },
     { id: 'a_cross', cls: 'archer', weapon: 'crossbow', power: 'kit_cross', name: TXT('KITS.a_cross.name'), desc: TXT('KITS.a_cross.desc') },
   ];
-  const kitsOf = (cls) => KITS.filter((k) => k.cls === cls);
-  const kitOf = (meta, cls) => { const list = kitsOf(cls), id = ((meta || {}).kit || {})[cls]; return list.find((k) => k.id === id) || list[0]; };
-  Object.assign(D, { KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
+  // the discoveries (TASKS 394): what enters a pool only once bought for shards or earned by a deed; the rest is in it from the start
+  const ACHIEVE = [
+    { id: 'a_elites', name: TXT('ACHIEVE.a_elites.name'), desc: TXT('ACHIEVE.a_elites.desc'), on: 'kill', test: (e) => !!e.elite, need: 25 },
+    { id: 'a_bosses', name: TXT('ACHIEVE.a_bosses.name'), desc: TXT('ACHIEVE.a_bosses.desc'), on: 'kill', test: (e) => !!e.boss, need: 5 },
+    { id: 'a_priests', name: TXT('ACHIEVE.a_priests.name'), desc: TXT('ACHIEVE.a_priests.desc'), on: 'kill', test: (e) => e.type === 'fire_priest', need: 10 },
+  ];
+  const UNLOCKS = [
+    ...[['whirl_ring', 30], ['fire_split', 30], ['shield_feed', 30], ['leap_trap', 30], ['dash_strike', 30], ['rl_pyre', 60]].map(([ref, cost]) => ({ id: 'g_' + ref, kind: 'gift', ref, cost })),
+    ...[['rl_maelstrom', 'a_elites'], ['rl_phalanx', 'a_bosses'], ['rl_quiver', 'a_priests']].map(([ref, ach]) => ({ id: 'g_' + ref, kind: 'gift', ref, ach })),
+    ...[['w_axe', 40], ['w_hammer', 70], ['m_wand', 40], ['m_ash', 70], ['a_long', 40], ['a_cross', 70]].map(([ref, cost]) => ({ id: 'k_' + ref, kind: 'kit', ref, cost })),
+  ];
+  const isOpen = (meta, kind, ref) => { const U = UNLOCKS.find((q) => q.kind === kind && q.ref === ref); return !U || !!((meta || {}).open || {})[U.id]; };
+  const kitsOf = (cls, meta) => KITS.filter((k) => k.cls === cls && (meta === undefined || isOpen(meta, 'kit', k.id)));
+  const kitOf = (meta, cls) => { const list = kitsOf(cls, meta || {}), id = ((meta || {}).kit || {})[cls]; return list.find((k) => k.id === id) || list[0]; };
+  Object.assign(D, { ACHIEVE, UNLOCKS, isOpen, KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -631,7 +631,7 @@
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
     lab('cl_t', TXT('UI.classes.title'), W / 2, 92, { size: 72, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('cl_s', TXT('UI.classes.hint'), W / 2, 156, { size: 26, al: 0.5, col: C.dim });
-    for (const b of D.UI.classes()) {
+    for (const b of D.UI.classes(S.meta)) {
       if (b.kit) continue;
       if (!b.cls) { button('cl_' + b.id, b, S.hover); continue; }
       const Cl = D.CLASSES[b.cls], on = (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior') === b.cls, hv = S.hover === b.id;
@@ -643,7 +643,7 @@
       lab('cl_u' + b.cls, Cl.note, b.x + b.w / 2, b.y + 324, { size: 18, al: 0.5, col: '#8a7d6c' });
       Cl.abs.forEach((A, i) => { const y = b.y + 340 + i * 74; panel('cl_a' + b.cls + i, b.x + 40, y, 60, 60, { r: 6, rim: C.rim }); icon(A.icon, b.x + 44, y + 4, 52);
         lab('cl_an' + b.cls + i, A.name, b.x + 116, y + 22, { size: 23, col: C.text }); lab('cl_ak' + b.cls + i, TXT('hud.inv.14', { unlock: A.unlock }) + ' · ' + abCost(Cl, A, 1), b.x + 116, y + 48, { size: 18, col: C.dim }); });
-      const Kt = D.kitOf(S.meta, b.cls), kb = D.UI.classes().find((q) => q.id === 'kit:' + b.cls), kh = S.hover === 'kit:' + b.cls;
+      const Kt = D.kitOf(S.meta, b.cls), kb = D.UI.classes(S.meta).find((q) => q.id === 'kit:' + b.cls), kh = S.hover === 'kit:' + b.cls;
       if (kb) { panel('cl_kb' + b.cls, kb.x, kb.y, kb.w, kb.h, { r: 6, rim: kh ? C.rimHi : C.rim, c0: kh ? [0.18, 0.14, 0.1] : [0.1, 0.09, 0.08] }); lab('cl_kn' + b.cls, TXT('UI.classes.kit', { p1: Kt.name }), kb.x + kb.w / 2, kb.y + 28, { size: 23, al: 0.5, col: on ? C.gold : C.text }); }
       lab('cl_k' + b.cls, Kt.desc, b.x + b.w / 2, b.y + 616, { size: 20, al: 0.5, col: C.dim });
       if (on) lab('cl_on' + b.cls, TXT('UI.classes.chosen'), b.x + b.w - 20, b.y + 30, { size: 20, al: 1, col: C.gold });
@@ -685,8 +685,13 @@
     lab('mt_s', TXT('hud.meta.2', { shards: S.meta.shards }), W / 2, S.metaRun ? 204 : 220, { size: 26, al: 0.5, col: C.dim });
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) lab('mt_run', TXT('hud.meta.3'), W / 2, 242, { size: 19, al: 0.5, col: '#8a7d6c' });
-    for (const b of D.UI.meta(S.meta.cls)) {
-      if (b.id === 'back') { button('mt_back', b, S.hover); continue; }
+    for (const b of D.UI.meta(S.meta.cls, S.metaTab)) {
+      if (b.id === 'back' || b.id === 'tab') { button('mt_' + b.id, b, S.hover); continue; }
+      if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), can = !open && !U.ach && S.meta.shards >= U.cost;
+        panel('un_' + b.un, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
+        lab('un_n' + b.un, Th.name, b.x + 20, b.y + 26, { size: 24, col: open ? C.gold : C.text });
+        lab('un_d' + b.un, A && !open ? TXT('hud.unlock.ach', { p1: A.desc, p2: Math.min((S.meta.ach || {})[A.id] || 0, A.need), p3: A.need }) : Th.desc, b.x + 20, b.y + 54, { size: 18, col: C.dim });
+        lab('un_c' + b.un, open ? TXT('hud.unlock.done') : U.ach ? A.name : TXT('hud.unlock.cost', { c: U.cost }), b.x + b.w - 20, b.y + b.h / 2 + 2, { size: 20, al: 1, col: open ? C.gold : can ? '#9cc8ff' : '#7a6e64' }); continue; }
       const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
       panel('mt_' + b.id, b.x, b.y, b.w, b.h, { r: 8, rim: S.hover === b.id && can ? C.rimHi : C.rim });
       lab('mt_n' + b.id, M.name, b.x + 24, b.y + 32, { size: 28 }); lab('mt_d' + b.id, D.metaLine(M, r), b.x + 24, b.y + 70, { size: 20, col: r ? '#9cc8ff' : C.dim });
