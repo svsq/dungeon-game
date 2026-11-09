@@ -990,14 +990,21 @@
       // a gate of vents across the walk, bursting together on a short visible clock: pass in the window between bursts, not round a ring
       // (TASKS 1645: every hazard was solved by one move, stepping round a circle); it takes vents off the floor's count, so the rest thin out
       if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * 0.35), Math.floor(way.length * 0.65)), deck = new Set(crossings.flatMap((c) => c.cells));
+        const open = (n) => cells[n] === 1 || cells[n] === 6 || deck.has(n);
         // (a gate is only a question if no way runs outside its rings, however long)
-        const seals = (row) => { const zs = row.map((c) => ({ k: 'vent', x: wx(c % W), y: wy(Math.floor(c / W)) })), seen = new Uint8Array(W * H), q = [way[0]], end = way[way.length - 1]; seen[way[0]] = 1;
-          for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) { const n = q[i] + o; if (n < 0 || n >= W * H || seen[n] || !(cells[n] === 1 || cells[n] === 6 || deck.has(n)) || zs.some((z) => D.hazIn(z, wx(n % W), wy(Math.floor(n / W))))) continue; if (n === end) return false; seen[n] = 1; q.push(n); }
+        const seals = (zs) => { const seen = new Uint8Array(W * H), q = [way[0]], end = way[way.length - 1]; seen[way[0]] = 1;
+          for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) { const n = q[i] + o; if (n < 0 || n >= W * H || seen[n] || !open(n) || zs.some((z) => D.hazIn(z, wx(n % W), wy(Math.floor(n / W))))) continue; if (n === end) return false; seen[n] = 1; q.push(n); }
           return true; };
-        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = [-2, 0, 2].map((j) => k + side * j * 1), x0 = k % W, y0 = Math.floor(k / W);
-          if (!row.every((c) => cells[c] === 1 && clear(c % W, Math.floor(c / W)) && !under.has(c) && !used.has(key(c % W, Math.floor(c / W))))) continue;
-          if (!seals(row)) continue;
-          const per = G.per, ph = Z(); for (const c of row) { const x = c % W, y = Math.floor(c / W), z = { k: 'vent', gate: 1, x: wx(x), y: wy(y), per, ph }; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
+        // the rings cover the passage wall to wall and no more (TASKS 1693: at a fixed size up to half a ring lay on rock): as few vents as reach across it, each sized to the width
+        const onFloor = (z) => { let out = 0; for (let a = 0; a < 48; a++) { const r = HZ.vent.r * z.s, x = z.x + Math.cos(a / 48 * 6.283) * r, y = z.y + Math.sin(a / 48 * 6.283) * r * HZ.vent.ry; if (!open(Math.floor(y / TILE) * W + Math.floor(x / TILE))) out++; } return out / 48 <= G.off; };
+        const fit = (k, side) => { let a = 0, b = 0; while (a < 16 && open(k - side * (a + 1))) a++; while (b < 16 && open(k + side * (b + 1))) b++; if (a + b + 1 < G.minCells) return null;
+          const span = (a + b + 1) * TILE - 6, along = side === 1, full = 2 * HZ.vent.r * (along ? 1 : HZ.vent.ry); let n = 1; while (n < 6 && span / (1 + G.pitch * (n - 1)) > full) n++; if (n === 6) return null;
+          const E = span / (1 + G.pitch * (n - 1)), s = E / full, mid = (b - a) / 2 * TILE; return Array.from({ length: n }, (_, i) => { const off = mid + (i - (n - 1) / 2) * G.pitch * E; return { k: 'vent', gate: 1, s, x: along ? wx(k % W) + off : wx(k % W), y: along ? wy(Math.floor(k / W)) : wy(Math.floor(k / W)) + off }; }); };
+        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = fit(k, side); if (!row) continue;
+          const cellOf = (z) => [Math.floor(z.x / TILE), Math.floor((z.y - 6) / TILE)];
+          if (!row.every((z) => { const [x, y] = cellOf(z), c = y * W + x; return cells[c] === 1 && clear(x, y) && !under.has(c) && !used.has(key(x, y)); })) continue;
+          if (!row.every(onFloor) || !seals(row)) continue;
+          const per = G.per, ph = Z(); for (const z of row) { const [x, y] = cellOf(z); z.per = per; z.ph = ph; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
           // (and a share of the walk's rock tails goes, the player's decision on 1645: the gate is not to raise the floor's damage)
           // (from a run's far ends only: a hole in its middle broke its even step)
           { const gone = new Set(); for (const z0 of hazards) { if (z0.k !== 'fall' || !z0.aim || z0.tail) continue; const run = hazards.map((z, j) => [z, j]).filter(([z]) => z.k === 'fall' && z.tail && z.per === z0.per), off = ([z]) => Math.abs((((z.ph - z0.ph) % 1 + 1.5) % 1) - 0.5);
