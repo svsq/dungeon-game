@@ -24,6 +24,13 @@
     ev_bulwark: { id: 'ev_bulwark', name: TXT('POWERS.ev_bulwark.name'), desc: TXT('POWERS.ev_bulwark.desc'), ab: 'shield', trig: 'shieldBreak', fx: 'nova', k: 1, spell: 1, r: 130, fire: 1 },
     ev_mines: { id: 'ev_mines', name: TXT('POWERS.ev_mines.name'), desc: TXT('POWERS.ev_mines.desc'), ab: 'trap', trig: 'trapsnap', fx: 'dropTrap', k: 1, icd: 2 },
     ev_shoulder: { id: 'ev_shoulder', name: TXT('POWERS.ev_shoulder.name'), desc: TXT('POWERS.ev_shoulder.desc'), trig: 'dashTouch', fx: 'nova', k: 0.5, r: 70, fire: 1 },
+    // the kits' passives (TASKS 393): the same engine, carried from the first step of the run
+    kit_axe: { id: 'kit_axe', trig: 'crit', fx: 'stun', t: 0.6, boss: 0.2, icd: 1 },
+    kit_hammer: { id: 'kit_hammer', trig: 'every:4', fx: 'nova', k: 0.6, r: 90, kb: 1 },
+    kit_wand: { id: 'kit_wand', trig: 'cast:fireball', fx: 'mana', v: 0.08 },
+    kit_ash: { id: 'kit_ash', trig: 'kill', fx: 'burnGround', k: 0.3, t: 1.5, per: 0.5 },
+    kit_long: { id: 'kit_long', trig: 'hit', p: 0.15, fx: 'slow', t: 2, slow: 0.6 },
+    kit_cross: { id: 'kit_cross', trig: 'dash', fx: 'mana', v: 0.1, icd: 1 },
     // the relics (TASKS 1178): a dear tier of its own, a rule of the run changed
     rl_fifth: { id: 'rl_fifth', name: TXT('POWERS.rl_fifth.name'), desc: TXT('POWERS.rl_fifth.desc'), trig: 'kill', each: 5, fx: 'nova', k: 1.5, r: 130, kb: 1, fire: 1 },
     rl_scroll: { id: 'rl_scroll', name: TXT('POWERS.rl_scroll.name'), desc: TXT('POWERS.rl_scroll.desc'), trig: 'scroll', fx: 'heal', v: 1 },
@@ -43,5 +50,19 @@
   // what an altar may offer this hero of a tier: not another class's power, not one for an ability not yet open, not one already held
   const giftPool = (h, tier) => D.liveFor(h, 'gifts', D.GIFTS).filter((g) => g.tier === tier && !g.needs && (!g.power || (!hasPower(h, g.id) && (!g.ab || ((h.ab || {})[g.ab] || 0) > 0))));
   const evosReady = (h) => D.GIFTS.filter((g) => g.needs && !hasPower(h, g.id) && g.needs.every((id) => hasPower(h, id)));
-  Object.assign(D, { POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
+  // a class's starting kits (TASKS 393): the first is the plain start, a weapon of its own class and a passive for the others
+  const KITS = [
+    { id: 'w_sword', cls: 'warrior', weapon: 'sword', name: TXT('KITS.w_sword.name'), desc: TXT('KITS.w_sword.desc') },
+    { id: 'w_axe', cls: 'warrior', weapon: 'axe', power: 'kit_axe', name: TXT('KITS.w_axe.name'), desc: TXT('KITS.w_axe.desc') },
+    { id: 'w_hammer', cls: 'warrior', weapon: 'hammer', power: 'kit_hammer', name: TXT('KITS.w_hammer.name'), desc: TXT('KITS.w_hammer.desc') },
+    { id: 'm_staff', cls: 'mage', weapon: 'staff', name: TXT('KITS.m_staff.name'), desc: TXT('KITS.m_staff.desc') },
+    { id: 'm_wand', cls: 'mage', weapon: 'wand', power: 'kit_wand', name: TXT('KITS.m_wand.name'), desc: TXT('KITS.m_wand.desc') },
+    { id: 'm_ash', cls: 'mage', weapon: 'staff', power: 'kit_ash', name: TXT('KITS.m_ash.name'), desc: TXT('KITS.m_ash.desc') },
+    { id: 'a_short', cls: 'archer', weapon: 'shortbow', name: TXT('KITS.a_short.name'), desc: TXT('KITS.a_short.desc') },
+    { id: 'a_long', cls: 'archer', weapon: 'longbow', power: 'kit_long', name: TXT('KITS.a_long.name'), desc: TXT('KITS.a_long.desc') },
+    { id: 'a_cross', cls: 'archer', weapon: 'crossbow', power: 'kit_cross', name: TXT('KITS.a_cross.name'), desc: TXT('KITS.a_cross.desc') },
+  ];
+  const kitsOf = (cls) => KITS.filter((k) => k.cls === cls);
+  const kitOf = (meta, cls) => { const list = kitsOf(cls), id = ((meta || {}).kit || {})[cls]; return list.find((k) => k.id === id) || list[0]; };
+  Object.assign(D, { KITS, kitsOf, kitOf, POWERS, giftPool, evosReady, hasPower, RELIC_MAX, relicsOf });
 })(typeof window !== 'undefined' ? window : globalThis);

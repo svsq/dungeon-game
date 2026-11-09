@@ -40,9 +40,16 @@
       const j = JSON.parse(JSON.stringify(sh)); if (j.rolls !== 2) out.push('reroll: the count is lost in the save'); c.S.meta.shards = 1; const g = sh.gifts; SIMX.rerollAltar(c.S, c.R, sh, 0, 0); if (sh.gifts !== g || c.S.meta.shards !== 1) out.push('reroll: a poor hero changed the gifts'); c.S.meta.shards = 99; sh.used = 1; SIMX.rerollAltar(c.S, c.R, sh, 0, 0); if (sh.gifts !== g) out.push('reroll: a spent altar changed its gifts'); }
     { const c = stage(); const sh = { x: 0, y: 0, gifts: [{ id: 'fury', cost: 1 }] }; c.R.shrines.push(sh); c.h.perks = { fury: 1 }; c.S.meta.shards = 5; SIMX.takeGift(c.S, c.R, sh, 0, 0, 0); if (c.h.perks.fury !== 2) out.push('rank: a gift held does not stack'); }
   }
+  function checkKits(out) {
+    for (const cl of Object.keys(D.CLASSES)) { const list = D.kitsOf(cl); if (list.length < 2) out.push(`kit: ${cl} has ${list.length}`); if (list[0].power) out.push(`kit: ${cl}'s plain kit has a passive`);
+      for (const k of list) { if (!D.wears(cl, k.weapon) || D.BASES[k.weapon].slot !== 'weapon') out.push(`kit: ${k.id}'s weapon is not a ${cl}'s`); if (k.power && !D.POWERS[k.power]) out.push(`kit: ${k.id} has no power ${k.power}`);
+        const S = spawn(0, {}); S.meta.kit = { [cl]: k.id }; const R = newRun(S, 'campaign', 92, { cls: cl }); if (R.hero.eq.weapon.b !== k.weapon) out.push(`kit: ${k.id} starts with ${R.hero.eq.weapon.b}`); if (k.power ? !D.hasPower(R.hero, k.power) : R.hero.powers) out.push(`kit: ${k.id} starts with powers ${JSON.stringify(R.hero.powers)}`); }
+      const S = spawn(0, {}), R = newRun(S, 'campaign', 93, { cls: cl }); if (R.hero.kit !== D.kitsOf(cl)[0].id || R.hero.eq.weapon.b !== D.CLASSES[cl].start.weapon) out.push(`kit: an unchosen ${cl} starts differently`); S.meta.kit = { [cl]: 'nope' }; if (D.kitOf(S.meta, cl).id !== list[0].id) out.push(`kit: a stale saved kit of a ${cl} is taken`); }
+    { const S = spawn(0, {}); S.screen = 'classes'; S.pendingMode = 'campaign'; S.meta.cls = 'warrior'; const b = D.UI.classes().find((q) => q.id === 'kit:warrior'); if (b) { SIMX.step(S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (D.kitOf(S.meta, 'warrior').id !== 'w_axe') out.push(`kit: the button chose ${D.kitOf(S.meta, 'warrior').id}`); } else out.push('kit: no button'); }
+  }
   function checkPowerPack(out) {
     const T = 'POWERS', own = (c, id) => { (c.h.powers = c.h.powers || {})[id] = 1; };
-    for (const [id, P] of Object.entries(D.POWERS)) { if (!P.name || !P.desc || P.name.startsWith(T) || P.desc.startsWith(T)) out.push(`power: ${id} has no words`);
+    for (const [id, P] of Object.entries(D.POWERS)) { if (!id.startsWith('kit_') && (!P.name || !P.desc || P.name.startsWith(T) || P.desc.startsWith(T))) out.push(`power: ${id} has no words`);
       if (P.ab && !Object.values(D.CLASSES).some((C) => C.abilities.includes(P.ab))) out.push(`power: ${id} is for ${P.ab}, no class has it`); if (!SIMX.POWER_FX[P.fx]) out.push(`power: ${id} does ${P.fx}, no such effect`); }
     { const c = stage('warrior'); own(c, 'whirl_pull'); const e = foe(c.R, c.h, 70); castAbility(c.S, c.R, 'whirl', {}); if (!(e.kbx < 0)) out.push(`power: the whirl does not pull (kbx ${e.kbx})`); }
     { const c = stage('warrior'); own(c, 'whirl_ring'); castAbility(c.S, c.R, 'whirl', {}); if (c.R.fires.filter((f) => f.own === 'hero').length < 4) out.push('power: no ring of fire after the whirl'); }
@@ -76,7 +83,7 @@
     { const c = stage(), rs = c.R.rs; c.h.powers = {}; const e = foe(c.R, c.h); heroHit(c.S, c.R, e, 1, false, c.h.x, c.h.y); SIMX.firePowers(c.S, c.R, 'kill', {}); if (c.R.rs !== rs) out.push('power: a hero without powers spends the run\'s dice'); }
     { const c = stage(); grant(c.h, T, { trig: 'hit', fx: 'burnGround', k: 1, t: 2, per: 0.5 }); const e = foe(c.R, c.h, 0, 0), hp0 = e.hp; SIMX.firePowers(c.S, c.R, 'hit', { x: e.x, y: e.y }); delete D.POWERS[T]; const f = c.R.fires[0]; if (!f || f.own !== 'hero') out.push('power: ground fire not laid'); else { const hp1 = c.h.hp; c.S.t += 0.6; SIMX.stepFires(c.S, c.R); if (e.hp >= hp0) out.push('power: the hero\'s fire does not burn monsters'); if (c.h.hp !== hp1) out.push('power: the hero\'s fire burns the hero'); } }
     { const c = stage(), j = JSON.parse(JSON.stringify(c.R.hero)); j.powers = { a: 1 }; if (JSON.parse(JSON.stringify(j)).powers.a !== 1) out.push('power: not kept in the save'); }
-    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out);
+    checkPowerPack(out); checkPowerGifts(out); checkRelics(out); checkEvolutions(out); checkAltarExtras(out); checkKits(out);
   }
   Object.assign(SIMX, { checkPowers });
 })(typeof window !== 'undefined' ? window : globalThis);

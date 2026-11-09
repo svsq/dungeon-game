@@ -632,6 +632,7 @@
     lab('cl_t', TXT('UI.classes.title'), W / 2, 92, { size: 72, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('cl_s', TXT('UI.classes.hint'), W / 2, 156, { size: 26, al: 0.5, col: C.dim });
     for (const b of D.UI.classes()) {
+      if (b.kit) continue;
       if (!b.cls) { button('cl_' + b.id, b, S.hover); continue; }
       const Cl = D.CLASSES[b.cls], on = (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior') === b.cls, hv = S.hover === b.id;
       panel('cl_' + b.cls, b.x, b.y, b.w, b.h, { r: 10, rim: on ? [1, 0.78, 0.32] : hv ? C.rimHi : C.rim, c0: on ? [0.16, 0.12, 0.08] : [0.08, 0.07, 0.07] });
@@ -642,7 +643,9 @@
       lab('cl_u' + b.cls, Cl.note, b.x + b.w / 2, b.y + 324, { size: 18, al: 0.5, col: '#8a7d6c' });
       Cl.abs.forEach((A, i) => { const y = b.y + 340 + i * 74; panel('cl_a' + b.cls + i, b.x + 40, y, 60, 60, { r: 6, rim: C.rim }); icon(A.icon, b.x + 44, y + 4, 52);
         lab('cl_an' + b.cls + i, A.name, b.x + 116, y + 22, { size: 23, col: C.text }); lab('cl_ak' + b.cls + i, TXT('hud.inv.14', { unlock: A.unlock }) + ' · ' + abCost(Cl, A, 1), b.x + 116, y + 48, { size: 18, col: C.dim }); });
-      lab('cl_k' + b.cls, TXT('UI.classes.start', { p1: Object.values(Cl.start).map((k) => D.BASES[k].name).join(', ') }), b.x + b.w / 2, b.y + 586, { size: 20, al: 0.5, col: C.dim });
+      const Kt = D.kitOf(S.meta, b.cls), kb = D.UI.classes().find((q) => q.id === 'kit:' + b.cls), kh = S.hover === 'kit:' + b.cls;
+      if (kb) { panel('cl_kb' + b.cls, kb.x, kb.y, kb.w, kb.h, { r: 6, rim: kh ? C.rimHi : C.rim, c0: kh ? [0.18, 0.14, 0.1] : [0.1, 0.09, 0.08] }); lab('cl_kn' + b.cls, TXT('UI.classes.kit', { p1: Kt.name }), kb.x + kb.w / 2, kb.y + 28, { size: 23, al: 0.5, col: on ? C.gold : C.text }); }
+      lab('cl_k' + b.cls, Kt.desc, b.x + b.w / 2, b.y + 616, { size: 20, al: 0.5, col: C.dim });
       if (on) lab('cl_on' + b.cls, TXT('UI.classes.chosen'), b.x + b.w - 20, b.y + 30, { size: 20, al: 1, col: C.gold });
     }
   }
