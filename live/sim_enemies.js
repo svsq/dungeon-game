@@ -346,7 +346,7 @@
           else { SIMX.breakPots(S, R, bx, by, 24); SIMX.hitProps(S, R, bx, by, 24); }
           ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hit: touched ? 1 : 0, mine: 1 }); }
         else if (p.own === 'hero') { const bx = p.x - p.vx * DT, by = p.y + 20 - p.vy * DT;
-          for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, p.dmg, false, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
+          for (const e of R.en) if (e.deadT < 0 && Math.hypot(e.x - p.x, (e.y - ENEMIES[e.type].h * 0.4 - p.y) * 1.2) < 66 + ENEMIES[e.type].r && losClear(m, bx, by, e.x, e.y)) SIMX.heroHit(S, R, e, p.dmg, !!p.crit, p.x, p.y, 1.2, 'fire', p.x, p.y + ENEMIES[e.type].h * 0.45);
           SIMX.breakPots(S, R, bx, by, 50); SIMX.hitProps(S, R, bx, by, 50); SIMX.tearWebs(S, R, bx, by - 20, 66, undefined, undefined, 1); ev(S, { k: 'boom', x: p.x, y: p.y, gx: bx, gy: by }); R.trauma = Math.min(1, R.trauma + 0.2); }
         else ev(S, { k: 'pop', x: p.x, y: p.y, c: p.k, hero: p.onHero || 0 }); } }
     R.proj = R.proj.filter((p) => !p.dead);

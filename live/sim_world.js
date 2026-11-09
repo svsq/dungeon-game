@@ -61,13 +61,13 @@
     if (id === 'whirl') { fired.r = AR.r; h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.round(st.atk * dmgK * (c ? st.critK : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitSecrets(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
-    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
-      const p = { id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }; R.proj.push(p); fired.projs = [p]; ev(S, { k: 'cast', x: hx, y: hy, a }); }
+    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, c = rnd(R) * 100 < st.crit, dmg = Math.round(D.fireDmg(st.spellBase, AR.k, st.spell) * (c ? st.critK : 1));
+      const p = { id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, crit: c ? 1 : 0, own: 'hero', r: 8 }; R.proj.push(p); fired.projs = [p]; ev(S, { k: 'cast', x: hx, y: hy, a }); }
     // the ice wave (TASKS 1110): everyone in the cone before the mage, in his sight, is hurt and chilled (sim_enemies: slowK)
     if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell);
       for (const e of R.en) { if (e.deadT >= 0 || under(e)) continue; const dx = e.x - h.x, dy = (e.y - h.y) * 1.3, d = Math.hypot(dx, dy);
         if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
-        SIMX.chill(S, e, F.t, F.slow); heroHit(S, R, e, dmg, false, h.x, h.y, 0.5, 'frost'); }
+        SIMX.chill(S, e, F.t, F.slow); const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, c ? Math.round(dmg * st.critK) : dmg, c, h.x, h.y, 0.5, 'frost'); }
       tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
     // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
     // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)

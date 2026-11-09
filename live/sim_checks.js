@@ -2922,7 +2922,11 @@
           if (!(a.hp < a.max && a.chillT > S.t) || b.hp < b.max || b.chillT) out.push('class mage: the ice wave misses the foe before him or hits the one behind');
           if (h.mp !== 500 - D.ABILITIES.find((q) => q.id === 'frost').mp) out.push('class mage: the ice wave costs the wrong mana');
           for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (a.slowK !== D.FROST.slow) out.push('class mage: a chilled foe is not slowed');
-          a.chillT = S.t; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (a.slowK !== 1) out.push('class mage: the chill does not thaw'); } }
+          a.chillT = S.t; for (let i = 0; i < 20; i++) step(S, { keys: [] }); if (a.slowK !== 1) out.push('class mage: the chill does not thaw');
+          // TASKS 1685: the ice wave and the fireball can crit
+          h.eq.weapon.mods.crit = 500; h.ab.fireball = 1; h.aim = 0; const crits = { frost: 0, fireball: 0 };
+          for (const id of ['frost', 'fireball']) for (let n = 0; n < 24; n++) { h.mp = 500; h.cd[id] = 0; h.aim = 0; a.hp = a.max = 1e6; a.x = h.x + 120; a.y = h.y; S.ev = []; castAbility(S, R, id, {}); let got = S.ev.some((q) => q.k === 'hit' && q.crit); for (let i = 0; i < 40 && !got; i++) { step(S, { keys: [] }); got = S.ev.some((q) => q.k === 'hit' && q.crit); } if (got) crits[id]++; }
+          if (!crits.frost || !crits.fireball) out.push(`class mage: ${!crits.frost ? 'the ice wave' : 'the fireball'} never crits at the cap (${crits.frost}, ${crits.fireball})`); } }
       for (const cls of ['mage', 'warrior']) { const { S, R, h, foe, ok } = arena(cls); if (!ok) continue;
         if (cls === 'warrior') { h.eq.weapon.b = 'staff'; }
         const e = foe(200); h.mp = 0; for (let i = 0; i < 60; i++) { h.mp = 0; e.x = h.x + 200; e.y = h.y; e.st = 'idle'; step(S, { keys: [], press: i < 20 ? 1 : 0, ...toPx(R, e.x, e.y - 30) }); }
