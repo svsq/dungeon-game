@@ -3,7 +3,7 @@
 (function () {
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
-    PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
+    PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
     deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   SCX.worldPass = (F) => {
@@ -246,8 +246,11 @@
     for (const e of ST.ev) { const a = GT - e.t; if (e.k !== 'rockfall' || a < 0 || a >= 2.4 || !vis(e.x, e.y)) continue; const [w0, h0] = SZ('dc_rubble'), k = 56 / Math.max(w0, h0);
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
-    for (const p of R.pots) { if (p.hp > 0 || p.kind === 'gold' || p.kind === 'goldpile' || !vis(p.x, p.y) || SIM.Q.hidden(m, p)) continue; const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, PROP_H[p.kind], wood ? 8 : 6); }
-    for (const d of m.decor) if (d.n === 'wreck_cv' && d.broken && vis(d.x, d.y)) debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, null, 14, 1.8);
+    const brokenPots = R.pots.filter((p) => p.hp <= 0 && p.kind !== 'gold' && p.kind !== 'goldpile' && vis(p.x, p.y) && !SIM.Q.hidden(m, p)), brokenWrecks = m.decor.filter((d) => d.n === 'wreck_cv' && d.broken && vis(d.x, d.y));
+    const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
+    const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    for (const p of brokenPots) potDebris(p, false);
+    for (const d of brokenWrecks) wreckDebris(d, false);
     for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && !SIM.Q.hidden(m, d)) { const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0);
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
@@ -385,6 +388,8 @@
       const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold, cl = chestLook(c), ownN = cl.tex && cl.tex + (op > 0.5 ? '_open' : ''), own = ownN && window.ASSETS[ownN];
       drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x) + (op > 0.5 ? cl.dx || 0 : 0), sy(c.y), { dy: 4 + trapDy, j: trapJ || (c.open ? chestRecoil(c, ao) : null), u: c.bangT !== undefined && GT >= c.bangT ? { grade: [0.5, 0.75, 0, 0.75], tint: [0.28, 0.24, 0.22, 0.6] } : gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
       if (c.sealed) { const [pw0, ph0] = SZ('padlock'), pw = pw0 * 0.7, ph = ph0 * 0.7, a = 0.5 + 0.5 * Math.sin(t * 2.4), px = sx(c.x) - 2 - pw / 2, py = sy(c.y) - 56; G.blend('add'); L.glow(sx(c.x) - 2, py + ph / 2, 20, [1, 0.25, 0.15], 0.12 + 0.12 * a); G.blend(); L.inked(() => L.sprite('padlock', px, py, { w: pw, h: ph }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); } }]);
+    for (const p of brokenPots) if (GT - (p.brokeT ?? -9) < DEBRIS_END) Y.push([p.y + 30, () => potDebris(p, true)]);
+    for (const d of brokenWrecks) if (GT - (d.brokeT ?? -9) < DEBRIS_END) Y.push([d.y + 30, () => wreckDebris(d, true)]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 });
       if (p.kind === 'gold' || p.kind === 'goldpile') emitted((a) => drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4, u: { alpha: a, tint: GOLD_TINT } })); }]); }
     // lean: the flame's tip shifted sideways (px), its base stays on the wick

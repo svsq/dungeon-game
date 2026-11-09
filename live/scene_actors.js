@@ -446,11 +446,17 @@
     if (r > 0.08) { G.blend('add'); const col = rank === 'boss' ? [1, 0.25, 0.18] : rank === 'iron' ? [0.7, 0.85, 1] : [1, 0.75, 0.3]; L.glow(X, Y - yAt - gap * 0.6, W * 0.36, col, 0.38 * r, 3); G.blend(); } }
   // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
   // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
-  const DEBRIS_T = 0.42;
-  function debris(x, y, seed, a, wood, tex, n, sp = 1) { for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, lx = x + Math.cos(an) * far, ly = y + 3 + Math.sin(an) * far * 0.62;
-      const q = Math.min(1, Math.max(0, a) / DEBRIS_T), arc = 4 * q * (1 - q) * (26 + 22 * rnd(seed, i + 7)), px = x + (lx - x) * q, py = y - 10 * (1 - q) + (ly - y) * q - arc, rest = (rnd(seed, i + 13) - 0.5) * (wood ? 1.1 : 3.1), rot = rest + (1 - q) * (rnd(seed, i + 19) - 0.5) * 16, tone = 0.72 + 0.22 * rnd(seed, i + 23);
-      if (wood) { const small = i >= 5, w = (small ? 8 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)), h = w * 210 / 952 * (small ? 1.5 : 1.15); L.sprite(i % 2 ? 'plank_b' : 'plank_a', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h, pivot: [w / 2, h / 2], u: { grade: [0.9, tone, 0, 1] } }); }
-      else { const c = 4, u0 = i % c / c, v0 = Math.floor(rnd(seed, i + 5) * c) / c, S0 = 12 + 7 * rnd(seed, i + 9); L.sprite(tex, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: S0, h: S0, pivot: [S0 / 2, S0 / 2], src: [u0, v0, u0 + 1 / c, v0 + 1 / c], u: { grade: [0.95, tone, 0, 1] } }); } } }
+  const DEBRIS_T = 0.42, DEBRIS_END = DEBRIS_T * 1.35 + 0.2, SHARDS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 'shard_' + i);
+  // wet(dx, dy): the landing spot from the break is on water. In air (air = true) a piece is drawn in the Y band, so it passes in front of what it flies over
+  function debris(x, y, seed, a, wood, n, sp, air, wet, t) { for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, dx = Math.cos(an) * far, dy = 3 + Math.sin(an) * far * 0.62, W = wet(dx, dy);
+      const dur = DEBRIS_T * (0.75 + 0.6 * rnd(seed, i + 29)), b = Math.max(0, a) - dur, q = Math.min(1, Math.max(0, a) / dur), hop = W ? 1 : Math.min(1, Math.max(0, b) / 0.2), flying = q < 1 || hop < 1; if (flying !== !!air) continue;
+      const H = 26 + 22 * rnd(seed, i + 7), z = 4 * q * (1 - q) * H + (hop < 1 && b >= 0 ? 4 * hop * (1 - hop) * H * 0.18 : 0), s = W ? 1 : 0.9 + 0.1 * hop, rest = (rnd(seed, i + 13) - 0.5) * (wood ? 1.1 : 3.1), spin = (1 - q) * (rnd(seed, i + 19) - 0.5) * 16, kick = W ? 0 : (1 - hop) * (rnd(seed, i + 31) - 0.5) * 1.3, r0 = rnd(seed, i + 23);
+      const fl = W && wood ? SS(0, 1.2, b) : 0, ph = i * 1.7 + seed, bob = Math.sin(t * 1.6 + ph) * 1.2 * fl, px = x + dx * q * s + Math.sin(t * 0.37 + ph) * 3.5 * fl, gy = y - 10 * (1 - q) + dy * q * s + Math.cos(t * 0.29 + ph) * 2 * fl, py = gy - z + bob, rot = rest + spin + kick + Math.sin(t * 0.8 + ph) * 0.07 * fl, gone = W && !wood ? SS(0, 0.7, b) : 0; if (gone >= 1) continue;
+      const small = i >= 5, w = wood ? (small ? 9 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)) * (sp > 1 ? 1.25 : 1) : 0, h0 = w * 210 / 952 * (small ? 1.7 : 1.45), N = SHARDS[i % SHARDS.length], [sw, sh] = wood ? [w, h0] : SZ(N), al = 1 - gone;
+      if (W && q >= 1) { const pr = (t * 0.55 + rnd(seed, i + 37)) % 1; if (wood) L.ring(px, gy + 2, sw * (0.55 + 0.35 * pr), 4 + 3 * pr, [0.5, 0.68, 0.7], 0.32 * (1 - pr), 0.25); if (b < 0.55) { const k = b / 0.55; L.ring(px, gy + 1, 3 + sw * 0.6 * k, 2 + 7 * k, [0.62, 0.78, 0.8], 0.7 * (1 - k), 0.2); } }
+      else if (!W) L.shadow(px, gy + 2, sw * 0.5, 3 + (wood ? 1 : 0), 0.45 * (1 - 0.5 * Math.min(1, z / 40)));
+      const u = { grade: wood ? [0.95, W ? 0.92 + 0.2 * r0 : 1.08 + 0.3 * r0, 0, 1] : [1, 0.9 + 0.22 * r0, 0, 1], alpha: al };
+      L.inked(() => L.sprite(wood ? (i % 2 ? 'plank_b' : 'plank_a') : N, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }), { r: 2, n: 4, col: [0.09, 0.04, 0.04], dy: 0 }); } }
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
   const NO_INK = new Set(['bones', 'torch_sconce']);
@@ -478,6 +484,6 @@
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_T, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -12,7 +12,7 @@
     vase_a: 60, vase_b: 48, vase_c: 60, candlestick: 60, candelabra: 66, torch_stand: 76,
     queen_crown: 47, spider_eggs: 40, water_basin: 40, water_spout: 42, water_grate: 36, water_drain: 34, water_stone_a: 18, water_stone_b: 18,
     shroom_a: 40, shroom_b: 56, crystal_cv: 84,
-    stalag_a: 54, stalag_b: 74, boulder_a: 44, boulder_b: 32, lily_cv: 24, weed_cv: 40, wreck_cv: 50, skel_cv: 44, tent_cv: 80,
+    stalag_a: 54, stalag_b: 74, boulder_a: 44, boulder_b: 32, shard_0: 11, shard_1: 14, shard_2: 13, shard_3: 13, shard_4: 11, shard_5: 8, shard_6: 10, shard_7: 6, lily_cv: 24, weed_cv: 40, wreck_cv: 50, skel_cv: 44, tent_cv: 80,
     campfire_cv: 36, bridge_post: 54, bridge_torch: 74, ford_a: 20, ford_b: 17,
     // the start town (R-17, TASKS 1004): one or two tiles tall at most, by the style bible's town rule; the tree and the adit 70
     anvil_tw: 46, wall_end_tw_a: 40, wall_end_tw_b: 40, wall_end_tw_c: 34, wall_end_tw_d: 38, forge_tw: 72, forge_mg: 64, stairs_mg: 64, stairs_up_mg: 96, stairs_up_free_mg: 76, lectern_tw: 54, flasks_tw: 68, board_tw: 62, orebin_tw: 44, bench_tw: 28, logs_tw: 40, herbs_tw: 32, cart_tw: 55, cart_tw_half: 55, cart_tw_empty: 55, stoneyard_tw: 130, picks_tw: 50,
