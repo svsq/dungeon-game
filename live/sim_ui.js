@@ -49,7 +49,7 @@
   // each screen's input, by S.screen: one function a screen (dead and win share one)
   const SCREEN = {};
   SCREEN.menu = (S, inp, keys, x, y, click) => {
-    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, S.saved && S.saved.town), x, y); S.hover = b ? b.id : '';
+    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
     if (click && b && b.on) {
       if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed, FROM(S.run), S.run.map), t: S.t }; }
       if (D.RUNS[b.id]) pressRun(S, b.id, arm);
@@ -57,7 +57,6 @@
       if (b.id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
       if (b.id === 'zoom') nextZoom(S);
-      if (b.id === 'town') { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed, FROM(S.run), S.run.map), t: S.t }; } else chooseRun(S); }
       ev(S, { k: 'ui', x, y });
     }
     if (keys.Enter) { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; } else chooseRun(S); }
@@ -114,13 +113,10 @@
     const T = S.talk, b = T && D.hitUI(UI.talk(T).r, x, y); S.hover = b ? b.id : '';
     if (!T || !S.run || keys.Escape) { S.screen = 'play'; S.talk = null; return; }
     if (click && b && b.id === 'craft') { S.talk = null; S.screen = 'craft'; S.craft = { kind: 'forge', sel: S.craft && S.craft.kind === 'forge' ? S.craft.sel : null }; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
-    // on a quest's last page E, the space or Enter press its button; «Дальше» / «Не сейчас» leave it
-    const last = T.p + 1 >= T.pages.length; if (last && T.pt === undefined) T.pt = S.t;
-    // (the end of the run, TASKS 1148, only by its button or Enter: E run through the Keeper's pages must not end it)
-    // a quest's taking waits a moment after its last page opens: E run through the pages must not take it (TASKS 1635); the space only turns pages and closes
-    const take = T.act && T.act.k === 'take', ready = keys.KeyE && (!take || S.t - T.pt >= 0.25);
-    if (take && last && keys.KeyE && !ready) return;
-    if (T.act && last && ((click && b && b.id === 'act') || (ready && T.act.k !== 'finish') || keys.Enter)) { talkAct(S, S.run, T); delete T.pt; return; }
+    const last = T.p + 1 >= T.pages.length;
+    // E run through the pages must never take a quest or end the run (TASKS 1148, 1657): on those pages it only closes
+    const byE = keys.KeyE && T.act && T.act.k !== 'finish' && T.act.k !== 'take';
+    if (T.act && last && ((click && b && b.id === 'act') || byE || keys.Enter)) { talkAct(S, S.run, T); return; }
     if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { S.screen = 'play'; S.talk = null; } else ev(S, { k: 'ui', x, y }); }
     return;
   };

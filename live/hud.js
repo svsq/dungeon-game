@@ -374,12 +374,12 @@
   function mmBox(R) { const m = R.map, mw = m.W * mapK(R), mh = m.H * mapK(R), tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), { size: 17 }),
       pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (legendOf(R).length + (SIM.Q.completionHints(R).length ? 1 : 0)) + 34]; }
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands
-  const trkRows = (R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned').slice(0, 4);
+  const trkAll = (R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned'), trkRows = (R) => trkAll(R).slice(0, 4), trkMore = (R) => Math.max(0, trkAll(R).length - 4);
   function trkBox(S, R) { const Q = trkRows(R); if (!Q.length || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(R);
     const w = Math.max(280, ...Q.map((q, i) => Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.Q.questLine(q, R), { size: 16 })))) + 32;
-    return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50]; }
+    return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50 + (trkMore(R) ? 26 : 0)]; }
   function tracker(S, R) { const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B;
-    panel('qtrack', x0, y0, w, h, { r: 5, a: 0.84 }); lab('qt_t', TXT('hud.tracker'), x0 + 14, y0 + 20, { size: 16, col: C.dim });
+    panel('qtrack', x0, y0, w, h, { r: 5, a: 0.84 }); lab('qt_t', TXT('hud.tracker'), x0 + 14, y0 + 20, { size: 16, col: C.dim }); if (trkMore(R)) lab('qt_more', TXT('hud.tracker.more', { n: trkMore(R) }), x0 + 14, y0 + h - 16, { size: 16, col: C.dim });
     trkRows(R).forEach((q, i) => { const y = y0 + 48 + i * 50, done = q.st === 'done', Q = D.QUESTS[q.key];
       lab('qt_n' + i, Q.name, x0 + 14, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14, y + 22, { size: 16, col: done ? '#8fd98a' : C.text }); }); }
@@ -649,7 +649,7 @@
     menuBack(t);
     lab('m_t', TXT('hud.menu'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom, S.saved && S.saved.town)) { button('mb_' + b.id, b, S.hover);
+    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
       // on the normal difficulty a first-timer almost never wins; and ×1 is the reference's scale, small on a laptop
       const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? TXT('hud.menu.tip') : b.id === 'zoom' && (S.meta.zoom || D.ZOOM) === 1 ? TXT('hud.menu.tip.2') : '';
       if (tip) lab('mb_tip_' + b.id, tip, b.x + b.w + 24, b.y + b.h / 2 + 1, { size: 21, al: 0, col: '#9fd08a' }); }

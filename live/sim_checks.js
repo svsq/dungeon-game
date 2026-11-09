@@ -2205,7 +2205,7 @@
       h.x = m.town.svc.bin.x + TILE; h.y = m.town.svc.bin.y;
       const F = folkOf(R), stops = F.map(() => new Set()), loads = new Set(), stuck = F.map(() => 0), lifts = [], henWalk = F.map(() => 0); let close = 9, off = 0, rings = 0, empty = 0, fed = 0;
       for (let i = 0; i < 120 * 120; i++) { const t0 = S.t; step(S, { keys: [] }); rings += S.ev.filter((e) => e.k === 'anvil' && e.t > t0).length;
-        for (const f of F) { if (!f.go && f.way >= 0) stops[f.i].add(f.way); stuck[f.i] = Math.max(stuck[f.i], f.stuck); henWalk[f.i] = f.dist;
+        for (const f of F) { if ((!f.go || f.role === 'porter') && f.way >= 0) stops[f.i].add(f.way); stuck[f.i] = Math.max(stuck[f.i], f.stuck); henWalk[f.i] = f.dist;
           if (f.role === 'hen' && R.grain && S.t - R.grain.t < 6 && Math.hypot(f.x - R.grain.x, f.y - R.grain.y) < 24) fed = 1;
           if (f.role === 'porter') { loads.add(f.load); if (f.lift && lifts[lifts.length - 1]?.t !== f.t0) lifts.push({ k: f.lift, t: f.t0 });
             const st = m.town.npcs[f.i].route[f.way]; if (!f.go && st.act && f.t0 === S.t && !f.lift) empty++; } if (m.town.npcs[f.i].route && !folkFree(m, f.x, f.y, folkR(f))) off++;
@@ -2519,7 +2519,7 @@
   function questGiveCheck() {
     const out = [], S = spawn(0, {}), run = (sd) => { S.run = newRun(S, 'campaign', sd, { town: 1 }); S.screen = 'play'; return S.run; };
     const talkTo = (R, role) => { const f = folkOf(R).find((q) => q.role === role); for (const o of folkOf(R)) if (o !== f) o.x += 3000; R.hero.x = f.x + 44; R.hero.y = f.y + 12; for (let i = 0; i < 20; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); for (const o of folkOf(R)) if (o !== f) o.x -= 3000; return S.talk; };
-    const finish = () => { for (let i = 0; i < 60 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); };
+    const finish = () => { for (let i = 0; i < 60 && S.screen === 'talk'; i++) { const T = S.talk, take = T.act && T.act.k === 'take' && T.p + 1 >= T.pages.length; step(S, { keys: [take ? 'Enter' : 'KeyE'] }); } };
     let R = run(41); const of = offersOf(R).map((o) => o.key + ':' + o.from).join();
     if (of !== offersOf(run(41)).map((o) => o.key + ':' + o.from).join()) out.push('quest give: the offers differ for the same seed');
     const seeds = [41, 42, 43, 44, 45, 46, 47, 48].map((sd) => offersOf(run(sd)));
@@ -2528,9 +2528,16 @@
     const takeKind = (sd, key) => { const R2 = run(sd); R2.offers = [{ key, from: 'guard', q: 0 }]; R2.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
       if (questMark(R2, 'guard') !== '!') out.push('quest give: no ! over the giver of ' + key);
       const T = talkTo(R2, 'guard'); if (!T || !T.act || T.act.k !== 'take') { out.push('quest give: the giver\'s talk has no quest of ' + key); return null; }
-      finish(); const q = R2.quests.find((o) => o.key === key); if (!q || questMark(R2, 'guard') || S.screen !== 'play') { out.push('quest give: E on the quest\'s page does not take ' + key); return null; }
+      for (let i = 0; i < 60 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); if (R2.quests.some((o) => o.key === key)) out.push('quest give: E run through the pages takes ' + key);
+      if (!talkTo(R2, 'guard')) { out.push('quest give: the talk does not reopen after E closed it'); return null; }
+      finish(); const q = R2.quests.find((o) => o.key === key); if (!q || questMark(R2, 'guard') || S.screen !== 'play') { out.push('quest give: Enter on the quest\'s page does not take ' + key); return null; }
       if (q.f !== (D.QUESTS[key].from || 1) || (D.QUESTS[key].noBoss && STAGE(R2, q.f).boss)) out.push(`quest give: ${key} points at floor ${q.f}`); return q; };
     // the named foe
+    { const q0 = takeKind(19, 'named'), R0 = S.run;
+      if (q0) { for (let f = 1; f <= q0.f; f++) enterFloor(S, R0, f); const e0 = R0.en.find((o) => o.quest === q0.id), i0 = R0.en.indexOf(e0);
+        if (e0 && i0 > 0) { const was = e0.was; if (!e0.mods || !e0.mods.length) out.push('quest abandon: the named foe on seed 19 has no elite mods to lose'); e0.hp = Math.round(e0.max / 2); R0.en.splice(0, 1); const maxOf = new Map(R0.en.filter((o) => o !== e0).map((o) => [o.id, o.max])); enterFloor(S, R0, 0, undefined, 'up'); SIMX.abandonQuest(S, R0, q0); enterFloor(S, R0, q0.f);
+          const e1 = R0.en.find((o) => o.id === e0.id); if (!e1 || e1.quest !== undefined || e1.elite || e1.title || e1.mods !== undefined || e1.ward !== undefined || e1.max !== was.max || Math.abs(e1.hp - was.max / 2) > 2) out.push(`quest abandon: the named foe is not its plain self on a kept floor (${e1 ? e1.hp + '/' + e1.max + ', was ' + was.max : 'gone'})`);
+          if (R0.en.some((o) => o !== e1 && maxOf.has(o.id) && o.max !== maxOf.get(o.id))) out.push('quest abandon: another foe took the named one\'s stats'); } else out.push('quest abandon: seed 19 has no named foe past the first in the list'); } }
     let q = takeKind(51, 'named'); R = S.run;
     if (q) { for (let f = 1; f <= q.f; f++) enterFloor(S, R, f); const e = R.en.find((o) => o.quest === q.id);
       if (!e || !e.elite || e.title !== q.title || D.BOSSES[e.type] || D.eliteName(e) !== q.title) out.push('quest named: no named elite on its floor');

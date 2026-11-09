@@ -15,9 +15,9 @@
   // [dx, dy, r, alpha]; warm lanterns and the forge, the enchanter's and the altar's cold blue, the crypt's warm breath from below
   // (a light's centre stays on open floor: inside a wall cell the light map's occlusion swallows it)
   // (TASKS 1029: the lanterns became torches, lit by the torches' own code; the forge's glow on its art no longer whitens it)
-  const TOWN_LIGHT = { forge: { r: 110, col: [1, 0.5, 0.16], amt: 0.85, dy: 10, core: 36, glow: [-6, -12, 15, 0.55] },
-    runes: { r: 140, col: [0.36, 0.54, 0.95], amt: 0.9, dy: 14, core: 60, glow: [0, 8, 22, 0.3] }, altar: { r: 110, col: [0.36, 0.54, 0.95], amt: 1.0, dy: 34, core: 60, glow: [0, -14, 30, 0.3] },
-    stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 8, 0.9] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
+  const TOWN_LIGHT = { forge: { r: 120, col: [1, 0.5, 0.16], amt: 1.4, dy: 10, core: 48, glow: [-6, -12, 20, 0.85] },
+    runes: { r: 150, col: [0.46, 0.58, 0.85], amt: 1.2, dy: 20, core: 28, glow: [0, 8, 26, 0.3] }, altar: { r: 150, col: [0.36, 0.54, 0.95], amt: 1.3, dy: 34, core: 36, glow: [0, -14, 34, 0.5] }, portal: { r: 110, col: [1, 0.58, 0.24], amt: 0.7, dy: 0, core: 30, glow: [0, 0, 30, 0.2] },
+    stash: { r: 90, col: [1, 0.8, 0.55], amt: 0.9, dy: 10 }, crypt: { r: 90, col: [1, 0.66, 0.3], amt: 0.3, dy: 40 }, adit: { r: 140, col: [1, 0.72, 0.3], amt: 0.75, dy: -10, core: 24, glow: [-2, -55, 13, 1] }, candle: { r: 90, col: [1, 0.72, 0.36], amt: 0.7, dy: -40, core: 30 } };
   const PAVE_K = 1, PAVE_TS = 160;
   // rail_tw_h's sleeper period in its own pixels: sleepers start every ≈72 px, the first gap's middle at 77 (live/assets size)
   const RAIL = { w: 300, h: 131, u0: 77 / 300, per: 72 };
@@ -43,15 +43,15 @@
         L.sprite(B.pave, X, Y, { w: q, h: q, src: [u0, v0, u0 + q / TS, v0 + q / TS], u: { grade: [1, PAVE_K, 0, 1] } }); } }
     // the rails: one sleeper period of the straight piece (a gap's middle to the next, so it repeats without its end caps) laid
     // edge to edge along the line through the rail cells' centres, turned to each stretch, at the piece's own proportions
-    const T = m.town, pts = railPts(m), RH = 34, RP = RH * RAIL.per / RAIL.h;
+    const T = m.town, pts = railPts(m), RH = 38, RP = RH * RAIL.per / RAIL.h;
     let carry = 0;
     for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], len = Math.hypot(bx - ax, by - ay), a = Math.atan2(by - ay, bx - ax);
       let d = carry; for (; d < len; d += RP) { const x = ax + (bx - ax) * d / len, y = ay + (by - ay) * d / len;
-        L.sprite('rail_tw_h', 0, 0, { m: M.of(M.t(x, y), M.r(a)), w: RP + 0.5, h: RH, pivot: [RP / 2, RH / 2], src: [RAIL.u0, 0, RAIL.u0 + RAIL.per / RAIL.w, 1] }); } carry = d - len; }
+        L.sprite('rail_tw_h', 0, 0, { m: M.of(M.t(x, y), M.r(a)), w: RP + 0.5, h: RH, pivot: [RP / 2, RH / 2], src: [RAIL.u0, 0, RAIL.u0 + RAIL.per / RAIL.w, 1], u: { grade: [1, 1.35, 0, 1] } }); } carry = d - len; }
     // the portal's disc and the rune ring lie flat on the floor: squashed to the view's depth (TASKS 1030: drawn round they stood up)
     const disc = (n, o, w, u) => { const [w0, h0] = SZ(n), k = w / w0, h = h0 * k * 0.68; L.puff(o.x, o.y + 4, w * 0.55, [0, 0, 0], 0.25, 3); L.sprite(n, o.x - w / 2, o.y - h / 2, { w, h, u }); };
     // the rune ring's grooves are thin: lifted, so the enchanter's blue light finds them
-    disc('disc_tw', T.svc.portal, 2.6 * TILE, { grade: [1, 1.1, 0, 1] }); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y - 2 }, 3 * TILE, { grade: [1, 1.5, 0, 1] });
+    disc('disc_tw', T.svc.portal, 2.6 * TILE, { grade: [1, 1.3, 0, 1] }); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y - 2 }, 3 * TILE, { grade: [1, 2.2, 0, 1] });
   }
   function bake(m) {
     const key = mapKey(m) + ':' + (m.secrets || []).map((q) => q.hp).join(''); if (BAKE.key === key) return; BAKE.key = key;
@@ -80,7 +80,7 @@
     // of those by the yard; lifted less than the crypt's slate (a lift of 1.45 read as a pale pavement round the yard)
     function townTop(x, y) {
       const k = 0.82 + 0.3 * rnd(x * 7 + 1, y * 13 + 2), moss = RD[y * m.W + x] <= 2 && rnd(x * 3 + 5, y * 5 + 9) < 0.45, X = x * TILE, Y = y * TILE;
-      tile(B.top, x, y, { grade: [0.55, (B.topLift || TOP_LIFT) * k, 0, 1], tint: topTint(B) }, TST);
+      { const u0 = Math.floor(rnd(x * 5 + 7, y * 3 + 11) * 3) / 3, v0 = Math.floor(rnd(x * 3 + 13, y * 7 + 5) * 3) / 3; L.sprite(B.top, x * TILE, y * TILE, { w: TILE, h: TILE, src: [u0, v0, u0 + 1 / 3, v0 + 1 / 3], u: { grade: [0.55, (B.topLift || TOP_LIFT) * k, 0, 1], tint: topTint(B) } }); }
       // the top course is broken: its back edge eaten away block by block where a yard lies behind it (TASKS 1609)
       const brk = c(x, y - 1) === 1 ? [0, 1, 2, 3].map((q) => (rnd(x * 11 + q, y * 3) < 0.45 ? 8 + 8 * Math.floor(rnd(x + q, y * 7) * 2) : 0)) : null;
       // joints fall where the blocks do, off the 32 px cell: a joint on every cell read as a tiled pavement (TASKS 1623)
@@ -88,6 +88,8 @@
         L.solid(bx, by, bw, bh, dark ? [0.02, 0.015, 0.02] : [0.5, 0.39, 0.42], 0, 0, 0, dark ? 0.42 : 0.14); L.solid(bx, by + bh, bw, 2, [0.02, 0.015, 0.02], 0, 0, 0, 0.5); L.solid(bx + bw, by, 2, bh, [0.02, 0.015, 0.02], 0, 0, 0, 0.42); }
       if (brk) brk.forEach((h, q) => { if (!h) return; const X1 = X + q * 8, u0 = (X1 % 224) / 224, v0 = (Y % 224) / 224; L.sprite(B.floor, X1, Y, { w: 8, h, src: [u0, v0, u0 + 8 / 224, v0 + h / 224], u: { grade: [1, B.floorG, 0, 1] } }); });
       if (moss) for (let q = 0; q < 4; q++) L.puff(X + TILE * rnd(x + q, y + 3), Y + TILE * rnd(x + 2, y + q), 5 + 8 * rnd(x + 9, y + q), [0.14, 0.2, 0.05], 0.55, x * 5 + y + q); }
+    // a wall takes its masonry whole, so the two tiles never meet inside one run of it (TASKS 1430)
+    function wallRun(x, y) { const Y0 = c(x, y + 1) === 0 ? y + 1 : y; let xs = x; while (xs > 0 && c(xs - 1, Y0) === 0 && c(xs - 1, Y0 + 1) !== 0) xs--; return rnd(xs * 3 + 1, Y0 * 5 + 2) < 0.45; }
     function masonry() {
       for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) {
         const v = c(x, y);
@@ -96,7 +98,7 @@
         // the town's earth repeats every 7 cells: its art pixel ≈2 px like the hero's (TASKS 1030; the old texture's was 4.5)
         if (v === 1 && m.town) { const pv = TOWN_PAVE(m).has(y * m.W + x); tile(pv ? B.pave : B.floor, x, y, { grade: [1, pv ? PAVE_K : B.floorG || 0.96, 0, 1], tint: [1, 1, 1, 1] }, pv ? PAVE_TS : 224); }
         else if (v === 1 || v === 3) { const z = zoneAt(m, x, y), Z = D.BIOMES[z]; tile(Z.floor, x, y, { grade: [z === m.biome ? 1 : 0.25, 0.96 * (z === m.biome ? 1 : 0.55 * (Z.dim || 1)), 0, 1], tint: [...Z.tint, z === m.biome ? 1 : 0.35] }); }
-        else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(B.wall, x, y, { grade: m.town ? [0.9, B.wallG[1] * (0.78 + 0.42 * rnd(x * 5 + 1, y * 9 + 4)), 0, 1.05] : [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
+        else if (v === 0 && (c(x, y + 1) !== 0 || (c(x, y + 2) !== 0 && c(x, y + 2) !== undefined))) tile(m.town && wallRun(x, y) ? B.wall + '_b' : B.wall, x, y, { grade: m.town ? [0.9, B.wallG[1] * (0.78 + 0.42 * rnd(x * 5 + 1, y * 9 + 4)), 0, 1.05] : [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] }, TSW);
         else if (v === 0 && RD[y * m.W + x] <= 10 && m.town) townTop(x, y);
         else if (v === 0 && RD[y * m.W + x] <= 3) tile(B.top, x, y, { grade: [0.55, TOP_LIFT, 0, 1], tint: topTint(B) }, TST);
       }
