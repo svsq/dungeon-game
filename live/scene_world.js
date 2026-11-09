@@ -3,7 +3,7 @@
 (function () {
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
-    PROP_H, SC, chestLook, mimicTwitch, debris, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
+    PROP_H, SC, chestLook, mimicShut, debris, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
     deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   SCX.worldPass = (F) => {
@@ -378,9 +378,10 @@
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
       Y.push([d.y - 38, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(d.x), sy(d.y + 8 - hh)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); });
     for (const c of R.chests) if (vis(c.x, c.y) && !hid(c) && !c.woke) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, c.boss ? 28 : 22, 6, 0.5);
+      if (c.mimic && !c.open) { mimicShut(c, sx(c.x), sy(c.y), t); return; }
       // the gold chest's coins are painted in their own flat golds: the tier's lift would melt them into one orange heap
       const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold, cl = chestLook(c), ownN = cl.tex && cl.tex + (op > 0.5 ? '_open' : ''), own = ownN && window.ASSETS[ownN];
-      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: cl.k, j: c.mimic && !c.open ? mimicTwitch(c, t) : undefined, u: gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
+      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: cl.k, u: gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
       if (c.sealed) { const [pw, ph] = SZ('padlock'), a = 0.5 + 0.5 * Math.sin(t * 2.4); G.blend('add'); L.glow(sx(c.x), sy(c.y) - 20, 34, [1, 0.25, 0.15], 0.25 + 0.2 * a); G.blend(); L.sprite('padlock', sx(c.x) - pw / 2, sy(c.y) - ph - 4, { w: pw, h: ph }); } }]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 });
       if (p.kind === 'gold' || p.kind === 'goldpile') emitted((a) => drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4, u: { alpha: a, tint: GOLD_TINT } })); }]); }

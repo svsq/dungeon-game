@@ -318,7 +318,7 @@
   // a mimic gets up off its chest's place; the chest stays in the list, loot and all, until the mimic dies
   function wakeMimic(S, R, c) { const E = ENEMIES.mimic, f = dep(R), h = R.hero, hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), id = R.nextId++;
     c.open = 1; c.openT = S.t; c.woke = id; c.ambushRolled = 1;
-    R.en.push({ id, type: 'mimic', x: c.x, y: c.y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room: DG.roomAt(R.map, c.x, c.y), st: 'rise', t0: S.t, face: h.x >= c.x ? 1 : -1, aimA: 0, cdT: S.t + E.rise + 0.25, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'mimic', spawnT: S.t, seenT: S.t, hx: c.x, hy: c.y, ft: -9 });
+    R.en.push({ id, type: 'mimic', tier: c.tier, x: c.x, y: c.y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room: DG.roomAt(R.map, c.x, c.y), st: 'rise', t0: S.t, face: h.x >= c.x ? 1 : -1, aimA: 0, cdT: S.t + E.rise + 0.25, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'mimic', spawnT: S.t, seenT: S.t, hx: c.x, hy: c.y, ft: -9 });
     ev(S, { k: 'mimicwake', x: c.x, y: c.y, id }); R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.mimic.msg'), t: S.t, d: 2 }; }
   function mimicLoot(S, R, e) { const c = R.chests.find((o) => o.woke === e.id); if (!c) return;
     for (const it of c.loot || []) drop(R, e.x, e.y, { kind: 'item', item: it, pre: true }); c.loot = [];
