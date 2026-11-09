@@ -150,7 +150,7 @@
     // going back and forth is no free re-roll; the buy-back row goes on across a restock
     // the offers (and in buildFloor the townsfolk) are made on arrival, not on first ask: the HUD asks too, and a render must not
     // write the state (TASKS 1025)
-    if (f === 0) { const o0 = (R.offers || []).length, oL = SIMX.offersOf(R).length; R.newOffers = oL > o0 && (R.deepest || 0) > (R.townDeep || 0) ? 1 : 0; R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
+    if (f === 0) { const asked = R.offerB !== undefined, o0 = (R.offers || []).length, oL = SIMX.offersOf(R).length; R.newOffers = asked && oL > o0 ? 1 : 0; R.away = (R.deepest || 0) - (R.townDeep || 0); R.townDeep = R.deepest || 0;
       const bn = R.bossN || 0, old = R.townShop; R.townShop = null;
       if (old && (old.boss || 0) === bn) { R.shop = old; if ((old.at || 0) < (R.deepest || 0)) { SIMX.restock(R, R.shop, SIMX.tradeDepth(R)); R.shop.at = R.deepest; } }
       else { R.shop = SIMX.stockShop(R, SIMX.tradeDepth(R), 'town'); R.shop.at = R.deepest || 0; R.shop.boss = bn; if (old) R.shop.back = old.back; } }

@@ -1,0 +1,57 @@
+[
+{
+"name": "wall_tw_tex",
+"prompt": "art/prompts/wall_tw_tex.txt",
+"ref": [
+"study/refcrops/town_gate_arch.png=the approved town concept's ruined walls crop"
+],
+"size": "1024x1024",
+"pixel": true
+},
+{
+"name": "pave_tw_tex",
+"prompt": "art/prompts/pave_tw_tex.txt",
+"ref": [
+"study/refcrops/town_paving.png=the approved town concept's paving crop"
+],
+"size": "1024x1024",
+"pixel": true
+},
+{
+"name": "walltop_tw_tex",
+"prompt": "art/prompts/walltop_tw_tex.txt",
+"ref": [
+"study/refcrops/town_gate_arch.png=the approved town concept's ruined walls crop"
+],
+"size": "1024x1024",
+"pixel": true
+},
+{
+"name": "runes_tw",
+"prompt": "art/prompts/runes_tw.txt",
+"ref": [],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "dc_grass_tw",
+"prompt": "art/prompts/dc_grass_tw.txt",
+"ref": [
+"study/refcrops/town_ground_grass.png=the approved town concept's ground crop"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+},
+{
+"name": "dc_flowers_tw",
+"prompt": "art/prompts/dc_flowers_tw.txt",
+"ref": [
+"study/refcrops/town_ground_grass.png=the approved town concept's ground crop"
+],
+"size": "1024x1024",
+"pixel": true,
+"alpha": "auto"
+}
+]

@@ -34,11 +34,12 @@
     Object.defineProperty(T, 'railLen', { value: d, enumerable: false }); return d; };
   const railAt = (m, s) => { const T = m.town, c = (k) => [(k % m.W + 0.5) * TILE, (Math.floor(k / m.W) + 0.5) * TILE]; let d = s; for (let i = 1; i < T.rails.length; i++) { const [ax, ay] = c(T.rails[i - 1]), [bx, by] = c(T.rails[i]), l = Math.hypot(bx - ax, by - ay); if (d <= l) return [ax + (bx - ax) * d / l, ay + (by - ay) * d / l]; d -= l; } return c(T.rails[T.rails.length - 1]); };
   const cartOf = (R) => R.cart || (R.cart = { s: railLen(R.map), st: 'at', load: CART_LOAD, t: 0 });
-  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, block = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44;
-    // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard
-    if (block && C.held >= 3) { const a = Math.atan2(h.y - cy, h.x - cx); h.x += Math.cos(a) * 120 * DT; h.y += Math.sin(a) * 120 * DT; }
+  function stepCart(S, R, C, t) { const L = railLen(R.map), [cx, cy] = railAt(R.map, C.s), h = R.hero, near = (C.st === 'down' || C.st === 'up') && h.deadT < 0 && Math.hypot(h.x - cx, (h.y - cy) * 1.25) < 44, rolling = t < (C.pushT || 0), block = near && !rolling;
+    // it waits for a hero on the rails, but no longer than a moment: he must not be able to hold up the yard, and once it has made up its mind it rolls on
+    if (near && rolling) { const a = Math.atan2(h.y - cy, h.x - cx); SIMX.move(R.map, h, Math.cos(a) * 120 * DT, Math.sin(a) * 120 * DT, K.R); }
     if (block && !C.held) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.cart') });
-    C.held = block ? (C.held || 0) + DT : 0; const v = block && C.held < 3 ? 0 : CART_V * Math.min(1, 0.2 + Math.min(C.s, L - C.s) / 44);
+    C.held = block ? (C.held || 0) + DT : 0; if (C.held >= 3) { C.held = 0; C.pushT = t + 5; }
+    const v = block ? 0 : CART_V * Math.min(1, 0.2 + Math.min(C.s, L - C.s) / 44);
     if (C.st === 'down') { C.s = Math.min(L, C.s + v * DT); if (C.s >= L) { C.st = 'at'; C.atT = t; } }
     else if (C.st === 'at') { if (C.load <= 0 && t >= C.t) C.st = 'up'; }
     else if (C.st === 'up') { C.s = Math.max(0, C.s - v * DT); if (C.s <= 0) { C.st = 'in'; C.t = t + 6; C.load = CART_LOAD; } }
@@ -80,7 +81,7 @@
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
         f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
       if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
-      if (Math.abs(f.vx) > 3) { const nf = f.vx > 0 ? 1 : -1; if (nf !== f.face) f.turnT = t; f.face = nf; } }
+      if (Math.abs(f.vx) > 3) { const nf = f.vx > 0 ? 1 : -1; if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
       if (alive && d > 240 && d < 560 && t - (R.shop.callT ?? -99) > 11) { R.shop.callT = t; R.shop.callN = ((R.shop.callN ?? -1) + 1) % D.SHOP.calls.length; ev(S, { k: 'say', x: m.shop.x, y: m.shop.y, role: 'merchant' }); } }
@@ -225,7 +226,8 @@
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
     const dn = questDone(R, role); if (dn) return { pages: [TXT('sim_town.questTalk.pages', { name: D.QUESTS[dn.key].name, done: SAY.done })], act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
-    return { pages: [of.q.story ? D.QUESTS[of.q.key].name + '. ' + SAY.ask : SAY.ask, D.QUESTS[of.q.key].text(of.q)], act: { k: 'take', key: of.q.key, rw: of.q.rw, name: D.QUESTS[of.q.key].name } }; }
+    const say = R.bossN && R.lastBoss && of.q.f % 2 === 0 ? SAY.boss.replace('{boss}', ENEMIES[R.lastBoss].name) : SAY.asks[of.q.f % 2];
+    return { pages: [of.q.story ? D.QUESTS[of.q.key].name + '. ' + say : say, D.QUESTS[of.q.key].text(of.q)], act: { k: 'take', key: of.q.key, rw: of.q.rw, name: D.QUESTS[of.q.key].name } }; }
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
@@ -239,7 +241,7 @@
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks, p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: D.QUEST_SAY[T.role].thanks[(q.id || 0) % 2], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -306,21 +308,24 @@
     // the «Сундук предков» upgrade is gone (TASKS 1617): what was paid for it comes back
     if (S.meta.up && S.meta.up.vault) { S.meta.shards += [0, 40, 100][S.meta.up.vault] || 0; delete S.meta.up.vault; }
     if (T.v !== D.ITEM_BAL.version) { for (const it of T.items) if (it && BASES[it.b]) itemPower(it); T.v = D.ITEM_BAL.version; } return T; }
+  const mergeStack = (a, b) => { if (!b || !isCons(a) || b.b !== a.b) return 0; const m1 = Math.min(a.n, D.CONSUMABLES[a.b].stack - b.n); if (m1 <= 0) return 0; b.n += m1; a.n -= m1; return m1; };
   function stashPut(S, R, i, j) { const T = stashOf(S), h = R.hero, it = h.bag[i], n = D.STASH.cells;
     if (!it) return;
+    if (j !== undefined && mergeStack(it, T.items[j])) { if (!it.n) h.bag[i] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
     // a stack joins the stacks already in the chest (TASKS 1423)
-    if (j === undefined && isCons(it)) { const cap = D.CONSUMABLES[it.b].stack; for (const q of T.items) { if (!q || q.b !== it.b || q.n >= cap) continue; const m1 = Math.min(it.n, cap - q.n); q.n += m1; it.n -= m1; if (!it.n) { h.bag[i] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; } } }
+    let joined = 0; if (j === undefined) for (const q of T.items) { if (!mergeStack(it, q)) continue; joined = 1; if (!it.n) { h.bag[i] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; } }
     if (j === undefined) { j = 0; while (j < n && T.items[j]) j++; }
-    if (j >= n) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashPut.s.3') }); return; }
+    if (j >= n) { if (joined) { S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashPut.s.3') }); return; }
     const was = T.items[j]; T.items[j] = it; h.bag[i] = was ? Object.assign(was, { id: R.nextId++ }) : null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }
   function stashTake(S, R, j, i) { const T = stashOf(S), h = R.hero, it = T.items[j]; if (!it) return;
+    if (i !== undefined && mergeStack(it, h.bag[i])) { if (!it.n) T.items[j] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
     if (i !== undefined && h.bag[i]) { const was = h.bag[i]; h.bag[i] = Object.assign(it, { id: R.nextId++ }); T.items[j] = was; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); return; }
     if (i !== undefined) h.bag[i] = it; else if (!bagAdd(R, it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.stashTake.s.2') }); return; }
     it.id = R.nextId++; T.items[j] = null; S.saveN++; ev(S, { k: 'equip', x: h.x, y: h.y }); }
   // the town's gate out (TASKS 1149): the run given up there, or ended won past the campaign's last boss
   const atExitGate = (R) => !!(R.town && R.map.town && R.map.town.svc.exitGate && Math.hypot(R.map.town.svc.exitGate.x - R.hero.x, R.map.town.svc.exitGate.y - R.hero.y) < 60);
   const atGate = (R) => !!(R.town && R.map.town && gateWays(R).length && Math.hypot(R.map.town.svc.portal.x - R.hero.x, R.map.town.svc.portal.y - R.hero.y) < 64);
-  const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []).concat((R.ways || []).map((f) => ({ k: 'way', f })));
+  const gateWays = (R) => (R.portal ? [{ k: 'portal', f: R.portal.f }] : []).concat((R.ways || []).filter(D.wayFloor).map((f) => ({ k: 'way', f })));
   function gateGo(S, R, o) { const h = R.hero; S.screen = 'play';
     enterFloor(S, R, o.f, undefined, o.k); if (o.k === 'portal') R.portal = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx: h.x, fy: h.y }); }
   // ---------------- dungeon altars: one gift of each tier, paid from the meta bank; one gift per altar ----------------

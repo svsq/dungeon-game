@@ -5,11 +5,11 @@
   const { plural, runOf, stageOf, xpNeed } = D;
   const QUESTS = {
     cull: { kind: 'side', type: 'kill', name: TXT('QUESTS.cull.name'), need: (f) => 10 + 2 * f, text: (q) => TXT('QUESTS.cull.text', { need: q.need, p2: TXT.n('QUESTS.cull.text.2', q.need), f: q.f }), rw: ['scroll', 'xp'] },
-    elites: { kind: 'side', type: 'kill', elite: 1, name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item'] },
+    elites: { kind: 'side', type: 'kill', elite: 1, name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item', 'xp'] },
     sweep: { kind: 'side', type: 'clear', name: TXT('QUESTS.sweep.name'), need: (f) => 3 + Math.floor(f / 4), text: (q) => TXT('QUESTS.sweep.text', { need: q.need, p2: TXT.n('QUESTS.sweep.text.2', q.need), f: q.f }), rw: ['xp', 'shards'] },
-    descent: { kind: 'side', type: 'reach', name: TXT('QUESTS.descent.name'), need: () => 1, ahead: 2, text: (q) => TXT('QUESTS.descent.text', { f: q.f }), rw: ['scroll', 'shards'] },
+    descent: { kind: 'side', type: 'reach', name: TXT('QUESTS.descent.name'), need: () => 1, ahead: 2, text: (q) => TXT('QUESTS.descent.text', { f: q.f }), rw: ['scroll', 'shards', 'xp'] },
     // the named foe from the 3rd floor (TASKS 1024: on the 1st it killed the bot's level-1 hero on two seeds in six)
-    named: { kind: 'side', type: 'named', name: TXT('QUESTS.named.name'), need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => TXT('QUESTS.named.text', { f: q.f, title: q.title }), rw: ['scroll', 'item'], item: 3 },
+    named: { kind: 'side', type: 'named', name: TXT('QUESTS.named.name'), need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => TXT('QUESTS.named.text', { f: q.f, title: q.title }), rw: ['scroll', 'item', 'xp'], item: 3 },
     fetch: { kind: 'side', type: 'fetch', name: TXT('QUESTS.fetch.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.fetch.text', { thing: q.thing, f: q.f }), rw: ['scroll', 'xp'] },
     room: { kind: 'side', type: 'room', name: TXT('QUESTS.room.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.room.text', { f: q.f }), rw: ['xp', 'shards'] },
     chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f }), rw: ['shards', 'item'] },
@@ -28,12 +28,12 @@
   const QUEST_GIVE = { n: [2, 3], from: ['smith', 'porter', 'sweeper', 'child', 'guard', 'keeper'], pool: ['named', 'fetch', 'room', 'cull', 'elites', 'sweep', 'descent'] };
   // the townsfolk's words around a quest: the ask, the thanks on the turn-in, and the keepsake each would have back (1020)
   const QUEST_SAY = {
-    smith: { done: TXT('QUEST_SAY.smith.done'), ask: TXT('QUEST_SAY.smith.ask'), thanks: TXT('QUEST_SAY.smith.thanks'), thing: TXT('QUEST_SAY.smith.thing'), ic: 'qi_casket' },
-    porter: { done: TXT('QUEST_SAY.porter.done'), ask: TXT('QUEST_SAY.porter.ask'), thanks: TXT('QUEST_SAY.porter.thanks'), thing: TXT('QUEST_SAY.porter.thing'), ic: 'qi_casket' },
-    sweeper: { done: TXT('QUEST_SAY.sweeper.done'), ask: TXT('QUEST_SAY.sweeper.ask'), thanks: TXT('QUEST_SAY.sweeper.thanks'), thing: TXT('QUEST_SAY.sweeper.thing'), ic: 'qi_locket' },
-    child: { done: TXT('QUEST_SAY.child.done'), ask: TXT('QUEST_SAY.child.ask'), thanks: TXT('QUEST_SAY.child.thanks'), thing: TXT('QUEST_SAY.child.thing'), ic: 'qi_horse' },
-    guard: { done: TXT('QUEST_SAY.guard.done'), ask: TXT('QUEST_SAY.guard.ask'), thanks: TXT('QUEST_SAY.guard.thanks'), thing: TXT('QUEST_SAY.guard.thing'), ic: 'qi_casket' },
-    keeper: { done: TXT('QUEST_SAY.keeper.done'), ask: TXT('QUEST_SAY.keeper.ask'), thanks: TXT('QUEST_SAY.keeper.thanks'), thing: TXT('QUEST_SAY.keeper.thing'), ic: 'qi_locket' },
+    smith: { done: TXT('QUEST_SAY.smith.done'), asks: [TXT('QUEST_SAY.smith.ask'), TXT('QUEST_SAY.smith.ask.2')], boss: TXT('QUEST_SAY.smith.boss'), thanks: [TXT('QUEST_SAY.smith.thanks'), TXT('QUEST_SAY.smith.thanks.2')], thing: TXT('QUEST_SAY.smith.thing'), ic: 'qi_casket' },
+    porter: { done: TXT('QUEST_SAY.porter.done'), asks: [TXT('QUEST_SAY.porter.ask'), TXT('QUEST_SAY.porter.ask.2')], boss: TXT('QUEST_SAY.porter.boss'), thanks: [TXT('QUEST_SAY.porter.thanks'), TXT('QUEST_SAY.porter.thanks.2')], thing: TXT('QUEST_SAY.porter.thing'), ic: 'qi_casket' },
+    sweeper: { done: TXT('QUEST_SAY.sweeper.done'), asks: [TXT('QUEST_SAY.sweeper.ask'), TXT('QUEST_SAY.sweeper.ask.2')], boss: TXT('QUEST_SAY.sweeper.boss'), thanks: [TXT('QUEST_SAY.sweeper.thanks'), TXT('QUEST_SAY.sweeper.thanks.2')], thing: TXT('QUEST_SAY.sweeper.thing'), ic: 'qi_locket' },
+    child: { done: TXT('QUEST_SAY.child.done'), asks: [TXT('QUEST_SAY.child.ask'), TXT('QUEST_SAY.child.ask.2')], boss: TXT('QUEST_SAY.child.boss'), thanks: [TXT('QUEST_SAY.child.thanks'), TXT('QUEST_SAY.child.thanks.2')], thing: TXT('QUEST_SAY.child.thing'), ic: 'qi_horse' },
+    guard: { done: TXT('QUEST_SAY.guard.done'), asks: [TXT('QUEST_SAY.guard.ask'), TXT('QUEST_SAY.guard.ask.2')], boss: TXT('QUEST_SAY.guard.boss'), thanks: [TXT('QUEST_SAY.guard.thanks'), TXT('QUEST_SAY.guard.thanks.2')], thing: TXT('QUEST_SAY.guard.thing'), ic: 'qi_casket' },
+    keeper: { done: TXT('QUEST_SAY.keeper.done'), asks: [TXT('QUEST_SAY.keeper.ask'), TXT('QUEST_SAY.keeper.ask.2')], boss: TXT('QUEST_SAY.keeper.boss'), thanks: [TXT('QUEST_SAY.keeper.thanks'), TXT('QUEST_SAY.keeper.thanks.2')], thing: TXT('QUEST_SAY.keeper.thing'), ic: 'qi_locket' },
   };
   // the named foes (1019): a name and what it is, drawn for the quest; it walks as a strong elite of its floor's kind
 
