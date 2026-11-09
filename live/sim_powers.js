@@ -36,7 +36,7 @@
   };
   const IFS = { shield: (S, h) => h.shield > 0 && S.t < h.shieldUntil };
   const onOf = (P) => (P.trig.startsWith('every:') ? 'hit' : P.trig);
-  const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.n || 0);
+  const every = (P) => (P.trig.startsWith('every:') ? +P.trig.slice(6) : P.each || 0);
   let depth = 0;
   function firePowers(S, R, trig, ctx = {}) { const h = R.hero, own = h.powers;
     if (!own || R.town || depth > (trig === 'kill' ? 2 : 0)) return;
