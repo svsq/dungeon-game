@@ -965,12 +965,13 @@
         if (at(c) >= 0) states.push(['cave_light', structuredClone(S)]); break; }
       // the cave's props (TASKS 306): a rope bridge with a fire on its posts, the hero on its deck; a plank walk and stepping stones;
       // the explorer's camp round the start's fire; a hall with a boat's wreck on its shore
-      const look = (name, find) => { for (const sd of [3, 5, 8, 13, 21]) for (let f = 1; f <= 4; f++) { if (S.run.seed !== sd && f === 1) S.run = SIM.newRun(S, 'cave', sd); SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, o = find(m); if (!o) continue;
+      const look = (name, find, seeds = [3, 5, 8, 13, 21]) => { for (const sd of seeds) for (let f = 1; f <= 4; f++) { if (S.run.seed !== sd && f === 1) S.run = SIM.newRun(S, 'cave', sd); SIM.enterFloor(S, S.run, f); const R = S.run, m = R.map, o = find(m); if (!o) continue;
         const h = R.hero; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); [h.x, h.y] = o.hero || [o.x + 120, o.y + 90]; R.cam = [o.x - SCX.VW / 2, o.y - SCX.VH / 2]; S.ev = []; states.push([name, structuredClone(S)]); return; } };
       const mid = (c) => { const xs = c.cells.map((k) => (k % S.run.map.W + 0.5) * TILE), ys = c.cells.map((k) => (Math.floor(k / S.run.map.W) + 0.5) * TILE); return [xs.reduce((a, b) => a + b) / xs.length, ys.reduce((a, b) => a + b) / ys.length]; };
-      // the bridge with the most water plants round it: the plants' stir is measured on this frame (cave_bridge_life)
-      const plants = (m, c) => { const [x, y] = mid(c); return (m.flora || []).filter((q) => q.n !== 'moss' && Math.abs(q.x - x) < 240 && Math.abs(q.y - y) < 160).length; };
-      look('cave_bridge', (m) => { const bs = m.crossings.filter((q) => q.kind === 'bridge' && q.axis === 'x'), c = bs.filter((q) => q.span[1] - q.span[0] >= 4 && plants(m, q) >= 4).sort((a, b) => plants(m, b) - plants(m, a))[0]; if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; });
+      // the bridge with the most swaying plants round it: their stir is measured on this frame (cave_bridge_life); a lily drifts a
+      // step in seconds, so a bridge among lilies alone measured as frozen
+      const plants = (m, c) => { const [x, y] = mid(c); return (m.flora || []).filter((q) => q.n !== 'lily_cv' && Math.abs(q.x - x) < 240 && Math.abs(q.y - y) < 160).length; };
+      look('cave_bridge', (m) => { const bs = m.crossings.filter((q) => q.kind === 'bridge' && q.axis === 'x'), c = bs.filter((q) => q.span[1] - q.span[0] >= 4 && plants(m, q) >= 6).sort((a, b) => plants(m, b) - plants(m, a))[0]; if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x, y + 8] }; }, [1, 3, 5, 8, 13, 21]);
       look('cave_bridge_v', (m) => { const c = m.crossings.find((q) => q.kind === 'bridge' && q.axis === 'y'); if (!c) return null; const [x, y] = mid(c); return { x, y, hero: [x + 10, y] }; });
       look('cave_ford', (m) => { const c = m.crossings.find((q) => q.look === 'walk'), d = m.crossings.find((q) => q.look === 'stones'); if (!c) return null; if (!d) { const [x, y] = mid(c); return { x, y, hero: [x, y] }; } const [x, y] = mid(c), [x2, y2] = mid(d);
         return Math.hypot(x2 - x, y2 - y) < 700 ? { x: (x + x2) / 2, y: (y + y2) / 2, hero: [x, y] } : { x, y, hero: [x, y] }; });
@@ -1060,7 +1061,7 @@
         R.chests = []; R.pots = []; R.shrines = []; m.doors = [];
         h.x = e.x - 340; e.targetD = 340;
       }
-      Object.assign(R.en[0], typeof extra === 'function' ? extra(R.en[0], h) : extra); });
+      Object.assign(R.en[0], typeof extra === 'function' ? extra(R.en[0], h, R) : extra); });
       for (let i = 0; i < (ty === 'boss_colossus' ? 200 : move === 'weave' || move === 'charge' ? 180 : 100); i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } return fr; };   // the sim steps 1/120 s; frames are 1/60 s
     // monster walk cycles, right and down: one stride in 12 frames (the rig's own stride), subject en990
     const enCyc = (ty, dx, dy) => { const out = [], n = D.BOSSES[ty] ? 24 : 12, H0 = SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1), st = MONSTERS.stride(ty, H0), E = D.ENEMIES[ty];
@@ -1091,7 +1092,8 @@
       // the grab from out of the blow's reach: it catches the hero and hauls him a step in
       drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })),
       // the crab (TASKS 309): the pinch at the hero before it; the rush at a hero off its right side (it faces right, the hero below)
-      crab_attack: enemyT('crab', 0), crab_rush: enemyT('crab', 0, 'slam', 0, (e, h) => ({ x: h.x, y: h.y - 110, fa: 0, face: 1, aimA: Math.PI / 2, rush: 1 })), brute_attack: enemyT('brute', 1),
+      crab_attack: enemyT('crab', 0), crab_rush: enemyT('crab', 0, 'slam', 0, (e, h, R) => { const r = R.map.rooms[e.room]; h.y = Math.max(h.y, (r.y + 0.6) * TILE + 110); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
+        return { x: h.x, y: h.y - 110, fa: 0, face: 1, aimA: Math.PI / 2, rush: 1 }; }), brute_attack: enemyT('brute', 1),
       // the archer looses from range and the mage throws from behind (TASKS 311): the hero 6 cells off
       skel_archer_attack: enemyT('skel_archer', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), skel_mage_attack: enemyT('skel_mage', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE })), spider_attack: enemyT('spider', 0), boss_attack: enemyT('boss', 0), cultist_attack: enemyT('cultist', 0),
       // the smouldering skeleton (TASKS 411) comes up to the hero, lights its fuse, stands shaking and bursts
@@ -1111,8 +1113,9 @@
       let S = structuredClone(states.find(([name]) => name === 'colossus_rise')[1]);
       const e = S.run.en.find((e) => e.type === 'boss_colossus');
       e.id = 990; e.st = 'emerge'; e.t0 = S.t; S.run.en = [e]; S.run.hero.ifr = 1e9;
+      // recorded from the moment it shows: under the lake its rig reports only the ground, and qa took 100 px for its height, not ~215
       const frames = [];
-      for (let i = 0; i < 300; i++) { frames.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }
+      for (let i = 0; i < 345; i++) { if (i >= 45) frames.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }
       transitions.colossus_emerge = frames;
       transitions.colossus_phase_stuck = enemyT('boss_colossus', 1, 'fists', 0, { hp: D.ENEMIES.boss_colossus.hp * 0.55 });
       for (const move of ['fists', 'boulder', 'call', 'charge']) {
