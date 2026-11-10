@@ -5,7 +5,8 @@
 //              TASKS_COMPLETED.md / TASKS.md: the raw material for the next entry, which is written by hand by the header's rules
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..'), MD = path.join(ROOT, 'CHANGELOG.md'), OUT = path.join(ROOT, 'live', 'data_changes.js');
-const arg = process.argv.slice(2), GROUPS = ['Главное', 'Геймплей', 'Исправления'];
+// «Коротко» (TASKS 1305): the version's few main lines for the menu's frame, kept apart from the groups the news screen lists
+const arg = process.argv.slice(2), GROUPS = ['Главное', 'Геймплей', 'Исправления'], SHORT = 'Коротко', MAIN_N = 5, MAIN_LEN = 80;
 
 function parse(src) {
   const out = []; let v = null, g = null, item = null;
@@ -15,6 +16,7 @@ function parse(src) {
     if (/^## /.test(line)) throw new Error('CHANGELOG.md: a heading that is not «## X.Y.Z — ДД.ММ.ГГГГ»: ' + line);
     if (!v) continue;
     const gh = /^### (.+?)\s*$/.exec(line);
+    if (gh && gh[1] === SHORT) { if (g || v.main) throw new Error(`CHANGELOG.md: ${v.v}: «${SHORT}» goes first and once`); v.main = []; g = { name: SHORT, items: v.main }; item = null; continue; }
     if (gh) { const at = GROUPS.indexOf(gh[1]), was = g ? GROUPS.indexOf(g.name) : -1;
       if (at < 0) throw new Error(`CHANGELOG.md: ${v.v}: a section «${gh[1]}» outside ${GROUPS.join(' / ')}`);
       if (at <= was) throw new Error(`CHANGELOG.md: ${v.v}: «${gh[1]}» after «${g.name}», the order is ${GROUPS.join(' / ')}`);
@@ -60,6 +62,8 @@ C.forEach((e, i) => {
   if (dt.getUTCDate() !== d || dt.getUTCMonth() !== m - 1) fails.push(`${e.v}: no such date ${e.date}`);
   if (i && key(e.v) >= key(C[i - 1].v)) fails.push(`${e.v} is below ${C[i - 1].v}: newer versions go on top`);
   if (!e.groups.length || e.groups.some((g) => !g.items.length)) fails.push(`${e.v}: an entry or a section without points`);
+  if (e.main && (!e.main.length || e.main.length > MAIN_N)) fails.push(`${e.v}: «${SHORT}» holds ${e.main.length} lines, 1 to ${MAIN_N} fit the menu's frame`);
+  for (const s of e.main || []) if (s.length > MAIN_LEN) fails.push(`${e.v}: «${SHORT}»: longer than ${MAIN_LEN}: ${s}`);
 });
 for (const f of fails) console.log('FAIL', f);
 console.log(`changelog: ${C.length} version(s), ${C.reduce((a, e) => a + e.groups.reduce((b, g) => b + g.items.length, 0), 0)} points, ${fails.length ? fails.length + ' failure(s)' : 'ok'}`);

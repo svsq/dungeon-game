@@ -18,6 +18,8 @@
     const lk = FM.light || 1, ltS = (x, y, r, col, amt, k) => lt(x, y, r, col, amt * (FM.lit || 1), k);
     lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
+    // (TASKS 1681: a foe in view keeps a pale glint of its own on a floor without light, else one beyond the lamp's reach is lost)
+    if (FM.glint) for (const e of R.en) if (e.deadT < 0 && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 36, 64, [0.78, 0.84, 1], FM.glint);
     for (const [id, p] of Object.entries(RIM.hands)) lt(p[0] + cx, p[1] + cy, 60, [0.5, 1, 0.3], 0.8);
     for (const [id, [hd, hn]] of Object.entries(RIM.priests)) { lt(hd[0] + cx, hd[1] + cy, 120, [1, 0.5, 0.16], 0.55 + 0.1 * Math.sin(t * 9 + +id)); lt(hn[0] + cx, hn[1] + cy, 70, [1, 0.45, 0.12], 0.6); }
     for (const [id, [p0, p1]] of Object.entries(RIM.kindled)) lt((p0[0] + p1[0]) / 2 + cx, (p0[1] + p1[1]) / 2 + cy, 90, [1, 0.5, 0.15], 0.5 + 0.1 * Math.sin(t * 13 + +id));
@@ -96,6 +98,8 @@
     if (h.shield > 0 && GT < h.shieldUntil) lt(h.x, h.y - 30, 160, [0.4, 0.7, 1], 0.7);
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], 0.7 * (1 - a / 1.2)); }
     for (const e of R.en) if (e.elite && e.type !== 'boss' && e.deadT < 0 && e.st !== 'lurk' && !D.under(e)) lt(e.x, e.y + 4, 110, modCol(e), 0.3 + 0.1 * Math.sin(t * 3 + e.id));
+    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'chest' && a >= 0 && a < 0.9) { const rank = e.boss ? 3 : Math.min(3, e.tier || 1) - 1, q = SS(0, 0.1, a) * (1 - SS(0.2, 0.9, a)); lt(e.x, e.y - 8, [80, 95, 120, 170][rank], [[1, 0.75, 0.45], [0.7, 0.82, 1], [1, 0.72, 0.28], [1, 0.3, 0.18]][rank], q * [0.4, 0.45, 0.6, 0.8][rank]); } }
+    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'trapfuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y - 20, 140 + 70 * q, [1, 0.42, 0.14], (0.35 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (10 + 34 * q)))); } if (e.k === 'trapbang' && a >= 0 && a < 0.7) { const q = 1 - a / 0.7; lt(e.x, e.y - 12, (e.r || 96) * 3.2, [1, 0.62, 0.28], 1.5 * q * q); } }
     // an explosive corpse's fuse: its light swells and beats faster until the burst
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d, [fx, fy] = fuseAt(e); lt(fx, fy, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }
     G.blend();

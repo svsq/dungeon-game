@@ -96,7 +96,7 @@
     for (const C of Object.values(R.captives || {})) if (C.x !== undefined && !R.town && D.CAPTIVES[C.who].f === R.floor) for (const dx of [-34, 0, 34]) out.push({ x: C.x + dx, y: C.y - 8, r: 20 });
     if (R.map.town) for (const p of R.map.town.yardSolid || []) out.push({ x: p.x, y: p.y, r: 18 });
     if (R.map.town && R.cart && R.cart.st !== 'in') { const [x, y] = railAt(R.map, R.cart.s); out.push({ x, y, r: 16 }); }
-    for (const d of R.map.doors || []) if (d.open) for (const [x, y] of SIMX.leafCells(d)) out.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, r: 18 });
+    for (const d of R.map.doors || []) if (d.open) for (const [x, y] of SIMX.leafHeld(d)) out.push({ x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, r: 18 });
     if (R.map.way) out.push({ x: R.map.way.x, y: R.map.way.y, r: 16 });
     for (const q of R.map.waterFeatures || []) if (q.kind === 'fountain') out.push({ x: q.x, y: q.y - 2, r: 34 });
     if (R.map.shop) for (const [x, y] of R.map.shop.solid) out.push({ x, y, r: 18 });

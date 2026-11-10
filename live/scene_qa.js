@@ -7,12 +7,25 @@
     const play = (fn) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); if (fn) fn(S); });
     const worst = (S) => { const h = S.run.hero; h.lvl = 99; h.gold = 999999; h.xp = 1; h.pts = 99; h.sp = 99; S.meta.shards = 99999; h.ab = { whirl: 5, fireball: 5, shield: 5 };
       for (let i = 0; i < 24; i++) h.bag[i] = Object.assign(SIM.rollItem(S.run, 8, 4), { id: 1000 + i }); h.bag[0] = { id: 2000, b: 'hp_potion', n: 9, rar: 0, lvl: 1, mods: {} }; };
+    const h0 = (S) => S.run.hero;
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
+      // look B's parts kit (R-41): every part in every state
+      ['uikit', mk((S) => { S.saved = null; S.screen = 'uikit'; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
       ['menu_armed', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.saved.floor = 12; S.saved.hero.lvl = 17; S.resetT = S.t; S.resetM = 'campaign'; })],
+      // the main menu's sheet (TASKS 1301): every slot taken and a new run pressed once (the longest labels, the longest saved run's
+      // line), every item under the keyboard's focus, the pointer over an item
+      ['menu_full_armed', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;
+        S.slot = 0; S.resetT = S.t; S.resetM = 'campaign'; S.focus = 'campaign'; })],
+      ['menu_full_hover', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 0; S.hover = 'load'; })],
+      ...DATA.UI.menu(true).map((b) => ['menu_focus_' + b.id, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.focus = b.id; })]),
+      ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'tests'; S.hover = 'settings'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
+      // the news frame on the menu (TASKS 1305): the longest it may get (five lines of 80 characters), none at all, the link hovered
+      ['menu_news_full', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.qaNewsMain = Array.from({ length: 5 }, (_, i) => TXT('QA.states.newsMain').slice(0, 80 - i)); })],
+      ['menu_news_empty', mk((S) => { S.saved = null; S.qaNewsMain = []; S.hover = 'news'; })],
       ['news', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = 0; })],
       ['news_end', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = DATA.UI.news(0).max; S.hover = 'back'; })],
       ['tests_cave_armed', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'cave'; })],
@@ -32,9 +45,46 @@
         h.eq.amulet = { id: 3010, b: 'amulet', lvl: 5, rar: 3, mods: { hp: 64, vit: 4, crit: 3, regen: 1.5 } };
         h.bag[23] = { id: 3011, b: 'amulet', lvl: 7, rar: 4, mods: { def: 6, int: 5, mp: 40, fire: 18, leech: 2 } };
       })],
+      // TASKS 1674: both pieces at their longest (five affixes each, enchantments on the card), the card inside the hero window
+      ['item_compare_long', play((S) => {
+        worst(S); S.screen = 'inv'; S.hover = 'bag:7'; const h = S.run.hero;
+        h.eq.amulet = { id: 3012, b: 'amulet', lvl: 9, rar: 4, mods: { hp: 64, vit: 4, crit: 3, regen: 1.5, mspd: 4, leech: 2 } };
+        h.bag[7] = { id: 3013, b: 'amulet', lvl: 12, rar: 4, mods: { def: 6, int: 5, mp: 40, fire: 18, leech: 3, hp: 90, crit: 5 }, ench: [{ k: 'atk', v: 4 }, { k: 'aspd', v: 6 }, { k: 'dodge', v: 3 }, { k: 'mspd', v: 5 }, { k: 'critd', v: 12 }] };
+      })],
       ['debug', play((S) => { S.debug = 1; SIM.debugSecrets(S, S.run); S.hover = 'dbg_secrets'; S.run.msg = null; })],
       ['debug_loot', play((S) => { S.debug = 1; S.dbgLoot = 1; S.hover = 'dbg_loot'; const R = S.run; R.msg = null; R.seen = R.seen.map(() => 1); SIM.fstat(R).loot = 999; SIM.fstat(R).lootN = 99999; })],
       ['pause', play((S) => { S.screen = 'pause'; S.run.msg = { s: TXT('QA.states.msg.s.2'), t: S.t - 1 }; })],
+      ['pause_finish', play((S) => { S.run.viaTown = 1; S.run.campaignWon = 1; S.screen = 'pause'; S.hover = 'finish'; S.focus = 'back'; })],
+      // the settings (TASKS 1302): from the menu with the keyboard's focus on the first row, from the pause with the pointer on
+      // «Назад», a slider held at its smallest step; and the run at the zoom's ends
+      ['settings', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; })],
+      // the statistics (TASKS 1309): a first-timer's empty book; a long history whose new counters started at the 38th run, with the
+      // widest numbers, on every tab; the keyboard's focus on «Назад»
+      ['stats_new', mk((S) => { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; })],
+      ...['all', 'warrior', 'archer'].map((tab) => ['stats_full' + (tab === 'all' ? '' : '_' + tab), mk((S) => { const big = (k) => ({ runs: 1247, wins: 133, deaths: 1088, kills: 1234567, elites: 98765, bosses: 4321, shards: 9876543, best: 32, time: 99 * 3600 * 37 + 59 * 60 + k });
+        Object.assign(S.meta, { runs: 1284, wins: 140, best: 32, bestEndless: 47, shards: 9999999, stats: { from: 37, all: big(0), cls: { warrior: big(1), mage: Object.assign(big(2), { runs: 412 }), archer: Object.assign(big(3), { runs: 9 }) } } });
+        S.screen = 'stats'; S.statTab = tab; S.focus = 'tab:' + tab; S.hover = tab === 'all' ? 'tab:mage' : ''; })]),
+      ['stats_back', mk((S) => { Object.assign(S.meta, { runs: 3, wins: 0, best: 4, shards: 120, stats: { from: 0, all: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 }, cls: { mage: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 } } } });
+        S.screen = 'stats'; S.statTab = 'mage'; S.focus = 'back'; S.hover = 'back'; })],
+      // the saved games (TASKS 1311): none; every slot taken with the widest lines (a test run's name, level 99, two-digit floors,
+      // thousands of hours, a save from before the dates), the keyboard on a slot, on «Загрузить», an empty slot chosen, the delete question
+      ...(() => { const fill = (S, n) => { const runs = [['magma', 12, 99, 'hard', 3600 * 4321 + 59 * 60], ['campaign', 0, 1, 'easy', 59], ['cave', 14, 47, 'normal', 3600 * 9 + 5 * 60], ['campaign', 16, 63, 'normal', 3600 * 123], ['endless', 47, 88, 'hard', 3600 * 77 + 600]];
+          runs.slice(0, n).forEach(([mode, floor, lvl, diff, play], i) => { const R = SIM.newRun(S, mode, 11 + i, { cls: ['mage', 'warrior', 'archer'][i % 3] }); Object.assign(R, { floor, diff, play, at: i === 3 ? undefined : 1794182340000 - i * 90061000 }); R.hero.lvl = lvl; S.saves[i] = R; });
+          S.saved = S.saves[0]; S.saves[0] = null; S.slot = 0; S.screen = 'load'; };
+        return [['load_empty', mk((S) => { S.screen = 'load'; S.loadSel = 0; S.focus = 'slot:0'; })],
+          ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
+          ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
+          ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
+          ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })]]; })(),
+      ['settings_pause', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'back'; S.hover = 'back'; S.meta.zoom = 1.5; })],
+      ['settings_drag', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; S.hover = 'zoom'; S.drag = 'zoom'; S.pressWas = true; S.meta.zoom = 0.5; })],
+      ['play_zoom05', play((S) => { S.meta.zoom = 0.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
+      ['play_zoom075', play((S) => { S.meta.zoom = 0.75; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
+      // the brightness's ends (TASKS 1303): the world graded, the HUD as it was
+      ['play_bright_lo', play((S) => { S.meta.bright = DATA.SETTINGS.find((q) => q.id === 'bright').stops[0]; })],
+      ['play_bright_hi', play((S) => { const q = DATA.SETTINGS.find((o) => o.id === 'bright'); S.meta.bright = q.stops[q.stops.length - 1]; })],
+      ['settings_bright', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'bright'; S.meta.bright = 1.4; })],
+      ['play_zoom15', play((S) => { S.meta.zoom = 1.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
       ['meta', mk((S) => { S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = Object.fromEntries(D.META.map((M, i) => [M.id, i % 3 ? M.max - 1 : i % 2 ? M.max : 0])); })],
       ['meta_refuse', mk((S) => { S.screen = 'meta'; S.meta.shards = 0; S.hover = 'gear'; S.ev.push({ k: 'nope', s: TXT('QA.states.s'), t: S.t - 0.2 }); })],
       // a dungeon altar at its widest: the longest gift of each tier, one affordable, one hovered, a refusal; then the gifts in the HUD
@@ -52,19 +102,23 @@
       ['chest_tiers', play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); h.y += 20; const tl = TILE * 2.2;
         [[1, 0], [2, 0], [3, 0], [1, 1], [2, 1], [3, 1]].forEach(([tier, op], i) => R.chests.push({ x: h.x + (i % 3 - 1) * tl, y: h.y - (op ? 40 : 110), tier, open: op, openT: S.t - 2 }));
         R.chests.push({ x: h.x + 2 * tl, y: h.y - 60, tier: 3, boss: 1, sealed: 1, open: 0 }); R.chests.push({ x: h.x - 2 * tl, y: h.y - 60, tier: 3, boss: 1, open: 1, openT: S.t - 2 }); })],
+      // the lid coming up, the recoil and the glint of every rank (TASKS 1676); D = 0.22 / 0.28 / 0.34 / 0.55
+      ...[[1, 0], [2, 0], [3, 0], [3, 1]].flatMap(([tier, boss]) => [['a', 0.08], ['b', 0.5], ['c', 0.92], ['d', 1.15]].map(([p, f]) => ['chest_open_' + (boss ? 'boss' : 't' + tier) + '_' + p, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); const D = boss ? 0.55 : [0.22, 0.28, 0.34][tier - 1], a = D * f, c = { x: h.x + 70, y: h.y - 10, tier, boss, open: 1, openT: S.t - a, loot: [] }; R.chests.push(c); S.ev.push({ k: 'chest', t: S.t - a, x: c.x, y: c.y, tier, boss }); })])),
       ['prompt_chest_sealed', play((S) => { const R = S.run, h = R.hero; R.en = []; R.chests.push({ x: h.x + 44, y: h.y, tier: 3, boss: 1, sealed: 1, open: 0 }); })],
       // a trapped chest giving itself away, its fuse burning and its blast (TASKS 1357)
-      ...[['chest_trap_shut', 0], ['chest_trap_fuse', 0.3], ['chest_trap_bang', 0.7]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); const c = { x: h.x + 60, y: h.y - 30, tier: 2, open: a ? 1 : 0, trap: 1, openT: S.t - a }; R.chests.push(c);
-        if (a) S.ev.push({ k: a > 0.55 ? 'trapbang' : 'trapfuse', t: S.t - (a > 0.55 ? a - 0.55 : a), x: c.x, y: c.y, d: 0.55, r: 96 }); })]),
+      ...[['chest_trap_shut', 0], ['chest_trap_fuse_a', 0.08], ['chest_trap_fuse', 0.3], ['chest_trap_fuse_c', 0.52], ['chest_trap_bang_a', 0.58], ['chest_trap_bang', 0.7], ['chest_trap_bang_c', 1.1], ['chest_trap_after', 2.6]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.seen.fill(1); R.rseen.fill(1); const f = a && a < 0.55, c = { x: h.x + 60, y: h.y - 30, tier: 2, open: a ? 1 : 0, trap: 1, openT: S.t - a }; if (f) c.fuseT = S.t + 0.55 - a; if (a >= 0.55) c.bangT = S.t - (a - 0.55); R.chests.push(c);
+        if (a) { S.ev.push({ k: f ? 'trapfuse' : 'trapbang', t: S.t - (f ? a : a - 0.55), x: c.x, y: c.y, d: 0.55, r: 96 }); if (!f) { S.ev.push({ k: 'boom', t: S.t - (a - 0.55), x: c.x, y: c.y - 20, big: 1, r: 96 }); } } })]),
       // a mimic getting up, gaping, in the air and biting (TASKS 367)
-      ...[['mimic_wake', 'rise', 0.3], ['mimic_wind', 'wind', 0.45], ['mimic_air', 'strike', 0.2], ['mimic_bite', 'strike', 0.5]].map(([id, st, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); const c = { x: h.x + 90, y: h.y - 20, tier: 2, open: 0, mimic: 1, loot: [] }; R.chests.push(c); SIM.openChest(S, R, c); const e = R.en[0]; e.st = st; e.t0 = S.t - a; e.jx = e.x; e.jy = e.y; e.jtx = e.x - 40; e.jty = e.y; e.hitDone = a > 0.42 ? 1 : 0; e.aimA = Math.PI; e.face = -1; })]),
-      ['mimic_shut', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.chests.push({ x: h.x + 90, y: h.y - 20, tier: 2, open: 0, mimic: 1 }); })],
+      ...[1, 2, 3].flatMap((tier) => [['wake', 'rise', 0.3], ['wind', 'wind', 0.45], ['air', 'strike', 0.2], ['bite', 'strike', 0.5]].map(([nm, st, a]) => ['mimic_' + nm + (tier === 2 ? '' : '_t' + tier), st, a, tier])).map(([id, st, a, tier]) => [id, play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); const c = { x: h.x + 90, y: h.y - 20, tier, open: 0, mimic: 1, loot: [] }; R.chests.push(c); SIM.openChest(S, R, c); const e = R.en[0]; e.st = st; e.t0 = S.t - a; e.jx = e.x; e.jy = e.y; e.jtx = e.x - 40; e.jty = e.y; e.hitDone = a > 0.42 ? 1 : 0; e.aimA = Math.PI; e.face = -1; })]),
+      ...[1, 3].flatMap((tier) => [['die_a', 0.12], ['die_b', 0.32], ['die_c', 3]].map(([nm, d]) => ['mimic_' + nm + '_t' + tier, play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); const c = { x: h.x + 90, y: h.y - 20, tier, open: 0, mimic: 1, loot: [] }; R.chests.push(c); SIM.openChest(S, R, c); const e = R.en[0]; e.st = 'idle'; e.hp = 0; e.deadT = S.t - d; e.dieA = 0; })])),
+      ...[[0, 'mimic_step_a'], [8, 'mimic_step_b']].map(([dist, id]) => [id, play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); const c = { x: h.x + 90, y: h.y - 20, tier: 3, open: 0, mimic: 1, loot: [] }; R.chests.push(c); SIM.openChest(S, R, c); const e = R.en[0]; e.st = 'chase'; e.t0 = S.t - 3; e.vx = -26; e.dist = dist + 3; e.face = -1; })]),
+      ...[1, 2, 3].map((tier) => ['mimic_shut' + (tier === 2 ? '' : '_t' + tier), play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.chests.push({ x: h.x + 90, y: h.y - 20, tier, open: 0, mimic: 1 }); })]),
       // broken pots, vases, crates and barrels: in the air, and lying a while later (TASKS 1352)
-      ...[['debris_air', 0.15], ['debris_rest', 5]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); ['pot', 'vase_a', 'vase_b', 'crate', 'barrel'].forEach((kind, i) => { const p = { x: h.x + (i - 2) * 66, y: h.y - 46 + (i % 2) * 22, kind, hp: 0, brokeT: S.t - a }; R.pots.push(p); S.ev.push({ k: 'break', x: p.x, y: p.y, kind, t: p.brokeT }); }); })]),
+      ...[['debris_air', 0.15], ['debris_hop', 0.6], ['debris_rest', 5]].map(([id, a]) => [id, play((S) => { const R = S.run, h = R.hero; R.en = []; R.msg = null; R.chests = []; R.seen.fill(1); ['pot', 'vase_a', 'vase_b', 'crate', 'barrel'].forEach((kind, i) => { const p = { x: h.x + (i - 2) * 66, y: h.y - 46 + (i % 2) * 22, kind, hp: 0, brokeT: S.t - a }; R.pots.push(p); S.ev.push({ k: 'break', x: p.x, y: p.y, kind, t: p.brokeT }); }); })]),
       // a smashed wreck's planks on the shore (TASKS 1361)
-      ['wreck_broken', play((S) => { for (let sd = 1; sd < 200; sd++) { const R0 = SIM.newRun(S, 'cave', 1361 + sd), d = R0.map.decor.find((o) => o.n === 'wreck_cv'); if (!d) continue; S.run = R0; const h = R0.hero; h.x = d.x + 90; h.y = d.y + 40; d.broken = 1; d.brokeT = S.t - 5; d.solid = 0; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; break; } })],
+      ...[['wreck_broken', 5], ['wreck_breaking', 0.25]].map(([id, age]) => [id, play((S) => { for (let sd = 1; sd < 200; sd++) { const R0 = SIM.newRun(S, 'cave', 1361 + sd), d = R0.map.decor.find((o) => o.n === 'wreck_cv'); if (!d) continue; S.run = R0; const h = R0.hero; h.x = d.x + 90; h.y = d.y + 40; d.broken = 1; d.brokeT = S.t - age; d.solid = 0; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [d.x - SCX.VW / 2, d.y - SCX.VH / 2]; break; } })]),
       // a skeleton climbing out of a struck coffin (TASKS 1353)
-      ['coffin_rise', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.map.decor.push({ x: h.x + 80, y: h.y - 40, n: 'coffin', solid: 1, rolled: 1 }); const E = D.ENEMIES.skeleton; R.en.push({ id: 991, type: 'skeleton', x: h.x + 80, y: h.y - 10, vx: 0, vy: 0, hp: 9, max: 9, dmg: 1, elite: 0, room: 0, st: 'rise', t0: S.t - 0.5, riseD: 1, coffinT: S.t - 0.5, face: -1, aimA: 0, cdT: S.t + 2, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: h.x, hy: h.y, ft: -9 }); })],
+      ...[['coffin_rise_a', 0.2], ['coffin_rise', 0.5], ['coffin_rise_c', 0.85], ['coffin_rise_d', 1.3]].map(([id, age]) => [id, play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); R.map.decor.push({ x: h.x + 80, y: h.y - 40, n: 'coffin', solid: 1, rolled: 1, openT: S.t - age }); const E = D.ENEMIES.skeleton; R.en.push({ id: 991, type: 'skeleton', x: h.x + 80, y: h.y - 10, vx: 0, vy: 0, hp: 9, max: 9, dmg: 1, elite: 0, room: 0, st: age < 1 ? 'rise' : 'chase', t0: S.t - age, riseD: 1, coffinT: S.t - age, coffX: h.x + 80, coffY: h.y - 40, face: -1, aimA: 0, cdT: S.t + 2, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: h.x, hy: h.y, ft: -9 }); })]),
       // a secret's statue: the plate that offers to move it (TASKS 1354)
       ['prompt_statue', play((S) => { for (let sd = 1; sd < 220; sd++) { const R0 = SIM.newRun(S, 'campaign', 13540 + sd), q = (R0.map.secrets || []).find((o) => o.kind === 'statue'); if (!q) continue; S.run = R0; const h = R0.hero; h.x = q.x; h.y = q.y + 80; R0.en = []; R0.msg = null; R0.seen.fill(1); R0.rseen.fill(1); R0.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2]; break; } })],
       ['prompt_exit', play((S) => { const R = S.run, h = R.hero; R.map.exit = { x: h.x, y: h.y + 40 }; })],
@@ -432,6 +486,8 @@
       if (SIM.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) continue;
       const h = R.hero, P = q.trig; h.x = q.x - q.dx * 70 + (q.dy ? 50 : 0); h.y = q.y - q.dy * 80 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.aim = Math.atan2(q.dy, q.dx); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2 - 40];
+      // (TASKS 1682) the hero off the plinth, on the side the stone leaves, and no locked door's word over the statue
+      if (q.kind === 'statue') { h.x = q.x - q.slide.s * 96; h.y = q.y + 100; if (SIM.Q.doorNear(R, 64)) continue; }
       if (P && P.k === 'plate') { h.x = P.x + 40; h.y = P.y + 10; R.cam = [(q.x + P.x) / 2 - SCX.VW / 2, (q.y + P.y) / 2 - SCX.VH / 2 - 20]; }
       if (P && P.k === 'sconce') { const t2 = m.torches[P.t]; h.x = t2.x + 80; h.y = t2.y + 70; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 120); R.cam = [(q.x + t2.x) / 2 - SCX.VW / 2, (q.y + t2.y) / 2 - SCX.VH / 2]; }
       if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret'); S.ev[0].t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
@@ -477,7 +533,7 @@
       ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_swing', (o) => o.kind === 'shelf', 2, 0.2], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
       ['secret_sconce', sconce, 0], ['secret_sconce_sink', sconce, 2, 0.8], ['secret_sconce_open', sconce, 3],
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3],
-      ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.5], ['secret_statue_open', (o) => o.kind === 'statue', 3],
+      ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.6], ['secret_statue_knock', (o) => o.kind === 'statue', 2, 1.25], ['secret_statue_open', (o) => o.kind === 'statue', 3],
       ['secret_wall_lever', (o) => o.trig && o.trig.k === 'lever', 0], ['secret_wall_lever_open', (o) => o.trig && o.trig.k === 'lever', 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
     // puzzles (TASKS 1692): three levers with their tallies, then one pulled; three unlit candles with theirs, then two lit
     for (const [n, k, on] of [['secret_puzzle_levers', 'levers', 0], ['secret_puzzle_levers_on', 'levers', 1], ['secret_puzzle_candles', 'candles', 0], ['secret_puzzle_candles_lit', 'candles', 2]]) { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find((o) => o.pz && o.pz.k === k); if (!q) continue;
@@ -564,6 +620,10 @@
     states.push(['merchant_nod', shopS((S) => { at6(S, 0); S.run.shop.tradeT = S.t - 0.35; })]);
     for (let line = 0; line < D.SHOP.hitLines.length; line++) states.push(['merchant_hit_' + line, shopS((S) => { at6(S, 0); S.run.shop.hitT = S.t - 0.16; S.run.shop.hitLine = line; })]);
     states.push(['shop_screen_sell', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = 'sell:23'; })]);
+    // TASKS 1687: three pouches, every cell full; the merchant's grid on the first pouch's tab
+    const pouches = (S) => { const R = S.run, h = R.hero; S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 });
+      for (let i = 24; i < h.bag.length; i++) h.bag[i] = Object.assign(SIM.rollItem(R, 3 + (i % 9), i % 5), { id: 3100 + i }); };
+    states.push(['shop_pouch', shopS((S) => { worst(S); pouches(S); S.screen = 'shop'; S.bagTab = 1; S.hover = 'sell:30'; })]);
     states.push(['small_props', play((S) => {
       const R = S.run, m = R.map, r = m.rooms.filter((q) => q.type === 'combat').reduce((a, b) => a.w * a.h > b.w * b.h ? a : b), h = R.hero;
       R.en = []; R.pots = []; R.chests = []; R.shrines = []; R.msg = null; S.ev = [];
@@ -1036,7 +1096,11 @@
           { id: 9902, src: 971, k: 'arrow', kind: 'arrow', x: x0 + 2 * TILE, y: y0 - 70, vx: -ar.spd, vy: 40, t0: S.t - 0.3, life: 1, dmg: 1, own: 'en', r: ar.r, gz: SIM.ARROW_Y - 10 }];
         states.push(['skel_ranged', structuredClone(S)]); }
     // hero walk cycles: right, left, down, up — the same state at successive distances
-    const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; out.push(S); } return out; };
+    // (TASKS 1708) a walk cycle keeps its walker where the game's camera keeps him, the floor travels under him: on a still camera
+    // he crossed most of his box over the cycle, past the motion check's ±8 px alignment, and every frame read as changed. S.cam is
+    // the camera's travel on the pixel grid, so the rig checks still measure the feet against the floor
+    const follow = (S, tx, ty) => { const R = S.run, q = (v) => Math.round(v / 2) * 2, c0 = R.cam; R.cam = [c0[0] + tx, c0[1] + ty]; S.cam = [q(R.cam[0]) - q(c0[0]), q(R.cam[1]) - q(c0[1])]; };
+    const cyc = (dx, dy, fn) => { const out = []; for (let i = 0; i < 12; i++) { const S = play(fn); const h = S.run.hero; h.vx = dx * SIM.K.RUN; h.vy = dy * SIM.K.RUN; h.face = dx < 0 ? -1 : 1; h.back = dy < 0 ? 1 : 0; const sl = SIM.stepLen(Math.abs(dx)); h.gp = i * 2 * Math.PI / 12; h.dist = i * 2 * sl / 12; h.x += dx * h.dist; h.y += dy * h.dist; follow(S, dx * h.dist, dy * h.dist); out.push(S); } return out; };
     // the swing: impact frames all round (the sim's damage frame vs a target at 0.8 reach), and whole swings 1/60 s apart for pops
     const base = play((S) => { S.run.msg = null; S.run.en = []; }), clone = () => structuredClone(base);
     const swingAt = (a, T, tgt) => { const S = clone(), h = S.run.hero; h.aim = h.atkA = a; h.face = Math.cos(a) >= 0 ? 1 : -1; h.back = Math.sin(a) < -0.5 ? 1 : 0; h.atkT = S.t - T; h.vx = h.vy = 0;
@@ -1069,7 +1133,7 @@
         const mg = MG.has(ty), hx = h.x, hy = h.y; h.x = mg ? hx - 4 * TILE : (r.x + 1) * TILE; h.y = mg ? hy - 2 * TILE : (r.y + 1) * TILE + 20;
         const x0 = mg ? hx + TILE : (r.x + r.w / 2) * TILE, y0 = mg ? hy : (r.y + r.h / 2) * TILE, d = i * st / n;
         R.en = [{ id: 990, type: ty, x: x0 + dx * d, y: y0 + dy * d, vx: dx * E.spd, vy: dy * E.spd, hp: E.hp, max: E.hp, dmg: 1, elite: 0, room: r.id, st: 'chase', t0: -9, face: dx < 0 ? -1 : 1, aimA: 0, cdT: 99, hitT: -9, deadT: -1, dist: d, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
-        R.cam = [x0 - SCX.VW / 2, y0 - SCX.VH / 2]; }); out.push(S); } return out; };
+        R.cam = [x0 - SCX.VW / 2, y0 - SCX.VH / 2]; follow(S, dx * d, dy * d); }); out.push(S); } return out; };
     const enCycles = {}; for (const ty of ['skeleton', 'goblin', 'brute', 'cultist', 'spider', 'drowned', 'crab', 'skel_archer', 'skel_mage', 'skel_ember', 'fire_priest', 'imp', 'golem', 'salamander', 'boss_spider', 'boss_necro', 'boss_forge', 'boss_colossus']) if (MONSTERS.rigOf(ty)) { enCycles[ty + '_right'] = enCyc(ty, 1, 0); enCycles[ty + '_down'] = enCyc(ty, 0, 1); }
     {
       const S = play(); S.run = SIM.newRun(S, 'cave', 8); SIM.enterFloor(S, S.run, 2);
@@ -1107,6 +1171,10 @@
       golem_attack: enemyT('golem', 0, 'slam', 0, (e, h) => ({ y: h.y + 26 })), salamander_attack: enemyT('salamander', 0, 'slam', 0, { fa: Math.PI, br: 0 }),
       salamander_breath: enemyT('salamander', 0, 'slam', 0, (e, h) => ({ x: h.x + 4 * TILE, fa: Math.PI, br: 1, brT: 0 })),
       fire_priest_attack: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kinT: 1e9 })), fire_priest_kindle: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kin: 1, kinT: 1e9 })) };
+    // a door's leaf turning on its hinge (TASKS 1683), from shut to open over half a second
+    const doorSubj = {};
+    for (const dir of ['u', 'l', 'r']) { const S0 = doorS(dir, 1, 0); if (!S0) continue; for (const d of S0.run.map.doors) if (d.open && !d.arena && d.dir === dir && d.kick) { d.kick = 0; d.openT = S0.t - 0.01; } transitions['door_' + dir + '_turn'] = Array.from({ length: 40 }, (_, k) => { const S = structuredClone(S0); S.t += k / 60; S.run.t = S.t; return S; });
+      doorSubj['door_' + dir + '_turn'] = 'door' + S0.run.map.doors.findIndex((d) => d.open && !d.arena && d.dir === dir && d.openT === S0.t - 0.01); }
     transitions.crab_turning = enCycles.crab_turning; delete enCycles.crab_turning;
     // deaths: a few live frames, then the kill, through the fall and the bounce (the hero mid-stride and at rest, a skeleton)
     {
@@ -1313,10 +1381,11 @@
       const st = RG.hipL ? 0.8 * (dd(RG.hipL, RG.kneeL) + dd(RG.kneeL, RG.ankleL)) * H0 / RG.h : MONSTERS.robeStride(nm, H0); let i = 0;
       if (!st) throw new Error('folk: the ' + role + ' walks a round but its rig has no gait');
       folkCyc['folk_' + role + '_right'] = Array.from({ length: 12 }, (_, k) => folkS((S, R) => { const f = folkAt(R, role), d = k * st / 12; i = f.i; const n = R.map.town.npcs[f.i];
-        Object.assign(f, { x: n.x + d, dist: d, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - SCX.VW / 2, n.y - 40 - SCX.VH / 2]; }));
+        Object.assign(f, { x: n.x + d, dist: d, vx: v, vy: 0, spd: v, go: 1, way: 1, face: 1, load }); R.cam = [n.x - SCX.VW / 2, n.y - 40 - SCX.VH / 2]; follow(S, d, 0); }));
       folkCycT['folk_' + role + '_right'] = st / v; folkSubj['folk_' + role + '_right'] = 'npc' + i; folkSpr['folk_' + role + '_right'] = Object.keys(ASSETS).filter((a) => a.startsWith(nm + '__')); }
     { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'hen'); i = f.i; camOn(R, f); }); folkSubj.folk_hen_peck = 'npc' + i; loops.folk_hen_peck = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.t += k / 12; return S; }); }
     { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 120 }); const p = SCX.railPts(R.map)[4]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_roll = 'cart'; loops.folk_cart_roll = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 6; return S; }); }
+    { const base = folkS((S, R) => { Object.assign(R.cart, { st: 'down', s: 40 }); const p = SCX.railPts(R.map)[2]; R.cam = [p[0] - SCX.VW / 2, p[1] - SCX.VH / 2]; }); folkSubj.folk_cart_turn = 'cart'; loops.folk_cart_turn = Array.from({ length: 24 }, (_, k) => { const S = structuredClone(base); S.run.cart.s += k * 3; return S; }); }
     { let i = 0; const base = folkS((S, R) => { const f = folkAt(R, 'porter'); i = f.i; atStop(R, f, 0); f.t0 = S.t; f.load = 1; f.lift = 'take'; f.face = 1; camOn(R, f); });
       transitions.folk_porter_take = Array.from({ length: 110 }, (_, k) => { const S = structuredClone(base); S.t += k / 60; return S; }); folkSubj.folk_porter_take = 'npc' + i; }
     { let i = 0; const base = folkS((S, R, m, h) => { const f = folkAt(R, 'smith'); i = f.i; const c = D.folkClock('smith', i, S.t); S.t += ((0.72 - c.u + 1) % 1) * c.per; h.x = f.x + 46; h.y = f.y + 16; f.near = 1; f.sayT = S.t + 0.1; f.sayN = 0; f.face = 1; camOn(R, f); });
@@ -1377,14 +1446,37 @@
       h.bag[5] = Object.assign(SIM.rollItem(R, 2, 2, 'weapon'), { id: 1511, b: 'wand' }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['inv_req', play((S) => { const R = S.run, h = R.hero; h.lvl = 3; for (let i = 0; i < 6; i++) h.bag[4 + i] = Object.assign(SIM.rollItem(R, 4 + 2 * i, 2), { id: 1500 + i }); S.screen = 'inv'; S.hover = 'bag:9'; })]);
     // TASKS 1331: a piece lifted from the hero screen's bag over another cell, and a sort button under the pointer
-    states.push(['inv_drag', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 1210, y: 400 }; })]);
+    // TASKS 1684: the bag scattered over its cells, so a sort has something to show; the held piece over a cell it would swap into, over
+    // a slot it would be worn in, over a slot that refuses it; the refusals after the drop
+    const scatter = (S) => { worst(S); const R = S.run, h = R.hero; S.screen = 'inv';
+      [[2, 3, 1, 'armor'], [5, 9, 3, 'weapon'], [8, 6, 2, 'ring'], [11, 12, 4, 'boots'], [14, 2, 0, 'helm'], [17, 7, 3, 'amulet'], [20, 5, 2, 'weapon']].forEach(([i, lv, rar, sl]) => { h.bag[i] = Object.assign(SIM.rollItem(R, lv, rar, sl, { own: 1 }), { id: 1600 + i }); }); };
+    const invAt = (S, id, o = {}) => { const b = DATA.UI.inv(DATA.clsOf(S.run.hero).abs, S.run.hero.bag.length, S.bagTab).r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 }, o); };
+    const hold = (S, from, over) => { const a = invAt(S, over); S.hover = over; S.drag = { from, x: a.px, y: a.py }; };
+    const drop = (S, from, over) => { S.drag = { from, x: 0, y: 0 }; SIM.step(S, invAt(S, over)); };
+    states.push(['inv_drag', play((S) => { scatter(S); hold(S, 'bag:5', 'bag:8'); })]);
+    states.push(['inv_drag_wear', play((S) => { scatter(S); hold(S, 'bag:5', 'eq:weapon'); })]);
+    states.push(['inv_drag_worn_swap', play((S) => { scatter(S); hold(S, 'eq:armor', 'bag:2'); })]);
+    states.push(['inv_drag_refused', play((S) => { scatter(S); hold(S, 'bag:0', 'eq:ring'); })]);
+    states.push(['inv_drop_potion', play((S) => { scatter(S); drop(S, 'bag:0', 'eq:ring'); })]);
+    states.push(['inv_drop_worn_refused', play((S) => { scatter(S); drop(S, 'eq:armor', 'bag:0'); })]);
     // TASKS 1349: every rank full at 15, the points past them shown as mastery
     states.push(['inv_mastery', play((S) => { const h = S.run.hero; h.lvl = 60; for (const a of DATA.clsOf(h).abs) h.ab[a.id] = DATA.AB_MAX; h.mast = 17; h.sp = 0; S.screen = 'inv'; })]);
-    states.push(['inv_sort', play((S) => { worst(S); S.screen = 'inv'; S.hover = 'sort:rar'; })]);
-    states.push(['town_stash_sort', stashS((S) => { S.hover = 'sortS:type'; })]);
+    states.push(['inv_sort', play((S) => { scatter(S); S.hover = 'sort:rar'; })]);
+    states.push(['inv_sort_after', play((S) => { scatter(S); const a = invAt(S, 'sort:rar'); SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sort:rar'; })]);
+    const stashMix = (S, R, h) => { const T = SIM.stashOf(S); T.items = [[3, 1, 'armor'], [9, 3, 'weapon'], null, [5, 2, 'ring'], [12, 4, 'boots'], null, [7, 3, 'amulet']].map((q, i) => q && Object.assign(SIM.rollItem(R, q[0], q[1], q[2], { own: 1 }), { id: 910 + i })); };
+    states.push(['town_stash_sort', stashS((S, R, h) => { stashMix(S, R, h); S.hover = 'sortS:rar'; })]);
+    states.push(['town_stash_sort_after', stashS((S, R, h) => { stashMix(S, R, h); const b = DATA.UI.stash().r.find((q) => q.id === 'sortS:rar'), a = { keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 }; SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sortS:rar'; })]);
     // TASKS 1348: a find well above the hero: the card names the level it waits for
     states.push(['inv_over_lvl', play((S) => { const R = S.run, h = R.hero; h.lvl = 5; h.bag[4] = Object.assign(SIM.rollItem(R, 18, 2, 'weapon', { own: 1 }), { id: 1520 }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
+    // TASKS 1687: the bag and its three pouches full, each tab open in turn; a piece held over a pouch's tab; a drop on a full one
+    // refused; the chest with a pouch open; the Altar's row that sells them
+    for (let k = 0; k < 4; k++) states.push(['inv_pouch_' + k, play((S) => { worst(S); pouches(S); S.screen = 'inv'; S.bagTab = k; S.hover = 'btab:' + k; })]);
+    states.push(['inv_pouch_card', play((S) => { worst(S); pouches(S); S.screen = 'inv'; S.bagTab = 2; S.hover = 'bag:47'; })]);
+    states.push(['inv_pouch_drag', play((S) => { scatter(S); S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 }); S.screen = 'inv'; hold(S, 'bag:5', 'btab:2'); })]);
+    states.push(['inv_pouch_full', play((S) => { worst(S); pouches(S); S.screen = 'inv'; h0(S).bag[3] = null; drop(S, 'bag:5', 'btab:3'); })]);
+    states.push(['town_stash_pouch', stashS((S) => { pouches(S); S.screen = 'stash'; S.bagTab = 2; S.hover = 'btab:2'; })]);
+    states.push(['town_meta_pouch', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 120; S.meta.up.pouch = 1; S.screen = 'meta'; S.metaRun = 1; S.hover = 'pouch'; })]);
     // the workshops (TASKS 1013): the prompts at the anvil and the lectern; the smith with a rare ring chosen; the enchanter after a
     // failed enchantment; a piece with all five enchantments (the button's refusal, the longest)
     const craftS = (kind, fn) => climbS(0, (S, R, m, h) => { const P = m.town.svc[kind === 'forge' ? 'anvil' : 'lectern']; h.x = P.x; h.y = P.y + 30; h.gold = 23456; S.meta.shards = 77;
@@ -1401,13 +1493,22 @@
     // the class screen (TASKS 1103): the mage picked, the pointer on the warrior's card
     states.push(['classes_kit', mk((S) => { S.meta.cls = 'archer'; S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'kit:archer'; })]);
     states.push(['classes', mk((S) => { S.meta.cls = 'mage'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'cls:warrior'; })]);
+    // the start screen (TASKS 1304): every difficulty and class chosen, the keyboard's focus on each row, the first-timer's tip and
+    // the lore line in its place once he has won or picked the easy one
+    states.push(['classes_dif_easy', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'easy'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'dif:easy'; })]);
+    states.push(['classes_dif_hard', mk((S) => { S.meta.cls = 'archer'; S.meta.diff = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'cls:archer'; S.hover = 'dif:normal'; })]);
+    states.push(['classes_won', mk((S) => { S.meta.cls = 'mage'; S.meta.diff = 'normal'; S.meta.wins = 1; S.meta.open = Object.fromEntries(DATA.UNLOCKS.filter((u) => u.kind === 'kit').map((u) => [u.id, 1])); S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'cave'; S.focus = 'kit:mage'; })]);
+    states.push(['classes_go', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'back'; S.hover = 'go'; S.pressWas = true; })]);
     // the archer's look (TASKS 1124): as the mage's, and on the green crypt floor beside the skeleton archer he must not be taken for
     const archerS = (fn) => play((S) => { const R = S.run, h = R.hero, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ });
       h.cls = 'archer'; h.eq.armor = null; h.eq.weapon = gear('shortbow', 'weapon'); R.msg = null; fn(S, R, h, gear); });
     states.push(['archer_front', archerS(() => {})], ['archer_back', archerS((S, R, h) => { h.back = 1; })],
       ['archer_leather', archerS((S, R, h, gear) => { h.eq.armor = gear('leather_armor', 'armor'); })],
       ['archer_cloak', archerS((S, R, h, gear) => { h.eq.armor = gear('cloak', 'armor'); })],
-      ['archer_helm', archerS((S, R, h, gear) => { h.eq.helm = gear('leather_helm', 'helm'); })]);
+      ['archer_helm', archerS((S, R, h, gear) => { h.eq.helm = gear('leather_helm', 'helm'); })],
+      ['archer_bows_inv', archerS((S, R, h, gear) => { h.eq.weapon = gear('longbow', 'weapon'); h.bag[0] = gear('shortbow', 'weapon'); h.bag[1] = gear('crossbow', 'weapon'); h.bag[2] = gear('longbow', 'weapon'); S.screen = 'inv'; S.hover = 'eq:weapon'; })],
+      ['archer_bows_floor', archerS((S, R, h, gear) => { ['shortbow', 'longbow', 'crossbow'].forEach((b, i) => R.drops.push({ id: R.nextId++, kind: 'item', loot: 1, item: Object.assign(gear(b, 'weapon'), { rar: 0 }), x: h.x - 50 + 50 * i, y: h.y + 50, vx: 0, vy: 0, z: 0, vz: 0, t0: S.t - 5 })); })],
+      ...['longbow', 'crossbow'].flatMap((b) => [['archer_' + b, archerS((S, R, h, gear) => { h.eq.weapon = gear(b, 'weapon'); })], ['archer_' + b + '_back', archerS((S, R, h, gear) => { h.eq.weapon = gear(b, 'weapon'); h.back = 1; })]]));
     states.push(['town_archer', climbS(0, (S, R, m, h) => { h.cls = 'archer'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'shortbow' }); h.x = m.town.svc.lectern.x - 70; h.y = m.town.svc.lectern.y + 60; })]);
     states.push(['town_mage', climbS(0, (S, R, m, h) => { h.cls = 'mage'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'staff' }); h.eq.armor = Object.assign({}, h.eq.armor, { b: 'robe' });
       h.x = m.town.svc.lectern.x - 70; h.y = m.town.svc.lectern.y + 60; })]);
@@ -1640,9 +1741,12 @@
       for (let i = 0; i < Math.ceil(span / SIM.DT); i++) SIM.step(S, { keys: [] });
       R.cam = [b.x - SCX.VW / 2, b.y - SCX.VH / 2]; R.msg = null;
     })]);
+    // (TASKS 1708) the motion check isolates an actor by these names: the hero walks in his starting leather and cloth, whose parts
+    // carry suffixes, and the fire priest wears the cultist's rig in its own paint; listed by hand, only the cape and nothing were measured
+    const heroSpr = Object.keys(ASSETS).filter((a) => a.startsWith('hero__')).concat(['it_sword', 'it_longsword', 'it_shield', 'it_shield_t']);
     const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles, folkCyc),
-      sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, ['hero__cape', 'hero__thighL', 'hero__shinL', 'hero__footL', 'hero__thighR', 'hero__shinR', 'hero__footR', 'hero__body', 'hero__uarmL', 'hero__farmL', 'hero__uarmR', 'hero__farmR', 'hero__body_nh', 'hero__body_back_nh', 'hero__head_kn', 'hero__head_back_kn', 'hero__farmL_pl', 'hero__farmR_pl', 'it_shield_t']])),
-        Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
+      sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, heroSpr])),
+        Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); const pn = k.startsWith('fire_priest_') ? 'priest' : n; return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a.startsWith(pn + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
       subject: Object.assign({ hero_right: 'hero', hero_left: 'hero', hero_down: 'hero', hero_up: 'hero', hero_plate_right: 'hero', hero_plate_up: 'hero' }, Object.fromEntries(Object.entries(transitions).map(([k, fr]) => [k, k.startsWith('hero') ? 'hero' : k.startsWith('merchant') ? 'merchant' : 'en' + ((fr[0].run.en[0] || {}).id ?? 990)])), Object.fromEntries(Object.keys(enCycles).map((k) => [k, 'en990'])), Object.fromEntries(Object.keys(loops).map((k) => [k, k.startsWith('merchant') ? 'merchant' : k.startsWith('hero') ? 'hero' : 'en990'])), Object.fromEntries(Object.keys(swings).map((k) => [k, 'hero']))), cycleT: { ...Object.fromEntries(Object.keys(enCycles).map((k) => { const ty = k.split('_').slice(0, -1).join('_'); return [k, MONSTERS.stride(ty, SZ(EN_TEX[ty])[1] * (D.BOSSES[ty] ? D.BOSSES[ty].scale || 1.6 : 1)) / D.ENEMIES[ty].spd]; })), hero_right: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_left: 2 * SIM.stepLen(1) / SIM.K.RUN, hero_down: 2 * SIM.stepLen(0) / SIM.K.RUN, hero_up: 2 * SIM.stepLen(0) / SIM.K.RUN },
       rest: { hero_right: play(), hero_left: play(), hero_down: play(), hero_up: play((S) => { S.run.hero.back = 1; }), hero_plate_right: play(wear('plate')), hero_plate_up: play((S) => { wear('plate')(S); S.run.hero.back = 1; }) }, actors: ['hero', ...new Set(Object.keys(enCycles).map((k) => k.split('_').slice(0, -1).join('_'))), 'ghost', 'slime', 'eel', 'serpent', 'boss'], loops, attacks, swings, impacts, transitions, box };
     // the mage (TASKS 1115): his walk on his own parts, his staff shot (the arm brings the staff up, a bolt leaves), his casts, a blow and
@@ -1663,15 +1767,21 @@
     transitions.hero_mage_hurt = mageT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; });
     transitions.hero_mage_death = mageT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     // the archer (TASKS 1125): the same sequences with his bow; the volley and the leap through the sim
-    const asArcher = (S) => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b: 'shortbow', rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
-    const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__')).concat(['it_bow_s', 'skel_arrow']);
+    const asArcher = (S, b = 'shortbow') => { const h = S.run.hero; h.cls = 'archer'; h.eq.weapon = { id: 0, b, rar: 0, lvl: 1, mods: {}, atk: 6 }; h.eq.armor = { id: 0, b: 'leather_armor', rar: 0, lvl: 1, mods: {}, def: 3 }; };
+    const archerSpr = Object.keys(ASSETS).filter((a) => a.startsWith('archer__') || /^it_(bow_[sl]|crossbow)(_h)?$/.test(a)).concat(['skel_arrow']);
     for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = 'archer_' + k;
       out.cycles[n] = cyc(dx, dy, asArcher); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S); if (dy < 0) S.run.hero.back = 1; }); }
-    const archerT = (a0, fire, press, turn) => { const fr = []; let S = play((S) => { clear(S); asArcher(S); S.run.hero.lvl = 4; S.run.hero.ab.volley = 1; S.run.hero.ab.trap = 1; S.run.hero.ab.leap = 1; S.run.hero.mp = 999; }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
+    const archerT = (a0, fire, press, turn, b) => { const fr = []; let S = play((S) => { clear(S); asArcher(S, b); S.run.hero.lvl = 4; S.run.hero.ab.volley = 1; S.run.hero.ab.trap = 1; S.run.hero.ab.leap = 1; S.run.hero.mp = 999; }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run, a = turn && i >= turn[0] ? a0 + turn[1] : a0;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } if (typeof fire === 'function') fire(S, h); } fr.push(S); S = structuredClone(S);
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, press: press && [].concat(press === 1 ? [5] : press).some((q) => i >= q && i < q + 2) ? 1 : 0, slot: fire === 'volley' && i === 5 && k === 0 ? 1 : fire === 'leap' && i === 5 && k === 0 ? 3 : 0, keys: [] }); } return fr; };
     for (const [n, a] of [['r', 0], ['d', Math.PI / 2], ['ul', -2.3]]) transitions['hero_archer_shoot_' + n] = archerT(a, null, 1);
     transitions.hero_archer_shoot_l = archerT(Math.PI, null, 1); transitions.hero_archer_shoot_u = archerT(-Math.PI / 2, null, 1); transitions.hero_archer_shoot_turn = archerT(0, null, 1, [7, 1.2]); transitions.hero_archer_pair = archerT(0, null, [5, 34]);
+    // each bow and the crossbow at rest, walking and shooting all round (TASKS 1710, 1711)
+    const AIM8 = [['r', 0], ['dr', Math.PI / 4], ['d', Math.PI / 2], ['dl', 3 * Math.PI / 4], ['l', Math.PI], ['ul', -3 * Math.PI / 4], ['u', -Math.PI / 2], ['ur', -Math.PI / 4]];
+    for (const b of ['longbow', 'crossbow']) {
+      for (const [n, a] of AIM8) transitions['hero_' + b + '_shoot_' + n] = archerT(a, null, 1, null, b);
+      for (const [k, dx, dy] of [['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]]) { const n = b + '_' + k;
+        out.cycles[n] = cyc(dx, dy, (S) => asArcher(S, b)); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S, b); if (dy < 0) S.run.hero.back = 1; }); } }
     transitions.hero_archer_shoot2_r = archerT(0, null, [5, 30]); transitions.hero_archer_volley_r = archerT(0, 'volley'); transitions.hero_archer_leap_r = archerT(0, 'leap');
     // the warrior's charge and war cry (TASKS 1134), through the sim
     const warT = (a, slot, foe, press) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
@@ -1680,6 +1790,7 @@
     transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28); transitions.hero_cry = warT(0, 3);
     transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
+    Object.assign(out.subject, doorSubj);
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);
     out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter', 'mason', 'hen', 'cart'].map((r) => 'folk_' + r));
     calm(out); return out;

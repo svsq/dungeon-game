@@ -3,11 +3,9 @@
 (function () {
   const SCX = window.SCX, {
     ARC_HALF, ARC_MID, BAKE, BLOOD, D, DRIP_FALL, EN_TEX, GLOW_COL, HERO_H, L, PILLAR_T, PIX, RIM, SC, SS, STAND, SWING, SZ, TAU, TILE,
-    TOWN_LIGHT, breathFx, crustTex, dripAge, flameAt, glowBeat, glowOf, impSpark, modCol, rnd, surgeBox, surgeTex, swimFx, swimOf,
+    TOWN_LIGHT, breathFx, chestOpenD, statueSlide, crustTex, dripAge, flameAt, glowBeat, glowOf, impSpark, modCol, rnd, surgeBox, surgeTex, swimFx, swimOf,
     swingPose, torchCol } = SCX;
-  // a beat that quickens over a warning: its phase is the integral of the rate from the warning's start. The clock times a rising
-  // rate raced at (clock × rate of change), thousands of rad/s deep into a run, and the colossus's warnings strobed (TASKS 1362)
-  const chirp = (u, T, w0, w1, smooth) => { const s = Math.max(0, Math.min(1, u / T)); return w0 * Math.max(0, u) + w1 * T * (smooth ? s * s * s - s * s * s * s / 2 : s * s / 2); };
+  const chirp = L.chirp;
   SCX.fxPass = (F) => {
     const {
       B, GT, MH, MW, R, ST, altarCol, cx, cy, flick, fuseAt, h, hid, inSecret, known, lavaCells, lavaP, lavaU, lavaXf, m, melt, seen,
@@ -26,7 +24,7 @@
     if (m.town && vis(m.town.svc.altar.x, m.town.svc.altar.y)) { G.blend('emit'); const A = m.town.svc.altar; [-21, -12, 16, 26].forEach((dx, i) => flameAt(sx(A.x) + dx, sy(A.y) - 53, 7, 13, [1, 0.72, 0.3], i * 7 + 3, Math.sin(t * 2.3 + i), t)); G.blend('add'); }
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
     // a trapped chest gives itself away to a careful eye: now and then a thread of dust from under the lid (TASKS 1357)
-    for (const c of R.chests) { if (!c.trap || c.open || !vis(c.x, c.y) || !known(c.x, c.y)) continue; const ph = (t + c.x * 0.013 + c.y * 0.007) % 5.3; if (ph < 0.8) L.puff(sx(c.x) + 4, sy(c.y) - 26 - 16 * ph, 5 + 6 * ph, [0.42, 0.4, 0.3], 0.3 * (1 - ph / 0.8), c.x * 3); }
+    for (const c of R.chests) { if (!c.trap || c.open || !vis(c.x, c.y) || !known(c.x, c.y)) continue; const ph = (t + c.x * 0.013 + c.y * 0.007) % 4.6; if (ph < 1.7) { const q = ph / 1.7; for (let j = 0; j < 3; j++) { const u = (q + j / 3) % 1; L.glow(sx(c.x) + 4 + 3 * Math.sin(u * 9 + c.x), sy(c.y) - 30 - 32 * u, 9 + 10 * u, [0.78, 0.74, 0.58], 0.7 * Math.sin(Math.PI * q) * (1 - u) ** 0.5, 2.2); } if (ph % 0.6 < 0.08) L.star(sx(c.x) + 4, sy(c.y) - 30, 6, [1, 0.72, 0.3], 0.8); } }
     // the townsfolk's work (TASKS 1015): sparks off the anvil on the blow, embers up off the keeper's poke, the enchanter's blue flame
     for (const q of RIM.folk) { const a = q.a || 0;
       if (q.k === 'spark') for (let j = 0; j < 8; j++) { const an = -Math.PI / 2 + (rnd(q.seed, j) - 0.5) * 2.6, v = 70 + 90 * rnd(q.seed, j + 8), k = 1 - SS(0.15, 0.45, a);
@@ -51,7 +49,7 @@
       if (g > 0) { L.glow(pa[0], pa[1], 6 + 12 * g, [0.35, 0.85, 0.95], 0.9 * g, 3);
         for (let j = 0; j < 5; j++) { const an = t * 7 + j * 1.256, rr = 13 * (1 - 0.6 * g); L.solid(Math.round((pa[0] + Math.cos(an) * rr) / PIX) * PIX, Math.round((pa[1] + Math.sin(an) * rr * 0.6) / PIX) * PIX, PIX, PIX, [0.6, 0.95, 1], 0, 0, 0, 0.9 * g); } } }
     // crystals and cold-fire torches carry a halo of their own, so the arcane blue is a light source, not a tint
-    for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x));
+    for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x) * ((D.FLOOR_MODS[m.mod] || {}).flame || 1));
     // a cold fire carries a halo of its own over everything (a warm sconce's is painted on the wall behind it, `halo`)
     m.torches.forEach((tc, i) => { const col = torchCol(m, tc); if (hid(tc) || !vis(tc.x, tc.y) || !known(tc.x, tc.y)) return;
       if (col[2] > col[0]) L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2); });
@@ -220,7 +218,7 @@
     // a fire priest's ring (TASKS 410): a circle of fire on the floor where the hero stood, its runes running round it and a second
     // ring closing in on it as the warning runs out; then the pillar (event FX)
     for (const p of R.pyres || []) { const P = D.ENEMIES.fire_priest.pyre, u = GT - p.t0; if (u >= P.warn || !vis(p.x, p.y)) continue;
-      const q = u / P.warn, X = sx(p.x), Y0 = sy(p.y), beat = 0.75 + 0.25 * Math.sin(GT * (10 + 18 * q)), rx = P.r, ry = P.r * P.ry, in0 = SS(0, 0.15, u);
+      const q = u / P.warn, X = sx(p.x), Y0 = sy(p.y), beat = 0.75 + 0.25 * Math.sin(chirp(u, P.warn, 10, 18)), rx = P.r, ry = P.r * P.ry, in0 = SS(0, 0.15, u);
       L.glow(X, Y0, rx * 1.1, [1, 0.3, 0.08], (0.15 + 0.45 * q) * in0, 2.2);
       L.ring(X, Y0, rx, ry, [1, 0.35, 0.1], (0.45 + 0.5 * q) * beat * in0, 0.07); L.ring(X, Y0, rx * (1.6 - 0.6 * q), ry * (1.6 - 0.6 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.05);
       for (let j = 0; j < 6; j++) { const an = j / 6 * TAU + GT * 1.6; L.star(X + Math.cos(an) * rx * 0.72, Y0 + Math.sin(an) * ry * 0.72, 6 + 3 * q, [1, 0.5, 0.15], (0.4 + 0.5 * q) * in0); } }
@@ -276,10 +274,10 @@
     // a terrace's surge (TASKS 475), over the bridges' decks too: over its warning its band glows and beats faster, sparks jump off
     // the lava by it and the lava creeps up its edges; then it floods it and ebbs back
     for (const z of m.hazards || []) { if (z.k !== 'surge') continue; const H = D.HAZ.surge, q = D.surgeLevel(z, GT), w = D.hazClock(z, GT) - (z.per - H.warn); if (q <= 0 || !z.cells.some((c) => R.seen[c])) continue;
-      if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(GT * (8 + 14 * k));
+      if (w >= 0) { const k = w / H.warn, beat = 0.7 + 0.3 * Math.sin(chirp(w, H.warn, 8, 14));
         z.cells.forEach((c, i) => { if (i % 2 || !R.seen[c]) return; const wx0 = (c % z.W + 0.5) * TILE, wy0 = (Math.floor(c / z.W) + 0.5) * TILE; if (!vis(wx0, wy0)) return; const X = sx(wx0), Y = sy(wy0);
           L.glow(X, Y, 22 + 10 * k, [1, 0.45, 0.1], (0.12 + 0.45 * k) * beat, 2.2);
-          if (i % 6 === 0) { const b = (GT * (1.1 + 2 * k) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
+          if (i % 6 === 0) { const b = (chirp(w, H.warn, 1.1, 2) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
       const box = surgeBox(z), xf = G.xf(sx(box[0]), sy(box[1]), box[2], box[3]);
       const FR = 0.4, fr = w >= H.warn - FR ? (w - (H.warn - FR)) / FR * 1.1 : -1;
       const u = (mode) => ({ u_t: GT, u_q: q, u_fr: fr, u_mask: surgeTex(m, z), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0, u_face: BAKE.face || seen, u_occ: SCX.LT.occ });
@@ -291,7 +289,7 @@
     for (const z of m.hazards || []) { if (!z.gate || !vis(z.x, z.y) || (known(z.x, z.y) && rimKnown(z))) continue; const H = D.HAZ.vent, h = R.hero;
       if (Math.hypot(h.x - z.x, h.y - z.y) > H.gate.see * TILE || !SIM.Q.losClear(m, h.x, h.y - 10, z.x, z.y - 10)) continue;
       const w = D.hazClock(z, GT) - (z.per - H.warn), c = D.hazClock(z, GT), q = w >= 0 ? w / H.warn : 0, burst = c < H.burst ? 1 - c / H.burst : 0, X = sx(z.x), Y0 = sy(z.y);
-      L.glow(X, Y0 - 4, 12 + 26 * q + 30 * burst, [1, 0.5, 0.12], 0.3 + 0.6 * q * (0.7 + 0.3 * Math.sin(GT * (9 + 16 * q))) + 0.8 * burst, 2.4); }
+      L.glow(X, Y0 - 4, 12 + 26 * q + 30 * burst, [1, 0.5, 0.12], 0.3 + 0.6 * q * (0.7 + 0.3 * Math.sin(chirp(w, H.warn, 9, 16))) + 0.8 * burst, 2.4); }
     // a gate reads as a threshold across the way at rest (TASKS 1714: three thin ovals in the floor): a smouldering crack wall to wall
     // along its row, under its rings, brightening with the warning
     { const sets = new Map(); for (const z of m.hazards || []) if (z.gate && known(z.x, z.y) && rimKnown(z)) { const id = z.per + ':' + z.ph; (sets.get(id) || sets.set(id, []).get(id)).push(z); }
@@ -309,11 +307,11 @@
         L.ring(X, Y0, Hr * 0.4, Hr * H.ry * 0.4, [1, 0.35, 0.08], (z.gate ? 0.5 : 0.28) * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], (z.gate ? 0.5 : 0.3) * br, 2.4); if (z.gate) L.ring(X, Y0, Hr, Hr * H.ry, [1, 0.32, 0.08], 0.3 * br, 0.05);
         for (let j = 0; j < 2; j++) { const b = (GT * 0.5 + rnd(z.x + z.y, j)) % 1; L.puff(X + (rnd(z.x, j + 3) - 0.5) * 14, Y0 - 4 - 26 * b, 3 + 3 * b, [0.5, 0.4, 0.34], 0.3 * (1 - b), j); } continue; }
       // (the warning starts with a step and a flash, TASKS 1714: its first tenths looked like rest)
-      const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(GT * (9 + 16 * q)), onset = z.gate ? 0.35 * (1 - SS(0, 0.3, w)) + 0.25 : 0;
+      const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(chirp(w, H.warn, 9, 16)), onset = z.gate ? 0.35 * (1 - SS(0, 0.3, w)) + 0.25 : 0;
       if (z.gate && w < 0.07) L.glow(X, Y0 - 4, Hr * 0.8, [1, 0.62, 0.2], 0.9, 2.2);
       L.ring(X, Y0, Hr, Hr * H.ry, [1, 0.4, 0.1], (0.18 + onset + 0.7 * q) * beat, 0.06); L.ring(X, Y0, Hr * 0.55, Hr * H.ry * 0.55, [1, 0.5, 0.15], 0.35 * q * beat, 0.1);
       L.glow(X, Y0 - 4, 18 + 30 * q, [1, 0.55, 0.15], 0.2 + 0.7 * q, 2.4);
-      for (let j = 0; j < 7; j++) { const b = (GT * (1.2 + 2.4 * q) + rnd(z.x + z.y, j)) % 1, px = X + (rnd(z.x, j + 3) - 0.5) * 26, py = Y0 - 2 - 22 * b;
+      for (let j = 0; j < 7; j++) { const b = (chirp(w, H.warn, 1.2, 2.4) + rnd(z.x + z.y, j)) % 1, px = X + (rnd(z.x, j + 3) - 0.5) * 26, py = Y0 - 2 - 22 * b;
         L.star(px, py, 2 + 4 * q * (1 - b), [1, 0.55 + 0.3 * (1 - b), 0.15], q * (1 - b)); } }
     for (const e of ST.ev) { const a = GT - e.t; if (a < 0 || !known(e.x, e.y)) continue; const ex = sx(e.x), ey = sy(e.y);
       // the crescent is a vertical C on the chest, ±ARC_HALF about the aim, drawn in the blade's turning direction over the strike so
@@ -359,7 +357,8 @@
       if (e.k === 'pinch' && a < 0.15) { const k = 1 - a / 0.15; L.star(ex, ey - 12, 16 * k + 4, [1, 0.95, 0.8], 0.9 * k); }
       if (e.k === 'hit' && !e.arm && a < 0.3) { const q = a / 0.3; for (let j = 0; j < (e.crit ? 9 : 5); j++) { const an = rnd(e.t, j) * 6.28, d = 8 + 34 * q * (0.5 + rnd(e.t, j + 9));
           L.star(ex + Math.cos(an) * d, ey + Math.sin(an) * d, e.crit ? 12 : 8, e.fire ? [1, 0.6, 0.2] : [1, 0.85, 0.6], (e.fire ? 0.6 : 1) * (1 - q)); } }
-      if (e.k === 'hit' && e.crit && !e.arm && a < 0.18) { const q = a / 0.18, r = 20 + 54 * q; L.glow(ex, ey, 74, [1, 0.9, 0.65], 0.85 * (1 - q), 2.5); L.ring(ex, ey, r, r * 0.75, [1, 0.95, 0.8], 0.7 * (1 - q), 0.15); }
+      // the flash is a warm halo round the body and the ring does the telling: a bright blob over the monster itself whites it out and hides what was hit (TASKS 1685)
+      if (e.k === 'hit' && e.crit && !e.arm && a < 0.14) { const q = a / 0.14, r = 22 + 52 * q; L.glow(ex, ey, 54, [1, 0.8, 0.5], 0.3 * (1 - q), 3.6); L.ring(ex, ey, r, r * 0.75, [1, 0.95, 0.8], 0.7 * (1 - q), 0.15); }
       // the crust (TASKS 401): a flash of heat through the cracks as it gives, a splash of lava as it melts or as a monster goes in
       if (e.k === 'crack' && a < 0.5) { const q = a / 0.5; L.glow(ex, ey, 40, [1, 0.45, 0.1], 0.5 * (1 - q), 2.2); }
       if ((e.k === 'melt' || e.k === 'sink') && a < 0.7) { const q = a / 0.7; L.glow(ex, ey - 4, 46, [1, 0.5, 0.12], 0.45 * (1 - q), 2.4);
@@ -406,10 +405,17 @@
       if (e.k === 'slam' && a < 4.6) L.cracks(ex, ey, e.big ? 130 : 70, a, e.id || 1, 1);
       if (e.k === 'lvl' && a < 1.6) { const q = a / 1.6; L.ring(ex, ey, 30 + 80 * q, 14 + 36 * q, [1, 0.85, 0.4], 1 - q, 0.1); for (let j = 0; j < 14; j++) { const an = j / 14 * 6.28;
           L.star(ex + Math.cos(an) * (20 + 30 * q), ey - 20 - 90 * q * (0.5 + rnd(j, 2)), 9, [1, 0.85, 0.4], 1 - q); } }
-      if ((e.k === 'pickup' || e.k === 'gold' || e.k === 'shard' || e.k === 'chest') && a < 0.5) { const q = a / 0.5, col = e.k === 'shard' ? [0.4, 0.7, 1] : e.k === 'pickup' ? D.RARITY[e.rar || 0].col : [1, 0.85, 0.3];
+      if (e.k === 'chest' && a < 1.1) { const rank = e.boss ? 3 : Math.min(3, e.tier || 1) - 1, D0 = chestOpenD(e), col = [[1, 0.84, 0.55], [0.75, 0.88, 1], [1, 0.78, 0.3], [1, 0.3, 0.2]][rank], burst = a - D0 * 0.85, n = [5, 7, 10, 18][rank], reach = [28, 34, 44, 70][rank];
+        if (burst >= -0.04 && burst < 0.16) { const fl = 1 - Math.abs(burst - 0.02) / 0.14; G.blend('add'); L.glow(ex, ey - 22, [30, 36, 46, 70][rank], col, Math.max(0, fl) * [0.42, 0.45, 0.55, 0.7][rank], 2.8); G.blend(); }
+        if (burst >= 0 && burst < 0.6) { const q = burst / 0.6; for (let j = 0; j < n; j++) { const an = -1.57 + (rnd(e.t, j) - 0.5) * (rank === 3 ? 2.4 : 1.6), d = reach * q * (0.6 + 0.4 * rnd(e.t, j + 3)); L.star(ex + Math.cos(an) * d, ey - 22 + Math.sin(an) * d * 1.2, 7 + 5 * rank * (1 - q), j % 3 === 0 && rank === 3 ? [1, 0.82, 0.35] : col, (1 - q) * 0.9); } L.star(ex - 12, ey - 30, 14 + 7 * rank, [1, 0.97, 0.85], 1 - q); }
+        if (rank === 3 && burst >= 0 && burst < 0.5) { const q = burst / 0.5; L.ring(ex, ey - 4, 26 + 70 * q, 12 + 36 * q, col, 0.8 * (1 - q), 0.14); } }
+      if ((e.k === 'pickup' || e.k === 'gold' || e.k === 'shard') && a < 0.5) { const q = a / 0.5, col = e.k === 'shard' ? [0.4, 0.7, 1] : e.k === 'pickup' ? D.RARITY[e.rar || 0].col : [1, 0.85, 0.3];
         for (let j = 0; j < 6; j++) { const an = j / 6 * 6.28 + e.t; L.star(ex + Math.cos(an) * 26 * q, ey - 10 + Math.sin(an) * 18 * q - 20 * q, 9, col, 1 - q); } }
-      if (e.k === 'trapfuse' && a < e.d) { const q = a / e.d; for (let j = 0; j < 5; j++) L.star(ex + (rnd(e.t, j) - 0.5) * 30, ey - 26 - 34 * ((q + rnd(e.t, j + 9)) % 1), 7 + 6 * q, [1, 0.75, 0.3], 0.9); L.ring(ex, ey, D.CHEST_TRAP.r * q, D.CHEST_TRAP.r * 0.6 * q, [0.9, 0.3, 0.15], 0.35, 0.06); }
-      if (e.k === 'trapbang' && a < 0.5) { const q = a / 0.5; L.ring(ex, ey, e.r * (0.4 + 0.6 * q), e.r * 0.6 * (0.4 + 0.6 * q), [1, 0.5, 0.2], 1 - q, 0.16); for (let j = 0; j < 14; j++) { const an = j / 14 * 6.28 + rnd(e.t, j), rr = e.r * q * (0.5 + 0.5 * rnd(e.t, j + 3)); L.puff(ex + Math.cos(an) * rr, ey + Math.sin(an) * rr * 0.6 - 12 - 26 * q, 6 + 8 * q, [0.35, 0.3, 0.26], 0.7 * (1 - q), e.t + j); } }
+      if (e.k === 'trapfuse' && a < e.d) { const q = a / e.d, T = D.CHEST_TRAP.r, beat = 0.55 + 0.45 * Math.sin(a * (10 + 34 * q)); G.blend('add'); G.draw(L.P.glow, { u_col: [1, 0.2, 0.08], u_k: 1.3, u_amt: (0.14 + 0.22 * q) * beat }, G.xf(ex - T, ey - T * 0.6, 2 * T, T * 1.2)); G.blend(); L.ring(ex, ey, T, T * 0.6, [1, 0.28, 0.12], 0.45 + 0.5 * beat, 0.07); L.ring(ex, ey, T * (1 - q), T * 0.6 * (1 - q), [1, 0.75, 0.3], 0.85, 0.09);
+        const sx0 = ex + 6, sy0 = ey - 36; G.blend('add'); L.glow(sx0, sy0, 12 + 10 * q, [1, 0.55, 0.15], 0.8 * beat, 2.5); G.blend(); L.star(sx0, sy0, 12 + 8 * q, [1, 0.9, 0.55], 1); for (let j = 0; j < 7; j++) { const u = (q * 2.5 + rnd(e.t, j + 9)) % 1; L.star(sx0 + (rnd(e.t, j) - 0.5) * 16 * (1 + u), sy0 - 4 - 30 * u, 9 + 6 * q, [1, 0.78, 0.3], 1 - u * 0.5); } }
+      if (e.k === 'trapbang' && a < 0.9) { const q = a / 0.9, F2 = SS(0, 0.1, a) * (1 - SS(0.12, 0.3, a)); G.blend('add'); if (a < 0.22) L.glow(ex, ey - 16, e.r * 1.05, [1, 0.92, 0.7], 1.05 * (1 - a / 0.22), 2); L.glow(ex, ey - 16, e.r * 0.8, [1, 0.45, 0.12], 0.55 * F2, 2); G.blend(); L.ring(ex, ey, e.r * (0.35 + 0.65 * Math.min(1, a / 0.3)), e.r * 0.6 * (0.35 + 0.65 * Math.min(1, a / 0.3)), [1, 0.62, 0.25], Math.max(0, 1 - a / 0.42), 0.22);
+        for (let j = 0; j < 16; j++) { const an = j / 16 * 6.28 + rnd(e.t, j), d = e.r * Math.min(1, q * 2.1) * (0.5 + 0.5 * rnd(e.t, j + 3)); L.star(ex + Math.cos(an) * d, ey - 8 + Math.sin(an) * d * 0.6 - 40 * q * q, 10 * (1 - q) + 3, [1, 0.8, 0.35], 1 - q); }
+        for (let j = 0; j < 16; j++) { const an = j / 16 * 6.28 + rnd(e.t, j), rr = e.r * (0.25 + 0.5 * Math.min(1, q * 1.6)) * (0.5 + 0.5 * rnd(e.t, j + 3)), fire = 1 - SS(0.1, 0.42, a), col = [0.36 + 0.5 * fire, 0.32 + 0.1 * fire, 0.28 - 0.1 * fire]; L.puff(ex + Math.cos(an) * rr, ey + Math.sin(an) * rr * 0.6 - 12 - 38 * q, 11 + 16 * q, col, 0.85 * (1 - q) ** 0.7, e.t + j); } }
       if ((e.k === 'shield' || e.k === 'barrier') && a < 0.4) L.ring(ex, ey - 30, 30 + 30 * (a / 0.4), 40 + 30 * (a / 0.4), [0.5, 0.8, 1], 1 - a / 0.4, 0.15);
       if (e.k === 'drink' && a < 0.6) for (let j = 0; j < 8; j++) { const q = a / 0.6, an = j / 8 * 6.28 + a * 6; L.star(ex + Math.cos(an) * 20, ey - 10 - 60 * q * (0.4 + rnd(j, 1)), 7, e.b === 'hp_potion' ? [1, 0.35, 0.35] : [0.4, 0.6, 1], 1 - q); }
       // a fire priest's pillar (TASKS 410): flames standing in the ring for its burst, a white-hot core, then dying down
@@ -575,7 +581,10 @@
       if (e.k === 'break' && a < 0.7) for (let j = 0; j < 7; j++) { const q = a / 0.7, an = rnd(e.t, j) * 6.28, v = 40 + 60 * rnd(e.t, j + 7);
         L.solid(ex + Math.cos(an) * v * a, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 300 * a * a, 5, 4, e.kind === 'pot' || e.kind.startsWith('vase') ? [0.5, 0.24, 0.14] : e.kind === 'gold' || e.kind === 'goldpile' ? [1, 0.78, 0.25] : [0.4, 0.26, 0.14], an, 2, 2, 1 - SS(0.5, 0.7, a)); }
       // a blow on a fake wall knocks out chips and a breath of dust; the break blows the stretch of wall into the room
-      if (e.k === 'secret' && e.kind === 'statue' && a < 0.8) for (let j = 0; j < 8; j++) L.puff(ex + (j - 3.5) * 11, ey + 34 - 12 * a, 10 + 14 * a, [0.5, 0.46, 0.4], 0.5 * (1 - a / 0.8), e.t * 3 + j);
+      // grit ground out from under the plinth all along its way, and a cough of dust where it knocks against its stop
+      if (e.k === 'secret' && e.kind === 'statue' && m.secrets[e.i] && a < D.STATUE_SECRET.slide + 0.8) { const q = m.secrets[e.i], sl = statueSlide(q, a), bx = ex + sl.run * sl.p, s = Math.sign(sl.run);
+        if (sl.end < 0) for (let j = 0; j < 3; j++) { const ph = (a * 2.2 + j / 3) % 1; L.puff(bx - s * (22 + 26 * ph), ey + 40 - 8 * ph, 6 + 10 * ph, [0.5, 0.46, 0.4], 0.4 * Math.sin(Math.PI * ph) * SS(0, 0.15, a), e.t * 3 + j); }
+        if (sl.end >= 0 && sl.end < 0.8) { const b = sl.end / 0.8; for (let j = 0; j < 8; j++) L.puff(bx + (j - 3.5) * 9 + s * 18 * b * (j > 3.5 ? 1 : 0.3), ey + 38 - 14 * b, 8 + 16 * b, [0.5, 0.46, 0.4], 0.55 * (1 - b), e.t * 3 + j); } }
       if (e.k === 'secret' && e.kind === 'shelf' && a < 1.2) { for (let j = 0; j < 18; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 80 + 140 * rnd(e.t, j + 7), px = ex + (rnd(e.t, j + 3) - 0.5) * 90 + Math.cos(an) * v * a * 0.6;
           const py = ey + 30 + Math.min(20 + 16 * rnd(e.t, j + 11), -Math.abs(Math.sin(an)) * v * a + 520 * a * a) - 30, book = j % 3 === 0, col = book ? [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12]][j % 9 / 3 | 0] : [0.4, 0.26, 0.14];
           L.solid(px, py, book ? 7 : 12, book ? 5 : 3, col, an + a * (book ? 4 : 7), 4, 2, 1 - SS(0.85, 1.2, a)); }

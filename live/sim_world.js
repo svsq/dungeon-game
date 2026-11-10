@@ -61,13 +61,13 @@
     if (id === 'whirl') { fired.r = AR.r; h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.round(st.atk * dmgK * (c ? st.critK : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
-    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, dmg = D.fireDmg(st.spellBase, AR.k, st.spell);
-      const p = { id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, own: 'hero', r: 8 }; R.proj.push(p); fired.projs = [p]; ev(S, { k: 'cast', x: hx, y: hy, a }); }
+    if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, c = rnd(R) * 100 < st.crit, dmg = Math.round(D.fireDmg(st.spellBase, AR.k, st.spell) * (c ? st.critK : 1));
+      const p = { id: R.nextId++, k: 'fire', x: hx, y: hy, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, t0: S.t, life: 1.1, dmg, crit: c ? 1 : 0, own: 'hero', r: 8 }; R.proj.push(p); fired.projs = [p]; ev(S, { k: 'cast', x: hx, y: hy, a }); }
     // the ice wave (TASKS 1110): everyone in the cone before the mage, in his sight, is hurt and chilled (sim_enemies: slowK)
     if (id === 'frost') { const F = D.FROST, wr = AR.r, half = F.arc / 2 * Math.PI / 180, dmg = D.frostDmg(st.spellBase, AR.k, st.spell);
       for (const e of R.en) { if (e.deadT >= 0 || under(e)) continue; const dx = e.x - h.x, dy = (e.y - h.y) * 1.3, d = Math.hypot(dx, dy);
         if (d > wr + ENEMIES[e.type].r || (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.aim)) > half) || !losClear(R.map, h.x, h.y, e.x, e.y)) continue;
-        SIMX.chill(S, e, F.t, F.slow); heroHit(S, R, e, dmg, false, h.x, h.y, 0.5, 'frost'); }
+        SIMX.chill(S, e, F.t, F.slow); const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, c ? Math.round(dmg * st.critK) : dmg, c, h.x, h.y, 0.5, 'frost'); }
       tearWebs(S, R, h.x, h.y, wr, h.aim, F.arc * Math.PI / 180); ev(S, { k: 'frost', x: h.x, y: h.y, a: h.aim, r: wr, arc: F.arc }); }
     // the warrior's (TASKS 1130): the charge (a long dash down the aim, sim_hero strikes and stuns the first monster it meets); the war
     // cry (monsters within reach weakened, the warrior's blows harder, CRY.t s)
@@ -145,15 +145,18 @@
     m.torches.forEach((t2, i) => { if (hidden(m, t2)) return; if (t2.kind !== 'wall') knock('t' + i, t2, 'brazier', D.PROP_MAT[t2.kind] || D.PROP_MAT.brazier);
       else knock('t' + i, t2, 'torch_sconce', 'metal', t2.side ? t2 : { x: t2.x, y: t2.y + 30 }); });
   }
+  // what is summoned stays out of the 100 % count, so on a cleared floor (TASKS 1344, 1686) nothing is let out of a coffin, a wreck or a chest
+  const cleared = (R) => { const f = fstat(R); return f.kills >= f.foes; };
   // the first blow on a coffin rolls for its tenant; a room lets out one at most (TASKS 1353)
-  function coffinWakes(S, R, d) { const m = R.map; if (d.rolled) return; d.rolled = 1; m.coffinR = m.coffinR || {}; const room = d.r ?? DG.roomAt(m, d.x, d.y); if (m.coffinR[room] || rnd(R) >= D.COFFIN.p(dep(R))) return;
+  function coffinWakes(S, R, d) { const m = R.map; if (d.rolled) return; d.rolled = 1; if (cleared(R)) return; m.coffinR = m.coffinR || {}; const room = d.r ?? DG.roomAt(m, d.x, d.y); if (m.coffinR[room] || rnd(R) >= D.COFFIN.p(dep(R))) return;
     const x = d.x, y = [d.y + 30, d.y - 26, d.y + 42].find((v) => !SIMX.solidAt(m, x, v, true)); if (y === undefined) return; m.coffinR[room] = 1; const E = ENEMIES.skeleton, f = dep(R), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f));
-    R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'rise', t0: S.t, riseD: D.COFFIN.rise, coffinT: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + D.COFFIN.rise + 0.3, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
-    ev(S, { k: 'summon', x, y }); R.msg = { s: TXT('sim_world.coffin.msg'), t: S.t, d: 2 }; }
+    R.en.push({ id: R.nextId++, type: 'skeleton', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'rise', t0: S.t, riseD: D.COFFIN.rise, coffinT: S.t, coffX: d.x, coffY: d.y, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + D.COFFIN.rise + 0.3, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 });
+    d.openT = S.t; ev(S, { k: 'summon', x: d.x, y: d.y - 14 }); R.msg = { s: TXT('sim_world.coffin.msg'), t: S.t, d: 2 }; }
   // a wreck gives way to its third blow (TASKS 1361): what was left aboard, or who was
   function hitWreck(S, R, d) { const m = R.map, W0 = D.WRECK; d.hits = (d.hits || 0) + 1; if (d.hits < W0.hp) return;
     d.broken = 1; d.brokeT = S.t; d.solid = 0; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE); m.block = m.block.filter((b) => b !== k); ev(S, { k: 'break', x: d.x, y: d.y, kind: 'crate' }); R.trauma = Math.min(1, R.trauma + 0.3);
-    if (rnd(R) < W0.loot) { drop(R, d.x, d.y + 10, { kind: 'item', item: rollItem(R, dep(R), W0.q) }); drop(R, d.x, d.y + 10, { kind: 'gold', n: ri(R, 8, 16) + dep(R) * 2 }); return; }
+    if (rnd(R) < W0.loot) { drop(R, d.x, d.y + 10, { kind: 'item', item: rollItem(R, dep(R), W0.q, undefined, W0) }); drop(R, d.x, d.y + 10, { kind: 'gold', n: ri(R, 8, 16) + dep(R) * 2 }); return; }
+    if (cleared(R)) return;
     const E = ENEMIES.ghost, f = dep(R), n = ri(R, W0.ghosts[0], W0.ghosts[1]), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), room = DG.roomAt(m, d.x, d.y);
     for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), x = d.x + Math.cos(a) * 56, y = d.y + 10 + Math.sin(a) * 40; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
     R.msg = { s: TXT('sim_world.wreck.msg'), t: S.t, d: 2 }; }
@@ -164,7 +167,7 @@
   // cover or mechanism alone (E at a banner, a false shelf, a statue, a sconce or a lever; a flagstone underfoot; a puzzle solved)
   function openSecret(S, R, q, quiet) {
     const m = R.map, i = m.secrets.indexOf(q), kind = q.kind; q.open = 1; q.openT = S.t; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1;
-    if (kind === 'shelf') shelfOf(m, i, false); if (kind === 'statue') statueOf(m, i, true);
+    if (kind === 'shelf') shelfOf(m, i, false); if (kind === 'statue') statueOf(m, i, true, !quiet);
     if (quiet) return;
     if (kind === 'shelf' || kind === 'statue') R.trauma = Math.min(1, R.trauma + 0.3);
     if (kind === 'lever' || kind === 'puzzle') R.trauma = Math.min(1, R.trauma + 0.3);
@@ -175,9 +178,12 @@
   // a false shelf swung open on its hinge (it stops blocking its cell) or shut again
   function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
     d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
-  // a statue slid along the wall to its far cell (the block moves with it at once; the drawing follows q.openT), or put back
-  function statueOf(m, i, moved) { const d = m.decor.find((o) => o.secret === i), q = m.secrets[i]; if (!d || !q.slide) return; const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = k0 + q.slide.s * q.slide.n, x1 = q.x + q.slide.s * q.slide.n * TILE;
-    d.x = moved ? x1 : q.x; m.block = m.block.filter((b) => b !== k0 && b !== k1); m.block.push(moved ? k1 : k0); }
+  // a statue slid along the wall to its far cell (the drawing follows q.openT), or put back
+  // (hold: the stone is still on its way, the cell it leaves is freed by stepStatues once the slide is over)
+  function statueOf(m, i, moved, hold) { const d = m.decor.find((o) => o.secret === i), q = m.secrets[i]; if (!d || !q.slide) return; const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = k0 + q.slide.s * q.slide.n, x1 = q.x + q.slide.s * q.slide.n * TILE;
+    d.x = moved ? x1 : q.x; q.held = moved && hold ? 1 : 0; m.block = m.block.filter((b) => b !== k0 && b !== k1); m.block.push(moved ? k1 : k0); if (q.held) m.block.push(k0); }
+  function stepStatues(S, R) { const m = R.map;
+    (m.secrets || []).forEach((q, i) => { if (!q.held || S.t - q.openT < D.STATUE_SECRET.slide) return; const d = m.decor.find((o) => o.secret === i), k = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE); q.held = 0; m.block = m.block.filter((b) => b !== k); }); }
   // the cells a statue passes over on its way, so it never closes on the hero
   const slidePath = (q, fy) => Array.from({ length: q.slide.n }, (_, j) => [Math.floor(q.x / TILE) + q.slide.s * (j + 1), fy]);
   const heroOnPath = (R, q) => { const fy = Math.floor((q.y + 22) / TILE), hx = Math.floor(R.hero.x / TILE), hy = Math.floor(R.hero.y / TILE); return slidePath(q, fy).some(([x, y]) => x === hx && y === hy); };
@@ -211,7 +217,11 @@
 
     (R.map.webs || []).forEach((w, i) => { if (w.torn) return; const dx = w.x - x, dy = w.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 20 * w.s) return; if (arc !== undefined && d > 24 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.35) return;
-      w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); }); }
+      tearWeb(S, w, i, fire); }); }
+  const tearWeb = (S, w, i, fire) => { w.torn = 1; w.tornT = S.t; ev(S, { k: fire ? 'webburn' : 'webtear', x: w.x, y: w.y, i }); };
+  // an arrow tears every web its flight crosses, over the web's own ellipse (the shot's step is shorter than the web, so the point
+  // under it each step is enough), and flies on (TASKS 1706)
+  function arrowWebs(S, R, x, y) { const WEB = SIMX.WEB; (R.map.webs || []).forEach((w, i) => { if (!w.torn && Math.abs(x - w.x) < WEB.rx * w.s && Math.abs(y - w.y) < WEB.ry * w.s) tearWeb(S, w, i); }); }
   function springAmbush(S, R, P) {
     const m = R.map, h = R.hero, f = dep(R), room = m.rooms[P.room];
     if (!room || P.fired) return false;
@@ -256,6 +266,12 @@
   // door cells; a side wall's, ajar at ~60° from the gap's upper end, the upper cell of the door and the corridor cell beyond it
   // (the boss arena's doors stand open from the start and have no leaf)
   const leafCells = (d) => { if (d.arena) return []; const [x, y] = d.cells[0]; return d.dir === 'l' ? [[x, y], [x - 1, y]] : d.dir === 'r' ? [[x, y], [x + 1, y]] : [[x, y]]; };
+  // (TASKS 1683) a leaf cell the hero stands in when the door opens takes hold only once he has stepped off it, or the leaf
+  // would shove him a step through the doorway
+  const inLeaf = (h, [x, y]) => Math.hypot(h.x - (x + 0.5) * TILE, (h.y - (y + 0.5) * TILE) * 1.6) < 31;
+  const leafHeld = (d) => leafCells(d).filter(([x, y]) => !(d.wait || []).some(([a, b]) => a === x && b === y));
+  function stepLeaves(S, R) { const m = R.map, h = R.hero;
+    for (const d of m.doors || []) { if (!d.wait || !d.wait.length) continue; for (const [x, y] of d.wait) if (!inLeaf(h, [x, y]) && !m.block.includes(y * m.W + x)) m.block.push(y * m.W + x); d.wait = d.wait.filter((c) => inLeaf(h, c)); } }
   function openDoor(S, R, d, kick) {
     const m = R.map, h = R.hero, L = doorLock(m, d), i = m.doors.indexOf(d);
     if (d.arena && R.arena && R.arena.active) return;
@@ -263,7 +279,7 @@
           ev(S, { k: 'nope', x: h.x, y: h.y, s: L.kind === 'key' ? TXT('sim_world.openDoor.s') : TXT('sim_world.openDoor.s.2') }); } return; }
       R.keys--; L.open = 1; L.openT = S.t; ev(S, { k: 'unlatch', x: d.x, y: d.y, i }); R.msg = { s: TXT('sim_world.openDoor.msg.s'), t: S.t }; }
     d.open = 1; d.openT = S.t; d.kick = kick ? 1 : 0; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 1;
-    for (const [x, y] of leafCells(d)) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x);
+    d.wait = leafCells(d).filter((c) => inLeaf(h, c)); for (const [x, y] of leafHeld(d)) if (!m.block.includes(y * m.W + x)) m.block.push(y * m.W + x);
     if (kick) R.trauma = Math.min(1, R.trauma + 0.15);
     ev(S, { k: 'door', x: d.x, y: d.y, i, kick: d.kick });
   }
@@ -299,36 +315,36 @@
     if (c.mimic) { wakeMimic(S, R, c); return; }
     if (c.sealed) { if (S.t - (c.nopeT ?? -9) > 1) { c.nopeT = S.t; ev(S, { k: 'nope', x: R.hero.x, y: R.hero.y, s: TXT('sim_world.openChest.sealed') }); } return; }
     const room = DG.roomAt(R.map, c.x, c.y), role = R.map.rooms[room];
-    c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier });
+    c.open = 1; c.openT = S.t; ev(S, { k: 'chest', x: c.x, y: c.y, tier: c.tier, boss: c.boss ? 1 : 0 }); R.trauma = Math.min(1, R.trauma + (c.boss ? 0.3 : c.tier >= 3 ? 0.12 : 0));
     if (c.trap) { c.fuseT = S.t + D.CHEST_TRAP.fuse; ev(S, { k: 'trapfuse', x: c.x, y: c.y, d: D.CHEST_TRAP.fuse }); }
     // its items were rolled on entering the floor (they count toward the floor's loot from the start); a chest from an older save rolls now
     const pre = !!c.loot; for (const it of c.loot || chestLoot(R, c)) drop(R, c.x, c.y + 10, { kind: 'item', item: it, pre });
     c.loot = [];
     if (!c.ambushRolled) {
       c.ambushRolled = 1;
-      if (role && role.type === 'secret' && fstat(R).kills < fstat(R).foes && rnd(R) < 0.05 * ((D.FLOOR_MODS[R.map.mod] || {}).ambush || 1)) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
+      if (role && role.type === 'secret' && !cleared(R) && rnd(R) < 0.05 * ((D.FLOOR_MODS[R.map.mod] || {}).ambush || 1)) springAmbush(S, R, { room, n: ri(R, 2, 4), x: c.x, y: c.y });
     }
     if (c.key !== undefined) drop(R, c.x, c.y + 10, { kind: 'key', lock: c.key });
     if (c.quest && (R.quests || []).some((q) => q.id === c.quest)) drop(R, c.x, c.y + 10, { kind: 'qitem', quest: c.quest, ic: c.qic });
-    if (!c.boss) drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * c.tier) });
+    const pay = c.boss ? c.pay || 0 : c.tier; if (pay) drop(R, c.x, c.y + 10, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * pay) });
   }
   // a mimic gets up off its chest's place; the chest stays in the list, loot and all, until the mimic dies
   function wakeMimic(S, R, c) { const E = ENEMIES.mimic, f = dep(R), h = R.hero, hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), id = R.nextId++;
     c.open = 1; c.openT = S.t; c.woke = id; c.ambushRolled = 1;
-    R.en.push({ id, type: 'mimic', x: c.x, y: c.y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room: DG.roomAt(R.map, c.x, c.y), st: 'rise', t0: S.t, face: h.x >= c.x ? 1 : -1, aimA: 0, cdT: S.t + E.rise + 0.25, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'mimic', spawnT: S.t, seenT: S.t, hx: c.x, hy: c.y, ft: -9 });
+    R.en.push({ id, type: 'mimic', tier: c.tier, x: c.x, y: c.y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room: DG.roomAt(R.map, c.x, c.y), st: 'rise', t0: S.t, face: h.x >= c.x ? 1 : -1, aimA: 0, cdT: S.t + E.rise + 0.25, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'mimic', spawnT: S.t, seenT: S.t, hx: c.x, hy: c.y, ft: -9 });
     ev(S, { k: 'mimicwake', x: c.x, y: c.y, id }); R.trauma = Math.min(1, R.trauma + 0.3); R.msg = { s: TXT('sim_world.mimic.msg'), t: S.t, d: 2 }; }
   function mimicLoot(S, R, e) { const c = R.chests.find((o) => o.woke === e.id); if (!c) return;
     for (const it of c.loot || []) drop(R, e.x, e.y, { kind: 'item', item: it, pre: true }); c.loot = [];
     drop(R, e.x, e.y, { kind: 'gold', n: Math.round((10 + dep(R) * 6 + ri(R, 0, 10)) * 3) }); }
   // a trapped chest's blast, its fuse lit by the opening: it hurts, but it does not end a run on its own
   function stepChestTraps(S, R) { const h = R.hero, T = D.CHEST_TRAP;
-    for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.3);
+    for (const c of R.chests) { if (!c.fuseT || S.t < c.fuseT) continue; c.fuseT = 0; c.bangT = S.t; ev(S, { k: 'trapbang', x: c.x, y: c.y, r: T.r }); ev(S, { k: 'boom', x: c.x, y: c.y - 20, big: 1, r: T.r }); R.trauma = Math.min(1, R.trauma + 0.5);
       if (Math.hypot(h.x - c.x, h.y - c.y) < T.r && h.hp > 1) { SIMX.hurtHero(S, R, Math.min(SIMX.heroSt(S).maxHp * T.hp, h.hp - 1), c.x, c.y - 10, 'spike'); if (S.t === h.hurtT) R.msg = { s: TXT('sim_world.chestTrap.msg'), t: S.t }; } } }
   // a boss's own chest holds what the boss used to drop (TASKS 1356): the same items in a better place, no new loot
   // rolled at the win, when the boss's own drop used to be, so the run's random stream keeps its order
-  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : [rollItem(R, dep(R), 2)]; for (const it of its) it.id = R.nextId++; return its; }
+  function bossLoot(R, b) { const its = SIMX.chapterEnd(R, b) ? LOOT.boss.map((o) => rollItem(R, dep(R), o.q, undefined, o)) : LOOT.mini.items.map((o) => rollItem(R, dep(R), o.q, undefined, o)); for (const it of its) it.id = R.nextId++; return its; }
   function chestLoot(R, c) { if (c.boss) return [];
-    const LT = c.mimic ? { q: LOOT.chest[3].q, n: LOOT.chest[c.tier].n } : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
+    const LT = c.mimic ? Object.assign({}, LOOT.chest[3], { n: LOOT.chest[c.tier].n }) : LOOT.chest[c.tier], out = [], Y = c.hall && D.MAGMA_HALLS.kinds[c.hall] ? D.MAGMA_HALLS.kinds[c.hall].pay : {};
     // (a magma hall's own pay, TASKS 1054: the forge's arms, the prison's stash)
     if (Y.forge) for (let i = 0; i < Y.forge.n; i++) out.push(rollItem(R, dep(R), LT.q, Y.forge.slots[Math.floor(rnd(R) * Y.forge.slots.length)], Object.assign({}, LT, { min: Y.forge.min })));
     else if (LT.p === undefined || rnd(R) < LT.p) for (let i = 0; i < LT.n; i++) out.push(rollItem(R, dep(R), i ? LT.q * 0.8 : LT.q, undefined, LT));
@@ -338,6 +354,6 @@
 
   Object.assign(SIMX, { setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
-    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells,
-    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, mimicLoot, hitWreck, coffinWakes });
+    openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
+    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

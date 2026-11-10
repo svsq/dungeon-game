@@ -4,8 +4,8 @@
   const SIMX = root.SIMX;
   const {
     BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
-    gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
-    sortItems, throwAway, useItem } = SIMX;
+    gearName, giveQuest, heroSt, journalOf, newRun, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
+    sortItems, throwAway, useItem, isCons, tally } = SIMX;
   // ---------------- run end / menus ----------------
   function endRun(S, how) {
     const R = S.run; if (!R) return;
@@ -15,7 +15,8 @@
     if (how === 'dead' && !(R.log && R.log.abandon)) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id;
     // the records are the deepest floor reached, not the one the run ended on (TASKS 516: down to the 17th, back up to the 16th)
     const deep = Math.max(R.deepest || 0, R.floor);
-    if (RUN(R) === D.RUNS.campaign) S.meta.best = Math.max(S.meta.best || 0, deep);
+    if (RUN(R) === D.RUNS.campaign) { S.meta.best = Math.max(S.meta.best || 0, deep); tally(S, R, 'best', deep, 1); }
+    tally(S, R, 'runs'); tally(S, R, 'shards', bonus); if (how === 'win' && !R.campaignWon) tally(S, R, 'wins'); if (how === 'dead' && !(R.log && R.log.abandon)) tally(S, R, 'deaths');
     // the endless descent's record depth (TASKS 348)
     const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless) S.meta.bestEndless = Math.max(deepBest, deep);
     S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
@@ -23,7 +24,7 @@
       damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
-    S.run = null; S.saved = null; S.screen = how; S.saveN++;
+    S.run = null; S.saved = null; pickLatest(S); S.screen = how; S.saveN++;
   }
   // the run ended alive past the campaign's last boss (TASKS 1148): a win, the campaign's if not won yet at the stairs on
   function finishRun(S) { S.talk = null; S.screen = 'play'; endRun(S, 'win'); }
@@ -32,6 +33,7 @@
   // its record — and the same run goes on as the endless descent from the 13th, the hero as he is; the descent's depth is its record
   function descend(S, R) {
     const W2 = runReward(R, 'win'); S.meta.shards += W2.base; S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, R.floor);
+    tally(S, R, 'wins'); tally(S, R, 'shards', W2.base); tally(S, R, 'best', R.floor, 1);
     R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; S.saveN++;
     ev(S, { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: R.floor }); enterFloor(S, R, R.floor + 1);
     R.msg = { s: TXT('sim_ui.descend.msg.s', { base: W2.base, floor: R.floor, p3: D.floorName(R.floor, R.mode, R.seed, FROM(R)) }), t: S.t, d: 5 }; }
@@ -39,45 +41,127 @@
   // merchant on the floor, no stairs up), the run's seed kept (TASKS 1026: the campaign itself now starts in the town)
   const begin = (S) => { const c = UI.menu(!!S.saved).find((b) => b.id === 'campaign'); SIMX.step(S, { keys: [], px: c.x + c.w / 2, py: c.y + c.h / 2, click: 1 }); if (S.screen === 'classes') startRun(S, S.pendingMode); if (S.run && S.run.town) { S.run = newRun(S, 'campaign', S.run.seed); S.screen = 'play'; } };
   // the campaign starts in the town (TASKS 1026); the test runs (the caves, the magma caves, the endless descent) as before
-  function startRun(S, mode = 'campaign') { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
+  // the save slots (TASKS 1311): the run in play or named on the menu (S.run, S.saved) belongs to slot S.slot, whose cell in S.saves
+  // stays empty meanwhile, so no run is held twice. A save from before the slots comes as the lone run and lands in the first slot
+  const slotRun = (S, i) => (i === S.slot && (S.run || S.saved)) || S.saves[i] || null;
+  const isFull = (S) => S.saves.every((r, i) => r || (i === S.slot && (S.run || S.saved)));
+  function loadSaves(S, P) { const n = D.SAVE_SLOTS, list = Array.isArray(P.saves) ? P.saves.slice(0, n) : [];
+    S.saves = Array.from({ length: n }, (_, i) => (list[i] && list[i].map ? list[i] : null));
+    for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateSecrets(R); SIMX.regate(R); }
+    S.slot = Number.isInteger(P.slot) && P.slot >= 0 && P.slot < n ? P.slot : 0;
+    if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; }
+    pickLatest(S); }
+  // with no run named on the menu, the one played last of the other slots takes its place, so «Продолжить» stays while any slot
+  // holds a run (TASKS 1721)
+  function pickLatest(S) { if (S.run || S.saved) return; let j = -1;
+    S.saves.forEach((r, i) => { if (r && (j < 0 || (r.at || 0) > (S.saves[j].at || 0))) j = i; });
+    if (j >= 0) { S.slot = j; S.saved = S.saves[j]; S.saves[j] = null; } }
+  // a new run takes the first free slot and the saved one goes back to its own; with every slot taken it replaces the saved run
+  // (the menu asks twice before that), or with none named the one played longest ago
+  function takeSlot(S) { if (S.saved && !isFull(S)) S.saves[S.slot] = S.saved; S.saved = null;
+    let j = S.saves.indexOf(null); if (j < 0) { j = 0; S.saves.forEach((r, i) => { if ((r.at || 0) < (S.saves[j].at || 0)) j = i; }); S.saves[j] = null; }
+    S.slot = j; }
+  // the run's timers are marks on the clock it was played on, so the clock goes back to the run's own; the events and menu marks of
+  // what was played since would then lie in its future, and go
+  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.resetT = undefined; S.jdrop = 0; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t }; }
+  function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
+    if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
+    resume(S, R); S.saveN++; return true; }
+  function dropSlot(S, i) { if (i === S.slot && S.saved) S.saved = null; else S.saves[i] = null; pickLatest(S); S.saveN++; }
+  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
-  // a new run from the menus (TASKS 1103): with more than one class ready the class screen comes first, its run waiting in pendingMode
-  const chooseRun = (S, mode = 'campaign') => { if (D.classesReady().length > 1) { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; } else startRun(S, mode); };
+  // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in
+  // pendingMode, the keyboard's focus on the chosen class
+  const clsNow = (S) => (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior');
+  const chooseRun = (S, mode = 'campaign') => { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; S.focus = 'cls:' + clsNow(S); };
   // a saved run is dropped only on a second press of the same run's button
-  const pressRun = (S, id, arm) => { if (!S.saved || arm === id) { S.resetT = undefined; chooseRun(S, id); } else { S.resetT = S.t; S.resetM = id; } };
+  const pressRun = (S, id, arm) => { if (!isFull(S) || arm === id) { S.resetT = undefined; chooseRun(S, id); } else { S.resetT = S.t; S.resetM = id; } };
   // each screen's input, by S.screen: one function a screen (dead and win share one)
   const SCREEN = {};
+  // the main menu (TASKS 1301): ↑↓ walk the items and «Что нового», Enter presses the focused one; with no item focused Enter
+  // presses the first, as before the focus (continue the saved run, or a new one)
   SCREEN.menu = (S, inp, keys, x, y, click) => {
-    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom), x, y); S.hover = b ? b.id : '';
-    if (click && b && b.on) {
-      if (b.id === 'continue') { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; S.run.msg = { s: D.placeName(S.run.floor, S.run.mode, S.run.seed, FROM(S.run), S.run.map), t: S.t }; }
-      if (D.RUNS[b.id]) pressRun(S, b.id, arm);
-      if (b.id === 'tests') S.screen = 'tests';
-      if (b.id === 'news') { S.screen = 'news'; S.newsTop = 0; }
-      if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
-      if (b.id === 'zoom') nextZoom(S);
-      ev(S, { k: 'ui', x, y });
-    }
-    if (keys.Enter) { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; } else chooseRun(S); }
-    return;
+    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, U = UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, isFull(S)), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    const order = U.map((q) => q.id), at = order.indexOf(S.focus), mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+    const press = (id) => {
+      if (id === 'continue') resume(S, S.saved);
+      if (id === 'load') openLoad(S);
+      if (D.RUNS[id]) pressRun(S, id, arm);
+      if (id === 'tests') S.screen = 'tests';
+      if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
+      if (id === 'settings') openSettings(S, 'menu');
+      if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
+      ev(S, { k: 'ui', x, y }); };
+    if (click && b && b.on) { if (S.screen === 'menu' && at >= 0) S.focus = b.id; press(b.id); return; }
+    if (mv) { S.focus = order[at < 0 ? (mv > 0 ? 0 : order.length - 1) : (at + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); return; }
+    if (keys.Enter) press(at < 0 ? order[0] : S.focus);
   };
   // the test runs' screen (TASKS 417): each starts its run as the main menu's buttons did; «Назад» or Escape go back
   SCREEN.tests = (S, inp, keys, x, y, click) => {
-    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.tests(!!S.saved, arm), x, y); S.hover = b ? b.id : '';
+    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.tests(!!S.saved, arm, isFull(S)), x, y); S.hover = b ? b.id : '';
     if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
     if (click && b && b.on) { pressRun(S, b.id, arm); ev(S, { k: 'ui', x, y }); }
     return;
   };
-  // the class screen (TASKS 1103): a card picks the class (kept in the meta for the next time), «В путь» or Enter starts the run the
-  // menu asked for, «Назад» or Escape go back to the menu
+  // the start screen (TASKS 1103, 1304): a tab picks the difficulty, a card the class, its kit button the kit (all kept in the meta
+  // for the next time); «В путь» or Enter start the run the menu asked for, «Назад» or Escape go back to the menu. The keyboard
+  // walks the rows with ↑↓ (difficulty, class, kit, buttons) and changes the focused row's choice with ←→
+  const setDiff = (S, d) => { if ((S.meta.diff || 'normal') !== d) { S.meta.diff = d; S.saveN++; } };
+  const setCls = (S, c) => { if (S.meta.cls !== c) { S.meta.cls = c; S.saveN++; } };
+  const stepKit = (S, cls, k) => { const list = D.kitsOf(cls, S.meta), i = list.indexOf(D.kitOf(S.meta, cls)); S.meta.kit = S.meta.kit || {};
+    S.meta.kit[cls] = list[(i + k + list.length) % list.length].id; S.saveN++; };
   SCREEN.classes = (S, inp, keys, x, y, click) => {
-    const b = D.hitUI(UI.classes(S.meta), x, y); S.hover = b ? b.id : '';
-    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
-    if (click && b && b.kit) { const list = D.kitsOf(b.kit, S.meta), i = list.indexOf(D.kitOf(S.meta, b.kit)); S.meta.kit = S.meta.kit || {}; S.meta.kit[b.kit] = list[(i + 1) % list.length].id; S.meta.cls = b.kit; S.saveN++; ev(S, { k: 'ui', x, y }); }
-    if (click && b && b.cls) { if (S.meta.cls !== b.cls) { S.meta.cls = b.cls; S.saveN++; } ev(S, { k: 'ui', x, y }); }
-    if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); }
-    return;
+    const U = UI.classes(S.meta), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    const back = () => { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); };
+    if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
+    if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
+    if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    const cls = clsNow(S), ids = D.classesReady(), dif = D.DIFF_ORDER, row = (S.focus || '').split(':')[0];
+    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['btn']), at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r + ':' + cls);
+    const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : 'cls';
+    const mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); ev(S, { k: 'ui', x, y }); return; }
+    if (!st) return;
+    if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
+    if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
+    if (r0 === 'kit') stepKit(S, cls, st);
+    if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
+    ev(S, { k: 'ui', x, y });
+  };
+  // the statistics (TASKS 1309): a tab or ←→ picks whose counters the book shows, ↑↓ go between the tabs and «Назад»; «Назад»,
+  // Escape or Enter on «Назад» go back to the menu
+  SCREEN.stats = (S, inp, keys, x, y, click) => {
+    const U = UI.stats(), b = D.hitUI(U.r, x, y), tab = U.tabs.includes(S.statTab) ? S.statTab : 'all'; S.hover = b ? b.id : '';
+    if (keys.Escape || (click && b && b.id === 'back') || (keys.Enter && S.focus === 'back')) { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.tab) { S.statTab = b.tab; S.focus = b.id; ev(S, { k: 'ui', x, y }); return; }
+    const mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv) { S.focus = mv > 0 ? 'back' : 'tab:' + tab; ev(S, { k: 'ui', x, y }); }
+    if (st) { const i = Math.max(0, Math.min(U.tabs.length - 1, U.tabs.indexOf(tab) + st)); if (U.tabs[i] !== tab) { S.statTab = U.tabs[i]; ev(S, { k: 'ui', x, y }); } S.focus = 'tab:' + U.tabs[i]; }
+  };
+  // the saved games (TASKS 1311): ↑↓ walk the slots and the buttons, ←→ go between the list and the chosen slot's buttons, Enter
+  // loads the chosen slot or presses the focused button, Delete asks to delete it; the question takes ←→, Enter and Escape
+  const openLoad = (S) => { S.screen = 'load'; S.hover = ''; S.delAsk = undefined; const i = S.saved ? S.slot : Math.max(0, S.saves.findIndex(Boolean)); S.loadSel = i; S.focus = 'slot:' + i; };
+  SCREEN.load = (S, inp, keys, x, y, click) => {
+    const U = UI.load(), sel = Math.max(0, Math.min(D.SAVE_SLOTS - 1, S.loadSel | 0)), has = !!slotRun(S, sel), mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    const tick = () => ev(S, { k: 'ui', x, y });
+    if (S.delAsk !== undefined) { const b = D.hitUI(U.yes, x, y); S.hover = b ? b.id : '';
+      if (st) { S.focus = S.focus === 'yes' ? 'no' : 'yes'; tick(); }
+      const yes = (click && b && b.id === 'yes') || (keys.Enter && S.focus === 'yes'), no = keys.Escape || (click && b && b.id === 'no') || (keys.Enter && S.focus !== 'yes');
+      if (yes) { dropSlot(S, S.delAsk); S.focus = 'slot:' + S.delAsk; S.delAsk = undefined; tick(); } else if (no) { S.focus = 'del'; S.delAsk = undefined; tick(); }
+      return; }
+    const b = D.hitUI(U.rows.concat(U.btn.map((q) => Object.assign({ on: q.id === 'back' || has }, q))), x, y); S.hover = b ? b.id : '';
+    const order = U.rows.map((r) => r.id).concat(has ? ['go', 'del'] : [], ['back']), at = Math.max(0, order.indexOf(S.focus));
+    const go = () => { if (loadSlot(S, sel)) { S.hover = ''; tick(); } }, ask = () => { if (has) { S.delAsk = sel; S.focus = 'no'; S.hover = ''; tick(); } };
+    if (keys.Escape || (click && b && b.id === 'back') || (keys.Enter && S.focus === 'back')) { S.screen = 'menu'; S.hover = ''; tick(); return; }
+    if (click && b && b.i !== undefined) { S.loadSel = b.i; S.focus = b.id; tick(); return; }
+    if ((click && b && b.id === 'go') || (keys.Enter && (S.focus === 'go' || (S.focus || '').startsWith('slot:')))) { go(); return; }
+    if ((click && b && b.id === 'del') || (keys.Enter && S.focus === 'del') || keys.Delete || keys.Backspace) { ask(); return; }
+    if (mv) { S.focus = order[Math.max(0, Math.min(order.length - 1, at + mv))]; tick(); }
+    else if (st) { S.focus = (S.focus || '').startsWith('slot:') ? (has ? 'go' : 'back') : 'slot:' + sel; tick(); }
+    if ((S.focus || '').startsWith('slot:')) S.loadSel = +S.focus.slice(5);
   };
   // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back
   SCREEN.news = (S, inp, keys, x, y, click) => {
@@ -108,9 +192,27 @@
     if (click && b && b.id === 'next' && U.page < U.pages - 1) S.codexPage = U.page + 1;
     return;
   };
+  // the settings (TASKS 1302), from the main menu or the pause: the arrows move the focus between the rows and step the focused
+  // slider, a click or a drag sets a slider, «Назад», Escape or Enter on «Назад» go back where it was opened from
+  const openSettings = (S, from) => { S.screen = 'settings'; S.setFrom = from; S.hover = ''; S.drag = ''; S.focus = D.SETTINGS[0].id; };
+  const setTo = (S, q, i) => { const v = q.stops[Math.max(0, Math.min(q.stops.length - 1, i))]; if (S.meta[q.key] === v) return false;
+    S.meta[q.key] = v; if (q.key === 'zoom' && S.run) S.run.zoom = v; S.saveN++; return true; };
+  const stopOf = (S, q) => { const i = q.stops.indexOf(S.meta[q.key] ?? q.def); return i < 0 ? q.stops.indexOf(q.def) : i; };
+  SCREEN.settings = (S, inp, keys, x, y, click) => {
+    const U = UI.settings(), b = D.hitUI(U.r, x, y), order = U.r.map((q) => q.id); S.hover = b ? b.id : '';
+    if (keys.Escape || (click && b && b.id === 'back') || (keys.Enter && S.focus === 'back')) { S.screen = S.setFrom === 'pause' && S.run ? 'pause' : 'menu'; S.hover = ''; S.drag = ''; ev(S, { k: 'ui', x, y }); return; }
+    const mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+    if (mv) { S.focus = order[(Math.max(0, order.indexOf(S.focus)) + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); }
+    const q = D.SETTINGS.find((o) => o.id === S.focus), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (q && st && setTo(S, q, stopOf(S, q) + st)) ev(S, { k: 'ui', x, y });
+    if (click && b) { S.focus = b.id; if (b.slider) S.drag = b.id; }
+    if (!inp.press) S.drag = '';
+    const dq = S.drag && D.SETTINGS.find((o) => o.id === S.drag), r = dq && U.r.find((o) => o.id === S.drag);
+    if (dq && setTo(S, dq, Math.round((x - r.x) / r.w * (dq.stops.length - 1)))) ev(S, { k: 'ui', x, y });
+  };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
     const b = D.hitUI(UI.pause(S.meta.zoom, !!S.run && campaignDone(S.run)), x, y); S.hover = b ? b.id : '';
-    if (click && b && b.id === 'zoom') { nextZoom(S); S.run.zoom = S.meta.zoom; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.id === 'settings') { openSettings(S, 'pause'); ev(S, { k: 'ui', x, y }); return; }
     if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
     if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; return; }
     if (click && b && b.id === 'finish') { finishRun(S); return; }
@@ -142,23 +244,26 @@
     return;
   };
   SCREEN.craft = (S, inp, keys, x, y, click) => {
-    const R = S.run, U = UI.craft(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, U = R && UI.craft(R.hero.bag.length, S.bagTab), b = U && D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!R || !S.craft || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     // back to the master's talk, kept off E so that E only leaves the workshop
     if (keys.Enter || (click && b && b.id === 'talk')) { const sm = SIMX.folkOf(R).find((q) => q.role === SIMX.CRAFT_OF[S.craft.kind]); if (sm) { SIMX.openTalk(S, R, sm); ev(S, { k: 'ui', x, y }); return; } }
     if (click && b && (b.id.startsWith('eq:') || b.id.startsWith('bag:'))) { const it = b.id.startsWith('eq:') ? R.hero.eq[b.slot] : R.hero.bag[b.i];
       if (it && BASES[it.b]) { S.craft.sel = b.id; S.craft.res = null; ev(S, { k: 'ui', x, y }); } else if (it) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.craft.s') }); }
+    if (click && b && b.tab !== undefined) tabClick(S, b, x, y);
     if (click && b && b.id === 'do') craft(S, R);
     return;
   };
   SCREEN.stash = (S, inp, keys, x, y, click) => {
-    const R = S.run, U = UI.stash(), b = D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
+    const R = S.run, U = R && UI.stash(R.hero.bag.length, S.bagTab), b = U && D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
     const T = stashOf(S);
-    if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortItems(R.hero.bag, R.hero.bag.length, b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.tab !== undefined && !S.drag) { tabClick(S, b, x, y); return; }
+    if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortTab(S, R.hero, b.k); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; }
     else if (S.drag) { const from = S.drag.from, k = +from.split(':')[1], to = b && b.id !== from ? b : null; S.drag = null;
+      if (to && to.tab !== undefined) { if (from.startsWith('bag:')) intoTab(S, R, R.hero, k, false, to.tab, x, y); else { const j = freeIn(R.hero, to.tab); if (j < 0) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); else stashTake(S, R, k, j); } return; }
       const same = to && to.id.split(':')[0] === from.split(':')[0];
       // a drag within one grid moves the piece there, as the window's own line says (TASKS 1413)
       if (same && from.startsWith('bag:')) { const B = R.hero.bag; [B[k], B[to.i]] = [B[to.i], B[k]]; S.saveN++; }
@@ -189,12 +294,13 @@
     return;
   };
   SCREEN.shop = (S, inp, keys, x, y, click) => {
-    const R = S.run, sh = R.shop, U = UI.shop(sh.goods.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, sh = R.shop, U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (!click || !b) return;
     if (b.id === 'talk' && !sh.wander) { S.talk = { role: 'merchant', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.merchant.topics, menu: 1 }; S.screen = 'talk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (b.id.startsWith('buy:') && sh.goods[b.i]) buy(S, R, sh.goods[b.i], 0);
     if (b.id.startsWith('back:') && sh.back[b.i]) buy(S, R, sh.back[b.i], 1);
+    if (b.tab !== undefined) tabClick(S, b, x, y);
     if (b.id.startsWith('sell:')) sell(S, R, b.i);
     return;
   };
@@ -220,24 +326,36 @@
     if (keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'journal'; S.hover = ''; return; }
     if (click && b && b.id === 'prev' && b.on) S.notesPage = pg - 1; if (click && b && b.id === 'next' && b.on) S.notesPage = pg + 1;
     if (click && b && b.id.startsWith('n:')) S.noteSel = L0[b.i]; if (click && b) ev(S, { k: 'ui', x, y }); };
+  // the bag's tabs (TASKS 1687): the open one is kept per player, not per window; a sort orders the open tab's cells only
+  const openTab = (S, h) => { const T = D.bagTabs(h.bag.length), k = Math.max(0, Math.min(T.length - 1, S.bagTab | 0)); return T[k]; };
+  const sortTab = (S, h, k) => { const T = openTab(S, h), part = h.bag.slice(T.a, T.a + T.n); sortItems(part, T.n, k, true); h.bag.splice(T.a, T.n, ...part); };
+  const freeIn = (h, t) => { const T = D.bagTabs(h.bag.length)[t]; if (T) for (let i = T.a; i < T.a + T.n; i++) if (!h.bag[i]) return i; return -1; };
+  const tabClick = (S, b, x, y) => { S.bagTab = b.tab; S.hover = ''; ev(S, { k: 'ui', x, y }); };
+  // a piece let go over a tab goes to that tab's first free cell (a worn one comes off into it)
+  const intoTab = (S, R, h, k, eq, t, x, y) => { const T = D.bagTabs(h.bag.length)[t]; if (!T || (!eq && k >= T.a && k < T.a + T.n)) return;
+    const j = freeIn(h, t); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
+    if (eq) unequip(S, R, h, k, j); else { h.bag[j] = h.bag[k]; h.bag[k] = null; S.saveN++; ev(S, { k: 'ui', x, y }); } };
   const unequip = (S, R, h, slot, i) => { const it = h.eq[slot]; if (!it) return;
     if (i === undefined ? bagAdd(R, it) : !h.bag[i]) { if (i !== undefined) { it.id = it.id || R.nextId++; h.bag[i] = it; } h.eq[slot] = null; const st = heroSt(S); h.hp = Math.min(h.hp, st.maxHp); h.mp = Math.min(h.mp, st.maxMp); ev(S, { k: 'unequip', x: h.x, y: h.y, slot, off: gearName(it) }); } };
   // a press on a bag or worn piece picks it up; letting go over its own cell is the click (use / unequip), over another bag cell
   // moves it there (a swap with what lies there), off any cell drops nothing
+  const fitsSlot = (it, slot) => !!it && !isCons(it) && BASES[it.b].slot === slot;
   const dropInv = (S, R, h, b) => { const dr = S.drag, f = dr.from, eq = f.startsWith('eq:'), k = eq ? f.slice(3) : +f.split(':')[1]; S.drag = null;
-    const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length;
+    if (b && b.tab !== undefined) { intoTab(S, R, h, k, eq, b.tab, dr.x, dr.y); return; }
+    const bagTo = b && b.id.startsWith('bag:') && b.id !== f && b.i < h.bag.length, nope = (s) => ev(S, { k: 'nope', x: dr.x, y: dr.y, s });
     if (b && b.id === f) { if (eq) unequip(S, R, h, k); else useItem(S, R, k); }
     else if (bagTo && !eq) { [h.bag[k], h.bag[b.i]] = [h.bag[b.i], h.bag[k]]; S.saveN++; ev(S, { k: 'ui', x: dr.x, y: dr.y }); }
-    else if (bagTo && eq) unequip(S, R, h, k, b.i);
-    else if (b && b.id.startsWith('eq:') && !eq) useItem(S, R, k); };
+    else if (bagTo && eq) { const o = h.bag[b.i]; if (!o) unequip(S, R, h, k, b.i); else if (fitsSlot(o, k)) useItem(S, R, b.i); else nope(TXT('sim_ui.inv.swap', { p1: D.SLOT_NAME[k] })); }
+    else if (b && b.id.startsWith('eq:') && !eq) { const it = h.bag[k]; if (it && isCons(it)) nope(TXT('sim_ui.inv.cons')); else if (!fitsSlot(it, b.slot)) nope(TXT('sim_ui.inv.slot', { p1: D.SLOT_NAME[b.slot] })); else useItem(S, R, k); } };
   SCREEN.inv = (S, inp, keys, x, y, click) => {
-    const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, h = R.hero, U = UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (keys.Escape || keys.KeyI || keys.KeyC || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
     if (click && b && (b.id.startsWith('bag:') ? h.bag[b.i] : b.id.startsWith('eq:') && h.eq[b.slot])) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; return; }
     if (S.drag) { dropInv(S, R, h, b); return; }
     if (!b) return;
-    if (click && b.id.startsWith('sort:')) { sortItems(h.bag, h.bag.length, b.k, true); S.saveN++; ev(S, { k: 'ui', x, y }); }
+    if (click && b.tab !== undefined) { tabClick(S, b, x, y); return; }
+    if (click && b.id.startsWith('sort:')) { sortTab(S, h, b.k); S.saveN++; ev(S, { k: 'ui', x, y }); }
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i]; h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); }
     if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); SIMX.thresholdTip(S, R); }
     if (click && b.id.startsWith('ab:') && D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; return; }
@@ -249,5 +367,5 @@
   }
 
   Object.assign(SIMX, {
-    endRun, finishRun, descend, begin, startRun, stepUI });
+    endRun, finishRun, descend, begin, startRun, stepUI, loadSaves, slotRun, isFull, loadSlot, dropSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

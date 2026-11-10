@@ -345,7 +345,7 @@ void main(){ vec2 uv = scr(v_px); vec2 d = u_dir / u_res; vec3 s = texture(u_src
   s += (texture(u_src, uv + d * 1.3846).rgb + texture(u_src, uv - d * 1.3846).rgb) * 0.3162;
   s += (texture(u_src, uv + d * 3.2308).rgb + texture(u_src, uv - d * 3.2308).rgb) * 0.0703; o = vec4(s, 1.0); }`;
   const FINAL = `
-uniform sampler2D u_src, u_bloom, u_bloom2; uniform vec2 u_bloomA; uniform float u_vig, u_warm, u_roll, u_dither, u_desat, u_dark; uniform vec4 u_edge;
+uniform sampler2D u_src, u_bloom, u_bloom2; uniform vec2 u_bloomA; uniform float u_vig, u_warm, u_roll, u_dither, u_desat, u_dark, u_bright; uniform vec4 u_edge;
 void main(){ vec2 uv = scr(v_px); vec3 c = texture(u_src, uv).rgb;
   c += texture(u_bloom, uv).rgb * u_bloomA.x + texture(u_bloom2, uv).rgb * u_bloomA.y;
   float l = dot(c, vec3(0.299, 0.587, 0.114));
@@ -357,6 +357,7 @@ void main(){ vec2 uv = scr(v_px); vec3 c = texture(u_src, uv).rgb;
   c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), u_desat);
   c = mix(c, u_edge.rgb, u_edge.a * smoothstep(0.45, 0.95, length(q) * 1.25));
   c *= 1.0 - u_dark;
+  c = pow(max(c, 0.0), vec3(1.0 / u_bright));
   if (u_dither > 0.5) c += (hash(v_px + fract(u_t) * 100.0) - 0.5) / 255.0;
   o = vec4(c, 1.0); }`;
   const MOTE = `
@@ -401,6 +402,9 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     of: (...Ls) => Ls.reduce((a, b) => M.mul(a, b)),
   };
   L.D2R = Math.PI / 180;
+  // the phase of a beat whose rate climbs from w0 to w0 + w1 over T seconds (linear, or smoothstep): the integral of the rate from u = 0.
+  // The clock times a rising rate races at (clock × rate of change), thousands of rad/s deep into a run, and the beat strobes (TASKS 1362, 1688)
+  L.chirp = (u, T, w0, w1, smooth) => { const s = Math.max(0, Math.min(1, u / T)); return w0 * Math.max(0, u) + w1 * T * (smooth ? s * s * s - s * s * s * s / 2 : s * s / 2); };
   L.SS = (e0, e1, x) => { const q = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return q * q * (3 - 2 * q); };
   L.rnd = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };   // deterministic hash → [0,1)
   L.lerpP = (a, b, w) => a.map((v, i) => v + (b[i] - v) * w);
@@ -608,13 +612,13 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // bloom (two radii) + final grade (warm highs, cool lows, hue-keeping roll-off, vignette, dither) → screen, then HUD-ready.
   // warm scales the warm-high/cool-low tint, roll the highlight roll-off (0 = none), dither 0/1. Pixel/flat/neon styles that
   // need exact palette colours: { bloom: [0, 0], warm: 0, roll: 0, dither: 0 }. edge [r, g, b, amt] tints the screen's rim
-  // (pain), desat greys the frame, dark fades it to black
-  L.finish = (t, { bloom = [0.22, 0.20], vignette = 0.92, warm = 1, roll = 1, dither = 1, edge = [0, 0, 0, 0], desat = 0, dark = 0 } = {}) => {
+  // (pain), desat greys the frame, dark fades it to black, bright is the player's gamma (TASKS 1303)
+  L.finish = (t, { bloom = [0.22, 0.20], vignette = 0.92, warm = 1, roll = 1, dither = 1, edge = [0, 0, 0, 0], desat = 0, dark = 0, bright = 1 } = {}) => {
     G.blend('none');
     G.bind(T.b1); G.full(P.bright, { u_src: T.comp });
     G.bind(T.b2); G.full(P.blur, { u_src: T.b1, u_dir: [1.5, 0] }); G.bind(T.b1); G.full(P.blur, { u_src: T.b2, u_dir: [0, 1.5] });
     G.bind(T.c1); G.full(P.copy, { u_src: T.b1 });
     G.bind(T.c2); G.full(P.blur, { u_src: T.c1, u_dir: [2, 0] }); G.bind(T.c1); G.full(P.blur, { u_src: T.c2, u_dir: [0, 2] });
-    G.bind(null); G.full(P.final, { u_src: T.comp, u_bloom: T.b1, u_bloom2: T.c1, u_t: t, u_bloomA: bloom, u_vig: vignette, u_warm: warm, u_roll: roll, u_dither: dither, u_edge: edge, u_desat: desat, u_dark: dark });
+    G.bind(null); G.full(P.final, { u_src: T.comp, u_bloom: T.b1, u_bloom2: T.c1, u_t: t, u_bloomA: bloom, u_vig: vignette, u_warm: warm, u_roll: roll, u_dither: dither, u_edge: edge, u_desat: desat, u_dark: dark, u_bright: bright });
     G.blend(); };
 })();

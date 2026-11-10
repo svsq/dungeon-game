@@ -4,13 +4,13 @@
   const SIMX = root.SIMX;
   const {
     BAL, BASES, D, DG, DT, ENEMIES, FROM, K, RUN, STAGE, WIN, boxHit, clampCam, dep, dif, eliteK, ev, gearName, itemPower,
-    lastFloor, potCount, potion, reveal, rnd, rollAffixes, rollItem, shove, stats, who } = SIMX;
+    lastFloor, potCount, potion, reveal, rnd, rollAffixes, rollItem, shove, stats, tally, who } = SIMX;
   // ---------------- run & floor ----------------
   function newHero(meta, cls = 'warrior') {
     const up = meta.up || {}, C = D.CLASSES[cls], ab = {}, cd = {};
     for (const a of C.abs) { ab[a.id] = a.unlock <= 1 ? 1 : 0; cd[a.id] = 0; }
     const h = { cls, x: 0, y: 0, vx: 0, vy: 0, face: 1, faceT: -9, back: 0, backT: -9, aim: 0, hp: 1, mp: 1, lvl: 1, xp: 0, pts: 2 * (up.stat || 0), sp: up.skill || 0, perks: {},
-      base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(D.BAG.start).fill(null), ab,
+      base: Object.assign({}, C.base), gold: 0, eq: {}, bag: new Array(D.bagLen(up)).fill(null), ab,
       cd: Object.assign(cd, { dash: 0, atk: 0 }), atkT: -9, atkA: 0, patkT: -9, patkA: 0, atkHit: 0, atkN: 0, castT: -9, castK: '', whirlT: -9, dashT: -9, dashX: 0, dashY: 0,
       hurtT: -9, ifr: 0, shield: 0, shieldT: -9, shieldUntil: 0, poison: 0, burn: 0, burnT: -9, spikeT: -9, dist: 0, gp: 0, deadT: -1, regen: 0, bless: 0 };
     for (const k of D.SLOTS) h.eq[k] = null;
@@ -282,7 +282,7 @@
     return { base, bonus: 0, cap: 0, C };
   }
   const FULL = [['kills', 'foes', TXT('FULL')], ['loot', 'lootN', TXT('FULL.2')], ['sec', 'secN', TXT('FULL.3')]];
-  function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
+  function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; tally(S, R, 'shards', n); ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
   // a floor's kills, loot or secrets brought to 100 % pay once, on the spot
   function checkFull(S, R) { const f = fstat(R), h = R.hero; f.full = f.full || {};
     for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); } }

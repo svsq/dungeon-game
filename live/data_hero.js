@@ -107,7 +107,9 @@
     return (r && r < M.max ? f(r) + '  →  ' : '') + f(n) + ' ' + M.unit(M.v(n)); };
   // first ranks twice the old price, each step after three quarters of it: at 10–25 shards a won run bought five first ranks and
   // the next run was won before the rest of the ~1400 mattered (TASKS 202)
-  const BAG = { start: 24 };
+  // the bag (TASKS 1687): 24 cells, and up to three pouches of 16 bought at the Altar of souls, each its own tab as in Grim Dawn;
+  // the pouches are kept in the meta, so every hero after the purchase carries them
+  const BAG = { start: 24, pouch: 16, max: 3 }, bagLen = (up) => BAG.start + BAG.pouch * Math.min(BAG.max, (up && up.pouch) || 0);
   const META = [
     // v(r): the total bonus at rank r, so the altar shows what is owned and what the next rank brings; unit(n) agrees with n
     { id: 'hp', name: TXT('META.hp.name'), v: (r) => 12 * r, unit: () => TXT('META.hp.unit'), max: 5, cost: (r) => 30 + r * 11 },
@@ -119,6 +121,7 @@
     { id: 'regen', name: TXT('META.regen.name'), v: (r) => 0.5 * r, unit: () => TXT('META.regen.unit'), max: 3, cost: (r) => 40 + r * 15 },
     { id: 'gear', name: TXT('META.gear.name'), v: (r) => r, unit: () => TXT('META.gear.unit'), max: 2, cost: (r) => 80 + r * 30 },
     { id: 'skill', name: TXT('META.skill.name'), v: (r) => r, unit: (n) => TXT('META.skill.unit', { p1: TXT.n('META.skill.unit.2', n) }), max: 2, cost: (r) => 60 + r * 22 },
+    { id: 'pouch', name: TXT('META.pouch.name'), v: (r) => r, unit: (n) => TXT('META.pouch.unit', { p1: TXT.n('META.pouch.unit.2', n), n: BAG.pouch }), max: BAG.max, cost: (r) => 60 + r * 40 },
     { id: 'resist', name: TXT('META.resist.name'), v: (r) => 15 * r, pct: 1, neg: 1, unit: () => TXT('META.resist.unit'), max: 3, cost: (r) => 40 + r * 15 },
   ];
   // quests (R-17, TASKS 1017): a run's tasks, taken and turned in in the town, gone with the hero. A template: kind (side: a
@@ -161,5 +164,5 @@
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
 
-  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, GIFTS, giftCost, rerollCost, xpNeed });
+  Object.assign(D, { TIPS, CLASSES, clsOf, liveFor, metaFor, classesReady, ABILITIES, CRIT, AB_MAX, abRank, MASTERY, ranksFull, masteryK, masteryTake, SHIELD_T, shieldHp, fireDmg, FROST, frostDmg, BOLT, SHOTS, MAGE_ATK, MAGE_SPELL, HUSH, VOLLEY, TRAP, LEAP, RAGE, CHARGE, CRY, STATS, metaLine, META, BAG, bagLen, GIFTS, giftCost, rerollCost, xpNeed });
 })(typeof window !== 'undefined' ? window : globalThis);

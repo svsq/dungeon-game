@@ -223,6 +223,7 @@
     webburn: (o) => noise(o, { a: 0.02, d: 0.5, v: 0.25, type: 'bandpass', f0: 1800, f1: 600, q: 2 }),
     ambush: (o) => { tone(o, { f0: 65, f1: 45, d: 0.6, v: 0.6 }); tone(o, { f0: 98, f1: 60, t: now() + 0.18, d: 0.5, v: 0.4 }); noise(o, { a: 0.3, d: 0.4, v: 0.2, type: 'bandpass', f0: 300, f1: 1800, q: 3 }); },
     lvl: (o) => [523, 659, 784, 1047].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + i * 0.09, d: 0.6, v: 0.12 })),
+    unseal: (o) => { tone(o, { type: 'square', f0: 110, f1: 70, d: 0.14, v: 0.16 }); noise(o, { t: now() + 0.05, d: 0.18, v: 0.2, type: 'lowpass', f0: 1400, f1: 400 }); [660, 988].forEach((f, i) => tone(o, { type: 'triangle', f0: f, t: now() + 0.18 + i * 0.1, d: 0.9, v: 0.1 })); },
     unlock: (o) => [784, 1175].forEach((f, i) => tone(o, { f0: f, t: now() + i * 0.12, d: 0.8, v: 0.12 })),
     drink: (o) => { for (let i = 0; i < 3; i++) tone(o, { f0: rr(260, 340), f1: rr(450, 560), t: now() + i * 0.11, d: 0.08, v: 0.14 }); },
     shield: (o) => { tone(o, { f0: 520, f1: 1040, a: 0.05, d: 0.5, v: 0.1 }); tone(o, { f0: 780, f1: 1560, a: 0.05, d: 0.5, v: 0.07, det: 8 }); },
@@ -269,7 +270,7 @@
     hen: (o) => [0, 0.11].forEach((dt, i) => tone(o, { type: 'square', f0: 700 + 120 * i, f1: 1100 + 160 * i, t: now() + dt, d: 0.07, v: 0.03 })),
   };
   // events heard everywhere on the floor (not attenuated by distance)
-  const GLOBAL = new Set(['colerupt', 'shatter', 'lvl', 'unlock', 'die', 'floor', 'roar', 'bless', 'teleport', 'shop', 'buy', 'trade', 'nope', 'ui', 'equip', 'toss', 'drink', 'pickup', 'shard', 'shield', 'craft', 'quest', 'qitem']);
+  const GLOBAL = new Set(['colerupt', 'shatter', 'lvl', 'unlock', 'unseal', 'die', 'floor', 'roar', 'bless', 'teleport', 'shop', 'buy', 'trade', 'nope', 'ui', 'equip', 'toss', 'drink', 'pickup', 'shard', 'shield', 'craft', 'quest', 'qitem']);
   const LIMIT = { rock: 0.07, step: 0.08, hit: 0.03, gold: 0.05, alert: 0.15, kill: 0.04, scorch: 0.12, pop: 0.05, spike: 0.1 };
 
   function play(e, S) {

@@ -393,8 +393,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   }
   // at the counter: sell every spare piece of gear, buy what beats the worn piece, then potions; one click a step
   function trade(S, R, h) {
-    const U = D.UI.shop(R.shop.goods.length), at = (id) => click(U.r.find((q) => q.id === id));
-    let kept = 0; const i = h.bag.findIndex((it) => gear(it) && !(waits(h, it) && kept++ < 2)); if (i >= 0) { cur.sold++; return at('sell:' + i); }
+    const U = D.UI.shop(R.shop.goods.length, h.bag.length, S.bagTab), at = (id) => click(U.r.find((q) => q.id === id));
+    // a piece in a pouch (TASKS 1687) is sold from its own tab
+    let kept = 0; const i = h.bag.findIndex((it) => gear(it) && !(waits(h, it) && kept++ < 2)); if (i >= 0) { if (!U.r.some((q) => q.id === 'sell:' + i)) return at('btab:' + D.bagTabOf(h.bag.length, i)); cur.sold++; return at('sell:' + i); }
     const room = h.bag.includes(null), buy = (g) => { cur.spent += g.price; return at('buy:' + R.shop.goods.indexOf(g)); };
     const up = R.shop.goods.find((g) => !g.n && g.price <= h.gold && wearable(h, g.it) && worth(S, h, P, g.it) > worth(S, h, P, h.eq[D.BASES[g.it.b].slot], D.BASES[g.it.b].slot) + 1e-6); if (up && room) return buy(up);
     for (const [b, want] of [['hp_potion', 6], ['mp_potion', D.clsOf(h).res === 'rage' ? 0 : P.caster ? 6 : 3]].concat(R.viaTown ? [['scroll', P.scrolls]] : [])) { const g = R.shop.goods.find((q) => q.it.b === b && q.n);
@@ -486,7 +487,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // the smith's E opens his forge (the quest talk is a button in it): the bot has no use for the forge but the talk
     if (S.screen === 'craft') { SIM.step(S, { keys: [S.craft.kind === 'forge' && SIM.questMark(R, 'smith') ? 'Enter' : 'Escape'] }); continue; }
     if (S.screen === 'gate') { const o = SIM.gateWays(R), i = o.findIndex((q) => q.k === 'portal'); SIM.step(S, i >= 0 ? click(D.UI.gate(o.length).r[i]) : { keys: ['Escape'] }); continue; }
-    if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { cur.town.scrolls++; SIM.step(S, click(D.UI.inv().r.find((q) => q.id === 'bag:' + i))); continue; } }
+    if (S.screen === 'inv' && readWant) { const i = h.bag.findIndex((it) => it && it.b === 'scroll'); readWant = 0; if (i >= 0) { const t = D.bagTabOf(h.bag.length, i), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, t); if ((S.bagTab | 0) !== t) SIM.step(S, click(U.r.find((q) => q.id === 'btab:' + t))); cur.town.scrolls++; SIM.step(S, click(U.r.find((q) => q.id === 'bag:' + i))); continue; } }
     if (S.screen !== 'play') { SIM.step(S, { keys: ['Escape'] }); continue; }
     const st = SIM.stats(h, S.meta), inp = { left: 0, right: 0, up: 0, down: 0, press: 0, click: 0, px: 960, py: 540, keys: [], slot: 0 };
     const FH = SIM.flow(m, Math.floor(h.x / T), Math.floor(h.y / T), 1), offsets = (o) => D.ENEMIES[o.type]?.deep ? [-2, -1, 0, 1, 2].flatMap((j) => [-2, -1, 0, 1, 2].map((i) => j * m.W + i)) : [0, 1, -1, m.W, -m.W];

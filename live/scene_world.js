@@ -3,7 +3,7 @@
 (function () {
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
-    PROP_H, SC, chestLook, mimicTwitch, debris, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
+    PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
     deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
   const HERO_RIM = { x: 0, y: 0 };
@@ -248,8 +248,11 @@
     for (const e of ST.ev) { const a = GT - e.t; if (e.k !== 'rockfall' || a < 0 || a >= 2.4 || !vis(e.x, e.y)) continue; const [w0, h0] = SZ('dc_rubble'), k = 56 / Math.max(w0, h0);
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
-    for (const p of R.pots) { if (p.hp > 0 || p.kind === 'gold' || p.kind === 'goldpile' || !vis(p.x, p.y) || SIM.Q.hidden(m, p)) continue; const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, PROP_H[p.kind], wood ? 8 : 6); }
-    for (const d of m.decor) if (d.n === 'wreck_cv' && d.broken && vis(d.x, d.y)) debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, null, 14, 1.8);
+    const brokenPots = R.pots.filter((p) => p.hp <= 0 && p.kind !== 'gold' && p.kind !== 'goldpile' && vis(p.x, p.y) && !SIM.Q.hidden(m, p)), brokenWrecks = m.decor.filter((d) => d.n === 'wreck_cv' && d.broken && vis(d.x, d.y));
+    const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
+    const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    for (const p of brokenPots) potDebris(p, false);
+    for (const d of brokenWrecks) wreckDebris(d, false);
     for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && !SIM.Q.hidden(m, d)) { const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0);
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
@@ -275,6 +278,16 @@
     }
 
     const inSecret = (q) => SIM.Q.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0]);
+    // a top wall's found opening is a way cut through the masonry (TASKS 1682): the stone of its jambs on either side, a worn sill
+    // at its foot and the way darkening as it goes in, not a hole with the room's floor running on through it
+    (m.secrets || []).forEach((q) => { if (!q.open || q.dir !== 'u' || !vis(q.x, q.y)) return; const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), ink = [0.02, 0.015, 0.02];
+      const x0 = sx(Math.min(...xs) * TILE), x1 = sx((Math.max(...xs) + 1) * TILE), y0 = sy(Math.min(...ys) * TILE), y1 = sy((Math.max(...ys) + 1) * TILE), w = x1 - x0, hh = y1 - y0, TSW = 224;
+      for (let k = 0; k < 8; k++) L.solid(x0, y0 + k * hh / 8, w, hh / 8, ink, 0, 0, 0, 0.42 * (1 - k / 8));
+      for (const [jx, lit] of [[x0, 0], [x1 - 8, 1]]) { const u0 = ((jx - sx(0)) % TSW) / TSW;
+        L.sprite(B.wall, jx, y0, { w: 8, h: hh, src: [u0, 0, u0 + 8 / TSW, hh / TSW], u: { grade: [0.9, lit ? 1.3 : 0.45, 0, 1], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } });
+        L.solid(lit ? jx - 2 : jx + 8, y0, 2, hh, ink, 0, 0, 0, 0.7); if (lit) L.solid(jx, y0, 2, hh, [0.95, 0.85, 0.7], 0, 0, 0, 0.2); }
+      const u1 = ((x0 - sx(0)) % 96) / 96; L.sprite(B.top, x0 - 2, y1 - 6, { w: w + 4, h: 6, src: [u1, 0, u1 + (w + 4) / 96, 6 / 96], u: { grade: [0.55, TOP_LIFT * 0.9, 0, 1], tint: topTint(B) } });
+      L.solid(x0 - 2, y1 - 6, w + 4, 2, [0.9, 0.8, 0.65], 0, 0, 0, 0.18); L.solid(x0 - 2, y1, w + 4, 2, ink, 0, 0, 0, 0.5); });
     // a secret's loose flagstone: the floor's own stone standing a hair proud of its neighbours; it sinks when stepped on
     // (ambush plates are gone, TASKS 320; only secrets use it now)
     const flagstone = (P, down, crack) => { const z = zoneAt(m, P.cx, P.cy), Z = D.BIOMES[z], TS = 288, X = P.cx * TILE, Yw = P.cy * TILE, u0 = (X % TS) / TS, v0 = (Yw % TS) / TS, lift = 1.5 * (1 - down) - down;
@@ -368,22 +381,30 @@
     m.decor.forEach((d, i) => { if (d.n === 'fence_mg' && vis(d.x + d.len / 2, d.y) && !hid(d)) Y.push([d.y, () => fence(d, i)]); });
     if (GATE) for (const q of DUNGEON.portalRing(GATE.x, GATE.y, GATE.open || 0)) if (vis(q.x, q.y) && known(q.x, q.y)) Y.push([q.y, () => drawProp(q.n, sx(q.x), sy(q.y), { dy: 4, k: q.s })]);
     const TOWN_TONE = { forge_tw: { tint: [0.74, 0.7, 0.9, 1] }, gate_tw: { tint: [0.86, 0.82, 0.95, 1] }, blocks_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_b: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_c: { tint: [0.86, 0.82, 0.95, 1] }, stone_tw_a: { grade: [1, 1.3, 0, 1] }, stone_tw_b: { grade: [1, 1.3, 0, 1] } };
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if (d.openT !== undefined && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => coffinOpen(d, sx(d.x), sy(d.y), GT - d.openT, jig('d' + i))]); });
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
       Y.push([d.y - 38, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(d.x), sy(d.y + 8 - hh)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); });
-    for (const c of R.chests) if (vis(c.x, c.y) && !hid(c) && !c.woke) Y.push([c.y, () => { const op = c.open ? SS(0, 0.18, GT - (c.openT || -9)) : 0; L.shadow(sx(c.x), sy(c.y) + 2, c.boss ? 28 : 22, 6, 0.5);
+    for (const c of R.chests) if (vis(c.x, c.y) && !hid(c) && !c.woke) Y.push([c.y, () => { const ao = c.open ? GT - (c.openT || -9) : 9, op = c.open && ao >= chestOpenT(c) ? 1 : 0; L.shadow(sx(c.x), sy(c.y) + 2, SZ(chestLook(c).tex || 'chest')[0] * 0.42, 6, 0.5);
+      if (c.mimic && !c.open) { mimicShut(c, sx(c.x), sy(c.y), t); return; }
+      const fq = c.fuseT && c.fuseT > GT ? 1 - (c.fuseT - GT) / D.CHEST_TRAP.fuse : -1, bq = c.bangT !== undefined ? GT - c.bangT : -1, trapDy = bq >= 0 && bq < 0.3 ? -30 * Math.sin(Math.PI * bq / 0.3) : 0, trapJ = fq >= 0 ? { dx: Math.sin(GT * 63) * (0.8 + 2.6 * fq), rot: Math.sin(GT * 47) * 0.02 * fq, sy: 1, fl: 0.08 + 0.22 * fq * (0.5 + 0.5 * Math.sin(GT * 40)), ft: [1.6, 0.35, 0.2] } : bq >= 0 && bq < 0.45 ? { dx: 0, rot: 0.14 * Math.exp(-7 * bq) * Math.sin(26 * bq), sy: 1, fl: 0 } : null;
+      if (c.open && ao < chestOpenT(c) && !c.woke) { chestOpening(c, sx(c.x), sy(c.y), ao); return; }
       // the gold chest's coins are painted in their own flat golds: the tier's lift would melt them into one orange heap
       const gold = op > 0.5 && c.gold && window.ASSETS.chest_open_gold, cl = chestLook(c), ownN = cl.tex && cl.tex + (op > 0.5 ? '_open' : ''), own = ownN && window.ASSETS[ownN];
-      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x), sy(c.y), { dy: 4, k: cl.k, j: c.mimic && !c.open ? mimicTwitch(c, t) : undefined, u: gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
-      if (c.sealed) { const [pw, ph] = SZ('padlock'), a = 0.5 + 0.5 * Math.sin(t * 2.4); G.blend('add'); L.glow(sx(c.x), sy(c.y) - 20, 34, [1, 0.25, 0.15], 0.25 + 0.2 * a); G.blend(); L.sprite('padlock', sx(c.x) - pw / 2, sy(c.y) - ph - 4, { w: pw, h: ph }); } }]);
+      drawProp(gold ? 'chest_open_gold' : own ? ownN : op > 0.5 ? 'chest_open' : 'chest', sx(c.x) + (op > 0.5 ? cl.dx || 0 : 0), sy(c.y), { dy: 4 + trapDy, j: trapJ || (c.open ? chestRecoil(c, ao) : null), u: c.bangT !== undefined && GT >= c.bangT ? { grade: [0.5, 0.75, 0, 0.75], tint: [0.28, 0.24, 0.22, 0.6] } : gold || own ? { grade: [1, 1, 0, 1] } : cl.u });
+      if (c.sealed) { const [pw0, ph0] = SZ('padlock'), pw = pw0 * 0.7, ph = ph0 * 0.7, a = 0.5 + 0.5 * Math.sin(t * 2.4), px = sx(c.x) - 2 - pw / 2, py = sy(c.y) - 56; G.blend('add'); L.glow(sx(c.x) - 2, py + ph / 2, 20, [1, 0.25, 0.15], 0.12 + 0.12 * a); G.blend(); L.inked(() => L.sprite('padlock', px, py, { w: pw, h: ph }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); } }]);
+    for (const p of brokenPots) if (GT - (p.brokeT ?? -9) < DEBRIS_END) Y.push([p.y + 30, () => potDebris(p, true)]);
+    for (const d of brokenWrecks) if (GT - (d.brokeT ?? -9) < DEBRIS_END) Y.push([d.y + 30, () => wreckDebris(d, true)]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 });
       if (p.kind === 'gold' || p.kind === 'goldpile') emitted((a) => drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4, u: { alpha: a, tint: GOLD_TINT } })); }]); }
     // lean: the flame's tip shifted sideways (px), its base stays on the wick
     // fires [x, y, w, hh, col, seed, lean]: emissive, they replace what is behind them and the light map leaves them unlit
+    // (TASKS 1681: on a floor without light every fixed flame burns at `flame` of its strength, not as bright as in a lit hall)
+    const FM = D.FLOOR_MODS[m.mod] || {};
     const flames = (fs) => { const xf = ([x, y, w, hh, , , lean = 0]) => [w, 0, 0, -lean, hh, 0, x - w / 2 + lean, y - hh, 1];
-      G.blend('emit'); for (const f of fs) G.draw(L.P.flame, { u_t: t, u_seed: f[5], u_amt: 1, u_col: f[4] }, xf(f)); G.blend(); };
+      G.blend('emit'); for (const f of fs) G.draw(L.P.flame, { u_t: t, u_seed: f[5], u_amt: FM.flame || 1, u_col: f[4] }, xf(f)); G.blend(); };
     const flameB = (...f) => flames([f]);
     // a sconce's fire warms the stone round it: painted onto the wall before the flame, so the flame's core stays clean
     const halo = (x, y, col, i) => { if (col[0] >= col[2]) L.glow(x, y - 16, 52, col, 0.2 * flick(i), 3.0); };
@@ -404,8 +425,13 @@
       if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0, 0.6, a) : 0, [sw, sh] = SZ('bookshelf');
         if (!p) Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]);
         else Y.push([d.y, () => L.sprite('bookshelf', sx(d.x) + sw / 2 - sw * (1 - 0.8 * p), sy(d.y) + 4 - sh, { w: sw * (1 - 0.8 * p), h: sh })]); }
-      if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0.05, 0.95, a) : 0, X = q.x + (q.slide ? q.slide.s * q.slide.n * TILE * p : 0), jit = p > 0 && p < 1 ? Math.sin(GT * 60) * 1.2 : 0;
-        Y.push([d.y, () => drawProp('statue', sx(X) + jit, sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) })]); }
+      if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 };
+        Y.push([d.y, () => drawProp('statue', sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) })]);
+        // the masonry stays where the stone has not yet moved off it, so the way opens only as fast as the statue uncovers it
+        if (sl.p < 1) { const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), X0 = Math.min(...xs) * TILE, X1 = (Math.max(...xs) + 1) * TILE, Y0 = Math.min(...ys) * TILE, Y1 = (Math.max(...ys) + 1) * TILE, TSW = 224;
+          const cw = Math.round((X1 - X0) * (1 - sl.p) / 2) * 2, cx0 = q.slide.s > 0 ? X1 - cw : X0, u0 = (cx0 % TSW) / TSW, v0 = (Y0 % TSW) / TSW;
+          if (cw > 0) Y.push([q.y - 1, () => L.sprite(B.wall, sx(cx0), sy(Y0), { w: cw, h: Y1 - Y0, src: [u0, v0, u0 + cw / TSW, v0 + (Y1 - Y0) / TSW], u: { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } })]); }
+        return; }
       if ((kind === 'lever' || kind === 'puzzle') && q.open && a < 1.8) { const p = SS(0.15, 1.6, a), xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), jit = Math.sin(GT * 70) * 1.5 * (1 - p);
         const x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y0 = Math.min(...ys) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
         if (q.dir === 'u') { const TSW = 224, Hf = (y1 - y0) * (1 - p), u0 = (x0 % TSW) / TSW, v0 = (y0 % TSW) / TSW;
@@ -415,13 +441,18 @@
     // doors (TASKS 77, 78). Two views of one leaf: face-on (door_leaf) and edge-on (door_edge_a seen from the left, _b from the
     // right; one painting each, never mirrored, so the light stays top-left). A top wall's door stands face-on in its arch and opens
     // edge-on along the corridor's left side; a bottom wall's the same without the arch. A side wall's stands edge-on in the gap
-    // (the wall's own flat top is its jambs) and opens face-on, in shadow, against the corridor's back wall. The swing cross-fades
+    // (the wall's own flat top is its jambs) and opens face-on, in shadow, against the corridor's back wall. A top wall's leaf and a
+    // side wall's turn on the hinge as one picture (TASKS 1683: two views cross-fading read as a dissolve); a bottom wall's cross-fades
     for (const d of m.doors || []) { if (!vis(d.x, d.y) || (d.twin && d.open)) continue; const i = m.doors.indexOf(d), lock = SIM.Q.doorLock(m, d);
       const a = d.open ? GT - (d.openT ?? -9) : -1, p = d.open ? 1 - Math.pow(1 - Math.min(1, a / (d.kick ? 0.16 : 0.32)), 3) : 0;
       const bump = ST.ev.find((e) => e.k === 'locked' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.3), jit = bump ? Math.sin((GT - bump.t) * 90) * 2 * (1 - (GT - bump.t) / 0.3) : 0;
       const side = d.dir === 'l' || d.dir === 'r', s = d.dir === 'r' ? 1 : -1, X = sx(d.x) + jit, un = ST.ev.find((e) => e.k === 'unlatch' && e.i === i && GT - e.t >= 0 && GT - e.t < 0.7);
       const fa = 1 - SS(0.15, 0.55, p), ea = SS(0.35, 0.8, p);   // the two views overlap only briefly mid-swing
       const E = DEDGE, k = E.k, ew = ASSETS.door_edge_a.w * k, eh = ASSETS.door_edge_a.h * k;
+      // (TASKS 1683) a leaf drawn in front of the hero thins where it hides him, so he never vanishes behind an open door
+      const thin = (x0, x1, keyW) => { const hx = sx(h.x), ox = Math.min(hx + 16, x1) - Math.max(hx - 16, x0); return 1 - 0.55 * SS(0, 12, ox) * SS(0, 8, keyW - h.y); };
+      // (TASKS 1714) the turning leaf reports its hinge and free edge, so the rig check measures its swing for breaks like any actor's
+      const leafJ = (hx, hy, ux, uy) => { const id = 'door' + i; L.joint(id, 'ground', [hx, hy]); L.joint(id, 'top', [hx, hy - DOOR.h]); L.joint(id, 'edge', [hx + ux, hy + uy]); L.joint(id, 'edgeTop', [hx + ux, hy + uy - DOOR.h]); };
       // the lock on the leaf: a padlock, or the iron bar along its bands (face-on level, edge-on on the bands' slope)
       const locks = (cx, cy, ang, len, al) => { if (!lock && !un) return;
         if (lock && lock.kind === 'lever') { const bh = Math.max(9, len * ASSETS.door_bar.h / ASSETS.door_bar.w); L.sprite('door_bar', 0, 0, { m: [Math.cos(ang), Math.sin(ang), 0, 1, cx - Math.cos(ang) * len / 2, cy - Math.sin(ang) * len / 2 - bh / 2], w: len / Math.cos(ang), h: bh, u: { alpha: al, grade: [1.35, 0.6, 0, 1] } }); }
@@ -432,25 +463,33 @@
       // beside the door, the near end in front of them
       const edge = (n, left, topW, al, lk) => { const farW = topW + E.far * k, nearW = topW + E.near * k, H0 = ASSETS[n].h;
         for (let j = 0; j < 4; j++) { const r0 = H0 * j / 4, r1 = H0 * (j + 1) / 4, key = Math.max(farW, Math.min(nearW, topW + r1 * k));
-          Y.push([key, () => { L.sprite(n, left, sy(topW) + r0 * k, { w: ew, h: (r1 - r0) * k, src: [0, r0 / H0, 1, r1 / H0], u: { alpha: al } });
+          Y.push([key, () => { L.sprite(n, left, sy(topW) + r0 * k, { w: ew, h: (r1 - r0) * k, src: [0, r0 / H0, 1, r1 / H0], u: { alpha: al * (lk ? 1 : thin(left, left + ew, key)) } });
             if (lk && j === 2) { const a0 = n === 'door_edge_a' ? E.band : -E.band, cx = left + (n === 'door_edge_a' ? E.lock[0] : ASSETS[n].w - E.lock[0]) * k; locks(cx, sy(topW) + E.lock[1] * k, a0, ew * 0.95, al); } }]); } };
       if (side) {
         const nearW = d.y + TILE, topW = nearW - E.near * k, n = s > 0 ? 'door_edge_a' : 'door_edge_b';
-        if (p < 1) edge(n, X - ew / 2 + s * ew * 0.45, topW, fa, true);   // in the door's own cells: the room's fog never dims it
-        // open, it stands ajar at ~60°, hinged at the gap's far end, its free edge clearly nearer the camera and in shadow (≤ 0.7 of a
-        // shut leaf's brightness, doors_r2): it reads as swung back, never as a door in the corridor's wall
-        if (p > 0) { const fy = sy(d.y - TILE) + 4, ux = s * Math.sin(1.05) * DOOR.w, uy = Math.cos(1.05) * DOOR.w;
-          Y.push([d.y - TILE + 4 + uy, () => { for (let j = 0; j < 4; j++) L.shadow(X + ux * (j + 0.5) / 4, fy + uy * (j + 0.5) / 4 + 2, DOOR.w / 7, 4, 0.5 * p);
-            L.sprite('door_leaf', 0, 0, { m: [ux / DOOR.w, uy / DOOR.w, 0, 1, X, fy - DOOR.h], w: DOOR.w, h: DOOR.h, flip: s < 0, u: { alpha: ea, grade: [0.45, 0.7, 0, 1] } }); }]); }
+        // shut, it stands edge-on in the gap; turning, the painted edge gives way to the face within the first few degrees, where the
+        // two are one thin line, and the face swings on to ~60°, hinged at the gap's far end, its free edge nearer the camera.
+        // Open it is a shade darker than a shut leaf, no more (TASKS 1683: at 0.7 it read as another door's wood, not this one's in shadow)
+        const ef = 1 - SS(0.03, 0.2, p), lf = SS(0.02, 0.16, p);
+        if (ef > 0) edge(n, X - ew / 2 + s * ew * 0.45, topW, ef, true);   // in the door's own cells: the room's fog never dims it
+        const fy = sy(d.y - TILE) + 4, ph = 1.05 * p, ux = s * Math.sin(ph) * DOOR.w, uy = Math.cos(ph) * DOOR.w; leafJ(X, fy, ux, uy);
+        if (lf > 0) { const gl = 1 - 0.18 * p;
+          // in strips along its length, each sorted by its own foot: the hinge end goes behind whoever stands beside it
+          for (let j = 0; j < 4; j++) { const keyW = d.y - TILE + 4 + uy * (j + 1) / 4, x0 = X + ux * j / 4, x1 = X + ux * (j + 1) / 4, src = s > 0 ? [j / 4, 0, (j + 1) / 4, 1] : [1 - (j + 1) / 4, 0, 1 - j / 4, 1];
+            Y.push([keyW, () => { L.shadow(X + ux * (j + 0.5) / 4, fy + uy * (j + 0.5) / 4 + 2, DOOR.w / 7, 4, 0.5 * p);
+              L.sprite('door_leaf', 0, 0, { m: [ux / DOOR.w, uy / DOOR.w, 0, 1, x0, fy + uy * j / 4 - DOOR.h], w: DOOR.w / 4, h: DOOR.h, src, flip: s < 0, u: { alpha: lf * thin(Math.min(x0, x1), Math.max(x0, x1), keyW), grade: [0.8, gl, 0, 1] } }); }]); } }
         continue; }
       const foot = sy(d.y) + (d.dir === 'd' ? TILE : 0), footW = d.y + (d.dir === 'd' ? TILE : 0);
-      if (p < 1) Y.push([footW, () => { if (d.dir === 'd') L.shadow(X, foot + 1, DOOR.w / 2 + 2, 4, 0.5 * (1 - p));
-        L.sprite('door_leaf', X - DOOR.w / 2, foot - DOOR.h, { w: DOOR.w, h: DOOR.h, u: { alpha: fa, grade: d.dir === 'd' ? [0.8, 0.9, 0, 1] : [1, 1, 0, 1] } });
-        locks(X - DOOR.w * 0.04, foot - DOOR.h * 0.36, 0, d.dir === 'u' ? DOOR.fw * 0.78 : DOOR.w + 6, fa); }]);
-      // open: hinged at the left jamb, the leaf runs off into the corridor, up from a top wall (seen from the right, its near end
-      // at the hinge) or down from a bottom wall (seen from the left, its far end at the hinge)
-      if (p > 0) { if (d.dir === 'u') edge('door_edge_b', X - DOOR.w / 2 - E.nearX * k, d.y - E.near * k, ea);
-        else edge('door_edge_a', X - DOOR.w / 2 - E.farX * k, d.y + 4 - E.far * k, ea); }
+      // a top wall's leaf turns away on its left hinge, through the arch and into the corridor: narrower and higher at its free
+      // edge as it goes, turned from the light, and still a door's face when open, not a sliver of its edge (TASKS 1683)
+      if (d.dir === 'u') { const th = 1.25 * p, ux = DOOR.w * Math.cos(th), uy = -DOOR.w * Math.sin(th) * 0.5; leafJ(X - DOOR.w / 2, foot, ux, uy);
+        Y.push([footW, () => { L.sprite('door_leaf', 0, 0, { m: [ux / DOOR.w, uy / DOOR.w, 0, 1, X - DOOR.w / 2, foot - DOOR.h], w: DOOR.w, h: DOOR.h, u: { grade: [1, 1 - 0.25 * Math.sin(th), 0, 1] } });
+          if (p < 1) locks(X - DOOR.w * 0.04, foot - DOOR.h * 0.36, 0, DOOR.fw * 0.78, 1 - SS(0, 0.3, p)); }]); }
+      else { if (p < 1) Y.push([footW, () => { L.shadow(X, foot + 1, DOOR.w / 2 + 2, 4, 0.5 * (1 - p));
+          L.sprite('door_leaf', X - DOOR.w / 2, foot - DOOR.h, { w: DOOR.w, h: DOOR.h, u: { alpha: fa * thin(X - DOOR.w / 2, X + DOOR.w / 2, footW), grade: [0.8, 0.9, 0, 1] } });
+          locks(X - DOOR.w * 0.04, foot - DOOR.h * 0.36, 0, DOOR.w + 6, fa); }]);
+        // open: hinged at the left jamb, the leaf runs down the corridor from the bottom wall, seen from the left, its far end at the hinge
+        if (p > 0) edge('door_edge_a', X - DOOR.w / 2 - E.farX * k, d.y + 4 - E.far * k, ea); }
       if (d.dir === 'u' && !B.cave) Y.push([d.y + 0.5, () => L.sprite('door_frame', X - DOOR.fw / 2, foot - DOOR.fh + 3, { w: DOOR.fw, h: DOOR.fh })]); }
     // a cache's own levers (a single one, or a puzzle's three with their tally scratched under them) and a candle puzzle's tally on the floor
     const leverSprite = (x, y, down) => { const n = down ? 'lever_down' : 'lever_up', [ax, ay] = down ? [101, 92] : [189, 164], k = 30 / 190, A0 = ASSETS[n]; Y.push([y - 20, () => L.sprite(n, sx(x) - ax * k, sy(y) - ay * k, { w: A0.w * k, h: A0.h * k })]); };
@@ -524,7 +563,7 @@
         L.glow(sx(z.x), yy + rh * 0.8, rh * 0.7, [1, 0.5, 0.15], 0.3 + 0.3 * p, 2.4);
         L.inked(() => L.sprite('boulder_mg_b', 0, 0, { m: M.of(M.t(sx(z.x), yy + rh / 2), M.r((1 - p) * 4 + z.x)), w: rw, h: rh, pivot: [rw / 2, rh / 2], u: { grade: [0.1, 0.8, 0, 1] } }), { r: 2, n: 8, col: [0.02, 0.015, 0.02], dy: 0 }); }]); }
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
-    for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([e.y - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
+    for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([(e.coffinT !== undefined && GT - e.coffinT < D.COFFIN.rise ? Math.max(e.y, e.coffY + 1) : e.y) - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
     for (const p of R.drops) if (vis(p.x, p.y) && !hid(p)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
     Y.push([h.y + (GT - h.atkT >= 0 && GT - h.atkT < 0.2 ? 90 : 0), () => {   // during the strike the blade must read over the target it hits
       L.shadow(sx(h.x), sy(h.y) + 2 + DECK.dy, 20, 6, 0.85);

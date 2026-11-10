@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """classlook.py: class look fixes (TASKS 1150, 1159, 1180) applied to art/gen sources from a pristine backup, so a second run changes nothing.
-Run it, then `python3 tools/prep.py --only <names>` (prints the names) to refresh live/assets and live/assets.js.
+`classlook.py bows` redoes only the hand-held bows. Run it, then `python3 tools/prep.py --only <names>` (prints the names) to refresh live/assets and live/assets.js.
 After `gear.py cut archer*` (which also applies the archer's tone) this must be re-run: the cut rewrites the parts from the sheets, and
 PRISTINE no longer describes those parts if the cut changed them, so move PRISTINE to a commit that holds the new cut, and clear the backup dir."""
 import colorsys, os, shutil, sys
@@ -45,12 +45,13 @@ def seg_dist(shape, p0, p1):
 
 BOWS = {
     'it_bow_s': dict(top=(223.7, 66), bot=(65.5, 311), t0=0.06, t1=0.94, R=12, wrap=(120, 215)),
-    'it_bow_l': dict(top=(252.2, 76), bot=(59.7, 452), t0=0.05, t1=0.95, R=12, wrap=None),
+    'it_bow_l': dict(top=(342, 50), bot=(37, 626), t0=0.05, t1=0.95, R=10, wrap=None, gen=1),
 }
 
 
 def bow_hand(name, c):
-    a = load(name)
+    # (TASKS 1710) the long bow was redrawn after PRISTINE: its source is the current art, and only its _h copy is written
+    a = np.array(Image.open(os.path.join(GEN, name + '.png')).convert('RGBA')) if c.get('gen') else load(name)
     A = a[..., 3] > 0
     dist, t = seg_dist(a.shape, c['top'], c['bot'])
     band = (dist <= c['R']) & (t >= c['t0']) & (t <= c['t1'])
@@ -405,7 +406,8 @@ def archer_all():
 
 
 if __name__ == '__main__':
-    mage_all()
-    archer_all()
+    if sys.argv[1:] != ['bows']:
+        mage_all()
+        archer_all()
     for n, c in BOWS.items(): bow_hand(n, c)
     print(','.join(touched))

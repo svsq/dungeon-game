@@ -3,7 +3,7 @@
 (function (root) {
   const SCX = root.SCX;
   const {
-    D, HERO, L, M, SC, SS, SZ, TAU, drawHero, rnd } = SCX;
+    D, HERO, L, M, SC, SS, SZ, TAU, TILE, drawHero, rnd } = SCX;
   // ---------------- monsters (whole sprites for now; rigs land in the next pass) ----------------
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
@@ -26,7 +26,7 @@
     return { v, dl: 0, dur: 0.35, bounce: 0.025, buckle: 0 }; }
   // a drowned under the shallows (TASKS 307): 1 lying under, 0 standing; it sinks back over 0.9 s when it comes home
   // a monster knocked off a plateau (TASKS 401) goes under the same way: down into the lava as it burns, or dropping into the chasm
-  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0, D.COFFIN.rise, GT - e.coffinT) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
+  const submerged = (e, E, GT) => e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise ? 1 - SS(0.14, 0.62, (GT - e.coffinT) / D.COFFIN.rise) : E.lake && e.deadT < 0 ? (e.st === 'idle' ? 1 : e.st === 'emerge' ? 1 - 0.22 * SS(0.7, 1.2, GT - e.t0) - 0.5 * SS(1.4, D.BOSSES[e.type].rise, GT - e.t0) : e.st === 'wade' ? 0.28 * SS(0, 40, Math.hypot(e.tx - e.x, e.ty - e.y)) : 0) : e.sinkT !== undefined ? SS(0, SIM.DOOM.sink, GT - e.sinkT) : e.fallT !== undefined ? Math.min(1, (GT - e.fallT) / SIM.DOOM.fall) ** 2 : e.deadT >= 0 || !E.lurk ? 0 : e.st === 'lurk' ? SS(0, 0.9, GT - e.t0) : e.st === 'rise' ? 1 - SS(0.05, E.rise * 0.9, GT - e.t0) : 0;
   // what shows of it then: a dark shape swaying under the surface and bubbles that rise and pop in small rings
   function lurkFx(e, x, y, t, sub, col = [0.42, 0.62, 0.66]) { const k = SS(0.3, 0.9, sub);
     L.shadow(x + 3 * Math.sin(t * 0.7 + e.id), y - 3, 25, 8, 0.4 * k);
@@ -184,10 +184,10 @@
   // and quicker as its fuse burns down
   const EMBER_FIRE = [[10, 17], [13, 19], [8, 12], [6, 10], [6, 10]];
   function emberFire(e, E, pts, GT, t) {
-    const q = e.st === 'wind' ? Math.min(1, (GT - e.t0) / D.windOf(e, E.wind)) : 0, trail = -0.12 * e.vx;
-    G.blend('emit'); pts.forEach((p, i) => { const fk = (1 + 0.9 * q) * (0.9 + 0.1 * Math.sin(t * (9 + 12 * q) + i * 2 + e.id)), w = EMBER_FIRE[i][0] * fk, hh = EMBER_FIRE[i][1] * fk;
+    const W = e.st === 'wind' ? D.windOf(e, E.wind) : 1, u = e.st === 'wind' ? GT - e.t0 : 0, q = Math.min(1, u / W), trail = -0.12 * e.vx, tq = t + L.chirp(u, W, 0, 1);
+    G.blend('emit'); pts.forEach((p, i) => { const fk = (1 + 0.9 * q) * (0.9 + 0.1 * Math.sin(L.chirp(u, W, 9, 12) + i * 2 + e.id)), w = EMBER_FIRE[i][0] * fk, hh = EMBER_FIRE[i][1] * fk;
       const ln = trail * (0.6 + 0.2 * i) + 2 * Math.sin(t * 3 + i), y0 = p[1] + hh * 0.3;
-      G.draw(L.P.flame, { u_t: t * (1 + q), u_seed: e.id * 7 + i, u_amt: 1, u_col: [1, 0.5 + 0.2 * q, 0.15 + 0.2 * q] }, [w, 0, 0, -ln, hh, 0, p[0] - w / 2 + ln, y0 - hh, 1]); }); G.blend(); }
+      G.draw(L.P.flame, { u_t: tq, u_seed: e.id * 7 + i, u_amt: 1, u_col: [1, 0.5 + 0.2 * q, 0.15 + 0.2 * q] }, [w, 0, 0, -ln, hh, 0, p[0] - w / 2 + ln, y0 - hh, 1]); }); G.blend(); }
   const PILLAR_T = D.ENEMIES.fire_priest.pyre.burst + 0.3;
   const flameAt = (x, y, w, hh, col, seed, lean, t) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col }, [w, 0, 0, -lean, hh, 0, x - w / 2 + lean, y - hh, 1]);
   // the fire priest's staff burns in its forked head (TASKS 410)
@@ -255,7 +255,8 @@
     // the fire's colour falls on a monster half bleached, and without the lit pass's 1.6 saturation: the concept's demon stays red, its
     // spider blue and its cultist green in the torchlight (TASKS 185). The tint takes the boosted light to the bleached one
     const sat = e.type === 'skeleton' ? 0.4 : e.type === 'skel_archer' || e.type === 'skel_mage' || e.type === 'skel_ember' ? 0.7 : 0.95, val = (E.val || 1) * (1 - 0.3 * (HERO.kAt ? HERO.kAt(e.x, e.y) : 0));
-    const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat, val, 0, 1.05];
+    const fresh = e.coffinT !== undefined && e.deadT < 0 ? 1 - SS(D.COFFIN.rise, D.COFFIN.rise + 0.6, GT - e.coffinT) : 0;
+    const grade = hit ? [0.3, 2.6, 0, 1] : e.burn > GT ? [1.1, 1.15, 0, 1] : wind > 0.5 && Math.sin(GT * 40) > 0 ? [1, 1.5, 0, 1] : [sat + 0.2 * fresh, val * (1 + 0.4 * fresh), 0, 1.05];
     const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
     // (in the magma caves a monster keeps its own colour, TASKS 1046: the caves' and crypt's take-back turned a priest's skull lilac
     // and a golem's torso blue-grey away from the lava; the lit pass holds the light on it)
@@ -274,6 +275,7 @@
     const INK = [0.024, 0.02, 0.024];
     if (E.kind === 'serpent') return drawSerpent(e, E, x, y, GT, t, { alpha, grade, rim, INK, edgeOf });
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
+    if (e.coffinT !== undefined && e.deadT < 0 && GT - e.coffinT < D.COFFIN.rise) { const q = SS(0.62, 1, (GT - e.coffinT) / D.COFFIN.rise), bx = x + e.coffX - e.x, by = y + e.coffY - e.y - 16; x = bx + (x - bx) * q; y = by + (y - by) * q - 16 * Math.sin(Math.PI * q); }
     const sub = submerged(e, E, GT), cut = sub > 0 ? { cut: [y + 3, 5, 1] } : {};
     if (sub > 0 && E.lurk) lurkFx(e, x, y, t, sub);
     if (sub > 0 && E.lake) lurkFx(e, x, y, t, sub, [1, 0.55, 0.18]);
@@ -285,6 +287,9 @@
         if (dead < 0.9) L.sprite(tex, 0, 0, { m: M.of(M.t(x, y - flt - 40 * SS(0, 0.9, dead)), M.s(e.face * (1 - 0.2 * dead), 1 + 0.3 * dead)), w, h, pivot: [w / 2, h], u: { alpha, grade: [1.3, 1.3, 0, 1] } }); return; }
       if (E.blood === 'slime') { const q = SS(0, 0.3, dead); L.joint('en' + e.id, 'ground', [x, y]); L.joint('en' + e.id, 'top', [x, y - h * SLIME_FOOT * (1 - 0.85 * q)]); if (dead > 0.5) return;
         L.sprite(tex, 0, 0, { m: M.of(M.t(x, y)), w, h, pivot: [w / 2, h * SLIME_FOOT], pad: 0.6, u: { alpha: 1 - SS(0.2, 0.5, dead), grade: [1, 0.8, 0, 1], jelly: [0.5, SLIME_FOOT, 1 - 0.85 * q, 1] } }); return; }
+      if (E.mimic) { if (dead > 6) return; const away = Math.cos(e.dieA ?? (e.face > 0 ? Math.PI : 0)) >= 0 ? 1 : -1, bump = dead > 0.24 && dead < 0.46 ? Math.sin(Math.PI * (dead - 0.24) / 0.22) : 0, dk = 0.7 + 0.3 * (1 - SS(0.2, 1, dead)), look = mimicLook(e.tier);
+        const J2 = mimicBody({ look, x: x + away * 8 * SS(0, 0.2, dead), y: y + 4, a: 0.1 + 0.35 * SS(0, 0.1, dead) * (1 - SS(0.1, 0.3, dead)) + 0.1 * SS(0.2, 0.4, dead) + 0.08 * bump, face: e.face, z: 0, tilt: away * 0.2 * SS(0.05, 0.3, dead), sq: 1 - 0.08 * SS(0, 0.25, dead), wag: 0.4, tongue: 1 + 0.5 * SS(0.2, 0.6, dead), eyes: false, u: { alpha, grade: [dk * look.grade[0], dk * 0.9 * look.grade[1], 0, 1] }, id: 'en' + e.id, frame: (parts) => L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }) });
+        J2('ground', [x, y]); return; }
       if (dead > 6) return; const DV = deathOf(e), d0 = dead - DV.dl, q = Math.max(0, Math.min(1, d0 / DV.dur)), land = DV.dl + DV.dur, dk = 0.7 + 0.3 * (1 - SS(0.2, 1, dead));
       const fall = 2.6 * q * q - 1.6 * q * q * q - (dead > land ? DV.bounce * Math.sin(Math.PI * Math.min(1, (dead - land) / 0.16)) : 0);
       // away from the killing blow: a body that fell the way it faced landed on the hero who killed it
@@ -328,26 +333,19 @@
       halo(rig); if (edge && !(sw > 0)) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: sw > 0 ? null : edgeOf() }); if (RIM.embers[e.id]) emberFire(e, E, RIM.embers[e.id], GT, t); if (RIM.priests[e.id]) priestFire(e, RIM.priests[e.id], t); if (RIM.kindled[e.id]) weaponFire(e, RIM.kindled[e.id], GT, t);
       if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Object.assign({ alpha: k * alpha }, clip), Ufar: Object.assign({ alpha: k * alpha }, clip), t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
       return; }
-    // the mimic (TASKS 367): the chest cut at its lid line (its own parts once generated) on a hinge at the back, a body, a jaw, teeth and
-    // a tongue. It squats and gapes through the wind-up, flies with its mouth open and bites shut as it lands
+    // the mimic (TASKS 367, 1670) wears the chest it hid as: that chest's own painting cut along its lid line, so waking changes neither size nor rank. It squats and gapes
+    // through the wind-up, flies with its mouth open and bites shut as it lands; between the leaps it claps its lid in step
     function drawMimic() {
-      const J = E.jump, u = GT - e.t0, ewM = D.windOf(e, E.wind), lerp = (a, b, q) => a + (b - a) * q, crawl = SS(4, 30, sp), LID = 0.46;
-      const own = window.ASSETS.mimic__lid && window.ASSETS.mimic__base, lidT = own ? 'mimic__lid' : tex, baseT = own ? 'mimic__base' : tex;
-      let a = 0.14 + 0.05 * Math.sin(t * 3.1 + e.id), z = 0, sq = 1 + 0.02 * Math.sin(t * 2.3 + e.id), tilt = 0.06 * crawl * Math.sin(e.dist / 7);
-      if (e.st === 'rise') { const q = SS(0, E.rise, u); a = lerp(0, 0.95, SS(0.1, 0.55, q)) * (1 - SS(0.7, 1, q)) + 0.14 * SS(0.7, 1, q); z = 14 * Math.sin(Math.PI * SS(0.2, 0.9, q)); sq = lerp(0.85, 1, q); tilt = 0.1 * Math.sin(u * 38) * (1 - q); }
-      else if (e.st === 'wind') { const q = SS(0, ewM, u); a = lerp(a, 1, q); sq = lerp(sq, 0.78, q); tilt = lerp(tilt, -0.14, q); }
-      else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * Math.sin(Math.PI * q); a = lerp(1, 1.15, SS(0, 0.5, q)) * (1 - SS(0.72, 0.98, q)); sq = 0.78 + 0.4 * SS(0, 0.6, q) - 0.12 * SS(0.6, 1, q); tilt = lerp(-0.14, 0.2, q); }
-      else if (e.st === 'strike') { const v = u - J.t; a = 0.14 * SS(0, J.land, v); sq = 1 - 0.18 * Math.exp(-v / 0.07) * Math.cos(30 * v); tilt = 0.2 * (1 - SS(0, 0.16, v)); }
-      const hA = GT - e.hitT; if (hA >= 0 && hA < 0.3) { tilt -= 0.1 * (1 - hA / 0.3); a += 0.2 * (1 - hA / 0.3); }
-      const sy2 = sq, sx2 = 1 / Math.sqrt(sq), B = M.of(M.t(x, y - z), M.s(e.face * sx2, sy2), M.r(tilt)), bh = h * (1 - LID), lh = h * LID, hx = -w / 2 + 3, hy = -bh + 1, Lm = M.of(B, M.t(hx, hy), M.r(-a));
-      const Hs = M.ap(B, [hx, hy]), tipL = M.ap(Lm, [w - 4, 0]), Bm = M.ap(B, [w / 2 - 3, hy]), A = Math.atan2(tipL[1] - Hs[1] + Bm[1] - Hs[1], tipL[0] - Hs[0] + Bm[0] - Hs[0]), th = Math.max(2, Math.hypot(tipL[0] - Bm[0], tipL[1] - Bm[1]));
-      if (a > 0.06) { L.solid(Hs[0], Hs[1] - th / 2, w * 0.94, th, [0.16, 0.03, 0.04], A, 0, th / 2);
-        const wag = Math.sin(t * 7 + e.id) * 0.25, tl = w * 0.48 * SS(0.1, 0.7, a); L.solid(Hs[0], Hs[1] - 3, tl, 6, [0.62, 0.14, 0.16], A + 0.1 * e.face + wag * e.face, 0, 3); L.joint('en' + e.id, 'tongue', [Hs[0] + Math.cos(A + 0.1 * e.face + wag * e.face) * tl, Hs[1] + Math.sin(A + 0.1 * e.face + wag * e.face) * tl]); }
-      const parts = () => { L.sprite(baseT, 0, 0, { m: B, w, h: bh, pivot: [w / 2, bh], src: own ? undefined : [0, LID, 1, 1], u: Object.assign({ alpha, grade }, rim) }); L.sprite(lidT, 0, 0, { m: Lm, w, h: lh, pivot: [3, lh - 1], src: own ? undefined : [0, 0, 1, LID], u: Object.assign({ alpha, grade }, rim) }); };
-      halo(parts); if (edge) rimFlash(parts); L.inked(parts, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: edgeOf() });
-      if (a > 0.08) for (let i = 0; i < 5; i++) { const f = (i + 0.7) / 5.4, lo = M.ap(B, [hx + f * (w - 6), hy]), up = M.ap(Lm, [f * (w - 6), -1]), c = [0.86, 0.8, 0.62]; L.solid(lo[0] - 1.5, lo[1] - 5, 3, 5, c); L.solid(up[0] - 1.5, up[1], 3, 5, c); }
-      if (a > 0.3 && !L.sp) { G.blend('add'); for (const sd of [0.3, 0.55]) { const p = M.ap(Lm, [w * sd, lh * 0.5]); L.glow(p[0], p[1], 7, [1, 0.8, 0.25], 0.7); } G.blend(); }
-      const J2 = (n, p) => L.joint('en' + e.id, n, p); J2('ground', [x, y]); J2('top', M.ap(B, [0, -h])); J2('head', M.ap(Lm, [w * 0.55, lh * 0.5])); J2('hip', M.ap(B, [0, -bh * 0.5])); J2('jaw', Hs); J2('lidTip', tipL); J2('baseTip', Bm);
+      const J = E.jump, u = GT - e.t0, ewM = D.windOf(e, E.wind), lerp = (a, b, q) => a + (b - a) * q, crawl = SS(4, 30, sp), step = Math.abs(Math.sin(e.dist / 7));
+      let a = 0.1 + 0.03 * Math.sin(t * 3.1 + e.id) + 0.16 * crawl * step, z = 2.5 * crawl * step, sq = 1 + 0.02 * Math.sin(t * 2.3 + e.id), tilt = 0.05 * crawl * Math.sin(e.dist / 7), wag = Math.sin(t * 7 + e.id) * 0.25;
+      if (e.st === 'rise') { const q = SS(0, E.rise, u); a = lerp(0, 0.6, SS(0.1, 0.55, q)) * (1 - SS(0.7, 1, q)) + 0.1 * SS(0.7, 1, q); z = 14 * Math.sin(Math.PI * SS(0.2, 0.9, q)); sq = 1 - 0.14 * Math.sin(Math.PI * q) ** 2; tilt = 0.1 * Math.sin(u * 38) * (1 - q); }
+      else if (e.st === 'wind') { const q = SS(0, ewM, u); a = lerp(a, 0.62, q); sq = lerp(sq, 0.8, q); tilt = lerp(tilt, -0.12, q); }
+      else if (e.st === 'strike' && u < J.t) { const q = u / J.t; z = q < 0.5 ? J.h * Math.sin(Math.PI * q) ** 2 : J.h * Math.sin(Math.PI * q); a = lerp(0.62, 0.68, SS(0, 0.5, q)) * (1 - SS(0.72, 0.98, q)); sq = 0.8 + 0.34 * SS(0, 0.6, q) - 0.1 * SS(0.6, 1, q); tilt = lerp(-0.12, 0.16, q); }
+      else if (e.st === 'strike') { const v = u - J.t; a = 0.1 * SS(0, J.land, v); sq = 1 - 0.16 * Math.exp(-v / 0.07) * Math.cos(30 * v); tilt = 0.16 * (1 - SS(0, 0.16, v)); }
+      const hA = GT - e.hitT; if (hA >= 0 && hA < 0.3) { tilt -= 0.1 * (1 - hA / 0.3); a += 0.14 * (1 - hA / 0.3); }
+      const look = mimicLook(e.tier), u1 = { alpha, grade: hit ? grade : look.grade };
+      const J2 = mimicBody({ look, x, y: y + 4, a, face: e.face, z, tilt, sq, wag, tongue: 1, eyes: a > 0.3 && !L.sp, u: u1, id: 'en' + e.id, frame: (parts) => { halo(parts); if (edge) rimFlash(parts); L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }); } });
+      J2('ground', [x, y]);
     }
     // the slime (TASKS 308) is one painting on a soft bone (art/softbones.json) squashed and stretched about its foot in the shader
     // (u_jelly): it breathes and ripples as it creeps, squats through the wind-up, shoots up stretched and leans along the hop,
@@ -417,20 +415,59 @@
     }
   };
   // a chest's rank at a glance (TASKS 1356): its own painting once generated, until then the plain chest recoloured
-  const CHEST_LOOK = { 1: { k: 1, u: { grade: [0.8, 0.88, 0, 1] } }, 2: { tex: 'chest_iron', k: 1.15, u: { grade: [0.45, 1.02, 0, 1.15], tint: [0.8, 0.92, 1.2, 0.55] } }, 3: { tex: 'chest_gold', k: 1.2, u: { grade: [1.35, 1.2, 0, 1.12], tint: [1.3, 1.02, 0.45, 0.6] } } };
-  // a mimic that is still a chest shivers now and then: a careful eye can tell it from the real thing
-  const mimicTwitch = (c, t) => { const ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1; return ph < 0.5 ? { rot: 0.035 * Math.sin(ph * 42) * (1 - ph / 0.5), dx: 0, sy: 1, fl: 0 } : undefined; };
-  const CHEST_BOSS = { tex: 'chest_boss', k: 1.35, u: { grade: [1, 0.85, 0, 1.25], tint: [1, 0.32, 0.3, 0.7] } };
+  const CHEST_LOOK = { 1: { u: { grade: [0.8, 0.88, 0, 1] } }, 2: { tex: 'chest_iron', dx: 1.2 }, 3: { tex: 'chest_gold', dx: 2.2 } };
+  // a chest's mimic (TASKS 1670): base and lid are the chest's own painting cut at its lid line, the mouth between them shared by all ranks. Keep MIMIC_LINE in step with tools/mimic_cut.py
+  const MIMIC_LINE = { wood: [[0, 0.36], [0.70, 0.56], [1, 0.34]], iron: [[0, 0.44], [0.66, 0.54], [1, 0.35]], gold: [[0, 0.44], [0.69, 0.56], [1, 0.38]], boss: [[0, 0.54], [0.70, 0.54], [1, 0.30]] };
+  const MIMIC_INK = [0.09, 0.04, 0.04];
+  const MIMIC_CANVAS = { wood: [303, 246], iron: [708, 642], gold: [712, 626], boss: [1250, 1006] };
+  const mimicLook = (tier) => { const cl = CHEST_LOOK[Math.min(3, tier)] || CHEST_LOOK[1], rank = tier === 2 ? 'iron' : tier >= 3 ? 'gold' : 'wood', [w, h] = SZ(cl.tex || 'chest'); return { rank, W: w, H: h, line: MIMIC_LINE[rank], grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }; };
+  function mimicBody(o) { const { look, x, y, a, face, z, tilt, sq, wag, tongue, eyes, u, id, frame, peek } = o, { W, H, line, rank } = look, P = (q) => [(q[0] - 0.5) * W, (q[1] - 1) * H], [pL, pC, pR] = line.map(P), hinge = face < 0 ? pR : pL, tip = face < 0 ? pL : pR, th = face < 0 ? a : -a;
+    const sx2 = 1 / Math.sqrt(sq), B = M.of(M.t(x, y - z), M.s(sx2, sq), M.r(tilt)), Lb = M.of(M.t(hinge[0], hinge[1]), M.r(th), M.t(-hinge[0], -hinge[1])), Lm = M.of(B, Lb);
+    const lerp2 = (p, q, f) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f], at = (m, p) => M.ap(m, p), lidTip = at(Lb, tip), mids = lerp2(lerp2(pL, pR, 0.5), lerp2(at(Lb, pL), at(Lb, pR), 0.5), 0.5), chord = Math.hypot(tip[0] - hinge[0], tip[1] - hinge[1]), uT = [(tip[0] - hinge[0]) / chord, (tip[1] - hinge[1]) / chord], gap = Math.hypot(lidTip[0] - tip[0], lidTip[1] - tip[1]), gape = SS(0.02, 0.32, a), ang = Math.atan2(pC[1] - pL[1], pC[0] - pL[0]), seg = Math.hypot(pC[0] - pL[0], pC[1] - pL[1]), tH = 11 * gape, TG = (m, tex, w2, h2, pv, extra) => L.sprite(tex, 0, 0, Object.assign({ m, w: w2, h: h2, pivot: pv }, extra || {}, { u }));
+    const piece = (name, m) => { const A = window.ASSETS[name], [X0, Y0, X1, Y1] = A.crop, [cw, ch] = MIMIC_CANVAS[rank], w2 = (X1 - X0) / cw * W, h2 = (Y1 - Y0) / ch * H; L.sprite(name, 0, 0, { m, w: w2, h: h2, pivot: [-(X0 / cw - 0.5) * W, -(Y0 / ch - 1) * H], u }); };
+    const parts = () => { const gh = Math.max(2, gap) * 1.05;
+      if (a > 0.015) { const cx = mids[0] + uT[0] * chord * 0.04, cy = mids[1] + uT[1] * chord * 0.04; TG(M.of(B, M.t(cx, cy), M.r(Math.atan2(uT[1], uT[0]) + th / 2)), 'mimic__maw', chord * 1.12, gh, [chord * 0.56, gh / 2]); }
+      piece('mimic_' + rank + '__base', B); piece('mimic_' + rank + '__lid', Lm);
+      if (peek) TG(M.of(Lm, M.t(pL[0] + (pC[0] - pL[0]) * peek, pL[1] + (pC[1] - pL[1]) * peek), M.r(ang)), 'mimic__teeth', 5, 7, [2.5, 0], { src: [0.44, 0, 0.56, 1] });
+      if (gape > 0.02) { if (tongue) { const root = lerp2(hinge, tip, 0.34), tl = chord * 0.58 * (tongue > 1 ? 0.8 : Math.min(1, gape)) * tongue, an = Math.atan2(uT[1] + 0.32 + 0.16 * wag, uT[0]); TG(M.of(B, M.t(root[0], root[1]), M.r(an)), 'mimic__tongue', tl, 8, [0, 4]); }
+        TG(M.of(B, M.t(pL[0], pL[1]), M.r(ang), M.s(1, -1)), 'mimic__teeth', seg, tH, [0, 0]); TG(M.of(Lm, M.t(pL[0], pL[1]), M.r(ang)), 'mimic__teeth', seg, tH, [0, 0]); } };
+    frame(parts);
+    if (eyes) { G.blend('add'); for (const f of [0.34, 0.58]) { const g = lerp2(lerp2(tip, hinge, f), at(Lb, lerp2(tip, hinge, f)), 0.6), p = M.ap(B, g); L.glow(p[0], p[1], 5, [1, 0.8, 0.25], 0.7); } G.blend(); }
+    const J2 = (n, p) => L.joint(id, n, p); J2('top', M.ap(B, [0, -H])); J2('mid', M.ap(B, [0, -H / 2])); J2('head', M.ap(Lm, [0, -H * 0.75])); J2('hip', M.ap(B, [0, -H * 0.28])); J2('jaw', M.ap(B, hinge)); J2('lidTip', M.ap(B, lidTip)); J2('baseTip', M.ap(B, tip));
+    return J2; }
+  // a sleeping mimic is its chest but for one fang left out over the rim, and a lid that lifts a finger's width now and then to breathe
+  const mimicShut = (c, x, y, t) => { const look = mimicLook(c.tier), ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1, a = ph < 0.8 ? 0.055 * Math.sin(Math.PI * ph / 0.8) ** 2 : 0, peek = 0.2 + 0.22 * ((c.x * 0.037 + c.y * 0.019) % 1);
+    mimicBody({ look, x, y: y + 4, a, face: 1, z: 0, tilt: 0, sq: 1, wag: 0, tongue: 0, eyes: a > 0.02, peek, u: { grade: look.grade }, id: 'mimic_shut', frame: (parts) => L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }) }); };
+  const CHEST_BOSS = { tex: 'chest_boss', dx: 0.8 };
   const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[Math.min(3, c.tier)] || CHEST_LOOK[1]);
+  // the lid swings on each chest's own cut (TASKS 1676), hiding the swap to the open painting under the opening flash; rank is felt in the time it takes
+  const CHEST_OPEN = { wood: { D: 0.22, sq: 0.05, jit: 0.6 }, iron: { D: 0.28, sq: 0.07, jit: 0.8 }, gold: { D: 0.34, sq: 0.09, jit: 1 }, boss: { D: 0.55, sq: 0.14, jit: 2 } };
+  const chestRank = (c) => (c.boss ? 'boss' : c.tier === 2 ? 'iron' : c.tier >= 3 ? 'gold' : 'wood');
+  const chestOpenT = (c) => CHEST_OPEN[chestRank(c)].D, chestOpenD = (e) => CHEST_OPEN[e.boss ? 'boss' : ['wood', 'iron', 'gold'][Math.min(3, e.tier || 1) - 1]].D;
+  const chestRecoil = (c, a) => { const P = CHEST_OPEN[chestRank(c)], b = a - P.D; return b >= 0 && b < 0.4 ? { dx: 0, rot: 0, sy: 1 - P.sq * Math.exp(-9 * b) * Math.cos(20 * b), fl: 0.25 * (1 - SS(0, 0.08, b)) } : null; };
+  function chestOpening(c, x, y, a) { const rank = chestRank(c), cl = chestLook(c), P = CHEST_OPEN[rank], n = cl.tex || 'chest', [W, H] = SZ(n), Ho = SZ(cl.tex ? n + '_open' : 'chest_open')[1], line = MIMIC_LINE[rank], [cw, ch] = MIMIC_CANVAS[rank], q = a / P.D, r = 1 - (1 - SS(0.12, 1, q)) ** 2.2, jx = Math.sin(a * 90) * P.jit * (1 - SS(0, 0.25, q)), X = x + jx, Y = y + 4, u = { grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }, lift = r * (Ho - H) * 0.9;
+    const piece = (name, m) => { const A = window.ASSETS[name], [X0, Y0, X1, Y1] = A.crop; L.sprite(name, 0, 0, { m, w: (X1 - X0) / cw * W, h: (Y1 - Y0) / ch * H, pivot: [-(X0 / cw - 0.5) * W, -(Y0 / ch - 1) * H], u }); };
+    const yAt = H * (1 - (line[0][1] + line[2][1]) / 2), gap = lift + 3 * r;
+    L.inked(() => { L.solid(X - W * 0.42, Y - yAt - gap, W * 0.84, gap + 4, [0.05, 0.03, 0.03]); piece('mimic_' + rank + '__base', M.t(X, Y)); piece('mimic_' + rank + '__lid', M.of(M.t(X, Y - lift), M.t(0, -H), M.s(1, 1 - 0.32 * r), M.t(0, H))); }, { r: 2, n: 8, col: MIMIC_INK, dy: 0 });
+    if (r > 0.08) { G.blend('add'); const col = rank === 'boss' ? [1, 0.25, 0.18] : rank === 'iron' ? [0.7, 0.85, 1] : [1, 0.75, 0.3]; L.glow(X, Y - yAt - gap * 0.6, W * 0.36, col, 0.38 * r, 3); G.blend(); } }
   // what is left of a broken thing (TASKS 1352): crates and barrels go to planks, pots and vases to cuts of their own painting; each piece
   // flies its arc off the blow's moment and then lies where it fell, for as long as the floor lasts. Pure in (x, y, age)
-  const DEBRIS_T = 0.42;
-  function debris(x, y, seed, a, wood, tex, n, sp = 1) { for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, lx = x + Math.cos(an) * far, ly = y + 3 + Math.sin(an) * far * 0.62;
-      const q = Math.min(1, Math.max(0, a) / DEBRIS_T), arc = 4 * q * (1 - q) * (26 + 22 * rnd(seed, i + 7)), px = x + (lx - x) * q, py = y - 10 * (1 - q) + (ly - y) * q - arc, rest = (rnd(seed, i + 13) - 0.5) * (wood ? 1.1 : 3.1), rot = rest + (1 - q) * (rnd(seed, i + 19) - 0.5) * 16, tone = 0.72 + 0.22 * rnd(seed, i + 23);
-      if (wood) { const small = i >= 5, w = (small ? 8 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)), h = w * 210 / 952 * (small ? 1.5 : 1.15); L.sprite(i % 2 ? 'plank_b' : 'plank_a', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h, pivot: [w / 2, h / 2], u: { grade: [0.9, tone, 0, 1] } }); }
-      else { const c = 4, u0 = i % c / c, v0 = Math.floor(rnd(seed, i + 5) * c) / c, S0 = 12 + 7 * rnd(seed, i + 9); L.sprite(tex, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: S0, h: S0, pivot: [S0 / 2, S0 / 2], src: [u0, v0, u0 + 1 / c, v0 + 1 / c], u: { grade: [0.95, tone, 0, 1] } }); } } }
+  const DEBRIS_T = 0.42, DEBRIS_END = DEBRIS_T * 1.35 + 0.2, SHARDS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 'shard_' + i);
+  // wet(dx, dy): the landing spot from the break is on water. In air (air = true) a piece is drawn in the Y band, so it passes in front of what it flies over
+  function debris(x, y, seed, a, wood, n, sp, air, wet, t) { for (let i = 0; i < n; i++) { const an = rnd(seed, i) * TAU, far = (wood ? 14 + 26 * rnd(seed, i + 40) : 8 + 22 * rnd(seed, i + 40)) * sp, dx = Math.cos(an) * far, dy = 3 + Math.sin(an) * far * 0.62, W = wet(dx, dy);
+      const dur = DEBRIS_T * (0.75 + 0.6 * rnd(seed, i + 29)), b = Math.max(0, a) - dur, q = Math.min(1, Math.max(0, a) / dur), hop = W ? 1 : Math.min(1, Math.max(0, b) / 0.2), flying = q < 1 || hop < 1; if (flying !== !!air) continue;
+      const H = 26 + 22 * rnd(seed, i + 7), z = 4 * q * (1 - q) * H + (hop < 1 && b >= 0 ? 4 * hop * (1 - hop) * H * 0.18 : 0), s = W ? 1 : 0.9 + 0.1 * hop, rest = (rnd(seed, i + 13) - 0.5) * (wood ? 1.1 : 3.1), spin = (1 - q) * (rnd(seed, i + 19) - 0.5) * 16, kick = W ? 0 : (1 - hop) * (rnd(seed, i + 31) - 0.5) * 1.3, r0 = rnd(seed, i + 23);
+      const fl = W && wood ? SS(0, 1.2, b) : 0, ph = i * 1.7 + seed, bob = Math.sin(t * 1.6 + ph) * 1.2 * fl, px = x + dx * q * s + Math.sin(t * 0.37 + ph) * 3.5 * fl, gy = y - 10 * (1 - q) + dy * q * s + Math.cos(t * 0.29 + ph) * 2 * fl, py = gy - z + bob, rot = rest + spin + kick + Math.sin(t * 0.8 + ph) * 0.07 * fl, gone = W && !wood ? SS(0, 0.7, b) : 0; if (gone >= 1) continue;
+      const small = i >= 5, w = wood ? (small ? 9 + 5 * rnd(seed, i + 3) : 20 + 12 * rnd(seed, i + 3)) * (sp > 1 ? 1.25 : 1) : 0, h0 = w * 210 / 952 * (small ? 1.7 : 1.45), N = SHARDS[i % SHARDS.length], [sw, sh] = wood ? [w, h0] : SZ(N), al = 1 - gone;
+      if (W && q >= 1) { const pr = (t * 0.55 + rnd(seed, i + 37)) % 1; if (wood) L.ring(px, gy + 2, sw * (0.55 + 0.35 * pr), 4 + 3 * pr, [0.5, 0.68, 0.7], 0.32 * (1 - pr), 0.25); if (b < 0.55) { const k = b / 0.55; L.ring(px, gy + 1, 3 + sw * 0.6 * k, 2 + 7 * k, [0.62, 0.78, 0.8], 0.7 * (1 - k), 0.2); } }
+      else if (!W) L.shadow(px, gy + 2, sw * 0.5, 3 + (wood ? 1 : 0), 0.45 * (1 - 0.5 * Math.min(1, z / 40)));
+      const u = { grade: wood ? [0.95, W ? 0.92 + 0.2 * r0 : 1.08 + 0.3 * r0, 0, 1] : [1, 0.9 + 0.22 * r0, 0, 1], alpha: al };
+      L.inked(() => L.sprite(wood ? (i % 2 ? 'plank_b' : 'plank_a') : N, 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w: sw, h: sh, pivot: [sw / 2, sh / 2], u }), { r: 2, n: 4, col: [0.09, 0.04, 0.04], dy: 0 }); } }
   const PROP_H = { pot: 'pot', barrel: 'barrel', crate: 'crate', gold: 'treasure', goldpile: 'shop_gold', vase_a: 'vase_a', vase_b: 'vase_b', vase_c: 'vase_c' };
   // standing props share the actors' one dark contour; flat floor clutter and wall fittings lie on stone that already frames them
+  // a coffin that let its tenant out: the box bared, its lid shoved off to one side and left hanging over the edge
+  function coffinOpen(d, x, y, a, j) { drawProp('coffin_open', x, y, { dy: 4, j }); const [w, h] = SZ('coffin'), LID = 100 / 241, lh = h * LID, side = (d.x + d.y) % 64 < 32 ? 1 : -1, p = SS(0.08, 0.5, a), shake = a < 0.14 ? Math.sin(a * 90) * 1.5 : 0, px = x + shake + side * w * 0.56 * p, py = y + 4 - h + lh - 5 * Math.sin(Math.PI * Math.min(1, p * 1.2)) + 7 * p, rot = side * 0.2 * p;
+    L.inked(() => L.sprite('coffin', 0, 0, { m: M.of(M.t(px, py), M.r(rot)), w, h: lh, pivot: [w / 2, lh], src: [0, 0, 1, LID] }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }
   const NO_INK = new Set(['bones', 'torch_sconce']);
   // the basalt props drawn this frame (TASKS 1036): they take the basalt's cold light in the lit pass as the crossings do
   // (and the boulders, and an iron rail's links and stakes as solids, TASKS 1052: brown and orange beside the grey basalt)
@@ -440,7 +477,7 @@
   function drawProp(n, x, y, o = {}) { const [w, h] = SZ(n), k = o.k || 1, j = o.j;
     if (BAS_PROPS.has(n) && !j) PROP_BAS.push([n, x - w * k / 2, y - h * k + (o.dy || 0), w * k, h * k, !!o.flip]);
     const draw = () => { if (!j) { L.sprite(n, x - w * k / 2, y - h * k + (o.dy || 0), { w: w * k, h: h * k, flip: o.flip, u: o.u }); return; }
-      const W = w * k, H = h * k * j.sy, u = j.fl > 0 ? Object.assign({}, o.u, { tint: [2.2, 2, 1.8, j.fl] }) : o.u;
+      const W = w * k, H = h * k * j.sy, u = j.fl > 0 ? Object.assign({}, o.u, { tint: [...(j.ft || [2.2, 2, 1.8]), j.fl] }) : o.u;
       L.sprite(n, 0, 0, { m: M.of(M.t(x + j.dx, y + (o.dy || 0)), M.r(j.rot)), w: W, h: H, pivot: [W / 2, H], flip: o.flip, u }); };
     if (NO_INK.has(n)) draw(); else L.inked(draw, { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }
   // a knocked prop's recoil about its foot, away from the blow (s): wood rocks, metal rattles, stone shudders, crystal rings, sacks slump
@@ -451,11 +488,16 @@
     stone: (a, s) => ({ rot: s * 0.015 * Math.exp(-8 * a) * Math.sin(40 * a), dx: s * 2.5 * Math.exp(-12 * a) * Math.sin(70 * a), sy: 1 }),
     crystal: (a, s) => ({ rot: s * 0.03 * Math.exp(-4 * a) * Math.sin(26 * a), dx: 0, sy: 1 + 0.04 * Math.exp(-6 * a) * Math.sin(30 * a) }),
     cloth: (a, s) => ({ rot: s * 0.04 * Math.exp(-6 * a) * Math.sin(16 * a), dx: 0, sy: 1 - 0.1 * Math.exp(-6 * a) * Math.sin(16 * a) }) };
+  // a secret's statue grinding aside (TASKS 1682): slow to start, still moving when it meets its stop, so it knocks and rocks back
+  // a hair; x: its offset from where the sim already put it, p: how far along it is
+  const statueSlide = (q, a) => { const SL = D.STATUE_SECRET.slide, u = Math.min(1, Math.max(0, a / SL)), p = u * u * (2 - u), b = a - SL, s = q.slide ? q.slide.s : 0, run = q.slide ? q.slide.s * q.slide.n * TILE : 0;
+    const grind = a < SL ? Math.sin(a * 47) * 0.8 * SS(0, 0.1, a) : 0, knock = b >= 0 && b < 0.14 ? Math.sin(b * 110) * 1.6 * (1 - b / 0.14) : 0, rock = b >= 0 && b < 0.3 ? -s * 2 * Math.sin(Math.PI * b / 0.3) : 0;
+    return { p, x: (p - 1) * run + grind + knock + rock, run, end: b }; };
   const BLOOD = (type) => (D.ENEMIES[type] || {}).blood;
   const knockOf = (e, T) => { const a = T - e.t; if (a < 0 || a >= 1.5 || !KNOCK[e.mat]) return null; const j = KNOCK[e.mat](a, e.s); j.fl = 0.6 * (1 - SS(0.03, 0.12, a)); return j; };
 
   Object.assign(SCX, {
     modCol, EN_TEX, ARROW_H, RIM, deathOf, submerged, PILLAR_T, flameAt, swimOf, swimClip, impSpark, breathFx, swimFx, drawEnemy, GOLD_TINT, emitted,
-    chestLook, mimicTwitch, debris, DEBRIS_T, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
+    chestLook, chestRank, chestOpenT, chestOpenD, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, PROP_H, PROP_BAS, OCC_SOLIDS, DECK, drawProp, BLOOD, knockOf });
   Object.defineProperties(SCX, { LAVA_CLIP: { get: () => LAVA_CLIP, set: (v) => { LAVA_CLIP = v; } } });
 })(typeof window !== 'undefined' ? window : globalThis);

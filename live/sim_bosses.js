@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BAL, D, DG, DT, ENEMIES, K, RUN, STAGE, TILE, WET, addFire, boxHit, cell, dep, dif, doorKey, drop, ev, flow, hurtHero, lastFloor,
+    BAL, D, DG, DT, ENEMIES, K, LOOT, RUN, STAGE, TILE, WET, addFire, boxHit, cell, dep, dif, doorKey, drop, ev, flow, hurtHero, lastFloor,
     losClear, move, openDoor, rnd, rollItem, shove, standNear, steer, who } = SIMX;
   function holdClocks(R) {
     for (const e of R.en) { if (e.deadT >= 0) continue;
@@ -37,7 +37,7 @@
   }
   function finishArena(S, R, e) {
     if (R.arena) R.arena.active = 0;
-    for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.loot = SIMX.bossLoot(R, e); SIMX.fstat(R).lootN += c.loot.length; ev(S, { k: 'unseal', x: c.x, y: c.y }); }
+    for (const c of R.chests) if (c.sealed) { c.sealed = 0; c.loot = SIMX.bossLoot(R, e); c.pay = chapterEnd(R, e) ? 0 : LOOT.mini.gold; SIMX.fstat(R).lootN += c.loot.length; ev(S, { k: 'unseal', x: c.x, y: c.y }); }
     R.map.flood = null; R.map.arenaBox = null;
     if (R.map.arenaWater?.length) { const wet = new Set(R.map.arenaWater); R.map.water = R.map.water.filter((k) => !wet.has(k)); R.map.arenaWater = []; WET.delete(R.map); }
     for (const k of R.map.arenaLava || []) if (R.map.cells[k] === 3) { R.map.cells[k] = 1; R.map.lava--; }
