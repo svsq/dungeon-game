@@ -3283,6 +3283,18 @@
       const a = play((S, R, k) => { R.hero.x = k.x - 46; R.hero.y = k.y - 2; }, () => {}); if (a) out.push(`welcome: with the hero right by the Keeper it ${a}`);
       const b = play(() => {}, (S, R, k) => { k.path = [{ x: -400, y: -400 }]; }); if (b) out.push(`welcome: a way back that stays blocked ${b}`);
       const c = play(() => {}, (S, R) => { R.greet.st = 'home'; R.folk = null; }); if (c) out.push(`welcome: with the townsfolk made anew after the talk it ${c}`); }
+    // PR 55 review 2: the hero is held no longer than the Keeper's walk and a breath (a hen sat on his spot), the spot is never a
+    // bench, and townsfolk made anew mid-walk (a load) bring him over again; each time he talks from beside the hero
+    { const greet = (setup, mid) => { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run; setup(S, R); let n = 0, k = folkOf(R).find((q) => q.role === 'keeper');
+        while (S.screen === 'play' && n++ < 120 * 20) { if (mid) mid(S, R, n); step(S, { keys: [] }); } k = folkOf(R).find((q) => q.role === 'keeper');
+        return { R, k, t: n / 120, off: Math.hypot(k.x - R.hero.x, k.y - R.hero.y), talk: S.screen === 'talk' }; };
+      const base = greet(() => {}), say = (r, what) => { if (!r.talk || r.off > 70) out.push(`welcome: ${what}, he talks ${Math.round(r.off)} px off the hero (screen talk: ${r.talk})`); };
+      const a = greet(() => {}, (S, R) => { const G = R.greet, hen = folkOf(R).find((q) => q.role === 'hen'); if (G.st !== 'walk' || !G.sp) return; hen.x = G.sp.x; hen.y = G.sp.y; hen.goal = { x: G.sp.x, y: G.sp.y, v: 0 }; });
+      say(a, 'with a hen on his spot'); if (a.t > base.t + 1.8) out.push(`welcome: a hen on his spot holds the hero ${a.t.toFixed(1)} s, his walk takes ${base.t.toFixed(1)} s`);
+      let bn = null; const b = greet((S, R) => { const m = R.map, k = folkOf(R).find((q) => q.role === 'keeper'), at = (d) => d.x - (k.x >= d.x - 46 ? 1 : -1) * 46; bn = m.decor.filter((d) => d.role === 'bench').find((d) => folkFree(m, at(d), d.y - 2, K.R));
+        if (bn) { R.hero.x = at(bn); R.hero.y = bn.y - 2; } });
+      const bc = (o) => Math.floor(o.y / TILE) * b.R.map.W + Math.floor(o.x / TILE); if (bn && bc(b.k) === bc(bn)) out.push('welcome: the Keeper meets the hero on a bench'); say(b, 'with a bench beside the hero');
+      const c = greet(() => {}, (S, R, n) => { if (n === 240) R.folk = null; }); say(c, 'with the townsfolk made anew mid-walk'); }
     // gear of another class (TASKS 1102): the staff made the mage's alone for the check, a warrior neither wears it nor finds it often
     { const keep = BASES.staff.cls; BASES.staff.cls = ['mage'];
       const S = spawn(0, {}), R = newRun(S, 'campaign', 82), h = R.hero, n = 4000; let st = 0, mg = 0;

@@ -48,38 +48,47 @@
   // a new game's first steps in the town: after a breath he leaves the fire, comes over to the hero (held meanwhile) with a word on
   // the way and opens the first talk, then goes back to the fire. R.greet: 1 armed by startRun, { st } while it plays, 'done' after;
   // a run saved before it (or past it) has none and is never greeted
-  const GREET = { wait: 0.9, gap: 46, meet: 0.45, stuck: 3, give: 14 }, GREET_V = 40;
+  const GREET = { wait: 0.9, gap: 46, meet: 0.45, stuck: 3, give: 14, late: 1.5 }, GREET_V = 40;
   const greetHold = (R) => !!(R.town && R.greet && R.greet.st && R.greet.st !== 'home' && R.greet.st !== 'back');
   const workFace = (R, f) => (R.map.town.svc.fire.x >= R.map.town.npcs[f.i].x ? 1 : -1);
   // the way there on the town's walkable cells, benches kept out, cut to the corners a body clears in a straight line
-  function greetPath(R, f, x1, y1) { const m = R.map, W = m.W, ok = townOk(m).slice(), r = folkR(f), cell = (x, y) => Math.floor(y / TILE) * W + Math.floor(x / TILE);
+  // (open: the goal's cell is let in, his own place by the fire; a meeting spot must be free and reached, else there is no way)
+  function greetPath(R, f, x1, y1, open = true) { const m = R.map, W = m.W, ok = townOk(m).slice(), r = folkR(f), cell = (x, y) => Math.floor(y / TILE) * W + Math.floor(x / TILE);
     for (const d of m.decor) if (d.role === 'bench') ok[cell(d.x, d.y)] = false;
     const pit = m.torches.filter((q) => q.kind === 'fire'), offPit = (x, y) => pit.every((q) => Math.hypot(x - q.x, (y - q.y) * 1.3) > 46);
     ok.forEach((v, k) => { if (v && !offPit((k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE)) ok[k] = false; });
+    const free = (x, y) => offPit(x, y) && [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[cell(x + dx, y + dy)]);
+    if (!open && !free(x1, y1)) return null;
     const s = cell(f.x, f.y), g = cell(x1, y1), from = new Int32Array(ok.length).fill(-1), q = [s]; ok[s] = ok[g] = true; from[s] = s;
     while (q.length && from[g] < 0) { const k = q.shift(), x = k % W;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const n = k + dy * W + dx;
         if ((x === 0 && dx < 0) || (x === W - 1 && dx > 0) || n < 0 || n >= ok.length || !ok[n] || from[n] >= 0 || (dx && dy && (!ok[k + dx] || !ok[k + dy * W]))) continue; from[n] = k; q.push(n); } }
-    if (from[g] < 0 || g === s) return [{ x: x1, y: y1 }];
+    if (g === s || (from[g] < 0 && open)) return [{ x: x1, y: y1 }]; if (from[g] < 0) return null;
     const cs = []; for (let k = g; k !== s; k = from[k]) cs.unshift({ x: (k % W + 0.5) * TILE, y: (Math.floor(k / W) + 0.5) * TILE }); cs[cs.length - 1] = { x: x1, y: y1 };
-    const free = (x, y) => offPit(x, y) && [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[cell(x + dx, y + dy)]);
     const line = (a, b) => { const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6); for (let i = 1; i < n; i++) if (!free(a.x + (b.x - a.x) * i / n, a.y + (b.y - a.y) * i / n)) return false; return true; };
     const out = []; let at = { x: f.x, y: f.y }, i = 0;
     while (i < cs.length) { let j = cs.length - 1; while (j > i && !line(at, cs[j])) j--; out.push(cs[j]); at = cs[j]; i = j + 1; }
     return out; }
-  // where he stops: beside the hero on his own side of him, else the other side, else a step off
-  function greetSpot(R, f) { const h = R.hero, sd = f.x >= h.x ? 1 : -1, ok = townOk(R.map);
-    for (const [dx, dy] of [[sd, 0], [-sd, 0], [sd, 0.6], [sd, -0.6], [-sd, 0.6], [-sd, -0.6]]) { const x = h.x + dx * GREET.gap, y = h.y + dy * GREET.gap + 2;
-      if (folkFree(R.map, x, y, folkR(f)) && ok[Math.floor(y / TILE) * R.map.W + Math.floor(x / TILE)]) return { x, y }; }
-    return { x: h.x + sd * GREET.gap, y: h.y + 2 }; }
+  // where he stops: beside the hero on his own side of him, else the other side, else a step off, a little farther out if need be;
+  // only a free spot (no bench, the fire or a wall) he can walk to. { x, y, path }, or null: nowhere near the hero to stand
+  function greetSpot(R, f) { const h = R.hero, sd = f.x >= h.x ? 1 : -1;
+    for (const g of [GREET.gap, GREET.gap * 1.4]) for (const [dx, dy] of [[sd, 0], [-sd, 0], [sd, 0.6], [sd, -0.6], [-sd, 0.6], [-sd, -0.6], [0, 1], [0, -1]]) { const x = h.x + dx * g, y = h.y + dy * g + 2;
+      if (!folkFree(R.map, x, y, folkR(f))) continue; const path = greetPath(R, f, x, y, false); if (path) return { x, y, path }; }
+    return null; }
   function stepGreet(S, R, F) { const G = R.greet, t = S.t, h = R.hero, k = F.find((q) => q.role === 'keeper');
     if (!G || G === 'done') return; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
     if (G === 1) { R.greet = { st: 'wait', t0: t }; return; }
     const heroFace = () => { const hf = k.x >= h.x ? 1 : -1; if (hf !== h.face) { h.face = hf; h.faceT = t; } }, faceHero = () => { const nf = h.x >= k.x ? 1 : -1; if (nf !== k.face) { k.turnT = t; k.face = nf; } heroFace(); };
+    // (a run loaded with his walk under way but the townsfolk made anew has him at the fire again: the walk starts over from there)
+    if ((G.st === 'walk' || G.st === 'meet') && !k.greet) { G.st = 'wait'; G.t0 = t - GREET.wait; }
     if (G.st === 'wait') { if (t - G.t0 < GREET.wait) return; const sp = greetSpot(R, k);
-      k.home = { x: k.x, y: k.y }; k.path = greetPath(R, k, sp.x, sp.y); k.greet = 1; k.face = k.face || workFace(R, k); k.walked = 1; k.walkA = t; k.walkB = undefined; k.stuck = 0;
+      k.home = k.home || { x: k.x, y: k.y }; k.path = sp && sp.path; k.greet = 1; G.sp = sp && { x: sp.x, y: sp.y };
+      // the hero is held no longer than the walk takes, and a little more
+      G.give = Math.min(GREET.give, (sp ? sp.path.reduce((d, p, j) => d + Math.hypot(p.x - (j ? sp.path[j - 1].x : k.x), p.y - (j ? sp.path[j - 1].y : k.y)), 0) / GREET_V : 0) + GREET.late); k.face = k.face || workFace(R, k); k.walked = 1; k.walkA = t; k.walkB = undefined; k.stuck = 0;
       k.near = 1; k.sayT = t; k.sayS = D.KEEPER.greet; G.st = 'walk'; G.t1 = t; ev(S, { k: 'say', x: k.x, y: k.y, role: 'keeper' }); return; }
-    if (G.st === 'walk') { if (k.path && t - G.t1 < GREET.give) { if (t - (h.faceT ?? -9) > 0.6 && Math.abs(k.x - h.x) > 8) heroFace(); return; } k.path = null; k.spd = 0; k.vx = k.vy = 0; G.st = 'meet'; G.t2 = t; faceHero(); return; }
+    // a spot he has not reached in time (a hen on it, the hero in the way) he is put on, so he never talks from across the square
+    if (G.st === 'walk') { if (k.path && t - G.t1 < (G.give ?? GREET.give)) { if (t - (h.faceT ?? -9) > 0.6 && Math.abs(k.x - h.x) > 8) heroFace(); return; }
+      if (k.path && G.sp) { k.x = G.sp.x; k.y = G.sp.y; } k.path = null; k.spd = 0; k.vx = k.vy = 0; G.st = 'meet'; G.t2 = t; faceHero(); return; }
     if (G.st === 'meet') { faceHero(); if (t - G.t2 < GREET.meet || S.screen !== 'play') return; const s0 = k.sayT; G.st = 'home'; k.sayS = null; openTalk(S, R, k); k.sayT = s0; k.byeT = t; k.near = 0; return; }
     // the talk over (taken, or left with Esc: the offer stays his), back to the fire
     if (G.st === 'home') { if (S.screen !== 'play') return; if (k.home) k.path = greetPath(R, k, k.home.x, k.home.y); k.stuck = 0; G.st = 'back'; G.t3 = t; return; }
