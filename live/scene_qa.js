@@ -13,6 +13,13 @@
       ['uikit', mk((S) => { S.saved = null; S.screen = 'uikit'; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
       ['menu_armed', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.saved.floor = 12; S.saved.hero.lvl = 17; S.resetT = S.t; S.resetM = 'campaign'; })],
+      // the main menu's sheet (TASKS 1301): every slot taken and a new run pressed once (the longest labels, the longest saved run's
+      // line), every item under the keyboard's focus, the pointer over an item
+      ['menu_full_armed', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;
+        S.slot = 0; S.resetT = S.t; S.resetM = 'campaign'; S.focus = 'campaign'; })],
+      ['menu_full_hover', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 0; S.hover = 'load'; })],
+      ...DATA.UI.menu(true).map((b) => ['menu_focus_' + b.id, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.focus = b.id; })]),
+      ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'tests'; S.hover = 'settings'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
       // the news frame on the menu (TASKS 1305): the longest it may get (five lines of 80 characters), none at all, the link hovered

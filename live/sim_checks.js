@@ -80,7 +80,13 @@
       at(E, UI.menu(true, E.meta.diff, 0, E.meta.zoom, isFull(E)), 'continue'); if (E.screen !== 'play' || !E.run || E.run.seed !== 42) out.push('saves: «Продолжить» after a death does not load the other slot\'s run');
       const E2 = spawn(0, {}); E2.run = newRun(E2, 'campaign', 44); E2.screen = 'play'; endRun(E2, 'dead'); E2.screen = 'menu';
       if (E2.saved || UI.menu(!!E2.saved).some((b) => b.id === 'continue') || spawn(1, J(persist(E2))).saved) out.push('saves: «Продолжить» shows with no run in any slot');
-      const E3 = spawn(1, J({ meta: E.meta, run: null, slot: 0, saves: [null, null, Object.assign(J(old), { at: 3 }), null, null] })); if (!E3.saved || E3.slot !== 2) out.push('saves: a load with no named run does not name the run in the slots'); }
+      const E3 = spawn(1, J({ meta: E.meta, run: null, slot: 0, saves: [null, null, Object.assign(J(old), { at: 3 }), null, null] })); if (!E3.saved || E3.slot !== 2) out.push('saves: a load with no named run does not name the run in the slots');
+      const k2 = (S, k) => { step(S, { keys: [k] }); step(S, { keys: [] }); }, K = spawn(0, {}); K.saved = J(newRun(K, 'campaign', 45)); K.screen = 'menu'; K.focus = '';
+      k2(K, 'ArrowDown'); k2(K, 'ArrowDown'); if (K.focus !== 'campaign') out.push('menu: ↓ does not walk the items from the first');
+      k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'load') out.push('menu: Enter on the focused «Загрузить игру» does not open it');
+      K.screen = 'menu'; K.focus = ''; k2(K, 'ArrowUp'); if (K.focus !== 'news') out.push('menu: ↑ from no focus does not reach «Что нового»');
+      k2(K, 'Enter'); if (K.screen !== 'news') out.push('menu: Enter on «Что нового» does not open it');
+      K.screen = 'menu'; K.focus = ''; k2(K, 'Enter'); if (K.screen !== 'play' || !K.run || K.run.seed !== 45) out.push('menu: Enter with no focus does not continue the saved run'); }
     for (let lvl = 1; lvl <= 32; lvl++) for (const slot of D.SLOTS) {
       const bases = Object.keys(BASES).filter((b) => BASES[b].slot === slot);
       for (const b of bases) for (let rar = 0; rar < RARITY.length; rar++) {

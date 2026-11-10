@@ -671,11 +671,13 @@
 
   // ---------------- menus ----------------
   // the main menu's backdrop: embers along the bottom, the hero and a brute facing each other across the buttons
-  // the news frame takes the brute's place on the right
-  function menuBack(t, alone) {
+  // the news frame takes the brute's place on the right; on the main menu (mid) the hero stands in the middle, the item sheet in
+  // his old place
+  function menuBack(t, alone, mid) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.8, 260, [1, 0.45, 0.15], 0.12 + 0.05 * Math.sin(t * 2 + i), 2); G.blend(); }
-    const [hw, hh] = SZ('hero'); L.sprite('hero', W / 2 - 520 - hw * 1.6, 340, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', W / 2 - 520 - hw * 1.6, 340, hw * 3.2, hh * 3.2);
+    const [hw, hh] = SZ('hero'), hx = mid ? W / 2 - 60 - hw * 1.6 : W / 2 - 520 - hw * 1.6, hy = mid ? 470 : 340;
+    L.sprite('hero', hx, hy, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', hx, hy, hw * 3.2, hh * 3.2);
     if (alone) return;
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
   }
@@ -831,17 +833,30 @@
     const keys = ask ? TXT('hud.load.keys.ask') : TXT('hud.load.keys'), ky = H - 22, kw = lw('ld_keys_w', keys, { size: 20 }); L.uiBox('ld_keys_b', W / 2 - kw / 2 - 12, ky - 16, kw + 24, 32, 0);
     KIT.light('ld_keys', keys, W / 2, ky, { size: 20, al: 0.5, col: '#cdb894' });
   }
+  // the main menu (TASKS 1301): the item sheet pinned in the bottom-left corner; the item Enter would press carries the wax seal
+  // and a red rule under it, the pointer reddens its item, the keyboard's focus frames it in brass
   function menu(S, t) {
-    const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main);
-    menuBack(t, !!F); if (F) newsFrame(F, D.CHANGES[0].v);
-    lab('m_t', TXT('hud.menu'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('m_sb', TXT('hud.menu.sub'), W / 2, 300, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
-    lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 352, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom, SIM.Q.isFull(S))) { if (!b.link) { button('mb_' + b.id, b, S.hover); continue; }
-      const hv = S.hover === b.id, lw0 = lw('mb_lw', b.label, { size: 20 }), x1 = b.x + b.w - 4;
-      lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
+    const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S), arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM;
+    menuBack(t, !!F, true); if (F) newsFrame(F, D.CHANGES[0].v);
+    lab('m_t', TXT('hud.menu'), W / 2, 150, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('m_sb', TXT('hud.menu.sub'), W / 2, 230, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
+    lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 282, { size: 28, al: 0.5, col: C.dim });
+    const bs = D.UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
+    const cur = items.some((b) => b.id === S.focus) ? S.focus : items[0].id;
+    const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
+    KIT.corners({ x: IP.x + 8, y: IP.y + 8, w: IP.w - 16, h: IP.h - 16 }, 0.45);
+    for (const y of M.rules) KIT.rule(P.x + 70, y, P.w - 140, 0.75);
+    for (const b of items) { const st = KIT.st(S, b.id), lx = b.x + 46, ly = b.y + 30, maxW = b.x + b.w - lx - 6;
+      const size = L.sizeToFit(b.label, maxW, 32), tw = KIT.ink('mb_' + b.id, b.label, lx, ly, { size, col: st.hover || b.id === cur ? KIT.INK.r : KIT.INK.t });
+      if (b.id === cur) { KIT.seal(b.x + 16, ly, 0.5); L.solid(lx, ly + 20, tw, 3, [0.49, 0.12, 0.07]); }
+      if (b.id === 'continue' && S.saved) { const R = S.saved, s0 = TXT('hud.menu.saved', { p1: R.mode === 'campaign' ? '' : D.runOf(R.mode).name + ', ', p2: R.floor ? TXT('hud.savedLine.2', { floor: R.floor }) : TXT('hud.savedLine.3'), lvl: R.hero.lvl }), s1 = s0[0].toUpperCase() + s0.slice(1);
+        KIT.ink('mb_sv', s1, lx, ly + 40, { size: L.sizeToFit(s1, maxW, 18), col: KIT.INK.d }); }
+      if (st.focus) KIT.focus(b.x, b.y + 2, b.w, b.h - 4, 2);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
-    if (S.saved) lab('m_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
+    for (const b of bs) { if (!b.link) continue; const hv = S.hover === b.id || S.focus === b.id, lw0 = lw('mb_lw', b.label, { size: 20 }), x1 = b.x + b.w - 4;
+      lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
+      if (S.focus === b.id) KIT.focus(x1 - lw0 - 6, b.y + 2, lw0 + 12, b.h - 4, 2);
+      L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
   }
   // «Что нового» (TASKS 1038): the changelog's rows from the sim's scroll, a version with its date, its sections, the points

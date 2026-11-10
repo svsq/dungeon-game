@@ -77,20 +77,23 @@
   const pressRun = (S, id, arm) => { if (!isFull(S) || arm === id) { S.resetT = undefined; chooseRun(S, id); } else { S.resetT = S.t; S.resetM = id; } };
   // each screen's input, by S.screen: one function a screen (dead and win share one)
   const SCREEN = {};
+  // the main menu (TASKS 1301): ↑↓ walk the items and «Что нового», Enter presses the focused one; with no item focused Enter
+  // presses the first, as before the focus (continue the saved run, or a new one)
   SCREEN.menu = (S, inp, keys, x, y, click) => {
-    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, isFull(S)), x, y); S.hover = b ? b.id : '';
-    if (click && b && b.on) {
-      if (b.id === 'continue') resume(S, S.saved);
-      if (b.id === 'load') openLoad(S);
-      if (D.RUNS[b.id]) pressRun(S, b.id, arm);
-      if (b.id === 'tests') S.screen = 'tests';
-      if (b.id === 'news') { S.screen = 'news'; S.newsTop = 0; }
-      if (b.id === 'settings') openSettings(S, 'menu');
-      if (b.id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
-      ev(S, { k: 'ui', x, y });
-    }
-    if (keys.Enter) { if (S.saved) resume(S, S.saved); else chooseRun(S); }
-    return;
+    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, U = UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, isFull(S)), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    const order = U.map((q) => q.id), at = order.indexOf(S.focus), mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+    const press = (id) => {
+      if (id === 'continue') resume(S, S.saved);
+      if (id === 'load') openLoad(S);
+      if (D.RUNS[id]) pressRun(S, id, arm);
+      if (id === 'tests') S.screen = 'tests';
+      if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
+      if (id === 'settings') openSettings(S, 'menu');
+      if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
+      ev(S, { k: 'ui', x, y }); };
+    if (click && b && b.on) { if (S.screen === 'menu' && at >= 0) S.focus = b.id; press(b.id); return; }
+    if (mv) { S.focus = order[at < 0 ? (mv > 0 ? 0 : order.length - 1) : (at + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); return; }
+    if (keys.Enter) press(at < 0 ? order[0] : S.focus);
   };
   // the test runs' screen (TASKS 417): each starts its run as the main menu's buttons did; «Назад» or Escape go back
   SCREEN.tests = (S, inp, keys, x, y, click) => {
