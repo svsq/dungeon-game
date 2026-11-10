@@ -109,8 +109,11 @@ for (const nm of await p.evaluate(() => window.__QA.states.map((q) => q[0]).filt
 }
 for (const kind of ['shelf', 'statue']) {
   const r = await p.evaluate((kind) => window.__QA.states.filter((q) => q[0].startsWith('secret_' + kind)).map(([nm, st]) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
-    const id = Object.keys(LIB.TRACE).find((k) => k.startsWith('cover')), j = id ? LIB.TRACE[id] : null; LIB.TRACE = null; return [nm, j]; }), kind);
-  for (const [nm, j] of r) { if (!j) { report('cover', nm, false, 'no cover drawn'); continue; }
+    const id = Object.keys(LIB.TRACE).find((k) => k.startsWith(kind === 'shelf' ? 'shelf' : 'cover')), j = id ? LIB.TRACE[id] : null; LIB.TRACE = null; return [nm, j]; }), kind);
+  // (TASKS 1842) a bookcase is never moved: whole at its full size until it breaks, then gone to planks, after a load too
+  const broken = (nm) => kind === 'shelf' && /_(break|books|open|loaded)/.test(nm);
+  for (const [nm, j] of r) { if (broken(nm)) { report('cover', nm, !j, j ? 'a broken bookcase is still drawn' : 'broken, no bookcase drawn'); continue; }
+    if (!j) { report('cover', nm, false, 'no cover drawn'); continue; }
     const w = j.br[0] - j.tl[0], h = j.br[1] - j.tl[1], w0 = r[0][1] ? r[0][1].br[0] - r[0][1].tl[0] : w, h0 = r[0][1] ? r[0][1].br[1] - r[0][1].tl[1] : h;
     report('cover', nm, Math.abs(w - w0) < 0.5 && Math.abs(h - h0) < 0.5, `${w.toFixed(1)}×${h.toFixed(1)} px against ${w0.toFixed(1)}×${h0.toFixed(1)} shut`); } }
 const corr = (a, b) => { const ma = a.reduce((x, y) => x + y, 0) / a.length, mb = b.reduce((x, y) => x + y, 0) / b.length; let s = 0, sa = 0, sb = 0;

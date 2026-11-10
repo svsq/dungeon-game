@@ -1395,8 +1395,8 @@
     if (!['banner', 'shelf', 'statue', 'lever', 'puzzle'].includes(q.kind) || q.hp !== undefined) out.push('has an old or missing kind');
     if (['banner', 'shelf', 'statue'].includes(q.kind) && q.dir !== 'u') out.push('is not on a top wall');
     if (q.kind === 'banner' && !m.decor.some((d) => d.secret === i && d.n === 'banner' && d.wall)) out.push('has no banner');
-    if (q.kind === 'shelf' && (!m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid) || !q.slide || ![2, 3].includes(q.slide.n) || ![1, -1].includes(q.slide.s))) out.push('has no bookshelf or slide');
-    if (q.kind === 'statue' || (q.kind === 'shelf' && q.slide)) { const d = m.decor.find((o) => o.secret === i && o.solid), ns = q.kind === 'shelf' ? [2, 3] : [1, 2]; if (!d || !q.slide || !ns.includes(q.slide.n) || ![1, -1].includes(q.slide.s)) out.push('has no statue or slide');
+    if (q.kind === 'shelf' && (!m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid) || q.slide)) out.push('has no bookshelf, or one that slides');
+    if (q.kind === 'statue') { const d = m.decor.find((o) => o.secret === i && o.solid); if (!d || !q.slide || ![1, 2].includes(q.slide.n) || ![1, -1].includes(q.slide.s)) out.push('has no statue or slide');
       else { const fy = Math.floor(d.y / TILE), fc = Math.floor(q.x / TILE), tc = fc + q.slide.s * q.slide.n, tk = fy * W + tc, o0 = fy * W + fc, blk = new Set(m.block), flood = (b) => { const sv = new Set(), st = [Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE)]; sv.add(st[0]); while (st.length) { const k = st.pop(); for (const v of [1, -1, W, -W]) { const n = k + v; if (!sv.has(n) && m.cells[n] === 1 && !b.has(n)) { sv.add(n); st.push(n); } } } return sv; };
         for (let c = fc + q.slide.s; c !== tc + q.slide.s; c += q.slide.s) if (m.cells[fy * W + c] !== 1) out.push('slides into rock');
         const sA = flood(blk); blk.delete(o0); blk.add(tk); const sB = flood(blk); if (sB.size < sA.size) out.push('statue shuts a passage when moved'); } }
@@ -1411,14 +1411,16 @@
       if (Z && Z.k === 'candles' && m.decor.filter((d) => d.pz === i && d.n === 'candles').length !== 3) out.push('is missing its candles'); }
     return out; }
   // over many floors: caches open by honest means only, the floors keep no hoards, and the planned rooms and puzzles do turn up
-  function cacheGenCheck() { const out = [], seen = {};
+  function cacheGenCheck() { const out = [], seen = {}, lib = { n: 0, shelf: 0 };
     for (let seed = 1; seed <= 30; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const s0 = (seed * 811 + f * 1303) >>> 0; let m; try { m = DG.genFloor(s0, f); } catch (e) { out.push(`gen ${s0} f${f}: ${e.message}`); continue; }
       if (m.rooms.some((r) => r.type === 'treasure')) out.push(`gen ${s0} f${f}: a treasure room`);
       if (m.secrets.some((q) => q.kind === 'crack')) out.push(`gen ${s0} f${f}: a crack secret`);
       const W = m.W, walk = (() => { const sv = new Uint8Array(W * m.H), st = [Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE)]; sv[st[0]] = 1; while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!sv[n] && m.cells[n] === 1 && !m.block.includes(n)) { sv[n] = 1; st.push(n); } } } return sv; })();
       m.secrets.forEach((q, i) => { for (const e of cacheIssues(m, q, i, walk)) out.push(`gen ${s0} f${f}: secret ${i} (${q.kind}) ${e}`); seen[q.kind] = 1; if (q.trig) seen[q.trig.k] = 1; if (q.pz) seen[q.pz.k] = 1; if (q.parent !== undefined) seen.inner = 1;
-        const h = m.rooms[q.host]; if (h && h.plan && (q.kind === 'statue' || q.kind === 'shelf')) seen.planned = 1; }); }
+        const h = m.rooms[q.host]; if (h && h.plan && (q.kind === 'statue' || q.kind === 'shelf')) seen.planned = 1; if (h && h.plan === 'library' && q.dir === 'u') { lib.n++; if (q.kind === 'shelf') lib.shelf++; } }); }
     for (const k of ['banner', 'shelf', 'statue', 'sconce', 'plate', 'lever', 'levers', 'candles', 'inner', 'planned']) if (!seen[k]) out.push(`cache check: no ${k} cache on any of the floors checked`);
+    // (TASKS 1842) a planned bookcase stays one, room along the wall or not: a library's wall caches keep their share of bookcases
+    if (lib.shelf < lib.n * 0.12) out.push(`cache check: ${lib.shelf} of ${lib.n} library wall caches are bookcases (a planned bookcase turned into a lever or banner)`);
     return out; }
   function secretCheck() {
     const out = [];
@@ -1426,9 +1428,10 @@
     const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5000 + sd); const q = S.run.map.secrets.find(f); if (q) return [S, q]; } return [null, null]; };
     const standAt = (R, q) => { const h = R.hero, P = q.trig, tc = P && P.k === 'sconce' ? R.map.torches[P.t] : null; Object.assign(h, { vx: 0, vy: 0 });
       if (q.kind === 'banner') { h.x = q.x; h.y = q.y + 34; } if (q.kind === 'shelf' || q.kind === 'statue') { h.x = q.x; h.y = q.y + 70; } if (tc) { h.x = tc.x; h.y = tc.y + 50; } if (P && P.k === 'lever') { h.x = P.x; h.y = P.y + 50; } if (P && P.k === 'plate') { h.x = P.x; h.y = P.y; } };
+    const swing = (S, R, q) => { const h = R.hero; h.x = q.x; h.y = q.y + 34; h.vx = h.vy = 0; h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let j = 0; j < 40; j++) step(S, Object.assign({ keys: [] }, A)); };
     const pressE = (S) => { step(S, { keys: ['KeyE'], px: 960, py: 540 }); for (let k = 0; k < 6; k++) step(S, { keys: [], px: 960, py: 540 }); };
     const playItem = (S, R, q, j) => { const it = q.pz.items[j], h = R.hero, st0 = q.pz.step; for (let k = 0; k < 3 && !it.on && q.pz.step === st0 && !q.open; k++) { if (q.pz.k === 'levers') { h.x = it.x; h.y = it.y + 50; } else { h.x = it.x + 20; h.y = it.y + 6; } h.vx = h.vy = 0; pressE(S); } };
-    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['shelf', (o) => o.kind === 'shelf'], ['statue', (o) => o.kind === 'statue'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u' && o.parent === undefined], ['lever', (o) => o.trig && o.trig.k === 'lever']]) {
+    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['statue', (o) => o.kind === 'statue'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u' && o.parent === undefined], ['lever', (o) => o.trig && o.trig.k === 'lever']]) {
       const [S, q] = find(f); if (!q) { out.push(`secret check: no ${name} secret in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, qi = m.secrets.indexOf(q); R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9;
       const k0 = q.slide ? Math.floor((q.y + 22) / TILE) * m.W + Math.floor(q.x / TILE) : -1, d0 = q.slide ? m.decor.find((o) => o.secret === qi).x : 0;
@@ -1439,26 +1442,36 @@
       if (!q.open) out.push(`secret check ${name}: its way does not open it`);
       if (q.wall.some(([x, y]) => cell(m, x, y) !== 1)) out.push(`secret check ${name}: the opened wall is still solid`);
       if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted (${R.stats[1].sec})`);
-      if (name === 'statue' || name === 'shelf') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n, t1 = S.t + D.STATUE_SECRET.slide + 0.05; while (S.t < t1) step(S, { keys: [] }); if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push(`secret check ${name}: it has not moved, or its block has not`);
-        if (Math.abs(d.x - d0) !== q.slide.n * TILE || !(name === 'shelf' ? [2, 3] : [1, 2]).includes(q.slide.n)) out.push(`secret check ${name}: it slid the wrong distance`);
-        // (TASKS 1841) a bookcase opened by an old save, on its hinge: loaded, it takes a way and stands on its far end, blocking that cell
-        if (name === 'shelf') { const R2 = JSON.parse(JSON.stringify(R)), m2 = R2.map, q2 = m2.secrets[qi], e2 = m2.decor.find((o) => o.secret === qi); delete q2.slide; Object.assign(e2, { x: q2.x, solid: 0, broken: 1 }); m2.block = m2.block.filter((b) => b !== k0 && b !== k1); R2.hero.x = R2.hero.y = 0; SIMX.migrateSecrets(R2);
-          if (!q2.slide || !e2.solid || e2.x !== q2.x + q2.slide.s * q2.slide.n * TILE || !m2.block.includes(k0 + q2.slide.s * q2.slide.n) || m2.block.includes(k0)) out.push('secret check shelf: an old save\'s open bookcase does not stand slid after loading');
-          // (PR 55 review) an old bookcase's way is chosen once: kept on its hinge it stays there on every later load, and it never
-          // takes a way whose far cell is the only way into a nook
-          const old = () => { const R3 = JSON.parse(JSON.stringify(R)), m3 = R3.map, q3 = m3.secrets[qi], e3 = m3.decor.find((o) => o.secret === qi); delete q3.slide; Object.assign(e3, { x: q3.x, solid: 0, broken: 1 }); m3.block = m3.block.filter((b) => b !== k0 && b !== k1); R3.hero.x = R3.hero.y = 0; return [R3, m3, q3, e3]; };
-          { const [R3, m3, q3, e3] = old(), keep = m3.block.slice(); for (let k = -3; k <= 3; k++) if (k) m3.block.push(k0 + k); SIMX.migrateSecrets(R3); m3.block = keep; SIMX.migrateSecrets(R3);
-            if (q3.slide || e3.x !== q3.x || e3.solid) out.push('secret check shelf: an old bookcase kept on its hinge jumps along the wall on a later load'); }
-          { const [R3, m3, q3] = old(), W3 = m3.W, nook = k0 + q2.slide.s * q2.slide.n + W3; if (m3.cells[nook] === 1) { for (const c of [nook - 1, nook + 1, nook + W3]) m3.cells[c] = 0; SIMX.migrateSecrets(R3);
-            if (q3.slide && k0 + q3.slide.s * q3.slide.n === nook - W3) out.push('secret check shelf: an old save\'s bookcase slides onto the only way into a nook'); }
-          // (PR 55 review 2) nor onto a monster or loot standing on the cell it would block
-          for (const who of ['en', 'drops']) { const [R3, m3, q3] = old(), kf = k0 + q2.slide.s * q2.slide.n, x = (kf % m3.W + 0.5) * TILE, y = (Math.floor(kf / m3.W) + 0.5) * TILE;
-            R3[who] = (R3[who] || []).concat([who === 'en' ? { id: -5, type: 'skeleton', x, y, deadT: -1 } : { id: -5, kind: 'gold', n: 1, x, y }]); SIMX.migrateSecrets(R3);
-            if (q3.slide && k0 + q3.slide.s * q3.slide.n === kf) out.push(`secret check shelf: an old save's open bookcase lands on ${who === 'en' ? 'a monster' : 'loot'}`); } } } }
+      if (name === 'statue') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n, t1 = S.t + D.STATUE_SECRET.slide + 0.05; while (S.t < t1) step(S, { keys: [] }); if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push(`secret check ${name}: it has not moved, or its block has not`);
+        if (Math.abs(d.x - d0) !== q.slide.n * TILE || ![1, 2].includes(q.slide.n)) out.push(`secret check ${name}: it slid the wrong distance`); }
       standAt(R, q); pressE(S); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
     // a statue never closes on the hero: with him on its way it stays put
-    for (const kind of ['statue', 'shelf']) { const [S, q] = find((o) => o.kind === kind); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
+    for (const kind of ['statue']) { const [S, q] = find((o) => o.kind === kind); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
         if (secretUnder(R) !== q) out.push(`secret check ${kind}: the hero beside it cannot reach it`); else { interact(S, R); if (q.open) out.push(`secret check ${kind}: it slid onto the hero`); } } }
+    // (TASKS 1842) a false bookcase breaks on its third blow, as before 0.3.0: E does nothing to it, the first two blows rock it, the
+    // third leaves planks, frees its cell, opens the cache and counts it once; a bolt or a blast counts as a blow
+    { const shelfAt = () => { const [S, q] = find((o) => o.kind === 'shelf'); if (!q) return []; S.screen = 'play'; const R = S.run, m = R.map, qi = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === qi);
+        R.en = []; R.stats[1] = floorStat(R); R.hero.ifr = 1e9; return [S, R, m, q, d, Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE)]; };
+      const opened = (R, m, q, d, k0) => q.open && d.broken && !d.solid && !m.block.includes(k0) && q.wall.every(([x, y]) => cell(m, x, y) === 1);
+      { const [S, R, m, q, d, k0] = shelfAt(); if (!q) out.push('secret check shelf: no bookcase cache in 120 seeds');
+        else { standAt(R, q); pressE(S); if (q.open) out.push('secret check shelf: E opens a bookcase');
+          for (let k = 1; k < D.SHELF_SECRET.hp; k++) { swing(S, R, q); if (q.open || !d.solid || !m.block.includes(k0)) out.push(`secret check shelf: it breaks on blow ${k}`); }
+          if ((q.hits || 0) !== D.SHELF_SECRET.hp - 1) out.push(`secret check shelf: ${q.hits || 0} of its ${D.SHELF_SECRET.hp - 1} blows counted`);
+          S.ev = []; swing(S, R, q); if (!opened(R, m, q, d, k0)) out.push(`secret check shelf: blow ${D.SHELF_SECRET.hp} does not break it open`);
+          if (!S.ev.some((e) => e.k === 'break') || !S.ev.some((e) => e.k === 'secret')) out.push('secret check shelf: no break or secret event');
+          if (R.stats[1].sec !== 1) out.push(`secret check shelf: a broken bookcase is not counted once (${R.stats[1].sec})`);
+          swing(S, R, q); if (R.stats[1].sec !== 1) out.push('secret check shelf: a broken bookcase counts again'); } }
+      { const [S, R, m, q, d, k0] = shelfAt(); if (q) { for (let k = 0; k < D.SHELF_SECRET.hp; k++) { S.t += 0.5; hitProps(S, R, d.x, d.y + 12, 24); } if (!opened(R, m, q, d, k0)) out.push('secret check shelf: bolts at its foot do not break it'); } }
+      // old saves: one open on its hinge (0.3.0) or slid along the wall (a build of 1841) loads broken at its own place, its cells
+      // free; a shut one (of either) loads whole and still breaks
+      const old = (open, slid) => { const [S, R, m, q, d, k0] = shelfAt(); if (!q) return []; m.block = m.block.filter((b) => b !== k0);
+        if (open) { q.open = 1; q.openT = S.t - 5; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1; }
+        if (slid) { q.slide = { s: 1, n: 3 }; if (open) { d.x = q.x + 3 * TILE; m.block.push(k0 + 3); } else m.block.push(k0); } else if (open) { q.hinge = 1; d.solid = 0; d.broken = 1; } else m.block.push(k0);
+        S.run = JSON.parse(JSON.stringify(R)); SIMX.migrateSecrets(S.run); const R2 = S.run, m2 = R2.map, q2 = m2.secrets[m.secrets.indexOf(q)]; return [S, R2, m2, q2, m2.decor.find((o) => o.secret === m2.secrets.indexOf(q2)), k0]; };
+      for (const slid of [0, 1]) { const tag = slid ? 'slid (1841)' : 'on its hinge (0.3.0)';
+        { const [, , m, q, d, k0] = old(1, slid); if (q && (!opened(null, m, q, d, k0) || d.x !== q.x || q.slide || q.hinge || (slid && m.block.includes(k0 + 3)) || d.brokeT === undefined)) out.push(`secret check shelf: an old save's bookcase open ${tag} does not load broken in its place`); }
+        { const [S, R, m, q, d, k0] = old(0, slid); if (q) { if (q.slide || !d.solid || d.broken || d.x !== q.x || !m.block.includes(k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not load whole`);
+          for (let k = 0; k < D.SHELF_SECRET.hp; k++) { S.t += 0.5; hitProps(S, R, d.x, d.y + 12, 24); } if (!opened(R, m, q, d, k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not break`); } } } }
     // puzzles (TASKS 1692): the right order opens the cache, any wrong piece puts everything back and hurts nobody
     for (const k of ['levers', 'candles']) { const [S, q] = find((o) => o.pz && o.pz.k === k); if (!q) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9; const hp0 = h.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);
@@ -1474,6 +1487,7 @@
       const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9;
       m.secrets.forEach((q, i) => { if (q.parent !== undefined && !m.secrets[q.parent].open) openSecret(S, R, m.secrets[q.parent], true);
         if (q.pz) { for (const j of [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n)) playItem(S, R, q, j); }
+        else if (q.kind === 'shelf') for (let k = 0; k <= D.SHELF_SECRET.hp && !q.open; k++) swing(S, R, q);
         else for (let k = 0; k < 4 && !q.open; k++) { standAt(R, q); if (q.trig && q.trig.k === 'plate') step(S, { keys: [], px: 960, py: 540 }); else pressE(S); }
         if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${q.trig ? ' ' + q.trig.k : ''}, ${q.dir}) does not open by its way`); }); }
     // loot: open every chest of a few floors (secret ones too), let the items fall and pick up half of them; the floor's books

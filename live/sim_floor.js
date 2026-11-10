@@ -134,7 +134,7 @@
   function restoreFloor(R, f, M) { const old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
     else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
-    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); return old; }
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); return old; }
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
@@ -291,23 +291,12 @@
   const MASK = { key: '', set: null };
   // a cache saved before the walls stopped breaking (TASKS 1691): a flagstone in front of it, so it stays openable; a statue saved
   // with its slide as a distance in px takes this branch's side and cell count
-  // a false bookcase saved while it still swung on a hinge (TASKS 1841) takes a way along the wall with room for all its width, and
-  // one already swung open stands on the far end of it; with no such room (or the hero there, or a passage it would shut) it keeps
-  // its hinge for good: tried again on a later load it could jump along the wall. An open one never lands on a monster or loot: its
-  // far cell is the one it blocks, as a fresh one's
-  function slideShelf(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); if (!d) return;
-    const W = m.W, fy = Math.floor(d.y / TILE), fc = Math.floor(q.x / TILE), hw = D.PROP_W.bookshelf / 2, blk = new Set(m.block), hk = Math.floor(R.hero.y / TILE) * W + Math.floor(R.hero.x / TILE),
-      occ = new Set(q.open ? [...(R.en || []).filter((e) => e.deadT < 0), ...(R.drops || [])].map((o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE)) : []);
-    const sp = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), dc = new Set((m.doors || []).flatMap((o) => o.cells.map(([x, y]) => y * W + x))),
-      reach = (B) => { const seen = new Set([sp]), st = [sp]; while (st.length) { const k = st.pop(); for (const n of [k + 1, k - 1, k + W, k - W]) if ((m.cells[n] === 1 || dc.has(n)) && !(B.has(n) && !dc.has(n)) && !seen.has(n)) { seen.add(n); st.push(n); } } return seen.size; };
-    const hole = new Set(q.wall.map(([x, y]) => y * W + x)), wallOk = (c) => m.cells[fy * W + c] === 1 && (m.cells[(fy - 1) * W + c] === 0 || m.cells[(fy - 1) * W + c] === 4 || hole.has((fy - 1) * W + c));
-    const o = [[1, 3], [-1, 3], [1, 2], [-1, 2]].find(([s, n]) => { const x1 = q.x + s * n * TILE; for (let k = 1; k <= n; k++) if (!wallOk(fc + s * k) || blk.has(fy * W + fc + s * k) || fy * W + fc + s * k === hk) return false;
-      for (let c = Math.floor((x1 - hw) / TILE); c <= Math.floor((x1 + hw - 1) / TILE); c++) if (!wallOk(c)) return false;
-      if (m.decor.some((e) => e !== d && e.solid && Math.abs(e.y - d.y) < 4 && Math.abs(e.x - x1) < hw + (D.PROP_W[e.n] || D.PROP_W.chest) / 2)) return false;
-      const k1 = fy * W + fc + s * n; if (occ.has(k1)) return false; const base = new Set(blk); base.delete(fy * W + fc); base.delete(k1); return reach(new Set(base).add(k1)) === reach(base) - 1; });
-    if (!o) { q.hinge = 1; return; } const [s, n] = o, k0 = fy * W + fc, k1 = k0 + s * n; q.slide = { s, n }; if (!q.open) return;
-    d.x = q.x + s * n * TILE; d.solid = 1; delete d.broken; m.block = m.block.filter((b) => b !== k0 && b !== k1); m.block.push(k1); }
-  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf' && !q.slide && !q.hinge) slideShelf(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
+  // a false bookcase is broken now, not moved (TASKS 1842): one saved open, on its hinge (0.3.0) or slid along the wall (a build of
+  // 1841), lies in planks at its own place, its cell free; a shut one stands there whole, to be broken
+  function shelfLoad(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); delete q.hinge; delete q.held; if (!d) { delete q.slide; return; }
+    const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = q.slide ? k0 + q.slide.s * q.slide.n : k0; delete q.slide; d.x = q.x;
+    m.block = m.block.filter((b) => b !== k0 && b !== k1); if (q.open) { d.solid = 0; d.broken = 1; d.brokeT = -9; } else { d.solid = 1; delete d.broken; delete d.brokeT; m.block.push(k0); } }
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
   function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
     if (MASK.key === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];

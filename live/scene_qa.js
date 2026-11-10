@@ -481,16 +481,16 @@
         R.en = []; R.proj = []; R.fires = []; S.ev = []; h.x = hx; h.y = hy; h.vx = h.vy = 0; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [hx - SCX.VW / 2, hy - SCX.VH / 2]; mgS = S; }
       const S = structuredClone(mgS); if (fn) fn(S); return S; };
     const playOf = (ty) => (MG.has(ty) ? playMg : play);
-    // each way a secret hides: whole, worked (a banner torn, a shelf swung, a statue slid, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
+    // each way a secret hides: whole, worked (a banner torn, a bookcase broken, a statue slid, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
     const secretS = (f, stage, age = 0, mode = 'campaign') => { for (let sd = 1; sd < 120; sd++) for (let fl = 1; fl <= (mode === 'cave' || mode === 'magma' ? 4 : 1); fl++) { const S = play(); S.run = SIM.newRun(S, mode, sd); if (fl > 1) SIM.enterFloor(S, S.run, fl); const R = S.run, m = R.map, q = m.secrets.find(f); if (!q) continue;
       if (SIM.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) continue;
       const h = R.hero, P = q.trig; h.x = q.x - q.dx * 70 + (q.dy ? 50 : 0); h.y = q.y - q.dy * 80 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.aim = Math.atan2(q.dy, q.dx); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2 - 40];
       // (TASKS 1682) the hero off the plinth, on the side the stone leaves, and no locked door's word over the statue
-      if (q.slide) { h.x = q.x - q.slide.s * (q.kind === 'shelf' ? 120 : 96); h.y = q.y + 100; if (SIM.Q.doorNear(R, 64)) continue; }
+      if (q.slide) { h.x = q.x - q.slide.s * 96; h.y = q.y + 100; if (SIM.Q.doorNear(R, 64)) continue; }
       if (P && P.k === 'plate') { h.x = P.x + 40; h.y = P.y + 10; R.cam = [(q.x + P.x) / 2 - SCX.VW / 2, (q.y + P.y) / 2 - SCX.VH / 2 - 20]; }
       if (P && P.k === 'sconce') { const t2 = m.torches[P.t]; h.x = t2.x + 80; h.y = t2.y + 70; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 120); R.cam = [(q.x + t2.x) / 2 - SCX.VW / 2, (q.y + t2.y) / 2 - SCX.VH / 2]; }
-      if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret'); S.ev[0].t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
+      if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; const cv = m.decor.find((o) => o.secret === m.secrets.indexOf(q) && o.brokeT !== undefined); if (cv) cv.brokeT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret' || e.k === 'break'); for (const e of S.ev) e.t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
       if (stage === 4) { const r = m.rooms[q.room]; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE + 10; R.cam = [h.x - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; }
       return S; } };
     // doors from the room (the corridor behind under the fog) and from the corridor (the room unseen), shut, swinging, open; the
@@ -530,13 +530,20 @@
     const sconce = (o) => o.trig && o.trig.k === 'sconce', plate = (o) => o.trig && o.trig.k === 'plate';
     for (const [n, f, stage, age] of [
       ['secret_banner', (o) => o.kind === 'banner', 0], ['secret_banner_fall', (o) => o.kind === 'banner', 2, 0.25], ['secret_banner_down', (o) => o.kind === 'banner', 3], ['secret_room', (o) => o.kind === 'banner', 4],
-      ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_slide', (o) => o.kind === 'shelf', 2, 0.6], ['secret_shelf_knock', (o) => o.kind === 'shelf', 2, 1.25], ['secret_shelf_books', (o) => o.kind === 'shelf', 2, 1.5], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
+      ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_break', (o) => o.kind === 'shelf', 2, 0.2], ['secret_shelf_books', (o) => o.kind === 'shelf', 2, 0.9], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
       ['secret_sconce', sconce, 0], ['secret_sconce_sink', sconce, 2, 0.8], ['secret_sconce_open', sconce, 3],
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3],
       ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.6], ['secret_statue_knock', (o) => o.kind === 'statue', 2, 1.25], ['secret_statue_open', (o) => o.kind === 'statue', 3],
       ['secret_wall_lever', (o) => o.trig && o.trig.k === 'lever', 0], ['secret_wall_lever_open', (o) => o.trig && o.trig.k === 'lever', 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
-    // (TASKS 1841) the slid bookcase after a save and a load: it stands whole on its far cell
-    { const S = secretS((o) => o.kind === 'shelf', 3); if (S) { S.run = JSON.parse(JSON.stringify(S.run)); states.push(['secret_shelf_loaded', S]); } }
+    // (TASKS 1842) a bookcase rocking to a blow short of its third; one broken after a save and a load; one saved open on its hinge
+    // (0.3.0) or slid along the wall (a build of 1841) loads broken at its own place, never as a squeezed strip or moved
+    { const S = secretS((o) => o.kind === 'shelf', 0); if (S) { const R = S.run, m = R.map, q = m.secrets.find((o) => o.kind === 'shelf'), d = m.decor.find((o) => o.secret === m.secrets.indexOf(q));
+        S.ev = []; SIM.hitProps(S, R, d.x, d.y + 30, 40); for (const e of S.ev) e.t = S.t - 0.06; R.msg = null; R.trauma = 0; if (q.hits === 1) states.push(['secret_shelf_hit', S]); } }
+    { const S = secretS((o) => o.kind === 'shelf', 3); if (S) { S.run = JSON.parse(JSON.stringify(S.run)); SIM.migrateSecrets(S.run); states.push(['secret_shelf_loaded', S]); } }
+    for (const [n, slid] of [['secret_shelf_loaded_hinge', 0], ['secret_shelf_loaded_slid', 1]]) { const S = secretS((o) => o.kind === 'shelf', 0); if (!S) continue; const R = S.run, m = R.map, i = m.secrets.findIndex((o) => o.kind === 'shelf'), q = m.secrets[i], d = m.decor.find((o) => o.secret === i), k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE);
+      q.open = 1; q.openT = S.t - 30; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1; m.block = m.block.filter((b) => b !== k0);
+      if (slid) { q.slide = { s: 1, n: 3 }; d.x = q.x + 3 * TILE; d.solid = 1; m.block.push(k0 + 3); } else { q.hinge = 1; d.solid = 0; d.broken = 1; }
+      S.run = JSON.parse(JSON.stringify(R)); SIM.migrateSecrets(S.run); states.push([n, S]); }
     // puzzles (TASKS 1692): three levers with their tallies, then one pulled; three unlit candles with theirs, then two lit
     for (const [n, k, on] of [['secret_puzzle_levers', 'levers', 0], ['secret_puzzle_levers_on', 'levers', 1], ['secret_puzzle_candles', 'candles', 0], ['secret_puzzle_candles_lit', 'candles', 2]]) { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find((o) => o.pz && o.pz.k === k); if (!q) continue;
         const it = q.pz.items, xs = it.map((o) => o.x), mx = (Math.min(...xs) + Math.max(...xs)) / 2, h = R.hero; h.x = mx + 30; h.y = it[0].y + 90; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [mx - SCX.VW / 2, it[0].y - SCX.VH / 2];
