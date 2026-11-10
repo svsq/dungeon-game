@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Глубины Крипты</title>
+<html><head><meta charset="utf-8"><title>The Elder Deep: Below the Ages</title>
 <style>
 :root{--ar:1.7778}
 html,body{margin:0;background:#000;height:100%;overflow:hidden}
@@ -27,23 +27,28 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const VW = (SIM.VIEW || {}).W || 1920, VH = (SIM.VIEW || {}).H || 1080;             // view size and aspect come from the sim
   document.documentElement.style.setProperty('--ar', VW / VH); if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
   G.init(document.getElementById('c'), VW, VH);
+  await Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))));
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
   await Promise.all(Object.keys(ASSETS).map((n) => G.load(n, 'assets/' + n + '.png?v=' + V, { repeat: rep.has(n), nearest: near(n) })));
   SCENE.programs();
   window.__duration = SIM.L;
   window.__renderAt = (t) => { SCENE.render(t); return document.getElementById('c').toDataURL('image/png'); };
   window.__ready = true;
-  if (render) return;
+  if (render) { document.getElementById('hint').style.opacity = 0; return; }
 
   const keys = {}, hint = document.getElementById('hint'), dev = document.getElementById('dev'), flash = document.getElementById('flash');
   const SPEEDS = [0.1, 0.25, 0.5, 1];
   // game saves: meta progress + the current run in localStorage (the sim asks by bumping S.saveN)
   // v2 keys: the balance pass (task 154) started every player from scratch; the old v1 saves are dropped
   try { for (const k of ['dc_meta', 'dc_run']) localStorage.removeItem(k); sessionStorage.removeItem('live'); } catch (e) {}
-  const loadPersist = () => { try { return { meta: JSON.parse(localStorage.getItem('dc2_meta') || 'null'), run: JSON.parse(localStorage.getItem('dc2_run') || 'null') }; } catch (e) { return {}; } };
+  // the save slots (TASKS 1311): dc2_run is the run of slot dc2_slot, dc2_saves the other slots; a save from before them has dc2_run
+  // alone, and the sim puts it in the first slot
+  const loadPersist = () => { try { const g = (k) => JSON.parse(localStorage.getItem(k) || 'null');
+    return { meta: g('dc2_meta'), run: g('dc2_run'), slot: g('dc2_slot'), saves: g('dc2_saves') }; } catch (e) { return {}; } };
   let savedN = -1;
   const persist = () => { if (!play || !SIM.persist) return; const p = SIM.persist(play);
-    try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run'); } catch (e) { console.warn('save failed', e); } };
+    try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run');
+      localStorage.setItem('dc2_slot', JSON.stringify(p.slot || 0)); localStorage.setItem('dc2_saves', JSON.stringify(p.saves || [])); } catch (e) { console.warn('save failed', e); } };
   addEventListener('beforeunload', () => { if (play && play.screen === 'play' && play.run && !play.demo) { play.saved = play.run; persist(); play.saved = null; } });
   const startPlay = () => { play = SIM.spawn(simT, loadPersist()); savedN = play.saveN; loggedN = play.logN || 0; loggedReq = play.logReq || 0; hint.style.opacity = 0; };
   // a finished run's log goes to the browser's downloads as crypt-run-<date>.json, for the balance analysis
@@ -63,7 +68,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
     if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
-    keys[c] = 1; if (play) pend.keys.push(c);
+    keys[c] = 1; if (play && !(e.repeat && c === 'KeyE')) pend.keys.push(c);
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay();
     e.preventDefault();
@@ -88,7 +93,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (play) {
       acc += dt;
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys };
+        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys,
+        now: Date.now() - new Date().getTimezoneOffset() * 60000 };
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;

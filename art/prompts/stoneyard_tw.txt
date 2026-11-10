@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's stone yard gantry: redraw it EXACTLY, same pose, size, timber, stones, bench, buffer and pixel size, changing ONE thing: from the crossbeam hangs a short straight chain with a big iron hook and nothing else; NO rope loop, no noose. Transparent background, no shadow, no ground, no glow, no text.

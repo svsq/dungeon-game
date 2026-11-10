@@ -6,14 +6,13 @@
   if (typeof module !== 'undefined') for (const f of require('./modules.js').parts.data) require('./' + f);
   const D = root.DATA, KEYS = [
     'ROOM_SHAPES', 'FOLK', 'FOLK_SAY', 'KEEPER', 'folkClock', 'folkInit', 'placeName', 'colossusStepAt', 'colossusContact', 'TILE', 'ZOOM',
-    'ZOOMS', 'BIOMES', 'ARCH', 'HAZ', 'hazClock', 'hazIn', 'RUNS', 'runOf', 'wayFloor', 'wanderAt', 'stageOf', 'rosterAt', 'CAVE_PACKS',
+    'ZOOMS', 'zoomFix', 'SETTINGS', 'BIOMES', 'ARCH', 'HAZ', 'hazClock', 'hazIn', 'RUNS', 'runOf', 'wayFloor', 'wanderAt', 'stageOf', 'rosterAt', 'CAVE_PACKS',
     'MAGMA_PACKS', 'DIFF', 'DIFF_ORDER', 'floorName', 'ENEMIES', 'BOSSES', 'bossPhase', 'bossMove', 'BAL', 'dmgAt', 'hpAt', 'ELITE',
-    'eliteK', 'GEN_VERSION', 'windOf', 'under', 'ELITE_MODS', 'eliteMods', 'modPool', 'TIPS', 'eliteName', 'SLOTS', 'SLOT_NAME', 'BASES',
-    'ITEM_BAL', 'STASH', 'CRAFT', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'NAMED', 'storyChain', 'plural', 'reqLvl',
-    'CONSUMABLES', 'RARITY', 'AFFIXES', 'LEGEND_NAMES', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'ABILITIES', 'AB_MAX', 'abRank', 'SHIELD_T',
-    'shieldHp', 'fireDmg', 'STATS', 'META', 'metaLine', 'GIFTS', 'giftCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
-    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS', 'FLOOR_MOD',
-    'FLOOR_MODS' ];
+    'eliteK', 'GEN_VERSION', 'windOf', 'under', 'ELITE_MODS', 'eliteMods', 'modPool', 'TIPS', 'eliteName', 'ELITE_GROUP', 'ELITE_NAMES', 'SLOTS', 'SLOT_NAME', 'BASES',
+    'ITEM_BAL', 'STASH', 'CRAFT', 'CAPTIVES', 'NOTES', 'STORY', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'NAMED', 'storyChain', 'plural', 'reqLvl',
+    'CONSUMABLES', 'RARITY', 'AFFIXES', 'AFFIX_W', 'LOOT_OVER', 'LEGEND_NAMES', 'BRINK', 'surgeLevel', 'MAGMA_HALLS', 'CLASSES', 'clsOf', 'classesReady', 'uiAt', 'CLASS_LOOT', 'wears', 'clsNames', 'ABILITIES', 'CRIT', 'AB_MAX', 'abRank', 'MASTERY', 'ranksFull', 'masteryK', 'masteryTake', 'SHIELD_T',
+    'shieldHp', 'fireDmg', 'FROST', 'frostDmg', 'BOLT', 'SHOTS', 'VOLLEY', 'TRAP', 'LEAP', 'RAGE', 'CHARGE', 'CRY', 'STATS', 'META', 'BAG', 'bagLen', 'metaLine', 'GIFTS', 'POWERS', 'FORKS', 'FORK_RANKS', 'STAT_POWER', 'THRESHOLD', 'forkKey', 'forkPending', 'CODEX_TABS', 'CODEX_PAGE', 'codexList', 'ACHIEVE', 'UNLOCKS', 'isOpen', 'KITS', 'kitsOf', 'kitOf', 'giftPool', 'evosReady', 'hasPower', 'giftBlocked', 'RELIC_MAX', 'relicsOf', 'giftCost', 'rerollCost', 'xpNeed', 'SHOP', 'itemPrice', 'sellPrice', 'UI', 'TEST_RUNS',
+    'startPath', 'hitUI', 'VERSION', 'CHANGES', 'newsRows', 'campaignLen', 'CHEST_TRAP', 'STATUE_SECRET', 'MIMIC', 'WRECK', 'COFFIN', 'PROP_MAT', 'PROP_W', 'PROP_H', 'ROOM_PLANS' ];
   const lost = KEYS.filter((k) => !(k in D));
   if (lost.length) throw new Error('data.js: DATA lacks ' + lost.join(', '));
   if (typeof module !== 'undefined') module.exports = D;

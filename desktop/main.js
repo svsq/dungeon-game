@@ -4,6 +4,9 @@ const { pathToFileURL } = require('url');
 
 const GAME = path.join(__dirname, 'game');
 
+// The save folder keeps the old product name: renaming the game must not lose a player's progress.
+app.setPath('userData', path.join(app.getPath('appData'), 'Глубины Крипты'));
+
 // A fixed privileged origin keeps localStorage (meta progress, the saved run) stable across launches and app updates.
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
@@ -13,8 +16,9 @@ const toggleFullscreen = (win) => win.setFullScreen(!win.isFullScreen());
 
 const createWindow = () => {
   const win = new BrowserWindow({
-    width: 1600, height: 900, minWidth: 960, minHeight: 540, backgroundColor: '#000000', title: 'Глубины Крипты',
+    width: 1600, height: 900, minWidth: 960, minHeight: 540, backgroundColor: '#000000', title: 'The Elder Deep: Below the Ages',
     autoHideMenuBar: true, show: false,
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required' },
   });
   win.once('ready-to-show', () => win.show());

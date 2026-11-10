@@ -1,0 +1,20 @@
+[
+ {
+  "name": "mimic__maw",
+  "prompt": "art/prompts/mimic__maw.txt",
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "mimic__teeth",
+  "prompt": "art/prompts/mimic__teeth.txt",
+  "size": "1536x1024",
+  "alpha": "auto"
+ },
+ {
+  "name": "mimic__tongue",
+  "prompt": "art/prompts/mimic__tongue.txt",
+  "size": "1536x1024",
+  "alpha": "auto"
+ }
+]

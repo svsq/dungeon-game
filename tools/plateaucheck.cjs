@@ -27,7 +27,7 @@ const png = (file, w, h, rgb) => { const crcT = new Int32Array(256).map((_, n) =
   const raw = Buffer.alloc((w * 3 + 1) * h); for (let y = 0; y < h; y++) { raw[y * (w * 3 + 1)] = 0; rgb.copy(raw, y * (w * 3 + 1) + 1, y * w * 3, (y + 1) * w * 3); }
   const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
   fs.writeFileSync(file, Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))])); };
-const ROLE = { start: [60, 220, 60], exit: [60, 160, 255], boss: [255, 40, 40], shop: [255, 220, 0], treasure: [255, 160, 220], shrine: [200, 120, 255], secret: [120, 80, 200] };
+const ROLE = { start: [60, 220, 60], exit: [60, 160, 255], boss: [255, 40, 40], shop: [255, 220, 0], islet: [255, 160, 220], shrine: [200, 120, 255], secret: [120, 80, 200] };
 const overview = (m, file) => { const S = 6, w = m.W * S, h = m.H * S, b = Buffer.alloc(w * h * 3), put = (x, y, c) => { if (x >= 0 && y >= 0 && x < w && y < h) { const i = (y * w + x) * 3; b[i] = c[0]; b[i + 1] = c[1]; b[i + 2] = c[2]; } };
   const crust = new Set(m.crust || []), XC = { bridge: [150, 95, 40], slabs: [90, 100, 120], arch: [200, 200, 210] }, over = new Map((m.crossings || []).flatMap((c) => c.cells.map((k) => [k, XC[c.kind]])));
   for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { const k = y * m.W + x, v = m.cells[k], c = over.get(k) || (crust.has(k) ? [120, 50, 25] : v === 1 ? [150, 140, 125] : v === 3 ? (m.lavaFlow[k] !== undefined ? [255, 120, 30] : [210, 75, 15]) : v === 4 ? [90, 60, 120] : m.cliff && y < m.cliff[x] ? [70, 70, 82] : [12, 10, 14]);

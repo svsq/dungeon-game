@@ -29,14 +29,14 @@
     // Their ash, basalt and crust are baked by scene.js MAGMA (TASKS 402); old: the kinds a cave pack fills its halls with
     // low and floorK lift the ground halfway to the concept's (TASKS 435, the player's choice): all the way, a priest's ring and
     // the other red telegraphs on the floor stop reading
-    magma: { name: TXT('BIOMES.magma.name'), rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, low: [1.05, 0.8, 0.74], floorK: 1.45, torch: [1.0, 0.45, 0.16],
+    magma: { name: TXT('BIOMES.magma.name'), rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, ambLvl: 0.48, torchR: 0.72, low: [1.05, 0.8, 0.74], floorK: 1.14, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
       from: { cultist: 2, skel_ember: 2, imp: 2, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
     // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
-    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.15, 0.14, 0.15], ambK: 0.65, ambLvl: 1.0, fireK: 1.8, torch: [1.0, 0.64, 0.22], torchR: 0.55, spill: [1.1, 0.7], topLift: 1.3, floorG: 0.8, floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
+    town: { name: TXT('BIOMES.town.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.17, 0.157, 0.17], ambK: 0.65, ambLvl: 1.0, fireK: 1.1, bigK: 0.76, torch: [1.0, 0.62, 0.3], torchR: 0.55, spill: [1.1, 0.35], topLift: 1.3, floorG: 1.3, wallG: [0.9, 0.9, 0, 1.05], floor: 'floor_tw_tex', pave: 'pave_tw_tex', wall: 'wall_tw_tex', top: 'walltop_tw_tex',
       tint: [1, 1, 1], roster: [], props: [], town: true },
   };
 
@@ -70,7 +70,7 @@
       // bridges over the dark but a share `neck` of them left a neck of rock
       chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3],
         // alt (TASKS 1054): the second way over a bridge the walk can't go round: a deck `len` cells long, `off` cells and more off it
-        alt: { off: 12, len: [4, 20] } },
+        alt: { off: 7, len: [3, 32], max: 3 } },
       // terrace (430): a lavafall down the top wall near one side of the map (`fallAt` of the width from it, the wall `wall` rows high
       // there) runs down to the bottom as a river `w` cells wide; on the wide side terraces step down, rows `rowH` high with `step`
       // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
@@ -84,11 +84,18 @@
       // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
       // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`;
       // pop: its halls are more than a floor's plateaus, each with its pack: as many monsters a floor as the plateaus'
-      cave: { goal: [0.1, 0.16], pools: 3, pop: 0.415, path: [0, 0, 0, 0], share: [0.06, 0.3],
+      // loop (TASKS 1726): `n` tunnels more between halls `hops` and more apart on the tree and under `d` cells apart, each kept if no two
+      // halls' walk falls under `keep` of what it was
+      cave: { goal: [0.1, 0.16], pools: 3, pop: 0.415, path: [0, 0, 0, 0], share: [0.06, 0.3], loop: { n: [2, 3], hops: 3, d: 40, keep: 0.85 },
         mix: { arena: { n: [1, 2], box: [[16, 20], [12, 15]], pop: 1.5 }, ledge: { n: [3, 4], box: [[6, 8], [5, 7]], pop: 0.6 } } },
       // first: the type of a run's first floor (the player's call 04.11.2026: the caves first, a lake's archers over the lava were too
       // much for the first floor)
       types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave',
+      // guard (TASKS 1729): a lava cave's only spike plates, `n` at most, each on the way in to a reward `far` cells off it
+      guard: { n: 2, far: [3, 8] },
+      // stub (TASKS 1730): the wall raised behind the stairs up on a floor with no top wall near the start, `w` cells either side of
+      // them and `deep` rows of rock, within `far` cells of the start room
+      stub: { w: [2, 1], deep: 4, far: 10 },
       // a floor's title by its type (TASKS 471), so the player knows which question the floor asks; the boss's floor keeps its run's
       names: { plain: TXT('ARCH.plateau.names.plain'), lake: TXT('ARCH.plateau.names.lake'), river: TXT('ARCH.plateau.names.river'), chasm: TXT('ARCH.plateau.names.chasm'), terrace: TXT('ARCH.plateau.names.terrace'), cave: TXT('ARCH.plateau.names.cave') },
       // mix (TASKS 426): a floor of one of the figure types `over` takes the type `with` too, with the chance p, never on two floors running; riverBridges: the bridges over the chasm a river floor keeps at the least (its plateaus lie in two strips, the river on one side of each, so fewer face each other over the dark); gap: the plateaus' spacing then (the chasm's own left the ledges no room); pathKeep: the share of the figure's walk to the stairs kept (the bridges cut it)
@@ -100,7 +107,14 @@
       lava: { lakeCells: 1400, lake: [[5, 10], [4, 7]], lakeOff: [3, 8], lakeApart: 16, lakeMin: 20, river: [3, 5], bridge: 0.7, ridgeCost: 30, near: 4, dark: 9, falls: [1, 2], fallApart: 18, fallDeep: 3, vents: [0, 1], join: 0.8, joinMax: 40, isle: 0.62, crust: 0.3, share: [0.2, 0.4],
         // a hoard's islet (TASKS 476): a pad of floor (`pad` cells) out in the open lava, `ring` cells of it all round, its only way a
         // strip of thin crust two cells wide `len` cells long to the nearest plateau; `n` a floor
-        islet: { pad: [3, 3], ring: 1, len: [4, 9], n: 1 } } },
+        islet: { pad: [3, 3], ring: 1, len: [4, 9], n: 1 },
+        // alt (TASKS 1722): on a cave or terrace floor the second way over a lava crossing the walk can't go round: slabs two cells
+        // wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a floor; the walk keeps
+        // `keep` of its length
+        alt: { off: 3, wide: 6, len: [1, 9], max: 2, keep: 0.8,
+          // dry (TASKS 1726): on a cave floor a tunnel round a crossing, its mouths `off` cells from it, `len` cells at most, `max` a floor, the
+          // way round `more` cells longer than the way over at the least
+          dry: { off: [3, 10], len: 48, max: 3, more: 6 } } } },
     // the rooms-and-corridors floors' layouts (TASKS 379), each a set of knobs on the one generator (dungeon.js): room, the room count
     // of the floor's range taken (min: fewest a floor is laid with); rect, a plain room's size (cells, else by the map); shapes, the
     // shapes' weights over ROOM_SHAPES; gap, the rock kept between rooms; bends, the corridor length (cells) past which it takes one
@@ -127,7 +141,7 @@
   };
   // a floor's modifier (R-18, TASKS 381), drawn with `chance` from the `from`th floor on a rooms floor that is no boss's, shown on
   // the banner and the minimap. water: the streams' cap over the plain two (≈×2 laid: a stream wants a plain fighting room); torch:
-  // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp;
+  // the share of a room's own wall torches kept, none hung for a dark corner (≈40 % of a plain floor's); light: the hero's lamp; dim, lit: the share of a plain floor's ambient light and of its fixed fires' and glows' light (TASKS 1364);
   // elites: plain monsters made elite, the first one's room with a chest of tier `chest`; gauntlet: a plate row down every straight
   // two-cell stretch of corridor this long (a winding way has few long ones: ≈2 rows a floor, not 0.5); gold: gold picked up; pop:
   // monsters a room; ambush: a hoard chest's ambush chance; not: biomes it skips (the fire floors have no streams);
@@ -136,7 +150,7 @@
   const FLOOR_MOD = { from: 3, chance: 0.5 };
   const FLOOR_MODS = {
     flood: { name: TXT('FLOOR_MODS.flood'), w: 1, water: 3, not: ['lava'] },
-    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.3 },
+    dark: { name: TXT('FLOOR_MODS.dark'), w: 1, torch: 0.7, light: 1.4, dim: 0.3, lit: 0.35, flame: 0.3, glint: 0.35 },
     lair: { name: TXT('FLOOR_MODS.lair'), w: 1, elites: 2, chest: 3 },
     cursed: { name: TXT('FLOOR_MODS.cursed'), w: 1, gauntlet: 5, gold: 1.5, notLay: ['tomb', 'hall'] },
     quiet: { name: TXT('FLOOR_MODS.quiet'), w: 1, pop: 0.7, ambush: 2 },
@@ -150,7 +164,7 @@
   // fewer); apart: cells between two of a kind; aim: falling rocks laid first on the narrows of the walk to the stairs (TASKS 461);
   // clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
   // stairs (selfCheck)
-  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8 },
+  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8, gate: { per: 4.6, hp: 0.2, tails: 2, pitch: 0.72, minCells: 3, off: 0.2, from: 0.1, to: 0.9, kb: 160, stun: 1, see: 14 } },
     // (run, gap: an aimed rock is a run of 2·run + 1 down the walk, falling gap s one after another, TASKS 485)
     fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2, run: 2, gap: 0.2 },
     // a terrace floor's lavafall surges (TASKS 475): every `per` s its river rises over its banks, `band` cells of floor either side
@@ -164,7 +178,7 @@
   // where a hazard stands in its cycle at time t: 0 at the burst, the warning from per − warn to per
   const hazClock = (z, t) => ((t / z.per + z.ph) % 1 + 1) % 1 * z.per;
   const ZONE = new WeakMap(), zoneOf = (z) => { let q = ZONE.get(z); if (!q) ZONE.set(z, q = new Set(z.cells)); return q; };
-  const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r; };
+  const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r * (z.s || 1); };
   // how far a surge has risen over its band at time t, 0..1 (TASKS 475)
   const surgeLevel = (z, t) => { const H = HAZ.surge, c = hazClock(z, t); if (c < H.burst) return 1; if (c < H.burst + H.ebb) return 1 - (c - H.burst) / H.ebb;
     const w = c - (z.per - H.warn); return w >= 0 ? H.creep * w / H.warn : 0; };
@@ -269,5 +283,17 @@
     skel_mg: 'bone', fence_mg: 'chain', vent_mg: 'ember', anvil_tw: 'metal', forge_tw: 'stone', forge_mg: 'stone',
     basalt_a: 'stone', basalt_b: 'stone', boulder_mg_a: 'stone', boulder_mg_b: 'stone', obsidian_mg: 'crystal', skel_mg: 'bone', banner_mg: 'cloth' };
 
-  Object.assign(D, { BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  // a trapped chest (TASKS 1357): from: first floor it appears on; p: chance per chest, max per floor; fuse: seconds from the click to
+  // the blast, time to step or dash away; r: the blast's reach; hp: share of max health, never the killing blow
+  const CHEST_TRAP = { from: 2, p: 0.1, max: 2, fuse: 0.55, r: 96, hp: 0.2 };
+  const MIMIC = { from: 3, p: 0.08 };
+  // a statue that slides aside off a secret (TASKS 1354): p: chance a top-wall secret takes this cover where the statue fits
+  // planned: the same chance in a room dressed to a matching plan, plans: those rooms (TASKS 1355); hostP: chance a room hosting a secret takes one of the plans
+  // slide: seconds the stone takes to grind aside; the cell it leaves stays blocked until it is gone
+  const STATUE_SECRET = { p: 0.35, planned: 0.85, plans: ['gallery', 'hall', 'crypt', 'sanctum', 'library'], hostP: 0.6, slide: 1.2 };
+  // a struck coffin may let out what lies in it (TASKS 1353): rolled once per coffin, one per room at most; rise: seconds it takes to climb out
+  const COFFIN = { p: (f) => Math.min(0.35, 0.12 + 0.03 * f), rise: 1 };
+  // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
+  const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2 };
+  Object.assign(D, { STATUE_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

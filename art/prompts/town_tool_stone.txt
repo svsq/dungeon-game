@@ -1,0 +1,1 @@
+Image 1 is the style reference. Image 2 is this game's cart of stone: one single lump of the same grey stone, roughly cubic with sharp broken faces, as carried in both hands. 18 art pixels wide and 16 tall, 1-pixel dark outline, centred, wide empty margin, transparent background, no shadow, no ground, no glow, no text.

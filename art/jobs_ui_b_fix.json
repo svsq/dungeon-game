@@ -1,0 +1,22 @@
+[
+ {
+  "name": "ui_b_parchment_torn",
+  "prompt": "art/prompts/ui_b_parchment_torn.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_wax_seal",
+  "prompt": "art/prompts/ui_b_wax_seal.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ }
+]

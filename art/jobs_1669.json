@@ -1,0 +1,12 @@
+[
+{
+"name": "wanderer",
+"prompt": "art/prompts/wanderer.txt",
+"ref": [
+"art/gen/merchant.png=the town merchant, copy his exact pose, proportions and placement on the canvas"
+],
+"size": "1024x1024",
+"alpha": "auto",
+"pixel": true
+}
+]

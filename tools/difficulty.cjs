@@ -1,4 +1,4 @@
-// node tools/difficulty.cjs [--seeds 1-40] [--no-cache] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|town|cave|magma|endless] [--no-town: a run through the town played straight down] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--full: no early stop] [--job-min M: a bot process killed as hung after M min] [--snapshots dir [--replay-floor 9]: the deep floors from the snapshots]
+// node tools/difficulty.cjs [--seeds 1-40] [--no-cache] [--profiles novice,average,expert,builder] [--runs 1] [--diff easy|normal|hard] [--mode campaign|town|cave|magma|endless] [--cls warrior|mage: the hero's class (TASKS 1116)] [--no-town: a run through the town played straight down] [--floors 30: the endless descent's report window] [--descend: the campaign goes on past the serpent] [-j 8] [--quiet] [--check] [--full: no early stop] [--job-min M: a bot process killed as hung after M min] [--snapshots dir [--replay-floor 9]: the deep floors from the snapshots]
 // the playtest bot over many seeds and player profiles, in parallel; one row per profile and run number (run 2+ has the meta
 // ranks bought with the earlier runs' shards): wins, where runs die, how close they come, what they spend. --check exits 2 when
 // the first run misses the target bands (BANDS): the yardstick every balance change is held against; with --runs 3 it also holds
@@ -127,7 +127,7 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8
 // minimum health falls 45→27 % and potions climb 0.9→1.9 from the 1st floor to the 4th (two sets, 1–160 and 161–320), the serpent takes 153–160 %;
 // the water caves get their bands with their balance (TASKS 314); in the campaign (TASKS 339) the old finale's bands hold its 8th:
 // past: the share past a floor (the old 8-floor campaign's wins), bossFloor: the floor of bossDied (the demon lord); the serpent's own
-// fight bands stand on the 12th (chapters: lost, pot, t). The share of whole 12-floor wins has no band: the player's call 01.11.2026
+// fight bands stand on the 12th (chapters: lost, pot, t). The whole run's wins (the town run, TASKS 1195, the player's call 10.11.2026): novice 20–30 %, average 50–60 %, expert 70–80 %
 // for now (the average takes 45–48 % over 160 seeds; a band belongs to the follow-up balance, TASKS 340/341)
 // the magma caves' colossus (TASKS 413): harder than the serpent (1.55 of the health, 0.9 potions, 35 s) by the player's call 02.11.2026
 // (magma, TASKS 414: harder than the caves; deaths over every floor, the boss's at most 60 %)
@@ -135,9 +135,9 @@ const BUILDER = { bossT: [15, Infinity], chapters: { 2: { t: [15, Infinity] }, 8
 const BANDS = { cave: { normal: { average: { win: [0.65, 0.85], bossLost: [1.5, 2.5], bossPot: [0, 2], bossT: [20, 90], deathShare: 0.4,
     floor: { 1: { minhp: [38, 54], hpPot: [0.5, 1.4] }, 2: { minhp: [30, 46], hpPot: [0.8, 1.9] }, 3: { minhp: [30, 46], hpPot: [1.1, 2.1] }, 4: { minhp: [20, 36], hpPot: [1.3, 2.5] } } }, expert: { win: [0.72, 0.92] }, builder: { win: [0.72, 0.92] } } }, magma: { normal: { average: { win: [0.55, 0.7], bossLost: [1.8, 2.5], bossPot: [1.5, 2.5], bossT: [40, 70], deathShare: 0.6 }, expert: { win: [0, 0.85] } } }, campaign: {
   easy: { average: { past: { 8: [0.85, 1] } } },
-  normal: { average: { past: { 8: [0.4, 0.6] }, deep: { lost: [1.5, 2.5], t: [20, 90] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 9: { minhp: [34, 50], hpPot: [0.6, 1.6] }, 10: { minhp: [30, 44], hpPot: [0.9, 1.8] }, 11: { minhp: [26, 40], hpPot: [1.2, 2.3] }, 12: { minhp: [18, 32], hpPot: [1.6, 2.8] },
+  normal: { average: { win: [0.5, 0.6], past: { 8: [0.4, 0.6] }, deep: { lost: [1.5, 2.5], t: [20, 90] }, bossFloor: 8, minhp: [25, 45], hpPot: [0.8, 2], floor: { 2: { hpPot: [0.4, 2] }, 7: { minhp: [25, 50] }, 8: { minhp: null, hpPot: null, winMinhp: [18, 45] }, 9: { minhp: [34, 50], hpPot: [0.6, 1.6] }, 10: { minhp: [30, 44], hpPot: [0.9, 1.8] }, 11: { minhp: [26, 40], hpPot: [1.2, 2.3] }, 12: { minhp: [18, 32], hpPot: [1.6, 2.8] },
     13: { minhp: [30, 46], hpPot: [0.9, 1.8] }, 14: { minhp: [26, 40], hpPot: [1.2, 2.3] }, 15: { minhp: [22, 36], hpPot: [1.5, 2.6] }, 16: { minhp: [15, 30], hpPot: [1.8, 3] } }, deathShare: 0.25, bossDied: [0.1, 0.2], pressure: true, chapters: { 12: { lost: [1.5, 2.5], pot: [0, 2], t: [20, 90] }, 16: { lost: [1.8, 2.5], pot: [1.5, 2.5], t: [40, 70] }, 2: { died: [0, 0.05], t: [15, 20] }, 4: { died: [0, 0.05] }, 6: { died: [0, 0.05] } }, bossLost: [1.5, 3], bossPot: [1, 2.5], bossT: [20, 30],
-    mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { past: { 8: [0, 0.85] } }, builder: BUILDER },
+    mobBlow: [6, 10], heavyBlow: [15, 25], lvlUp: [0.8, 2.2], meta: { run: 3, win: [0, 0.65] } }, expert: { win: [0.7, 0.8], past: { 8: [0, 0.85] } }, novice: { win: [0.2, 0.3] }, builder: BUILDER },
   hard: { average: { past: { 8: [0.1, 0.25] } }, expert: { past: { 8: [0.4, 0.6] } }, builder: BUILDER } } };
 function check() {
   const miss = failed.map((s) => `missing result: ${s}`), B = (BANDS[mode === 'town' ? 'campaign' : mode] || {})[diff] || {}, inB = (v, [a, b]) => v >= a - 1e-9 && v <= b + 1e-9;
@@ -207,7 +207,7 @@ function check() {
   if (miss.length) process.exitCode = 2;
 }
 const perFloor = (a, fn, dp) => Array.from({ length: FLOORS }, (_, i) => { const l = a.map((r) => r.floors.find((f) => f.floor === i + 1)).filter(Boolean); return l.length ? avg(l, fn).toFixed(dp) : '-'; }).join(' ');
-const botCmd = (p, s) => ['--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode].concat(DESCEND ? ['--descend'] : [], process.argv.includes('--no-town') ? ['--no-town'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : []);
+const botCmd = (p, s) => ['--profile', p, '--runs', String(runs), '--diff', diff, '--mode', mode].concat(DESCEND ? ['--descend'] : [], process.argv.includes('--no-town') ? ['--no-town'] : [], arg('--hours', '') ? ['--hours', arg('--hours', '')] : [], arg('--cls', '') ? ['--cls', arg('--cls', '')] : []);
 // results kept by the version of the game and the bot, the bot's driver and node, with every flag the bot gets (TASKS 467): a --check
 // again on the same seeds reads them instead of playing. A share of them is played afresh beside the rest and must come out the same
 // to the byte, or the version's whole cache is thrown away and the run fails

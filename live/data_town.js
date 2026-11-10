@@ -5,14 +5,17 @@
   const { plural, runOf, stageOf, xpNeed } = D;
   const QUESTS = {
     cull: { kind: 'side', type: 'kill', name: TXT('QUESTS.cull.name'), need: (f) => 10 + 2 * f, text: (q) => TXT('QUESTS.cull.text', { need: q.need, p2: TXT.n('QUESTS.cull.text.2', q.need), f: q.f }), rw: ['scroll', 'xp'] },
-    elites: { kind: 'side', type: 'kill', elite: 1, name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item'] },
+    elites: { kind: 'side', type: 'kill', elite: 1, name: TXT('QUESTS.elites.name'), need: (f) => 2 + Math.floor(f / 4), text: (q) => TXT('QUESTS.elites.text', { need: q.need, p2: TXT.n('QUESTS.elites.text.2', q.need), f: q.f }), rw: ['scroll', 'item', 'xp'] },
     sweep: { kind: 'side', type: 'clear', name: TXT('QUESTS.sweep.name'), need: (f) => 3 + Math.floor(f / 4), text: (q) => TXT('QUESTS.sweep.text', { need: q.need, p2: TXT.n('QUESTS.sweep.text.2', q.need), f: q.f }), rw: ['xp', 'shards'] },
-    descent: { kind: 'side', type: 'reach', name: TXT('QUESTS.descent.name'), need: () => 1, ahead: 2, text: (q) => TXT('QUESTS.descent.text', { f: q.f }), rw: ['scroll', 'shards'] },
+    descent: { kind: 'side', type: 'reach', name: TXT('QUESTS.descent.name'), need: () => 1, ahead: 2, text: (q) => TXT('QUESTS.descent.text', { f: q.f }), rw: ['scroll', 'shards', 'xp'] },
     // the named foe from the 3rd floor (TASKS 1024: on the 1st it killed the bot's level-1 hero on two seeds in six)
-    named: { kind: 'side', type: 'named', name: TXT('QUESTS.named.name'), need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => TXT('QUESTS.named.text', { f: q.f, title: q.title }), rw: ['scroll', 'item'], item: 3 },
+    named: { kind: 'side', type: 'named', name: TXT('QUESTS.named.name'), need: () => 1, fresh: 1, noBoss: 1, from: 3, text: (q) => TXT('QUESTS.named.text', { f: q.f, title: q.title }), rw: ['scroll', 'item', 'xp'], item: 3 },
     fetch: { kind: 'side', type: 'fetch', name: TXT('QUESTS.fetch.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.fetch.text', { thing: q.thing, f: q.f }), rw: ['scroll', 'xp'] },
     room: { kind: 'side', type: 'room', name: TXT('QUESTS.room.name'), need: () => 1, fresh: 1, noBoss: 1, text: (q) => TXT('QUESTS.room.text', { f: q.f }), rw: ['xp', 'shards'] },
-    chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f }), rw: ['shards', 'item'] },
+    rescue_smith: { kind: 'story', type: 'free', who: 'smith', name: TXT('QUESTS.rescue_smith.name'), ask: TXT('QUESTS.rescue_smith.ask'), thanks: TXT('QUESTS.rescue_smith.thanks'), need: () => 1, text: (q) => TXT('QUESTS.rescue_smith.text', { f: q.f }), rw: ['xp', 'scroll'] },
+    rescue_enchanter: { kind: 'story', type: 'free', who: 'enchanter', name: TXT('QUESTS.rescue_enchanter.name'), ask: TXT('QUESTS.rescue_enchanter.ask'), thanks: TXT('QUESTS.rescue_enchanter.thanks'), need: () => 1, text: (q) => TXT('QUESTS.rescue_enchanter.text', { f: q.f }), rw: ['xp', 'scroll'] },
+    rescue: { kind: 'story', type: 'free', who: 'merchant', name: TXT('QUESTS.rescue.name'), ask: TXT('QUESTS.rescue.ask'), need: () => 1, text: (q) => TXT('QUESTS.rescue.text', { f: q.f }), rw: ['xp', 'scroll'] },
+    chapter: { kind: 'story', type: 'boss', name: TXT('QUESTS.chapter.name'), need: () => 1, text: (q) => TXT('QUESTS.chapter.text', { f: q.f, boss: D.ENEMIES[stageOf('campaign', q.f).boss].name }), rw: ['shards', 'item'] },
     depths: { kind: 'story', type: 'reach', name: TXT('QUESTS.depths.name'), need: () => 1, text: (q) => TXT('QUESTS.depths.text', { f: q.f }), rw: ['shards', 'item'] },
   };
   // what a quest pointing at floor f gives on its turn-in (item: the reward piece's least rarity, 2 rare unless the template says)
@@ -21,70 +24,55 @@
   // (TASKS 1033) a reward is told by its kind, not its size: scrolls of return in place of gold (on the 1st floor 140 gold went to a
   // hero with thousands and nothing to buy), and the experience of the hero's own level, not the floor's (10 on the 1st floor read as
   // nothing): lvl is the hero's level when it is offered and again when it is turned in
-  const questReward = (rw, f, lvl) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 100 + 40 * f : k === 'scroll' ? 1 + (f >= 8 ? 1 : 0) : k === 'xp' ? Math.round(0.15 * xpNeed(Math.max(1, lvl || f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
+  const questReward = (rw, f, lvl) => Object.fromEntries(rw.map((k) => [k, k === 'gold' ? 100 + 40 * f : k === 'scroll' ? 1 + (f >= 8 ? 1 : 0) : k === 'xp' ? Math.round(0.3 * xpNeed(Math.max(1, lvl || f))) : k === 'shards' ? 3 + Math.floor(f / 2) : 1]));
   // who gives the side quests (TASKS 1018): a run draws QUEST_GIVE.n of them by its seed from the pool, each from a townsman of
   // its own; the floor a quest points at is set when it is taken, `ahead` floors past the deepest reached (one, unless the template
   // says). The Keeper gives the story chain (1022) and may give a side quest too
   const QUEST_GIVE = { n: [2, 3], from: ['smith', 'porter', 'sweeper', 'child', 'guard', 'keeper'], pool: ['named', 'fetch', 'room', 'cull', 'elites', 'sweep', 'descent'] };
   // the townsfolk's words around a quest: the ask, the thanks on the turn-in, and the keepsake each would have back (1020)
-  const QUEST_SAY = {
-    smith: { done: TXT('QUEST_SAY.smith.done'), ask: TXT('QUEST_SAY.smith.ask'), thanks: TXT('QUEST_SAY.smith.thanks'), thing: TXT('QUEST_SAY.smith.thing'), ic: 'qi_casket' },
-    porter: { done: TXT('QUEST_SAY.porter.done'), ask: TXT('QUEST_SAY.porter.ask'), thanks: TXT('QUEST_SAY.porter.thanks'), thing: TXT('QUEST_SAY.porter.thing'), ic: 'qi_casket' },
-    sweeper: { done: TXT('QUEST_SAY.sweeper.done'), ask: TXT('QUEST_SAY.sweeper.ask'), thanks: TXT('QUEST_SAY.sweeper.thanks'), thing: TXT('QUEST_SAY.sweeper.thing'), ic: 'qi_locket' },
-    child: { done: TXT('QUEST_SAY.child.done'), ask: TXT('QUEST_SAY.child.ask'), thanks: TXT('QUEST_SAY.child.thanks'), thing: TXT('QUEST_SAY.child.thing'), ic: 'qi_horse' },
-    guard: { done: TXT('QUEST_SAY.guard.done'), ask: TXT('QUEST_SAY.guard.ask'), thanks: TXT('QUEST_SAY.guard.thanks'), thing: TXT('QUEST_SAY.guard.thing'), ic: 'qi_casket' },
-    keeper: { done: TXT('QUEST_SAY.keeper.done'), ask: TXT('QUEST_SAY.keeper.ask'), thanks: TXT('QUEST_SAY.keeper.thanks'), thing: TXT('QUEST_SAY.keeper.thing'), ic: 'qi_locket' },
-  };
+  const SAY_OF = (r, ic) => { const T = TXT.talk(r); return { done: T.done, asks: T.asks, boss: T.boss, thanks: T.thanks, thing: T.thing || TXT('QUEST_SAY.keeper.thing'), ic }; };
+  const QUEST_SAY = Object.fromEntries(Object.entries({'smith': 'qi_casket', 'porter': 'qi_casket', 'sweeper': 'qi_locket', 'child': 'qi_horse', 'guard': 'qi_casket', 'keeper': 'qi_locket'}).map(([r, ic]) => [r, SAY_OF(r, ic)]));
   // the named foes (1019): a name and what it is, drawn for the quest; it walks as a strong elite of its floor's kind
 
   // the Keeper's story chain (TASKS 1022, a stub for R-04): a run's chapters as quests in order — each boss of the run's floors
   // (`chapter`), and the first floor of each of its later chapters (`depths`); R-04 will give the steps their own words
-  const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out;
-    for (let f = 1; f <= M.floors; f++) { if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); }
+  // who sits caged on which floor (TASKS 1328); boss: the cage stands in that floor's hall once its boss has fallen
+  const CAPTIVES = { merchant: { f: 1, quest: 'rescue', caged: TXT.talk('merchant').caged, free: TXT('sim_town.captive.free'), shut: TXT('sim_town.shopShut') },
+    smith: { f: 3, quest: 'rescue_smith', caged: TXT.talk('smith').caged, free: TXT('sim_town.captive.smith.free'), shut: TXT('sim_town.captive.smith.shut') },
+    enchanter: { f: 4, boss: 1, quest: 'rescue_enchanter', caged: TXT.talk('enchanter').caged, free: TXT('sim_town.captive.enchanter.free'), shut: TXT('sim_town.captive.enchanter.shut') } };
+  const storyChain = (mode) => { const M = runOf(mode), out = []; if (M.endless) return out; const caged = (f, late) => { if (mode === 'campaign') for (const c of Object.values(CAPTIVES)) if (c.f === f && !!c.boss === late) out.push({ key: c.quest, f }); };
+    for (let f = 1; f <= M.floors; f++) { caged(f, false); if ((M.chapters || []).some((c) => c.from === f)) out.push({ key: 'depths', f }); if (stageOf(mode, f).boss) out.push({ key: 'chapter', f }); caged(f, true); }
     return out; };
 
   // the town's workshops (R-32, TASKS 1013), a sink for spare gold and shards (389): the smith reforges a piece's own affixes for a
   // share of its price; the enchanter lays on up to three more, each dearer and riskier: a failure strips every enchantment
   // (strip share of failures) or spoils the piece (it loses one affix of its own)
-  const CRAFT = { reforge: 0.35, ench: { max: 3, gold: [0.3, 0.6, 1.2], shards: [3, 6, 12], fail: [0, 0.2, 0.4], strip: 0.6 } };
-  // the storage chest (R-33, TASKS 1012): gear left for the heroes to come, kept in the meta save with the item balance it was made under
-  const STASH = { max: 3, cells: (meta) => 1 + ((meta && meta.up && meta.up.vault) || 0) };
+  const CRAFT = { reforge: 0.35, ench: { max: 5, gold: [0.3, 0.6, 1.2, 2.4, 4.8], shards: [3, 6, 12, 24, 48], fail: [0, 0.01, 0.02, 0.05, 0.1] } };
+  // the storage chest (R-33, TASKS 1012, 1617): anything left for the heroes to come, kept in the meta save with the item balance it was made under
+  const STASH = { cells: 24 };
 
   // the townsfolk (R-17, TASKS 1015): a pair of lines when the hero comes up (the next pair the next time), the clock of the work
   // loop (per s; hit: the loop's impact phase, rest: every rest-th loop is a breather) and, for those with a round, the walking
   // speed and the pause at each stop. The sim's events (the anvil's ring, the keeper's sparks) and the render share one clock
   const FOLK = {
-    smith: { name: TXT('FOLK.smith.name'), per: 1.45, hit: 0.6, rest: 4, lines: [[TXT('FOLK.smith.lines'), TXT('FOLK.smith.lines.2')],
-      [TXT('FOLK.smith.lines.3'), TXT('FOLK.smith.lines.4')], [TXT('FOLK.smith.lines.5'), TXT('FOLK.smith.lines.6')]] },
-    enchanter: { name: TXT('FOLK.enchanter.name'), per: 7.5, hit: 0.55, lines: [[TXT('FOLK.enchanter.lines'), TXT('FOLK.enchanter.lines.2')],
-      [TXT('FOLK.enchanter.lines.3'), TXT('FOLK.enchanter.lines.4')], [TXT('FOLK.enchanter.lines.5'), TXT('FOLK.enchanter.lines.6')]] },
-    keeper: { name: TXT('FOLK.keeper.name'), per: 9, hit: 0.3, lines: [[TXT('FOLK.keeper.lines'), TXT('FOLK.keeper.lines.2')],
-      [TXT('FOLK.keeper.lines.3'), TXT('FOLK.keeper.lines.4')], [TXT('FOLK.keeper.lines.5'), TXT('FOLK.keeper.lines.6')]] },
-    guard: { name: TXT('FOLK.guard.name'), per: 8, lines: [[TXT('FOLK.guard.lines'), TXT('FOLK.guard.lines.2')], [TXT('FOLK.guard.lines.3'), TXT('FOLK.guard.lines.4')],
-      [TXT('FOLK.guard.lines.5'), TXT('FOLK.guard.lines.6')]] },
-    porter: { name: TXT('FOLK.porter.name'), per: 1.7, v: 34, lines: [[TXT('FOLK.porter.lines'), TXT('FOLK.porter.lines.2')],
-      [TXT('FOLK.porter.lines.3'), TXT('FOLK.porter.lines.4')], [TXT('FOLK.porter.lines.5'), TXT('FOLK.porter.lines.6')]] },
-    sweeper: { name: TXT('FOLK.sweeper.name'), per: 1.25, pause: 7, v: 20, lines: [[TXT('FOLK.sweeper.lines'), TXT('FOLK.sweeper.lines.2')],
-      [TXT('FOLK.sweeper.lines.3'), TXT('FOLK.sweeper.lines.4')], [TXT('FOLK.sweeper.lines.5'), TXT('FOLK.sweeper.lines.6')]] },
-    child: { name: TXT('FOLK.child.name'), per: 2.3, pause: 6, v: 42, lines: [[TXT('FOLK.child.lines'), TXT('FOLK.child.lines.2')],
-      [TXT('FOLK.child.lines.3'), TXT('FOLK.child.lines.4')], [TXT('FOLK.child.lines.5'), TXT('FOLK.child.lines.6')]] },
+    smith: { name: TXT('FOLK.smith.name'), job: TXT('FOLK.smith.job'), per: 1.45, hit: 0.6, rest: 4, lines: TXT.talk('smith').lines, topics: TXT.talk('smith').topics },
+    enchanter: { name: TXT('FOLK.enchanter.name'), job: TXT('FOLK.enchanter.job'), per: 7.5, hit: 0.55, lines: TXT.talk('enchanter').lines, topics: TXT.talk('enchanter').topics },
+    keeper: { name: TXT('FOLK.keeper.name'), job: TXT('FOLK.keeper.job'), per: 9, hit: 0.3, lines: TXT.talk('keeper').lines, topics: TXT.talk('keeper').topics },
+    guard: { name: TXT('FOLK.guard.name'), job: TXT('FOLK.guard.job'), per: 8, lines: TXT.talk('guard').lines, topics: TXT.talk('guard').topics },
+    porter: { name: TXT('FOLK.porter.name'), job: TXT('FOLK.porter.job'), per: 1.7, v: 34, lines: TXT.talk('porter').lines, topics: TXT.talk('porter').topics },
+    sweeper: { name: TXT('FOLK.sweeper.name'), job: TXT('FOLK.sweeper.job'), per: 1.25, pause: 7, v: 26, lines: TXT.talk('sweeper').lines, topics: TXT.talk('sweeper').topics },
+    child: { name: TXT('FOLK.child.name'), job: TXT('FOLK.child.job'), per: 2.3, pause: 6, v: 42, lines: TXT.talk('child').lines, topics: TXT.talk('child').topics, won: TXT.talk('child').won },
+    mason: { name: TXT('FOLK.mason.name'), job: TXT('FOLK.mason.job'), per: 1.3, hit: 0.7, v: 34, lines: TXT.talk('mason').lines, topics: TXT.talk('mason').topics },
+    merchant: { name: TXT('FOLK.merchant.name'), job: TXT('hud.shop.job'), topics: TXT.talk('merchant').topics },
     hen: { per: 2.2 },
   };
   // how long a pair of lines shows (each line half of it)
   const FOLK_SAY = 5;
   // the Keeper of the Fire (R-25, TASKS 1016): what he says when spoken to (E), by what has happened since he last spoke; each
   // event is a page of the dialogue, the most weighty first, each told once; with nothing new, a pair of his idle lines
-  const KEEPER = {
-    first: [TXT('KEEPER.first'), TXT('KEEPER.first.2'),
-      TXT('KEEPER.first.3')],
-    death1: [TXT('KEEPER.death1'), TXT('KEEPER.death1.2')],
-    death: [TXT('KEEPER.death'), TXT('KEEPER.death.2')],
-    win: [TXT('KEEPER.win'), TXT('KEEPER.win.2')],
-    boss: (name) => [TXT('KEEPER.boss', { name }), TXT('KEEPER.boss.2')],
-    rare: (name) => [TXT('KEEPER.rare', { name }), TXT('KEEPER.rare.2')],
-    away: [TXT('KEEPER.away'), TXT('KEEPER.away.2')],
-    end: [TXT('KEEPER.end')], endDeep: [TXT('KEEPER.endDeep')],
-  };
+  const KT = TXT.talk('keeper'), KE = KT.events, withName = (L) => (name) => L.map((p) => p.replace('{name}', name));
+  const KEEPER = { first: KT.first, death1: KE.death1, death: KE.death, win: KE.win, boss: withName(KE.boss), rare: withName(KE.rare), away: KE.away, end: KE.end, endDeep: KE.endDeep, cls: (cls) => KE.cls[0].replace('{cls}', cls) };
+  const STORY = { boss: KT.story, depths: KT.depths, rescueThanks: KT.rescueThanks };
   // a townsperson's loop clock: its own rate and phase per instance, so no two move in sync
   const folkClock = (role, i, t) => { const per = FOLK[role].per * (1 + 0.12 * (((i * 0.618) % 1) - 0.5)), x = (t + i * 1.37) / per, n = Math.floor(x); return { n, u: x - n, per }; };
 
@@ -93,5 +81,10 @@
   const folkInit = (npcs) => npcs.map((n, i) => { const r = n.route, k = r ? r.findIndex((q) => Math.hypot(q.x - n.x, q.y - n.y) < 12) : -1, w = r ? (k >= 0 ? k : r.length - 1) : -1;
     return { i, role: n.role, x: r ? r[w].x : n.x, y: r ? r[w].y : n.y, face: 0, dist: 0, vx: 0, vy: 0, spd: 0, way: w, go: 0, t0: -i * 1.9, load: 0, lift: 0, stuck: 0, sayT: -9, byeT: -9, sayN: -1, near: 0 }; });
 
-  Object.assign(D, { QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
+  const NOTE_LIST = (globalThis.TEXT || {}).notes || [];
+  // a series by its era and name, its parts' ids in order
+  const chainOf = (n) => n.id.split('_')[0] + ':' + n.chain, CHAINS = {};
+  for (const n of NOTE_LIST) if (n.chain) (CHAINS[chainOf(n)] = CHAINS[chainOf(n)] || [])[n.part - 1] = n.id;
+  const NOTES = { lift: { table: 36, bookshelf: 58 }, n: [3, 5], era: { dungeon: 'cellar', crypt: 'crypt', lava: 'forge', arcane: 'halls', cave: 'flooded', magma: 'magma' }, list: NOTE_LIST, byId: Object.fromEntries(NOTE_LIST.map((n) => [n.id, n])), chains: CHAINS, chainOf };
+  Object.assign(D, { CAPTIVES, NOTES, STORY, QUESTS, questReward, QUEST_GIVE, QUEST_SAY, storyChain, CRAFT, STASH, FOLK, FOLK_SAY, KEEPER, folkClock, folkInit });
 })(typeof window !== 'undefined' ? window : globalThis);

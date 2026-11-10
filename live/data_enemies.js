@@ -93,11 +93,11 @@
   const bossPhase = (e) => BOSSES[e.type].phases[e.phase || 0] || BOSSES[e.type].phases[0];
   const bossMove = (e) => Object.assign({}, BOSSES[e.type].moves[e.mv || 'slam'], (bossPhase(e).changes || {})[e.mv]);
   const ENEMIES = {
-    boss_serpent: { name: TXT('ENEMIES.boss_serpent.name'), hp: BOSSES.boss_serpent.hp, dmg: BOSSES.boss_serpent.dmg, spd: 0, r: 28, reach: 60, wind: 0.85, cd: 1.35, xp: 300, kind: 'serpent', h: 154, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9] },
-    boss_colossus: { name: TXT('ENEMIES.boss_colossus.name'), hp: BOSSES.boss_colossus.hp, dmg: BOSSES.boss_colossus.dmg, spd: 44, r: 38, reach: 70, wind: 0.9, cd: 1.6, xp: 400, kind: 'boss', h: 230, val: 1.1, tint: [1.1, 1.04, 0.88, 1], lava: 1, lake: 1, heavy: 1, rim: [1, 0.42, 0.12] },
-    boss_forge: { name: TXT('ENEMIES.boss_forge.name'), hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
-    boss_necro: { name: TXT('ENEMIES.boss_necro.name'), hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
-    boss_spider: { name: TXT('ENEMIES.boss_spider.name'), hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
+    boss_serpent: { name: TXT('ENEMIES.boss_serpent.name'), title: TXT('ENEMIES.boss_serpent.title'), hp: BOSSES.boss_serpent.hp, dmg: BOSSES.boss_serpent.dmg, spd: 0, r: 28, reach: 60, wind: 0.85, cd: 1.35, xp: 300, kind: 'serpent', h: 154, deep: 1, blood: 'water', rim: [0.45, 0.85, 0.9] },
+    boss_colossus: { name: TXT('ENEMIES.boss_colossus.name'), title: TXT('ENEMIES.boss_colossus.title'), hp: BOSSES.boss_colossus.hp, dmg: BOSSES.boss_colossus.dmg, spd: 44, r: 38, reach: 70, wind: 0.9, cd: 1.6, xp: 400, kind: 'boss', h: 230, val: 1.1, tint: [1.1, 1.04, 0.88, 1], lava: 1, lake: 1, heavy: 1, rim: [1, 0.42, 0.12] },
+    boss_forge: { name: TXT('ENEMIES.boss_forge.name'), title: TXT('ENEMIES.boss_forge.title'), hp: BOSSES.boss_forge.hp, dmg: BOSSES.boss_forge.dmg, spd: 48, r: 35, reach: 60, wind: 0.8, cd: 1.6, xp: 130, kind: 'boss', h: 190, tint: [0.75, 0.6, 0.6, 0.7], val: 0.6, rim: [1, 0.4, 0.12] },
+    boss_necro: { name: TXT('ENEMIES.boss_necro.name'), title: TXT('ENEMIES.boss_necro.title'), hp: BOSSES.boss_necro.hp, dmg: BOSSES.boss_necro.dmg, spd: 48, r: 22, reach: 80, wind: 0.7, cd: 1.6, xp: 95, kind: 'boss', h: 139, rim: [0.3, 1, 0.7], tint: [0.3, 1.15, 0.85, 1] },
+    boss_spider: { name: TXT('ENEMIES.boss_spider.name'), title: TXT('ENEMIES.boss_spider.title'), hp: BOSSES.boss_spider.hp, dmg: BOSSES.boss_spider.dmg, spd: 50, r: 32, reach: 65, wind: 0.7, cd: 1.6, xp: 55, kind: 'boss', h: 117, webImmune: 1, blood: 'ichor', tint: [0.6, 0.6, 1.4, 0.8] },
     skeleton: { name: TXT('ENEMIES.skeleton.name'), hp: 30, dmg: 8, spd: 68, r: 13, reach: 36, wind: 0.52, cd: 1.2, xp: 8, kind: 'melee', h: 76, blood: 'bone' },
     goblin: { name: TXT('ENEMIES.goblin.name'), hp: 20, dmg: 6, spd: 104, r: 10, reach: 28, wind: 0.30, cd: 0.9, xp: 6, kind: 'melee', h: 72, tint: [0.55, 1.2, 0.6, 0.95] },
     spider: { name: TXT('ENEMIES.spider.name'), hp: 18, dmg: 5, spd: 92, r: 15, reach: 76, wind: 0.36, cd: 1.6, xp: 7, kind: 'lunge', h: 53, webImmune: 1, poison: 1, blood: 'ichor', rim: [0.45, 0.65, 1], tint: [0.45, 0.6, 1.35, 0.8] },
@@ -110,6 +110,10 @@
     // the slime (TASKS 308) hops at the hero: a squash on the wind-up, `jump.t` s in the air to where the hero stood, the blow on
     // landing; it splits in two small ones on death (they never split again) and leaves a puddle that slows everyone but slimes.
     // The small ones are raised like a summoner's skeletons (summ): a little XP, no loot, no part in the floor's count
+    // the mimic (TASKS 367) wakes when its chest is opened or struck (a chest of the floor, flag `mimic`, dungeon_fill), rises in `rise` s,
+    // then bites in hops as the slime does; raised like a summoner's skeleton (summ), so it is no part of the floor's count; its
+    // chest's loot falls where it dies
+    mimic: { name: TXT('ENEMIES.mimic.name'), hp: 62, dmg: 12, spd: 26, r: 16, reach: 150, wind: 0.55, cd: 0.95, xp: 18, kind: 'hop', h: 56, blood: 'shell', mimic: 1, rise: 0.7, jump: { t: 0.42, h: 52, land: 0.36 } },
     slime: { name: TXT('ENEMIES.slime.name'), hp: 30, dmg: 8, spd: 40, r: 15, reach: 105, wind: 0.5, cd: 1.5, xp: 9, kind: 'hop', h: 44, blood: 'slime', split: 'slime_s', jump: { t: 0.46, h: 46, land: 0.4 }, puddle: { r: 34, t: 10 } },
     slime_s: { name: TXT('ENEMIES.slime_s.name'), hp: 10, dmg: 4, spd: 52, r: 10, reach: 80, wind: 0.4, cd: 1.3, xp: 2, kind: 'hop', h: 28, blood: 'slime', jump: { t: 0.38, h: 32, land: 0.34 }, puddle: { r: 20, t: 6 } },
     // the armoured crab (TASKS 309) faces its way (fa, rad), turning toward the hero at only `turn` rad/s: a blow, bolt or blast from within
@@ -165,7 +169,7 @@
     golem: { name: TXT('ENEMIES.golem.name'), hp: 140, dmg: 20, spd: 36, r: 24, reach: 48, wind: 1.0, cd: 2.4, xp: 34, kind: 'golem', h: 124, heavy: 1, rim: [1, 0.45, 0.15],
       crust: { n: 4, k: 0.25, regrow: 1.4, calm: 3, far: 150 }, slam: { r: 82, at: 46 }, pool: { r: 52, ry: 0.6, t: 3.5, dmg: 0.3, per: 0.5, arm: 0.5 } },
     brute: { name: TXT('ENEMIES.brute.name'), hp: 120, dmg: 18, spd: 52, r: 23, reach: 46, wind: 0.7, cd: 2.0, xp: 30, kind: 'slam', h: 112, tint: [1.0, 0.68, 0.72, 0.9] },
-    boss: { name: TXT('ENEMIES.boss.name'), hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
+    boss: { name: TXT('ENEMIES.boss.name'), title: TXT('ENEMIES.boss.title'), hp: BOSSES.boss.hp, dmg: BOSSES.boss.dmg, spd: 48, r: 36, reach: 56, wind: BOSSES.boss.moves.slam.wind, cd: 1.6, xp: 300, kind: 'boss', h: 180 },
   };
 
   // elites over a regular monster of their kind, brought up to the floor-2 exit guard (the elite demon, kept as it was): hard to
@@ -185,7 +189,7 @@
     : k === 'wind' ? Math.max(ELITE.wind, Math.min(1, ELITE.minWind / ENEMIES[e.type].wind)) : ELITE[k];
   // a deep-water monster under the surface (TASKS 310): out of sight and out of reach
   const under = (e) => (!!ENEMIES[e.type].deep && (e.st === 'deep' || e.st === 'stir' || e.st === 'dive' || (e.type === 'boss_serpent' && e.st === 'idle'))) || (!!ENEMIES[e.type].lake && (e.st === 'idle' || e.st === 'emerge'));
-  const windOf = (e, w) => w * eliteK(e, 'wind');
+  const windOf = (e, w) => w * eliteK(e, 'wind') * (e.cold || 1);
   // an elite's powers: one up to floor 3, then one or two, two from floor 6; each is seen in its aura's colour and its name
   const ELITE_MODS = [
     { id: 'fiery', name: TXT('ELITE_MODS.fiery.name'), col: [1.0, 0.42, 0.08], burn: 3 },
@@ -265,7 +269,9 @@
   // against a plateau's
 
   const FEM = new Set(['salamander', 'boss_spider']), femAdj = (w) => TXT.fem(w);
-  const eliteName = (e) => e.title || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name).map((w) => (FEM.has(e.type) ? femAdj(w) : w)), ENEMIES[e.type].name]
+  const ELITE_GROUP = { skeleton: 'bones', skel_archer: 'bones', skel_mage: 'bones', skel_ember: 'bones', ghost: 'ghost', cultist: 'cult', fire_priest: 'cult', drowned: 'drowned', spider: 'spider', crab: 'crab', eel: 'eel', slime: 'slime', slime_s: 'slime', salamander: 'salamander', goblin: 'goblin', imp: 'imp', brute: 'demon', golem: 'golem' };
+  const ELITE_NAMES = (globalThis.TEXT || {}).names || {};
+  const eliteName = (e) => e.title || e.nm || [...(e.mods || []).map((id) => ELITE_MODS.find((m) => m.id === id).name).map((w) => (FEM.has(e.type) ? femAdj(w) : w)), ENEMIES[e.type].name]
     .map((w, i) => (i ? w.toLowerCase() : w)).join(' ');
 
   const NAMED = { hp: 1.3, titles: [TXT('NAMED.titles'), TXT('NAMED.titles.2'), TXT('NAMED.titles.3'), TXT('NAMED.titles.4'), TXT('NAMED.titles.5'), TXT('NAMED.titles.6'), TXT('NAMED.titles.7'), TXT('NAMED.titles.8')] };
@@ -278,5 +284,5 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
 
-  Object.assign(D, { BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt });
+  Object.assign(D, { ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt });
 })(typeof window !== 'undefined' ? window : globalThis);

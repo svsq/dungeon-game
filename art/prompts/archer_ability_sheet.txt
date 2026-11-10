@@ -1,0 +1,6 @@
+Use case: three square ability icons for the HUD skill bar of the same dungeon RPG. Image 1 is the style reference only. Image 2 is the game's ability icon sheet (a whirlwind sword strike, a fireball, a crystal shield) and Image 3 the mage's ice wave icon: match those icons exactly in size, square format, framing, outline, palette and shading.
+Subject: three separate square icons in one row with wide gaps, each a full square tile with its own dark background inside the square:
+1) a volley: a fan of five arrows with cream fletching flying outward from the lower left toward the upper right, on a dark warm ochre-brown background;
+2) a hunting trap: open iron jaws of a bear trap with sharp teeth seen from above, on a dark slate background;
+3) a leap: a small archer silhouette springing backwards in an arc with a loosed arrow flying the other way, motion lines, on a dark olive-grey background.
+Constraints: exactly 3 square icons, no frames around them, no text.

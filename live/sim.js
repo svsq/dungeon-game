@@ -5,10 +5,10 @@
 (function (root) {
   if (typeof module !== 'undefined') for (const f of require('./modules.js').parts.sim) require('./' + f);
   const SIMX = root.SIMX, {
-    ARROW_Y, CRUST, D, DEMO_SEED, DOOM, DT, ENEMIES, FOLK_OUCH, HINT, K, L, LOOT, REWARD, RIG, TILE, UI, VIEW, atBoard, atCounter, atCraft,
+    overLava, ARROW_Y, CRUST, D, DEMO_SEED, DOOM, DT, ENEMIES, FOLK_OUCH, HINT, K, L, LOOT, REWARD, RIG, TILE, UI, VIEW, atBoard, atCounter, atCraft,
     atExitGate, atGate, atSoulAltar, atStash, boardOffers, brinkOf, canDonate, cell, chasm, completion, completionHints, craftCost, craftItem, crustAt,
     campaignDone, damageName, debugSecrets, dep, doorLock, exitKind, doorNear, enterFloor, ev, flightReach, flow, folkNear, fstat, gateNear, gateWays, gift,
-    giveQuest, hand, hidden, hitProps, hitSecret, isCons, itemIcon, itemMods, itemName, journalOf, keeperPages, killEnemy, leverNear,
+    noteNear, captiveNear, shopShut, craftShut, giveQuest, hand, hidden, hitProps, isCons, itemIcon, itemMods, itemName, journalOf, keeperPages, killEnemy, leverNear,
     lootAudit, losClear, newQuest, newRun, offerOf, offersOf, openChest, openDoor, openSecret, pullLever, questFloor, questIcon, questLine,
     questMark, questMarks, questOn, questPlace, questTalk, rebalanceRun, rebuildArrival, rollItem, runCompletion, runReward, rwLine,
     secretMask, serpentMouth, springAmbush, stashOf, stats, stepBossMove, stepLen, stepPlay, stepUI, stockShop, storyStep, takeQuest, toPx,
@@ -22,16 +22,23 @@
     R.msg = null; S.ev = []; S.saveN = 0; void room;
     return S;
   }
-  function base() { return { t: 0, steps: 0, wt0: 0, ev: [], screen: 'menu', hover: '', meta: { shards: 0, up: {}, runs: 0, wins: 0, best: 0 }, run: null, saved: null,
+  function base() { return { t: 0, steps: 0, wt0: 0, ev: [], screen: 'menu', hover: '', meta: { shards: 0, up: {}, runs: 0, wins: 0, best: 0 }, run: null, saved: null, saves: Array(D.SAVE_SLOTS).fill(null), slot: 0,
     saveN: 0, result: null, demo: 0, seedBase: 1, prevKeys: {} }; }
   // play start: the menu, with the persisted meta progress and the saved run (index.html reads localStorage)
   const spawn = (worldT, persist = {}) => { const S = base(); S.wt0 = worldT; S.seedBase = (Math.floor(worldT * 1000) % 100000) + 1;
-    if (persist.meta) S.meta = Object.assign(S.meta, persist.meta, { up: Object.assign({}, persist.meta.up || {}) }); if (persist.run && persist.run.map) { S.saved = persist.run; rebalanceRun(S.saved); SIMX.regate(S.saved); S.t = Math.max(S.t, persist.run.t || 0) + DT; } return S; };
+    if (persist.meta) S.meta = Object.assign(S.meta, persist.meta, { up: Object.assign({}, persist.meta.up || {}) });
+    // the «Мешок» ranks of 1340 (+3 cells each) become pouches, one for every two ranks bought (TASKS 1687)
+    if (S.meta.up.bag) { S.meta.up.pouch = Math.max(S.meta.up.pouch || 0, Math.min(D.BAG.max, Math.ceil(S.meta.up.bag / 2))); delete S.meta.up.bag; } if (S.meta.zoom !== undefined) S.meta.zoom = D.zoomFix(S.meta.zoom); SIMX.statsOf(S); if (persist.run && persist.run.map) { S.saved = persist.run; rebalanceRun(S.saved); SIMX.migrateSecrets(S.saved); SIMX.regate(S.saved); S.t = Math.max(S.t, persist.run.t || 0) + DT; }
+    SIMX.loadSaves(S, persist); fitBag(S, S.saved); return S; };
+  // a run saved before a pouch was bought gets the pouch's empty cells on the end of its bag; nothing in it moves
+  const fitBag = (S, R) => { const B = R && R.hero && R.hero.bag; if (!B) return; for (let n = D.bagLen(S.meta.up); B.length < n;) B.push(null); };
   const respawn = (S) => S;
   const outOfPlay = () => false;
 
   function step(S, inp = {}) {
-    rebalanceRun(S.run); rebalanceRun(S.saved); if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
+    if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
+    S.pressWas = !!inp.press;
+    rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     if (S.screen === 'play' && S.run) {
@@ -76,17 +83,18 @@
     const S = cache.S; while (S.steps < n) { const inp = scriptInput(S.t, S); step(S, inp); }
     return Object.assign({}, S, { loop, q });
   }
-  const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
+  const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null, slot: S.slot, saves: S.saves });
 
   root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, persist,
-    stepLen, stats, gift, itemName, hitSecret, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
+    stepLen, stats, gift, itemName, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
   // what the render may ask the sim (ARCHITECTURE.md §8): reads of the state, never a change to it (fstat fills a memo the step
   // has already filled; at replays the attract demo into its own cache). The render takes nothing else from SIM but constants
+  root.SIM.chooseFork = SIMX.chooseFork;
   root.SIM.Q = {
-    at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
-    atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
-    exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, lootAudit, questIcon, questLine, questMark, questMarks,
-    rwLine, stashOf, tradeDepth, typeMods };
+    depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
+    noteNear, captiveNear, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
+    exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
+    rwLine, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, isFull: SIMX.isFull };
   Object.assign(SIMX, {
     spawn, step, scriptInput, persist });
   if (typeof module !== 'undefined') { require('./sim_checks.js'); module.exports = root.SIM; }
