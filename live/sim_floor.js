@@ -41,10 +41,12 @@
   // RNG; deterministic from R.rs and R.nextId, so a floor kept as a diff (TASKS 1008) is rebuilt and patched, not stored whole
   // a floor is generated anew on each trip home and back (stash and restore, TASKS 1008): the generator is a pure function of its
   // arguments, so a few of its maps are kept and handed out as copies (TASKS 467)
-  const GEN = new Map();
+  const GEN = new Map(); let genMax = 8;
+  // SCENE.QA() lays a few dozen floors over and over for its hundreds of states: it keeps them all while it builds (TASKS 1697)
+  const genKeep = (n) => { genMax = n; while (GEN.size > n) GEN.delete(GEN.keys().next().value); };
   function genKept(kind, seed, f, opts) {
     const key = kind + ':' + seed + ':' + f + ':' + JSON.stringify(opts || null); let m = GEN.get(key);
-    if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= 8) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
+    if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= genMax) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
     return structuredClone(m);
   }
   // a run saved in the town before the mason's yard (TASKS 1151): its map is rebuilt from the run's seed; the townsfolk and the cart start over on it
@@ -301,6 +303,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, genKeep, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);
