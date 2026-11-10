@@ -7,7 +7,7 @@ decals are Codex art since 421.
   banner_mg       the cult banner hung from a crossbar between two iron posts (it stands on the plateau, no wall to hang on)
   forge_mg        forge_tw's slate, brick and iron re-shaded into basalt, the fire (hot warm pixels) kept as drawn
   stairs_mg, stairs_up_mg, stairs_up_free_mg  stairs, stairs_up and stairs_up_free re-shaded into basalt, the treads keeping their light and dark steps;
-                  stairs_up_mg only its opening, cut in the wall (TASKS 1728)
+                  stairs_up_mg only its opening, cut in the wall (TASKS 1730)
   python3 tools/magmaprops.py [--only name1,name2]
 """
 import sys
@@ -84,7 +84,7 @@ HEWN_PX = 16
 
 
 def hewn(im):
-    """the steps up as a hole cut in the magma wall (TASKS 1728): only the opening is drawn, the wall the map paints around it shows,
+    """the steps up as a hole cut in the magma wall (TASKS 1730): only the opening is drawn, the wall the map paints around it shows,
     so the masonry no longer stands out from the basalt by colour and texture; the treads warm and dim towards the floor's tone, a
     dark rim edges the cut, and a ragged lip of lit stone over its arch keeps it read against the dark rock above"""
     a = np.asarray(im.convert('RGBA')).astype(float); H, W = a.shape[:2]

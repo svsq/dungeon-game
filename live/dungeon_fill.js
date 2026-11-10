@@ -100,7 +100,7 @@
           for (let j = 0; j < rows && ok; j++) for (let i = -wide; i <= wide && ok; i++) if (!clearAt(x + i, y + j)) ok = false;
           // (and no chest a step off them: E by the steps opened it, not the way up, TASKS 373's small start rooms put them out among the rooms)
           if (ok) { for (let j = 0; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: (y - 1) * TILE + TILE / 2, tx: x, ty: y - 1 }; break; } } }
-      // a plateau far from its top wall raises a stub of wall for its steps (the player's decision 10.11.2026, TASKS 1728: steps
+      // a plateau far from its top wall raises a stub of wall for its steps (the player's decision 10.11.2026, TASKS 1730: steps
       // standing alone on the floor looked unnatural): a block of wall behind them, raised from the floor or out of the chasm by the
       // plateau's edge, clear floor before them, and every cell reached before still reached
       if (!up && plat) { const S = AR.stub, cand = [], reach = (block) => { const seen = new Uint8Array(W * H), q = [start.cy * W + start.cx]; seen[q[0]] = 1; let n = 0;
@@ -789,7 +789,7 @@
       if (kind === 'diagonal') { const dir = R() < 0.5 ? 1 : -1, n = Math.min(4, Math.floor((r.w - 2) / 3));
         for (let k = 0; k < n; k++) near(r, dir > 0 ? r.x + 1 + k * 3 : r.x + r.w - 3 - k * 3, r.y + 1 + Math.round(k * (r.h - 4) / Math.max(1, n - 1)), ph + k * 0.12); }
       if (kind === 'scatter' || traps.length - n0 < 2) for (let i = traps.length - n0, n = ri(2, 4), k = 0; i < n && k < 40; k++) { if (plate(r, ri(r.x + 1, r.x + r.w - 3), ri(r.y + 1, r.y + r.h - 3), R())) i++; } }
-    // the magma's lava, vents and rocks are danger enough (the player's decision 10.11.2026, TASKS 1727): its rooms take no plates.
+    // the magma's lava, vents and rocks are danger enough (the player's decision 10.11.2026, TASKS 1729): its rooms take no plates.
     // A lava cave keeps a plate or two, each on the way in to a chest or an altar, and clear of rock all round, or its spikes stood
     // over the rock face
     if (plat && ftype === 'cave') { const G = D.ARCH.plateau.guard, from = new Int32Array(W * H).fill(-2), s0 = (start.cy + 2) * W + start.cx, q = [s0]; from[s0] = -1;
