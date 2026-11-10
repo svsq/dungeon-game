@@ -223,6 +223,11 @@
   // the magma caves' hazards (TASKS 406, data.js HAZ): each on its own clock; the warning and the burst are events (the scene's
   // ring, glow and shadow are drawn from the clock itself), the burst hurts everyone in its ring once a cycle, monsters too: lure
   // them onto a vent. The hero's hit is a share of his health past armour, as spikes, and a dash leaps it
+  // a gate saved before its axis was kept (a run continued from dev's save, its live map never rebuilt): the row's vents lie across
+  // the passage, so the way through runs across the row; a lone vent takes the axis the hero comes along
+  function gateAxis(m, z, h) {
+    const row = m.hazards.filter((o) => o.gate && o.ph === z.ph && o !== z), dx = row.length ? Math.abs(row[0].x - z.x) : Math.abs(h.vx) || Math.abs(h.x - z.x), dy = row.length ? Math.abs(row[0].y - z.y) : Math.abs(h.vy) || Math.abs(h.y - z.y);
+    for (const o of [z, ...row]) { o.ax = row.length ? +(dx < dy) : +(dx >= dy); o.ay = 1 - o.ax; } }
   function stepHazards(S, R) {
     const m = R.map, h = R.hero, t = S.t, dashing = t - h.dashT < BAL.dodge.t;
     m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(t / z.per + z.ph), tag = R.floor + ':' + (z.gate ? 'g' + z.ph : i);
@@ -231,6 +236,7 @@
       if (c >= H.burst) return;
       if (h.hp > 0 && D.hazIn(z, h.x, h.y) && !dashing && (h.haz || (h.haz = {}))[tag] !== n) { h.haz[tag] = n;
         // a gate costs time, not health (TASKS 1710, the player's decision on 1645): thrown back the way he came and stunned a moment
+        if (z.gate && z.ax === undefined) gateAxis(m, z, h);
         if (z.gate) { const G = H.gate, along = h.vx * z.ax + h.vy * z.ay, s = Math.abs(along) > 20 ? -Math.sign(along) : Math.sign((h.x - z.x) * z.ax + (h.y - z.y) * z.ay) || -1;
           h.stag = { t0: t, t: t + G.stun, vx: s * z.ax * 2 * G.kb / G.stun, vy: s * z.ay * 2 * G.kb / G.stun }; }
         SIMX.hurtHero(S, R, SIMX.heroSt(S).maxHp * H.hp * (z.gate ? H.gate.hp : 1), z.k === 'surge' ? h.x : z.x, (z.k === 'surge' ? h.y : z.y) - 10, 'spike', z.k === 'vent' ? 'vent' : z.k === 'surge' ? 'surge' : 'rock');
