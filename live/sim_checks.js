@@ -73,7 +73,14 @@
       if (!isFull(F)) out.push('saves: five runs do not fill the slots');
       at(F, UI.menu(true, F.meta.diff, 0, F.meta.zoom, true), 'campaign'); if (F.screen !== 'menu' || F.resetM !== 'campaign') out.push('saves: with every slot taken one press starts a run');
       at(F, UI.menu(true, F.meta.diff, 'campaign', F.meta.zoom, true), 'campaign'); key(F, 'Enter');
-      if (!F.run || F.slot !== 2 || F.saves.filter(Boolean).length !== 4 || F.saves.some((r) => r && r.seed === 32)) out.push('saves: a second press with every slot taken does not replace the saved run in its slot'); }
+      if (!F.run || F.slot !== 2 || F.saves.filter(Boolean).length !== 4 || F.saves.some((r) => r && r.seed === 32)) out.push('saves: a second press with every slot taken does not replace the saved run in its slot');
+      const E = spawn(0, {}); E.saves[3] = J(newRun(E, 'campaign', 41)); E.saves[3].at = 5; E.saves[1] = J(newRun(E, 'campaign', 42)); E.saves[1].at = 9;
+      E.run = newRun(E, 'campaign', 43); E.slot = 0; E.screen = 'play'; endRun(E, 'dead'); E.screen = 'menu';
+      if (!E.saved || E.saved.seed !== 42 || E.slot !== 1 || E.saves[1] || !E.saves[3] || !UI.menu(!!E.saved).some((b) => b.id === 'continue')) out.push('saves: after a death «Продолжить» does not name the latest run of the other slots');
+      at(E, UI.menu(true, E.meta.diff, 0, E.meta.zoom, isFull(E)), 'continue'); if (E.screen !== 'play' || !E.run || E.run.seed !== 42) out.push('saves: «Продолжить» after a death does not load the other slot\'s run');
+      const E2 = spawn(0, {}); E2.run = newRun(E2, 'campaign', 44); E2.screen = 'play'; endRun(E2, 'dead'); E2.screen = 'menu';
+      if (E2.saved || UI.menu(!!E2.saved).some((b) => b.id === 'continue') || spawn(1, J(persist(E2))).saved) out.push('saves: «Продолжить» shows with no run in any slot');
+      const E3 = spawn(1, J({ meta: E.meta, run: null, slot: 0, saves: [null, null, Object.assign(J(old), { at: 3 }), null, null] })); if (!E3.saved || E3.slot !== 2) out.push('saves: a load with no named run does not name the run in the slots'); }
     for (let lvl = 1; lvl <= 32; lvl++) for (const slot of D.SLOTS) {
       const bases = Object.keys(BASES).filter((b) => BASES[b].slot === slot);
       for (const b of bases) for (let rar = 0; rar < RARITY.length; rar++) {

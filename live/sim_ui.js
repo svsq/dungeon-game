@@ -24,7 +24,7 @@
       damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
     if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
-    S.run = null; S.saved = null; S.screen = how; S.saveN++;
+    S.run = null; S.saved = null; pickLatest(S); S.screen = how; S.saveN++;
   }
   // the run ended alive past the campaign's last boss (TASKS 1148): a win, the campaign's if not won yet at the stairs on
   function finishRun(S) { S.talk = null; S.screen = 'play'; endRun(S, 'win'); }
@@ -49,7 +49,13 @@
     S.saves = Array.from({ length: n }, (_, i) => (list[i] && list[i].map ? list[i] : null));
     for (const R of S.saves) if (R) { SIMX.rebalanceRun(R); SIMX.migrateSecrets(R); SIMX.regate(R); }
     S.slot = Number.isInteger(P.slot) && P.slot >= 0 && P.slot < n ? P.slot : 0;
-    if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; } }
+    if (S.saved && S.saves[S.slot]) { const j = S.saves.indexOf(null); if (j >= 0) S.saves[j] = S.saves[S.slot]; S.saves[S.slot] = null; }
+    pickLatest(S); }
+  // with no run named on the menu, the one played last of the other slots takes its place, so «Продолжить» stays while any slot
+  // holds a run (TASKS 1721)
+  function pickLatest(S) { if (S.run || S.saved) return; let j = -1;
+    S.saves.forEach((r, i) => { if (r && (j < 0 || (r.at || 0) > (S.saves[j].at || 0))) j = i; });
+    if (j >= 0) { S.slot = j; S.saved = S.saves[j]; S.saves[j] = null; } }
   // a new run takes the first free slot and the saved one goes back to its own; with every slot taken it replaces the saved run
   // (the menu asks twice before that), or with none named the one played longest ago
   function takeSlot(S) { if (S.saved && !isFull(S)) S.saves[S.slot] = S.saved; S.saved = null;
@@ -59,7 +65,7 @@
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
     resume(S, R); S.saveN++; return true; }
-  function dropSlot(S, i) { if (i === S.slot && S.saved) S.saved = null; else S.saves[i] = null; S.saveN++; }
+  function dropSlot(S, i) { if (i === S.slot && S.saved) S.saved = null; else S.saves[i] = null; pickLatest(S); S.saveN++; }
   function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
