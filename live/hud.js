@@ -740,7 +740,6 @@
     for (const b of U.filter((q) => q.cls)) {
       const Cl = D.CLASSES[b.cls], on = cur === b.cls, st = KIT.st(S, b.id), hot = st.hover || st.focus;
       KIT.nine('leather', b.x, b.y, b.w, b.h); KIT.paper(b.x + 22, b.y + 22, b.w - 44, b.h - 44, { u: hot && !on ? { grade: [1.06, 1.1, 0, 1.03] } : undefined });
-      if (st.focus) KIT.focus(b.x, b.y, b.w, b.h, 4);
       const ix = b.x + 34, iw = b.w - 68; L.uiBox('cl_card' + b.cls, ix, b.y + 30, iw, b.h - 50, 0);
       KIT.nine('cell', b.x + (b.w - 236) / 2, b.y + 38, 236, 200);
       const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
@@ -830,15 +829,14 @@
     KIT.corners({ x: U.B.x + 40, y: U.B.y + 40, w: U.B.w - 80, h: U.B.h - 80 }, 0.6);
     KIT.banner('ld_t', W / 2, U.B.y - 30, 620, TXT('hud.load'), { h: 96, size: 44 });
     for (const r of U.rows) { const R = SIM.Q.slotRun(S, r.i), st = KIT.st(q, r.id), on = r.i === sel;
-      KIT.nine('btn', r.x, r.y, r.w, r.h, { u: { grade: on ? [1.04, 1.1, 0, 1.04] : st.hover ? [1.02, 1.06, 0, 1.02] : R ? [1, 1, 0, 1] : [0.9, 0.8, 0, 0.97] } });
+      KIT.nine('btn', r.x, r.y, r.w, r.h, { u: { grade: on ? [1.04, 1.1, 0, 1.04] : st.hover || st.focus ? [1.02, 1.06, 0, 1.02] : R ? [1, 1, 0, 1] : [0.9, 0.8, 0, 0.97] } });
       if (on) KIT.seal(r.x + 6, r.y + r.h / 2, 0.9);
-      if (st.focus) KIT.focus(r.x, r.y, r.w, r.h, 4);
       L.uiBox('ld_r' + r.i, r.x + 24, r.y + 8, r.w - 48, r.h - 16, 0);
       const cx = r.x + 40, cs = r.h - 26; KIT.nine('cell', cx, r.y + 13, cs, cs);
       if (!R) { KIT.ink('ld_e' + r.i, TXT('hud.load.empty'), cx + cs + 24, r.y + r.h / 2, { size: 28, col: KIT.INK.off }); continue; }
       L.sprite(portraitOf(R.hero), cx + 6, r.y + 19, { w: cs - 12, h: (cs - 12), src: [0.1, 0.0, 0.9, 0.74] });
       const nx = cx + cs + 20, rr = r.x + r.w - 54, lv = TXT('hud.load.lvl', { n: R.hero.lvl }), wh = whereOf(R), dt = stamp(R.at), tm = hrs(R.play);
-      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 32, { size: 30, col: on || st.hover ? KIT.INK.r : KIT.INK.t });
+      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 32, { size: 30, col: on || st.hover || st.focus ? KIT.INK.r : KIT.INK.t });
       KIT.ink('ld_l' + r.i, lv, rr, r.y + 34, { size: 24, al: 1 });
       KIT.ink('ld_w' + r.i, wh, nx, r.y + 63, { size: L.sizeToFit(wh, rr - nx, 22) });
       KIT.ink('ld_d' + r.i, dt, nx, r.y + 91, { size: 20, col: KIT.INK.d });
@@ -860,7 +858,7 @@
     KIT.light('ld_keys', keys, W / 2, ky, { size: 20, al: 0.5, col: '#cdb894' });
   }
   // the main menu (TASKS 1301): the item sheet pinned in the bottom-left corner; the item Enter would press carries the wax seal
-  // and a red rule under it, the pointer reddens its item, the keyboard's focus frames it in brass
+  // and a red rule under it, the pointer reddens its item
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S), arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM;
     menuBack(t, !!F, true); if (F) newsFrame(F, D.CHANGES[0].v);
@@ -877,11 +875,9 @@
       if (b.id === cur) { KIT.seal(b.x + 16, ly, 0.5); L.solid(lx, ly + 20, tw, 3, [0.49, 0.12, 0.07]); }
       if (b.id === 'continue' && S.saved) { const R = S.saved, s0 = TXT('hud.menu.saved', { p1: R.mode === 'campaign' ? '' : D.runOf(R.mode).name + ', ', p2: R.floor ? TXT('hud.savedLine.2', { floor: R.floor }) : TXT('hud.savedLine.3'), lvl: R.hero.lvl }), s1 = s0[0].toUpperCase() + s0.slice(1);
         KIT.ink('mb_sv', s1, lx, ly + 40, { size: L.sizeToFit(s1, maxW, 18), col: KIT.INK.d }); }
-      if (st.focus) KIT.focus(b.x, b.y + 2, b.w, b.h - 4, 2);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     for (const b of bs) { if (!b.link) continue; const hv = S.hover === b.id || S.focus === b.id, lw0 = lw('mb_lw', b.label, { size: 20 }), x1 = b.x + b.w - 4;
       lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
-      if (S.focus === b.id) KIT.focus(x1 - lw0 - 6, b.y + 2, lw0 + 12, b.h - 4, 2);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
   }
