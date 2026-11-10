@@ -81,7 +81,7 @@
     // fastest; p: an elite's chance of any drop; leg: the legendary's odds at this source, an elite's below a secret room's. Plain chests stop at epic
     thin: (f) => Math.max(0.6, 1 - 0.02 * (f - 1)),
     mob: { p: 0.05, q: 0.3, max: 3, lo: 2, hi: 1, lag: 3 },
-    elite: { p: 0.75, q: 2, min: 1, leg: 0.35, lo: 1, hi: 2, lag: 2 },
+    elite: { p: 0.3, q: 2, min: 1, leg: 0.35, lo: 1, hi: 2, lag: 2 },
     brute: { q: 2.8, min: 2, extra: 0.3, leg: 0.5, lo: 1, hi: 2, lag: 2 },
     boss: [{ q: 3, min: 4, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 3, lo: 0, hi: 3, lag: 1 }, { q: 3, min: 2, lo: 0, hi: 3, lag: 1 }],
     // a mid-chapter boss's chest (TASKS 1672): richer than the top plain tier, short of the finale's three, its legendary rarer; `gold` times a plain chest's pay
