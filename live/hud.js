@@ -866,7 +866,7 @@
     lab('m_sb', TXT('hud.menu.sub'), W / 2, 230, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 282, { size: 28, al: 0.5, col: C.dim });
     const bs = D.UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
-    const cur = items.some((b) => b.id === S.focus) ? S.focus : items[0].id;
+    const cur = items.some((b) => b.id === S.focus) ? S.focus : bs.some((b) => b.link && b.id === S.focus) ? '' : items[0].id;
     const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
     KIT.corners({ x: IP.x + 8, y: IP.y + 8, w: IP.w - 16, h: IP.h - 16 }, 0.45);
     for (const y of M.rules) KIT.rule(P.x + 70, y, P.w - 140, 0.75);
