@@ -3292,7 +3292,8 @@
         return threw ? `throws (${threw.message})` : R.greet !== 'done' ? `stays in '${R.greet.st}'` : !kn || Math.hypot(kn.x - kx, kn.y - ky) > 3 ? 'ends off his place' : ''; };
       const a = play((S, R, k) => { R.hero.x = k.x - 46; R.hero.y = k.y - 2; }, () => {}); if (a) out.push(`welcome: with the hero right by the Keeper it ${a}`);
       const b = play(() => {}, (S, R, k) => { k.path = [{ x: -400, y: -400 }]; }); if (b) out.push(`welcome: a way back that stays blocked ${b}`);
-      const c = play(() => {}, (S, R) => { R.greet.st = 'home'; R.folk = null; }); if (c) out.push(`welcome: with the townsfolk made anew after the talk it ${c}`); }
+      const c = play(() => {}, (S, R) => { R.greet.st = 'home'; R.folk = null; }); if (c) out.push(`welcome: with the townsfolk made anew after the talk it ${c}`);
+      const d = play(() => {}, (S, R, k) => { delete R.greet.t3; k.path = [{ x: -400, y: -400 }]; }); if (d) out.push(`welcome: a way back saved without its start (t3) that stays blocked ${d}`); }
     // PR 55 review 2: the hero is held no longer than the Keeper's walk and a breath (a hen sat on his spot), the spot is never a
     // bench, and townsfolk made anew mid-walk (a load) bring him over again; each time he talks from beside the hero
     { const greet = (setup, mid) => { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run; setup(S, R); let n = 0, k = folkOf(R).find((q) => q.role === 'keeper');

@@ -93,7 +93,8 @@
     // the talk over (taken, or left with Esc: the offer stays his), back to the fire
     if (G.st === 'home') { if (S.screen !== 'play') return; if (k.home) k.path = greetPath(R, k, k.home.x, k.home.y); k.stuck = 0; G.st = 'back'; G.t3 = t; return; }
     // a way back still blocked after a while (a hen on his place, a corner) ends with him at the fire, not with 'back' for the rest of the run; never onto the hero
-    if (G.st === 'back' && k.path && k.home && t - (G.t3 ?? t) > GREET.give && Math.hypot(h.x - k.home.x, h.y - k.home.y) > folkR(k) + K.R + 4) { k.x = k.home.x; k.y = k.home.y; k.path = null; k.spd = 0; k.vx = k.vy = 0; }
+    if (G.st === 'back') G.t3 ??= t;
+    if (G.st === 'back' && k.path && k.home && t - G.t3 > GREET.give && Math.hypot(h.x - k.home.x, h.y - k.home.y) > folkR(k) + K.R + 4) { k.x = k.home.x; k.y = k.home.y; k.path = null; k.spd = 0; k.vx = k.vy = 0; }
     if (G.st === 'back' && !k.path) { const wf = workFace(R, k); if (wf !== k.face) { k.turnT = t; k.face = wf; } k.walkB = t + 0.2; k.greet = 0; k.near = 1; k.home = null; R.greet = 'done'; } }
   function stepFolk(S, R) {
     const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0, C = cartOf(R);
