@@ -80,7 +80,9 @@
   };
   // a button: b = { x, y, w, h, label, on }; kind 'parch' (the plain one) or 'wax' (the one that does the thing, light letters)
   K.button = (id, b, st, kind = 'parch') => {
-    const g = gradeOf(st), dy = st.press ? 2 : 0;
+    const lit = (st.hover || st.focus) && !st.off, g = kind === 'wax' && lit && !st.press ? [1.1, 1.32, 0, 1.06] : gradeOf(st), dy = st.press ? 2 : 0;
+    // the red wax barely lightens under a grade, so the one that does the thing also glows when it is the one Enter would press
+    if (kind === 'wax' && lit) L.glow(b.x + b.w / 2, b.y + b.h / 2 + dy, b.w * 0.62, [1, 0.5, 0.2], 0.3, 2.2);
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
     const size = L.sizeToFit(b.label, b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, b.size || 26), col = st.off ? K.INK.off : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
     (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, al: 0.5, col });
@@ -105,11 +107,18 @@
     if (on) K.part('ui_b_check_tick', [24, 24], x + s / 2 + 4, y + s / 2 - 6, { c: true, k: s / 36 * 1.05, u: { grade: gradeOf(st) } });
     L.uiBox(id, x, y, s, s, 0);
   };
-  // the tabs over a page: tabs = [{ id, label, x, y, w, h }]; the open one stands taller, with the wax seal on its corner
-  K.tabs = (id, tabs, open, S) => { for (const b of tabs) { const st = K.st(S, b.id), up = b.id === open ? 8 : 0;
-    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: { grade: b.id === open ? [1, 1.06, 0, 1] : gradeOf(st).map((v, i) => (i === 1 ? v * 0.82 : v)) } });
-    if (b.id === open) K.part('ui_b_wax_seal', [40, 40], b.x + 6, b.y - up + 2, { c: true, k: 0.55 });
-    K.ink(id + b.id, b.label, b.x + b.w / 2, b.y - up + b.h / 2 + 2, { size: L.sizeToFit(b.label, b.w - 0.6 * K.endW('tab', b.h) - 8, 24), al: 0.5, col: b.id === open || st.hover || st.focus ? K.INK.r : K.INK.d });
+  // the tabs over a page: tabs = [{ id, label, x, y, w, h }]; the open one stands taller, with the wax seal on its corner. The
+  // lit one (o.lit, else the pointer's or the keyboard's) lightens; the open one when lit also glows, as the open one is already
+  // the lightest and the keyboard's focus sits on it while ←→ change it (TASKS 1846). o.fill (the start screen, TASKS 1757): the
+  // open tab is filled red with light letters, as on ref_ui_start_b, its seal inside at the left
+  K.tabs = (id, tabs, open, S, o = {}) => { for (const b of tabs) { const st = K.st(S, b.id), on = b.id === open, up = on ? 8 : 0, lit = o.lit !== undefined ? b.id === o.lit : st.hover || st.focus;
+    if (on && lit) L.glow(b.x + b.w / 2, b.y - up + b.h / 2, b.w * 0.75, [1, 0.6, 0.25], 0.55, 2);
+    const g = on ? (lit ? [1.05, 1.3, 0, 1.06] : [1, 1.06, 0, 1]) : gradeOf({ hover: lit }).map((v, i) => (i === 1 && !lit ? v * 0.82 : v));
+    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : { grade: g } });
+    const sx = on && o.fill ? b.x + 0.6 * K.endW('tab', b.h) + 26 : 0;
+    if (on) K.part('ui_b_wax_seal', [40, 40], o.fill ? sx : b.x + 6, o.fill ? b.y - up + b.h / 2 + 1 : b.y - up + 2, { c: true, k: o.fill ? 0.5 : 0.55 });
+    const x0 = sx ? sx + 22 : b.x + 0.3 * K.endW('tab', b.h) + 4, x1 = b.x + b.w - 0.3 * K.endW('tab', b.h) - 4, size = L.sizeToFit(b.label, x1 - x0, 24);
+    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : on || lit ? K.INK.r : K.INK.d });
     L.uiBox(id + b.id, b.x + 8, b.y - up, b.w - 16, b.h, 4); } };
   // an item cell: square (the bag) or round (a skill, a trophy); o.sel (picked), o.off (locked)
   K.cell = (id, x, y, s, st, o = {}) => {

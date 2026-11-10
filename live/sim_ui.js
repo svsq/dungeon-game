@@ -83,7 +83,10 @@
   // presses the first, as before the focus (continue the saved run, or a new one)
   SCREEN.menu = (S, inp, keys, x, y, click) => {
     const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, U = UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, isFull(S)), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
-    const order = U.map((q) => q.id), at = order.indexOf(S.focus), mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+    const order = U.map((q) => q.id);
+    if (b && inp.moved) S.focus = b.id;
+    if (order.includes(S.focus)) S.menuAt = S.focus;
+    const at = order.indexOf(S.focus), mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
     const press = (id) => {
       if (id === 'continue') resume(S, S.saved);
       if (id === 'load') openLoad(S);
@@ -93,7 +96,7 @@
       if (id === 'settings') openSettings(S, 'menu');
       if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y }); };
-    if (click && b && b.on) { if (S.screen === 'menu' && at >= 0) S.focus = b.id; press(b.id); return; }
+    if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
     if (mv) { S.focus = order[at < 0 ? (mv > 0 ? 0 : order.length - 1) : (at + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); return; }
     if (keys.Enter) press(at < 0 ? order[0] : S.focus);
   };
@@ -113,6 +116,7 @@
     S.meta.kit[cls] = list[(i + k + list.length) % list.length].id; S.saveN++; };
   SCREEN.classes = (S, inp, keys, x, y, click) => {
     const U = UI.classes(S.meta), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    if (b && inp.moved) S.focus = b.id;
     const back = () => { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); };
     if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
     if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
@@ -371,9 +375,15 @@
     if (click && b.id.startsWith('ab:') && D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; return; }
     if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; D.masteryTake(h); ev(S, { k: 'buy', x, y }); if (D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; } } }
   };
+  // the screens the menu opens: back from one of them the menu's focus returns to the item that opened it (TASKS 1850); back from
+  // a run it starts again from none, the first item (the run just saved), not the item that started the run long ago
+  const MENU_SUBS = ['load', 'stats', 'settings', 'news', 'tests', 'classes'];
+  // moved: the pointer moved since the last step, and only then takes the focus onto what it is over (TASKS 1754), so a pointer
+  // resting over an item does not take it back from the keyboard
   function stepUI(S, inp, keys) {
-    const f = SCREEN[S.screen];
-    if (f) f(S, inp, keys, inp.px, inp.py, inp.click);
+    const f = SCREEN[S.screen], moved = !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py; S.ptr = [inp.px, inp.py];
+    if (S.screen === 'menu' && S.uiWas !== 'menu') S.focus = MENU_SUBS.includes(S.uiWas) && S.menuAt ? S.menuAt : '';
+    S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved }), keys, inp.px, inp.py, inp.click);
   }
 
   Object.assign(SIMX, {
