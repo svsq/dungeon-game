@@ -4,7 +4,7 @@
   const SIMX = root.SIMX;
   const {
     BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
-    gearName, giveQuest, heroSt, journalOf, newRun, nextZoom, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
+    gearName, giveQuest, heroSt, journalOf, newRun, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
     sortItems, throwAway, useItem, isCons } = SIMX;
   // ---------------- run end / menus ----------------
   function endRun(S, how) {
@@ -56,7 +56,7 @@
       if (b.id === 'tests') S.screen = 'tests';
       if (b.id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
-      if (b.id === 'zoom') nextZoom(S);
+      if (b.id === 'settings') openSettings(S, 'menu');
       ev(S, { k: 'ui', x, y });
     }
     if (keys.Enter) { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; } else chooseRun(S); }
@@ -108,9 +108,27 @@
     if (click && b && b.id === 'next' && U.page < U.pages - 1) S.codexPage = U.page + 1;
     return;
   };
+  // the settings (TASKS 1302), from the main menu or the pause: the arrows move the focus between the rows and step the focused
+  // slider, a click or a drag sets a slider, «Назад», Escape or Enter on «Назад» go back where it was opened from
+  const openSettings = (S, from) => { S.screen = 'settings'; S.setFrom = from; S.hover = ''; S.drag = ''; S.focus = D.SETTINGS[0].id; };
+  const setTo = (S, q, i) => { const v = q.stops[Math.max(0, Math.min(q.stops.length - 1, i))]; if (S.meta[q.key] === v) return false;
+    S.meta[q.key] = v; if (q.key === 'zoom' && S.run) S.run.zoom = v; S.saveN++; return true; };
+  const stopOf = (S, q) => { const i = q.stops.indexOf(S.meta[q.key] ?? q.def); return i < 0 ? q.stops.indexOf(q.def) : i; };
+  SCREEN.settings = (S, inp, keys, x, y, click) => {
+    const U = UI.settings(), b = D.hitUI(U.r, x, y), order = U.r.map((q) => q.id); S.hover = b ? b.id : '';
+    if (keys.Escape || (click && b && b.id === 'back') || (keys.Enter && S.focus === 'back')) { S.screen = S.setFrom === 'pause' && S.run ? 'pause' : 'menu'; S.hover = ''; S.drag = ''; ev(S, { k: 'ui', x, y }); return; }
+    const mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
+    if (mv) { S.focus = order[(Math.max(0, order.indexOf(S.focus)) + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); }
+    const q = D.SETTINGS.find((o) => o.id === S.focus), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (q && st && setTo(S, q, stopOf(S, q) + st)) ev(S, { k: 'ui', x, y });
+    if (click && b) { S.focus = b.id; if (b.slider) S.drag = b.id; }
+    if (!inp.press) S.drag = '';
+    const dq = S.drag && D.SETTINGS.find((o) => o.id === S.drag), r = dq && U.r.find((o) => o.id === S.drag);
+    if (dq && setTo(S, dq, Math.round((x - r.x) / r.w * (dq.stops.length - 1)))) ev(S, { k: 'ui', x, y });
+  };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
     const b = D.hitUI(UI.pause(S.meta.zoom, !!S.run && campaignDone(S.run)), x, y); S.hover = b ? b.id : '';
-    if (click && b && b.id === 'zoom') { nextZoom(S); S.run.zoom = S.meta.zoom; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.id === 'settings') { openSettings(S, 'pause'); ev(S, { k: 'ui', x, y }); return; }
     if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
     if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; return; }
     if (click && b && b.id === 'finish') { finishRun(S); return; }

@@ -99,9 +99,9 @@
     if (st.focus) K.focus(x - 18, y - 22, w + 36, 44, 0);
     const kk = st.press ? 1.15 : st.hover || st.focus ? 1.1 : 1;
     K.part('ui_b_knob', [16, 16], kx, y + 1, { c: true, k: kk, u: { grade: gradeOf(Object.assign({}, st, { press: false })) } });
-    if (o.value !== undefined) K.ink(id + '_v', o.value, kx, y - 34, { size: 24, al: 0.5, col: st.hover || st.focus ? K.INK.r : K.INK.t });
-    if (o.ends) { K.ink(id + '_e0', o.ends[0], x, y + 32, { size: 20, al: 0.5, col: K.INK.d }); K.ink(id + '_e1', o.ends[1], x + w, y + 32, { size: 20, al: 0.5, col: K.INK.d }); }
-    L.uiBox(id, x - 40, y - 54, w + 80, 108, 0);
+    if (o.value !== undefined) K.ink(id + '_v', o.value, kx, y - 40, { size: 24, al: 0.5, col: st.hover || st.focus ? K.INK.r : K.INK.t });
+    if (o.ends) { K.ink(id + '_e0', o.ends[0], x, y + 42, { size: 20, al: 0.5, col: K.INK.d }); K.ink(id + '_e1', o.ends[1], x + w, y + 42, { size: 20, al: 0.5, col: K.INK.d }); }
+    L.uiBox(id, x - 40, y - 60, w + 80, 120, 0);
   };
   // the checkbox: an ink square on the page, the red tick in it when on
   K.check = (id, x, y, on, st, s = 36) => {
@@ -164,7 +164,7 @@
     K.corners({ x: B.L.x - 30, y: B.L.y - 30, w: B.L.w + B.R.w + 140, h: B.L.h + 60 }, 0.6);
     K.heading('k_head', TXT('UI.menu.9'), B.L.x + B.L.w / 2, B.L.y + 40, { size: 40, wing: 50 });
     K.ink('k_row', TXT('UI.menu.6', { name: TXT('DIFF.normal.name') }), B.L.x, B.L.y + 150, { size: 24 }); K.leader(B.L.x + 300, B.L.x + B.L.w, B.L.y + 160);
-    K.tabs('k_tab', [['a', 'DIFF.easy.name'], ['b', 'DIFF.normal.name'], ['c', 'DIFF.hard.name']].map(([id, k], i) => ({ id, label: TXT(k), x: B.R.x - 60 + i * 150, y: B.R.y + 6, w: 160, h: 44 })), 'b', { hover: 'c', focus: '' });
+    K.tabs('k_tab', [['a', TXT('DIFF.easy.name')], ['b', TXT('DIFF.normal.name')], ['c', TXT('DIFF.hard.name')]].map(([id, label], i) => ({ id, label, x: B.R.x - 60 + i * 150, y: B.R.y + 6, w: 160, h: 44 })), 'b', { hover: 'c', focus: '' });
     K.rule(B.R.x, B.R.y + 70, B.R.w);
     for (let i = 0; i < 3; i++) K.check('k_chk' + i, B.R.x + i * 70, B.R.y + 100, i !== 0, st([0, 1, 3][i]));
     K.check('k_chk3', B.R.x + 210, B.R.y + 100, true, st(4));
