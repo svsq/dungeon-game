@@ -918,10 +918,10 @@
   function pause(S) {
     dim(0.55); KIT.panel('p_sheet', 660, 240, 600, 580, 'torn'); KIT.knob(W / 2, 262, 1.2);
     KIT.heading('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 60, wing: 80 });
-    const done = !!S.run && SIM.Q.campaignDone(S.run), Q = S.pauseAsk ? {} : S;
-    for (const b of D.UI.pause(S.meta.zoom, done)) KIT.button('pb_' + b.id, b, stN(Q, b.id), b.id === 'resume' ? 'wax' : 'parch');
-    KIT.rule(780, 692, 360, 0.7);
-    if (!S.pauseAsk) return;
+    // while it asks, the question's sheet takes the buttons' place under the title, as the load screen's does (TASKS 1843)
+    const done = !!S.run && SIM.Q.campaignDone(S.run);
+    if (!S.pauseAsk) { for (const b of D.UI.pause(S.meta.zoom, done)) KIT.button('pb_' + b.id, b, stN(S, b.id), b.id === 'resume' ? 'wax' : 'parch');
+      KIT.rule(780, 692, 360, 0.7); return; }
     const U = D.UI.pauseAsk(done), A = U.A; dim(0.35); KIT.panel('pa_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
     KIT.ink('pa_ask_q', done ? TXT('hud.pause.askDone') : TXT('hud.pause.ask'), A.x + A.w / 2, A.y + 80, { size: 32, al: 0.5, col: KIT.INK.r });
     const s = done ? TXT('hud.pause.askDone.who') : TXT('hud.pause.ask.who');
