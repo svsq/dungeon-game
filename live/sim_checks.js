@@ -1443,7 +1443,14 @@
         if (Math.abs(d.x - d0) !== q.slide.n * TILE || !(name === 'shelf' ? [2, 3] : [1, 2]).includes(q.slide.n)) out.push(`secret check ${name}: it slid the wrong distance`);
         // (TASKS 1841) a bookcase opened by an old save, on its hinge: loaded, it takes a way and stands on its far end, blocking that cell
         if (name === 'shelf') { const R2 = JSON.parse(JSON.stringify(R)), m2 = R2.map, q2 = m2.secrets[qi], e2 = m2.decor.find((o) => o.secret === qi); delete q2.slide; Object.assign(e2, { x: q2.x, solid: 0, broken: 1 }); m2.block = m2.block.filter((b) => b !== k0 && b !== k1); R2.hero.x = R2.hero.y = 0; SIMX.migrateSecrets(R2);
-          if (!q2.slide || !e2.solid || e2.x !== q2.x + q2.slide.s * q2.slide.n * TILE || !m2.block.includes(k0 + q2.slide.s * q2.slide.n) || m2.block.includes(k0)) out.push('secret check shelf: an old save\'s open bookcase does not stand slid after loading'); } }
+          if (!q2.slide || !e2.solid || e2.x !== q2.x + q2.slide.s * q2.slide.n * TILE || !m2.block.includes(k0 + q2.slide.s * q2.slide.n) || m2.block.includes(k0)) out.push('secret check shelf: an old save\'s open bookcase does not stand slid after loading');
+          // (PR 55 review) an old bookcase's way is chosen once: kept on its hinge it stays there on every later load, and it never
+          // takes a way whose far cell is the only way into a nook
+          const old = () => { const R3 = JSON.parse(JSON.stringify(R)), m3 = R3.map, q3 = m3.secrets[qi], e3 = m3.decor.find((o) => o.secret === qi); delete q3.slide; Object.assign(e3, { x: q3.x, solid: 0, broken: 1 }); m3.block = m3.block.filter((b) => b !== k0 && b !== k1); R3.hero.x = R3.hero.y = 0; return [R3, m3, q3, e3]; };
+          { const [R3, m3, q3, e3] = old(), keep = m3.block.slice(); for (let k = -3; k <= 3; k++) if (k) m3.block.push(k0 + k); SIMX.migrateSecrets(R3); m3.block = keep; SIMX.migrateSecrets(R3);
+            if (q3.slide || e3.x !== q3.x || e3.solid) out.push('secret check shelf: an old bookcase kept on its hinge jumps along the wall on a later load'); }
+          { const [R3, m3, q3] = old(), W3 = m3.W, nook = k0 + q2.slide.s * q2.slide.n + W3; if (m3.cells[nook] === 1) { for (const c of [nook - 1, nook + 1, nook + W3]) m3.cells[c] = 0; SIMX.migrateSecrets(R3);
+            if (q3.slide && k0 + q3.slide.s * q3.slide.n === nook - W3) out.push('secret check shelf: an old save\'s bookcase slides onto the only way into a nook'); } } } }
       standAt(R, q); pressE(S); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
     // a statue never closes on the hero: with him on its way it stays put
     for (const kind of ['statue', 'shelf']) { const [S, q] = find((o) => o.kind === kind); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
