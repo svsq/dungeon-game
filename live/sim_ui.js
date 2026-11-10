@@ -61,7 +61,9 @@
   function takeSlot(S) { if (S.saved && !isFull(S)) S.saves[S.slot] = S.saved; S.saved = null;
     let j = S.saves.indexOf(null); if (j < 0) { j = 0; S.saves.forEach((r, i) => { if ((r.at || 0) < (S.saves[j].at || 0)) j = i; }); S.saves[j] = null; }
     S.slot = j; }
-  function resume(S, R) { S.t = Math.max(S.t, R.t || 0) + DT; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t }; }
+  // the run's timers are marks on the clock it was played on, so the clock goes back to the run's own; the events and menu marks of
+  // what was played since would then lie in its future, and go
+  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.resetT = undefined; S.jdrop = 0; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t }; }
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
     resume(S, R); S.saveN++; return true; }

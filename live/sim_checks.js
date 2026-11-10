@@ -87,6 +87,18 @@
       K.screen = 'menu'; K.focus = ''; k2(K, 'ArrowUp'); if (K.focus !== 'news') out.push('menu: ↑ from no focus does not reach «Что нового»');
       k2(K, 'Enter'); if (K.screen !== 'news') out.push('menu: Enter on «Что нового» does not open it');
       K.screen = 'menu'; K.focus = ''; k2(K, 'Enter'); if (K.screen !== 'play' || !K.run || K.run.seed !== 45) out.push('menu: Enter with no focus does not continue the saved run'); }
+    { const { loadSlot, slotRun } = SIMX, J = (o) => JSON.parse(JSON.stringify(o)), play = (S, n) => { S.screen = 'play'; for (let i = 0; i < n; i++) step(S, { keys: [] }); };
+      const save = (S) => { const b = UI.pause(S.meta.zoom).find((q) => q.id === 'save'); S.screen = 'pause'; step(S, { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }); step(S, { keys: [], press: 0 }); };
+      const mage = (S, n) => { S.meta.cls = 'mage'; startRun(S, 'campaign'); play(S, n); const h = S.run.hero; h.ab.shield = 1; h.mp = 1e3; castAbility(S, S.run, 'shield', {}); play(S, 30);
+        return { R: S.run, slot: S.slot, sh: h.shield, left: h.shieldUntil - S.t, cd: h.cd.shield - S.t }; };
+      const kept = (S, A, tag) => { if (!loadSlot(S, A.slot) || S.run !== A.R) { out.push(`saves: ${tag}: the slot does not load its run`); return; } play(S, 1);
+        const h = A.R.hero, left = h.shieldUntil - S.t, cd = h.cd.shield - S.t;
+        if (!(A.sh > 0 && A.left > 5 && A.cd > 1)) out.push(`saves: ${tag}: the mage's shield or cooldown did not start (${A.sh}, ${A.left.toFixed(2)}, ${A.cd.toFixed(2)})`);
+        else if (h.shield !== A.sh || Math.abs(left - A.left) > 0.1 || Math.abs(cd - A.cd) > 0.1) out.push(`saves: ${tag}: the shield ${A.sh} with ${A.left.toFixed(2)}s left and the ${A.cd.toFixed(2)}s cooldown come back as ${h.shield}, ${left.toFixed(2)}s, ${cd.toFixed(2)}s`);
+        if (S.ev.some((e) => e.t > S.t)) out.push(`saves: ${tag}: the loaded run sees events from the future of another run`); };
+      const S1 = spawn(0, {}), A1 = mage(S1, 60); save(S1); startRun(S1, 'campaign'); play(S1, 2400); save(S1); kept(S1, A1, 'B played longer');
+      const S2 = spawn(0, {}), A2 = mage(S2, 2400); save(S2); const B2 = mage(S2, 60); save(S2); kept(S2, A2, 'A played longer'); save(S2); kept(S2, B2, 'back to the shorter B');
+      const L = spawn(1, J(persist(S2))), A3 = { R: slotRun(L, A2.slot), slot: A2.slot, sh: A2.sh, left: A2.left, cd: A2.cd }; kept(L, A3, 'after a reload'); }
     for (let lvl = 1; lvl <= 32; lvl++) for (const slot of D.SLOTS) {
       const bases = Object.keys(BASES).filter((b) => BASES[b].slot === slot);
       for (const b of bases) for (let rar = 0; rar < RARITY.length; rar++) {
