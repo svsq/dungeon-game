@@ -914,7 +914,37 @@
           lavaUnder.push(...c.deck); for (const k of c.deck) under.add(k);
           // (a crust by the slabs would have floor on two sides: it goes back to lava)
           for (let i = crust.length - 1; i >= 0; i--) if (D4.some((o) => under.has(crust[i] + o) && c.deck.includes(crust[i] + o))) { cr.delete(crust[i]); crust.splice(i, 1); }
-          crossings.push({ kind: 'slabs', cells: c.deck, axis: c.hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, of: B.cells[0], span: [Math.min(...c.deck.map(U)), Math.max(...c.deck.map(U)), Math.min(...c.deck.map(V))] }); alts++; break; } } }
+          crossings.push({ kind: 'slabs', cells: c.deck, axis: c.hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, of: B.cells[0], span: [Math.min(...c.deck.map(U)), Math.max(...c.deck.map(U)), Math.min(...c.deck.map(V))] }); alts++; break; } }
+      // a cave's stream crosses a tunnel wall to wall, no lava beside it for slabs (TASKS 1726): a dry tunnel through the rock round
+      // the crossing instead, from the tunnel `off` cells before it to the one past it, `len` cells at most, its cells three of rock
+      // off any floor but at its two mouths, by no secret; the walk keeps its length
+      if (ftype === 'cave' && A.dry) { const Dr = A.dry, D8 = [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]; let dug = 0;
+        for (const q of secrets) for (const [x, y] of q.front.concat(q.wall)) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) bad.add((y + j) * W + x + i);
+        for (const B of crossings.filter((c) => c.lava)) { if (dug >= Dr.max || len0 < 0) break; const ban = new Set(B.cells), ds = reach(s0, ban); if (ds[e0] >= 0) continue; const de = reach(e0, ban);
+          const F = new Int32Array(W * H).fill(-1), fq = []; for (let k = 0; k < W * H; k++) if (cells[k] !== 0) { F[k] = 0; fq.push(k); }
+          for (let i = 0; i < fq.length; i++) for (const o of D8) { const m2 = fq[i] + o; if (m2 >= 0 && m2 < W * H && F[m2] < 0) { F[m2] = F[fq[i]] + 1; fq.push(m2); } }
+          const cheb = (k) => Math.min(...B.cells.map((b) => Math.max(Math.abs(b % W - k % W), Math.abs(Math.floor(b / W) - Math.floor(k / W)))));
+          const mouth = (d) => { const z = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) { if (cells[k] !== 1 || under.has(k) || d[k] < 0) continue; const c = cheb(k); if (c < Dr.off[0] || c > Dr.off[1]) continue;
+            for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) { const n2 = k + j * W + i; if (n2 >= 0 && n2 < W * H && cells[n2] === 0) z[n2] = 1; } } return z; };
+          const zN = mouth(ds), zF = mouth(de), from = new Int32Array(W * H).fill(-2), bq = [];
+          const ok = (k) => { const x = k % W, y = Math.floor(k / W); return x > 2 && y > 3 && x < W - 4 && y < H - 4 && cells[k] === 0 && !bad.has(k) && (F[k] >= 4 || zN[k] || zF[k]); };
+          for (let k = 0; k < W * H; k++) if (zN[k] && F[k] === 1 && ok(k) && D4.some((o) => cells[k + o] === 1 && ds[k + o] >= 0)) { from[k] = -1; bq.push(k); }
+          let end = -1, steps = 0; for (let i = 0; i < bq.length && end < 0; i++) { const k = bq[i];
+            if (zF[k] && D4.some((o) => cells[k + o] === 1 && de[k + o] >= 0)) { end = k; break; }
+            for (const o of D4) { const n2 = k + o; if (from[n2] === -2 && ok(n2)) { from[n2] = k; bq.push(n2); } } }
+          if (end < 0) continue; const path = []; for (let k = end; k >= 0; k = from[k]) path.push(k); steps = path.length; if (steps > Dr.len) continue;
+          // (two cells wide with a bulge every third cell, sides by turns: dug straight, its walls ran as the ruled runs selfCheck forbids)
+          const dig = new Set(), c0 = cells.slice(); path.forEach((k, i) => { const p = Math.abs((path[i + 1] ?? path[i - 1] ?? k + 1) - k) === 1 ? W : 1;
+            for (const o of [0, 1, W, W + 1, ...(i % 3 === 1 ? [(i % 6 === 1 ? -1 : 2) * p] : [])]) if (cells[k + o] === 0 && !bad.has(k + o)) dig.add(k + o); });
+          for (const k of dig) cells[k] = 1; tidy();
+          // (a run of wall still straight by it, at a mouth mostly, gets a niche in its middle, as the serpent's pools do)
+          const nearDig = (x, y) => [...dig].some((k) => Math.abs(k % W - x) <= 2 && Math.abs(Math.floor(k / W) - y) <= 2);
+          for (let pass = 0; pass < 6; pass++) { const runs = straightRuns(cells, W, H, shopCorner).filter((r) => nearDig(r.x + r.dx * (r.n >> 1), r.y + r.dy * (r.n >> 1))); if (!runs.length) break;
+            for (const r of runs) { const x = r.x + r.dx * (r.n >> 1) + r.nx, y = r.y + r.dy * (r.n >> 1) + r.ny; if (!bad.has(y * W + x) && cells[y * W + x] === 0) cells[y * W + x] = 1; } tidy(); }
+          const straight = straightRuns(cells, W, H, shopCorner).some((r) => nearDig(r.x + r.dx * (r.n >> 1), r.y + r.dy * (r.n >> 1)));
+          const n = reach(s0, new Set())[e0];
+          // (and longer than the way over by `more`: no longer, the walk left the lava for it on 13 floors of 30)
+          const nB = reach(s0, ban)[e0]; if (straight || n < len0 || nB < 0 || nB < n + Dr.more) { for (let k = 0; k < W * H; k++) cells[k] = c0[k]; continue; } dug++; } } }
     // (the way again over the lava's crossings: a lake's slabs and a river's fords bring its islands on to it)
     if (plat) way = wayRooms(cells, W, H, rooms, start.cy * W + start.cx, exitR.cy * W + exitR.cx);
     const secretFront = new Set(secrets.flatMap((q) => q.front.concat(q.wall).map(([x, y]) => y * W + x)));

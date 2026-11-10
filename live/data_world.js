@@ -84,7 +84,9 @@
       // cave (431): halls in the rock and long winding tunnels, as the water caves' are, the water lava: lakes in the rock on the
       // way between halls, a pool in a hall or two (`pools` at most) and streams across the tunnels; its share of the floor `goal`;
       // pop: its halls are more than a floor's plateaus, each with its pack: as many monsters a floor as the plateaus'
-      cave: { goal: [0.1, 0.16], pools: 3, pop: 0.415, path: [0, 0, 0, 0], share: [0.06, 0.3],
+      // loop (TASKS 1726): `n` tunnels more between halls `hops` and more apart on the tree and under `d` cells apart, each kept if no two
+      // halls' walk falls under `keep` of what it was
+      cave: { goal: [0.1, 0.16], pools: 3, pop: 0.415, path: [0, 0, 0, 0], share: [0.06, 0.3], loop: { n: [2, 3], hops: 3, d: 40, keep: 0.85 },
         mix: { arena: { n: [1, 2], box: [[16, 20], [12, 15]], pop: 1.5 }, ledge: { n: [3, 4], box: [[6, 8], [5, 7]], pop: 0.6 } } },
       // first: the type of a run's first floor (the player's call 04.11.2026: the caves first, a lake's archers over the lava were too
       // much for the first floor)
@@ -104,7 +106,10 @@
         // alt (TASKS 1722): on a cave or terrace floor the second way over a lava crossing the walk can't go round: slabs two cells
         // wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a floor; the walk keeps
         // `keep` of its length
-        alt: { off: 3, wide: 6, len: [1, 9], max: 2, keep: 0.8 } } },
+        alt: { off: 3, wide: 6, len: [1, 9], max: 2, keep: 0.8,
+          // dry (TASKS 1726): on a cave floor a tunnel round a crossing, its mouths `off` cells from it, `len` cells at most, `max` a floor, the
+          // way round `more` cells longer than the way over at the least
+          dry: { off: [3, 10], len: 48, max: 3, more: 6 } } } },
     // the rooms-and-corridors floors' layouts (TASKS 379), each a set of knobs on the one generator (dungeon.js): room, the room count
     // of the floor's range taken (min: fewest a floor is laid with); rect, a plain room's size (cells, else by the map); shapes, the
     // shapes' weights over ROOM_SHAPES; gap, the rock kept between rooms; bends, the corridor length (cells) past which it takes one

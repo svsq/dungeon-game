@@ -636,9 +636,10 @@
           for (const [x, y] of [...cellsOf(r, drop), ...cellsOf(r, () => true)]) { if (k <= 0) break;
             if (!canStand(x, y, 'torch_stand') || fires().some((f) => Math.hypot(f.x - wx(x), f.y - wy(y)) < 4 * TILE)) continue; stand(x, y, 'torch_stand', r.id); k--; } }
         // chain fences on iron posts along some of the plateaus' front edges, over the lava or the chasm, 3 to 6 cells: a railing on the
-        // very edge, so not held a cell off the lava as the props are (186); it is not solid and hides nothing
+        // very edge, so not held a cell off the lava as the props are (186); it is not solid and hides nothing; never on a crossing
+        // (its deck stands over the lava: a fence on it stood in the lava, TASKS 1726)
         for (const r of rooms) { if (r.type === 'shop' || r.type === 'secret' || r.type === 'boss' || Dr() > 0.55) continue;
-          const runs = []; for (let y = r.y; y < r.y + r.h; y++) { let x0 = -1; for (let x = r.x; x <= r.x + r.w; x++) { const ok = x < r.x + r.w && at(x, y) === 1 && (at(x, y + 1) === 0 || at(x, y + 1) === 3) && at(x, y + 2) !== 1 && !over.has((y + 1) * W + x) && !thin.includes((y + 1) * W + x) && !hardC.has(key(x, y));
+          const runs = []; for (let y = r.y; y < r.y + r.h; y++) { let x0 = -1; for (let x = r.x; x <= r.x + r.w; x++) { const ok = x < r.x + r.w && at(x, y) === 1 && (at(x, y + 1) === 0 || at(x, y + 1) === 3) && at(x, y + 2) !== 1 && !over.has((y + 1) * W + x) && !over.has(y * W + x) && !thin.includes((y + 1) * W + x) && !hardC.has(key(x, y));
             if (ok && x0 < 0) x0 = x; if (!ok && x0 >= 0) { if (x - x0 >= 3) runs.push([x0, x, y]); x0 = -1; } } }
           if (!runs.length) continue; const [x0, x1, y] = runs[Math.floor(Dr() * runs.length)], n = Math.min(x1 - x0, dri(3, 6)), a = x0 + Math.floor(Dr() * (x1 - x0 - n + 1));
           decor.push({ x: a * TILE + 6, y: (y + 1) * TILE - 6, n: 'fence_mg', len: n * TILE - 12, r: r.id }); } }
