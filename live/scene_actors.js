@@ -296,8 +296,10 @@
         if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y, GT, { id: 'en' + e.id, H: h, face: e.face, lean: 0, fallR: ca, death: DV, U: { alpha: k * alpha }, Ufar: { alpha: k * alpha }, t, tex: GLOWTEX[e.type] }); G.blend(); } }
         return; }
       L.inked(corpse, { r: 2, n: 8, col: INK, dy: 0, emit: true }); return; }
-    // turning about narrows the body to a sliver and opens it the other way over 0.16 s instead of mirroring in one frame
-    const tA = GT - (e.ft ?? -9), tc = tA < 0.16 ? -Math.cos(Math.PI * SS(0, 0.16, tA)) : 1, tw = Math.sign(tc || 1) * Math.max(0.12, Math.abs(tc));
+    // turning about narrows the body to a sliver and opens it the other way over 0.16 s instead of mirroring in one frame; a boss
+    // is wide, its hands crossed the turn that fast at a pop's speed, so it comes round in 0.3 s. A face set late in a sim step is
+    // stamped (ft) only by the next one: drawn before that, it mirrored for a frame
+    const tA = e.pf && e.face !== e.pf ? 0 : GT - (e.ft ?? -9), TT = D.BOSSES[e.type] ? 0.3 : 0.16, tc = tA < TT ? -Math.cos(Math.PI * SS(0, TT, tA)) : 1, tw = Math.sign(tc || 1) * Math.max(0.12, Math.abs(tc));
     if (tw < 1 && E.kind !== 'crab' && E.kind !== 'salamander') L.pre = M.of(M.t(x, y), M.s(tw, 1), M.t(-x, -y));   // the crab turns on the floor (monsters.js)
     try { drawLive(); } finally { L.pre = null; }
     // an elite's aura: its own silhouette, blurred and glowing, breathing and flickering behind the body
