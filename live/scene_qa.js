@@ -530,7 +530,7 @@
     const sconce = (o) => o.trig && o.trig.k === 'sconce', plate = (o) => o.trig && o.trig.k === 'plate';
     for (const [n, f, stage, age] of [
       ['secret_banner', (o) => o.kind === 'banner', 0], ['secret_banner_fall', (o) => o.kind === 'banner', 2, 0.25], ['secret_banner_down', (o) => o.kind === 'banner', 3], ['secret_room', (o) => o.kind === 'banner', 4],
-      ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_slide', (o) => o.kind === 'shelf', 2, 0.6], ['secret_shelf_knock', (o) => o.kind === 'shelf', 2, 1.25], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
+      ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_slide', (o) => o.kind === 'shelf', 2, 0.6], ['secret_shelf_knock', (o) => o.kind === 'shelf', 2, 1.25], ['secret_shelf_books', (o) => o.kind === 'shelf', 2, 1.5], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
       ['secret_sconce', sconce, 0], ['secret_sconce_sink', sconce, 2, 0.8], ['secret_sconce_open', sconce, 3],
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3],
       ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.6], ['secret_statue_knock', (o) => o.kind === 'statue', 2, 1.25], ['secret_statue_open', (o) => o.kind === 'statue', 3],
