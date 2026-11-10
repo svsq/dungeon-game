@@ -907,8 +907,8 @@
   }
   // these windows have no keyboard focus of their own: a focus left over from another screen must not frame their buttons
   const stN = (S, id, on = true) => Object.assign(KIT.st(S, id, on), { focus: false });
-  // a question's two buttons, both parchment (TASKS 1844): the one under the pointer lights, else the focused one, never both
-  const askSt = (S, U, id) => { const at = U.r.some((b) => b.id === S.hover) ? S.hover : S.focus; return Object.assign(KIT.st(S, id), { hover: at === id, focus: false }); };
+  // a question's two buttons, both parchment (TASKS 1844), one lit: the one Enter answers with, which the pointer takes by moving (TASKS 1754)
+  const askSt = (S, U, id) => Object.assign(KIT.st(S, id), { hover: litOf(S, U.r.map((b) => b.id)) === id, focus: false });
   const HOT = [1.04, 1.1, 0, 1.04], POOR = [0.55, 0.86, 0, 0.96], SOUL = '#24407a';
   // a manuscript page: the leather frame with the parchment inside, its writing area registered for qa.mjs
   const page = (id, x, y, w, h, pad = 4) => { KIT.nine('leather', x, y, w, h); KIT.paper(x + 22, y + 22, w - 44, h - 44); L.uiBox(id, x + 22, y + 22, w - 44, h - 44, pad); };

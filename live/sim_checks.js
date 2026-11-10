@@ -69,6 +69,8 @@
       L2.screen = 'pause'; at(L2, UI.pause(L2.meta.zoom), 'save'); at(L2, UI.menu(true), 'load'); key(L2, 'ArrowDown');
       key(L2, 'Delete'); if (L2.delAsk !== 1 || L2.focus !== 'no') out.push('saves: Delete does not ask about the chosen slot with «Нет» first');
       key(L2, 'Enter'); if (L2.delAsk !== undefined || !L2.saves[1]) out.push('saves: «Нет» deletes the save or keeps asking');
+      key(L2, 'Delete'); { const b = UI.load().yes.find((q) => q.id === 'yes'); step(L2, { keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 }); }
+      if (L2.focus !== 'yes') out.push('saves: the pointer moved over «Да» does not take the focus, two buttons light (TASKS 1754)'); key(L2, 'Escape');
       key(L2, 'Delete'); key(L2, 'ArrowLeft'); key(L2, 'Enter'); if (L2.saves[1] || L2.delAsk !== undefined || !L2.saved) out.push('saves: «Да» does not delete the slot, or deletes another');
       key(L2, 'ArrowUp'); key(L2, 'Delete'); at(L2, UI.load().yes, 'yes'); if (L2.saved || slotRun(L2, 0)) out.push('saves: deleting the saved run by pointer does not empty its slot');
       key(L2, 'Escape'); if (L2.screen !== 'menu') out.push('saves: Escape does not go back to the menu');

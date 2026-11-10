@@ -152,6 +152,7 @@
     const U = UI.load(), sel = Math.max(0, Math.min(D.SAVE_SLOTS - 1, S.loadSel | 0)), has = !!slotRun(S, sel), mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
     const tick = () => ev(S, { k: 'ui', x, y });
     if (S.delAsk !== undefined) { const b = D.hitUI(U.yes, x, y); S.hover = b ? b.id : '';
+      if (b && inp.moved) S.focus = b.id;
       if (st) { S.focus = S.focus === 'yes' ? 'no' : 'yes'; tick(); }
       const yes = (click && b && b.id === 'yes') || (keys.Enter && S.focus === 'yes'), no = keys.Escape || (click && b && b.id === 'no') || (keys.Enter && S.focus !== 'yes');
       if (yes) { dropSlot(S, S.delAsk); S.focus = 'slot:' + S.delAsk; S.delAsk = undefined; tick(); } else if (no) { S.focus = 'del'; S.delAsk = undefined; tick(); }
@@ -215,14 +216,15 @@
     if (dq && setTo(S, dq, Math.round((x - r.x) / r.w * (dq.stops.length - 1)))) ev(S, { k: 'ui', x, y });
   };
   // a yes-or-no question (TASKS 1843, 1844): «Нет» is the focus it opens with, ←→ move it, Enter answers it, Escape says no
-  const askAnswer = (S, U, keys, x, y, click) => { const b = D.hitUI(U.r, x, y), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0); S.hover = b ? b.id : '';
+  const askAnswer = (S, U, keys, x, y, click, moved) => { const b = D.hitUI(U.r, x, y), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0); S.hover = b ? b.id : '';
+    if (b && moved) S.focus = b.id;
     if (st) { S.focus = S.focus === U.r[0].id ? U.r[1].id : U.r[0].id; ev(S, { k: 'ui', x, y }); }
     if ((click && b && b.id === U.r[0].id) || (keys.Enter && S.focus === U.r[0].id)) return 1;
     if (keys.Escape || (click && b && b.id === U.r[1].id) || keys.Enter) return -1;
     return 0; };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
     const done = !!S.run && campaignDone(S.run);
-    if (S.pauseAsk) { const a = askAnswer(S, UI.pauseAsk(done), keys, x, y, click);
+    if (S.pauseAsk) { const a = askAnswer(S, UI.pauseAsk(done), keys, x, y, click, inp.moved);
       if (a < 0) { S.pauseAsk = 0; S.focus = ''; S.hover = ''; ev(S, { k: 'ui', x, y }); }
       else if (a > 0) { S.pauseAsk = 0; S.focus = ''; if (done) finishRun(S); else { if (S.run.log) S.run.log.abandon = 1; endRun(S, 'dead'); } }
       return; }
@@ -295,7 +297,7 @@
   // the town's gate out (TASKS 1149): give up the run, or past the campaign's last boss end it won; a question like the pause's
   // (TASKS 1844): «Остаться» in focus, so Enter alone never ends the run
   SCREEN.leave = (S, inp, keys, x, y, click) => {
-    const R = S.run, a = R ? askAnswer(S, UI.leave(), Object.assign({}, keys, { Escape: keys.Escape || keys.KeyE }), x, y, click) : -1;
+    const R = S.run, a = R ? askAnswer(S, UI.leave(), Object.assign({}, keys, { Escape: keys.Escape || keys.KeyE }), x, y, click, inp.moved) : -1;
     if (a < 0) { S.screen = 'play'; S.focus = ''; return; }
     if (a > 0) { S.focus = ''; if (campaignDone(R)) finishRun(S); else { if (R.log) R.log.abandon = 1; endRun(S, 'dead'); } }
   };

@@ -56,7 +56,7 @@
       ['pause', play((S) => { S.screen = 'pause'; S.run.msg = { s: TXT('QA.states.msg.s.2'), t: S.t - 1 }; })],
       ['pause_finish', play((S) => { S.run.viaTown = 1; S.run.campaignWon = 1; S.screen = 'pause'; S.hover = 'finish'; S.focus = 'back'; })],
       ['pause_ask', play((S) => { S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; })],
-      ['pause_ask_hover', play((S) => { S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'no'; S.hover = 'yes'; })],
+      ['pause_ask_hover', play((S) => { S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'yes'; S.hover = 'yes'; })],
       ['pause_ask_finish', play((S) => { S.run.viaTown = 1; S.run.campaignWon = 1; S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; })],
       // the settings (TASKS 1302): from the menu with the keyboard's focus on the first row, from the pause with the pointer on
       // «Назад», a slider held at its smallest step; and the run at the zoom's ends
@@ -78,7 +78,8 @@
           ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
           ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
           ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
-          ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })],
+          ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'yes'; S.hover = 'yes'; })],
+          ['load_ask_rest', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })],
           ['load_ask_focus', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = ''; })]]; })(),
       ['settings_pause', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'back'; S.hover = 'back'; S.meta.zoom = 1.5; })],
       ['settings_drag', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; S.hover = 'zoom'; S.drag = 'zoom'; S.pressWas = true; S.meta.zoom = 0.5; })],
@@ -1623,7 +1624,7 @@
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [-64, 52]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [-64, 52]; })]);
     states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
-    states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; S.hover = 'go'; })]);
+    states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
     states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // past the campaign (PR #21 review): the waystones of the descent are named by the descent's biomes, not the campaign's
