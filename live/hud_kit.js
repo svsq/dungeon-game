@@ -25,7 +25,7 @@
   // the drawn size of a part's ends in screen px at scale k
   K.ends = (p, k = 1) => PART[p].cut.map((v) => v * PX * k);
   // a part stretched to w×h: the corners kept, the edges stretched one way, the middle both ways (a 3-slice is a nine-slice with
-  // two zero ends)
+  // two zero ends); the slices' edges on whole px, as a seam between two fractional edges let a 1 px line of what lies under show (TASKS 1756)
   K.nine = (p, x, y, w, h, o = {}) => {
     const P = PART[p]; if (!has(P.tex)) return;
     const k = o.k || 1, [cl, ct, cr, cb] = P.cut, [aw, ah] = P.art;
@@ -35,7 +35,7 @@
     if (!cl && !cr) { const s = w * T.h / T.w / ah; dt = ct * s; db = cb * s; }
     if (dl + dr > w) { const s = w / (dl + dr); dl *= s; dr *= s; }
     if (dt + db > h) { const s = h / (dt + db); dt *= s; db *= s; }
-    const us = [0, cl / aw, 1 - cr / aw, 1], vs = [0, ct / ah, 1 - cb / ah, 1], xs = [x, x + dl, x + w - dr, x + w], ys = [y, y + dt, y + h - db, y + h];
+    const us = [0, cl / aw, 1 - cr / aw, 1], vs = [0, ct / ah, 1 - cb / ah, 1], xs = [x, x + dl, x + w - dr, x + w].map(Math.round), ys = [y, y + dt, y + h - db, y + h].map(Math.round);
     for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
       if (o.hollow && i === 1 && j === 1) continue;
       const sw = xs[i + 1] - xs[i], sh = ys[j + 1] - ys[j]; if (sw <= 0.01 || sh <= 0.01 || us[i + 1] <= us[i] || vs[j + 1] <= vs[j]) continue;

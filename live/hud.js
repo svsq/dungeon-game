@@ -844,11 +844,11 @@
       if (!R) { KIT.ink('ld_e' + r.i, TXT('hud.load.empty'), cx + cs + 24, r.y + r.h / 2, { size: 28, col: KIT.INK.off }); continue; }
       L.sprite(portraitOf(R.hero), cx + 6, r.y + 19, { w: cs - 12, h: (cs - 12), src: [0.1, 0.0, 0.9, 0.74] });
       const nx = cx + cs + 20, rr = r.x + r.w - 54, lv = TXT('hud.load.lvl', { n: R.hero.lvl }), wh = whereOf(R), dt = stamp(R.at), tm = hrs(R.play);
-      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 32, { size: 30, col: on ? KIT.INK.r : KIT.INK.t });
-      KIT.ink('ld_l' + r.i, lv, rr, r.y + 34, { size: 24, al: 1 });
-      KIT.ink('ld_w' + r.i, wh, nx, r.y + 63, { size: L.sizeToFit(wh, rr - nx, 22) });
-      KIT.ink('ld_d' + r.i, dt, nx, r.y + 91, { size: 20, col: KIT.INK.d });
-      KIT.ink('ld_p' + r.i, tm, rr, r.y + 91, { size: L.sizeToFit(tm, (rr - nx) / 2 - 10, 20), al: 1, col: KIT.INK.d }); }
+      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 30, { size: 30, col: on ? KIT.INK.r : KIT.INK.t });
+      KIT.ink('ld_l' + r.i, lv, rr, r.y + 32, { size: 24, al: 1 });
+      KIT.ink('ld_w' + r.i, wh, nx, r.y + 58, { size: L.sizeToFit(wh, rr - nx, 22) });
+      KIT.ink('ld_d' + r.i, dt, nx, r.y + 83, { size: 20, col: KIT.INK.d });
+      KIT.ink('ld_p' + r.i, tm, rr, r.y + 83, { size: L.sizeToFit(tm, (rr - nx) / 2 - 10, 20), al: 1, col: KIT.INK.d }); }
     const R = SIM.Q.slotRun(S, sel), px = B.R.x, pw = B.R.w, mx = px + pw / 2;
     if (R) { const Cl = D.clsOf(R.hero); KIT.nine('cell', mx - 110, U.B.y + 120, 220, 190); L.sprite(portraitOf(R.hero), mx - 100, U.B.y + 128, { w: 200, h: 200 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
       KIT.ink('ld_dn', Cl.name, mx, U.B.y + 346, { size: 44, al: 0.5, col: KIT.INK.r }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
