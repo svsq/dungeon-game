@@ -31,7 +31,8 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, 
 // from its gear, ranks the fireball first and burns the bosses with it
 // a run through the town (TASKS 1024): quests, how many side quests it takes at once (the Keeper's chain besides); home, whether it
 // reads a scroll of return when its health potions run out; scrolls, how many it keeps for that
-const TOWN = { novice: { quests: 1, home: 0, scrolls: 0 }, average: { quests: 2, home: 1, scrolls: 2 }, expert: { quests: 3, home: 1, scrolls: 2 }, mage: { quests: 2, home: 1, scrolls: 2 }, builder: { quests: 2, home: 1, scrolls: 2 } };
+// the novice goes home more often than the rest (the player's call 10.11.2026): with less gold, three potions still in the bag, and again on the same floor once down to one
+const TOWN = { novice: { quests: 1, home: 2, scrolls: 3 }, average: { quests: 2, home: 1, scrolls: 2 }, expert: { quests: 3, home: 1, scrolls: 2 }, mage: { quests: 2, home: 1, scrolls: 2 }, builder: { quests: 2, home: 1, scrolls: 2 } };
 const PROFILES = {
   novice: { tips: 1, flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
   average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
@@ -518,7 +519,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // scroll in the bag, nothing awake, no boss's fight; once a floor
     const bossOn = R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
     if (R.town) townGoal(S, R, inp);
-    else if (R.viaTown && P.home && homeF !== R.floor && !awake.length && !near && !bossOn && !h.read && held(h, 'scroll') && h.gold >= 250 && (held(h, 'hp_potion') <= 1 || h.gold >= 300 + 150 * R.floor || R.bossDead)) { homeF = R.floor; readWant = 1; inp.keys.push('KeyI'); goal = ['home']; }
+    else if (R.viaTown && P.home && (homeF !== R.floor || (P.home > 1 && held(h, 'hp_potion') <= 1)) && !awake.length && !near && !bossOn && !h.read && held(h, 'scroll') && h.gold >= (P.home > 1 ? 100 : 250) && (held(h, 'hp_potion') <= (P.home > 1 ? 3 : 1) || h.gold >= 300 + 150 * R.floor || R.bossDead)) { homeF = R.floor; readWant = 1; inp.keys.push('KeyI'); goal = ['home']; }
     else if (eel && aim('eel', eel)) toBank(R, inp, eel, st);
     else if (!near && cage && chase(R, cage) && aim('cage', cage)) { walk(R, inp, cage.x, cage.y + 40); if (SIM.Q.captiveNear(R)) inp.keys.push('KeyE'); }
     else if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
