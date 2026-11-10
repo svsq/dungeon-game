@@ -853,7 +853,7 @@
       KIT.ink('ld_ask_q', TXT('hud.load.ask'), A.x + A.w / 2, A.y + 76, { size: 32, al: 0.5, col: KIT.INK.r });
       const AR = SIM.Q.slotRun(S, S.delAsk), s = AR ? TXT('hud.load.ask.who', { cls: D.clsOf(AR.hero).name, n: AR.hero.lvl, where: whereOf(AR) }) : '';
       KIT.ink('ld_ask_w', s, A.x + A.w / 2, A.y + 116, { size: L.sizeToFit(s, P.w - 40, 22), al: 0.5, col: KIT.INK.d });
-      for (const b of U.yes) KIT.button('ld_' + b.id, b, KIT.st(S, b.id), b.id === 'yes' ? 'wax' : 'parch'); }
+      for (const b of U.yes) KIT.button('ld_' + b.id, b, askSt(S, { r: U.yes }, b.id)); }
     const keys = ask ? TXT('hud.load.keys.ask') : TXT('hud.load.keys'), ky = H - 22, kw = lw('ld_keys_w', keys, { size: 20 }); L.uiBox('ld_keys_b', W / 2 - kw / 2 - 12, ky - 16, kw + 24, 32, 0);
     KIT.light('ld_keys', keys, W / 2, ky, { size: 20, al: 0.5, col: '#cdb894' });
   }
@@ -1142,9 +1142,8 @@
     dim(0.6); KIT.panel('leave', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('lv_t', W / 2, P.y + 16, 460, TXT('hud.leave'), { h: 76, size: 36 });
     wrapLab('lv_s', done ? TXT('hud.leave.done') : TXT('hud.leave.give'), P.x + 48, P.y + 122, P.w - 96, 26, KIT.INK.cream);
-    // Enter takes the way out, so that button is the wax one
-    KIT.button('lv_go', Object.assign({}, U.r[0], { label: done ? TXT('hud.leave.goDone') : TXT('hud.leave.goGive') }), stN(S, 'go'), 'wax');
-    KIT.button('lv_stay', U.r[1], stN(S, 'stay'));
+    KIT.button('lv_go', Object.assign({}, U.r[0], { label: done ? TXT('hud.leave.goDone') : TXT('hud.leave.goGive') }), askSt(S, U, 'go'));
+    KIT.button('lv_stay', U.r[1], askSt(S, U, 'stay'));
     KIT.light('lv_help', TXT('hud.leave.keys'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#a89880' });
   }
   function gate(S, R, t) {

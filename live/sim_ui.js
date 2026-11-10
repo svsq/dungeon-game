@@ -288,12 +288,12 @@
     if (click && b && b.id.startsWith('go:') && o[b.i]) gateGo(S, R, o[b.i]);
     return;
   };
-  // the town's gate out (TASKS 1149): give up the run, or past the campaign's last boss end it won; only by its button or Enter
+  // the town's gate out (TASKS 1149): give up the run, or past the campaign's last boss end it won; a question like the pause's
+  // (TASKS 1844): «Остаться» in focus, so Enter alone never ends the run
   SCREEN.leave = (S, inp, keys, x, y, click) => {
-    const R = S.run, U = UI.leave(), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'stay')) { S.screen = 'play'; return; }
-    if ((click && b && b.id === 'go') || keys.Enter) { if (campaignDone(R)) finishRun(S); else { if (R.log) R.log.abandon = 1; endRun(S, 'dead'); } }
-    return;
+    const R = S.run, a = R ? askAnswer(S, UI.leave(), Object.assign({}, keys, { Escape: keys.Escape || keys.KeyE }), x, y, click) : -1;
+    if (a < 0) { S.screen = 'play'; S.focus = ''; return; }
+    if (a > 0) { S.focus = ''; if (campaignDone(R)) finishRun(S); else { if (R.log) R.log.abandon = 1; endRun(S, 'dead'); } }
   };
   SCREEN.altar = (S, inp, keys, x, y, click) => {
     const R = S.run, sh = R.shrines[R.altar], U = UI.altar(sh && sh.gifts ? sh.gifts.length : 3), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
