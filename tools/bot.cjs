@@ -328,6 +328,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // was picked and dropped on the way round, and the bot circled in the corridor (seed 193, TASKS 227)
     if (P.focus) { if (!(focus && focus.deadT < 0 && live.includes(focus) && far(focus) < 400)) focus = live.filter((e) => (D.ENEMIES[e.type].kind === 'caster' || D.ENEMIES[e.type].kind === 'archer') && far(e) < 320).sort((a, b) => far(a) - far(b))[0] || null;
       if (focus) tg = focus; }
+    // a shooter turns off an armoured front for another foe close by (TASKS 1727: the expert mage held its fireball off a crab while two elite skeletons cut it down)
+    if (P.focus && (D.clsOf(h).shoots || []).includes(st.wtype) && armFront(tg)) { const alt = live.filter((e) => e !== tg && !armFront(e) && far(e) < far(tg) + 120).sort((a, b) => far(a) - far(b))[0]; if (alt) tg = alt; }
     // a fire priest within reach is struck first by all but the novice: left alone it lights the whole pack's weapons (TASKS 410)
     if (P.haz) { const pr = live.filter((e) => e.type === 'fire_priest' && far(e) < 360).sort((a, b) => far(a) - far(b))[0]; if (pr) tg = pr; }
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
@@ -336,7 +338,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
     // the class's keys (TASKS 1116): an ability is pressed on its own slot of the hero's class, or not at all
     const Cl = D.clsOf(h), slot = (id) => Cl.abilities.indexOf(id) + 1, shooter = (Cl.shoots || []).includes(st.wtype);
-    if (P.kite && low && td < 160) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
+    // (a shooter low on health backs off shooting, as below, TASKS 1727: running straight off it shot no more)
+    if (P.kite && low && td < 160 && !shooter) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
     // a shooting class (the mage's staff, TASKS 1116) keeps its distance: in sight and within a bolt's flight it stands and shoots,
     // backing off one that comes closer than SHOOT.near; blind or too far it walks in as the melee does
     else if (shooter && !E.deep) { const los = SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10), round = !los || pathLen(R, tg.x, tg.y) > td + 64;
@@ -541,7 +544,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else { const out = descend && m.down && R.bossDead ? m.down : m.exit; aim('exit', out); walk(R, inp, out.x, out.y); if (dist(out) < 55) inp.keys.push('KeyE'); }
     if (P.haz && R.arena && R.arena.active && rainOn(R, live)) { const c = shelter(R); if (c) { inp.left = inp.right = inp.up = inp.down = 0; walk(R, inp, c.x, c.y); } }
     if (awake.length || R.en.some((e) => e.fuse)) dodge(S, R, inp, awake);
-    if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; inp.press = 0; steer(inp, backX, backY); }
+    // (a skilled shooter keeps shooting as it steps out of a wind-up, TASKS 1727: the expert mage stood silent in a crowd of skeletons with full mana)
+    if (backT > S.t && !inp.keys.includes('Space')) { inp.left = inp.right = inp.up = inp.down = 0; if (!(P.step && (D.clsOf(h).shoots || []).includes(st.wtype))) inp.press = 0; steer(inp, backX, backY); }
     if (P.traps) avoidSpikes(S, R, h, inp);
     poolHeld = 0; if (P.haz) avoidHazards(S, R, h, inp);
     if (P.haz) { avoidSurge(S, R, h, inp); thinWalk(S, R, h, inp, awake); }
