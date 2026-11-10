@@ -29,7 +29,7 @@
 //               the fire hung on a still head, 2 px)
 //   flicker   — the fire priest's ring, a vent's and a surge's warning, and the smouldering skeleton's flames and arms: no jump in alpha, width or
 //               hand from one frame to the next, deep into a run (TASKS 1688)
-//   cover     — secret_shelf*, secret_statue* (TASKS 1795): the sliding cover is drawn at its own size and proportions shut, on its way,
+//   cover     — secret_shelf*, secret_statue* (TASKS 1841): the sliding cover is drawn at its own size and proportions shut, on its way,
 //               at its stop and after a save and a load (the bookcase squeezed to a strip as it moved off its cache)
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';

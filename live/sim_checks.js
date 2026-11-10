@@ -14,7 +14,7 @@
     runReward, scriptInput, secretMask, serpent, serpentMouth, secretUnder, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     stashOf, steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
-  // the checks that start a game from the menu for something else skip the Keeper's welcome (TASKS 1793), which holds the hero
+  // the checks that start a game from the menu for something else skip the Keeper's welcome (TASKS 1839), which holds the hero
   const noWelcome = (S) => { if (S.run && S.run.greet === 1) S.run.greet = 'done'; };
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function selfCheck() {
@@ -1441,7 +1441,7 @@
       if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted (${R.stats[1].sec})`);
       if (name === 'statue' || name === 'shelf') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n, t1 = S.t + D.STATUE_SECRET.slide + 0.05; while (S.t < t1) step(S, { keys: [] }); if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push(`secret check ${name}: it has not moved, or its block has not`);
         if (Math.abs(d.x - d0) !== q.slide.n * TILE || !(name === 'shelf' ? [2, 3] : [1, 2]).includes(q.slide.n)) out.push(`secret check ${name}: it slid the wrong distance`);
-        // (TASKS 1795) a bookcase opened by an old save, on its hinge: loaded, it takes a way and stands on its far end, blocking that cell
+        // (TASKS 1841) a bookcase opened by an old save, on its hinge: loaded, it takes a way and stands on its far end, blocking that cell
         if (name === 'shelf') { const R2 = JSON.parse(JSON.stringify(R)), m2 = R2.map, q2 = m2.secrets[qi], e2 = m2.decor.find((o) => o.secret === qi); delete q2.slide; Object.assign(e2, { x: q2.x, solid: 0, broken: 1 }); m2.block = m2.block.filter((b) => b !== k0 && b !== k1); R2.hero.x = R2.hero.y = 0; SIMX.migrateSecrets(R2);
           if (!q2.slide || !e2.solid || e2.x !== q2.x + q2.slide.s * q2.slide.n * TILE || !m2.block.includes(k0 + q2.slide.s * q2.slide.n) || m2.block.includes(k0)) out.push('secret check shelf: an old save\'s open bookcase does not stand slid after loading'); } }
       standAt(R, q); pressE(S); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
@@ -2824,7 +2824,7 @@
       S.screen = 'play'; S.talk = null; }
     for (const role of ['smith', 'enchanter']) { const f = folkOf(R).find((q) => q.role === role), x0 = f.x, y0 = f.y; f.x += 2600; h.x = f.x + 44; h.y = f.y + 12; S.screen = 'play'; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
       if (S.screen !== 'talk' || S.talk.role !== role) out.push(`talk: E by the ${role} away from the workshop opens no talk`); f.x = x0; f.y = y0; S.screen = 'play'; S.talk = null; }
-    // TASKS 1792: a quest's offer opens without «Поговорить», its row then the quest's, Мастерская and Дальше
+    // TASKS 1838: a quest's offer opens without «Поговорить», its row then the quest's, Мастерская and Дальше
     const of0 = R.offers; R.offers = [{ key: 'cull', from: 'smith', q: 0 }]; S.screen = 'play'; S.talk = null; h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
     if (S.screen !== 'talk' || !S.talk.act || S.talk.topics || UI.talk(S.talk).r.some((b) => b.id === 'talk')) out.push('talk: the smith\'s quest offer shows «Поговорить» or no quest');
     R.offers = of0; S.screen = 'play'; S.talk = null;
@@ -2970,7 +2970,7 @@
       const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !D.QUEST_SAY.keeper.thanks.some((v) => S.talk.pages[1].startsWith(v))) out.push('quest story: no thanks and next offer after the turn-in');
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
-    // TASKS 1794: a quest to turn in waits behind an ordinary line with its button; its words, the thanks and the reward come once pressed
+    // TASKS 1840: a quest to turn in waits behind an ordinary line with its button; its words, the thanks and the reward come once pressed
     for (const [role, key] of [['keeper', 'fetch'], ['smith', 'fetch'], ['porter', 'cull'], ['guard', 'named']]) { R = run(41); R.offers = []; R.quests = []; const q = takeQuest(S, R, newQuest(R, key, 2, role)); q.st = 'done'; q.n = q.need;
       const SAY = D.QUEST_SAY[role], W = [D.QUESTS[key].name, root.SIMX.rwLine(q.rw), D.QUESTS[key].thanks, ...SAY.done, ...SAY.thanks].filter(Boolean), said = () => S.talk.pages.some((p) => W.some((v) => p.includes(v)));
       const T = talkTo(R, role); if (!T || !T.act || T.act.k !== 'turn') { out.push('quest turn-in: the ' + role + '\'s talk does not offer it'); continue; }
@@ -3241,7 +3241,7 @@
         endRun(S, 'dead'); if (S.meta.lastCls !== 'mage') out.push('class screen: the last hero\'s class is not kept');
         const T = spawn(0, { meta: S.meta }); startRun(T, 'town'); const pages = root.SIMX.keeperPages(T, T.run);
         if (!pages.some((p) => /маг/.test(p))) out.push('class screen: the Keeper does not name the last hero\'s class'); } }
-    // the Keeper's welcome (TASKS 1793): a new game's first steps in the town bring him from the fire to the hero, held meanwhile, and
+    // the Keeper's welcome (TASKS 1839): a new game's first steps in the town bring him from the fire to the hero, held meanwhile, and
     // open the first talk with the quest about Horatio; Esc leaves the offer his; it is never played again: not on a second visit,
     // not in a run saved before it (or past it)
     { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, h = R.hero, F = folkOf(R), k = F.find((q) => q.role === 'keeper'), x0 = h.x, y0 = h.y, kx = k.x, ky = k.y;

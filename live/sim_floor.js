@@ -291,7 +291,7 @@
   const MASK = { key: '', set: null };
   // a cache saved before the walls stopped breaking (TASKS 1691): a flagstone in front of it, so it stays openable; a statue saved
   // with its slide as a distance in px takes this branch's side and cell count
-  // a false bookcase saved while it still swung on a hinge (TASKS 1795) takes a way along the wall with room for all its width, and
+  // a false bookcase saved while it still swung on a hinge (TASKS 1841) takes a way along the wall with room for all its width, and
   // one already swung open stands on the far end of it; with no such room (or the hero there) it keeps its hinge
   function slideShelf(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); if (!d) return;
     const W = m.W, fy = Math.floor(d.y / TILE), fc = Math.floor(q.x / TILE), hw = D.PROP_W.bookshelf / 2, blk = new Set(m.block), hk = Math.floor(R.hero.y / TILE) * W + Math.floor(R.hero.x / TILE);

@@ -44,7 +44,7 @@
     else if (C.st === 'at') { if (C.load <= 0 && t >= C.t) C.st = 'up'; }
     else if (C.st === 'up') { C.s = Math.max(0, C.s - v * DT); if (C.s <= 0) { C.st = 'in'; C.t = t + 6; C.load = CART_LOAD; } }
     else if (t >= C.t) C.st = 'down'; }
-  // ---------------- the Keeper's welcome (TASKS 1793) ----------------
+  // ---------------- the Keeper's welcome (TASKS 1839) ----------------
   // a new game's first steps in the town: after a breath he leaves the fire, comes over to the hero (held meanwhile) with a word on
   // the way and opens the first talk, then goes back to the fire. R.greet: 1 armed by startRun, { st } while it plays, 'done' after;
   // a run saved before it (or past it) has none and is never greeted
@@ -336,7 +336,7 @@
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
-    // a quest to turn in waits behind an ordinary line: its words and reward come with the press (TASKS 1794)
+    // a quest to turn in waits behind an ordinary line: its words and reward come with the press (TASKS 1840)
     const dn = questDone(R, role), L = D.FOLK[role].lines; if (dn) return { pages: L[(dn.id || 0) % L.length].slice(), act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
@@ -415,7 +415,7 @@
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; a master's talk keeps a button
   // into his workshop; past the campaign's end a townsman with words for it says them once a run; the topics wait for an idle talk
-  // (TASKS 1792: «Поговорить» beside a quest's offer or the Keeper's story was out of place)
+  // (TASKS 1838: «Поговорить» beside a quest's offer or the Keeper's story was out of place)
   function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role), told = R.wonTold || (R.wonTold = {}); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
     if (FD.won && campaignDone(R) && !told[f.role]) { told[f.role] = 1; pages = pages.concat(FD.won); }
     const idle = !qt && !pages.length;

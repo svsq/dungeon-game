@@ -175,7 +175,7 @@
     ev(S, { k: 'secret', x: q.x, y: q.y - 20, i, kind }); R.msg = { s: TXT('sim_world.openSecret.msg.s'), t: S.t };
     giveShards(S, R, REWARD.secret, q.x, q.y - 20); checkFull(S, R);
   }
-  // a false shelf saved before it slid (TASKS 1795) swung open on its hinge (it stops blocking its cell) or shut again
+  // a false shelf saved before it slid (TASKS 1841) swung open on its hinge (it stops blocking its cell) or shut again
   function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
     d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
   // a statue or a false bookcase slid along the wall to its far cell (the drawing follows q.openT), or put back

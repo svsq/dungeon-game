@@ -535,7 +535,7 @@
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3],
       ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.6], ['secret_statue_knock', (o) => o.kind === 'statue', 2, 1.25], ['secret_statue_open', (o) => o.kind === 'statue', 3],
       ['secret_wall_lever', (o) => o.trig && o.trig.k === 'lever', 0], ['secret_wall_lever_open', (o) => o.trig && o.trig.k === 'lever', 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
-    // (TASKS 1795) the slid bookcase after a save and a load: it stands whole on its far cell
+    // (TASKS 1841) the slid bookcase after a save and a load: it stands whole on its far cell
     { const S = secretS((o) => o.kind === 'shelf', 3); if (S) { S.run = JSON.parse(JSON.stringify(S.run)); states.push(['secret_shelf_loaded', S]); } }
     // puzzles (TASKS 1692): three levers with their tallies, then one pulled; three unlit candles with theirs, then two lit
     for (const [n, k, on] of [['secret_puzzle_levers', 'levers', 0], ['secret_puzzle_levers_on', 'levers', 1], ['secret_puzzle_candles', 'candles', 0], ['secret_puzzle_candles_lit', 'candles', 2]]) { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find((o) => o.pz && o.pz.k === k); if (!q) continue;
@@ -1547,9 +1547,9 @@
     const eNear = (S, R, h, x, y) => { h.x = x; h.y = y; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; SIM.step(S, { keys: [] }); SIM.step(S, { keys: ['KeyE'] }); };
     const masterS = (role, quest) => keeperS((S, R, h) => { const at = R.map.town.svc[role === 'smith' ? 'anvil' : 'lectern']; noQ(R); if (quest) R.offers = [{ key: 'cull', from: role, q: 0 }];
       eNear(S, R, h, at.x, at.y + 30); if (S.talk) S.talk.p = S.talk.pages.length - 1; S.hover = 'talk'; });
-    // TASKS 1791, 1792: a new game's first word with the Keeper by the fire, his quest about Horatio on its first page
+    // TASKS 1837, 1838: a new game's first word with the Keeper by the fire, his quest about Horatio on its first page
     states.push(['town_first_talk', climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] }); const k = R.folk.find((q) => q.role === 'keeper'); eNear(S, R, h, k.x + 44, k.y + 12); S.hover = ''; })]);
-    // TASKS 1793: a new game's welcome from the real sim: the hero held by the spawn, the Keeper still at the fire, on his way with his
+    // TASKS 1839: a new game's welcome from the real sim: the hero held by the spawn, the Keeper still at the fire, on his way with his
     // word, the talk he opens by the hero; frame by frame his walk over (the set-off, the stride, the stop and the turn to the hero) and,
     // the talk left with Esc, his walk back to the fire and his turn to it
     { const key = (S) => S.run.folk.find((q) => q.role === 'keeper'), go = (S, n, keys) => { for (let q = 0; q < n; q++) SIM.step(S, { px: 960, py: 540, keys: keys && !q ? keys : [] }); };
@@ -1581,7 +1581,7 @@
     states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
     states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: qt.pages.length - 1, act: qt.act }; S.screen = 'talk'; })]);
-    // TASKS 1794: the same turn-in once «Сдать задание» is pressed: its words first, then the thanks and the reward
+    // TASKS 1840: the same turn-in once «Сдать задание» is pressed: its words first, then the thanks and the reward
     states.push(['town_quest_turned', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });

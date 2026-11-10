@@ -425,7 +425,7 @@
       if (kind === 'shelf' && !q.slide) { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0, 0.6, a) : 0, [sw, sh] = SZ('bookshelf');
         if (!p) Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]);
         else Y.push([d.y, () => L.sprite('bookshelf', sx(d.x) + sw / 2 - sw * (1 - 0.8 * p), sy(d.y) + 4 - sh, { w: sw * (1 - 0.8 * p), h: sh })]); }
-      // a bookcase slides whole like the statue (TASKS 1795: it swung on a hinge, squeezed to a strip, and stayed one after a save)
+      // a bookcase slides whole like the statue (TASKS 1841: it swung on a hinge, squeezed to a strip, and stayed one after a save)
       if (kind === 'statue' || (kind === 'shelf' && q.slide)) { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 }, n = d.n;
         Y.push([d.y, () => { drawProp(n, sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) }); if (L.TRACE) { const [w, h] = SZ(n); L.joint('cover' + i, 'tl', [sx(d.x + sl.x) - w / 2, sy(d.y) + 4 - h]); L.joint('cover' + i, 'br', [sx(d.x + sl.x) + w / 2, sy(d.y) + 4]); } }]);
         // the masonry stays where the stone has not yet moved off it, so the way opens only as fast as the statue uncovers it

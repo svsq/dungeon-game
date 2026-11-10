@@ -51,7 +51,7 @@
     for (let ty = 0; ty < h; ty += s) for (let tx = 0; tx < w; tx += s) { const sw = Math.min(s, w - tx), sh = Math.min(s, h - ty);
       L.sprite('ui_b_parchment_tile', x + tx, y + ty, { w: sw, h: sh, src: [0, 0, sw / s, sh / s], u: o.u }); } };
   // the state a control is drawn in, from the sim: the pointer over it (hover), held down on it (press), the keyboard's focus,
-  // which every control draws the way it draws hover (TASKS 1790: no frame of its own)
+  // which every control draws the way it draws hover (TASKS 1836: no frame of its own)
   K.st = (S, id, on = true) => ({ hover: on && S.hover === id, press: on && S.hover === id && !!S.pressWas, focus: on && S.focus === id, off: !on });
   const gradeOf = (st) => (st.off ? [0.15, 0.62, 0, 0.9] : st.press ? [1, 0.82, 0, 1] : st.hover || st.focus ? [1.08, 1.13, 0, 1.04] : [1, 1, 0, 1]);
   // ink on parchment: no outline (a dark outline under dark glyphs reads as a second, blurred line)
