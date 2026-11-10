@@ -204,8 +204,13 @@
         if (ev.crit && !ev.arm) float('cr' + i, TXT('hud.crit'), V.sx(hx), V.sy(hy) - 40 * q - 58, { size: Math.round(36 * (1 + 0.2 * L.SS(0, 0.08, a) - 0.2 * L.SS(0.08, 0.2, a))), col: '#ff5a38', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
       // a burn's ticks show as one number running up (TASKS 463): only its latest tick is drawn, with the burn's sum so far
       if (ev.k === 'hurt' && a < 0.8 && !(ev.chain !== undefined && S.ev.some((o, j) => j > i && o.k === 'hurt' && o.chain === ev.chain))) {
-        const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;
-        float('hu' + i, s, V.sx(ev.x) + (ev.side || h.hurtX || -1) * offset, V.sy(ev.y) - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
+        const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), tw = lw('hu' + i, s, { size: 30 }), side = ev.side || h.hurtX || -1, off = (q) => 30 * k + tw / 2 + 12 + 14 * q;
+        // the number's whole flight is kept clear of names and bodies at its birth: tested frame by frame, it rose into an elite's
+        // name at ×0,5 and leapt 125 px up mid-flight (TASKS 1776); out to the side it stays level with the hero
+        const bw = tw + 8, bh = 30 * 1.24 + 8, x0 = V.sx(ev.x), y0 = V.sy(ev.y), lo = Math.min(x0 + side * off(0), x0 + side * off(1)) - bw / 2;
+        let dx = 0; for (; dx < 240; dx += 12) { const b = { x: lo + side * dx, y: y0 - 24 - bh / 2, w: 14 + bw, h: 24 + bh }; if (!occupied.concat(nameZones, actorZones.slice(1)).some((o) => overlaps(b, o))) break; }
+        if (dx >= 240) dx = 0;
+        float('hu' + i, s, x0 + side * (off(a / 0.8) + dx), y0 - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 20;   // up off the head, then into the counter
         lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (HB.y + HB.h + 27 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
