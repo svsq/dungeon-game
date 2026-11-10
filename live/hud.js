@@ -890,20 +890,23 @@
     lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
   }
   // «Что нового» (TASKS 1038): the changelog's rows from the sim's scroll, a version with its date, its sections, the points
+  // «Что нового» (TASKS 1750), look B: the whole changelog on one loose parchment sheet, as the version's frame in the menu is, a red
+  // diamond a change, the scroll an ink rule with a red thumb
   function news(S, t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     G.blend('add'); L.glow(W / 2, H * 0.85, 520, [1, 0.45, 0.15], 0.14 + 0.04 * Math.sin(t * 2), 2); G.blend();
-    const N = D.UI.news(S.newsTop), P = N.P, V = N.view;
-    panel('nw_p', P.x, P.y, P.w, P.h);
-    lab('nw_t', TXT('hud.news'), P.x + P.w / 2, P.y + 70, { size: 60, al: 0.5, col: C.gold, out: '#2a0d06' });
+    const N = D.UI.news(S.newsTop), P = N.P, V = N.view, I = KIT.INK;
+    KIT.panel('nw_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
+    KIT.heading('nw_t', TXT('hud.news'), P.x + P.w / 2, P.y + 80, { size: 56, wing: 80 });
+    const dot = (x, y, s) => L.solid(x - s / 2, y - s / 2, s, s, [0.49, 0.12, 0.07], 0.7854, s / 2, s / 2);
     N.rows.forEach((r, i) => { const id = 'nw_r' + i;
-      if (r.k === 'ver') { lab(id, r.v, V.x, r.y + 38, { size: 40, col: C.gold }); lab(id + 'd', r.date, V.x + lw(id + 'w', r.v, { size: 40 }) + 24, r.y + 42, { size: 24, col: C.dim }); }
-      else if (r.k === 'group') lab(id, r.s, V.x + 4, r.y + 26, { size: 27, col: '#d9b27a' });
-      else { if (r.first) lab(id + 'b', '•', V.x + 14, r.y + 17, { size: 24, col: '#d9b27a' }); lab(id, r.s, V.x + 40, r.y + 17, { size: 24, col: C.text }); } });
-    if (N.max > 0) { const k = N.top / N.max, th = Math.max(60, V.h * V.h / (V.h + N.max * 34));
-      L.rrect(P.x + P.w - 30, V.y, 8, V.h, 4, [0.1, 0.08, 0.08], [0.1, 0.08, 0.08], 0.9); L.rrect(P.x + P.w - 30, V.y + (V.h - th) * k, 8, th, 4, C.rimHi, C.rim, 1);
-      lab('nw_k', TXT('hud.news.keys'), P.x + 40, P.y + P.h - 60, { size: 19, col: '#6d6258' }); }
-    for (const b of N.r) button('nw_' + b.id, b, S.hover);
+      if (r.k === 'ver') { const vw = KIT.ink(id, r.v, V.x, r.y + 38, { size: 40, col: I.r }); KIT.ink(id + 'd', r.date, V.x + vw + 24, r.y + 42, { size: 24, col: I.d }); }
+      else if (r.k === 'group') { KIT.ink(id, r.s, V.x + 4, r.y + 26, { size: 30, col: I.r }); }
+      else { if (r.first) dot(V.x + 22, r.y + 17, 10); KIT.ink(id, r.s, V.x + 40, r.y + 17, { size: 24 }); } });
+    if (N.max > 0) { const k = N.top / N.max, th = Math.max(60, V.h * V.h / (V.h + N.max * 34)), sx = P.x + P.w - 56;
+      L.solid(sx, V.y, 3, V.h, [0.42, 0.27, 0.15], 0, 0, 0, 0.8); L.rrect(sx - 4, V.y + (V.h - th) * k, 11, th, 5, [0.62, 0.16, 0.09], [0.42, 0.09, 0.05], 1);
+      KIT.ink('nw_k', TXT('hud.news.keys'), P.x + 70, P.y + P.h - 60, { size: 20, col: I.d }); }
+    for (const b of N.r) KIT.button('nw_' + b.id, b, stN(S, b.id));
   }
   // these windows have no keyboard focus of their own: a focus left over from another screen must not frame their buttons
   const stN = (S, id, on = true) => Object.assign(KIT.st(S, id, on), { focus: false });
