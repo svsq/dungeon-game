@@ -403,11 +403,22 @@ float colAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx
 // its cell's edge, so w looks into the cells round it; the front-most column under w wins; foot: w is in the lava just under one
 float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foot = 0.0; hwo = 13.0;
   vec2 G = vec2(96.0, 80.0), g0 = floor(w / G); float on = 0.0, by = -1e9;
-  for (int gy = -2; gy <= 0; gy++) for (int gx = -1; gx <= 1; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > smoothstep(0.16, 0.42, vnoise(g * 0.45 + 7.0))) continue;   // (TASKS 1628, the player's decision: more of them, the lake 75 % lit against 30–45)   // (in thickets and open reaches)
-    vec2 ctr = g * G + vec2(30.0 + 36.0 * hash(g + 2.2), 20.0 + 24.0 * hash(g + 3.3)); float n = 3.0 + floor(hash(g + 4.4) * 6.0), h0 = 24.0 + floor(hash(g + 7.7) * 19.0) * 2.0;
-    for (int j = 0; j < 8; j++) { if (float(j) >= n) break; float fj = float(j), hw = 15.0 + floor(hash(g + fj * 4.7 + 9.1) * 8.0);   // (30–44 px wide as the concept's, TASKS 481)
-      float h = max(14.0, h0 + floor((hash(g + fj * 3.1) - 0.5) * 16.0) * 2.0 + (hash(g + fj * 5.3 + 1.9) < 0.15 ? 30.0 : 0.0)) + floor(hash(g + fj * 6.1 + 3.7) * 4.0) * 2.0;
-      vec4 cj = vec4(floor((ctr.x + (hash(g + fj * 1.7 + 5.5) - 0.5) * 46.0) / 2.0) * 2.0 + 1.0, floor((ctr.y + (hash(g + fj * 2.3 + 6.6) - 0.5) * 22.0) / 2.0) * 2.0 + 1.0, h, 1.0);
+  for (int gy = -2; gy <= 0; gy++) for (int gx = -1; gx <= 1; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > smoothstep(0.24, 0.34, vnoise(g * 0.45 + 7.0))) continue;   // (TASKS 1628, the player's decision: more of them, the lake 75 % lit against 30–45)   // (in thickets and open reaches)
+    // (TASKS 1715: one kind of clump in every cell stood as a grid, neighbour spacing σ/μ 0.20–0.31 against the concept's 0.47; now
+    // a stepped massif, a scatter of low stepping stones or a clump from tight to loose, the same columns per cell on average)
+    float kind = hash(g + 12.9), massif = step(kind, 0.15), stones = step(0.15, kind) * step(kind, 0.3), sp = massif > 0.5 ? 1.6 : stones > 0.5 ? 1.5 : 0.45 + 1.2 * hash(g + 13.7);
+    vec2 ctr = g * G + vec2(14.0 + 68.0 * hash(g + 2.2), 16.0 + 36.0 * hash(g + 3.3));
+    float n = massif > 0.5 ? 8.0 : stones > 0.5 ? 2.0 + floor(hash(g + 4.4) * 4.0) : 3.0 + floor(hash(g + 4.4) * 6.0), h0 = massif > 0.5 ? 80.0 + floor(hash(g + 7.7) * 12.0) * 2.0 : 26.0 + floor(hash(g + 7.7) * 19.0) * 2.0;
+    for (int j = 0; j < 8; j++) { if (float(j) >= n) break; float fj = float(j), hk = hash(g + fj * 4.7 + 9.1), hw = massif > 0.5 ? 20.0 + floor(hk * 9.0) : stones > 0.5 ? 14.0 + floor(hk * 10.0) : 10.0 + floor(hk * 16.0);
+      // (nearly half the clumps split in two a little apart: a pair close by beside a lone one breaks the even spacing)
+      vec2 o = (vec2(hash(g + fj * 1.7 + 5.5), hash(g + fj * 2.3 + 6.6)) - 0.5) * vec2(46.0, 22.0) * sp
+        + (massif + stones < 0.5 && hash(g + 14.3) < 0.45 ? (mod(fj, 2.0) - 0.5) * (vec2(hash(g + 15.1), hash(g + 16.9)) - 0.5) * vec2(160.0, 72.0) : vec2(0.0));
+      // a massif steps down from its middle by a third of a cell; a stone stands a step out of the lava; a clump keeps its own height,
+      // one column in six of it cut down to a step
+      float h = massif > 0.5 ? max(10.0, floor(h0 * (1.0 - 0.65 * length(o / vec2(23.0, 11.0) / sp)) / 10.0) * 10.0) : stones > 0.5 ? 6.0 + floor(hash(g + fj * 3.1) * 4.0) * 2.0
+        : hash(g + fj * 8.3 + 0.7) < 0.12 ? 8.0 + floor(hash(g + fj * 3.1) * 4.0) * 2.0
+        : max(14.0, h0 + floor((hash(g + fj * 3.1) - 0.5) * 16.0) * 2.0 + (hash(g + fj * 5.3 + 1.9) < 0.15 ? 30.0 : 0.0)) + floor(hash(g + fj * 6.1 + 3.7) * 4.0) * 2.0;
+      vec4 cj = vec4(floor((ctr.x + o.x) / 2.0) * 2.0 + 1.0, floor(max(ctr.y + o.y, g.y * G.y + 10.0) / 2.0) * 2.0 + 1.0, h, 1.0);
       if (abs(w.x - cj.x) > hw || w.y < cj.y - 10.0 || w.y > cj.y + h + 14.0) continue;
       if (textureLod(u_lake, cj.xy / u_map, 0.0).r < 0.5 || textureLod(u_lake, vec2(cj.x, cj.y + h) / u_map, 0.0).r < 0.5) continue;
       vec2 ff; float k = colAt(w, cj, ff, hw);
@@ -441,7 +452,8 @@ vec3 pitRim(vec2 w, float la, vec3 col){ if (smoothstep(0.02, 0.06, la + (fbm(w 
   return d2 - d1 < 0.1 ? vec3(0.03, 0.022, 0.026) : pitGrain(w, 0.9, col); }
 vec3 capCol(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), xx = (w.x - c.x) / hw, yy = (w.y - c.y) / 8.0, r = xx * xx + yy * yy;
   vec3 col = vec3(0.25, 0.23, 0.27) * (0.8 + 0.3 * id) * (0.85 + 0.3 * step(0.5, vnoise(w / 6.0 + id * 9.0)));
-  if (r > 0.64) col = yy < 0.2 && xx < 0.4 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03);
+  // (the pale bevel on the left half only, TASKS 1715: up to x 0.4 it left one pale pixel among the dark on the top's right)
+  if (r > 0.64) col = yy < 0.2 && xx < 0.0 ? vec3(0.42, 0.39, 0.42) : vec3(0.03, 0.025, 0.03);
   else if (yy > 0.15 && xx > 0.05) col *= 0.72;
   return col; }
 // a face: a lit left facet, a duller middle, a dark right and the ink between columns, rough with vertical streaks and a few
@@ -453,7 +465,9 @@ vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx
   if (hash(vec2(id, floor((w.y - c.y) / 2.0))) < 0.04 && xx < 0.82) col *= 0.3;
   if (c.w > 1.5) col *= 1.0 - 0.35 * smoothstep(0.55, 1.0, fq);   // a step's face stands on the lower row: only its foot is shaded
   // (only its lower two fifths red, brightening to its foot, TASKS 447, 1053: ref_cave_lava's faces stay dark above; a fifth was too little)
-  else if (c.w > 0.5) { float g = smoothstep(0.5, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
+  // (where the red begins moves per column and along its width, TASKS 1715: one band at the same height on every column)
+  else if (c.w > 0.5) { float b0 = 0.38 + 0.26 * hash(vec2(id, 4.1)) + 0.2 * (vnoise(vec2(w.x / 6.0 + id * 13.0, id * 3.0)) - 0.5);
+    float g = smoothstep(b0, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
     col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.7, 1.0, fq) * step(xx, 0.5)), g * 0.9); }
   else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
   return col; }
