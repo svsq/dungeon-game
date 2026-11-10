@@ -17,7 +17,7 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, 
 
 // react: seconds before a wind-up or a bolt is noticed; dodge: chance to dash out of one noticed in time; aim: drift of the aim
 // (rad); hp: potion below this share of HP; mp: drinks mana in a fight; whirl: monsters in reach to spin; fire: mana kept back
-// before a fireball; shield: cast below this share of HP; focus: casters first; kite: backs off with low HP and no potion;
+// before a fireball; shield: cast below this share of HP; focus: casters first;
 // gift: highest altar tier taken; step: walks back out of a wind-up's reach while the dash recharges; traps: keeps off a spike
 // plate that is up or about to rise; haz: steps out of a magma hazard's ring over its warning (TASKS 406: they are plain to see, the
 // novice aside); water: reads the cave's water (TASKS 468): goes to the bank by an eel's bubbles to strike it as it comes up, and
@@ -34,11 +34,11 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, 
 // the novice goes home more often than the rest (the player's call 10.11.2026): with less gold, three potions still in the bag, and again on the same floor once down to one
 const TOWN = { novice: { quests: 1, home: 2, scrolls: 3 }, average: { quests: 2, home: 1, scrolls: 2 }, expert: { quests: 3, home: 1, scrolls: 2 }, mage: { quests: 2, home: 1, scrolls: 2 }, builder: { quests: 2, home: 1, scrolls: 2 } };
 const PROFILES = {
-  novice: { tips: 1, flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
-  average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  expert: { haz: 1, water: 1, flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, kite: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
-  mage: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.6, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
-  builder: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, kite: 0, gift: 3, cast: 0.5, caster: 1, skills: ['fireball', 'whirl', 'shield'], stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  novice: { tips: 1, flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
+  average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, gift: 3, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  expert: { haz: 1, water: 1, flank: 1, react: 0.15, dodge: 0.9, aim: 0.05, hp: 0.5, mp: 1, whirl: 2, fire: 12, shield: 0.7, focus: 1, gift: 3, step: 1, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
+  mage: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, gift: 3, cast: 0.6, stats: ['int', 'vit', 'int', 'vit', 'agi'] },
+  builder: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 12, shield: 0.6, focus: 0, gift: 3, cast: 0.5, caster: 1, skills: ['fireball', 'whirl', 'shield'], stats: ['str', 'vit', 'str', 'vit', 'agi'] },
 };
 
 function rng(seed) { let a = seed >>> 0; const draw = () => { a = (a + 0x6d2b79f5) >>> 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -174,12 +174,16 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       const ux = Math.cos(e.aimA), uy = Math.sin(e.aimA), rx = h.x - e.x, ry = h.y - 38 - (e.y - SIM.ARROW_Y), cr = rx * uy - ry * ux;
       if (rx * ux + ry * uy < 0 || Math.abs(cr) > 30 || rand() >= P.dodge) continue;
       const sd = cr >= 0 ? 1 : -1; backT = t + w - age + 0.3; backX = uy * sd; backY = -ux * sd; }
-    if (!ready && !P.step) return;
+    // the warrior keeps striking while his dash recharges: a step back from a swing is a swing of his own lost, and his health comes
+    // back by his blows (TASKS 1727: backing off every elite's wind-up, the expert warrior took fewer blows than the average and drank more)
+    if (!ready && !(P.step && D.clsOf(h).id !== 'warrior')) return;
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       // a boss is dodged only on the moves that strike with its body (the volley is read bolt by bolt below); the slam that follows
       // a charge the hero got out of is a pattern a player learns, met without waiting to see it wind up (TASKS 227)
       if (e.st === 'bwind' && (!['slam', 'charge', 'bite', 'tail', 'wave', 'fists', 'crack'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
-      const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0; if (age < (e.chain ? 0 : P.react) || seen.has(key)) continue; seen.add(key);
+      const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0;
+      // a boss's wind-up seen while the dash recharges waits for it (TASKS 1727: once seen, it was never dashed out of)
+      if (age < (e.chain ? 0 : P.react) || seen.has(key) || (!ready && e.st === 'bwind' && !e.chain)) continue; seen.add(key);
       const w = e.st === 'bwind' ? D.bossMove(e).wind : D.windOf(e, E.wind), d = Math.hypot(h.x - e.x, h.y - e.y);
       if (age > w || E.kind === 'caster' || E.kind === 'archer' || e.spit) continue;
       // (TASKS 1157: backing off every swing, one each 1.4 s, the expert never struck back for 120 s and more)
@@ -190,7 +194,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
       if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
-      if ((e.st === 'bwind' && !['slam', 'tail', 'bite', 'fists'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else dash(inp, ax, ay); return; }
+      // out of a boss's ring the skilled stay out until it lands (TASKS 1727: the expert walked back into the demon lord's slam after the dash)
+      if ((e.st === 'bwind' && !['slam', 'tail', 'bite', 'fists'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else { dash(inp, ax, ay); if (P.step && e.st === 'bwind') { backT = t + w - age + 0.1; backX = ax; backY = ay; } } return; }
     if (!ready) return;
     // a tugging elite's warning (TASKS 477): a dash across its line before it draws the hero in
     // (late in it: a dash slips the tug only while under way, BAL.dodge.t)
@@ -335,14 +340,12 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (S.t > aimT) { aimT = S.t + 0.4; aimN = (rand() + rand() + rand() - 1.5) * 2 * P.aim; }
     const E = D.ENEMIES[tg.type], td = dist(tg), ox = h.x, oy = h.y - SIM.RIG.shoulder + 8, aimY = (D.clsOf(h).shoots || []).includes(st.wtype) ? E.h * 0.45 : 30, a = Math.atan2(tg.y - aimY - oy, tg.x - ox) + aimN, r = Math.hypot(tg.y - aimY - oy, tg.x - ox);
     Object.assign(inp, toPx(R, ox + Math.cos(a) * r, oy + Math.sin(a) * r));
-    const low = h.hp < st.maxHp * 0.3 && !held(h, 'hp_potion');
     // the class's keys (TASKS 1116): an ability is pressed on its own slot of the hero's class, or not at all
     const Cl = D.clsOf(h), slot = (id) => Cl.abilities.indexOf(id) + 1, shooter = (Cl.shoots || []).includes(st.wtype);
-    // (a shooter low on health backs off shooting, as below, TASKS 1727: running straight off it shot no more)
-    if (P.kite && low && td < 160 && !shooter) { steer(inp, (h.x - tg.x) / td, (h.y - tg.y) / td); }
+    // the melee low on health with no potion left fights on, his blows are what heals him (TASKS 1727: backing off it lost the expert warrior a third of his deaths)
     // a shooting class (the mage's staff, TASKS 1116) keeps its distance: in sight and within a bolt's flight it stands and shoots,
     // backing off one that comes closer than SHOOT.near; blind or too far it walks in as the melee does
-    else if (shooter && !E.deep) { const los = SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10), round = !los || pathLen(R, tg.x, tg.y) > td + 64;
+    if (shooter && !E.deep) { const los = SIM.losClear(R.map, ox, oy + 20, tg.x, tg.y - 10), round = !los || pathLen(R, tg.x, tg.y) > td + 64;
       const w = shotWatch.get(tg.id); if (!w || tg.hp < w.hp || td > SHOOT.far) shotWatch.set(tg.id, { hp: tg.hp, t: S.t }); const futile = w && S.t - w.t > SHOOT.futile;
       if (round || td > SHOOT.far || (futile && td > 70)) { walk(R, inp, tg.x, tg.y, round); if (futile) inp.press = 1; }
       else { kiteOff(R, inp, live); inp.press = 1; if (!futile) shotOk = S.t; } }
