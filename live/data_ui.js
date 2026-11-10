@@ -27,7 +27,10 @@
   const sortRow = (pre, right, y, h = 40) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x: right - 150 * (3 - i) - 8 * (2 - i), y, w: 150, h }));
   // the settings screen's rows, in order (TASKS 1302): each a slider over its stops, its value kept in S.meta[key]
   const SETTINGS_BOOK = { x: 380, y: 130, w: 1160, h: 840 };
-  const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName }];
+  // the brightness (TASKS 1303): a gamma on the frame's final grade, the HUD drawn after it untouched
+  const BRIGHTS = [0.7, 0.85, 1, 1.2, 1.4], stepName = (v) => { const i = BRIGHTS.indexOf(v) - 2; return i > 0 ? '+' + i : i < 0 ? '\u2212' + -i : '0'; };
+  const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName },
+    { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] }];
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save)
     menu: (hasRun, diff, arm, zoom) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
@@ -52,7 +55,7 @@
         r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
     // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right),
     // «Назад» under them. Five rows fit: the zoom and the brightness now, the graphics modes (1372) and the language (1039) later
-    settings: () => { const B = SETTINGS_BOOK, rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + 250 + i * 108 }, q));
+    settings: () => { const B = SETTINGS_BOOK, rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + 236 + i * 100 }, q));
       return { B, rows, r: rows.map((q) => ({ id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))
         .concat([{ id: 'back', label: TXT('UI.settings.back'), on: true, x: 960 - 150, y: B.y + B.h - 128, w: 300, h: 64 }]) }; },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot

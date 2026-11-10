@@ -23,7 +23,8 @@
       if (T.screen !== 'settings' || T.meta.zoom !== 1.25) out.push('settings: the menu does not open them, or ← does not step the zoom');
       const r = UI.settings().r.find((q) => q.id === 'zoom'); step(T, { keys: [], click: 1, press: 1, px: r.x, py: r.y + r.h / 2 });
       if (T.meta.zoom !== D.ZOOMS[0]) out.push('settings: a click at the slider\'s left end does not set ×0,5');
-      step(T, { keys: [], press: 0 }); step(T, { keys: ['Escape'] }); if (T.screen !== 'menu') out.push('settings: Escape does not go back to the menu'); }
+      step(T, { keys: [], press: 0 }); step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.bright !== 1.2) out.push('settings: → on the brightness row does not brighten one step');
+      step(T, { keys: ['Escape'] }); if (T.screen !== 'menu') out.push('settings: Escape does not go back to the menu'); }
     for (let lvl = 1; lvl <= 32; lvl++) for (const slot of D.SLOTS) {
       const bases = Object.keys(BASES).filter((b) => BASES[b].slot === slot);
       for (const b of bases) for (let rar = 0; rar < RARITY.length; rar++) {

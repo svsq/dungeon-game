@@ -96,12 +96,12 @@
     const ink = st.off ? [0.5, 0.44, 0.36] : [0.17, 0.10, 0.06], n = o.ticks || 0, kx = x + w * Math.max(0, Math.min(1, f));
     L.solid(x, y - 1, w, 3, ink);
     for (let i = 0; i < n; i++) { const tx = Math.round(x + w * i / (n - 1)) - 1; L.solid(tx, y - 8, 3, 17, ink); }
-    if (st.focus) K.focus(x - 18, y - 22, w + 36, 44, 0);
+    if (st.focus) K.focus(x - 22, y - 19, w + 44, 38, 0);
     const kk = st.press ? 1.15 : st.hover || st.focus ? 1.1 : 1;
     K.part('ui_b_knob', [16, 16], kx, y + 1, { c: true, k: kk, u: { grade: gradeOf(Object.assign({}, st, { press: false })) } });
-    if (o.value !== undefined) K.ink(id + '_v', o.value, kx, y - 40, { size: 24, al: 0.5, col: st.hover || st.focus ? K.INK.r : K.INK.t });
-    if (o.ends) { K.ink(id + '_e0', o.ends[0], x, y + 42, { size: 20, al: 0.5, col: K.INK.d }); K.ink(id + '_e1', o.ends[1], x + w, y + 42, { size: 20, al: 0.5, col: K.INK.d }); }
-    L.uiBox(id, x - 40, y - 60, w + 80, 120, 0);
+    if (o.value !== undefined) K.ink(id + '_v', o.value, kx, y - 34, { size: 24, al: 0.5, col: st.hover || st.focus ? K.INK.r : K.INK.t });
+    if (o.ends) { K.ink(id + '_e0', o.ends[0], x, y + 34, { size: 20, al: 0.5, col: K.INK.d }); K.ink(id + '_e1', o.ends[1], x + w, y + 34, { size: 20, al: 0.5, col: K.INK.d }); }
+    L.uiBox(id, x - 60, y - 52, w + 120, 110, 0);
   };
   // the checkbox: an ink square on the page, the red tick in it when on
   K.check = (id, x, y, on, st, s = 36) => {
