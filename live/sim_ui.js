@@ -5,7 +5,7 @@
   const {
     BASES, D, DT, FROM, abandonQuest, campaignDone, META, REWARD, RUN, UI, bagAdd, boardOffers, buy, craft, donate, enterFloor, ev, gateGo, gateWays,
     gearName, giveQuest, heroSt, journalOf, newRun, potCount, runReward, sell, stashOf, stashPut, stashTake, takeGift, talkAct,
-    sortItems, throwAway, useItem, isCons } = SIMX;
+    sortItems, throwAway, useItem, isCons, tally } = SIMX;
   // ---------------- run end / menus ----------------
   function endRun(S, how) {
     const R = S.run; if (!R) return;
@@ -15,7 +15,8 @@
     if (how === 'dead' && !(R.log && R.log.abandon)) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id;
     // the records are the deepest floor reached, not the one the run ended on (TASKS 516: down to the 17th, back up to the 16th)
     const deep = Math.max(R.deepest || 0, R.floor);
-    if (RUN(R) === D.RUNS.campaign) S.meta.best = Math.max(S.meta.best || 0, deep);
+    if (RUN(R) === D.RUNS.campaign) { S.meta.best = Math.max(S.meta.best || 0, deep); tally(S, R, 'best', deep, 1); }
+    tally(S, R, 'runs'); tally(S, R, 'shards', bonus); if (how === 'win' && !R.campaignWon) tally(S, R, 'wins'); if (how === 'dead' && !(R.log && R.log.abandon)) tally(S, R, 'deaths');
     // the endless descent's record depth (TASKS 348)
     const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless) S.meta.bestEndless = Math.max(deepBest, deep);
     S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
@@ -32,6 +33,7 @@
   // its record — and the same run goes on as the endless descent from the 13th, the hero as he is; the descent's depth is its record
   function descend(S, R) {
     const W2 = runReward(R, 'win'); S.meta.shards += W2.base; S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, R.floor);
+    tally(S, R, 'wins'); tally(S, R, 'shards', W2.base); tally(S, R, 'best', R.floor, 1);
     R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; S.saveN++;
     ev(S, { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: R.floor }); enterFloor(S, R, R.floor + 1);
     R.msg = { s: TXT('sim_ui.descend.msg.s', { base: W2.base, floor: R.floor, p3: D.floorName(R.floor, R.mode, R.seed, FROM(R)) }), t: S.t, d: 5 }; }
@@ -58,6 +60,7 @@
       if (b.id === 'tests') S.screen = 'tests';
       if (b.id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (b.id === 'settings') openSettings(S, 'menu');
+      if (b.id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y });
     }
     if (keys.Enter) { if (S.saved) { S.t = Math.max(S.t, S.saved.t || 0) + DT; S.run = S.saved; S.screen = 'play'; } else chooseRun(S); }
@@ -96,6 +99,16 @@
     if (r0 === 'kit') stepKit(S, cls, st);
     if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
     ev(S, { k: 'ui', x, y });
+  };
+  // the statistics (TASKS 1309): a tab or ←→ picks whose counters the book shows, ↑↓ go between the tabs and «Назад»; «Назад»,
+  // Escape or Enter on «Назад» go back to the menu
+  SCREEN.stats = (S, inp, keys, x, y, click) => {
+    const U = UI.stats(), b = D.hitUI(U.r, x, y), tab = U.tabs.includes(S.statTab) ? S.statTab : 'all'; S.hover = b ? b.id : '';
+    if (keys.Escape || (click && b && b.id === 'back') || (keys.Enter && S.focus === 'back')) { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.tab) { S.statTab = b.tab; S.focus = b.id; ev(S, { k: 'ui', x, y }); return; }
+    const mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv) { S.focus = mv > 0 ? 'back' : 'tab:' + tab; ev(S, { k: 'ui', x, y }); }
+    if (st) { const i = Math.max(0, Math.min(U.tabs.length - 1, U.tabs.indexOf(tab) + st)); if (U.tabs[i] !== tab) { S.statTab = U.tabs[i]; ev(S, { k: 'ui', x, y }); } S.focus = 'tab:' + U.tabs[i]; }
   };
   // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back
   SCREEN.news = (S, inp, keys, x, y, click) => {

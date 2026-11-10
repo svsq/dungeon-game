@@ -49,7 +49,15 @@
       // the settings (TASKS 1302): from the menu with the keyboard's focus on the first row, from the pause with the pointer on
       // «Назад», a slider held at its smallest step; and the run at the zoom's ends
       ['settings', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; })],
-      ['settings_pause', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'back'; S.hover = 'back'; S.meta.zoom = 1.5; })],
+      // the statistics (TASKS 1309): a first-timer's empty book; a long history whose new counters started at the 38th run, with the
+      // widest numbers, on every tab; the keyboard's focus on «Назад»
+      ['stats_new', mk((S) => { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; })],
+      ...['all', 'warrior', 'archer'].map((tab) => ['stats_full' + (tab === 'all' ? '' : '_' + tab), mk((S) => { const big = (k) => ({ runs: 1247, wins: 133, deaths: 1088, kills: 1234567, elites: 98765, bosses: 4321, shards: 9876543, best: 32, time: 99 * 3600 * 37 + 59 * 60 + k });
+        Object.assign(S.meta, { runs: 1284, wins: 140, best: 32, bestEndless: 47, shards: 9999999, stats: { from: 37, all: big(0), cls: { warrior: big(1), mage: Object.assign(big(2), { runs: 412 }), archer: Object.assign(big(3), { runs: 9 }) } } });
+        S.screen = 'stats'; S.statTab = tab; S.focus = 'tab:' + tab; S.hover = tab === 'all' ? 'tab:mage' : ''; })]),
+      ['stats_back', mk((S) => { Object.assign(S.meta, { runs: 3, wins: 0, best: 4, shards: 120, stats: { from: 0, all: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 }, cls: { mage: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 } } } });
+        S.screen = 'stats'; S.statTab = 'mage'; S.focus = 'back'; S.hover = 'back'; })],
+      ['settings_pause',play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'back'; S.hover = 'back'; S.meta.zoom = 1.5; })],
       ['settings_drag', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; S.hover = 'zoom'; S.drag = 'zoom'; S.pressWas = true; S.meta.zoom = 0.5; })],
       ['play_zoom05', play((S) => { S.meta.zoom = 0.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
       ['play_zoom075', play((S) => { S.meta.zoom = 0.75; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],

@@ -34,6 +34,21 @@
       step(T, at(UI.classes(T.meta), 'dif:easy')); if (T.meta.diff !== 'easy') out.push('start: a click on a tab does not pick its difficulty');
       step(T, { keys: ['Escape'] }); step(T, at(UI.menu(false), 'campaign')); if (T.meta.diff !== 'easy' || T.meta.cls !== D.classesReady()[1]) out.push('start: the chosen difficulty and class are not kept');
       step(T, { keys: ['Enter'] }); if (!T.run || T.run.diff !== 'easy' || T.run.hero.cls !== D.classesReady()[1]) out.push('start: Enter does not start the run with the chosen difficulty and class'); }
+    { const T = spawn(0, { meta: { runs: 5, wins: 1, up: {} } }), F = spawn(0, {}), key = (k) => step(T, { keys: [k] });
+      if (T.meta.stats.from !== 5 || F.meta.stats.from !== 0) out.push('stats: the counters do not note the runs finished before them');
+      T.run = newRun(T, 'campaign', 7, { cls: 'mage' }); T.screen = 'play'; const R = T.run;
+      for (let i = 0; i < 120; i++) step(T, { keys: [] });
+      const foe = R.en.find((e) => !D.BOSSES[e.type]); foe.elite = 1; killEnemy(T, R, foe); SIMX.giveShards(T, R, 3, R.hero.x, R.hero.y, ''); endRun(T, 'dead');
+      const A = T.meta.stats.all, M = T.meta.stats.cls.mage || {};
+      if (A.kills !== 1 || A.elites !== 1 || A.bosses || A.deaths !== 1 || A.runs !== 1 || M.runs !== 1 || M.kills !== 1 || !(A.time > 0.9) || !(A.shards >= 3) || A.shards !== M.shards) out.push('stats: a run\'s kill, elite, death, time or shards are not counted, or not for its class');
+      if (T.meta.runs !== 6) out.push('stats: the meta\'s run count changed its rule');
+      const L2 = spawn(1, JSON.parse(JSON.stringify(persist(T)))); if (L2.meta.stats.from !== 5 || L2.meta.stats.all.kills !== 1) out.push('stats: the counters are lost or restarted on load');
+      const D0 = SIMX.spawn(0, {}); D0.demo = 1; D0.run = newRun(D0, 'campaign', 7); D0.screen = 'play'; for (let i = 0; i < 60; i++) step(D0, { keys: [] }); if (D0.meta.stats.all.time) out.push('stats: the attract demo counts into the player\'s time');
+      T.screen = 'menu'; step(T, (() => { const b = UI.menu(false).find((q) => q.id === 'stats'); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; })());
+      if (T.screen !== 'stats' || T.statTab !== 'all') out.push('stats: the menu does not open the statistics');
+      step(T, { keys: [], press: 0 }); key('ArrowRight'); if (T.statTab !== D.classesReady()[0] || T.focus !== 'tab:' + T.statTab) out.push('stats: → does not open the first class\'s tab');
+      key('ArrowDown'); if (T.focus !== 'back') out.push('stats: ↓ does not reach «Назад»');
+      key('Enter'); if (T.screen !== 'menu') out.push('stats: Enter on «Назад» does not go back to the menu'); }
     for (let lvl = 1; lvl <= 32; lvl++) for (const slot of D.SLOTS) {
       const bases = Object.keys(BASES).filter((b) => BASES[b].slot === slot);
       for (const b of bases) for (let rar = 0; rar < RARITY.length; rar++) {

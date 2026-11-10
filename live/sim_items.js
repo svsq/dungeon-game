@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    AFFIXES, BAL, BASES, CONSUMABLES, D, DT, RARITY, RUN, TILE, ev, move, rnd } = SIMX;
+    AFFIXES, BAL, BASES, CONSUMABLES, D, DT, RARITY, RUN, TILE, ev, move, rnd, tally } = SIMX;
   // ---------------- items ----------------
   function itemPower(it) {
     const B = BASES[it.b], bal = D.ITEM_BAL, mult = bal.rarity[it.rar];
@@ -157,7 +157,7 @@
       if (p.kind !== 'item' && d < 90) { p.x += (h.x - p.x) * Math.min(1, 8 * DT); p.y += (h.y - p.y) * Math.min(1, 8 * DT); }
       if (d < 26) {
         if (p.kind === 'gold') { const n = Math.round(p.n * SIMX.heroSt(S).gold * ((D.FLOOR_MODS[R.map.mod] || {}).gold || 1)); h.gold += n; R.goldTot += n; p.got = 1; ev(S, { k: 'gold', x: p.x, y: p.y, n }); }
-        else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
+        else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; tally(S, R, 'shards', p.n); p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
         else if (p.kind === 'qitem') { p.got = 1; const q = (R.quests || []).find((o) => o.id === p.quest); ev(S, { k: 'qitem', x: p.x, y: p.y, quest: p.quest }); if (q) R.msg = { s: TXT('sim_items.stepDrops.msg.s', { thing: q.thing }), t: S.t }; }
         else if (p.kind === 'key') { R.keys = (R.keys || 0) + 1; p.got = 1; ev(S, { k: 'key', x: p.x, y: p.y }); R.msg = { s: TXT('sim_items.stepDrops.msg.s.2'), t: S.t }; }
         else if (SIMX.wearIfFree(S, R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); } ev(S, { k: 'pickup', b: p.item.b, x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }

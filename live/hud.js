@@ -64,6 +64,7 @@
     if (S.screen === 'menu') menu(S, t);
     if (S.screen === 'uikit') KIT.sheet();
     if (S.screen === 'settings') settings(S, t);
+    if (S.screen === 'stats') stats(S, t);
     if (S.screen === 'tests') tests(S, t);
     if (S.screen === 'classes') classes(S, t);
     if (S.screen === 'codex') codex(S, t);
@@ -746,6 +747,49 @@
     const ky = U.B.y + U.B.h + 36, kw = lw('st_keys_w', TXT('hud.settings.keys'), { size: 22 }); L.uiBox('st_keys_b', W / 2 - kw / 2 - 12, ky - 18, kw + 24, 36, 0);
     KIT.light('st_keys', TXT('hud.settings.keys'), W / 2, ky, { size: 22, al: 0.5, col: '#cdb894' });
   }
+  const statName = { runs: () => TXT('hud.stats.runs'), wins: () => TXT('hud.stats.wins'), deaths: () => TXT('hud.stats.deaths'), kills: () => TXT('hud.stats.kills'), elites: () => TXT('hud.stats.elites'),
+    bosses: () => TXT('hud.stats.bosses'), shards: () => TXT('hud.stats.shards'), best: () => TXT('hud.stats.best'), time: () => TXT('hud.stats.time') };
+  const grp = (n) => String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const hrs = (s) => { const m = Math.floor((s || 0) / 60); return m >= 60 ? TXT('hud.stats.hm', { h: grp(Math.floor(m / 60)), m: m % 60 }) : TXT('hud.stats.m', { m }); };
+  // the statistics (TASKS 1309), look B: the counters on the left page with dotted leaders, the class tabs, the runs by class as
+  // inked bars and the shards in hand on the right. A counter younger than the player's history is marked and footnoted
+  function stats(S, t) {
+    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
+    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
+    const U = D.UI.stats(), B = KIT.book('sa_book', U.B.x, U.B.y, U.B.w, U.B.h), P = { x: U.B.x + 22, y: U.B.y + 22, w: U.B.w - 44, h: U.B.h - 44 };
+    KIT.corners({ x: P.x + 18, y: P.y + 18, w: P.w - 36, h: P.h - 36 }, 0.7);
+    const T = S.meta.stats || { from: S.meta.runs || 0, all: {}, cls: {} }, tab = U.tabs.includes(S.statTab) ? S.statTab : 'all', C = tab === 'all' ? T.all : T.cls[tab] || {};
+    const full = { runs: S.meta.runs || 0, wins: S.meta.wins || 0, best: S.meta.best || 0 }, late = T.from > 0;
+    const lx = B.L.x + 10, rx = B.L.x + B.L.w - 6;
+    KIT.heading('sa_t', TXT('hud.stats'), B.L.x + B.L.w / 2, U.B.y + 130, { size: 56, wing: 90 });
+    let marked = 0;
+    for (const q of U.rows) { const own = tab === 'all' && q.k in full, v = own ? full[q.k] : C[q.k] || 0, mark = late && !own; marked += mark;
+      const s = q.k === 'time' ? hrs(v) : q.k === 'best' ? (v ? TXT('hud.stats.floor', { n: v }) : TXT('hud.stats.none')) : grp(v);
+      const tw = KIT.ink('sa_n_' + q.k, statName[q.k](), lx, q.y, { size: 32 }), vw = KIT.ink('sa_v_' + q.k, s, rx, q.y, { size: 32, al: 1, col: KIT.INK.r });
+      if (mark) KIT.ink('sa_m_' + q.k, '*', lx + tw + 4, q.y - 10, { size: 26, col: KIT.INK.r });
+      KIT.leader(lx + tw + (mark ? 30 : 18), rx - vw - 14, q.y + 8); KIT.rule(B.L.x, q.y + 32, B.L.w, 0.55); }
+    if (marked) halves(TXT('hud.stats.late', { n: T.from + 1 })).forEach((s, i) => KIT.ink('sa_late' + i, s, lx, U.rows[U.rows.length - 1].y + 62 + i * 24, { size: L.sizeToFit(s, B.L.w - 20, 21), col: KIT.INK.d }));
+    KIT.tabs('sa_tb', U.r.filter((b) => b.tab), 'tab:' + tab, S);
+    const G0 = U.chart, ids = U.tabs.filter((c) => c !== 'all'), runs = ids.map((c) => (T.cls[c] || {}).runs || 0), top = Math.max(1, ...runs);
+    KIT.rule(B.R.x, U.B.y + 182, B.R.w, 0.7);
+    KIT.ink('sa_ct', TXT('hud.stats.chart'), B.R.x + B.R.w / 2, G0.y - 46, { size: 26, al: 0.5, col: KIT.INK.d });
+    const ink = [0.17, 0.10, 0.06], red = [0.49, 0.12, 0.07];
+    L.solid(G0.x, G0.y, 3, G0.h, ink); L.solid(G0.x, G0.y + G0.h - 3, G0.w, 3, ink);
+    if (!runs.some((n) => n)) KIT.ink('sa_ce', TXT('hud.stats.chart.none'), G0.x + G0.w / 2, G0.y + G0.h / 2, { size: 24, al: 0.5, col: KIT.INK.d });
+    const bw = Math.min(110, G0.w / ids.length - 50);
+    ids.forEach((c, i) => { const cx = G0.x + 20 + (G0.w - 20) * (i + 0.5) / ids.length, h = runs[i] ? Math.max(6, (G0.h - 40) * runs[i] / top) : 0, on = tab === 'all' || tab === c, col = on ? (tab === c ? red : ink) : [0.45, 0.36, 0.27];
+      if (h) { L.solid(cx - bw / 2, G0.y + G0.h - 3 - h, bw, h, col, 0, 0, 0, on ? 0.22 : 0.12); for (let yy = G0.y + G0.h - 3 - h; yy < G0.y + G0.h - 3; yy += 10) L.solid(cx - bw / 2, yy, bw, 2, col, 0, 0, 0, on ? 0.6 : 0.3);
+        for (const [a, b2, w2, h2] of [[0, 0, bw, 3], [0, 0, 3, h], [bw - 3, 0, 3, h]]) L.solid(cx - bw / 2 + a, G0.y + G0.h - 3 - h + b2, w2, h2, col, 0, 0, 0, on ? 1 : 0.5);
+        KIT.ink('sa_cv' + c, grp(runs[i]), cx, G0.y + G0.h - h - 22, { size: 22, al: 0.5, col: on ? KIT.INK.t : KIT.INK.off }); }
+      KIT.ink('sa_cn' + c, D.CLASSES[c].name, cx, G0.y + G0.h + 26, { size: 24, al: 0.5, col: tab === c ? KIT.INK.r : on ? KIT.INK.t : KIT.INK.off }); });
+    KIT.rule(B.R.x, G0.y + G0.h + 50, B.R.w, 0.7);
+    const sy = G0.y + G0.h + 96, sh = TXT('hud.stats.hand', { n: grp(S.meta.shards || 0) }), shw = lw('sa_hw', sh, { size: 28 }) + 56;
+    icon('dc_shards', B.R.x + B.R.w / 2 - shw / 2, sy - 22, 44); KIT.ink('sa_hand', sh, B.R.x + B.R.w / 2 - shw / 2 + 56, sy, { size: 28 });
+    if (S.meta.bestEndless) KIT.ink('sa_end', TXT('hud.stats.endless', { n: S.meta.bestEndless }), B.R.x + B.R.w / 2, sy + 44, { size: 22, al: 0.5, col: KIT.INK.d });
+    const back = U.r.find((o) => o.id === 'back'); KIT.button('sa_back', back, KIT.st(S, 'back'));
+    const ky = U.B.y + U.B.h + 36, kw = lw('sa_keys_w', TXT('hud.stats.keys'), { size: 22 }); L.uiBox('sa_keys_b', W / 2 - kw / 2 - 12, ky - 18, kw + 24, 36, 0);
+    KIT.light('sa_keys', TXT('hud.stats.keys'), W / 2, ky, { size: 22, al: 0.5, col: '#cdb894' });
+  }
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main);
     menuBack(t, !!F); if (F) newsFrame(F, D.CHANGES[0].v);
@@ -757,8 +801,6 @@
       lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     if (S.saved) lab('m_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
-    const info = TXT('hud.menu.info', { shards: S.meta.shards, p2: S.meta.runs || 0, p3: S.meta.wins || 0, p4: S.meta.best || 0, p5: S.meta.bestEndless ? TXT('hud.menu.info.2', { bestEndless: S.meta.bestEndless }) : '' });
-    lab('m_i', info, W / 2, H - 70, { size: 24, al: 0.5, col: C.dim });
     lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
   }
   // «Что нового» (TASKS 1038): the changelog's rows from the sim's scroll, a version with its date, its sections, the points

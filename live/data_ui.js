@@ -32,10 +32,12 @@
   const BRIGHTS = [0.7, 0.85, 1, 1.2, 1.4], stepName = (v) => { const i = BRIGHTS.indexOf(v) - 2; return i > 0 ? '+' + i : i < 0 ? '\u2212' + -i : '0'; };
   const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName },
     { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] }];
+  // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
+  const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save)
     menu: (hasRun, diff, arm, zoom) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
-      ['tests', TXT('UI.menu.5'), true], ['settings', TXT('UI.menu.settings'), true]]
+      ['tests', TXT('UI.menu.5'), true], ['stats', TXT('UI.menu.stats'), true], ['settings', TXT('UI.menu.settings'), true]]
       .filter(([id]) => id !== 'continue' || hasRun)
       .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 }))
       .concat([Object.assign({ id: 'news', label: TXT('UI.menu.9'), on: true, link: true }, NEWS_LINK)]),
@@ -67,6 +69,13 @@
     settings: () => { const B = SETTINGS_BOOK, rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + 236 + i * 100 }, q));
       return { B, rows, r: rows.map((q) => ({ id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))
         .concat([{ id: 'back', label: TXT('UI.settings.back'), on: true, x: 960 - 150, y: B.y + B.h - 128, w: 300, h: 64 }]) }; },
+    // the statistics (TASKS 1309): an open book, the counters on the left page, the tabs (all classes, then each ready one) over the
+    // right page with its chart, «Назад» at the right page's foot
+    stats: () => { const B = STATS_BOOK, tabs = ['all'].concat(D.classesReady()), TW = 138, tg = 8, rx = B.x + B.w / 2 + 48, rw = B.w / 2 - 110;
+      const x0 = rx + (rw - (tabs.length * TW + (tabs.length - 1) * tg)) / 2;
+      return { B, tabs, rows: STAT_ROWS.map((k, i) => ({ k, y: B.y + 212 + i * 62 })), chart: { x: rx + 40, y: B.y + 280, w: rw - 80, h: 230 },
+        r: tabs.map((c, i) => ({ id: 'tab:' + c, tab: c, label: c === 'all' ? TXT('UI.stats.all') : D.CLASSES[c].name, on: true, x: x0 + i * (TW + tg), y: B.y + 92, w: TW, h: 52 }))
+          .concat([{ id: 'back', label: TXT('UI.stats.back'), on: true, x: rx + rw / 2 - 150, y: B.y + B.h - 150, w: 300, h: 64 }]) }; },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? TXT('UI.debug.dbg_secrets.label') : TXT('UI.debug.dbg_secrets.label.2'), on: true, x: 520, y: 16, w: 430, h: 60 },
       { id: 'dbg_loot', label: S && S.dbgLoot ? TXT('UI.debug.dbg_loot.label') : TXT('UI.debug.dbg_loot.label.2'), on: true, x: 970, y: 16, w: 430, h: 60 }],
