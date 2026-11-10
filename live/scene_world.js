@@ -415,18 +415,19 @@
     for (const o of m.flora || []) if (o.n === 'weed_cv' && vis(o.x, o.y)) Y.push([o.y, () => { const [w0, h0] = SZ('weed_cv'), w = w0 * o.s, hh = h0 * o.s * 0.86, sd = o.x * 0.37 + o.y * 0.11;
       ripple(o.x, o.y, w * 0.45, sd, 0.2);
       L.sprite('weed_cv', ev2(sx(o.x)) - w / 2, ev2(sy(o.y)) - hh, { w, h: hh, rot: 0.035 * Math.sin(t * 0.9 + sd), pivot: [w / 2, hh], src: [0, 0, 1, 0.86], flip: !!o.f, u: { grade: [0.9, 0.9, 0, 1] } }); }]);
-    // the secrets' covers: a banner that hangs like any other and falls when torn, a false shelf that swings on its hinge, a statue
+    // the secrets' covers: a banner that hangs like any other and falls when torn, a statue or a false bookcase
     // that slides along the wall; a wall worked by a mechanism sinks into the floor (a top wall's face slides down, other sides' rock settles away)
     (m.secrets || []).forEach((q, i) => { if (!vis(q.x, q.y) || inSecret(q)) return; const kind = q.kind, a = q.open ? GT - (q.openT ?? -9) : -1;
       if (kind === 'banner') { const [w, hh] = SZ('banner'), top = q.y + 6 - hh;
         if (!q.open) { const k = m.decor.findIndex((o) => o.secret === i), e = k >= 0 ? knocked['d' + k] : null, a0 = e ? GT - e.t : 9, rot = a0 < 1.2 ? 0.16 * Math.exp(-3 * a0) * Math.sin(a0 * 15) : 0; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x), sy(top)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); }
         else if (a < 0.5) { const p = a / 0.5; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x) + 10 * p, sy(top) + 30 * p * p), M.r(0.5 * p * p)), w, h: hh * (1 - 0.5 * p * p), pivot: [w / 2, 0] })]); }
         else Y.push([q.y - 60, () => L.sprite('banner', sx(q.x) - w * 0.55 + 10, sy(q.y) + 4, { w: w * 1.1, h: hh * 0.32, u: { grade: [0.8, 0.75, 0, 1] } })]); }
-      if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0, 0.6, a) : 0, [sw, sh] = SZ('bookshelf');
+      if (kind === 'shelf' && !q.slide) { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0, 0.6, a) : 0, [sw, sh] = SZ('bookshelf');
         if (!p) Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]);
         else Y.push([d.y, () => L.sprite('bookshelf', sx(d.x) + sw / 2 - sw * (1 - 0.8 * p), sy(d.y) + 4 - sh, { w: sw * (1 - 0.8 * p), h: sh })]); }
-      if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 };
-        Y.push([d.y, () => drawProp('statue', sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) })]);
+      // a bookcase slides whole like the statue (TASKS 1795: it swung on a hinge, squeezed to a strip, and stayed one after a save)
+      if (kind === 'statue' || (kind === 'shelf' && q.slide)) { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 }, n = d.n;
+        Y.push([d.y, () => { drawProp(n, sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) }); if (L.TRACE) { const [w, h] = SZ(n); L.joint('cover' + i, 'tl', [sx(d.x + sl.x) - w / 2, sy(d.y) + 4 - h]); L.joint('cover' + i, 'br', [sx(d.x + sl.x) + w / 2, sy(d.y) + 4]); } }]);
         // the masonry stays where the stone has not yet moved off it, so the way opens only as fast as the statue uncovers it
         if (sl.p < 1) { const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), X0 = Math.min(...xs) * TILE, X1 = (Math.max(...xs) + 1) * TILE, Y0 = Math.min(...ys) * TILE, Y1 = (Math.max(...ys) + 1) * TILE, TSW = 224;
           const cw = Math.round((X1 - X0) * (1 - sl.p) / 2) * 2, cx0 = q.slide.s > 0 ? X1 - cw : X0, u0 = (cx0 % TSW) / TSW, v0 = (Y0 % TSW) / TSW;

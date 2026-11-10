@@ -705,8 +705,15 @@
       if (back && Sr() < 0.8) q.kind = back.n === 'statue' ? 'statue' : 'shelf';
       if (plain && hostR && q.host !== start.id && Sr() < 0.22 && puzzle(q, i, hostR)) return;
       const torchNear = torches.some((t) => t.kind === 'wall' && !t.side && Math.abs(t.x - q.x) < 2 * TILE && Math.abs(t.y - fy * TILE) < TILE);
-      if (q.kind === 'statue') { const fc = Math.floor(q.x / TILE), front0 = new Set(q.front.map(([x, y]) => key(x, y))), cellOk = (x) => at(x, fy) === 1 && (at(x, fy - 1) === 0 || at(x, fy - 1) === 4) && !doorway(x, fy) && (front0.has(key(x, fy)) || free(x, fy)) && !secCells.has(fy * W + x) && !hungAt(wx(x), fy, 14) && !doorTop(wx(x), fy, 14);
-        const base = solids(), n0 = reach(base), fits = (s, n) => { for (let k = 1; k <= n; k++) if (!cellOk(fc + s * k)) return false; const tx = fc + s * n, B1 = new Set(base); B1.add(key(fc, fy)); const B2 = new Set(base); B2.add(key(tx, fy)); return reach(B1) === n0 - 1 && reach(B2) === n0 - 1 && !tallAt((tx + 0.5) * TILE, fy, half('statue')); };
+      const fc = Math.floor(q.x / TILE), front0 = new Set(q.front.map(([x, y]) => key(x, y))), underWall = (x, door = true) => at(x, fy) === 1 && (at(x, fy - 1) === 0 || at(x, fy - 1) === 4) && (!door || !doorway(x, fy)) && !secCells.has(fy * W + x);
+      const cellOk = (x, door) => underWall(x, door) && (front0.has(key(x, fy)) || free(x, fy)) && !hungAt(wx(x), fy, 14) && !doorTop(wx(x), fy, 14);
+      // a bookcase draws three cells wide over its one blocked cell (TASKS 1795): the wall it ends against must take all of it. It
+      // stands in corridors too, where every cell reads as a doorway, so only the flood keeps its way from shutting a passage
+      const fits = (s, n, prop = 'statue') => { const door = prop === 'statue'; for (let k = 1; k <= n; k++) if (!cellOk(fc + s * k, door)) return false; const tx = fc + s * n, base = solids(), n0 = reach(base), B1 = new Set(base); B1.add(key(fc, fy)); const B2 = new Set(base); B2.add(key(tx, fy)); if (reach(B1) !== n0 - 1 || reach(B2) !== n0 - 1) return false;
+        if (prop === 'statue') return !tallAt((tx + 0.5) * TILE, fy, half('statue'));
+        const x1 = q.x + s * n * TILE, hw = half(prop); for (let c = Math.floor((x1 - hw) / TILE); c <= Math.floor((x1 + hw - 1) / TILE); c++) if (!underWall(c, door)) return false;
+        return !tallAt(x1, fy, hw) && !hungAt(x1, fy, hw) && !doorTop(x1, fy, hw) && roomy(tx, fy, prop, x1); };
+      if (q.kind === 'statue') {
         const opts = [[1, 2], [-1, 2], [1, 1], [-1, 1]].map((o) => [Sr(), o]).sort((a, b) => a[0] - b[0]).map((o) => o[1]).filter(([s, n]) => fits(s, n));
         if (roomyCell(fx, fy) && !tallAt(q.x, fy, half('statue')) && !hungAt(q.x, fy, half('statue')) && opts.length) { const [s, n] = opts[0]; q.slide = { s, n }; for (let k = 1; k <= n; k++) { used.add(key(fc + s * k, fy)); } claim(fx, fy, 'statue', q.x); decor.push({ x: q.x, y: fy * TILE + 22, n: 'statue', solid: 1, secret: i, r: q.host }); return; }
         q.kind = 'shelf'; }
@@ -714,6 +721,9 @@
       const hostPlan = (rooms.find((o) => o.id === q.host) || {}).plan;
       if (!cave && q.dir === 'u' && hostPlan === 'library' && q.kind === 'lever' && mul32(seed ^ 0x1355 ^ i)() < D.STATUE_SECRET.planned) q.kind = 'shelf';
       if (q.kind === 'shelf' && (!roomy(fx, fy, 'bookshelf', q.x) || hungAt(q.x, fy, half('bookshelf')))) q.kind = torchNear ? 'lever' : 'banner';
+      // a false bookcase slides along the wall whole, as the statue does (TASKS 1795): three cells clear the opening, two nearly
+      if (q.kind === 'shelf') { const sd = mul32(seed ^ 0x1795 ^ i)() < 0.5 ? 1 : -1, o = [[sd, 3], [-sd, 3], [sd, 2], [-sd, 2]].find(([s, n]) => fits(s, n, 'bookshelf'));
+        if (o) { const [s, n] = o; q.slide = { s, n }; for (let k = 1; k <= n; k++) used.add(key(fc + s * k, fy)); claim(fc + s * n, fy, 'bookshelf', q.x + s * n * TILE); } else q.kind = torchNear ? 'lever' : 'banner'; }
       if (q.kind === 'banner' && (tallAt(q.x, fy, HANG.banner) || doorTop(q.x, fy, HANG.banner))) q.kind = 'lever';
       if (q.kind === 'banner') { for (let k = decor.length - 1; k >= 0; k--) if (decor[k].n === 'banner' && Math.abs(decor[k].x - q.x) < 3 * TILE && Math.abs(decor[k].y - (fy * TILE - 2)) < TILE) decor.splice(k, 1);
         decor.push({ x: q.x, y: fy * TILE - 2, n: 'banner', wall: 1, secret: i }); }

@@ -1395,8 +1395,8 @@
     if (!['banner', 'shelf', 'statue', 'lever', 'puzzle'].includes(q.kind) || q.hp !== undefined) out.push('has an old or missing kind');
     if (['banner', 'shelf', 'statue'].includes(q.kind) && q.dir !== 'u') out.push('is not on a top wall');
     if (q.kind === 'banner' && !m.decor.some((d) => d.secret === i && d.n === 'banner' && d.wall)) out.push('has no banner');
-    if (q.kind === 'shelf' && !m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid)) out.push('has no bookshelf');
-    if (q.kind === 'statue') { const d = m.decor.find((o) => o.secret === i && o.n === 'statue' && o.solid); if (!d || !q.slide || ![1, 2].includes(q.slide.n) || ![1, -1].includes(q.slide.s)) out.push('has no statue or slide');
+    if (q.kind === 'shelf' && (!m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid) || !q.slide || ![2, 3].includes(q.slide.n) || ![1, -1].includes(q.slide.s))) out.push('has no bookshelf or slide');
+    if (q.kind === 'statue' || (q.kind === 'shelf' && q.slide)) { const d = m.decor.find((o) => o.secret === i && o.solid), ns = q.kind === 'shelf' ? [2, 3] : [1, 2]; if (!d || !q.slide || !ns.includes(q.slide.n) || ![1, -1].includes(q.slide.s)) out.push('has no statue or slide');
       else { const fy = Math.floor(d.y / TILE), fc = Math.floor(q.x / TILE), tc = fc + q.slide.s * q.slide.n, tk = fy * W + tc, o0 = fy * W + fc, blk = new Set(m.block), flood = (b) => { const sv = new Set(), st = [Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE)]; sv.add(st[0]); while (st.length) { const k = st.pop(); for (const v of [1, -1, W, -W]) { const n = k + v; if (!sv.has(n) && m.cells[n] === 1 && !b.has(n)) { sv.add(n); st.push(n); } } } return sv; };
         for (let c = fc + q.slide.s; c !== tc + q.slide.s; c += q.slide.s) if (m.cells[fy * W + c] !== 1) out.push('slides into rock');
         const sA = flood(blk); blk.delete(o0); blk.add(tk); const sB = flood(blk); if (sB.size < sA.size) out.push('statue shuts a passage when moved'); } }
@@ -1431,7 +1431,7 @@
     for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['shelf', (o) => o.kind === 'shelf'], ['statue', (o) => o.kind === 'statue'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u' && o.parent === undefined], ['lever', (o) => o.trig && o.trig.k === 'lever']]) {
       const [S, q] = find(f); if (!q) { out.push(`secret check: no ${name} secret in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, qi = m.secrets.indexOf(q); R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9;
-      const k0 = name === 'statue' ? Math.floor((q.y + 22) / TILE) * m.W + Math.floor(q.x / TILE) : -1, d0 = name === 'statue' ? m.decor.find((o) => o.secret === qi).x : 0;
+      const k0 = q.slide ? Math.floor((q.y + 22) / TILE) * m.W + Math.floor(q.x / TILE) : -1, d0 = q.slide ? m.decor.find((o) => o.secret === qi).x : 0;
       for (let k = 0; k < 2; k++) { h.x = q.x; h.y = q.y + 34; h.vx = h.vy = 0; h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let j = 0; j < 40; j++) step(S, Object.assign({ keys: [] }, A)); }
       if (q.open) out.push(`secret check ${name}: blows open it`);
       if (S.ev.some((e) => e.k === 'wallhit' || e.k === 'hollow')) out.push(`secret check ${name}: a wall still answers a blow`);
@@ -1439,13 +1439,15 @@
       if (!q.open) out.push(`secret check ${name}: its way does not open it`);
       if (q.wall.some(([x, y]) => cell(m, x, y) !== 1)) out.push(`secret check ${name}: the opened wall is still solid`);
       if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted (${R.stats[1].sec})`);
-      if (name === 'statue') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n, t1 = S.t + D.STATUE_SECRET.slide + 0.05; while (S.t < t1) step(S, { keys: [] }); if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push('secret check statue: it has not moved, or its block has not');
-        if (Math.abs(d.x - d0) !== q.slide.n * TILE || ![1, 2].includes(q.slide.n)) out.push('secret check statue: it slid the wrong distance'); }
-      if (name === 'shelf') { const d = m.decor.find((o) => o.secret === qi); if (!d || d.solid || m.block.includes(Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE))) out.push('secret check shelf: the opened shelf still blocks the way'); }
+      if (name === 'statue' || name === 'shelf') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n, t1 = S.t + D.STATUE_SECRET.slide + 0.05; while (S.t < t1) step(S, { keys: [] }); if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push(`secret check ${name}: it has not moved, or its block has not`);
+        if (Math.abs(d.x - d0) !== q.slide.n * TILE || !(name === 'shelf' ? [2, 3] : [1, 2]).includes(q.slide.n)) out.push(`secret check ${name}: it slid the wrong distance`);
+        // (TASKS 1795) a bookcase opened by an old save, on its hinge: loaded, it takes a way and stands on its far end, blocking that cell
+        if (name === 'shelf') { const R2 = JSON.parse(JSON.stringify(R)), m2 = R2.map, q2 = m2.secrets[qi], e2 = m2.decor.find((o) => o.secret === qi); delete q2.slide; Object.assign(e2, { x: q2.x, solid: 0, broken: 1 }); m2.block = m2.block.filter((b) => b !== k0 && b !== k1); R2.hero.x = R2.hero.y = 0; SIMX.migrateSecrets(R2);
+          if (!q2.slide || !e2.solid || e2.x !== q2.x + q2.slide.s * q2.slide.n * TILE || !m2.block.includes(k0 + q2.slide.s * q2.slide.n) || m2.block.includes(k0)) out.push('secret check shelf: an old save\'s open bookcase does not stand slid after loading'); } }
       standAt(R, q); pressE(S); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
     // a statue never closes on the hero: with him on its way it stays put
-    { const [S, q] = find((o) => o.kind === 'statue'); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
-        if (secretUnder(R) !== q) out.push('secret check statue: the hero beside it cannot reach it'); else { interact(S, R); if (q.open) out.push('secret check statue: it slid onto the hero'); } } }
+    for (const kind of ['statue', 'shelf']) { const [S, q] = find((o) => o.kind === kind); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
+        if (secretUnder(R) !== q) out.push(`secret check ${kind}: the hero beside it cannot reach it`); else { interact(S, R); if (q.open) out.push(`secret check ${kind}: it slid onto the hero`); } } }
     // puzzles (TASKS 1692): the right order opens the cache, any wrong piece puts everything back and hurts nobody
     for (const k of ['levers', 'candles']) { const [S, q] = find((o) => o.pz && o.pz.k === k); if (!q) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9; const hp0 = h.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);

@@ -167,7 +167,7 @@
   // cover or mechanism alone (E at a banner, a false shelf, a statue, a sconce or a lever; a flagstone underfoot; a puzzle solved)
   function openSecret(S, R, q, quiet) {
     const m = R.map, i = m.secrets.indexOf(q), kind = q.kind; q.open = 1; q.openT = S.t; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1;
-    if (kind === 'shelf') shelfOf(m, i, false); if (kind === 'statue') statueOf(m, i, true, !quiet);
+    if (q.slide) statueOf(m, i, true, !quiet); else if (kind === 'shelf') shelfOf(m, i, false);
     if (quiet) return;
     if (kind === 'shelf' || kind === 'statue') R.trauma = Math.min(1, R.trauma + 0.3);
     if (kind === 'lever' || kind === 'puzzle') R.trauma = Math.min(1, R.trauma + 0.3);
@@ -175,10 +175,10 @@
     ev(S, { k: 'secret', x: q.x, y: q.y - 20, i, kind }); R.msg = { s: TXT('sim_world.openSecret.msg.s'), t: S.t };
     giveShards(S, R, REWARD.secret, q.x, q.y - 20); checkFull(S, R);
   }
-  // a false shelf swung open on its hinge (it stops blocking its cell) or shut again
+  // a false shelf saved before it slid (TASKS 1795) swung open on its hinge (it stops blocking its cell) or shut again
   function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
     d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
-  // a statue slid along the wall to its far cell (the drawing follows q.openT), or put back
+  // a statue or a false bookcase slid along the wall to its far cell (the drawing follows q.openT), or put back
   // (hold: the stone is still on its way, the cell it leaves is freed by stepStatues once the slide is over)
   function statueOf(m, i, moved, hold) { const d = m.decor.find((o) => o.secret === i), q = m.secrets[i]; if (!d || !q.slide) return; const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = k0 + q.slide.s * q.slide.n, x1 = q.x + q.slide.s * q.slide.n * TILE;
     d.x = moved ? x1 : q.x; q.held = moved && hold ? 1 : 0; m.block = m.block.filter((b) => b !== k0 && b !== k1); m.block.push(moved ? k1 : k0); if (q.held) m.block.push(k0); }
@@ -192,7 +192,7 @@
     if (!R.dbgOpen) { R.dbgOpen = []; m.secrets.forEach((q, i) => { if (!q.open) { openSecret(S, R, q, true); R.dbgOpen.push(i); } }); return; }
     const htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE);
     for (const i of R.dbgOpen) { const q = m.secrets[i], r = m.rooms[q.room]; q.open = 0; delete q.openT; if (q.trig) delete q.trig.downT; if (q.pz) resetPuzzle(m, q);
-      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (q.kind === 'shelf') shelfOf(m, i, true); if (q.kind === 'statue') statueOf(m, i, false);
+      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (q.slide) statueOf(m, i, false); else if (q.kind === 'shelf') shelfOf(m, i, true);
       if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.vx = h.vy = 0; } }
     R.dbgOpen = null; }
   // debug: every item of loot this floor still holds, where it is and whether the hero can get to it, and the books: what the

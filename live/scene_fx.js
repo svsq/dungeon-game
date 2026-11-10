@@ -582,10 +582,10 @@
         L.solid(ex + Math.cos(an) * v * a, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 300 * a * a, 5, 4, e.kind === 'pot' || e.kind.startsWith('vase') ? [0.5, 0.24, 0.14] : e.kind === 'gold' || e.kind === 'goldpile' ? [1, 0.78, 0.25] : [0.4, 0.26, 0.14], an, 2, 2, 1 - SS(0.5, 0.7, a)); }
       // a blow on a fake wall knocks out chips and a breath of dust; the break blows the stretch of wall into the room
       // grit ground out from under the plinth all along its way, and a cough of dust where it knocks against its stop
-      if (e.k === 'secret' && e.kind === 'statue' && m.secrets[e.i] && a < D.STATUE_SECRET.slide + 0.8) { const q = m.secrets[e.i], sl = statueSlide(q, a), bx = ex + sl.run * sl.p, s = Math.sign(sl.run);
+      if (e.k === 'secret' && (e.kind === 'statue' || e.kind === 'shelf') && m.secrets[e.i] && m.secrets[e.i].slide && a < D.STATUE_SECRET.slide + 0.8) { const q = m.secrets[e.i], sl = statueSlide(q, a), bx = ex + sl.run * sl.p, s = Math.sign(sl.run);
         if (sl.end < 0) for (let j = 0; j < 3; j++) { const ph = (a * 2.2 + j / 3) % 1; L.puff(bx - s * (22 + 26 * ph), ey + 40 - 8 * ph, 6 + 10 * ph, [0.5, 0.46, 0.4], 0.4 * Math.sin(Math.PI * ph) * SS(0, 0.15, a), e.t * 3 + j); }
         if (sl.end >= 0 && sl.end < 0.8) { const b = sl.end / 0.8; for (let j = 0; j < 8; j++) L.puff(bx + (j - 3.5) * 9 + s * 18 * b * (j > 3.5 ? 1 : 0.3), ey + 38 - 14 * b, 8 + 16 * b, [0.5, 0.46, 0.4], 0.55 * (1 - b), e.t * 3 + j); } }
-      if (e.k === 'secret' && e.kind === 'shelf' && a < 1.2) { for (let j = 0; j < 18; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 80 + 140 * rnd(e.t, j + 7), px = ex + (rnd(e.t, j + 3) - 0.5) * 90 + Math.cos(an) * v * a * 0.6;
+      if (e.k === 'secret' && e.kind === 'shelf' && m.secrets[e.i] && !m.secrets[e.i].slide && a < 1.2) { for (let j = 0; j < 18; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 80 + 140 * rnd(e.t, j + 7), px = ex + (rnd(e.t, j + 3) - 0.5) * 90 + Math.cos(an) * v * a * 0.6;
           const py = ey + 30 + Math.min(20 + 16 * rnd(e.t, j + 11), -Math.abs(Math.sin(an)) * v * a + 520 * a * a) - 30, book = j % 3 === 0, col = book ? [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12]][j % 9 / 3 | 0] : [0.4, 0.26, 0.14];
           L.solid(px, py, book ? 7 : 12, book ? 5 : 3, col, an + a * (book ? 4 : 7), 4, 2, 1 - SS(0.85, 1.2, a)); }
         for (let j = 0; j < 6; j++) { const q2 = Math.min(1, a / 1.2); L.puff(ex + (j - 2.5) * 16, ey + 40 + 14 * q2, 14 + 18 * q2, [0.36, 0.3, 0.26], 0.45 * (1 - q2), e.t * 11 + j); } }

@@ -155,7 +155,7 @@
     if (atCounter(R)) { if (shopShut(R)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.shopShut') }); else openShop(S, R); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (sh && !arenaSealed(R)) { openAltar(S, R, sh); return; }
-    const sq = sq0; if (sq) { if (sq.kind === 'statue' && SIMX.heroOnPath(R, sq)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.statueBlocked') }); return; } if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
+    const sq = sq0; if (sq) { if (sq.slide && SIMX.heroOnPath(R, sq)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: sq.kind === 'shelf' ? TXT('sim_town.shelfBlocked') : TXT('sim_town.statueBlocked') }); return; } if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
     const pz = SIMX.puzzleNear(R); if (pz) { SIMX.usePuzzle(S, R, pz.q, pz.i); return; }
     const lv = leverNear(R); if (lv) { pullLever(S, R, lv); return; }
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
