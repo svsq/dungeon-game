@@ -26,9 +26,11 @@
     // the stride amplitude nor the swing's side snaps
     const k0 = o.spd0 != null ? SS(0, 0.14, Math.max(0, o.t - o.t0)) : 1;
     const vxE = k0 < 1 ? lerp(o.vxn0 * o.spd0, o.vx, k0) : o.vx, vyE = k0 < 1 ? lerp(o.vyn0 * o.spd0, o.vy, k0) : o.vy;
-    const sp = Math.hypot(vxE, vyE), run = SS(4, 30, sp) * (o.gaitK ?? 1);
-    const dirx = sp > 1 ? vxE / sp * face : 0, diry = sp > 1 ? vyE / sp : 0;
     const legL = d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL), sl = 0.4 * legL * s * (o.strideK || 1), u0 = ((o.dist / (2 * sl)) % 1 + 1) % 1, ph = u0 * TAU;
+    // the stride opens over the first step's distance, not with the speed: a step of a few px in from standing (after a blow, to the
+    // hero at its reach's edge) threw the feet a full stride apart in two frames
+    const cut = k0 < 1 && o.spd0 > 4, sp = Math.hypot(vxE, vyE), run = SS(4, 30, sp) * (o.gaitK ?? 1) * (cut ? 1 : SS(0, sl, o.walkIn ?? sl));
+    const dirx = sp > 1 ? vxE / sp * face : 0, diry = sp > 1 ? vyE / sp : 0;
     const fc = Math.cos(fallR), fs = Math.sin(fallR), root = [o.x, o.y];
     const R2S = (px, py, dy = 0) => { const x = face * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
     // legs: the stance foot slides back at body speed, the swing foot eases forward on a lift arc (phase from distance)
@@ -71,7 +73,10 @@
     const vxn = sp > 1 ? vxE / sp : 1, vyn = sp > 1 ? vyE / sp : 0;
     for (const side of ['L', 'R']) { const S0 = RG['sh' + side], Hd0 = RG['hand' + side], Jt = (Hd0[0] - S0[0]) * vyn - face * (Hd0[1] - S0[1]) * vxn, sg = Jt > 0 ? 1 : -1;
       const rs = (o.rest && o.rest[side]) || [0, 0.18], base = rs[0] + sg * (side === 'L' ? -1 : 1) * legSwing * 0.8 + (o.breathK ? (1 - run) * Math.sin(o.t * 2.1 + (o.seed || 0) - 0.7) : breath) * 0.04 * (o.breathK || 1) * (side === 'L' ? 1 : -1);
-      let r = o.arm ? o.arm(side, base) : [base, base + rs[1] - rs[0] + (base - rs[0]) * -0.4];
+      // o.armLag: the forearm follows the upper arm a beat late, so the hand whips through instead of the arm swinging stiff (TASKS 1718);
+      // only walking across: walking down it put the hand in step with its own leg
+      const lagged = o.armLag ? rs[0] + sg * (side === 'L' ? -1 : 1) * Math.cos(ph - o.armLag * Math.abs(vxn)) * 0.4 * run * (o.swingK ?? 1) * 0.8 : base;
+      let r = o.arm ? o.arm(side, base) : [base, lagged + rs[1] - rs[0] + (lagged - rs[0]) * -0.4];
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
         const rest = R2U(Hd[0], Hd[1] + hipDy), T = o.handTarget(side, rest);
@@ -495,7 +500,10 @@
     // o.bendHit: the elbow's bend on the blow; a blade drawn cocked over the shoulder reaches the aim on a whipped forearm, not an arm thrown up
     const ew = DATA.windOf(e, E.wind), u = Math.max(0, GT - e.t0), T = o.chopT, P = 1.3, bh = o.bendHit ?? 0.15, i0 = aimRig(e, face, H) - (o.blade ?? Math.PI / 2 - 0.8) - bh;   // blade = its angle in the drawing
     const imp = o.raise + (((i0 - o.raise + Math.PI) % TAU + TAU) % TAU - Math.PI), RAISE = Math.min(o.raise, imp - (o.back ?? 0.6)), vEnd = P * (imp - RAISE) / T;
-    if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T;
+    // o.late: the blow runs on into the strike's first frames, so the strike is the fastest part of the swing (TASKS 1716: a claw lifted
+    // fast and struck slow, its peak on the wind's last frame)
+    const late = o.late || 0;
+    if (e.st === 'wind' || e.st === 'bwind') { const w = e.st === 'bwind' ? o.bossW : ew, tc = w - T + late;
       // the raise starts with no jerk either: a smoothstep's second derivative at 0 kicks the hand out of the walk's own swing;
       // it holds at 1 from h on (the top wait), so x clamps
       // (o.backWind: the raise goes round the back to the same top, TASKS 1054: an overhand throw's hand passed in front of the face)
@@ -503,7 +511,7 @@
       // from rest at the top to vEnd at the impact: a cubic with no jerk at its start
       if (u < w) { const x = (u - tc) / T, q = (3 - P) * x * x + (P - 2) * x * x * x; return { r1: lerp(RAISE, imp, q), bend: lerp(o.bendUp ?? 0.9, bh, q), k: 1 }; }
       return after(imp, u - w, base, o, vEnd); }
-    if (e.st === 'strike') return after(imp, u, base, o, vEnd);
+    if (e.st === 'strike') { if (u < late) { const x = (u + T - late) / T, q = (3 - P) * x * x + (P - 2) * x * x * x; return { r1: lerp(RAISE, imp, q), bend: lerp(o.bendUp ?? 0.9, bh, q), k: 1 }; } return after(imp, u - late, base, o, vEnd); }
     return null;
   }
   // the follow-through leaves the impact at the chop's own speed and bleeds it off over `over` rad: no one-frame stop;
@@ -512,7 +520,7 @@
   function after(imp, v, base, o, vEnd) {
     // a very fast swing (a compressed arc, vEnd > 11 rad/s) would stop within a frame: bleed it off over ~2 frames, overshoot
     // deeper to keep the arrival speed, and give the come-back the same extra time
-    const over = o.over || 2.2, dec = vEnd > 11 ? 0.024 : over / vEnd, A = vEnd * dec;
+    const over = o.over || 2.2, dec = vEnd > 11 ? (o.dec ?? 0.024) : over / vEnd, A = vEnd * dec;
     // the come-back must still finish inside the blow's own length (o.dur) with a beat to spare, or the state change snaps the arms
     const fol = imp + A * (1 - Math.exp(-v / dec)), rest = above(base, imp + over - 1.2);
     const k = SS(0.12 + (o.hold || 0), Math.min(o.recover + Math.max(0, A - over) * 0.6, (o.dur || 1) - 0.08), v);
@@ -561,7 +569,7 @@
   // and lands in a crouch; the spark is thrown overhand with the near arm, the claw rakes with it on a short swing
   // (back: the throwing hand winds back behind the head before it comes over, TASKS 489: 0.6 short of the release it never passed it)
   const IMP_THROW = { backWind: 1, raise: -2.7, back: 2.7, chopT: 0.32, recover: 0.24, over: 0.6, top: 0.02, bendUp: -0.7, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
-  const IMP_CLAW = { raise: -1.3, chopT: 0.16, recover: 0.27, over: 0.5, top: 0.04, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
+  const IMP_CLAW = { raise: -2.3, chopT: 0.12, recover: 0.27, over: 1.3, top: 0, late: 0.075, dec: 0.07, bendUp: 1.0, bendHit: 0.1, bend0: 0.18, dur: 0.32 };
   MON.impArc = (e, E, GT) => { if (e.st !== 'leap') return 0; const L0 = E.leap, fl = Math.max(0, Math.min(1, (GT - e.t0 - L0.crouch) / e.ld)), d = Math.hypot(e.ltx - e.lx, e.lty - e.ly);
     const q = fl * fl * (3 - 2 * fl); return 4 * (18 + L0.h * d) * q * (1 - q); };
   function impPose(e, E, GT, face, H, base) {
@@ -642,7 +650,7 @@
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
   MON.draw = (e, E, x, y, GT, o) => {
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
-    const base = { item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
+    const base = { item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
     if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
     if (n === 'skeleton' || n === 'goblin') {
@@ -796,7 +804,7 @@
       if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.12 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       biped(base); return true; }
-    if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.rest = { L: [-0.42, -0.24], R: [0.42, 0.6] }; return biped(base); }
+    if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.armLag = 0.55; base.rest = { L: [-0.6, -0.42], R: [0.5, 0.68] }; return biped(base); }
     if (n === 'golem') { base.breathK = 1.9;   // (a statue at 1.43 %, TASKS 1640: its shoulders follow the chest, later)
       const pose = (b) => live ? chop(e, E, GT, face, H, b, GOLEM_SLAM) : null, p = pose(0);
       if (p) { const u = GT - e.t0, hit = e.st === 'strike' ? u : -1; base.crouch += 16 * (hit >= 0 ? (0.25 + 0.75 * SS(0, 0.07, hit)) * (1 - SS(0.3, 0.5, hit)) : 0.25 * p.k);   // (from the wind-up's own crouch, TASKS 1156: from 0 the longer arm's elbow popped 8.8 px)

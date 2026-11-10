@@ -377,6 +377,7 @@
       if (e.fallT !== undefined || e.sinkT !== undefined) { e.vx = e.vy = 0; if (t >= (e.fallT ?? e.sinkT) + (e.fallT !== undefined ? SIMX.DOOM.fall : SIMX.DOOM.sink)) SIMX.killEnemy(S, R, e); continue; }
       const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy);
       if (e.face !== e.pf) { if (e.pf) e.ft = t; e.pf = e.face; }
+      if (Math.hypot(e.vx, e.vy) < 4) e.d0 = e.dist;
       if (E.kind === 'eel') { eel(S, R, e, E, heroOk, d); continue; }
       if (E.kind === 'serpent') { serpent(S, R, e, heroOk); continue; }
       if (E.lake && (e.st === 'idle' || e.st === 'emerge' || e.st === 'wade')) { SIMX.colossusRise(S, R, e); continue; }

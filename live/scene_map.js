@@ -263,7 +263,7 @@
     const ks = Object.keys(rows).map(Number).sort((a, b) => a - b), F = fallsOf(m), fy = F.length ? F[0].y : 0, f0 = ks.reduce((b, k) => (Math.abs((rows[k][0] + rows[k][1]) / 2 - fy) < Math.abs((rows[b][0] + rows[b][1]) / 2 - fy) ? k : b), ks[0]);
     ks.slice(0, 8).forEach((k, i) => { out[i * 4] = rows[k][0]; out[i * 4 + 1] = rows[k][1]; out[i * 4 + 2] = Math.max(0.45, 1 - 0.18 * Math.abs(k - f0)); }); return out; };
   const fallU = (m) => { const f = fallsOf(m), u = []; for (let i = 0; i < 6; i++) u.push(...(f[i] ? [f[i].x, f[i].y, f[i].z, f[i].h] : [0, 0, 0, 0])); return u; };
-  const cliffTex = (m) => { const hid = SIM.Q.secretMask(m); return maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && (SIM.Q.cell(m, x, y) === 0 || SIM.Q.cell(m, x, y) === 4 || hid.has(y * m.W + x))), null, 1); };
+  const cliffTex = (m) => { const hid = SIM.Q.secretMask(m); return maskTex(m, 'cliff', (x, y) => x < 0 || x >= m.W || y < 0 || (y < m.cliff[x] && (SIM.Q.cell(m, x, y) === 0 || SIM.Q.cell(m, x, y) === 4 || hid.has(y * m.W + x))) || (!!m.stub && m.stub.includes(y * m.W + x)), null, 1); };
   // the lava's glow spread a couple of cells: hot cracks in the ground by it and its light coming up out of the chasm
   const lavaFarTex = (m) => maskTex(m, 'lavafar', (x, y) => SIM.Q.cell(m, x, y) === 3, null, 8);
   // how near the lava a cell lies, as HERO.lavaNear weighs it (TASKS 1035): the lit pass holds the lava's light down within its reach only
@@ -332,7 +332,8 @@
     const K = m.cliff ? [1, 2, 3, 4, 5, 4, 3, 2, 1] : [1, 2, 3, 2, 1], KR = (K.length - 1) / 2, KS = K.reduce((p, v) => p + v, 0), W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + KR] * R.seen[y * W + u]; } a[y * W + x] = v / KS; }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + KR] * a[u * W + x]; } b[y * W + x] = v / KS; }
-    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? (m.cliff ? 0.05 + 0.95 * Math.min(1, Math.max(0, b[i] - 0.28) * 1.85) : 0.35 + 0.65 * Math.min(1, b[i] * 1.6)) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
+    // unexplored lava next to the seen keeps a dim tail (TASKS 1724): its glow cut from ~0.45 to black in one cell read as a hard step
+    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? (m.cliff ? 0.05 + 0.95 * Math.min(1, Math.max(0, b[i] - 0.28) * 1.85) : 0.35 + 0.65 * Math.min(1, b[i] * 1.6)) : m.cliff && c === 3 ? 0.55 * SS(0.12, 0.6, b[i]) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
       const v = Math.round(255 * f); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!SEEN.rec) SEEN.rec = G.canvasTex('seen', cv);
