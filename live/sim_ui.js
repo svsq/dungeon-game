@@ -42,8 +42,10 @@
   function startRun(S, mode = 'campaign') { const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
-  // a new run from the menus (TASKS 1103): with more than one class ready the class screen comes first, its run waiting in pendingMode
-  const chooseRun = (S, mode = 'campaign') => { if (D.classesReady().length > 1) { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; } else startRun(S, mode); };
+  // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in
+  // pendingMode, the keyboard's focus on the chosen class
+  const clsNow = (S) => (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior');
+  const chooseRun = (S, mode = 'campaign') => { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; S.focus = 'cls:' + clsNow(S); };
   // a saved run is dropped only on a second press of the same run's button
   const pressRun = (S, id, arm) => { if (!S.saved || arm === id) { S.resetT = undefined; chooseRun(S, id); } else { S.resetT = S.t; S.resetM = id; } };
   // each screen's input, by S.screen: one function a screen (dead and win share one)
@@ -55,7 +57,6 @@
       if (D.RUNS[b.id]) pressRun(S, b.id, arm);
       if (b.id === 'tests') S.screen = 'tests';
       if (b.id === 'news') { S.screen = 'news'; S.newsTop = 0; }
-      if (b.id === 'diff') { const o = D.DIFF_ORDER; S.meta.diff = o[(o.indexOf(S.meta.diff || 'normal') + 1) % o.length]; S.saveN++; }
       if (b.id === 'settings') openSettings(S, 'menu');
       ev(S, { k: 'ui', x, y });
     }
@@ -69,15 +70,32 @@
     if (click && b && b.on) { pressRun(S, b.id, arm); ev(S, { k: 'ui', x, y }); }
     return;
   };
-  // the class screen (TASKS 1103): a card picks the class (kept in the meta for the next time), «В путь» or Enter starts the run the
-  // menu asked for, «Назад» or Escape go back to the menu
+  // the start screen (TASKS 1103, 1304): a tab picks the difficulty, a card the class, its kit button the kit (all kept in the meta
+  // for the next time); «В путь» or Enter start the run the menu asked for, «Назад» or Escape go back to the menu. The keyboard
+  // walks the rows with ↑↓ (difficulty, class, kit, buttons) and changes the focused row's choice with ←→
+  const setDiff = (S, d) => { if ((S.meta.diff || 'normal') !== d) { S.meta.diff = d; S.saveN++; } };
+  const setCls = (S, c) => { if (S.meta.cls !== c) { S.meta.cls = c; S.saveN++; } };
+  const stepKit = (S, cls, k) => { const list = D.kitsOf(cls, S.meta), i = list.indexOf(D.kitOf(S.meta, cls)); S.meta.kit = S.meta.kit || {};
+    S.meta.kit[cls] = list[(i + k + list.length) % list.length].id; S.saveN++; };
   SCREEN.classes = (S, inp, keys, x, y, click) => {
-    const b = D.hitUI(UI.classes(S.meta), x, y); S.hover = b ? b.id : '';
-    if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
-    if (click && b && b.kit) { const list = D.kitsOf(b.kit, S.meta), i = list.indexOf(D.kitOf(S.meta, b.kit)); S.meta.kit = S.meta.kit || {}; S.meta.kit[b.kit] = list[(i + 1) % list.length].id; S.meta.cls = b.kit; S.saveN++; ev(S, { k: 'ui', x, y }); }
-    if (click && b && b.cls) { if (S.meta.cls !== b.cls) { S.meta.cls = b.cls; S.saveN++; } ev(S, { k: 'ui', x, y }); }
-    if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); }
-    return;
+    const U = UI.classes(S.meta), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    const back = () => { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); };
+    if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
+    if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
+    if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    const cls = clsNow(S), ids = D.classesReady(), dif = D.DIFF_ORDER, row = (S.focus || '').split(':')[0];
+    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['btn']), at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r + ':' + cls);
+    const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : 'cls';
+    const mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); ev(S, { k: 'ui', x, y }); return; }
+    if (!st) return;
+    if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
+    if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
+    if (r0 === 'kit') stepKit(S, cls, st);
+    if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
+    ev(S, { k: 'ui', x, y });
   };
   // «Что нового» (TASKS 1038): the changelog scrolled by whole rows, the wheel and the arrows a row, a page a page; Escape goes back
   SCREEN.news = (S, inp, keys, x, y, click) => {

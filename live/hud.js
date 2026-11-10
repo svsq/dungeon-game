@@ -686,28 +686,41 @@
   }
   // the class screen (TASKS 1103): a card a ready class — its portrait, name, way of playing, three abilities and starting kit
   const abCost = (Cl, A, r) => { const cd = String(Math.round(A.cd * D.abRank(A.id, Math.max(1, r)).cd * 10) / 10).replace('.', ','); return A.mp ? TXT('hud.ab.cost', { mp: A.mp, res: Cl.resWord, cd }) : TXT('hud.ab.free', { cd }); };
+  const halves = (s) => { if (s.length < 34) return [s]; const w = s.split(' '); let best = 1, d = 1e9;
+    for (let i = 1; i < w.length; i++) { const k = Math.abs(w.slice(0, i).join(' ').length - w.slice(i).join(' ').length); if (k < d) { d = k; best = i; } }
+    return [w.slice(0, best).join(' '), w.slice(best).join(' ')]; };
+  // look B (TASKS 1304): the difficulty's tabs over the cards, each card a page in a leather frame, the chosen one sealed with wax
   function classes(S, t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
-    lab('cl_t', TXT('UI.classes.title'), W / 2, 92, { size: 72, al: 0.5, col: C.gold, out: '#2a0d06' });
-    lab('cl_s', TXT('UI.classes.hint'), W / 2, 156, { size: 26, al: 0.5, col: C.dim });
-    for (const b of D.UI.classes(S.meta)) {
-      if (b.kit) continue;
-      if (!b.cls) { button('cl_' + b.id, b, S.hover); continue; }
-      const Cl = D.CLASSES[b.cls], on = (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior') === b.cls, hv = S.hover === b.id;
-      panel('cl_' + b.cls, b.x, b.y, b.w, b.h, { r: 10, rim: on ? [1, 0.78, 0.32] : hv ? C.rimHi : C.rim, c0: on ? [0.16, 0.12, 0.08] : [0.08, 0.07, 0.07] });
+    const U = D.UI.classes(S.meta), dif = S.meta.diff || 'normal', cur = D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior';
+    KIT.tabs('cl_d', U.filter((b) => b.dif), 'dif:' + dif, S);
+    // on the normal difficulty a first-timer almost never wins
+    const tip = !S.meta.wins && dif !== 'easy' ? TXT('hud.classes.tip') : TXT('UI.classes.hint'), tz = L.sizeToFit(tip, W - 200, 26);
+    KIT.light('cl_s', tip, W / 2, 142, { size: tz, al: 0.5, col: tip === TXT('UI.classes.hint') ? '#cdb894' : '#f0d9a4' }); L.uiBox('cl_s_b', 100, 120, W - 200, 44, 0);
+    for (const b of U.filter((q) => q.cls)) {
+      const Cl = D.CLASSES[b.cls], on = cur === b.cls, st = KIT.st(S, b.id), hot = st.hover || st.focus;
+      KIT.nine('leather', b.x, b.y, b.w, b.h); KIT.paper(b.x + 22, b.y + 22, b.w - 44, b.h - 44, { u: hot && !on ? { grade: [1.06, 1.1, 0, 1.03] } : undefined });
+      if (st.focus) KIT.focus(b.x, b.y, b.w, b.h, 4);
+      const ix = b.x + 34, iw = b.w - 68; L.uiBox('cl_card' + b.cls, ix, b.y + 30, iw, b.h - 50, 0);
+      KIT.nine('cell', b.x + (b.w - 236) / 2, b.y + 38, 236, 200);
       const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
-      L.sprite(por, b.x + (b.w - 220) / 2, b.y + 24, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
-      lab('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 252, { size: 44, al: 0.5, col: on ? C.gold : C.text });
-      lab('cl_y' + b.cls, Cl.style, b.x + b.w / 2, b.y + 298, { size: L.sizeToFit(Cl.style, b.w - 8, 21), al: 0.5, col: C.dim });
-      lab('cl_u' + b.cls, Cl.note, b.x + b.w / 2, b.y + 324, { size: 18, al: 0.5, col: '#8a7d6c' });
-      Cl.abs.forEach((A, i) => { const y = b.y + 340 + i * 74; panel('cl_a' + b.cls + i, b.x + 40, y, 60, 60, { r: 6, rim: C.rim }); icon(A.icon, b.x + 44, y + 4, 52);
-        lab('cl_an' + b.cls + i, A.name, b.x + 116, y + 22, { size: 23, col: C.text }); lab('cl_ak' + b.cls + i, TXT('hud.inv.14', { unlock: A.unlock }) + ' · ' + abCost(Cl, A, 1), b.x + 116, y + 48, { size: 18, col: C.dim }); });
-      const Kt = D.kitOf(S.meta, b.cls), kb = D.UI.classes(S.meta).find((q) => q.id === 'kit:' + b.cls), kh = S.hover === 'kit:' + b.cls;
-      if (kb) { panel('cl_kb' + b.cls, kb.x, kb.y, kb.w, kb.h, { r: 6, rim: kh ? C.rimHi : C.rim, c0: kh ? [0.18, 0.14, 0.1] : [0.1, 0.09, 0.08] }); lab('cl_kn' + b.cls, TXT('UI.classes.kit', { p1: Kt.name }), kb.x + kb.w / 2, kb.y + 28, { size: 23, al: 0.5, col: on ? C.gold : C.text }); }
-      lab('cl_k' + b.cls, Kt.desc, b.x + b.w / 2, b.y + 616, { size: 20, al: 0.5, col: C.dim });
-      if (on) lab('cl_on' + b.cls, TXT('UI.classes.chosen'), b.x + b.w - 20, b.y + 30, { size: 20, al: 1, col: C.gold });
+      L.sprite(por, b.x + (b.w - 220) / 2, b.y + 46, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
+      if (on) KIT.seal(b.x + b.w - 52, b.y + 52, 1.1);
+      KIT.ink('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 268, { size: 44, al: 0.5, col: on || hot ? KIT.INK.r : KIT.INK.t });
+      KIT.rule(ix + 30, b.y + 296, iw - 60, 0.7);
+      const sy = halves(Cl.style); sy.forEach((q, i) => KIT.ink('cl_y' + b.cls + i, q, b.x + b.w / 2, b.y + 320 + i * 25, { size: L.sizeToFit(q, iw, 21), al: 0.5, col: KIT.INK.t }));
+      KIT.ink('cl_u' + b.cls, Cl.note, b.x + b.w / 2, b.y + 322 + sy.length * 25, { size: L.sizeToFit(Cl.note, iw, 18), al: 0.5, col: KIT.INK.d });
+      Cl.abs.forEach((A, i) => { const y = b.y + 390 + i * 62; KIT.cell('cl_a' + b.cls + i, ix + 6, y, 56, {}); icon(A.icon, ix + 12, y + 6, 44);
+        KIT.ink('cl_an' + b.cls + i, A.name, ix + 78, y + 17, { size: 22 }); KIT.ink('cl_ak' + b.cls + i, TXT('hud.inv.14', { unlock: A.unlock }) + ' · ' + abCost(Cl, A, 1), ix + 78, y + 41, { size: 18, col: KIT.INK.d }); });
+      const Kt = D.kitOf(S.meta, b.cls), kb = U.find((q) => q.id === 'kit:' + b.cls);
+      if (kb) KIT.button('cl_kb' + b.cls, Object.assign({ label: TXT('UI.classes.kit', { p1: Kt.name }), size: 23 }, kb), KIT.st(S, kb.id));
+      const kd = L.labelW(0, Kt.desc, { size: 20 }) > iw ? halves(Kt.desc) : [Kt.desc];
+      kd.forEach((q, i) => KIT.ink('cl_k' + b.cls + i, q, b.x + b.w / 2, b.y + 652 - (kd.length - 1) * 11 + i * 22, { size: L.sizeToFit(q, iw, kd.length > 1 ? 19 : 20), al: 0.5, col: KIT.INK.d }));
     }
+    for (const id of ['back', 'go']) { const b = U.find((q) => q.id === id); KIT.button('cl_' + id, b, KIT.st(S, id), id === 'go' ? 'wax' : 'parch'); }
+    const ky = 1012, kw = lw('cl_keys_w', TXT('hud.classes.keys'), { size: 22 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 18, kw + 24, 36, 0);
+    KIT.light('cl_keys', TXT('hud.classes.keys'), W / 2, ky, { size: 22, al: 0.5, col: '#cdb894' });
   }
   // the settings (TASKS 1302), look B: an open book over the menu's backdrop, or over the dimmed run when opened from the pause
   function settings(S, t) {
@@ -729,10 +742,7 @@
     lab('m_t', TXT('hud.menu'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, 300, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 352, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { button('mb_' + b.id, b, S.hover);
-      // on the normal difficulty a first-timer almost never wins
-      const tip = b.id === 'diff' && !S.meta.wins && (S.meta.diff || 'normal') !== 'easy' ? TXT('hud.menu.tip') : '';
-      if (tip) lab('mb_tip_' + b.id, tip, b.x + b.w + 24, b.y + b.h / 2 + 1, { size: 21, al: 0, col: '#9fd08a' }); }
+    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) button('mb_' + b.id, b, S.hover);
     if (S.saved) lab('m_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
     const info = TXT('hud.menu.info', { shards: S.meta.shards, p2: S.meta.runs || 0, p3: S.meta.wins || 0, p4: S.meta.best || 0, p5: S.meta.bestEndless ? TXT('hud.menu.info.2', { bestEndless: S.meta.bestEndless }) : '' });
     lab('m_i', info, W / 2, H - 70, { size: 24, al: 0.5, col: C.dim });

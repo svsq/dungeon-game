@@ -8,8 +8,8 @@
   const TEST_RUNS = [['cave', TXT('TEST_RUNS'), TXT('TEST_RUNS.2')], ['magma', TXT('TEST_RUNS.3'), TXT('TEST_RUNS.4')], ['endless', TXT('TEST_RUNS.5'), TXT('TEST_RUNS.6')]];
   // the buttons that start a run from the main menu, in the order pressed: a test run is behind «Тесты» (bots and checks press these)
   const campaignLen = () => { const n = D.RUNS.campaign.floors; return { n, floors: TXT.n('UI.menu.floors', n) }; };
-  // the buttons a new run of this mode is started by, screen by screen; with more than one class ready the class screen comes last (TASKS 1103)
-  const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]).concat(D.classesReady().length > 1 ? [['classes', 'go']] : []);
+  // the buttons a new run of this mode is started by, screen by screen; the start screen with the difficulty and the class comes last (TASKS 1304)
+  const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]).concat([['classes', 'go']]);
   // «Что нового» (TASKS 1038): DATA.CHANGES, newest first, as rows of fixed heights; a point is wrapped by its length (the sim
   // scrolls by whole rows, so it needs the rows without the HUD's text measure; the screen's qa check catches a line too long)
   const NEWS = { P: { x: 300, y: 60, w: 1320, h: 960 }, top: 150, bottom: 120, wrap: 84, h: { ver: 70, group: 46, line: 34, gap: 8 } };
@@ -34,16 +34,18 @@
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save)
     menu: (hasRun, diff, arm, zoom) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
-      ['tests', TXT('UI.menu.5'), true], ['diff', TXT('UI.menu.6', { name: DIFF[diff || 'normal'].name }), true], ['settings', TXT('UI.menu.settings'), true], ['news', TXT('UI.menu.9'), true]]
+      ['tests', TXT('UI.menu.5'), true], ['settings', TXT('UI.menu.settings'), true], ['news', TXT('UI.menu.9'), true]]
       .filter(([id]) => id !== 'continue' || hasRun)
       .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 })),
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
-    // the class screen (TASKS 1103): a card a ready class, side by side, the start and back buttons under them
-    classes: (meta) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2;
-      return ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 40, y: 742, w: W - 80, h: 42 }))
-        .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 190, w: W, h: 640 })))
-        .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 980, y: 880, w: 380, h: 76 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 560, y: 880, w: 380, h: 76 }]); },
+    // the start screen (TASKS 1103, 1304): the difficulty's tabs over the class cards, a card a ready class, side by side, the start
+    // and back buttons under them
+    classes: (meta) => { const ids = D.classesReady(), W = 536, gap = 24, x0 = 960 - (ids.length * W + (ids.length - 1) * gap) / 2, TW = 300, tg = 16;
+      return ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 60, y: 762, w: W - 120, h: 44 }))
+        .concat(D.DIFF_ORDER.map((d, i, a) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: 960 - (a.length * TW + (a.length - 1) * tg) / 2 + i * (TW + tg), y: 44, w: TW, h: 60 })))
+        .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 182, w: W, h: 696 })))
+        .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 980, y: 896, w: 380, h: 68 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 560, y: 896, w: 380, h: 68 }]); },
     tests: (hasRun, arm) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !hasRun ? fresh : arm === id ? TXT('UI.tests.label') : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
       .concat([{ id: 'back', label: TXT('UI.tests.back.label'), on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
     // the rows that fit from row `top`, and the last top that still fills the view (the end of the list sits at its bottom)
