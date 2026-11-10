@@ -65,6 +65,7 @@
     if (S.screen === 'uikit') KIT.sheet();
     if (S.screen === 'settings') settings(S, t);
     if (S.screen === 'stats') stats(S, t);
+    if (S.screen === 'load') load(S, t);
     if (S.screen === 'tests') tests(S, t);
     if (S.screen === 'classes') classes(S, t);
     if (S.screen === 'codex') codex(S, t);
@@ -691,7 +692,7 @@
     menuBack(t);
     lab('ts_t', TXT('hud.tests'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('ts_s', TXT('hud.tests.2'), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.tests(!!S.saved, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM)) button('tb_' + b.id, b, S.hover);
+    for (const b of D.UI.tests(!!S.saved, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, SIM.Q.isFull(S))) button('tb_' + b.id, b, S.hover);
     if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
   }
   // the class screen (TASKS 1103): a card a ready class — its portrait, name, way of playing, three abilities and starting kit
@@ -790,13 +791,53 @@
     const ky = U.B.y + U.B.h + 36, kw = lw('sa_keys_w', TXT('hud.stats.keys'), { size: 22 }); L.uiBox('sa_keys_b', W / 2 - kw / 2 - 12, ky - 18, kw + 24, 36, 0);
     KIT.light('sa_keys', TXT('hud.stats.keys'), W / 2, ky, { size: 22, al: 0.5, col: '#cdb894' });
   }
+  const stamp = (ms) => { if (!ms) return TXT('hud.load.nodate'); const d = D.dateOf(ms), p2 = (n) => String(n).padStart(2, '0'); return TXT('hud.load.date', { d: p2(d.d), m: p2(d.m), y: d.y, h: p2(d.h), mi: p2(d.mi) }); };
+  const whereOf = (R) => (R.mode === 'campaign' ? '' : D.runOf(R.mode).name + ', ') + (R.floor ? TXT('hud.load.floor', { n: R.floor }) : TXT('hud.load.town'));
+  // the saved games (TASKS 1311), look B: the slots as parchment strips down the left page (portrait, class, level, place, date,
+  // time in play), the chosen slot's page on the right; the delete question on a torn sheet over the right page's buttons
+  function load(S, t) {
+    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
+    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
+    const U = D.UI.load(), B = KIT.book('ld_book', U.B.x, U.B.y, U.B.w, U.B.h), ask = S.delAsk !== undefined, sel = Math.max(0, Math.min(D.SAVE_SLOTS - 1, S.loadSel | 0)), q = ask ? {} : S;
+    KIT.corners({ x: U.B.x + 40, y: U.B.y + 40, w: U.B.w - 80, h: U.B.h - 80 }, 0.6);
+    KIT.banner('ld_t', W / 2, U.B.y - 30, 620, TXT('hud.load'), { h: 96, size: 44 });
+    for (const r of U.rows) { const R = SIM.Q.slotRun(S, r.i), st = KIT.st(q, r.id), on = r.i === sel;
+      KIT.nine('btn', r.x, r.y, r.w, r.h, { u: { grade: on ? [1.04, 1.1, 0, 1.04] : st.hover ? [1.02, 1.06, 0, 1.02] : R ? [1, 1, 0, 1] : [0.9, 0.8, 0, 0.97] } });
+      if (on) KIT.seal(r.x + 6, r.y + r.h / 2, 0.9);
+      if (st.focus) KIT.focus(r.x, r.y, r.w, r.h, 4);
+      L.uiBox('ld_r' + r.i, r.x + 24, r.y + 8, r.w - 48, r.h - 16, 0);
+      const cx = r.x + 40, cs = r.h - 26; KIT.nine('cell', cx, r.y + 13, cs, cs);
+      if (!R) { KIT.ink('ld_e' + r.i, TXT('hud.load.empty'), cx + cs + 24, r.y + r.h / 2, { size: 28, col: KIT.INK.off }); continue; }
+      L.sprite(portraitOf(R.hero), cx + 6, r.y + 19, { w: cs - 12, h: (cs - 12), src: [0.1, 0.0, 0.9, 0.74] });
+      const nx = cx + cs + 20, rr = r.x + r.w - 54, lv = TXT('hud.load.lvl', { n: R.hero.lvl }), wh = whereOf(R), dt = stamp(R.at), tm = hrs(R.play);
+      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 32, { size: 30, col: on || st.hover ? KIT.INK.r : KIT.INK.t });
+      KIT.ink('ld_l' + r.i, lv, rr, r.y + 34, { size: 24, al: 1 });
+      KIT.ink('ld_w' + r.i, wh, nx, r.y + 63, { size: L.sizeToFit(wh, rr - nx, 22) });
+      KIT.ink('ld_d' + r.i, dt, nx, r.y + 91, { size: 20, col: KIT.INK.d });
+      KIT.ink('ld_p' + r.i, tm, rr, r.y + 91, { size: L.sizeToFit(tm, (rr - nx) / 2 - 10, 20), al: 1, col: KIT.INK.d }); }
+    const R = SIM.Q.slotRun(S, sel), px = B.R.x, pw = B.R.w, mx = px + pw / 2;
+    if (R) { const Cl = D.clsOf(R.hero); KIT.nine('cell', mx - 110, U.B.y + 120, 220, 190); L.sprite(portraitOf(R.hero), mx - 100, U.B.y + 128, { w: 200, h: 200 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
+      KIT.ink('ld_dn', Cl.name, mx, U.B.y + 346, { size: 44, al: 0.5, col: KIT.INK.r }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
+      const lines = [[TXT('hud.load.d.lvl'), String(R.hero.lvl)], [TXT('hud.load.d.where'), D.placeName(R.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map)], [TXT('hud.load.d.diff'), (D.DIFF[R.diff] || D.DIFF.normal).name],
+        [TXT('hud.load.d.time'), hrs(R.play)], [TXT('hud.load.d.saved'), stamp(R.at)]];
+      lines.forEach(([k, v], i) => { const y = U.B.y + 412 + i * 36, tw = KIT.ink('ld_dk' + i, k, px + 40, y, { size: 24, col: KIT.INK.d }), vs = L.sizeToFit(v, pw - 120 - tw, 24), vw = KIT.ink('ld_dv' + i, v, px + pw - 40, y, { size: vs, al: 1 }); KIT.leader(px + 40 + tw + 14, px + pw - 40 - vw - 10, y + 6); }); }
+    else { KIT.ink('ld_none', TXT('hud.load.none'), mx, U.B.y + 300, { size: 30, al: 0.5, col: KIT.INK.d }); const s = TXT('hud.load.none.2'); halves(s).forEach((v, i) => KIT.ink('ld_none2' + i, v, mx, U.B.y + 350 + i * 30, { size: L.sizeToFit(v, pw - 60, 22), al: 0.5, col: KIT.INK.d })); }
+    for (const b of U.btn) { if (b.id !== 'back' && (!R || ask)) continue; KIT.button('ld_' + b.id, b, KIT.st(q, b.id), b.id === 'go' ? 'wax' : 'parch'); }
+    if (ask) { const A = U.ask, P = KIT.panel('ld_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
+      KIT.ink('ld_ask_q', TXT('hud.load.ask'), A.x + A.w / 2, A.y + 76, { size: 32, al: 0.5, col: KIT.INK.r });
+      const AR = SIM.Q.slotRun(S, S.delAsk), s = AR ? TXT('hud.load.ask.who', { cls: D.clsOf(AR.hero).name, n: AR.hero.lvl, where: whereOf(AR) }) : '';
+      KIT.ink('ld_ask_w', s, A.x + A.w / 2, A.y + 116, { size: L.sizeToFit(s, P.w - 40, 22), al: 0.5, col: KIT.INK.d });
+      for (const b of U.yes) KIT.button('ld_' + b.id, b, KIT.st(S, b.id), b.id === 'yes' ? 'wax' : 'parch'); }
+    const keys = ask ? TXT('hud.load.keys.ask') : TXT('hud.load.keys'), ky = H - 22, kw = lw('ld_keys_w', keys, { size: 20 }); L.uiBox('ld_keys_b', W / 2 - kw / 2 - 12, ky - 16, kw + 24, 32, 0);
+    KIT.light('ld_keys', keys, W / 2, ky, { size: 20, al: 0.5, col: '#cdb894' });
+  }
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main);
     menuBack(t, !!F); if (F) newsFrame(F, D.CHANGES[0].v);
     lab('m_t', TXT('hud.menu'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, 300, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 352, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { if (!b.link) { button('mb_' + b.id, b, S.hover); continue; }
+    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom, SIM.Q.isFull(S))) { if (!b.link) { button('mb_' + b.id, b, S.hover); continue; }
       const hv = S.hover === b.id, lw0 = lw('mb_lw', b.label, { size: 20 }), x1 = b.x + b.w - 4;
       lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }

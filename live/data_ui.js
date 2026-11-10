@@ -34,10 +34,19 @@
     { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] }];
   // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
   const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
+  // five save slots: five rows of a portrait and four columns fill the left page at a readable size, as on ref_ui_saves_b
+  const SAVE_SLOTS = 5, LOAD_BOOK = { x: 160, y: 60, w: 1600, h: 900 };
+  // a saved run's wall-clock stamp (local time, ms since 1970, written by the sim from the page's input) as day, month, year, hour,
+  // minute: calendar arithmetic, so the render never asks the clock
+  const dateOf = (ms) => { const day = Math.floor(ms / 864e5), rest = ms - day * 864e5, z = day + 719468, era = Math.floor(z / 146097), doe = z - era * 146097;
+    const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365), doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+    const mp = Math.floor((5 * doy + 2) / 153), d = doy - Math.floor((153 * mp + 2) / 5) + 1, m = mp < 10 ? mp + 3 : mp - 9;
+    return { y: yoe + era * 400 + (m <= 2 ? 1 : 0), m, d, h: Math.floor(rest / 36e5), mi: Math.floor(rest / 6e4) % 60 }; };
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save)
-    menu: (hasRun, diff, arm, zoom) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
-      ['tests', TXT('UI.menu.5'), true], ['stats', TXT('UI.menu.stats'), true], ['settings', TXT('UI.menu.settings'), true]]
+    // full: every save slot holds a run, so a new one would take the place of the saved run named over the buttons (TASKS 1311)
+    menu: (hasRun, diff, arm, zoom, full = hasRun) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !full ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
+      ['load', TXT('UI.menu.load'), true], ['tests', TXT('UI.menu.5'), true], ['stats', TXT('UI.menu.stats'), true], ['settings', TXT('UI.menu.settings'), true]]
       .filter(([id]) => id !== 'continue' || hasRun)
       .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 }))
       .concat([Object.assign({ id: 'news', label: TXT('UI.menu.9'), on: true, link: true }, NEWS_LINK)]),
@@ -55,7 +64,7 @@
         .concat(D.DIFF_ORDER.map((d, i, a) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: 960 - (a.length * TW + (a.length - 1) * tg) / 2 + i * (TW + tg), y: 44, w: TW, h: 60 })))
         .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 182, w: W, h: 696 })))
         .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 980, y: 896, w: 380, h: 68 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 560, y: 896, w: 380, h: 68 }]); },
-    tests: (hasRun, arm) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !hasRun ? fresh : arm === id ? TXT('UI.tests.label') : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
+    tests: (hasRun, arm, full = hasRun) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !full ? fresh : arm === id ? TXT('UI.tests.label') : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
       .concat([{ id: 'back', label: TXT('UI.tests.back.label'), on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
     // the rows that fit from row `top`, and the last top that still fills the view (the end of the list sits at its bottom)
     news: (top) => { const P = NEWS.P, rows = newsRows(), vh = P.h - NEWS.top - NEWS.bottom; let max = rows.length, fill = 0;
@@ -76,6 +85,13 @@
       return { B, tabs, rows: STAT_ROWS.map((k, i) => ({ k, y: B.y + 212 + i * 62 })), chart: { x: rx + 40, y: B.y + 280, w: rw - 80, h: 230 },
         r: tabs.map((c, i) => ({ id: 'tab:' + c, tab: c, label: c === 'all' ? TXT('UI.stats.all') : D.CLASSES[c].name, on: true, x: x0 + i * (TW + tg), y: B.y + 92, w: TW, h: 52 }))
           .concat([{ id: 'back', label: TXT('UI.stats.back'), on: true, x: rx + rw / 2 - 150, y: B.y + B.h - 150, w: 300, h: 64 }]) }; },
+    // the saved games (TASKS 1311): an open book, a row a slot on the left page, the chosen slot's page on the right with «Загрузить»
+    // and «Удалить»; a delete asks first on a loose sheet laid over the right page, its «Нет» the default
+    load: () => { const B = LOAD_BOOK, lx = B.x + 62, lw = B.w / 2 - 110, rx = B.x + B.w / 2 + 48, rw = B.w / 2 - 110, ask = { x: rx + 40, y: B.y + 590, w: rw - 80, h: 240 };
+      return { B, ask, rows: Array.from({ length: SAVE_SLOTS }, (_, i) => ({ id: 'slot:' + i, i, on: true, x: lx, y: B.y + 150 + i * 132, w: lw, h: 118 })),
+        btn: [{ id: 'go', label: TXT('UI.load.go'), x: rx + rw / 2 - 170, y: B.y + 610, w: 340, h: 70 }, { id: 'del', label: TXT('UI.load.del'), x: rx + rw / 2 - 130, y: B.y + 700, w: 260, h: 58 },
+          { id: 'back', label: TXT('UI.load.back'), x: 960 - 150, y: B.y + B.h + 6, w: 300, h: 60 }],
+        yes: [{ id: 'yes', label: TXT('UI.load.yes'), x: ask.x + 50, y: ask.y + 146, w: 180, h: 64 }, { id: 'no', label: TXT('UI.load.no'), x: ask.x + ask.w - 230, y: ask.y + 146, w: 180, h: 64 }] }; },
     // debug panel (` in play): open every secret of the floor (pressed again, seal the ones it opened); show every item of loot
     debug: (R, S) => [{ id: 'dbg_secrets', label: R.dbgOpen ? TXT('UI.debug.dbg_secrets.label') : TXT('UI.debug.dbg_secrets.label.2'), on: true, x: 520, y: 16, w: 430, h: 60 },
       { id: 'dbg_loot', label: S && S.dbgLoot ? TXT('UI.debug.dbg_loot.label') : TXT('UI.debug.dbg_loot.label.2'), on: true, x: 970, y: 16, w: 430, h: 60 }],
@@ -169,5 +185,5 @@
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
   const uiAt = (scr) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes());
-  Object.assign(D, { SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
+  Object.assign(D, { SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
 })(typeof window !== 'undefined' ? window : globalThis);

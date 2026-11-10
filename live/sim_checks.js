@@ -49,6 +49,31 @@
       step(T, { keys: [], press: 0 }); key('ArrowRight'); if (T.statTab !== D.classesReady()[0] || T.focus !== 'tab:' + T.statTab) out.push('stats: → does not open the first class\'s tab');
       key('ArrowDown'); if (T.focus !== 'back') out.push('stats: ↓ does not reach «Назад»');
       key('Enter'); if (T.screen !== 'menu') out.push('stats: Enter on «Назад» does not go back to the menu'); }
+    { const { slotRun, isFull } = SIMX, key = (S, k) => step(S, { keys: [k] }), J = (o) => JSON.parse(JSON.stringify(o));
+      const at = (S, rs, id) => { const b = rs.find((q) => q.id === id); step(S, { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }); step(S, { keys: [], press: 0 }); };
+      { const d = D.dateOf(1794182340000); if (d.d !== 8 || d.m !== 11 || d.y !== 2026 || d.h !== 23 || d.mi !== 59) out.push('saves: dateOf does not read 08.11.2026 23:59'); }
+      const S0 = spawn(0, {}), old = J(newRun(S0, 'campaign', 21));
+      const T = spawn(0, { meta: { up: {} }, run: old });
+      if (!T.saved || T.slot !== 0 || T.saves.length !== D.SAVE_SLOTS || T.saves.some(Boolean) || slotRun(T, 0) !== T.saved) out.push('saves: a save from before the slots does not land in the first slot');
+      T.screen = 'menu'; at(T, UI.menu(true), 'campaign'); if (T.screen !== 'classes') out.push('saves: with free slots a new run still asks to drop the saved one');
+      key(T, 'Enter'); const fresh = T.run;
+      if (!fresh || T.slot !== 1 || T.saves[0] !== old && (!T.saves[0] || T.saves[0].seed !== old.seed)) out.push('saves: a new run does not take a free slot, or the old run leaves its slot');
+      T.screen = 'play'; step(T, { keys: [], now: 1794182340000 }); if (fresh.at !== 1794182340000) out.push('saves: the run in play does not keep the page\'s wall clock');
+      T.screen = 'pause'; at(T, UI.pause(T.meta.zoom), 'save'); if (T.screen !== 'menu' || T.saved !== fresh) out.push('saves: «Сохранить и выйти» does not keep the run in its slot');
+      const L2 = spawn(1, J(persist(T))); if (L2.slot !== 1 || !L2.saved || L2.saved.at !== 1794182340000 || !L2.saves[0] || L2.saves[0].seed !== old.seed || L2.saves.filter(Boolean).length !== 1) out.push('saves: the slots are not kept through save and load');
+      at(L2, UI.menu(true), 'load'); if (L2.screen !== 'load' || L2.loadSel !== 1) out.push('saves: «Загрузить игру» does not open the list on the saved run');
+      key(L2, 'ArrowUp'); key(L2, 'Enter'); if (L2.screen !== 'play' || !L2.run || L2.run.seed !== old.seed || L2.slot !== 0 || !L2.saves[1] || L2.saves[1].at !== 1794182340000) out.push('saves: ↑ and Enter do not load the first slot and keep the other');
+      L2.screen = 'pause'; at(L2, UI.pause(L2.meta.zoom), 'save'); at(L2, UI.menu(true), 'load'); key(L2, 'ArrowDown');
+      key(L2, 'Delete'); if (L2.delAsk !== 1 || L2.focus !== 'no') out.push('saves: Delete does not ask about the chosen slot with «Нет» first');
+      key(L2, 'Enter'); if (L2.delAsk !== undefined || !L2.saves[1]) out.push('saves: «Нет» deletes the save or keeps asking');
+      key(L2, 'Delete'); key(L2, 'ArrowLeft'); key(L2, 'Enter'); if (L2.saves[1] || L2.delAsk !== undefined || !L2.saved) out.push('saves: «Да» does not delete the slot, or deletes another');
+      key(L2, 'ArrowUp'); key(L2, 'Delete'); at(L2, UI.load().yes, 'yes'); if (L2.saved || slotRun(L2, 0)) out.push('saves: deleting the saved run by pointer does not empty its slot');
+      key(L2, 'Escape'); if (L2.screen !== 'menu') out.push('saves: Escape does not go back to the menu');
+      const F = spawn(0, {}); for (let i = 0; i < D.SAVE_SLOTS; i++) F.saves[i] = J(newRun(F, 'campaign', 30 + i)); F.saved = F.saves[2]; F.saves[2] = null; F.slot = 2;
+      if (!isFull(F)) out.push('saves: five runs do not fill the slots');
+      at(F, UI.menu(true, F.meta.diff, 0, F.meta.zoom, true), 'campaign'); if (F.screen !== 'menu' || F.resetM !== 'campaign') out.push('saves: with every slot taken one press starts a run');
+      at(F, UI.menu(true, F.meta.diff, 'campaign', F.meta.zoom, true), 'campaign'); key(F, 'Enter');
+      if (!F.run || F.slot !== 2 || F.saves.filter(Boolean).length !== 4 || F.saves.some((r) => r && r.seed === 32)) out.push('saves: a second press with every slot taken does not replace the saved run in its slot'); }
     for (let lvl = 1; lvl <= 32; lvl++) for (const slot of D.SLOTS) {
       const bases = Object.keys(BASES).filter((b) => BASES[b].slot === slot);
       for (const b of bases) for (let rar = 0; rar < RARITY.length; rar++) {
@@ -2288,7 +2313,8 @@
         if (c1.crab || c1.skel_archer) out.push('cave run: crabs or archers on its 1st floor');
         if (n9 < n1 * 1.3) out.push(`campaign f9: ${n9.toFixed(1)} monsters, the caves' 1st ${n1.toFixed(1)}: not denser`); }
       // a saved run is dropped only by a second press of the same button
-      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); const c = UI.menu(true).find((q) => q.id === 'campaign'), ts = UI.menu(true).find((q) => q.id === 'tests'), v = UI.tests(true).find((q) => q.id === 'cave');
+      const fill = (S) => { for (let i = 1; i < D.SAVE_SLOTS; i++) S.saves[i] = newRun(S, 'cave', 40 + i); };
+      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); fill(T); const c = UI.menu(true).find((q) => q.id === 'campaign'), ts = UI.menu(true).find((q) => q.id === 'tests'), v = UI.tests(true).find((q) => q.id === 'cave');
       const press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
       press(T, c); step(T, { keys: [] }); press(T, ts); press(T, v);
       if (T.run) out.push('cave: a press on another run\'s button drops the saved run');
@@ -2296,7 +2322,7 @@
       // back, and over a saved run a test run's button asks again before it drops the save
       const ids = UI.menu(true).map((b) => b.id); if (D.TEST_RUNS.some(([id]) => ids.includes(id)) || !ids.includes('tests')) out.push('tests: the main menu still holds the test runs or lacks «Тесты»');
       if (D.TEST_RUNS.some(([id]) => (!D.RUNS[id] && id !== 'town') || !UI.tests(false).some((b) => b.id === id))) out.push('tests: a test run missing from its screen');
-      const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); press(U, ts); if (U.screen !== 'tests') out.push('tests: «Тесты» does not open the test runs');
+      const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); fill(U); press(U, ts); if (U.screen !== 'tests') out.push('tests: «Тесты» does not open the test runs');
       press(U, UI.tests(true).find((b) => b.id === 'back')); if (U.screen !== 'menu') out.push('tests: «Назад» does not go back to the menu');
       press(U, ts); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
       // «Что нового» (TASKS 1038): the changelog's top entry is the game's version, the screen scrolls to its end and no further, Escape leaves

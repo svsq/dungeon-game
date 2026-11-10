@@ -22,18 +22,19 @@
     R.msg = null; S.ev = []; S.saveN = 0; void room;
     return S;
   }
-  function base() { return { t: 0, steps: 0, wt0: 0, ev: [], screen: 'menu', hover: '', meta: { shards: 0, up: {}, runs: 0, wins: 0, best: 0 }, run: null, saved: null,
+  function base() { return { t: 0, steps: 0, wt0: 0, ev: [], screen: 'menu', hover: '', meta: { shards: 0, up: {}, runs: 0, wins: 0, best: 0 }, run: null, saved: null, saves: Array(D.SAVE_SLOTS).fill(null), slot: 0,
     saveN: 0, result: null, demo: 0, seedBase: 1, prevKeys: {} }; }
   // play start: the menu, with the persisted meta progress and the saved run (index.html reads localStorage)
   const spawn = (worldT, persist = {}) => { const S = base(); S.wt0 = worldT; S.seedBase = (Math.floor(worldT * 1000) % 100000) + 1;
-    if (persist.meta) S.meta = Object.assign(S.meta, persist.meta, { up: Object.assign({}, persist.meta.up || {}) }); if (S.meta.zoom !== undefined) S.meta.zoom = D.zoomFix(S.meta.zoom); SIMX.statsOf(S); if (persist.run && persist.run.map) { S.saved = persist.run; rebalanceRun(S.saved); SIMX.migrateSecrets(S.saved); SIMX.regate(S.saved); S.t = Math.max(S.t, persist.run.t || 0) + DT; } return S; };
+    if (persist.meta) S.meta = Object.assign(S.meta, persist.meta, { up: Object.assign({}, persist.meta.up || {}) }); if (S.meta.zoom !== undefined) S.meta.zoom = D.zoomFix(S.meta.zoom); SIMX.statsOf(S); if (persist.run && persist.run.map) { S.saved = persist.run; rebalanceRun(S.saved); SIMX.migrateSecrets(S.saved); SIMX.regate(S.saved); S.t = Math.max(S.t, persist.run.t || 0) + DT; }
+    SIMX.loadSaves(S, persist); return S; };
   const respawn = (S) => S;
   const outOfPlay = () => false;
 
   function step(S, inp = {}) {
     if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
     S.pressWas = !!inp.press;
-    rebalanceRun(S.run); rebalanceRun(S.saved); if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
+    rebalanceRun(S.run); rebalanceRun(S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     if (S.screen === 'play' && S.run) {
@@ -78,7 +79,7 @@
     const S = cache.S; while (S.steps < n) { const inp = scriptInput(S.t, S); step(S, inp); }
     return Object.assign({}, S, { loop, q });
   }
-  const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null });
+  const persist = (S) => ({ meta: S.meta, run: S.run || S.saved || null, slot: S.slot, saves: S.saves });
 
   root.SIM = { campaignDone, exitKind, rebuildArrival, FOLK_OUCH, questIcon, atBoard, boardOffers, serpentMouth, flightReach, openSecret, debugSecrets, lootAudit, openChest, DT, ARROW_Y, L, K, VIEW, HINT, RIG, create, spawn, respawn, outOfPlay, step, at, scriptInput, demoCheck, persist,
     stepLen, stats, gift, itemName, hitProps, secretMask, hidden, fstat, completion, completionHints, damageName, canDonate, runCompletion, runReward, REWARD, LOOT, itemIcon, itemMods, typeMods, isCons, hand, losClear, rollItem, newRun, enterFloor, cell, flow, atCounter, newQuest, takeQuest, turnIn, questOn, offersOf, offerOf, questFloor, storyStep, questMark, questTalk, giveQuest, questMarks, questLine, questPlace, rwLine, journalOf, folkNear, keeperPages, atSoulAltar, atStash, stashOf, atCraft, craftItem, craftCost, tradeDepth, stockShopFor: (R, f, kind) => stockShop(R, dep(R, f), kind), atGate, gateWays, openDoor, pullLever, doorLock, doorNear, leverNear, springAmbush, crustAt, CRUST, DOOM, chasm, brinkOf, gateNear, killEnemy };
@@ -89,7 +90,7 @@
     depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
     noteNear, captiveNear, shopShut, craftShut, overLava, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
-    rwLine, stashOf, tradeDepth, typeMods };
+    rwLine, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, isFull: SIMX.isFull };
   Object.assign(SIMX, {
     spawn, step, scriptInput, persist });
   if (typeof module !== 'undefined') { require('./sim_checks.js'); module.exports = root.SIM; }

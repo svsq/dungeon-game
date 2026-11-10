@@ -57,7 +57,17 @@
         S.screen = 'stats'; S.statTab = tab; S.focus = 'tab:' + tab; S.hover = tab === 'all' ? 'tab:mage' : ''; })]),
       ['stats_back', mk((S) => { Object.assign(S.meta, { runs: 3, wins: 0, best: 4, shards: 120, stats: { from: 0, all: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 }, cls: { mage: { runs: 3, deaths: 2, kills: 87, elites: 2, shards: 140, best: 4, time: 2400 } } } });
         S.screen = 'stats'; S.statTab = 'mage'; S.focus = 'back'; S.hover = 'back'; })],
-      ['settings_pause',play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'back'; S.hover = 'back'; S.meta.zoom = 1.5; })],
+      // the saved games (TASKS 1311): none; every slot taken with the widest lines (a test run's name, level 99, two-digit floors,
+      // thousands of hours, a save from before the dates), the keyboard on a slot, on «Загрузить», an empty slot chosen, the delete question
+      ...(() => { const fill = (S, n) => { const runs = [['magma', 12, 99, 'hard', 3600 * 4321 + 59 * 60], ['campaign', 0, 1, 'easy', 59], ['cave', 14, 47, 'normal', 3600 * 9 + 5 * 60], ['campaign', 16, 63, 'normal', 3600 * 123], ['endless', 47, 88, 'hard', 3600 * 77 + 600]];
+          runs.slice(0, n).forEach(([mode, floor, lvl, diff, play], i) => { const R = SIM.newRun(S, mode, 11 + i, { cls: ['mage', 'warrior', 'archer'][i % 3] }); Object.assign(R, { floor, diff, play, at: i === 3 ? undefined : 1794182340000 - i * 90061000 }); R.hero.lvl = lvl; S.saves[i] = R; });
+          S.saved = S.saves[0]; S.saves[0] = null; S.slot = 0; S.screen = 'load'; };
+        return [['load_empty', mk((S) => { S.screen = 'load'; S.loadSel = 0; S.focus = 'slot:0'; })],
+          ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
+          ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
+          ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
+          ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })]]; })(),
+      ['settings_pause', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'back'; S.hover = 'back'; S.meta.zoom = 1.5; })],
       ['settings_drag', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; S.hover = 'zoom'; S.drag = 'zoom'; S.pressWas = true; S.meta.zoom = 0.5; })],
       ['play_zoom05', play((S) => { S.meta.zoom = 0.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
       ['play_zoom075', play((S) => { S.meta.zoom = 0.75; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
