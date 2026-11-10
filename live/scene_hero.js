@@ -86,15 +86,17 @@
     // a turn mirrors the rig in one frame: narrowing it through a sliver read as a flat cut-out card spinning; the cape swings out instead
     const fX = h.face, face = h.face;
     // the charge crouches through its 0.06 s before the rush, the cry draws breath before the shout (TASKS 1183); the leap is a hop, not a slide (TASKS 1160)
-    const crouch = h.castK === 'charge' ? SS(0, 0.03, castT) * (1 - SS(0.05, 0.09, castT)) : 0, cryPrep = h.castK === 'cry' ? SS(0, 0.08, castT) * (1 - SS(0.1, 0.18, castT)) : 0;
-    const leapQ = h.leapV && h.leapV[0] === h.dashT ? Math.max(0, Math.min(1, (GT - h.dashT) / SIM.K.DASH_T)) : 1, hop = Math.sin(Math.PI * leapQ), landT = h.leapV && h.leapV[0] === h.dashT ? GT - h.dashT - SIM.K.DASH_T : -1, landC = landT >= 0 && landT < 0.12 ? Math.sin(Math.PI * landT / 0.12) : 0;
+    const crouch = h.castK === 'charge' ? SS(0, 0.05, castT) * (1 - SS(0.05, 0.12, castT)) : 0, cryPrep = h.castK === 'cry' ? SS(0, 0.08, castT) * (1 - SS(0.1, 0.18, castT)) : 0;
+    // (the hop leaves and meets the floor at rest, a little after the dash: a sine left and landed at full speed, the whole body
+    // jumped 9 % of the height in a frame at both ends, TASKS 1702)
+    const HOP_T = 1.4 * SIM.K.DASH_T, leapQ = h.leapV && h.leapV[0] === h.dashT ? Math.max(0, Math.min(1, (GT - h.dashT) / HOP_T)) : 1, hop = Math.sin(Math.PI * leapQ) ** 2, landT = h.leapV && h.leapV[0] === h.dashT ? GT - h.dashT - HOP_T : -1, landC = landT >= 0 && landT < 0.12 ? Math.sin(Math.PI * landT / 0.12) : 0;
     const pdx = P.dirx * face * h.face;
     const hurt = GT - h.hurtT < 0.12, alpha = o.alpha === undefined ? 1 : o.alpha;
     // body: hip rides the stance leg (low at double support), slow breath at rest
     const dbl = 0.5 + 0.5 * Math.cos(4 * Math.PI * P.u0), breath = (1 - run) * Math.sin(GT * 2.1) * 0.9;
     const bodyDy = run * (2.6 - 0.9 * Math.abs(pdx)) * dbl;
     // dash and hurt lean the upper body about the hip (the feet stay planted): eased in and out, never a one-frame switch
-    const dA = GT - h.dashT, dashE = SS(0, h.castK === 'charge' && GT - h.castT < 0.5 ? 0.15 : 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
+    const dA = GT - h.dashT, dashE = SS(0, (h.castK === 'charge' && GT - h.castT < 0.5) || leapQ < 1 ? 0.15 : 0.09, dA) * (1 - SS(0.14, 0.3, dA)), dashF = h.dashX * face >= -0.2 ? 1 : -1;
     const hA = GT - h.hurtT, hurtE = h.deadT >= 0 ? 0 : SS(0, 0.07, hA) * (1 - SS(0.12, 0.3, hA));
     // standing, the upper body sways slowly about the hip (two slow waves, so it never reads as a metronome)
     // (a blow follows the last one's weight: a new one 0.47 s after the last dropped it to the idle pose for a frame, TASKS 1125)
@@ -103,7 +105,8 @@
     // every 4–5 s the weight moves onto the other leg: the hip slides toward it and the free heel lifts
     const wsh = 2 * SS(-0.35, 0.35, Math.sin(GT * 1.43) + 0.3 * Math.sin(GT * 0.61)) - 1, hipDx = 10 * wsh * idle;
     const heel = { L: 0.06 * idle * SS(0.3, 1, wsh), R: 0.06 * idle * SS(0.3, 1, -wsh) };
-    const cryShake = h.castK === 'cry' && castT > 0.14 && castT < 0.6 ? 0.04 * Math.sin(GT * 70) : 0;
+    // (eased in and out, and slow enough that one frame's shudder is not a break in the pose, TASKS 1702)
+    const cryShake = h.castK === 'cry' ? 0.04 * Math.sin(GT * 40) * SS(0.14, 0.26, castT) * (1 - SS(0.48, 0.6, castT)) : 0;
     const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face - 0.14 * cryPrep * face + cryShake - 0.16 * hop * face;
     // death keeps the rig: the knees buckle (the hip drops, IK folds them), the arms fling, then the whole body falls back about the feet,
     // accelerating but slowed just before the floor so it lands with a small bounce instead of a board's slap
@@ -169,7 +172,8 @@
     // crystal first, over the bolt's frame (raised in the 0.13 s to it, the hand jumped 7 % of the height a frame), holds it a moment and lowers it; at rest it stands more upright than a blade
     // a shot follows the last one's envelope (the wand fires every 0.36 s: the new shot's raise starting at 0 dropped the staff in a frame)
     const shooter = (D.clsOf(h).shoots || []).includes(st.wtype), BT = D.SHOTS[(D.BASES[st.wtype] || {}).shot || 'bolt'].t, rise0 = (T) => { const x = Math.max(0, Math.min(1, T / BT)); return 0.5 * x * (2 - x) + 0.5 * x * x * (3 - 2 * x); }, shotEnv = (T) => (T >= 0 && T < SWING.end ? rise0(T) * (1 - SS(BT + 0.06, SWING.end - 0.02, T)) : 0);
-    const chargeE = h.castK === 'charge' ? SS(0.03, 0.13, castT) * (1 - SS(0.3, 0.55, castT)) : 0, cryE = h.castK === 'cry' ? SS(0.1, 0.24, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
+    // (the thrust rises over 0.2 s: thrown out in 0.1 s the hand jumped 7–11 % of the height a frame, TASKS 1702)
+    const chargeE = h.castK === 'charge' ? SS(0.02, 0.22, castT) * (1 - SS(0.3, 0.55, castT)) : 0, cryE = h.castK === 'cry' ? SS(0.08, 0.28, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
     // a crossbow is not drawn: it is shouldered, its stock along the shot, the far hand under the fore-stock (TASKS 1711)
     const xbow = shooter && st.wtype === 'crossbow' && !!window.ASSETS[W[0] + '_h'];
     const bowArm = shooter && !!(D.BASES[st.wtype] || {}).dex, drawE = bowArm && !xbow && swinging ? SS(0.02, BT, atkT) * (1 - SS(BT, BT + 0.08, atkT)) : 0;
@@ -196,10 +200,13 @@
     // two-bone reach of an arm to a rig-space target (relative to its shoulder), the elbow bending down: blended by k
     const reach = (A, tx, ty, k) => { const l1 = dist2(A.S0, A.E0), l2 = dist2(A.E0, A.Hd0), d = Math.min(Math.hypot(tx, ty), l1 + l2 - 0.5), b = Math.atan2(ty, tx);
       const a1 = b + Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d)))), E = [Math.cos(a1) * l1, Math.sin(a1) * l1];
-      const r1 = a1 - ang(A.S0, A.E0), r2 = Math.atan2(ty - E[1], tx - E[0]) - ang(A.E0, A.Hd0);
-      A.r1 += wrapPi(r1 - A.r1) * k; A.r2 += wrapPi(r2 - A.r2) * k; };
+      // (the elbow's bend is blended, not the forearm's own turn: an arm raised overhead is half a turn from its rest, and the
+      // forearm's shortest way there flipped sides between frames, TASKS 1702)
+      const r1 = a1 - ang(A.S0, A.E0), bend = wrapPi(Math.atan2(ty - E[1], tx - E[0]) - ang(A.E0, A.Hd0) - r1), bend0 = A.r2 - A.r1;
+      A.r1 += wrapPi(r1 - A.r1) * k; A.r2 = A.r1 + bend0 + wrapPi(bend - bend0) * k; };
     const armLen = (A) => dist2(A.S0, A.E0) + dist2(A.E0, A.Hd0);
-    const castE = casting ? SS(0, bowArm ? 0.07 : h.castK === 'frost' ? 0.14 : 0.24, castT) * (1 - SS(0.3, 0.5, castT)) : 0;
+    // (a bow raised for the volley in 0.07 s jumped the hands 13 % of the height a frame, though its arrows leave at once, TASKS 1702)
+    const castE = casting ? SS(0, h.castK === 'leap' ? 0.2 : bowArm ? 0.13 : h.castK === 'frost' ? 0.17 : 0.24, castT) * (1 - SS(0.3, 0.5, castT)) : 0;
     // a shot's weapon follows the aim the shot was loosed on, not the live pointer (TASKS 1153: a mouse turned in the wind-up parted staff and bolt); the kick belongs to what is being done
     const aimS = shooter && swinging && shootE >= castE ? (face > 0 ? h.atkA : Math.PI - h.atkA) : aimL, kickT = castE > shootE ? castT : atkT;
     if (whirlE > 0 && swingK === 0) {   // the ellipse is centred behind the shoulder, toward the body's axis, inside the arm's reach
@@ -210,9 +217,12 @@
       // the warrior's charge (TASKS 1134): the blade thrust out down the aim, the free arm flung back; the war cry: blade and fist
       // thrown up over the head
       const l = armLen(arms.R);
-      if (cryPrep > 0) { reach(arms.R, 0.3 * l, 0.35 * l, cryPrep); reach(arms.L, 0.1 * l, 0.35 * l, cryPrep); }
+      // (the breath and the shout are one reach whose target slides from the chest up over the head: two reaches in a row flipped
+      // the elbow where the first let go, the hand jumped 38 % of the height in a frame, TASKS 1702)
+      if (cryPrep > 0 || cryE > 0) { const w = SS(0.08, 0.28, castT), k = SS(0, 0.08, castT) * (1 - SS(0.45, 0.75, castT));
+        const arc = (A, x0, y0, x1, y1) => { const a0 = Math.atan2(y0, x0), a = a0 + (Math.atan2(y1, x1) - a0) * w, r = (Math.hypot(x0, y0) + (Math.hypot(x1, y1) - Math.hypot(x0, y0)) * w) * l; reach(A, r * Math.cos(a), r * Math.sin(a), k); };
+        arc(arms.R, 0.3, 0.35, 0.25, -0.9); arc(arms.L, 0.1, 0.35, -0.15, -0.85); }
       if (chargeE > 0) { reach(arms.R, 0.2 * l + Math.cos(aimL) * 0.8 * l, Math.sin(aimL) * 0.8 * l - 0.05 * l, chargeE * (1 - swingK)); pose(arms.L, 0.6, 0.3, chargeE); }
-      if (cryE > 0) { reach(arms.R, 0.25 * l, -0.9 * l, cryE); reach(arms.L, -0.15 * l, -0.85 * l, cryE); }
     } else if (shootE > 0 || (shooter && castE > 0)) {   // (a mage casts through his staff too: no free-hand push, no lowered blade)
       const l = armLen(arms.R), pe = Math.max(shootE, castE), kick = 0.1 * l * SS(BT - 0.01, BT + 0.05, kickT) * (1 - SS(BT + 0.05, BT + 0.25, kickT));
       // (aimed high the shouldered hand reaches as far as a bow's: tucked closer the elbow flipped over on the lowering)
@@ -230,7 +240,7 @@
     // reading a scroll (TASKS 1032): the free hand holds it out before the chest, the sword arm lowered
     const readE = h.read && swingK === 0 && whirlE === 0 && castE === 0 ? SS(0, 0.3, GT - h.read.t0) : 0;
     if (readE > 0) { const l = armLen(arms.L); reach(arms.L, 0.6 * l, 0.12 * l, readE); pose(arms.R, -0.2, 0.3, readE); }
-    if (dashE > 0 && shootE < 0.05) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); }   // (a leap's shot keeps its bow arm, TASKS 1125)
+    if (dashE > 0 && Math.max(shootE, shooter ? castE : 0) < 0.05) { pose(arms.L, 0.55 * dashF, 0.45, dashE); pose(arms.R, 0.55 * dashF, 0.45, dashE); }   // (a leap's shot keeps its bow arm, TASKS 1125, and so does the leap's own raised bow: both at once jerked the hands, TASKS 1702)
     if (hurtE > 0 && swingK === 0) { pose(arms.L, -0.45, 0.5, hurtE); pose(arms.R, -0.3, 0.45, hurtE); }
     if (o.victory) { reach(arms.R, armLen(arms.R) * 0.32, -armLen(arms.R) * 0.88, 1); pose(arms.L, -0.25, 0.2, 1); bladeA = -Math.PI / 2 + 0.08; }
     if (o.armsUp > 0) { reach(arms.R, armLen(arms.R) * 0.2, -armLen(arms.R) * 0.9, o.armsUp); reach(arms.L, -armLen(arms.L) * 0.1, -armLen(arms.L) * 0.9, o.armsUp); }
