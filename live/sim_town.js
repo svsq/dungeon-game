@@ -60,7 +60,7 @@
     while (q.length && from[g] < 0) { const k = q.shift(), x = k % W;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const n = k + dy * W + dx;
         if ((x === 0 && dx < 0) || (x === W - 1 && dx > 0) || n < 0 || n >= ok.length || !ok[n] || from[n] >= 0 || (dx && dy && (!ok[k + dx] || !ok[k + dy * W]))) continue; from[n] = k; q.push(n); } }
-    if (from[g] < 0) return [{ x: x1, y: y1 }];
+    if (from[g] < 0 || g === s) return [{ x: x1, y: y1 }];
     const cs = []; for (let k = g; k !== s; k = from[k]) cs.unshift({ x: (k % W + 0.5) * TILE, y: (Math.floor(k / W) + 0.5) * TILE }); cs[cs.length - 1] = { x: x1, y: y1 };
     const free = (x, y) => offPit(x, y) && [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[cell(x + dx, y + dy)]);
     const line = (a, b) => { const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6); for (let i = 1; i < n; i++) if (!free(a.x + (b.x - a.x) * i / n, a.y + (b.y - a.y) * i / n)) return false; return true; };
@@ -82,7 +82,9 @@
     if (G.st === 'walk') { if (k.path && t - G.t1 < GREET.give) { if (t - (h.faceT ?? -9) > 0.6 && Math.abs(k.x - h.x) > 8) heroFace(); return; } k.path = null; k.spd = 0; k.vx = k.vy = 0; G.st = 'meet'; G.t2 = t; faceHero(); return; }
     if (G.st === 'meet') { faceHero(); if (t - G.t2 < GREET.meet || S.screen !== 'play') return; const s0 = k.sayT; G.st = 'home'; k.sayS = null; openTalk(S, R, k); k.sayT = s0; k.byeT = t; k.near = 0; return; }
     // the talk over (taken, or left with Esc: the offer stays his), back to the fire
-    if (G.st === 'home') { if (S.screen !== 'play') return; k.path = greetPath(R, k, k.home.x, k.home.y); k.stuck = 0; G.st = 'back'; return; }
+    if (G.st === 'home') { if (S.screen !== 'play') return; if (k.home) k.path = greetPath(R, k, k.home.x, k.home.y); k.stuck = 0; G.st = 'back'; G.t3 = t; return; }
+    // a way back still blocked after a while (a hen on his place, a corner) ends with him at the fire, not with 'back' for the rest of the run; never onto the hero
+    if (G.st === 'back' && k.path && k.home && t - (G.t3 ?? t) > GREET.give && Math.hypot(h.x - k.home.x, h.y - k.home.y) > folkR(k) + K.R + 4) { k.x = k.home.x; k.y = k.home.y; k.path = null; k.spd = 0; k.vx = k.vy = 0; }
     if (G.st === 'back' && !k.path) { const wf = workFace(R, k); if (wf !== k.face) { k.turnT = t; k.face = wf; } k.walkB = t + 0.2; k.greet = 0; k.near = 1; k.home = null; R.greet = 'done'; } }
   function stepFolk(S, R) {
     const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0, C = cartOf(R);
