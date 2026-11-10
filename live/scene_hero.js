@@ -170,7 +170,7 @@
     // a shot follows the last one's envelope (the wand fires every 0.36 s: the new shot's raise starting at 0 dropped the staff in a frame)
     const shooter = (D.clsOf(h).shoots || []).includes(st.wtype), BT = D.SHOTS[(D.BASES[st.wtype] || {}).shot || 'bolt'].t, rise0 = (T) => { const x = Math.max(0, Math.min(1, T / BT)); return 0.5 * x * (2 - x) + 0.5 * x * x * (3 - 2 * x); }, shotEnv = (T) => (T >= 0 && T < SWING.end ? rise0(T) * (1 - SS(BT + 0.06, SWING.end - 0.02, T)) : 0);
     const chargeE = h.castK === 'charge' ? SS(0.03, 0.13, castT) * (1 - SS(0.3, 0.55, castT)) : 0, cryE = h.castK === 'cry' ? SS(0.1, 0.24, castT) * (1 - SS(0.45, 0.75, castT)) : 0;
-    // a crossbow is not drawn: it is shouldered, its stock along the shot, the far hand under the fore-stock (TASKS 1698)
+    // a crossbow is not drawn: it is shouldered, its stock along the shot, the far hand under the fore-stock (TASKS 1711)
     const xbow = shooter && st.wtype === 'crossbow' && !!window.ASSETS[W[0] + '_h'];
     const bowArm = shooter && !!(D.BASES[st.wtype] || {}).dex, drawE = bowArm && !xbow && swinging ? SS(0.02, BT, atkT) * (1 - SS(BT, BT + 0.08, atkT)) : 0;
     const shootE = shooter && swinging ? Math.max(shotEnv(atkT), h.patkT < h.atkT ? shotEnv(GT - h.patkT) : 0, atkT < BT ? Math.min(1, shotEnv(GT - h.patkT) + shotEnv(atkT)) : 0) : 0;

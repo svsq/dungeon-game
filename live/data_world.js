@@ -29,7 +29,7 @@
     // Their ash, basalt and crust are baked by scene.js MAGMA (TASKS 402); old: the kinds a cave pack fills its halls with
     // low and floorK lift the ground halfway to the concept's (TASKS 435, the player's choice): all the way, a priest's ring and
     // the other red telegraphs on the floor stop reading
-    magma: { name: TXT('BIOMES.magma.name'), rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, low: [1.05, 0.8, 0.74], floorK: 1.45, torch: [1.0, 0.45, 0.16],
+    magma: { name: TXT('BIOMES.magma.name'), rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, ambLvl: 0.48, torchR: 0.72, low: [1.05, 0.8, 0.74], floorK: 1.14, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
       from: { cultist: 2, skel_ember: 2, imp: 2, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
@@ -70,7 +70,7 @@
       // bridges over the dark but a share `neck` of them left a neck of rock
       chasm: { pop: 0.58, gap: [6, 5], plat: [[13, 20], [10, 14]], small: [[8, 11], [7, 9]], grow: [22, 16], ridge: { w: [2, 3], bend: [0, 0.6] }, neck: 0.25, lakes: 1, share: [0.02, 0.3],
         // alt (TASKS 1054): the second way over a bridge the walk can't go round: a deck `len` cells long, `off` cells and more off it
-        alt: { off: 12, len: [4, 20] } },
+        alt: { off: 7, len: [3, 32], max: 3 } },
       // terrace (430): a lavafall down the top wall near one side of the map (`fallAt` of the width from it, the wall `wall` rows high
       // there) runs down to the bottom as a river `w` cells wide; on the wide side terraces step down, rows `rowH` high with `step`
       // rows of lava between, each `per` plateaus side by side, a row joined to the next at its one end and that to the next at
@@ -150,7 +150,7 @@
   // fewer); apart: cells between two of a kind; aim: falling rocks laid first on the narrows of the walk to the stairs (TASKS 461);
   // clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
   // stairs (selfCheck)
-  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8 },
+  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8, gate: { per: 4.6, hp: 0.2, tails: 2 } },
     // (run, gap: an aimed rock is a run of 2·run + 1 down the walk, falling gap s one after another, TASKS 485)
     fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2, run: 2, gap: 0.2 },
     // a terrace floor's lavafall surges (TASKS 475): every `per` s its river rises over its banks, `band` cells of floor either side
@@ -275,9 +275,8 @@
   const MIMIC = { from: 3, p: 0.08 };
   // a statue that slides aside off a secret (TASKS 1354): p: chance a top-wall secret takes this cover where the statue fits
   // planned: the same chance in a room dressed to a matching plan, plans: those rooms (TASKS 1355); hostP: chance a room hosting a secret takes one of the plans
-  // (TASKS 1682: p is high because the room it needs beside the opening is rare; it comes out at about one statue in 15 floors, one a run)
   // slide: seconds the stone takes to grind aside; the cell it leaves stays blocked until it is gone
-  const STATUE_SECRET = { p: 0.8, planned: 0.85, plans: ['gallery', 'hall', 'crypt', 'sanctum', 'library'], hostP: 0.6, slide: 1.2 };
+  const STATUE_SECRET = { p: 0.35, planned: 0.85, plans: ['gallery', 'hall', 'crypt', 'sanctum', 'library'], hostP: 0.6, slide: 1.2 };
   // a struck coffin may let out what lies in it (TASKS 1353): rolled once per coffin, one per room at most; rise: seconds it takes to climb out
   const COFFIN = { p: (f) => Math.min(0.35, 0.12 + 0.03 * f), rise: 1 };
   // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew

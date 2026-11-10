@@ -1,0 +1,5 @@
+Use case: one prop sprite for a top-down 3/4 dungeon action game: the same large iron prisoner cage as Image 2, now empty with its door standing open. Image 1 is the style reference only. Image 2 is the exact cage to reproduce: same size on the canvas, same position, same angle, same frame, base plate, rivets, rust and pixel density.
+Change only this: the front door has swung outward on hinges on the left side of the cage and stands open at about 60 degrees, its four bars and big lock plate now seen at an angle, and the lock hangs broken. The front opening is clear.
+Transparency: the inside of the cage and every gap between bars are fully transparent background. There is no back wall, no floor inside, no dark fill, no shadow inside the cage.
+Composition: exactly the framing of Image 2.
+Constraints: one object only, no person, no animal, no bones, no straw, no ground, no cast shadow.

@@ -51,7 +51,7 @@
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
     if (kind === 'poison') h.poison = S.t + 3;
-    if (kind === 'fire') h.burn = Math.max(h.burn, S.t + 3);
+    if (kind === 'fire') { if (h.burn <= S.t) ev(S, { k: 'ignite', x: h.x, y: h.y }); h.burn = Math.max(h.burn, S.t + 3); }
     if (kind === 'water') { h.slowT = S.t + ORB.t; ev(S, { k: 'soak', x: h.x, y: h.y - 38 }); }
     ev(S, { k: 'hurt', x: h.x, y: h.y - 40, n: dmg, blow, side: h.hurtX || -1, src: src || kind || '?',
       actor: actor ? { type: actor.type, elite: actor.elite, mods: (actor.mods || []).slice() } : null });
@@ -123,7 +123,7 @@
   function lavaFall(S, R, h) { const fx = h.x, fy = h.y, back = h.safe || landOf(R.map, h.x, h.y);
     // (a second fall straight after a first costs nothing more, TASKS 1057: the climb's hold put it past his grace, 70 % for two)
     if (S.t - (h.lavaFallT ?? -9) > 3) hurtHero(S, R, heroSt(S).maxHp * CRUST.fall, fx, fy - 10, 'spike', 'lava'); h.lavaFallT = S.t; if (h.hp <= 0) return;
-    if (h.burn <= S.t) h.burnT = S.t - 0.5; h.burn = Math.max(h.burn, S.t + CRUST.burn);
+    if (h.burn <= S.t) { h.burnT = S.t - 0.5; ev(S, { k: 'ignite', x: h.x, y: h.y }); } h.burn = Math.max(h.burn, S.t + CRUST.burn);
     h.sunk = { t: S.t, x: fx, y: fy, bx: back[0], by: back[1] }; h.vx = h.vy = 0; h.dashT = -9; h.ifr = Math.max(h.ifr || 0, S.t + CRUST.sink + 1); R.trauma = Math.min(1, R.trauma + 0.35);
     ev(S, { k: 'lavafall', x: fx, y: fy, tx: back[0], ty: back[1] }); }
   // the floor nearest a spot off it (a monster gone into the lava or the chasm drops its loot on the bank)
@@ -159,7 +159,7 @@
     // a chapter boss replaced an exit guard worth 1 shard: 3 for a sealed fight that is harder, far below the finale's 20 (TASKS 227)
     // the boss closing a chapter (the demon lord on the campaign's 8th, TASKS 339) pays as the finale did: its shards and its loot
     const fin = D.BOSSES[e.type] && lastFloor(R), big = D.BOSSES[e.type] && (fin || SIMX.chapterEnd(R, e)), sh = D.BOSSES[e.type] ? (big ? 20 : 3) : e.elite ? 1 : 0; if (sh) drop(R, e.x, e.y, { kind: 'shard', n: sh });
-    if (D.BOSSES[e.type]) { SIMX.finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); } }
+    if (D.BOSSES[e.type]) { SIMX.captiveBoss(S, R, e); SIMX.finishArena(S, R, e); if (R.viaTown) { R.bossN = (R.bossN || 0) + 1; R.lastBoss = e.type; (R.slain = R.slain || []).push(R.floor); } }
     if (big && !R.chests.some((c) => c.boss)) for (const o of LOOT.boss) drop(R, e.x, e.y, { kind: 'item', item: rollItem(R, dep(R), o.q, undefined, o) });
     if (fin) { R.bossDead = 1; R.msg = { s: TXT('sim_hero.killEnemy.msg.s', { name: ENEMIES[e.type].name }), t: S.t }; }
     e.x = ox; e.y = oy;
@@ -278,11 +278,11 @@
         ev(S, { k: p.k === 'arrow' ? 'hloose' : 'bolt', x: p.x, y: p.y, a });
         // the staff's sweep still knocks what stands in its arc (TASKS 1116: a pot in a corridor stopped the mage for good, the bolt is
         // born past it): pots, props, doors, chests, secrets and webs, as a swing does; monsters only by the bolt
-        SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {
+        SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); } else {
       for (const e of R.en) { if (e.deadT >= 0) continue; const E = ENEMIES[e.type], dx = e.x - h.x, dy = (e.y - h.y) * 1.25, d = Math.hypot(dx, dy);
         if (d > reach + E.r + K.R) continue; if (d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), h.atkA)) > arc / 2) continue; if (!losClear(m, h.x, h.y, e.x, e.y)) continue;
         const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.max(1, Math.round(st.atk * (0.9 + 0.2 * rnd(R)) * (c ? st.critK : 1) * (h.bless ? 1.2 : 1))), c, h.x, h.y, st.kb); }
-      SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitSecrets(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); }
+      SIMX.breakPots(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitProps(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitFolk(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitChests(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.hitDoors(S, R, h.x, h.y, reach + 10, h.atkA, arc); SIMX.tearWebs(S, R, h.x, h.y, reach + 10, h.atkA, arc); }
     }
     // ---- abilities / potions / interact ----
     if (inp.slot >= 1 && inp.slot <= 3) SIMX.castAbility(S, R, D.clsOf(h).abs[inp.slot - 1].id, inp);

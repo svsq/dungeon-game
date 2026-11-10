@@ -26,6 +26,7 @@ uniform float u_vfade;         // ragged bottom fade (uv of the drawn rect)
 uniform float u_tfade;         // soft top fade
 uniform vec4 u_bulge;          // centre uv, radius (uv), amount — local inflate (breathing, swelling)
 uniform vec4 u_bend;           // amp (uv of height), load u, load width (uv), on — sag field: catenary dip + local dip
+uniform vec3 u_reveal;         // (x, y uv, k): grows in from the outside toward (x, y); k 1 whole, 0 off
 uniform float u_disc;          // > 0: only a round disc of the drawn rect is kept (soft edge width, uv) — joint caps
 uniform vec2 u_lean;           // shift (uv of width) at the free end, y = 0 rooted at the bottom / 1 hung from the top — pushed aside, leaned by wind
 uniform vec4 u_jelly;          // centre x, foot y (uv), height scale k, on — a soft body squashed (k < 1) or stretched about its foot: the foot
@@ -106,6 +107,7 @@ void main(){
     : boned ? textureLod(u_tex, tuv, lod0 + u_lod) : texture(u_tex, tuv, u_lod);
   c *= smoothstep(0.0, max(u_fade.x, 1e-4), uv.x) * smoothstep(1.0, 1.0 - max(u_fade.y, 1e-4), uv.x) ;
   if (u_tfade > 0.0) c *= smoothstep(0.0, u_tfade, uv.y);
+  if (u_reveal.z > 0.0) c *= step((1.0 - u_reveal.z) * 0.25, length(uv - u_reveal.xy));
   if (u_disc > 0.0) c *= smoothstep(0.5, 0.5 - u_disc, length(uv - 0.5));
   if (u_vfade > 0.0) c *= smoothstep(1.0, 1.0 - u_vfade, uv.y + u_vfade * 0.8 * (fbm(vec2(uv.x * 60.0, 0.0)) - 0.3));
   if (u_cut.z > 0.0) c *= smoothstep(u_cut.x, u_cut.x - u_cut.y, v_px.y);
@@ -410,7 +412,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
 
   // ---------------- sprite ----------------
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
-    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
+    rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, reveal: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   const UNAME = {};
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
@@ -465,7 +467,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   let rimLast = null;
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
     if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(bx, by, bw, bh); rimLast = rim.box; G.blend();
-      for (let i = 0; i <= n; i++) { const an = i * 2 * Math.PI / n, q = i < n ? r : 0; L.sp = { dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }; draw(); }
+      const nr = 4, rs = []; for (let i = 0; i <= nr; i++) { const an = i * 2 * Math.PI / nr + Math.PI / 4, q = i < nr ? r * 1.25 : 0; rs.push({ dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }); }
+      L.stamp(draw, rs);
       G.bind(back); G.blend('emit'); G.draw(P.rimout, { u_src: T.rim, u_dir: [rim.dx / len, rim.dy / len], u_col: rim.col }, G.xf(bx, by, bw, bh)); if (!emit) G.blend(); }
     if (emit) G.blend('emit');
     const sps = []; for (let i = 0; i < n; i++) { const an = i * 2 * Math.PI / n; sps.push({ dx: Math.cos(an) * r, dy: Math.sin(an) * r + dy, a: 1, lod: 0, ink: col }); }
@@ -474,6 +477,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     if (emit || (rim && !rim.box)) G.blend();
     L.sp = null; draw(); };
 
+  // a telegraph's beat, quickening as its wind-up fills: the phase counts from the telegraph's own start (TASKS 1362: multiplied by the
+  // game clock, the rising rate threw the phase about wildly and the rings flickered at random)
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
@@ -549,8 +554,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     g.font = font; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
     cv.width = Math.max(1, w); cv.height = h; g.font = font; g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
     const stamp = (dx, dy, c) => { g.fillStyle = c; g.fillText(str, pad + dx * unit, base + dy * unit); };
-    stamp(0, 2, 'rgba(15,5,8,0.6)');
-    if (out) for (const [dx, dy] of AROUND) stamp(dx, dy, out);
+    // ink on parchment has no outline: a dark shadow two grid pixels under dark glyphs read as a second, blurred line
+    if (out) { stamp(0, 2, 'rgba(15,5,8,0.6)'); for (const [dx, dy] of AROUND) stamp(dx, dy, out); }
     stamp(0, 0, col);
     if (!r) r = LBL[slot] = { rec: G.canvasTex('lbl_' + slot, cv) };
     else { G.canvasUpdate(r.rec, cv); r.rec.w = w; r.rec.h = h; }

@@ -20,7 +20,7 @@
 
   function genFloor(seed, floor, opts = {}) {
     // a floor without a secret room is rerolled a few times before one is accepted, unless it meant to have none
-    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, attempt < 16, false, attempt < 14); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) return m; }
+    for (let attempt = 0; attempt < 20; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, attempt < 16, attempt < 16, false, attempt < 14); if (m && (m.secrets.length || !m.secretsWanted || attempt >= 12)) { if (attempt >= 14) m.loose = 1; return m; } }
     // (a floor no try above lays, which a magma floor's walk to the stairs left 1 seed in 300: a crash on entering it, never a
     // floor; reached only past them, so every floor they lay stays as it is; loose: their walk to the stairs may be nine tenths)
     for (let attempt = 20; attempt < 40; attempt++) { const m = tryGen((seed + attempt * 7919) >>> 0, floor, opts, false, false, attempt >= 36); if (m) { m.loose = 1; return m; } }
@@ -180,7 +180,7 @@
     for (const a of m.shrines) if (!a.boss) list.push({ kind: 'altar', room: roomAt(m, a.x, a.y) });
     for (const e of m.enemies) if (e.elite && !e.exit && !e.guard && !D.BOSSES[e.type]) list.push({ kind: 'elite', room: e.room });
     const deg = m.rooms.map(() => 0); for (const [a, b] of m.edges) { deg[a]++; deg[b]++; }
-    const ends = m.rooms.filter((r) => deg[r.id] === 1 && !way.has(r.id) && ['combat', 'treasure', 'shrine'].includes(r.type));
+    const ends = m.rooms.filter((r) => deg[r.id] === 1 && !way.has(r.id) && ['combat', 'shrine'].includes(r.type));
     return { way, list, onWay: list.filter((q) => way.has(q.room)).length, ends, bare: ends.filter((r) => !list.some((q) => q.room === r.id)) };
   }
 
@@ -340,9 +340,15 @@
     for (const r of map.rooms) if (r.type === 'secret' && inR(r)) return r.id;
     for (const r of map.rooms) if (inR(r)) return r.id; return -1; };
 
-  root.DUNGEON = { genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt };
+  const fogHash = (x, y) => { const q = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return q - Math.floor(q); };
+  const fogNoise = (x, y) => { const gx = x / 3, gy = y / 3, x0 = Math.floor(gx), y0 = Math.floor(gy), fx0 = gx - x0, fy0 = gy - y0, sx0 = fx0 * fx0 * (3 - 2 * fx0), sy0 = fy0 * fy0 * (3 - 2 * fy0);
+    return (fogHash(x0, y0) * (1 - sx0) + fogHash(x0 + 1, y0) * sx0) * (1 - sy0) + (fogHash(x0, y0 + 1) * (1 - sx0) + fogHash(x0 + 1, y0 + 1) * sx0) * sy0; };
+  // k: how much wider the oval is (the player's decision on 1636: arriving on a magma floor shows more of it)
+  const FOG_ARRIVE = 2.4, inFogOval = (x, y, fx, fy, k = 1) => ((x + 0.5 - fx) / (8.5 * k)) ** 2 + ((y + 0.5 - fy) / (6.5 * k)) ** 2 <= (0.72 + 0.28 * fogNoise(x, y) + (fogHash(x + 31, y + 17) - 0.5) * 0.2) ** 2;
+  const fogReach = (x, y) => 1.6 + 1.6 * fogNoise(x, y) + (fogHash(x + 7, y + 91) - 0.5) * 1.4;
+  root.DUNGEON = { FOG_ARRIVE, fogHash, fogNoise, inFogOval, fogReach, genFloor, genTown, townWalk, TOWN, portalRing, roomAt, inRm, rectsOf, mul32, LIGHT_R, straightRuns, narrowTo, wayRooms, rewardsOf, riverWays, riverOk, riverAt };
   // what tryGen's stages (dungeon_rooms/links/terrain/fill.js, ARCHITECTURE.md §4.2) read from this file; in Node they are required here
-  Object.assign(DGX, { D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
+  Object.assign(DGX, { FOG_ARRIVE, fogReach, inFogOval, D, ENEMIES, LIGHT_R, NO_SHOP, TILE, WALK_FAR, crossCuts, inRm, lakeOk, lakeWays, mul32, narrowTo, noise2, rectsOf, rewardsOf,
     riverAt, riverOk, riverWays, straightRuns, wayRooms });
   if (typeof module !== 'undefined') { for (const f of require('./modules.js').parts.dungeon) require('./' + f); module.exports = root.DUNGEON; }
 })(typeof window !== 'undefined' ? window : globalThis);

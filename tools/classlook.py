@@ -50,7 +50,7 @@ BOWS = {
 
 
 def bow_hand(name, c):
-    # (TASKS 1697) the long bow was redrawn after PRISTINE: its source is the current art, and only its _h copy is written
+    # (TASKS 1710) the long bow was redrawn after PRISTINE: its source is the current art, and only its _h copy is written
     a = np.array(Image.open(os.path.join(GEN, name + '.png')).convert('RGBA')) if c.get('gen') else load(name)
     A = a[..., 3] > 0
     dist, t = seg_dist(a.shape, c['top'], c['bot'])

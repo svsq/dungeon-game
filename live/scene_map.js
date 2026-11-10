@@ -54,7 +54,7 @@
     disc('disc_tw', T.svc.portal, 2.6 * TILE, { grade: [1, 1.3, 0, 1] }); disc('runes_tw', { x: T.svc.lectern.x, y: T.svc.lectern.y - 2 }, 3 * TILE, { grade: [1, 2.2, 0, 1] });
   }
   function bake(m) {
-    const key = mapKey(m) + ':' + (m.secrets || []).map((q) => q.hp).join(''); if (BAKE.key === key) return; BAKE.key = key;
+    const key = mapKey(m); if (BAKE.key === key) return; BAKE.key = key;
     const MW = m.W * TILE, MH = m.H * TILE, B = D.BIOMES[m.biome], changed = cellsChanged(m, BAKE), box = changed && BAKE.tg && BAKE.tg.w === MW && BAKE.tg.h === MH ? changed : null;
     // the shaders read the masks a few cells around each pixel: the falling cells' neighbours repaint, the rest of the map stands
     const clip = (tg) => { if (!box) { G.clip(null); return; } const x = Math.max(0, (box[0] - 8) * TILE), y = Math.max(0, (box[1] - 8) * TILE); G.clip(tg, x, y, Math.min(MW, (box[2] + 9) * TILE) - x, Math.min(MH, (box[3] + 9) * TILE) - y); };
@@ -188,17 +188,6 @@
         if (rightEnd) { brick(X + TILE, top, 16, foot); dark(X + TILE, top, 16, FACE, 0.3); pale(X + TILE, top, 16, 4, 0.45, 0.7); pale(X + TILE, top + 4, 4, FACE - 4, 0.16, 0.75); dark(X + TILE - 2, top + 4, 2, FACE - 4, 0.8); }
         // the shadow it throws on the floor below, hard-edged steps the width of a course
         for (let q = 0; q < 5; q++) { const y0 = foot + q * 8; if (c(x, Math.floor(y0 / TILE)) === 0) break; dark(X, y0, TILE, 8, [0.72, 0.52, 0.36, 0.22, 0.1][q]); } } }
-    // a breakable fake wall looks like any other stretch of the (already cracked) masonry until it is struck: then a crack runs
-    // from the opening's edge into the wall (up the face of a top wall, across the rock of the other sides) and branches
-    (m.secrets || []).forEach((q, i) => { if (q.open || (q.kind || 'crack') !== 'crack' || q.hp >= 2) return; const hurt = true, a0 = Math.atan2(q.dy, q.dx), ux = Math.cos(a0), uy = Math.sin(a0);
-      const crack = (x0, y0, a1, len, w, seed, depth) => { let x = x0, y = y0, a = a1;
-        for (let k = 0; k < len; k++) { const l = 6 + 4 * rnd(seed, k); a += (rnd(seed, k + 9) - 0.5) * 0.9; const nx = x + Math.cos(a) * l, ny = y + Math.sin(a) * l;
-          L.solid(x, y, l + 1, w, [0.02, 0.015, 0.02], a, 0, w / 2, 0.92); L.solid(x, y + w / 2 + 1, l, 2, [0.7, 0.64, 0.6], a, 0, 0, q.dy < 0 ? 0.35 : 0.6);
-          if (depth && rnd(seed, k + 30) < (hurt ? 0.55 : 0.3)) crack(nx, ny, a + (rnd(seed, k + 40) < 0.5 ? -0.9 : 0.9), 2 + Math.floor(rnd(seed, k + 50) * 2), Math.max(1, w - 1), seed * 7 + k, depth - 1);
-          x = nx; y = ny; } };
-      const bx = q.x + ux * 3 - 4 * uy, by = q.y + uy * 3;
-      crack(bx, by, a0 - 0.15, 5, hurt ? 5 : 4, 11 + i, hurt ? 2 : 1);
-      if (hurt) { const hx = bx + ux * 24, hy = by + uy * 24; crack(hx, hy, a0 - 1.4, 3, 3, 21 + i, 1); crack(hx, hy, a0 + 1.4, 3, 3, 31 + i, 1); L.solid(hx - 7, hy - 5, 14, 10, [0.03, 0.02, 0.03], a0, 7, 5, 0.9); } });
     // wall decor: banners hang on the wall faces
     // (a plain banner hangs in the Y band: struck, it swings)
     for (const d of m.decor) if (d.wall && d.n !== 'banner' && d.n !== 'shop_sign' && d.secret === undefined && !SIM.Q.hidden(m, d)) { const [w, h] = SZ(d.n); L.sprite(d.n, d.x - w / 2, d.y - h + 8, { w, h }); }
@@ -213,7 +202,7 @@
   const mapKey = (m) => m.seed + ':' + m.floor + ':' + (m.lava || 0) + ':' + (m.geometry || 0) + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('');
   // the box [x0, y0, x1, y1] of cells that differ from what `rec` last saw on this same map, null if it must be rebuilt whole: another
   // map, or a key that moved with no cell changing (a flood grows m.water, which the cells don't show)
-  const cellsChanged = (m, rec) => { const stable = m.seed + ':' + m.floor + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-') + q.hp).join('') + ':' + (m.water || []).length; let box = null;
+  const cellsChanged = (m, rec) => { const stable = m.seed + ':' + m.floor + ':' + m.rooms.map((r) => (r.zone || '-')[0]).join('') + ':' + (m.secrets || []).map((q) => (q.open ? 'o' : '-')).join('') + ':' + (m.water || []).length; let box = null;
     if (rec.stable === stable && rec.cells && rec.cells.length === m.cells.length) for (let i = 0; i < m.cells.length; i++) if (rec.cells[i] !== m.cells[i]) { const x = i % m.W, y = Math.floor(i / m.W);
       if (!box) box = [x, y, x, y]; else { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); } }
     rec.stable = stable; rec.cells = Uint8Array.from(m.cells); return box; };
@@ -339,10 +328,11 @@
     if (SEEN.key === key) return SEEN.rec; SEEN.key = key;
     if (!SEEN.cv) { SEEN.cv = G.canvas(); }
     const cv = SEEN.cv; cv.width = m.W; cv.height = m.H; const g = cv.getContext('2d'), im = g.createImageData(m.W, m.H);
-    const K = [1, 2, 3, 2, 1], W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + 2] * R.seen[y * W + u]; } a[y * W + x] = v / 9; }
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -2; d <= 2; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + 2] * a[u * W + x]; } b[y * W + x] = v / 9; }
-    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? 0.35 + 0.65 * Math.min(1, b[i] * 1.6) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
+    // (the magma's fog deepens over two seen cells, TASKS 1636: the lit patch on the black was cut out, its edge 13 px)
+    const K = m.cliff ? [1, 2, 3, 4, 5, 4, 3, 2, 1] : [1, 2, 3, 2, 1], KR = (K.length - 1) / 2, KS = K.reduce((p, v) => p + v, 0), W = m.W, H = m.H, a = new Float32Array(W * H), b = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + KR] * R.seen[y * W + u]; } a[y * W + x] = v / KS; }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + KR] * a[u * W + x]; } b[y * W + x] = v / KS; }
+    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? (m.cliff ? 0.05 + 0.95 * Math.min(1, Math.max(0, b[i] - 0.28) * 1.85) : 0.35 + 0.65 * Math.min(1, b[i] * 1.6)) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
       const v = Math.round(255 * f); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!SEEN.rec) SEEN.rec = G.canvasTex('seen', cv);

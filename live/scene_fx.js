@@ -23,13 +23,8 @@
       L.glow(sx(q.x) + gx, sy(q.y) + gy, gr, L0.col, ga * b); }
     if (m.town && vis(m.town.svc.altar.x, m.town.svc.altar.y)) { G.blend('emit'); const A = m.town.svc.altar; [-21, -12, 16, 26].forEach((dx, i) => flameAt(sx(A.x) + dx, sy(A.y) - 53, 7, 13, [1, 0.72, 0.3], i * 7 + 3, Math.sin(t * 2.3 + i), t)); G.blend('add'); }
     if (m.shop) for (const q of m.shop.lanterns) if (vis(q.x, q.y) && known(q.x, q.y)) { const [lw0, lh0] = SZ('shop_lantern'); L.glow(sx(q.x) + lw0 * 0.22, sy(q.y) - lh0 * 0.42, 16, [1, 0.8, 0.45], 0.7 * flick(q.y)); }
-    // a mechanism catches the light now and then: a faint four-point glint for a third of a second every five or so, each on
-    // its own beat, so it reads only to someone already looking at it
     // a trapped chest gives itself away to a careful eye: now and then a thread of dust from under the lid (TASKS 1357)
     for (const c of R.chests) { if (!c.trap || c.open || !vis(c.x, c.y) || !known(c.x, c.y)) continue; const ph = (t + c.x * 0.013 + c.y * 0.007) % 4.6; if (ph < 1.7) { const q = ph / 1.7; for (let j = 0; j < 3; j++) { const u = (q + j / 3) % 1; L.glow(sx(c.x) + 4 + 3 * Math.sin(u * 9 + c.x), sy(c.y) - 30 - 32 * u, 9 + 10 * u, [0.78, 0.74, 0.58], 0.7 * Math.sin(Math.PI * q) * (1 - u) ** 0.5, 2.2); } if (ph % 0.6 < 0.08) L.star(sx(c.x) + 4, sy(c.y) - 30, 6, [1, 0.72, 0.3], 0.8); } }
-    (m.secrets || []).forEach((q, i) => { const P = q.trig; if (q.open || !P || inSecret(q)) return; const ph = (t + i * 1.73) % 5.2; if (ph > 0.35) return;
-      const env = Math.sin(Math.PI * ph / 0.35), tc = P.k === 'sconce' ? m.torches[P.t] : null, x = tc ? tc.x - 8 : P.cx * TILE + 7, y = tc ? tc.y - 2 : P.cy * TILE + 6;
-      if (vis(x, y) && known(x, y)) L.star(sx(x), sy(y), 12, [1, 0.94, 0.78], 0.5 * env); });
     // the townsfolk's work (TASKS 1015): sparks off the anvil on the blow, embers up off the keeper's poke, the enchanter's blue flame
     for (const q of RIM.folk) { const a = q.a || 0;
       if (q.k === 'spark') for (let j = 0; j < 8; j++) { const an = -Math.PI / 2 + (rnd(q.seed, j) - 0.5) * 2.6, v = 70 + 90 * rnd(q.seed, j + 8), k = 1 - SS(0.15, 0.45, a);
@@ -230,7 +225,10 @@
     // a golem's pool of lava (TASKS 409): bright at first, a ring of crust closing in on it as it cools, bubbles popping
     // a pool that has yet to burn (`arm`, TASKS 463) spreads dull red, its rim racing out, and flares hot as it starts to
     for (const p of R.fires || []) { if (p.kind !== 'pool' || !vis(p.x, p.y) || !known(p.x, p.y)) continue; const u = GT - p.t0, q = u / p.t, X = sx(p.x), Y0 = sy(p.y), k = SS(0, 0.25, u) * (1 - SS(0.75, 1, q)), arm = p.arm || 0, hot = arm ? SS(arm * 0.6, arm, u) : 1, r = p.r * (0.55 + 0.45 * SS(0, Math.max(0.35, arm), u));
-      L.glow(X, Y0, r * 1.6, [1, 0.32, 0.06], 0.55 * k, 1.6); L.glow(X, Y0, r * (1.1 - 0.5 * q), [1, 0.62, 0.22], 0.9 * k * (0.25 + 0.75 * hot), 2.6); L.ring(X, Y0, r * (1 - 0.35 * q), r * p.ry * (1 - 0.35 * q), hot < 1 ? [1, 0.3, 0.08] : [1, 0.5, 0.15], (0.6 + 0.3 * (1 - hot)) * k, 0.12);
+      // (a golem's pool cools in steps, each with a crack ticking open, TASKS 1642: one smooth fade read as nothing happening)
+      const g = p.who === 'golem', cool = g ? (q < 0.45 ? 1 : q < 0.72 ? 0.6 : 0.34) : 1, tick = g && (Math.abs(q - 0.45) < 0.012 || Math.abs(q - 0.72) < 0.012) ? 1.5 : 1;
+      L.glow(X, Y0, r * 1.6, [1, 0.32, 0.06], 0.55 * k * cool * tick, 1.6); L.glow(X, Y0, r * (1.1 - 0.5 * q), [1, 0.62, 0.22], 0.9 * k * (0.25 + 0.75 * hot) * cool * tick, 2.6); L.ring(X, Y0, r * (1 - 0.35 * q), r * p.ry * (1 - 0.35 * q), hot < 1 ? [1, 0.3, 0.08] : [1, 0.5, 0.15], (0.6 + 0.3 * (1 - hot)) * k * cool, 0.12);
+      if (g) for (const [j, q0] of [[0, 0.45], [1, 0.72]]) if (q >= q0) { const an = rnd(p.id, j + 13) * 3.14, len = r * (0.5 + 0.4 * rnd(p.id, j + 17)); L.solid(X - Math.cos(an) * len / 2 + (rnd(p.id, j + 21) - 0.5) * r * 0.5, Y0 - Math.sin(an) * len * p.ry / 2 + (rnd(p.id, j + 25) - 0.5) * r * 0.3, len, 2, [1, 0.74, 0.32], an, 0, 0, k * (q - q0 < 0.03 ? 1 : 0.55)); }
       for (let j = 0; j < 4; j++) { const b = (t * 0.9 + rnd(p.id, j)) % 1, bx = X + (rnd(p.id, j + 5) - 0.5) * r, by = Y0 + (rnd(p.id, j + 9) - 0.5) * r * p.ry; if (b < 0.3) L.ring(bx, by, 2 + 6 * b / 0.3, 1 + 3 * b / 0.3, [1, 0.8, 0.4], 0.8 * k * hot * (1 - b / 0.3), 0.3); } }
     // the colossus's telegraphs (TASKS 413), on the floor in the add pass: the fists' ring closing in through the wind-up; the crack's
     // line of embers to where it will run, then the crack itself racing out and glowing as it cools; a circle where a rock will land,
@@ -389,7 +387,7 @@
       if (e.k === 'slam' && a < 4.6) L.cracks(ex, ey, e.big ? 130 : 70, a, e.id || 1, 1);
       if (e.k === 'lvl' && a < 1.6) { const q = a / 1.6; L.ring(ex, ey, 30 + 80 * q, 14 + 36 * q, [1, 0.85, 0.4], 1 - q, 0.1); for (let j = 0; j < 14; j++) { const an = j / 14 * 6.28;
           L.star(ex + Math.cos(an) * (20 + 30 * q), ey - 20 - 90 * q * (0.5 + rnd(j, 2)), 9, [1, 0.85, 0.4], 1 - q); } }
-      if (e.k === 'chest' && a < 1.1) { const rank = e.boss ? 3 : (e.tier || 1) - 1, D0 = chestOpenD(e), col = [[1, 0.84, 0.55], [0.75, 0.88, 1], [1, 0.78, 0.3], [1, 0.3, 0.2]][rank], burst = a - D0 * 0.85, n = [5, 7, 10, 18][rank], reach = [28, 34, 44, 70][rank];
+      if (e.k === 'chest' && a < 1.1) { const rank = e.boss ? 3 : Math.min(3, e.tier || 1) - 1, D0 = chestOpenD(e), col = [[1, 0.84, 0.55], [0.75, 0.88, 1], [1, 0.78, 0.3], [1, 0.3, 0.2]][rank], burst = a - D0 * 0.85, n = [5, 7, 10, 18][rank], reach = [28, 34, 44, 70][rank];
         if (burst >= -0.04 && burst < 0.16) { const fl = 1 - Math.abs(burst - 0.02) / 0.14; G.blend('add'); L.glow(ex, ey - 22, [30, 36, 46, 70][rank], col, Math.max(0, fl) * [0.42, 0.45, 0.55, 0.7][rank], 2.8); G.blend(); }
         if (burst >= 0 && burst < 0.6) { const q = burst / 0.6; for (let j = 0; j < n; j++) { const an = -1.57 + (rnd(e.t, j) - 0.5) * (rank === 3 ? 2.4 : 1.6), d = reach * q * (0.6 + 0.4 * rnd(e.t, j + 3)); L.star(ex + Math.cos(an) * d, ey - 22 + Math.sin(an) * d * 1.2, 7 + 5 * rank * (1 - q), j % 3 === 0 && rank === 3 ? [1, 0.82, 0.35] : col, (1 - q) * 0.9); } L.star(ex - 12, ey - 30, 14 + 7 * rank, [1, 0.97, 0.85], 1 - q); }
         if (rank === 3 && burst >= 0 && burst < 0.5) { const q = burst / 0.5; L.ring(ex, ey - 4, 26 + 70 * q, 12 + 36 * q, col, 0.8 * (1 - q), 0.14); } }
@@ -529,8 +527,6 @@
             L.solid(px, py, sz + 1, sz + 1, [0.06, 0.16, 0.05], 0, (sz + 1) / 2, (sz + 1) / 2, 1 - SS(0.4, 0.55, a)); L.solid(px, py, sz - 1, sz - 1, [0.3, 0.68, 0.2], 0, (sz - 1) / 2, (sz - 1) / 2, 1 - SS(0.4, 0.55, a)); } } }
       if ((e.k === 'douse' || e.k === 'snuff') && a < 0.6) { const q = a / 0.6, steam = e.k === 'douse';
         for (let j = 0; j < 3; j++) L.puff(ex + (j - 1) * (steam ? 9 : 7) + Math.sin(q * 5 + j) * 4, ey - (steam ? 16 : [16, 28, 18][j]) - (steam ? 38 : 26) * q, (steam ? 9 : 4) + 10 * q, steam ? [0.88, 0.92, 0.94] : [0.4, 0.39, 0.37], (steam ? 0.75 : 0.5) * (1 - q), e.t * 13 + j); }
-      if (e.k === 'hollow' && a < 0.6) { const q = a / 0.6;
-        for (let j = 0; j < 4; j++) L.puff(ex + (j - 1.5) * 10, ey + 8 + 14 * q, 4 + 10 * q, [0.4, 0.36, 0.34], 0.45 * (1 - q), e.t * 11 + j); }
       // the magma caves' answers (TASKS 466): a crack spits embers (a few sparks and a hiss of smoke underfoot), a charred skeleton
       // puffs ash as its bones fly, a chain fence throws a few sparks off its links
       if (e.k === 'prop' && e.mat === 'ember' && a < 0.8) { const q = a / 0.8, k = e.touch ? 4 : 10;
@@ -568,7 +564,7 @@
         L.solid(ex + Math.cos(an) * v * a, ey - 14 + Math.sin(an) * v * a * 0.6 - 120 * a + 300 * a * a, 5, 4, e.kind === 'pot' || e.kind.startsWith('vase') ? [0.5, 0.24, 0.14] : e.kind === 'gold' || e.kind === 'goldpile' ? [1, 0.78, 0.25] : [0.4, 0.26, 0.14], an, 2, 2, 1 - SS(0.5, 0.7, a)); }
       // a blow on a fake wall knocks out chips and a breath of dust; the break blows the stretch of wall into the room
       // grit ground out from under the plinth all along its way, and a cough of dust where it knocks against its stop
-      if (e.k === 'secret' && e.kind === 'statue' && m.secrets[e.i] && a < D.STATUE_SECRET.slide + 0.8) { const q = m.secrets[e.i], sl = statueSlide(q, a), bx = ex + q.slide * sl.p, s = Math.sign(q.slide);
+      if (e.k === 'secret' && e.kind === 'statue' && m.secrets[e.i] && a < D.STATUE_SECRET.slide + 0.8) { const q = m.secrets[e.i], sl = statueSlide(q, a), bx = ex + sl.run * sl.p, s = Math.sign(sl.run);
         if (sl.end < 0) for (let j = 0; j < 3; j++) { const ph = (a * 2.2 + j / 3) % 1; L.puff(bx - s * (22 + 26 * ph), ey + 40 - 8 * ph, 6 + 10 * ph, [0.5, 0.46, 0.4], 0.4 * Math.sin(Math.PI * ph) * SS(0, 0.15, a), e.t * 3 + j); }
         if (sl.end >= 0 && sl.end < 0.8) { const b = sl.end / 0.8; for (let j = 0; j < 8; j++) L.puff(bx + (j - 3.5) * 9 + s * 18 * b * (j > 3.5 ? 1 : 0.3), ey + 38 - 14 * b, 8 + 16 * b, [0.5, 0.46, 0.4], 0.55 * (1 - b), e.t * 3 + j); } }
       if (e.k === 'secret' && e.kind === 'shelf' && a < 1.2) { for (let j = 0; j < 18; j++) { const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * 2.6, v = 80 + 140 * rnd(e.t, j + 7), px = ex + (rnd(e.t, j + 3) - 0.5) * 90 + Math.cos(an) * v * a * 0.6;
@@ -581,11 +577,6 @@
       if (e.k === 'door' && a < 0.9) { const D0 = m.doors[e.i], side = D0 && (D0.dir === 'l' || D0.dir === 'r'), n = e.kick ? 12 : 7;
         for (let j = 0; j < n; j++) { const q = a / 0.9, an = rnd(e.t, j) * 6.28, v = (20 + 40 * rnd(e.t, j + 3)) * (e.kick ? 1.6 : 1), ox = side ? 0 : (rnd(e.t, j + 9) - 0.5) * 60, oy = side ? (rnd(e.t, j + 9) - 0.5) * 60 : 0;
           L.puff(sx(e.x + ox) + Math.cos(an) * v * q, sy(e.y + oy) - 4 + Math.sin(an) * v * q * 0.5 - 10 * q, 6 + 10 * q, [0.45, 0.4, 0.36], 0.35 * (1 - q), e.t + j); } }
-      if ((e.k === 'wallhit' || (e.k === 'secret' && (e.kind || 'crack') === 'crack')) && a < 1.4) { const big = e.k === 'secret', n = big ? 22 : 8, life = big ? 1.1 : 0.7;
-        for (let j = 0; j < n; j++) { if (a > life) break; const an = -Math.PI / 2 + (rnd(e.t, j) - 0.5) * (big ? 3 : 2), v = (big ? 90 : 50) + (big ? 160 : 70) * rnd(e.t, j + 7), g = 520;
-          const px = ex + (rnd(e.t, j + 3) - 0.5) * (big ? 60 : 24) + Math.cos(an) * v * a * 0.6, py = ey + Math.min(30 + 20 * rnd(e.t, j + 11), -Math.abs(Math.sin(an)) * v * a + g * a * a);
-          const sz = (big ? 4 : 3) + 4 * rnd(e.t, j + 13); L.solid(px, py, sz, sz * 0.8, [0.34, 0.3, 0.29], an + a * 6, sz / 2, sz / 2, 1 - SS(life * 0.75, life, a)); }
-        for (let j = 0; j < (big ? 10 : 4); j++) { const q = Math.min(1, a / (big ? 1.4 : 0.8)); L.puff(ex + (j - (big ? 4.5 : 1.5)) * (big ? 12 : 10), ey + 10 + 26 * q, (big ? 16 : 10) + 22 * q, [0.4, 0.36, 0.34], (big ? 0.55 : 0.4) * (1 - q), e.t * 11 + j); } }
       // chips knocked off a prop fly from the struck side, bounce off the floor at its foot and fade; dust breathes out of it
       if (e.k === 'prop' && a < 0.9) { const [pw, ph] = e.n === 'fence_mg' ? [24, 30] : SZ(e.n), ix = ex - e.s * pw * 0.3, iy = ey - ph * 0.45, mat = e.mat,
           col = mat === 'wood' ? [0.42, 0.27, 0.15] : mat === 'stone' ? [0.42, 0.4, 0.4] : mat === 'crystal' ? [0.55, 0.75, 1] : e.n === 'shop_gold' ? [1, 0.78, 0.25] : null;

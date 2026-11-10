@@ -25,7 +25,7 @@
         R.arena = { active: 1, room: b.room, t0: S.t }; b.st = b.type === 'boss_serpent' ? 'deep' : ENEMIES[b.type].lake ? 'emerge' : 'chase'; b.cdT = S.t + 1; b.seenT = S.t; b.t0 = S.t;
         for (const d of m.doors) if (d.arena) { d.open = 0; d.openT = -9; for (const [x, y] of d.cells) m.cells[y * m.W + x] = 5; }
         m.arenaBox = [r.x, r.y, r.x + r.w, r.y + r.h];
-        R.msg = { s: ENEMIES[b.type].name, t: S.t, d: 3 }; roar(S, R, b);
+        R.msg = { chapter: ENEMIES[b.type].name, s: ENEMIES[b.type].title, t: S.t, d: 3 }; roar(S, R, b);
       }
     }
     for (const q of R.lavaPending || []) if (S.t >= q.t && m.cells[q.cell] === 1) { m.cells[q.cell] = 3; m.arenaLava = m.arenaLava || []; m.arenaLava.push(q.cell); m.lava++; m.geometry = (m.geometry || 0) + 1; }

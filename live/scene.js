@@ -77,8 +77,8 @@
     const GL = []; for (const d of m.decor) { const g = glowOf(d); if (!g || hid(d)) continue; const col = B[g.col] || GLOW_COL[g.col], b = glowBeat(d, t);
       GL.push([d.x, d.y - g.up, g.r, col, g.amt * b, 2.6]); GL.push([d.x, d.y - g.up, g.r * 0.4, col, g.amt * 1.8 * b, 2.4]); }
     for (const p of R.pots) if ((p.kind === 'gold' || p.kind === 'goldpile') && p.hp > 0 && !hid(p)) TL.push([p.x, p.y - 10, 110, [1, 0.78, 0.4], 0.35]);
-    for (const c of R.chests) if (c.tier === 3 && !c.open && !hid(c)) TL.push([c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
-    for (const e of R.en) if (e.type === 'mimic' && e.tier === 3 && e.deadT < 0) TL.push([e.x, e.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
+    for (const c of R.chests) if (c.tier >= 3 && !c.open && !hid(c)) TL.push([c.x, c.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
+    for (const e of R.en) if (e.type === 'mimic' && e.tier >= 3 && e.deadT < 0) TL.push([e.x, e.y - 14, 130, [1, 0.72, 0.35], 0.55 + 0.15 * Math.sin(t * 2.4)]);
     // how deep a point of the floor stands in the fires' light, 0 in the dark to 1 in a brazier's pool
     HERO.kAt = (px, py) => { let l = 0; for (const [x, y, r, col, amt, k = 2.2] of TL) { const d = Math.hypot((px - x) / r, (py - 40 - y) / (0.8 * r)); if (d < 1) l += amt * Math.exp(-d * d * k) * SS(1, 0.7, d) * (col[0] + col[1] + col[2]) / 3; }
       return SS(0.4, 1.2, l); };
@@ -138,6 +138,7 @@
       coin(); emitted(coin); return; }
     if (p.kind === 'key') { G.blend('add'); L.glow(x, y - z - 14 - bob, 30, [1, 0.8, 0.4], 0.7); G.blend(); const [w, hh] = SZ('it_key'); L.sprite('it_key', x - w * 0.3, y - z - hh * 0.6 - 4 - bob, { w: w * 0.6, h: hh * 0.6 }); return; }
     if (p.kind === 'shard') { G.blend('add'); L.glow(x, y - z - 14 - bob, 24, [0.4, 0.7, 1], 0.8); G.blend(); const [w, hh] = SZ('crystal'); L.sprite('crystal', x - w * 0.15, y - z - hh * 0.3 - bob, { w: w * 0.3, h: hh * 0.3 }); return; }
+    if (p.kind === 'note') { const [w, hh] = SZ('note_scrap'), up = p.lift || 0; if (!up) L.shadow(x, y + 2, w * 0.5, 5, 0.45); G.blend('add'); L.glow(x, y - z - up - 8, 22, [1, 0.9, 0.65], 0.3); G.blend(); L.sprite('note_scrap', x - w / 2, y - z - up - hh + 2, { w, h: hh }); return; }
     // a quest's keepsake (TASKS 1020): its own icon in a warm gold light and a beam, so it reads as nobody's loot
     if (p.kind === 'qitem') { const ic = p.ic || 'qi_casket', [w, hh] = SZ(ic), k = 0.7, col = [1, 0.93, 0.7]; L.shadow(x, y + 2, 16, 6, 0.6); G.blend('add'); L.glow(x, y - z - 16 - bob, 34, col, 0.5); L.solid(x - 3, y - z - 120, 6, 108, col, 0, 0, 0, 0.22 + 0.06 * Math.sin(t * 4)); G.blend();
       L.sprite(ic, x - w * k / 2, y - z - hh * k - 4 - bob, { w: w * k, h: hh * k }); return; }

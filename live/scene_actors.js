@@ -3,7 +3,7 @@
 (function (root) {
   const SCX = root.SCX;
   const {
-    D, HERO, L, M, SC, SS, SZ, TAU, drawHero, rnd } = SCX;
+    D, HERO, L, M, SC, SS, SZ, TAU, TILE, drawHero, rnd } = SCX;
   // ---------------- monsters (whole sprites for now; rigs land in the next pass) ----------------
   const ELITE = [1.0, 0.32, 0.12], SLIME_FOOT = 184 / 188;
   // an elite glows in its powers' colours: a two-power elite alternates them ring by ring and ember by ember
@@ -416,7 +416,7 @@
   const MIMIC_LINE = { wood: [[0, 0.36], [0.70, 0.56], [1, 0.34]], iron: [[0, 0.44], [0.66, 0.54], [1, 0.35]], gold: [[0, 0.44], [0.69, 0.56], [1, 0.38]], boss: [[0, 0.54], [0.70, 0.54], [1, 0.30]] };
   const MIMIC_INK = [0.09, 0.04, 0.04];
   const MIMIC_CANVAS = { wood: [303, 246], iron: [708, 642], gold: [712, 626], boss: [1250, 1006] };
-  const mimicLook = (tier) => { const cl = CHEST_LOOK[tier] || CHEST_LOOK[1], rank = tier === 2 ? 'iron' : tier === 3 ? 'gold' : 'wood', [w, h] = SZ(cl.tex || 'chest'); return { rank, W: w, H: h, line: MIMIC_LINE[rank], grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }; };
+  const mimicLook = (tier) => { const cl = CHEST_LOOK[Math.min(3, tier)] || CHEST_LOOK[1], rank = tier === 2 ? 'iron' : tier >= 3 ? 'gold' : 'wood', [w, h] = SZ(cl.tex || 'chest'); return { rank, W: w, H: h, line: MIMIC_LINE[rank], grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }; };
   function mimicBody(o) { const { look, x, y, a, face, z, tilt, sq, wag, tongue, eyes, u, id, frame, peek } = o, { W, H, line, rank } = look, P = (q) => [(q[0] - 0.5) * W, (q[1] - 1) * H], [pL, pC, pR] = line.map(P), hinge = face < 0 ? pR : pL, tip = face < 0 ? pL : pR, th = face < 0 ? a : -a;
     const sx2 = 1 / Math.sqrt(sq), B = M.of(M.t(x, y - z), M.s(sx2, sq), M.r(tilt)), Lb = M.of(M.t(hinge[0], hinge[1]), M.r(th), M.t(-hinge[0], -hinge[1])), Lm = M.of(B, Lb);
     const lerp2 = (p, q, f) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f], at = (m, p) => M.ap(m, p), lidTip = at(Lb, tip), mids = lerp2(lerp2(pL, pR, 0.5), lerp2(at(Lb, pL), at(Lb, pR), 0.5), 0.5), chord = Math.hypot(tip[0] - hinge[0], tip[1] - hinge[1]), uT = [(tip[0] - hinge[0]) / chord, (tip[1] - hinge[1]) / chord], gap = Math.hypot(lidTip[0] - tip[0], lidTip[1] - tip[1]), gape = SS(0.02, 0.32, a), ang = Math.atan2(pC[1] - pL[1], pC[0] - pL[0]), seg = Math.hypot(pC[0] - pL[0], pC[1] - pL[1]), tH = 11 * gape, TG = (m, tex, w2, h2, pv, extra) => L.sprite(tex, 0, 0, Object.assign({ m, w: w2, h: h2, pivot: pv }, extra || {}, { u }));
@@ -435,11 +435,11 @@
   const mimicShut = (c, x, y, t) => { const look = mimicLook(c.tier), ph = (t + c.x * 0.011 + c.y * 0.017) % 6.1, a = ph < 0.8 ? 0.055 * Math.sin(Math.PI * ph / 0.8) ** 2 : 0, peek = 0.2 + 0.22 * ((c.x * 0.037 + c.y * 0.019) % 1);
     mimicBody({ look, x, y: y + 4, a, face: 1, z: 0, tilt: 0, sq: 1, wag: 0, tongue: 0, eyes: a > 0.02, peek, u: { grade: look.grade }, id: 'mimic_shut', frame: (parts) => L.inked(parts, { r: 2, n: 8, col: MIMIC_INK, dy: 0 }) }); };
   const CHEST_BOSS = { tex: 'chest_boss', dx: 0.8 };
-  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[c.tier] || CHEST_LOOK[1]);
+  const chestLook = (c) => (c.boss ? CHEST_BOSS : CHEST_LOOK[Math.min(3, c.tier)] || CHEST_LOOK[1]);
   // the lid swings on each chest's own cut (TASKS 1676), hiding the swap to the open painting under the opening flash; rank is felt in the time it takes
   const CHEST_OPEN = { wood: { D: 0.22, sq: 0.05, jit: 0.6 }, iron: { D: 0.28, sq: 0.07, jit: 0.8 }, gold: { D: 0.34, sq: 0.09, jit: 1 }, boss: { D: 0.55, sq: 0.14, jit: 2 } };
-  const chestRank = (c) => (c.boss ? 'boss' : c.tier === 2 ? 'iron' : c.tier === 3 ? 'gold' : 'wood');
-  const chestOpenT = (c) => CHEST_OPEN[chestRank(c)].D, chestOpenD = (e) => CHEST_OPEN[e.boss ? 'boss' : ['wood', 'iron', 'gold'][(e.tier || 1) - 1]].D;
+  const chestRank = (c) => (c.boss ? 'boss' : c.tier === 2 ? 'iron' : c.tier >= 3 ? 'gold' : 'wood');
+  const chestOpenT = (c) => CHEST_OPEN[chestRank(c)].D, chestOpenD = (e) => CHEST_OPEN[e.boss ? 'boss' : ['wood', 'iron', 'gold'][Math.min(3, e.tier || 1) - 1]].D;
   const chestRecoil = (c, a) => { const P = CHEST_OPEN[chestRank(c)], b = a - P.D; return b >= 0 && b < 0.4 ? { dx: 0, rot: 0, sy: 1 - P.sq * Math.exp(-9 * b) * Math.cos(20 * b), fl: 0.25 * (1 - SS(0, 0.08, b)) } : null; };
   function chestOpening(c, x, y, a) { const rank = chestRank(c), cl = chestLook(c), P = CHEST_OPEN[rank], n = cl.tex || 'chest', [W, H] = SZ(n), Ho = SZ(cl.tex ? n + '_open' : 'chest_open')[1], line = MIMIC_LINE[rank], [cw, ch] = MIMIC_CANVAS[rank], q = a / P.D, r = 1 - (1 - SS(0.12, 1, q)) ** 2.2, jx = Math.sin(a * 90) * P.jit * (1 - SS(0, 0.25, q)), X = x + jx, Y = y + 4, u = { grade: cl.tex ? [1, 1, 0, 1] : cl.u.grade }, lift = r * (Ho - H) * 0.9;
     const piece = (name, m) => { const A = window.ASSETS[name], [X0, Y0, X1, Y1] = A.crop; L.sprite(name, 0, 0, { m, w: (X1 - X0) / cw * W, h: (Y1 - Y0) / ch * H, pivot: [-(X0 / cw - 0.5) * W, -(Y0 / ch - 1) * H], u }); };
@@ -486,9 +486,9 @@
     cloth: (a, s) => ({ rot: s * 0.04 * Math.exp(-6 * a) * Math.sin(16 * a), dx: 0, sy: 1 - 0.1 * Math.exp(-6 * a) * Math.sin(16 * a) }) };
   // a secret's statue grinding aside (TASKS 1682): slow to start, still moving when it meets its stop, so it knocks and rocks back
   // a hair; x: its offset from where the sim already put it, p: how far along it is
-  const statueSlide = (q, a) => { const SL = D.STATUE_SECRET.slide, u = Math.min(1, Math.max(0, a / SL)), p = u * u * (2 - u), b = a - SL, s = Math.sign(q.slide);
+  const statueSlide = (q, a) => { const SL = D.STATUE_SECRET.slide, u = Math.min(1, Math.max(0, a / SL)), p = u * u * (2 - u), b = a - SL, s = q.slide ? q.slide.s : 0, run = q.slide ? q.slide.s * q.slide.n * TILE : 0;
     const grind = a < SL ? Math.sin(a * 47) * 0.8 * SS(0, 0.1, a) : 0, knock = b >= 0 && b < 0.14 ? Math.sin(b * 110) * 1.6 * (1 - b / 0.14) : 0, rock = b >= 0 && b < 0.3 ? -s * 2 * Math.sin(Math.PI * b / 0.3) : 0;
-    return { p, x: (p - 1) * q.slide + grind + knock + rock, end: b }; };
+    return { p, x: (p - 1) * run + grind + knock + rock, run, end: b }; };
   const BLOOD = (type) => (D.ENEMIES[type] || {}).blood;
   const knockOf = (e, T) => { const a = T - e.t; if (a < 0 || a >= 1.5 || !KNOCK[e.mat]) return null; const j = KNOCK[e.mat](a, e.s); j.fl = 0.6 * (1 - SS(0.03, 0.12, a)); return j; };
 

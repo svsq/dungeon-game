@@ -37,7 +37,7 @@
     // the magma caves' lava is their main light: wider, and its pools beat slowly instead of flickering like a fire (TASKS 404)
     // (a cell the map's edge bit off throws less, TASKS 490: their light lit a straight red band along the edge)
     const edgeK = (x, y) => (m.cliff ? Math.min(1, Math.max(0, (Math.min(x, y, m.W - 1 - x, m.H - 1 - y) - 1.5) / 4)) : 1);
-    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) ltS(x * TILE + 16, y * TILE + 16, m.cliff ? 170 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.5 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); ltS(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
+    for (const [x, y] of lavaCells) { const ek = edgeK(x, y); if (ek <= 0) continue; if ((x + y) % 2 === 0) ltS(x * TILE + 16, y * TILE + 16, m.cliff ? 112 : 140, [1.0, 0.42, 0.12], (m.cliff ? 0.86 * lavaBeat(x, y) : 0.55 * flick(x * 3 + y)) * ek); ltS(x * TILE + 16, y * TILE + 16, 24, [1.0, 0.75, 0.55], 1.2 * ek, 1.6); }
     for (const q of R.lavaPending || []) lt((q.cell % m.W) * TILE + 16, Math.floor(q.cell / m.W) * TILE + 16, 80, [1, 0.45, 0.12], 0.55 * warnOf(q));
     // a vent heats up over its warning (TASKS 406); its burst flashes from its event
     for (const z of m.hazards || []) { if (z.k !== 'vent') continue; const H = D.HAZ.vent, w = D.hazClock(z, GT) - (z.per - H.warn); if (w >= 0) lt(z.x, z.y - 10, 110 + 90 * w / H.warn, [1, 0.45, 0.12], 0.25 + 0.95 * w / H.warn); }
@@ -96,9 +96,9 @@
     // a fire priest's ring warms the floor under it as its warning runs out (TASKS 410)
     for (const p of R.pyres || []) { const q = Math.min(1, (GT - p.t0) / D.ENEMIES.fire_priest.pyre.warn); lt(p.x, p.y, 120, [1, 0.35, 0.1], 0.2 + 0.6 * q); }
     if (h.shield > 0 && GT < h.shieldUntil) lt(h.x, h.y - 30, 160, [0.4, 0.7, 1], 0.7);
-    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], ((e.kind || 'crack') === 'crack' ? 1.4 : 0.7) * (1 - a / 1.2)); }
+    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'secret' && a >= 0 && a < 1.2) lt(e.x, e.y, 340, [0.7, 0.8, 1], 0.7 * (1 - a / 1.2)); }
     for (const e of R.en) if (e.elite && e.type !== 'boss' && e.deadT < 0 && e.st !== 'lurk' && !D.under(e)) lt(e.x, e.y + 4, 110, modCol(e), 0.3 + 0.1 * Math.sin(t * 3 + e.id));
-    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'chest' && a >= 0 && a < 0.9) { const rank = e.boss ? 3 : (e.tier || 1) - 1, q = SS(0, 0.1, a) * (1 - SS(0.2, 0.9, a)); lt(e.x, e.y - 8, [80, 95, 120, 170][rank], [[1, 0.75, 0.45], [0.7, 0.82, 1], [1, 0.72, 0.28], [1, 0.3, 0.18]][rank], q * [0.4, 0.45, 0.6, 0.8][rank]); } }
+    for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'chest' && a >= 0 && a < 0.9) { const rank = e.boss ? 3 : Math.min(3, e.tier || 1) - 1, q = SS(0, 0.1, a) * (1 - SS(0.2, 0.9, a)); lt(e.x, e.y - 8, [80, 95, 120, 170][rank], [[1, 0.75, 0.45], [0.7, 0.82, 1], [1, 0.72, 0.28], [1, 0.3, 0.18]][rank], q * [0.4, 0.45, 0.6, 0.8][rank]); } }
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'trapfuse' && a >= 0 && a < e.d) { const q = a / e.d; lt(e.x, e.y - 20, 140 + 70 * q, [1, 0.42, 0.14], (0.35 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (10 + 34 * q)))); } if (e.k === 'trapbang' && a >= 0 && a < 0.7) { const q = 1 - a / 0.7; lt(e.x, e.y - 12, (e.r || 96) * 3.2, [1, 0.62, 0.28], 1.5 * q * q); } }
     // an explosive corpse's fuse: its light swells and beats faster until the burst
     for (const e of ST.ev) { const a = GT - e.t; if (e.k === 'fuse' && a >= 0 && a < e.d) { const q = a / e.d, [fx, fy] = fuseAt(e); lt(fx, fy, e.r * 1.6, [1, 0.8, 0.35], (0.3 + 0.9 * q) * (0.6 + 0.4 * Math.sin(a * (8 + 30 * q)))); } }

@@ -4,8 +4,9 @@
   const SCX = window.SCX, {
     ARROW_H, BAKE, BLOOD, BRIDGE, CANDLE, D, DECK, DEDGE, DOOR, FALL_DROP, FOLK0, GLOW, GOLD_TINT, HERO, L, M, OCC_SOLIDS, PIX, PROP_BAS,
     PROP_H, SC, chestLook, chestOpenT, chestRecoil, chestOpening, mimicShut, debris, DEBRIS_END, coffinOpen, statueSlide, SRC_DIR, SRC_KIND, SS, STAND, SZ, TABLE_WICKS, TAU, TILE, TOP_LIFT, TRAP_HOLE, TRAP_SPIKE, WET, cliffTex, crustTex,
-    deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
+    deathOf, deepTex, drawCart, drawDrop, drawEnemy, drawFolk, drawFolkRig, drawHero, drawProp, emitted, fallU, knockOf, lavaGlowTex, lavaTex, lavaUnder, openTex,
     rnd, sinkOf, topTint, torchCol, waterTex, zoneAt } = SCX;
+  const HERO_RIM = { x: 0, y: 0 };
   SCX.worldPass = (F) => {
     const {
       B, GT, MH, MW, R, ST, TL, blastFx, cx, cy, fireFx, flick, h, hid, known, m, seen, st, sx, sy, t, vis, whirlFx } = F;
@@ -90,11 +91,12 @@
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
     const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
-    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { if ((k % m.W + 2 * Math.floor(k / m.W)) % 5 === 0 && [1, -1, m.W, -m.W].every((o) => cells.includes(k + o))) continue; const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
+    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       // (the hot line only where the lava itself lies under its foot, shorter and off its middle, TASKS 1039: under every row of a
       // wide crossing it ruled the slabs into a cobbled road)
-      L.shadow(sx(x), foot + 3, w * 0.55, 4, 0.7); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
+      // (the slab stands on the lava, TASKS 1629: flat on it without a lower face or a dark line under it)
+      L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: rnd(k, 9) < 0.5, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
       drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5, k: 0.92 }); basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, rnd(k, 9) < 0.5]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
       if (c.axis !== 'x' || SIM.Q.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
@@ -102,7 +104,7 @@
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);
       basaltSlabs(c, c.cells.filter((k) => (Math.floor(k / m.W) + 1) * TILE < y1 + 2 - 0.35 * ht + 0.12 * ht));
-      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.72, 0.52, 0.42, 0.22] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
+      L.shadow(sx((x0 + x1) / 2), Y + ht - 2, wd * 0.5, 6, 0.5); L.sprite('arch_mg', X, Y, { w: ev2(wd), h: ev2(ht), u: { tint: [0.95, 0.5, 0.32, 0.55] } }); basaltOcc.push(['arch_mg', X, Y, ev2(wd), ev2(ht), false]); };
     // a plank crossing: one board at a time across the way with a dark gap between, each a little off in length, place, slant and
     // tone. A bridge stands high and sags towards its middle, casts its shadow and its reflection on the water below, and its rope
     // rails run on short stakes between thick posts at its ends; a plank walk lies low on stilts with no rails
@@ -275,13 +277,7 @@
       const a = GT - e.t; if (a >= 0 && a < 4) blastFx(e, a, 0);
     }
 
-    // the only tell of a hidden opening: a faint draught, a few pale motes at its foot that only show from a step or two away
-    // (a banner sways in it instead)
     const inSecret = (q) => SIM.Q.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0]);
-    (m.secrets || []).forEach((q, i) => { if (q.open || q.kind === 'banner' || !vis(q.x, q.y) || inSecret(q)) return; const near = 1 - SS(70, 150, Math.hypot(h.x - q.x, h.y - q.y)); if (near <= 0) return;
-      const X = sx(q.x), Yf = sy(q.y) + (q.kind === 'shelf' ? 24 : 0), ux = q.dx, uy = q.dy;
-      for (let j = 0; j < 4; j++) { const ph = (t * 0.22 + rnd(i, j)) % 1, sp = (rnd(i, j + 5) - 0.5) * (q.kind === 'shelf' ? 110 : 40) * (0.5 + ph) + Math.sin(t * 1.6 + j * 2) * 4;
-        L.solid(X - ux * (ph * 30 - 4) - uy * sp, Yf - uy * (ph * 30 - 4) + ux * sp + (q.dy ? 0 : ph * ph * 10), 2, 2, [0.8, 0.84, 0.92], 0, 0, 0, 0.35 * near * Math.sin(ph * Math.PI)); } });
     // a top wall's found opening is a way cut through the masonry (TASKS 1682): the stone of its jambs on either side, a worn sill
     // at its foot and the way darkening as it goes in, not a hole with the room's floor running on through it
     (m.secrets || []).forEach((q) => { if (!q.open || q.dir !== 'u' || !vis(q.x, q.y)) return; const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), ink = [0.02, 0.015, 0.02];
@@ -312,7 +308,7 @@
         for (let k = 0, d = r0 < 0.5 ? -2 : 2; y < Y0 - lift + S0 - 4; k++) { L.solid(x, y, 2, 2, ink, 0, 0, 0, 0.85); y += 2;
           if (rnd(P.cx + k, P.cy - k) < 0.25) d = -d; if (rnd(P.cy + k, P.cx) < 0.5) x = Math.max(X0 + 2, Math.min(X0 + S0 - 4, x + d));
           if (k === 4) for (let j = 1; j <= 3; j++) L.solid(x - d * j, y + j * 2 - 2, 2, 2, ink, 0, 0, 0, 0.7); } } };
-    for (const q of m.secrets || []) { const P = q.trig; if (P && P.k === 'plate' && vis(P.x, P.y)) flagstone(P, q.open ? SS(0, 0.12, GT - (P.downT ?? q.openT ?? -9)) : 0); }
+    for (const q of m.secrets || []) { const P = q.trig; if (P && P.k === 'plate' && vis(P.x, P.y) && !SIM.Q.secretMask(m).has(P.cy * m.W + P.cx)) flagstone(P, q.open ? SS(0, 0.12, GT - (P.downT ?? q.openT ?? -9)) : 0); }
 
     // webs on the floor (TASKS 71): torn to a few strands by a blow, burnt to a sooty few by fire
     (m.webs || []).forEach((w, i) => { if (!vis(w.x, w.y)) return; const n = w.torn ? 'web_torn' : w.v ? 'web_b' : 'web_a', A0 = ASSETS[n], ww = 84 * w.s * (w.torn ? 0.8 : w.v ? 0.85 : 1), hh = ww * A0.h / A0.w;
@@ -335,7 +331,7 @@
         L.anchor('water_source', [sx(q.x), sy(mouth)], [xf[6] + xf[0] * 0.5, xf[7]], 2);
       }]); }
     // the magma caves' sources: a fall down the back wall, a breach at its foot, a vent in the lava (MAGMA_SRC)
-    const lavaSrc = (q) => { const kind = { fall: 0, breach: 1, vent: 2 }[q.kind], cx = q.x + (q.w - 1) * TILE / 2, bw = Math.max(72, q.w * TILE * 0.36 + 44), box = [cx - bw, q.y - 270, bw * 2, 330];
+    const lavaSrc = (q) => { const kind = { fall: 0, breach: 1, vent: 2 }[q.kind], cx = q.x + (q.w - 1) * TILE / 2, bw = Math.max(96, q.w * TILE * 0.36 + 44), box = [cx - bw, q.y - 270, bw * 2, 330];
       return kind === undefined || !vis(q.x, q.y) ? null : { box, xf: G.xf(sx(box[0]), sy(box[1]), box[2], box[3]),
         U: { u_t: t, u_open: openTex(m), u_cliff: cliffTex(m), u_lava: lavaTex(m), u_map: [MW, MH], u_box: box, u_src: [cx, q.y], u_kind: kind, u_seed: q.cell % 97, u_wide: Math.max(q.w * TILE * 0.36, kind ? 0 : 18), u_fall: fallU(m) } }; };
     for (const q of m.lavaFeatures || []) { const got = lavaSrc(q); if (!got) continue; const { box, xf, U } = got;
@@ -419,24 +415,24 @@
     for (const o of m.flora || []) if (o.n === 'weed_cv' && vis(o.x, o.y)) Y.push([o.y, () => { const [w0, h0] = SZ('weed_cv'), w = w0 * o.s, hh = h0 * o.s * 0.86, sd = o.x * 0.37 + o.y * 0.11;
       ripple(o.x, o.y, w * 0.45, sd, 0.2);
       L.sprite('weed_cv', ev2(sx(o.x)) - w / 2, ev2(sy(o.y)) - hh, { w, h: hh, rot: 0.035 * Math.sin(t * 0.9 + sd), pivot: [w / 2, hh], src: [0, 0, 1, 0.86], flip: !!o.f, u: { grade: [0.9, 0.9, 0, 1] } }); }]);
-    // the secrets' covers: a banner that sways in the draught and falls when torn, a bookshelf that breaks; a wall worked by a
-    // mechanism sinks into the floor (a top wall's face slides down, other sides' rock settles away)
-    (m.secrets || []).forEach((q, i) => { if (!vis(q.x, q.y) || inSecret(q)) return; const kind = q.kind || 'crack', a = q.open ? GT - (q.openT ?? -9) : -1;
+    // the secrets' covers: a banner that hangs like any other and falls when torn, a false shelf that swings on its hinge, a statue
+    // that slides along the wall; a wall worked by a mechanism sinks into the floor (a top wall's face slides down, other sides' rock settles away)
+    (m.secrets || []).forEach((q, i) => { if (!vis(q.x, q.y) || inSecret(q)) return; const kind = q.kind, a = q.open ? GT - (q.openT ?? -9) : -1;
       if (kind === 'banner') { const [w, hh] = SZ('banner'), top = q.y + 6 - hh;
-        if (!q.open) { const near = 1 - SS(50, 170, Math.hypot(h.x - q.x, h.y - q.y)), rot = (0.006 + 0.035 * near) * Math.sin(t * 2.1 + i) + 0.01 * near * Math.sin(t * 5.3);
-          Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x), sy(top)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); }
+        if (!q.open) { const k = m.decor.findIndex((o) => o.secret === i), e = k >= 0 ? knocked['d' + k] : null, a0 = e ? GT - e.t : 9, rot = a0 < 1.2 ? 0.16 * Math.exp(-3 * a0) * Math.sin(a0 * 15) : 0; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x), sy(top)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); }
         else if (a < 0.5) { const p = a / 0.5; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x) + 10 * p, sy(top) + 30 * p * p), M.r(0.5 * p * p)), w, h: hh * (1 - 0.5 * p * p), pivot: [w / 2, 0] })]); }
         else Y.push([q.y - 60, () => L.sprite('banner', sx(q.x) - w * 0.55 + 10, sy(q.y) + 4, { w: w * 1.1, h: hh * 0.32, u: { grade: [0.8, 0.75, 0, 1] } })]); }
+      if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0, 0.6, a) : 0, [sw, sh] = SZ('bookshelf');
+        if (!p) Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]);
+        else Y.push([d.y, () => L.sprite('bookshelf', sx(d.x) + sw / 2 - sw * (1 - 0.8 * p), sy(d.y) + 4 - sh, { w: sw * (1 - 0.8 * p), h: sh })]); }
       if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 };
-        Y.push([d.y, () => drawProp('statue', sx(d.x + sl.x), sy(d.y), { dy: 4, j: jig('d' + k) })]);
+        Y.push([d.y, () => drawProp('statue', sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) })]);
         // the masonry stays where the stone has not yet moved off it, so the way opens only as fast as the statue uncovers it
         if (sl.p < 1) { const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), X0 = Math.min(...xs) * TILE, X1 = (Math.max(...xs) + 1) * TILE, Y0 = Math.min(...ys) * TILE, Y1 = (Math.max(...ys) + 1) * TILE, TSW = 224;
-          const cw = Math.round((X1 - X0) * (1 - sl.p) / 2) * 2, cx0 = q.slide > 0 ? X1 - cw : X0, u0 = (cx0 % TSW) / TSW, v0 = (Y0 % TSW) / TSW;
+          const cw = Math.round((X1 - X0) * (1 - sl.p) / 2) * 2, cx0 = q.slide.s > 0 ? X1 - cw : X0, u0 = (cx0 % TSW) / TSW, v0 = (Y0 % TSW) / TSW;
           if (cw > 0) Y.push([q.y - 1, () => L.sprite(B.wall, sx(cx0), sy(Y0), { w: cw, h: Y1 - Y0, src: [u0, v0, u0 + cw / TSW, v0 + (Y1 - Y0) / TSW], u: { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } })]); }
         return; }
-      if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d || d.broken) return;
-        Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]); }
-      if (kind === 'lever' && q.open && a < 1.8) { const p = SS(0.15, 1.6, a), xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), jit = Math.sin(GT * 70) * 1.5 * (1 - p);
+      if ((kind === 'lever' || kind === 'puzzle') && q.open && a < 1.8) { const p = SS(0.15, 1.6, a), xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), jit = Math.sin(GT * 70) * 1.5 * (1 - p);
         const x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y0 = Math.min(...ys) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
         if (q.dir === 'u') { const TSW = 224, Hf = (y1 - y0) * (1 - p), u0 = (x0 % TSW) / TSW, v0 = (y0 % TSW) / TSW;
           if (Hf > 0.5) Y.push([q.y - 1, () => { L.sprite(B.wall, sx(x0) + jit, sy(y0) + (y1 - y0) * p, { w: x1 - x0, h: Hf, src: [u0, v0, u0 + (x1 - x0) / TSW, v0 + Hf / TSW], u: { grade: [0.9, 1.05, 0, 1.05], tint: [B.tint[0], B.tint[1], B.tint[2], 1] } });
@@ -492,6 +488,11 @@
         // open: hinged at the left jamb, the leaf runs down the corridor from the bottom wall, seen from the left, its far end at the hinge
         if (p > 0) edge('door_edge_a', X - DOOR.w / 2 - E.farX * k, d.y + 4 - E.far * k, ea); }
       if (d.dir === 'u' && !B.cave) Y.push([d.y + 0.5, () => L.sprite('door_frame', X - DOOR.fw / 2, foot - DOOR.fh + 3, { w: DOOR.fw, h: DOOR.fh })]); }
+    // a cache's own levers (a single one, or a puzzle's three with their tally scratched under them) and a candle puzzle's tally on the floor
+    const leverSprite = (x, y, down) => { const n = down ? 'lever_down' : 'lever_up', [ax, ay] = down ? [101, 92] : [189, 164], k = 30 / 190, A0 = ASSETS[n]; Y.push([y - 20, () => L.sprite(n, sx(x) - ax * k, sy(y) - ay * k, { w: A0.w * k, h: A0.h * k })]); };
+    const tally = (x, y, n) => Y.push([y - 18, () => { for (let j = 0; j < n; j++) { const X0 = sx(x) + (j - (n - 1) / 2) * 7 - 1; L.solid(X0 + 1, sy(y) + 1, 3, 11, [0.02, 0.015, 0.02], 0.12, 0, 0, 0.9); L.solid(X0, sy(y), 3, 11, [0.92, 0.84, 0.66], 0.12, 0, 0, 0.95); } }]);
+    (m.secrets || []).forEach((q) => { const P = q.trig; if (P && P.k === 'lever' && vis(P.x, P.y) && !inSecret(q)) leverSprite(P.x, P.y, q.open && GT - (q.openT ?? -9) > 0.08);
+      if (!q.pz || inSecret(q)) return; for (const it of q.pz.items) { if (!vis(it.x, it.y)) continue; if (q.pz.k === 'levers') { leverSprite(it.x, it.y, it.on); tally(it.x, it.y + 12, it.n); } else tally(it.x, it.y + 12, it.n); } });
     // a locked room's lever on a top wall: up until pulled, then down for good
     for (const Lk of m.locks || []) { const lv = Lk.lever; if (Lk.kind !== 'lever' || !lv || !vis(lv.x, lv.y)) continue;
       const down = Lk.open && GT - (Lk.openT ?? -9) > 0.08, n = down ? 'lever_down' : 'lever_up', [ax, ay] = down ? [101, 92] : [189, 164], k = 30 / 190, A0 = ASSETS[n];
@@ -513,11 +514,15 @@
     // standing lights (TASKS 194): their fires ride the prop when it is knocked
     m.decor.forEach((d, i) => { const S0 = STAND[d.n]; if (!S0 || !vis(d.x, d.y) || !known(d.x, d.y) || hid(d)) return; const j = jig('d' + i), col = d.n === 'torch_stand' ? torchCol(m, d) : CANDLE;
       Y.push([d.y + 1, () => flames(S0.map(([ox, up, w, hh], k) => [sx(d.x) + ox + (j ? j.dx + Math.sin(j.rot) * up : 0), sy(d.y) + 4 - up, w, hh, col, d.x + 7 * k]))]); });
+    for (const cap of Object.values(R.captives || {})) { if (cap.x === undefined || R.floor !== D.CAPTIVES[cap.who].f || R.town || !vis(cap.x, cap.y)) continue; const X = sx(cap.x), Y0 = sy(cap.y), out = !!(R.freed && R.freed[cap.who]), look = Math.max(-1, Math.min(1, (h.x - cap.x) / 120));
+      if (!out && cap.who !== 'merchant') drawFolkRig({ i: 90 + cap.who.length, y: cap.y - 1, dist: 0, vx: 0, vy: 0 }, null, 'town_' + cap.who, X + 5, Y0 - 6, 64, look < 0 ? -1 : 1, GT, Y, {});
+      Y.push([cap.y, () => { L.shadow(X, Y0 + 2, 58, 12, 0.45); if (!out && cap.who === 'merchant') L.inked(() => MONSTERS.merchant({ id: 'captive', x: X + 5, y: Y0 - 6, H: 64, t: GT, look, near: 1, seed: 2, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 });
+        drawProp(out ? 'cage_big_open' : 'cage_big', X, Y0, { dy: out ? 8 : 0 }); }]); }
     // the shop: the merchant behind his counter (it hides his legs), the scales and his coins on top of it
     const sh = m.shop;
     if (sh && vis(sh.x, sh.y)) { const ds = Math.hypot(h.x - sh.x, h.y - sh.y), near = 1 - SS(140, 300, ds), look = Math.max(-1, Math.min(1, (h.x - sh.x) / 120));
-      Y.push([sh.y, () => { L.shadow(sx(sh.x), sy(sh.y) + 2, 26, 6, 0.4);
-        L.inked(() => MONSTERS.merchant({ id: 'merchant', x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: Math.max(R.shop.greetT, R.town ? R.shop.callT ?? -9 : -9), tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
+      if (!SIM.Q.shopShut(R)) Y.push([sh.y, () => { L.shadow(sx(sh.x), sy(sh.y) + 2, 26, 6, 0.4);
+        L.inked(() => MONSTERS.merchant({ id: 'merchant', rig: R.shop.wander ? 'wanderer' : undefined, x: sx(sh.x), y: sy(sh.y), H: SZ('merchant')[1], t: GT, look, near, greetT: Math.max(R.shop.greetT, R.town ? R.shop.callT ?? -9 : -9), tradeT: R.shop.tradeT, hitT: R.shop.hitT, seed: m.seed % 7, U: {} }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); }]);
       Y.push([sh.counter.y, () => { const c = sh.counter, [cw] = SZ('shop_counter'); L.shadow(sx(c.x), sy(c.y) + 2, cw * 0.5, 7, 0.5); drawProp('shop_counter', sx(c.x), sy(c.y), { dy: 4 });
         const top = sy(c.y) - 24 - (SZ('shop_counter')[1] - 42);
         drawProp('shop_scales', sx(c.x) - 26, top); drawProp('shop_gems', sx(c.x) + 28, top); }]); }
@@ -556,7 +561,7 @@
         L.inked(() => L.sprite('boulder_mg_b', 0, 0, { m: M.of(M.t(sx(z.x), yy + rh / 2), M.r((1 - p) * 4 + z.x)), w: rw, h: rh, pivot: [rw / 2, rh / 2], u: { grade: [0.1, 0.8, 0, 1] } }), { r: 2, n: 8, col: [0.02, 0.015, 0.02], dy: 0 }); }]); }
     // a body on the floor sorts under everyone standing: lying across the band it would cover the living in front of it
     for (const e of R.en) if (vis(e.x, e.y)) { const fl = e.deadT >= 0 && GT - e.deadT > deathOf(e).dl + deathOf(e).dur; Y.push([(e.coffinT !== undefined && GT - e.coffinT < D.COFFIN.rise ? Math.max(e.y, e.coffY + 1) : e.y) - (fl ? 1000 : 0), () => drawEnemy(e, sx(e.x), sy(e.y), GT, t)]); }
-    for (const p of R.drops) if (vis(p.x, p.y)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
+    for (const p of R.drops) if (vis(p.x, p.y) && !hid(p)) Y.push([p.y + (p.kind === 'item' || p.kind === 'qitem' ? 12 : 0), () => drawDrop(p, sx(p.x), sy(p.y), GT, t)]);   // (an item over the coins spilt beside it: lootvis found a staff under gold)
     Y.push([h.y + (GT - h.atkT >= 0 && GT - h.atkT < 0.2 ? 90 : 0), () => {   // during the strike the blade must read over the target it hits
       L.shadow(sx(h.x), sy(h.y) + 2 + DECK.dy, 20, 6, 0.85);
       // the cry's ring rolls out on the floor, under the hero (TASKS 1183: over him it cut his chest and head), when the shout comes
@@ -565,7 +570,9 @@
       // on the magma caves the hero keeps a dark outline the lava's light can't lift and a lit edge toward the lava, so he never melts
       // into it or the warm ground (TASKS 404); elsewhere as before
       const lv = m.cliff && h.deadT < 0 ? HERO.lavaAt(h.x, h.y) : null, hn = lv ? Math.hypot(lv.dx, lv.dy * 1.25) || 1 : 1;
-      const heroRim = lv && lv.k > 0.05 ? { dx: 2 * Math.round(2 * lv.dx / hn), dy: 2 * Math.round(2 * lv.dy * 1.25 / hn), col: [1, 0.6, 0.22].map((v) => v * SS(0.05, 0.28, lv.k)), box: [2 * Math.round((sx(h.x) - 130) / 2), 2 * Math.round((sy(h.y) - 160) / 2), 260, 210] } : null;
+      // (the rounding has a dead band, TASKS 1624: a direction hovering at a step's edge flipped the offset every other frame, 336 ↔ 432 px of rim)
+      const rimStep = (v, last) => (Math.abs(2 * v - last) < 1.4 ? last : 2 * Math.round(v)), rimX = (HERO_RIM.x = rimStep(lv ? 2 * lv.dx / hn : 0, HERO_RIM.x)), rimY = (HERO_RIM.y = rimStep(lv ? 2 * lv.dy * 1.25 / hn : 0, HERO_RIM.y));
+      const heroRim = lv && lv.k > 0.05 ? { dx: rimX, dy: rimY, col: [1, 0.6, 0.22].map((v) => v * SS(0.05, 0.28, lv.k)), box: [2 * Math.round((sx(h.x) - 130) / 2), 2 * Math.round((sy(h.y) - 160) / 2), 260, 210] } : null;
       if (!SC.hide.hero) L.inked(() => drawHero(h, sx(h.x), sy(h.y) + DECK.dy + sinkOf(h, GT, sy(h.y)).dy, GT, st, { cut: sinkOf(h, GT, sy(h.y)).cut, armsUp: sinkOf(h, GT, sy(h.y)).arms }), { r: 2, n: 8, col: [0.024, 0.02, 0.024], dy: 0, emit: !!m.cliff, rim: heroRim });
       // wading (TASKS 323): the water stands over his shins, a wavering foam line along its top
       const heroCell = Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE);
