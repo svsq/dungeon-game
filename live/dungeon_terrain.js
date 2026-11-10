@@ -884,6 +884,37 @@
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (Math.hypot((x + 0.5 - cx) / L.lake[0], (y + 0.5 - cy) / L.lake[1]) < 1) { const k = y * W + x; cells[k] = 0; keep.delete(k); arenaLake.add(k); }
       for (let y = r.y; y < r.y + r.h; y++) for (const x of [r.cx, r.cx + 1]) { const k = y * W + x; if (arenaLake.has(k)) arenaSlabs.push(k); } }
     if (plat && !platLava()) return null;
+    // a lava crossing the walk can't go round gets a second row of slabs over the same lava `off` cells and more off it (TASKS 1722:
+    // on the cave and terrace floors 97–99 % of the walk's crossings stood alone, 11 terrace floors of 15 without a way round any),
+    // never on a crust (one by them goes back to lava), by a source or a secret; the walk to the stairs keeps its least and `keep` of its length
+    if (plat && !boss && (ftype === 'terrace' || ftype === 'cave')) { const A = AR.lava.alt, D4 = [1, -1, W, -W], s0 = start.cy * W + start.cx, e0 = exitR.cy * W + exitR.cx;
+      const reach = (from, ban) => { const d = new Int32Array(W * H).fill(-1), q = [from]; d[from] = 0;
+        for (let i = 0; i < q.length; i++) for (const o of D4) { const n = q[i] + o; if (d[n] < 0 && cells[n] === 1 && !ban.has(n)) { d[n] = d[q[i]] + 1; q.push(n); } } return d; };
+      const under = new Set(lavaUnder), cr = new Set(crust), bad = new Set();
+      for (const f of lavaFeatures) for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) bad.add(f.cell + j * W + i);
+      for (const r of rooms) if (r.type === 'secret') for (let y = r.y - 2; y < r.y + r.h + 2; y++) for (let x = r.x - 2; x < r.x + r.w + 2; x++) bad.add(y * W + x);
+      const lane = (k) => cells[k] === 3 && !under.has(k) && !bad.has(k) && !cr.has(k);
+      const len0 = reach(s0, new Set())[e0]; let alts = 0;
+      for (const B of crossings.filter((c) => c.lava && !c.chasm)) { if (alts >= A.max || len0 < 0) break; const ban = new Set(B.cells), ds = reach(s0, ban); if (ds[e0] >= 0) continue;
+        const de = reach(e0, ban), cand = [], offB = (x, y) => B.cells.every((k) => Math.max(Math.abs(k % W - x), Math.abs(Math.floor(k / W) - y)) >= A.off);
+        for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const px = dx ? 0 : 1, py = dx ? 1 : 0, side = py * W + px;
+          if (ds[y * W + x] < 0 || ds[y * W + x + side] < 0) continue; const deck = []; let u = 1, ok = true;
+          for (; u <= A.len[1] + 1; u++) { const a = (y + dy * u) * W + x + dx * u, b = a + side;
+            if (cells[a] === 1 && cells[b] === 1) break;
+            // (lava or rock on both flanks: a row of slabs hugging a bank reads as no crossing)
+            if (!lane(a) || !lane(b) || cells[a - side] === 1 || cells[b + side] === 1 || !offB(x + dx * u, y + dy * u)) { ok = false; break; } deck.push(a, b); }
+          const f0 = (y + dy * u) * W + x + dx * u;
+          if (!ok || u > A.len[1] + 1 || u - 1 < A.len[0] || de[f0] < 0 || de[f0 + side] < 0 || ds[f0] >= 0) continue;
+          cand.push({ deck, hor: dx !== 0, d: Math.min(...B.cells.map((k) => Math.abs(k % W - x) + Math.abs(Math.floor(k / W) - y))) }); }
+        // (a way round at least `wide` cells off first, the nearest such; one beside the first, over the same channel, only failing it)
+        const far2 = (c) => (c.d >= A.wide ? 0 : 1); cand.sort((p, q) => far2(p) - far2(q) || p.d - q.d || p.deck.length - q.deck.length);
+        for (const c of cand.slice(0, 24)) { for (const k of c.deck) cells[k] = 1; const n = reach(s0, new Set())[e0];
+          if (n < Math.max(far ? pathMin : 0, A.keep * len0)) { for (const k of c.deck) cells[k] = 3; continue; }
+          const U = (k) => (c.hor ? k % W : Math.floor(k / W)), V = (k) => (c.hor ? Math.floor(k / W) : k % W);
+          lavaUnder.push(...c.deck); for (const k of c.deck) under.add(k);
+          // (a crust by the slabs would have floor on two sides: it goes back to lava)
+          for (let i = crust.length - 1; i >= 0; i--) if (D4.some((o) => under.has(crust[i] + o) && c.deck.includes(crust[i] + o))) { cr.delete(crust[i]); crust.splice(i, 1); }
+          crossings.push({ kind: 'slabs', cells: c.deck, axis: c.hor ? 'x' : 'y', clean: 1, lava: 1, alt: 1, of: B.cells[0], span: [Math.min(...c.deck.map(U)), Math.max(...c.deck.map(U)), Math.min(...c.deck.map(V))] }); alts++; break; } } }
     // (the way again over the lava's crossings: a lake's slabs and a river's fords bring its islands on to it)
     if (plat) way = wayRooms(cells, W, H, rooms, start.cy * W + start.cx, exitR.cy * W + exitR.cx);
     const secretFront = new Set(secrets.flatMap((q) => q.front.concat(q.wall).map(([x, y]) => y * W + x)));
