@@ -144,6 +144,21 @@
     const longest = () => { let top = 0; for (let a = 0; a < main; a++) { const d = new Int32Array(W * H).fill(-1), q = [rooms[a].cy * W + rooms[a].cx]; d[q[0]] = 0;
       for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && cells[n]) { d[n] = d[q[i]] + 1; q.push(n); } }
       for (let b = a + 1; b < main; b++) top = Math.max(top, d[rooms[b].cy * W + rooms[b].cx]); } return top; };
+    // a lava cave's loops (TASKS 1726): its halls hung on a tree of tunnels, and a stream over a tunnel left the walk no way round it
+    // (25 floors of 30); a tunnel between two halls far apart on the tree, kept as the plateaus' are, so the streams laid next cross
+    // either way
+    // (kept only if no two halls' walk loses more than 1 − keep: the start and the stairs are picked after it, and the longest walk
+    // alone let a loop cut a floor's walk 106 → 39)
+    if (cave && !pl && ftype === 'cave' && TY.loop) { const C = TY.loop, tree = edges.slice();
+      const walks = () => { const out = []; for (let a = 0; a < main; a++) { if (dead(a)) continue; const d = new Int32Array(W * H).fill(-1), q = [rooms[a].cy * W + rooms[a].cx]; d[q[0]] = 0;
+        for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W]) { const n = q[i] + o; if (d[n] < 0 && cells[n]) { d[n] = d[q[i]] + 1; q.push(n); } }
+        for (let b = a + 1; b < main; b++) if (!dead(b)) out.push(d[rooms[b].cy * W + rooms[b].cx]); } return out; };
+      const base = walks(), kept = () => { const now = walks(); return now.every((v, i) => base[i] < 0 || v >= base[i] * C.keep); };
+      const hopT = (a) => { const h = rooms.map(() => 99), q = [a]; h[a] = 0; for (let i = 0; i < q.length; i++) for (const [p, o] of tree) for (const [u, v] of [[p, o], [o, p]]) if (u === q[i] && h[v] > h[u] + 1) { h[v] = h[u] + 1; q.push(v); } return h; };
+      const cand = []; for (let a = 0; a < main; a++) { if (dead(a)) continue; const h = hopT(a); for (let b = a + 1; b < main; b++) { const d = dist(rooms[a], rooms[b]); if (!dead(b) && h[b] >= C.hops && d < C.d) cand.push([a, b, d]); } }
+      for (let i = cand.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [cand[i], cand[j]] = [cand[j], cand[i]]; }
+      let want = ri(...C.n); for (const e of cand) { if (want <= 0) break; const c0 = cells.slice(), k0 = new Set(keep); tunnel(rooms[e[0]], rooms[e[1]]);
+        if (kept()) { edges.push(e); want--; continue; } for (let k = 0; k < W * H; k++) cells[k] = c0[k]; keep.clear(); for (const k of k0) keep.add(k); } }
     if (pl) { const top = longest(); let got = 0;
       for (const e of loopCand) { if (loopWant <= 0) break; const c0 = cells.slice(), k0 = new Set(keep), n0 = lines.length; ridge(rooms[e[0]], rooms[e[1]]);
         if (longest() >= top * AR.loopKeep) { edges.push(e); loopWant--; got++; continue; }

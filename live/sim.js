@@ -92,7 +92,7 @@
   root.SIM.chooseFork = SIMX.chooseFork;
   root.SIM.Q = {
     depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
-    noteNear, captiveNear, shopShut, craftShut, overLava, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
+    noteNear, captiveNear, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
     rwLine, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, isFull: SIMX.isFull };
   Object.assign(SIMX, {

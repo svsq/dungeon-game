@@ -56,7 +56,8 @@
   // share is cut from 0.8 to 0.76 to hold his power level, which the player did not ask to raise)
   const MAGE_ATK = 0.76, MAGE_SPELL = 0.5;
   // (TASKS 1184: the bar filled in seconds and only unlocked cooldowns: now what is held adds `dmg` of damage per 10 rage, so the cry's 40 is a price)
-  const RAGE = { max: 100, hit: 6, hurt: 1.2, decay: 12, calm: 4, charge: 14, dmg: 0.015 };
+  // `guard`: the share of a monster's blow full rage takes off (TASKS 1140: without the town the melee warrior won 29 % to the archer's 94 %)
+  const RAGE = { max: 100, hit: 6, hurt: 1.2, decay: 12, calm: 4, charge: 14, dmg: 0.015, guard: 0.35 };
   // the charge: a rush down the aim at `spd` for `t` s (~200 px) that strikes the first monster in its way at `k` of a swing, stuns it
   // `stun` s (a boss `boss` s); the war cry: monsters within `r` deal `weak` of their damage, the warrior `buff` more, for `t` s
   const CHARGE = { spd: 900, t: 0.22, k: 1.5, stun: 1, boss: 0.4, miss: 3, prep: 0.06 }, CRY = { r: 200, weak: 0.7, buff: 1.2, t: 6 };

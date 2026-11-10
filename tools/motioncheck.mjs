@@ -198,6 +198,13 @@ if (meta.tr.includes('imp_attack')) {
     const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, face: e.face, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
   const w = fr.filter((f) => f.st === 'wind' && f.en && f.en.handR), best = Math.max(-99, ...w.filter((f) => f.en.handR[1] < f.en.head[1]).map((f) => (f.en.head[0] - f.en.handR[0]) * f.face));
   report('throw', 'imp_attack', best > 0, `the throwing hand over the head reaches ${best.toFixed(0)} px behind it`); }
+// strikePeak (TASKS 1716, 1719): a claw is fastest on its blow, not on its lift: the hand's fastest frame falls in the strike
+if (meta.tr.includes('imp_claw')) {
+  const fr = await p.evaluate(() => { const Q = window.__QA, id = Q.subject.imp_claw; return Q.transitions.imp_claw.map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const e = st.run.en.find((q) => 'en' + q.id === id || q.id === id) || st.run.en[0] || {}; const o = { st: e.st, en: LIB.TRACE[id] || null }; LIB.TRACE = null; return o; }); });
+  const rel = (f) => [f.en.handR[0] - f.en.ground[0], f.en.handR[1] - f.en.ground[1]]; let pk = -1, v = 0;
+  for (let i = 1; i < fr.length; i++) { if (!fr[i].en || !fr[i - 1].en || !fr[i].en.handR || !['wind', 'strike'].includes(fr[i].st)) continue; const a = rel(fr[i]), b = rel(fr[i - 1]), s = Math.hypot(a[0] - b[0], a[1] - b[1]); if (s > v) { v = s; pk = i; } }
+  report('strikePeak', 'imp_claw', pk >= 0 && fr[pk].st === 'strike', `the hand's fastest frame ${pk} (${pk >= 0 ? fr[pk].st : '-'}) at ${v.toFixed(1)} px`); }
 // crustFall (TASKS 1058): climbing out of the lava after a fall through the crust, frame by frame over its 0.55 s, at most CLIMB_POP of
 // the hero's pixels show in one frame (half of him popped in at once); bridgeStep: walking down a chain bridge the hero's drop with the
 // deck changes at most STEP_POP px a frame (stepping on he fell 9 px in one)

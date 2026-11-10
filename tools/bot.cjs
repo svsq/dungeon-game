@@ -31,7 +31,8 @@ const ZOOM = D.ZOOM || 1, BLK = new WeakMap(), T = 32, STUCK = 400, IDLE = 120, 
 // from its gear, ranks the fireball first and burns the bosses with it
 // a run through the town (TASKS 1024): quests, how many side quests it takes at once (the Keeper's chain besides); home, whether it
 // reads a scroll of return when its health potions run out; scrolls, how many it keeps for that
-const TOWN = { novice: { quests: 1, home: 0, scrolls: 0 }, average: { quests: 2, home: 1, scrolls: 2 }, expert: { quests: 3, home: 1, scrolls: 2 }, mage: { quests: 2, home: 1, scrolls: 2 }, builder: { quests: 2, home: 1, scrolls: 2 } };
+// the novice goes home more often than the rest (the player's call 10.11.2026): with less gold, three potions still in the bag, and again on the same floor once down to one
+const TOWN = { novice: { quests: 1, home: 2, scrolls: 3 }, average: { quests: 2, home: 1, scrolls: 2 }, expert: { quests: 3, home: 1, scrolls: 2 }, mage: { quests: 2, home: 1, scrolls: 2 }, builder: { quests: 2, home: 1, scrolls: 2 } };
 const PROFILES = {
   novice: { tips: 1, flank: 0.5, react: 0.45, dodge: 0.1, aim: 0.35, hp: 0.25, mp: 0, whirl: 4, fire: 60, shield: 0, focus: 0, kite: 0, gift: 1, simple: 1, stats: ['str', 'vit', 'agi', 'int'] },
   average: { haz: 1, water: 1, flank: 1, react: 0.3, dodge: 0.4, aim: 0.15, hp: 0.4, mp: 1, whirl: 3, fire: 30, shield: 0.6, focus: 0, kite: 0, gift: 3, traps: 1, stats: ['str', 'vit', 'str', 'vit', 'agi'] },
@@ -116,6 +117,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   }
   const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, frost: 0, volley: 0, snap: 0, leap: 0, charge: 0, cry: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
+  // a cage keeps the shop or a workshop shut for the run (TASKS 1328): its CHASE s count only the time with no step nearer, so a long way to it is never given up
+  const nearest = new WeakMap(), chaseOn = (R, o) => { const d = Math.hypot(o.x - R.hero.x, o.y - R.hero.y); if (!(d > (nearest.get(o) ?? Infinity) - 16)) { nearest.set(o, d); chased.set(o, 0); } return chase(R, o); };
   // the way round a wall: a target close in a straight line can still be a long walk away
   const pathLen = (R, x, y) => { const m = R.map, h = R.hero, F = SIM.flow(m, Math.floor(x / T), Math.floor(y / T), 1), v = F[Math.floor(h.y / T) * m.W + Math.floor(h.x / T)]; return v < 0 ? 1e9 : v * T; };
   // a goal off the floor (a salamander in the lava by the bank, TASKS 413 seed 20) is walked to by its nearest floor cell: a field
@@ -405,16 +408,16 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // past the campaign's last boss (TASKS 1148): the Keeper's «Завершить поход», unless the bot goes on down
     if (T.act && T.act.k === 'finish') { if (descend) { declined.add(T.role); return { keys: ['Escape'] }; } return { keys: ['Enter'] }; }
     const side = (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned' && D.QUESTS[q.key].kind === 'side').length;
-    if (T.act && (T.act.k === 'turn' || (P.quests && (D.QUESTS[T.act.key].kind === 'story' || side < P.quests)))) return { keys: ['KeyE'] };
+    if (T.act && (T.act.k === 'turn' || (P.quests && (D.QUESTS[T.act.key].kind === 'story' || side < P.quests)))) return { keys: ['Enter'] };
     declined.add(T.role); return { keys: ['Escape'] }; }
   // in the town: turn in what is done, take what the profile wants, shop once a visit, then back down: through the open portal, else the crypt's stairs
-  function townGoal(S, R, inp) { const h = R.hero, m = R.map, sv = m.town.svc, F = R.folk || [], dist = (o) => Math.hypot(o.x - h.x, o.y - h.y);
+  function townGoal(S, R, inp) { const h = R.hero, m = R.map, sv = m.town.svc, F = (R.folk || []).filter((f) => !(R.captives || {})[f.role] || (R.freed || {})[f.role]), dist = (o) => Math.hypot(o.x - h.x, o.y - h.y);
     // before the first way down: the upgrades the bank can buy, at the Altar of Souls
     if (!f0 && metaNext(S)) { walk(R, inp, sv.altar.x, sv.altar.y + 40); if (SIM.atSoulAltar(R)) inp.keys.push('KeyE'); goal = ['altar']; return; }
     const at = (f) => (f.role === 'smith' ? { x: sv.anvil.x, y: sv.anvil.y + 30 } : { x: f.x + 40, y: f.y + 10 });
     const who = !P.noTown && (F.find((f) => SIM.questMark(R, f.role) === '?') || (P.quests && F.find((f) => SIM.questMark(R, f.role) === '!' && !declined.has(f.role))));
     if (who) { const p = at(who); walk(R, inp, p.x, p.y); if (who.role === 'smith' ? SIM.atCraft(R) === 'forge' : SIM.folkNear(R) === who) inp.keys.push('KeyE'); goal = ['folk', who.role]; return; }
-    if (!P.noTown && m.shop && R.shopped !== 0) { walk(R, inp, m.shop.front.x, m.shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); goal = ['shop']; return; }
+    if (!P.noTown && m.shop && R.shopped !== 0 && !SIM.Q.shopShut(R)) { walk(R, inp, m.shop.front.x, m.shop.front.y); if (SIM.atCounter(R)) inp.keys.push('KeyE'); goal = ['shop']; return; }
     // past the campaign's last boss, unless it goes on down: the Keeper ends the run (TASKS 515, 1148)
     const kp = !descend && SIM.campaignDone(R) && F.find((f) => f.role === 'keeper');
     if (kp) { const p = at(kp); walk(R, inp, p.x, p.y); if (SIM.folkNear(R) === kp) inp.keys.push('KeyE'); goal = ['folk', 'keeper']; return; }
@@ -506,6 +509,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
     const shrine = first(R.shrines.filter((s) => !s.used && !s.skip && (!m.bossType || !R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0)) && shrineGift(S, R, P)));
     const circle = P.haz ? first((m.circles || []).filter((q) => q.bless && !q.used && !R.en.some((e) => e.deadT < 0 && e.room === q.r) && reach(q))) : null;
+    // a captive in its cage (TASKS 1328): until freed, the town's shop, forge or lectern stays shut
+    const cage = first(Object.values(R.captives || {}).filter((C) => C.x !== undefined && D.CAPTIVES[C.who].f === R.floor && !(R.freed || {})[C.who] && reach(C)));
     const shop = m.shop && R.shopped !== R.floor && (h.bag.some(gear) || h.gold >= 60) && !given.has(m.shop) ? m.shop : null;
     const aim = (k, o) => { goal = o ? [k, Math.floor(o.x / T), Math.floor(o.y / T)] : [k]; return true; };
     // the cave's water (TASKS 468): an eel stirring by the hero is met on the bank with nothing else at arm's length; a drowned lying
@@ -517,8 +522,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     // scroll in the bag, nothing awake, no boss's fight; once a floor
     const bossOn = R.en.some((e) => D.BOSSES[e.type] && e.deadT < 0 && e.st !== 'idle');
     if (R.town) townGoal(S, R, inp);
-    else if (R.viaTown && P.home && homeF !== R.floor && !awake.length && !near && !bossOn && !h.read && held(h, 'scroll') && h.gold >= 250 && (held(h, 'hp_potion') <= 1 || h.gold >= 300 + 150 * R.floor || R.bossDead)) { homeF = R.floor; readWant = 1; inp.keys.push('KeyI'); goal = ['home']; }
+    else if (R.viaTown && P.home && (homeF !== R.floor || (P.home > 1 && held(h, 'hp_potion') <= 1)) && !awake.length && !near && !bossOn && !h.read && held(h, 'scroll') && h.gold >= (P.home > 1 ? 100 : 250) && (held(h, 'hp_potion') <= (P.home > 1 ? 3 : 1) || h.gold >= 300 + 150 * R.floor || R.bossDead)) { homeF = R.floor; readWant = 1; inp.keys.push('KeyI'); goal = ['home']; }
     else if (eel && aim('eel', eel)) toBank(R, inp, eel, st);
+    else if (!near && cage && chaseOn(R, cage) && aim('cage', cage)) { walk(R, inp, cage.x, cage.y + 40); if (SIM.Q.captiveNear(R)) inp.keys.push('KeyE'); }
     else if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
     else if (!near && !late && chest && chase(R, chest) && aim('chest', chest)) { walk(R, inp, chest.x, chest.y + 20); if (dist(chest) < 50) inp.keys.push('KeyE'); }
     // a magma sanctum's circle, its priests dead (TASKS 1054, 414): stepped into for its blessing

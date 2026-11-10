@@ -605,7 +605,7 @@
         for (let i = 0; i < 120 * 2 && !(ally.fireT > S.t); i++) step(S, { keys: [] });
         if (!(ally.fireT > S.t)) out.push("a fire priest never sets alight an ally's weapon");
         else { h.ifr = 0; let hurt = [0, 0], burnt = 0;
-          for (const lit of [0, 1]) for (let k = 0; k < 20 && !hurt[lit]; k++) { const keep = ally.fireT; if (!lit) ally.fireT = 0; h.hp = heroSt(S).maxHp; h.burn = 0; h.ifr = 0;
+          for (const lit of [0, 1]) for (let k = 0; k < 20 && !hurt[lit]; k++) { const keep = ally.fireT; if (!lit) ally.fireT = 0; h.hp = heroSt(S).maxHp; h.burn = 0; h.ifr = 0; h.mp = 0;
             hurtHero(S, R, 40, ally.x, ally.y, undefined, who(ally), ally); hurt[lit] = heroSt(S).maxHp - h.hp; if (lit) burnt = h.burn > S.t; ally.fireT = keep; }
           if (!(hurt[1] > hurt[0] * 1.15)) out.push(`a blow of an ally with its weapon alight is no harder (${hurt[0]} → ${hurt[1]})`);
           if (!burnt) out.push("a blow of an ally with its weapon alight does not set the hero burning"); }
@@ -3193,6 +3193,8 @@
           if (D.ABILITIES.find((q) => q.id === 'charge').mp !== 0) out.push('class warrior: the charge costs rage');
           { const hit = (mp) => { const q = foe(40); q.max = q.hp = 1e6; q.st = 'idle'; h.mp = mp; h.cryT = 0; heroHit(S, R, q, 1000, false, h.x, h.y); const v = 1e6 - q.hp; q.deadT = S.t; return v; }, a = hit(0), b = hit(100);
             if (!(b > a * 1.1)) out.push(`class warrior: 100 rage hits for ${b} against ${a} at none`); }
+          { const took = (mp) => { h.mp = mp; h.hp = heroSt(S).maxHp; h.ifr = 0; h.shield = 0; let n = 0; for (let k = 0; k < 20 && !n; k++) { h.mp = mp; hurtHero(S, R, 40, h.x + 30, h.y, undefined, 'skeleton'); n = heroSt(S).maxHp - h.hp; h.ifr = 0; } return n; }, a = took(0), b = took(100);
+            if (!(b > 0 && b < a * (1 - D.RAGE.guard / 2))) out.push(`class warrior: full rage takes ${b} of a blow against ${a} at none`); }
           { const keep = R.en; R.en = []; h.cd.charge = 0; h.mp = 0; castAbility(S, R, 'charge', {}); for (let i = 0; i < 40; i++) step(S, { keys: [], ...toPx(R, h.x + 100, h.y) });
             if (!(h.cd.charge - S.t <= D.CHARGE.miss)) out.push('class warrior: a missed charge keeps its whole cooldown'); R.en = keep; h.charge = null; }
           if (!(D.abRank('cry', 5).t > D.abRank('cry', 1).t)) out.push('class warrior: the cry\'s ranks add no time');
