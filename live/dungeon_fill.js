@@ -765,7 +765,7 @@
       for (const [cx, cy] of cs) used.add(key(cx, cy)); traps.push({ x: (x + 1) * TILE, y: (y + 1) * TILE, ph }); return true; };
     // a pattern slot that lands on a doorway or a prop slides a cell over rather than leaving a hole in the pattern
     const near = (r, x, y, ph) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([i, j]) => plate(r, x + i, y + j, ph));
-    for (const r of rooms) { if (!r.trap) continue; const kind = pick(['scatter', 'checker', 'diagonal']), ph = R(), n0 = traps.length;
+    for (const r of rooms) { if (!r.trap || plat) continue; const kind = pick(['scatter', 'checker', 'diagonal']), ph = R(), n0 = traps.length;
       // a grid with two-cell lanes between plates; neighbours alternate, so the player times the crossing
       if (kind === 'checker') { const ox = r.x + 1 + ri(0, 1), oy = r.y + 1 + ri(0, 1);
         for (let j = 0, y = oy; y + 1 < r.y + r.h - 1; y += 4, j++) for (let i = 0, x = ox; x + 1 < r.x + r.w - 1; x += 4, i++) near(r, x, y, ph + ((i + j) & 1) * 0.5); }
@@ -773,6 +773,18 @@
       if (kind === 'diagonal') { const dir = R() < 0.5 ? 1 : -1, n = Math.min(4, Math.floor((r.w - 2) / 3));
         for (let k = 0; k < n; k++) near(r, dir > 0 ? r.x + 1 + k * 3 : r.x + r.w - 3 - k * 3, r.y + 1 + Math.round(k * (r.h - 4) / Math.max(1, n - 1)), ph + k * 0.12); }
       if (kind === 'scatter' || traps.length - n0 < 2) for (let i = traps.length - n0, n = ri(2, 4), k = 0; i < n && k < 40; k++) { if (plate(r, ri(r.x + 1, r.x + r.w - 3), ri(r.y + 1, r.y + r.h - 3), R())) i++; } }
+    // the magma's lava, vents and rocks are danger enough (the player's decision 10.11.2026, TASKS 1727): its rooms take no plates.
+    // A lava cave keeps a plate or two, each on the way in to a chest or an altar, and clear of rock all round, or its spikes stood
+    // over the rock face
+    if (plat && ftype === 'cave') { const G = D.ARCH.plateau.guard, from = new Int32Array(W * H).fill(-2), s0 = (start.cy + 2) * W + start.cx, q = [s0]; from[s0] = -1;
+      for (let i = 0; i < q.length; i++) for (const d of [1, -1, W, -W]) { const n = q[i] + d; if (from[n] === -2 && at(n % W, Math.floor(n / W)) === 1 && !solid.has(key(n % W, Math.floor(n / W)))) { from[n] = q[i]; q.push(n); } }
+      const bare = (x, y) => { for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) if (at(x + i, y + j) !== 1) return false; return true; };
+      const pay = chests.filter((c) => !c.boss).concat(shrines).map((p) => [p, R()]).sort((a, b) => a[1] - b[1]).map(([p]) => p);
+      for (let n = 0, i = 0; i < pay.length && n < G.n; i++) { const p = pay[i], px = Math.floor(p.x / TILE), py = Math.floor(p.y / TILE), r = rooms.find((o) => inRm(o, px, py));
+        let c = [0, 1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].map((d) => py * W + px + d).find((k) => from[k] !== -2) ?? -1;
+        if (!r || r.type === 'start' || c < 0) continue;
+        for (let step = 0; c >= 0 && step <= G.far[1]; step++, c = from[c]) { if (step < G.far[0]) continue; const x = c % W, y = Math.floor(c / W);
+          if ([[x - 1, y - 1], [x, y - 1], [x - 1, y], [x, y]].some(([ox, oy]) => bare(ox, oy) && plate(r, ox, oy, R()))) { n++; break; } } } }
     // spike plates in corridors (TASKS 76) from the 2nd floor: on a straight two-cell stretch with rock both sides, well clear of
     // every room and door. A plate fills the corridor's width, so the way past is in time with its spikes; a corridor plate is
     // the only kind that may close a way (selfCheck exempts it)
