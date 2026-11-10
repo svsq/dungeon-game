@@ -9,6 +9,8 @@
       for (let i = 0; i < 24; i++) h.bag[i] = Object.assign(SIM.rollItem(S.run, 8, 4), { id: 1000 + i }); h.bag[0] = { id: 2000, b: 'hp_potion', n: 9, rar: 0, lvl: 1, mods: {} }; };
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
+      // look B's parts kit (R-41): every part in every state
+      ['uikit', mk((S) => { S.saved = null; S.screen = 'uikit'; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
       ['menu_armed', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.saved.floor = 12; S.saved.hero.lvl = 17; S.resetT = S.t; S.resetM = 'campaign'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)

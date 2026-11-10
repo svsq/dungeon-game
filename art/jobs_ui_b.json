@@ -1,0 +1,192 @@
+[
+ {
+  "name": "ui_b_bar_frame",
+  "prompt": "art/prompts/ui_b_bar_frame.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_book_gutter",
+  "prompt": "art/prompts/ui_b_book_gutter.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_button_parchment",
+  "prompt": "art/prompts/ui_b_button_parchment.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_button_wax",
+  "prompt": "art/prompts/ui_b_button_wax.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_cell",
+  "prompt": "art/prompts/ui_b_cell.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_cell_round",
+  "prompt": "art/prompts/ui_b_cell_round.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_check_tick",
+  "prompt": "art/prompts/ui_b_check_tick.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_clasp",
+  "prompt": "art/prompts/ui_b_clasp.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_flask",
+  "prompt": "art/prompts/ui_b_flask.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_flourish",
+  "prompt": "art/prompts/ui_b_flourish.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_knob",
+  "prompt": "art/prompts/ui_b_knob.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_leather_panel",
+  "prompt": "art/prompts/ui_b_leather_panel.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_parchment_tile",
+  "prompt": "art/prompts/ui_b_parchment_tile.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "none",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_parchment_torn",
+  "prompt": "art/prompts/ui_b_parchment_torn.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_ribbon",
+  "prompt": "art/prompts/ui_b_ribbon.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_scroll_rod",
+  "prompt": "art/prompts/ui_b_scroll_rod.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_tab",
+  "prompt": "art/prompts/ui_b_tab.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_title_banner",
+  "prompt": "art/prompts/ui_b_title_banner.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1536x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_wax_seal",
+  "prompt": "art/prompts/ui_b_wax_seal.txt",
+  "ref": [
+   "study/refs/ui/sheet_b.png=the approved UI direction sheet: match its materials, colours and pixel size, but draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ }
+]

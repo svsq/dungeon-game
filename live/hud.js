@@ -62,6 +62,7 @@
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
     if (R && V && S.screen === 'play') souls(S, R, V);
     if (S.screen === 'menu') menu(S, t);
+    if (S.screen === 'uikit') KIT.sheet();
     if (S.screen === 'tests') tests(S, t);
     if (S.screen === 'classes') classes(S, t);
     if (S.screen === 'codex') codex(S, t);
