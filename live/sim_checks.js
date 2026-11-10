@@ -14,6 +14,8 @@
     runReward, scriptInput, secretMask, serpent, serpentMouth, secretUnder, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     stashOf, steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
+  // the checks that start a game from the menu for something else skip the Keeper's welcome (TASKS 1793), which holds the hero
+  const noWelcome = (S) => { if (S.run && S.run.greet === 1) S.run.greet = 'done'; };
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
   function selfCheck() {
     const out = [];
@@ -2359,7 +2361,7 @@
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
-      press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
+      press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); noWelcome(U); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
     out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...pouchCheck(), ...craftCheck(), ...talkCheck(), ...noteChainCheck(), ...captiveFallbackCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
     return out;
   }
@@ -3052,30 +3054,30 @@
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
     // TASKS 1149: the town's gate out asks first (E and Esc stay), then gives the run up; past the colossus it ends it won
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
       const ask = () => { Q.hero.x = g.x; Q.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); return G.screen === 'leave'; };
       if (!ask()) out.push('town gate: E at the gate opens no window');
       else { step(G, { keys: ['KeyE'] }); if (G.screen !== 'play' || G.run !== Q) out.push('town gate: E in its window ends the run');
         ask(); step(G, { keys: [], click: 1, px: go.x + 10, py: go.y + 10 }); if (G.screen !== 'dead' || !G.result.abandoned) out.push('town gate: «Сдаться» does not give the run up'); }
-      press(G, UI.end()[0]); if (G.screen === 'dead') G.screen = 'menu'; press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q2 = G.run;
+      press(G, UI.end()[0]); if (G.screen === 'dead') G.screen = 'menu'; press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q2 = G.run;
       if (Q2) { Q2.slain = [D.RUNS.campaign.floors]; Q2.deepest = D.RUNS.campaign.floors; const w0 = G.meta.wins || 0; Q2.hero.x = g.x; Q2.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); step(G, { keys: ['Enter'] });
         if (G.screen !== 'win' || G.meta.wins !== w0 + 1) out.push('town gate: past the colossus the gate does not end the run won'); } }
     // TASKS 1600, 1601: E at the stairs takes them with a townsman in earshot; a shot draws a townsman's reaction
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, h = Q.hero, e = Q.map.exit; step(G, { keys: [] }); const gd = Q.folk.find((f) => f.role === 'guard');
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, h = Q.hero, e = Q.map.exit; step(G, { keys: [] }); const gd = Q.folk.find((f) => f.role === 'guard');
       h.x = gd.x - 100; h.y = gd.y; heroShot(Q, h, 0, 1, false, 'bolt'); for (let i = 0; i < 60 && (gd.hitT ?? -9) < 0; i++) step(G, { keys: [] }); if ((gd.hitT ?? -9) < 0) out.push('town: a shot goes through a townsman with no reaction');
       h.x = e.x; h.y = e.y + 40; gd.x = h.x + 30; gd.y = h.y; step(G, { keys: ['KeyE'] }); if (G.screen === 'talk' || G.run.floor !== 1) out.push(`town: E at the stairs does not go down (${G.screen}, floor ${G.run.floor})`); }
     // a run saved in the town before the yard loads, plays on, and gets the new town
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); step(G, { keys: [] }); G.saved = G.run; G.run = null; G.screen = 'menu';
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); step(G, { keys: [] }); G.saved = G.run; G.run = null; G.screen = 'menu';
       const P = JSON.parse(JSON.stringify(persist(G))); delete P.run.map.town.yardSolid; delete P.run.cart; const O = spawn(1, P), Q = O.saved; O.run = Q; O.saved = null; O.screen = 'play'; let threw = null;
       try { for (let i = 0; i < 30; i++) step(O, { keys: [] }); } catch (e) { threw = e; }
       if (threw) out.push(`town: an old save breaks on load (${threw.message})`); else if (!O.run.map.town.yardSolid || !O.run.folk.some((f) => f.role === 'mason')) out.push('town: an old save keeps the old town'); }
     // TASKS 1425, 1426: a hero on the rails is pushed once the wait is over and the cart keeps rolling; stacks dropped on a stack join it
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, h = Q.hero; step(G, { keys: [] }); Object.assign(Q.cart, { s: 200, st: 'down', load: 3 }); let s0 = Q.cart.s;
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, h = Q.hero; step(G, { keys: [] }); Object.assign(Q.cart, { s: 200, st: 'down', load: 3 }); let s0 = Q.cart.s;
       for (let i = 0; i < 2400; i++) { const [x, y] = [h.x, h.y]; step(G, { keys: [] }); if (i < 500) { const T = Q.map.town, c = (k) => [(k % Q.map.W + 0.5) * TILE, (Math.floor(k / Q.map.W) + 0.5) * TILE]; let d = Q.cart.s, p = c(T.rails[0]); for (let j = 1; j < T.rails.length; j++) { const A = c(T.rails[j - 1]), B = c(T.rails[j]), l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d <= l) { p = [A[0] + (B[0] - A[0]) * d / l, A[1] + (B[1] - A[1]) * d / l]; break; } d -= l; p = B; } h.x = p[0] + 10; h.y = p[1]; } else { h.x = x; h.y = y; } if (Q.map.cells[Math.floor(h.y / TILE) * Q.map.W + Math.floor(h.x / TILE)] === 0) { out.push('town cart: pushed the hero into a wall'); break; } }
       if (Q.cart.st === 'down' && Q.cart.s - s0 < 150) out.push(`town cart: rolled only ${(Q.cart.s - s0).toFixed(0)} px past a hero on the rails`);
       const T = SIMX.stashOf(G), cap = D.CONSUMABLES.potion ? 'potion' : Object.keys(D.CONSUMABLES)[0], st = D.CONSUMABLES[cap].stack; T.items = Array(D.STASH.cells).fill(null); T.items[0] = { b: cap, n: 1, id: 900 }; h.bag[0] = { b: cap, n: 1, id: 901 }; SIMX.stashPut(G, Q, 0, 0); if (T.items[0].n !== 2 || h.bag[0]) out.push('stash: a stack dropped on a stack did not join it'); T.items = T.items.map((q, i) => ({ b: cap, n: st, id: 902 + i })); T.items[3].n = st - 1; h.bag[1] = { b: cap, n: 3, id: 903 }; G.ev = []; SIMX.stashPut(G, Q, 1); if (h.bag[1].n !== 2 || G.ev.some((e) => e.k === 'nope')) out.push('stash: a partial move reads as a full chest'); }
     // TASKS 1151: the mason empties the cart stone by stone, the rope hauls it into the adit, and it comes back full
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, seen = new Set(), loads = new Set(); Q.hero.x = Q.map.town.svc.portal.x; Q.hero.y = Q.map.town.svc.portal.y;
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, seen = new Set(), loads = new Set(); Q.hero.x = Q.map.town.svc.portal.x; Q.hero.y = Q.map.town.svc.portal.y;
       step(G, { keys: [] }); let ds = 0; for (let i = 0; i < 9000 && G.screen === 'play'; i++) { const s0 = Q.cart.s; step(G, { keys: [] }); ds = Math.max(ds, Math.abs(Q.cart.s - s0)); seen.add(Q.cart.st); loads.add(Q.cart.load); }
       // TASKS 1616: the cart never leaps; the mason's stops reach what he takes from and drops into; no round runs through a standing torch
       if (ds > 1) out.push(`town cart: moves ${ds.toFixed(1)} px in a tick`);
@@ -3085,7 +3087,7 @@
         for (const n of T.npcs) if (n.route) n.route.forEach((a, i) => { const b = n.route[(i + 1) % n.route.length]; for (const p of torch) if (off(p, a, b) < 22) out.push(`town: the ${n.role}'s round runs through the torch at ${Math.round(p.x)},${Math.round(p.y)}`); }); }
       for (const st of ['at', 'up', 'in', 'down']) if (!seen.has(st)) out.push(`town cart: never ${st}`);
       for (const n of [3, 2, 1, 0]) if (!loads.has(n)) out.push(`town cart: never holds ${n} stones`); }
-    const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes().find((b) => b.id === 'go'));
+    const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes().find((b) => b.id === 'go')); noWelcome(S);
     const R = S.run; if (!R || R.floor !== 0 || !R.town || R.mode !== 'campaign' || S.screen !== 'play') { out.push('town: «Кампания» does not start in the town'); return out; }
     const h = R.hero, hp = h.hp, x0 = h.x;
     if (R.en.length || R.msg.s !== TXT('data_runs.placeName')) out.push('town: monsters in the town or no title');
@@ -3237,6 +3239,32 @@
         endRun(S, 'dead'); if (S.meta.lastCls !== 'mage') out.push('class screen: the last hero\'s class is not kept');
         const T = spawn(0, { meta: S.meta }); startRun(T, 'town'); const pages = root.SIMX.keeperPages(T, T.run);
         if (!pages.some((p) => /маг/.test(p))) out.push('class screen: the Keeper does not name the last hero\'s class'); } }
+    // the Keeper's welcome (TASKS 1793): a new game's first steps in the town bring him from the fire to the hero, held meanwhile, and
+    // open the first talk with the quest about Horatio; Esc leaves the offer his; it is never played again: not on a second visit,
+    // not in a run saved before it (or past it)
+    { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, h = R.hero, F = folkOf(R), k = F.find((q) => q.role === 'keeper'), x0 = h.x, y0 = h.y, kx = k.x, ky = k.y;
+      if (R.greet !== 1) out.push('welcome: a new game does not arm it');
+      let n = 0, walked = 0, said = 0; while (S.screen === 'play' && n++ < 120 * 16) { step(S, { keys: n % 40 === 0 ? ['KeyE', 'Space'] : [], left: 1, up: 1 }); walked = Math.max(walked, Math.hypot(k.x - kx, k.y - ky)); if (k.sayS) said = 1; }
+      if (Math.hypot(h.x - x0, h.y - y0) > 2) out.push(`welcome: the hero walked ${Math.round(Math.hypot(h.x - x0, h.y - y0))} px while held`);
+      if (S.screen !== 'talk' || !S.talk || S.talk.role !== 'keeper') out.push(`welcome: no talk with the Keeper in ${(n / 120).toFixed(1)} s (screen ${S.screen})`);
+      else { const of = offerOf(R, 'keeper');
+        if (!S.talk.act || S.talk.act.k !== 'take' || !of || S.talk.act.key !== of.q.key || of.q.key !== 'rescue') out.push(`welcome: the talk does not offer the quest about Horatio (${JSON.stringify(S.talk.act)})`);
+        if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`); }
+      if (walked < 100 || Math.hypot(k.x - h.x, k.y - h.y) > 70) out.push(`welcome: the Keeper did not come up to the hero (walked ${Math.round(walked)} px, ${Math.round(Math.hypot(k.x - h.x, k.y - h.y))} px off)`);
+      if (!said) out.push('welcome: the Keeper says nothing on the way');
+      step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk');
+      const back = (rs) => { for (let i = 0; i < 120 * 12 && R.greet !== 'done'; i++) step(S, { keys: [] }); return R.greet === 'done'; };
+      if (!back()) out.push('welcome: the Keeper does not go back to the fire');
+      else if (Math.hypot(k.x - kx, k.y - ky) > 3) out.push(`welcome: the Keeper stops ${Math.round(Math.hypot(k.x - kx, k.y - ky))} px off his place`);
+      if (!offerOf(R, 'keeper') || (R.quests || []).some((q) => q.key === 'rescue')) out.push('welcome: Esc lost or took the quest');
+      h.x = k.x + 44; h.y = k.y + 12; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+      if (S.screen !== 'talk' || !S.talk.act || S.talk.act.k !== 'take') out.push('welcome: after Esc the Keeper does not offer the quest again');
+      S.screen = 'play'; S.talk = null; const hx = h.x; for (let i = 0; i < 60; i++) step(S, { keys: [], right: 1 }); if (h.x - hx < 20) out.push('welcome: the hero is still held after it');
+      enterFloor(S, R, 1); enterFloor(S, R, 0); const k2 = folkOf(R).find((q) => q.role === 'keeper'), k2x = k2.x; let held = 0;
+      for (let i = 0; i < 120 * 4; i++) { step(S, { keys: [], down: i < 30 ? 1 : 0 }); if (root.SIMX.greetHold(R)) held = 1; }
+      if (held || S.screen !== 'play' || Math.abs(k2.x - k2x) > 3 || R.greet !== 'done') out.push('welcome: a second visit plays it again');
+      const O = spawn(0, {}); O.run = newRun(O, 'campaign', 91, { town: 1 }); O.screen = 'play'; O.run = JSON.parse(JSON.stringify(O.run)); const oh = O.run.hero, ox = oh.x;
+      for (let i = 0; i < 120 * 4; i++) step(O, { keys: [], right: i < 40 ? 1 : 0 }); if (O.run.greet || O.screen !== 'play' || oh.x - ox < 20) out.push('welcome: a run saved before it is greeted'); }
     // gear of another class (TASKS 1102): the staff made the mage's alone for the check, a warrior neither wears it nor finds it often
     { const keep = BASES.staff.cls; BASES.staff.cls = ['mage'];
       const S = spawn(0, {}), R = newRun(S, 'campaign', 82), h = R.hero, n = 4000; let st = 0, mg = 0;

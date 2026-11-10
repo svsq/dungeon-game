@@ -202,6 +202,7 @@
       if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
     if (R.freeze > 0) { R.freeze -= DT; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R); R.inbuf = Object.assign(R.inbuf || {}, keys); return; }
     R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
+    if (SIMX.greetHold(R)) { inp = { px: inp.px, py: inp.py }; for (const k in keys) delete keys[k]; }
     // ---- input: 8-way run with accel / decel ----
     const ix = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), iy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), il = Math.hypot(ix, iy) || 1;
     const spd = K.RUN * (1 + st.mspd / 100) * (t - h.atkT < (h.atkSlow ?? 0.2) ? 0.55 : 1) * (inWater(m, h) ? WADE : 1) * (webAt(m, h) ? WEB.k : 1) * (gooAt(m, h) ? GOO.k : 1) * (soaked(S, h) ? ORB.slow : 1) * (S.t < (h.chillT ?? -9) ? MOD.frost.slow : 1);

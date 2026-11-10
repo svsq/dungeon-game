@@ -158,7 +158,7 @@
     const bubble = (id, s, x, y) => { const size = 20, w = lw(id, s, { size }) + 28, b = place(x, y, w, 40, actorZones);
       if (b) { plate(id + '_b', b.x, b.y, w, 40); lab(id, s, b.x + w / 2, b.y + 21, { size, al: 0.5, col: '#fff2c8' }); nameZones.push({ x: b.x, y: b.y, w, h: 40 }); } };   // the prompt keeps off a line being said (TASKS 1013)
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) { const FD = D.FOLK[f.role]; if (!FD.lines || !f.near || GT < f.sayT || GT - f.sayT >= D.FOLK_SAY) continue;
-      bubble('folk' + f.i, FD.lines[f.sayN][GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 48); }
+      bubble('folk' + f.i, (f.sayS || FD.lines[f.sayN])[GT - f.sayT < D.FOLK_SAY / 2 ? 0 : 1], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 48); }
     // a townsman struck by the hero's blow says so (TASKS 1033), over whatever he was saying
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) if (f.role !== 'hen' && GT - (f.hitT ?? -9) < 1.6) bubble('ouch' + f.i, SIM.FOLK_OUCH[f.ouch || 0], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 92);
     if (!R.town && S.screen === 'play') for (const C of Object.values(R.captives || {})) { if (C.x === undefined || R.floor !== D.CAPTIVES[C.who].f || (R.freed && R.freed[C.who]) || Math.hypot(C.x - h.x, C.y - h.y) > 320 || !seen(C.x, C.y)) continue; const cg = D.CAPTIVES[C.who].caged; bubble('cap_' + C.who, cg[Math.floor(GT / 5) % cg.length], V.sx(C.x), V.sy(C.y) - 150 * k); }
@@ -238,7 +238,7 @@
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
-    if (pr && S.screen === 'play' && !(R.leaving > 0) && !S.ev.some((e) => e.k === 'floor' && S.t - e.t < 0.5)) { const s = pr[2], sub = pr[3], bh = sub ? 64 : 40, w = Math.max(lw('prompt', s, { size: 24 }), sub ? lw('prompt_j', sub, { size: 17 }) : 0) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
+    if (pr && S.screen === 'play' && !(R.leaving > 0) && !SIM.Q.greetHold(R) && !S.ev.some((e) => e.k === 'floor' && S.t - e.t < 0.5)) { const s = pr[2], sub = pr[3], bh = sub ? 64 : 40, w = Math.max(lw('prompt', s, { size: 24 }), sub ? lw('prompt_j', sub, { size: 17 }) : 0) + 28; let x = V.sx(pr[0]) - w / 2, y = V.sy(pr[1]) - 20;
       const hx0 = V.sx(h.x - 30), hx1 = V.sx(h.x + 30), hy0 = V.sy(h.y - 92), hy1 = V.sy(h.y + 6);
       if (x < hx1 && x + w > hx0 && y < hy1 && y + 40 > hy0) y = Math.min(y, hy0 - 48);
       // nor an elite's name over its head (the exit's guard by the stairs down a hero has just come up): then under his feet

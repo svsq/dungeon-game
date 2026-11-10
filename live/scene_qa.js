@@ -1547,6 +1547,17 @@
       eNear(S, R, h, at.x, at.y + 30); if (S.talk) S.talk.p = S.talk.pages.length - 1; S.hover = 'talk'; });
     // TASKS 1791, 1792: a new game's first word with the Keeper by the fire, his quest about Horatio on its first page
     states.push(['town_first_talk', climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] }); const k = R.folk.find((q) => q.role === 'keeper'); eNear(S, R, h, k.x + 44, k.y + 12); S.hover = ''; })]);
+    // TASKS 1793: a new game's welcome from the real sim: the hero held by the spawn, the Keeper still at the fire, on his way with his
+    // word, the talk he opens by the hero; frame by frame his walk over (the set-off, the stride, the stop and the turn to the hero) and,
+    // the talk left with Esc, his walk back to the fire and his turn to it
+    { const key = (S) => S.run.folk.find((q) => q.role === 'keeper'), go = (S, n, keys) => { for (let q = 0; q < n; q++) SIM.step(S, { px: 960, py: 540, keys: keys && !q ? keys : [] }); };
+      const base = play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.run.greet = 1; S.screen = 'play'; S.run.msg = null; go(S, 1); });
+      const at = (fn) => { const S = structuredClone(base); fn(S); return S; }, until = (S, ok, n = 120 * 15) => { while (!ok(S) && n-- > 0) go(S, 1); return S; };
+      states.push(['town_greet_before', at((S) => go(S, 60))], ['town_greet_mid', at((S) => { until(S, (Q) => Q.run.greet.st === 'walk'); go(S, 300); })], ['town_greet_talk', at((S) => until(S, (Q) => Q.screen === 'talk'))]);
+      let S = at((Q) => go(Q, 60)), fr = []; for (let k = 0; k < 360 && S.screen === 'play'; k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
+      const i = key(S).i; transitions.folk_keeper_greet = fr; folkSubj.folk_keeper_greet = 'npc' + i;
+      S = structuredClone(S); go(S, 1, ['Escape']); fr = []; for (let k = 0; k < 420 && !(S.run.greet === 'done' && S.t > key(S).walkB + 0.6); k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
+      transitions.folk_keeper_greet_back = fr; folkSubj.folk_keeper_greet_back = 'npc' + i; }
     states.push(['town_smith_talk', masterS('smith', 0)], ['town_smith_talk_quest', masterS('smith', 1)], ['town_enchanter_talk', masterS('enchanter', 0)]);
     const endS = (pick) => keeperS((S, R, h, k) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; R.goldTot = 1000; S.meta.keeperMet = 1; S.meta.endTold = 1;
       eNear(S, R, h, k.x + 44, k.y + 12); if (S.talk) { S.talk.p = pick(S.talk.pages); S.hover = 'act'; } });
