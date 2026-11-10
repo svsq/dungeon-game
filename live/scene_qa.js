@@ -1272,7 +1272,9 @@
     for (const ty of ['skeleton', 'goblin', 'spider', 'cultist', 'brute', 'ghost', 'boss', 'drowned', 'slime', 'crab', 'skel_archer', 'skel_mage', 'mimic', ...MG]) { const fr = []; let S = playOf(ty)((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
       h.x -= 400; R.cam = [h.x + 400 - SCX.VW / 2, h.y - SCX.VH / 2]; });
-      for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); }
+      // the camera held where it was set: the sim eased it toward the hero 400 px off, and the sheets slid for the first 17 frames
+      const cam = S.run.cam.slice();
+      for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
       loops[ty + '_idle'] = fr; }
     // the eel (TASKS 310) on the lake of eel_states, the hero on the shore: it comes up, bites him, spits at him farther off, dives,
     // is struck and dies; up and watching for 2 s (subject en990)

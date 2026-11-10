@@ -162,9 +162,9 @@
     if (m.town && R.folk && S.screen === 'play') for (const f of R.folk) if (f.role !== 'hen' && GT - (f.hitT ?? -9) < 1.6) bubble('ouch' + f.i, SIM.FOLK_OUCH[f.ouch || 0], V.sx(f.x), V.sy(f.y) - SZ('town_' + f.role)[1] * k - 92);
     if (!R.town && S.screen === 'play') for (const C of Object.values(R.captives || {})) { if (C.x === undefined || R.floor !== D.CAPTIVES[C.who].f || (R.freed && R.freed[C.who]) || Math.hypot(C.x - h.x, C.y - h.y) > 320 || !seen(C.x, C.y)) continue; const cg = D.CAPTIVES[C.who].caged; bubble('cap_' + C.who, cg[Math.floor(GT / 5) % cg.length], V.sx(C.x), V.sy(C.y) - 150 * k); }
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
-    const bars = [];
-    // in rock a body is void: no label over nothing
-    for (const e of R.en) { if (e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.Q.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ(D.ENEMIES[e.type].tex || 'en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
+    const bars = [], fadeIn = S.ev.some((v) => v.k === 'floor' && GT - v.t < 0.9);
+    // in rock a body is void: no label over nothing; nor over the black a new floor fades in from (TASKS 1724)
+    for (const e of R.en) { if (fadeIn || e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.Q.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ(D.ENEMIES[e.type].tex || 'en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
