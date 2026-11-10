@@ -1002,7 +1002,6 @@
   // ---------------- a word with a townsman (TASKS 1016, 1023): his likeness, his name, a page of his words ----------------
   function talk(S, R, t) {
     const T = S.talk, U = D.UI.talk(T), P = U.P, FD = D.FOLK[T.role], keeper = T.role === 'keeper', nm = T.role === 'merchant' ? 'merchant' : 'town_' + T.role, at = (id) => U.r.find((q) => q.id === id);
-    L.solid(0, P.y - 120, W, H - P.y + 120, [0, 0, 0], 0, 0, 0, 0.35);
     parch('talk', P, true);
     panel('tk_frame', P.x + 34, P.y + 44, 232, P.h - 88, { r: 4, c0: [0.09, 0.07, 0.07] });
     const [sw, sh] = SZ(nm), k = 230 / sh; L.sprite(nm, P.x + 150 - sw * k / 2, P.y + P.h - 30 - sh * k, { w: sw * k, h: sh * k });

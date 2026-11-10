@@ -1545,6 +1545,8 @@
     const eNear = (S, R, h, x, y) => { h.x = x; h.y = y; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; SIM.step(S, { keys: [] }); SIM.step(S, { keys: ['KeyE'] }); };
     const masterS = (role, quest) => keeperS((S, R, h) => { const at = R.map.town.svc[role === 'smith' ? 'anvil' : 'lectern']; noQ(R); if (quest) R.offers = [{ key: 'cull', from: role, q: 0 }];
       eNear(S, R, h, at.x, at.y + 30); if (S.talk) S.talk.p = S.talk.pages.length - 1; S.hover = 'talk'; });
+    // TASKS 1791, 1792: a new game's first word with the Keeper by the fire, his quest about Horatio on its first page
+    states.push(['town_first_talk', climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] }); const k = R.folk.find((q) => q.role === 'keeper'); eNear(S, R, h, k.x + 44, k.y + 12); S.hover = ''; })]);
     states.push(['town_smith_talk', masterS('smith', 0)], ['town_smith_talk_quest', masterS('smith', 1)], ['town_enchanter_talk', masterS('enchanter', 0)]);
     const endS = (pick) => keeperS((S, R, h, k) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; R.goldTot = 1000; S.meta.keeperMet = 1; S.meta.endTold = 1;
       eNear(S, R, h, k.x + 44, k.y + 12); if (S.talk) { S.talk.p = pick(S.talk.pages); S.hover = 'act'; } });
