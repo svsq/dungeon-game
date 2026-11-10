@@ -2348,7 +2348,7 @@
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
       press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...craftCheck(), ...talkCheck(), ...noteChainCheck(), ...captiveFallbackCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
+    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...pouchCheck(), ...craftCheck(), ...talkCheck(), ...noteChainCheck(), ...captiveFallbackCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
     return out;
   }
   // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
@@ -2643,6 +2643,38 @@
     if (!T.saved || T.saved.hero.sp !== 3 || T.saved.hero.mast) out.push('mastery: an old save at the old ceiling lost its points or gained mastery');
     for (const id of ['whirl', 'frost', 'cry', 'fireball', 'shield', 'volley']) { const a = D.abRank(id, 10), b = D.abRank(id, 15); if (!(b.cd >= 0.5) || b.cd > a.cd || (id !== 'cry' && !(b.k > a.k)) || (a.r && b.r !== a.r)) out.push(`mastery: ${id} at rank 15 is off`); }
     { const a = D.abRank('cry', 15); if (!(a.t < D.ABILITIES.find((q) => q.id === 'cry').cd * a.cd)) out.push('mastery: the cry at rank 15 outlasts its cooldown'); }
+    return out;
+  }
+  // TASKS 1687: pouches bought at the Altar of souls, each a tab of its own: the buy, the bag grown in the run at once, a save and a
+  // load, a tab's sort, a drag onto a tab (from the bag, from the worn gear, from the chest), a full tab refusing, the 1340 migration
+  function pouchCheck() {
+    const out = [], S = spawn(0, { meta: { shards: 1000, up: {} } }); S.run = newRun(S, 'campaign', 79); const R = S.run, h = R.hero, nopes = () => S.ev.filter((e) => e.k === 'nope').length;
+    const cl = (rs, id, o = {}) => { const b = rs.find((q) => q.id === id); if (!b) { out.push('pouch: no ' + id + ' on ' + S.screen); return; } step(S, Object.assign({ keys: [], px: b.x + 10, py: b.y + 10, click: 1 }, o)); step(S, { keys: [], px: b.x + 10, py: b.y + 10 }); };
+    const inv = () => UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), drag = (from, to) => { const a = inv().r.find((q) => q.id === from), b = inv().r.find((q) => q.id === to); if (!a || !b) { out.push(`pouch: no ${from} or ${to}`); return; }
+      step(S, { keys: [], px: a.x + 10, py: a.y + 10, click: 1, press: 1 }); step(S, { keys: [], px: b.x + 10, py: b.y + 10, press: 1 }); step(S, { keys: [], px: b.x + 10, py: b.y + 10 }); };
+    if (h.bag.length !== 24 || UI.inv(D.clsOf(h).abs, 24, 0).r.filter((q) => q.tab !== undefined).length !== 1) out.push('pouch: a hero without pouches has more than the bag');
+    S.screen = 'meta'; cl(UI.meta(S.meta.cls), 'pouch'); cl(UI.meta(S.meta.cls), 'pouch');
+    if (S.meta.up.pouch !== 2 || S.meta.shards !== 1000 - D.META.find((m) => m.id === 'pouch').cost(0) - D.META.find((m) => m.id === 'pouch').cost(1)) out.push('pouch: two pouches are not bought at their prices');
+    if (h.bag.length !== 24 + 2 * D.BAG.pouch) out.push(`pouch: the hero in the run has ${h.bag.length} cells after two pouches`);
+    { let n = 0; h.bag.fill(null); for (let i = 0; i < 80; i++) if (bagAdd(R, Object.assign(rollItem(R, 3, 1), { id: 9000 + i }))) n++; if (n !== h.bag.length) out.push(`pouch: the bag and pouches take ${n} of ${h.bag.length}`); }
+    { const it = h.bag[30], T = spawn(1, JSON.parse(JSON.stringify(persist(Object.assign(spawn(0, {}), { meta: S.meta, run: R })))));
+      if (!T.saved || T.saved.hero.bag.length !== h.bag.length || !T.saved.hero.bag[30] || T.saved.hero.bag[30].id !== it.id) out.push('pouch: a piece in a pouch is lost over a save and a load'); }
+    S.screen = 'inv'; h.bag.fill(null); const mix = [rollItem(R, 2, 1), rollItem(R, 9, 3), rollItem(R, 5, 4)]; mix.forEach((it, i) => { it.id = 9500 + i; h.bag[25 + i * 3] = it; });
+    const keep = Object.assign(rollItem(R, 4, 0), { id: 9510 }); h.bag[5] = keep;
+    cl(inv().r, 'btab:1'); if (S.bagTab !== 1 || !inv().r.some((q) => q.id === 'bag:24') || inv().r.some((q) => q.id === 'bag:0')) out.push('pouch: a tab does not open its pouch');
+    cl(inv().r, 'sort:rar'); { const p = h.bag.slice(24, 40), f = p.filter(Boolean); if (f.length !== 3 || p.slice(3).some(Boolean) || f.some((it, i) => i && (f[i - 1].rar || 0) < (it.rar || 0)) || h.bag[5] !== keep) out.push('pouch: the sort does not order the open pouch alone'); }
+    cl(inv().r, 'btab:0'); drag('bag:5', 'btab:2'); if (h.bag[5] || h.bag[40] !== keep) out.push('pouch: a piece dragged onto a tab does not go into that pouch');
+    { const w = h.eq.weapon; drag('eq:weapon', 'btab:1'); if (h.eq.weapon || h.bag[27] !== w) out.push('pouch: a worn piece dragged onto a tab does not come off into it'); h.eq.weapon = w; h.bag[27] = null; }
+    { for (let i = 40; i < 56; i++) h.bag[i] = h.bag[i] || Object.assign(rollItem(R, 2, 0), { id: 9600 + i }); const it = Object.assign(rollItem(R, 2, 0), { id: 9700 }); h.bag[7] = it; const n0 = nopes(); drag('bag:7', 'btab:2');
+      if (h.bag[7] !== it || nopes() !== n0 + 1) out.push('pouch: a full pouch takes a piece or does not refuse it'); }
+    { const V = spawn(0, { meta: { up: { pouch: 1 } } }); V.run = newRun(V, 'campaign', 78, { town: 1 }); V.screen = 'stash'; const Hh = V.run.hero, T2 = stashOf(V), g = Object.assign(rollItem(V.run, 3, 2), { id: V.run.nextId++ });
+      T2.items = [g]; const U2 = UI.stash(Hh.bag.length, 0), a = U2.r.find((q) => q.id === 'stash:0'), b = U2.r.find((q) => q.id === 'btab:1');
+      step(V, { keys: [], px: a.x + 10, py: a.y + 10, click: 1, press: 1 }); step(V, { keys: [], px: b.x + 10, py: b.y + 10, press: 1 }); step(V, { keys: [], px: b.x + 10, py: b.y + 10 });
+      if (T2.items[0] || !Hh.bag.slice(24).some((q) => q && q.b === g.b && q.lvl === g.lvl)) out.push('pouch: a piece dragged from the chest onto a tab does not go into that pouch'); }
+    { const old = JSON.parse(JSON.stringify(R)); old.hero.bag = new Array(24).fill(null); old.hero.bag[20] = Object.assign(rollItem(R, 3, 1), { id: 9800 }); old.hero.cap = 15;
+      const T = spawn(0, { meta: { shards: 5, up: { bag: 3, hp: 1 } }, run: old });
+      if (T.meta.up.pouch !== 2 || T.meta.up.bag !== undefined || T.meta.up.hp !== 1) out.push('pouch: the 1340 bag ranks do not become pouches');
+      if (!T.saved || T.saved.hero.bag.length !== 24 + 2 * D.BAG.pouch || !T.saved.hero.bag[20] || T.saved.hero.bag[20].id !== 9800) out.push('pouch: an old save does not get its pouches or loses a piece'); }
     return out;
   }
   function bagCheck() {

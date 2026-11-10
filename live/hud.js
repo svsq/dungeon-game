@@ -520,8 +520,11 @@
   const DARK = [1, 0.62, 0, 1.05];
   const plate = (id, x, y, w, h, o = {}) => { KIT.nine('leather', x, y, w, h, { k: o.k || 0.3, u: { grade: o.grade || DARK, alpha: o.a ?? 1 } }); L.uiBox(id, x, y, w, h, o.pad ?? 4); };
   const BRASS = [0.66, 0.5, 0.28];
+  // the bag's tabs over its grid (TASKS 1687), the open one raised with its seal; while a piece is held the tab under it is lit
+  const bagTabs = (id, U, S) => { const tabs = U.r.filter((q) => q.tab !== undefined), open = 'btab:' + Math.max(0, Math.min(tabs.length - 1, S.bagTab | 0));
+    KIT.tabs(id, tabs, open, S); const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
   function inv(S, R, t) {
-    const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
+    const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
     dim(0.45);
     KIT.panel('inv', Lp.x, Lp.y, Lp.w, Lp.h, 'leather'); KIT.panel('inv_r', Rp.x, Rp.y, Rp.w, Rp.h, 'torn', { pad: 0 });
     KIT.banner('inv_t', cx, Lp.y + 16, 340, TXT('hud.inv'), { h: 72, size: 34 });
@@ -552,7 +555,7 @@
       icon('crystal', x0, y - 16, 32); KIT.light('inv_souls', ss, x0 + 40, y, { size: 26, col: '#9cc8ff' });
       icon('it_gold', x0 + sw + 40, y - 16, 32); KIT.light('inv_g', gs, x0 + sw + 80, y, { size: 26, col: C.gold }); }
     // the bag on the sheet
-    KIT.tabs('inv_tb', [{ id: 'btab:0', label: TXT('hud.inv.10'), x: Rp.x + 76, y: Rp.y + 76, w: 230, h: 50 }], 'btab:0', S);
+    bagTabs('inv_tb', U, S);
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
     sortBtns('inv_', U, S);
     // skills
@@ -581,7 +584,7 @@
   }
   // ---------------- the merchant's screen ----------------
   function shop(S, R, t) {
-    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length), P = U.P, f = SIM.Q.tradeDepth(R);
+    const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length, h.bag.length, S.bagTab), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); KIT.panel('shop', P.x, P.y, P.w, P.h, 'leather');
     lab('sh_t', sh.wander ? TXT('hud.shop') : TXT('hud.shop.2'), P.x + 60, P.y + 58, { size: 36, col: C.gold }); lab('sh_j', sh.wander ? TXT('hud.shop.job.w') : TXT('hud.shop.job'), P.x + 60, P.y + 94, { size: 19, col: '#cdb89a' });
     const gs = TXT('hud.shop.gs', { gold: h.gold }); lab('sh_g', gs, P.x + P.w - 130, P.y + 60, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 130 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 42, 36);
@@ -590,7 +593,7 @@
     sh.goods.forEach((g, i) => { const b = U.r.find((q) => q.id === 'buy:' + i); slot(S, b, g.n ? Object.assign({}, g.it, { n: g.n }) : g.it); price('shp_b' + i, b, g.price, h.gold >= g.price); });
     lab('sh_back', TXT('hud.shop.7'), P.x + 60, P.y + 600, { size: 23, col: '#cdb89a' });
     for (let i = 0; i < D.SHOP.buyback; i++) { const b = U.r.find((q) => q.id === 'back:' + i), g = sh.back[i]; slot(S, b, g && g.it); if (g) price('shp_k' + i, b, g.price, h.gold >= g.price); }
-    lab('sh_bag', TXT('hud.shop.8'), P.x + 700, P.y + 132, { size: 23, col: '#cdb89a' });
+    lab('sh_bag', TXT('hud.shop.8'), P.x + 700, P.y + 102, { size: 23, col: '#cdb89a' }); bagTabs('sh_tb', U, S);
     for (const b of U.r) { if (!b.id.startsWith('sell:')) continue; const it = h.bag[b.i]; slot(S, b, it); if (it) price('shp_s' + b.i, b, D.sellPrice(it, f), true); }
     // the merchant himself, his line for this visit
     const mx = P.x + 720, my = P.y + P.h - 64, mn = sh.wander ? 'wanderer' : 'merchant', [mw, mh] = SZ(mn), k = 2.1;
@@ -1051,13 +1054,13 @@
     button('ns_p', Object.assign({}, at('prev'), { label: TXT('hud.notes.prev') }), S.hover); button('ns_nx', Object.assign({}, at('next'), { label: TXT('hud.notes.next') }), S.hover); lab('ns_pg', TXT('hud.notes.page', { p: pg + 1, n: Math.max(1, Math.ceil(L0.length / U.per)) }), P.x + 265, P.y + P.h - 74, { size: 22, al: 0.5, col: INK.d }); }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
   function craft(S, R, t) {
-    const h = R.hero, U = D.UI.craft(), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.Q.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);
+    const h = R.hero, U = D.UI.craft(h.bag.length, S.bagTab), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.Q.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);
     dim(0.55); KIT.panel('craft', P.x, P.y, P.w, P.h, 'leather');
     if (!forge) { G.blend('add'); L.glow(P.x + 1170, P.y + 90, 360, [0.3, 0.5, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend(); }
     lab('cr_t', forge ? TXT('hud.craft') : TXT('hud.craft.2'), P.x + 60, P.y + 64, { size: 40, col: forge ? C.gold : '#9cc8ff' });
     const gs = TXT('hud.craft.gs', { gold: h.gold }); lab('cr_g', gs, P.x + P.w - 130, P.y + 60, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 130 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 44, 32);
     if (!forge) { const ss = String(S.meta.shards); lab('cr_sh', ss, P.x + P.w - 130, P.y + 100, { size: 24, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 130 - lw('cr_sh', ss, { size: 24 }) - 36, P.y + 84, 30); }
-    lab('cr_eq', TXT('hud.craft.3'), P.x + 60, P.y + 146, { size: 22, col: '#cdb89a' }); lab('cr_bag', TXT('hud.craft.4'), P.x + 60, P.y + 316, { size: 22, col: '#cdb89a' });
+    lab('cr_eq', TXT('hud.craft.3'), P.x + 60, P.y + 146, { size: 22, col: '#cdb89a' }); bagTabs('cr_tb', U, S);
     for (const b of U.r) { if (b.id.startsWith('eq:')) slot(S, b, h.eq[b.slot], b.slot); else if (b.id.startsWith('bag:')) slot(S, b, h.bag[b.i]); else continue;
       if (b.id === c.sel) edge(b.x - 5, b.y - 5, b.w + 10, b.h + 10, forge ? [1, 0.8, 0.4] : [0.55, 0.75, 1], 3); }
     const X = P.x + 860, help = forge ? TXT('hud.craft.help') : TXT('hud.craft.help.2');
@@ -1081,13 +1084,13 @@
   }
   // ---------------- the town's storage chest (R-33, TASKS 1012): gear left for the heroes to come ----------------
   function stash(S, R, t) {
-    const h = R.hero, U = D.UI.stash(), P = U.P, T = SIM.Q.stashOf(S), n = D.STASH.cells, dr = S.drag, held = (id) => dr && dr.from === id;
+    const h = R.hero, U = D.UI.stash(h.bag.length, S.bagTab), P = U.P, T = SIM.Q.stashOf(S), n = D.STASH.cells, dr = S.drag, held = (id) => dr && dr.from === id;
     dim(0.5); KIT.panel('stash', P.x, P.y, P.w, P.h, 'leather');
     KIT.banner('st_t', P.x + P.w / 2, P.y + 22, 460, TXT('hud.stash'), { h: 72, size: 34 });
     lab('st_s', TXT('hud.stash.2'), P.x + P.w / 2, P.y + 140, { size: 21, al: 0.5, col: '#cdb89a' });
     for (const b of U.r) if (b.id.startsWith('stash:')) slot(S, b, held(b.id) ? null : T.items[b.i], undefined, 1);
     lab('st_cells', TXT('hud.stash.4', { n: T.items.filter(Boolean).length, max: n }), P.x + 80 + 632, P.y + 450, { size: 21, al: 1, col: '#cdb89a' });
-    lab('st_bag', TXT('hud.stash.5'), P.x + 80, P.y + 526, { size: 24, col: '#cdb89a' });
+    bagTabs('st_tb', U, S);
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
     sortBtns('st_', U, S);
     { const s = TXT('hud.stash.6'); lab('st_help', s, W / 2, P.y + P.h - 50, { size: L.sizeToFit(s, P.w - 120, 20), al: 0.5, col: '#b8a48a' }); }

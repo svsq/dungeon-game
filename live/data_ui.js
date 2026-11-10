@@ -33,7 +33,13 @@
   // index, so the merchant's grid sells what the hero screen's grid wears
   const CELL = 72, STEP = 80, COLS = 8;
   const grid = (id, n, x, y, o = {}) => Array.from({ length: n }, (_, j) => Object.assign({ id: id + ':' + ((o.a || 0) + j), i: (o.a || 0) + j, x: x + (j % COLS) * STEP, y: y + Math.floor(j / COLS) * (o.dy || STEP), w: CELL, h: CELL }));
-  const bagGrid = (x, y, pre = 'bag', dy) => grid(pre, D.BAG.start, x, y, { dy });
+  // the bag's tabs (TASKS 1687): the bag's own 24 cells, then a tab for each pouch of 16 bought at the Altar of souls; a grid shows
+  // the open tab's cells, their ids the bag's own indices
+  const bagTabs = (len = D.BAG.start) => { const t = [{ a: 0, n: Math.min(len, D.BAG.start) }]; for (let a = D.BAG.start; a < len; a += D.BAG.pouch) t.push({ a, n: Math.min(D.BAG.pouch, len - a) }); return t; };
+  const tabAt = (len, tab) => { const T = bagTabs(len); return T[Math.max(0, Math.min(T.length - 1, tab | 0))]; };
+  const bagTabOf = (len, i) => bagTabs(len).findIndex((q) => i >= q.a && i < q.a + q.n);
+  const bagGrid = (x, y, pre = 'bag', dy, len, tab) => { const T = tabAt(len, tab); return grid(pre, T.n, x, y, { a: T.a, dy }); };
+  const tabRow = (x, y, len, w = 200, h = 50) => bagTabs(len).map((q, k) => ({ id: 'btab:' + k, tab: k, label: k ? TXT('hud.inv.pouch', { n: k }) : TXT('hud.inv.10'), on: true, x: x + k * (w + 8), y, w, h }));
   // the settings screen's rows, in order (TASKS 1302): each a slider over its stops, its value kept in S.meta[key]
   const SETTINGS_BOOK = { x: 380, y: 130, w: 1160, h: 840 };
   // the brightness (TASKS 1303): a gamma on the frame's final grade, the HUD drawn after it untouched
@@ -128,9 +134,9 @@
         .concat(pages > 1 ? [{ id: 'prev', label: TXT('UI.codex.prev'), on: p > 0, x: 660, y: 890, w: 130, h: 70 }, { id: 'next', label: TXT('UI.codex.next'), on: p < pages - 1, x: 1130, y: 890, w: 130, h: 70 }] : []) }; },
     // a town workshop (TASKS 1013): the worn gear in a row and the bag under it on the left, the chosen piece, its affixes, the price
     // and the work's button on the right
-    craft: () => { const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
+    craft: (len, tab) => { const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
       SLOTS.forEach((sl, i) => r.push({ id: 'eq:' + sl, slot: sl, x: P.x + 60 + i * STEP, y: P.y + 170, w: CELL, h: CELL }));
-      r.push(...bagGrid(P.x + 60, P.y + 340));
+      r.push(...bagGrid(P.x + 60, P.y + 340, 'bag', undefined, len, tab), ...tabRow(P.x + 60, P.y + 282, len, 172, 46));
       r.push({ id: 'do', on: true, label: '', x: P.x + 860, y: P.y + P.h - 170, w: 620, h: 72 }, { id: 'close', x: P.x + P.w - 92, y: P.y + 34, w: 52, h: 52 }, { id: 'talk', on: true, label: TXT('UI.craft.talk'), x: P.x + 60, y: P.y + 690, w: 620, h: 64 });
       return { P, r }; },
     // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
@@ -156,8 +162,8 @@
       r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 100, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 100, w: 150, h: 52 });
       r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r, per }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
-    stash: () => { const P = { x: 420, y: 90, w: 1080, h: 900 }, x0 = P.x + 80, sx = P.x + P.w - 300;
-      const r = grid('stash', STASH.cells, x0, P.y + 190).concat(bagGrid(x0, P.y + 560));
+    stash: (len, tab) => { const P = { x: 420, y: 90, w: 1080, h: 900 }, x0 = P.x + 80, sx = P.x + P.w - 300;
+      const r = grid('stash', STASH.cells, x0, P.y + 190).concat(bagGrid(x0, P.y + 560, 'bag', undefined, len, tab), tabRow(x0, P.y + 504, len, 190));
       r.push({ id: 'close', x: P.x + P.w - 92, y: P.y + 34, w: 52, h: 52 }, ...sortCol('sortS', sx, P.y + 190), ...sortCol('sort', sx, P.y + 560));
       return { P, r }; },
     // the town's ring of stones (TASKS 1009): one row per way out, the open portal first, then the waystones by floor
@@ -175,11 +181,11 @@
           { id: 'donate', label: TXT('UI.altar.r.donate.label'), on: true, x: P.x + 40, y: P.y + 578, w: 560, h: 64 }]) }; },
     // the hero screen (TASKS 1332), look B as on ref_ui_inv_b: the gear round the portrait and the stats on a leather panel on the
     // left, the bag and the skills on a parchment sheet on the right
-    inv: (abs = ABILITIES) => {
+    inv: (abs = ABILITIES, len, tab) => {
       const { L: Lp, R: Rp } = INV, r = [], lx = Lp.x + 50, rx = Lp.x + Lp.w - 50 - CELL;
       const eq = [['helm', lx, 0], ['armor', lx, 1], ['gloves', lx, 2], ['boots', lx, 3], ['amulet', rx, 0], ['weapon', rx, 1], ['offhand', rx, 2], ['ring', rx, 3]];
       for (const [s, x, row] of eq) r.push({ id: 'eq:' + s, slot: s, x, y: Lp.y + 108 + row * 86, w: CELL, h: CELL });
-      r.push(...bagGrid(Rp.x + 76, Rp.y + 130));
+      r.push(...bagGrid(Rp.x + 76, Rp.y + 130, 'bag', undefined, len, tab), ...tabRow(Rp.x + 76, Rp.y + 76, len));
       STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: Lp.x + Lp.w - 96, y: Lp.y + 480 + i * 42, w: 38, h: 38 }));
       abs.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: Rp.x + 76 + i * 324, y: Rp.y + 470, w: 300, h: 176 }));
       r.push({ id: 'close', x: Rp.x + Rp.w - 98, y: Rp.y + 34, w: 52, h: 52 }, ...sortCol('sort', Rp.x + 76 + COLS * STEP + 40, Rp.y + 130));
@@ -187,11 +193,11 @@
     },
     // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the
     // right; every slot has its price line under it
-    shop: (nGoods) => {
+    shop: (nGoods, len, tab) => {
       const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
       for (let i = 0; i < nGoods; i++) r.push({ id: 'buy:' + i, i, x: P.x + 60 + (i % 4) * 116, y: P.y + 150 + Math.floor(i / 4) * 118, w: CELL, h: CELL });
       for (let i = 0; i < SHOP.buyback; i++) r.push({ id: 'back:' + i, i, x: P.x + 60 + i * 116, y: P.y + 620, w: CELL, h: CELL });
-      r.push(...bagGrid(P.x + 700, P.y + 150, 'sell', 118));
+      r.push(...bagGrid(P.x + 700, P.y + 194, 'sell', 118, len, tab), ...tabRow(P.x + 700, P.y + 140, len, 172, 46));
       r.push({ id: 'talk', on: true, label: TXT('UI.talk.talk'), x: P.x + 830, y: P.y + P.h - 170, w: 290, h: 56 });
       r.push({ id: 'close', x: P.x + P.w - 92, y: P.y + 34, w: 52, h: 52 });
       return { P, r };
@@ -200,5 +206,5 @@
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
   const uiAt = (scr) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes());
-  Object.assign(D, { SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
+  Object.assign(D, { bagTabs, bagTabOf, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
 })(typeof window !== 'undefined' ? window : globalThis);
