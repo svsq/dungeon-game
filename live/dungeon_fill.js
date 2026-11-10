@@ -86,7 +86,7 @@
     // the stairs back up (R-19, TASKS 1027, in the wall since 511), only in a run through the town for now: an opening in a top wall of
     // the start room, as near its middle as a spot allows, solid rock either side so it never reads as a way in and the floor before it
     // kept clear. (tx, ty) is the wall cell; the hero stands below it. Ragged cave walls and small rooms ask less of the spot, step by step
-    let up = null;
+    let up = null; const stub = [];
     for (let j = -1; j <= 3; j++) for (let i = -1; i <= 1; i++) used.add(key(start.cx + i, start.cy + j));   // reserved before the steps so that their footprint cannot cover them
     if (opts.town) { const secretNear = (x, y) => secrets.some((q) => Math.abs(q.x / TILE - x) < 5 && Math.abs(q.y / TILE - y) < 4), mouth = (x, y, n) => doors.some((d) => d.cells.some(([cx, cy]) => Math.abs(cx - x) < n && Math.abs(cy - y) < n));
       const inS = (x, y) => x >= start.x && x < start.x + start.w && y >= start.y && y < start.y + start.h, clearAt = (x, y) => at(x, y) === 1 && !used.has(key(x, y)) && !wet.has(y * W + x) && open[y * W + x];
@@ -95,12 +95,28 @@
       while (go.length) { const k = go.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!open[n] && (cells[n] === 1 || cells[n] === 5) && !shut.has(n)) { open[n] = 1; go.push(n); } } }
       for (const [rock, deep, wide, rows, far] of [[2, 2, 1, 2, 0], [1, 1, 1, 2, 0], [1, 1, 0, 2, 0], [1, 1, 1, 2, 8], [1, 1, 0, 2, 8]]) { if (up) break; const cand = [];
         for (let y = start.y - far; y < start.y + start.h + far; y++) for (let x = start.x - far; x < start.x + start.w + far; x++) cand.push([x, y, (y === start.y ? 0 : 30 + Math.abs(y - start.y)) + Math.abs(x - start.cx) + (inS(x, y) ? 0 : 40)]);
-        for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = !(plat && y - 1 > AR.cliff) && !secretNear(x, y) && !mouth(x, y, rock + 2);
-          for (let i = -rock; i <= rock && ok; i++) for (let j = 1; j <= deep && ok; j++) if (at(x + i, y - j) !== 0) ok = false;
+        for (const [x, y] of cand.sort((a, b) => a[2] - b[2])) { let ok = !secretNear(x, y) && !mouth(x, y, rock + 2);
+          for (let i = -rock; i <= rock && ok; i++) for (let j = 1; j <= deep && ok; j++) if (at(x + i, y - j) !== 0 || (plat && y - j >= cliff[x + i])) ok = false;   // (on a plateau the wall's rock, not the chasm's: a lava cave's is all wall)
           for (let j = 0; j < rows && ok; j++) for (let i = -wide; i <= wide && ok; i++) if (!clearAt(x + i, y + j)) ok = false;
           // (and no chest a step off them: E by the steps opened it, not the way up, TASKS 373's small start rooms put them out among the rooms)
           if (ok) { for (let j = 0; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: (y - 1) * TILE + TILE / 2, tx: x, ty: y - 1 }; break; } } }
-      // (a plateau far from its top wall, or no wall that will do: free-standing steps on three by three clear cells, as before 511)
+      // a plateau far from its top wall raises a stub of wall for its steps (the player's decision 10.11.2026, TASKS 1728: steps
+      // standing alone on the floor looked unnatural): a block of wall behind them, raised from the floor or out of the chasm by the
+      // plateau's edge, clear floor before them, and every cell reached before still reached
+      if (!up && plat) { const S = AR.stub, cand = [], reach = (block) => { const seen = new Uint8Array(W * H), q = [start.cy * W + start.cx]; seen[q[0]] = 1; let n = 0;
+          for (let i = 0; i < q.length; i++) { n++; for (const d of [1, -1, W, -W]) { const k = q[i] + d; if (!seen[k] && open[k] && !block.has(k)) { seen[k] = 1; q.push(k); } } } return n; };
+        for (let y = start.y - S.far; y < start.y + start.h + S.far; y++) for (let x = start.x - S.far; x < start.x + start.w + S.far; x++) cand.push([x, y, (inS(x, y) ? 0 : 20) + Math.hypot(x - start.cx, y - start.cy + 2.5)]);
+        const n0 = reach(new Set());
+        cand.sort((a, b) => a[2] - b[2]); for (const sw of S.w) for (const [x, y] of cand) { if (up) break; if (secretNear(x, y) || mouth(x, y, sw + 2)) continue; const block = new Set(); let ok = true;
+          const rock = new Set();
+          for (let j = -S.deep - 1; j <= 1 && ok; j++) for (let i = -sw - 1; i <= sw + 1 && ok; i++) { const inB = j < 0 && j >= -S.deep && Math.abs(i) <= sw && !(sw > 1 && j === -S.deep && Math.abs(i) === sw), k = (y + j) * W + x + i;
+            if (inB) { if (clearAt(x + i, y + j)) block.add(k); else if (at(x + i, y + j) === 0 && !chasmUnder.has(k)) rock.add(k); else ok = false; } else if (j >= 0 && Math.abs(i) <= 1 && !clearAt(x + i, y + j)) ok = false; }
+          if (!ok || reach(block) !== n0 - block.size) continue;
+          for (const k of block) cells[k] = 0; stub.push(...block, ...rock);
+          for (let j = -S.deep - 1; j <= 3; j++) for (let i = -sw - 1; i <= sw + 1; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: (y - 1) * TILE + TILE / 2, tx: x, ty: y - 1 }; } }
+      // (no room for a stub, or not a plateau: free-standing steps on three by three clear cells, as before 511; a plateau's start
+      // ringed by lava with no room for a stub is laid again while the layout may still be)
+      if (!up && plat && strict) return null;
       if (!up) { const cand = []; for (let y = start.y - 6; y < start.y + start.h + 6; y++) for (let x = start.x - 6; x < start.x + start.w + 6; x++) cand.push([x, y, (inS(x, y) ? 0 : 20) + (y - start.cy < 0 ? 0 : 4) + Math.hypot(x - start.cx, y - start.cy + 2.5)]);
         cand.sort((a, b) => a[2] - b[2]); for (const half of [1, 0]) for (const [x, y] of cand) { if (up) break; let ok = true; for (let j = -half; j <= half && ok; j++) for (let i = -half; i <= half && ok; i++) if (!clearAt(x + i, y + j)) ok = false;
           if (ok) { for (let j = -2; j <= 3; j++) for (let i = -2; i <= 2; i++) used.add(key(x + i, y + j)); up = { x: x * TILE + TILE / 2, y: y * TILE + TILE / 2, tx: x, ty: y, free: 1 }; } } } }
@@ -1088,7 +1104,7 @@
     // a stream of its own: which chests are trapped must not move anything else on the floor (TASKS 1357)
     if (runFloor >= D.CHEST_TRAP.from) { const Tc = mul32(seed ^ 0x1357), T = D.CHEST_TRAP; let n = 0; for (const c of chests) { const v = Tc(); if (n < T.max && !c.boss && !c.lair && c.key === undefined && v < T.p) { c.trap = 1; n++; } } }
     if (runFloor >= D.MIMIC.from) { const Mc = mul32(seed ^ 0x367), st = rooms.find((r) => r.type === 'start'), inSt = (c) => st && c.x >= st.x * TILE && c.x < (st.x + st.w) * TILE && c.y >= st.y * TILE && c.y < (st.y + st.h) * TILE; for (const c of chests) { const v = Mc(); if (v < D.MIMIC.p && !c.boss && !c.lair && !c.trap && !c.hall && c.sec === undefined && c.key === undefined && !inSt(c)) { c.mimic = 1; break; } } }
-    const map = { seed, floor: runFloor, biome, mod: ST.mod, arch: arch || 'rooms', cliff, ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
+    const map = { seed, floor: runFloor, biome, mod: ST.mod, arch: arch || 'rooms', cliff, ...(stub.length ? { stub } : {}), ridges: plat ? lines.map((q) => Math.round(ridgeLen(q))) : undefined, W, H, cells, rooms, block, decals, edges: edges.map((e) => [e[0], e[1]]), start: start.id, exitRoom: exitR.id, exit, spawn, sanct,
       ftype, ftype2, shareOf, ...(riverGuard ? { riverGuard: [...riverGuard], riverFire: [...riverFire] } : {}), ...(thin.length ? { thin } : {}), ...(circles.length ? { circles } : {}), ...(stepHold.size ? { steps: [...stepHold] } : {}), ...(riverWay ? { riverWay, riverBand: riverB.map(([a, b]) => [Math.round(a * 10) / 10, Math.round(b * 10) / 10]) } : {}), ...(lakeWay ? { lakeWay, lakeAt: figAt.map((v) => Math.round(v * 10) / 10) } : {}), bossType, walk, down, up, pits, ledges, lay: LY ? ST.lay || 'rooms' : undefined, way: wayStone, wander: wander ? 1 : 0, enemies, chests, pots, traps, torches, decor, shrines, rugs, shop, secrets, secretsWanted, ...(plat ? { hazards } : {}), lava: lava.length, lavaFlow: flow, crust, lavaUnder, chasmUnder: [...chasmUnder], lavaFeatures, lavaBodies, streams, water, waterFlow, waterFeatures, waterBridges, deep: cells.filter((c) => c === 6).length, crossings, doors, locks, webs, ambush, drips, flora, serpentPools, floodCells };
     // (a magma floor keeps two thirds of its rewards and more off the way and a reward at the end of every dead end off it, TASKS 433;
     // the rare floor that misses is laid again)

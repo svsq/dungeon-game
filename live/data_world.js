@@ -93,6 +93,9 @@
       types: ['plain', 'lake', 'river', 'chasm', 'terrace', 'cave'], first: 'cave',
       // guard (TASKS 1727): a lava cave's only spike plates, `n` at most, each on the way in to a reward `far` cells off it
       guard: { n: 2, far: [3, 8] },
+      // stub (TASKS 1728): the wall raised behind the stairs up on a floor with no top wall near the start, `w` cells either side of
+      // them and `deep` rows of rock, within `far` cells of the start room
+      stub: { w: [2, 1], deep: 4, far: 10 },
       // a floor's title by its type (TASKS 471), so the player knows which question the floor asks; the boss's floor keeps its run's
       names: { plain: TXT('ARCH.plateau.names.plain'), lake: TXT('ARCH.plateau.names.lake'), river: TXT('ARCH.plateau.names.river'), chasm: TXT('ARCH.plateau.names.chasm'), terrace: TXT('ARCH.plateau.names.terrace'), cave: TXT('ARCH.plateau.names.cave') },
       // mix (TASKS 426): a floor of one of the figure types `over` takes the type `with` too, with the chance p, never on two floors running; riverBridges: the bridges over the chasm a river floor keeps at the least (its plateaus lie in two strips, the river on one side of each, so fewer face each other over the dark); gap: the plateaus' spacing then (the chasm's own left the ledges no room); pathKeep: the share of the figure's walk to the stairs kept (the bridges cut it)

@@ -6,7 +6,8 @@ decals are Codex art since 421.
   obsidian_mg     crystal_cv re-shaded into black volcanic glass with violet-grey glints
   banner_mg       the cult banner hung from a crossbar between two iron posts (it stands on the plateau, no wall to hang on)
   forge_mg        forge_tw's slate, brick and iron re-shaded into basalt, the fire (hot warm pixels) kept as drawn
-  stairs_mg, stairs_up_mg, stairs_up_free_mg  stairs, stairs_up and stairs_up_free re-shaded into basalt, the treads keeping their light and dark steps
+  stairs_mg, stairs_up_mg, stairs_up_free_mg  stairs, stairs_up and stairs_up_free re-shaded into basalt, the treads keeping their light and dark steps;
+                  stairs_up_mg only its opening, cut in the wall (TASKS 1728)
   python3 tools/magmaprops.py [--only name1,name2]
 """
 import sys
@@ -75,6 +76,32 @@ def darken_jamb(im, rects=UP_JAMB):
     for hi, lo in ((BAS[3], BAS[2]), (BAS[2], BAS[1])):
         a[m & (a[..., :3] == hi).all(-1), :3] = lo
     return Image.fromarray(a)
+
+
+# the opening of stairs_up (its arch's inner circle and jambs, on the source's canvas) and one art pixel of it
+HEWN_ARCH = (507, 416, 240)
+HEWN_PX = 16
+
+
+def hewn(im):
+    """the steps up as a hole cut in the magma wall (TASKS 1728): only the opening is drawn, the wall the map paints around it shows,
+    so the masonry no longer stands out from the basalt by colour and texture; the treads warm and dim towards the floor's tone, a
+    dark rim edges the cut, and a ragged lip of lit stone over its arch keeps it read against the dark rock above"""
+    a = np.asarray(im.convert('RGBA')).astype(float); H, W = a.shape[:2]
+    cx, cy, r = HEWN_ARCH
+    yy, xx = np.mgrid[0:H, 0:W]
+
+    def inside(rr):
+        return np.where(yy < cy, (xx - cx) ** 2 + (yy - cy) ** 2 <= rr ** 2, np.abs(xx - cx) <= rr)
+    drawn = yy <= np.nonzero((a[..., 3] >= 128).any(1))[0].max()
+    hole, rim, lip = inside(r) & drawn, inside(r + HEWN_PX) & drawn, inside(r + 3 * HEWN_PX) & drawn
+    out = np.zeros_like(a)
+    out[hole, :3] = a[hole, :3] * np.array([0.8, 0.576, 0.496]); out[hole, 3] = 255
+    out[rim & ~hole] = INK + (255,)
+    band = lip & ~rim & (yy < cy + 40)
+    n = np.random.default_rng(7).random((H // HEWN_PX + 1, W // HEWN_PX + 1))[yy // HEWN_PX, xx // HEWN_PX]
+    out[band, :3] = (np.array([52, 38, 34]) * (0.8 + 0.4 * n[..., None]))[band]; out[band, 3] = 255
+    return Image.fromarray(out.clip(0, 255).astype(np.uint8))
 
 
 def defern(im, src):
@@ -171,7 +198,7 @@ if __name__ == '__main__':
         'banner_mg': banner(),
         'forge_mg': forge('art/gen/forge_tw.png'),
         'stairs_mg': reshade('art/gen/stairs.png', STAIR_RAMP, STAIR_CUTS),
-        'stairs_up_mg': darken_jamb(reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS)),
+        'stairs_up_mg': hewn(reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS)),
         'stairs_up_free_mg': darken_jamb(reshade('art/gen/stairs_up_free.png', STAIR_RAMP, STAIR_CUTS), UP_FREE_JAMB),
     }
     only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else list(out)
