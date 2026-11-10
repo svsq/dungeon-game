@@ -5,7 +5,7 @@
   const HUD = (window.HUD = {}), L = LIB, D = DATA, W = SIM.VIEW.W, H = SIM.VIEW.H, TILE = D.TILE;
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
-  const MAP = { key: '', rec: null, cv: null, k: 3 };
+  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map();
   HUD.init = () => {};
   // a line of text broken into lines of at most `width` px
   const wrapLab = (id, s0, x, y, width, size, col) => { const lines = []; let line = '';
@@ -194,6 +194,7 @@
       const quiet = !e.elite && R.en.some((o) => o.elite && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < 160);
       capsule(b.x + b.w / 2, b.y + 3, w, e.hp / e.max, e.elite, quiet);
     }
+    let busy = null; if (HURT.m !== m) { HURT.clear(); HURT.m = m; } for (const [key, p] of HURT) if (!(GT - p.t >= 0 && GT - p.t < 1)) HURT.delete(key);
     // the "!" when a monster notices the hero
     for (const [i, ev] of S.ev.entries()) { const a = GT - ev.t; if (a < 0 || !seen(ev.x, ev.y) || V.sx(ev.x) < -50 || V.sx(ev.x) > W + 50 || V.sy(ev.y) < -50 || V.sy(ev.y) > H + 150) continue;
       if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) float('al' + i, '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
@@ -204,13 +205,22 @@
         if (ev.crit && !ev.arm) float('cr' + i, TXT('hud.crit'), V.sx(hx), V.sy(hy) - 40 * q - 58, { size: Math.round(36 * (1 + 0.2 * L.SS(0, 0.08, a) - 0.2 * L.SS(0.08, 0.2, a))), col: '#ff5a38', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
       // a burn's ticks show as one number running up (TASKS 463): only its latest tick is drawn, with the burn's sum so far
       if (ev.k === 'hurt' && a < 0.8 && !(ev.chain !== undefined && S.ev.some((o, j) => j > i && o.k === 'hurt' && o.chain === ev.chain))) {
-        const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), tw = lw('hu' + i, s, { size: 30 }), side = ev.side || h.hurtX || -1, off = (q) => 30 * k + tw / 2 + 12 + 14 * q;
-        // the number's whole flight is kept clear of names and bodies at its birth: tested frame by frame, it rose into an elite's
-        // name at ×0,5 and leapt 125 px up mid-flight (TASKS 1776); out to the side it stays level with the hero
-        const bw = tw + 8, bh = 30 * 1.24 + 8, x0 = V.sx(ev.x), y0 = V.sy(ev.y), lo = Math.min(x0 + side * off(0), x0 + side * off(1)) - bw / 2;
-        let dx = 0; for (; dx < 240; dx += 12) { const b = { x: lo + side * dx, y: y0 - 24 - bh / 2, w: 14 + bw, h: 24 + bh }; if (!occupied.concat(nameZones, actorZones.slice(1)).some((o) => overlaps(b, o))) break; }
-        if (dx >= 240) dx = 0;
-        float('hu' + i, s, x0 + side * (off(a / 0.8) + dx), y0 - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
+        const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), tw = lw('hu' + i, s, { size: 30 }), off = (q) => 30 * k + tw / 2 + 12 + 14 * q;
+        // the number's whole flight is kept clear of names and bodies, chosen once at its birth: tested frame by frame, it rose into an
+        // elite's name at ×0,5 and leapt 125 px up mid-flight (TASKS 1776), and re-chosen every frame it leapt 72 px sideways when a
+        // name came or went (PR 56 review); out to the side it stays level with the hero, and the other side is tried before the screen's edge
+        const bw = tw + 8, bh = 30 * 1.24 + 8, x0 = V.sx(ev.x), y0 = V.sy(ev.y), key = ev.chain !== undefined ? 'c' + ev.chain : ev;
+        const box = (sd, dx, X = x0, Y = y0) => ({ x: Math.min(X + sd * off(0), X + sd * off(1)) - bw / 2 + sd * dx, y: Y - 24 - bh / 2, w: 14 + bw, h: 24 + bh });
+        let p = HURT.get(key);
+        if (!p) { const s0 = ev.side || h.hurtX || -1, taken = [...HURT.values()].filter((q) => GT - q.t < 0.8).map((q) => box(q.side, q.dx, V.sx(q.x), V.sy(q.y)));
+          busy = busy || nameZones.concat(actorZones.slice(1)); const all = occupied.concat(busy, taken), cost = (b) => all.filter((o) => overlaps(b, o)).length;
+          let best = null;
+          for (const sd of [s0, -s0]) for (let dx = 0; dx < 240 && !(best && !best.c); dx += 12) { const b = box(sd, dx), out = b.x < 4 || b.x + b.w > W - 4;
+            if (out) b.x = Math.max(4, Math.min(W - 4 - b.w, b.x));
+            const c = cost(b); if (!best || c < best.c) best = { side: sd, dx, c }; if (out) break; }
+          HURT.set(key, p = { side: best.side, dx: best.dx, x: ev.x, y: ev.y }); }
+        p.t = ev.t; p.x = ev.x; p.y = ev.y;
+        float('hu' + i, s, Math.max(tw / 2 + 4, Math.min(W - tw / 2 - 4, x0 + p.side * (off(a / 0.8) + p.dx))), y0 - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 20;   // up off the head, then into the counter
         lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (HB.y + HB.h + 27 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }

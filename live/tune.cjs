@@ -10,12 +10,17 @@ const SIM = require('./sim.js');
 // once (TUNE_WORKERS), as more stalled the machine. --serial (or TUNE_SERIAL=1) runs them here one after another, as before
 const SLOW = ['altarCheck', 'cacheGenCheck', 'floorTypeCheck', 'hazardCheck', 'genCheck', 'climbCheck', 'floorModCheck', 'chestCheck', 'secretRestCheck', 'playCheck', 'branchCheck'];
 const serial = process.argv.includes('--serial') || !!process.env.TUNE_SERIAL || !SIM.selfChecks;
+const live = new Set(); let down = false;
+const stop = (e, self) => { if (down) return; down = true; for (const w of live) w.terminate(); console.error(e); console.log('FAIL', (e && e.message) || String(e)); if (self) console.log('selfCheck 1 failure(s)'); process.exitCode = 1; };
+// no process.exit: on a slow pipe it cut the FAIL line off unwritten
+process.on('uncaughtException', (e) => stop(e));
 const parts = serial ? null : new Promise((done, fail) => { const names = SIM.selfChecks, res = [], rank = (n) => (SLOW.indexOf(n) + 1 || 99);
   const queue = names.map((_, i) => i).sort((a, b) => rank(names[a]) - rank(names[b])); let left = names.length;
-  const go = () => { const i = queue.shift(); if (i === undefined) return;
-    new Worker(__filename, { workerData: [names[i]] }).once('message', (m) => { res[i] = m; }).once('error', fail)
-      .once('exit', (c) => { if (c || !res[i]) fail(new Error(`selfCheck ${names[i]}: its worker exited with ${c}`)); else if (!--left) done(res.flat()); else go(); }); };
+  const go = () => { const i = queue.shift(); if (i === undefined || down) return; const w = new Worker(__filename, { workerData: [names[i]] }); live.add(w);
+    w.once('message', (m) => { res[i] = m; }).once('error', fail)
+      .once('exit', (c) => { live.delete(w); if (c || !res[i]) fail(new Error(`selfCheck ${names[i]}: its worker exited with ${c}`)); else if (!--left) done(res.flat()); else go(); }); };
   for (let k = +process.env.TUNE_WORKERS || Math.min(10, require('os').availableParallelism()); k > 0; k--) go(); });
+if (parts) parts.catch((e) => stop(e, true));
 const S = SIM.create(); const path = []; const n0 = (v) => (typeof v === 'number' ? v.toFixed(0) : '-');
 while (S.t < SIM.L - 1e-6) { SIM.step(S, SIM.scriptInput(S.t, S)); if (S.steps % 6 === 0) path.push([S.t.toFixed(2), n0(S.x), n0(S.y), S.ground || '']); }
 for (const e of (S.ev || []).filter((e) => e.k !== 'step' && e.k !== 'rustle')) console.log(e.k.padEnd(8), e.t.toFixed(2), n0(e.x), n0(e.y), e.v ? e.v.toFixed(0) : '');
@@ -46,7 +51,7 @@ for (const f of fs.readdirSync(dir).filter((f) => f.endsWith('_w.png'))) {
 // and the layers' borders (TASKS 504): tools/layercheck.cjs
 for (const t of ['textcheck.cjs', 'layercheck.cjs']) try { require('child_process').execFileSync('node', [pth.join(__dirname, '..', 'tools', t)], { stdio: 'pipe' }); }
 catch (e) { more.push(t + ': ' + String(e.stdout).trim().split('\n').slice(-4).join(' | ')); }
-Promise.resolve(parts || SIM.selfCheck()).then((got) => { const self = got.concat(more);
+(parts || Promise.resolve().then(() => (SIM.selfCheck ? SIM.selfCheck() : [])).catch((e) => stop(e, true))).then((got) => { const self = got.concat(more);
   for (const f of self) console.log('FAIL', f);
   if (SIM.selfCheck) console.log(`selfCheck ${self.length ? self.length + ' failure(s)' : 'ok'}`);
-  process.exitCode = ok && !self.length ? 0 : 1; });
+  process.exitCode = ok && !self.length && !down ? 0 : 1; }).catch((e) => stop(e));

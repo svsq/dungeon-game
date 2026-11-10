@@ -1795,5 +1795,5 @@
     out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter', 'mason', 'hen', 'cart'].map((r) => 'folk_' + r));
     calm(out); return out;
   };
-  SC.QA = () => { SIM.genKeep(Infinity); try { return build(); } finally { SIM.genKeep(8); } };
+  SC.QA = () => SIM.genApart(build);
 })();
