@@ -814,7 +814,6 @@
     'hud.inv.6': '{xp} / {p2} опыта',
     'hud.inv.7': 'Очки характеристик: {pts}',
     'hud.inv.8': 'Характеристики',
-    'hud.inv.9': 'Снаряжение',
     'hud.inv.derived': 'Атака',
     'hud.inv.derived.2': 'Защита',
     'hud.inv.derived.3': 'Здоровье',
