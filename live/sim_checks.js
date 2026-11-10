@@ -2810,10 +2810,21 @@
       for (const f of folkOf(R)) if (f.role !== 'child') f.x += 2000; talkTo(R, 'child'); const k1 = S.talk && S.talk.pages.slice(); read(); talkTo(R, 'child'); const k2 = S.talk && S.talk.pages.slice(); read(); for (const f of folkOf(R)) if (f.role !== 'child') f.x -= 2000;
       if (!k1 || k1.slice(0, D.FOLK.child.won.length).join() !== D.FOLK.child.won.join() || !k2 || k2.includes(D.FOLK.child.won[0])) out.push('talk: past the colossus Kip does not have his words once');
       R = run(36); const pz = () => UI.pause(S.meta.zoom, campaignDone(R)).map((b) => b.id);
+      // TASKS 1843: «Сдаться» asks first, «Нет» in focus; Enter and Escape keep the run, ←→ then Enter gives it up
+      { const ab = UI.pause(S.meta.zoom, false).find((b) => b.id === 'abandon'), hit = () => step(S, { keys: [], click: 1, px: ab.x + ab.w / 2, py: ab.y + ab.h / 2 }); S.screen = 'pause'; hit();
+        if (S.screen !== 'pause' || !S.pauseAsk || S.focus !== 'no' || S.run !== R) out.push('pause: «Сдаться» gives the run up on one click, or asks with «Да» first');
+        step(S, { keys: ['Escape'] }); if (S.screen !== 'pause' || S.pauseAsk || S.run !== R) out.push('pause: Escape on the question gives up or leaves the pause');
+        hit(); step(S, { keys: ['Enter'] }); if (S.pauseAsk || S.run !== R) out.push('pause: Enter on the question gives the run up with «Нет» in focus');
+        hit(); step(S, { keys: ['ArrowLeft'] }); step(S, { keys: ['Enter'] }); if (S.screen !== 'dead' || S.run || !S.result.abandoned) out.push('pause: «Да» on the question does not give the run up');
+        R = run(36); }
       if (!pz().includes('abandon') || pz().includes('finish')) out.push('pause: «Завершить поход» before the colossus falls');
       R.slain = [F]; R.deepest = F; const w2 = S.meta.wins || 0, fb = UI.pause(S.meta.zoom, true).find((b) => b.id === 'finish');
       if (!fb || pz().includes('abandon')) out.push('pause: past the colossus the menu still gives up the run');
-      else { S.screen = 'pause'; step(S, { keys: [], click: 1, px: fb.x + fb.w / 2, py: fb.y + fb.h / 2 }); if (S.screen !== 'win' || S.run || S.meta.wins !== w2 + 1 || S.result.abandoned) out.push('pause: «Завершить поход» does not end the run won'); }
+      else { const yb = UI.pauseAsk(true).r.find((b) => b.id === 'yes'); S.screen = 'pause'; step(S, { keys: [], click: 1, px: fb.x + fb.w / 2, py: fb.y + fb.h / 2 });
+        if (S.screen !== 'pause' || !S.pauseAsk || S.focus !== 'no' || !S.run) out.push('pause: «Завершить поход» ends the run without asking, or asks with «Да» first');
+        step(S, { keys: ['Enter'] }); if (S.screen !== 'pause' || S.pauseAsk || !S.run) out.push('pause: Enter on the finish question ends the run or keeps asking');
+        step(S, { keys: [], click: 1, px: fb.x + fb.w / 2, py: fb.y + fb.h / 2 }); step(S, { keys: [], click: 1, px: yb.x + yb.w / 2, py: yb.y + yb.h / 2 });
+        if (S.screen !== 'win' || S.run || S.meta.wins !== w2 + 1 || S.result.abandoned) out.push('pause: «Завершить поход» does not end the run won'); }
       R = run(37); }
     out.push(...masterTalkCheck(S, R));
     return out;

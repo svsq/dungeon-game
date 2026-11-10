@@ -210,13 +210,23 @@
     const dq = S.drag && D.SETTINGS.find((o) => o.id === S.drag), r = dq && U.r.find((o) => o.id === S.drag);
     if (dq && setTo(S, dq, Math.round((x - r.x) / r.w * (dq.stops.length - 1)))) ev(S, { k: 'ui', x, y });
   };
+  // a yes-or-no question (TASKS 1843, 1844): «Нет» is the focus it opens with, ←→ move it, Enter answers it, Escape says no
+  const askAnswer = (S, U, keys, x, y, click) => { const b = D.hitUI(U.r, x, y), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0); S.hover = b ? b.id : '';
+    if (st) { S.focus = S.focus === U.r[0].id ? U.r[1].id : U.r[0].id; ev(S, { k: 'ui', x, y }); }
+    if ((click && b && b.id === U.r[0].id) || (keys.Enter && S.focus === U.r[0].id)) return 1;
+    if (keys.Escape || (click && b && b.id === U.r[1].id) || keys.Enter) return -1;
+    return 0; };
   SCREEN.pause = (S, inp, keys, x, y, click) => {
-    const b = D.hitUI(UI.pause(S.meta.zoom, !!S.run && campaignDone(S.run)), x, y); S.hover = b ? b.id : '';
+    const done = !!S.run && campaignDone(S.run);
+    if (S.pauseAsk) { const a = askAnswer(S, UI.pauseAsk(done), keys, x, y, click);
+      if (a < 0) { S.pauseAsk = 0; S.focus = ''; S.hover = ''; ev(S, { k: 'ui', x, y }); }
+      else if (a > 0) { S.pauseAsk = 0; S.focus = ''; if (done) finishRun(S); else { if (S.run.log) S.run.log.abandon = 1; endRun(S, 'dead'); } }
+      return; }
+    const b = D.hitUI(UI.pause(S.meta.zoom, done), x, y); S.hover = b ? b.id : '';
     if (click && b && b.id === 'settings') { openSettings(S, 'pause'); ev(S, { k: 'ui', x, y }); return; }
     if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
     if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; return; }
-    if (click && b && b.id === 'finish') { finishRun(S); return; }
-    if (click && b && b.id === 'abandon') { if (S.run.log) S.run.log.abandon = 1; endRun(S, 'dead'); return; }
+    if (click && b && (b.id === 'finish' || b.id === 'abandon')) { S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     return;
   };
   SCREEN.dead = (S, inp, keys, x, y, click) => {

@@ -899,6 +899,8 @@
   }
   // these windows have no keyboard focus of their own: a focus left over from another screen must not frame their buttons
   const stN = (S, id, on = true) => Object.assign(KIT.st(S, id, on), { focus: false });
+  // a question's two buttons, both parchment (TASKS 1844): the one under the pointer lights, else the focused one, never both
+  const askSt = (S, U, id) => { const at = U.r.some((b) => b.id === S.hover) ? S.hover : S.focus; return Object.assign(KIT.st(S, id), { hover: at === id, focus: false }); };
   const HOT = [1.04, 1.1, 0, 1.04], POOR = [0.55, 0.86, 0, 0.96], SOUL = '#24407a';
   // a manuscript page: the leather frame with the parchment inside, its writing area registered for qa.mjs
   const page = (id, x, y, w, h, pad = 4) => { KIT.nine('leather', x, y, w, h); KIT.paper(x + 22, y + 22, w - 44, h - 44); L.uiBox(id, x + 22, y + 22, w - 44, h - 44, pad); };
@@ -908,7 +910,17 @@
   function pause(S) {
     dim(0.55); KIT.panel('p_sheet', 660, 240, 600, 580, 'torn'); KIT.knob(W / 2, 262, 1.2);
     KIT.heading('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 60, wing: 80 });
-    for (const b of D.UI.pause(S.meta.zoom, !!S.run && SIM.Q.campaignDone(S.run))) KIT.button('pb_' + b.id, b, stN(S, b.id), b.id === 'resume' ? 'wax' : 'parch');
+    const done = !!S.run && SIM.Q.campaignDone(S.run), Q = S.pauseAsk ? {} : S;
+    for (const b of D.UI.pause(S.meta.zoom, done)) KIT.button('pb_' + b.id, b, stN(Q, b.id), b.id === 'resume' ? 'wax' : 'parch');
+    KIT.rule(780, 692, 360, 0.7);
+    if (!S.pauseAsk) return;
+    const U = D.UI.pauseAsk(done), A = U.A; dim(0.35); KIT.panel('pa_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
+    KIT.ink('pa_ask_q', done ? TXT('hud.pause.askDone') : TXT('hud.pause.ask'), A.x + A.w / 2, A.y + 80, { size: 32, al: 0.5, col: KIT.INK.r });
+    const s = done ? TXT('hud.pause.askDone.who') : TXT('hud.pause.ask.who');
+    halves(s).forEach((v, i) => KIT.ink('pa_ask_w' + i, v, A.x + A.w / 2, A.y + 124 + i * 30, { size: L.sizeToFit(v, A.w - 80, 22), al: 0.5, col: KIT.INK.d }));
+    for (const b of U.r) KIT.button('pa_' + b.id, b, askSt(S, U, b.id));
+    const keys = TXT('hud.pause.keys.ask'), ky = H - 22, kw = lw('pa_keys_w', keys, { size: 20 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 16, kw + 24, 32, 0);
+    KIT.light('pa_keys', keys, W / 2, ky, { size: 20, al: 0.5, col: '#cdb894' });
   }
   function fork(S, R, t) { const P = D.forkPending(R.hero); if (!P) return; const Ab = D.clsOf(R.hero).abs.find((a) => a.id === P.ab), I = KIT.INK;
     dim(0.7); KIT.panel('fk_p', 400, 170, 1120, 510, 'leather');
