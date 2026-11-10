@@ -27,6 +27,7 @@
       step(T, { keys: ['Escape'] }); if (T.screen !== 'menu') out.push('settings: Escape does not go back to the menu'); }
     { const T = spawn(0, { meta: { up: {} } }), at = (rs, id) => { const b = rs.find((q) => q.id === id); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; };
       if (UI.menu(false).some((q) => q.id === 'diff')) out.push('start: the menu still has its difficulty item');
+      if (!D.UI.newsFrame((D.CHANGES[0] || {}).main) !== !((D.CHANGES[0] || {}).main || []).length || D.UI.newsFrame([])) out.push('news: the menu\'s frame is shown without lines or hidden with them');
       step(T, at(UI.menu(false), 'campaign')); if (T.screen !== 'classes') out.push('start: «Старт» does not open the difficulty and class screen');
       step(T, { keys: ['ArrowUp'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.diff !== 'hard') out.push('start: ↑ then → do not pick the hard difficulty');
       step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.cls !== D.classesReady()[1]) out.push('start: ↓ then → do not pick the next class');

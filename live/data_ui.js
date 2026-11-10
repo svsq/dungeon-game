@@ -22,6 +22,7 @@
       for (const g of e.groups) { rows.push({ k: 'group', s: g.name, h: NEWS.h.group });
         for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
     newsMemo = { src: D.CHANGES, rows }; return rows; };
+  const NEWS_LINK = { x: 1736, y: 1032, w: 164, h: 36 }, NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42 };
   // the sort buttons over a grid: by type, rarity, level, right-aligned to `right`
   const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
   const sortRow = (pre, right, y, h = 40) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x: right - 150 * (3 - i) - 8 * (2 - i), y, w: 150, h }));
@@ -34,9 +35,15 @@
   const UI = {
     // arm: the run whose button was pressed once over a saved run (a second press drops the save)
     menu: (hasRun, diff, arm, zoom) => [['continue', TXT('UI.menu'), hasRun], ['campaign', !hasRun ? TXT('UI.menu.2', campaignLen()) : arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4'), true],
-      ['tests', TXT('UI.menu.5'), true], ['settings', TXT('UI.menu.settings'), true], ['news', TXT('UI.menu.9'), true]]
+      ['tests', TXT('UI.menu.5'), true], ['settings', TXT('UI.menu.settings'), true]]
       .filter(([id]) => id !== 'continue' || hasRun)
-      .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 })),
+      .map(([id, label, on], i) => ({ id, label, on, x: 720, y: 440 + i * 78, w: 480, h: 66 }))
+      .concat([Object.assign({ id: 'news', label: TXT('UI.menu.9'), on: true, link: true }, NEWS_LINK)]),
+    // the version's main lines in a parchment frame on the menu's right (TASKS 1305), wrapped to the frame and standing on its
+    // bottom edge, so a longer list grows up into the empty corner; no lines, no frame
+    newsFrame: (main) => { if (!main || !main.length) return null; const F = NEWS_FRAME, rows = []; let y = F.top;
+      main.forEach((s, i) => { if (i) y += F.gap; wrapLine(s, F.wrap).forEach((q, j) => { rows.push({ s: q, first: !j, y }); y += F.line; }); });
+      const h = y + F.bottom, y0 = F.bottom0 - h; return { P: { x: F.x, y: y0, w: F.w, h }, rows: rows.map((r) => Object.assign(r, { y: y0 + r.y })) }; },
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
     // the start screen (TASKS 1103, 1304): the difficulty's tabs over the class cards, a card a ready class, side by side, the start

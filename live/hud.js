@@ -669,11 +669,20 @@
 
   // ---------------- menus ----------------
   // the main menu's backdrop: embers along the bottom, the hero and a brute facing each other across the buttons
-  function menuBack(t) {
+  // the news frame takes the brute's place on the right
+  function menuBack(t, alone) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.8, 260, [1, 0.45, 0.15], 0.12 + 0.05 * Math.sin(t * 2 + i), 2); G.blend(); }
     const [hw, hh] = SZ('hero'); L.sprite('hero', W / 2 - 520 - hw * 1.6, 340, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', W / 2 - 520 - hw * 1.6, 340, hw * 3.2, hh * 3.2);
+    if (alone) return;
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
+  }
+  // the version's main lines (TASKS 1305), look B: a loose parchment sheet pinned with a brass nail, a red diamond a line
+  function newsFrame(F, v) {
+    const P = F.P; KIT.panel('nf_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 20, 1.2);
+    KIT.heading('nf_t', TXT('hud.news.main', { v }), P.x + P.w / 2, P.y + 72, { size: 34, wing: 60 });
+    F.rows.forEach((r, i) => { if (r.first) { if (i) KIT.rule(P.x + 60, r.y - 20, P.w - 120, 0.45); L.solid(P.x + 58, r.y - 5, 10, 10, [0.49, 0.12, 0.07], 0.7854, 5, 5); }
+      KIT.ink('nf_r' + i, r.s, P.x + 82, r.y, { size: 20 }); });
   }
   const savedLine = (S) => TXT('hud.savedLine', { p1: S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ', p2: S.saved.floor ? TXT('hud.savedLine.2', { floor: S.saved.floor }) : TXT('hud.savedLine.3'), lvl: S.saved.hero.lvl });
   // the test runs (TASKS 417): a press over a saved run asks again, as on the main menu, so the save is named here too
@@ -738,15 +747,19 @@
     KIT.light('st_keys', TXT('hud.settings.keys'), W / 2, ky, { size: 22, al: 0.5, col: '#cdb894' });
   }
   function menu(S, t) {
-    menuBack(t);
+    const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main);
+    menuBack(t, !!F); if (F) newsFrame(F, D.CHANGES[0].v);
     lab('m_t', TXT('hud.menu'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, 300, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 352, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) button('mb_' + b.id, b, S.hover);
+    for (const b of D.UI.menu(!!S.saved, S.meta.diff, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, S.meta.zoom)) { if (!b.link) { button('mb_' + b.id, b, S.hover); continue; }
+      const hv = S.hover === b.id, lw0 = lw('mb_lw', b.label, { size: 20 }), x1 = b.x + b.w - 4;
+      lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
+      L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     if (S.saved) lab('m_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
     const info = TXT('hud.menu.info', { shards: S.meta.shards, p2: S.meta.runs || 0, p3: S.meta.wins || 0, p4: S.meta.best || 0, p5: S.meta.bestEndless ? TXT('hud.menu.info.2', { bestEndless: S.meta.bestEndless }) : '' });
     lab('m_i', info, W / 2, H - 70, { size: 24, al: 0.5, col: C.dim });
-    lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 22, { size: 18, al: 1, col: '#6d6258' });
+    lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
   }
   // «Что нового» (TASKS 1038): the changelog's rows from the sim's scroll, a version with its date, its sections, the points
   function news(S, t) {

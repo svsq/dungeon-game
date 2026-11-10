@@ -15,6 +15,9 @@
       ['menu_armed', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.saved.floor = 12; S.saved.hero.lvl = 17; S.resetT = S.t; S.resetM = 'campaign'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
+      // the news frame on the menu (TASKS 1305): the longest it may get (five lines of 80 characters), none at all, the link hovered
+      ['menu_news_full', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.qaNewsMain = Array.from({ length: 5 }, (_, i) => TXT('QA.states.newsMain').slice(0, 80 - i)); })],
+      ['menu_news_empty', mk((S) => { S.saved = null; S.qaNewsMain = []; S.hover = 'news'; })],
       ['news', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = 0; })],
       ['news_end', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = DATA.UI.news(0).max; S.hover = 'back'; })],
       ['tests_cave_armed', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'cave'; })],
