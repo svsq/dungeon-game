@@ -1450,7 +1450,11 @@
           { const [R3, m3, q3, e3] = old(), keep = m3.block.slice(); for (let k = -3; k <= 3; k++) if (k) m3.block.push(k0 + k); SIMX.migrateSecrets(R3); m3.block = keep; SIMX.migrateSecrets(R3);
             if (q3.slide || e3.x !== q3.x || e3.solid) out.push('secret check shelf: an old bookcase kept on its hinge jumps along the wall on a later load'); }
           { const [R3, m3, q3] = old(), W3 = m3.W, nook = k0 + q2.slide.s * q2.slide.n + W3; if (m3.cells[nook] === 1) { for (const c of [nook - 1, nook + 1, nook + W3]) m3.cells[c] = 0; SIMX.migrateSecrets(R3);
-            if (q3.slide && k0 + q3.slide.s * q3.slide.n === nook - W3) out.push('secret check shelf: an old save\'s bookcase slides onto the only way into a nook'); } } } }
+            if (q3.slide && k0 + q3.slide.s * q3.slide.n === nook - W3) out.push('secret check shelf: an old save\'s bookcase slides onto the only way into a nook'); }
+          // (PR 55 review 2) nor onto a monster or loot standing on the cell it would block
+          for (const who of ['en', 'drops']) { const [R3, m3, q3] = old(), kf = k0 + q2.slide.s * q2.slide.n, x = (kf % m3.W + 0.5) * TILE, y = (Math.floor(kf / m3.W) + 0.5) * TILE;
+            R3[who] = (R3[who] || []).concat([who === 'en' ? { id: -5, type: 'skeleton', x, y, deadT: -1 } : { id: -5, kind: 'gold', n: 1, x, y }]); SIMX.migrateSecrets(R3);
+            if (q3.slide && k0 + q3.slide.s * q3.slide.n === kf) out.push(`secret check shelf: an old save's open bookcase lands on ${who === 'en' ? 'a monster' : 'loot'}`); } } } }
       standAt(R, q); pressE(S); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
     // a statue never closes on the hero: with him on its way it stays put
     for (const kind of ['statue', 'shelf']) { const [S, q] = find((o) => o.kind === kind); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
