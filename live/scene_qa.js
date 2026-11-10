@@ -1114,7 +1114,9 @@
       salamander_breath: enemyT('salamander', 0, 'slam', 0, (e, h) => ({ x: h.x + 4 * TILE, fa: Math.PI, br: 1, brT: 0 })),
       fire_priest_attack: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kinT: 1e9 })), fire_priest_kindle: enemyT('fire_priest', 0, 'slam', 0, (e, h) => ({ x: h.x + 6 * TILE, kin: 1, kinT: 1e9 })) };
     // a door's leaf turning on its hinge (TASKS 1683), from shut to open over half a second
-    for (const dir of ['u', 'l', 'r']) { const S0 = doorS(dir, 1, 0); if (!S0) continue; for (const d of S0.run.map.doors) if (d.open && !d.arena && d.dir === dir && d.kick) { d.kick = 0; d.openT = S0.t - 0.01; } transitions['door_' + dir + '_turn'] = Array.from({ length: 16 }, (_, k) => { const S = structuredClone(S0); S.t += k / 30; S.run.t = S.t; return S; }); }
+    const doorSubj = {};
+    for (const dir of ['u', 'l', 'r']) { const S0 = doorS(dir, 1, 0); if (!S0) continue; for (const d of S0.run.map.doors) if (d.open && !d.arena && d.dir === dir && d.kick) { d.kick = 0; d.openT = S0.t - 0.01; } transitions['door_' + dir + '_turn'] = Array.from({ length: 40 }, (_, k) => { const S = structuredClone(S0); S.t += k / 60; S.run.t = S.t; return S; });
+      doorSubj['door_' + dir + '_turn'] = 'door' + S0.run.map.doors.findIndex((d) => d.open && !d.arena && d.dir === dir && d.openT === S0.t - 0.01); }
     transitions.crab_turning = enCycles.crab_turning; delete enCycles.crab_turning;
     // deaths: a few live frames, then the kill, through the fall and the bounce (the hero mid-stride and at rest, a skeleton)
     {
@@ -1708,6 +1710,7 @@
     transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28); transitions.hero_cry = warT(0, 3);
     transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
+    Object.assign(out.subject, doorSubj);
     Object.assign(out.subject, folkSubj); Object.assign(out.cycleT, folkCycT); Object.assign(out.sprites, folkSpr);
     out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter', 'mason', 'hen', 'cart'].map((r) => 'folk_' + r));
     calm(out); return out;

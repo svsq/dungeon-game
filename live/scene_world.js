@@ -451,6 +451,8 @@
       const E = DEDGE, k = E.k, ew = ASSETS.door_edge_a.w * k, eh = ASSETS.door_edge_a.h * k;
       // (TASKS 1683) a leaf drawn in front of the hero thins where it hides him, so he never vanishes behind an open door
       const thin = (x0, x1, keyW) => { const hx = sx(h.x), ox = Math.min(hx + 16, x1) - Math.max(hx - 16, x0); return 1 - 0.55 * SS(0, 12, ox) * SS(0, 8, keyW - h.y); };
+      // (TASKS 1714) the turning leaf reports its hinge and free edge, so the rig check measures its swing for breaks like any actor's
+      const leafJ = (hx, hy, ux, uy) => { const id = 'door' + i; L.joint(id, 'ground', [hx, hy]); L.joint(id, 'top', [hx, hy - DOOR.h]); L.joint(id, 'edge', [hx + ux, hy + uy]); L.joint(id, 'edgeTop', [hx + ux, hy + uy - DOOR.h]); };
       // the lock on the leaf: a padlock, or the iron bar along its bands (face-on level, edge-on on the bands' slope)
       const locks = (cx, cy, ang, len, al) => { if (!lock && !un) return;
         if (lock && lock.kind === 'lever') { const bh = Math.max(9, len * ASSETS.door_bar.h / ASSETS.door_bar.w); L.sprite('door_bar', 0, 0, { m: [Math.cos(ang), Math.sin(ang), 0, 1, cx - Math.cos(ang) * len / 2, cy - Math.sin(ang) * len / 2 - bh / 2], w: len / Math.cos(ang), h: bh, u: { alpha: al, grade: [1.35, 0.6, 0, 1] } }); }
@@ -470,7 +472,8 @@
         // Open it is a shade darker than a shut leaf, no more (TASKS 1683: at 0.7 it read as another door's wood, not this one's in shadow)
         const ef = 1 - SS(0.03, 0.2, p), lf = SS(0.02, 0.16, p);
         if (ef > 0) edge(n, X - ew / 2 + s * ew * 0.45, topW, ef, true);   // in the door's own cells: the room's fog never dims it
-        if (lf > 0) { const fy = sy(d.y - TILE) + 4, ph = 1.05 * p, ux = s * Math.sin(ph) * DOOR.w, uy = Math.cos(ph) * DOOR.w, gl = 1 - 0.18 * p;
+        const fy = sy(d.y - TILE) + 4, ph = 1.05 * p, ux = s * Math.sin(ph) * DOOR.w, uy = Math.cos(ph) * DOOR.w; leafJ(X, fy, ux, uy);
+        if (lf > 0) { const gl = 1 - 0.18 * p;
           // in strips along its length, each sorted by its own foot: the hinge end goes behind whoever stands beside it
           for (let j = 0; j < 4; j++) { const keyW = d.y - TILE + 4 + uy * (j + 1) / 4, x0 = X + ux * j / 4, x1 = X + ux * (j + 1) / 4, src = s > 0 ? [j / 4, 0, (j + 1) / 4, 1] : [1 - (j + 1) / 4, 0, 1 - j / 4, 1];
             Y.push([keyW, () => { L.shadow(X + ux * (j + 0.5) / 4, fy + uy * (j + 0.5) / 4 + 2, DOOR.w / 7, 4, 0.5 * p);
@@ -479,7 +482,7 @@
       const foot = sy(d.y) + (d.dir === 'd' ? TILE : 0), footW = d.y + (d.dir === 'd' ? TILE : 0);
       // a top wall's leaf turns away on its left hinge, through the arch and into the corridor: narrower and higher at its free
       // edge as it goes, turned from the light, and still a door's face when open, not a sliver of its edge (TASKS 1683)
-      if (d.dir === 'u') { const th = 1.25 * p, ux = DOOR.w * Math.cos(th), uy = -DOOR.w * Math.sin(th) * 0.5;
+      if (d.dir === 'u') { const th = 1.25 * p, ux = DOOR.w * Math.cos(th), uy = -DOOR.w * Math.sin(th) * 0.5; leafJ(X - DOOR.w / 2, foot, ux, uy);
         Y.push([footW, () => { L.sprite('door_leaf', 0, 0, { m: [ux / DOOR.w, uy / DOOR.w, 0, 1, X - DOOR.w / 2, foot - DOOR.h], w: DOOR.w, h: DOOR.h, u: { grade: [1, 1 - 0.25 * Math.sin(th), 0, 1] } });
           if (p < 1) locks(X - DOOR.w * 0.04, foot - DOOR.h * 0.36, 0, DOOR.fw * 0.78, 1 - SS(0, 0.3, p)); }]); }
       else { if (p < 1) Y.push([footW, () => { L.shadow(X, foot + 1, DOOR.w / 2 + 2, 4, 0.5 * (1 - p));
