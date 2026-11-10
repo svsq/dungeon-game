@@ -1563,7 +1563,7 @@
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
-      const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge', topics: D.FOLK.smith.topics } : {}); S.screen = 'talk'; S.hover = 'act'; });
+      const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge' } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);
     states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
     states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];

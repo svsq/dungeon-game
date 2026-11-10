@@ -369,12 +369,14 @@
     if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; out.push(...K.away); }
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; a master's talk keeps a button
-  // into his workshop; past the campaign's end a townsman with words for it says them once a run
+  // into his workshop; past the campaign's end a townsman with words for it says them once a run; the topics wait for an idle talk
+  // (TASKS 1792: «Поговорить» beside a quest's offer or the Keeper's story was out of place)
   function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role), told = R.wonTold || (R.wonTold = {}); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
     if (FD.won && campaignDone(R) && !told[f.role]) { told[f.role] = 1; pages = pages.concat(FD.won); }
+    const idle = !qt && !pages.length;
     if (qt) pages = pages.concat(qt.pages);
-    else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act, topics: FD.topics }, CRAFT_AT[f.role] ? { craft: CRAFT_AT[f.role] } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+    else if (idle) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
+    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, idle && FD.topics ? { topics: FD.topics } : {}, CRAFT_AT[f.role] ? { craft: CRAFT_AT[f.role] } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // anything left in the town for the heroes to come: S.meta.stash, D.STASH.cells of it, its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)

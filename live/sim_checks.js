@@ -2820,8 +2820,12 @@
       S.screen = 'play'; S.talk = null; }
     for (const role of ['smith', 'enchanter']) { const f = folkOf(R).find((q) => q.role === role), x0 = f.x, y0 = f.y; f.x += 2600; h.x = f.x + 44; h.y = f.y + 12; S.screen = 'play'; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
       if (S.screen !== 'talk' || S.talk.role !== role) out.push(`talk: E by the ${role} away from the workshop opens no talk`); f.x = x0; f.y = y0; S.screen = 'play'; S.talk = null; }
+    // TASKS 1792: a quest's offer opens without «Поговорить», its row then the quest's, Мастерская and Дальше
+    const of0 = R.offers; R.offers = [{ key: 'cull', from: 'smith', q: 0 }]; S.screen = 'play'; S.talk = null; h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+    if (S.screen !== 'talk' || !S.talk.act || S.talk.topics || UI.talk(S.talk).r.some((b) => b.id === 'talk')) out.push('talk: the smith\'s quest offer shows «Поговорить» or no quest');
+    R.offers = of0; S.screen = 'play'; S.talk = null;
     const T = { role: 'smith', i: 0, pages: ['a', 'b'], p: 1, act: { k: 'take', key: 'cull', rw: {} }, topics: D.FOLK.smith.topics, craft: 'forge' }, U = UI.talk(T), row = U.r.filter((b) => !b.id.startsWith('topic:'));
-    if (row.map((b) => b.id).sort().join() !== 'act,craft,next,talk') out.push('talk: a quest\'s last page by the smith lacks a button: ' + row.map((b) => b.id));
+    if (row.map((b) => b.id).sort().join() !== 'act,craft,next,talk') out.push('talk: a full row by the smith lacks a button: ' + row.map((b) => b.id));
     if (row.some((b, i) => b.x < U.P.x + 300 || b.x + b.w > U.P.x + U.P.w || row.some((o, j) => j !== i && b.x < o.x + o.w && o.x < b.x + b.w))) out.push('talk: the buttons of a full row overlap or leave the window');
     T.p = 0; if (!UI.talk(T).r.some((b) => b.id === 'talk')) out.push('talk: «Поговорить» is missing before the last page');
     return out;
