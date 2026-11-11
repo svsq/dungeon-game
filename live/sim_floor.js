@@ -41,16 +41,19 @@
   // RNG; deterministic from R.rs and R.nextId, so a floor kept as a diff (TASKS 1008) is rebuilt and patched, not stored whole
   // a floor is generated anew on each trip home and back (stash and restore, TASKS 1008): the generator is a pure function of its
   // arguments, so a few of its maps are kept and handed out as copies (TASKS 467)
-  const GEN = new Map();
+  let GEN = new Map(), genMax = 8;
+  // SCENE.QA() lays a few dozen floors over and over for its hundreds of states: it keeps them all while it builds (TASKS 1697), in a
+  // cache of its own, so a QA pass mid-game neither evicts the run's floors nor leaves its hundreds behind (PR 56 review)
+  let apart = 0; const genApart = (f) => { if (apart) return f(); const g = GEN, n = genMax; GEN = new Map(); genMax = Infinity; apart++; try { return f(); } finally { apart--; GEN = g; genMax = n; } };
   function genKept(kind, seed, f, opts) {
     const key = kind + ':' + seed + ':' + f + ':' + JSON.stringify(opts || null); let m = GEN.get(key);
-    if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= 8) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
+    if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= genMax) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
     return structuredClone(m);
   }
   // a run saved in the town before the mason's yard (TASKS 1151): its map is rebuilt from the run's seed; the townsfolk and the cart start over on it
   function migrateTown(R) { if (!R.map || !R.map.town || R.map.town.yardSolid) return;
     const m = genKept('t', (R.seed * 31) >>> 0), h = R.hero, ok = DG.townWalk(m); m.goo = []; R.map = m; R.folk = null; R.cart = null; R.seen = new Array(m.W * m.H).fill(1);
-    if (h && !ok[Math.floor(h.y / D.TILE) * m.W + Math.floor(h.x / D.TILE)]) { h.x = m.spawn.x; h.y = m.spawn.y; } }
+    if (h && !ok[Math.floor(h.y / D.TILE) * m.W + Math.floor(h.x / D.TILE)]) { h.x = m.spawn.x; h.y = m.spawn.y; h.fx = h.fy = null; } }
   function buildFloor(R, f, gen) {
     R.bossDead = 0;
     const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? SIMX.folkHere(R, D.folkInit(m.town.npcs)) : null;
@@ -170,7 +173,7 @@
     else if (how === 'down' && m.up) [hx, hy] = standNear(R, m.up.x, m.up.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
-    h.x = hx; h.y = hy; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
+    h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; { const lk = R.camLook || [0, 0]; R.cam = [h.x - WIN(R).W / 2 + lk[0], h.y - 30 - WIN(R).H / 2 + lk[1]]; } R.camV = [0, 0]; clampCam(R, R.cam);
@@ -291,8 +294,8 @@
   const MASK = { key: '', set: null };
   // a cache saved before the walls stopped breaking (TASKS 1691): a flagstone in front of it, so it stays openable; a statue saved
   // with its slide as a distance in px takes this branch's side and cell count
-  // a false bookcase is broken now, not moved (TASKS 1842): one saved open, on its hinge (0.3.0) or slid along the wall (a build of
-  // 1841), lies in planks at its own place, its cell free; a shut one stands there whole, to be broken
+  // a false bookcase is broken now, not moved (TASKS 1852): one saved open, on its hinge (0.3.0) or slid along the wall (a build of
+  // 1851), lies in planks at its own place, its cell free; a shut one stands there whole, to be broken
   function shelfLoad(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); delete q.hinge; delete q.held; if (!d) { delete q.slide; return; }
     const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = q.slide ? k0 + q.slide.s * q.slide.n : k0; delete q.slide; d.x = q.x;
     m.block = m.block.filter((b) => b !== k0 && b !== k1); if (q.open) { d.solid = 0; d.broken = 1; d.brokeT = -9; } else { d.solid = 1; delete d.broken; delete d.brokeT; m.block.push(k0); } }
@@ -306,6 +309,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, genApart, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

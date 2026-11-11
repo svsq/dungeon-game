@@ -2,7 +2,7 @@
 // lootvis.mjs and the other checks render (references/engine.md §7). Built from the sim; reads the scene's inside through SCX.
 (function () {
   const SCX = window.SCX, { D, EN_TEX, GLOW, H, SC, SZ, TILE, TOWN_FACE, W } = SCX;
-  SC.QA = () => {
+  const build = () => {
     const mk = (fn) => { const S = SIM.spawn(0, {}); fn(S); return S; };
     const play = (fn) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); if (fn) fn(S); });
     const worst = (S) => { const h = S.run.hero; h.lvl = 99; h.gold = 999999; h.xp = 1; h.pts = 99; h.sp = 99; S.meta.shards = 99999; h.ab = { whirl: 5, fireball: 5, shield: 5 };
@@ -535,8 +535,8 @@
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3],
       ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.6], ['secret_statue_knock', (o) => o.kind === 'statue', 2, 1.25], ['secret_statue_open', (o) => o.kind === 'statue', 3],
       ['secret_wall_lever', (o) => o.trig && o.trig.k === 'lever', 0], ['secret_wall_lever_open', (o) => o.trig && o.trig.k === 'lever', 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
-    // (TASKS 1842) a bookcase rocking to a blow short of its third; one broken after a save and a load; one saved open on its hinge
-    // (0.3.0) or slid along the wall (a build of 1841) loads broken at its own place, never as a squeezed strip or moved
+    // (TASKS 1852) a bookcase rocking to a blow short of its third; one broken after a save and a load; one saved open on its hinge
+    // (0.3.0) or slid along the wall (a build of 1851) loads broken at its own place, never as a squeezed strip or moved
     { const S = secretS((o) => o.kind === 'shelf', 0); if (S) { const R = S.run, m = R.map, q = m.secrets.find((o) => o.kind === 'shelf'), d = m.decor.find((o) => o.secret === m.secrets.indexOf(q));
         S.ev = []; SIM.hitProps(S, R, d.x, d.y + 30, 40); for (const e of S.ev) e.t = S.t - 0.06; R.msg = null; R.trauma = 0; if (q.hits === 1) states.push(['secret_shelf_hit', S]); } }
     { const S = secretS((o) => o.kind === 'shelf', 3); if (S) { S.run = JSON.parse(JSON.stringify(S.run)); SIM.migrateSecrets(S.run); states.push(['secret_shelf_loaded', S]); } }
@@ -1554,9 +1554,9 @@
     const eNear = (S, R, h, x, y) => { h.x = x; h.y = y; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; SIM.step(S, { keys: [] }); SIM.step(S, { keys: ['KeyE'] }); };
     const masterS = (role, quest) => keeperS((S, R, h) => { const at = R.map.town.svc[role === 'smith' ? 'anvil' : 'lectern']; noQ(R); if (quest) R.offers = [{ key: 'cull', from: role, q: 0 }];
       eNear(S, R, h, at.x, at.y + 30); if (S.talk) S.talk.p = S.talk.pages.length - 1; S.hover = 'talk'; });
-    // TASKS 1837, 1838: a new game's first word with the Keeper by the fire, his quest about Horatio on its first page
+    // TASKS 1847, 1848: a new game's first word with the Keeper by the fire, his quest about Horatio on its first page
     states.push(['town_first_talk', climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] }); const k = R.folk.find((q) => q.role === 'keeper'); eNear(S, R, h, k.x + 44, k.y + 12); S.hover = ''; })]);
-    // TASKS 1839: a new game's welcome from the real sim: the hero held by the spawn, the Keeper still at the fire, on his way with his
+    // TASKS 1849: a new game's welcome from the real sim: the hero held by the spawn, the Keeper still at the fire, on his way with his
     // word, the talk he opens by the hero; frame by frame his walk over (the set-off, the stride, the stop and the turn to the hero) and,
     // the talk left with Esc, his walk back to the fire and his turn to it
     { const key = (S) => S.run.folk.find((q) => q.role === 'keeper'), go = (S, n, keys) => { for (let q = 0; q < n; q++) SIM.step(S, { px: 960, py: 540, keys: keys && !q ? keys : [] }); };
@@ -1588,7 +1588,7 @@
     states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
     states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: qt.pages.length - 1, act: qt.act }; S.screen = 'talk'; })]);
-    // TASKS 1840: the same turn-in once «Сдать задание» is pressed: its words first, then the thanks and the reward
+    // TASKS 1850: the same turn-in once «Сдать задание» is pressed: its words first, then the thanks and the reward
     states.push(['town_quest_turned', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
       const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });
@@ -1821,4 +1821,5 @@
     out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter', 'mason', 'hen', 'cart'].map((r) => 'folk_' + r));
     calm(out); return out;
   };
+  SC.QA = () => SIM.genApart(build);
 })();

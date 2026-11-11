@@ -32,7 +32,7 @@
     // a talk with the hero on the far side of the work (TASKS 1032): the work eases into a rest pose (hands in to the body, the tool
     // upright), the rig turns there, and only then does the talk pose come in; the same way back after. Turned straight from the
     // work pose the whole rig flipped with the tool in it: the smith's hammer jumped 54 px in a frame. rk: the rest's weight
-    // the Keeper's walk to the hero and back (TASKS 1839): he faces the way he goes and turns like a walker; gw eases his work out and in
+    // the Keeper's walk to the hero and back (TASKS 1849): he faces the way he goes and turns like a walker; gw eases his work out and in
     const gA = f.walkA ?? 1e9, gB = f.walkB ?? 1e9, gOn = GT >= gA && GT < gB + 0.3, gw = gOn ? SS(gA, gA + 0.3, GT) * (1 - SS(gB, gB + 0.3, GT)) : 0;
     const TURN = 0.3, fIn = f.sayT + TURN, fOut = Math.max(e0, fIn + TURN) + TURN, back = !route && !gOn && FD.lines && f.face && f.face !== wf && GT >= f.sayT && GT < fOut + TURN;
     let rk = 0;

@@ -251,7 +251,7 @@
     const brokenPots = R.pots.filter((p) => p.hp <= 0 && p.kind !== 'gold' && p.kind !== 'goldpile' && vis(p.x, p.y) && !SIM.Q.hidden(m, p)), brokenWrecks = m.decor.filter((d) => d.n === 'wreck_cv' && d.broken && vis(d.x, d.y)), brokenShelves = m.decor.filter((d) => d.n === 'bookshelf' && d.secret !== undefined && d.broken && vis(d.x, d.y));
     const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
     const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
-    // a broken bookcase (TASKS 1842): its planks as a crate's, wider, and the books it held lying among them once they have fallen
+    // a broken bookcase (TASKS 1852): its planks as a crate's, wider, and the books it held lying among them once they have fallen
     const shelfDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 7 + d.y * 5, GT - (d.brokeT ?? -9), true, 12, 1.6, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
     const BOOK_COL = [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12], [0.38, 0.24, 0.12]];
     const shelfBooks = (d) => { const al = SS(0.75, 1.05, GT - (d.brokeT ?? -9)); if (al <= 0) return; const sd = d.x * 3 + d.y;
@@ -430,7 +430,7 @@
         if (!q.open) { const k = m.decor.findIndex((o) => o.secret === i), e = k >= 0 ? knocked['d' + k] : null, a0 = e ? GT - e.t : 9, rot = a0 < 1.2 ? 0.16 * Math.exp(-3 * a0) * Math.sin(a0 * 15) : 0; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x), sy(top)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); }
         else if (a < 0.5) { const p = a / 0.5; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x) + 10 * p, sy(top) + 30 * p * p), M.r(0.5 * p * p)), w, h: hh * (1 - 0.5 * p * p), pivot: [w / 2, 0] })]); }
         else Y.push([q.y - 60, () => L.sprite('banner', sx(q.x) - w * 0.55 + 10, sy(q.y) + 4, { w: w * 1.1, h: hh * 0.32, u: { grade: [0.8, 0.75, 0, 1] } })]); }
-      // a false bookcase stands whole and rocks to each blow until it breaks (TASKS 1842); its planks and books are drawn with the debris
+      // a false bookcase stands whole and rocks to each blow until it breaks (TASKS 1852); its planks and books are drawn with the debris
       if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (d && !d.broken) Y.push([d.y, () => { drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) }); if (L.TRACE) { const [w, h] = SZ('bookshelf'); L.joint('shelf' + i, 'tl', [sx(d.x) - w / 2, sy(d.y) + 4 - h]); L.joint('shelf' + i, 'br', [sx(d.x) + w / 2, sy(d.y) + 4]); } }]); return; }
       if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 }, n = d.n;
         Y.push([d.y, () => { drawProp(n, sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) }); if (L.TRACE) { const [w, h] = SZ(n); L.joint('cover' + i, 'tl', [sx(d.x + sl.x) - w / 2, sy(d.y) + 4 - h]); L.joint('cover' + i, 'br', [sx(d.x + sl.x) + w / 2, sy(d.y) + 4]); } }]);
