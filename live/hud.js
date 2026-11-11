@@ -98,8 +98,20 @@
     if (S.screen === 'notes') notes(S);
     if (S.screen === 'board' && R) board(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
+    if (!S.demo) muteNote(S);
     drawTip(S);
   };
+
+  // M's answer (TASKS 1853 а): a plate for a few seconds on whatever screen it was pressed, and while muted a speaker crossed out by
+  // the key hints in play, so a silent game is never a mystery
+  function muteNote(S) {
+    const a = S.t - (S.muteT ?? -1e9);
+    if (a < 2.6) { const s = S.meta.mute ? TXT('hud.mute.off') : TXT('hud.mute.on'), al = 1 - L.SS(2, 2.6, a), w = lw('mute_n', s, { size: 24 }) + 48;
+      plate('mute_box', W / 2 - w / 2, H - 170, w, 50, { a: 0.92 * al }); lab('mute_n', s, W / 2, H - 145, { size: 24, al: 0.5, col: S.meta.mute ? '#ffb0a0' : C.gold, a: al }); }
+    if (S.meta.mute && S.screen === 'play') speakerOff(W - 34, H - 90); }
+  function speakerOff(x, y) { plate('mute_ic', x - 26, y - 22, 52, 44, { a: 0.85 }); const c = [0.85, 0.78, 0.66];
+    L.solid(x - 14, y - 5, 7, 10, c); for (let i = 0; i < 7; i++) L.solid(x - 7 + i, y - 5 - i, 1, 10 + i * 2, c);
+    for (let i = 0; i < 13; i++) { L.solid(x + 3 + i * 0.9, y - 6 + i, 3, 2, [0.95, 0.42, 0.35]); L.solid(x + 3 + i * 0.9, y + 6 - i, 3, 2, [0.95, 0.42, 0.35]); } }
 
   // ---------------- attract title over the demo ----------------
   function title(S, t) {
@@ -353,7 +365,7 @@
       const s = e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 32;
       plate('feedbox' + i, 14, y - 17, w, 34, { a: 0.85 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
-    if (S.screen === 'play') { const k = TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
+    if (S.screen === 'play') { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
       plate('keys_box', W - 12 - kw, H - 48, kw, 42, { a: 0.85 }); lab('keys', k, W - 24, H - 26, { size: 26, al: 1, col: '#8a7d6c' }); }
   }
 

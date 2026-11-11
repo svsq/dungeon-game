@@ -43,8 +43,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   try { for (const k of ['dc_meta', 'dc_run']) localStorage.removeItem(k); sessionStorage.removeItem('live'); } catch (e) {}
   // the save slots (TASKS 1311): dc2_run is the run of slot dc2_slot, dc2_saves the other slots; a save from before them has dc2_run
   // alone, and the sim puts it in the first slot
-  const loadPersist = () => { try { const g = (k) => JSON.parse(localStorage.getItem(k) || 'null');
-    return { meta: g('dc2_meta'), run: g('dc2_run'), slot: g('dc2_slot'), saves: g('dc2_saves') }; } catch (e) { return {}; } };
+  const loadPersist = () => { try { const g = (k) => JSON.parse(localStorage.getItem(k) || 'null'), meta = g('dc2_meta');
+    if (meta && meta.mute === undefined && localStorage.getItem('dc_mute') === '1') meta.mute = 1;
+    return { meta, run: g('dc2_run'), slot: g('dc2_slot'), saves: g('dc2_saves') }; } catch (e) { return {}; } };
   let savedN = -1;
   const persist = () => { if (!play || !SIM.persist) return; const p = SIM.persist(play);
     try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run');
