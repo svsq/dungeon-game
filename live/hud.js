@@ -751,7 +751,9 @@
   function shop(S, R, t) {
     const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length, h.bag.length, S.bagTab), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); KIT.panel('shop', P.x, P.y, P.w, P.h, 'leather');
-    lab('sh_t', sh.wander ? TXT('hud.shop') : TXT('hud.shop.2'), P.x + 60, P.y + 58, { size: 36, col: C.gold }); lab('sh_j', sh.wander ? TXT('hud.shop.job.w') : TXT('hud.shop.job'), P.x + 60, P.y + 94, { size: 19, col: '#cdb89a' });
+    // the title on a ribbon over the shelf, as the chest's and the bag's are (TASKS 1884), the merchant's name and trade under it
+    const scx = P.x + 268; KIT.banner('sh_t', scx, P.y + 12, 360, TXT('hud.shop.banner'), { h: 64, size: 32 });
+    lab('sh_j', (sh.wander ? TXT('hud.shop') : TXT('hud.shop.2')) + ' · ' + (sh.wander ? TXT('hud.shop.job.w') : TXT('hud.shop.job')), scx, P.y + 98, { size: 21, al: 0.5, col: '#cdb89a' });
     const gs = TXT('hud.shop.gs', { gold: h.gold }); lab('sh_g', gs, P.x + P.w - 130, P.y + 60, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 130 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 42, 36);
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 19 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 19, col: can ? C.gold : '#9a7a6a' }); };
     lab('sh_buy', R.town ? TXT('hud.shop.3', { p1: sh.at ? TXT('hud.shop.4', { at: sh.at }) : '' }) : sh.wander ? TXT('hud.shop.5', { floor: R.floor }) : TXT('hud.shop.6', { floor: R.floor }), P.x + 60, P.y + 132, { size: 23, col: '#cdb89a' });
@@ -1366,7 +1368,7 @@
     const h = R.hero, U = D.UI.craft(h.bag.length, S.bagTab), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.Q.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);
     dim(0.55); KIT.panel('craft', P.x, P.y, P.w, P.h, 'leather');
     if (!forge) { G.blend('add'); L.glow(P.x + 1170, P.y + 90, 360, [0.3, 0.5, 1], 0.12 + 0.03 * Math.sin(t * 2)); G.blend(); }
-    lab('cr_t', forge ? TXT('hud.craft') : TXT('hud.craft.2'), P.x + 60, P.y + 64, { size: 40, col: forge ? C.gold : '#9cc8ff' });
+    KIT.banner('cr_t', P.x + 375, P.y + 22, 560, forge ? TXT('hud.craft') : TXT('hud.craft.2'), { h: 72, size: 34 });
     const gs = TXT('hud.craft.gs', { gold: h.gold }); lab('cr_g', gs, P.x + P.w - 130, P.y + 60, { size: 26, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 130 - lw('cr_g', gs, { size: 26 }) - 42, P.y + 44, 32);
     if (!forge) { const ss = String(S.meta.shards); lab('cr_sh', ss, P.x + P.w - 130, P.y + 100, { size: 24, al: 1, col: '#9cc8ff' }); icon('crystal', P.x + P.w - 130 - lw('cr_sh', ss, { size: 24 }) - 36, P.y + 84, 30); }
     lab('cr_eq', TXT('hud.craft.3'), P.x + 60, P.y + 146, { size: 22, col: '#cdb89a' }); bagTabs('cr_tb', U, S);

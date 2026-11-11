@@ -945,6 +945,7 @@
     'hud.shop.job.w': 'Бродячий торговец',
     'hud.shop.2': '{@merchant}',
     'hud.shop.job': 'Торговец',
+    'hud.shop.banner': 'Лавка',
     'hud.shop.gs': '{gold} золота',
     'hud.shop.4': ' · с глубин до этажа {at}',
     'hud.shop.3': 'Товары города{p1}',
