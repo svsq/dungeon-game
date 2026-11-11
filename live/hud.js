@@ -946,7 +946,8 @@
     // the difficulty is the player's own choice (TASKS 1825), so the line tells the story instead of advising the easy one
     // what the lit or chosen difficulty changes, in the numbers the sim plays by (TASKS 1879)
     const dk = lit.startsWith('dif:') ? lit.slice(4) : dif, Dd = D.DIFF[dk] || D.DIFF.normal, pc = (v) => String(Math.round(Math.abs(v - 1) * 100));
-    KIT.light('cl_dl', TXT('UI.classes.diff.' + dk, { dmg: pc(Dd.dmg), hp: pc(Dd.hp) }), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
+    const dp = { dmg: pc(Dd.dmg), hp: pc(Dd.hp) };
+    KIT.light('cl_dl', dk === 'easy' ? TXT('UI.classes.diff.easy', dp) : dk === 'hard' ? TXT('UI.classes.diff.hard', dp) : TXT('UI.classes.diff.normal', dp), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
     const tip = TXT('UI.classes.hint');
     KIT.light('cl_s', tip, W / 2, 158, { size: 20, fit: W - 200, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 144, W - 200, 30, 0);
     for (const b of U.filter((q) => q.cls)) {
