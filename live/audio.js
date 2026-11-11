@@ -246,7 +246,7 @@
     drain: (o) => tone(o, { type: 'sawtooth', f0: 180, f1: 70, a: 0.03, d: 0.35, v: 0.1, det: 12 }),
     alert: (o) => tone(o, { type: 'triangle', f0: 880, f1: 1100, d: 0.07, v: 0.05 }),
     nope: (o) => tone(o, { type: 'square', f0: 130, d: 0.14, v: 0.06 }),
-    ui: (o) => tone(o, { type: 'triangle', f0: 1200, d: 0.04, v: 0.06 }),
+    ui: (o) => tone(o, { type: 'triangle', f0: 1200, d: 0.04, v: 0.06 }), ask: (o) => SFX.ui(o),
     equip: (o) => { noise(o, { d: 0.08, v: 0.2, f0: 1600, q: 2 }); tone(o, { type: 'triangle', f0: 900, d: 0.1, v: 0.06 }); },
     toss: (o) => noise(o, { d: 0.12, v: 0.15, type: 'lowpass', f0: 1200, f1: 300 }),
     buy: (o) => SFX.gold(o), trade: (o) => SFX.gold(o),

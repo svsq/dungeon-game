@@ -1100,8 +1100,8 @@
   }
   // the latest refusal on a full-screen menu, where the in-game feed is hidden
   function refusal(S, x, y, col = '#ffb0a0') {
-    const e = S.ev.filter((q) => q.k === 'nope' && S.t - q.t < 2).at(-1); if (!e) return;
-    lab('nope_m', e.s, x, y, { size: 24, al: 0.5, col, a: 1 - L.SS(1.5, 2, S.t - e.t) });
+    const e = S.ev.filter((q) => (q.k === 'nope' || q.k === 'ask') && S.t - q.t < (q.k === 'ask' ? 3 : 2)).at(-1); if (!e) return;
+    const T = e.k === 'ask' ? 3 : 2; lab('nope_m', e.s, x, y, { size: 24, al: 0.5, col, a: 1 - L.SS(T - 0.5, T, S.t - e.t) });
   }
   // ---------------- a dungeon altar: three gifts for shards ----------------
   function altar(S, R, t) {

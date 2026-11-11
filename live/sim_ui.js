@@ -279,10 +279,10 @@
   };
   SCREEN.craft = (S, inp, keys, x, y, click) => {
     const R = S.run, U = R && UI.craft(R.hero.bag.length, S.bagTab), b = U && D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (!R || !S.craft || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (!R || !S.craft || keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     // back to the master's talk, kept off E so that E only leaves the workshop
     if (keys.Enter || (click && b && b.id === 'talk')) { const sm = SIMX.folkOf(R).find((q) => q.role === SIMX.CRAFT_OF[S.craft.kind]); if (sm) { SIMX.openTalk(S, R, sm); ev(S, { k: 'ui', x, y }); return; } }
-    if (click && b && (b.id.startsWith('eq:') || b.id.startsWith('bag:'))) { const it = b.id.startsWith('eq:') ? R.hero.eq[b.slot] : R.hero.bag[b.i];
+    if ((click || inp.rclick) && b && (b.id.startsWith('eq:') || b.id.startsWith('bag:'))) { const it = b.id.startsWith('eq:') ? R.hero.eq[b.slot] : R.hero.bag[b.i];
       if (it && BASES[it.b]) { S.craft.sel = b.id; S.craft.res = null; ev(S, { k: 'ui', x, y }); } else if (it) ev(S, { k: 'nope', x, y, s: TXT('sim_ui.craft.s') }); }
     if (click && b && b.tab !== undefined) tabClick(S, b, x, y);
     if (click && b && b.id === 'do') craft(S, R);
@@ -290,9 +290,10 @@
   };
   SCREEN.stash = (S, inp, keys, x, y, click) => {
     const R = S.run, U = R && UI.stash(R.hero.bag.length, S.bagTab), b = U && D.hitUI(U.r, x, y), n = D.STASH.cells; S.hover = b ? b.id : '';
-    if (!R || keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
+    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; S.drag = null; return; }
     const T = stashOf(S);
     if (click && b && b.tab !== undefined && !S.drag) { tabClick(S, b, x, y); return; }
+    if (inp.rclick && b && !S.drag) { if (b.id.startsWith('bag:') && R.hero.bag[b.i]) { stashPut(S, R, b.i); return; } if (b.id.startsWith('stash:') && T.items[b.i]) { stashTake(S, R, b.i); return; } }
     if (click && b && b.id.startsWith('sort')) { if (b.id.startsWith('sortS:')) sortItems(T.items, n, b.k, false); else sortTab(S, R.hero, b.k); S.saveN++; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && ((b.id.startsWith('bag:') && R.hero.bag[b.i]) || (b.id.startsWith('stash:') && T.items[b.i]))) S.drag = { from: b.id, x, y };
     if (S.drag && inp.press) { S.drag.x = x; S.drag.y = y; }
@@ -329,26 +330,31 @@
   };
   SCREEN.shop = (S, inp, keys, x, y, click) => {
     const R = S.run, sh = R.shop, U = UI.shop(sh.goods.length, R.hero.bag.length, S.bagTab), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (keys.Escape || keys.KeyE || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (inp.rclick && b && b.id.startsWith('sell:')) { sellAsk(S, R, b.i, x, y); return; }
     if (!click || !b) return;
     if (b.id === 'talk' && !sh.wander) { S.talk = { role: 'merchant', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.merchant.topics, menu: 1 }; S.screen = 'talk'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (b.id.startsWith('buy:') && sh.goods[b.i]) buy(S, R, sh.goods[b.i], 0);
     if (b.id.startsWith('back:') && sh.back[b.i]) buy(S, R, sh.back[b.i], 1);
     if (b.tab !== undefined) tabClick(S, b, x, y);
-    if (b.id.startsWith('sell:')) sell(S, R, b.i);
+    if (b.id.startsWith('sell:')) sellAsk(S, R, b.i, x, y);
     return;
   };
+  // a legendary or better goes on a second press (TASKS 1853 г): the merchant buys it back only while it is among his last few
+  const sellAsk = (S, R, i, x, y) => { const it = R.hero.bag[i]; if (!it) return;
+    if ((it.rar || 0) < 4 || again(S, 'sell', it)) sell(S, R, i); else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.shop.sellAsk', { p1: SIMX.itemName(it) }) }); };
+  // one way out of every window (TASKS 1853 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
   SCREEN.board = (S, inp, keys, x, y, click) => {
     const R = S.run, L0 = R ? boardOffers(R) : [], U = UI.board(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (!R || keys.Escape || keys.KeyE || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (click && b && b.id.startsWith('take:') && L0[b.i]) giveQuest(S, R, L0[b.i].role);
     return;
   };
   // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
   SCREEN.journal = (S, inp, keys, x, y, click) => {
     const R = S.run, L0 = R ? journalOf(R) : [], sel = L0.find((q) => q.id === S.jsel) || L0[0], U = UI.journal(L0.length, sel && sel.st === 'taken'), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (!R || keys.Escape || keys.KeyJ || keys.KeyI || keys.Tab || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
+    if (!R || keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (click && b && b.id === 'notes') { S.screen = 'notes'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; S.jdrop = 0; ev(S, { k: 'ui', x, y }); }
     // given up only on a second press, as a saved run is dropped: nothing brings a quest back but its giver (TASKS 1633)
@@ -360,6 +366,8 @@
     if (keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'journal'; S.hover = ''; return; }
     if (click && b && b.id === 'prev' && b.on) S.notesPage = pg - 1; if (click && b && b.id === 'next' && b.on) S.notesPage = pg + 1;
     if (click && b && b.id.startsWith('n:')) S.noteSel = L0[b.i]; if (click && b) ev(S, { k: 'ui', x, y }); };
+  // a press asked twice (TASKS 1853 в, г): true on the second within 3 s on the same piece, else it arms and the caller says why
+  const again = (S, k, it) => { const A = S.ask2; if (A && A.k === k && A.id === it.id && S.t - A.t < 3) { S.ask2 = null; return true; } S.ask2 = { k, id: it.id, t: S.t }; return false; };
   // the bag's tabs (TASKS 1687): the open one is kept per player, not per window; a sort orders the open tab's cells only
   const openTab = (S, h) => { const T = D.bagTabs(h.bag.length), k = Math.max(0, Math.min(T.length - 1, S.bagTab | 0)); return T[k]; };
   const sortTab = (S, h, k) => { const T = openTab(S, h), part = h.bag.slice(T.a, T.a + T.n); sortItems(part, T.n, k, true); h.bag.splice(T.a, T.n, ...part); };
@@ -391,7 +399,10 @@
     if (!b) return;
     if (click && b.tab !== undefined) { tabClick(S, b, x, y); return; }
     if (click && b.id.startsWith('sort:')) { sortTab(S, h, b.k); S.saveN++; ev(S, { k: 'ui', x, y }); }
-    if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i]; h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); }
+    // the right button is each window's quick action on a bag piece (TASKS 1853 в): here it throws it away, on a second press, as a
+    // legendary is sold, for a piece on the floor of a cave is as good as lost
+    if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i];
+      if (again(S, 'toss', it)) { h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); } else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.inv.tossAsk', { p1: SIMX.itemName(it) }) }); }
     if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); SIMX.thresholdTip(S, R); }
     if (click && b.id.startsWith('ab:') && D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; return; }
     if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; D.masteryTake(h); ev(S, { k: 'buy', x, y }); if (D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; } } }
