@@ -10,19 +10,21 @@
   function endRun(S, how) {
     const R = S.run; if (!R) return;
     const W2 = runReward(R, how), bonus = W2.base + W2.bonus;
-    S.meta.shards += bonus; S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win' && !R.campaignWon) S.meta.wins = (S.meta.wins || 0) + 1;
+    // a test run (TASKS 1871) pays its shards but counts in no counter, record or journal
+    const test = !!R.test;
+    S.meta.shards += bonus; if (!test) { S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win' && !R.campaignWon) S.meta.wins = (S.meta.wins || 0) + 1; }
     // what the Keeper of the Fire will speak of to the next hero (TASKS 1016)
-    if (how === 'dead' && !(R.log && R.log.abandon)) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id;
+    if (how === 'dead' && !(R.log && R.log.abandon) && !test) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id;
     // the records are the deepest floor reached, not the one the run ended on (TASKS 516: down to the 17th, back up to the 16th)
     const deep = Math.max(R.deepest || 0, R.floor);
-    if (RUN(R) === D.RUNS.campaign) { S.meta.best = Math.max(S.meta.best || 0, deep); tally(S, R, 'best', deep, 1); }
+    if (RUN(R) === D.RUNS.campaign && !test) { S.meta.best = Math.max(S.meta.best || 0, deep); tally(S, R, 'best', deep, 1); }
     tally(S, R, 'runs'); tally(S, R, 'shards', bonus); if (how === 'win' && !R.campaignWon) tally(S, R, 'wins'); if (how === 'dead' && !(R.log && R.log.abandon)) tally(S, R, 'deaths');
     // the endless descent's record depth (TASKS 348)
-    const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless) S.meta.bestEndless = Math.max(deepBest, deep);
+    const deepBest = S.meta.bestEndless || 0; if (RUN(R).endless && !test) S.meta.bestEndless = Math.max(deepBest, deep);
     S.result = { how, mode: R.mode, floor: R.floor, deepest: deep, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, shards: R.shards + bonus, found: R.shards, base: W2.base, statBonus: W2.bonus, cap: W2.cap,
       C: W2.C, win: how === 'win' && !R.campaignWon ? REWARD.win : 0, time: R.play || 0, donations: R.donations || 0,
-      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
-    if (R.log) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
+      damage: (R.recentDamage || []).slice(-3), abandoned: !!(R.log && R.log.abandon), record: RUN(R).endless && !test ? { best: S.meta.bestEndless, fresh: deep > deepBest } : undefined, campaignWon: R.campaignWon ? 1 : 0, town: R.viaTown ? 1 : 0, hero: JSON.parse(JSON.stringify(R.hero)), heroStats: heroSt(S) };
+    if (R.log && !test) { R.log.end = { how: R.log.abandon ? 'abandon' : how, time: R.play || 0, floor: R.floor, lvl: R.hero.lvl, kills: R.kills, gold: R.goldTot, cause: how === 'dead' ? R.log.last || null : null, bag: potCount(R.hero), tail: R.log.tail || [], done: R.stats || {}, pct: W2.C.pct };   // done: per floor kills/foes, loot/lootN, sec/secN
       S.result.log = R.log; S.logN = (S.logN || 0) + 1; }
     S.run = null; S.saved = null; pickLatest(S); S.screen = how; S.saveN++;
   }
@@ -77,7 +79,8 @@
   function dropSlot(S, i) { if (i === S.slot && S.saved) S.saved = null; else S.saves[i] = null; pickLatest(S); S.saveN++; }
   // the run in play put aside under «Продолжить» (the pause's «Сохранить и выйти в меню», the menu's «Выход»)
   function saveRun(S) { S.saved = S.run; S.run = null; S.saveN++; S.savedT = S.t; }
-  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null; if (town) S.run.greet = 1;
+  // a run of the tests' screen is marked a test (TASKS 1871): it leaves no trace in the statistics or the run journals
+  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in
@@ -105,7 +108,6 @@
       if (id === 'continue') resume(S, S.saved);
       if (id === 'load') openLoad(S);
       if (D.RUNS[id]) pressRun(S, id);
-      if (id === 'tests') S.screen = 'tests';
       if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (id === 'settings') openSettings(S, 'menu');
       // «Выход» (TASKS 1870): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
@@ -114,6 +116,8 @@
       if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y }); };
     if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
+    // the test runs are no item of the menu (TASKS 1871): ` opens them, as it opens the debug panel in play
+    if (keys.Backquote) { S.screen = 'tests'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (mv) { S.focus = order[at < 0 ? (mv > 0 ? 0 : order.length - 1) : (at + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); return; }
     if (keys.Enter) press(at < 0 ? order[0] : S.focus);
   };

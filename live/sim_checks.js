@@ -136,7 +136,7 @@
       k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'load') out.push('menu: Enter on the focused «Загрузить игру» does not open it');
       key(K, 'Escape'); step(K, { keys: [] }); if (K.screen !== 'menu' || K.focus !== 'load') out.push('menu: back from «Загрузить игру» the focus is not on it (TASKS 1860)');
       for (const id of ['stats', 'settings']) { K.focus = id; k2(K, 'Enter'); k2(K, 'Escape'); if (K.screen !== 'menu' || K.focus !== id) out.push('menu: back from ' + id + ' by Escape the focus is not on it (TASKS 1860)'); }
-      K.focus = 'settings'; k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'tests') out.push('menu: ↓ Enter after coming back does not go on from the item left');
+      K.focus = 'settings'; k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'news') out.push('menu: ↓ Enter after coming back does not go on from the item left');
       K.screen = 'menu'; K.uiWas = 'menu'; K.focus = ''; k2(K, 'ArrowUp'); if (K.focus !== 'news') out.push('menu: ↑ from no focus does not reach «Что нового»');
       k2(K, 'Enter'); if (K.screen !== 'news') out.push('menu: Enter on «Что нового» does not open it');
       // TASKS 1866: the link to the whole changelog lies on the version's sheet, under its main lines, and is the menu's last stop
@@ -2263,7 +2263,7 @@
     // the water caves and the magma caves as runs of their own (TASKS 300, 399): the menu starts each on the hero screen with its level and kit, its floors
     // carry their run's boss, guard and altars, the boss's death opens the way out, and the campaign's record is left alone
     for (const RID of ['cave', 'magma']) { const N = D.RUNS[RID], S = spawn(0, {});
-      for (const [scr, id] of D.startPath(RID)) { const r = D.uiAt(scr).find((q) => q.id === id); step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); }
+      for (const [scr, id] of D.startPath(RID)) { if (id === 'tests') { step(S, { keys: ['Backquote'] }); continue; } const r = D.uiAt(scr).find((q) => q.id === id); step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); }
       const R = S.run, h = R && R.hero;
       if (!R || R.mode !== RID || S.screen !== 'inv') out.push(RID + ': the menu button does not start the run on the hero screen');
       else {
@@ -2462,17 +2462,26 @@
         if (n9 < n1 * 1.3) out.push(`campaign f9: ${n9.toFixed(1)} monsters, the caves' 1st ${n1.toFixed(1)}: not denser`); }
       // a saved run is dropped only by a second press of the same button
       const fill = (S) => { for (let i = 1; i < D.SAVE_SLOTS; i++) S.saves[i] = newRun(S, 'cave', 40 + i); };
-      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); fill(T); const c = UI.menu(true).find((q) => q.id === 'campaign'), ts = UI.menu(true).find((q) => q.id === 'tests'), v = UI.tests(true).find((q) => q.id === 'cave');
-      const press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
-      press(T, c); step(T, { keys: [] }); press(T, ts); press(T, v);
+      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); fill(T); const c = UI.menu(true).find((q) => q.id === 'campaign'), v = UI.tests(true).find((q) => q.id === 'cave');
+      const press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }), toTests = (S) => { step(S, { keys: ['Backquote'] }); step(S, { keys: [] }); };
+      press(T, c); step(T, { keys: [] }); toTests(T); press(T, v);
       if (T.run) out.push('cave: a press on another run\'s button drops the saved run');
-      // the test runs' screen (TASKS 417): the main menu has no test run of its own, «Тесты» opens their screen, «Назад» and Escape go
-      // back, and over a saved run a test run's button asks again before it drops the save
-      const ids = UI.menu(true).map((b) => b.id); if (D.TEST_RUNS.some(([id]) => ids.includes(id)) || !ids.includes('tests')) out.push('tests: the main menu still holds the test runs or lacks «Тесты»');
+      // the test runs' screen (TASKS 417, 1871): the main menu has neither a test run nor «Тесты», ` on the menu opens their screen,
+      // «Назад» and Escape go back, and over a saved run a test run's button asks again before it drops the save
+      const ids = UI.menu(true, 0, 0, true, true).map((b) => b.id); if (D.TEST_RUNS.some(([id]) => ids.includes(id)) || ids.includes('tests')) out.push('tests: the main menu still holds the test runs or «Тесты»');
       if (D.TEST_RUNS.some(([id]) => (!D.RUNS[id] && id !== 'town') || !UI.tests(false).some((b) => b.id === id))) out.push('tests: a test run missing from its screen');
-      const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); fill(U); press(U, ts); if (U.screen !== 'tests') out.push('tests: «Тесты» does not open the test runs');
+      const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); fill(U); toTests(U); if (U.screen !== 'tests') out.push('tests: ` on the menu does not open the test runs');
       press(U, UI.tests(true).find((b) => b.id === 'back')); if (U.screen !== 'menu') out.push('tests: «Назад» does not go back to the menu');
-      press(U, ts); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
+      toTests(U); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
+      // TASKS 1871: a test run counts in no statistic and leaves no run journal, the campaign still does
+      { const W = spawn(0, {}); W.screen = 'menu'; toTests(W); press(W, UI.tests(false).find((b) => b.id === 'cave')); if (W.screen === 'classes') press(W, UI.classes(W.meta).find((b) => b.id === 'go'));
+        const R = W.run, m0 = JSON.stringify([W.meta.runs, W.meta.wins, W.meta.deaths, W.meta.best, W.meta.bestEndless, W.meta.stats]), l0 = W.logN || 0;
+        if (!R || !R.test) out.push('tests: a run from the tests\' screen is not marked a test');
+        else { W.screen = 'play'; for (let i = 0; i < 240; i++) step(W, { keys: [] }); R.kills += 3; SIMX.endRun(W, 'dead');
+          if (JSON.stringify([W.meta.runs, W.meta.wins, W.meta.deaths, W.meta.best, W.meta.bestEndless, W.meta.stats]) !== m0) out.push('tests: a test run changes the statistics');
+          if ((W.logN || 0) !== l0 || (W.result && W.result.log)) out.push('tests: a test run leaves a run journal'); }
+        const C = spawn(0, {}); C.screen = 'menu'; press(C, UI.menu(false).find((b) => b.id === 'campaign')); if (C.screen === 'classes') press(C, UI.classes(C.meta).find((b) => b.id === 'go'));
+        if (!C.run || C.run.test) out.push('tests: a campaign run is marked a test'); else { const r0 = C.meta.runs || 0; SIMX.endRun(C, 'dead'); if ((C.meta.runs || 0) !== r0 + 1 || !C.result.log) out.push('tests: a campaign run no longer counts or keeps its journal'); } }
       // «Что нового» (TASKS 1038): the changelog's top entry is the game's version, the screen scrolls to its end and no further, Escape leaves
       { if (!D.CHANGES.length || D.CHANGES[0].v !== D.VERSION) out.push('news: the changelog\'s top entry is not DATA.VERSION');
         const nb = UI.menu(true).find((b) => b.id === 'news'); press(U, nb); if (U.screen !== 'news') out.push('news: «Что нового» does not open its screen');
@@ -2480,7 +2489,7 @@
         { const E = UI.news(mx); if (E.top + E.rows.length !== E.n) out.push('news: the end of the list does not show its last row'); }
         step(U, { keys: ['Home'] }); if (U.newsTop !== 0) out.push('news: Home does not go back to the top');
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
-      press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
+      toTests(U); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || U.newAsk !== 'magma' || U.focus !== 'no') out.push('tests: one press over a saved run drops it or does not ask with «Нет» first');
       press(U, UI.newAsk().r.find((b) => b.id === 'yes')); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); noWelcome(U); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
     return out;

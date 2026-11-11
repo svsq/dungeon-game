@@ -26,7 +26,7 @@
       ['menu_full_hover', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 0; S.hover = 'load'; S.focus = 'load'; })],
       ...DATA.UI.menu(true).map((b) => ['menu_focus_' + b.id, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.focus = b.id; })]),
       ['menu_saved_note', play((S) => { S.saved = S.run; S.run = null; S.screen = 'menu'; S.savedT = S.t - 0.5; })],
-      ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'tests'; S.hover = 'settings'; })],
+      ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'stats'; S.hover = 'settings'; })],
       // the desktop build's menu (TASKS 1870): «Выход» last, in focus
       ['menu_quit', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.focus = 'quit'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)

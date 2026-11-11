@@ -47,7 +47,7 @@
   // the statistics (TASKS 1309): `from` is the number of runs finished before these counters existed, so the screen can say they
   // started late instead of passing a short count off as the whole history
   const statsOf = (S) => S.meta.stats || (S.meta.stats = { from: S.meta.runs || 0, all: {}, cls: {} });
-  const tally = (S, R, k, n = 1, max) => { if (S.demo || !R || !n) return; const T = statsOf(S), id = D.clsOf(R.hero).id, C = T.cls[id] || (T.cls[id] = {});
+  const tally = (S, R, k, n = 1, max) => { if (S.demo || !R || !n || R.test) return; const T = statsOf(S), id = D.clsOf(R.hero).id, C = T.cls[id] || (T.cls[id] = {});
     for (const o of [T.all, C]) o[k] = max ? Math.max(o[k] || 0, n) : (o[k] || 0) + n; };
   // the run's log for balance analysis (index.html downloads it when the run ends): one record per floor, filled from the events
   const logFloor = (R) => R.log.fl[R.log.fl.length - 1];

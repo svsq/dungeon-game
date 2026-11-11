@@ -610,7 +610,6 @@
     'hud.menu.ask.who': 'Все места заняты, поэтому самый старый забег пропадёт:',
     'hud.menu.ask.run': '{cls}, {where}',
     'UI.menu.4': 'Новая игра (сброс)',
-    'UI.menu.5': 'Тесты',
     'UI.menu.quit': 'Выход',
     'UI.menu.6': 'Сложность: {name}',
     'UI.menu.settings': 'Настройки',
