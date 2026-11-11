@@ -107,7 +107,7 @@
       whirlFx };
     SCX.worldPass(F);
     SCX.lightPass(F);
-    SCX.fxPass(F);
+    L.FXPX = PIX; try { SCX.fxPass(F); } finally { L.FXPX = 0; }
     // ===== bloom + grade (on the lit target) =====
     const scr = screenFx(ST, R, h, st, GT);
     const comp = L.T.comp; L.T.comp = SCX.LT.lit; L.finish(t, Object.assign({ bloom: [0.18, 0.14], vignette: 0.85, warm: 0.2, roll: 1, dither: 1, bright: (ST.meta && ST.meta.bright) || 1 }, scr)); L.T.comp = comp;

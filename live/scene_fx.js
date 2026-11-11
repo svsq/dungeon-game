@@ -228,7 +228,13 @@
     for (const p of R.fires || []) { if (p.kind !== 'pool' || !vis(p.x, p.y) || !known(p.x, p.y)) continue; const u = GT - p.t0, q = u / p.t, X = sx(p.x), Y0 = sy(p.y), k = SS(0, 0.25, u) * (1 - SS(0.75, 1, q)), arm = p.arm || 0, hot = arm ? SS(arm * 0.6, arm, u) : 1, r = p.r * (0.55 + 0.45 * SS(0, Math.max(0.35, arm), u));
       // (a golem's pool cools in steps, each with a crack ticking open, TASKS 1642: one smooth fade read as nothing happening)
       const g = p.who === 'golem', cool = g ? (q < 0.45 ? 1 : q < 0.72 ? 0.6 : 0.34) : 1, tick = g && (Math.abs(q - 0.45) < 0.012 || Math.abs(q - 0.72) < 0.012) ? 1.5 : 1;
-      L.glow(X, Y0, r * 1.6, [1, 0.32, 0.06], 0.55 * k * cool * tick, 1.6); L.glow(X, Y0, r * (1.1 - 0.5 * q), [1, 0.62, 0.22], 0.9 * k * (0.25 + 0.75 * hot) * cool * tick, 2.6); L.ring(X, Y0, r * (1 - 0.35 * q), r * p.ry * (1 - 0.35 * q), hot < 1 ? [1, 0.3, 0.08] : [1, 0.5, 0.15], (0.6 + 0.3 * (1 - hot)) * k * cool, 0.12);
+      // (TASKS 1792: a golem's is a ring of cracks running out from its fists with a hot rim, its glow under them low: a smooth disc of
+      // light read as a filter laid over the floor)
+      const gk = g ? 0.5 : 1;
+      L.glow(X, Y0, r * 1.6, [1, 0.32, 0.06], 0.55 * gk * k * cool * tick, 1.6); L.glow(X, Y0, r * (1.1 - 0.5 * q), [1, 0.62, 0.22], 0.9 * gk * k * (0.25 + 0.75 * hot) * cool * tick, 2.6);
+      if (g) for (let j = 0; j < 9; j++) { const a0 = (j + 0.6 * rnd(p.id, j + 31)) / 9 * TAU, reach = 0.3 + 0.65 * SS(0, 0.35, u) * (0.7 + 0.3 * rnd(p.id, j + 41)); let x0 = X + Math.cos(a0) * r * 0.3, y0 = Y0 + Math.sin(a0) * r * p.ry * 0.3;
+        for (let s2 = 1; s2 <= 3; s2++) { const f = 0.3 + (reach - 0.3) * s2 / 3, an = a0 + (rnd(p.id, j * 3 + s2 + 51) - 0.5) * 0.5, x1 = X + Math.cos(an) * r * f, y1 = Y0 + Math.sin(an) * r * p.ry * f;
+          L.solid(Math.round(x0 / 2) * 2, Math.round(y0 / 2) * 2, Math.max(2, Math.round(Math.hypot(x1 - x0, y1 - y0) / 2) * 2), 2, [1, 0.5 + 0.3 * s2 / 3, 0.2], Math.atan2(y1 - y0, x1 - x0), 0, 1, 0.9 * k * cool); x0 = x1; y0 = y1; } } L.ring(X, Y0, r * (1 - 0.35 * q), r * p.ry * (1 - 0.35 * q), hot < 1 ? [1, 0.3, 0.08] : [1, 0.5, 0.15], (0.6 + 0.3 * (1 - hot)) * k * cool, 0.12);
       if (g) for (const [j, q0] of [[0, 0.45], [1, 0.72]]) if (q >= q0) { const an = rnd(p.id, j + 13) * 3.14, len = r * (0.5 + 0.4 * rnd(p.id, j + 17)); L.solid(X - Math.cos(an) * len / 2 + (rnd(p.id, j + 21) - 0.5) * r * 0.5, Y0 - Math.sin(an) * len * p.ry / 2 + (rnd(p.id, j + 25) - 0.5) * r * 0.3, len, 2, [1, 0.74, 0.32], an, 0, 0, k * (q - q0 < 0.03 ? 1 : 0.55)); }
       for (let j = 0; j < 4; j++) { const b = (t * 0.9 + rnd(p.id, j)) % 1, bx = X + (rnd(p.id, j + 5) - 0.5) * r, by = Y0 + (rnd(p.id, j + 9) - 0.5) * r * p.ry; if (b < 0.3) L.ring(bx, by, 2 + 6 * b / 0.3, 1 + 3 * b / 0.3, [1, 0.8, 0.4], 0.8 * k * hot * (1 - b / 0.3), 0.3); } }
     // the colossus's telegraphs (TASKS 413), on the floor in the add pass: the fists' ring closing in through the wind-up; the crack's
@@ -245,7 +251,7 @@
           }
         }
         if (e.st !== 'bwind') continue; const Mv = D.bossMove(e), w = Mv.wind, q = SS(0, w, u), beat = 0.75 + 0.25 * Math.sin(chirp(u, w, 10, 18, true));
-        if (e.mv === 'fists' && u < w) { L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.4, 0.1], (0.3 + 0.55 * q) * beat, 0.05); L.ring(X, Y0, Mv.r * (1.5 - 0.5 * q), Mv.r * 0.75 * (1.5 - 0.5 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.04); }
+        if (e.mv === 'fists' && u < w) { L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.4, 0.1], (0.3 + 0.55 * q) * beat, 0.09); L.ring(X, Y0, Mv.r * (1.5 - 0.5 * q), Mv.r * 0.75 * (1.5 - 0.5 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.07); }   // (wider bands on the art grid, TASKS 1792/1749: thin lines were lost on a mottled floor)
         // the stomp's ring is drawn tight at its feet and dust-pale, so it reads apart from the fists' wide orange ring
         if (e.mv === 'stomp' && u < w) { L.glow(X, Y0, Mv.r * 0.8, [1, 0.62, 0.3], 0.2 + 0.35 * q * beat, 1.6); L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.78, 0.45], (0.35 + 0.55 * q) * beat, 0.06);
           L.ring(X, Y0, Mv.r * (0.45 + 0.55 * q), Mv.r * 0.75 * (0.45 + 0.55 * q), [1, 0.85, 0.55], 0.6 * q * beat, 0.04); }
@@ -261,7 +267,7 @@
         // (a shelter: a cool blue pool, filled, with a steady blue rim, TASKS 487)
         for (const d of m.decor) if (d.cover && !d.broken && vis(d.x, d.y)) { const X = sx(d.x), Y0 = sy(d.y); L.shadow(X, Y0, sh, sh * 0.62, 0.42); L.glow(X, Y0, sh * 0.9, [0.3, 0.6, 1], 0.35 * pulse, 1.4); L.ring(X, Y0, sh, sh * 0.62, [0.45, 0.75, 1], 0.7 * pulse, 0.07); } }
       for (const q of R.rocks || []) { if (q.x === undefined || GT < q.t0 || !known(q.x, q.y)) continue; const f = Math.min(1, (GT - q.t0) / (q.t - q.t0)), X = sx(q.x), Y0 = sy(q.y), beat = 0.75 + 0.25 * Math.sin(chirp(GT - q.t0, q.t - q.t0, 10, 18, false));
-        if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.06); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
+        if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.1); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
         else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.22, 0.08], (0.45 + 0.55 * f) * beat, 0.12); L.glow(X, Y0, q.r * 0.7, [1, 0.3, 0.1], 0.2 * f, 2); } }
     }
     // the brink (TASKS 476): a monster the hero could drive off an edge (SIM.Q.brinkOf) has a ring at its feet beating slowly and the
@@ -396,7 +402,7 @@
           L.star(x, y, 8 + 7 * rnd(e.t, j + 60), [0.85, 0.96, 1], fade); } } }
       // the warrior's charge (TASKS 1130): a hot streak along the rush, a burst where it strikes; the war cry: a red ring rolling out
       if (e.k === 'charge' && a >= 0.06 && a < 0.3) { const q = (a - 0.06) / 0.24; for (let j = 1; j < 6; j++) L.glow(sx(h.x) - e.dx * j * 22, sy(h.y) - 30 - e.dy * j * 18, 18, [1, 0.55, 0.2], 0.35 * (1 - q) * (1 - j / 7), 2.4); }
-      if (e.k === 'volley' && a < 0.1) for (let j = -2; j <= 2; j++) L.solid(ex + Math.cos(e.a) * 30, ey - 30 + Math.sin(e.a) * 24, 32, 2, [0.98, 0.9, 0.68], e.a + j * 0.18, 0, 1, 0.6 * (1 - a / 0.1));
+      if (e.k === 'volley' && a < 0.1) for (let j = -2; j <= 2; j++) for (const [d0, l0, k0] of [[0, 10, 1], [14, 8, 0.6], [26, 6, 0.3]]) { const an = e.a + j * 0.18; L.solid(Math.round((ex + Math.cos(e.a) * 30 + Math.cos(an) * d0) / 2) * 2, Math.round((ey - 30 + Math.sin(e.a) * 24 + Math.sin(an) * d0) / 2) * 2, l0, 2, [0.98, 0.9, 0.68], an, 0, 1, 0.6 * k0 * (1 - a / 0.1)); }
       if (e.k === 'shield_break' && a < 0.3) for (let j = 0; j < 8; j++) { const q = a / 0.3, an = j / 8 * TAU; L.star(ex + Math.cos(an) * (24 + 34 * q), ey - 32 + Math.sin(an) * (28 + 34 * q), 6, [0.65, 0.85, 1], 1 - q); }
       if (e.k === 'chargehit' && a < 0.4) { const q = a / 0.4; L.glow(ex, ey - 30, 44, [1, 0.6, 0.25], 0.45 * (1 - Math.min(1, a / 0.2)), 2.4); L.ring(ex, ey, 18 + 50 * q, 9 + 20 * q, [1, 0.75, 0.4], 0.9 * (1 - q), 0.2);
         for (let j = 0; j < 6; j++) { const an = rnd(e.t, j) * 6.28; L.star(ex + Math.cos(an) * 30 * q, ey - 30 + Math.sin(an) * 22 * q, 6, [1, 0.85, 0.5], 1 - q); } }
@@ -415,7 +421,7 @@
         if (rank === 3 && burst >= 0 && burst < 0.5) { const q = burst / 0.5; L.ring(ex, ey - 4, 26 + 70 * q, 12 + 36 * q, col, 0.8 * (1 - q), 0.14); } }
       if ((e.k === 'pickup' || e.k === 'gold' || e.k === 'shard') && a < 0.5) { const q = a / 0.5, col = e.k === 'shard' ? [0.4, 0.7, 1] : e.k === 'pickup' ? D.RARITY[e.rar || 0].col : [1, 0.85, 0.3];
         for (let j = 0; j < 6; j++) { const an = j / 6 * 6.28 + e.t; L.star(ex + Math.cos(an) * 26 * q, ey - 10 + Math.sin(an) * 18 * q - 20 * q, 9, col, 1 - q); } }
-      if (e.k === 'trapfuse' && a < e.d) { const q = a / e.d, T = D.CHEST_TRAP.r, beat = 0.55 + 0.45 * Math.sin(a * (10 + 34 * q)); G.blend('add'); G.draw(L.P.glow, { u_col: [1, 0.2, 0.08], u_k: 1.3, u_amt: (0.14 + 0.22 * q) * beat }, G.xf(ex - T, ey - T * 0.6, 2 * T, T * 1.2)); G.blend(); L.ring(ex, ey, T, T * 0.6, [1, 0.28, 0.12], 0.45 + 0.5 * beat, 0.07); L.ring(ex, ey, T * (1 - q), T * 0.6 * (1 - q), [1, 0.75, 0.3], 0.85, 0.09);
+      if (e.k === 'trapfuse' && a < e.d) { const q = a / e.d, T = D.CHEST_TRAP.r, beat = 0.55 + 0.45 * Math.sin(a * (10 + 34 * q)); G.blend('add'); G.draw(L.P.glow, { u_col: [1, 0.2, 0.08], u_k: 1.3, u_amt: (0.14 + 0.22 * q) * beat, u_fxpx: 0 }, G.xf(ex - T, ey - T * 0.6, 2 * T, T * 1.2)); G.blend(); L.ring(ex, ey, T, T * 0.6, [1, 0.28, 0.12], 0.45 + 0.5 * beat, 0.07); L.ring(ex, ey, T * (1 - q), T * 0.6 * (1 - q), [1, 0.75, 0.3], 0.85, 0.09);
         const sx0 = ex + 6, sy0 = ey - 36; G.blend('add'); L.glow(sx0, sy0, 12 + 10 * q, [1, 0.55, 0.15], 0.8 * beat, 2.5); G.blend(); L.star(sx0, sy0, 12 + 8 * q, [1, 0.9, 0.55], 1); for (let j = 0; j < 7; j++) { const u = (q * 2.5 + rnd(e.t, j + 9)) % 1; L.star(sx0 + (rnd(e.t, j) - 0.5) * 16 * (1 + u), sy0 - 4 - 30 * u, 9 + 6 * q, [1, 0.78, 0.3], 1 - u * 0.5); } }
       if (e.k === 'trapbang' && a < 0.9) { const q = a / 0.9, F2 = SS(0, 0.1, a) * (1 - SS(0.12, 0.3, a)); G.blend('add'); if (a < 0.22) L.glow(ex, ey - 16, e.r * 1.05, [1, 0.92, 0.7], 1.05 * (1 - a / 0.22), 2); L.glow(ex, ey - 16, e.r * 0.8, [1, 0.45, 0.12], 0.55 * F2, 2); G.blend(); L.ring(ex, ey, e.r * (0.35 + 0.65 * Math.min(1, a / 0.3)), e.r * 0.6 * (0.35 + 0.65 * Math.min(1, a / 0.3)), [1, 0.62, 0.25], Math.max(0, 1 - a / 0.42), 0.22);
         for (let j = 0; j < 16; j++) { const an = j / 16 * 6.28 + rnd(e.t, j), d = e.r * Math.min(1, q * 2.1) * (0.5 + 0.5 * rnd(e.t, j + 3)); L.star(ex + Math.cos(an) * d, ey - 8 + Math.sin(an) * d * 0.6 - 40 * q * q, 10 * (1 - q) + 3, [1, 0.8, 0.35], 1 - q); }
@@ -489,7 +495,7 @@
       // a scroll's light pillar where the hero vanished and where he lands
       if (e.k === 'teleport' && a < 0.9) { const q = a / 0.9;
         for (const [px, py, k] of [[ex, ey, 1], [sx(e.fx ?? e.x), sy(e.fy ?? e.y), 0.7]]) { const wd = 60 * (1 - 0.6 * q);
-          G.draw(L.P.glow, { u_col: [0.55, 0.78, 1], u_k: 2.2, u_amt: 1.3 * k * (1 - q) }, G.xf(px - wd / 2, py - 220, wd, 240)); L.ring(px, py, 20 + 50 * q, 8 + 18 * q, [0.6, 0.85, 1], k * (1 - q), 0.15);
+          G.draw(L.P.glow, { u_col: [0.55, 0.78, 1], u_k: 2.2, u_amt: 1.3 * k * (1 - q), u_fxpx: 0 }, G.xf(px - wd / 2, py - 220, wd, 240)); L.ring(px, py, 20 + 50 * q, 8 + 18 * q, [0.6, 0.85, 1], k * (1 - q), 0.15);
           for (let j = 0; j < 8; j++) { const an = j / 8 * 6.28 + a * 5; L.star(px + Math.cos(an) * 26 * (1 - q), py - 10 - 140 * q * (0.4 + rnd(j, 3)), 7, [0.7, 0.88, 1], k * (1 - q)); } } }
       // a workshop's work (TASKS 1013): sparks off the anvil; a blue burst over the lectern, or a red one when the spell falls apart
       if (e.k === 'craft' && a < 0.9) { const q = a / 0.9, col = e.kind === 'forge' ? [1, 0.75, 0.35] : e.ok ? [0.55, 0.78, 1] : [1, 0.35, 0.25];

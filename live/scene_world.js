@@ -367,7 +367,8 @@
     // a skeleton archer's arrow (TASKS 311): the painted arrow along its flight, a faint streak of air behind it
     for (const p of R.proj) if (p.k === 'arrow' && vis(p.x, p.y) && known(p.x, p.y)) Y.push([p.y + p.gz, () => { const a = Math.atan2(p.vy, p.vx), ah = ARROW_H, aw = ah * G.tex('skel_arrow').w / G.tex('skel_arrow').h, T0 = p.own === 'hero' ? SC.heroTip : null, q0 = T0 && GT - T0.t < 0.05 ? SS(0, 0.1, GT - p.t0) : 1, x = T0 && q0 < 1 ? T0.x + (sx(p.x) - T0.x) * q0 : sx(p.x), y = T0 && q0 < 1 ? T0.y + (sy(p.y) - T0.y) * q0 : sy(p.y);   // (a hero's arrow leaves the string, not the sim's hand point, TASKS 1160)
       L.solid(x, y, 26, 2, [0.75, 0.75, 0.7], a + Math.PI, 0, 1, 0.18 * SS(0, 0.05, GT - p.t0));
-      if (p.own === 'hero') { L.solid(x, y, 34, 2, [0.95, 0.86, 0.62], a + Math.PI, 0, 1, 0.55); L.star(x, y, 4, [1, 0.92, 0.7], 0.8); }
+      // (a hero's trail in three short dashes fading behind it, TASKS 1792: one long line read as a ruled stroke over the art)
+      if (p.own === 'hero') { for (const [d0, l0, k0] of [[4, 10, 0.75], [17, 8, 0.45], [29, 6, 0.22]]) L.solid(Math.round((x - Math.cos(a) * d0) / 2) * 2, Math.round((y - Math.sin(a) * d0) / 2) * 2, l0, 2, [0.95, 0.86, 0.62], a + Math.PI, 0, 1, k0); L.star(x, y, 4, [1, 0.92, 0.7], 0.8); }
       L.inked(() => L.sprite('skel_arrow', 0, 0, { m: M.of(M.t(x, y), M.r(a + Math.PI / 2)), w: aw, h: ah, pivot: [aw / 2, ah * 0.1] }), { r: 1.5, n: 6, col: [0.024, 0.02, 0.024], dy: 0 }); }]);
     const jig = (id) => knocked[id] && knockOf(knocked[id], GT);
     // the painted wax is near white and outshone the fight; dimmed, the flames stay the brightest thing on a candle

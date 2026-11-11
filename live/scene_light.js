@@ -10,7 +10,7 @@
       vis, warnOf, weaponCol } = F;
     // ===== light map =====
     const FM = D.FLOOR_MODS[m.mod] || {}, ab = 0.5 / Math.max(...B.amb), AMB = [0.34, 0.40, 0.58], ak = B.ambK || 0.3, amb = AMB.map((v, i) => ((1 - ak) * v + ak * B.amb[i] * ab) * (B.ambLvl || 1) * (FM.dim || 1)); G.bind(SCX.LT.light, [...amb, 1]); G.blend('add');
-    const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + SCX.VW + r || y < cy - r || y > cy + SCX.VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
+    const lt = (x, y, r, col, amt, k = 2.2) => { if (x < cx - r || x > cx + SCX.VW + r || y < cy - r || y > cy + SCX.VH + r) return; G.draw(L.P.glow, { u_col: col, u_k: k, u_amt: amt, u_fxpx: 0 }, G.xf(sx(x) - r, sy(y) - r * 0.8, 2 * r, 1.6 * r)); };
     // the hero is the frame's focus: a wide fill plus a tight warm key on the body that barely reaches the floor around him.
     // Away from fire the fill is the player's lamp: 3–4 cells of floor, traps and foes must read in a dark corridor (TASKS 170)
     if (B.cave && !m.cliff) lt(h.x, h.y - 45, 75, [0.35, 0.6, 0.85], 0.18);
