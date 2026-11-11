@@ -237,8 +237,8 @@
   const swimClip = (sw) => Object.assign({ clipk: SS(0, 0.03, sw), clipr: 96 * Math.max(0, 1 - 2 * (0.5 - Math.sin(Math.asin(1 - 2 * sw) / 3))) }, LAVA_CLIP);
   function drawEnemy(e, x, y, GT, t) {
     const E = D.ENEMIES[e.type], tex = EN_TEX[e.type], [w0, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : tex), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1, w = w0 * k, h = h0 * k;
-    // a golem in its crust takes a blow on the plates: its edge flashes, not the whole body white (TASKS 1724)
-    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3 || (E.crust && (e.crust ?? E.crust.n) > 0), hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
+    // a golem in its crust takes a blow on the plates: its edge flashes, not the whole body white (TASKS 1724), the blow that breaks the last one too (1910)
+    const dead = e.deadT >= 0 ? GT - e.deadT : -1, hA0 = GT - e.hitT, rapid = e.elite || e.hitT - (e.hitP ?? -9) < 0.3 || (E.crust && ((e.crust ?? E.crust.n) > 0 || (e.plateT && e.plateT[1] === e.hitT))), hit = hA0 >= 0 && hA0 < 0.06 && !rapid, edge = hA0 >= 0 && hA0 < 0.08 && rapid, ew = D.BOSSES[e.type] ? D.bossMove(e).wind : D.windOf(e, E.wind), wind = e.st === 'wind' ? SS(0, ew, GT - e.t0) : e.st === 'bwind' ? SS(0, ew, GT - e.t0) * (1 - SS(ew, ew + 0.15, GT - e.t0)) : 0;
     const sp = Math.hypot(e.vx, e.vy), ph = e.dist / 20 * Math.PI, step = SS(5, 40, sp) * Math.abs(Math.sin(ph));
     const flt = E.ghost ? 6 + 3 * Math.sin(t * 2.3 + e.id) : 0;
     let sx = 1, sy = 1, lean = 0;
