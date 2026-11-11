@@ -333,7 +333,15 @@
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(W - 1, Math.max(0, x + d)); v += K[d + KR] * R.seen[y * W + u]; } a[y * W + x] = v / KS; }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0; for (let d = -KR; d <= KR; d++) { const u = Math.min(H - 1, Math.max(0, y + d)); v += K[d + KR] * a[u * W + x]; } b[y * W + x] = v / KS; }
     // unexplored lava next to the seen keeps a dim tail (TASKS 1724): its glow cut from ~0.45 to black in one cell read as a hard step
-    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? (m.cliff ? 0.05 + 0.95 * Math.min(1, Math.max(0, b[i] - 0.28) * 1.85) : 0.35 + 0.65 * Math.min(1, b[i] * 1.6)) : m.cliff && c === 3 ? 0.55 * SS(0.12, 0.6, b[i]) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
+    // (TASKS 1907: an explored room by the lava still ended on its cells' straight edge, 250–400 px of it against the chasm's black: by
+    // the lava its last two seen cells fade into the fog by a slow noise along the edge, up to two cells deep, never past what was seen)
+    const lavaBy = (x, y) => { for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (SIM.Q.cell(m, x + i, y + j) === 3) return true; return false; };
+    const unseenIn = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { const X = x + i, Y = y + j; if (X >= 0 && Y >= 0 && X < W && Y < H && !R.seen[Y * W + X]) return true; } return false; };
+    const vn = (x, y) => { const X = Math.floor(x), Y = Math.floor(y), u = x - X, v = y - Y, a = rnd(X, Y + 17), b2 = rnd(X + 1, Y + 17), c2 = rnd(X, Y + 18), d2 = rnd(X + 1, Y + 18);
+      return (a * (1 - u) + b2 * u) * (1 - v) + (c2 * (1 - u) + d2 * u) * v; };
+    const fade = (i) => { const x = i % W, y = Math.floor(i / W); if (!lavaBy(x, y)) return 1; const r = unseenIn(x, y, 1) ? 1 : unseenIn(x, y, 2) ? 2 : 0; if (!r) return 1;
+      const e = 2.4 * vn(x / 2.3 + y / 3.1, y / 2.3 - x / 3.7); return Math.min(1, Math.max(r > 1 ? 0.55 : 0.12, r - e + 0.4)); };
+    for (let i = 0; i < W * H; i++) { const seen = R.seen[i], c = m.cells[i], f = seen ? (m.cliff ? (0.05 + 0.95 * Math.min(1, Math.max(0, b[i] - 0.28) * 1.85)) * fade(i) : 0.35 + 0.65 * Math.min(1, b[i] * 1.6)) : m.cliff && c === 3 ? 0.55 * SS(0.12, 0.6, b[i]) : c === 1 || c === 3 || c === 5 || c === 6 ? 0 : 0.6 * b[i];
       const v = Math.round(255 * f); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
     g.putImageData(im, 0, 0);
     if (!SEEN.rec) SEEN.rec = G.canvasTex('seen', cv);
