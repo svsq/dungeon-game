@@ -1981,6 +1981,12 @@
       const d = T.result.damage;
       if (d.length !== 3 || d[2].src !== 'cultist elite blast' || d[2].actor.mods.length !== 2 || d[2].n !== Math.min(50, Math.round(T.result.heroStats.maxHp * BAL.cap.blow)) || !T.result.heroStats || T.run) out.push('end: loses last hit, exact elite, history or hero across save/load');
       if (damageName('cultist reflect') !== 'Культист' || damageName('cultist отражение') !== 'Культист' || damageName('cultist elite bolt') !== 'Культист (элита) · снаряд' || damageName('cultist (элита) снаряд') !== 'Культист (элита) · снаряд' || damageName('lava') !== 'Лава') out.push('end: damage source not translated'); }
+    // TASKS 1647: a chain of blasts takes no more than BAL.cap.blast of the health over its window; once the window has passed, a blast lands again
+    { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero, max = heroSt(S).maxHp, C = BAL.cap.blast;
+      h.hp = max * 10; for (let i = 0; i < 6; i++) { hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast'); S.t += C.t / 8; }
+      const took = max * 10 - h.hp; S.t += C.t; hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast');
+      if (took > max * C.share + 1 || took < max * C.share - 1) out.push(`blasts: a chain took ${Math.round(100 * took / max)} % of the health in ${C.t} s, the cap is ${100 * C.share} %`);
+      if (!(max * 10 - h.hp > took)) out.push('blasts: no blast lands once the window has passed'); }
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run;
       enterFloor(S, R, 8); const e = R.en.find((o) => o.type === 'boss'), h = R.hero; R.en = [e]; R.proj = []; S.t = 5;
       e.st = 'bwind'; e.mv = 'volley'; e.t0 = 4; e.fired = 0; stepBossMove(S, R);

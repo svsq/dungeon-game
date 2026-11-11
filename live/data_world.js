@@ -213,8 +213,10 @@
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
-    // (nest: the smouldering dead's own hall, them alone; with the ember pack's archer it was half archers, TASKS 488; never drawn at random)
-    nest: { w: 0, plan: [[['skel_ember'], [3, 4], 'any']] },
+    // (nest: the smouldering dead's own hall; with the ember pack's archer it was half archers, TASKS 488; never drawn at random. A
+    // fire priest at the back, TASKS 1647: its pyres under the hero's feet make the ground he backs off to unsafe, so the answer is
+    // where to stand, not only to run)
+    nest: { w: 0, plan: [[['skel_ember'], [3, 4], 'any'], [['fire_priest'], [1, 1], 'back']] },
     rush: { w: 1, plan: [[['goblin'], [2, 3], 'near'], [['skeleton'], [1, 1], 'any']] },
     ember: { w: 3, plan: [[['skel_ember'], [2, 3], 'any'], [['skel_archer'], [0, 1], 'back']] },
     cult: { w: 2, plan: [[['cultist'], [2, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [1, 2], 'near']] },
