@@ -24,6 +24,7 @@
   // a call replaces the last one's pad, so a view is read before view() is asked again
   const XP = [0, 1, 2, 3, 4, 5, -1, -1, 6, 7, 9, 10], VV = { std: false, ax: [0, 0, 0, 0], press: null };
   let vbt = [], vax = [];
+  const PADS = [];
   const bp = (i) => !!(vbt[i] && (vbt[i].pressed || vbt[i].value > 0.5));
   const pressX = (i) => { const hx = vax[6] || 0, hy = vax[7] || 0;
     return i === 6 ? (vax[2] || 0) > 0.3 : i === 7 ? (vax[5] || 0) > 0.3 : i === 12 ? hy < -0.5 : i === 13 ? hy > 0.5 : i === 14 ? hx < -0.5 : i === 15 ? hx > 0.5 : XP[i] >= 0 && bp(XP[i]); };
@@ -38,7 +39,7 @@
 
   // io: { keys, ptr, pend, VW, VH, play(), start(), dev() } — index.html's own input state, written the way its listeners write it
   function create(io) {
-    const P = { active: 0, at: -99, n: 0, px: io.VW / 2, py: io.VH / 2, mode: 'kbm', screen: '' }; root.PAD = P;
+    const P = { active: 0, n: 0, px: io.VW / 2, py: io.VH / 2, mode: 'kbm', screen: '' }; root.PAD = P;
     Object.defineProperty(P, 'raw', { get: () => { const gp = P.gp; return gp ? { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) } : null; } });
     const { keys, ptr, pend } = io, kb = {};   // kb: the keyboard's own arrows, so an idle stick never lets go of a held key
     addEventListener('keydown', (e) => { if (e.isTrusted) kb[e.code] = 1; }, true); addEventListener('keyup', (e) => { kb[e.code] = 0; }, true);
@@ -90,17 +91,20 @@
         if (along < 6) continue; const q = along + Math.abs(rx * dy - ry * dx) * 2.5; if (q < q0) { q0 = q; best = b; } }
       goTo(best);
     };
-    const firstBtn = (S) => { const bs = onBtns(); return FIRST.map((id) => bs.find((b) => b.id === id)).find(Boolean) || bs.find((b) => b.id && b.id === S.focus) || bs[0]; };
+    // the screen's own focus first (fifth review of PR 62: the town gate opens on «Остаться», and FIRST's 'go' put the pointer and
+    // the focus on «Сдаться», a run ended by the next A), then the usual first buttons
+    const firstBtn = (S) => { const bs = onBtns(); return bs.find((b) => b.id && b.id === S.focus) || FIRST.map((id) => bs.find((b) => b.id === id)).find(Boolean) || bs[0]; };
 
     // its own clock in real seconds (review of PR 62): on the sim's, the dev pause (P) froze the dpad's repeat in the menus
     function poll(dt) {
       clock += dt;
-      const pads = Array.from((navigator.getGamepads && navigator.getGamepads()) || []).filter((p) => p && p.connected !== false);
+      const all = (navigator.getGamepads && navigator.getGamepads()) || []; PADS.length = 0; for (let i = 0; i < all.length; i++) if (all[i] && all[i].connected !== false) PADS.push(all[i]);
+      const pads = PADS;   // (one array kept, fifth review of PR 62)
       P.n = pads.length;
       if (!pads.length) { clear(); return; }
       const gp = pick(pads), V = view(gp), pr = V.press, ax = V.ax, S = io.play(); on = 1;
       const was = (i) => !!prev[i], edge = (i) => pr(i) && !was(i), rel = (i) => !pr(i) && was(i);
-      if (busy(V)) { if (P.mode !== 'pad') mx = -1; P.at = clock; P.mode = 'pad'; }
+      if (busy(V)) { if (P.mode !== 'pad') mx = -1; P.mode = 'pad'; }
       P.active = P.mode === 'pad' ? 1 : 0;
       P.map = (gp.mapping || '—') + (V.std ? '' : ' (xpad)');
       P.gp = gp;   // (P.raw, the dev line's view of it, is built only when read)
@@ -163,7 +167,5 @@
     let mx = -1, my = -1; addEventListener('mousemove', (e) => { if (mx < 0) { mx = e.clientX; my = e.clientY; } else if (P.mode === 'pad' && Math.hypot(e.clientX - mx, e.clientY - my) > 12) { kbm(); mx = -1; } }, true);
     return { poll, stepBegin, stepEnd, state: P };
   }
-  // pad names for the hint lines (hud.js): one table, the Steam Deck's own button names
-  const NAMES = { A: 'A', B: 'B', X: 'X', Y: 'Y', L1: 'L1', R1: 'R1', L2: 'L2', R2: 'R2', VIEW: 'View', MENU: 'Menu', L3: 'L3', UP: '↑', DOWN: '↓', LEFT: '←', RIGHT: '→' };
-  root.PADIN = { create, B, NAMES, FOCUS };
+  root.PADIN = { create };
 })(window);
