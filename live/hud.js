@@ -62,10 +62,11 @@
     if (label) lab(id + '_t', label, x + w / 2, y + h / 2 + 1, { size: Math.round(h * 0.62), al: 0.5 });
   }
   const icon = (n, x, y, s, u) => { const [w, h] = SZ(n), k = s / Math.max(w, h); L.sprite(n, x + (s - w * k) / 2, y + (s - h * k) / 2, { w: w * k, h: h * k, u }); };
+  // b.lit: the one Enter presses stands out of its row by a lighter tone and pale gold letters (TASKS 1876), no glow (TASKS 1887)
   function button(id, b, hover) {
-    const on = b.on !== false, hv = hover === b.id && on;
-    panel(id, b.x, b.y, b.w, b.h, { c0: hv ? [0.24, 0.16, 0.1] : [0.13, 0.1, 0.11], c1: hv ? [0.13, 0.08, 0.06] : [0.06, 0.05, 0.06], rim: hv ? C.rimHi : C.rim });
-    lab(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: 30, fit: b.w - 8, al: 0.5, col: on ? (hv ? '#fff2c8' : C.text) : '#6d6258' });
+    const on = b.on !== false, hv = hover === b.id && on, li = hv && b.lit;
+    panel(id, b.x, b.y, b.w, b.h, { c0: li ? [0.42, 0.29, 0.18] : hv ? [0.24, 0.16, 0.1] : [0.13, 0.1, 0.11], c1: li ? [0.26, 0.16, 0.09] : hv ? [0.13, 0.08, 0.06] : [0.06, 0.05, 0.06], rim: li ? [0.86, 0.68, 0.42] : hv ? C.rimHi : C.rim });
+    lab(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: 30, fit: b.w - 8, al: 0.5, col: on ? (li ? '#ffe7a3' : hv ? '#fff2c8' : C.text) : '#6d6258' });
   }
   const dim = (a = 0.62) => L.solid(0, -G.oy, W, VH, [0, 0, 0], 0, 0, 0, a);
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
@@ -1288,12 +1289,16 @@
       if (ic) { panel('tk_ic', P.x + 300, P.y + P.h - 160, 44, 44, { r: 6 }); icon(ic, P.x + 304, P.y + P.h - 156, 36); }
       if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) lab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, { size: 22, col: INK.g }); }
     if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: INK.d });
-    button('tk_next', Object.assign({}, at('next'), { label: T.menu ? TXT('hud.talk.label.3') : T.p + 1 < T.pages.length ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3') }), S.hover);
-    if (act) button('tk_act', Object.assign({}, act, { label: T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5') }), S.hover);
-    if (at('craft')) button('tk_craft', at('craft'), S.hover);
-    if (at('talk')) button('tk_orig', at('talk'), S.hover);
-    U.r.filter((q) => q.id.startsWith('topic:')).forEach((q) => button('tk_t' + q.i, q, S.hover));
-    lab('tk_keys', act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : at('craft') && !act && T.p + 1 >= T.pages.length && !T.inTopic ? TXT('hud.talk.craftKeys') : act ? TXT('hud.talk', { p1: T.act.k === 'take' ? (T.act.first ? TXT('hud.talk.2first') : TXT('hud.talk.2')) : TXT('hud.talk.3') }) : T.inTopic ? TXT('hud.talk.topic') : TXT('hud.talk.4'), W / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#8a7d6c' });
+    const last = T.p + 1 >= T.pages.length, lb = { next: T.menu ? TXT('hud.talk.label.3') : !last ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3'),
+      act: act && (T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5')) };
+    // the button Enter presses is lit as «Остаться» at the gate (TASKS 1876), the pointer's or the keys' alike
+    const walk = SIM.Q.talkWalk(T, U), lit = litOf(S, U.r.map((q) => q.id)) || (T.menu ? walk[0] : walk.includes('act') ? 'act' : 'next'), hot = (b, label) => button(b.id === 'talk' ? 'tk_orig' : b.id.startsWith('topic:') ? 'tk_t' + b.i : 'tk_' + b.id, Object.assign({}, b, label ? { label } : {}, { lit: 1 }), lit);
+    hot(at('next'), lb.next); if (act) hot(act, lb.act); if (at('craft')) hot(at('craft')); if (at('talk')) hot(at('talk'));
+    U.r.filter((q) => q.id.startsWith('topic:')).forEach((q) => hot(q));
+    const low = (s) => s.charAt(0).toLowerCase() + s.slice(1), fl = low(lb[lit] || (at(lit) || {}).label || lb.next),
+      eDoes = act && T.act.k === 'turn' ? TXT('hud.talk.eTurn') : act && T.act.k === 'take' ? (T.act.first ? TXT('hud.talk.eTake') : '') : at('craft') && last && !T.inTopic ? TXT('hud.talk.eCraft') : TXT('hud.talk.eNext');
+    lab('tk_keys', T.menu ? TXT('hud.talk.menu') : act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : walk.length < 2 ? (T.inTopic ? TXT('hud.talk.topic') : TXT('hud.talk.4'))
+      : eDoes === fl ? TXT('hud.talk.walkBoth', { p1: fl }) : eDoes ? TXT('hud.talk.walkE', { p1: fl, p2: eDoes }) : TXT('hud.talk.walk', { p1: fl }), W / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
   function board(S, R, t) {

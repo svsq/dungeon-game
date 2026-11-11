@@ -271,27 +271,37 @@
   // the storage chest: a click moves an item across, a drag drops it on the cell under the pointer (a drop where it started, or
   // off any cell, moves it across as a click would)
   const TALK_SETTLE = 0.5;
+  // the button Enter presses (TASKS 1876): lit as «Остаться» at the gate, walked by ←→ on a page and ↑↓ in the topics; never the end of
+  // the run, which only a click gives (TASKS 1854)
+  const talkWalk = (T, U) => U.r.filter((q) => (T.menu ? q.id.startsWith('topic:') || q.id === 'next' : !q.id.startsWith('topic:') && !(q.id === 'act' && T.act.k === 'finish'))).sort((p, q) => (T.menu ? (p.id === 'next') - (q.id === 'next') : p.x - q.x)).map((q) => q.id);
+  const talkFirst = (T, walk) => (T.menu ? walk[0] : walk.includes('act') ? 'act' : 'next');
   SCREEN.talk = (S, inp, keys, x, y, click) => {
-    const T = S.talk, b = T && D.hitUI(UI.talk(T).r, x, y); S.hover = b ? b.id : '';
-    if (!T || !S.run || (keys.Escape && !T.inTopic)) { S.screen = 'play'; S.talk = null; return; }
+    const T = S.talk, U = T && UI.talk(T), b = T && D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (!T || !S.run || (keys.Escape && !T.inTopic)) { S.screen = 'play'; S.talk = null; S.focus = ''; return; }
     if (keys.Escape) { T.inTopic = 0; T.menu = 1; T.pages = ['']; T.p = 0; ev(S, { k: 'ui', x, y }); return; }
     if (T.pk !== T.pages[T.p]) { T.pk = T.pages[T.p]; T.pT = S.t; }
-    if (click && b && b.id === 'craft') { SIMX.openCraft(S, S.run, T.craft); return; }
-    // in the topics menu a number or a click opens a topic; «Дальше» / «Не сейчас», E, the space or Enter leave it
-    if (T.menu) { const pick = T.topics.findIndex((q, i) => keys['Digit' + (i + 1)]), n = click && b && b.id.startsWith('topic:') ? b.i : pick; if (n >= 0) { T.pages = T.topics[n].a; T.p = 0; T.menu = 0; T.inTopic = 1; ev(S, { k: 'ui', x, y }); return; } if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { S.screen = 'play'; S.talk = null; } return; }
+    const walk = talkWalk(T, U), fk = (T.menu ? 'menu' : T.p + ':' + (T.act ? T.act.k : '') + ':' + walk.join()) + ':' + T.pages[T.p];
+    if (T.fk !== fk || !U.r.some((q) => q.id === S.focus)) { T.fk = fk; S.focus = talkFirst(T, walk); }
+    if (b && inp.moved) S.focus = b.id;
+    const mv = T.menu ? (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0) : (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    if (mv) { const i = walk.indexOf(S.focus), j = Math.max(0, Math.min(walk.length - 1, (i < 0 ? 0 : i + mv))); if (walk[j] !== S.focus) { S.focus = walk[j]; ev(S, { k: 'ui', x, y }); } return; }
+    const enter = keys.Enter ? S.focus : '';
+    if ((click && b && b.id === 'craft') || enter === 'craft') { SIMX.openCraft(S, S.run, T.craft); return; }
+    // in the topics menu a number, a click or Enter opens a topic; «Уйти», E or the space leave it
+    if (T.menu) { const pick = T.topics.findIndex((q, i) => keys['Digit' + (i + 1)]), n = click && b && b.id.startsWith('topic:') ? b.i : enter.startsWith('topic:') ? +enter.slice(6) : pick; if (n >= 0) { T.pages = T.topics[n].a; T.p = 0; T.menu = 0; T.inTopic = 1; ev(S, { k: 'ui', x, y }); return; } if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || enter === 'next') { S.screen = 'play'; S.talk = null; S.focus = ''; } return; }
     const last = T.p + 1 >= T.pages.length;
     // E run through the pages must never take a side quest or end the run (TASKS 1148, 1657), nor drop the offer unread (TASKS 1859):
     // on an offer's page E and the space do nothing, save the Keeper's first story quest, which E takes once the page has been up a breath.
     // The end of the run is never on Enter either, as at the town gate (TASKS 1854): only a click on «Завершить поход» ends it
     const quest = T.act && last && T.act.k === 'take', settled = S.t - (T.pT ?? S.t) >= TALK_SETTLE,
       byE = keys.KeyE && T.act && (T.act.k === 'turn' || (T.act.k === 'take' && T.act.first && settled)),
-      byEnter = keys.Enter && T.act && T.act.k !== 'finish';
-    if (T.act && last && ((click && b && b.id === 'act') || byE || byEnter)) { talkAct(S, S.run, T); return; }
+      byEnter = enter === 'act' && T.act && T.act.k !== 'finish';
+    if (T.act && last && ((click && b && b.id === 'act') || byE || byEnter)) { talkAct(S, S.run, T); if (S.screen !== 'talk') S.focus = ''; return; }
     if (quest && (keys.KeyE || keys.Space)) return;
-    if (click && b && b.id === 'talk' && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; ev(S, { k: 'ui', x, y }); return; }
+    if (((click && b && b.id === 'talk') || enter === 'talk') && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; ev(S, { k: 'ui', x, y }); return; }
     // a master's last page with no quest on it: E goes on into the workshop, so E, E still reaches the forge (TASKS 1635)
     if (T.craft && last && !T.act && !T.inTopic && keys.KeyE) { SIMX.openCraft(S, S.run, T.craft); return; }
-    if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { if (++T.p >= T.pages.length) { if (T.inTopic) { T.inTopic = 0; T.menu = 1; T.pages = ['']; T.p = 0; ev(S, { k: 'ui', x, y }); } else { S.screen = 'play'; S.talk = null; } } else ev(S, { k: 'ui', x, y }); }
+    if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || enter === 'next') { if (++T.p >= T.pages.length) { if (T.inTopic) { T.inTopic = 0; T.menu = 1; T.pages = ['']; T.p = 0; ev(S, { k: 'ui', x, y }); } else { S.screen = 'play'; S.talk = null; S.focus = ''; } } else ev(S, { k: 'ui', x, y }); }
     return;
   };
   SCREEN.craft = (S, inp, keys, x, y, click) => {
@@ -454,6 +464,6 @@
     S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved, py }), keys, inp.px, py, inp.click); S.uiKey = uiKey(S); commitDraft(S);
   }
 
-  Object.assign(SIMX, {
+  Object.assign(SIMX, { talkWalk,
     endRun, finishRun, descend, begin, startRun, stepUI, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
 })(typeof window !== 'undefined' ? window : globalThis);
