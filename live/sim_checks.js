@@ -1707,7 +1707,13 @@
             for (let i = 0; i < 160; i++) { step(S, { left: vx < 0, right: vx > 0, up: vy < 0, down: vy > 0, px: 960, py: 540, keys: [] }); if (leaf.some((c) => Math.abs(h.x - centre(c)[0]) < 12 && Math.abs(h.y - centre(c)[1]) < 12)) inside = true; }
             const along = (h.x - d.x) * vx + (h.y - d.y) * vy;
             if (inside) out.push(`${tag}: the hero stands behind the leaf (lane ${lane})`);
-            if (lane === 1 && along < 1.5 * TILE) out.push(`${tag}: the free lane does not carry the hero through (${along.toFixed(0)} px)`); } } }
+            if (lane === 1 && along < 1.5 * TILE) out.push(`${tag}: the free lane does not carry the hero through (${along.toFixed(0)} px)`); }
+          // TASKS 1783: the brute, the widest walker, follows the hero through it within 8 s
+          { const [cx, cy] = centre(d.cells[1]), at = (k) => [cx + vx * k * TILE, cy + vy * k * TILE], [hx, hy] = at(3), [bx, by] = at(-4), E = ENEMIES.brute;
+            if (!boxHit(m, hx, hy, 12, false, false) && !boxHit(m, bx, by, E.r, false, false)) { h.x = hx; h.y = hy; h.vx = h.vy = 0; h.hp = 1e9;
+              R.en = [{ id: R.nextId++, type: 'brute', x: bx, y: by, vx: 0, vy: 0, hp: 1e6, max: 1e6, dmg: 0, elite: 0, room: DG.roomAt(m, bx, by), st: 'chase', t0: S.t, face: 1, aimA: 0, cdT: S.t + 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: S.t, hx: bx, hy: by, ft: -9 }];
+              const b = R.en[0]; for (let i = 0; i < 480; i++) step(S, { px: 960, py: 540, keys: [] });
+              if ((b.x - d.x) * vx + (b.y - d.y) * vy < TILE) out.push(`${tag}: the brute does not follow the hero through it`); } } } }
       for (const dir of ['u', 'd', 'l', 'r']) if (!seenDir.has(dir)) out.push(`doors: no plain ${dir} door on floors 1–4 of 85 seeds`); }
     // TASKS 1683: a side door opened by a hero standing in the corridor in its leaf's row does not shove him; the cell takes hold once he is off it
     { let got = 0; for (let sd = 5; sd < 90 && got < 2; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
