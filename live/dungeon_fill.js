@@ -1103,6 +1103,12 @@
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
     if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    // the descent holds a floor to ST.cap monsters (TASKS 388): with pop's growth past the campaign (385) its floors held 60 and took
+    // 150–210 s. The plain ones go, one at a time from the most crowded room; an elite, a guard, a boss, one at a post, one of the
+    // water's or of a hall's pack stays
+    if (ST.cap && enemies.length > ST.cap) { const plain = (e) => !e.elite && !e.guard && !e.post && !e.exit && !e.lake && !D.BOSSES[e.type] && !D.ENEMIES[e.type].deep && !D.ENEMIES[e.type].lurk && !(rooms[e.room] && rooms[e.room].hall);
+      while (enemies.length > ST.cap) { const n = {}; for (const e of enemies) if (plain(e)) n[e.room] = (n[e.room] || 0) + 1; const top = Object.keys(n).sort((a, b) => n[b] - n[a] || a - b)[0]; if (top === undefined) break;
+        enemies.splice(enemies.findLastIndex((e) => plain(e) && String(e.room) === top), 1); } }
     // a stream of its own: which chests are trapped must not move anything else on the floor (TASKS 1357)
     if (runFloor >= D.CHEST_TRAP.from) { const Tc = mul32(seed ^ 0x1357), T = D.CHEST_TRAP; let n = 0; for (const c of chests) { const v = Tc(); if (n < T.max && !c.boss && !c.lair && c.key === undefined && v < T.p) { c.trap = 1; n++; } } }
     if (runFloor >= D.MIMIC.from) { const Mc = mul32(seed ^ 0x367), st = rooms.find((r) => r.type === 'start'), inSt = (c) => st && c.x >= st.x * TILE && c.x < (st.x + st.w) * TILE && c.y >= st.y * TILE && c.y < (st.y + st.h) * TILE; for (const c of chests) { const v = Mc(); if (v < D.MIMIC.p && !c.boss && !c.lair && !c.trap && !c.hall && c.sec === undefined && c.key === undefined && !inSt(c)) { c.mimic = 1; break; } } }
