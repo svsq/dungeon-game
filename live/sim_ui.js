@@ -198,8 +198,12 @@
     return;
   };
   SCREEN.fork = (S, inp, keys, x, y, click) => { const R = S.run, b = D.hitUI(UI.fork(), x, y); S.hover = b ? b.id : '';
-    if (keys.Escape) { S.screen = 'inv'; S.hover = ''; return; }
-    if (click && b) { SIMX.chooseFork(S, R, b.i); ev(S, { k: 'buy', x, y }); if (!D.forkPending(R.hero)) S.screen = 'inv'; S.hover = ''; }
+    // a choice for the whole run is taken on a second press of the same card (TASKS 1847): the first only lights it, Escape or a
+    // press anywhere else lets it go, a second Escape puts the fork off
+    if (keys.Escape) { if (S.forkSel != null) S.forkSel = null; else { S.screen = 'inv'; S.hover = ''; } return; }
+    if (click && b && S.forkSel === b.i) { SIMX.chooseFork(S, R, b.i); delete R.hero.draft; S.forkSel = null; ev(S, { k: 'buy', x, y }); if (!D.forkPending(R.hero)) S.screen = 'inv'; S.hover = ''; }
+    else if (click && b) { S.forkSel = b.i; ev(S, { k: 'ui', x, y }); }
+    else if (click) S.forkSel = null;
     return;
   };
   SCREEN.codex = (S, inp, keys, x, y, click) => { const U = UI.codex(S.codexTab || 'm', S.codexPage), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
@@ -403,10 +407,26 @@
     // legendary is sold, for a piece on the floor of a cave is as good as lost
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i];
       if (again(S, 'toss', it)) { h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); } else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.inv.tossAsk', { p1: SIMX.itemName(it) }) }); }
-    if (click && b.id.startsWith('stat:') && h.pts > 0) { h.base[b.k]++; h.pts--; if (b.k === 'vit') h.hp += 10; if (b.k === 'int') h.mp += 6; ev(S, { k: 'buy', x, y }); SIMX.thresholdTip(S, R); }
-    if (click && b.id.startsWith('ab:') && D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; return; }
-    if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; D.masteryTake(h); ev(S, { k: 'buy', x, y }); if (D.forkPending(h)) { S.screen = 'fork'; S.hover = ''; } } }
+    if (click && b.id.startsWith('stat:') && h.pts > 0) { const d = draftOf(h); d.thTip = d.thTip ?? (h.thTip || 0); h.base[b.k]++; h.pts--; d.st[b.k] = (d.st[b.k] || 0) + 1;
+      if (b.k === 'vit') { h.hp += 10; d.hp += 10; } if (b.k === 'int') { h.mp += 6; d.mp += 6; } ev(S, { k: 'buy', x, y }); SIMX.thresholdTip(S, R); }
+    if (click && b.id === 'reset:st' && h.draft && draftHas(h.draft.st)) { resetDraft(S, h, 'st'); ev(S, { k: 'ui', x, y }); }
+    if (click && b.id === 'reset:ab' && h.draft && (draftHas(h.draft.ab) || h.draft.mast)) { resetDraft(S, h, 'ab'); ev(S, { k: 'ui', x, y }); }
+    if (click && b.id.startsWith('ab:') && D.forkPending(h)) { toFork(S); return; }
+    if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { const d = draftOf(h), m0 = h.mast || 0;
+      h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; d.ab[b.ab] = (d.ab[b.ab] || 0) + 1; D.masteryTake(h); d.mast += (h.mast || 0) - m0; ev(S, { k: 'buy', x, y }); if (D.forkPending(h)) toFork(S); } }
   };
+  // points put in on one visit to the hero's page stay a draft until the page closes (TASKS 1847): base, ranks and health carry them
+  // at once, as everything reads them, and the draft only remembers how to take them back; leaving the page forgets it, and that is
+  // the commit. A choice made at a fork commits it too, for a rank taken back from under its fork would leave the fork hanging
+  const draftOf = (h) => h.draft || (h.draft = { st: {}, ab: {}, hp: 0, mp: 0, mast: 0 });
+  const draftHas = (o) => Object.values(o || {}).some((n) => n > 0);
+  function resetDraft(S, h, part) { const d = h.draft; if (!d) return;
+    if (part === 'st') { for (const k in d.st) { h.base[k] -= d.st[k]; h.pts += d.st[k]; } d.st = {}; const st = heroSt(S);
+      h.hp = Math.max(1, Math.min(st.maxHp, h.hp - d.hp)); h.mp = Math.max(0, Math.min(st.maxMp, h.mp - d.mp)); d.hp = 0; d.mp = 0; h.thTip = d.thTip ?? h.thTip; delete d.thTip; }
+    else { h.mast = (h.mast || 0) - d.mast; h.sp += d.mast; d.mast = 0; for (const k in d.ab) { h.ab[k] -= d.ab[k]; h.sp += d.ab[k]; if (!h.ab[k]) delete h.ab[k]; } d.ab = {}; if (!h.mast) delete h.mast; }
+    if (!draftHas(d.st) && !draftHas(d.ab) && !d.mast) delete h.draft; S.saveN++; }
+  const toFork = (S) => { S.screen = 'fork'; S.hover = ''; S.forkSel = null; };
+  const commitDraft = (S) => { const h = S.run && S.run.hero; if (h && h.draft && S.screen !== 'inv' && S.screen !== 'fork') delete h.draft; };
   // the screens the menu opens: back from one of them the menu's focus returns to the item that opened it (TASKS 1850); back from
   // a run it starts again from none, the first item (the run just saved), not the item that started the run long ago
   const MENU_SUBS = ['load', 'stats', 'settings', 'news', 'tests', 'classes'];
@@ -415,9 +435,9 @@
   function stepUI(S, inp, keys) {
     const f = SCREEN[S.screen], moved = !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py; S.ptr = [inp.px, inp.py];
     if (S.screen === 'menu' && S.uiWas !== 'menu') S.focus = MENU_SUBS.includes(S.uiWas) && S.menuAt ? S.menuAt : '';
-    S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved }), keys, inp.px, inp.py, inp.click);
+    S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved }), keys, inp.px, inp.py, inp.click); commitDraft(S);
   }
 
   Object.assign(SIMX, {
-    endRun, finishRun, descend, begin, startRun, stepUI, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
+    endRun, finishRun, descend, begin, startRun, stepUI, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

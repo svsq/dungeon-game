@@ -1469,6 +1469,16 @@
     // the Altar of Souls on the square (TASKS 1011): its prompt, and its screen opened there mid-run
     states.push(['town_altar_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; })]);
     states.push(['fork', fx((S, R, h) => { R.hero.cls = 'mage'; R.hero.ab = { fireball: 3, shield: 1, frost: 0 }; S.screen = 'fork'; S.hover = 'fork:1'; })]);
+    // TASKS 1847: a card lit by the first press and sealed (the pointer gone to the other, which stays unlit); a warrior's fork whose
+    // two ways carry the potion icons; on the hero's page what a point and the next rank give, and a visit's points with «Сбросить»
+    states.push(['fork_sel', fx((S, R, h) => { R.hero.cls = 'mage'; R.hero.ab = { fireball: 3, shield: 1, frost: 0 }; S.screen = 'fork'; S.forkSel = 0; S.hover = 'fork:1'; })]);
+    states.push(['fork_whirl', fx((S, R, h) => { R.hero.ab = { whirl: 3, charge: 3, cry: 1 }; R.hero.forks = { 'charge:3': 0 }; S.screen = 'fork'; S.forkSel = 1; S.hover = 'fork:1'; })]);
+    const tipOn = (S, id) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab).r.find((b) => b.id === id); S.hover = id; S.ptr = [q.x + q.w / 2, q.y + q.h / 2]; };
+    states.push(['inv_tip_stat', play((S) => { const h = S.run.hero; h.pts = 3; S.screen = 'inv'; tipOn(S, 'stat:agi'); })]);
+    states.push(['inv_tip_rank', play((S) => { const h = S.run.hero; h.lvl = 6; h.sp = 2; h.ab = { whirl: 2, charge: 1 }; S.screen = 'inv'; tipOn(S, 'ab:whirl'); })]);
+    states.push(['inv_tip_learn', play((S) => { const h = S.run.hero; h.lvl = 6; h.sp = 2; h.ab = { whirl: 4 }; S.screen = 'inv'; tipOn(S, 'ab:cry'); })]);
+    states.push(['inv_draft', play((S) => { const h = S.run.hero; h.lvl = 6; h.pts = 4; h.sp = 1; h.ab = { whirl: 3, charge: 1 }; h.forks = { 'whirl:3': 1 }; h.base.str += 2; h.base.vit += 1;
+      h.draft = { st: { str: 2, vit: 1 }, ab: { charge: 1 }, hp: 10, mp: 0, mast: 0 }; S.screen = 'inv'; tipOn(S, 'reset:st'); })]);
     states.push(['codex', mk((S) => { S.meta.codex = { m: Object.fromEntries(Object.keys(D.ENEMIES).filter((_, i) => i % 3).map((k) => [k, 1])) }; S.meta.best = 12; S.meta.bestEndless = 34; S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = 'next'; })]);
     states.push(['codex_all', mk((S) => { S.meta.codex = { m: Object.fromEntries(Object.keys(D.ENEMIES).map((k) => [k, 1])) }; S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = 'cx:boss_serpent'; })]);
     states.push(['codex_items', mk((S) => { S.meta.codex = { it: Object.fromEntries(Object.keys(D.BASES).map((k) => [k, 1])) }; S.screen = 'codex'; S.codexTab = 'it'; })]);

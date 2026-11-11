@@ -62,11 +62,13 @@
   // what a number or a cell is, under the pointer in the pause and on the hero's page (TASKS 1852): rects [x, y, w, h, title, line]
   // in the pause the note hangs under the HUD's left column and left of the pause window, so it covers none of their lines
   let TIPS = [], TIPY = 0;
+  // line: one line or several (TASKS 1847: what a point or a rank gives, a line a change); over the hero's page the stats' and the
+  // skills' notes show under a lit «+» or card, an item's own card under a cell
   const tipAt = (x, y, w, h, title, line) => TIPS.push([x, y, w, h, title, line || '']);
-  function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && S.hover)) return; const [px, py] = S.ptr, T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
-    const [, , , , title, line] = T, w = Math.max(lw('tip_t', title, { size: 24 }), line ? lw('tip_l', line, { size: 20 }) : 0) + 32, h = line ? 74 : 46, inPause = S.screen === 'pause',
+  function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; const [px, py] = S.ptr, T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
+    const [, , , , title, line] = T, ls = [].concat(line).filter(Boolean), w = Math.max(lw('tip_t', title, { size: 24 }), ...ls.map((q, i) => lw('tip_l' + i, q, { size: 20 }))) + 32, h = 46 + 28 * ls.length, inPause = S.screen === 'pause',
       x = Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
-    plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); if (line) lab('tip_l', line, x + 16, y + 52, { size: 20, col: C.text }); }
+    L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
     G.bind(null); G.blend(); MMB = null; TRK = null; TIPS = [];
     const R = S.run;
@@ -615,6 +617,29 @@
     for (const q of tabs) { const T = D.bagTabs(bag.length)[q.tab], n = bag.slice(T.a, T.a + T.n).filter((it) => !it).length, s = String(n), bw = Math.max(30, lw(id + '_fw', s, { size: 20 }) + 16), bx = q.x + q.w - bw - 6, by = q.y - (q.id === open ? 8 : 0) - 14;
       L.rrect(bx, by, bw, 28, 14, n ? [0.2, 0.13, 0.09] : [0.62, 0.14, 0.08], n ? [0.12, 0.08, 0.05] : [0.42, 0.08, 0.05], 0.95);
       lab(id + '_f' + q.tab, s, bx + bw / 2, by + 14, { size: 20, al: 0.5, col: n ? '#e8d6b0' : '#fff2e0' }); L.uiBox(id + '_fb' + q.tab, bx, by, bw, 28, 0); } const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
+  const nf = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+  // what one point of a stat gives, from the stats' own formula with the point and without it (TASKS 1847)
+  const GAIN = [['atk', (v) => TXT('hud.stat.atk', { v })], ['def', (v) => TXT('hud.stat.def', { v })], ['maxHp', (v) => TXT('hud.stat.maxHp', { v })], ['maxMp', (v) => TXT('hud.stat.maxMp', { v })],
+    ['crit', (v) => TXT('hud.stat.crit', { v })], ['dodge', (v) => TXT('hud.stat.dodge', { v })], ['aspd', (v) => TXT('hud.stat.aspd', { v })], ['mspd', (v) => TXT('hud.stat.mspd', { v })]];
+  function statGain(S, h, k) { const a = SIM.Q.stats(h, S.meta), b = SIM.Q.stats(Object.assign({}, h, { base: Object.assign({}, h.base, { [k]: h.base[k] + 1 }) }), S.meta), out = [];
+    for (const [q, say] of GAIN) if (Math.abs(b[q] - a[q]) >= 0.05) out.push(say(nf(b[q] - a[q])));
+    const sp = Math.round(b.spellBase * b.spell - a.spellBase * a.spell); if (sp > 0) out.push(TXT('hud.stat.spell', { v: sp }));
+    return out.length ? [TXT('hud.stat.one'), ...out] : [TXT('hud.stat.none')]; }
+  // a skill's number at a rank, as its card's line says it
+  const abD = (A, r, st, R) => { const k = D.abRank(A.id, r).k; return A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor); };
+  const abDesc = (A, r, st, R) => A.desc.replace('{d}', abD(A, r, st, R)).replace('{t}', nf(D.abRank(A.id, r).t)).replace('{w}', Math.round((1 - D.CRY.weak) * 100));
+  // the next rank against this one, a line for each number that moves; a fork the rank opens is said before the press
+  function abTip(h, A, r, st, R, pend, forkAt) {
+    if (r >= D.AB_MAX) return [TXT('hud.abtip.max', { r })];
+    const n = r + 1, a = D.abRank(A.id, Math.max(1, r)), b = D.abRank(A.id, n), pc = A.desc.includes('{d}%') ? '%' : '', out = [];
+    if (!r) out.push(abDesc(A, 1, st, R));
+    else { const d0 = abD(A, r, st, R), d1 = abD(A, n, st, R); if (d1 !== d0) out.push(TXT('hud.abtip.power', { a: d0 + pc, b: d1 + pc }));
+      if (b.cd !== a.cd) out.push(TXT('hud.abtip.cd', { a: nf(A.cd * a.cd), b: nf(A.cd * b.cd) }));
+      if (b.t && b.t !== a.t) out.push(TXT('hud.abtip.dur', { a: nf(a.t), b: nf(b.t) }));
+      if (b.r && a.r && b.r > a.r) out.push(TXT('hud.abtip.reach', { p: Math.round((b.r / a.r - 1) * 100) })); }
+    if (forkAt) out.push(TXT('hud.abtip.forkNext'));
+    if (pend) out.push(TXT('hud.abtip.forkNow')); else if (h.lvl < A.unlock) out.push(TXT('hud.abtip.locked', { unlock: A.unlock })); else if (h.sp <= 0) out.push(TXT('hud.abtip.noSp'));
+    return [r ? TXT('hud.abtip.next', { r: n }) : TXT('hud.abtip.learn'), out]; }
   function inv(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
     dim(0.45);
@@ -631,18 +656,21 @@
     const he = U.r.find((q) => q.id === S.hover && q.slot && !h.eq[q.slot]);
     // stats, and under them what it all adds up to
     L.solid(Lp.x + 44, Lp.y + 444, Lp.w - 88, 2, BRASS, 0, 0, 0, 0.7);
-    KIT.light('inv_pts', h.pts > 0 ? TXT('hud.inv.7', { pts: h.pts }) : TXT('hud.inv.8'), Lp.x + 50, Lp.y + 466, { size: 24, col: h.pts > 0 ? C.gold : '#cdb89a' });
-    D.STATS.forEach((s, i) => { const b = U.r.find((q) => q.id === 'stat:' + s.k), y = b.y + 21;
+    KIT.light('inv_pts', h.pts > 0 ? TXT('hud.inv.7', { pts: h.pts }) : TXT('hud.inv.8'), Lp.x + 50, Lp.y + 462, { size: 24, col: h.pts > 0 ? C.gold : '#cdb89a' });
+    D.STATS.forEach((s, i) => { const b = U.r.find((q) => q.id === 'stat:' + s.k), y = b.y + b.h / 2;
       KIT.light('st_n' + i, s.name, Lp.x + 50, y, { size: 26, col: '#cdb89a' }); KIT.light('st_v' + i, h.base[s.k] + (st[s.k] - h.base[s.k] ? ' (+' + (st[s.k] - h.base[s.k]) + ')' : ''), Lp.x + 150, y, { size: 26 });
-      if (h.pts > 0) { KIT.cell('st_b' + i, b.x, b.y, b.w, KIT.st(S, b.id)); KIT.light('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); } });
+      if (h.pts > 0) { KIT.cell('st_b' + i, b.x, b.y, b.w, KIT.st(S, b.id)); KIT.light('st_p' + i, '+', b.x + b.w / 2, b.y + b.h / 2, { size: 30, al: 0.5, col: C.gold }); }
+      const tip = statGain(S, h, s.k); tipAt(Lp.x + 44, b.y - 4, 236, b.h + 8, s.full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, s.full, tip); });
+    const draft = h.draft || {}, rst = (id, on) => { if (on) KIT.button('inv_' + id, Object.assign({}, U.r.find((q) => q.id === id), { size: 22 }), KIT.st(S, id)); };
+    rst('reset:st', Object.values(draft.st || {}).some((n) => n > 0));
     const pct = (v) => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%', num = (v) => Math.round(v * 10) / 10;
     const derived = [[TXT('hud.inv.derived'), st.atk], [TXT('hud.inv.derived.2'), st.def], [TXT('hud.inv.derived.3'), st.maxHp], [TXT('hud.inv.derived.4'), st.maxMp], [TXT('hud.inv.derived.5'), Math.round(st.crit) + '%'], [TXT('hud.inv.derived.12'), '×' + String(Math.round(st.critK * 100) / 100).replace('.', ',')], [TXT('hud.inv.derived.6'), num(st.dodge) + '%'], [TXT('hud.inv.derived.7'), pct(st.aspd)],
       [TXT('hud.inv.derived.8'), pct(st.mspd)], [TXT('hud.inv.derived.9'), st.leech ? num(st.leech) + '%' : '—'], [TXT('hud.inv.derived.10'), st.regen ? '+' + num(st.regen) : '—'], [TXT('hud.inv.derived.11'), st.onhit ? '+' + num(st.onhit) : '—']];
-    const dy0 = Lp.y + 672, half = Math.ceil(derived.length / 2), colW = (Lp.w - 100 - 28) / 2;
+    const dy0 = Lp.y + 694, half = Math.ceil(derived.length / 2), colW = (Lp.w - 100 - 28) / 2;
     L.solid(Lp.x + 44, dy0 - 20, Lp.w - 88, 2, BRASS, 0, 0, 0, 0.7);
-    derived.forEach(([n, v], i) => { const x = Lp.x + 50 + Math.floor(i / half) * (colW + 28), y = dy0 + 6 + (i % half) * 28;
+    derived.forEach(([n, v], i) => { const x = Lp.x + 50 + Math.floor(i / half) * (colW + 28), y = dy0 + 6 + (i % half) * 27;
       KIT.light('dv_n' + i, n, x, y, { size: 19, col: '#cdb89a' }); KIT.light('dv_v' + i, v, x + colW, y, { size: 20, al: 1 }); });
-    L.uiBox('inv_der', Lp.x + 44, dy0 - 14, Lp.w - 88, half * 28 + 10);
+    L.uiBox('inv_der', Lp.x + 44, dy0 - 14, Lp.w - 88, half * 27 + 10);
     { const gs = String(h.gold), ss = String(S.meta.shards), y = Lp.y + Lp.h - 40, gw = lw('inv_g', gs, { size: 26 }) + 40, sw = lw('inv_souls', ss, { size: 26 }) + 40, x0 = cx - (gw + sw + 40) / 2;
       icon('crystal', x0, y - 16, 32); KIT.light('inv_souls', ss, x0 + 40, y, { size: 26, col: '#9cc8ff' });
       icon('it_gold', x0 + sw + 40, y - 16, 32); KIT.light('inv_g', gs, x0 + sw + 80, y, { size: 26, col: C.gold });
@@ -653,6 +681,7 @@
     sortBtns('inv_', U, S);
     // skills
     KIT.ink('inv_sk', h.sp > 0 ? TXT('hud.inv.11', { sp: h.sp }) : TXT('hud.inv.12'), Rp.x + 76, Rp.y + 440, { size: 28, col: h.sp > 0 ? I.r : I.d });
+    rst('reset:ab', Object.values(draft.ab || {}).some((n) => n > 0) || draft.mast > 0);
     if (h.mast) KIT.ink('inv_mst', TXT('hud.inv.mastery', { n: h.mast, pct: String(h.mast * D.MASTERY.pct).replace('.', ',') }), Rp.x + Rp.w - 76, Rp.y + 440, { size: 22, al: 1, col: I.g });
     D.clsOf(h).abs.forEach((A, i) => { const b = U.r.find((q) => q.id === 'ab:' + A.id), r = h.ab[A.id] || 0, can = h.sp > 0 && h.lvl >= A.unlock && r < D.AB_MAX;
       plate('ab_' + i, b.x, b.y, b.w, b.h, { k: 0.4, grade: S.hover === b.id && can ? [1, 0.85, 0, 1.05] : DARK });
@@ -660,10 +689,12 @@
       lab('ab_n' + i, A.name, b.x + 98, b.y + 46, { size: L.sizeToFit(A.name, b.w - 110, 22), col: C.text });
       lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 98, b.y + 78, { size: 20, col: r ? C.gold : C.dim });
       { const cs = abCost(D.clsOf(h), A, r); lab('ab_c' + i, cs, b.x + 20, b.y + b.h - 34, { size: L.sizeToFit(cs, b.w - 90, 18), col: C.dim }); }
-      const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor);
-      const ds = A.desc.replace('{d}', d).replace('{t}', String(D.abRank(A.id, r).t).replace('.', ',')).replace('{w}', Math.round((1 - D.CRY.weak) * 100)), parts = ds.split(': ');
+      const ds = abDesc(A, r, st, R), parts = ds.split(': '), forkAt = r < D.AB_MAX && D.FORKS[A.id] && D.FORK_RANKS.includes(r + 1);
       const chosen = D.FORK_RANKS.map((q) => { const n = (h.forks || {})[D.forkKey(A.id, q)]; return n >= 0 ? D.POWERS[D.FORKS[A.id][q][n]].name : ''; }).filter(Boolean).join(', ');
-      if (chosen) lab('ab_f' + i, chosen, b.x + 20, b.y + b.h - 66, { size: L.sizeToFit(chosen, b.w - 40, 18), col: C.gold }); else if (D.forkPending(h) && D.forkPending(h).ab === A.id) lab('ab_f' + i, TXT('hud.fork.pending'), b.x + 20, b.y + b.h - 66, { size: 18, col: '#ffb060' });
+      // the next rank's fork shows on the card before the press (TASKS 1847), not only as «Ждёт выбора» after it
+      const pend = D.forkPending(h) && D.forkPending(h).ab === A.id, fl = pend ? TXT('hud.fork.pending') : forkAt ? TXT('hud.abtip.forkAt', { r: r + 1 }) : '';
+      if (fl && (pend || !chosen)) lab('ab_f' + i, fl, b.x + 20, b.y + b.h - 66, { size: 20, col: '#ffb060' }); else if (chosen) lab('ab_f' + i, chosen, b.x + 20, b.y + b.h - 66, { size: L.sizeToFit(chosen, b.w - 40, 18), col: C.gold });
+      tipAt(b.x, b.y, b.w, b.h, ...abTip(h, A, r, st, R, !!D.forkPending(h), forkAt));
       L.solid(b.x + 20, b.y + 122, b.w - 40, 1, [0.66, 0.5, 0.28], 0, 0, 0, 0.4);
       { const d0 = parts[0] + ':', d1 = parts[1] || ''; if (lw('ab_d' + i, d0, { size: 20 }) > b.w - 40) wrapLab('ab_e' + i, ds, b.x + 20, b.y + 146, b.w - 40, 20, C.text);
         else { lab('ab_d' + i, d0, b.x + 20, b.y + 146, { size: 20, col: C.dim }); wrapLab('ab_e' + i, d1, b.x + 20, b.y + 176, b.w - 40, 20, C.text); } }
@@ -1051,16 +1082,37 @@
     const keys = TXT('hud.pause.keys.ask'), ky = H - 26, kw = lw('pa_keys_w', keys, { size: 26 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('pa_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
-  function fork(S, R, t) { const P = D.forkPending(R.hero); if (!P) return; const Ab = D.clsOf(R.hero).abs.find((a) => a.id === P.ab), I = KIT.INK;
-    dim(0.7); KIT.panel('fk_p', 400, 170, 1120, 510, 'leather');
+  // a fork's way in numbers from its power's own data (TASKS 1847), with what it hits for now beside the share of the attack
+  const FK_TAG = { nova: () => TXT('hud.fk.tag.nova'), heal: () => TXT('hud.fk.tag.heal'), mana: () => TXT('hud.fk.tag.mana'), stun: () => TXT('hud.fk.tag.stun'), slow: () => TXT('hud.fk.tag.slow'),
+    strike: () => TXT('hud.fk.tag.strike'), burnGround: () => TXT('hud.fk.tag.burnGround'), dmg: () => TXT('hud.fk.tag.dmg'), spd: () => TXT('hud.fk.tag.spd'), kb: () => TXT('hud.fk.tag.kb'),
+    shieldAdd: () => TXT('hud.fk.tag.shieldAdd'), shieldMore: () => TXT('hud.fk.tag.shieldMore'), dropTrap: () => TXT('hud.fk.tag.dropTrap') };
+  const fkTag = (P) => (P.fx === 'proj' ? (P.dmg ? 'dmg' : P.spd ? 'spd' : 'kb') : P.fx);
+  const FK_BADGE = { heal: 'it_hp', mana: 'it_mp', burnGround: 'bf_burn', slow: 'ab_frost' };
+  function fkNums(P, st, h) { const pc = (v) => Math.round(v * 100), hit = (k) => Math.max(1, Math.round((P.spell ? st.spellBase * st.spell : st.atk) * k)), Cl = D.clsOf(h), sg = (v) => (v > 0 ? '+' : '−') + Math.abs(v), out = [];
+    const f = { nova: () => TXT('hud.fk.nova', { k: pc(P.k), n: hit(P.k) }), heal: () => TXT('hud.fk.heal', { v: pc(P.v), n: Math.round(st.maxHp * P.v) }), mana: () => TXT('hud.fk.mana', { v: pc(P.v), res: Cl.resWord, n: Math.round(st.maxMp * P.v) }),
+      stun: () => TXT('hud.fk.stun', { t: nf(P.t), b: nf(P.boss) }), slow: () => TXT('hud.fk.slow', { s: pc(1 - P.slow), t: nf(P.t) }), strike: () => TXT('hud.fk.strike', { k: pc(P.k), n: hit(P.k) }),
+      burnGround: () => TXT('hud.fk.burn', { t: nf(P.t), k: pc(P.k), n: hit(P.k), per: nf(P.per || 0.5) }), shieldAdd: () => TXT('hud.fk.shieldAdd', { p: pc(P.k) }), shieldMore: () => TXT('hud.fk.shieldMore', { t: nf(P.t) }),
+      dropTrap: () => TXT('hud.fk.trap', { k: pc(P.k), n: hit(P.k) }) }[P.fx];
+    if (f) out.push(f());
+    if (P.fx === 'proj') { if (P.dmg) out.push(TXT('hud.fk.dmg', { p: sg(pc(P.dmg - 1)) })); if (P.spd) out.push(TXT('hud.fk.spd', { p: sg(pc(P.spd - 1)) })); if (P.kb) out.push(TXT('hud.fk.kb', { x: nf(P.kb) })); }
+    if (P.icd) out.push(TXT('hud.fk.icd', { t: nf(P.icd) }));
+    return out; }
+  // the two ways of a fork: the first press lights a card and seals it, the second takes it (TASKS 1847); the two read apart by a word
+  // of what each does under the skill's icon and, where an icon of the game fits the effect, that icon in the corner
+  function fork(S, R, t) { const P = D.forkPending(R.hero); if (!P) return; const h = R.hero, Ab = D.clsOf(h).abs.find((a) => a.id === P.ab), I = KIT.INK, st = SIM.Q.stats(h, S.meta), sel = S.forkSel;
+    dim(0.7); KIT.panel('fk_p', 400, 170, 1120, 600, 'leather');
     KIT.banner('fk_t', W / 2, 184, 820, TXT('hud.fork.title', { p1: Ab.name }), { h: 84, size: 40 });
     KIT.light('fk_h', TXT('hud.fork.hint'), W / 2, 302, { size: 22, al: 0.5, col: '#cdb89a' });
-    for (const b of D.UI.fork()) { const Pw = D.POWERS[D.FORKS[P.ab][P.rank][b.i]], st = stN(S, b.id), cx = b.x + b.w / 2, iw = b.w - 64;
-      KIT.nine('torn', b.x, b.y, b.w, b.h, { u: { grade: st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox('fk_' + b.i, b.x + 26, b.y + 20, b.w - 52, b.h - 40, 0);
-      KIT.cell('fk_c' + b.i, cx - 54, b.y + 30, 108, st); icon(Ab.icon, cx - 44, b.y + 40, 88);
-      KIT.ink('fk_n' + b.i, Pw.name, cx, b.y + 174, { size: L.sizeToFit(Pw.name, iw, 32), al: 0.5, col: st.hover ? I.r : I.t });
-      KIT.rule(b.x + 70, b.y + 198, b.w - 140, 0.6);
-      KIT.ink('fk_d' + b.i, Pw.desc, cx, b.y + 228, { size: L.sizeToFit(Pw.desc, iw, 23), al: 0.5, col: I.d }); }
+    for (const b of D.UI.fork()) { const Pw = D.POWERS[D.FORKS[P.ab][P.rank][b.i]], st0 = stN(S, b.id), on = sel != null ? sel === b.i : st0.hover, cs = Object.assign({}, st0, { hover: on }), cx = b.x + b.w / 2, iw = b.w - 64;
+      KIT.nine('torn', b.x, b.y, b.w, b.h, { u: { grade: on ? HOT : [1, 1, 0, 1] } }); L.uiBox('fk_' + b.i, b.x + 26, b.y + 20, b.w - 52, b.h - 40, 0);
+      KIT.cell('fk_c' + b.i, cx - 54, b.y + 30, 108, cs, { sel: sel === b.i }); icon(Ab.icon, cx - 44, b.y + 40, 88);
+      const bd = FK_BADGE[Pw.fx]; if (bd && !(Pw.fx === 'slow' && Ab.icon === bd) && !(Pw.fx === 'mana' && D.clsOf(h).res === 'rage')) { L.solid(cx - 64, b.y + 24, 44, 44, [0.1, 0.07, 0.05], 0, 0, 0, 0.85); icon(bd, cx - 62, b.y + 26, 40); }
+      const tg = (FK_TAG[fkTag(Pw)] || (() => ''))(), tw = lw('fk_g' + b.i, tg, { size: 20 }) + 24; plate('fk_gb' + b.i, cx - tw / 2, b.y + 142, tw, 30, { pad: 0 }); lab('fk_g' + b.i, tg, cx, b.y + 157, { size: 20, al: 0.5, col: C.gold });
+      KIT.ink('fk_n' + b.i, Pw.name, cx, b.y + 200, { size: L.sizeToFit(Pw.name, iw, 32), al: 0.5, col: on ? I.r : I.t });
+      KIT.rule(b.x + 70, b.y + 222, b.w - 140, 0.6);
+      KIT.ink('fk_d' + b.i, Pw.desc, cx, b.y + 250, { size: L.sizeToFit(Pw.desc, iw, 23), al: 0.5, col: I.d });
+      const nl = []; for (const q of fkNums(Pw, st, h)) { const j = nl.length - 1, tr = j >= 0 ? nl[j] + ', ' + q : q; if (j >= 0 && lw('fk_xw', tr, { size: 20 }) <= iw) nl[j] = tr; else nl.push(q); } nl.forEach((q, k) => KIT.ink('fk_x' + b.i + '_' + k, q, cx, b.y + 284 + k * 26, { size: L.sizeToFit(q, iw, 20), al: 0.5, col: I.t }));
+      if (sel === b.i) KIT.ink('fk_a' + b.i, TXT('hud.fork.again'), cx, b.y + b.h - 38, { size: 22, al: 0.5, col: I.r }); }
   }
   // the codex (TASKS 395), look B: one manuscript page, the tabs over its three columns, each entry a small cell and its name
   function codex(S, t) { const tab = S.codexTab || 'm', U = D.UI.codex(tab, S.codexPage), seen = (S.meta.codex || {})[tab] || {}, n = U.list.filter((q) => seen[q.k]).length, I = KIT.INK;

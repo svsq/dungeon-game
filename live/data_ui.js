@@ -136,7 +136,7 @@
     unlocks: () => D.UNLOCKS.map((U, i) => ({ id: 'un:' + i, un: i, on: true, x: 200 + (i % 2) * 770, y: 276 + Math.floor(i / 2) * 76, w: 750, h: 68 })),
     meta: (cls, tab) => { const back = { id: 'back', label: TXT('UI.meta.back.label'), on: true, x: 810, y: 890, w: 300, h: 70 }, cx = { id: 'codex', label: TXT('UI.codex.open'), on: true, x: 180, y: 120, w: 260, h: 60 }, tb = [['up', TXT('UI.meta.tab.up')], ['open', TXT('UI.meta.tab.open')]].map(([t, label], i) => ({ id: 'tab:' + t, tab: t, label, on: true, x: 1300 + i * 222, y: 124, w: 212, h: 56 })); if (tab === 'open') return UI.unlocks().concat([back, ...tb, cx]); const list = D.metaFor(cls), rows = Math.ceil(list.length / 2), step = Math.min(112, Math.floor(580 / rows));
       return list.map((m, i) => ({ id: m.id, x: 180 + Math.floor(i / rows) * 800, y: 276 + (i % rows) * step, w: 760, h: step - 10 })).concat([back, ...tb, cx]); },
-    fork: () => [0, 1].map((i) => ({ id: 'fork:' + i, i, on: true, x: 460 + i * 520, y: 340, w: 480, h: 300 })),
+    fork: () => [0, 1].map((i) => ({ id: 'fork:' + i, i, on: true, x: 460 + i * 520, y: 340, w: 480, h: 390 })),
     // the codex (TASKS 395): its pages' entries in three columns, tabs over them, the pager and the way back under them
     codex: (tab, page) => { const list = D.codexList(tab), pages = Math.max(1, Math.ceil(list.length / D.CODEX_PAGE)), p = Math.min(page || 0, pages - 1);
       const pg = list.slice(p * D.CODEX_PAGE, (p + 1) * D.CODEX_PAGE), rows = Math.max(1, Math.ceil(pg.length / 3)), step = Math.min(64, Math.floor(600 / rows));
@@ -200,7 +200,9 @@
       const eq = [['helm', lx, 0], ['armor', lx, 1], ['gloves', lx, 2], ['boots', lx, 3], ['amulet', rx, 0], ['weapon', rx, 1], ['offhand', rx, 2], ['ring', rx, 3]];
       for (const [s, x, row] of eq) r.push({ id: 'eq:' + s, slot: s, x, y: Lp.y + 108 + row * 86, w: CELL, h: CELL });
       r.push(...bagGrid(Rp.x + 76, Rp.y + 130, 'bag', undefined, len, tab), ...tabRow(Rp.x + 76, Rp.y + 76, len));
-      STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: Lp.x + Lp.w - 96, y: Lp.y + 480 + i * 42, w: 38, h: 38 }));
+      STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: Lp.x + Lp.w - 100, y: Lp.y + 476 + i * 52, w: 44, h: 44 }));
+      // a visit's points taken back (TASKS 1847): the stats' button beside their rows, the skills' after their count
+      r.push({ id: 'reset:st', label: TXT('UI.inv.reset'), on: true, x: Lp.x + 290, y: Lp.y + 552, w: 170, h: 48 }, { id: 'reset:ab', label: TXT('UI.inv.reset'), on: true, x: Rp.x + 360, y: Rp.y + 414, w: 190, h: 48 });
       abs.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: Rp.x + 76 + i * 324, y: Rp.y + 470, w: 300, h: 280 }));
       r.push({ id: 'close', x: Rp.x + Rp.w - 92, y: Rp.y + 34, w: 52, h: 52 }, ...sortCol('sort', Rp.x + 76 + COLS * STEP + 40, Rp.y + 130));
       return { P: { x: Lp.x, y: Lp.y, w: Rp.x + Rp.w - Lp.x, h: Lp.h }, L: Lp, R: Rp, r };

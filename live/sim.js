@@ -44,7 +44,7 @@
     // M mutes from any screen (TASKS 1853 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
     if (keys.KeyM && !S.demo) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
     if (S.screen === 'play' && S.run) {
-      S.uiWas = 'play';
+      S.uiWas = 'play'; SIMX.commitDraft(S);
       if (keys.Backquote && !S.demo) S.debug = !S.debug;
       const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
