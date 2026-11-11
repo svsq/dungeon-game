@@ -1288,7 +1288,8 @@
     for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander', 'mimic']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
     // TASKS 1748: a mimic from the chest the hero opens to its bite, played by the sim (the mimic_* states are posed one by one; subject en990)
     { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); h.ifr = 1e9; R.nextId = 990; R.chests.push({ x: h.x + 50, y: h.y - 10, tier: 2, open: 0, mimic: 1, loot: [] }); });
-      for (let i = 0; i < 240; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: i === 1 && !k ? ['KeyE'] : [] }); } transitions.mimic_wake_bite = fr; }
+      SIM.step(S, { px: 960, py: 540, keys: ['KeyE'] }); for (let k = 0; k < 8 && !S.run.en.length; k++) SIM.step(S, { px: 960, py: 540, keys: [] });   // from its first frame out of the chest: a chest has no joints
+      for (let i = 0; i < 240; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions.mimic_wake_bite = fr; }
     // a golem's pool of lava where it fell apart, through its whole life (TASKS 409)
     transitions.golem_pool = eventT(lone('golem'), (S) => { kill(S); const e = S.run.en[0], P = D.ENEMIES.golem.pool; S.run.fires = [{ id: 995, src: e.id, who: 'golem', x: e.x, y: e.y, t0: S.t, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; S.ev.push({ k: 'pool', t: S.t, x: e.x, y: e.y, r: P.r, d: P.t, id: e.id }); }, 'golem');
     // a blow on a golem's crust takes a plate off: sparks off the stone, a clang; with its crust gone its cracks blaze
