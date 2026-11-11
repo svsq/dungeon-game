@@ -400,31 +400,46 @@ float colAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx
   if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z + 8.0 * sqrt(max(0.0, 1.0 - ex * ex))) { f.y = min(1.0, (w.y - c.y) / c.z); return 2.0; }
   return 0.0; }
 // a cluster of 3–8 columns standing in a lake or a river (TASKS 447: ref_cave_lava's field reads through its columns, 13–18 % basalt
-// against our 0–2), one in most cells of a 96×80 grid, packed close, of a height the cluster shares; each column its own width and
-// a few px either way of it (one in seven a head taller), and only
-// where the lava under its cap and at its foot is deep: no bank, crust, crossing or source near (u_lake). A cluster may reach over
-// its cell's edge, so w looks into the cells round it; the front-most column under w wins; foot: w is in the lava just under one
+// against our 0–2), one in most cells of a 96×80 grid, only where the lava under its cap and at its foot is deep: no bank, crust,
+// crossing or source near (u_lake). A cluster may reach over its cell's edge, so w looks into the cells round it; the front-most
+// foot under w wins; foot: w is in the lava just under one
+// (TASKS 1898: round caps on smooth shafts read as cylinders; ref_cave_lava's are bundles of hexagonal columns: here each stands on
+// a hex lattice round its cluster's middle, so the tops tile, each a step of its own height, c.w 3)
+float hexAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx / hw, hv = floor(hw * 0.3) * 2.0; f = vec2(xx, 0.0);
+  if (c.y <= 0.0 || abs(xx) > hw) return 0.0;
+  float ry = (w.y - c.y) / hv; if (abs(ry) <= 1.0 && abs(ex) + 0.5 * abs(ry) <= 1.0) return 1.0;
+  if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z + hv * min(1.0, 2.0 * (1.0 - abs(ex)))) { f.y = min(1.0, (w.y - c.y) / c.z); return 2.0; }
+  return 0.0; }
+const vec2 HEXR[6] = vec2[6](vec2(0.0, -2.0), vec2(1.0, -1.0), vec2(1.0, 1.0), vec2(0.0, 2.0), vec2(-1.0, 1.0), vec2(-1.0, -1.0));
 float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foot = 0.0; hwo = 13.0;
   vec2 G = vec2(96.0, 80.0), g0 = floor(w / G); float on = 0.0, by = -1e9;
   for (int gy = -2; gy <= 0; gy++) for (int gx = -1; gx <= 1; gx++) { vec2 g = g0 + vec2(float(gx), float(gy)); if (hash(g + 11.1) > smoothstep(0.24, 0.34, vnoise(g * 0.45 + 7.0))) continue;   // (TASKS 1628, the player's decision: more of them, the lake 75 % lit against 30–45)   // (in thickets and open reaches)
     // (TASKS 1715: one kind of clump in every cell stood as a grid, neighbour spacing σ/μ 0.20–0.31 against the concept's 0.47; now
-    // a stepped massif, a scatter of low stepping stones or a clump from tight to loose, the same columns per cell on average)
-    float kind = hash(g + 12.9), massif = step(kind, 0.15), stones = step(0.15, kind) * step(kind, 0.3), sp = massif > 0.5 ? 1.6 : stones > 0.5 ? 1.5 : 0.45 + 1.2 * hash(g + 13.7);
-    vec2 ctr = g * G + vec2(14.0 + 68.0 * hash(g + 2.2), 16.0 + 36.0 * hash(g + 3.3));
-    float n = massif > 0.5 ? 8.0 : stones > 0.5 ? 2.0 + floor(hash(g + 4.4) * 4.0) : 3.0 + floor(hash(g + 4.4) * 6.0), h0 = massif > 0.5 ? 80.0 + floor(hash(g + 7.7) * 12.0) * 2.0 : 26.0 + floor(hash(g + 7.7) * 19.0) * 2.0;
-    for (int j = 0; j < 8; j++) { if (float(j) >= n) break; float fj = float(j), hk = hash(g + fj * 4.7 + 9.1), hw = massif > 0.5 ? 20.0 + floor(hk * 9.0) : stones > 0.5 ? 14.0 + floor(hk * 10.0) : 10.0 + floor(hk * 16.0);
-      // (nearly half the clumps split in two a little apart: a pair close by beside a lone one breaks the even spacing)
-      vec2 o = (vec2(hash(g + fj * 1.7 + 5.5), hash(g + fj * 2.3 + 6.6)) - 0.5) * vec2(46.0, 22.0) * sp
-        + (massif + stones < 0.5 && hash(g + 14.3) < 0.45 ? (mod(fj, 2.0) - 0.5) * (vec2(hash(g + 15.1), hash(g + 16.9)) - 0.5) * vec2(160.0, 72.0) : vec2(0.0));
-      // a massif steps down from its middle by a third of a cell; a stone stands a step out of the lava; a clump keeps its own height,
-      // one column in six of it cut down to a step
-      float h = massif > 0.5 ? max(10.0, floor(h0 * (1.0 - 0.65 * length(o / vec2(23.0, 11.0) / sp)) / 10.0) * 10.0) : stones > 0.5 ? 6.0 + floor(hash(g + fj * 3.1) * 4.0) * 2.0
-        : hash(g + fj * 8.3 + 0.7) < 0.12 ? 8.0 + floor(hash(g + fj * 3.1) * 4.0) * 2.0
-        : max(14.0, h0 + floor((hash(g + fj * 3.1) - 0.5) * 16.0) * 2.0 + (hash(g + fj * 5.3 + 1.9) < 0.15 ? 30.0 : 0.0)) + floor(hash(g + fj * 6.1 + 3.7) * 4.0) * 2.0;
-      vec4 cj = vec4(floor((ctr.x + o.x) / 2.0) * 2.0 + 1.0, floor(max(ctr.y + o.y, g.y * G.y + 10.0) / 2.0) * 2.0 + 1.0, h, 1.0);
-      if (abs(w.x - cj.x) > hw || w.y < cj.y - 10.0 || w.y > cj.y + h + 14.0) continue;
+    // a stepped massif, a scatter of low stepping stones or a bundle; nearly half the bundles split in two a little apart)
+    float kind = hash(g + 12.9), massif = step(kind, 0.15), stones = step(0.15, kind) * step(kind, 0.3), split = (1.0 - massif - stones) * step(hash(g + 14.3), 0.45);
+    vec2 ctr = g * G + vec2(14.0 + 68.0 * hash(g + 2.2), 16.0 + 36.0 * hash(g + 3.3)), far2 = (vec2(hash(g + 15.1), hash(g + 16.9)) - 0.5) * vec2(160.0, 72.0);
+    float n = massif > 0.5 ? 8.0 : stones > 0.5 ? 2.0 + floor(hash(g + 4.4) * 4.0) : 3.0 + floor(hash(g + 4.4) * 6.0), h0 = massif > 0.5 ? 96.0 + floor(hash(g + 7.7) * 15.0) * 2.0 : 26.0 + floor(hash(g + 7.7) * 19.0) * 2.0;
+    float R = massif > 0.5 ? 18.0 + floor(hash(g + 8.8) * 5.0) : 12.0 + floor(hash(g + 8.8) * 7.0), rot = floor(hash(g + 9.9) * 6.0);
+    for (int j = 0; j < 13; j++) { float fj = float(j); bool pebble = j >= 8;
+      if (!pebble && fj >= n) continue;
+      float hk = hash(g + fj * 4.7 + 9.1), hw, h; vec2 base;
+      if (pebble) {   // small flat stones in the lava between the bundles
+        if (hash(g + fj * 2.9 + 0.3) < 0.45) continue;
+        hw = 8.0 + floor(hk * 4.0) * 2.0; h = 4.0 + floor(hash(g + fj * 3.1) * 2.0) * 2.0;
+        base = g * G + vec2(hash(g + fj * 1.7 + 5.5), hash(g + fj * 2.3 + 6.6)) * G; }
+      else if (stones > 0.5) { hw = 10.0 + floor(hk * 6.0) * 2.0; h = 6.0 + floor(hash(g + fj * 3.1) * 4.0) * 2.0;
+        base = ctr + (vec2(hash(g + fj * 1.7 + 5.5), hash(g + fj * 2.3 + 6.6)) - 0.5) * vec2(69.0, 33.0) + vec2(0.0, 30.0); }
+      else { float k = split > 0.5 ? floor(fj / 2.0) : fj, hv = floor(R * 0.3) * 2.0;
+        vec2 s = k < 0.5 ? vec2(0.0) : k < 6.5 ? HEXR[int(mod(k - 1.0 + rot, 6.0))] : vec2(2.0 * (hash(g + 17.3) < 0.5 ? -1.0 : 1.0), 0.0);
+        base = ctr + s * vec2(1.5 * R, hv) + vec2(0.0, h0) + (split > 0.5 && mod(fj, 2.0) > 0.5 ? far2 : vec2(0.0));
+        hw = R - floor(hk * 2.0);
+        // heights step from a third of the bundle's to all of it, the middle the tallest; a massif falls off ring by ring
+        float lv = k < 0.5 ? 1.0 : massif > 0.5 ? (k < 6.5 ? 0.62 + 0.13 * floor(hash(g + fj * 3.1) * 3.0) : 0.38) : hash(g + fj * 8.3 + 0.7) < 0.15 ? 0.3 : 0.55 + 0.15 * floor(hash(g + fj * 3.1) * 4.0);
+        h = max(8.0, floor(h0 * lv / 2.0) * 2.0); }
+      vec4 cj = vec4(floor(base.x / 2.0) * 2.0 + 1.0, floor((base.y - h) / 2.0) * 2.0 + 1.0, h, 3.0);
+      if (abs(w.x - cj.x) > hw || w.y < cj.y - 12.0 || w.y > cj.y + h + 14.0) continue;
       if (textureLod(u_lake, cj.xy / u_map, 0.0).r < 0.5 || textureLod(u_lake, vec2(cj.x, cj.y + h) / u_map, 0.0).r < 0.5) continue;
-      vec2 ff; float k = colAt(w, cj, ff, hw);
+      vec2 ff; float k = hexAt(w, cj, ff, hw);
       if (k > 0.5 && cj.y + cj.z > by) { by = cj.y + cj.z; on = k; c = cj; f = ff; hwo = hw; }
       { float fx = (w.x - cj.x) / (hw + 7.0), fy = (w.y - cj.y - cj.z) / 13.0, rr = sqrt(fx * fx + fy * fy); if (k < 0.5 && rr < 1.0) foot = max(foot, clamp((1.0 - rr) * 1.6, 0.0, 1.0)); } } }
   return on; }
@@ -474,6 +489,22 @@ vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx
     col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.7, 1.0, fq) * step(xx, 0.5)), g * 0.9); }
   else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
   return col; }
+// a hex column's top: a dark rim, a pale bevel on its upper left edges, each its own tone
+vec3 hexCap(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), hv = floor(hw * 0.3) * 2.0, xx = (w.x - c.x) / hw, yy = (w.y - c.y) / hv, e = max(abs(yy), abs(xx) + 0.5 * abs(yy));
+  vec3 col = vec3(0.24, 0.22, 0.26) * (0.72 + 0.45 * id) * (0.85 + 0.3 * step(0.55, vnoise(w / 5.0 + id * 9.0)));
+  if (e > 1.0 - 2.4 / hv) col = yy < 0.0 && xx < 0.35 ? vec3(0.4, 0.37, 0.4) * (0.85 + 0.3 * id) : vec3(0.025, 0.02, 0.025);
+  else { float cr = abs(vnoise(w / 7.0 + id * 31.0) - 0.5); if (cr < 0.035) col *= 0.4; else if (hash(floor(w / 2.0) + id) < 0.1) col *= 0.5; else if (cr > 0.42) col *= 1.25; }
+  return col; }
+// its face: three facets, the left lit, the front dull, the right dark, an ink seam between them and at each side; red only near
+// its foot, the line where the red begins broken along x
+vec3 hexFace(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx = f.x / hw, fq = floor(f.y * 9.0) / 9.0, px = 2.0 / hw;
+  float t = abs(xx) > 1.0 - px ? 0.12 : abs(abs(xx) - 0.5) < px * 0.6 ? 0.3 : xx < -0.5 ? 1.3 : xx < 0.5 ? 0.82 - 0.2 * (xx + 0.5) : 0.4;
+  float streak = vnoise(vec2(w.x / 2.5 + id * 17.0, w.y / 18.0)), grain = step(0.6, vnoise(w / 4.0 + id * 5.0)), rib = hash(vec2(floor(w.x / 2.0), id));
+  vec3 col = vec3(0.105, 0.095, 0.115) * t * (streak < 0.32 ? 0.5 : streak > 0.7 ? 1.4 : 1.0) * (0.8 + 0.4 * rib) * (1.0 + 0.35 * grain) * (1.12 - 0.35 * fq);
+  if (hash(vec2(id, floor((w.y - c.y) / 2.0))) < 0.05 && abs(xx) < 1.0 - px) col *= 0.35;
+  float b0 = 0.6 + 0.14 * hash(vec2(id, 4.1)) + 0.22 * (vnoise(vec2(w.x / 5.0 + id * 13.0, id * 3.0)) - 0.5);
+  float g = smoothstep(b0, 1.0, fq) * (xx < 0.5 ? 1.0 : 0.45) * (streak < 0.3 ? 0.6 : 1.0);
+  return mix(col, mix(vec3(0.36, 0.065, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.78, 1.0, fq) * step(xx, 0.5)), g * 0.9); }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
   // the columns: the edge's only near a plateau (the floor mask over the few cells above), else a lake's
   float nearP = 0.0; for (int k = 0; k <= 6; k++) nearP = max(nearP, textureLod(u_plat, (w - vec2(0.0, float(k) * 16.0)) / u_map, 0.0).r);
@@ -529,7 +560,8 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
     col += vec3(0.32, 0.06, 0.015) * glow * glow;
     col = pitRim(w, la, pitGrain(w, smoothstep(0.22, 0.6, far), col));
   }
-  if (on > 1.5) col = faceCol(w, c, f, hw); else if (on > 0.5) col = capCol(w, c, hw);
+  if (c.w > 2.5) { if (on > 1.5) col = hexFace(w, c, f, hw); else if (on > 0.5) col = hexCap(w, c, hw); }
+  else if (on > 1.5) col = faceCol(w, c, f, hw); else if (on > 0.5) col = capCol(w, c, hw);
   o = vec4(col, 1.0); }`;
   // a cave's water (TASKS 304): deep water the style bible's dark teal and nearly opaque, shallows clear over the pebbled bed the
   // bake lays under them, darker as they deepen; foam flecks along the bank, a wet rim on the stone. Streams carry streaks down
