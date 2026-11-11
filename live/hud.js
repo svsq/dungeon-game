@@ -57,8 +57,16 @@
   const dim = (a = 0.62) => L.solid(0, 0, W, H, [0, 0, 0], 0, 0, 0, a);
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
+  // what a number or a cell is, under the pointer in the pause and on the hero's page (TASKS 1852): rects [x, y, w, h, title, line]
+  // in the pause the note hangs under the HUD's left column and left of the pause window, so it covers none of their lines
+  let TIPS = [], TIPY = 0;
+  const tipAt = (x, y, w, h, title, line) => TIPS.push([x, y, w, h, title, line || '']);
+  function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && S.hover)) return; const [px, py] = S.ptr, T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
+    const [, , , , title, line] = T, w = Math.max(lw('tip_t', title, { size: 24 }), line ? lw('tip_l', line, { size: 20 }) : 0) + 32, h = line ? 74 : 46, inPause = S.screen === 'pause',
+      x = Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
+    plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); if (line) lab('tip_l', line, x + 16, y + 52, { size: 20, col: C.text }); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); MMB = null; TRK = null;
+    G.bind(null); G.blend(); MMB = null; TRK = null; TIPS = [];
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
@@ -90,6 +98,7 @@
     if (S.screen === 'notes') notes(S);
     if (S.screen === 'board' && R) board(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
+    drawTip(S);
   };
 
   // ---------------- attract title over the demo ----------------
@@ -220,6 +229,11 @@
         lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (HB.y + HB.h + 27 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
+    // a pickup, a new level or a new skill also says so over the hero's head, where the eye is in a fight; the feed in the corner
+    // keeps the history (TASKS 1852)
+    S.ev.filter((e) => (e.k === 'pickup' || e.k === 'lvl' || e.k === 'unlock') && GT - e.t >= 0 && GT - e.t < 1.4).slice(-3).forEach((e, i) => { const a = GT - e.t;
+      const s = e.k === 'pickup' ? '+ ' + e.s : e.k === 'lvl' ? TXT('hud.float.lvl') : D.ABILITIES.find((A) => A.id === e.id).name, col = e.k === 'pickup' ? hex(D.RARITY[e.rar || 0].col) : C.gold;
+      float('fb' + i, s, V.sx(h.x), V.sy(h.y) - 84 * k - 34 - 24 * L.SS(0, 0.4, a), { size: 24, col, a: L.SS(0, 0.08, a) * (1 - L.SS(1.0, 1.4, a)) }); });
     // interaction prompt
     let pr = null; HUD.promptBox = null;
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56 && !SIM.Q.overLava(m, h.x, h.y, c.x, c.y)); if (ch) pr = [ch.x, ch.y - 74, ch.sealed ? TXT('hud.world.3s') : TXT('hud.world.3')];
@@ -300,11 +314,13 @@
     const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
     const sw = Math.max(...rows.map(([, v], i) => lw('stv' + i, v, { size: 19 }))) + 54;
     plate('stats', 8, HB.y + HB.h + 8, sw, rows.length * 28 + 16, { a: 0.85 });
-    rows.forEach(([ic, v], i) => { const y = HB.y + HB.h + 16 + i * 28; icon(ic, 17, y + 1, 22); lab('stv' + i, v, 46, y + 13, { size: 19 }); });
+    const rowTip = [[TXT('hud.inv.derived'), TXT('hud.tip.atk')], [TXT('hud.inv.derived.2'), TXT('hud.tip.def')], [TXT('hud.inv.derived.7'), TXT('hud.tip.aspd')], [TXT('hud.inv.derived.5'), TXT('hud.tip.crit')]];
+    rows.forEach(([ic, v], i) => { const y = HB.y + HB.h + 16 + i * 28; icon(ic, 17, y + 1, 22); lab('stv' + i, v, 46, y + 13, { size: 19 }); tipAt(8, y - 2, sw, 28, rowTip[i][0] + ' ' + v, rowTip[i][1]); });
     const money = currencies(S, R);
     for (const [id, ic, value, x, w, col] of money) {
       plate(id + '_box', x, HB.y + HB.h + 8, w, 38, { a: 0.9 });
       icon(ic, x + 8, HB.y + HB.h + 15, 24); lab(id, value, x + 38, HB.y + HB.h + 28, { size: 19, col });
+      tipAt(x, HB.y + HB.h + 8, w, 38, id === 'gold_count' ? TXT('hud.altar.6', { gold: value }) : id === 'shard_count' ? TXT('hud.stats.hand', { n: value }) : TXT('hud.tip.key', { n: value }), id === 'gold_count' ? TXT('hud.tip.gold') : id === 'key_count' ? TXT('hud.tip.key.2') : '');
     }
     buffs(S, R, GT);
     // floor title + minimap
@@ -344,18 +360,22 @@
   // active effects under the currencies: the shrine's blessing lasts the floor, the shield shows what it still soaks, the
   // timed ones drain clockwise; debuffs sit on a red rim
   function buffs(S, R, GT) {
-    const h = R.hero, list = [];
-    if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff' });
-    if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff' });
+    const h = R.hero, list = [], gift = (id) => D.GIFTS.find((g) => g.id === id);
+    if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff', gift: 1, name: gift('bless').name, desc: gift('bless').desc });
+    if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff', gift: 1, name: TXT('hud.tip.greed') });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
-    for (const G of D.GIFTS) if (G.power && D.hasPower(h, G.id)) list.push({ id: 'g_' + G.id, ic: G.icon, v: '', col: '#ffd27a' });
-    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', String(Math.round(G.v * n * 10) / 10)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff' }); }
-    if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T });
-    if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1 });
-    if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1 });
+    for (const G of D.GIFTS) if (G.power && D.hasPower(h, G.id)) list.push({ id: 'g_' + G.id, ic: G.icon, v: '', col: '#ffd27a', gift: 1, name: G.name, desc: G.desc });
+    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', String(Math.round(G.v * n * 10) / 10)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff', gift: 1, name: G.name, desc: G.desc }); }
+    if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T, name: D.ABILITIES.find((A) => A.id === 'shield').name, desc: TXT('hud.tip.shield', { n: Math.ceil(h.shield) }) });
+    if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.burn'), desc: TXT('hud.tip.burn') });
+    if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
+    // a gift sits in a round brass cell, the shield and the curses in square ones: the same item icons, told apart by their rim (TASKS 1852)
+    TIPY = Math.max(HB.y + HB.h + 8 + 4 * 28 + 24, HB.y + HB.h + 56 + Math.ceil(list.length / 8) * 64);
     list.forEach((b, i) => { const x = 120 + (i % 8) * 66, y = HB.y + HB.h + 56 + Math.floor(i / 8) * 64;
-      KIT.nine('cell', x, y, 40, 40, { u: { grade: b.bad ? [1, 1, 0, 1] : [1, 1.1, 0, 1] } }); if (b.bad) edge(x, y, 40, 40, [0.8, 0.2, 0.15], 2); L.uiBox('bf_' + b.id, x, y, 40, 40, 4);
-      if (window.ASSETS[b.ic]) icon(b.ic, x + 3, y + 3, 34);
+      if (b.gift) { L.rrect(x + 3, y + 3, 34, 34, 17, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]); KIT.part('ui_b_cell_round', [48, 48], x - 3, y - 3, { k: 46 / 96 }); }
+      else { KIT.nine('cell', x, y, 40, 40, { u: { grade: b.bad ? [1, 1, 0, 1] : [1, 1.1, 0, 1] } }); if (b.bad) edge(x, y, 40, 40, [0.8, 0.2, 0.15], 2); }
+      L.uiBox('bf_' + b.id, x, y, 40, 40, 4); tipAt(x - 4, y - 4, 48, 66, b.name, b.desc);
+      if (window.ASSETS[b.ic]) icon(b.ic, x + (b.gift ? 6 : 3), y + (b.gift ? 6 : 3), b.gift ? 28 : 34);
       if (b.left !== undefined) { const f = Math.max(0, Math.min(1, 1 - b.left)); L.solid(x + 3, y + 3, 34, 34 * f, [0, 0, 0], 0, 0, 0, 0.55);
         if (b.left < 0.25 && Math.sin(GT * 18) > 0) L.rrect(x, y, 40, 40, 5, [1, 1, 1], [1, 1, 1], 0.12); }
       // chips stand 66 px apart: a value cannot shrink under the font's 20 px floor, and +180% is 60 px wide (TASKS 1851)
@@ -589,7 +609,8 @@
     L.uiBox('inv_der', Lp.x + 44, dy0 - 14, Lp.w - 88, half * 28 + 10);
     { const gs = String(h.gold), ss = String(S.meta.shards), y = Lp.y + Lp.h - 40, gw = lw('inv_g', gs, { size: 26 }) + 40, sw = lw('inv_souls', ss, { size: 26 }) + 40, x0 = cx - (gw + sw + 40) / 2;
       icon('crystal', x0, y - 16, 32); KIT.light('inv_souls', ss, x0 + 40, y, { size: 26, col: '#9cc8ff' });
-      icon('it_gold', x0 + sw + 40, y - 16, 32); KIT.light('inv_g', gs, x0 + sw + 80, y, { size: 26, col: C.gold }); }
+      icon('it_gold', x0 + sw + 40, y - 16, 32); KIT.light('inv_g', gs, x0 + sw + 80, y, { size: 26, col: C.gold });
+      tipAt(x0 - 4, y - 20, sw + 8, 40, TXT('hud.stats.hand', { n: ss })); tipAt(x0 + sw + 36, y - 20, gw + 8, 40, TXT('hud.altar.6', { gold: gs }), TXT('hud.tip.gold')); }
     // the bag on the sheet
     bagTabs('inv_tb', U, S);
     for (const b of U.r) if (b.id.startsWith('bag:')) slot(S, b, held(b.id) ? null : h.bag[b.i]);
