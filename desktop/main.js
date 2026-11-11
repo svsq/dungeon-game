@@ -25,6 +25,7 @@ const createWindow = () => {
   const tellFull = () => win.webContents.send('full', win.isFullScreen());
   for (const e of ['enter-full-screen', 'leave-full-screen']) win.on(e, tellFull);
   win.webContents.on('did-finish-load', tellFull);
+  for (const e of ['blur', 'minimize', 'hide']) win.on(e, () => win.webContents.send('away'));
   win.webContents.on('before-input-event', (e, inp) => {
     if (inp.type !== 'keyDown') return;
     if (inp.code === 'F11' || (inp.alt && inp.code === 'Enter')) { toggleFullscreen(win); e.preventDefault(); }

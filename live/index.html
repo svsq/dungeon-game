@@ -107,7 +107,11 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     fullSync(true);
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
-  addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; pend.keys = []; pend.rep = []; pend.slot = 0; });
+  // a lost window or a hidden tab pauses a run through the sim's input, the way Esc does (TASKS 1875)
+  const away = () => { for (const k in keys) keys[k] = 0; ptr.down = 0; pend.keys = []; pend.rep = []; pend.slot = 0; pend.away = 1; };
+  addEventListener('blur', away);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) away(); });
+  if (desk && desk.onAway) desk.onAway(away);
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
@@ -118,8 +122,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       acc += dt; viewPtr();
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
         jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep,
-        now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit) };
-      while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; acc -= SIM.DT; }
+        now: Date.now() - new Date().getTimezoneOffset() * 60000, quit: !!(desk && desk.quit), away: pend.away };
+      while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.away = pend.away = 0; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       // «Выход» (TASKS 1870): the save is written just above, then the desktop build closes its window
