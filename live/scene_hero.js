@@ -141,8 +141,9 @@
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0] + hipDx, Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
     // the face is painted on the world's art grid (one texture cell, RIGS.hero.h / 42 px, is one world pixel): the cell of the near
     // eye is kept on a world pixel through the torso's lean, or the one-cell eye lands across two pixels and drops out of the snap.
-    // Arms ride on hipS and move with it
-    if (du < 0) { const C = RG.h / 42, EY = D.clsOf(h).look.eye || [13.5, 6.5], ex = fX * ((EY[0] * C) - Hc[0]) * s, ey = (EY[1] * C - Hc[1]) * s, r = fallR + bodyR;
+    // Arms ride on hipS and move with it. Off the world's grid (the menu's arch, scaled ×3 on the smooth HUD, TASKS 1867) the snap
+    // only jerked the body by 2 world px (6 on screen) off the unsnapped legs
+    if (du < 0 && !o.menu) { const C = RG.h / 42, EY = D.clsOf(h).look.eye || [13.5, 6.5], ex = fX * ((EY[0] * C) - Hc[0]) * s, ey = (EY[1] * C - Hc[1]) * s, r = fallR + bodyR;
       const qx = hipS[0] + ex * Math.cos(r) - ey * Math.sin(r), qy = hipS[1] + ex * Math.sin(r) + ey * Math.cos(r);
       hipS[0] += 2 * Math.round((qx - 1) / 2) + 1 - qx; hipS[1] += 2 * Math.round((qy - 1) / 2) + 1 - qy; }
     const R2U = (px, py, dy = 0) => { const p = R2S(px + hipDx, py, dy), x = p[0] - hipS[0], y = p[1] - hipS[1]; return [hipS[0] + x * bc - y * bs, hipS[1] + x * bs + y * bc]; };
@@ -319,9 +320,12 @@
       const bodyAt = { m: M.of(M.t(...hipS), M.r(fallR + bodyR), M.s(fX, 1)), w: RG.w * s, h: RG.h * s, pivot: [Hc[0] * s, Hc[1] * s] };
       if (!castFront) drawArm('L', Ufar);
       // seen from the front the cape's flap hangs over the far arm, as painted, but behind both legs
-      if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(pn + 'cape', 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt));
+      const cape = () => { if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(pn + 'cape', 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt)); };
+      // in the menu's arch, three times its size, the far thigh's cut top showed past the tunic's hem against the cape, a leg stuck on
+      // from outside (TASKS 1867): there the cape hangs over it
+      if (!o.menu) cape();
       if (!castFront) shield(Ufar);
-      drawLeg('L', Ufar); drawLeg('R', U);
+      drawLeg('L', Ufar); if (o.menu) cape(); drawLeg('R', U);
       if (behind) { weapon(); drawArm('R', U); }
       if (backK < 1) L.sprite(GR.body, 0, 0, Object.assign({ u: Object.assign({}, U, { snap: 2 * L.SNAP }, soft(pn + 'body', GR.helm ? 0 : hairA)) }, bodyAt));
       if (backK < 1 && GR.helm) L.sprite(pn + 'head_' + GR.helm, 0, 0, Object.assign({ u: Object.assign(tinted(U, GR.helmTint), { snap: 2 * L.SNAP }) }, bodyAt));
