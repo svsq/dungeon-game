@@ -916,10 +916,11 @@
       Q.hero.x = x - 3 * TILE; Q.hero.y = y + 2 * TILE; Q.en = []; Q.msg = null; Q.seen = Q.seen.map(() => 1); Q.rseen = Q.rseen.map(() => 1); Q.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; states.push([name, S]); }
     // the magma caves' lava (TASKS 401): each kind of crossing over a river, a lake with its source, the crust giving under the hero
     // beside a cell of it melted, and monsters knocked off a plateau, one sinking in the lava and one dropping into the chasm
-    { const at = (S, f, pick) => { S.run = SIM.newRun(S, 'magma', 3); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };
+    { const at = (S, f, pick, sd = 3) => { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };
       const view = (S, x, y, hx = x, hy = y + 40) => { const R = S.run, h = R.hero; h.x = hx; h.y = hy; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; };
       const mid = (m, ks) => [ks.reduce((a, k) => a + (k % m.W + 0.5) * TILE, 0) / ks.length, ks.reduce((a, k) => a + (Math.floor(k / m.W) + 0.5) * TILE, 0) / ks.length];
-      for (const kind of ['bridge', 'slabs', 'arch']) { const S = play(), c = at(S, 1, (m) => m.crossings.find((q) => q.lava && q.kind === kind)); if (!c) continue;
+      for (const kind of ['bridge', 'slabs', 'arch']) { const S = play(), pick = (m) => m.crossings.find((q) => q.lava && q.kind === kind && (kind !== 'arch' || SCX.archSpans(m, q))); let c = at(S, 1, pick);
+        for (let sd = 4; !c && kind === 'arch' && sd < 24; sd++) c = at(S, 1, pick, sd); if (!c) continue;
         const m = S.run.map, [x, y] = mid(m, c.cells), end = c.cells[0]; view(S, x, y, (end % m.W + 0.5) * TILE, (Math.floor(end / m.W) + 0.5) * TILE); states.push(['magma_' + kind, S]); }
       { const S = play(), q = at(S, 1, (m) => m.lavaFeatures.find((f) => f.kind === 'fall') || m.lavaFeatures[0]); if (q) { view(S, q.x, q.y + 160); states.push(['magma_source', S]); } }
       // TASKS 403: a lavafall down the back wall close up, and a still lake with its vent, its bubbles and a river leaving it
