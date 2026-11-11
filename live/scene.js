@@ -12,7 +12,7 @@
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
     L.GFX = L.GFX_Q ?? (ST.meta && ST.meta.gfx != null ? ST.meta.gfx : 2);
     if (R && (R.zoom || D.ZOOM || 1) !== SCX.Z) views(R.zoom || D.ZOOM || 1);
-    if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); return; }
+    if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); G.flush(); return; }
     const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.heads = {}, RIM.mages = {}, RIM.embers = {}, RIM.priests = {}, RIM.kindled = {}, RIM.imps = {}, RIM.salams = {}, RIM.folk = []), st = SIM.Q.stats(h, ST.meta);
     // a fuse's ring and light stay on its body: a lit smouldering skeleton knocked back carries them with it (TASKS 411)
     const fuseAt = (q) => { const o = R.en.find((b) => b.id === q.id); return o ? [o.x, o.y] : [q.x, q.y]; };
@@ -113,6 +113,7 @@
     const scr = screenFx(ST, R, h, st, GT);
     const comp = L.T.comp; L.T.comp = SCX.LT.lit; L.finish(t, Object.assign({ bloom: [0.18, 0.14], vignette: 0.85, warm: 0.2, roll: 1, dither: 1, bright: (ST.meta && ST.meta.bright) || 1 }, scr)); L.T.comp = comp;
     if (window.HUD) HUD.draw(ST, t, { cx, cy, sx: (x) => (x - cx) * SCX.Z, sy: (y) => (y - cy) * SCX.Z, k: SCX.Z, st });
+    G.flush();   // (TASKS 1854: the last flat rectangles of the frame)
   };
 
   // full-screen responses: pain tints the rim red by the share of health lost, a low health throbs, a roar flashes it,

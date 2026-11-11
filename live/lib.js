@@ -298,6 +298,8 @@ void main(){ vec3 lt = texture(u_light, scr(v_px)).rgb;
       + streaks(p + u_cam * 0.8, 13.0, 160.0, 1150.0, 0.3, 2.0, 0.55 * u_amt) * 0.35 + streaks(p + u_cam * 0.6, 8.0, 110.0, 850.0, 0.26, 3.0, 0.6 * u_amt) * 0.22;
     vec3 c = vec3(0.6, 0.66, 0.78) * (0.32 + 1.1 * lum(lt)) + lt * 0.5; a *= u_amt; o = vec4(c * a, a * 0.7); } }`;
   const SOLID = `uniform vec3 u_col; uniform float u_a; void main(){ o = vec4(u_col * u_a, u_a); }`;
+  // the same flat colour for G.solid's batch, each rectangle's colour and alpha from the vertex shader (TASKS 1854)
+  const SOLIDN = `flat in vec4 v_rc; void main(){ o = vec4(v_rc.rgb * v_rc.a, v_rc.a); }`;
   const JOINT = `
 uniform vec3 u_col; uniform float u_dark;
 void main(){ vec2 q = v_uv * 2.0 - 1.0; float d = length(q);
@@ -380,14 +382,15 @@ uniform sampler2D u_src; uniform vec2 u_dir; uniform vec3 u_col;
 float at(vec2 d){ return texture(u_src, scr(v_px + d)).a; }
 void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1; k <= 3; k++) if (at(-u_dir * float(k)) > 0.5) edge = true; if (!edge) discard;
   for (int k = 1; k <= 24; k++) if (at(u_dir * float(k)) > 0.5) discard; o = vec4(u_col, 1.0); }`;
-  const SH = { RIMOUT, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
+  const SH = { RIMOUT, SPRITE, GLOW, SHADOW, FOG, FALL, FOAM, WATER, CRACK, WET, RAINFX, SOLID, SOLIDN, JOINT, PUFF, STAR, RING, COPY, RMASK, RAYS, RAYADD, BRIGHT, BLUR, FINAL, MOTE, RRECT };
   L.SH = SH;
   let P, T = {}, W, H;
   // extra: { name: fragmentSource } for scene-specific shaders. pixel: k > 1 renders bg/comp into W/k × H/k targets (still drawn
   // in W×H view px) that finish upscales with nearest: crisp pixel art (pair with SCENE.NEAREST, positions snapped to k px)
   L.init = (w, h, extra = {}, { pixel = 1, view = [w, h] } = {}) => {
     W = L.W = w; H = L.H = h; P = L.P = {}; L.PIXEL = Math.max(1, pixel);
-    for (const k in SH) P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
+    for (const k in SH) if (k !== 'SOLIDN') P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
+    P.spriten = G.program('spriten', SPRITE, 'off'); P.solidn = G.program('solidn', SOLIDN, 'rect');   // the batched (TASKS 1853, 1854)
     for (const k in extra) P[k] = G.program(k, extra[k]);
     const px = L.PIXEL, lo = { view, nearest: px > 1 };
     for (const k in T) G.free(T[k]);
@@ -444,6 +447,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     if (o.m) { const F = M.mul(L.pre ? M.mul(L.pre, o.m) : o.m, [w + 2 * pw, 0, 0, h + 2 * ph, -pw - piv[0], -ph - piv[1]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; }
     else { X = G.xf(x - pw, y - ph, w + 2 * pw, h + 2 * ph, rot, piv[0] + pw, piv[1] + ph);
       if (L.pre) { const F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; } }
+    if (!G.rec) LAST.draw = null;
     if (!G.rec && G.outside(X)) return { w, h };
     const uni = new SU(), ou = o.u;
     if (ou) for (const k in ou) uni[UNAME[k] || (UNAME[k] = k.startsWith('u_') ? k : 'u_' + k)] = ou[k];
@@ -475,14 +479,21 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
       e.U.u_haze = s0.ink; e.U.u_alpha = s0.a * e.al; e.U.u_lod = s0.lod || 0; e.X[6] = e.x; e.X[7] = e.y;
       const pr = e.pre; let m = 0; for (let k = 0; k < n; k++) { const sp = sps[i0 + k], ox = pr[0] * sp.dx + pr[2] * sp.dy, oy = pr[1] * sp.dx + pr[3] * sp.dy; OFF[2 * k] = ox; OFF[2 * k + 1] = oy; m = Math.max(m, Math.abs(ox), Math.abs(oy)); }
       if (G.outside(e.X, m)) continue;
-      G.drawN(P.sprite, e.U, e.X, e.flip, OFF, n); } };
+      G.drawN(P.spriten, e.U, e.X, e.flip, OFF, n); } };
   const replayRuns = (list, sps) => { for (let i = 0; i < sps.length;) { let j = i + 1; while (j < sps.length && j - i < G.N_OFF && sameSp(sps[i], sps[j])) j++;
     if (j - i === 1) replay(list, sps[i]); else replayN(list, sps, i, j - i); i = j; } };
   L.STAMP_ONE = G.params.get('stamp1') !== '0';   // ?stamp1=0: every copy replayed on its own, as before 1853 (samecheck's reference)
+  // A rig's silhouette is posed once for the stamps that follow one another with the same draw (TASKS 1854): an elite's aura, its
+  // hit flash, its rim and its ink outline were four poses of one rig in one frame. The record is dropped by any sprite drawn for
+  // real (the body itself, the next actor), by another L.pre and at the frame's start
+  const LAST = { draw: null, pre: null, list: null };
   L.stamp = (draw, sps) => {
     if (G.rec) { for (const sp of sps) { L.sp = sp; draw(); } L.sp = null; return; }
-    const list = G.rec = []; L.sp = REC_SP;
-    try { draw(); } finally { G.rec = null; L.sp = null; }
+    let list;
+    if (L.STAMP_ONE && LAST.draw === draw && LAST.pre === L.pre) list = LAST.list;
+    else { list = G.rec = []; L.sp = REC_SP;
+      try { draw(); } finally { G.rec = null; L.sp = null; }
+      LAST.draw = draw; LAST.pre = L.pre; LAST.list = list; }
     if (stampable(list)) replayRuns(list, sps);
     else for (const sp of sps) replay(list, sp);
   };
@@ -512,7 +523,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
-  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py));   // a: opacity (premultiplied)
+  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (rot || G.rec ? G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
   L.rrect = (x, y, w, h, r, c0, c1 = c0, a = 1) => G.draw(P.rrect, { u_sz: [w, h], u_r: r, u_a: a, u_c0: c0, u_c1: c1 }, G.xf(x, y, w, h));
   L.puff = (x, y, r, col, amt, seed) => G.draw(P.puff, { u_col: col, u_amt: amt, u_seed: seed }, G.xf(x - r, y - r, 2 * r, 2 * r));
   L.star = (x, y, r, col, amt) => { G.blend('add'); G.draw(P.star, { u_col: col, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
@@ -619,7 +630,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   };
 
   // ---------------- frame pipeline ----------------
-  L.beginBG = (clear = [0.08, 0.1, 0.06, 1]) => { L.qaReset(); G.bind(T.bg, clear); G.blend(); };     // first call of every frame
+  L.beginBG = (clear = [0.08, 0.1, 0.06, 1]) => { LAST.draw = null; LAST.list = null; L.qaReset(); G.bind(T.bg, clear); G.blend(); };     // first call of every frame
   // god rays: bright, warm, sky-ish pixels of the background near the sun, radially blurred, screened back onto it
   L.godRays = (t, { sun = L.SUN, amt = 0.42, col = [1.0, 0.80, 0.55] } = {}) => {
     G.blend('none'); G.bind(T.mask); G.full(P.rmask, { u_t: t, u_src: T.bg, u_sun: [sun[0] / 2, sun[1] / 2] });

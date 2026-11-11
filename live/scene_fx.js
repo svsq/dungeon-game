@@ -76,19 +76,24 @@
     // embers: single art pixels rising off every fire and the lava's cracks and dying out, each on its own beat; the concept's fires
     // throw off sparks, and the hot specks of its frame are these points, not more glow (TASKS 184)
     // (TASKS 1372: below the high graphics every other ember is left out, a lone one kept)
+    // (TASKS 1854: additive, the caller sets the blend once round a whole run of them, so they go out in batches of flat squares)
     const embers = (x, y, n, rise, col, k) => { for (let j = 0; j < n; j += L.GFX < 2 && n > 1 ? 2 : 1) { const q = (t * (0.45 + 0.2 * rnd(k, j)) + rnd(k, j + 3)) % 1; if (q > 0.85) continue;
       const ex = x + (rnd(k, j + 7) - 0.5) * 10 + Math.sin(t * 1.7 + j * 2.1 + k) * 5 * q, ey = y - rise * q * (0.7 + 0.3 * rnd(k, j + 11));
-      G.blend('add'); L.solid(Math.round(sx(ex) / PIX) * PIX, Math.round(sy(ey) / PIX) * PIX, PIX, PIX, q < 0.35 ? col.map((v) => 0.5 + 0.5 * v) : col, 0, 0, 0, 1.8 * Math.pow(1 - q / 0.85, 0.6)); G.blend(); } };
+      L.solid(Math.round(sx(ex) / PIX) * PIX, Math.round(sy(ey) / PIX) * PIX, PIX, PIX, q < 0.35 ? col.map((v) => 0.5 + 0.5 * v) : col, 0, 0, 0, 1.8 * Math.pow(1 - q / 0.85, 0.6)); } };
+    G.blend('add');
     m.torches.forEach((tc, i) => { if (!vis(tc.x, tc.y) || hid(tc) || !known(tc.x, tc.y)) return; const col = torchCol(m, tc), big = tc.kind === 'fire';
       if (tc.kind === 'wall') embers(tc.x + (tc.side ? -tc.side * 9 : 3), tc.y - 30, 2, 34, col, i * 13 + 1);
       else embers(tc.x, tc.y - (big ? 44 + 40 : 32 + 26), big ? 5 : 3, big ? 70 : 46, col, i * 13 + 2); });
     for (const d of m.decor) if (d.n === 'torch_stand' && vis(d.x, d.y) && known(d.x, d.y) && !hid(d)) embers(d.x, d.y + 4 - STAND.torch_stand[0][1] - 20, 3, 40, torchCol(m, d), d.x + d.y);
     for (const [x, y] of lavaCells) if (rnd(x, y) < 0.6 && known(x * TILE, y * TILE)) embers((x + rnd(y, x)) * TILE, (y + 0.5) * TILE, 1, 30, [1, 0.62, 0.15], x * 31 + y);
     for (const [id, f] of Object.entries(RIM.embers)) { embers(f[1][0] + cx, f[1][1] + cy, 4, 64, [1, 0.6, 0.2], +id * 13 + 5); embers(f[0][0] + cx, f[0][1] + cy, 2, 44, [1, 0.7, 0.3], +id * 13 + 6); }
+    G.blend();
     // the magma caves' air (TASKS 404): sparks leaping high off the lava now and then, smoke drifting up off it, ash falling slowly
     // over everything; all on the world, so they stay put as the camera moves
     if (m.cliff) { G.blend();
+      G.blend('add');
       for (const [x, y] of lavaCells) if (rnd(y, x + 0.5) < 0.12 && known(x * TILE, y * TILE)) embers((x + rnd(x, y + 2)) * TILE, (y + 0.5) * TILE, 2, 90, [1, 0.78, 0.3], x * 17 + y * 5 + 3);
+      G.blend();
       for (const [x, y] of lavaCells) { if (rnd(x + 0.3, y) > 0.035 || !known(x * TILE, y * TILE)) continue; const P = 7 + 4 * rnd(x, y + 9);
         for (let j = 0; j < 2; j++) { const q = (t / P + rnd(x, y + j) + j * 0.5) % 1, px = (x + 0.5) * TILE + Math.sin(q * 5 + x) * 14 * q, py = (y + 0.5) * TILE - 150 * q;
           L.puff(sx(px), sy(py), 18 + 46 * q, [0.06, 0.05, 0.05], 0.22 * Math.sin(Math.PI * q), x * 7 + y + j); } }

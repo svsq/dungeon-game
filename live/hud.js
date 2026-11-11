@@ -181,7 +181,7 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
+      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 256), s, { size: 18 }) / 2 + 4, ly = y - 24;
         if (x - hw > 0 && x + hw < W && ly > 30 && ![[x - hw, ly - 24], [x + hw, ly - 24], [x - hw, ly], [x + hw, ly]].some(([px, py]) => underHud(px, py))) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const sub = e.nm && e.mods && e.mods.length ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', b0 = place(x, ly - 15, Math.max(hw * 2, 92), sub ? 70 : 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
@@ -190,9 +190,10 @@
             // a plate: on lava the name's own colour was 1.1:1; at 0.62 it was still 2.5–2.9:1 for the dark reds and blues (TASKS 487),
             // so it is near solid and the name a quarter toward white: 4.5:1 and over on the brightest lava
             L.rrect(cx - hw, b.y - 2, hw * 2, 24, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.9);
-            lab('el' + (e.id % 40), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.25)) });
+            // (TASKS 1854: a slot an id mod 256: two elites on one slot in view re-drew its texture every frame)
+            lab('el' + (e.id % 256), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.25)) });
             capsule(cx, b.y + 39, 80, e.hp / e.max, true);
-            if (sub) { const sw = lw('els' + (e.id % 40), sub, { size: 14 }) / 2 + 6; L.rrect(cx - sw, b.y + 50, sw * 2, 18, 6, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.85); lab('els' + (e.id % 40), sub, cx, b.y + 60, { size: 14, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.4)) }); }
+            if (sub) { const sw = lw('els' + (e.id % 256), sub, { size: 14 }) / 2 + 6; L.rrect(cx - sw, b.y + 50, sw * 2, 18, 6, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.85); lab('els' + (e.id % 256), sub, cx, b.y + 60, { size: 14, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.4)) }); }
             nameZones.push({ x: cx - hw - 20, y: b.y - 20, w: hw * 2 + 40, h: 70 });
             named = true;
           }
