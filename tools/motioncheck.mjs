@@ -31,6 +31,8 @@
 //               hand from one frame to the next, deep into a run (TASKS 1688)
 //   cover     — secret_shelf*, secret_statue* (TASKS 1851): the sliding cover is drawn at its own size and proportions shut, on its way,
 //               at its stop and after a save and a load (the bookcase squeezed to a strip as it moved off its cache)
+//   body      — transitions named shoot|cast|frost|volley|whirl|attack|swing (TASKS 1800): the head moves against the hip by BODY of the
+//               height (a shot made with the arm alone left the body standing as at rest)
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
@@ -251,6 +253,17 @@ if (meta.tr.includes('imp_claw')) {
     return out; }, [FRAMES]);
   for (const [name, o] of Object.entries(r)) { if (!o) { report('flicker', name, false, 'no state'); continue; } const lim = name === 'magma_ember' ? WIDE : ALPHA;
     report('flicker', name, o.frames >= 8 && o.draws > 0 && o.jump <= lim && o.hand <= HAND, `${o.draws} draws, ${o.frames} frames, largest ${name === 'magma_ember' ? 'width' : 'alpha'} jump ${o.jump.toFixed(3)} (≤ ${lim})${name === 'magma_ember' ? `, hand against shoulder ${o.hand.toFixed(1)} px a frame (≤ ${HAND})` : ''}`); } }
+// body (TASKS 1800): a shot, a cast, a whirl or an attack moves the body, not the arm alone: the head against the hip leaves its first
+// frame's place by at least BODY of the height (the mage's and archer's shots and casts and the whirl moved it 0.00–0.01). A rig with no
+// hip (a slime, a spider, a lizard) or one that is not a walker (the crab's shell) is not measured; x is taken along the facing, so a
+// turn in the action is no lean
+{ const BODY = 0.05, SKIP = /^crab_|^queen_|^slime|^spider_|^salamander_/, LATER = new Set(['necro_attack', 'forge_attack', 'boss_attack']);
+  for (const nm of meta.tr.filter((n) => /shoot|cast|frost|volley|whirl|attack|swing/.test(n) && !SKIP.test(n) && !LATER.has(n))) {
+    const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+      const j = LIB.TRACE[id] || null, v = LIB.TRACE[id + '_view']; LIB.TRACE = null; return j && j.hip && (j.head || j.top) ? { h: j.head || j.top, hip: j.hip, H: j.ground[1] - (j.top || j.head)[1], f: v && v.face ? v.face[0] : 1 } : null; }); }, nm);
+    const ok = fr.filter(Boolean); if (ok.length < fr.length / 2) { report('body', nm, false, 'no hip or head in the trace'); continue; }
+    const rel = (q) => [(q.h[0] - q.hip[0]) * q.f, q.h[1] - q.hip[1]], r0 = rel(ok[0]), H = ok[0].H, m = Math.max(...ok.map((q) => { const r = rel(q); return Math.hypot(r[0] - r0[0], r[1] - r0[1]); }));
+    report('body', nm, m >= BODY * H, `the head moves ${m.toFixed(1)} px against the hip = ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px (≥ ${100 * BODY} %)`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

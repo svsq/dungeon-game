@@ -586,6 +586,8 @@
       base.y -= z + tuck * H / RG.h; base.crouch += tuck + 0.14 * RG.h * cr; base.lean = (base.lean || 0) + face * (0.35 * air * (1 - 1.5 * SS(0.2, 0.85, fl)) * (Math.cos(e.aimA) * face >= 0 ? 1 : -0.6) - 0.12 * cr);   // (a spring back leans back)
       base.arm = (side, b) => { const armAir = SS(0, 0.42, fl) * (1 - SS(0.35, 1, fl)), r = lerp(lerp(b, b + 0.22, Math.min(1, cr)), -1.6 + (side === 'L' ? 0.3 : 0) + 1.5 * SS(0.35, 0.9, fl) + 0.25 * Math.sin(fl * 9 + (side === 'L' ? 0 : 2)), armAir), k = Math.min(1, Math.max(cr, armAir)); return [r, r + lerp(0.18, 0.3 + 0.4 * armAir, k)]; }; return; }
     if (e.st === 'wind' || e.st === 'strike') { const E2 = e.claw ? E : { wind: E.spark.wind }, CO = e.claw ? IMP_CLAW : IMP_THROW, pose = (b) => chop(e, E2, GT, face, H, b, CO), p0 = pose(0);
+      // (TASKS 1800) the throw is thrown with the body: it rocks back as the hand winds behind the head and pitches forward on the release
+      if (p0 && !e.claw) base.lean = (base.lean || 0) + face * p0.k * (e.st === 'wind' ? lerp(-0.14, 0.16, SS(DATA.windOf(e, E2.wind) - CO.chopT, DATA.windOf(e, E2.wind), u)) : 0.16);
       if (p0) { base.crouch += 12 * p0.k; base.arm = (side, b) => { if (side === 'R') { const p = pose(b); return [p.r1, p.r1 + p.bend]; } return [b + 0.5 * p0.k, b + 0.2 + 0.3 * p0.k]; }; } }
   }
   // the magma golem (TASKS 409) heaves both fists over its head through the long wind-up and brings them down on the floor in
