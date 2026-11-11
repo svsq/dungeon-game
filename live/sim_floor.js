@@ -316,9 +316,25 @@
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) set.add(y * m.W + x);
       for (const k of q.hide) set.add(k); }
     MASK.key = key; MASK.set = set; return set; }
+  // the minimap's sheet: the floor's open cells and a wall round them, so it holds no band of blank rock (TASKS 1759); an unfound
+  // secret room is rock here too, or the cut's edge would give it away. Only the cells seen so far count (review of PR 57): a sheet
+  // cut to the whole floor told its size before a step was taken. It grows by whole blocks of cells from a smallest size round the
+  // floor's start, so it keeps still while the hero walks and changes only as he goes past its edge. The town is seen whole
+  const CUT = { key: '', r: null }, CUT_Q = 4, CUT_MIN = [30, 20];
+  function mapCut(R) { const m = R.map, n = R.seen.reduce((a, b) => a + (b ? 1 : 0), 0), key = m.seed + ':' + m.floor + ':' + n + ':' + (m.secrets || []).map((q) => q.open).join('');
+    if (CUT.key === key) return CUT.r;
+    const hid = secretMask(m), st = !m.town && m.rooms && m.rooms[m.start]; let x0 = m.W, y0 = m.H, x1 = -1, y1 = -1;
+    for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { const i = y * m.W + x, c = hid.has(i) ? 0 : SIMX.cell(m, x, y);
+      if ((c === 1 || c === 3 || c === 5 || c === 6) && (R.seen[i] || !st)) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } }
+    if (st) { const q = (v) => Math.floor(v / CUT_Q) * CUT_Q, lo = (a, n0, len) => Math.max(0, Math.min(len - n0, a - n0 / 2)), mx0 = lo(st.cx, CUT_MIN[0], m.W), my0 = lo(st.cy, CUT_MIN[1], m.H);
+      x0 = q(Math.min(x0 - 1, mx0)); y0 = q(Math.min(y0 - 1, my0)); x1 = q(Math.max(x1 + 1, mx0 + CUT_MIN[0] - 1)) + CUT_Q - 1; y1 = q(Math.max(y1 + 1, my0 + CUT_MIN[1] - 1)) + CUT_Q - 1; }
+    else if (x1 < 0) { x0 = y0 = 0; x1 = m.W - 1; y1 = m.H - 1; }
+    else { x0--; y0--; x1++; y1++; }
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(m.W - 1, x1); y1 = Math.min(m.H - 1, y1);
+    CUT.key = key; CUT.r = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }; return CUT.r; }
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
     migrateTown, newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden, migrateSecrets });
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, mapCut, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

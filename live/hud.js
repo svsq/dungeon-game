@@ -477,16 +477,7 @@
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
   // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
-  // the map is cut to the floor's open cells and a wall round them, so the sheet holds no band of blank rock (TASKS 1759); an unfound
-  // secret room is rock here too, or the cut's edge would give it away
-  const CUT = { key: '', r: null };
-  function mapCut(R) { const m = R.map, key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
-    if (CUT.key !== key) { const hid = SIM.Q.secretMask(m); let x0 = m.W, y0 = m.H, x1 = -1, y1 = -1;
-      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { const c = hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y); if (c === 1 || c === 3 || c === 5 || c === 6) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } }
-      if (x1 < 0) { x0 = y0 = 0; x1 = m.W - 1; y1 = m.H - 1; }
-      x0 = Math.max(0, x0 - 1); y0 = Math.max(0, y0 - 1); x1 = Math.min(m.W - 1, x1 + 1); y1 = Math.min(m.H - 1, y1 + 1);
-      CUT.key = key; CUT.r = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }; }
-    return CUT.r; }
+  const mapCut = (R) => SIM.Q.mapCut(R);
   // the legend is open for the first 10 s on a floor, then folds away, so the map's corner covers no more than the ref's
   // (TASKS 1794); L keeps it open, and in the pause the pointer over the map opens it
   const legOpen = (S, R, hov = true) => R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))) || (hov && S.screen === 'pause' && !!S.ptr && (() => { const B = mmGeo(S, R, true).box; return S.ptr[0] > B[0] && S.ptr[1] < B[1] + B[3]; })());
