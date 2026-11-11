@@ -65,6 +65,15 @@
         if (c.x > prev.x || c.y > prev.y || c.x + c.w < prev.x + prev.w || c.y + c.h < prev.y + prev.h) { out.push(`map cut: ${mode} ${seed}'s sheet shrinks as the floor is seen`); break; }
         if (c.w !== prev.w || c.h !== prev.h) changes++; prev = Object.assign({}, c); }
       if (changes > Math.ceil((m.W + m.H) / 4)) out.push(`map cut: ${mode} ${seed}'s sheet changes size ${changes} times as the floor is seen`); } }
-  function checkReview57(out) { checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkResumeHold(out); checkResize(out); checkMapCut(out); }
+  // a key pressed in the hold acts once it is over, as in a hit-stop: lost, a potion drunk in the banner's 1.2 s did nothing
+  function checkHoldInput(out) {
+    const { S, R, h } = playing('mage'), M = SIMX.heroSt(S), ab = D.clsOf(h).abs[0].id; h.ab[ab] = h.ab[ab] || 1; h.mp = M.maxMp; h.hp = Math.floor(M.maxHp / 2);
+    const pots = () => h.bag.filter((it) => it && it.b === 'hp_potion').reduce((n, it) => n + (it.n || 1), 0), p0 = pots();
+    S.screen = 'pause'; press(S, UI.pause(S.meta.zoom).find((b) => b.id === 'save')); press(S, UI.menu(true).find((b) => b.id === 'continue'));
+    step(S, { keys: ['KeyQ'], slot: 1 }); while (S.t < R.holdT + 3 * DT) step(S, { keys: [] });
+    if (!p0) out.push('hold: the mage of the check carries no health potion');
+    else if (pots() !== p0 - 1) out.push('hold: Q pressed in the hold on Continue is lost');
+    if (!(h.cd[ab] > S.t)) out.push('hold: a slot key pressed in the hold on Continue is lost'); }
+  function checkReview57(out) { checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); }
   Object.assign(SIMX, { checkReview57, checkResize, checkMapCut });
 })(typeof window !== 'undefined' ? window : globalThis);
