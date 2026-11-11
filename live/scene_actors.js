@@ -391,6 +391,13 @@
   // gold is an emitter (TASKS 192): drawn again over itself in the 'emit' mode at alpha GOLD_EM, the colour stays and the lit pass
   // mixes it GOLD_EM of the way from lit to self-lit, so a torch's orange no longer turns the coins copper; the stamp leans yellow
   const GOLD_EM = 1, GOLD_TINT = [1, 1.14, 0.6, 1], emitted = (draw) => { G.blend('emit'); draw(GOLD_EM); G.blend(); };
+  // the menu's hero (TASKS 1815): the run's own, in its class and gear, standing at rest with its feet at (x, y)
+  SC.menuHero = (hero, st, t, x, y, k) => {
+    HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
+    const h = Object.assign({}, hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9, read: null, pull: null });
+    L.pre = M.of(M.t(x, y), M.s(k, k), M.t(-x, -y));
+    try { drawHero(h, x, y, t, st, { id: 'menu' }); } finally { L.pre = null; }
+  };
   SC.endActors = (r, win, t, x, y) => {
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
     const enemy = (actor, px, py, dead) => {

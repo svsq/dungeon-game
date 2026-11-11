@@ -5,14 +5,33 @@
   const {
     BAL, D, DG, DT, ENEMIES, K, LOOT, RUN, STAGE, TILE, WET, addFire, boxHit, cell, dep, dif, doorKey, drop, ev, flow, hurtHero, lastFloor,
     losClear, move, openDoor, rnd, rollItem, shove, standNear, steer, who } = SIMX;
-  function holdClocks(R) {
+  // a hit-stop holds only what the player must react to; the hold under the floor's name on «Продолжить» (TASKS 1812) is the whole
+  // floor's and the hero's, as if those 1.2 s never were, so a save and a load dodge nothing (review of PR 57)
+  function holdClocks(R, all) {
+    if (all) return holdAll(R);
     for (const e of R.en) { if (e.deadT >= 0) continue;
-      if (e.st === 'wind' || e.st === 'bwind' || e.st === 'strike' || e.st === 'rise') { e.t0 += DT; if (e.bncT > 0) e.bncT += DT; } }
+      if (e.st === 'wind' || e.st === 'bwind' || e.st === 'strike' || e.st === 'rise') { if (e.t0 !== undefined) e.t0 += DT; if (e.bncT > 0) e.bncT += DT; } }
     for (const p of R.proj) p.t0 += DT;
     for (const q of R.lavaPending || []) { q.t += DT; if (q.t0 !== undefined) q.t0 += DT; }
     for (const egg of R.eggs || []) egg.hatchT += DT;
     for (const q of R.rocks || []) { q.t0 += DT; q.t += DT; }
     for (const c of R.cracks || []) c.t0 += DT;
+  }
+  // a mark is a clock by its name, and only a past or future moment (> 0) moves: 0, −9 and the like mean «never» and stay so
+  // the colossus's nearT is seconds the hero has stood at its shins, not a moment: lagged, the hold would bring its stomp on
+  const STAMP = /^(t0|ft|burn|fuse|poison|ifr|tugW|cryJolt|dashHalt|burnC|burnL)$|(T|Until|At)$/, SPAN = new Set(['nearT']);
+  const lag = (o, ks) => { if (!o) return; for (const k of ks || Object.keys(o)) { const v = o[k];
+    if (typeof v === 'number') { if (v > 0 && (ks || (STAMP.test(k) && !SPAN.has(k)))) o[k] += DT; } else if (!ks && v && typeof v === 'object' && !Array.isArray(v) && /T$/.test(k)) lag(v, Object.keys(v)); } };
+  function holdAll(R) {
+    const m = R.map, h = R.hero, each = (A, ks) => { for (const o of A || []) lag(o, ks); };
+    for (const e of R.en) { e.vx = e.vy = 0; lag(e); }
+    each(R.proj, ['t0']); each(R.lavaPending, ['t', 't0']); each(R.eggs, ['hatchT']); each(R.rocks, ['t0', 't']); each(R.cracks, ['t0']);
+    each(R.pyres, ['t0']); each(R.fires, ['t0', 'hitT']); each(R.htraps, ['t0']); each(R.chests, ['openT', 'fuseT', 'bangT', 'hushT', 'nopeT']);
+    each(m.doors, ['openT', 'nopeT']); each(m.locks, ['openT']); each(m.secrets, ['openT']); each(m.decor, ['openT', 'brokeT', 'outUntil']); each(m.goo, ['t0']);
+    each(Object.values(m.melt || {}), ['crackT', 'meltT', 'setT']); lag(m.flood, ['t0']); lag(R.arena, ['t0']); lag(R.shop, ['greetT', 'tradeT', 'hitT', 'callT']); lag(R.msgNext, ['t']); lag(R, ['boomT', 'fuseLast']);
+    for (const z of m.hazards || []) z.lag = (z.lag || 0) + DT;
+    for (const tr of m.traps || []) tr.ph -= DT / 2.4;
+    lag(h); lag(h.cd, Object.keys(h.cd)); lag(h.stag, ['t0', 't']); lag(h.sunk, ['t']); lag(h.read, ['t0']); lag(h.dashHit, ['t']); lag(h.leapV, [0]);
   }
   // a boss that closes a chapter pays as the finale did (20 shards, LOOT.boss); in the endless descent every pair ends its 'chapter',
   // so there only the chapters' end bosses (the demon lord, the serpent) pay so, the others as the campaign's chapter bosses (TASKS 350)
@@ -144,6 +163,8 @@
       move(m, e, e.vx * DT * P.speed, e.vy * DT * P.speed, E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT * P.speed; return; }
     const nextPhase = E.lake && D.BOSSES[e.type].phases[(e.phase || 0) + 1];
     if (nextPhase && e.hp / e.max <= nextPhase.at && !e.nextMove && t >= (e.openUntil || 0) + 0.4) return;
+    const St = D.BOSSES[e.type].moves.stomp;
+    if (St && !e.nextMove && (e.nearT || 0) >= St.hold && t >= (e.stompT ?? -1e9) + St.cd) { e.stompT = t; e.nearT = 0; beginBossMove(S, R, e, 'stomp'); return; }
     const mv = e.nextMove || P.moves[(e.moveI || 0) % P.moves.length];
     if (e.nextMove) e.nextMove = null; else e.moveI = (e.moveI || 0) + 1;
     beginBossMove(S, R, e, mv);
@@ -295,6 +316,9 @@
         ev(S, { k: 'bossphase', id: e.id, phase: e.phase });
         if (D.bossPhase(e).enter) beginBossMove(S, R, e, D.bossPhase(e).enter);
       }
+      // its fists' stuck window stays the hero's to use: the hold toward the stomp starts over after it (review of PR 61)
+      if (B.moves.stomp) { const d = Math.hypot(h.x - e.x, h.y - e.y);
+        e.nearT = e.st === 'emerge' || e.st === 'wade' || e.openUntil > t ? 0 : d < B.moves.stomp.near ? (e.nearT || 0) + DT : d > B.moves.stomp.near * 1.3 ? 0 : e.nearT || 0; }
       if (e.st !== 'bwind') continue;
       const M = D.bossMove(e), w = M.wind, u = t - e.t0;
       let finished = u > w + (e.mv === 'charge' && M.next ? M.time : M.duration);
@@ -336,13 +360,19 @@
         if (e.mv === 'shatter') { roar(S, R, e); colossusEdge(S, R, e, M); bossSummon(S, R, e, B.moves[M.summon]); ev(S, { k: 'shatter', x: e.x, y: e.y, id: e.id }); }
         if (e.mv === 'erupt') { roar(S, R, e); ev(S, { k: 'colerupt', x: e.x, y: e.y, id: e.id }); }
         if (e.mv === 'rain') colossusRain(S, R, e, M);
+        if (e.mv === 'stomp') { const d = Math.hypot(h.x - e.x, h.y - e.y), los = losClear(m, e.x, e.y, h.x, h.y); e.shove = los && d < M.r + K.R ? 1 : 0;
+          if (d < M.r && los) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e);
+          ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.8); }
       }
+      // the stomp slides him out over its first `shove` s rather than jumping him, and never into the lava: a dodge keeps the hurt off, not the push
+      if (e.mv === 'stomp' && e.shove && u >= w && u < w + M.shove) { const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy) || 1, v = M.push / M.shove * DT;
+        move(m, h, dx / d * v, dy / d * v, K.R, true); }
       if (finished) {
         e.nextMove = null;
         // the linked slam follows only a charge the hero got out of: a charge that landed ends the link, one mistake costs one blow
         // (the player's call, TASKS 227: the slam 0.28 s after a landed charge could not be escaped and took 12 of 14 finale deaths)
         if (M.next && !e.hitDone) { beginBossMove(S, R, e, M.next); e.t0 = t + (M.rest || 0); e.chain = 1; }
-        else { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.cdT = t + (M.next ? D.bossPhase(e).rest : M.rest ?? D.bossPhase(e).rest);
+        else { e.st = 'chase'; e.fired = 0; e.hitDone = 0; e.shove = 0; e.cdT = t + (M.next ? D.bossPhase(e).rest : M.rest ?? D.bossPhase(e).rest);
           if (M.stuck) { e.openUntil = t + M.stuck; e.cdT = e.openUntil + 0.4; ev(S, { k: 'stuck', x: e.x, y: e.y, id: e.id, d: M.stuck }); } }
       }
     }

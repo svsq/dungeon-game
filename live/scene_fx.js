@@ -251,6 +251,9 @@
         }
         if (e.st !== 'bwind') continue; const Mv = D.bossMove(e), w = Mv.wind, q = SS(0, w, u), beat = 0.75 + 0.25 * Math.sin(chirp(u, w, 10, 18, true));
         if (e.mv === 'fists' && u < w) { L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.4, 0.1], (0.3 + 0.55 * q) * beat, 0.05); L.ring(X, Y0, Mv.r * (1.5 - 0.5 * q), Mv.r * 0.75 * (1.5 - 0.5 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.04); }
+        // the stomp's ring is drawn tight at its feet and dust-pale, so it reads apart from the fists' wide orange ring
+        if (e.mv === 'stomp' && u < w) { L.glow(X, Y0, Mv.r * 0.8, [1, 0.62, 0.3], 0.2 + 0.35 * q * beat, 1.6); L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.78, 0.45], (0.35 + 0.55 * q) * beat, 0.06);
+          L.ring(X, Y0, Mv.r * (0.45 + 0.55 * q), Mv.r * 0.75 * (0.45 + 0.55 * q), [1, 0.85, 0.55], 0.6 * q * beat, 0.04); }
         if (e.mv === 'crack' && u < w) { const p = D.colossusContact(e), c = Math.cos(e.aimA), sn = Math.sin(e.aimA);
           for (let l = 0; l <= Mv.len; l += 18) { const px = p.x + c * l, py = p.y + sn * l, cl = SIM.Q.cell(m, Math.floor(px / TILE), Math.floor(py / TILE)); if (cl !== 1 && cl !== 3) break; const fl = 0.7 + 0.3 * Math.sin(GT * 30 + l * 0.2);
             L.glow(sx(px), sy(py), 9 + 6 * q, [1, 0.4, 0.1], (0.15 + 0.55 * q) * fl * SS(0, w * 0.5, u - l / Mv.len * w * 0.4), 2.4); } } }

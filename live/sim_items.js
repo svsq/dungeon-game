@@ -144,6 +144,15 @@
       for (const d of [1, -1, m.W, -m.W]) { const n = k + d; if (!seen.has(n) && (m.cells[n] === 1 || m.cells[k0] !== 1) && (!hid.has(n) || hid.has(k0)) && seen.size < 400) { seen.add(n); q.push(n); } } }
     if (shared === null) return; const [tx, ty] = spot(shared), j = taken.has(shared) ? 9 : 0;
     p.tx = tx + j * (rnd(R) - 0.5); p.ty = ty + j * 0.5 * (rnd(R) - 0.5); p.vx = (p.tx - p.x) / 0.3; p.vy = (p.ty - p.y) / 0.3; p.vz = 150; p.fly = 0.3; }
+  // an item on the floor into the hero's hands: worn at once into a free slot, else into the bag; false with the bag full
+  function takeItem(S, R, p) { const worn = SIMX.wearIfFree(S, R, p.item); if (!worn && !SIMX.bagAdd(R, p.item)) return false;
+    p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); }
+    ev(S, Object.assign({ k: 'pickup', b: p.item.b, x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }, worn ? { worn: 1 } : {})); return true; }
+  // a piece the hero threw away is not walked over back into the bag (it waits till he has gone and come back), but E by it takes
+  // it up at once (TASKS 1863 ж)
+  const tossedNear = (R) => { const h = R.hero; let best = null, bd = 64;
+    for (const p of R.drops) { if (p.got || !p.tossed || p.kind !== 'item' || p.fly > 0) continue; const d = Math.hypot(p.x - h.x, p.y - h.y); if (d < bd) { bd = d; best = p; } }
+    return best; };
   function stepDrops(S, R, live) {
     const h = R.hero;
     for (const p of R.drops) { if (p.got) continue;
@@ -163,9 +172,7 @@
         else if (p.kind === 'shard') { R.shards += p.n; S.meta.shards += p.n; tally(S, R, 'shards', p.n); p.got = 1; ev(S, { k: 'shard', x: p.x, y: p.y, n: p.n, floor: R.floor }); }
         else if (p.kind === 'qitem') { p.got = 1; const q = (R.quests || []).find((o) => o.id === p.quest); ev(S, { k: 'qitem', x: p.x, y: p.y, quest: p.quest }); if (q) R.msg = { s: TXT('sim_items.stepDrops.msg.s', { thing: q.thing }), t: S.t }; }
         else if (p.kind === 'key') { R.keys = (R.keys || 0) + 1; p.got = 1; ev(S, { k: 'key', x: p.x, y: p.y }); R.msg = { s: TXT('sim_items.stepDrops.msg.s.2'), t: S.t }; }
-        else if (SIMX.wearIfFree(S, R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); } ev(S, { k: 'pickup', b: p.item.b, x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item), worn: 1 }); }
-        else if (SIMX.bagAdd(R, p.item)) { p.got = 1; if (p.item.rar === 4 && R.viaTown) R.legend = itemName(p.item); if (p.loot) { SIMX.fstat(R).loot++; SIMX.checkFull(S, R); } ev(S, { k: 'pickup', b: p.item.b, x: p.x, y: p.y, rar: p.item.rar, s: itemName(p.item) }); }
-        else if (S.t - (R.fullT || -9) > 2.5) { R.fullT = S.t; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_items.stepDrops.s') }); }
+        else if (!takeItem(S, R, p) && S.t - (R.fullT || -9) > 2.5) { R.fullT = S.t; ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_items.stepDrops.s') }); }
       } }
     R.drops = R.drops.filter((p) => !p.got);
   }
@@ -183,5 +190,5 @@
 
   Object.assign(SIMX, {
     sortItems, itemPower, typeMods, itemMods, migrateAbilities, rebalanceRun, rollItem, rollAffixes, potion, useless, isCons, itemName, gearName, itemIcon, LOOT, GIFT_V, gift,
-    stats, hitFrame, propBoxes, behindProp, DROP_REST, stepDrops });
+    stats, hitFrame, propBoxes, behindProp, DROP_REST, stepDrops, takeItem, tossedNear });
 })(typeof window !== 'undefined' ? window : globalThis);

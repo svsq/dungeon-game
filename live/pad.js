@@ -63,12 +63,16 @@
     };
     const heroAt = (S) => { const R = S.run, h = R && R.hero; if (!h || !R.cam || !root.SIMX) return null; const p = root.SIMX.toPx(R, h.x, h.y - 40); return [p.px, p.py]; };
     const onBtns = () => (rectsOf === last ? rects : []).filter((b) => b.on !== false && b.w > 0 && b.h > 0);
+    // the view may be taller than 1080 (16:10, PR 57): a window's buttons are hit-tested in its frame, uiDy px above where the page
+    // shows them, and the pointer moves in the page's view (moved: the sim takes the hover from it, as from the mouse)
+    const VW = () => (root.SIM && SIM.VIEW ? SIM.VIEW.W : io.VW), VH = () => (root.SIM && SIM.VIEW ? SIM.VIEW.H : io.VH);
+    const dyNow = () => (root.DATA && DATA.uiDy && root.SIM && SIM.VIEW ? DATA.uiDy(last, SIM.VIEW.H) : 0);
     const centre = (b) => [b.x + b.w / 2, b.y + b.h / 2];
-    const goTo = (b) => { if (!b) return; [ptr.x, ptr.y] = centre(b); };
+    const goTo = (b) => { if (!b) return; const [x, y] = centre(b); ptr.x = x; ptr.y = y + dyNow(); ptr.moved = 1; };
     // the nearest button along the direction, the one straight ahead first
     const snap = (dx, dy) => {
       const bs = onBtns(), S = io.play(); if (!bs.length) return;
-      const hv = bs.find((b) => b.id && b.id === (S && S.hover)), [cx, cy] = hv ? centre(hv) : [ptr.x, ptr.y];
+      const hv = bs.find((b) => b.id && b.id === (S && S.hover)), [cx, cy] = hv ? centre(hv) : [ptr.x, ptr.y - dyNow()];
       let best = null, q0 = Infinity;
       for (const b of bs) { if (b === hv) continue; const [bx, by] = centre(b), rx = bx - cx, ry = by - cy, along = rx * dx + ry * dy;
         if (along < 6) continue; const q = along + Math.abs(rx * dy - ry * dx) * 2.5; if (q < q0) { q0 = q; best = b; } }
@@ -104,7 +108,7 @@
         // aiming: the right stick points the pointer around the hero; let go, the aim stays where it was, and with no right stick
         // for a while it follows the walk, so a pad player who only walks strikes ahead of himself
         if (rm > 0) { aim = [rx, ry, 0.45 + 0.55 * rm]; aimT = simT; } else if (lm > 0 && simT - aimT > 1.2) aim = [lx, ly, 0.6];
-        const at = heroAt(S); if (at && (rm > 0 || lm > 0 || P.active)) { ptr.x = Math.max(0, Math.min(io.VW, at[0] + aim[0] * AIM * aim[2])); ptr.y = Math.max(0, Math.min(io.VH, at[1] + aim[1] * AIM * aim[2])); }
+        const at = heroAt(S); if (at && (rm > 0 || lm > 0 || P.active)) { ptr.x = Math.max(0, Math.min(VW(), at[0] + aim[0] * AIM * aim[2])); ptr.y = Math.max(0, Math.min(VH(), at[1] + aim[1] * AIM * aim[2])); ptr.moved = 1; }
         if (edge(B.R2)) { ptr.down = 1; ptr.click = 1; ptrDown = 1; } else if (rel(B.R2) && ptrDown) { ptr.down = 0; ptrDown = 0; }
         if (edge(B.L2)) ptr.rclick = 1;
         if (edge(B.A)) down('KeyE'); else if (rel(B.A)) up('KeyE');
@@ -121,7 +125,7 @@
         let fire = false;
         if (k !== nav.k) { nav.k = k; nav.t = simT; nav.n = 0; fire = !!k; } else if (k && simT - nav.t > (nav.n ? REPEAT : REPEAT0)) { nav.t = simT; nav.n++; fire = true; }
         if (fire) { if (focus) tap(dy > 0 ? 'ArrowDown' : dy < 0 ? 'ArrowUp' : dx > 0 ? 'ArrowRight' : 'ArrowLeft'); else snap(dx, dy); }
-        if (rm > 0) { ptr.x = Math.max(0, Math.min(io.VW, ptr.x + rx * rm * rm * 1300 * dt)); ptr.y = Math.max(0, Math.min(io.VH, ptr.y + ry * rm * rm * 1300 * dt)); }
+        if (rm > 0) { ptr.x = Math.max(0, Math.min(VW(), ptr.x + rx * rm * rm * 1300 * dt)); ptr.y = Math.max(0, Math.min(VH(), ptr.y + ry * rm * rm * 1300 * dt)); ptr.moved = 1; }
         if (focus) { if (edge(B.A)) tap('Enter'); if (edge(B.Y) && scr === 'load') tap('Delete'); if (edge(B.R2)) { ptr.down = 1; ptr.click = 1; ptrDown = 1; } else if (rel(B.R2) && ptrDown) { ptr.down = 0; ptrDown = 0; } }
         else { if (edge(B.A) || edge(B.R2)) { ptr.down = 1; ptr.click = 1; ptrDown = 1; } else if (ptrDown && !pr(B.A) && !pr(B.R2)) { ptr.down = 0; ptrDown = 0; }
           if (edge(B.Y) || edge(B.L2)) ptr.rclick = 1; }

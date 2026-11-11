@@ -3,7 +3,7 @@
 (function (root) {
   const SIMX = root.SIMX;
   const {
-    BAL, BASES, D, DG, DT, ENEMIES, FROM, K, RUN, STAGE, WIN, boxHit, clampCam, dep, dif, eliteK, ev, gearName, itemPower,
+    BAL, BASES, D, DG, DT, ENEMIES, FROM, K, RUN, STAGE, WIN, boxHit, clampCam, snapCam, dep, dif, eliteK, ev, gearName, itemPower,
     lastFloor, potCount, potion, reveal, rnd, rollAffixes, rollItem, shove, stats, tally, who } = SIMX;
   // ---------------- run & floor ----------------
   function newHero(meta, cls = 'warrior') {
@@ -176,7 +176,7 @@
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
-    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; { const lk = R.camLook || [0, 0]; R.cam = [h.x - WIN(R).W / 2 + lk[0], h.y - 30 - WIN(R).H / 2 + lk[1]]; } R.camV = [0, 0]; clampCam(R, R.cam);
+    R.zoom = S.demo ? D.ZOOM : S.meta.zoom; snapCam(R);
     // (the floor's name gone by 2 s, TASKS 1054: at 3.5 s its ghost still lay over the way ahead)
     reveal(R, 1); R.msg = R.town && R.newOffers ? { s: TXT('sim_floor.newOffers'), t: S.t, d: 3.5 } : { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), m), t: S.t, d: 2 }; R.newOffers = 0;
     const ch = how !== 'up' && (D.runOf(R.mode).chapters || []).find((c) => c.from === R.floor);
@@ -209,7 +209,9 @@
     T.pct = parts.length ? parts.reduce((a, [k, n]) => a + Math.min(1, k / n), 0) / parts.length : 0;
     return T;
   }
-  const runCompletion = (R) => completion(Object.entries(R.stats || {}).filter(([f]) => f !== '0').map(([, v]) => v));
+  // passed (TASKS 1863 и): the floors left behind on the way down, the deepest one only with the run won; a death on the 1st is 0
+  const runCompletion = (R, how) => { const E = Object.entries(R.stats || {}).filter(([f]) => f !== '0'), top = Math.max(0, ...E.map(([f]) => +f)), T = completion(E.map(([, v]) => v));
+    T.passed = E.filter(([f]) => +f < top || how === 'win').length; return T; };
   function completionHints(R) {
     const f = (R.stats || {})[R.floor]; if (!f) return [];
     const near = (k, n) => f[n] > 0 && f[k] < f[n] && f[k] / f[n] >= 0.85, out = [];
@@ -233,7 +235,7 @@
     for (const o of [z, ...row]) { o.ax = row.length ? +(dx < dy) : +(dx >= dy); o.ay = 1 - o.ax; } }
   function stepHazards(S, R) {
     const m = R.map, h = R.hero, t = S.t, dashing = t - h.dashT < BAL.dodge.t;
-    m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(t / z.per + z.ph), tag = R.floor + ':' + (z.gate ? 'g' + z.ph : i);
+    m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(D.hazCycle(z, t)), tag = R.floor + ':' + (z.gate ? 'g' + z.ph : i);
       if (c0 < z.per - H.warn && c >= z.per - H.warn) ev(S, { k: 'hazwarn', x: z.x, y: z.y, h: z.k, i });
       if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : z.k === 'surge' ? 'surge' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420 || (z.k === 'surge' && D.hazIn(z, h.x, h.y))) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : z.k === 'surge' ? 0.2 : 0.15)); }
       if (c >= H.burst) return;
@@ -281,14 +283,20 @@
   function runReward(R, how) {
     // the gold of a campaign won on the way down was paid at the stairs (descend): only the gold since counts at the end, and its
     // win is not paid again when the run is ended alive later (TASKS 1148)
-    const C = runCompletion(R), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' && !R.campaignWon ? REWARD.win : 0);
+    const C = runCompletion(R, how), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' && !R.campaignWon ? REWARD.win : 0);
     return { base, bonus: 0, cap: 0, C };
   }
   const FULL = [['kills', 'foes', TXT('FULL')], ['loot', 'lootN', TXT('FULL.2')], ['sec', 'secN', TXT('FULL.3')]];
   function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; tally(S, R, 'shards', n); ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
   // a floor's kills, loot or secrets brought to 100 % pay once, on the spot
   function checkFull(S, R) { const f = fstat(R), h = R.hero; f.full = f.full || {};
-    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); } }
+    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); }
+    markStairs(R, f); }
+  // half the floor's foes slain shows the way on (TASKS 1808, 388): a patch of the fog round the stairs lifts, so the minimap's
+  // stairs and the stairs themselves show through the dark; done in the fog, not the HUD, so it reads on the map and in the world alike
+  const STAIRS = { share: 0.5, r: 2 };
+  function markStairs(R, f) { const m = R.map, q = m.exit; if (f.stairs || R.town || !q || !(f.foes > 0) || f.kills < f.foes * STAIRS.share) return; f.stairs = 1;
+    const hid = secretMask(m); for (let y = q.ty - STAIRS.r; y <= q.ty + STAIRS.r; y++) for (let x = q.tx - STAIRS.r; x <= q.tx + STAIRS.r; x++) if (x >= 0 && y >= 0 && x < m.W && y < m.H && !hid.has(y * m.W + x)) R.seen[y * m.W + x] = 1; }
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
   const MASK = { key: '', set: null };
@@ -306,9 +314,25 @@
       for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) set.add(y * m.W + x);
       for (const k of q.hide) set.add(k); }
     MASK.key = key; MASK.set = set; return set; }
+  // the minimap's sheet: the floor's open cells and a wall round them, so it holds no band of blank rock (TASKS 1759); an unfound
+  // secret room is rock here too, or the cut's edge would give it away. Only the cells seen so far count (review of PR 57): a sheet
+  // cut to the whole floor told its size before a step was taken. It grows by whole blocks of cells from a smallest size round the
+  // floor's start, so it keeps still while the hero walks and changes only as he goes past its edge. The town is seen whole
+  const CUT = { key: '', r: null }, CUT_Q = 4, CUT_MIN = [30, 20];
+  function mapCut(R) { const m = R.map, n = R.seen.reduce((a, b) => a + (b ? 1 : 0), 0), key = m.seed + ':' + m.floor + ':' + n + ':' + (m.secrets || []).map((q) => q.open).join('');
+    if (CUT.key === key) return CUT.r;
+    const hid = secretMask(m), st = !m.town && m.rooms && m.rooms[m.start]; let x0 = m.W, y0 = m.H, x1 = -1, y1 = -1;
+    for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { const i = y * m.W + x, c = hid.has(i) ? 0 : SIMX.cell(m, x, y);
+      if ((c === 1 || c === 3 || c === 5 || c === 6) && (R.seen[i] || !st)) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } }
+    if (st) { const q = (v) => Math.floor(v / CUT_Q) * CUT_Q, lo = (a, n0, len) => Math.max(0, Math.min(len - n0, a - n0 / 2)), mx0 = lo(st.cx, CUT_MIN[0], m.W), my0 = lo(st.cy, CUT_MIN[1], m.H);
+      x0 = q(Math.min(x0 - 1, mx0)); y0 = q(Math.min(y0 - 1, my0)); x1 = q(Math.max(x1 + 1, mx0 + CUT_MIN[0] - 1)) + CUT_Q - 1; y1 = q(Math.max(y1 + 1, my0 + CUT_MIN[1] - 1)) + CUT_Q - 1; }
+    else if (x1 < 0) { x0 = y0 = 0; x1 = m.W - 1; y1 = m.H - 1; }
+    else { x0--; y0--; x1++; y1++; }
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(m.W - 1, x1); y1 = Math.min(m.H - 1, y1);
+    CUT.key = key; CUT.r = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }; return CUT.r; }
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
     migrateTown, newRun, genApart, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, hidden, migrateSecrets });
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

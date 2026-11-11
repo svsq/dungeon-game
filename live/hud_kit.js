@@ -3,13 +3,13 @@
 // these, not with its own frames. Pure: it reads the state it is handed.
 (function () {
   const L = LIB, K = (window.KIT = {});
-  // one art pixel of the parts is two screen px, the world's own art pixel at ×1
+  // one art pixel of the parts is two screen px; tools/ui_b_snap.py puts generated parts on that grid (TASKS 1743)
   const PX = (K.PX = 2);
   K.INK = { t: '#2a1a10', d: '#5a3a22', r: '#7d1e12', g: '#4d2c08', off: '#6b5f50', cream: '#f3e2bd', gold: '#ffd76a' };
   // per part: its texture, its drawn art size, and the ends (left, top, right, bottom, art px) that are not stretched
   const PART = {
-    leather: { tex: 'ui_b_leather_panel', art: [96, 96], cut: [24, 24, 24, 24] },
-    torn: { tex: 'ui_b_parchment_torn', art: [96, 96], cut: [24, 24, 24, 24] },
+    leather: { tex: 'ui_b_leather_panel', art: [96, 96], cut: [24, 24, 24, 24], wear: ['ui_b_leather_wear_tex', 8] },
+    torn: { tex: 'ui_b_parchment_torn', art: [96, 96], cut: [24, 24, 24, 24], wear: ['ui_b_paper_fibre_tex', 12] },
     cell: { tex: 'ui_b_cell', art: [32, 32], cut: [8, 8, 8, 8] },
     btn: { tex: 'ui_b_button_parchment', art: [100, 24], cut: [12, 0, 12, 0] },
     wax: { tex: 'ui_b_button_wax', art: [120, 30], cut: [16, 0, 16, 0] },
@@ -19,13 +19,16 @@
     rod: { tex: 'ui_b_scroll_rod', art: [240, 24], cut: [24, 0, 24, 0] },
     ribbon: { tex: 'ui_b_ribbon', art: [24, 120], cut: [0, 12, 0, 28] },
     gutter: { tex: 'ui_b_book_gutter', art: [40, 160], cut: [0, 16, 0, 16] },
+    // the main menu's leaf (TASKS 1755): a vertical 3-slice, its plain band y 120–169 takes the two heights of D.UI.menuSheet; box:
+    // the inside its texts are checked against, as the torn sheet's
+    menu: { tex: 'ui_b_menu_leaf', art: [310, 289], cut: [0, 120, 0, 120], box: [13, 13, 13, 13] },
   };
   K.PART = PART;
   const has = (n) => !!(window.ASSETS && window.ASSETS[n]);
   // the drawn size of a part's ends in screen px at scale k
   K.ends = (p, k = 1) => PART[p].cut.map((v) => v * PX * k);
   // a part stretched to w×h: the corners kept, the edges stretched one way, the middle both ways (a 3-slice is a nine-slice with
-  // two zero ends)
+  // two zero ends); the slices' edges on whole px, as a seam between two fractional edges let a 1 px line of what lies under show (TASKS 1756)
   K.nine = (p, x, y, w, h, o = {}) => {
     const P = PART[p]; if (!has(P.tex)) return;
     const k = o.k || 1, [cl, ct, cr, cb] = P.cut, [aw, ah] = P.art;
@@ -35,12 +38,19 @@
     if (!cl && !cr) { const s = w * T.h / T.w / ah; dt = ct * s; db = cb * s; }
     if (dl + dr > w) { const s = w / (dl + dr); dl *= s; dr *= s; }
     if (dt + db > h) { const s = h / (dt + db); dt *= s; db *= s; }
-    const us = [0, cl / aw, 1 - cr / aw, 1], vs = [0, ct / ah, 1 - cb / ah, 1], xs = [x, x + dl, x + w - dr, x + w], ys = [y, y + dt, y + h - db, y + h];
+    const us = [0, cl / aw, 1 - cr / aw, 1], vs = [0, ct / ah, 1 - cb / ah, 1], xs = [x, x + dl, x + w - dr, x + w].map(Math.round), ys = [y, y + dt, y + h - db, y + h].map(Math.round);
     for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
       if (o.hollow && i === 1 && j === 1) continue;
       const sw = xs[i + 1] - xs[i], sh = ys[j + 1] - ys[j]; if (sw <= 0.01 || sh <= 0.01 || us[i + 1] <= us[i] || vs[j + 1] <= vs[j]) continue;
       L.sprite(P.tex, xs[i], ys[j], { w: sw, h: sh, src: [us[i], vs[j], us[i + 1], vs[j + 1]], u: o.u }); }
+    if (P.wear && !o.hollow) K.wear(P.wear[0], x + P.wear[1] * PX * k, y + P.wear[1] * PX * k, w - 2 * P.wear[1] * PX * k, h - 2 * P.wear[1] * PX * k, o.u);
   };
+  // the stretched middle of a panel is flat, so its scuffs or fibres are a tile laid over it at the kit's art pixel (TASKS 1743);
+  // each panel starts the tile at its own phase, so two windows side by side do not show the same marks at the same place
+  K.wear = (tex, x, y, w, h, u) => { if (!has(tex) || w <= 0 || h <= 0) return; const s = 128 * PX, px = (x * 7 + y * 3) % s, py = (x * 5 + y * 11) % s;
+    for (let ty = -py; ty < h; ty += s) for (let tx = -px; tx < w; tx += s) { const x0 = Math.max(0, tx), y0 = Math.max(0, ty), x1 = Math.min(w, tx + s), y1 = Math.min(h, ty + s);
+      if (x1 - x0 < 0.5 || y1 - y0 < 0.5) continue;
+      L.sprite(tex, Math.round(x + x0), Math.round(y + y0), { w: Math.round(x + x1) - Math.round(x + x0), h: Math.round(y + y1) - Math.round(y + y0), src: [(x0 - tx) / s, (y0 - ty) / s, (x1 - tx) / s, (y1 - ty) / s], u }); } };
   // the drawn width of a 3-slice's end at height h, where a label may not reach
   K.endW = (p, h) => { const P = PART[p]; return has(P.tex) ? P.cut[0] * h * G.tex(P.tex).w / G.tex(P.tex).h / P.art[0] : 0; };
   // a part drawn whole at its art size × k, its top-left at x, y (or centred with o.c)
@@ -60,16 +70,18 @@
   // a panel: 'leather' (stitched, brass corners) or 'torn' (a loose parchment sheet, its middle filled with the tile); returns the
   // rect inside its border, which is also the box its texts are checked against
   K.panel = (id, x, y, w, h, kind = 'leather', o = {}) => {
-    if (kind === 'torn') K.nine('torn', x, y, w, h, { k: o.k });
-    else K.nine('leather', x, y, w, h, { k: o.k });
-    const e = K.ends(kind, o.k || 1).map((v) => v * 0.55), r = { x: x + e[0], y: y + e[1], w: w - e[0] - e[2], h: h - e[1] - e[3] };
+    K.nine(PART[kind] ? kind : 'leather', x, y, w, h, { k: o.k });
+    const B = PART[kind] && PART[kind].box, e = B ? B.map((v) => v * PX * (o.k || 1)) : K.ends(kind, o.k || 1).map((v) => v * 0.55), r = { x: x + e[0], y: y + e[1], w: w - e[0] - e[2], h: h - e[1] - e[3] };
     L.uiBox(id, r.x, r.y, r.w, r.h, o.pad === undefined ? 6 : o.pad); return r;
   };
   // an open book: a leather cover, two pages of parchment with the gutter between, a brass clasp on the right edge; returns
   // the two pages' writing areas and the whole spread
+  // the cover has a board's thickness: its back board in shadow a little lower, and the block of pages' edges at the foot (TASKS 1758)
   K.book = (id, x, y, w, h, o = {}) => {
+    K.nine('leather', x + 4, y + 12, w, h, { u: { grade: [0.42, 0.8, 0, 1] } });
     K.nine('leather', x, y, w, h);
     const m = 22, px = x + m, py = y + m, pw = w - 2 * m, ph = h - 2 * m, gw = 56;
+    for (let i = 0; i < 3; i++) L.solid(px + 6 + i * 4, py + ph + 2 + i * 4, pw - 12 - i * 8, 3, [0.80 - i * 0.07, 0.69 - i * 0.07, 0.50 - i * 0.06]);
     K.paper(px, py, pw, ph);
     L.solid(px, py + ph - 3, pw, 3, [0.36, 0.23, 0.13]); L.solid(px, py, pw, 2, [0.62, 0.48, 0.32], 0, 0, 0, 0.6);
     K.nine('gutter', x + w / 2 - gw / 2, py - 4, gw, ph + 8);
@@ -80,10 +92,13 @@
   };
   // a button: b = { x, y, w, h, label, on }; kind 'parch' (the plain one) or 'wax' (the one that does the thing, light letters)
   K.button = (id, b, st, kind = 'parch') => {
-    const g = gradeOf(st), dy = st.press ? 2 : 0;
+    // a button that cannot be pressed is dimmed, not greyed out: its words stay readable on it (TASKS 1762)
+    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.35, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.1, 1.32, 0, 1.06] : gradeOf(st), dy = st.press ? 2 : 0;
+    // the red wax barely lightens under a grade, so the one that does the thing also glows when it is the one Enter would press
+    if (kind === 'wax' && lit) L.glow(b.x + b.w / 2, b.y + b.h / 2 + dy, b.w * 0.62, [1, 0.5, 0.2], 0.3, 2.2);
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
-    const size = L.sizeToFit(b.label, b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, b.size || 26), col = st.off ? K.INK.off : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
-    (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, al: 0.5, col });
+    const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
+    (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
   // the slider: an ink rule with ticks, a brass knob at f (0..1); o.ticks (count), o.value (text over the knob), o.ends ([left,
@@ -105,11 +120,18 @@
     if (on) K.part('ui_b_check_tick', [24, 24], x + s / 2 + 4, y + s / 2 - 6, { c: true, k: s / 36 * 1.05, u: { grade: gradeOf(st) } });
     L.uiBox(id, x, y, s, s, 0);
   };
-  // the tabs over a page: tabs = [{ id, label, x, y, w, h }]; the open one stands taller, with the wax seal on its corner
-  K.tabs = (id, tabs, open, S) => { for (const b of tabs) { const st = K.st(S, b.id), up = b.id === open ? 8 : 0;
-    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: { grade: b.id === open ? [1, 1.06, 0, 1] : gradeOf(st).map((v, i) => (i === 1 ? v * 0.82 : v)) } });
-    if (b.id === open) K.part('ui_b_wax_seal', [40, 40], b.x + 6, b.y - up + 2, { c: true, k: 0.55 });
-    K.ink(id + b.id, b.label, b.x + b.w / 2, b.y - up + b.h / 2 + 2, { size: L.sizeToFit(b.label, b.w - 0.6 * K.endW('tab', b.h) - 8, 24), al: 0.5, col: b.id === open || st.hover || st.focus ? K.INK.r : K.INK.d });
+  // the tabs over a page: tabs = [{ id, label, x, y, w, h }]; the open one stands taller, with the wax seal on its corner. The
+  // lit one (o.lit, else the pointer's or the keyboard's) lightens; the open one when lit also glows, as the open one is already
+  // the lightest and the keyboard's focus sits on it while ←→ change it (TASKS 1856). o.fill (the start screen, TASKS 1757): the
+  // open tab is filled red with light letters, as on ref_ui_start_b, its seal inside at the left
+  K.tabs = (id, tabs, open, S, o = {}) => { for (const b of tabs) { const st = K.st(S, b.id), on = b.id === open, up = on ? 8 : 0, lit = o.lit !== undefined ? b.id === o.lit : st.hover || st.focus;
+    if (on && lit) L.glow(b.x + b.w / 2, b.y - up + b.h / 2, b.w * 0.75, [1, 0.6, 0.25], 0.55, 2);
+    const g = on ? (lit ? [1.05, 1.3, 0, 1.06] : [1, 1.06, 0, 1]) : gradeOf({ hover: lit }).map((v, i) => (i === 1 && !lit ? v * 0.82 : v));
+    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : { grade: g } });
+    const sx = on && o.fill ? b.x + 0.6 * K.endW('tab', b.h) + 26 : 0;
+    if (on) K.part('ui_b_wax_seal', [40, 40], o.fill ? sx : b.x + 6, o.fill ? b.y - up + b.h / 2 + 1 : b.y - up + 2, { c: true, k: o.fill ? 0.5 : 0.55 });
+    const x0 = sx ? sx + 22 : b.x + 0.3 * K.endW('tab', b.h) + 4, x1 = b.x + b.w - 0.3 * K.endW('tab', b.h) - 4;
+    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size: 24, fit: x1 - x0, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : on || lit ? K.INK.r : K.INK.d });
     L.uiBox(id + b.id, b.x + 8, b.y - up, b.w - 16, b.h, 4); } };
   // an item cell: square (the bag) or round (a skill, a trophy); o.sel (picked), o.off (locked)
   K.cell = (id, x, y, s, st, o = {}) => {
@@ -122,10 +144,10 @@
   };
   // the title banner, centred on cx, its heading in red ink
   K.banner = (id, cx, y, w, s, o = {}) => { const h = o.h || 80; K.nine('banner', cx - w / 2, y, w, h);
-    const e = K.ends('banner')[0] * h / (40 * PX), size = L.sizeToFit(s, w - 2 * e * 0.8, o.size || 36);
-    K.ink(id + '_t', s, cx, y + h / 2 + 1, { size, al: 0.5, col: K.INK.r }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
+    const e = K.ends('banner')[0] * h / (40 * PX), fit = w - 2 * e * 0.8;
+    K.ink(id + '_t', s, cx, y + h / 2 + 1, { size: o.size || 36, fit, al: 0.5, col: K.INK.r, bold: true }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
   // a heading straight on the page, a flourish to each side of it
-  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r }), r = o.wing || 90;
+  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r, bold: true }), r = o.wing || 90;
     K.rule(cx - tw / 2 - 24 - r, y + 2, r, 0.8); K.rule(cx + tw / 2 + 24, y + 2, r, 0.8); K.rule(cx - tw / 2 * 0.8, y + (o.size || 48) * 0.75, tw * 0.8); return tw; };
   // the vine flourishes in a page's four corners
   K.corners = (P, k = 0.8) => { const s = 64 * PX * k, h = s * G.tex('ui_b_flourish').h / G.tex('ui_b_flourish').w;
@@ -146,6 +168,11 @@
   K.seal = (x, y, k = 1) => K.part('ui_b_wax_seal', [40, 40], x, y, { c: true, k });
   K.ribbon = (x, y, len, k = 1) => K.nine('ribbon', x, y, 24 * PX * k, len, { k });
   K.rod = (x, y, w, k = 1) => K.nine('rod', x, y, w, 24 * PX * k, { k });
+  // a leather strap hung from the top of the screen, its buckled tab's foot at y (centre x): the plain strap repeats upwards at its
+  // own art pixel instead of stretching, as stretched stitches turned into dashes of another size
+  K.strap = (x, y) => { if (!has('ui_b_strap')) return; const T = G.tex('ui_b_strap'), w = 24 * PX, ah = Math.round(24 * T.h / T.w), foot = 40 * PX, top = y - foot, seg = (ah - 40) * PX, v = (ah - 40) / ah;
+    L.sprite('ui_b_strap', x - w / 2, top, { w, h: foot, src: [0, v, 1, 1] });
+    for (let y1 = top; y1 > -G.oy; y1 -= seg) { const h = Math.min(seg, y1 + G.oy); L.sprite('ui_b_strap', x - w / 2, y1 - h, { w, h, src: [0, v * (1 - h / seg), 1, v] }); } };
   K.knob = (x, y, k = 1) => K.part('ui_b_knob', [16, 16], x, y, { c: true, k });
 
   // the QA sheet (state 'uikit'): every part in every state, the longest labels the game has on its buttons

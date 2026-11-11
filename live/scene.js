@@ -11,7 +11,7 @@
   SC.render = (t) => {
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
     L.GFX = L.GFX_Q ?? (ST.meta && ST.meta.gfx != null ? ST.meta.gfx : 2);
-    if (R && (R.zoom || D.ZOOM || 1) !== SCX.Z) views(R.zoom || D.ZOOM || 1);
+    if ((R && (R.zoom || D.ZOOM || 1) !== SCX.Z) || SIM.VIEW.H !== SCX.H) views(R ? R.zoom || D.ZOOM || 1 : SCX.Z);
     if (!R) { L.beginBG([0.02, 0.015, 0.02, 1]); L.beginComp(); L.finish(t, { bloom: [0, 0] }); if (window.HUD) HUD.draw(ST, t, null); G.flush(); return; }
     const m = R.map, B = D.BIOMES[m.biome], h = R.hero, _rim = (RIM.col = B.torch.map((v) => Math.min(1, v * 1.2)), RIM.hands = {}, RIM.heads = {}, RIM.mages = {}, RIM.embers = {}, RIM.priests = {}, RIM.kindled = {}, RIM.imps = {}, RIM.salams = {}, RIM.folk = []), st = SIM.Q.stats(h, ST.meta);
     // a fuse's ring and light stay on its body: a lit smouldering skeleton knocked back carries them with it (TASKS 411)
@@ -127,7 +127,8 @@
       if (e.k === 'teleport' && a < 0.5) add([0.6, 0.8, 1], 0.3 * (1 - SS(0, 0.5, a)));
       if (e.k === 'floor' && a < 0.9) dark = Math.max(dark, 1 - SS(0, 0.9, a)); }
     if (R.leaving > 0) dark = Math.max(dark, 1 - R.leaving / 0.45);
-    const f = h.hp / st.maxHp; if (h.deadT < 0 && f < 0.3) add([0.45, 0.02, 0.02], (1 - f / 0.3) * (0.22 + 0.12 * Math.sin(GT * 6.5)));
+    // at a quarter of health and under the rim throbs half red, the middle of the frame stays clear (TASKS 1862: at 14 % it was barely seen)
+    const f = h.hp / st.maxHp; if (h.deadT < 0 && f < 0.3) add([0.5, 0.02, 0.02], (1 - SS(0.2, 0.3, f)) * (0.4 + 0.2 * Math.sin(GT * 6.5)));
     if (h.deadT >= 0) { const du = GT - h.deadT; desat = 0.85 * SS(0, 1.2, du); dark = Math.max(dark, 0.55 * SS(0.6, 1.6, du)); add([0.4, 0.02, 0.02], 0.5 * (1 - SS(0.4, 1.4, du))); }
     return { edge: w > 0 ? [r / w, g / w, b / w, Math.min(0.7, w)] : [0, 0, 0, 0], desat, dark };
   }

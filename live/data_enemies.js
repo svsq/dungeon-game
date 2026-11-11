@@ -45,7 +45,9 @@
     // of the lake nor `wayGap` cells of a way in or the slab crossing; the point moves off them); fists: both fists round about
     // it, then it stands stuck `stuck` s, open to blows (×`open`); shatter (2nd phase): its crust cracks, the ring's outer edge falls
     // into lava (`edge` cells deep, `warn` s warned) and imps come; erupt / rain (3rd): rocks fall over the ring for `time` s, but
-    // never within `shelter` px of a basalt slab of cover
+    // never within `shelter` px of a basalt slab of cover; stomp (TASKS 1809, out of turn): a hero `hold` s within `near` px of it,
+    // where the crack starts past him and the fists alone reach, is stamped off: a ring `r` px round its feet, `push` px out, at most
+    // once in `cd` s, so standing at its shins is no safe spot
     boss_colossus: { hp: 1650, dmg: 33, scale: 1, rise: 2.2, wade: 70, step: 29.80632555187274, phases: [
       { at: 1, moves: ['crack', 'fists', 'boulder', 'charge', 'fists'], rest: 0.9, speed: 1, finishMove: 1 },
       { at: 0.6, moves: ['boulder', 'crack', 'fists', 'charge', 'imps', 'fists'], enter: 'shatter', rest: 0.75, speed: 1.3, finishMove: 1 },
@@ -59,7 +61,8 @@
       // (TASKS 466: in the 2nd phase the imps' sparks hit the hero more often than the colossus did, 14 to 10: two at a time and their sparks weaker)
       imps: { wind: 0.7, dmg: 0.65, n: 2, cap: 2, r: 130, hp: 1, type: 'imp', delay: 0.8, duration: 0.4 },
       erupt: { wind: 1.0, dmg: 0, next: 'rain', rest: 0.2, duration: 0.5 },
-      rain: { wind: 0.6, dmg: 0.9, n: 24, aimed: 5, time: 3.2, warn: 1.0, r: 42, shelter: 64, duration: 3.4 }
+      rain: { wind: 0.6, dmg: 0.9, n: 24, aimed: 5, time: 3.2, warn: 1.0, r: 42, shelter: 64, duration: 3.4 },
+      stomp: { wind: 0.6, dmg: 0.8, r: 115, push: 150, shove: 0.3, near: 100, hold: 1.2, cd: 5, duration: 0.45 }
     } },
     // the finale: 20+ s that cost about two healths and two potions; kills 10–20 % of the average players who reach it (TASKS 215,
     // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three

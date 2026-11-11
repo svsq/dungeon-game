@@ -2,7 +2,8 @@
 // One of the scene's files (ARCHITECTURE.md §4.2): names from earlier files come from SCX at load, calls into later ones go through SCX.
 (function (root) {
   const SCX = (root.SCX = {});
-  const SC = (window.SCENE = {}), L = LIB, M = L.M, D = DATA, W = SIM.VIEW.W, H = SIM.VIEW.H, TILE = D.TILE;
+  const SC = (window.SCENE = {}), L = LIB, M = L.M, D = DATA, TILE = D.TILE;
+  let W = SIM.VIEW.W, H = SIM.VIEW.H;
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h], PIX = 2;
   let Z = D.ZOOM || 1, VW = W / Z, VH = H / Z;   // VW×VH: the world window on screen; Z follows the run's zoom (views)
   // each hole cluster of trap_plate is a triangle: one hole behind, two in front; TRAP_HOLE is the back hole's centre across
@@ -816,7 +817,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     if (window.HUD) HUD.init();
   };
   function views(z) {
-    Z = z; VW = W / Z; VH = H / Z;
+    W = SIM.VIEW.W; H = SIM.VIEW.H; G.resize(W, H); Z = z; VW = W / Z; VH = H / Z;
     // a terrace's surge (TASKS 475): the magma's own lava (TASKS 483: the caves' shader drew it with plates three times the size of
     // the lava round it) over its band, cell by cell (its mask unblurred: a blurred one lay over a bridge's deck as a rounded pill),
     // welling up in patches as u_q rises (a slow noise, the cells by the lava first: the mask's blue), and over the warning's last
@@ -870,7 +871,7 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const DEDGE = { k: 80 / 720, far: 746, near: 898, farX: 18, nearX: 18, lock: [118, 468], band: 0.55 };
 
   Object.assign(SCX, {
-    SC, L, M, D, W, H, TILE, SZ, PIX, TRAP_HOLE, TRAP_SPIKE, BAKE, SEEN, VOID, views, rnd, SS, FALL_DROP, zoneAt, GLOW, glowOf, GLOW_COL,
+    SC, L, M, D, TILE, SZ, PIX, TRAP_HOLE, TRAP_SPIKE, BAKE, SEEN, VOID, views, rnd, SS, FALL_DROP, zoneAt, GLOW, glowOf, GLOW_COL,
     glowBeat, BRIDGE, WET, DRIP_FALL, dripAge, torchCol, DOOR, STAND, CANDLE, TABLE_WICKS, DEDGE });
-  Object.defineProperties(SCX, { Z: { get: () => Z }, VW: { get: () => VW }, VH: { get: () => VH }, LT: { get: () => LT } });
+  Object.defineProperties(SCX, { W: { get: () => W }, H: { get: () => H }, Z: { get: () => Z }, VW: { get: () => VW }, VH: { get: () => VH }, LT: { get: () => LT } });
 })(typeof window !== 'undefined' ? window : globalThis);
