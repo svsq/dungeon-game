@@ -42,7 +42,14 @@
     for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
       if (o.hollow && i === 1 && j === 1) continue;
       const sw = xs[i + 1] - xs[i], sh = ys[j + 1] - ys[j]; if (sw <= 0.01 || sh <= 0.01 || us[i + 1] <= us[i] || vs[j + 1] <= vs[j]) continue;
-      L.sprite(P.tex, xs[i], ys[j], { w: sw, h: sh, src: [us[i], vs[j], us[i + 1], vs[j + 1]], u: o.u }); }
+      // a middle squeezed far tighter one way than the other drops to a small mip level, where the edge's outline blurs into the
+      // clear texels beside it, a grey tongue on the narrow stats tabs (TASKS 1882): it takes a narrower band of its own plain
+      // middle instead, at the scale the other way has
+      let u0 = us[i], u1 = us[i + 1], v0 = vs[j], v1 = vs[j + 1];
+      const kx = (u1 - u0) * T.w / sw, ky = (v1 - v0) * T.h / sh;
+      if (i === 1 && (cl || cr) && kx > ky * 3) { const c = (u0 + u1) / 2, hw = sw * ky / T.w / 2; u0 = c - hw; u1 = c + hw; }
+      if (j === 1 && (ct || cb) && ky > kx * 3) { const c = (v0 + v1) / 2, hh = sh * kx / T.h / 2; v0 = c - hh; v1 = c + hh; }
+      L.sprite(P.tex, xs[i], ys[j], { w: sw, h: sh, src: [u0, v0, u1, v1], u: o.u }); }
     if (P.wear && !o.hollow) K.wear(P.wear[0], x + P.wear[1] * PX * k, y + P.wear[1] * PX * k, w - 2 * P.wear[1] * PX * k, h - 2 * P.wear[1] * PX * k, o.u);
   };
   // the stretched middle of a panel is flat, so its scuffs or fibres are a tile laid over it at the kit's art pixel (TASKS 1743);
