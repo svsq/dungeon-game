@@ -145,11 +145,12 @@
       if (P.focus !== 'go' || P.pendName !== 'Ulfm') out.push(`name: Enter in the field under the pointer on the die throws it (${P.focus}, ${P.pendName})`);
       press(P, B(P, 'name')); put(P, ['Escape'], []);
       if (P.screen !== 'classes' || P.focus === 'name' || P.pendName !== 'Ulfm') out.push(`name: Escape in the field does not just leave it (${P.screen}, ${P.focus}, ${P.pendName})`);
-      // Escape leaves the keyboard on the die beside the field, so the next Enter presses what is lit (TASKS 1902)
-      if (P.focus !== 'dice') out.push(`name: Escape in the field leaves the keyboard on ${P.focus || 'nothing'}, not the die`);
-      put(P, ['Enter'], []); if (P.screen !== 'classes') out.push(`name: Enter after Escape in the field starts the run (${P.screen})`);
+      // Escape leaves the keyboard on «В путь», and the next Enter starts the run under the typed name (TASKS 1902)
+      if (P.focus !== 'go') out.push(`name: Escape in the field leaves the keyboard on ${P.focus || 'nothing'}, not the start button`);
       press(P, B(P, 'name')); press(P, { x: 2, y: 2, w: 4, h: 4 });
-      if (P.focus === 'name') out.push('name: a click off the field does not take its keyboard away'); }
+      if (P.focus === 'name') out.push('name: a click off the field does not take its keyboard away');
+      press(P, B(P, 'name')); put(P, ['Escape'], []); put(P, ['Enter'], []);
+      if (!P.run || P.run.hero.name !== 'Ulfm') out.push(`name: Enter after Escape in the field does not start the run under the typed name (${P.screen}, ${P.run && P.run.hero.name})`); }
     { const P = toStart(), rows = UI.classes(P.meta), cls = SIMX.clsNow(P), above = rows.some((q) => q.id === 'kit:' + cls) ? 'kit:' + cls : 'cls:' + cls;
       P.pendName = 'Ulf'; P.focus = above; put(P, ['KeyS'], ['s']);
       if (P.focus === 'name' || P.pendName !== 'Ulf') out.push(`name: S from the row above takes the field (${P.focus}, ${P.pendName})`);

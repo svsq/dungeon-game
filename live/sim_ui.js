@@ -165,9 +165,9 @@
     const back = () => { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); };
     if (typing) {
       if (typeName(S, inp.chars, keys)) ev(S, { k: 'ui', x, y });
-      // Escape leaves the field and keeps the screen: going back to the menu would throw the typed name away. The keyboard stays
-      // on the die beside it, lit, so the next Enter presses what is lit (TASKS 1902)
-      if (keys.Escape) { S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
+      // Escape leaves the field and keeps the screen: going back to the menu would throw the typed name away. The keyboard goes
+      // on to «В путь», lit, so the next Enter starts the run under the typed name; the die would throw it away (TASKS 1902)
+      if (keys.Escape) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; }
       if (keys.Enter) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; }
     } else {
       if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
