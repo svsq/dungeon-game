@@ -34,8 +34,8 @@
 //   reach     — *_attack of the monsters (TASKS 1801): a hand leaves its place against the hip by REACH of the height
 //   glide     — walk cycles (TASKS 1801): some joint travels GLIDE of the height against the ground point (a robe slid); townsfolk warn
 //   cadence   — walk cycles (TASKS 1802): at most STEPS steps a second, a biped's step at least STEP of its height; townsfolk warn
-//   lies      — hero_*death (TASKS 1803): lying (hip under LOW of the height), no hand or tip over UP of it; inertia — hero_death_run:
-//               the hip's way over the first 0.3 s goes the way he ran
+//   lies      — hero_*death (TASKS 1803) and the monsters' *_death but the crab's (TASKS 1907): lying (hip under LOW of the height),
+//               no hand or tip over UP of it; inertia — hero_death_run: the hip's way over the first 0.3 s goes the way he ran
 //   recoil    — hit_* on a light body (TASKS 1804): the head is thrown against the hip by RECOIL of the height
 //   same      — monster attacks pairwise, the mage's shot/frost/cast per aim, the three hero deaths (TASKS 1805): the near hand's paths
 //               against the hip correlate at most SAME in x and in y at the best lag (one motion reused)
@@ -301,7 +301,9 @@ if (meta.tr.includes('imp_claw')) {
 // weapon's tip stands more than UP of it over the floor (the hero's near hand stayed 0.59 up, his sword standing in it). inertia: killed
 // on the run, the hip's way over the first 0.3 s goes the way he ran (it fell back against the run)
 { const LOW = 0.1, UP = 0.35;
-  for (const nm of meta.tr.filter((n) => /^hero.*_death(_run)?$/.test(n))) {   // (the monsters' corpses: a task of their own)
+  // (and the monsters' corpses, TASKS 1907; the crab is no biped and lies as it stands, the sinkers and the floaters leave no body, and a
+  // skeleton's burst scatters its bones over the floor, where a bone's height on the screen is how far back it lies)
+  for (const nm of meta.tr.filter((n) => /^hero.*_death(_run)?$/.test(n) || (/_death/.test(n) && !/^hero|^crab|^spider|^ghost|^serpent|^eel|^slime|_burst$/.test(n)))) {
     const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null, h = st.run.hero; LIB.TRACE = null; return { j, vx: h.vx, dead: h.deadT }; }); }, nm);
     const ok = fr.map((f) => f.j).filter((j) => j && j.hip && j.ground); if (ok.length < fr.length / 2 || !ok[0].top) continue;
     const H = tall(ok[0]), up = (j, k) => (j[k] ? (j.ground[1] - j[k][1]) / H : -1), last = ok.slice(-10);

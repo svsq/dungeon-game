@@ -79,6 +79,7 @@
       const lagged = o.armLag ? rs[0] + sg * (side === 'L' ? -1 : 1) * Math.cos(ph - o.armLag * Math.abs(vxn)) * 0.4 * run * (o.swingK ?? 1) * 0.8 : base;
       let r = o.arm ? o.arm(side, base) : [base, lagged + rs[1] - rs[0] + (lagged - rs[0]) * -0.4];
       if (o.flinch) r = [r[0] + (side === 'L' ? 0.65 : 0.5) * o.flinch, r[1] + 0.8 * o.flinch];   // flung wide by a blow (TASKS 1804)
+      if (o.limp) r = limpArm(r, RG['hand' + side], S0, face, fallR + lean, o.limp);
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
         const rest = R2U(Hd[0], Hd[1] + hipDy), T = o.handTarget(side, rest);
@@ -206,6 +207,11 @@
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
   // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
   const STAFF_HEAD = [31, 37];
+  // a dead body's arm goes slack (TASKS 1907): it turns, straight, to hang down the screen from its shoulder, so on a body lying on its
+  // side the arm on top lies on the floor beside it (the cultist's stayed up on the robe, its hand 47 % of its height over the floor).
+  // k 0..1 with the fall; rot: the body's turn on screen
+  function limpArm(r, hand, sh, face, rot, k) { const d = Math.PI / 2 - ang(sh, hand) - face * rot, w = (v) => v - TAU * Math.round(v / TAU);
+    return [r[0] + w(d - r[0]) * k, r[1] + w(d - r[1]) * k]; }
   function robed(o) {
     const RG = RIGS[o.n], s = o.H / RG.h, face = o.face, gx = RG.gap, gy = RG.foot, fallR = o.fallR || 0, root = [o.x, o.y];
     const sp = Math.hypot(o.vx, o.vy), run = SS(4, 30, sp), ph = o.dist / (0.28 * RG.h * s) * TAU;
@@ -221,10 +227,11 @@
     const sq = ((ph / TAU) % 1 + 1) % 1, plant = sq < 0.62 ? lerp(-0.24, 0.24, sq / 0.62) : lerp(0.24, -0.24, SS(0, 1, (sq - 0.62) / 0.38));
     const swing = run * 0.3 * Math.sin(ph + 1), staffR = (o.staff || 0) + 0.35 * (o.flinch || 0) + run * plant + 0.05 * breath + (1 - run) * 0.04 * Math.sin(o.t * 0.9 + (o.seed || 0));
     const push = o.push || 0, r1 = 0.8 * (o.flinch || 0) - swing - 0.09 * breath + lerp(0, o.aimR ?? -0.4, push) + (o.back || 0), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push) + 0.8 * (o.back || 0);
-    const E = rotP(RG.elbowR, RG.shR, r1), Hd = rotP(rotP(RG.handR, RG.shR, r1), E, r2 - r1), HdL = rotP(RG.handL, RG.shL, staffR);
+    const [r1L, r2L] = o.limp ? limpArm([r1, r2], RG.handR, RG.shR, face, rot, o.limp) : [r1, r2];
+    const E = rotP(RG.elbowR, RG.shR, r1L), Hd = rotP(rotP(RG.handR, RG.shR, r1L), E, r2L - r1L), HdL = rotP(RG.handL, RG.shL, staffR);
     part('farmL', RG.shL, R2U(...RG.shL), staffR, o.Ufar);
     L.sprite(tx + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, ky)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: hemX ? Object.assign({}, o.U, { lean: [hemX / (RG.w * s), 1] }) : o.U });
-    part('uarmR', RG.shR, R2U(...RG.shR), r1, o.U); part('farmR', RG.elbowR, R2U(...E), r2, o.U);
+    part('uarmR', RG.shR, R2U(...RG.shR), r1L, o.U); part('farmR', RG.elbowR, R2U(...E), r2L, o.U);
     const J = (nm, p) => L.joint(o.id, nm, p);
     J('ground', root); J('top', R2U(...RG.top)); J('head', R2U(RG.top[0], RG.top[1] + 0.12 * RG.h)); J('hip', R2U(gx, gy - 0.45 * RG.h)); if (hem) J('hem', [root[0] + hemX * 0.72, root[1]]);
     J('shL', R2U(...RG.shL)); J('handL', R2U(...HdL)); J('shR', R2U(...RG.shR)); J('elbowR', R2U(...E)); J('handR', R2U(...Hd));
@@ -730,6 +737,7 @@
     if (n === 'drowned') {
       // a shamble: hunched forward, short dragging steps; it climbs out of the water arms first (o.rise 0..1)
       base.lean += 0.12 * face; base.lift = 0.042;
+      if (!live && o.death) base.limp = SS(o.death.dl, o.death.dl + o.death.dur, GT - e.deadT);
       const u = GT - e.t0, G0 = E.grab;
       if (live && e.grab && (e.st === 'wind' || e.st === 'strike')) {
         // the grab: the near arm cocks back with the elbow folded, shoots out along the aim, holds, then hauls back clenched if it
@@ -803,6 +811,7 @@
         if (kin > 0) { base.staff = lerp(base.staff, -0.55, kin); base.push = Math.max(base.push, kin); base.aimR = lerp(base.aimR, -Math.PI / 2 - 0.7, kin); base.back *= 1 - kin; } }
       // the robe sinks onto the hem first (dl s), then the body lies down, half filling out again
       if (!live && o.death && o.death.sink) { const dd = GT - e.deadT, D0 = o.death; base.sink = 0.55 * SS(0, D0.dl, dd) * (1 - 0.5 * SS(D0.dl, D0.dl + D0.dur, dd)); }
+      if (!live && o.death) base.limp = SS(o.death.dl, o.death.dl + o.death.dur, GT - e.deadT);
       if (e.type === 'fire_priest') base.hem = 0.06; const r = robed(base); if (e.type === 'fire_priest' && live) r.priest = 1; return r; }
     if (n === 'brute') {
       const boss = !!DATA.BOSSES[e.type], move = boss ? DATA.bossMove(e) : null, w = move ? move.wind : 0;
