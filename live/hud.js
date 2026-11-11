@@ -1065,6 +1065,8 @@
     KIT.heading('cx_t', TXT('UI.codex.title'), W / 2, 112, { size: 60, wing: 110 });
     KIT.ink('cx_c', TXT('hud.codex.count', { n, m: U.list.length }), 120, 226, { size: 24, col: I.d });
     KIT.ink('cx_b', TXT('hud.codex.best', { p1: S.meta.best || 0, p2: S.meta.bestEndless || 0 }), W - 120, 226, { size: 22, al: 1, col: I.d });
+    // how a «???» row opens (TASKS 1853 к), while the tab still has one
+    if (n < U.list.length) { const s = tab === 'm' ? TXT('hud.codex.how.m') : tab === 'it' ? TXT('hud.codex.how.it') : TXT('hud.codex.how.p'); KIT.ink('cx_how', s, 150, 925, { size: L.sizeToFit(s, 630, 22), col: I.d }); }
     KIT.tabs('cx_tb', U.r.filter((b) => b.tab), 'tab:' + tab, S);
     KIT.rule(100, 258, W - 200, 0.7);
     // a monster's cell holds its own sprite, as the items' cells hold their icons
