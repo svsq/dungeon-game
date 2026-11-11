@@ -32,7 +32,7 @@
     magma: { name: TXT('BIOMES.magma.name'), rock: [0.008, 0.005, 0.005], water: [0.06, 0.1, 0.12], vein: [1.0, 0.38, 0.08, 0.02], amb: [0.14, 0.07, 0.05], ambK: 0.9, ambLvl: 0.48, torchR: 0.72, low: [1.05, 0.8, 0.74], floorK: 1.14, torch: [1.0, 0.45, 0.16],
       shroom: [1.0, 0.45, 0.16], gem: [1.0, 0.38, 0.1], floor: 'floor_mg_tex', wall: 'wall_mg_tex', top: 'walltop_mg_tex', shore: 'shore_mg_tex',
       cave: true, tint: [1.04, 0.9, 0.84], roster: ['skeleton', 'goblin', 'brute', 'cultist', 'skel_archer', 'skel_ember', 'fire_priest', 'imp', 'salamander', 'golem'], old: ['skeleton', 'goblin', 'brute', 'cultist'], packs: 'MAGMA_PACKS',
-      from: { cultist: 2, skel_ember: 2, imp: 2, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
+      from: { cultist: 2, skel_ember: 2, imp: 1, brute: 3, fire_priest: 3, salamander: 1, golem: 3 }, props: ['basalt_a', 'basalt_b', 'boulder_mg_a', 'boulder_mg_b', 'skel_mg', 'obsidian_mg', 'banner_mg', 'cage'] },
     // the start town (R-17, TASKS 1002, 1004, 1005): a safe courtyard over the crypt, floor 0 of a run; earth with grass, cobbles on the square
     // and its paths; ambLvl: the open yard is half lit between its fires (the concept's median L ≈ 19, the dungeon's dark is ≈ 11), its fire the
     // concept's yellow-orange, not the dungeon's red; neutral between the pools, so the pools stand out of it; fireK: its fires' strength
@@ -224,7 +224,10 @@
     brute: { w: 2, plan: [[['brute'], [1, 1], 'near'], [['goblin'], [2, 3], 'any']] },
     // imps across a river from the way in (TASKS 407), salamanders in the lava by the hall (408), golems on the ridge in front of the
     // priests (409): bank, a cell of the hall by its lava, the far half first; lava, a cell of lava at the hall's edge
-    imps: { w: 2, plan: [[['imp'], [3, 4], 'bank'], [['skeleton', 'goblin'], [0, 1], 'near']] },
+    imps: { w: [0, 2], plan: [[['imp'], [3, 4], 'bank'], [['skeleton', 'goblin'], [0, 1], 'near']] },
+    // (spark: the 1st floor's imps, the player's decision 11.11.2026 on TASKS 1896, amending 465: the chapter opened on the crypt's
+    // own pack, so two imps come with goblins there, never with archers; a small hall keeps the two alone)
+    spark: { w: [4, 0], plan: [[['imp'], [2, 2], 'back'], [['goblin'], [2, 3], 'near']] },
     lava: { w: 2, plan: [[['salamander'], [1, 2], 'lava'], [['skeleton', 'skel_archer', 'goblin'], [1, 2], 'any']] },
     rock: { w: 2, plan: [[['golem'], [1, 1], 'near'], [['fire_priest', 'cultist'], [1, 1], 'back'], [['imp'], [0, 2], 'bank']] },
   };
