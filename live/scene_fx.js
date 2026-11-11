@@ -90,8 +90,7 @@
     G.blend();
     // the magma caves' air (TASKS 404): sparks leaping high off the lava now and then, smoke drifting up off it, ash falling slowly
     // over everything; all on the world, so they stay put as the camera moves
-    if (m.cliff) { G.blend();
-      G.blend('add');
+    if (m.cliff) { G.blend('add');
       for (const [x, y] of lavaCells) if (rnd(y, x + 0.5) < 0.12 && known(x * TILE, y * TILE)) embers((x + rnd(x, y + 2)) * TILE, (y + 0.5) * TILE, 2, 90, [1, 0.78, 0.3], x * 17 + y * 5 + 3);
       G.blend();
       for (const [x, y] of lavaCells) { if (rnd(x + 0.3, y) > 0.035 || !known(x * TILE, y * TILE)) continue; const P = 7 + 4 * rnd(x, y + 9);

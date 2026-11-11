@@ -27,20 +27,23 @@
     return { std: false, ax: [ax[0] || 0, ax[1] || 0, ax[3] || 0, ax[4] || 0],
       press: (i) => (i === 6 ? (ax[2] || 0) > 0.3 : i === 7 ? (ax[5] || 0) > 0.3 : i === 12 ? hy < -0.5 : i === 13 ? hy > 0.5 : i === 14 ? hx < -0.5 : i === 15 ? hx > 0.5 : XP[i] >= 0 && bp(XP[i])) };
   };
-  const busy = (v) => v.ax.some((a) => Math.abs(a) > 0.3) || Array.from({ length: 16 }, (_, i) => i).some(v.press);
+  const busy = (v) => { for (let i = 0; i < 4; i++) if (Math.abs(v.ax[i]) > 0.3) return true; for (let i = 0; i < 16; i++) if (v.press(i)) return true; return false; };   // (no arrays a frame, review of PR 62)
   const stick = (x, y) => { const m = Math.hypot(x, y); return m < DEAD ? [0, 0, 0] : [x / m, y / m, Math.min(1, (m - DEAD) / (1 - DEAD))]; };
 
   // io: { keys, ptr, pend, VW, VH, play(), start(), dev() } — index.html's own input state, written the way its listeners write it
   function create(io) {
     const P = { active: 0, at: -99, n: 0, px: io.VW / 2, py: io.VH / 2, mode: 'kbm', screen: '', raw: null }; root.PAD = P;
+    Object.defineProperty(P, 'raw', { get: () => { const gp = P.gp; return gp ? { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) } : null; } });
     const { keys, ptr, pend } = io, kb = {};   // kb: the keyboard's own arrows, so an idle stick never lets go of a held key
     addEventListener('keydown', (e) => { if (e.isTrusted) kb[e.code] = 1; }, true); addEventListener('keyup', (e) => { kb[e.code] = 0; }, true);
-    let idx = -1, on = 0, soundOn = false, prev = [], held = new Set(), moveK = {}, nav = { k: '', t: 0, n: 0 }, last = '', aim = [1, 0, 0.6], aimT = -99, ptrDown = 0;
+    let idx = -1, on = 0, clock = 0, prev = [], held = new Set(), moveK = {}, nav = { k: '', t: 0, n: 0 }, last = '', aim = [1, 0, 0.6], aimT = -99, ptrDown = 0;
     // the buttons the screen hit-tests this step: DATA.hitUI is called by every screen with its whole list (sim_ui.js), so the
     // list is read off that call instead of copying each screen's layout here
     let rects = [], rectsNow = [], rectsOf = '', got = 0;   // rectsOf: the screen they were read on
     const hit0 = root.DATA.hitUI;
     root.DATA.hitUI = (rs, x, y) => { if (P.cap) { got = 1; for (const b of rs) rectsNow.push(b); } return hit0(rs, x, y); };
+    // called round every sim step (review of PR 62): the buttons are the last step's, not every step's of a frame, so a window
+    // opened in the frame never keeps the screen before it in its list (play's debug buttons, the menu's)
     const stepBegin = () => { P.cap = 1; rectsNow = []; got = 0; };
     const stepEnd = () => { P.cap = 0; const S = io.play(); if (got) { rects = rectsNow; rectsOf = S ? S.screen : ''; } };
 
@@ -80,18 +83,21 @@
     };
     const firstBtn = (S) => { const bs = onBtns(); return FIRST.map((id) => bs.find((b) => b.id === id)).find(Boolean) || bs.find((b) => b.id && b.id === S.focus) || bs[0]; };
 
+    // its own clock in real seconds (review of PR 62): on the sim's, the dev pause (P) froze the dpad's repeat in the menus
     function poll(dt, simT) {
+      clock += dt;
       const pads = Array.from((navigator.getGamepads && navigator.getGamepads()) || []).filter((p) => p && p.connected !== false);
       P.n = pads.length;
       if (!pads.length) { clear(); return; }
       const gp = pick(pads), V = view(gp), pr = V.press, ax = V.ax, S = io.play(); on = 1;
       const was = (i) => !!prev[i], edge = (i) => pr(i) && !was(i), rel = (i) => !pr(i) && was(i);
-      if (busy(V)) { P.at = simT; P.mode = 'pad'; }
+      if (busy(V)) { P.at = clock; P.mode = 'pad'; }
       P.active = P.mode === 'pad' ? 1 : 0;
       P.map = (gp.mapping || '—') + (V.std ? '' : ' (xpad)');
-      P.raw = { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) };
-      // (TASKS 1867) a pad press starts the sound as a key or a click does: with the pad alone it never started
-      if (!soundOn && root.AUDIO && AUDIO.start && Array.from({ length: 16 }, (_, i) => i).some(edge)) { soundOn = true; AUDIO.start(); }
+      P.gp = gp;   // (P.raw, the dev line's view of it, is built only when read)
+      // (TASKS 1867) a pad press starts the sound as a key or a click does: with the pad alone it never started. Asked again on
+      // every press until it runs (review of PR 62: a browser that does not take a pad's press for a gesture keeps it suspended)
+      if (root.AUDIO && AUDIO.start && AUDIO.state !== 'running') for (let i = 0; i < 16; i++) if (edge(i)) { AUDIO.start(); break; }
       if (!S) { if ([0, 1, 2, 3, 7, 9].some(edge)) io.start(); for (let i = 0; i < 16; i++) prev[i] = pr(i); return; }
       const scr = S.screen || 'play', play = scr === 'play' && S.run, focus = FOCUS.has(scr);
       if (scr !== last) { last = scr; nav.k = ''; for (const c of held) keys[c] = 0; held.clear(); walk(0, 0); if (ptrDown) { ptr.down = 0; ptrDown = 0; }
@@ -99,7 +105,7 @@
       if (P.pendSnap && rectsOf === scr && rects.length) { P.pendSnap = 0; goTo(firstBtn(S)); }
       const [lx, ly, lm] = stick(ax[0], ax[1]), [rx, ry, rm] = stick(ax[2], ax[3]);
       if (pr(B.R3) && !was(B.R3)) io.dev();
-      if (edge(B.L3)) root.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM' }));
+      if (edge(B.L3)) tap('KeyM');   // the sim's mute (PR 57), a one-shot key as the others: no DOM event and no key left held
       if (edge(B.MENU)) tap('Escape');
       if (play) {
         // walking: the stick's angle in eight sectors, as the keys give (the sim's run is 8-way)
@@ -107,7 +113,7 @@
         else walk(0, 0);
         // aiming: the right stick points the pointer around the hero; let go, the aim stays where it was, and with no right stick
         // for a while it follows the walk, so a pad player who only walks strikes ahead of himself
-        if (rm > 0) { aim = [rx, ry, 0.45 + 0.55 * rm]; aimT = simT; } else if (lm > 0 && simT - aimT > 1.2) aim = [lx, ly, 0.6];
+        if (rm > 0) { aim = [rx, ry, 0.45 + 0.55 * rm]; aimT = clock; } else if (lm > 0 && clock - aimT > 1.2) aim = [lx, ly, 0.6];
         const at = heroAt(S); if (at && (rm > 0 || lm > 0 || P.active)) { ptr.x = Math.max(0, Math.min(VW(), at[0] + aim[0] * AIM * aim[2])); ptr.y = Math.max(0, Math.min(VH(), at[1] + aim[1] * AIM * aim[2])); ptr.moved = 1; }
         if (edge(B.R2)) { ptr.down = 1; ptr.click = 1; ptrDown = 1; } else if (rel(B.R2) && ptrDown) { ptr.down = 0; ptrDown = 0; }
         if (edge(B.L2)) ptr.rclick = 1;
@@ -123,7 +129,7 @@
         const dy = (pr(B.DOWN) ? 1 : 0) - (pr(B.UP) ? 1 : 0) || (Math.abs(ax[1]) > 0.6 && Math.abs(ax[1]) >= Math.abs(ax[0]) ? Math.sign(ax[1]) : 0);
         const k = dx || dy ? dx + ',' + dy : '';
         let fire = false;
-        if (k !== nav.k) { nav.k = k; nav.t = simT; nav.n = 0; fire = !!k; } else if (k && simT - nav.t > (nav.n ? REPEAT : REPEAT0)) { nav.t = simT; nav.n++; fire = true; }
+        if (k !== nav.k) { nav.k = k; nav.t = clock; nav.n = 0; fire = !!k; } else if (k && clock - nav.t > (nav.n ? REPEAT : REPEAT0)) { nav.t = clock; nav.n++; fire = true; }
         if (fire) { if (focus) tap(dy > 0 ? 'ArrowDown' : dy < 0 ? 'ArrowUp' : dx > 0 ? 'ArrowRight' : 'ArrowLeft'); else snap(dx, dy); }
         if (rm > 0) { ptr.x = Math.max(0, Math.min(VW(), ptr.x + rx * rm * rm * 1300 * dt)); ptr.y = Math.max(0, Math.min(VH(), ptr.y + ry * rm * rm * 1300 * dt)); ptr.moved = 1; }
         if (focus) { if (edge(B.A)) tap('Enter'); if (edge(B.Y) && scr === 'load') tap('Delete'); if (edge(B.R2)) { ptr.down = 1; ptr.click = 1; ptrDown = 1; } else if (rel(B.R2) && ptrDown) { ptr.down = 0; ptrDown = 0; } }

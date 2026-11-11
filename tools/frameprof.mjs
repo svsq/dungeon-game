@@ -70,14 +70,19 @@ try {
     let pass = {}, prog = {};
     const gDraw = G.draw; G.draw = (P, U, xf, flip) => { drawP = P; drawXf = xf; gDraw(P, U, xf, flip); };
     const gDrawN = G.drawN; G.drawN = (P, U, xf, flip, off, n) => { drawP = P; drawXf = xf; gDrawN(P, U, xf, flip, off, n); };
-    C.onDraw = (copies = 1) => { const P = drawP, xf = drawXf; if (!P) return;
+    // a batch of flat rectangles (G.solid, TASKS 1866) goes out from G.flush, not from a G.draw: its own program and summed area
+    // (review of PR 62: it was booked to the last G.draw's program and quad)
+    let batch = null; G.onFlush = (P, R, n) => { let a = 0; for (let i = 0; i < n; i++) a += Math.abs(R[4 * i + 2] * R[4 * i + 3]); batch = { P, a }; };
+    C.onDraw = (copies = 1) => { if (batch) { const { P, a } = batch; batch = null; const k = tg ? tg.w * tg.h / (tg.vw * tg.vh) : 1, q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 });
+        q.n++; q.px += a * k; (pass[cur] || (pass[cur] = { ms: 0, n: 0 })).n++; return; }
+      const P = drawP, xf = drawXf; if (!P) return;
       const vw = tg ? tg.vw : G.W, vh = tg ? tg.vh : G.H, k = tg ? tg.w * tg.h / (tg.vw * tg.vh) : 1;
       const xs = [xf[6], xf[6] + xf[0], xf[6] + xf[3], xf[6] + xf[0] + xf[3]], ys = [xf[7], xf[7] + xf[1], xf[7] + xf[4], xf[7] + xf[1] + xf[4]];
       const area = Math.abs(xf[0] * xf[4] - xf[1] * xf[3]), box = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)) || 1;
       const cw = Math.max(0, Math.min(vw, Math.max(...xs)) - Math.max(0, Math.min(...xs))), ch = Math.max(0, Math.min(vh, Math.max(...ys)) - Math.max(0, Math.min(...ys)));
       const q = prog[P.name] || (prog[P.name] = { n: 0, px: 0 }); q.n++; q.px += area * (cw * ch / box) * k * copies;
       (pass[cur] || (pass[cur] = { ms: 0, n: 0 })).n++; };
-    const wrap = (obj, k, name) => { const f = obj[k]; obj[k] = (...a) => { const was = cur; cur = name; if (fin) gl.finish(); const t0 = performance.now(); try { return f(...a); } finally { if (fin) gl.finish(); (pass[name] || (pass[name] = { ms: 0, n: 0 })).ms += performance.now() - t0; cur = was; } }; };
+    const wrap = (obj, k, name) => { const f = obj[k]; obj[k] = (...a) => { const was = cur; cur = name; if (fin) gl.finish(); const t0 = performance.now(); try { return f(...a); } finally { G.flush(); if (fin) gl.finish(); (pass[name] || (pass[name] = { ms: 0, n: 0 })).ms += performance.now() - t0; cur = was; } }; };
     wrap(X, 'worldPass', 'world'); wrap(X, 'lightPass', 'light'); wrap(X, 'fxPass', 'fx'); wrap(X.L, 'finish', 'post'); wrap(window.HUD, 'draw', 'hud');
     const VW = SIM.VIEW.W, VH = SIM.VIEW.H, T = DATA.TILE, round = (v, d = 2) => +v.toFixed(d);
     const mem = () => { if (window.gc) gc(); return { tex: live.size, texMB: round([...live.values()].reduce((a, b) => a + b, 0) / 1048576, 1), fbs: C.fbs, heapMB: round(performance.memory.usedJSHeapSize / 1048576, 1) }; };

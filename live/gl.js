@@ -78,8 +78,9 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
 `;
   G.COMMON = COMMON;
 
+  // programs are kept by name: a name asked again with another vertex shader is an error, not the old program (review of PR 62)
   G.program = (name, fs, vs = 'one') => {
-    if (progs[name]) return progs[name];
+    if (progs[name]) { if (progs[name].vs !== vs) throw new Error(name + ': made with the vertex shader ' + progs[name].vs + ', asked with ' + vs); return progs[name]; }
     const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(name + ': ' + gl.getShaderInfoLog(s)); return s; };
     const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VSS[vs])); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, COMMON + fs));
@@ -87,7 +88,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(name + ': ' + gl.getProgramInfoLog(p));
     const loc = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const u = gl.getActiveUniform(p, i); loc[u.name.replace('[0]', '')] = { l: gl.getUniformLocation(p, u.name), type: u.type }; }
-    return (progs[name] = { p, loc, name });
+    return (progs[name] = { p, loc, name, vs });
   };
 
   // view: the coordinate space draws use (default w×h), e.g. a W/k × H/k target drawn in W×H view px; nearest: sample it crisp
@@ -179,6 +180,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   // No culling per copy: a copy off the target is clipped by the GPU, so it draws nothing, as G.draw's skip would
   G.N_OFF = 16;
   G.drawN = (P, U, xf, flip, off, n) => {
+    if (G.rec) throw new Error('G.drawN while L.stamp records: the copies are drawn from the record, not into it');
     if (qn) G.flush();
     if (n <= 0) return;
     xf = onScreen(xf);
@@ -195,12 +197,15 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   // sends the batch first, and SCENE.render ends with G.flush(); L.solid keeps a plain draw while G.rec records or for a turned rectangle
   const QN = 64, QR = new Float32Array(4 * QN), QC = new Float32Array(4 * QN); let qn = 0, qP = null, qBlend = '';
   G.solid = (P, xf, col, a) => {
+    if (G.rec) throw new Error('G.solid while L.stamp records: L.solid draws a plain G.draw then');
     if (G.outside(xf)) return;
+    xf = onScreen(xf);   // (the 16:10 frame's shift, as G.draw takes it)
     if (qn === QN || (qn && qP !== P)) G.flush();
-    const i = 4 * qn++; qP = P; QR[i] = xf[6]; QR[i + 1] = xf[7] + (cur ? 0 : G.oy); QR[i + 2] = xf[0]; QR[i + 3] = xf[4]; QC[i] = col[0]; QC[i + 1] = col[1]; QC[i + 2] = col[2]; QC[i + 3] = a;
+    const i = 4 * qn++; qP = P; QR[i] = xf[6]; QR[i + 1] = xf[7]; QR[i + 2] = xf[0]; QR[i + 3] = xf[4]; QC[i] = col[0]; QC[i + 1] = col[1]; QC[i + 2] = col[2]; QC[i + 3] = a;
   };
   G.flush = () => {
     if (!qn) return; const n = qn, P = qP; qn = 0;
+    if (G.onFlush) G.onFlush(P, QR, n);   // tools (frameprof): the batch's program and rectangles
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
     setU(P, 'u_res', res);

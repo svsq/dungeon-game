@@ -9,7 +9,8 @@
   const framed = (oy, fn) => { const o = G.oy, h = H; G.oy = oy; H = VH - oy; try { fn(); } finally { G.oy = o; H = h; } };
   // the gamepad (R-08, live/pad.js): while it speaks, a text with a «key@pad» twin shows the twin (the pad's buttons for the keys)
   const onPad = () => !!(window.PAD && window.PAD.active), TX0 = globalThis.TXT;
-  const TXT = Object.assign((k, p) => (onPad() && (k + '@pad') in TEXT.ru ? TX0(k + '@pad', p) : TX0(k, p)), TX0);
+  const PADK = new Map(Object.keys(TEXT.ru).filter((k) => k.endsWith('@pad')).map((k) => [k.slice(0, -4), k]));   // key → its pad twin, once
+  const TXT = Object.assign((k, p) => { const kp = onPad() && PADK.get(k); return kp ? TX0(kp, p) : TX0(k, p); }, TX0);
   const PAD_AB = ['Y', 'R1', 'L1'], PAD_POT = { hp_potion: '\u2191', mp_potion: '\u2193', scroll: '\u2190' };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };

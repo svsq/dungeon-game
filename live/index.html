@@ -127,9 +127,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
         jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep,
         now: Date.now() - new Date().getTimezoneOffset() * 60000 };
-      if (pad) pad.stepBegin();
-      while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; acc -= SIM.DT; }
-      if (pad) pad.stepEnd();
+      while (acc >= SIM.DT) { if (pad) pad.stepBegin(); SIM.step(play, inp); if (pad) pad.stepEnd(); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
@@ -139,8 +137,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     } else SCENE.state = null;
     try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
-    if (!STATIC) dev.style.display = (paused || speed !== 1 || devOn) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
-    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (pad && pad.state.raw ? `\nPAD ${pad.state.n} «${pad.state.raw.id}» ${pad.state.map}  ax ${pad.state.raw.ax.join(' ')}  b[${pad.state.raw.b.join(' ')}]  ${pad.state.mode}` : '');
+    const devShown = !STATIC && (paused || speed !== 1 || devOn);
+    if (!STATIC) dev.style.display = devShown ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
+    if (devShown) { const raw = pad && pad.state.raw; dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (raw ? `\nPAD ${pad.state.n} «${raw.id}» ${pad.state.map}  ax ${raw.ax.join(' ')}  b[${raw.b.join(' ')}]  ${pad.state.mode}` : ''); }
     requestAnimationFrame(loop);
   };
   loop();

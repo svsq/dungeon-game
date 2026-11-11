@@ -9,7 +9,8 @@
   const Q = G.params;
   L.NOFX = Q.get('fx') === '0';
   // the graphics setting (TASKS 1372, S.meta.gfx): 2 the full picture, 1 middle, 0 low; the scene sets it each frame, ?gfx=0|1|2 overrides
-  L.GFX = 2; L.GFX_Q = Q.has('gfx') ? +Q.get('gfx') : null;
+  // (review of PR 62: +'low' was NaN, which ?? keeps, and no setting drew that way)
+  L.GFX = 2; L.GFX_Q = ({ 0: 0, 1: 1, 2: 2, low: 0, mid: 1, high: 2 })[Q.get('gfx')] ?? null;
   L.ONLY = (Q.get('only') || '').split(',').filter(Boolean);
 
   // ---------------- shaders (GLSL ES 3.00 bodies; gl.js prepends COMMON: hash, vnoise, fbm, scr) ----------------
@@ -506,6 +507,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // emit: the ink is an emitter, so no light lifts it; rim { dx, dy, col }: one more flat copy shifted toward the light over the ink,
   // a lit edge on the assembled silhouette's side that faces it (an emitter as well)
   let rimLast = null;
+  // (rim.box: the silhouette is recorded and replayed into T.rim, then the same record is replayed into the frame's target; that
+  // holds because T.rim has the same view as bg and comp, L.init. A rim target with another view would need its own record)
   L.inked = (draw, { r = 2.4, n = 8, col = [0.12, 0.08, 0.03], dy = 0.6, emit = false, rim = null } = {}) => {
     if (rim && rim.box) { const back = G.cur(), [bx, by, bw, bh] = rim.box, len = Math.hypot(rim.dx, rim.dy) || 1; G.bind(T.rim); if (rimLast) G.clearBox(...rimLast); G.clearBox(bx, by, bw, bh); rimLast = rim.box; G.blend();
       const nr = 4, rs = []; for (let i = 0; i <= nr; i++) { const an = i * 2 * Math.PI / nr + Math.PI / 4, q = i < nr ? r * 1.25 : 0; rs.push({ dx: Math.cos(an) * q, dy: Math.sin(an) * q + dy, a: 1, lod: 0, ink: [1, 1, 1] }); }
