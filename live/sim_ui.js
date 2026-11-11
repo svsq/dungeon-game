@@ -178,7 +178,7 @@
   SCREEN.meta = (S, inp, keys, x, y, click) => {
     const bs = UI.meta(S.meta.cls, S.metaTab), b = D.hitUI(bs, x, y); S.hover = b ? b.id : '';
     if (click && b && b.id === 'codex') { S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
-    if (click && b && b.id === 'tab') { S.metaTab = S.metaTab === 'open' ? 'up' : 'open'; ev(S, { k: 'ui', x, y }); return; }
+    if (click && b && b.tab) { if ((S.metaTab || 'up') !== b.tab) ev(S, { k: 'ui', x, y }); S.metaTab = b.tab; return; }
     if (click && b && b.un !== undefined) { SIMX.buyUnlock(S, D.UNLOCKS[b.un], x, y); return; }
     if ((click && b && b.id === 'back') || keys.Escape || (S.metaRun && keys.KeyE)) { S.screen = S.metaRun && S.run ? 'play' : 'menu'; S.metaRun = 0; return; }
     if (click && b) { const M = META.find((q) => q.id === b.id); if (M) { const r = S.meta.up[M.id] || 0, c = M.cost(r);

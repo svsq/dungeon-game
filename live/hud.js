@@ -912,7 +912,7 @@
   const stN = (S, id, on = true) => Object.assign(KIT.st(S, id, on), { focus: false });
   // a question's two buttons, both parchment (TASKS 1844), one lit: the one Enter answers with, which the pointer takes by moving (TASKS 1754)
   const askSt = (S, U, id) => Object.assign(KIT.st(S, id), { hover: litOf(S, U.r.map((b) => b.id)) === id, focus: false });
-  const HOT = [1.04, 1.1, 0, 1.04], POOR = [0.55, 0.86, 0, 0.96], SOUL = '#24407a';
+  const HOT = [1.04, 1.1, 0, 1.04], POOR = [0.55, 0.86, 0, 0.96], POOR_HOT = [0.8, 1.04, 0, 1.02], SOUL = '#24407a';
   // a manuscript page: the leather frame with the parchment inside, its writing area registered for qa.mjs
   const page = (id, x, y, w, h, pad = 4) => { KIT.nine('leather', x, y, w, h); KIT.paper(x + 22, y + 22, w - 44, h - 44); L.uiBox(id, x + 22, y + 22, w - 44, h - 44, pad); };
   const desk = (t) => { L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
@@ -966,22 +966,29 @@
     { const s = TXT('hud.meta.2', { shards: S.meta.shards }); KIT.ink('mt_s', s, W / 2, S.metaRun ? 216 : 226, { size: L.sizeToFit(s, 1560, 26), al: 0.5, col: I.d }); }
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) { const s = TXT('hud.meta.3'); KIT.ink('mt_run', s, W / 2, 247, { size: L.sizeToFit(s, 1560, 19), al: 0.5, col: I.off }); }
-    const strip = (id, b, st, can) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: st.hover && can ? HOT : [1, 1, 0, 1] } }); L.uiBox(id, b.x + 26, b.y, b.w - 52, b.h, 2); };
-    for (const b of D.UI.meta(S.meta.cls, S.metaTab)) {
-      if (b.id === 'back' || b.id === 'tab' || b.id === 'codex') { KIT.button('mt_' + b.id, b, stN(S, b.id)); continue; }
+    // a row lights under the pointer whether or not it can be bought; one the shards do not reach is dimmed and says how many are missing (TASKS 1848)
+    const strip = (id, b, st, can, poor) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: poor ? (st.hover ? POOR_HOT : POOR) : st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox(id, b.x + 26, b.y, b.w - 52, b.h, 2); };
+    const short = (c) => TXT('hud.meta.short', { n: c - S.meta.shards });
+    const bs = D.UI.meta(S.meta.cls, S.metaTab);
+    KIT.tabs('mt_tb', bs.filter((b) => b.tab), 'tab:' + (S.metaTab === 'open' ? 'open' : 'up'), S);
+    for (const b of bs) {
+      if (b.tab) continue;
+      if (b.id === 'back' || b.id === 'codex') { KIT.button('mt_' + b.id, b, stN(S, b.id)); continue; }
       const st = stN(S, b.id);
-      if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), can = !open && !U.ach && S.meta.shards >= U.cost;
-        strip('un_' + b.un, b, st, can);
-        KIT.ink('un_c' + b.un, open ? TXT('hud.unlock.done') : U.ach ? A.name : TXT('hud.unlock.cost', { c: U.cost }), b.x + b.w - 44, b.y + 23, { size: 20, al: 1, col: open ? I.g : can ? I.r : I.off });
+      if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), poor = !open && !U.ach && S.meta.shards < U.cost;
+        strip('un_' + b.un, b, st, !poor, poor);
+        const cw = KIT.ink('un_c' + b.un, open ? TXT('hud.unlock.done') : U.ach ? A.name : TXT('hud.unlock.cost', { c: U.cost }), b.x + b.w - 44, b.y + 23, { size: 20, al: 1, col: open ? I.g : poor ? I.off : I.r });
+        if (poor) KIT.ink('un_sh' + b.un, short(U.cost), b.x + b.w - 64 - cw, b.y + 23, { size: 20, al: 1, col: I.r });
         const ds = A && !open ? TXT('hud.unlock.ach', { p1: A.desc, p2: Math.min((S.meta.ach || {})[A.id] || 0, A.need), p3: A.need }) : Th.desc;
-        KIT.ink('un_n' + b.un, Th.name, b.x + 44, b.y + 22, { size: 22, col: open ? I.g : st.hover && can ? I.r : I.t });
-        KIT.ink('un_d' + b.un, ds, b.x + 44, b.y + 46, { size: L.sizeToFit(ds, b.w - 88, 18), col: I.d }); continue; }
-      const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, can = !max && S.meta.shards >= c;
-      strip('mt_' + b.id, b, st, can);
-      const tw = KIT.ink('mt_n' + b.id, M.name, b.x + 44, b.y + 32, { size: 28, col: st.hover && can ? I.r : I.t });
-      KIT.ink('mt_d' + b.id, D.metaLine(M, r), b.x + 44, b.y + 68, { size: 20, col: r ? I.g : I.d });
+        KIT.ink('un_n' + b.un, Th.name, b.x + 44, b.y + 22, { size: 22, col: open ? I.g : poor ? I.d : st.hover ? I.r : I.t });
+        KIT.ink('un_d' + b.un, ds, b.x + 44, b.y + 46, { size: L.sizeToFit(ds, b.w - 88, 18), col: poor ? I.off : I.d }); continue; }
+      const M = D.META.find((q) => q.id === b.id), r = S.meta.up[M.id] || 0, c = M.cost(r), max = r >= M.max, poor = !max && S.meta.shards < c;
+      strip('mt_' + b.id, b, st, !poor, poor);
+      const tw = KIT.ink('mt_n' + b.id, M.name, b.x + 44, b.y + 32, { size: 28, col: poor ? I.d : st.hover && !max ? I.r : I.t });
+      KIT.ink('mt_d' + b.id, D.metaLine(M, r), b.x + 44, b.y + 68, { size: 20, col: r ? I.g : poor ? I.off : I.d });
       for (let i = 0; i < M.max; i++) pip(b.x + 58 + tw + i * 24, b.y + 24, i < r);
-      KIT.ink('mt_c' + b.id, max ? TXT('hud.meta.4') : TXT('hud.meta.5', { c }), b.x + b.w - 44, b.y + b.h / 2, { size: 24, al: 1, col: max ? I.g : can ? I.r : I.off }); }
+      if (poor) { KIT.ink('mt_c' + b.id, TXT('hud.meta.5', { c }), b.x + b.w - 44, b.y + 32, { size: 24, al: 1, col: I.off }); KIT.ink('mt_sh' + b.id, short(c), b.x + b.w - 44, b.y + 68, { size: 20, al: 1, col: I.r }); }
+      else KIT.ink('mt_c' + b.id, max ? TXT('hud.meta.4') : TXT('hud.meta.5', { c }), b.x + b.w - 44, b.y + b.h / 2, { size: 24, al: 1, col: max ? I.g : I.r }); }
     refusal(S, W / 2, 868, I.r);
   }
   // the latest refusal on a full-screen menu, where the in-game feed is hidden

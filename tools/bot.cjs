@@ -69,7 +69,7 @@ const metaNext = (S) => { const ranks = D.metaFor(S.meta.cls).filter((M) => !M.t
   return ranks.concat(open).sort((a, b) => a.cost - b.cost)[0]; };
 // the button of the Altar of Souls for what comes next: its tab first when the wanted row is on the other one; a kit bought is the kit worn
 const metaButton = (S) => { const N = metaNext(S), tab = S.metaTab === 'open', list = D.UI.meta(S.meta.cls, S.metaTab), find = (f) => list.find(f);
-  if (!N) return find((q) => q.id === 'back'); if ((N.un !== undefined) !== tab) return find((q) => q.id === 'tab');
+  if (!N) return find((q) => q.id === 'back'); if ((N.un !== undefined) !== tab) return find((q) => q.id === 'tab:' + (tab ? 'up' : 'open'));
   if (N.un === undefined) return find((q) => q.id === N.id);
   if (N.U.kind === 'kit') (S.meta.kit = S.meta.kit || {})[D.clsOf({ cls: S.meta.cls }).id] = N.U.ref;
   return find((q) => q.un === N.un); };
