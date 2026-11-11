@@ -62,6 +62,11 @@
   // the view's height range (TASKS 1851, the sim keeps the size: sim_core) and the windows' frame: they are laid out on 1920×1080, the menu's
   // sheet and the talk stand on the view's bottom edge, the rest in its middle, on the 2 px grid
   const VIEW_H = [1080, 1248], uiDy = (scr, vh) => (!scr || scr === 'play' ? 0 : scr === 'menu' || scr === 'talk' ? vh - VIEW_H[0] : Math.round((vh - VIEW_H[0]) / 4) * 2);
+  // the play feed's plates, newest last: a refusal said again while its plate still shows takes that plate's place, fresh, instead of
+  // stacking a copy (TASKS 1815). Kept here and not in the bus (review of PR 57): S.ev stays append-only for everyone who reads it
+  const FEED_K = new Set(['pickup', 'nope', 'lvl', 'unlock', 'trade']);
+  const feedOf = (ev, t, n = 5) => { const f = ev.filter((e) => FEED_K.has(e.k) && t - e.t < 3);
+    return f.filter((e, i) => !(e.k === 'nope' && e.s && f.some((q, j) => j > i && q.k === 'nope' && q.s === e.s))).slice(-n); };
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   const UI = {
     // full: every save slot holds a run, so a new one takes the place of the one played longest ago (TASKS 1311, 1785)
@@ -230,5 +235,5 @@
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
   const uiAt = (scr, meta) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes(meta));
-  Object.assign(D, { VIEW_H, uiDy, bagTabs, bagTabOf, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
+  Object.assign(D, { VIEW_H, uiDy, feedOf, bagTabs, bagTabOf, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
 })(typeof window !== 'undefined' ? window : globalThis);
