@@ -13,7 +13,11 @@
       // magma run's own kit, and the town's quests had dressed him; at depth 13–16 not one average bot of 95 died on the 13th–15th)
       // (13th 1.6 and 15th 2: after 414's bot and 1054's halls the 13th cost 0.7 potions and the 15th 1.2, under their bands; the 16th
       // stays 1.2, its elites 0.2: at 1.3 or 0.24 its fights ran past the floor's 400 s)
-      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }, { from: 13, run: 'magma', shift: 2, pop: [1.6, 1.7, 2, 1.2], elite: [0.14, 0.22, 0.26, 0.2] }], names: { 8: TXT('RUNS.campaign.names.8') }, seal: TXT('RUNS.campaign.seal'), then: 'endless' },
+      // (size: the chapter's maps over its run's, TASKS 1808: the 10th–11th and 14th–15th a size down, as the second chapter ran a boss
+      // in 12–13 min to the first's 4.5–5 at 200–220 s a floor; pop is a room's, so the smaller maps hold fewer foes at the same press;
+      // the magma's 14th and 15th keep their maps and lose foes by pop (1.7 → 1.5, 2 → 1.7) instead: its plateaus are laid for their
+      // own sizes, a size down fell back to the loose layout on 40–54 % of seeds and between them left ledges out of reach)
+      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1, size: [[72, 54], [72, 54], [80, 60], [88, 66]] }, { from: 13, run: 'magma', shift: 2, pop: [1.6, 1.5, 1.7, 1.2], elite: [0.14, 0.22, 0.26, 0.2] }], names: { 8: TXT('RUNS.campaign.names.8') }, seal: TXT('RUNS.campaign.seal'), then: 'endless' },
     cave: { name: TXT('RUNS.cave.name'), won: TXT('RUNS.cave.won'), wonText: TXT('RUNS.cave.wonText'), floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: TXT('RUNS.cave.title'), loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: TXT('RUNS.cave.seal') },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
@@ -101,11 +105,11 @@
   // serpent's 12th again, still in the descent's mode)
   const stageOf = (mode, f, seed = 0, from = 1) => { if (runOf(mode).endless) return f < from ? stageOf('campaign', f, seed) : endlessStage(f, seed, from); const M = runOf(mode), c = (M.chapters || []).filter((q) => f >= q.from).pop(), N = c ? RUNS[c.run] : M, lf = c ? f - c.from + 1 : f,
     n = c ? N.floors : M.chapter || M.floors, biome = N.biome(lf), boss = N.boss(lf),
-    lay = N.arch ? undefined : layOf(seed, f, (g) => { const cg = (M.chapters || []).filter((q) => g >= q.from).pop(), Ng = cg ? RUNS[cg.run] : M, lg = cg ? g - cg.from + 1 : g; return { arch: Ng.arch, biome: Ng.biome(lg), boss: Ng.boss(lg), depth: g + M.depth, size: Ng.size && Ng.size[lg - 1] }; });
+    lay = N.arch ? undefined : layOf(seed, f, (g) => { const cg = (M.chapters || []).filter((q) => g >= q.from).pop(), Ng = cg ? RUNS[cg.run] : M, lg = cg ? g - cg.from + 1 : g; return { arch: Ng.arch, biome: Ng.biome(lg), boss: Ng.boss(lg), depth: g + M.depth, size: (cg && cg.size && cg.size[lg - 1]) || (Ng.size && Ng.size[lg - 1]) }; });
     return { N, lf, n, mod: modOf(seed, f, { arch: N.arch, boss, chap: !!c, biome, lay }), depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome, boss, arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
       elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1,
       lay,
-      ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}) }; };
+      ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}), ...(N.arch && c && c.size && c.size[lf - 1] ? { size: c.size[lf - 1] } : {}) }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
 
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor

@@ -345,7 +345,7 @@
       if (!ok) out.push(`seed ${seed} f${f}: exit unreachable`);
       // a cave (TASKS 301): its floor's size, no doors and no masonry streams, pockets that lead nowhere, and no straight stretch of
       // wall over four cells but the merchant's back wall and the secret caches
-      if (mode === 'cave') { const [w0, h0] = ST.N.size[lf - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
+      if (mode === 'cave') { const [w0, h0] = ST.size || ST.N.size[lf - 1], sh = m.rooms.find((r) => r.type === 'shop'), hid = new Set(m.secrets.flatMap((q) => q.hide));
         if (m.W !== w0 || m.H !== h0) out.push(`seed ${seed} f${f}: the cave is ${m.W}×${m.H}, not ${w0}×${h0}`);
         if (m.doors.some((d) => !d.arena)) out.push(`seed ${seed} f${f}: non-arena doors in the cave`);
         for (const r of m.rooms) if (r.pocket && m.edges.filter((e) => e.includes(r.id)).length !== 1) out.push(`seed ${seed} f${f}: pocket ${r.id} is not a dead end`);
@@ -3388,6 +3388,12 @@
             for (let i = 0; i < 400; i++) step(S, hor ? { left: dir < 0, right: dir > 0, px: 960, py: 540, keys: [] } : { up: dir < 0, down: dir > 0, px: 960, py: 540, keys: [] });
             const a = hor ? h.x : h.y; if (dir < 0 ? a > u0 * TILE : a < (u1 + 1) * TILE) out.push(`${tag}: the deck does not carry the hero across`); } } }
       if (n < 4) out.push(`rails: only ${n} lava bridges in 14 seeds`); }
+    // TASKS 1808: the stairs show through the fog once half the floor's foes are slain, not a kill sooner; never in the town
+    for (const [mode, f] of [['campaign', 3], ['campaign', 10], ['campaign', 14]]) { const S = spawn(0, {}); S.run = newRun(S, mode, 7); S.screen = 'play'; enterFloor(S, S.run, f);
+      const R = S.run, m = R.map, at = m.exit.ty * m.W + m.exit.tx, F = SIMX.fstat(R), foes = R.en.filter((e) => SIMX.counted(e) && e.deadT < 0 && !D.BOSSES[e.type]), need = Math.ceil(F.foes / 2), tag = `stairs: ${mode} f${f}`;
+      R.seen[at] = 0; for (const e of foes.slice(0, need - 1)) { e.hp = 0; killEnemy(S, R, e); }
+      if (R.seen[at]) out.push(`${tag}: shown before half the foes fell`);
+      if (foes[need - 1]) { foes[need - 1].hp = 0; killEnemy(S, R, foes[need - 1]); } if (!R.seen[at]) out.push(`${tag}: not shown with half the foes slain`); }
     return out;
   }
 
