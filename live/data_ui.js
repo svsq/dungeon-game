@@ -141,7 +141,7 @@
       return { P, r }; },
     // a word with a townsman (TASKS 1016, 1023): a panel over the bottom of the screen, his likeness on the left, his words, a button
     // a quest's page (TASKS 1018) puts its take or turn-in button left of it; a master's talk keeps a way into his workshop; «Поговорить»
-    // is on every page outside the topics: the row narrows to fit them all right of the likeness (PR 49 review: it was pushed out)
+    // is on every page of a talk that carries topics, outside them: the row narrows to fit them all right of the likeness (PR 49 review)
     talk: (T) => { const P = { x: 330, y: 540, w: 1260, h: 430 }, last = T && T.p + 1 >= T.pages.length, ids = ['next'];
       if (T && T.act && last) ids.push('act'); if (T && T.craft && !T.menu && !T.inTopic) ids.push('craft'); if (T && T.topics && !T.menu && !T.inTopic) ids.push('talk');
       const gap = 20, w = Math.min(290, Math.floor((P.w - 340 - gap * (ids.length - 1)) / ids.length)), label = { craft: TXT('UI.talk.label'), talk: TXT('UI.talk.talk') };

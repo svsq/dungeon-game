@@ -137,7 +137,7 @@
   function restoreFloor(R, f, M) { const old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
     else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
-    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); return old; }
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); return old; }
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
@@ -294,7 +294,12 @@
   const MASK = { key: '', set: null };
   // a cache saved before the walls stopped breaking (TASKS 1691): a flagstone in front of it, so it stays openable; a statue saved
   // with its slide as a distance in px takes this branch's side and cell count
-  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / TILE) }; if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * TILE, y: (y + 0.5) * TILE, cx: x, cy: y }; } }
+  // a false bookcase is broken now, not moved (TASKS 1852): one saved open, on its hinge (0.3.0) or slid along the wall (a build of
+  // 1851), lies in planks at its own place, its cell free; a shut one stands there whole, to be broken
+  function shelfLoad(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); delete q.hinge; delete q.held; if (!d) { delete q.slide; return; }
+    const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = q.slide ? k0 + q.slide.s * q.slide.n : k0; delete q.slide; d.x = q.x;
+    m.block = m.block.filter((b) => b !== k0 && b !== k1); if (q.open) { d.solid = 0; d.broken = 1; d.brokeT = -9; } else { d.solid = 1; delete d.broken; delete d.brokeT; m.block.push(k0); } }
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
   function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
     if (MASK.key === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];

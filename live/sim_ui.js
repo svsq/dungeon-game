@@ -68,7 +68,7 @@
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
     resume(S, R); S.saveN++; return true; }
   function dropSlot(S, i) { if (i === S.slot && S.saved) S.saved = null; else S.saves[i] = null; pickLatest(S); S.saveN++; }
-  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null;
+  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null; if (town) S.run.greet = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in

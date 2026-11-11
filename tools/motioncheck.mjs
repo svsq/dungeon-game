@@ -29,6 +29,8 @@
 //               the fire hung on a still head, 2 px)
 //   flicker   — the fire priest's ring, a vent's and a surge's warning, and the smouldering skeleton's flames and arms: no jump in alpha, width or
 //               hand from one frame to the next, deep into a run (TASKS 1688)
+//   cover     — secret_shelf*, secret_statue* (TASKS 1851): the sliding cover is drawn at its own size and proportions shut, on its way,
+//               at its stop and after a save and a load (the bookcase squeezed to a strip as it moved off its cache)
 // Exit 2 when any check fails.
 import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'; import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
@@ -105,6 +107,15 @@ for (const nm of await p.evaluate(() => window.__QA.states.map((q) => q[0]).filt
   const [x0, y0, x1, y1] = box(r.hero), [px, py, pw, ph] = r.pb, ix = Math.min(x1, px + pw) - Math.max(x0, px), iy = Math.min(y1, py + ph) - Math.max(y0, py);
   report('prompt', nm, ix <= 0 || iy <= 0, `plate ${px.toFixed(0)},${py.toFixed(0)} ${pw.toFixed(0)}×${ph} against hero ${x0.toFixed(0)},${y0.toFixed(0)}–${x1.toFixed(0)},${y1.toFixed(0)}`);
 }
+for (const kind of ['shelf', 'statue']) {
+  const r = await p.evaluate((kind) => window.__QA.states.filter((q) => q[0].startsWith('secret_' + kind)).map(([nm, st]) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
+    const id = Object.keys(LIB.TRACE).find((k) => k.startsWith(kind === 'shelf' ? 'shelf' : 'cover')), j = id ? LIB.TRACE[id] : null; LIB.TRACE = null; return [nm, j]; }), kind);
+  // (TASKS 1852) a bookcase is never moved: whole at its full size until it breaks, then gone to planks, after a load too
+  const broken = (nm) => kind === 'shelf' && /_(break|books|open|loaded)/.test(nm);
+  for (const [nm, j] of r) { if (broken(nm)) { report('cover', nm, !j, j ? 'a broken bookcase is still drawn' : 'broken, no bookcase drawn'); continue; }
+    if (!j) { report('cover', nm, false, 'no cover drawn'); continue; }
+    const w = j.br[0] - j.tl[0], h = j.br[1] - j.tl[1], w0 = r[0][1] ? r[0][1].br[0] - r[0][1].tl[0] : w, h0 = r[0][1] ? r[0][1].br[1] - r[0][1].tl[1] : h;
+    report('cover', nm, Math.abs(w - w0) < 0.5 && Math.abs(h - h0) < 0.5, `${w.toFixed(1)}×${h.toFixed(1)} px against ${w0.toFixed(1)}×${h0.toFixed(1)} shut`); } }
 const corr = (a, b) => { const ma = a.reduce((x, y) => x + y, 0) / a.length, mb = b.reduce((x, y) => x + y, 0) / b.length; let s = 0, sa = 0, sb = 0;
   a.forEach((x, i) => { s += (x - ma) * (b[i] - mb); sa += (x - ma) ** 2; sb += (b[i] - mb) ** 2; }); return s / Math.sqrt(sa * sb || 1); };
 const cycles = await p.evaluate(() => Object.keys(window.__QA.cycles || {}).filter((n) => /_(right|left)$/.test(n) && window.__QA.subject[n]));
