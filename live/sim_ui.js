@@ -270,10 +270,12 @@
     if (T.menu) { const pick = T.topics.findIndex((q, i) => keys['Digit' + (i + 1)]), n = click && b && b.id.startsWith('topic:') ? b.i : pick; if (n >= 0) { T.pages = T.topics[n].a; T.p = 0; T.menu = 0; T.inTopic = 1; ev(S, { k: 'ui', x, y }); return; } if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { S.screen = 'play'; S.talk = null; } return; }
     const last = T.p + 1 >= T.pages.length;
     // E run through the pages must never take a side quest or end the run (TASKS 1148, 1657), nor drop the offer unread (TASKS 1849):
-    // on an offer's page E and the space do nothing, save the Keeper's first story quest, which E takes once the page has been up a breath
+    // on an offer's page E and the space do nothing, save the Keeper's first story quest, which E takes once the page has been up a breath.
+    // The end of the run is never on Enter either, as at the town gate (TASKS 1844): only a click on «Завершить поход» ends it
     const quest = T.act && last && T.act.k === 'take', settled = S.t - (T.pT ?? S.t) >= TALK_SETTLE,
-      byE = keys.KeyE && T.act && (T.act.k === 'turn' || (T.act.k === 'take' && T.act.first && settled));
-    if (T.act && last && ((click && b && b.id === 'act') || byE || keys.Enter)) { talkAct(S, S.run, T); return; }
+      byE = keys.KeyE && T.act && (T.act.k === 'turn' || (T.act.k === 'take' && T.act.first && settled)),
+      byEnter = keys.Enter && T.act && T.act.k !== 'finish';
+    if (T.act && last && ((click && b && b.id === 'act') || byE || byEnter)) { talkAct(S, S.run, T); return; }
     if (quest && (keys.KeyE || keys.Space)) return;
     if (click && b && b.id === 'talk' && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; ev(S, { k: 'ui', x, y }); return; }
     // a master's last page with no quest on it: E goes on into the workshop, so E, E still reaches the forge (TASKS 1635)

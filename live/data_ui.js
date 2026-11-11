@@ -224,6 +224,6 @@
   };
 
   // a start path's step's buttons on its screen (bot.cjs, the checks): the menu and the tests list as on a fresh start
-  const uiAt = (scr) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes());
+  const uiAt = (scr, meta) => (scr === 'menu' ? UI.menu(false) : scr === 'tests' ? UI.tests(false) : UI.classes(meta));
   Object.assign(D, { bagTabs, bagTabOf, SAVE_SLOTS, dateOf, SETTINGS, TEST_RUNS, uiAt, startPath, campaignLen, newsRows, UI });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1056,7 +1056,7 @@
     'hud.talk': '{p1} · Esc: уйти',
     'hud.talk.finish': 'Завершить поход',
     'hud.talk.goOn': 'Продолжить',
-    'hud.talk.finishKeys': 'Enter или ЛКМ: завершить поход · E или Esc: продолжить',
+    'hud.talk.finishKeys': 'Enter, E или Esc: продолжить · ЛКМ по кнопке: завершить поход',
     'hud.talk.4': 'E, пробел или ЛКМ: дальше · Esc: уйти',
     'hud.talk.craftKeys': 'E: в мастерскую · пробел или Esc: уйти',
     'hud.board': 'Доска заданий',
