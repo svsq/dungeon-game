@@ -33,7 +33,9 @@
   function heroPose(h, GT, st) {
     const RG = RIGS[D.clsOf(h).look.rig], s = HERO_H / RG.h, sp = Math.hypot(h.vx, h.vy), run = SS(10, 150, sp) * (h.deadT >= 0 ? 1 - SS(0, 0.15, GT - h.deadT) : 1);
     const dirx = sp > 1 ? h.vx / sp : 0, diry = sp > 1 ? h.vy / sp : 0;
-    const p = h.gp || 0, u0 = ((p / (2 * Math.PI)) % 1 + 1) % 1, sl = SIM.Q.stepLen(Math.abs(dirx));
+    // (dead, the sim stops his stride's phase in a frame: the render runs it on at his speed, eased out over the run's own fade, or a
+    // hero killed mid-run stopped his legs and cape dead, TASKS 1803)
+    const sl = SIM.Q.stepLen(Math.abs(dirx)), dT = h.deadT >= 0 ? GT - h.deadT : 0, p = (h.gp || 0) + (dT > 0 ? sp / sl * Math.PI * 0.08 * (1 - Math.exp(-dT / 0.08)) : 0), u0 = ((p / (2 * Math.PI)) % 1 + 1) % 1;
     return { RG, s, run, dirx: dirx * h.face, diry, p, u0, sl };
   }
   // the melee swing in rig angles: a short pull back, an ease-in strike that crosses the aim on the sim's damage frame (K.HIT),
@@ -133,10 +135,14 @@
     const bodyR = 0.25 * dashE * (Math.abs(h.dashX) > 0.3 ? Math.sign(h.dashX) : 0) + 0.15 * hurtE * (h.hurtX || 0) + sway * face - 0.14 * cryPrep * face + cryShake - 0.16 * hop * face + rangedLean + whirlLean;
     // death keeps the rig: the knees buckle (the hip drops, IK folds them), the arms fling, then the whole body falls back about the feet,
     // accelerating but slowed just before the floor so it lands with a small bounce instead of a board's slap
-    const du = h.deadT >= 0 ? GT - h.deadT : -1, buckle = du >= 0 ? SS(0, 0.15, du) : 0, fq = Math.min(1, Math.max(0, (du - 0.12) / 0.35));
-    const fallR = du < 0 ? 0 : -face * (0.1 * buckle + 1.32 * (2.4 * fq * fq - 1.4 * fq * fq * fq) - (du > 0.47 ? 0.03 * Math.sin(Math.PI * Math.min(1, (du - 0.47) / 0.16)) : 0));
-    const fc = Math.cos(fallR), fs = Math.sin(fallR);
-    const root = [hx, hy - 24 * hop], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
+    // (TASKS 1803) killed on the run (over half his running speed) he pitches forward the way he ran and skids 0.3 of his height; the
+    // mage sinks to his knees before he goes over; the archer twists a quarter round, his back to us, and falls forward onto his face
+    const du = h.deadT >= 0 ? GT - h.deadT : -1, cls = D.clsOf(h).look.rig, dsp = Math.hypot(h.vx, h.vy), ran = du >= 0 && dsp > 0.5 * SIM.K.RUN;
+    const twist = cls === 'archer' && !ran, fDir = ran ? (Math.abs(h.vx) > 0.3 * dsp ? Math.sign(h.vx) * face : 1) : twist ? 1 : -1, kneel = cls === 'mage' && !ran ? 0.22 : 0, late = kneel + (twist ? 0.14 : 0);
+    const buckle = du >= 0 ? SS(0, 0.15 + kneel, du) : 0, fq = Math.min(1, Math.max(0, (du - 0.12 - late) / 0.35));
+    const fallR = du < 0 ? 0 : fDir * face * (0.1 * buckle + 1.32 * (2.4 * fq * fq - 1.4 * fq * fq * fq) - (du > 0.47 + late ? 0.03 * Math.sin(Math.PI * Math.min(1, (du - 0.47 - late) / 0.16)) : 0));
+    const fc = Math.cos(fallR), fs = Math.sin(fallR), skid = ran ? fDir * face * 0.3 * HERO_H * SS(0, 0.45, du) : 0;
+    const root = [hx + skid, hy - 24 * hop], R2S = (px, py, dy = 0) => { const x = fX * (px - gx) * s, y = (py - gy) * s + dy; return [root[0] + x * fc - y * fs, root[1] + x * fs + y * fc]; };
     const dk = du >= 0 ? 1 - 0.25 * SS(0.4, 1.2, du) : 1, ft = [1, 1, 1, 0], LK = D.clsOf(h).look, lt0 = LK.cold && HERO.lightAt ? HERO.lightAt(h.x, h.y) : null, cold = lt0 && !(SC.state && SC.state.run && SC.state.run.town) ? SS(1.2, 1, lt0.all[0] / Math.max(0.02, lt0.all[1])) : 0, U = { alpha, tint: cold && ft[3] ? [ft[0] * (1 - LK.cold.red * cold), ft[1], ft[2], ft[3]] : ft, grade: hurt ? [0.4, 2.4, 0, 1] : [(LK.sat || HSAT) * (1 - (1 - (LK.cold?.sat ?? 1)) * cold) * dk, HERO.lift * (1 - (1 - (LK.cold?.lift ?? 1)) * cold) * dk, 0, 1] }, Ufar = { alpha, tint: ft, grade: hurt ? [0.4, 2.4, 0, 1] : [0.85 * HSAT * dk, 0.72 * HERO.lift * dk, 0, 1] };
     if (o.cut) U.cut = Ufar.cut = o.cut;
     const GR = gearOf(h), tinted = (u, t) => (t ? Object.assign({}, u, { tint: [0, 1, 2].map((i) => (u.tint ? 1 + (u.tint[i] - 1) * u.tint[3] : 1) * (1 + (t[i] - 1) * t[3])).concat(1) }) : u);   // a piece's rarity over the fire's tint
@@ -162,7 +168,7 @@
     let drop = 0;
     for (const side of ['L', 'R']) { const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], Lm = 0.955 * (dist2(H0, K0) + dist2(K0, A0)), dx = tg[side].tx - H0[0];
       drop = Math.max(drop, tg[side].ty - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx * dx))); }
-    const hipDy = Math.max(bodyDy / s, drop) + breath * 1.4 / s + 48 * buckle + 10 * dashE + 8 * hurtE + 7 * whirlE + 22 * crouch + 18 * cryPrep + 12 * landC;
+    const hipDy = Math.max(bodyDy / s, drop) + breath * 1.4 / s + (48 + 70 * kneel) * buckle + 10 * dashE + 8 * hurtE + 7 * whirlE + 22 * crouch + 18 * cryPrep + 12 * landC;
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0] + hipDx, Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
     // the face is painted on the world's art grid (one texture cell, RIGS.hero.h / 42 px, is one world pixel): the cell of the near
     // eye is kept on a world pixel through the torso's lean, or the one-cell eye lands across two pixels and drops out of the snap.
@@ -262,7 +268,12 @@
     if (hurtE > 0 && swingK === 0) { pose(arms.L, -0.45, 0.5, hurtE); pose(arms.R, -0.3, 0.45, hurtE); }
     if (o.victory) { reach(arms.R, armLen(arms.R) * 0.32, -armLen(arms.R) * 0.88, 1); pose(arms.L, -0.25, 0.2, 1); bladeA = -Math.PI / 2 + 0.08; }
     if (o.armsUp > 0) { reach(arms.R, armLen(arms.R) * 0.2, -armLen(arms.R) * 0.9, o.armsUp); reach(arms.L, -armLen(arms.L) * 0.1, -armLen(arms.L) * 0.9, o.armsUp); }
-    if (buckle > 0) { const f = SS(0, 0.2, du); arms.L.r1 -= 0.9 * f; arms.L.r2 = arms.L.r1 + 0.35; arms.R.r1 -= 1.1 * f; arms.R.r2 = arms.R.r1 + 0.3; }
+    // the arms fling as the knees go, then come down with the body and lie along the floor by its sides (TASKS 1803: the near hand stayed
+    // raised 0.59 of the height over the corpse, the sword in it)
+    if (buckle > 0) { const f = SS(0, 0.2, du), lie = SS(0.25 + late, 0.6 + late, du), down = ((fDir > 0 ? 1.15 : 0.65) * fDir * face * Math.PI / 2 - fallR) * face;
+      const bL = arms.L.r2 - arms.L.r1, bR = arms.R.r2 - arms.R.r1;
+      arms.L.r1 -= 0.9 * f; arms.R.r1 -= 1.1 * f; arms.L.r1 += (down + (fDir > 0 ? -0.2 : -0.45) - arms.L.r1) * lie; arms.R.r1 += (down - arms.R.r1) * lie;
+      arms.L.r2 = arms.L.r1 + bL + (0.35 - 0.2 * lie - bL) * f; arms.R.r2 = arms.R.r1 + bR + (0.3 - 0.2 * lie - bR) * f; }   // (the elbow's bend eased from the run's: set at once it snapped)
     // cape and hair are painted into the body, so they bend in the shader (soft bones, art/softbones.json). The render has no
     // springs: every event (swing, turn, hurt) rings out as a damped wave from its timestamp, the run trails them back
     const ring = (x, f, k) => x > 0 ? Math.exp(-k * x) * Math.sin(TAU * f * x) : 0, fwd = Math.abs(P.dirx);
@@ -298,10 +309,10 @@
       if (whirlE > 0) { const c = Math.cos(whirlTh), d = Math.sin(whirlTh) * DEPTH_K; sa += wrapPi(Math.atan2(d, c) - sa) * whirlE; fsD += (Math.hypot(c, d) - fsD) * whirlE; }
       // the weapon answers a blow (TASKS 1153, 1160) and a bow's stave kicks at the loose; dead, a shooter's weapon falls and lies beside him
       if (shooter) sa += 0.2 * ring(GT - h.hurtT, 3.2, 9) + (bow ? 0.05 * ring(atkT - BT, 7, 12) : 0);
-      const drop = shooter && du >= 0 ? SS(0.12, 0.42, du) : 0;
+      const drop = du >= 0 ? SS(0.12, 0.42, du) : 0;   // (any weapon falls: the warrior's sword stood up out of his dead hand, TASKS 1803)
       if (shooter) { if (!bow) Hd[0] += fX * 3 * (1 - pk0) * (1 - drop); else Hd[1] -= 2 * (1 - pk0) * (1 - drop); }
       // (it arcs off the hand and bounces once; a bow lies clear of the legs and at an angle, along them it read as a third leg, critic r3)
-      if (drop > 0) { sa += wrapPi((bow ? 0.45 : 0.1) - sa) * drop; fsD += (1 - fsD) * drop; Hd[0] += (hx + fX * (bow ? 60 : 30) - Hd[0]) * drop; Hd[1] += (hy - 3 - Hd[1]) * drop; Hd[1] -= 28 * drop * (1 - drop) + 6 * Math.sin(Math.PI * Math.max(0, Math.min(1, (du - 0.42) / 0.18))); }
+      if (drop > 0) { sa += wrapPi((bow ? 0.45 : 0.1) - sa) * drop; fsD += (1 - fsD) * drop; Hd[0] += (root[0] + fX * (bow ? 60 : shooter ? 30 : fDir > 0 ? 70 : 34) - Hd[0]) * drop; Hd[1] += (hy - 3 - Hd[1]) * drop; Hd[1] -= 28 * drop * (1 - drop) + 6 * Math.sin(Math.PI * Math.max(0, Math.min(1, (du - 0.42) / 0.18))); }
       const tw = len, th = len * G.tex(tex).h / G.tex(tex).w;
       // the crossbow is painted from above: laid on the floor plane along its screen angle, it shortens aiming at or away from the
       // camera and shows its prod across the shot from every side; a bolt lies on it but for a moment after the loose
@@ -328,7 +339,7 @@
       const tip = bow ? [Hd[0] + Math.cos(sa + Math.PI / 2 * fX) * 12, Hd[1] + Math.sin(sa + Math.PI / 2 * fX) * 12] : [Hd[0] + Math.cos(sa) * len * 0.78 * fsD, Hd[1] + Math.sin(sa) * len * 0.78 * fsD];
       L.joint(id, 'grip', Hd); L.joint(id, 'tip', tip); if (id === 'hero') SC.heroTip = { x: tip[0], y: tip[1], t: GT }; };
     // from behind the resting blade points away from the camera, so it sits behind the body unless it swings down
-    const backK0 = h.back ? SS(0, 0.08, GT - (h.backT ?? -9)) : 1 - SS(0, 0.08, GT - (h.backT ?? -9)), backK = Math.max(backK0, whirlE * SS(0.2, 0.75, -Math.sin(whirlTh)));
+    const backK0 = h.back ? SS(0, 0.08, GT - (h.backT ?? -9)) : 1 - SS(0, 0.08, GT - (h.backT ?? -9)), backK = Math.max(backK0, whirlE * SS(0.2, 0.75, -Math.sin(whirlTh)), twist && du >= 0 ? SS(0.04, 0.3, du) : 0);
     const behind = whirlE > 0.5 ? Math.sin(whirlTh) < -0.1 : bladeA !== null ? Math.sin(face > 0 ? bladeA : Math.PI - bladeA) < -0.35 : backK > 0.5;
     L.joint(id + '_view', 'back', [backK, 0]);
     L.joint(id + '_view', 'face', [face, 0]);
