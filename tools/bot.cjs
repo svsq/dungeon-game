@@ -509,7 +509,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const room = h.bag.includes(null), takes = (p) => p.kind !== 'item' || room || SIM.isCons(p.item) || (!h.eq[D.BASES[p.item.b].slot] && wearable(h, p.item));
     const dist = (o) => Math.hypot(o.x - h.x, o.y - h.y), first = (list) => list.filter((o) => !given.has(o)).sort((a, b) => dist(a) - dist(b))[0];
     // what lies behind a door still locked is out of reach until its key or lever is found
-    const drop = first(R.drops.filter((p) => !p.got && !p.tossed && !(p.fly > 0) && takes(p) && reach(p)));
+    // a note (TASKS 1323) is taken by E, not walked over: without the key the bot circled each for CHASE s, 30–110 s a floor (TASKS 1808)
+    const drop = first(R.drops.filter((p) => !p.got && !p.tossed && !(p.fly > 0) && takes(p) && reach(p) && !(p.kind === 'note' && SIM.hidden(m, p))));
     const chest = first(R.chests.filter((c) => !c.open && !c.sealed && (c.sec === undefined || m.secrets[c.sec].open) && reach(c)));
     const locked = R.keys > 0 ? first((m.doors || []).filter((d) => { const L = SIM.doorLock(m, d); return L && L.kind === 'key'; })) : null;
     const lever = first((m.locks || []).filter((L) => L.kind === 'lever' && !L.open && reach({ x: L.lever.x, y: L.lever.y + 50 })).map((L) => Object.assign({ L }, { x: L.lever.x, y: L.lever.y + 50 })));
@@ -531,7 +532,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (R.viaTown && P.home && (homeF !== R.floor || (P.home > 1 && held(h, 'hp_potion') <= 1)) && !awake.length && !near && !bossOn && !h.read && held(h, 'scroll') && h.gold >= (P.home > 1 ? 100 : 250) && (held(h, 'hp_potion') <= (P.home > 1 ? 3 : 1) || h.gold >= 300 + 150 * R.floor || R.bossDead)) { homeF = R.floor; readWant = 1; inp.keys.push('KeyI'); goal = ['home']; }
     else if (eel && aim('eel', eel)) toBank(R, inp, eel, st);
     else if (!near && cage && chaseOn(R, cage) && aim('cage', cage)) { walk(R, inp, cage.x, cage.y + 40); if (SIM.Q.captiveNear(R)) inp.keys.push('KeyE'); }
-    else if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) walk(R, inp, drop.x, drop.y);
+    else if (!near && !late && drop && chase(R, drop) && aim('drop', drop)) { walk(R, inp, drop.x, drop.y); if (drop.kind === 'note' && SIM.Q.noteNear(R) === drop) inp.keys.push('KeyE'); }
     else if (!near && !late && chest && chase(R, chest) && aim('chest', chest)) { walk(R, inp, chest.x, chest.y + 20); if (dist(chest) < 50) inp.keys.push('KeyE'); }
     // a magma sanctum's circle, its priests dead (TASKS 1054, 414): stepped into for its blessing
     else if (!near && !late && circle && chase(R, circle) && aim('circle', circle)) walk(R, inp, circle.x, circle.y);
