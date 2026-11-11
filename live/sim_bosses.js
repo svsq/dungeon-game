@@ -5,14 +5,21 @@
   const {
     BAL, D, DG, DT, ENEMIES, K, LOOT, RUN, STAGE, TILE, WET, addFire, boxHit, cell, dep, dif, doorKey, drop, ev, flow, hurtHero, lastFloor,
     losClear, move, openDoor, rnd, rollItem, shove, standNear, steer, who } = SIMX;
-  function holdClocks(R) {
-    for (const e of R.en) { if (e.deadT >= 0) continue;
-      if (e.st === 'wind' || e.st === 'bwind' || e.st === 'strike' || e.st === 'rise') { e.t0 += DT; if (e.bncT > 0) e.bncT += DT; } }
+  // all: the hold under the floor's name on «Продолжить» (TASKS 1812), where the whole floor waits, the hero too: every clock that
+  // could hurt him stands still, so a save and a load dodge nothing (review of PR 57: bolts flew on through a hero made unhurtable)
+  function holdClocks(R, all) {
+    for (const e of R.en) { if (e.deadT >= 0) { if (all && e.fuse) e.fuse += DT; continue; }
+      if (all || e.st === 'wind' || e.st === 'bwind' || e.st === 'strike' || e.st === 'rise') { if (e.t0 !== undefined) e.t0 += DT; if (e.bncT > 0) e.bncT += DT; }
+      if (all) { e.vx = e.vy = 0; if (e.cdT !== undefined) e.cdT += DT; if (e.openUntil) e.openUntil += DT; if (e.tugW) e.tugW += DT; } }
     for (const p of R.proj) p.t0 += DT;
     for (const q of R.lavaPending || []) { q.t += DT; if (q.t0 !== undefined) q.t0 += DT; }
     for (const egg of R.eggs || []) egg.hatchT += DT;
     for (const q of R.rocks || []) { q.t0 += DT; q.t += DT; }
     for (const c of R.cracks || []) c.t0 += DT;
+    if (!all) return;
+    for (const p of R.fires || []) p.t0 += DT;
+    for (const c of R.chests || []) if (c.fuseT) c.fuseT += DT;
+    const h = R.hero, t = R.t; for (const k in h.cd) if (h.cd[k] > t) h.cd[k] += DT; for (const k of ['ifr', 'burn', 'poison', 'chillT', 'shieldUntil']) if (h[k] > t) h[k] += DT;
   }
   // a boss that closes a chapter pays as the finale did (20 shards, LOOT.boss); in the endless descent every pair ends its 'chapter',
   // so there only the chapters' end bosses (the demon lord, the serpent) pay so, the others as the campaign's chapter bosses (TASKS 350)
