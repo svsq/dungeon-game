@@ -99,7 +99,7 @@
     depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
     noteNear, captiveNear, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
-    rwLine, greetHold: SIMX.greetHold, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot };
+    rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot };
   Object.assign(SIMX, {
     spawn, step, scriptInput, persist });
   if (typeof module !== 'undefined') { require('./sim_checks.js'); module.exports = root.SIM; }

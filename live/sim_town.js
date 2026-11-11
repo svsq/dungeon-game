@@ -197,7 +197,8 @@
       if (exitKind(R) === 'portal') { if (R.campaignWon) return; if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); if ((RUN(R).chapters || []).some((c) => c.from === R.floor + 1) && !(R.chapSeen || {})[R.floor + 1]) R.leaving = 0.45; else enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
-    if (used && canDonate(R)) openAltar(S, R, used);
+    if (used && canDonate(R)) { openAltar(S, R, used); return; }
+    const tz = SIMX.tossedNear(R); if (tz && !SIMX.takeItem(S, R, tz)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_items.stepDrops.s') });
   }
   // ---------------- waystones (TASKS 1009) ----------------
   // touched once, a waystone stays awake for the rest of the run; the town's ring of stones then jumps to it

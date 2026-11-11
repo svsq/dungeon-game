@@ -613,6 +613,10 @@
     states.push(['hud_boss_arrival', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; R.msg = { chapter: D.ENEMIES.boss.name, s: D.ENEMIES.boss.title, t: S.t - 0.8, d: 3 }; })]);
     states.push(['hud_mute', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 0.6; })], ['hud_muted', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 9; })]);
+    // TASKS 1853 ж: the names of the items by the hero, two close together stacked, and one he threw away under its E prompt
+    states.push(['loot_names', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; const it = (rar, q) => Object.assign(SIM.rollItem(R, 3, rar), { id: 7100 + q });
+      for (const [q, dx, dy, rar] of [[0, -70, 30, 1], [1, -52, 40, 3], [2, 90, 10, 4]]) R.drops.push({ id: 7200 + q, kind: 'item', item: it(rar, q), x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, loot: 1, rest: 2 });
+      R.drops.push({ id: 7210, kind: 'item', item: it(2, 9), x: h.x + 30, y: h.y - 34, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, tossed: 1, rest: 2 }); })]);
     states.push(['hud_low_hp', play((S) => { const R = S.run, h = R.hero; R.msg = null; h.hp = Math.ceil(SIM.Q.stats(h, S.meta).maxHp * 0.14); })]);
     states.push(['hud_pickup', play((S) => { const R = S.run, h = R.hero; R.msg = null; S.ev.push({ k: 'pickup', t: S.t - 0.5, x: h.x, y: h.y, s: SIM.Q.itemName(Object.assign(SIM.rollItem(R, 3, 3), { id: 3001 })), rar: 3 }, { k: 'lvl', t: S.t - 0.3, x: h.x, y: h.y, lvl: 2 }); })]);
     // what the HUD's numbers and cells are, under the pointer in the pause (TASKS 1852)

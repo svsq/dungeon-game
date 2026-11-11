@@ -516,7 +516,14 @@
       const p = R.drops.find((q) => q.item && q.item.id === 99999);
       if (!p) out.push('a thrown-away item was picked up again while the hero stood still');
       else { const hx = h.x, hy = h.y; h.x += 120; for (let i = 0; i < 10; i++) step(S, { keys: [] }); h.x = p.x; h.y = p.y; for (let i = 0; i < 30; i++) step(S, { keys: [] });
-        if (!h.bag.some((b) => b && b.id === 99999) && !Object.values(h.eq).some((q) => q && q.id === 99999)) out.push('a thrown-away item cannot be picked up after walking away and back'); void hx; void hy; } }
+        if (!h.bag.some((b) => b && b.id === 99999) && !Object.values(h.eq).some((q) => q && q.id === 99999)) out.push('a thrown-away item cannot be picked up after walking away and back'); void hx; void hy; }
+      // TASKS 1853 в, ж: the right button in the bag throws a piece away on its second press only, and E by it takes it back at once
+      const k = h.bag.findIndex((b) => !b); h.bag[k] = Object.assign(rollItem(R, 1, 1), { id: 99998 }); S.screen = 'inv'; S.bagTab = 0;
+      const c = UI.inv(D.clsOf(h).abs, h.bag.length, 0).r.find((q) => q.id === 'bag:' + k), rc = { keys: [], rclick: 1, px: c.x + 5, py: c.y + 5 };
+      step(S, rc); if (!h.bag[k]) out.push('bag: the right button throws a piece away on one press'); step(S, rc);
+      const tp = R.drops.find((q) => q.item && q.item.id === 99998); if (h.bag[k] || !tp) out.push('bag: a second right press does not throw it away');
+      step(S, { keys: ['Escape'] }); for (let i = 0; i < 120; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+      if (!h.bag.some((b) => b && b.id === 99998) && !Object.values(h.eq).some((q) => q && q.id === 99998)) out.push('a thrown-away item is not taken back by E beside it'); }
     // hazards: spikes hurt a monster standing on a raised plate; lava burns the hero; a monster knocked into lava burns, and none walks in
     { const S = spawn(0, {}); begin(S); for (let i = 0; i < 30; i++) step(S, { keys: [] });
       let R = S.run; for (let f = 1; f <= 6 && !R.map.traps.length; f++) enterFloor(S, R, f);

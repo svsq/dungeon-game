@@ -246,6 +246,14 @@
     S.ev.filter((e) => (e.k === 'pickup' || e.k === 'lvl' || e.k === 'unlock') && GT - e.t >= 0 && GT - e.t < 1.4).slice(-3).forEach((e, i) => { const a = GT - e.t;
       const s = e.k === 'pickup' ? '+ ' + e.s : e.k === 'lvl' ? TXT('hud.float.lvl') : D.ABILITIES.find((A) => A.id === e.id).name, col = e.k === 'pickup' ? hex(D.RARITY[e.rar || 0].col) : C.gold;
       float('fb' + i, s, V.sx(h.x), V.sy(h.y) - 84 * k - 34 - 24 * L.SS(0, 0.4, a), { size: 24, col, a: L.SS(0, 0.08, a) * (1 - L.SS(1.0, 1.4, a)) }); });
+    // the short names of the items lying by the hero (TASKS 1853 ж), stacked up where two would meet; a thrown-away one under its prompt
+    const tz = S.screen === 'play' ? SIM.Q.tossedNear(R) : null;
+    if (S.screen === 'play' && h.deadT < 0) { const tags = [];
+      for (const p of R.drops) { if (p.kind !== 'item' || p.got || p.fly > 0 || p.z > 0 || p === tz || Math.hypot(p.x - h.x, p.y - h.y) > 150 || !seen(p.x, p.y) || SIM.Q.hidden(m, p)) continue;
+        const s = SIM.Q.itemName(p.item), w = lw('ln_w', s, { size: 20 }) + 18; let x = V.sx(p.x) - w / 2, y = V.sy(p.y) - 46 * k;
+        for (let n = 0; n < 6 && tags.some((o) => x < o.x + o.w && x + w > o.x && y < o.y + 28 && y + 28 > o.y); n++) y -= 30;
+        tags.push({ x, y, w, s, c: hex(D.RARITY[p.item.rar || 0].col), id: p.id }); }
+      for (const g of tags) { plate('ln_b' + g.id, g.x, g.y, g.w, 28, { a: 0.8 }); lab('ln_' + g.id, g.s, g.x + g.w / 2, g.y + 15, { size: 20, al: 0.5, col: g.c }); } }
     // interaction prompt
     let pr = null; HUD.promptBox = null;
     const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56 && !SIM.Q.overLava(m, h.x, h.y, c.x, c.y)); if (ch) pr = [ch.x, ch.y - 74, ch.sealed ? TXT('hud.world.3s') : TXT('hud.world.3')];
@@ -270,6 +278,7 @@
     if (SIM.Q.atExitGate(R)) pr = [m.town.svc.exitGate.x, m.town.svc.exitGate.y - 110, TXT('hud.world.gate')];
     if (SIM.Q.atGate(R)) { const o = SIM.Q.gateWays(R); pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, o.length > 1 ? (R.portal ? TXT('hud.world.27') : TXT('hud.world.28')) : o[0].k === 'portal' ? TXT('hud.world.29', { f: o[0].f }) : TXT('hud.world.30', { f: o[0].f })]; }
     if (!pr && S.screen === 'play') { const f = SIM.Q.folkNear(R); if (f) { const mk = SIM.Q.questMark(R, f.role); pr = [f.x, f.y - SZ('town_' + f.role)[1] - 40, (mk === '?' ? TXT('hud.world.31') : mk === '!' ? TXT('hud.world.32') : TXT('hud.world.33')) + D.FOLK[f.role].name, D.FOLK[f.role].job]; } }
+    if (!pr && tz) pr = [tz.x, tz.y - 46, TXT('hud.world.take', { p1: SIM.Q.itemName(tz.item) })];
     if (!pr && S.screen === 'play' && m.town && !SIM.Q.gateWays(R).length && Math.hypot(m.town.svc.portal.x - h.x, m.town.svc.portal.y - h.y) < 64) pr = [m.town.svc.portal.x, m.town.svc.portal.y - 80, TXT('hud.world.ring')];
     // the plate sits just above its target's sprite; it never covers the hero: when it would, it goes above his head too, and
     // when that leaves the screen, to the bottom of the screen (TASKS 134)
