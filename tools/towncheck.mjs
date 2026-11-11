@@ -20,7 +20,7 @@ const TILE = D.TILE, errors = [], report = { walks: [], trips: [] };
 // a flash of the trip must be where the hero is now: one left at the old map's coordinates lights a random spot of the new one
 const strayFlash = (S) => S.ev.filter((e) => e.k === 'teleport' && S.t - e.t < 0.5).some((e) => Math.hypot(e.x - S.run.hero.x, e.y - S.run.hero.y) > 80 || Math.hypot((e.fx ?? e.x) - S.run.hero.x, (e.fy ?? e.y) - S.run.hero.y) > 80);
 const stepIn = (S, inp) => SIM.step(S, Object.assign({ keys: [], px: 960, py: 540 }, inp));
-const townRun = (seed) => { const S = SIM.spawn(0, {}); S.run = SIM.newRun(S, 'campaign', seed, { town: 1 }); S.screen = 'play'; stepIn(S); S.run.msg = null; return S; };
+const townRun = (seed, caged) => { const S = SIM.spawn(0, {}); S.run = SIM.newRun(S, 'campaign', seed, { town: 1, allFree: caged ? 0 : 1 }); S.screen = 'play'; stepIn(S); S.run.msg = null; return S; };
 
 // ---------------- on foot ----------------
 // the route: cheapest over the cells a body can stand on (DUNGEON.townWalk in the town), dearer by walls, props and townsfolk so it
@@ -66,7 +66,7 @@ const SERVICES = [
   ['altar', (R) => SIM.atSoulAltar(R), (S) => S.screen === 'meta'],
   ['stash', (R) => SIM.atStash(R), (S) => S.screen === 'stash'],
   ['anvil', (R) => SIM.atCraft(R) === 'forge', (S) => (S.screen === 'craft' && S.craft.kind === 'forge') || (S.screen === 'talk' && S.talk.role === 'smith' && S.talk.craft)],
-  ['lectern', (R) => SIM.atCraft(R) === 'enchant', (S) => S.screen === 'craft' && S.craft.kind === 'enchant'],
+  ['lectern', (R) => SIM.atCraft(R) === 'enchant', (S) => (S.screen === 'craft' && S.craft.kind === 'enchant') || (S.screen === 'talk' && S.talk.role === 'enchanter' && S.talk.craft)],
   ['shop', (R) => SIM.atCounter(R), (S) => S.screen === 'shop'],
   ['crypt', (R) => dTo(R, R.map.exit) < 56 && noSvc(R), (S) => S.run.floor === 1 && !S.run.town && S.screen === 'play'],
   ['board', (R) => dTo(R, R.map.town.svc.board) < 60, null],
@@ -86,6 +86,12 @@ for (const seed of seeds) {
     report.walks.push(row);
   }
 }
+
+// with the merchant still caged (TASKS 1328) the shop stays shut: E there opens nothing, and its prompt has to say so
+{ const seed = seeds[0], S = townRun(seed, 1), R = S.run, w = walk(S, (Q) => SIM.atCounter(Q));
+  if (!w.ok) errors.push(`walk ${seed}: shut shop not reached on foot from the spawn (${w.why} at ${w.at})`);
+  else { const snap = JSON.stringify(S); stepIn(S, { keys: ['KeyE'] }); if (S.screen !== 'play') errors.push(`walk ${seed}: E at the shut shop opens ${S.screen}`);
+    spots.push({ seed, name: 'shop_shut', snap, opened: S.screen }); report.walks.push(Object.assign({ seed, name: 'shop_shut', opened: S.screen }, w)); } }
 
 // ---------------- the portal round trip ----------------
 const floorSnap = (R) => JSON.stringify({ en: R.en.map((e) => [e.id, e.type, e.deadT >= 0 ? 'dead' : Math.round(e.hp), Math.round(e.x), Math.round(e.y)]),
@@ -141,7 +147,7 @@ for (const seed of seeds) for (const N of floors) {
 const REQUIRED = ['zone_town', 'town_services', 'town_npc', 'town_portal', 'town_quests'];
 const townState = (n) => REQUIRED.includes(n) || /^(town_|quest_|journal|climb_|way_|merchant_|shop_wander|scroll_read|folk_)/.test(n);
 // the promise of each prompt: the words on it and what E must then open
-const PROMISE = [[/Алтарь душ/, 'meta'], [/сундук-хранилище/, 'stash'], [/кузнец/, 'craft:forge|talk:smith'], [/зачарователь/, 'craft:enchant'], [/торговать/, 'shop'],
+const PROMISE = [[/Алтарь душ/, 'meta'], [/сундук-хранилище/, 'stash'], [/кузнец/, 'craft:forge|talk:smith'], [/зачарователь/, 'craft:enchant|talk:enchanter'], [/торговать/, 'shop'], [/Лавка закрыта/, 'play'],
   [/спуститься на 1-й этаж/, 'floor 1'], [/портал на этаж (\d+)/, 'floor $1'], [/врата/, 'gate']];
 if (!args.includes('--sim-only')) {
   const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
@@ -187,7 +193,7 @@ if (!args.includes('--sim-only')) {
         const p = (window.__UI || []).find((u) => u.id === 'prompt'); return { url, prompt: p ? p.s : null }; }, sp.snap);
       const e = pageErr.splice(0); shot(`walk_${sp.seed}_${sp.name}`, r.url); if (e.length) errors.push(`walk ${sp.seed} ${sp.name}: page error ${e.join(' | ')}`);
       let want = null; for (const [re, w] of PROMISE) { const mt = r.prompt && r.prompt.match(re); if (mt) { want = w.replace('$1', mt[1]); break; } }
-      const talk = r.prompt && r.prompt.match(/(?:говорить|задание|сдать задание): (.+)$/); if (!want && talk) { const role = Object.keys(D.FOLK).find((q) => D.FOLK[q].name === talk[1]); want = 'talk:' + role; }
+      const talk = r.prompt && r.prompt.match(/(?:говорить|задание|сдать задание)(?::| ·) (.+)$/); if (!want && talk) { const role = Object.keys(D.FOLK).find((q) => D.FOLK[q].name === talk[1]); want = 'talk:' + role; }
       report.prompts.push({ seed: sp.seed, name: sp.name, prompt: r.prompt, opened: sp.opened });
       if (!r.prompt) errors.push(`walk ${sp.seed}: no prompt at the ${sp.name}, where E opens ${sp.opened}`);
       else if (!want || !want.split('|').includes(sp.opened)) errors.push(`walk ${sp.seed}: the prompt «${r.prompt}» at the ${sp.name}, but E opens ${sp.opened}`);

@@ -248,11 +248,18 @@
     for (const e of ST.ev) { const a = GT - e.t; if (e.k !== 'rockfall' || a < 0 || a >= 2.4 || !vis(e.x, e.y)) continue; const [w0, h0] = SZ('dc_rubble'), k = 56 / Math.max(w0, h0);
       L.sprite('dc_rubble', sx(e.x) - w0 * k / 2, sy(e.y) - h0 * k / 2 + 2, { w: w0 * k, h: h0 * k, u: { alpha: 1 - SS(1.4, 2.4, a) } }); }
     // spilt coins are baked into the floor; stamped again as emitters so the fire's orange can't take their yellow
-    const brokenPots = R.pots.filter((p) => p.hp <= 0 && p.kind !== 'gold' && p.kind !== 'goldpile' && vis(p.x, p.y) && !SIM.Q.hidden(m, p)), brokenWrecks = m.decor.filter((d) => d.n === 'wreck_cv' && d.broken && vis(d.x, d.y));
+    const brokenPots = R.pots.filter((p) => p.hp <= 0 && p.kind !== 'gold' && p.kind !== 'goldpile' && vis(p.x, p.y) && !SIM.Q.hidden(m, p)), brokenWrecks = m.decor.filter((d) => d.n === 'wreck_cv' && d.broken && vis(d.x, d.y)), brokenShelves = m.decor.filter((d) => d.n === 'bookshelf' && d.secret !== undefined && d.broken && vis(d.x, d.y));
     const potDebris = (p, air) => { const wood = p.kind === 'barrel' || p.kind === 'crate'; debris(sx(p.x), sy(p.y), p.x * 3 + p.y * 7, GT - (p.brokeT ?? -9), wood, wood ? 8 : 6, 1, air, (dx, dy) => inWet(p.x + dx, p.y + dy), t); };
     const wreckDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 5 + d.y * 3, GT - (d.brokeT ?? -9), true, 14, 1.8, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    // a broken bookcase (TASKS 1852): its planks as a crate's, wider, and the books it held lying among them once they have fallen
+    const shelfDebris = (d, air) => debris(sx(d.x), sy(d.y), d.x * 7 + d.y * 5, GT - (d.brokeT ?? -9), true, 12, 1.6, air, (dx, dy) => inWet(d.x + dx, d.y + dy), t);
+    const BOOK_COL = [[0.45, 0.1, 0.08], [0.12, 0.2, 0.4], [0.3, 0.32, 0.12], [0.38, 0.24, 0.12]];
+    const shelfBooks = (d) => { const al = SS(0.75, 1.05, GT - (d.brokeT ?? -9)); if (al <= 0) return; const sd = d.x * 3 + d.y;
+      for (let j = 0; j < 9; j++) { const bx = sx(d.x) + (rnd(sd, j) - 0.5) * 88, by = sy(d.y) - 2 + rnd(sd, j + 9) * 16, rot = (rnd(sd, j + 18) - 0.5) * 2.4, w = 9 + 3 * rnd(sd, j + 27), hh = 6 + 2 * rnd(sd, j + 36), col = BOOK_COL[j % 4];
+        L.shadow(bx, by + 3, w * 0.6, 2.5, 0.35 * al); L.solid(ev2(bx), ev2(by), w, hh, col, rot, w / 2, hh / 2, al); L.solid(ev2(bx), ev2(by), w, 1.5, [0.75, 0.68, 0.52], rot, w / 2, hh / 2 - 1, 0.7 * al); } };
     for (const p of brokenPots) potDebris(p, false);
     for (const d of brokenWrecks) wreckDebris(d, false);
+    for (const d of brokenShelves) { shelfDebris(d, false); shelfBooks(d); }
     for (const d of m.decals) if (d.n === 'dc_coins' && vis(d.x, d.y) && !SIM.Q.hidden(m, d)) { const [w0, h0] = SZ(d.n), k = 40 * d.s / Math.max(w0, h0);
       emitted((a) => L.sprite(d.n, sx(d.x) - w0 * k / 2, sy(d.y) - h0 * k / 2, { w: w0 * k, h: h0 * k, flip: !!d.f, u: { alpha: 0.92 * a, tint: GOLD_TINT } })); }
     // flat decor (bones) and blood / scorch decals from events
@@ -397,6 +404,7 @@
       if (c.sealed) { const [pw0, ph0] = SZ('padlock'), pw = pw0 * 0.7, ph = ph0 * 0.7, a = 0.5 + 0.5 * Math.sin(t * 2.4), px = sx(c.x) - 2 - pw / 2, py = sy(c.y) - 56; G.blend('add'); L.glow(sx(c.x) - 2, py + ph / 2, 20, [1, 0.25, 0.15], 0.12 + 0.12 * a); G.blend(); L.inked(() => L.sprite('padlock', px, py, { w: pw, h: ph }), { r: 2, n: 8, col: [0.09, 0.04, 0.04], dy: 0 }); } }]);
     for (const p of brokenPots) if (GT - (p.brokeT ?? -9) < DEBRIS_END) Y.push([p.y + 30, () => potDebris(p, true)]);
     for (const d of brokenWrecks) if (GT - (d.brokeT ?? -9) < DEBRIS_END) Y.push([d.y + 30, () => wreckDebris(d, true)]);
+    for (const d of brokenShelves) if (GT - (d.brokeT ?? -9) < DEBRIS_END) Y.push([d.y + 30, () => shelfDebris(d, true)]);
     for (const p of R.pots) { if (!vis(p.x, p.y) || hid(p)) continue; if (p.hp > 0) Y.push([p.y, () => { L.shadow(sx(p.x), sy(p.y) + 2, 14, 5, 0.45); drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4 });
       if (p.kind === 'gold' || p.kind === 'goldpile') emitted((a) => drawProp(PROP_H[p.kind], sx(p.x), sy(p.y), { dy: 4, u: { alpha: a, tint: GOLD_TINT } })); }]); }
     // lean: the flame's tip shifted sideways (px), its base stays on the wick
@@ -415,18 +423,17 @@
     for (const o of m.flora || []) if (o.n === 'weed_cv' && vis(o.x, o.y)) Y.push([o.y, () => { const [w0, h0] = SZ('weed_cv'), w = w0 * o.s, hh = h0 * o.s * 0.86, sd = o.x * 0.37 + o.y * 0.11;
       ripple(o.x, o.y, w * 0.45, sd, 0.2);
       L.sprite('weed_cv', ev2(sx(o.x)) - w / 2, ev2(sy(o.y)) - hh, { w, h: hh, rot: 0.035 * Math.sin(t * 0.9 + sd), pivot: [w / 2, hh], src: [0, 0, 1, 0.86], flip: !!o.f, u: { grade: [0.9, 0.9, 0, 1] } }); }]);
-    // the secrets' covers: a banner that hangs like any other and falls when torn, a false shelf that swings on its hinge, a statue
+    // the secrets' covers: a banner that hangs like any other and falls when torn, a false bookcase broken by blows, a statue
     // that slides along the wall; a wall worked by a mechanism sinks into the floor (a top wall's face slides down, other sides' rock settles away)
     (m.secrets || []).forEach((q, i) => { if (!vis(q.x, q.y) || inSecret(q)) return; const kind = q.kind, a = q.open ? GT - (q.openT ?? -9) : -1;
       if (kind === 'banner') { const [w, hh] = SZ('banner'), top = q.y + 6 - hh;
         if (!q.open) { const k = m.decor.findIndex((o) => o.secret === i), e = k >= 0 ? knocked['d' + k] : null, a0 = e ? GT - e.t : 9, rot = a0 < 1.2 ? 0.16 * Math.exp(-3 * a0) * Math.sin(a0 * 15) : 0; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x), sy(top)), M.r(rot)), w, h: hh, pivot: [w / 2, 0] })]); }
         else if (a < 0.5) { const p = a / 0.5; Y.push([q.y - 40, () => L.sprite('banner', 0, 0, { m: M.of(M.t(sx(q.x) + 10 * p, sy(top) + 30 * p * p), M.r(0.5 * p * p)), w, h: hh * (1 - 0.5 * p * p), pivot: [w / 2, 0] })]); }
         else Y.push([q.y - 60, () => L.sprite('banner', sx(q.x) - w * 0.55 + 10, sy(q.y) + 4, { w: w * 1.1, h: hh * 0.32, u: { grade: [0.8, 0.75, 0, 1] } })]); }
-      if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const p = q.open ? SS(0, 0.6, a) : 0, [sw, sh] = SZ('bookshelf');
-        if (!p) Y.push([d.y, () => drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) })]);
-        else Y.push([d.y, () => L.sprite('bookshelf', sx(d.x) + sw / 2 - sw * (1 - 0.8 * p), sy(d.y) + 4 - sh, { w: sw * (1 - 0.8 * p), h: sh })]); }
-      if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 };
-        Y.push([d.y, () => drawProp('statue', sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) })]);
+      // a false bookcase stands whole and rocks to each blow until it breaks (TASKS 1852); its planks and books are drawn with the debris
+      if (kind === 'shelf') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (d && !d.broken) Y.push([d.y, () => { drawProp('bookshelf', sx(d.x), sy(d.y), { dy: 4, j: jig('d' + k) }); if (L.TRACE) { const [w, h] = SZ('bookshelf'); L.joint('shelf' + i, 'tl', [sx(d.x) - w / 2, sy(d.y) + 4 - h]); L.joint('shelf' + i, 'br', [sx(d.x) + w / 2, sy(d.y) + 4]); } }]); return; }
+      if (kind === 'statue') { const k = m.decor.findIndex((o) => o.secret === i), d = m.decor[k]; if (!d) return; const sl = q.open ? statueSlide(q, a) : { p: 1, x: 0 }, n = d.n;
+        Y.push([d.y, () => { drawProp(n, sx(d.x + sl.x), sy(d.y), { dy: 4, j: q.open ? null : jig('d' + k) }); if (L.TRACE) { const [w, h] = SZ(n); L.joint('cover' + i, 'tl', [sx(d.x + sl.x) - w / 2, sy(d.y) + 4 - h]); L.joint('cover' + i, 'br', [sx(d.x + sl.x) + w / 2, sy(d.y) + 4]); } }]);
         // the masonry stays where the stone has not yet moved off it, so the way opens only as fast as the statue uncovers it
         if (sl.p < 1) { const xs = q.wall.map((c) => c[0]), ys = q.wall.map((c) => c[1]), X0 = Math.min(...xs) * TILE, X1 = (Math.max(...xs) + 1) * TILE, Y0 = Math.min(...ys) * TILE, Y1 = (Math.max(...ys) + 1) * TILE, TSW = 224;
           const cw = Math.round((X1 - X0) * (1 - sl.p) / 2) * 2, cx0 = q.slide.s > 0 ? X1 - cw : X0, u0 = (cx0 % TSW) / TSW, v0 = (Y0 % TSW) / TSW;

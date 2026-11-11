@@ -50,13 +50,10 @@
   K.paper = (x, y, w, h, o = {}) => { if (!has('ui_b_parchment_tile')) return; const s = 128 * PX * (o.k || 1);
     for (let ty = 0; ty < h; ty += s) for (let tx = 0; tx < w; tx += s) { const sw = Math.min(s, w - tx), sh = Math.min(s, h - ty);
       L.sprite('ui_b_parchment_tile', x + tx, y + ty, { w: sw, h: sh, src: [0, 0, sw / s, sh / s], u: o.u }); } };
-  // the state a control is drawn in, from the sim: the pointer over it (hover), held down on it (press), the keyboard's focus
+  // the state a control is drawn in, from the sim: the pointer over it (hover), held down on it (press), the keyboard's focus,
+  // which every control draws the way it draws hover (TASKS 1846: no frame of its own)
   K.st = (S, id, on = true) => ({ hover: on && S.hover === id, press: on && S.hover === id && !!S.pressWas, focus: on && S.focus === id, off: !on });
   const gradeOf = (st) => (st.off ? [0.15, 0.62, 0, 0.9] : st.press ? [1, 0.82, 0, 1] : st.hover || st.focus ? [1.08, 1.13, 0, 1.04] : [1, 1, 0, 1]);
-  // the keyboard's focus: a thin brass frame just outside the control, its corners marked
-  K.focus = (x, y, w, h, gap = 5) => { const c = [0.98, 0.78, 0.29], d = [0.24, 0.12, 0.05], X = x - gap, Y = y - gap, W2 = w + gap * 2, H2 = h + gap * 2, t = 2;
-    for (const [col, o] of [[d, 2], [c, 0]]) { L.solid(X - o / 2, Y - o / 2, W2 + o, t + o, col); L.solid(X - o / 2, Y + H2 - t - o / 2, W2 + o, t + o, col); L.solid(X - o / 2, Y - o / 2, t + o, H2 + o, col); L.solid(X + W2 - t - o / 2, Y - o / 2, t + o, H2 + o, col); }
-    for (const [cx, cy] of [[X, Y], [X + W2, Y], [X, Y + H2], [X + W2, Y + H2]]) { L.solid(cx - 5, cy - 5, 10, 10, d); L.solid(cx - 3, cy - 3, 6, 6, c); } };
   // ink on parchment: no outline (a dark outline under dark glyphs reads as a second, blurred line)
   K.ink = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: K.INK.t, out: '' }, o));
   K.light = (id, s, x, y, o = {}) => L.label(id, String(s), x, y, Object.assign({ size: 26, col: K.INK.cream, out: '#2a0d08' }, o));
@@ -85,8 +82,7 @@
   K.button = (id, b, st, kind = 'parch') => {
     const g = gradeOf(st), dy = st.press ? 2 : 0;
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
-    if (st.focus) K.focus(b.x, b.y, b.w, b.h);
-    const size = L.sizeToFit(b.label, b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, b.size || 26), col = st.off ? K.INK.off : kind === 'wax' ? (st.hover ? '#fff4d6' : K.INK.cream) : st.hover ? K.INK.r : K.INK.t;
+    const size = L.sizeToFit(b.label, b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, b.size || 26), col = st.off ? K.INK.off : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
     (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
@@ -96,7 +92,6 @@
     const ink = st.off ? [0.5, 0.44, 0.36] : [0.17, 0.10, 0.06], n = o.ticks || 0, kx = x + w * Math.max(0, Math.min(1, f));
     L.solid(x, y - 1, w, 3, ink);
     for (let i = 0; i < n; i++) { const tx = Math.round(x + w * i / (n - 1)) - 1; L.solid(tx, y - 8, 3, 17, ink); }
-    if (st.focus) K.focus(x - 22, y - 19, w + 44, 38, 0);
     const kk = st.press ? 1.15 : st.hover || st.focus ? 1.1 : 1;
     K.part('ui_b_knob', [16, 16], kx, y + 1, { c: true, k: kk, u: { grade: gradeOf(Object.assign({}, st, { press: false })) } });
     if (o.value !== undefined) K.ink(id + '_v', o.value, kx, y - 34, { size: 24, al: 0.5, col: st.hover || st.focus ? K.INK.r : K.INK.t });
@@ -108,24 +103,21 @@
     const ink = st.off ? [0.5, 0.44, 0.36] : st.hover || st.focus ? [0.49, 0.12, 0.07] : [0.17, 0.10, 0.06];
     L.solid(x, y, s, s, [0.80, 0.70, 0.52]); for (const [a, b, c, d] of [[0, 0, s, 3], [0, s - 3, s, 3], [0, 0, 3, s], [s - 3, 0, 3, s]]) L.solid(x + a, y + b, c, d, ink);
     if (on) K.part('ui_b_check_tick', [24, 24], x + s / 2 + 4, y + s / 2 - 6, { c: true, k: s / 36 * 1.05, u: { grade: gradeOf(st) } });
-    if (st.focus) K.focus(x, y, s, s, 6);
     L.uiBox(id, x, y, s, s, 0);
   };
   // the tabs over a page: tabs = [{ id, label, x, y, w, h }]; the open one stands taller, with the wax seal on its corner
   K.tabs = (id, tabs, open, S) => { for (const b of tabs) { const st = K.st(S, b.id), up = b.id === open ? 8 : 0;
     K.nine('tab', b.x, b.y - up, b.w, b.h, { u: { grade: b.id === open ? [1, 1.06, 0, 1] : gradeOf(st).map((v, i) => (i === 1 ? v * 0.82 : v)) } });
     if (b.id === open) K.part('ui_b_wax_seal', [40, 40], b.x + 6, b.y - up + 2, { c: true, k: 0.55 });
-    if (st.focus) K.focus(b.x, b.y - up, b.w, b.h);
-    K.ink(id + b.id, b.label, b.x + b.w / 2, b.y - up + b.h / 2 + 2, { size: L.sizeToFit(b.label, b.w - 0.6 * K.endW('tab', b.h) - 8, 24), al: 0.5, col: b.id === open ? K.INK.r : st.hover ? K.INK.r : K.INK.d });
+    K.ink(id + b.id, b.label, b.x + b.w / 2, b.y - up + b.h / 2 + 2, { size: L.sizeToFit(b.label, b.w - 0.6 * K.endW('tab', b.h) - 8, 24), al: 0.5, col: b.id === open || st.hover || st.focus ? K.INK.r : K.INK.d });
     L.uiBox(id + b.id, b.x + 8, b.y - up, b.w - 16, b.h, 4); } };
   // an item cell: square (the bag) or round (a skill, a trophy); o.sel (picked), o.off (locked)
   K.cell = (id, x, y, s, st, o = {}) => {
     if (o.round) L.rrect(x + s * 0.12, y + s * 0.12, s * 0.76, s * 0.76, s * 0.38, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
     if (o.round) K.part('ui_b_cell_round', [48, 48], x, y, { k: s / 96, u: { grade: gradeOf(st) } });
     else K.nine('cell', x, y, s, s, { u: { grade: gradeOf(st) } });
-    if ((st.hover || st.press) && !st.off) L.glow(x + s / 2, y + s / 2, s * 0.62, [0.95, 0.68, 0.3], st.press ? 0.18 : 0.32, 2.2);
+    if ((st.hover || st.press || st.focus) && !st.off) L.glow(x + s / 2, y + s / 2, s * 0.62, [0.95, 0.68, 0.3], st.press ? 0.18 : 0.32, 2.2);
     if (o.sel) { const r = s * 0.17; K.part('ui_b_wax_seal', [40, 40], x + s - r * 0.6, y + r * 0.6, { c: true, k: r * 2 / 80 }); }
-    if (st.focus) K.focus(x, y, s, s, 3);
     L.uiBox(id, x, y, s, s, 0);
   };
   // the title banner, centred on cx, its heading in red ink
