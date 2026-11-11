@@ -490,6 +490,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // A rig's silhouette is posed once for the stamps that follow one another with the same draw (TASKS 1866): an elite's aura, its
   // hit flash, its rim and its ink outline were four poses of one rig in one frame. The record is dropped by any sprite drawn for
   // real (the body itself, the next actor), by another L.pre and at the frame's start
+  // (L.SNAP is set once per pass, never between the stamps of one rig: it is not part of the key; a target bound between them
+  // is replayed into in the same view px, see L.inked's rim.box)
   const LAST = { draw: null, pre: null, list: null };
   L.stamp = (draw, sps) => {
     if (G.rec) { for (const sp of sps) { L.sp = sp; draw(); } L.sp = null; return; }

@@ -19,6 +19,8 @@ else
   SERVER=$!
   trap 'kill $SERVER 2>/dev/null' EXIT
   for _ in $(seq 50); do (exec 3<>"/dev/tcp/127.0.0.1/$P") 2>/dev/null && break; sleep 0.1; done
+  # (third review of PR 62) a server that did not come up would leave the kiosk on an error page with no way out in Game Mode
+  is_game || { echo "Сервер игры не запустился на порту $P (нужен python3). Откройте вручную: $URL"; read -r; exit 1; }
 fi
 ANGLE="${DECK_ANGLE:-vulkan}"
 FLAGS=(--user-data-dir="$PROFILE" --no-first-run --no-default-browser-check --start-fullscreen --kiosk --app="$URL"

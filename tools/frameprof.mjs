@@ -9,6 +9,7 @@ const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 // --runs run1,cave,magma,run2 (TASKS 1373): which runs to measure; the whole set takes over 25 minutes on the Steam Deck
 const seed = +opt('seed', 3), frames = +opt('frames', 60), runs = opt('runs', 'run1,cave,magma,run2').split(','), out = opt('out', 'frames/frameprof');
+{ const bad = runs.filter((r) => !['run1', 'cave', 'magma', 'run2'].includes(r)); if (bad.length) { console.error('frameprof: unknown --runs ' + bad.join(', ') + ' (run1, cave, magma, run2)'); process.exit(2); } }
 fs.mkdirSync(out, { recursive: true });
 const server = http.createServer((q, r) => { const file = path.join(process.cwd(), decodeURIComponent(q.url.split('?')[0]));
   fs.readFile(file, (err, bytes) => { if (err) { r.writeHead(404); r.end(); return; } r.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.png') ? 'image/png' : 'text/html'); r.end(bytes); }); });

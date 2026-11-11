@@ -93,14 +93,14 @@
     const firstBtn = (S) => { const bs = onBtns(); return FIRST.map((id) => bs.find((b) => b.id === id)).find(Boolean) || bs.find((b) => b.id && b.id === S.focus) || bs[0]; };
 
     // its own clock in real seconds (review of PR 62): on the sim's, the dev pause (P) froze the dpad's repeat in the menus
-    function poll(dt, simT) {
+    function poll(dt) {
       clock += dt;
       const pads = Array.from((navigator.getGamepads && navigator.getGamepads()) || []).filter((p) => p && p.connected !== false);
       P.n = pads.length;
       if (!pads.length) { clear(); return; }
       const gp = pick(pads), V = view(gp), pr = V.press, ax = V.ax, S = io.play(); on = 1;
       const was = (i) => !!prev[i], edge = (i) => pr(i) && !was(i), rel = (i) => !pr(i) && was(i);
-      if (busy(V)) { P.at = clock; P.mode = 'pad'; }
+      if (busy(V)) { if (P.mode !== 'pad') mx = -1; P.at = clock; P.mode = 'pad'; }
       P.active = P.mode === 'pad' ? 1 : 0;
       P.map = (gp.mapping || '—') + (V.std ? '' : ' (xpad)');
       P.gp = gp;   // (P.raw, the dev line's view of it, is built only when read)
@@ -158,7 +158,9 @@
     const kbm = () => { P.mode = 'kbm'; P.active = 0; };
     addEventListener('keydown', (e) => { if (e.isTrusted) kbm(); }, true);
     addEventListener('mousedown', kbm, true);
-    let mx = -1, my = -1; addEventListener('mousemove', (e) => { if (mx >= 0 && Math.hypot(e.clientX - mx, e.clientY - my) > 12) kbm(); mx = e.clientX; my = e.clientY; }, true);
+    // the mouse takes over once it is 12 px from where it was when the pad took over, however slowly it got there (third review of
+    // PR 62: 12 px between two events let a slow mouse or trackpad never come back); drift under that stays the pad's
+    let mx = -1, my = -1; addEventListener('mousemove', (e) => { if (mx < 0) { mx = e.clientX; my = e.clientY; } else if (P.mode === 'pad' && Math.hypot(e.clientX - mx, e.clientY - my) > 12) { kbm(); mx = -1; } }, true);
     return { poll, stepBegin, stepEnd, state: P };
   }
   // pad names for the hint lines (hud.js): one table, the Steam Deck's own button names

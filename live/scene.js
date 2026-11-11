@@ -9,6 +9,7 @@
     swimTex, rnd, seenTex, spellFloor, torchCol, views, whirlP } = SCX;
   // ---------------- render ----------------
   SC.render = (t) => {
+    G.drop();   // (third review of PR 62)
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
     L.GFX = L.GFX_Q ?? (ST.meta && ST.meta.gfx != null ? ST.meta.gfx : 2);
     if ((R && (R.zoom || D.ZOOM || 1) !== SCX.Z) || SIM.VIEW.H !== SCX.H) views(R ? R.zoom || D.ZOOM || 1 : SCX.Z);

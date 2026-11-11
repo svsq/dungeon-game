@@ -120,7 +120,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
     fpsAcc += wall; fpsN++; if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
-    if (pad) pad.poll(wall, simT);                           // in real time, not scaled by the dev speed
+    if (pad) pad.poll(wall);                           // in real time, not scaled by the dev speed
     if (pad && !!pad.state.active !== padCursor) { padCursor = !!pad.state.active; cv.style.cursor = padCursor ? 'none' : 'crosshair'; }   // the HUD draws the pad's pointer
     const dt = paused ? (stepOnce ? 1 / 60 : 0) : wall * speed; stepOnce = false;
     simT += dt;

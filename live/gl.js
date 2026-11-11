@@ -203,6 +203,8 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (qn === QN || (qn && qP !== P)) G.flush();
     const i = 4 * qn++; qP = P; QR[i] = xf[6]; QR[i + 1] = xf[7]; QR[i + 2] = xf[0]; QR[i + 3] = xf[4]; QC[i] = col[0]; QC[i + 1] = col[1]; QC[i + 2] = col[2]; QC[i + 3] = a;
   };
+  // a frame that threw left its batch behind: dropped at the next frame's start, not drawn into whatever target is bound then
+  G.drop = () => { qn = 0; };
   G.flush = () => {
     if (!qn) return; const n = qn, P = qP; qn = 0;
     if (G.onFlush) G.onFlush(P, QR, n);   // tools (frameprof): the batch's program and rectangles
