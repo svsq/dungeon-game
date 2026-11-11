@@ -164,7 +164,7 @@
   // fewer); apart: cells between two of a kind; aim: falling rocks laid first on the narrows of the walk to the stairs (TASKS 461);
   // clear: cells kept from the start's fire, the spawn, chests, monsters' posts and the
   // stairs (selfCheck)
-  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8, gate: { per: 4.6, hp: 0.2, tails: 2, pitch: 0.72, minCells: 3, off: 0.2, from: 0.1, to: 0.9, kb: 160, stun: 1, see: 14 } },
+  const HAZ = { vent: { per: [5, 7], warn: 1.2, burst: 0.35, r: 72, ry: 0.62, hp: 0.13, burn: 3, mon: 16, kb: 1.4, n: [3, 5, 8, 3], apart: 8, gate: { per: 4.6, hp: 0.2, tails: 2, pitch: 0.72, minCells: 3, off: 0.2, from: 0.1, to: 0.9, kb: 160, stun: 1, see: 14, deep: 3.5, deepMax: 3, calm: 8, shy: ['imp', 'skel_archer', 'cultist', 'fire_priest'] } },
     // (run, gap: an aimed rock is a run of 2·run + 1 down the walk, falling gap s one after another, TASKS 485)
     fall: { per: [4, 6.5], warn: 0.8, burst: 0.12, r: 34, ry: 0.62, hp: 0.11, burn: 0, mon: 14, kb: 0.8, n: [2, 4, 7, 2], apart: 6, aim: 2, run: 2, gap: 0.2 },
     // a terrace floor's lavafall surges (TASKS 475): every `per` s its river rises over its banks, `band` cells of floor either side
@@ -179,7 +179,9 @@
   // (lag: the seconds the floor stood still on a load, TASKS 1812, kept apart from ph, which also names a gate's row)
   const hazCycle = (z, t) => (t - (z.lag || 0)) / z.per + z.ph, hazClock = (z, t) => (hazCycle(z, t) % 1 + 1) % 1 * z.per;
   const ZONE = new WeakMap(), zoneOf = (z) => { let q = ZONE.get(z); if (!q) ZONE.set(z, q = new Set(z.cells)); return q; };
-  const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r * (z.s || 1); };
+  // a ring's half-widths; a gate's reaches `d` times further along the walk (TASKS 1895), its width across the passage kept
+  const hazAxes = (z) => { const H = HAZ[z.k], r = H.r * (z.s || 1), d = z.d || 1; return [z.ax ? r * d : r, H.ry * r * (z.ay ? d : 1)]; };
+  const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const [rx, ry] = hazAxes(z); return Math.hypot((x - z.x) / rx, (y - z.y) / ry) < 1; };
   // how far a surge has risen over its band at time t, 0..1 (TASKS 475)
   const surgeLevel = (z, t) => { const H = HAZ.surge, c = hazClock(z, t); if (c < H.burst) return 1; if (c < H.burst + H.ebb) return 1 - (c - H.burst) / H.ebb;
     const w = c - (z.per - H.warn); return w >= 0 ? H.creep * w / H.warn : 0; };
@@ -297,5 +299,5 @@
   // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2 };
-  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, hazAxes, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

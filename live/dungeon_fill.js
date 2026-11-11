@@ -1054,11 +1054,19 @@
           for (let i = 0; i < q.length; i++) for (const o of [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1]) { const n = q[i] + o; if (n < 0 || n >= W * H || seen[n] || !open(n) || zs.some((z) => D.hazIn(z, wx(n % W), wy(Math.floor(n / W))))) continue; if (n === end) return false; seen[n] = 1; q.push(n); }
           return true; };
         // the rings cover the passage wall to wall and no more (TASKS 1713: at a fixed size up to half a ring lay on rock): as few vents as reach across it, each sized to the width
-        const onFloor = (z) => { let out = 0; for (let a = 0; a < 48; a++) { const r = HZ.vent.r * z.s, x = z.x + Math.cos(a / 48 * 6.283) * r, y = z.y + Math.sin(a / 48 * 6.283) * r * HZ.vent.ry; if (!open(Math.floor(y / TILE) * W + Math.floor(x / TILE))) out++; } return out / 48 <= G.off; };
+        const onFloor = (z) => { let out = 0; const [rx, ry] = D.hazAxes(z); for (let a = 0; a < 48; a++) { const x = z.x + Math.cos(a / 48 * 6.283) * rx, y = z.y + Math.sin(a / 48 * 6.283) * ry; if (!open(Math.floor(y / TILE) * W + Math.floor(x / TILE))) out++; } return out / 48 <= G.off; };
         const fit = (k, side) => { let a = 0, b = 0; while (a < 16 && open(k - side * (a + 1))) a++; while (b < 16 && open(k + side * (b + 1))) b++; if (a + b + 1 < G.minCells) return null;
           const span = (a + b + 1) * TILE - 6, along = side === 1, full = 2 * HZ.vent.r * (along ? 1 : HZ.vent.ry); let n = 1; while (n < 6 && span / (1 + G.pitch * (n - 1)) > full) n++; if (n === 6) return null;
-          const E = span / (1 + G.pitch * (n - 1)), s = E / full, mid = (b - a) / 2 * TILE; return Array.from({ length: n }, (_, i) => { const off = mid + (i - (n - 1) / 2) * G.pitch * E; return { k: 'vent', gate: 1, s, x: along ? wx(k % W) + off : wx(k % W), y: along ? wy(Math.floor(k / W)) : wy(Math.floor(k / W)) + off }; }); };
-        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row = fit(k, side), on = Math.sign(w[i + 1] - w[i - 1]); if (!row) continue;
+          const E = span / (1 + G.pitch * (n - 1)), s = E / full, mid = (b - a) / 2 * TILE, row = Array.from({ length: n }, (_, i) => { const off = mid + (i - (n - 1) / 2) * G.pitch * E; return { k: 'vent', gate: 1, s, x: along ? wx(k % W) + off : wx(k % W), y: along ? wy(Math.floor(k / W)) : wy(Math.floor(k / W)) + off }; });
+          row.lat = [-a * TILE + 8, b * TILE - 8]; return row; };
+        // the rings reach G.deep cells along the walk at the passage's thinnest chord (TASKS 1895, the player's decision 11.11.2026: at 2 cells a
+        // blind crossing cost ≈0.3 s against a 2.3 s wait); their width across stays wall to wall
+        const depth = (zs, k, ax) => { const lx = wx(k % W), ly = wy(Math.floor(k / W)); let lo = Infinity;
+          for (let u = zs.lat[0]; u <= zs.lat[1]; u += 8) { let run = 0; for (const sg of [1, -1]) for (let v = sg > 0 ? 0 : -2; Math.abs(v) < 8 * TILE; v += 2 * sg) { const x = ax === 'x' ? lx + v : lx + u, y = ax === 'x' ? ly + u : ly + v; if (!zs.some((z) => D.hazIn(z, x, y))) break; run += 2; } lo = Math.min(lo, run); }
+          return lo; };
+        const deepen = (row, k, ax) => { for (const z of row) { z.ax = +(ax === 'x'); z.ay = +(ax === 'y'); } const d = Math.max(1, G.deep * TILE / Math.max(1, depth(row, k, ax)));
+          if (d > G.deepMax) return null; for (const z of row) z.d = d; return row; };
+        for (let i = 1; i < w.length - 1; i++) { const k = w[i], d = Math.abs(w[i + 1] - w[i - 1]) === 2 ? 1 : W, side = d === 1 ? W : 1, row0 = fit(k, side), row = row0 && deepen(row0, k, d === 1 ? 'x' : 'y'), on = Math.sign(w[i + 1] - w[i - 1]); if (!row) continue;
           const cellOf = (z) => [Math.floor(z.x / TILE), Math.floor(z.y / TILE)];
           if (!row.every((z) => [-1, 0, 1].every((j) => [-1, 0, 1].every((i2) => { const [x0, y0] = cellOf(z), c = (y0 + j) * W + x0 + i2; return cells[c] === 1 && !under.has(c) && (i2 || j || (clear(x0, y0) && !used.has(key(x0, y0)))); })))) continue;
           if (!row.every(onFloor) || !seals(row)) continue;
@@ -1069,7 +1077,12 @@
               run.sort((a, b) => off(b) - off(a)).slice(0, G.tails).forEach(([, j]) => gone.add(j)); }
             for (const d of decor) if (d.haz !== undefined) d.haz -= [...gone].filter((j) => j < d.haz).length;
             for (const j of [...gone].sort((p, q) => q - p)) hazards.splice(j, 1); }
-          break; } }
+          break; }
+        // no shooter stands within G.calm cells of a gate (TASKS 1895: an archer by 24 of 68 gates made waiting for the window a worse
+        // bet than walking in blind); it keeps its post and its pack, as one of the floor's own melee
+        const gz = hazards.filter((z) => z.gate), melee = ['skel_ember', 'goblin', 'skeleton'].filter((t) => roster.includes(t));
+        if (gz.length && melee.length) { const gx = gz.reduce((t, z) => t + z.x, 0) / gz.length, gy = gz.reduce((t, z) => t + z.y, 0) / gz.length;
+          for (const e of enemies) if (G.shy.includes(e.type) && Math.hypot(e.x - gx, e.y - gy) < G.calm * TILE) e.type = melee[Math.floor(Z() * melee.length)]; } }
       lay('vent', shuf(vents).map((v) => [v, byChest(...v) ? 0 : 1]).sort((a, b) => a[1] - b[1]).map(([v]) => v), true);
       // (a plain terrace floor whose surge the walk to the stairs misses is laid again: its surge is the floor's question)
       if (terr && !MIX && strict && !surge.cells.some((k) => onWay.has(k))) return null;
