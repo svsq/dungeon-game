@@ -148,9 +148,10 @@
     const legs = {}, tg = {};
     for (const side of ['L', 'R']) {
       const A0 = RG['ankle' + side], u = ((P.u0 + (side === 'L' ? 0 : 0.5)) % 1), A = P.sl / 2 / s * run;   // half a step in rig px: stance slides back at body speed
+      // (TASKS 1802: the longer step tilts the leg in depth by 0.88 of its travel; at 1 the knee folded 29° a frame walking down)
       let off, lift = 0;
       if (u < 0.5) off = A * (1 - 4 * u); else { const w = (u - 0.5) * 2, e = SS(0.12, 0.95, w); off = -A + 2 * A * e; lift = Math.pow(Math.sin(Math.PI * w), 0.6) * (13 + 2 * Math.abs(pdx)) * run; }
-      tg[side] = { tx: A0[0] + off * pdx + (side === 'L' ? -9 : 9) * (1 - run * 0.6), ty: A0[1] - lift, lift, dz: off * P.diry - 0.5 * A * Math.abs(P.diry) };
+      tg[side] = { tx: A0[0] + off * pdx + (side === 'L' ? -9 : 9) * (1 - run * 0.6), ty: A0[1] - lift, lift, dz: 0.88 * (off * P.diry - 0.5 * A * Math.abs(P.diry)) };
     }
     // the dash pose: the near leg reaches toward the dash, the far one trails with its knee bent (the gait does not run while dashing)
     if (dashE > 0) { tg.R.tx += 12 * dashE * dashF; tg.L.tx -= 16 * dashE * dashF; tg.L.ty -= 12 * dashE; tg.L.lift = Math.max(tg.L.lift, 12 * dashE); }

@@ -33,6 +33,7 @@
 //               at its stop and after a save and a load (the bookcase squeezed to a strip as it moved off its cache)
 //   reach     — *_attack of the monsters (TASKS 1801): a hand leaves its place against the hip by REACH of the height
 //   glide     — walk cycles (TASKS 1801): some joint travels GLIDE of the height against the ground point (a robe slid); townsfolk warn
+//   cadence   — walk cycles (TASKS 1802): at most STEPS steps a second, a biped's step at least STEP of its height; townsfolk warn
 //   body      — transitions named shoot|cast|frost|volley|whirl|attack|swing (TASKS 1800): the head moves against the hip by BODY of the
 //               height (a shot made with the arm alone left the body standing as at rest)
 // Exit 2 when any check fails.
@@ -281,6 +282,16 @@ if (meta.tr.includes('imp_claw')) {
     const m = Math.max(...fr.map((j) => Math.max(...keys.map((k) => Math.hypot(j[k][0] - j.ground[0] - fr[0][k][0] + fr[0].ground[0], j[k][1] - j.ground[1] - fr[0][k][1] + fr[0].ground[1])))));
     const msg = `the most moving joint travels ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px against the ground point (≥ ${100 * GLIDE} %)`;
     if (nm.startsWith('folk_') && m < GLIDE * H) warn('glide', nm, msg + ': glides'); else report('glide', nm, m >= GLIDE * H, msg); } }
+// cadence (TASKS 1802): every walk cycle takes at most STEPS steps a second (2 / cycleT; the goblin stepped 15 times a second), and a
+// biped's step is at least STEP of its height (the world distance over the cycle, the camera's follow added back; the skeleton's was
+// 0.12); the townsfolk only warn (TASKS 1807)
+{ const STEPS = 9, STEP = 0.15, cT = await p.evaluate(() => window.__QA.cycleT || {}), plod = /^(golem|boss_colossus)_/;   // (their plod is their weight: the colossus's gait was set in its own rounds)
+  for (const nm of await p.evaluate(() => Object.keys(window.__QA.cycles || {}).filter((n) => window.__QA.subject[n]))) { if (!cT[nm]) continue;
+    const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.cycles[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null, c = (st.run && st.run.cam) || [0, 0]; LIB.TRACE = null;
+      return j && j.ground ? { g: [j.ground[0] + c[0], j.ground[1] + c[1]], H: j.ground[1] - (j.top || j.head)[1], legs: !!(j.ankleL && j.ankleR) } : null; }); }, nm);
+    if (fr.some((q) => !q)) continue; const n = fr.length, step = Math.hypot(fr[n - 1].g[0] - fr[0].g[0], fr[n - 1].g[1] - fr[0].g[1]) * n / (n - 1) / 2 / fr[0].H, sps = 2 / cT[nm];
+    const legs = fr[0].legs && !plod.test(nm), ok = sps <= STEPS && (!legs || step >= STEP), msg = `${sps.toFixed(1)} steps a second (≤ ${STEPS})${fr[0].legs ? `, a step ${(100 * step).toFixed(0)} % of the height${legs ? ` (≥ ${100 * STEP} %)` : ' (a heavy plod, not held)'}` : ''}`;
+    if (nm.startsWith('folk_') && !ok) console.log(`WARN cadence ${nm}: ${msg}`); else report('cadence', nm, ok, msg); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

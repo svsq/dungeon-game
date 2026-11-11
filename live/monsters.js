@@ -40,9 +40,10 @@
       let off, lift = 0;
       const stance = o.stanceTime || 0.5;
       if (u < stance) off = A * (1 - 2 * u / stance); else { const w = (u - stance) / (1 - stance); off = -A + 2 * A * SS(0.12, 0.95, w); lift = Math.pow(Math.sin(Math.PI * w), 0.6) * RG.h * (o.lift || 0.038) * (0.75 + 0.25 * Math.abs(dirx)) * run; }
-      // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch)
+      // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch); a stride lengthened by
+      // strideK tilts it less in depth (TASKS 1802: the goblin's legs stretched 32 % walking down)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
-      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
+      tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: (0.6 * off * diry - 0.3 * A * Math.abs(diry)) / Math.pow(Math.max(1, o.strideK || 1), 0.75) };
       if (o.foot) o.foot(side, tg[side]);   // (a pose that moves the feet off the gait: the imp's legs in its leap, TASKS 489)
     }
     const cr = o.crumble ? o.crumble.t : -1, dbl = 0.5 + 0.5 * Math.cos(2 * ph), breath = (1 - run) * (cr >= 0 ? 1 - SS(0, 0.2, cr) : 1) * Math.sin(o.t * 2.1 + (o.seed || 0));
@@ -196,7 +197,10 @@
     const E = [S0[0] + Math.cos(th + sg * a1) * l1, S0[1] + Math.sin(th + sg * a1) * l1], Tc = [S0[0] + Math.cos(th) * d, S0[1] + Math.sin(th) * d];
     return [ang(S0, E) - ang(S0, E0), ang(E, Tc) - ang(E0, H0)]; }
   // one stride (two steps) in view px for a rig drawn H tall: what the sim's distance must cover per gait cycle
-  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
+  // (TASKS 1802) the small walkers stepped 11–15 times a second, their feet a blur: a longer stride by type brings them under 9 a second
+  // and every biped's step to at least 0.15 of its height (the skeletons' was 0.12); the golem and the colossus plod by their weight
+  const STRIDE_K = (MON.STRIDE_K = { goblin: 2, imp: 1.8, skel_ember: 1.3, skeleton: 1.4, skel_archer: 1.3, skel_mage: 1.15, brute: 1.05, boss: 1.05, boss_forge: 1.05 });
+  MON.stride = (type, H) => { const RG = RIGS[MON.rigOf(type)], s = H / RG.h; if (RG.hipL && STRIDE_K[type]) return STRIDE_K[type] * 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s; return MON.rigOf(type) === 'crab' ? 2 * CRAB.sl * MON.crabLeg() * H * CRAB.w / RG.w : MON.rigOf(type) === 'spider' ? 0.64 * H : RG.hipL ? 2 * 0.4 * (d2(RG.hipL, RG.kneeL) + d2(RG.kneeL, RG.ankleL)) * s : 0.28 * RG.h * s; };
 
   // ---------------- the robed caster: no legs to plant, the robe sways from the hem ----------------
   // o: biped's fields + staff (rig rad, the far arm), push (0..1, the free hand toward aimR), aimR (rig angle of the aim)
@@ -646,7 +650,7 @@
     if (e.mv === 'charge') {
       const end = w + Math.max(M.time, M.duration), k = SS(0, Math.min(0.3, w), u) * (1 - SS(end - 0.25, end, u));
       base.lean = (base.lean || 0) + face * 0.22 * k; base.crouch += 14 * k;
-      base.strideK = 1.45; base.lift = 0.065;
+      base.strideK = 1.45; base.charge = 1; base.lift = 0.065;
       base.gaitK = SS(w, w + 0.12, u) * (1 - SS(end - 0.12, end, u));
       return (side, b) => [lerp(b, 0.7, k * 0.65), lerp(b + 0.18, 1.1, k * 0.65)];
     }
@@ -662,7 +666,7 @@
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
   MON.draw = (e, E, x, y, GT, o) => {
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
-    const base = { item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
+    const base = { strideK: STRIDE_K[e.type], lift: e.type === 'goblin' ? 0.055 : undefined, item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
     if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
     if (n === 'skeleton' || n === 'goblin') {
@@ -847,7 +851,7 @@
       const arm = colossusPose(pose, E, clock, face, H, base); if (arm) base.arm = arm;
       if (!live) { base.crumble = { t: Math.max(0, GT - e.deadT - 0.55) / 2.4, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       // (a body of 230 px sinks at each step by more than the walkers' 2.2 px, or its stride reads as a glide)
-      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.stanceTime = base.strideK ? 0.5 : 0.64; base.settle = base.strideK ? 0 : 4; const r = biped(base);
+      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.stanceTime = base.charge ? 0.5 : 0.64; base.settle = base.charge ? 0 : 4; const r = biped(base);
       // the boulder in both hands over the head while it is lifted, gone from them on the throw (sim R.rocks takes it on)
       if (base.rock && r) {
         const at = [x + face * base.rockAt[0] * H, y + base.rockAt[1] * H + base.rockBuried], bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;

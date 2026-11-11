@@ -12,7 +12,7 @@
   // where the hero's weapon hand / spells come from (shared with the rig: SIM.RIG.shoulder above the feet)
   const RIG = { shoulder: 51, arm: 28 };
   // one step's travel: shorter when walking toward / away from the camera, so planted feet keep pace with the ground
-  const stepLen = (ux) => K.STEP * (0.82 + 0.18 * Math.min(1, ux));
+  const stepLen = (ux) => K.STEP * (0.9 + 0.1 * Math.min(1, ux));   // (TASKS 1802: at 0.82 walking down he stepped 10.7 times a second)
   const hand = (h) => [h.x + Math.cos(h.aim) * 23, h.y - RIG.shoulder + 8 + Math.sin(h.aim) * 15];
   function bagAdd(R, it) {
     const h = R.hero;
