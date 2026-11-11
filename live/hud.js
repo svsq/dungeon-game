@@ -868,19 +868,26 @@
   // in a view taller than 16:9 the painting covers it, scaled by its height and cut at the sides; bk maps its 1920×1080 places
   // onto the frame being drawn
   const bk = () => { const k = VH / 1080; return { k, x0: (W - 1920 * k) / 2, y0: -G.oy }; };
-  function backdrop(t) {
+  // cover: the sheets laid over the backdrop (the menu's leaf and the version sheet): a bowl under one has neither its fire nor its
+  // glow, as they burned over the sheet's face (TASKS 1881)
+  function backdrop(t, cover = []) {
     L.solid(0, -G.oy, W, VH, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     if (!window.ASSETS.bg_crypt) return;
     const { k, x0, y0 } = bk(), fl = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3), col = CRYPT.col;
+    const bowls = CRYPT.bowls.map(([x, y], i) => [x, y, i]).filter(([x, y]) => !cover.some((r) => r && x0 + x * k >= r.x && x0 + x * k <= r.x + r.w && y0 + (y - 10) * k >= r.y && y0 + (y - 10) * k <= r.y + r.h));
     L.sprite('bg_crypt', x0, y0, { w: 1920 * k, h: 1080 * k });
-    CRYPT.bowls.forEach(([x, y], i) => { L.glow(x0 + x * k, y0 + (y - 40) * k, 300 * k, col, 0.2 * fl(i), 2.2); L.glow(x0 + x * k, y0 + (y - 20) * k, 110 * k, col, 0.22 * fl(i + 5), 2.6); });
+    bowls.forEach(([x, y, i]) => { L.glow(x0 + x * k, y0 + (y - 40) * k, 300 * k, col, 0.2 * fl(i), 2.2); L.glow(x0 + x * k, y0 + (y - 20) * k, 110 * k, col, 0.22 * fl(i + 5), 2.6); });
     CRYPT.cups.forEach(([x, y], i) => L.glow(x0 + x * k, y0 + (y - 14) * k, 70 * k, col, 0.16 * fl(i + 2), 2.8));
-    const fire = (x, y, w, hh, seed, lean) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col }, [w * k, 0, 0, -lean * k, hh * k, 0, x0 + (x - w / 2 + lean) * k, y0 + (y - hh) * k, 1]);
+    const fire = (x, y, w, hh, seed, lean, amt = 1) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: amt, u_col: col }, [w * k, 0, 0, -lean * k, hh * k, 0, x0 + (x - w / 2 + lean) * k, y0 + (y - hh) * k, 1]);
     G.blend('emit');
-    CRYPT.bowls.forEach(([x, y], i) => fire(x, y, 84 * fl(i), 120 * fl(i + 1), 11 + i, 6 * Math.sin(t * 1.3 + i * 2)));
+    // a bowl of coals burns as several tongues, each its own height, lean and flicker, round a tall middle one: one drop of the
+    // torch's shape at this size read as a flat yellow triangle (TASKS 1881)
+    bowls.forEach(([x, y, i]) => { const sw = (j) => Math.sin(t * (1.1 + 0.37 * j) + i * 2 + j * 1.9);
+      for (const [dx, w, hh, j, a] of [[-30, 46, 70, 0, 0.8], [30, 44, 64, 1, 0.8], [-14, 58, 98, 2, 0.9], [16, 54, 90, 3, 0.9], [0, 66, 128, 4, 1]])
+        fire(x + dx, y, w * fl(i + j), hh * fl(i + j + 3), 11 + i * 7 + j, (dx * 0.12 + 5) * sw(j), a); });
     CRYPT.cups.forEach(([x, y], i) => fire(x, y, 18 * fl(i + 2), 34 * fl(i + 3), 21 + i, 2 * Math.sin(t * 1.7 + i)));
     G.blend('add');
-    CRYPT.bowls.forEach(([x, y], b) => { for (let i = 0; i < 12; i++) { const p = (t * (0.28 + 0.12 * L.rnd(i, b + 1)) + L.rnd(i, b + 7)) % 1, s = 4 * k;
+    bowls.forEach(([x, y, b]) => { for (let i = 0; i < 12; i++) { const p = (t * (0.28 + 0.12 * L.rnd(i, b + 1)) + L.rnd(i, b + 7)) % 1, s = 4 * k;
       const ex = x + (L.rnd(i, b + 3) - 0.5) * 60 + Math.sin(t * 1.9 + i * 2.3) * 14 * p, ey = y - 50 - p * 300;
       L.solid(Math.round((x0 + ex * k) / 2) * 2, Math.round((y0 + ey * k) / 2) * 2, s, s, [1, 0.6 + 0.3 * (1 - p), 0.2], 0, 0, 0, 0.9 * (1 - p) * Math.min(1, p * 8)); } });
     G.blend();
@@ -888,8 +895,8 @@
   // the hero and a brute facing each other across the buttons; the news frame takes the brute's place on the right; on the main
   // menu (mid) the hero stands in the crypt's arch. It is the hero of the run under «Продолжить», or of the run played last (TASKS
   // 1815: a warrior stood there over a mage's save); with neither, the painted warrior
-  function menuBack(t, alone, mid, S) {
-    backdrop(t);
+  function menuBack(t, alone, mid, S, cover) {
+    backdrop(t, cover);
     const { k, x0, y0 } = bk(), [hw, hh] = SZ('hero'), hk = 3.2 * k, hx = x0 + k * (mid ? 900 - hw * 1.6 : 440 - hw * 1.6), hy = y0 + k * (mid ? 470 : 340);
     const own = S && ((S.saved && S.saved.hero) || (S.result && S.result.hero));
     if (own && D.clsOf(own).look.rig !== 'hero') { try { SCENE.menuHero(own, SIM.Q.stats(own, S.meta), t, hx + hw * hk / 2, hy + hh * hk, hk); } catch (e) { console.error(e); L.pre = null; G.blend(); } }
@@ -1063,7 +1070,7 @@
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
-    menuBack(t, !!F, true, S);
+    menuBack(t, !!F, true, S, [D.UI.menuSheet(!!S.saved).P, F && F.P]);
     const ty = (y) => Math.round((bk().y0 + y * bk().k) / 2) * 2;
     lab('m_t', TXT('hud.menu'), W / 2, ty(150), { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, ty(230), { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
