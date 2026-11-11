@@ -757,7 +757,7 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   // keep the glow); lit like the lava itself they came out tan. The crossings' basalt likewise (TASKS 448, the occluders' alpha)
   // (TASKS 1036: the cold light is the caps' and the crossings' only; a face keeps the lava's warm light, held under a dull ceiling as
   // in 445, so it reads the concept's maroon lit from its foot, not grey)
-  vec4 oc = texture(u_occ, scr(v_px)); float fb = textureLod(u_face, vec2(w.x, 1.0 - w.y), 0.0).b, capB = step(0.95, fb);
+  vec4 oc = texture(u_occ, scr(v_px)); float fb = textureLod(u_face, vec2(w.x, 1.0 - w.y), 0.0).b * (1.0 - oc.r), capB = step(0.95, fb);
   if (u_haze > 0.5) l = mix(l, min(l, u_amb * 2.0 + vec3(0.22, 0.07, 0.03)), fb * (1.0 - capB) * 0.85);
   float bas = u_haze * max(capB, oc.a * (1.0 - oc.r));
   // the water throws the light it catches back onto the rock over and beside it (TASKS 305): slow bright ripples on a cave's wet
