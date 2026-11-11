@@ -44,8 +44,11 @@
     root.DATA.hitUI = (rs, x, y) => { if (P.cap) { got = 1; for (const b of rs) rectsNow.push(b); } return hit0(rs, x, y); };
     // called round every sim step (review of PR 62): the buttons are the last step's, not every step's of a frame, so a window
     // opened in the frame never keeps the screen before it in its list (play's debug buttons, the menu's)
-    const stepBegin = () => { P.cap = 1; rectsNow = []; got = 0; };
-    const stepEnd = () => { P.cap = 0; const S = io.play(); if (got) { rects = rectsNow; rectsOf = S ? S.screen : ''; } };
+    // the screen is the one the step began on (re-review of PR 62: read after the step, a click that opened the codex filed the
+    // pause's buttons under the codex)
+    let capOf = '';
+    const stepBegin = () => { P.cap = 1; rectsNow = []; got = 0; const S = io.play(); capOf = S ? S.screen : ''; };
+    const stepEnd = () => { P.cap = 0; if (got) { rects = rectsNow; rectsOf = capOf; } };
 
     const down = (c) => { keys[c] = 1; pend.keys.push(c); held.add(c); };
     const up = (c) => { if (held.has(c)) { keys[c] = 0; held.delete(c); } };
@@ -98,9 +101,10 @@
       // (TASKS 1867) a pad press starts the sound as a key or a click does: with the pad alone it never started. Asked again on
       // every press until it runs (review of PR 62: a browser that does not take a pad's press for a gesture keeps it suspended)
       if (root.AUDIO && AUDIO.start && AUDIO.state !== 'running') for (let i = 0; i < 16; i++) if (edge(i)) { AUDIO.start(); break; }
-      if (!S) { if ([0, 1, 2, 3, 7, 9].some(edge)) io.start(); for (let i = 0; i < 16; i++) prev[i] = pr(i); return; }
+      if (!S) { if (edge(0) || edge(1) || edge(2) || edge(3) || edge(7) || edge(9)) io.start(); for (let i = 0; i < 16; i++) prev[i] = pr(i); return; }
       const scr = S.screen || 'play', play = scr === 'play' && S.run, focus = FOCUS.has(scr);
-      if (scr !== last) { last = scr; nav.k = ''; for (const c of held) keys[c] = 0; held.clear(); walk(0, 0); if (ptrDown) { ptr.down = 0; ptrDown = 0; }
+      // a screen entered anew waits for its own buttons: the last visit's (another talk's) stay behind (re-review of PR 62)
+      if (scr !== last) { last = scr; rects = []; rectsOf = ''; nav.k = ''; for (const c of held) keys[c] = 0; held.clear(); walk(0, 0); if (ptrDown) { ptr.down = 0; ptrDown = 0; }
         if (P.active && !play && !focus) { P.pendSnap = 1; } }
       if (P.pendSnap && rectsOf === scr && rects.length) { P.pendSnap = 0; goTo(firstBtn(S)); }
       const [lx, ly, lm] = stick(ax[0], ax[1]), [rx, ry, rm] = stick(ax[2], ax[3]);

@@ -374,8 +374,10 @@
   }
 
   function update(S) {
-    if (!ctx && !asked) { asked = true; (window.requestIdleCallback || setTimeout)(prepare); }
-    if (!ctx || !live || !S || S.demo) { if (S) lastT = S.t; return; }
+    // (re-review of PR 62) idle time may never come at 60 fps on the Deck: built within a second anyway; and nothing is played
+    // until the context runs: sounds queued on a suspended one all went off at once when it resumed
+    if (!ctx && !asked) { asked = true; if (window.requestIdleCallback) requestIdleCallback(prepare, { timeout: 1000 }); else setTimeout(prepare, 0); }
+    if (!ctx || !live || ctx.state !== 'running' || !S || S.demo) { if (S) lastT = S.t; return; }
     const M = S.meta || {}, g = M.mute ? 0 : 0.7 * (M.vol ?? 1); muted = !!M.mute;
     if (g !== gainNow) { master.gain.setTargetAtTime(g, ctx.currentTime, 0.05); gainNow = g; }
     if (S.run !== lastRun && S.run && lastRun && S.t < lastT) lastT = -1;

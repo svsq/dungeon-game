@@ -10,7 +10,7 @@
   L.NOFX = Q.get('fx') === '0';
   // the graphics setting (TASKS 1372, S.meta.gfx): 2 the full picture, 1 middle, 0 low; the scene sets it each frame, ?gfx=0|1|2 overrides
   // (review of PR 62: +'low' was NaN, which ?? keeps, and no setting drew that way)
-  L.GFX = 2; L.GFX_Q = ({ 0: 0, 1: 1, 2: 2, low: 0, mid: 1, high: 2 })[Q.get('gfx')] ?? null;
+  L.GFX = 2; L.GFX_Q = ({ 0: 0, 1: 1, 2: 2, low: 0, mid: 1, high: 2 })[(Q.get('gfx') || '').toLowerCase()] ?? null;
   L.ONLY = (Q.get('only') || '').split(',').filter(Boolean);
 
   // ---------------- shaders (GLSL ES 3.00 bodies; gl.js prepends COMMON: hash, vnoise, fbm, scr) ----------------
@@ -483,7 +483,10 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
       G.drawN(P.spriten, e.U, e.X, e.flip, OFF, n); } };
   const replayRuns = (list, sps) => { for (let i = 0; i < sps.length;) { let j = i + 1; while (j < sps.length && j - i < G.N_OFF && sameSp(sps[i], sps[j])) j++;
     if (j - i === 1) replay(list, sps[i]); else replayN(list, sps, i, j - i); i = j; } };
-  L.STAMP_ONE = G.params.get('stamp1') !== '0';   // ?stamp1=0: every copy replayed on its own, as before 1865 (samecheck's reference)
+  // ?batch=0: every batch off, the picture before 1865–1866 (samecheck's reference): copies one by one, the pose recorded for each
+  // stamp, flat rectangles drawn one by one. ?stamp1=0 (older name) turns off the copies and the pose only
+  L.STAMP_ONE = G.params.get('stamp1') !== '0' && G.params.get('batch') !== '0';
+  L.SOLIDS = G.params.get('batch') !== '0';
   // A rig's silhouette is posed once for the stamps that follow one another with the same draw (TASKS 1866): an elite's aura, its
   // hit flash, its rim and its ink outline were four poses of one rig in one frame. The record is dropped by any sprite drawn for
   // real (the body itself, the next actor), by another L.pre and at the frame's start
@@ -526,7 +529,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // ---------------- primitives ----------------
   L.glow = (x, y, r, col, amt, k = 3.0) => { G.blend('add'); G.draw(P.glow, { u_col: col, u_k: k, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };
   L.shadow = (x, y, rx, ry, amt = 0.5) => G.draw(P.shadow, { u_amt: amt }, G.xf(x - rx, y - ry, 2 * rx, 2 * ry));
-  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (rot || G.rec ? G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
+  L.solid = (x, y, w, h, col, rot = 0, px = 0, py = 0, a = 1) => (rot || G.rec || !L.SOLIDS ? G.draw(P.solid, { u_col: col, u_a: a }, G.xf(x, y, w, h, rot, px, py)) : G.solid(P.solidn, G.xf(x, y, w, h), col, a));   // a: opacity (premultiplied); unturned ones batched (G.solid)
   L.rrect = (x, y, w, h, r, c0, c1 = c0, a = 1) => G.draw(P.rrect, { u_sz: [w, h], u_r: r, u_a: a, u_c0: c0, u_c1: c1 }, G.xf(x, y, w, h));
   L.puff = (x, y, r, col, amt, seed) => G.draw(P.puff, { u_col: col, u_amt: amt, u_seed: seed }, G.xf(x - r, y - r, 2 * r, 2 * r));
   L.star = (x, y, r, col, amt) => { G.blend('add'); G.draw(P.star, { u_col: col, u_amt: amt }, G.xf(x - r, y - r, 2 * r, 2 * r)); G.blend(); };

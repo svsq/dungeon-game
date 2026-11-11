@@ -17,7 +17,7 @@ await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 // Chrome, the browser the game is played in; start it with --js-flags=--expose-gc --enable-precise-memory-info). Without it, Playwright's own Chromium
 const cdp = opt('cdp', ''), vw = +opt('w', 1920), vh = +opt('h', 1080);
 // thru: frames back to back, one finish at the end (CPU and GPU overlap as in play): the frame time a player gets.
-// --query k=v[&k=v]: added to the page's URL (a render switch, e.g. stamp1=0 or gfx=low)
+// --query k=v[&k=v]: added to the page's URL (a render switch, e.g. batch=0 or gfx=low)
 // --angle vulkan|gl|default (TASKS 1373): ANGLE's backend; on the Deck the OpenGL one costs far more CPU per draw than Vulkan
 const angle = opt('angle', process.platform === 'darwin' ? 'metal' : 'default'), vk = angle === 'vulkan' ? ['--enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE'] : [];
 const browser = cdp ? await chromium.connectOverCDP(cdp) : await chromium.launch({ args: ['--use-angle=' + angle, ...vk, '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--expose-gc', '--enable-precise-memory-info'] });

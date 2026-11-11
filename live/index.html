@@ -103,10 +103,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // the pointer is kept where it is on the page and put into view px on every frame (review of PR 57): a resize moves the canvas
   // and changes the view's height under a still pointer, and px kept from the last move would point at the old layout
   let cx = null, cy = null;
-  const toView = (e) => { cx = e.clientX; cy = e.clientY; ptr.moved = 1; viewPtr(); };
+  // while the pad leads, the mouse's position is kept but not applied: a trackpad's drift under pad.js's 12 px moved its pointer off
+  // a button (re-review of PR 62); a click (force) is always the mouse's own
+  const toView = (e, force) => { cx = e.clientX; cy = e.clientY; if (!force && pad && pad.state.active) return; ptr.moved = 1; viewPtr(); };
   const viewPtr = () => { if (cx === null) return; const r = cv.getBoundingClientRect(); ptr.x = (cx - r.left) / r.width * SIM.VIEW.W; ptr.y = (cy - r.top) / r.height * SIM.VIEW.H; };
   addEventListener('pointermove', toView);
-  addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
+  addEventListener('pointerdown', (e) => { toView(e, true); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
     fullSync(true);
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });

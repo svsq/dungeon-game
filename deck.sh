@@ -27,3 +27,6 @@ FLAGS=(--user-data-dir="$PROFILE" --no-first-run --no-default-browser-check --st
 if flatpak info com.google.Chrome >/dev/null 2>&1; then flatpak run com.google.Chrome "${FLAGS[@]}"
 elif command -v google-chrome >/dev/null 2>&1; then google-chrome "${FLAGS[@]}"
 else echo "Нужен Google Chrome: Discover → Google Chrome (Flatpak). Или откройте вручную: $URL"; read -r; fi
+# a Chrome already open on this profile takes the page and the launch returns at once (re-review of PR 62): the server lives on
+# until no Chrome on the profile is left, or the page would lose it
+while pgrep -f -- "--user-data-dir=$PROFILE" >/dev/null 2>&1; do sleep 2; done
