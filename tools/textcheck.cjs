@@ -21,6 +21,8 @@ for (const [k, v] of Object.entries(RU)) for (const m of JSON.stringify(v).match
   const n = 'NAME.' + m[1];
   if (RU[n] === undefined) fails.push(`text_ru.js: ${k} refers to ${n}, which the table lacks`); else used.set(n, 1);
 }
+// a «key@pad» text is the gamepad's twin of «key» (hud.js shows it while the pad speaks): used with its key, and its key must be there
+for (const k of Object.keys(RU)) if (k.endsWith('@pad')) { const base = k.slice(0, -4); if (RU[base] === undefined) fails.push(`text_ru.js: ${k} twins ${base}, which the table lacks`); else if (used.has(base)) used.set(k, 1); }
 for (const k of Object.keys(RU)) if (!used.has(k)) fails.push(`text_ru.js: ${k} is never used`);
 require(path.join(LIVE, 'text_names_ru.js'));
 const BAD = /хуй|хуе|пизд|ебан|ебат|бляд|сука|мудак|жоп|говн|дерьм|ублюд/i, NAMES = globalThis.TEXT.names || {};

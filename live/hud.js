@@ -3,6 +3,10 @@
 // souls. Drawn after the grade at full resolution. Panels are sized to their content and registered for qa.mjs (L.uiBox).
 (function () {
   const HUD = (window.HUD = {}), L = LIB, D = DATA, W = SIM.VIEW.W, H = SIM.VIEW.H, TILE = D.TILE;
+  // the gamepad (R-08, live/pad.js): while it speaks, a text with a «key@pad» twin shows the twin (the pad's buttons for the keys)
+  const onPad = () => !!(window.PAD && window.PAD.active), TX0 = globalThis.TXT;
+  const TXT = Object.assign((k, p) => (onPad() && (k + '@pad') in TEXT.ru ? TX0(k + '@pad', p) : TX0(k, p)), TX0);
+  const PAD_AB = ['Y', 'R1', 'L1'], PAD_POT = { hp_potion: '\u2191', mp_potion: '\u2193', scroll: '\u2190' };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
   const MAP = { key: '', rec: null, cv: null, k: 3 };
@@ -84,7 +88,15 @@
     if (S.screen === 'notes') notes(S);
     if (S.screen === 'board' && R) board(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
+    if (onPad()) padCursor(S);
   };
+  // the pad's pointer (pad.js): a ring on the screens it points on, the aim mark in play; none on the keyboard-walked menus
+  function padCursor(S) {
+    const P = window.PAD, x = P.px, y = P.py, play = S.screen === 'play'; if (x == null || S.demo || P.focusScreen) return;
+    if (play && !S.run) return; const r = play ? 12 : 10, gold = [1, 0.84, 0.42];
+    L.ring(x, y, r + 2, r + 2, [0.05, 0.03, 0.02], 0.8, 0.2); L.ring(x, y, r, r, gold, 0.95, play ? 0.12 : 0.16);
+    if (!play) L.solid(x - 2, y - 2, 4, 4, gold, 0, 0, 0, 0.95);
+  }
 
   // ---------------- attract title over the demo ----------------
   function title(S, t) {
@@ -279,11 +291,11 @@
     D.clsOf(h).abs.forEach((A, i) => { const x = 126 + i * 58, y = 122, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
       skillCell('sk_' + A.id, x, y, 54, A, r, cd, A.cd, h.mp < A.mp, rage);
       if (r && cd > 0) lab('skc_' + A.id, cd.toFixed(1), x + 27, y + 28, { size: 17, al: 0.5 });
-      lab('skk_' + A.id, A.key, x + 6, y + 8, { size: 14, col: C.gold }); });
+      lab('skk_' + A.id, onPad() ? PAD_AB[i] : A.key, x + 6, y + 8, { size: 14, col: C.gold }); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
     [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].concat(R.viaTown ? [['scroll', 'it_scroll', 'T']] : []).forEach(([b, ic, k], i) => { const x = 304 + i * 50, y = 126;
-      K.nine('cell', x, y, 46, 46); L.uiBox('pot_' + b, x, y, 46, 46, 0); icon(ic, x + 7, y + 6, 32); lab('potn_' + b, pot(b), x + 41, y + 37, { size: 15, al: 1 }); lab('potk_' + b, k, x + 8, y + 10, { size: 12, col: C.gold }); });
+      K.nine('cell', x, y, 46, 46); L.uiBox('pot_' + b, x, y, 46, 46, 0); icon(ic, x + 7, y + 6, 32); lab('potn_' + b, pot(b), x + 41, y + 37, { size: 15, al: 1 }); lab('potk_' + b, onPad() ? PAD_POT[b] : k, x + 8, y + 10, { size: 12, col: C.gold }); });
     // stats column (light numbers on a narrow plate under the portrait)
     const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
     const sw = Math.max(...rows.map(([, v], i) => lw('stv' + i, v, { size: 19 }))) + 54;

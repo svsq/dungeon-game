@@ -64,11 +64,14 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
+    if (c === 'F2') { devOn = !devOn; e.preventDefault(); return; }                          // the dev line without editing the address
     if (c === 'KeyP') { paused = !paused; e.preventDefault(); return; }
     if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
     if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
     keys[c] = 1; if (play && !(e.repeat && c === 'KeyE')) pend.keys.push(c);
+    // the Steam Deck in desktop mode sends Enter from A (TASKS 252): in play it acts, as E does
+    if (c === 'Enter' && play && play.screen === 'play' && !e.repeat) pend.keys.push('KeyE');
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay();
     e.preventDefault();
@@ -84,10 +87,15 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; });
+  // the gamepad (pad.js, R-08): writes keys, ptr and pend as the listeners above do; R3 or F2 toggle the dev line
+  let devOn = q.has('dev') || /dev/.test(location.hash), padCursor = false;
+  const pad = window.PADIN ? PADIN.create({ keys, ptr, pend, VW, VH, play: () => play, start: () => { if (!play) startPlay(); }, dev: () => { devOn = !devOn; } }) : null;
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
     fpsAcc += wall; fpsN++; if (fpsAcc > 0.5) { fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; }
+    if (pad) pad.poll(wall, simT);                           // in real time, not scaled by the dev speed
+    if (pad && !!pad.state.active !== padCursor) { padCursor = !!pad.state.active; cv.style.cursor = padCursor ? 'none' : 'crosshair'; }   // the HUD draws the pad's pointer
     const dt = paused ? (stepOnce ? 1 / 60 : 0) : wall * speed; stepOnce = false;
     simT += dt;
     if (play) {
@@ -95,7 +103,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
         jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys,
         now: Date.now() - new Date().getTimezoneOffset() * 60000 };
+      if (pad) pad.stepBegin();
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
+      if (pad) pad.stepEnd();
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);
@@ -104,8 +114,8 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     } else SCENE.state = null;
     try { SCENE.render(simT); } catch (e) { if (!window.__renderErr) { window.__renderErr = e; console.error(e); } }   // log once, keep the loop alive
     if (window.AUDIO) try { AUDIO.update(play); } catch (e) { if (!window.__audioErr) { window.__audioErr = e; console.error(e); } }
-    if (!STATIC) dev.style.display = (paused || speed !== 1 || q.has('dev')) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
-    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  `;
+    if (!STATIC) dev.style.display = (paused || speed !== 1 || devOn) ? 'block' : 'none';   // debug line only when paused / slowed or with ?dev
+    if (!STATIC) dev.textContent = `LIVE  ${play ? 'play' : 'demo'}  ${paused ? 'PAUSED' : speed + '×'}  ${fps.toFixed(0)} fps   P pause  [ ] speed  . step  ` + (pad && pad.state.raw ? `\nPAD ${pad.state.n} «${pad.state.raw.id}» ${pad.state.map}  ax ${pad.state.raw.ax.join(' ')}  b[${pad.state.raw.b.join(' ')}]  ${pad.state.mode}` : '');
     requestAnimationFrame(loop);
   };
   loop();
