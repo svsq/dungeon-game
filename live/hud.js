@@ -447,7 +447,7 @@
   function minimap(S, R, t) {
     const m = R.map, k = mapK(R), mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
     const hid = SIM.Q.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
-    if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
+    if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d', { willReadFrequently: true }); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
       const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };

@@ -35,7 +35,7 @@
     const P = { active: 0, at: -99, n: 0, px: io.VW / 2, py: io.VH / 2, mode: 'kbm', screen: '', raw: null }; root.PAD = P;
     const { keys, ptr, pend } = io, kb = {};   // kb: the keyboard's own arrows, so an idle stick never lets go of a held key
     addEventListener('keydown', (e) => { if (e.isTrusted) kb[e.code] = 1; }, true); addEventListener('keyup', (e) => { kb[e.code] = 0; }, true);
-    let idx = -1, on = 0, prev = [], held = new Set(), moveK = {}, nav = { k: '', t: 0, n: 0 }, last = '', aim = [1, 0, 0.6], aimT = -99, ptrDown = 0;
+    let idx = -1, on = 0, soundOn = false, prev = [], held = new Set(), moveK = {}, nav = { k: '', t: 0, n: 0 }, last = '', aim = [1, 0, 0.6], aimT = -99, ptrDown = 0;
     // the buttons the screen hit-tests this step: DATA.hitUI is called by every screen with its whole list (sim_ui.js), so the
     // list is read off that call instead of copying each screen's layout here
     let rects = [], rectsNow = [], rectsOf = '', got = 0;   // rectsOf: the screen they were read on
@@ -86,6 +86,8 @@
       P.active = P.mode === 'pad' ? 1 : 0;
       P.map = (gp.mapping || '—') + (V.std ? '' : ' (xpad)');
       P.raw = { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) };
+      // (TASKS 1855) a pad press starts the sound as a key or a click does: with the pad alone it never started
+      if (!soundOn && root.AUDIO && AUDIO.start && Array.from({ length: 16 }, (_, i) => i).some(edge)) { soundOn = true; AUDIO.start(); }
       if (!S) { if ([0, 1, 2, 3, 7, 9].some(edge)) io.start(); for (let i = 0; i < 16; i++) prev[i] = pr(i); return; }
       const scr = S.screen || 'play', play = scr === 'play' && S.run, focus = FOCUS.has(scr);
       if (scr !== last) { last = scr; nav.k = ''; for (const c of held) keys[c] = 0; held.clear(); walk(0, 0); if (ptrDown) { ptr.down = 0; ptrDown = 0; }

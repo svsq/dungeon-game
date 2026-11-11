@@ -591,7 +591,8 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   const LBL = {};
   const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315' } = {}) => {
     const { font, px, unit } = fit(size); let r = LBL[slot]; const key = [str, font, col, out].join('|'); if (r && r.key === key) return r;
-    const cv = G.canvas(), g = cv.getContext('2d'), pad = Math.ceil(px * 0.3) + unit;
+    // (TASKS 1855: a CPU canvas; a GPU one made every upload a round trip through the GPU process, a new screen's labels 0.3–0.6 s on the Deck)
+    const cv = G.canvas(), g = cv.getContext('2d', { willReadFrequently: true }), pad = Math.ceil(px * 0.3) + unit;
     g.font = font; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
     cv.width = Math.max(1, w); cv.height = h; g.font = font; g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
     const stamp = (dx, dy, c) => { g.fillStyle = c; g.fillText(str, pad + dx * unit, base + dy * unit); };
