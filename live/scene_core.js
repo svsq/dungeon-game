@@ -369,6 +369,11 @@ bool plat(vec2 p){ return isOpen(p) && lavaAt(p) <= 0.5 && textureLod(u_plat, p 
 bool drop(vec2 p){ if (isWall(p)) return false; if (!isOpen(p)) return true;
   return textureLod(u_hot, p / u_map, 0.0).r + (fbm(p / 20.0) - 0.5) * 0.2 + min((fbm(p / 64.0 + 3.1) - 0.5) * 0.5, (fbm(p / 64.0 + 3.1) - 0.5) * 1.2) > 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3; }
 bool dropRaw(vec2 p){ return textureLod(u_plat, p / u_map, 0.0).r < 0.5 && textureLod(u_crust, p / u_map, 0.0).r < 0.3 && textureLod(u_cliff, p / u_map, 0.0).r < 0.5; }
+// (each edge column its own width, place in its cell and slant of its top, TASKS 1795: a row of them filled their cells edge to
+// edge, one flat cap and one face each, and read as a fence of identical candles; the gaps show the lava or the dark behind)
+float colHW(float i){ return CW * 0.5 - 2.0 * floor(hash(vec2(i, 2.7)) * 3.5); }
+float colShift(float i){ return 2.0 * floor((hash(vec2(i, 8.3)) - 0.5) * (CW * 0.5 - colHW(i))); }
+float colTilt(float i){ return 2.0 * floor(hash(vec2(i, 6.1)) * 5.0) - 4.0; }
 // the south-edge column over w's x: (its centre x, its top's centre y, its face's height, 1 over the lava); y 0 when there is none
 vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y + 12.0;
   if (plat(vec2(cx, y0))) return vec4(cx, 0.0, 0.0, 0.0);
@@ -379,11 +384,11 @@ vec4 column(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5, y0 = w.y
   // the face runs down to the lower row)
   float stp = u_step * step(0.5, max(textureLod(u_stepm, vec2(cx, ey + 20.0) / u_map, 0.0).r, textureLod(u_stepm, vec2(cx, ey + 36.0) / u_map, 0.0).r)), cap = u_step > 0.5 ? 180.0 : 80.0;
   float run = 0.0; for (int k = 1; k <= 90; k++) { if (float(k) * 2.0 > cap || !dropRaw(vec2(cx, ey + float(k) * 2.0 - 1.0))) break; run = float(k) * 2.0; }
-  float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 40.0 + floor(hash(vec2(i, 3.1)) * 13.0) * 2.0 + (1.0 - lava) * 24.0;
+  float lava = step(0.5, lavaAt(vec2(cx, ey + 4.0))), hgt = 34.0 + floor(hash(vec2(i, 3.1)) * 19.0) * 2.0 + (1.0 - lava) * 24.0;
   if (u_step > 0.5) hgt = stp > 0.5 ? 999.0 : 64.0 + floor(hash(vec2(i, 3.1)) * 17.0) * 2.0;
   float h = min(hgt, run - (lava > 0.5 ? 16.0 : stp > 0.5 ? 0.0 : 4.0)) - lava * 2.0 * floor(hash(vec2(i, 9.1)) * 4.0); if (h < 8.0) h = 0.0;
-  float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0;
-  return vec4(cx, ty, h, stp > 0.5 ? 2.0 : step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava; 2: a step's, on the floor
+  float ty = ey + floor(hash(vec2(i, 5.3)) * 5.0) * 2.0 - 8.0 + (u_step < 0.5 && hash(vec2(i, 4.4)) < 0.22 ? 8.0 + 2.0 * floor(hash(vec2(i, 4.9)) * 4.0) : 0.0);   // (some broken off lower, TASKS 1795)
+  return vec4(cx + colShift(i), ty, h, stp > 0.5 ? 2.0 : step(0.5, lavaAt(vec2(cx, ty + h + 4.0)))); }   // its foot glows only where it stands in the lava; 2: a step's, on the floor
 // the north-edge column's top over w's x (the edge's far side shows only the tops)
 vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
   if (plat(vec2(cx, w.y - 10.0))) return vec4(cx, 0.0, 0.0, 0.0);
@@ -391,9 +396,9 @@ vec4 northTop(vec2 w){ float i = floor(w.x / CW), cx = i * CW + CW * 0.5;
     if (!drop(vec2(cx, y - 2.0))) break; return vec4(cx, y + 3.0 + floor(hash(vec2(i, 6.7)) * 2.0) * 2.0, 0.0, 0.0); } }
   return vec4(cx, 0.0, 0.0, 0.0); }
 // where w falls on a column (half width hw): 0 off it, 1 its top, 2 its face; f: across, down the face 0..1
-float colAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx / hw; f = vec2(xx, 0.0);
+float colAt(vec2 w, vec4 c, out vec2 f, float hw, float tl){ float xx = w.x - c.x, ex = xx / hw; f = vec2(xx, 0.0);
   if (c.y <= 0.0 || abs(xx) > hw) return 0.0;
-  float ry = (w.y - c.y) / 8.0; if (ex * ex + ry * ry < 1.0) return 1.0;
+  c.y += 2.0 * floor(tl * ex); float ry = (w.y - c.y) / 8.0; if (ex * ex + ry * ry < 1.0) return 1.0;
   // (its foot curves as its cap does, TASKS 1038: cut straight, the glow under it ran as ruled bars a column wide)
   if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z + 8.0 * sqrt(max(0.0, 1.0 - ex * ex))) { f.y = min(1.0, (w.y - c.y) / c.z); return 2.0; }
   return 0.0; }
@@ -422,7 +427,7 @@ float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foo
       vec4 cj = vec4(floor((ctr.x + o.x) / 2.0) * 2.0 + 1.0, floor(max(ctr.y + o.y, g.y * G.y + 10.0) / 2.0) * 2.0 + 1.0, h, 1.0);
       if (abs(w.x - cj.x) > hw || w.y < cj.y - 10.0 || w.y > cj.y + h + 14.0) continue;
       if (textureLod(u_lake, cj.xy / u_map, 0.0).r < 0.5 || textureLod(u_lake, vec2(cj.x, cj.y + h) / u_map, 0.0).r < 0.5) continue;
-      vec2 ff; float k = colAt(w, cj, ff, hw);
+      vec2 ff; float k = colAt(w, cj, ff, hw, 0.0);
       if (k > 0.5 && cj.y + cj.z > by) { by = cj.y + cj.z; on = k; c = cj; f = ff; hwo = hw; }
       { float fx = (w.x - cj.x) / (hw + 7.0), fy = (w.y - cj.y - cj.z) / 13.0, rr = sqrt(fx * fx + fy * fy); if (k < 0.5 && rr < 1.0) foot = max(foot, clamp((1.0 - rr) * 1.6, 0.0, 1.0)); } } }
   return on; }
@@ -436,7 +441,7 @@ float sunk(vec2 w, out vec4 c, out vec2 f, out float dim){ dim = 0.0; float best
     float ey = -1.0; for (int k = 1; k <= 100; k++) { float y = w.y - float(k) * 2.0; if (plat(vec2(cx, y))) { ey = y + 1.0; break; } }
     if (ey < 0.0) continue; vec2 below = vec2(cx, ey + 8.0); if (isOpen(below) || isWall(below) || lavaAt(below) > 0.5) continue;
     float top = ey + 64.0 + floor(hash(vec2(i, 9.3 + float(r))) * 24.0) * 2.0 + float(r) * 20.0, hw = 11.0 + floor(hash(vec2(i, 4.4 + float(r))) * 4.0);
-    vec4 cj = vec4(cx, top, 90.0, 0.0); vec2 ff; float k = colAt(w, cj, ff, hw);
+    vec4 cj = vec4(cx, top, 90.0, 0.0); vec2 ff; float k = colAt(w, cj, ff, hw, 0.0);
     if (k > 0.5 && top > by) { by = top; best = k; c = cj; f = ff; f.x = ff.x / hw * 15.0; dim = smoothstep(64.0, 140.0, top - ey); } }
   return best; }
 // where the chasm opens in the lava a rim of basalt stones breaks the lava's edge off into it (TASKS 1059: a black pool behind a
@@ -467,17 +472,18 @@ vec3 faceCol(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx
   if (c.w > 1.5) col *= 1.0 - 0.35 * smoothstep(0.55, 1.0, fq);   // a step's face stands on the lower row: only its foot is shaded
   // (only its lower two fifths red, brightening to its foot, TASKS 447, 1053: ref_cave_lava's faces stay dark above; a fifth was too little)
   // (where the red begins moves per column and along its width, TASKS 1715: one band at the same height on every column)
-  else if (c.w > 0.5) { float b0 = 0.38 + 0.26 * hash(vec2(id, 4.1)) + 0.2 * (vnoise(vec2(w.x / 6.0 + id * 13.0, id * 3.0)) - 0.5);
-    float g = smoothstep(b0, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0);
-    col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.7, 1.0, fq) * step(xx, 0.5)), g * 0.9); }
+  // (and how hot it is and how far its hot foot reaches, TASKS 1795: every column had the same red underside)
+  else if (c.w > 0.5) { float hr = hash(vec2(id, 7.9)), b0 = 0.3 + 0.42 * hash(vec2(id, 4.1)) + 0.3 * (vnoise(vec2(w.x / 6.0 + id * 13.0, id * 3.0)) - 0.5);
+    float g = smoothstep(b0, 1.0, fq) * (xx < 0.82 ? 1.0 : 0.4) * (streak < 0.3 ? 0.6 : 1.0) * (0.45 + 0.55 * hr);
+    col = mix(col, mix(vec3(0.38, 0.07, 0.025), vec3(0.95, 0.4, 0.08), smoothstep(0.62 + 0.3 * hr, 1.0, fq) * step(xx, 0.5 - 0.6 * hash(vec2(id, 2.3)))), g * 0.9); }
   else col *= 1.0 - 0.85 * smoothstep(0.35, 1.0, fq);
   return col; }
 void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
   // the columns: the edge's only near a plateau (the floor mask over the few cells above), else a lake's
   float nearP = 0.0; for (int k = 0; k <= 6; k++) nearP = max(nearP, textureLod(u_plat, (w - vec2(0.0, float(k) * 16.0)) / u_map, 0.0).r);
   vec4 c = vec4(0.0); vec2 f = vec2(0.0); float on = 0.0, hw = CW * 0.5, foot = 0.0;
-  if (nearP > 0.02) { c = column(w); on = colAt(w, c, f, hw);
-    if (on < 0.5) { vec4 n = northTop(w); if (colAt(w, n, f, hw) > 0.5) { c = n; on = 1.0; } }
+  if (nearP > 0.02) { c = column(w); float ci = floor(c.x / CW); hw = colHW(ci); on = colAt(w, c, f, hw, colTilt(ci) * 0.5);
+    if (on < 0.5) { vec4 n = northTop(w); hw = CW * 0.5; if (colAt(w, n, f, hw, 0.0) > 0.5) { c = n; on = 1.0; } else hw = colHW(ci); }
     if (on < 0.5 && c.y > 0.0 && c.z > 0.0 && c.w > 0.5 && c.w < 1.5 && abs(w.x - c.x) <= hw && w.y >= c.y + c.z) foot = clamp(1.0 - (w.y - c.y - c.z) / 12.0, 0.0, 1.0); }
   else { float hi; on = island(w, c, f, foot, hi); if (on > 0.5) hw = hi; }
   if (u_out > 0.5) { o = vec4(on > 0.5 ? 1.0 : 0.0, on > 0.5 ? 0.0 : foot, on > 1.5 ? 0.9 * (1.0 - smoothstep(0.55, 0.95, f.y)) : on > 0.5 ? 1.0 : 0.0, 1.0); return; }
