@@ -3,7 +3,7 @@
 (function () {
   const SCX = window.SCX, {
     ARC_HALF, ARC_MID, BAKE, BLOOD, D, DRIP_FALL, EN_TEX, GLOW_COL, HERO_H, L, PILLAR_T, PIX, RIM, SC, SS, STAND, SWING, SZ, TAU, TILE,
-    TOWN_LIGHT, breathFx, chestOpenD, statueSlide, crustTex, dripAge, flameAt, glowBeat, glowOf, impSpark, modCol, rnd, surgeBox, surgeTex, swimFx, swimOf,
+    TOWN_LIGHT, breathFx, chestOpenD, statueSlide, crustTex, dripAge, flameAt, glowBeat, glowOf, impSpark, lavaTex, modCol, rnd, surgeBox, surgeTex, swimFx, swimOf,
     swingPose, torchCol } = SCX;
   const chirp = L.chirp;
   SCX.fxPass = (F) => {
@@ -283,7 +283,7 @@
           if (i % 6 === 0) { const b = (chirp(w, H.warn, 1.1, 2) + rnd(c, 1)) % 1; L.star(X + (rnd(c, 2) - 0.5) * 20, Y - 4 - 26 * b, 2 + 3 * k * (1 - b), [1, 0.6 + 0.3 * (1 - b), 0.15], k * (1 - b)); } }); }
       const box = surgeBox(z), xf = G.xf(sx(box[0]), sy(box[1]), box[2], box[3]);
       const FR = 0.4, fr = w >= H.warn - FR ? (w - (H.warn - FR)) / FR * 1.1 : -1;
-      const u = (mode) => ({ u_t: GT, u_q: q, u_fr: fr, u_mask: surgeTex(m, z), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0, u_face: BAKE.face || seen, u_occ: SCX.LT.occ });
+      const u = (mode) => ({ u_t: GT, u_q: q, u_fr: fr, u_mask: surgeTex(m, z), u_lv: lavaTex(m), u_crust: crustTex(m), u_melt: melt.flatMap((p) => p.slice(0, 4)), u_seen: seen, u_box: box, u_map: [MW, MH], u_mode: mode, u_scorch: 0, u_face: BAKE.face || seen, u_occ: SCX.LT.occ });
       G.draw(L.P.spill, u(0), xf); G.blend('add'); G.draw(L.P.spill, u(2), xf); G.blend(); }
     // a vent's warning (TASKS 406), from its clock: the ring it will throw lava over heats up and beats faster, its mouth bubbles
     // a gate's vents glow through the fog in time with their clock once in sight (TASKS 1712: its rings showed 6 cells off, under one cycle's walk); no cell is revealed

@@ -822,17 +822,21 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
     // the lava round it) over its band, cell by cell (its mask unblurred: a blurred one lay over a bridge's deck as a rounded pill),
     // welling up in patches as u_q rises (a slow noise, the cells by the lava first: the mask's blue), and over the warning's last
     // moments a front running from the lavafall down the band (u_fr against the mask's green, how far a cell is from the fall)
-    const SPILL = MLAVA.replace('uniform sampler2D u_mask,', 'uniform float u_q, u_fr; uniform sampler2D u_mask,')
+    // (TASKS 1894: its band's cells ran as a box over the floor, straight-edged and rimless: where it borders floor, not lava (u_lv),
+    // a warped second look eats its edge back up to ~20 px, never out past the band, and its yellow lip comes back there; its
+    // cells' levels are read warped too, or the patches welling up met along the cells' straight edges)
+    const SPILL = MLAVA.replace('uniform sampler2D u_mask,', 'uniform float u_q, u_fr; uniform sampler2D u_lv, u_mask,')
       .replace('float mAt(vec2 p){ return textureLod(u_mask, p / u_map, 0.0).r - edgeBite(p, u_map); }',
-        'float mAt(vec2 p){ vec4 M = textureLod(u_mask, p / u_map, 0.0), C = texelFetch(u_mask, ivec2(p / u_map * vec2(textureSize(u_mask, 0))), 0);\n' +
+        'float mAt(vec2 p){ vec2 wp = (vec2(fbm(p / 26.0 + 1.7), fbm(p / 26.0 + 6.1)) - 0.5) * 64.0, pw = p + wp * (1.0 - textureLod(u_lv, p / u_map, 0.0).r);\n' +
+        '  vec4 M = min(textureLod(u_mask, p / u_map, 0.0), textureLod(u_mask, pw / u_map, 0.0)), C = texelFetch(u_mask, ivec2((p + wp) / u_map * vec2(textureSize(u_mask, 0))), 0);\n' +
         '  float lv = clamp((fbm(p / 18.0 + vec2(0.0, u_t * 0.25)) - 0.3) / 0.4, 0.0, 1.0) * 0.8 + C.b * 0.2, q = max(u_q, step(C.g + (vnoise(p / 24.0) - 0.5) * 0.12, u_fr));\n' +
         '  return M.r * (1.0 - smoothstep(q - 0.1, q + 0.02, lv)) - edgeBite(p, u_map); }')
       .replace('vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;', 'vec2 fl = vec2(0.0);')
-      // (no bright bank round it: its band lies along a deck or a ridge by the lava, and the rim drew it as a box)
-      .replace('  col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;', '')
+      // (no bright bank where it meets the lava or a deck over it: there the rim drew its band as a box)
+      .replace('  col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;', '  if (textureLod(u_lv, w / u_map, 0.0).r < 0.2) col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;')
       // (drawn over the fog of war, it keeps to the explored cells: u_seen, 0 on an unexplored floor's)
       .replace('float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d);', 'float d = (e - 0.5) / max(g, 0.002), inside = step(0.0, d) * smoothstep(0.1, 0.3, texture(u_seen, w / u_map).r);');
-    if (SPILL.split('u_fr').length < 3 || SPILL.includes('vec3(1.0, 0.92, 0.3) : d < 5.0') || !SPILL.includes('vec2 fl = vec2(0.0);') || !SPILL.includes('smoothstep(0.1, 0.3, texture(u_seen')) throw new Error('SPILL: MLAVA changed under its patches');
+    if (SPILL.split('u_fr').length < 3 || !SPILL.includes('u_lv, w / u_map') || !SPILL.includes('vec2 fl = vec2(0.0);') || !SPILL.includes('smoothstep(0.1, 0.3, texture(u_seen')) throw new Error('SPILL: MLAVA changed under its patches');
     L.init(W, H, { spill: SPILL, flame: FLAME, arc: ARC, lit: LIT, portal: PORTAL, lava: LAVA, mlava: MLAVA, pool: WATER, cave: CAVE, magma: MAGMA, magmasrc: MAGMA_SRC, cavewater: CAVE_WATER, cavesrc: CAVE_SRC, serptele: SERP_TELE, jet: JET, whirl: WHIRL, fireball: FIREBALL, blast: BLAST }, { pixel: PIX * Z, view: [VW, VH] });
     if (LT) { G.free(LT.light); G.free(LT.lit); G.free(LT.occ); }
     // occ: the silhouettes of the monsters before the lava, which its glow and shimmer leave out (TASKS 407)
