@@ -201,7 +201,7 @@
   // slider, a click or a drag sets a slider, «Назад», Escape or Enter on «Назад» go back where it was opened from
   const openSettings = (S, from) => { S.screen = 'settings'; S.setFrom = from; S.hover = ''; S.drag = ''; S.focus = D.SETTINGS[0].id; };
   const setTo = (S, q, i) => { const v = q.stops[Math.max(0, Math.min(q.stops.length - 1, i))]; if (S.meta[q.key] === v) return false;
-    S.meta[q.key] = v; if (q.key === 'zoom' && S.run) S.run.zoom = v; S.saveN++; return true; };
+    S.meta[q.key] = v; if (q.key === 'zoom' && S.run) { S.run.zoom = v; if (S.run.map) SIMX.snapCam(S.run); } S.saveN++; return true; };
   const stopOf = (S, q) => { const i = q.stops.indexOf(S.meta[q.key] ?? q.def); return i < 0 ? q.stops.indexOf(q.def) : i; };
   SCREEN.settings = (S, inp, keys, x, y, click) => {
     const U = UI.settings(), b = D.hitUI(U.r, x, y), order = U.r.map((q) => q.id); S.hover = b ? b.id : '';

@@ -27,6 +27,11 @@
       if (T.meta.zoom !== D.ZOOMS[0]) out.push('settings: a click at the slider\'s left end does not set ×0,5');
       step(T, { keys: [], press: 0 }); step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.bright !== 1.2) out.push('settings: → on the brightness row does not brighten one step');
       step(T, { keys: ['Escape'] }); if (T.screen !== 'menu') out.push('settings: Escape does not go back to the menu'); }
+    // TASKS 1784: a zoom changed from the pause moves the camera at once, the world behind the pause framed as play will frame it
+    { const T = spawn(0, { meta: { zoom: 1, up: {} } }); T.run = newRun(T, 'campaign', 31); T.screen = 'play'; for (let i = 0; i < 20; i++) step(T, { keys: [] });
+      const R = T.run, h = R.hero; T.screen = 'pause'; step(T, { keys: [], click: 1, px: UI.pause(T.meta.zoom).find((q) => q.id === 'settings').x + 10, py: UI.pause(T.meta.zoom).find((q) => q.id === 'settings').y + 10 });
+      step(T, { keys: ['ArrowLeft'] }); const z = R.zoom, cw = SIMX.WIN(R), mid = [R.cam[0] + cw.W / 2, R.cam[1] + cw.H / 2], c0 = [R.cam[0], R.cam[1]]; SIMX.snapCam(R);
+      if (T.screen !== 'settings' || z === 1 || Math.hypot(R.cam[0] - c0[0], R.cam[1] - c0[1]) > 1 || Math.hypot(mid[0] - h.x, mid[1] - h.y) > cw.W / 2) out.push('settings: a zoom changed from the pause leaves the camera where the old zoom had it'); }
     { const T = spawn(0, { meta: { up: {} } }), at = (rs, id) => { const b = rs.find((q) => q.id === id); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; };
       if (UI.menu(false).some((q) => q.id === 'diff')) out.push('start: the menu still has its difficulty item');
       if (!D.UI.newsFrame((D.CHANGES[0] || {}).main) !== !((D.CHANGES[0] || {}).main || []).length || D.UI.newsFrame([])) out.push('news: the menu\'s frame is shown without lines or hidden with them');
