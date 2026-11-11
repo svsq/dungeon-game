@@ -200,8 +200,10 @@ void main(){ vec2 w = floor((u_box.xy + v_uv * u_box.zw) / 2.0) * 2.0 + 1.0;
   float pool = step(0.6 + (id - 0.5) * 0.08, fbm(p / 18.0 + 17.0) * 0.6 + vnoise(p / 7.0 + 3.0) * 0.4);   // (≈ 40 px backwaters, TASKS 1038, 1047: they lay as blots mid-lake)
   if (pool > 0.5) col = hash(vec2(id, 9.3)) < 0.45 ? Dk : Rd;
   // (the seams 3–4 px with a thin lemon core, TASKS 1038, 1047: a cream thread washed the lava's colour out, 44 against 82)
-  float core = step(seam, 0.15 + 0.1 * beat) * (1.0 - pool);
-  col = seam < 0.15 + 0.1 * beat ? (pool > 0.5 ? YO : vec3(1.35, 1.35, 0.5)) : seam < 0.75 + 0.2 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.4 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 2.3 && pool < 0.5 ? mix(col, O1, 0.5) : col;
+  // (TASKS 1902: the yellow net a third thinner, 22 % of the lava at L* ≥ 75 against the ref's 15, and in the hottest few seams the
+  // core goes near white, as the ref's do: ours stopped at lemon)
+  float core = step(seam, 0.15 + 0.1 * beat) * (1.0 - pool), white = step(0.84, hash(vec2(id, 2.7)));
+  col = seam < 0.15 + 0.1 * beat ? (pool > 0.5 ? YO : mix(vec3(1.35, 1.35, 0.5), vec3(1.45, 1.45, 1.2), white)) : seam < 0.47 + 0.15 * beat ? (pool > 0.5 ? O1 : Y) : seam < 1.4 ? (pool > 0.5 ? mix(col, O2, 0.5) : YO) : seam < 2.3 && pool < 0.5 ? mix(col, O1, 0.5) : col;
   col = d < 2.0 ? vec3(1.0, 0.92, 0.3) : d < 5.0 ? YO : col;
   // at a column's foot: a hot line where it meets the lava, then its shadow, the lava dark red and cooling
   // past a short shadow the lava round a column's foot glows (TASKS 481: the concept's columns stand in a bright halo)
