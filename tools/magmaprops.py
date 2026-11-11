@@ -88,7 +88,9 @@ def hewn(im):
     drawn = yy <= np.nonzero((a[..., 3] >= 128).any(1))[0].max()
     hole, rim, lip = inside(r, 0) & drawn, (inside(r + HEWN_PX, 1) | inside(r, 0)) & drawn, inside(r + 3 * HEWN_PX, 2) & drawn
     out = np.zeros_like(a)
-    out[hole, :3] = a[hole, :3] * np.array([0.8, 0.576, 0.496]); out[hole, 3] = 255
+    # the treads' grain kept to whole art pixels (TASKS 1912: finer than a block, it was lost to the downscale as mush)
+    blk = a[np.minimum((yy // HEWN_PX) * HEWN_PX + HEWN_PX // 2, H - 1), np.minimum((xx // HEWN_PX) * HEWN_PX + HEWN_PX // 2, W - 1)]
+    out[hole, :3] = blk[hole, :3] * np.array([0.8, 0.576, 0.496]); out[hole, 3] = 255
     out[rim & ~hole] = INK + (255,)
     band = lip & ~rim & (yy < cy + 40)
     n = np.random.default_rng(7).random((H // HEWN_PX + 1, W // HEWN_PX + 1))[yy // HEWN_PX, xx // HEWN_PX]
