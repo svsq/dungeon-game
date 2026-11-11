@@ -66,7 +66,10 @@
     S.slot = j; }
   // the run's timers are marks on the clock it was played on, so the clock goes back to the run's own; the events and menu marks of
   // what was played since would then lie in its future, and go
-  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t }; }
+  // the monsters wait under the floor's name a moment as on an arrival (TASKS 1812): an elite left at arm's length struck at once
+  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t };
+    R.holdT = S.t + RESUME_HOLD; R.hero.ifr = Math.max(R.hero.ifr || 0, R.holdT); }
+  const RESUME_HOLD = 1.2;
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
     resume(S, R); S.saveN++; return true; }

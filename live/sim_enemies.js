@@ -359,6 +359,7 @@
     for (const e of R.en) {
       const E = ENEMIES[e.type];
       // (one blast at least BOOM_GAP after the last, TASKS 1051: a neighbour's set off by it burst at once, 3 in 1.3 s, 2 on one tick)
+      if (t < (R.holdT ?? -1) && e.deadT < 0) { e.vx = e.vy = 0; if (e.t0 !== undefined) e.t0 += DT; if (e.cdT !== undefined) e.cdT = Math.max(e.cdT, R.holdT + 0.3); if (e.tugW) e.tugW += DT; continue; }
       if (e.deadT >= 0) { if (e.fuse && t >= e.fuse) { if (t >= (R.boomT ?? -9) && t - (R.boomT ?? -9) < BOOM_GAP) { e.fuse = R.boomT + BOOM_GAP; ev(S, { k: 'fuse', x: e.x, y: e.y, r: (ENEMIES[e.type].boom || MOD.explosive).r, d: e.fuse - t, id: e.id }); } else blast(S, R, e); } continue; }
       // the ice wave's chill (TASKS 1110) slows its walk and run (toward, steer, soak) until it thaws
       // and the archer's trap holds it where it stands (TASKS 1120)
