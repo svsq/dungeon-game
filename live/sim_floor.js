@@ -290,7 +290,13 @@
   function giveShards(S, R, n, x, y, s) { R.shards += n; S.meta.shards += n; tally(S, R, 'shards', n); ev(S, { k: 'shard', x, y, n, floor: R.floor, s }); }
   // a floor's kills, loot or secrets brought to 100 % pay once, on the spot
   function checkFull(S, R) { const f = fstat(R), h = R.hero; f.full = f.full || {};
-    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); } }
+    for (const [k, n, s] of FULL) if (!f.full[k] && f[n] > 0 && f[k] >= f[n]) { f.full[k] = 1; giveShards(S, R, REWARD.full, h.x, h.y, TXT('sim_floor.checkFull', { s, full: REWARD.full })); }
+    markStairs(R, f); }
+  // half the floor's foes slain shows the way on (TASKS 1808, 388): a patch of the fog round the stairs lifts, so the minimap's
+  // stairs and the stairs themselves show through the dark; done in the fog, not the HUD, so it reads on the map and in the world alike
+  const STAIRS = { share: 0.5, r: 2 };
+  function markStairs(R, f) { const m = R.map, q = m.exit; if (f.stairs || R.town || !q || !(f.foes > 0) || f.kills < f.foes * STAIRS.share) return; f.stairs = 1;
+    const hid = secretMask(m); for (let y = q.ty - STAIRS.r; y <= q.ty + STAIRS.r; y++) for (let x = q.tx - STAIRS.r; x <= q.tx + STAIRS.r; x++) if (x >= 0 && y >= 0 && x < m.W && y < m.H && !hid.has(y * m.W + x)) R.seen[y * m.W + x] = 1; }
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
   const MASK = { key: '', set: null };
@@ -328,5 +334,5 @@
 
   Object.assign(SIMX, {
     migrateTown, newRun, genApart, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
-    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, mapCut, hidden, migrateSecrets });
+    stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, markStairs, secretMask, mapCut, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);
