@@ -48,7 +48,7 @@
   // a new game's first steps in the town: after a breath he leaves the fire, comes over to the hero (held meanwhile) with a word on
   // the way and opens the first talk, then goes back to the fire. R.greet: 1 armed by startRun, { st } while it plays, 'done' after;
   // a run saved before it (or past it) has none and is never greeted
-  const GREET = { wait: 0.9, gap: 46, meet: 0.45, stuck: 3, give: 14, late: 1.5 }, GREET_V = 40;
+  const GREET = { wait: 0.9, gap: 64, meet: 0.45, stuck: 3, give: 14, late: 1.5 }, GREET_V = 40;
   const greetHold = (R) => !!(R.town && R.greet && R.greet.st && R.greet.st !== 'home' && R.greet.st !== 'back');
   const workFace = (R, f) => (R.map.town.svc.fire.x >= R.map.town.npcs[f.i].x ? 1 : -1);
   // the way there on the town's walkable cells, benches kept out, cut to the corners a body clears in a straight line
@@ -72,7 +72,7 @@
   // where he stops: beside the hero on his own side of him, else the other side, else a step off, a little farther out if need be;
   // only a free spot (no bench, the fire or a wall) he can walk to. { x, y, path }, or null: nowhere near the hero to stand
   function greetSpot(R, f) { const h = R.hero, sd = f.x >= h.x ? 1 : -1;
-    for (const g of [GREET.gap, GREET.gap * 1.4]) for (const [dx, dy] of [[sd, 0], [-sd, 0], [sd, 0.6], [sd, -0.6], [-sd, 0.6], [-sd, -0.6], [0, 1], [0, -1]]) { const x = h.x + dx * g, y = h.y + dy * g + 2;
+    for (const g of [GREET.gap, GREET.gap * 1.15]) for (const [dx, dy] of [[sd, 0], [-sd, 0], [sd, 0.6], [sd, -0.6], [-sd, 0.6], [-sd, -0.6], [0, 1], [0, -1]]) { const x = h.x + dx * g, y = h.y + dy * g + 2;
       if (!folkFree(R.map, x, y, folkR(f))) continue; const path = greetPath(R, f, x, y, false); if (path) return { x, y, path }; }
     return null; }
   function stepGreet(S, R, F) { const G = R.greet, t = S.t, h = R.hero, k = F.find((q) => q.role === 'keeper');
@@ -352,7 +352,8 @@
     const of = offerOf(R, role); if (!of) return null;
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
-    return { pages: [...say, Q.text(q)], act: { k: 'take', key: q.key, rw: q.rw, name: Q.name } }; }
+    const first = q.story && !(R.quests || []).some((o) => D.QUESTS[o.key].kind === 'story') ? 1 : 0;
+    return { pages: [...say, Q.text(q)], act: { k: 'take', key: q.key, rw: q.rw, name: Q.name, first } }; }
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }

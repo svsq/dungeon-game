@@ -2874,7 +2874,7 @@
       const ids = UI.talk(S.talk).r.map((b) => b.id); if (!ids.includes('talk') || !ids.includes('craft')) out.push(`talk: the ${role}'s first page has no «Поговорить» or no workshop button (${ids})`);
       click(UI.talk(S.talk), 'talk'); if (S.screen !== 'talk' || !S.talk.menu || S.talk.topics !== D.FOLK[role].topics) out.push(`talk: «Поговорить» does not open the ${role}'s topics`);
       step(S, { keys: ['Digit1'] }); if (S.talk.pages !== D.FOLK[role].topics[0].a) out.push(`talk: the ${role}'s first topic does not open`);
-      step(S, { keys: ['Escape'] }); h.x = at.x; h.y = at.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); click(UI.talk(S.talk), 'craft');
+      step(S, { keys: ['Escape'] }); if (!S.talk || !S.talk.menu) out.push(`talk: Esc in the ${role}'s topic does not go back to the topics`); step(S, { keys: ['Escape'] }); h.x = at.x; h.y = at.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); click(UI.talk(S.talk), 'craft');
       if (S.screen !== 'craft' || S.craft.kind !== kind) { out.push(`talk: the ${role}'s workshop button does not lead in`); continue; }
       click(UI.craft(), 'talk'); if (S.screen !== 'talk' || S.talk.role !== role) out.push(`talk: the ${role}'s workshop «Поговорить» does not lead back`);
       S.screen = 'play'; S.talk = null; }
@@ -2961,7 +2961,8 @@
       if (questMark(R2, 'guard') !== '!') out.push('quest give: no ! over the giver of ' + key);
       const T = talkTo(R2, 'guard'); if (!T || !T.act || T.act.k !== 'take') { out.push('quest give: the giver\'s talk has no quest of ' + key); return null; }
       for (let i = 0; i < 60 && S.screen === 'talk'; i++) step(S, { keys: ['KeyE'] }); if (R2.quests.some((o) => o.key === key)) out.push('quest give: E run through the pages takes ' + key);
-      if (!talkTo(R2, 'guard')) { out.push('quest give: the talk does not reopen after E closed it'); return null; }
+      if (S.screen !== 'talk') out.push('quest give: E run through the pages drops the offer of ' + key); step(S, { keys: ['Escape'] });
+      if (!talkTo(R2, 'guard')) { out.push('quest give: the talk does not reopen after Esc closed it'); return null; }
       finish(); const q = R2.quests.find((o) => o.key === key); if (!q || questMark(R2, 'guard') || S.screen !== 'play') { out.push('quest give: Enter on the quest\'s page does not take ' + key); return null; }
       if (q.f !== (D.QUESTS[key].from || 1) || (D.QUESTS[key].noBoss && STAGE(R2, q.f).boss)) out.push(`quest give: ${key} points at floor ${q.f}`); return q; };
     // the named foe
@@ -3333,6 +3334,18 @@
       if (held || S.screen !== 'play' || Math.abs(k2.x - k2x) > 3 || R.greet !== 'done') out.push('welcome: a second visit plays it again');
       const O = spawn(0, {}); O.run = newRun(O, 'campaign', 91, { town: 1 }); O.screen = 'play'; O.run = JSON.parse(JSON.stringify(O.run)); const oh = O.run.hero, ox = oh.x;
       for (let i = 0; i < 120 * 4; i++) step(O, { keys: [], right: i < 40 ? 1 : 0 }); if (O.run.greet || O.screen !== 'play' || oh.x - ox < 20) out.push('welcome: a run saved before it is greeted'); }
+    // TASKS 1849: the Keeper meets the hero a step off, not in his sprite; on the offer's page E and the space never drop it, and his
+    // first story quest is taken by E once the page has been up a breath; Esc in a topic goes back to the topics, on them it leaves
+    { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, has = () => (R.quests || []).some((q) => q.key === 'rescue'); let n = 0; while (S.screen === 'play' && n++ < 120 * 16) step(S, { keys: [] });
+      const k = folkOf(R).find((q) => q.role === 'keeper'), off = Math.hypot(k.x - R.hero.x, k.y - R.hero.y), T = S.talk;
+      if (off < 56) out.push(`talk: the Keeper meets the hero ${Math.round(off)} px off, in his sprite`);
+      if (!T || !T.act || !T.act.first) out.push('talk: the Keeper\'s first story quest is not offered as the first');
+      else { for (let i = 0; i < 12 && T.p + 1 < T.pages.length; i++) step(S, { keys: ['KeyE'] }); step(S, { keys: ['KeyE'] }); step(S, { keys: ['Space'] });
+        if (S.screen !== 'talk' || has()) out.push('talk: E or the space mashed onto the story offer closes the talk or takes it at once');
+        for (let i = 0; i < 70; i++) step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); if (S.screen !== 'play' || !has()) out.push('talk: E does not take the Keeper\'s first story quest'); }
+      const O = spawn(0, {}); O.run = newRun(O, 'campaign', 37, { town: 1 }); O.screen = 'talk'; O.talk = { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.keeper.topics, menu: 1 };
+      step(O, { keys: ['Digit1'] }); step(O, { keys: [] }); step(O, { keys: ['Escape'] }); if (O.screen !== 'talk' || !O.talk || !O.talk.menu) out.push('talk: Esc in a topic does not go back to the topics');
+      step(O, { keys: [] }); step(O, { keys: ['Escape'] }); if (O.screen !== 'play') out.push('talk: Esc on the topics does not close the talk'); }
     // PR 55 review: the welcome never throws or stalls: a hero by the Keeper's side (his spot in his own cell), a way back that stays
     // blocked, the townsfolk made anew while he is in the talk
     { const play = (setup, cut) => { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, k = folkOf(R).find((q) => q.role === 'keeper'), kx = k.x, ky = k.y; setup(S, R, k); let threw = null;

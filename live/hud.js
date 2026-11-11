@@ -1141,7 +1141,7 @@
     if (at('craft')) button('tk_craft', at('craft'), S.hover);
     if (at('talk')) button('tk_orig', at('talk'), S.hover);
     U.r.filter((q) => q.id.startsWith('topic:')).forEach((q) => button('tk_t' + q.i, q, S.hover));
-    lab('tk_keys', act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : at('craft') && !act && T.p + 1 >= T.pages.length && !T.inTopic ? TXT('hud.talk.craftKeys') : act ? TXT('hud.talk', { p1: T.act.k === 'take' ? TXT('hud.talk.2') : TXT('hud.talk.3') }) : TXT('hud.talk.4'), W / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#8a7d6c' });
+    lab('tk_keys', act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : at('craft') && !act && T.p + 1 >= T.pages.length && !T.inTopic ? TXT('hud.talk.craftKeys') : act ? TXT('hud.talk', { p1: T.act.k === 'take' ? (T.act.first ? TXT('hud.talk.2first') : TXT('hud.talk.2')) : TXT('hud.talk.3') }) : T.inTopic ? TXT('hud.talk.topic') : TXT('hud.talk.4'), W / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
   function board(S, R, t) {

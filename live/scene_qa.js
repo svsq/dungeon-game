@@ -1589,7 +1589,7 @@
     { const key = (S) => S.run.folk.find((q) => q.role === 'keeper'), go = (S, n, keys) => { for (let q = 0; q < n; q++) SIM.step(S, { px: 960, py: 540, keys: keys && !q ? keys : [] }); };
       const base = play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.run.greet = 1; S.screen = 'play'; S.run.msg = null; go(S, 1); });
       const at = (fn) => { const S = structuredClone(base); fn(S); return S; }, until = (S, ok, n = 120 * 15) => { while (!ok(S) && n-- > 0) go(S, 1); return S; };
-      states.push(['town_greet_before', at((S) => go(S, 60))], ['town_greet_mid', at((S) => { until(S, (Q) => Q.run.greet.st === 'walk'); go(S, 300); })], ['town_greet_talk', at((S) => until(S, (Q) => Q.screen === 'talk'))]);
+      states.push(['town_greet_before', at((S) => go(S, 60))], ['town_greet_mid', at((S) => { until(S, (Q) => Q.run.greet.st === 'walk'); go(S, 300); })], ['town_greet_talk', at((S) => until(S, (Q) => Q.screen === 'talk'))], ['town_greet_offer', at((S) => { until(S, (Q) => Q.screen === 'talk'); S.talk.p = S.talk.pages.length - 1; })]);
       let S = at((Q) => go(Q, 60)), fr = []; for (let k = 0; k < 360 && S.screen === 'play'; k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
       const i = key(S).i; transitions.folk_keeper_greet = fr; folkSubj.folk_keeper_greet = 'npc' + i;
       S = structuredClone(S); go(S, 1, ['Escape']); fr = []; for (let k = 0; k < 420 && !(S.run.greet === 'done' && S.t > key(S).walkB + 0.6); k++) { fr.push(S); S = structuredClone(S); go(S, 2); }

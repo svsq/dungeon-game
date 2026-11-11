@@ -255,16 +255,22 @@
   SCREEN.win = SCREEN.dead;
   // the storage chest: a click moves an item across, a drag drops it on the cell under the pointer (a drop where it started, or
   // off any cell, moves it across as a click would)
+  const TALK_SETTLE = 0.5;
   SCREEN.talk = (S, inp, keys, x, y, click) => {
     const T = S.talk, b = T && D.hitUI(UI.talk(T).r, x, y); S.hover = b ? b.id : '';
-    if (!T || !S.run || keys.Escape) { S.screen = 'play'; S.talk = null; return; }
+    if (!T || !S.run || (keys.Escape && !T.inTopic)) { S.screen = 'play'; S.talk = null; return; }
+    if (keys.Escape) { T.inTopic = 0; T.menu = 1; T.pages = ['']; T.p = 0; ev(S, { k: 'ui', x, y }); return; }
+    if (T.pk !== T.pages[T.p]) { T.pk = T.pages[T.p]; T.pT = S.t; }
     if (click && b && b.id === 'craft') { SIMX.openCraft(S, S.run, T.craft); return; }
     // in the topics menu a number or a click opens a topic; «Дальше» / «Не сейчас», E, the space or Enter leave it
     if (T.menu) { const pick = T.topics.findIndex((q, i) => keys['Digit' + (i + 1)]), n = click && b && b.id.startsWith('topic:') ? b.i : pick; if (n >= 0) { T.pages = T.topics[n].a; T.p = 0; T.menu = 0; T.inTopic = 1; ev(S, { k: 'ui', x, y }); return; } if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { S.screen = 'play'; S.talk = null; } return; }
     const last = T.p + 1 >= T.pages.length;
-    // E run through the pages must never take a quest or end the run (TASKS 1148, 1657): on those pages it only closes
-    const byE = keys.KeyE && T.act && T.act.k !== 'finish' && T.act.k !== 'take';
+    // E run through the pages must never take a side quest or end the run (TASKS 1148, 1657), nor drop the offer unread (TASKS 1849):
+    // on an offer's page E and the space do nothing, save the Keeper's first story quest, which E takes once the page has been up a breath
+    const quest = T.act && last && T.act.k === 'take', settled = S.t - (T.pT ?? S.t) >= TALK_SETTLE,
+      byE = keys.KeyE && T.act && (T.act.k === 'turn' || (T.act.k === 'take' && T.act.first && settled));
     if (T.act && last && ((click && b && b.id === 'act') || byE || keys.Enter)) { talkAct(S, S.run, T); return; }
+    if (quest && (keys.KeyE || keys.Space)) return;
     if (click && b && b.id === 'talk' && T.topics) { T.menu = 1; T.pages = ['']; T.p = 0; T.act = null; T.craft = 0; ev(S, { k: 'ui', x, y }); return; }
     // a master's last page with no quest on it: E goes on into the workshop, so E, E still reaches the forge (TASKS 1635)
     if (T.craft && last && !T.act && !T.inTopic && keys.KeyE) { SIMX.openCraft(S, S.run, T.craft); return; }
