@@ -230,8 +230,8 @@
     // a shot's weapon follows the aim the shot was loosed on, not the live pointer (TASKS 1153: a mouse turned in the wind-up parted staff and bolt); the kick belongs to what is being done
     const aimS = shooter && swinging && shootE >= castE ? (face > 0 ? h.atkA : Math.PI - h.atkA) : aimL, kickT = castE > shootE ? castT : atkT;
     // (TASKS 1800) the mage's three are three gestures: the shot a thrust down the aim, the frost the staff raised overhead and swept
-    // down onto it, the fireball both hands drawn in to the chest and thrown open
-    const mageG = shooter && !bowArm && castE > shootE ? h.castK : null, frostUp = mageG === 'frost' ? SS(0.02, 0.18, castT) * (1 - SS(0.18, 0.36, castT)) : 0, aimG = aimS - 0.7 * frostUp;
+    // down onto it, the fireball the staff kept low and the free hand drawn in to the chest, then thrown at the aim
+    const mageG = shooter && !bowArm && castE > shootE ? h.castK : null, frostUp = mageG === 'frost' ? SS(0, 0.26, castT) * (1 - SS(0.28, 0.54, castT)) : 0, aimG = aimS - 1.1 * frostUp, fbOpen = mageG === 'fireball' ? SS(0.14, 0.28, castT) : 1;
     if (whirlE > 0 && swingK === 0) {   // the ellipse is centred behind the shoulder, toward the body's axis, inside the arm's reach
       const l = armLen(arms.R), wx = Math.cos(whirlTh) * face, tx = -0.3 * l + 0.4 * l * wx, ty = 0.6 * l + 0.25 * l * Math.sin(whirlTh);
       armR = arms.R; reach(arms.R, tx, ty, whirlE);
@@ -249,13 +249,13 @@
     } else if (shootE > 0 || (shooter && castE > 0)) {   // (a mage casts through his staff too: no free-hand push, no lowered blade)
       const l = armLen(arms.R), pe = Math.max(shootE, castE), kick = 0.1 * l * SS(BT - 0.01, BT + 0.05, kickT) * (1 - SS(BT + 0.05, BT + 0.25, kickT));
       // (aimed high the shouldered hand reaches as far as a bow's: tucked closer the elbow flipped over on the lowering)
-      const rl = xbow ? 0.52 + 0.2 * Math.max(0, -Math.sin(aimS)) : mageG === 'fireball' ? 0.36 + 0.36 * SS(0.1, 0.24, castT) : 0.72, tx = 0.15 * l + Math.cos(aimG) * (rl * l - kick), ty = Math.sin(aimG) * (rl * l - kick) - 0.12 * l;
-      reach(arms.R, tx, ty, pe);
+      const rl = xbow ? 0.52 + 0.2 * Math.max(0, -Math.sin(aimS)) : mageG === 'fireball' ? 0.42 : 0.72, tx = 0.15 * l + Math.cos(aimG) * (rl * l - kick), ty = Math.sin(aimG) * (rl * l - kick) - 0.12 * l;
+      reach(arms.R, tx, ty, mageG === 'fireball' ? 0.35 * pe : pe);
       // a bow is drawn (TASKS 1125 critic): the far hand takes the string at the stave and pulls it back along the aim through the
       // wind-up, lets it snap home on the loose
       if (xbow) { const dl = 14 / s / Math.hypot(Math.cos(aimS), Math.sin(aimS) / DEPTH_K); reach(arms.L, RG.shR[0] - RG.shL[0] + tx + Math.cos(aimS) * dl, RG.shR[1] - RG.shL[1] + ty + Math.sin(aimS) * dl, pe); }
       else if (bowArm) { const dl = 0.55 * l * drawE; reach(arms.L, RG.shR[0] - RG.shL[0] + tx - Math.cos(aimS) * dl, RG.shR[1] - RG.shL[1] + ty - Math.sin(aimS) * dl, pe); }
-      else if (mageG === 'fireball') { const o = SS(0.1, 0.24, castT); reach(arms.L, RG.shR[0] - RG.shL[0] + tx - 0.12 * l * (1 - o), RG.shR[1] - RG.shL[1] + ty + 0.12 * l - 0.42 * l * o, pe); }
+      else if (mageG === 'fireball') { const o = fbOpen, lL = armLen(arms.L); reach(arms.L, 0.3 * lL + (Math.cos(aimS) * 0.7 * lL - 0.1 * lL) * o, 0.3 * lL + (Math.sin(aimS) * 0.7 * lL - 0.35 * lL) * o, pe); }
       else pose(arms.L, -0.15 - 0.5 * (mageG === 'frost' ? frostUp : 0), 0.3, pe);
     } else if (castE > 0) {             // the free hand pushes the spell toward the aim; the sword arm lowers its blade
       const l = armLen(arms.L); reach(arms.L, 0.25 * l + Math.cos(aimL) * 0.6 * l, Math.sin(aimL) * 0.6 * l, castE);

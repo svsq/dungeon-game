@@ -810,7 +810,12 @@
       // charge) raises through its whole wind instead: its raise is long, a hold at the top would make it hurry
       const cast = boss && e.mv !== 'slam' && e.mv !== 'charge';
       const CO = { raise: -2.6, chopT: boss ? Math.min(0.26, w) : 0.26, recover: 0.32, over: 0.15, hold: 0.14, top: cast ? 0 : 0.12, bossW: w, dur: boss ? move.duration : 0.4 };
-      const CO2 = Object.assign({}, CO, { hold: 0.02 });   // the chained slam springs back at once: its follow-through overshoots deeper, and the recovery needs that room
+      const CO2 = Object.assign({}, CO, { hold: 0.02 });
+      // (TASKS 1805) the two chapter lords strike their own blow, not the brute's: the demon lord swings both fists from far behind its head,
+      // the forge lord brings them straight down from overhead like a hammer
+      const own = live && boss && e.mv === 'slam' && !e.chain && (e.type === 'boss' || e.type === 'boss_forge') && e.st === 'bwind';
+      const OWN = e.type === 'boss_forge' ? { raise: -3.1, chopT: Math.min(0.22, w), recover: 0.3, over: 0.12, hold: 0.08, top: 0.14, bendUp: 0.35, bendHit: 0.3, bend0: 0.18, bossW: w, dur: boss ? move.duration : 0.4 }
+        : { raise: -2.95, chopT: Math.min(0.24, w), recover: 0.36, over: 0.22, hold: 0.1, top: 0.18, bendUp: 1.35, bendHit: 0.08, bend0: 0.18, bossW: w, dur: boss ? move.duration : 0.4 };   // the chained slam springs back at once: its follow-through overshoots deeper, and the recovery needs that room
       const top = (b) => chop(Object.assign({}, e, { st: 'bwind' }), E, e.t0 + w - CO.chopT, face, H, b, CO);   // the frozen pose at the top of the raise
       const pose = (b) => { if (!live) return null;
         if (ready) { const q = top(b), k = SS(0, w, GT - e.t0); return { r1: lerp(b, q.r1, k), bend: lerp(0.18, q.bend, k), k }; }
@@ -820,10 +825,17 @@
         if (linked && e.st === 'chase') { const out = SS(0, 0.3, GT - (e.cdT - (DATA.bossPhase(e).rest || 0))), q = top(b);
           if (q && out < 1) return { r1: lerp(q.r1, b, out), bend: lerp(q.bend, 0.18 - 0.4 * b, out), k: 1 - out };
           return null; }
-        return chop(e, E, GT, face, H, b, boss && e.chain && e.mv === 'slam' ? CO2 : CO);
+        return chop(e, E, GT, face, H, b, own ? OWN : boss && e.chain && e.mv === 'slam' ? CO2 : CO);
       };
       const p = pose(0);
-      if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
+      if (p && own) { const u = GT - e.t0, RH = RIGS[n].h, forge = e.type === 'boss_forge', hit = e.st === 'bwind' ? u - w : -1, back = hit >= 0 ? SS(0.12, move.duration, hit) : 0;
+        // up on its toes and a breath into the shoulders through the first 0.4 s, down into a squat just before the blow, the weight
+        // thrown forward on it and taken back after
+        const toes = SS(0, 0.25, u) * (1 - SS(w - 0.32, w - 0.16, u)), squat = SS(w - 0.3, w - 0.06, u) * (1 - back), blow = hit >= 0 ? SS(0, 0.06, hit) * (1 - back) : 0;
+        base.crouch -= 0.04 * RH * toes; base.crouch += (forge ? 0.12 : 0.08) * RH * squat + (forge ? 0.05 : 0.03) * RH * blow;
+        base.lean = (base.lean || 0) + face * (-0.12 * toes + (forge ? 0.32 : 0.22) * blow - 0.06 * back * (1 - SS(move.duration * 0.6, move.duration, hit)));
+        base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? (forge ? 0.08 : 0) * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
+      else if (p) { const u = GT - e.t0, hit = ready ? -1 : e.st === 'strike' ? u : e.st === 'bwind' ? u - w : -1; base.crouch += 22 * (hit >= 0 ? SS(0, 0.07, hit) * (1 - SS(0.2, 0.32, hit)) : 0);
         base.arm = (side, b) => { const q = pose(b), d = side === 'L' ? 0.12 * q.k : 0; return [q.r1 + d, q.r1 + q.bend + d]; }; }
       biped(base); return true; }
     if (n === 'imp') { if (live) impPose(e, E, GT, face, H, base); base.lift = 0.06; base.swingK = 1.05; base.armLag = 0.55; base.rest = { L: [-0.6, -0.42], R: [0.5, 0.68] }; return biped(base); }

@@ -37,6 +37,8 @@
 //   lies      — hero_*death (TASKS 1803): lying (hip under LOW of the height), no hand or tip over UP of it; inertia — hero_death_run:
 //               the hip's way over the first 0.3 s goes the way he ran
 //   recoil    — hit_* on a light body (TASKS 1804): the head is thrown against the hip by RECOIL of the height
+//   same      — monster attacks pairwise, the mage's shot/frost/cast per aim, the three hero deaths (TASKS 1805): the near hand's paths
+//               against the hip correlate at most SAME in x and in y at the best lag (one motion reused)
 //   body      — transitions named shoot|cast|frost|volley|whirl|attack|swing (TASKS 1800): the head moves against the hip by BODY of the
 //               height (a shot made with the arm alone left the body standing as at rest)
 // Exit 2 when any check fails.
@@ -263,7 +265,7 @@ if (meta.tr.includes('imp_claw')) {
 // frame's place by at least BODY of the height (the mage's and archer's shots and casts and the whirl moved it 0.00–0.01). A rig with no
 // hip (a slime, a spider, a lizard) or one that is not a walker (the crab's shell) is not measured; x is taken along the facing, so a
 // turn in the action is no lean
-{ const BODY = 0.05, SKIP = /^crab_|^queen_|^slime|^spider_|^salamander_/, LATER = new Set(['forge_attack', 'boss_attack']);
+{ const BODY = 0.05, SKIP = /^crab_|^queen_|^slime|^spider_|^salamander_/, LATER = new Set();
   for (const nm of meta.tr.filter((n) => /shoot|cast|frost|volley|whirl|attack|swing/.test(n) && !SKIP.test(n) && !LATER.has(n))) {
     const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
       const j = LIB.TRACE[id] || null, v = LIB.TRACE[id + '_view']; LIB.TRACE = null; return j && j.hip && (j.head || j.top) ? { h: j.head || j.top, hip: j.hip, H: j.ground[1] - (j.top || j.head)[1], f: v && v.face ? v.face[0] : 1 } : null; }); }, nm);
@@ -315,6 +317,17 @@ if (meta.tr.includes('imp_claw')) {
     const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.hip && (j.head || j.top)); if (fr.length < 10) continue;
     const H = tall(fr[0]), rel = (j) => [(j.head || j.top)[0] - j.hip[0], (j.head || j.top)[1] - j.hip[1]], r0 = rel(fr[0]), m = Math.max(...fr.map((j) => Math.hypot(rel(j)[0] - r0[0], rel(j)[1] - r0[1])));
     report('recoil', nm, m >= RECOIL * H, `the head is thrown ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px against the hip (≥ ${100 * RECOIL} %)`); } }
+// same (TASKS 1805): two different actors' attacks, or one actor's skills, are not one motion: the near hand's path against the hip (in
+// heights), x and y each correlated at the best lag within LAG frames, stays at or under SAME (the forge lord and the demon lord struck
+// the brute's own blow point for point, the mage's shot, frost and cast were one pose, the three hero deaths one fall)
+{ const SAME = 0.98, LAG = 12, paths = {};
+  const pathOf = async (nm) => { if (paths[nm] !== undefined) return paths[nm]; const fr = (await trace('transitions', nm)).map((f) => (nm.startsWith('hero') ? f.hero : f.en)).filter((j) => j && j.hip && (j.handR || j.handL));
+    if (fr.length < 20) return (paths[nm] = null); const H = tall(fr[0]), k = fr.every((j) => j.handR) ? 'handR' : 'handL'; return (paths[nm] = fr.map((j) => [(j[k][0] - j.hip[0]) / H, (j[k][1] - j.hip[1]) / H])); };
+  const best = (P, Q) => { let m = -1; for (let l = -LAG; l <= LAG; l++) { const ax = [], bx = [], ay = [], by = []; for (let i = 0; i < P.length; i++) { const j = i + l; if (j < 0 || j >= Q.length) continue; ax.push(P[i][0]); bx.push(Q[j][0]); ay.push(P[i][1]); by.push(Q[j][1]); }
+    if (ax.length > 20) m = Math.max(m, Math.min(corr(ax, bx), corr(ay, by))); } return m; };
+  const atk = meta.tr.filter((n) => /_attack$/.test(n) && !n.startsWith('hero')), groups = [atk, ...['r', 'd', 'ul'].map((d) => ['shoot', 'frost', 'cast'].map((k) => `hero_mage_${k}_${d}`)), ['hero_death', 'hero_mage_death', 'hero_archer_death']];
+  for (const g of groups) for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) { if (!meta.tr.includes(g[i]) || !meta.tr.includes(g[j])) continue; const P = await pathOf(g[i]), Q = await pathOf(g[j]); if (!P || !Q) continue;
+    const c = best(P, Q); if (c > SAME || g !== atk) report('same', `${g[i]}~${g[j]}`, c <= SAME, `the hand paths correlate ${c.toFixed(3)} (≤ ${SAME})`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');
