@@ -942,8 +942,11 @@
     const lit = litOf(S, U.map((q) => q.id)), sl = (id) => ({ hover: lit === id, press: S.hover === id && !!S.pressWas, focus: false, off: false });
     KIT.tabs('cl_d', U.filter((b) => b.dif), 'dif:' + dif, S, { fill: true, lit });
     // the difficulty is the player's own choice (TASKS 1825), so the line tells the story instead of advising the easy one
+    // what the lit or chosen difficulty changes, in the numbers the sim plays by (TASKS 1879)
+    const dk = lit.startsWith('dif:') ? lit.slice(4) : dif, Dd = D.DIFF[dk] || D.DIFF.normal, pc = (v) => String(Math.round(Math.abs(v - 1) * 100));
+    KIT.light('cl_dl', TXT('UI.classes.diff.' + dk, { dmg: pc(Dd.dmg), hp: pc(Dd.hp) }), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
     const tip = TXT('UI.classes.hint');
-    KIT.light('cl_s', tip, W / 2, 142, { size: 26, fit: W - 200, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 120, W - 200, 44, 0);
+    KIT.light('cl_s', tip, W / 2, 158, { size: 20, fit: W - 200, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 144, W - 200, 30, 0);
     for (const b of U.filter((q) => q.cls)) {
       // the lit card shows as a choice does (TASKS 1846, 1887): a lighter leather and page and a red name, no glow; while another card
       // is lit the chosen one keeps its seal and its name goes back to ink, so one name is red
