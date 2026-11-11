@@ -22,7 +22,7 @@
       for (const g of e.groups) { rows.push({ k: 'group', s: g.name, h: NEWS.h.group });
         for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
     newsMemo = { src: D.CHANGES, rows }; return rows; };
-  const MENU_SHEET = { x: 48, w: 530, bottom0: 1012, top: 92, row: 56, sub: 26, gap: 34, bottom: 78, inX: 56 };
+  const MENU_SHEET = { x: 48, w: 620, bottom0: 1012, top: 92, row: 56, sub: 26, gap: 34, bottom: 78, inX: 56 };
   const MENU_ITEMS = [['continue', 'campaign', 'load'], ['stats', 'settings'], ['tests']];
   const MENU_LABEL = { continue: () => TXT('UI.menu'), load: () => TXT('UI.menu.load'), stats: () => TXT('UI.menu.stats'), settings: () => TXT('UI.menu.settings'), tests: () => TXT('UI.menu.5') };
   const NEWS_LINK = { x: 1736, y: 1032, w: 164, h: 36 }, NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42 };
@@ -159,7 +159,7 @@
       if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 })); return { P, r }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
-    board: (n) => { const P = { x: 230, y: 90, w: 1460, h: 900 }, r = [];
+    board: (n) => { const P = { x: 130, y: 90, w: 1660, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
       r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
     journal: (n, canDrop) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
@@ -180,12 +180,13 @@
     // the town's gate out (TASKS 1149): its question and two buttons, the way out on the left
     leave: () => { const P = { x: 610, y: 330, w: 700, h: 330 };
       return { P, r: [{ id: 'go', label: '', on: true, x: P.x + 40, y: P.y + P.h - 100, w: 300, h: 64 }, { id: 'stay', label: TXT('UI.leave.stay'), on: true, x: P.x + P.w - 340, y: P.y + P.h - 100, w: 300, h: 64 }] }; },
-    gate: (n) => { const P = { x: 610, y: 190, w: 700, h: 200 + Math.max(1, n) * 84 + 90 };
+    gate: (n) => { const P = { x: 560, y: 190, w: 800, h: 200 + Math.max(1, n) * 84 + 90 };
       return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'go:' + i, i, x: P.x + 40, y: P.y + 150 + i * 84, w: P.w - 80, h: 72 }))
         .concat([{ id: 'leave', label: TXT('UI.gate.r.leave.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 96, w: 300, h: 60 }]) }; },
-    // a dungeon altar: its three gifts side by side, cheapest first
-    altar: (n = 3) => { const P = { x: 360, y: 150, w: 1200, h: 780 }, step = n > 3 ? 288 : 380, cw = n > 3 ? 264 : 360;
-      return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'gift:' + i, i, x: P.x + 40 + i * step, y: P.y + 150, w: cw, h: 390 }))
+    // a dungeon altar: its three gifts side by side, cheapest first; with a fourth the page widens, as its words cannot shrink
+    // under the font's 20 px floor (TASKS 1851)
+    altar: (n = 3) => { const P = n > 3 ? { x: 160, y: 150, w: 1600, h: 780 } : { x: 360, y: 150, w: 1200, h: 780 }, step = 380, cw = 360;
+      return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'gift:' + i, i, x: P.x + 40 + i * step, y: P.y + 150, w: cw, h: 410 }))
         .concat([{ id: 'leave', label: TXT('UI.altar.r.leave.label'), on: true, x: P.x + P.w / 2 + 20, y: P.y + P.h - 86, w: 300, h: 60 },
           { id: 'reroll', label: '', on: true, x: P.x + P.w / 2 - 360, y: P.y + P.h - 86, w: 340, h: 60 },
           { id: 'donate', label: TXT('UI.altar.r.donate.label'), on: true, x: P.x + 120, y: P.y + 578, w: 560, h: 64 }]) }; },

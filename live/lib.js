@@ -541,11 +541,12 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // the texture is re-rendered only when the string or style changes. Returns the text width.
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
   // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
-  // two faces of one family (em 10 and 12) give the steps 12, 20, 24, 30, 36, 40... and each size takes the step whose
-  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for.
+  // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
+  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1851):
+  // one-pixel stems blur away when the 1920×1080 canvas is shown at 1280×720
   const FACES = [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], TREBUCHET_W = 0.547, FIT = new Map();
   const fit = (size, bold) => { const n = Math.round(size), k = bold ? 'b' + n : n; let r = FIT.get(k); if (r) return r; let best = Infinity;
-    for (const [font, em, adv] of bold ? FACES.slice(1) : FACES) for (let unit = 1; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
+    for (const [font, em, adv] of bold ? FACES.slice(1) : FACES) for (let unit = 2; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
     FIT.set(k, r); return r; };
   const AROUND = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
   const LBL = {};
@@ -571,7 +572,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   L.labelW = (slot, str, { size = 30, bold = false } = {}) => {
     const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); setFont(g, fit(size, bold), bold); return g.measureText(String(str)).width; };
   // a label that must stay inside a box steps down the font's grid sizes; scaling a size by a width ratio can land on a step that is still too wide
-  L.sizeToFit = (str, maxW, size, bold = false) => { let s = size; while (s > 12 && L.labelW(0, str, { size: s, bold }) > maxW) s -= 1; return s; };
+  L.sizeToFit = (str, maxW, size, bold = false) => { let s = size; while (s > 18 && L.labelW(0, str, { size: s, bold }) > maxW) s -= 1; return s; };
   L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
     L.sprite('lbl_' + slot, x0 - r.pad, Math.round(y - r.rec.h / 2), { w: r.rec.w, h: r.rec.h, u: { alpha: a } });
     if (a > 0.05) L.uiText(slot, str, x0, y - r.px * 0.62, r.tw, r.px * 1.24); return r.tw; };

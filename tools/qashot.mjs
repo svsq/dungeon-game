@@ -1,5 +1,6 @@
 // renders chosen SCENE.QA() states whole and chosen cycles / transitions as contact sheets round their subject (TASKS 407–409)
-//   node tools/qashot.mjs [--states a,b] [--sheets c,d] [--n 12] [--box 260] [--out frames/qashot]
+//   node tools/qashot.mjs [--states a,b] [--sheets c,d] [--n 12] [--box 260] [--view 1280x720] [--out frames/qashot]
+//   --view: the browser window size; the canvas is drawn at 1920×1080 and scaled by the page, as a player on that screen sees it
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,7 +19,7 @@ const server = http.createServer((q, r) => {
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist'] });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+const [VW, VH] = opt('view', '1920x1080').split('x').map(Number), page = await browser.newPage({ viewport: { width: VW, height: VH } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 try {
   await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
