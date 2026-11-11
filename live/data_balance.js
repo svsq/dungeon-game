@@ -15,8 +15,9 @@
   // one curve for every floor, no per-floor patches (TASKS 227): from the 4th, the 5th (the plain demon's first floor) cost more
   // than the forge lord's 6th and a plain blow on the 7th took over 10 % of the health
   // startHpPot: the hero starts with three healing potions: with two, the early deaths came with an empty bag (TASKS 222)
-  // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion
-  const BAL = { pop: 0.5, hp: 1.6, dmg: 2.15, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.27, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 0, t: 0.22 }, cap: { blow: 0.33, boss: 0.5 }, deep: { from: 12, hp: 1.1, dmg: 1.06, past: 18, pastHp: 1.06, end: 40 } };
+  // cap: the most of the health one monster blow can take (the boss's more), so no stack of elite multipliers kills through a potion; blast: the smouldering
+  // dead's blasts together over any `t` s (TASKS 1647)
+  const BAL = { pop: 0.5, hp: 1.6, dmg: 2.15, reward: 2, startHpPot: 3, spike: 0.12, dmgUp: 0.4, dmgLate: 0.27, earlyCd: 0.85, early: 3, dodge: { agi: 0.25, cap: 40, dash: 0, t: 0.22 }, cap: { blow: 0.33, boss: 0.5, blast: { share: 0.5, t: 1.5 } }, deep: { from: 12, hp: 1.1, dmg: 1.06, past: 18, pastHp: 1.06, end: 40 } };
   // past the campaign's last floor (the endless descent, TASKS 351) monsters grow on with no ceiling: health ×deep.hp and blows
   // ×deep.dmg a floor on top of the campaign's lines (R-05); a blow is still held to BAL.cap of the hero's health
   // Every floor must stay passable (the player's call 08.11.2026, TASKS 385): the hero's strength grew 4 % a floor against the monsters' 13 %,

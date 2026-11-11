@@ -45,7 +45,7 @@ uniform sampler2D u_clipm; uniform vec4 u_clipb; uniform float u_clipk; uniform 
 // a rig is many parts, and each part's own edge would draw dark seams inside the figure; the ink pass gives the outer contour
 uniform float u_snap;           // 1: snap to the target's pixel grid, 2: the same from the full-size texture
 // a flat ink copy (u_grade 0, 0, 1: no saturation, no brightness, all haze) keeps none of the texture's colour, only that it covers:
-// the vote is skipped and the pixel comes out the same (TASKS 1872: an outline's 8 copies ran it on every pixel of every part)
+// the vote is skipped and the pixel comes out the same (TASKS 1910: an outline's 8 copies ran it on every pixel of every part)
 vec4 snapTex(vec2 tuv, vec2 jx, vec2 jy, float lod, float a0){
   if (a0 < 0.5) return vec4(0.0);
   if (u_grade.x == 0.0 && u_grade.y == 0.0 && u_grade.z == 1.0) return vec4(0.0, 0.0, 0.0, 1.0);
@@ -299,7 +299,7 @@ void main(){ vec3 lt = texture(u_light, scr(v_px)).rgb;
       + streaks(p + u_cam * 0.8, 13.0, 160.0, 1150.0, 0.3, 2.0, 0.55 * u_amt) * 0.35 + streaks(p + u_cam * 0.6, 8.0, 110.0, 850.0, 0.26, 3.0, 0.6 * u_amt) * 0.22;
     vec3 c = vec3(0.6, 0.66, 0.78) * (0.32 + 1.1 * lum(lt)) + lt * 0.5; a *= u_amt; o = vec4(c * a, a * 0.7); } }`;
   const SOLID = `uniform vec3 u_col; uniform float u_a; void main(){ o = vec4(u_col * u_a, u_a); }`;
-  // the same flat colour for G.solid's batch, each rectangle's colour and alpha from the vertex shader (TASKS 1873)
+  // the same flat colour for G.solid's batch, each rectangle's colour and alpha from the vertex shader (TASKS 1911)
   const SOLIDN = `flat in vec4 v_rc; void main(){ o = vec4(v_rc.rgb * v_rc.a, v_rc.a); }`;
   const JOINT = `
 uniform vec3 u_col; uniform float u_dark;
@@ -391,7 +391,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   L.init = (w, h, extra = {}, { pixel = 1, view = [w, h] } = {}) => {
     W = L.W = w; H = L.H = h; P = L.P = {}; L.PIXEL = Math.max(1, pixel);
     for (const k in SH) if (k !== 'SOLIDN') P[k.toLowerCase()] = G.program(k.toLowerCase(), SH[k]);
-    P.spriten = G.program('spriten', SPRITE, 'off'); P.solidn = G.program('solidn', SOLIDN, 'rect');   // the batched (TASKS 1872, 1873)
+    P.spriten = G.program('spriten', SPRITE, 'off'); P.solidn = G.program('solidn', SOLIDN, 'rect');   // the batched (TASKS 1910, 1911)
     for (const k in extra) P[k] = G.program(k, extra[k]);
     const px = L.PIXEL, lo = { view, nearest: px > 1 };
     for (const k in T) G.free(T[k]);
@@ -467,7 +467,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     if (typeof e === 'string') G.blend(e || undefined);
     else if (Array.isArray(e)) G.draw(e[0], e[1], e[2], e[3]);
     else { e.U.u_haze = sp.ink; e.U.u_alpha = sp.a * e.al; e.U.u_lod = sp.lod || 0; e.X[6] = e.x + e.pre[0] * sp.dx + e.pre[2] * sp.dy; e.X[7] = e.y + e.pre[1] * sp.dx + e.pre[3] * sp.dy; G.draw(P.sprite, e.U, e.X, e.flip); } } };
-  // Copies that differ only by their shift go out part by part, every copy of a part in one instanced call (TASKS 1872): an outline was
+  // Copies that differ only by their shift go out part by part, every copy of a part in one instanced call (TASKS 1910): an outline was
   // 8 copies of every part of a rig, 84 % of a big floor's draws. The copies are cut into runs of one flat colour, alpha and lod (an
   // aura's three rings are three runs), the runs drawn in their order. Within a run "over" of one colour gives the same pixel in any
   // order, so parts first or copies first draw the same picture. A rig that changes blend or draws anything but sprites inside the
@@ -483,11 +483,11 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
       G.drawN(P.spriten, e.U, e.X, e.flip, OFF, n); } };
   const replayRuns = (list, sps) => { for (let i = 0; i < sps.length;) { let j = i + 1; while (j < sps.length && j - i < G.N_OFF && sameSp(sps[i], sps[j])) j++;
     if (j - i === 1) replay(list, sps[i]); else replayN(list, sps, i, j - i); i = j; } };
-  // ?batch=0: every batch off, the picture before 1872–1873 (samecheck's reference): copies one by one, the pose recorded for each
+  // ?batch=0: every batch off, the picture before 1910–1911 (samecheck's reference): copies one by one, the pose recorded for each
   // stamp, flat rectangles drawn one by one. ?stamp1=0 (older name) turns off the copies and the pose only
   L.STAMP_ONE = G.params.get('stamp1') !== '0' && G.params.get('batch') !== '0';
   L.SOLIDS = G.params.get('batch') !== '0';
-  // A rig's silhouette is posed once for the stamps that follow one another with the same draw (TASKS 1873): an elite's aura, its
+  // A rig's silhouette is posed once for the stamps that follow one another with the same draw (TASKS 1911): an elite's aura, its
   // hit flash, its rim and its ink outline were four poses of one rig in one frame. The record is dropped by any sprite drawn for
   // real (the body itself, the next actor), by another L.pre and at the frame's start
   // (L.SNAP is set once per pass, never between the stamps of one rig: it is not part of the key; a target bound between them
@@ -604,7 +604,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   const setFont = (g, f, bold) => { g.font = f.font; g.letterSpacing = bold ? f.unit + 'px' : '0px'; };
   const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315', bold = false } = {}) => {
     const f = fit(size, bold), { font, px, unit } = f; let r = LBL[slot]; const key = [str, font, col, out, bold].join('|'); if (r && r.key === key) return r;
-    // (TASKS 1874: a CPU canvas; a GPU one made every upload a round trip through the GPU process, a new screen's labels 0.3–0.6 s on the Deck)
+    // (TASKS 1912: a CPU canvas; a GPU one made every upload a round trip through the GPU process, a new screen's labels 0.3–0.6 s on the Deck)
     const cv = G.canvas(), g = cv.getContext('2d', { willReadFrequently: true }), pad = Math.ceil(px * 0.3) + unit;
     setFont(g, f, bold); const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
     cv.width = Math.max(1, w); cv.height = h; setFont(g, f, bold); g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels

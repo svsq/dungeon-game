@@ -95,6 +95,14 @@ function report() {
   for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
     const by = (g, q) => Array.from({ length: FLOORS }, (_, i) => { const v = blowAt(a, i, g, q); return v === null ? '-' : v.toFixed(0); }).join(' ');
     console.log([p, k + 1, by('mob', 0.5), by('heavy', 0.5), by('mob', 0.9), by('elite', 0.9), Array.from({ length: FLOORS }, (_, i) => { const v = lvlUp(a, i); return v === null ? '-' : v.toFixed(1); }).join(' ')].join(' | ')); }
+  // the abilities and the powers (TASKS 360): each ability's uses a run and its share of them all (none should hold over ~55 %), and the
+  // share of runs that end holding each power
+  console.log('\nprofile | run | ability uses per run (share of all uses) | powers held at the end (share of runs)');
+  for (const p of profiles) for (let k = 0; k < runs; k++) { const a = (res[p] || []).map((x) => x[k]).filter(Boolean); if (!a.length) continue;
+    const ids = [...new Set(a.flatMap((r) => Object.keys(r.uses || {})))], uses = ids.map((c) => [c, avg(a, (r) => (r.uses || {})[c] || 0)]).sort((x, y) => y[1] - x[1]), tot = uses.reduce((n, [, v]) => n + v, 0) || 1, held = {};
+    for (const r of a) for (const w of Object.keys((r.result.hero || {}).powers || {})) held[w] = (held[w] || 0) + 1;
+    console.log([p, k + 1, uses.map(([c, n]) => `${c} ${n.toFixed(0)} (${Math.round(100 * n / tot)}%)`).join(', ') || '-',
+      Object.entries(held).sort((x, y) => y[1] - x[1]).map(([w, n]) => `${w} ${Math.round(100 * n / (a.filter((r) => r.result.hero).length || 1))}%`).join(', ') || '-'].join(' | ')); }
 }
 // the q-th share of the blows of a source group on floor i + 1 over all runs, in % of the max health
 const blowAt = (a, i, g, q) => { const l = a.flatMap((r) => ((r.floors.find((f) => f.floor === i + 1) || {}).blows || {})[g] || []).sort((x, y) => x - y);

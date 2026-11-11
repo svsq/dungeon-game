@@ -48,7 +48,7 @@ try {
       if (name.startsWith('win_cave') || name === 'crab_facings' || (name.startsWith('cave_fireball_') && !name.endsWith('_hit'))) {
         const draw = G.draw, textures = Object.keys(ASSETS).filter((n) => n.startsWith(name.startsWith('win_cave') ? 'serpent__' : 'crab__')).map((n) => G.tex(n));
         G.draw = (p, u, xf, ...args) => { if ((name.startsWith('cave_fireball_') && !name.endsWith('_hit')) ? p === LIB.P.fireball : textures.includes(u.u_tex)) { actorCalls.push({ texture: Object.keys(ASSETS).find((n) => G.tex(n) === u.u_tex), alpha: u.u_alpha, grade: u.u_grade, tint: u.u_tint, snap: u.u_snap, bone0: u.u_bone0, src: u.u_src, cut: u.u_cut, xf }); return; } return draw(p, u, xf, ...args); };
-        // an outline's copies of the same parts go through G.drawN (TASKS 1872): left out with them (re-review of PR 62)
+        // an outline's copies of the same parts go through G.drawN (TASKS 1910): left out with them (re-review of PR 62)
         const drawN = G.drawN; G.drawN = (p, u, ...args) => (!(name.startsWith('cave_fireball_') && !name.endsWith('_hit')) && textures.includes(u.u_tex) ? undefined : drawN(p, u, ...args));
         try { SCENE.render(S.t + 0.01); actorVisible = url !== canvas.toDataURL(); } finally { G.draw = draw; G.drawN = drawN; }
       }

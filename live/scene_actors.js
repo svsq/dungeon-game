@@ -396,7 +396,7 @@
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;
     const h = Object.assign({}, hero, { vx: 0, vy: 0, gp: 0, face: 1, back: 0, backT: -9, faceT: -9, deadT: -1, hurtT: -9, dashT: -9, atkT: -9, patkT: -9, castT: -9, whirlT: -9, read: null, pull: null });
     L.pre = M.of(M.t(x, y), M.s(k, k), M.t(-x, -y));
-    try { drawHero(h, x, y, t, st, { id: 'menu' }); } finally { L.pre = null; }
+    try { drawHero(h, x, y, t, st, { id: 'menu', menu: 1 }); } finally { L.pre = null; }
   };
   SC.endActors = (r, win, t, x, y) => {
     HERO.fireTint = HERO.lightAt = HERO.kAt = null; HERO.k = 0; HERO.lift = 1;

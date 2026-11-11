@@ -108,7 +108,7 @@
       P.active = P.mode === 'pad' ? 1 : 0;
       P.map = (gp.mapping || '—') + (V.std ? '' : ' (xpad)');
       P.gp = gp;   // (P.raw, the dev line's view of it, is built only when read)
-      // (TASKS 1874) a pad press starts the sound as a key or a click does: with the pad alone it never started. Asked on every
+      // (TASKS 1912) a pad press starts the sound as a key or a click does: with the pad alone it never started. Asked on every
       // press until the sound is on and running: deck.sh's Chrome runs the context from the start, and a browser that does not take
       // a pad's press for a gesture keeps it suspended (reviews of PR 62)
       if (root.AUDIO && AUDIO.start && !(AUDIO.live && AUDIO.state === 'running')) for (let i = 0; i < 16; i++) if (edge(i)) { AUDIO.start(); break; }

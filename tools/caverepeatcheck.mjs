@@ -34,7 +34,7 @@ try {
       if (comp && drawPixels) { const pixel = new Float32Array(4); gl.readPixels(489, target.h - 238, 1, 1, gl.RGBA, gl.FLOAT, pixel); pixelTrace.push([...pixel]); }
       return r;
     };
-    // flat rectangles (the moss) go in batches (G.solid, TASKS 1873): while tracing, each is sent at once and traced as a draw was
+    // flat rectangles (the moss) go in batches (G.solid, TASKS 1911): while tracing, each is sent at once and traced as a draw was
     // (review of PR 62: the batch went out past the hook, and the pixel was read before it)
     const solid = G.solid; G.solid = (p, xf, col, al) => {
       const comp = target === LIB.T.comp;

@@ -51,10 +51,11 @@
       (h.powerT = h.powerT || {})[id] = S.t; depth++; try { FX[P.fx](S, R, P, ctx, own[id]); } finally { depth--; }
       ev(S, { k: 'power', id, fx: P.fx, x: ctx.x ?? h.x, y: ctx.y ?? h.y }); } }
   const hasOn = (h, trig) => { for (const id in h.powers || {}) if (D.POWERS[id] && onOf(D.POWERS[id]) === trig) return true; return false; };
+  const drinkFires = (S, R) => !R.town && hasOn(R.hero, 'potion');
   function powersHurt(S, R, dmg, maxHp) { const h = R.hero; firePowers(S, R, 'hurt', { x: h.x, y: h.y, dmg }); const low = h.hp < maxHp * 0.35; if (low && !h.lowOn) firePowers(S, R, 'lowHp', { x: h.x, y: h.y }); h.lowOn = low; }
   function dashTouch(S, R) { const h = R.hero; if (!hasOn(h, 'dashTouch')) return; if (!h.dashHit || h.dashHit.t !== h.dashT) h.dashHit = { t: h.dashT, ids: [] };
     for (const e of R.en) if (e.deadT < 0 && !under(e) && !h.dashHit.ids.includes(e.id) && Math.hypot(e.x - h.x, (e.y - h.y) * 1.25) < ENEMIES[e.type].r + K.R + 10) { h.dashHit.ids.push(e.id); firePowers(S, R, 'dashTouch', { e, x: e.x, y: e.y }); } }
   function chooseFork(S, R, i) { const h = R.hero, P = D.forkPending(h); if (!P) return; (h.forks = h.forks || {})[D.forkKey(P.ab, P.rank)] = i; (h.powers = h.powers || {})[D.FORKS[P.ab][P.rank][i]] = 1; S.saveN++; }
   function thresholdTip(S, R) { const h = R.hero, T = D.THRESHOLD[D.clsOf(h).id]; if (T && !h.thTip && heroSt(S)[T[0]] >= T[1]) { h.thTip = 1; R.msg = { s: T[2], t: S.t, d: 4 }; } }
-  Object.assign(SIMX, { chooseFork, thresholdTip, firePowers, powersHurt, dashTouch, POWER_FX: FX });
+  Object.assign(SIMX, { drinkFires, chooseFork, thresholdTip, firePowers, powersHurt, dashTouch, POWER_FX: FX });
 })(typeof window !== 'undefined' ? window : globalThis);
