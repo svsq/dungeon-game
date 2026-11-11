@@ -72,7 +72,7 @@
       press(u); SIMX.step(c.S, { keys: [], px: 5, py: 5, click: 1 }); if (c.S.forkSel != null || D.forkPending(h) === null) out.push('fork: a press elsewhere does not let the lit card go');
       press(u); press(v); if (c.S.forkSel !== 1 || D.hasPower(h, 'f_fireball_3a') || D.hasPower(h, 'f_fireball_3b')) out.push('fork: a press on the other card chooses instead of lighting it');
       press(u); press(u); if (c.S.screen !== 'inv' || !D.hasPower(h, 'f_fireball_3a') || c.S.forkSel != null) out.push('fork: the second press on the card did not choose'); }
-    // a visit's points are a draft (TASKS 1847): the reset takes them back to the point, closing the page keeps them, a save between
+    // a visit's points are a draft (TASKS 1857): the reset takes them back to the point, closing the page keeps them, a save between
     // keeps them as put in, and nothing can be taken back on a later visit
     { const c = stage('warrior'), h = c.h, S = c.S, U = D.UI.inv(D.clsOf(h).abs), at = (id) => { const q = U.r.find((b) => b.id === id); SIMX.step(S, { keys: [], px: q.x + 5, py: q.y + 5, click: 1 }); };
       h.pts = 3; h.sp = 2; h.lvl = 4; h.ab = { whirl: 1, charge: 1, cry: 1 }; h.hp = 50; h.mp = 10; S.screen = 'inv'; const b0 = JSON.stringify(h.base), hp0 = h.hp, mp0 = h.mp, ab0 = JSON.stringify(h.ab);

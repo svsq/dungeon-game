@@ -235,7 +235,7 @@
     if (leap && onSpikes) h.leapT = h.dashT; else if (!onSpikes) h.leapT = -9;
     const dashing = leap || (h.leapT === h.dashT && t - h.dashT < K.DASH_T + K.LEAP);
     // under the lava (TASKS 484) he stays where he went in, then is up on the firm ground he last stood on
-    if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.climbT = t; h.sunk = null; } }
+    if (h.sunk) { h.vx = h.vy = 0; if (t >= h.sunk.t + CRUST.sink) { h.x = h.sunk.bx; h.y = h.sunk.by; h.fx = h.fy = null; h.climbT = t; h.sunk = null; } }
     const held = h.sunk || (h.climbT !== undefined && t - h.climbT < 0.5), stag = h.stag && t < h.stag.t ? h.stag : null;   // (climbing out over the lip, TASKS 1049, 1058: let go at 0.35 he glided off still 23 px under)
     // (a charge that struck stops on its monster, but its dash runs out, so the lean and the cape ease back, TASKS 1134 critic)
     const halted = h.dashHalt === h.dashT, dashV = charging ? CH.spd : h.leapV && h.leapV[0] === h.dashT ? h.leapV[1] : K.DASH, slide = stag ? 1 - (t - stag.t0) / (stag.t - stag.t0) : 0, mvx = held || (dashing && halted) ? 0 : stag ? stag.vx * slide : dashing ? h.dashX * dashV : h.vx, mvy = held || (dashing && halted) ? 0 : stag ? stag.vy * slide : dashing ? h.dashY * dashV : h.vy;
@@ -247,10 +247,18 @@
     if (leap && h.powers) SIMX.dashTouch(S, R);
     // (the throw never carries him onto the lava: a knock-back shoves monsters in, the hero never, TASKS 406)
     if (stag && onLava(m, { x: h.x + mvx * DT * 3, y: h.y + mvy * DT * 3 })) stag.vx = stag.vy = 0;
+    // a hero whose box the ground closed over (a railed bank's edge under his heels, TASKS 1833) could not take a step any way: back to
+    // where he last stood free, else the nearest free spot he can walk to in a line (a blind nudge could pass a thin wall, PR 56 review)
+    const lk = !m.cliff || onLava(m, h), shut = (x, y) => SIMX.boxHit(m, x, y, K.R, undefined, lk);
+    if (!held && shut(h.x, h.y)) { const fits = (x, y) => !shut(x, y) && losClear(m, h.x, h.y, x, y) && (lk || !SIMX.overLava(m, h.x, h.y, x, y));
+      if (h.fx != null && Math.hypot(h.fx - h.x, h.fy - h.y) <= 20 && fits(h.fx, h.fy)) { h.x = h.fx; h.y = h.fy; }
+      else for (let k = 2, done = 0; k <= 20 && !done; k += 2) for (let i = 0; i < 8 && !done; i++) { const x = h.x + Math.cos(i * Math.PI / 4) * k, y = h.y + Math.sin(i * Math.PI / 4) * k; if (fits(x, y)) { h.x = x; h.y = y; done = 1; } } }
     const stop = stag && !stag.vx && !stag.vy, ox = h.x, oy = h.y; const [bx, by] = move(m, h, stop ? 0 : mvx * DT, stop ? 0 : mvy * DT, K.R); if (bx) h.vx = 0; if (by) h.vy = 0;
     // a drowned's grab draws the hero a step toward it at an even pace
     if (h.pull) { const P = h.pull, sp = Math.min(P.n / P.T * DT, P.n - P.done); move(m, h, P.x * sp, P.y * sp, K.R); P.done += sp; if (P.done >= P.n - 0.01) h.pull = null; }
     shove(m, h, K.R, false, SIMX.solids(R));
+    // (only firm ground on foot: a spot taken mid-dash or mid-leap could be over the chasm or the lava, PR 56 review 2)
+    if (!dashing && !held && !h.sunk && !onLava(m, h) && !SIMX.chasm(m, Math.floor(h.x / TILE), Math.floor(h.y / TILE)) && !SIMX.boxHit(m, h.x, h.y, K.R, undefined, !m.cliff)) { h.fx = h.x; h.fy = h.y; }
     { const w = webAt(m, h); if (w && h.web !== m.webs.indexOf(w)) ev(S, { k: 'web', x: w.x, y: w.y, i: m.webs.indexOf(w) }); h.web = w ? m.webs.indexOf(w) : -1; }
     { const g = gooAt(m, h); if (g && h.gooIn !== g.id) ev(S, { k: 'goo', x: h.x, y: h.y }); h.gooIn = g ? g.id : -1; }
     m.goo = (m.goo || []).filter((g) => t < g.t0 + g.T); for (const g of m.goo) g.rNow = g.r * Math.min(1, (g.t0 + g.T - t) / GOO.dry);
@@ -271,11 +279,13 @@
     }
     if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     // ---- melee: hold LMB ----
+    // a swing faster than its own damage frame was cut off by the next one before it landed: past 224 % attack speed a warrior hit nothing (TASKS 1833)
+    const frame = SIMX.hitFrame(h, st.wtype);
     if (inp.press && !S.eatPress && h.cd.atk <= t) {
-      h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + st.wcd / (1 + st.aspd / 100); h.atkSlow = Math.min(0.2, (D.clsOf(h).slow || 1) * st.wcd / (1 + st.aspd / 100)); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
+      h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + Math.max(frame + DT, st.wcd / (1 + st.aspd / 100)); h.atkSlow = Math.min(0.2, (D.clsOf(h).slow || 1) * st.wcd / (1 + st.aspd / 100)); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;
       ev(S, Object.assign({ k: 'swing', x: h.x, y: h.y, a: h.aim, n: h.atkN, f: h.face }, (D.clsOf(h).shoots || []).includes(st.wtype) ? { shot: 1 } : {}));
     }
-    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= ((D.clsOf(h).shoots || []).includes(st.wtype) ? D.SHOTS[BASES[st.wtype].shot || 'bolt'].t : K.HIT)) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
+    if (h.atkT >= 0 && !h.atkHit && t - h.atkT >= frame) {     // the damage frame: the blade crosses the aim (scene.js swingPose)
       h.atkHit = 1; const arc = st.arc * Math.PI / 180, reach = st.reach, Cl = D.clsOf(h);
       // a class that shoots from this weapon (the mage's staff, TASKS 1110) sends a bolt down the aim instead of the blade's arc
       if ((Cl.shoots || []).includes(st.wtype)) { const a = h.atkA, c = rnd(R) * 100 < st.crit;

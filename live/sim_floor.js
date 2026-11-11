@@ -41,16 +41,19 @@
   // RNG; deterministic from R.rs and R.nextId, so a floor kept as a diff (TASKS 1008) is rebuilt and patched, not stored whole
   // a floor is generated anew on each trip home and back (stash and restore, TASKS 1008): the generator is a pure function of its
   // arguments, so a few of its maps are kept and handed out as copies (TASKS 467)
-  const GEN = new Map();
+  let GEN = new Map(), genMax = 8;
+  // SCENE.QA() lays a few dozen floors over and over for its hundreds of states: it keeps them all while it builds (TASKS 1697), in a
+  // cache of its own, so a QA pass mid-game neither evicts the run's floors nor leaves its hundreds behind (PR 56 review)
+  let apart = 0; const genApart = (f) => { if (apart) return f(); const g = GEN, n = genMax; GEN = new Map(); genMax = Infinity; apart++; try { return f(); } finally { apart--; GEN = g; genMax = n; } };
   function genKept(kind, seed, f, opts) {
     const key = kind + ':' + seed + ':' + f + ':' + JSON.stringify(opts || null); let m = GEN.get(key);
-    if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= 8) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
+    if (!m) { m = kind === 't' ? DG.genTown(seed) : DG.genFloor(seed, f, opts); if (GEN.size >= genMax) GEN.delete(GEN.keys().next().value); GEN.set(key, m = structuredClone(m)); }
     return structuredClone(m);
   }
   // a run saved in the town before the mason's yard (TASKS 1151): its map is rebuilt from the run's seed; the townsfolk and the cart start over on it
   function migrateTown(R) { if (!R.map || !R.map.town || R.map.town.yardSolid) return;
     const m = genKept('t', (R.seed * 31) >>> 0), h = R.hero, ok = DG.townWalk(m); m.goo = []; R.map = m; R.folk = null; R.cart = null; R.seen = new Array(m.W * m.H).fill(1);
-    if (h && !ok[Math.floor(h.y / D.TILE) * m.W + Math.floor(h.x / D.TILE)]) { h.x = m.spawn.x; h.y = m.spawn.y; } }
+    if (h && !ok[Math.floor(h.y / D.TILE) * m.W + Math.floor(h.x / D.TILE)]) { h.x = m.spawn.x; h.y = m.spawn.y; h.fx = h.fy = null; } }
   function buildFloor(R, f, gen) {
     R.bossDead = 0;
     const m = f === 0 ? genKept('t', (R.seed * 31) >>> 0) : genKept('f', (R.seed * 31 + f * 1013) >>> 0, f, Object.assign({ mode: R.mode, runSeed: R.seed, from: FROM(R), town: R.viaTown ? 1 : 0 }, gen)); R.town = f === 0 ? 1 : 0; R.folk = f === 0 ? SIMX.folkHere(R, D.folkInit(m.town.npcs)) : null;
@@ -134,7 +137,7 @@
   function restoreFloor(R, f, M) { const old = (M.gv || 1) !== D.GEN_VERSION; if (old) migrateFloor(R, f, M);
     else { const B = freshFloor(R, f, M); if (!BASE.has(M)) BASE.set(M, snapFloor(B)); if (M.d) fpatch(B, M.d); for (const k of FLOOR_KEYS) R[k] = B[k]; }
     R.arena = R.arena || null; R.eggs = R.eggs || []; R.lavaPending = []; R.rocks = []; R.cracks = []; R.proj = []; R.pyres = []; R.fires = []; R.scorches = [];
-    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); return old; }
+    R.drops = jclone(M.drops || []); R.seen = M.seen ? unrle(M.seen) : new Array(R.map.W * R.map.H).fill(0); R.rseen = M.rseen ? M.rseen.slice() : R.map.rooms.map(() => 0); migrateSecrets(R); return old; }
   function standNear(R, x, y) { const m = R.map, sol = SIMX.solids(R), ok = (px, py) => !boxHit(m, px, py, K.R, false, false) && !sol.some((o) => Math.hypot(px - o.x, (py - o.y) * 1.6) < o.r + K.R);
     if (ok(x, y)) return [x, y]; for (let d = 6; d <= 160; d += 6) for (let a = 0; a < 16; a++) { const px = x + Math.cos(a * Math.PI / 8 + Math.PI / 2) * d, py = y + Math.sin(a * Math.PI / 8 + Math.PI / 2) * d; if (ok(px, py)) return [px, py]; }
     return [x, y]; }
@@ -170,7 +173,7 @@
     else if (how === 'down' && m.up) [hx, hy] = standNear(R, m.up.x, m.up.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
-    h.x = hx; h.y = hy; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
+    h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
     // up the stairs or through a portal he may come out by a floor's guard: a second to see where he is
     if (how !== 'down') h.ifr = Math.max(h.ifr || 0, S.t + 1);
     R.zoom = S.demo ? D.ZOOM : S.meta.zoom; snapCam(R);
@@ -206,7 +209,7 @@
     T.pct = parts.length ? parts.reduce((a, [k, n]) => a + Math.min(1, k / n), 0) / parts.length : 0;
     return T;
   }
-  // passed (TASKS 1853 и): the floors left behind on the way down, the deepest one only with the run won; a death on the 1st is 0
+  // passed (TASKS 1863 и): the floors left behind on the way down, the deepest one only with the run won; a death on the 1st is 0
   const runCompletion = (R, how) => { const E = Object.entries(R.stats || {}).filter(([f]) => f !== '0'), top = Math.max(0, ...E.map(([f]) => +f)), T = completion(E.map(([, v]) => v));
     T.passed = E.filter(([f]) => +f < top || how === 'win').length; return T; };
   function completionHints(R) {
@@ -293,23 +296,12 @@
   const MASK = { key: '', set: null };
   // a cache saved before the walls stopped breaking (TASKS 1691): a flagstone in front of it, so it stays openable; a statue saved
   // with its slide as a distance in px takes this branch's side and cell count
-  // a false bookcase saved while it still swung on a hinge (TASKS 1841) takes a way along the wall with room for all its width, and
-  // one already swung open stands on the far end of it; with no such room (or the hero there, or a passage it would shut) it keeps
-  // its hinge for good: tried again on a later load it could jump along the wall. An open one never lands on a monster or loot: its
-  // far cell is the one it blocks, as a fresh one's
-  function slideShelf(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); if (!d) return;
-    const W = m.W, fy = Math.floor(d.y / TILE), fc = Math.floor(q.x / TILE), hw = D.PROP_W.bookshelf / 2, blk = new Set(m.block), hk = Math.floor(R.hero.y / TILE) * W + Math.floor(R.hero.x / TILE),
-      occ = new Set(q.open ? [...(R.en || []).filter((e) => e.deadT < 0), ...(R.drops || [])].map((o) => Math.floor(o.y / TILE) * W + Math.floor(o.x / TILE)) : []);
-    const sp = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), dc = new Set((m.doors || []).flatMap((o) => o.cells.map(([x, y]) => y * W + x))),
-      reach = (B) => { const seen = new Set([sp]), st = [sp]; while (st.length) { const k = st.pop(); for (const n of [k + 1, k - 1, k + W, k - W]) if ((m.cells[n] === 1 || dc.has(n)) && !(B.has(n) && !dc.has(n)) && !seen.has(n)) { seen.add(n); st.push(n); } } return seen.size; };
-    const hole = new Set(q.wall.map(([x, y]) => y * W + x)), wallOk = (c) => m.cells[fy * W + c] === 1 && (m.cells[(fy - 1) * W + c] === 0 || m.cells[(fy - 1) * W + c] === 4 || hole.has((fy - 1) * W + c));
-    const o = [[1, 3], [-1, 3], [1, 2], [-1, 2]].find(([s, n]) => { const x1 = q.x + s * n * TILE; for (let k = 1; k <= n; k++) if (!wallOk(fc + s * k) || blk.has(fy * W + fc + s * k) || fy * W + fc + s * k === hk) return false;
-      for (let c = Math.floor((x1 - hw) / TILE); c <= Math.floor((x1 + hw - 1) / TILE); c++) if (!wallOk(c)) return false;
-      if (m.decor.some((e) => e !== d && e.solid && Math.abs(e.y - d.y) < 4 && Math.abs(e.x - x1) < hw + (D.PROP_W[e.n] || D.PROP_W.chest) / 2)) return false;
-      const k1 = fy * W + fc + s * n; if (occ.has(k1)) return false; const base = new Set(blk); base.delete(fy * W + fc); base.delete(k1); return reach(new Set(base).add(k1)) === reach(base) - 1; });
-    if (!o) { q.hinge = 1; return; } const [s, n] = o, k0 = fy * W + fc, k1 = k0 + s * n; q.slide = { s, n }; if (!q.open) return;
-    d.x = q.x + s * n * TILE; d.solid = 1; delete d.broken; m.block = m.block.filter((b) => b !== k0 && b !== k1); m.block.push(k1); }
-  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf' && !q.slide && !q.hinge) slideShelf(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
+  // a false bookcase is broken now, not moved (TASKS 1852): one saved open, on its hinge (0.3.0) or slid along the wall (a build of
+  // 1851), lies in planks at its own place, its cell free; a shut one stands there whole, to be broken
+  function shelfLoad(R, q) { const TILE = D.TILE, m = R.map, i = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === i && o.n === 'bookshelf'); delete q.hinge; delete q.held; if (!d) { delete q.slide; return; }
+    const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = q.slide ? k0 + q.slide.s * q.slide.n : k0; delete q.slide; d.x = q.x;
+    m.block = m.block.filter((b) => b !== k0 && b !== k1); if (q.open) { d.solid = 0; d.broken = 1; d.brokeT = -9; } else { d.solid = 1; delete d.broken; delete d.brokeT; m.block.push(k0); } }
+  function migrateSecrets(R) { const m = R && R.map; if (!m) return; for (const q of m.secrets || []) { delete q.hp; if (typeof q.slide === 'number') q.slide = { s: Math.sign(q.slide), n: Math.round(Math.abs(q.slide) / D.TILE) }; if (q.kind === 'shelf') shelfLoad(R, q); if (q.kind && q.kind !== 'crack') continue; const [x, y] = q.front[1]; q.kind = 'lever'; q.trig = { k: 'plate', x: (x + 0.5) * D.TILE, y: (y + 0.5) * D.TILE, cx: x, cy: y }; } }
   function secretMask(m) { const key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
     if (MASK.key === key) return MASK.set; const set = new Set();
     for (const q of m.secrets || []) { if (q.open) continue; const r = m.rooms[q.room];
@@ -335,6 +327,6 @@
   const hidden = (m, o) => o.sec !== undefined && !!m.secrets && !m.secrets[o.sec].open;
 
   Object.assign(SIMX, {
-    migrateTown, newRun, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
+    migrateTown, newRun, genApart, standNear, enterFloor, rebuildArrival, counted, floorStat, fstat, completion, runCompletion, completionHints, stepHazards,
     stepPyres, pyre, kinOf, kindle, crustOf, golemCrust, damageName, REWARD, runReward, giveShards, checkFull, secretMask, mapCut, hidden, migrateSecrets });
 })(typeof window !== 'undefined' ? window : globalThis);

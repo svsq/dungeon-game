@@ -56,4 +56,4 @@ for t in "${targets[@]}"; do flags+=("--$t"); done
 echo "== build ${targets[*]}"
 npx electron-builder "${flags[@]}" -c.extraMetadata.version="$ver" --publish never
 echo "== done"
-ls -lh release/ | grep "crypt-$CRYPT_REV" || true
+ls -lh release/ | grep "TheElderDeep-$CRYPT_REV" || true

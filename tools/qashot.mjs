@@ -1,7 +1,7 @@
 // renders chosen SCENE.QA() states whole and chosen cycles / transitions as contact sheets round their subject (TASKS 407–409)
 //   node tools/qashot.mjs [--states a,b] [--sheets c,d] [--n 12] [--box 260] [--view 1280x720] [--out frames/qashot]
 //   --view: the browser window size; the canvas is 1920 wide and as tall as the window's aspect asks (1080 at 16:9, 1200 at 16:10, up to
-//   1248, TASKS 1851), scaled by the page as a player on that screen sees it; a text drawn off the view is reported
+//   1248, TASKS 1861), scaled by the page as a player on that screen sees it; a text drawn off the view is reported
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';

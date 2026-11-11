@@ -199,7 +199,7 @@
     return;
   };
   SCREEN.fork = (S, inp, keys, x, y, click) => { const R = S.run, b = D.hitUI(UI.fork(), x, y); S.hover = b ? b.id : '';
-    // a choice for the whole run is taken on a second press of the same card (TASKS 1847): the first only lights it, Escape or a
+    // a choice for the whole run is taken on a second press of the same card (TASKS 1857): the first only lights it, Escape or a
     // press anywhere else lets it go, a second Escape puts the fork off
     if (keys.Escape) { if (S.forkSel != null) S.forkSel = null; else { S.screen = 'inv'; S.hover = ''; } return; }
     if (click && b && S.forkSel === b.i) { SIMX.chooseFork(S, R, b.i); delete R.hero.draft; S.forkSel = null; ev(S, { k: 'buy', x, y }); if (!D.forkPending(R.hero)) S.screen = 'inv'; S.hover = ''; }
@@ -233,7 +233,7 @@
     const dq = S.drag && D.SETTINGS.find((o) => o.id === S.drag), r = dq && U.r.find((o) => o.id === S.drag);
     if (dq && setTo(S, dq, Math.round((x - r.x) / r.w * (dq.stops.length - 1)))) ev(S, { k: 'ui', x, y });
   };
-  // a yes-or-no question (TASKS 1843, 1844): «Нет» is the focus it opens with, ←→ move it, Enter answers it, Escape says no
+  // a yes-or-no question (TASKS 1853, 1854): «Нет» is the focus it opens with, ←→ move it, Enter answers it, Escape says no
   const askAnswer = (S, U, keys, x, y, click, moved) => { const b = D.hitUI(U.r, x, y), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0); S.hover = b ? b.id : '';
     if (b && moved) S.focus = b.id;
     if (st) { S.focus = S.focus === U.r[0].id ? U.r[1].id : U.r[0].id; ev(S, { k: 'ui', x, y }); }
@@ -271,9 +271,9 @@
     // in the topics menu a number or a click opens a topic; «Дальше» / «Не сейчас», E, the space or Enter leave it
     if (T.menu) { const pick = T.topics.findIndex((q, i) => keys['Digit' + (i + 1)]), n = click && b && b.id.startsWith('topic:') ? b.i : pick; if (n >= 0) { T.pages = T.topics[n].a; T.p = 0; T.menu = 0; T.inTopic = 1; ev(S, { k: 'ui', x, y }); return; } if ((click && b && b.id === 'next') || keys.KeyE || keys.Space || keys.Enter) { S.screen = 'play'; S.talk = null; } return; }
     const last = T.p + 1 >= T.pages.length;
-    // E run through the pages must never take a side quest or end the run (TASKS 1148, 1657), nor drop the offer unread (TASKS 1849):
+    // E run through the pages must never take a side quest or end the run (TASKS 1148, 1657), nor drop the offer unread (TASKS 1859):
     // on an offer's page E and the space do nothing, save the Keeper's first story quest, which E takes once the page has been up a breath.
-    // The end of the run is never on Enter either, as at the town gate (TASKS 1844): only a click on «Завершить поход» ends it
+    // The end of the run is never on Enter either, as at the town gate (TASKS 1854): only a click on «Завершить поход» ends it
     const quest = T.act && last && T.act.k === 'take', settled = S.t - (T.pT ?? S.t) >= TALK_SETTLE,
       byE = keys.KeyE && T.act && (T.act.k === 'turn' || (T.act.k === 'take' && T.act.first && settled)),
       byEnter = keys.Enter && T.act && T.act.k !== 'finish';
@@ -322,7 +322,7 @@
     return;
   };
   // the town's gate out (TASKS 1149): give up the run, or past the campaign's last boss end it won; a question like the pause's
-  // (TASKS 1844): «Остаться» in focus, so Enter alone never ends the run
+  // (TASKS 1854): «Остаться» in focus, so Enter alone never ends the run
   SCREEN.leave = (S, inp, keys, x, y, click) => {
     const R = S.run, a = R ? askAnswer(S, UI.leave(), Object.assign({}, keys, { Escape: keys.Escape || keys.KeyE }), x, y, click, inp.moved) : -1;
     if (a < 0) { S.screen = 'play'; S.focus = ''; return; }
@@ -348,10 +348,10 @@
     if (b.id.startsWith('sell:')) sellAsk(S, R, b.i, x, y);
     return;
   };
-  // a legendary or better goes on a second press (TASKS 1853 г): the merchant buys it back only while it is among his last few
+  // a legendary or better goes on a second press (TASKS 1863 г): the merchant buys it back only while it is among his last few
   const sellAsk = (S, R, i, x, y) => { const it = R.hero.bag[i]; if (!it) return;
     if ((it.rar || 0) < 4 || again(S, 'sell', it)) sell(S, R, i); else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.shop.sellAsk', { p1: SIMX.itemName(it) }) }); };
-  // one way out of every window (TASKS 1853 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
+  // one way out of every window (TASKS 1863 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
   SCREEN.board = (S, inp, keys, x, y, click) => {
     const R = S.run, L0 = R ? boardOffers(R) : [], U = UI.board(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
@@ -374,7 +374,7 @@
     if (keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'journal'; S.hover = ''; return; }
     if (click && b && b.id === 'prev' && b.on) S.notesPage = pg - 1; if (click && b && b.id === 'next' && b.on) S.notesPage = pg + 1;
     if (click && b && b.id.startsWith('n:')) S.noteSel = L0[b.i]; if (click && b) ev(S, { k: 'ui', x, y }); };
-  // a press asked twice (TASKS 1853 в, г): true on the second within 3 s on the same piece, else it arms and the caller says why
+  // a press asked twice (TASKS 1863 в, г): true on the second within 3 s on the same piece, else it arms and the caller says why
   const again = (S, k, it) => { const A = S.ask2; if (A && A.k === k && A.id === it.id && S.t - A.t < 3) { S.ask2 = null; return true; } S.ask2 = { k, id: it.id, t: S.t }; return false; };
   // the bag's tabs (TASKS 1687): the open one is kept per player, not per window; a sort orders the open tab's cells only
   const openTab = (S, h) => { const T = D.bagTabs(h.bag.length), k = Math.max(0, Math.min(T.length - 1, S.bagTab | 0)); return T[k]; };
@@ -407,7 +407,7 @@
     if (!b) return;
     if (click && b.tab !== undefined) { tabClick(S, b, x, y); return; }
     if (click && b.id.startsWith('sort:')) { sortTab(S, h, b.k); S.saveN++; ev(S, { k: 'ui', x, y }); }
-    // the right button is each window's quick action on a bag piece (TASKS 1853 в): here it throws it away, on a second press, as a
+    // the right button is each window's quick action on a bag piece (TASKS 1863 в): here it throws it away, on a second press, as a
     // legendary is sold, for a piece on the floor of a cave is as good as lost
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i];
       if (again(S, 'toss', it)) { h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); } else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.inv.tossAsk', { p1: SIMX.itemName(it) }) }); }
@@ -420,7 +420,7 @@
     if (click && b.id.startsWith('ab:') && h.sp > 0) { const A = D.clsOf(h).abs.find((a) => a.id === b.ab); if (h.lvl >= A.unlock && (h.ab[b.ab] || 0) < D.AB_MAX) { const d = draftOf(h), m0 = h.mast || 0;
       h.ab[b.ab] = (h.ab[b.ab] || 0) + 1; h.sp--; d.ab[b.ab] = (d.ab[b.ab] || 0) + 1; D.masteryTake(h); d.mast += (h.mast || 0) - m0; ev(S, { k: 'buy', x, y }); if (D.forkPending(h)) toFork(S); } }
   };
-  // points put in on one visit to the hero's page stay a draft until the page closes (TASKS 1847): base, ranks and health carry them
+  // points put in on one visit to the hero's page stay a draft until the page closes (TASKS 1857): base, ranks and health carry them
   // at once, as everything reads them, and the draft only remembers how to take them back; leaving the page forgets it, and that is
   // the commit. A choice made at a fork commits it too, for a rank taken back from under its fork would leave the fork hanging
   const draftOf = (h) => h.draft || (h.draft = { st: {}, ab: {}, hp: 0, mp: 0, mast: 0 });
@@ -432,7 +432,7 @@
     if (!draftHas(d.st) && !draftHas(d.ab) && !d.mast) delete h.draft; S.saveN++; }
   const toFork = (S) => { S.screen = 'fork'; S.hover = ''; S.forkSel = null; };
   const commitDraft = (S) => { const h = S.run && S.run.hero; if (h && h.draft && S.screen !== 'inv' && S.screen !== 'fork') delete h.draft; };
-  // the screens the menu opens: back from one of them the menu's focus returns to the item that opened it (TASKS 1850); back from
+  // the screens the menu opens: back from one of them the menu's focus returns to the item that opened it (TASKS 1860); back from
   // a run it starts again from none, the first item (the run just saved), not the item that started the run long ago
   const MENU_SUBS = ['load', 'stats', 'settings', 'news', 'tests', 'classes'];
   // moved: the pointer moved since the last step, and only then takes the focus onto what it is over (TASKS 1754), so a pointer

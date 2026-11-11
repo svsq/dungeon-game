@@ -24,7 +24,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // sizes.js: window.SIZES (display size per sprite in view px, engine.md §7); audio.js: sound synthesised from the event bus
   await load('modules.js'); for (const f of MODULES.page) await load(f);
   const q = new URLSearchParams(location.search), render = q.has('render');
-  // the view's height follows the window's aspect (TASKS 1851): the sim keeps the size, the page tells it the window's and lets the
+  // the view's height follows the window's aspect (TASKS 1861): the sim keeps the size, the page tells it the window's and lets the
   // canvas take the aspect that comes out; the scene rebuilds its targets on the next frame
   const fitView = () => { if (SIM.setView) SIM.setView(SIM.viewFor(innerWidth, innerHeight)); document.documentElement.style.setProperty('--ar', SIM.VIEW.W / SIM.VIEW.H); };
   fitView(); addEventListener('resize', fitView);
@@ -78,7 +78,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     e.preventDefault();
   });
   addEventListener('keyup', (e) => { keys[e.code] = 0; });
-  // the fullscreen (TASKS 1854): the sim keeps the wish in meta.full, the page applies it and writes back what the player did outside
+  // the fullscreen (TASKS 1864): the sim keeps the wish in meta.full, the page applies it and writes back what the player did outside
   // the game (Esc, F11). A browser grants the Fullscreen API only right after a click or a key, so a wish saved from the last session
   // waits for the first one; the desktop build asks its window over IPC, where F11 and the menu also go
   const desk = window.desktop, fullNow = () => (desk ? desk.isFull() : !!document.fullscreenElement);

@@ -542,7 +542,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
   // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
   // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
-  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1851):
+  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1861):
   // one-pixel stems blur away when the 1920×1080 canvas is shown at 1280×720
   const FACES = [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], TREBUCHET_W = 0.547, FIT = new Map();
   const fit = (size, bold) => { const n = Math.round(size), k = bold ? 'b' + n : n; let r = FIT.get(k); if (r) return r; let best = Infinity;

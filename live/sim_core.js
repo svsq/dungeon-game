@@ -8,7 +8,7 @@
   // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
   // the zoom lives on the run (R.zoom, copied from the player's setting every step) so camera and pointer follow a change at once
   // the view is 1920 wide and as tall as the window's aspect asks, from 1080 (16:9) past 1200 (16:10) to 1248 (a MacBook's 1512×982)
-  // on an 8 px step, so the 2×2 world grid and the blur targets stay whole (TASKS 1851); the page sets it, Node keeps 16:9. A window
+  // on an 8 px step, so the 2×2 world grid and the blur targets stay whole (TASKS 1861); the page sets it, Node keeps 16:9. A window
   // wider than 16:9 keeps 1080 and shows bars at its sides: a wider world window would show more of a floor than its light and fog
   // were tuned for, and the HUD's right column would drift from its windows
   const VIEW = { W: 1920, H: 1080 }, VIEW_H = D.VIEW_H, viewFor = (w, h) => Math.max(VIEW_H[0], Math.min(VIEW_H[1], Math.round(VIEW.W * h / w / 8) * 8)),

@@ -3,19 +3,19 @@
 // souls. Drawn after the grade at full resolution. Panels are sized to their content and registered for qa.mjs (L.uiBox).
 (function () {
   const HUD = (window.HUD = {}), L = LIB, D = DATA, TILE = D.TILE;
-  // H is the bottom of what is drawn now: the view's in play, the 1920×1080 frame's own past a window's shift (TASKS 1851), so a
+  // H is the bottom of what is drawn now: the view's in play, the 1920×1080 frame's own past a window's shift (TASKS 1861), so a
   // line kept off the bottom by H stays on the screen's bottom edge; VH is always the view's
   let W = SIM.VIEW.W, H = SIM.VIEW.H, VH = H;
   const framed = (oy, fn) => { const o = G.oy, h = H; G.oy = oy; H = VH - oy; try { fn(); } finally { G.oy = o; H = h; } };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
-  const MAP = { key: '', rec: null, cv: null, k: 3 };
+  const MAP = { key: '', rec: null, cv: null, k: 3 }, HURT = new Map();
   HUD.init = () => {};
   // a line of text broken into lines of at most `width` px
   const wrapLab = (id, s0, x, y, width, size, col) => { const lines = []; let line = '';
     for (const w of String(s0).split(' ')) { const next = line ? line + ' ' + w : w; if (line && lw(id + '_m', next, { size }) > width) { lines.push(line); line = w; } else line = next; }
     if (line) lines.push(line); lines.forEach((v, i) => lab(id + i, v, x, y + i * (size + 7), { size, col })); return lines.length * (size + 7); };
-  // a C window's key hint sits on the scorched rim of its parchment: a pale backing keeps it at 4.5:1 and over (TASKS 1851)
+  // a C window's key hint sits on the scorched rim of its parchment: a pale backing keeps it at 4.5:1 and over (TASKS 1861)
   const hintC = (id, s, y) => { const w = lw(id, s, { size: 26 }) + 36; L.rrect(W / 2 - w / 2, y - 19, w, 38, 8, [0.89, 0.81, 0.65], [0.84, 0.75, 0.58], 0.92);
     lab(id, s, W / 2, y, { size: 26, al: 0.5, col: INK.t }); };
   const wrapWords = (s, width, size) => { const out = []; let line = '';
@@ -35,7 +35,7 @@
   const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
   // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
-  // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1853 з)
+  // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1863 з)
   const SHOP_SHUT_LEG = ['shop', TXT('TOWN_LEG.shut')], townLeg = (R) => (SIM.Q.shopShut(R) ? TOWN_LEG.map((q) => (q[0] === 'shop' ? SHOP_SHUT_LEG : q)) : TOWN_LEG);
   const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
@@ -63,10 +63,10 @@
   const dim = (a = 0.62) => L.solid(0, -G.oy, W, VH, [0, 0, 0], 0, 0, 0, a);
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
-  // what a number or a cell is, under the pointer in the pause and on the hero's page (TASKS 1852): rects [x, y, w, h, title, line]
+  // what a number or a cell is, under the pointer in the pause and on the hero's page (TASKS 1862): rects [x, y, w, h, title, line]
   // in the pause the note hangs under the HUD's left column and left of the pause window, so it covers none of their lines
   let TIPS = [], TIPY = 0;
-  // line: one line or several (TASKS 1847: what a point or a rank gives, a line a change); over the hero's page the stats' and the
+  // line: one line or several (TASKS 1857: what a point or a rank gives, a line a change); over the hero's page the stats' and the
   // skills' notes show under a lit «+» or card, an item's own card under a cell. A line dear to work out is a function, asked only
   // of the note under the pointer (review of PR 57): a stat's gain is two whole recounts of the hero, eight a frame for the four
   const tipAt = (x, y, w, h, title, line) => TIPS.push([x, y, w, h, title, line || '']);
@@ -115,7 +115,7 @@
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
   }
 
-  // M's answer (TASKS 1853 а): a plate for a few seconds on whatever screen it was pressed, and while muted a speaker crossed out by
+  // M's answer (TASKS 1863 а): a plate for a few seconds on whatever screen it was pressed, and while muted a speaker crossed out by
   // the key hints in play, so a silent game is never a mystery
   function muteNote(S) {
     const a = S.t - (S.muteT ?? -1e9);
@@ -237,6 +237,7 @@
       const quiet = !e.elite && R.en.some((o) => o.elite && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < 160);
       capsule(b.x + b.w / 2, b.y + 3, w, e.hp / e.max, e.elite, quiet);
     }
+    let busy = null; if (HURT.m !== m) { HURT.clear(); HURT.m = m; } for (const [key, p] of HURT) if (!(GT - p.t >= 0 && GT - p.t < 1)) HURT.delete(key);
     // the "!" when a monster notices the hero
     for (const [i, ev] of S.ev.entries()) { const a = GT - ev.t; if (a < 0 || !seen(ev.x, ev.y) || V.sx(ev.x) < -50 || V.sx(ev.x) > W + 50 || V.sy(ev.y) < -50 || V.sy(ev.y) > H + 150) continue;
       if (ev.k === 'alert' && a < 0.7 && !R.en.some((e) => e.id === ev.id && e.deadT >= 0)) float('al' + i, '!', V.sx(ev.x), V.sy(ev.y) - 20 * L.SS(0, 0.15, a), { size: 34, col: '#ffd040', a: 1 - L.SS(0.5, 0.7, a) });
@@ -247,19 +248,33 @@
         if (ev.crit && !ev.arm) float('cr' + i, TXT('hud.crit'), V.sx(hx), V.sy(hy) - 40 * q - 58, { size: Math.round(36 * (1 + 0.2 * L.SS(0, 0.08, a) - 0.2 * L.SS(0.08, 0.2, a))), col: '#ff5a38', out: '#1a0503', a: 1 - L.SS(0.6, 0.8, a) }); }
       // a burn's ticks show as one number running up (TASKS 463): only its latest tick is drawn, with the burn's sum so far
       if (ev.k === 'hurt' && a < 0.8 && !(ev.chain !== undefined && S.ev.some((o, j) => j > i && o.k === 'hurt' && o.chain === ev.chain))) {
-        const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), offset = 30 * k + lw('hu' + i, s, { size: 30 }) / 2 + 12 + 14 * a / 0.8;
-        float('hu' + i, s, V.sx(ev.x) + (ev.side || h.hurtX || -1) * offset, V.sy(ev.y) - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
+        const s = '-' + Math.round(ev.chain !== undefined ? ev.sum : ev.n), tw = lw('hu' + i, s, { size: 30 }), off = (q) => 30 * k + tw / 2 + 12 + 14 * q;
+        // the number's whole flight is kept clear of names and bodies, chosen once at its birth: tested frame by frame, it rose into an
+        // elite's name at ×0,5 and leapt 125 px up mid-flight (TASKS 1776), and re-chosen every frame it leapt 72 px sideways when a
+        // name came or went (PR 56 review); out to the side it stays level with the hero, and the other side is tried before the screen's edge
+        const bw = tw + 8, bh = 30 * 1.24 + 8, x0 = V.sx(ev.x), y0 = V.sy(ev.y), key = ev.chain !== undefined ? 'c' + ev.chain : ev;
+        const box = (sd, dx, X = x0, Y = y0) => ({ x: Math.min(X + sd * off(0), X + sd * off(1)) - bw / 2 + sd * dx, y: Y - 24 - bh / 2, w: 14 + bw, h: 24 + bh });
+        let p = HURT.get(key);
+        if (!p) { const s0 = ev.side || h.hurtX || -1, taken = [...HURT.values()].filter((q) => GT - q.t < 0.8).map((q) => box(q.side, q.dx, V.sx(q.x), V.sy(q.y)));
+          busy = busy || nameZones.concat(actorZones.slice(1)); const all = occupied.concat(busy, taken), cost = (b) => all.filter((o) => overlaps(b, o)).length;
+          let best = null;
+          for (const sd of [s0, -s0]) for (let dx = 0; dx < 240 && !(best && !best.c); dx += 12) { const b = box(sd, dx), out = b.x < 4 || b.x + b.w > W - 4;
+            if (out) b.x = Math.max(4, Math.min(W - 4 - b.w, b.x));
+            const c = cost(b); if (!best || c < best.c) best = { side: sd, dx, c }; if (out) break; }
+          HURT.set(key, p = { side: best.side, dx: best.dx, x: ev.x, y: ev.y }); }
+        p.t = ev.t; p.x = ev.x; p.y = ev.y;
+        float('hu' + i, s, Math.max(tw / 2 + 4, Math.min(W - tw / 2 - 4, x0 + p.side * (off(a / 0.8) + p.dx))), y0 - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
       if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 20;   // up off the head, then into the counter
         lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (HB.y + HB.h + 27 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // a pickup, a new level or a new skill also says so over the hero's head, where the eye is in a fight; the feed in the corner
-    // keeps the history (TASKS 1852)
+    // keeps the history (TASKS 1862)
     S.ev.filter((e) => (e.k === 'pickup' || e.k === 'lvl' || e.k === 'unlock') && GT - e.t >= 0 && GT - e.t < 1.4).slice(-3).forEach((e, i) => { const a = GT - e.t;
       const s = e.k === 'pickup' ? '+ ' + e.s : e.k === 'lvl' ? TXT('hud.float.lvl') : D.ABILITIES.find((A) => A.id === e.id).name, col = e.k === 'pickup' ? hex(D.RARITY[e.rar || 0].col) : C.gold;
       float('fb' + i, s, V.sx(h.x), V.sy(h.y) - 84 * k - 34 - 24 * L.SS(0, 0.4, a), { size: 24, col, a: L.SS(0, 0.08, a) * (1 - L.SS(1.0, 1.4, a)) }); });
-    // the short names of the items lying by the hero (TASKS 1853 ж), stacked up where two would meet; a thrown-away one under its prompt
+    // the short names of the items lying by the hero (TASKS 1863 ж), stacked up where two would meet; a thrown-away one under its prompt
     const tz = S.screen === 'play' ? SIM.Q.tossedNear(R) : null;
     if (S.screen === 'play' && h.deadT < 0) { const tags = [];
       for (const p of R.drops) { if (p.kind !== 'item' || p.got || p.fly > 0 || p.z > 0 || p === tz || Math.hypot(p.x - h.x, p.y - h.y) > 150 || !seen(p.x, p.y) || SIM.Q.hidden(m, p)) continue;
@@ -411,7 +426,7 @@
     if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T, name: D.ABILITIES.find((A) => A.id === 'shield').name, desc: TXT('hud.tip.shield', { n: Math.ceil(h.shield) }) });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.burn'), desc: TXT('hud.tip.burn') });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
-    // a gift sits in a round brass cell, the shield and the curses in square ones: the same item icons, told apart by their rim (TASKS 1852)
+    // a gift sits in a round brass cell, the shield and the curses in square ones: the same item icons, told apart by their rim (TASKS 1862)
     TIPY = Math.max(HB.y + HB.h + 8 + 4 * 28 + 24, HB.y + HB.h + 56 + Math.ceil(list.length / 8) * 64);
     list.forEach((b, i) => { const x = 120 + (i % 8) * 66, y = HB.y + HB.h + 56 + Math.floor(i / 8) * 64;
       if (b.gift) { L.rrect(x + 3, y + 3, 34, 34, 17, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]); KIT.part('ui_b_cell_round', [48, 48], x - 3, y - 3, { k: 46 / 96 }); }
@@ -420,7 +435,7 @@
       if (window.ASSETS[b.ic]) icon(b.ic, x + (b.gift ? 6 : 3), y + (b.gift ? 6 : 3), b.gift ? 28 : 34);
       if (b.left !== undefined) { const f = Math.max(0, Math.min(1, 1 - b.left)); L.solid(x + 3, y + 3, 34, 34 * f, [0, 0, 0], 0, 0, 0, 0.55);
         if (b.left < 0.25 && Math.sin(GT * 18) > 0) L.rrect(x, y, 40, 40, 5, [1, 1, 1], [1, 1, 1], 0.12); }
-      // chips stand 66 px apart: a value cannot shrink under the font's 20 px floor, and +180% is 60 px wide (TASKS 1851)
+      // chips stand 66 px apart: a value cannot shrink under the font's 20 px floor, and +180% is 60 px wide (TASKS 1861)
       if (b.v) lab('bfv_' + b.id, b.v, x + 20, y + 49, { size: 20, al: 0.5, col: b.col }); });
   }
 
@@ -618,7 +633,7 @@
       L.rrect(bx, by, bw, 28, 14, n ? [0.2, 0.13, 0.09] : [0.62, 0.14, 0.08], n ? [0.12, 0.08, 0.05] : [0.42, 0.08, 0.05], 0.95);
       lab(id + '_f' + q.tab, s, bx + bw / 2, by + 14, { size: 20, al: 0.5, col: n ? '#e8d6b0' : '#fff2e0' }); L.uiBox(id + '_fb' + q.tab, bx, by, bw, 28, 0); } const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
   const nf = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
-  // what one point of a stat gives, from the stats' own formula with the point and without it (TASKS 1847)
+  // what one point of a stat gives, from the stats' own formula with the point and without it (TASKS 1857)
   const GAIN = [['atk', (v) => TXT('hud.stat.atk', { v })], ['def', (v) => TXT('hud.stat.def', { v })], ['maxHp', (v) => TXT('hud.stat.maxHp', { v })], ['maxMp', (v) => TXT('hud.stat.maxMp', { v })],
     ['crit', (v) => TXT('hud.stat.crit', { v })], ['dodge', (v) => TXT('hud.stat.dodge', { v })], ['aspd', (v) => TXT('hud.stat.aspd', { v })], ['mspd', (v) => TXT('hud.stat.mspd', { v })]];
   function statGain(S, h, k) { const a = SIM.Q.stats(h, S.meta), b = SIM.Q.stats(Object.assign({}, h, { base: Object.assign({}, h.base, { [k]: h.base[k] + 1 }) }), S.meta), out = [];
@@ -691,7 +706,7 @@
       { const cs = abCost(D.clsOf(h), A, r); lab('ab_c' + i, cs, b.x + 20, b.y + b.h - 34, { size: 18, fit: b.w - 90, col: C.dim }); }
       const ds = abDesc(A, r, st, R), parts = ds.split(': '), forkAt = r < D.AB_MAX && D.FORKS[A.id] && D.FORK_RANKS.includes(r + 1);
       const chosen = D.FORK_RANKS.map((q) => { const n = (h.forks || {})[D.forkKey(A.id, q)]; return n >= 0 ? D.POWERS[D.FORKS[A.id][q][n]].name : ''; }).filter(Boolean).join(', ');
-      // the next rank's fork shows on the card before the press (TASKS 1847), not only as «Ждёт выбора» after it
+      // the next rank's fork shows on the card before the press (TASKS 1857), not only as «Ждёт выбора» after it
       const pend = D.forkPending(h) && D.forkPending(h).ab === A.id, fl = pend ? TXT('hud.fork.pending') : forkAt ? TXT('hud.abtip.forkAt', { r: r + 1 }) : '';
       if (fl && (pend || !chosen)) lab('ab_f' + i, fl, b.x + 20, b.y + b.h - 66, { size: 20, col: '#ffb060' }); else if (chosen) lab('ab_f' + i, chosen, b.x + 20, b.y + b.h - 66, { size: 18, fit: b.w - 40, col: C.gold });
       tipAt(b.x, b.y, b.w, b.h, ...abTip(h, A, r, st, R, !!D.forkPending(h), forkAt));
@@ -986,7 +1001,7 @@
     KIT.corners({ x: U.B.x + 40, y: U.B.y + 40, w: U.B.w - 80, h: U.B.h - 80 }, 0.6);
     KIT.banner('ld_t', W / 2, U.B.y - 30, 620, TXT('hud.load'), { h: 96, size: 44 });
     // the chosen slot keeps the seal; the focus (or the pointer) also lights its row and glows behind it, as the focus on the list
-    // always sits on the chosen slot and the seal alone did not tell the list from the buttons (TASKS 1846)
+    // always sits on the chosen slot and the seal alone did not tell the list from the buttons (TASKS 1856)
     for (const r of U.rows) { const R = SIM.Q.slotRun(S, r.i), st = KIT.st(q, r.id), on = r.i === sel, lit = st.hover || st.focus;
       if (lit) L.glow(r.x + r.w / 2, r.y + r.h / 2, r.w * 0.6, [1, 0.6, 0.25], 0.3, 2);
       KIT.nine('btn', r.x, r.y, r.w, r.h, { u: { grade: lit ? [1.06, 1.16, 0, 1.04] : on ? [1.03, 1.06, 0, 1.03] : R ? [1, 1, 0, 1] : [0.9, 0.8, 0, 0.97] } });
@@ -1042,7 +1057,7 @@
       lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
-    // «Сохранить и выйти» answers on the menu it lands on (TASKS 1853 б)
+    // «Сохранить и выйти» answers on the menu it lands on (TASKS 1863 б)
     const sa = S.t - (S.savedT ?? -1e9); if (S.saved && sa < 3) { const s = TXT('hud.menu.savedNote'), al = 1 - L.SS(2.4, 3, sa), w = lw('m_svn', s, { size: 26 }) + 56;
       plate('m_svn_box', W / 2 - w / 2, 318, w, 54, { a: 0.92 * al }); lab('m_svn', s, W / 2, 345, { size: 26, al: 0.5, col: '#9fd08a', a: al }); }
     newAsk(S);
@@ -1079,7 +1094,7 @@
   }
   // these windows have no keyboard focus of their own: a focus left over from another screen must not frame their buttons
   const stN = (S, id, on = true) => Object.assign(KIT.st(S, id, on), { focus: false });
-  // a question's two buttons, both parchment (TASKS 1844), one lit: the one Enter answers with, which the pointer takes by moving (TASKS 1754)
+  // a question's two buttons, both parchment (TASKS 1854), one lit: the one Enter answers with, which the pointer takes by moving (TASKS 1754)
   const askSt = (S, U, id) => Object.assign(KIT.st(S, id), { hover: litOf(S, U.r.map((b) => b.id)) === id, focus: false });
   const HOT = [1.04, 1.1, 0, 1.04], POOR = [0.55, 0.86, 0, 0.96], POOR_HOT = [0.8, 1.04, 0, 1.02], SOUL = '#24407a';
   // a manuscript page: the leather frame with the parchment inside, its writing area registered for qa.mjs
@@ -1090,7 +1105,7 @@
   function pause(S) {
     dim(0.55); KIT.panel('p_sheet', 660, 240, 600, 580, 'torn'); KIT.knob(W / 2, 262, 1.2);
     KIT.heading('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 60, wing: 80 });
-    // while it asks, the question's sheet takes the buttons' place under the title, as the load screen's does (TASKS 1843)
+    // while it asks, the question's sheet takes the buttons' place under the title, as the load screen's does (TASKS 1853)
     const done = !!S.run && SIM.Q.campaignDone(S.run);
     if (!S.pauseAsk) { for (const b of D.UI.pause(S.meta.zoom, done)) KIT.button('pb_' + b.id, b, stN(S, b.id), b.id === 'resume' ? 'wax' : 'parch');
       KIT.rule(780, 692, 360, 0.7); return; }
@@ -1102,7 +1117,7 @@
     const keys = TXT('hud.pause.keys.ask'), ky = H - 26, kw = lw('pa_keys_w', keys, { size: 26 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('pa_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
-  // a fork's way in numbers from its power's own data (TASKS 1847), with what it hits for now beside the share of the attack
+  // a fork's way in numbers from its power's own data (TASKS 1857), with what it hits for now beside the share of the attack
   const FK_TAG = { nova: () => TXT('hud.fk.tag.nova'), heal: () => TXT('hud.fk.tag.heal'), mana: () => TXT('hud.fk.tag.mana'), stun: () => TXT('hud.fk.tag.stun'), slow: () => TXT('hud.fk.tag.slow'),
     strike: () => TXT('hud.fk.tag.strike'), burnGround: () => TXT('hud.fk.tag.burnGround'), dmg: () => TXT('hud.fk.tag.dmg'), spd: () => TXT('hud.fk.tag.spd'), kb: () => TXT('hud.fk.tag.kb'),
     shieldAdd: () => TXT('hud.fk.tag.shieldAdd'), shieldMore: () => TXT('hud.fk.tag.shieldMore'), dropTrap: () => TXT('hud.fk.tag.dropTrap') };
@@ -1117,7 +1132,7 @@
     if (P.fx === 'proj') { if (P.dmg) out.push(TXT('hud.fk.dmg', { p: sg(pc(P.dmg - 1)) })); if (P.spd) out.push(TXT('hud.fk.spd', { p: sg(pc(P.spd - 1)) })); if (P.kb) out.push(TXT('hud.fk.kb', { x: nf(P.kb) })); }
     if (P.icd) out.push(TXT('hud.fk.icd', { t: nf(P.icd) }));
     return out; }
-  // the two ways of a fork: the first press lights a card and seals it, the second takes it (TASKS 1847); the two read apart by a word
+  // the two ways of a fork: the first press lights a card and seals it, the second takes it (TASKS 1857); the two read apart by a word
   // of what each does under the skill's icon and, where an icon of the game fits the effect, that icon in the corner
   function fork(S, R, t) { const P = D.forkPending(R.hero); if (!P) return; const h = R.hero, Ab = D.clsOf(h).abs.find((a) => a.id === P.ab), I = KIT.INK, st = SIM.Q.stats(h, S.meta), sel = S.forkSel;
     dim(0.7); KIT.panel('fk_p', 400, 170, 1120, 600, 'leather');
@@ -1141,7 +1156,7 @@
     KIT.heading('cx_t', TXT('UI.codex.title'), W / 2, 112, { size: 60, wing: 110 });
     KIT.ink('cx_c', TXT('hud.codex.count', { n, m: U.list.length }), 120, 226, { size: 24, col: I.d });
     KIT.ink('cx_b', TXT('hud.codex.best', { p1: S.meta.best || 0, p2: S.meta.bestEndless || 0 }), W - 120, 226, { size: 22, al: 1, col: I.d });
-    // how a «???» row opens (TASKS 1853 к), while the tab still has one
+    // how a «???» row opens (TASKS 1863 к), while the tab still has one
     if (n < U.list.length) { const s = tab === 'm' ? TXT('hud.codex.how.m') : tab === 'it' ? TXT('hud.codex.how.it') : TXT('hud.codex.how.p'); KIT.ink('cx_how', s, 150, 925, { size: 22, fit: 630, col: I.d }); }
     KIT.tabs('cx_tb', U.r.filter((b) => b.tab), 'tab:' + tab, S);
     KIT.rule(100, 258, W - 200, 0.7);
@@ -1162,7 +1177,7 @@
     { const s = TXT('hud.meta.2', { shards: S.meta.shards }); KIT.ink('mt_s', s, W / 2, S.metaRun ? 206 : 226, { size: 26, fit: 1560, al: 0.5, col: I.d }); }
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
     if (S.metaRun) halves(TXT('hud.meta.3')).forEach((q, i) => KIT.ink('mt_run' + i, q, W / 2, 237 + i * 24, { size: 20, al: 0.5, col: I.d }));
-    // a row lights under the pointer whether or not it can be bought; one the shards do not reach is dimmed and says how many are missing (TASKS 1848)
+    // a row lights under the pointer whether or not it can be bought; one the shards do not reach is dimmed and says how many are missing (TASKS 1858)
     const strip = (id, b, st, can, poor) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: poor ? (st.hover ? POOR_HOT : POOR) : st.hover ? HOT : [1, 1, 0, 1] } }); L.uiBox(id, b.x + 26, b.y, b.w - 52, b.h, 2); };
     const short = (c) => TXT('hud.meta.short', { n: c - S.meta.shards });
     const bs = D.UI.meta(S.meta.cls, S.metaTab);
@@ -1207,7 +1222,7 @@
       if (Gf.relic || Gf.evo) KIT.seal(b.x + b.w - 40, b.y + 40, 1);
       KIT.cell('al_cl' + i, cx - 64, b.y + 44, 128, Object.assign({}, st, { off: false })); icon(Gf.icon, cx - 56, b.y + 52, 112, can ? undefined : { alpha: 0.5 });
       KIT.ink('al_n' + i, Gf.name, cx, b.y + 214, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
-      // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1851)
+      // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1861)
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
       const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, String(Math.round(Gf.v * (rank + 1) * 10) / 10)) : Gf.desc, lines = wrapWords(ds, iw, 21);
       lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + k * 25, { size: 21, al: 0.5, col: can ? I.t : I.d }));
@@ -1235,7 +1250,7 @@
     wrapLab('tk_s', T.pages[T.p], P.x + 300, P.y + 122, P.w - 360, 28, INK.t);
     const act = at('act');
     // a quest's last page (TASKS 1018): what it pays over the buttons, its button left of the way out
-    // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030); a turn-in shows its reward only once pressed (TASKS 1840)
+    // and the keepsake a fetch quest asks for, its icon before the reward (TASKS 1030); a turn-in shows its reward only once pressed (TASKS 1850)
     if (act) { const rs = TXT('hud.talk.rs', { p1: SIM.Q.rwLine(T.act.rw) }), ic = SIM.Q.questIcon(R, T.role, T.act), dx = ic ? 54 : 0;
       if (ic) { panel('tk_ic', P.x + 300, P.y + P.h - 160, 44, 44, { r: 6 }); icon(ic, P.x + 304, P.y + P.h - 156, 36); }
       if (T.act.k !== 'turn' && SIM.Q.rwLine(T.act.rw)) lab('tk_rw', rs, P.x + 300 + dx, P.y + P.h - 122, { size: 22, col: INK.g }); }
@@ -1277,7 +1292,7 @@
     if (!L0.length) { wrapLab('jr_none', R.viaTown ? TXT('hud.journal.3') : TXT('hud.journal.4'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
     L0.slice(0, 10).forEach((q, i) => { const b = U.r[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
       panel('jr_r' + i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : hv ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined, a: q.st === 'turned' && !on ? 0.7 : undefined });
-      // ten alike quests tell apart by their floor in the title and their goal under it (TASKS 1853 л); a done or turned-in one, its giver
+      // ten alike quests tell apart by their floor in the title and their goal under it (TASKS 1863 л); a done or turned-in one, its giver
       const sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: Q.name, f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);
       lab('jr_n' + i, nm, b.x + 16, b.y + 19, { size: 24, fit: b.w - sw - 48, col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('jr_s' + i, st, b.x + b.w - 16, b.y + 19, { size: 20, al: 1, col });
@@ -1428,7 +1443,7 @@
     const line = affordable ? TXT('hud.end.line', { goal }) : next ? TXT('hud.end.line.2', { goal, p2: next.cost(up[next.id] || 0) - S.meta.shards }) : TXT('hud.end.line.3');
     wrap('e_goal', line, bx + 30, by + 566, 1000, 25, I.g);
     for (const b of D.UI.end(r.log, r.town)) KIT.button('eb_' + b.id, b, stN(S, b.id, b.on), b.id === 'again' ? 'wax' : 'parch');
-    // what the journal button gives (TASKS 1853 и): a file, so the player knows where it went
+    // what the journal button gives (TASKS 1863 и): a file, so the player knows where it went
     if (S.hover === 'log' && r.log) lab('eb_log_tip', TXT('hud.end.logTip'), W / 2, 1030, { size: 22, al: 0.5, col: C.dim });
   }
 })();

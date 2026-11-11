@@ -17,7 +17,7 @@
   };
   G.resize = (W, H) => { const cv = gl.canvas; if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; } G.W = W; G.H = H; };
   // oy: a shift down of everything drawn on the screen (not into a target), for the HUD's windows laid out on a 1920×1080 frame
-  // inside a taller view (TASKS 1851)
+  // inside a taller view (TASKS 1861)
   G.oy = 0;
   const onScreen = (xf) => { if (!G.oy || cur) return xf; const q = xf.slice(); q[7] += G.oy; return q; };
 
