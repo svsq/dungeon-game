@@ -6,7 +6,7 @@
   DGX.fill = (GF) => {
     const {
       AR, FM, H, HL, LY, MIX, MX, R, ST, TY, W, arch, at, biome, boss, bossType, cave, cells, chasmUnder, circles, cliff, crossings, crust,
-      deadEnd, deckUsed, depth, doors, edges, exitR, fig, figAt, fin, floodCells, floor, flow, ftype, ftype2, lakeWay, lastTry, lava,
+      deadEnd, deckUsed, depth, doors, dryPay, edges, exitR, fig, figAt, fin, floodCells, floor, flow, ftype, ftype2, lakeWay, lastTry, lava,
       lavaBodies, lavaFeatures, lavaUnder, lc, ledges, lines, locks, merchant, opts, pathMin, pick, pits, plat, ri, ridgeLen, riverB,
       riverWay, riverY, roomOf, rooms, runFloor, secrets, secretsWanted, seed, serpentPools, shareOf, shopR, start, stepHold, streams,
       strict, terr, thin, tierDecor, wander, water, waterBridges, waterFeatures, waterFlow, way, wet } = GF;
@@ -979,6 +979,8 @@
       const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
       const all = way.flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k)) ?? all.find((k) => ok(k, 0) && roomy8(k));   // (TASKS 1161: props in its middle third cost a lake its chest)
       if (mid !== undefined) { const x = mid % W, y = Math.floor(mid / W); claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
+    // a long dry way round a cave's crossing pays a chest in a niche half way along it (TASKS 1897)
+    for (const k of dryPay) { const x = k % W, y = Math.floor(k / W); if (cells[k] === 1 && !used.has(key(x, y))) { claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
     const hazards = [];
     if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y]), ...circles.map((q) => [q.x, q.y])];
       const clear = (x, y) => keepOff.every(([px, py]) => Math.hypot(px - wx(x), py - wy(y)) >= (HZ.clear + 0.5) * TILE) && !(Math.abs(x - shopR.cx) <= 6 && y >= shopR.y - 2 && y <= shopR.y + 7);

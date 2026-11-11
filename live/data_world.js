@@ -108,13 +108,14 @@
         // a hoard's islet (TASKS 476): a pad of floor (`pad` cells) out in the open lava, `ring` cells of it all round, its only way a
         // strip of thin crust two cells wide `len` cells long to the nearest plateau; `n` a floor
         islet: { pad: [3, 3], ring: 1, len: [4, 9], n: 1 },
-        // alt (TASKS 1722): on a cave or terrace floor the second way over a lava crossing the walk can't go round: slabs two cells
-        // wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a floor; the walk keeps
-        // `keep` of its length
-        alt: { off: 3, wide: 6, len: [1, 9], max: 2, keep: 0.8,
+        // alt (TASKS 1722): on a cave, terrace or plain floor (plain since TASKS 1897) the second way over a lava crossing the walk can't
+        // go round: slabs two cells wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a
+        // floor; the walk keeps `keep` of its length, and the way by them is `more` cells longer than the way over at the least
+        alt: { off: 3, wide: 10, len: [1, 9], max: 4, keep: 0.7, more: 10,
           // dry (TASKS 1726): on a cave floor a tunnel round a crossing, its mouths `off` cells from it, `len` cells at most, `max` a floor, the
-          // way round `more` cells longer than the way over at the least
-          dry: { off: [3, 10], len: 48, max: 3, more: 6 } } } },
+          // way round `more` cells longer than the way over at the least; failing that, sought again `ring` cells further off (TASKS 1897),
+          // and one `pay` cells longer or more holds a chest half way
+          dry: { off: [3, 10], len: 64, max: 3, more: 6, ring: 4, pay: 16 } } } },
     // the rooms-and-corridors floors' layouts (TASKS 379), each a set of knobs on the one generator (dungeon.js): room, the room count
     // of the floor's range taken (min: fewest a floor is laid with); rect, a plain room's size (cells, else by the map); shapes, the
     // shapes' weights over ROOM_SHAPES; gap, the rock kept between rooms; bends, the corridor length (cells) past which it takes one
