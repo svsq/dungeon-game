@@ -1,6 +1,7 @@
 // proof that a pure move of code (R-38: 501–503, 1142, 1141) changed nothing (ARCHITECTURE.md §6)
 //   node tools/samecheck.mjs --save [--only sim,gen,frames]   take the reference on the branch before the move
 //   node tools/samecheck.mjs [--only ...]                      compare with it; exit 2 on any difference
+//   --query k=v[&k=v]: added to the page's URL (a render switch, e.g. stamp1=0 for the picture before a render change)
 // sim: the bot's runs in every mode, the whole state hashed on each floor it reaches and at the end, plus tune.cjs's output;
 // gen: genFloor over modes × run seeds × floors, genTown; frames: every SCENE.QA() state rendered, pixels hashed.
 import fs from 'node:fs';
@@ -13,7 +14,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const save = args.includes('--save'), only = opt('only', 'sim,gen,frames').split(','), file = opt('file', 'frames/samecheck/base.json');
+const save = args.includes('--save'), query = opt('query', ''), only = opt('only', 'sim,gen,frames').split(','), file = opt('file', 'frames/samecheck/base.json');
 const sha = (b) => crypto.createHash('sha1').update(b).digest('hex').slice(0, 16);
 // v8.serialize writes one number differently as V8's own storage of it changes, so equal states hashed apart between runs (TASKS 1143)
 const stateJson = (S) => JSON.stringify(S, (k, v) => (v instanceof Set ? [...v] : v instanceof Map ? [...v.entries()] : ArrayBuffer.isView(v) ? [...v] : v));
@@ -69,7 +70,7 @@ if (only.includes('frames')) {
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1`);
+    await page.goto(`http://127.0.0.1:${server.address().port}/live/index.html?render=1${query ? '&' + query : ''}`);
     await page.waitForFunction(() => window.__ready, null, { timeout: 120000 });
     const names = await page.evaluate(() => { window.__Q = SCENE.QA(); return __Q.states.map((s) => s[0]); });
     const base = save || !fs.existsSync(file) ? {} : JSON.parse(fs.readFileSync(file, 'utf8')), shot = async (name) => {

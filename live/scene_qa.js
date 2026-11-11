@@ -84,6 +84,9 @@
       ['play_bright_lo', play((S) => { S.meta.bright = DATA.SETTINGS.find((q) => q.id === 'bright').stops[0]; })],
       ['play_bright_hi', play((S) => { const q = DATA.SETTINGS.find((o) => o.id === 'bright'); S.meta.bright = q.stops[q.stops.length - 1]; })],
       ['settings_bright', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'bright'; S.meta.bright = 1.4; })],
+      ['settings_gfx', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'gfx'; S.meta.gfx = 0; })],   // (TASKS 1372)
+      ['play_gfx_lo', play((S) => { S.meta.gfx = 0; })],
+      ['play_gfx_mid', play((S) => { S.meta.gfx = 1; })],
       ['play_zoom15', play((S) => { S.meta.zoom = 1.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
       ['meta', mk((S) => { S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = Object.fromEntries(D.META.map((M, i) => [M.id, i % 3 ? M.max - 1 : i % 2 ? M.max : 0])); })],
       ['meta_refuse', mk((S) => { S.screen = 'meta'; S.meta.shards = 0; S.hover = 'gear'; S.ev.push({ k: 'nope', s: TXT('QA.states.s'), t: S.t - 0.2 }); })],
@@ -1674,6 +1677,9 @@
         if (name === 'cave_water') { m.water = []; m.waterBridges = []; m.crossings = []; m.cells = m.cells.map((c) => (c === 6 ? 1 : c)); } off.push(clean); }
       anim[name] = { on, off, box: name === 'cave_water' ? [400, 200, 1120, 680] : [880, 420, 160, 180], min: 0.003 };
     }
+    // the low and middle graphics (TASKS 1372) where they differ: the lava's light and embers, the cave's moss, an elite's aura
+    for (const name of ['magma_lava', 'cave_bridge', 'elite_brawl']) { const base = states.find(([n]) => n === name)?.[1]; if (!base) continue;
+      for (const g of [1, 0]) { const S = structuredClone(base); S.meta.gfx = g; states.push([name + '_gfx' + g, S]); } }
     // the magma caves' lava flows, bubbles and shimmers, its fall pours and steams (TASKS 403): without them the frame goes still
     for (const name of ['magma_lava', 'magma_fall']) {
       const base = states.find(([n]) => n === name)?.[1]; if (!base) continue;

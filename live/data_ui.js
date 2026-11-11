@@ -45,7 +45,9 @@
   // the brightness (TASKS 1303): a gamma on the frame's final grade, the HUD drawn after it untouched
   const BRIGHTS = [0.7, 0.85, 1, 1.2, 1.4], stepName = (v) => { const i = BRIGHTS.indexOf(v) - 2; return i > 0 ? '+' + i : i < 0 ? '\u2212' + -i : '0'; };
   const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName },
-    { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] }];
+    { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] },
+    // the graphics (TASKS 1372): 2 the full picture, 1 and 0 drop the costliest passes for the Steam Deck and weak PCs (scene reads S.meta.gfx)
+    { id: 'gfx', key: 'gfx', name: () => TXT('UI.settings.gfx'), stops: [0, 1, 2], def: 2, fmt: (v) => (v === 0 ? TXT('UI.settings.gfx.0') : v === 1 ? TXT('UI.settings.gfx.1') : TXT('UI.settings.gfx.2')), ends: () => [TXT('UI.settings.gfx.lo'), TXT('UI.settings.gfx.hi')] }];
   // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
   const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
   // five save slots: five rows of a portrait and four columns fill the left page at a readable size, as on ref_ui_saves_b
@@ -95,7 +97,7 @@
       return { P, rows: shown, top: t, max, n: rows.length, view: { x: P.x + 60, y: P.y + NEWS.top, w: P.w - 120, h: vh },
         r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
     // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right),
-    // «Назад» under them. Five rows fit: the zoom and the brightness now, the graphics modes (1372) and the language (1039) later
+    // «Назад» under them. Five rows fit: the zoom, the brightness and the graphics now, the language (1039) later
     settings: () => { const B = SETTINGS_BOOK, rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + 236 + i * 100 }, q));
       return { B, rows, r: rows.map((q) => ({ id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))
         .concat([{ id: 'back', label: TXT('UI.settings.back'), on: true, x: 960 - 150, y: B.y + B.h - 128, w: 300, h: 64 }]) }; },

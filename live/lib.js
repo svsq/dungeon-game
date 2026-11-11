@@ -8,6 +8,8 @@
   const L = (window.LIB = {});
   const Q = G.params;
   L.NOFX = Q.get('fx') === '0';
+  // the graphics setting (TASKS 1372, S.meta.gfx): 2 the full picture, 1 middle, 0 low; the scene sets it each frame, ?gfx=0|1|2 overrides
+  L.GFX = 2; L.GFX_Q = Q.has('gfx') ? +Q.get('gfx') : null;
   L.ONLY = (Q.get('only') || '').split(',').filter(Boolean);
 
   // ---------------- shaders (GLSL ES 3.00 bodies; gl.js prepends COMMON: hash, vnoise, fbm, scr) ----------------
@@ -41,8 +43,11 @@ uniform sampler2D u_clipm; uniform vec4 u_clipb; uniform float u_clipk; uniform 
 // keeps honest where the samples would sweep its whole length) and painted in its most common colour. No darkest-on-the-edge rule:
 // a rig is many parts, and each part's own edge would draw dark seams inside the figure; the ink pass gives the outer contour
 uniform float u_snap;           // 1: snap to the target's pixel grid, 2: the same from the full-size texture
+// a flat ink copy (u_grade 0, 0, 1: no saturation, no brightness, all haze) keeps none of the texture's colour, only that it covers:
+// the vote is skipped and the pixel comes out the same (TASKS 1853: an outline's 8 copies ran it on every pixel of every part)
 vec4 snapTex(vec2 tuv, vec2 jx, vec2 jy, float lod, float a0){
   if (a0 < 0.5) return vec4(0.0);
+  if (u_grade.x == 0.0 && u_grade.y == 0.0 && u_grade.z == 1.0) return vec4(0.0, 0.0, 0.0, 1.0);
   vec4 tp[16]; float cov = 0.0;
   for (int k = 0; k < 16; k++) { vec2 f = (vec2(float(k % 4), float(k / 4)) + 0.5) / 4.0 - 0.5; vec4 t = textureLod(u_tex, tuv + jx * f.x + jy * f.y, lod);
     tp[k] = vec4(t.rgb / max(t.a, 1e-3), t.a); cov += step(0.5, t.a); }
@@ -457,11 +462,29 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     if (typeof e === 'string') G.blend(e || undefined);
     else if (Array.isArray(e)) G.draw(e[0], e[1], e[2], e[3]);
     else { e.U.u_haze = sp.ink; e.U.u_alpha = sp.a * e.al; e.U.u_lod = sp.lod || 0; e.X[6] = e.x + e.pre[0] * sp.dx + e.pre[2] * sp.dy; e.X[7] = e.y + e.pre[1] * sp.dx + e.pre[3] * sp.dy; G.draw(P.sprite, e.U, e.X, e.flip); } } };
+  // Copies that differ only by their shift go out part by part, every copy of a part in one instanced call (TASKS 1853): an outline was
+  // 8 copies of every part of a rig, 84 % of a big floor's draws. The copies are cut into runs of one flat colour, alpha and lod (an
+  // aura's three rings are three runs), the runs drawn in their order. Within a run "over" of one colour gives the same pixel in any
+  // order, so parts first or copies first draw the same picture. A rig that changes blend or draws anything but sprites inside the
+  // silhouette keeps the copy-by-copy replay
+  const OFF = new Float32Array(2 * G.N_OFF);
+  const sameSp = (p, q) => p.a === q.a && (p.lod || 0) === (q.lod || 0) && (p.ink === q.ink || (!!p.ink && !!q.ink && p.ink[0] === q.ink[0] && p.ink[1] === q.ink[1] && p.ink[2] === q.ink[2]));
+  const stampable = (list) => { if (!L.STAMP_ONE) return false; for (const e of list) if (typeof e === 'string' || Array.isArray(e)) return false; return true; };
+  const replayN = (list, sps, i0, n) => { const s0 = sps[i0];
+    for (const e of list) {
+      e.U.u_haze = s0.ink; e.U.u_alpha = s0.a * e.al; e.U.u_lod = s0.lod || 0; e.X[6] = e.x; e.X[7] = e.y;
+      const pr = e.pre; let m = 0; for (let k = 0; k < n; k++) { const sp = sps[i0 + k], ox = pr[0] * sp.dx + pr[2] * sp.dy, oy = pr[1] * sp.dx + pr[3] * sp.dy; OFF[2 * k] = ox; OFF[2 * k + 1] = oy; m = Math.max(m, Math.abs(ox), Math.abs(oy)); }
+      if (G.outside(e.X, m)) continue;
+      G.drawN(P.sprite, e.U, e.X, e.flip, OFF, n); } };
+  const replayRuns = (list, sps) => { for (let i = 0; i < sps.length;) { let j = i + 1; while (j < sps.length && j - i < G.N_OFF && sameSp(sps[i], sps[j])) j++;
+    if (j - i === 1) replay(list, sps[i]); else replayN(list, sps, i, j - i); i = j; } };
+  L.STAMP_ONE = G.params.get('stamp1') !== '0';   // ?stamp1=0: every copy replayed on its own, as before 1853 (samecheck's reference)
   L.stamp = (draw, sps) => {
     if (G.rec) { for (const sp of sps) { L.sp = sp; draw(); } L.sp = null; return; }
     const list = G.rec = []; L.sp = REC_SP;
     try { draw(); } finally { G.rec = null; L.sp = null; }
-    for (const sp of sps) replay(list, sp);
+    if (stampable(list)) replayRuns(list, sps);
+    else for (const sp of sps) replay(list, sp);
   };
   // rig joint trace for qa.mjs (animation.md §14): while L.TRACE is an object, rigs report screen points per actor instance
   L.TRACE = null;

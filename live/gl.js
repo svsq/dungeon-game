@@ -49,8 +49,9 @@
 
   const VS = `#version 300 es
 in vec2 a_pos; uniform vec2 u_res; uniform mat3 u_xf; uniform vec2 u_flip;
+uniform float u_inst; uniform vec2 u_off[16];   // G.drawN: copy k of the quad shifted by u_off[k] px (an outline's ink copies, TASKS 1853)
 out vec2 v_uv; out vec2 v_px;
-void main(){ vec3 p = u_xf * vec3(a_pos, 1.0); v_px = p.xy; v_uv = mix(a_pos, 1.0 - a_pos, u_flip);
+void main(){ vec3 p = u_xf * vec3(a_pos, 1.0); if (u_inst > 0.5) p.xy += u_off[gl_InstanceID]; v_px = p.xy; v_uv = mix(a_pos, 1.0 - a_pos, u_flip);
   gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0); }`;
   const COMMON = `#version 300 es
 precision highp float;
@@ -115,9 +116,10 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   };
 
   // the quad's corners decide coverage alone: the one vertex shader only applies u_xf, so a quad outside the target can't touch a pixel
-  G.outside = (xf) => {
-    const vw = cur ? cur.vw : G.W, vh = cur ? cur.vh : G.H, x0 = xf[6], y0 = xf[7], x1 = x0 + xf[0], y1 = y0 + xf[1], x2 = x0 + xf[3], y2 = y0 + xf[4], x3 = x1 + xf[3], y3 = y1 + xf[4];
-    return (x0 <= 0 && x1 <= 0 && x2 <= 0 && x3 <= 0) || (x0 >= vw && x1 >= vw && x2 >= vw && x3 >= vw) || (y0 <= 0 && y1 <= 0 && y2 <= 0 && y3 <= 0) || (y0 >= vh && y1 >= vh && y2 >= vh && y3 >= vh);
+  // m: a margin (px) the quad may still move by, as G.drawN's copies do
+  G.outside = (xf, m = 0) => {
+    const vw = (cur ? cur.vw : G.W) + m, vh = (cur ? cur.vh : G.H) + m, x0 = xf[6], y0 = xf[7], x1 = x0 + xf[0], y1 = y0 + xf[1], x2 = x0 + xf[3], y2 = y0 + xf[4], x3 = x1 + xf[3], y3 = y1 + xf[4];
+    return (x0 <= -m && x1 <= -m && x2 <= -m && x3 <= -m) || (x0 >= vw && x1 >= vw && x2 >= vw && x3 >= vw) || (y0 <= -m && y1 <= -m && y2 <= -m && y3 <= -m) || (y0 >= vh && y1 >= vh && y2 >= vh && y3 >= vh);
   };
   let unit = 0, lastProg = null, attrSet = false;
   const unitTex = [];
@@ -127,10 +129,10 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   const f32 = (u, v) => { let a = u.f32; if (!a || a.length !== v.length) a = u.f32 = new Float32Array(v.length); a.set(v); return a; };
   const sameNum = (u, v) => { if (u.last === v) return true; u.last = v; return false; };
   const setU = (P, k, v) => { const u = P.loc[k]; if (u) setL(u, v); };
-  // a program's own uniforms (past u_res, u_xf, u_flip) set from U by a function made for it, each field read by its name:
+  // a program's own uniforms (past u_res, u_xf, u_flip, u_inst, u_off) set from U by a function made for it, each field read by its name:
   // looking every key of U up in loc cost the Steam Deck a tenth of its frame (TASKS 1372); a sampler's unit follows loc's order
   const setterOf = (P) => {
-    const keys = Object.keys(P.loc).filter((k) => k !== 'u_res' && k !== 'u_xf' && k !== 'u_flip'), locs = keys.map((k) => P.loc[k]);
+    const keys = Object.keys(P.loc).filter((k) => k !== 'u_res' && k !== 'u_xf' && k !== 'u_flip' && k !== 'u_inst' && k !== 'u_off'), locs = keys.map((k) => P.loc[k]);
     if (!keys.every((k) => /^[A-Za-z_]\w*$/.test(k))) return (U) => { for (let i = 0; i < keys.length; i++) if (keys[i] in U) setL(locs[i], U[keys[i]]); };
     return new Function('setL', 'locs', 'return function (U) {' + keys.map((k, i) => ` if ('${k}' in U) setL(locs[${i}], U.${k});`).join('') + ' };')(setL, locs);
   };
@@ -150,10 +152,23 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
-    setU(P, 'u_res', res); setU(P, 'u_xf', xf); setU(P, 'u_flip', flip);
+    setU(P, 'u_res', res); setU(P, 'u_xf', xf); setU(P, 'u_flip', flip); setU(P, 'u_inst', 0);
     (P.setAll || (P.setAll = setterOf(P)))(U);
     if (!attrSet) { attrSet = true; gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  };
+  // n copies of one quad in one call, copy k shifted by (off[2k], off[2k+1]) view px; n ≤ 16. The copies blend in order, k = 0 first.
+  // No culling per copy: a copy off the target is clipped by the GPU, so it draws nothing, as G.draw's skip would
+  G.N_OFF = 16;
+  G.drawN = (P, U, xf, flip, off, n) => {
+    if (n <= 0) return;
+    if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
+    unit = 0;
+    const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
+    setU(P, 'u_res', res); setU(P, 'u_xf', xf); setU(P, 'u_flip', flip); setU(P, 'u_inst', 1); setU(P, 'u_off', off);
+    (P.setAll || (P.setAll = setterOf(P)))(U);
+    if (!attrSet) { attrSet = true; gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
   };
   G.full = (P, U) => { const res = cur ? [cur.vw, cur.vh] : [G.W, G.H]; G.draw(P, U, G.xf(0, 0, res[0], res[1])); };
 })();
