@@ -163,8 +163,8 @@
   const rerollCost = (n, f) => Math.round((3 + 2 * n) * (1 + 0.15 * (f - 1)));
 
   const xpNeed = (lvl) => Math.round(66 * Math.pow(lvl, 1.7));
-  // the hero's own name (TASKS 1872): typed on the start screen or thrown on the die. One list for every hero until a hero has a sex
-  // (1873), then a list per sex under its own key; a run from before names, or a test's, goes by its class
+  // the hero's own name (TASKS 1879): typed on the start screen or thrown on the die. One list for every hero until a hero has a sex
+  // (1880), then a list per sex under its own key; a run from before names, or a test's, goes by its class
   const NAME_MAX = 14, NAME_CHAR = /^[A-Za-z\u0410-\u044f\u0401\u0451' -]$/;
   const heroNames = () => TXT('HERO.names.any').split(', ');
   const heroName = (h) => (h && h.name) || clsOf(h).name;

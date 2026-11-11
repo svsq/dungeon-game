@@ -141,7 +141,7 @@
     const Hc = [(RG.hipL[0] + RG.hipR[0]) / 2, RG.hipL[1]], hipS = R2S(Hc[0] + hipDx, Hc[1], hipDy * s), bc = Math.cos(bodyR), bs = Math.sin(bodyR);
     // the face is painted on the world's art grid (one texture cell, RIGS.hero.h / 42 px, is one world pixel): the cell of the near
     // eye is kept on a world pixel through the torso's lean, or the one-cell eye lands across two pixels and drops out of the snap.
-    // Arms ride on hipS and move with it. Off the world's grid (the menu's arch, scaled ×3 on the smooth HUD, TASKS 1867) the snap
+    // Arms ride on hipS and move with it. Off the world's grid (the menu's arch, scaled ×3 on the smooth HUD, TASKS 1874) the snap
     // only jerked the body by 2 world px (6 on screen) off the unsnapped legs
     if (du < 0 && !o.menu) { const C = RG.h / 42, EY = D.clsOf(h).look.eye || [13.5, 6.5], ex = fX * ((EY[0] * C) - Hc[0]) * s, ey = (EY[1] * C - Hc[1]) * s, r = fallR + bodyR;
       const qx = hipS[0] + ex * Math.cos(r) - ey * Math.sin(r), qy = hipS[1] + ex * Math.sin(r) + ey * Math.cos(r);
@@ -322,7 +322,7 @@
       // seen from the front the cape's flap hangs over the far arm, as painted, but behind both legs
       const cape = () => { if (backK < 1 && window.ASSETS[pn + 'cape']) L.sprite(pn + 'cape', 0, 0, Object.assign({ u: Object.assign({}, U, soft(pn + 'cape', capeA)) }, bodyAt)); };
       // in the menu's arch, three times its size, the far thigh's cut top showed past the tunic's hem against the cape, a leg stuck on
-      // from outside (TASKS 1867): there the cape hangs over it
+      // from outside (TASKS 1874): there the cape hangs over it
       if (!o.menu) cape();
       if (!castFront) shield(Ufar);
       drawLeg('L', Ufar); if (o.menu) cape(); drawLeg('R', U);

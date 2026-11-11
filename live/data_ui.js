@@ -7,7 +7,7 @@
   // the town (R-17, TASKS 1002): the campaign through the town, a test run until the town is done and the campaign starts there
   const TEST_RUNS = [['cave', TXT('TEST_RUNS'), TXT('TEST_RUNS.2')], ['magma', TXT('TEST_RUNS.3'), TXT('TEST_RUNS.4')], ['endless', TXT('TEST_RUNS.5'), TXT('TEST_RUNS.6')]];
   // the buttons that start a run from the main menu, in the order pressed (bots and checks press these): a test run's screen opens
-  // by ` on the menu (TASKS 1871), the step ['menu', 'tests'] stands for that key
+  // by ` on the menu (TASKS 1878), the step ['menu', 'tests'] stands for that key
   const campaignLen = () => { const n = D.RUNS.campaign.floors; return { n, floors: TXT.n('UI.menu.floors', n) }; };
   // the buttons a new run of this mode is started by, screen by screen; the start screen with the difficulty and the class comes last (TASKS 1304)
   const startPath = (mode) => (mode === 'campaign' || mode === 'town' ? [['menu', 'campaign']] : [['menu', 'tests'], ['tests', mode]]).concat([['classes', 'go']]);
@@ -29,7 +29,7 @@
   const NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42, link: { gap: 14, w: 320, h: 36 } };
   // the sort buttons beside a grid: by type, rarity, level, stacked from (x, y)
   const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
-  // the paper windows close by a button at the bottom's middle, as «Уйти» at the gate and altars, not by a corner cross (TASKS 1892)
+  // the paper windows close by a button at the bottom's middle, as «Уйти» at the gate and altars, not by a corner cross (TASKS 1899)
   const paperClose = (P) => ({ id: 'close', label: TXT('UI.paper.close'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 60, w: 300, h: 60 });
   const sortCol = (pre, x, y, w = 210, h = 46) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x, y: y + i * (h + 12), w, h }));
   // the bag's cells (TASKS 1332): 72 px on an 80 px step, eight to a row, as on ref_ui_inv_b; `id` makes each cell's id from its
@@ -73,7 +73,7 @@
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   const UI = {
     // full: every save slot holds a run, so a new one takes the place of the one played longest ago (TASKS 1311, 1785)
-    // quit: the game can close its own window (the desktop build, TASKS 1870); a browser tab cannot, and there «Выход» is not shown
+    // quit: the game can close its own window (the desktop build, TASKS 1877); a browser tab cannot, and there «Выход» is not shown
     menu: (hasRun, diff, zoom, full = hasRun, quit = false) => { const F = UI.newsFrame();
       return UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2'), quit).r.concat(F ? [Object.assign({ id: 'news', label: F.linkLabel, on: true, link: true }, F.link)] : []); },
     // the main menu (TASKS 1301), look B: small ink items on a parchment sheet in the bottom-left corner, as on ref_ui_menu_b; the
@@ -85,7 +85,7 @@
           r.push({ id, label: id === 'campaign' ? newLabel : MENU_LABEL[id](), on: true, x: M.x + M.inX, y, w: M.w - M.inX * 2, h }); y += h; } });
       const h = y + M.bottom, y0 = M.bottom0 - h; r.forEach((b) => { b.y += y0; });
       return { P: { x: M.x, y: y0, w: M.w, h }, r, rules: rules.map((v) => v + y0) }; },
-    // the version's sheet on the menu's right (TASKS 1305, 1866): «Версия N» over its main lines, wrapped to the frame, and the
+    // the version's sheet on the menu's right (TASKS 1305, 1873): «Версия N» over its main lines, wrapped to the frame, and the
     // small link to the whole «Что нового» under them; it stands on its bottom edge, so a longer list grows up into the empty
     // corner. It carries the version itself, so with no main lines it still stands, the heading and the link alone
     newsFrame: (main = (D.CHANGES[0] || {}).main) => { const top = D.CHANGES[0]; if (!top) return null; const F = NEWS_FRAME, rows = []; let y = F.top;
@@ -93,7 +93,7 @@
       const ly = (rows.length ? y + F.link.gap : y - 20), h = ly + F.link.h + F.bottom - 12, y0 = F.bottom0 - h;
       return { P: { x: F.x, y: y0, w: F.w, h }, v: top.v, rows: rows.map((r) => Object.assign(r, { y: y0 + r.y })),
         link: { x: F.x + (F.w - F.link.w) / 2, y: y0 + ly, w: F.link.w, h: F.link.h }, linkLabel: TXT('UI.menu.news', { v: top.v }) }; },
-    // the test runs (TASKS 417, 1871): a screen of their own behind ` on the main menu, in the campaign's order (the caves, then the
+    // the test runs (TASKS 417, 1878): a screen of their own behind ` on the main menu, in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
     // the start screen (TASKS 1103, 1304): the difficulty's tabs over the class cards, a card a ready class, side by side, the start
     // and back buttons under them
@@ -103,7 +103,7 @@
       return ids.filter((id) => D.kitsOf(id, meta).length > 1).map((id) => ({ id: 'kit:' + id, kit: id, on: true, x: x0 + ids.indexOf(id) * (W + gap) + 60, y: 762, w: W - 120, h: 44 }))
         .concat(D.DIFF_ORDER.map((d, i, a) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: 960 - (a.length * TW + (a.length - 1) * tg) / 2 + i * (TW + tg), y: 44, w: TW, h: 60 })))
         .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 182, w: W, h: CH })))
-        // the hero's name between «Назад» and «В путь» (TASKS 1872): the field, and the die that throws a name into it
+        // the hero's name between «Назад» and «В путь» (TASKS 1879): the field, and the die that throws a name into it
         .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 1284, y: by, w: 300, h: 68 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 336, y: by, w: 300, h: 68 },
           { id: 'name', on: true, x: 660, y: by, w: 520, h: 68 }, { id: 'dice', on: true, x: 1192, y: by, w: 68, h: 68 }]); },
     tests: (hasRun, full = hasRun) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !full ? fresh : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
@@ -185,7 +185,7 @@
     board: (n) => { const P = { x: 130, y: 60, w: 1660, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 6); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
       r.push(paperClose(P)); return { P, r }; },
-    // past ten quests the list scrolls (TASKS 1877): nine rows from top, the tenth slot says how many more lie above and below
+    // past ten quests the list scrolls (TASKS 1884): nine rows from top, the tenth slot says how many more lie above and below
     journal: (n, canDrop, top = 0) => { const P = { x: 330, y: 80, w: 1260, h: 880 }, r = [], many = n > 10, rows = many ? 9 : Math.min(n, 10), t = many ? Math.max(0, Math.min(n - 9, top | 0)) : 0;
       for (let k = 0; k < rows; k++) r.push({ id: 'q:' + (t + k), i: t + k, x: P.x + 30, y: P.y + 110 + k * 68, w: 470, h: 60 });
       if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
@@ -225,7 +225,7 @@
       r.push(...bagGrid(Rp.x + 76, Rp.y + 130, 'bag', undefined, len, tab), ...tabRow(Rp.x + 76, Rp.y + 76, len));
       STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: Lp.x + Lp.w - 100, y: Lp.y + 476 + i * 52, w: 44, h: 44 }));
       // a visit's points taken back (TASKS 1857): each button after its points' count, the stats' on their heading's line, as it
-      // hung loose between two rows (TASKS 1880 з)
+      // hung loose between two rows (TASKS 1887 з)
       r.push({ id: 'reset:st', label: TXT('UI.inv.reset'), on: true, x: Lp.x + 330, y: Lp.y + 447, w: 150, h: 36 }, { id: 'reset:ab', label: TXT('UI.inv.reset'), on: true, x: Rp.x + 360, y: Rp.y + 414, w: 190, h: 48 });
       abs.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: Rp.x + 76 + i * 324, y: Rp.y + 470, w: 300, h: 280 }));
       r.push({ id: 'close', x: Rp.x + Rp.w - 92, y: Rp.y + 34, w: 52, h: 52 }, ...sortCol('sort', Rp.x + 76 + COLS * STEP + 40, Rp.y + 130));

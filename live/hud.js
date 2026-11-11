@@ -56,7 +56,7 @@
       .forEach((b) => z.push([b[0] - 4, b[1] - 4, b[0] + b[2] + 4, b[1] + b[3] + 4, b[4]]));
     return z; };
   const underHud = (x, y) => (ZN || hudZones()).some((z) => x > z[0] && x < z[2] && y > z[1] && y < z[3]);
-  // a label's whole box against the HUD, not only its corners: a plate wider than a panel's part could straddle it (TASKS 1865)
+  // a label's whole box against the HUD, not only its corners: a plate wider than a panel's part could straddle it (TASKS 1872)
   const boxUnderHud = (x, y, w, h) => { for (let i = 0; i <= 4; i++) { const px = x + w * i / 4; if (underHud(px, y) || underHud(px, y + h)) return true; } return underHud(x, y + h / 2) || underHud(x + w, y + h / 2); };
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   // the dark burnt sheet of the talk, the journal, the board and the notes (TASKS 1329): ink on paper, not the panels' light text on dark
@@ -73,7 +73,7 @@
     if (label) lab(id + '_t', label, x + w / 2, y + h / 2 + 1, { size: Math.round(h * 0.62), al: 0.5 });
   }
   const icon = (n, x, y, s, u) => { const [w, h] = SZ(n), k = s / Math.max(w, h); L.sprite(n, x + (s - w * k) / 2, y + (s - h * k) / 2, { w: w * k, h: h * k, u }); };
-  // b.lit: the one Enter presses stands out of its row by a lighter tone and pale gold letters (TASKS 1876), no glow (TASKS 1887)
+  // b.lit: the one Enter presses stands out of its row by a lighter tone and pale gold letters (TASKS 1883), no glow (TASKS 1894)
   function button(id, b, hover) {
     const on = b.on !== false, hv = hover === b.id && on, li = hv && b.lit;
     panel(id, b.x, b.y, b.w, b.h, { c0: li ? [0.42, 0.29, 0.18] : hv ? [0.24, 0.16, 0.1] : [0.13, 0.1, 0.11], c1: li ? [0.26, 0.16, 0.09] : hv ? [0.13, 0.08, 0.06] : [0.06, 0.05, 0.06], rim: li ? [0.86, 0.68, 0.42] : hv ? C.rimHi : C.rim });
@@ -88,7 +88,7 @@
   // line: one line or several (TASKS 1857: what a point or a rank gives, a line a change); over the hero's page the stats' and the
   // skills' notes show under a lit «+» or card, an item's own card under a cell. A line dear to work out is a function, asked only
   // of the note under the pointer (review of PR 57): a stat's gain is two whole recounts of the hero, eight a frame for the four
-  // up: the top of the bottom panel, where a note of its numbers hangs above it (TASKS 1865)
+  // up: the top of the bottom panel, where a note of its numbers hangs above it (TASKS 1872)
   const tipAt = (x, y, w, h, title, line, up) => TIPS.push([x, y, w, h, title, line || '', up]);
   function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; if (S.screen === 'inv') { framed(D.uiDy('inv', VH), () => tipIn(S, (S.uiPtr || S.ptr)[0], S.uiPtr ? S.uiPtr[1] : S.ptr[1] - G.oy)); return; } tipIn(S, S.ptr[0], S.ptr[1]); }
   function tipIn(S, px, py) { const T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
@@ -155,7 +155,7 @@
     lab('ts', TXT('hud.title.2'), W / 2, 214, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
     lab('tp', TXT('hud.title.3'), W / 2, H - 90, { size: 34, al: 0.5, a });
-    // the keys in the game's own letters, as the page's line under the canvas was set in a bold system font (TASKS 1880 к)
+    // the keys in the game's own letters, as the page's line under the canvas was set in a bold system font (TASKS 1887 к)
     lab('tk', SIM.HINT, W / 2, H - 40, { size: 24, al: 0.5, col: C.dim, fit: W - 120 });
   }
 
@@ -254,7 +254,7 @@
       // an elite's name, its powers first, in the colour of its first power
       if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
         const sub = e.nm && e.mods && e.mods.length ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + (e.id % 40), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
-        // the plate's whole box against the HUD: tested at its corners, a two-line plate wider than the key hints sat on them (TASKS 1880 о)
+        // the plate's whole box against the HUD: tested at its corners, a two-line plate wider than the key hints sat on them (TASKS 1887 о)
         if (x - ow > 0 && x + ow < W && ly > 30 && !boxUnderHud(x - ow, ly - 24, ow * 2, oy - ly + 30)) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const b0 = place(x, ly - 15, Math.max(ow * 2, 92), sub ? 70 : 54, actorZones), b = b0 && !boxUnderHud(b0.x, b0.y - 2, b0.w, b0.h + 4) ? b0 : null;
@@ -362,7 +362,7 @@
   }
 
   // ---------------- in-game HUD ----------------
-  // look B laid out as on ref_ui_hud_b (TASKS 1865, the player's decision over 1759's corner plate): the portrait, the level, its
+  // look B laid out as on ref_ui_hud_b (TASKS 1872, the player's decision over 1759's corner plate): the portrait, the level, its
   // bar and the effects in the top-left corner, the stats on a parchment sheet under them; the flasks, the skills, the potions and
   // the money on one leather panel at the bottom's middle
   const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154, BF = { y: 112, dx: 66, dy: 64, per: 6 }, STS = { y: HB.y + HB.h + 8, row: 32, n: 4, pad: 28 };
@@ -391,7 +391,7 @@
   // a brass rule between the panel's parts, a knob at each end (the ref's cast dividers are not in the kit yet)
   const divider = (x, y0, y1) => { L.solid(x - 2, y0, 4, y1 - y0, [0.3, 0.2, 0.1]); L.solid(x - 1, y0, 2, y1 - y0, BRASS); KIT.knob(x, y0, 0.6); KIT.knob(x, y1, 0.6); };
   // a key or a count in a small parchment frame at a cell's foot, as on the ref: ink like the plates' numbers, so the panel has one
-  // kind of writing, not gold letters and outlined white digits beside it (TASKS 1886)
+  // kind of writing, not gold letters and outlined white digits beside it (TASKS 1893)
   const keycap = (id, s, cx, y) => { const w = Math.max(36, lw(id, s, { size: 20 }) + 24); KIT.nine('btn', Math.round(cx - w / 2), y, w, 30); KIT.ink(id, s, cx, y + 16, { size: 20, al: 0.5 }); L.uiBox(id + '_b', Math.round(cx - w / 2), y, w, 30, 0); };
   function hud(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), GT = S.t, K = KIT, B = bp(S, R);
@@ -555,7 +555,7 @@
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
   const mapCut = (R) => SIM.Q.mapCut(R);
   // the legend is open for the first 10 s on the run's first floor and in its town's first visit, then folds away, so the map's
-  // corner covers no more than the ref's (TASKS 1794, 1880 и); L keeps it open, and in the pause the pointer over the map opens it
+  // corner covers no more than the ref's (TASKS 1794, 1887 и); L keeps it open, and in the pause the pointer over the map opens it
   const legOpen = (S, R, hov = true) => SIM.Q.legShown(S, R) || (hov && S.screen === 'pause' && !!S.ptr && (() => { const B = mmGeo(S, R, true).box; return S.ptr[0] > B[0] && S.ptr[1] < B[1] + B[3]; })());
   // the ribbon says the floor as the ref does («Этаж 2»), and its curse if it has one; the place's name is on the arrival plate
   const mmTitle = (R) => D.placeName(R.map.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map).replace(/:[^·]*/, ' ').replace(/\s+/g, ' ').trim();
@@ -631,7 +631,7 @@
     const y = Gm.rule + 22; KIT.rule(x0 + 22, Gm.rule, pw - 44, 0.7);
     const prog = progress(R); prog.forEach(([id, ic, s, done], i) => { const x = x0 + 26 + i * (pw - 52) / prog.length; icon(ic, x, y - 9, 18, done ? undefined : { alpha: 0.8 });
       KIT.ink('mm_p' + id, s, x + 24, y + 1, { size: 20, col: done ? I.r : I.t });
-      // the three shares had no word on them (TASKS 1880 д): a note over each, under the pointer in the pause
+      // the three shares had no word on them (TASKS 1887 д): a note over each, under the pointer in the pause
       tipAt(x - 4, y - 16, (pw - 52) / prog.length - 8, 32, ...PROG_TIP[id](), y - 16); });
   }
   // minimap markers, centred on (x, y): gems as in the concept, a slab for a room, the stairs for the exit
@@ -791,7 +791,7 @@
   function shop(S, R, t) {
     const h = R.hero, sh = R.shop, U = D.UI.shop(sh.goods.length, h.bag.length, S.bagTab), P = U.P, f = SIM.Q.tradeDepth(R);
     dim(0.6); KIT.panel('shop', P.x, P.y, P.w, P.h, 'leather');
-    // the title on a ribbon over the shelf, as the chest's and the bag's are (TASKS 1884), the merchant's name and trade under it
+    // the title on a ribbon over the shelf, as the chest's and the bag's are (TASKS 1891), the merchant's name and trade under it
     const scx = P.x + 268; KIT.banner('sh_t', scx, P.y + 12, 360, TXT('hud.shop.banner'), { h: 64, size: 32 });
     lab('sh_j', (sh.wander ? TXT('hud.shop') : TXT('hud.shop.2')) + ' · ' + (sh.wander ? TXT('hud.shop.job.w') : TXT('hud.shop.job')), scx, P.y + 98, { size: 21, al: 0.5, col: '#cdb89a' });
     const gs = TXT('hud.shop.gs', { gold: h.gold }); lab('sh_g', gs, P.x + P.w - 130, P.y + 60, { size: 28, al: 1, col: C.gold }); icon('it_gold', P.x + P.w - 130 - lw('sh_g', gs, { size: 28 }) - 46, P.y + 42, 36);
@@ -863,7 +863,7 @@
   function compare(S, it, slot, h, lines, o) {
     const cur = h.eq[slot], of = (x) => { const m = { atk: (x && x.atk) || 0, def: (x && x.def) || 0 }; if (x) { const q = SIM.Q.itemMods(x); for (const k in q) m[k] = (m[k] || 0) + q[k]; } return m; };
     const a = of(it), c = of(cur), num = (v) => nf(Math.abs(v)), mute = (col) => (o.dim ? C.dim : col);
-    // a plain piece is named by its base, «Амулет», which read as the slot's name: its rarity says it is the piece worn (TASKS 1880 ж)
+    // a plain piece is named by its base, «Амулет», which read as the slot's name: its rarity says it is the piece worn (TASKS 1887 ж)
     lines.push([cur ? TXT('hud.compare', { p1: SIM.Q.itemName(cur) + (cur.rar !== 4 && D.RARITY[cur.rar] ? ' · ' + D.RARITY[cur.rar].name : '') }) : TXT('hud.compare.2', { p1: D.SLOT_NAME[slot] }), C.dim, 19]);
     if (cur) lines.push(['   ' + TXT('hud.compare.lvl', { p1: it.lvl, p2: cur.lvl }), mute(it.lvl > cur.lvl ? UP : it.lvl < cur.lvl ? DOWN : C.dim), 19]);
     if (!o.compact) for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05 || !c[k]) continue;
@@ -913,7 +913,7 @@
   // onto the frame being drawn
   const bk = () => { const k = VH / 1080; return { k, x0: (W - 1920 * k) / 2, y0: -G.oy }; };
   // cover: the sheets laid over the backdrop (the menu's leaf and the version sheet): a bowl under one has neither its fire nor its
-  // glow, as they burned over the sheet's face (TASKS 1881). One point, the coals' middle, stands for the bowl: no menu or version sheet
+  // glow, as they burned over the sheet's face (TASKS 1888). One point, the coals' middle, stands for the bowl: no menu or version sheet
   // cuts a bowl's fire in two at any view height from 1080 to 1248 (each is wholly under a sheet or wholly clear of it), so a box test
   // would hide none more; a sheet laid out anew past a bowl's edge needs the box
   function backdrop(t, cover = []) {
@@ -927,7 +927,7 @@
     const fire = (x, y, w, hh, seed, lean, amt = 1) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: amt, u_col: col }, [w * k, 0, 0, -lean * k, hh * k, 0, x0 + (x - w / 2 + lean) * k, y0 + (y - hh) * k, 1]);
     G.blend('emit');
     // a bowl of coals burns as several tongues, each its own height, lean and flicker, round a tall middle one: one drop of the
-    // torch's shape at this size read as a flat yellow triangle (TASKS 1881)
+    // torch's shape at this size read as a flat yellow triangle (TASKS 1888)
     bowls.forEach(([x, y, i]) => { const sw = (j) => Math.sin(t * (1.1 + 0.37 * j) + i * 2 + j * 1.9);
       for (const [dx, w, hh, j, a] of [[-30, 46, 70, 0, 0.8], [30, 44, 64, 1, 0.8], [-14, 58, 98, 2, 0.9], [16, 54, 90, 3, 0.9], [0, 66, 128, 4, 1]])
         fire(x + dx, y, w * fl(i + j), hh * fl(i + j + 3), 11 + i * 7 + j, (dx * 0.12 + 5) * sw(j), a); });
@@ -952,7 +952,7 @@
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', x0 + 1430 * k, y0 + 330 * k, { w: bw * 2.6 * k, h: bh * 2.6 * k, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
   }
   // the version's main lines (TASKS 1305), look B: a loose parchment sheet pinned with a brass nail, a red diamond a line
-  // under them the small link to the whole «Что нового» (TASKS 1866), red and underlined in red when it is the one lit
+  // under them the small link to the whole «Что нового» (TASKS 1873), red and underlined in red when it is the one lit
   function newsFrame(F, lit) {
     const P = F.P, IP = KIT.panel('nf_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 20, 1.2);
     KIT.heading('nf_t', TXT('hud.news.main', { v: F.v }), P.x + P.w / 2, P.y + 72, { size: 34, wing: 60, w: IP.w });
@@ -987,14 +987,14 @@
     const lit = litOf(S, U.map((q) => q.id)), sl = (id) => ({ hover: lit === id, press: S.hover === id && !!S.pressWas, focus: false, off: false });
     KIT.tabs('cl_d', U.filter((b) => b.dif), 'dif:' + dif, S, { fill: true, lit });
     // the difficulty is the player's own choice (TASKS 1825), so the line tells the story instead of advising the easy one
-    // what the lit or chosen difficulty changes, in the numbers the sim plays by (TASKS 1879)
+    // what the lit or chosen difficulty changes, in the numbers the sim plays by (TASKS 1886)
     const dk = lit.startsWith('dif:') ? lit.slice(4) : dif, Dd = D.DIFF[dk] || D.DIFF.normal, pc = (v) => String(Math.round(Math.abs(v - 1) * 100));
     const dp = { dmg: pc(Dd.dmg), hp: pc(Dd.hp) };
     KIT.light('cl_dl', dk === 'easy' ? TXT('UI.classes.diff.easy', dp) : dk === 'hard' ? TXT('UI.classes.diff.hard', dp) : TXT('UI.classes.diff.normal', dp), W / 2, 126, { size: 24, fit: W - 200, al: 0.5, col: '#e6d3ac' }); L.uiBox('cl_dl_b', 100, 110, W - 200, 32, 0);
     const tip = TXT('UI.classes.hint');
     KIT.light('cl_s', tip, W / 2, 158, { size: 20, fit: W - 200, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 144, W - 200, 30, 0);
     for (const b of U.filter((q) => q.cls)) {
-      // the lit card shows as a choice does (TASKS 1846, 1887): a lighter leather and page and a red name, no glow; while another card
+      // the lit card shows as a choice does (TASKS 1846, 1894): a lighter leather and page and a red name, no glow; while another card
       // is lit the chosen one keeps its seal and its name goes back to ink, so one name is red
       const Cl = D.CLASSES[b.cls], on = cur === b.cls, hot = lit === b.id, red = hot || (on && !U.some((q) => q.cls && q.id === lit));
       KIT.nine('leather', b.x, b.y, b.w, b.h, hot ? { u: { grade: [1.1, 1.5, 0, 1.06] } } : {}); KIT.paper(b.x + 22, b.y + 22, b.w - 44, b.h - 44, { u: hot ? { grade: [1.08, 1.17, 0, 1.04] } : undefined });
@@ -1019,7 +1019,7 @@
     const keys = S.focus === 'name' ? TXT('hud.classes.keys.name') : TXT('hud.classes.keys'), ky = 1012, kw = lw('cl_keys_w', keys, { size: 26 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('cl_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
-  // the hero's name (TASKS 1872): a parchment strip lit like a choice while it is lit or typed into, the name in ink with a blinking
+  // the hero's name (TASKS 1879): a parchment strip lit like a choice while it is lit or typed into, the name in ink with a blinking
   // stroke after it while it takes the keyboard; the die beside it is the parchment button with a bone die drawn on it
   function nameField(S, U, t, lit, sl) {
     const b = U.find((q) => q.id === 'name'), d = U.find((q) => q.id === 'dice'), on = S.focus === 'name', hot = on || lit === 'name';
@@ -1102,7 +1102,7 @@
     KIT.corners({ x: U.B.x + 40, y: U.B.y + 40, w: U.B.w - 80, h: U.B.h - 80 }, 0.6);
     KIT.banner('ld_t', W / 2, U.B.y - 30, 620, TXT('hud.load'), { h: 96, size: 44 });
     // the chosen slot keeps the seal; the focus (or the pointer) also lights its row, as the focus on the list always sits on the
-    // chosen slot and the seal alone did not tell the list from the buttons (TASKS 1856). Lit as a choice is, no glow (TASKS 1887):
+    // chosen slot and the seal alone did not tell the list from the buttons (TASKS 1856). Lit as a choice is, no glow (TASKS 1894):
     // a lighter strip and a red name, one row lit (the focus, else the pointer's), the chosen one's name back to ink while another is
     const litRow = litOf(q, U.rows.map((r) => r.id));
     for (const r of U.rows) { const R = SIM.Q.slotRun(S, r.i), on = r.i === sel, lit = r.id === litRow, red = lit || (on && !litRow);
@@ -1170,7 +1170,7 @@
     if (R) { const run = TXT('hud.menu.ask.run', { name: D.heroName(R.hero), where: whereOf(R) }); KIT.ink('na_ask_r', run, A.x + A.w / 2, A.y + 200, { size: 26, fit: P.w - 60, al: 0.5, col: KIT.INK.t, bold: true });
       KIT.ink('na_ask_d', stamp(R.at), A.x + A.w / 2, A.y + 234, { size: 22, al: 0.5, col: KIT.INK.d }); }
     for (const b of U.r) KIT.button('na_' + b.id, b, askSt(S, U, b.id));
-    // the keys right under the question's sheet, as the gate's are under its window (TASKS 1880 л), not 280 px below over the panel
+    // the keys right under the question's sheet, as the gate's are under its window (TASKS 1887 л), not 280 px below over the panel
     const keys = TXT('hud.pause.keys.ask'), ky = A.y + A.h + 40, kw = lw('na_keys_w', keys, { size: 26 }); L.uiBox('na_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('na_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
@@ -1205,7 +1205,7 @@
   function pause(S) {
     dim(0.55); KIT.panel('p_sheet', 660, 240, 600, 580, 'torn'); KIT.knob(W / 2, 262, 1.2);
     KIT.heading('p_title', TXT('hud.draw.2'), W / 2, 316, { size: 60, wing: 80 });
-    // whose run is paused (TASKS 1872): the hero's name, class and level under the title
+    // whose run is paused (TASKS 1879): the hero's name, class and level under the title
     if (S.run) { const h = S.run.hero; KIT.ink('p_who', h.name ? TXT('hud.pause.who', { name: h.name, cls: D.clsOf(h).name.toLowerCase(), lvl: h.lvl }) : TXT('hud.pause.cls', { cls: D.clsOf(h).name, lvl: h.lvl }), W / 2, 384, { size: 22, fit: 520, al: 0.5, col: KIT.INK.d }); }
     // while it asks, the question's sheet takes the buttons' place under the title, as the load screen's does (TASKS 1853)
     const done = !!S.run && SIM.Q.campaignDone(S.run);
@@ -1216,7 +1216,7 @@
     const s = done ? TXT('hud.pause.askDone.who') : TXT('hud.pause.ask.who');
     halves(s).forEach((v, i) => KIT.ink('pa_ask_w' + i, v, A.x + A.w / 2, A.y + 124 + i * 30, { size: 22, fit: A.w - 80, al: 0.5, col: KIT.INK.d }));
     for (const b of U.r) KIT.button('pa_' + b.id, b, askSt(S, U, b.id));
-    // the keys right under the question's sheet, as the gate's are under its window (TASKS 1880 л), not 280 px below over the panel
+    // the keys right under the question's sheet, as the gate's are under its window (TASKS 1887 л), not 280 px below over the panel
     const keys = TXT('hud.pause.keys.ask'), ky = A.y + A.h + 40, kw = lw('pa_keys_w', keys, { size: 26 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('pa_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
@@ -1287,7 +1287,7 @@
     KIT.tabs('mt_tb', bs.filter((b) => b.tab), 'tab:' + (S.metaTab === 'open' ? 'open' : 'up'), S);
     for (const b of bs) {
       if (b.tab) continue;
-      // at the altar in the town one leaves a place, as at the sacrifice altar and in a talk (TASKS 1880 м); from the menu it is a page
+      // at the altar in the town one leaves a place, as at the sacrifice altar and in a talk (TASKS 1887 м); from the menu it is a page
       if (b.id === 'back' || b.id === 'codex') { KIT.button('mt_' + b.id, b.id === 'back' && S.metaRun ? Object.assign({}, b, { label: TXT('UI.altar.r.leave.label') }) : b, stN(S, b.id)); continue; }
       const st = stN(S, b.id);
       if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), poor = !open && !U.ach && S.meta.shards < U.cost;
@@ -1361,9 +1361,9 @@
     if (T.pages.length > 1) lab('tk_p', (T.p + 1) + ' / ' + T.pages.length, P.x + P.w - 40, P.y + 52, { size: 20, al: 1, col: INK.d });
     const last = T.p + 1 >= T.pages.length, lb = { next: T.menu ? TXT('hud.talk.label.3') : !last ? TXT('hud.talk.label') : T.inTopic ? TXT('UI.talk.back') : act && T.act.k === 'take' ? TXT('hud.talk.label.2') : act && T.act.k === 'finish' ? TXT('hud.talk.goOn') : TXT('hud.talk.label.3'),
       act: act && (T.act.k === 'take' ? TXT('hud.talk.label.4') : T.act.k === 'finish' ? TXT('hud.talk.finish') : TXT('hud.talk.label.5')) };
-    // the button Enter presses is lit as «Остаться» at the gate (TASKS 1876), the pointer's or the keys' alike
+    // the button Enter presses is lit as «Остаться» at the gate (TASKS 1883), the pointer's or the keys' alike
     // the end of the run is a click alone (TASKS 1854), so under the pointer it is lit as hovered, never as Enter's button, and Enter's
-    // button steps down meanwhile: one lit button at a time (TASKS 1883, 1887). An arrow takes the light back to the keys' button
+    // button steps down meanwhile: one lit button at a time (TASKS 1890, 1894). An arrow takes the light back to the keys' button
     // until the pointer moves again, or Enter would press a button nothing shows (review of PR 63)
     const finHot = !!act && T.act.k === 'finish' && S.hover === 'act' && !T.byKeys;
     const walk = SIM.Q.talkWalk(T, U), lit = litOf(S, walk) || SIM.Q.talkFirst(T, walk), hot = (b, label) => button(b.id === 'talk' ? 'tk_orig' : b.id.startsWith('topic:') ? 'tk_t' + b.i : 'tk_' + b.id, Object.assign({}, b, label ? { label } : {}, { lit: 1 }), finHot ? '' : lit);
@@ -1543,7 +1543,7 @@
     const bx = 650, by = 220, I = KIT.INK;
     page('e_box', bx, by, 1070, 650);
     KIT.ink('e_h1', TXT('hud.end.15'), bx + 30, by + 46, { size: 28, col: I.r }); KIT.ink('e_h2', TXT('hud.end.16'), bx + 570, by + 46, { size: 28, col: I.r });
-    // whose run it was (TASKS 1872), across from «Забег»
+    // whose run it was (TASKS 1879), across from «Забег»
     if (r.hero) KIT.ink('e_who', r.hero.name ? TXT('hud.end.who', { name: r.hero.name, cls: D.clsOf(r.hero).name.toLowerCase() }) : D.clsOf(r.hero).name, bx + 480, by + 48, { size: 24, al: 1, fit: 300, col: I.d });
     runRows.forEach(([n, v], i) => { const y = by + 94 + i * 40, tw = KIT.ink('e_n' + i, n, bx + 30, y, { size: 24, col: I.d }), vw = KIT.ink('e_v' + i, v, bx + 480, y, { size: 24, al: 1 }); KIT.leader(bx + 30 + tw + 12, bx + 480 - vw - 10, y + 6); });
     doneRows.forEach(([n, v], i) => { const y = by + 94 + i * 40, tw = KIT.ink('e_cn' + i, n, bx + 570, y, { size: 24, col: I.d }), vw = KIT.ink('e_cv' + i, v, bx + 1040, y, { size: 24, al: 1, col: I.g }); KIT.leader(bx + 570 + tw + 12, bx + 1040 - vw - 10, y + 6); });

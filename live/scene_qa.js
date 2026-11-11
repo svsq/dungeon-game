@@ -27,7 +27,7 @@
       ...DATA.UI.menu(true).map((b) => ['menu_focus_' + b.id, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.focus = b.id; })]),
       ['menu_saved_note', play((S) => { S.saved = S.run; S.run = null; S.screen = 'menu'; S.savedT = S.t - 0.5; })],
       ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'stats'; S.hover = 'settings'; })],
-      // the desktop build's menu (TASKS 1870): «Выход» last, in focus
+      // the desktop build's menu (TASKS 1877): «Выход» last, in focus
       ['menu_quit', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.focus = 'quit'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
@@ -639,12 +639,12 @@
       R.drops.push({ id: 7210, kind: 'item', item: it(2, 9), x: h.x + 30, y: h.y - 34, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, tossed: 1, rest: 2 }); })]);
     states.push(['hud_low_hp', play((S) => { const R = S.run, h = R.hero; R.msg = null; h.hp = Math.ceil(SIM.Q.stats(h, S.meta).maxHp * 0.14); })]);
     states.push(['hud_pickup', play((S) => { const R = S.run, h = R.hero; R.msg = null; S.ev.push({ k: 'pickup', t: S.t - 0.5, x: h.x, y: h.y, s: SIM.Q.itemName(Object.assign(SIM.rollItem(R, 3, 3), { id: 3001 })), rar: 3 }, { k: 'lvl', t: S.t - 0.3, x: h.x, y: h.y, lvl: 2 }); })]);
-    // what the HUD's numbers and cells are, under the pointer in the pause (TASKS 1862), at their places on ref B (1865)
+    // what the HUD's numbers and cells are, under the pointer in the pause (TASKS 1862), at their places on ref B (1872)
     const gifted = (S) => { const h = S.run.hero; h.bless = 1; h.burn = S.t + 2; h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').slice(0, 6).map((g) => [g.id, 2])); };
     states.push(['pause_tip_stat', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = [40, 180]; })]);
     states.push(['pause_tip_gift', play((S) => { S.run.msg = null; gifted(S); S.screen = 'pause'; S.ptr = [240, 132]; })]);
     states.push(['pause_tip_gold', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = HUD.bp(S, S.run).goldC.slice(); })]);
-    // TASKS 1880 д: the floor's three shares under the map, each with its note; the pointer on the first share as it stands with
+    // TASKS 1887 д: the floor's three shares under the map, each with its note; the pointer on the first share as it stands with
     // the legend open (which the pointer opens), measured on this seed's frame, as the map's size is not known when states are made
     states.push(['pause_tip_prog', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 473]; })]);
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
@@ -1292,6 +1292,11 @@
     const emberKill = (S) => { kill(S); const e = S.run.en[0], B = D.ENEMIES.skel_ember.boom; e.fuse = S.t + B.fuse; S.ev.push({ k: 'fuse', t: S.t, x: e.x, y: e.y, r: B.r, d: B.fuse, id: e.id }); };
     transitions.skel_ember_death = eventT(lone('skel_ember'), emberKill, 'skel_ember'); transitions.skel_ember_death_topple = eventT(lone('skel_ember', 992), emberKill, 'skel_ember');
     for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander', 'mimic']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
+    // TASKS 1748: the mimic_* states are posed one by one; this one the sim plays, from the chest opened to the bite
+    { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); h.ifr = 1e9; R.nextId = 990; R.chests.push({ x: h.x + 50, y: h.y - 10, tier: 2, open: 0, mimic: 1, loot: [] }); });
+      SIM.step(S, { px: 960, py: 540, keys: ['KeyE'] }); for (let k = 0; k < 8 && !S.run.en.length; k++) SIM.step(S, { px: 960, py: 540, keys: [] });   // from its first frame out of the chest: a chest has no joints
+      if (!S.run.en.some((e) => e.id === 990)) throw new Error('mimic_wake_bite: the chest did not wake');
+      for (let i = 0; i < 240; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions.mimic_wake_bite = fr; }
     // a golem's pool of lava where it fell apart, through its whole life (TASKS 409)
     transitions.golem_pool = eventT(lone('golem'), (S) => { kill(S); const e = S.run.en[0], P = D.ENEMIES.golem.pool; S.run.fires = [{ id: 995, src: e.id, who: 'golem', x: e.x, y: e.y, t0: S.t, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; S.ev.push({ k: 'pool', t: S.t, x: e.x, y: e.y, r: P.r, d: P.t, id: e.id }); }, 'golem');
     // a blow on a golem's crust takes a plate off: sparks off the stone, a clang; with its crust gone its cracks blaze
@@ -1496,7 +1501,7 @@
     states.push(['fork_whirl', fx((S, R, h) => { R.hero.ab = { whirl: 3, charge: 3, cry: 1 }; R.hero.forks = { 'charge:3': 0 }; S.screen = 'fork'; S.forkSel = 1; S.hover = 'fork:1'; })]);
     const tipOn = (S, id) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab).r.find((b) => b.id === id); S.hover = id; S.ptr = [q.x + q.w / 2, q.y + q.h / 2 + D.uiDy('inv', SIM.VIEW.H)]; S.uiPtr = [q.x + q.w / 2, q.y + q.h / 2]; };
     states.push(['inv_tip_stat', play((S) => { const h = S.run.hero; h.pts = 3; S.screen = 'inv'; tipOn(S, 'stat:agi'); })]);
-    // TASKS 1880 д: the free cells' badge on the bag's tab, with its note
+    // TASKS 1887 д: the free cells' badge on the bag's tab, with its note
     states.push(['inv_tip_free', play((S) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, 0).r.find((b) => b.id === 'btab:0'); S.screen = 'inv'; S.hover = 'btab:0';
       S.uiPtr = [q.x + q.w - 22, q.y - 9]; S.ptr = [S.uiPtr[0], S.uiPtr[1] + D.uiDy('inv', SIM.VIEW.H)]; })]);
     states.push(['inv_tip_rank', play((S) => { const h = S.run.hero; h.lvl = 6; h.sp = 2; h.ab = { whirl: 2, charge: 1 }; S.screen = 'inv'; tipOn(S, 'ab:whirl'); })]);
@@ -1510,7 +1515,7 @@
     states.push(['meta_unlocks_poor', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 0; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:2'; })]);
     states.push(['meta_tab_hover', mk((S) => { S.meta.shards = 35; S.screen = 'meta'; S.hover = 'tab:open'; })]);
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
-    // TASKS 1880 б: the altar opened with no shards says so in shards, not in the gold it does not take
+    // TASKS 1887 б: the altar opened with no shards says so in shards, not in the gold it does not take
     states.push(['town_meta_empty', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 0; S.screen = 'meta'; S.metaRun = 1; S.ev.push({ k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.noShards'), t: S.t - 0.2 }); })]);
     // the storage chest (TASKS 1012): its prompt; its window with a piece in, a locked cell and a tip; a piece dragged over the bag
     const stashS = (fn) => climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x; h.y = m.town.svc.stash.y + 40; const T = SIM.stashOf(S);
@@ -1571,7 +1576,7 @@
       ['mage_circlet', mageS((S, R, h, gear) => { h.eq.helm = gear('circlet', 'helm'); })], ['mage_warrior', play((S) => { S.run.msg = null; })]);
     // the class screen (TASKS 1103): the mage picked, the pointer on the warrior's card
     states.push(['classes_kit', mk((S) => { S.meta.cls = 'archer'; S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'kit:archer'; })]);
-    // the hero's name (TASKS 1872): the field typed into at its longest, and the die lit
+    // the hero's name (TASKS 1879): the field typed into at its longest, and the die lit
     states.push(['classes_name', mk((S) => { S.meta.cls = 'archer'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.pendName = TXT('QA.states.heroName'); S.focus = 'name'; })]);
     states.push(['classes_dice', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.pendName = TXT('QA.states.heroName'); S.focus = 'dice'; S.hover = 'dice'; })]);
     states.push(['classes', mk((S) => { S.meta.cls = 'mage'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'cls:warrior'; })]);
@@ -1664,7 +1669,7 @@
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
       const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge' } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);
-    // TASKS 1876: → moved the keys' focus onto «Не сейчас», the pointer off the buttons; ↓ on the second topic
+    // TASKS 1883: → moved the keys' focus onto «Не сейчас», the pointer off the buttons; ↓ on the second topic
     states.push(['town_quest_offer_keys', keeperS((S, R) => { R.offers = [{ key: 'fetch', from: 'sweeper', q: 0 }]; const qt = SIM.questTalk(R, 'sweeper'); S.talk = { role: 'sweeper', i: 0, pages: qt.pages, p: qt.pages.length - 1, act: qt.act }; S.screen = 'talk'; S.hover = ''; S.focus = 'next'; })]);
     states.push(['town_talk_menu_keys', keeperS((S) => { S.talk = { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: D.FOLK.keeper.topics, menu: 1 }; S.screen = 'talk'; S.hover = ''; S.focus = 'topic:1'; })]);
     states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
@@ -1681,7 +1686,7 @@
       R.quests = []; for (const [key, f, from, o] of [['fetch', 11, 'sweeper', { thing: TXT('QA.thing'), ic: 'qi_horse', st: 'turned' }], ['named', 11, 'child', { title: TXT('QA.title') }], ['elites', 12, 'guard', { st: 'done', n: 5 }],
         ...D.storyChain('campaign').map((c, i) => [c.key, c.f, 'keeper', { st: i < 5 ? 'turned' : 'taken' }])]) R.quests.push(mk(key, f, from, o));
       R.quests[0].rw = Object.assign({}, D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got.2'), rar: 4 }); S.jsel = R.quests[0].id; S.screen = 'journal'; S.hover = 'q:3'; })]);
-    // TASKS 1877: fourteen quests, the chosen one in the middle: rows hidden above and below, the bar and the «Ещё» line
+    // TASKS 1884: fourteen quests, the chosen one in the middle: rows hidden above and below, the bar and the «Ещё» line
     states.push(['journal_scroll', keeperS((S, R) => { R.offers = []; R.quests = Array.from({ length: 14 }, (_, i) => ({ id: 950 + i, key: i % 3 ? 'cull' : 'elites', f: 1 + i, need: 5, n: i % 4 ? 0 : 5, st: i % 4 ? 'taken' : 'done', from: i % 2 ? 'guard' : 'smith', rw: D.questReward(['scroll', 'xp'], 1 + i) }));
       S.jsel = SIM.Q.journalOf(R)[7].id; S.jtop = 4; S.screen = 'journal'; })]);
     states.push(['journal_alike', keeperS((S, R) => { R.offers = []; R.quests = []; const sd = ['keeper', 'guard', 'child', 'sweeper', 'smith'];
@@ -1703,7 +1708,7 @@
     // the town's loop for the player (TASKS 1033): the notice board full (every giver with an offer, the longest names) and empty;
     // a townsman answering a blow; the minimap's ! and ?; the scroll slot and its hint at low health on a floor
     states.push(['town_board', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); S.screen = 'board'; S.hover = 'take:1'; })]);
-    // TASKS 1878: the second row just taken stays in place, dimmed, its button out with «Взято»; the pointer on the row under it
+    // TASKS 1885: the second row just taken stays in place, dimmed, its button out with «Взято»; the pointer on the row under it
     states.push(['town_board_took', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 }));
       S.bdRows = SIM.Q.boardRows(R); SIM.giveQuest(S, R, S.bdRows[1].role); S.bdTook = [1]; S.screen = 'board'; S.hover = 'take:2'; })]);
     states.push(['town_board_empty', keeperS((S, R) => { R.offers = []; R.offerB = 99; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; S.screen = 'board'; })]);
@@ -1918,10 +1923,12 @@
         out.cycles[n] = cyc(dx, dy, (S) => asArcher(S, b)); out.sprites[n] = archerSpr; out.subject[n] = 'hero'; out.cycleT[n] = out.cycleT['hero_' + k]; out.rest[n] = play((S) => { asArcher(S, b); if (dy < 0) S.run.hero.back = 1; }); } }
     transitions.hero_archer_shoot2_r = archerT(0, null, [5, 30]); transitions.hero_archer_volley_r = archerT(0, 'volley'); transitions.hero_archer_leap_r = archerT(0, 'leap');
     // the warrior's charge and war cry (TASKS 1134), through the sim
-    const warT = (a, slot, foe, press) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < 75; i++) { const h = S.run.hero, R = S.run;
+    const warT = (a, slot, foe, press, upto = 75) => { const fr = []; let S = play((S) => { clear(S); const h = S.run.hero; h.lvl = 4; h.ab.charge = 1; h.ab.cry = 1; h.mp = 100; if (foe) lone('skeleton')(S); if (foe) Object.assign(S.run.en[0], { x: h.x + 140, ifr: 0, hp: 1e6, max: 1e6 }); }); for (let i = 0; i < upto; i++) { const h = S.run.hero, R = S.run;
       if (i === 5) { h.aim = a; const f = Math.cos(a) >= 0 ? 1 : -1; if (f !== h.face) { h.face = f; h.faceT = S.t; } } fr.push(S); S = structuredClone(S); h.mp = 100;
       const sx = (h.x - R.cam[0]) * (D.ZOOM || 1), sy = (h.y - 30 - R.cam[1]) * (D.ZOOM || 1); for (let k = 0; k < 2; k++) SIM.step(S, { px: sx + Math.cos(a) * 300, py: sy + Math.sin(a) * 300, slot: i === 5 && k === 0 ? slot : 0, press: press && i >= press && i < press + 2 ? 1 : 0, keys: [] }); } return fr; };
-    transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28); transitions.hero_cry = warT(0, 3);
+    // hero_charge_strike: the charge up to the press that starts the swing; the swing, pull and strike, stays sharp (the player's call,
+    // TASKS 1774: no eased blow fits the 0.13 s to the hit: the strike popped the grip 12.9 px, the pull 5.4), its path the attack checks' to judge
+    transitions.hero_charge_r = warT(0, 2); transitions.hero_charge_hit = warT(0, 2, 1); transitions.hero_charge_ul = warT(-2.3, 2); transitions.hero_charge_d = warT(Math.PI / 2, 2); transitions.hero_charge_l = warT(Math.PI, 2); transitions.hero_charge_strike = warT(0, 2, 1, 28, 30); transitions.hero_cry = warT(0, 3);
     transitions.hero_archer_hurt = archerT(0, (S, h) => { h.hurtT = S.t; h.hurtX = 1; }); transitions.hero_archer_death = archerT(0, (S, h) => { h.hp = 0; h.deadT = S.t; });
     for (const k of Object.keys(transitions)) if (k.startsWith('hero')) out.subject[k] = 'hero';
     Object.assign(out.subject, doorSubj);

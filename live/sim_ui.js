@@ -10,7 +10,7 @@
   function endRun(S, how) {
     const R = S.run; if (!R) return;
     const W2 = runReward(R, how), bonus = W2.base + W2.bonus;
-    // a test run (TASKS 1871) pays its shards but counts in no counter, record or journal, nor is the Keeper of the Fire told of it
+    // a test run (TASKS 1878) pays its shards but counts in no counter, record or journal, nor is the Keeper of the Fire told of it
     const test = !!R.test;
     S.meta.shards += bonus; if (!test) { S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win' && !R.campaignWon) S.meta.wins = (S.meta.wins || 0) + 1; }
     // what the Keeper of the Fire will speak of to the next hero (TASKS 1016)
@@ -79,14 +79,14 @@
   function dropSlot(S, i) { if (i === S.slot && S.saved) S.saved = null; else S.saves[i] = null; pickLatest(S); S.saveN++; }
   // the run in play put aside under «Продолжить» (the pause's «Сохранить и выйти в меню», the menu's «Выход»)
   function saveRun(S) { S.saved = S.run; S.run = null; S.saveN++; S.savedT = S.t; }
-  // a run of the tests' screen is marked a test (TASKS 1871): it leaves no trace in the statistics or the run journals
+  // a run of the tests' screen is marked a test (TASKS 1878): it leaves no trace in the statistics or the run journals
   function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S) }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in
   // pendingMode, the keyboard's focus on the chosen class
   const clsNow = (S) => (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior');
-  // the hero's name (TASKS 1872): each new run's start screen offers one off the die, the player may type another. The die is the
+  // the hero's name (TASKS 1879): each new run's start screen offers one off the die, the player may type another. The die is the
   // sim's own (the session's seed and its count of throws), never the same name twice running; an empty field throws it at the start
   const rollName = (S) => { const N = D.heroNames(), was = N.indexOf(S.pendName);
     if (N.length < 2) { S.pendName = N[0] || ''; return N[0] || D.clsOf({ cls: clsNow(S) }).name; }
@@ -126,15 +126,15 @@
       if (D.RUNS[id]) pressRun(S, id);
       if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (id === 'settings') openSettings(S, 'menu');
-      // «Выход» (TASKS 1870): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
+      // «Выход» (TASKS 1877): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
       // and then closes the window on quitReq
       if (id === 'quit' && S.canQuit) { if (S.run) saveRun(S); S.quitReq = (S.quitReq || 0) + 1; S.saveN++; }
       if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y }); };
     if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
-    // the test runs are no item of the menu (TASKS 1871): ` opens them, as it opens the debug panel in play
+    // the test runs are no item of the menu (TASKS 1878): ` opens them, as it opens the debug panel in play
     if (keys.Backquote) { S.screen = 'tests'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
-    // with no focus the first item already wears the seal, as Enter presses it, so the arrows go on from it (TASKS 1880 г)
+    // with no focus the first item already wears the seal, as Enter presses it, so the arrows go on from it (TASKS 1887 г)
     if (mv) { S.focus = order[((at < 0 ? 0 : at) + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); return; }
     if (keys.Enter) press(at < 0 ? order[0] : S.focus);
   };
@@ -307,7 +307,7 @@
   // the storage chest: a click moves an item across, a drag drops it on the cell under the pointer (a drop where it started, or
   // off any cell, moves it across as a click would)
   const TALK_SETTLE = 0.5;
-  // the button Enter presses (TASKS 1876): lit as «Остаться» at the gate, walked by ←→ on a page and ↑↓ in the topics; never the end of
+  // the button Enter presses (TASKS 1883): lit as «Остаться» at the gate, walked by ←→ on a page and ↑↓ in the topics; never the end of
   // the run, which only a click gives (TASKS 1854)
   const talkWalk = (T, U) => U.r.filter((q) => (T.menu ? q.id.startsWith('topic:') || q.id === 'next' : !q.id.startsWith('topic:') && !(q.id === 'act' && T.act.k === 'finish'))).sort((p, q) => (T.menu ? (p.id === 'next') - (q.id === 'next') : p.x - q.x)).map((q) => q.id);
   const talkFirst = (T, walk) => (T.menu ? walk[0] : walk.includes('act') ? 'act' : 'next');
@@ -410,7 +410,7 @@
     if ((it.rar || 0) < 4 || again(S, 'sell', it)) sell(S, R, i); else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.shop.sellAsk', { p1: SIMX.itemName(it) }) }); };
   // one way out of every window (TASKS 1863 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
-  // the rows stand as the board opened until it closes (TASKS 1878): a taken one stays in place with its button out, so the rows
+  // the rows stand as the board opened until it closes (TASKS 1885): a taken one stays in place with its button out, so the rows
   // under it never slide up under the pointer and a second click takes nothing
   SCREEN.board = (S, inp, keys, x, y, click) => {
     const R = S.run; if (R && !S.bdRows) { S.bdRows = boardRows(R); S.bdTook = []; }
@@ -423,7 +423,7 @@
   // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
   SCREEN.journal = (S, inp, keys, x, y, click) => {
     const R = S.run, L0 = R ? journalOf(R) : [], si = Math.max(0, L0.findIndex((q) => q.id === S.jsel));
-    // the wheel scrolls the list and drags the chosen quest along at its edge, so the chosen one never leaves it (TASKS 1877)
+    // the wheel scrolls the list and drags the chosen quest along at its edge, so the chosen one never leaves it (TASKS 1884)
     let top = UI.journalTop(L0.length, si, S.jtop); if (inp.wheel && L0.length > 10) { top = Math.max(0, Math.min(L0.length - 9, top + inp.wheel)); const k = Math.max(top, Math.min(top + 8, si)); if (k !== si) { S.jsel = L0[k].id; S.jdrop = 0; } }
     S.jtop = top;
     const sel = L0.find((q) => q.id === S.jsel) || L0[0], U = UI.journal(L0.length, sel && sel.st === 'taken', top), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';

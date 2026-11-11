@@ -144,7 +144,7 @@
     // The blast hurts the hero within boom.r for dmg × boom.dmg and every monster in it for boom.mon of its own health: a pack the
     // hero draws it into pays for it, and one that catches another sets it off
     skel_ember: { name: TXT('ENEMIES.skel_ember.name'), hp: 18, dmg: 14, spd: 102, r: 13, reach: 24, wind: 0.8, cd: 9, xp: 9, kind: 'bomber', h: 76, blood: 'bone', tex: 'en_skeleton', rim: [1, 0.5, 0.15], tint: [0.85, 0.55, 0.4, 0.8], val: 0.9,
-      boom: { r: 92, dmg: 1, mon: 0.35, fuse: 0.8 } },
+      boom: { r: 92, dmg: 1, mon: 0.35, fuse: 0.8, capped: 1 } },
     // the fire priest (TASKS 410), the summoner of R-22 in the reference's crimson hood at the altar: keeps behind another monster from
     // the hero (`behind`, as the skeleton mage) and works two ways. A ring of fire under the hero (`pyre`): the ring glows `warn` s
     // where he stood when it was cast, then a pillar of fire stands there `burst` s, hurting him once and setting him alight. Every

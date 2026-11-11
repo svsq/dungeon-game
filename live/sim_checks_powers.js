@@ -138,7 +138,7 @@
       kill: ({ S, R, h }) => killEnemy(S, R, foe(R, h)),
       hurt: ({ S, R, h }) => { h.ifr = 0; h.dashT = -9; S.meta.up = {}; for (let i = 0; i < 40 && !S.ev.some((e) => e.k === 'hurt'); i++) hurtHero(S, R, 5, h.x + 9, h.y); },
       'cast:whirl': ({ S, R, h }) => castAbility(S, R, 'whirl', {}),
-      // pressed twice: the staged hero is at full health, and a full pool drinks for a power only on the second press (TASKS 1874)
+      // pressed twice: the staged hero is at full health, and a full pool drinks for a power only on the second press (TASKS 1881)
       potion: ({ S, R, h }) => { usePotion(S, R, 'hp_potion'); usePotion(S, R, 'hp_potion'); },
     };
     for (const [trig, act] of Object.entries(cases)) if (drive(trig, act) < 1) out.push(`power: ${trig} never fires`);

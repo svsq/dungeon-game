@@ -74,7 +74,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
       if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; } }
     keys[c] = 1; if (play) (e.repeat ? pend.rep : pend.keys).push(c);
-    if (play && e.key.length === 1 && !e.ctrlKey && !e.metaKey) pend.chars.push(e.key);   // e.key, not e.code: the name takes the letters of the player's layout (TASKS 1872)
+    if (play && e.key.length === 1 && !e.ctrlKey && !e.metaKey) pend.chars.push(e.key);   // e.key, not e.code: the name takes the letters of the player's layout (TASKS 1879)
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay(); else fullSync(true);
     e.preventDefault();
@@ -109,7 +109,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     fullSync(true);
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
-  // a lost window or a hidden tab pauses a run through the sim's input, the way Esc does (TASKS 1875)
+  // a lost window or a hidden tab pauses a run through the sim's input, the way Esc does (TASKS 1882)
   const away = () => { for (const k in keys) keys[k] = 0; ptr.down = 0; pend.keys = []; pend.rep = []; pend.chars = []; pend.slot = 0; pend.away = 1; };
   addEventListener('blur', away);
   document.addEventListener('visibilitychange', () => { if (document.hidden) away(); });
@@ -128,7 +128,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; inp.chars = pend.chars = []; inp.away = pend.away = 0; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
-      // «Выход» (TASKS 1870): the save is written just above, then the desktop build closes its window
+      // «Выход» (TASKS 1877): the save is written just above, then the desktop build closes its window
       if ((play.quitReq || 0) !== quitN) { quitN = play.quitReq || 0; if (desk && desk.quit) desk.quit(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);

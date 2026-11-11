@@ -43,7 +43,7 @@
     S.pressWas = !!inp.press;
     rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
-    // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1870): a browser tab cannot, so «Выход» waits for its word
+    // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1877): a browser tab cannot, so «Выход» waits for its word
     if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
@@ -62,7 +62,7 @@
       const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
       // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for 10 s once a run for the floors and once for the
-      // town (TASKS 1880 и: opening on every floor got in the way), on its first such entry (legKnown)
+      // town (TASKS 1887 и: opening on every floor got in the way), on its first such entry (legKnown)
       if (keys.KeyL && !S.demo) { const R = S.run, open = legShown(S, R); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
       if ((keys.Escape || inp.away) && !S.demo) { S.screen = 'pause'; S.pauseAsk = 0; }
       else if ((keys.KeyI || keys.KeyC || keys.Tab) && !S.demo) { S.screen = 'inv'; }

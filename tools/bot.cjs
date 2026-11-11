@@ -89,7 +89,7 @@ function startRun(S, mode) {
 }
 
 function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode = 'campaign', initial = null, rebuild = false, checkpoint = null, log = () => {}, descend = false, stopAfter = 0, hours = 1, noTown = false, cls = 'warrior' } = {}) {
-  const P = Object.assign({}, PROFILES[profile], noTown ? { quests: 0, home: 0, scrolls: 0, noTown: 1 } : TOWN[profile]), rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile));
+  const P = Object.assign({}, PROFILES[profile], noTown ? { quests: 0, home: 0, scrolls: 0, noTown: 1 } : TOWN[profile]), rand = rng(seed * 7919 + Object.keys(PROFILES).indexOf(profile)), forkR = rng(seed * 104729 + 17);
   if (initial && (initial.seed !== seed || initial.profile !== profile || initial.diff !== diff || runs !== 1)) throw new Error('checkpoint parameters differ');
   const S = initial ? initial.S : SIM.spawn(0, {});
   if (!initial) { S.seedBase = seed; S.meta.diff = diff; S.meta.cls = cls; startRun(S, mode); }
@@ -104,7 +104,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
-    rand.state(initial.rng); for (const event of S.ev) counted.add(event); if (cur) cur.resumed = 1;
+    rand.state(initial.rng); if (initial.forkRng !== undefined) forkR.state(initial.forkRng); for (const event of S.ev) counted.add(event); if (cur) cur.resumed = 1;
     // the floor built again by this version (TASKS 467): its monsters are this version's already
     if (rebuild && !SIM.rebuildArrival(S)) throw new Error('checkpoint: the floor was not first built on this arrival');
     const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;
@@ -115,7 +115,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       e.dmg = E.dmg * dc * (boss ? D.dmgAt(depth, 1) / D.dmgAt(depth) : 1) * (!e.elite ? ST.mob : boss ? 1.35 : D.eliteK(e, 'dmg')) * gd * bk.dmg;
     }
   }
-  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, whirl: 0, cast: 0, shield: 0, frost: 0, volley: 0, snap: 0, leap: 0, charge: 0, cry: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
+  const fresh = () => ({ town: { visits: 0, taken: 0, turned: 0, scrolls: 0 }, seed, mode, ver: VERSION, resumed: initial ? 1 : 0, floors: [], hp_potion: 0, mp_potion: 0, uses: {}, whirl: 0, cast: 0, shield: 0, frost: 0, volley: 0, snap: 0, leap: 0, charge: 0, cry: 0, dodges: 0, hurt: 0, gifts: 0, altars: [], sold: 0, spent: 0, ups: 0, minhp: 1, minmp: 1 });
   const chase = (R, o) => { const t = (chased.get(o) || 0) + SIM.DT; chased.set(o, t); if (t > CHASE) given.add(o); return t <= CHASE; };
   // a cage keeps the shop or a workshop shut for the run (TASKS 1328): its CHASE s count only the time with no step nearer, so a long way to it is never given up
   const nearest = new WeakMap(), chaseOn = (R, o) => { const d = Math.hypot(o.x - R.hero.x, o.y - R.hero.y); if (!(d > (nearest.get(o) ?? Infinity) - 16)) { nearest.set(o, d); chased.set(o, 0); } return chase(R, o); };
@@ -456,7 +456,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (!R.town && inTown) { inTown = 0; if (f0 && R.floor === f0) { const d = S.t - townT; tF += d; progT += d; } }
     if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h)); else cur.meta = Object.assign({}, S.meta.up);
       if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); pushed.clear(); crusted.clear(); thinGo = null; seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
-      if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
+      if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(), forkRng: forkR.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT, kills0, learned, gearKey, unstick, homeF, readWant, inTown, townT] });
     }
     // stopAfter: a replay from a checkpoint that only wants a floor or two ends once past it, as 'stopped' (tuning, TASKS 354)
@@ -481,7 +481,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (P.skills) { const a = P.skills.map((id) => D.clsOf(h).abs.find((q) => q.id === id)).filter(Boolean).find((q) => h.lvl >= q.unlock && (h.ab[q.id] || 0) < D.AB_MAX);
       if (a && h.sp > 0) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; } }
     else for (const a of D.clsOf(h).abs) if (h.sp > 0 && h.lvl >= a.unlock && (h.ab[a.id] || 0) < D.AB_MAX) { h.ab[a.id] = (h.ab[a.id] || 0) + 1; h.sp--; }
-    while (D.forkPending(h)) SIM.chooseFork(S, R, 0);
+    // a fork's side by a draw of its own (TASKS 360: always the first, every run ended with the same powers), so the rest of the bot's
+    // choices keep their draws
+    while (D.forkPending(h)) SIM.chooseFork(S, R, forkR() < 0.5 ? 0 : 1);
     // the gear is weighed again only when the bag, the worn set, the level or a rank changed
     const gk = h.bag.map((it) => it ? it.id : 0).join() + '|' + D.SLOTS.map((k) => h.eq[k] ? h.eq[k].id : 0).join() + '|' + h.lvl + '|' + h.ab.fireball + '|' + R.floor;
     if (gk !== gearKey) { gearKey = gk; h.bag.forEach((it, j) => { if (!gear(it) || !wearable(h, it)) return; const sl = D.BASES[it.b].slot, c = h.eq[sl]; if (worth(S, h, P, it) > worth(S, h, P, c, sl) + 1e-6) { cur.ups++; h.eq[sl] = it; h.bag[j] = c || null; } }); }
@@ -579,7 +581,11 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     if (h.hp < st.maxHp * hpLine) { if (lowT < 0) lowT = S.t; if (S.t - lowT >= P.react && held(h, 'hp_potion')) { inp.keys.push('KeyQ'); lowT = -1; } } else lowT = -1;
     cur.minhp = Math.min(cur.minhp, h.hp / st.maxHp); fl.minhp = Math.min(fl.minhp, h.hp / st.maxHp); cur.minmp = Math.min(cur.minmp, h.mp / st.maxMp);
     const B = R.en.find((e) => D.BOSSES[e.type]);
+    const cast0 = h.castT;
     SIM.step(S, inp);
+    // each ability the hero used, by its id (TASKS 360: the COUNT events are also a monster's leap and a trap's snap); a cast is
+    // one at the moment, not a castT the hold on «Продолжить» carries along
+    if (h.castT !== cast0 && h.castK && S.t - h.castT < 0.05) { const u = cur.uses || (cur.uses = {}); u[h.castK] = (u[h.castK] || 0) + 1; }
     // each blow's size before the shield, as a share of the max health, by source group; a plain demon's slam is a group of its
     // own, the heavy hitter (TASKS 225)
     for (const e of S.ev) if (!counted.has(e) && e.blow && (e.k === 'hurt' || (e.k === 'absorb' && e.n >= e.blow))) { const g = (D.ENEMIES[e.src] || {}).kind === 'slam' ? 'heavy' : SRC(e.src || ''); (fl.blows[g] = fl.blows[g] || []).push(+(e.blow / st.maxHp).toFixed(3)); }

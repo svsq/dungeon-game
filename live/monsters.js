@@ -607,9 +607,11 @@
     if ((e.st === 'bwind' || stuck || crackBack) && (e.mv === 'fists' || e.mv === 'crack')) {
       const fists = e.mv === 'fists', end = fists ? (e.openUntil || e.t0 + w + M.duration + M.stuck) : e.t0 + w + M.duration;
       const back = SS(end, end + 0.4, GT), raise = SS(0, w * 0.6, u), hit = SS(w - 0.28, w, u), k = raise * (1 - back);
-      const tug = fists && GT > e.t0 + w + M.duration ? Math.pow(Math.sin((GT - e.t0 - w - M.duration) * Math.PI / 0.4), 8) : 0;
-      base.crouch += (85 * hit - 3 * tug) * (1 - back);
-      base.lean = face * lerp(-0.16 * raise, 0.6 - 0.035 * tug, hit) * (1 - back);
+      const held = fists ? Math.max(0, GT - e.t0 - w - M.duration) : 0, tug = held > 0 ? Math.pow(Math.sin(held * Math.PI / 0.4), 8) : 0;
+      // (TASKS 1775: at 3 px and 0.035 the tugs did not read, the stuck colossus stood frozen through frames 6–12 of the sheet; it heaves
+      // between them too, breathing hard)
+      base.crouch += (85 * hit - 16 * tug + 7 * Math.sin(held * 5.2) * SS(0, 0.2, held)) * (1 - back);
+      base.lean = face * lerp(-0.16 * raise, 0.6 - 0.1 * tug, hit) * (1 - back);
       base.handTarget = (side, rest) => {
         if (!fists && side === 'L') return target(side, [-0.2, -0.35], rest, k);
         const p = DATA.colossusContact(e, side), floor = [(p.x - e.x) / (face * E.h), (p.y - e.y) / E.h - 0.11];
@@ -622,7 +624,7 @@
       return null;
     }
     if (e.mv === 'stomp') {
-      const rise = SS(0, w * 0.75, u), hit = SS(w - 0.1, w, u), back = SS(w, w + M.duration, u);
+      const rise = SS(0, w * 0.6, u), hit = SS(w - 0.24, w, u), back = SS(w, w + M.duration, u);   // (a 0.1 s drop popped the knee 23 px in a frame)
       base.crouch += (85 * hit - 6 * rise * (1 - hit)) * (1 - back); base.lean = (base.lean || 0) - face * 0.12 * rise * (1 - hit) * (1 - back);
       base.handTarget = (side, rest) => target(side, [lerp(side === 'L' ? -0.3 : 0.42, side === 'L' ? -0.36 : 0.5, hit), lerp(-1.05, -0.55, hit)], rest, rise * (1 - back));
       return null;

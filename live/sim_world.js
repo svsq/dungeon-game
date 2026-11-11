@@ -11,7 +11,7 @@
     const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? TXT('sim_world.usePotion.s') : TXT('sim_world.usePotion.s.2') }); return; }
     const st = heroSt(S), it = h.bag[i];
     if (b === 'mp_potion' && D.clsOf(h).res === 'rage') { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.usePotion.rage') }); return; }
-    // a full pool keeps the potion (TASKS 1874); with a power on the drink a second press within a second drinks it for the power.
+    // a full pool keeps the potion (TASKS 1881); with a power on the drink a second press within a second drinks it for the power.
     // The first press is marked on the session, not the hero, so a save carries no stale mark of it
     const hp = b === 'hp_potion', full = hp ? h.hp >= st.maxHp : h.mp >= st.maxMp;
     if (full) { const ask = S.potAsk && S.potAsk.b === b && S.t - S.potAsk.t <= 1;

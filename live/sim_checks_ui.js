@@ -85,12 +85,12 @@
     if (!p0) out.push('hold: the mage of the check carries no health potion');
     else if (pots() !== p0 - 1) out.push('hold: Q pressed in the hold on Continue is lost');
     if (!(h.cd[ab] > S.t)) out.push('hold: a slot key pressed in the hold on Continue is lost'); }
-  // TASKS 1880 и: the legend opens by itself in the run's first town and on its first floor, and not again on the next ones
+  // TASKS 1887 и: the legend opens by itself in the run's first town and on its first floor, and not again on the next ones
   function checkLegendOnce(out) {
     const S = townRun(), R = S.run, seen = [R.legAuto];
     for (const f of [1, 2, 0, 3]) { SIMX.enterFloor(S, R, f); seen.push(R.legAuto); }
     if (seen.join('') !== '11000') out.push(`legend: opens by itself on town, floor 1, floor 2, town, floor 3 as ${seen.join('')}, not 11000`); }
-  // TASKS 1876: in a talk Enter presses the lit button, ←→ walk a page's buttons and ↑↓ the topics; a focus left from the start is not used
+  // TASKS 1883: in a talk Enter presses the lit button, ←→ walk a page's buttons and ↑↓ the topics; a focus left from the start is not used
   function checkTalkFocus(out) {
     const offer = () => { const S = townRun(), R = S.run, k = (keys) => step(S, { keys, px: 5, py: 5 }); R.offers = [{ key: 'fetch', from: 'sweeper', q: 0 }]; R.quests = [];
       const qt = SIMX.questTalk(R, 'sweeper'); S.talk = { role: 'sweeper', i: 0, pages: qt.pages, p: qt.pages.length - 1, act: qt.act }; S.screen = 'talk'; S.focus = 'cls:warrior'; k([]); return { S, R, k }; };
@@ -101,7 +101,7 @@
     { const S = townRun(), k = (keys) => step(S, { keys, px: 5, py: 5 }), tp = D.FOLK.keeper.topics; S.talk = { role: 'keeper', i: 0, pages: [''], p: 0, act: null, topics: tp, menu: 1 }; S.screen = 'talk'; k([]);
       if (S.focus !== 'topic:0') out.push(`talk: the topics open with ${S.focus} lit`);
       k(['ArrowDown']); k(['Enter']); if (!S.talk || !S.talk.inTopic || S.talk.pages !== tp[1].a) out.push('talk: ↓ and Enter in the topics do not ask the second one'); } }
-  // TASKS 1877: past ten quests the journal scrolls by the wheel, and the chosen quest is always among the rows shown
+  // TASKS 1884: past ten quests the journal scrolls by the wheel, and the chosen quest is always among the rows shown
   function checkJournalScroll(out) {
     const S = townRun(), R = S.run, W = (wheel) => step(S, { keys: [], px: 5, py: 5, wheel }); R.offers = [];
     R.quests = Array.from({ length: 14 }, (_, i) => ({ id: 950 + i, key: 'cull', f: 1 + i, need: 5, n: 0, st: 'taken', from: 'guard', rw: {} }));
@@ -110,7 +110,7 @@
     if (!shown().includes(S.jsel)) out.push(`journal: the 13th of 14 chosen is not among the rows shown (${shown().length})`);
     for (let i = 0; i < 20; i++) W(-1); if (S.jtop !== 0 || !shown().includes(S.jsel)) out.push(`journal: wheeled to the top the list starts at ${S.jtop} or loses the chosen quest`);
     for (let i = 0; i < 20; i++) W(1); if (!shown().includes(L0[13].id) || !shown().includes(S.jsel)) out.push('journal: wheeled down the last quest or the chosen one is not shown'); }
-  // TASKS 1878: a taken row stays in place until the board closes, so clicks down its buttons and a double click take one each
+  // TASKS 1885: a taken row stays in place until the board closes, so clicks down its buttons and a double click take one each
   function checkBoardRows(out) {
     const S = townRun(), R = S.run; R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); R.quests = [];
     S.screen = 'board'; step(S, { keys: [], px: 5, py: 5 }); const n0 = SIMX.boardOffers(R).length, rows = UI.board(n0).r, tap = (i) => press(S, rows.find((b) => b.id === 'take:' + i));
@@ -120,7 +120,7 @@
     if (got.join() !== want.join()) out.push(`board: clicks on rows 1, 1, 2, 3 took ${got.join() || 'nothing'}, not ${want.join()}`);
     step(S, { keys: ['Escape'], px: 5, py: 5 }); S.screen = 'board'; step(S, { keys: [], px: 5, py: 5 });
     if (S.bdRows.length !== n0 - 3) out.push(`board: reopened it still shows the ${n0 - S.bdRows.length} taken rows wrong (${S.bdRows.length} of ${n0})`); }
-  // the hero's name (TASKS 1872): the die is the sim's own and repeats from the same seed, the field takes letters, Backspace and Enter,
+  // the hero's name (TASKS 1879): the die is the sim's own and repeats from the same seed, the field takes letters, Backspace and Enter,
   // keeps to NAME_MAX, the run and its save carry the name, an empty field throws one at the start, a save from before names still loads
   function checkHeroName(out) {
     const N = D.heroNames(), J = (o) => JSON.parse(JSON.stringify(o)), toStart = () => { const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); return S; };
@@ -179,7 +179,7 @@
       F.meta.cls = 'none'; if (SIMX.rollName(F) !== D.clsOf({ cls: 'warrior' }).name) out.push('name: an empty list with no class ready does not give the warrior\'s name'); } finally { D.heroNames = names; }
   }
   // review of PR 63: a test run leaves the Keeper of the Fire nothing to speak of and counts in no win or record, though it pays its
-  // shards (TASKS 1871); the descent past the last boss on such a run alike; nor do its deeds, codex finds and whirls count
+  // shards (TASKS 1878); the descent past the last boss on such a run alike; nor do its deeds, codex finds and whirls count
   function checkTestTrace(out) {
     const S = spawn(0, {}), M = S.meta; Object.assign(M, { lastEnd: 'win', lastCls: 'mage', endTold: 1, wins: 2, best: 7 });
     const was = () => JSON.stringify([M.lastEnd, M.lastCls, M.endTold, M.wins, M.best]), w0 = was();
@@ -194,7 +194,7 @@
     const h = T.hero; h.ab.whirl = h.ab.whirl || 1; h.cd.whirl = 0; h.mp = 1e9; SIMX.castAbility(S, T, 'whirl', {});
     if (hints() !== hn0) out.push(`test run: its kills, finds, blessings or whirls change the deeds, the codex or the hints (${hints()})`); }
   // review of PR 63: the pointer over «Завершить поход» does not take the focus, so Enter presses the safe button; it hovers the
-  // finish, and the HUD then lights that one alone (TASKS 1883, 1887), till an arrow takes the light to the keys' button
+  // finish, and the HUD then lights that one alone (TASKS 1890, 1894), till an arrow takes the light to the keys' button
   function checkFinishFocus(out) {
     const S = townRun();
     S.talk = { role: 'keeper', i: 0, pages: ['a'], p: 0, act: { k: 'finish', rw: {} } }; S.screen = 'talk'; step(S, { keys: [], px: 5, py: 5 });

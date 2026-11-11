@@ -11,8 +11,8 @@ contextBridge.exposeInMainWorld('desktop', {
   isFull: () => full,
   setFull: (on) => ipcRenderer.send('set-full', !!on),
   onFull: (f) => { subs.push(f); },
-  // the main menu's «Выход» (TASKS 1870): the page has written its save by then
+  // the main menu's «Выход» (TASKS 1877): the page has written its save by then
   quit: () => ipcRenderer.send('quit'),
-  // the window lost to another one (TASKS 1875): the page pauses a run as on Esc
+  // the window lost to another one (TASKS 1882): the page pauses a run as on Esc
   onAway: (f) => { aways.push(f); },
 });

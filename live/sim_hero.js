@@ -45,9 +45,16 @@
     const st = heroSt(S), KD = 20 + 12 * D.deepEnd(dep(R)); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (kind !== 'spike' && src !== 'lava' && D.clsOf(h).res === 'rage') dmg = Math.max(1, Math.round(dmg * (1 - h.mp / D.RAGE.max * D.RAGE.guard)));
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : D.deepAxis(dep(R), 'blow'))));
+    // a nest's chain of blasts took 68 % of the health in its worst 1.5 s, over half in 37 of 48 nests (TASKS 1647): together they
+    // take no more than BAL.cap.blast of it in any such window, so one wrong step in a nest costs a potion, not the run (the smouldering
+    // dead's alone, `capped` in their blast's data: a boss's or an explosive elite's is a blow of its own, held by BAL.cap; what a
+    // shield takes is no part of it)
+    const capped = actor && ((ENEMIES[actor.type] || {}).boom || {}).capped && / blast$/.test(src || '');
+    if (capped) { const C = BAL.cap.blast, win = (R.blastWin || []).filter(([t]) => S.t - t < C.t), room = Math.round(st.maxHp * C.share) - win.reduce((n, [, v]) => n + v, 0);
+      dmg = Math.min(dmg, room); R.blastWin = win; if (dmg <= 0) { const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260; R.trauma = Math.min(1, R.trauma + 0.35); return; } }   // (a blast past the cap still throws and shakes: no action without an answer)
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
     const blow = dmg;
-    const shielded = h.shield > 0 && S.t < h.shieldUntil; dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (shielded) SIMX.firePowers(S, R, 'shieldHit', { x: h.x, y: h.y }); if (shielded && h.shield <= 0) SIMX.firePowers(S, R, 'shieldBreak', { x: h.x, y: h.y }); if (dmg <= 0) return;
+    const shielded = h.shield > 0 && S.t < h.shieldUntil; dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (shielded) SIMX.firePowers(S, R, 'shieldHit', { x: h.x, y: h.y }); if (shielded && h.shield <= 0) SIMX.firePowers(S, R, 'shieldBreak', { x: h.x, y: h.y }); if (capped && dmg > 0) R.blastWin.push([S.t, dmg]); if (dmg <= 0) return;
     if (D.clsOf(h).res === 'rage') { h.mp = Math.min(D.RAGE.max, h.mp + dmg / st.maxHp * 100 * D.RAGE.hurt); h.fightT = S.t; }
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
