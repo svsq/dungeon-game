@@ -97,8 +97,8 @@
     // the red wax barely lightens under a grade, so the one that does the thing also glows when it is the one Enter would press
     if (kind === 'wax' && lit) L.glow(b.x + b.w / 2, b.y + b.h / 2 + dy, b.w * 0.62, [1, 0.5, 0.2], 0.3, 2.2);
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
-    const size = L.sizeToFit(b.label, b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, b.size || 26), col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
-    (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, al: 0.5, col });
+    const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
+    (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
   // the slider: an ink rule with ticks, a brass knob at f (0..1); o.ticks (count), o.value (text over the knob), o.ends ([left,
@@ -130,8 +130,8 @@
     K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : { grade: g } });
     const sx = on && o.fill ? b.x + 0.6 * K.endW('tab', b.h) + 26 : 0;
     if (on) K.part('ui_b_wax_seal', [40, 40], o.fill ? sx : b.x + 6, o.fill ? b.y - up + b.h / 2 + 1 : b.y - up + 2, { c: true, k: o.fill ? 0.5 : 0.55 });
-    const x0 = sx ? sx + 22 : b.x + 0.3 * K.endW('tab', b.h) + 4, x1 = b.x + b.w - 0.3 * K.endW('tab', b.h) - 4, size = L.sizeToFit(b.label, x1 - x0, 24);
-    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : on || lit ? K.INK.r : K.INK.d });
+    const x0 = sx ? sx + 22 : b.x + 0.3 * K.endW('tab', b.h) + 4, x1 = b.x + b.w - 0.3 * K.endW('tab', b.h) - 4;
+    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size: 24, fit: x1 - x0, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : on || lit ? K.INK.r : K.INK.d });
     L.uiBox(id + b.id, b.x + 8, b.y - up, b.w - 16, b.h, 4); } };
   // an item cell: square (the bag) or round (a skill, a trophy); o.sel (picked), o.off (locked)
   K.cell = (id, x, y, s, st, o = {}) => {
@@ -144,8 +144,8 @@
   };
   // the title banner, centred on cx, its heading in red ink
   K.banner = (id, cx, y, w, s, o = {}) => { const h = o.h || 80; K.nine('banner', cx - w / 2, y, w, h);
-    const e = K.ends('banner')[0] * h / (40 * PX), size = L.sizeToFit(s, w - 2 * e * 0.8, o.size || 36, true);
-    K.ink(id + '_t', s, cx, y + h / 2 + 1, { size, al: 0.5, col: K.INK.r, bold: true }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
+    const e = K.ends('banner')[0] * h / (40 * PX), fit = w - 2 * e * 0.8;
+    K.ink(id + '_t', s, cx, y + h / 2 + 1, { size: o.size || 36, fit, al: 0.5, col: K.INK.r, bold: true }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
   // a heading straight on the page, a flourish to each side of it
   K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r, bold: true }), r = o.wing || 90;
     K.rule(cx - tw / 2 - 24 - r, y + 2, r, 0.8); K.rule(cx + tw / 2 + 24, y + 2, r, 0.8); K.rule(cx - tw / 2 * 0.8, y + (o.size || 48) * 0.75, tw * 0.8); return tw; };

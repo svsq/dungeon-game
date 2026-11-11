@@ -573,7 +573,14 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); setFont(g, fit(size, bold), bold); return g.measureText(String(str)).width; };
   // a label that must stay inside a box steps down the font's grid sizes; scaling a size by a width ratio can land on a step that is still too wide
   L.sizeToFit = (str, maxW, size, bold = false) => { let s = size; while (s > 18 && L.labelW(0, str, { size: s, bold }) > maxW) s -= 1; return s; };
-  L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
+  // fit: the width the label must keep to. It steps down the sizes first, and past the smallest a name still too long for its box
+  // loses its tail to «…» (review of PR 57): with no step under 20 px a long Russian name ran out of its panel
+  L.fitText = (str, maxW, size, bold = false) => { const s = L.sizeToFit(str, maxW, size, bold), w = (q) => L.labelW(0, q, { size: s, bold });
+    if (w(str) <= maxW) return { s: str, size: s };
+    let lo = 0, hi = str.length; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (w(str.slice(0, m).trimEnd() + '…') <= maxW) lo = m; else hi = m - 1; }
+    return { s: str.slice(0, lo).trimEnd() + '…', size: s }; };
+  L.label = (slot, str, x, y, o = {}) => { if (o.fit) { const f = L.fitText(str, o.fit, o.size || 30, o.bold); str = f.s; o = Object.assign({}, o, { size: f.size }); }
+    const r = lblTex(slot, str, o), a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
     L.sprite('lbl_' + slot, x0 - r.pad, Math.round(y - r.rec.h / 2), { w: r.rec.w, h: r.rec.h, u: { alpha: a } });
     if (a > 0.05) L.uiText(slot, str, x0, y - r.px * 0.62, r.tw, r.px * 1.24); return r.tw; };
 

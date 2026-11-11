@@ -651,6 +651,8 @@
     states.push(['shop', shopS()]);
     states.push(['shop_screen', shopS((S) => { worst(S); const R = S.run; for (let i = 0; i < 6; i++) R.shop.back.push({ it: Object.assign(SIM.rollItem(R, 8, 4), { id: 3000 + i }), price: 99999 });
       R.shop.back = R.shop.back.slice(-D.SHOP.buyback); for (const g of R.shop.goods) g.price = 99999; R.shop.line = 1; S.screen = 'shop'; S.hover = 'buy:0'; })]);
+    states.push(['long_names_shop', shopS((S) => { worst(S); const R = S.run, lb = Object.keys(D.BASES).filter((b) => D.LEGEND_NAMES[b]).sort((a, b) => D.LEGEND_NAMES[b].length - D.LEGEND_NAMES[a].length)[0];
+      for (const g of R.shop.goods) if (!SIM.Q.isCons(g.it)) Object.assign(g.it, SIM.rollItem(R, 12, 4, D.BASES[lb].slot), { id: g.it.id, b: lb, rar: 4 }); S.screen = 'shop'; S.hover = 'buy:0'; })]);
     // the merchant's key poses: a coin onto the scales, a stroke of the beard (hero away), a wave, the nod on a trade
     const at6 = (S, u) => { const R = S.run, k = R.map.seed % 7; S.t += ((u - (S.t + k)) % 6 + 6) % 6; R.shop.greetT = R.shop.tradeT = -9; R.cam = [R.map.shop.x - SCX.VW / 2, R.map.shop.y - 40 - SCX.VH / 2]; };
     states.push(['merchant_coin', shopS((S) => { S.run.hero.x -= 400; at6(S, 1.0); })]);
@@ -1654,6 +1656,17 @@
       for (let i = 0; i < 10; i++) { const key = i < 5 ? 'chapter' : 'named', f = i < 5 ? ch[i % ch.length] : 2 + i; R.quests.push({ id: 950 + i, key, f, need: D.QUESTS[key].need(f), n: 0, st: i === 0 ? 'done' : 'taken', from: sd[i % 5], rw: D.questReward(D.QUESTS[key].rw, f), title: TXT('QA.title') }); }
       S.jsel = 951; S.screen = 'journal'; })]);
     states.push(['journal_empty', keeperS((S, R) => { R.quests = []; S.screen = 'journal'; })]);
+    // the longest real names where a label once shrank to fit (review of PR 57): no font step is under 20 px now, so a name longer than
+    // its box loses its tail to «…» instead of running out of the panel
+    const longest = (o) => Object.keys(o).sort((a, b) => o[b].length - o[a].length || (a < b ? -1 : 1));
+    const legendB = longest(Object.fromEntries(Object.keys(D.BASES).filter((b) => D.LEGEND_NAMES[b]).map((b) => [b, D.LEGEND_NAMES[b]])))[0];
+    const legend = (R, id, slot) => Object.assign(SIM.rollItem(R, 12, 4, slot || D.BASES[legendB].slot), { id, b: legendB, rar: 4 });
+    states.push(['long_names_journal', keeperS((S, R) => { R.offers = []; R.quests = []; const keys = longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4);
+      keys.forEach((key, i) => R.quests.push({ id: 960 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: i ? 'taken' : 'done', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.jsel = 960; S.screen = 'journal'; S.hover = 'q:1'; })]);
+    states.push(['long_names_tracker', keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
+      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; })]);
+    states.push(['long_names_craft', craftS('forge', (S, R, h, it) => { Object.assign(it, legend(R, 950)); h.bag[4] = it; S.hover = 'do'; })]);
+    states.push(['long_names_card', play((S) => { worst(S); const h = S.run.hero; h.bag[23] = legend(S.run, 3101); h.eq[D.BASES[legendB].slot] = legend(S.run, 3102); S.screen = 'inv'; S.hover = 'bag:23'; })]);
     // the town's loop for the player (TASKS 1033): the notice board full (every giver with an offer, the longest names) and empty;
     // a townsman answering a blow; the minimap's ! and ?; the scroll slot and its hint at low health on a floor
     states.push(['town_board', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); S.screen = 'board'; S.hover = 'take:1'; })]);
