@@ -1016,17 +1016,17 @@
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
       const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, String(Math.round(Gf.v * (rank + 1) * 10) / 10)) : Gf.desc, wide = lw('al_dm' + i, ds, { size: 21 }) > iw; let cut = -1; if (wide) for (let k = 0; k < ds.length; k++) if (ds[k] === ' ' && (cut < 0 || Math.abs(k - ds.length / 2) < Math.abs(cut - ds.length / 2))) cut = k;
       const lines = wide && cut > 0 ? [ds.slice(0, cut), ds.slice(cut + 1)] : [ds], dz = Math.min(...lines.map((q) => L.sizeToFit(q, iw, 21)));
-      lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 252 + k * 26, { size: dz, al: 0.5, col: can ? I.t : I.d }));
+      lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + k * 25, { size: dz, al: 0.5, col: can ? I.t : I.d }));
       const wn = rank ? TXT('hud.altar.rank', { p1: rank, p2: rank + 1 }) : Gf.relic ? TXT('hud.altar.relic') : Gf.evo ? TXT('hud.altar.evo') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5');
-      KIT.ink('al_w' + i, wn, cx, b.y + 296 + (lines.length - 1) * 16, { size: L.sizeToFit(wn, iw, 18), al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
+      KIT.ink('al_w' + i, wn, cx, b.y + 306, { size: L.sizeToFit(wn, iw, 18), al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
       const cs = String(o.cost), cw = lw('al_c' + i, cs, { size: 28 }) + 40, x0 = cx - cw / 2;
       icon('crystal', x0, b.y + b.h - 66, 30); KIT.ink('al_c' + i, cs, x0 + 40, b.y + b.h - 50, { size: 28, col: can ? SOUL : I.d }); });
     KIT.button('al_leave', byId('leave'), stN(S, 'leave'));
     const rc = D.rerollCost(sh.rolls || 0, SIM.Q.depOf(R)), rb = Object.assign({}, byId('reroll'), { on: !sh.used && bank >= rc, label: TXT('hud.altar.reroll', { cost: rc }) }); KIT.button('al_reroll', rb, stN(S, 'reroll', rb.on));
     const left = 10 - (R.donations || 0), b = Object.assign({}, byId('donate'), { on: left > 0 && R.hero.gold >= 1000, label: left ? byId('donate').label : TXT('hud.altar.b.label') });
     KIT.button('al_donate', b, stN(S, 'donate', b.on), 'wax');
-    KIT.light('al_gold', TXT('hud.altar.6', { gold: R.hero.gold }), P.x + 640, b.y + 18, { size: 22, col: C.gold });
-    KIT.light('al_limit', TXT('hud.altar.7', { left }), P.x + 640, b.y + 48, { size: 21, col: '#cdb89a' });
+    KIT.light('al_gold', TXT('hud.altar.6', { gold: R.hero.gold }), b.x + b.w + 40, b.y + 18, { size: 22, col: C.gold });
+    KIT.light('al_limit', TXT('hud.altar.7', { left }), b.x + b.w + 40, b.y + 48, { size: 21, col: '#cdb89a' });
     refusal(S, W / 2, P.y + 674);
     KIT.light('al_help', sh.used ? TXT('hud.altar.8') : TXT('hud.altar.9'), W / 2, P.y + P.h + 34, { size: 20, al: 0.5, col: '#a89880' });
   }

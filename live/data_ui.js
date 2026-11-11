@@ -184,9 +184,9 @@
     // a dungeon altar: its three gifts side by side, cheapest first
     altar: (n = 3) => { const P = { x: 360, y: 150, w: 1200, h: 780 }, step = n > 3 ? 288 : 380, cw = n > 3 ? 264 : 360;
       return { P, r: Array.from({ length: n }, (_, i) => ({ id: 'gift:' + i, i, x: P.x + 40 + i * step, y: P.y + 150, w: cw, h: 390 }))
-        .concat([{ id: 'leave', label: TXT('UI.altar.r.leave.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 86, w: 300, h: 60 },
-          { id: 'reroll', label: '', on: true, x: P.x + 40, y: P.y + P.h - 86, w: 340, h: 60 },
-          { id: 'donate', label: TXT('UI.altar.r.donate.label'), on: true, x: P.x + 40, y: P.y + 578, w: 560, h: 64 }]) }; },
+        .concat([{ id: 'leave', label: TXT('UI.altar.r.leave.label'), on: true, x: P.x + P.w / 2 + 20, y: P.y + P.h - 86, w: 300, h: 60 },
+          { id: 'reroll', label: '', on: true, x: P.x + P.w / 2 - 360, y: P.y + P.h - 86, w: 340, h: 60 },
+          { id: 'donate', label: TXT('UI.altar.r.donate.label'), on: true, x: P.x + 120, y: P.y + 578, w: 560, h: 64 }]) }; },
     // the hero screen (TASKS 1332), look B as on ref_ui_inv_b: the gear round the portrait and the stats on a leather panel on the
     // left, the bag and the skills on a parchment sheet on the right
     inv: (abs = ABILITIES, len, tab) => {

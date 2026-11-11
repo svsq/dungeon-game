@@ -83,11 +83,12 @@
   };
   // a button: b = { x, y, w, h, label, on }; kind 'parch' (the plain one) or 'wax' (the one that does the thing, light letters)
   K.button = (id, b, st, kind = 'parch') => {
-    const lit = (st.hover || st.focus) && !st.off, g = kind === 'wax' && lit && !st.press ? [1.1, 1.32, 0, 1.06] : gradeOf(st), dy = st.press ? 2 : 0;
+    // a button that cannot be pressed is dimmed, not greyed out: its words stay readable on it (TASKS 1762)
+    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.35, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.1, 1.32, 0, 1.06] : gradeOf(st), dy = st.press ? 2 : 0;
     // the red wax barely lightens under a grade, so the one that does the thing also glows when it is the one Enter would press
     if (kind === 'wax' && lit) L.glow(b.x + b.w / 2, b.y + b.h / 2 + dy, b.w * 0.62, [1, 0.5, 0.2], 0.3, 2.2);
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
-    const size = L.sizeToFit(b.label, b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, b.size || 26), col = st.off ? K.INK.off : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
+    const size = L.sizeToFit(b.label, b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, b.size || 26), col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
     (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
