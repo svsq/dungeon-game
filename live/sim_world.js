@@ -165,7 +165,7 @@
   function hitChests(S, R, x, y, rad, ax, arc) {
     for (const c of R.chests) { if (c.open || c.sealed) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 16) continue; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, c.x, c.y)) continue; openChest(S, R, c); } }
-  // a false bookcase gives way to its third blow, as it did before 0.3.0 (TASKS 1842): it needs no room along the wall, so every
+  // a false bookcase gives way to its third blow, as it did before 0.3.0 (TASKS 1852): it needs no room along the wall, so every
   // planned one stays a bookcase. A swing, a whirl, a bolt or a blast counts, as for crates and barrels
   function hitShelf(S, R, q) { q.hits = (q.hits || 0) + 1; R.trauma = Math.min(1, R.trauma + 0.12); if (q.hits >= D.SHELF_SECRET.hp) openSecret(S, R, q); }
   // a secret's fake wall: its foot (q.x, q.y) is the middle of the opening on the host side. Blows do nothing to the wall: it opens by
