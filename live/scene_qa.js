@@ -1286,9 +1286,10 @@
     const emberKill = (S) => { kill(S); const e = S.run.en[0], B = D.ENEMIES.skel_ember.boom; e.fuse = S.t + B.fuse; S.ev.push({ k: 'fuse', t: S.t, x: e.x, y: e.y, r: B.r, d: B.fuse, id: e.id }); };
     transitions.skel_ember_death = eventT(lone('skel_ember'), emberKill, 'skel_ember'); transitions.skel_ember_death_topple = eventT(lone('skel_ember', 992), emberKill, 'skel_ember');
     for (const ty of ['drowned', 'slime', 'crab', 'imp', 'golem', 'salamander', 'mimic']) { transitions[ty + '_death'] = eventT(lone(ty), kill, ty); transitions[ty + '_death_b'] = eventT(lone(ty, 991), kill, ty); }
-    // TASKS 1748: a mimic from the chest the hero opens to its bite, played by the sim (the mimic_* states are posed one by one; subject en990)
+    // TASKS 1748: the mimic_* states are posed one by one; this one the sim plays, from the chest opened to the bite
     { const fr = []; let S = play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; R.seen.fill(1); h.ifr = 1e9; R.nextId = 990; R.chests.push({ x: h.x + 50, y: h.y - 10, tier: 2, open: 0, mimic: 1, loot: [] }); });
       SIM.step(S, { px: 960, py: 540, keys: ['KeyE'] }); for (let k = 0; k < 8 && !S.run.en.length; k++) SIM.step(S, { px: 960, py: 540, keys: [] });   // from its first frame out of the chest: a chest has no joints
+      if (!S.run.en.some((e) => e.id === 990)) throw new Error('mimic_wake_bite: the chest did not wake');
       for (let i = 0; i < 240; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); } transitions.mimic_wake_bite = fr; }
     // a golem's pool of lava where it fell apart, through its whole life (TASKS 409)
     transitions.golem_pool = eventT(lone('golem'), (S) => { kill(S); const e = S.run.en[0], P = D.ENEMIES.golem.pool; S.run.fires = [{ id: 995, src: e.id, who: 'golem', x: e.x, y: e.y, t0: S.t, r: P.r, ry: P.ry, t: P.t, dmg: 0, per: P.per, kind: 'pool' }]; S.ev.push({ k: 'pool', t: S.t, x: e.x, y: e.y, r: P.r, d: P.t, id: e.id }); }, 'golem');

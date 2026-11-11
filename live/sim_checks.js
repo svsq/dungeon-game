@@ -1298,9 +1298,11 @@
     // comes up; a pair ends by turns with the exit's elite guard and the biome's boss; maps grow to the cap and no further; floors
     // generate with the hero on open floor; a run goes on past the 12th and its depth is the record; no demon lord nor serpent before
     // the 8th
-    // TASKS 388: past the campaign a floor holds no more than the descent's cap of monsters, its map no bigger than size.to (but the magma's plateaus)
+    // TASKS 388: past the campaign a floor holds no more than the descent's cap of monsters, its map no bigger than size.to (but the magma's plateaus),
+    // and the cut takes no lock's key with its bearer
     for (const sd of [3, 11]) for (let f = 17; f <= 32; f += 3) { const ST = D.stageOf('endless', f, sd, 17), m = DG.genFloor((sd * 31 + f * 1013) >>> 0, f, { mode: 'endless', runSeed: sd, from: 17, town: 1 });
       if (m.enemies.length > D.RUNS.endless.cap) out.push(`descent seed ${sd} f${f}: ${m.enemies.length} monsters, over the cap ${D.RUNS.endless.cap}`);
+      (m.locks || []).forEach((L, li) => { if (L.kind === 'key' && !m.enemies.some((e) => e.key === li) && !m.chests.some((c) => c.key === li)) out.push(`descent seed ${sd} f${f}: lock ${li} with no key on the floor`); });
       if (ST.biome !== 'magma' && (m.W > D.RUNS.endless.size.to[0] || m.H > D.RUNS.endless.size.to[1])) out.push(`descent seed ${sd} f${f}: a ${m.W}×${m.H} map over ${D.RUNS.endless.size.to.join('×')}`); }
     { const end = BAL.deep.end, top = [D.hpAt(end), D.dmgAt(end), D.dmgAt(end, 1)], st = (f) => D.stageOf('endless', f, 7, 17);
       for (const f of [end + 1, end + 2, 100, 1000, 1e6, 1e12]) { if ([D.hpAt(f), D.dmgAt(f), D.dmgAt(f, 1)].some((v, i) => v !== top[i] || !Number.isFinite(v))) out.push(`deep f${f}: monsters grow past the end of the growth`);
@@ -1575,7 +1577,7 @@
     // balance at every stage and no item comes to rest where the hero cannot get to it
     for (const sd of [11, 222]) for (const f of [1, 4, 8]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; const check = (when) => { const A = lootAudit(R); if (A.off) out.push(`seed ${sd} f${f}: loot books off by ${A.off} ${when}`); if (A.stuck) out.push(`seed ${sd} f${f}: ${A.stuck} loot out of reach ${when}`); };
-      check('on arrival'); for (const c of R.chests) { const q = c.sec !== undefined && R.map.secrets[c.sec]; if (q && !q.open) openSecret(S, R, q, true); openChest(S, R, c); } h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
+      check('on arrival'); for (const c of R.chests) { const line = []; for (let q = c.sec !== undefined ? R.map.secrets[c.sec] : null; q; q = q.parent !== undefined ? R.map.secrets[q.parent] : null) line.unshift(q); for (const q of line) if (!q.open) openSecret(S, R, q, true); openChest(S, R, c); } h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
       const pick = R.drops.filter((o) => o.loot && !o.got).slice(0, 6); for (const d of pick) for (let k = 0; k < 3; k++) { h.x = d.x; h.y = d.y; step(S, { keys: [] }); }
       if (pick.some((d) => !d.got)) out.push(`seed ${sd} f${f}: loot could not be picked up`); check('after picking some up'); }
     // debug: the button opens every secret without counting it, and the second press seals exactly those again
@@ -1701,7 +1703,7 @@
           if (!d.open || cell(m, cx, cy) !== 1) out.push('doors: E does not open a door'); } } }
     // TASKS 1351: an open door's leaf keeps the cells it is drawn over (the hinge side's): nobody stands or walks behind it, the paths route round it,
     // and the other lane of the doorway still carries the hero through
-    { const V = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }, seenDir = new Set();
+    { const V = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }, seenDir = new Set(), bruteRan = new Set();
       for (let sd = 5; sd < 90 && seenDir.size < 4; sd++) for (let f = 1; f <= 4 && seenDir.size < 4; f++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; if (f > 1) enterFloor(S, S.run, f); const R = S.run, m = R.map, h = R.hero;
         for (const d of m.doors) { if (d.arena || doorLock(m, d) || seenDir.has(d.dir)) continue; seenDir.add(d.dir); const [vx, vy] = V[d.dir], tag = `doors: ${d.dir} door of seed ${sd} f${f}`; R.en = []; R.pots = []; R.chests = [];
           openDoor(S, R, d, 0); const leaf = SIMX.leafCells(d), centre = ([x, y]) => [(x + 0.5) * TILE, (y + 0.5) * TILE];
@@ -1715,11 +1717,12 @@
             if (lane === 1 && along < 1.5 * TILE) out.push(`${tag}: the free lane does not carry the hero through (${along.toFixed(0)} px)`); }
           // TASKS 1783: the brute, the widest walker, follows the hero through it within 8 s
           { const [cx, cy] = centre(d.cells[1]), at = (k) => [cx + vx * k * TILE, cy + vy * k * TILE], [hx, hy] = at(3), [bx, by] = at(-4), E = ENEMIES.brute;
-            if (!boxHit(m, hx, hy, 12, false, false) && !boxHit(m, bx, by, E.r, false, false)) { h.x = hx; h.y = hy; h.vx = h.vy = 0; h.hp = 1e9;
+            if (!boxHit(m, hx, hy, 12, false, false) && !boxHit(m, bx, by, E.r, false, false)) { bruteRan.add(d.dir); h.x = hx; h.y = hy; h.vx = h.vy = 0; h.hp = 1e9;
               R.en = [{ id: R.nextId++, type: 'brute', x: bx, y: by, vx: 0, vy: 0, hp: 1e6, max: 1e6, dmg: 0, elite: 0, room: DG.roomAt(m, bx, by), st: 'chase', t0: S.t, face: 1, aimA: 0, cdT: S.t + 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, seenT: S.t, hx: bx, hy: by, ft: -9 }];
-              const b = R.en[0]; for (let i = 0; i < 480; i++) step(S, { px: 960, py: 540, keys: [] });
-              if ((b.x - d.x) * vx + (b.y - d.y) * vy < TILE) out.push(`${tag}: the brute does not follow the hero through it`); } } } }
-      for (const dir of ['u', 'd', 'l', 'r']) if (!seenDir.has(dir)) out.push(`doors: no plain ${dir} door on floors 1–4 of 85 seeds`); }
+              const b = R.en[0], past = () => (b.x - d.x) * vx + (b.y - d.y) * vy >= TILE; for (let i = 0; i < 480 && !past(); i++) step(S, { px: 960, py: 540, keys: [] });
+              if (!past()) out.push(`${tag}: the brute does not follow the hero through it`); } } } }
+      for (const dir of ['u', 'd', 'l', 'r']) if (!seenDir.has(dir)) out.push(`doors: no plain ${dir} door on floors 1–4 of 85 seeds`);
+      for (const dir of ['u', 'd']) if (!bruteRan.has(dir)) out.push(`doors: the brute was tried at no ${dir} door (no room for it and the hero by any)`); }
     // TASKS 1683: a side door opened by a hero standing in the corridor in its leaf's row does not shove him; the cell takes hold once he is off it
     { let got = 0; for (let sd = 5; sd < 90 && got < 2; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); S.screen = 'play'; const R = S.run, m = R.map, h = R.hero;
         const d = m.doors.find((o) => !o.arena && !doorLock(m, o) && (o.dir === 'l' || o.dir === 'r') && (got ? o.dir === 'r' : o.dir === 'l')); if (!d) continue; got++; R.en = []; R.pots = []; R.chests = [];
@@ -1988,10 +1991,14 @@
       if (damageName('cultist reflect') !== 'Культист' || damageName('cultist отражение') !== 'Культист' || damageName('cultist elite bolt') !== 'Культист (элита) · снаряд' || damageName('cultist (элита) снаряд') !== 'Культист (элита) · снаряд' || damageName('lava') !== 'Лава') out.push('end: damage source not translated'); }
     // TASKS 1647: a chain of blasts takes no more than BAL.cap.blast of the health over its window; once the window has passed, a blast lands again
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero, max = heroSt(S).maxHp, C = BAL.cap.blast;
-      h.hp = max * 10; for (let i = 0; i < 6; i++) { hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast'); S.t += C.t / 8; }
-      const took = max * 10 - h.hp; S.t += C.t; hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast');
+      h.base.agi = 0; h.perks = {}; if (heroSt(S).dodge > 0) out.push('blasts: the hero still dodges, the check leans on its rolls');
+      h.hp = max * 10; for (let i = 0; i < 6; i++) { hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast', { type: 'skel_ember' }); S.t += C.t / 8; }
+      const took = max * 10 - h.hp; hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'boss blast', { type: 'boss' }); if (!(max * 10 - h.hp > took)) out.push('blasts: a boss blast held by the smouldering dead\'s cap');
+      const took2 = max * 10 - h.hp; S.t += C.t; hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast', { type: 'skel_ember' });
       if (took > max * C.share + 1 || took < max * C.share - 1) out.push(`blasts: a chain took ${Math.round(100 * took / max)} % of the health in ${C.t} s, the cap is ${100 * C.share} %`);
-      if (!(max * 10 - h.hp > took)) out.push('blasts: no blast lands once the window has passed'); }
+      if (!(max * 10 - h.hp > took2)) out.push('blasts: no blast lands once the window has passed');
+      S.t += C.t; R.blastWin = []; h.hp = max * 10; h.shield = max * 5; h.shieldUntil = S.t + 9; for (let i = 0; i < 3; i++) hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast', { type: 'skel_ember' });
+      h.shield = 0; hurtHero(S, R, 1e5, h.x + 30, h.y, undefined, 'skel_ember blast', { type: 'skel_ember' }); if (!(h.hp < max * 10)) out.push('blasts: what a shield took counts against the cap'); }
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run;
       enterFloor(S, R, 8); const e = R.en.find((o) => o.type === 'boss'), h = R.hero; R.en = [e]; R.proj = []; S.t = 5;
       e.st = 'bwind'; e.mv = 'volley'; e.t0 = 4; e.fired = 0; stepBossMove(S, R);

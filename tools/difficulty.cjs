@@ -102,7 +102,7 @@ function report() {
     const ids = [...new Set(a.flatMap((r) => Object.keys(r.uses || {})))], uses = ids.map((c) => [c, avg(a, (r) => (r.uses || {})[c] || 0)]).sort((x, y) => y[1] - x[1]), tot = uses.reduce((n, [, v]) => n + v, 0) || 1, held = {};
     for (const r of a) for (const w of Object.keys((r.result.hero || {}).powers || {})) held[w] = (held[w] || 0) + 1;
     console.log([p, k + 1, uses.map(([c, n]) => `${c} ${n.toFixed(0)} (${Math.round(100 * n / tot)}%)`).join(', ') || '-',
-      Object.entries(held).sort((x, y) => y[1] - x[1]).map(([w, n]) => `${w} ${Math.round(100 * n / a.length)}%`).join(', ') || '-'].join(' | ')); }
+      Object.entries(held).sort((x, y) => y[1] - x[1]).map(([w, n]) => `${w} ${Math.round(100 * n / (a.filter((r) => r.result.hero).length || 1))}%`).join(', ') || '-'].join(' | ')); }
 }
 // the q-th share of the blows of a source group on floor i + 1 over all runs, in % of the max health
 const blowAt = (a, i, g, q) => { const l = a.flatMap((r) => ((r.floors.find((f) => f.floor === i + 1) || {}).blows || {})[g] || []).sort((x, y) => x - y);

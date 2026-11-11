@@ -191,7 +191,7 @@
   const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: ['skeleton', 'goblin', 'spider'] };
   // the magma caves' packs by role (TASKS 412), each a hall's pick by weight once its kinds have come (BIOMES.magma.from: the 1st
   // floor skeletons, goblins and archers, the 2nd smouldering skeletons and cultists, the 3rd fire priests and demons). plan: in
-  // order, [kinds (a kind twice is drawn twice as often), how many, where]: near, a few steps in from the way the hero comes; back, the far end; any. The first entry is
+  // order, [kinds (a kind twice is drawn twice as often), how many, where, keep (cut last when the hall is small)]: near, a few steps in from the way the hero comes; back, the far end; any. The first entry is
   // the pack's own: a smaller hall cuts the rest first, a bigger one adds more of the last
   // the magma caves' halls (TASKS 434): one or two of a floor's big plateaus off the way to the stairs are a hall of the cult's, each
   // its own pack (MAGMA_PACKS, `extra` more of it), props and reward. need: the roster's kind it wants (the hall waits for its
@@ -215,8 +215,9 @@
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
     // (nest: the smouldering dead's own hall; with the ember pack's archer it was half archers, TASKS 488; never drawn at random. A
     // fire priest at the back, TASKS 1647: its pyres under the hero's feet make the ground he backs off to unsafe, so the answer is
-    // where to stand, not only to run)
-    nest: { w: 0, plan: [[['skel_ember'], [3, 4], 'any'], [['fire_priest'], [1, 1], 'back']] },
+    // where to stand, not only to run; the smouldering last again, as a big hall is topped up with the last entry's kind: it took 3–4 priests;
+    // a hall for three keeps the priest and two of them)
+    nest: { w: 0, plan: [[['skel_ember'], [3, 4], 'any'], [['fire_priest'], [1, 1], 'back', 1], [['skel_ember'], [0, 0], 'any']] },
     rush: { w: 1, plan: [[['goblin'], [2, 3], 'near'], [['skeleton'], [1, 1], 'any']] },
     ember: { w: 3, plan: [[['skel_ember'], [2, 3], 'any'], [['skel_archer'], [0, 1], 'back']] },
     cult: { w: 2, plan: [[['cultist'], [2, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [1, 2], 'near']] },

@@ -104,7 +104,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   let holdT = 0, poolHeld = 0, gearKey = '', unstick = 0, cur = null, fl = null, altarF = 0, backT = -9, backX = 0, backY = 0, focus = null, f0 = 0, tF = 0, lowT = -1, aimN = 0, aimT = -9, lx = 0, ly = 0, lt = 0, stuck = 0, goal = null, progT = 0, kills0 = 0, learned = 0;
   if (initial) {
     [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT = S.t, kills0 = S.run ? S.run.kills : 0, learned = 0, gearKey = '', unstick = 0, homeF = -1, readWant = 0, inTown = 0, townT = 0] = initial.vars;
-    rand.state(initial.rng); for (const event of S.ev) counted.add(event); if (cur) cur.resumed = 1;
+    rand.state(initial.rng); if (initial.forkRng !== undefined) forkR.state(initial.forkRng); for (const event of S.ev) counted.add(event); if (cur) cur.resumed = 1;
     // the floor built again by this version (TASKS 467): its monsters are this version's already
     if (rebuild && !SIM.rebuildArrival(S)) throw new Error('checkpoint: the floor was not first built on this arrival');
     const R = S.run, hp = D.DIFF[R.diff || 'normal'].hp, hpScale = hp > 1 ? 1 + (hp - 1) * Math.min(1, R.floor / 3) : hp;
@@ -456,7 +456,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     else if (!R.town && inTown) { inTown = 0; if (f0 && R.floor === f0) { const d = S.t - townT; tF += d; progT += d; } }
     if (R.floor !== f0 && !R.town) { if (f0) cur.floors.push(floorLine(R, h)); else cur.meta = Object.assign({}, S.meta.up);
       if (f0 && altarF === f0 && !cur.altars.some((q) => q.f === f0)) cur.altars.push({ f: f0, bank: S.meta.shards, c2: D.giftCost(2, f0) }); altarF = R.shrines.length ? R.floor : 0; fl = freshFl(); fl.pw = power(S, h); fl.bt = m.bossType; f0 = R.floor; tF = S.t; given.clear(); chased.clear(); flanked.clear(); pushed.clear(); crusted.clear(); thinGo = null; seen.clear(); holdT = 0; been.clear(); low.clear(); progT = S.t;
-      if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(),
+      if (checkpoint && runs === 1) checkpoint({ S, seed, profile, diff, i, rng: rand.state(), forkRng: forkR.state(),
         vars: [cur, fl, altarF, backT, backX, backY, focus, f0, tF, lowT, aimN, aimT, lx, ly, lt, stuck, goal, progT, kills0, learned, gearKey, unstick, homeF, readWant, inTown, townT] });
     }
     // stopAfter: a replay from a checkpoint that only wants a floor or two ends once past it, as 'stopped' (tuning, TASKS 354)
@@ -583,8 +583,9 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     const B = R.en.find((e) => D.BOSSES[e.type]);
     const cast0 = h.castT;
     SIM.step(S, inp);
-    // each ability the hero used, by its id (TASKS 360: the COUNT events are also a monster's leap and a trap's snap)
-    if (h.castT !== cast0 && h.castK) cur.uses[h.castK] = (cur.uses[h.castK] || 0) + 1;
+    // each ability the hero used, by its id (TASKS 360: the COUNT events are also a monster's leap and a trap's snap); a cast is
+    // one at the moment, not a castT the hold on «Продолжить» carries along
+    if (h.castT !== cast0 && h.castK && S.t - h.castT < 0.05) { const u = cur.uses || (cur.uses = {}); u[h.castK] = (u[h.castK] || 0) + 1; }
     // each blow's size before the shield, as a share of the max health, by source group; a plain demon's slam is a group of its
     // own, the heavy hitter (TASKS 225)
     for (const e of S.ev) if (!counted.has(e) && e.blow && (e.k === 'hurt' || (e.k === 'absorb' && e.n >= e.blow))) { const g = (D.ENEMIES[e.src] || {}).kind === 'slam' ? 'heavy' : SRC(e.src || ''); (fl.blows[g] = fl.blows[g] || []).push(+(e.blow / st.maxHp).toFixed(3)); }
