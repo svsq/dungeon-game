@@ -2,7 +2,7 @@
 // sim.js requires it, the page never loads it (ARCHITECTURE.md §4.2). It reads the sim's inside through SIMX.
 (function (root) {
   const SIMX = root.SIMX;
-  if (typeof module !== 'undefined') require('./sim_checks_powers.js');
+  if (typeof module !== 'undefined') { require('./sim_checks_powers.js'); require('./sim_checks_ui.js'); }
   const {
     ABILITIES, ARROW_Y, BAL, BASES, CRUST, D, DG, DOOM, DT, ENEMIES, FROM, K, LOOT, MOD, RARITY, REWARD, STAGE, TILE, UI, WADE, addFire,
     aggroRoom, angDiff, bagAdd, arenaPath, arenaSealed, begin, beginBossMove, boardOffers, bossEggs, bossLava, bossRaise, bossThink, bossWebs,
@@ -3451,7 +3451,7 @@
             for (let i = 0; i < 400; i++) step(S, hor ? { left: dir < 0, right: dir > 0, px: 960, py: 540, keys: [] } : { up: dir < 0, down: dir > 0, px: 960, py: 540, keys: [] });
             const a = hor ? h.x : h.y; if (dir < 0 ? a > u0 * TILE : a < (u1 + 1) * TILE) out.push(`${tag}: the deck does not carry the hero across`); } } }
       if (n < 4) out.push(`rails: only ${n} lava bridges in 14 seeds`); }
-    SIMX.checkPowers(out);
+    SIMX.checkPowers(out); SIMX.checkReview57(out);
     return out;
   }
 

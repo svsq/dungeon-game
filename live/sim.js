@@ -41,10 +41,12 @@
     rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
+    // the pointer is followed in play too, or the first window after play takes a pointer at rest for one that moved
+    inp = Object.assign({}, inp, { moved: !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py }); S.ptr = [inp.px, inp.py];
     // M mutes from any screen (TASKS 1853 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
     if (keys.KeyM && !S.demo) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
     if (S.screen === 'play' && S.run) {
-      S.uiWas = 'play'; SIMX.commitDraft(S);
+      S.uiWas = 'play'; S.uiKey = 'play'; SIMX.commitDraft(S);
       if (keys.Backquote && !S.demo) S.debug = !S.debug;
       const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
