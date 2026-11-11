@@ -1023,7 +1023,8 @@
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 282, { size: 28, al: 0.5, col: C.dim });
     const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
-    const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
+    KIT.part('ui_b_strap_ring', [32, 47], P.x + P.w - 112, P.y + P.h - 34);
+    const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'menu'); KIT.strap(P.x + P.w / 2, P.y + 22);
     KIT.corners({ x: IP.x + 8, y: IP.y + 8, w: IP.w - 16, h: IP.h - 16 }, 0.45);
     for (const y of M.rules) KIT.rule(P.x + 70, y, P.w - 140, 0.75);
     for (const b of items) { const lx = b.x + 46, ly = b.y + 30, maxW = b.x + b.w - lx - 6;

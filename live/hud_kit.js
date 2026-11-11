@@ -19,6 +19,9 @@
     rod: { tex: 'ui_b_scroll_rod', art: [240, 24], cut: [24, 0, 24, 0] },
     ribbon: { tex: 'ui_b_ribbon', art: [24, 120], cut: [0, 12, 0, 28] },
     gutter: { tex: 'ui_b_book_gutter', art: [40, 160], cut: [0, 16, 0, 16] },
+    // the main menu's leaf (TASKS 1755): a vertical 3-slice, its plain band y 120–169 takes the two heights of D.UI.menuSheet; box:
+    // the inside its texts are checked against, as the torn sheet's
+    menu: { tex: 'ui_b_menu_leaf', art: [310, 289], cut: [0, 120, 0, 120], box: [13, 13, 13, 13] },
   };
   K.PART = PART;
   const has = (n) => !!(window.ASSETS && window.ASSETS[n]);
@@ -67,9 +70,8 @@
   // a panel: 'leather' (stitched, brass corners) or 'torn' (a loose parchment sheet, its middle filled with the tile); returns the
   // rect inside its border, which is also the box its texts are checked against
   K.panel = (id, x, y, w, h, kind = 'leather', o = {}) => {
-    if (kind === 'torn') K.nine('torn', x, y, w, h, { k: o.k });
-    else K.nine('leather', x, y, w, h, { k: o.k });
-    const e = K.ends(kind, o.k || 1).map((v) => v * 0.55), r = { x: x + e[0], y: y + e[1], w: w - e[0] - e[2], h: h - e[1] - e[3] };
+    K.nine(PART[kind] ? kind : 'leather', x, y, w, h, { k: o.k });
+    const B = PART[kind] && PART[kind].box, e = B ? B.map((v) => v * PX * (o.k || 1)) : K.ends(kind, o.k || 1).map((v) => v * 0.55), r = { x: x + e[0], y: y + e[1], w: w - e[0] - e[2], h: h - e[1] - e[3] };
     L.uiBox(id, r.x, r.y, r.w, r.h, o.pad === undefined ? 6 : o.pad); return r;
   };
   // an open book: a leather cover, two pages of parchment with the gutter between, a brass clasp on the right edge; returns
@@ -166,6 +168,11 @@
   K.seal = (x, y, k = 1) => K.part('ui_b_wax_seal', [40, 40], x, y, { c: true, k });
   K.ribbon = (x, y, len, k = 1) => K.nine('ribbon', x, y, 24 * PX * k, len, { k });
   K.rod = (x, y, w, k = 1) => K.nine('rod', x, y, w, 24 * PX * k, { k });
+  // a leather strap hung from the top of the screen, its buckled tab's foot at y (centre x): the plain strap repeats upwards at its
+  // own art pixel instead of stretching, as stretched stitches turned into dashes of another size
+  K.strap = (x, y) => { if (!has('ui_b_strap')) return; const T = G.tex('ui_b_strap'), w = 24 * PX, ah = Math.round(24 * T.h / T.w), foot = 40 * PX, top = y - foot, seg = (ah - 40) * PX, v = (ah - 40) / ah;
+    L.sprite('ui_b_strap', x - w / 2, top, { w, h: foot, src: [0, v, 1, 1] });
+    for (let y1 = top; y1 > 0; y1 -= seg) { const h = Math.min(seg, y1); L.sprite('ui_b_strap', x - w / 2, y1 - h, { w, h, src: [0, v * (1 - h / seg), 1, v] }); } };
   K.knob = (x, y, k = 1) => K.part('ui_b_knob', [16, 16], x, y, { c: true, k });
 
   // the QA sheet (state 'uikit'): every part in every state, the longest labels the game has on its buttons

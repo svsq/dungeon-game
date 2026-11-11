@@ -10,8 +10,8 @@
   "pixel": false
  },
  {
-  "name": "ui_b_menu_sheet",
-  "prompt": "art/prompts/ui_b_menu_sheet.txt",
+  "name": "ui_b_menu_leaf",
+  "prompt": "art/prompts/ui_b_menu_leaf.txt",
   "ref": [
    "study/refs/ui/ref_ui_menu_b.png=the approved mock of the main menu: match the warm torn charred parchment of its sheet, draw only the single piece the text asks for"
   ],
