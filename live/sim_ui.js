@@ -75,6 +75,8 @@
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
     resume(S, R); S.saveN++; return true; }
   function dropSlot(S, i) { if (i === S.slot && S.saved) S.saved = null; else S.saves[i] = null; pickLatest(S); S.saveN++; }
+  // the run in play put aside under «Продолжить» (the pause's «Сохранить и выйти в меню», the menu's «Выход»)
+  function saveRun(S) { S.saved = S.run; S.run = null; S.saveN++; S.savedT = S.t; }
   function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null; if (town) S.run.greet = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
@@ -94,7 +96,7 @@
   // presses the first, as before the focus (continue the saved run, or a new one)
   SCREEN.menu = (S, inp, keys, x, y, click) => {
     if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
-    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S)), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S), !!S.canQuit), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     const order = U.map((q) => q.id);
     if (b && inp.moved) S.focus = b.id;
     if (order.includes(S.focus)) S.menuAt = S.focus;
@@ -106,6 +108,9 @@
       if (id === 'tests') S.screen = 'tests';
       if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (id === 'settings') openSettings(S, 'menu');
+      // «Выход» (TASKS 1870): a run still in play is saved first, as «Сохранить и выйти в меню» does; the page writes the save
+      // and then closes the window on quitReq
+      if (id === 'quit' && S.canQuit) { if (S.run) saveRun(S); S.quitReq = (S.quitReq || 0) + 1; S.saveN++; }
       if (id === 'stats') { S.screen = 'stats'; S.statTab = 'all'; S.focus = 'tab:all'; S.hover = ''; }
       ev(S, { k: 'ui', x, y }); };
     if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
@@ -249,7 +254,7 @@
     const b = D.hitUI(UI.pause(S.meta.zoom, done), x, y); S.hover = b ? b.id : '';
     if (click && b && b.id === 'settings') { openSettings(S, 'pause'); ev(S, { k: 'ui', x, y }); return; }
     if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
-    if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; S.savedT = S.t; return; }
+    if (click && b && b.id === 'save') { saveRun(S); S.screen = 'menu'; return; }
     if (click && b && (b.id === 'finish' || b.id === 'abandon')) { S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     return;
   };

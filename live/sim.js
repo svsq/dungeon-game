@@ -41,6 +41,8 @@
     S.pressWas = !!inp.press;
     rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
+    // the page says whether it can close its window (the desktop build's bridge, TASKS 1870)
+    if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
     for (const k of inp.rep || []) if (REPEATS.has(k)) keys[k] = 1;

@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld('desktop', {
   isFull: () => full,
   setFull: (on) => ipcRenderer.send('set-full', !!on),
   onFull: (f) => { subs.push(f); },
+  // the main menu's «Выход» (TASKS 1870): the page has written its save by then
+  quit: () => ipcRenderer.send('quit'),
 });

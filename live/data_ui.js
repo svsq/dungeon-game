@@ -23,8 +23,8 @@
         for (const it of g.items) wrapLine(it, NEWS.wrap).forEach((s, i, a) => rows.push({ k: 'line', s, first: !i, h: NEWS.h.line + (i === a.length - 1 ? NEWS.h.gap : 0) })); } }
     newsMemo = { src: D.CHANGES, rows }; return rows; };
   const MENU_SHEET = { x: 48, w: 620, bottom0: 1012, top: 92, row: 56, sub: 26, gap: 34, bottom: 78, inX: 56 };
-  const MENU_ITEMS = [['continue', 'campaign', 'load'], ['stats', 'settings'], ['tests']];
-  const MENU_LABEL = { continue: () => TXT('UI.menu'), load: () => TXT('UI.menu.load'), stats: () => TXT('UI.menu.stats'), settings: () => TXT('UI.menu.settings'), tests: () => TXT('UI.menu.5') };
+  const MENU_ITEMS = [['continue', 'campaign', 'load'], ['stats', 'settings'], ['tests', 'quit']];
+  const MENU_LABEL = { continue: () => TXT('UI.menu'), load: () => TXT('UI.menu.load'), stats: () => TXT('UI.menu.stats'), settings: () => TXT('UI.menu.settings'), tests: () => TXT('UI.menu.5'), quit: () => TXT('UI.menu.quit') };
   const NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42, link: { gap: 14, w: 320, h: 36 } };
   // the sort buttons beside a grid: by type, rarity, level, stacked from (x, y)
   const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
@@ -70,14 +70,15 @@
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   const UI = {
     // full: every save slot holds a run, so a new one takes the place of the one played longest ago (TASKS 1311, 1785)
-    menu: (hasRun, diff, zoom, full = hasRun) => { const F = UI.newsFrame();
-      return UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2')).r.concat(F ? [Object.assign({ id: 'news', label: F.linkLabel, on: true, link: true }, F.link)] : []); },
+    // quit: the game can close its own window (the desktop build, TASKS 1870); a browser tab cannot, and there «Выход» is not shown
+    menu: (hasRun, diff, zoom, full = hasRun, quit = false) => { const F = UI.newsFrame();
+      return UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2'), quit).r.concat(F ? [Object.assign({ id: 'news', label: F.linkLabel, on: true, link: true }, F.link)] : []); },
     // the main menu (TASKS 1301), look B: small ink items on a parchment sheet in the bottom-left corner, as on ref_ui_menu_b; the
     // sheet stands on its bottom edge, so without «Продолжить» it is shorter and the rest keep their places. Groups are cut by a
     // rule: the run, then the books, then the test runs that will leave the menu
-    menuSheet: (hasRun, newLabel = TXT('UI.menu.2')) => { const M = MENU_SHEET, r = [], rules = []; let y = M.top;
-      MENU_ITEMS.forEach((g, gi) => { if (gi) { rules.push(y + M.gap / 2); y += M.gap; }
-        for (const id of g) { if (id === 'continue' && !hasRun) continue; const h = M.row + (id === 'continue' ? M.sub : 0);
+    menuSheet: (hasRun, newLabel = TXT('UI.menu.2'), quit = false) => { const M = MENU_SHEET, r = [], rules = []; let y = M.top;
+      MENU_ITEMS.map((g) => g.filter((id) => (id !== 'continue' || hasRun) && (id !== 'quit' || quit))).filter((g) => g.length).forEach((g, gi) => { if (gi) { rules.push(y + M.gap / 2); y += M.gap; }
+        for (const id of g) { const h = M.row + (id === 'continue' ? M.sub : 0);
           r.push({ id, label: id === 'campaign' ? newLabel : MENU_LABEL[id](), on: true, x: M.x + M.inX, y, w: M.w - M.inX * 2, h }); y += h; } });
       const h = y + M.bottom, y0 = M.bottom0 - h; r.forEach((b) => { b.y += y0; });
       return { P: { x: M.x, y: y0, w: M.w, h }, r, rules: rules.map((v) => v + y0) }; },

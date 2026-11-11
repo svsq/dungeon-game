@@ -55,6 +55,7 @@ app.whenReady().then(() => {
 
   const win = createWindow();
   ipcMain.on('set-full', (e, on) => { if (e.sender === win.webContents && win.isFullScreen() !== on) win.setFullScreen(on); });
+  ipcMain.on('quit', (e) => { if (e.sender === win.webContents) app.quit(); });
   app.on('second-instance', () => { if (win.isMinimized()) win.restore(); win.focus(); });
 });
 

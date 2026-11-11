@@ -1070,12 +1070,12 @@
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
-    menuBack(t, !!F, true, S, [D.UI.menuSheet(!!S.saved).P, F && F.P]);
+    menuBack(t, !!F, true, S, [D.UI.menuSheet(!!S.saved, undefined, !!S.canQuit).P, F && F.P]);
     const ty = (y) => Math.round((bk().y0 + y * bk().k) / 2) * 2;
     lab('m_t', TXT('hud.menu'), W / 2, ty(150), { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, ty(230), { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, ty(282), { size: 28, al: 0.5, col: C.dim });
-    const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
+    const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full, !!S.canQuit), M = D.UI.menuSheet(!!S.saved, undefined, !!S.canQuit), P = M.P, items = bs.filter((b) => !b.link);
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
     if (F) newsFrame(F, lit === 'news');
     KIT.part('ui_b_strap_ring', [32, 47], P.x + P.w - 112, P.y + P.h - 34);

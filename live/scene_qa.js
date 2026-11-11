@@ -27,6 +27,8 @@
       ...DATA.UI.menu(true).map((b) => ['menu_focus_' + b.id, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.focus = b.id; })]),
       ['menu_saved_note', play((S) => { S.saved = S.run; S.run = null; S.screen = 'menu'; S.savedT = S.t - 0.5; })],
       ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'tests'; S.hover = 'settings'; })],
+      // the desktop build's menu (TASKS 1870): «Выход» last, in focus
+      ['menu_quit', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.canQuit = 1; S.focus = 'quit'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
       // the news frame on the menu (TASKS 1305): the longest it may get (five lines of 80 characters), none at all, the link hovered
