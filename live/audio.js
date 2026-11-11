@@ -388,5 +388,5 @@
     ambience(S);
   }
 
-  window.AUDIO = { update, start: init, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
+  window.AUDIO = { update, start: init, get live() { return live; }, get muted() { return muted; }, get played() { return played; }, get state() { return ctx ? ctx.state : 'none'; } };
 })();

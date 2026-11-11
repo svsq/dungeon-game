@@ -20,19 +20,25 @@
 
   // a pad seen through one view: 'standard' as is; without it (Firefox on Linux, raw evdev order) the xpad layout: buttons
   // A B X Y L1 R1 View Menu Guide L3 R3, axes LX LY L2 RX RY R2 hatX hatY, the triggers resting at −1 (or 0 until touched)
+  // one view object and two press functions for every call (re-review of PR 62: a new object and closures 2–3 times a frame);
+  // a call replaces the last one's pad, so a view is read before view() is asked again
+  const XP = [0, 1, 2, 3, 4, 5, -1, -1, 6, 7, 9, 10], VV = { std: false, ax: [0, 0, 0, 0], press: null };
+  let vbt = [], vax = [];
+  const bp = (i) => !!(vbt[i] && (vbt[i].pressed || vbt[i].value > 0.5));
+  const pressX = (i) => { const hx = vax[6] || 0, hy = vax[7] || 0;
+    return i === 6 ? (vax[2] || 0) > 0.3 : i === 7 ? (vax[5] || 0) > 0.3 : i === 12 ? hy < -0.5 : i === 13 ? hy > 0.5 : i === 14 ? hx < -0.5 : i === 15 ? hx > 0.5 : XP[i] >= 0 && bp(XP[i]); };
   const view = (gp) => {
-    const bt = gp.buttons || [], ax = gp.axes || [], bp = (i) => !!(bt[i] && (bt[i].pressed || bt[i].value > 0.5));
-    if (gp.mapping === 'standard' || ax.length < 6) return { std: gp.mapping === 'standard', ax: [ax[0] || 0, ax[1] || 0, ax[2] || 0, ax[3] || 0], press: bp };
-    const XP = [0, 1, 2, 3, 4, 5, -1, -1, 6, 7, 9, 10], hx = ax[6] || 0, hy = ax[7] || 0;
-    return { std: false, ax: [ax[0] || 0, ax[1] || 0, ax[3] || 0, ax[4] || 0],
-      press: (i) => (i === 6 ? (ax[2] || 0) > 0.3 : i === 7 ? (ax[5] || 0) > 0.3 : i === 12 ? hy < -0.5 : i === 13 ? hy > 0.5 : i === 14 ? hx < -0.5 : i === 15 ? hx > 0.5 : XP[i] >= 0 && bp(XP[i])) };
+    vbt = gp.buttons || []; vax = gp.axes || [];
+    if (gp.mapping === 'standard' || vax.length < 6) { VV.std = gp.mapping === 'standard'; for (let i = 0; i < 4; i++) VV.ax[i] = vax[i] || 0; VV.press = bp; }
+    else { VV.std = false; VV.ax[0] = vax[0] || 0; VV.ax[1] = vax[1] || 0; VV.ax[2] = vax[3] || 0; VV.ax[3] = vax[4] || 0; VV.press = pressX; }
+    return VV;
   };
   const busy = (v) => { for (let i = 0; i < 4; i++) if (Math.abs(v.ax[i]) > 0.3) return true; for (let i = 0; i < 16; i++) if (v.press(i)) return true; return false; };   // (no arrays a frame, review of PR 62)
   const stick = (x, y) => { const m = Math.hypot(x, y); return m < DEAD ? [0, 0, 0] : [x / m, y / m, Math.min(1, (m - DEAD) / (1 - DEAD))]; };
 
   // io: { keys, ptr, pend, VW, VH, play(), start(), dev() } — index.html's own input state, written the way its listeners write it
   function create(io) {
-    const P = { active: 0, at: -99, n: 0, px: io.VW / 2, py: io.VH / 2, mode: 'kbm', screen: '', raw: null }; root.PAD = P;
+    const P = { active: 0, at: -99, n: 0, px: io.VW / 2, py: io.VH / 2, mode: 'kbm', screen: '' }; root.PAD = P;
     Object.defineProperty(P, 'raw', { get: () => { const gp = P.gp; return gp ? { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) } : null; } });
     const { keys, ptr, pend } = io, kb = {};   // kb: the keyboard's own arrows, so an idle stick never lets go of a held key
     addEventListener('keydown', (e) => { if (e.isTrusted) kb[e.code] = 1; }, true); addEventListener('keyup', (e) => { kb[e.code] = 0; }, true);
@@ -98,17 +104,18 @@
       P.active = P.mode === 'pad' ? 1 : 0;
       P.map = (gp.mapping || '—') + (V.std ? '' : ' (xpad)');
       P.gp = gp;   // (P.raw, the dev line's view of it, is built only when read)
-      // (TASKS 1867) a pad press starts the sound as a key or a click does: with the pad alone it never started. Asked again on
-      // every press until it runs (review of PR 62: a browser that does not take a pad's press for a gesture keeps it suspended)
-      if (root.AUDIO && AUDIO.start && AUDIO.state !== 'running') for (let i = 0; i < 16; i++) if (edge(i)) { AUDIO.start(); break; }
+      // (TASKS 1867) a pad press starts the sound as a key or a click does: with the pad alone it never started. Asked on every
+      // press until the sound is on and running: deck.sh's Chrome runs the context from the start, and a browser that does not take
+      // a pad's press for a gesture keeps it suspended (reviews of PR 62)
+      if (root.AUDIO && AUDIO.start && !(AUDIO.live && AUDIO.state === 'running')) for (let i = 0; i < 16; i++) if (edge(i)) { AUDIO.start(); break; }
       if (!S) { if (edge(0) || edge(1) || edge(2) || edge(3) || edge(7) || edge(9)) io.start(); for (let i = 0; i < 16; i++) prev[i] = pr(i); return; }
       const scr = S.screen || 'play', play = scr === 'play' && S.run, focus = FOCUS.has(scr);
       // a screen entered anew waits for its own buttons: the last visit's (another talk's) stay behind (re-review of PR 62)
       if (scr !== last) { last = scr; rects = []; rectsOf = ''; nav.k = ''; for (const c of held) keys[c] = 0; held.clear(); walk(0, 0); if (ptrDown) { ptr.down = 0; ptrDown = 0; }
-        if (P.active && !play && !focus) { P.pendSnap = 1; } }
+        P.pendSnap = P.active && !play && !focus ? 1 : 0; }   // (a snap asked for a screen left before its buttons came is dropped)
       if (P.pendSnap && rectsOf === scr && rects.length) { P.pendSnap = 0; goTo(firstBtn(S)); }
       const [lx, ly, lm] = stick(ax[0], ax[1]), [rx, ry, rm] = stick(ax[2], ax[3]);
-      if (pr(B.R3) && !was(B.R3)) io.dev();
+      if (edge(B.R3)) io.dev();
       if (edge(B.L3)) tap('KeyM');   // the sim's mute (PR 57), a one-shot key as the others: no DOM event and no key left held
       if (edge(B.MENU)) tap('Escape');
       if (play) {
@@ -135,8 +142,9 @@
         let fire = false;
         if (k !== nav.k) { nav.k = k; nav.t = clock; nav.n = 0; fire = !!k; } else if (k && clock - nav.t > (nav.n ? REPEAT : REPEAT0)) { nav.t = clock; nav.n++; fire = true; }
         if (fire) { if (focus) tap(dy > 0 ? 'ArrowDown' : dy < 0 ? 'ArrowUp' : dx > 0 ? 'ArrowRight' : 'ArrowLeft'); else snap(dx, dy); }
-        if (rm > 0) { ptr.x = Math.max(0, Math.min(VW(), ptr.x + rx * rm * rm * 1300 * dt)); ptr.y = Math.max(0, Math.min(VH(), ptr.y + ry * rm * rm * 1300 * dt)); ptr.moved = 1; }
-        if (focus) { if (edge(B.A)) tap('Enter'); if (edge(B.Y) && scr === 'load') tap('Delete'); if (edge(B.R2)) { ptr.down = 1; ptr.click = 1; ptrDown = 1; } else if (rel(B.R2) && ptrDown) { ptr.down = 0; ptrDown = 0; } }
+        // (the keyboard-walked screens draw no pointer: there the right stick and R2 would move and click an unseen one, re-review of PR 62)
+        if (rm > 0 && !focus) { ptr.x = Math.max(0, Math.min(VW(), ptr.x + rx * rm * rm * 1300 * dt)); ptr.y = Math.max(0, Math.min(VH(), ptr.y + ry * rm * rm * 1300 * dt)); ptr.moved = 1; }
+        if (focus) { if (edge(B.A)) tap('Enter'); if (edge(B.Y) && scr === 'load') tap('Delete'); }
         else { if (edge(B.A) || edge(B.R2)) { ptr.down = 1; ptr.click = 1; ptrDown = 1; } else if (ptrDown && !pr(B.A) && !pr(B.R2)) { ptr.down = 0; ptrDown = 0; }
           if (edge(B.Y) || edge(B.L2)) ptr.rclick = 1; }
         if (edge(B.B)) tap('Escape');

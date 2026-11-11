@@ -15,7 +15,7 @@ const server = http.createServer((q, r) => {
   });
 });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--max-old-space-size=8192'] });   // (SCENE.QA() past V8's default heap stalls on the Steam Deck, TASKS 1373)
 const errors = [], results = [];
 try {
   for (const version of ['before', 'after']) {
@@ -34,8 +34,9 @@ try {
         const ctx = c.getContext('2d', { willReadFrequently: true }), draw = G.draw, calls = { door_frame: 0, portal: 0, jet: [] };
         G.draw = (p, u, ...a) => { if (u.u_tex === G.tex('door_frame')) calls.door_frame++; if (p === LIB.P.portal) calls.portal++;
           if (p === LIB.P.jet) calls.jet.push(u.u_col); return draw(p, u, ...a); };
+        const drawN = G.drawN; G.drawN = (p, u, ...a) => { if (u.u_tex === G.tex('door_frame')) calls.door_frame++; return drawN(p, u, ...a); };   // (an outline's copies, TASKS 1865)
         SCENE.state = S;
-        try { SCENE.render(S.t + 0.01); } finally { G.draw = draw; }
+        try { SCENE.render(S.t + 0.01); } finally { G.draw = draw; G.drawN = drawN; }
         const url = canvas.toDataURL(); ctx.drawImage(canvas, 0, 0); const full = ctx.getImageData(0, 0, 1920, 1080).data;
         SCENE.render(S.t + 0.01); const deterministic = canvas.toDataURL() === url;
         SCENE.hide.hero = true;

@@ -33,6 +33,11 @@
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
   let MMB = null, TRK = null;
+  // an elite's label slot (TASKS 1866, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
+  // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
+  const ELS = new Map(), elSlot = (id) => { let s = ELS.get(id);
+    if (s === undefined) { if (ELS.size < 32) s = ELS.size; else { const [old, os] = ELS.entries().next().value; ELS.delete(old); s = os; } } else ELS.delete(id);
+    ELS.set(id, s); return s; };
   const WAY_LEG = ['way', TXT('WAY_LEG')];
   // the town's own legend (TASKS 1023): its services instead of the dungeon's rooms, bosses and altars
   const TOWN_LEG = [['you', TXT('TOWN_LEG')], ['exit', TXT('TOWN_LEG.2')], ['shop', TXT('TOWN_LEG.3')], ['camp', TXT('TOWN_LEG.4')], ['altar', TXT('TOWN_LEG.5')], ['stash', TXT('TOWN_LEG.6')], ['craft', TXT('TOWN_LEG.7')], ['way', TXT('TOWN_LEG.8')], ['board', TXT('TOWN_LEG.9')]];
@@ -224,8 +229,8 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 256), s, { size: 18 }) / 2 + 4, ly = y - 24;
-        const sub = e.nm && e.mods && e.mods.length ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + (e.id % 256), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
+      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + elSlot(e.id), s, { size: 18 }) / 2 + 4, ly = y - 24;
+        const sub = e.nm && e.mods && e.mods.length ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + elSlot(e.id), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
         if (x - ow > 0 && x + ow < W && ly > 30 && ![[x - ow, ly - 24], [x + ow, ly - 24], [x - ow, oy], [x + ow, oy]].some(([px, py]) => underHud(px, py))) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const b0 = place(x, ly - 15, Math.max(ow * 2, 92), sub ? 70 : 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
@@ -234,10 +239,9 @@
             // a plate: on lava the name's own colour was 1.1:1; at 0.62 it was still 2.5–2.9:1 for the dark reds and blues (TASKS 487),
             // so it is near solid and the name a quarter toward white: 4.5:1 and over on the brightest lava
             L.rrect(cx - hw, b.y - 2, hw * 2, 24, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.9);
-            // (TASKS 1866: a slot an id mod 256: two elites on one slot in view re-drew its texture every frame)
-            lab('el' + (e.id % 256), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.25)) });
+            lab('el' + elSlot(e.id), s, cx, b.y + 15, { size: 18, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.25)) });
             capsule(cx, b.y + 39, 80, e.hp / e.max, true);
-            if (sub) { const sw = lw('els' + (e.id % 256), sub, { size: 20 }) / 2 + 6; L.rrect(cx - sw, b.y + 49, sw * 2, 22, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.85); lab('els' + (e.id % 256), sub, cx, b.y + 60, { size: 20, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.4)) }); }
+            if (sub) { const sw = lw('els' + elSlot(e.id), sub, { size: 20 }) / 2 + 6; L.rrect(cx - sw, b.y + 49, sw * 2, 22, 8, [0.05, 0.04, 0.05], [0.03, 0.025, 0.03], 0.85); lab('els' + elSlot(e.id), sub, cx, b.y + 60, { size: 20, al: 0.5, col: hex(c.map((v) => v + (1 - v) * 0.4)) }); }
             nameZones.push({ x: cx - hw - 20, y: b.y - 20, w: hw * 2 + 40, h: 70 });
             named = true;
           }
