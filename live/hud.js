@@ -33,7 +33,7 @@
   // the corners the HUD panels cover: the portrait and bars, the boss bar, the minimap
   // (the minimap's corner is its panel's, legend and all: a fixed 440 px let labels slip under the taller one of a big map, TASKS 432)
   let MMB = null, TRK = null;
-  // an elite's label slot (TASKS 1866, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
+  // an elite's label slot (TASKS 1873, re-review of PR 62): 32 slots handed out by last use, so up to 32 elites in view keep their
   // textures (on id % 40 two in view re-drew theirs each frame) and the textures stay 64 with the sub-lines, not one per id
   const ELS = new Map(), elSlot = (id) => { let s = ELS.get(id);
     if (s === undefined) { if (ELS.size < 32) s = ELS.size; else { const [old, os] = ELS.entries().next().value; ELS.delete(old); s = os; } } else ELS.delete(id);

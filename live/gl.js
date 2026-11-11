@@ -57,13 +57,13 @@ in vec2 a_pos; uniform vec2 u_res; uniform mat3 u_xf; uniform vec2 u_flip;
 out vec2 v_uv; out vec2 v_px;
 `, VS_TAIL = `  v_px = p.xy; v_uv = mix(a_pos, 1.0 - a_pos, u_flip);
   gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0); }`;
-  // the vertex shaders: 'one' every program's, the two batched ones apart (TASKS 1866: their uniform arrays in every program cost
+  // the vertex shaders: 'one' every program's, the two batched ones apart (TASKS 1873: their uniform arrays in every program cost
   // each draw on ANGLE's Vulkan, which uploads a program's whole uniform block when any of it changes)
   const VSS = {
     one: VS_HEAD + 'void main(){ vec3 p = u_xf * vec3(a_pos, 1.0);\n' + VS_TAIL,
-    // G.drawN: copy k of the quad shifted by u_off[k] px (an outline's ink copies, TASKS 1865)
+    // G.drawN: copy k of the quad shifted by u_off[k] px (an outline's ink copies, TASKS 1872)
     off: VS_HEAD + 'uniform vec2 u_off[16];\nvoid main(){ vec3 p = u_xf * vec3(a_pos, 1.0); p.xy += u_off[gl_InstanceID];\n' + VS_TAIL,
-    // G.solid's batch: rect k is x, y, w, h in view px, its colour rgb and alpha (TASKS 1866)
+    // G.solid's batch: rect k is x, y, w, h in view px, its colour rgb and alpha (TASKS 1873)
     rect: VS_HEAD + 'uniform vec4 u_rect[64], u_rcol[64]; flat out vec4 v_rc;\nvoid main(){ vec4 r = u_rect[gl_InstanceID]; vec3 p = vec3(r.xy + a_pos * r.zw, 1.0); v_rc = u_rcol[gl_InstanceID];\n' + VS_TAIL,
   };
   const COMMON = `#version 300 es
@@ -192,7 +192,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     if (!attrSet) { attrSet = true; gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
   };
-  // G.solid (TASKS 1866): flat rectangles in a row go out in one instanced call, 64 at most, in their order. The cave's moss is
+  // G.solid (TASKS 1873): flat rectangles in a row go out in one instanced call, 64 at most, in their order. The cave's moss is
   // hundreds of 2 px squares a frame and each was a draw of its own. Anything else that draws, binds, clips or changes the blend
   // sends the batch first, and SCENE.render ends with G.flush(); L.solid keeps a plain draw while G.rec records or for a turned rectangle
   const QN = 64, QR = new Float32Array(4 * QN), QC = new Float32Array(4 * QN); let qn = 0, qP = null, qBlend = '';

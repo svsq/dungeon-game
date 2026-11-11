@@ -225,7 +225,7 @@
     for (const a of cv0.some((v) => v) ? [ch[0]] : []) for (let pass = 0; pass < passes; pass++) {
       for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += a[y * AW + Math.min(AW - 1, Math.max(0, x + d))]; b[y * AW + x] = v / 5; }
       for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { let v = 0; for (let d = -2; d <= 2; d++) v += b[Math.min(AH - 1, Math.max(0, y + d)) * AW + x]; a[y * AW + x] = v / 5; } }
-    // (TASKS 1867: the mask canvases here are CPU ones, willReadFrequently: an upload from a GPU canvas went through the GPU process)
+    // (TASKS 1874: the mask canvases here are CPU ones, willReadFrequently: an upload from a GPU canvas went through the GPU process)
     const cv = M.cv || (M.cv = G.canvas()); if (!box) { cv.width = W; cv.height = H; } const g = cv.getContext('2d', { willReadFrequently: true }), im = box ? M.im : (M.im = g.createImageData(W, H));
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * W + x, s = (y - ay0) * AW + x - ax0, v = Math.round(255 * ch[0][s]); im.data[i * 4] = v; im.data[i * 4 + 3] = 255;
       im.data[i * 4 + 1] = vec ? Math.round(255 * (0.5 + 0.5 * ch[1][s])) : v; im.data[i * 4 + 2] = vec ? Math.round(255 * (0.5 + 0.5 * ch[2][s])) : v; }

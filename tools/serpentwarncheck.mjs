@@ -24,7 +24,7 @@ try {
     const Q = SCENE.QA(), cv = document.getElementById('c'), read = document.createElement('canvas'); read.width = cv.width; read.height = cv.height;
     const ctx = read.getContext('2d', {willReadFrequently:true}), report = {}, sheets = {};
     const pixels = (S, skip) => {
-      const draw = G.draw, drawN = G.drawN;   // (an outline's copies go through G.drawN, TASKS 1865: skipped with their part)
+      const draw = G.draw, drawN = G.drawN;   // (an outline's copies go through G.drawN, TASKS 1872: skipped with their part)
       if (skip) { G.draw = (p,u,...args) => skip(p,u) ? undefined : draw(p,u,...args); G.drawN = (p,u,...args) => skip(p,u) ? undefined : drawN(p,u,...args); }
       try { SCENE.state = S; SCENE.render(S.t+.01); ctx.drawImage(cv,0,0); return ctx.getImageData(0,0,cv.width,cv.height).data; }
       finally { G.draw = draw; G.drawN = drawN; }
