@@ -121,17 +121,18 @@
     L.uiBox(id, x, y, s, s, 0);
   };
   // the tabs over a page: tabs = [{ id, label, x, y, w, h }]; the open one stands taller, with the wax seal on its corner. The
-  // lit one (o.lit, else the pointer's or the keyboard's) lightens; the open one when lit also glows, as the open one is already
-  // the lightest and the keyboard's focus sits on it while ←→ change it (TASKS 1856). o.fill (the start screen, TASKS 1757): the
-  // open tab is filled red with light letters, as on ref_ui_start_b, its seal inside at the left
-  K.tabs = (id, tabs, open, S, o = {}) => { for (const b of tabs) { const st = K.st(S, b.id), on = b.id === open, up = on ? 8 : 0, lit = o.lit !== undefined ? b.id === o.lit : st.hover || st.focus;
-    if (on && lit) L.glow(b.x + b.w / 2, b.y - up + b.h / 2, b.w * 0.75, [1, 0.6, 0.25], 0.55, 2);
+  // lit one (o.lit, else the pointer's or the keyboard's) shows as a choice does (TASKS 1846, 1883): a lighter tone and red
+  // letters, no glow, as a lamp's spot on paper is not in look B. A red label marks one tab only: while another is lit, the open
+  // one keeps its seal and height and goes back to ink. o.fill (the start screen, TASKS 1757): the open tab is filled red with
+  // light letters, as on ref_ui_start_b, its seal inside at the left
+  K.tabs = (id, tabs, open, S, o = {}) => { const litOf = (b) => { const st = K.st(S, b.id); return o.lit !== undefined ? b.id === o.lit : st.hover || st.focus; }, other = tabs.some((b) => b.id !== open && litOf(b));
+    for (const b of tabs) { const on = b.id === open, up = on ? 8 : 0, lit = litOf(b);
     const g = on ? (lit ? [1.05, 1.3, 0, 1.06] : [1, 1.06, 0, 1]) : gradeOf({ hover: lit }).map((v, i) => (i === 1 && !lit ? v * 0.82 : v));
     K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : { grade: g } });
     const sx = on && o.fill ? b.x + 0.6 * K.endW('tab', b.h) + 26 : 0;
     if (on) K.part('ui_b_wax_seal', [40, 40], o.fill ? sx : b.x + 6, o.fill ? b.y - up + b.h / 2 + 1 : b.y - up + 2, { c: true, k: o.fill ? 0.5 : 0.55 });
     const x0 = sx ? sx + 22 : b.x + 0.3 * K.endW('tab', b.h) + 4, x1 = b.x + b.w - 0.3 * K.endW('tab', b.h) - 4;
-    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size: 24, fit: x1 - x0, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : on || lit ? K.INK.r : K.INK.d });
+    (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size: 24, fit: x1 - x0, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : lit || (on && !other) ? K.INK.r : on ? K.INK.t : K.INK.d });
     L.uiBox(id + b.id, b.x + 8, b.y - up, b.w - 16, b.h, 4); } };
   // an item cell: square (the bag) or round (a skill, a trophy); o.sel (picked), o.off (locked)
   K.cell = (id, x, y, s, st, o = {}) => {
