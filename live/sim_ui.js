@@ -411,7 +411,8 @@
     if (inp.rclick && b.id.startsWith('bag:') && h.bag[b.i]) { const it = h.bag[b.i];
       if (again(S, 'toss', it)) { h.bag[b.i] = null; throwAway(R, h, it); ev(S, { k: 'toss', x: h.x, y: h.y }); } else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.inv.tossAsk', { p1: SIMX.itemName(it) }) }); }
     if (click && b.id.startsWith('stat:') && h.pts > 0) { const d = draftOf(h); d.thTip = d.thTip ?? (h.thTip || 0); h.base[b.k]++; h.pts--; d.st[b.k] = (d.st[b.k] || 0) + 1;
-      if (b.k === 'vit') { h.hp += 10; d.hp += 10; } if (b.k === 'int') { h.mp += 6; d.mp += 6; } ev(S, { k: 'buy', x, y }); SIMX.thresholdTip(S, R); }
+      const st = heroSt(S), hp0 = h.hp, mp0 = h.mp; if (b.k === 'vit') h.hp = Math.min(st.maxHp, h.hp + 10); if (b.k === 'int') h.mp = Math.min(st.maxMp, h.mp + 6);
+      d.hp += h.hp - hp0; d.mp += h.mp - mp0; ev(S, { k: 'buy', x, y }); SIMX.thresholdTip(S, R); }
     if (click && b.id === 'reset:st' && h.draft && draftHas(h.draft.st)) { resetDraft(S, h, 'st'); ev(S, { k: 'ui', x, y }); }
     if (click && b.id === 'reset:ab' && h.draft && (draftHas(h.draft.ab) || h.draft.mast)) { resetDraft(S, h, 'ab'); ev(S, { k: 'ui', x, y }); }
     if (click && b.id.startsWith('ab:') && D.forkPending(h)) { toFork(S); return; }
