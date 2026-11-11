@@ -591,23 +591,24 @@
     const price = (id, b, n, can) => { const s = String(n), w = lw(id, s, { size: 19 }) + 24; icon('it_gold', b.x + b.w / 2 - w / 2, b.y + b.h + 6, 20); lab(id, s, b.x + b.w / 2 - w / 2 + 24, b.y + b.h + 17, { size: 19, col: can ? C.gold : '#9a7a6a' }); };
     lab('sh_buy', R.town ? TXT('hud.shop.3', { p1: sh.at ? TXT('hud.shop.4', { at: sh.at }) : '' }) : sh.wander ? TXT('hud.shop.5', { floor: R.floor }) : TXT('hud.shop.6', { floor: R.floor }), P.x + 60, P.y + 132, { size: 23, col: '#cdb89a' });
     sh.goods.forEach((g, i) => { const b = U.r.find((q) => q.id === 'buy:' + i); slot(S, b, g.n ? Object.assign({}, g.it, { n: g.n }) : g.it); price('shp_b' + i, b, g.price, h.gold >= g.price); });
-    lab('sh_back', TXT('hud.shop.7'), P.x + 60, P.y + 600, { size: 23, col: '#cdb89a' });
+    lab('sh_back', TXT('hud.shop.7'), P.x + 60, P.y + 520, { size: 23, col: '#cdb89a' });
     for (let i = 0; i < D.SHOP.buyback; i++) { const b = U.r.find((q) => q.id === 'back:' + i), g = sh.back[i]; slot(S, b, g && g.it); if (g) price('shp_k' + i, b, g.price, h.gold >= g.price); }
     lab('sh_bag', TXT('hud.shop.8'), P.x + 700, P.y + 102, { size: 23, col: '#cdb89a' }); bagTabs('sh_tb', U, S);
     for (const b of U.r) { if (!b.id.startsWith('sell:')) continue; const it = h.bag[b.i]; slot(S, b, it); if (it) price('shp_s' + b.i, b, D.sellPrice(it, f), true); }
     // the merchant himself, his line for this visit
-    const mx = P.x + 720, my = P.y + P.h - 64, mn = sh.wander ? 'wanderer' : 'merchant', [mw, mh] = SZ(mn), k = 2.1;
+    const mx = P.x + 140, my = P.y + P.h - 40, mn = sh.wander ? 'wanderer' : 'merchant', [mw, mh] = SZ(mn), k = 2.1;
     L.sprite(mn, mx - mw * k / 2, my - mh * k, { w: mw * k, h: mh * k }); L.uiBox('sh_merch', mx - mw * k / 2, my - mh * k, mw * k, mh * k);
     const LN = sh.wander ? D.SHOP.wander.lines : D.SHOP.lines, line = '«' + LN[sh.line % LN.length] + '»', lsz = Math.min(24, Math.floor(24 * 400 / lw('sh_line_m', line, { size: 24 }))), bw = lw('sh_line', line, { size: lsz }) + 48;
-    plate('sh_bubble', P.x + 620, P.y + 556, bw, 52); lab('sh_line', line, P.x + 644, P.y + 583, { size: lsz, col: '#fff2c8' });
-    refusal(S, P.x + P.w / 2, P.y + P.h - 62);
+    const ty = my - mh * k - 66; plate('sh_bubble', P.x + 60, ty, bw, 52); lab('sh_line', line, P.x + 84, ty + 27, { size: lsz, col: '#fff2c8' });
+    refusal(S, P.x + 380, P.y + P.h - 114);
     if (!sh.wander) { const b = U.r.find((q) => q.id === 'talk'); KIT.button('sh_orig', b, KIT.st(S, b.id)); }
-    lab('sh_help', TXT('hud.shop.9'), P.x + P.w / 2, P.y + P.h - 44, { size: 20, al: 0.5, col: '#b8a48a' });
+    lab('sh_help', TXT('hud.shop.9'), P.x + P.w / 2, P.y + P.h + 30, { size: 20, al: 0.5, col: '#b8a48a' });
+    const Cd = U.card; L.rrect(Cd.x, Cd.y, Cd.w, Cd.h, 10, [0.1, 0.05, 0.04], [0.07, 0.035, 0.03], 0.3);
     closeBtn('sh_x', U, S);
-    const hb = U.r.find((q) => q.id === S.hover); if (!hb) return;
+    const hb = U.r.find((q) => q.id === S.hover), idle = () => lab('sh_card0', TXT('hud.shop.card'), Cd.x + Cd.w / 2, Cd.y + Cd.h / 2, { size: 21, al: 0.5, col: '#9a8670' }); if (!hb) return idle();
     const g = hb.id.startsWith('buy:') ? sh.goods[hb.i] : hb.id.startsWith('back:') ? sh.back[hb.i] : null, it = g ? g.it : hb.id.startsWith('sell:') ? h.bag[hb.i] : null;
-    // the details sit in a fixed pane in the corner: a floating tip would cover the next slots' prices
-    if (it) tooltip(S, it, hb, h, g ? [TXT('hud.shop.10', { price: g.price }), h.gold >= g.price ? C.gold : C.red] : [TXT('hud.shop.11', { p1: D.sellPrice(it, f) }), C.gold], [P.x + 1090, P.y + 556]);
+    // the details sit in a fixed pane: a floating tip would cover the next slots' prices
+    if (it) tooltip(S, it, hb, h, g ? [TXT('hud.shop.10', { price: g.price }), h.gold >= g.price ? C.gold : C.red] : [TXT('hud.shop.11', { p1: D.sellPrice(it, f) }), C.gold], [Cd.x, Cd.y], [Cd.x, Cd.y, Cd.x + Cd.w, Cd.bot]); else idle();
   }
   // an empty gear slot shows the outline of what goes in it, its name on hover
   const SLOT_SIL = { weapon: 'it_sword', offhand: 'it_shield', helm: 'it_helm_k', armor: 'it_armor_p', gloves: 'it_gloves', boots: 'it_boots', ring: 'it_ring', amulet: 'it_amulet' };
@@ -687,7 +688,7 @@
     let lines = make(false), [w, hh] = size(lines);
     if (hh > bx[3] - bx[1]) { lines = make(true); [w, hh] = size(lines); }
     let x = b.x + b.w + 12, y = b.y; if (x + w > bx[2]) x = b.x - w - 12; y = Math.max(bx[1], Math.min(y, bx[3] - hh));
-    if (at) { x = Math.min(at[0], W - 10 - w); y = Math.min(at[1], H - 10 - hh); }
+    if (at) { x = Math.max(10, Math.min(at[0], bx[2] - w)); y = Math.max(bx[1], Math.min(at[1], bx[3] - hh)); }
     L.uiCover('tip', x, y, w, hh);
     plate('tip', x, y, w, hh, { k: 0.45, grade: [1, 0.5, 0, 1.05], pad: 8 });
     // the name's rarity in a rule under it
@@ -1150,7 +1151,7 @@
     closeBtn('st_x', U, S);
     if (dr) { const it = dr.from.startsWith('bag:') ? h.bag[+dr.from.split(':')[1]] : T.items[+dr.from.split(':')[1]]; if (it) icon(SIM.Q.itemIcon(it), dr.x - 34, dr.y - 34, 68); dropChip(S, U); refusal(S, W / 2, P.y + 476); return; }
     const hb = U.r.find((q) => q.id === S.hover), it = hb && (hb.id.startsWith('bag:') ? h.bag[hb.i] : hb.id.startsWith('stash:') && hb.i < n ? T.items[hb.i] : null);
-    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? TXT('hud.stash.8') : TXT('hud.stash.9'), C.gold]);
+    if (it) tooltip(S, it, hb, h, [hb.id.startsWith('bag:') ? TXT('hud.stash.8') : TXT('hud.stash.9'), C.gold], null, [10, 10, W - 10, P.y + P.h - 70]);
     refusal(S, W / 2, P.y + 476);
   }
   // ---------------- the town's ring of stones: the open portal and the waystones woken this run (TASKS 1009) ----------------

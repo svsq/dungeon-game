@@ -630,6 +630,7 @@
     // TASKS 1687: three pouches, every cell full; the merchant's grid on the first pouch's tab
     const pouches = (S) => { const R = S.run, h = R.hero; S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 });
       for (let i = 24; i < h.bag.length; i++) h.bag[i] = Object.assign(SIM.rollItem(R, 3 + (i % 9), i % 5), { id: 3100 + i }); };
+    states.push(['shop_idle', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = ''; })]);
     states.push(['shop_pouch', shopS((S) => { worst(S); pouches(S); S.screen = 'shop'; S.bagTab = 1; S.hover = 'sell:30'; })]);
     states.push(['small_props', play((S) => {
       const R = S.run, m = R.map, r = m.rooms.filter((q) => q.type === 'combat').reduce((a, b) => a.w * a.h > b.w * b.h ? a : b), h = R.hero;
@@ -1485,6 +1486,7 @@
     states.push(['inv_pouch_drag', play((S) => { scatter(S); S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 }); S.screen = 'inv'; hold(S, 'bag:5', 'btab:2'); })]);
     states.push(['inv_pouch_full', play((S) => { worst(S); pouches(S); S.screen = 'inv'; h0(S).bag[3] = null; drop(S, 'bag:5', 'btab:3'); })]);
     states.push(['town_stash_pouch', stashS((S) => { pouches(S); S.screen = 'stash'; S.bagTab = 2; S.hover = 'btab:2'; })]);
+    states.push(['town_stash_card_low', stashS((S, R, h) => { pouches(S); S.screen = 'stash'; S.bagTab = 2; const T = D.bagTabs(h.bag.length)[2]; S.hover = 'bag:' + (T.a + T.n - 1); })]);
     states.push(['town_meta_pouch', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 120; S.meta.up.pouch = 1; S.screen = 'meta'; S.metaRun = 1; S.hover = 'pouch'; })]);
     // the workshops (TASKS 1013): the prompts at the anvil and the lectern; the smith with a rare ring chosen; the enchanter after a
     // failed enchantment; a piece with all five enchantments (the button's refusal, the longest)

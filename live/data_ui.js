@@ -202,13 +202,16 @@
     // the merchant's screen: his shelf (gear, then consumables) and the buy-back row on the left, the hero's bag on the
     // right; every slot has its price line under it
     shop: (nGoods, len, tab) => {
-      const P = { x: 190, y: 110, w: 1540, h: 860 }, r = [];
+      const P = { x: 190, y: 40, w: 1540, h: 980 }, r = [];
       for (let i = 0; i < nGoods; i++) r.push({ id: 'buy:' + i, i, x: P.x + 60 + (i % 4) * 116, y: P.y + 150 + Math.floor(i / 4) * 118, w: CELL, h: CELL });
-      for (let i = 0; i < SHOP.buyback; i++) r.push({ id: 'back:' + i, i, x: P.x + 60 + i * 116, y: P.y + 620, w: CELL, h: CELL });
-      r.push(...bagGrid(P.x + 700, P.y + 194, 'sell', 118, len, tab), ...tabRow(P.x + 700, P.y + 140, len, 172, 46));
-      r.push({ id: 'talk', on: true, label: TXT('UI.talk.talk'), x: P.x + 830, y: P.y + P.h - 170, w: 290, h: 56 });
+      for (let i = 0; i < SHOP.buyback; i++) r.push({ id: 'back:' + i, i, x: P.x + 60 + i * 116, y: P.y + 540, w: CELL, h: CELL });
+      r.push(...bagGrid(P.x + 700, P.y + 194, 'sell', 118, len, tab), ...tabRow(P.x + 700, P.y + 140, len, 196, 46));
+      r.push({ id: 'talk', on: true, label: TXT('UI.talk.talk'), x: P.x + 250, y: P.y + P.h - 150, w: 260, h: 56 });
       r.push({ id: 'close', x: P.x + P.w - 92, y: P.y + 34, w: 52, h: 52 });
-      return { P, r };
+      // the item's card has its own pane under the bag, the merchant and his button moved under his shelf, so the card covers
+      // neither the bag's prices nor the button (TASKS 1761)
+      const by = Math.max(...r.filter((q) => q.id.startsWith('sell:')).map((q) => q.y + q.h)) + 40, card = { x: P.x + 700, y: by, w: P.w - 740, h: P.y + P.h - 20 - by, bot: 1036 };
+      return { P, r, card };
     },
   };
 
