@@ -18,8 +18,10 @@
     const lk = FM.light || 1, ltS = (x, y, r, col, amt, k) => lt(x, y, r, col, amt * (FM.lit || 1), k);
     lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
     // (TASKS 1791: on a floor darker than the concept's, L* p50 < 16, a small warm pool at the hero's feet keeps him a figure on a lit
-    // patch of ground instead of the darkest thing in the frame)
-    if (B.heroGlow && h.deadT < 0) lt(h.x, h.y + 4, B.heroGlow[0], [1, 0.62, 0.36], B.heroGlow[1], 2.0);
+    // patch of ground instead of the darkest thing in the frame. It is a ring of small lights round his feet and in front of them, none
+    // behind: one light on his feet lit him as much as the ground, and the concept's hero stands darker than the floor round him)
+    if (B.heroGlow && h.deadT < 0) { const [gr, ga, gn, gd] = B.heroGlow;
+      for (let i = 0; i < gn; i++) { const q = -0.25 + (Math.PI + 0.5) * i / (gn - 1); lt(h.x + gd * Math.cos(q), h.y + 4 + 0.55 * gd * Math.sin(q), gr, [1, 0.62, 0.36], ga, 2.0); } }
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     // (TASKS 1681: a foe in view keeps a pale glint of its own on a floor without light, else one beyond the lamp's reach is lost)
     if (FM.glint) for (const e of R.en) if (e.deadT < 0 && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 36, 64, [0.78, 0.84, 1], FM.glint);

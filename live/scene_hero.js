@@ -10,8 +10,9 @@
   const HERO_H = 84, STEP = SIM.K.STEP || 22;
   // what the hero wears (TASKS 155): each slot picks the rig parts painted for its base (tools/gear.py), '' = the hero as first drawn
   // (plate armour, leather gloves, iron boots); a helmet is a whole head, drawn over a body without its own; the shield rides the far forearm
-  const GEAR = { armor: { '': 'cl', leather_armor: 'le', plate_armor: '', cloak: 'hd', robe: 'hd' }, gloves: { '': 'cl', leather_gloves: '', gauntlets: 'pl' },
-    boots: { '': 'cl', boots: 'le', iron_boots: '' }, helm: { leather_helm: 'le', knight_helm: 'kn' } };
+  // (the plate, gauntlets and iron boots in browned steel, TASKS 1791: the cold blue-grey made a grey knight of the late hero, lost on the magma's ash)
+  const GEAR = { armor: { '': 'cl', leather_armor: 'le', plate_armor: 'pw', cloak: 'hd', robe: 'hd' }, gloves: { '': 'cl', leather_gloves: '', gauntlets: 'pw' },
+    boots: { '': 'cl', boots: 'le', iron_boots: 'pw' }, helm: { leather_helm: 'le', knight_helm: 'kn' } };
   // a class drawn on its own parts has its own table (TASKS 1114): the mage's robe is his parts as drawn, a cloak his hooded set
   const GEARS = { hero: GEAR, mage: { armor: { robe: '', leather_armor: 'le', cloak: 'hd' }, gloves: {}, boots: {}, helm: { circlet: 'ci' } },
     // (the archer starts in leather: it is his jacket as drawn, so his own look is the first seen, TASKS 1124 critic)
