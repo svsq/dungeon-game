@@ -36,6 +36,7 @@
 //   cadence   — walk cycles (TASKS 1802): at most STEPS steps a second, a biped's step at least STEP of its height; townsfolk warn
 //   lies      — hero_*death (TASKS 1803): lying (hip under LOW of the height), no hand or tip over UP of it; inertia — hero_death_run:
 //               the hip's way over the first 0.3 s goes the way he ran
+//   recoil    — hit_* on a light body (TASKS 1804): the head is thrown against the hip by RECOIL of the height
 //   body      — transitions named shoot|cast|frost|volley|whirl|attack|swing (TASKS 1800): the head moves against the hip by BODY of the
 //               height (a shot made with the arm alone left the body standing as at rest)
 // Exit 2 when any check fails.
@@ -307,6 +308,13 @@ if (meta.tr.includes('imp_claw')) {
     if (nm.endsWith('_run') && nm.startsWith('hero')) { const i0 = fr.findIndex((f) => f.dead >= 0), i1 = i0 + 18, f0 = fr[i0], f1 = fr[i1];
       if (!f0 || !f1 || !f0.j || !f1.j) { report('inertia', nm, false, 'no trace'); continue; }
       const dx = (f1.j.hip[0] - f1.j.ground[0]) - (f0.j.hip[0] - f0.j.ground[0]); report('inertia', nm, Math.sign(dx) === Math.sign(f0.vx), `the hip moves ${dx.toFixed(1)} px over 0.3 s after the death, the run ${f0.vx.toFixed(0)} px/s`); } } }
+// recoil (TASKS 1804): a blow on a light body (not heavy, narrower than the brute) throws its head against its hip by RECOIL of its height
+// (every type nodded 0.05–0.08 and the knock-back moved the rest)
+{ const RECOIL = 0.1, big = await p.evaluate(() => Object.fromEntries(Object.entries(DATA.ENEMIES).map(([k, E]) => [k, !!(E.heavy || E.r >= 20 || DATA.BOSSES[k])])));
+  for (const nm of meta.tr.filter((n) => /^hit_|_hit$/.test(n) && !/_armor$|_crust$/.test(n))) { const ty = nm.replace(/^hit_|_hit$/g, ''); if (big[ty] !== false) continue;
+    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.hip && (j.head || j.top)); if (fr.length < 10) continue;
+    const H = tall(fr[0]), rel = (j) => [(j.head || j.top)[0] - j.hip[0], (j.head || j.top)[1] - j.hip[1]], r0 = rel(fr[0]), m = Math.max(...fr.map((j) => Math.hypot(rel(j)[0] - r0[0], rel(j)[1] - r0[1])));
+    report('recoil', nm, m >= RECOIL * H, `the head is thrown ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px against the hip (≥ ${100 * RECOIL} %)`); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');

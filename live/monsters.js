@@ -78,6 +78,7 @@
       // only walking across: walking down it put the hand in step with its own leg
       const lagged = o.armLag ? rs[0] + sg * (side === 'L' ? -1 : 1) * Math.cos(ph - o.armLag * Math.abs(vxn)) * 0.4 * run * (o.swingK ?? 1) * 0.8 : base;
       let r = o.arm ? o.arm(side, base) : [base, lagged + rs[1] - rs[0] + (lagged - rs[0]) * -0.4];
+      if (o.flinch) r = [r[0] + (side === 'L' ? 0.65 : 0.5) * o.flinch, r[1] + 0.8 * o.flinch];   // flung wide by a blow (TASKS 1804)
       if (o.handTarget) {
         const E0 = RG['elbow' + side], E = rotP(E0, S0, r[0]), Hd = rotP(rotP(Hd0, S0, r[0]), E, r[1] - r[0]);
         const rest = R2U(Hd[0], Hd[1] + hipDy), T = o.handTarget(side, rest);
@@ -218,8 +219,8 @@
     // the staff is set down once a stride (TASKS 1801): planted, it tilts back as the body passes it, then is lifted and swung ahead;
     // at rest it rocks a little with the breath
     const sq = ((ph / TAU) % 1 + 1) % 1, plant = sq < 0.62 ? lerp(-0.24, 0.24, sq / 0.62) : lerp(0.24, -0.24, SS(0, 1, (sq - 0.62) / 0.38));
-    const swing = run * 0.3 * Math.sin(ph + 1), staffR = (o.staff || 0) + run * plant + 0.05 * breath + (1 - run) * 0.04 * Math.sin(o.t * 0.9 + (o.seed || 0));
-    const push = o.push || 0, r1 = -swing - 0.09 * breath + lerp(0, o.aimR ?? -0.4, push) + (o.back || 0), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push) + 0.8 * (o.back || 0);
+    const swing = run * 0.3 * Math.sin(ph + 1), staffR = (o.staff || 0) + 0.35 * (o.flinch || 0) + run * plant + 0.05 * breath + (1 - run) * 0.04 * Math.sin(o.t * 0.9 + (o.seed || 0));
+    const push = o.push || 0, r1 = 0.8 * (o.flinch || 0) - swing - 0.09 * breath + lerp(0, o.aimR ?? -0.4, push) + (o.back || 0), r2 = r1 - 0.05 * breath + lerp(0, -0.1, push) + 0.8 * (o.back || 0);
     const E = rotP(RG.elbowR, RG.shR, r1), Hd = rotP(rotP(RG.handR, RG.shR, r1), E, r2 - r1), HdL = rotP(RG.handL, RG.shL, staffR);
     part('farmL', RG.shL, R2U(...RG.shL), staffR, o.Ufar);
     L.sprite(tx + '__body', 0, 0, { m: M.of(M.t(...R2U(gx, gy)), M.r(rot), M.s(face, ky)), w: RG.w * s, h: RG.h * s, pivot: [gx * s, gy * s], u: hemX ? Object.assign({}, o.U, { lean: [hemX / (RG.w * s), 1] }) : o.U });
@@ -666,7 +667,7 @@
   // o: { id, H, face, lean, crouch, fallR, U, Ufar, t }
   MON.draw = (e, E, x, y, GT, o) => {
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
-    const base = { strideK: STRIDE_K[e.type], lift: e.type === 'goblin' ? 0.055 : undefined, item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
+    const base = { strideK: STRIDE_K[e.type], lift: e.type === 'goblin' ? 0.055 : undefined, item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, flinch: o.flinch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
     if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
     if (n === 'skeleton' || n === 'goblin') {

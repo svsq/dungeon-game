@@ -319,7 +319,11 @@
     function drawLive() {
     if (E.mimic) return drawMimic();
     if (E.blood === 'slime') return drawSlime();
-    if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, fl = hA >= 0 ? SS(0, 0.08, hA) * (1 - SS(0.12, 0.32, hA)) : 0;   // a hit flinches the upper body away from the hero
+    // a hit flinches the upper body away from the hero, by its weight (TASKS 1804: every type nodded the same 0.07 of its height and the
+    // knock-back did the rest): a light body is thrown back from the waist, arms flung wide, and held there two frames; a heavy one
+    // (heavy, or as broad as the brute) only sinks a twentieth of its height and holds one
+    if (MONSTERS.rigOf(e.type)) { const hA = GT - e.hitT, big = !!(E.heavy || E.r >= 20 || D.BOSSES[e.type]), hold = big ? 1 / 60 : 2 / 60, rise = big ? 0.06 : 0.11, fl = hA >= 0 ? SS(0, rise, hA) * (1 - SS(rise + hold, 0.4, hA)) : 0;
+      const RGh = RIGS[MONSTERS.rigOf(e.type)].h, flLean = (big ? 0.06 : 0.3) * fl * e.face, flCrouch = big ? 0.05 * RGh * fl : 4 * fl, flArms = big ? 0.2 * fl : fl;
       const Ur = Object.assign({ alpha, grade }, rim, cut), Uf = Object.assign({ alpha, grade: hit ? grade : [grade[0] * 0.85, grade[1] * 0.72, 0, 1] }, cut), dy = sub * h * 1.02;
       const sw = swimOf(e, GT); if (sw > 0) { Ur.grade = [Ur.grade[0], Ur.grade[1] * (1 - 0.3 * sw), 0, Ur.grade[3]]; if (e.st === 'soak' && e.soaked) Ur.alpha = alpha * (1 - 0.5 * SS(0, 0.5, GT - e.soakT) * SS(0.5, 0.9, sw)); }   // (solid again as it heaves out, TASKS 1054: it rose as a see-through pale fill)
       // (a salamander sunk in the lava shows only over the open lava, TASKS 460: not over a slab or the bank by it)
@@ -327,11 +331,11 @@
       // see-through shape; and its glow is clipped as its body is, else it lit the bank in a flat pale fill)
       let clip = null; if (sw > 0 && e.type === 'salamander' && LAVA_CLIP) { clip = swimClip(sw); Object.assign(Ur, clip); Object.assign(Uf, clip); }
       const P = (p) => (L.pre ? M.ap(L.pre, p) : p);
-      const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub, swim: sw });
+      const rig = () => { const r = MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - flLean, crouch: flCrouch, flinch: flArms, fallR: 0, U: Ur, Ufar: Uf, t, rise: 1 - sub, swim: sw });
         if (r && r.head && E.lake) RIM.heads[e.id] = P(r.head);
         if (r && r.arms && e.type === 'imp' && e.st === 'wind' && !e.claw) RIM.imps[e.id] = P(r.R2U(r.arms.R.Hd[0], r.arms.R.Hd[1])); if (r && r.mouth) RIM.salams[e.id] = [r.mouth, r.fa]; if (r && r.priest) RIM.priests[e.id] = [r.staffHead, r.handR]; else if (r && r.handR) RIM.hands[e.id] = r.handR; if (e.fireT > GT && MONSTERS.wpn['en' + e.id]) RIM.kindled[e.id] = MONSTERS.wpn['en' + e.id]; if (r && r.palm) RIM.mages[e.id] = [r.pearl, r.palm, r.gather]; if (r && r.fire) RIM.embers[e.id] = r.fire; };
       halo(rig); if (edge && !(sw > 0)) rimFlash(rig); L.inked(rig, { r: 2, n: 8, col: INK, dy: 0, emit: true, rim: sw > 0 ? null : edgeOf() }); if (RIM.embers[e.id]) emberFire(e, E, RIM.embers[e.id], GT, t); if (RIM.priests[e.id]) priestFire(e, RIM.priests[e.id], t); if (RIM.kindled[e.id]) weaponFire(e, RIM.kindled[e.id], GT, t);
-      if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - 0.14 * fl * e.face, crouch: 6 * fl, fallR: 0, U: Object.assign({ alpha: k * alpha }, clip), Ufar: Object.assign({ alpha: k * alpha }, clip), t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
+      if (GLOWTEX[e.type]) { const k = monGlow(e, E, GT, t); if (k > 0.01) { G.blend('emit'); MONSTERS.draw(e, E, x, y + dy, GT, { id: 'en' + e.id, H: h, face: e.face, lean: lean - flLean, crouch: flCrouch, flinch: flArms, fallR: 0, U: Object.assign({ alpha: k * alpha }, clip), Ufar: Object.assign({ alpha: k * alpha }, clip), t, tex: GLOWTEX[e.type], swim: sw }); G.blend(); } }
       return; }
     // the mimic (TASKS 367, 1670) wears the chest it hid as: that chest's own painting cut along its lid line, so waking changes neither size nor rank. It squats and gapes
     // through the wind-up, flies with its mouth open and bites shut as it lands; between the leaps it claps its lid in step
