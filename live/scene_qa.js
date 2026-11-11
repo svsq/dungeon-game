@@ -1814,6 +1814,10 @@
     // (TASKS 1708) the motion check isolates an actor by these names: the hero walks in his starting leather and cloth, whose parts
     // carry suffixes, and the fire priest wears the cultist's rig in its own paint; listed by hand, only the cape and nothing were measured
     const heroSpr = Object.keys(ASSETS).filter((a) => a.startsWith('hero__')).concat(['it_sword', 'it_longsword', 'it_shield', 'it_shield_t']);
+    // (TASKS 1765) a window over the world is staged a second after the floor opens, when the only lit room hides under the window
+    // and the frame reads black; a player pauses on a floor already walked, and brightness from the pause is judged on that world
+    const overWorld = (S) => S.run && !S.run.town && (S.screen === 'pause' || S.screen === 'altar' || S.screen === 'note' || S.screen === 'notes' || (S.screen === 'settings' && S.setFrom === 'pause'));
+    for (const [, S] of states) if (overWorld(S)) S.run.seen.fill(1);
     const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles, folkCyc),
       sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, heroSpr])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); const pn = k.startsWith('fire_priest_') ? 'priest' : n; return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a.startsWith(pn + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),
