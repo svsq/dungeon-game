@@ -1690,6 +1690,9 @@
     // the town's loop for the player (TASKS 1033): the notice board full (every giver with an offer, the longest names) and empty;
     // a townsman answering a blow; the minimap's ! and ?; the scroll slot and its hint at low health on a floor
     states.push(['town_board', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); S.screen = 'board'; S.hover = 'take:1'; })]);
+    // TASKS 1878: the second row just taken stays in place, dimmed, its button out with «Взято»; the pointer on the row under it
+    states.push(['town_board_took', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 }));
+      S.bdRows = SIM.Q.boardOffers(R).map(({ role, of }) => ({ role, q: JSON.parse(JSON.stringify(of.q)) })); SIM.giveQuest(S, R, S.bdRows[1].role); S.bdTook = [1]; S.screen = 'board'; S.hover = 'take:2'; })]);
     states.push(['town_board_empty', keeperS((S, R) => { R.offers = []; R.offerB = 99; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; S.screen = 'board'; })]);
     states.push(['town_ouch', keeperS((S, R, h) => { const g = R.folk.find((q) => q.role === 'guard'); g.hitT = S.t - 0.25; g.ouch = 2; h.x = g.x - 40; h.y = g.y + 8; R.cam = [g.x - SCX.VW / 2, g.y - 40 - SCX.VH / 2]; })]);
     states.push(['scroll_tip', climbS(2, (S, R, m, h) => { h.bag[5] = { b: 'scroll', n: 3, id: R.nextId++ }; h.hp = 6; R.msg = { s: TXT('QA.msg.s.2'), t: S.t - 0.5, d: 4.5, tip: 'scroll' }; })]);

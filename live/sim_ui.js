@@ -372,12 +372,16 @@
     if ((it.rar || 0) < 4 || again(S, 'sell', it)) sell(S, R, i); else ev(S, { k: 'ask', x, y, s: TXT('sim_ui.shop.sellAsk', { p1: SIMX.itemName(it) }) }); };
   // one way out of every window (TASKS 1863 д): Esc or the key that opened it, and its own button; the talk alone keeps E for its pages
   // the notice board (TASKS 1033): E or Esc closes it, a row's button takes its quest
+  // the rows stand as the board opened until it closes (TASKS 1878): a taken one stays in place with its button out, so the rows
+  // under it never slide up under the pointer and a second click takes nothing
   SCREEN.board = (S, inp, keys, x, y, click) => {
-    const R = S.run, L0 = R ? boardOffers(R) : [], U = UI.board(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
-    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
-    if (click && b && b.id.startsWith('take:') && L0[b.i]) giveQuest(S, R, L0[b.i].role);
+    const R = S.run; if (R && !S.bdRows) { S.bdRows = boardRows(R); S.bdTook = []; }
+    const L0 = S.bdRows || [], U = UI.board(L0.length), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    if (!R || keys.Escape || keys.KeyE || (click && b && b.id === 'close')) { S.screen = 'play'; S.bdRows = null; S.bdTook = null; return; }
+    if (click && b && b.id.startsWith('take:') && L0[b.i] && !S.bdTook.includes(b.i) && giveQuest(S, R, L0[b.i].role)) S.bdTook.push(b.i);
     return;
   };
+  const boardRows = (R) => boardOffers(R).map(({ role, of }) => ({ role, q: JSON.parse(JSON.stringify(of.q)) }));
   // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
   SCREEN.journal = (S, inp, keys, x, y, click) => {
     const R = S.run, L0 = R ? journalOf(R) : [], si = Math.max(0, L0.findIndex((q) => q.id === S.jsel));

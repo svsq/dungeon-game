@@ -1302,21 +1302,21 @@
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
   function board(S, R, t) {
-    const L0 = SIM.Q.boardOffers(R), U = D.UI.board(L0.length), P = U.P;
+    const L0 = S.bdRows || SIM.Q.boardOffers(R).map(({ role, of }) => ({ role, q: of.q })), took = S.bdTook || [], U = D.UI.board(L0.length), P = U.P;
     dim(0.6); parch('board', P);
     lab('bd_t', TXT('hud.board'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
     const cb = U.r.find((q) => q.id === 'close'); panel('bd_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('bd_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     hintC('bd_keys', TXT('hud.board.2'), P.y + P.h - 30);
     if (!L0.length) { wrapLab('bd_none', TXT('hud.board.3'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
-    L0.slice(0, 7).forEach(({ role, of }, i) => { const q = of.q, Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic;
-      panel('bd_r' + i, P.x + 30, y, P.w - 60, 96, { r: 6 });
+    L0.slice(0, 7).forEach(({ role, q }, i) => { const Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic, gone = took.includes(i);
+      panel('bd_r' + i, P.x + 30, y, P.w - 60, 96, { r: 6, a: gone ? 0.7 : undefined });
       if (ic) { panel('bd_ic' + i, P.x + 46, y + 18, 60, 60, { r: 6 }); icon(ic, P.x + 52, y + 24, 48); }
       const X = P.x + (ic ? 124 : 50);
-      lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('bd_n' + i, Q.name, X, y + 28, { size: 24, col: gone ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('bd_f' + i, TXT('hud.board.4', { name: D.FOLK[role].name, f: q.f }), X, y + 56, { size: 20, col: C.dim });
       wrapLab('bd_x' + i, Q.text(q), P.x + 700, y + 18, P.w - 970, 20, C.text);
       lab('bd_w' + i, TXT('hud.board.5', { p1: SIM.Q.rwLine(q.rw) }), X, y + 80, { size: 20, col: '#d8b870' });
-      button('bd_take' + i, Object.assign({}, b, { label: TXT('hud.board.label') }), S.hover); });
+      button('bd_take' + i, Object.assign({}, b, gone ? { label: TXT('hud.board.took'), on: false } : { label: TXT('hud.board.label') }), S.hover); });
   }
   // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
   const QST = { done: [TXT('QST.done'), '#8fd98a'], taken: [TXT('QST.taken'), '#e8c890'], turned: [TXT('QST.turned'), '#8a7d6c'] };

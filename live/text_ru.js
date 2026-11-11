@@ -1073,6 +1073,7 @@
     'hud.board.4': '{name} · {f}-й этаж',
     'hud.board.5': 'Награда: {p1}',
     'hud.board.label': 'Взять',
+    'hud.board.took': 'Взято',
     'QST.done': 'Выполнено',
     'QST.taken': 'В пути',
     'QST.turned': 'Сдано',
