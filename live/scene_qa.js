@@ -274,6 +274,8 @@
       m.decor = m.decor.filter((d) => DUNGEON.roomAt(m, d.x, d.y) !== rm.id); m.traps = [];
       R.seen.fill(1); R.rseen.fill(1); R.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; S.ev = [];
       if (kind === 'whirl') { h.whirlT = h.castT = S.t - age; h.whirlA = 0; h.castK = 'whirl'; S.ev = [{ k: 'whirl', x: h.x, y: h.y, a: 0, r: D.abRank('whirl', 1).r, rar: 0, t: S.t - age }]; }
+      // (the mage's spells on the mage, TASKS 1795: on the warrior the fireball came out of his sword)
+      if (kind === 'fireball' || kind === 'boom') { h.cls = 'mage'; h.eq.weapon = Object.assign({}, h.eq.weapon, { b: 'staff' }); h.eq.armor = Object.assign({}, h.eq.armor, { b: 'robe' }); }
       if (kind === 'fireball') { h.castT = S.t - age; h.castK = 'fireball'; const [hx, hy] = SIM.hand(h);
         R.proj = [{ id: 9900, k: 'fire', x: hx + 520 * age, y: hy, vx: 520, vy: 0, t0: S.t - age, life: 1.1, own: 'hero', r: 8 }]; }
       if (kind === 'boom') S.ev = [{ k: 'boom', x, y: y - 24, gx: x, gy: y, t: S.t - age }];

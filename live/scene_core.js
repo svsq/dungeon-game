@@ -134,7 +134,7 @@ void main(){ vec2 w = u_box.xy + v_uv * u_box.zw;
   if (e < 0.2) discard;
   float d = (e - 0.5) / max(length(vec2(dFdx(mk), dFdy(mk))), 0.002);   // px inside the shore (negative outside): bands keep their width in any pool
   vec2 fl = (texelFetch(u_mask, ivec2(w / u_map * vec2(textureSize(u_mask, 0))), 0).gb - 0.5) * 2.0;
-  vec3 f = field(w - fl * 12.0 * u_t - vec2(u_t * 3.0, u_t * 2.0));
+  vec3 f = field(floor(w / 2.0) * 2.0 + 1.0 - floor((fl * 12.0 * u_t + vec2(u_t * 3.0, u_t * 2.0)) / 2.0) * 2.0);   // (the flow in whole art px, TASKS 1795: a fractional shift laid cell edges on the odd px)
   float inside = smoothstep(-0.8, 0.8, d), lip = step(0.0, d) * step(d, 2.0) * step(0.35, fbm(w / 12.0 + vec2(0.0, u_t * 0.3)));
   vec3 Y = vec3(1.0, 0.72, 0.16), O = vec3(0.95, 0.33, 0.03), Rd = vec3(0.72, 0.1, 0.02), V = vec3(0.4, 0.05, 0.02);
   vec3 col = f.x < -0.04 ? Y : f.x < 0.0 ? O : f.y > 0.6 ? O : f.y > 0.4 ? Rd : V;

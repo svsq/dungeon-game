@@ -91,13 +91,13 @@
     // is the painted basalt arch, its opening over the river (the lava runs on under it), scaled to the river's width; one over a
     // river across the screen shows only its causeway of column tops
     const SLAB = ['slab_mg_a', 'slab_mg_b', 'slab_mg_c'], basaltOcc = [], INKC = [0.03, 0.025, 0.03]; PROP_BAS.length = 0; OCC_SOLIDS.length = 0; DECK.dy = 0; DECK.tgt = 0;
-    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n);
+    const basaltSlabs = (c, cells = c.cells) => { for (const k of cells) { const n = SLAB[Math.floor(3 * rnd(k, 7))], [w, hh] = SZ(n), q = 0.92 * (0.86 + 0.14 * rnd(k, 11));   // (each a little its own size, TASKS 1795: a row of them read as one stamp repeated)
       const x = (k % m.W + 0.5) * TILE + ev2((rnd(k, 5) - 0.5) * 8), y = (Math.floor(k / m.W) + 0.5) * TILE + ev2((rnd(k, 6) - 0.5) * 6), foot = ev2(sy(y) + hh * 0.5);
       // (the hot line only where the lava itself lies under its foot, shorter and off its middle, TASKS 1039: under every row of a
       // wide crossing it ruled the slabs into a cobbled road)
       // (the slab stands on the lava, TASKS 1629: flat on it without a lower face or a dark line under it)
-      L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: rnd(k, 9) < 0.5, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
-      drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5, k: 0.92, warm: HERO.lavaWarm(x, y) }); basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, rnd(k, 9) < 0.5]); } };
+      L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * q / 2), ev2(foot - hh * q + 3), { w: ev2(w * q), h: ev2(hh * q), flip: rnd(k, 9) < 0.5, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
+      drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5, k: q, warm: HERO.lavaWarm(x, y) }); basaltOcc.push([n, sx(x) - w * q / 2, foot - hh * q, w * q, hh * q, rnd(k, 9) < 0.5]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
       if (c.axis !== 'x' || SIM.Q.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
       // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
