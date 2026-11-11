@@ -7,13 +7,19 @@ import { createRequire } from 'node:module';
 const skill = path.join(os.homedir(), '.claude/skills/ref2game/scripts');
 const { chromium } = createRequire(path.join(skill, 'qa.mjs'))(path.join(skill, 'node_modules/playwright'));
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const seed = +opt('seed', 3), frames = +opt('frames', 60), out = opt('out', 'frames/frameprof');
+// --runs run1,cave,magma,run2 (TASKS 1373): which runs to measure; the whole set takes over 25 minutes on the Steam Deck
+const seed = +opt('seed', 3), frames = +opt('frames', 60), runs = opt('runs', 'run1,cave,magma,run2').split(','), out = opt('out', 'frames/frameprof');
 fs.mkdirSync(out, { recursive: true });
 const server = http.createServer((q, r) => { const file = path.join(process.cwd(), decodeURIComponent(q.url.split('?')[0]));
   fs.readFile(file, (err, bytes) => { if (err) { r.writeHead(404); r.end(); return; } r.setHeader('Content-Type', file.endsWith('.js') ? 'application/javascript' : file.endsWith('.png') ? 'image/png' : 'text/html'); r.end(bytes); }); });
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--expose-gc', '--enable-precise-memory-info'] });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+// --cdp http://127.0.0.1:9333: a Chrome already running with --remote-debugging-port (TASKS 1373: on the Steam Deck the Flatpak
+// Chrome, the browser the game is played in; start it with --js-flags=--expose-gc --enable-precise-memory-info). Without it, Playwright's own Chromium
+const cdp = opt('cdp', ''), vw = +opt('w', 1920), vh = +opt('h', 1080);
+// --angle vulkan|gl|default (TASKS 1373): ANGLE's backend; on the Deck the OpenGL one costs far more CPU per draw than Vulkan
+const angle = opt('angle', process.platform === 'darwin' ? 'metal' : 'default'), vk = angle === 'vulkan' ? ['--enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE'] : [];
+const browser = cdp ? await chromium.connectOverCDP(cdp) : await chromium.launch({ args: ['--use-angle=' + angle, ...vk, '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--expose-gc', '--enable-precise-memory-info'] });
+const page = cdp ? await (await browser.newContext({ viewport: { width: vw, height: vh } })).newPage() : await browser.newPage({ viewport: { width: vw, height: vh } });
 const errors = []; page.on('pageerror', (e) => errors.push(e.message));
 // hooked on the prototype before the page runs: the assets and first targets are created before __ready and would go uncounted
 await page.addInitScript(() => {
@@ -51,8 +57,11 @@ try {
     if (errors.length) { console.log('page errors:\n' + errors.slice(0, 5).join('\n')); process.exitCode = 2; }
     await browser.close(); server.close(); process.exit(process.exitCode || 0);
   }
-  result = await page.evaluate(([seed, frames]) => {
-    const gl = G.gl, X = window.SCX, base = SCENE.QA().states.find(([n]) => n === 'zone_magma')[1];
+  result = await page.evaluate(([seed, frames, runs]) => {
+    // the base is QA's play() (scene_qa.js), not SCENE.QA() itself: that builds every QA state, minutes on the Steam Deck (TASKS 1373),
+    // and each run below replaces the base's run anyway
+    const gl = G.gl, X = window.SCX, base = SIM.spawn(0, {}); base.meta.shards = 9999; SIM.step(base, { keys: [] }); base.run = SIM.newRun(base, 'campaign', 1234); base.screen = 'play';
+    for (let i = 0; i < 30; i++) SIM.step(base, { px: 960, py: 540, keys: [] });
     const C = window.__gpu, live = C.live; let cur = 'other', tg = null, fin = false, drawP = null, drawXf = null;
     const gBind = G.bind; G.bind = (t, c) => { tg = t; gBind(t, c); };
     let pass = {}, prog = {};
@@ -92,12 +101,11 @@ try {
       for (const f of list) { const a = performance.now(); if (f !== null) SIM.enterFloor(S, S.run, f); const enterMs = round(performance.now() - a, 1); const row = measure(S, S.run, `${tag} f${f === null ? 0 : f}`); row.enterMs = enterMs; rows.push(row); mems.push({ at: row.label, ...row.mem }); } };
     const seq = [null, ...Array.from({ length: DATA.RUNS.campaign.floors }, (_, i) => i + 1)];
     mems.push({ at: 'start', ...mem() });
-    floorRun('campaign', { town: 1 }, seq, 'run1');
-    floorRun('cave', {}, [1, 2, 3, 4], 'cave');
-    floorRun('magma', {}, [1, 2, 3, 4], 'magma');
-    floorRun('campaign', { town: 1 }, seq, 'run2');
-    return { rows, mems, renderer: gl.getParameter(gl.RENDERER), canvas: [gl.drawingBufferWidth, gl.drawingBufferHeight] };
-  }, [seed, frames]);
+    const plan = { run1: ['campaign', { town: 1 }, seq], cave: ['cave', {}, [1, 2, 3, 4]], magma: ['magma', {}, [1, 2, 3, 4]], run2: ['campaign', { town: 1 }, seq] };
+    for (const k of runs) floorRun(...plan[k], k);
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    return { rows, mems, renderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER), canvas: [gl.drawingBufferWidth, gl.drawingBufferHeight] };
+  }, [seed, frames, runs]);
 } finally { await browser.close(); server.close(); }
 fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify(result, null, 1));
 const P = ['world', 'light', 'fx', 'post', 'hud'];

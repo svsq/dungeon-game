@@ -123,16 +123,25 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   const unitTex = [];
   dropBinds = () => { unitTex.length = 0; };
   const sameVec = (u, v) => { const l = u.last; if (!l || l.length !== v.length) { u.last = new Float64Array(v); return false; } let eq = true; for (let i = 0; i < v.length; i++) if (l[i] !== v[i]) { l[i] = v[i]; eq = false; } return eq; };
+  // a plain array is converted value by value on each call; a typed array of the same float32s is handed over as it is (TASKS 1372)
+  const f32 = (u, v) => { let a = u.f32; if (!a || a.length !== v.length) a = u.f32 = new Float32Array(v.length); a.set(v); return a; };
   const sameNum = (u, v) => { if (u.last === v) return true; u.last = v; return false; };
-  const setU = (P, k, v) => {
-    const u = P.loc[k]; if (!u) return;
+  const setU = (P, k, v) => { const u = P.loc[k]; if (u) setL(u, v); };
+  // a program's own uniforms (past u_res, u_xf, u_flip) set from U by a function made for it, each field read by its name:
+  // looking every key of U up in loc cost the Steam Deck a tenth of its frame (TASKS 1372); a sampler's unit follows loc's order
+  const setterOf = (P) => {
+    const keys = Object.keys(P.loc).filter((k) => k !== 'u_res' && k !== 'u_xf' && k !== 'u_flip'), locs = keys.map((k) => P.loc[k]);
+    if (!keys.every((k) => /^[A-Za-z_]\w*$/.test(k))) return (U) => { for (let i = 0; i < keys.length; i++) if (keys[i] in U) setL(locs[i], U[keys[i]]); };
+    return new Function('setL', 'locs', 'return function (U) {' + keys.map((k, i) => ` if ('${k}' in U) setL(locs[${i}], U.${k});`).join('') + ' };')(setL, locs);
+  };
+  const setL = (u, v) => {
     const T = gl;
     if (u.type === T.SAMPLER_2D) { const tx = v.t || v, n = unit++; if (unitTex[n] !== tx) { unitTex[n] = tx; gl.activeTexture(gl.TEXTURE0 + n); gl.bindTexture(gl.TEXTURE_2D, tx); } if (!sameNum(u, n)) gl.uniform1i(u.l, n); }
     else if (u.type === T.FLOAT) { if (!sameNum(u, v)) gl.uniform1f(u.l, v); }
-    else if (u.type === T.FLOAT_VEC2) { if (!sameVec(u, v)) gl.uniform2fv(u.l, v); }
-    else if (u.type === T.FLOAT_VEC3) { if (!sameVec(u, v)) gl.uniform3fv(u.l, v); }
-    else if (u.type === T.FLOAT_VEC4) { if (!sameVec(u, v)) gl.uniform4fv(u.l, v); }
-    else if (u.type === T.FLOAT_MAT3) { if (!sameVec(u, v)) gl.uniformMatrix3fv(u.l, false, v); }
+    else if (u.type === T.FLOAT_VEC2) { if (!sameVec(u, v)) gl.uniform2fv(u.l, f32(u, v)); }
+    else if (u.type === T.FLOAT_VEC3) { if (!sameVec(u, v)) gl.uniform3fv(u.l, f32(u, v)); }
+    else if (u.type === T.FLOAT_VEC4) { if (!sameVec(u, v)) gl.uniform4fv(u.l, f32(u, v)); }
+    else if (u.type === T.FLOAT_MAT3) { if (!sameVec(u, v)) gl.uniformMatrix3fv(u.l, false, f32(u, v)); }
     else if (u.type === T.INT) { if (!sameNum(u, v)) gl.uniform1i(u.l, v); }
   };
   G.draw = (P, U, xf, flip = [0, 0]) => {
@@ -142,7 +151,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
     setU(P, 'u_res', res); setU(P, 'u_xf', xf); setU(P, 'u_flip', flip);
-    for (const k in U) setU(P, k, U[k]);
+    (P.setAll || (P.setAll = setterOf(P)))(U);
     if (!attrSet) { attrSet = true; gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };

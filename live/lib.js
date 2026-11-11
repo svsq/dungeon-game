@@ -415,6 +415,11 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   const DEF = { alpha: 1, lod: 0, src: [0, 0, 1, 1], grade: [1, 1, 0, 1], haze: [0.93, 0.88, 0.76], sway: [0, 0, 0, 0], pad: [0, 0], rim: [0, 0, 0, 0],
     rimCol: [1, 0.85, 0.55], tint: [1, 1, 1, 0], pale: 0, fade: [0, 0], vfade: 0, tfade: 0, bulge: [0, 0, 0, 0], bend: [0, 0, 0, 0], lean: [0, 0], jelly: [0, 0, 1, 0], cut: [0, 0, 0], clipk: 0, clipr: 0, reveal: [0, 0, 0], disc: 0, bone0: [0, 0, 0, 0], bone1: [0, 0, 0, 0], bone2: [0, 0, 0, 0], wsz: [1, 1] };
   const UNAME = {};
+  // a sprite's uniforms under the shader's names in one fixed shape, the defaults set in the constructor: a plain object merged
+  // key by key from ~35 fields left V8's fast properties and cost a sixth of the Deck's frame (TASKS 1372)
+  const SU = new Function('D', 'return function SU() {' + Object.keys(DEF).map((k) => `this.u_${k} = D.${k};`).join(' ') + ' this.u_tex = null; this.u_snap = undefined; this.u_pad = null; };')(DEF);
+  for (const k in DEF) UNAME[k] = 'u_' + k;
+  const SP_INK = [0, 0, 1, 1], SP_SOFT = [0, 0, 0, 1], SP_RIM = [0, 0, 0, 0], SP_TINT = [1, 1, 1, 0];
   L.pre = null;  // affine (M.*) applied to every sprite on top of its own placement
   L.SNAP = 0;    // 1: sprites drawn now snap to the target's pixel grid (u_snap), unless their u.snap says otherwise
   L.sp = null;   // pass override: { dx, dy, a, lod } = soft drop shadow, { ..., ink: [r,g,b] } = flat ink silhouette
@@ -435,9 +440,10 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
     else { X = G.xf(x - pw, y - ph, w + 2 * pw, h + 2 * ph, rot, piv[0] + pw, piv[1] + ph);
       if (L.pre) { const F = M.mul(L.pre, [X[0], X[1], X[3], X[4], X[6], X[7]]); X = [F[0], F[1], 0, F[2], F[3], 0, F[4], F[5], 1]; } }
     if (!G.rec && G.outside(X)) return { w, h };
-    const U = Object.assign({}, DEF, o.u || {}, { u_tex: tx }); if (U.snap === undefined) U.snap = L.SNAP;
-    if (sp) Object.assign(U, { grade: sp.ink ? [0, 0, 1, 1] : [0, 0, 0, 1], haze: sp.ink || U.haze, alpha: sp.a * (U.alpha === undefined ? 1 : U.alpha), lod: sp.lod || 0, rim: [0, 0, 0, 0], tint: [1, 1, 1, 0], pale: 0 });
-    const uni = {}; for (const k in U) uni[UNAME[k] || (UNAME[k] = k.startsWith('u_') ? k : 'u_' + k)] = U[k];
+    const uni = new SU(), ou = o.u;
+    if (ou) for (const k in ou) uni[UNAME[k] || (UNAME[k] = k.startsWith('u_') ? k : 'u_' + k)] = ou[k];
+    uni.u_tex = tx; if (uni.u_snap === undefined) uni.u_snap = L.SNAP;
+    if (sp) { uni.u_grade = sp.ink ? SP_INK : SP_SOFT; uni.u_haze = sp.ink || uni.u_haze; uni.u_alpha = sp.a * (uni.u_alpha === undefined ? 1 : uni.u_alpha); uni.u_lod = sp.lod || 0; uni.u_rim = SP_RIM; uni.u_tint = SP_TINT; uni.u_pale = 0; }
     uni.u_pad = [pad / (1 + 2 * pad), pad / (1 + 2 * pad)];
     uni.u_src = src;
     if (G.rec && sp === REC_SP) { const pr = L.pre || M_ID; G.rec.push({ U: uni, X, flip: [o.flip ? 1 : 0, 0], x: X[6], y: X[7], al: uni.u_alpha, pre: pr }); return { w, h }; }

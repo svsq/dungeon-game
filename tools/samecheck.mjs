@@ -63,7 +63,8 @@ if (only.includes('frames')) {
       r.setHeader('Content-Type', f.endsWith('.js') ? 'application/javascript' : f.endsWith('.png') ? 'image/png' : 'text/html'); r.end(bytes); });
   });
   await new Promise((res) => server.listen(0, '127.0.0.1', res));
-  const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist'] });
+  // SCENE.QA() keeps every transition's frames: past V8's default heap on the Steam Deck it stalls for good (TASKS 1373)
+  const browser = await chromium.launch({ args: ['--use-angle=' + (process.platform === 'darwin' ? 'metal' : 'default'), '--enable-gpu', '--ignore-gpu-blocklist', '--js-flags=--max-old-space-size=8192'] });
   const errors = [];
   try {
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
