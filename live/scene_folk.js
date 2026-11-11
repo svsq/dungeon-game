@@ -32,11 +32,13 @@
     // a talk with the hero on the far side of the work (TASKS 1032): the work eases into a rest pose (hands in to the body, the tool
     // upright), the rig turns there, and only then does the talk pose come in; the same way back after. Turned straight from the
     // work pose the whole rig flipped with the tool in it: the smith's hammer jumped 54 px in a frame. rk: the rest's weight
-    const TURN = 0.3, fIn = f.sayT + TURN, fOut = Math.max(e0, fIn + TURN) + TURN, back = !route && FD.lines && f.face && f.face !== wf && GT >= f.sayT && GT < fOut + TURN;
+    // the Keeper's walk to the hero and back (TASKS 1849): he faces the way he goes and turns like a walker; gw eases his work out and in
+    const gA = f.walkA ?? 1e9, gB = f.walkB ?? 1e9, gOn = GT >= gA && GT < gB + 0.3, gw = gOn ? SS(gA, gA + 0.3, GT) * (1 - SS(gB, gB + 0.3, GT)) : 0;
+    const TURN = 0.3, fIn = f.sayT + TURN, fOut = Math.max(e0, fIn + TURN) + TURN, back = !route && !gOn && FD.lines && f.face && f.face !== wf && GT >= f.sayT && GT < fOut + TURN;
     let rk = 0;
     if (back) { rk = GT < fIn ? SS(f.sayT, fIn, GT) : GT < fOut - TURN ? 1 - SS(fIn, fIn + TURN, GT) : GT < fOut ? SS(fOut - TURN, fOut, GT) : 1 - SS(fOut, fOut + TURN, GT);
       tw = SS(fIn, fIn + TURN, GT) * (1 - SS(fOut - TURN, fOut, GT)); }
-    const face = back ? (GT >= fIn && GT < fOut ? f.face : wf) : (route || talkNow) && f.face ? f.face : wf;
+    const face = gOn && f.face ? f.face : back ? (GT >= fIn && GT < fOut ? f.face : wf) : (route || talkNow) && f.face ? f.face : wf;
     const RG = RIGS[nm], s = H / RG.h, gy = RG.foot ?? RG.footL[1], handAt = (sd, k = 1, dy = 0) => [X + face * k * (RG['hand' + sd][0] - RG.gap) * s, Yg + (RG['hand' + sd][1] + dy - gy) * s];
     const P = (dx, dy) => [X + face * dx * H, Yg + dy * H], mir = (q) => [X + (q[0] - X) * face * wf, q[1]];
     const talkR = P(0.27, -0.52 + 0.025 * Math.sin(GT * 5.3 + i)), talkL = P(0.08, -0.36);
@@ -71,13 +73,13 @@
       // leans on his staff and dozes off (the head sinks, jerks up), now and then pokes the fire: embers fly up on the poke
       // the staff stands out in front of him, its crook leaning off his face (TASKS 1032: it covered it); the poke is the arm's: the hand
       // goes out and down by IK, he crouches and leans in, and the staff turns its foot to the embers
-      const Fp = [sx(T.fire.x), sy(T.fire.y)], poke = bump01(u, 0.12, 0.42) * (1 - tw), dz = SS(0.5, 0.9, u) * (1 - SS(0.93, 0.97, u));
+      const Fp = [sx(T.fire.x), sy(T.fire.y)], poke = bump01(u, 0.12, 0.42) * (1 - tw) * (1 - gw), dz = SS(0.5, 0.9, u) * (1 - SS(0.93, 0.97, u)) * (1 - gw);
       const lean0 = 0.2 + 0.05 * Math.sin(GT * 0.9 + i), stand = P(0.32, -0.47), out = [X + (Fp[0] - X) * 0.5, Yg - 0.3 * H], hand = lerp2(stand, mir(out), poke);
       const ember = [Fp[0], Fp[1] - 6], dn = Math.atan2(ember[1] - hand[1], ember[0] - hand[0]), aim0 = face > 0 ? dn + Math.PI : -dn, aim = -Math.PI / 2 + lean0 + SCX.wrapPi(aim0 + Math.PI / 2 - lean0);
       tg = { R: lerp2(hand, talkR, tw * 0.6) };
       hold = { R: TOOL('town_tool_staff', lerp1(0.5, 0.62, poke), { abs: lerp1(-Math.PI / 2 + lean0, aim, poke) }) };
       headR = (0.32 * dz + 0.1 * poke) * (1 - tw) - 0.05 * tw; lean = face * (0.04 * dz + 0.16 * poke) * (1 - tw); crouch = 14 * poke;
-      if (u > 0.27 && u < 0.27 + 1.2 / c.per && tw < 0.5) fx = { k: 'embers', x: Fp[0], y: Fp[1] - 14, a: (u - 0.27) * c.per, seed: c.n * 5 + i };
+      if (u > 0.27 && u < 0.27 + 1.2 / c.per && tw < 0.5 && gw < 0.5) fx = { k: 'embers', x: Fp[0], y: Fp[1] - 14, a: (u - 0.27) * c.per, seed: c.n * 5 + i };
     } else if (f.role === 'guard') {
       // shifts his weight, now and then looks back over the yard, the spear upright in his hand
       // the look back is the head's alone (TASKS 1032): mirroring the whole guard swung his arm 39 px and the spear across
@@ -159,7 +161,7 @@
     { const a = GT - (f.hitT ?? -9), fl = a >= 0 && a < 0.5 ? Math.sin(Math.PI * a / 0.5) * (1 - a) : 0;
       if (fl > 0) { lean -= face * 0.14 * fl; crouch += 8 * fl; headR += 0.12 * fl; if (robe) robe = Object.assign({}, robe, { headR: robe.headR + 0.12 * fl, lift: (robe.lift || 0) - 3 * fl }); } }
     // a walker turns like a paper figure, over 0.14 s: mirrored in one tick the whole rig jumped by its own width (TASKS 1409)
-    const tT = route ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, 0.14, GT - tT) : 1, rigFace = turnK < 1 ? face * Math.sign(turnK * 2 - 1 || 1) * Math.max(0.1, Math.abs(turnK * 2 - 1)) : face;
+    const tT = route || gOn ? f.turnT : back && GT >= fIn ? (GT >= fOut ? fOut : fIn) : undefined, turnK = tT !== undefined ? SS(0, 0.14, GT - tT) : 1, rigFace = turnK < 1 ? face * Math.sign(turnK * 2 - 1 || 1) * Math.max(0.1, Math.abs(turnK * 2 - 1)) : face;
     drawFolkRig(f, n, nm, X, Yg, H, rigFace, GT, Y, { hold, handTarget: (sd) => { const q = tg[sd]; if (!q) return null; return [turnAbout + (q[0] - turnAbout) * rigFace / face, q[1]]; }, lean, headR, headF, crouch, front, robe, fx, arms: f.role === 'smith' || f.role === 'mason' || f.role === 'porter' });
     // the crate the porter set down by the merchant waits there until he brings the next
     if (f.role === 'porter' && !f.load && route) { const dp = route.find((q) => q.act === 'drop'), atDrop = atStop && f.lift === 'drop';

@@ -2,7 +2,7 @@
 // lootvis.mjs and the other checks render (references/engine.md §7). Built from the sim; reads the scene's inside through SCX.
 (function () {
   const SCX = window.SCX, { D, EN_TEX, GLOW, H, SC, SZ, TILE, TOWN_FACE, W } = SCX;
-  SC.QA = () => {
+  const build = () => {
     const mk = (fn) => { const S = SIM.spawn(0, {}); fn(S); return S; };
     const play = (fn) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); if (fn) fn(S); });
     const worst = (S) => { const h = S.run.hero; h.lvl = 99; h.gold = 999999; h.xp = 1; h.pts = 99; h.sp = 99; S.meta.shards = 99999; h.ab = { whirl: 5, fireball: 5, shield: 5 };
@@ -481,16 +481,16 @@
         R.en = []; R.proj = []; R.fires = []; S.ev = []; h.x = hx; h.y = hy; h.vx = h.vy = 0; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [hx - SCX.VW / 2, hy - SCX.VH / 2]; mgS = S; }
       const S = structuredClone(mgS); if (fn) fn(S); return S; };
     const playOf = (ty) => (MG.has(ty) ? playMg : play);
-    // each way a secret hides: whole, worked (a banner torn, a shelf swung, a statue slid, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
+    // each way a secret hides: whole, worked (a banner torn, a bookcase broken, a statue slid, a sconce pulled, a flagstone stepped on) at age `age`, and the room found behind it
     const secretS = (f, stage, age = 0, mode = 'campaign') => { for (let sd = 1; sd < 120; sd++) for (let fl = 1; fl <= (mode === 'cave' || mode === 'magma' ? 4 : 1); fl++) { const S = play(); S.run = SIM.newRun(S, mode, sd); if (fl > 1) SIM.enterFloor(S, S.run, fl); const R = S.run, m = R.map, q = m.secrets.find(f); if (!q) continue;
       if (SIM.secretMask(m).has(q.front[5][1] * m.W + q.front[5][0])) continue;
       const h = R.hero, P = q.trig; h.x = q.x - q.dx * 70 + (q.dy ? 50 : 0); h.y = q.y - q.dy * 80 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.aim = Math.atan2(q.dy, q.dx); R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1);
       R.cam = [q.x - SCX.VW / 2, q.y - SCX.VH / 2 - 40];
       // (TASKS 1682) the hero off the plinth, on the side the stone leaves, and no locked door's word over the statue
-      if (q.kind === 'statue') { h.x = q.x - q.slide.s * 96; h.y = q.y + 100; if (SIM.Q.doorNear(R, 64)) continue; }
+      if (q.slide) { h.x = q.x - q.slide.s * 96; h.y = q.y + 100; if (SIM.Q.doorNear(R, 64)) continue; }
       if (P && P.k === 'plate') { h.x = P.x + 40; h.y = P.y + 10; R.cam = [(q.x + P.x) / 2 - SCX.VW / 2, (q.y + P.y) / 2 - SCX.VH / 2 - 20]; }
       if (P && P.k === 'sconce') { const t2 = m.torches[P.t]; h.x = t2.x + 80; h.y = t2.y + 70; R.chests = R.chests.filter((c) => Math.hypot(c.x - h.x, c.y - h.y) > 120); R.cam = [(q.x + t2.x) / 2 - SCX.VW / 2, (q.y + t2.y) / 2 - SCX.VH / 2]; }
-      if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret'); S.ev[0].t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
+      if (stage >= 2) { S.ev = []; SIM.openSecret(S, R, q); q.openT = S.t - (stage === 2 ? age : 3); if (P) P.downT = q.openT; const cv = m.decor.find((o) => o.secret === m.secrets.indexOf(q) && o.brokeT !== undefined); if (cv) cv.brokeT = q.openT; S.ev = S.ev.filter((e) => e.k === 'secret' || e.k === 'break'); for (const e of S.ev) e.t = q.openT; R.msg = null; R.trauma = 0; R.freeze = 0; }
       if (stage === 4) { const r = m.rooms[q.room]; h.x = (r.cx + 0.5) * TILE; h.y = (r.y + r.h - 1) * TILE + 10; R.cam = [h.x - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; }
       return S; } };
     // doors from the room (the corridor behind under the fog) and from the corridor (the room unseen), shut, swinging, open; the
@@ -530,11 +530,20 @@
     const sconce = (o) => o.trig && o.trig.k === 'sconce', plate = (o) => o.trig && o.trig.k === 'plate';
     for (const [n, f, stage, age] of [
       ['secret_banner', (o) => o.kind === 'banner', 0], ['secret_banner_fall', (o) => o.kind === 'banner', 2, 0.25], ['secret_banner_down', (o) => o.kind === 'banner', 3], ['secret_room', (o) => o.kind === 'banner', 4],
-      ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_swing', (o) => o.kind === 'shelf', 2, 0.2], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
+      ['secret_shelf', (o) => o.kind === 'shelf', 0], ['secret_shelf_break', (o) => o.kind === 'shelf', 2, 0.2], ['secret_shelf_books', (o) => o.kind === 'shelf', 2, 0.9], ['secret_shelf_open', (o) => o.kind === 'shelf', 3],
       ['secret_sconce', sconce, 0], ['secret_sconce_sink', sconce, 2, 0.8], ['secret_sconce_open', sconce, 3],
       ['secret_plate', plate, 0], ['secret_plate_sink', plate, 2, 0.8], ['secret_plate_open', plate, 3],
       ['secret_statue', (o) => o.kind === 'statue', 0], ['secret_statue_slide', (o) => o.kind === 'statue', 2, 0.6], ['secret_statue_knock', (o) => o.kind === 'statue', 2, 1.25], ['secret_statue_open', (o) => o.kind === 'statue', 3],
       ['secret_wall_lever', (o) => o.trig && o.trig.k === 'lever', 0], ['secret_wall_lever_open', (o) => o.trig && o.trig.k === 'lever', 3]]) { const S = secretS(f, stage, age); if (S) states.push([n, S]); }
+    // (TASKS 1852) a bookcase rocking to a blow short of its third; one broken after a save and a load; one saved open on its hinge
+    // (0.3.0) or slid along the wall (a build of 1851) loads broken at its own place, never as a squeezed strip or moved
+    { const S = secretS((o) => o.kind === 'shelf', 0); if (S) { const R = S.run, m = R.map, q = m.secrets.find((o) => o.kind === 'shelf'), d = m.decor.find((o) => o.secret === m.secrets.indexOf(q));
+        S.ev = []; SIM.hitProps(S, R, d.x, d.y + 30, 40); for (const e of S.ev) e.t = S.t - 0.06; R.msg = null; R.trauma = 0; if (q.hits === 1) states.push(['secret_shelf_hit', S]); } }
+    { const S = secretS((o) => o.kind === 'shelf', 3); if (S) { S.run = JSON.parse(JSON.stringify(S.run)); SIM.migrateSecrets(S.run); states.push(['secret_shelf_loaded', S]); } }
+    for (const [n, slid] of [['secret_shelf_loaded_hinge', 0], ['secret_shelf_loaded_slid', 1]]) { const S = secretS((o) => o.kind === 'shelf', 0); if (!S) continue; const R = S.run, m = R.map, i = m.secrets.findIndex((o) => o.kind === 'shelf'), q = m.secrets[i], d = m.decor.find((o) => o.secret === i), k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE);
+      q.open = 1; q.openT = S.t - 30; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1; m.block = m.block.filter((b) => b !== k0);
+      if (slid) { q.slide = { s: 1, n: 3 }; d.x = q.x + 3 * TILE; d.solid = 1; m.block.push(k0 + 3); } else { q.hinge = 1; d.solid = 0; d.broken = 1; }
+      S.run = JSON.parse(JSON.stringify(R)); SIM.migrateSecrets(S.run); states.push([n, S]); }
     // puzzles (TASKS 1692): three levers with their tallies, then one pulled; three unlit candles with theirs, then two lit
     for (const [n, k, on] of [['secret_puzzle_levers', 'levers', 0], ['secret_puzzle_levers_on', 'levers', 1], ['secret_puzzle_candles', 'candles', 0], ['secret_puzzle_candles_lit', 'candles', 2]]) { for (let sd = 1; sd < 120; sd++) { const S = play(); S.run = SIM.newRun(S, 'campaign', sd); const R = S.run, m = R.map, q = m.secrets.find((o) => o.pz && o.pz.k === k); if (!q) continue;
         const it = q.pz.items, xs = it.map((o) => o.x), mx = (Math.min(...xs) + Math.max(...xs)) / 2, h = R.hero; h.x = mx + 30; h.y = it[0].y + 90; R.en = []; R.msg = null; R.seen = R.seen.map(() => 1); R.rseen = R.rseen.map(() => 1); R.cam = [mx - SCX.VW / 2, it[0].y - SCX.VH / 2];
@@ -1496,6 +1505,7 @@
     // the start screen (TASKS 1304): every difficulty and class chosen, the keyboard's focus on each row, the first-timer's tip and
     // the lore line in its place once he has won or picked the easy one
     states.push(['classes_dif_easy', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'easy'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'dif:easy'; })]);
+    states.push(['classes_focus_tab', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'easy'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'dif:hard'; })]);
     states.push(['classes_dif_hard', mk((S) => { S.meta.cls = 'archer'; S.meta.diff = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'cls:archer'; S.hover = 'dif:normal'; })]);
     states.push(['classes_won', mk((S) => { S.meta.cls = 'mage'; S.meta.diff = 'normal'; S.meta.wins = 1; S.meta.open = Object.fromEntries(DATA.UNLOCKS.filter((u) => u.kind === 'kit').map((u) => [u.id, 1])); S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'cave'; S.focus = 'kit:mage'; })]);
     states.push(['classes_go', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'back'; S.hover = 'go'; S.pressWas = true; })]);
@@ -1544,6 +1554,19 @@
     const eNear = (S, R, h, x, y) => { h.x = x; h.y = y; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; SIM.step(S, { keys: [] }); SIM.step(S, { keys: ['KeyE'] }); };
     const masterS = (role, quest) => keeperS((S, R, h) => { const at = R.map.town.svc[role === 'smith' ? 'anvil' : 'lectern']; noQ(R); if (quest) R.offers = [{ key: 'cull', from: role, q: 0 }];
       eNear(S, R, h, at.x, at.y + 30); if (S.talk) S.talk.p = S.talk.pages.length - 1; S.hover = 'talk'; });
+    // TASKS 1847, 1848: a new game's first word with the Keeper by the fire, his quest about Horatio on its first page
+    states.push(['town_first_talk', climbS(0, (S, R, m, h) => { SIM.step(S, { keys: [] }); const k = R.folk.find((q) => q.role === 'keeper'); eNear(S, R, h, k.x + 44, k.y + 12); S.hover = ''; })]);
+    // TASKS 1849: a new game's welcome from the real sim: the hero held by the spawn, the Keeper still at the fire, on his way with his
+    // word, the talk he opens by the hero; frame by frame his walk over (the set-off, the stride, the stop and the turn to the hero) and,
+    // the talk left with Esc, his walk back to the fire and his turn to it
+    { const key = (S) => S.run.folk.find((q) => q.role === 'keeper'), go = (S, n, keys) => { for (let q = 0; q < n; q++) SIM.step(S, { px: 960, py: 540, keys: keys && !q ? keys : [] }); };
+      const base = play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.run.greet = 1; S.screen = 'play'; S.run.msg = null; go(S, 1); });
+      const at = (fn) => { const S = structuredClone(base); fn(S); return S; }, until = (S, ok, n = 120 * 15) => { while (!ok(S) && n-- > 0) go(S, 1); return S; };
+      states.push(['town_greet_before', at((S) => go(S, 60))], ['town_greet_mid', at((S) => { until(S, (Q) => Q.run.greet.st === 'walk'); go(S, 300); })], ['town_greet_talk', at((S) => until(S, (Q) => Q.screen === 'talk'))]);
+      let S = at((Q) => go(Q, 60)), fr = []; for (let k = 0; k < 360 && S.screen === 'play'; k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
+      const i = key(S).i; transitions.folk_keeper_greet = fr; folkSubj.folk_keeper_greet = 'npc' + i;
+      S = structuredClone(S); go(S, 1, ['Escape']); fr = []; for (let k = 0; k < 420 && !(S.run.greet === 'done' && S.t > key(S).walkB + 0.6); k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
+      transitions.folk_keeper_greet_back = fr; folkSubj.folk_keeper_greet_back = 'npc' + i; }
     states.push(['town_smith_talk', masterS('smith', 0)], ['town_smith_talk_quest', masterS('smith', 1)], ['town_enchanter_talk', masterS('enchanter', 0)]);
     const endS = (pick) => keeperS((S, R, h, k) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; R.goldTot = 1000; S.meta.keeperMet = 1; S.meta.endTold = 1;
       eNear(S, R, h, k.x + 44, k.y + 12); if (S.talk) { S.talk.p = pick(S.talk.pages); S.hover = 'act'; } });
@@ -1560,11 +1583,14 @@
     states.push(['town_quest_marks', climbS(0, (S, R, m) => { SIM.step(S, { keys: [] }); R.offers = [{ key: 'named', from: 'guard', q: 0 }, { key: 'fetch', from: 'child', q: 0 }];
       R.quests = [{ id: 900, key: 'cull', f: 2, need: 14, n: 14, st: 'done', from: 'porter', rw: D.questReward(['scroll', 'xp'], 2) }]; const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     const talkQ = (role, key, p) => keeperS((S, R) => { R.offers = [{ key, from: role, q: 0 }]; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }];
-      const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge', topics: D.FOLK.smith.topics } : {}); S.screen = 'talk'; S.hover = 'act'; });
+      const qt = SIM.questTalk(R, role), f = R.folk.find((q) => q.role === role); S.talk = Object.assign({ role, i: f.i, pages: qt.pages, p, act: qt.act }, role === 'smith' ? { craft: 'forge' } : {}); S.screen = 'talk'; S.hover = 'act'; });
     states.push(['town_quest_offer', talkQ('sweeper', 'fetch', 1)]);
     states.push(['town_quest_smith', talkQ('smith', 'named', 1)]);
     states.push(['town_quest_turn', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
-      const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; })]);
+      const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: qt.pages.length - 1, act: qt.act }; S.screen = 'talk'; })]);
+    // TASKS 1850: the same turn-in once «Сдать задание» is pressed: its words first, then the thanks and the reward
+    states.push(['town_quest_turned', keeperS((S, R) => { R.offers = []; R.quests = [{ id: 900, key: 'elites', f: 12, need: 5, n: 5, st: 'done', from: 'guard', rw: Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12)) }];
+      const qt = SIM.questTalk(R, 'guard'); S.talk = { role: 'guard', i: 0, pages: qt.pages, p: 0, act: qt.act }; S.screen = 'talk'; SIMX.talkAct(S, R, S.talk); })]);
     states.push(['town_quest_thanks', keeperS((S, R) => { const rw = Object.assign(D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got') });
       S.talk = { role: 'keeper', i: 0, pages: [TXT('QA.talk.pages', { thanks: D.QUEST_SAY.keeper.thanks[0], p2: SIM.rwLine(rw) })], p: 0, act: null }; S.screen = 'talk'; })]);
     // the quest journal (TASKS 1023): every quest a run can hold (three side, the Keeper's six steps) with the longest words, a turned-in
@@ -1795,4 +1821,5 @@
     out.actors.push(...['smith', 'keeper', 'guard', 'enchanter', 'sweeper', 'child', 'porter', 'mason', 'hen', 'cart'].map((r) => 'folk_' + r));
     calm(out); return out;
   };
+  SC.QA = () => SIM.genApart(build);
 })();

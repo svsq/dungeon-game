@@ -37,7 +37,7 @@
       if (R.town) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s') }); return; }
       if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.2') }); return; }
       h.read = { t0: S.t, i: idx }; h.vx = h.vy = 0; ev(S, { k: 'read', x: h.x, y: h.y }); return; }
-    if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
+    if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; h.fx = h.fy = null; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
     // gear above the hero's level stays in the bag (TASKS 1028)
     if (h.lvl < D.reqLvl(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.3', { p1: D.reqLvl(it) }) }); return; }
     // another class's gear stays in the bag (TASKS 1102): sold, stashed or reforged, never worn
@@ -136,6 +136,7 @@
       else if (d.wall && d.n === 'shop_sign') knock('d' + i, d, d.n, 'wood', { x: d.x, y: d.y + 30 });
       else if (d.n === 'coffin') { if (knock('d' + i, d, d.n)) coffinWakes(S, R, d); }
       else if (d.n === 'wreck_cv') { if (!d.broken && knock('d' + i, d, d.n)) hitWreck(S, R, d); }
+      else if (d.secret !== undefined && d.n === 'bookshelf') { const q = m.secrets[d.secret]; if (!d.broken && !q.open && knock('d' + i, d, d.n)) hitShelf(S, R, q); }
       else if (d.solid && !d.wall) knock('d' + i, d, d.n);
       else if (d.wall && d.n === 'banner' && !hidden(m, d) && !(d.secret !== undefined && m.secrets[d.secret].open)) knock('d' + i, d, 'banner', 'cloth', { x: d.x, y: d.y + 30 }); });
     if (bonesOnly) return;
@@ -158,26 +159,31 @@
     if (rnd(R) < W0.loot) { drop(R, d.x, d.y + 10, { kind: 'item', item: rollItem(R, dep(R), W0.q, undefined, W0) }); drop(R, d.x, d.y + 10, { kind: 'gold', n: ri(R, 8, 16) + dep(R) * 2 }); return; }
     if (cleared(R)) return;
     const E = ENEMIES.ghost, f = dep(R), n = ri(R, W0.ghosts[0], W0.ghosts[1]), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), room = DG.roomAt(m, d.x, d.y);
-    for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), x = d.x + Math.cos(a) * 56, y = d.y + 10 + Math.sin(a) * 40; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
+    // a ghost is drawn in toward the wreck until it stands on open floor: one born inside the rock behind a wreck by the wall never came out of it, and no blow crossed the wall either way (TASKS 1833)
+    for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), out = [1, 0.75, 0.5, 0.25, 0].find((k) => !SIMX.boxHit(m, d.x + Math.cos(a) * 56 * k, d.y + 10 + Math.sin(a) * 40 * k, E.r, true)) ?? 0, x = d.x + Math.cos(a) * 56 * out, y = d.y + 10 + Math.sin(a) * 40 * out; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
     R.msg = { s: TXT('sim_world.wreck.msg'), t: S.t, d: 2 }; }
   function hitChests(S, R, x, y, rad, ax, arc) {
     for (const c of R.chests) { if (c.open || c.sealed) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
       if (d > rad + 16) continue; if (arc !== undefined && d > 14 && Math.abs(angDiff(Math.atan2(dy, dx), ax)) > arc / 2 + 0.3) continue; if (!losClear(R.map, x, y, c.x, c.y)) continue; openChest(S, R, c); } }
-  // a secret's fake wall: its foot (q.x, q.y) is the middle of the opening on the host side. Blows do nothing to it: it opens by its
-  // cover or mechanism alone (E at a banner, a false shelf, a statue, a sconce or a lever; a flagstone underfoot; a puzzle solved)
+  // a false bookcase gives way to its third blow, as it did before 0.3.0 (TASKS 1852): it needs no room along the wall, so every
+  // planned one stays a bookcase. A swing, a whirl, a bolt or a blast counts, as for crates and barrels
+  function hitShelf(S, R, q) { q.hits = (q.hits || 0) + 1; R.trauma = Math.min(1, R.trauma + 0.12); if (q.hits >= D.SHELF_SECRET.hp) openSecret(S, R, q); }
+  // a secret's fake wall: its foot (q.x, q.y) is the middle of the opening on the host side. Blows do nothing to the wall: it opens by
+  // its cover or mechanism alone (E at a banner, a statue, a sconce or a lever; a bookcase broken; a flagstone underfoot; a puzzle solved)
   function openSecret(S, R, q, quiet) {
     const m = R.map, i = m.secrets.indexOf(q), kind = q.kind; q.open = 1; q.openT = S.t; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1;
-    if (kind === 'shelf') shelfOf(m, i, false); if (kind === 'statue') statueOf(m, i, true, !quiet);
+    if (q.slide) statueOf(m, i, true, !quiet); else if (kind === 'shelf') shelfOf(m, i, false, S.t);
     if (quiet) return;
+    if (kind === 'shelf') { const d = m.decor.find((o) => o.secret === i); if (d) ev(S, { k: 'break', x: d.x, y: d.y, kind: 'crate' }); }
     if (kind === 'shelf' || kind === 'statue') R.trauma = Math.min(1, R.trauma + 0.3);
     if (kind === 'lever' || kind === 'puzzle') R.trauma = Math.min(1, R.trauma + 0.3);
     fstat(R).sec++;
     ev(S, { k: 'secret', x: q.x, y: q.y - 20, i, kind }); R.msg = { s: TXT('sim_world.openSecret.msg.s'), t: S.t };
     giveShards(S, R, REWARD.secret, q.x, q.y - 20); checkFull(S, R);
   }
-  // a false shelf swung open on its hinge (it stops blocking its cell) or shut again
-  function shelfOf(m, i, stand) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
-    d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
+  // a false bookcase broken to planks and books (it stops blocking its cell; t: when, for the pieces' flight) or stood up again
+  function shelfOf(m, i, stand, t = -9) { const d = m.decor.find((o) => o.secret === i); if (!d) return; const k = Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE);
+    d.solid = stand ? 1 : 0; d.broken = stand ? 0 : 1; if (stand) delete d.brokeT; else d.brokeT = t; m.block = m.block.filter((b) => b !== k); if (stand) m.block.push(k); }
   // a statue slid along the wall to its far cell (the drawing follows q.openT), or put back
   // (hold: the stone is still on its way, the cell it leaves is freed by stepStatues once the slide is over)
   function statueOf(m, i, moved, hold) { const d = m.decor.find((o) => o.secret === i), q = m.secrets[i]; if (!d || !q.slide) return; const k0 = Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE), k1 = k0 + q.slide.s * q.slide.n, x1 = q.x + q.slide.s * q.slide.n * TILE;
@@ -191,9 +197,9 @@
   function debugSecrets(S, R) { const m = R.map, h = R.hero;
     if (!R.dbgOpen) { R.dbgOpen = []; m.secrets.forEach((q, i) => { if (!q.open) { openSecret(S, R, q, true); R.dbgOpen.push(i); } }); return; }
     const htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE);
-    for (const i of R.dbgOpen) { const q = m.secrets[i], r = m.rooms[q.room]; q.open = 0; delete q.openT; if (q.trig) delete q.trig.downT; if (q.pz) resetPuzzle(m, q);
-      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (q.kind === 'shelf') shelfOf(m, i, true); if (q.kind === 'statue') statueOf(m, i, false);
-      if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.vx = h.vy = 0; } }
+    for (const i of R.dbgOpen) { const q = m.secrets[i], r = m.rooms[q.room]; q.open = 0; delete q.openT; delete q.hits; if (q.trig) delete q.trig.downT; if (q.pz) resetPuzzle(m, q);
+      for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (q.slide) statueOf(m, i, false); else if (q.kind === 'shelf') shelfOf(m, i, true);
+      if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.fx = h.fy = null; h.vx = h.vy = 0; } }
     R.dbgOpen = null; }
   // debug: every item of loot this floor still holds, where it is and whether the hero can get to it, and the books: what the
   // floor counted must equal what was picked up plus what still lies about plus what the closed chests hold
@@ -294,7 +300,7 @@
     for (const d of m.doors) if (d.lock === li && !d.open) openDoor(S, R, d, 0);
     R.msg = { s: TXT('sim_world.pullLever.msg.s'), t: S.t };
   }
-  // the secret a press of E works from where the hero stands: a banner to tear down, a false shelf or a statue to move, a sconce or a lever to pull
+  // the secret the hero stands at: a banner to tear down, a statue to move, a sconce or a lever to pull with E; a false bookcase to break
   // (nothing of a cache still shut behind another: its cover is in a room he cannot be in)
   function secretUnder(R) { const h = R.hero, m = R.map, shut = (q) => q.parent !== undefined && !m.secrets[q.parent].open;
     return (m.secrets || []).find((q) => { if (q.open || shut(q)) return false;
@@ -355,5 +361,5 @@
   Object.assign(SIMX, { setTrap,
     usePotion, wearIfFree, bossFight, readStep, useItem, castAbility, heroShot, stepTraps, breakPots, FOLK_OUCH, hitFolk, hitProps, hitChests,
     openSecret, shelfOf, statueOf, heroOnPath, secretHow, puzzleNear, usePuzzle, resetPuzzle, debugSecrets, lootAudit, tearWebs, arrowWebs, springAmbush, doorAt, doorNear, openDoor, hitDoors, leafCells, leafHeld, stepLeaves,
-    leverNear, pullLever, secretUnder, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
+    leverNear, pullLever, secretUnder, hitShelf, openChest, chestLoot, bossLoot, stepChestTraps, stepStatues, mimicLoot, hitWreck, coffinWakes });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "The Elder Deep: Below the Ages, desktop test build",
   "main": "main.js",
+  "desktopName": "crypt-depths.desktop",
   "private": true,
   "author": "Slava Bilokur",
   "scripts": {
@@ -17,12 +18,12 @@
   "build": {
     "appId": "com.svsq.cryptdepths",
     "productName": "The Elder Deep",
-    "directories": { "output": "release" },
-    "files": ["main.js", "package.json", "game/**/*"],
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": ["main.js", "package.json", "build/icon.png", "game/**/*"],
     "asar": true,
-    "artifactName": "crypt-${env.CRYPT_REV}-${os}-${arch}.${ext}",
-    "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "category": "public.app-category.role-playing-games" },
-    "win": { "target": [{ "target": "zip", "arch": ["x64"] }] },
-    "linux": { "target": [{ "target": "AppImage", "arch": ["x64"] }], "category": "Game" }
+    "artifactName": "TheElderDeep-${env.CRYPT_REV}-${os}-${arch}.${ext}",
+    "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "category": "public.app-category.role-playing-games", "icon": "build/icon.icns" },
+    "win": { "target": [{ "target": "zip", "arch": ["x64"] }], "icon": "build/icon.ico" },
+    "linux": { "target": [{ "target": "AppImage", "arch": ["x64"] }], "category": "Game", "icon": "build/icon.png", "syncDesktopName": true }
   }
 }

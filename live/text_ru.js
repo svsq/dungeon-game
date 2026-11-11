@@ -772,7 +772,7 @@
     'hud.world.10': 'Заперто: где-то есть рычаг',
     'hud.world.11': 'E: потянуть рычаг',
     'hud.world.banner': 'E: сорвать знамя',
-    'hud.world.shelf': 'E: отодвинуть шкаф',
+    'hud.world.shelf': 'Удар: разбить шкаф',
     'hud.world.statue': 'E: сдвинуть статую',
     'hud.world.sconce': 'E: потянуть светильник',
     'hud.world.candle': 'E: зажечь свечу',

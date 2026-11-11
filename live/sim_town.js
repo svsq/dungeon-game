@@ -44,18 +44,70 @@
     else if (C.st === 'at') { if (C.load <= 0 && t >= C.t) C.st = 'up'; }
     else if (C.st === 'up') { C.s = Math.max(0, C.s - v * DT); if (C.s <= 0) { C.st = 'in'; C.t = t + 6; C.load = CART_LOAD; } }
     else if (t >= C.t) C.st = 'down'; }
+  // ---------------- the Keeper's welcome (TASKS 1849) ----------------
+  // a new game's first steps in the town: after a breath he leaves the fire, comes over to the hero (held meanwhile) with a word on
+  // the way and opens the first talk, then goes back to the fire. R.greet: 1 armed by startRun, { st } while it plays, 'done' after;
+  // a run saved before it (or past it) has none and is never greeted
+  const GREET = { wait: 0.9, gap: 46, meet: 0.45, stuck: 3, give: 14, late: 1.5 }, GREET_V = 40;
+  const greetHold = (R) => !!(R.town && R.greet && R.greet.st && R.greet.st !== 'home' && R.greet.st !== 'back');
+  const workFace = (R, f) => (R.map.town.svc.fire.x >= R.map.town.npcs[f.i].x ? 1 : -1);
+  // the way there on the town's walkable cells, benches kept out, cut to the corners a body clears in a straight line
+  // (open: the goal's cell is let in, his own place by the fire; a meeting spot must be free and reached, else there is no way)
+  function greetPath(R, f, x1, y1, open = true) { const m = R.map, W = m.W, ok = townOk(m).slice(), r = folkR(f), cell = (x, y) => Math.floor(y / TILE) * W + Math.floor(x / TILE);
+    for (const d of m.decor) if (d.role === 'bench') ok[cell(d.x, d.y)] = false;
+    const pit = m.torches.filter((q) => q.kind === 'fire'), offPit = (x, y) => pit.every((q) => Math.hypot(x - q.x, (y - q.y) * 1.3) > 46);
+    ok.forEach((v, k) => { if (v && !offPit((k % W + 0.5) * TILE, (Math.floor(k / W) + 0.5) * TILE)) ok[k] = false; });
+    const free = (x, y) => offPit(x, y) && [[0, 0], [-r, 0], [r, 0], [0, -0.6 * r], [0, 0.5 * r]].every(([dx, dy]) => ok[cell(x + dx, y + dy)]);
+    if (!open && !free(x1, y1)) return null;
+    const s = cell(f.x, f.y), g = cell(x1, y1), from = new Int32Array(ok.length).fill(-1), q = [s]; ok[s] = ok[g] = true; from[s] = s;
+    while (q.length && from[g] < 0) { const k = q.shift(), x = k % W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const n = k + dy * W + dx;
+        if ((x === 0 && dx < 0) || (x === W - 1 && dx > 0) || n < 0 || n >= ok.length || !ok[n] || from[n] >= 0 || (dx && dy && (!ok[k + dx] || !ok[k + dy * W]))) continue; from[n] = k; q.push(n); } }
+    if (g === s || (from[g] < 0 && open)) return [{ x: x1, y: y1 }]; if (from[g] < 0) return null;
+    const cs = []; for (let k = g; k !== s; k = from[k]) cs.unshift({ x: (k % W + 0.5) * TILE, y: (Math.floor(k / W) + 0.5) * TILE }); cs[cs.length - 1] = { x: x1, y: y1 };
+    const line = (a, b) => { const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6); for (let i = 1; i < n; i++) if (!free(a.x + (b.x - a.x) * i / n, a.y + (b.y - a.y) * i / n)) return false; return true; };
+    const out = []; let at = { x: f.x, y: f.y }, i = 0;
+    while (i < cs.length) { let j = cs.length - 1; while (j > i && !line(at, cs[j])) j--; out.push(cs[j]); at = cs[j]; i = j + 1; }
+    return out; }
+  // where he stops: beside the hero on his own side of him, else the other side, else a step off, a little farther out if need be;
+  // only a free spot (no bench, the fire or a wall) he can walk to. { x, y, path }, or null: nowhere near the hero to stand
+  function greetSpot(R, f) { const h = R.hero, sd = f.x >= h.x ? 1 : -1;
+    for (const g of [GREET.gap, GREET.gap * 1.4]) for (const [dx, dy] of [[sd, 0], [-sd, 0], [sd, 0.6], [sd, -0.6], [-sd, 0.6], [-sd, -0.6], [0, 1], [0, -1]]) { const x = h.x + dx * g, y = h.y + dy * g + 2;
+      if (!folkFree(R.map, x, y, folkR(f))) continue; const path = greetPath(R, f, x, y, false); if (path) return { x, y, path }; }
+    return null; }
+  function stepGreet(S, R, F) { const G = R.greet, t = S.t, h = R.hero, k = F.find((q) => q.role === 'keeper');
+    if (!G || G === 'done') return; if (!k || h.deadT >= 0) { R.greet = 'done'; return; }
+    if (G === 1) { R.greet = { st: 'wait', t0: t }; return; }
+    const heroFace = () => { const hf = k.x >= h.x ? 1 : -1; if (hf !== h.face) { h.face = hf; h.faceT = t; } }, faceHero = () => { const nf = h.x >= k.x ? 1 : -1; if (nf !== k.face) { k.turnT = t; k.face = nf; } heroFace(); };
+    // (a run loaded with his walk under way but the townsfolk made anew has him at the fire again: the walk starts over from there)
+    if ((G.st === 'walk' || G.st === 'meet') && !k.greet) { G.st = 'wait'; G.t0 = t - GREET.wait; }
+    if (G.st === 'wait') { if (t - G.t0 < GREET.wait) return; const sp = greetSpot(R, k);
+      k.home = k.home || { x: k.x, y: k.y }; k.path = sp && sp.path; k.greet = 1; G.sp = sp && { x: sp.x, y: sp.y };
+      // the hero is held no longer than the walk takes, and a little more
+      G.give = Math.min(GREET.give, (sp ? sp.path.reduce((d, p, j) => d + Math.hypot(p.x - (j ? sp.path[j - 1].x : k.x), p.y - (j ? sp.path[j - 1].y : k.y)), 0) / GREET_V : 0) + GREET.late); k.face = k.face || workFace(R, k); k.walked = 1; k.walkA = t; k.walkB = undefined; k.stuck = 0;
+      k.near = 1; k.sayT = t; k.sayS = D.KEEPER.greet; G.st = 'walk'; G.t1 = t; ev(S, { k: 'say', x: k.x, y: k.y, role: 'keeper' }); return; }
+    // a spot he has not reached in time (a hen on it, the hero in the way) he is put on, so he never talks from across the square
+    if (G.st === 'walk') { if (k.path && t - G.t1 < (G.give ?? GREET.give)) { if (t - (h.faceT ?? -9) > 0.6 && Math.abs(k.x - h.x) > 8) heroFace(); return; }
+      if (k.path && G.sp) { k.x = G.sp.x; k.y = G.sp.y; } k.path = null; k.spd = 0; k.vx = k.vy = 0; G.st = 'meet'; G.t2 = t; faceHero(); return; }
+    if (G.st === 'meet') { faceHero(); if (t - G.t2 < GREET.meet || S.screen !== 'play') return; const s0 = k.sayT; G.st = 'home'; k.sayS = null; openTalk(S, R, k); k.sayT = s0; k.byeT = t; k.near = 0; return; }
+    // the talk over (taken, or left with Esc: the offer stays his), back to the fire
+    if (G.st === 'home') { if (S.screen !== 'play') return; if (k.home) k.path = greetPath(R, k, k.home.x, k.home.y); k.stuck = 0; G.st = 'back'; G.t3 = t; return; }
+    // a way back still blocked after a while (a hen on his place, a corner) ends with him at the fire, not with 'back' for the rest of the run; never onto the hero
+    if (G.st === 'back') G.t3 ??= t;
+    if (G.st === 'back' && k.path && k.home && t - G.t3 > GREET.give && Math.hypot(h.x - k.home.x, h.y - k.home.y) > folkR(k) + K.R + 4) { k.x = k.home.x; k.y = k.home.y; k.path = null; k.spd = 0; k.vx = k.vy = 0; }
+    if (G.st === 'back' && !k.path) { const wf = workFace(R, k); if (wf !== k.face) { k.turnT = t; k.face = wf; } k.walkB = t + 0.2; k.greet = 0; k.near = 1; k.home = null; R.greet = 'done'; } }
   function stepFolk(S, R) {
     const m = R.map, h = R.hero, t = S.t, F = folkOf(R), alive = h.deadT < 0, C = cartOf(R);
-    stepCart(S, R, C, t);
+    stepCart(S, R, C, t); stepGreet(S, R, F);
     for (const f of F) { const n = m.town.npcs[f.i], FD = D.FOLK[f.role], r = folkR(f);
-      if (FD.lines) { const d = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25);
+      if (FD.lines && !f.greet) { const d = Math.hypot(h.x - f.x, (h.y - f.y) * 1.25);
         if (!f.near && alive && d < 72) { f.near = 1; f.sayT = t; f.sayN = (f.sayN + 1) % FD.lines.length; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
         else if (f.near && (d > 130 || !alive)) { f.near = 0; f.byeT = t; } }
       // the loop's impact: the anvil rings on the smith's blow (not on his breather, not while he talks)
       if (f.role === 'smith' && !folkTalk(f, t)) { const a = D.folkClock('smith', f.i, t - DT), b = D.folkClock('smith', f.i, t);
         if ((a.n === b.n ? a.u < FD.hit && b.u >= FD.hit : b.u >= FD.hit) && b.n % FD.rest !== FD.rest - 1) ev(S, { k: 'anvil', x: f.x, y: f.y }); }
       const route = n.route;
-      if (folkTalk(f, t)) { const nf = h.x >= f.x ? 1 : -1; if (route && f.face && nf !== f.face) f.turnT = t; f.face = nf; }
+      if (folkTalk(f, t) && !f.greet) { const nf = h.x >= f.x ? 1 : -1; if (route && f.face && nf !== f.face) f.turnT = t; f.face = nf; }
       if (f.role === 'child' && route && !f.go && !folkTalk(f, t)) { const hn = F.filter((q) => q.role === 'hen').sort((p, q) => Math.hypot(p.x - f.x, p.y - f.y) - Math.hypot(q.x - f.x, q.y - f.y))[0], nf = hn && Math.abs(hn.x - f.x) > 6 ? (hn.x > f.x ? 1 : -1) : f.face; if (nf !== f.face) { f.turnT = t; f.face = nf; } }
       // the child's handful of grain lands ahead of him, toward the nearest hen: the hens come for it (TASKS 1032)
       if (f.role === 'child' && route && !f.go && f.way >= 0 && !folkTalk(f, t)) { const a = D.folkClock('child', f.i, t - DT), b = D.folkClock('child', f.i, t);
@@ -66,6 +118,10 @@
       let want = 0, ux = 0, uy = 0;
       if (f.role === 'hen') { const g = henGoal(R, f, n, t);
         if (g) { const dx = g.x - f.x, dy = g.y - f.y, d = Math.hypot(dx, dy); if (d > 2.5) { want = Math.min(g.v, d * 4 + 6); ux = dx / d; uy = dy / d; } else if (!g.k) f.goal = null; } }
+      else if (f.path) { const tg = f.path[0], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy), last = f.path.length === 1;
+        if (!last && d < 4) { f.path.shift(); f.stuck = 0; const t2 = f.path[0], d2 = Math.hypot(t2.x - f.x, t2.y - f.y) || 1; want = GREET_V; ux = (t2.x - f.x) / d2; uy = (t2.y - f.y) / d2; }
+        else if (last && d < 1.5) { f.x = tg.x; f.y = tg.y; f.path = null; f.spd = 0; f.vx = f.vy = 0; continue; }
+        else { want = last ? Math.min(GREET_V, d * 3 + 3) : GREET_V; ux = dx / d; uy = dy / d; } }
       else if (!route) { f.spd = 0; continue; }
       if (route && !folkTalk(f, t) && !f.go && t >= f.t0 + folkPause(f, route[f.way]) && !(f.role === 'mason' && route[(f.way + 1) % route.length].act === 'take' && !(C.st === 'at' && C.load > 0 && t >= (C.atT ?? -9) + 0.6))) { f.go = 1; f.way = (f.way + 1) % route.length; f.stuck = 0; f.lift = 0; }
       if (route && f.go && !folkTalk(f, t)) { const tg = route[f.way], dx = tg.x - f.x, dy = tg.y - f.y, d = Math.hypot(dx, dy);
@@ -85,7 +141,7 @@
       for (const a of [0, 0.6, -0.6, 1.2, -1.2]) { const c = Math.cos(a), sn = Math.sin(a), vx = ux * c - uy * sn, vy = ux * sn + uy * c, x = f.x + vx * step, y = f.y + vy * step;
         if (!folkFree(m, x, y, r) || near(x, y)) continue;
         f.x = x; f.y = y; f.vx = vx * f.spd; f.vy = vy * f.spd; f.dist += step; moved = true; break; }
-      if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
+      if (!moved) { f.vx = f.vy = 0; f.spd = 0; if (f.path) { if ((f.stuck += DT) > GREET.stuck && f.path.length > 1) { f.path.shift(); f.stuck = 0; } continue; } if (!route) { f.goal = null; continue; } if ((f.stuck += DT) > 4) { f.way = (f.way + 1) % route.length; f.stuck = 0; } } else f.stuck = 0;
       if (Math.abs(f.vx) > (f.role === 'hen' ? 12 : 3)) { const nf = f.vx > 0 ? 1 : -1; if (f.role !== 'hen' || nf === f.face || t - (f.turnT ?? -9) > 1.1) { if (nf !== f.face && f.walked) f.turnT = t; f.face = nf; f.walked = 1; } } }
     // the merchant calls the hero over from across the yard, every so often
     if (m.shop && R.shop && !shopShut(R)) { const d = Math.hypot(h.x - m.shop.x, h.y - m.shop.y);
@@ -111,7 +167,7 @@
     if (atCounter(R)) { if (shopShut(R)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.shopShut') }); else openShop(S, R); return; }
     const sh = R.shrines.find((s) => !s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
     if (sh && !arenaSealed(R)) { openAltar(S, R, sh); return; }
-    const sq = sq0; if (sq) { if (sq.kind === 'statue' && SIMX.heroOnPath(R, sq)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.statueBlocked') }); return; } if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
+    const sq = sq0 && sq0.kind !== 'shelf' ? sq0 : null; if (sq) { if (sq.slide && SIMX.heroOnPath(R, sq)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.statueBlocked') }); return; } if (sq.trig) ev(S, { k: 'click', x: h.x, y: h.y }); openSecret(S, R, sq); return; }
     const pz = SIMX.puzzleNear(R); if (pz) { SIMX.usePuzzle(S, R, pz.q, pz.i); return; }
     const lv = leverNear(R); if (lv) { pullLever(S, R, lv); return; }
     const dr = doorNear(R, 64); if (dr) { openDoor(S, R, dr, 0); return; }
@@ -292,7 +348,8 @@
   // the words of a quest's business with a townsman: the turn-in first, then the offer; the last page carries its button
   const rwLine = (W) => [W.scroll && W.scroll + ' ' + TXT.n('sim_town.rwLine', W.scroll), W.gold && TXT('sim_town.rwLine.2', { gold: W.gold }), W.xp && TXT('sim_town.rwLine.3', { xp: W.xp }), W.item && (W.got ? '«' + W.got + '»' : TXT('sim_town.rwLine.4')), W.shards && W.shards + ' ' + TXT.n('sim_town.rwLine.5', W.shards)].filter(Boolean).join(' · ');
   function questTalk(R, role) { const SAY = D.QUEST_SAY[role]; if (!SAY) return null;
-    const dn = questDone(R, role); if (dn) return { pages: [TXT('sim_town.questTalk.pages', { name: D.QUESTS[dn.key].name, done: SAY.done[(dn.id || 0) % SAY.done.length] })], act: { k: 'turn', id: dn.id, rw: dn.rw } };
+    // a quest to turn in waits behind an ordinary line: its words and reward come with the press (TASKS 1850)
+    const dn = questDone(R, role), L = D.FOLK[role].lines; if (dn) return { pages: L[(dn.id || 0) % L.length].slice(), act: { k: 'turn', id: dn.id, rw: dn.rw } };
     const of = offerOf(R, role); if (!of) return null;
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
@@ -305,12 +362,12 @@
   // a quest to turn in comes first; a new offer does not hide the choice (PR 29 review: a side quest offered after the descent took
   // its place on every talk until it was taken): the Keeper's offers wait, the notice board has them too
   const talkOf = (R, role) => { const qt = questTalk(R, role); return role === 'keeper' && campaignDone(R) && (!qt || qt.act.k !== 'turn') ? keeperEnd(R) : qt; };
-  // the talk's button: take the quest (the talk closes), or turn it in (the thanks, then whatever else the townsman has)
+  // the talk's button: take the quest (the talk closes), or turn it in (its words, the thanks, then whatever else the townsman has)
   function talkAct(S, R, T) { const a = T.act; if (!a) return;
     if (a.k === 'finish') { SIMX.finishRun(S); return; }
     if (a.k === 'take') { giveQuest(S, R, T.role); S.screen = 'play'; S.talk = null; return; }
     const q = (R.quests || []).find((o) => o.id === a.id); if (!turnIn(S, R, q)) return;
-    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.talkAct.pages', { thanks: q.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[q.key].thanks ? D.QUESTS[q.key].thanks : D.QUEST_SAY[T.role].thanks[(q.id || 0) % D.QUEST_SAY[T.role].thanks.length], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
+    const nx = talkOf(R, T.role); T.pages = [TXT('sim_town.questTalk.pages', { name: D.QUESTS[q.key].name, done: D.QUEST_SAY[T.role].done[(q.id || 0) % D.QUEST_SAY[T.role].done.length] }), TXT('sim_town.talkAct.pages', { thanks: q.key === 'rescue' ? D.STORY.rescueThanks.join(' ') : D.QUESTS[q.key].thanks ? D.QUESTS[q.key].thanks : D.QUEST_SAY[T.role].thanks[(q.id || 0) % D.QUEST_SAY[T.role].thanks.length], p2: rwLine(q.rw) })].concat(nx ? nx.pages : []); T.p = 0; T.act = nx ? nx.act : null; }
   // ---- the goals put on a floor when it is first built (1019–1021) ----
   // rooms a goal may take: fighting rooms off the start, the boss's and the merchant's, farthest from the spawn first
   function questRooms(R) { const m = R.map, sp = m.spawn;
@@ -369,12 +426,14 @@
     if ((R.away || 0) >= 4 && T.away !== R.townDeep) { T.away = R.townDeep; out.push(...K.away); }
     return out; }
   // a quest's business (TASKS 1018) comes after the Keeper's news and instead of the idle lines; a master's talk keeps a button
-  // into his workshop; past the campaign's end a townsman with words for it says them once a run
+  // into his workshop; past the campaign's end a townsman with words for it says them once a run; the topics wait for an idle talk
+  // (TASKS 1848: «Поговорить» beside a quest's offer or the Keeper's story was out of place)
   function openTalk(S, R, f) { const FD = D.FOLK[f.role], qt = talkOf(R, f.role), told = R.wonTold || (R.wonTold = {}); let pages = f.role === 'keeper' ? keeperPages(S, R) : [], act = qt ? qt.act : null;
     if (FD.won && campaignDone(R) && !told[f.role]) { told[f.role] = 1; pages = pages.concat(FD.won); }
-    if (qt) pages = pages.concat(qt.pages);
-    else if (!pages.length) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
-    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act, topics: FD.topics }, CRAFT_AT[f.role] ? { craft: CRAFT_AT[f.role] } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
+    const idle = !qt && !pages.length;
+    if (qt) pages = qt.act.k === 'turn' && pages.length ? pages : pages.concat(qt.pages);
+    else if (idle) { f.sayN = ((f.sayN ?? -1) + 1) % FD.lines.length; pages = FD.lines[f.sayN].slice(); }
+    S.talk = Object.assign({ role: f.role, i: f.i, pages, p: 0, act }, idle && FD.topics ? { topics: FD.topics } : {}, CRAFT_AT[f.role] ? { craft: CRAFT_AT[f.role] } : {}); S.screen = 'talk'; S.hover = ''; f.near = 1; f.sayT = -99; S.saveN++; ev(S, { k: 'say', x: f.x, y: f.y, role: f.role }); }
   // ---------------- the storage chest (R-33, TASKS 1012) ----------------
   // anything left in the town for the heroes to come: S.meta.stash, D.STASH.cells of it, its items under the item balance
   // they were made with (re-powered like a saved run's when that changes)
@@ -472,7 +531,7 @@
   }
 
   Object.assign(SIMX, {
-    folkR, folkOf, folkFree, stepFolk, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
+    folkR, folkOf, folkFree, stepFolk, greetHold, solids, interact, openCraft, CRAFT_OF, atExitGate, wake, atSoulAltar, atStash, atCraft, atBoard, boardOffers, craftItem, craftCost,
     craft, QUEST_EV, dropMarks, newQuest, takeQuest, questOn, turnIn, abandonQuest, offersOf, questFloor, storyStep, offerOf, questMark, giveQuest, rwLine,
     nameElites, notePlace, noteNear, openNote, captivePut, captivePlace, captiveBoss, captiveNear, shopShut, craftShut, folkHere, questTalk, questIcon, talkAct, openTalk, questRooms, plainFoe, questPlace, journalOf, questMarks, questLine, folkNear, keeperPages, stashOf,
     stashPut, stashTake, atGate, gateWays, gateGo, openAltar, takeGift, rerollAltar, canDonate, donate, restock, stockShop, tradeDepth, atCounter, buy,

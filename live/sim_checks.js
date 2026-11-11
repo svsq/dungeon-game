@@ -14,8 +14,10 @@
     runReward, scriptInput, secretMask, serpent, serpentMouth, secretUnder, shelfOf, solidAt, solidC, solids, spawn, springAmbush, startRun, stats,
     stashOf, steer, step, stepArena, stepBossMove, stepDrops, stepProjectiles, stockShop, struck, takeQuest, tearWebs, throwAway, toPx, tradeDepth,
     turnIn, typeMods, heroShot, under, useItem, usePotion, wearIfFree, who, wideClear } = root.SIMX;
+  // the checks that start a game from the menu for something else skip the Keeper's welcome (TASKS 1849), which holds the hero
+  const noWelcome = (S) => { if (S.run && S.run.greet === 1) S.run.greet = 'done'; };
   // level data checks for tune.cjs: every floor of several seeds — spawns on open floor and outside the start room, exit reachable
-  function selfCheck() {
+  function menuCheck() {
     const out = [];
     { const T = spawn(0, { meta: { zoom: 2, up: {} } }), at = (rs, id) => { const b = rs.find((q) => q.id === id); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; };
       if (T.meta.zoom !== 1.5) out.push('settings: a saved ×2 does not become ×1,5');
@@ -142,6 +144,10 @@
       S.run = R; S.screen = 'play'; step(S, { keys: [] });
       if (R.itemBalance !== D.ITEM_BAL.version || h.eq.armor.def !== items[0].def) out.push('live reload equipment was not rebalanced');
     }
+    return out;
+  }
+  function genCheck() {
+    const out = [];
     // the water caves' floors (TASKS 301) are held to the campaign's rules
     // (the campaign's 9th–12th are cave floors, TASKS 339: held to the caves' rules, kind 'cave')
     // (seed 7: its 3rd and 7th floors are tombs, TASKS 378)
@@ -464,6 +470,10 @@
     if (!shapes.rift) out.push('rooms: no bridge over a rift of lava on any of the floors checked');
     if (!shapes.gauntlet) out.push('rooms: no trapped corridor on any of the floors checked');
     for (const k of ['rooms', 'maze', 'hall', 'catacomb', 'fortress', 'tomb']) if (!shapes['lay:' + k]) out.push(`rooms: no ${k} layout on any of the floors checked`);
+    return out;
+  }
+  function playCheck() {
+    const out = [];
     // a saved run loaded into a fresh session must play at once (cooldowns and timers are absolute times)
     { const S = spawn(0, {}); begin(S); let snap = null;   // the last save of a living hero: the demo hero may fall before 40 s
       for (let i = 0; i < 120 * 40; i++) { step(S, scriptInput(S.t, S)); if (i % 120 === 0 && S.run && S.run.hero.hp > 0 && S.t > 10) snap = JSON.stringify(S.run); }
@@ -807,7 +817,7 @@
       if (!saved.saved.scorches || saved.saved.scorches.length !== 1) out.push('a save loses the fireball scorch');
       enterFloor(S, R, 2); if (R.scorches.length) out.push('a scorch follows the hero to another floor');
     }
-    return out.concat(secretCheck(), cacheGenCheck(), propCheck(), reactionCheck(), meleeSpacingCheck(), hazardCheck(), floorTypeCheck(), branchCheck(), lootLevelCheck(), magmaKindsCheck(), chestCheck());
+    return out;
   }
   // a run of its own (the caves, the magma caves) finds, is sold and is given items at about its hero's level on its first floor:
   // the magma caves' loot over their depth once made them 10 levels over him and the run a walk (TASKS 424)
@@ -946,6 +956,10 @@
     // the mix (TASKS 426): a lake, river or terrace floor over the chasm: it turns up in the runs, and on each figure a floor holds
     // the figure's own checks that the chasm could break (a walk to the stairs, a lava share, two bridges, every plateau in reach, the lake's islands)
     if (!mixed) out.push('no mixed floor in 10 magma runs');
+    return out;
+  }
+  function floorBlendCheck() {
+    const out = [], AR = D.ARCH.plateau;
     for (const ft of AR.blend.over) for (let sd = 1; sd <= 5; sd++) for (let f = 1; f < D.RUNS.magma.floors; f++) { const m = DG.genFloor(sd * 31 + f * 1013, f, { mode: 'magma', runSeed: sd, ftype: ft, ftype2: AR.blend.with }), tag = `mixed ${ft}+${m.ftype2} ${sd} f${f}`, W = m.W;
       if (m.ftype !== ft || m.ftype2 !== AR.blend.with) { out.push(`${tag}: came out as ${m.ftype}+${m.ftype2}`); continue; }
       const s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), lost = DG.narrowTo(m.cells, W, m.H, s0, m.rooms.filter((r) => r.type !== 'secret').map((r) => r.cy * W + r.cx));
@@ -1393,8 +1407,8 @@
     if (!['banner', 'shelf', 'statue', 'lever', 'puzzle'].includes(q.kind) || q.hp !== undefined) out.push('has an old or missing kind');
     if (['banner', 'shelf', 'statue'].includes(q.kind) && q.dir !== 'u') out.push('is not on a top wall');
     if (q.kind === 'banner' && !m.decor.some((d) => d.secret === i && d.n === 'banner' && d.wall)) out.push('has no banner');
-    if (q.kind === 'shelf' && !m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid)) out.push('has no bookshelf');
-    if (q.kind === 'statue') { const d = m.decor.find((o) => o.secret === i && o.n === 'statue' && o.solid); if (!d || !q.slide || ![1, 2].includes(q.slide.n) || ![1, -1].includes(q.slide.s)) out.push('has no statue or slide');
+    if (q.kind === 'shelf' && (!m.decor.some((d) => d.secret === i && d.n === 'bookshelf' && d.solid) || q.slide)) out.push('has no bookshelf, or one that slides');
+    if (q.kind === 'statue') { const d = m.decor.find((o) => o.secret === i && o.solid); if (!d || !q.slide || ![1, 2].includes(q.slide.n) || ![1, -1].includes(q.slide.s)) out.push('has no statue or slide');
       else { const fy = Math.floor(d.y / TILE), fc = Math.floor(q.x / TILE), tc = fc + q.slide.s * q.slide.n, tk = fy * W + tc, o0 = fy * W + fc, blk = new Set(m.block), flood = (b) => { const sv = new Set(), st = [Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE)]; sv.add(st[0]); while (st.length) { const k = st.pop(); for (const v of [1, -1, W, -W]) { const n = k + v; if (!sv.has(n) && m.cells[n] === 1 && !b.has(n)) { sv.add(n); st.push(n); } } } return sv; };
         for (let c = fc + q.slide.s; c !== tc + q.slide.s; c += q.slide.s) if (m.cells[fy * W + c] !== 1) out.push('slides into rock');
         const sA = flood(blk); blk.delete(o0); blk.add(tk); const sB = flood(blk); if (sB.size < sA.size) out.push('statue shuts a passage when moved'); } }
@@ -1409,27 +1423,30 @@
       if (Z && Z.k === 'candles' && m.decor.filter((d) => d.pz === i && d.n === 'candles').length !== 3) out.push('is missing its candles'); }
     return out; }
   // over many floors: caches open by honest means only, the floors keep no hoards, and the planned rooms and puzzles do turn up
-  function cacheGenCheck() { const out = [], seen = {};
+  function cacheGenCheck() { const out = [], seen = {}, lib = { n: 0, shelf: 0 };
     for (let seed = 1; seed <= 30; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const s0 = (seed * 811 + f * 1303) >>> 0; let m; try { m = DG.genFloor(s0, f); } catch (e) { out.push(`gen ${s0} f${f}: ${e.message}`); continue; }
       if (m.rooms.some((r) => r.type === 'treasure')) out.push(`gen ${s0} f${f}: a treasure room`);
       if (m.secrets.some((q) => q.kind === 'crack')) out.push(`gen ${s0} f${f}: a crack secret`);
       const W = m.W, walk = (() => { const sv = new Uint8Array(W * m.H), st = [Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE)]; sv[st[0]] = 1; while (st.length) { const k = st.pop(); for (const d of [1, -1, W, -W]) { const n = k + d; if (!sv[n] && m.cells[n] === 1 && !m.block.includes(n)) { sv[n] = 1; st.push(n); } } } return sv; })();
       m.secrets.forEach((q, i) => { for (const e of cacheIssues(m, q, i, walk)) out.push(`gen ${s0} f${f}: secret ${i} (${q.kind}) ${e}`); seen[q.kind] = 1; if (q.trig) seen[q.trig.k] = 1; if (q.pz) seen[q.pz.k] = 1; if (q.parent !== undefined) seen.inner = 1;
-        const h = m.rooms[q.host]; if (h && h.plan && (q.kind === 'statue' || q.kind === 'shelf')) seen.planned = 1; }); }
+        const h = m.rooms[q.host]; if (h && h.plan && (q.kind === 'statue' || q.kind === 'shelf')) seen.planned = 1; if (h && h.plan === 'library' && q.dir === 'u') { lib.n++; if (q.kind === 'shelf') lib.shelf++; } }); }
     for (const k of ['banner', 'shelf', 'statue', 'sconce', 'plate', 'lever', 'levers', 'candles', 'inner', 'planned']) if (!seen[k]) out.push(`cache check: no ${k} cache on any of the floors checked`);
+    // (TASKS 1852) a planned bookcase stays one, room along the wall or not: a library's wall caches keep their share of bookcases
+    if (lib.shelf < lib.n * 0.12) out.push(`cache check: ${lib.shelf} of ${lib.n} library wall caches are bookcases (a planned bookcase turned into a lever or banner)`);
     return out; }
+  const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5000 + sd); const q = S.run.map.secrets.find(f); if (q) return [S, q]; } return [null, null]; };
+  const standAt = (R, q) => { const h = R.hero, P = q.trig, tc = P && P.k === 'sconce' ? R.map.torches[P.t] : null; Object.assign(h, { vx: 0, vy: 0 });
+    if (q.kind === 'banner') { h.x = q.x; h.y = q.y + 34; } if (q.kind === 'shelf' || q.kind === 'statue') { h.x = q.x; h.y = q.y + 70; } if (tc) { h.x = tc.x; h.y = tc.y + 50; } if (P && P.k === 'lever') { h.x = P.x; h.y = P.y + 50; } if (P && P.k === 'plate') { h.x = P.x; h.y = P.y; } };
+  const swing = (S, R, q) => { const h = R.hero; h.x = q.x; h.y = q.y + 34; h.vx = h.vy = 0; h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let j = 0; j < 40; j++) step(S, Object.assign({ keys: [] }, A)); };
+  const pressE = (S) => { step(S, { keys: ['KeyE'], px: 960, py: 540 }); for (let k = 0; k < 6; k++) step(S, { keys: [], px: 960, py: 540 }); };
+  const playItem = (S, R, q, j) => { const it = q.pz.items[j], h = R.hero, st0 = q.pz.step; for (let k = 0; k < 3 && !it.on && q.pz.step === st0 && !q.open; k++) { if (q.pz.k === 'levers') { h.x = it.x; h.y = it.y + 50; } else { h.x = it.x + 20; h.y = it.y + 6; } h.vx = h.vy = 0; pressE(S); } };
   function secretCheck() {
     const out = [];
     // every kind of cover and mechanism, played from the floor: blows at it open nothing; E (a flagstone: a step) opens it, and it counts once
-    const find = (f) => { for (let sd = 1; sd < 120; sd++) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5000 + sd); const q = S.run.map.secrets.find(f); if (q) return [S, q]; } return [null, null]; };
-    const standAt = (R, q) => { const h = R.hero, P = q.trig, tc = P && P.k === 'sconce' ? R.map.torches[P.t] : null; Object.assign(h, { vx: 0, vy: 0 });
-      if (q.kind === 'banner') { h.x = q.x; h.y = q.y + 34; } if (q.kind === 'shelf' || q.kind === 'statue') { h.x = q.x; h.y = q.y + 70; } if (tc) { h.x = tc.x; h.y = tc.y + 50; } if (P && P.k === 'lever') { h.x = P.x; h.y = P.y + 50; } if (P && P.k === 'plate') { h.x = P.x; h.y = P.y; } };
-    const pressE = (S) => { step(S, { keys: ['KeyE'], px: 960, py: 540 }); for (let k = 0; k < 6; k++) step(S, { keys: [], px: 960, py: 540 }); };
-    const playItem = (S, R, q, j) => { const it = q.pz.items[j], h = R.hero, st0 = q.pz.step; for (let k = 0; k < 3 && !it.on && q.pz.step === st0 && !q.open; k++) { if (q.pz.k === 'levers') { h.x = it.x; h.y = it.y + 50; } else { h.x = it.x + 20; h.y = it.y + 6; } h.vx = h.vy = 0; pressE(S); } };
-    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['shelf', (o) => o.kind === 'shelf'], ['statue', (o) => o.kind === 'statue'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u' && o.parent === undefined], ['lever', (o) => o.trig && o.trig.k === 'lever']]) {
+    for (const [name, f] of [['banner', (o) => o.kind === 'banner'], ['statue', (o) => o.kind === 'statue'], ['sconce', (o) => o.trig && o.trig.k === 'sconce' && o.dir === 'u'], ['plate', (o) => o.trig && o.trig.k === 'plate' && o.dir === 'u' && o.parent === undefined], ['lever', (o) => o.trig && o.trig.k === 'lever']]) {
       const [S, q] = find(f); if (!q) { out.push(`secret check: no ${name} secret in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero, qi = m.secrets.indexOf(q); R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9;
-      const k0 = name === 'statue' ? Math.floor((q.y + 22) / TILE) * m.W + Math.floor(q.x / TILE) : -1, d0 = name === 'statue' ? m.decor.find((o) => o.secret === qi).x : 0;
+      const k0 = q.slide ? Math.floor((q.y + 22) / TILE) * m.W + Math.floor(q.x / TILE) : -1, d0 = q.slide ? m.decor.find((o) => o.secret === qi).x : 0;
       for (let k = 0; k < 2; k++) { h.x = q.x; h.y = q.y + 34; h.vx = h.vy = 0; h.cd.atk = 0; const A = { ...toPx(R, q.x, q.y - 30) }; step(S, Object.assign({ press: 1, keys: [] }, A)); for (let j = 0; j < 40; j++) step(S, Object.assign({ keys: [] }, A)); }
       if (q.open) out.push(`secret check ${name}: blows open it`);
       if (S.ev.some((e) => e.k === 'wallhit' || e.k === 'hollow')) out.push(`secret check ${name}: a wall still answers a blow`);
@@ -1437,13 +1454,36 @@
       if (!q.open) out.push(`secret check ${name}: its way does not open it`);
       if (q.wall.some(([x, y]) => cell(m, x, y) !== 1)) out.push(`secret check ${name}: the opened wall is still solid`);
       if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret is not counted (${R.stats[1].sec})`);
-      if (name === 'statue') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n, t1 = S.t + D.STATUE_SECRET.slide + 0.05; while (S.t < t1) step(S, { keys: [] }); if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push('secret check statue: it has not moved, or its block has not');
-        if (Math.abs(d.x - d0) !== q.slide.n * TILE || ![1, 2].includes(q.slide.n)) out.push('secret check statue: it slid the wrong distance'); }
-      if (name === 'shelf') { const d = m.decor.find((o) => o.secret === qi); if (!d || d.solid || m.block.includes(Math.floor(d.y / TILE) * m.W + Math.floor(d.x / TILE))) out.push('secret check shelf: the opened shelf still blocks the way'); }
+      if (name === 'statue') { const d = m.decor.find((o) => o.secret === qi), k1 = k0 + q.slide.s * q.slide.n, t1 = S.t + D.STATUE_SECRET.slide + 0.05; while (S.t < t1) step(S, { keys: [] }); if (d.x === d0 || m.block.includes(k0) || !m.block.includes(k1)) out.push(`secret check ${name}: it has not moved, or its block has not`);
+        if (Math.abs(d.x - d0) !== q.slide.n * TILE || ![1, 2].includes(q.slide.n)) out.push(`secret check ${name}: it slid the wrong distance`); }
       standAt(R, q); pressE(S); if (R.stats[1].sec !== 1) out.push(`secret check ${name}: a found secret counts twice`); }
     // a statue never closes on the hero: with him on its way it stays put
-    { const [S, q] = find((o) => o.kind === 'statue'); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
-        if (secretUnder(R) !== q) out.push('secret check statue: the hero beside it cannot reach it'); else { interact(S, R); if (q.open) out.push('secret check statue: it slid onto the hero'); } } }
+    for (const kind of ['statue']) { const [S, q] = find((o) => o.kind === kind); if (q) { S.screen = 'play'; const R = S.run, fy = Math.floor((q.y + 22) / TILE); R.en = []; Object.assign(R.hero, { x: (Math.floor(q.x / TILE) + q.slide.s + 0.5) * TILE, y: fy * TILE + 16, vx: 0, vy: 0 });
+        if (secretUnder(R) !== q) out.push(`secret check ${kind}: the hero beside it cannot reach it`); else { interact(S, R); if (q.open) out.push(`secret check ${kind}: it slid onto the hero`); } } }
+    // (TASKS 1852) a false bookcase breaks on its third blow, as before 0.3.0: E does nothing to it, the first two blows rock it, the
+    // third leaves planks, frees its cell, opens the cache and counts it once; a bolt or a blast counts as a blow
+    { const shelfAt = () => { const [S, q] = find((o) => o.kind === 'shelf'); if (!q) return []; S.screen = 'play'; const R = S.run, m = R.map, qi = m.secrets.indexOf(q), d = m.decor.find((o) => o.secret === qi);
+        R.en = []; R.stats[1] = floorStat(R); R.hero.ifr = 1e9; return [S, R, m, q, d, Math.floor(d.y / TILE) * m.W + Math.floor(q.x / TILE)]; };
+      const opened = (R, m, q, d, k0) => q.open && d.broken && !d.solid && !m.block.includes(k0) && q.wall.every(([x, y]) => cell(m, x, y) === 1);
+      { const [S, R, m, q, d, k0] = shelfAt(); if (!q) out.push('secret check shelf: no bookcase cache in 120 seeds');
+        else { standAt(R, q); pressE(S); if (q.open) out.push('secret check shelf: E opens a bookcase');
+          for (let k = 1; k < D.SHELF_SECRET.hp; k++) { swing(S, R, q); if (q.open || !d.solid || !m.block.includes(k0)) out.push(`secret check shelf: it breaks on blow ${k}`); }
+          if ((q.hits || 0) !== D.SHELF_SECRET.hp - 1) out.push(`secret check shelf: ${q.hits || 0} of its ${D.SHELF_SECRET.hp - 1} blows counted`);
+          S.ev = []; swing(S, R, q); if (!opened(R, m, q, d, k0)) out.push(`secret check shelf: blow ${D.SHELF_SECRET.hp} does not break it open`);
+          if (!S.ev.some((e) => e.k === 'break') || !S.ev.some((e) => e.k === 'secret')) out.push('secret check shelf: no break or secret event');
+          if (R.stats[1].sec !== 1) out.push(`secret check shelf: a broken bookcase is not counted once (${R.stats[1].sec})`);
+          swing(S, R, q); if (R.stats[1].sec !== 1) out.push('secret check shelf: a broken bookcase counts again'); } }
+      { const [S, R, m, q, d, k0] = shelfAt(); if (q) { for (let k = 0; k < D.SHELF_SECRET.hp; k++) { S.t += 0.5; hitProps(S, R, d.x, d.y + 12, 24); } if (!opened(R, m, q, d, k0)) out.push('secret check shelf: bolts at its foot do not break it'); } }
+      // old saves: one open on its hinge (0.3.0) or slid along the wall (a build of 1851) loads broken at its own place, its cells
+      // free; a shut one (of either) loads whole and still breaks
+      const old = (open, slid) => { const [S, R, m, q, d, k0] = shelfAt(); if (!q) return []; m.block = m.block.filter((b) => b !== k0);
+        if (open) { q.open = 1; q.openT = S.t - 5; for (const [x, y] of q.wall) m.cells[y * m.W + x] = 1; }
+        if (slid) { q.slide = { s: 1, n: 3 }; if (open) { d.x = q.x + 3 * TILE; m.block.push(k0 + 3); } else m.block.push(k0); } else if (open) { q.hinge = 1; d.solid = 0; d.broken = 1; } else m.block.push(k0);
+        S.run = JSON.parse(JSON.stringify(R)); SIMX.migrateSecrets(S.run); const R2 = S.run, m2 = R2.map, q2 = m2.secrets[m.secrets.indexOf(q)]; return [S, R2, m2, q2, m2.decor.find((o) => o.secret === m2.secrets.indexOf(q2)), k0]; };
+      for (const slid of [0, 1]) { const tag = slid ? 'slid (1851)' : 'on its hinge (0.3.0)';
+        { const [, , m, q, d, k0] = old(1, slid); if (q && (!opened(null, m, q, d, k0) || d.x !== q.x || q.slide || q.hinge || (slid && m.block.includes(k0 + 3)) || d.brokeT === undefined)) out.push(`secret check shelf: an old save's bookcase open ${tag} does not load broken in its place`); }
+        { const [S, R, m, q, d, k0] = old(0, slid); if (q) { if (q.slide || !d.solid || d.broken || d.x !== q.x || !m.block.includes(k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not load whole`);
+          for (let k = 0; k < D.SHELF_SECRET.hp; k++) { S.t += 0.5; hitProps(S, R, d.x, d.y + 12, 24); } if (!opened(R, m, q, d, k0)) out.push(`secret check shelf: an old save's shut bookcase ${tag} does not break`); } } } }
     // puzzles (TASKS 1692): the right order opens the cache, any wrong piece puts everything back and hurts nobody
     for (const k of ['levers', 'candles']) { const [S, q] = find((o) => o.pz && o.pz.k === k); if (!q) { out.push(`secret check: no ${k} puzzle in 120 seeds`); continue; }
       S.screen = 'play'; const R = S.run, m = R.map, h = R.hero; R.en = []; R.stats[1] = floorStat(R); h.ifr = 1e9; const hp0 = h.hp, ord = [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n);
@@ -1459,6 +1499,7 @@
       const R = S.run, m = R.map, h = R.hero; R.en = []; h.ifr = 1e9;
       m.secrets.forEach((q, i) => { if (q.parent !== undefined && !m.secrets[q.parent].open) openSecret(S, R, m.secrets[q.parent], true);
         if (q.pz) { for (const j of [...q.pz.items.keys()].sort((a, b) => q.pz.items[a].n - q.pz.items[b].n)) playItem(S, R, q, j); }
+        else if (q.kind === 'shelf') for (let k = 0; k <= D.SHELF_SECRET.hp && !q.open; k++) swing(S, R, q);
         else for (let k = 0; k < 4 && !q.open; k++) { standAt(R, q); if (q.trig && q.trig.k === 'plate') step(S, { keys: [], px: 960, py: 540 }); else pressE(S); }
         if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${q.trig ? ' ' + q.trig.k : ''}, ${q.dir}) does not open by its way`); }); }
     // loot: open every chest of a few floors (secret ones too), let the items fall and pick up half of them; the floor's books
@@ -1920,12 +1961,20 @@
       m.cells[ty * m.W + tx + 2] = 0; const q = fire(); R.proj = [q]; for (let i = 0; i < 50 && !q.dead; i++) { S.t += DT; stepProjectiles(S, R); }
       if (!q.dead || q.x >= (tx + 3) * TILE) out.push('hero fireball: passes through rock above water');
     }
+    return out;
+  }
+  function altarCheck() {
+    const out = [];
     // an altar on every second floor of a chapter and on no other (TASKS 137), the last on the floor before the chapter's boss, one past
     // him if the run goes on (the demon lord's 8th, TASKS 339), none on the run's last floor (TASKS 183): 2, 4, 6, 7, 8, 10, 11
     { const bad = [], want = (f) => { const st = D.stageOf('campaign', f); return !st.fin && (st.lf % 2 === 0 || st.lf === st.n - 1) ? 1 : 0; };
       for (let seed = 1; seed <= 40; seed++) for (let f = 1; f <= D.RUNS.campaign.floors; f++) { const n = DG.genFloor((seed * 31 + f * 1013) >>> 0, f).shrines.length;
         if (n !== want(f)) bad.push(`seed ${seed} floor ${f}: ${n}`); }
       if (bad.length) out.push(`altar: not one altar on floors 2, 4, 6, 7, 8, 10 and 11 and none on the others (${bad.length}: ${bad.slice(0, 3).join(', ')})`); }
+    return out;
+  }
+  function secretRestCheck() {
+    const out = [];
     // each gift does what it says: reach and swing width, potion strength, a kill's meal, thorns back into a close striker (not a far one),
     // one second chance per gift, more damage on a nearly dead monster
     { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777); S.screen = 'play'; const R = S.run, h = R.hero, give = (id) => { h.perks[id] = (h.perks[id] || 0) + 1; };
@@ -2359,8 +2408,7 @@
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
-      press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
-    out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...pouchCheck(), ...craftCheck(), ...talkCheck(), ...noteChainCheck(), ...captiveFallbackCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
+      press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); noWelcome(U); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
     return out;
   }
   // the floor modifiers (TASKS 381): drawn only on the rooms floors 3, 5 and 7 of the campaign and the descent's rooms floors past the
@@ -2746,7 +2794,7 @@
     h.x = sv.lectern.x; h.y = sv.lectern.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] }); throughTalk(); if (S.screen !== 'craft' || S.craft.kind !== 'enchant') { out.push('craft: E through the enchanter\'s talk does not open her workshop'); return out; }
     it.ench = []; h.eq.ring = it; h.bag[5] = null; S.meta.shards = 1000; click('eq:ring'); const st0 = heroSt(S), sh0 = S.meta.shards; click('do');
     if (it.ench.length !== 1 || S.meta.shards !== sh0 - D.CRAFT.ench.shards[0]) out.push('craft: the first enchantment fails or is not paid in shards');
-    else { const e = it.ench[0], st1 = heroSt(S), was = SIM_STAT[e.k]; if (was && st1[was] <= st0[was]) out.push(`craft: the enchantment (${e.k}) does not reach the hero`); }
+    else { const e = it.ench[0], st1 = heroSt(S), was = SIM_STAT[e.k]; if (was && st1[was] <= st0[was] && !(was === 'aspd' && st0.aspd >= st0.aspdMax)) out.push(`craft: the enchantment (${e.k}) does not reach the hero`); }
     // TASKS 1618: a failure is rare and takes everything off the piece, its own affixes too
     if (D.CRAFT.ench.max !== 5 || D.CRAFT.ench.fail.join() !== '0,0.01,0.02,0.05,0.1') out.push('craft: the enchantment is not 5 steps at 0, 1, 2, 5, 10 %');
     { const was = D.CRAFT.ench.fail; D.CRAFT.ench.fail = [1, 1, 1, 1, 1]; it.ench = [{ k: 'atk', v: 1 }]; rollAffixes(R, it); click('do'); D.CRAFT.ench.fail = was;
@@ -2820,8 +2868,12 @@
       S.screen = 'play'; S.talk = null; }
     for (const role of ['smith', 'enchanter']) { const f = folkOf(R).find((q) => q.role === role), x0 = f.x, y0 = f.y; f.x += 2600; h.x = f.x + 44; h.y = f.y + 12; S.screen = 'play'; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
       if (S.screen !== 'talk' || S.talk.role !== role) out.push(`talk: E by the ${role} away from the workshop opens no talk`); f.x = x0; f.y = y0; S.screen = 'play'; S.talk = null; }
+    // TASKS 1848: a quest's offer opens without «Поговорить», its row then the quest's, Мастерская and Дальше
+    const of0 = R.offers; R.offers = [{ key: 'cull', from: 'smith', q: 0 }]; S.screen = 'play'; S.talk = null; h.x = sv.anvil.x; h.y = sv.anvil.y + 30; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+    if (S.screen !== 'talk' || !S.talk.act || S.talk.topics || UI.talk(S.talk).r.some((b) => b.id === 'talk')) out.push('talk: the smith\'s quest offer shows «Поговорить» or no quest');
+    R.offers = of0; S.screen = 'play'; S.talk = null;
     const T = { role: 'smith', i: 0, pages: ['a', 'b'], p: 1, act: { k: 'take', key: 'cull', rw: {} }, topics: D.FOLK.smith.topics, craft: 'forge' }, U = UI.talk(T), row = U.r.filter((b) => !b.id.startsWith('topic:'));
-    if (row.map((b) => b.id).sort().join() !== 'act,craft,next,talk') out.push('talk: a quest\'s last page by the smith lacks a button: ' + row.map((b) => b.id));
+    if (row.map((b) => b.id).sort().join() !== 'act,craft,next,talk') out.push('talk: a full row by the smith lacks a button: ' + row.map((b) => b.id));
     if (row.some((b, i) => b.x < U.P.x + 300 || b.x + b.w > U.P.x + U.P.w || row.some((o, j) => j !== i && b.x < o.x + o.w && o.x < b.x + b.w))) out.push('talk: the buttons of a full row overlap or leave the window');
     T.p = 0; if (!UI.talk(T).r.some((b) => b.id === 'talk')) out.push('talk: «Поговорить» is missing before the last page');
     return out;
@@ -2959,9 +3011,21 @@
       for (let i = 0; i < 12 && S.screen === 'talk' && sq.st !== 'turned'; i++) step(S, { keys: ['KeyE'] });
       if (sq.st !== 'turned' || S.meta.shards <= sh) out.push('quest story: the step is not turned in for shards');
       // the thanks, then the next step's offer in the same talk
-      const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !D.QUEST_SAY.keeper.thanks.some((v) => S.talk.pages[0].startsWith(v))) out.push('quest story: no thanks and next offer after the turn-in');
+      const nt = S.talk && S.talk.act; if (!nt || nt.k !== 'take' || !D.QUEST_SAY.keeper.thanks.some((v) => S.talk.pages[1].startsWith(v))) out.push('quest story: no thanks and next offer after the turn-in');
       step(S, { keys: ['Escape'] }); const nx = offerOf(R, 'keeper'); if (!nx || nx.q.key !== 'chapter' || nx.q.f !== 4) out.push('quest story: the next step is not the fourth floor\'s boss');
       R.slain.push(4); R.deepest = 4; const nx2 = offerOf(R, 'keeper'); if (!nx2 || nx2.q.f !== 6) out.push('quest story: a boss slain before is offered again'); }
+    // TASKS 1850: a quest to turn in waits behind an ordinary line with its button; its words, the thanks and the reward come once pressed
+    // a quest's turn-in waits behind one of its giver's lines: every townsman with quests has them (PR 55 review 2)
+    for (const role in D.QUEST_SAY) if (!D.FOLK[role] || !(D.FOLK[role].lines || []).length) out.push(`quest turn-in: the ${role} gives quests but has no lines`);
+    // (PR 55 review 2) with the Keeper's news to tell, the news is the button's page and the reward is told once pressed
+    for (const [role, key, news] of [['keeper', 'fetch'], ['smith', 'fetch'], ['porter', 'cull'], ['guard', 'named'], ['keeper', 'fetch', 1]]) { R = run(41); R.offers = []; R.quests = []; const q = takeQuest(S, R, newQuest(R, key, 2, role)); q.st = 'done'; q.n = q.need;
+      const SAY = D.QUEST_SAY[role], W = [D.QUESTS[key].name, root.SIMX.rwLine(q.rw), D.QUESTS[key].thanks, ...SAY.done, ...SAY.thanks].filter(Boolean), said = () => S.talk.pages.some((p) => W.some((v) => p.includes(v)));
+      const met = S.meta.keeperMet; if (news) { S.meta.keeperMet = 0; R.away = 5; R.townDeep = 3; }
+      const T = talkTo(R, role); if (news) S.meta.keeperMet = met; if (!T || !T.act || T.act.k !== 'turn') { out.push('quest turn-in: the ' + role + '\'s talk does not offer it'); continue; }
+      if (news && (T.pages[T.pages.length - 1] !== D.KEEPER.away[D.KEEPER.away.length - 1] || !T.pages.includes(D.KEEPER.first[0]))) out.push('quest turn-in: the Keeper\'s news is not what the button\'s page tells');
+      for (let i = 0; i < 8 && S.screen === 'talk' && q.st !== 'turned'; i++) { if (said()) { out.push('quest turn-in: the ' + role + ' says it before the button'); break; } step(S, { keys: ['KeyE'] }); }
+      if (q.st !== 'turned' || S.screen !== 'talk' || !said()) out.push('quest turn-in: the ' + role + ' does not say it once pressed');
+      else if (!S.talk.pages.some((p) => p.includes(root.SIMX.rwLine(q.rw)))) out.push('quest turn-in: the ' + role + ' gives no reward once pressed' + (news ? ' (with news)' : '')); step(S, { keys: ['Escape'] }); }
     // TASKS 1026: a boss slain deals a batch of offers more, to townsmen with none waiting; T reads the scroll on a floor
     R = run(93); const o0 = offersOf(R).length; R.bossN = 1; const o1 = offersOf(R); if (o1.length <= o0 || o1.slice(o0).some((o) => o1.slice(0, o0).some((p) => p.from === o.from && !p.q))) out.push('quest give: no fresh batch of offers after a boss');
     enterFloor(S, R, 1); S.screen = 'play'; R.en = []; step(S, { keys: [] }); step(S, { keys: ['KeyT'] }); if (!R.hero.read) out.push('scroll: T does not read the scroll of return');
@@ -3042,30 +3106,30 @@
       for (const n of m.town.npcs) if (!ok[at(n)]) out.push(`town ${sd}: the ${n.role} stands off the open floor`);
       if (sd > 1 && JSON.stringify(m.decor) === JSON.stringify(DG.genTown(977).decor)) out.push('town: the seed does not vary the decor'); }
     // TASKS 1149: the town's gate out asks first (E and Esc stay), then gives the run up; past the colossus it ends it won
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, g = Q.map.town.svc.exitGate, go = UI.leave().r[0];
       const ask = () => { Q.hero.x = g.x; Q.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); return G.screen === 'leave'; };
       if (!ask()) out.push('town gate: E at the gate opens no window');
       else { step(G, { keys: ['KeyE'] }); if (G.screen !== 'play' || G.run !== Q) out.push('town gate: E in its window ends the run');
         ask(); step(G, { keys: [], click: 1, px: go.x + 10, py: go.y + 10 }); if (G.screen !== 'dead' || !G.result.abandoned) out.push('town gate: «Сдаться» does not give the run up'); }
-      press(G, UI.end()[0]); if (G.screen === 'dead') G.screen = 'menu'; press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q2 = G.run;
+      press(G, UI.end()[0]); if (G.screen === 'dead') G.screen = 'menu'; press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q2 = G.run;
       if (Q2) { Q2.slain = [D.RUNS.campaign.floors]; Q2.deepest = D.RUNS.campaign.floors; const w0 = G.meta.wins || 0; Q2.hero.x = g.x; Q2.hero.y = g.y; step(G, { keys: [] }); step(G, { keys: ['KeyE'] }); step(G, { keys: ['Enter'] });
         if (G.screen !== 'win' || G.meta.wins !== w0 + 1) out.push('town gate: past the colossus the gate does not end the run won'); } }
     // TASKS 1600, 1601: E at the stairs takes them with a townsman in earshot; a shot draws a townsman's reaction
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, h = Q.hero, e = Q.map.exit; step(G, { keys: [] }); const gd = Q.folk.find((f) => f.role === 'guard');
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, h = Q.hero, e = Q.map.exit; step(G, { keys: [] }); const gd = Q.folk.find((f) => f.role === 'guard');
       h.x = gd.x - 100; h.y = gd.y; heroShot(Q, h, 0, 1, false, 'bolt'); for (let i = 0; i < 60 && (gd.hitT ?? -9) < 0; i++) step(G, { keys: [] }); if ((gd.hitT ?? -9) < 0) out.push('town: a shot goes through a townsman with no reaction');
       h.x = e.x; h.y = e.y + 40; gd.x = h.x + 30; gd.y = h.y; step(G, { keys: ['KeyE'] }); if (G.screen === 'talk' || G.run.floor !== 1) out.push(`town: E at the stairs does not go down (${G.screen}, floor ${G.run.floor})`); }
     // a run saved in the town before the yard loads, plays on, and gets the new town
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); step(G, { keys: [] }); G.saved = G.run; G.run = null; G.screen = 'menu';
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); step(G, { keys: [] }); G.saved = G.run; G.run = null; G.screen = 'menu';
       const P = JSON.parse(JSON.stringify(persist(G))); delete P.run.map.town.yardSolid; delete P.run.cart; const O = spawn(1, P), Q = O.saved; O.run = Q; O.saved = null; O.screen = 'play'; let threw = null;
       try { for (let i = 0; i < 30; i++) step(O, { keys: [] }); } catch (e) { threw = e; }
       if (threw) out.push(`town: an old save breaks on load (${threw.message})`); else if (!O.run.map.town.yardSolid || !O.run.folk.some((f) => f.role === 'mason')) out.push('town: an old save keeps the old town'); }
     // TASKS 1425, 1426: a hero on the rails is pushed once the wait is over and the cart keeps rolling; stacks dropped on a stack join it
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, h = Q.hero; step(G, { keys: [] }); Object.assign(Q.cart, { s: 200, st: 'down', load: 3 }); let s0 = Q.cart.s;
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, h = Q.hero; step(G, { keys: [] }); Object.assign(Q.cart, { s: 200, st: 'down', load: 3 }); let s0 = Q.cart.s;
       for (let i = 0; i < 2400; i++) { const [x, y] = [h.x, h.y]; step(G, { keys: [] }); if (i < 500) { const T = Q.map.town, c = (k) => [(k % Q.map.W + 0.5) * TILE, (Math.floor(k / Q.map.W) + 0.5) * TILE]; let d = Q.cart.s, p = c(T.rails[0]); for (let j = 1; j < T.rails.length; j++) { const A = c(T.rails[j - 1]), B = c(T.rails[j]), l = Math.hypot(B[0] - A[0], B[1] - A[1]); if (d <= l) { p = [A[0] + (B[0] - A[0]) * d / l, A[1] + (B[1] - A[1]) * d / l]; break; } d -= l; p = B; } h.x = p[0] + 10; h.y = p[1]; } else { h.x = x; h.y = y; } if (Q.map.cells[Math.floor(h.y / TILE) * Q.map.W + Math.floor(h.x / TILE)] === 0) { out.push('town cart: pushed the hero into a wall'); break; } }
       if (Q.cart.st === 'down' && Q.cart.s - s0 < 150) out.push(`town cart: rolled only ${(Q.cart.s - s0).toFixed(0)} px past a hero on the rails`);
       const T = SIMX.stashOf(G), cap = D.CONSUMABLES.potion ? 'potion' : Object.keys(D.CONSUMABLES)[0], st = D.CONSUMABLES[cap].stack; T.items = Array(D.STASH.cells).fill(null); T.items[0] = { b: cap, n: 1, id: 900 }; h.bag[0] = { b: cap, n: 1, id: 901 }; SIMX.stashPut(G, Q, 0, 0); if (T.items[0].n !== 2 || h.bag[0]) out.push('stash: a stack dropped on a stack did not join it'); T.items = T.items.map((q, i) => ({ b: cap, n: st, id: 902 + i })); T.items[3].n = st - 1; h.bag[1] = { b: cap, n: 3, id: 903 }; G.ev = []; SIMX.stashPut(G, Q, 1); if (h.bag[1].n !== 2 || G.ev.some((e) => e.k === 'nope')) out.push('stash: a partial move reads as a full chest'); }
     // TASKS 1151: the mason empties the cart stone by stone, the rope hauls it into the adit, and it comes back full
-    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); const Q = G.run, seen = new Set(), loads = new Set(); Q.hero.x = Q.map.town.svc.portal.x; Q.hero.y = Q.map.town.svc.portal.y;
+    { const G = spawn(0, {}); press(G, UI.menu(false).find((b) => b.id === 'campaign')); if (G.screen === 'classes') press(G, UI.classes().find((b) => b.id === 'go')); noWelcome(G); const Q = G.run, seen = new Set(), loads = new Set(); Q.hero.x = Q.map.town.svc.portal.x; Q.hero.y = Q.map.town.svc.portal.y;
       step(G, { keys: [] }); let ds = 0; for (let i = 0; i < 9000 && G.screen === 'play'; i++) { const s0 = Q.cart.s; step(G, { keys: [] }); ds = Math.max(ds, Math.abs(Q.cart.s - s0)); seen.add(Q.cart.st); loads.add(Q.cart.load); }
       // TASKS 1616: the cart never leaps; the mason's stops reach what he takes from and drops into; no round runs through a standing torch
       if (ds > 1) out.push(`town cart: moves ${ds.toFixed(1)} px in a tick`);
@@ -3075,7 +3139,7 @@
         for (const n of T.npcs) if (n.route) n.route.forEach((a, i) => { const b = n.route[(i + 1) % n.route.length]; for (const p of torch) if (off(p, a, b) < 22) out.push(`town: the ${n.role}'s round runs through the torch at ${Math.round(p.x)},${Math.round(p.y)}`); }); }
       for (const st of ['at', 'up', 'in', 'down']) if (!seen.has(st)) out.push(`town cart: never ${st}`);
       for (const n of [3, 2, 1, 0]) if (!loads.has(n)) out.push(`town cart: never holds ${n} stones`); }
-    const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes().find((b) => b.id === 'go'));
+    const S = spawn(0, {}); press(S, UI.menu(false).find((b) => b.id === 'campaign')); if (S.screen === 'classes') press(S, UI.classes().find((b) => b.id === 'go')); noWelcome(S);
     const R = S.run; if (!R || R.floor !== 0 || !R.town || R.mode !== 'campaign' || S.screen !== 'play') { out.push('town: «Кампания» does not start in the town'); return out; }
     const h = R.hero, hp = h.hp, x0 = h.x;
     if (R.en.length || R.msg.s !== TXT('data_runs.placeName')) out.push('town: monsters in the town or no title');
@@ -3227,6 +3291,54 @@
         endRun(S, 'dead'); if (S.meta.lastCls !== 'mage') out.push('class screen: the last hero\'s class is not kept');
         const T = spawn(0, { meta: S.meta }); startRun(T, 'town'); const pages = root.SIMX.keeperPages(T, T.run);
         if (!pages.some((p) => /маг/.test(p))) out.push('class screen: the Keeper does not name the last hero\'s class'); } }
+    // the Keeper's welcome (TASKS 1849): a new game's first steps in the town bring him from the fire to the hero, held meanwhile, and
+    // open the first talk with the quest about Horatio; Esc leaves the offer his; it is never played again: not on a second visit,
+    // not in a run saved before it (or past it)
+    { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, h = R.hero, F = folkOf(R), k = F.find((q) => q.role === 'keeper'), x0 = h.x, y0 = h.y, kx = k.x, ky = k.y;
+      if (R.greet !== 1) out.push('welcome: a new game does not arm it');
+      let n = 0, walked = 0, said = 0; while (S.screen === 'play' && n++ < 120 * 16) { step(S, { keys: n % 40 === 0 ? ['KeyE', 'Space'] : [], left: 1, up: 1 }); walked = Math.max(walked, Math.hypot(k.x - kx, k.y - ky)); if (k.sayS) said = 1; }
+      if (Math.hypot(h.x - x0, h.y - y0) > 2) out.push(`welcome: the hero walked ${Math.round(Math.hypot(h.x - x0, h.y - y0))} px while held`);
+      if (S.screen !== 'talk' || !S.talk || S.talk.role !== 'keeper') out.push(`welcome: no talk with the Keeper in ${(n / 120).toFixed(1)} s (screen ${S.screen})`);
+      else { const of = offerOf(R, 'keeper');
+        if (!S.talk.act || S.talk.act.k !== 'take' || !of || S.talk.act.key !== of.q.key || of.q.key !== 'rescue') out.push(`welcome: the talk does not offer the quest about Horatio (${JSON.stringify(S.talk.act)})`);
+        if (n / 120 > 9) out.push(`welcome: the talk opens only after ${(n / 120).toFixed(1)} s`); }
+      if (walked < 100 || Math.hypot(k.x - h.x, k.y - h.y) > 70) out.push(`welcome: the Keeper did not come up to the hero (walked ${Math.round(walked)} px, ${Math.round(Math.hypot(k.x - h.x, k.y - h.y))} px off)`);
+      if (!said) out.push('welcome: the Keeper says nothing on the way');
+      step(S, { keys: ['Escape'] }); if (S.screen !== 'play') out.push('welcome: Esc does not close the talk');
+      const back = (rs) => { for (let i = 0; i < 120 * 12 && R.greet !== 'done'; i++) step(S, { keys: [] }); return R.greet === 'done'; };
+      if (!back()) out.push('welcome: the Keeper does not go back to the fire');
+      else if (Math.hypot(k.x - kx, k.y - ky) > 3) out.push(`welcome: the Keeper stops ${Math.round(Math.hypot(k.x - kx, k.y - ky))} px off his place`);
+      if (!offerOf(R, 'keeper') || (R.quests || []).some((q) => q.key === 'rescue')) out.push('welcome: Esc lost or took the quest');
+      h.x = k.x + 44; h.y = k.y + 12; step(S, { keys: [] }); step(S, { keys: ['KeyE'] });
+      if (S.screen !== 'talk' || !S.talk.act || S.talk.act.k !== 'take') out.push('welcome: after Esc the Keeper does not offer the quest again');
+      S.screen = 'play'; S.talk = null; const hx = h.x; for (let i = 0; i < 60; i++) step(S, { keys: [], right: 1 }); if (h.x - hx < 20) out.push('welcome: the hero is still held after it');
+      enterFloor(S, R, 1); enterFloor(S, R, 0); const k2 = folkOf(R).find((q) => q.role === 'keeper'), k2x = k2.x; let held = 0;
+      for (let i = 0; i < 120 * 4; i++) { step(S, { keys: [], down: i < 30 ? 1 : 0 }); if (root.SIMX.greetHold(R)) held = 1; }
+      if (held || S.screen !== 'play' || Math.abs(k2.x - k2x) > 3 || R.greet !== 'done') out.push('welcome: a second visit plays it again');
+      const O = spawn(0, {}); O.run = newRun(O, 'campaign', 91, { town: 1 }); O.screen = 'play'; O.run = JSON.parse(JSON.stringify(O.run)); const oh = O.run.hero, ox = oh.x;
+      for (let i = 0; i < 120 * 4; i++) step(O, { keys: [], right: i < 40 ? 1 : 0 }); if (O.run.greet || O.screen !== 'play' || oh.x - ox < 20) out.push('welcome: a run saved before it is greeted'); }
+    // PR 55 review: the welcome never throws or stalls: a hero by the Keeper's side (his spot in his own cell), a way back that stays
+    // blocked, the townsfolk made anew while he is in the talk
+    { const play = (setup, cut) => { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run, k = folkOf(R).find((q) => q.role === 'keeper'), kx = k.x, ky = k.y; setup(S, R, k); let threw = null;
+        try { let n = 0; while (S.screen === 'play' && n++ < 120 * 16) step(S, { keys: [] }); step(S, { keys: ['Escape'] }); step(S, { keys: [] }); cut(S, R, k); for (let i = 0; i < 120 * 20 && R.greet !== 'done'; i++) step(S, { keys: [] }); } catch (e) { threw = e; }
+        const kn = (R.folk || []).find((q) => q.role === 'keeper');
+        return threw ? `throws (${threw.message})` : R.greet !== 'done' ? `stays in '${R.greet.st}'` : !kn || Math.hypot(kn.x - kx, kn.y - ky) > 3 ? 'ends off his place' : ''; };
+      const a = play((S, R, k) => { R.hero.x = k.x - 46; R.hero.y = k.y - 2; }, () => {}); if (a) out.push(`welcome: with the hero right by the Keeper it ${a}`);
+      const b = play(() => {}, (S, R, k) => { k.path = [{ x: -400, y: -400 }]; }); if (b) out.push(`welcome: a way back that stays blocked ${b}`);
+      const c = play(() => {}, (S, R) => { R.greet.st = 'home'; R.folk = null; }); if (c) out.push(`welcome: with the townsfolk made anew after the talk it ${c}`);
+      const d = play(() => {}, (S, R, k) => { delete R.greet.t3; k.path = [{ x: -400, y: -400 }]; }); if (d) out.push(`welcome: a way back saved without its start (t3) that stays blocked ${d}`); }
+    // PR 55 review 2: the hero is held no longer than the Keeper's walk and a breath (a hen sat on his spot), the spot is never a
+    // bench, and townsfolk made anew mid-walk (a load) bring him over again; each time he talks from beside the hero
+    { const greet = (setup, mid) => { const S = spawn(0, {}); startRun(S, 'town'); const R = S.run; setup(S, R); let n = 0, k = folkOf(R).find((q) => q.role === 'keeper');
+        while (S.screen === 'play' && n++ < 120 * 20) { if (mid) mid(S, R, n); step(S, { keys: [] }); } k = folkOf(R).find((q) => q.role === 'keeper');
+        return { R, k, t: n / 120, off: Math.hypot(k.x - R.hero.x, k.y - R.hero.y), talk: S.screen === 'talk' }; };
+      const base = greet(() => {}), say = (r, what) => { if (!r.talk || r.off > 70) out.push(`welcome: ${what}, he talks ${Math.round(r.off)} px off the hero (screen talk: ${r.talk})`); };
+      const a = greet(() => {}, (S, R) => { const G = R.greet, hen = folkOf(R).find((q) => q.role === 'hen'); if (G.st !== 'walk' || !G.sp) return; hen.x = G.sp.x; hen.y = G.sp.y; hen.goal = { x: G.sp.x, y: G.sp.y, v: 0 }; });
+      say(a, 'with a hen on his spot'); if (a.t > base.t + 1.8) out.push(`welcome: a hen on his spot holds the hero ${a.t.toFixed(1)} s, his walk takes ${base.t.toFixed(1)} s`);
+      let bn = null; const b = greet((S, R) => { const m = R.map, k = folkOf(R).find((q) => q.role === 'keeper'), at = (d) => d.x - (k.x >= d.x - 46 ? 1 : -1) * 46; bn = m.decor.filter((d) => d.role === 'bench').find((d) => folkFree(m, at(d), d.y - 2, K.R));
+        if (bn) { R.hero.x = at(bn); R.hero.y = bn.y - 2; } });
+      const bc = (o) => Math.floor(o.y / TILE) * b.R.map.W + Math.floor(o.x / TILE); if (bn && bc(b.k) === bc(bn)) out.push('welcome: the Keeper meets the hero on a bench'); say(b, 'with a bench beside the hero');
+      const c = greet(() => {}, (S, R, n) => { if (n === 240) R.folk = null; }); say(c, 'with the townsfolk made anew mid-walk'); }
     // gear of another class (TASKS 1102): the staff made the mage's alone for the check, a warrior neither wears it nor finds it often
     { const keep = BASES.staff.cls; BASES.staff.cls = ['mage'];
       const S = spawn(0, {}), R = newRun(S, 'campaign', 82), h = R.hero, n = 4000; let st = 0, mg = 0;
@@ -3276,9 +3388,11 @@
             for (let i = 0; i < 400; i++) step(S, hor ? { left: dir < 0, right: dir > 0, px: 960, py: 540, keys: [] } : { up: dir < 0, down: dir > 0, px: 960, py: 540, keys: [] });
             const a = hor ? h.x : h.y; if (dir < 0 ? a > u0 * TILE : a < (u1 + 1) * TILE) out.push(`${tag}: the deck does not carry the hero across`); } } }
       if (n < 4) out.push(`rails: only ${n} lava bridges in 14 seeds`); }
-    SIMX.checkPowers(out);
     return out;
   }
 
-  Object.assign(root.SIM, { selfCheck });
+  const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
+  const PARTS = { menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
+  Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);

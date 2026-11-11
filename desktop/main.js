@@ -18,6 +18,7 @@ const createWindow = () => {
   const win = new BrowserWindow({
     width: 1600, height: 900, minWidth: 960, minHeight: 540, backgroundColor: '#000000', title: 'The Elder Deep: Below the Ages',
     autoHideMenuBar: true, show: false,
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required' },
   });
   win.once('ready-to-show', () => win.show());

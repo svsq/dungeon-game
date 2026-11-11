@@ -22,7 +22,8 @@ try {
     window.__BRAWL = SCENE.QA().states.filter(([name]) => name.startsWith('elite_brawl') || name.startsWith('elite_hit_'));
     return window.__BRAWL.map(([name]) => name);
   });
-  for (const name of cases) for (const zoom of [1, 1.5, 2]) for (const age of name === 'elite_brawl' || name === 'elite_brawl_long' ? [0, 0.1, 0.2, 0.3, 0.4, 0.5] : [0]) {
+  const zooms = await p.evaluate(() => DATA.ZOOMS);
+  for (const name of cases) for (const zoom of zooms) for (const age of name === 'elite_brawl' || name === 'elite_brawl_long' ? [0, 0.1, 0.2, 0.3, 0.4, 0.5] : [0]) {
     const result = await p.evaluate(({ name, zoom, age }) => {
       const S = structuredClone(window.__BRAWL.find(([n]) => n === name)[1]), h = S.run.hero;
       S.run.zoom = zoom; S.run.cam = [h.x - 960 / zoom, h.y - 540 / zoom]; S.t += age;
@@ -42,13 +43,13 @@ try {
       for (const n of names) for (const d of numbers) if (d.x < n.x + n.w + 20 && d.x + d.w > n.x - 20 && d.y < n.y + n.h + 20 && d.y + d.h > n.y - 20) issues.push(`damage enters elite name corridor: ${d.id}`);
       const hurt = labels.find((l) => /^hu/.test(l.id));
       if (!hurt || hurt.col !== '#fff4ee' || hurt.out !== '#9b211e' || Math.abs(hurt.x - 960) < 40) issues.push('received damage loses its colour or side placement');
-      if (hurt && Math.abs(hurt.y - (540 - 40 * zoom)) > 45) issues.push('received damage moves away from the hero');
+      if (hurt && Math.abs(hurt.y - (540 - 40 * zoom)) > 45) issues.push(`received damage moves away from the hero (y ${Math.round(hurt.y)})`);
       if (grades.some((g) => g[0] < 0.4 || g[1] > 1.5)) issues.push('elite body fills white on impact');
-      return { issues, numbers, names, url: document.getElementById('c').toDataURL() };
+      return { issues, hy: hurt && Math.round(hurt.y), numbers, names, url: document.getElementById('c').toDataURL() };
     }, { name, zoom, age });
     const tag = `${name}_z${zoom}_a${age}`;
     failures.push(...result.issues.map((s) => `${tag}: ${s}`));
-    samples.push({ tag, numbers: result.numbers, names: result.names });
+    samples.push({ tag, hy: result.hy, numbers: result.numbers, names: result.names });
     if (age === 0 || name === 'elite_brawl' && zoom === 1) fs.writeFileSync(path.join(out, tag + '.png'), Buffer.from(result.url.split(',')[1], 'base64'));
   }
 } finally {
