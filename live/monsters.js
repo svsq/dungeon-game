@@ -55,7 +55,10 @@
       crouch0 = Math.max(crouch0, A0[1] - H0[1] - Math.sqrt(Math.max(0, Lm * Lm - dx0 * dx0))); }
     // the breath at least 0.75 % of the height: a fixed 0.8 view px was lost on the boss
     const stepPhase = (u0 * 2) % 1, settle = (o.settle || 0) / s * run * SS(0, 0.1, stepPhase) * (1 - SS(0.1, 0.45, stepPhase));
-    const hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h) * (o.breathK || 1), drop) + crouch0 + (o.crouch || 0) + settle;
+    let hipDy = Math.max((run * (o.bob || 2.2) * dbl) / s + (breath + 1) * Math.max(0.8 / s, 0.0075 * RG.h) * (o.breathK || 1), drop) + crouch0 + (o.crouch || 0) + settle;
+    // o.hipFloor: the deepest crouch eases out that far (× height) over the ankles; at the ankles the folded knee sank under the ground (TASKS 1893)
+    if (o.hipFloor) { const lim = Math.min(RG.ankleL[1] - RG.hipL[1], RG.ankleR[1] - RG.hipR[1]) - o.hipFloor * RG.h, k = 0.08 * RG.h;
+      if (hipDy > lim - k) hipDy = lim - k * Math.exp(-(hipDy - lim + k) / k); }
     const legs = {};
     for (const side of ['L', 'R']) {
       const H0 = RG['hip' + side], K0 = RG['knee' + side], A0 = RG['ankle' + side], { tx, ty } = tg[side], Hp = [H0[0], H0[1] + hipDy];
@@ -622,7 +625,7 @@
       return null;
     }
     if (e.mv === 'stomp') {
-      const rise = SS(0, w * 0.75, u), hit = SS(w - 0.1, w, u), back = SS(w, w + M.duration, u);
+      const rise = SS(0, w * 0.6, u), hit = SS(w - 0.24, w, u), back = SS(w, w + M.duration, u);   // (a 0.1 s drop popped the knee 23 px in a frame)
       base.crouch += (85 * hit - 6 * rise * (1 - hit)) * (1 - back); base.lean = (base.lean || 0) - face * 0.12 * rise * (1 - hit) * (1 - back);
       base.handTarget = (side, rest) => target(side, [lerp(side === 'L' ? -0.3 : 0.42, side === 'L' ? -0.36 : 0.5, hit), lerp(-1.05, -0.55, hit)], rest, rise * (1 - back));
       return null;
@@ -836,7 +839,7 @@
       const arm = colossusPose(pose, E, clock, face, H, base); if (arm) base.arm = arm;
       if (!live) { base.crumble = { t: Math.max(0, GT - e.deadT - 0.55) / 2.4, kind: 'pile', dir: e.dieA }; base.fallR = 0; }
       // (a body of 230 px sinks at each step by more than the walkers' 2.2 px, or its stride reads as a glide)
-      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.stanceTime = base.strideK ? 0.5 : 0.64; base.settle = base.strideK ? 0 : 4; const r = biped(base);
+      base.lift = base.lift || 0.04; base.narrow = 0.15; base.bob = 5; base.hipFloor = 0.14; base.stanceTime = base.strideK ? 0.5 : 0.64; base.settle = base.strideK ? 0 : 4; const r = biped(base);
       // the boulder in both hands over the head while it is lifted, gone from them on the throw (sim R.rocks takes it on)
       if (base.rock && r) {
         const at = [x + face * base.rockAt[0] * H, y + base.rockAt[1] * H + base.rockBuried], bw = 0.42 * H, bh = bw * G.tex('boulder_mg_a').h / G.tex('boulder_mg_a').w;
