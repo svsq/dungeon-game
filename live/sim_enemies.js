@@ -194,7 +194,7 @@
   // skeleton's blast (TASKS 411) is its own: each monster in it loses a share of its own health, and another smouldering one in it lights up
   // (a fuse is set off no sooner than BOOM_GAP after the last one lit, its ring told its true length, TASKS 1057: held back at the burst,
   // 36 % of blasts came after their ring was gone)
-  const BOOM_GAP = 0.35, fuseEnd = (R, want) => { const t = Math.max(want, (R.fuseLast ?? -9) + BOOM_GAP); R.fuseLast = t; return t; };
+  const PROP_R = 17, BOOM_GAP = 0.35, fuseEnd = (R, want) => { const t = Math.max(want, (R.fuseLast ?? -9) + BOOM_GAP); R.fuseLast = t; return t; };
   function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0; R.boomT = S.t;
     if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) SIMX.hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' blast', e);
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
@@ -505,7 +505,9 @@
     // a top or bottom door's leaf stands edge-on against its left jamb: held to a strip there for monsters, so the brute (r 23) fits
     // the 54 px left beside it; the hero still keeps off the whole cell (TASKS 1351, 1783)
     const sol = SIMX.solids(R).map((o) => (o.jamb === undefined ? o : { x: o.jamb + 5, y: o.y, r: 5 }));
-    for (const e of R.en) if (e.deadT < 0 && e.st !== 'leap' && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
+    // (a wide one, the brute at r 23, squeezes past them at r PROP_R: two braziers or a brazier and a crystal a cell apart left it
+    // 40 px in a narrow room and it stuck before the door they led to, TASKS 1866; the walls still hold its whole body, and a boss keeps clear)
+    for (const e of R.en) if (e.deadT < 0 && e.st !== 'leap' && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, D.BOSSES[e.type] ? ENEMIES[e.type].r : Math.min(ENEMIES[e.type].r, PROP_R), true, sol);
     if (heroOk) for (const e of R.en) {
       const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab', 'bomber', 'imp', 'salamander', 'golem'].includes(E.kind) || e.st === 'lurk' || e.st === 'leap') continue;
       const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
