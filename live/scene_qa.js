@@ -10,6 +10,7 @@
     const h0 = (S) => S.run.hero;
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
+      ['title', play((S) => { S.demo = 1; })],
       // look B's parts kit (R-41): every part in every state
       ['uikit', mk((S) => { S.saved = null; S.screen = 'uikit'; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],

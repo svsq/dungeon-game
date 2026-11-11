@@ -120,7 +120,7 @@
     L.solid(0, 0, W, 200, [0, 0, 0], 0, 0, 0, 0.35);
     lab('tt', TXT('hud.title'), W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('tsb', TXT('hud.title.sub'), W / 2, 164, { size: 40, al: 0.5, col: '#e8c890', out: '#2a0d06' });
-    lab('ts', TXT('hud.title.2', { n: D.RUNS.campaign.floors }), W / 2, 214, { size: 28, al: 0.5, col: C.dim });
+    lab('ts', TXT('hud.title.2'), W / 2, 214, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
     lab('tp', TXT('hud.title.3'), W / 2, H - 90, { size: 34, al: 0.5, a });
   }
@@ -836,9 +836,9 @@
     const U = D.UI.classes(S.meta), dif = S.meta.diff || 'normal', cur = D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior';
     const lit = litOf(S, U.map((q) => q.id)), sl = (id) => ({ hover: lit === id, press: S.hover === id && !!S.pressWas, focus: false, off: false });
     KIT.tabs('cl_d', U.filter((b) => b.dif), 'dif:' + dif, S, { fill: true, lit });
-    // on the normal difficulty a first-timer almost never wins
-    const tip = !S.meta.wins && dif !== 'easy' ? TXT('hud.classes.tip') : TXT('UI.classes.hint'), tz = L.sizeToFit(tip, W - 200, 26);
-    KIT.light('cl_s', tip, W / 2, 142, { size: tz, al: 0.5, col: tip === TXT('UI.classes.hint') ? '#cdb894' : '#f0d9a4' }); L.uiBox('cl_s_b', 100, 120, W - 200, 44, 0);
+    // the difficulty is the player's own choice (TASKS 1825), so the line tells the story instead of advising the easy one
+    const tip = TXT('UI.classes.hint'), tz = L.sizeToFit(tip, W - 200, 26);
+    KIT.light('cl_s', tip, W / 2, 142, { size: tz, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 120, W - 200, 44, 0);
     for (const b of U.filter((q) => q.cls)) {
       const Cl = D.CLASSES[b.cls], on = cur === b.cls, hot = lit === b.id;
       if (hot) L.glow(b.x + b.w / 2, b.y + b.h / 2, b.h * 0.85, [1, 0.6, 0.25], 0.4, 2);
