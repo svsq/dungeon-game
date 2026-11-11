@@ -157,6 +157,13 @@
     { const P = toStart(), ids = UI.classes(P.meta).map((q) => q.id); step(P, Object.assign({ keys: [], moved: 1 }, mid(P, B(P, 'name'))));
       const lit = ids.includes(P.focus) ? P.focus : ids.includes(P.hover) ? P.hover : '';
       if (lit !== 'name') out.push(`name: the pointer over the field lights ${lit || 'nothing'}, not the field`); }
+    // what is lit is what Enter presses (TASKS 1901): the field lit by the pointer takes the keyboard, it does not start the run
+    { const P = toStart(); P.focus = 'back'; step(P, Object.assign({ keys: [], moved: 1 }, mid(P, B(P, 'name'))));
+      step(P, Object.assign({ keys: ['Enter'], moved: 0 }, mid(P, B(P, 'name'))));
+      if (P.screen !== 'classes' || P.focus !== 'name') out.push(`name: Enter with the field lit by the pointer does not take the field (${P.screen}, ${P.focus})`);
+      const Q = toStart(); step(Q, Object.assign({ keys: [], moved: 1 }, mid(Q, B(Q, 'name')))); step(Q, { keys: [], moved: 1, px: 2, py: 2 });
+      step(Q, { keys: ['Enter'], px: 2, py: 2 });
+      if (Q.screen !== 'classes' || Q.focus !== 'go') out.push(`name: Enter with nothing lit does not light the start button first (${Q.screen}, ${Q.focus})`); }
     press(A, B(A, 'name')); if (A.focus !== 'name') out.push(`name: a click on the field does not give it the keyboard (${A.focus})`);
     for (let i = 0; i < 16; i++) put(A, ['Backspace'], []);
     if (A.pendName !== '') out.push(`name: Backspace does not empty the field (${A.pendName})`);

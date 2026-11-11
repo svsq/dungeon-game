@@ -170,7 +170,10 @@
       if (keys.Enter) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; }
     } else {
       if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
-      if (click && b && b.id === 'name') { S.focus = 'name'; ev(S, { k: 'ui', x, y }); return; }
+      // what is lit is what Enter presses (TASKS 1901): the field lit by the pointer takes the keyboard as a click would, and with
+      // nothing lit Enter lights «В путь» before it starts anything
+      if ((click && b && b.id === 'name') || (keys.Enter && !S.focus && S.hover === 'name')) { S.focus = 'name'; ev(S, { k: 'ui', x, y }); return; }
+      if (keys.Enter && !S.focus && !click) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; }
       if ((click && b && b.id === 'dice') || (keys.Enter && S.focus === 'dice')) { rollName(S); S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
       if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
       if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
