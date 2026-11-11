@@ -6,6 +6,7 @@ decals are Codex art since 421.
   obsidian_mg     crystal_cv re-shaded into black volcanic glass with violet-grey glints
   banner_mg       the cult banner hung from a crossbar between two iron posts (it stands on the plateau, no wall to hang on)
   forge_mg        forge_tw's slate, brick and iron re-shaded into basalt, the fire (hot warm pixels) kept as drawn
+  slab_mg_d       slab_mg_c broken: a corner split off, a crack across it, its front face a shade lighter (TASKS 1901)
   stairs_mg, stairs_up_mg  stairs and stairs_up re-shaded into basalt, the treads keeping their light and dark steps;
                   stairs_up_mg only its opening, cut in the wall (TASKS 1730)
   python3 tools/magmaprops.py [--only name1,name2]
@@ -167,6 +168,30 @@ def forge(src):
     return Image.fromarray(a)
 
 
+def broken_slab(path, px=4):
+    a = np.asarray(Image.open(path).convert('RGBA'))[::px, ::px].copy()
+    m = a[..., 3] >= 128
+    ys, xs = np.where(m)
+    y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+    yy, xx = np.mgrid[:a.shape[0], :a.shape[1]]
+    m &= ~((xx - (x1 - 6)) + ((y0 + 5) - yy) > 4)
+    h = y1 - y0 + 1
+    out = np.where(m[..., None], a, 0).astype(np.uint8)
+    m = out[..., 3] >= 128
+    inner = m.copy(); inner[1:] &= m[:-1]; inner[:-1] &= m[1:]; inner[:, 1:] &= m[:, :-1]; inner[:, :-1] &= m[:, 1:]
+    lum_ = lum(out[..., :3].astype(float))
+    face = inner & (yy > y0 + h * 0.62) & (lum_ > 0.06)
+    out[face, :3] = np.clip(out[face, :3].astype(int) + 14, 0, 255)
+    cx = (x0 + x1) // 2
+    for i, y in enumerate(range(y0 + 3, y0 + h // 2 + 2)):
+        x = cx + 2 - i // 2
+        if inner[y, x]:
+            out[y, x, :3] = INK
+    out[m & ~inner, :3] = INK
+    out[..., 3] = np.where(m, 255, 0)
+    return Image.fromarray(out.repeat(px, 0).repeat(px, 1), 'RGBA')
+
+
 def banner():
     b = Image.open('art/gen/banner.png').convert('RGBA')
     ap = b.height / 32.0
@@ -190,6 +215,7 @@ if __name__ == '__main__':
         'obsidian_mg': glass(reshade('art/gen/crystal_cv.png', [INK] + OBS[1:], [0.1, 0.3, 0.5, 0.72])),
         'skel_mg': charred('art/gen/skel_cv.png'),
         'banner_mg': banner(),
+        'slab_mg_d': broken_slab('art/gen/slab_mg_c.png'),
         'forge_mg': forge('art/gen/forge_tw.png'),
         'stairs_mg': reshade('art/gen/stairs.png', STAIR_RAMP, STAIR_CUTS),
         'stairs_up_mg': hewn(reshade('art/gen/stairs_up.png', STAIR_RAMP, STAIR_CUTS)),
