@@ -63,6 +63,8 @@
       else if (keys.KeyJ && !S.demo) { S.screen = 'journal'; S.hover = ''; ev(S, { k: 'ui', x: inp.px, y: inp.py }); }
       else { stepPlay(S, inp, keys); if (S.run && !S.run.frozen) stepBossMove(S, S.run); }
     } else stepUI(S, inp, keys);
+    // a window opened in this step draws its notes in its own frame at once (review of PR 57: play → inv put the tip uiDy px off)
+    S.uiPtr = [S.ptr[0], S.ptr[1] - uiDy(S.screen)];
     if (S.ev.length > 64) S.ev.splice(0, S.ev.length - 64);
     S.steps++; return S;
   }

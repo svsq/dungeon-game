@@ -65,6 +65,11 @@
         if (c.x > prev.x || c.y > prev.y || c.x + c.w < prev.x + prev.w || c.y + c.h < prev.y + prev.h) { out.push(`map cut: ${mode} ${seed}'s sheet shrinks as the floor is seen`); break; }
         if (c.w !== prev.w || c.h !== prev.h) changes++; prev = Object.assign({}, c); }
       if (changes > Math.ceil((m.W + m.H) / 4)) out.push(`map cut: ${mode} ${seed}'s sheet changes size ${changes} times as the floor is seen`); } }
+  // the step that opens the hero page from play already gives its pointer in the page's frame, or its tip stands uiDy px off for a frame
+  function checkUiPtr(out) { const h0 = SIMX.VIEW.H;
+    try { SIMX.setView(1248); const { S } = playing('warrior'); step(S, { keys: ['KeyI'], px: 700, py: 600 });
+      if (S.screen !== 'inv' || S.uiPtr[1] !== 600 - SIMX.uiDy('inv')) out.push(`pointer: the step from play to the hero page keeps play's frame (${S.uiPtr[1]}, not ${600 - SIMX.uiDy('inv')})`); }
+    finally { SIMX.setView(h0); } }
   // a key pressed in the hold acts once it is over, as in a hit-stop: lost, a potion drunk in the banner's 1.2 s did nothing
   function checkHoldInput(out) {
     const { S, R, h } = playing('mage'), M = SIMX.heroSt(S), ab = D.clsOf(h).abs[0].id; h.ab[ab] = h.ab[ab] || 1; h.mp = M.maxMp; h.hp = Math.floor(M.maxHp / 2);
@@ -74,6 +79,6 @@
     if (!p0) out.push('hold: the mage of the check carries no health potion');
     else if (pots() !== p0 - 1) out.push('hold: Q pressed in the hold on Continue is lost');
     if (!(h.cd[ab] > S.t)) out.push('hold: a slot key pressed in the hold on Continue is lost'); }
-  function checkReview57(out) { checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); }
+  function checkReview57(out) { checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); }
   Object.assign(SIMX, { checkReview57, checkResize, checkMapCut });
 })(typeof window !== 'undefined' ? window : globalThis);
