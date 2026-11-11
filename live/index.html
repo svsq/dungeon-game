@@ -66,12 +66,15 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const save = () => { try { sessionStorage.setItem('live2', JSON.stringify({ simT, speed, paused, play })); } catch (e) {} };
   addEventListener('keydown', (e) => {
     const c = e.code;
-    if (c === 'KeyP') { paused = !paused; e.preventDefault(); return; }
-    if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
-    if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
-    if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
+    // the dev keys sit on letters of the Russian layout (з х ъ ю), so in the hero's name field they are letters (review of PR 63);
+    // not while paused: a pause that reached the field, by a step or a reload, would otherwise have no key to lift it
+    if (paused || !(play && SIM.Q.typing && SIM.Q.typing(play))) {
+      if (c === 'KeyP') { paused = !paused; e.preventDefault(); return; }
+      if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
+      if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
+      if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; } }
     keys[c] = 1; if (play) (e.repeat ? pend.rep : pend.keys).push(c);
-    if (play && e.key.length === 1 && !e.ctrlKey && !e.metaKey) pend.chars.push(e.key);   // the letters typed, by the keyboard's layout: the hero's name (TASKS 1872)
+    if (play && e.key.length === 1 && !e.ctrlKey && !e.metaKey) pend.chars.push(e.key);   // e.key, not e.code: the name takes the letters of the player's layout (TASKS 1872)
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay(); else fullSync(true);
     e.preventDefault();

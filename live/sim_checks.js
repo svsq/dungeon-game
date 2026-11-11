@@ -655,7 +655,11 @@
       const tipped = (n) => { put(); S.meta.whirls = n; R.tipT = undefined; R.msg = null; h.ab.whirl = h.ab.whirl || 1; h.cd.whirl = 0; h.ifr = 1e9;
         for (const [dx, dy] of [[40, 0], [-40, 0], [0, 30]]) el([], dx, { y: h.y + dy, cdT: 1e9 }); step(S, { keys: [] }); return !!(R.msg && R.msg.tip === 'whirl'); };
       if (!tipped(0)) out.push('no whirl hint by a crowd'); if (tipped(D.TIPS.whirl.until)) out.push('the whirl hint shows to a player who has whirled enough');
+      { const t0 = R.test; R.test = 1; R.whirls = D.TIPS.whirl.until; if (tipped(0)) out.push('the whirl hint keeps coming back on a test run that has whirled enough'); R.test = t0; R.whirls = 0; }
       const sw = S.meta.whirls; castAbility(S, R, 'whirl', {}); if (S.meta.whirls !== sw + 1) out.push('a whirl is not counted for the hint');
+      // a test run's whirls stop its hint by the run's own count, the meta's untouched (review of PR 63)
+      { const t0 = R.test, rw = R.whirls || 0; R.test = 1; h.cd.whirl = 0; h.mp = 1e9; castAbility(S, R, 'whirl', {});
+        if (R.whirls !== rw + 1 || S.meta.whirls !== sw + 1) out.push(`a test run's whirl is not counted by the run, or is by the meta (${R.whirls}, ${S.meta.whirls})`); R.test = t0; R.whirls = 0; }
       // the deep powers come up only in the endless descent past ELITE.deepFrom, and a caster or archer never blinks
       const deep = D.ELITE_MODS.filter((q) => q.deep).map((q) => q.id);
       if (D.modPool('campaign', 12, 'melee').some((id) => deep.includes(id)) || D.modPool('endless', D.ELITE.deepFrom, 'melee').some((id) => deep.includes(id)) || !deep.every((id) => D.modPool('endless', D.ELITE.deepFrom + 1, 'melee').includes(id))

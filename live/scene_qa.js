@@ -1646,9 +1646,10 @@
       S = structuredClone(S); go(S, 1, ['Escape']); fr = []; for (let k = 0; k < 420 && !(S.run.greet === 'done' && S.t > key(S).walkB + 0.6); k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
       transitions.folk_keeper_greet_back = fr; folkSubj.folk_keeper_greet_back = 'npc' + i; }
     states.push(['town_smith_talk', masterS('smith', 0)], ['town_smith_talk_quest', masterS('smith', 1)], ['town_enchanter_talk', masterS('enchanter', 0)]);
-    const endS = (pick) => keeperS((S, R, h, k) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; R.goldTot = 1000; S.meta.keeperMet = 1; S.meta.endTold = 1;
-      eNear(S, R, h, k.x + 44, k.y + 12); if (S.talk) { S.talk.p = pick(S.talk.pages); S.hover = 'act'; } });
-    states.push(['town_keeper_end', endS((P) => P.length - 1)], ['town_keeper_end_long', endS((P) => P.indexOf(P.reduce((a, q) => (q.length > a.length ? q : a))))]);
+    const endS = (pick, o) => keeperS((S, R, h, k) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; R.goldTot = 1000; S.meta.keeperMet = 1; S.meta.endTold = 1;
+      eNear(S, R, h, k.x + 44, k.y + 12); if (S.talk) { S.talk.p = pick(S.talk.pages); S.hover = 'act'; Object.assign(S.talk, o); } });
+    // review of PR 63: an arrow under the pointer on «Завершить поход» lights the keys' button, the finish steps down
+    states.push(['town_keeper_end', endS((P) => P.length - 1)], ['town_keeper_end_keys', endS((P) => P.length - 1, { byKeys: 1 })], ['town_keeper_end_long', endS((P) => P.indexOf(P.reduce((a, q) => (q.length > a.length ? q : a))))]);
     states.push(['town_kip_won', keeperS((S, R, h) => { const F = D.RUNS.campaign.floors; noQ(R); R.slain = [F]; R.deepest = F; const c = R.folk.find((q) => q.role === 'child');
       for (const f of R.folk) if (f !== c) f.x += 2000; eNear(S, R, h, c.x + 44, c.y + 12); for (const f of R.folk) if (f !== c) f.x -= 2000; if (S.talk) S.talk.p = 0; })]);
     // quests (TASKS 1018–1022): the marks over the givers (! and ?), the offer on its page (the longest text: a keepsake), the smith's
@@ -1704,7 +1705,7 @@
     states.push(['town_board', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); S.screen = 'board'; S.hover = 'take:1'; })]);
     // TASKS 1878: the second row just taken stays in place, dimmed, its button out with «Взято»; the pointer on the row under it
     states.push(['town_board_took', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 }));
-      S.bdRows = SIM.Q.boardOffers(R).map(({ role, of }) => ({ role, q: JSON.parse(JSON.stringify(of.q)) })); SIM.giveQuest(S, R, S.bdRows[1].role); S.bdTook = [1]; S.screen = 'board'; S.hover = 'take:2'; })]);
+      S.bdRows = SIM.Q.boardRows(R); SIM.giveQuest(S, R, S.bdRows[1].role); S.bdTook = [1]; S.screen = 'board'; S.hover = 'take:2'; })]);
     states.push(['town_board_empty', keeperS((S, R) => { R.offers = []; R.offerB = 99; R.quests = [{ id: -1, key: 'chapter', f: 99, need: 1, n: 0, st: 'taken', from: 'keeper', rw: {} }]; S.screen = 'board'; })]);
     states.push(['town_ouch', keeperS((S, R, h) => { const g = R.folk.find((q) => q.role === 'guard'); g.hitT = S.t - 0.25; g.ouch = 2; h.x = g.x - 40; h.y = g.y + 8; R.cam = [g.x - SCX.VW / 2, g.y - 40 - SCX.VH / 2]; })]);
     states.push(['scroll_tip', climbS(2, (S, R, m, h) => { h.bag[5] = { b: 'scroll', n: 3, id: R.nextId++ }; h.hp = 6; R.msg = { s: TXT('QA.msg.s.2'), t: S.t - 0.5, d: 4.5, tip: 'scroll' }; })]);

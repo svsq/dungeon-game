@@ -10,11 +10,11 @@
   function endRun(S, how) {
     const R = S.run; if (!R) return;
     const W2 = runReward(R, how), bonus = W2.base + W2.bonus;
-    // a test run (TASKS 1871) pays its shards but counts in no counter, record or journal
+    // a test run (TASKS 1871) pays its shards but counts in no counter, record or journal, nor is the Keeper of the Fire told of it
     const test = !!R.test;
     S.meta.shards += bonus; if (!test) { S.meta.runs = (S.meta.runs || 0) + 1; if (how === 'win' && !R.campaignWon) S.meta.wins = (S.meta.wins || 0) + 1; }
     // what the Keeper of the Fire will speak of to the next hero (TASKS 1016)
-    if (how === 'dead' && !(R.log && R.log.abandon) && !test) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id;
+    if (!test) { if (how === 'dead' && !(R.log && R.log.abandon)) S.meta.deaths = (S.meta.deaths || 0) + 1; S.meta.lastEnd = R.log && R.log.abandon ? 'abandon' : how; S.meta.endTold = 0; S.meta.lastCls = D.clsOf(R.hero).id; }
     // the records are the deepest floor reached, not the one the run ended on (TASKS 516: down to the 17th, back up to the 16th)
     const deep = Math.max(R.deepest || 0, R.floor);
     if (RUN(R) === D.RUNS.campaign && !test) { S.meta.best = Math.max(S.meta.best || 0, deep); tally(S, R, 'best', deep, 1); }
@@ -34,7 +34,7 @@
   // past the serpent, down the stairs (TASKS 354): the campaign is won on the spot — its reward (gold and the win's shards), a win,
   // its record — and the same run goes on as the endless descent from the 13th, the hero as he is; the descent's depth is its record
   function descend(S, R) {
-    const W2 = runReward(R, 'win'); S.meta.shards += W2.base; S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, R.floor);
+    const W2 = runReward(R, 'win'); S.meta.shards += W2.base; if (!R.test) { S.meta.wins = (S.meta.wins || 0) + 1; S.meta.best = Math.max(S.meta.best || 0, R.floor); }
     tally(S, R, 'wins'); tally(S, R, 'shards', W2.base); tally(S, R, 'best', R.floor, 1);
     R.goldBanked = R.goldTot; R.campaignWon = 1; R.mode = RUN(R).then; S.saveN++;
     ev(S, { k: 'stairs', x: R.hero.x, y: R.hero.y, floor: R.floor }); enterFloor(S, R, R.floor + 1);
@@ -70,7 +70,7 @@
   // what was played since would then lie in its future, and go
   // the floor waits under its name a moment as on an arrival (TASKS 1812): an elite left at arm's length struck at once. The hero
   // waits with it (holdClocks), so nothing a load gives can be chained into a dodge
-  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t };
+  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.potAsk = null; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t };
     R.holdT = S.t + RESUME_HOLD; }
   const RESUME_HOLD = 1.2;
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
@@ -88,12 +88,16 @@
   const clsNow = (S) => (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior');
   // the hero's name (TASKS 1872): each new run's start screen offers one off the die, the player may type another. The die is the
   // sim's own (the session's seed and its count of throws), never the same name twice running; an empty field throws it at the start
-  const rollName = (S) => { const N = D.heroNames(), was = S.pendName; let n;
-    for (let i = 0; i < 8 && (!n || n === was); i++) { S.nameN = (S.nameN || 0) + 1; let x = Math.imul((S.seedBase | 0) ^ Math.imul(S.nameN, 0x9e3779b1), 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; n = N[(x >>> 0) % N.length]; }
-    S.pendName = n; return n; };
+  const rollName = (S) => { const N = D.heroNames(), was = N.indexOf(S.pendName);
+    if (N.length < 2) { S.pendName = N[0] || ''; return N[0] || D.clsOf({ cls: clsNow(S) }).name; }
+    S.nameN = (S.nameN || 0) + 1; let x = Math.imul((S.seedBase | 0) ^ Math.imul(S.nameN, 0x9e3779b1), 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16;
+    // the throw falls among the other names, so it never lands on the one shown, however the hash comes out
+    let i = (x >>> 0) % (N.length - (was >= 0 ? 1 : 0)); if (was >= 0 && i >= was) i++;
+    S.pendName = N[i]; return N[i]; };
   const nameOf = (S) => { const n = (S.pendName || '').trim(); return n || rollName(S); };
   const typing = (S) => S.screen === 'classes' && S.focus === 'name';
-  // a name typed in: the letters the field takes, up to NAME_MAX, one space between words, Backspace takes the last off
+  // a name typed in lowercase or with stray spaces must still read as a name on the slots and the end screens: its first letter is
+  // made capital, and a space may neither lead nor double
   const typeName = (S, chars, keys) => { let n = S.pendName || '';
     if (keys.Backspace) n = n.slice(0, -1);
     for (const c of chars || []) if (D.NAME_CHAR.test(c) && n.length < D.NAME_MAX && !(c === ' ' && (!n || n.endsWith(' ')))) n += n ? c : c.toUpperCase();
@@ -149,31 +153,44 @@
   const setCls = (S, c) => { if (S.meta.cls !== c) { S.meta.cls = c; S.saveN++; } };
   const stepKit = (S, cls, k) => { const list = D.kitsOf(cls, S.meta), i = list.indexOf(D.kitOf(S.meta, cls)); S.meta.kit = S.meta.kit || {};
     S.meta.kit[cls] = list[(i + k + list.length) % list.length].id; S.saveN++; };
+  // the name's field in focus is the mode of typing (review of PR 63): neither the pointer nor W, A, S and D move the focus into
+  // it or out of it, so a typed name is never lost to a passing pointer or written over by a walk. A click or an arrow lets it in;
+  // a click elsewhere, ↑↓, Enter (on to «В путь») or Escape let it out. Off the field the pointer over it takes the keyboard's
+  // focus away, so the field is lit as the pointer's alone, as every other control under the pointer is
   SCREEN.classes = (S, inp, keys, x, y, click) => {
     const U = UI.classes(S.meta), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
-    if (b && inp.moved) S.focus = b.id;
+    let typing = S.focus === 'name';
+    if (typing && click && !(b && b.id === 'name')) { S.focus = ''; typing = false; }
+    if (b && inp.moved && !typing) S.focus = b.id === 'name' ? '' : b.id;
     const back = () => { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); };
-    if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
-    // the name's field takes the keyboard while it has the focus: letters and Backspace write, Enter takes the name and goes on to «В путь»
-    if (click && b && b.id === 'name') { S.focus = 'name'; ev(S, { k: 'ui', x, y }); return; }
-    if ((click && b && b.id === 'dice') || (keys.Enter && S.focus === 'dice')) { rollName(S); S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
-    if (S.focus === 'name') { if (typeName(S, inp.chars, keys)) ev(S, { k: 'ui', x, y }); if (keys.Enter) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; } }
-    if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
-    if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
-    if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
-    if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    if (typing) {
+      if (typeName(S, inp.chars, keys)) ev(S, { k: 'ui', x, y });
+      // Escape leaves the field and keeps the screen: going back to the menu would throw the typed name away
+      if (keys.Escape) { S.focus = ''; ev(S, { k: 'ui', x, y }); return; }
+      if (keys.Enter) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; }
+    } else {
+      if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
+      if (click && b && b.id === 'name') { S.focus = 'name'; ev(S, { k: 'ui', x, y }); return; }
+      if ((click && b && b.id === 'dice') || (keys.Enter && S.focus === 'dice')) { rollName(S); S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
+      if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
+      if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+      if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+      if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
+    }
     const cls = clsNow(S), ids = D.classesReady(), dif = D.DIFF_ORDER, row = (S.focus || '').split(':')[0];
-    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn']), at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r === 'nm' ? 'name' : r + ':' + cls);
-    const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : row === 'name' || row === 'dice' ? 'nm' : 'cls';
-    // in the name's field W, A, S and D are letters: only the arrows walk out of it
-    const wasd = S.focus !== 'name', mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
+    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn']);
+    // the focus taken off the field stays on its row
+    const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : row === 'name' || row === 'dice' || !row ? 'nm' : 'cls';
+    const wasd = !typing, arV = keys.ArrowDown || keys.ArrowUp, arH = keys.ArrowLeft || keys.ArrowRight;
+    const mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
+    const at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r === 'nm' ? (arV ? 'name' : 'dice') : r + ':' + cls);
     if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); ev(S, { k: 'ui', x, y }); return; }
     if (!st) return;
     if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
     if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
     if (r0 === 'kit') stepKit(S, cls, st);
     if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
-    if (r0 === 'nm') S.focus = st > 0 ? 'dice' : 'name';
+    if (r0 === 'nm') S.focus = st > 0 ? 'dice' : arH ? 'name' : S.focus;
     ev(S, { k: 'ui', x, y });
   };
   // the statistics (TASKS 1309): a tab or ←→ picks whose counters the book shows, ↑↓ go between the tabs and «Назад»; «Назад»,
@@ -301,9 +318,11 @@
     if (T.pk !== T.pages[T.p]) { T.pk = T.pages[T.p]; T.pT = S.t; }
     const walk = talkWalk(T, U), fk = (T.menu ? 'menu' : T.p + ':' + (T.act ? T.act.k : '') + ':' + walk.join()) + ':' + T.pages[T.p];
     if (T.fk !== fk || !U.r.some((q) => q.id === S.focus)) { T.fk = fk; S.focus = talkFirst(T, walk); }
-    if (b && inp.moved) S.focus = b.id;
+    // the pointer moves the focus only among the buttons Enter can press: over «Завершить поход» Enter would light the end of the run and do nothing
+    if (b && inp.moved && walk.includes(b.id)) S.focus = b.id;
+    if (inp.moved) T.byKeys = 0;
     const mv = T.menu ? (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0) : (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
-    if (mv) { const i = walk.indexOf(S.focus), j = Math.max(0, Math.min(walk.length - 1, (i < 0 ? 0 : i + mv))); if (walk[j] !== S.focus) { S.focus = walk[j]; ev(S, { k: 'ui', x, y }); } return; }
+    if (mv) { T.byKeys = 1; const i = walk.indexOf(S.focus), j = Math.max(0, Math.min(walk.length - 1, (i < 0 ? 0 : i + mv))); if (walk[j] !== S.focus) { S.focus = walk[j]; ev(S, { k: 'ui', x, y }); } return; }
     const enter = keys.Enter ? S.focus : '';
     if ((click && b && b.id === 'craft') || enter === 'craft') { SIMX.openCraft(S, S.run, T.craft); return; }
     // in the topics menu a number, a click or Enter opens a topic; «Уйти», E or the space leave it
@@ -491,6 +510,6 @@
     S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved, py }), keys, inp.px, py, inp.click); S.uiKey = uiKey(S); commitDraft(S);
   }
 
-  Object.assign(SIMX, { talkWalk,
-    endRun, finishRun, descend, begin, startRun, stepUI, typing, rollName, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
+  Object.assign(SIMX, { talkWalk, talkFirst, boardRows,
+    endRun, finishRun, descend, begin, startRun, stepUI, typing, rollName, clsNow, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

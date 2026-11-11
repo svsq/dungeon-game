@@ -129,7 +129,34 @@
     if (A.screen !== 'classes' || !N.includes(A.pendName)) out.push(`name: the start screen offers no name off the list (${A.pendName})`);
     press(A, B(A, 'dice')); press(A2, B(A2, 'dice'));
     if (!N.includes(A.pendName) || A.pendName !== A2.pendName) out.push(`name: the die is not the same from the same seed (${A.pendName}, ${A2.pendName})`);
-    const thrown = []; for (let i = 0; i < 6; i++) { const was = A.pendName; press(A, B(A, 'dice')); thrown.push(A.pendName); if (A.pendName === was) out.push('name: the die threw the same name twice running'); }
+    // the throws grow with the list, twelve a name, so a longer list is still thrown whole (review of PR 63)
+    const thrown = new Set(), nT = N.length * 12; let rep = false;
+    for (let i = 0; i < nT; i++) { const was = A.pendName; press(A, B(A, 'dice')); thrown.add(A.pendName); if (A.pendName === was && !rep) { rep = true; out.push(`name: the die threw the same name twice running (${was}, throw ${i + 1})`); } }
+    if ([...thrown].some((n) => !N.includes(n)) || thrown.size < N.length) out.push(`name: ${nT} throws of the die land off the list or miss some of it (${thrown.size} of ${N.length})`);
+    { const P = toStart(), f0 = P.focus, n0 = P.pendName, mute = P.meta.mute; step(P, Object.assign({ keys: [], moved: 1 }, mid(P, B(P, 'name'))));
+      if (P.focus === 'name') out.push('name: the pointer passing over the field gives it the keyboard');
+      step(P, Object.assign({ keys: ['KeyM'], chars: ['m'], moved: 0 }, mid(P, B(P, 'name'))));
+      if (P.pendName !== n0 || P.meta.mute === mute) out.push(`name: with the pointer over the field M writes a letter or does not mute (${P.pendName}, focus ${f0} → ${P.focus})`); }
+    { const P = toStart(); press(P, B(P, 'name')); P.pendName = 'Ulf'; const mute = P.meta.mute;
+      for (const id of ['dice', 'go']) step(P, Object.assign({ keys: [], moved: 1 }, mid(P, B(P, id))));
+      step(P, Object.assign({ keys: ['KeyM'], chars: ['m'], moved: 1 }, mid(P, B(P, 'go'))));
+      if (P.focus !== 'name' || P.pendName !== 'Ulfm' || P.meta.mute !== mute) out.push(`name: the pointer over the die or the start button takes the field's keyboard (${P.focus}, ${P.pendName}, mute ${P.meta.mute})`);
+      step(P, Object.assign({ keys: ['Enter'], moved: 1 }, mid(P, B(P, 'dice'))));
+      if (P.focus !== 'go' || P.pendName !== 'Ulfm') out.push(`name: Enter in the field under the pointer on the die throws it (${P.focus}, ${P.pendName})`);
+      press(P, B(P, 'name')); put(P, ['Escape'], []);
+      if (P.screen !== 'classes' || P.focus === 'name' || P.pendName !== 'Ulfm') out.push(`name: Escape in the field does not just leave it (${P.screen}, ${P.focus}, ${P.pendName})`);
+      press(P, B(P, 'name')); press(P, { x: 2, y: 2, w: 4, h: 4 });
+      if (P.focus === 'name') out.push('name: a click off the field does not take its keyboard away'); }
+    { const P = toStart(), rows = UI.classes(P.meta), cls = SIMX.clsNow(P), above = rows.some((q) => q.id === 'kit:' + cls) ? 'kit:' + cls : 'cls:' + cls;
+      P.pendName = 'Ulf'; P.focus = above; put(P, ['KeyS'], ['s']);
+      if (P.focus === 'name' || P.pendName !== 'Ulf') out.push(`name: S from the row above takes the field (${P.focus}, ${P.pendName})`);
+      P.focus = 'dice'; put(P, ['KeyA'], ['a']);
+      if (P.focus === 'name' || P.pendName !== 'Ulf') out.push(`name: A on the die takes the field (${P.focus}, ${P.pendName})`);
+      P.focus = above; put(P, ['ArrowDown'], []); if (P.focus !== 'name') out.push(`name: ↓ from the row above does not take the field (${P.focus})`);
+      P.focus = 'dice'; put(P, ['ArrowLeft'], []); if (P.focus !== 'name') out.push(`name: ← on the die does not take the field (${P.focus})`); }
+    { const P = toStart(), ids = UI.classes(P.meta).map((q) => q.id); step(P, Object.assign({ keys: [], moved: 1 }, mid(P, B(P, 'name'))));
+      const lit = ids.includes(P.focus) ? P.focus : ids.includes(P.hover) ? P.hover : '';
+      if (lit !== 'name') out.push(`name: the pointer over the field lights ${lit || 'nothing'}, not the field`); }
     press(A, B(A, 'name')); if (A.focus !== 'name') out.push(`name: a click on the field does not give it the keyboard (${A.focus})`);
     for (let i = 0; i < 16; i++) put(A, ['Backspace'], []);
     if (A.pendName !== '') out.push(`name: Backspace does not empty the field (${A.pendName})`);
@@ -146,7 +173,44 @@
     if (!O.saved || D.heroName(O.saved.hero) !== D.clsOf(O.saved.hero).name) out.push('name: a save from before names does not load under its class');
     const E = toStart(); press(E, B(E, 'name')); for (let i = 0; i < 16; i++) put(E, ['Backspace'], []); put(E, ['Enter'], []); put(E, ['Enter'], []);
     if (!E.run || !N.includes(E.run.hero.name)) out.push(`name: an empty field does not start with a name off the list (${E.run && E.run.hero.name})`);
+    const names = D.heroNames, F = toStart(), cls = D.clsOf({ cls: SIMX.clsNow(F) }).name; try { D.heroNames = () => ['Ulf'];
+      if (SIMX.rollName(F) !== 'Ulf' || SIMX.rollName(F) !== 'Ulf') out.push(`name: a list of one name does not throw that name (${F.pendName})`);
+      D.heroNames = () => []; if (SIMX.rollName(F) !== cls) out.push(`name: an empty list does not give the class's name (${F.pendName})`);
+      F.meta.cls = 'none'; if (SIMX.rollName(F) !== D.clsOf({ cls: 'warrior' }).name) out.push('name: an empty list with no class ready does not give the warrior\'s name'); } finally { D.heroNames = names; }
   }
-  function checkReview57(out) { checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); }
+  // review of PR 63: a test run leaves the Keeper of the Fire nothing to speak of and counts in no win or record, though it pays its
+  // shards (TASKS 1871); the descent past the last boss on such a run alike; nor do its deeds, codex finds and whirls count
+  function checkTestTrace(out) {
+    const S = spawn(0, {}), M = S.meta; Object.assign(M, { lastEnd: 'win', lastCls: 'mage', endTold: 1, wins: 2, best: 7 });
+    const was = () => JSON.stringify([M.lastEnd, M.lastCls, M.endTold, M.wins, M.best]), w0 = was();
+    S.run = newRun(S, 'cave', 5, { cls: 'warrior' }); S.run.test = 1; S.screen = 'play'; const sh0 = M.shards; SIMX.endRun(S, 'dead');
+    if (was() !== w0) out.push(`test run: its end changes the Keeper's last end, a win or a record (${was()})`);
+    const F = D.RUNS.campaign.floors, R = newRun(S, 'campaign', 5, { cls: 'warrior' }); R.test = 1; R.floor = F; R.bossDead = 1; S.run = R; S.screen = 'play';
+    const sh1 = M.shards; SIMX.descend(S, R);
+    if (was() !== w0) out.push(`test run: the descent past the last boss counts a win or a record (${was()})`);
+    if (!(M.shards > sh1) || !(sh1 >= sh0)) out.push('test run: the descent no longer pays its shards');
+    const T = newRun(S, 'cave', 5, { cls: 'warrior' }); T.test = 1; S.run = T; S.screen = 'play'; const hints = () => JSON.stringify([M.ach || {}, M.codex || {}, M.whirls || 0, M.open || {}]), hn0 = hints();
+    for (const e of [{ k: 'kill', type: 'fire_priest', elite: 1, boss: 1 }, { k: 'hit', type: 'fire_priest' }, { k: 'pickup', b: Object.keys(D.BASES)[0] }, { k: 'bless', id: Object.keys(D.POWERS)[0] }]) SIMX.ev(S, Object.assign({ x: 0, y: 0 }, e));
+    const h = T.hero; h.ab.whirl = h.ab.whirl || 1; h.cd.whirl = 0; h.mp = 1e9; SIMX.castAbility(S, T, 'whirl', {});
+    if (hints() !== hn0) out.push(`test run: its kills, finds, blessings or whirls change the deeds, the codex or the hints (${hints()})`); }
+  // review of PR 63: the pointer over «Завершить поход» does not take the focus, so Enter presses the safe button; it hovers the
+  // finish, and the HUD then lights that one alone (TASKS 1883, 1887), till an arrow takes the light to the keys' button
+  function checkFinishFocus(out) {
+    const S = townRun();
+    S.talk = { role: 'keeper', i: 0, pages: ['a'], p: 0, act: { k: 'finish', rw: {} } }; S.screen = 'talk'; step(S, { keys: [], px: 5, py: 5 });
+    const U = UI.talk(S.talk), fb = U.r.find((q) => q.id === 'act'); if (!fb) { out.push('finish: the keeper\'s last page has no finish button'); return; }
+    step(S, Object.assign({ keys: [], moved: 1 }, mid(S, fb)));
+    if (S.focus === 'act' || !SIMX.talkWalk(S.talk, U).includes(S.focus)) out.push(`finish: the pointer over the finish button moves the focus onto it (${S.focus})`);
+    if (S.hover !== 'act') out.push(`finish: the pointer over the finish button does not hover it (${S.hover}), so the HUD would light Enter's button beside it`);
+    // an arrow under the still pointer takes the light back to the keys' button, and the pointer's next move gives it to the finish
+    { const T = S.talk, f0 = S.focus; step(S, Object.assign({ keys: ['ArrowLeft'], moved: 0 }, mid(S, fb)));
+      if (!T.byKeys) out.push(`finish: an arrow under the pointer on the finish button leaves it lit, the keys' ${S.focus} dark`);
+      step(S, Object.assign({ keys: [], moved: 1 }, mid(S, fb), { px: mid(S, fb).px + 1 }));
+      if (T.byKeys || S.hover !== 'act') out.push('finish: the pointer moved again on the finish button does not light it');
+      S.focus = f0; }
+    const lit = S.focus; step(S, Object.assign({ keys: ['Enter'] }, mid(S, fb)));
+    if (!S.run || S.screen === 'win') out.push('finish: Enter under the pointer on the finish button ends the run');
+    else if (lit === 'next' && S.screen !== 'play') out.push(`finish: Enter does not press the lit ${lit} (${S.screen})`); }
+  function checkReview57(out) { checkBoardRows(out); checkJournalScroll(out); checkTalkFocus(out); checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkHeroName(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); checkTestTrace(out); checkFinishFocus(out); }
   Object.assign(SIMX, { checkReview57, checkResize, checkMapCut });
 })(typeof window !== 'undefined' ? window : globalThis);
