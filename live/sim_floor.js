@@ -170,7 +170,8 @@
   function arrive(S, R, how) { const m = R.map, h = R.hero; let [hx, hy] = [m.spawn.x, m.spawn.y];
     // up from below the campaign's last floor: by its own stairs on (TASKS 514), not its portal out
     if (how === 'up') { const st = m.down || m.exit; [hx, hy] = standNear(R, st.x, st.y + 46); }
-    else if (how === 'down' && m.up) [hx, hy] = standNear(R, m.up.x, m.up.y + 46);
+    // (in the magma wall he steps out a cell lower and aside, TASKS 1905: straight below the opening he hid its steps)
+    else if (how === 'down' && m.up) [hx, hy] = m.biome === 'magma' && !m.up.free ? standNear(R, m.up.x + 34, m.up.y + 46 + D.TILE) : standNear(R, m.up.x, m.up.y + 46);
     else if (how === 'portal') { const P = m.town ? m.town.svc.portal : R.portal; [hx, hy] = standNear(R, P.x, P.y + (m.town ? 40 : 0)); }
     else if (how === 'way' && m.way) [hx, hy] = standNear(R, m.way.x, m.way.y + 40);
     h.x = hx; h.y = hy; h.fx = h.fy = null; h.vx = h.vy = 0; if (!(h.blessTo >= R.floor)) h.bless = h.blessTo = 0; h.pull = null; h.read = null;
