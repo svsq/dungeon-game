@@ -6,7 +6,7 @@
   if (typeof module !== 'undefined') for (const f of require('./modules.js').parts.data) require('./' + f);
   const D = root.DATA, KEYS = [
     'ROOM_SHAPES', 'FOLK', 'FOLK_SAY', 'KEEPER', 'folkClock', 'folkInit', 'placeName', 'colossusStepAt', 'colossusContact', 'TILE', 'ZOOM',
-    'ZOOMS', 'zoomFix', 'SETTINGS', 'BIOMES', 'ARCH', 'HAZ', 'hazClock', 'hazIn', 'RUNS', 'runOf', 'wayFloor', 'wanderAt', 'stageOf', 'rosterAt', 'CAVE_PACKS',
+    'ZOOMS', 'zoomFix', 'SETTINGS', 'BIOMES', 'ARCH', 'HAZ', 'hazCycle', 'hazClock', 'hazIn', 'RUNS', 'runOf', 'wayFloor', 'wanderAt', 'stageOf', 'rosterAt', 'CAVE_PACKS',
     'MAGMA_PACKS', 'DIFF', 'DIFF_ORDER', 'floorName', 'ENEMIES', 'BOSSES', 'bossPhase', 'bossMove', 'BAL', 'dmgAt', 'hpAt', 'ELITE',
     'eliteK', 'GEN_VERSION', 'windOf', 'under', 'ELITE_MODS', 'eliteMods', 'modPool', 'TIPS', 'eliteName', 'ELITE_GROUP', 'ELITE_NAMES', 'SLOTS', 'SLOT_NAME', 'BASES',
     'ITEM_BAL', 'STASH', 'CRAFT', 'CAPTIVES', 'NOTES', 'STORY', 'QUESTS', 'questReward', 'QUEST_GIVE', 'QUEST_SAY', 'NAMED', 'storyChain', 'plural', 'reqLvl',

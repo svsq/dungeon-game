@@ -232,7 +232,7 @@
     for (const o of [z, ...row]) { o.ax = row.length ? +(dx < dy) : +(dx >= dy); o.ay = 1 - o.ax; } }
   function stepHazards(S, R) {
     const m = R.map, h = R.hero, t = S.t, dashing = t - h.dashT < BAL.dodge.t;
-    m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(t / z.per + z.ph), tag = R.floor + ':' + (z.gate ? 'g' + z.ph : i);
+    m.hazards.forEach((z, i) => { const H = D.HAZ[z.k], c = D.hazClock(z, t), c0 = D.hazClock(z, t - DT), n = Math.floor(D.hazCycle(z, t)), tag = R.floor + ':' + (z.gate ? 'g' + z.ph : i);
       if (c0 < z.per - H.warn && c >= z.per - H.warn) ev(S, { k: 'hazwarn', x: z.x, y: z.y, h: z.k, i });
       if (c < c0) { ev(S, { k: z.k === 'vent' ? 'erupt' : z.k === 'surge' ? 'surge' : 'rockfall', x: z.x, y: z.y, i }); if (Math.hypot(h.x - z.x, h.y - z.y) < 420 || (z.k === 'surge' && D.hazIn(z, h.x, h.y))) R.trauma = Math.min(1, R.trauma + (z.k === 'vent' ? 0.25 : z.k === 'surge' ? 0.2 : 0.15)); }
       if (c >= H.burst) return;
