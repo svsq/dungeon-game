@@ -944,15 +944,16 @@
     const tip = TXT('UI.classes.hint');
     KIT.light('cl_s', tip, W / 2, 142, { size: 26, fit: W - 200, al: 0.5, col: '#cdb894' }); L.uiBox('cl_s_b', 100, 120, W - 200, 44, 0);
     for (const b of U.filter((q) => q.cls)) {
-      const Cl = D.CLASSES[b.cls], on = cur === b.cls, hot = lit === b.id;
-      if (hot) L.glow(b.x + b.w / 2, b.y + b.h / 2, b.h * 0.85, [1, 0.6, 0.25], 0.4, 2);
+      // the lit card shows as a choice does (TASKS 1846, 1887): a lighter leather and page and a red name, no glow; while another card
+      // is lit the chosen one keeps its seal and its name goes back to ink, so one name is red
+      const Cl = D.CLASSES[b.cls], on = cur === b.cls, hot = lit === b.id, red = hot || (on && !U.some((q) => q.cls && q.id === lit));
       KIT.nine('leather', b.x, b.y, b.w, b.h, hot ? { u: { grade: [1.1, 1.5, 0, 1.06] } } : {}); KIT.paper(b.x + 22, b.y + 22, b.w - 44, b.h - 44, { u: hot ? { grade: [1.08, 1.17, 0, 1.04] } : undefined });
       const ix = b.x + 34, iw = b.w - 68; L.uiBox('cl_card' + b.cls, ix, b.y + 30, iw, b.h - 50, 0);
       KIT.nine('cell', b.x + (b.w - 236) / 2, b.y + 38, 236, 200);
       const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
       L.sprite(por, b.x + (b.w - 220) / 2, b.y + 46, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
       if (on) KIT.seal(b.x + b.w - 52, b.y + 52, 1.1);
-      KIT.ink('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 268, { size: 44, al: 0.5, col: on ? KIT.INK.r : KIT.INK.t, bold: true });
+      KIT.ink('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 268, { size: 44, al: 0.5, col: red ? KIT.INK.r : KIT.INK.t, bold: true });
       KIT.rule(ix + 30, b.y + 296, iw - 60, 0.7);
       const sy = halves(Cl.style); sy.forEach((q, i) => KIT.ink('cl_y' + b.cls + i, q, b.x + b.w / 2, b.y + 320 + i * 25, { size: 21, fit: iw, al: 0.5, col: KIT.INK.t }));
       KIT.ink('cl_u' + b.cls, Cl.note, b.x + b.w / 2, b.y + 322 + sy.length * 25, { size: 18, fit: iw, al: 0.5, col: KIT.INK.d });
@@ -1034,10 +1035,11 @@
     const U = D.UI.load(), B = KIT.book('ld_book', U.B.x, U.B.y, U.B.w, U.B.h), ask = S.delAsk !== undefined, sel = Math.max(0, Math.min(D.SAVE_SLOTS - 1, S.loadSel | 0)), q = ask ? {} : S;
     KIT.corners({ x: U.B.x + 40, y: U.B.y + 40, w: U.B.w - 80, h: U.B.h - 80 }, 0.6);
     KIT.banner('ld_t', W / 2, U.B.y - 30, 620, TXT('hud.load'), { h: 96, size: 44 });
-    // the chosen slot keeps the seal; the focus (or the pointer) also lights its row and glows behind it, as the focus on the list
-    // always sits on the chosen slot and the seal alone did not tell the list from the buttons (TASKS 1856)
-    for (const r of U.rows) { const R = SIM.Q.slotRun(S, r.i), st = KIT.st(q, r.id), on = r.i === sel, lit = st.hover || st.focus;
-      if (lit) L.glow(r.x + r.w / 2, r.y + r.h / 2, r.w * 0.6, [1, 0.6, 0.25], 0.3, 2);
+    // the chosen slot keeps the seal; the focus (or the pointer) also lights its row, as the focus on the list always sits on the
+    // chosen slot and the seal alone did not tell the list from the buttons (TASKS 1856). Lit as a choice is, no glow (TASKS 1887):
+    // a lighter strip and a red name, one row lit (the focus, else the pointer's), the chosen one's name back to ink while another is
+    const litRow = litOf(q, U.rows.map((r) => r.id));
+    for (const r of U.rows) { const R = SIM.Q.slotRun(S, r.i), on = r.i === sel, lit = r.id === litRow, red = lit || (on && !litRow);
       KIT.nine('btn', r.x, r.y, r.w, r.h, { u: { grade: lit ? [1.06, 1.16, 0, 1.04] : on ? [1.03, 1.06, 0, 1.03] : R ? [1, 1, 0, 1] : [0.9, 0.8, 0, 0.97] } });
       if (on) KIT.seal(r.x + 6, r.y + r.h / 2, 0.9);
       L.uiBox('ld_r' + r.i, r.x + 24, r.y + 8, r.w - 48, r.h - 16, 0);
@@ -1045,7 +1047,7 @@
       if (!R) { KIT.ink('ld_e' + r.i, TXT('hud.load.empty'), cx + cs + 24, r.y + r.h / 2, { size: 28, col: KIT.INK.off }); continue; }
       L.sprite(portraitOf(R.hero), cx + 6, r.y + 19, { w: cs - 12, h: (cs - 12), src: [0.1, 0.0, 0.9, 0.74] });
       const nx = cx + cs + 20, rr = r.x + r.w - 54, lv = TXT('hud.load.lvl', { n: R.hero.lvl }), wh = whereOf(R), dt = stamp(R.at), tm = hrs(R.play);
-      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 30, { size: 30, col: on ? KIT.INK.r : KIT.INK.t, bold: true });
+      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 30, { size: 30, col: red ? KIT.INK.r : KIT.INK.t, bold: true });
       KIT.ink('ld_l' + r.i, lv, rr, r.y + 32, { size: 24, al: 1 });
       KIT.ink('ld_w' + r.i, wh, nx, r.y + 58, { size: 22, fit: rr - nx });
       KIT.ink('ld_d' + r.i, dt, nx, r.y + 83, { size: 20, col: KIT.INK.d });

@@ -93,11 +93,11 @@
   // a button: b = { x, y, w, h, label, on }; kind 'parch' (the plain one) or 'wax' (the one that does the thing, light letters)
   K.button = (id, b, st, kind = 'parch') => {
     // a button that cannot be pressed is dimmed, not greyed out: its words stay readable on it (TASKS 1762)
-    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.35, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.1, 1.32, 0, 1.06] : gradeOf(st), dy = st.press ? 2 : 0;
-    // the red wax barely lightens under a grade, so the one that does the thing also glows when it is the one Enter would press
-    if (kind === 'wax' && lit) L.glow(b.x + b.w / 2, b.y + b.h / 2 + dy, b.w * 0.62, [1, 0.5, 0.2], 0.3, 2.2);
+    // the red wax barely lightens under a grade, so the lit one lightens it more and its letters turn pale gold; no glow under it
+    // (TASKS 1887: it read as a lamp's spot on the paper)
+    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.35, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.12, 1.5, 0, 1.08] : gradeOf(st), dy = st.press ? 2 : 0;
     K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
-    const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#fff4d6' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
+    const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#ffe7a3' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
     (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
   };
@@ -135,11 +135,13 @@
     (on && o.fill ? K.light : K.ink)(id + b.id, b.label, (x0 + x1) / 2, b.y - up + b.h / 2 + 2, { size: 24, fit: x1 - x0, al: 0.5, col: on && o.fill ? (lit ? '#fff4d6' : K.INK.cream) : lit || (on && !other) ? K.INK.r : on ? K.INK.t : K.INK.d });
     L.uiBox(id + b.id, b.x + 8, b.y - up, b.w - 16, b.h, 4); } };
   // an item cell: square (the bag) or round (a skill, a trophy); o.sel (picked), o.off (locked)
+  // a lit cell (TASKS 1887) shows by a lighter, warmer well, flat, no glow: its well is near black, so a grade alone did not lighten it
   K.cell = (id, x, y, s, st, o = {}) => {
-    if (o.round) L.rrect(x + s * 0.12, y + s * 0.12, s * 0.76, s * 0.76, s * 0.38, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
+    const lit = (st.hover || st.press || st.focus) && !st.off;
+    if (o.round) L.rrect(x + s * 0.12, y + s * 0.12, s * 0.76, s * 0.76, s * 0.38, lit ? [0.3, 0.22, 0.16] : [0.11, 0.08, 0.09], lit ? [0.18, 0.13, 0.1] : [0.06, 0.045, 0.05]);
     if (o.round) K.part('ui_b_cell_round', [48, 48], x, y, { k: s / 96, u: { grade: gradeOf(st) } });
     else K.nine('cell', x, y, s, s, { u: { grade: gradeOf(st) } });
-    if ((st.hover || st.press || st.focus) && !st.off) L.glow(x + s / 2, y + s / 2, s * 0.62, [0.95, 0.68, 0.3], st.press ? 0.18 : 0.32, 2.2);
+    if (lit && !o.round) L.solid(x + 6, y + 6, s - 12, s - 12, [0.62, 0.47, 0.32], 0, 0, 0, st.press ? 0.12 : 0.2);
     if (o.sel) { const r = s * 0.17; K.part('ui_b_wax_seal', [40, 40], x + s - r * 0.6, y + r * 0.6, { c: true, k: r * 2 / 80 }); }
     L.uiBox(id, x, y, s, s, 0);
   };
