@@ -69,7 +69,7 @@
   // line: one line or several (TASKS 1847: what a point or a rank gives, a line a change); over the hero's page the stats' and the
   // skills' notes show under a lit «+» or card, an item's own card under a cell
   const tipAt = (x, y, w, h, title, line) => TIPS.push([x, y, w, h, title, line || '']);
-  function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; if (S.screen === 'inv') { framed(D.uiDy('inv', VH), () => tipIn(S, S.ptr[0], S.ptr[1] - G.oy)); return; } tipIn(S, S.ptr[0], S.ptr[1]); }
+  function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; if (S.screen === 'inv') { framed(D.uiDy('inv', VH), () => tipIn(S, (S.uiPtr || S.ptr)[0], S.uiPtr ? S.uiPtr[1] : S.ptr[1] - G.oy)); return; } tipIn(S, S.ptr[0], S.ptr[1]); }
   function tipIn(S, px, py) { const T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
     const [, , , , title, line] = T, ls = [].concat(line).filter(Boolean), w = Math.max(lw('tip_t', title, { size: 24 }), ...ls.map((q, i) => lw('tip_l' + i, q, { size: 20 }))) + 32, h = 46 + 28 * ls.length, inPause = S.screen === 'pause',
       x = Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));

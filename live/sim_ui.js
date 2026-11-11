@@ -440,7 +440,7 @@
   // PR 57): a pointer left over «Сдаться» took the gate's focus off «Остаться» as the window came up, and Enter gave the run up
   const uiKey = (S) => [S.screen, S.newAsk || '', S.delAsk ?? '', S.pauseAsk || ''].join(':');
   function stepUI(S, inp, keys) {
-    const f = SCREEN[S.screen], moved = !!inp.moved && S.uiKey === uiKey(S), py = inp.py - SIMX.uiDy(S.screen);
+    const f = SCREEN[S.screen], moved = !!inp.moved && S.uiKey === uiKey(S), py = S.uiPtr ? S.uiPtr[1] : inp.py - SIMX.uiDy(S.screen);
     if (S.screen === 'menu' && S.uiWas !== 'menu') S.focus = MENU_SUBS.includes(S.uiWas) && S.menuAt ? S.menuAt : '';
     S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved, py }), keys, inp.px, py, inp.click); S.uiKey = uiKey(S); commitDraft(S);
   }

@@ -44,8 +44,11 @@
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
     for (const k of inp.rep || []) if (REPEATS.has(k)) keys[k] = 1;
-    // the pointer is followed in play too, or the first window after play takes a pointer at rest for one that moved
-    inp = Object.assign({}, inp, { moved: !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py }); S.ptr = [inp.px, inp.py];
+    // the pointer is followed in play too, or the first window after play takes a pointer at rest for one that moved. The page says
+    // itself whether it moved (review of PR 57): a resize puts a still pointer on other view px, and that must not take the focus
+    inp = Object.assign({}, inp, { moved: inp.moved !== undefined ? !!inp.moved : !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py }); S.ptr = [inp.px, inp.py];
+    // and once in the frame of the window it is over, for the window's hit tests and the HUD's notes alike
+    S.uiPtr = [inp.px, inp.py - uiDy(S.screen)];
     // M mutes from any screen (TASKS 1853 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
     if (keys.KeyM && !S.demo) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
     if (S.screen === 'play' && S.run) {
