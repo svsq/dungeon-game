@@ -621,6 +621,12 @@
       if (e.mv === 'charge' && u < w + M.duration + 0.14) base.gaitK = SS(w + M.duration, w + M.duration + 0.14, u);
       return null;
     }
+    if (e.mv === 'stomp') {
+      const rise = SS(0, w * 0.75, u), hit = SS(w - 0.1, w, u), back = SS(w, w + M.duration, u);
+      base.crouch += (85 * hit - 6 * rise * (1 - hit)) * (1 - back); base.lean = (base.lean || 0) - face * 0.12 * rise * (1 - hit) * (1 - back);
+      base.handTarget = (side, rest) => target(side, [lerp(side === 'L' ? -0.3 : 0.42, side === 'L' ? -0.36 : 0.5, hit), lerp(-1.05, -0.55, hit)], rest, rise * (1 - back));
+      return null;
+    }
     if (e.mv === 'boulder') {
       const dig = 1 - SS(w * 0.34, w * 0.78, u), grab = SS(0, w * 0.34, u), toss = SS(w * 0.78, w, u), back = SS(w, w + M.duration, u);
       base.crouch += 85 * dig * grab;

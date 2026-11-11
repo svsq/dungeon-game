@@ -196,9 +196,11 @@
         // (no crust, no bridge over it) at the hall's edge with its floor within two cells, the salamander's post
         const crustK = new Set(crust), lavaBy = (x, y) => { let by = false; for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (at(x + i, y + j) === 3) { if (Math.abs(i) <= 1 && Math.abs(j) <= 1) return false; by = true; } return by; };
         const bank = () => { const c = fresh().filter(([x, y]) => lavaBy(x, y)).sort((a, b) => fs(b) - fs(a)); return take(c.slice(0, Math.max(1, Math.ceil(c.length * 0.5)))) || back(); };
+        // (the lava two cells past the hall may lie in the start's or the merchant's box next door, TASKS 1808: none is posted there)
+        const safeBox = (x, y) => rooms.some((q) => (q.type === 'start' || q.type === 'shop') && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h);
         const lavaPost = () => { const c = [];
           for (let y = r.y - 2; y < r.y + r.h + 2; y++) for (let x = r.x - 2; x < r.x + r.w + 2; x++) { const k = y * W + x;
-            if (at(x, y) !== 3 || crustK.has(k) || bridged.has(k) || enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 3 * TILE)) continue;
+            if (at(x, y) !== 3 || crustK.has(k) || bridged.has(k) || safeBox(x, y) || enemies.some((e) => Math.hypot(e.x - wx(x), e.y - wy(y)) < 3 * TILE)) continue;
             let shore = false; for (let j = -2; j <= 2 && !shore; j++) for (let i = -2; i <= 2; i++) if (at(x + i, y + j) === 1 && inR(x + i, y + j)) { shore = true; break; }
             if (shore) c.push([x, y]); }
           return c.length ? c[Math.floor(R() * c.length)] : null; };

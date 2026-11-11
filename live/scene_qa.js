@@ -564,6 +564,10 @@
       for (const type of Object.values(DATA.RUNS.endless.bosses)) { let found = null;
         for (let f = 8; f <= 24 && !found; f += 4) { const sd = at(f, (q) => q.boss === type); if (sd) found = [sd, f]; }
         if (found) states.push(['endless_boss_' + type, floorS(found[0], found[1], true)]); }
+      // TASKS 1808: half the 10th's foes slain, the stairs show through the fog and on the minimap, the hero far off
+      states.push(['stairs_marked', play((S) => { SIM.enterFloor(S, S.run, 10); const R = S.run, m = R.map; R.msg = null;
+        const foes = R.en.filter((e) => e.deadT < 0 && !DATA.BOSSES[e.type] && !e.summ && !DATA.ENEMIES[e.type].deep); for (const e of foes.slice(0, Math.ceil(foes.length / 2) + 1)) { e.hp = 0; SIM.killEnemy(S, R, e); }
+        R.drops = []; S.ev = []; R.cam = [m.exit.x - SCX.VW / 2, m.exit.y - 60 - SCX.VH / 2]; })]);
       states.push(['endless_menu', mk((S) => { S.saved = null; S.meta.bestEndless = 23; })]);
       const dead = states.find(([n]) => n === 'dead'); if (dead) { const S = structuredClone(dead[1]); S.result.mode = 'endless'; S.result.floor = 24; S.result.record = { best: 24, fresh: true }; states.push(['endless_dead_record', S]); } }
     // every monster type in a row, idle, facing right: the rigs at rest against their approved sprites
@@ -695,6 +699,7 @@
       col('colossus_rise', (S, R, h, b) => { const p = R.map.enemies.find((e) => e.type === 'boss_colossus'); b.x = p.x; b.y = p.y; b.st = 'emerge'; b.t0 = S.t - 1.4; h.x = b.x + 60; h.y = b.y + 5 * TILE; });
       col('colossus_wade', (S, R, h, b) => { const p = R.map.enemies.find((e) => e.type === 'boss_colossus'); b.x = p.x; b.y = p.y - 50; b.st = 'wade'; b.t0 = S.t - 0.5; b.tx = p.x; b.ty = p.y - 2.6 * TILE; b.vy = -70; b.dist = 30; h.x = b.x + 60; h.y = b.y - 5 * TILE; });
       col('colossus_fists', (S, R, h, b) => wind(S, b, 'fists', 0.75));
+      col('colossus_stomp', (S, R, h, b) => { h.x = b.x + 70; h.y = b.y + 10; wind(S, b, 'stomp', 0.75); });
       col('colossus_stuck', (S, R, h, b) => { b.mv = 'fists'; b.st = 'chase'; b.t0 = S.t - D.BOSSES.boss_colossus.moves.fists.wind - 0.5; b.openUntil = S.t + 0.6; b.cdT = b.openUntil + 0.3; });
       col('colossus_stuck_left', (S, R, h, b) => { b.face = b.pf = -1; b.ft = -9; b.mv = 'fists'; b.st = 'chase'; b.t0 = S.t - D.BOSSES.boss_colossus.moves.fists.wind - 0.5; b.openUntil = S.t + 0.6; b.cdT = b.openUntil + 0.3; });
       col('colossus_crack', (S, R, h, b) => { wind(S, b, 'crack', 0.7); const p = D.colossusContact(b); R.cracks = [{ id: 7701, owner: b.id, who: 'boss_colossus', x: p.x, y: p.y, a: 0.9, len: 380, w: 30, speed: 900, linger: 0.5, t0: S.t - 0.25, dmg: 0, hit: 1 }]; });
@@ -1161,7 +1166,7 @@
       enCycles.crab_turning = frames;
     }
     // boss_slam_chain: the linked charge that missed (the hero stepped aside, as in the sim's own check) hands over to the slam
-    const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), boss_slam_chain: enemyT('boss', 1, 'charge', 1, (e, h) => { h.y += 70; }), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), colossus_fists: enemyT('boss_colossus', 1, 'fists'), colossus_crack: enemyT('boss_colossus', 1, 'crack'), colossus_boulder: enemyT('boss_colossus', 1, 'boulder', 1), colossus_charge: enemyT('boss_colossus', 1, 'charge'), colossus_call: enemyT('boss_colossus', 1, 'imps', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
+    const transitions = { boss_combo: enemyT('boss', 1, 'charge', 1), boss_slam_chain: enemyT('boss', 1, 'charge', 1, (e, h) => { h.y += 70; }), queen_weave: enemyT('boss_spider', 1, 'weave'), queen_attack: enemyT('boss_spider', 1), necro_attack: enemyT('boss_necro', 1), forge_attack: enemyT('boss_forge', 1), colossus_fists: enemyT('boss_colossus', 1, 'fists'), colossus_stomp: enemyT('boss_colossus', 1, 'stomp'), colossus_crack: enemyT('boss_colossus', 1, 'crack'), colossus_boulder: enemyT('boss_colossus', 1, 'boulder', 1), colossus_charge: enemyT('boss_colossus', 1, 'charge'), colossus_call: enemyT('boss_colossus', 1, 'imps', 1), skeleton_attack: enemyT('skeleton', 0), drowned_attack: enemyT('drowned', 0), slime_attack: enemyT('slime', 0), slime_s_attack: enemyT('slime_s', 0),
       // the grab from out of the blow's reach: it catches the hero and hauls him a step in
       drowned_grab: enemyT('drowned', 0, 'slam', 0, (e, h) => ({ x: h.x + 34 + D.ENEMIES.drowned.r + 70, grab: 1 })),
       // the crab (TASKS 309): the pinch at the hero before it; the rush at a hero off its right side (it faces right, the hero below)
