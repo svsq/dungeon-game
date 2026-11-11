@@ -828,9 +828,13 @@
   // his old place
   // the main menu shows the hero of the run under «Продолжить», or of the run played last (TASKS 1815: a warrior stood there over a
   // mage's save); with neither, the painted warrior
-  function menuBack(t, alone, mid, S) {
+  // one backdrop behind the front screens and the end screens (TASKS 1763, 1795 б), so the crypt of 1751 replaces it in one place
+  function backdrop(t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.8, 260, [1, 0.45, 0.15], 0.12 + 0.05 * Math.sin(t * 2 + i), 2); G.blend(); }
+  }
+  function menuBack(t, alone, mid, S) {
+    backdrop(t);
     const [hw, hh] = SZ('hero'), hx = mid ? W / 2 - 60 - hw * 1.6 : W / 2 - 520 - hw * 1.6, hy = mid ? 470 : 340;
     const own = S && ((S.saved && S.saved.hero) || (S.result && S.result.hero));
     if (own && D.clsOf(own).look.rig !== 'hero') { try { SCENE.menuHero(own, SIM.Q.stats(own, S.meta), t, hx + hw * 1.6, hy + hh * 3.2, 3.2); } catch (e) { console.error(e); L.pre = null; G.blend(); } }
@@ -1359,9 +1363,10 @@
   let endErr = null;
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
-    L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.96);
-    lab('e_t', win ? TXT('hud.end') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3'), W / 2, 100, { size: 76, al: 0.5, col: win ? C.gold : '#d8402a', bold: true });
-    lab('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : TXT('hud.end.7'), W / 2, 164, { size: 26, al: 0.5, col: C.dim });
+    backdrop(t);
+    const title = win ? TXT('hud.end') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3');
+    KIT.banner('e_t', W / 2, 18, Math.max(560, lw('e_t_m', title, { size: 52, bold: true }) + 300), title, { h: 108, size: 52 });
+    KIT.light('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : TXT('hud.end.7'), W / 2, 168, { size: 26, al: 0.5, col: '#d9c8a8' });
     KIT.panel('e_story', 200, 220, 420, 650, 'leather', { pad: 0 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {
       const words = String(s).split(' '), lines = []; let line = '';
@@ -1378,11 +1383,11 @@
     const actor = last && last.actor, name = win ? (D.runOf(r.mode).won || TXT('hud.end.name')) : r.abandoned ? TXT('hud.end.name.2') : actor ? (actor.elite && actor.type !== 'boss' ? D.eliteName(actor) : D.ENEMIES[actor.type].name) : SIM.Q.damageName(last && last.src);
     const ny = win ? 590 : 540, y = ny + wrap('e_cause', name, 410, ny, 350, 28, C.text, 0.5);
     if (!win && !r.abandoned && last) {
-      lab('e_last', TXT('hud.end.11', { p1: Math.round(last.n) }), 410, y + 12, { size: 24, al: 0.5, col: C.red });
+      lab('e_last', TXT('hud.end.11', { p1: Math.round(last.n) }), 410, y + 12, { size: 24, al: 0.5, col: KIT.INK.gold, out: '#2a0d08' });
       lab('e_recent', TXT('hud.end.12'), 234, 686, { size: 21, col: C.dim });
       damage.slice().reverse().forEach((d, i) => {
         const src = SIM.Q.damageName(d.src), size = Math.min(20, Math.floor(20 * 280 / Math.max(280, lw('e_src_m' + i, src, { size: 20 }))));
-        lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + Math.round(d.n), 588, 724 + i * 38, { size: 21, al: 1, col: C.red });
+        lab('e_src' + i, src, 234, 724 + i * 38, { size }); lab('e_dmg' + i, '−' + Math.round(d.n), 588, 724 + i * 38, { size: 21, al: 1, col: '#ffb49a', out: '#2a0d08' });
       });
     } else wrap('e_flavor', win ? (D.runOf(r.mode).wonText || TXT('hud.end.13')) : TXT('hud.end.14'), 234, 674, 350, 25, C.dim);
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
