@@ -572,7 +572,7 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   L.labelW = (slot, str, { size = 30, bold = false } = {}) => {
     const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); setFont(g, fit(size, bold), bold); return g.measureText(String(str)).width; };
   // a label that must stay inside a box steps down the font's grid sizes; scaling a size by a width ratio can land on a step that is still too wide
-  L.sizeToFit = (str, maxW, size, bold = false) => { let s = size; while (s > 18 && L.labelW(0, str, { size: s, bold }) > maxW) s -= 1; return s; };
+  L.sizeToFit = (str, maxW, size, bold = false) => { let s = size; while (s > 20 && L.labelW(0, str, { size: s, bold }) > maxW) s -= 1; return s; };
   // fit: the width the label must keep to. It steps down the sizes first, and past the smallest a name still too long for its box
   // loses its tail to «…» (review of PR 57): with no step under 20 px a long Russian name ran out of its panel
   L.fitText = (str, maxW, size, bold = false) => { const s = L.sizeToFit(str, maxW, size, bold), w = (q) => L.labelW(0, q, { size: s, bold });
