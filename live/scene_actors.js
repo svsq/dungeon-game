@@ -260,7 +260,7 @@
     const lt = HERO.lightAt ? HERO.lightAt(e.x, e.y) : null, et = E.tint || [1, 1, 1, 0], own = et.slice(0, 3).map((v) => 1 + (v - 1) * et[3]);
     // (in the magma caves a monster keeps its own colour, TASKS 1046: the caves' and crypt's take-back turned a priest's skull lilac
     // and a golem's torso blue-grey away from the lava; the lit pass holds the light on it)
-    const tint = lt && !(SC.state && SC.state.run && SC.state.run.map && SC.state.run.map.cliff) ? HERO.fireTint(e.x, e.y, own) : own;   // (no run on the title screen: TASKS 1046 left it black)
+    const tint = lt && !(SC.state && SC.state.run && SC.state.run.map && SC.state.run.map.cliff) && !MONSTERS.rigOf(e.type) ? HERO.fireTint(e.x, e.y, own) : own;   // (a rig's light is bleached by the lit pass, TASKS 1790)   // (no run on the title screen: TASKS 1046 left it black)
     // bone, horn and eyes stay pale under the fire: a demon's horns lit salmon read as orange, the concept's are tan (TASKS 185)
     const rim = dead < 0 && !hit ? { tint: [...tint, 1], pale: 1 } : {};
     // the lit edge: one art pixel on the side of the whole silhouette that faces the nearest fire, in its colour; in the dark, none

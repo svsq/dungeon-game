@@ -50,9 +50,10 @@
         for (let j = 0; j < 5; j++) { const an = t * 7 + j * 1.256, rr = 13 * (1 - 0.6 * g); L.solid(Math.round((pa[0] + Math.cos(an) * rr) / PIX) * PIX, Math.round((pa[1] + Math.sin(an) * rr * 0.6) / PIX) * PIX, PIX, PIX, [0.6, 0.95, 1], 0, 0, 0, 0.9 * g); } } }
     // crystals and cold-fire torches carry a halo of their own, so the arcane blue is a light source, not a tint
     for (const d of m.decor) if (d.n === 'crystal' && !hid(d) && vis(d.x, d.y) && known(d.x, d.y)) L.glow(sx(d.x), sy(d.y) - 30, 40, [0.3, 0.55, 1], 0.8 * flick(d.x) * ((D.FLOOR_MODS[m.mod] || {}).flame || 1));
-    // a cold fire carries a halo of its own over everything (a warm sconce's is painted on the wall behind it, `halo`)
+    // a cold fire carries a halo of its own over everything (a warm sconce's is painted on the wall behind it, `halo`); a brazier's is
+    // drawn in its own place in the depth order (scene_world.js, TASKS 1790): over everything it washed a hero before it white-blue
     m.torches.forEach((tc, i) => { const col = torchCol(m, tc); if (hid(tc) || !vis(tc.x, tc.y) || !known(tc.x, tc.y)) return;
-      if (col[2] > col[0]) L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2); });
+      if (col[2] > col[0] && tc.kind === 'wall') L.glow(sx(tc.x) - (tc.side || 0) * 9, sy(tc.y) - 14, 34, col, 0.75 * flick(i), 3.2); });
     for (const s of R.shrines) if (!s.used && vis(s.x, s.y) && known(s.x, s.y)) { L.glow(sx(s.x), sy(s.y) - 34, 30, altarCol, 0.5 + 0.2 * Math.sin(t * 3)); }
     // a sanctum's circle whose priests are dead (TASKS 1054) rings its rim in the blessing's own blue (TASKS 1168: lava, vents and braziers burn every warm hue): step in for its blessing
     for (const q of m.circles || []) if (q.bless && !q.used && vis(q.x, q.y) && known(q.x, q.y) && !R.en.some((e) => e.deadT < 0 && e.room === q.r)) for (let j = 0; j < 56; j++) { if (j % 7 === 6) continue; const an = j * 2 * Math.PI / 56 + t * 0.2; L.solid(Math.round((sx(q.x) + Math.cos(an) * 1.85 * TILE) / 2) * 2 - 2, Math.round((sy(q.y) + Math.sin(an) * 1.85 * TILE) / 2) * 2 - 2, 4, 4, [0.72, 0.87, 1], 0, 2, 2, 0.8 + 0.2 * Math.sin(t * 3 + j / 7)); }

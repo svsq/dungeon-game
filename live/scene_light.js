@@ -108,9 +108,11 @@
     // leave out. Without it a demon by a river came out see-through, the lava's plates showing through its body
     G.bind(SCX.LT.occ, [0, 0, 0, 0]); G.blend();
     // (the fire depths' lava too, TASKS 510: their actors go in black, alpha only, as the lit pass's colour channels are the magma's)
-    if (m.cliff || m.lava) { const J0 = L.joint; L.joint = () => {}; const SP0 = L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] }, ink = (c) => (m.cliff ? c : [0, 0, 0]);
+    // (TASKS 1790: on every floor now, red only off the magma: the lit pass bleaches the light on an actor, so a zone's colour no
+    // longer paints a hero's cloak or a robe whole; only the magma's lava keeps its own nearness channel)
+    { const J0 = L.joint; L.joint = () => {}; const SP0 = L.sp = { dx: 0, dy: 0, a: 1, lod: 0, ink: [0, 0, 0] }, ink = (c) => (m.cliff ? c : [c[0], 0, c[2]]);
       try { if (m.cliff) { for (const [n, x, y, w, hh, f] of basaltOcc.concat(PROP_BAS)) L.sprite(n, x, y, { w, h: hh, flip: f }); for (const [x, y, w, hh] of OCC_SOLIDS) L.solid(x, y, w, hh, [0, 0, 0]); }
-        L.sp.ink = ink([1, 1, 1]);
+        L.sp.ink = m.cliff ? [1, 1, 1] : [0, 0, 0];
         for (const e of R.en) { if (e.deadT >= 0 || !vis(e.x, e.y) || !MONSTERS.rigOf(e.type) || (D.under(e) && !(D.ENEMIES[e.type].lake && e.st === 'emerge')) || e.sinkT !== undefined || e.fallT !== undefined) continue;
           const E = D.ENEMIES[e.type], [, h0] = SZ(window.SIZES['en_' + e.type] ? 'en_' + e.type : EN_TEX[e.type]), k = D.BOSSES[e.type] ? (D.BOSSES[e.type].scale || 1.6) : e.elite ? 1.3 : 1;
           const sub = E.lake ? submerged(e, E, GT) : 0, sw0 = swimOf(e, GT), U = Object.assign(sub > 0 ? { cut: [sy(e.y) + 3, 5, 1] } : {}, sw0 > 0 && e.type === 'salamander' && SCX.LAVA_CLIP ? SCX.swimClip(sw0) : {});   // (clipped as its body is, TASKS 1156: unclipped here it bleached the bank in a grey veil)
