@@ -226,7 +226,8 @@
     if (mv) { S.focus = order[(Math.max(0, order.indexOf(S.focus)) + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); }
     const q = D.SETTINGS.find((o) => o.id === S.focus), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
     if (q && st && setTo(S, q, stopOf(S, q) + st)) ev(S, { k: 'ui', x, y });
-    if (click && b) { S.focus = b.id; if (b.slider) S.drag = b.id; }
+    if (q && q.check && (keys.Enter || keys.Space) && setTo(S, q, 1 - stopOf(S, q))) ev(S, { k: 'ui', x, y });
+    if (click && b) { S.focus = b.id; if (b.slider) S.drag = b.id; const cq = b.check && D.SETTINGS.find((o) => o.id === b.id); if (cq && setTo(S, cq, 1 - stopOf(S, cq))) ev(S, { k: 'ui', x, y }); }
     if (!inp.press) S.drag = '';
     const dq = S.drag && D.SETTINGS.find((o) => o.id === S.drag), r = dq && U.r.find((o) => o.id === S.drag);
     if (dq && setTo(S, dq, Math.round((x - r.x) / r.w * (dq.stops.length - 1)))) ev(S, { k: 'ui', x, y });

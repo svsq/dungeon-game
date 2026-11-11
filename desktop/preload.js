@@ -1,0 +1,12 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+let full = false;
+const subs = [];
+ipcRenderer.on('full', (e, on) => { full = !!on; for (const f of subs) f(full); });
+
+// the window's fullscreen for the settings' row (TASKS 1854): F11 and the menu change the window, not the page's Fullscreen API
+contextBridge.exposeInMainWorld('desktop', {
+  isFull: () => full,
+  setFull: (on) => ipcRenderer.send('set-full', !!on),
+  onFull: (f) => { subs.push(f); },
+});

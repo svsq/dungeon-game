@@ -96,6 +96,7 @@
       ['play_bright_hi', play((S) => { const q = DATA.SETTINGS.find((o) => o.id === 'bright'); S.meta.bright = q.stops[q.stops.length - 1]; })],
       ['settings_bright', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'bright'; S.meta.bright = 1.4; })],
       ['settings_vol', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'vol'; S.meta.vol = 0.25; })],
+      ['settings_full', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'full'; S.hover = 'full'; S.meta.full = 1; })],
       ['play_zoom15', play((S) => { S.meta.zoom = 1.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
       ['meta', mk((S) => { S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = Object.fromEntries(D.META.map((M, i) => [M.id, i % 3 ? M.max - 1 : i % 2 ? M.max : 0])); })],
       ['meta_refuse', mk((S) => { S.screen = 'meta'; S.meta.shards = 0; S.hover = 'gear'; S.ev.push({ k: 'nope', s: TXT('QA.states.s'), t: S.t - 0.2 }); })],

@@ -19,7 +19,7 @@
     "appId": "com.svsq.cryptdepths",
     "productName": "The Elder Deep",
     "directories": { "output": "release", "buildResources": "build" },
-    "files": ["main.js", "package.json", "build/icon.png", "game/**/*"],
+    "files": ["main.js", "preload.js", "package.json", "build/icon.png", "game/**/*"],
     "asar": true,
     "artifactName": "crypt-${env.CRYPT_REV}-${os}-${arch}.${ext}",
     "mac": { "target": [{ "target": "dmg", "arch": ["universal"] }], "category": "public.app-category.role-playing-games", "icon": "build/icon.icns" },

@@ -27,6 +27,10 @@
       if (T.meta.zoom !== D.ZOOMS[0]) out.push('settings: a click at the slider\'s left end does not set ×0,5');
       step(T, { keys: [], press: 0 }); step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.bright !== 1.2) out.push('settings: → on the brightness row does not brighten one step');
       step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowLeft'] }); if (T.meta.vol !== 0.75) out.push(`settings: ← on the volume row does not step it down (${T.meta.vol})`);
+      // TASKS 1854: the fullscreen row is a checkbox, a click or Enter on it flips the wish kept in the meta
+      const fr = UI.settings().r.find((q) => q.id === 'full'), n1 = T.saveN; step(T, { keys: [], press: 0 }); step(T, { keys: [], click: 1, press: 1, px: fr.x + fr.w / 2, py: fr.y + fr.h / 2 }); step(T, { keys: [], press: 0 });
+      if (T.meta.full !== 1 || T.saveN === n1) out.push('settings: a click on «Полный экран» does not ask for the full screen, or the wish is not kept');
+      step(T, { keys: ['Enter'] }); if (T.meta.full !== 0 || T.screen !== 'settings') out.push('settings: Enter on «Полный экран» does not turn it off');
       step(T, { keys: ['Escape'] }); if (T.screen !== 'menu') out.push('settings: Escape does not go back to the menu');
       // TASKS 1853 а: M mutes from any screen and says so, a second M gives the sound back
       const n0 = T.saveN; step(T, { keys: ['KeyM'] }); if (!T.meta.mute || T.muteT !== T.t || T.saveN === n0) out.push('mute: M does not mute, or the mute is not kept');

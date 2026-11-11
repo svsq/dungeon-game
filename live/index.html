@@ -71,10 +71,25 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
     keys[c] = 1; if (play && !(e.repeat && c === 'KeyE')) pend.keys.push(c);
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
-    if (!play) startPlay();
+    if (!play) startPlay(); else fullSync(true);
     e.preventDefault();
   });
   addEventListener('keyup', (e) => { keys[e.code] = 0; });
+  // the fullscreen (TASKS 1854): the sim keeps the wish in meta.full, the page applies it and writes back what the player did outside
+  // the game (Esc, F11). A browser grants the Fullscreen API only right after a click or a key, so a wish saved from the last session
+  // waits for the first one; the desktop build asks its window over IPC, where F11 and the menu also go
+  const desk = window.desktop, fullNow = () => (desk ? desk.isFull() : !!document.fullscreenElement);
+  let fullSeen = null, fullAsked = null;
+  const fullBack = (on) => { fullAsked = null; if (play && play.meta && !!play.meta.full !== on) { play.meta.full = on ? 1 : 0; play.saveN++; } fullSeen = on; };
+  const fullSync = (gesture) => { if (!play || !play.meta) return; const want = !!play.meta.full, changed = fullSeen !== null && want !== fullSeen;
+    if (fullSeen === null) fullSeen = want;
+    if (!changed && !gesture && !desk) return; fullSeen = want;
+    if (want === fullNow() || want === fullAsked) return; fullAsked = want;
+    if (desk) { desk.setFull(want); return; }
+    const p = want ? document.documentElement.requestFullscreen && document.documentElement.requestFullscreen() : document.exitFullscreen && document.exitFullscreen();
+    if (p && p.catch) p.catch(() => { fullAsked = null; if (changed) fullBack(fullNow()); }); };
+  document.addEventListener('fullscreenchange', () => fullBack(!!document.fullscreenElement));
+  if (desk) desk.onFull((on) => fullBack(on));
   // pointer in view pixels (VW×VH); click is true for exactly one sim step
   const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [] };
   addEventListener('wheel', (e) => { if (play) { pend.wheel = Math.sign(e.deltaY); e.preventDefault(); } }, { passive: false });
@@ -82,6 +97,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const toView = (e) => { const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * VW; ptr.y = (e.clientY - r.top) / r.height * VH; };
   addEventListener('pointermove', toView);
   addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
+    fullSync(true);
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; });
@@ -97,6 +113,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
         jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys,
         now: Date.now() - new Date().getTimezoneOffset() * 60000 };
       while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
+      fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);

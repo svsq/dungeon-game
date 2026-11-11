@@ -641,6 +641,7 @@
     'UI.settings.vol': 'Громкость',
     'UI.settings.vol.lo': 'Тише',
     'UI.settings.vol.hi': 'Громче',
+    'UI.settings.full': 'Полный экран',
     'UI.settings.back': 'Назад',
     'UI.pause.3': 'Сохранить и выйти в меню',
     'UI.pause.4': 'Сдаться (конец забега)',

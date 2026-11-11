@@ -46,7 +46,9 @@
   const VOLS = [0, 0.25, 0.5, 0.75, 1], BRIGHTS = [0.7, 0.85, 1, 1.2, 1.4], stepName = (v) => { const i = BRIGHTS.indexOf(v) - 2; return i > 0 ? '+' + i : i < 0 ? '\u2212' + -i : '0'; };
   const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName },
     { id: 'bright', key: 'bright', name: () => TXT('UI.settings.bright'), stops: BRIGHTS, def: 1, fmt: stepName, ends: () => [TXT('UI.settings.bright.lo'), TXT('UI.settings.bright.hi')] },
-    { id: 'vol', key: 'vol', name: () => TXT('UI.settings.vol'), stops: VOLS, def: 1, fmt: (v) => Math.round(v * 100) + ' %', ends: () => [TXT('UI.settings.vol.lo'), TXT('UI.settings.vol.hi')] }];
+    { id: 'vol', key: 'vol', name: () => TXT('UI.settings.vol'), stops: VOLS, def: 1, fmt: (v) => Math.round(v * 100) + ' %', ends: () => [TXT('UI.settings.vol.lo'), TXT('UI.settings.vol.hi')] },
+    // the fullscreen (TASKS 1854): a checkbox, as on ref_ui_settings_b; the sim keeps the wish, the page applies it and reports it back
+    { id: 'full', key: 'full', name: () => TXT('UI.settings.full'), stops: [0, 1], def: 0, check: true, fmt: (v) => (v ? '1' : '0') }];
   // the statistics' rows in order; runs, wins and the best depth the meta has kept from the start, the rest only since 1309
   const STATS_BOOK = { x: 240, y: 90, w: 1440, h: 880 }, STAT_ROWS = ['runs', 'wins', 'deaths', 'kills', 'elites', 'bosses', 'shards', 'best', 'time'];
   // five save slots: five rows of a portrait and four columns fill the left page at a readable size, as on ref_ui_saves_b
@@ -101,7 +103,7 @@
     // modes (1372) and the language (1039) will each add a row. «Назад» under the book, off the spine, as on the saves' screen
     settings: () => { const K = SETTINGS_BOOK, h = K.top + SETTINGS.length * K.row - 50 + K.foot, y = Math.max(40, Math.round((1080 - h - 150) / 2)), B = { x: K.x, y, w: K.w, h };
       const rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + K.top + i * K.row }, q));
-      return { B, rows, r: rows.map((q) => ({ id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))
+      return { B, rows, r: rows.map((q) => (q.check ? { id: q.id, check: 1, x: 1000, y: q.y - 34, w: 68, h: 68 } : { id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))
         .concat([{ id: 'back', label: TXT('UI.settings.back'), on: true, x: 960 - 150, y: B.y + B.h + 26, w: 300, h: 64 }]) }; },
     // the statistics (TASKS 1309): an open book, the counters on the left page, the tabs (all classes, then each ready one) over the
     // right page with its chart, «Назад» at the right page's foot
