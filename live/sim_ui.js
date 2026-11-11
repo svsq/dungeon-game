@@ -357,7 +357,8 @@
   const freeIn = (h, t) => { const T = D.bagTabs(h.bag.length)[t]; if (T) for (let i = T.a; i < T.a + T.n; i++) if (!h.bag[i]) return i; return -1; };
   const tabClick = (S, b, x, y) => { S.bagTab = b.tab; S.hover = ''; ev(S, { k: 'ui', x, y }); };
   // a piece let go over a tab goes to that tab's first free cell (a worn one comes off into it)
-  const intoTab = (S, R, h, k, eq, t, x, y) => { const T = D.bagTabs(h.bag.length)[t]; if (!T || (!eq && k >= T.a && k < T.a + T.n)) return;
+  const intoTab = (S, R, h, k, eq, t, x, y) => { const T = D.bagTabs(h.bag.length)[t]; if (!T) return;
+    if (!eq && k >= T.a && k < T.a + T.n) { ev(S, { k: 'nope', x, y, s: t ? TXT('sim_ui.inv.same') : TXT('sim_ui.inv.sameBag') }); return; }
     const j = freeIn(h, t); if (j < 0) { ev(S, { k: 'nope', x, y, s: TXT('sim_ui.inv.full') }); return; }
     if (eq) unequip(S, R, h, k, j); else { h.bag[j] = h.bag[k]; h.bag[k] = null; S.saveN++; ev(S, { k: 'ui', x, y }); } };
   const unequip = (S, R, h, slot, i) => { const it = h.eq[slot]; if (!it) return;

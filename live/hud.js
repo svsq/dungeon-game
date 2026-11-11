@@ -581,8 +581,13 @@
   const plate = (id, x, y, w, h, o = {}) => { KIT.nine('leather', x, y, w, h, { k: o.k || 0.3, u: { grade: o.grade || DARK, alpha: o.a ?? 1 } }); L.uiBox(id, x, y, w, h, o.pad ?? 4); };
   const BRASS = [0.66, 0.5, 0.28];
   // the bag's tabs over its grid (TASKS 1687), the open one raised with its seal; while a piece is held the tab under it is lit
-  const bagTabs = (id, U, S) => { const tabs = U.r.filter((q) => q.tab !== undefined), open = 'btab:' + Math.max(0, Math.min(tabs.length - 1, S.bagTab | 0));
-    KIT.tabs(id, tabs, open, S); const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
+  // each tab carries a badge with its free cells (TASKS 1786), red at none, so a full pouch shows before a drop on it is refused;
+  // a badge, as the count in the label left the pouch's name no room on the narrow tabs
+  const bagTabs = (id, U, S) => { const bag = S.run.hero.bag, tabs = U.r.filter((q) => q.tab !== undefined), open = 'btab:' + Math.max(0, Math.min(tabs.length - 1, S.bagTab | 0));
+    KIT.tabs(id, tabs, open, S);
+    for (const q of tabs) { const T = D.bagTabs(bag.length)[q.tab], n = bag.slice(T.a, T.a + T.n).filter((it) => !it).length, s = String(n), bw = Math.max(30, lw(id + '_fw', s, { size: 20 }) + 16), bx = q.x + q.w - bw - 6, by = q.y - (q.id === open ? 8 : 0) - 14;
+      L.rrect(bx, by, bw, 28, 14, n ? [0.2, 0.13, 0.09] : [0.62, 0.14, 0.08], n ? [0.12, 0.08, 0.05] : [0.42, 0.08, 0.05], 0.95);
+      lab(id + '_f' + q.tab, s, bx + bw / 2, by + 14, { size: 20, al: 0.5, col: n ? '#e8d6b0' : '#fff2e0' }); L.uiBox(id + '_fb' + q.tab, bx, by, bw, 28, 0); } const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
   function inv(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), U = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab), P = U.P, Lp = U.L, Rp = U.R, I = KIT.INK, cx = Lp.x + Lp.w / 2;
     dim(0.45);

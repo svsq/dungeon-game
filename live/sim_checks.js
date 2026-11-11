@@ -2713,6 +2713,9 @@
     { const w = h.eq.weapon; drag('eq:weapon', 'btab:1'); if (h.eq.weapon || h.bag[27] !== w) out.push('pouch: a worn piece dragged onto a tab does not come off into it'); h.eq.weapon = w; h.bag[27] = null; }
     { for (let i = 40; i < 56; i++) h.bag[i] = h.bag[i] || Object.assign(rollItem(R, 2, 0), { id: 9600 + i }); const it = Object.assign(rollItem(R, 2, 0), { id: 9700 }); h.bag[7] = it; const n0 = nopes(); drag('bag:7', 'btab:2');
       if (h.bag[7] !== it || nopes() !== n0 + 1) out.push('pouch: a full pouch takes a piece or does not refuse it'); }
+    // TASKS 1786: a piece dropped on its own pouch's tab stays and says so
+    { cl(inv().r, 'btab:2'); const it = h.bag[41], n0 = nopes(); drag('bag:41', 'btab:2'); const e = S.ev.filter((q) => q.k === 'nope').at(-1);
+      if (h.bag[41] !== it || nopes() !== n0 + 1 || !e || e.s !== TXT('sim_ui.inv.same')) out.push('pouch: a piece dropped on its own pouch\'s tab is not refused with a word'); cl(inv().r, 'btab:0'); }
     { const V = spawn(0, { meta: { up: { pouch: 1 } } }); V.run = newRun(V, 'campaign', 78, { town: 1 }); V.screen = 'stash'; const Hh = V.run.hero, T2 = stashOf(V), g = Object.assign(rollItem(V.run, 3, 2), { id: V.run.nextId++ });
       T2.items = [g]; const U2 = UI.stash(Hh.bag.length, 0), a = U2.r.find((q) => q.id === 'stash:0'), b = U2.r.find((q) => q.id === 'btab:1');
       step(V, { keys: [], px: a.x + 10, py: a.y + 10, click: 1, press: 1 }); step(V, { keys: [], px: b.x + 10, py: b.y + 10, press: 1 }); step(V, { keys: [], px: b.x + 10, py: b.y + 10 });
