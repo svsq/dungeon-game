@@ -180,7 +180,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
     for (const e of live) { if (e.st !== 'wind' && e.st !== 'bwind') continue;
       // a boss is dodged only on the moves that strike with its body (the volley is read bolt by bolt below); the slam that follows
       // a charge the hero got out of is a pattern a player learns, met without waiting to see it wind up (TASKS 227)
-      if (e.st === 'bwind' && (!['slam', 'charge', 'bite', 'tail', 'wave', 'fists', 'crack'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
+      if (e.st === 'bwind' && (!['slam', 'charge', 'bite', 'tail', 'wave', 'fists', 'stomp', 'crack'].includes(e.mv) || !(D.bossMove(e).dmg > 0))) continue;
       const E = D.ENEMIES[e.type], age = t - e.t0, key = e.id + ':' + e.t0;
       // a boss's wind-up seen while the dash recharges waits for it (TASKS 1727: once seen, it was never dashed out of)
       if (age < (e.chain ? 0 : P.react) || seen.has(key) || (!ready && e.st === 'bwind' && !e.chain)) continue; seen.add(key);
@@ -190,12 +190,12 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
       if (E.kind === 'salamander') { if (d > E.r + HR + E.reach + 6 || t < (salNext.get(e.id) || 0)) continue; salNext.set(e.id, t + 2.5); }
       // the warrior holds the line (TASKS 1140): a rank-and-file swing is taken on the armour; his dash stays for what a tank can't soak
       if (D.clsOf(h).id === 'warrior' && e.st === 'wind' && !e.elite && !e.chain && !e.rush && !E.boom && E.kind !== 'slam') continue;
-      const range = e.st === 'bwind' ? (['bite', 'tail', 'fists'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : e.mv === 'crack' ? D.bossMove(e).len : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
+      const range = e.st === 'bwind' ? (['bite', 'tail', 'fists', 'stomp'].includes(e.mv) ? D.bossMove(e).r + HR : e.mv === 'slam' ? 150 : e.mv === 'crack' ? D.bossMove(e).len : 1e9) : E.boom ? E.boom.r + 20 : E.kind === 'slam' ? 74 + HR + 20 : e.rush ? E.r + HR + E.rush.reach + 20 : E.r + HR + E.reach * 1.25 + 24;
       if (d > range || rand() >= P.dodge) continue;
       const ax = (h.x - e.x) / (d || 1), ay = (h.y - e.y) / (d || 1);
       if (!ready) { if (e.st === 'wind' || e.chain) { backT = t + w - age + 0.12; backX = ax; backY = ay; } continue; }
       // out of a boss's ring the skilled stay out until it lands (TASKS 1727: the expert walked back into the demon lord's slam after the dash)
-      if ((e.st === 'bwind' && !['slam', 'tail', 'bite', 'fists'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else { dash(inp, ax, ay); if (P.step && e.st === 'bwind') { backT = t + w - age + 0.1; backX = ax; backY = ay; } } return; }
+      if ((e.st === 'bwind' && !['slam', 'tail', 'bite', 'fists', 'stomp'].includes(e.mv)) || e.rush) dash(inp, -ay, ax); else { dash(inp, ax, ay); if (P.step && e.st === 'bwind') { backT = t + w - age + 0.1; backX = ax; backY = ay; } } return; }
     if (!ready) return;
     // a tugging elite's warning (TASKS 477): a dash across its line before it draws the hero in
     // (late in it: a dash slips the tug only while under way, BAL.dodge.t)

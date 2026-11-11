@@ -144,6 +144,8 @@
       move(m, e, e.vx * DT * P.speed, e.vy * DT * P.speed, E.r, true); e.dist += Math.hypot(e.vx, e.vy) * DT * P.speed; return; }
     const nextPhase = E.lake && D.BOSSES[e.type].phases[(e.phase || 0) + 1];
     if (nextPhase && e.hp / e.max <= nextPhase.at && !e.nextMove && t >= (e.openUntil || 0) + 0.4) return;
+    const St = D.BOSSES[e.type].moves.stomp;
+    if (St && !e.nextMove && (e.nearT || 0) >= St.hold && t >= (e.stompT ?? -1e9) + St.cd) { e.stompT = t; e.nearT = 0; beginBossMove(S, R, e, 'stomp'); return; }
     const mv = e.nextMove || P.moves[(e.moveI || 0) % P.moves.length];
     if (e.nextMove) e.nextMove = null; else e.moveI = (e.moveI || 0) + 1;
     beginBossMove(S, R, e, mv);
@@ -295,6 +297,9 @@
         ev(S, { k: 'bossphase', id: e.id, phase: e.phase });
         if (D.bossPhase(e).enter) beginBossMove(S, R, e, D.bossPhase(e).enter);
       }
+      // its fists' stuck window stays the hero's to use: time in it is not counted toward the stomp
+      if (B.moves.stomp && e.st !== 'emerge' && e.st !== 'wade' && !(e.openUntil > t)) { const d = Math.hypot(h.x - e.x, h.y - e.y);
+        e.nearT = d < B.moves.stomp.near ? (e.nearT || 0) + DT : d > B.moves.stomp.near * 1.3 ? 0 : e.nearT || 0; }
       if (e.st !== 'bwind') continue;
       const M = D.bossMove(e), w = M.wind, u = t - e.t0;
       let finished = u > w + (e.mv === 'charge' && M.next ? M.time : M.duration);
@@ -336,7 +341,13 @@
         if (e.mv === 'shatter') { roar(S, R, e); colossusEdge(S, R, e, M); bossSummon(S, R, e, B.moves[M.summon]); ev(S, { k: 'shatter', x: e.x, y: e.y, id: e.id }); }
         if (e.mv === 'erupt') { roar(S, R, e); ev(S, { k: 'colerupt', x: e.x, y: e.y, id: e.id }); }
         if (e.mv === 'rain') colossusRain(S, R, e, M);
+        if (e.mv === 'stomp') { const d = Math.hypot(h.x - e.x, h.y - e.y); e.shove = d < M.r + K.R ? 1 : 0;
+          if (d < M.r && losClear(m, e.x, e.y, h.x, h.y)) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e);
+          ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.8); }
       }
+      // the stomp slides him out over its first `shove` s rather than jumping him, and never into the lava: a dodge keeps the hurt off, not the push
+      if (e.mv === 'stomp' && e.shove && u >= w && u < w + M.shove) { const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy) || 1, v = M.push / M.shove * DT;
+        move(m, h, dx / d * v, dy / d * v, K.R, true); }
       if (finished) {
         e.nextMove = null;
         // the linked slam follows only a charge the hero got out of: a charge that landed ends the link, one mistake costs one blow
