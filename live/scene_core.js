@@ -863,9 +863,12 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   const HEARTHS = new WeakMap(), hearthRooms = (m) => { let s = HEARTHS.get(m); if (!s) { s = new Set(m.torches.filter((q) => q.kind === 'brazier' || q.kind === 'fire').map((q) => q.r)); HEARTHS.set(m, s); } return s; };
   const torchZ = (m, tc) => D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome];
   const torchCol = (m, tc) => { const Z = torchZ(m, tc);
-    return !Z.candle || tc.kind === 'brazier' || tc.kind === 'fire' || (tc.r !== undefined && hearthRooms(m).has(tc.r)) ? Z.torch : Z.candle; };
+    // (candleP: the share of those lit by candles, picked by place; the crypt's halls keep green sconces among them)
+    const cp = Z.candleP ?? 1, pick = cp >= 1 || (((Math.round(tc.x) * 73856093) ^ (Math.round(tc.y) * 19349663)) >>> 0) % 997 / 997 < cp;
+    return !Z.candle || !pick || tc.kind === 'brazier' || tc.kind === 'fire' || (tc.r !== undefined && hearthRooms(m).has(tc.r)) ? Z.torch : Z.candle; };
   // a wall sconce in a hearth's colour throws a small pool: at a torch's reach a hall's row of them flooded its floor whole
-  const sconceK = (m, tc) => { const Z = torchZ(m, tc); return Z.candle && tc.kind === 'wall' && torchCol(m, tc) === Z.torch ? Z.sconce || 0.6 : 1; };
+  // (and a candle's pool is the biome's candleR of a torch's: the crypt's side rooms are lit by candles, not by a torch's flood, TASKS 1788)
+  const sconceK = (m, tc) => { const Z = torchZ(m, tc); if (!Z.candle || (tc.kind && tc.kind !== 'wall')) return 1; return torchCol(m, tc) === Z.torch ? Z.sconce || 0.6 : Z.candleR || 1; };
 
   // a door's leaf fills its two-cell opening; the arch is squashed to the wall's height, its opening as wide as the leaf
   const DOOR = { w: 62, h: 80, fw: 118, fh: 100 };

@@ -63,7 +63,7 @@
       if (B.spill) TL.push([tc.x, tc.y - (big ? 60 : 30), (big ? 380 : 190) * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * f / (B.fireK || 1) * (big ? 0.7 : 1), 1.4]); });
     for (const d of m.decor) if (d.n === 'candles' && (d.outUntil || 0) <= GT && !hid(d)) TL.push([d.x, d.y - 10 - (d.lift || 0), 120, [1, 0.7, 0.35], 0.6 * flick(d.y)]);
     for (const d of m.decor) if (STAND[d.n] && !hid(d)) { const tp = d.n === 'torch_stand', col = tp ? torchCol(m, d) : CANDLE, up = STAND[d.n][0][1];
-      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) : d.n === 'candelabra' ? 150 : 125), col, (tp ? (B.town ? 0.7 + 0.06 * Math.floor(d.x * 37 / 32 % 11) : 1.0) : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
+      TL.push([d.x, d.y + 4 - up + (tp ? 30 : 40), (tp ? 200 * (B.torchR || 1) * sconceK(m, d) : d.n === 'candelabra' ? 150 : 125), col, (tp ? (B.town ? 0.7 + 0.06 * Math.floor(d.x * 37 / 32 % 11) : 1.0) : d.n === 'candelabra' ? 0.8 : 0.6) * flick(d.x), 3.0]);
       TL.push([d.x, d.y + 4 - up, tp ? 70 : 40, col.map((v) => 0.4 + 0.6 * v), tp ? 1.6 : 1.1, 2.6]);
       if (tp && B.spill) TL.push([d.x, d.y - up, 190 * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * flick(d.x), 1.4]); }
     // a cave bridge's fire posts (TASKS 306): the crossing's warm light, on the deck and in the water under it

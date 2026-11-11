@@ -11,8 +11,8 @@
   const BIOMES = {
     dungeon: { name: TXT('BIOMES.dungeon.name'), rock: [0.008, 0.005, 0.008], water: [0.07, 0.1, 0.12], vein: [1.0, 0.4, 0.12, 0], amb: [0.11, 0.09, 0.10], torch: [1.0, 0.62, 0.26], floor: 'floor_d_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1, 1, 1], roster: ['skeleton', 'goblin', 'spider'], props: ['rack', 'bookshelf', 'cage', 'statue', 'rack'] },
-    crypt: { name: TXT('BIOMES.crypt.name'), rock: [0.008, 0.005, 0.008], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0], amb: [0.07, 0.11, 0.09], torch: [0.35, 1.0, 0.4], fill: 0.08, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
-      tint: [0.86, 0.98, 0.9], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
+    crypt: { name: TXT('BIOMES.crypt.name'), rock: [0.008, 0.005, 0.008], water: [0.06, 0.11, 0.08], vein: [0.4, 1.0, 0.5, 0], amb: [0.09, 0.10, 0.09], ambK: 0.7, ambLvl: 1.2, torch: [0.35, 1.0, 0.4], candle: [1.0, 0.62, 0.26], candleR: 0.6, candleP: 0.5, fill: 0.08, floor: 'floor_c_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
+      tint: [0.95, 1.0, 0.96], roster: ['skeleton', 'cultist', 'ghost', 'spider'], props: ['coffin', 'grave', 'statue', 'pillar', 'grave'] },
     lava: { name: TXT('BIOMES.lava.name'), rock: [0.008, 0.005, 0.008], vein: [1.0, 0.38, 0.08, 0.02], seam: 1.4, amb: [0.14, 0.07, 0.05], torch: [1.0, 0.45, 0.16], floor: 'floor_l_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
       tint: [1.04, 0.9, 0.84], roster: ['goblin', 'skeleton', 'cultist', 'brute'], lava: true, props: ['pillar', 'cage', 'rack', 'statue'] },
     arcane: { name: TXT('BIOMES.arcane.name'), rock: [0.008, 0.005, 0.008], water: [0.06, 0.09, 0.18], vein: [0.35, 0.6, 1.0, 0], amb: [0.11, 0.10, 0.09], ambK: 0.7, ambLvl: 1.6, torch: [0.16, 0.38, 1.0], candle: [1.0, 0.62, 0.26], hearth: [1.7, 3.6], sconce: 0.75, fill: 0.06, dim: 0.75, floor: 'floor_a_tex', wall: 'wall_d_tex', top: 'walltop_d_tex',
