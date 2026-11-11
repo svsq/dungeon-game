@@ -31,7 +31,9 @@
   const QUEST_LEG = ['quest', TXT('QUEST_LEG')];
   // (the magma's map is mostly lava and chasm, TASKS 490: the legend named neither)
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
-  const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
+  // the town's shop shut till its merchant is brought home says so in the legend (TASKS 1853 з)
+  const SHOP_SHUT_LEG = ['shop', TXT('TOWN_LEG.shut')], townLeg = (R) => (SIM.Q.shopShut(R) ? TOWN_LEG.map((q) => (q[0] === 'shop' ? SHOP_SHUT_LEG : q)) : TOWN_LEG);
+  const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
   const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < HB.x + HB.w + 12 && y < 316) || (y < 150 && x > 500 && x < 1420) || (y > H - 56 && x > W - 40 - lw('keys', TXT('hud.hud.k'), { size: 26 }));
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
@@ -481,7 +483,7 @@
   function mmGeo(S, R, leg) {
     const k = mapK(R), cut = mapCut(R), mw = cut.w * k, mh = cut.h * k, title = mmTitle(R), bw = Math.max(240, lw('mm_t', title, { size: 26, bold: true }) + 130);
     const legend = leg ? legendOf(R).concat(SIM.Q.completionHints(R).length ? [['hint', TXT('hud.minimap.legend')]] : []) : [];
-    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, QUEST_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
+    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, QUEST_LEG, SHOP_SHUT_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
     const pw = Math.max(mw + 44, bw + 20, legW), x0 = W - pw - 14, y0 = 24, py = 66, lg0 = py + mh + 26, rule = lg0 + 26 * legend.length + (legend.length ? 6 : -10), bot = rule + 46;
     return { k, cut, mw, mh, title, bw, legend, pw, x0, y0, py, px: x0 + Math.round((pw - mw) / 2), lg0, rule, bot, box: [x0, 4, pw, bot - 4] };
   }

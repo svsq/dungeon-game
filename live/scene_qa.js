@@ -610,6 +610,7 @@
     states.push(['hud_hp4', play((S) => { hudBig(S); S.run.msg = null; })]);
     states.push(['hud_folded', play((S) => { const R = S.run; R.msg = null; R.enteredT = S.t - 20; R.seen.fill(1); R.rseen.fill(1); })]);
     states.push(['hud_town_folded', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); const R = S.run, h = R.hero; R.msg = null; S.ev = []; R.enteredT = S.t - 20; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
+    states.push(['town_legend_shut', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); const R = S.run, h = R.hero; R.msg = null; S.ev = []; R.enteredT = S.t - 1; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
     states.push(['hud_boss_arrival', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; R.msg = { chapter: D.ENEMIES.boss.name, s: D.ENEMIES.boss.title, t: S.t - 0.8, d: 3 }; })]);
     states.push(['hud_mute', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 0.6; })], ['hud_muted', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 9; })]);
