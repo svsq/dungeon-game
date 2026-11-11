@@ -530,9 +530,9 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // anchor: where the SIM emits something (anything shot, thrown or shone) vs where the scene DRAWS what emits it (the held
   //   item's tip, a hand, a barrel), in view px. qa.mjs fails when they are more than tol apart (an effect leaving from the feet).
   L.UI = []; L.ANCH = [];
-  L.uiBox = (id, x, y, w, h, pad = 6) => L.UI.push({ k: 'box', id, x, y, w, h, pad });
-  L.uiText = (id, s, x, y, w, h) => L.UI.push({ k: 'text', id, s, x, y, w, h });
-  L.uiCover = (id, x, y, w, h) => L.UI.push({ k: 'cover', id, x, y, w, h });
+  L.uiBox = (id, x, y, w, h, pad = 6) => L.UI.push({ k: 'box', id, x, y: y + G.oy, w, h, pad });
+  L.uiText = (id, s, x, y, w, h) => L.UI.push({ k: 'text', id, s, x, y: y + G.oy, w, h });
+  L.uiCover = (id, x, y, w, h) => L.UI.push({ k: 'cover', id, x, y: y + G.oy, w, h });
   L.anchor = (name, sim, drawn, tol = 8) => L.ANCH.push({ name, sim, drawn, tol, d: Math.hypot(sim[0] - drawn[0], sim[1] - drawn[1]) });
   L.qaReset = () => { L.UI = window.__UI = []; L.ANCH = window.__ANCHORS = []; };
 
@@ -541,20 +541,25 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // the texture is re-rendered only when the string or style changes. Returns the text width.
   // labelW(...) measures without drawing (size panels to their content — never hard-code a panel width for variable text).
   // A pixel font keeps its grid only at whole multiples of its em, so a requested size is a width target, not a pixel size:
-  // two faces of one family (em 10 and 12) give the steps 12, 20, 24, 30, 36, 40... and each size takes the step whose
-  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for.
+  // two faces of one family (em 10 and 12) give the steps 20, 24, 30, 36, 40... and each size takes the step whose
+  // Cyrillic line is closest in width to the Trebuchet line the layout was tuned for. No step below 20 (TASKS 1753, 1861):
+  // one-pixel stems blur away when the 1920×1080 canvas is shown at 1280×720
   const FACES = [['Galmuri9', 10, 0.589], ['Galmuri11', 12, 0.614]], TREBUCHET_W = 0.547, FIT = new Map();
-  const fit = (size) => { const n = Math.round(size); let r = FIT.get(n); if (r) return r; let best = Infinity;
-    for (const [font, em, adv] of FACES) for (let unit = 1; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
-    FIT.set(n, r); return r; };
+  const fit = (size, bold) => { const n = Math.round(size), k = bold ? 'b' + n : n; let r = FIT.get(k); if (r) return r; let best = Infinity;
+    for (const [font, em, adv] of bold ? FACES.slice(1) : FACES) for (let unit = 2; unit <= 12; unit++) { const d = Math.abs(adv * em * unit - TREBUCHET_W * n); if (d < best) { best = d; r = { font: `${em * unit}px ${font}`, px: em * unit, unit }; } }
+    FIT.set(k, r); return r; };
   const AROUND = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
   const LBL = {};
-  const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315' } = {}) => {
-    const { font, px, unit } = fit(size); let r = LBL[slot]; const key = [str, font, col, out].join('|'); if (r && r.key === key) return r;
+  // bold (window titles, TASKS 1752): the font has no Cyrillic bold, so every glyph is stamped twice one grid pixel apart and
+  // the letters stand one grid pixel further apart, as Galmuri11 Bold draws its Latin. Only the wider face: at em 10 the arms
+  // of М merge into its stems
+  const setFont = (g, f, bold) => { g.font = f.font; g.letterSpacing = bold ? f.unit + 'px' : '0px'; };
+  const lblTex = (slot, str, { size = 30, col = '#f6e7c8', out = '#2d1315', bold = false } = {}) => {
+    const f = fit(size, bold), { font, px, unit } = f; let r = LBL[slot]; const key = [str, font, col, out, bold].join('|'); if (r && r.key === key) return r;
     const cv = G.canvas(), g = cv.getContext('2d'), pad = Math.ceil(px * 0.3) + unit;
-    g.font = font; const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
-    cv.width = Math.max(1, w); cv.height = h; g.font = font; g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
-    const stamp = (dx, dy, c) => { g.fillStyle = c; g.fillText(str, pad + dx * unit, base + dy * unit); };
+    setFont(g, f, bold); const tw = g.measureText(str).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(px * 1.3) + 2 * pad, base = Math.round(h / 2 + px * 0.34);
+    cv.width = Math.max(1, w); cv.height = h; setFont(g, f, bold); g.textRendering = 'geometricPrecision';   // the only mode that keeps glyph edges on whole pixels
+    const stamp = (dx, dy, c) => { g.fillStyle = c; for (let b = 0; b <= (bold ? 1 : 0); b++) g.fillText(str, pad + (dx + b) * unit, base + dy * unit); };
     // ink on parchment has no outline: a dark shadow two grid pixels under dark glyphs read as a second, blurred line
     if (out) { stamp(0, 2, 'rgba(15,5,8,0.6)'); for (const [dx, dy] of AROUND) stamp(dx, dy, out); }
     stamp(0, 0, col);
@@ -564,11 +569,18 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // measuring never touches the slot's texture: label() and labelW() on one slot with different styles would re-render and
   // re-upload it twice a frame
   let MEASURE = null;
-  L.labelW = (slot, str, { size = 30 } = {}) => {
-    const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); g.font = fit(size).font; return g.measureText(String(str)).width; };
+  L.labelW = (slot, str, { size = 30, bold = false } = {}) => {
+    const g = MEASURE || (MEASURE = G.canvas().getContext('2d')); setFont(g, fit(size, bold), bold); return g.measureText(String(str)).width; };
   // a label that must stay inside a box steps down the font's grid sizes; scaling a size by a width ratio can land on a step that is still too wide
-  L.sizeToFit = (str, maxW, size) => { let s = size; while (s > 12 && L.labelW(0, str, { size: s }) > maxW) s -= 1; return s; };
-  L.label = (slot, str, x, y, o = {}) => { const r = lblTex(slot, str, o), a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
+  L.sizeToFit = (str, maxW, size, bold = false) => { let s = size; while (s > 20 && L.labelW(0, str, { size: s, bold }) > maxW) s -= 1; return s; };
+  // fit: the width the label must keep to. It steps down the sizes first, and past the smallest a name still too long for its box
+  // loses its tail to «…» (review of PR 57): with no step under 20 px a long Russian name ran out of its panel
+  L.fitText = (str, maxW, size, bold = false) => { const s = L.sizeToFit(str, maxW, size, bold), w = (q) => L.labelW(0, q, { size: s, bold });
+    if (w(str) <= maxW) return { s: str, size: s };
+    let lo = 0, hi = str.length; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (w(str.slice(0, m).trimEnd() + '…') <= maxW) lo = m; else hi = m - 1; }
+    return { s: str.slice(0, lo).trimEnd() + '…', size: s }; };
+  L.label = (slot, str, x, y, o = {}) => { if (o.fit) { const f = L.fitText(str, o.fit, o.size || 30, o.bold); str = f.s; o = Object.assign({}, o, { size: f.size }); }
+    const r = lblTex(slot, str, o), a = o.a === undefined ? 1 : o.a, x0 = Math.round(x - r.tw * (o.al || 0));
     L.sprite('lbl_' + slot, x0 - r.pad, Math.round(y - r.rec.h / 2), { w: r.rec.w, h: r.rec.h, u: { alpha: a } });
     if (a > 0.05) L.uiText(slot, str, x0, y - r.px * 0.62, r.tw, r.px * 1.24); return r.tw; };
 

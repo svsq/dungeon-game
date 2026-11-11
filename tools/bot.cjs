@@ -69,7 +69,7 @@ const metaNext = (S) => { const ranks = D.metaFor(S.meta.cls).filter((M) => !M.t
   return ranks.concat(open).sort((a, b) => a.cost - b.cost)[0]; };
 // the button of the Altar of Souls for what comes next: its tab first when the wanted row is on the other one; a kit bought is the kit worn
 const metaButton = (S) => { const N = metaNext(S), tab = S.metaTab === 'open', list = D.UI.meta(S.meta.cls, S.metaTab), find = (f) => list.find(f);
-  if (!N) return find((q) => q.id === 'back'); if ((N.un !== undefined) !== tab) return find((q) => q.id === 'tab');
+  if (!N) return find((q) => q.id === 'back'); if ((N.un !== undefined) !== tab) return find((q) => q.id === 'tab:' + (tab ? 'up' : 'open'));
   if (N.un === undefined) return find((q) => q.id === N.id);
   if (N.U.kind === 'kit') (S.meta.kit = S.meta.kit || {})[D.clsOf({ cls: S.meta.cls }).id] = N.U.ref;
   return find((q) => q.un === N.un); };
@@ -84,7 +84,7 @@ const power = (S, h) => { const f = (hh, meta) => { const st = SIM.stats(hh, met
 // a run from the main menu: a test run's button is behind «Тесты» (TASKS 417). The bot steps onto that screen without a sim step: the
 // run's seed counts the clock, and one step more there would give every test run other floors than the ones measured before
 function startRun(S, mode) {
-  for (const [screen, id] of D.startPath(mode)) { const b = D.uiAt(screen).find((q) => q.id === id);
+  for (const [screen, id] of D.startPath(mode)) { const b = D.uiAt(screen, S.meta).find((q) => q.id === id);
     if (id === 'tests') S.screen = 'tests'; else SIM.step(S, click(b)); }
 }
 
@@ -411,8 +411,8 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   // a townsman's talk (TASKS 1024): pages turned with E; on the quest's page E takes it while the profile wants more (the Keeper's
   // chain always), turns a done one in; else «not now», and the townsman is left alone this visit
   function talkStep(S, R) { const T = S.talk; if (!T) return { keys: ['Escape'] }; if (T.p + 1 < T.pages.length) return { keys: ['KeyE'] };
-    // past the campaign's last boss (TASKS 1148): the Keeper's «Завершить поход», unless the bot goes on down
-    if (T.act && T.act.k === 'finish') { if (descend) { declined.add(T.role); return { keys: ['Escape'] }; } return { keys: ['Enter'] }; }
+    // past the campaign's last boss (TASKS 1148): the Keeper's «Завершить поход», a click since Enter goes on (TASKS 1854), unless the bot goes on down
+    if (T.act && T.act.k === 'finish') { if (descend) { declined.add(T.role); return { keys: ['Escape'] }; } return click(D.UI.talk(T).r.find((q) => q.id === 'act')); }
     const side = (R.quests || []).filter((q) => q.id > 0 && q.st !== 'turned' && D.QUESTS[q.key].kind === 'side').length;
     if (T.act && (T.act.k === 'turn' || (P.quests && (D.QUESTS[T.act.key].kind === 'story' || side < P.quests)))) return { keys: ['Enter'] };
     declined.add(T.role); return { keys: ['Escape'] }; }
@@ -441,7 +441,7 @@ function play({ seed = 1, profile = 'average', runs = 1, diff = 'normal', mode =
   for (let i = initial ? initial.i : 0; i < 120 * 60 * 60 * runs * hours && out.length < runs; i++) {
     if (!S.run) {
       if (S.screen === 'dead' || S.screen === 'win') { if (cur) { cur.result = S.result; out.push(cur); log(cur, S); cur = null; } SIM.step(S, click(D.UI.end()[0])); continue; }
-      if (S.screen === 'classes') { SIM.step(S, click(D.UI.classes().find((q) => q.id === 'go'))); continue; }
+      if (S.screen === 'classes') { SIM.step(S, click(D.UI.classes(S.meta).find((q) => q.id === 'go'))); continue; }
       if (S.screen === 'meta') { SIM.step(S, click(metaButton(S))); continue; }
       // the upgrades are bought at the Altar of Souls in the town (TASKS 1026); a test run without the town still buys them from the menu's screen
       if (S.screen === 'menu') { if (metaNext(S) && mode !== 'campaign' && mode !== 'town') { S.screen = 'meta'; S.metaRun = 0; } else startRun(S, mode); continue; }

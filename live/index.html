@@ -24,8 +24,11 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // sizes.js: window.SIZES (display size per sprite in view px, engine.md §7); audio.js: sound synthesised from the event bus
   await load('modules.js'); for (const f of MODULES.page) await load(f);
   const q = new URLSearchParams(location.search), render = q.has('render');
-  const VW = (SIM.VIEW || {}).W || 1920, VH = (SIM.VIEW || {}).H || 1080;             // view size and aspect come from the sim
-  document.documentElement.style.setProperty('--ar', VW / VH); if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
+  // the view's height follows the window's aspect (TASKS 1861): the sim keeps the size, the page tells it the window's and lets the
+  // canvas take the aspect that comes out; the scene rebuilds its targets on the next frame
+  const fitView = () => { if (SIM.setView) SIM.setView(SIM.viewFor(innerWidth, innerHeight)); document.documentElement.style.setProperty('--ar', SIM.VIEW.W / SIM.VIEW.H); };
+  fitView(); addEventListener('resize', fitView);
+  const VW = SIM.VIEW.W, VH = SIM.VIEW.H; if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
   G.init(document.getElementById('c'), VW, VH);
   await Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))));
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
@@ -43,8 +46,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   try { for (const k of ['dc_meta', 'dc_run']) localStorage.removeItem(k); sessionStorage.removeItem('live'); } catch (e) {}
   // the save slots (TASKS 1311): dc2_run is the run of slot dc2_slot, dc2_saves the other slots; a save from before them has dc2_run
   // alone, and the sim puts it in the first slot
-  const loadPersist = () => { try { const g = (k) => JSON.parse(localStorage.getItem(k) || 'null');
-    return { meta: g('dc2_meta'), run: g('dc2_run'), slot: g('dc2_slot'), saves: g('dc2_saves') }; } catch (e) { return {}; } };
+  const loadPersist = () => { try { const g = (k) => JSON.parse(localStorage.getItem(k) || 'null'), meta = g('dc2_meta');
+    if (meta && meta.mute === undefined && localStorage.getItem('dc_mute') === '1') meta.mute = 1;
+    return { meta, run: g('dc2_run'), slot: g('dc2_slot'), saves: g('dc2_saves') }; } catch (e) { return {}; } };
   let savedN = -1;
   const persist = () => { if (!play || !SIM.persist) return; const p = SIM.persist(play);
     try { localStorage.setItem('dc2_meta', JSON.stringify(p.meta)); if (p.run) localStorage.setItem('dc2_run', JSON.stringify(p.run)); else localStorage.removeItem('dc2_run');
@@ -68,22 +72,42 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
     if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
-    keys[c] = 1; if (play && !(e.repeat && c === 'KeyE')) pend.keys.push(c);
+    keys[c] = 1; if (play) (e.repeat ? pend.rep : pend.keys).push(c);
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
-    if (!play) startPlay();
+    if (!play) startPlay(); else fullSync(true);
     e.preventDefault();
   });
   addEventListener('keyup', (e) => { keys[e.code] = 0; });
+  // the fullscreen (TASKS 1864): the sim keeps the wish in meta.full, the page applies it and writes back what the player did outside
+  // the game (Esc, F11). A browser grants the Fullscreen API only right after a click or a key, so a wish saved from the last session
+  // waits for the first one; the desktop build asks its window over IPC, where F11 and the menu also go
+  const desk = window.desktop, fullNow = () => (desk ? desk.isFull() : !!document.fullscreenElement);
+  let fullSeen = null, fullAsked = null;
+  const fullBack = (on) => { fullAsked = null; if (play && play.meta && !!play.meta.full !== on) { play.meta.full = on ? 1 : 0; play.saveN++; } fullSeen = on; };
+  const fullSync = (gesture) => { if (!play || !play.meta) return; const want = !!play.meta.full, changed = fullSeen !== null && want !== fullSeen;
+    if (fullSeen === null) fullSeen = want;
+    if (!changed && !gesture && !desk) return; fullSeen = want;
+    if (want === fullNow() || want === fullAsked) return; fullAsked = want;
+    if (desk) { desk.setFull(want); return; }
+    const p = want ? document.documentElement.requestFullscreen && document.documentElement.requestFullscreen() : document.exitFullscreen && document.exitFullscreen();
+    if (p && p.catch) p.catch(() => { fullAsked = null; if (changed) fullBack(fullNow()); }); };
+  document.addEventListener('fullscreenchange', () => fullBack(!!document.fullscreenElement));
+  if (desk) desk.onFull((on) => fullBack(on));
   // pointer in view pixels (VW×VH); click is true for exactly one sim step
-  const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [] };
+  const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, moved: 0, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [], rep: [] };
   addEventListener('wheel', (e) => { if (play) { pend.wheel = Math.sign(e.deltaY); e.preventDefault(); } }, { passive: false });
   addEventListener('contextmenu', (e) => e.preventDefault());
-  const toView = (e) => { const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * VW; ptr.y = (e.clientY - r.top) / r.height * VH; };
+  // the pointer is kept where it is on the page and put into view px on every frame (review of PR 57): a resize moves the canvas
+  // and changes the view's height under a still pointer, and px kept from the last move would point at the old layout
+  let cx = null, cy = null;
+  const toView = (e) => { cx = e.clientX; cy = e.clientY; ptr.moved = 1; viewPtr(); };
+  const viewPtr = () => { if (cx === null) return; const r = cv.getBoundingClientRect(); ptr.x = (cx - r.left) / r.width * SIM.VIEW.W; ptr.y = (cy - r.top) / r.height * SIM.VIEW.H; };
   addEventListener('pointermove', toView);
   addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
+    fullSync(true);
     if (e.button === 2) ptr.rclick = 1; else { ptr.down = 1; ptr.click = 1; } });
   addEventListener('pointerup', (e) => { if (e.button !== 2) ptr.down = 0; });
-  addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; });
+  addEventListener('blur', () => { for (const k in keys) keys[k] = 0; ptr.down = 0; pend.keys = []; pend.rep = []; pend.slot = 0; });
   let last = performance.now(), fpsAcc = 0, fpsN = 0;
   const loop = () => {
     const now = performance.now(), wall = Math.min(0.1, (now - last) / 1000); last = now;
@@ -91,11 +115,12 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     const dt = paused ? (stepOnce ? 1 / 60 : 0) : wall * speed; stepOnce = false;
     simT += dt;
     if (play) {
-      acc += dt;
+      acc += dt; viewPtr();
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys,
+        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, moved: ptr.moved, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep,
         now: Date.now() - new Date().getTimezoneOffset() * 60000 };
-      while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
+      while (acc >= SIM.DT) { SIM.step(play, inp); inp.moved = ptr.moved = 0; inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; acc -= SIM.DT; }
+      fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;
       if ((logNew || logAsk) && play.result && play.result.log) downloadLog(play.result);

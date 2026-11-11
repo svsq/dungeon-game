@@ -48,7 +48,7 @@
   // a new game's first steps in the town: after a breath he leaves the fire, comes over to the hero (held meanwhile) with a word on
   // the way and opens the first talk, then goes back to the fire. R.greet: 1 armed by startRun, { st } while it plays, 'done' after;
   // a run saved before it (or past it) has none and is never greeted
-  const GREET = { wait: 0.9, gap: 46, meet: 0.45, stuck: 3, give: 14, late: 1.5 }, GREET_V = 40;
+  const GREET = { wait: 0.9, gap: 64, meet: 0.45, stuck: 3, give: 14, late: 1.5 }, GREET_V = 40;
   const greetHold = (R) => !!(R.town && R.greet && R.greet.st && R.greet.st !== 'home' && R.greet.st !== 'back');
   const workFace = (R, f) => (R.map.town.svc.fire.x >= R.map.town.npcs[f.i].x ? 1 : -1);
   // the way there on the town's walkable cells, benches kept out, cut to the corners a body clears in a straight line
@@ -72,7 +72,7 @@
   // where he stops: beside the hero on his own side of him, else the other side, else a step off, a little farther out if need be;
   // only a free spot (no bench, the fire or a wall) he can walk to. { x, y, path }, or null: nowhere near the hero to stand
   function greetSpot(R, f) { const h = R.hero, sd = f.x >= h.x ? 1 : -1;
-    for (const g of [GREET.gap, GREET.gap * 1.4]) for (const [dx, dy] of [[sd, 0], [-sd, 0], [sd, 0.6], [sd, -0.6], [-sd, 0.6], [-sd, -0.6], [0, 1], [0, -1]]) { const x = h.x + dx * g, y = h.y + dy * g + 2;
+    for (const g of [GREET.gap, GREET.gap * 1.15]) for (const [dx, dy] of [[sd, 0], [-sd, 0], [sd, 0.6], [sd, -0.6], [-sd, 0.6], [-sd, -0.6], [0, 1], [0, -1]]) { const x = h.x + dx * g, y = h.y + dy * g + 2;
       if (!folkFree(R.map, x, y, folkR(f))) continue; const path = greetPath(R, f, x, y, false); if (path) return { x, y, path }; }
     return null; }
   function stepGreet(S, R, F) { const G = R.greet, t = S.t, h = R.hero, k = F.find((q) => q.role === 'keeper');
@@ -185,7 +185,7 @@
     if (cw) { openCraft(S, R, cw); return; }
     if (atStash(R)) { S.screen = 'stash'; S.hover = ''; S.drag = null; stashOf(S); ev(S, { k: 'ui', x: R.map.town.svc.stash.x, y: R.map.town.svc.stash.y }); return; }
     if (atSoulAltar(R)) { S.screen = 'meta'; S.metaRun = 1; S.hover = ''; if (!S.meta.shards) broke(S, R); ev(S, { k: 'altar', x: R.map.town.svc.altar.x, y: R.map.town.svc.altar.y }); return; }
-    if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
+    if (atExitGate(R)) { S.screen = 'leave'; S.hover = ''; S.focus = 'stay'; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     if (atGate(R)) { const o = gateWays(R); if (o.length === 1) gateGo(S, R, o[0]); else { S.screen = 'gate'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); } return; }
     if (atBoard(R)) { S.screen = 'board'; S.hover = ''; ev(S, { k: 'ui', x: h.x, y: h.y }); return; }
     // a townsman with something to say, once no service of the town is in reach (TASKS 1016, 1023)
@@ -194,11 +194,12 @@
     // the stairs on past the serpent (TASKS 354): shut till it falls; taking them wins the campaign there and then and the run goes on
     if (m.down && Math.hypot(m.down.x - h.x, m.down.y - h.y) < 60) { if (R.campaignWon) { ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); enterFloor(S, R, R.floor + 1); } else if (R.bossDead) SIMX.descend(S, R); else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
     if (exitKind(R) && Math.hypot(m.exit.x - h.x, m.exit.y - h.y) < 60) {
-      if (arenaSealed(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s.2') }); return; }
+      if (arenaSealed(R)) { const bz = R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0); ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.interact.s.2', { name: D.ENEMIES[bz.type].name }) }); return; }
       if (exitKind(R) === 'portal') { if (R.campaignWon) return; if (R.bossDead) { SIMX.endRun(S, 'win'); } else ev(S, { k: 'nope', x: h.x, y: h.y, s: sealOf(R) }); return; }
       ev(S, { k: 'stairs', x: h.x, y: h.y, floor: R.floor }); if ((RUN(R).chapters || []).some((c) => c.from === R.floor + 1) && !(R.chapSeen || {})[R.floor + 1]) R.leaving = 0.45; else enterFloor(S, R, R.floor + 1); return; }
     const used = R.shrines.find((s) => s.used && Math.hypot(s.x - h.x, s.y - h.y) < 60);
-    if (used && canDonate(R)) openAltar(S, R, used);
+    if (used && canDonate(R)) { openAltar(S, R, used); return; }
+    const tz = SIMX.tossedNear(R); if (tz && !SIMX.takeItem(S, R, tz)) ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_items.stepDrops.s') });
   }
   // ---------------- waystones (TASKS 1009) ----------------
   // touched once, a waystone stays awake for the rest of the run; the town's ring of stones then jumps to it
@@ -353,7 +354,8 @@
     const of = offerOf(R, role); if (!of) return null;
     const q = of.q, Q = D.QUESTS[q.key], pick = (L) => L[(q.f * 7 + q.key.length) % L.length], story = q.story && (Q.type === 'free' ? [Q.ask] : q.key === 'chapter' ? D.STORY.boss[D.stageOf('campaign', q.f).boss] : D.STORY.depths[q.f]);
     const say = story || [R.bossN && R.lastBoss && q.f % 2 === 0 ? pick(SAY.boss).replace('{boss}', ENEMIES[R.lastBoss].name) : pick(SAY.asks[Q.type] || SAY.asks.kill)];
-    return { pages: [...say, Q.text(q)], act: { k: 'take', key: q.key, rw: q.rw, name: Q.name } }; }
+    const first = q.story && !(R.quests || []).some((o) => D.QUESTS[o.key].kind === 'story') ? 1 : 0;
+    return { pages: [...say, Q.text(q)], act: { k: 'take', key: q.key, rw: q.rw, name: Q.name, first } }; }
   // the keepsake's icon a talk's quest is about (TASKS 1030): the one offered (its giver's keepsake), or the one being turned in
   function questIcon(R, role, a) { if (!a) return null; if (a.k === 'turn') { const q = (R.quests || []).find((o) => o.id === a.id); return (q && q.ic) || null; }
     return D.QUESTS[a.key] && D.QUESTS[a.key].type === 'fetch' && D.QUEST_SAY[role] ? D.QUEST_SAY[role].ic || null : null; }
@@ -479,7 +481,7 @@
     S.meta.shards -= o.cost; sh.used = 1; sh.took = o.id;
     if (G.power) (h.powers = h.powers || {})[o.id] = 1; else if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
     const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp;
-    ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? TXT('sim_town.takeGift.msg.s') : TXT('sim_town.takeGift.msg.s.2')), t: S.t };
+    ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: o.id === 'bless' ? TXT('sim_town.takeGift.msg.floor', { name: G.name, desc: G.desc }) : TXT('sim_town.takeGift.msg', { name: G.name, desc: G.desc }), t: S.t };
     S.screen = 'play'; S.saveN++;
   }
   // a spent altar only answers while a donation can go through (TASKS 242)

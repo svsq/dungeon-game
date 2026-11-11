@@ -1,7 +1,7 @@
 // live/scene_qa.js — SCENE.QA(): the named states, cycles, loops and transitions that qa.mjs, swingcheck.mjs, motioncheck.mjs,
 // lootvis.mjs and the other checks render (references/engine.md §7). Built from the sim; reads the scene's inside through SCX.
 (function () {
-  const SCX = window.SCX, { D, EN_TEX, GLOW, H, SC, SZ, TILE, TOWN_FACE, W } = SCX;
+  const SCX = window.SCX, { D, EN_TEX, GLOW, SC, SZ, TILE, TOWN_FACE } = SCX;
   const build = () => {
     const mk = (fn) => { const S = SIM.spawn(0, {}); fn(S); return S; };
     const play = (fn) => mk((S) => { S.meta.shards = 9999; SIM.step(S, { keys: [] }); S.run = SIM.newRun(S, 'campaign', 1234); S.screen = 'play'; for (let i = 0; i < 30; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); if (fn) fn(S); });
@@ -10,16 +10,22 @@
     const h0 = (S) => S.run.hero;
     const states = [
       ['menu', mk((S) => { S.saved = null; })],
+      ['title', play((S) => { S.demo = 1; })],
       // look B's parts kit (R-41): every part in every state
       ['uikit', mk((S) => { S.saved = null; S.screen = 'uikit'; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
-      ['menu_armed', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.saved.floor = 12; S.saved.hero.lvl = 17; S.resetT = S.t; S.resetM = 'campaign'; })],
-      // the main menu's sheet (TASKS 1301): every slot taken and a new run pressed once (the longest labels, the longest saved run's
-      // line), every item under the keyboard's focus, the pointer over an item
-      ['menu_full_armed', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;
-        S.slot = 0; S.resetT = S.t; S.resetM = 'campaign'; S.focus = 'campaign'; })],
-      ['menu_full_hover', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 0; S.hover = 'load'; })],
+      // TASKS 1815: the menu shows the saved run's hero, a mage or an archer, not the painted warrior
+      ...['mage', 'archer'].map((c) => ['menu_continue_' + c, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: c }); })]),
+      // the main menu's sheet (TASKS 1301): every slot taken (the longest labels, the longest saved run's line), every item under the
+      // keyboard's focus, the pointer over an item; a new run pressed over five taken slots asks, naming the oldest run (TASKS 1785)
+      ['menu_full', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;
+        S.slot = 0; S.focus = 'campaign'; })],
+      ...[['menu_full_ask', 'no'], ['menu_full_ask_yes', 'yes']].map(([n, f]) => [n, mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) { S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[i].at = 1.7e12 + i * 864e5; }
+        S.saves[3] = SIM.newRun(S, 'magma', 9, { cls: 'mage' }); S.saves[3].floor = 12; S.saves[3].at = 1.6e12; S.saves[0] = null; S.saved = SIM.newRun(S, 'campaign', 5); S.saved.at = 1.75e12; S.slot = 0;
+        S.newAsk = 'campaign'; S.focus = f; S.hover = f === 'yes' ? 'yes' : ''; })]),
+      ['menu_full_hover', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 0; S.hover = 'load'; S.focus = 'load'; })],
       ...DATA.UI.menu(true).map((b) => ['menu_focus_' + b.id, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.focus = b.id; })]),
+      ['menu_saved_note', play((S) => { S.saved = S.run; S.run = null; S.screen = 'menu'; S.savedT = S.t - 0.5; })],
       ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'tests'; S.hover = 'settings'; })],
       // the test runs' screen (TASKS 417): fresh, and over a saved test run with a button pressed once (the longest labels)
       ['tests', mk((S) => { S.saved = null; S.screen = 'tests'; })],
@@ -28,8 +34,8 @@
       ['menu_news_empty', mk((S) => { S.saved = null; S.qaNewsMain = []; S.hover = 'news'; })],
       ['news', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = 0; })],
       ['news_end', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = DATA.UI.news(0).max; S.hover = 'back'; })],
-      ['tests_cave_armed', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'cave'; })],
-      ['tests_magma_armed', mk((S) => { S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.saved.hero.lvl = 18; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'magma'; S.hover = 'endless'; })],
+      ['tests_saved', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.hover = 'endless'; })],
+      ['tests_full_ask', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.slot = 0; S.screen = 'tests'; S.newAsk = 'magma'; S.focus = 'no'; })],
       ['play', play()],
       ['play_worst', play((S) => { worst(S); S.run.msg = { s: TXT('QA.states.msg.s'), t: S.t - 1 }; })],
       ['inv', play((S) => { worst(S); S.screen = 'inv'; })],
@@ -55,6 +61,9 @@
       ['debug_loot', play((S) => { S.debug = 1; S.dbgLoot = 1; S.hover = 'dbg_loot'; const R = S.run; R.msg = null; R.seen = R.seen.map(() => 1); SIM.fstat(R).loot = 999; SIM.fstat(R).lootN = 99999; })],
       ['pause', play((S) => { S.screen = 'pause'; S.run.msg = { s: TXT('QA.states.msg.s.2'), t: S.t - 1 }; })],
       ['pause_finish', play((S) => { S.run.viaTown = 1; S.run.campaignWon = 1; S.screen = 'pause'; S.hover = 'finish'; S.focus = 'back'; })],
+      ['pause_ask', play((S) => { S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; })],
+      ['pause_ask_hover', play((S) => { S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'yes'; S.hover = 'yes'; })],
+      ['pause_ask_finish', play((S) => { S.run.viaTown = 1; S.run.campaignWon = 1; S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; })],
       // the settings (TASKS 1302): from the menu with the keyboard's focus on the first row, from the pause with the pointer on
       // «Назад», a slider held at its smallest step; and the run at the zoom's ends
       ['settings', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; })],
@@ -75,7 +84,9 @@
           ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
           ['load_old', mk((S) => { fill(S, 5); S.loadSel = 3; S.focus = 'go'; })],
           ['load_gap', mk((S) => { fill(S, 3); S.loadSel = 4; S.focus = 'slot:4'; S.hover = 'back'; })],
-          ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })]]; })(),
+          ['load_ask', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'yes'; S.hover = 'yes'; })],
+          ['load_ask_rest', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = 'yes'; })],
+          ['load_ask_focus', mk((S) => { fill(S, 5); S.loadSel = 2; S.delAsk = 2; S.focus = 'no'; S.hover = ''; })]]; })(),
       ['settings_pause', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'back'; S.hover = 'back'; S.meta.zoom = 1.5; })],
       ['settings_drag', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'zoom'; S.hover = 'zoom'; S.drag = 'zoom'; S.pressWas = true; S.meta.zoom = 0.5; })],
       ['play_zoom05', play((S) => { S.meta.zoom = 0.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
@@ -84,6 +95,8 @@
       ['play_bright_lo', play((S) => { S.meta.bright = DATA.SETTINGS.find((q) => q.id === 'bright').stops[0]; })],
       ['play_bright_hi', play((S) => { const q = DATA.SETTINGS.find((o) => o.id === 'bright'); S.meta.bright = q.stops[q.stops.length - 1]; })],
       ['settings_bright', play((S) => { S.screen = 'settings'; S.setFrom = 'pause'; S.focus = 'bright'; S.meta.bright = 1.4; })],
+      ['settings_vol', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'vol'; S.meta.vol = 0.25; })],
+      ['settings_full', mk((S) => { S.saved = null; S.screen = 'settings'; S.setFrom = 'menu'; S.focus = 'full'; S.hover = 'full'; S.meta.full = 1; })],
       ['play_zoom15', play((S) => { S.meta.zoom = 1.5; for (let i = 0; i < 240; i++) SIM.step(S, { px: 960, py: 540, keys: [] }); })],
       ['meta', mk((S) => { S.screen = 'meta'; S.meta.shards = 99999; S.meta.up = Object.fromEntries(D.META.map((M, i) => [M.id, i % 3 ? M.max - 1 : i % 2 ? M.max : 0])); })],
       ['meta_refuse', mk((S) => { S.screen = 'meta'; S.meta.shards = 0; S.hover = 'gear'; S.ev.push({ k: 'nope', s: TXT('QA.states.s'), t: S.t - 0.2 }); })],
@@ -95,6 +108,8 @@
       ['altar_powers', play((S) => { const R = S.run, h = R.hero; h.powers = { whirl_pull: 1, dash_trail: 1, dash_strike: 1 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:1'; })],
       ['altar_relic', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }, { id: 'rl_fifth', cost: 180 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:3'; })],
       ['altar_rank', play((S) => { const R = S.run, h = R.hero; h.perks = { fury: 2 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, rolls: 2, gifts: [{ id: 'bless', cost: 9 }, { id: 'crit', cost: 50 }, { id: 'fury', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'reroll'; })],
+      // the gift's line after the altar at its longest (TASKS 1829)
+      ['altar_gift_msg', play((S) => { const G = D.GIFTS.reduce((a, b) => (TXT('sim_town.takeGift.msg', b).length > TXT('sim_town.takeGift.msg', a).length ? b : a)); S.run.msg = { s: TXT('sim_town.takeGift.msg', G), t: S.t - 1 }; })],
       ['altar_prompt', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 50, y: h.y - 20, used: 0 }]; })],
       // the interaction plate with its target on each side of the hero and the stairs right under him: it never covers him
       ...[['s', 0, 36], ['n', 0, -40], ['e', 44, 0], ['se', 30, 30]].map(([d, dx, dy]) => ['prompt_chest_' + d, play((S) => { const R = S.run, h = R.hero; R.chests.push({ x: h.x + dx, y: h.y + dy, tier: 1, open: 0 }); })]),
@@ -126,7 +141,7 @@
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
       ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 0, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 12, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
-      ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
+      ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, passed: 0, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
     ];
     for (const [name, S] of states.filter(([n]) => ['dead', 'win', 'dead_short'].includes(n))) {
       const R = SIM.newRun(S, 'campaign', 1234); S.result.hero = R.hero; S.result.heroStats = SIM.stats(R.hero, S.meta);
@@ -140,6 +155,7 @@
       ['dead_ghost', 'ghost', { type: 'ghost', elite: 0 }], ['dead_boss', 'boss', { type: 'boss', elite: 1 }]]) {
       const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.damage[2] = { t: 3, src, n: 99, actor }; states.push([name, S]);
     }
+    { const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.log = { fl: [] }; S.hover = 'log'; states.push(['dead_log_tip', S]); }
     const abandoned = structuredClone(states.find(([n]) => n === 'dead')[1]); abandoned.result.abandoned = true; states.push(['end_abandoned', abandoned]);
     for (const b of ['longsword', 'axe', 'hammer', 'staff', 'fist']) {
       const S = structuredClone(states.find(([n]) => n === 'win')[1]);
@@ -395,7 +411,7 @@
           && !m.block.includes(k) && !R.pots.some((p) => Math.floor(p.y / TILE) * m.W + Math.floor(p.x / TILE) === k)).sort((a, b) => Math.hypot(a % m.W - r.cx, Math.floor(a / m.W) - r.cy) - Math.hypot(b % m.W - r.cx, Math.floor(b / m.W) - r.cy))[0];
         h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.6) * TILE; h.vx = h.vy = 0; h.ifr = 1e9;
         R.en = []; R.msg = null;
-        R.zoom = 2; R.cam = [(r.x + r.w / 2) * TILE - W / 4, (r.y + r.h / 2) * TILE - H / 4 - 20];
+        R.zoom = 2; R.cam = [(r.x + r.w / 2) * TILE - SCX.W / 4, (r.y + r.h / 2) * TILE - SCX.H / 4 - 20];
         R.seen.fill(1); R.rseen.fill(1); S.ev = [];
         states.push(['water_' + kind + '_' + m.biome, S]);
         if (kind === 'fountain' && floor === 1) {
@@ -604,6 +620,27 @@
     states.push(['fx_arrive', fx((S, R, h) => { S.keepFloor = 1; S.ev.push({ k: 'floor', t: S.t - 0.45, x: h.x, y: h.y, f: R.floor }); })]);
     states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; S.ev.push({ k: 'roar', t: S.t - 0.25, x: b.x, y: b.y - 70, id: b.id }); })]);
+    // the HUD's worst cases (TASKS 1759, 1794, 1862): four-digit health and mana on their plates, the legend folded after its 10 s,
+    // a boss's arrival under its ribbon, a hero at 14 % health, a pickup and a new level over the hero's head
+    const hudBig = (S) => { const h = S.run.hero; h.base.vit = 400; h.base.int = 400; const st = SIM.Q.stats(h, S.meta); h.hp = st.maxHp - 7; h.mp = st.maxMp - 13; };
+    states.push(['hud_hp4', play((S) => { hudBig(S); S.run.msg = null; })]);
+    states.push(['hud_folded', play((S) => { const R = S.run; R.msg = null; R.enteredT = S.t - 20; R.seen.fill(1); R.rseen.fill(1); })]);
+    states.push(['hud_town_folded', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); const R = S.run, h = R.hero; R.msg = null; S.ev = []; R.enteredT = S.t - 20; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
+    states.push(['town_legend_shut', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1 }); const R = S.run, h = R.hero; R.msg = null; S.ev = []; R.enteredT = S.t - 1; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
+    states.push(['hud_boss_arrival', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
+      R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; R.msg = { chapter: D.ENEMIES.boss.name, s: D.ENEMIES.boss.title, t: S.t - 0.8, d: 3 }; })]);
+    states.push(['hud_mute', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 0.6; })], ['hud_muted', play((S) => { S.run.msg = null; S.meta.mute = 1; S.muteT = S.t - 9; })]);
+    // TASKS 1863 ж: the names of the items by the hero, two close together stacked, and one he threw away under its E prompt
+    states.push(['loot_names', play((S) => { const R = S.run, h = R.hero; R.msg = null; R.en = []; const it = (rar, q) => Object.assign(SIM.rollItem(R, 3, rar), { id: 7100 + q });
+      for (const [q, dx, dy, rar] of [[0, -70, 30, 1], [1, -52, 40, 3], [2, 90, 10, 4]]) R.drops.push({ id: 7200 + q, kind: 'item', item: it(rar, q), x: h.x + dx, y: h.y + dy, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, loot: 1, rest: 2 });
+      R.drops.push({ id: 7210, kind: 'item', item: it(2, 9), x: h.x + 30, y: h.y - 34, vx: 0, vy: 0, z: 0, vz: 0, t0: -9, tossed: 1, rest: 2 }); })]);
+    states.push(['hud_low_hp', play((S) => { const R = S.run, h = R.hero; R.msg = null; h.hp = Math.ceil(SIM.Q.stats(h, S.meta).maxHp * 0.14); })]);
+    states.push(['hud_pickup', play((S) => { const R = S.run, h = R.hero; R.msg = null; S.ev.push({ k: 'pickup', t: S.t - 0.5, x: h.x, y: h.y, s: SIM.Q.itemName(Object.assign(SIM.rollItem(R, 3, 3), { id: 3001 })), rar: 3 }, { k: 'lvl', t: S.t - 0.3, x: h.x, y: h.y, lvl: 2 }); })]);
+    // what the HUD's numbers and cells are, under the pointer in the pause (TASKS 1862)
+    const gifted = (S) => { const h = S.run.hero; h.bless = 1; h.burn = S.t + 2; h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').slice(0, 6).map((g) => [g.id, 2])); };
+    states.push(['pause_tip_stat', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = [40, 216]; })]);
+    states.push(['pause_tip_gift', play((S) => { S.run.msg = null; gifted(S); S.screen = 'pause'; S.ptr = [206, 266]; })]);
+    states.push(['pause_tip_gold', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = [150, 218]; })]);
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
     states.push(['power_fire', fx((S, R, h) => { h.powers = { whirl_ring: 1, dash_trail: 1 }; R.fires = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 8800 + i, own: 'hero', who: 'hero', x: h.x + Math.cos(i * Math.PI / 4) * 100, y: h.y + Math.sin(i * Math.PI / 4) * 75, t0: S.t - 0.6, r: 26, ry: 0.7, t: 2, dmg: 0, per: 9, kind: 'flame' })); })]);
     states.push(['buffs', fx((S, R, h) => { worst(S); h.perks = Object.fromEntries(D.GIFTS.map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 99999, shieldUntil: S.t + 4, burn: S.t + 0.4, poison: S.t + 2.2 }); })]);
@@ -625,6 +662,8 @@
     states.push(['shop', shopS()]);
     states.push(['shop_screen', shopS((S) => { worst(S); const R = S.run; for (let i = 0; i < 6; i++) R.shop.back.push({ it: Object.assign(SIM.rollItem(R, 8, 4), { id: 3000 + i }), price: 99999 });
       R.shop.back = R.shop.back.slice(-D.SHOP.buyback); for (const g of R.shop.goods) g.price = 99999; R.shop.line = 1; S.screen = 'shop'; S.hover = 'buy:0'; })]);
+    states.push(['long_names_shop', shopS((S) => { worst(S); const R = S.run, lb = Object.keys(D.BASES).filter((b) => D.LEGEND_NAMES[b]).sort((a, b) => D.LEGEND_NAMES[b].length - D.LEGEND_NAMES[a].length)[0];
+      for (const g of R.shop.goods) if (!SIM.Q.isCons(g.it)) Object.assign(g.it, SIM.rollItem(R, 12, 4, D.BASES[lb].slot), { id: g.it.id, b: lb, rar: 4 }); S.screen = 'shop'; S.hover = 'buy:0'; })]);
     // the merchant's key poses: a coin onto the scales, a stroke of the beard (hero away), a wave, the nod on a trade
     const at6 = (S, u) => { const R = S.run, k = R.map.seed % 7; S.t += ((u - (S.t + k)) % 6 + 6) % 6; R.shop.greetT = R.shop.tradeT = -9; R.cam = [R.map.shop.x - SCX.VW / 2, R.map.shop.y - 40 - SCX.VH / 2]; };
     states.push(['merchant_coin', shopS((S) => { S.run.hero.x -= 400; at6(S, 1.0); })]);
@@ -636,6 +675,7 @@
     // TASKS 1687: three pouches, every cell full; the merchant's grid on the first pouch's tab
     const pouches = (S) => { const R = S.run, h = R.hero; S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 });
       for (let i = 24; i < h.bag.length; i++) h.bag[i] = Object.assign(SIM.rollItem(R, 3 + (i % 9), i % 5), { id: 3100 + i }); };
+    states.push(['shop_idle', shopS((S) => { worst(S); S.screen = 'shop'; S.hover = ''; })]);
     states.push(['shop_pouch', shopS((S) => { worst(S); pouches(S); S.screen = 'shop'; S.bagTab = 1; S.hover = 'sell:30'; })]);
     states.push(['small_props', play((S) => {
       const R = S.run, m = R.map, r = m.rooms.filter((q) => q.type === 'combat').reduce((a, b) => a.w * a.h > b.w * b.h ? a : b), h = R.hero;
@@ -986,12 +1026,12 @@
           if (end - k < 5 || m.cells[end] !== 1 || Math.floor(k / m.W) !== Math.floor(end / m.W)) continue;
           const h = R.hero; h.x = (k % m.W + 0.5) * TILE; h.y = (Math.floor(k / m.W) + 0.5) * TILE; h.ab.fireball = 1; h.cd.fireball = 0; h.mp = 999; h.cls = 'mage';   // (the warrior's right click is the charge now, TASKS 1130)
           R.en = []; R.pots = []; R.chests = []; R.proj = []; R.msg = null; R.freeze = R.trauma = 0; S.ev = []; R.seen.fill(1); R.rseen.fill(1); R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2];
-          SIM.step(S, { keys: [], rclick: 1, px: W, py: H / 2 });
+          SIM.step(S, { keys: [], rclick: 1, px: SCX.W, py: SCX.H / 2 });
           let n = 0; const pending = [];
           for (let i = 0; i < 100; i++) {
             const p = R.proj.find((p) => p.own === 'hero');
             if (p && SIM.cell(m, Math.floor(p.x / TILE), Math.floor((p.y + (p.gz ?? 20)) / TILE)) === 6 && Math.hypot(p.x - h.x, p.y + (p.gz ?? 20) - h.y) > 60 && n < 3 && i >= n * 8 + 4) { R.cam = [h.x - SCX.VW / 2, h.y - SCX.VH / 2]; pending.push(['cave_fireball_deep_' + n++, structuredClone(S)]); }
-            SIM.step(S, { keys: [], px: W, py: H / 2 });
+            SIM.step(S, { keys: [], px: SCX.W, py: SCX.H / 2 });
           }
           found = n === 3; if (found) states.push(...pending);
         }
@@ -1343,7 +1383,7 @@
     {
       const S = structuredClone(states.find(([name]) => name === 'win')[1]); S.result.mode = 'cave'; S.result.floor = 4;
       const R = SIM.newRun(S, 'cave', 71); S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta);
-      S.result.C.floors = 4; states.push(['win_cave_worst', structuredClone(S)]);
+      S.result.C.floors = S.result.C.passed = 4; states.push(['win_cave_worst', structuredClone(S)]);
       Object.assign(S.result, { lvl: 12, kills: 80, gold: 800, shards: 121, found: 70, base: 31, statBonus: 20, time: 1800 });
       Object.assign(S.result.C, { foes: 80, kills: 80, lootN: 70, loot: 65, secN: 4, sec: 2, pct: (1 + 65 / 70 + 0.5) / 3 });
       states.push(['win_cave', S]);
@@ -1444,9 +1484,22 @@
     // the Altar of Souls on the square (TASKS 1011): its prompt, and its screen opened there mid-run
     states.push(['town_altar_prompt', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; })]);
     states.push(['fork', fx((S, R, h) => { R.hero.cls = 'mage'; R.hero.ab = { fireball: 3, shield: 1, frost: 0 }; S.screen = 'fork'; S.hover = 'fork:1'; })]);
+    // TASKS 1857: a card lit by the first press and sealed (the pointer gone to the other, which stays unlit); a warrior's fork whose
+    // two ways carry the potion icons; on the hero's page what a point and the next rank give, and a visit's points with «Сбросить»
+    states.push(['fork_sel', fx((S, R, h) => { R.hero.cls = 'mage'; R.hero.ab = { fireball: 3, shield: 1, frost: 0 }; S.screen = 'fork'; S.forkSel = 0; S.hover = 'fork:1'; })]);
+    states.push(['fork_whirl', fx((S, R, h) => { R.hero.ab = { whirl: 3, charge: 3, cry: 1 }; R.hero.forks = { 'charge:3': 0 }; S.screen = 'fork'; S.forkSel = 1; S.hover = 'fork:1'; })]);
+    const tipOn = (S, id) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab).r.find((b) => b.id === id); S.hover = id; S.ptr = [q.x + q.w / 2, q.y + q.h / 2 + D.uiDy('inv', SIM.VIEW.H)]; S.uiPtr = [q.x + q.w / 2, q.y + q.h / 2]; };
+    states.push(['inv_tip_stat', play((S) => { const h = S.run.hero; h.pts = 3; S.screen = 'inv'; tipOn(S, 'stat:agi'); })]);
+    states.push(['inv_tip_rank', play((S) => { const h = S.run.hero; h.lvl = 6; h.sp = 2; h.ab = { whirl: 2, charge: 1 }; S.screen = 'inv'; tipOn(S, 'ab:whirl'); })]);
+    states.push(['inv_tip_learn', play((S) => { const h = S.run.hero; h.lvl = 6; h.sp = 2; h.ab = { whirl: 4 }; S.screen = 'inv'; tipOn(S, 'ab:cry'); })]);
+    states.push(['inv_draft', play((S) => { const h = S.run.hero; h.lvl = 6; h.pts = 4; h.sp = 1; h.ab = { whirl: 3, charge: 1 }; h.forks = { 'whirl:3': 1 }; h.base.str += 2; h.base.vit += 1;
+      h.draft = { st: { str: 2, vit: 1 }, ab: { charge: 1 }, hp: 10, mp: 0, mast: 0 }; S.screen = 'inv'; tipOn(S, 'reset:st'); })]);
     states.push(['codex', mk((S) => { S.meta.codex = { m: Object.fromEntries(Object.keys(D.ENEMIES).filter((_, i) => i % 3).map((k) => [k, 1])) }; S.meta.best = 12; S.meta.bestEndless = 34; S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = 'next'; })]);
+    states.push(['codex_all', mk((S) => { S.meta.codex = { m: Object.fromEntries(Object.keys(D.ENEMIES).map((k) => [k, 1])) }; S.screen = 'codex'; S.codexTab = 'm'; S.codexPage = 0; S.hover = 'cx:boss_serpent'; })]);
     states.push(['codex_items', mk((S) => { S.meta.codex = { it: Object.fromEntries(Object.keys(D.BASES).map((k) => [k, 1])) }; S.screen = 'codex'; S.codexTab = 'it'; })]);
     states.push(['meta_unlocks', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 55; S.meta.open = { g_whirl_ring: 1, k_w_axe: 1 }; S.meta.ach = { a_elites: 13 }; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:1'; })]);
+    states.push(['meta_unlocks_poor', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 0; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:2'; })]);
+    states.push(['meta_tab_hover', mk((S) => { S.meta.shards = 35; S.screen = 'meta'; S.hover = 'tab:open'; })]);
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
     // the storage chest (TASKS 1012): its prompt; its window with a piece in, a locked cell and a tip; a piece dragged over the bag
     const stashS = (fn) => climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x; h.y = m.town.svc.stash.y + 40; const T = SIM.stashOf(S);
@@ -1464,7 +1517,7 @@
     // a slot it would be worn in, over a slot that refuses it; the refusals after the drop
     const scatter = (S) => { worst(S); const R = S.run, h = R.hero; S.screen = 'inv';
       [[2, 3, 1, 'armor'], [5, 9, 3, 'weapon'], [8, 6, 2, 'ring'], [11, 12, 4, 'boots'], [14, 2, 0, 'helm'], [17, 7, 3, 'amulet'], [20, 5, 2, 'weapon']].forEach(([i, lv, rar, sl]) => { h.bag[i] = Object.assign(SIM.rollItem(R, lv, rar, sl, { own: 1 }), { id: 1600 + i }); }); };
-    const invAt = (S, id, o = {}) => { const b = DATA.UI.inv(DATA.clsOf(S.run.hero).abs, S.run.hero.bag.length, S.bagTab).r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 }, o); };
+    const invAt = (S, id, o = {}) => { const b = DATA.UI.inv(DATA.clsOf(S.run.hero).abs, S.run.hero.bag.length, S.bagTab).r.find((q) => q.id === id); return Object.assign({ keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 + D.uiDy('inv', SIM.VIEW.H) }, o); };
     const hold = (S, from, over) => { const a = invAt(S, over); S.hover = over; S.drag = { from, x: a.px, y: a.py }; };
     const drop = (S, from, over) => { S.drag = { from, x: 0, y: 0 }; SIM.step(S, invAt(S, over)); };
     states.push(['inv_drag', play((S) => { scatter(S); hold(S, 'bag:5', 'bag:8'); })]);
@@ -1479,7 +1532,7 @@
     states.push(['inv_sort_after', play((S) => { scatter(S); const a = invAt(S, 'sort:rar'); SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sort:rar'; })]);
     const stashMix = (S, R, h) => { const T = SIM.stashOf(S); T.items = [[3, 1, 'armor'], [9, 3, 'weapon'], null, [5, 2, 'ring'], [12, 4, 'boots'], null, [7, 3, 'amulet']].map((q, i) => q && Object.assign(SIM.rollItem(R, q[0], q[1], q[2], { own: 1 }), { id: 910 + i })); };
     states.push(['town_stash_sort', stashS((S, R, h) => { stashMix(S, R, h); S.hover = 'sortS:rar'; })]);
-    states.push(['town_stash_sort_after', stashS((S, R, h) => { stashMix(S, R, h); const b = DATA.UI.stash().r.find((q) => q.id === 'sortS:rar'), a = { keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 }; SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sortS:rar'; })]);
+    states.push(['town_stash_sort_after', stashS((S, R, h) => { stashMix(S, R, h); const b = DATA.UI.stash().r.find((q) => q.id === 'sortS:rar'), a = { keys: [], px: b.x + b.w / 2, py: b.y + b.h / 2 + D.uiDy('stash', SIM.VIEW.H) }; SIM.step(S, Object.assign({ click: 1 }, a)); SIM.step(S, a); S.hover = 'sortS:rar'; })]);
     // TASKS 1348: a find well above the hero: the card names the level it waits for
     states.push(['inv_over_lvl', play((S) => { const R = S.run, h = R.hero; h.lvl = 5; h.bag[4] = Object.assign(SIM.rollItem(R, 18, 2, 'weapon', { own: 1 }), { id: 1520 }); S.screen = 'inv'; S.hover = 'bag:4'; })]);
     states.push(['town_stash_drag', stashS((S) => { S.hover = 'bag:12'; S.drag = { from: 'bag:3', x: 760, y: 640 }; })]);
@@ -1490,6 +1543,7 @@
     states.push(['inv_pouch_drag', play((S) => { scatter(S); S.meta.up.pouch = 3; SIM.step(S, { keys: [], px: 960, py: 540 }); S.screen = 'inv'; hold(S, 'bag:5', 'btab:2'); })]);
     states.push(['inv_pouch_full', play((S) => { worst(S); pouches(S); S.screen = 'inv'; h0(S).bag[3] = null; drop(S, 'bag:5', 'btab:3'); })]);
     states.push(['town_stash_pouch', stashS((S) => { pouches(S); S.screen = 'stash'; S.bagTab = 2; S.hover = 'btab:2'; })]);
+    states.push(['town_stash_card_low', stashS((S, R, h) => { pouches(S); S.screen = 'stash'; S.bagTab = 2; const T = D.bagTabs(h.bag.length)[2]; S.hover = 'bag:' + (T.a + T.n - 1); })]);
     states.push(['town_meta_pouch', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 120; S.meta.up.pouch = 1; S.screen = 'meta'; S.metaRun = 1; S.hover = 'pouch'; })]);
     // the workshops (TASKS 1013): the prompts at the anvil and the lectern; the smith with a rare ring chosen; the enchanter after a
     // failed enchantment; a piece with all five enchantments (the button's refusal, the longest)
@@ -1513,7 +1567,12 @@
     states.push(['classes_focus_tab', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'easy'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'dif:hard'; })]);
     states.push(['classes_dif_hard', mk((S) => { S.meta.cls = 'archer'; S.meta.diff = 'hard'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'cls:archer'; S.hover = 'dif:normal'; })]);
     states.push(['classes_won', mk((S) => { S.meta.cls = 'mage'; S.meta.diff = 'normal'; S.meta.wins = 1; S.meta.open = Object.fromEntries(DATA.UNLOCKS.filter((u) => u.kind === 'kit').map((u) => [u.id, 1])); S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'cave'; S.focus = 'kit:mage'; })]);
-    states.push(['classes_go', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'back'; S.hover = 'go'; S.pressWas = true; })]);
+    states.push(['classes_go', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'go'; S.hover = 'go'; S.pressWas = true; })]);
+    // the keyboard's focus on each row of the start screen (TASKS 1856): the chosen tab, the chosen card, «В путь», each told apart
+    // from the plain choice
+    states.push(['classes_focus_cls', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'normal'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'cls:warrior'; })]);
+    states.push(['classes_focus_dif', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'normal'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'dif:normal'; })]);
+    states.push(['classes_focus_go', mk((S) => { S.meta.cls = 'warrior'; S.meta.diff = 'normal'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.focus = 'go'; })]);
     // the archer's look (TASKS 1124): as the mage's, and on the green crypt floor beside the skeleton archer he must not be taken for
     const archerS = (fn) => play((S) => { const R = S.run, h = R.hero, gear = (b, slot) => Object.assign(SIM.rollItem(R, 1, 0, slot), { b, id: R.nextId++ });
       h.cls = 'archer'; h.eq.armor = null; h.eq.weapon = gear('shortbow', 'weapon'); R.msg = null; fn(S, R, h, gear); });
@@ -1567,7 +1626,7 @@
     { const key = (S) => S.run.folk.find((q) => q.role === 'keeper'), go = (S, n, keys) => { for (let q = 0; q < n; q++) SIM.step(S, { px: 960, py: 540, keys: keys && !q ? keys : [] }); };
       const base = play((S) => { S.run = SIM.newRun(S, 'campaign', 77, { town: 1 }); S.run.greet = 1; S.screen = 'play'; S.run.msg = null; go(S, 1); });
       const at = (fn) => { const S = structuredClone(base); fn(S); return S; }, until = (S, ok, n = 120 * 15) => { while (!ok(S) && n-- > 0) go(S, 1); return S; };
-      states.push(['town_greet_before', at((S) => go(S, 60))], ['town_greet_mid', at((S) => { until(S, (Q) => Q.run.greet.st === 'walk'); go(S, 300); })], ['town_greet_talk', at((S) => until(S, (Q) => Q.screen === 'talk'))]);
+      states.push(['town_greet_before', at((S) => go(S, 60))], ['town_greet_mid', at((S) => { until(S, (Q) => Q.run.greet.st === 'walk'); go(S, 300); })], ['town_greet_talk', at((S) => until(S, (Q) => Q.screen === 'talk'))], ['town_greet_offer', at((S) => { until(S, (Q) => Q.screen === 'talk'); S.talk.p = S.talk.pages.length - 1; })]);
       let S = at((Q) => go(Q, 60)), fr = []; for (let k = 0; k < 360 && S.screen === 'play'; k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
       const i = key(S).i; transitions.folk_keeper_greet = fr; folkSubj.folk_keeper_greet = 'npc' + i;
       S = structuredClone(S); go(S, 1, ['Escape']); fr = []; for (let k = 0; k < 420 && !(S.run.greet === 'done' && S.t > key(S).walkB + 0.6); k++) { fr.push(S); S = structuredClone(S); go(S, 2); }
@@ -1604,7 +1663,22 @@
       R.quests = []; for (const [key, f, from, o] of [['fetch', 11, 'sweeper', { thing: TXT('QA.thing'), ic: 'qi_horse', st: 'turned' }], ['named', 11, 'child', { title: TXT('QA.title') }], ['elites', 12, 'guard', { st: 'done', n: 5 }],
         ...D.storyChain('campaign').map((c, i) => [c.key, c.f, 'keeper', { st: i < 5 ? 'turned' : 'taken' }])]) R.quests.push(mk(key, f, from, o));
       R.quests[0].rw = Object.assign({}, D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got.2'), rar: 4 }); S.jsel = R.quests[0].id; S.screen = 'journal'; S.hover = 'q:3'; })]);
+    states.push(['journal_alike', keeperS((S, R) => { R.offers = []; R.quests = []; const sd = ['keeper', 'guard', 'child', 'sweeper', 'smith'];
+      const ch = D.storyChain('campaign').filter((c) => c.key === 'chapter').map((c) => c.f);
+      for (let i = 0; i < 10; i++) { const key = i < 5 ? 'chapter' : 'named', f = i < 5 ? ch[i % ch.length] : 2 + i; R.quests.push({ id: 950 + i, key, f, need: D.QUESTS[key].need(f), n: 0, st: i === 0 ? 'done' : 'taken', from: sd[i % 5], rw: D.questReward(D.QUESTS[key].rw, f), title: TXT('QA.title') }); }
+      S.jsel = 951; S.screen = 'journal'; })]);
     states.push(['journal_empty', keeperS((S, R) => { R.quests = []; S.screen = 'journal'; })]);
+    // the longest real names where a label once shrank to fit (review of PR 57): no font step is under 20 px now, so a name longer than
+    // its box loses its tail to «…» instead of running out of the panel
+    const longest = (o) => Object.keys(o).sort((a, b) => o[b].length - o[a].length || (a < b ? -1 : 1));
+    const legendB = longest(Object.fromEntries(Object.keys(D.BASES).filter((b) => D.LEGEND_NAMES[b]).map((b) => [b, D.LEGEND_NAMES[b]])))[0];
+    const legend = (R, id, slot) => Object.assign(SIM.rollItem(R, 12, 4, slot || D.BASES[legendB].slot), { id, b: legendB, rar: 4 });
+    states.push(['long_names_journal', keeperS((S, R) => { R.offers = []; R.quests = []; const keys = longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4);
+      keys.forEach((key, i) => R.quests.push({ id: 960 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: i ? 'taken' : 'done', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.jsel = 960; S.screen = 'journal'; S.hover = 'q:1'; })]);
+    states.push(['long_names_tracker', keeperS((S, R) => { R.offers = []; R.quests = []; longest(Object.fromEntries(Object.entries(D.QUESTS).map(([k, q]) => [k, q.name]))).slice(0, 4)
+      .forEach((key, i) => R.quests.push({ id: 970 + i, key, f: 12, need: D.QUESTS[key].need(12), n: 0, st: 'taken', from: 'keeper', rw: D.questReward(D.QUESTS[key].rw, 12) })); S.screen = 'play'; })]);
+    states.push(['long_names_craft', craftS('forge', (S, R, h, it) => { Object.assign(it, legend(R, 950)); h.bag[4] = it; S.hover = 'do'; })]);
+    states.push(['long_names_card', play((S) => { worst(S); const h = S.run.hero; h.bag[23] = legend(S.run, 3101); h.eq[D.BASES[legendB].slot] = legend(S.run, 3102); S.screen = 'inv'; S.hover = 'bag:23'; })]);
     // the town's loop for the player (TASKS 1033): the notice board full (every giver with an offer, the longest names) and empty;
     // a townsman answering a blow; the minimap's ! and ?; the scroll slot and its hint at low health on a floor
     states.push(['town_board', keeperS((S, R) => { R.offers = D.QUEST_GIVE.from.map((from, i) => ({ key: D.QUEST_GIVE.pool[i % D.QUEST_GIVE.pool.length], from, q: 0 })); S.screen = 'board'; S.hover = 'take:1'; })]);
@@ -1625,8 +1699,9 @@
     // what clampCam gives the town at the 1920×1080 these frames render at: SCX.VH here is still the smaller loading view
     states.push(['town_cart_rolling', folkS((S, R) => { Object.assign(R.cart, { s: 200, st: 'down' }); R.offers = []; R.cam = [-64, 52]; })]);
     states.push(['town_exit_gate', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.cam = [-64, 52]; })]);
-    states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; })]);
-    states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; })]);
+    states.push(['town_leave', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'stay'; })]);
+    states.push(['town_leave_hover', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; S.screen = 'leave'; S.focus = 'go'; S.hover = 'go'; })]);
+    states.push(['town_leave_done', climbS(0, (S, R, m, h) => { const g = m.town.svc.exitGate; h.x = g.x; h.y = g.y; R.slain = [DATA.RUNS.campaign.floors]; S.screen = 'leave'; S.focus = 'stay'; })]);
     states.push(['town_gate_prompt', climbS(0, (S, R, m, h) => { R.offers = []; R.portal = { f: 3, x: 0, y: 0 }; R.ways = [4, 8]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; })]);
     // past the campaign (PR #21 review): the waystones of the descent are named by the descent's biomes, not the campaign's
     states.push(['town_gate_descent', climbS(0, (S, R, m, h) => { R.campaignWon = 1; R.memo = Object.assign({}, R.memo, { 14: { mode: 'endless' }, 15: { mode: 'endless' }, 16: { mode: 'endless' } }); R.portal = { f: 15, x: 0, y: 0 }; R.ways = [4, 8, 12, 14, 16]; h.x = m.town.svc.portal.x + 10; h.y = m.town.svc.portal.y + 44; S.screen = 'gate'; })]);
@@ -1652,7 +1727,7 @@
       const r = m.rooms[0]; R.cam = [(r.x + r.w / 2) * TILE - SCX.VW / 2, (r.y + r.h / 2) * TILE - SCX.VH / 2]; })]);
     // every monster caught mid-turn (a third of the way through)
     states.push(['monsters_turn', play((S) => { lineup(S); for (const e of S.run.en) { e.pf = e.face; e.ft = S.t - 0.05; } })]);
-    const box = (name, S) => SCX.Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * SCX.Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, W, H];
+    const box = (name, S) => SCX.Z === 1 || !S.run ? box1(name, S) : box1(name, S).map((v) => v * SCX.Z), box1 = (name, S) => { const R = S.run; if (!R) return [0, 0, SCX.W, SCX.H];
       if (name.startsWith('serpent')) { const e = R.en[0]; return [e.x - R.cam[0] - 180, e.y - R.cam[1] - 205, 380, 235]; }
       if (name.startsWith('merchant')) { const sh = R.map.shop; return [sh.x - R.cam[0] - 60, sh.y - R.cam[1] - 100, 120, 110]; }
       if (folkSubj[name] && R.folk) { const f = R.folk[+folkSubj[name].slice(3)]; return [f.x - R.cam[0] - 70, f.y - R.cam[1] - 120, 140, 136]; }
@@ -1775,6 +1850,10 @@
     // (TASKS 1708) the motion check isolates an actor by these names: the hero walks in his starting leather and cloth, whose parts
     // carry suffixes, and the fire priest wears the cultist's rig in its own paint; listed by hand, only the cape and nothing were measured
     const heroSpr = Object.keys(ASSETS).filter((a) => a.startsWith('hero__')).concat(['it_sword', 'it_longsword', 'it_shield', 'it_shield_t']);
+    // (TASKS 1765) a window over the world is staged a second after the floor opens, when the only lit room hides under the window
+    // and the frame reads black; a player pauses on a floor already walked, and brightness from the pause is judged on that world
+    const overWorld = (S) => S.run && !S.run.town && (S.screen === 'pause' || S.screen === 'altar' || S.screen === 'note' || S.screen === 'notes' || (S.screen === 'settings' && S.setFrom === 'pause'));
+    for (const [, S] of states) if (overWorld(S)) S.run.seen.fill(1);
     const out = { states, anim, cycles: Object.assign({ hero_right: cyc(1, 0), hero_left: cyc(-1, 0), hero_down: cyc(0, 1), hero_up: cyc(0, -1), hero_plate_right: cyc(1, 0, wear('plate')), hero_plate_up: cyc(0, -1, wear('plate')) }, enCycles, folkCyc),
       sprites: Object.assign(Object.fromEntries(['hero_right', 'hero_left', 'hero_down', 'hero_up', 'hero_plate_right', 'hero_plate_up'].map((k) => [k, heroSpr])),
         Object.fromEntries(Object.keys(enCycles).map((k) => { const n = MONSTERS.rigOf(k.split('_').slice(0, -1).join('_')); const pn = k.startsWith('fire_priest_') ? 'priest' : n; return [k, Object.keys(ASSETS).filter((a) => a.startsWith(n + '__') || a.startsWith(pn + '__') || a === n + '_weapon' || a === n + '_shield')]; }))),

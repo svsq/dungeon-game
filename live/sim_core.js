@@ -7,7 +7,13 @@
   const DT = 1 / 120, L = 26.0;
   // VIEW is the screen (the pointer comes in its px); WIN the world window the camera shows on it, zoomed
   // the zoom lives on the run (R.zoom, copied from the player's setting every step) so camera and pointer follow a change at once
-  const VIEW = { W: 1920, H: 1080 }, zoomOf = (R) => (R && R.zoom) || D.ZOOM || 1, WIN = (R) => ({ W: VIEW.W / zoomOf(R), H: VIEW.H / zoomOf(R) }),
+  // the view is 1920 wide and as tall as the window's aspect asks, from 1080 (16:9) past 1200 (16:10) to 1248 (a MacBook's 1512×982)
+  // on an 8 px step, so the 2×2 world grid and the blur targets stay whole (TASKS 1861); the page sets it, Node keeps 16:9. A window
+  // wider than 16:9 keeps 1080 and shows bars at its sides: a wider world window would show more of a floor than its light and fog
+  // were tuned for, and the HUD's right column would drift from its windows
+  const VIEW = { W: 1920, H: 1080 }, VIEW_H = D.VIEW_H, viewFor = (w, h) => Math.max(VIEW_H[0], Math.min(VIEW_H[1], Math.round(VIEW.W * h / w / 8) * 8)),
+    setView = (h) => { VIEW.H = Math.max(VIEW_H[0], Math.min(VIEW_H[1], Math.round(h / 8) * 8)); return VIEW.H; }, uiDy = (scr) => D.uiDy(scr, VIEW.H),
+    zoomOf = (R) => (R && R.zoom) || D.ZOOM || 1, WIN = (R) => ({ W: VIEW.W / zoomOf(R), H: VIEW.H / zoomOf(R) }),
     toPx = (R, x, y) => ({ px: (x - R.cam[0]) * zoomOf(R), py: (y - R.cam[1]) * zoomOf(R) });
   const HINT = TXT('HINT');
   const K = { HIT: 0.13, RUN: 175, ACC: 1900, DEC: 2300, DASH: 640, DASH_T: 0.16, DASH_CD: 0.75, LEAP: 0.14, R: 12, STEP: 20 };
@@ -18,7 +24,8 @@
   const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; let t = Math.imul(R.rs ^ (R.rs >>> 15), 1 | R.rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const ri = (R, a, b) => a + Math.floor(rnd(R) * (b - a + 1));
   const pick = (R, arr) => arr[Math.floor(rnd(R) * arr.length)];
-  const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (!S.demo && SIMX.META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
+  const ev = (S, e) => { e.t = S.t;
+    S.ev.push(e); if (!S.demo && SIMX.META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log && !S.demo) note(S, e); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
@@ -270,11 +277,12 @@
     if (m.town) { c[0] = fit(c[0], 2 * TILE, 54 * TILE, w.W); c[1] = fit(c[1], 2 * TILE, 35 * TILE, w.H); return; }
     // at ×0,5 the window can be wider than a small floor and its margins: the floor then sits in its middle (TASKS 1302)
     c[0] = fit(c[0], -620, m.W * TILE + 620, w.W); c[1] = fit(c[1], -380, m.H * TILE + 300, w.H); }
+  function snapCam(R) { const h = R.hero, lk = R.camLook || [0, 0], w = WIN(R); R.cam = [h.x - w.W / 2 + lk[0], h.y - 30 - w.H / 2 + lk[1]]; R.camV = [0, 0]; clampCam(R, R.cam); }
 
   Object.assign(SIMX, {
-    D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW,
+    D, DG, TILE, ENEMIES, BAL, eliteK, windOf, under, ELITE_MODS, BASES, CONSUMABLES, RARITY, AFFIXES, ABILITIES, META, UI, DT, L, VIEW, VIEW_H, viewFor, setView, uiDy,
     zoomOf, WIN, toPx, HINT, K, DEMO_SEED, EEL_MOUTH, rnd, ri, pick, ev, FROM, sealOf, RUN, STAGE, dep, lastFloor, finalFloor, exitKind, campaignDone, dif, who, statsOf, tally,
     logFloor, add, potCount, angDiff, cell, inRoom1, inStart, CRUST, thinSet, crustSet, crustAt, chasm, solidAt, dropCell, pushable,
     brinkOf, atBrink, onLava, WET, WADE, inWater, onPlate, WEB, webAt, GOO, ORB, soaked, gooAt, boxHit, move, shove, solidC, pinch,
-    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam });
+    losClear, overLava, doorLock, doorKey, flow, homeFlow, reveal, clampCam, snapCam });
 })(typeof window !== 'undefined' ? window : globalThis);
