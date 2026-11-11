@@ -13,11 +13,13 @@
       // look B's parts kit (R-41): every part in every state
       ['uikit', mk((S) => { S.saved = null; S.screen = 'uikit'; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
-      ['menu_armed', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.saved.floor = 12; S.saved.hero.lvl = 17; S.resetT = S.t; S.resetM = 'campaign'; })],
-      // the main menu's sheet (TASKS 1301): every slot taken and a new run pressed once (the longest labels, the longest saved run's
-      // line), every item under the keyboard's focus, the pointer over an item
-      ['menu_full_armed', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;
-        S.slot = 0; S.resetT = S.t; S.resetM = 'campaign'; S.focus = 'campaign'; })],
+      // the main menu's sheet (TASKS 1301): every slot taken (the longest labels, the longest saved run's line), every item under the
+      // keyboard's focus, the pointer over an item; a new run pressed over five taken slots asks, naming the oldest run (TASKS 1785)
+      ['menu_full', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;
+        S.slot = 0; S.focus = 'campaign'; })],
+      ...[['menu_full_ask', 'no'], ['menu_full_ask_yes', 'yes']].map(([n, f]) => [n, mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) { S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[i].at = 1.7e12 + i * 864e5; }
+        S.saves[3] = SIM.newRun(S, 'magma', 9, { cls: 'mage' }); S.saves[3].floor = 12; S.saves[3].at = 1.6e12; S.saves[0] = null; S.saved = SIM.newRun(S, 'campaign', 5); S.saved.at = 1.75e12; S.slot = 0;
+        S.newAsk = 'campaign'; S.focus = f; S.hover = f === 'yes' ? 'yes' : ''; })]),
       ['menu_full_hover', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 0; S.hover = 'load'; S.focus = 'load'; })],
       ...DATA.UI.menu(true).map((b) => ['menu_focus_' + b.id, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); S.focus = b.id; })]),
       ['menu_focus_fresh', mk((S) => { S.saved = null; S.focus = 'tests'; S.hover = 'settings'; })],
@@ -28,8 +30,8 @@
       ['menu_news_empty', mk((S) => { S.saved = null; S.qaNewsMain = []; S.hover = 'news'; })],
       ['news', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = 0; })],
       ['news_end', mk((S) => { S.saved = null; S.screen = 'news'; S.newsTop = DATA.UI.news(0).max; S.hover = 'back'; })],
-      ['tests_cave_armed', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'cave'; })],
-      ['tests_magma_armed', mk((S) => { S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.saved.hero.lvl = 18; S.screen = 'tests'; S.resetT = S.t; S.resetM = 'magma'; S.hover = 'endless'; })],
+      ['tests_saved', mk((S) => { S.saved = SIM.newRun(S, 'cave', 5); S.saved.floor = 4; S.saved.hero.lvl = 13; S.screen = 'tests'; S.hover = 'endless'; })],
+      ['tests_full_ask', mk((S) => { for (let i = 1; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 4; S.slot = 0; S.screen = 'tests'; S.newAsk = 'magma'; S.focus = 'no'; })],
       ['play', play()],
       ['play_worst', play((S) => { worst(S); S.run.msg = { s: TXT('QA.states.msg.s'), t: S.t - 1 }; })],
       ['inv', play((S) => { worst(S); S.screen = 'inv'; })],

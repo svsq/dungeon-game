@@ -56,14 +56,17 @@
   function pickLatest(S) { if (S.run || S.saved) return; let j = -1;
     S.saves.forEach((r, i) => { if (r && (j < 0 || (r.at || 0) > (S.saves[j].at || 0))) j = i; });
     if (j >= 0) { S.slot = j; S.saved = S.saves[j]; S.saves[j] = null; } }
-  // a new run takes the first free slot and the saved one goes back to its own; with every slot taken it replaces the saved run
-  // (the menu asks twice before that), or with none named the one played longest ago
-  function takeSlot(S) { if (S.saved && !isFull(S)) S.saves[S.slot] = S.saved; S.saved = null;
-    let j = S.saves.indexOf(null); if (j < 0) { j = 0; S.saves.forEach((r, i) => { if ((r.at || 0) < (S.saves[j].at || 0)) j = i; }); S.saves[j] = null; }
+  // a new run takes the first free slot and the saved one goes back to its own; with every slot taken it replaces the run played
+  // longest ago, the saved one among them (TASKS 1785: it took the run under «Продолжить», the one a player least expects to lose),
+  // and the menu asks first, naming that run
+  function oldestSlot(S) { let j = -1; for (let i = 0; i < S.saves.length; i++) { const r = slotRun(S, i); if (r && (j < 0 || (r.at || 0) < (slotRun(S, j).at || 0))) j = i; } return j; }
+  function takeSlot(S) { const full = isFull(S), old = full ? oldestSlot(S) : -1;
+    if (S.saved && old !== S.slot) S.saves[S.slot] = S.saved; S.saved = null;
+    let j = S.saves.indexOf(null); if (full) { j = old; S.saves[j] = null; }
     S.slot = j; }
   // the run's timers are marks on the clock it was played on, so the clock goes back to the run's own; the events and menu marks of
   // what was played since would then lie in its future, and go
-  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.resetT = undefined; S.jdrop = 0; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t }; }
+  function resume(S, R) { S.t = (R.t ?? S.t) + DT; S.ev = []; S.newAsk = 0; S.jdrop = 0; S.run = R; S.screen = 'play'; R.msg = { s: D.placeName(R.floor, R.mode, R.seed, FROM(R), R.map), t: S.t }; }
   function loadSlot(S, i) { const R = slotRun(S, i); if (!R) return false;
     if (i !== S.slot) { if (S.saved) S.saves[S.slot] = S.saved; S.saves[i] = null; S.slot = i; S.saved = R; }
     resume(S, R); S.saveN++; return true; }
@@ -75,14 +78,19 @@
   // pendingMode, the keyboard's focus on the chosen class
   const clsNow = (S) => (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior');
   const chooseRun = (S, mode = 'campaign') => { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; S.focus = 'cls:' + clsNow(S); };
-  // a saved run is dropped only on a second press of the same run's button
-  const pressRun = (S, id, arm) => { if (!isFull(S) || arm === id) { S.resetT = undefined; chooseRun(S, id); } else { S.resetT = S.t; S.resetM = id; } };
+  // with every slot taken a new run first asks, on the yes-or-no sheet, «Нет» in focus (TASKS 1785: the second press it took
+  // before went stale in 3 s without a word)
+  const pressRun = (S, id) => { if (!isFull(S)) chooseRun(S, id); else { S.newAsk = id; S.focus = 'no'; S.hover = ''; } };
+  const newAsked = (S, inp, keys, x, y, click) => { const a = askAnswer(S, UI.newAsk(), keys, x, y, click, inp.moved), id = S.newAsk;
+    if (a < 0) { S.newAsk = 0; S.focus = id; S.hover = ''; ev(S, { k: 'ui', x, y }); }
+    else if (a > 0) { S.newAsk = 0; ev(S, { k: 'ui', x, y }); chooseRun(S, id); } };
   // each screen's input, by S.screen: one function a screen (dead and win share one)
   const SCREEN = {};
   // the main menu (TASKS 1301): ↑↓ walk the items and «Что нового», Enter presses the focused one; with no item focused Enter
   // presses the first, as before the focus (continue the saved run, or a new one)
   SCREEN.menu = (S, inp, keys, x, y, click) => {
-    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, U = UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, isFull(S)), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
+    if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
+    const U = UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, isFull(S)), b = D.hitUI(U, x, y); S.hover = b ? b.id : '';
     const order = U.map((q) => q.id);
     if (b && inp.moved) S.focus = b.id;
     if (order.includes(S.focus)) S.menuAt = S.focus;
@@ -90,7 +98,7 @@
     const press = (id) => {
       if (id === 'continue') resume(S, S.saved);
       if (id === 'load') openLoad(S);
-      if (D.RUNS[id]) pressRun(S, id, arm);
+      if (D.RUNS[id]) pressRun(S, id);
       if (id === 'tests') S.screen = 'tests';
       if (id === 'news') { S.screen = 'news'; S.newsTop = 0; }
       if (id === 'settings') openSettings(S, 'menu');
@@ -102,9 +110,10 @@
   };
   // the test runs' screen (TASKS 417): each starts its run as the main menu's buttons did; «Назад» or Escape go back
   SCREEN.tests = (S, inp, keys, x, y, click) => {
-    const arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, b = D.hitUI(UI.tests(!!S.saved, arm, isFull(S)), x, y); S.hover = b ? b.id : '';
+    if (S.newAsk) { newAsked(S, inp, keys, x, y, click); return; }
+    const b = D.hitUI(UI.tests(!!S.saved, isFull(S)), x, y); S.hover = b ? b.id : '';
     if ((click && b && b.id === 'back') || keys.Escape) { S.screen = 'menu'; S.hover = ''; if (click) ev(S, { k: 'ui', x, y }); return; }
-    if (click && b && b.on) { pressRun(S, b.id, arm); ev(S, { k: 'ui', x, y }); }
+    if (click && b && b.on) { pressRun(S, b.id); ev(S, { k: 'ui', x, y }); }
     return;
   };
   // the start screen (TASKS 1103, 1304): a tab picks the difficulty, a card the class, its kit button the kit (all kept in the meta
@@ -389,5 +398,5 @@
   }
 
   Object.assign(SIMX, {
-    endRun, finishRun, descend, begin, startRun, stepUI, loadSaves, slotRun, isFull, loadSlot, dropSlot });
+    endRun, finishRun, descend, begin, startRun, stepUI, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

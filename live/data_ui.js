@@ -58,9 +58,8 @@
     return { y: yoe + era * 400 + (m <= 2 ? 1 : 0), m, d, h: Math.floor(rest / 36e5), mi: Math.floor(rest / 6e4) % 60 }; };
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   const UI = {
-    // arm: the run whose button was pressed once over a saved run (a second press drops the save)
-    // full: every save slot holds a run, so a new one would take the place of the saved run named over the buttons (TASKS 1311)
-    menu: (hasRun, diff, arm, zoom, full = hasRun) => UI.menuSheet(hasRun, full ? arm === 'campaign' ? TXT('UI.menu.3') : TXT('UI.menu.4') : TXT('UI.menu.2')).r
+    // full: every save slot holds a run, so a new one takes the place of the one played longest ago (TASKS 1311, 1785)
+    menu: (hasRun, diff, zoom, full = hasRun) => UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2')).r
       .concat([Object.assign({ id: 'news', label: TXT('UI.menu.9'), on: true, link: true }, NEWS_LINK)]),
     // the main menu (TASKS 1301), look B: small ink items on a parchment sheet in the bottom-left corner, as on ref_ui_menu_b; the
     // sheet stands on its bottom edge, so without «Продолжить» it is shorter and the rest keep their places. Groups are cut by a
@@ -87,7 +86,7 @@
         .concat(D.DIFF_ORDER.map((d, i, a) => ({ id: 'dif:' + d, dif: d, label: DIFF[d].name, on: true, x: 960 - (a.length * TW + (a.length - 1) * tg) / 2 + i * (TW + tg), y: 44, w: TW, h: 60 })))
         .concat(ids.map((id, i) => ({ id: 'cls:' + id, cls: id, on: true, x: x0 + i * (W + gap), y: 182, w: W, h: CH })))
         .concat([{ id: 'go', label: TXT('UI.classes.go'), on: true, x: 980, y: by, w: 380, h: 68 }, { id: 'back', label: TXT('UI.classes.back'), on: true, x: 560, y: by, w: 380, h: 68 }]); },
-    tests: (hasRun, arm, full = hasRun) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !full ? fresh : arm === id ? TXT('UI.tests.label') : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
+    tests: (hasRun, full = hasRun) => TEST_RUNS.map(([id, fresh, again], i) => ({ id, label: !full ? fresh : again, on: true, x: 720, y: 440 + i * 86, w: 480, h: 72 }))
       .concat([{ id: 'back', label: TXT('UI.tests.back.label'), on: true, x: 810, y: 440 + TEST_RUNS.length * 86 + 40, w: 300, h: 70 }]),
     // the rows that fit from row `top`, and the last top that still fills the view (the end of the list sits at its bottom)
     news: (top) => { const P = NEWS.P, rows = newsRows(), vh = P.h - NEWS.top - NEWS.bottom; let max = rows.length, fill = 0;
@@ -125,6 +124,9 @@
     pause: (zoom, done) => [['resume', TXT('UI.pause')], ['settings', TXT('UI.pause.settings')], ['save', TXT('UI.pause.3')]]
       .map(([id, label], i) => ({ id, label, on: true, x: 720, y: 404 + i * 88, w: 480, h: 72 }))
       .concat([done ? { id: 'finish', label: TXT('UI.pause.5') } : { id: 'abandon', label: TXT('UI.pause.4') }].map((b) => Object.assign(b, { on: true, x: 780, y: 714, w: 360, h: 56, size: 22 }))),
+    // a new run over five taken slots (TASKS 1785): the question in the middle of the menu, «Нет» on the right as in the pause's
+    newAsk: () => { const A = { x: 680, y: 390, w: 560, h: 380 };
+      return { A, r: [{ id: 'yes', label: TXT('UI.menu.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
     pauseAsk: (done) => { const A = { x: 680, y: 480, w: 560, h: 300 };
       return { A, r: [{ id: 'yes', label: done ? TXT('UI.pause.ask.yesDone') : TXT('UI.pause.ask.yes'), on: true, x: A.x + 50, y: A.y + A.h - 96, w: 220, h: 64 }, { id: 'no', label: TXT('UI.load.no'), on: true, x: A.x + A.w - 270, y: A.y + A.h - 96, w: 220, h: 64 }] }; },
     // a run through the town (R-17, TASKS 1006) goes back there: a new hero by the campfire

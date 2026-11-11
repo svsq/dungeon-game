@@ -784,8 +784,9 @@
     menuBack(t);
     lab('ts_t', TXT('hud.tests'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('ts_s', TXT('hud.tests.2'), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.tests(!!S.saved, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, SIM.Q.isFull(S))) button('tb_' + b.id, b, S.hover);
+    for (const b of D.UI.tests(!!S.saved, SIM.Q.isFull(S))) button('tb_' + b.id, b, S.newAsk ? '' : S.hover);
     if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
+    newAsk(S);
   }
   // the class screen (TASKS 1103): a card a ready class — its portrait, name, way of playing, three abilities and starting kit
   const abCost = (Cl, A, r) => { const cd = String(Math.round(A.cd * D.abRank(A.id, Math.max(1, r)).cd * 10) / 10).replace('.', ','); return A.mp ? TXT('hud.ab.cost', { mp: A.mp, res: Cl.resWord, cd }) : TXT('hud.ab.free', { cd }); };
@@ -932,12 +933,12 @@
   // the main menu (TASKS 1301): the item sheet pinned in the bottom-left corner; the item Enter or a click would press carries the
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
-    const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S), arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM;
+    const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
     menuBack(t, !!F, true); if (F) newsFrame(F, D.CHANGES[0].v);
     lab('m_t', TXT('hud.menu'), W / 2, 150, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, 230, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 282, { size: 28, al: 0.5, col: C.dim });
-    const bs = D.UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
+    const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
     const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
     KIT.corners({ x: IP.x + 8, y: IP.y + 8, w: IP.w - 16, h: IP.h - 16 }, 0.45);
@@ -952,6 +953,19 @@
       lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
+    newAsk(S);
+  }
+  // a new run over five taken slots asks first and names the run it will take the place of (TASKS 1785)
+  function newAsk(S) {
+    if (!S.newAsk) return;
+    const U = D.UI.newAsk(), A = U.A, R = SIM.Q.slotRun(S, SIM.Q.oldestSlot(S)); dim(0.5); const P = KIT.panel('na_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
+    KIT.ink('na_ask_q', TXT('hud.menu.ask'), A.x + A.w / 2, A.y + 80, { size: 32, al: 0.5, col: KIT.INK.r });
+    halves(TXT('hud.menu.ask.who')).forEach((v, i) => KIT.ink('na_ask_w' + i, v, A.x + A.w / 2, A.y + 124 + i * 30, { size: L.sizeToFit(v, P.w - 60, 22), al: 0.5, col: KIT.INK.d }));
+    if (R) { const run = TXT('hud.menu.ask.run', { cls: D.clsOf(R.hero).name, where: whereOf(R) }); KIT.ink('na_ask_r', run, A.x + A.w / 2, A.y + 200, { size: L.sizeToFit(run, P.w - 60, 26), al: 0.5, col: KIT.INK.t, bold: true });
+      KIT.ink('na_ask_d', stamp(R.at), A.x + A.w / 2, A.y + 234, { size: 22, al: 0.5, col: KIT.INK.d }); }
+    for (const b of U.r) KIT.button('na_' + b.id, b, askSt(S, U, b.id));
+    const keys = TXT('hud.pause.keys.ask'), ky = H - 26, kw = lw('na_keys_w', keys, { size: 26 }); L.uiBox('na_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    KIT.light('na_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // «Что нового» (TASKS 1038): the changelog's rows from the sim's scroll, a version with its date, its sections, the points
   // «Что нового» (TASKS 1750), look B: the whole changelog on one loose parchment sheet, as the version's frame in the menu is, a red

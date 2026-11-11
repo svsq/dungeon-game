@@ -81,13 +81,21 @@
       key(L2, 'Escape'); if (L2.screen !== 'menu') out.push('saves: Escape does not go back to the menu');
       const F = spawn(0, {}); for (let i = 0; i < D.SAVE_SLOTS; i++) F.saves[i] = J(newRun(F, 'campaign', 30 + i)); F.saved = F.saves[2]; F.saves[2] = null; F.slot = 2;
       if (!isFull(F)) out.push('saves: five runs do not fill the slots');
-      at(F, UI.menu(true, F.meta.diff, 0, F.meta.zoom, true), 'campaign'); if (F.screen !== 'menu' || F.resetM !== 'campaign') out.push('saves: with every slot taken one press starts a run');
-      at(F, UI.menu(true, F.meta.diff, 'campaign', F.meta.zoom, true), 'campaign'); key(F, 'Enter');
-      if (!F.run || F.slot !== 2 || F.saves.filter(Boolean).length !== 4 || F.saves.some((r) => r && r.seed === 32)) out.push('saves: a second press with every slot taken does not replace the saved run in its slot');
+      // TASKS 1785: with every slot taken a new run asks on the question sheet («Нет» first) and takes the place of the run played
+      // longest ago, the saved one under «Продолжить» only when it is that run
+      F.saves.forEach((r, i) => { if (r) r.at = 100 + i; }); F.saved.at = 102; F.saves[3].at = 50;
+      if (SIMX.oldestSlot(F) !== 3) out.push('saves: the oldest slot is not the run played longest ago');
+      at(F, UI.menu(true, F.meta.diff, F.meta.zoom, true), 'campaign'); if (F.screen !== 'menu' || F.newAsk !== 'campaign' || F.focus !== 'no' || F.run) out.push('saves: with every slot taken one press starts a run, or asks with «Да» first');
+      key(F, 'Enter'); if (F.newAsk || F.run || F.screen !== 'menu') out.push('saves: Enter on «Нет» starts the run or keeps asking');
+      at(F, UI.menu(true, F.meta.diff, F.meta.zoom, true), 'campaign'); key(F, 'ArrowLeft'); key(F, 'Enter'); key(F, 'Enter');
+      if (!F.run || F.slot !== 3 || F.saves.filter(Boolean).length !== 4 || !F.saves.some((r) => r && r.seed === 32) || F.saves.some((r) => r && r.seed === 33)) out.push('saves: a new run over five taken slots does not take the oldest one\'s place, or loses the saved run');
+      { const G = spawn(0, {}); for (let i = 0; i < D.SAVE_SLOTS; i++) { G.saves[i] = J(newRun(G, 'campaign', 60 + i)); G.saves[i].at = 100 + i; } G.saved = G.saves[1]; G.saves[1] = null; G.slot = 1; G.saved.at = 10;
+        at(G, UI.menu(true, G.meta.diff, G.meta.zoom, true), 'campaign'); at(G, UI.newAsk().r, 'yes'); key(G, 'Enter');
+        if (!G.run || G.slot !== 1 || G.saves.filter(Boolean).length !== 4 || G.saves.some((r) => r && r.seed === 61)) out.push('saves: a new run does not take the place of the saved run when it is the oldest'); }
       const E = spawn(0, {}); E.saves[3] = J(newRun(E, 'campaign', 41)); E.saves[3].at = 5; E.saves[1] = J(newRun(E, 'campaign', 42)); E.saves[1].at = 9;
       E.run = newRun(E, 'campaign', 43); E.slot = 0; E.screen = 'play'; endRun(E, 'dead'); E.screen = 'menu';
       if (!E.saved || E.saved.seed !== 42 || E.slot !== 1 || E.saves[1] || !E.saves[3] || !UI.menu(!!E.saved).some((b) => b.id === 'continue')) out.push('saves: after a death «Продолжить» does not name the latest run of the other slots');
-      at(E, UI.menu(true, E.meta.diff, 0, E.meta.zoom, isFull(E)), 'continue'); if (E.screen !== 'play' || !E.run || E.run.seed !== 42) out.push('saves: «Продолжить» after a death does not load the other slot\'s run');
+      at(E, UI.menu(true, E.meta.diff, E.meta.zoom, isFull(E)), 'continue'); if (E.screen !== 'play' || !E.run || E.run.seed !== 42) out.push('saves: «Продолжить» after a death does not load the other slot\'s run');
       const E2 = spawn(0, {}); E2.run = newRun(E2, 'campaign', 44); E2.screen = 'play'; endRun(E2, 'dead'); E2.screen = 'menu';
       if (E2.saved || UI.menu(!!E2.saved).some((b) => b.id === 'continue') || spawn(1, J(persist(E2))).saved) out.push('saves: «Продолжить» shows with no run in any slot');
       const E3 = spawn(1, J({ meta: E.meta, run: null, slot: 0, saves: [null, null, Object.assign(J(old), { at: 3 }), null, null] })); if (!E3.saved || E3.slot !== 2) out.push('saves: a load with no named run does not name the run in the slots');
@@ -2384,8 +2392,8 @@
         step(U, { keys: ['Home'] }); if (U.newsTop !== 0) out.push('news: Home does not go back to the top');
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
       press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
-      if (U.run || U.saved.mode !== 'campaign' || UI.tests(true, U.resetM).find((b) => b.id === 'magma').label !== 'Точно сбросить забег?') out.push('tests: one press over a saved run drops it or does not ask');
-      press(U, mg); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); noWelcome(U); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
+      if (U.run || U.saved.mode !== 'campaign' || U.newAsk !== 'magma' || U.focus !== 'no') out.push('tests: one press over a saved run drops it or does not ask with «Нет» first');
+      press(U, UI.newAsk().r.find((b) => b.id === 'yes')); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); noWelcome(U); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
     out.push(...townCheck(), ...folkCheck(), ...climbCheck(), ...wayCheck(), ...shopTownCheck(), ...soulAltarCheck(), ...stashCheck(), ...masteryCheck(), ...bagCheck(), ...pouchCheck(), ...craftCheck(), ...talkCheck(), ...noteChainCheck(), ...captiveFallbackCheck(), ...questCheck(), ...questGiveCheck(), ...levelCheck(), ...townLoopCheck(), ...classCheck(), ...floorModCheck());
     return out;
   }
