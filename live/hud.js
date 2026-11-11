@@ -823,16 +823,30 @@
   }
 
   // ---------------- menus ----------------
-  // the main menu's backdrop: embers along the bottom, the hero and a brute facing each other across the buttons
-  // the news frame takes the brute's place on the right; on the main menu (mid) the hero stands in the middle, the item sheet in
-  // his old place
-  // the main menu shows the hero of the run under «Продолжить», or of the run played last (TASKS 1815: a warrior stood there over a
-  // mage's save); with neither, the painted warrior
-  // one backdrop behind the front screens and the end screens (TASKS 1763, 1795 б), so the crypt of 1751 replaces it in one place
+  // one backdrop behind the front screens and the end screens (TASKS 1763, 1795 б). The crypt of ref_ui_menu_b is painted with
+  // its fires out (TASKS 1751), the bowls holding cold coals and the sconces empty cups, so the flames flicker and the embers rise
+  // here; their places are measured on bg_crypt at 1920×1080
+  const CRYPT = { bowls: [[535, 658], [1375, 658]], cups: [[768, 524], [847, 526], [1073, 526], [1152, 524]], col: [1, 0.55, 0.2] };
   function backdrop(t) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
-    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.8, 260, [1, 0.45, 0.15], 0.12 + 0.05 * Math.sin(t * 2 + i), 2); G.blend(); }
+    if (!window.ASSETS.bg_crypt) return;
+    const k = W / 1920, fl = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3), col = CRYPT.col;
+    L.sprite('bg_crypt', 0, 0, { w: W, h: H });
+    CRYPT.bowls.forEach(([x, y], i) => { L.glow(x * k, (y - 40) * k, 300 * k, col, 0.2 * fl(i), 2.2); L.glow(x * k, (y - 20) * k, 110 * k, col, 0.22 * fl(i + 5), 2.6); });
+    CRYPT.cups.forEach(([x, y], i) => L.glow(x * k, (y - 14) * k, 70 * k, col, 0.16 * fl(i + 2), 2.8));
+    const fire = (x, y, w, hh, seed, lean) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col }, [w * k, 0, 0, -lean * k, hh * k, 0, (x - w / 2 + lean) * k, (y - hh) * k, 1]);
+    G.blend('emit');
+    CRYPT.bowls.forEach(([x, y], i) => fire(x, y, 84 * fl(i), 120 * fl(i + 1), 11 + i, 6 * Math.sin(t * 1.3 + i * 2)));
+    CRYPT.cups.forEach(([x, y], i) => fire(x, y, 18 * fl(i + 2), 34 * fl(i + 3), 21 + i, 2 * Math.sin(t * 1.7 + i)));
+    G.blend('add');
+    CRYPT.bowls.forEach(([x, y], b) => { for (let i = 0; i < 12; i++) { const p = (t * (0.28 + 0.12 * L.rnd(i, b + 1)) + L.rnd(i, b + 7)) % 1, s = 4 * k;
+      const ex = x + (L.rnd(i, b + 3) - 0.5) * 60 + Math.sin(t * 1.9 + i * 2.3) * 14 * p, ey = y - 50 - p * 300;
+      L.solid(Math.round(ex * k / 2) * 2, Math.round(ey * k / 2) * 2, s, s, [1, 0.6 + 0.3 * (1 - p), 0.2], 0, 0, 0, 0.9 * (1 - p) * Math.min(1, p * 8)); } });
+    G.blend();
   }
+  // the hero and a brute facing each other across the buttons; the news frame takes the brute's place on the right; on the main
+  // menu (mid) the hero stands in the crypt's arch. It is the hero of the run under «Продолжить», or of the run played last (TASKS
+  // 1815: a warrior stood there over a mage's save); with neither, the painted warrior
   function menuBack(t, alone, mid, S) {
     backdrop(t);
     const [hw, hh] = SZ('hero'), hx = mid ? W / 2 - 60 - hw * 1.6 : W / 2 - 520 - hw * 1.6, hy = mid ? 470 : 340;
@@ -923,8 +937,7 @@
   // the statistics (TASKS 1309), look B: the counters on the left page with dotted leaders, the class tabs, the runs by class as
   // inked bars and the shards in hand on the right. A counter younger than the player's history is marked and footnoted
   function stats(S, t) {
-    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
-    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
+    backdrop(t);
     const U = D.UI.stats(), B = KIT.book('sa_book', U.B.x, U.B.y, U.B.w, U.B.h), P = { x: U.B.x + 22, y: U.B.y + 22, w: U.B.w - 44, h: U.B.h - 44 };
     KIT.corners({ x: P.x + 18, y: P.y + 18, w: P.w - 36, h: P.h - 36 }, 0.7);
     const T = S.meta.stats || { from: S.meta.runs || 0, all: {}, cls: {} }, tab = U.tabs.includes(S.statTab) ? S.statTab : 'all', C = tab === 'all' ? T.all : T.cls[tab] || {};
@@ -964,8 +977,7 @@
   // the saved games (TASKS 1311), look B: the slots as parchment strips down the left page (portrait, class, level, place, date,
   // time in play), the chosen slot's page on the right; the delete question on a torn sheet over the right page's buttons
   function load(S, t) {
-    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
-    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
+    backdrop(t);
     const U = D.UI.load(), B = KIT.book('ld_book', U.B.x, U.B.y, U.B.w, U.B.h), ask = S.delAsk !== undefined, sel = Math.max(0, Math.min(D.SAVE_SLOTS - 1, S.loadSel | 0)), q = ask ? {} : S;
     KIT.corners({ x: U.B.x + 40, y: U.B.y + 40, w: U.B.w - 80, h: U.B.h - 80 }, 0.6);
     KIT.banner('ld_t', W / 2, U.B.y - 30, 620, TXT('hud.load'), { h: 96, size: 44 });
@@ -1045,8 +1057,7 @@
   // «Что нового» (TASKS 1750), look B: the whole changelog on one loose parchment sheet, as the version's frame in the menu is, a red
   // diamond a change, the scroll an ink rule with a red thumb
   function news(S, t) {
-    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
-    G.blend('add'); L.glow(W / 2, H * 0.85, 520, [1, 0.45, 0.15], 0.14 + 0.04 * Math.sin(t * 2), 2); G.blend();
+    backdrop(t);
     const N = D.UI.news(S.newsTop), P = N.P, V = N.view, I = KIT.INK;
     KIT.panel('nw_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 22, 1.2);
     KIT.heading('nw_t', TXT('hud.news'), P.x + P.w / 2, P.y + 80, { size: 56, wing: 80 });
