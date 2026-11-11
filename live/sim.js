@@ -35,12 +35,16 @@
   const respawn = (S) => S;
   const outOfPlay = () => false;
 
-  const REPEATS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'PageUp', 'PageDown']);
+  // one rule for L and the HUD's map (TASKS 1794): with two, L could fold a legend the HUD had already folded and open it instead
+  const legShown = (S, R) => R.mapLeg === 1 || (R.legAuto && S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9)));
+  const REPEATS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'PageUp', 'PageDown', 'Backspace']);
   function step(S, inp = {}) {
     if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
     S.pressWas = !!inp.press;
     rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
+    // only the page knows whether it can close its window (the desktop build's bridge, TASKS 1877): a browser tab cannot, so «Выход» waits for its word
+    if (inp.quit !== undefined) S.canQuit = inp.quit ? 1 : 0;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
     // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
     for (const k of inp.rep || []) if (REPEATS.has(k)) keys[k] = 1;
@@ -50,16 +54,17 @@
     // and once in the frame of the window it is over, for the window's hit tests and the HUD's notes alike
     S.uiPtr = [inp.px, inp.py - uiDy(S.screen)];
     // M mutes from any screen (TASKS 1863 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
-    if (keys.KeyM && !S.demo) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
+    if (keys.KeyM && !S.demo && !SIMX.typing(S)) { S.meta.mute = S.meta.mute ? 0 : 1; S.muteT = t; S.saveN++; }
     if (S.screen === 'play' && S.run) {
       // never a window's key (uiKey gives 'play:::'), so the first step of any window opened from play takes no pointer move
       S.uiWas = 'play'; S.uiKey = 'play'; SIMX.commitDraft(S);
       if (keys.Backquote && !S.demo) S.debug = !S.debug;
       const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
-      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for the first 10 s on a floor
-      if (keys.KeyL && !S.demo) { const R = S.run, open = R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
-      if (keys.Escape && !S.demo) { S.screen = 'pause'; S.pauseAsk = 0; }
+      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for 10 s once a run for the floors and once for the
+      // town (TASKS 1887 и: opening on every floor got in the way), on its first such entry (legKnown)
+      if (keys.KeyL && !S.demo) { const R = S.run, open = legShown(S, R); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
+      if ((keys.Escape || inp.away) && !S.demo) { S.screen = 'pause'; S.pauseAsk = 0; }
       else if ((keys.KeyI || keys.KeyC || keys.Tab) && !S.demo) { S.screen = 'inv'; }
       else if (keys.KeyJ && !S.demo) { S.screen = 'journal'; S.hover = ''; ev(S, { k: 'ui', x: inp.px, y: inp.py }); }
       else { stepPlay(S, inp, keys); if (S.run && !S.run.frozen) stepBossMove(S, S.run); }
@@ -110,7 +115,7 @@
     depOf: dep, at, campaignDone, cell, hidden, itemIcon, stats, chasm, secretMask, mapCut: SIMX.mapCut, stepLen, serpentMouth, doorLock, brinkOf, flightReach, atBoard, atCounter,
     noteNear, captiveNear, shopShut, craftShut, overLava, losClear: SIMX.losClear, atCraft, atExitGate, atGate, atSoulAltar, atStash, boardOffers, canDonate, completionHints, craftCost, craftItem, damageName, doorNear, folkNear,
     exitKind, fstat, gateNear, gateWays, isCons, itemMods, itemName, journalOf, leverNear, secretUnder: SIMX.secretUnder, puzzleNear: SIMX.puzzleNear, lootAudit, questIcon, questLine, questMark, questMarks,
-    rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot };
+    rwLine, greetHold: SIMX.greetHold, tossedNear: SIMX.tossedNear, stashOf, tradeDepth, typeMods, slotRun: SIMX.slotRun, typing: SIMX.typing, isFull: SIMX.isFull, oldestSlot: SIMX.oldestSlot, talkWalk: SIMX.talkWalk, talkFirst: SIMX.talkFirst, boardRows: SIMX.boardRows, legShown };
   Object.assign(SIMX, {
     spawn, step, scriptInput, persist });
   if (typeof module !== 'undefined') { require('./sim_checks.js'); module.exports = root.SIM; }

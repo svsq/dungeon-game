@@ -52,7 +52,6 @@
       } finally { SIMX.setView(h0); } }
     { const T = spawn(0, { meta: { up: {} } }), at = (rs, id) => { const b = rs.find((q) => q.id === id); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; };
       if (UI.menu(false).some((q) => q.id === 'diff')) out.push('start: the menu still has its difficulty item');
-      if (!D.UI.newsFrame((D.CHANGES[0] || {}).main) !== !((D.CHANGES[0] || {}).main || []).length || D.UI.newsFrame([])) out.push('news: the menu\'s frame is shown without lines or hidden with them');
       step(T, at(UI.menu(false), 'campaign')); if (T.screen !== 'classes') out.push('start: «Старт» does not open the difficulty and class screen');
       step(T, { keys: ['ArrowUp'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.diff !== 'hard') out.push('start: ↑ then → do not pick the hard difficulty');
       step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.cls !== D.classesReady()[1]) out.push('start: ↓ then → do not pick the next class');
@@ -133,13 +132,24 @@
           SIMX.ev(Z, { k: 'nope' }); SIMX.ev(Z, { k: 'nope' }); if (Z.ev.filter((q) => q.k === 'nope' && !q.s).length !== 2) out.push('nope: two refusals without words come out of the bus as one'); } }
       const E3 = spawn(1, J({ meta: E.meta, run: null, slot: 0, saves: [null, null, Object.assign(J(old), { at: 3 }), null, null] })); if (!E3.saved || E3.slot !== 2) out.push('saves: a load with no named run does not name the run in the slots');
       const k2 = (S, k) => { step(S, { keys: [k] }); step(S, { keys: [] }); }, K = spawn(0, {}); K.saved = J(newRun(K, 'campaign', 45)); K.screen = 'menu'; K.focus = '';
-      k2(K, 'ArrowDown'); k2(K, 'ArrowDown'); if (K.focus !== 'campaign') out.push('menu: ↓ does not walk the items from the first');
+      k2(K, 'ArrowDown'); if (K.focus !== 'campaign') out.push('menu: the first ↓ does not step past the item already sealed (TASKS 1887 г)');
       k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'load') out.push('menu: Enter on the focused «Загрузить игру» does not open it');
       key(K, 'Escape'); step(K, { keys: [] }); if (K.screen !== 'menu' || K.focus !== 'load') out.push('menu: back from «Загрузить игру» the focus is not on it (TASKS 1860)');
       for (const id of ['stats', 'settings']) { K.focus = id; k2(K, 'Enter'); k2(K, 'Escape'); if (K.screen !== 'menu' || K.focus !== id) out.push('menu: back from ' + id + ' by Escape the focus is not on it (TASKS 1860)'); }
-      K.focus = 'settings'; k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'tests') out.push('menu: ↓ Enter after coming back does not go on from the item left');
+      K.focus = 'settings'; k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'news') out.push('menu: ↓ Enter after coming back does not go on from the item left');
       K.screen = 'menu'; K.uiWas = 'menu'; K.focus = ''; k2(K, 'ArrowUp'); if (K.focus !== 'news') out.push('menu: ↑ from no focus does not reach «Что нового»');
       k2(K, 'Enter'); if (K.screen !== 'news') out.push('menu: Enter on «Что нового» does not open it');
+      // TASKS 1873: the link to the whole changelog lies on the version's sheet, under its main lines, and is the menu's last stop
+      { const F = UI.newsFrame(), nl = UI.menu(true).at(-1), P = F && F.P, last = F && F.rows.at(-1);
+        if (!F || nl.id !== 'news' || nl.x < P.x || nl.y < P.y || nl.x + nl.w > P.x + P.w || nl.y + nl.h > P.y + P.h || (last && nl.y < last.y)) out.push('menu: the link to «Что нового» is not the last stop under the version sheet\'s lines');
+        const E = UI.newsFrame([]); if (!E || E.rows.length || !(E.link.y > E.P.y)) out.push('menu: with no main lines the version sheet does not keep its heading and link'); }
+      // TASKS 1877: «Выход» only where the page can close its window; ↑↓ reach it, and a press saves a run in play and asks the page to quit
+      { if (UI.menu(true).some((b) => b.id === 'quit')) out.push('menu: «Выход» shows where the page cannot close its window');
+        const Q = spawn(0, {}); Q.screen = 'menu'; Q.focus = ''; step(Q, { keys: [], quit: 1 }); const ids = UI.menu(false, 0, 0, false, true).map((b) => b.id);
+        if (!Q.canQuit || ids.at(-2) !== 'quit') out.push('menu: the desktop page\'s menu has no «Выход» before the version\'s link');
+        k2(Q, 'ArrowUp'); k2(Q, 'ArrowUp'); if (Q.focus !== 'quit') out.push('menu: ↑ does not reach «Выход»');
+        const R = Q.run = newRun(Q, 'campaign', 46); k2(Q, 'Enter'); if (Q.quitReq !== 1 || Q.run || Q.saved !== R) out.push('menu: «Выход» does not save the run in play and ask the page to quit');
+        const B = spawn(0, {}); B.screen = 'menu'; B.focus = 'quit'; step(B, { keys: ['Enter'] }); if (B.quitReq) out.push('menu: «Выход» asks to quit where the page cannot'); }
       K.screen = 'menu'; K.uiWas = 'menu'; K.focus = ''; k2(K, 'Enter'); if (K.screen !== 'play' || !K.run || K.run.seed !== 45) out.push('menu: Enter with no focus does not continue the saved run'); }
     { const { loadSlot, slotRun } = SIMX, J = (o) => JSON.parse(JSON.stringify(o)), play = (S, n) => { S.screen = 'play'; for (let i = 0; i < n; i++) step(S, { keys: [] }); };
       const save = (S) => { const b = UI.pause(S.meta.zoom).find((q) => q.id === 'save'); S.screen = 'pause'; step(S, { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }); step(S, { keys: [], press: 0 }); };
@@ -645,7 +655,11 @@
       const tipped = (n) => { put(); S.meta.whirls = n; R.tipT = undefined; R.msg = null; h.ab.whirl = h.ab.whirl || 1; h.cd.whirl = 0; h.ifr = 1e9;
         for (const [dx, dy] of [[40, 0], [-40, 0], [0, 30]]) el([], dx, { y: h.y + dy, cdT: 1e9 }); step(S, { keys: [] }); return !!(R.msg && R.msg.tip === 'whirl'); };
       if (!tipped(0)) out.push('no whirl hint by a crowd'); if (tipped(D.TIPS.whirl.until)) out.push('the whirl hint shows to a player who has whirled enough');
+      { const t0 = R.test; R.test = 1; R.whirls = D.TIPS.whirl.until; if (tipped(0)) out.push('the whirl hint keeps coming back on a test run that has whirled enough'); R.test = t0; R.whirls = 0; }
       const sw = S.meta.whirls; castAbility(S, R, 'whirl', {}); if (S.meta.whirls !== sw + 1) out.push('a whirl is not counted for the hint');
+      // a test run's whirls stop its hint by the run's own count, the meta's untouched (review of PR 63)
+      { const t0 = R.test, rw = R.whirls || 0; R.test = 1; h.cd.whirl = 0; h.mp = 1e9; castAbility(S, R, 'whirl', {});
+        if (R.whirls !== rw + 1 || S.meta.whirls !== sw + 1) out.push(`a test run's whirl is not counted by the run, or is by the meta (${R.whirls}, ${S.meta.whirls})`); R.test = t0; R.whirls = 0; }
       // the deep powers come up only in the endless descent past ELITE.deepFrom, and a caster or archer never blinks
       const deep = D.ELITE_MODS.filter((q) => q.deep).map((q) => q.id);
       if (D.modPool('campaign', 12, 'melee').some((id) => deep.includes(id)) || D.modPool('endless', D.ELITE.deepFrom, 'melee').some((id) => deep.includes(id)) || !deep.every((id) => D.modPool('endless', D.ELITE.deepFrom + 1, 'melee').includes(id))
@@ -2277,7 +2291,7 @@
     // the water caves and the magma caves as runs of their own (TASKS 300, 399): the menu starts each on the hero screen with its level and kit, its floors
     // carry their run's boss, guard and altars, the boss's death opens the way out, and the campaign's record is left alone
     for (const RID of ['cave', 'magma']) { const N = D.RUNS[RID], S = spawn(0, {});
-      for (const [scr, id] of D.startPath(RID)) { const r = D.uiAt(scr).find((q) => q.id === id); step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); }
+      for (const [scr, id] of D.startPath(RID)) { if (id === 'tests') { step(S, { keys: ['Backquote'] }); continue; } const r = D.uiAt(scr).find((q) => q.id === id); step(S, { keys: [], click: 1, px: r.x + 10, py: r.y + 10 }); }
       const R = S.run, h = R && R.hero;
       if (!R || R.mode !== RID || S.screen !== 'inv') out.push(RID + ': the menu button does not start the run on the hero screen');
       else {
@@ -2476,17 +2490,26 @@
         if (n9 < n1 * 1.3) out.push(`campaign f9: ${n9.toFixed(1)} monsters, the caves' 1st ${n1.toFixed(1)}: not denser`); }
       // a saved run is dropped only by a second press of the same button
       const fill = (S) => { for (let i = 1; i < D.SAVE_SLOTS; i++) S.saves[i] = newRun(S, 'cave', 40 + i); };
-      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); fill(T); const c = UI.menu(true).find((q) => q.id === 'campaign'), ts = UI.menu(true).find((q) => q.id === 'tests'), v = UI.tests(true).find((q) => q.id === 'cave');
-      const press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 });
-      press(T, c); step(T, { keys: [] }); press(T, ts); press(T, v);
+      const T = spawn(0, {}); T.saved = newRun(T, 'campaign', 5); fill(T); const c = UI.menu(true).find((q) => q.id === 'campaign'), v = UI.tests(true).find((q) => q.id === 'cave');
+      const press = (S, b) => step(S, { keys: [], click: 1, px: b.x + 10, py: b.y + 10 }), toTests = (S) => { step(S, { keys: ['Backquote'] }); step(S, { keys: [] }); };
+      press(T, c); step(T, { keys: [] }); toTests(T); press(T, v);
       if (T.run) out.push('cave: a press on another run\'s button drops the saved run');
-      // the test runs' screen (TASKS 417): the main menu has no test run of its own, «Тесты» opens their screen, «Назад» and Escape go
-      // back, and over a saved run a test run's button asks again before it drops the save
-      const ids = UI.menu(true).map((b) => b.id); if (D.TEST_RUNS.some(([id]) => ids.includes(id)) || !ids.includes('tests')) out.push('tests: the main menu still holds the test runs or lacks «Тесты»');
+      // the test runs' screen (TASKS 417, 1878): the main menu has neither a test run nor «Тесты», ` on the menu opens their screen,
+      // «Назад» and Escape go back, and over a saved run a test run's button asks again before it drops the save
+      const ids = UI.menu(true, 0, 0, true, true).map((b) => b.id); if (D.TEST_RUNS.some(([id]) => ids.includes(id)) || ids.includes('tests')) out.push('tests: the main menu still holds the test runs or «Тесты»');
       if (D.TEST_RUNS.some(([id]) => (!D.RUNS[id] && id !== 'town') || !UI.tests(false).some((b) => b.id === id))) out.push('tests: a test run missing from its screen');
-      const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); fill(U); press(U, ts); if (U.screen !== 'tests') out.push('tests: «Тесты» does not open the test runs');
+      const U = spawn(0, {}); U.saved = newRun(U, 'campaign', 5); fill(U); toTests(U); if (U.screen !== 'tests') out.push('tests: ` on the menu does not open the test runs');
       press(U, UI.tests(true).find((b) => b.id === 'back')); if (U.screen !== 'menu') out.push('tests: «Назад» does not go back to the menu');
-      press(U, ts); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
+      toTests(U); step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('tests: Escape does not go back to the menu');
+      // TASKS 1878: a test run counts in no statistic and leaves no run journal, the campaign still does
+      { const W = spawn(0, {}); W.screen = 'menu'; toTests(W); press(W, UI.tests(false).find((b) => b.id === 'cave')); if (W.screen === 'classes') press(W, UI.classes(W.meta).find((b) => b.id === 'go'));
+        const R = W.run, m0 = JSON.stringify([W.meta.runs, W.meta.wins, W.meta.deaths, W.meta.best, W.meta.bestEndless, W.meta.stats]), l0 = W.logN || 0;
+        if (!R || !R.test) out.push('tests: a run from the tests\' screen is not marked a test');
+        else { W.screen = 'play'; for (let i = 0; i < 240; i++) step(W, { keys: [] }); R.kills += 3; SIMX.endRun(W, 'dead');
+          if (JSON.stringify([W.meta.runs, W.meta.wins, W.meta.deaths, W.meta.best, W.meta.bestEndless, W.meta.stats]) !== m0) out.push('tests: a test run changes the statistics');
+          if ((W.logN || 0) !== l0 || (W.result && W.result.log)) out.push('tests: a test run leaves a run journal'); }
+        const C = spawn(0, {}); C.screen = 'menu'; press(C, UI.menu(false).find((b) => b.id === 'campaign')); if (C.screen === 'classes') press(C, UI.classes(C.meta).find((b) => b.id === 'go'));
+        if (!C.run || C.run.test) out.push('tests: a campaign run is marked a test'); else { const r0 = C.meta.runs || 0; SIMX.endRun(C, 'dead'); if ((C.meta.runs || 0) !== r0 + 1 || !C.result.log) out.push('tests: a campaign run no longer counts or keeps its journal'); } }
       // «Что нового» (TASKS 1038): the changelog's top entry is the game's version, the screen scrolls to its end and no further, Escape leaves
       { if (!D.CHANGES.length || D.CHANGES[0].v !== D.VERSION) out.push('news: the changelog\'s top entry is not DATA.VERSION');
         const nb = UI.menu(true).find((b) => b.id === 'news'); press(U, nb); if (U.screen !== 'news') out.push('news: «Что нового» does not open its screen');
@@ -2494,7 +2517,7 @@
         { const E = UI.news(mx); if (E.top + E.rows.length !== E.n) out.push('news: the end of the list does not show its last row'); }
         step(U, { keys: ['Home'] }); if (U.newsTop !== 0) out.push('news: Home does not go back to the top');
         step(U, { keys: ['Escape'] }); if (U.screen !== 'menu') out.push('news: Escape does not go back to the menu'); }
-      press(U, ts); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
+      toTests(U); const mg = UI.tests(true).find((b) => b.id === 'magma'); press(U, mg); step(U, { keys: [] });
       if (U.run || U.saved.mode !== 'campaign' || U.newAsk !== 'magma' || U.focus !== 'no') out.push('tests: one press over a saved run drops it or does not ask with «Нет» first');
       press(U, UI.newAsk().r.find((b) => b.id === 'yes')); if (U.screen === 'classes') press(U, UI.classes().find((b) => b.id === 'go')); noWelcome(U); if (!U.run || U.run.mode !== 'magma' || U.saved) out.push('tests: the second press does not start the test run'); }
     return out;
@@ -3521,9 +3544,36 @@
     return out;
   }
 
+  // TASKS 1881: a full pool keeps the potion and says why; with a power on the drink only a second press within a second drinks it
+  function potionCheck() {
+    const out = [], run = (cls) => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777, { cls }); S.screen = 'play'; S.t = S.run.t = 10; const R = S.run, h = R.hero, M = heroSt(S); h.hp = M.maxHp; h.mp = M.maxMp; h.bag.fill(null); h.bag[0] = potion('hp_potion', 3); h.bag[1] = potion('mp_potion', 3); S.ev = []; return { S, R, h }; };
+    const left = (h, b) => h.bag.filter((it) => it && it.b === b).reduce((n, it) => n + it.n, 0), said = (S) => S.ev.filter((e) => e.k === 'nope' && e.s).length;
+    for (const [cls, b] of [['warrior', 'hp_potion'], ['mage', 'mp_potion']]) { const { S, R, h } = run(cls); usePotion(S, R, b); usePotion(S, R, b);
+      if (left(h, b) !== 3) out.push(`potion: a ${cls} at a full pool spent ${3 - left(h, b)} ${b}`); if (said(S) !== 2) out.push(`potion: a ${cls}'s ${b} at a full pool kept without a reason`); }
+    { const { S, R, h } = run('warrior'); h.hp -= 10; usePotion(S, R, 'hp_potion'); if (left(h, 'hp_potion') !== 2) out.push('potion: a hurt hero cannot drink'); }
+    const T = '__potion'; D.POWERS[T] = { trig: 'potion', fx: 'mana', v: 0 };
+    try { const { S, R, h } = run('warrior'); h.powers = { [T]: 1 }; R.town = 0; usePotion(S, R, 'hp_potion');
+      if (left(h, 'hp_potion') !== 3) out.push('potion: with a power on the drink the first press at full health drinks');
+      S.t += 1.5; usePotion(S, R, 'hp_potion'); if (left(h, 'hp_potion') !== 3) out.push('potion: a press 1.5 s after the first still drinks for the power');
+      S.t += 0.5; usePotion(S, R, 'hp_potion'); if (left(h, 'hp_potion') !== 2 || !S.ev.some((e) => e.k === 'power' && e.id === T)) out.push('potion: the second press within a second does not drink for the power'); }
+    finally { delete D.POWERS[T]; }
+    return out;
+  }
+
+  // TASKS 1882: the page's away flag (a lost window, a hidden tab) pauses a run as Esc does, and leaves other screens and the demo alone
+  function awayCheck() {
+    const out = [], play = () => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 5); S.screen = 'play'; S.t = S.run.t = 10; return S; };
+    { const S = play(); step(S, { keys: [], away: 1 }); if (S.screen !== 'pause' || S.pauseAsk) out.push(`away: a run in play goes to ${S.screen}, not the pause`); }
+    { const S = play(); step(S, { keys: [], away: 1 }); for (let i = 0; i < 60; i++) step(S, { keys: [] }); if (S.screen !== 'pause') out.push('away: the pause does not hold after the flag'); }
+    { const S = play(); S.screen = 'inv'; step(S, { keys: [], away: 1 }); if (S.screen !== 'inv') out.push(`away: the hero's page turns into ${S.screen}`); }
+    { const S = spawn(0, {}); step(S, { keys: [], away: 1 }); if (S.screen !== 'menu') out.push(`away: the menu turns into ${S.screen}`); }
+    { const S = play(); S.demo = 1; step(S, { keys: [], away: 1 }); if (S.screen !== 'play') out.push('away: the attract demo pauses'); }
+    return out;
+  }
+
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
-  const PARTS = { menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, awayCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);
