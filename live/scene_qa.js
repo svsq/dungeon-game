@@ -620,7 +620,7 @@
     states.push(['fx_arrive', fx((S, R, h) => { S.keepFloor = 1; S.ev.push({ k: 'floor', t: S.t - 0.45, x: h.x, y: h.y, f: R.floor }); })]);
     states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; S.ev.push({ k: 'roar', t: S.t - 0.25, x: b.x, y: b.y - 70, id: b.id }); })]);
-    // the HUD's worst cases (TASKS 1759, 1794, 1862): four-digit health and mana on their plates, the legend folded after its 10 s,
+    // the HUD's worst cases (TASKS 1759, 1794, 1862): four-digit health and mana on their plates, the legend folded after its 5 s,
     // a boss's arrival under its ribbon, a hero at 14 % health, a pickup and a new level over the hero's head
     const hudBig = (S) => { const h = S.run.hero; h.base.vit = 400; h.base.int = 400; const st = SIM.Q.stats(h, S.meta); h.hp = st.maxHp - 7; h.mp = st.maxMp - 13; };
     states.push(['hud_hp4', play((S) => { hudBig(S); S.run.msg = null; })]);

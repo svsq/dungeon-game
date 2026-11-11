@@ -211,8 +211,13 @@
       if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
-      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
-        const sub = e.nm && e.mods && e.mods.length ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + (e.id % 40), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
+      // (elites standing within 60 px of each other, TASKS 1909: their plates stacked four rows over the taller one's head) share the
+      // group's top as their anchor and fold their powers away until the pointer is over one
+      const near = e.elite ? R.en.filter((o) => o.elite && o.deadT < 0 && Math.hypot(V.sx(o.x) - x, V.sy(o.y) - V.sy(e.y)) < 60) : [], crowd = near.length > 1;
+      const hov = crowd && !!S.ptr && Math.abs(S.ptr[0] - x) < 30 && S.ptr[1] > y && S.ptr[1] < V.sy(e.y);
+      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4;
+        const ly = (crowd ? Math.min(...near.map((o) => V.sy(o.y) - (SZ(D.ENEMIES[o.type].tex || 'en_' + o.type)[1] * 1.3 + 16) * (V.k || 1))) : y) - 24;
+        const sub = e.nm && e.mods && e.mods.length && (!crowd || hov) ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + (e.id % 40), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
         if (x - ow > 0 && x + ow < W && ly > 30 && ![[x - ow, ly - 24], [x + ow, ly - 24], [x - ow, oy], [x + ow, oy]].some(([px, py]) => underHud(px, py))) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
           const b0 = place(x, ly - 15, Math.max(ow * 2, 92), sub ? 70 : 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
@@ -494,9 +499,9 @@
   // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
   const mapCut = (R) => SIM.Q.mapCut(R);
-  // the legend is open for the first 10 s on a floor, then folds away, so the map's corner covers no more than the ref's
+  // the legend is open for the first 5 s on a floor (the player's decision 11.11.2026, TASKS 1909), then folds away, so the map's corner covers no more than the ref's
   // (TASKS 1794); L keeps it open, and in the pause the pointer over the map opens it
-  const legOpen = (S, R, hov = true) => R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))) || (hov && S.screen === 'pause' && !!S.ptr && (() => { const B = mmGeo(S, R, true).box; return S.ptr[0] > B[0] && S.ptr[1] < B[1] + B[3]; })());
+  const legOpen = (S, R, hov = true) => R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 5 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))) || (hov && S.screen === 'pause' && !!S.ptr && (() => { const B = mmGeo(S, R, true).box; return S.ptr[0] > B[0] && S.ptr[1] < B[1] + B[3]; })());
   // the ribbon says the floor as the ref does («Этаж 2»), and its curse if it has one; the place's name is on the arrival plate
   const mmTitle = (R) => D.placeName(R.map.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map).replace(/:[^·]*/, ' ').replace(/\s+/g, ' ').trim();
   // the map's sheet, from the state alone (world() keeps labels off it before it is drawn): a parchment sheet with the floor's

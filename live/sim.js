@@ -57,8 +57,8 @@
       if (keys.Backquote && !S.demo) S.debug = !S.debug;
       const dbg = S.debug && !S.demo ? D.hitUI(UI.debug(S.run, S), inp.px, inp.py) : null; if (S.debug) S.hover = dbg ? dbg.id : '';
       if (dbg) { if (inp.click) { if (dbg.id === 'dbg_secrets') debugSecrets(S, S.run); else S.dbgLoot = !S.dbgLoot; ev(S, { k: 'ui', x: inp.px, y: inp.py }); } inp = Object.assign({}, inp, { press: 0, click: 0 }); }
-      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for the first 10 s on a floor
-      if (keys.KeyL && !S.demo) { const R = S.run, open = R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
+      // L folds the map's legend or keeps it open (TASKS 1794); it opens by itself for the first 5 s on a floor
+      if (keys.KeyL && !S.demo) { const R = S.run, open = R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 5 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))); R.mapLeg = open ? 0 : 1; if (open) R.legCut = S.t; }
       if (keys.Escape && !S.demo) { S.screen = 'pause'; S.pauseAsk = 0; }
       else if ((keys.KeyI || keys.KeyC || keys.Tab) && !S.demo) { S.screen = 'inv'; }
       else if (keys.KeyJ && !S.demo) { S.screen = 'journal'; S.hover = ''; ev(S, { k: 'ui', x: inp.px, y: inp.py }); }
