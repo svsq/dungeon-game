@@ -3,7 +3,7 @@
 // these, not with its own frames. Pure: it reads the state it is handed.
 (function () {
   const L = LIB, K = (window.KIT = {});
-  // one art pixel of the parts is two screen px, the world's own art pixel at ×1
+  // one art pixel of the parts is two screen px; tools/ui_b_snap.py puts generated parts on that grid (TASKS 1743)
   const PX = (K.PX = 2);
   K.INK = { t: '#2a1a10', d: '#5a3a22', r: '#7d1e12', g: '#4d2c08', off: '#6b5f50', cream: '#f3e2bd', gold: '#ffd76a' };
   // per part: its texture, its drawn art size, and the ends (left, top, right, bottom, art px) that are not stretched
