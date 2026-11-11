@@ -6,7 +6,7 @@
 (function () {
   const SCX = window.SCX, {
     BRIDGE, CANDLE, D, DEPTH_K, GLOW_COL, GOLD_TINT, HERO, L, PIX, RIM, SC, SS, STAND, SZ, TILE, bake, emitted, glowBeat, glowOf,
-    swimTex, rnd, seenTex, spellFloor, torchCol, views, whirlP } = SCX;
+    swimTex, rnd, seenTex, spellFloor, torchCol, torchZ, sconceK, views, whirlP } = SCX;
   // ---------------- render ----------------
   SC.render = (t) => {
     const ST = SC.state || SIM.Q.at(t), GT = ST.t, R = ST.run;
@@ -53,11 +53,11 @@
     // a green fire reaches less far: the crypt is lit in pools, not flooded (TASKS 169); so does a cold hearth on the floor, its
     // near light in its own colour, or a zone's four to six of them wash its floor pale (TASKS 188)
     const TL = []; m.torches.forEach((tc, i) => { if (hid(tc)) return; const col = torchCol(m, tc), big = tc.kind === 'fire', f = flick(i) * (col[2] > col[0] ? 1.35 : 1) * (B.fireK || 1) * (big ? B.bigK || 1 : B.town ? 0.72 + 0.056 * (i * 37 % 11) : 1), gr = col[1] > col[0] && col[1] > col[2] ? 0.7 : 1;
-      const pool = col[0] < 0.5 && tc.kind === 'brazier', pr = (pool ? 0.6 : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 : 1) * ((B.cave || B.town) && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
-      const tr = tc.kind === 'wall' ? B.torchR || 1 : 1;   // the town's torches light pools ≈115 px across (TASKS 1029), its fire stays wide
+      const pool = col[0] < 0.5 && tc.kind === 'brazier', hk = (pool && torchZ(m, tc).hearth) || [1, 1], pr = (pool ? 0.6 * hk[0] : 1) * (tc.kind === 'brazier' ? 0.8 : 1), pa = (pool ? 0.6 * hk[1] : 1) * ((B.cave || B.town) && tc.kind === 'wall' ? 0.55 : 1);   // a brazier's pool is a fifth smaller: its light fell off too gently (TASKS 193)
+      const tr = (tc.kind === 'wall' ? B.torchR || 1 : 1) * sconceK(m, tc);   // the town's torches light pools ≈115 px across (TASKS 1029), its fire stays wide
       TL.push([tc.x - (tc.side || 0) * 30, tc.y - (tc.side ? 10 : tc.kind === 'wall' ? -10 : 20), (big ? 200 : 220) * gr * pr * tr, col, (big ? 1.5 : 1.15) * f * pa, 3.0]);
       if (col[0] < 0.5) TL.push([tc.x - (tc.side || 0) * 9, tc.y - 14, 70, col.map((v) => 0.3 + 0.7 * v), 2.2 * f, 2.6]);
-      TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr, pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]);
+      TL.push([tc.x - (tc.side || 0) * 16, tc.y + (tc.side ? 0 : tc.kind === 'wall' ? 34 : 6), 130 * gr * pr * sconceK(m, tc), pool ? col : col.map((v) => 0.5 + 0.5 * v), 1.7 * f * pa, 3.5]);
       // (TASKS 1036) the reference's brightest stone is the ruin by a fire, its face and its top grey in a wide soft spill: the town's
       // fires add one up over the masonry behind them; the floor's pools and the shadows between stay as they were
       if (B.spill) TL.push([tc.x, tc.y - (big ? 60 : 30), (big ? 380 : 190) * B.spill[0], col.map((v) => 0.55 + 0.45 * v), B.spill[1] * f / (B.fireK || 1) * (big ? 0.7 : 1), 1.4]); });

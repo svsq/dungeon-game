@@ -858,7 +858,14 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
   // a cave crossing's boards (TASKS 306): pitch, board to board along the way; up, the fire cup's height on a torch post
   const BRIDGE = { pitch: 12, up: 66 }, WET = new WeakMap();
   const DRIP_FALL = 0.38, dripAge = (q, t) => { const a = (t - q.ph) % q.p; return a < 0 ? a + q.p : a; };
-  const torchCol = (m, tc) =>D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome].torch;
+  // (TASKS 1787, 1788: a biome with a candle keeps its own colour in the braziers and fires and in the wall torches of a room with a
+  // hearth; a room without one is lit by warm candles, as the concept's side rooms are)
+  const HEARTHS = new WeakMap(), hearthRooms = (m) => { let s = HEARTHS.get(m); if (!s) { s = new Set(m.torches.filter((q) => q.kind === 'brazier' || q.kind === 'fire').map((q) => q.r)); HEARTHS.set(m, s); } return s; };
+  const torchZ = (m, tc) => D.BIOMES[(tc.r !== undefined && m.rooms[tc.r] && m.rooms[tc.r].zone) || m.biome];
+  const torchCol = (m, tc) => { const Z = torchZ(m, tc);
+    return !Z.candle || tc.kind === 'brazier' || tc.kind === 'fire' || (tc.r !== undefined && hearthRooms(m).has(tc.r)) ? Z.torch : Z.candle; };
+  // a wall sconce in a hearth's colour throws a small pool: at a torch's reach a hall's row of them flooded its floor whole
+  const sconceK = (m, tc) => { const Z = torchZ(m, tc); return Z.candle && tc.kind === 'wall' && torchCol(m, tc) === Z.torch ? Z.sconce || 0.6 : 1; };
 
   // a door's leaf fills its two-cell opening; the arch is squashed to the wall's height, its opening as wide as the leaf
   const DOOR = { w: 62, h: 80, fw: 118, fh: 100 };
@@ -872,6 +879,6 @@ void main(){ vec2 q = v_uv * 2.0 - 1.0; float r = length(q), a = atan(q.y, q.x);
 
   Object.assign(SCX, {
     SC, L, M, D, TILE, SZ, PIX, TRAP_HOLE, TRAP_SPIKE, BAKE, SEEN, VOID, views, rnd, SS, FALL_DROP, zoneAt, GLOW, glowOf, GLOW_COL,
-    glowBeat, BRIDGE, WET, DRIP_FALL, dripAge, torchCol, DOOR, STAND, CANDLE, TABLE_WICKS, DEDGE });
+    glowBeat, BRIDGE, WET, DRIP_FALL, dripAge, torchCol, torchZ, sconceK, DOOR, STAND, CANDLE, TABLE_WICKS, DEDGE });
   Object.defineProperties(SCX, { W: { get: () => W }, H: { get: () => H }, Z: { get: () => Z }, VW: { get: () => VW }, VH: { get: () => VH }, LT: { get: () => LT } });
 })(typeof window !== 'undefined' ? window : globalThis);
