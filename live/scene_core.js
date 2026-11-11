@@ -793,7 +793,11 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   { float al = dot(l, vec3(0.3, 0.5, 0.2)), act = oc.r * (1.0 - u_haze); l *= mix(1.0, min(1.0, 1.8 / max(al, 1e-3)), act); }   // (and held under a torch's level: in a hearth's pool a robe went white)   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
   // only the light's level, not its hue
-  l = mix(l, vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(1.5, 0.9, capB), 1.4), bas);   // (the caps darker: L 35 against the concept's 21)
+  // (TASKS 1793: a basalt block by the lava keeps a share of its warm light on its faces, as the bank does: grey to its foot by a
+  // river it read as plastic; the caps stay the cold stone)
+  vec3 basL = vec3(0.96, 0.9, 1.0) * min(dot(l, vec3(0.3, 0.5, 0.2)) * mix(1.5, 0.9, capB), 1.4);   // (the caps darker: L 35 against the concept's 21)
+  float lw = max(nearL, u_haze * smoothstep(0.03, 0.4, texture(u_heat, w).r));
+  l = mix(l, mix(basL, min(l, vec3(1.6)) * 0.8, 0.45 * lw * (1.0 - capB)), bas);
   // the black joints between wall-top blocks smoulder here and there, slowly breathing
   float gap = smoothstep(0.09, 0.03, max(c.r, max(c.g, c.b))) * smoothstep(0.6, 0.95, top), hot = smoothstep(0.4, 0.65, fbm(wp / 70.0 + vec2(0.0, u_t * 0.05)));
   vec3 seam = u_vein.rgb * gap * hot * u_seam * (0.7 + 0.3 * sin(u_t * 0.9 + fbm(wp / 40.0) * 9.0));

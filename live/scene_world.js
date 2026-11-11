@@ -97,7 +97,7 @@
       // wide crossing it ruled the slabs into a cobbled road)
       // (the slab stands on the lava, TASKS 1629: flat on it without a lower face or a dark line under it)
       L.shadow(sx(x), foot + 5, w * 0.58, 5, 0.85); L.sprite(n, ev2(sx(x) - w * 0.46), ev2(foot - hh * 0.92 + 3), { w: ev2(w * 0.92), h: ev2(hh * 0.92), flip: rnd(k, 9) < 0.5, u: { tint: [0.08, 0.06, 0.07, 1] } }); if (!cells.includes(k + m.W)) L.solid(ev2(sx(x) - w * (0.2 + 0.2 * rnd(k, 3))), foot, ev2(w * 0.45), 2, [1, 0.45, 0.1], 0, 0, 0, 0.6);
-      drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5, k: 0.92 }); basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, rnd(k, 9) < 0.5]); } };
+      drawProp(n, sx(x), foot, { flip: rnd(k, 9) < 0.5, k: 0.92, warm: HERO.lavaWarm(x, y) }); basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, rnd(k, 9) < 0.5]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
       if (c.axis !== 'x' || SIM.Q.cell(m, Math.floor((x0 + 16) / TILE), Math.floor((y1 + 16) / TILE)) !== 3) { basaltSlabs(c); return; }
       // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
@@ -188,7 +188,11 @@
                 if ((k * n + j) % 2) { R4(-6, -4, 12, 4, INKC); R4(-4, -4, 8, 2, G1); }
                 else { for (const [x, y, w, h] of [[-4, -6, 8, 2], [-4, 2, 8, 2], [-6, -4, 2, 6], [4, -4, 2, 6]]) R4(x, y, w, h, INKC);
                   R4(-4, -4, 8, 2, G1); R4(-4, 0, 8, 2, G0); R4(-4, -2, 2, 2, G2); R4(2, -2, 2, 2, G2); } } }
-            else { L.solid(x0, y0 + 1, l + 1, 1, [0.2, 0.13, 0.06], an, 0, 0); L.solid(x0, y0 - 1, l + 1, 2, [0.55, 0.42, 0.22], an, 0, 0); } } }
+            // (TASKS 1793: a rope's shadow falls on the deck under it and it is knotted round each stake; two flat lines read as a
+            // ruled drawing)
+            else { if (hor) L.solid(x0, y0 + hgt + 3, l + 1, 2, [0, 0, 0], an, 0, 0, 0.28);
+              L.solid(x0, y0 + 1, l + 1, 2, [0.16, 0.1, 0.05], an, 0, 0); L.solid(x0, y0 - 1, l + 1, 2, [0.55, 0.42, 0.22], an, 0, 0);
+              if (k === 0) { const kx = ev2(x0), ky = ev2(y0); L.solid(kx - 3, ky - 3, 6, 6, [0.16, 0.1, 0.05]); L.solid(kx - 1, ky - 1, 2, 2, [0.62, 0.48, 0.26]); } } } }
         if (hor) for (const q of stakes) stake(...top(q, 0));
         if (!hor) for (const q of stakes) { const [X, Y] = top(q, 0); stake(X + (side ? 2 : -2), Y); } };
       // a deck running down the screen has its rails at its sides, level with whoever walks it: they draw behind him
@@ -390,7 +394,7 @@
     if (GATE) for (const q of DUNGEON.portalRing(GATE.x, GATE.y, GATE.open || 0)) if (vis(q.x, q.y) && known(q.x, q.y)) Y.push([q.y, () => drawProp(q.n, sx(q.x), sy(q.y), { dy: 4, k: q.s })]);
     const TOWN_TONE = { forge_tw: { tint: [0.74, 0.7, 0.9, 1] }, gate_tw: { tint: [0.86, 0.82, 0.95, 1] }, blocks_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_b: { tint: [0.86, 0.82, 0.95, 1] }, grate_tw_c: { tint: [0.86, 0.82, 0.95, 1] }, stone_tw_a: { grade: [1, 1.3, 0, 1] }, stone_tw_b: { grade: [1, 1.3, 0, 1] } };
     m.decor.forEach((d, i) => { if (d.openT !== undefined && vis(d.x, d.y) && !hid(d)) Y.push([d.y, () => coffinOpen(d, sx(d.x), sy(d.y), GT - d.openT, jig('d' + i))]); });
-    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
+    m.decor.forEach((d, i) => { if ((!d.wall || d.n === 'shop_sign') && d.secret === undefined && d.n !== 'bones' && !(d.n === 'wreck_cv' && d.broken) && d.openT === undefined && !d.steps && d.n !== 'fence_mg' && !(d.n === 'candles' && d.lift && onTable(d)) && vis(d.x, d.y) && !hid(d)) Y.push([d.role === 'exit_gate' ? d.y - SZ(d.n)[1] : d.y, () => drawProp(lit.has(d) ? 'table_candles' : d.alt || d.n, sx(d.x), sy(d.y) - (d.lift || 0), { dy: d.rail ? -12 : 4, k: GLOW[d.n] || d.role === 'edge' || m.town ? d.s || 1 : 1, flip: d.role === 'edge' && !!d.f, j: jig('d' + i), warm: m.cliff ? HERO.lavaWarm(d.x, d.y) : 0, u: lit.has(d) ? WAX_T : d.n === 'candles' ? WAX : /^shroom_[ab]$/.test(d.n) ? { grade: [0.9, 0.72, 0, 1] } : m.town ? TOWN_TONE[d.n] : undefined })]); });   // lift: candles standing on a table
     // a plain banner hangs still (only a secret's banner stirs in a draught); struck, it swings on its rod and settles
     m.decor.forEach((d, i) => { if (!d.wall || d.n !== 'banner' || d.secret !== undefined || !vis(d.x, d.y) || hid(d)) return; const [w, hh] = SZ('banner'), e = knocked['d' + i], a = e ? GT - e.t : 9;
       const rot = a < 1.5 ? e.s * 0.16 * Math.exp(-2.4 * a) * Math.sin(8 * a) : 0;
