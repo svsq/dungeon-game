@@ -169,7 +169,8 @@
     const CROSS = ['combat'], roomOf = (x, y) => rooms.find((q) => inRm(q, x, y));
     // the boss hall's wall stays rock two cells thick (TASKS 505): a river by it turned the one-cell wall to lava, a way out past its
     // sealed doors, and a river kept off the wall alone left a strip of masonry one cell thick
-    const bossR = rooms.find((q) => q.type === 'boss'), arenaWall = (x, y) => !!bossR && inRm(bossR, x, y, 2) && !inRm(bossR, x, y);
+    // (and the start's and the shop's, TASKS 1867: a river ending at the shop's wall stood a cell from its shelves)
+    const walled = rooms.filter((q) => ['boss', 'start', 'shop'].includes(q.type)), arenaWall = (x, y) => walled.some((q) => inRm(q, x, y, 2) && !inRm(q, x, y));
     const river = (r, dir) => { const [dx, dy] = [[1, 0], [0, 1], [-1, 0], [0, -1]][dir], vert = dir % 2 === 1, px = vert ? 1 : 0, py = vert ? 0 : 1;
       if ((vert ? r.w : r.h) < 8) return false;
       // the spring lies 4–9 cells before the room's near wall, level with a spot inside it
