@@ -172,7 +172,7 @@
   // own art pixel instead of stretching, as stretched stitches turned into dashes of another size
   K.strap = (x, y) => { if (!has('ui_b_strap')) return; const T = G.tex('ui_b_strap'), w = 24 * PX, ah = Math.round(24 * T.h / T.w), foot = 40 * PX, top = y - foot, seg = (ah - 40) * PX, v = (ah - 40) / ah;
     L.sprite('ui_b_strap', x - w / 2, top, { w, h: foot, src: [0, v, 1, 1] });
-    for (let y1 = top; y1 > 0; y1 -= seg) { const h = Math.min(seg, y1); L.sprite('ui_b_strap', x - w / 2, y1 - h, { w, h, src: [0, v * (1 - h / seg), 1, v] }); } };
+    for (let y1 = top; y1 > -G.oy; y1 -= seg) { const h = Math.min(seg, y1 + G.oy); L.sprite('ui_b_strap', x - w / 2, y1 - h, { w, h, src: [0, v * (1 - h / seg), 1, v] }); } };
   K.knob = (x, y, k = 1) => K.part('ui_b_knob', [16, 16], x, y, { c: true, k });
 
   // the QA sheet (state 'uikit'): every part in every state, the longest labels the game has on its buttons

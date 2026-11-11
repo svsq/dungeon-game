@@ -1,6 +1,7 @@
 // renders chosen SCENE.QA() states whole and chosen cycles / transitions as contact sheets round their subject (TASKS 407–409)
 //   node tools/qashot.mjs [--states a,b] [--sheets c,d] [--n 12] [--box 260] [--view 1280x720] [--out frames/qashot]
-//   --view: the browser window size; the canvas is drawn at 1920×1080 and scaled by the page, as a player on that screen sees it
+//   --view: the browser window size; the canvas is 1920 wide and as tall as the window's aspect asks (1080 at 16:9, 1200 at 16:10, up to
+//   1248, TASKS 1851), scaled by the page as a player on that screen sees it; a text drawn off the view is reported
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,7 +30,8 @@ try {
   for (const name of states) {
     const ok = await page.evaluate(([name, tweak]) => { const st = (__Q.states.find((q) => q[0] === name) || [])[1]; if (!st) return false; if (tweak) new Function('S', tweak)(st); SCENE.state = st; SCENE.render(st.t + 0.01); return true; }, [name, tweak]);
     if (!ok) { console.log('no state', name); continue; }
-    await page.locator('#c').screenshot({ path: path.join(out, name + '.png') }); console.log('state', name);
+    const off = await page.evaluate(() => (window.__UI || []).filter((q) => q.k === 'text' && (q.x < 0 || q.y < 0 || q.x + q.w > SIM.VIEW.W || q.y + q.h > SIM.VIEW.H)).map((q) => q.s));
+    await page.locator('#c').screenshot({ path: path.join(out, name + '.png') }); console.log('state', name, off.length ? 'OFF VIEW: ' + off.slice(0, 3).join(' | ') : '');
   }
   for (const name of sheets) {
     const url = await page.evaluate(([name, N, BOX, F0, F1]) => {

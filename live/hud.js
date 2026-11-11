@@ -2,7 +2,11 @@
 // enemy bars, damage numbers), the hero screen (gear, bag, stats, skills, tooltips), menus, pause, death/victory, the altar of
 // souls. Drawn after the grade at full resolution. Panels are sized to their content and registered for qa.mjs (L.uiBox).
 (function () {
-  const HUD = (window.HUD = {}), L = LIB, D = DATA, W = SIM.VIEW.W, H = SIM.VIEW.H, TILE = D.TILE;
+  const HUD = (window.HUD = {}), L = LIB, D = DATA, TILE = D.TILE;
+  // H is the bottom of what is drawn now: the view's in play, the 1920×1080 frame's own past a window's shift (TASKS 1851), so a
+  // line kept off the bottom by H stays on the screen's bottom edge; VH is always the view's
+  let W = SIM.VIEW.W, H = SIM.VIEW.H, VH = H;
+  const framed = (oy, fn) => { const o = G.oy, h = H; G.oy = oy; H = VH - oy; try { fn(); } finally { G.oy = o; H = h; } };
   const SZ = (n) => window.SIZES[n] || [G.tex(n).w, G.tex(n).h];
   const C = { panel0: [0.10, 0.085, 0.10], panel1: [0.055, 0.048, 0.06], rim: [0.42, 0.34, 0.27], rimHi: [0.62, 0.5, 0.36], gold: '#ffd76a', text: '#efe3cc', dim: '#a89a88', red: '#ff6a5a' };
   const MAP = { key: '', rec: null, cv: null, k: 3 };
@@ -56,7 +60,7 @@
     panel(id, b.x, b.y, b.w, b.h, { c0: hv ? [0.24, 0.16, 0.1] : [0.13, 0.1, 0.11], c1: hv ? [0.13, 0.08, 0.06] : [0.06, 0.05, 0.06], rim: hv ? C.rimHi : C.rim });
     lab(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1, { size: L.sizeToFit(b.label, b.w - 8, 30), al: 0.5, col: on ? (hv ? '#fff2c8' : C.text) : '#6d6258' });
   }
-  const dim = (a = 0.62) => L.solid(0, 0, W, H, [0, 0, 0], 0, 0, 0, a);
+  const dim = (a = 0.62) => L.solid(0, -G.oy, W, VH, [0, 0, 0], 0, 0, 0, a);
   const fmtT = (s) => { s = Math.floor(s); const p2 = (n) => String(n).padStart(2, '0'); return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60); };
 
   // what a number or a cell is, under the pointer in the pause and on the hero's page (TASKS 1852): rects [x, y, w, h, title, line]
@@ -65,17 +69,24 @@
   // line: one line or several (TASKS 1847: what a point or a rank gives, a line a change); over the hero's page the stats' and the
   // skills' notes show under a lit «+» or card, an item's own card under a cell
   const tipAt = (x, y, w, h, title, line) => TIPS.push([x, y, w, h, title, line || '']);
-  function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; const [px, py] = S.ptr, T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
+  function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; if (S.screen === 'inv') { framed(D.uiDy('inv', VH), () => tipIn(S, S.ptr[0], S.ptr[1] - G.oy)); return; } tipIn(S, S.ptr[0], S.ptr[1]); }
+  function tipIn(S, px, py) { const T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
     const [, , , , title, line] = T, ls = [].concat(line).filter(Boolean), w = Math.max(lw('tip_t', title, { size: 24 }), ...ls.map((q, i) => lw('tip_l' + i, q, { size: 20 }))) + 32, h = 46 + 28 * ls.length, inPause = S.screen === 'pause',
       x = Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); MMB = null; TRK = null; TIPS = [];
+    G.bind(null); G.blend(); MMB = null; TRK = null; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
     if (R && (S.screen === 'play' || S.screen === 'pause')) hud(S, R, t);
     if (R && V && S.screen === 'play') souls(S, R, V);
+    framed(D.uiDy(S.screen, VH), () => windows(S, R, t, V));
+    if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
+    if (!S.demo) muteNote(S);
+    drawTip(S);
+  };
+  function windows(S, R, t) {
     if (S.screen === 'menu') menu(S, t);
     if (S.screen === 'uikit') KIT.sheet();
     if (S.screen === 'settings') settings(S, t);
@@ -87,7 +98,6 @@
     if (S.screen === 'fork' && R) fork(S, R, t);
     if (S.screen === 'news') news(S, t);
     if (S.screen === 'meta') meta(S, t);
-    if (R && S.debug && S.screen === 'play' && !S.demo) { if (S.dbgLoot && V) lootMarks(R, t, V); for (const b of D.UI.debug(R, S)) button('dbg_' + b.id, b, S.hover); lab('dbg_tag', TXT('hud.draw'), W / 2, 92, { size: 20, al: 0.5, col: C.text }); if (S.dbgLoot) lootBooks(R); }
     if (S.screen === 'pause') pause(S);
     if (S.screen === 'inv' && R) inv(S, R, t);
     if (S.screen === 'shop' && R) shop(S, R, t);
@@ -102,9 +112,7 @@
     if (S.screen === 'notes') notes(S);
     if (S.screen === 'board' && R) board(S, R, t);
     if (S.screen === 'dead' || S.screen === 'win') end(S, t);
-    if (!S.demo) muteNote(S);
-    drawTip(S);
-  };
+  }
 
   // M's answer (TASKS 1853 а): a plate for a few seconds on whatever screen it was pressed, and while muted a speaker crossed out by
   // the key hints in play, so a silent game is never a mystery
@@ -827,21 +835,24 @@
   // its fires out (TASKS 1751), the bowls holding cold coals and the sconces empty cups, so the flames flicker and the embers rise
   // here; their places are measured on bg_crypt at 1920×1080
   const CRYPT = { bowls: [[535, 658], [1375, 658]], cups: [[768, 524], [847, 526], [1073, 526], [1152, 524]], col: [1, 0.55, 0.2] };
+  // in a view taller than 16:9 the painting covers it, scaled by its height and cut at the sides; bk maps its 1920×1080 places
+  // onto the frame being drawn
+  const bk = () => { const k = VH / 1080; return { k, x0: (W - 1920 * k) / 2, y0: -G.oy }; };
   function backdrop(t) {
-    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
+    L.solid(0, -G.oy, W, VH, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     if (!window.ASSETS.bg_crypt) return;
-    const k = W / 1920, fl = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3), col = CRYPT.col;
-    L.sprite('bg_crypt', 0, 0, { w: W, h: H });
-    CRYPT.bowls.forEach(([x, y], i) => { L.glow(x * k, (y - 40) * k, 300 * k, col, 0.2 * fl(i), 2.2); L.glow(x * k, (y - 20) * k, 110 * k, col, 0.22 * fl(i + 5), 2.6); });
-    CRYPT.cups.forEach(([x, y], i) => L.glow(x * k, (y - 14) * k, 70 * k, col, 0.16 * fl(i + 2), 2.8));
-    const fire = (x, y, w, hh, seed, lean) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col }, [w * k, 0, 0, -lean * k, hh * k, 0, (x - w / 2 + lean) * k, (y - hh) * k, 1]);
+    const { k, x0, y0 } = bk(), fl = (i) => 0.85 + 0.1 * Math.sin(t * 9.1 + i * 3.7) + 0.06 * Math.sin(t * 23.3 + i * 1.3), col = CRYPT.col;
+    L.sprite('bg_crypt', x0, y0, { w: 1920 * k, h: 1080 * k });
+    CRYPT.bowls.forEach(([x, y], i) => { L.glow(x0 + x * k, y0 + (y - 40) * k, 300 * k, col, 0.2 * fl(i), 2.2); L.glow(x0 + x * k, y0 + (y - 20) * k, 110 * k, col, 0.22 * fl(i + 5), 2.6); });
+    CRYPT.cups.forEach(([x, y], i) => L.glow(x0 + x * k, y0 + (y - 14) * k, 70 * k, col, 0.16 * fl(i + 2), 2.8));
+    const fire = (x, y, w, hh, seed, lean) => G.draw(L.P.flame, { u_t: t, u_seed: seed, u_amt: 1, u_col: col }, [w * k, 0, 0, -lean * k, hh * k, 0, x0 + (x - w / 2 + lean) * k, y0 + (y - hh) * k, 1]);
     G.blend('emit');
     CRYPT.bowls.forEach(([x, y], i) => fire(x, y, 84 * fl(i), 120 * fl(i + 1), 11 + i, 6 * Math.sin(t * 1.3 + i * 2)));
     CRYPT.cups.forEach(([x, y], i) => fire(x, y, 18 * fl(i + 2), 34 * fl(i + 3), 21 + i, 2 * Math.sin(t * 1.7 + i)));
     G.blend('add');
     CRYPT.bowls.forEach(([x, y], b) => { for (let i = 0; i < 12; i++) { const p = (t * (0.28 + 0.12 * L.rnd(i, b + 1)) + L.rnd(i, b + 7)) % 1, s = 4 * k;
       const ex = x + (L.rnd(i, b + 3) - 0.5) * 60 + Math.sin(t * 1.9 + i * 2.3) * 14 * p, ey = y - 50 - p * 300;
-      L.solid(Math.round(ex * k / 2) * 2, Math.round(ey * k / 2) * 2, s, s, [1, 0.6 + 0.3 * (1 - p), 0.2], 0, 0, 0, 0.9 * (1 - p) * Math.min(1, p * 8)); } });
+      L.solid(Math.round((x0 + ex * k) / 2) * 2, Math.round((y0 + ey * k) / 2) * 2, s, s, [1, 0.6 + 0.3 * (1 - p), 0.2], 0, 0, 0, 0.9 * (1 - p) * Math.min(1, p * 8)); } });
     G.blend();
   }
   // the hero and a brute facing each other across the buttons; the news frame takes the brute's place on the right; on the main
@@ -849,13 +860,13 @@
   // 1815: a warrior stood there over a mage's save); with neither, the painted warrior
   function menuBack(t, alone, mid, S) {
     backdrop(t);
-    const [hw, hh] = SZ('hero'), hx = mid ? W / 2 - 60 - hw * 1.6 : W / 2 - 520 - hw * 1.6, hy = mid ? 470 : 340;
+    const { k, x0, y0 } = bk(), [hw, hh] = SZ('hero'), hk = 3.2 * k, hx = x0 + k * (mid ? 900 - hw * 1.6 : 440 - hw * 1.6), hy = y0 + k * (mid ? 470 : 340);
     const own = S && ((S.saved && S.saved.hero) || (S.result && S.result.hero));
-    if (own && D.clsOf(own).look.rig !== 'hero') { try { SCENE.menuHero(own, SIM.Q.stats(own, S.meta), t, hx + hw * 1.6, hy + hh * 3.2, 3.2); } catch (e) { console.error(e); L.pre = null; G.blend(); } }
-    else L.sprite('hero', hx, hy, { w: hw * 3.2, h: hh * 3.2 });
-    if (!(S && S.newAsk)) L.uiBox('menu_hero', hx, hy, hw * 3.2, hh * 3.2);
+    if (own && D.clsOf(own).look.rig !== 'hero') { try { SCENE.menuHero(own, SIM.Q.stats(own, S.meta), t, hx + hw * hk / 2, hy + hh * hk, hk); } catch (e) { console.error(e); L.pre = null; G.blend(); } }
+    else L.sprite('hero', hx, hy, { w: hw * hk, h: hh * hk });
+    if (!(S && S.newAsk)) L.uiBox('menu_hero', hx, hy, hw * hk, hh * hk);
     if (alone) return;
-    const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
+    const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', x0 + 1430 * k, y0 + 330 * k, { w: bw * 2.6 * k, h: bh * 2.6 * k, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
   }
   // the version's main lines (TASKS 1305), look B: a loose parchment sheet pinned with a brass nail, a red diamond a line
   function newsFrame(F, v) {
@@ -1019,9 +1030,10 @@
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
     menuBack(t, !!F, true, S); if (F) newsFrame(F, D.CHANGES[0].v);
-    lab('m_t', TXT('hud.menu'), W / 2, 150, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
-    lab('m_sb', TXT('hud.menu.sub'), W / 2, 230, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
-    lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 282, { size: 28, al: 0.5, col: C.dim });
+    const ty = (y) => Math.round((bk().y0 + y * bk().k) / 2) * 2;
+    lab('m_t', TXT('hud.menu'), W / 2, ty(150), { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
+    lab('m_sb', TXT('hud.menu.sub'), W / 2, ty(230), { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
+    lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, ty(282), { size: 28, al: 0.5, col: C.dim });
     const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
     KIT.part('ui_b_strap_ring', [32, 47], P.x + P.w - 112, P.y + P.h - 34);
@@ -1080,8 +1092,8 @@
   const HOT = [1.04, 1.1, 0, 1.04], POOR = [0.55, 0.86, 0, 0.96], POOR_HOT = [0.8, 1.04, 0, 1.02], SOUL = '#24407a';
   // a manuscript page: the leather frame with the parchment inside, its writing area registered for qa.mjs
   const page = (id, x, y, w, h, pad = 4) => { KIT.nine('leather', x, y, w, h); KIT.paper(x + 22, y + 22, w - 44, h - 44); L.uiBox(id, x + 22, y + 22, w - 44, h - 44, pad); };
-  const desk = (t) => { L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
-    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); } };
+  const desk = (t) => { L.solid(0, -G.oy, W, VH, [0.02, 0.015, 0.02], 0, 0, 0, 1);
+    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), VH * 0.86 - G.oy, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); } };
   const pip = (x, y, on) => { L.solid(x, y, 14, 14, [0.17, 0.10, 0.06], 0.7854, 7, 7); if (!on) L.solid(x + 3, y + 3, 8, 8, [0.86, 0.76, 0.58], 0.7854, 4, 4); else L.solid(x + 2, y + 2, 10, 10, [0.62, 0.14, 0.08], 0.7854, 5, 5); };
   function pause(S) {
     dim(0.55); KIT.panel('p_sheet', 660, 240, 600, 580, 'torn'); KIT.knob(W / 2, 262, 1.2);

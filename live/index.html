@@ -24,8 +24,11 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   // sizes.js: window.SIZES (display size per sprite in view px, engine.md §7); audio.js: sound synthesised from the event bus
   await load('modules.js'); for (const f of MODULES.page) await load(f);
   const q = new URLSearchParams(location.search), render = q.has('render');
-  const VW = (SIM.VIEW || {}).W || 1920, VH = (SIM.VIEW || {}).H || 1080;             // view size and aspect come from the sim
-  document.documentElement.style.setProperty('--ar', VW / VH); if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
+  // the view's height follows the window's aspect (TASKS 1851): the sim keeps the size, the page tells it the window's and lets the
+  // canvas take the aspect that comes out; the scene rebuilds its targets on the next frame
+  const fitView = () => { if (SIM.setView) SIM.setView(SIM.viewFor(innerWidth, innerHeight)); document.documentElement.style.setProperty('--ar', SIM.VIEW.W / SIM.VIEW.H); };
+  fitView(); addEventListener('resize', fitView);
+  const VW = SIM.VIEW.W, VH = SIM.VIEW.H; if (SIM.HINT) document.getElementById('hint').textContent = SIM.HINT;
   G.init(document.getElementById('c'), VW, VH);
   await Promise.all(Object.keys(FONT_DATA).map((n) => new FontFace(n, `url(data:font/ttf;base64,${FONT_DATA[n]})`).load().then((f) => document.fonts.add(f))));
   const rep = new Set(SCENE.REPEAT || []), near = (n) => SCENE.NEAREST === true || (SCENE.NEAREST || []).includes(n);   // NEAREST: true = all
@@ -94,7 +97,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [] };
   addEventListener('wheel', (e) => { if (play) { pend.wheel = Math.sign(e.deltaY); e.preventDefault(); } }, { passive: false });
   addEventListener('contextmenu', (e) => e.preventDefault());
-  const toView = (e) => { const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * VW; ptr.y = (e.clientY - r.top) / r.height * VH; };
+  const toView = (e) => { const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * SIM.VIEW.W; ptr.y = (e.clientY - r.top) / r.height * SIM.VIEW.H; };
   addEventListener('pointermove', toView);
   addEventListener('pointerdown', (e) => { toView(e); if (!play) { startPlay(); return; }   // the click that ends the attract demo must not press the menu button under it
     fullSync(true);

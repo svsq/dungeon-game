@@ -530,9 +530,9 @@ void main(){ if (at(vec2(0.0)) > 0.5) discard; bool edge = false; for (int k = 1
   // anchor: where the SIM emits something (anything shot, thrown or shone) vs where the scene DRAWS what emits it (the held
   //   item's tip, a hand, a barrel), in view px. qa.mjs fails when they are more than tol apart (an effect leaving from the feet).
   L.UI = []; L.ANCH = [];
-  L.uiBox = (id, x, y, w, h, pad = 6) => L.UI.push({ k: 'box', id, x, y, w, h, pad });
-  L.uiText = (id, s, x, y, w, h) => L.UI.push({ k: 'text', id, s, x, y, w, h });
-  L.uiCover = (id, x, y, w, h) => L.UI.push({ k: 'cover', id, x, y, w, h });
+  L.uiBox = (id, x, y, w, h, pad = 6) => L.UI.push({ k: 'box', id, x, y: y + G.oy, w, h, pad });
+  L.uiText = (id, s, x, y, w, h) => L.UI.push({ k: 'text', id, s, x, y: y + G.oy, w, h });
+  L.uiCover = (id, x, y, w, h) => L.UI.push({ k: 'cover', id, x, y: y + G.oy, w, h });
   L.anchor = (name, sim, drawn, tol = 8) => L.ANCH.push({ name, sim, drawn, tol, d: Math.hypot(sim[0] - drawn[0], sim[1] - drawn[1]) });
   L.qaReset = () => { L.UI = window.__UI = []; L.ANCH = window.__ANCHORS = []; };
 

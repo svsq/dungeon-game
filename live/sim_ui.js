@@ -39,7 +39,7 @@
     R.msg = { s: TXT('sim_ui.descend.msg.s', { base: W2.base, floor: R.floor, p3: D.floorName(R.floor, R.mode, R.seed, FROM(R)) }), t: S.t, d: 5 }; }
   // the checks of the dungeon's own workings start from the menu as before and play its 1st floor laid out without the town (a
   // merchant on the floor, no stairs up), the run's seed kept (TASKS 1026: the campaign itself now starts in the town)
-  const begin = (S) => { const c = UI.menu(!!S.saved).find((b) => b.id === 'campaign'); SIMX.step(S, { keys: [], px: c.x + c.w / 2, py: c.y + c.h / 2, click: 1 }); if (S.screen === 'classes') startRun(S, S.pendingMode); if (S.run && S.run.town) { S.run = newRun(S, 'campaign', S.run.seed); S.screen = 'play'; } };
+  const begin = (S) => { const c = UI.menu(!!S.saved).find((b) => b.id === 'campaign'); SIMX.step(S, { keys: [], px: c.x + c.w / 2, py: c.y + c.h / 2 + SIMX.uiDy('menu'), click: 1 }); if (S.screen === 'classes') startRun(S, S.pendingMode); if (S.run && S.run.town) { S.run = newRun(S, 'campaign', S.run.seed); S.screen = 'play'; } };
   // the campaign starts in the town (TASKS 1026); the test runs (the caves, the magma caves, the endless descent) as before
   // the save slots (TASKS 1311): the run in play or named on the menu (S.run, S.saved) belongs to slot S.slot, whose cell in S.saves
   // stays empty meanwhile, so no run is held twice. A save from before the slots comes as the lone run and lands in the first slot
@@ -436,9 +436,9 @@
   // moved: the pointer moved since the last step, and only then takes the focus onto what it is over (TASKS 1754), so a pointer
   // resting over an item does not take it back from the keyboard
   function stepUI(S, inp, keys) {
-    const f = SCREEN[S.screen], moved = !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py; S.ptr = [inp.px, inp.py];
+    const f = SCREEN[S.screen], moved = !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py, py = inp.py - SIMX.uiDy(S.screen); S.ptr = [inp.px, inp.py];
     if (S.screen === 'menu' && S.uiWas !== 'menu') S.focus = MENU_SUBS.includes(S.uiWas) && S.menuAt ? S.menuAt : '';
-    S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved }), keys, inp.px, inp.py, inp.click); commitDraft(S);
+    S.uiWas = S.screen; if (f) f(S, Object.assign({}, inp, { moved, py }), keys, inp.px, py, inp.click); commitDraft(S);
   }
 
   Object.assign(SIMX, {

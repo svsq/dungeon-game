@@ -15,6 +15,11 @@
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
     G.W = W; G.H = H;
   };
+  G.resize = (W, H) => { const cv = gl.canvas; if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; } G.W = W; G.H = H; };
+  // oy: a shift down of everything drawn on the screen (not into a target), for the HUD's windows laid out on a 1920×1080 frame
+  // inside a taller view (TASKS 1851)
+  G.oy = 0;
+  const onScreen = (xf) => { if (!G.oy || cur) return xf; const q = xf.slice(); q[7] += G.oy; return q; };
 
   // nearest: NEAREST min/mag, no mipmaps (pixel art: crisp texels; lod bias has no effect)
   G.load = (name, url, { repeat = false, nearest = false } = {}) => new Promise((res, rej) => {
@@ -115,7 +120,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   };
 
   // the quad's corners decide coverage alone: the one vertex shader only applies u_xf, so a quad outside the target can't touch a pixel
-  G.outside = (xf) => {
+  G.outside = (xf) => { xf = onScreen(xf);
     const vw = cur ? cur.vw : G.W, vh = cur ? cur.vh : G.H, x0 = xf[6], y0 = xf[7], x1 = x0 + xf[0], y1 = y0 + xf[1], x2 = x0 + xf[3], y2 = y0 + xf[4], x3 = x1 + xf[3], y3 = y1 + xf[4];
     return (x0 <= 0 && x1 <= 0 && x2 <= 0 && x3 <= 0) || (x0 >= vw && x1 >= vw && x2 >= vw && x3 >= vw) || (y0 <= 0 && y1 <= 0 && y2 <= 0 && y3 <= 0) || (y0 >= vh && y1 >= vh && y2 >= vh && y3 >= vh);
   };
@@ -138,6 +143,7 @@ vec2 scr(vec2 px){ return vec2(px.x / u_res.x, 1.0 - px.y / u_res.y); }   // scr
   G.draw = (P, U, xf, flip = [0, 0]) => {
     if (G.rec) { G.rec.push([P, U, xf, flip]); return; }
     if (G.outside(xf)) return;
+    xf = onScreen(xf);
     if (lastProg !== P.p) { lastProg = P.p; gl.useProgram(P.p); }
     unit = 0;
     const res = cur ? [cur.vw, cur.vh] : [G.W, G.H];
