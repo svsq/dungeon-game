@@ -356,6 +356,9 @@
   }
   // a brass rule between the panel's parts, a knob at each end (the ref's cast dividers are not in the kit yet)
   const divider = (x, y0, y1) => { L.solid(x - 2, y0, 4, y1 - y0, [0.3, 0.2, 0.1]); L.solid(x - 1, y0, 2, y1 - y0, BRASS); KIT.knob(x, y0, 0.6); KIT.knob(x, y1, 0.6); };
+  // a key or a count in a small parchment frame at a cell's foot, as on the ref: ink like the plates' numbers, so the panel has one
+  // kind of writing, not gold letters and outlined white digits beside it (TASKS 1886)
+  const keycap = (id, s, cx, y) => { const w = Math.max(36, lw(id, s, { size: 20 }) + 24); KIT.nine('btn', Math.round(cx - w / 2), y, w, 30); KIT.ink(id, s, cx, y + 16, { size: 20, al: 0.5 }); L.uiBox(id + '_b', Math.round(cx - w / 2), y, w, 30, 0); };
   function hud(S, R, t) {
     const h = R.hero, st = SIM.Q.stats(h, S.meta), GT = S.t, K = KIT, B = bpGeo(S, R);
     // the portrait in its frame, the level on its plate and the experience bar under it
@@ -388,11 +391,11 @@
     D.clsOf(h).abs.forEach((A, i) => { const x = B.sx + i * (B.CS + 16), y = B.y + 8, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
       skillCell('sk_' + A.id, x, y, B.CS, A, r, cd, A.cd, h.mp < A.mp, rage);
       if (r && cd > 0) lab('skc_' + A.id, cd.toFixed(1), x + B.CS / 2, y + B.CS / 2, { size: 26, al: 0.5 });
-      lab('skk_' + A.id, A.key, x + 12, y + 14, { size: 22, col: C.gold }); });
+      keycap('skk_' + A.id, A.key, x + B.CS / 2, y + B.CS - 14); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
     potsOf(R).forEach(([b, ic, k], i) => { const x = B.px + i * (B.PS + 14), y = B.y + 22;
-      K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 13, y + 11, 48); lab('potn_' + b, pot(b), x + B.PS - 6, y + B.PS - 12, { size: 22, al: 1 }); lab('potk_' + b, k, x + 10, y + 14, { size: 22, col: C.gold }); });
+      K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 13, y + 11, 48); keycap('potk_' + b, k, x + 12, y - 10); keycap('potn_' + b, pot(b), x + B.PS - 14, y + B.PS - 16); });
     // the gold on its own plate as on the ref, the soul shards and a floor's key under it
     icon('it_gold', B.mx, B.y + 22, 42); K.nine('btn', B.mx + 50, B.y + 18, B.gw, 50); K.ink('gold_count', B.gold, B.goldC[0], B.goldC[1], { size: 28, al: 0.5 }); L.uiBox('gold_b', B.mx + 66, B.y + 18, B.gw - 32, 50, 0);
     tipAt(B.mx, B.y + 18, B.gw + 50, 50, TXT('hud.altar.6', { gold: B.gold }), TXT('hud.tip.gold'), B.y);
