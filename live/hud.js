@@ -39,7 +39,14 @@
   const SHOP_SHUT_LEG = ['shop', TXT('TOWN_LEG.shut')], townLeg = (R) => (SIM.Q.shopShut(R) ? TOWN_LEG.map((q) => (q[0] === 'shop' ? SHOP_SHUT_LEG : q)) : TOWN_LEG);
   const legendOf = (R) => (R.map.town ? townLeg(R) : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
-  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < HB.x + HB.w + 12 && y < 316) || (y < 150 && x > 500 && x < 1420) || (y > H - 56 && x > W - 40 - lw('keys', TXT('hud.hud.k'), { size: 26 }));
+  // the top-left block (portrait, level, its bar, a row of effects; the stats under the portrait), the bottom panel and the key hints over it
+  let BPG = null;
+  const inBox = (x, y, b, m = 4) => x > b[0] - m && x < b[0] + b[2] + m && y > b[1] - m && y < b[1] + b[3] + m;
+  const keysBox = () => { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; return [W - 12 - kw, BPG.y - 54, kw, 42]; };
+  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 560 && y < 184) || (x < 170 && y < 316) || (y < 150 && x > 500 && x < 1420)
+    || (!!BPG && (inBox(x, y, [BPG.x, BPG.y, BPG.w, BPG.h]) || inBox(x, y, keysBox())));
+  // a label's whole box against the HUD, not only its corners: a plate wider than a panel's part could straddle it (TASKS 1865)
+  const boxUnderHud = (x, y, w, h) => { for (let i = 0; i <= 4; i++) { const px = x + w * i / 4; if (underHud(px, y) || underHud(px, y + h)) return true; } return underHud(x, y + h / 2) || underHud(x + w, y + h / 2); };
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   // the dark burnt sheet of the talk, the journal, the board and the notes (TASKS 1329): ink on paper, not the panels' light text on dark
   const INK = { t: '#2a1a10', d: '#4a2e1b', r: '#7d1e12', g: '#4d2c08' };
@@ -69,14 +76,15 @@
   // line: one line or several (TASKS 1857: what a point or a rank gives, a line a change); over the hero's page the stats' and the
   // skills' notes show under a lit «+» or card, an item's own card under a cell. A line dear to work out is a function, asked only
   // of the note under the pointer (review of PR 57): a stat's gain is two whole recounts of the hero, eight a frame for the four
-  const tipAt = (x, y, w, h, title, line) => TIPS.push([x, y, w, h, title, line || '']);
+  // up: the top of the bottom panel, where a note of its numbers hangs above it (TASKS 1865)
+  const tipAt = (x, y, w, h, title, line, up) => TIPS.push([x, y, w, h, title, line || '', up]);
   function drawTip(S) { if (!S.ptr || !(S.screen === 'pause' || S.screen === 'inv') || (S.screen === 'inv' && /^(bag|eq):/.test(S.hover || ''))) return; if (S.screen === 'inv') { framed(D.uiDy('inv', VH), () => tipIn(S, (S.uiPtr || S.ptr)[0], S.uiPtr ? S.uiPtr[1] : S.ptr[1] - G.oy)); return; } tipIn(S, S.ptr[0], S.ptr[1]); }
   function tipIn(S, px, py) { const T = TIPS.find(([x, y, w, h]) => px >= x && px < x + w && py >= y && py < y + h); if (!T) return;
-    const [, , , , title, ln] = T, line = typeof ln === 'function' ? ln() : ln, ls = [].concat(line).filter(Boolean), w = Math.max(lw('tip_t', title, { size: 24 }), ...ls.map((q, i) => lw('tip_l' + i, q, { size: 20 }))) + 32, h = 46 + 28 * ls.length, inPause = S.screen === 'pause',
-      x = Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
+    const [, , , , title, ln, up] = T, line = typeof ln === 'function' ? ln() : ln, ls = [].concat(line).filter(Boolean), w = Math.max(lw('tip_t', title, { size: 24 }), ...ls.map((q, i) => lw('tip_l' + i, q, { size: 20 }))) + 32, h = 46 + 28 * ls.length, inPause = S.screen === 'pause',
+      x = up !== undefined ? Math.max(8, Math.min(W - w - 8, px - w / 2)) : Math.max(8, Math.min((inPause ? 650 : W) - w - 8, px + 20)), y = up !== undefined ? up - h - 10 : inPause ? TIPY : Math.max(8, Math.min(H - h - 8, py + 22));
     L.uiCover('hud_tipc', x, y, w, h); plate('hud_tip', x, y, w, h, { k: 0.3, grade: [1, 0.8, 0, 1.02] }); lab('tip_t', title, x + 16, y + 23, { size: 24, col: C.gold }); ls.forEach((q, i) => lab('tip_l' + i, q, x + 16, y + 52 + 28 * i, { size: 20, col: C.text })); }
   HUD.draw = (S, t, V) => {
-    G.bind(null); G.blend(); MMB = null; TRK = null; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
+    G.bind(null); G.blend(); MMB = null; TRK = null; BPG = null; TIPS = []; W = SIM.VIEW.W; VH = H = SIM.VIEW.H; G.oy = 0;
     const R = S.run;
     if (S.demo) { title(S, t); return; }
     if (R && V) world(S, R, t, V);
@@ -120,8 +128,9 @@
   function muteNote(S) {
     const a = S.t - (S.muteT ?? -1e9);
     if (a < 2.6) { const s = S.meta.mute ? TXT('hud.mute.off') : TXT('hud.mute.on'), al = 1 - L.SS(2, 2.6, a), w = lw('mute_n', s, { size: 24 }) + 48;
-      plate('mute_box', W / 2 - w / 2, H - 170, w, 50, { a: 0.92 * al }); lab('mute_n', s, W / 2, H - 145, { size: 24, al: 0.5, col: S.meta.mute ? '#ffb0a0' : C.gold, a: al }); }
-    if (S.meta.mute && S.screen === 'play') speakerOff(W - 34, H - 90); }
+      const y = S.run && (S.screen === 'play' || S.screen === 'pause') ? bpGeo(S, S.run).y - 124 : H - 170;
+      plate('mute_box', W / 2 - w / 2, y, w, 50, { a: 0.92 * al }); lab('mute_n', s, W / 2, y + 25, { size: 24, al: 0.5, col: S.meta.mute ? '#ffb0a0' : C.gold, a: al }); }
+    if (S.meta.mute && S.screen === 'play' && S.run) { const kw = lw('keys', TXT('hud.hud.k.mute'), { size: 26 }) + 24; speakerOff(W - 12 - kw - 34, bpGeo(S, S.run).y - 33); } }
   function speakerOff(x, y) { plate('mute_ic', x - 26, y - 22, 52, 44, { a: 0.85 }); const c = [0.85, 0.78, 0.66];
     L.solid(x - 14, y - 5, 7, 10, c); for (let i = 0; i < 7; i++) L.solid(x - 7 + i, y - 5 - i, 1, 10 + i * 2, c);
     for (let i = 0; i < 13; i++) { L.solid(x + 3 + i * 0.9, y - 6 + i, 3, 2, [0.95, 0.42, 0.35]); L.solid(x + 3 + i * 0.9, y + 6 - i, 3, 2, [0.95, 0.42, 0.35]); } }
@@ -154,7 +163,7 @@
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
   function world(S, R, t, V) {
-    MMB = mmBox(S, R); TRK = trkBox(S, R);
+    MMB = mmBox(S, R); TRK = trkBox(S, R); BPG = bpGeo(S, R);
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && !D.under(e) && seen(e.x, e.y)) {
@@ -167,7 +176,7 @@
       for (let i = 0; i <= occupied.length + extra.length; i++) {
         const hits = occupied.concat(extra).filter((o) => overlaps(b, o));
         if (!hits.length) {
-          if (b.y < 4 || b.y + b.h > H - 4 || [[b.x, b.y], [b.x + w, b.y], [b.x, b.y + hh], [b.x + w, b.y + hh]].some(([px, py]) => underHud(px, py))) return null;
+          if (b.y < 4 || b.y + b.h > H - 4 || boxUnderHud(b.x, b.y, w, hh)) return null;
           occupied.push(b); return b;
         }
         b.y = Math.min(...hits.map((o) => o.y)) - hh - 4;
@@ -190,8 +199,8 @@
       // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
       if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
       let x = Math.min(W - 20, Math.max(20, V.sx(f.x))); const y = Math.max(26, V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i)), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
-      // under the HUD's plate the mark steps out to its right edge, still at the giver's height
-      if (x < HB.x + HB.w + 24 && y < HB.y + HB.h + 24) x = HB.x + HB.w + 24;
+      // under the HUD's corner block the mark steps out to its right edge, still at the giver's height
+      if (x < 584 && y < 208) x = 584;
       G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
       L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
       lab('qmk' + f.i, mk, x, y + 1, { size: 34, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });
@@ -265,8 +274,8 @@
         p.t = ev.t; p.x = ev.x; p.y = ev.y;
         float('hu' + i, s, Math.max(tw / 2 + 4, Math.min(W - tw / 2 - 4, x0 + p.side * (off(a / 0.8) + p.dx))), y0 - 24 * (a / 0.8), { size: 30, col: '#fff4ee', out: '#9b211e', a: 1 - L.SS(0.6, 0.8, a) });
       }
-      if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), tx = currencies(S, R)[0][3] + 20;   // up off the head, then into the counter
-        lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (HB.y + HB.h + 27 - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
+      if (ev.k === 'gold' && a < 0.9) { const x0 = V.sx(ev.x), y0 = V.sy(ev.y) - 100 - 16 * L.SS(0, 0.15, a), q = L.SS(0.15, 0.85, a), [tx, ty] = bpGeo(S, R).goldC;   // up off the head, then into the counter
+        lab('gd' + i, '+' + ev.n, x0 + (tx - x0) * q, y0 + (ty - y0) * q, { size: 24 - 6 * q, al: 0.5, col: C.gold, a: 1 - L.SS(0.75, 0.9, a) }); }
       if (ev.k === 'dodge' && a < 0.7) float('dg' + i, TXT('hud.world'), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#d8e6f0', a: 1 - a / 0.7 });
       if (ev.k === 'absorb' && a < 0.7) float('ab' + i, TXT('hud.world.2', { p1: Math.round(ev.n) }), V.sx(ev.x), V.sy(ev.y) - 70 - 30 * a, { size: 22, col: '#8fc4ff', a: 1 - a / 0.7 }); }
     // a pickup, a new level or a new skill also says so over the hero's head, where the eye is in a fight; the feed in the corner
@@ -315,14 +324,29 @@
       if (x < hx1 && x + w > hx0 && y < hy1 && y + 40 > hy0) y = Math.min(y, hy0 - 48);
       // nor an elite's name over its head (the exit's guard by the stairs down a hero has just come up): then under his feet
       if (nameZones.some((z) => x < z.x + z.w && x + w > z.x && y < z.y + z.h && y + 40 > z.y)) y = V.sy(h.y) + 18;
-      if (y < 120 || (y < 316 && x < HB.x + HB.w + 12) || (y < 490 && x + w > W - 300)) { x = (W - w) / 2; y = H - 150; }
+      if (y < 120 || boxUnderHud(x, y, w, bh)) { x = (W - w) / 2; y = BPG.y - 70 - bh; }
       HUD.promptBox = [x, y, w, bh]; plate('prompt_box', x - 6, y - 4, w + 12, bh + 8); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); if (sub) lab('prompt_j', sub, x + 14, y + 47, { size: 20, col: C.dim }); }
   }
 
   // ---------------- in-game HUD ----------------
-  // look B (TASKS 1332): the portrait, the flasks with their bars, the skills and the potions on one leather plate in the corner,
-  // as on ref_ui_hud_b; the layout of the old HUD is kept, so nothing moves under the hand in a fight
-  const HB = { x: 8, y: 8, w: 588, h: 182 };
+  // look B laid out as on ref_ui_hud_b (TASKS 1865, the player's decision over 1759's corner plate): the portrait, the level, its
+  // bar and the effects in the top-left corner, the stats on a parchment sheet under them; the flasks, the skills, the potions and
+  // the money on one leather panel at the bottom's middle
+  const HB = { x: 8, y: 8, w: 136, h: 136 }, TLX = 154;
+  const potsOf = (R) => [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].concat(R.viaTown ? [['scroll', 'it_scroll', 'T']] : []);
+  // the bottom panel from the state alone (world() keeps labels off it before it is drawn): its box and where each part starts. Its
+  // foot is the view's, so a view taller than 1080 keeps it on the screen's bottom edge (TASKS 1861)
+  function bpGeo(S, R) {
+    const h = R.hero, gold = String(h.gold), shards = String(S.meta.shards), keys = R.keys > 0 ? String(R.keys) : '', np = potsOf(R).length, ns = D.clsOf(h).abs.length;
+    const NW = 156, FW = 70, CS = 100, PS = 74, SEP = 40, PAD = 34, BH = 132;
+    const gw = Math.max(150, lw('gold_count', gold, { size: 28 }) + 80), sw = lw('shard_count', shards, { size: 22 }) + 92, kw = keys ? lw('key_count', keys, { size: 22 }) + 92 : 0;
+    const mw = Math.max(gw + 50, sw + (kw ? kw + 10 : 0)), vitW = 2 * (FW - 2 + NW) + 16, skW = ns * CS + (ns - 1) * 16, potW = np * PS + (np - 1) * 14;
+    const w = 2 * PAD + vitW + skW + potW + mw + 3 * SEP, x = Math.round(W / 2 - w / 2), y = H - BH - 6;
+    const vx = x + PAD, sx = vx + vitW + SEP, px = sx + skW + SEP, mx = px + potW + SEP;
+    return { x, y, w, h: BH, NW, FW, CS, PS, vx, sx, px, mx, gw, sw, kw, gold, shards, keys, seps: [sx - SEP / 2, px - SEP / 2, mx - SEP / 2],
+      goldC: [mx + 50 + gw / 2, y + 43], shardC: [mx + sw / 2, y + 99] };
+  }
+  HUD.bp = bpGeo;
   function skillCell(id, x, y, s, A, r, cd, full, low, rage) {
     L.rrect(x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8, s * 0.4, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
     icon(A.icon, x + s * 0.17, y + s * 0.17, s * 0.66, { alpha: r ? 1 : 0.25, grade: r ? [1, 1, 0, 1] : [0, 0.5, 0, 1] });
@@ -330,48 +354,51 @@
     else if (r && low) L.rrect(x + s * 0.12, y + s * 0.12, s * 0.76, s * 0.76, s * 0.38, rage ? [0.4, 0.1, 0.02] : [0.05, 0.1, 0.4], rage ? [0.4, 0.1, 0.02] : [0.05, 0.1, 0.4], 0.5);
     KIT.part('ui_b_cell_round', [48, 48], x, y, { k: s / 96, u: { grade: r ? [1, 1, 0, 1] : [0.3, 0.7, 0, 1] } }); L.uiBox(id, x, y, s, s, 0);
   }
+  // a brass rule between the panel's parts, a knob at each end (the ref's cast dividers are not in the kit yet)
+  const divider = (x, y0, y1) => { L.solid(x - 2, y0, 4, y1 - y0, [0.3, 0.2, 0.1]); L.solid(x - 1, y0, 2, y1 - y0, BRASS); KIT.knob(x, y0, 0.6); KIT.knob(x, y1, 0.6); };
   function hud(S, R, t) {
-    const h = R.hero, st = SIM.Q.stats(h, S.meta), GT = S.t, K = KIT;
+    const h = R.hero, st = SIM.Q.stats(h, S.meta), GT = S.t, K = KIT, B = bpGeo(S, R);
+    // the portrait in its frame, the level on its plate and the experience bar under it
     plate('hud_plate', HB.x, HB.y, HB.w, HB.h, { k: 0.35, pad: 0 });
-    // portrait + level
-    L.solid(22, 22, 92, 80, [0.05, 0.035, 0.03]); L.sprite(portraitOf(h), 25, 25, { w: 86, h: 74, src: [0.08, 0.02, 0.92, 0.74] }); edge(22, 22, 92, 80, BRASS, 3); L.uiBox('portrait', 22, 22, 92, 80, 0);
-    K.nine('btn', 16, 110, 104, 36); K.ink('lvl', TXT('hud.hud', { lvl: h.lvl }), 68, 129, { size: 20, al: 0.5 }); L.uiBox('lvl_b', 30, 110, 76, 36, 0);
-    if (h.pts > 0 || h.sp > 0) { const a = 0.6 + 0.4 * Math.sin(t * 5); L.rrect(100, 12, 26, 26, 13, [1, 0.75, 0.2], [0.8, 0.45, 0.1], a); L.uiBox('lvl_up_b', 98, 10, 30, 30, 0); lab('lvl_up', '+', 113, 25, { size: 20, al: 0.5, col: '#2a1606', out: '' }); }
-    // flasks and bars; the warrior's rage (TASKS 1130) in the mana's flask, in its own ember colour
-    const rage = D.clsOf(h).res === 'rage', hpF = h.hp / st.maxHp, mpF = h.mp / st.maxMp;
-    K.flask('hp_fl', 120, 12, 88, hpF, [0.78, 0.1, 0.07]); K.flask('mp_fl', 178, 12, 88, mpF, rage ? [0.9, 0.38, 0.08] : [0.15, 0.32, 0.85]);
-    // the numbers stand on their own parchment plates beside the bars, as on ref_ui_hud_b: on the bar a 20 px number covered its
-    // brass rims and left the fill two thin strips (TASKS 1759); four-digit pairs lose their spaces before they would overflow (1794)
-    const bx = 240, bw = 200, nx = bx + bw + 8, nw = 136, pair = (id, a, b) => { const s = a + ' / ' + b; return lw(id, s, { size: 20 }) <= nw - 44 ? s : a + '/' + b; };
-    const num = (id, s, y, hh) => { K.nine('btn', nx, y, nw, hh); K.ink(id, s, nx + nw / 2, y + hh / 2 + 1, { size: 20, al: 0.5 }); L.uiBox(id + '_b', nx + 14, y, nw - 28, hh, 0); };
-    K.bar('hpbar', bx, 18, bw, 32, hpF, [0.86, 0.12, 0.1], [0.5, 0.04, 0.04]);
-    if (h.shield > 0 && GT < h.shieldUntil) L.rrect(bx + 24, 28, (bw - 48) * Math.min(1, h.shield / st.maxHp), 5, 2, [0.6, 0.85, 1], [0.3, 0.55, 1], 0.9);
-    num('hpbar_t', pair('hpbar_t', Math.ceil(h.hp), st.maxHp), 16, 36);
-    K.bar('mpbar', bx, 58, bw, 28, mpF, rage ? [0.95, 0.42, 0.1] : [0.18, 0.42, 0.95], rage ? [0.5, 0.14, 0.04] : [0.07, 0.18, 0.55]); num('mpbar_t', pair('mpbar_t', Math.floor(h.mp), st.maxMp), 56, 32);
-    if (rage && h.mp >= st.maxMp) L.solid(bx + bw - 25, 58 + 8, 4, 12, [1, 0.86, 0.45], 0, 0, 0, 1);
-    K.bar('xpbar', bx, 94, nx + nw - bx, 16, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
-    // skill bar + potions
-    D.clsOf(h).abs.forEach((A, i) => { const x = 126 + i * 58, y = 122, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
-      skillCell('sk_' + A.id, x, y, 54, A, r, cd, A.cd, h.mp < A.mp, rage);
-      if (r && cd > 0) lab('skc_' + A.id, cd.toFixed(1), x + 27, y + 28, { size: 20, al: 0.5 });
-      lab('skk_' + A.id, A.key, x + 6, y + 8, { size: 20, col: C.gold }); });
+    L.solid(HB.x + 13, HB.y + 13, 110, 110, [0.05, 0.035, 0.03]); L.sprite(portraitOf(h), HB.x + 14, HB.y + 14, { w: 108, h: 108, src: [0.08, 0.02, 0.92, 0.86] }); edge(HB.x + 12, HB.y + 12, 112, 112, BRASS, 3); L.uiBox('portrait', HB.x + 12, HB.y + 12, 112, 112, 0);
+    K.nine('btn', TLX, 14, 150, 52); K.ink('lvl', TXT('hud.hud', { lvl: h.lvl }), TLX + 75, 41, { size: 28, al: 0.5 }); L.uiBox('lvl_b', TLX + 16, 14, 118, 52, 0);
+    if (h.pts > 0 || h.sp > 0) { const a = 0.6 + 0.4 * Math.sin(t * 5); L.rrect(HB.x + HB.w - 30, HB.y + 2, 28, 28, 14, [1, 0.75, 0.2], [0.8, 0.45, 0.1], a); L.uiBox('lvl_up_b', HB.x + HB.w - 32, HB.y, 32, 32, 0); lab('lvl_up', '+', HB.x + HB.w - 16, HB.y + 16, { size: 20, al: 0.5, col: '#2a1606', out: '' }); }
+    K.bar('xpbar', TLX, 74, 226, 26, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
+    // the stats on a parchment sheet under the portrait, ink on paper as on the ref
+    const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
+    const sw = Math.max(...rows.map(([, v], i) => lw('stv' + i, v, { size: 22 }))) + 76, sy = HB.y + HB.h + 8;
+    K.nine('torn', 8, sy, sw, rows.length * 32 + 28, { k: 0.4 }); L.uiBox('stats', 16, sy + 8, sw - 16, rows.length * 32 + 12, 4);
+    const rowTip = [[TXT('hud.inv.derived'), TXT('hud.tip.atk')], [TXT('hud.inv.derived.2'), TXT('hud.tip.def')], [TXT('hud.inv.derived.7'), TXT('hud.tip.aspd')], [TXT('hud.inv.derived.5'), TXT('hud.tip.crit')]];
+    rows.forEach(([ic, v], i) => { const y = sy + 14 + i * 32; icon(ic, 26, y + 2, 24); K.ink('stv' + i, v, 58, y + 15, { size: 22 }); tipAt(8, y, sw, 32, rowTip[i][0] + ' ' + v, rowTip[i][1]); });
+    buffs(S, R, GT, sy + rows.length * 32 + 36);
+    // the bottom panel: flasks with their numbers on parchment, the skills in round sockets, the potions, the money
+    K.nine('leather', B.x, B.y, B.w, B.h, { k: 0.45 }); L.uiBox('hud_bar', B.x + 14, B.y + 10, B.w - 28, B.h - 20, 0);
+    for (const x of B.seps) divider(x, B.y + 26, B.y + B.h - 26);
+    // the warrior's rage (TASKS 1130) in the mana's flask, in its own ember colour
+    const rage = D.clsOf(h).res === 'rage', hpF = h.hp / st.maxHp, mpF = h.mp / st.maxMp, fy = B.y + 14;
+    K.flask('hp_fl', B.vx, fy, 104, hpF, [0.78, 0.1, 0.07]); K.flask('mp_fl', B.vx + B.FW - 2 + B.NW + 16, fy, 104, mpF, rage ? [0.9, 0.38, 0.08] : [0.15, 0.32, 0.85]);
+    // four-digit pairs lose their spaces before they would overflow their plate (TASKS 1794)
+    const pair = (id, a, b) => { const s = a + ' / ' + b; return lw(id, s, { size: 24 }) <= B.NW - 48 ? s : a + '/' + b; };
+    const num = (id, s, x) => { K.nine('btn', x, B.y + 41, B.NW, 50); K.ink(id, s, x + B.NW / 2, B.y + 67, { size: 24, al: 0.5, fit: B.NW - 40 }); L.uiBox(id + '_b', x + 16, B.y + 41, B.NW - 32, 50, 0); };
+    const hx = B.vx + B.FW - 2, mx = hx + B.NW + 16 + B.FW - 2;
+    num('hpbar_t', pair('hpbar_t', Math.ceil(h.hp), st.maxHp), hx); num('mpbar_t', pair('mpbar_t', Math.floor(h.mp), st.maxMp), mx);
+    // the shield's soak, a blue line along the foot of the health's plate
+    if (h.shield > 0 && GT < h.shieldUntil) L.rrect(hx + 22, B.y + 84, (B.NW - 44) * Math.min(1, h.shield / st.maxHp), 5, 2, [0.6, 0.85, 1], [0.3, 0.55, 1], 0.9);
+    if (rage && h.mp >= st.maxMp) { G.blend('add'); L.glow(mx + 2 - B.FW / 2, fy + 66, 46, [1, 0.6, 0.2], 0.35 + 0.1 * Math.sin(t * 6)); G.blend(); }
+    D.clsOf(h).abs.forEach((A, i) => { const x = B.sx + i * (B.CS + 16), y = B.y + 8, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
+      skillCell('sk_' + A.id, x, y, B.CS, A, r, cd, A.cd, h.mp < A.mp, rage);
+      if (r && cd > 0) lab('skc_' + A.id, cd.toFixed(1), x + B.CS / 2, y + B.CS / 2, { size: 26, al: 0.5 });
+      lab('skk_' + A.id, A.key, x + 12, y + 14, { size: 22, col: C.gold }); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
-    [['hp_potion', 'it_hp', 'Q'], ['mp_potion', 'it_mp', 'R']].concat(R.viaTown ? [['scroll', 'it_scroll', 'T']] : []).forEach(([b, ic, k], i) => { const x = 304 + i * 50, y = 126;
-      K.nine('cell', x, y, 46, 46); L.uiBox('pot_' + b, x, y, 46, 46, 0); icon(ic, x + 7, y + 6, 32); lab('potn_' + b, pot(b), x + 41, y + 37, { size: 20, al: 1 }); lab('potk_' + b, k, x + 8, y + 10, { size: 20, col: C.gold }); });
-    // stats column (light numbers on a narrow plate under the portrait)
-    const rows = [['it_sword', st.atk], ['it_shield', st.def], ['it_boots', Math.round(st.aspd) + '%'], ['it_ring', Math.round(st.crit) + '%']];
-    const sw = Math.max(...rows.map(([, v], i) => lw('stv' + i, v, { size: 19 }))) + 54;
-    plate('stats', 8, HB.y + HB.h + 8, sw, rows.length * 28 + 16, { a: 0.85 });
-    const rowTip = [[TXT('hud.inv.derived'), TXT('hud.tip.atk')], [TXT('hud.inv.derived.2'), TXT('hud.tip.def')], [TXT('hud.inv.derived.7'), TXT('hud.tip.aspd')], [TXT('hud.inv.derived.5'), TXT('hud.tip.crit')]];
-    rows.forEach(([ic, v], i) => { const y = HB.y + HB.h + 16 + i * 28; icon(ic, 17, y + 1, 22); lab('stv' + i, v, 46, y + 13, { size: 19 }); tipAt(8, y - 2, sw, 28, rowTip[i][0] + ' ' + v, rowTip[i][1]); });
-    const money = currencies(S, R);
-    for (const [id, ic, value, x, w, col] of money) {
-      plate(id + '_box', x, HB.y + HB.h + 8, w, 38, { a: 0.9 });
-      icon(ic, x + 8, HB.y + HB.h + 15, 24); lab(id, value, x + 38, HB.y + HB.h + 28, { size: 19, col });
-      tipAt(x, HB.y + HB.h + 8, w, 38, id === 'gold_count' ? TXT('hud.altar.6', { gold: value }) : id === 'shard_count' ? TXT('hud.stats.hand', { n: value }) : TXT('hud.tip.key', { n: value }), id === 'gold_count' ? TXT('hud.tip.gold') : id === 'key_count' ? TXT('hud.tip.key.2') : '');
-    }
-    buffs(S, R, GT);
+    potsOf(R).forEach(([b, ic, k], i) => { const x = B.px + i * (B.PS + 14), y = B.y + 22;
+      K.nine('cell', x, y, B.PS, B.PS); L.uiBox('pot_' + b, x, y, B.PS, B.PS, 0); icon(ic, x + 13, y + 11, 48); lab('potn_' + b, pot(b), x + B.PS - 6, y + B.PS - 12, { size: 22, al: 1 }); lab('potk_' + b, k, x + 10, y + 14, { size: 22, col: C.gold }); });
+    // the gold on its own plate as on the ref, the soul shards and a floor's key under it
+    icon('it_gold', B.mx, B.y + 22, 42); K.nine('btn', B.mx + 50, B.y + 18, B.gw, 50); K.ink('gold_count', B.gold, B.goldC[0], B.goldC[1], { size: 28, al: 0.5 }); L.uiBox('gold_b', B.mx + 66, B.y + 18, B.gw - 32, 50, 0);
+    tipAt(B.mx, B.y + 18, B.gw + 50, 50, TXT('hud.altar.6', { gold: B.gold }), TXT('hud.tip.gold'), B.y);
+    const cur = (id, ic, s, x, w, title, line) => { K.nine('btn', x, B.y + 80, w, 40); icon(ic, x + 18, B.y + 86, 28); K.ink(id, s, x + 54, B.y + 101, { size: 22, al: 0, col: id === 'shard_count' ? '#24407a' : K.INK.t }); L.uiBox(id + '_b', x + 14, B.y + 80, w - 28, 40, 0); tipAt(x, B.y + 80, w, 40, title, line, B.y); };
+    cur('shard_count', 'crystal', B.shards, B.mx, B.sw, TXT('hud.stats.hand', { n: B.shards }), '');
+    if (B.keys) cur('key_count', 'it_key', B.keys, B.mx + B.sw + 10, B.kw, TXT('hud.tip.key', { n: B.keys }), TXT('hud.tip.key.2'));
     // floor title + minimap
     minimap(S, R, t); tracker(S, R);
     // boss bar
@@ -380,7 +407,6 @@
       const max = Number.isFinite(boss.max) && boss.max > 0 ? boss.max : 1, hp = Math.max(0, Number.isFinite(boss.hp) ? boss.hp : 0), E = D.ENEMIES[boss.type];
       K.banner('bossn', W / 2, 2, Math.max(420, lw('bossn_m', E.name, { size: 30 }) + 220), E.name, { h: 62, size: 30 });
       if (E.title) lab('bosst', E.title, W / 2, 78, { size: 18, al: 0.5, col: '#e8cdb4' });
-      // 700 px: the wider HUD plate (TASKS 1759) ends at x 596, and the bar keeps clear of it
       const BW = 700, bx = W / 2 - BW / 2, by = E.title ? 92 : 70, bh = 34, ix = bh * 12 / 16;
       K.bar('bossbar', bx, by, BW, bh, hp / max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02]); lab('bossbar_t', Math.ceil(hp) + ' / ' + Math.ceil(max), W / 2, by + bh / 2 + 1, { size: 20, al: 0.5 });
       for (const phase of D.BOSSES[boss.type].phases || []) if (phase.at > 0 && phase.at < 1) {
@@ -400,23 +426,24 @@
       const w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
       plate('msg_box', W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * lh, { a: al });
       ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lh, { size, al: 0.5, col: C.gold, a: al })); } } }
-    // feed: pickups and refusals, newest at the bottom
+    // feed: pickups and refusals, newest at the bottom, over the panel's left end
     const feed = D.feedOf(S.ev, S.t);
-    feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = H - 44 - (feed.length - 1 - i) * 34;
+    feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = B.y - 30 - (feed.length - 1 - i) * 34;
       const s = e.k === 'trade' ? TXT('hud.hud.s', { p1: e.s + (e.n > 0 ? '  +' : '  −') + Math.abs(e.n) }) : e.k === 'pickup' ? (e.worn ? TXT('hud.hud.s.2') : TXT('hud.hud.s.3')) + e.s : e.k === 'lvl' ? TXT('hud.hud.s.4', { lvl: e.lvl }) : e.k === 'unlock' ? TXT('hud.hud.s.5', { name: D.ABILITIES.find((A) => A.id === e.id).name }) : e.s;
       const col = e.k === 'pickup' || e.k === 'trade' ? hex(D.RARITY[e.rar || 0].col) : e.k === 'nope' ? '#ffb0a0' : C.gold, w = lw('feed' + i, s, { size: 19 }) + 32;
       plate('feedbox' + i, 14, y - 17, w, 34, { a: 0.85 * al }); lab('feed' + i, s, 30, y + 1, { size: 19, col, a: al }); });
+    // the key hints over the panel's right end: the panel takes the bottom edge they stood on
     if (S.screen === 'play') { const k = S.meta.mute ? TXT('hud.hud.k.mute') : TXT('hud.hud.k'), kw = lw('keys', k, { size: 26 }) + 24;
-      plate('keys_box', W - 12 - kw, H - 48, kw, 42, { a: 0.85 }); lab('keys', k, W - 24, H - 26, { size: 26, al: 1, col: '#8a7d6c' }); }
+      plate('keys_box', W - 12 - kw, B.y - 54, kw, 42, { a: 0.85 }); lab('keys', k, W - 24, B.y - 32, { size: 26, al: 1, col: '#8a7d6c' }); }
   }
 
-  // active effects under the currencies: the shrine's blessing lasts the floor, the shield shows what it still soaks, the
+  // active effects under the level's bar, right of the portrait as on the ref: the shrine's blessing lasts the floor, the shield shows what it still soaks, the
   // timed ones drain clockwise; debuffs sit on a red rim
   // a gift taken at several altars: its tooltip names the summed value, as its cell does, and how many times it was given
   const giftTip = (G, n) => { if (n < 2) return G.desc; const times = TXT.n('hud.tip.times', n);
     const d = G.flat ? TXT('GIFTS.phoenix.descN', { n, times }) : G.desc.replace(String(G.v), String(Math.round(G.v * n * 10) / 10));
     return G.flat ? d : TXT('hud.tip.giftN', { d, n, times }); };
-  function buffs(S, R, GT) {
+  function buffs(S, R, GT, statsBot) {
     const h = R.hero, list = [], gift = (id) => D.GIFTS.find((g) => g.id === id);
     if (h.bless) list.push({ id: 'bless', ic: 'bf_bless', v: '+20%', col: '#9cc8ff', gift: 1, name: gift('bless').name, desc: gift('bless').desc });
     if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff', gift: 1, name: TXT('hud.tip.greed') });
@@ -427,8 +454,8 @@
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.burn'), desc: TXT('hud.tip.burn') });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
     // a gift sits in a round brass cell, the shield and the curses in square ones: the same item icons, told apart by their rim (TASKS 1862)
-    TIPY = Math.max(HB.y + HB.h + 8 + 4 * 28 + 24, HB.y + HB.h + 56 + Math.ceil(list.length / 8) * 64);
-    list.forEach((b, i) => { const x = 120 + (i % 8) * 66, y = HB.y + HB.h + 56 + Math.floor(i / 8) * 64;
+    TIPY = Math.max(statsBot, 112 + Math.ceil(list.length / 6) * 64) + 8;
+    list.forEach((b, i) => { const x = TLX + (i % 6) * 66, y = 112 + Math.floor(i / 6) * 64;
       if (b.gift) { L.rrect(x + 3, y + 3, 34, 34, 17, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]); KIT.part('ui_b_cell_round', [48, 48], x - 3, y - 3, { k: 46 / 96 }); }
       else { KIT.nine('cell', x, y, 40, 40, { u: { grade: b.bad ? [1, 1, 0, 1] : [1, 1.1, 0, 1] } }); if (b.bad) edge(x, y, 40, 40, [0.8, 0.2, 0.15], 2); }
       L.uiBox('bf_' + b.id, x, y, 40, 40, 4); tipAt(x - 4, y - 4, 48, 66, b.name, b.desc);
@@ -439,16 +466,8 @@
       if (b.v) lab('bfv_' + b.id, b.v, x + 20, y + 49, { size: 20, al: 0.5, col: b.col }); });
   }
 
-  function currencies(S, R) {
-    const gold = String(R.hero.gold), shards = String(S.meta.shards), gw = lw('gold_count', gold, { size: 19 }) + 54;
-    const sw = lw('shard_count', shards, { size: 19 }) + 54, out = [['gold_count', 'it_gold', gold, 120, gw, C.gold], ['shard_count', 'crystal', shards, 130 + gw, sw, '#9cc8ff']];
-    // a key found on this floor, until it opens its door
-    if (R.keys > 0) out.push(['key_count', 'it_key', String(R.keys), 140 + gw + sw, lw('key_count', String(R.keys), { size: 19 }) + 54, C.gold]);
-    return out;
-  }
-
   function souls(S, R, V) {
-    const tx = currencies(S, R)[1][3] + 20, ty = HB.y + HB.h + 27;
+    const [tx, ty] = bpGeo(S, R).shardC;
     for (const e of S.ev) {
       const a = S.t - e.t, floorReward = e.k === 'shard' && !!e.s;
       if (e.k !== 'shard' || a < 0 || a > 3.5 || (e.floor !== undefined && e.floor !== R.floor)) continue;
@@ -1071,7 +1090,7 @@
     if (R) { const run = TXT('hud.menu.ask.run', { cls: D.clsOf(R.hero).name, where: whereOf(R) }); KIT.ink('na_ask_r', run, A.x + A.w / 2, A.y + 200, { size: 26, fit: P.w - 60, al: 0.5, col: KIT.INK.t, bold: true });
       KIT.ink('na_ask_d', stamp(R.at), A.x + A.w / 2, A.y + 234, { size: 22, al: 0.5, col: KIT.INK.d }); }
     for (const b of U.r) KIT.button('na_' + b.id, b, askSt(S, U, b.id));
-    const keys = TXT('hud.pause.keys.ask'), ky = H - 26, kw = lw('na_keys_w', keys, { size: 26 }); L.uiBox('na_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    const keys = TXT('hud.pause.keys.ask'), ky = S.run ? bpGeo(S, S.run).y - 32 : H - 26, kw = lw('na_keys_w', keys, { size: 26 }); L.uiBox('na_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('na_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // «Что нового» (TASKS 1038): the changelog's rows from the sim's scroll, a version with its date, its sections, the points
@@ -1114,7 +1133,7 @@
     const s = done ? TXT('hud.pause.askDone.who') : TXT('hud.pause.ask.who');
     halves(s).forEach((v, i) => KIT.ink('pa_ask_w' + i, v, A.x + A.w / 2, A.y + 124 + i * 30, { size: 22, fit: A.w - 80, al: 0.5, col: KIT.INK.d }));
     for (const b of U.r) KIT.button('pa_' + b.id, b, askSt(S, U, b.id));
-    const keys = TXT('hud.pause.keys.ask'), ky = H - 26, kw = lw('pa_keys_w', keys, { size: 26 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    const keys = TXT('hud.pause.keys.ask'), ky = S.run ? bpGeo(S, S.run).y - 32 : H - 26, kw = lw('pa_keys_w', keys, { size: 26 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('pa_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // a fork's way in numbers from its power's own data (TASKS 1857), with what it hits for now beside the share of the attack
