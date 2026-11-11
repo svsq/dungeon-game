@@ -72,7 +72,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (c === 'Period') { stepOnce = true; paused = true; e.preventDefault(); return; }
     if (c === 'BracketLeft') { speed = SPEEDS[Math.max(0, SPEEDS.indexOf(speed) - 1)]; return; }
     if (c === 'BracketRight') { speed = SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(speed) + 1)]; return; }
-    keys[c] = 1; if (play && !(e.repeat && c === 'KeyE')) pend.keys.push(c);
+    keys[c] = 1; if (play) (e.repeat ? pend.rep : pend.keys).push(c);
     const dg = /^Digit(\d)$/.exec(c); if (dg) pend.slot = +dg[1] || 10;                     // 1–9, 0 → inp.slot (hotbars)
     if (!play) startPlay(); else fullSync(true);
     e.preventDefault();
@@ -94,7 +94,7 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
   document.addEventListener('fullscreenchange', () => fullBack(!!document.fullscreenElement));
   if (desk) desk.onFull((on) => fullBack(on));
   // pointer in view pixels (VW×VH); click is true for exactly one sim step
-  const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [] };
+  const cv = document.getElementById('c'), ptr = { x: VW / 2, y: VH / 2, down: 0, click: 0, rclick: 0 }, pend = { slot: 0, wheel: 0, keys: [], rep: [] };
   addEventListener('wheel', (e) => { if (play) { pend.wheel = Math.sign(e.deltaY); e.preventDefault(); } }, { passive: false });
   addEventListener('contextmenu', (e) => e.preventDefault());
   const toView = (e) => { const r = cv.getBoundingClientRect(); ptr.x = (e.clientX - r.left) / r.width * SIM.VIEW.W; ptr.y = (e.clientY - r.top) / r.height * SIM.VIEW.H; };
@@ -113,9 +113,9 @@ const load = (src) => new Promise((res, rej) => { const s = document.createEleme
     if (play) {
       acc += dt;
       const inp = { left: keys.ArrowLeft || keys.KeyA, right: keys.ArrowRight || keys.KeyD, up: keys.ArrowUp || keys.KeyW, down: keys.ArrowDown || keys.KeyS,
-        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys,
+        jump: keys.Space, act: keys.KeyX || keys.KeyJ || keys.Enter, px: ptr.x, py: ptr.y, press: ptr.down, click: ptr.click, rclick: ptr.rclick, slot: pend.slot, wheel: pend.wheel, keys: pend.keys, rep: pend.rep,
         now: Date.now() - new Date().getTimezoneOffset() * 60000 };
-      while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; acc -= SIM.DT; }
+      while (acc >= SIM.DT) { SIM.step(play, inp); inp.click = ptr.click = 0; inp.rclick = ptr.rclick = 0; inp.slot = pend.slot = 0; inp.wheel = pend.wheel = 0; inp.keys = pend.keys = []; inp.rep = pend.rep = []; acc -= SIM.DT; }
       fullSync(false);
       if (play.saveN !== savedN) { savedN = play.saveN; persist(); }
       const logNew = (play.logN || 0) !== loggedN && q.has('dev'), logAsk = (play.logReq || 0) !== loggedReq; loggedN = play.logN || 0; loggedReq = play.logReq || 0;

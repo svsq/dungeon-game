@@ -35,12 +35,15 @@
   const respawn = (S) => S;
   const outOfPlay = () => false;
 
+  const REPEATS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'PageUp', 'PageDown']);
   function step(S, inp = {}) {
     if (!inp.press) S.eatPress = 0; else if (!S.pressWas && S.screen !== 'play') S.eatPress = 1;
     S.pressWas = !!inp.press;
     rebalanceRun(S.run); rebalanceRun(S.saved); fitBag(S, S.run); fitBag(S, S.saved); if (inp.now && S.run && !S.demo) S.run.at = inp.now; if (S.run && S.run.map) fstat(S.run); if (S.run && !S.demo) S.run.zoom = S.meta.zoom;
     const t = S.t + DT; S.t = t;
     const keys = {}; for (const k of inp.keys || []) keys[k] = 1;
+    // a held key's repeats only walk a list (review of PR 57): every other key acts once a press, or a held M or L flips on each repeat
+    for (const k of inp.rep || []) if (REPEATS.has(k)) keys[k] = 1;
     // the pointer is followed in play too, or the first window after play takes a pointer at rest for one that moved
     inp = Object.assign({}, inp, { moved: !S.ptr || S.ptr[0] !== inp.px || S.ptr[1] !== inp.py }); S.ptr = [inp.px, inp.py];
     // M mutes from any screen (TASKS 1853 а): kept in the meta so the HUD can say so and the settings' volume sits beside it
