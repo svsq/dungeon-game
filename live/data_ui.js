@@ -41,7 +41,7 @@
   const bagGrid = (x, y, pre = 'bag', dy, len, tab) => { const T = tabAt(len, tab); return grid(pre, T.n, x, y, { a: T.a, dy }); };
   const tabRow = (x, y, len, w = 200, h = 50) => bagTabs(len).map((q, k) => ({ id: 'btab:' + k, tab: k, label: k ? TXT('hud.inv.pouch', { n: k }) : TXT('hud.inv.10'), on: true, x: x + k * (w + 8), y, w, h }));
   // the settings screen's rows, in order (TASKS 1302): each a slider over its stops, its value kept in S.meta[key]
-  const SETTINGS_BOOK = { x: 380, y: 130, w: 1160, h: 840 };
+  const SETTINGS_BOOK = { x: 380, w: 1160, top: 236, row: 100, foot: 160 };
   // the brightness (TASKS 1303): a gamma on the frame's final grade, the HUD drawn after it untouched
   const BRIGHTS = [0.7, 0.85, 1, 1.2, 1.4], stepName = (v) => { const i = BRIGHTS.indexOf(v) - 2; return i > 0 ? '+' + i : i < 0 ? '\u2212' + -i : '0'; };
   const SETTINGS = [{ id: 'zoom', key: 'zoom', name: () => TXT('UI.settings.zoom'), stops: D.ZOOMS, def: D.ZOOM, fmt: zoomName },
@@ -96,11 +96,13 @@
       for (let i = t; i < rows.length && y + rows[i].h <= P.y + NEWS.top + vh; i++) { shown.push(Object.assign({ y }, rows[i])); y += rows[i].h; }
       return { P, rows: shown, top: t, max, n: rows.length, view: { x: P.x + 60, y: P.y + NEWS.top, w: P.w - 120, h: vh },
         r: [{ id: 'back', label: TXT('UI.news.back.label'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 94, w: 300, h: 66 }] }; },
-    // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right),
-    // «Назад» under them. Five rows fit: the zoom and the brightness now, the graphics modes (1372) and the language (1039) later
-    settings: () => { const B = SETTINGS_BOOK, rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + 236 + i * 100 }, q));
+    // the settings (TASKS 1302): an open book, a row a setting across both pages (its name on the left, its control on the right).
+    // The book is as tall as the settings there are (TASKS 1758: five rows' room held two and stood two thirds empty); the graphics
+    // modes (1372) and the language (1039) will each add a row. «Назад» under the book, off the spine, as on the saves' screen
+    settings: () => { const K = SETTINGS_BOOK, h = K.top + SETTINGS.length * K.row - 50 + K.foot, y = Math.max(40, Math.round((1080 - h - 150) / 2)), B = { x: K.x, y, w: K.w, h };
+      const rows = SETTINGS.map((q, i) => Object.assign({ y: B.y + K.top + i * K.row }, q));
       return { B, rows, r: rows.map((q) => ({ id: q.id, slider: q.stops, x: 1000, y: q.y - 34, w: 420, h: 68 }))
-        .concat([{ id: 'back', label: TXT('UI.settings.back'), on: true, x: 960 - 150, y: B.y + B.h - 128, w: 300, h: 64 }]) }; },
+        .concat([{ id: 'back', label: TXT('UI.settings.back'), on: true, x: 960 - 150, y: B.y + B.h + 26, w: 300, h: 64 }]) }; },
     // the statistics (TASKS 1309): an open book, the counters on the left page, the tabs (all classes, then each ready one) over the
     // right page with its chart, «Назад» at the right page's foot
     stats: () => { const B = STATS_BOOK, tabs = ['all'].concat(D.classesReady()), TW = 138, tg = 8, rx = B.x + B.w / 2 + 48, rw = B.w / 2 - 110;

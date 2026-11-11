@@ -777,7 +777,7 @@
       KIT.slider('st_s_' + q.id, r.x + 20, q.y, r.w - 40, q.stops.indexOf(v) / (q.stops.length - 1), Object.assign(st, { press: S.drag === q.id }), { ticks: q.stops.length, value: q.fmt(v), ends: q.ends ? q.ends() : [q.fmt(q.stops[0]), q.fmt(q.stops[q.stops.length - 1])] });
       KIT.rule(B.all.x, q.y + 50, B.all.w, 0.7); }
     const back = U.r.find((o) => o.id === 'back'); KIT.button('st_back', back, KIT.st(S, 'back'));
-    const ky = U.B.y + U.B.h + 36, kw = lw('st_keys_w', TXT('hud.settings.keys'), { size: 22 }); L.uiBox('st_keys_b', W / 2 - kw / 2 - 12, ky - 18, kw + 24, 36, 0);
+    const ky = back.y + back.h + 40, kw = lw('st_keys_w', TXT('hud.settings.keys'), { size: 22 }); L.uiBox('st_keys_b', W / 2 - kw / 2 - 12, ky - 18, kw + 24, 36, 0);
     KIT.light('st_keys', TXT('hud.settings.keys'), W / 2, ky, { size: 22, al: 0.5, col: '#cdb894' });
   }
   const statName = { runs: () => TXT('hud.stats.runs'), wins: () => TXT('hud.stats.wins'), deaths: () => TXT('hud.stats.deaths'), kills: () => TXT('hud.stats.kills'), elites: () => TXT('hud.stats.elites'),

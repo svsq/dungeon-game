@@ -67,9 +67,12 @@
   };
   // an open book: a leather cover, two pages of parchment with the gutter between, a brass clasp on the right edge; returns
   // the two pages' writing areas and the whole spread
+  // the cover has a board's thickness: its back board in shadow a little lower, and the block of pages' edges at the foot (TASKS 1758)
   K.book = (id, x, y, w, h, o = {}) => {
+    K.nine('leather', x + 4, y + 12, w, h, { u: { grade: [0.42, 0.8, 0, 1] } });
     K.nine('leather', x, y, w, h);
     const m = 22, px = x + m, py = y + m, pw = w - 2 * m, ph = h - 2 * m, gw = 56;
+    for (let i = 0; i < 3; i++) L.solid(px + 6 + i * 4, py + ph + 2 + i * 4, pw - 12 - i * 8, 3, [0.80 - i * 0.07, 0.69 - i * 0.07, 0.50 - i * 0.06]);
     K.paper(px, py, pw, ph);
     L.solid(px, py + ph - 3, pw, 3, [0.36, 0.23, 0.13]); L.solid(px, py, pw, 2, [0.62, 0.48, 0.32], 0, 0, 0, 0.6);
     K.nine('gutter', x + w / 2 - gw / 2, py - 4, gw, ph + 8);
