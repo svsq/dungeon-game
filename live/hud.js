@@ -1328,7 +1328,7 @@
     const C2 = r.C || { floors: 0, foes: 0, kills: 0, lootN: 0, loot: 0, secN: 0, sec: 0, pct: 0 }, pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%';
     const runRows = [r.record ? [TXT('hud.end.runRows'), (r.deepest || r.floor) + (r.record.fresh ? TXT('hud.end.runRows.2') : TXT('hud.end.runRows.3', { best: r.record.best }))] : [TXT('hud.end.runRows.4'), r.deepest || r.floor], ...(r.campaignWon ? [[TXT('hud.end.runRows.5'), TXT('hud.end.runRows.6')]] : []), [TXT('hud.end.runRows.7'), r.lvl], [TXT('hud.end.runRows.8'), fmtT(r.time || 0)], [TXT('hud.end.runRows.9'), r.gold], [TXT('hud.end.runRows.10'), r.kills]];
     const doneRows = [[TXT('hud.end.doneRows'), C2.foes ? C2.kills + '/' + C2.foes + ' · ' + pc(C2.kills, C2.foes) : '—'], [TXT('hud.end.doneRows.2'), C2.lootN ? C2.loot + '/' + C2.lootN + ' · ' + pc(C2.loot, C2.lootN) : '—'],
-      [TXT('hud.end.doneRows.3'), C2.secN ? C2.sec + '/' + C2.secN + ' · ' + pc(C2.sec, C2.secN) : '—'], [TXT('hud.end.doneRows.4'), C2.floors], [TXT('hud.end.doneRows.5'), Math.round(100 * C2.pct) + '%']];
+      [TXT('hud.end.doneRows.3'), C2.secN ? C2.sec + '/' + C2.secN + ' · ' + pc(C2.sec, C2.secN) : '—'], [TXT('hud.end.doneRows.4'), C2.passed ?? C2.floors], [TXT('hud.end.doneRows.5'), Math.round(100 * C2.pct) + '%']];
     const bx = 650, by = 220, I = KIT.INK;
     page('e_box', bx, by, 1070, 650);
     KIT.ink('e_h1', TXT('hud.end.15'), bx + 30, by + 46, { size: 28, col: I.r }); KIT.ink('e_h2', TXT('hud.end.16'), bx + 570, by + 46, { size: 28, col: I.r });
@@ -1347,5 +1347,7 @@
     const line = affordable ? TXT('hud.end.line', { goal }) : next ? TXT('hud.end.line.2', { goal, p2: next.cost(up[next.id] || 0) - S.meta.shards }) : TXT('hud.end.line.3');
     wrap('e_goal', line, bx + 30, by + 566, 1000, 25, I.g);
     for (const b of D.UI.end(r.log, r.town)) KIT.button('eb_' + b.id, b, stN(S, b.id, b.on), b.id === 'again' ? 'wax' : 'parch');
+    // what the journal button gives (TASKS 1853 и): a file, so the player knows where it went
+    if (S.hover === 'log' && r.log) lab('eb_log_tip', TXT('hud.end.logTip'), W / 2, 1030, { size: 22, al: 0.5, col: C.dim });
   }
 })();

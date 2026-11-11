@@ -206,7 +206,9 @@
     T.pct = parts.length ? parts.reduce((a, [k, n]) => a + Math.min(1, k / n), 0) / parts.length : 0;
     return T;
   }
-  const runCompletion = (R) => completion(Object.entries(R.stats || {}).filter(([f]) => f !== '0').map(([, v]) => v));
+  // passed (TASKS 1853 и): the floors left behind on the way down, the deepest one only with the run won; a death on the 1st is 0
+  const runCompletion = (R, how) => { const E = Object.entries(R.stats || {}).filter(([f]) => f !== '0'), top = Math.max(0, ...E.map(([f]) => +f)), T = completion(E.map(([, v]) => v));
+    T.passed = E.filter(([f]) => +f < top || how === 'win').length; return T; };
   function completionHints(R) {
     const f = (R.stats || {})[R.floor]; if (!f) return [];
     const near = (k, n) => f[n] > 0 && f[k] < f[n] && f[k] / f[n] >= 0.85, out = [];
@@ -278,7 +280,7 @@
   function runReward(R, how) {
     // the gold of a campaign won on the way down was paid at the stairs (descend): only the gold since counts at the end, and its
     // win is not paid again when the run is ended alive later (TASKS 1148)
-    const C = runCompletion(R), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' && !R.campaignWon ? REWARD.win : 0);
+    const C = runCompletion(R, how), base = Math.floor((R.goldTot - (R.goldBanked || 0)) / REWARD.goldPer) + (how === 'win' && !R.campaignWon ? REWARD.win : 0);
     return { base, bonus: 0, cap: 0, C };
   }
   const FULL = [['kills', 'foes', TXT('FULL')], ['loot', 'lootN', TXT('FULL.2')], ['sec', 'secN', TXT('FULL.3')]];

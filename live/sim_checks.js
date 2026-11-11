@@ -3190,6 +3190,9 @@
     R2.hero.x = R2.map.exit.x; R2.hero.y = R2.map.exit.y; interact(T, R2);
     if (R2.floor !== 1 || R2.town || R2.map.town || !R2.en.length) out.push('town: the stairs do not lead down to the 1st floor');
     if (runCompletion(R2).floors !== 1) out.push('town: the town counts as a floor of the run');
+    // TASKS 1853 и: a death on the 1st floor has passed none, a step down passes the one above, a win passes the deepest too
+    if (runCompletion(R2, 'dead').passed !== 0) out.push(`end: a death on the 1st floor counts ${runCompletion(R2, 'dead').passed} floors passed`);
+    { const R3 = { stats: Object.assign({}, R2.stats, { 2: R2.stats[1] }) }; if (runCompletion(R3, 'dead').passed !== 1 || runCompletion(R3, 'win').passed !== 2) out.push('end: the floors passed do not count the ones left behind'); }
     // TASKS 1006: down the stairs the hero is as he left the town; a death and a win show their results and lead back to the town
     // with a new hero and the meta kept; a saved run in the town stays small
     { const S2 = spawn(0, {}); S2.meta.shards = 40; startRun(S2, 'town'); const Q = S2.run, h2 = Q.hero; h2.gold = 321; h2.bag[5] = Object.assign(rollItem(Q, 1, 0, 'ring'), { id: Q.nextId++ });

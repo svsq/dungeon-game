@@ -137,7 +137,7 @@
         h.perks = Object.fromEntries(D.GIFTS.filter((g) => g.id !== 'bless').map((g) => [g.id, 3])); })],
       ['dead', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 8, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 0, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
       ['win', mk((S) => { S.screen = 'win'; S.result = { how: 'win', floor: 12, lvl: 99, kills: 9999, gold: 999999, shards: 99999, found: 9999, base: 12529, statBonus: 40, cap: 40, win: 30, time: 35999, C: { floors: 8, foes: 9999, kills: 9999, lootN: 9999, loot: 9999, secN: 16, sec: 16, pct: 1 } }; })],
-      ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
+      ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, passed: 0, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
     ];
     for (const [name, S] of states.filter(([n]) => ['dead', 'win', 'dead_short'].includes(n))) {
       const R = SIM.newRun(S, 'campaign', 1234); S.result.hero = R.hero; S.result.heroStats = SIM.stats(R.hero, S.meta);
@@ -151,6 +151,7 @@
       ['dead_ghost', 'ghost', { type: 'ghost', elite: 0 }], ['dead_boss', 'boss', { type: 'boss', elite: 1 }]]) {
       const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.damage[2] = { t: 3, src, n: 99, actor }; states.push([name, S]);
     }
+    { const S = structuredClone(states.find(([n]) => n === 'dead')[1]); S.result.log = { fl: [] }; S.hover = 'log'; states.push(['dead_log_tip', S]); }
     const abandoned = structuredClone(states.find(([n]) => n === 'dead')[1]); abandoned.result.abandoned = true; states.push(['end_abandoned', abandoned]);
     for (const b of ['longsword', 'axe', 'hammer', 'staff', 'fist']) {
       const S = structuredClone(states.find(([n]) => n === 'win')[1]);
@@ -1364,7 +1365,7 @@
     {
       const S = structuredClone(states.find(([name]) => name === 'win')[1]); S.result.mode = 'cave'; S.result.floor = 4;
       const R = SIM.newRun(S, 'cave', 71); S.result.hero = structuredClone(R.hero); S.result.heroStats = SIM.stats(R.hero, S.meta);
-      S.result.C.floors = 4; states.push(['win_cave_worst', structuredClone(S)]);
+      S.result.C.floors = S.result.C.passed = 4; states.push(['win_cave_worst', structuredClone(S)]);
       Object.assign(S.result, { lvl: 12, kills: 80, gold: 800, shards: 121, found: 70, base: 31, statBonus: 20, time: 1800 });
       Object.assign(S.result.C, { foes: 80, kills: 80, lootN: 70, loot: 65, secN: 4, sec: 2, pct: (1 + 65 / 70 + 0.5) / 3 });
       states.push(['win_cave', S]);
