@@ -362,7 +362,7 @@
         if (e.mv === 'rain') colossusRain(S, R, e, M);
         if (e.mv === 'stomp') { const d = Math.hypot(h.x - e.x, h.y - e.y), los = losClear(m, e.x, e.y, h.x, h.y); e.shove = los && d < M.r + K.R ? 1 : 0;
           if (d < M.r && los) hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e), e);
-          ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id, r: M.r }); R.trauma = Math.min(1, R.trauma + 0.8); }
+          ev(S, { k: 'slam', x: e.x, y: e.y, big: 1, id: e.id, r: M.r }); ev(S, { k: 'stomp', x: e.x, y: e.y, id: e.id, shove: e.shove }); R.trauma = Math.min(1, R.trauma + 0.8); }
       }
       // the stomp slides him out over its first `shove` s rather than jumping him, and never into the lava: a dodge keeps the hurt off, not the push
       if (e.mv === 'stomp' && e.shove && u >= w && u < w + M.shove) { const dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy) || 1, v = M.push / M.shove * DT;
