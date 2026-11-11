@@ -242,7 +242,7 @@
   // round a chasm in its middle (a combat room's: no fire, stairs or altar stands by it); gallery, long and narrow; closet, a small
   // room off the way (never the start, the stairs, the merchant or the altar); hall, a big one (maps from `from` cells wide); tier,
   // a fight's hall on two levels (TASKS 375): a gallery at the back behind a railing over a drop, steps down to the floor below
-  const ROOM_SHAPES = { rect: { p: 34 }, L: { p: 12 }, T: { p: 10 }, cross: { p: 9 }, round: { p: 8 }, colonnade: { p: 8 }, pit: { p: 7 }, gallery: { p: 5 }, closet: { p: 4 }, hall: { p: 3, from: 72 }, tier: { p: 5, from: 64 } };
+  const ROOM_SHAPES = { rect: { p: 34 }, L: { p: 12 }, T: { p: 10 }, cross: { p: 9 }, round: { p: 8 }, colonnade: { p: 8 }, pit: { p: 7 }, gallery: { p: 5 }, closet: { p: 4 }, hall: { p: 3, from: 72 }, tier: { p: 10, from: 64 } };
   const ROOM_PLANS = {
     arena: { need: [], w: 0, bones: 0 },
     armory: { need: ['rack'], w: 3, back: { n: ['rack'], mode: 'row', max: 3 }, stacks: 1, table: 0.4, bones: 1 },
