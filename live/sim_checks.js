@@ -1570,11 +1570,12 @@
         else if (q.kind === 'shelf') for (let k = 0; k <= D.SHELF_SECRET.hp && !q.open; k++) swing(S, R, q);
         else for (let k = 0; k < 4 && !q.open; k++) { standAt(R, q); if (q.trig && q.trig.k === 'plate') step(S, { keys: [], px: 960, py: 540 }); else pressE(S); }
         if (!q.open) out.push(`seed ${sd} f${f}: secret ${i} (${q.kind}${q.trig ? ' ' + q.trig.k : ''}, ${q.dir}) does not open by its way`); }); }
-    // loot: open every chest of a few floors (secret ones too), let the items fall and pick up half of them; the floor's books
+    // loot: open every chest of a few floors (secret ones too, each after its secret, as in play: TASKS 1868, the loot of a chest opened
+    // in a shut 3×5 cache had no cell out of its props' shade), let the items fall and pick up half of them; the floor's books
     // balance at every stage and no item comes to rest where the hero cannot get to it
     for (const sd of [11, 222]) for (const f of [1, 4, 8]) { const S = spawn(0, {}); S.run = newRun(S, 'campaign', sd); if (f > 1) enterFloor(S, S.run, f); S.screen = 'play';
       const R = S.run, h = R.hero; R.en = []; h.ifr = 1e9; const check = (when) => { const A = lootAudit(R); if (A.off) out.push(`seed ${sd} f${f}: loot books off by ${A.off} ${when}`); if (A.stuck) out.push(`seed ${sd} f${f}: ${A.stuck} loot out of reach ${when}`); };
-      check('on arrival'); for (const c of R.chests) openChest(S, R, c); h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
+      check('on arrival'); for (const c of R.chests) { const q = c.sec !== undefined && R.map.secrets[c.sec]; if (q && !q.open) openSecret(S, R, q, true); openChest(S, R, c); } h.x = R.map.spawn.x; h.y = R.map.spawn.y; for (let k = 0; k < 120; k++) step(S, { keys: [] }); check('with every chest open');
       const pick = R.drops.filter((o) => o.loot && !o.got).slice(0, 6); for (const d of pick) for (let k = 0; k < 3; k++) { h.x = d.x; h.y = d.y; step(S, { keys: [] }); }
       if (pick.some((d) => !d.got)) out.push(`seed ${sd} f${f}: loot could not be picked up`); check('after picking some up'); }
     // debug: the button opens every secret without counting it, and the second press seals exactly those again
