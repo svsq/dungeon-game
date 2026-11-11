@@ -954,9 +954,13 @@
     KIT.ink('cx_b', TXT('hud.codex.best', { p1: S.meta.best || 0, p2: S.meta.bestEndless || 0 }), W - 120, 226, { size: 22, al: 1, col: I.d });
     KIT.tabs('cx_tb', U.r.filter((b) => b.tab), 'tab:' + tab, S);
     KIT.rule(100, 258, W - 200, 0.7);
-    for (const b of U.r) { if (!b.q) continue; const on = !!seen[b.q.k], x = b.x + (b.q.icon ? 54 : 16);
-      if (b.q.icon) { KIT.cell('cx_' + b.q.k, b.x, b.y, 44, on ? {} : { off: true }); if (on) icon(b.q.icon, b.x + 5, b.y + 5, 34); }
-      KIT.ink('cx_n' + b.q.k, on ? b.q.name : TXT('hud.codex.unknown'), x, b.y + b.h / 2, { size: L.sizeToFit(on ? b.q.name : '???', b.w - (x - b.x) - 8, 22), col: on ? I.t : I.off });
+    // a monster's cell holds its own sprite, as the items' cells hold their icons
+    const look = (k) => { const tx = tab === 'm' && window.SCX && window.SCX.EN_TEX[k]; return tx && window.ASSETS[tx] ? tx : null; };
+    for (const b of U.r) { if (!b.q) continue; const on = !!seen[b.q.k], mon = look(b.q.k), cs = b.h, x = b.x + (b.q.icon || mon ? cs + 14 : 16);
+      if (b.q.icon || mon) { KIT.cell('cx_' + b.q.k, b.x, b.y, cs, on ? {} : { off: true });
+        if (on && b.q.icon) icon(b.q.icon, b.x + 5, b.y + 5, cs - 10);
+        if (on && mon) { const [sw, sh] = SZ(mon), f = (cs - 12) / Math.max(sw, sh); L.sprite(mon, b.x + cs / 2 - sw * f / 2, b.y + cs / 2 - sh * f / 2, { w: sw * f, h: sh * f }); } }
+      KIT.ink('cx_n' + b.q.k, on ? b.q.name : TXT('hud.codex.unknown'), x, b.y + b.h / 2, { size: L.sizeToFit(on ? b.q.name : '???', b.w - (x - b.x) - 8, 24), col: on ? I.t : I.off });
       L.solid(x, b.y + b.h - 2, b.w - (x - b.x) - 12, 2, [0.42, 0.27, 0.15], 0, 0, 0, 0.25); }
     for (const b of U.r) if (!b.q && !b.tab) KIT.button('cx_b' + b.id, b, stN(S, b.id, b.on));
   }

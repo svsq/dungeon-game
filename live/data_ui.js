@@ -136,7 +136,9 @@
     fork: () => [0, 1].map((i) => ({ id: 'fork:' + i, i, on: true, x: 460 + i * 520, y: 340, w: 480, h: 300 })),
     // the codex (TASKS 395): its pages' entries in three columns, tabs over them, the pager and the way back under them
     codex: (tab, page) => { const list = D.codexList(tab), pages = Math.max(1, Math.ceil(list.length / D.CODEX_PAGE)), p = Math.min(page || 0, pages - 1);
-      return { list, pages, page: p, r: list.slice(p * D.CODEX_PAGE, (p + 1) * D.CODEX_PAGE).map((q, i) => ({ id: 'cx:' + q.k, q, x: 120 + Math.floor(i / 12) * 580, y: 268 + (i % 12) * 48, w: 560, h: 44 }))
+      const pg = list.slice(p * D.CODEX_PAGE, (p + 1) * D.CODEX_PAGE), rows = Math.max(1, Math.ceil(pg.length / 3)), step = Math.min(64, Math.floor(600 / rows));
+      // a page's entries spread evenly over its three columns, the rows as tall as the page lets them (TASKS 1764)
+      return { list, pages, page: p, r: pg.map((q, i) => ({ id: 'cx:' + q.k, q, x: 120 + Math.floor(i / rows) * 580, y: 274 + (i % rows) * step, w: 560, h: step - 6 }))
         .concat(D.CODEX_TABS.map((t, i) => ({ id: 'tab:' + t, tab: t, label: { m: TXT('UI.codex.m'), it: TXT('UI.codex.it'), p: TXT('UI.codex.p') }[t], on: true, x: 590 + i * 250, y: 190, w: 240, h: 60 })))
         .concat([{ id: 'back', label: TXT('UI.codex.back'), on: true, x: 810, y: 890, w: 300, h: 70 }])
         .concat(pages > 1 ? [{ id: 'prev', label: TXT('UI.codex.prev'), on: p > 0, x: 660, y: 890, w: 130, h: 70 }, { id: 'next', label: TXT('UI.codex.next'), on: p < pages - 1, x: 1130, y: 890, w: 130, h: 70 }] : []) }; },
