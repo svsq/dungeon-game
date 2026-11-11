@@ -260,7 +260,7 @@
       for (const g of tags) { plate('ln_b' + g.id, g.x, g.y, g.w, 28, { a: 0.8 }); lab('ln_' + g.id, g.s, g.x + g.w / 2, g.y + 15, { size: 20, al: 0.5, col: g.c }); } }
     // interaction prompt
     let pr = null; HUD.promptBox = null;
-    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56 && !SIM.Q.overLava(m, h.x, h.y, c.x, c.y)); if (ch) pr = [ch.x, ch.y - 74, ch.sealed ? TXT('hud.world.3s') : TXT('hud.world.3')];
+    const ch = R.chests.find((c) => !c.open && Math.hypot(c.x - h.x, c.y - h.y) < 56 && !SIM.Q.overLava(m, h.x, h.y, c.x, c.y)); if (ch) { const bz = ch.sealed && R.en.find((e) => D.BOSSES[e.type] && e.deadT < 0); pr = [ch.x, ch.y - 74, !ch.sealed ? TXT('hud.world.3') : bz ? TXT('hud.world.3s', { name: D.ENEMIES[bz.type].name }) : TXT('hud.world.3s.anon')]; }
     const sh = R.shrines.find((s) => Math.hypot(s.x - h.x, s.y - h.y) < 60 && (!s.used || SIM.Q.canDonate(R))); if (sh) pr = [sh.x, sh.y - 78, sh.used ? TXT('hud.world.4') : TXT('hud.world.5')];
     if (SIM.Q.atCounter(R)) pr = [m.shop.front.x, m.shop.front.y + 62, SIM.Q.shopShut(R) ? TXT('hud.world.shut') : TXT('hud.world.6')];
     const noteP = SIM.Q.noteNear(R); if (noteP) pr = [noteP.x, noteP.y - 40, TXT('hud.world.note')];
