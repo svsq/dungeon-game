@@ -102,8 +102,9 @@
     // a button that cannot be pressed is dimmed, not greyed out: its words stay readable on it (TASKS 1762)
     // the red wax barely lightens under a grade, so the lit one lightens it more and its letters turn pale gold; no glow under it
     // (TASKS 1887: it read as a lamp's spot on the paper)
-    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.35, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.12, 1.5, 0, 1.08] : gradeOf(st), dy = st.press ? 2 : 0;
-    K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: { grade: g } });
+    // the dimmed parchment keeps a warm cast (TASKS 1885): a grade alone took it to a cold grey
+    const lit = (st.hover || st.focus) && !st.off, g = st.off ? (kind === 'wax' ? [0.3, 0.62, 0, 0.9] : [0.7, 0.8, 0, 0.9]) : kind === 'wax' && lit && !st.press ? [1.12, 1.5, 0, 1.08] : gradeOf(st), dy = st.press ? 2 : 0;
+    K.nine(kind === 'wax' ? 'wax' : 'btn', b.x, b.y + dy, b.w, b.h, { u: st.off && kind !== 'wax' ? { grade: g, tint: [1, 0.94, 0.87, 1] } : { grade: g } });
     const size = b.size || 26, fit = b.w - K.endW(kind === 'wax' ? 'wax' : 'btn', b.h) - 24, col = st.off ? (kind === 'wax' ? '#bfb19c' : '#4f4336') : kind === 'wax' ? (st.hover || st.focus ? '#ffe7a3' : K.INK.cream) : st.hover || st.focus ? K.INK.r : K.INK.t;
     (kind === 'wax' ? K.light : K.ink)(id + '_l', b.label, b.x + b.w / 2, b.y + b.h / 2 + 1 + dy, { size, fit, al: 0.5, col });
     L.uiBox(id, b.x + 6, b.y, b.w - 12, b.h, 4);
@@ -134,8 +135,9 @@
   // light letters, as on ref_ui_start_b, its seal inside at the left
   K.tabs = (id, tabs, open, S, o = {}) => { const litOf = (b) => { const st = K.st(S, b.id); return o.lit !== undefined ? b.id === o.lit : st.hover || st.focus; }, other = tabs.some((b) => b.id !== open && litOf(b));
     for (const b of tabs) { const on = b.id === open, up = on ? 8 : 0, lit = litOf(b);
-    const g = on ? (lit ? [1.05, 1.3, 0, 1.06] : [1, 1.06, 0, 1]) : gradeOf({ hover: lit }).map((v, i) => (i === 1 && !lit ? v * 0.82 : v));
-    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : { grade: g } });
+    // a closed tab is darker and warmer, as on the ref's (hue 31°, saturation 0.41–0.44), not a dimmed grey olive (TASKS 1885)
+    const g = on ? (lit ? [1.05, 1.3, 0, 1.06] : [1, 1.06, 0, 1]) : lit ? gradeOf({ hover: true }) : [1.1, 0.85, 0, 1];
+    K.nine('tab', b.x, b.y - up, b.w, b.h, { u: on && o.fill ? { grade: g, tint: [0.66, 0.14, 0.09, 1] } : !on && !lit ? { grade: g, tint: [1, 0.9, 0.82, 1] } : { grade: g } });
     const sx = on && o.fill ? b.x + 0.6 * K.endW('tab', b.h) + 26 : 0;
     if (on) K.part('ui_b_wax_seal', [40, 40], o.fill ? sx : b.x + 6, o.fill ? b.y - up + b.h / 2 + 1 : b.y - up + 2, { c: true, k: o.fill ? 0.5 : 0.55 });
     const x0 = sx ? sx + 22 : b.x + 0.3 * K.endW('tab', b.h) + 4, x1 = b.x + b.w - 0.3 * K.endW('tab', b.h) - 4;
