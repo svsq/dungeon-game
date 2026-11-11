@@ -768,11 +768,16 @@
   // the main menu's backdrop: embers along the bottom, the hero and a brute facing each other across the buttons
   // the news frame takes the brute's place on the right; on the main menu (mid) the hero stands in the middle, the item sheet in
   // his old place
-  function menuBack(t, alone, mid) {
+  // the main menu shows the hero of the run under «Продолжить», or of the run played last (TASKS 1815: a warrior stood there over a
+  // mage's save); with neither, the painted warrior
+  function menuBack(t, alone, mid, S) {
     L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
     for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.8, 260, [1, 0.45, 0.15], 0.12 + 0.05 * Math.sin(t * 2 + i), 2); G.blend(); }
     const [hw, hh] = SZ('hero'), hx = mid ? W / 2 - 60 - hw * 1.6 : W / 2 - 520 - hw * 1.6, hy = mid ? 470 : 340;
-    L.sprite('hero', hx, hy, { w: hw * 3.2, h: hh * 3.2 }); L.uiBox('menu_hero', hx, hy, hw * 3.2, hh * 3.2);
+    const own = S && ((S.saved && S.saved.hero) || (S.result && S.result.hero));
+    if (own && D.clsOf(own).look.rig !== 'hero') { try { SCENE.menuHero(own, SIM.Q.stats(own, S.meta), t, hx + hw * 1.6, hy + hh * 3.2, 3.2); } catch (e) { console.error(e); L.pre = null; G.blend(); } }
+    else L.sprite('hero', hx, hy, { w: hw * 3.2, h: hh * 3.2 });
+    if (!(S && S.newAsk)) L.uiBox('menu_hero', hx, hy, hw * 3.2, hh * 3.2);
     if (alone) return;
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', W / 2 + 470, 330, { w: bw * 2.6, h: bh * 2.6, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
   }
@@ -786,10 +791,10 @@
   const savedLine = (S) => TXT('hud.savedLine', { p1: S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ', p2: S.saved.floor ? TXT('hud.savedLine.2', { floor: S.saved.floor }) : TXT('hud.savedLine.3'), lvl: S.saved.hero.lvl });
   // the test runs (TASKS 417): a press over a saved run asks again, as on the main menu, so the save is named here too
   function tests(S, t) {
-    menuBack(t);
+    menuBack(t, false, false, S);
     lab('ts_t', TXT('hud.tests'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('ts_s', TXT('hud.tests.2'), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
-    for (const b of D.UI.tests(!!S.saved, SIM.Q.isFull(S))) button('tb_' + b.id, b, S.newAsk ? '' : S.hover);
+    if (!S.newAsk) for (const b of D.UI.tests(!!S.saved, SIM.Q.isFull(S))) button('tb_' + b.id, b, S.hover);
     if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
     newAsk(S);
   }
@@ -939,7 +944,7 @@
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
-    menuBack(t, !!F, true); if (F) newsFrame(F, D.CHANGES[0].v);
+    menuBack(t, !!F, true, S); if (F) newsFrame(F, D.CHANGES[0].v);
     lab('m_t', TXT('hud.menu'), W / 2, 150, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, 230, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 282, { size: 28, al: 0.5, col: C.dim });

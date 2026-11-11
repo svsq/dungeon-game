@@ -105,6 +105,11 @@
         const hp = h.hp, p0 = [e.x, e.y]; for (let i = 0; i < 110; i++) step(C, { keys: [] });
         if (C.run !== R || h.hp < hp || Math.hypot(e.x - p0[0], e.y - p0[1]) > 1) out.push('continue: the monsters act at once on «Продолжить»');
         for (let i = 0; i < 360; i++) step(C, { keys: [] }); if (h.hp >= hp && Math.hypot(e.x - p0[0], e.y - p0[1]) < 1) out.push('continue: the monsters still wait long after «Продолжить»'); }
+      // TASKS 1815: a locked ability pressed again and again keeps one refusal plate, refreshed, not a stack of copies
+      { const Z = spawn(0, {}); Z.run = newRun(Z, 'campaign', 38); const R = Z.run, A = D.clsOf(R.hero).abs.find((q) => !R.hero.ab[q.id]);
+        if (!A) out.push('nope: a new hero has no locked ability to press');
+        else { for (let i = 0; i < 3; i++) { castAbility(Z, R, A.id, {}); Z.t += 0.3; } const n = Z.ev.filter((q) => q.k === 'nope'), last = n.at(-1);
+          if (n.length !== 1 || !last || Math.abs(last.t - (Z.t - 0.3)) > 1e-9) out.push(`nope: a locked ability pressed three times leaves ${n.length} plates, or an old one`); } }
       const E3 = spawn(1, J({ meta: E.meta, run: null, slot: 0, saves: [null, null, Object.assign(J(old), { at: 3 }), null, null] })); if (!E3.saved || E3.slot !== 2) out.push('saves: a load with no named run does not name the run in the slots');
       const k2 = (S, k) => { step(S, { keys: [k] }); step(S, { keys: [] }); }, K = spawn(0, {}); K.saved = J(newRun(K, 'campaign', 45)); K.screen = 'menu'; K.focus = '';
       k2(K, 'ArrowDown'); k2(K, 'ArrowDown'); if (K.focus !== 'campaign') out.push('menu: ↓ does not walk the items from the first');

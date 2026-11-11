@@ -13,6 +13,8 @@
       // look B's parts kit (R-41): every part in every state
       ['uikit', mk((S) => { S.saved = null; S.screen = 'uikit'; })],
       ['menu_continue', mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5); })],
+      // TASKS 1815: the menu shows the saved run's hero, a mage or an archer, not the painted warrior
+      ...['mage', 'archer'].map((c) => ['menu_continue_' + c, mk((S) => { S.saved = SIM.newRun(S, 'campaign', 5, { cls: c }); })]),
       // the main menu's sheet (TASKS 1301): every slot taken (the longest labels, the longest saved run's line), every item under the
       // keyboard's focus, the pointer over an item; a new run pressed over five taken slots asks, naming the oldest run (TASKS 1785)
       ['menu_full', mk((S) => { for (let i = 0; i < DATA.SAVE_SLOTS; i++) S.saves[i] = SIM.newRun(S, 'campaign', 20 + i); S.saves[0] = null; S.saved = SIM.newRun(S, 'magma', 5); S.saved.floor = 12; S.saved.hero.lvl = 99;

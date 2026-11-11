@@ -18,7 +18,9 @@
   const rnd = (R) => { R.rs = (R.rs + 0x6d2b79f5) | 0; let t = Math.imul(R.rs ^ (R.rs >>> 15), 1 | R.rs); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const ri = (R, a, b) => a + Math.floor(rnd(R) * (b - a + 1));
   const pick = (R, arr) => arr[Math.floor(rnd(R) * arr.length)];
-  const ev = (S, e) => { e.t = S.t; S.ev.push(e); if (!S.demo && SIMX.META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
+  // a refusal said again while its plate still shows takes that plate's place, fresh, instead of stacking a copy (TASKS 1815)
+  const ev = (S, e) => { e.t = S.t; if (e.k === 'nope') for (let i = S.ev.length - 1; i >= 0; i--) { const q = S.ev[i]; if (q.k === 'nope' && q.s === e.s && S.t - q.t < 3) S.ev.splice(i, 1); }
+    S.ev.push(e); if (!S.demo && SIMX.META_EV.has(e.k)) SIMX.metaEvent(S, e); if (S.run && S.run.quests && SIMX.QUEST_EV.has(e.k)) SIMX.questOn(S, S.run, e); if (S.run && e.k === 'hurt') S.run.recentDamage = (S.run.recentDamage || []).concat({ t: e.t, src: e.src, n: e.n, actor: e.actor || null }).slice(-3);
     if (S.run && e.k === 'boom') S.run.scorches = (S.run.scorches || []).filter((s) => S.t - s.t < 4).concat({ ...e }).slice(-24); if (S.run && S.run.log && !S.demo) note(S, e); };
   // hard's extra damage and HP ramp in over floors 1-3: ×1.3 × ×1.25 from the first room killed a third of average players there (TASKS 200)
   // the run's description (data.js RUNS) and how deep a floor of it is in campaign floors: everything that grows as floors climb
