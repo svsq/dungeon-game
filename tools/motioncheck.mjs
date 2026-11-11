@@ -31,6 +31,8 @@
 //               hand from one frame to the next, deep into a run (TASKS 1688)
 //   cover     — secret_shelf*, secret_statue* (TASKS 1851): the sliding cover is drawn at its own size and proportions shut, on its way,
 //               at its stop and after a save and a load (the bookcase squeezed to a strip as it moved off its cache)
+//   reach     — *_attack of the monsters (TASKS 1801): a hand leaves its place against the hip by REACH of the height
+//   glide     — walk cycles (TASKS 1801): some joint travels GLIDE of the height against the ground point (a robe slid); townsfolk warn
 //   body      — transitions named shoot|cast|frost|volley|whirl|attack|swing (TASKS 1800): the head moves against the hip by BODY of the
 //               height (a shot made with the arm alone left the body standing as at rest)
 // Exit 2 when any check fails.
@@ -257,13 +259,28 @@ if (meta.tr.includes('imp_claw')) {
 // frame's place by at least BODY of the height (the mage's and archer's shots and casts and the whirl moved it 0.00–0.01). A rig with no
 // hip (a slime, a spider, a lizard) or one that is not a walker (the crab's shell) is not measured; x is taken along the facing, so a
 // turn in the action is no lean
-{ const BODY = 0.05, SKIP = /^crab_|^queen_|^slime|^spider_|^salamander_/, LATER = new Set(['necro_attack', 'forge_attack', 'boss_attack']);
+{ const BODY = 0.05, SKIP = /^crab_|^queen_|^slime|^spider_|^salamander_/, LATER = new Set(['forge_attack', 'boss_attack']);
   for (const nm of meta.tr.filter((n) => /shoot|cast|frost|volley|whirl|attack|swing/.test(n) && !SKIP.test(n) && !LATER.has(n))) {
     const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.transitions[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01);
       const j = LIB.TRACE[id] || null, v = LIB.TRACE[id + '_view']; LIB.TRACE = null; return j && j.hip && (j.head || j.top) ? { h: j.head || j.top, hip: j.hip, H: j.ground[1] - (j.top || j.head)[1], f: v && v.face ? v.face[0] : 1 } : null; }); }, nm);
     const ok = fr.filter(Boolean); if (ok.length < fr.length / 2) { report('body', nm, false, 'no hip or head in the trace'); continue; }
     const rel = (q) => [(q.h[0] - q.hip[0]) * q.f, q.h[1] - q.hip[1]], r0 = rel(ok[0]), H = ok[0].H, m = Math.max(...ok.map((q) => { const r = rel(q); return Math.hypot(r[0] - r0[0], r[1] - r0[1]); }));
     report('body', nm, m >= BODY * H, `the head moves ${m.toFixed(1)} px against the hip = ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px (≥ ${100 * BODY} %)`); } }
+// reach (TASKS 1801): an attack throws a hand at least REACH of the height off its place against the hip (the robed casters' 0.05–0.09
+// read as a tint flash, not a gesture). glide: a walk cycle moves some joint at least GLIDE of the height against the ground point (the
+// robes slid at 0.06); the townsfolk only warn (TASKS 1807: the sweeper)
+{ const REACH = 0.15, GLIDE = 0.1, warn = (check, nm, msg) => console.log(`WARN ${check} ${nm}: ${msg}`);
+  for (const nm of meta.tr.filter((n) => /_attack$/.test(n) && !n.startsWith('hero'))) {
+    const fr = (await trace('transitions', nm)).map((f) => f.en).filter((j) => j && j.hip); if (!fr.length) continue;
+    const H = tall(fr[0]), hands = ['handL', 'handR'].filter((k) => fr.every((j) => j[k])); if (!hands.length) continue;
+    const m = Math.max(...hands.map((k) => { const r = (j) => [j[k][0] - j.hip[0], j[k][1] - j.hip[1]], r0 = r(fr[0]); return Math.max(...fr.map((j) => Math.hypot(r(j)[0] - r0[0], r(j)[1] - r0[1]))); }));
+    report('reach', nm, m >= REACH * H, `a hand leaves its place against the hip by ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px (≥ ${100 * REACH} %)`); }
+  for (const nm of await p.evaluate(() => Object.keys(window.__QA.cycles || {}).filter((n) => window.__QA.subject[n]))) {
+    const fr = await p.evaluate((nm) => { const Q = window.__QA, id = Q.subject[nm]; return Q.cycles[nm].map((st) => { LIB.TRACE = {}; SCENE.state = st; SCENE.render(st.t + 0.01); const j = LIB.TRACE[id] || null; LIB.TRACE = null; return j; }); }, nm);
+    if (fr.some((j) => !j || !j.ground)) continue; const H = tall(fr[0]), keys = Object.keys(fr[0]).filter((k) => k !== 'ground' && !k.startsWith('target') && fr.every((j) => Array.isArray(j[k])));
+    const m = Math.max(...fr.map((j) => Math.max(...keys.map((k) => Math.hypot(j[k][0] - j.ground[0] - fr[0][k][0] + fr[0].ground[0], j[k][1] - j.ground[1] - fr[0][k][1] + fr[0].ground[1])))));
+    const msg = `the most moving joint travels ${(100 * m / H).toFixed(1)} % of ${H.toFixed(0)} px against the ground point (≥ ${100 * GLIDE} %)`;
+    if (nm.startsWith('folk_') && m < GLIDE * H) warn('glide', nm, msg + ': glides'); else report('glide', nm, m >= GLIDE * H, msg); } }
 if (errors.length) { console.log('page errors:', errors.slice(0, 3).join(' | ')); fails++; }
 if (jsonOut) fs.writeFileSync(jsonOut, JSON.stringify(res, null, 1));
 console.log(fails ? `motioncheck: ${fails} failure(s)` : 'motioncheck: ok');
