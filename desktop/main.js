@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, Menu, protocol, net, shell, ipcMain } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
@@ -19,9 +19,13 @@ const createWindow = () => {
     width: 1600, height: 900, minWidth: 960, minHeight: 540, backgroundColor: '#000000', title: 'The Elder Deep: Below the Ages',
     autoHideMenuBar: true, show: false,
     icon: path.join(__dirname, 'build', 'icon.png'),
-    webPreferences: { contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required' },
+    webPreferences: { contextIsolation: true, sandbox: true, autoplayPolicy: 'no-user-gesture-required', preload: path.join(__dirname, 'preload.js') },
   });
   win.once('ready-to-show', () => win.show());
+  const tellFull = () => win.webContents.send('full', win.isFullScreen());
+  for (const e of ['enter-full-screen', 'leave-full-screen']) win.on(e, tellFull);
+  win.webContents.on('did-finish-load', tellFull);
+  for (const e of ['blur', 'minimize', 'hide']) win.on(e, () => win.webContents.send('away'));
   win.webContents.on('before-input-event', (e, inp) => {
     if (inp.type !== 'keyDown') return;
     if (inp.code === 'F11' || (inp.alt && inp.code === 'Enter')) { toggleFullscreen(win); e.preventDefault(); }
@@ -51,6 +55,8 @@ app.whenReady().then(() => {
     : null);
 
   const win = createWindow();
+  ipcMain.on('set-full', (e, on) => { if (e.sender === win.webContents && win.isFullScreen() !== on) win.setFullScreen(on); });
+  ipcMain.on('quit', (e) => { if (e.sender === win.webContents) app.quit(); });
   app.on('second-instance', () => { if (win.isMinimized()) win.restore(); win.focus(); });
 });
 

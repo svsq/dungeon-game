@@ -176,7 +176,8 @@
   // such an edge shows it (scene.js) so that pushing it off is a move to aim for, not luck
   const BRINK = { kb: 1.8, reach: [20, 36, 52], near: 34 };
   // where a hazard stands in its cycle at time t: 0 at the burst, the warning from per − warn to per
-  const hazClock = (z, t) => ((t / z.per + z.ph) % 1 + 1) % 1 * z.per;
+  // (lag: the seconds the floor stood still on a load, TASKS 1812, kept apart from ph, which also names a gate's row)
+  const hazCycle = (z, t) => (t - (z.lag || 0)) / z.per + z.ph, hazClock = (z, t) => (hazCycle(z, t) % 1 + 1) % 1 * z.per;
   const ZONE = new WeakMap(), zoneOf = (z) => { let q = ZONE.get(z); if (!q) ZONE.set(z, q = new Set(z.cells)); return q; };
   const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const H = HAZ[z.k]; return Math.hypot(x - z.x, (y - z.y) / H.ry) < H.r * (z.s || 1); };
   // how far a surge has risen over its band at time t, 0..1 (TASKS 475)
@@ -190,7 +191,7 @@
   const CAVE_PACKS = { line: 3, shore: 3, hall: 2, bones: 2, hallArea: 110, eel: [0, 0, 0.6, 0.7], lake: [0, 0, 0.5, 0.7], old: ['skeleton', 'goblin', 'spider'] };
   // the magma caves' packs by role (TASKS 412), each a hall's pick by weight once its kinds have come (BIOMES.magma.from: the 1st
   // floor skeletons, goblins and archers, the 2nd smouldering skeletons and cultists, the 3rd fire priests and demons). plan: in
-  // order, [kinds (a kind twice is drawn twice as often), how many, where]: near, a few steps in from the way the hero comes; back, the far end; any. The first entry is
+  // order, [kinds (a kind twice is drawn twice as often), how many, where, keep (cut last when the hall is small)]: near, a few steps in from the way the hero comes; back, the far end; any. The first entry is
   // the pack's own: a smaller hall cuts the rest first, a bigger one adds more of the last
   // the magma caves' halls (TASKS 434): one or two of a floor's big plateaus off the way to the stairs are a hall of the cult's, each
   // its own pack (MAGMA_PACKS, `extra` more of it), props and reward. need: the roster's kind it wants (the hall waits for its
@@ -212,8 +213,11 @@
   const MAGMA_PACKS = {
     // (w: a weight, or one a floor: TASKS 465, the 1st floor's packs were 70 % shooters, so the archers' line comes a third as often there)
     line: { w: [1, 3], plan: [[['skel_archer'], [1, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [2, 3], 'near']] },
-    // (nest: the smouldering dead's own hall, them alone; with the ember pack's archer it was half archers, TASKS 488; never drawn at random)
-    nest: { w: 0, plan: [[['skel_ember'], [3, 4], 'any']] },
+    // (nest: the smouldering dead's own hall; with the ember pack's archer it was half archers, TASKS 488; never drawn at random. A
+    // fire priest at the back, TASKS 1647: its pyres under the hero's feet make the ground he backs off to unsafe, so the answer is
+    // where to stand, not only to run; the smouldering last again, as a big hall is topped up with the last entry's kind: it took 3–4 priests;
+    // a hall for three keeps the priest and two of them)
+    nest: { w: 0, plan: [[['skel_ember'], [3, 4], 'any'], [['fire_priest'], [1, 1], 'back', 1], [['skel_ember'], [0, 0], 'any']] },
     rush: { w: 1, plan: [[['goblin'], [2, 3], 'near'], [['skeleton'], [1, 1], 'any']] },
     ember: { w: 3, plan: [[['skel_ember'], [2, 3], 'any'], [['skel_archer'], [0, 1], 'back']] },
     cult: { w: 2, plan: [[['cultist'], [2, 2], 'back'], [['skeleton', 'skeleton', 'goblin'], [1, 2], 'near']] },
@@ -239,7 +243,7 @@
   // round a chasm in its middle (a combat room's: no fire, stairs or altar stands by it); gallery, long and narrow; closet, a small
   // room off the way (never the start, the stairs, the merchant or the altar); hall, a big one (maps from `from` cells wide); tier,
   // a fight's hall on two levels (TASKS 375): a gallery at the back behind a railing over a drop, steps down to the floor below
-  const ROOM_SHAPES = { rect: { p: 34 }, L: { p: 12 }, T: { p: 10 }, cross: { p: 9 }, round: { p: 8 }, colonnade: { p: 8 }, pit: { p: 7 }, gallery: { p: 5 }, closet: { p: 4 }, hall: { p: 3, from: 72 }, tier: { p: 5, from: 64 } };
+  const ROOM_SHAPES = { rect: { p: 34 }, L: { p: 12 }, T: { p: 10 }, cross: { p: 9 }, round: { p: 8 }, colonnade: { p: 8 }, pit: { p: 7 }, gallery: { p: 5 }, closet: { p: 4 }, hall: { p: 3, from: 72 }, tier: { p: 10, from: 64 } };
   const ROOM_PLANS = {
     arena: { need: [], w: 0, bones: 0 },
     armory: { need: ['rack'], w: 3, back: { n: ['rack'], mode: 'row', max: 3 }, stacks: 1, table: 0.4, bones: 1 },
@@ -296,5 +300,5 @@
   // a boat's wreck on a shore (TASKS 1361): `hp` blows break it; then `loot` is the chance of something found in it, else `ghosts` of its crew
   const SHELF_SECRET = { hp: 3 };
   const WRECK = { hp: 3, loot: 0.55, q: 1, ghosts: [3, 4], lo: 1, hi: 2, lag: 2 };
-  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
+  Object.assign(D, { STATUE_SECRET, SHELF_SECRET, COFFIN, WRECK, MIMIC, CHEST_TRAP, BIOMES, ARCH, HAZ, BRINK, hazCycle, hazClock, hazIn, surgeLevel, CAVE_PACKS, MAGMA_HALLS, MAGMA_PACKS, ROOM_SHAPES, ROOM_PLANS, PROP_W, PROP_H, PROP_MAT, FLOOR_MOD, FLOOR_MODS });
 })(typeof window !== 'undefined' ? window : globalThis);

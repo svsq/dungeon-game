@@ -45,9 +45,16 @@
     const st = heroSt(S), KD = 20 + 12 * D.deepEnd(dep(R)); dmg *= dif(R, 'dmg'); dmg = kind === 'spike' ? Math.round(dmg) : Math.max(1, Math.round(dmg * KD / (KD + st.def)));   // armour's share falls as floors climb: deep monsters still bite
     if (kind !== 'spike' && src !== 'lava' && D.clsOf(h).res === 'rage') dmg = Math.max(1, Math.round(dmg * (1 - h.mp / D.RAGE.max * D.RAGE.guard)));
     if (src && src !== 'lava') dmg = Math.min(dmg, Math.round(st.maxHp * (/^boss/.test(src) ? BAL.cap.boss : D.deepAxis(dep(R), 'blow'))));
+    // a nest's chain of blasts took 68 % of the health in its worst 1.5 s, over half in 37 of 48 nests (TASKS 1647): together they
+    // take no more than BAL.cap.blast of it in any such window, so one wrong step in a nest costs a potion, not the run (the smouldering
+    // dead's alone, `capped` in their blast's data: a boss's or an explosive elite's is a blow of its own, held by BAL.cap; what a
+    // shield takes is no part of it)
+    const capped = actor && ((ENEMIES[actor.type] || {}).boom || {}).capped && / blast$/.test(src || '');
+    if (capped) { const C = BAL.cap.blast, win = (R.blastWin || []).filter(([t]) => S.t - t < C.t), room = Math.round(st.maxHp * C.share) - win.reduce((n, [, v]) => n + v, 0);
+      dmg = Math.min(dmg, room); R.blastWin = win; if (dmg <= 0) { const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260; R.trauma = Math.min(1, R.trauma + 0.35); return; } }   // (a blast past the cap still throws and shakes: no action without an answer)
     // blow: what landed before the shield took its part, for the balance tools' blow-size bands (TASKS 225)
     const blow = dmg;
-    const shielded = h.shield > 0 && S.t < h.shieldUntil; dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (shielded) SIMX.firePowers(S, R, 'shieldHit', { x: h.x, y: h.y }); if (shielded && h.shield <= 0) SIMX.firePowers(S, R, 'shieldBreak', { x: h.x, y: h.y }); if (dmg <= 0) return;
+    const shielded = h.shield > 0 && S.t < h.shieldUntil; dmg = absorbShield(S, h, dmg, { blow, src: src || kind || '?' }); if (shielded) SIMX.firePowers(S, R, 'shieldHit', { x: h.x, y: h.y }); if (shielded && h.shield <= 0) SIMX.firePowers(S, R, 'shieldBreak', { x: h.x, y: h.y }); if (capped && dmg > 0) R.blastWin.push([S.t, dmg]); if (dmg <= 0) return;
     if (D.clsOf(h).res === 'rage') { h.mp = Math.min(D.RAGE.max, h.mp + dmg / st.maxHp * 100 * D.RAGE.hurt); h.fightT = S.t; }
     h.hp -= dmg; h.lastHit = dmg; h.hurtT = S.t; h.hurtX = Math.abs(h.x - sx) < 4 ? 0 : h.x > sx ? 1 : -1; R.trauma = Math.min(1, R.trauma + 0.35); R.freeze = Math.max(R.freeze, 0.05);
     const dx = h.x - sx, dy = h.y - sy, d = Math.hypot(dx, dy) || 1; h.vx += dx / d * 260; h.vy += dy / d * 260;
@@ -196,12 +203,14 @@
     if (h.deadT >= 0) { if (t - h.deadT > 1.6) return SIMX.endRun(S, 'dead'); stepMonsters(S, R, 0); stepDrops(S, R, false); camera(R, h, 0, 0); return; }
     // reactions keep running during hit-stop; the hero and camera hold, and so does every clock a player must react to: a wind-up,
     // a bolt's life, a lava warning, an egg's hatch; cooldowns run on, or every blow the hero lands slowed the monsters' attacks.
-    // Keys pressed in it are kept for the first step after it (TASKS 227)
+    // Keys pressed in it, or in the hold on «Продолжить», are kept for the first step after it (TASKS 227, review of PR 57)
     if (R.leaving > 0) { R.leaving -= DT; SIMX.holdClocks(R);
       { const q = R.map.exit, dx = q.x - h.x, dy = q.y - h.y, d = Math.hypot(dx, dy) || 1, sp = Math.max(0, d - 24) / Math.max(DT, R.leaving + DT), go = sp * DT; h.vx = sp * dx / d; h.vy = sp * dy / d; if (go > 0) { h.x += dx / d * go; h.y += dy / d * go; h.dist += go; h.gp = (h.gp || 0) + go / stepLen(Math.abs(dx) / d) * Math.PI; if (dx) h.face = dx > 0 ? 1 : -1; } }
       if (R.leaving <= 0) { R.leaving = 0; SIMX.enterFloor(S, R, R.floor + 1); } return; }
-    if (R.freeze > 0) { R.freeze -= DT; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R); R.inbuf = Object.assign(R.inbuf || {}, keys); return; }
-    R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; }
+    const hold = R.freeze > 0 ? 'freeze' : t < (R.holdT ?? -1) ? 'all' : '';
+    if (hold) { if (hold === 'freeze') R.freeze -= DT; else h.vx = h.vy = 0; R.frozen = 1; stepDrops(S, R, true); SIMX.holdClocks(R, hold === 'all');
+      R.inbuf = Object.assign(R.inbuf || {}, keys); if (inp.slot) R.inslot = inp.slot; return; }
+    R.frozen = 0; if (R.inbuf) { for (const k in R.inbuf) keys[k] = 1; R.inbuf = null; } if (R.inslot) { if (!inp.slot) inp = Object.assign({}, inp, { slot: R.inslot }); R.inslot = 0; }
     if (SIMX.greetHold(R)) { inp = { px: inp.px, py: inp.py }; for (const k in keys) delete keys[k]; }
     // ---- input: 8-way run with accel / decel ----
     const ix = (inp.right ? 1 : 0) - (inp.left ? 1 : 0), iy = (inp.down ? 1 : 0) - (inp.up ? 1 : 0), il = Math.hypot(ix, iy) || 1;
@@ -303,8 +312,8 @@
     // the scroll's hint (TASKS 1033), once for good: the first time a hero of a town run with a scroll in the bag falls low on health
     if (R.viaTown && !R.town && !S.meta.tipScroll && h.deadT < 0 && !S.demo && Math.floor(S.t * 4) !== Math.floor((S.t - DT) * 4) && h.bag.some((it) => it && it.b === 'scroll') && h.hp < 0.35 * heroSt(S).maxHp) {
       S.meta.tipScroll = 1; R.msg = { s: TXT('sim_hero.stepPlay.msg.s'), t: S.t, d: 4.5, tip: 'scroll' }; ev(S, { k: 'tip', id: 'scroll', x: h.x, y: h.y }); }
-    // the whirl's hint (TASKS 390), over no other message
-    { const W = D.TIPS.whirl; if (h.ab.whirl && h.cd.whirl <= S.t && (S.meta.whirls || 0) < W.until && S.t - (R.tipT ?? -1e9) > W.every && !(R.msg && S.t - R.msg.t < (R.msg.d || 3.5))) {
+    // the whirl's hint (TASKS 390), over no other message; a test run counts its whirls in no meta, so its own count stops the hint too (review of PR 63)
+    { const W = D.TIPS.whirl; if (h.ab.whirl && h.cd.whirl <= S.t && Math.max(S.meta.whirls || 0, R.whirls || 0) < W.until && S.t - (R.tipT ?? -1e9) > W.every && !(R.msg && S.t - R.msg.t < (R.msg.d || 3.5))) {
       const r = D.abRank('whirl', h.ab.whirl).r; if (R.en.filter((e) => e.deadT < 0 && !under(e) && e.st !== 'idle' && e.st !== 'home' && Math.hypot(e.x - h.x, (e.y - h.y) * 1.3) < r + ENEMIES[e.type].r).length >= W.n) {
         R.tipT = S.t; R.msg = { s: W.s, t: S.t, d: 3, tip: 'whirl' }; ev(S, { k: 'tip', id: 'whirl', x: h.x, y: h.y }); } } }
     if (inp.rclick) SIMX.castAbility(S, R, D.clsOf(h).rclick, inp);

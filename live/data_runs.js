@@ -13,7 +13,11 @@
       // magma run's own kit, and the town's quests had dressed him; at depth 13–16 not one average bot of 95 died on the 13th–15th)
       // (13th 1.6 and 15th 2: after 414's bot and 1054's halls the 13th cost 0.7 potions and the 15th 1.2, under their bands; the 16th
       // stays 1.2, its elites 0.2: at 1.3 or 0.24 its fights ran past the floor's 400 s)
-      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1 }, { from: 13, run: 'magma', shift: 2, pop: [1.6, 1.7, 2, 1.2], elite: [0.14, 0.22, 0.26, 0.2] }], names: { 8: TXT('RUNS.campaign.names.8') }, seal: TXT('RUNS.campaign.seal'), then: 'endless' },
+      // (size: the chapter's maps over its run's, TASKS 1808: the 10th–11th and 14th–15th a size down, as the second chapter ran a boss
+      // in 12–13 min to the first's 4.5–5 at 200–220 s a floor; pop is a room's, so the smaller maps hold fewer foes at the same press;
+      // the magma's 14th and 15th keep their maps and lose foes by pop (1.7 → 1.5, 2 → 1.7) instead: its plateaus are laid for their
+      // own sizes, a size down fell back to the loose layout on 40–54 % of seeds and between them left ledges out of reach)
+      chapters: [{ from: 9, run: 'cave', pop: [1.5, 1.4, 1.3, 1.3], elite: [0.12, 0.16, 0.20, 0.22], mob: 0.87, early: 1, size: [[72, 54], [72, 54], [80, 60], [88, 66]] }, { from: 13, run: 'magma', shift: 2, pop: [1.6, 1.5, 1.7, 1.2], elite: [0.14, 0.22, 0.26, 0.2] }], names: { 8: TXT('RUNS.campaign.names.8') }, seal: TXT('RUNS.campaign.seal'), then: 'endless' },
     cave: { name: TXT('RUNS.cave.name'), won: TXT('RUNS.cave.won'), wonText: TXT('RUNS.cave.wonText'), floors: 4, depth: 6, lvl: 10, arch: 'cave', size: [[72, 54], [80, 60], [88, 66], [88, 66]], biome: () => 'cave', boss: (f) => (f === 4 ? 'boss_serpent' : undefined), guard: { 3: { hp: 2.2, dmg: 1 } }, exit: {}, title: TXT('RUNS.cave.title'), loot: 3, pop: [1.25, 1.4, 1.3, 1.2], elite: [0.07, 0.13, 0.18, 0.22], mob: 0.87,
       kit: { lvl: 6, gear: [['longsword', 3], ['shield', 3], ['knight_helm', 3], ['plate_armor', 3], ['gauntlets', 3], ['iron_boots', 2], ['ring', 2], ['amulet', 3]], hp: 5, mp: 2, gold: 400 }, seal: TXT('RUNS.cave.seal') },
     // the magma caves (R-36, TASKS 399): after the campaign's 12th, so worth its 13th–16th in depth and loot, the hero at the level and
@@ -29,14 +33,16 @@
   // Floors come in pairs, each pair one biome drawn from the run's seed (repeats allowed, the caves among them); the second floor of
   // a pair ends it, by turns with an elite brute guarding the exit (pairs 1, 3, …) and with the biome's boss (pairs 2, 4, …). A floor
   // is worth its own number in depth (monsters, loot, prices) and its map grows from `size.from` to `size.to` over `size.floors`
-  // floors, then stays; rooms: one to `size.cells` cells of the map (13–17 on the campaign's 72×54). The hero starts as in the campaign
+  // floors, then stays; rooms: one to `size.cells` cells of the map (13–17 on the campaign's 72×54). The hero starts as in the campaign.
+  // size.to and cap (TASKS 388): at 88×66 and the growing pop of 385 a floor held 60 monsters and took 150–210 s; at 72×54, 38, and
+  // `cap` holds the rest (the magma's plateaus keep their own sizes: smaller, 40–54 % of them came out loose, TASKS 1808)
   RUNS.endless = { name: TXT('data_runs.endless.name'), floors: Infinity, depth: 0, lvl: 1, endless: 1, biome: () => 'dungeon', boss: () => undefined, guard: {}, exit: {},
     pool: ['dungeon', 'crypt', 'lava', 'arcane', 'cave', 'magma'], bosses: { dungeon: 'boss_spider', crypt: 'boss_necro', lava: 'boss_forge', arcane: 'boss', cave: 'boss_serpent', magma: 'boss_colossus' },
     pairGuard: { hp: 2.2, dmg: 1 }, big: ['boss', 'boss_serpent', 'boss_colossus'], bigFrom: 8, guardFrom: 6,
     // a boss past the campaign's last floor (the descent after the serpent): its health and blows over the depth's, so its fight holds
     // the campaign's boss bands (20–90 s, 150–250 % of the hero's health; TASKS 354: at ×1 the 16th's and 20th's took 14–21 s, 60–100 %; at ×1.6 the average's
     // took 22 and 31 s, 149 and 211 %, the expert's 24 s, 123–136 %, 40 seeds)
-    deepBoss: { hp: 1.6, dmg: 1.6 }, size: { from: [48, 36], to: [88, 66], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
+    deepBoss: { hp: 1.6, dmg: 1.6 }, cap: 45, size: { from: [48, 36], to: [72, 54], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   // whether the wandering merchant (TASKS 1010) is on floor f of a run through the town: fixed by the run's seed
   const wanderAt = (runSeed, f) => f >= SHOP.wander.from && mix32((Math.imul(runSeed >>> 0, 2654435761) + f * 40503) >>> 0) / 4294967296 < SHOP.wander.chance;
@@ -71,7 +77,7 @@
     // (the magma's own sizes: its 3rd floor's plateaus want 104×78)
     const Z = M.size, k = Math.min(1, (f - 1) / (Z.floors - 1)), from = cave ? Z.cave : Z.from, size = magma ? RUNS.magma.size[2 + pos] : [0, 1].map((i) => 2 * Math.round((from[i] + (Z.to[i] - from[i]) * k) / 2));
     return { N: sub || M, lf: sub ? 3 + pos : 1 + pos, n: sub ? 4 : 2, depth: f, last: end, fin: false, biome, boss: bossPair && end ? M.bosses[biome] : undefined, arch: sub ? sub.arch : undefined,
-      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: D.deepAxis(f, 'pop'), early: 0, elite: D.deepAxis(f, 'elite'), cd: D.deepAxis(f, 'cd'), mob: 1, size, rooms: sub ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > RUNS.campaign.floors ? M.deepBoss : undefined }; };
+      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: D.deepAxis(f, 'pop'), early: 0, elite: D.deepAxis(f, 'elite'), cd: D.deepAxis(f, 'cd'), mob: 1, size, rooms: sub ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > RUNS.campaign.floors ? M.deepBoss : undefined, cap: M.cap }; };
   // floor f's modifier (TASKS 381), by the run's seed, so a floor kept or climbed back to has the one it had: none on a boss's floor,
   // a cave's or a plateau's, or a campaign chapter's past its first
   const modOf = (seed, f, q) => { if (q.arch || q.boss || q.chap || f < FLOOR_MOD.from) return undefined;
@@ -105,7 +111,7 @@
     return { N, lf, n, mod: modOf(seed, f, { arch: N.arch, boss, chap: !!c, biome, lay }), depth: f + M.depth + ((c && c.shift) || 0), last: lf === n, fin: f === M.floors, biome, boss, arch: N.arch, guard: N.guard[lf], exit: N.exit[lf], pop: (c && c.pop && c.pop[lf - 1]) || (!c && M.pop && M.pop[lf - 1]) || 1, early: (c && c.early) || 0,
       elite: (c && c.elite && c.elite[lf - 1]) ?? (!c && M.elite && M.elite[lf - 1]) ?? ELITE.share, mob: (c && c.mob) || (!c && M.mob) || 1,
       lay,
-      ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}) }; };
+      ...(!N.arch && N.size && N.size[lf - 1] ? { size: N.size[lf - 1], rooms: N.rooms[lf - 1], secretK: N.size[lf - 1][0] * N.size[lf - 1][1] / (72 * 54) } : {}), ...(N.arch && c && c.size && c.size[lf - 1] ? { size: c.size[lf - 1] } : {}) }; };
   const rosterAt = (biome, f) => BIOMES[biome].roster.filter((t) => ((BIOMES[biome].from || {})[t] || 1) <= f);
 
   // where the hero is, for the minimap's title, the floor's banner and the saved run's line: the town (floor 0) or a floor

@@ -66,7 +66,27 @@
   function checkForks(out) {
     for (const cl of Object.keys(D.CLASSES)) for (const ab of D.CLASSES[cl].abilities) { if (!D.FORKS[ab]) { out.push(`fork: ${ab} has none`); continue; } for (const rank of D.FORK_RANKS) { const pair = D.FORKS[ab][rank]; if (!pair || pair.length !== 2) out.push(`fork: ${ab}@${rank} is not two ways`); for (const id of pair || []) { const P = D.POWERS[id]; if (!P || !P.name || !P.desc || !SIMX.POWER_FX[P.fx]) out.push(`fork: ${id} is broken`); } } }
     { const c = stage('mage'), h = c.h; h.ab = { fireball: 2, shield: 1, frost: 0 }; if (D.forkPending(h)) out.push('fork: owed before its rank'); h.ab.fireball = 3; const p = D.forkPending(h); if (!p || p.ab !== 'fireball' || p.rank !== 3) out.push('fork: not owed at rank 3'); SIMX.chooseFork(c.S, c.R, 1); if (D.forkPending(h) || !D.hasPower(h, 'f_fireball_3b') || D.hasPower(h, 'f_fireball_3a')) out.push('fork: the choice did not take'); }
-    { const c = stage('mage'), h = c.h; h.ab = { fireball: 2, shield: 1, frost: 0 }; h.sp = 1; c.S.screen = 'inv'; const b = D.UI.inv(D.clsOf(h).abs).r.find((q) => q.id === 'ab:fireball'); SIMX.step(c.S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (c.S.screen !== 'fork') out.push(`fork: the rank up leads to ${c.S.screen}`); SIMX.step(c.S, { keys: ['Escape'] }); if (c.S.screen !== 'inv') out.push('fork: Escape does not put it off'); h.sp = 1; const r = h.ab.fireball; SIMX.step(c.S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (c.S.screen !== 'fork' || h.ab.fireball !== r) out.push('fork: a rank went past a choice owed'); const u = D.UI.fork()[0]; SIMX.step(c.S, { keys: [], px: u.x + 5, py: u.y + 5, click: 1 }); if (c.S.screen !== 'inv' || !D.hasPower(h, 'f_fireball_3a')) out.push('fork: the card did not choose'); }
+    { const c = stage('mage'), h = c.h; h.ab = { fireball: 2, shield: 1, frost: 0 }; h.sp = 1; c.S.screen = 'inv'; const b = D.UI.inv(D.clsOf(h).abs).r.find((q) => q.id === 'ab:fireball'); SIMX.step(c.S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (c.S.screen !== 'fork') out.push(`fork: the rank up leads to ${c.S.screen}`); SIMX.step(c.S, { keys: ['Escape'] }); if (c.S.screen !== 'inv') out.push('fork: Escape does not put it off'); h.sp = 1; const r = h.ab.fireball; SIMX.step(c.S, { keys: [], px: b.x + 5, py: b.y + 5, click: 1 }); if (c.S.screen !== 'fork' || h.ab.fireball !== r) out.push('fork: a rank went past a choice owed'); const u = D.UI.fork()[0], v = D.UI.fork()[1], press = (q) => SIMX.step(c.S, { keys: [], px: q.x + 5, py: q.y + 5, click: 1 });
+      press(u); if (c.S.screen !== 'fork' || D.hasPower(h, 'f_fireball_3a') || c.S.forkSel !== 0) out.push('fork: one press chooses, or does not light the card');
+      SIMX.step(c.S, { keys: ['Escape'] }); if (c.S.screen !== 'fork' || c.S.forkSel != null) out.push('fork: Escape does not let the lit card go first');
+      press(u); SIMX.step(c.S, { keys: [], px: 5, py: 5, click: 1 }); if (c.S.forkSel != null || D.forkPending(h) === null) out.push('fork: a press elsewhere does not let the lit card go');
+      press(u); press(v); if (c.S.forkSel !== 1 || D.hasPower(h, 'f_fireball_3a') || D.hasPower(h, 'f_fireball_3b')) out.push('fork: a press on the other card chooses instead of lighting it');
+      press(u); press(u); if (c.S.screen !== 'inv' || !D.hasPower(h, 'f_fireball_3a') || c.S.forkSel != null) out.push('fork: the second press on the card did not choose'); }
+    // a visit's points are a draft (TASKS 1857): the reset takes them back to the point, closing the page keeps them, a save between
+    // keeps them as put in, and nothing can be taken back on a later visit
+    { const c = stage('warrior'), h = c.h, S = c.S, U = D.UI.inv(D.clsOf(h).abs), at = (id) => { const q = U.r.find((b) => b.id === id); SIMX.step(S, { keys: [], px: q.x + 5, py: q.y + 5, click: 1 }); };
+      h.pts = 3; h.sp = 2; h.lvl = 4; h.ab = { whirl: 1, charge: 1, cry: 1 }; h.hp = 50; h.mp = 10; S.screen = 'inv'; const b0 = JSON.stringify(h.base), hp0 = h.hp, mp0 = h.mp, ab0 = JSON.stringify(h.ab);
+      at('stat:vit'); at('stat:vit'); at('stat:str'); at('ab:charge'); at('ab:whirl');
+      if (h.pts || h.sp || h.base.vit !== JSON.parse(b0).vit + 2 || h.ab.whirl !== 2 || h.ab.charge !== 2) out.push('draft: points do not go in while the page is open');
+      at('reset:st'); if (JSON.stringify(h.base) !== b0 || h.pts !== 3 || h.hp !== hp0 || h.mp !== mp0 || h.ab.whirl !== 2) out.push(`draft: the reset does not give the stat points back (${h.pts}, ${h.hp}/${hp0})`);
+      at('reset:ab'); if (JSON.stringify(h.ab) !== ab0 || h.sp !== 2 || h.draft) out.push('draft: the reset does not give the ranks back, or the draft stays');
+      at('stat:agi'); const kept = JSON.parse(JSON.stringify(c.R)); at('close');
+      if (S.screen !== 'play' || h.draft || h.pts !== 2 || h.base.agi !== JSON.parse(b0).agi + 1) out.push('draft: closing the page does not keep the points');
+      S.screen = 'inv'; at('reset:st'); if (h.pts !== 2) out.push('draft: points of a closed visit are taken back');
+      S.run = kept; S.screen = 'play'; SIMX.step(S, { keys: [] }); if (kept.hero.draft || kept.hero.pts !== 2 || kept.hero.base.agi !== JSON.parse(b0).agi + 1) out.push('draft: a run saved mid-draft loads with its draft or without its points');
+      const f = stage('mage'), fh = f.h; fh.ab = { fireball: 2, shield: 1 }; fh.sp = 1; fh.lvl = 9; f.S.screen = 'inv'; const fb = D.UI.inv(D.clsOf(fh).abs).r.find((q) => q.id === 'ab:fireball');
+      SIMX.step(f.S, { keys: [], px: fb.x + 5, py: fb.y + 5, click: 1 }); const u = D.UI.fork()[1]; for (let i = 0; i < 2; i++) SIMX.step(f.S, { keys: [], px: u.x + 5, py: u.y + 5, click: 1 });
+      if (f.S.screen !== 'inv' || fh.draft || !D.hasPower(fh, 'f_fireball_3b')) out.push('draft: a fork taken does not keep the rank under it'); }
     { const c = stage('mage'); c.h.powers = { f_fireball_3a: 1 }; const d0 = 100; const p = { dmg: d0, vx: 10, vy: 0, life: 1, pierce: 0 }; SIMX.firePowers(c.S, c.R, 'cast:fireball', { projs: [p] }); if (p.dmg !== 125 || Math.abs(p.vx - 8) > 1e-9) out.push(`fork: the heavy ball is ${p.dmg}, ${p.vx}`); }
     { const c = stage('mage'); c.h.powers = { f_shield_3a: 1 }; c.h.ab.shield = 1; castAbility(c.S, c.R, 'shield', {}); const n = D.shieldHp(SIMX.heroSt(c.S).int, 1, 1); if (c.h.shield !== Math.round(n * 1.3)) out.push(`fork: the shield holds ${c.h.shield}, not ${Math.round(n * 1.3)}`); }
     { const c = stage('mage'); c.h.powers = { th_mage: 1 }; c.h.base.int = 1; castAbility(c.S, c.R, 'fireball', {}); if (c.R.proj[0].pierce) out.push('threshold: the ball pierces below INT 25'); const d = stage('mage'); d.h.powers = { th_mage: 1 }; d.h.base.int = 30; castAbility(d.S, d.R, 'fireball', {}); if (!d.R.proj[0].pierce) out.push('threshold: no pierce at INT 25'); }
@@ -118,7 +138,8 @@
       kill: ({ S, R, h }) => killEnemy(S, R, foe(R, h)),
       hurt: ({ S, R, h }) => { h.ifr = 0; h.dashT = -9; S.meta.up = {}; for (let i = 0; i < 40 && !S.ev.some((e) => e.k === 'hurt'); i++) hurtHero(S, R, 5, h.x + 9, h.y); },
       'cast:whirl': ({ S, R, h }) => castAbility(S, R, 'whirl', {}),
-      potion: ({ S, R, h }) => usePotion(S, R, 'hp_potion'),
+      // pressed twice: the staged hero is at full health, and a full pool drinks for a power only on the second press (TASKS 1881)
+      potion: ({ S, R, h }) => { usePotion(S, R, 'hp_potion'); usePotion(S, R, 'hp_potion'); },
     };
     for (const [trig, act] of Object.entries(cases)) if (drive(trig, act) < 1) out.push(`power: ${trig} never fires`);
     if (drive('every:3', ({ S, R, h }) => { const e = foe(R, h); for (let i = 0; i < 7; i++) heroHit(S, R, e, 1, false, h.x, h.y); }) !== 2) out.push('power: every:3 is not each third blow');

@@ -45,7 +45,9 @@
     // of the lake nor `wayGap` cells of a way in or the slab crossing; the point moves off them); fists: both fists round about
     // it, then it stands stuck `stuck` s, open to blows (×`open`); shatter (2nd phase): its crust cracks, the ring's outer edge falls
     // into lava (`edge` cells deep, `warn` s warned) and imps come; erupt / rain (3rd): rocks fall over the ring for `time` s, but
-    // never within `shelter` px of a basalt slab of cover
+    // never within `shelter` px of a basalt slab of cover; stomp (TASKS 1809, out of turn): a hero `hold` s within `near` px of it,
+    // where the crack starts past him and the fists alone reach, is stamped off: a ring `r` px round its feet, `push` px out, at most
+    // once in `cd` s, so standing at its shins is no safe spot
     boss_colossus: { hp: 1650, dmg: 33, scale: 1, rise: 2.2, wade: 70, step: 29.80632555187274, phases: [
       { at: 1, moves: ['crack', 'fists', 'boulder', 'charge', 'fists'], rest: 0.9, speed: 1, finishMove: 1 },
       { at: 0.6, moves: ['boulder', 'crack', 'fists', 'charge', 'imps', 'fists'], enter: 'shatter', rest: 0.75, speed: 1.3, finishMove: 1 },
@@ -59,7 +61,8 @@
       // (TASKS 466: in the 2nd phase the imps' sparks hit the hero more often than the colossus did, 14 to 10: two at a time and their sparks weaker)
       imps: { wind: 0.7, dmg: 0.65, n: 2, cap: 2, r: 130, hp: 1, type: 'imp', delay: 0.8, duration: 0.4 },
       erupt: { wind: 1.0, dmg: 0, next: 'rain', rest: 0.2, duration: 0.5 },
-      rain: { wind: 0.6, dmg: 0.9, n: 24, aimed: 5, time: 3.2, warn: 1.0, r: 42, shelter: 64, duration: 3.4 }
+      rain: { wind: 0.6, dmg: 0.9, n: 24, aimed: 5, time: 3.2, warn: 1.0, r: 42, shelter: 64, duration: 3.4 },
+      stomp: { wind: 0.6, dmg: 0.8, r: 115, push: 150, shove: 0.3, near: 100, hold: 1.2, cd: 5, duration: 0.45 }
     } },
     // the finale: 20+ s that cost about two healths and two potions; kills 10–20 % of the average players who reach it (TASKS 215,
     // 219, 227): its danger is in the moves and the phases, its health (800-900, 219) only keeps the fight long enough to show all three
@@ -141,7 +144,7 @@
     // The blast hurts the hero within boom.r for dmg × boom.dmg and every monster in it for boom.mon of its own health: a pack the
     // hero draws it into pays for it, and one that catches another sets it off
     skel_ember: { name: TXT('ENEMIES.skel_ember.name'), hp: 18, dmg: 14, spd: 102, r: 13, reach: 24, wind: 0.8, cd: 9, xp: 9, kind: 'bomber', h: 76, blood: 'bone', tex: 'en_skeleton', rim: [1, 0.5, 0.15], tint: [0.85, 0.55, 0.4, 0.8], val: 0.9,
-      boom: { r: 92, dmg: 1, mon: 0.35, fuse: 0.8 } },
+      boom: { r: 92, dmg: 1, mon: 0.35, fuse: 0.8, capped: 1 } },
     // the fire priest (TASKS 410), the summoner of R-22 in the reference's crimson hood at the altar: keeps behind another monster from
     // the hero (`behind`, as the skeleton mage) and works two ways. A ring of fire under the hero (`pyre`): the ring glows `warn` s
     // where he stood when it was cast, then a pillar of fire stands there `burst` s, hurting him once and setting him alight. Every

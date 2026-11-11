@@ -1,12 +1,11 @@
 // live/audio.js: sound synthesised in WebAudio, driven by the sim event bus (S.ev). No sound files: every effect is built from
 // oscillators and filtered noise, panned and attenuated by where it happens on screen, through one shared dungeon reverb.
 // The ambience is a per-biome bed (a low drone, air, drips / embers / shimmer) and a heartbeat on low health.
-// AUDIO.update(S) runs once a frame from the live loop; M mutes (remembered). Sound starts on the first key or click,
+// AUDIO.update(S) runs once a frame from the live loop; the volume and M's mute are the sim's (S.meta.vol, S.meta.mute). Sound starts on the first key or click,
 // as browsers require, and stays silent in the attract demo.
 (function () {
   const W = 1920, H = 1080;
-  let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, amb = null, beatT = 0;
-  try { muted = localStorage.getItem('dc_mute') === '1'; } catch (e) {}
+  let played = 0, ctx = null, master, dry, wet, noiseBuf, lastT = -1, lastRun = null, muted = false, gainNow = 0, amb = null, beatT = 0;
   const recent = {};
   let waterAmb = null, lavaAmb = null, echo = null, dripT = -1;
 
@@ -15,7 +14,7 @@
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     ctx = new AC();
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.connect(ctx.destination);
-    master = ctx.createGain(); master.gain.value = muted ? 0 : 0.7; master.connect(comp);
+    master = ctx.createGain(); master.gain.value = 0; master.connect(comp);
     dry = ctx.createGain(); dry.connect(master);
     // a stone hall: two seconds of decaying noise, darker at the tail
     const conv = ctx.createConvolver(), n = ctx.sampleRate * 2.2, ir = ctx.createBuffer(2, n, ctx.sampleRate);
@@ -29,7 +28,7 @@
       echo.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(p); p.connect(g); g.connect(master); }
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   }
-  addEventListener('keydown', (e) => { init(); if (e.code === 'KeyM' && ctx) { muted = !muted; master.gain.setTargetAtTime(muted ? 0 : 0.7, ctx.currentTime, 0.05); try { localStorage.setItem('dc_mute', muted ? '1' : '0'); } catch (er) {} } });
+  addEventListener('keydown', () => init());
   addEventListener('pointerdown', init);
 
   // ---- building blocks: every voice ends in a panner and a send to the reverb ----
@@ -247,7 +246,7 @@
     drain: (o) => tone(o, { type: 'sawtooth', f0: 180, f1: 70, a: 0.03, d: 0.35, v: 0.1, det: 12 }),
     alert: (o) => tone(o, { type: 'triangle', f0: 880, f1: 1100, d: 0.07, v: 0.05 }),
     nope: (o) => tone(o, { type: 'square', f0: 130, d: 0.14, v: 0.06 }),
-    ui: (o) => tone(o, { type: 'triangle', f0: 1200, d: 0.04, v: 0.06 }),
+    ui: (o) => tone(o, { type: 'triangle', f0: 1200, d: 0.04, v: 0.06 }), ask: (o) => SFX.ui(o),
     equip: (o) => { noise(o, { d: 0.08, v: 0.2, f0: 1600, q: 2 }); tone(o, { type: 'triangle', f0: 900, d: 0.1, v: 0.06 }); },
     toss: (o) => noise(o, { d: 0.12, v: 0.15, type: 'lowpass', f0: 1200, f1: 300 }),
     buy: (o) => SFX.gold(o), trade: (o) => SFX.gold(o),
@@ -371,6 +370,8 @@
 
   function update(S) {
     if (!ctx || !S || S.demo) { if (S) lastT = S.t; return; }
+    const M = S.meta || {}, g = M.mute ? 0 : 0.7 * (M.vol ?? 1); muted = !!M.mute;
+    if (g !== gainNow) { master.gain.setTargetAtTime(g, ctx.currentTime, 0.05); gainNow = g; }
     if (S.run !== lastRun && S.run && lastRun && S.t < lastT) lastT = -1;
     if (S.t < lastT) lastT = S.t;
     lastRun = S.run;
