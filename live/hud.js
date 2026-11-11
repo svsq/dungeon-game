@@ -89,7 +89,7 @@
   // ---------------- attract title over the demo ----------------
   function title(S, t) {
     L.solid(0, 0, W, 200, [0, 0, 0], 0, 0, 0, 0.35);
-    lab('tt', TXT('hud.title'), W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('tt', TXT('hud.title'), W / 2, 92, { size: 92, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('tsb', TXT('hud.title.sub'), W / 2, 164, { size: 40, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('ts', TXT('hud.title.2', { n: D.RUNS.campaign.floors }), W / 2, 214, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
@@ -723,7 +723,7 @@
   // the test runs (TASKS 417): a press over a saved run asks again, as on the main menu, so the save is named here too
   function tests(S, t) {
     menuBack(t);
-    lab('ts_t', TXT('hud.tests'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('ts_t', TXT('hud.tests'), W / 2, 220, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('ts_s', TXT('hud.tests.2'), W / 2, 310, { size: 28, al: 0.5, col: C.dim });
     for (const b of D.UI.tests(!!S.saved, S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM, SIM.Q.isFull(S))) button('tb_' + b.id, b, S.hover);
     if (S.saved) lab('ts_sv', savedLine(S), W / 2, 412, { size: 22, al: 0.5, col: '#9fd08a' });
@@ -755,7 +755,7 @@
       const por = Cl.look.rig !== 'hero' && window.ASSETS['portrait_' + Cl.look.rig] ? 'portrait_' + Cl.look.rig : 'portrait';
       L.sprite(por, b.x + (b.w - 220) / 2, b.y + 46, { w: 220, h: 220 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
       if (on) KIT.seal(b.x + b.w - 52, b.y + 52, 1.1);
-      KIT.ink('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 268, { size: 44, al: 0.5, col: on ? KIT.INK.r : KIT.INK.t });
+      KIT.ink('cl_n' + b.cls, Cl.name, b.x + b.w / 2, b.y + 268, { size: 44, al: 0.5, col: on ? KIT.INK.r : KIT.INK.t, bold: true });
       KIT.rule(ix + 30, b.y + 296, iw - 60, 0.7);
       const sy = halves(Cl.style); sy.forEach((q, i) => KIT.ink('cl_y' + b.cls + i, q, b.x + b.w / 2, b.y + 320 + i * 25, { size: L.sizeToFit(q, iw, 21), al: 0.5, col: KIT.INK.t }));
       KIT.ink('cl_u' + b.cls, Cl.note, b.x + b.w / 2, b.y + 322 + sy.length * 25, { size: L.sizeToFit(Cl.note, iw, 18), al: 0.5, col: KIT.INK.d });
@@ -849,14 +849,14 @@
       if (!R) { KIT.ink('ld_e' + r.i, TXT('hud.load.empty'), cx + cs + 24, r.y + r.h / 2, { size: 28, col: KIT.INK.off }); continue; }
       L.sprite(portraitOf(R.hero), cx + 6, r.y + 19, { w: cs - 12, h: (cs - 12), src: [0.1, 0.0, 0.9, 0.74] });
       const nx = cx + cs + 20, rr = r.x + r.w - 54, lv = TXT('hud.load.lvl', { n: R.hero.lvl }), wh = whereOf(R), dt = stamp(R.at), tm = hrs(R.play);
-      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 30, { size: 30, col: on ? KIT.INK.r : KIT.INK.t });
+      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 30, { size: 30, col: on ? KIT.INK.r : KIT.INK.t, bold: true });
       KIT.ink('ld_l' + r.i, lv, rr, r.y + 32, { size: 24, al: 1 });
       KIT.ink('ld_w' + r.i, wh, nx, r.y + 58, { size: L.sizeToFit(wh, rr - nx, 22) });
       KIT.ink('ld_d' + r.i, dt, nx, r.y + 83, { size: 20, col: KIT.INK.d });
       KIT.ink('ld_p' + r.i, tm, rr, r.y + 83, { size: L.sizeToFit(tm, (rr - nx) / 2 - 10, 20), al: 1, col: KIT.INK.d }); }
     const R = SIM.Q.slotRun(S, sel), px = B.R.x, pw = B.R.w, mx = px + pw / 2;
     if (R) { const Cl = D.clsOf(R.hero); KIT.nine('cell', mx - 110, U.B.y + 120, 220, 190); L.sprite(portraitOf(R.hero), mx - 100, U.B.y + 128, { w: 200, h: 200 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
-      KIT.ink('ld_dn', Cl.name, mx, U.B.y + 346, { size: 44, al: 0.5, col: KIT.INK.r }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
+      KIT.ink('ld_dn', Cl.name, mx, U.B.y + 346, { size: 44, al: 0.5, col: KIT.INK.r, bold: true }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
       const lines = [[TXT('hud.load.d.lvl'), String(R.hero.lvl)], [TXT('hud.load.d.where'), D.placeName(R.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map)], [TXT('hud.load.d.diff'), (D.DIFF[R.diff] || D.DIFF.normal).name],
         [TXT('hud.load.d.time'), hrs(R.play)], [TXT('hud.load.d.saved'), stamp(R.at)]];
       lines.forEach(([k, v], i) => { const y = U.B.y + 412 + i * 36, tw = KIT.ink('ld_dk' + i, k, px + 40, y, { size: 24, col: KIT.INK.d }), vs = L.sizeToFit(v, pw - 120 - tw, 24), vw = KIT.ink('ld_dv' + i, v, px + pw - 40, y, { size: vs, al: 1 }); KIT.leader(px + 40 + tw + 14, px + pw - 40 - vw - 10, y + 6); }); }
@@ -875,7 +875,7 @@
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S), arm = S.resetT !== undefined && S.t - S.resetT < 3 && S.resetM;
     menuBack(t, !!F, true); if (F) newsFrame(F, D.CHANGES[0].v);
-    lab('m_t', TXT('hud.menu'), W / 2, 150, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06' });
+    lab('m_t', TXT('hud.menu'), W / 2, 150, { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, 230, { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, 282, { size: 28, al: 0.5, col: C.dim });
     const bs = D.UI.menu(!!S.saved, S.meta.diff, arm, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
@@ -1192,7 +1192,7 @@
   function end(S, t) {
     const r = S.result || {}, win = S.screen === 'win', damage = (r.damage || []).slice(-3), last = damage[damage.length - 1];
     L.solid(0, 0, W, H, win ? [0.03, 0.04, 0.06] : [0.05, 0.01, 0.01], 0, 0, 0, 0.96);
-    lab('e_t', win ? TXT('hud.end') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3'), W / 2, 100, { size: 76, al: 0.5, col: win ? C.gold : '#d8402a' });
+    lab('e_t', win ? TXT('hud.end') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3'), W / 2, 100, { size: 76, al: 0.5, col: win ? C.gold : '#d8402a', bold: true });
     lab('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : TXT('hud.end.7'), W / 2, 164, { size: 26, al: 0.5, col: C.dim });
     KIT.panel('e_story', 200, 220, 420, 650, 'leather', { pad: 0 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {

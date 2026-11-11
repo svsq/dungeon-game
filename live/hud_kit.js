@@ -135,10 +135,10 @@
   };
   // the title banner, centred on cx, its heading in red ink
   K.banner = (id, cx, y, w, s, o = {}) => { const h = o.h || 80; K.nine('banner', cx - w / 2, y, w, h);
-    const e = K.ends('banner')[0] * h / (40 * PX), size = L.sizeToFit(s, w - 2 * e * 0.8, o.size || 36);
-    K.ink(id + '_t', s, cx, y + h / 2 + 1, { size, al: 0.5, col: K.INK.r }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
+    const e = K.ends('banner')[0] * h / (40 * PX), size = L.sizeToFit(s, w - 2 * e * 0.8, o.size || 36, true);
+    K.ink(id + '_t', s, cx, y + h / 2 + 1, { size, al: 0.5, col: K.INK.r, bold: true }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
   // a heading straight on the page, a flourish to each side of it
-  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r }), r = o.wing || 90;
+  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r, bold: true }), r = o.wing || 90;
     K.rule(cx - tw / 2 - 24 - r, y + 2, r, 0.8); K.rule(cx + tw / 2 + 24, y + 2, r, 0.8); K.rule(cx - tw / 2 * 0.8, y + (o.size || 48) * 0.75, tw * 0.8); return tw; };
   // the vine flourishes in a page's four corners
   K.corners = (P, k = 0.8) => { const s = 64 * PX * k, h = s * G.tex('ui_b_flourish').h / G.tex('ui_b_flourish').w;
