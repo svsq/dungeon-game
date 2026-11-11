@@ -480,7 +480,7 @@
     S.meta.shards -= o.cost; sh.used = 1; sh.took = o.id;
     if (G.power) (h.powers = h.powers || {})[o.id] = 1; else if (o.id === 'bless') { if (!h.bless) h.blessTo = 0; h.bless = 1; } else { h.perks = h.perks || {}; h.perks[o.id] = (h.perks[o.id] || 0) + 1; }
     const st = heroSt(S); h.hp = st.maxHp; h.mp = st.maxMp;
-    ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: G.name + ': ' + G.desc + (o.id === 'bless' ? TXT('sim_town.takeGift.msg.s') : TXT('sim_town.takeGift.msg.s.2')), t: S.t };
+    ev(S, { k: 'bless', x: sh.x, y: sh.y, id: o.id, s: G.name, cost: o.cost }); R.msg = { s: o.id === 'bless' ? TXT('sim_town.takeGift.msg.floor', { name: G.name, desc: G.desc }) : TXT('sim_town.takeGift.msg', { name: G.name, desc: G.desc }), t: S.t };
     S.screen = 'play'; S.saveN++;
   }
   // a spent altar only answers while a donation can go through (TASKS 242)

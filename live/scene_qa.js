@@ -107,6 +107,8 @@
       ['altar_powers', play((S) => { const R = S.run, h = R.hero; h.powers = { whirl_pull: 1, dash_trail: 1, dash_strike: 1 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:1'; })],
       ['altar_relic', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, gifts: [{ id: 'bless', cost: 9 }, { id: 'whirl_ring', cost: 50 }, { id: 'leap_trap', cost: 90 }, { id: 'rl_fifth', cost: 180 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'gift:3'; })],
       ['altar_rank', play((S) => { const R = S.run, h = R.hero; h.perks = { fury: 2 }; R.shrines = [{ x: h.x + 70, y: h.y, used: 0, rolls: 2, gifts: [{ id: 'bless', cost: 9 }, { id: 'crit', cost: 50 }, { id: 'fury', cost: 90 }] }]; R.altar = 0; S.meta.shards = 200; S.screen = 'altar'; S.hover = 'reroll'; })],
+      // the gift's line after the altar at its longest (TASKS 1829)
+      ['altar_gift_msg', play((S) => { const G = D.GIFTS.reduce((a, b) => (TXT('sim_town.takeGift.msg', b).length > TXT('sim_town.takeGift.msg', a).length ? b : a)); S.run.msg = { s: TXT('sim_town.takeGift.msg', G), t: S.t - 1 }; })],
       ['altar_prompt', play((S) => { const R = S.run, h = R.hero; R.shrines = [{ x: h.x + 50, y: h.y - 20, used: 0 }]; })],
       // the interaction plate with its target on each side of the hero and the stairs right under him: it never covers him
       ...[['s', 0, 36], ['n', 0, -40], ['e', 44, 0], ['se', 30, 30]].map(([d, dx, dy]) => ['prompt_chest_' + d, play((S) => { const R = S.run, h = R.hero; R.chests.push({ x: h.x + dx, y: h.y + dy, tier: 1, open: 0 }); })]),

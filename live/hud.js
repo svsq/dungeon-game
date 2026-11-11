@@ -368,8 +368,12 @@
     if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
       else {
-      const size = Math.max(18, Math.floor(30 * Math.min(1, 1000 / lw('msg_m', s, { size: 30 })))), w = lw('msg', s, { size }) + 60;
-      plate('msg_box', W / 2 - w / 2, 148, w, 56, { a: al }); lab('msg', s, W / 2, 177, { size, al: 0.5, col: C.gold, a: al }); } } }
+      // a long line (a gift's name and its whole effect, TASKS 1829) breaks in two instead of shrinking past the 20 px floor, and
+      // stays narrow enough to clear the HUD panel and the map
+      const one = lw('msg_m', s, { size: 30 }) <= 1000, size = one ? 30 : 24, ls = one ? [s] : wrapWords(s, 660, size), lh = size + 8;
+      const w = Math.max(...ls.map((q, k) => lw('msg' + (k || ''), q, { size }))) + 60;
+      plate('msg_box', W / 2 - w / 2, 148, w, 56 + (ls.length - 1) * lh, { a: al });
+      ls.forEach((q, k) => lab('msg' + (k || ''), q, W / 2, 177 + k * lh, { size, al: 0.5, col: C.gold, a: al })); } } }
     // feed: pickups and refusals, newest at the bottom
     const feed = S.ev.filter((e) => (e.k === 'pickup' || e.k === 'nope' || e.k === 'lvl' || e.k === 'unlock' || e.k === 'trade') && S.t - e.t < 3).slice(-5);
     feed.forEach((e, i) => { const a = S.t - e.t, al = 1 - L.SS(2.4, 3, a), y = H - 44 - (feed.length - 1 - i) * 34;
