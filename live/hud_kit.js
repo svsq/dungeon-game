@@ -146,9 +146,10 @@
   K.banner = (id, cx, y, w, s, o = {}) => { const h = o.h || 80; K.nine('banner', cx - w / 2, y, w, h);
     const e = K.ends('banner')[0] * h / (40 * PX), fit = w - 2 * e * 0.8;
     K.ink(id + '_t', s, cx, y + h / 2 + 1, { size: o.size || 36, fit, al: 0.5, col: K.INK.r, bold: true }); L.uiBox(id, cx - w / 2 + e * 0.7, y, w - e * 1.4, h, 2); };
-  // a heading straight on the page, a flourish to each side of it
-  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r, bold: true }), r = o.wing || 90;
-    K.rule(cx - tw / 2 - 24 - r, y + 2, r, 0.8); K.rule(cx + tw / 2 + 24, y + 2, r, 0.8); K.rule(cx - tw / 2 * 0.8, y + (o.size || 48) * 0.75, tw * 0.8); return tw; };
+  // a heading straight on the page, a flourish to each side of it; o.w, the width the heading stands in, shortens the flourishes
+  // to stay inside it, and one shorter than 20 px is left out (TASKS 1866: they ran past the version sheet's edge)
+  K.heading = (id, s, cx, y, o = {}) => { const tw = K.ink(id, s, cx, y, { size: o.size || 48, al: 0.5, col: K.INK.r, bold: true }), r = Math.min(o.wing || 90, o.w ? o.w / 2 - tw / 2 - 24 - 8 : 1e9);
+    if (r >= 20) { K.rule(cx - tw / 2 - 24 - r, y + 2, r, 0.8); K.rule(cx + tw / 2 + 24, y + 2, r, 0.8); } K.rule(cx - tw / 2 * 0.8, y + (o.size || 48) * 0.75, tw * 0.8); return tw; };
   // the vine flourishes in a page's four corners
   K.corners = (P, k = 0.8) => { const s = 64 * PX * k, h = s * G.tex('ui_b_flourish').h / G.tex('ui_b_flourish').w;
     L.sprite('ui_b_flourish', P.x, P.y, { w: s, h }); L.sprite('ui_b_flourish', P.x + P.w - s, P.y, { w: s, h, flip: true });

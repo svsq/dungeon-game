@@ -899,11 +899,15 @@
     const [bw, bh] = SZ('en_brute'); L.sprite('en_brute', x0 + 1430 * k, y0 + 330 * k, { w: bw * 2.6 * k, h: bh * 2.6 * k, flip: true, u: { grade: [0.9, 0.75, 0, 1] } });
   }
   // the version's main lines (TASKS 1305), look B: a loose parchment sheet pinned with a brass nail, a red diamond a line
-  function newsFrame(F, v) {
-    const P = F.P; KIT.panel('nf_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 20, 1.2);
-    KIT.heading('nf_t', TXT('hud.news.main', { v }), P.x + P.w / 2, P.y + 72, { size: 34, wing: 60 });
+  // under them the small link to the whole «Что нового» (TASKS 1866), red and underlined in red when it is the one lit
+  function newsFrame(F, lit) {
+    const P = F.P, IP = KIT.panel('nf_p', P.x, P.y, P.w, P.h, 'torn'); KIT.knob(P.x + P.w / 2, P.y + 20, 1.2);
+    KIT.heading('nf_t', TXT('hud.news.main', { v: F.v }), P.x + P.w / 2, P.y + 72, { size: 34, wing: 60, w: IP.w });
     F.rows.forEach((r, i) => { if (r.first) { if (i) KIT.rule(P.x + 60, r.y - 20, P.w - 120, 0.45); L.solid(P.x + 58, r.y - 5, 10, 10, [0.49, 0.12, 0.07], 0.7854, 5, 5); }
       KIT.ink('nf_r' + i, r.s, P.x + 82, r.y, { size: 20 }); });
+    const b = F.link, cy = b.y + b.h / 2, tw = KIT.ink('mb_news', F.linkLabel, b.x + b.w / 2, cy, { size: 20, al: 0.5, col: lit ? KIT.INK.r : KIT.INK.d });
+    L.solid(b.x + b.w / 2 - tw / 2, cy + 12, tw, 2, lit ? [0.49, 0.12, 0.07] : [0.35, 0.23, 0.14], 0, 0, 0, lit ? 1 : 0.7);
+    L.uiBox('mb_news_b', b.x, b.y, b.w, b.h, 0);
   }
   const savedLine = (S) => TXT('hud.savedLine', { p1: S.saved.mode === 'campaign' ? '' : D.runOf(S.saved.mode).name + ', ', p2: S.saved.floor ? TXT('hud.savedLine.2', { floor: S.saved.floor }) : TXT('hud.savedLine.3'), lvl: S.saved.hero.lvl });
   // the test runs (TASKS 417): a press over a saved run asks again, as on the main menu, so the save is named here too
@@ -1059,13 +1063,14 @@
   // wax seal and a red rule under it, and it alone is red (TASKS 1754)
   function menu(S, t) {
     const F = D.UI.newsFrame(S.qaNewsMain || (D.CHANGES[0] || {}).main), full = SIM.Q.isFull(S);
-    menuBack(t, !!F, true, S); if (F) newsFrame(F, D.CHANGES[0].v);
+    menuBack(t, !!F, true, S);
     const ty = (y) => Math.round((bk().y0 + y * bk().k) / 2) * 2;
     lab('m_t', TXT('hud.menu'), W / 2, ty(150), { size: 104, al: 0.5, col: C.gold, out: '#2a0d06', bold: true });
     lab('m_sb', TXT('hud.menu.sub'), W / 2, ty(230), { size: 44, al: 0.5, col: '#e8c890', out: '#2a0d06' });
     lab('m_s', TXT('hud.menu.2', D.campaignLen()), W / 2, ty(282), { size: 28, al: 0.5, col: C.dim });
     const bs = D.UI.menu(!!S.saved, S.meta.diff, S.meta.zoom, full), M = D.UI.menuSheet(!!S.saved), P = M.P, items = bs.filter((b) => !b.link);
     const lit = litOf(S, bs.map((b) => b.id)), cur = lit ? (items.some((b) => b.id === lit) ? lit : '') : items[0].id;
+    if (F) newsFrame(F, lit === 'news');
     KIT.part('ui_b_strap_ring', [32, 47], P.x + P.w - 112, P.y + P.h - 34);
     const IP = KIT.panel('m_sheet', P.x, P.y, P.w, P.h, 'menu'); KIT.strap(P.x + P.w / 2, P.y + 22);
     KIT.corners({ x: IP.x + 8, y: IP.y + 8, w: IP.w - 16, h: IP.h - 16 }, 0.45);
@@ -1076,10 +1081,6 @@
       if (b.id === 'continue' && S.saved) { const R = S.saved, s0 = TXT('hud.menu.saved', { p1: R.mode === 'campaign' ? '' : D.runOf(R.mode).name + ', ', p2: R.floor ? TXT('hud.savedLine.2', { floor: R.floor }) : TXT('hud.savedLine.3'), lvl: R.hero.lvl }), s1 = s0[0].toUpperCase() + s0.slice(1);
         KIT.ink('mb_sv', s1, lx, ly + 40, { size: 18, fit: maxW, col: KIT.INK.d }); }
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
-    for (const b of bs) { if (!b.link) continue; const hv = lit === b.id, lw0 = lw('mb_lw', b.label, { size: 20 }), x1 = b.x + b.w - 4;
-      lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
-      L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
-    lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
     // «Сохранить и выйти» answers on the menu it lands on (TASKS 1863 б)
     const sa = S.t - (S.savedT ?? -1e9); if (S.saved && sa < 3) { const s = TXT('hud.menu.savedNote'), al = 1 - L.SS(2.4, 3, sa), w = lw('m_svn', s, { size: 26 }) + 56;
       plate('m_svn_box', W / 2 - w / 2, 318, w, 54, { a: 0.92 * al }); lab('m_svn', s, W / 2, 345, { size: 26, al: 0.5, col: '#9fd08a', a: al }); }

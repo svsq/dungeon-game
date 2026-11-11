@@ -52,7 +52,6 @@
       } finally { SIMX.setView(h0); } }
     { const T = spawn(0, { meta: { up: {} } }), at = (rs, id) => { const b = rs.find((q) => q.id === id); return { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }; };
       if (UI.menu(false).some((q) => q.id === 'diff')) out.push('start: the menu still has its difficulty item');
-      if (!D.UI.newsFrame((D.CHANGES[0] || {}).main) !== !((D.CHANGES[0] || {}).main || []).length || D.UI.newsFrame([])) out.push('news: the menu\'s frame is shown without lines or hidden with them');
       step(T, at(UI.menu(false), 'campaign')); if (T.screen !== 'classes') out.push('start: «Старт» does not open the difficulty and class screen');
       step(T, { keys: ['ArrowUp'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.diff !== 'hard') out.push('start: ↑ then → do not pick the hard difficulty');
       step(T, { keys: ['ArrowDown'] }); step(T, { keys: ['ArrowRight'] }); if (T.meta.cls !== D.classesReady()[1]) out.push('start: ↓ then → do not pick the next class');
@@ -140,6 +139,10 @@
       K.focus = 'settings'; k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'tests') out.push('menu: ↓ Enter after coming back does not go on from the item left');
       K.screen = 'menu'; K.uiWas = 'menu'; K.focus = ''; k2(K, 'ArrowUp'); if (K.focus !== 'news') out.push('menu: ↑ from no focus does not reach «Что нового»');
       k2(K, 'Enter'); if (K.screen !== 'news') out.push('menu: Enter on «Что нового» does not open it');
+      // TASKS 1866: the link to the whole changelog lies on the version's sheet, under its main lines, and is the menu's last stop
+      { const F = UI.newsFrame(), nl = UI.menu(true).at(-1), P = F && F.P, last = F && F.rows.at(-1);
+        if (!F || nl.id !== 'news' || nl.x < P.x || nl.y < P.y || nl.x + nl.w > P.x + P.w || nl.y + nl.h > P.y + P.h || (last && nl.y < last.y)) out.push('menu: the link to «Что нового» is not the last stop under the version sheet\'s lines');
+        const E = UI.newsFrame([]); if (!E || E.rows.length || !(E.link.y > E.P.y)) out.push('menu: with no main lines the version sheet does not keep its heading and link'); }
       K.screen = 'menu'; K.uiWas = 'menu'; K.focus = ''; k2(K, 'Enter'); if (K.screen !== 'play' || !K.run || K.run.seed !== 45) out.push('menu: Enter with no focus does not continue the saved run'); }
     { const { loadSlot, slotRun } = SIMX, J = (o) => JSON.parse(JSON.stringify(o)), play = (S, n) => { S.screen = 'play'; for (let i = 0; i < n; i++) step(S, { keys: [] }); };
       const save = (S) => { const b = UI.pause(S.meta.zoom).find((q) => q.id === 'save'); S.screen = 'pause'; step(S, { keys: [], click: 1, press: 1, px: b.x + b.w / 2, py: b.y + b.h / 2 }); step(S, { keys: [], press: 0 }); };

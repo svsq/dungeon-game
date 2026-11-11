@@ -25,7 +25,7 @@
   const MENU_SHEET = { x: 48, w: 620, bottom0: 1012, top: 92, row: 56, sub: 26, gap: 34, bottom: 78, inX: 56 };
   const MENU_ITEMS = [['continue', 'campaign', 'load'], ['stats', 'settings'], ['tests']];
   const MENU_LABEL = { continue: () => TXT('UI.menu'), load: () => TXT('UI.menu.load'), stats: () => TXT('UI.menu.stats'), settings: () => TXT('UI.menu.settings'), tests: () => TXT('UI.menu.5') };
-  const NEWS_LINK = { x: 1736, y: 1032, w: 164, h: 36 }, NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42 };
+  const NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42, link: { gap: 14, w: 320, h: 36 } };
   // the sort buttons beside a grid: by type, rarity, level, stacked from (x, y)
   const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
   const sortCol = (pre, x, y, w = 210, h = 46) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x, y: y + i * (h + 12), w, h }));
@@ -70,8 +70,8 @@
   const INV = { L: { x: 96, y: 84, w: 600, h: 912 }, R: { x: 720, y: 84, w: 1104, h: 912 } };
   const UI = {
     // full: every save slot holds a run, so a new one takes the place of the one played longest ago (TASKS 1311, 1785)
-    menu: (hasRun, diff, zoom, full = hasRun) => UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2')).r
-      .concat([Object.assign({ id: 'news', label: TXT('UI.menu.9'), on: true, link: true }, NEWS_LINK)]),
+    menu: (hasRun, diff, zoom, full = hasRun) => { const F = UI.newsFrame();
+      return UI.menuSheet(hasRun, full ? TXT('UI.menu.4') : TXT('UI.menu.2')).r.concat(F ? [Object.assign({ id: 'news', label: F.linkLabel, on: true, link: true }, F.link)] : []); },
     // the main menu (TASKS 1301), look B: small ink items on a parchment sheet in the bottom-left corner, as on ref_ui_menu_b; the
     // sheet stands on its bottom edge, so without «Продолжить» it is shorter and the rest keep their places. Groups are cut by a
     // rule: the run, then the books, then the test runs that will leave the menu
@@ -81,11 +81,14 @@
           r.push({ id, label: id === 'campaign' ? newLabel : MENU_LABEL[id](), on: true, x: M.x + M.inX, y, w: M.w - M.inX * 2, h }); y += h; } });
       const h = y + M.bottom, y0 = M.bottom0 - h; r.forEach((b) => { b.y += y0; });
       return { P: { x: M.x, y: y0, w: M.w, h }, r, rules: rules.map((v) => v + y0) }; },
-    // the version's main lines in a parchment frame on the menu's right (TASKS 1305), wrapped to the frame and standing on its
-    // bottom edge, so a longer list grows up into the empty corner; no lines, no frame
-    newsFrame: (main) => { if (!main || !main.length) return null; const F = NEWS_FRAME, rows = []; let y = F.top;
-      main.forEach((s, i) => { if (i) y += F.gap; wrapLine(s, F.wrap).forEach((q, j) => { rows.push({ s: q, first: !j, y }); y += F.line; }); });
-      const h = y + F.bottom, y0 = F.bottom0 - h; return { P: { x: F.x, y: y0, w: F.w, h }, rows: rows.map((r) => Object.assign(r, { y: y0 + r.y })) }; },
+    // the version's sheet on the menu's right (TASKS 1305, 1866): «Версия N» over its main lines, wrapped to the frame, and the
+    // small link to the whole «Что нового» under them; it stands on its bottom edge, so a longer list grows up into the empty
+    // corner. It carries the version itself, so with no main lines it still stands, the heading and the link alone
+    newsFrame: (main = (D.CHANGES[0] || {}).main) => { const top = D.CHANGES[0]; if (!top) return null; const F = NEWS_FRAME, rows = []; let y = F.top;
+      (main || []).forEach((s, i) => { if (i) y += F.gap; wrapLine(s, F.wrap).forEach((q, j) => { rows.push({ s: q, first: !j, y }); y += F.line; }); });
+      const ly = (rows.length ? y + F.link.gap : y - 20), h = ly + F.link.h + F.bottom - 12, y0 = F.bottom0 - h;
+      return { P: { x: F.x, y: y0, w: F.w, h }, v: top.v, rows: rows.map((r) => Object.assign(r, { y: y0 + r.y })),
+        link: { x: F.x + (F.w - F.link.w) / 2, y: y0 + ly, w: F.link.w, h: F.link.h }, linkLabel: TXT('UI.menu.news', { v: top.v }) }; },
     // the test runs (TASKS 417): a screen of their own behind the main menu's «Тесты», in the campaign's order (the caves, then the
     // magma caves, then the endless descent past them), «Назад» last
     // the start screen (TASKS 1103, 1304): the difficulty's tabs over the class cards, a card a ready class, side by side, the start
