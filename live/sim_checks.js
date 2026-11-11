@@ -132,7 +132,7 @@
           SIMX.ev(Z, { k: 'nope' }); SIMX.ev(Z, { k: 'nope' }); if (Z.ev.filter((q) => q.k === 'nope' && !q.s).length !== 2) out.push('nope: two refusals without words come out of the bus as one'); } }
       const E3 = spawn(1, J({ meta: E.meta, run: null, slot: 0, saves: [null, null, Object.assign(J(old), { at: 3 }), null, null] })); if (!E3.saved || E3.slot !== 2) out.push('saves: a load with no named run does not name the run in the slots');
       const k2 = (S, k) => { step(S, { keys: [k] }); step(S, { keys: [] }); }, K = spawn(0, {}); K.saved = J(newRun(K, 'campaign', 45)); K.screen = 'menu'; K.focus = '';
-      k2(K, 'ArrowDown'); k2(K, 'ArrowDown'); if (K.focus !== 'campaign') out.push('menu: ↓ does not walk the items from the first');
+      k2(K, 'ArrowDown'); if (K.focus !== 'campaign') out.push('menu: the first ↓ does not step past the item already sealed (TASKS 1880 г)');
       k2(K, 'ArrowDown'); k2(K, 'Enter'); if (K.screen !== 'load') out.push('menu: Enter on the focused «Загрузить игру» does not open it');
       key(K, 'Escape'); step(K, { keys: [] }); if (K.screen !== 'menu' || K.focus !== 'load') out.push('menu: back from «Загрузить игру» the focus is not on it (TASKS 1860)');
       for (const id of ['stats', 'settings']) { K.focus = id; k2(K, 'Enter'); k2(K, 'Escape'); if (K.screen !== 'menu' || K.focus !== id) out.push('menu: back from ' + id + ' by Escape the focus is not on it (TASKS 1860)'); }

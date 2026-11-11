@@ -144,6 +144,8 @@
     lab('ts', TXT('hud.title.2'), W / 2, 214, { size: 28, al: 0.5, col: C.dim });
     const a = 0.55 + 0.45 * Math.sin(t * 3);
     lab('tp', TXT('hud.title.3'), W / 2, H - 90, { size: 34, al: 0.5, a });
+    // the keys in the game's own letters, as the page's line under the canvas was set in a bold system font (TASKS 1880 к)
+    lab('tk', SIM.HINT, W / 2, H - 40, { size: 24, al: 0.5, col: C.dim, fit: W - 120 });
   }
 
   // ---------------- world-space overlays: monster bars, damage numbers, prompts ----------------
@@ -392,7 +394,7 @@
     if (rage && h.mp >= st.maxMp) { G.blend('add'); L.glow(mx + 2 - B.FW / 2, fy + 66, 46, [1, 0.6, 0.2], 0.35 + 0.1 * Math.sin(t * 6)); G.blend(); }
     D.clsOf(h).abs.forEach((A, i) => { const x = B.sx + i * (B.CS + 16), y = B.y + 8, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
       skillCell('sk_' + A.id, x, y, B.CS, A, r, cd, A.cd, h.mp < A.mp, rage);
-      if (r && cd > 0) lab('skc_' + A.id, cd.toFixed(1), x + B.CS / 2, y + B.CS / 2, { size: 26, al: 0.5 });
+      if (r && cd > 0) lab('skc_' + A.id, cd.toFixed(1).replace('.', ','), x + B.CS / 2, y + B.CS / 2, { size: 26, al: 0.5 });
       keycap('skk_' + A.id, A.key, x + B.CS / 2, y + B.CS - 14); });
     const pot = (b) => h.bag.reduce((n, it) => n + (it && it.b === b ? it.n : 0), 0);
     // a town run's scrolls of return beside the potions (TASKS 1033): the way home in sight, with its key
@@ -446,7 +448,7 @@
   // timed ones drain clockwise; debuffs sit on a red rim
   // a gift taken at several altars: its tooltip names the summed value, as its cell does, and how many times it was given
   const giftTip = (G, n) => { if (n < 2) return G.desc; const times = TXT.n('hud.tip.times', n);
-    const d = G.flat ? TXT('GIFTS.phoenix.descN', { n, times }) : G.desc.replace(String(G.v), String(Math.round(G.v * n * 10) / 10));
+    const d = G.flat ? TXT('GIFTS.phoenix.descN', { n, times }) : G.desc.replace(String(G.v), nf(G.v * n));
     return G.flat ? d : TXT('hud.tip.giftN', { d, n, times }); };
   function buffs(S, R, GT, statsBot) {
     const h = R.hero, list = [], gift = (id) => D.GIFTS.find((g) => g.id === id);
@@ -454,7 +456,7 @@
     if ((h.perks || {}).greed) list.push({ id: 'g_greed', ic: 'it_gold', v: '+' + h.perks.greed * 25 + '%', col: '#9cc8ff', gift: 1, name: TXT('hud.tip.greed') });
     // the altars' gifts for the run: one cell per kind, the value summed over every altar that gave it
     for (const G of D.GIFTS) if (G.power && D.hasPower(h, G.id)) list.push({ id: 'g_' + G.id, ic: G.icon, v: '', col: '#ffd27a', gift: 1, name: G.name, desc: G.desc });
-    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', String(Math.round(G.v * n * 10) / 10)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff', gift: 1, name: G.name, desc: giftTip(G, n) }); }
+    for (const G of D.GIFTS) { if (G.power) continue; const n = (h.perks || {})[G.id]; if (n) list.push({ id: 'g_' + G.id, ic: G.icon, v: G.tag ? G.tag.replace('{v}', nf(G.v * n)).replace('{n}', n) : G.desc.split(' ')[0].replace(/[\d.]+/, String(Math.round(G.v * n * 10) / 10)), col: '#9cc8ff', gift: 1, name: G.name, desc: giftTip(G, n) }); }
     if (h.shield > 0 && GT < h.shieldUntil) list.push({ id: 'shield', ic: 'ab_shield', v: String(Math.ceil(h.shield)), col: '#9cc8ff', left: (h.shieldUntil - GT) / D.SHIELD_T, name: D.ABILITIES.find((A) => A.id === 'shield').name, desc: TXT('hud.tip.shield', { n: Math.ceil(h.shield) }) });
     if (h.burn > GT) list.push({ id: 'burn', ic: 'bf_burn', left: (h.burn - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.burn'), desc: TXT('hud.tip.burn') });
     if (h.poison > GT) list.push({ id: 'poison', ic: 'bf_poison', left: (h.poison - GT) / 3, bad: 1, name: TXT('sim_floor.damageName.poison'), desc: TXT('hud.tip.poison') });
@@ -594,7 +596,9 @@
     // this floor's completion: monsters, loot, secrets (the last only where the floor has any)
     const y = Gm.rule + 22; KIT.rule(x0 + 22, Gm.rule, pw - 44, 0.7);
     const prog = progress(R); prog.forEach(([id, ic, s, done], i) => { const x = x0 + 26 + i * (pw - 52) / prog.length; icon(ic, x, y - 9, 18, done ? undefined : { alpha: 0.8 });
-      KIT.ink('mm_p' + id, s, x + 24, y + 1, { size: 20, col: done ? I.r : I.t }); });
+      KIT.ink('mm_p' + id, s, x + 24, y + 1, { size: 20, col: done ? I.r : I.t });
+      // the three shares had no word on them (TASKS 1880 д): a note over each, under the pointer in the pause
+      tipAt(x - 4, y - 16, (pw - 52) / prog.length - 8, 32, ...PROG_TIP[id](), y - 16); });
   }
   // minimap markers, centred on (x, y): gems as in the concept, a slab for a room, the stairs for the exit
   const GEM = { you: [[0.55, 0.8, 1], [0.1, 0.3, 0.95]], gold: [[1, 0.9, 0.4], [0.85, 0.5, 0.05]], boss: [[1, 0.4, 0.3], [0.65, 0.04, 0.03]], shop: [[0.6, 1, 0.7], [0.12, 0.6, 0.3]] };
@@ -626,6 +630,7 @@
     for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 - Math.PI / 2, i === 0 ? r * 0.95 : r * 0.75, i === 0 ? [0.49, 0.12, 0.07] : ink);
     [[TXT('hud.compass'), 0, -1], [TXT('hud.compass.2'), 1, 0], [TXT('hud.compass.3'), 0, 1], [TXT('hud.compass.4'), -1, 0]].forEach(([s, dx, dy]) => KIT.ink('mm_c' + s, s, cx + dx * (r + 7), cy + dy * (r + 10) + 1, { size: 20, al: 0.5, col: KIT.INK.d }));
   }
+  const PROG_TIP = { foes: () => [TXT('hud.prog.foes'), TXT('hud.prog.foes.l')], loot: () => [TXT('hud.prog.loot'), TXT('hud.prog.loot.l')], sec: () => [TXT('hud.prog.sec'), TXT('hud.prog.sec.l')] };
   // floor completion cells for the minimap: [id, icon, text, complete]
   function progress(R) {
     const f = SIM.Q.fstat(R), pc = (k, n) => Math.floor(100 * Math.min(1, k / n)) + '%', out = [];
@@ -655,7 +660,8 @@
     KIT.tabs(id, tabs, open, S);
     for (const q of tabs) { const T = D.bagTabs(bag.length)[q.tab], n = bag.slice(T.a, T.a + T.n).filter((it) => !it).length, s = String(n), bw = Math.max(30, lw(id + '_fw', s, { size: 20 }) + 16), bx = q.x + q.w - bw - 6, by = q.y - (q.id === open ? 8 : 0) - 14;
       L.rrect(bx, by, bw, 28, 14, n ? [0.2, 0.13, 0.09] : [0.62, 0.14, 0.08], n ? [0.12, 0.08, 0.05] : [0.42, 0.08, 0.05], 0.95);
-      lab(id + '_f' + q.tab, s, bx + bw / 2, by + 14, { size: 20, al: 0.5, col: n ? '#e8d6b0' : '#fff2e0' }); L.uiBox(id + '_fb' + q.tab, bx, by, bw, 28, 0); } const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
+      lab(id + '_f' + q.tab, s, bx + bw / 2, by + 14, { size: 20, al: 0.5, col: n ? '#e8d6b0' : '#fff2e0' }); L.uiBox(id + '_fb' + q.tab, bx, by, bw, 28, 0);
+      tipAt(bx - 4, by - 4, bw + 8, 36, TXT('hud.inv.free'), TXT('hud.inv.free.l')); } const hb = S.drag && tabs.find((q) => q.id === S.hover); if (hb) edge(hb.x + 6, hb.y - 2, hb.w - 12, hb.h + 2, [1, 0.82, 0.35], 3); };
   const nf = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
   // what one point of a stat gives, from the stats' own formula with the point and without it (TASKS 1857)
   const GAIN = [['atk', (v) => TXT('hud.stat.atk', { v })], ['def', (v) => TXT('hud.stat.def', { v })], ['maxHp', (v) => TXT('hud.stat.maxHp', { v })], ['maxMp', (v) => TXT('hud.stat.maxMp', { v })],
@@ -702,7 +708,7 @@
       const tip = () => statGain(S, h, s.k); tipAt(Lp.x + 44, b.y - 4, 236, b.h + 8, s.full, tip); tipAt(b.x - 4, b.y - 4, b.w + 8, b.h + 8, s.full, tip); });
     const draft = h.draft || {}, rst = (id, on) => { if (on) KIT.button('inv_' + id, Object.assign({}, U.r.find((q) => q.id === id), { size: 22 }), KIT.st(S, id)); };
     rst('reset:st', Object.values(draft.st || {}).some((n) => n > 0));
-    const pct = (v) => (v > 0 ? '+' : '') + (Math.round(v * 10) / 10) + '%', num = (v) => Math.round(v * 10) / 10;
+    const pct = (v) => (v > 0 ? '+' : '') + nf(v) + '%', num = nf;
     const derived = [[TXT('hud.inv.derived'), st.atk], [TXT('hud.inv.derived.2'), st.def], [TXT('hud.inv.derived.3'), st.maxHp], [TXT('hud.inv.derived.4'), st.maxMp], [TXT('hud.inv.derived.5'), Math.round(st.crit) + '%'], [TXT('hud.inv.derived.12'), '×' + String(Math.round(st.critK * 100) / 100).replace('.', ',')], [TXT('hud.inv.derived.6'), num(st.dodge) + '%'], [TXT('hud.inv.derived.7'), pct(st.aspd)],
       [TXT('hud.inv.derived.8'), pct(st.mspd)], [TXT('hud.inv.derived.9'), st.leech ? num(st.leech) + '%' : '—'], [TXT('hud.inv.derived.10'), st.regen ? '+' + num(st.regen) : '—'], [TXT('hud.inv.derived.11'), st.onhit ? '+' + num(st.onhit) : '—']];
     const dy0 = Lp.y + 694, half = Math.ceil(derived.length / 2), colW = (Lp.w - 100 - 28) / 2;
@@ -822,8 +828,9 @@
   // also gives are listed; `dim` mutes the comparison of a piece that can't be worn yet, `compact` drops the stat rows
   function compare(S, it, slot, h, lines, o) {
     const cur = h.eq[slot], of = (x) => { const m = { atk: (x && x.atk) || 0, def: (x && x.def) || 0 }; if (x) { const q = SIM.Q.itemMods(x); for (const k in q) m[k] = (m[k] || 0) + q[k]; } return m; };
-    const a = of(it), c = of(cur), num = (v) => String(Math.round(Math.abs(v) * 10) / 10), mute = (col) => (o.dim ? C.dim : col);
-    lines.push([cur ? TXT('hud.compare', { p1: SIM.Q.itemName(cur) }) : TXT('hud.compare.2', { p1: D.SLOT_NAME[slot] }), C.dim, 19]);
+    const a = of(it), c = of(cur), num = (v) => nf(Math.abs(v)), mute = (col) => (o.dim ? C.dim : col);
+    // a plain piece is named by its base, «Амулет», which read as the slot's name: its rarity says it is the piece worn (TASKS 1880 ж)
+    lines.push([cur ? TXT('hud.compare', { p1: SIM.Q.itemName(cur) + (cur.rar !== 4 && D.RARITY[cur.rar] ? ' · ' + D.RARITY[cur.rar].name : '') }) : TXT('hud.compare.2', { p1: D.SLOT_NAME[slot] }), C.dim, 19]);
     if (cur) lines.push(['   ' + TXT('hud.compare.lvl', { p1: it.lvl, p2: cur.lvl }), mute(it.lvl > cur.lvl ? UP : it.lvl < cur.lvl ? DOWN : C.dim), 19]);
     if (!o.compact) for (const k of D.AFFIXES.map((q) => q.k)) { const d = (a[k] || 0) - (c[k] || 0); if (Math.abs(d) < 0.05 || !c[k]) continue;
       lines.push(['   ' + D.AFFIXES.find((q) => q.k === k).label.replace('+{v}', (d > 0 ? '+' : '−') + num(d)), mute(d > 0 ? UP : DOWN), 19]); }
@@ -1111,7 +1118,8 @@
     if (R) { const run = TXT('hud.menu.ask.run', { cls: D.clsOf(R.hero).name, where: whereOf(R) }); KIT.ink('na_ask_r', run, A.x + A.w / 2, A.y + 200, { size: 26, fit: P.w - 60, al: 0.5, col: KIT.INK.t, bold: true });
       KIT.ink('na_ask_d', stamp(R.at), A.x + A.w / 2, A.y + 234, { size: 22, al: 0.5, col: KIT.INK.d }); }
     for (const b of U.r) KIT.button('na_' + b.id, b, askSt(S, U, b.id));
-    const keys = TXT('hud.pause.keys.ask'), ky = S.run ? bpGeo(S, S.run).y - 32 : H - 26, kw = lw('na_keys_w', keys, { size: 26 }); L.uiBox('na_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    // the keys right under the question's sheet, as the gate's are under its window (TASKS 1880 л), not 280 px below over the panel
+    const keys = TXT('hud.pause.keys.ask'), ky = A.y + A.h + 40, kw = lw('na_keys_w', keys, { size: 26 }); L.uiBox('na_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('na_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // «Что нового» (TASKS 1038): the changelog's rows from the sim's scroll, a version with its date, its sections, the points
@@ -1154,7 +1162,8 @@
     const s = done ? TXT('hud.pause.askDone.who') : TXT('hud.pause.ask.who');
     halves(s).forEach((v, i) => KIT.ink('pa_ask_w' + i, v, A.x + A.w / 2, A.y + 124 + i * 30, { size: 22, fit: A.w - 80, al: 0.5, col: KIT.INK.d }));
     for (const b of U.r) KIT.button('pa_' + b.id, b, askSt(S, U, b.id));
-    const keys = TXT('hud.pause.keys.ask'), ky = S.run ? bpGeo(S, S.run).y - 32 : H - 26, kw = lw('pa_keys_w', keys, { size: 26 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    // the keys right under the question's sheet, as the gate's are under its window (TASKS 1880 л), not 280 px below over the panel
+    const keys = TXT('hud.pause.keys.ask'), ky = A.y + A.h + 40, kw = lw('pa_keys_w', keys, { size: 26 }); L.uiBox('pa_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
     KIT.light('pa_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
   }
   // a fork's way in numbers from its power's own data (TASKS 1857), with what it hits for now beside the share of the attack
@@ -1224,7 +1233,8 @@
     KIT.tabs('mt_tb', bs.filter((b) => b.tab), 'tab:' + (S.metaTab === 'open' ? 'open' : 'up'), S);
     for (const b of bs) {
       if (b.tab) continue;
-      if (b.id === 'back' || b.id === 'codex') { KIT.button('mt_' + b.id, b, stN(S, b.id)); continue; }
+      // at the altar in the town one leaves a place, as at the sacrifice altar and in a talk (TASKS 1880 м); from the menu it is a page
+      if (b.id === 'back' || b.id === 'codex') { KIT.button('mt_' + b.id, b.id === 'back' && S.metaRun ? Object.assign({}, b, { label: TXT('UI.altar.r.leave.label') }) : b, stN(S, b.id)); continue; }
       const st = stN(S, b.id);
       if (b.un !== undefined) { const U = D.UNLOCKS[b.un], open = !!(S.meta.open || {})[U.id], A = U.ach && D.ACHIEVE.find((q) => q.id === U.ach), Th = U.kind === 'gift' ? D.GIFTS.find((g) => g.id === U.ref) : D.KITS.find((k) => k.id === U.ref), poor = !open && !U.ach && S.meta.shards < U.cost;
         strip('un_' + b.un, b, st, !poor, poor);
@@ -1264,7 +1274,7 @@
       KIT.ink('al_n' + i, Gf.name, cx, b.y + 214, { size: 28, fit: iw, al: 0.5, col: !can ? I.d : st.hover ? I.r : I.t });
       // a sentence too long for one line breaks by words: it cannot shrink under the font's 20 px floor (TASKS 1861)
       const rank = !Gf.power && o.id !== 'bless' ? (R.hero.perks || {})[o.id] || 0 : 0;
-      const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, String(Math.round(Gf.v * (rank + 1) * 10) / 10)) : Gf.desc, lines = wrapWords(ds, iw, 21);
+      const ds = rank && !Gf.flat ? Gf.desc.replace(/[\d.]+/, nf(Gf.v * (rank + 1))) : Gf.desc, lines = wrapWords(ds, iw, 21);
       lines.forEach((q, k) => KIT.ink('al_d' + i + (k || ''), q, cx, b.y + 250 + k * 25, { size: 21, al: 0.5, col: can ? I.t : I.d }));
       const wn = rank ? TXT('hud.altar.rank', { p1: rank, p2: rank + 1 }) : Gf.relic ? TXT('hud.altar.relic') : Gf.evo ? TXT('hud.altar.evo') : o.id === 'bless' ? TXT('hud.altar.4') : TXT('hud.altar.5');
       KIT.ink('al_w' + i, wn, cx, b.y + Math.max(306, 256 + lines.length * 25), { size: 18, fit: iw, al: 0.5, col: Gf.relic || Gf.evo ? I.r : I.d });
@@ -1303,7 +1313,7 @@
     U.r.filter((q) => q.id.startsWith('topic:')).forEach((q) => hot(q));
     const low = (s) => s.charAt(0).toLowerCase() + s.slice(1), fl = low(lb[lit] || (at(lit) || {}).label || lb.next),
       eDoes = act && T.act.k === 'turn' ? TXT('hud.talk.eTurn') : act && T.act.k === 'take' ? (T.act.first ? TXT('hud.talk.eTake') : '') : at('craft') && last && !T.inTopic ? TXT('hud.talk.eCraft') : TXT('hud.talk.eNext');
-    lab('tk_keys', T.menu ? TXT('hud.talk.menu') : act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : walk.length < 2 ? (T.inTopic ? TXT('hud.talk.topic') : TXT('hud.talk.4'))
+    lab('tk_keys', T.menu ? TXT('hud.talk.menu') : act && T.act.k === 'finish' ? TXT('hud.talk.finishKeys') : walk.length < 2 ? (T.inTopic ? TXT('hud.talk.topic') : !act && T.pages.length > 2 && !last ? TXT('hud.talk.skip') : TXT('hud.talk.4'))
       : eDoes === fl ? TXT('hud.talk.walkBoth', { p1: fl }) : eDoes ? TXT('hud.talk.walkE', { p1: fl, p2: eDoes }) : TXT('hud.talk.walk', { p1: fl }), W / 2, P.y + P.h + 30, { size: 26, al: 0.5, col: '#8a7d6c' });
   }
   // ---------------- the notice board (TASKS 1033): the quests on offer, each with its giver, floor, reward and a button ----------------
@@ -1311,8 +1321,8 @@
     const L0 = S.bdRows || SIM.Q.boardOffers(R).map(({ role, of }) => ({ role, q: of.q })), took = S.bdTook || [], U = D.UI.board(L0.length), P = U.P;
     dim(0.6); parch('board', P);
     lab('bd_t', TXT('hud.board'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
-    const cb = U.r.find((q) => q.id === 'close'); panel('bd_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('bd_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
-    hintC('bd_keys', TXT('hud.board.2'), P.y + P.h - 30);
+    closeBtn('bd_x', U, S);
+    hintC('bd_keys', L0.length ? TXT('hud.board.2') : TXT('hud.board.2e'), P.y + P.h - 30);
     if (!L0.length) { wrapLab('bd_none', TXT('hud.board.3'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
     L0.slice(0, 7).forEach(({ role, q }, i) => { const Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic, gone = took.includes(i);
       panel('bd_r' + i, P.x + 30, y, P.w - 60, 96, { r: 6, a: gone ? 0.7 : undefined });
@@ -1330,7 +1340,7 @@
     const L0 = SIM.Q.journalOf(R), sel = L0.find((q) => q.id === S.jsel) || L0[0], U = D.UI.journal(L0.length, sel && sel.st === 'taken', D.UI.journalTop(L0.length, Math.max(0, L0.indexOf(sel)), S.jtop)), P = U.P, M = U.more;
     dim(0.6); parch('journal', P);
     lab('jr_t', TXT('hud.journal'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
-    const cb = U.r.find((q) => q.id === 'close'); panel('jr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('jr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    closeBtn('jr_x', U, S);
     const nb = U.r.find((q) => q.id === 'notes'); button('jr_notes', Object.assign({}, nb, { label: TXT('hud.journal.notes', { n: (S.meta.notes || []).length }) }), S.hover);
     hintC('jr_keys', M ? TXT('hud.journal.2wheel') : TXT('hud.journal.2'), P.y + P.h - 30);
     if (!L0.length) { wrapLab('jr_none', R.viaTown ? TXT('hud.journal.3') : TXT('hud.journal.4'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
@@ -1358,7 +1368,7 @@
   function note(S) { const N = D.NOTES.byId[S.note.id], P = { x: 460, y: 240, w: 1000, h: 500 }; if (!N) return; dim(0.6); parch('note', P);
     lab('nt_t', N.title, P.x + 50, P.y + 56, { size: 34, col: INK.r }); wrapLab('nt_s', N.text, P.x + 50, P.y + 120, P.w - 100, 28, INK.t); hintC('nt_k', TXT('hud.note.keys'), P.y + P.h - 34); }
   function notes(S) { const L0 = S.meta.notes || [], pg = S.notesPage || 0, U = D.UI.notes(L0.length, pg), P = U.P, at = (id) => U.r.find((q) => q.id === id); dim(0.6); parch('notes', P);
-    lab('ns_t', TXT('hud.notes'), P.x + 40, P.y + 50, { size: 40, col: INK.r }); const cb = at('close'); panel('ns_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('ns_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
+    lab('ns_t', TXT('hud.notes'), P.x + 40, P.y + 50, { size: 40, col: INK.r }); closeBtn('ns_x', U, S);
     if (!L0.length) { wrapLab('ns_none', TXT('hud.notes.none'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
     const sel = D.NOTES.byId[S.noteSel] || D.NOTES.byId[L0[0]];
     U.r.filter((q) => q.id.startsWith('n:')).forEach((b) => { const N = D.NOTES.byId[L0[b.i]], on = N === sel; if (!N) return; panel('ns_r' + b.i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : S.hover === b.id ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined }); lab('ns_n' + b.i, N.title, b.x + 16, b.y + 23, { size: 22, col: N.kind === 'secret' ? '#9cc8ff' : N.kind === 'boss' ? '#ffc070' : C.gold }); });
@@ -1444,7 +1454,7 @@
     backdrop(t);
     const title = win ? TXT('hud.end') : r.abandoned ? TXT('hud.end.2') : TXT('hud.end.3');
     KIT.banner('e_t', W / 2, 18, Math.max(560, lw('e_t_m', title, { size: 52, bold: true }) + 300), title, { h: 108, size: 52 });
-    KIT.light('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : TXT('hud.end.7'), W / 2, 168, { size: 26, al: 0.5, col: '#d9c8a8' });
+    KIT.light('e_s', win ? (r.mode === 'cave' ? TXT('hud.end.4') : r.mode === 'magma' ? TXT('hud.end.5', { name: D.ENEMIES[D.RUNS.magma.boss(D.RUNS.magma.floors)].name }) : TXT('hud.end.6')) : r.abandoned ? TXT('hud.end.7a') : TXT('hud.end.7'), W / 2, 168, { size: 26, al: 0.5, col: '#d9c8a8' });
     KIT.panel('e_story', 200, 220, 420, 650, 'leather', { pad: 0 });
     const wrap = (id, s, x, y, width, size, col, al = 0) => {
       const words = String(s).split(' '), lines = []; let line = '';

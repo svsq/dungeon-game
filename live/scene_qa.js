@@ -643,6 +643,9 @@
     states.push(['pause_tip_stat', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = [40, 180]; })]);
     states.push(['pause_tip_gift', play((S) => { S.run.msg = null; gifted(S); S.screen = 'pause'; S.ptr = [240, 132]; })]);
     states.push(['pause_tip_gold', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = HUD.bp(S, S.run).goldC.slice(); })]);
+    // TASKS 1880 д: the floor's three shares under the map, each with its note; the pointer on the first share as it stands with
+    // the legend open (which the pointer opens), measured on this seed's frame, as the map's size is not known when states are made
+    states.push(['pause_tip_prog', play((S) => { S.run.msg = null; S.screen = 'pause'; S.ptr = [SIM.VIEW.W - 300, 473]; })]);
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
     states.push(['power_fire', fx((S, R, h) => { h.powers = { whirl_ring: 1, dash_trail: 1 }; R.fires = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 8800 + i, own: 'hero', who: 'hero', x: h.x + Math.cos(i * Math.PI / 4) * 100, y: h.y + Math.sin(i * Math.PI / 4) * 75, t0: S.t - 0.6, r: 26, ry: 0.7, t: 2, dmg: 0, per: 9, kind: 'flame' })); })]);
     states.push(['buffs', fx((S, R, h) => { worst(S); h.perks = Object.fromEntries(D.GIFTS.map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 99999, shieldUntil: S.t + 4, burn: S.t + 0.4, poison: S.t + 2.2 }); })]);
@@ -1492,6 +1495,9 @@
     states.push(['fork_whirl', fx((S, R, h) => { R.hero.ab = { whirl: 3, charge: 3, cry: 1 }; R.hero.forks = { 'charge:3': 0 }; S.screen = 'fork'; S.forkSel = 1; S.hover = 'fork:1'; })]);
     const tipOn = (S, id) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, S.bagTab).r.find((b) => b.id === id); S.hover = id; S.ptr = [q.x + q.w / 2, q.y + q.h / 2 + D.uiDy('inv', SIM.VIEW.H)]; S.uiPtr = [q.x + q.w / 2, q.y + q.h / 2]; };
     states.push(['inv_tip_stat', play((S) => { const h = S.run.hero; h.pts = 3; S.screen = 'inv'; tipOn(S, 'stat:agi'); })]);
+    // TASKS 1880 д: the free cells' badge on the bag's tab, with its note
+    states.push(['inv_tip_free', play((S) => { const h = S.run.hero, q = D.UI.inv(D.clsOf(h).abs, h.bag.length, 0).r.find((b) => b.id === 'btab:0'); S.screen = 'inv'; S.hover = 'btab:0';
+      S.uiPtr = [q.x + q.w - 22, q.y - 9]; S.ptr = [S.uiPtr[0], S.uiPtr[1] + D.uiDy('inv', SIM.VIEW.H)]; })]);
     states.push(['inv_tip_rank', play((S) => { const h = S.run.hero; h.lvl = 6; h.sp = 2; h.ab = { whirl: 2, charge: 1 }; S.screen = 'inv'; tipOn(S, 'ab:whirl'); })]);
     states.push(['inv_tip_learn', play((S) => { const h = S.run.hero; h.lvl = 6; h.sp = 2; h.ab = { whirl: 4 }; S.screen = 'inv'; tipOn(S, 'ab:cry'); })]);
     states.push(['inv_draft', play((S) => { const h = S.run.hero; h.lvl = 6; h.pts = 4; h.sp = 1; h.ab = { whirl: 3, charge: 1 }; h.forks = { 'whirl:3': 1 }; h.base.str += 2; h.base.vit += 1;
@@ -1503,6 +1509,8 @@
     states.push(['meta_unlocks_poor', mk((S) => { S.meta.cls = 'warrior'; S.meta.shards = 0; S.screen = 'meta'; S.metaTab = 'open'; S.hover = 'un:2'; })]);
     states.push(['meta_tab_hover', mk((S) => { S.meta.shards = 35; S.screen = 'meta'; S.hover = 'tab:open'; })]);
     states.push(['town_meta', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 99999; S.screen = 'meta'; S.metaRun = 1; S.hover = 'hp'; })]);
+    // TASKS 1880 б: the altar opened with no shards says so in shards, not in the gold it does not take
+    states.push(['town_meta_empty', climbS(0, (S, R, m, h) => { h.x = m.town.svc.altar.x; h.y = m.town.svc.altar.y + 40; S.meta.shards = 0; S.screen = 'meta'; S.metaRun = 1; S.ev.push({ k: 'nope', x: h.x, y: h.y, s: TXT('sim_town.noShards'), t: S.t - 0.2 }); })]);
     // the storage chest (TASKS 1012): its prompt; its window with a piece in, a locked cell and a tip; a piece dragged over the bag
     const stashS = (fn) => climbS(0, (S, R, m, h) => { h.x = m.town.svc.stash.x; h.y = m.town.svc.stash.y + 40; const T = SIM.stashOf(S);
       T.items = [Object.assign(SIM.rollItem(R, 9, 3, 'weapon'), { id: 900 }), null]; h.bag[3] = Object.assign(SIM.rollItem(R, 6, 2, 'armor'), { id: 901 }); S.screen = 'stash'; fn(S, R, h); });

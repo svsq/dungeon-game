@@ -118,7 +118,8 @@
     if (click && b && b.on) { S.focus = S.menuAt = b.id; press(b.id); return; }
     // the test runs are no item of the menu (TASKS 1871): ` opens them, as it opens the debug panel in play
     if (keys.Backquote) { S.screen = 'tests'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
-    if (mv) { S.focus = order[at < 0 ? (mv > 0 ? 0 : order.length - 1) : (at + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); return; }
+    // with no focus the first item already wears the seal, as Enter presses it, so the arrows go on from it (TASKS 1880 г)
+    if (mv) { S.focus = order[((at < 0 ? 0 : at) + mv + order.length) % order.length]; ev(S, { k: 'ui', x, y }); return; }
     if (keys.Enter) press(at < 0 ? order[0] : S.focus);
   };
   // the test runs' screen (TASKS 417): each starts its run as the main menu's buttons did; «Назад» or Escape go back

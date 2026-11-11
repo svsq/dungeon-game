@@ -220,8 +220,9 @@
       for (const [s, x, row] of eq) r.push({ id: 'eq:' + s, slot: s, x, y: Lp.y + 108 + row * 86, w: CELL, h: CELL });
       r.push(...bagGrid(Rp.x + 76, Rp.y + 130, 'bag', undefined, len, tab), ...tabRow(Rp.x + 76, Rp.y + 76, len));
       STATS.forEach((s, i) => r.push({ id: 'stat:' + s.k, k: s.k, x: Lp.x + Lp.w - 100, y: Lp.y + 476 + i * 52, w: 44, h: 44 }));
-      // a visit's points taken back (TASKS 1857): the stats' button beside their rows, the skills' after their count
-      r.push({ id: 'reset:st', label: TXT('UI.inv.reset'), on: true, x: Lp.x + 290, y: Lp.y + 552, w: 170, h: 48 }, { id: 'reset:ab', label: TXT('UI.inv.reset'), on: true, x: Rp.x + 360, y: Rp.y + 414, w: 190, h: 48 });
+      // a visit's points taken back (TASKS 1857): each button after its points' count, the stats' on their heading's line, as it
+      // hung loose between two rows (TASKS 1880 з)
+      r.push({ id: 'reset:st', label: TXT('UI.inv.reset'), on: true, x: Lp.x + 330, y: Lp.y + 447, w: 150, h: 36 }, { id: 'reset:ab', label: TXT('UI.inv.reset'), on: true, x: Rp.x + 360, y: Rp.y + 414, w: 190, h: 48 });
       abs.forEach((a, i) => r.push({ id: 'ab:' + a.id, ab: a.id, x: Rp.x + 76 + i * 324, y: Rp.y + 470, w: 300, h: 280 }));
       r.push({ id: 'close', x: Rp.x + Rp.w - 92, y: Rp.y + 34, w: 52, h: 52 }, ...sortCol('sort', Rp.x + 76 + COLS * STEP + 40, Rp.y + 130));
       return { P: { x: Lp.x, y: Lp.y, w: Rp.x + Rp.w - Lp.x, h: Lp.h }, L: Lp, R: Rp, r };
