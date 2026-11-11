@@ -870,8 +870,7 @@
   const litOf = (S, ids) => (ids.includes(S.focus) ? S.focus : ids.includes(S.hover) ? S.hover : '');
   // look B (TASKS 1304): the difficulty's tabs over the cards, each card a page in a leather frame, the chosen one sealed with wax
   function classes(S, t) {
-    L.solid(0, 0, W, H, [0.02, 0.015, 0.02], 0, 0, 0, 1);
-    for (let i = 0; i < 6; i++) { G.blend('add'); L.glow(W * (0.15 + 0.14 * i), H * 0.86, 240, [1, 0.45, 0.15], 0.1 + 0.04 * Math.sin(t * 2 + i), 2); G.blend(); }
+    backdrop(t);
     const U = D.UI.classes(S.meta), dif = S.meta.diff || 'normal', cur = D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior';
     const lit = litOf(S, U.map((q) => q.id)), sl = (id) => ({ hover: lit === id, press: S.hover === id && !!S.pressWas, focus: false, off: false });
     KIT.tabs('cl_d', U.filter((b) => b.dif), 'dif:' + dif, S, { fill: true, lit });

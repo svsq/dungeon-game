@@ -1,0 +1,42 @@
+[
+ {
+  "name": "bg_crypt_raw",
+  "prompt": "art/prompts/bg_crypt.txt",
+  "ref": [
+   "study/refs/ui/ref_ui_menu_b.png=the approved mock of the main menu: take only the idea of its backdrop scene, never its interface, sheet, hero or text"
+  ],
+  "size": "1920x1080",
+  "alpha": "none",
+  "pixel": false
+ },
+ {
+  "name": "ui_b_menu_sheet",
+  "prompt": "art/prompts/ui_b_menu_sheet.txt",
+  "ref": [
+   "study/refs/ui/ref_ui_menu_b.png=the approved mock of the main menu: match the warm torn charred parchment of its sheet, draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_strap",
+  "prompt": "art/prompts/ui_b_strap.txt",
+  "ref": [
+   "study/refs/ui/ref_ui_menu_b.png=the approved mock of the main menu: match the leather strap and brass buckle of its sheet, draw only the single piece the text asks for"
+  ],
+  "size": "1024x1536",
+  "alpha": "auto",
+  "pixel": true
+ },
+ {
+  "name": "ui_b_strap_ring",
+  "prompt": "art/prompts/ui_b_strap_ring.txt",
+  "ref": [
+   "study/refs/ui/ref_ui_menu_b.png=the approved mock of the main menu: match the leather tab and brass ring at its sheet's bottom corner, draw only the single piece the text asks for"
+  ],
+  "size": "1024x1024",
+  "alpha": "auto",
+  "pixel": true
+ }
+]
