@@ -33,7 +33,7 @@
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
   const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
-  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < HB.x + HB.w + 12 && y < 316) || (y < 150 && x > 500 && x < 1420) || (y > H - 56 && x > W - 760);
+  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < HB.x + HB.w + 12 && y < 316) || (y < 150 && x > 500 && x < 1420) || (y > H - 56 && x > W - 40 - lw('keys', TXT('hud.hud.k'), { size: 26 }));
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   // the dark burnt sheet of the talk, the journal, the board and the notes (TASKS 1329): ink on paper, not the panels' light text on dark
   const INK = { t: '#2a1a10', d: '#4a2e1b', r: '#7d1e12', g: '#4d2c08' };
@@ -155,7 +155,9 @@
     if (m.town && R.folk && (S.screen === 'play' || S.screen === 'pause')) for (const f of R.folk) { const mk = SIM.Q.questMark(R, f.role); if (!mk || f === talkTo) continue;
       // a giver whose feet are on screen keeps his mark inside it, his head may be past the edge (TASKS 1025)
       if (V.sx(f.x) < 0 || V.sx(f.x) > W || V.sy(f.y) < 0 || V.sy(f.y) > H) continue;
-      const x = Math.min(W - 20, Math.max(20, V.sx(f.x))), y = Math.max(26, V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i)), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
+      let x = Math.min(W - 20, Math.max(20, V.sx(f.x))); const y = Math.max(26, V.sy(f.y) - SZ('town_' + f.role)[1] * k - 30 + 4 * Math.sin(GT * 3 + f.i)), col = mk === '?' ? [1, 0.86, 0.3] : [1, 0.62, 0.18];
+      // under the HUD's plate the mark steps out to its right edge, still at the giver's height
+      if (x < HB.x + HB.w + 24 && y < HB.y + HB.h + 24) x = HB.x + HB.w + 24;
       G.blend('add'); L.glow(x, y, 46, col, 0.35 + 0.1 * Math.sin(GT * 4 + f.i)); G.blend();
       L.rrect(x - 17, y - 20, 34, 40, 12, [0.09, 0.06, 0.05], [0.05, 0.035, 0.03], 0.82);
       lab('qmk' + f.i, mk, x, y + 1, { size: 34, al: 0.5, col: mk === '?' ? '#ffe070' : '#ffb040' });
