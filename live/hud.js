@@ -1201,9 +1201,11 @@
     if (!L0.length) { wrapLab('jr_none', R.viaTown ? TXT('hud.journal.3') : TXT('hud.journal.4'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
     L0.slice(0, 10).forEach((q, i) => { const b = U.r[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
       panel('jr_r' + i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : hv ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined, a: q.st === 'turned' && !on ? 0.7 : undefined });
-      lab('jr_n' + i, Q.name, b.x + 16, b.y + 20, { size: 22, col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
-      lab('jr_s' + i, st, b.x + b.w - 16, b.y + 20, { size: 20, al: 1, col });
-      lab('jr_f' + i, TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }), b.x + 16, b.y + 44, { size: 20, col: C.dim }); });
+      // ten alike quests tell apart by their floor in the title and their goal under it (TASKS 1853 л); a done or turned-in one, its giver
+      const sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: Q.name, f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);
+      lab('jr_n' + i, nm, b.x + 16, b.y + 19, { size: Math.max(20, L.sizeToFit(nm, b.w - sw - 48, 24)), col: q.st === 'turned' ? '#a89a88' : Q.kind === 'story' ? '#ffc070' : C.gold });
+      lab('jr_s' + i, st, b.x + b.w - 16, b.y + 19, { size: 20, al: 1, col });
+      lab('jr_f' + i, sub, b.x + 16, b.y + 44, { size: 20, col: C.dim }); });
     const Q = D.QUESTS[sel.key], X = P.x + 540, Wd = P.w - 580, [st, col] = QST[sel.st]; let y = P.y + 130;
     L.solid(X - 20, P.y + 110, 1, P.h - 180, [0.32, 0.2, 0.12], 0, 0, 0, 0.5);
     if (sel.ic) { panel('jr_ic', X, y - 30, 48, 48, { r: 6 }); icon(sel.ic, X + 4, y - 26, 40); }
