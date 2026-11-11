@@ -294,7 +294,7 @@
   // stairs and the stairs themselves show through the dark; done in the fog, not the HUD, so it reads on the map and in the world alike
   const STAIRS = { share: 0.5, r: 2 };
   function markStairs(R, f) { const m = R.map, q = m.exit; if (f.stairs || R.town || !q || !(f.foes > 0) || f.kills < f.foes * STAIRS.share) return; f.stairs = 1;
-    for (let y = q.ty - STAIRS.r; y <= q.ty + STAIRS.r; y++) for (let x = q.tx - STAIRS.r; x <= q.tx + STAIRS.r; x++) if (x >= 0 && y >= 0 && x < m.W && y < m.H) R.seen[y * m.W + x] = 1; }
+    const hid = secretMask(m); for (let y = q.ty - STAIRS.r; y <= q.ty + STAIRS.r; y++) for (let x = q.tx - STAIRS.r; x <= q.tx + STAIRS.r; x++) if (x >= 0 && y >= 0 && x < m.W && y < m.H && !hid.has(y * m.W + x)) R.seen[y * m.W + x] = 1; }
 
   // cells of the secret rooms not found yet (the room, its passage and the fake wall): render and minimap show them as rock
   const MASK = { key: '', set: null };
