@@ -33,7 +33,7 @@
   const MAGMA_LEG = [['lava', TXT('MAGMA_LEG')], ['chasm', TXT('MAGMA_LEG.2')]];
   const legendOf = (R) => (R.map.town ? TOWN_LEG : LEGEND.concat(R.map.cliff ? MAGMA_LEG : [], R.map.way ? [WAY_LEG] : [], SIM.Q.questMarks(R).length ? [QUEST_LEG] : []));
   const LEGEND = [['you', TXT('LEGEND')], ['room', TXT('LEGEND.2')], ['gold', TXT('LEGEND.3')], ['boss', TXT('LEGEND.4')], ['exit', TXT('LEGEND.5')], ['shop', TXT('LEGEND.6')], ['camp', TXT('LEGEND.7')], ['altar', TXT('LEGEND.8')], ['altar_used', TXT('LEGEND.9')]];
-  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < 480 && y < 316) || (y < 150 && x > 500 && x < 1420) || (y > H - 56 && x > W - 760);
+  const underHud = (x, y) => (MMB ? x > MMB[0] - 4 && y < MMB[1] + MMB[3] + 4 : x > W - 260 && y < 440) || (TRK && x > TRK[0] - 4 && y > TRK[1] - 4 && y < TRK[1] + TRK[3] + 4) || (x < HB.x + HB.w + 12 && y < 316) || (y < 150 && x > 500 && x < 1420) || (y > H - 56 && x > W - 760);
   const lw = (id, s, o = {}) => L.labelW(id, String(s), Object.assign({ size: 26 }, o));
   // the dark burnt sheet of the talk, the journal, the board and the notes (TASKS 1329): ink on paper, not the panels' light text on dark
   const INK = { t: '#2a1a10', d: '#4a2e1b', r: '#7d1e12', g: '#4d2c08' };
@@ -120,7 +120,7 @@
     L.rrect(x0, y + 1, 4, 4, 2, [1, 0.9, 0.85], [1, 0.9, 0.85], 0.85);
   }
   function world(S, R, t, V) {
-    MMB = mmBox(R); TRK = trkBox(S, R);
+    MMB = mmBox(S, R); TRK = trkBox(S, R);
     const GT = S.t, h = R.hero, m = R.map, seen = (x, y) => R.seen[Math.floor(y / TILE) * m.W + Math.floor(x / TILE)];
     const k = V.k || 1, actorZones = [{ x: V.sx(h.x) - 30 * k, y: V.sy(h.y) - 84 * k, w: 60 * k, h: 90 * k }];
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'lurk' && !D.under(e) && seen(e.x, e.y)) {
@@ -250,14 +250,14 @@
       if (x < hx1 && x + w > hx0 && y < hy1 && y + 40 > hy0) y = Math.min(y, hy0 - 48);
       // nor an elite's name over its head (the exit's guard by the stairs down a hero has just come up): then under his feet
       if (nameZones.some((z) => x < z.x + z.w && x + w > z.x && y < z.y + z.h && y + 40 > z.y)) y = V.sy(h.y) + 18;
-      if (y < 120 || (y < 316 && x < 480) || (y < 490 && x + w > W - 300)) { x = (W - w) / 2; y = H - 150; }
+      if (y < 120 || (y < 316 && x < HB.x + HB.w + 12) || (y < 490 && x + w > W - 300)) { x = (W - w) / 2; y = H - 150; }
       HUD.promptBox = [x, y, w, bh]; plate('prompt_box', x - 6, y - 4, w + 12, bh + 8); lab('prompt', s, x + 14, y + 21, { size: 24, col: '#fff2c8' }); if (sub) lab('prompt_j', sub, x + 14, y + 47, { size: 20, col: C.dim }); }
   }
 
   // ---------------- in-game HUD ----------------
   // look B (TASKS 1332): the portrait, the flasks with their bars, the skills and the potions on one leather plate in the corner,
   // as on ref_ui_hud_b; the layout of the old HUD is kept, so nothing moves under the hand in a fight
-  const HB = { x: 8, y: 8, w: 460, h: 182 };
+  const HB = { x: 8, y: 8, w: 588, h: 182 };
   function skillCell(id, x, y, s, A, r, cd, full, low, rage) {
     L.rrect(x + s * 0.1, y + s * 0.1, s * 0.8, s * 0.8, s * 0.4, [0.11, 0.08, 0.09], [0.06, 0.045, 0.05]);
     icon(A.icon, x + s * 0.17, y + s * 0.17, s * 0.66, { alpha: r ? 1 : 0.25, grade: r ? [1, 1, 0, 1] : [0, 0.5, 0, 1] });
@@ -275,13 +275,16 @@
     // flasks and bars; the warrior's rage (TASKS 1130) in the mana's flask, in its own ember colour
     const rage = D.clsOf(h).res === 'rage', hpF = h.hp / st.maxHp, mpF = h.mp / st.maxMp;
     K.flask('hp_fl', 120, 12, 88, hpF, [0.78, 0.1, 0.07]); K.flask('mp_fl', 178, 12, 88, mpF, rage ? [0.9, 0.38, 0.08] : [0.15, 0.32, 0.85]);
-    const bx = 240, bw = 214;
+    // the numbers stand on their own parchment plates beside the bars, as on ref_ui_hud_b: on the bar a 20 px number covered its
+    // brass rims and left the fill two thin strips (TASKS 1759); four-digit pairs lose their spaces before they would overflow (1794)
+    const bx = 240, bw = 200, nx = bx + bw + 8, nw = 136, pair = (id, a, b) => { const s = a + ' / ' + b; return lw(id, s, { size: 20 }) <= nw - 44 ? s : a + '/' + b; };
+    const num = (id, s, y, hh) => { K.nine('btn', nx, y, nw, hh); K.ink(id, s, nx + nw / 2, y + hh / 2 + 1, { size: 20, al: 0.5 }); L.uiBox(id + '_b', nx + 14, y, nw - 28, hh, 0); };
     K.bar('hpbar', bx, 18, bw, 32, hpF, [0.86, 0.12, 0.1], [0.5, 0.04, 0.04]);
     if (h.shield > 0 && GT < h.shieldUntil) L.rrect(bx + 24, 28, (bw - 48) * Math.min(1, h.shield / st.maxHp), 5, 2, [0.6, 0.85, 1], [0.3, 0.55, 1], 0.9);
-    lab('hpbar_t', Math.ceil(h.hp) + ' / ' + st.maxHp, bx + bw / 2, 35, { size: 19, al: 0.5 });
-    K.bar('mpbar', bx, 58, bw, 28, mpF, rage ? [0.95, 0.42, 0.1] : [0.18, 0.42, 0.95], rage ? [0.5, 0.14, 0.04] : [0.07, 0.18, 0.55]); lab('mpbar_t', Math.floor(h.mp) + ' / ' + st.maxMp, bx + bw / 2, 73, { size: 20, al: 0.5 });
+    num('hpbar_t', pair('hpbar_t', Math.ceil(h.hp), st.maxHp), 16, 36);
+    K.bar('mpbar', bx, 58, bw, 28, mpF, rage ? [0.95, 0.42, 0.1] : [0.18, 0.42, 0.95], rage ? [0.5, 0.14, 0.04] : [0.07, 0.18, 0.55]); num('mpbar_t', pair('mpbar_t', Math.floor(h.mp), st.maxMp), 56, 32);
     if (rage && h.mp >= st.maxMp) L.solid(bx + bw - 25, 58 + 8, 4, 12, [1, 0.86, 0.45], 0, 0, 0, 1);
-    K.bar('xpbar', bx, 94, bw, 16, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
+    K.bar('xpbar', bx, 94, nx + nw - bx, 16, h.xp / D.xpNeed(h.lvl), [0.95, 0.75, 0.25], [0.6, 0.4, 0.08]);
     // skill bar + potions
     D.clsOf(h).abs.forEach((A, i) => { const x = 126 + i * 58, y = 122, r = h.ab[A.id] || 0, cd = h.cd[A.id] - GT;
       skillCell('sk_' + A.id, x, y, 54, A, r, cd, A.cd, h.mp < A.mp, rage);
@@ -310,15 +313,18 @@
       const max = Number.isFinite(boss.max) && boss.max > 0 ? boss.max : 1, hp = Math.max(0, Number.isFinite(boss.hp) ? boss.hp : 0), E = D.ENEMIES[boss.type];
       K.banner('bossn', W / 2, 2, Math.max(420, lw('bossn_m', E.name, { size: 30 }) + 220), E.name, { h: 62, size: 30 });
       if (E.title) lab('bosst', E.title, W / 2, 78, { size: 18, al: 0.5, col: '#e8cdb4' });
-      const bx = W / 2 - 410, by = E.title ? 92 : 70, bh = 34, ix = bh * 12 / 16;
-      K.bar('bossbar', bx, by, 820, bh, hp / max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02]); lab('bossbar_t', Math.ceil(hp) + ' / ' + Math.ceil(max), W / 2, by + bh / 2 + 1, { size: 20, al: 0.5 });
+      // 700 px: the wider HUD plate (TASKS 1759) ends at x 596, and the bar keeps clear of it
+      const BW = 700, bx = W / 2 - BW / 2, by = E.title ? 92 : 70, bh = 34, ix = bh * 12 / 16;
+      K.bar('bossbar', bx, by, BW, bh, hp / max, [0.9, 0.25, 0.08], [0.45, 0.05, 0.02]); lab('bossbar_t', Math.ceil(hp) + ' / ' + Math.ceil(max), W / 2, by + bh / 2 + 1, { size: 20, al: 0.5 });
       for (const phase of D.BOSSES[boss.type].phases || []) if (phase.at > 0 && phase.at < 1) {
-        const x = bx + ix + (820 - 2 * ix) * phase.at;
+        const x = bx + ix + (BW - 2 * ix) * phase.at;
         L.solid(x - 1, by + 8, 2, 5, [1, 0.9, 0.7]); L.solid(x - 1, by + bh - 13, 2, 5, [1, 0.9, 0.7]);
       }
     }
     // floor banner
-    if (R.msg && S.screen === 'play') { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
+    // a boss's arrival plate gives way to its ribbon, or its name stood on the screen two and three times over (TASKS 1794)
+    const named = boss && R.msg && R.msg.chapter === D.ENEMIES[boss.type].name;
+    if (R.msg && S.screen === 'play' && !named) { const a = S.t - R.msg.t, d = R.msg.d || 3.5; if (a >= 0 && a < d) { const al = L.SS(0, 0.3, a) * (1 - L.SS(d - 0.7, d, a)) * (R.msg.outT ? 1 - L.SS(R.msg.outT, R.msg.outT + 0.3, S.t) : 1), s = R.msg.s;
       if (R.msg.chapter) { const w = Math.max(lw('msg_c', R.msg.chapter, { size: 46 }), lw('msg', s, { size: 24 })) + 90; plate('msg_box', W / 2 - w / 2, 142, w, 104, { a: al, k: 0.4 }); lab('msg_c', R.msg.chapter, W / 2, 180, { size: 46, al: 0.5, col: C.gold, a: al }); lab('msg', s, W / 2, 222, { size: 24, al: 0.5, col: C.dim, a: al }); }
       else {
       const size = Math.max(18, Math.floor(30 * Math.min(1, 1000 / lw('msg_m', s, { size: 30 })))), w = lw('msg', s, { size }) + 60;
@@ -406,16 +412,36 @@
     const line = TXT('hud.lootBooks.line', { got: A.got, total: A.total, lying: A.lying, boxed: A.boxed, sec, stuck: A.stuck, off: A.off });
     const w = lw('dbg_loot_l', line, { size: 20 }) + 28; panel('dbg_loot_p', W / 2 - w / 2, 108, w, 34, { r: 5, a: 0.85 });
     lab('dbg_loot_l', line, W / 2, 126, { size: 20, al: 0.5, col: A.off || A.stuck ? '#ff7a6a' : C.text }); }
-  // a small map's panel (the town, the endless descent's first floors) is still wide enough for the legend beside the compass
-  const legendW = () => 38 + Math.max(...LEGEND.concat([['hint', TXT('hud.legendW')], WAY_LEG, QUEST_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 112;
-  // the minimap's panel [x, y, w, h], from the state alone (world() keeps labels off it before the panel is drawn)
   // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
-  function mmBox(R) { const m = R.map, mw = m.W * mapK(R), mh = m.H * mapK(R), tw = lw('mm_t', D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), { size: 20 }),
-      pw = Math.max(mw + 24, tw + 24, legendW()); return [W - pw - 14, 12, pw, mh + 76 + 26 * (legendOf(R).length + (SIM.Q.completionHints(R).length ? 1 : 0)) + 34]; }
+  // the map is cut to the floor's open cells and a wall round them, so the sheet holds no band of blank rock (TASKS 1759); an unfound
+  // secret room is rock here too, or the cut's edge would give it away
+  const CUT = { key: '', r: null };
+  function mapCut(R) { const m = R.map, key = m.seed + ':' + m.floor + ':' + (m.secrets || []).map((q) => q.open).join('');
+    if (CUT.key !== key) { const hid = SIM.Q.secretMask(m); let x0 = m.W, y0 = m.H, x1 = -1, y1 = -1;
+      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { const c = hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y); if (c === 1 || c === 3 || c === 5 || c === 6) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } }
+      if (x1 < 0) { x0 = y0 = 0; x1 = m.W - 1; y1 = m.H - 1; }
+      x0 = Math.max(0, x0 - 1); y0 = Math.max(0, y0 - 1); x1 = Math.min(m.W - 1, x1 + 1); y1 = Math.min(m.H - 1, y1 + 1);
+      CUT.key = key; CUT.r = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }; }
+    return CUT.r; }
+  // the legend is open for the first 10 s on a floor, then folds away, so the map's corner covers no more than the ref's
+  // (TASKS 1794); L keeps it open, and in the pause the pointer over the map opens it
+  const legOpen = (S, R, hov = true) => R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))) || (hov && S.screen === 'pause' && !!S.ptr && (() => { const B = mmGeo(S, R, true).box; return S.ptr[0] > B[0] && S.ptr[1] < B[1] + B[3]; })());
+  // the ribbon says the floor as the ref does («Этаж 2»), and its curse if it has one; the place's name is on the arrival plate
+  const mmTitle = (R) => D.placeName(R.map.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map).replace(/:[^·]*/, ' ').replace(/\s+/g, ' ').trim();
+  // the map's sheet, from the state alone (world() keeps labels off it before it is drawn): a parchment sheet with the floor's
+  // ribbon over its top edge, as on ref_ui_hud_b
+  function mmGeo(S, R, leg) {
+    const k = mapK(R), cut = mapCut(R), mw = cut.w * k, mh = cut.h * k, title = mmTitle(R), bw = Math.max(240, lw('mm_t', title, { size: 26, bold: true }) + 130);
+    const legend = leg ? legendOf(R).concat(SIM.Q.completionHints(R).length ? [['hint', TXT('hud.minimap.legend')]] : []) : [];
+    const legW = Math.max(...LEGEND.concat([['hint', TXT('hud.minimap.legend')], WAY_LEG, QUEST_LEG], TOWN_LEG, MAGMA_LEG).map(([, s], i) => lw('mm_l' + i, s, { size: 20 }))) + 46 + 116;
+    const pw = Math.max(mw + 44, bw + 20, legW), x0 = W - pw - 14, y0 = 24, py = 66, lg0 = py + mh + 26, rule = lg0 + 26 * legend.length + (legend.length ? 6 : -10), bot = rule + 46;
+    return { k, cut, mw, mh, title, bw, legend, pw, x0, y0, py, px: x0 + Math.round((pw - mw) / 2), lg0, rule, bot, box: [x0, 4, pw, bot - 4] };
+  }
+  function mmBox(S, R) { return mmGeo(S, R, legOpen(S, R)).box; }
   // the quests in hand (TASKS 1018, part of 1023): under the minimap, each its name and where it stands
   const trkAll = (R) => SIM.Q.journalOf(R).filter((q) => q.st !== 'turned'), trkRows = (R) => trkAll(R).slice(0, 4), trkMore = (R) => Math.max(0, trkAll(R).length - 4);
-  function trkBox(S, R) { const Q = trkRows(R); if (!Q.length || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(R);
+  function trkBox(S, R) { const Q = trkRows(R); if (!Q.length || !(S.screen === 'play' || S.screen === 'pause')) return null; const mb = mmBox(S, R);
     const w = Math.max(280, ...Q.map((q, i) => Math.max(lw('qt_n' + i, D.QUESTS[q.key].name, { size: 19 }), lw('qt_l' + i, SIM.Q.questLine(q, R), { size: 20 })))) + 32;
     return [W - 14 - w, mb[1] + mb[3] + 14, w, 38 + Q.length * 50 + (trkMore(R) ? 26 : 0)]; }
   function tracker(S, R) { const B = trkBox(S, R); if (!B) return; const [x0, y0, w, h] = B;
@@ -424,14 +450,14 @@
       lab('qt_n' + i, Q.name, x0 + 14, y, { size: 19, col: done ? '#8fd98a' : Q.kind === 'story' ? '#ffc070' : C.gold });
       lab('qt_l' + i, SIM.Q.questLine(q, R), x0 + 14, y + 22, { size: 20, col: done ? '#8fd98a' : C.text }); }); }
   function minimap(S, R, t) {
-    const m = R.map, k = mapK(R), mw = m.W * k, mh = m.H * k, py = 50, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0);
+    const m = R.map, Gm = mmGeo(S, R, legOpen(S, R)), { k, cut, mw, mh, px, py, x0, pw, legend } = Gm, n = R.seen.reduce((a, b) => (Math.imul(a, 31) + b) | 0, 0), I = KIT.INK;
     const hid = SIM.Q.secretMask(m), key = m.seed + ':' + m.floor + ':' + n + ':' + R.chests.map((c) => c.open).join('') + R.rseen.join('') + (m.secrets || []).map((q) => q.open).join('') + (m.doors || []).map((d) => d.open).join('');
     if (MAP.key !== key) { MAP.key = key; const cv = MAP.cv || (MAP.cv = G.canvas()); cv.width = mw; cv.height = mh; const g = cv.getContext('2d'); g.clearRect(0, 0, mw, mh);
       // an unfound secret room is rock on the map, its fake wall a wall
       const at = (x, y) => (hid.has(y * m.W + x) ? 0 : SIM.Q.cell(m, x, y)), open = (c) => c === 1 || c === 3 || c === 5 || c === 6;
       const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
       // rooms as stone slabs with a pale rim, as in the concept: the rim sits on the wall cells that border the floor
-      for (let y = 0; y < m.H; y++) for (let x = 0; x < m.W; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y), X = x * k, Y = y * k;
+      for (let y = cut.y; y < cut.y + cut.h; y++) for (let x = cut.x; x < cut.x + cut.w; x++) { if (!R.seen[y * m.W + x]) continue; const c = at(x, y), X = (x - cut.x) * k, Y = (y - cut.y) * k;
         if (c === 1) { const v = L.rnd(x * 7 + y * 131, 3); fill(X, Y, k, k, v < 0.2 ? '#6e665f' : v > 0.85 ? '#8a8178' : '#7d746c'); }
         else if (c === 3) fill(X, Y, k, k, '#c4441a');
         else if (c === 5) fill(X, Y, k, k, '#a0682e');
@@ -442,14 +468,11 @@
           if (u) fill(X, Y, k, 2, '#3a3230'); } }
       if (MAP.rec) { G.canvasUpdate(MAP.rec, cv); MAP.rec.w = mw; MAP.rec.h = mh; }
       else MAP.rec = G.canvasTex('minimap', cv); }
-    const title = D.placeName(m.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, m).toUpperCase(), tw = lw('mm_t', title, { size: 20 });
-    const hints = SIM.Q.completionHints(R);
-    const legend = legendOf(R).concat(hints.length ? [['hint', TXT('hud.minimap.legend')]] : []);
-    const pw = Math.max(mw + 24, tw + 24, legendW()), x0 = W - pw - 14, px = x0 + (pw - mw) / 2, lg0 = py + mh + 24, prog = progress(R), ph = mh + 76 + 26 * legend.length + 34;
-    plate('minimap', x0 - 4, 8, pw + 8, ph + 8, { k: 0.35, pad: 8 });
-    lab('mm_t', title, x0 + pw / 2, 31, { size: 20, al: 0.5 });
+    KIT.nine('torn', x0, Gm.y0, pw, Gm.bot - Gm.y0, { k: 0.5 }); L.uiBox('minimap', x0 + 12, Gm.y0 + 12, pw - 24, Gm.bot - Gm.y0 - 24, 0);
+    KIT.banner('mm_t', x0 + pw / 2, 4, Gm.bw, Gm.title, { h: 54, size: 26 });
     L.sprite('minimap', px, py, { w: mw, h: mh });
-    const mark = (x, y, id, s) => icon_(id, px + x / TILE * k, py + y / TILE * k, s);
+    const ox = cut.x * TILE, oy = cut.y * TILE;
+    const mark = (x, y, id, s) => icon_(id, px + (x - ox) / TILE * k, py + (y - oy) / TILE * k, s);
     for (const c of R.chests) if (!c.open && !SIM.Q.hidden(m, c) && R.seen[Math.floor(c.y / TILE) * m.W + Math.floor(c.x / TILE)]) mark(c.x, c.y, 'gold', 12);
     for (const e of R.en) if (!!D.BOSSES[e.type] && e.deadT < 0 && R.seen[Math.floor(e.y / TILE) * m.W + Math.floor(e.x / TILE)]) mark(e.x, e.y, 'boss', 14);
     if (SIM.Q.exitKind(R, m.floor) !== null && R.seen[m.exit.ty * m.W + m.exit.tx]) mark(m.exit.x, m.exit.y, 'exit', 14);
@@ -459,25 +482,25 @@
     if (m.town) { const V0 = m.town.svc; mark(V0.altar.x, V0.altar.y, 'altar', 12); mark(V0.stash.x, V0.stash.y, 'stash', 12); mark(V0.anvil.x, V0.anvil.y, 'craft', 12); mark(V0.lectern.x, V0.lectern.y, 'craft', 12); mark(V0.portal.x, V0.portal.y, 'way', 13); mark(V0.board.x, V0.board.y, 'board', 12); }
     for (const q of R.shrines) if (!SIM.Q.hidden(m, q) && R.seen[Math.floor(q.y / TILE) * m.W + Math.floor(q.x / TILE)]) mark(q.x, q.y, q.used ? 'altar_used' : 'altar', 12);
     // the townsfolk with quest business (TASKS 1033): their ! and ? on the town's map, where they stand now
-    if (m.town && R.folk) R.folk.forEach((f, i) => { const mk = SIM.Q.questMark(R, f.role); if (!mk) return; const x = px + f.x / TILE * k, y = py + f.y / TILE * k;
+    if (m.town && R.folk) R.folk.forEach((f, i) => { const mk = SIM.Q.questMark(R, f.role); if (!mk) return; const x = px + (f.x - ox) / TILE * k, y = py + (f.y - oy) / TILE * k;
       L.rrect(x - 8, y - 9, 16, 18, 5, [0.1, 0.07, 0.04], [0.1, 0.07, 0.04], 0.9); lab('mm_q' + i, mk, x, y + 1, { size: 20, al: 0.5, col: mk === '?' ? '#8fd98a' : '#ffc040' }); });
-    for (const o of hints) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
+    for (const o of SIM.Q.completionHints(R)) { const x = px + (o.x - ox) / TILE * k, y = py + (o.y - oy) / TILE * k, pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 6));
       const c = o.kind === 'foe' ? [1, 0.3, 0.2] : [1, 0.85, 0.3];
       L.rrect(x - 4, y - 4, 8, 8, 4, c, c, pulse); }
     // a quest's goal (TASKS 1019–1021), seen or not: the named foe, the room to clear (its outline), the keepsake once seen
-    for (const o of SIM.Q.questMarks(R)) { const x = px + o.x / TILE * k, y = py + o.y / TILE * k, pulse = 0.55 + 0.45 * Math.sin(t * 5);
-      if (o.kind === 'room') { const r = o.r, c = [1, 0.8, 0.3]; L.solid(px + r.x * k, py + r.y * k, r.w * k, 2, c, 0, 0, 0, pulse); L.solid(px + r.x * k, py + (r.y + r.h) * k - 2, r.w * k, 2, c, 0, 0, 0, pulse);
-        L.solid(px + r.x * k, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); L.solid(px + (r.x + r.w) * k - 2, py + r.y * k, 2, r.h * k, c, 0, 0, 0, pulse); }
+    for (const o of SIM.Q.questMarks(R)) { const x = px + (o.x - ox) / TILE * k, y = py + (o.y - oy) / TILE * k, pulse = 0.55 + 0.45 * Math.sin(t * 5);
+      if (o.kind === 'room') { const r = o.r, c = [1, 0.8, 0.3]; const rx = px + (r.x - cut.x) * k, ry = py + (r.y - cut.y) * k; L.solid(rx, ry, r.w * k, 2, c, 0, 0, 0, pulse); L.solid(rx, ry + r.h * k - 2, r.w * k, 2, c, 0, 0, 0, pulse);
+        L.solid(rx, ry, 2, r.h * k, c, 0, 0, 0, pulse); L.solid(rx + r.w * k - 2, ry, 2, r.h * k, c, 0, 0, 0, pulse); }
       icon_('quest', x, y, 14, pulse); }
-    if (S.debug && S.dbgLoot) for (const o of SIM.Q.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + o.x / TILE * k - r, py + o.y / TILE * k - r, 2 * r, 2 * r, r, c, c); }
-    const hs = 13 + 1.5 * Math.sin(t * 6), hx = Math.max(hs, Math.min(mw - hs, R.hero.x / TILE * k)), hy = Math.max(hs, Math.min(mh - hs, R.hero.y / TILE * k));
+    if (S.debug && S.dbgLoot) for (const o of SIM.Q.lootAudit(R).list) { const c = LOOT_COL[o.at], r = o.chest ? 4 : 3; L.rrect(px + (o.x - ox) / TILE * k - r, py + (o.y - oy) / TILE * k - r, 2 * r, 2 * r, r, c, c); }
+    const hs = 13 + 1.5 * Math.sin(t * 6), hx = Math.max(hs, Math.min(mw - hs, (R.hero.x - ox) / TILE * k)), hy = Math.max(hs, Math.min(mh - hs, (R.hero.y - oy) / TILE * k));
     icon_('you', px + hx, py + hy, hs);
-    legend.forEach(([id, s], i) => { const y = lg0 + i * 26; icon_(id, x0 + 22, y, 16); lab('mm_l' + i, s, x0 + 38, y + 1, { size: 20, col: C.text }); });
-    compass(x0 + pw - 52, lg0 + 26 * legend.length - 62, 34);
+    legend.forEach(([id, s], i) => { const y = Gm.lg0 + i * 26; icon_(id, x0 + 30, y, 16); KIT.ink('mm_l' + i, s, x0 + 46, y + 1, { size: 20, col: I.t }); });
+    if (legend.length) compass(x0 + pw - 58, Gm.lg0 + 26 * legend.length - 64, 34);
     // this floor's completion: monsters, loot, secrets (the last only where the floor has any)
-    const y = lg0 + 26 * legend.length + 8; L.solid(x0 + 10, y - 14, pw - 20, 1, C.rim, 0, 0, 0, 0.5);
-    prog.forEach(([id, ic, s, done], i) => { const x = x0 + 10 + i * (pw - 20) / prog.length; icon(ic, x, y - 4, 18, done ? undefined : { alpha: 0.75 });
-      lab('mm_p' + id, s, x + 22, y + 6, { size: 20, col: done ? C.gold : C.text }); });
+    const y = Gm.rule + 22; KIT.rule(x0 + 22, Gm.rule, pw - 44, 0.7);
+    const prog = progress(R); prog.forEach(([id, ic, s, done], i) => { const x = x0 + 26 + i * (pw - 52) / prog.length; icon(ic, x, y - 9, 18, done ? undefined : { alpha: 0.8 });
+      KIT.ink('mm_p' + id, s, x + 24, y + 1, { size: 20, col: done ? I.r : I.t }); });
   }
   // minimap markers, centred on (x, y): gems as in the concept, a slab for a room, the stairs for the exit
   const GEM = { you: [[0.55, 0.8, 1], [0.1, 0.3, 0.95]], gold: [[1, 0.9, 0.4], [0.85, 0.5, 0.05]], boss: [[1, 0.4, 0.3], [0.65, 0.04, 0.03]], shop: [[0.6, 1, 0.7], [0.12, 0.6, 0.3]] };
@@ -502,11 +525,12 @@
   }
   // the compass rose of the concept's map panel; the long needle points north
   function compass(cx, cy, r) {
-    L.ring(cx, cy, r * 0.62, r * 0.62, C.rim, 0.9, 0.08);
+    const ink = [0.29, 0.18, 0.1];
+    L.ring(cx, cy, r * 0.62, r * 0.62, ink, 0.7, 0.08);
     const ndl = (a, len, col) => { for (let i = 0; i < 6; i++) { const q = i / 6, w = (1 - q) * r * 0.16 + 1, d = q * len; L.solid(cx + Math.cos(a) * d - w / 2, cy + Math.sin(a) * d - w / 2, w, w, col, a + Math.PI / 4, w / 2, w / 2); } };
-    for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 + Math.PI / 4, r * 0.45, [0.4, 0.34, 0.28]);
-    for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 - Math.PI / 2, i === 0 ? r * 0.95 : r * 0.75, i === 0 ? [0.93, 0.88, 0.8] : [0.7, 0.64, 0.56]);
-    [[TXT('hud.compass'), 0, -1], [TXT('hud.compass.2'), 1, 0], [TXT('hud.compass.3'), 0, 1], [TXT('hud.compass.4'), -1, 0]].forEach(([s, dx, dy]) => lab('mm_c' + s, s, cx + dx * (r + 7), cy + dy * (r + 10) + 1, { size: 20, al: 0.5, col: C.dim }));
+    for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 + Math.PI / 4, r * 0.45, [0.55, 0.42, 0.3]);
+    for (let i = 0; i < 4; i++) ndl(i * Math.PI / 2 - Math.PI / 2, i === 0 ? r * 0.95 : r * 0.75, i === 0 ? [0.49, 0.12, 0.07] : ink);
+    [[TXT('hud.compass'), 0, -1], [TXT('hud.compass.2'), 1, 0], [TXT('hud.compass.3'), 0, 1], [TXT('hud.compass.4'), -1, 0]].forEach(([s, dx, dy]) => KIT.ink('mm_c' + s, s, cx + dx * (r + 7), cy + dy * (r + 10) + 1, { size: 20, al: 0.5, col: KIT.INK.d }));
   }
   // floor completion cells for the minimap: [id, icon, text, complete]
   function progress(R) {

@@ -598,6 +598,14 @@
     states.push(['fx_arrive', fx((S, R, h) => { S.keepFloor = 1; S.ev.push({ k: 'floor', t: S.t - 0.45, x: h.x, y: h.y, f: R.floor }); })]);
     states.push(['fx_roar', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
       R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; S.ev.push({ k: 'roar', t: S.t - 0.25, x: b.x, y: b.y - 70, id: b.id }); })]);
+    // the HUD's worst cases (TASKS 1759, 1794, 1852): four-digit health and mana on their plates, the legend folded after its 10 s,
+    // a boss's arrival under its ribbon
+    const hudBig = (S) => { const h = S.run.hero; h.base.vit = 400; h.base.int = 400; const st = SIM.Q.stats(h, S.meta); h.hp = st.maxHp - 7; h.mp = st.maxMp - 13; };
+    states.push(['hud_hp4', play((S) => { hudBig(S); S.run.msg = null; })]);
+    states.push(['hud_folded', play((S) => { const R = S.run; R.msg = null; R.enteredT = S.t - 20; R.seen.fill(1); R.rseen.fill(1); })]);
+    states.push(['hud_town_folded', play((S) => { S.run = SIM.newRun(S, 'campaign', 3, { town: 1, allFree: 1 }); const R = S.run, h = R.hero; R.msg = null; S.ev = []; R.enteredT = S.t - 20; R.cam = [h.x - SCX.VW / 2, h.y - 30 - SCX.VH / 2]; })]);
+    states.push(['hud_boss_arrival', play((S) => { const R = S.run; SIM.enterFloor(S, R, D.RUNS.campaign.chapter); const b = R.en.find((e) => e.type === 'boss'), h = R.hero; h.x = b.x; h.y = b.y + 220; b.st = 'chase';
+      R.seen = R.seen.map(() => 1); R.cam = [b.x - SCX.VW / 2, b.y + 60 - SCX.VH / 2]; R.msg = { chapter: D.ENEMIES.boss.name, s: D.ENEMIES.boss.title, t: S.t - 0.8, d: 3 }; })]);
     if (trapS) { const s2 = structuredClone(trapS), tp = s2.run.map.traps[Math.floor(s2.run.map.traps.length / 2)]; s2.ev.push({ k: 'spike', t: s2.t - 0.08, x: tp.x, y: tp.y }); states.push(['fx_spike', s2]); }
     states.push(['power_fire', fx((S, R, h) => { h.powers = { whirl_ring: 1, dash_trail: 1 }; R.fires = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 8800 + i, own: 'hero', who: 'hero', x: h.x + Math.cos(i * Math.PI / 4) * 100, y: h.y + Math.sin(i * Math.PI / 4) * 75, t0: S.t - 0.6, r: 26, ry: 0.7, t: 2, dmg: 0, per: 9, kind: 'flame' })); })]);
     states.push(['buffs', fx((S, R, h) => { worst(S); h.perks = Object.fromEntries(D.GIFTS.map((g) => [g.id, 2])); Object.assign(h, { bless: 1, shield: 99999, shieldUntil: S.t + 4, burn: S.t + 0.4, poison: S.t + 2.2 }); })]);
