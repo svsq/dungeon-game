@@ -1339,10 +1339,10 @@
     const L0 = S.bdRows || SIM.Q.boardOffers(R).map(({ role, of }) => ({ role, q: of.q })), took = S.bdTook || [], U = D.UI.board(L0.length), P = U.P;
     dim(0.6); parch('board', P);
     lab('bd_t', TXT('hud.board'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
-    closeBtn('bd_x', U, S);
-    hintC('bd_keys', L0.length ? TXT('hud.board.2') : TXT('hud.board.2e'), P.y + P.h - 30);
+    KIT.button('bd_close', U.r.find((q) => q.id === 'close'), stN(S, 'close'));
+    hintC('bd_keys', L0.length ? TXT('hud.board.2') : TXT('hud.board.2e'), P.y + P.h + 66);
     if (!L0.length) { wrapLab('bd_none', TXT('hud.board.3'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
-    L0.slice(0, 7).forEach(({ role, q }, i) => { const Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic, gone = took.includes(i);
+    L0.slice(0, 6).forEach(({ role, q }, i) => { const Q = D.QUESTS[q.key], y = P.y + 136 + i * 104, b = U.r[i], ic = q.ic, gone = took.includes(i);
       panel('bd_r' + i, P.x + 30, y, P.w - 60, 96, { r: 6, a: gone ? 0.7 : undefined });
       if (ic) { panel('bd_ic' + i, P.x + 46, y + 18, 60, 60, { r: 6 }); icon(ic, P.x + 52, y + 24, 48); }
       const X = P.x + (ic ? 124 : 50);
@@ -1358,9 +1358,9 @@
     const L0 = SIM.Q.journalOf(R), sel = L0.find((q) => q.id === S.jsel) || L0[0], U = D.UI.journal(L0.length, sel && sel.st === 'taken', D.UI.journalTop(L0.length, Math.max(0, L0.indexOf(sel)), S.jtop)), P = U.P, M = U.more;
     dim(0.6); parch('journal', P);
     lab('jr_t', TXT('hud.journal'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
-    closeBtn('jr_x', U, S);
+    KIT.button('jr_close', U.r.find((q) => q.id === 'close'), stN(S, 'close'));
     const nb = U.r.find((q) => q.id === 'notes'); button('jr_notes', Object.assign({}, nb, { label: TXT('hud.journal.notes', { n: (S.meta.notes || []).length }) }), S.hover);
-    hintC('jr_keys', M ? TXT('hud.journal.2wheel') : TXT('hud.journal.2'), P.y + P.h - 30);
+    hintC('jr_keys', M ? TXT('hud.journal.2wheel') : TXT('hud.journal.2'), P.y + P.h + 66);
     if (!L0.length) { wrapLab('jr_none', R.viaTown ? TXT('hud.journal.3') : TXT('hud.journal.4'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
     if (M) { const qn = (n) => n + ' ' + TXT.n('hud.journal.q', n), sx = M.x + M.w + 8, sy = P.y + 110, sh = M.y - 8 - sy, th = Math.max(40, sh * U.rows / L0.length);
       lab('jr_more', M.above && M.below ? TXT('hud.journal.moreBoth', { a: M.above, b: M.below }) : M.below ? TXT('hud.journal.moreDown', { p1: qn(M.below) }) : TXT('hud.journal.moreUp', { p1: qn(M.above) }), M.x + M.w / 2, M.y + 24, { size: 22, al: 0.5, col: INK.d });
@@ -1386,12 +1386,12 @@
   function note(S) { const N = D.NOTES.byId[S.note.id], P = { x: 460, y: 240, w: 1000, h: 500 }; if (!N) return; dim(0.6); parch('note', P);
     lab('nt_t', N.title, P.x + 50, P.y + 56, { size: 34, col: INK.r }); wrapLab('nt_s', N.text, P.x + 50, P.y + 120, P.w - 100, 28, INK.t); hintC('nt_k', TXT('hud.note.keys'), P.y + P.h - 34); }
   function notes(S) { const L0 = S.meta.notes || [], pg = S.notesPage || 0, U = D.UI.notes(L0.length, pg), P = U.P, at = (id) => U.r.find((q) => q.id === id); dim(0.6); parch('notes', P);
-    lab('ns_t', TXT('hud.notes'), P.x + 40, P.y + 50, { size: 40, col: INK.r }); closeBtn('ns_x', U, S);
+    lab('ns_t', TXT('hud.notes'), P.x + 40, P.y + 50, { size: 40, col: INK.r }); KIT.button('ns_close', at('close'), stN(S, 'close'));
     if (!L0.length) { wrapLab('ns_none', TXT('hud.notes.none'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
     const sel = D.NOTES.byId[S.noteSel] || D.NOTES.byId[L0[0]];
     U.r.filter((q) => q.id.startsWith('n:')).forEach((b) => { const N = D.NOTES.byId[L0[b.i]], on = N === sel; if (!N) return; panel('ns_r' + b.i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : S.hover === b.id ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined }); lab('ns_n' + b.i, N.title, b.x + 16, b.y + 23, { size: 22, col: N.kind === 'secret' ? '#9cc8ff' : N.kind === 'boss' ? '#ffc070' : C.gold }); });
     const X = P.x + 540, Wd = P.w - 580; L.solid(X - 20, P.y + 110, 1, P.h - 180, [0.32, 0.2, 0.12], 0, 0, 0, 0.5); if (sel) { lab('ns_dn', sel.title, X, P.y + 130, { size: 32, col: INK.r }); wrapLab('ns_dt', sel.text, X, P.y + 190, Wd, 26, INK.t); }
-    button('ns_p', Object.assign({}, at('prev'), { label: TXT('hud.notes.prev') }), S.hover); button('ns_nx', Object.assign({}, at('next'), { label: TXT('hud.notes.next') }), S.hover); lab('ns_pg', TXT('hud.notes.page', { p: pg + 1, n: Math.max(1, Math.ceil(L0.length / U.per)) }), P.x + 265, P.y + P.h - 74, { size: 22, al: 0.5, col: INK.d }); }
+    button('ns_p', Object.assign({}, at('prev'), { label: TXT('hud.notes.prev') }), S.hover); button('ns_nx', Object.assign({}, at('next'), { label: TXT('hud.notes.next') }), S.hover); lab('ns_pg', TXT('hud.notes.page', { p: pg + 1, n: Math.max(1, Math.ceil(L0.length / U.per)) }), P.x + 265, P.y + P.h - 104, { size: 22, al: 0.5, col: INK.d }); }
   // ---------------- a town workshop (R-32, TASKS 1013): the smith's reforging, the enchanter's enchanting ----------------
   function craft(S, R, t) {
     const h = R.hero, U = D.UI.craft(h.bag.length, S.bagTab), P = U.P, c = S.craft, forge = c.kind === 'forge', it = SIM.Q.craftItem(S, R), at = (id) => U.r.find((q) => q.id === id);

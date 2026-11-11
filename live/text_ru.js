@@ -678,6 +678,7 @@
     'UI.craft.talk': 'Поговорить (Enter)',
     'UI.gate.r.leave.label': 'Уйти',
     'UI.altar.r.leave.label': 'Уйти',
+    'UI.paper.close': 'Закрыть',
     'UI.altar.r.donate.label': '1000 золота → 1 осколок',
     'HINT': 'WASD: движение · ЛКМ: атака · 1 2 3: способности · Пробел: рывок · Q/R: зелья · E: действие · I: герой · Esc: пауза',
     'sim_items.gearName': '{p1} ({name}, ур. {lvl})',

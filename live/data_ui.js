@@ -29,6 +29,8 @@
   const NEWS_FRAME = { x: 1250, bottom0: 972, w: 640, top: 134, line: 28, gap: 20, bottom: 44, wrap: 42, link: { gap: 14, w: 320, h: 36 } };
   // the sort buttons beside a grid: by type, rarity, level, stacked from (x, y)
   const SORTS = [['type', TXT('UI.sort.type')], ['rar', TXT('UI.sort.rar')], ['lvl', TXT('UI.sort.lvl')]];
+  // the paper windows close by a button at the bottom's middle, as «Уйти» at the gate and altars, not by a corner cross (TASKS 1892)
+  const paperClose = (P) => ({ id: 'close', label: TXT('UI.paper.close'), on: true, x: P.x + P.w / 2 - 150, y: P.y + P.h - 60, w: 300, h: 60 });
   const sortCol = (pre, x, y, w = 210, h = 46) => SORTS.map(([k, label], i) => ({ id: pre + ':' + k, k, label, on: true, x, y: y + i * (h + 12), w, h }));
   // the bag's cells (TASKS 1332): 72 px on an 80 px step, eight to a row, as on ref_ui_inv_b; `id` makes each cell's id from its
   // index, so the merchant's grid sells what the hero screen's grid wears
@@ -179,22 +181,22 @@
       if (T && T.menu) T.topics.forEach((q, i) => r.push({ id: 'topic:' + i, i, label: q.q, on: true, x: P.x + 300, y: P.y + 118 + i * 54, w: 610, h: 48 })); return { P, r }; },
     // the quest journal (TASKS 1023): the run's quests in a column on the left, the chosen one's words on the right
     // the notice board on the square (TASKS 1033): every quest on offer now, a row each with its button to take it
-    board: (n) => { const P = { x: 130, y: 90, w: 1660, h: 900 }, r = [];
-      for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
-      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
+    // six rows, one per giver, leave the bottom to the close button
+    board: (n) => { const P = { x: 130, y: 60, w: 1660, h: 900 }, r = [];
+      for (let i = 0; i < Math.min(n, 6); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
+      r.push(paperClose(P)); return { P, r }; },
     // past ten quests the list scrolls (TASKS 1877): nine rows from top, the tenth slot says how many more lie above and below
-    journal: (n, canDrop, top = 0) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [], many = n > 10, rows = many ? 9 : Math.min(n, 10), t = many ? Math.max(0, Math.min(n - 9, top | 0)) : 0;
+    journal: (n, canDrop, top = 0) => { const P = { x: 330, y: 80, w: 1260, h: 880 }, r = [], many = n > 10, rows = many ? 9 : Math.min(n, 10), t = many ? Math.max(0, Math.min(n - 9, top | 0)) : 0;
       for (let k = 0; k < rows; k++) r.push({ id: 'q:' + (t + k), i: t + k, x: P.x + 30, y: P.y + 110 + k * 68, w: 470, h: 60 });
       if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
-      r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 346, y: P.y + 16, w: 230, h: 48 });
-      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 });
+      r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 290, y: P.y + 16, w: 230, h: 48 }, paperClose(P));
       return { P, r, top: t, rows, more: many ? { above: t, below: n - t - rows, x: P.x + 30, y: P.y + 110 + 9 * 68, w: 470, h: 60 } : null }; },
     // the first row shown: the one asked, moved just enough to keep the chosen quest (index si) in sight
     journalTop: (n, si, top = 0) => (n <= 10 ? 0 : Math.max(0, Math.min(n - 9, Math.max(si - 8, Math.min(si, top | 0))))),
-    notes: (n, page) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [], per = 12, on = Math.min(per, Math.max(0, n - page * per));
+    notes: (n, page) => { const P = { x: 330, y: 80, w: 1260, h: 880 }, r = [], per = 12, on = Math.min(per, Math.max(0, n - page * per));
       for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: P.x + 30, y: P.y + 110 + i * 52, w: 470, h: 46 });
-      r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 100, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 100, w: 150, h: 52 });
-      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r, per }; },
+      r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 130, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 130, w: 150, h: 52 });
+      r.push(paperClose(P)); return { P, r, per }; },
     // the town's storage chest (TASKS 1012): its cells across the top, the hero's bag under them
     stash: (len, tab) => { const P = { x: 420, y: 90, w: 1080, h: 900 }, x0 = P.x + 80, sx = P.x + P.w - 300;
       const r = grid('stash', STASH.cells, x0, P.y + 190).concat(bagGrid(x0, P.y + 560, 'bag', undefined, len, tab), tabRow(x0, P.y + 504, len, 190));
