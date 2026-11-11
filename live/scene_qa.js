@@ -566,7 +566,7 @@
         if (found) states.push(['endless_boss_' + type, floorS(found[0], found[1], true)]); }
       // TASKS 1808: half the 10th's foes slain, the stairs show through the fog and on the minimap, the hero far off
       states.push(['stairs_marked', play((S) => { SIM.enterFloor(S, S.run, 10); const R = S.run, m = R.map; R.msg = null;
-        const foes = R.en.filter((e) => e.deadT < 0 && !DATA.BOSSES[e.type] && !e.summ); for (const e of foes.slice(0, Math.ceil(foes.length / 2) + 1)) { e.hp = 0; SIM.killEnemy(S, R, e); }
+        const foes = R.en.filter((e) => e.deadT < 0 && !DATA.BOSSES[e.type] && !e.summ && !DATA.ENEMIES[e.type].deep); for (const e of foes.slice(0, Math.ceil(foes.length / 2) + 1)) { e.hp = 0; SIM.killEnemy(S, R, e); }
         R.drops = []; S.ev = []; R.cam = [m.exit.x - SCX.VW / 2, m.exit.y - 60 - SCX.VH / 2]; })]);
       states.push(['endless_menu', mk((S) => { S.saved = null; S.meta.bestEndless = 23; })]);
       const dead = states.find(([n]) => n === 'dead'); if (dead) { const S = structuredClone(dead[1]); S.result.mode = 'endless'; S.result.floor = 24; S.result.record = { best: 24, fresh: true }; states.push(['endless_dead_record', S]); } }

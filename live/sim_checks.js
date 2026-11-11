@@ -3390,7 +3390,7 @@
       if (n < 4) out.push(`rails: only ${n} lava bridges in 14 seeds`); }
     // TASKS 1808: the stairs show through the fog once half the floor's foes are slain, not a kill sooner; never in the town
     for (const [mode, f] of [['campaign', 3], ['campaign', 10], ['campaign', 14]]) { const S = spawn(0, {}); S.run = newRun(S, mode, 7); S.screen = 'play'; enterFloor(S, S.run, f);
-      const R = S.run, m = R.map, at = m.exit.ty * m.W + m.exit.tx, F = SIMX.fstat(R), foes = R.en.filter((e) => SIMX.counted(e) && e.deadT < 0 && !D.BOSSES[e.type]), need = Math.ceil(F.foes / 2), tag = `stairs: ${mode} f${f}`;
+      const R = S.run, m = R.map, at = m.exit.ty * m.W + m.exit.tx, F = fstat(R), foes = R.en.filter((e) => counted(e) && e.deadT < 0 && !D.BOSSES[e.type]), need = Math.ceil(F.foes / 2), tag = `stairs: ${mode} f${f}`;
       R.seen[at] = 0; for (const e of foes.slice(0, need - 1)) { e.hp = 0; killEnemy(S, R, e); }
       if (R.seen[at]) out.push(`${tag}: shown before half the foes fell`);
       if (foes[need - 1]) { foes[need - 1].hp = 0; killEnemy(S, R, foes[need - 1]); } if (!R.seen[at]) out.push(`${tag}: not shown with half the foes slain`); }
