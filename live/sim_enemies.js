@@ -194,7 +194,7 @@
   // skeleton's blast (TASKS 411) is its own: each monster in it loses a share of its own health, and another smouldering one in it lights up
   // (a fuse is set off no sooner than BOOM_GAP after the last one lit, its ring told its true length, TASKS 1057: held back at the burst,
   // 36 % of blasts came after their ring was gone)
-  const BOOM_GAP = 0.35, fuseEnd = (R, want) => { const t = Math.max(want, (R.fuseLast ?? -9) + BOOM_GAP); R.fuseLast = t; return t; };
+  const PROP_R = 17, LEAF = 10, BOOM_GAP = 0.35, fuseEnd = (R, want) => { const t = Math.max(want, (R.fuseLast ?? -9) + BOOM_GAP); R.fuseLast = t; return t; };
   function blast(S, R, e) { const B = ENEMIES[e.type].boom, M = B || MOD.explosive, h = R.hero; e.fuse = 0; R.boomT = S.t;
     if (h.deadT < 0 && Math.hypot(h.x - e.x, h.y - e.y) < M.r && losClear(R.map, e.x, e.y - 6, h.x, h.y - 6)) SIMX.hurtHero(S, R, e.dmg * M.dmg, e.x, e.y, undefined, who(e) + ' blast', e);
     for (const o of R.en) if (o !== e && o.deadT < 0 && Math.hypot(o.x - e.x, o.y - e.y) < M.r + ENEMIES[o.type].r) { if (ENEMIES[o.type].boom) fuse(S, R, o);
@@ -502,8 +502,13 @@
     for (let i = 0; i < live2.length; i++) for (let j = i + 1; j < live2.length; j++) { const a = live2[i], b = live2[j], ra = ENEMIES[a.type].r + ENEMIES[b.type].r + 4;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy); if (d < ra && d > 0.01) { const p = (ra - d) * 0.5; move(m, a, -dx / d * p, -dy / d * p, ENEMIES[a.type].r, true); move(m, b, dx / d * p, dy / d * p, ENEMIES[b.type].r, true); } }
     // whatever moved them (walking, knockback, a lunge, the crowd), monsters stand clear of props; a ghost floats through
-    const sol = SIMX.solids(R);
-    for (const e of R.en) if (e.deadT < 0 && e.st !== 'leap' && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, sol);
+    // a top or bottom door's leaf stands edge-on against its left jamb: held to a strip LEAF wide there for monsters, so the brute (r 23) fits
+    // the 54 px left beside it; the hero still keeps off the whole cell (TASKS 1351, 1783)
+    const sol = SIMX.solids(R); for (let i = 0; i < sol.length; i++) if (sol[i].jamb !== undefined) sol[i] = { x: sol[i].jamb + LEAF / 2, y: sol[i].y, r: LEAF / 2 };
+    // (a wide one, the brute or the golem, squeezes past braziers and the floor's props as if PROP_R wide: two of them a cell apart left
+    // 40 px in a narrow room and it stuck before the door they led to, TASKS 1866; chests, pots, the shop and the walls still hold its whole body)
+    const tight = new Map(), solOf = (r) => { if (r <= PROP_R) return sol; let q = tight.get(r); if (!q) tight.set(r, (q = sol.map((o) => (o.tight ? Object.assign({}, o, { r: o.r - (r - PROP_R) }) : o)))); return q; };
+    for (const e of R.en) if (e.deadT < 0 && e.st !== 'leap' && !ENEMIES[e.type].ghost && !ENEMIES[e.type].deep) shove(m, e, ENEMIES[e.type].r, true, D.BOSSES[e.type] ? sol : solOf(ENEMIES[e.type].r));
     if (heroOk) for (const e of R.en) {
       const E = ENEMIES[e.type]; if (e.deadT >= 0 || !['melee', 'slam', 'lunge', 'hop', 'crab', 'bomber', 'imp', 'salamander', 'golem'].includes(E.kind) || e.st === 'lurk' || e.st === 'leap') continue;
       const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy), stop = E.r + K.R + 6;
@@ -568,7 +573,10 @@
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) { const j = (ty + ay) * m.W + tx + ax, v = F[j];
           if (v < 0 || (ax && ay && (F[ty * m.W + tx + ax] < 0 || F[(ty + ay) * m.W + tx] < 0))) continue;
           const score = want > 0 ? v : -v; if (!best || score < best[0]) best = [score, ax, ay]; }
-        if (best) { const gx = (tx + best[1]) * TILE + TILE / 2 - e.x, gy = (ty + best[2]) * TILE + TILE / 2 + 4 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; } }
+        // through an open top or bottom door its free lane's middle, not the cell's: the brute (r 23) aimed at the cell's own wedged
+        // against the far jamb (TASKS 1783); looked for only on a step up or down by a wall, as through a door; one along the wall passes it by
+        const lane = best && best[2] && [-1, 0, 1].some((j) => cell(m, tx + best[1] + 1, ty + best[2] + j) === 0) && (m.doors || []).find((o) => o.open && !o.arena && (o.dir === 'u' || o.dir === 'd') && o.cells[1][0] === tx + best[1] && Math.abs(o.cells[1][1] - ty - best[2]) <= 1);
+        if (best) { const gx = (lane ? lane.cells[0][0] * TILE + (LEAF + 2 * TILE) / 2 : (tx + best[1]) * TILE + TILE / 2) - e.x, gy = (ty + best[2]) * TILE + TILE / 2 + 4 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; } }
       // (off the floor, in lava where the way field has no say: to the nearest bank first; straight at the hero it stuck on a knob of
       // rock in the pool, TASKS 374)
       else if (cell(m, tx, ty) === 3 && !E.lava && !E.ghost) { const [lx, ly] = SIMX.landOf(m, e.x, e.y), gx = lx - e.x, gy = ly - 6 - e.y, gd = Math.hypot(gx, gy) || 1; vx = gx / gd; vy = gy / gd; }

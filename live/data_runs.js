@@ -33,14 +33,16 @@
   // Floors come in pairs, each pair one biome drawn from the run's seed (repeats allowed, the caves among them); the second floor of
   // a pair ends it, by turns with an elite brute guarding the exit (pairs 1, 3, …) and with the biome's boss (pairs 2, 4, …). A floor
   // is worth its own number in depth (monsters, loot, prices) and its map grows from `size.from` to `size.to` over `size.floors`
-  // floors, then stays; rooms: one to `size.cells` cells of the map (13–17 on the campaign's 72×54). The hero starts as in the campaign
+  // floors, then stays; rooms: one to `size.cells` cells of the map (13–17 on the campaign's 72×54). The hero starts as in the campaign.
+  // size.to and cap (TASKS 388): at 88×66 and the growing pop of 385 a floor held 60 monsters and took 150–210 s; at 72×54, 38, and
+  // `cap` holds the rest (the magma's plateaus keep their own sizes: smaller, 40–54 % of them came out loose, TASKS 1808)
   RUNS.endless = { name: TXT('data_runs.endless.name'), floors: Infinity, depth: 0, lvl: 1, endless: 1, biome: () => 'dungeon', boss: () => undefined, guard: {}, exit: {},
     pool: ['dungeon', 'crypt', 'lava', 'arcane', 'cave', 'magma'], bosses: { dungeon: 'boss_spider', crypt: 'boss_necro', lava: 'boss_forge', arcane: 'boss', cave: 'boss_serpent', magma: 'boss_colossus' },
     pairGuard: { hp: 2.2, dmg: 1 }, big: ['boss', 'boss_serpent', 'boss_colossus'], bigFrom: 8, guardFrom: 6,
     // a boss past the campaign's last floor (the descent after the serpent): its health and blows over the depth's, so its fight holds
     // the campaign's boss bands (20–90 s, 150–250 % of the hero's health; TASKS 354: at ×1 the 16th's and 20th's took 14–21 s, 60–100 %; at ×1.6 the average's
     // took 22 and 31 s, 149 and 211 %, the expert's 24 s, 123–136 %, 40 seeds)
-    deepBoss: { hp: 1.6, dmg: 1.6 }, size: { from: [48, 36], to: [88, 66], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
+    deepBoss: { hp: 1.6, dmg: 1.6 }, cap: 45, size: { from: [48, 36], to: [72, 54], cave: [64, 48], floors: 16, cells: 270, rooms: 9 }, seal: '' };
   const runOf = (mode) => RUNS[mode] || RUNS.campaign;
   // whether the wandering merchant (TASKS 1010) is on floor f of a run through the town: fixed by the run's seed
   const wanderAt = (runSeed, f) => f >= SHOP.wander.from && mix32((Math.imul(runSeed >>> 0, 2654435761) + f * 40503) >>> 0) / 4294967296 < SHOP.wander.chance;
@@ -75,7 +77,7 @@
     // (the magma's own sizes: its 3rd floor's plateaus want 104×78)
     const Z = M.size, k = Math.min(1, (f - 1) / (Z.floors - 1)), from = cave ? Z.cave : Z.from, size = magma ? RUNS.magma.size[2 + pos] : [0, 1].map((i) => 2 * Math.round((from[i] + (Z.to[i] - from[i]) * k) / 2));
     return { N: sub || M, lf: sub ? 3 + pos : 1 + pos, n: sub ? 4 : 2, depth: f, last: end, fin: false, biome, boss: bossPair && end ? M.bosses[biome] : undefined, arch: sub ? sub.arch : undefined,
-      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: D.deepAxis(f, 'pop'), early: 0, elite: D.deepAxis(f, 'elite'), cd: D.deepAxis(f, 'cd'), mob: 1, size, rooms: sub ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > RUNS.campaign.floors ? M.deepBoss : undefined }; };
+      guard: !bossPair && end && f >= M.guardFrom ? M.pairGuard : undefined, exit: f === 1 ? RUNS.campaign.exit[1] : undefined, pop: D.deepAxis(f, 'pop'), early: 0, elite: D.deepAxis(f, 'elite'), cd: D.deepAxis(f, 'cd'), mob: 1, size, rooms: sub ? undefined : Math.max(Z.rooms, Math.round(size[0] * size[1] / Z.cells)), altar: bossPair ? !end : end, pair: p, bossK: f > RUNS.campaign.floors ? M.deepBoss : undefined, cap: M.cap }; };
   // floor f's modifier (TASKS 381), by the run's seed, so a floor kept or climbed back to has the one it had: none on a boss's floor,
   // a cave's or a plateau's, or a campaign chapter's past its first
   const modOf = (seed, f, q) => { if (q.arch || q.boss || q.chap || f < FLOOR_MOD.from) return undefined;
