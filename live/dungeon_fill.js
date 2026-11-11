@@ -205,10 +205,12 @@
             if (shore) c.push([x, y]); }
           return c.length ? c[Math.floor(R() * c.length)] : null; };
         const W2 = { near, back, any: anywhere, bank, lava: lavaPost }; plan.length = 0;
-        for (const [kinds, [lo, hi], where] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where]]); }
+        for (const [kinds, [lo, hi], where, keep] of P.plan) { const ks = kinds.filter(has); if (!ks.length) continue; for (let i = 0, k = lo + Math.floor(R() * (hi - lo + 1)); i < k; i++) plan.push([pick(ks), W2[where], keep]); }
         const own = P.plan[0][1][0], last = P.plan[P.plan.length - 1], lk = last[0].filter(has);
         while (plan.length < n && lk.length) plan.push([pick(lk), W2[last[2]]]);
-        if (plan.length > n) plan.length = Math.max(n, r.kind === 'ledge' ? 0 : own); }   // (a ledge, TASKS 432, may hold a lone one)
+        // (a ledge, TASKS 432, may hold a lone one; an entry marked keep is cut last: a small nest's cut took its one priest, TASKS 1647)
+        const lim = Math.max(n, r.kind === 'ledge' ? 0 : own); for (let i = plan.length - 1; plan.length > lim && i >= 0; i--) if (!plan[i][2]) plan.splice(i, 1);
+        if (plan.length > lim) plan.length = lim; }
       const main = oldOne(); while (plan.length < n) plan.push([R() < 0.6 ? main : oldOne(), anywhere]);
       let first = true;
       for (const [type0, where] of plan) { let type = type0, p = null;
@@ -513,7 +515,10 @@
         if (enemies.some((e) => Math.hypot(e.x / TILE - ex, e.y / TILE - ey) < 5)) continue;
         const spots = []; for (let y = ey - 7; y <= ey + 7; y++) for (let x = ex - 7; x <= ex + 7; x++) { const k = y * W + x, d = fromStart[k] - fromStart[end];
           if (d >= 2 && d <= 7 && !own.has(k) && free(x, y) && dry(x, y) && !crossings.some((q) => q.cells.includes(k)) && !rooms.some((q) => (q.type === 'start' || q.type === 'shop') && x >= q.x - 1 && x <= q.x + q.w && y >= q.y - 1 && y <= q.y + q.h) && Math.hypot(x - start.cx, y - start.cy) > 12) spots.push([x, y]); }
-        for (let i = 0; i < 2 && spots.length; i++) { const [x, y] = spots.splice(Math.floor(R() * spots.length), 1)[0]; used.add(key(x, y)); addEnemy(pick(kinds), x, y, (roomOf(x, y) || rooms.filter((q) => !['secret', 'start', 'shop'].includes(q.type)).reduce((a, q) => (Math.hypot(q.cx - x, q.cy - y) < Math.hypot(a.cx - x, a.cy - y) ? q : a))).id); enemies[enemies.length - 1].ford = 1; } } }
+        // (a nest keeps its one fire priest: a crossing's guard in it is of another kind, TASKS 1647)
+        for (let i = 0; i < 2 && spots.length; i++) { const [x, y] = spots.splice(Math.floor(R() * spots.length), 1)[0]; used.add(key(x, y)); const q = roomOf(x, y) || rooms.filter((o) => !['secret', 'start', 'shop'].includes(o.type)).reduce((a, o) => (Math.hypot(o.cx - x, o.cy - y) < Math.hypot(a.cx - x, a.cy - y) ? o : a));
+          const nest = q.hall === 'nest' && enemies.some((e) => e.room === q.id && e.type === 'fire_priest'), ks = nest && kinds.some((t) => t !== 'fire_priest') ? kinds.filter((t) => t !== 'fire_priest') : kinds;
+          addEnemy(pick(ks), x, y, q.id); enemies[enemies.length - 1].ford = 1; } } }
     if (boss && !fin) shrines.push({ x: wx(exitR.cx - 3), y: wy(sy), used: 0, boss: bossType });
     // the magma caves' elites and spoils (TASKS 433): an elite is a reward of the ways off the walk to the stairs, never met on it (the
     // stairs' own aside). As many as the floor's chance drew go to the dead ends with a pack and nothing else to win, one each, then
@@ -1103,6 +1108,14 @@
     // a chapter's first floor gives the hero room under its banner (TASKS 1204)
     // (and on every magma floor, TASKS 1721: on its later floors a goblin struck 1.2 s after the hero came down the stairs)
     if (biome === 'magma' || (D.RUNS[opts.mode || 'campaign'].chapters || []).some((c) => c.from === runFloor)) for (let i = enemies.length - 1; i >= 0; i--) if (Math.hypot(enemies[i].x - (up ? up.x : spawn.x), enemies[i].y - (up ? up.y + 46 : spawn.y)) < 9 * TILE) enemies.splice(i, 1);
+    // the descent holds a floor to ST.cap monsters (TASKS 388): with pop's growth past the campaign (385) its floors held 60 and took
+    // 150–210 s. The elites' share is kept: cutting the plain ones alone took it from 20 to 27 %
+    if (ST.cap && enemies.length > ST.cap) { const cut = (e) => e.key === undefined && !e.guard && !e.post && !e.ford && !e.exit && !e.lake && !D.BOSSES[e.type] && !D.ENEMIES[e.type].deep && !D.ENEMIES[e.type].lurk && !(rooms[e.room] && rooms[e.room].hall);
+      const c = enemies.filter(cut), share = c.filter((e) => e.elite).length / (c.length || 1), gone = new Set(); let el = c.filter((e) => e.elite).length, left = c.length;
+      while (enemies.length - gone.size > ST.cap && left) { const want = el / left > share ? 1 : 0, g = c.filter((e) => !gone.has(e) && !!e.elite === !!want), pool = g.length ? g : c.filter((e) => !gone.has(e)), n = new Map();
+        for (const e of pool) n.set(e.room, (n.get(e.room) || 0) + 1); let top, best = -1; for (const [k, v] of n) if (v > best || (v === best && String(k) < String(top))) { top = k; best = v; }
+        const x = pool.filter((e) => e.room === top).pop(); gone.add(x); left--; if (x.elite) el--; }
+      for (let i = enemies.length - 1; i >= 0; i--) if (gone.has(enemies[i])) enemies.splice(i, 1); }
     // a stream of its own: which chests are trapped must not move anything else on the floor (TASKS 1357)
     if (runFloor >= D.CHEST_TRAP.from) { const Tc = mul32(seed ^ 0x1357), T = D.CHEST_TRAP; let n = 0; for (const c of chests) { const v = Tc(); if (n < T.max && !c.boss && !c.lair && c.key === undefined && v < T.p) { c.trap = 1; n++; } } }
     if (runFloor >= D.MIMIC.from) { const Mc = mul32(seed ^ 0x367), st = rooms.find((r) => r.type === 'start'), inSt = (c) => st && c.x >= st.x * TILE && c.x < (st.x + st.w) * TILE && c.y >= st.y * TILE && c.y < (st.y + st.h) * TILE; for (const c of chests) { const v = Mc(); if (v < D.MIMIC.p && !c.boss && !c.lair && !c.trap && !c.hall && c.sec === undefined && c.key === undefined && !inSt(c)) { c.mimic = 1; break; } } }

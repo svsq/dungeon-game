@@ -11,6 +11,13 @@
     const h = R.hero, i = h.bag.findIndex((it) => it && it.b === b); if (i < 0) { ev(S, { k: 'nope', x: h.x, y: h.y, s: b === 'hp_potion' ? TXT('sim_world.usePotion.s') : TXT('sim_world.usePotion.s.2') }); return; }
     const st = heroSt(S), it = h.bag[i];
     if (b === 'mp_potion' && D.clsOf(h).res === 'rage') { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.usePotion.rage') }); return; }
+    // a full pool keeps the potion (TASKS 1881); with a power on the drink a second press within a second drinks it for the power.
+    // The first press is marked on the session, not the hero, so a save carries no stale mark of it
+    const hp = b === 'hp_potion', full = hp ? h.hp >= st.maxHp : h.mp >= st.maxMp;
+    if (full) { const ask = S.potAsk && S.potAsk.b === b && S.t - S.potAsk.t <= 1;
+      if (!SIMX.drinkFires(S, R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: hp ? TXT('sim_world.usePotion.full') : TXT('sim_world.usePotion.full.2') }); return; }
+      if (!ask) { S.potAsk = { b, t: S.t }; ev(S, { k: 'nope', x: h.x, y: h.y, s: hp ? TXT('sim_world.usePotion.again') : TXT('sim_world.usePotion.again.2') }); return; } }
+    S.potAsk = null;
     const brew = 1 + gift(h, 'thrift') / 100;
     if (b === 'hp_potion') h.hp = Math.min(st.maxHp, h.hp + st.maxHp * CONSUMABLES.hp_potion.heal * brew); else h.mp = Math.min(st.maxMp, h.mp + st.maxMp * CONSUMABLES.mp_potion.mana * brew);
     if (--it.n <= 0) h.bag[i] = null; ev(S, { k: 'drink', x: h.x, y: h.y, b }); SIMX.firePowers(S, R, 'potion', { x: h.x, y: h.y, b });
@@ -58,7 +65,7 @@
     if (h.mp < A.mp) { ev(S, { k: 'nope', x: h.x, y: h.y, s: D.clsOf(h).res === 'rage' ? TXT('sim_world.castAbility.s.3') : TXT('sim_world.castAbility.s.2') }); return; }
     const AR = D.abRank(id, rank); h.mp -= A.mp; h.cd[id] = S.t + A.cd * AR.cd; h.castT = S.t; h.castK = id;
     const st = heroSt(S), fired = {};
-    if (id === 'whirl') { fired.r = AR.r; h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; S.meta.whirls = (S.meta.whirls || 0) + 1;
+    if (id === 'whirl') { fired.r = AR.r; h.whirlT = S.t; h.whirlA = h.aim; const dmgK = AR.k; R.whirls = (R.whirls || 0) + 1; if (!R.test) S.meta.whirls = (S.meta.whirls || 0) + 1;
       const wr = AR.r; for (const e of R.en) { if (e.deadT >= 0) continue; const d = Math.hypot(e.x - h.x, (e.y - h.y) * 1.3); if (d < wr + ENEMIES[e.type].r && losClear(R.map, h.x, h.y, e.x, e.y)) { const c = rnd(R) * 100 < st.crit; heroHit(S, R, e, Math.round(st.atk * dmgK * (c ? st.critK : 1)), c, h.x, h.y, 1.6); } }
       breakPots(S, R, h.x, h.y, wr); hitProps(S, R, h.x, h.y, wr); hitFolk(S, R, h.x, h.y, wr); hitChests(S, R, h.x, h.y, wr); hitDoors(S, R, h.x, h.y, wr); tearWebs(S, R, h.x, h.y, wr); ev(S, { k: 'whirl', x: h.x, y: h.y, a: h.aim, r: wr, rar: h.eq.weapon ? h.eq.weapon.rar : 0 }); }
     if (id === 'fireball') { const [hx, hy] = hand(h), a = h.aim, c = rnd(R) * 100 < st.crit, dmg = Math.round(D.fireDmg(st.spellBase, AR.k, st.spell) * (c ? st.critK : 1));
