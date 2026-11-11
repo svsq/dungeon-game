@@ -37,7 +37,7 @@
       if (R.town) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s') }); return; }
       if (bossFight(R)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.2') }); return; }
       h.read = { t0: S.t, i: idx }; h.vx = h.vy = 0; ev(S, { k: 'read', x: h.x, y: h.y }); return; }
-    if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
+    if (it.b === 'scroll') { const m = R.map, fx = h.x, fy = h.y; h.x = m.spawn.x; h.y = m.spawn.y; h.fx = h.fy = null; if (--it.n <= 0) h.bag[idx] = null; ev(S, { k: 'teleport', x: h.x, y: h.y, fx, fy }); return; }
     // gear above the hero's level stays in the bag (TASKS 1028)
     if (h.lvl < D.reqLvl(it)) { ev(S, { k: 'nope', x: h.x, y: h.y, s: TXT('sim_world.useItem.s.3', { p1: D.reqLvl(it) }) }); return; }
     // another class's gear stays in the bag (TASKS 1102): sold, stashed or reforged, never worn
@@ -158,7 +158,8 @@
     if (rnd(R) < W0.loot) { drop(R, d.x, d.y + 10, { kind: 'item', item: rollItem(R, dep(R), W0.q, undefined, W0) }); drop(R, d.x, d.y + 10, { kind: 'gold', n: ri(R, 8, 16) + dep(R) * 2 }); return; }
     if (cleared(R)) return;
     const E = ENEMIES.ghost, f = dep(R), n = ri(R, W0.ghosts[0], W0.ghosts[1]), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), room = DG.roomAt(m, d.x, d.y);
-    for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), x = d.x + Math.cos(a) * 56, y = d.y + 10 + Math.sin(a) * 40; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
+    // a ghost is drawn in toward the wreck until it stands on open floor: one born inside the rock behind a wreck by the wall never came out of it, and no blow crossed the wall either way (TASKS 1833)
+    for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), out = [1, 0.75, 0.5, 0.25, 0].find((k) => !SIMX.boxHit(m, d.x + Math.cos(a) * 56 * k, d.y + 10 + Math.sin(a) * 40 * k, E.r, true)) ?? 0, x = d.x + Math.cos(a) * 56 * out, y = d.y + 10 + Math.sin(a) * 40 * out; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
     R.msg = { s: TXT('sim_world.wreck.msg'), t: S.t, d: 2 }; }
   function hitChests(S, R, x, y, rad, ax, arc) {
     for (const c of R.chests) { if (c.open || c.sealed) continue; const dx = c.x - x, dy = c.y - y, d = Math.hypot(dx, dy);
@@ -193,7 +194,7 @@
     const htx = Math.floor(h.x / TILE), hty = Math.floor(h.y / TILE);
     for (const i of R.dbgOpen) { const q = m.secrets[i], r = m.rooms[q.room]; q.open = 0; delete q.openT; if (q.trig) delete q.trig.downT; if (q.pz) resetPuzzle(m, q);
       for (const [x, y] of q.wall) m.cells[y * m.W + x] = 4; if (q.kind === 'shelf') shelfOf(m, i, true); if (q.kind === 'statue') statueOf(m, i, false);
-      if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.vx = h.vy = 0; } }
+      if (q.hide.includes(hty * m.W + htx) || (htx >= r.x && htx < r.x + r.w && hty >= r.y && hty < r.y + r.h)) { h.x = q.x - q.dx * 40 + (q.dy ? 0 : 0); h.y = q.y - q.dy * 40 + (q.kind === 'shelf' || q.kind === 'statue' ? 40 : 0); h.fx = h.fy = null; h.vx = h.vy = 0; } }
     R.dbgOpen = null; }
   // debug: every item of loot this floor still holds, where it is and whether the hero can get to it, and the books: what the
   // floor counted must equal what was picked up plus what still lies about plus what the closed chests hold
