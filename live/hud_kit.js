@@ -8,8 +8,8 @@
   K.INK = { t: '#2a1a10', d: '#5a3a22', r: '#7d1e12', g: '#4d2c08', off: '#6b5f50', cream: '#f3e2bd', gold: '#ffd76a' };
   // per part: its texture, its drawn art size, and the ends (left, top, right, bottom, art px) that are not stretched
   const PART = {
-    leather: { tex: 'ui_b_leather_panel', art: [96, 96], cut: [24, 24, 24, 24] },
-    torn: { tex: 'ui_b_parchment_torn', art: [96, 96], cut: [24, 24, 24, 24] },
+    leather: { tex: 'ui_b_leather_panel', art: [96, 96], cut: [24, 24, 24, 24], wear: ['ui_b_leather_wear_tex', 8] },
+    torn: { tex: 'ui_b_parchment_torn', art: [96, 96], cut: [24, 24, 24, 24], wear: ['ui_b_paper_fibre_tex', 12] },
     cell: { tex: 'ui_b_cell', art: [32, 32], cut: [8, 8, 8, 8] },
     btn: { tex: 'ui_b_button_parchment', art: [100, 24], cut: [12, 0, 12, 0] },
     wax: { tex: 'ui_b_button_wax', art: [120, 30], cut: [16, 0, 16, 0] },
@@ -40,7 +40,14 @@
       if (o.hollow && i === 1 && j === 1) continue;
       const sw = xs[i + 1] - xs[i], sh = ys[j + 1] - ys[j]; if (sw <= 0.01 || sh <= 0.01 || us[i + 1] <= us[i] || vs[j + 1] <= vs[j]) continue;
       L.sprite(P.tex, xs[i], ys[j], { w: sw, h: sh, src: [us[i], vs[j], us[i + 1], vs[j + 1]], u: o.u }); }
+    if (P.wear && !o.hollow) K.wear(P.wear[0], x + P.wear[1] * PX * k, y + P.wear[1] * PX * k, w - 2 * P.wear[1] * PX * k, h - 2 * P.wear[1] * PX * k, o.u);
   };
+  // the stretched middle of a panel is flat, so its scuffs or fibres are a tile laid over it at the kit's art pixel (TASKS 1743);
+  // each panel starts the tile at its own phase, so two windows side by side do not show the same marks at the same place
+  K.wear = (tex, x, y, w, h, u) => { if (!has(tex) || w <= 0 || h <= 0) return; const s = 128 * PX, px = (x * 7 + y * 3) % s, py = (x * 5 + y * 11) % s;
+    for (let ty = -py; ty < h; ty += s) for (let tx = -px; tx < w; tx += s) { const x0 = Math.max(0, tx), y0 = Math.max(0, ty), x1 = Math.min(w, tx + s), y1 = Math.min(h, ty + s);
+      if (x1 - x0 < 0.5 || y1 - y0 < 0.5) continue;
+      L.sprite(tex, Math.round(x + x0), Math.round(y + y0), { w: Math.round(x + x1) - Math.round(x + x0), h: Math.round(y + y1) - Math.round(y + y0), src: [(x0 - tx) / s, (y0 - ty) / s, (x1 - tx) / s, (y1 - ty) / s], u }); } };
   // the drawn width of a 3-slice's end at height h, where a label may not reach
   K.endW = (p, h) => { const P = PART[p]; return has(P.tex) ? P.cut[0] * h * G.tex(P.tex).w / G.tex(P.tex).h / P.art[0] : 0; };
   // a part drawn whole at its art size × k, its top-left at x, y (or centred with o.c)
