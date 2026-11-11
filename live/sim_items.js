@@ -95,7 +95,7 @@
   // ---------------- hero stats (base + gear + meta + the altars' gifts) ----------------
   const GIFT_V = Object.assign({ greed: 25 }, Object.fromEntries(D.GIFTS.map((g) => [g.id, g.v])));
   const gift = (h, id) => ((h.perks || {})[id] || 0) * GIFT_V[id];
-  // a swing faster than its own damage frame is cut off before it lands (TASKS 1787): past that the speed shown would be one never reached (PR 56 review)
+  // a swing faster than its own damage frame is cut off before it lands (TASKS 1833): past that the speed shown would be one never reached (PR 56 review)
   const hitFrame = (h, wtype) => ((D.clsOf(h).shoots || []).includes(wtype) ? D.SHOTS[(BASES[wtype] || {}).shot || 'bolt'].t : SIMX.K.HIT);
   function stats(h, meta) {
     const s = { str: h.base.str, agi: h.base.agi, int: h.base.int, vit: h.base.vit, atk: 0, def: 0, crit: 0, critd: 0, hp: 0, mp: 0, aspd: 0, mspd: 0, leech: 0, fire: 0, regen: 0, onhit: 0, dodge: 0 };

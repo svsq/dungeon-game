@@ -244,7 +244,7 @@
     if (leap && h.powers) SIMX.dashTouch(S, R);
     // (the throw never carries him onto the lava: a knock-back shoves monsters in, the hero never, TASKS 406)
     if (stag && onLava(m, { x: h.x + mvx * DT * 3, y: h.y + mvy * DT * 3 })) stag.vx = stag.vy = 0;
-    // a hero whose box the ground closed over (a railed bank's edge under his heels, TASKS 1787) could not take a step any way: back to
+    // a hero whose box the ground closed over (a railed bank's edge under his heels, TASKS 1833) could not take a step any way: back to
     // where he last stood free, else the nearest free spot he can walk to in a line (a blind nudge could pass a thin wall, PR 56 review)
     const lk = !m.cliff || onLava(m, h), shut = (x, y) => SIMX.boxHit(m, x, y, K.R, undefined, lk);
     if (!held && shut(h.x, h.y)) { const fits = (x, y) => !shut(x, y) && losClear(m, h.x, h.y, x, y) && (lk || !SIMX.overLava(m, h.x, h.y, x, y));
@@ -276,7 +276,7 @@
     }
     if (moved > 0.02 && !dashing) { const b = Math.floor(h.gp / Math.PI); h.dist += moved; h.gp = (h.gp || 0) + moved / stepLen(Math.abs(h.x - ox) / moved) * Math.PI; if (Math.floor(h.gp / Math.PI) !== b) ev(S, { k: 'step', x: h.x, y: h.y, wet: inWater(m, h), mat: (m.crossings || []).some((c) => c.kind === 'bridge' && c.cells.includes(Math.floor(h.y / TILE) * m.W + Math.floor(h.x / TILE))) ? 'wood' : inWater(m, h) ? 'water' : 'stone' }); }
     // ---- melee: hold LMB ----
-    // a swing faster than its own damage frame was cut off by the next one before it landed: past 224 % attack speed a warrior hit nothing (TASKS 1787)
+    // a swing faster than its own damage frame was cut off by the next one before it landed: past 224 % attack speed a warrior hit nothing (TASKS 1833)
     const frame = SIMX.hitFrame(h, st.wtype);
     if (inp.press && !S.eatPress && h.cd.atk <= t) {
       h.patkT = h.atkT; h.patkA = h.atkA; h.atkT = t; h.atkA = h.aim; h.atkHit = 0; h.atkN++; h.cd.atk = t + Math.max(frame + DT, st.wcd / (1 + st.aspd / 100)); h.atkSlow = Math.min(0.2, (D.clsOf(h).slow || 1) * st.wcd / (1 + st.aspd / 100)); if (h.face !== (h.face = Math.cos(h.aim) >= 0 ? 1 : -1)) h.faceT = t;

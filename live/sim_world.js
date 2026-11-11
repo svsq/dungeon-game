@@ -158,7 +158,7 @@
     if (rnd(R) < W0.loot) { drop(R, d.x, d.y + 10, { kind: 'item', item: rollItem(R, dep(R), W0.q, undefined, W0) }); drop(R, d.x, d.y + 10, { kind: 'gold', n: ri(R, 8, 16) + dep(R) * 2 }); return; }
     if (cleared(R)) return;
     const E = ENEMIES.ghost, f = dep(R), n = ri(R, W0.ghosts[0], W0.ghosts[1]), hp = Math.round(E.hp * BAL.hp * dif(R, 'hp') * D.hpAt(f)), room = DG.roomAt(m, d.x, d.y);
-    // a ghost is drawn in toward the wreck until it stands on open floor: one born inside the rock behind a wreck by the wall never came out of it, and no blow crossed the wall either way (TASKS 1787)
+    // a ghost is drawn in toward the wreck until it stands on open floor: one born inside the rock behind a wreck by the wall never came out of it, and no blow crossed the wall either way (TASKS 1833)
     for (let i = 0; i < n; i++) { const a = i / n * 6.283 + rnd(R), out = [1, 0.75, 0.5, 0.25, 0].find((k) => !SIMX.boxHit(m, d.x + Math.cos(a) * 56 * k, d.y + 10 + Math.sin(a) * 40 * k, E.r, true)) ?? 0, x = d.x + Math.cos(a) * 56 * out, y = d.y + 10 + Math.sin(a) * 40 * out; R.en.push({ id: R.nextId++, type: 'ghost', x, y, vx: 0, vy: 0, hp, max: hp, dmg: E.dmg * BAL.dmg * 1.35 * D.dmgAt(f) * STAGE(R).mob, elite: 0, room, st: 'chase', t0: S.t, face: R.hero.x >= x ? 1 : -1, aimA: 0, cdT: S.t + 0.9, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0, summ: 'amb', spawnT: S.t, seenT: S.t, hx: x, hy: y, ft: -9 }); ev(S, { k: 'summon', x, y }); }
     R.msg = { s: TXT('sim_world.wreck.msg'), t: S.t, d: 2 }; }
   function hitChests(S, R, x, y, rad, ax, arc) {
