@@ -268,10 +268,12 @@
       if (dead >= 0 || hit || !L0 || L0.k < 0.15) return null; const n = Math.hypot(L0.dx, L0.dy * 1.25) || 1, a = 0.4 * SS(0.15, 0.8, L0.k);
       const dir = { dx: Math.round(2 * L0.dx / n), dy: Math.round(2 * L0.dy * 1.25 / n) };
       // (a salamander lies low in the lava: its lit side brighter, TASKS 490: 1.15 of its dark side against 1.3 wanted)
-      // (an imp over the lava takes the hero's one-pixel outline pass, TASKS 1717: the silhouette stamped 2 px off broke into dashes along its thin limbs)
-      if (L0 === lv) return { ...dir, col: [1, 0.6, 0.22].map((v) => v * (e.type === 'salamander' ? 1.05 : 0.75) * SS(0.15, 0.8, lv.k)), box: e.type === 'imp' ? [2 * Math.round((x - 70) / 2), 2 * Math.round((y - 150) / 2), 140, 170] : undefined };
+      // (an imp's and the colossus's edge sits on the body's own last pixel inside the ink, TASKS 1904: over the ink it read as a target outline
+      // and on the colossus it greyed the ink on its lit side)
+      const inBox = e.type === 'imp' ? [x - 70, y - 150, 140, 170] : e.type === 'boss_colossus' ? [x - 220, y - 340, 440, 400] : null, inside = inBox ? { box: inBox.map((v, i) => (i < 2 ? 2 * Math.round(v / 2) : v)), inside: true } : {};
+      if (L0 === lv) return { ...dir, col: [1, 0.6, 0.22].map((v) => v * (e.type === 'salamander' ? 1.05 : 0.75) * SS(0.15, 0.8, lv.k)), ...inside };
       const c = E.rim || L0.col, g = 0.3 * c[0] + 0.5 * c[1] + 0.2 * c[2];
-      return { ...dir, col: c.map((v) => (g + 0.5 * (v - g)) * a) }; };
+      return { ...dir, col: c.map((v) => (g + 0.5 * (v - g)) * a), ...(e.type === 'boss_colossus' ? inside : {}) }; };
     const INK = [0.024, 0.02, 0.024];
     if (E.kind === 'serpent') return drawSerpent(e, E, x, y, GT, t, { alpha, grade, rim, INK, edgeOf });
     if (E.kind === 'eel') return drawEel(e, E, x, y, GT, t, { alpha, grade, rim, edge, hit, INK, edgeOf, halo, rimFlash });
