@@ -1668,6 +1668,9 @@
       R.quests = []; for (const [key, f, from, o] of [['fetch', 11, 'sweeper', { thing: TXT('QA.thing'), ic: 'qi_horse', st: 'turned' }], ['named', 11, 'child', { title: TXT('QA.title') }], ['elites', 12, 'guard', { st: 'done', n: 5 }],
         ...D.storyChain('campaign').map((c, i) => [c.key, c.f, 'keeper', { st: i < 5 ? 'turned' : 'taken' }])]) R.quests.push(mk(key, f, from, o));
       R.quests[0].rw = Object.assign({}, D.questReward(['scroll', 'item', 'shards', 'xp'], 12), { got: TXT('QA.rw.got.2'), rar: 4 }); S.jsel = R.quests[0].id; S.screen = 'journal'; S.hover = 'q:3'; })]);
+    // TASKS 1877: fourteen quests, the chosen one in the middle: rows hidden above and below, the bar and the «Ещё» line
+    states.push(['journal_scroll', keeperS((S, R) => { R.offers = []; R.quests = Array.from({ length: 14 }, (_, i) => ({ id: 950 + i, key: i % 3 ? 'cull' : 'elites', f: 1 + i, need: 5, n: i % 4 ? 0 : 5, st: i % 4 ? 'taken' : 'done', from: i % 2 ? 'guard' : 'smith', rw: D.questReward(['scroll', 'xp'], 1 + i) }));
+      S.jsel = SIM.Q.journalOf(R)[7].id; S.jtop = 4; S.screen = 'journal'; })]);
     states.push(['journal_alike', keeperS((S, R) => { R.offers = []; R.quests = []; const sd = ['keeper', 'guard', 'child', 'sweeper', 'smith'];
       const ch = D.storyChain('campaign').filter((c) => c.key === 'chapter').map((c) => c.f);
       for (let i = 0; i < 10; i++) { const key = i < 5 ? 'chapter' : 'named', f = i < 5 ? ch[i % ch.length] : 2 + i; R.quests.push({ id: 950 + i, key, f, need: D.QUESTS[key].need(f), n: 0, st: i === 0 ? 'done' : 'taken', from: sd[i % 5], rw: D.questReward(D.QUESTS[key].rw, f), title: TXT('QA.title') }); }

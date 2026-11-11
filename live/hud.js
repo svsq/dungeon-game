@@ -1321,14 +1321,17 @@
   // ---------------- the quest journal (TASKS 1023): the run's quests on the left, the chosen one on the right ----------------
   const QST = { done: [TXT('QST.done'), '#8fd98a'], taken: [TXT('QST.taken'), '#e8c890'], turned: [TXT('QST.turned'), '#8a7d6c'] };
   function journal(S, R, t) {
-    const L0 = SIM.Q.journalOf(R), sel = L0.find((q) => q.id === S.jsel) || L0[0], U = D.UI.journal(L0.length, sel && sel.st === 'taken'), P = U.P;
+    const L0 = SIM.Q.journalOf(R), sel = L0.find((q) => q.id === S.jsel) || L0[0], U = D.UI.journal(L0.length, sel && sel.st === 'taken', D.UI.journalTop(L0.length, Math.max(0, L0.indexOf(sel)), S.jtop)), P = U.P, M = U.more;
     dim(0.6); parch('journal', P);
     lab('jr_t', TXT('hud.journal'), P.x + 40, P.y + 50, { size: 40, col: INK.r });
     const cb = U.r.find((q) => q.id === 'close'); panel('jr_x', cb.x, cb.y, cb.w, cb.h, { r: 6, rim: S.hover === 'close' ? C.rimHi : C.rim }); lab('jr_xl', '×', cb.x + cb.w / 2, cb.y + cb.h / 2, { size: 34, al: 0.5 });
     const nb = U.r.find((q) => q.id === 'notes'); button('jr_notes', Object.assign({}, nb, { label: TXT('hud.journal.notes', { n: (S.meta.notes || []).length }) }), S.hover);
-    hintC('jr_keys', TXT('hud.journal.2'), P.y + P.h - 30);
+    hintC('jr_keys', M ? TXT('hud.journal.2wheel') : TXT('hud.journal.2'), P.y + P.h - 30);
     if (!L0.length) { wrapLab('jr_none', R.viaTown ? TXT('hud.journal.3') : TXT('hud.journal.4'), P.x + 40, P.y + 130, P.w - 80, 26, INK.t); return; }
-    L0.slice(0, 10).forEach((q, i) => { const b = U.r[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
+    if (M) { const qn = (n) => n + ' ' + TXT.n('hud.journal.q', n), sx = M.x + M.w + 8, sy = P.y + 110, sh = M.y - 8 - sy, th = Math.max(40, sh * U.rows / L0.length);
+      lab('jr_more', M.above && M.below ? TXT('hud.journal.moreBoth', { a: M.above, b: M.below }) : M.below ? TXT('hud.journal.moreDown', { p1: qn(M.below) }) : TXT('hud.journal.moreUp', { p1: qn(M.above) }), M.x + M.w / 2, M.y + 24, { size: 22, al: 0.5, col: INK.d });
+      L.solid(sx, sy, 3, sh, [0.42, 0.27, 0.15], 0, 0, 0, 0.8); L.rrect(sx - 4, sy + (sh - th) * U.top / (L0.length - U.rows), 11, th, 5, [0.62, 0.16, 0.09], [0.42, 0.09, 0.05], 1); }
+    U.r.filter((b) => b.id.startsWith('q:')).forEach((b) => { const i = b.i, q = L0[i], Q = D.QUESTS[q.key], on = q === sel, hv = S.hover === b.id, [st, col] = QST[q.st];
       panel('jr_r' + i, b.x, b.y, b.w, b.h, { r: 6, rim: on ? [0.85, 0.65, 0.3] : hv ? C.rimHi : C.rim, c0: on ? [0.2, 0.14, 0.09] : undefined, a: q.st === 'turned' && !on ? 0.7 : undefined });
       // ten alike quests tell apart by their floor in the title and their goal under it (TASKS 1863 л); a done or turned-in one, its giver
       const sw = lw('jr_s' + i, st, { size: 20 }), nm = TXT('hud.journal.row', { name: Q.name, f: q.f }), sub = q.st !== 'taken' ? TXT('hud.journal.5', { p1: D.FOLK[q.from] ? D.FOLK[q.from].name : '', f: q.f }) : SIM.Q.questLine(q, R);

@@ -180,11 +180,15 @@
     board: (n) => { const P = { x: 130, y: 90, w: 1660, h: 900 }, r = [];
       for (let i = 0; i < Math.min(n, 7); i++) r.push({ id: 'take:' + i, i, x: P.x + P.w - 250, y: P.y + 136 + i * 104 + 22, w: 200, h: 52 });
       r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
-    journal: (n, canDrop) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [];
-      for (let i = 0; i < Math.min(n, 10); i++) r.push({ id: 'q:' + i, i, x: P.x + 30, y: P.y + 110 + i * 68, w: 470, h: 60 });
+    // past ten quests the list scrolls (TASKS 1877): nine rows from top, the tenth slot says how many more lie above and below
+    journal: (n, canDrop, top = 0) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [], many = n > 10, rows = many ? 9 : Math.min(n, 10), t = many ? Math.max(0, Math.min(n - 9, top | 0)) : 0;
+      for (let k = 0; k < rows; k++) r.push({ id: 'q:' + (t + k), i: t + k, x: P.x + 30, y: P.y + 110 + k * 68, w: 470, h: 60 });
       if (canDrop) r.push({ id: 'drop', on: true, label: '', x: P.x + P.w - 440, y: P.y + P.h - 116, w: 400, h: 58 });
       r.push({ id: 'notes', on: true, label: '', x: P.x + P.w - 346, y: P.y + 16, w: 230, h: 48 });
-      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 }); return { P, r }; },
+      r.push({ id: 'close', x: P.x + P.w - 100, y: P.y + 16, w: 48, h: 48 });
+      return { P, r, top: t, rows, more: many ? { above: t, below: n - t - rows, x: P.x + 30, y: P.y + 110 + 9 * 68, w: 470, h: 60 } : null }; },
+    // the first row shown: the one asked, moved just enough to keep the chosen quest (index si) in sight
+    journalTop: (n, si, top = 0) => (n <= 10 ? 0 : Math.max(0, Math.min(n - 9, Math.max(si - 8, Math.min(si, top | 0))))),
     notes: (n, page) => { const P = { x: 330, y: 120, w: 1260, h: 840 }, r = [], per = 12, on = Math.min(per, Math.max(0, n - page * per));
       for (let i = 0; i < on; i++) r.push({ id: 'n:' + i, i: page * per + i, x: P.x + 30, y: P.y + 110 + i * 52, w: 470, h: 46 });
       r.push({ id: 'prev', on: page > 0, label: '', x: P.x + 30, y: P.y + P.h - 100, w: 150, h: 52 }, { id: 'next', on: (page + 1) * per < n, label: '', x: P.x + 350, y: P.y + P.h - 100, w: 150, h: 52 });

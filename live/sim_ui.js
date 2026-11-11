@@ -380,7 +380,11 @@
   };
   // the quest journal (TASKS 1023): J or Esc closes it, a click picks a quest to read
   SCREEN.journal = (S, inp, keys, x, y, click) => {
-    const R = S.run, L0 = R ? journalOf(R) : [], sel = L0.find((q) => q.id === S.jsel) || L0[0], U = UI.journal(L0.length, sel && sel.st === 'taken'), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
+    const R = S.run, L0 = R ? journalOf(R) : [], si = Math.max(0, L0.findIndex((q) => q.id === S.jsel));
+    // the wheel scrolls the list and drags the chosen quest along at its edge, so the chosen one never leaves it (TASKS 1877)
+    let top = UI.journalTop(L0.length, si, S.jtop); if (inp.wheel && L0.length > 10) { top = Math.max(0, Math.min(L0.length - 9, top + inp.wheel)); const k = Math.max(top, Math.min(top + 8, si)); if (k !== si) { S.jsel = L0[k].id; S.jdrop = 0; } }
+    S.jtop = top;
+    const sel = L0.find((q) => q.id === S.jsel) || L0[0], U = UI.journal(L0.length, sel && sel.st === 'taken', top), b = D.hitUI(U.r, x, y); S.hover = b ? b.id : '';
     if (!R || keys.Escape || keys.KeyJ || (click && b && b.id === 'close')) { S.screen = 'play'; return; }
     if (click && b && b.id === 'notes') { S.screen = 'notes'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     if (click && b && b.id.startsWith('q:') && L0[b.i]) { S.jsel = L0[b.i].id; S.jdrop = 0; ev(S, { k: 'ui', x, y }); }
