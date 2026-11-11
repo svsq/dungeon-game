@@ -80,13 +80,25 @@
   // the run in play put aside under «Продолжить» (the pause's «Сохранить и выйти в меню», the menu's «Выход»)
   function saveRun(S) { S.saved = S.run; S.run = null; S.saveN++; S.savedT = S.t; }
   // a run of the tests' screen is marked a test (TASKS 1871): it leaves no trace in the statistics or the run journals
-  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
+  function startRun(S, mode = 'campaign') { takeSlot(S); const seed = (S.seedBase + S.meta.runs * 7777 + Math.floor(S.t * 1000)) >>> 0, town = mode === 'town' || mode === 'campaign'; S.run = newRun(S, town ? 'campaign' : mode, seed, { town, name: nameOf(S) }); S.saved = null; if (town) S.run.greet = 1; else S.run.test = 1;
     S.screen = S.run.hero.pts > 0 && RUN(S.run).lvl > 1 ? 'inv' : 'play'; }
 
   // a new run from the menus (TASKS 1103, 1304): the start screen with the difficulty and the class comes first, its run waiting in
   // pendingMode, the keyboard's focus on the chosen class
   const clsNow = (S) => (D.classesReady().includes(S.meta.cls) ? S.meta.cls : 'warrior');
-  const chooseRun = (S, mode = 'campaign') => { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; S.focus = 'cls:' + clsNow(S); };
+  // the hero's name (TASKS 1872): each new run's start screen offers one off the die, the player may type another. The die is the
+  // sim's own (the session's seed and its count of throws), never the same name twice running; an empty field throws it at the start
+  const rollName = (S) => { const N = D.heroNames(), was = S.pendName; let n;
+    for (let i = 0; i < 8 && (!n || n === was); i++) { S.nameN = (S.nameN || 0) + 1; let x = Math.imul((S.seedBase | 0) ^ Math.imul(S.nameN, 0x9e3779b1), 0x85ebca6b); x ^= x >>> 13; x = Math.imul(x, 0xc2b2ae35); x ^= x >>> 16; n = N[(x >>> 0) % N.length]; }
+    S.pendName = n; return n; };
+  const nameOf = (S) => { const n = (S.pendName || '').trim(); return n || rollName(S); };
+  const typing = (S) => S.screen === 'classes' && S.focus === 'name';
+  // a name typed in: the letters the field takes, up to NAME_MAX, one space between words, Backspace takes the last off
+  const typeName = (S, chars, keys) => { let n = S.pendName || '';
+    if (keys.Backspace) n = n.slice(0, -1);
+    for (const c of chars || []) if (D.NAME_CHAR.test(c) && n.length < D.NAME_MAX && !(c === ' ' && (!n || n.endsWith(' ')))) n += n ? c : c.toUpperCase();
+    if (n !== (S.pendName || '')) { S.pendName = n; return true; } return false; };
+  const chooseRun = (S, mode = 'campaign') => { S.pendingMode = mode; S.screen = 'classes'; S.hover = ''; S.focus = 'cls:' + clsNow(S); rollName(S); };
   // with every slot taken a new run first asks, on the yes-or-no sheet, «Нет» in focus (TASKS 1785: the second press it took
   // before went stale in 3 s without a word)
   const pressRun = (S, id) => { if (!isFull(S)) chooseRun(S, id); else { S.newAsk = id; S.focus = 'no'; S.hover = ''; } };
@@ -142,20 +154,26 @@
     if (b && inp.moved) S.focus = b.id;
     const back = () => { S.screen = 'menu'; S.hover = ''; ev(S, { k: 'ui', x, y }); };
     if ((click && b && b.id === 'back') || keys.Escape || (keys.Enter && S.focus === 'back')) { back(); return; }
+    // the name's field takes the keyboard while it has the focus: letters and Backspace write, Enter takes the name and goes on to «В путь»
+    if (click && b && b.id === 'name') { S.focus = 'name'; ev(S, { k: 'ui', x, y }); return; }
+    if ((click && b && b.id === 'dice') || (keys.Enter && S.focus === 'dice')) { rollName(S); S.focus = 'dice'; ev(S, { k: 'ui', x, y }); return; }
+    if (S.focus === 'name') { if (typeName(S, inp.chars, keys)) ev(S, { k: 'ui', x, y }); if (keys.Enter) { S.focus = 'go'; ev(S, { k: 'ui', x, y }); return; } }
     if ((click && b && b.id === 'go') || keys.Enter) { ev(S, { k: 'ui', x, y }); startRun(S, S.pendingMode || 'campaign'); return; }
     if (click && b && b.dif) { setDiff(S, b.dif); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
     if (click && b && b.kit) { stepKit(S, b.kit, 1); setCls(S, b.kit); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
     if (click && b && b.cls) { setCls(S, b.cls); S.focus = b.id; ev(S, { k: 'ui', x, y }); }
     const cls = clsNow(S), ids = D.classesReady(), dif = D.DIFF_ORDER, row = (S.focus || '').split(':')[0];
-    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['btn']), at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r + ':' + cls);
-    const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : 'cls';
-    const mv = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0), st = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
+    const rows = ['dif', 'cls'].concat(U.some((q) => q.id === 'kit:' + cls) ? ['kit'] : [], ['nm', 'btn']), at = (r) => (r === 'dif' ? 'dif:' + (S.meta.diff || 'normal') : r === 'btn' ? 'go' : r === 'nm' ? 'name' : r + ':' + cls);
+    const r0 = rows.includes(row) ? row : row === 'go' || row === 'back' ? 'btn' : row === 'name' || row === 'dice' ? 'nm' : 'cls';
+    // in the name's field W, A, S and D are letters: only the arrows walk out of it
+    const wasd = S.focus !== 'name', mv = (keys.ArrowDown || (wasd && keys.KeyS) ? 1 : 0) - (keys.ArrowUp || (wasd && keys.KeyW) ? 1 : 0), st = (keys.ArrowRight || (wasd && keys.KeyD) ? 1 : 0) - (keys.ArrowLeft || (wasd && keys.KeyA) ? 1 : 0);
     if (mv) { S.focus = at(rows[Math.max(0, Math.min(rows.length - 1, rows.indexOf(r0) + mv))]); ev(S, { k: 'ui', x, y }); return; }
     if (!st) return;
     if (r0 === 'dif') { const i = dif.indexOf(S.meta.diff || 'normal'), d = dif[Math.max(0, Math.min(dif.length - 1, i + st))]; setDiff(S, d); S.focus = 'dif:' + d; }
     if (r0 === 'cls') { const c = ids[Math.max(0, Math.min(ids.length - 1, ids.indexOf(cls) + st))]; setCls(S, c); S.focus = 'cls:' + c; }
     if (r0 === 'kit') stepKit(S, cls, st);
     if (r0 === 'btn') S.focus = st > 0 ? 'go' : 'back';
+    if (r0 === 'nm') S.focus = st > 0 ? 'dice' : 'name';
     ev(S, { k: 'ui', x, y });
   };
   // the statistics (TASKS 1309): a tab or ←→ picks whose counters the book shows, ↑↓ go between the tabs and «Назад»; «Назад»,
@@ -474,5 +492,5 @@
   }
 
   Object.assign(SIMX, { talkWalk,
-    endRun, finishRun, descend, begin, startRun, stepUI, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
+    endRun, finishRun, descend, begin, startRun, stepUI, typing, rollName, commitDraft, loadSaves, slotRun, isFull, oldestSlot, loadSlot, dropSlot });
 })(typeof window !== 'undefined' ? window : globalThis);

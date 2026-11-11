@@ -62,6 +62,7 @@
       ['debug', play((S) => { S.debug = 1; SIM.debugSecrets(S, S.run); S.hover = 'dbg_secrets'; S.run.msg = null; })],
       ['debug_loot', play((S) => { S.debug = 1; S.dbgLoot = 1; S.hover = 'dbg_loot'; const R = S.run; R.msg = null; R.seen = R.seen.map(() => 1); SIM.fstat(R).loot = 999; SIM.fstat(R).lootN = 99999; })],
       ['pause', play((S) => { S.screen = 'pause'; S.run.msg = { s: TXT('QA.states.msg.s.2'), t: S.t - 1 }; })],
+      ['pause_named', play((S) => { S.screen = 'pause'; S.run.hero.name = TXT('QA.states.heroName'); S.run.hero.lvl = 99; })],
       ['pause_finish', play((S) => { S.run.viaTown = 1; S.run.campaignWon = 1; S.screen = 'pause'; S.hover = 'finish'; S.focus = 'back'; })],
       ['pause_ask', play((S) => { S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; })],
       ['pause_ask_hover', play((S) => { S.screen = 'pause'; S.pauseAsk = 1; S.focus = 'yes'; S.hover = 'yes'; })],
@@ -80,7 +81,7 @@
       // the saved games (TASKS 1311): none; every slot taken with the widest lines (a test run's name, level 99, two-digit floors,
       // thousands of hours, a save from before the dates), the keyboard on a slot, on «Загрузить», an empty slot chosen, the delete question
       ...(() => { const fill = (S, n) => { const runs = [['magma', 12, 99, 'hard', 3600 * 4321 + 59 * 60], ['campaign', 0, 1, 'easy', 59], ['cave', 14, 47, 'normal', 3600 * 9 + 5 * 60], ['campaign', 16, 63, 'normal', 3600 * 123], ['endless', 47, 88, 'hard', 3600 * 77 + 600]];
-          runs.slice(0, n).forEach(([mode, floor, lvl, diff, play], i) => { const R = SIM.newRun(S, mode, 11 + i, { cls: ['mage', 'warrior', 'archer'][i % 3] }); Object.assign(R, { floor, diff, play, at: i === 3 ? undefined : 1794182340000 - i * 90061000 }); R.hero.lvl = lvl; S.saves[i] = R; });
+          runs.slice(0, n).forEach(([mode, floor, lvl, diff, play], i) => { const R = SIM.newRun(S, mode, 11 + i, { cls: ['mage', 'warrior', 'archer'][i % 3], name: i % 2 ? undefined : TXT('QA.states.heroName') }); Object.assign(R, { floor, diff, play, at: i === 3 ? undefined : 1794182340000 - i * 90061000 }); R.hero.lvl = lvl; S.saves[i] = R; });
           S.saved = S.saves[0]; S.saves[0] = null; S.slot = 0; S.screen = 'load'; };
         return [['load_empty', mk((S) => { S.screen = 'load'; S.loadSel = 0; S.focus = 'slot:0'; })],
           ['load_full', mk((S) => { fill(S, 5); S.loadSel = 0; S.focus = 'slot:0'; S.hover = 'slot:3'; })],
@@ -146,7 +147,7 @@
       ['dead_short', mk((S) => { S.screen = 'dead'; S.result = { how: 'dead', floor: 1, lvl: 1, kills: 0, gold: 0, shards: 0, found: 0, base: 0, statBonus: 0, cap: 5, win: 0, time: 12, C: { floors: 1, passed: 0, foes: 20, kills: 0, lootN: 30, loot: 0, secN: 0, sec: 0, pct: 0 } }; })],
     ];
     for (const [name, S] of states.filter(([n]) => ['dead', 'win', 'dead_short'].includes(n))) {
-      const R = SIM.newRun(S, 'campaign', 1234); S.result.hero = R.hero; S.result.heroStats = SIM.stats(R.hero, S.meta);
+      const R = SIM.newRun(S, 'campaign', 1234, { name: name === 'dead_short' ? undefined : TXT('QA.states.heroName') }); S.result.hero = R.hero; S.result.heroStats = SIM.stats(R.hero, S.meta);
       if (name !== 'dead_short') S.meta.shards = 99999;
       S.result.damage = name === 'dead_short' ? [] : [{ t: 1, src: 'lava', n: 28 }, { t: 2, src: 'boss bolt', n: 75 },
         { t: 3, src: 'brute elite blast', n: 180, actor: { type: 'brute', elite: 1, mods: ['explosive', 'vampire'] } }];
@@ -1570,6 +1571,9 @@
       ['mage_circlet', mageS((S, R, h, gear) => { h.eq.helm = gear('circlet', 'helm'); })], ['mage_warrior', play((S) => { S.run.msg = null; })]);
     // the class screen (TASKS 1103): the mage picked, the pointer on the warrior's card
     states.push(['classes_kit', mk((S) => { S.meta.cls = 'archer'; S.meta.kit = { warrior: 'w_hammer', mage: 'm_ash', archer: 'a_cross' }; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'kit:archer'; })]);
+    // the hero's name (TASKS 1872): the field typed into at its longest, and the die lit
+    states.push(['classes_name', mk((S) => { S.meta.cls = 'archer'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.pendName = TXT('QA.states.heroName'); S.focus = 'name'; })]);
+    states.push(['classes_dice', mk((S) => { S.meta.cls = 'warrior'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.pendName = TXT('QA.states.heroName'); S.focus = 'dice'; S.hover = 'dice'; })]);
     states.push(['classes', mk((S) => { S.meta.cls = 'mage'; S.screen = 'classes'; S.pendingMode = 'campaign'; S.hover = 'cls:warrior'; })]);
     // the start screen (TASKS 1304): every difficulty and class chosen, the keyboard's focus on each row, the first-timer's tip and
     // the lore line in its place once he has won or picked the easy one

@@ -979,8 +979,24 @@
       kd.forEach((q, i) => KIT.ink('cl_k' + b.cls + i, q, b.x + b.w / 2, b.y + b.h - 44 - (kd.length - 1) * 11 + i * 22, { size: kd.length > 1 ? 19 : 20, fit: iw, al: 0.5, col: KIT.INK.d }));
     }
     for (const id of ['back', 'go']) { const b = U.find((q) => q.id === id); KIT.button('cl_' + id, b, sl(id), id === 'go' ? 'wax' : 'parch'); }
-    const ky = 1012, kw = lw('cl_keys_w', TXT('hud.classes.keys'), { size: 26 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
-    KIT.light('cl_keys', TXT('hud.classes.keys'), W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
+    nameField(S, U, t, lit, sl);
+    const keys = S.focus === 'name' ? TXT('hud.classes.keys.name') : TXT('hud.classes.keys'), ky = 1012, kw = lw('cl_keys_w', keys, { size: 26 }); L.uiBox('cl_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
+    KIT.light('cl_keys', keys, W / 2, ky, { size: 26, al: 0.5, col: '#cdb894' });
+  }
+  // the hero's name (TASKS 1872): a parchment strip lit like a choice while it is lit or typed into, the name in ink with a blinking
+  // stroke after it while it takes the keyboard; the die beside it is the parchment button with a bone die drawn on it
+  function nameField(S, U, t, lit, sl) {
+    const b = U.find((q) => q.id === 'name'), d = U.find((q) => q.id === 'dice'), on = S.focus === 'name', hot = on || lit === 'name';
+    KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: hot ? [1.06, 1.16, 0, 1.04] : [1, 1, 0, 1] } });
+    const cy = b.y + b.h / 2, lx = b.x + 28, lwid = KIT.ink('cl_nm_l', TXT('UI.classes.name'), lx, cy, { size: 22, col: KIT.INK.d });
+    const nx = lx + lwid + 18, nm = S.pendName || '', tw = nm ? KIT.ink('cl_nm', nm, nx, cy, { size: 30, fit: b.x + b.w - 40 - nx, col: hot ? KIT.INK.r : KIT.INK.t, bold: true }) : 0;
+    if (on && (t * 1.6) % 1 < 0.6) L.solid(nx + tw + 3, cy - 15, 3, 30, [0.49, 0.12, 0.07]);
+    L.uiBox('cl_nm_b', b.x, b.y, b.w, b.h, 0);
+    KIT.button('cl_dice', Object.assign({}, d, { label: '' }), sl('dice'), 'parch');
+    const cx = d.x + d.w / 2, cy2 = d.y + d.h / 2, r = 0.22, c = Math.cos(r), sn = Math.sin(r), ink = lit === 'dice' ? [0.49, 0.12, 0.07] : [0.17, 0.10, 0.06];
+    L.solid(cx - 19, cy2 - 19, 38, 38, ink, r, 19, 19); L.solid(cx - 16, cy2 - 16, 32, 32, [0.93, 0.87, 0.74], r, 16, 16);
+    for (const [px, py] of [[-8, -8], [8, -8], [0, 0], [-8, 8], [8, 8]]) { const qx = cx + px * c - py * sn, qy = cy2 + px * sn + py * c; L.solid(qx - 3, qy - 3, 6, 6, ink, r, 3, 3); }
+    L.uiBox('cl_dice_b', d.x, d.y, d.w, d.h, 0);
   }
   // the settings (TASKS 1302), look B: an open book over the menu's backdrop, or over the dimmed run when opened from the pause
   function settings(S, t) {
@@ -1061,22 +1077,22 @@
       if (!R) { KIT.ink('ld_e' + r.i, TXT('hud.load.empty'), cx + cs + 24, r.y + r.h / 2, { size: 28, col: KIT.INK.off }); continue; }
       L.sprite(portraitOf(R.hero), cx + 6, r.y + 19, { w: cs - 12, h: (cs - 12), src: [0.1, 0.0, 0.9, 0.74] });
       const nx = cx + cs + 20, rr = r.x + r.w - 54, lv = TXT('hud.load.lvl', { n: R.hero.lvl }), wh = whereOf(R), dt = stamp(R.at), tm = hrs(R.play);
-      KIT.ink('ld_n' + r.i, D.clsOf(R.hero).name, nx, r.y + 30, { size: 30, col: red ? KIT.INK.r : KIT.INK.t, bold: true });
+      KIT.ink('ld_n' + r.i, D.heroName(R.hero), nx, r.y + 30, { size: 30, fit: rr - nx - 110, col: red ? KIT.INK.r : KIT.INK.t, bold: true });
       KIT.ink('ld_l' + r.i, lv, rr, r.y + 32, { size: 24, al: 1 });
-      KIT.ink('ld_w' + r.i, wh, nx, r.y + 58, { size: 22, fit: rr - nx });
+      KIT.ink('ld_w' + r.i, R.hero.name ? TXT('hud.load.who', { cls: D.clsOf(R.hero).name, where: wh }) : wh, nx, r.y + 58, { size: 22, fit: rr - nx });
       KIT.ink('ld_d' + r.i, dt, nx, r.y + 83, { size: 20, col: KIT.INK.d });
       KIT.ink('ld_p' + r.i, tm, rr, r.y + 83, { size: 20, fit: (rr - nx) / 2 - 10, al: 1, col: KIT.INK.d }); }
     const R = SIM.Q.slotRun(S, sel), px = B.R.x, pw = B.R.w, mx = px + pw / 2;
     if (R) { const Cl = D.clsOf(R.hero); KIT.nine('cell', mx - 110, U.B.y + 120, 220, 190); L.sprite(portraitOf(R.hero), mx - 100, U.B.y + 128, { w: 200, h: 200 * 0.84, src: [0.04, 0.0, 0.96, 0.77] });
-      KIT.ink('ld_dn', Cl.name, mx, U.B.y + 346, { size: 44, al: 0.5, col: KIT.INK.r, bold: true }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
-      const lines = [[TXT('hud.load.d.lvl'), String(R.hero.lvl)], [TXT('hud.load.d.where'), D.placeName(R.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map)], [TXT('hud.load.d.diff'), (D.DIFF[R.diff] || D.DIFF.normal).name],
+      KIT.ink('ld_dn', D.heroName(R.hero), mx, U.B.y + 346, { size: 44, fit: pw - 60, al: 0.5, col: KIT.INK.r, bold: true }); KIT.rule(px + 60, U.B.y + 378, pw - 120, 0.7);
+      const lines = [[TXT('hud.load.d.cls'), Cl.name], [TXT('hud.load.d.lvl'), String(R.hero.lvl)], [TXT('hud.load.d.where'), D.placeName(R.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map)], [TXT('hud.load.d.diff'), (D.DIFF[R.diff] || D.DIFF.normal).name],
         [TXT('hud.load.d.time'), hrs(R.play)], [TXT('hud.load.d.saved'), stamp(R.at)]];
       lines.forEach(([k, v], i) => { const y = U.B.y + 412 + i * 36, tw = KIT.ink('ld_dk' + i, k, px + 40, y, { size: 24, col: KIT.INK.d }), vw = KIT.ink('ld_dv' + i, v, px + pw - 40, y, { size: 24, fit: pw - 120 - tw, al: 1 }); KIT.leader(px + 40 + tw + 14, px + pw - 40 - vw - 10, y + 6); }); }
     else { KIT.ink('ld_none', TXT('hud.load.none'), mx, U.B.y + 300, { size: 30, al: 0.5, col: KIT.INK.d }); const s = TXT('hud.load.none.2'); halves(s).forEach((v, i) => KIT.ink('ld_none2' + i, v, mx, U.B.y + 350 + i * 30, { size: 22, fit: pw - 60, al: 0.5, col: KIT.INK.d })); }
     for (const b of U.btn) { if (b.id !== 'back' && (!R || ask)) continue; KIT.button('ld_' + b.id, b, KIT.st(q, b.id), b.id === 'go' ? 'wax' : 'parch'); }
     if (ask) { const A = U.ask, P = KIT.panel('ld_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
       KIT.ink('ld_ask_q', TXT('hud.load.ask'), A.x + A.w / 2, A.y + 76, { size: 32, al: 0.5, col: KIT.INK.r });
-      const AR = SIM.Q.slotRun(S, S.delAsk), s = AR ? TXT('hud.load.ask.who', { cls: D.clsOf(AR.hero).name, n: AR.hero.lvl, where: whereOf(AR) }) : '';
+      const AR = SIM.Q.slotRun(S, S.delAsk), s = AR ? TXT('hud.load.ask.who', { name: D.heroName(AR.hero), n: AR.hero.lvl, where: whereOf(AR) }) : '';
       KIT.ink('ld_ask_w', s, A.x + A.w / 2, A.y + 116, { size: 22, fit: P.w - 40, al: 0.5, col: KIT.INK.d });
       for (const b of U.yes) KIT.button('ld_' + b.id, b, askSt(S, { r: U.yes }, b.id)); }
     const keys = ask ? TXT('hud.load.keys.ask') : TXT('hud.load.keys'), ky = H - 26, kw = lw('ld_keys_w', keys, { size: 26 }); L.uiBox('ld_keys_b', W / 2 - kw / 2 - 12, ky - 20, kw + 24, 40, 0);
@@ -1115,7 +1131,7 @@
     const U = D.UI.newAsk(), A = U.A, R = SIM.Q.slotRun(S, SIM.Q.oldestSlot(S)); dim(0.5); const P = KIT.panel('na_ask', A.x, A.y, A.w, A.h, 'torn'); KIT.seal(A.x + A.w / 2, A.y + 16, 0.9);
     KIT.ink('na_ask_q', TXT('hud.menu.ask'), A.x + A.w / 2, A.y + 80, { size: 32, al: 0.5, col: KIT.INK.r });
     halves(TXT('hud.menu.ask.who')).forEach((v, i) => KIT.ink('na_ask_w' + i, v, A.x + A.w / 2, A.y + 124 + i * 30, { size: 22, fit: P.w - 60, al: 0.5, col: KIT.INK.d }));
-    if (R) { const run = TXT('hud.menu.ask.run', { cls: D.clsOf(R.hero).name, where: whereOf(R) }); KIT.ink('na_ask_r', run, A.x + A.w / 2, A.y + 200, { size: 26, fit: P.w - 60, al: 0.5, col: KIT.INK.t, bold: true });
+    if (R) { const run = TXT('hud.menu.ask.run', { name: D.heroName(R.hero), where: whereOf(R) }); KIT.ink('na_ask_r', run, A.x + A.w / 2, A.y + 200, { size: 26, fit: P.w - 60, al: 0.5, col: KIT.INK.t, bold: true });
       KIT.ink('na_ask_d', stamp(R.at), A.x + A.w / 2, A.y + 234, { size: 22, al: 0.5, col: KIT.INK.d }); }
     for (const b of U.r) KIT.button('na_' + b.id, b, askSt(S, U, b.id));
     // the keys right under the question's sheet, as the gate's are under its window (TASKS 1880 л), not 280 px below over the panel
@@ -1152,7 +1168,9 @@
   const pip = (x, y, on) => { L.solid(x, y, 14, 14, [0.17, 0.10, 0.06], 0.7854, 7, 7); if (!on) L.solid(x + 3, y + 3, 8, 8, [0.86, 0.76, 0.58], 0.7854, 4, 4); else L.solid(x + 2, y + 2, 10, 10, [0.62, 0.14, 0.08], 0.7854, 5, 5); };
   function pause(S) {
     dim(0.55); KIT.panel('p_sheet', 660, 240, 600, 580, 'torn'); KIT.knob(W / 2, 262, 1.2);
-    KIT.heading('p_title', TXT('hud.draw.2'), W / 2, 340, { size: 60, wing: 80 });
+    KIT.heading('p_title', TXT('hud.draw.2'), W / 2, 316, { size: 60, wing: 80 });
+    // whose run is paused (TASKS 1872): the hero's name, class and level under the title
+    if (S.run) { const h = S.run.hero; KIT.ink('p_who', h.name ? TXT('hud.pause.who', { name: h.name, cls: D.clsOf(h).name.toLowerCase(), lvl: h.lvl }) : TXT('hud.pause.cls', { cls: D.clsOf(h).name, lvl: h.lvl }), W / 2, 384, { size: 22, fit: 520, al: 0.5, col: KIT.INK.d }); }
     // while it asks, the question's sheet takes the buttons' place under the title, as the load screen's does (TASKS 1853)
     const done = !!S.run && SIM.Q.campaignDone(S.run);
     if (!S.pauseAsk) { for (const b of D.UI.pause(S.meta.zoom, done)) KIT.button('pb_' + b.id, b, stN(S, b.id), b.id === 'resume' ? 'wax' : 'parch');
@@ -1485,6 +1503,8 @@
     const bx = 650, by = 220, I = KIT.INK;
     page('e_box', bx, by, 1070, 650);
     KIT.ink('e_h1', TXT('hud.end.15'), bx + 30, by + 46, { size: 28, col: I.r }); KIT.ink('e_h2', TXT('hud.end.16'), bx + 570, by + 46, { size: 28, col: I.r });
+    // whose run it was (TASKS 1872), across from «Забег»
+    if (r.hero) KIT.ink('e_who', r.hero.name ? TXT('hud.end.who', { name: r.hero.name, cls: D.clsOf(r.hero).name.toLowerCase() }) : D.clsOf(r.hero).name, bx + 480, by + 48, { size: 24, al: 1, fit: 300, col: I.d });
     runRows.forEach(([n, v], i) => { const y = by + 94 + i * 40, tw = KIT.ink('e_n' + i, n, bx + 30, y, { size: 24, col: I.d }), vw = KIT.ink('e_v' + i, v, bx + 480, y, { size: 24, al: 1 }); KIT.leader(bx + 30 + tw + 12, bx + 480 - vw - 10, y + 6); });
     doneRows.forEach(([n, v], i) => { const y = by + 94 + i * 40, tw = KIT.ink('e_cn' + i, n, bx + 570, y, { size: 24, col: I.d }), vw = KIT.ink('e_cv' + i, v, bx + 1040, y, { size: 24, al: 1, col: I.g }); KIT.leader(bx + 570 + tw + 12, bx + 1040 - vw - 10, y + 6); });
     KIT.rule(bx + 30, by + 300, 1010, 0.7);
