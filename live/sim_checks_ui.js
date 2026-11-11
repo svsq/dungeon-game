@@ -85,6 +85,11 @@
     if (!p0) out.push('hold: the mage of the check carries no health potion');
     else if (pots() !== p0 - 1) out.push('hold: Q pressed in the hold on Continue is lost');
     if (!(h.cd[ab] > S.t)) out.push('hold: a slot key pressed in the hold on Continue is lost'); }
-  function checkReview57(out) { checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); }
+  // TASKS 1880 и: the legend opens by itself in the run's first town and on its first floor, and not again on the next ones
+  function checkLegendOnce(out) {
+    const S = townRun(), R = S.run, seen = [R.legAuto];
+    for (const f of [1, 2, 0, 3]) { SIMX.enterFloor(S, R, f); seen.push(R.legAuto); }
+    if (seen.join('') !== '11000') out.push(`legend: opens by itself on town, floor 1, floor 2, town, floor 3 as ${seen.join('')}, not 11000`); }
+  function checkReview57(out) { checkLegendOnce(out); checkGateFocus(out); checkDraftResource(out); checkKeyRepeat(out); checkResumeHold(out); checkResize(out); checkMapCut(out); checkHoldInput(out); checkUiPtr(out); }
   Object.assign(SIMX, { checkReview57, checkResize, checkMapCut });
 })(typeof window !== 'undefined' ? window : globalThis);

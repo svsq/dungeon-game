@@ -222,9 +222,10 @@
       // an elite's name, its powers first, in the colour of its first power
       if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4, ly = y - 24;
         const sub = e.nm && e.mods && e.mods.length ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + (e.id % 40), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
-        if (x - ow > 0 && x + ow < W && ly > 30 && ![[x - ow, ly - 24], [x + ow, ly - 24], [x - ow, oy], [x + ow, oy]].some(([px, py]) => underHud(px, py))) {
+        // the plate's whole box against the HUD: tested at its corners, a two-line plate wider than the key hints sat on them (TASKS 1880 о)
+        if (x - ow > 0 && x + ow < W && ly > 30 && !boxUnderHud(x - ow, ly - 24, ow * 2, oy - ly + 30)) {
           // (place() may move the label up under a panel: it is checked where it lands, TASKS 432's zone_magma)
-          const b0 = place(x, ly - 15, Math.max(ow * 2, 92), sub ? 70 : 54, actorZones), b = b0 && ![[b0.x, b0.y], [b0.x + b0.w, b0.y], [b0.x, b0.y + b0.h], [b0.x + b0.w, b0.y + b0.h]].some(([px, py]) => underHud(px, py)) ? b0 : null;
+          const b0 = place(x, ly - 15, Math.max(ow * 2, 92), sub ? 70 : 54, actorZones), b = b0 && !boxUnderHud(b0.x, b0.y - 2, b0.w, b0.h + 4) ? b0 : null;
           if (b) {
             const cx = b.x + b.w / 2;
             // a plate: on lava the name's own colour was 1.1:1; at 0.62 it was still 2.5–2.9:1 for the dark reds and blues (TASKS 487),
@@ -516,9 +517,9 @@
   // the town is a small map: its cells drawn larger, so its services' marks stand apart (TASKS 1023)
   const mapK = (R) => (R.map.town ? 5 : MAP.k);
   const mapCut = (R) => SIM.Q.mapCut(R);
-  // the legend is open for the first 10 s on a floor, then folds away, so the map's corner covers no more than the ref's
-  // (TASKS 1794); L keeps it open, and in the pause the pointer over the map opens it
-  const legOpen = (S, R, hov = true) => R.mapLeg === 1 || (S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))) || (hov && S.screen === 'pause' && !!S.ptr && (() => { const B = mmGeo(S, R, true).box; return S.ptr[0] > B[0] && S.ptr[1] < B[1] + B[3]; })());
+  // the legend is open for the first 10 s on the run's first floor and in its town's first visit, then folds away, so the map's
+  // corner covers no more than the ref's (TASKS 1794, 1880 и); L keeps it open, and in the pause the pointer over the map opens it
+  const legOpen = (S, R, hov = true) => R.mapLeg === 1 || (R.legAuto && S.t - (R.enteredT ?? -1e9) < 10 && !((R.legCut ?? -1e9) >= (R.enteredT ?? -1e9))) || (hov && S.screen === 'pause' && !!S.ptr && (() => { const B = mmGeo(S, R, true).box; return S.ptr[0] > B[0] && S.ptr[1] < B[1] + B[3]; })());
   // the ribbon says the floor as the ref does («Этаж 2»), and its curse if it has one; the place's name is on the arrival plate
   const mmTitle = (R) => D.placeName(R.map.floor, R.mode, R.seed, R.campaignWon ? D.RUNS.campaign.floors + 1 : 1, R.map).replace(/:[^·]*/, ' ').replace(/\s+/g, ' ').trim();
   // the map's sheet, from the state alone (world() keeps labels off it before it is drawn): a parchment sheet with the floor's

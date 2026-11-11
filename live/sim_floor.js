@@ -164,6 +164,8 @@
     const m = R.map;
     R.stats = R.stats || {}; if (!M || !R.stats[f]) R.stats[f] = floorStat(R);
     arrive(S, R, how); R.arrived = M ? '' : how; R.enteredT = S.t;
+    // the map's legend opens by itself once a run for the town's and once for a floor's, not on every floor (TASKS 1880 и)
+    { const lk = R.town ? 't' : 'f'; R.legAuto = !(R.legKnown || '').includes(lk) ? 1 : 0; if (R.legAuto) R.legKnown = (R.legKnown || '') + lk; }
     ev(S, { k: 'floor', x: R.hero.x, y: R.hero.y, f });
     S.saveN++;
   }
