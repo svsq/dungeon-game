@@ -18,9 +18,10 @@
     for (const c of R.cracks || []) c.t0 += DT;
   }
   // a mark is a clock by its name, and only a past or future moment (> 0) moves: 0, −9 and the like mean «never» and stay so
-  const STAMP = /^(t0|ft|burn|fuse|poison|ifr|tugW|cryJolt|dashHalt|burnC|burnL)$|(T|Until|At)$/;
+  // the colossus's nearT is seconds the hero has stood at its shins, not a moment: lagged, the hold would bring its stomp on
+  const STAMP = /^(t0|ft|burn|fuse|poison|ifr|tugW|cryJolt|dashHalt|burnC|burnL)$|(T|Until|At)$/, SPAN = new Set(['nearT']);
   const lag = (o, ks) => { if (!o) return; for (const k of ks || Object.keys(o)) { const v = o[k];
-    if (typeof v === 'number') { if (v > 0 && (ks || STAMP.test(k))) o[k] += DT; } else if (!ks && v && typeof v === 'object' && !Array.isArray(v) && /T$/.test(k)) lag(v, Object.keys(v)); } };
+    if (typeof v === 'number') { if (v > 0 && (ks || (STAMP.test(k) && !SPAN.has(k)))) o[k] += DT; } else if (!ks && v && typeof v === 'object' && !Array.isArray(v) && /T$/.test(k)) lag(v, Object.keys(v)); } };
   function holdAll(R) {
     const m = R.map, h = R.hero, each = (A, ks) => { for (const o of A || []) lag(o, ks); };
     for (const e of R.en) { e.vx = e.vy = 0; lag(e); }
