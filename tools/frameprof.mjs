@@ -36,7 +36,7 @@ await page.addInitScript(() => {
   hook('createFramebuffer', function (o, a) { C.fbs++; return o.apply(this, a); });
   hook('deleteFramebuffer', function (o, a) { C.fbs--; return o.apply(this, a); });
   hook('drawArrays', function (o, a) { if (C.onDraw) C.onDraw(); return o.apply(this, a); });
-  hook('drawArraysInstanced', function (o, a) { if (C.onDraw) C.onDraw(a[3]); return o.apply(this, a); });   // G.drawN (TASKS 1853): one call, a[3] copies
+  hook('drawArraysInstanced', function (o, a) { if (C.onDraw) C.onDraw(a[3]); return o.apply(this, a); });   // G.drawN (TASKS 1865): one call, a[3] copies
 });
 let result;
 try {
@@ -91,7 +91,7 @@ try {
       for (let i = 0; i < 20; i++) SCENE.render(S.t + 0.01 + i / 60); gl.finish();
       lookAt(S, R); for (let i = 0; i < 10; i++) SCENE.render(S.t + 0.02 + i / 60); gl.finish();
       const cpu = []; for (let i = 0; i < frames; i++) { const a = performance.now(); SCENE.render(S.t + 0.1 + i / 60); cpu.push(performance.now() - a); } gl.finish();
-      // thru (TASKS 1853): frames drawn back to back with one finish at the end, CPU and GPU overlapping as in play: the frame time a player gets
+      // thru (TASKS 1865): frames drawn back to back with one finish at the end, CPU and GPU overlapping as in play: the frame time a player gets
       { const a = performance.now(); for (let i = 0; i < frames; i++) SCENE.render(S.t + 0.1 + i / 60); gl.finish(); var thruMs = (performance.now() - a) / frames; }
       pass = {}; prog = {}; fin = true; const full = [];
       for (let i = 0; i < frames; i++) { const a = performance.now(); SCENE.render(S.t + 0.1 + i / 60); gl.finish(); full.push(performance.now() - a); } fin = false;

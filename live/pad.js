@@ -90,7 +90,7 @@
       P.active = P.mode === 'pad' ? 1 : 0;
       P.map = (gp.mapping || '—') + (V.std ? '' : ' (xpad)');
       P.raw = { id: (gp.id || '').slice(0, 40), ax: (gp.axes || []).map((v) => +v.toFixed(2)), b: (gp.buttons || []).map((b, i) => (b.pressed ? i : null)).filter((v) => v !== null) };
-      // (TASKS 1855) a pad press starts the sound as a key or a click does: with the pad alone it never started
+      // (TASKS 1867) a pad press starts the sound as a key or a click does: with the pad alone it never started
       if (!soundOn && root.AUDIO && AUDIO.start && Array.from({ length: 16 }, (_, i) => i).some(edge)) { soundOn = true; AUDIO.start(); }
       if (!S) { if ([0, 1, 2, 3, 7, 9].some(edge)) io.start(); for (let i = 0; i < 16; i++) prev[i] = pr(i); return; }
       const scr = S.screen || 'play', play = scr === 'play' && S.run, focus = FOCUS.has(scr);
