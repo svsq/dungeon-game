@@ -513,7 +513,10 @@
 
   // ---------------- hero screen ----------------
   // look B (TASKS 1332): a window's close cross on a cell, its sort buttons, a leather plate under light text
-  const closeBtn = (id, U, S) => { const b = U.r.find((q) => q.id === 'close'); KIT.cell(id, b.x, b.y, b.w, KIT.st(S, 'close')); KIT.light(id + '_l', '×', b.x + b.w / 2, b.y + b.h / 2 - 1, { size: 38, al: 0.5, col: S.hover === 'close' ? '#fff4d6' : KIT.INK.cream }); };
+  // the way out of a window is a parchment button of the kit, its two ends meeting round the cross (TASKS 1760)
+  const closeBtn = (id, U, S) => { const b = U.r.find((q) => q.id === 'close'), lit = S.hover === 'close', dy = lit && S.pressWas ? 2 : 0;
+    KIT.nine('btn', b.x - 6, b.y + dy, b.w + 12, b.h, { u: { grade: lit ? [1.08, 1.13, 0, 1.04] : [1, 1, 0, 1] } });
+    KIT.ink(id + '_l', '×', b.x + b.w / 2, b.y + b.h / 2 - 2 + dy, { size: 40, al: 0.5, col: lit ? KIT.INK.r : KIT.INK.t }); L.uiBox(id, b.x, b.y, b.w, b.h, 0); };
   const sortBtns = (id, U, S) => { for (const b of U.r) if (b.id.startsWith('sort')) KIT.button(id + b.id, Object.assign({}, b, { size: 22 }), KIT.st(S, b.id)); };
   const edge = (x, y, w, h, c, t = 2, a = 1) => { L.solid(x, y, w, t, c, 0, 0, 0, a); L.solid(x, y + h - t, w, t, c, 0, 0, 0, a); L.solid(x, y, t, h, c, 0, 0, 0, a); L.solid(x + w - t, y, t, h, c, 0, 0, 0, a); };
   // the leather darkened under small light text, so the dim lines keep their contrast (TASKS 1332)
@@ -563,16 +566,17 @@
     if (h.mast) KIT.ink('inv_mst', TXT('hud.inv.mastery', { n: h.mast, pct: String(h.mast * D.MASTERY.pct).replace('.', ',') }), Rp.x + Rp.w - 76, Rp.y + 440, { size: 22, al: 1, col: I.g });
     D.clsOf(h).abs.forEach((A, i) => { const b = U.r.find((q) => q.id === 'ab:' + A.id), r = h.ab[A.id] || 0, can = h.sp > 0 && h.lvl >= A.unlock && r < D.AB_MAX;
       plate('ab_' + i, b.x, b.y, b.w, b.h, { k: 0.4, grade: S.hover === b.id && can ? [1, 0.85, 0, 1.05] : DARK });
-      icon(A.icon, b.x + 18, b.y + 18, 64, { alpha: r ? 1 : 0.3 });
-      lab('ab_n' + i, A.name, b.x + 94, b.y + 34, { size: 20, col: C.text });
-      lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 94, b.y + 62, { size: 19, col: r ? C.gold : C.dim });
-      lab('ab_c' + i, abCost(D.clsOf(h), A, r), b.x + 94, b.y + 86, { size: 16, col: C.dim });
+      icon(A.icon, b.x + 16, b.y + 22, 70, { alpha: r ? 1 : 0.3 });
+      lab('ab_n' + i, A.name, b.x + 98, b.y + 46, { size: L.sizeToFit(A.name, b.w - 110, 22), col: C.text });
+      lab('ab_r' + i, r ? TXT('hud.inv.13', { r, AB_MAX: D.AB_MAX }) : TXT('hud.inv.14', { unlock: A.unlock }), b.x + 98, b.y + 78, { size: 20, col: r ? C.gold : C.dim });
+      { const cs = abCost(D.clsOf(h), A, r); lab('ab_c' + i, cs, b.x + 20, b.y + b.h - 34, { size: L.sizeToFit(cs, b.w - 90, 18), col: C.dim }); }
       const k = D.abRank(A.id, r).k, d = A.id === 'whirl' ? Math.round(k * 100) : A.id === 'fireball' ? D.fireDmg(st.spellBase, k, st.spell) : A.id === 'frost' ? D.frostDmg(st.spellBase, k, st.spell) : A.id === 'charge' ? Math.round(k * D.CHARGE.k * 100) : A.id === 'cry' ? Math.round((D.CRY.buff - 1) * 100) : A.id === 'volley' ? Math.round(k * D.VOLLEY.k * 100) : A.id === 'trap' ? Math.round(k * D.TRAP.k * 100) : A.id === 'leap' ? Math.round(k * D.LEAP.k * 100) : D.shieldHp(st.int, Math.max(1, r), R.floor);
       const ds = A.desc.replace('{d}', d).replace('{t}', String(D.abRank(A.id, r).t).replace('.', ',')).replace('{w}', Math.round((1 - D.CRY.weak) * 100)), parts = ds.split(': ');
       const chosen = D.FORK_RANKS.map((q) => { const n = (h.forks || {})[D.forkKey(A.id, q)]; return n >= 0 ? D.POWERS[D.FORKS[A.id][q][n]].name : ''; }).filter(Boolean).join(', ');
-      if (chosen) { const z = Math.min(15, Math.floor(15 * (b.w - 40) / lw('ab_fm' + i, chosen, { size: 15 }))); lab('ab_f' + i, chosen, b.x + 20, b.y + 152, { size: z, col: C.gold }); } else if (D.forkPending(h) && D.forkPending(h).ab === A.id) lab('ab_f' + i, TXT('hud.fork.pending'), b.x + 20, b.y + 152, { size: 15, col: '#ffb060' });
-      lab('ab_d' + i, parts[0] + ':', b.x + 20, b.y + 106, { size: 17, col: C.dim }); lab('ab_e' + i, parts[1] || '', b.x + 20, b.y + 130, { size: 17, col: C.dim });
-      if (can) { L.rrect(b.x + b.w - 52, b.y + 44, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 36, b.y + 60, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
+      if (chosen) lab('ab_f' + i, chosen, b.x + 20, b.y + b.h - 66, { size: L.sizeToFit(chosen, b.w - 40, 18), col: C.gold }); else if (D.forkPending(h) && D.forkPending(h).ab === A.id) lab('ab_f' + i, TXT('hud.fork.pending'), b.x + 20, b.y + b.h - 66, { size: 18, col: '#ffb060' });
+      L.solid(b.x + 20, b.y + 122, b.w - 40, 1, [0.66, 0.5, 0.28], 0, 0, 0, 0.4);
+      { const d0 = parts[0] + ':', d1 = parts[1] || ''; lab('ab_d' + i, d0, b.x + 20, b.y + 146, { size: L.sizeToFit(d0, b.w - 40, 20), col: C.dim }); wrapLab('ab_e' + i, d1, b.x + 20, b.y + 176, b.w - 40, 20, C.text); }
+      if (can) { L.rrect(b.x + b.w - 52, b.y + b.h - 52, 32, 32, 16, [1, 0.75, 0.2], [0.8, 0.45, 0.1], 0.6 + 0.4 * Math.sin(t * 5)); lab('ab_p' + i, '+', b.x + b.w - 36, b.y + b.h - 36, { size: 24, al: 0.5, col: '#2a1606', out: '' }); } });
     { const p = TXT('hud.inv.drag').split(' · '), n = Math.ceil(p.length / 2); [p.slice(0, n), p.slice(n)].forEach((q, i) => KIT.ink('inv_help' + i, q.join(' · '), Rp.x + Rp.w / 2, Rp.y + Rp.h - 84 + i * 28, { size: 20, al: 0.5, col: I.d })); }
     closeBtn('inv_x', U, S);
     if (he) { const s = D.SLOT_NAME[he.slot], w = lw('sle', s, { size: 20 }) + 32; plate('slh', he.x + he.w / 2 - w / 2, he.y + he.h + 6, w, 36);
