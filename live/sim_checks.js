@@ -3516,9 +3516,25 @@
     return out;
   }
 
+  // TASKS 1874: a full pool keeps the potion and says why; with a power on the drink only a second press within a second drinks it
+  function potionCheck() {
+    const out = [], run = (cls) => { const S = spawn(0, {}); S.run = newRun(S, 'campaign', 777, { cls }); S.screen = 'play'; S.t = S.run.t = 10; const R = S.run, h = R.hero, M = heroSt(S); h.hp = M.maxHp; h.mp = M.maxMp; h.bag.fill(null); h.bag[0] = potion('hp_potion', 3); h.bag[1] = potion('mp_potion', 3); S.ev = []; return { S, R, h }; };
+    const left = (h, b) => h.bag.filter((it) => it && it.b === b).reduce((n, it) => n + it.n, 0), said = (S) => S.ev.filter((e) => e.k === 'nope' && e.s).length;
+    for (const [cls, b] of [['warrior', 'hp_potion'], ['mage', 'mp_potion']]) { const { S, R, h } = run(cls); usePotion(S, R, b); usePotion(S, R, b);
+      if (left(h, b) !== 3) out.push(`potion: a ${cls} at a full pool spent ${3 - left(h, b)} ${b}`); if (said(S) !== 2) out.push(`potion: a ${cls}'s ${b} at a full pool kept without a reason`); }
+    { const { S, R, h } = run('warrior'); h.hp -= 10; usePotion(S, R, 'hp_potion'); if (left(h, 'hp_potion') !== 2) out.push('potion: a hurt hero cannot drink'); }
+    const T = '__potion'; D.POWERS[T] = { trig: 'potion', fx: 'mana', v: 0 };
+    try { const { S, R, h } = run('warrior'); h.powers = { [T]: 1 }; R.town = 0; usePotion(S, R, 'hp_potion');
+      if (left(h, 'hp_potion') !== 3) out.push('potion: with a power on the drink the first press at full health drinks');
+      S.t += 1.5; usePotion(S, R, 'hp_potion'); if (left(h, 'hp_potion') !== 3) out.push('potion: a press 1.5 s after the first still drinks for the power');
+      S.t += 0.5; usePotion(S, R, 'hp_potion'); if (left(h, 'hp_potion') !== 2 || !S.ev.some((e) => e.k === 'power' && e.id === T)) out.push('potion: the second press within a second does not drink for the power'); }
+    finally { delete D.POWERS[T]; }
+    return out;
+  }
+
   const powerCheck = () => { const out = []; SIMX.checkPowers(out); return out; };
   const uiCheck = () => { const out = []; SIMX.checkReview57(out); return out; };
-  const PARTS = { menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
+  const PARTS = { menuCheck, genCheck, playCheck, secretCheck, altarCheck, secretRestCheck, potionCheck, townCheck, folkCheck, climbCheck, wayCheck, shopTownCheck, soulAltarCheck, stashCheck, masteryCheck, bagCheck, pouchCheck, craftCheck, talkCheck, noteChainCheck, captiveFallbackCheck, questCheck, questGiveCheck, levelCheck, townLoopCheck, classCheck, powerCheck, uiCheck, floorModCheck, cacheGenCheck, propCheck, reactionCheck, meleeSpacingCheck, hazardCheck, floorTypeCheck, floorBlendCheck, branchCheck, lootLevelCheck, magmaKindsCheck, chestCheck };
   const selfCheck = (names = Object.keys(PARTS)) => names.flatMap((k) => PARTS[k]());
   Object.assign(root.SIM, { selfCheck, selfChecks: Object.keys(PARTS) });
 })(typeof window !== 'undefined' ? window : globalThis);
