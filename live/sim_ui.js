@@ -243,7 +243,7 @@
     const b = D.hitUI(UI.pause(S.meta.zoom, done), x, y); S.hover = b ? b.id : '';
     if (click && b && b.id === 'settings') { openSettings(S, 'pause'); ev(S, { k: 'ui', x, y }); return; }
     if (keys.Escape || (click && b && b.id === 'resume')) { S.screen = 'play'; return; }
-    if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; return; }
+    if (click && b && b.id === 'save') { S.saved = S.run; S.run = null; S.screen = 'menu'; S.saveN++; S.savedT = S.t; return; }
     if (click && b && (b.id === 'finish' || b.id === 'abandon')) { S.pauseAsk = 1; S.focus = 'no'; S.hover = ''; ev(S, { k: 'ui', x, y }); return; }
     return;
   };

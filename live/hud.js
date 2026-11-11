@@ -975,6 +975,9 @@
       lab('mb_' + b.id, b.label, x1, b.y + b.h / 2, { size: 20, al: 1, col: hv ? C.gold : '#b8a68a' }); L.solid(x1 - lw0, b.y + b.h / 2 + 12, lw0, 2, hv ? [1, 0.84, 0.42] : [0.55, 0.47, 0.36]);
       L.uiBox('mb_' + b.id + '_b', b.x, b.y, b.w, b.h, 0); }
     lab('m_ver', TXT('hud.menu.ver', { v: D.VERSION }), W - 24, H - 62, { size: 18, al: 1, col: '#6d6258' });
+    // «Сохранить и выйти» answers on the menu it lands on (TASKS 1853 б)
+    const sa = S.t - (S.savedT ?? -1e9); if (S.saved && sa < 3) { const s = TXT('hud.menu.savedNote'), al = 1 - L.SS(2.4, 3, sa), w = lw('m_svn', s, { size: 26 }) + 56;
+      plate('m_svn_box', W / 2 - w / 2, 318, w, 54, { a: 0.92 * al }); lab('m_svn', s, W / 2, 345, { size: 26, al: 0.5, col: '#9fd08a', a: al }); }
     newAsk(S);
   }
   // a new run over five taken slots asks first and names the run it will take the place of (TASKS 1785)

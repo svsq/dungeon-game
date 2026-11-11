@@ -3170,7 +3170,8 @@
     step(S, { press: 1, keys: [] }); for (let i = 0; i < 40; i++) step(S, { keys: [] }); if (h.atkN !== 1) out.push('town: the hero does not swing');
     step(S, { keys: ['KeyI'] }); if (S.screen !== 'inv') out.push('town: the bag does not open'); step(S, { keys: ['Escape'] });
     step(S, { keys: ['Escape'] }); if (S.screen !== 'pause') out.push('town: no pause');
-    press(S, UI.pause().find((b) => b.id === 'save')); const T = spawn(1, JSON.parse(JSON.stringify(persist(S))));
+    press(S, UI.pause().find((b) => b.id === 'save')); if (S.screen !== 'menu' || !(S.t - (S.savedT ?? -9) < 0.1)) out.push('save: «Сохранить и выйти» does not say on the menu that it saved (TASKS 1853 б)');
+    const T = spawn(1, JSON.parse(JSON.stringify(persist(S))));
     press(T, UI.menu(true).find((b) => b.id === 'continue'));
     const R2 = T.run; if (!R2 || R2.floor !== 0 || !R2.town || !R2.map.town || T.screen !== 'play') { out.push('town: a run saved in the town does not go on there'); return out; }
     for (let i = 0; i < 30; i++) step(T, { keys: [] });
