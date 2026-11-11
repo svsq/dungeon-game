@@ -786,8 +786,10 @@ void main(){ vec2 hp = haze(v_px); vec4 src = texture(u_src, scr(hp)); vec3 c = 
   l = mix(l, min(l, vec3(1.2, 1.08, 1.0)), oc.r * smoothstep(0.1, 0.6, texture(u_heat, w).r) * u_haze);
   // (in the magma caves the light on an actor is bleached instead, TASKS 479: its own colours stay and the fire is a warm sheen)
   // (a monster's light is bleached everywhere, TASKS 1055: off the lava, boosted, a skeleton went salmon)
+  // (TASKS 1791: the hero by the magma too: under its boosted red light taken back by a tint his cloak went grey-brown)
+  float hk = u_haze * (1.0 - oc.b);
   // (off the magma every actor's light is bleached further, to 0.35, TASKS 1790: a zone's blue or green light kept its tone and its brightness only)
-  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(u_sat, mix(0.6, 0.2, 1.0 - u_haze), oc.r * max(max(nearL, oc.b), 1.0 - u_haze))));
+  l = max(vec3(0.0), mix(vec3(dot(l, vec3(0.3, 0.5, 0.2))), l, mix(u_sat, mix(0.6, 0.2, 1.0 - u_haze), oc.r * max(max(nearL, oc.b), max(1.0 - u_haze, hk)))));
   { float al = dot(l, vec3(0.3, 0.5, 0.2)), act = oc.r * (1.0 - u_haze); l *= mix(1.0, min(1.0, 1.8 / max(al, 1e-3)), act); }   // (and held under a torch's level: in a hearth's pool a robe went white)   // grey stone takes the fire's colour: the concept's torchlit walls are orange, not grey (TASKS 163)
   // the basalt keeps the concept's cold grey-violet (TASKS 478): a capped warm light turned its neutral art brown, so it takes
   // only the light's level, not its hue

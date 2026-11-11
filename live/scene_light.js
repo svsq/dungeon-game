@@ -17,6 +17,9 @@
     // (a floor without light, TASKS 381, has the lamp reach `light` times as far; TASKS 1364: its ambient is `dim` of a plain floor's and its fixed fires and glows `lit` of theirs)
     const lk = FM.light || 1, ltS = (x, y, r, col, amt, k) => lt(x, y, r, col, amt * (FM.lit || 1), k);
     lt(h.x, h.y - 30, 250 * lk, [0.8, 0.72, 0.6], 0.1 + 0.9 * (1 - HERO.k) ** 2); lt(h.x, h.y - 44, 95 * lk, [1, 0.88, 0.7], 0.85 * (1 - 0.8 * HERO.k), 2.4);
+    // (TASKS 1791: on a floor darker than the concept's, L* p50 < 16, a small warm pool at the hero's feet keeps him a figure on a lit
+    // patch of ground instead of the darkest thing in the frame)
+    if (B.heroGlow && h.deadT < 0) lt(h.x, h.y + 4, B.heroGlow[0], [1, 0.62, 0.36], B.heroGlow[1], 2.0);
     for (const e of R.en) if (e.deadT < 0 && e.st !== 'idle' && e.st !== 'lurk' && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 40, 70, [1, 0.8, 0.6], 0.12);
     // (TASKS 1681: a foe in view keeps a pale glint of its own on a floor without light, else one beyond the lamp's reach is lost)
     if (FM.glint) for (const e of R.en) if (e.deadT < 0 && !D.under(e) && vis(e.x, e.y)) lt(e.x, e.y - 36, 64, [0.78, 0.84, 1], FM.glint);
