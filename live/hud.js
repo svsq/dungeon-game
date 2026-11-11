@@ -962,10 +962,10 @@
   // the Altar of souls (TASKS 1722), look B: a manuscript page, each upgrade or discovery a parchment strip, its ranks red diamonds
   function meta(S, t) { const I = KIT.INK;
     desk(t); page('mt_page', 130, 70, 1660, 940);
-    KIT.heading('mt_t', TXT('hud.meta'), W / 2, 146, { size: 60, wing: 100 });
-    { const s = TXT('hud.meta.2', { shards: S.meta.shards }); KIT.ink('mt_s', s, W / 2, S.metaRun ? 204 : 220, { size: L.sizeToFit(s, 1560, 26), al: 0.5, col: I.d }); }
+    KIT.heading('mt_t', TXT('hud.meta'), W / 2, 140, { size: 60, wing: 100 });
+    { const s = TXT('hud.meta.2', { shards: S.meta.shards }); KIT.ink('mt_s', s, W / 2, S.metaRun ? 216 : 226, { size: L.sizeToFit(s, 1560, 26), al: 0.5, col: I.d }); }
     // at the town's altar mid-run (TASKS 1011) some upgrades reach the hero at once, the rest wait for the next one (sim.js: newHero)
-    if (S.metaRun) { const s = TXT('hud.meta.3'); KIT.ink('mt_run', s, W / 2, 238, { size: L.sizeToFit(s, 1560, 19), al: 0.5, col: I.off }); }
+    if (S.metaRun) { const s = TXT('hud.meta.3'); KIT.ink('mt_run', s, W / 2, 247, { size: L.sizeToFit(s, 1560, 19), al: 0.5, col: I.off }); }
     const strip = (id, b, st, can) => { KIT.nine('btn', b.x, b.y, b.w, b.h, { u: { grade: st.hover && can ? HOT : [1, 1, 0, 1] } }); L.uiBox(id, b.x + 26, b.y, b.w - 52, b.h, 2); };
     for (const b of D.UI.meta(S.meta.cls, S.metaTab)) {
       if (b.id === 'back' || b.id === 'tab' || b.id === 'codex') { KIT.button('mt_' + b.id, b, stN(S, b.id)); continue; }
