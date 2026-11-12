@@ -299,7 +299,7 @@
     // along its row, under its rings, brightening with the warning
     { const sets = new Map(); for (const z of m.hazards || []) if (z.gate && known(z.x, z.y) && rimKnown(z)) { const id = z.per + ':' + z.ph; (sets.get(id) || sets.set(id, []).get(id)).push(z); }
       for (const g of sets.values()) { const z0 = g[0], H = D.HAZ.vent, w = D.hazClock(z0, GT) - (z0.per - H.warn), q = w >= 0 ? w / H.warn : 0, rowX = !!z0.ay, reach = H.r * (z0.s || 1) * (rowX ? 1 : H.ry);
-        const along = g.map((z) => rowX ? z.x : z.y), a0 = Math.min(...along) - reach + 6, a1 = Math.max(...along) + reach - 6, c = rowX ? z0.y : z0.x, br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z0.x), al = 0.45 + 0.35 * br + 0.5 * q;
+        const along = g.map((z) => rowX ? z.x : z.y), a0 = Math.min(...along) - reach + 6, a1 = Math.max(...along) + reach - 6, c = rowX ? z0.y : z0.x, br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z0.x), al = (0.45 + 0.35 * br) * (w < 0 && D.hazClock(z0, GT) >= H.burst ? 0.5 : 1) + 0.5 * q;
         L.shadow(sx(rowX ? (a0 + a1) / 2 : c), sy(rowX ? c : (a0 + a1) / 2), rowX ? (a1 - a0) / 2 : 10, rowX ? 6 : (a1 - a0) / 2, 0.45);
         // (one unbroken 2 px line kinking a pixel or two either way, its kinks smouldering, TASKS 1931: dashes of 4–8 px read as a HUD mark)
         const col = [1, 0.38 + 0.25 * q, 0.08], seg = (s0, s1, o) => (rowX ? L.solid(sx(s0), sy(c) + o, sx(s1) - sx(s0), 2, col, 0, 0, 0, al) : L.solid(sx(c) + o, sy(s0), 2, sy(s1) - sy(s0), col, 0, 0, 0, al));
@@ -314,7 +314,8 @@
         for (let j = 0; j < 10; j++) { const an = j / 10 * 6.283 + rnd(z.x, j) * 0.5, f = 0.5 + 0.5 * Math.sin(GT * (1.5 + rnd(z.y, j)) + j * 2.1);
           L.star(X + Math.cos(an) * Hr * 0.96, Y0 + Math.sin(an) * Ry * 0.96, 3, [1, 0.45, 0.12], 0.35 + 0.4 * f); } }
       if (w < 0) { const X = sx(z.x), Y0 = sy(z.y), br = 0.6 + 0.4 * Math.sin(GT * 2.2 + z.x);   // a live vent smoulders at rest, a dead crack doesn't
-        L.ring(X, Y0, Hr * 0.4, Ry * 0.4, [1, 0.35, 0.08], (z.gate ? 0.5 : 0.28) * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], (z.gate ? 0.5 : 0.3) * br, 2.4); if (z.gate) L.ring(X, Y0, Hr, Ry, [1, 0.32, 0.08], 0.3 * br, 0.05);
+        const hush = z.gate && D.hazClock(z, GT) >= H.burst ? 0.6 : 1;
+        L.ring(X, Y0, Hr * 0.4, Ry * 0.4, [1, 0.35, 0.08], (z.gate ? 0.5 * hush : 0.28) * br, 0.1); L.glow(X, Y0 - 3, 14, [1, 0.5, 0.12], (z.gate ? 0.5 * hush : 0.3) * br, 2.4); if (z.gate) L.ring(X, Y0, Hr, Ry, [1, 0.32, 0.08], 0.3 * hush * br, 0.05);
         for (let j = 0; j < 2; j++) { const b = (GT * 0.5 + rnd(z.x + z.y, j)) % 1; L.puff(X + (rnd(z.x, j + 3) - 0.5) * 14, Y0 - 4 - 26 * b, 3 + 3 * b, [0.5, 0.4, 0.34], 0.3 * (1 - b), j); } continue; }
       // (the warning starts with a step and a flash, TASKS 1714: its first tenths looked like rest)
       const q = w / H.warn, X = sx(z.x), Y0 = sy(z.y), beat = 0.7 + 0.3 * Math.sin(chirp(w, H.warn, 9, 16)), onset = z.gate ? 0.35 * (1 - SS(0, 0.3, w)) + 0.25 : 0;
