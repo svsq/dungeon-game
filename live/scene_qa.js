@@ -925,7 +925,7 @@
     { const at = (S, f, pick, sd = 3) => { S.run = SIM.newRun(S, 'magma', sd); S.screen = 'play'; for (let ff = f; ff <= 3; ff++) { SIM.enterFloor(S, S.run, ff); const got = pick(S.run.map); if (got) return got; } return null; };
       const view = (S, x, y, hx = x, hy = y + 40) => { const R = S.run, h = R.hero; h.x = hx; h.y = hy; R.en = R.en.filter((e) => Math.hypot(e.x - x, e.y - y) > 700); R.msg = null; R.seen = R.seen.map(() => 1); R.cam = [x - SCX.VW / 2, y - SCX.VH / 2]; };
       const mid = (m, ks) => [ks.reduce((a, k) => a + (k % m.W + 0.5) * TILE, 0) / ks.length, ks.reduce((a, k) => a + (Math.floor(k / m.W) + 0.5) * TILE, 0) / ks.length];
-      for (const kind of ['bridge', 'slabs', 'arch']) { const S = play(), pick = (m) => m.crossings.find((q) => q.lava && q.kind === kind && (kind !== 'arch' || SCX.archSpans(m, q))); let c = at(S, 1, pick);
+      for (const kind of ['bridge', 'slabs', 'arch']) { const S = play(), pick = (m) => m.crossings.find((q) => q.lava && q.kind === kind && (kind !== 'arch' || DUNGEON.archLegs(m, q))); let c = at(S, 1, pick);
         for (let sd = 4; !c && kind === 'arch' && sd < 24; sd++) c = at(S, 1, pick, sd); if (!c) continue;
         const m = S.run.map, [x, y] = mid(m, c.cells), end = c.cells[0]; view(S, x, y, (end % m.W + 0.5) * TILE, (Math.floor(end / m.W) + 0.5) * TILE); states.push(['magma_' + kind, S]); }
       { const S = play(), q = at(S, 1, (m) => m.lavaFeatures.find((f) => f.kind === 'fall') || m.lavaFeatures[0]); if (q) { view(S, q.x, q.y + 160); states.push(['magma_source', S]); } }
@@ -1411,8 +1411,6 @@
       const cam = S.run.cam.slice();
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
       loops[ty + '_idle'] = fr; }
-    // a foe at its post takes a step round it now and then (TASKS 1938): the loop opens just before the step, 1 s at 1/60 s, and
-    // motioncheck's amble measures each planted foot against the floor
     // (all on the magma hall: in the crypt's stand the foe stood in the start room, where no monster may step)
     for (const ty of ['skeleton', 'goblin', 'brute', 'drowned', 'skel_archer', 'skel_mage', ...MG].filter((ty) => D.ENEMIES[ty].amble !== 0)) { const fr = []; let S = playMg((S) => { const R = S.run, h = R.hero; R.msg = null;
       R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];

@@ -248,15 +248,17 @@
     if (m.town && m.shop && R.shop && GT - (R.shop.callT ?? -99) < 3 && S.screen === 'play') bubble('merchant_call', D.SHOP.calls[R.shop.callN || 0], V.sx(m.shop.x), V.sy(m.shop.y) - SZ('merchant')[1] * k - 60);
     const bars = [], fadeIn = S.ev.some((v) => v.k === 'floor' && GT - v.t < 0.9);
     // in rock a body is void: no label over nothing; nor over the black a new floor fades in from (TASKS 1724)
-    for (const e of R.en) { if (fadeIn || e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.Q.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) continue; const x = V.sx(e.x), y = V.sy(e.y) - (SZ(D.ENEMIES[e.type].tex || 'en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1);
-      if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
+    const labelAt = (e) => { if (fadeIn || e.deadT >= 0 || e.st === 'lurk' || D.under(e) || !!D.BOSSES[e.type] || !seen(e.x, e.y) || !SIM.Q.cell(m, Math.floor(e.x / TILE), Math.floor(e.y / TILE))) return null;
+      const x = V.sx(e.x), y = V.sy(e.y) - (SZ(D.ENEMIES[e.type].tex || 'en_' + e.type)[1] * (e.elite ? 1.3 : 1) + 16) * (V.k || 1); return x < -50 || x > W + 50 || y < -50 || y > H + 50 ? null : [x, y]; };
+    const plated = (o) => S.screen !== 'shop' && o.elite && (o.title || (o.mods && o.mods.length)), plates = R.en.filter((o) => plated(o) && labelAt(o));
+    for (const e of R.en) { const at = labelAt(e); if (!at) continue; const [x, y] = at;
       let named = false;
       // an elite's name, its powers first, in the colour of its first power
       // (elites standing within 60 px of each other, TASKS 1934: their plates stacked four rows over the taller one's head) share the
       // group's top as their anchor and fold their powers away until the pointer is over one
-      const near = e.elite ? R.en.filter((o) => o.elite && o.deadT < 0 && Math.hypot(V.sx(o.x) - x, V.sy(o.y) - V.sy(e.y)) < 60) : [], crowd = near.length > 1;
+      const near = plated(e) ? plates.filter((o) => Math.hypot(V.sx(o.x) - x, V.sy(o.y) - V.sy(e.y)) < 60) : [], crowd = near.length > 1;
       const hov = crowd && !!S.ptr && Math.abs(S.ptr[0] - x) < 30 && S.ptr[1] > y && S.ptr[1] < V.sy(e.y);
-      if (S.screen !== 'shop' && e.elite && (e.title || (e.mods && e.mods.length))) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4;
+      if (plated(e)) { const c = e.title ? [1, 0.82, 0.4] : D.ELITE_MODS.find((m) => m.id === e.mods[0]).col, s = D.eliteName(e), hw = lw('el' + (e.id % 40), s, { size: 18 }) / 2 + 4;
         const ly = (crowd ? Math.min(...near.map((o) => V.sy(o.y) - (SZ(D.ENEMIES[o.type].tex || 'en_' + o.type)[1] * 1.3 + 16) * (V.k || 1))) : y) - 24;
         const sub = e.nm && e.mods && e.mods.length && (!crowd || hov) ? e.mods.map((id) => D.ELITE_MODS.find((m) => m.id === id).name).join(', ') : '', ow = Math.max(hw, sub ? lw('els' + (e.id % 40), sub, { size: 20 }) / 2 + 6 : 0), oy = sub ? ly + 50 : ly;
         // the plate's whole box against the HUD: tested at its corners, a two-line plate wider than the key hints sat on them (TASKS 1887 о)

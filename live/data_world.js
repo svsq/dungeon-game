@@ -113,9 +113,6 @@
         // go round: slabs two cells wide over `len` cells of lava, `off` cells and more off it (`wide` and more if the walk allows), `max` a
         // floor; the walk keeps `keep` of its length, and the way by them is `more` cells longer than the way over at the least
         alt: { off: 3, wide: 10, len: [1, 9], max: 4, keep: 0.7, more: 10,
-          // bend (TASKS 1939): on a terrace floor the way round bends through the lava, `ring` cells and more off the crossing, `len` blocks
-          // at most, its mouths within `reach` steps of the crossing's ends, `more` cells longer than the way over (`round` preferred),
-          // `max` ways round a floor in all, the `tries` longest ends tried
           bend: { ring: [3, 9], len: 40, reach: 32, more: 16, round: 20, max: 8, tries: 12 },
           // dry (TASKS 1726): on a cave floor a tunnel round a crossing, its mouths `off` cells from it, `len` cells at most, `max` a floor, the
           // way round `more` cells longer than the way over at the least; failing that, sought again `ring` cells further off (TASKS 1922),
@@ -185,7 +182,6 @@
   // (lag: the seconds the floor stood still on a load, TASKS 1812, kept apart from ph, which also names a gate's row)
   const hazCycle = (z, t) => (t - (z.lag || 0)) / z.per + z.ph, hazClock = (z, t) => (hazCycle(z, t) % 1 + 1) % 1 * z.per;
   const ZONE = new WeakMap(), zoneOf = (z) => { let q = ZONE.get(z); if (!q) ZONE.set(z, q = new Set(z.cells)); return q; };
-  // a ring's half-widths; a gate's reaches `d` times further along the walk (TASKS 1920), its width across the passage kept
   const hazAxes = (z) => { const H = HAZ[z.k], r = H.r * (z.s || 1), d = z.d || 1; return [z.ax ? r * d : r, H.ry * r * (z.ay ? d : 1)]; };
   const hazIn = (z, x, y) => { if (z.k === 'surge') return zoneOf(z).has(Math.floor(y / TILE) * z.W + Math.floor(x / TILE)); const [rx, ry] = hazAxes(z); return Math.hypot((x - z.x) / rx, (y - z.y) / ry) < 1; };
   // how far a surge has risen over its band at time t, 0..1 (TASKS 475)

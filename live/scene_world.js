@@ -104,7 +104,6 @@
       drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { tint: [1.35, 1.28, 1.25, 1] } }); drawProp(n, sx(x), foot, { flip: fl, k: 0.92 * sc, j, u: { cut: [foot - hh * 0.3, 2, 1] } });
       basaltOcc.push([n, sx(x) - w * 0.46, foot - hh * 0.92, w * 0.92, hh * 0.92, fl]); } };
     const stoneArch = (c) => { const xs = c.cells.map((k) => k % m.W), ys = c.cells.map((k) => Math.floor(k / m.W)), x0 = Math.min(...xs) * TILE, x1 = (Math.max(...xs) + 1) * TILE, y1 = (Math.max(...ys) + 1) * TILE;
-      if (!SCX.archSpans(m, c)) { basaltSlabs(c); return; }
       // (the crown, 0.35 of its height down, sits on the walk's near edge; its size is fixed on the art grid, TASKS 480: scaled to the
       // river it was redrawn 7–15× smaller than painted and lost its contour)
       const [wd, ht] = SZ('arch_mg'), X = ev2(sx((x0 + x1) / 2) - wd / 2), Y = ev2(sy(y1) + 2 - 0.35 * ht);

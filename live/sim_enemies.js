@@ -524,10 +524,9 @@
     // corpses are removed once they have faded
     R.en = R.en.filter((e) => e.deadT < 0 || t - e.deadT < 6);
   }
-  // at its post a monster breathes (the rig), looks one way then the other, and now and then takes a step around the spot: e.amb is
-  // the step (start, from, to) and the body eases along it with no speed, so the rig plants one foot after the other on the floor
-  // (a slow walk at 22 px/s barely moved the legs and the feet slid 8 px, TASKS 1938); a kind whose rig can't step stays put
-  const AMB_T = 0.6;
+  // (TASKS 1938: a slow walk about the post at 22 px/s barely moved the legs and the feet slid 8 px) the step eases the body along with
+  // no speed, so the rig can plant one foot after the other; a kind whose rig can't step stays put
+  const AMB_T = D.AMB_T;
   function idle(m, e, E, t) {
     const per = 6 + (e.id % 5), u = (t + e.id * 2.3) % per, n = Math.floor((t + e.id * 2.3) / per);
     e.vx = e.vy = 0;
@@ -592,5 +591,5 @@
 
   Object.assign(SIMX, {
     MOD, has, rollMods, struck, rise, split, faOf, armored, deepBody, serpentMouth, serpent, fuseEnd, chill, addFire, stepFires, flightReach,
-    stepProjectiles, stepMonsters, ARROW_Y, steer });
+    stepProjectiles, stepMonsters, ARROW_Y, steer, idle });
 })(typeof window !== 'undefined' ? window : globalThis);

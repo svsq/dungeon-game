@@ -920,6 +920,7 @@
         if (f === 1 && AR.first && m.ftype !== AR.first) out.push(`${tag}: the first floor is not ${AR.first}`);
         if (f > 1 && AR.first && m.ftype === AR.first) out.push(`${tag}: ${AR.first} again past the first floor`);
         if (f < D.RUNS.magma.floors && D.floorName(f, 'magma', sd, undefined, m) !== AR.names[m.ftype]) out.push(`${tag}: the title does not name the floor's type`);
+        for (const c of m.crossings.filter((q) => q.lava && q.kind === 'arch' && !DG.archLegs(m, q))) out.push(`${tag}: an arch at cell ${c.cells[0]} that does not span its river`);
         // (TASKS 1940) a stone arch's legs stand clear of props, chests, pots and braziers
         for (const legs of m.crossings.map((c) => DG.archLegs(m, c)).filter(Boolean)) for (const [n, x, y] of [...m.decor.filter((d) => d.solid && !d.wall).map((d) => [d.n, d.x, d.y]), ...m.chests.map((c) => ['chest', c.x, c.y]), ...m.pots.map((q) => ['pot', q.x, q.y]), ...m.torches.filter((t) => t.kind === 'brazier').map((t) => ['brazier', t.x, t.y])])
           if (DG.onArchLeg(legs, n, x, y)) out.push(`${tag}: ${n} at ${Math.round(x)},${Math.round(y)} over a stone arch's leg`);
@@ -1015,7 +1016,24 @@
           // (an early kind on the 1st floor, TASKS 488, has the floor's own pack: its monster comes later)
           if (!(f === 1 && K.early) && !m.enemies.some((e) => e.room === r.id && lead.includes(e.type))) out.push(`${tag}: the ${r.hall} hall without its pack`);
           if (f === 1 && K.early && !m.enemies.some((e) => e.room === r.id)) out.push(`${tag}: the ${r.hall} hall without a pack`); } }
-      for (const k of Object.keys(HL.kinds)) if (!kinds[k]) out.push(`magma halls: no ${k} hall in 10 runs`); }
+      for (const k of Object.keys(HL.kinds)) if (!kinds[k]) out.push(`magma halls: no ${k} hall in 10 runs`);
+      // (TASKS 1920, PR 64 review) no shooter within the calm of a gate, and a hall within it keeps its own monster: run 310's 3rd floor's
+      // sanctum lost its priest. Built through newRun and enterFloor, as a run builds them, so the floor checked is the one played
+      const G = D.HAZ.vent.gate; for (const [sd, f] of [[310, 3], ...Array.from({ length: 12 }, (_, i) => [i + 1, (i % 3) + 1])]) { const S = spawn(0, {}); S.run = newRun(S, 'magma', sd); if (f > 1) enterFloor(S, S.run, f);
+        const m = S.run.map, en = S.run.en, gz = m.hazards.filter((z) => z.gate), tag = `magma run ${sd} f${f}`, key = sd === 310 && f === 3; let near = 0;
+        if (!gz.length) { if (key) out.push(`${tag}: no gate, the sanctum-by-the-gate case is no longer checked`); continue; } const gx = gz.reduce((t, z) => t + z.x, 0) / gz.length, gy = gz.reduce((t, z) => t + z.y, 0) / gz.length;
+        for (const e of en) if (G.shy.includes(e.type) && Math.hypot(e.x - gx, e.y - gy) < G.calm * TILE) out.push(`${tag}: a ${e.type} within ${G.calm} cells of the gate`);
+        for (const r of m.rooms.filter((q) => q.hall)) { const K = HL.kinds[r.hall], dx = Math.max(r.x * TILE - gx, 0, gx - (r.x + r.w) * TILE), dy = Math.max(r.y * TILE - gy, 0, gy - (r.y + r.h) * TILE);
+          if (G.shy.includes(K.need) && !(f === 1 && K.early) && Math.hypot(dx, dy) < G.calm * TILE && (near += r.hall === 'sanctum', !en.some((e) => e.room === r.id && e.type === K.need))) out.push(`${tag}: the ${r.hall} hall within ${G.calm} cells of the gate without its ${K.need}`); }
+        if (key && !near) out.push(`${tag}: the sanctum not within ${G.calm} cells of the gate, the sanctum-by-the-gate case is no longer checked`); } }
+    // (TASKS 1938, PR 64 review) a monster's step about its post takes D.AMB_T, the time monsters.js plants its feet over: it moves
+    // inside that window only, and ends it on the step's far spot
+    { const Z = spawn(0, {}); Z.run = newRun(Z, 'magma', 7); const m = Z.run.map, e = Z.run.en.find((o) => !ENEMIES[o.type].ghost && ENEMIES[o.type].amble !== 0 && !D.BOSSES[o.type]);
+      if (!e) out.push('amble: no monster to step'); else { e.hx = e.x; e.hy = e.y; let A = null, moved = [];
+        for (let t = 0; t < 30 && !(A && t > A.t + D.AMB_T + 0.5); t += DT) { const x = e.x, y = e.y; SIMX.idle(m, e, ENEMIES[e.type], t); if (!A && e.amb && e.amb.t >= 0) A = e.amb; if (Math.hypot(e.x - x, e.y - y) > 1e-6) moved.push(t); }
+        if (!A) out.push(`amble: a ${e.type} at its post never steps`);
+        else { if (moved.some((t) => t < A.t - 1e-9 || t > A.t + D.AMB_T + DT)) out.push(`amble: a ${e.type}'s step runs outside its ${D.AMB_T} s`);
+          if (Math.hypot(e.x - A.x1, e.y - A.y1) > 0.5) out.push(`amble: a ${e.type}'s step does not end on its far spot`); } } }
     // (TASKS 1054) a chasm floor's way over has another on half of them and more; a hoard's islet is a chest of the 3rd tier past a run of
     // rocks down its strip of crust
     { let n = 0, alt = 0, isl = 0; const walk = (m, ban) => { const W = m.W, s0 = Math.floor(m.spawn.y / TILE) * W + Math.floor(m.spawn.x / TILE), e0 = m.exit.ty * W + m.exit.tx, from = new Int32Array(W * m.H).fill(-2), q = [s0]; from[s0] = -1;

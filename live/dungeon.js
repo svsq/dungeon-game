@@ -169,8 +169,8 @@
   }
   const MOD_HELD = { flood: (m) => m.waterFeatures.length > 0, lair: (m) => m.chests.some((c) => c.lair), cursed: (m) => m.traps.some((t) => t.run !== undefined) };
 
-  // a stone arch's two legs as the scene draws them (scene_world.js stoneArch: arch_mg's crown 0.35 of its height over the walk's
-  // near edge, a leg its outer 0.3 of its width, from 0.4 of its height down), [l, t, r, b] in px; null where no arch shows
+  // (TASKS 1925: an arch over a river that ended a cell past it stood on dry floor) it shows only where the river runs on four cells
+  // south of its walk and one north
   const archLegs = (m, c) => { if (!c.lava || c.kind !== 'arch' || c.axis !== 'x') return null; const W = m.W, xs = c.cells.map((k) => k % W), ys = c.cells.map((k) => Math.floor(k / W)), x = Math.round((Math.min(...xs) + Math.max(...xs)) / 2);
     const cr = m.crust instanceof Set ? m.crust : new Set(m.crust || []), run = (y, d) => { let n = 0; while (n < 4 && m.cells[(y + d * (n + 1)) * W + x] === 3 && !cr.has((y + d * (n + 1)) * W + x)) n++; return n; };
     if (run(Math.max(...ys), 1) < 4 || run(Math.min(...ys), -1) < 1) return null;

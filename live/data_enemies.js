@@ -287,5 +287,8 @@
     return { x: e.x + e.face * (foot - 118.5 + narrow) * s + off * e.vx / speed, y: e.y + off * (0.6 * e.vy / speed - 0.3 * Math.abs(e.vy / speed)) };
   };
 
-  Object.assign(D, { ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt });
+  // (TASKS 1938) one number for the sim's step about a post and the rig's footfalls over it: apart, the feet slid while the body moved
+  const AMB_T = 0.6;
+
+  Object.assign(D, { ELITE_GROUP, ELITE_NAMES, BOSSES, bossPhase, bossMove, ENEMIES, ELITE, eliteK, under, windOf, ELITE_MODS, eliteMods, modPool, eliteName, NAMED, colossusContact, colossusStepAt, AMB_T });
 })(typeof window !== 'undefined' ? window : globalThis);

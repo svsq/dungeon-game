@@ -356,14 +356,11 @@ float hexAt(vec2 w, vec4 c, out vec2 f, float hw){ float xx = w.x - c.x, ex = xx
   float ry = (w.y - c.y) / hv; if (abs(ry) <= 1.0 && abs(ex) + 0.5 * abs(ry) <= 1.0) return 1.0;
   if (c.z > 0.0 && w.y > c.y && w.y < c.y + c.z + hv * min(1.0, 2.0 * (1.0 - abs(ex)))) { f.y = min(1.0, (w.y - c.y) / c.z); return 2.0; }
   return 0.0; }
-// a hex column's top: a dark rim, a pale bevel on its upper left edges, each its own tone
 vec3 hexCap(vec2 w, vec4 c, float hw){ float id = hash(c.xy * 0.37), hv = floor(hw * 0.3) * 2.0, xx = (w.x - c.x) / hw, yy = (w.y - c.y) / hv, e = max(abs(yy), abs(xx) + 0.5 * abs(yy));
   vec3 col = vec3(0.24, 0.22, 0.26) * (0.72 + 0.45 * id) * (0.85 + 0.3 * step(0.55, vnoise(w / 5.0 + id * 9.0)));
   if (e > 1.0 - 2.4 / hv) col = yy < 0.0 && xx < 0.35 ? vec3(0.4, 0.37, 0.4) * (0.85 + 0.3 * id) : vec3(0.025, 0.02, 0.025);
   else { float cr = abs(vnoise(w / 7.0 + id * 31.0) - 0.5); if (cr < 0.035) col *= 0.4; else if (hash(floor(w / 2.0) + id) < 0.1) col *= 0.5; else if (cr > 0.42) col *= 1.25; }
   return col; }
-// its face: three facets, the left lit, the front dull, the right dark, an ink seam between them and at each side; red only near
-// its foot, the line where the red begins broken along x
 vec3 hexFace(vec2 w, vec4 c, vec2 f, float hw){ float id = hash(c.xy * 0.37), xx = f.x / hw, fq = floor(f.y * 9.0) / 9.0, px = 2.0 / hw;
   float t = abs(xx) > 1.0 - px ? 0.12 : abs(abs(xx) - 0.5) < px * 0.6 ? 0.3 : xx < -0.5 ? 1.3 : xx < 0.5 ? 0.82 - 0.2 * (xx + 0.5) : 0.4;
   float streak = vnoise(vec2(w.x / 2.5 + id * 17.0, w.y / 18.0)), grain = step(0.6, vnoise(w / 4.0 + id * 5.0)), rib = hash(vec2(floor(w.x / 2.0), id));
@@ -432,10 +429,15 @@ float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foo
     vec2 ctr = g * G + vec2(14.0 + 68.0 * hash(g + 2.2), 16.0 + 36.0 * hash(g + 3.3)), far2 = (vec2(hash(g + 15.1), hash(g + 16.9)) - 0.5) * vec2(160.0, 72.0);
     float n = massif > 0.5 ? 8.0 : stones > 0.5 ? 2.0 + floor(hash(g + 4.4) * 4.0) : 3.0 + floor(hash(g + 4.4) * 6.0), h0 = massif > 0.5 ? 96.0 + floor(hash(g + 7.7) * 15.0) * 2.0 : 26.0 + floor(hash(g + 7.7) * 19.0) * 2.0;
     float R = massif > 0.5 ? 18.0 + floor(hash(g + 8.8) * 5.0) : 12.0 + floor(hash(g + 8.8) * 7.0), rot = floor(hash(g + 9.9) * 6.0);
+    vec2 dw = w - ctr, dp = w - g * G; float sfx = split * abs(far2.x), sfy = split * abs(far2.y), hv0 = floor(R * 0.3) * 4.0;
+    bool cols = stones > 0.5 ? abs(dw.x) < 60.0 && dw.y > -16.0 && dw.y < 66.0 : abs(dw.x) < 4.0 * R + 6.0 + sfx && dw.y > -hv0 - 17.0 - sfy && dw.y < h0 + hv0 + 19.0 + sfy;
+    bool pebs = dp.x > -19.0 && dp.x < 115.0 && dp.y > -23.0 && dp.y < 99.0;
+    if (!cols && !pebs) continue;
     for (int j = 0; j < 13; j++) { float fj = float(j); bool pebble = j >= 8;
+      if (pebble ? !pebs : !cols) continue;
       if (!pebble && fj >= n) continue;
       float hk = hash(g + fj * 4.7 + 9.1), hw, h; vec2 base;
-      if (pebble) {   // small flat stones in the lava between the bundles
+      if (pebble) {
         if (hash(g + fj * 2.9 + 0.3) < 0.45) continue;
         hw = 8.0 + floor(hk * 4.0) * 2.0; h = 4.0 + floor(hash(g + fj * 3.1) * 2.0) * 2.0;
         base = g * G + vec2(hash(g + fj * 1.7 + 5.5), hash(g + fj * 2.3 + 6.6)) * G; }
@@ -445,7 +447,6 @@ float island(vec2 w, out vec4 c, out vec2 f, out float foot, out float hwo){ foo
         vec2 s = k < 0.5 ? vec2(0.0) : k < 6.5 ? HEXR[int(mod(k - 1.0 + rot, 6.0))] : vec2(2.0 * (hash(g + 17.3) < 0.5 ? -1.0 : 1.0), 0.0);
         base = ctr + s * vec2(1.5 * R, hv) + vec2(0.0, h0) + (split > 0.5 && mod(fj, 2.0) > 0.5 ? far2 : vec2(0.0));
         hw = R - floor(hk * 2.0);
-        // heights step from a third of the bundle's to all of it, the middle the tallest; a massif falls off ring by ring
         float lv = k < 0.5 ? 1.0 : massif > 0.5 ? (k < 6.5 ? 0.62 + 0.13 * floor(hash(g + fj * 3.1) * 3.0) : 0.38) : hash(g + fj * 8.3 + 0.7) < 0.15 ? 0.3 : 0.55 + 0.15 * floor(hash(g + fj * 3.1) * 4.0);
         h = max(8.0, floor(h0 * lv / 2.0) * 2.0); }
       vec4 cj = vec4(floor(base.x / 2.0) * 2.0 + 1.0, floor((base.y - h) / 2.0) * 2.0 + 1.0, h, 3.0);
@@ -535,7 +536,7 @@ void main(){ vec2 w = floor(v_px / 2.0) * 2.0 + 1.0;
   else if (isWall(w)) {
     float hf = faceHF(w), fd = 99.0; bool down = false;
     for (int k = 1; k <= 72; k++) { float d = float(k) * 2.0; if (d > hf) break; vec2 q = w + vec2(0.0, d); if (!isWall(q)) { fd = d; down = !isOpen(q); break; } }
-    float nearFall = 0.0; for (int i = 0; i < 6; i++) { vec4 q = u_fall[i]; if (q.w > 0.0 && abs(w.x - q.x) < q.z + 70.0 + 50.0 * vnoise(vec2(w.y / 24.0, q.x)) && w.y > q.y - q.w - 40.0 && w.y < q.y + 12.0) nearFall = 1.0; }
+    float nearFall = 0.0; for (int i = 0; i < 6; i++) { vec4 q = u_fall[i]; float ax = abs(w.x - q.x); if (q.w > 0.0 && w.y > q.y - q.w - 40.0 && w.y < q.y + 12.0 && ax < q.z + 120.0 && ax < q.z + 70.0 + 50.0 * vnoise(vec2(w.y / 24.0, q.x))) { nearFall = 1.0; break; } }
     if (fd < 99.0) { float h = fd / hf; col = gCol(w) * (0.55 + 0.65 * h * h);
       // (TASKS 1924: by a lavafall the wall is a cliff of columns, as ref_cave_lava's: facets, ink seams, a lit cap row at the top)
       if (nearFall > 0.5) { float ci = floor(w.x / 24.0), kx = (w.x - ci * 24.0 - 12.0) / 12.0, dt = hf - fd - 4.0 * floor(hash(vec2(ci, 6.1)) * 3.0);

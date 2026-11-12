@@ -57,11 +57,17 @@
     // nothing stands in lava or a cell from its shore: no spawn, chest, pot or prop (a chest stood half in a pool, TASKS 186)
     const shore = new Set(); for (const [x, y] of lava) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (!used.has(key(x + i, y + j))) { used.add(key(x + i, y + j)); shore.add(key(x + i, y + j)); }
     const wx = (x) => x * TILE + TILE / 2, wy = (y) => y * TILE + TILE / 2 + 6;
+    // a stone arch shows only over a river running toward the camera (across the screen its side is a causeway, drawn as slabs: 3 of
+    // a floor's 4 arches read as no arch at all), and its span reaches 3 cells either side: by a bridge it stood on its boards (TASKS 480);
+    // settled before the legs are held, so a causeway's slabs keep no room cleared for legs they never get (PR 64 review 2)
+    const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
+    if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
     // (TASKS 1940: boulders and torches stood over a stone arch's legs on magma_arch) its legs keep the floor before them clear of
     // anything a chest's size or more, and what still lands on them is taken off before the floor is closed
     const legsOf = () => crossings.map((c) => archLegs({ W, cells, crust }, c)).filter(Boolean);
-    for (const legs of legsOf()) for (const [l, t, r, b] of legs) for (let y = Math.floor(t / TILE); y <= Math.floor((b + D.PROP_H.chest) / TILE); y++)
-      for (let x = Math.floor((l - D.PROP_W.chest / 2) / TILE); x <= Math.floor((r + D.PROP_W.chest / 2) / TILE); x++) if (onArchLeg(legs, 'chest', wx(x), wy(y))) { used.add(key(x, y)); bulk.add(key(x, y)); }
+    const holdLegs = () => { for (const legs of legsOf()) for (const [l, t, r, b] of legs) for (let y = Math.floor(t / TILE); y <= Math.floor((b + D.PROP_H.chest) / TILE); y++)
+      for (let x = Math.floor((l - D.PROP_W.chest / 2) / TILE); x <= Math.floor((r + D.PROP_W.chest / 2) / TILE); x++) if (onArchLeg(legs, 'chest', wx(x), wy(y))) { used.add(key(x, y)); bulk.add(key(x, y)); } };
+    holdLegs();
     const enemies = [], chests = [], pots = [], traps = [], torches = [], decor = [...tierDecor], shrines = [], rugs = [];
     // the top wall: what hangs on it (torches, sconces, banners, the shop sign) and the tall props standing against it (columns,
     // statues, racks, shelves) must not overlap across their drawn widths, whichever came first: a prop would hide a sconce that
@@ -145,7 +151,8 @@
         let best = null; for (const sd of seeds.slice(0, chasmArr ? seeds.length : 1)) { const g = grow(sd); if (!best || g.n > best.n) best = g; if (best.n + shown >= 8) break; }
         if (best) { const { got } = best;
           for (const [x, y] of got) cells[y * W + x] = 3;
-          for (let pass = 0; pass < 4; pass++) for (const [px, py] of got.slice()) for (const [a, b] of O4) { const x = px + a, y = py + b, open = (u, v) => at(u, v) !== 0; if (at(x, y) === 0 && inMap(x, y) && ((open(x - 1, y) && open(x + 1, y)) || (open(x, y - 1) && open(x, y + 1)))) { cells[y * W + x] = 3; got.push([x, y]); } } } } }
+          for (let pass = 0; pass < 4; pass++) for (const [px, py] of got.slice()) for (const [a, b] of O4) { const x = px + a, y = py + b, open = (u, v) => at(u, v) !== 0; if (at(x, y) === 0 && inMap(x, y) && ((open(x - 1, y) && open(x + 1, y)) || (open(x, y - 1) && open(x, y + 1)))) { cells[y * W + x] = 3; got.push([x, y]); } }
+          holdLegs(); } } }
     // a waystone (TASKS 1009) by the start on every D.wayFloor: to one side of the bonfire, three or four cells out, on clear dry floor
     let wayStone = null;
     if (opts.town && D.wayFloor(runFloor)) { const cand = []; for (let y = start.y; y < start.y + start.h; y++) for (let x = start.x; x < start.x + start.w; x++) {
@@ -989,7 +996,6 @@
       const roomy8 = (k) => [1, -1, W, -W, W + 1, W - 1, -W + 1, -W - 1].filter((o) => cells[k + o] === 1).length >= 6;   // (never across a ridge's narrow)
       const all = way.flatMap((k) => [0, 1, -1, W, -W, 2, -2, 2 * W, -2 * W].map((o) => k + o)), mid = cand.find((k) => ok(k, 1)) ?? cand.find((k) => ok(k, 0) && roomy8(k)) ?? all.find((k) => ok(k, 0) && roomy8(k));   // (TASKS 1161: props in its middle third cost a lake its chest)
       if (mid !== undefined) { const x = mid % W, y = Math.floor(mid / W); claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
-    // a long dry way round a cave's crossing pays a chest in a niche half way along it (TASKS 1922)
     for (const k of dryPay) { const x = k % W, y = Math.floor(k / W); if (cells[k] === 1 && !used.has(key(x, y))) { claim(x, y, 'chest'); chests.push({ x: wx(x), y: wy(y), tier: 2, open: 0, round: 1 }); } }
     const hazards = [];
     if (plat) { const Z = mul32(seed ^ 0x406a), HZ = D.HAZ, keepOff = [[wx(start.cx), wy(start.cy)], [spawn.x, spawn.y], [exit.x, exit.y], ...chests.map((c) => [c.x, c.y]), ...enemies.map((e) => [e.x, e.y]), ...shrines.map((q) => [q.x, q.y]), ...circles.map((q) => [q.x, q.y])];
@@ -1059,7 +1065,8 @@
       const byChest = (x, y) => !onWay.has(y * W + x) && chests.some((c) => Math.hypot(c.x - wx(x), c.y - wy(y)) < 6.5 * TILE);
       // a gate of vents across the walk, bursting together on a short visible clock: pass in the window between bursts, not round a ring
       // (TASKS 1645: every hazard was solved by one move, stepping round a circle); it takes vents off the floor's count, so the rest thin out
-      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, w = way.slice(Math.floor(way.length * G.from), Math.floor(way.length * G.to)), deck = new Set(crossings.flatMap((c) => c.cells));
+      if (biome === 'magma' && floor <= 3 && way.length > 40 && HZ.vent.gate) { const G = HZ.vent.gate, midOf = (zs) => [zs.reduce((t, z) => t + z.x, 0) / zs.length, zs.reduce((t, z) => t + z.y, 0) / zs.length],
+          calmOf = (e, [x, y]) => G.shy.includes(e.type) && Math.hypot(e.x - x, e.y - y) < G.calm * TILE, w = way.slice(Math.floor(way.length * G.from), Math.floor(way.length * G.to)), deck = new Set(crossings.flatMap((c) => c.cells));
         const open = (n) => cells[n] === 1 || cells[n] === 6 || deck.has(n);
         // (a gate is only a question if no way runs outside its rings, however long)
         const seals = (zs) => { const seen = new Uint8Array(W * H), q = [way[0]], end = way[way.length - 1]; seen[way[0]] = 1;
@@ -1082,6 +1089,8 @@
           const cellOf = (z) => [Math.floor(z.x / TILE), Math.floor(z.y / TILE)];
           if (!row.every((z) => [-1, 0, 1].every((j) => [-1, 0, 1].every((i2) => { const [x0, y0] = cellOf(z), c = (y0 + j) * W + x0 + i2; return cells[c] === 1 && !under.has(c) && (i2 || j || (clear(x0, y0) && !used.has(key(x0, y0)))); })))) continue;
           if (!row.every(onFloor) || !seals(row)) continue;
+          // (PR 64 review: a sanctum by a gate lost its fire priest to the calm rule below) a gate keeps clear of a hall's own shooter
+          { const at0 = midOf(row); if (enemies.some((e) => rooms[e.room] && rooms[e.room].hall && HL.kinds[rooms[e.room].hall].need === e.type && calmOf(e, at0))) continue; }
           const per = G.per, ph = Z(); for (const z of row) { const [x, y] = cellOf(z); z.per = per; z.ph = ph; z.ax = d === 1 ? on : 0; z.ay = d === 1 ? 0 : on; hazards.push(z); for (let j = -1; j <= 1; j++) for (let i2 = -1; i2 <= 1; i2++) used.add(key(x + i2, y + j)); decor.push({ x: z.x, y: z.y, n: 'vent_mg', r: roomOf(x, y), haz: hazards.length - 1 }); }
           // (and a share of the walk's rock tails goes, the player's decision on 1645: the gate is not to raise the floor's damage)
           // (from a run's far ends only: a hole in its middle broke its even step)
@@ -1093,8 +1102,7 @@
         // no shooter stands within G.calm cells of a gate (TASKS 1920: an archer by 24 of 68 gates made waiting for the window a worse
         // bet than walking in blind); it keeps its post and its pack, as one of the floor's own melee
         const gz = hazards.filter((z) => z.gate), melee = ['skel_ember', 'goblin', 'skeleton'].filter((t) => roster.includes(t));
-        if (gz.length && melee.length) { const gx = gz.reduce((t, z) => t + z.x, 0) / gz.length, gy = gz.reduce((t, z) => t + z.y, 0) / gz.length;
-          for (const e of enemies) if (G.shy.includes(e.type) && Math.hypot(e.x - gx, e.y - gy) < G.calm * TILE) e.type = melee[Math.floor(Z() * melee.length)]; } }
+        if (gz.length && melee.length) { const at0 = midOf(gz), Zc = mul32(seed ^ 0x1920); for (const e of enemies) if (calmOf(e, at0)) e.type = melee[Math.floor(Zc() * melee.length)]; } }
       lay('vent', shuf(vents).map((v) => [v, byChest(...v) ? 0 : 1]).sort((a, b) => a[1] - b[1]).map(([v]) => v), true);
       // (a plain terrace floor whose surge the walk to the stairs misses is laid again: its surge is the floor's question)
       if (terr && !MIX && strict && !surge.cells.some((k) => onWay.has(k))) return null;
@@ -1113,10 +1121,10 @@
     for (const list of [chests, pots, torches, decor, decals]) for (const o of list) { const i = secAt(o.x, o.y + (o.wall ? TILE : 0)); if (i >= 0) o.sec = i; }
     for (const c of chests) if (c.sec !== undefined && (secrets[c.sec].pz || secrets[c.sec].inner)) c.tier = 5;
     for (const t of torches) { const i = secrets.findIndex((sc) => sc.room === t.r); if (i >= 0) t.sec = i; }
-    // a stone arch shows only over a river running toward the camera (across the screen its side is a causeway, drawn as slabs: 3 of
-    // a floor's 4 arches read as no arch at all), and its span reaches 3 cells either side: by a bridge it stood on its boards (TASKS 480)
-    const nearX = (a, b) => a.cells.some((k) => b.cells.some((j) => Math.max(Math.abs(k % W - j % W), Math.abs(Math.floor(k / W) - Math.floor(j / W))) <= 4));
-    if (plat) for (const c of crossings) if (c.kind === 'arch' && (c.axis !== 'x' || crossings.some((q) => q.kind === 'bridge' && nearX(c, q)))) c.kind = 'slabs';
+    // (PR 64 review: an arch the scene draws as slabs kept its kind, and the lava under it was cut from the mask)
+    for (const c of crossings) if (c.kind === 'arch' && c.lava && !archLegs({ W, cells, crust }, c)) c.kind = 'slabs';
+    // (PR 64 review) a chest is a reward the floor may hold to, not a prop to take off: the arch over it gives way to slabs
+    for (const c of crossings) { const legs = archLegs({ W, cells, crust }, c); if (legs && chests.some((q) => onArchLeg(legs, 'chest', q.x, q.y))) c.kind = 'slabs'; }
     for (const legs of legsOf()) { const off = (list, nm) => { for (let i = list.length - 1; i >= 0; i--) if (nm(list[i]) && onArchLeg(legs, nm(list[i]), list[i].x, list[i].y)) list.splice(i, 1); };
       off(decor, (d) => d.solid && !d.wall && d.n); off(pots, () => 'pot'); off(torches, (t) => t.kind === 'brazier' && t.kind); }
     // cells taken by solid props: the flow fields route around them

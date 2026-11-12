@@ -237,11 +237,6 @@
   const FLOW = [[1, 0], [0, 1], [-1, 0], [0, -1]];
   // the magma caves' lava runs on under its slabs and bridges, not under a stone arch (TASKS 401)
   const LUND = new WeakMap(), lavaUnder = (m) => { let u = LUND.get(m); if (!u) { const arch = new Set((m.crossings || []).filter((c) => c.kind === 'arch').flatMap((c) => c.cells)); LUND.set(m, u = new Set((m.lavaUnder || []).filter((k) => !arch.has(k)))); } return u; };
-  // (TASKS 1925: an arch over a river that ended a cell past it stood on dry floor over a pocket of lava; ref_cave_lava's spans an
-  // arm of it) an arch only where the river runs on past its feet, four cells south of its walk, and a cell north
-  const archSpans = (m, c) => { if (c.axis !== 'x') return false; const W = m.W, xs = c.cells.map((k) => k % W), ys = c.cells.map((k) => Math.floor(k / W)), x = Math.round((Math.min(...xs) + Math.max(...xs)) / 2);
-    const cr = new Set(m.crust || []), run = (y, d) => { let n = 0; while (n < 4 && SIM.Q.cell(m, x, y + d * (n + 1)) === 3 && !cr.has((y + d * (n + 1)) * W + x)) n++; return n; };
-    return run(Math.max(...ys), 1) >= 4 && run(Math.min(...ys), -1) >= 1; };
   const lavaTex = (m) => maskTex(m, 'lava', (x, y) => SIM.Q.cell(m, x, y) === 3 || lavaUnder(m).has(y * m.W + x), (x, y) => { const d = m.lavaFlow && m.lavaFlow[y * m.W + x]; return d === undefined ? [0, 0] : FLOW[d]; }, 1);   // one blur pass: the banks step with the masonry, only their corners round off
   // its glow (the emissive pass, drawn over everything) leaves out what lies under a crossing, or it shines through the slabs and planks
   const surgeTex = (m, z) => { const lv = new Map(z.cells.map((k, i) => [k, z.lv[i]])), F = fallsOf(m), f = F.length ? F.reduce((a, b) => (Math.hypot(b.x - z.x, b.y - z.y) < Math.hypot(a.x - z.x, a.y - z.y) ? b : a)) : z;
@@ -376,6 +371,6 @@
   }
 
   Object.assign(SCX, {
-    TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, railPts, bake, archSpans, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, swimTex, fallU, cliffTex, lavaNearTex,
+    TOP_LIFT, topTint, TOWN_LIGHT, TOWN_FACE, railPts, bake, lavaUnder, lavaTex, surgeTex, surgeBox, lavaGlowTex, swimTex, fallU, cliffTex, lavaNearTex,
     crustTex, topTex, veinTex, waterTex, deepTex, SRC_KIND, SRC_DIR, openTex, voidTex, seenTex, spellFloor });
 })(typeof window !== 'undefined' ? window : globalThis);
