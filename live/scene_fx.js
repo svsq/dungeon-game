@@ -241,6 +241,28 @@
     // line of embers to where it will run, then the crack itself racing out and glowing as it cools; a circle where a rock will land,
     // brighter as it comes; stars over its head while it stands stuck
     {
+      // a crack as one jagged line on the 2 px grid, an orange edge round a hot core, its front white-hot (TASKS 1749: a dotted band
+      // of glows read as a trail of embers, not a split in the floor); the bend of each step hashed on the colossus so the wind-up's
+      // line and the crack that runs share one shape
+      const g2 = (v) => Math.round(v / 2) * 2;
+      const crackLine = (x0, y0, a, len, seed, amt, hot) => { if (len <= 0 || amt <= 0) return; const co = Math.cos(a), sn = Math.sin(a), st = 16;
+        const at = (l) => { const k = Math.round(l / st), j = k ? (rnd(seed, k + 61) - 0.5) * 18 : 0; return [sx(x0 + co * l - sn * j), sy(y0 + sn * l + co * j)]; };
+        let [ax, ay] = at(0);
+        for (let l = st; ; l += st) { const end = Math.min(l, len), [bx, by] = end === l ? at(l) : (() => { const [px, py] = at(l - st), [qx, qy] = at(l), f = (end - l + st) / st; return [px + (qx - px) * f, py + (qy - py) * f]; })();
+          const d = Math.max(2, g2(Math.hypot(bx - ax, by - ay))), an = Math.atan2(by - ay, bx - ax), tip = SS(len - 48, len, end) * hot;
+          L.solid(g2(ax), g2(ay), d + 2, 8, [0.75, 0.16, 0.02], an, 1, 4, 0.6 * amt); L.solid(g2(ax), g2(ay), d + 2, 4, [1, 0.42, 0.08], an, 1, 2, amt);
+          L.solid(g2(ax), g2(ay), d, 2, [1, 0.85, 0.5], an, 0, 1, (0.45 + 0.55 * tip) * amt);
+          ax = bx; ay = by; if (end >= len) break; }
+        if (hot > 0) L.glow(ax, ay, 14, [1, 0.6, 0.2], 0.7 * hot * amt, 2.4); };
+      // where the boulder lands (TASKS 1749): a wide target, its rim with ticks pointing in, filling from the middle out to the rim as the
+      // rock comes; the wind-up already marks the hero, as the throw aims at him (a small thin ring was lost under the colossus)
+      const landMark = (X, Y0, r, f, beat) => { const ry = 0.75, a = (0.45 + 0.5 * f) * beat;
+        L.ring(X, Y0, r, r * ry, [1, 0.4, 0.1], a, 0.14);
+        L.ring(X, Y0, r * f, r * ry * f, [1, 0.62, 0.22], (0.3 + 0.6 * f) * beat, 0.22);
+        L.glow(X, Y0, r * f, [1, 0.35, 0.08], 0.35 * f * beat, 1.6);
+        for (let j = 0; j < 8; j++) { const an = j / 8 * TAU + 0.39, cx = X + Math.cos(an) * r * 0.86, cy = Y0 + Math.sin(an) * r * ry * 0.86; L.solid(g2(cx - 5), g2(cy - 1), 10, 4, [1, 0.45, 0.12], an, 5, 2, a); } };
+      for (const e of R.en) if (e.type === 'boss_colossus' && e.deadT < 0 && e.st === 'bwind' && e.mv === 'boulder' && known(R.hero.x, R.hero.y)) { const Mv = D.bossMove(e), u = GT - e.t0;
+        if (u < Mv.wind) landMark(sx(R.hero.x), sy(R.hero.y), Mv.r, 0.5 * SS(0, Mv.wind, u), 0.75 + 0.25 * Math.sin(chirp(u, Mv.wind, 10, 18, true))); }
       for (const e of R.en) { if (e.type !== 'boss_colossus' || e.deadT >= 0 || !known(e.x, e.y)) continue; const X = sx(e.x), Y0 = sy(e.y), u = GT - e.t0;
         if (e.openUntil > GT && RIM.heads[e.id]) {
           const head = RIM.heads[e.id], h = D.ENEMIES[e.type].h, center = [head[0], head[1] - 0.16 * h];
@@ -251,23 +273,23 @@
           }
         }
         if (e.st !== 'bwind') continue; const Mv = D.bossMove(e), w = Mv.wind, q = SS(0, w, u), beat = 0.75 + 0.25 * Math.sin(chirp(u, w, 10, 18, true));
-        if (e.mv === 'fists' && u < w) { L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.4, 0.1], (0.3 + 0.55 * q) * beat, 0.09); L.ring(X, Y0, Mv.r * (1.5 - 0.5 * q), Mv.r * 0.75 * (1.5 - 0.5 * q), [1, 0.55, 0.2], 0.5 * q * beat, 0.07); }   // (wider bands on the art grid, TASKS 1792/1749: thin lines were lost on a mottled floor)
+        // (the reach's ring thin and dim, the closing ring bright, TASKS 1749: the two read as one double line)
+        if (e.mv === 'fists' && u < w) { L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.4, 0.1], (0.22 + 0.33 * q) * beat, 0.06); L.ring(X, Y0, Mv.r * (1.5 - 0.5 * q), Mv.r * 0.75 * (1.5 - 0.5 * q), [1, 0.62, 0.25], (0.15 + 0.8 * q) * beat, 0.1); }   // (wider bands on the art grid, TASKS 1792/1749: thin lines were lost on a mottled floor)
         // the stomp's ring is drawn tight at its feet and dust-pale, so it reads apart from the fists' wide orange ring
         if (e.mv === 'stomp' && u < w) { L.glow(X, Y0, Mv.r * 0.8, [1, 0.62, 0.3], 0.2 + 0.35 * q * beat, 1.6); L.ring(X, Y0, Mv.r, Mv.r * 0.75, [1, 0.78, 0.45], (0.35 + 0.55 * q) * beat, 0.06);
           L.ring(X, Y0, Mv.r * (0.45 + 0.55 * q), Mv.r * 0.75 * (0.45 + 0.55 * q), [1, 0.85, 0.55], 0.6 * q * beat, 0.04); }
-        if (e.mv === 'crack' && u < w) { const p = D.colossusContact(e), c = Math.cos(e.aimA), sn = Math.sin(e.aimA);
-          for (let l = 0; l <= Mv.len; l += 18) { const px = p.x + c * l, py = p.y + sn * l, cl = SIM.Q.cell(m, Math.floor(px / TILE), Math.floor(py / TILE)); if (cl !== 1 && cl !== 3) break; const fl = 0.7 + 0.3 * Math.sin(GT * 30 + l * 0.2);
-            L.glow(sx(px), sy(py), 9 + 6 * q, [1, 0.4, 0.1], (0.15 + 0.55 * q) * fl * SS(0, w * 0.5, u - l / Mv.len * w * 0.4), 2.4); } } }
-      for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, front = Math.min(c.len, u * c.speed), cool = 1 - SS(run, run + c.linger, u), co = Math.cos(c.a), sn = Math.sin(c.a);
-        for (let l = 0; l <= front; l += 12) { const px = c.x + co * l, py = c.y + sn * l, jig = (rnd(c.id, Math.floor(l / 12)) - 0.5) * 8, hot = l > front - 40 ? 1.4 : 1;
-          L.glow(sx(px - sn * jig), sy(py + co * jig), c.w * 0.75, [1, 0.45, 0.1], 0.75 * cool * hot, 2.2); L.star(sx(px - sn * jig), sy(py + co * jig), 5, [1, 0.8, 0.4], 0.6 * cool * hot); } }
+        if (e.mv === 'crack' && u < w) { const p = D.colossusContact(e), c = Math.cos(e.aimA), sn = Math.sin(e.aimA); let reach = 0;
+          for (let l = 0; l <= Mv.len; l += 8) { const cl = SIM.Q.cell(m, Math.floor((p.x + c * l) / TILE), Math.floor((p.y + sn * l) / TILE)); if (cl !== 1 && cl !== 3) break; reach = l; }
+          crackLine(p.x, p.y, e.aimA, reach * SS(0, w * 0.6, u), e.id, (0.35 + 0.55 * q) * beat, q); } }
+      for (const c of R.cracks || []) { const u = GT - c.t0, run = c.len / c.speed, cool = 1 - SS(run, run + c.linger, u);
+        crackLine(c.x, c.y, c.a, Math.min(c.len, u * c.speed), c.owner, cool, u < run ? 1 : 0.4 * cool); }
       // the colossus's rain (TASKS 466): while rocks of it are on their way, each whole slab of cover shows its shelter, a dark
       // overhang on the floor with a pale rim, where none falls
       if ((R.rocks || []).some((q) => q.kind === 'rain' && !q.done && GT < q.t + 0.2)) { const sh = D.BOSSES.boss_colossus.moves.rain.shelter, pulse = 0.8 + 0.2 * Math.sin(GT * 4);
         // (a shelter: a cool blue pool, filled, with a steady blue rim, TASKS 487)
         for (const d of m.decor) if (d.cover && !d.broken && vis(d.x, d.y)) { const X = sx(d.x), Y0 = sy(d.y); L.shadow(X, Y0, sh, sh * 0.62, 0.42); L.glow(X, Y0, sh * 0.9, [0.3, 0.6, 1], 0.35 * pulse, 1.4); L.ring(X, Y0, sh, sh * 0.62, [0.45, 0.75, 1], 0.7 * pulse, 0.07); } }
       for (const q of R.rocks || []) { if (q.x === undefined || GT < q.t0 || !known(q.x, q.y)) continue; const f = Math.min(1, (GT - q.t0) / (q.t - q.t0)), X = sx(q.x), Y0 = sy(q.y), beat = 0.75 + 0.25 * Math.sin(chirp(GT - q.t0, q.t - q.t0, 10, 18, false));
-        if (q.kind === 'boulder') { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.4, 0.1], (0.35 + 0.55 * f) * beat, 0.1); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
+        if (q.kind === 'boulder') { landMark(X, Y0, q.r, 0.5 + 0.5 * f, beat); if (q.pool) L.glow(X, Y0, q.r * 0.9, [1, 0.35, 0.08], 0.25 * f, 2); }
         else { L.ring(X, Y0, q.r, q.r * 0.75, [1, 0.22, 0.08], (0.45 + 0.55 * f) * beat, 0.12); L.glow(X, Y0, q.r * 0.7, [1, 0.3, 0.1], 0.2 * f, 2); } }
     }
     // the brink (TASKS 476): a monster the hero could drive off an edge (SIM.Q.brinkOf) has a ring at its feet beating slowly and the
