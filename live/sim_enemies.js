@@ -524,17 +524,21 @@
     // corpses are removed once they have faded
     R.en = R.en.filter((e) => e.deadT < 0 || t - e.deadT < 6);
   }
-  // at its post a monster breathes (the rig), looks one way then the other, and now and then shifts a step around the spot
+  // at its post a monster breathes (the rig), looks one way then the other, and now and then takes a step around the spot: e.amb is
+  // the step (start, from, to) and the body eases along it with no speed, so the rig plants one foot after the other on the floor
+  // (a slow walk at 22 px/s barely moved the legs and the feet slid 8 px, TASKS 1938); a kind whose rig can't step stays put
+  const AMB_T = 0.6;
   function idle(m, e, E, t) {
     const per = 6 + (e.id % 5), u = (t + e.id * 2.3) % per, n = Math.floor((t + e.id * 2.3) / per);
-    let vx = 0, vy = 0;
-    if (u > 3.2 && u < 3.8 && e.hx !== undefined && !E.ghost) {
-      const a = n * 2.4 + e.id, gx = e.hx + Math.cos(a) * 14 - e.x, gy = e.hy + Math.sin(a) * 8 - e.y, gd = Math.hypot(gx, gy);
-      if (gd > 3) { vx = gx / gd * E.spd * 0.3; vy = gy / gd * E.spd * 0.3; } }
-    const k = 1 - Math.exp(-12 * DT); e.vx += (vx - e.vx) * k; e.vy += (vy - e.vy) * k;
-    const sp = Math.hypot(e.vx, e.vy); if (sp < 1) e.vx = e.vy = 0; else { move(m, e, e.vx * DT, e.vy * DT, E.r, true); e.dist += sp * DT; }
+    e.vx = e.vy = 0;
+    if (u > 3.2 && u < 3.2 + AMB_T && e.hx !== undefined && !E.ghost && E.amble !== 0 && (!e.amb || e.amb.n !== n)) {
+      const a = n * 2.4 + e.id, gx = e.hx + Math.cos(a) * 14, gy = e.hy + Math.sin(a) * 8, trial = { x: e.x, y: e.y };
+      move(m, trial, gx - e.x, gy - e.y, E.r, true);
+      if (Math.hypot(trial.x - e.x, trial.y - e.y) > 3) e.amb = { n, t, x0: e.x, y0: e.y, x1: trial.x, y1: trial.y };
+      else e.amb = { n, t: -9, x0: e.x, y0: e.y, x1: e.x, y1: e.y }; }
+    const A = e.amb, w = A && A.n === n ? (t - A.t) / AMB_T : 2;
+    if (w >= 0 && w <= 1) { const k = w * w * (3 - 2 * w); move(m, e, A.x0 + (A.x1 - A.x0) * k - e.x, A.y0 + (A.y1 - A.y0) * k - e.y, E.r, true); }
     if (u > 1.1 && u < 1.2) e.face = n % 2 ? 1 : -1; else if (u > 4.4 && u < 4.5) e.face = n % 2 ? -1 : 1;
-    else if (sp > 4 && Math.abs(e.vx) > 2) e.face = e.vx > 0 ? 1 : -1;
   }
   function goHome(m, e, E, t) {
     const dx = e.hx - e.x, dy = e.hy - e.y, d = Math.hypot(dx, dy);

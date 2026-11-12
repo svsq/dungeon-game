@@ -1411,6 +1411,16 @@
       const cam = S.run.cam.slice();
       for (let i = 0; i < 120; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
       loops[ty + '_idle'] = fr; }
+    // a foe at its post takes a step round it now and then (TASKS 1938): the loop opens just before the step, 1 s at 1/60 s, and
+    // motioncheck's amble measures each planted foot against the floor
+    // (all on the magma hall: in the crypt's stand the foe stood in the start room, where no monster may step)
+    for (const ty of ['skeleton', 'goblin', 'brute', 'drowned', 'skel_archer', 'skel_mage', ...MG].filter((ty) => D.ENEMIES[ty].amble !== 0)) { const fr = []; let S = playMg((S) => { const R = S.run, h = R.hero; R.msg = null;
+      R.en = [{ id: 990, type: ty, x: h.x + 90, y: h.y, hx: h.x + 90, hy: h.y, vx: 0, vy: 0, hp: 30, max: 30, dmg: 1, elite: 0, room: -1, st: 'idle', t0: 0, face: -1, pf: -1, ft: -9, aimA: Math.PI, cdT: 99, hitT: -9, deadT: -1, dist: 0, kbx: 0, kby: 0, burn: 0, burnT: 0 }];
+      h.x -= 400; R.cam = [h.x + 400 - SCX.VW / 2, h.y - SCX.VH / 2]; });
+      const cam = S.run.cam.slice(), u = () => (S.t + 990 * 2.3) % 6;
+      for (let i = 0; i < 1500 && !(u() > 3.05 && u() < 3.15); i++) { SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
+      for (let i = 0; i < 60; i++) { fr.push(S); S = structuredClone(S); for (let k = 0; k < 2; k++) SIM.step(S, { px: 960, py: 540, keys: [] }); S.run.cam = cam.slice(); }
+      loops[ty + '_amble'] = fr; }
     // the eel (TASKS 310) on the lake of eel_states, the hero on the shore: it comes up, bites him, spits at him farther off, dives,
     // is struck and dies; up and watching for 2 s (subject en990)
     { const lake = (states.find((q) => q[0] === 'eel_states') || [])[1], E = D.ENEMIES.eel;

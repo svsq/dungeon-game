@@ -43,6 +43,10 @@
       // walking draws the feet in toward the centre line (a wide drawn stance would spread the stride); depth steps project shorter (a 3/4 leg can't stretch)
       const cx = (RG.ankleL[0] + RG.ankleR[0]) / 2, st = (o.stance || 0) * (side === 'L' ? -1 : 1) * (1 - 0.5 * run) + (cx - A0[0]) * (o.narrow ?? 0.45) * run;
       tg[side] = { off, tx: A0[0] + st + off * dirx, ty: A0[1] - lift, lift, dz: 0.6 * off * diry - 0.3 * A * Math.abs(diry) };
+      // a step at the post (o.amb, the sim's e.amb): each foot keeps its spot on the floor and moves to the new one in turn
+      if (o.amb) { const B = o.amb, fw = SS(side === 'L' ? 0 : 0.45, side === 'L' ? 0.55 : 1, B.w), dx = B.x0 + (B.x1 - B.x0) * fw - B.x, dy = B.y0 + (B.y1 - B.y0) * fw - B.y;
+        const lf = fw > 0 && fw < 1 ? Math.pow(Math.sin(Math.PI * fw), 0.6) * RG.h * (o.lift || 0.038) * 0.8 : 0;
+        Object.assign(tg[side], { off: Math.hypot(dx, dy) / s, tx: tg[side].tx + dx * face / s, ty: tg[side].ty - lf, lift: tg[side].lift + lf, dz: tg[side].dz + dy / s }); }
       if (o.foot) o.foot(side, tg[side]);   // (a pose that moves the feet off the gait: the imp's legs in its leap, TASKS 489)
     }
     const cr = o.crumble ? o.crumble.t : -1, dbl = 0.5 + 0.5 * Math.cos(2 * ph), breath = (1 - run) * (cr >= 0 ? 1 - SS(0, 0.2, cr) : 1) * Math.sin(o.t * 2.1 + (o.seed || 0));
@@ -662,6 +666,7 @@
   MON.draw = (e, E, x, y, GT, o) => {
     const n = MON.rigOf(e.type); if (!n) return false; const face = o.face, H = o.H, live = e.deadT < 0;
     const base = { item: {}, id: o.id, seed: e.id, n, tex: o.tex, x, y, face, H, dist: e.dist, walkIn: e.d0 === undefined ? undefined : e.dist - e.d0, vx: e.vx * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), vy: e.vy * (live ? 1 : 1 - SS(0, 0.15, GT - e.deadT)), lean: o.lean, crouch: o.crouch || 0, fallR: o.fallR, U: o.U, Ufar: o.Ufar, t: o.t, spd0: e.spd0, vxn0: e.vxn0, vyn0: e.vyn0, t0: e.t0 };
+    if (live && e.st === 'idle' && e.amb && GT - e.amb.t < 0.6) base.amb = { w: (GT - e.amb.t) / 0.6, x0: e.amb.x0, y0: e.amb.y0, x1: e.amb.x1, y1: e.amb.y1, x: e.x, y: e.y };
     // the knees give as it dies: on the spot first for the variants that sink before they fall, as the fall starts for the rest
     if (!live && n !== 'colossus' && o.death && o.death.buckle && RIGS[n].hipL) { const D0 = o.death, dd = GT - e.deadT; base.crouch += D0.buckle * 0.22 * RIGS[n].h * SS(0, Math.max(0.15, D0.dl), dd); }
     if (n === 'skeleton' || n === 'goblin') {
